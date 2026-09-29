@@ -4,7 +4,26 @@ A native Android port of [OrcaSlicer](https://github.com/SoftFever/OrcaSlicer) f
 original slicing engine (`libslic3r`) is cross-compiled for arm64 and driven by a new touch UI
 written in Kotlin / Jetpack Compose. Everything runs on the device – no server needed.
 
+> **This port was created with AI.** The Android build system, the JNI bridge and the entire app
+> were written by an AI coding assistant (Anthropic's Claude) under the direction of the
+> maintainer, who reviews, tests and decides what goes in. Expect rough edges, test your G-code
+> before long prints, and please report problems here – not to the OrcaSlicer team.
+
 > Unofficial project, not affiliated with the OrcaSlicer team or any printer manufacturer.
+
+## All credit to OrcaSlicer
+
+Everything that actually makes a good print – the slicing algorithms, Arachne walls, supports,
+seams, calibration know-how, the hundreds of carefully tuned printer, filament and process
+profiles, and the translations – is the work of the **OrcaSlicer project, led by SoftFever, and its
+many contributors**. OrcaSlicer itself stands on the shoulders of **Bambu Studio**, **PrusaSlicer**
+and **Slic3r** (Alessandro Ranellucci and contributors). This port only repackages that work for
+Android tablets; it would not exist without years of open-source effort by these communities.
+
+If this app is useful to you, please support the original project:
+[OrcaSlicer on GitHub](https://github.com/SoftFever/OrcaSlicer) ·
+[OrcaSlicer website](https://www.orcaslicer.com) ·
+[sponsor SoftFever](https://github.com/sponsors/SoftFever).
 
 ## Features
 
@@ -56,4 +75,7 @@ AGPL-3.0, like OrcaSlicer itself – see `LICENSE` and `THIRD_PARTY_NOTICES.md`.
 ---
 
 **Deutsch:** Inoffizielle Android-Portierung von OrcaSlicer für Tablets. Der originale
-Slicing-Kern läuft direkt auf dem Gerät, dazu kommt eine neue Touch-Oberfläche. Lizenz: AGPL-3.0.
+Slicing-Kern läuft direkt auf dem Gerät, dazu kommt eine neue Touch-Oberfläche. Die Portierung wurde
+mit KI (Claude von Anthropic) erstellt. Die eigentliche Slicer-Arbeit, also Algorithmen, Profile und
+Übersetzungen, stammt vollständig vom OrcaSlicer-Projekt und seinen Vorgängern Bambu Studio,
+PrusaSlicer und Slic3r. Lizenz: AGPL-3.0.

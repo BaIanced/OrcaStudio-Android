@@ -83,8 +83,15 @@ fun AppSettingsScreen(state: UiState, vm: MainViewModel) {
                         style = MaterialTheme.typography.bodySmall,
                     )
                     Text(
-                        "Inoffizielle Android-Portierung von OrcaSlicer. Nicht mit dem OrcaSlicer-Projekt, SoftFever " +
-                            "oder Druckerherstellern verbunden.",
+                        "Inoffizielle Android-Portierung von OrcaSlicer, mit KI (Claude von Anthropic) erstellt. " +
+                            "Nicht mit dem OrcaSlicer-Projekt, SoftFever oder Druckerherstellern verbunden – " +
+                            "Fehler bitte hier melden, nicht beim OrcaSlicer-Team.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    Text(
+                        "Die eigentliche Slicer-Arbeit – Algorithmen, Druckerprofile und Übersetzungen – stammt vom " +
+                            "OrcaSlicer-Projekt (SoftFever und Mitwirkende), das auf Bambu Studio, PrusaSlicer und " +
+                            "Slic3r aufbaut. Wenn dir die App hilft, unterstütze bitte das Original.",
                         style = MaterialTheme.typography.bodySmall,
                     )
                     HorizontalDivider()
