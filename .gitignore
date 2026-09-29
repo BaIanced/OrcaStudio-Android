@@ -1,0 +1,6 @@
+# Build outputs live in ~/build/orca-android (see README); keep stray local artifacts out.
+*.apk
+*.so
+.stfolder/
+.stignore
+.claude/

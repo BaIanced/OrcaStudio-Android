@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Stylised nozzle over a layered print. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#FFFFFF" android:pathData="M44,26h20v14l-6,8h-8l-6,-8z" />
+    <path android:fillColor="#B2DFDB" android:pathData="M30,62h48v6h-48z" />
+    <path android:fillColor="#E0F2F1" android:pathData="M34,70h40v6h-40z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M38,78h32v6h-32z" />
+</vector>
