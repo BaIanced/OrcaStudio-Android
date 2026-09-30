@@ -20,13 +20,13 @@ val sourceUrl: String = providers.gradleProperty("orca.sourceUrl")
     .getOrElse("http://192.168.178.3:3002/daniel/OrcaSlicer-Android")
 
 android {
-    namespace = "com.orcaslicer.android"
+    namespace = "app.orcaandroid"
     compileSdk {
         version = release(37) { minorApiLevel = 2 }
     }
 
     defaultConfig {
-        applicationId = "com.orcaslicer.android"
+        applicationId = "app.orcaandroid"
         minSdk = 29
         targetSdk = 36
         versionCode = 1
@@ -114,7 +114,7 @@ val packOrcaAssets = tasks.register<PackOrcaAssets>("packOrcaAssets") {
     val res = File(orcaSrc, "resources")
     resourcesRoot.set(res.path)
     resources.from(fileTree(res) {
-        include("profiles/**", "info/**", "flush/**", "filament_mixing/**", "printers/**", "custom_gcodes/**", "shapes/**")
+        include("profiles/**", "info/**", "flush/**", "filament_mixing/**", "printers/**", "custom_gcodes/**", "shapes/**", "calib/**", "handy_models/**")
     })
     script.set(rootProject.file("scripts/pack_resources.py"))
     tabCpp.set(File(orcaSrc, "src/slic3r/GUI/Tab.cpp"))
@@ -138,7 +138,7 @@ dependencies {
     implementation(composeBom)
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.material3:material3")
-    implementation("androidx.compose.material:material-icons-core")
+    implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.compose.ui:ui-tooling-preview")
     debugImplementation("androidx.compose.ui:ui-tooling")
 

@@ -18,6 +18,13 @@ This Android port builds the unmodified OrcaSlicer sources in `../src-orca`.
    - Top-level `CMakeLists.txt` – compile flags/defines replicated in `android/core`.
    - `src/slic3r/GUI/Tab.cpp` – source of the settings layout (`scripts/extract_settings_layout.py`).
    - `src/OrcaSlicer.cpp` (CLI slicing flow) – reference for `android/core/jni/OrcaEngine.cpp`.
+   - `src/slic3r/GUI/ConfigManipulation.cpp` – `toggle_print_fff_options` is extracted at build time
+     (`scripts/extract_option_toggles.py`) for the greyed-out/hidden option rules.
+   - `src/slic3r/Utils/ColorSpaceConvert.cpp` – wx-free part extracted by `scripts/extract_color_space.py`
+     (flushing volume calculation).
+   - `src/slic3r/GUI/Plater.cpp` (`calib_*`) – ported by hand to `core/jni/OrcaExtras.cpp` (`calib_start`).
+   - `src/slic3r/GUI/Jobs/ArrangeJob.cpp`, `GLGizmoCut.cpp` – conventions the scene code relies on
+     (items start with `bed_idx = 0`; cut planes are relative to the instance offset).
    - `resources/profiles`, `localization/i18n` – packed into the app by `scripts/pack_resources.py`.
 3. Rebuild with `android/scripts/build.sh` (a changed dependency recipe requires deleting
    `~/build/orca-android/deps`).
@@ -28,3 +35,5 @@ Workarounds that exist because of upstream structure (re-check them on every upd
 - `core/CMakeLists.txt` – empty `fontconfig` target; OpenVDB is required only by SLA hollowing.
 - `OrcaEngine::load_presets` marks all loaded presets visible (the desktop hides models not
   ticked in its setup wizard, and `select_preset_by_name` silently falls back otherwise).
+- `OrcaEngine::drop_to_bed` computes missing volume convex hulls: volumes created by `Cut` have
+  none, but `ensure_on_bed()` and the arrange polygons are built from them.

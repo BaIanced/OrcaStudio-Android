@@ -10,7 +10,7 @@ shot=${2:-/tmp/orca-test.png}
 wait=${3:-120}
 root=${ORCA_BUILD_ROOT:-$HOME/build/orca-android}
 adb="${ADB:-$HOME/Android/Sdk/platform-tools/adb} ${ADB_SERIAL:+-s $ADB_SERIAL}"
-pkg=com.orcaslicer.android
+pkg=app.orcaandroid
 
 $adb install -r "$root"/gradle/app/outputs/apk/debug/app-debug.apk >/dev/null
 name=$(basename "$model")

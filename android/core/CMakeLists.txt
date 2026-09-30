@@ -102,7 +102,38 @@ find_package(libnoise REQUIRED)
 add_subdirectory(${ORCA_SRC}/src/libslic3r ${CMAKE_BINARY_DIR}/src/libslic3r)
 
 # --- JNI bridge --------------------------------------------------------------------------------
-add_library(orca_jni SHARED jni/orca_jni.cpp jni/OrcaEngine.cpp jni/OrcaEngine.hpp jni/nanosvg_impl.cpp)
+# Process option dependency rules, copied from the desktop GUI at build time.
+set(_toggles_src ${ORCA_SRC}/src/slic3r/GUI/ConfigManipulation.cpp)
+set(_toggles_out ${CMAKE_CURRENT_BINARY_DIR}/generated/OptionTogglesGenerated.cpp)
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+add_custom_command(
+    OUTPUT ${_toggles_out}
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_LIST_DIR}/../scripts/extract_option_toggles.py ${_toggles_src} ${_toggles_out}
+    DEPENDS ${_toggles_src} ${CMAKE_CURRENT_LIST_DIR}/../scripts/extract_option_toggles.py
+    COMMENT "Extracting option toggle rules from ConfigManipulation.cpp")
+
+# Colour conversions libslic3r's FlushVolCalc needs; upstream keeps them in the GUI sources.
+set(_color_src ${ORCA_SRC}/src/slic3r/Utils/ColorSpaceConvert.cpp)
+set(_color_out ${CMAKE_CURRENT_BINARY_DIR}/generated/ColorSpaceConvertGenerated.cpp)
+add_custom_command(
+    OUTPUT ${_color_out}
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_LIST_DIR}/../scripts/extract_color_space.py ${_color_src} ${_color_out}
+    DEPENDS ${_color_src} ${CMAKE_CURRENT_LIST_DIR}/../scripts/extract_color_space.py
+    COMMENT "Extracting colour space conversions from ColorSpaceConvert.cpp")
+
+add_library(orca_jni SHARED
+    jni/orca_jni.cpp
+    jni/EngineCalls.cpp jni/EngineCalls.hpp
+    jni/OrcaEngine.cpp jni/OrcaEngine.hpp
+    jni/OrcaScene.cpp
+    jni/OrcaTools.cpp
+    jni/OrcaExtras.cpp
+    jni/OrcaProject.cpp
+    jni/Preview.cpp jni/Preview.hpp
+    jni/Thumbnails.cpp jni/Thumbnails.hpp
+    jni/OptionToggles.hpp ${_toggles_out}
+    ${_color_out}
+    jni/nanosvg_impl.cpp)
 target_include_directories(orca_jni PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/jni)
 target_link_libraries(orca_jni PRIVATE libslic3r boost_libs log android)
 # Keep the .so small; only the JNI entry points need to be exported.

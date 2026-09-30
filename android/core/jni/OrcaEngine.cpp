@@ -25,6 +25,10 @@
 #include "libslic3r/Print.hpp"
 #include "libslic3r/PrintConfig.hpp"
 #include "libslic3r/Utils.hpp"
+#include "libslic3r/calib.hpp"
+
+#include "Preview.hpp"
+#include "Thumbnails.hpp"
 
 namespace orca {
 
@@ -131,6 +135,11 @@ void OrcaEngine::init(const std::string &resources_dir, const std::string &data_
     set_data_dir(data_dir);
     set_temporary_dir(cache_dir);
 
+    m_mesh_path  = (fs::path(cache_dir) / "scene_mesh.bin").string();
+    m_paint_path = (fs::path(cache_dir) / "paint_mesh.bin").string();
+    if (!m_model)
+        m_model = std::make_unique<Model>();
+
     fs::create_directories(fs::path(data_dir) / PRESET_SYSTEM_DIR);
     fs::create_directories(fs::path(data_dir) / PRESET_USER_DIR);
     fs::create_directories(cache_dir);
@@ -199,6 +208,10 @@ json OrcaEngine::select_printer_locked(const std::string &printer)
     m_bundle->printers.select_preset_by_name(printer, true);
     m_bundle->update_compatible(PresetSelectCompatibleType::Always);
     m_printer = printer;
+    // Keep objects on their plates when the bed size changes.
+    if (m_model && !m_model->objects.empty() && bed_rect() != m_layout_rect)
+        relayout(m_plates.size(), m_layout_rect);
+    m_layout_rect = bed_rect();
 
     const DynamicPrintConfig &cfg  = m_bundle->printers.get_selected_preset().config;
     json                      bed  = json::array();
@@ -216,117 +229,21 @@ json OrcaEngine::select_printer_locked(const std::string &printer)
         if (const Preset *p = find_preset(m_bundle->filaments, opt->values.front()); p && p->is_compatible)
             default_filament = p->name;
 
+    // Plate types (Cool Plate, Textured PEI, ...) only exist for printers that declare them.
+    json bed_types = json::array();
+    if (cfg.opt_bool("support_multi_bed_types"))
+        for (const auto &[name, value] : ConfigOptionEnum<BedType>::get_enum_values())
+            if (value != btDefault)
+                bed_types.push_back(name);
+
     return {{"prints", compatible_names(m_bundle->prints)},
             {"filaments", compatible_names(m_bundle->filaments)},
             {"bed", bed},
             {"max_height", cfg.opt_float("printable_height")},
             {"default_print", default_print},
-            {"default_filament", default_filament}};
-}
-
-json OrcaEngine::load_model(const std::vector<std::string> &paths, int copies, const std::string &mesh_out)
-{
-    std::lock_guard<std::mutex> lock(m_mutex);
-    if (m_printer.empty())
-        throw std::runtime_error("Select a printer first");
-
-    const DynamicPrintConfig &cfg = m_bundle->printers.get_selected_preset().config;
-    BoundingBoxf bed;
-    for (const Vec2d &p : cfg.option<ConfigOptionPoints>("printable_area")->values)
-        bed.merge(p);
-    const Vec2d bed_center = bed.center();
-
-    auto model = std::make_unique<Model>();
-    for (const std::string &path : paths) {
-        DynamicPrintConfig        file_config;
-        ConfigSubstitutionContext substitutions(ForwardCompatibilitySubstitutionRule::EnableSilent);
-        Model loaded = Model::read_from_file(path, &file_config, &substitutions, LoadStrategy::LoadModel);
-        for (const ModelObject *obj : loaded.objects) {
-            ModelObject *added = model->add_object(*obj);
-            // Like the desktop Plater: files without placement (STL, OBJ, ...) keep their CAD
-            // coordinates, which may be anywhere. Center them and put them in the middle of the bed.
-            if (added->instances.empty()) {
-                added->center_around_origin();
-                added->add_instance()->set_offset(to_3d(bed_center, 0.));
-            }
-        }
-    }
-    if (model->objects.empty())
-        throw std::runtime_error("The file does not contain any printable object");
-
-    if (copies > 1)
-        duplicate_objects(*model, size_t(copies));
-    for (ModelObject *obj : model->objects)
-        obj->ensure_on_bed();
-
-    // A single object stays centered; several are arranged. Instances that do not fit end up on
-    // virtual neighbour beds, which would put them far off the plate - keep those centered instead
-    // and report that the plate is overfull.
-    bool fits = true;
-    size_t instance_count = 0;
-    for (const ModelObject *obj : model->objects)
-        instance_count += obj->instances.size();
-    if (instance_count > 1) {
-        ArrangeParams params;
-        params.min_obj_distance = scaled(6.);
-        ModelInstancePtrs instances;
-        ArrangePolygons   polys = get_arrange_polys(*model, instances);
-        arrangement::arrange(polys, BoundingBox(scaled(bed.min), scaled(bed.max)), params);
-        for (size_t i = 0; i < polys.size(); ++i) {
-            if (polys[i].bed_idx == 0)
-                instances[i]->apply_arrange_result(polys[i].translation.cast<double>(), polys[i].rotation);
-            else
-                fits = false;
-        }
-    }
-    for (ModelObject *obj : model->objects)
-        obj->ensure_on_bed();
-
-    // Whole-plate check against the printable area (also catches single objects larger than the bed).
-    for (const ModelObject *obj : model->objects)
-        for (size_t i = 0; i < obj->instances.size(); ++i) {
-            const BoundingBoxf3 bb = obj->instance_bounding_box(i);
-            if (bb.min.x() < bed.min.x() - EPSILON || bb.min.y() < bed.min.y() - EPSILON ||
-                bb.max.x() > bed.max.x() + EPSILON || bb.max.y() > bed.max.y() + EPSILON ||
-                bb.max.z() > cfg.opt_float("printable_height") + EPSILON)
-                fits = false;
-        }
-
-    // Preview mesh: flat-shaded triangle soup of every instance in bed coordinates.
-    std::ofstream f(mesh_out, std::ios::binary | std::ios::trunc);
-    if (!f)
-        throw std::runtime_error("Cannot write " + mesh_out);
-    size_t triangles = 0;
-    BoundingBoxf3 bbox;
-    for (const ModelObject *obj : model->objects) {
-        const TriangleMesh object_mesh = obj->mesh();
-        for (const ModelInstance *inst : obj->instances) {
-            TriangleMesh mesh = object_mesh;
-            mesh.transform(inst->get_matrix());
-            const indexed_triangle_set &its = mesh.its;
-            for (const Vec3i32 &tri : its.indices) {
-                const Vec3f &a = its.vertices[tri[0]], &b = its.vertices[tri[1]], &c = its.vertices[tri[2]];
-                Vec3f n = (b - a).cross(c - a);
-                const float len = n.norm();
-                n = len > 0.f ? Vec3f(n / len) : Vec3f(0.f, 0.f, 1.f);
-                for (const Vec3f *v : {&a, &b, &c}) {
-                    for (int k = 0; k < 3; ++k) write_raw(f, (*v)[k]);
-                    for (int k = 0; k < 3; ++k) write_raw(f, n[k]);
-                    bbox.merge(v->cast<double>());
-                }
-            }
-            triangles += its.indices.size();
-        }
-    }
-    f.close();
-
-    m_model = std::move(model);
-    const Vec3d size = bbox.size();
-    return {{"objects", m_model->objects.size()},
-            {"triangles", triangles},
-            {"fits", fits},
-            {"min", {bbox.min.x(), bbox.min.y(), bbox.min.z()}},
-            {"size", {size.x(), size.y(), size.z()}}};
+            {"default_filament", default_filament},
+            {"bed_types", bed_types},
+            {"default_bed_type", cfg.has("default_bed_type") ? cfg.opt_string("default_bed_type") : std::string()}};
 }
 
 PresetCollection &OrcaEngine::collection(const std::string &type)
@@ -468,40 +385,126 @@ json OrcaEngine::delete_preset(const std::string &type, const std::string &name)
     return select_printer_locked(printer);
 }
 
-DynamicPrintConfig OrcaEngine::build_config(const std::string &print_preset, const std::string &filament_preset,
-                                            const json &overrides)
+void OrcaEngine::set_selection(const std::string &print, const json &filaments, const json &overrides)
 {
-    if (!m_bundle->prints.select_preset_by_name(print_preset, true))
-        throw std::runtime_error("Unknown process preset: " + print_preset);
-    if (!m_bundle->filaments.select_preset_by_name(filament_preset, true))
-        throw std::runtime_error("Unknown filament preset: " + filament_preset);
-    m_bundle->filament_presets = {filament_preset};
+    std::lock_guard<std::mutex> lock(m_mutex);
+    require_printer();
+    if (find_preset(m_bundle->prints, print) == nullptr)
+        throw std::runtime_error("Unknown process preset: " + print);
+    if (!filaments.is_array() || filaments.empty())
+        throw std::runtime_error("Select at least one filament");
+    for (const json &f : filaments)
+        if (find_preset(m_bundle->filaments, f.at("name").get<std::string>()) == nullptr)
+            throw std::runtime_error("Unknown filament preset: " + f.at("name").get<std::string>());
+    m_sel_print     = print;
+    m_sel_filaments = filaments;
+    m_sel_overrides = overrides.is_object() ? overrides : json::object();
+}
+
+DynamicPrintConfig OrcaEngine::selection_config()
+{
+    require_printer();
+    if (m_sel_print.empty() || m_sel_filaments.empty())
+        throw std::runtime_error("No process/filament selected");
+    m_bundle->prints.select_preset_by_name(m_sel_print, true);
+    std::vector<std::string> names;
+    for (const json &f : m_sel_filaments)
+        names.push_back(f.at("name").get<std::string>());
+    m_bundle->filaments.select_preset_by_name(names.front(), true);
+    m_bundle->filament_presets = names;
 
     DynamicPrintConfig config = m_bundle->full_config();
-    for (const auto &[key, value] : overrides.items()) {
+    auto set_option = [&config](const std::string &key, const json &value) {
         try {
             config.set_deserialize_strict(key, option_value(value));
         } catch (const std::exception &ex) {
             throw std::runtime_error("Invalid value for " + key + ": " + ex.what());
         }
+    };
+    for (const auto &[key, value] : m_sel_overrides.items())
+        set_option(key, value);
+
+    // Per-filament edits and colours go into their slot of the per-filament vector options.
+    for (size_t i = 0; i < m_sel_filaments.size(); ++i) {
+        const json &f = m_sel_filaments[i];
+        json edits = f.value("overrides", json::object());
+        if (f.contains("color") && f["color"].is_string() && !f["color"].get<std::string>().empty())
+            edits["filament_colour"] = f["color"];
+        for (const auto &[key, value] : edits.items()) {
+            ConfigOption *opt = config.option(key);
+            if (opt == nullptr || !opt->is_vector()) {
+                set_option(key, value);
+                continue;
+            }
+            // Parse the edited value on its own, then copy its first entry into slot i.
+            std::unique_ptr<ConfigOption> single(opt->clone());
+            DynamicPrintConfig tmp;
+            tmp.set_key_value(key, single.release());
+            try {
+                tmp.set_deserialize_strict(key, option_value(value));
+            } catch (const std::exception &ex) {
+                throw std::runtime_error("Invalid value for " + key + ": " + ex.what());
+            }
+            auto *vec = static_cast<ConfigOptionVectorBase *>(opt);
+            if (vec->size() <= i)
+                vec->resize(i + 1, static_cast<const ConfigOptionVectorBase *>(tmp.option(key)));
+            vec->set_at(tmp.option(key), i, 0);
+        }
     }
+    // An active calibration test overrides whatever it needs (see OrcaExtras.cpp).
+    if (m_calib_config)
+        config.apply(*m_calib_config);
     return config;
 }
 
-json OrcaEngine::slice(const std::string &print_preset, const std::string &filament_preset, const json &overrides,
-                       const std::string &gcode_out, const std::string &preview_out, const ProgressFn &progress)
+std::unique_ptr<Model> OrcaEngine::plate_model(int plate) const
+{
+    const std::array<double, 2> origin = plate_origin(plate);
+    auto model = std::make_unique<Model>();
+    for (const ModelObject *obj : m_model->objects) {
+        std::vector<size_t> on_plate;
+        for (size_t i = 0; i < obj->instances.size(); ++i)
+            if (plate_of(*obj, i) == plate)
+                on_plate.push_back(i);
+        if (on_plate.empty())
+            continue;
+        ModelObject *copy = model->add_object(*obj);
+        copy->clear_instances();
+        for (size_t i : on_plate) {
+            ModelInstance *inst = copy->add_instance(*obj->instances[i]);
+            inst->set_offset(inst->get_offset() - Vec3d(origin[0], origin[1], 0.));
+        }
+        copy->invalidate_bounding_box();
+    }
+    if (auto it = m_model->plates_custom_gcodes.find(plate); it != m_model->plates_custom_gcodes.end())
+        model->plates_custom_gcodes[0] = it->second;
+    model->curr_plate_index = 0;
+    return model;
+}
+
+json OrcaEngine::slice(int plate, const std::string &gcode_out, const std::string &preview_dir, const ProgressFn &progress)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
-    if (!m_bundle || m_printer.empty())
-        throw std::runtime_error("Select a printer first");
-    if (!m_model || m_model->objects.empty())
-        throw std::runtime_error("Load a model first");
+    require_printer();
+    if (plate < 0 || plate >= int(m_plates.size()))
+        throw std::runtime_error("Invalid plate");
 
-    DynamicPrintConfig config = build_config(print_preset, filament_preset, overrides);
+    std::unique_ptr<Model> model = plate_model(plate);
+    if (model->objects.empty())
+        throw std::runtime_error("This plate is empty");
+
+    DynamicPrintConfig config = selection_config();
+    if (!m_plates[plate].bed_type.empty())
+        config.set_deserialize_strict("curr_bed_type", m_plates[plate].bed_type);
+    if (m_plates[plate].has_wipe_tower_pos) {
+        config.option<ConfigOptionFloats>("wipe_tower_x", true)->values = {m_plates[plate].wipe_tower_x};
+        config.option<ConfigOptionFloats>("wipe_tower_y", true)->values = {m_plates[plate].wipe_tower_y};
+    }
+    const size_t filament_count = m_sel_filaments.size();
 
     const auto &area = config.option<ConfigOptionPoints>("printable_area")->values;
     BuildVolume build_volume(area, config.opt_float("printable_height"), {}, {});
-    if (m_model->update_print_volume_state(build_volume) == 0)
+    if (model->update_print_volume_state(build_volume) == 0)
         throw std::runtime_error("No object lies completely inside the print volume");
 
     Print print;
@@ -509,8 +512,10 @@ json OrcaEngine::slice(const std::string &print_preset, const std::string &filam
         if (s.percent >= 0)
             progress(s.percent, s.text);
     });
-    print.apply(*m_model, config);
-    print.is_BBL_printer() = config.opt_string("printer_model").rfind("Bambu Lab", 0) == 0;
+    print.apply(*model, config);
+    print.is_BBL_printer() = m_bundle->is_bbl_vendor();
+    if (m_calib)
+        print.set_calib_params(*m_calib);
 
     std::vector<StringObjectException> validate_warnings;
     StringObjectException              err = print.validate(&validate_warnings);
@@ -519,8 +524,21 @@ json OrcaEngine::slice(const std::string &print_preset, const std::string &filam
     if (print.empty())
         throw std::runtime_error("Nothing to slice");
 
-    Model::setExtruderParams(config, 1);
+    Model::setExtruderParams(config, int(filament_count));
     Model::setPrintSpeedTable(config, print.config());
+
+    // Thumbnails for printer displays and web UIs, in the sizes the printer profile asks for.
+    std::vector<std::array<float, 3>> colors;
+    if (const auto *opt = config.option<ConfigOptionStrings>("filament_colour"))
+        for (const std::string &c : opt->values)
+            colors.push_back(parse_color(c));
+    const Model &thumb_model = *model;
+    ThumbnailsGeneratorCallback thumbnails = [&thumb_model, &colors](const ThumbnailsParams &params) {
+        ThumbnailsList list;
+        for (const Vec2d &size : params.sizes)
+            list.push_back(render_thumbnail(thumb_model, unsigned(size.x()), unsigned(size.y()), colors));
+        return list;
+    };
 
     GCodeProcessorResult result;
     std::string          gcode_path;
@@ -531,7 +549,7 @@ json OrcaEngine::slice(const std::string &print_preset, const std::string &filam
     set_running(&print);
     try {
         print.process();
-        gcode_path = print.export_gcode(gcode_out, &result, nullptr);
+        gcode_path = print.export_gcode(gcode_out, &result, thumbnails);
     } catch (const CanceledException &) {
         set_running(nullptr);
         throw std::runtime_error("Slicing cancelled");
@@ -542,43 +560,45 @@ json OrcaEngine::slice(const std::string &print_preset, const std::string &filam
     set_running(nullptr);
     progress(100, "Done");
 
-    // Toolpath preview: extrusion segments in G-code order, with the index of each layer's first one.
-    json layers = json::array();
-    {
-        std::ofstream f(preview_out, std::ios::binary | std::ios::trunc);
-        if (!f)
-            throw std::runtime_error("Cannot write " + preview_out);
-        size_t       segments   = 0;
-        unsigned int last_layer = UINT_MAX;
-        for (size_t i = 1; i < result.moves.size(); ++i) {
-            const auto &m = result.moves[i];
-            if (m.type != EMoveType::Extrude)
-                continue;
-            if (m.layer_id != last_layer) {
-                layers.push_back({m.position.z(), segments});
-                last_layer = m.layer_id;
-            }
-            const Vec3f &a = result.moves[i - 1].position;
-            for (int k = 0; k < 3; ++k) write_raw(f, a[k]);
-            for (int k = 0; k < 3; ++k) write_raw(f, m.position[k]);
-            write_raw(f, float(m.extrusion_role));
-            ++segments;
-        }
-    }
+    json out = write_preview(result, preview_dir);
 
     json warnings = json::array();
     for (const auto &w : validate_warnings)
         warnings.push_back(w.string);
 
     const PrintStatistics &stats = print.print_statistics();
-    const float print_time = result.print_statistics.modes[size_t(PrintEstimatedStatistics::ETimeMode::Normal)].time;
-    return {{"gcode", gcode_path},
-            {"print_time_s", print_time},
-            {"filament_mm", stats.total_used_filament},
-            {"filament_g", stats.total_weight},
-            {"cost", stats.total_cost},
-            {"layers", layers},
-            {"warnings", warnings}};
+    const auto &normal = result.print_statistics.modes[size_t(PrintEstimatedStatistics::ETimeMode::Normal)];
+    json roles = json::array();
+    for (auto &r : out["roles"]) {
+        const auto role = ExtrusionRole(r["role"].get<int>());
+        if (auto it = result.print_statistics.used_filaments_per_role.find(role); it != result.print_statistics.used_filaments_per_role.end()) {
+            r["filament_m"] = it->second.first;
+            r["filament_g"] = it->second.second;
+        }
+        roles.push_back(r);
+    }
+    json per_filament = json::array();
+    for (size_t i = 0; i < filament_count; ++i) {
+        double m = 0., g = 0.;
+        if (auto it = result.print_statistics.total_volumes_per_extruder.find(i); it != result.print_statistics.total_volumes_per_extruder.end()) {
+            const double d = config.option<ConfigOptionFloats>("filament_diameter")->get_at(i);
+            const double density = config.option<ConfigOptionFloats>("filament_density")->get_at(i);
+            m = it->second / (M_PI * d * d / 4.) / 1000.;
+            g = it->second * density / 1000.;
+        }
+        per_filament.push_back({{"m", m}, {"g", g}});
+    }
+    out["roles"]        = roles;
+    out["filaments"]    = per_filament;
+    out["gcode"]        = gcode_path;
+    out["print_time_s"] = normal.time;
+    out["filament_mm"]  = stats.total_used_filament;
+    out["filament_g"]   = stats.total_weight;
+    out["cost"]         = stats.total_cost;
+    out["warnings"]     = warnings;
+    const std::array<double, 2> origin = plate_origin(plate);
+    out["origin"]       = {origin[0], origin[1]};
+    return out;
 }
 
 void OrcaEngine::cancel()

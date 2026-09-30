@@ -20,7 +20,7 @@ import zipfile
 from pathlib import Path
 
 # Subdirectories of resources/ that the slicing core reads at runtime.
-RUNTIME_DIRS = ["info", "flush", "filament_mixing", "printers", "custom_gcodes", "shapes"]
+RUNTIME_DIRS = ["info", "flush", "filament_mixing", "printers", "custom_gcodes", "shapes", "calib", "handy_models"]
 # Always installed: every vendor's filaments may inherit from it.
 FILAMENT_LIBRARY = "OrcaFilamentLibrary"
 
@@ -53,6 +53,7 @@ def vendor_entry(vendor_json: Path) -> dict:
         "models": [{"name": m.get("name", ""), "nozzles": model_nozzles(vendor_dir, m.get("sub_path", ""))}
                    for m in data.get("machine_model_list", [])],
         "required": vendor_json.stem == FILAMENT_LIBRARY,
+        "version": str(data.get("version", "")),
     }
 
 
