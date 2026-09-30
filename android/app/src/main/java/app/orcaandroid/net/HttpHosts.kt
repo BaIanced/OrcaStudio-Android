@@ -24,7 +24,15 @@ internal class Http(private val headers: Map<String, String> = emptyMap()) {
     }
 
     fun get(url: String): String = finish(open(url))
-    fun getJson(url: String): JSONObject = JSONObject(get(url))
+    fun getJson(url: String): JSONObject {
+        val body = get(url)
+        return try {
+            JSONObject(body)
+        } catch (e: org.json.JSONException) {
+            // Typically a web UI page instead of the API (wrong port or path).
+            throw IOException("No printer API at $url (got a web page instead of data)")
+        }
+    }
 
     fun send(url: String, method: String, body: String = "", contentType: String = "application/json"): String {
         val c = open(url, method)
@@ -113,7 +121,16 @@ private fun keyHeaders(c: PrinterConnection) = if (c.apiKey.isBlank()) emptyMap(
 
 internal class MoonrakerHost(private val c: PrinterConnection) : PrintHost {
     private val http = Http(keyHeaders(c))
-    private val base = c.baseUrl()
+
+    /**
+     * Moonraker's API is usually proxied by the web UI's nginx on port 80 (Mainsail, Fluidd,
+     * Qidi, Creality); if not, it listens on its own port 7125.
+     */
+    private val base: String by lazy {
+        val configured = c.baseUrl()
+        val candidates = listOf(configured) + (PrinterConnection.withPort(configured, 7125)?.let { listOf(it) } ?: emptyList())
+        candidates.firstOrNull { url -> runCatching { http.getJson("$url/server/info") }.isSuccess } ?: configured
+    }
 
     override fun test(): String {
         val info = http.getJson("$base/server/info").optJSONObject("result")

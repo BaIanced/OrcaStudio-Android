@@ -38,7 +38,8 @@ data class PrinterConnection(
 ) {
     val isConfigured get() = url.isNotBlank()
 
-    fun baseUrl(): String = normalizeUrl(url)
+    /** API address: the typed address without web UI fragment ("/#/"), query or trailing slash. */
+    fun baseUrl(): String = normalizeUrl(url).substringBefore('#').substringBefore('?').trimEnd('/')
     fun webUiUrl(): String = normalizeUrl(webUrl.ifBlank { url })
 
     fun toJson(): String = JSONObject()
@@ -49,6 +50,13 @@ data class PrinterConnection(
             PrinterConnection(HostType.fromId(it.optString("type")), it.optString("url"), it.optString("apiKey"),
                 it.optString("webUrl"), it.optString("serial"))
         }
+
+        /** [url] with the port replaced by [port]; null if it already names a port explicitly. */
+        fun withPort(url: String, port: Int): String? = runCatching {
+            val u = java.net.URI(url)
+            if (u.port != -1 || u.host == null) null
+            else java.net.URI(u.scheme, null, u.host, port, u.path, null, null).toString().trimEnd('/')
+        }.getOrNull()
 
         /** Adds "http://" when the user typed a bare host name or IP. */
         fun normalizeUrl(url: String): String {

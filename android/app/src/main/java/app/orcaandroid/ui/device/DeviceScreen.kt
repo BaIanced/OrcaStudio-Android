@@ -142,7 +142,7 @@ private fun StatusCard(state: UiState, vm: AppViewModel, connection: PrinterConn
                     status.bedTemp?.let { Text("▭ %.0f°".format(Locale.ROOT, it), style = MaterialTheme.typography.bodySmall) }
                 }
                 status.file?.let { Text(it, style = MaterialTheme.typography.bodySmall, maxLines = 1) }
-                status.progress?.let { p ->
+                status.progress?.takeIf { status.isActive || it > 0f }?.let { p ->
                     LinearProgressIndicator(progress = { p }, modifier = Modifier.fillMaxWidth())
                     Text("${(p * 100).toInt()} %" + (status.remainingSeconds?.let { " · " + formatDuration(it.toDouble()) } ?: ""),
                         style = MaterialTheme.typography.bodySmall)
