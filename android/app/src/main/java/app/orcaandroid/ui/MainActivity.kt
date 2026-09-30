@@ -97,10 +97,17 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /** Notifications (Android 13+) and local network access to printers (Android 17+). */
     private fun requestNotificationPermission() {
-        if (Build.VERSION.SDK_INT >= 33 &&
-            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
-            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
+        val wanted = buildList {
+            if (Build.VERSION.SDK_INT >= 33) add(Manifest.permission.POST_NOTIFICATIONS)
+            if (Build.VERSION.SDK_INT >= 37) add(LOCAL_NETWORK_PERMISSION)
+        }.filter { ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED }
+        if (wanted.isNotEmpty()) requestPermissions(wanted.toTypedArray(), 1)
+    }
+
+    private companion object {
+        const val LOCAL_NETWORK_PERMISSION = "android.permission.ACCESS_LOCAL_NETWORK"
     }
 
     /** Hardware keyboard shortcuts, as on the desktop. */

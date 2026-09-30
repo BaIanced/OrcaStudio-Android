@@ -294,4 +294,7 @@
     <string name="web_ui_url">Web UI address (optional)</string>
     <string name="width">Width</string>
     <string name="y_axis">Y axis</string>
+    <string name="web_ui_error">Cannot load %s</string>
+    <string name="retry">Retry</string>
+    <string name="local_network_hint">The app may not access the local network. Allow \"Nearby devices / local network\" for Orca-Android in the Android app settings.</string>
 </resources>

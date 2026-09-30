@@ -188,21 +188,39 @@ private fun WebUi(connection: PrinterConnection, modifier: Modifier) {
     }
     val url = connection.webUiUrl()
     var web by remember { mutableStateOf<WebView?>(null) }
+    var loadError by remember(url) { mutableStateOf<String?>(null) }
     Surface(modifier) {
-        AndroidView(
-            factory = { ctx ->
-                WebView(ctx).apply {
-                    settings.javaScriptEnabled = true
-                    settings.domStorageEnabled = true
-                    settings.mediaPlaybackRequiresUserGesture = false
-                    webViewClient = WebViewClient()
-                    loadUrl(url)
-                    web = this
+        Box {
+            AndroidView(
+                factory = { ctx ->
+                    WebView(ctx).apply {
+                        settings.javaScriptEnabled = true
+                        settings.domStorageEnabled = true
+                        settings.mediaPlaybackRequiresUserGesture = false
+                        webViewClient = object : WebViewClient() {
+                            override fun onReceivedError(view: WebView, request: android.webkit.WebResourceRequest, error: android.webkit.WebResourceError) {
+                                if (request.isForMainFrame) loadError = "${error.description} (${error.errorCode})"
+                            }
+                            override fun onPageFinished(view: WebView, pageUrl: String?) {
+                                if (loadError != null && view.progress == 100 && view.title?.isNotBlank() == true) loadError = null
+                            }
+                        }
+                        loadUrl(url)
+                        web = this
+                    }
+                },
+                update = { v -> if (v.url?.startsWith(url) != true && v.tag != url) { v.tag = url; v.loadUrl(url) } },
+                modifier = Modifier.fillMaxSize(),
+            )
+            loadError?.let { err ->
+                Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
+                    horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(stringResource(R.string.web_ui_error, url), style = MaterialTheme.typography.titleMedium)
+                    Text(err, style = MaterialTheme.typography.bodySmall)
+                    OutlinedButton(onClick = { loadError = null; web?.loadUrl(url) }) { Text(stringResource(R.string.retry)) }
                 }
-            },
-            update = { v -> if (v.url?.startsWith(url) != true && v.tag != url) { v.tag = url; v.loadUrl(url) } },
-            modifier = Modifier.fillMaxSize(),
-        )
+            }
+        }
     }
     DisposableEffect(Unit) { onDispose { web?.destroy() } }
 }
@@ -219,6 +237,7 @@ private fun ConnectionDialog(state: UiState, vm: AppViewModel, onDismiss: () -> 
     var testing by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val current = PrinterConnection(type, url.trim(), apiKey.trim(), webUrl.trim(), serial.trim())
+    val permissionHint = stringResource(R.string.local_network_hint)
 
     DisposableEffect(Unit) { onDispose { vm.stopDiscovery() } }
 
@@ -263,7 +282,11 @@ private fun ConnectionDialog(state: UiState, vm: AppViewModel, onDismiss: () -> 
                     testing = true
                     testResult = null
                     scope.launch {
-                        testResult = runCatching { vm.testConnection(current) }.fold({ "✓ $it" }, { "✗ ${it.message ?: it}" })
+                        testResult = runCatching { vm.testConnection(current) }.fold({ "✓ $it" }, { e ->
+                            val msg = e.message ?: e.toString()
+                            // Blocked local network access (Android 17 permission, work profile, VPN rules).
+                            if (msg.contains("EPERM") || msg.contains("not permitted", true)) "✗ $msg\n$permissionHint" else "✗ $msg"
+                        })
                         testing = false
                     }
                 }, enabled = current.isConfigured && !testing) { Text(stringResource(R.string.test)) }

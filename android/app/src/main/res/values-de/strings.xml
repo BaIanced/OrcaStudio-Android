@@ -293,4 +293,7 @@
     <string name="web_ui_url">Web-UI-Adresse (optional)</string>
     <string name="width">Breite</string>
     <string name="y_axis">Y-Achse</string>
+    <string name="web_ui_error">%s kann nicht geladen werden</string>
+    <string name="retry">Erneut versuchen</string>
+    <string name="local_network_hint">Die App darf nicht ins lokale Netzwerk. Erlaube \"Geräte in der Nähe / lokales Netzwerk\" für Orca-Android in den Android-App-Einstellungen.</string>
 </resources>
