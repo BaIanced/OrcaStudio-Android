@@ -25,6 +25,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -78,7 +79,14 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(12.dp)) {
                         updates.forEach { Text("${it.vendor}: ${it.installed} → ${it.available}", style = MaterialTheme.typography.bodySmall) }
-                        TextButton(onClick = vm.presets::installProfileUpdates) { Text(stringResource(R.string.install_updates)) }
+                        val progress = state.profileUpdateProgress
+                        if (progress != null) {
+                            Text(progress, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(top = 8.dp))
+                            LinearProgressIndicator(Modifier.fillMaxWidth().padding(vertical = 4.dp))
+                        } else {
+                            TextButton(onClick = vm.presets::installProfileUpdates) { Text(stringResource(R.string.install_updates)) }
+                        }
                     }
                 }
             }

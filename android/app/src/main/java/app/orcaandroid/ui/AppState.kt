@@ -132,6 +132,8 @@ data class UiState(
     // Files and updates
     val recents: List<RecentFile> = emptyList(),
     val profileUpdates: List<ResourceStore.ProfileUpdate>? = null,
+    /** Progress text while profile updates install in the background; null when idle. */
+    val profileUpdateProgress: String? = null,
 ) {
     fun presetName(type: PresetType) = when (type) {
         PresetType.PRINT -> print

@@ -7,8 +7,15 @@ import java.io.File
 import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import java.security.MessageDigest
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.zip.ZipInputStream
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -88,33 +95,58 @@ class ResourceStore(private val context: Context) {
 
     /** Vendors whose profiles in the OrcaSlicer repository are newer than the installed ones. */
     suspend fun checkProfileUpdates(): List<ProfileUpdate> = withContext(Dispatchers.IO) {
-        installedVendorIds().mapNotNull { id ->
-            val remote = runCatching { JSONObject(fetch("$RAW/resources/profiles/${enc(id)}.json")).optString("version") }.getOrNull()
-                ?: return@mapNotNull null
-            val local = installedVersion(id)
-            if (compareVersions(remote, local) > 0) ProfileUpdate(id, local, remote) else null
-        }
+        installedVendorIds().map { id ->
+            async {
+                val remote = runCatching { JSONObject(fetch("$RAW/resources/profiles/${enc(id)}.json")).optString("version") }.getOrNull()
+                    ?: return@async null
+                val local = installedVersion(id)
+                if (compareVersions(remote, local) > 0) ProfileUpdate(id, local, remote) else null
+            }
+        }.awaitAll().filterNotNull()
     }
 
-    /** Downloads the vendor's current profile tree from the OrcaSlicer repository and installs it. */
+    /**
+     * Brings the vendor's profiles up to date with the OrcaSlicer repository. GitHub lists every
+     * file with its git blob hash, so only files that differ from the installed ones are
+     * downloaded (usually a few, out of thousands for some vendors), several at a time.
+     */
     suspend fun updateVendor(id: String, onProgress: (Int, Int) -> Unit) = withContext(Dispatchers.IO) {
-        val tree = JSONObject(fetch("https://api.github.com/repos/$REPO/git/trees/$BRANCH?recursive=1")).getJSONArray("tree")
-        val prefix = "resources/profiles/$id/"
-        val files = tree.map { it as JSONObject }.filter { it.getString("type") == "blob" && it.getString("path").startsWith(prefix) }
-            .map { it.getString("path") }
+        val listing = JSONArray(fetch("$API/contents/resources/profiles?ref=$BRANCH"))
+        val dirSha = listing.map { it as JSONObject }.firstOrNull { it.getString("name") == id && it.getString("type") == "dir" }
+            ?.getString("sha") ?: throw OrcaException("No profiles for $id in the OrcaSlicer repository")
+        val tree = JSONObject(fetch("$API/git/trees/$dirSha?recursive=1"))
+        if (tree.optBoolean("truncated")) throw OrcaException("The profile list of $id is too large to compare")
+        val remote = tree.getJSONArray("tree").map { it as JSONObject }.filter { it.getString("type") == "blob" }
+            .associate { it.getString("path") to it.getString("sha") }
+
+        // Work on a copy of the installed profiles; swap it in only after everything arrived.
         val staging = File(context.cacheDir, "profile_update/$id").apply { deleteRecursively(); mkdirs() }
-        files.forEachIndexed { i, path ->
-            val target = File(staging, path.removePrefix("resources/profiles/"))
-            target.parentFile?.mkdirs()
-            download("$RAW/${path.split('/').joinToString("/") { enc(it) }}", target)
-            onProgress(i + 1, files.size)
+        File(systemDir, id).takeIf { it.isDirectory }?.copyRecursively(staging, overwrite = true)
+        staging.walkBottomUp().filter { it.isFile && it.relativeTo(staging).invariantSeparatorsPath !in remote }.forEach { it.delete() }
+        val changed = remote.filter { (path, sha) -> File(staging, path).let { !it.isFile || gitBlobSha(it) != sha } }.keys.toList()
+
+        val done = AtomicInteger()
+        onProgress(0, changed.size)
+        coroutineScope {
+            val gate = Semaphore(PARALLEL_DOWNLOADS)
+            changed.map { path ->
+                async {
+                    gate.withPermit {
+                        val target = File(staging, path).apply { parentFile?.mkdirs() }
+                        download("$RAW/resources/profiles/${enc(id)}/${path.split('/').joinToString("/") { enc(it) }}", target)
+                        onProgress(done.incrementAndGet(), changed.size)
+                    }
+                }
+            }.awaitAll()
         }
-        download("$RAW/resources/profiles/${enc(id)}.json", File(staging, "$id.json"))
-        // Swap in only after everything arrived.
+        val index = File(context.cacheDir, "profile_update/$id.json")
+        download("$RAW/resources/profiles/${enc(id)}.json", index)
+
         File(systemDir, id).deleteRecursively()
-        File(staging, id).copyRecursively(File(systemDir, id), overwrite = true)
-        File(staging, "$id.json").copyTo(File(systemDir, "$id.json"), overwrite = true)
+        staging.copyRecursively(File(systemDir, id), overwrite = true)
+        index.copyTo(File(systemDir, "$id.json"), overwrite = true)
         staging.deleteRecursively()
+        index.delete()
     }
 
     // --- Files ---------------------------------------------------------------------------------------
@@ -164,6 +196,16 @@ class ResourceStore(private val context: Context) {
         const val REPO = "SoftFever/OrcaSlicer"
         const val BRANCH = "main"
         const val RAW = "https://raw.githubusercontent.com/$REPO/$BRANCH"
+        const val API = "https://api.github.com/repos/$REPO"
+        const val PARALLEL_DOWNLOADS = 8
+
+        /** The hash git (and GitHub's tree listing) uses for a file's content. */
+        fun gitBlobSha(file: File): String {
+            val bytes = file.readBytes()
+            val sha = MessageDigest.getInstance("SHA-1")
+            sha.update("blob ${bytes.size}\u0000".toByteArray())
+            return sha.digest(bytes).joinToString("") { "%02x".format(it) }
+        }
 
         fun enc(s: String) = Uri.encode(s)
 

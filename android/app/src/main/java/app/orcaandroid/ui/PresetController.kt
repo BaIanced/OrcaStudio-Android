@@ -249,13 +249,23 @@ class PresetController(private val store: Store, private val device: DeviceContr
         if (updates.isEmpty()) store.toast(store.str(R.string.profiles_up_to_date))
     }
 
-    fun installProfileUpdates() = store.launch {
-        for (u in store.value.profileUpdates.orEmpty()) {
-            resources.updateVendor(u.vendor) { done, total -> store.update { it.copy(busy = store.str(R.string.updating_vendor, u.vendor, done, total)) } }
+    /** Installs the found updates in the background; the app stays usable meanwhile. */
+    fun installProfileUpdates() {
+        if (store.value.profileUpdateProgress != null) return
+        store.launch {
+            try {
+                for (u in store.value.profileUpdates.orEmpty()) {
+                    resources.updateVendor(u.vendor) { done, total ->
+                        store.update { it.copy(profileUpdateProgress = store.str(R.string.updating_vendor, u.vendor, done, total)) }
+                    }
+                }
+            } finally {
+                store.update { it.copy(profileUpdateProgress = null) }
+            }
+            store.update { it.copy(profileUpdates = null) }
+            reloadPresets(emptySet())
+            store.toast(store.str(R.string.profiles_updated))
         }
-        store.update { it.copy(busy = null, profileUpdates = null) }
-        reloadPresets(emptySet())
-        store.toast(store.str(R.string.profiles_updated))
     }
 
     companion object {

@@ -12,6 +12,8 @@
 - The printer status says why it is missing instead of waiting forever; the preview says when a
   connection (web UI only) cannot receive prints.
 - Filament colours are the same on the plate, in the G-code, thumbnails and saved projects.
+- Profile updates download only the files that changed (seconds instead of minutes) and run in
+  the background while the app stays usable.
 - Fixes from testing: object settings no longer count the filament assignment as a change,
   OrcaSlicer's error messages and units are translated, back from a preset comparison returns to
   the preset, the settings search gets the focus, single-key shortcuts no longer fire in editors,
