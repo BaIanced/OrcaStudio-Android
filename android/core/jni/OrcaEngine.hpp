@@ -237,6 +237,8 @@ private:
     Slic3r::PresetCollection &collection(const std::string &type);
     // Full config of the current selection (presets + overrides + per-filament overrides).
     Slic3r::DynamicPrintConfig selection_config();
+    /** Flushing volumes between all filaments from their colours (filaments x filaments, row = from). */
+    static std::vector<double> auto_flush_matrix(const Slic3r::DynamicPrintConfig &config);
     // The objects of `plate`, moved to plate coordinates, with the plate's custom G-code.
     std::unique_ptr<Slic3r::Model> plate_model(int plate) const;
     void                  write_paint_mesh();

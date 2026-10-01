@@ -1,6 +1,6 @@
 # Third-party software
 
-OrcaSlicer for Android is distributed under the GNU Affero General Public License v3.0 (see
+Orca-Android is distributed under the GNU Affero General Public License v3.0 (see
 `LICENSE`). It combines the following components; their licenses are compatible with the AGPL-3.0.
 License texts ship with the respective sources (the `src-orca` submodule and the source archives
 downloaded by `android/deps`).
@@ -68,6 +68,7 @@ downloaded by `android/deps`).
 |---|---|
 | Kotlin, kotlinx.coroutines | Apache-2.0 |
 | AndroidX, Jetpack Compose, Material 3 | Apache-2.0 |
+| AndroidX Test, JUnit 4 (tests only, not part of the APK) | Apache-2.0 / EPL-1.0 |
 
 ## Trademarks
 

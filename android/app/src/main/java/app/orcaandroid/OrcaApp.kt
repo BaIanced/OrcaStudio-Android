@@ -8,7 +8,6 @@ import app.orcaandroid.core.Engine
 import app.orcaandroid.core.ResourceStore
 import app.orcaandroid.net.PrinterStatus
 import kotlinx.coroutines.flow.MutableStateFlow
-import java.io.File
 
 /** Progress of a running slice, shared with the foreground service that keeps it alive. */
 data class SliceProgress(val percent: Int, val text: String)
@@ -22,7 +21,6 @@ class AppContainer(app: Application) {
     val sliceProgress = MutableStateFlow<SliceProgress?>(null)
     /** Latest job status of the monitored printer; written by PrintMonitorService. */
     val printerStatus = MutableStateFlow<PrinterStatus?>(null)
-    val outDir = File(app.cacheDir, "out")
 }
 
 class OrcaApp : Application() {

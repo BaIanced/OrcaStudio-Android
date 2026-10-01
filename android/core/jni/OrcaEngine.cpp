@@ -149,6 +149,10 @@ json OrcaEngine::load_presets()
 {
     std::lock_guard<std::mutex> lock(m_mutex);
 
+    // Loading read-only skips user presets unless their folder exists, and then leaves the user
+    // preset paths empty, so saving a user preset would fail.
+    boost::filesystem::create_directories(boost::filesystem::path(data_dir()) / PRESET_USER_DIR / DEFAULT_USER_FOLDER_NAME);
+
     AppConfig   app_config;
     std::string errors;
     auto        bundle = std::make_unique<PresetBundle>();
@@ -229,12 +233,18 @@ json OrcaEngine::select_printer_locked(const std::string &printer)
         if (const Preset *p = find_preset(m_bundle->filaments, opt->values.front()); p && p->is_compatible)
             default_filament = p->name;
 
-    // Plate types (Cool Plate, Textured PEI, ...) only exist for printers that declare them.
-    json bed_types = json::array();
-    if (cfg.opt_bool("support_multi_bed_types"))
+    // Plate types (Cool Plate, Textured PEI, ...): Bambu Lab printers always have them, others only
+    // when they declare them (as in the desktop's Plater).
+    json        bed_types = json::array();
+    std::string default_bed_type;
+    if (m_bundle->is_bbl_vendor() || cfg.opt_bool("support_multi_bed_types")) {
         for (const auto &[name, value] : ConfigOptionEnum<BedType>::get_enum_values())
             if (value != btDefault)
                 bed_types.push_back(name);
+        default_bed_type = cfg.has("default_bed_type") ? cfg.opt_string("default_bed_type") : std::string();
+        if (default_bed_type.empty())
+            default_bed_type = print_config_def.get("curr_bed_type")->default_value->serialize();
+    }
 
     return {{"prints", compatible_names(m_bundle->prints)},
             {"filaments", compatible_names(m_bundle->filaments)},
@@ -243,7 +253,7 @@ json OrcaEngine::select_printer_locked(const std::string &printer)
             {"default_print", default_print},
             {"default_filament", default_filament},
             {"bed_types", bed_types},
-            {"default_bed_type", cfg.has("default_bed_type") ? cfg.opt_string("default_bed_type") : std::string()}};
+            {"default_bed_type", default_bed_type}};
 }
 
 PresetCollection &OrcaEngine::collection(const std::string &type)
@@ -451,6 +461,19 @@ DynamicPrintConfig OrcaEngine::selection_config()
             vec->set_at(tmp.option(key), i, 0);
         }
     }
+    // Like the desktop when filaments are added or removed: a flushing matrix that does not fit the
+    // number of filaments (per nozzle) is recalculated from the colours.
+    if (auto *matrix = config.option<ConfigOptionFloats>("flush_volumes_matrix")) {
+        const size_t filaments = config.option<ConfigOptionStrings>("filament_colour")->values.size();
+        const auto  *mult      = config.option<ConfigOptionFloats>("flush_multiplier");
+        const size_t heads     = std::max<size_t>(1, mult ? mult->values.size() : 1);
+        if (filaments > 1 && matrix->values.size() != filaments * filaments * heads) {
+            const std::vector<double> one = auto_flush_matrix(config);
+            matrix->values.clear();
+            for (size_t h = 0; h < heads; ++h)
+                matrix->values.insert(matrix->values.end(), one.begin(), one.end());
+        }
+    }
     // An active calibration test overrides whatever it needs (see OrcaExtras.cpp).
     if (m_calib_config)
         config.apply(*m_calib_config);
@@ -494,8 +517,11 @@ json OrcaEngine::slice(int plate, const std::string &gcode_out, const std::strin
         throw std::runtime_error("This plate is empty");
 
     DynamicPrintConfig config = selection_config();
+    // The plate's own type, else the printer's default (the UI shows the latter for "default").
     if (!m_plates[plate].bed_type.empty())
         config.set_deserialize_strict("curr_bed_type", m_plates[plate].bed_type);
+    else if (config.has("default_bed_type") && !config.opt_string("default_bed_type").empty())
+        config.set_deserialize_strict("curr_bed_type", config.opt_string("default_bed_type"));
     if (m_plates[plate].has_wipe_tower_pos) {
         config.option<ConfigOptionFloats>("wipe_tower_x", true)->values = {m_plates[plate].wipe_tower_x};
         config.option<ConfigOptionFloats>("wipe_tower_y", true)->values = {m_plates[plate].wipe_tower_y};

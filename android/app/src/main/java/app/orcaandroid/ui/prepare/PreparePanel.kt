@@ -87,14 +87,14 @@ private fun PresetsTab(state: UiState, vm: AppViewModel) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         PickerField(stringResource(R.string.printer), state.printer,
             state.visiblePrinters.map { PickerItem(it.name, it.name, if (it.system) it.vendor else vm.translator.tr("User presets")) },
-            vm::selectPrinter, Modifier.weight(1f), modified = state.overrides[PresetType.PRINTER].orEmpty().isNotEmpty())
-        IconButton(onClick = { vm.openEditor(EditorTarget.Preset(PresetType.PRINTER)) }) { Icon(Icons.Default.Edit, stringResource(R.string.edit)) }
+            vm.presets::selectPrinter, Modifier.weight(1f), modified = state.overrides[PresetType.PRINTER].orEmpty().isNotEmpty())
+        IconButton(onClick = { vm.presets.openEditor(EditorTarget.Preset(PresetType.PRINTER)) }) { Icon(Icons.Default.Edit, stringResource(R.string.edit)) }
     }
-    TextButton(onClick = vm::openPrinterSetup) { Text(stringResource(R.string.manage_printers)) }
+    TextButton(onClick = vm.presets::openPrinterSetup) { Text(stringResource(R.string.manage_printers)) }
     if (state.supportsBedTypes) {
         val plate = state.scene.plates.getOrNull(state.activePlate)
         PickerField(stringResource(R.string.plate_type), plate?.bedType?.ifEmpty { null } ?: setup?.defaultBedType,
-            setup?.bedTypes.orEmpty().map { PickerItem(it, vm.translator.tr(it)) }, { vm.setPlateBedType(state.activePlate, it) })
+            setup?.bedTypes.orEmpty().map { PickerItem(it, vm.translator.tr(it)) }, { vm.scene.setPlateBedType(state.activePlate, it) })
     }
 
     SectionTitle(stringResource(R.string.filaments))
@@ -105,17 +105,17 @@ private fun PresetsTab(state: UiState, vm: AppViewModel) {
             val filaments = setup?.filaments.orEmpty().filter { it.system.not() || it.vendor !in state.hiddenFilamentVendors || it.name == slot.preset }
             PickerField("${i + 1}", slot.preset,
                 filaments.map { PickerItem(it.name, it.name, if (it.system) it.vendor.ifEmpty { "Generic" } else vm.translator.tr("User presets")) },
-                { vm.setFilament(i, it) }, Modifier.weight(1f), modified = slot.overrides.isNotEmpty())
-            IconButton(onClick = { vm.setActiveFilament(i); vm.openEditor(EditorTarget.Preset(PresetType.FILAMENT)) }) {
+                { vm.presets.setFilament(i, it) }, Modifier.weight(1f), modified = slot.overrides.isNotEmpty())
+            IconButton(onClick = { vm.presets.setActiveFilament(i); vm.presets.openEditor(EditorTarget.Preset(PresetType.FILAMENT)) }) {
                 Icon(Icons.Default.Edit, stringResource(R.string.edit))
             }
-            if (state.filaments.size > 1) IconButton(onClick = { vm.removeFilament(i) }) { Icon(Icons.Default.Delete, stringResource(R.string.delete)) }
+            if (state.filaments.size > 1) IconButton(onClick = { vm.presets.removeFilament(i) }) { Icon(Icons.Default.Delete, stringResource(R.string.delete)) }
         }
-        if (colorDialog) ColorDialog(slot.color, { vm.setFilamentColor(i, it) }) { colorDialog = false }
+        if (colorDialog) ColorDialog(slot.color, { vm.presets.setFilamentColor(i, it) }) { colorDialog = false }
     }
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        OutlinedButton(onClick = vm::addFilament) { Icon(Icons.Default.Add, null); Text(stringResource(R.string.add_filament)) }
-        if (state.filaments.size > 1) TextButton(onClick = vm::autoFlushMatrix) { Text(stringResource(R.string.flushing_volumes)) }
+        OutlinedButton(onClick = vm.presets::addFilament) { Icon(Icons.Default.Add, null); Text(stringResource(R.string.add_filament)) }
+        if (state.filaments.size > 1) TextButton(onClick = vm.scene::autoFlushMatrix) { Text(stringResource(R.string.flushing_volumes)) }
     }
     if (state.filaments.size > 1) WipeTowerRow(state, vm)
 
@@ -123,8 +123,8 @@ private fun PresetsTab(state: UiState, vm: AppViewModel) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         PickerField(stringResource(R.string.process), state.print,
             setup?.prints.orEmpty().map { PickerItem(it.name, it.name, if (it.system) "System" else vm.translator.tr("User presets")) },
-            vm::selectPrint, Modifier.weight(1f), modified = state.overrides[PresetType.PRINT].orEmpty().isNotEmpty())
-        IconButton(onClick = { vm.openEditor(EditorTarget.Preset(PresetType.PRINT)) }) { Icon(Icons.Default.Tune, stringResource(R.string.edit)) }
+            vm.presets::selectPrint, Modifier.weight(1f), modified = state.overrides[PresetType.PRINT].orEmpty().isNotEmpty())
+        IconButton(onClick = { vm.presets.openEditor(EditorTarget.Preset(PresetType.PRINT)) }) { Icon(Icons.Default.Tune, stringResource(R.string.edit)) }
     }
     QuickSettings(state, vm)
 }
@@ -136,18 +136,18 @@ private fun QuickSettings(state: UiState, vm: AppViewModel) {
     fun num(key: String) = state.value(t, key)?.removeSuffix("%")?.toFloatOrNull()
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         num("layer_height")?.let { v ->
-            NumberField(v, { vm.setOption(t, "layer_height", it.toString()) }, Modifier.weight(1f), vm.translator.tr("Layer height"), "mm", 2)
+            NumberField(v, { vm.presets.setOption(t, "layer_height", it.toString()) }, Modifier.weight(1f), vm.translator.tr("Layer height"), "mm", 2)
         }
         num("sparse_infill_density")?.let { v ->
-            NumberField(v, { vm.setOption(t, "sparse_infill_density", "${it.toInt()}%") }, Modifier.weight(1f), vm.translator.tr("Sparse infill density"), "%", 0)
+            NumberField(v, { vm.presets.setOption(t, "sparse_infill_density", "${it.toInt()}%") }, Modifier.weight(1f), vm.translator.tr("Sparse infill density"), "%", 0)
         }
         num("wall_loops")?.let { v ->
-            NumberField(v, { vm.setOption(t, "wall_loops", it.toInt().toString()) }, Modifier.weight(1f), vm.translator.tr("Wall loops"), null, 0)
+            NumberField(v, { vm.presets.setOption(t, "wall_loops", it.toInt().toString()) }, Modifier.weight(1f), vm.translator.tr("Wall loops"), null, 0)
         }
     }
-    SwitchRow(vm.translator.tr("Enable support"), state.value(t, "enable_support") == "1") { vm.setOption(t, "enable_support", if (it) "1" else "0") }
+    SwitchRow(vm.translator.tr("Enable support"), state.value(t, "enable_support") == "1") { vm.presets.setOption(t, "enable_support", if (it) "1" else "0") }
     state.value(t, "brim_type")?.let { brim ->
-        SwitchRow(vm.translator.tr("Brim"), brim != "no_brim") { vm.setOption(t, "brim_type", if (it) "auto_brim" else "no_brim") }
+        SwitchRow(vm.translator.tr("Brim"), brim != "no_brim") { vm.presets.setOption(t, "brim_type", if (it) "auto_brim" else "no_brim") }
     }
 }
 
@@ -166,11 +166,11 @@ private fun WipeTowerRow(state: UiState, vm: AppViewModel) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(vm.translator.tr("Prime tower"), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
         if (pos != null) {
-            NumberField(pos.first, { vm.setWipeTower(plate.index, it to pos.second) }, Modifier.weight(1f), "X", "mm", 1)
-            NumberField(pos.second, { vm.setWipeTower(plate.index, pos.first to it) }, Modifier.weight(1f), "Y", "mm", 1)
-            IconButton(onClick = { vm.setWipeTower(plate.index, null) }) { Icon(Icons.Default.Delete, stringResource(R.string.reset)) }
+            NumberField(pos.first, { vm.scene.setWipeTower(plate.index, it to pos.second) }, Modifier.weight(1f), "X", "mm", 1)
+            NumberField(pos.second, { vm.scene.setWipeTower(plate.index, pos.first to it) }, Modifier.weight(1f), "Y", "mm", 1)
+            IconButton(onClick = { vm.scene.setWipeTower(plate.index, null) }) { Icon(Icons.Default.Delete, stringResource(R.string.reset)) }
         } else {
-            TextButton(onClick = { vm.setWipeTower(plate.index, 15f to 150f) }) { Text(stringResource(R.string.set_position)) }
+            TextButton(onClick = { vm.scene.setWipeTower(plate.index, 15f to 150f) }) { Text(stringResource(R.string.set_position)) }
         }
     }
 }
@@ -219,7 +219,7 @@ private fun ObjectsTab(state: UiState, vm: AppViewModel) {
     scene.objects.forEach { o ->
         val selected = state.selection?.obj == o.index
         Card(
-            Modifier.fillMaxWidth().clickable { vm.select(if (selected && state.selection?.volume == -1) null else Selection(o.index)) },
+            Modifier.fillMaxWidth().clickable { vm.scene.select(if (selected && state.selection?.volume == -1) null else Selection(o.index)) },
             shape = RoundedCornerShape(12.dp),
             colors = if (selected) CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer) else CardDefaults.cardColors(),
         ) {
@@ -246,14 +246,14 @@ private fun ObjectDetails(state: UiState, vm: AppViewModel, objIndex: Int) {
     Column(Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (o.instances.size > 1) {
             PickerField(stringResource(R.string.instance), sel.instance.toString(),
-                o.instances.map { PickerItem(it.index.toString(), "#${it.index + 1}") }, { vm.select(sel.copy(instance = it.toInt(), volume = -1)) })
+                o.instances.map { PickerItem(it.index.toString(), "#${it.index + 1}") }, { vm.scene.select(sel.copy(instance = it.toInt(), volume = -1)) })
         }
-        Vec3Fields(stringResource(R.string.position), inst.offset.x, inst.offset.y, inst.offset.z, "mm", { x, y, z -> vm.setTransform(offset = Vec3(x, y, z)) })
-        Vec3Fields(stringResource(R.string.rotation), inst.rotation.x, inst.rotation.y, inst.rotation.z, "°", { x, y, z -> vm.setTransform(rotation = Vec3(x, y, z)) }, 1)
+        Vec3Fields(stringResource(R.string.position), inst.offset.x, inst.offset.y, inst.offset.z, "mm", { x, y, z -> vm.scene.setTransform(offset = Vec3(x, y, z)) })
+        Vec3Fields(stringResource(R.string.rotation), inst.rotation.x, inst.rotation.y, inst.rotation.z, "°", { x, y, z -> vm.scene.setTransform(rotation = Vec3(x, y, z)) }, 1)
         Vec3Fields(stringResource(R.string.scale), inst.scale.x * 100, inst.scale.y * 100, inst.scale.z * 100, "%",
-            { x, y, z -> vm.setTransform(scale = Vec3(x / 100, y / 100, z / 100)) }, 1)
+            { x, y, z -> vm.scene.setTransform(scale = Vec3(x / 100, y / 100, z / 100)) }, 1)
         Vec3Fields(stringResource(R.string.size), inst.size.x, inst.size.y, inst.size.z, "mm", { x, y, z ->
-            vm.setTransform(scale = Vec3(inst.scale.x * x / inst.size.x.coerceAtLeast(1e-3f), inst.scale.y * y / inst.size.y.coerceAtLeast(1e-3f),
+            vm.scene.setTransform(scale = Vec3(inst.scale.x * x / inst.size.x.coerceAtLeast(1e-3f), inst.scale.y * y / inst.size.y.coerceAtLeast(1e-3f),
                 inst.scale.z * z / inst.size.z.coerceAtLeast(1e-3f)))
         })
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -261,7 +261,7 @@ private fun ObjectDetails(state: UiState, vm: AppViewModel, objIndex: Int) {
             listOf("X", "Y", "Z").forEachIndexed { axis, label ->
                 OutlinedButton(onClick = {
                     val m = inst.mirror
-                    vm.setTransform(mirror = when (axis) { 0 -> m.copy(x = -m.x); 1 -> m.copy(y = -m.y); else -> m.copy(z = -m.z) })
+                    vm.scene.setTransform(mirror = when (axis) { 0 -> m.copy(x = -m.x); 1 -> m.copy(y = -m.y); else -> m.copy(z = -m.z) })
                 }) { Text(label) }
             }
         }
@@ -269,9 +269,9 @@ private fun ObjectDetails(state: UiState, vm: AppViewModel, objIndex: Int) {
             val ext = o.settings["extruder"] ?: "1"
             PickerField(stringResource(R.string.filament), ext,
                 state.filaments.mapIndexed { i, f -> PickerItem((i + 1).toString(), "${i + 1}: ${f.preset}") },
-                { vm.setObjectSetting(objIndex, -1, "extruder", it) })
+                { vm.scene.setObjectSetting(objIndex, -1, "extruder", it) })
         }
-        FilledTonalButton(onClick = { vm.openEditor(EditorTarget.Object(objIndex)) }, modifier = Modifier.fillMaxWidth()) {
+        FilledTonalButton(onClick = { vm.presets.openEditor(EditorTarget.Object(objIndex)) }, modifier = Modifier.fillMaxWidth()) {
             Icon(Icons.Default.Tune, null); Text(" " + stringResource(R.string.object_settings, o.settings.size))
         }
 
@@ -280,13 +280,13 @@ private fun ObjectDetails(state: UiState, vm: AppViewModel, objIndex: Int) {
             Text(stringResource(R.string.parts_and_modifiers), style = MaterialTheme.typography.labelLarge)
             o.volumes.forEach { v ->
                 val vSel = sel.volume == v.index
-                Row(Modifier.fillMaxWidth().clickable { vm.select(sel.copy(volume = if (vSel) -1 else v.index)) }, verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth().clickable { vm.scene.select(sel.copy(volume = if (vSel) -1 else v.index)) }, verticalAlignment = Alignment.CenterVertically) {
                     Text(volumeLabel(v.type) + " · " + v.name, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis,
                         style = MaterialTheme.typography.bodyMedium, color = if (vSel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
                     if (v.type == VolumeType.PART || v.type == VolumeType.MODIFIER) {
-                        IconButton(onClick = { vm.openEditor(EditorTarget.Object(objIndex, v.index)) }) { Icon(Icons.Default.Tune, stringResource(R.string.settings)) }
+                        IconButton(onClick = { vm.presets.openEditor(EditorTarget.Object(objIndex, v.index)) }) { Icon(Icons.Default.Tune, stringResource(R.string.settings)) }
                     }
-                    IconButton(onClick = { vm.select(sel.copy(volume = v.index)); vm.deleteSelected() }) { Icon(Icons.Default.Delete, stringResource(R.string.delete)) }
+                    IconButton(onClick = { vm.scene.select(sel.copy(volume = v.index)); vm.scene.deleteSelected() }) { Icon(Icons.Default.Delete, stringResource(R.string.delete)) }
                 }
             }
         }
@@ -314,15 +314,15 @@ private fun LayerRanges(vm: AppViewModel, obj: Int, ranges: List<LayerRange>, he
         Text(stringResource(R.string.height_ranges), Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
         IconButton(onClick = {
             val from = ranges.maxOfOrNull { it.to } ?: 0f
-            vm.setLayerRanges(obj, ranges + LayerRange(from, (from + 2f).coerceAtMost(height.coerceAtLeast(from + 0.2f)), emptyMap()))
+            vm.scene.setLayerRanges(obj, ranges + LayerRange(from, (from + 2f).coerceAtMost(height.coerceAtLeast(from + 0.2f)), emptyMap()))
         }) { Icon(Icons.Default.Add, stringResource(R.string.add)) }
     }
     ranges.forEachIndexed { i, r ->
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            NumberField(r.from, { v -> vm.setLayerRanges(obj, ranges.mapIndexed { j, x -> if (j == i) x.copy(from = v) else x }) }, Modifier.weight(1f), stringResource(R.string.from), "mm")
-            NumberField(r.to, { v -> vm.setLayerRanges(obj, ranges.mapIndexed { j, x -> if (j == i) x.copy(to = v) else x }) }, Modifier.weight(1f), stringResource(R.string.to), "mm")
-            IconButton(onClick = { vm.openEditor(EditorTarget.Range(obj, i)) }) { Icon(Icons.Default.Tune, stringResource(R.string.settings)) }
-            IconButton(onClick = { vm.setLayerRanges(obj, ranges.filterIndexed { j, _ -> j != i }) }) { Icon(Icons.Default.Delete, stringResource(R.string.delete)) }
+            NumberField(r.from, { v -> vm.scene.setLayerRanges(obj, ranges.mapIndexed { j, x -> if (j == i) x.copy(from = v) else x }) }, Modifier.weight(1f), stringResource(R.string.from), "mm")
+            NumberField(r.to, { v -> vm.scene.setLayerRanges(obj, ranges.mapIndexed { j, x -> if (j == i) x.copy(to = v) else x }) }, Modifier.weight(1f), stringResource(R.string.to), "mm")
+            IconButton(onClick = { vm.presets.openEditor(EditorTarget.Range(obj, i)) }) { Icon(Icons.Default.Tune, stringResource(R.string.settings)) }
+            IconButton(onClick = { vm.scene.setLayerRanges(obj, ranges.filterIndexed { j, _ -> j != i }) }) { Icon(Icons.Default.Delete, stringResource(R.string.delete)) }
         }
     }
 }

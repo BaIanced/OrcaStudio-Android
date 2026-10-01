@@ -229,6 +229,16 @@ json OrcaEngine::set_layer_ranges(int object, const json &ranges)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
     ModelObject &obj = object_at(object);
+    // Every range needs its own layer height (Slicing.cpp reads it unchecked); like the desktop's
+    // object list, new ranges start with the object's or the process's layer height.
+    double default_layer_height = 0.2;
+    if (obj.config.has("layer_height"))
+        default_layer_height = obj.config.opt_float("layer_height");
+    else
+        try {
+            default_layer_height = selection_config().opt_float("layer_height");
+        } catch (const std::exception &) {
+        }
     t_layer_config_ranges result;
     for (const json &r : ranges) {
         const double from = r.at("from").get<double>(), to = r.at("to").get<double>();
@@ -236,8 +246,12 @@ json OrcaEngine::set_layer_ranges(int object, const json &ranges)
             throw std::runtime_error("A height range must end above its start");
         ModelConfig &cfg = result[{from, to}];
         ConfigSubstitutionContext ctx(ForwardCompatibilitySubstitutionRule::Disable);
-        for (const auto &[key, value] : r.value("settings", json::object()).items())
+        // Keep the settings alive: iterating items() of the temporary from value() would dangle.
+        const json settings = r.value("settings", json::object());
+        for (const auto &[key, value] : settings.items())
             cfg.set_deserialize(key, value.is_string() ? value.get<std::string>() : value.dump(), ctx);
+        if (!cfg.has("layer_height"))
+            cfg.set_key_value("layer_height", new ConfigOptionFloat(default_layer_height));
     }
     push_undo();
     obj.layer_config_ranges = std::move(result);

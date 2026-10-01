@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="108" height="108" viewBox="0 0 108 108">
+  <!-- Same artwork as the adaptive launcher icon (res/drawable/ic_launcher_foreground.xml). -->
+  <rect width="108" height="108" rx="24" fill="#00796B"/>
+  <path fill="#FFFFFF" d="M44,26h20v14l-6,8h-8l-6,-8z"/>
+  <path fill="#B2DFDB" d="M30,62h48v6h-48z"/>
+  <path fill="#E0F2F1" d="M34,70h40v6h-40z"/>
+  <path fill="#FFFFFF" d="M38,78h32v6h-32z"/>
+</svg>

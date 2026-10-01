@@ -289,7 +289,9 @@ json OrcaEngine::set_layer_gcodes(int plate, const json &items)
         CustomGCode::Item item;
         item.print_z  = it.at("z").get<double>();
         const std::string type = it.value("type", "pause");
-        item.type     = type == "color" ? CustomGCode::ColorChange : type == "custom" ? CustomGCode::Custom : CustomGCode::PausePrint;
+        // OrcaSlicer no longer emits ColorChange (see ProcessLayer::emit_custom_gcode_per_print_z): a
+        // colour change is a change to another filament slot, which runs change_filament_gcode.
+        item.type     = type == "color" ? CustomGCode::ToolChange : type == "custom" ? CustomGCode::Custom : CustomGCode::PausePrint;
         item.extruder = it.value("extruder", 1);
         item.color    = it.value("color", std::string());
         item.extra    = it.value("extra", std::string());
@@ -316,12 +318,10 @@ json OrcaEngine::set_wipe_tower(int plate, double x, double y)
     return commit();
 }
 
-json OrcaEngine::flush_matrix()
+std::vector<double> OrcaEngine::auto_flush_matrix(const DynamicPrintConfig &config)
 {
-    std::lock_guard<std::mutex> lock(m_mutex);
-    const DynamicPrintConfig config = selection_config();
-    const auto *colours = config.option<ConfigOptionStrings>("filament_colour");
-    const size_t n = colours ? colours->values.size() : 0;
+    const auto  *colours = config.option<ConfigOptionStrings>("filament_colour");
+    const size_t n       = colours ? colours->values.size() : 0;
     int min_volume = 0;
     if (const auto *vol = config.option<ConfigOptionFloatsNullable>("nozzle_volume"); vol && !vol->values.empty())
         min_volume = int(vol->get_at(0));
@@ -330,16 +330,23 @@ json OrcaEngine::flush_matrix()
         dataset = ds->values.front();
 
     std::vector<double> matrix(n * n, 0.);
-    FlushVolCalculator calc(min_volume, g_max_flush_volume, dataset);
+    FlushVolCalculator  calc(min_volume, g_max_flush_volume, dataset);
+    auto byte = [](float v) { return (unsigned char)std::clamp(int(std::lround(v * 255.f)), 0, 255); };
     for (size_t from = 0; from < n; ++from)
         for (size_t to = 0; to < n; ++to) {
             if (from == to)
                 continue;
             const auto a = parse_color(colours->values[from]), b = parse_color(colours->values[to]);
-            auto byte = [](float v) { return (unsigned char)std::clamp(int(std::lround(v * 255.f)), 0, 255); };
             matrix[from * n + to] = calc.calc_flush_vol(255, byte(a[0]), byte(a[1]), byte(a[2]), 255, byte(b[0]), byte(b[1]), byte(b[2]));
         }
-    return {{"matrix", matrix}, {"size", n}};
+    return matrix;
+}
+
+json OrcaEngine::flush_matrix()
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    const std::vector<double> matrix = auto_flush_matrix(selection_config());
+    return {{"matrix", matrix}, {"size", size_t(std::lround(std::sqrt(double(matrix.size()))))}};
 }
 
 json OrcaEngine::option_states()

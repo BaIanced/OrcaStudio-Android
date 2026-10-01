@@ -56,7 +56,7 @@ import app.orcaandroid.ui.prepare.SwitchRow
 @Composable
 fun MoreScreen(state: UiState, vm: AppViewModel) {
     var dialog by remember { mutableStateOf<String?>(null) }
-    val importPresets = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { if (it.isNotEmpty()) vm.importPresets(it) }
+    val importPresets = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { if (it.isNotEmpty()) vm.presets.importPresets(it) }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
         Column(Modifier.widthIn(max = 720.dp).fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             SectionTitle(stringResource(R.string.appearance))
@@ -69,16 +69,16 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) SwitchRow(stringResource(R.string.dynamic_color), state.dynamicColor, onChange = vm::setDynamicColor)
 
             SectionTitle(stringResource(R.string.printers_and_presets))
-            Entry(stringResource(R.string.manage_printers), stringResource(R.string.n_printers_selected, state.selectedPrinters.size)) { vm.openPrinterSetup() }
+            Entry(stringResource(R.string.manage_printers), stringResource(R.string.n_printers_selected, state.selectedPrinters.size)) { vm.presets.openPrinterSetup() }
             Entry(stringResource(R.string.filament_vendors), stringResource(R.string.filament_vendors_text)) { dialog = "vendors" }
             Entry(stringResource(R.string.import_presets), stringResource(R.string.import_presets_text)) { importPresets.launch(arrayOf("*/*")) }
-            Entry(stringResource(R.string.compare_presets), null) { vm.openEditor(EditorTarget.Preset(PresetType.PRINT)); dialog = null }
-            Entry(stringResource(R.string.check_profile_updates), null) { vm.checkProfileUpdates() }
+            Entry(stringResource(R.string.compare_presets), null) { vm.presets.openEditor(EditorTarget.Preset(PresetType.PRINT)) }
+            Entry(stringResource(R.string.check_profile_updates), null) { vm.presets.checkProfileUpdates() }
             state.profileUpdates?.takeIf { it.isNotEmpty() }?.let { updates ->
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(12.dp)) {
                         updates.forEach { Text("${it.vendor}: ${it.installed} → ${it.available}", style = MaterialTheme.typography.bodySmall) }
-                        TextButton(onClick = vm::installProfileUpdates) { Text(stringResource(R.string.install_updates)) }
+                        TextButton(onClick = vm.presets::installProfileUpdates) { Text(stringResource(R.string.install_updates)) }
                     }
                 }
             }
@@ -88,7 +88,7 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
 
             if (state.recents.isNotEmpty()) {
                 SectionTitle(stringResource(R.string.recent))
-                state.recents.take(10).forEach { r -> Entry(r.name, if (r.isProject) stringResource(R.string.project) else null) { vm.openRecent(r) } }
+                state.recents.take(10).forEach { r -> Entry(r.name, if (r.isProject) stringResource(R.string.project) else null) { vm.files.openRecent(r) } }
             }
 
             SectionTitle(stringResource(R.string.about))
@@ -130,7 +130,7 @@ private fun FilamentVendorsDialog(state: UiState, vm: AppViewModel, onDismiss: (
                 }
             }
         },
-        confirmButton = { TextButton(onClick = { onDismiss(); vm.setHiddenFilamentVendors(hidden) }) { Text(stringResource(R.string.ok)) } },
+        confirmButton = { TextButton(onClick = { onDismiss(); vm.presets.setHiddenFilamentVendors(hidden) }) { Text(stringResource(R.string.ok)) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
 }

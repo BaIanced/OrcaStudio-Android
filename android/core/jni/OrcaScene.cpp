@@ -185,6 +185,16 @@ void OrcaEngine::arrange_plate(int plate, const std::vector<std::pair<ModelObjec
     const BoundingBox bed(scaled(Vec2d(rect[0] + origin[0], rect[1] + origin[1])),
                           scaled(Vec2d(rect[2] + origin[0], rect[3] + origin[1])));
 
+    // Spacing, clearance for sequential printing and brims come from the print settings, like in
+    // the desktop's ArrangeJob. Without a selection (no printer yet) plain spacing is used.
+    DynamicPrintConfig cfg;
+    bool               have_cfg = true;
+    try {
+        cfg = selection_config();
+    } catch (const std::exception &) {
+        have_cfg = false;
+    }
+
     ArrangePolygons                items, fixed;
     std::vector<ModelInstance *>   item_instances;
     auto is_movable = [&](ModelObject *obj, size_t i) {
@@ -203,7 +213,10 @@ void OrcaEngine::arrange_plate(int plate, const std::vector<std::pair<ModelObjec
             if (movable == nullptr && plate_of(*obj, i) != plate)
                 continue;
             ArrangePolygon ap;
-            obj->instances[i]->get_arrange_polygon(&ap);
+            obj->instances[i]->get_arrange_polygon(&ap, have_cfg ? cfg : DynamicPrintConfig());
+            // Degenerate outlines (empty or flat meshes) crash the nester; such objects stay put.
+            if (ap.poly.contour.size() < 3 || std::abs(ap.poly.contour.area()) <= 0.)
+                continue;
             // Like ArrangeJob: the nester skips items still marked UNARRANGED (== BIN_ID_UNFIT).
             ap.bed_idx = 0;
             ap.height  = obj->instance_bounding_box(i).size().z();
@@ -222,6 +235,26 @@ void OrcaEngine::arrange_plate(int plate, const std::vector<std::pair<ModelObjec
 
     ArrangeParams params;
     params.min_obj_distance = scaled(ARRANGE_DISTANCE);
+    // A phone-sized scene nests quickly on one thread, and exceptions from TBB workers are fragile.
+    params.parallel = false;
+    if (have_cfg) {
+        params.is_seq_print            = cfg.opt_enum<PrintSequence>("print_sequence") == PrintSequence::ByObject;
+        params.clearance_radius        = cfg.opt_float("extruder_clearance_radius");
+        params.clearance_height_to_rod = cfg.opt_float("extruder_clearance_height_to_rod");
+        params.clearance_height_to_lid = cfg.opt_float("extruder_clearance_height_to_lid");
+        params.printable_height        = cfg.opt_float("printable_height");
+        params.nozzle_height           = cfg.opt_float("nozzle_height");
+        if (params.is_seq_print)
+            params.bed_shrink_x = params.bed_shrink_y = BED_SHRINK_SEQ_PRINT;
+        // The spacing only takes effect through the polygons' inflation.
+        arrangement::update_selected_items_inflation(items, &cfg, params);
+        arrangement::update_unselected_items_inflation(fixed, &cfg, params);
+    } else {
+        for (ArrangePolygon &ap : items)
+            ap.inflation = params.min_obj_distance / 2;
+        for (ArrangePolygon &ap : fixed)
+            ap.inflation = params.min_obj_distance / 2;
+    }
     arrangement::arrange(items, fixed, bed, params);
 
     // Whatever does not fit goes onto a new plate, like the desktop app does.

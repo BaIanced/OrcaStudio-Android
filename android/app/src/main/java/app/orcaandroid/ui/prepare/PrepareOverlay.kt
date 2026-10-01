@@ -80,7 +80,7 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
                 Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.tertiaryContainer) {
                     Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(stringResource(R.string.calibration_active, cal.name), Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodySmall)
-                        androidx.compose.material3.TextButton(onClick = vm::stopCalibration) { Text(stringResource(R.string.end_calibration)) }
+                        androidx.compose.material3.TextButton(onClick = vm.scene::stopCalibration) { Text(stringResource(R.string.end_calibration)) }
                     }
                 }
             }
@@ -115,7 +115,7 @@ private fun TopBar(state: UiState, vm: AppViewModel, view: PlateView?) {
                         selected = plate.index == state.activePlate,
                         onClick = {
                             if (plate.index == state.activePlate) plateMenu = plate.index
-                            else { vm.selectPlate(plate.index); view?.framePlate(plate.index) }
+                            else { vm.scene.selectPlate(plate.index); view?.framePlate(plate.index) }
                         },
                         label = { Text(stringResource(R.string.plate_n, plate.index + 1)) },
                         trailingIcon = if (plate.index == state.activePlate) { { Icon(Icons.Default.ExpandMore, null, Modifier.size(16.dp)) } } else null,
@@ -123,12 +123,12 @@ private fun TopBar(state: UiState, vm: AppViewModel, view: PlateView?) {
                     if (plateMenu == plate.index) PlateMenu(state, vm, plate.index) { plateMenu = null }
                 }
             }
-            AssistChip(onClick = vm::addPlate, label = { Text("+") })
+            AssistChip(onClick = vm.scene::addPlate, label = { Text("+") })
         }
         Surface(shape = RoundedCornerShape(20.dp), tonalElevation = 3.dp) {
             Row {
-                IconButton(onClick = vm::undo, enabled = state.scene.canUndo) { Icon(Icons.AutoMirrored.Filled.Undo, stringResource(R.string.undo)) }
-                IconButton(onClick = vm::redo, enabled = state.scene.canRedo) { Icon(Icons.AutoMirrored.Filled.Redo, stringResource(R.string.redo)) }
+                IconButton(onClick = vm.scene::undo, enabled = state.scene.canUndo) { Icon(Icons.AutoMirrored.Filled.Undo, stringResource(R.string.undo)) }
+                IconButton(onClick = vm.scene::redo, enabled = state.scene.canRedo) { Icon(Icons.AutoMirrored.Filled.Redo, stringResource(R.string.redo)) }
                 Box {
                     IconButton(onClick = { viewMenu = true }) { Icon(Icons.Default.Videocam, stringResource(R.string.view)) }
                     DropdownMenu(expanded = viewMenu, onDismissRequest = { viewMenu = false }) {
@@ -154,8 +154,8 @@ private fun PlateMenu(state: UiState, vm: AppViewModel, plate: Int, onDismiss: (
     var confirmDelete by remember { mutableStateOf(false) }
     var gcodes by remember { mutableStateOf(false) }
     DropdownMenu(expanded = true, onDismissRequest = onDismiss) {
-        DropdownMenuItem(text = { Text(stringResource(R.string.slice_plate)) }, onClick = { onDismiss(); vm.slice(plate) })
-        DropdownMenuItem(text = { Text(stringResource(R.string.arrange_plate)) }, onClick = { onDismiss(); vm.arrange(false) })
+        DropdownMenuItem(text = { Text(stringResource(R.string.slice_plate)) }, onClick = { onDismiss(); vm.slicing.slice(plate) })
+        DropdownMenuItem(text = { Text(stringResource(R.string.arrange_plate)) }, onClick = { onDismiss(); vm.scene.arrange(false) })
         if (state.supportsBedTypes) {
             val current = state.scene.plates.getOrNull(plate)?.bedType?.ifEmpty { null } ?: state.setup?.defaultBedType.orEmpty()
             DropdownMenuItem(text = { Text(stringResource(R.string.plate_type) + ": " + vm.translator.tr(current)) }, onClick = { bedPicker = true })
@@ -167,22 +167,22 @@ private fun PlateMenu(state: UiState, vm: AppViewModel, plate: Int, onDismiss: (
     if (bedPicker) {
         PickerDialog(stringResource(R.string.plate_type), state.scene.plates.getOrNull(plate)?.bedType,
             state.setup?.bedTypes.orEmpty().map { PickerItem(it, vm.translator.tr(it)) }, onDismiss = { bedPicker = false; onDismiss() }) {
-            bedPicker = false; onDismiss(); vm.setPlateBedType(plate, it)
+            bedPicker = false; onDismiss(); vm.scene.setPlateBedType(plate, it)
         }
     }
     if (confirmDelete) ConfirmDialog(stringResource(R.string.delete_plate), stringResource(R.string.delete_plate_text), stringResource(R.string.delete),
-        { vm.deletePlate(plate) }) { confirmDelete = false; onDismiss() }
+        { vm.scene.deletePlate(plate) }) { confirmDelete = false; onDismiss() }
     if (gcodes) LayerGcodeDialog(state, vm, plate) { gcodes = false; onDismiss() }
 }
 
 @Composable
 private fun ProjectMenu(state: UiState, vm: AppViewModel, open: Boolean, onDismiss: () -> Unit) {
-    val openProject = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { it?.let(vm::openProject) }
-    val saveProject = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("model/3mf")) { it?.let(vm::saveProject) }
-    val exportStl = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("model/stl")) { it?.let { u -> vm.exportStl(u, state.activePlate) } }
+    val openProject = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { it?.let(vm.files::openProject) }
+    val saveProject = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("model/3mf")) { it?.let(vm.files::saveProject) }
+    val exportStl = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("model/stl")) { it?.let { u -> vm.files.exportStl(u, state.activePlate) } }
     var confirmNew by remember { mutableStateOf(false) }
     DropdownMenu(expanded = open, onDismissRequest = onDismiss) {
-        DropdownMenuItem(text = { Text(stringResource(R.string.new_project)) }, onClick = { onDismiss(); if (state.projectDirty) confirmNew = true else vm.newProject() })
+        DropdownMenuItem(text = { Text(stringResource(R.string.new_project)) }, onClick = { onDismiss(); if (state.projectDirty) confirmNew = true else vm.files.newProject() })
         DropdownMenuItem(text = { Text(stringResource(R.string.open_project)) }, onClick = { onDismiss(); openProject.launch(arrayOf("*/*")) })
         DropdownMenuItem(text = { Text(stringResource(R.string.save_project)) }, onClick = { onDismiss(); saveProject.launch((state.projectName ?: "project") + ".3mf") },
             enabled = !state.scene.isEmpty)
@@ -192,12 +192,12 @@ private fun ProjectMenu(state: UiState, vm: AppViewModel, open: Boolean, onDismi
             HorizontalDivider()
             Text(stringResource(R.string.recent), Modifier.padding(horizontal = 12.dp, vertical = 4.dp), style = MaterialTheme.typography.labelMedium)
             state.recents.take(6).forEach { r ->
-                DropdownMenuItem(text = { Text(r.name, maxLines = 1) }, onClick = { onDismiss(); vm.openRecent(r) })
+                DropdownMenuItem(text = { Text(r.name, maxLines = 1) }, onClick = { onDismiss(); vm.files.openRecent(r) })
             }
         }
     }
     if (confirmNew) ConfirmDialog(stringResource(R.string.new_project), stringResource(R.string.discard_changes), stringResource(R.string.discard),
-        vm::newProject) { confirmNew = false }
+        vm.files::newProject) { confirmNew = false }
 }
 
 /** Context-dependent tool buttons: plate tools always, object tools once something is selected. */
@@ -214,15 +214,15 @@ private fun ToolButtons(state: UiState, vm: AppViewModel) {
         ToolButton(Icons.Default.Add, stringResource(R.string.add), active = false) { addMenu = true }
         AddMenu(state, vm, addMenu, onDismiss = { addMenu = false }, onDialog = { dialog = it })
     }
-    ToolButton(Icons.Default.AutoAwesomeMosaic, stringResource(R.string.arrange), enabled = !state.scene.isEmpty) { vm.arrange(false) }
-    ToolButton(Icons.Default._3dRotation, stringResource(R.string.auto_orient), enabled = !state.scene.isEmpty) { vm.autoOrient() }
+    ToolButton(Icons.Default.AutoAwesomeMosaic, stringResource(R.string.arrange), enabled = !state.scene.isEmpty) { vm.scene.arrange(false) }
+    ToolButton(Icons.Default._3dRotation, stringResource(R.string.auto_orient), enabled = !state.scene.isEmpty) { vm.scene.autoOrient() }
     if (selected) {
         ToolButton(Icons.Default.VerticalAlignBottom, stringResource(R.string.lay_on_face), active = state.tool == Tool.LayOnFace) {
-            vm.setTool(if (state.tool == Tool.LayOnFace) Tool.None else Tool.LayOnFace)
+            vm.scene.setTool(if (state.tool == Tool.LayOnFace) Tool.None else Tool.LayOnFace)
         }
         ToolButton(Icons.Default.ContentCut, stringResource(R.string.cut), active = state.tool is Tool.Cut) {
             val inst = state.selectedObject?.instances?.getOrNull(state.selection!!.instance)
-            vm.setTool(if (state.tool is Tool.Cut) Tool.None else Tool.Cut((inst?.let { it.min.z + it.size.z / 2 }) ?: 5f))
+            vm.scene.setTool(if (state.tool is Tool.Cut) Tool.None else Tool.Cut((inst?.let { it.min.z + it.size.z / 2 }) ?: 5f))
         }
         Box {
             ToolButton(Icons.Default.Brush, stringResource(R.string.paint), active = state.tool is Tool.Paint) { paintMenu = true }
@@ -233,39 +233,39 @@ private fun ToolButtons(state: UiState, vm: AppViewModel) {
                     Triple(R.string.paint_fuzzy, "fuzzy", 1),
                     Triple(R.string.paint_color, "color", 2),
                 ).forEach { (label, kind, state0) ->
-                    DropdownMenuItem(text = { Text(stringResource(label)) }, onClick = { paintMenu = false; vm.setTool(Tool.Paint(kind, state0, 3f)) })
+                    DropdownMenuItem(text = { Text(stringResource(label)) }, onClick = { paintMenu = false; vm.scene.setTool(Tool.Paint(kind, state0, 3f)) })
                 }
             }
         }
         ToolButton(Icons.Default.Layers, stringResource(R.string.variable_layer_height), active = state.tool == Tool.LayerHeight) {
-            vm.setTool(if (state.tool == Tool.LayerHeight) Tool.None else Tool.LayerHeight)
+            vm.scene.setTool(if (state.tool == Tool.LayerHeight) Tool.None else Tool.LayerHeight)
         }
-        ToolButton(Icons.Default.ContentCopy, stringResource(R.string.duplicate)) { vm.duplicate(1) }
-        ToolButton(Icons.Default.Delete, stringResource(R.string.delete)) { vm.deleteSelected() }
+        ToolButton(Icons.Default.ContentCopy, stringResource(R.string.duplicate)) { vm.scene.duplicate(1) }
+        ToolButton(Icons.Default.Delete, stringResource(R.string.delete)) { vm.scene.deleteSelected() }
         Box {
             ToolButton(Icons.Default.CallSplit, stringResource(R.string.split)) { splitMenu = true }
             DropdownMenu(expanded = splitMenu, onDismissRequest = { splitMenu = false }) {
-                DropdownMenuItem(text = { Text(stringResource(R.string.split_objects)) }, onClick = { splitMenu = false; vm.split(false) })
-                DropdownMenuItem(text = { Text(stringResource(R.string.split_parts)) }, onClick = { splitMenu = false; vm.split(true) })
+                DropdownMenuItem(text = { Text(stringResource(R.string.split_objects)) }, onClick = { splitMenu = false; vm.scene.split(false) })
+                DropdownMenuItem(text = { Text(stringResource(R.string.split_parts)) }, onClick = { splitMenu = false; vm.scene.split(true) })
             }
         }
         Box {
             ToolButton(Icons.Default.MoreVert, stringResource(R.string.more)) { moreMenu = true }
             DropdownMenu(expanded = moreMenu, onDismissRequest = { moreMenu = false }) {
-                DropdownMenuItem(text = { Text(stringResource(R.string.add_modifier)) }, onClick = { moreMenu = false; vm.addVolume(VolumeType.MODIFIER, "box") })
-                DropdownMenuItem(text = { Text(stringResource(R.string.add_support_blocker)) }, onClick = { moreMenu = false; vm.addVolume(VolumeType.SUPPORT_BLOCKER, "box") })
-                DropdownMenuItem(text = { Text(stringResource(R.string.add_support_enforcer)) }, onClick = { moreMenu = false; vm.addVolume(VolumeType.SUPPORT_ENFORCER, "box") })
-                DropdownMenuItem(text = { Text(stringResource(R.string.add_negative_volume)) }, onClick = { moreMenu = false; vm.addVolume(VolumeType.NEGATIVE, "box") })
+                DropdownMenuItem(text = { Text(stringResource(R.string.add_modifier)) }, onClick = { moreMenu = false; vm.scene.addVolume(VolumeType.MODIFIER, "box") })
+                DropdownMenuItem(text = { Text(stringResource(R.string.add_support_blocker)) }, onClick = { moreMenu = false; vm.scene.addVolume(VolumeType.SUPPORT_BLOCKER, "box") })
+                DropdownMenuItem(text = { Text(stringResource(R.string.add_support_enforcer)) }, onClick = { moreMenu = false; vm.scene.addVolume(VolumeType.SUPPORT_ENFORCER, "box") })
+                DropdownMenuItem(text = { Text(stringResource(R.string.add_negative_volume)) }, onClick = { moreMenu = false; vm.scene.addVolume(VolumeType.NEGATIVE, "box") })
                 HorizontalDivider()
                 DropdownMenuItem(text = { Text(stringResource(R.string.simplify)) }, onClick = { moreMenu = false; dialog = "simplify" })
-                DropdownMenuItem(text = { Text(stringResource(R.string.repair)) }, onClick = { moreMenu = false; vm.repair() })
-                DropdownMenuItem(text = { Text(stringResource(R.string.measure)) }, onClick = { moreMenu = false; vm.setTool(Tool.Measure) },
+                DropdownMenuItem(text = { Text(stringResource(R.string.repair)) }, onClick = { moreMenu = false; vm.scene.repair() })
+                DropdownMenuItem(text = { Text(stringResource(R.string.measure)) }, onClick = { moreMenu = false; vm.scene.setTool(Tool.Measure) },
                     leadingIcon = { Icon(Icons.Default.Straighten, null) })
             }
         }
     } else if (!state.scene.isEmpty) {
         ToolButton(Icons.Default.Straighten, stringResource(R.string.measure), active = state.tool == Tool.Measure) {
-            vm.setTool(if (state.tool == Tool.Measure) Tool.None else Tool.Measure)
+            vm.scene.setTool(if (state.tool == Tool.Measure) Tool.None else Tool.Measure)
         }
     }
     AddDialogs(state, vm, dialog) { dialog = null }
@@ -291,21 +291,21 @@ private fun SliceButton(state: UiState, vm: AppViewModel, modifier: Modifier) {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text("${running.text} · ${running.percent} %", style = MaterialTheme.typography.bodySmall, maxLines = 2)
                 LinearProgressIndicator(progress = { running.percent / 100f }, modifier = Modifier.fillMaxWidth())
-                OutlinedButton(onClick = vm::cancelSlice, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.cancel)) }
+                OutlinedButton(onClick = vm.slicing::cancelSlice, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.cancel)) }
             }
         }
     } else {
         var menu by remember { mutableStateOf(false) }
         Box(modifier) {
             ExtendedFloatingActionButton(
-                onClick = { if (!state.scene.isEmpty) vm.slice() },
+                onClick = { if (!state.scene.isEmpty) vm.slicing.slice() },
                 text = { Text(stringResource(if (state.scene.plates.size > 1) R.string.slice_plate_n else R.string.slice, state.activePlate + 1)) },
                 icon = { Icon(Icons.Default.Layers, null) },
             )
             if (state.scene.plates.size > 1) {
                 IconButton(onClick = { menu = true }, modifier = Modifier.align(Alignment.TopEnd).size(24.dp)) { Icon(Icons.Default.ExpandMore, null) }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                    DropdownMenuItem(text = { Text(stringResource(R.string.slice_all)) }, onClick = { menu = false; vm.sliceAll() })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.slice_all)) }, onClick = { menu = false; vm.slicing.sliceAll() })
                 }
             }
         }

@@ -98,7 +98,7 @@ fun PreviewPanel(state: UiState, vm: AppViewModel, wide: Boolean) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (result == null) {
             Text(stringResource(if (state.scene.isEmpty) R.string.no_objects_hint else R.string.not_sliced), style = MaterialTheme.typography.bodyMedium)
-            if (!state.scene.isEmpty) Button(onClick = { vm.slice(state.previewPlate) }, enabled = !state.isSlicing) {
+            if (!state.scene.isEmpty) Button(onClick = { vm.slicing.slice(state.previewPlate) }, enabled = !state.isSlicing) {
                 Text(stringResource(R.string.slice_plate_n, state.previewPlate + 1))
             }
             OutlinedButton(onClick = { vm.setScreen(Screen.PREPARE) }) { Text(stringResource(R.string.tab_prepare)) }
@@ -136,18 +136,18 @@ private fun Summary(state: UiState, vm: AppViewModel, r: SliceResult) {
 @Composable
 private fun Actions(state: UiState, vm: AppViewModel, r: SliceResult) {
     val context = LocalContext.current
-    val saveGcode = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/x.gcode")) { it?.let(vm::saveGcode) }
-    val save3mf = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("model/3mf")) { it?.let(vm::saveGcode3mf) }
+    val saveGcode = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/x.gcode")) { it?.let(vm.files::saveGcode) }
+    val save3mf = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("model/3mf")) { it?.let(vm.files::saveGcode3mf) }
     var menu by remember { mutableStateOf(false) }
     val connection = state.connection
     val upload = state.upload
 
     if (connection?.isConfigured == true && connection.type.canUpload) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { vm.upload(true) }, enabled = upload !is UploadState.Running, modifier = Modifier.weight(1f)) {
+            Button(onClick = { vm.device.upload(true) }, enabled = upload !is UploadState.Running, modifier = Modifier.weight(1f)) {
                 Icon(Icons.Default.PlayArrow, null); Text(stringResource(R.string.print))
             }
-            FilledTonalButton(onClick = { vm.upload(false) }, enabled = upload !is UploadState.Running, modifier = Modifier.weight(1f)) {
+            FilledTonalButton(onClick = { vm.device.upload(false) }, enabled = upload !is UploadState.Running, modifier = Modifier.weight(1f)) {
                 Icon(Icons.AutoMirrored.Filled.Send, null); Text(stringResource(R.string.send))
             }
         }
@@ -160,25 +160,25 @@ private fun Actions(state: UiState, vm: AppViewModel, r: SliceResult) {
         null -> {}
     }
     Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-        OutlinedButton(onClick = { saveGcode.launch(vm.gcodeFileName()) }) { Icon(Icons.Default.Save, null); Text(" G-code") }
+        OutlinedButton(onClick = { saveGcode.launch(vm.files.gcodeFileName()) }) { Icon(Icons.Default.Save, null); Text(" G-code") }
         IconButton(onClick = {
             val file = File(r.gcodeFile)
             val uri = FileProvider.getUriForFile(context, context.packageName + ".files", file)
             val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_STREAM, uri)
-                .putExtra(Intent.EXTRA_TITLE, vm.gcodeFileName()).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                .putExtra(Intent.EXTRA_TITLE, vm.files.gcodeFileName()).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             context.startActivity(Intent.createChooser(send, null))
         }) { Icon(Icons.Default.Share, stringResource(R.string.share)) }
-        IconButton(onClick = { vm.updatePreview { it.copy(showGcode = !it.showGcode) } }) {
+        IconButton(onClick = { vm.slicing.updatePreview { it.copy(showGcode = !it.showGcode) } }) {
             Icon(Icons.Default.Code, stringResource(R.string.show_gcode), tint = if (state.preview.showGcode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Box {
             IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, stringResource(R.string.more)) }
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                 if (!r.external) DropdownMenuItem(text = { Text(stringResource(R.string.save_gcode_3mf)) },
-                    onClick = { menu = false; save3mf.launch(vm.gcodeFileName().removeSuffix(".gcode") + ".gcode.3mf") })
+                    onClick = { menu = false; save3mf.launch(vm.files.gcodeFileName().removeSuffix(".gcode") + ".gcode.3mf") })
                 if (!r.external && state.scene.plates.size > 1)
-                    DropdownMenuItem(text = { Text(stringResource(R.string.slice_all)) }, onClick = { menu = false; vm.sliceAll() })
-                if (r.external) DropdownMenuItem(text = { Text(stringResource(R.string.close)) }, onClick = { menu = false; vm.closeExternal() })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.slice_all)) }, onClick = { menu = false; vm.slicing.sliceAll() })
+                if (r.external) DropdownMenuItem(text = { Text(stringResource(R.string.close)) }, onClick = { menu = false; vm.slicing.closeExternal() })
             }
         }
     }
@@ -193,7 +193,7 @@ private fun Legend(state: UiState, vm: AppViewModel, r: SliceResult) {
             val total = r.roles.sumOf { it.time.toDouble() }.coerceAtLeast(1.0)
             r.roles.sortedBy { it.role }.forEach { role ->
                 val hidden = p.hiddenRoles and (1 shl role.role) != 0
-                Row(Modifier.fillMaxWidth().clickable { vm.updatePreview { it.copy(hiddenRoles = it.hiddenRoles xor (1 shl role.role)) } }.padding(vertical = 2.dp),
+                Row(Modifier.fillMaxWidth().clickable { vm.slicing.updatePreview { it.copy(hiddenRoles = it.hiddenRoles xor (1 shl role.role)) } }.padding(vertical = 2.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Box(Modifier.size(14.dp).background(roleColor(role.role), RoundedCornerShape(3.dp)))
                     Text(vm.translator.tr(ROLE_NAMES.getOrElse(role.role) { "?" }), Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -218,9 +218,9 @@ private fun Legend(state: UiState, vm: AppViewModel, r: SliceResult) {
         }
     }
     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        FilterChip(p.showTravels, { vm.updatePreview { it.copy(showTravels = !it.showTravels) } }, label = { Text(stringResource(R.string.travels)) })
-        FilterChip(p.showRetracts, { vm.updatePreview { it.copy(showRetracts = !it.showRetracts) } }, label = { Text(stringResource(R.string.retractions)) })
-        FilterChip(p.showSeams, { vm.updatePreview { it.copy(showSeams = !it.showSeams) } }, label = { Text(stringResource(R.string.seams)) })
+        FilterChip(p.showTravels, { vm.slicing.updatePreview { it.copy(showTravels = !it.showTravels) } }, label = { Text(stringResource(R.string.travels)) })
+        FilterChip(p.showRetracts, { vm.slicing.updatePreview { it.copy(showRetracts = !it.showRetracts) } }, label = { Text(stringResource(R.string.retractions)) })
+        FilterChip(p.showSeams, { vm.slicing.updatePreview { it.copy(showSeams = !it.showSeams) } }, label = { Text(stringResource(R.string.seams)) })
     }
     if (r.travelTime > 0) LabeledValue(stringResource(R.string.travels), formatDuration(r.travelTime.toDouble()))
 }

@@ -36,7 +36,6 @@ import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import app.orcaandroid.core.ThemeMode
-import app.orcaandroid.core.printerKey
 import java.io.File
 import kotlinx.coroutines.launch
 
@@ -74,12 +73,12 @@ class MainActivity : ComponentActivity() {
         }
         if (uris.isNotEmpty()) lifecycleScope.launch {
             vm.awaitReady()
-            vm.openModels(uris)
+            vm.files.openModels(uris)
         }
 
         // Debug builds only: automated tests drive the app with intent extras, e.g.
-        // adb shell am start -n app.orcaandroid/.ui.MainActivity --esa orca.printers "Qidi Q1 Pro|0.4"
-        //     --es orca.model /data/data/app.orcaandroid/files/test/cube.stl --ez orca.slice true
+        // adb shell am start -n de.cl1x.orca_android.debug/app.orcaandroid.ui.MainActivity
+        //     --esa orca.printers "Qidi Q1 Pro|0.4" --es orca.model <path of a model> --ez orca.slice true
         if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE == 0) return
         val printers = intent.getStringArrayExtra("orca.printers")
         val model = intent.getStringExtra("orca.model")
@@ -89,11 +88,11 @@ class MainActivity : ComponentActivity() {
             if (printers != null) {
                 vm.state.value.let { if (it.phase == Phase.LOADING) kotlinx.coroutines.delay(500) }
                 while (vm.state.value.phase == Phase.LOADING || vm.state.value.vendors.isEmpty()) kotlinx.coroutines.delay(200)
-                vm.applyPrinterSelection(printers.toSet()).join()
+                vm.presets.applyPrinterSelection(printers.toSet()).join()
             }
             vm.awaitReady()
-            if (model != null) vm.openModels(listOf(Uri.fromFile(File(model))), append = false).join()
-            if (slice) vm.slice()
+            if (model != null) vm.files.openModels(listOf(Uri.fromFile(File(model))), append = false).join()
+            if (slice) vm.slicing.slice()
         }
     }
 
@@ -114,16 +113,16 @@ class MainActivity : ComponentActivity() {
     override fun onKeyShortcut(keyCode: Int, event: KeyEvent): Boolean {
         val s = vm.state.value
         when {
-            event.isCtrlPressed && keyCode == KeyEvent.KEYCODE_Z && event.isShiftPressed -> vm.redo()
-            event.isCtrlPressed && keyCode == KeyEvent.KEYCODE_Z -> vm.undo()
-            event.isCtrlPressed && keyCode == KeyEvent.KEYCODE_Y -> vm.redo()
-            event.isCtrlPressed && keyCode == KeyEvent.KEYCODE_R -> vm.slice()
-            event.isCtrlPressed && keyCode == KeyEvent.KEYCODE_A -> vm.arrange(allPlates = false)
+            event.isCtrlPressed && keyCode == KeyEvent.KEYCODE_Z && event.isShiftPressed -> vm.scene.redo()
+            event.isCtrlPressed && keyCode == KeyEvent.KEYCODE_Z -> vm.scene.undo()
+            event.isCtrlPressed && keyCode == KeyEvent.KEYCODE_Y -> vm.scene.redo()
+            event.isCtrlPressed && keyCode == KeyEvent.KEYCODE_R -> vm.slicing.slice()
+            event.isCtrlPressed && keyCode == KeyEvent.KEYCODE_A -> vm.scene.arrange(allPlates = false)
             event.isCtrlPressed && keyCode == KeyEvent.KEYCODE_1 -> vm.setScreen(Screen.PREPARE)
             event.isCtrlPressed && keyCode == KeyEvent.KEYCODE_2 -> vm.setScreen(Screen.PREVIEW)
             event.isCtrlPressed && keyCode == KeyEvent.KEYCODE_3 -> vm.setScreen(Screen.DEVICE)
-            event.isCtrlPressed && keyCode == KeyEvent.KEYCODE_N -> vm.newProject()
-            event.isCtrlPressed && keyCode == KeyEvent.KEYCODE_D && s.selection != null -> vm.duplicate(1)
+            event.isCtrlPressed && keyCode == KeyEvent.KEYCODE_N -> vm.files.newProject()
+            event.isCtrlPressed && keyCode == KeyEvent.KEYCODE_D && s.selection != null -> vm.scene.duplicate(1)
             else -> return super.onKeyShortcut(keyCode, event)
         }
         return true
@@ -133,19 +132,16 @@ class MainActivity : ComponentActivity() {
         val s = vm.state.value
         when (keyCode) {
             KeyEvent.KEYCODE_FORWARD_DEL, KeyEvent.KEYCODE_DEL -> if (s.selection != null && s.editor == null && s.screen == Screen.PREPARE) {
-                vm.deleteSelected(); return true
+                vm.scene.deleteSelected(); return true
             }
             KeyEvent.KEYCODE_ESCAPE -> if (s.tool != Tool.None || s.selection != null) {
-                vm.setTool(Tool.None); vm.select(null); return true
+                vm.scene.setTool(Tool.None); vm.scene.select(null); return true
             }
-            KeyEvent.KEYCODE_O -> if (s.selection != null && !event.isCtrlPressed) { vm.autoOrient(); return true }
-            KeyEvent.KEYCODE_F -> if (s.selection != null && !event.isCtrlPressed) { vm.setTool(Tool.LayOnFace); return true }
+            KeyEvent.KEYCODE_O -> if (s.selection != null && !event.isCtrlPressed) { vm.scene.autoOrient(); return true }
+            KeyEvent.KEYCODE_F -> if (s.selection != null && !event.isCtrlPressed) { vm.scene.setTool(Tool.LayOnFace); return true }
         }
         return super.onKeyDown(keyCode, event)
     }
-
-    @Suppress("unused")
-    private fun keysOf(model: String, nozzle: String) = printerKey(model, nozzle)
 }
 
 private val LightColors = lightColorScheme(

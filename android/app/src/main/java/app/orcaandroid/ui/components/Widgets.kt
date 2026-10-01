@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -205,6 +204,3 @@ fun LabeledValue(label: String, value: String, modifier: Modifier = Modifier) {
 fun SectionTitle(text: String, modifier: Modifier = Modifier) {
     Text(text, modifier.padding(top = 8.dp), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
 }
-
-@Suppress("unused")
-private val keepWidth = Modifier.width(1.dp)

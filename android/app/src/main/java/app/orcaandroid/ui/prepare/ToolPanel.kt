@@ -61,7 +61,7 @@ internal fun ToolPanel(state: UiState, vm: AppViewModel) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(toolTitle(tool), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
-                IconButton(onClick = { vm.setTool(Tool.None) }, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.Close, stringResource(R.string.close)) }
+                IconButton(onClick = { vm.scene.setTool(Tool.None) }, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.Close, stringResource(R.string.close)) }
             }
             when (tool) {
                 is Tool.Paint -> PaintOptions(state, vm, tool)
@@ -95,22 +95,22 @@ private fun PaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Paint) {
     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         if (tool.kind == "color") {
             state.filaments.forEachIndexed { i, f ->
-                FilterChip(tool.state == i + 1, { vm.setTool(tool.copy(state = i + 1)) }, label = { Text("${i + 1}") },
+                FilterChip(tool.state == i + 1, { vm.scene.setTool(tool.copy(state = i + 1)) }, label = { Text("${i + 1}") },
                     leadingIcon = { ColorDot(f.color) })
             }
         } else if (tool.kind != "fuzzy") {
-            FilterChip(tool.state == 1, { vm.setTool(tool.copy(state = 1)) }, label = { Text(stringResource(R.string.enforce)) })
-            FilterChip(tool.state == 2, { vm.setTool(tool.copy(state = 2)) }, label = { Text(stringResource(R.string.block)) })
+            FilterChip(tool.state == 1, { vm.scene.setTool(tool.copy(state = 1)) }, label = { Text(stringResource(R.string.enforce)) })
+            FilterChip(tool.state == 2, { vm.scene.setTool(tool.copy(state = 2)) }, label = { Text(stringResource(R.string.block)) })
         } else {
-            FilterChip(tool.state == 1, { vm.setTool(tool.copy(state = 1)) }, label = { Text(stringResource(R.string.paint)) })
+            FilterChip(tool.state == 1, { vm.scene.setTool(tool.copy(state = 1)) }, label = { Text(stringResource(R.string.paint)) })
         }
-        FilterChip(tool.state == 0, { vm.setTool(tool.copy(state = 0)) }, label = { Text(stringResource(R.string.erase)) })
+        FilterChip(tool.state == 0, { vm.scene.setTool(tool.copy(state = 0)) }, label = { Text(stringResource(R.string.erase)) })
     }
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(R.string.brush_size, tool.radius), style = MaterialTheme.typography.bodySmall)
-        Slider(tool.radius, { vm.setTool(tool.copy(radius = it)) }, valueRange = 0.5f..15f, modifier = Modifier.weight(1f).padding(start = 8.dp))
+        Slider(tool.radius, { vm.scene.setTool(tool.copy(radius = it)) }, valueRange = 0.5f..15f, modifier = Modifier.weight(1f).padding(start = 8.dp))
     }
-    TextButton(onClick = { vm.paintClear(tool.kind) }) { Text(stringResource(R.string.clear_painting)) }
+    TextButton(onClick = { vm.scene.paintClear(tool.kind) }) { Text(stringResource(R.string.clear_painting)) }
 }
 
 @Composable
@@ -128,7 +128,7 @@ private fun CutOptions(state: UiState, vm: AppViewModel, tool: Tool.Cut) {
     val lo = inst.min.z
     val hi = inst.min.z + inst.size.z
     Text("Z = %.2f mm".format(Locale.ROOT, tool.z), style = MaterialTheme.typography.bodyMedium)
-    Slider(tool.z.coerceIn(lo, hi), { vm.setTool(Tool.Cut(it)) }, valueRange = lo..hi)
+    Slider(tool.z.coerceIn(lo, hi), { vm.scene.setTool(Tool.Cut(it)) }, valueRange = lo..hi)
     Row(verticalAlignment = Alignment.CenterVertically) {
         Checkbox(keepUpper, { keepUpper = it }); Text(stringResource(R.string.keep_upper))
         Checkbox(keepLower, { keepLower = it }); Text(stringResource(R.string.keep_lower))
@@ -136,7 +136,7 @@ private fun CutOptions(state: UiState, vm: AppViewModel, tool: Tool.Cut) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Checkbox(flip, { flip = it }, enabled = keepUpper); Text(stringResource(R.string.flip_upper))
     }
-    FilledTonalButton(onClick = { vm.cut(tool.z, keepUpper, keepLower, flip) }, enabled = keepUpper || keepLower, modifier = Modifier.fillMaxWidth()) {
+    FilledTonalButton(onClick = { vm.scene.cut(tool.z, keepUpper, keepLower, flip) }, enabled = keepUpper || keepLower, modifier = Modifier.fillMaxWidth()) {
         Text(stringResource(R.string.perform_cut))
     }
 }
@@ -154,7 +154,7 @@ private fun MeasureOptions(state: UiState, vm: AppViewModel) {
                 style = MaterialTheme.typography.bodySmall)
         }
     }
-    if (pts.isNotEmpty()) TextButton(onClick = { vm.setTool(Tool.Measure) }) { Text(stringResource(R.string.reset)) }
+    if (pts.isNotEmpty()) TextButton(onClick = { vm.scene.setTool(Tool.Measure) }) { Text(stringResource(R.string.reset)) }
 }
 
 /**
@@ -180,7 +180,7 @@ private fun LayerHeightOptions(state: UiState, vm: AppViewModel) {
                 detectTapGestures { p ->
                     val z = (1f - p.y / size.height) * profile.height
                     val delta = if (p.x > size.width / 2) 0.02f else -0.02f
-                    vm.layerAdjust(z, delta, profile.height / 10f)
+                    vm.scene.layerAdjust(z, delta, profile.height / 10f)
                 }
             }
     ) {
@@ -208,8 +208,8 @@ private fun LayerHeightOptions(state: UiState, vm: AppViewModel) {
         Slider(quality, { quality = it }, Modifier.weight(1f).padding(horizontal = 8.dp))
     }
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        FilledTonalButton(onClick = { vm.layerAdaptive(quality) }) { Text(stringResource(R.string.adaptive)) }
-        OutlinedButton(onClick = { vm.layerSmooth(5, true) }) { Text(stringResource(R.string.smooth)) }
-        TextButton(onClick = vm::layerReset) { Text(stringResource(R.string.reset)) }
+        FilledTonalButton(onClick = { vm.scene.layerAdaptive(quality) }) { Text(stringResource(R.string.adaptive)) }
+        OutlinedButton(onClick = { vm.scene.layerSmooth(5, true) }) { Text(stringResource(R.string.smooth)) }
+        TextButton(onClick = vm.scene::layerReset) { Text(stringResource(R.string.reset)) }
     }
 }

@@ -1,3 +1,4 @@
+import java.util.Properties
 import javax.inject.Inject
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
@@ -17,7 +18,13 @@ val orcaCommit: String = providers.exec {
     isIgnoreExitValue = true
 }.standardOutput.asText.get().trim().ifEmpty { "unknown" }
 val sourceUrl: String = providers.gradleProperty("orca.sourceUrl")
-    .getOrElse("http://192.168.178.3:3002/daniel/OrcaSlicer-Android")
+    .getOrElse("https://github.com/cl1x/orca-android")
+
+// Release signing: android/key.properties (storeFile, storePassword, keyAlias, keyPassword), never
+// committed. Without it, release builds are signed with the debug key.
+val keystoreProperties = Properties().apply {
+    rootProject.file("key.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
+}
 
 android {
     namespace = "app.orcaandroid"
@@ -26,7 +33,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "app.orcaandroid"
+        applicationId = "de.cl1x.orca_android"
         minSdk = 29
         targetSdk = 36
         versionCode = 1
@@ -36,14 +43,27 @@ android {
         buildConfigField("String", "ORCA_VERSION", "\"$orcaVersion\"")
         buildConfigField("String", "ORCA_COMMIT", "\"$orcaCommit\"")
         buildConfigField("String", "SOURCE_URL", "\"$sourceUrl\"")
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    signingConfigs {
+        create("release") {
+            keystoreProperties.getProperty("storeFile")?.let { storeFile = rootProject.file(it) }
+            storePassword = keystoreProperties.getProperty("storePassword")
+            keyAlias = keystoreProperties.getProperty("keyAlias")
+            keyPassword = keystoreProperties.getProperty("keyPassword")
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // Signed with the debug key so a release build can be installed directly on the tablet.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName(if (keystoreProperties.isEmpty) "debug" else "release")
+        }
+        debug {
+            // Installs next to a release build.
+            applicationIdSuffix = ".debug"
         }
     }
 
@@ -147,4 +167,8 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.11.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.11.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
+
+    androidTestImplementation("androidx.test:runner:1.7.0")
+    androidTestImplementation("androidx.test.ext:junit:1.3.0")
+    androidTestImplementation("junit:junit:4.13.2")
 }

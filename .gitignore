@@ -4,3 +4,8 @@
 .stfolder/
 .stignore
 .claude/
+# Release outputs and signing secrets
+dist/
+android/key.properties
+*.jks
+*.keystore

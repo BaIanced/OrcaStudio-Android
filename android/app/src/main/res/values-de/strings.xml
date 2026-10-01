@@ -296,4 +296,8 @@
     <string name="web_ui_error">%s kann nicht geladen werden</string>
     <string name="retry">Erneut versuchen</string>
     <string name="local_network_hint">Die App darf nicht ins lokale Netzwerk. Erlaube \"Geräte in der Nähe / lokales Netzwerk\" für Orca-Android in den Android-App-Einstellungen.</string>
+    <string name="color_change_needs_filament">Für einen Farbwechsel ein zweites Filament hinzufügen: Der Wechsel schaltet auf dieses Filament um und führt den Filamentwechsel-G-Code des Druckers aus.</string>
+    <string name="damping">Dämpfung</string>
+    <string name="frequency_x">Frequenz X</string>
+    <string name="frequency_y">Frequenz Y</string>
 </resources>

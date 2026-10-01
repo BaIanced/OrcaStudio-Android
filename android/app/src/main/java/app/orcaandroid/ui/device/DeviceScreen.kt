@@ -80,7 +80,7 @@ fun DeviceScreen(state: UiState, vm: AppViewModel) {
     } else {
         LaunchedEffect(connection) {
             while (true) {
-                vm.refreshStatus()
+                vm.device.refreshStatus()
                 delay(5000)
             }
         }
@@ -112,7 +112,7 @@ private fun NotConnected(state: UiState, vm: AppViewModel, onSetup: () -> Unit) 
         Text(stringResource(R.string.no_connection_title), style = MaterialTheme.typography.titleLarge)
         Text(stringResource(R.string.no_connection_text, state.printer.orEmpty()), style = MaterialTheme.typography.bodyMedium)
         state.suggestedConnection?.let { s ->
-            Button(onClick = { vm.setConnection(s) }) { Text(stringResource(R.string.use_preset_host, s.url)) }
+            Button(onClick = { vm.device.setConnection(s) }) { Text(stringResource(R.string.use_preset_host, s.url)) }
         }
         OutlinedButton(onClick = onSetup) { Text(stringResource(R.string.set_up_connection)) }
     }
@@ -130,7 +130,7 @@ private fun StatusCard(state: UiState, vm: AppViewModel, connection: PrinterConn
                     Text(connection.type.label, style = MaterialTheme.typography.bodySmall, maxLines = 1)
                     Text(connection.url, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                IconButton(onClick = vm::refreshStatus) { Icon(Icons.Default.Refresh, stringResource(R.string.refresh)) }
+                IconButton(onClick = vm.device::refreshStatus) { Icon(Icons.Default.Refresh, stringResource(R.string.refresh)) }
                 IconButton(onClick = onEdit) { Icon(Icons.Default.Settings, stringResource(R.string.connection)) }
             }
             if (status == null) {
@@ -151,18 +151,18 @@ private fun StatusCard(state: UiState, vm: AppViewModel, connection: PrinterConn
                 if (status.isActive) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         if (status.state == PrinterStatus.State.PAUSED)
-                            FilledTonalIconButton(onClick = { vm.controlJob(PrintHost.JobAction.RESUME) }) { Icon(Icons.Default.PlayArrow, stringResource(R.string.resume)) }
+                            FilledTonalIconButton(onClick = { vm.device.controlJob(PrintHost.JobAction.RESUME) }) { Icon(Icons.Default.PlayArrow, stringResource(R.string.resume)) }
                         else
-                            FilledTonalIconButton(onClick = { vm.controlJob(PrintHost.JobAction.PAUSE) }) { Icon(Icons.Default.Pause, stringResource(R.string.pause)) }
+                            FilledTonalIconButton(onClick = { vm.device.controlJob(PrintHost.JobAction.PAUSE) }) { Icon(Icons.Default.Pause, stringResource(R.string.pause)) }
                         FilledTonalIconButton(onClick = { confirmCancel = true }) { Icon(Icons.Default.Cancel, stringResource(R.string.cancel_print)) }
-                        if (!compact) TextButton(onClick = vm::monitorPrinter) { Text(stringResource(R.string.notify_progress)) }
+                        if (!compact) TextButton(onClick = vm.device::monitorPrinter) { Text(stringResource(R.string.notify_progress)) }
                     }
                 }
             }
         }
     }
     if (confirmCancel) ConfirmDialog(stringResource(R.string.cancel_print), stringResource(R.string.cancel_print_text), stringResource(R.string.cancel_print),
-        { vm.controlJob(PrintHost.JobAction.CANCEL) }) { confirmCancel = false }
+        { vm.device.controlJob(PrintHost.JobAction.CANCEL) }) { confirmCancel = false }
 }
 
 @Composable
@@ -239,7 +239,7 @@ private fun ConnectionDialog(state: UiState, vm: AppViewModel, onDismiss: () -> 
     val current = PrinterConnection(type, url.trim(), apiKey.trim(), webUrl.trim(), serial.trim())
     val permissionHint = stringResource(R.string.local_network_hint)
 
-    DisposableEffect(Unit) { onDispose { vm.stopDiscovery() } }
+    DisposableEffect(Unit) { onDispose { vm.device.stopDiscovery() } }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -265,7 +265,7 @@ private fun ConnectionDialog(state: UiState, vm: AppViewModel, onDismiss: () -> 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.discovered_printers), Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
                     if (state.discovering) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                    else TextButton(onClick = vm::startDiscovery) { Text(stringResource(R.string.search)) }
+                    else TextButton(onClick = vm.device::startDiscovery) { Text(stringResource(R.string.search)) }
                 }
                 state.discovered.forEach { d ->
                     Text("${d.name} · ${d.type.label}\n${d.address}", style = MaterialTheme.typography.bodySmall,
@@ -282,7 +282,7 @@ private fun ConnectionDialog(state: UiState, vm: AppViewModel, onDismiss: () -> 
                     testing = true
                     testResult = null
                     scope.launch {
-                        testResult = runCatching { vm.testConnection(current) }.fold({ "✓ $it" }, { e ->
+                        testResult = runCatching { vm.device.testConnection(current) }.fold({ "✓ $it" }, { e ->
                             val msg = e.message ?: e.toString()
                             // Blocked local network access (Android 17 permission, work profile, VPN rules).
                             if (msg.contains("EPERM") || msg.contains("not permitted", true)) "✗ $msg\n$permissionHint" else "✗ $msg"
@@ -290,12 +290,12 @@ private fun ConnectionDialog(state: UiState, vm: AppViewModel, onDismiss: () -> 
                         testing = false
                     }
                 }, enabled = current.isConfigured && !testing) { Text(stringResource(R.string.test)) }
-                TextButton(onClick = { onDismiss(); vm.setConnection(current) }, enabled = current.isConfigured) { Text(stringResource(R.string.save)) }
+                TextButton(onClick = { onDismiss(); vm.device.setConnection(current) }, enabled = current.isConfigured) { Text(stringResource(R.string.save)) }
             }
         },
         dismissButton = {
             Row {
-                if (state.connection != null) TextButton(onClick = { onDismiss(); vm.setConnection(null) }) { Text(stringResource(R.string.remove)) }
+                if (state.connection != null) TextButton(onClick = { onDismiss(); vm.device.setConnection(null) }) { Text(stringResource(R.string.remove)) }
                 TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
             }
         },

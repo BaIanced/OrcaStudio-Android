@@ -63,7 +63,7 @@ fun PrinterSetupScreen(state: UiState, vm: AppViewModel) {
 
     fun countFor(v: Vendor) = v.models.sumOf { m -> m.nozzles.count { printerKey(m.name, it) in chosen } }
 
-    BackHandler(enabled = canCancel || current != null) { if (current != null) current = null else vm.closePrinterSetup() }
+    BackHandler(enabled = canCancel || current != null) { if (current != null) current = null else vm.presets.closePrinterSetup() }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wide = maxWidth >= WIDE_LAYOUT
@@ -123,8 +123,8 @@ fun PrinterSetupScreen(state: UiState, vm: AppViewModel) {
                 modelList(vendor, Modifier.weight(1f).fillMaxWidth())
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically) {
-                if (canCancel) TextButton(onClick = vm::closePrinterSetup) { Text(stringResource(R.string.cancel)) }
-                Button(onClick = { vm.applyPrinterSelection(chosen) }, enabled = chosen.isNotEmpty()) {
+                if (canCancel) TextButton(onClick = vm.presets::closePrinterSetup) { Text(stringResource(R.string.cancel)) }
+                Button(onClick = { vm.presets.applyPrinterSelection(chosen) }, enabled = chosen.isNotEmpty()) {
                     Text(stringResource(R.string.apply_n_printers, chosen.size))
                 }
             }

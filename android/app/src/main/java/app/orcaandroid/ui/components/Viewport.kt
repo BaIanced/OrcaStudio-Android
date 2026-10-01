@@ -77,15 +77,15 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                 v.listener = object : PlateListener {
                     override fun onTap(x: Float, y: Float) {
                         val (o, d) = v.camera.ray(x, y)
-                        vm.onViewTap(o, d)
+                        vm.scene.onViewTap(o, d)
                     }
                     override fun onMoved(dx: Float, dy: Float) {
                         v.onGl { dragOffset = floatArrayOf(0f, 0f, 0f) }
-                        vm.moveSelected(dx, dy)
+                        vm.scene.moveSelected(dx, dy)
                     }
                     override fun onPaint(x: Float, y: Float, newStroke: Boolean) {
                         val (o, d) = v.camera.ray(x, y)
-                        vm.paintAt(o, d, v.camera.eye(), newStroke)
+                        vm.scene.paintAt(o, d, v.camera.eye(), newStroke)
                     }
                 }
                 view = v

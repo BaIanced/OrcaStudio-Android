@@ -94,32 +94,32 @@ private class EditSource(
 @Composable
 fun SettingsEditor(state: UiState, vm: AppViewModel) {
     val target = state.editor ?: return
-    androidx.activity.compose.BackHandler(onBack = vm::closeEditor)
+    androidx.activity.compose.BackHandler(onBack = vm.presets::closeEditor)
     when (target) {
         is EditorTarget.Preset -> PresetEditor(state, vm, target.type)
         is EditorTarget.Object -> {
-            val o = state.scene.objects.getOrNull(target.obj) ?: run { LaunchedEffect(Unit) { vm.closeEditor() }; return }
+            val o = state.scene.objects.getOrNull(target.obj) ?: run { LaunchedEffect(Unit) { vm.presets.closeEditor() }; return }
             val settings = if (target.volume >= 0) o.volumes.getOrNull(target.volume)?.settings.orEmpty() else o.settings
             val title = if (target.volume >= 0) o.volumes.getOrNull(target.volume)?.name.orEmpty() else o.name
             val source = EditSource(
                 PresetType.PRINT,
                 value = { k -> settings[k] ?: state.value(PresetType.PRINT, k) },
                 isModified = { k -> settings.containsKey(k) },
-                set = { k, v -> vm.setObjectSetting(target.obj, target.volume, k, v) },
-                reset = { k -> vm.setObjectSetting(target.obj, target.volume, k, null) },
+                set = { k, v -> vm.scene.setObjectSetting(target.obj, target.volume, k, v) },
+                reset = { k -> vm.scene.setObjectSetting(target.obj, target.volume, k, null) },
                 modifiedCount = settings.size,
             )
             EditorFrame(vm, state, stringResource(R.string.object_settings_title), title, source, objectMode = true)
         }
         is EditorTarget.Range -> {
             val o = state.scene.objects.getOrNull(target.obj)
-            val r = o?.layerRanges?.getOrNull(target.range) ?: run { LaunchedEffect(Unit) { vm.closeEditor() }; return }
+            val r = o?.layerRanges?.getOrNull(target.range) ?: run { LaunchedEffect(Unit) { vm.presets.closeEditor() }; return }
             val source = EditSource(
                 PresetType.PRINT,
                 value = { k -> r.settings[k] ?: o.settings[k] ?: state.value(PresetType.PRINT, k) },
                 isModified = { k -> r.settings.containsKey(k) },
-                set = { k, v -> vm.setRangeSetting(target.obj, target.range, k, v) },
-                reset = { k -> vm.setRangeSetting(target.obj, target.range, k, null) },
+                set = { k, v -> vm.scene.setRangeSetting(target.obj, target.range, k, v) },
+                reset = { k -> vm.scene.setRangeSetting(target.obj, target.range, k, null) },
                 modifiedCount = r.settings.size,
             )
             EditorFrame(vm, state, stringResource(R.string.range_settings_title), "${o.name} · %.2f–%.2f mm".format(java.util.Locale.ROOT, r.from, r.to),
@@ -137,13 +137,13 @@ private fun PresetEditor(state: UiState, vm: AppViewModel, type: PresetType) {
     var confirmDelete by remember { mutableStateOf(false) }
     var comparePick by remember { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
-    val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { it?.let { u -> vm.exportPreset(type, u) } }
+    val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { it?.let { u -> vm.presets.exportPreset(type, u) } }
     val source = EditSource(
         type,
         value = { k -> state.value(type, k) },
         isModified = { k -> state.isModified(type, k) },
-        set = { k, v -> vm.setOption(type, k, v) },
-        reset = { k -> vm.resetOption(type, k) },
+        set = { k, v -> vm.presets.setOption(type, k, v) },
+        reset = { k -> vm.presets.resetOption(type, k) },
         modifiedCount = state.overridesOf(type).size,
     )
     val name = state.presetName(type).orEmpty()
@@ -151,13 +151,13 @@ private fun PresetEditor(state: UiState, vm: AppViewModel, type: PresetType) {
         tabs = {
             PrimaryTabRow(selectedTabIndex = type.ordinal) {
                 PresetType.entries.forEach { t ->
-                    Tab(t == type, { vm.openEditor(EditorTarget.Preset(t)) }, text = { Text(stringResource(TYPE_TITLES.getValue(t))) })
+                    Tab(t == type, { vm.presets.openEditor(EditorTarget.Preset(t)) }, text = { Text(stringResource(TYPE_TITLES.getValue(t))) })
                 }
             }
             if (type == PresetType.FILAMENT && state.filaments.size > 1) {
                 Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     state.filaments.forEachIndexed { i, f ->
-                        FilterChip(i == state.activeFilament, { vm.setActiveFilament(i) }, label = { Text("${i + 1}") }, leadingIcon = { ColorDot(f.color) })
+                        FilterChip(i == state.activeFilament, { vm.presets.setActiveFilament(i) }, label = { Text("${i + 1}") }, leadingIcon = { ColorDot(f.color) })
                     }
                 }
             }
@@ -167,18 +167,18 @@ private fun PresetEditor(state: UiState, vm: AppViewModel, type: PresetType) {
             Box {
                 IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, stringResource(R.string.more)) }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                    if (source.modifiedCount > 0) DropdownMenuItem(text = { Text(stringResource(R.string.reset_all)) }, onClick = { menu = false; vm.resetAll(type) })
+                    if (source.modifiedCount > 0) DropdownMenuItem(text = { Text(stringResource(R.string.reset_all)) }, onClick = { menu = false; vm.presets.resetAll(type) })
                     DropdownMenuItem(text = { Text(stringResource(R.string.compare_with)) }, onClick = { menu = false; comparePick = true })
                     DropdownMenuItem(text = { Text(stringResource(R.string.export_preset)) }, onClick = { menu = false; export.launch("$name.json") })
-                    if (vm.isUserPreset(type)) DropdownMenuItem(text = { Text(stringResource(R.string.delete_preset)) }, onClick = { menu = false; confirmDelete = true })
+                    if (vm.presets.isUserPreset(type)) DropdownMenuItem(text = { Text(stringResource(R.string.delete_preset)) }, onClick = { menu = false; confirmDelete = true })
                 }
             }
         })
 
     if (saveDialog) TextInputDialog(stringResource(R.string.save_preset_title), suggestUserName(name), stringResource(R.string.name),
-        { vm.savePresetAs(type, it) }) { saveDialog = false }
+        { vm.presets.savePresetAs(type, it) }) { saveDialog = false }
     if (confirmDelete) ConfirmDialog(stringResource(R.string.delete_preset), stringResource(R.string.delete_preset_text, name), stringResource(R.string.delete),
-        { vm.deleteSelectedPreset(type) }) { confirmDelete = false }
+        { vm.presets.deleteSelectedPreset(type) }) { confirmDelete = false }
     if (comparePick) {
         val items = when (type) {
             PresetType.PRINT -> state.setup?.prints.orEmpty().map { PickerItem(it.name, it.name, it.vendor) }
@@ -187,7 +187,7 @@ private fun PresetEditor(state: UiState, vm: AppViewModel, type: PresetType) {
         }.filter { it.id != name }
         PickerDialog(stringResource(R.string.compare_with), null, items, onDismiss = { comparePick = false }) {
             comparePick = false
-            vm.openEditor(EditorTarget.Compare(type, name, it))
+            vm.presets.openEditor(EditorTarget.Compare(type, name, it))
         }
     }
 }
@@ -207,10 +207,10 @@ private fun EditorFrame(
     val tr = vm.translator
     var defs by remember(type) { mutableStateOf<Map<String, OptionDef>>(emptyMap()) }
     LaunchedEffect(type) {
-        runCatching { vm.optionDefs(type) }.onSuccess { list -> defs = list.associateBy { it.key } }
+        runCatching { vm.presets.optionDefs(type) }.onSuccess { list -> defs = list.associateBy { it.key } }
             .onFailure { vm.showError(it.message ?: it.toString()) }
     }
-    val pages = remember(type, defs) { if (defs.isEmpty()) emptyList() else buildPages(vm.settingsLayout(type), defs) }
+    val pages = remember(type, defs) { if (defs.isEmpty()) emptyList() else buildPages(vm.presets.settingsLayout(type), defs) }
     var mode by rememberSaveable { mutableIntStateOf(1) }
     var query by remember(type) { mutableStateOf("") }
     var searching by remember { mutableStateOf(false) }
@@ -222,7 +222,7 @@ private fun EditorFrame(
         val wide = maxWidth >= WIDE_LAYOUT
         Column(Modifier.fillMaxSize()) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = vm::closeEditor) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back)) }
+                IconButton(onClick = vm.presets::closeEditor) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back)) }
                 Column(Modifier.weight(1f)) {
                     Text(title, style = MaterialTheme.typography.titleMedium)
                     Text(subtitle + if (source.modifiedCount > 0) "  ·  " + stringResource(R.string.n_modified, source.modifiedCount) else "",
@@ -501,9 +501,9 @@ private fun CompareView(vm: AppViewModel, target: EditorTarget.Compare) {
     var right by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     LaunchedEffect(target) {
         runCatching {
-            defs = vm.optionDefs(target.type).associateBy { it.key }
-            left = vm.presetValuesOf(target.type, target.left)
-            right = vm.presetValuesOf(target.type, target.right)
+            defs = vm.presets.optionDefs(target.type).associateBy { it.key }
+            left = vm.presets.presetValuesOf(target.type, target.left)
+            right = vm.presets.presetValuesOf(target.type, target.right)
         }.onFailure { vm.showError(it.message ?: it.toString()) }
     }
     val diff = remember(left, right) {
@@ -511,7 +511,7 @@ private fun CompareView(vm: AppViewModel, target: EditorTarget.Compare) {
     }
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = vm::closeEditor) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back)) }
+            IconButton(onClick = vm.presets::closeEditor) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back)) }
             Text(stringResource(R.string.compare_presets) + " · " + stringResource(R.string.n_differences, diff.size), style = MaterialTheme.typography.titleMedium)
         }
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {

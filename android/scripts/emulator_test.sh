@@ -10,7 +10,7 @@ shot=${2:-/tmp/orca-test.png}
 wait=${3:-120}
 root=${ORCA_BUILD_ROOT:-$HOME/build/orca-android}
 adb="${ADB:-$HOME/Android/Sdk/platform-tools/adb} ${ADB_SERIAL:+-s $ADB_SERIAL}"
-pkg=app.orcaandroid
+pkg=${ORCA_PACKAGE:-de.cl1x.orca_android.debug}
 
 $adb install -r "$root"/gradle/app/outputs/apk/debug/app-debug.apk >/dev/null
 name=$(basename "$model")
@@ -20,7 +20,7 @@ $adb logcat -c
 $adb shell am force-stop $pkg
 extra=()
 [ -n "${ORCA_PRINTERS:-}" ] && extra=(--esa orca.printers "'${ORCA_PRINTERS// /\ }'")
-$adb shell am start -n $pkg/.ui.MainActivity --es orca.model "/data/data/$pkg/files/test/$name" --ez orca.slice true "${extra[@]}" >/dev/null
+$adb shell am start -n $pkg/app.orcaandroid.ui.MainActivity --es orca.model "/data/data/$pkg/files/test/$name" --ez orca.slice true "${extra[@]}" >/dev/null
 sleep "$wait"
 $adb exec-out screencap -p > "$shot"
 $adb logcat -d | grep -E " Orca|OrcaCore|AndroidRuntime|FATAL|DEBUG   " | tail -20 || true

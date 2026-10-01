@@ -60,13 +60,13 @@ fun PreviewOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
             horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 if (state.external != null) {
-                    AssistChip(onClick = vm::closeExternal, label = { Text(File(state.external.gcodeFile).name, maxLines = 1) },
+                    AssistChip(onClick = vm.slicing::closeExternal, label = { Text(File(state.external.gcodeFile).name, maxLines = 1) },
                         trailingIcon = { Icon(Icons.Default.Close, stringResource(R.string.close), Modifier.size(16.dp)) })
                 } else if (state.scene.plates.size > 1) {
                     state.scene.plates.forEach { p ->
                         FilterChip(
                             selected = p.index == state.previewPlate,
-                            onClick = { vm.setPreviewPlate(p.index); view?.framePlate(p.index) },
+                            onClick = { vm.slicing.setPreviewPlate(p.index); view?.framePlate(p.index) },
                             label = { Text(stringResource(R.string.plate_n, p.index + 1) + if (state.results.containsKey(p.index)) " ✓" else "") },
                         )
                     }
@@ -92,7 +92,7 @@ private fun SchemeButton(state: UiState, vm: AppViewModel) {
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             SCHEMES.forEachIndexed { i, label ->
-                DropdownMenuItem(text = { Text(stringResource(label)) }, onClick = { open = false; vm.updatePreview { it.copy(scheme = i) } })
+                DropdownMenuItem(text = { Text(stringResource(label)) }, onClick = { open = false; vm.slicing.updatePreview { it.copy(scheme = i) } })
             }
         }
     }
@@ -115,24 +115,24 @@ private fun LayerSliders(state: UiState, vm: AppViewModel, modifier: Modifier) {
                     stringResource(R.string.layer_of, hi + 1, layers.size) + "  ·  %.2f mm".format(Locale.ROOT, layers[hi].z),
                     Modifier.weight(1f), style = MaterialTheme.typography.labelLarge,
                 )
-                IconButton(onClick = { vm.updatePreview { it.copy(layerHigh = (hi - 1).coerceAtLeast(lo), moveEnd = null) } }, Modifier.size(36.dp)) {
+                IconButton(onClick = { vm.slicing.updatePreview { it.copy(layerHigh = (hi - 1).coerceAtLeast(lo), moveEnd = null) } }, Modifier.size(36.dp)) {
                     Icon(Icons.Default.KeyboardArrowDown, stringResource(R.string.layer_down))
                 }
-                IconButton(onClick = { vm.updatePreview { it.copy(layerHigh = (hi + 1).coerceAtMost(last), moveEnd = null) } }, Modifier.size(36.dp)) {
+                IconButton(onClick = { vm.slicing.updatePreview { it.copy(layerHigh = (hi + 1).coerceAtMost(last), moveEnd = null) } }, Modifier.size(36.dp)) {
                     Icon(Icons.Default.KeyboardArrowUp, stringResource(R.string.layer_up))
                 }
             }
             if (last > 0) {
                 RangeSlider(
                     value = lo.toFloat()..hi.toFloat(),
-                    onValueChange = { r -> vm.updatePreview { it.copy(layerLow = r.start.toInt(), layerHigh = r.endInclusive.toInt(), moveEnd = null) } },
+                    onValueChange = { r -> vm.slicing.updatePreview { it.copy(layerLow = r.start.toInt(), layerHigh = r.endInclusive.toInt(), moveEnd = null) } },
                     valueRange = 0f..last.toFloat(),
                 )
             }
             if (movesInLayer > 1) {
                 Slider(
                     value = (p.moveEnd ?: movesInLayer).toFloat(),
-                    onValueChange = { v -> vm.updatePreview { it.copy(moveEnd = v.toInt().takeIf { m -> m < movesInLayer }) } },
+                    onValueChange = { v -> vm.slicing.updatePreview { it.copy(moveEnd = v.toInt().takeIf { m -> m < movesInLayer }) } },
                     valueRange = 1f..movesInLayer.toFloat(),
                 )
             }

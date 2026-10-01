@@ -1,5 +1,7 @@
 # Upstream OrcaSlicer base
 
+Background on how the port uses these sources: [docs/porting-notes.md](../docs/porting-notes.md).
+
 This Android port builds the unmodified OrcaSlicer sources in `../src-orca`.
 
 | | |
@@ -28,6 +30,8 @@ This Android port builds the unmodified OrcaSlicer sources in `../src-orca`.
    - `resources/profiles`, `localization/i18n` – packed into the app by `scripts/pack_resources.py`.
 3. Rebuild with `android/scripts/build.sh` (a changed dependency recipe requires deleting
    `~/build/orca-android/deps`).
+4. Run the test suite on a device or emulator (`./gradlew connectedDebugAndroidTest`); it slices
+   the option matrix, the calibration tests and the scene tools against the new core.
 
 Workarounds that exist because of upstream structure (re-check them on every update):
 
