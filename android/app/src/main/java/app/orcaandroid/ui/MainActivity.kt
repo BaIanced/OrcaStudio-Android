@@ -130,10 +130,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         val s = vm.state.value
-        when (keyCode) {
-            KeyEvent.KEYCODE_FORWARD_DEL, KeyEvent.KEYCODE_DEL -> if (s.selection != null && s.editor == null && s.screen == Screen.PREPARE) {
-                vm.scene.deleteSelected(); return true
-            }
+        // Single-key shortcuts act on the 3D view only, not while a settings editor is open.
+        if (s.editor == null && s.screen == Screen.PREPARE) when (keyCode) {
+            KeyEvent.KEYCODE_FORWARD_DEL, KeyEvent.KEYCODE_DEL -> if (s.selection != null) { vm.scene.deleteSelected(); return true }
             KeyEvent.KEYCODE_ESCAPE -> if (s.tool != Tool.None || s.selection != null) {
                 vm.scene.setTool(Tool.None); vm.scene.select(null); return true
             }

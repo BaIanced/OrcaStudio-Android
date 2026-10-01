@@ -129,6 +129,11 @@ These are not stored in presets; the desktop's GUI supplies them, so a port has 
   commits its value on focus loss must remember whether it ever had the focus – otherwise every
   number field writes its rounded display value back when it appears, which here changed the scene
   and threw away every slice result.
+- **Objects carry `extruder` in their config.** The filament assignment is stored like a setting
+  override (`ModelObject::config`), so counting an object's "changed settings" has to leave it out,
+  as the desktop's object list does.
+- **Engine errors are translatable.** libslic3r throws messages wrapped in `_u8L`, which only mark
+  them for translation; the app looks the text up in OrcaSlicer's catalog before showing it.
 - **Android 17 requires `ACCESS_LOCAL_NETWORK`** to reach devices in the local network (printers);
   the app declares and requests it. The browser has it already, so "works in the browser, not in
   the app" points here.

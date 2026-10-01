@@ -132,7 +132,11 @@ class PresetController(private val store: Store, private val device: DeviceContr
         store.update { it.copy(editor = target) }
     }
 
-    fun closeEditor() = store.update { it.copy(editor = null) }
+    /** Back from a comparison returns to the preset it was opened from; everything else closes the editor. */
+    fun closeEditor() = store.update { s ->
+        val e = s.editor
+        s.copy(editor = if (e is EditorTarget.Compare) EditorTarget.Preset(e.type) else null)
+    }
 
     suspend fun optionDefs(type: PresetType): List<OptionDef> = engine.optionDefs(type)
 

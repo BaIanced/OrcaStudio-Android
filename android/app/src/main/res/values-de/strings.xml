@@ -75,7 +75,7 @@
     <string name="discard_changes">Ungespeicherte Änderungen am aktuellen Projekt verwerfen?</string>
     <string name="discovered_printers">Drucker im Netzwerk</string>
     <string name="duplicate">Duplizieren</string>
-    <string name="dynamic_color">Hintergrundfarben verwenden</string>
+    <string name="dynamic_color">Farben des Hintergrundbilds verwenden</string>
     <string name="edit">Bearbeiten</string>
     <string name="empty">(leer)</string>
     <string name="end_calibration">Beenden</string>
@@ -265,7 +265,7 @@
     <string name="tab_prepare">Vorbereiten</string>
     <string name="tab_preview">Vorschau</string>
     <string name="tab_print_settings">Druck</string>
-    <string name="test">Testen</string>
+    <string name="test">Test</string>
     <string name="test_tab">Test</string>
     <string name="text">Text</string>
     <string name="text_height">Höhe</string>

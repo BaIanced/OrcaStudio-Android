@@ -58,6 +58,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
@@ -67,6 +69,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.orcaandroid.R
 import app.orcaandroid.core.OptionDef
+import app.orcaandroid.core.overrides
 import app.orcaandroid.core.PresetType
 import app.orcaandroid.core.SettingsGroup
 import app.orcaandroid.core.SettingsPage
@@ -99,7 +102,7 @@ fun SettingsEditor(state: UiState, vm: AppViewModel) {
         is EditorTarget.Preset -> PresetEditor(state, vm, target.type)
         is EditorTarget.Object -> {
             val o = state.scene.objects.getOrNull(target.obj) ?: run { LaunchedEffect(Unit) { vm.presets.closeEditor() }; return }
-            val settings = if (target.volume >= 0) o.volumes.getOrNull(target.volume)?.settings.orEmpty() else o.settings
+            val settings = (if (target.volume >= 0) o.volumes.getOrNull(target.volume)?.settings.orEmpty() else o.settings).overrides
             val title = if (target.volume >= 0) o.volumes.getOrNull(target.volume)?.name.orEmpty() else o.name
             val source = EditSource(
                 PresetType.PRINT,
@@ -117,10 +120,10 @@ fun SettingsEditor(state: UiState, vm: AppViewModel) {
             val source = EditSource(
                 PresetType.PRINT,
                 value = { k -> r.settings[k] ?: o.settings[k] ?: state.value(PresetType.PRINT, k) },
-                isModified = { k -> r.settings.containsKey(k) },
+                isModified = { k -> k in r.settings.overrides },
                 set = { k, v -> vm.scene.setRangeSetting(target.obj, target.range, k, v) },
                 reset = { k -> vm.scene.setRangeSetting(target.obj, target.range, k, null) },
-                modifiedCount = r.settings.size,
+                modifiedCount = r.settings.overrides.size,
             )
             EditorFrame(vm, state, stringResource(R.string.range_settings_title), "${o.name} · %.2f–%.2f mm".format(java.util.Locale.ROOT, r.from, r.to),
                 source, objectMode = true)
@@ -233,8 +236,10 @@ private fun EditorFrame(
             }
             tabs()
             if (searching) {
+                val focus = remember { FocusRequester() }
                 OutlinedTextField(query, { query = it }, placeholder = { Text(stringResource(R.string.search_setting)) }, singleLine = true,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp))
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).focusRequester(focus))
+                LaunchedEffect(Unit) { focus.requestFocus() }
             }
             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -389,7 +394,7 @@ private fun OptionEditor(def: OptionDef, value: String, enabled: Boolean, tr: Tr
         def.baseType == "bool" && single -> Switch(checked = value == "1", onCheckedChange = { onChange(if (it) "1" else "0") }, enabled = enabled)
         def.enumValues.isNotEmpty() && single -> EnumEditor(def, value, enabled, tr, onChange)
         def.isCode || def.multiline -> CodeEditor(tr.tr(def.label), value, enabled, onChange)
-        else -> TextEditor(def, value, enabled, onChange)
+        else -> TextEditor(def, value, enabled, tr, onChange)
     }
 }
 
@@ -412,7 +417,7 @@ private fun EnumEditor(def: OptionDef, value: String, enabled: Boolean, tr: Tran
 
 /** Text field that commits on "done" or when focus leaves, so each keystroke does not trigger work. */
 @Composable
-private fun TextEditor(def: OptionDef, value: String, enabled: Boolean, onChange: (String) -> Unit) {
+private fun TextEditor(def: OptionDef, value: String, enabled: Boolean, tr: Translator, onChange: (String) -> Unit) {
     var text by remember(value) { mutableStateOf(value) }
     val numeric = def.baseType in setOf("int", "float", "percent", "float_or_percent")
     var focused by remember { mutableStateOf(false) }
@@ -422,7 +427,7 @@ private fun TextEditor(def: OptionDef, value: String, enabled: Boolean, onChange
         onValueChange = { text = it },
         singleLine = true,
         enabled = enabled,
-        suffix = if (def.sidetext.isNotEmpty() && !def.sidetext.startsWith("%")) { { Text(def.sidetext, maxLines = 1) } } else null,
+        suffix = if (def.sidetext.isNotEmpty() && !def.sidetext.startsWith("%")) { { Text(tr.tr(def.sidetext), maxLines = 1) } } else null,
         isError = numeric && !isValidNumber(def, text.trim()),
         keyboardOptions = KeyboardOptions(
             keyboardType = if (numeric && !def.isVector) KeyboardType.Decimal else KeyboardType.Text,

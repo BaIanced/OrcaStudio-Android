@@ -47,6 +47,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.orcaandroid.R
 import app.orcaandroid.core.LayerRange
+import app.orcaandroid.core.overrides
 import app.orcaandroid.core.PresetType
 import app.orcaandroid.core.Vec3
 import app.orcaandroid.core.VolumeType
@@ -230,7 +231,7 @@ private fun ObjectsTab(state: UiState, vm: AppViewModel) {
                         val plates = o.instances.map { it.plate }.distinct().joinToString { if (it < 0) "–" else "${it + 1}" }
                         Text(stringResource(R.string.object_info, o.instances.size, plates, o.triangles), style = MaterialTheme.typography.bodySmall)
                     }
-                    if (o.settings.isNotEmpty()) Icon(Icons.Default.Tune, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.tertiary)
+                    if (o.settings.overrides.isNotEmpty()) Icon(Icons.Default.Tune, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.tertiary)
                 }
                 if (selected) ObjectDetails(state, vm, o.index)
             }
@@ -272,7 +273,7 @@ private fun ObjectDetails(state: UiState, vm: AppViewModel, objIndex: Int) {
                 { vm.scene.setObjectSetting(objIndex, -1, "extruder", it) })
         }
         FilledTonalButton(onClick = { vm.presets.openEditor(EditorTarget.Object(objIndex)) }, modifier = Modifier.fillMaxWidth()) {
-            Icon(Icons.Default.Tune, null); Text(" " + stringResource(R.string.object_settings, o.settings.size))
+            Icon(Icons.Default.Tune, null); Text(" " + stringResource(R.string.object_settings, o.settings.overrides.size))
         }
 
         if (o.volumes.size > 1) {

@@ -122,6 +122,9 @@ data class Volume(val index: Int, val name: String, val type: VolumeType, val se
 
 data class LayerRange(val from: Float, val to: Float, val settings: Map<String, String>)
 
+/** Settings an object, part or range overrides, without the filament assignment (`extruder`), which has its own picker. */
+val Map<String, String>.overrides: Map<String, String> get() = filterKeys { it != "extruder" }
+
 data class SceneObject(
     val index: Int,
     val name: String,

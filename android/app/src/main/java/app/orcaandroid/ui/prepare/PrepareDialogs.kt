@@ -176,20 +176,34 @@ private fun SimplifyDialog(state: UiState, vm: AppViewModel, onDismiss: () -> Un
 }
 
 /** Calibration tests, ported from the desktop's Calibration menu. */
+/** App names of the calibration tests, by the engine's test type. */
+val CALIBRATION_LABELS = mapOf(
+    "temp" to R.string.calib_temp,
+    "flow" to R.string.calib_flow,
+    "pa_line" to R.string.calib_pa_line,
+    "pa_tower" to R.string.calib_pa_tower,
+    "retraction" to R.string.calib_retraction,
+    "max_volumetric" to R.string.calib_max_volumetric,
+    "vfa" to R.string.calib_vfa,
+    "input_shaping_freq" to R.string.calib_is_freq,
+    "input_shaping_damp" to R.string.calib_is_damp,
+    "cornering" to R.string.calib_cornering,
+)
+
 @Composable
 fun CalibrationDialog(vm: AppViewModel, onDismiss: () -> Unit) {
     data class Test(val id: String, val label: Int, val start: Float, val end: Float, val step: Float, val unit: String)
     val tests = listOf(
-        Test("temp", R.string.calib_temp, 230f, 190f, 5f, "°C"),
-        Test("flow", R.string.calib_flow, 0f, 0f, 0f, ""),
-        Test("pa_line", R.string.calib_pa_line, 0f, 0.1f, 0.002f, ""),
-        Test("pa_tower", R.string.calib_pa_tower, 0f, 0.1f, 0.002f, ""),
-        Test("retraction", R.string.calib_retraction, 0f, 2f, 0.1f, "mm"),
-        Test("max_volumetric", R.string.calib_max_volumetric, 5f, 20f, 0.5f, "mm³/s"),
-        Test("vfa", R.string.calib_vfa, 40f, 200f, 10f, "mm/s"),
-        Test("input_shaping_freq", R.string.calib_is_freq, 15f, 110f, 0f, "Hz"),
-        Test("input_shaping_damp", R.string.calib_is_damp, 0f, 0.4f, 0f, ""),
-        Test("cornering", R.string.calib_cornering, 1f, 15f, 0f, "mm/s"),
+        Test("temp", CALIBRATION_LABELS.getValue("temp"), 230f, 190f, 5f, "°C"),
+        Test("flow", CALIBRATION_LABELS.getValue("flow"), 0f, 0f, 0f, ""),
+        Test("pa_line", CALIBRATION_LABELS.getValue("pa_line"), 0f, 0.1f, 0.002f, ""),
+        Test("pa_tower", CALIBRATION_LABELS.getValue("pa_tower"), 0f, 0.1f, 0.002f, ""),
+        Test("retraction", CALIBRATION_LABELS.getValue("retraction"), 0f, 2f, 0.1f, "mm"),
+        Test("max_volumetric", CALIBRATION_LABELS.getValue("max_volumetric"), 5f, 20f, 0.5f, "mm³/s"),
+        Test("vfa", CALIBRATION_LABELS.getValue("vfa"), 40f, 200f, 10f, "mm/s"),
+        Test("input_shaping_freq", CALIBRATION_LABELS.getValue("input_shaping_freq"), 15f, 110f, 0f, "Hz"),
+        Test("input_shaping_damp", CALIBRATION_LABELS.getValue("input_shaping_damp"), 0f, 0.4f, 0f, ""),
+        Test("cornering", CALIBRATION_LABELS.getValue("cornering"), 1f, 15f, 0f, "mm/s"),
     )
     var test by remember { mutableStateOf(tests.first()) }
     var start by remember(test) { mutableFloatStateOf(test.start) }

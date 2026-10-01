@@ -79,7 +79,7 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
             state.calibration?.let { cal ->
                 Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.tertiaryContainer) {
                     Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(stringResource(R.string.calibration_active, cal.name), Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodySmall)
+                        Text(stringResource(R.string.calibration_active, CALIBRATION_LABELS[cal.type]?.let { stringResource(it) } ?: cal.name), Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodySmall)
                         androidx.compose.material3.TextButton(onClick = vm.scene::stopCalibration) { Text(stringResource(R.string.end_calibration)) }
                     }
                 }
@@ -153,7 +153,8 @@ private fun PlateMenu(state: UiState, vm: AppViewModel, plate: Int, onDismiss: (
     var bedPicker by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     var gcodes by remember { mutableStateOf(false) }
-    DropdownMenu(expanded = true, onDismissRequest = onDismiss) {
+    // The menu hides while one of its dialogs is open.
+    DropdownMenu(expanded = !bedPicker && !confirmDelete && !gcodes, onDismissRequest = onDismiss) {
         DropdownMenuItem(text = { Text(stringResource(R.string.slice_plate)) }, onClick = { onDismiss(); vm.slicing.slice(plate) })
         DropdownMenuItem(text = { Text(stringResource(R.string.arrange_plate)) }, onClick = { onDismiss(); vm.scene.arrange(false) })
         if (state.supportsBedTypes) {
@@ -165,7 +166,8 @@ private fun PlateMenu(state: UiState, vm: AppViewModel, plate: Int, onDismiss: (
             DropdownMenuItem(text = { Text(stringResource(R.string.delete_plate)) }, onClick = { confirmDelete = true })
     }
     if (bedPicker) {
-        PickerDialog(stringResource(R.string.plate_type), state.scene.plates.getOrNull(plate)?.bedType,
+        PickerDialog(stringResource(R.string.plate_type),
+            state.scene.plates.getOrNull(plate)?.bedType?.ifEmpty { null } ?: state.setup?.defaultBedType,
             state.setup?.bedTypes.orEmpty().map { PickerItem(it, vm.translator.tr(it)) }, onDismiss = { bedPicker = false; onDismiss() }) {
             bedPicker = false; onDismiss(); vm.scene.setPlateBedType(plate, it)
         }
@@ -181,12 +183,14 @@ private fun ProjectMenu(state: UiState, vm: AppViewModel, open: Boolean, onDismi
     val saveProject = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("model/3mf")) { it?.let(vm.files::saveProject) }
     val exportStl = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("model/stl")) { it?.let { u -> vm.files.exportStl(u, state.activePlate) } }
     var confirmNew by remember { mutableStateOf(false) }
+    // Like the desktop: an unsaved project is named after its first object.
+    val base = state.projectName ?: state.scene.objects.firstOrNull()?.name?.substringBeforeLast('.') ?: "project"
     DropdownMenu(expanded = open, onDismissRequest = onDismiss) {
         DropdownMenuItem(text = { Text(stringResource(R.string.new_project)) }, onClick = { onDismiss(); if (state.projectDirty) confirmNew = true else vm.files.newProject() })
         DropdownMenuItem(text = { Text(stringResource(R.string.open_project)) }, onClick = { onDismiss(); openProject.launch(arrayOf("*/*")) })
-        DropdownMenuItem(text = { Text(stringResource(R.string.save_project)) }, onClick = { onDismiss(); saveProject.launch((state.projectName ?: "project") + ".3mf") },
+        DropdownMenuItem(text = { Text(stringResource(R.string.save_project)) }, onClick = { onDismiss(); saveProject.launch("$base.3mf") },
             enabled = !state.scene.isEmpty)
-        DropdownMenuItem(text = { Text(stringResource(R.string.export_stl)) }, onClick = { onDismiss(); exportStl.launch((state.projectName ?: "plate") + ".stl") },
+        DropdownMenuItem(text = { Text(stringResource(R.string.export_stl)) }, onClick = { onDismiss(); exportStl.launch("$base.stl") },
             enabled = !state.scene.isEmpty)
         if (state.recents.isNotEmpty()) {
             HorizontalDivider()

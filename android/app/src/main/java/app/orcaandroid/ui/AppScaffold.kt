@@ -176,7 +176,8 @@ private fun GlobalDialogs(state: UiState, vm: AppViewModel) {
         AlertDialog(
             onDismissRequest = vm::dismissError,
             title = { Text(stringResource(R.string.error)) },
-            text = { Text(message) },
+            // Engine errors are OrcaSlicer's (translatable) messages; show them in the app's language.
+            text = { Text(vm.translator.tr(message)) },
             confirmButton = { TextButton(onClick = vm::dismissError) { Text(stringResource(R.string.ok)) } },
         )
     }
