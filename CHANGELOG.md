@@ -3,6 +3,20 @@
 > Orca-Android was developed with an AI coding assistant (Claude, Anthropic); see the
 > [AI disclosure](README.md#ai-disclosure) in the README.
 
+## 0.1.1
+
+- The plate, presets and setting changes are saved when the app goes to the background and come
+  back on the next start.
+- Device tab: a one-line status bar above the printer's web UI instead of a side column, so
+  Mainsail/Fluidd get the full width.
+- The printer status says why it is missing instead of waiting forever; the preview says when a
+  connection (web UI only) cannot receive prints.
+- Filament colours are the same on the plate, in the G-code, thumbnails and saved projects.
+- Fixes from testing: object settings no longer count the filament assignment as a change,
+  OrcaSlicer's error messages and units are translated, back from a preset comparison returns to
+  the preset, the settings search gets the focus, single-key shortcuts no longer fire in editors,
+  projects are named after the first object.
+
 ## 0.1.0 — first release
 
 First public version, based on OrcaSlicer 2.5.0-dev (commit `2769b12`).
@@ -22,4 +36,3 @@ First public version, based on OrcaSlicer 2.5.0-dev (commit `2769b12`).
 - Printing via Klipper/Moonraker, OctoPrint, PrusaLink, Duet, Repetier, ESP3D, MKS and Bambu Lab
   LAN; the printer's web interface in the Device tab; progress notification.
 - Tablet and phone layouts, light and dark theme, English and German.
-- The current state is saved when the app goes to the background and restored on the next start.
