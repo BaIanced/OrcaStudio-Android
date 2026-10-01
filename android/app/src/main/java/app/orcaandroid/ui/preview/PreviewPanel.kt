@@ -152,7 +152,10 @@ private fun Actions(state: UiState, vm: AppViewModel, r: SliceResult) {
             }
         }
     } else {
-        OutlinedButton(onClick = { vm.setScreen(Screen.DEVICE) }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.connect_printer)) }
+        // A "web UI only" connection cannot receive files; say so instead of asking to connect.
+        val label = if (connection?.isConfigured == true) stringResource(R.string.connection_cannot_upload, connection.type.label)
+        else stringResource(R.string.connect_printer)
+        OutlinedButton(onClick = { vm.setScreen(Screen.DEVICE) }, modifier = Modifier.fillMaxWidth()) { Text(label) }
     }
     when (upload) {
         is UploadState.Running -> LinearProgressIndicator(progress = { upload.progress }, modifier = Modifier.fillMaxWidth())

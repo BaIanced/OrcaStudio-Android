@@ -65,8 +65,8 @@ class PresetController(private val store: Store, private val device: DeviceContr
         val p = print?.takeIf { n -> setup.prints.any { it.name == n } }
             ?: settings.lastPrint(name)?.takeIf { n -> setup.prints.any { it.name == n } }
             ?: setup.defaultPrint
-        val fils = (filaments ?: settings.lastFilaments(name)).filter { f -> setup.filaments.any { it.name == f.preset } }
-            .ifEmpty { listOf(FilamentSlot(setup.defaultFilament)) }
+        val fils = withColors((filaments ?: settings.lastFilaments(name)).filter { f -> setup.filaments.any { it.name == f.preset } }
+            .ifEmpty { listOf(FilamentSlot(setup.defaultFilament)) })
         store.update {
             it.copy(printer = name, setup = setup, print = p, filaments = fils, activeFilament = 0, overrides = emptyMap(), results = emptyMap())
         }
@@ -258,7 +258,14 @@ class PresetController(private val store: Store, private val device: DeviceContr
         store.toast(store.str(R.string.profiles_updated))
     }
 
-    private companion object {
-        val SLOT_COLORS = listOf("#FF7F27", "#2F7FEF", "#2FBF4F", "#EF3F3F", "#FFFFFF", "#202020", "#FFD700", "#8F3FDF")
+    companion object {
+        private val SLOT_COLORS = listOf("#FF7F27", "#2F7FEF", "#2FBF4F", "#EF3F3F", "#FFFFFF", "#202020", "#FFD700", "#8F3FDF")
+
+        /**
+         * Gives every slot an explicit colour, so the plate, the G-code, thumbnails and saved
+         * projects all use the colour the app shows (instead of the filament preset's own).
+         */
+        fun withColors(slots: List<FilamentSlot>): List<FilamentSlot> =
+            slots.mapIndexed { i, f -> if (f.color.isNullOrBlank()) f.copy(color = SLOT_COLORS[i % SLOT_COLORS.size]) else f }
     }
 }

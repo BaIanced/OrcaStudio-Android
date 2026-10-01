@@ -259,6 +259,9 @@
     <string name="state_paused">Paused</string>
     <string name="state_printing">Printing</string>
     <string name="status_unknown">Waiting for status…</string>
+    <string name="status_failed">No status: %1$s</string>
+    <string name="web_ui_only_short">Web UI only – choose the printer type in the connection settings for status and printing</string>
+    <string name="connection_cannot_upload">“%1$s” cannot receive prints – change the connection</string>
     <string name="step">Step</string>
     <string name="tab_device">Device</string>
     <string name="tab_more">More</string>

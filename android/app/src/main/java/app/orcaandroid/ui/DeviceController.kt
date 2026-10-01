@@ -96,7 +96,9 @@ class DeviceController(private val store: Store) {
     /** Refreshes the printer status once (device tab). */
     fun refreshStatus() = store.launch {
         val connection = store.value.connection ?: return@launch
-        store.container.printerStatus.value = withHost(connection) { runCatching { it.status() }.getOrNull() }
+        val result = withHost(connection) { runCatching { it.status() } }
+        store.container.printerStatus.value = result.getOrNull()
+        store.update { it.copy(printerStatusError = result.exceptionOrNull()?.let { e -> e.message ?: e.toString() }) }
     }
 
     private suspend fun <T> withHost(connection: PrinterConnection, block: (PrintHost) -> T): T = withContext(Dispatchers.IO) {

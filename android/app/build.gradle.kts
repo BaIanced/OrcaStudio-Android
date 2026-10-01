@@ -18,7 +18,7 @@ val orcaCommit: String = providers.exec {
     isIgnoreExitValue = true
 }.standardOutput.asText.get().trim().ifEmpty { "unknown" }
 val sourceUrl: String = providers.gradleProperty("orca.sourceUrl")
-    .getOrElse("https://github.com/cl1x/orca-android")
+    .getOrElse("https://github.com/cl1x/Orca-Android")
 
 // Release signing: android/key.properties (storeFile, storePassword, keyAlias, keyPassword), never
 // committed. Without it, release builds are signed with the debug key.

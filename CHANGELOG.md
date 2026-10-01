@@ -22,3 +22,4 @@ First public version, based on OrcaSlicer 2.5.0-dev (commit `2769b12`).
 - Printing via Klipper/Moonraker, OctoPrint, PrusaLink, Duet, Repetier, ESP3D, MKS and Bambu Lab
   LAN; the printer's web interface in the Device tab; progress notification.
 - Tablet and phone layouts, light and dark theme, English and German.
+- The current state is saved when the app goes to the background and restored on the next start.

@@ -6,29 +6,25 @@ import android.webkit.WebViewClient
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cancel
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -61,7 +57,6 @@ import app.orcaandroid.net.PrinterConnection
 import app.orcaandroid.net.PrinterStatus
 import app.orcaandroid.ui.AppViewModel
 import app.orcaandroid.ui.UiState
-import app.orcaandroid.ui.WIDE_LAYOUT
 import app.orcaandroid.ui.components.ConfirmDialog
 import app.orcaandroid.ui.components.PickerField
 import app.orcaandroid.ui.components.PickerItem
@@ -84,22 +79,10 @@ fun DeviceScreen(state: UiState, vm: AppViewModel) {
                 delay(5000)
             }
         }
-        BoxWithConstraints(Modifier.fillMaxSize()) {
-            val wide = maxWidth >= WIDE_LAYOUT
-            if (wide) {
-                Row(Modifier.fillMaxSize()) {
-                    Column(Modifier.width(320.dp).fillMaxHeight().verticalScroll(rememberScrollState()).padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        StatusCard(state, vm, connection) { editing = true }
-                    }
-                    WebUi(connection, Modifier.weight(1f).fillMaxHeight())
-                }
-            } else {
-                Column(Modifier.fillMaxSize()) {
-                    Box(Modifier.padding(8.dp)) { StatusCard(state, vm, connection, compact = true) { editing = true } }
-                    WebUi(connection, Modifier.weight(1f).fillMaxWidth())
-                }
-            }
+        // A slim bar above the web UI, so Mainsail/Fluidd keep the full width.
+        Column(Modifier.fillMaxSize()) {
+            StatusBar(state, vm, connection) { editing = true }
+            WebUi(connection, Modifier.weight(1f).fillMaxWidth())
         }
     }
     if (editing) ConnectionDialog(state, vm) { editing = false }
@@ -118,47 +101,47 @@ private fun NotConnected(state: UiState, vm: AppViewModel, onSetup: () -> Unit) 
     }
 }
 
+/** Printer, state, temperatures and progress in one line; job controls and settings on the right. */
 @Composable
-private fun StatusCard(state: UiState, vm: AppViewModel, connection: PrinterConnection, compact: Boolean = false, onEdit: () -> Unit) {
+private fun StatusBar(state: UiState, vm: AppViewModel, connection: PrinterConnection, onEdit: () -> Unit) {
     val status = state.printerStatus
+    val error = state.printerStatusError
     var confirmCancel by remember { mutableStateOf(false) }
-    Card(shape = RoundedCornerShape(12.dp)) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(state.printer.orEmpty(), style = MaterialTheme.typography.titleSmall, maxLines = 1)
-                    Text(connection.type.label, style = MaterialTheme.typography.bodySmall, maxLines = 1)
-                    Text(connection.url, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    val line = when {
+        !connection.type.canUpload -> stringResource(R.string.web_ui_only_short)
+        status != null -> listOfNotNull(
+            stateLabel(status.state),
+            status.nozzleTemp?.let { "🔥 %.0f°".format(Locale.ROOT, it) },
+            status.bedTemp?.let { "▭ %.0f°".format(Locale.ROOT, it) },
+            status.progress?.takeIf { status.isActive }?.let { p ->
+                "${(p * 100).toInt()} %" + (status.remainingSeconds?.let { " · " + formatDuration(it.toDouble()) } ?: "")
+            },
+            status.file?.takeIf { status.isActive },
+        ).joinToString("  ·  ")
+        error != null -> stringResource(R.string.status_failed, error)
+        else -> stringResource(R.string.status_unknown)
+    }
+    Surface(tonalElevation = 2.dp) {
+        Column(Modifier.fillMaxWidth()) {
+            Row(Modifier.padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
+                    Text("${state.printer.orEmpty()}  ·  ${connection.url}", style = MaterialTheme.typography.labelMedium,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(line, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        color = if (status == null && error != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
+                }
+                if (status?.isActive == true) {
+                    if (status.state == PrinterStatus.State.PAUSED)
+                        IconButton(onClick = { vm.device.controlJob(PrintHost.JobAction.RESUME) }) { Icon(Icons.Default.PlayArrow, stringResource(R.string.resume)) }
+                    else
+                        IconButton(onClick = { vm.device.controlJob(PrintHost.JobAction.PAUSE) }) { Icon(Icons.Default.Pause, stringResource(R.string.pause)) }
+                    IconButton(onClick = { confirmCancel = true }) { Icon(Icons.Default.Cancel, stringResource(R.string.cancel_print)) }
+                    IconButton(onClick = vm.device::monitorPrinter) { Icon(Icons.Default.Notifications, stringResource(R.string.notify_progress)) }
                 }
                 IconButton(onClick = vm.device::refreshStatus) { Icon(Icons.Default.Refresh, stringResource(R.string.refresh)) }
                 IconButton(onClick = onEdit) { Icon(Icons.Default.Settings, stringResource(R.string.connection)) }
             }
-            if (status == null) {
-                Text(stringResource(R.string.status_unknown), style = MaterialTheme.typography.bodySmall)
-            } else {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(stateLabel(status.state), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                    status.nozzleTemp?.let { Text("🔥 %.0f°".format(Locale.ROOT, it), style = MaterialTheme.typography.bodySmall) }
-                    status.bedTemp?.let { Text("▭ %.0f°".format(Locale.ROOT, it), style = MaterialTheme.typography.bodySmall) }
-                }
-                status.file?.let { Text(it, style = MaterialTheme.typography.bodySmall, maxLines = 1) }
-                status.progress?.takeIf { status.isActive || it > 0f }?.let { p ->
-                    LinearProgressIndicator(progress = { p }, modifier = Modifier.fillMaxWidth())
-                    Text("${(p * 100).toInt()} %" + (status.remainingSeconds?.let { " · " + formatDuration(it.toDouble()) } ?: ""),
-                        style = MaterialTheme.typography.bodySmall)
-                }
-                status.message?.takeIf { !compact }?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-                if (status.isActive) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (status.state == PrinterStatus.State.PAUSED)
-                            FilledTonalIconButton(onClick = { vm.device.controlJob(PrintHost.JobAction.RESUME) }) { Icon(Icons.Default.PlayArrow, stringResource(R.string.resume)) }
-                        else
-                            FilledTonalIconButton(onClick = { vm.device.controlJob(PrintHost.JobAction.PAUSE) }) { Icon(Icons.Default.Pause, stringResource(R.string.pause)) }
-                        FilledTonalIconButton(onClick = { confirmCancel = true }) { Icon(Icons.Default.Cancel, stringResource(R.string.cancel_print)) }
-                        if (!compact) TextButton(onClick = vm.device::monitorPrinter) { Text(stringResource(R.string.notify_progress)) }
-                    }
-                }
-            }
+            status?.progress?.takeIf { status.isActive }?.let { p -> LinearProgressIndicator(progress = { p }, modifier = Modifier.fillMaxWidth()) }
         }
     }
     if (confirmCancel) ConfirmDialog(stringResource(R.string.cancel_print), stringResource(R.string.cancel_print_text), stringResource(R.string.cancel_print),

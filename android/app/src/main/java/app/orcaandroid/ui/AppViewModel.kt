@@ -56,6 +56,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             store.update { it.copy(phase = Phase.SETUP) }
         } else {
             presets.reloadPresets(emptySet())
+            runCatching { files.restoreSession() }.onFailure { android.util.Log.w("Orca", "session not restored", it) }
             store.update { it.copy(phase = Phase.READY) }
         }
     }
@@ -75,6 +76,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun setDynamicColor(on: Boolean) {
         store.settings.dynamicColor = on
         store.update { it.copy(dynamicColor = on) }
+    }
+
+    /** Keeps the current state for the next start; runs outside the view model so it survives the activity. */
+    fun saveSession() = store.container.appScope.launch {
+        runCatching { files.saveSession() }.onFailure { android.util.Log.w("Orca", "session not saved", it) }
     }
 
     fun dismissError() = store.update { it.copy(error = null) }

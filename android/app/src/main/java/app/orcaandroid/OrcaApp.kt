@@ -7,6 +7,9 @@ import app.orcaandroid.core.AppSettings
 import app.orcaandroid.core.Engine
 import app.orcaandroid.core.ResourceStore
 import app.orcaandroid.net.PrinterStatus
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 
 /** Progress of a running slice, shared with the foreground service that keeps it alive. */
@@ -21,6 +24,8 @@ class AppContainer(app: Application) {
     val sliceProgress = MutableStateFlow<SliceProgress?>(null)
     /** Latest job status of the monitored printer; written by PrintMonitorService. */
     val printerStatus = MutableStateFlow<PrinterStatus?>(null)
+    /** For work that must finish even when the activity and its view model are gone. */
+    val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 }
 
 class OrcaApp : Application() {

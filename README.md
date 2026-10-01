@@ -6,9 +6,9 @@
     phones – the real slicing engine, running on the device.
   </p>
   <p>
-    <a href="https://github.com/cl1x/orca-android/releases">Download</a>
+    <a href="https://github.com/cl1x/Orca-Android/releases">Download</a>
     ·
-    <a href="https://github.com/cl1x/orca-android/issues">Report a bug</a>
+    <a href="https://github.com/cl1x/Orca-Android/issues">Report a bug</a>
   </p>
 </div>
 
@@ -92,6 +92,7 @@ Android, so the app has a new touch interface; the slicing itself is OrcaSlicer'
 ### App
 
 - Tablet layout with side panel, phone layout with bottom sheet; keyboard and mouse shortcuts.
+- The plate, presets and setting changes are kept when the app is closed and come back on the next start.
 - Light and dark theme, optional Material You colours. English and German interface; option
   labels in all languages OrcaSlicer is translated to.
 
@@ -119,7 +120,7 @@ combinations.
 
 ## Installation
 
-Download the APK from the [releases](https://github.com/cl1x/orca-android/releases) and open it
+Download the APK from the [releases](https://github.com/cl1x/Orca-Android/releases) and open it
 (allow installing apps from this source when asked). Requires **Android 10 or newer on an arm64
 device** – virtually every tablet and phone of the last years.
 
@@ -133,8 +134,8 @@ Requirements: Linux, Android SDK with NDK 28.2, CMake 3.20+, Ninja, JDK 17+, Pyt
 autotools and perl (for GMP, MPFR and OpenSSL).
 
 ```bash
-git clone --recursive https://github.com/cl1x/orca-android.git
-cd orca-android/android
+git clone --recursive https://github.com/cl1x/Orca-Android.git
+cd Orca-Android/android
 scripts/build.sh debug
 ```
 

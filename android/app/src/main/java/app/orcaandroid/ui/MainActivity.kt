@@ -57,6 +57,12 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /** Android may end the process any time after this; keep the state for the next start. */
+    override fun onStop() {
+        super.onStop()
+        if (!isChangingConfigurations) vm.saveSession()
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handleIntent(intent)

@@ -124,6 +124,8 @@ data class UiState(
     val suggestedConnection: PrinterConnection? = null,
     val upload: UploadState? = null,
     val printerStatus: PrinterStatus? = null,
+    /** Why the last status request failed, shown instead of waiting forever. */
+    val printerStatusError: String? = null,
     val discovered: List<DiscoveredPrinter> = emptyList(),
     val discovering: Boolean = false,
 

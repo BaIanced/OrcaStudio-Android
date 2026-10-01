@@ -81,7 +81,7 @@ internal class Http(private val headers: Map<String, String> = emptyMap()) {
             val body = (if (code in 200..299) c.inputStream else c.errorStream)?.bufferedReader()?.use { it.readText() }.orEmpty()
             if (code !in 200..299) {
                 val hint = when (code) {
-                    401, 403 -> " – check the API key / password"
+                    401, 403 -> " – check the API key / password (Moonraker: or add this device to trusted_clients)"
                     404 -> " – check the address and printer type"
                     409 -> " – the printer is busy"
                     else -> ""

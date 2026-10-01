@@ -8,6 +8,7 @@ import app.orcaandroid.core.PresetType
 import app.orcaandroid.core.RecentFile
 import java.io.File
 import java.util.zip.ZipFile
+import org.json.JSONObject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -49,14 +50,14 @@ class FileController(
 
     fun openProject(uri: Uri) = store.launch(store.str(R.string.opening_project)) { openProjectFile(resources.importFile(uri), uri) }
 
-    private suspend fun openProjectFile(file: File, uri: Uri) {
+    private suspend fun openProjectFile(file: File, uri: Uri?) {
         val (loaded, info) = engine.loadProject(file.path)
         val s = store.value
         // Use the project's presets where they exist here, with its setting changes on top.
         val printer = s.printers.firstOrNull { it.name == info.printer }?.name ?: s.printer
-        val filaments = info.filaments.mapIndexed { i, name ->
+        val filaments = PresetController.withColors(info.filaments.mapIndexed { i, name ->
             FilamentSlot(name, info.filamentColors.getOrNull(i)?.ifBlank { null }, info.filamentOverrides.getOrNull(i).orEmpty())
-        }
+        })
         if (printer != null) presets.selectPrinterNow(printer, info.print, filaments.ifEmpty { null })
         store.update { st ->
             val slots = if (filaments.isEmpty()) st.filaments
@@ -65,8 +66,50 @@ class FileController(
         }
         presets.refreshPresetValues(listOf(PresetType.FILAMENT, PresetType.PRINT))
         store.applyScene(loaded, dirty = false)
-        rememberRecent(uri, file.name, true)
+        uri?.let { rememberRecent(it, file.name, true) }
         store.update { it.copy(projectName = file.name.removeSuffix(".3mf"), projectDirty = false, selection = null, screen = Screen.PREPARE) }
+    }
+
+    // --- Session: the app comes back as it was left, even after Android ended the process ---------------
+
+    private val sessionDir get() = File(store.app.filesDir, "session").apply { mkdirs() }
+    private val sessionProject get() = File(sessionDir, "session.3mf")
+    private val sessionInfo get() = File(sessionDir, "session.json")
+
+    /** Saves the scene, presets and setting changes as a project (called when the app goes to the background). */
+    suspend fun saveSession() {
+        val s = store.value
+        if (s.phase != Phase.READY) return
+        // A calibration test cannot be resumed from a project; an empty plate needs no session.
+        if (s.scene.isEmpty || s.calibration != null) {
+            sessionProject.delete(); sessionInfo.delete()
+            return
+        }
+        presets.syncSelection()
+        val tmp = File(sessionDir, "session.tmp.3mf")
+        engine.saveProject(tmp.path)
+        withContext(Dispatchers.IO) {
+            tmp.renameTo(sessionProject)
+            sessionInfo.writeText(JSONObject().apply {
+                put("projectName", s.projectName ?: "")
+                put("projectDirty", s.projectDirty)
+                put("activePlate", s.activePlate)
+            }.toString())
+        }
+    }
+
+    /** Restores the last session if the engine has no scene (a fresh start of the process). */
+    suspend fun restoreSession() {
+        if (!store.value.scene.isEmpty || !sessionProject.exists()) return
+        val info = runCatching { JSONObject(sessionInfo.readText()) }.getOrNull()
+        openProjectFile(sessionProject, null)
+        store.update {
+            it.copy(
+                projectName = info?.optString("projectName")?.ifBlank { null },
+                projectDirty = info?.optBoolean("projectDirty") ?: true,
+                activePlate = (info?.optInt("activePlate") ?: 0).coerceIn(0, (it.scene.plates.size - 1).coerceAtLeast(0)),
+            )
+        }
     }
 
     fun newProject() = store.launch {
