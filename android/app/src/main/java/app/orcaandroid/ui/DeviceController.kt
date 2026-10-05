@@ -69,7 +69,7 @@ class DeviceController(private val store: Store) {
         store.update { it.copy(upload = UploadState.Running(0f, startPrint)) }
         try {
             // Bambu printers print .gcode.3mf archives.
-            val (file, name) = if (connection.type == HostType.BAMBU && !result.external) {
+            val (file, name) = if ((connection.type == HostType.BAMBU || connection.type == HostType.BAMBU_SIGNED) && !result.external) {
                 files.exportGcode3mf()!! to files.gcodeFileName().removeSuffix(".gcode") + ".gcode.3mf"
             } else {
                 File(result.gcodeFile) to files.gcodeFileName()

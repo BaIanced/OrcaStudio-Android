@@ -18,7 +18,7 @@ val orcaCommit: String = providers.exec {
     isIgnoreExitValue = true
 }.standardOutput.asText.get().trim().ifEmpty { "unknown" }
 val sourceUrl: String = providers.gradleProperty("orca.sourceUrl")
-    .getOrElse("https://github.com/cl1x/Orca-Android")
+    .getOrElse("https://github.com/BaIanced/OrcaStudio-Android")
 
 // Release signing: android/key.properties (storeFile, storePassword, keyAlias, keyPassword), never
 // committed. Without it, release builds are signed with the debug key.
@@ -33,7 +33,8 @@ android {
     }
 
     defaultConfig {
-        applicationId = "de.cl1x.orca_android"
+        // Own id so this build installs next to (and never collides with) cl1x's signed Orca-Android.
+        applicationId = "io.github.baianced.orcastudio_android"
         minSdk = 29
         targetSdk = 36
         versionCode = 3

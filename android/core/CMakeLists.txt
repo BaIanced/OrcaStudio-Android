@@ -133,9 +133,17 @@ add_library(orca_jni SHARED
     jni/Thumbnails.cpp jni/Thumbnails.hpp
     jni/OptionToggles.hpp ${_toggles_out}
     ${_color_out}
-    jni/nanosvg_impl.cpp)
+    jni/nanosvg_impl.cpp
+    jni/ObnBridge.cpp)
 target_include_directories(orca_jni PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/jni)
 target_link_libraries(orca_jni PRIVATE libslic3r boost_libs log android)
+
+# Signed Bambu Lab LAN printing (open-bamboo-networking, statically linked).
+include(${CMAKE_CURRENT_LIST_DIR}/../obn/obn.cmake)
+set_source_files_properties(jni/ObnBridge.cpp PROPERTIES
+    INCLUDE_DIRECTORIES "${OBN_INCLUDE_DIR}"
+    COMPILE_DEFINITIONS "${OBN_COMPILE_DEFINITIONS}")
+target_link_libraries(orca_jni PRIVATE bambu_networking)
 # Keep the .so small; only the JNI entry points need to be exported.
 target_link_options(orca_jni PRIVATE -Wl,--gc-sections -Wl,--exclude-libs,ALL)
 set_target_properties(orca_jni PROPERTIES CXX_VISIBILITY_PRESET hidden)

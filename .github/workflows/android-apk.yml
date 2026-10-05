@@ -1,0 +1,197 @@
+# Builds the OrcaStudio-Android APK (Orca-Android + open-bamboo-networking) and publishes it as a
+# GitHub release. Native code is cross-compiled for arm64-v8a on an x86_64 runner with NDK r28c.
+#
+#   1. Kotlin compile check first, so app-code errors fail in minutes, not after the native build.
+#   2. Android deps superbuild (Boost, OCCT, CGAL, OpenVDB, TBB, OpenCV, OpenSSL, ...): cached,
+#      keyed on android/deps, the toolchain file, the OrcaSlicer submodule commit and the NDK.
+#   3. liborca_jni.so (libslic3r + JNI bridge + open-bamboo-networking), then the APK.
+#
+# Signing: with repository secrets ANDROID_KEYSTORE_B64 / ANDROID_KEYSTORE_PASSWORD /
+# ANDROID_KEY_ALIAS / ANDROID_KEY_PASSWORD the APK is release-signed. Without them it is signed
+# with a debug key that is kept in the Actions cache, so consecutive test builds install as
+# updates of each other (a new key after cache eviction requires one uninstall).
+name: Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "android/**"
+      - ".github/workflows/android-apk.yml"
+      - ".gitmodules"
+      - "src-orca"
+
+permissions: {}
+
+concurrency:
+  group: android-apk-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NDK_VERSION: "28.2.13676358"
+  BUILD_ROOT: /mnt/orca-build
+
+jobs:
+  apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 340
+    permissions:
+      contents: write
+    steps:
+      - name: Check out (with the OrcaSlicer submodule)
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Disk, build root, host tools
+        run: |
+          set -euo pipefail
+          df -h / /mnt
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/local/share/powershell || true
+          # Scripts and the toolchain file expect ~/build/orca-android; put it on the larger /mnt disk.
+          sudo mkdir -p "$BUILD_ROOT" && sudo chown "$USER" "$BUILD_ROOT"
+          mkdir -p "$HOME/build" && ln -sfn "$BUILD_ROOT" "$HOME/build/orca-android"
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends ninja-build autoconf automake libtool m4 pkg-config perl python3
+          cmake --version | head -1; ninja --version
+          df -h / /mnt
+
+      - name: Java 21
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Android NDK ${{ env.NDK_VERSION }}
+        run: |
+          set -euo pipefail
+          sdkm="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$sdkm" --licenses >/dev/null || true
+          "$sdkm" --install "ndk;$NDK_VERSION" >/dev/null
+          # android/android-toolchain.cmake hard-codes ~/Android/Sdk/ndk/<version>.
+          mkdir -p "$HOME/Android/Sdk/ndk"
+          ln -sfn "$ANDROID_HOME/ndk/$NDK_VERSION" "$HOME/Android/Sdk/ndk/$NDK_VERSION"
+          grep Pkg.Revision "$HOME/Android/Sdk/ndk/$NDK_VERSION/source.properties"
+          echo "ANDROID_NDK_HOME=$HOME/Android/Sdk/ndk/$NDK_VERSION" >> "$GITHUB_ENV"
+
+      - name: Debug signing key (stable across builds)
+        id: dbgkey
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/.android/debug.keystore
+          key: android-debug-keystore-v1
+
+      - name: Create debug signing key
+        if: steps.dbgkey.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/.android
+          keytool -genkeypair -v -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey \
+            -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+
+      - name: Save debug signing key
+        if: steps.dbgkey.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ~/.android/debug.keystore
+          key: android-debug-keystore-v1
+
+      - name: Release signing key (optional secrets)
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "$KS_B64" ]; then
+            echo "::notice::No release key secrets; the APK is signed with the cached debug key (test build)."
+            exit 0
+          fi
+          printf '%s' "$KS_B64" | base64 -d > android/release.jks
+          {
+            echo "storeFile=release.jks"
+            echo "storePassword=$KS_PASS"
+            echo "keyAlias=$KEY_ALIAS"
+            echo "keyPassword=$KEY_PASS"
+          } > android/key.properties
+
+      - name: Kotlin compile check (fail fast)
+        working-directory: android
+        run: ./gradlew --console=plain -q :app:compileReleaseKotlin
+
+      - name: Deps cache key
+        id: depskey
+        run: |
+          set -euo pipefail
+          orca=$(git rev-parse HEAD:src-orca)
+          h=$(cat android/android-toolchain.cmake <(find android/deps -type f -print0 | sort -z | xargs -0 sha256sum) | sha256sum | cut -c1-16)
+          echo "key=android-deps-ndk${NDK_VERSION}-orca${orca:0:12}-${h}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore Android deps
+        id: deps
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ env.BUILD_ROOT }}/deps/OrcaSlicer_dep
+          key: ${{ steps.depskey.outputs.key }}
+
+      - name: Build Android deps (cache miss)
+        if: steps.deps.outputs.cache-hit != 'true'
+        timeout-minutes: 240
+        run: |
+          set -euo pipefail
+          here="$PWD/android"
+          cmake -G Ninja -S "$here/deps" -B "$BUILD_ROOT/deps" \
+            -DCMAKE_TOOLCHAIN_FILE="$here/android-toolchain.cmake" -DCMAKE_BUILD_TYPE=Release
+          cmake --build "$BUILD_ROOT/deps" --target deps -- -j4
+          test -f "$BUILD_ROOT/deps/OrcaSlicer_dep/usr/local/lib/libopenvdb.a"
+          du -sh "$BUILD_ROOT/deps/OrcaSlicer_dep"; df -h /mnt
+
+      - name: Save Android deps
+        if: steps.deps.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ env.BUILD_ROOT }}/deps/OrcaSlicer_dep
+          key: ${{ steps.depskey.outputs.key }}
+
+      - name: Build native core and APK
+        run: |
+          set -euo pipefail
+          android/scripts/build.sh release
+          nm_bin="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-nm"
+          so="$BUILD_ROOT/jniLibs/arm64-v8a/liborca_jni.so"
+          n=$("$nm_bin" -D --defined-only "$so" | grep -c ' Java_app_orcaandroid_net_ObnNative_')
+          echo "ObnNative JNI exports: $n"; [ "$n" -eq 8 ]
+
+      - name: Name, checksum, upload
+        id: out
+        run: |
+          set -euo pipefail
+          ver=$(grep -oP 'versionName = "\K[^"]+' android/app/build.gradle.kts)
+          tag="android-v${ver}-r${GITHUB_RUN_NUMBER}"
+          mkdir -p dist
+          cp "$BUILD_ROOT/gradle/app/outputs/apk/release/app-release.apk" "dist/OrcaStudio-Android-${ver}-r${GITHUB_RUN_NUMBER}.apk"
+          (cd dist && sha256sum ./*.apk | tee SHA256SUMS.txt)
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: OrcaStudio-Android-apk
+          path: dist/*
+          retention-days: 7
+          compression-level: 0
+
+      - name: Publish release
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.out.outputs.tag }}
+        run: |
+          set -euo pipefail
+          signed="debug-signed test build"
+          [ -f android/key.properties ] && signed="release-signed"
+          gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
+            --title "$TAG" \
+            --notes "Orca-Android with open-bamboo-networking signed Bambu Lab LAN printing ($signed). arm64, Android 10+. Built by ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"

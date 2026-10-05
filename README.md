@@ -12,6 +12,15 @@
   </p>
 </div>
 
+> **OrcaStudio-Android** is a fork of [cl1x/Orca-Android](https://github.com/cl1x/Orca-Android)
+> that adds **signed printing for Bambu Lab printers with LAN mode and Developer Mode off**, using
+> [open-bamboo-networking](https://github.com/ClusterM/open-bamboo-networking) (AGPL-3.0) compiled
+> into the app. Choose the printer type *Bambu Lab (signed, no LAN mode)* and import your own
+> slicer credentials (`slicer_cert.pem`, `slicer_key.pem`, `slicer_crl.pem`); they stay on the
+> device and are not part of this repository or the APK. Everything else is cl1x's work; please
+> report problems with the signed Bambu printing here, not to cl1x or OrcaSlicer.
+> Untested on real hardware so far. APKs: [Releases](https://github.com/BaIanced/OrcaStudio-Android/releases).
+
 > **Orca-Android is an unofficial port of [OrcaSlicer](https://github.com/SoftFever/OrcaSlicer)
 > by SoftFever and the OrcaSlicer contributors.** Everything that makes a good print – the
 > slicing engine, the profiles and the calibration know-how – is their work; this port adds an

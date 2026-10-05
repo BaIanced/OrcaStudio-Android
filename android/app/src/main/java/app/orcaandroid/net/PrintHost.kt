@@ -13,6 +13,7 @@ enum class HostType(val id: String, val label: String, val canUpload: Boolean, v
     ESP3D("esp3d", "ESP3D", true, true),
     MKS("mks", "MKS WiFi", true, false),
     BAMBU("bambu", "Bambu Lab (LAN)", true, false),
+    BAMBU_SIGNED("bambu_signed", "Bambu Lab (signed, no LAN mode)", true, false),
     OTHER("other", "Web UI only", false, true);
 
     companion object {
@@ -110,6 +111,7 @@ interface PrintHost {
             HostType.ESP3D -> Esp3dHost(c)
             HostType.MKS -> MksHost(c)
             HostType.BAMBU -> BambuHost(c)
+            HostType.BAMBU_SIGNED -> ObnHost(c)
             HostType.OTHER -> WebOnlyHost(c)
         }
     }

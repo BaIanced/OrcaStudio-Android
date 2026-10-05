@@ -1,6 +1,10 @@
 package app.orcaandroid.ui.device
 
 import android.annotation.SuppressLint
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import app.orcaandroid.net.ObnCredentials
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.clickable
@@ -231,7 +235,7 @@ private fun ConnectionDialog(state: UiState, vm: AppViewModel, onDismiss: () -> 
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 PickerField(stringResource(R.string.host_type), type.id, HostType.entries.map { PickerItem(it.id, it.label) },
                     { type = HostType.fromId(it) })
-                val bambu = type == HostType.BAMBU
+                val bambu = type == HostType.BAMBU || type == HostType.BAMBU_SIGNED
                 OutlinedTextField(url, { url = it }, label = { Text(stringResource(if (bambu) R.string.ip_address else R.string.host_url)) },
                     singleLine = true, modifier = Modifier.fillMaxWidth())
                 if (type != HostType.OTHER && type != HostType.MKS) {
@@ -242,7 +246,8 @@ private fun ConnectionDialog(state: UiState, vm: AppViewModel, onDismiss: () -> 
                     modifier = Modifier.fillMaxWidth())
                 if (type.hasWebUi) OutlinedTextField(webUrl, { webUrl = it }, label = { Text(stringResource(R.string.web_ui_url)) },
                     placeholder = { Text(url) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                if (bambu) Text(stringResource(R.string.bambu_lan_hint), style = MaterialTheme.typography.bodySmall)
+                if (type == HostType.BAMBU) Text(stringResource(R.string.bambu_lan_hint), style = MaterialTheme.typography.bodySmall)
+                if (type == HostType.BAMBU_SIGNED) ObnCredentialsSection()
 
                 HorizontalDivider()
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -253,7 +258,8 @@ private fun ConnectionDialog(state: UiState, vm: AppViewModel, onDismiss: () -> 
                 state.discovered.forEach { d ->
                     Text("${d.name} · ${d.type.label}\n${d.address}", style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.fillMaxWidth().clickable {
-                            type = d.type; url = d.address; if (d.serial.isNotEmpty()) serial = d.serial
+                            // A discovered Bambu printer keeps the signed mode if the user chose it.
+                            type = if (d.type == HostType.BAMBU && type == HostType.BAMBU_SIGNED) type else d.type; url = d.address; if (d.serial.isNotEmpty()) serial = d.serial
                         }.padding(vertical = 6.dp))
                 }
                 testResult?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
@@ -283,4 +289,32 @@ private fun ConnectionDialog(state: UiState, vm: AppViewModel, onDismiss: () -> 
             }
         },
     )
+}
+
+/** Import of the user's own slicer credentials for [HostType.BAMBU_SIGNED] (open-bamboo-networking). */
+@Composable
+private fun ObnCredentialsSection() {
+    val context = LocalContext.current
+    var missing by remember { mutableStateOf(ObnCredentials.missing(context)) }
+    var message by remember { mutableStateOf<String?>(null) }
+    val pick = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        if (uris.isEmpty()) return@rememberLauncherForActivityResult
+        message = runCatching { ObnCredentials.import(context, uris) }.fold(
+            { context.getString(R.string.obn_imported, it.joinToString()) },
+            { "✗ ${it.message}" })
+        missing = ObnCredentials.missing(context)
+    }
+    Text(stringResource(R.string.obn_hint), style = MaterialTheme.typography.bodySmall)
+    Text(
+        if (missing.isEmpty()) stringResource(R.string.obn_credentials_ok)
+        else stringResource(R.string.obn_credentials_missing, missing.joinToString()),
+        style = MaterialTheme.typography.bodySmall,
+    )
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedButton(onClick = { pick.launch(arrayOf("*/*")) }) { Text(stringResource(R.string.obn_import)) }
+        if (missing.size < 3) TextButton(onClick = { ObnCredentials.clear(context); missing = ObnCredentials.missing(context); message = null }) {
+            Text(stringResource(R.string.remove))
+        }
+    }
+    message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
 }

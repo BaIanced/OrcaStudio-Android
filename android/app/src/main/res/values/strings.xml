@@ -19,7 +19,7 @@
     <string name="add_svg">SVG</string>
     <string name="add_text">Text</string>
     <string name="api_key">API key / password</string>
-    <string name="app_name">Orca-Android</string>
+    <string name="app_name">OrcaStudio-Android</string>
     <string name="appearance">Appearance</string>
     <string name="apply">Apply</string>
     <string name="apply_n_printers">Apply (%d printers)</string>
@@ -304,4 +304,9 @@
     <string name="damping">Damping</string>
     <string name="frequency_x">Frequency X</string>
     <string name="frequency_y">Frequency Y</string>
+    <string name="obn_hint">For Bambu Lab printers with LAN mode and Developer Mode OFF. Print commands are signed with your own slicer credentials (slicer_cert.pem, slicer_key.pem, slicer_crl.pem) through open-bamboo-networking. They are stored only on this device. IP address, access code and serial number are shown in the printer\'s network settings.</string>
+    <string name="obn_credentials_ok">Slicer credentials: imported</string>
+    <string name="obn_credentials_missing">Slicer credentials missing: %1$s</string>
+    <string name="obn_import">Import credentials…</string>
+    <string name="obn_imported">Imported: %1$s</string>
 </resources>

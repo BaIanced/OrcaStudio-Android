@@ -1,0 +1,56 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 7ad54e4..e3fd917 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -320,7 +320,7 @@ else()
+     # Must be set before find_package(OpenSSL) AND before the vendored
+     # curl subdirectory's own find_package(OpenSSL), so both resolve
+     # libssl.a / libcrypto.a from OPENSSL_ROOT_DIR (brew openssl@3).
+-    if(APPLE AND OBN_MACOS_STATIC_DEPS)
++    if((APPLE AND OBN_MACOS_STATIC_DEPS) OR ANDROID)
+         set(OPENSSL_USE_STATIC_LIBS TRUE)
+     endif()
+     find_package(OpenSSL COMPONENTS SSL REQUIRED)
+@@ -337,7 +337,7 @@ obn_vendor_mosquitto_setup()
+ add_library(obn_curl_iface INTERFACE)
+ if(WIN32)
+     target_link_libraries(obn_curl_iface INTERFACE CURL::libcurl)
+-elseif(APPLE AND OBN_MACOS_STATIC_DEPS)
++elseif((APPLE AND OBN_MACOS_STATIC_DEPS) OR ANDROID)
+     include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/VendorCurl.cmake")
+     obn_vendor_curl_setup()
+     target_link_libraries(obn_curl_iface INTERFACE obn_vendor_curl_iface)
+@@ -360,7 +360,16 @@ endif()
+ # zlib is shared between BambuSource (FTPS fallback: client-side ZIP
+ # extract for file-browser thumbnails) and other zlib users in the tree.
+ 
+-add_library(bambu_networking SHARED
++# Android embedding (Orca-Android): build the agent as a static library that
++# is linked into the app's own JNI library, so both share one libc++ and the
++# std::string / std::function ABI crosses no shared-library boundary.
++option(OBN_EMBED_STATIC "Build bambu_networking as a static library and skip the desktop plugin extras (BambuSource, live555, install, conf patching)" OFF)
++if(OBN_EMBED_STATIC)
++    set(_obn_lib_type STATIC)
++else()
++    set(_obn_lib_type SHARED)
++endif()
++add_library(bambu_networking ${_obn_lib_type}
+     src/abi_meta.cpp
+     src/abi_lifecycle.cpp
+     src/abi_callbacks.cpp
+@@ -464,6 +473,7 @@ else()
+     )
+ endif()
+ 
++if(NOT OBN_EMBED_STATIC)
+ # --------------------------------------------------------------------------
+ # libBambuSource.so  (camera tunnel + PrinterFileSystem CTRL bridge;
+ # consumed by Studio's gstbambusrc element on Linux/Windows and by
+@@ -731,6 +741,7 @@ if(OBN_PATCH_CLIENT_CONF AND (UNIX OR WIN32))
+         "${_obn_patch_out}" @ONLY)
+     install(SCRIPT "${_obn_patch_out}")
+ endif()
++endif() # NOT OBN_EMBED_STATIC
+ 
+ # --------------------------------------------------------------------------
+ # tests (compiled only if BUILD_TESTING is on)

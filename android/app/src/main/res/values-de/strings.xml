@@ -303,4 +303,9 @@
     <string name="damping">Dämpfung</string>
     <string name="frequency_x">Frequenz X</string>
     <string name="frequency_y">Frequenz Y</string>
+    <string name="obn_hint">Für Bambu-Lab-Drucker mit ausgeschaltetem LAN-Modus und Entwicklermodus. Druckbefehle werden über open-bamboo-networking mit deinen eigenen Slicer-Zugangsdaten (slicer_cert.pem, slicer_key.pem, slicer_crl.pem) signiert. Sie werden nur auf diesem Gerät gespeichert. IP-Adresse, Zugangscode und Seriennummer stehen in den Netzwerkeinstellungen des Druckers.</string>
+    <string name="obn_credentials_ok">Slicer-Zugangsdaten: importiert</string>
+    <string name="obn_credentials_missing">Slicer-Zugangsdaten fehlen: %1$s</string>
+    <string name="obn_import">Zugangsdaten importieren…</string>
+    <string name="obn_imported">Importiert: %1$s</string>
 </resources>
