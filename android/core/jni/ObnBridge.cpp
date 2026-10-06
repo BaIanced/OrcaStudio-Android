@@ -37,6 +37,15 @@ int bambu_network_set_on_message_fn(void *agent, BBL::OnMessageFn fn);
 int bambu_network_start_local_print(void *agent, BBL::PrintParams params, BBL::OnUpdateStatusFn update_fn,
                                     BBL::WasCancelledFn cancel_fn);
 std::string bambu_network_get_version();
+// Bambu account (cloud sign-in), as Bambu Studio's login dialog uses them.
+std::string bambu_network_get_bambulab_host(void *agent);
+int bambu_network_get_my_token(void *agent, std::string ticket, unsigned int *http_code, std::string *http_body);
+int bambu_network_get_my_profile(void *agent, std::string token, unsigned int *http_code, std::string *http_body);
+int bambu_network_change_user(void *agent, std::string user_info);
+bool bambu_network_is_user_login(void *agent);
+std::string bambu_network_get_user_name(void *agent);
+int bambu_network_user_logout(void *agent, bool request);
+int bambu_network_get_user_print_info(void *agent, unsigned int *http_code, std::string *http_body);
 }
 
 namespace {
@@ -97,6 +106,19 @@ std::string esc(const std::string &s)
         }
     }
     return o;
+}
+
+void *current_agent()
+{
+    std::lock_guard<std::mutex> lk(g_mu);
+    return g_agent;
+}
+
+// {"rc":..,"http":..,"body":"..."} for obn's HTTP-style calls; body is the raw response text.
+jstring http_result(JNIEnv *env, int rc, unsigned int http, const std::string &body)
+{
+    const std::string out = "{\"rc\":" + std::to_string(rc) + ",\"http\":" + std::to_string(http) + ",\"body\":\"" + esc(body) + "\"}";
+    return env->NewStringUTF(out.c_str());
 }
 
 } // namespace
@@ -255,6 +277,64 @@ JNIEXPORT jint JNICALL Java_app_orcaandroid_net_ObnNative_print(JNIEnv *env, job
         return g_cancel;
     };
     return bambu_network_start_local_print(agent, p, update, cancelled);
+}
+
+// --- Bambu account ------------------------------------------------------------------------------
+// The sign-in page hands over a one-time ticket; it is exchanged for tokens (getMyToken), the
+// profile is read (getMyProfile) and the resulting user_login JSON is given to obn (changeUser),
+// which keeps the session in obn.auth.json. The account's printer list (userPrintInfo) carries
+// each printer's serial and LAN access code.
+
+JNIEXPORT jstring JNICALL Java_app_orcaandroid_net_ObnNative_loginHost(JNIEnv *env, jobject)
+{
+    void *agent = current_agent();
+    return env->NewStringUTF(agent ? bambu_network_get_bambulab_host(agent).c_str() : "");
+}
+
+JNIEXPORT jstring JNICALL Java_app_orcaandroid_net_ObnNative_getMyToken(JNIEnv *env, jobject, jstring ticket)
+{
+    void *agent = current_agent();
+    unsigned int http = 0;
+    std::string body;
+    const int rc = agent ? bambu_network_get_my_token(agent, jstr(env, ticket), &http, &body) : BAMBU_NETWORK_ERR_INVALID_HANDLE;
+    return http_result(env, rc, http, body);
+}
+
+JNIEXPORT jstring JNICALL Java_app_orcaandroid_net_ObnNative_getMyProfile(JNIEnv *env, jobject, jstring token)
+{
+    void *agent = current_agent();
+    unsigned int http = 0;
+    std::string body;
+    const int rc = agent ? bambu_network_get_my_profile(agent, jstr(env, token), &http, &body) : BAMBU_NETWORK_ERR_INVALID_HANDLE;
+    return http_result(env, rc, http, body);
+}
+
+JNIEXPORT jint JNICALL Java_app_orcaandroid_net_ObnNative_changeUser(JNIEnv *env, jobject, jstring user_info)
+{
+    void *agent = current_agent();
+    return agent ? bambu_network_change_user(agent, jstr(env, user_info)) : BAMBU_NETWORK_ERR_INVALID_HANDLE;
+}
+
+JNIEXPORT jstring JNICALL Java_app_orcaandroid_net_ObnNative_userName(JNIEnv *env, jobject)
+{
+    void *agent = current_agent();
+    const std::string name = agent && bambu_network_is_user_login(agent) ? bambu_network_get_user_name(agent) : std::string();
+    return env->NewStringUTF(name.c_str());
+}
+
+JNIEXPORT void JNICALL Java_app_orcaandroid_net_ObnNative_logout(JNIEnv *, jobject)
+{
+    void *agent = current_agent();
+    if (agent) bambu_network_user_logout(agent, true);
+}
+
+JNIEXPORT jstring JNICALL Java_app_orcaandroid_net_ObnNative_userPrintInfo(JNIEnv *env, jobject)
+{
+    void *agent = current_agent();
+    unsigned int http = 0;
+    std::string body;
+    const int rc = agent ? bambu_network_get_user_print_info(agent, &http, &body) : BAMBU_NETWORK_ERR_INVALID_HANDLE;
+    return http_result(env, rc, http, body);
 }
 
 } // extern "C"

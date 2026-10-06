@@ -32,4 +32,17 @@ internal object ObnNative {
         devId: String, ip: String, accessCode: String, file: String, projectName: String,
         plateIndex: Int, useAms: Boolean, amsMapping: String, listener: PrintListener,
     ): Int
+
+    // Bambu account. The HTTP-style calls return {"rc": Int, "http": Int, "body": String}.
+    /** Base URL of the Bambu sign-in site, e.g. https://bambulab.com. */
+    external fun loginHost(): String
+    external fun getMyToken(ticket: String): String
+    external fun getMyProfile(token: String): String
+    /** Hands the user_login JSON (tokens + profile) to obn, which keeps the session in obn.auth.json. */
+    external fun changeUser(userInfo: String): Int
+    /** Signed-in user name, or "" when signed out. */
+    external fun userName(): String
+    external fun logout()
+    /** The account's printers ("devices": dev_id, dev_name, dev_access_code, dev_online, ...). */
+    external fun userPrintInfo(): String
 }
