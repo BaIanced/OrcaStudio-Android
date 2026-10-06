@@ -1,4 +1,4 @@
-# Daily: if OrcaSlicer main moved past the src-orca pin on main, (re)build branch
+# Weekly: if OrcaSlicer main moved past the src-orca pin on main, (re)build branch
 # upstream/orca-main = main + one commit moving src-orca to OrcaSlicer main, then start
 # android-apk.yml on that branch. Builds on that branch upload the APK as a workflow artifact
 # and never publish a release (android-apk.yml publishes only for refs/heads/main), so a
@@ -11,8 +11,10 @@ name: OrcaSlicer upstream watch
 
 on:
   schedule:
-    # 11:23 UTC daily, off the top of the hour (GitHub delays schedules under load).
-    - cron: '23 11 * * *'
+    # Mondays 11:23 UTC, off the top of the hour (GitHub delays schedules under load).
+    # Weekly, not daily: OrcaSlicer main moves almost every day, so daily would mean a build
+    # nearly every day. Run it by hand (workflow_dispatch) to pick up a change sooner.
+    - cron: '23 11 * * 1'
   workflow_dispatch:
     inputs:
       force:
