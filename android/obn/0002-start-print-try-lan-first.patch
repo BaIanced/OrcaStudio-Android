@@ -1,0 +1,34 @@
+diff --git a/src/abi_print.cpp b/src/abi_print.cpp
+index fa25e0d..48be903 100644
+--- a/src/abi_print.cpp
++++ b/src/abi_print.cpp
+@@ -47,6 +47,29 @@ OBN_ABI int bambu_network_start_print(void* agent,
+                                  "cloud_print=lan_only");
+         return BAMBU_NETWORK_ERR_INVALID_HANDLE;
+     }
++    // OrcaStudio-ARM patch 0002: honour try_lan_first for start_print too.
++    // A slicer reaching a cloud-bound printer through the cloud only calls
++    // start_print, so try_lan_first never applied and every print took the
++    // cloud /my/task path. When the printer's LAN address and access code are
++    // known (the slicer passes dev_ip; the code comes from params or from the
++    // cloud device list), upload over LAN FTPS and send the signed
++    // project_file instead (send_message() uses LAN MQTT if connected, else the
++    // cloud channel). Any failure other than cancel falls back to the cloud.
++    if (mode == obn::config::CloudPrintMode::TryLanFirst) {
++        BBL::PrintParams lp = params;
++        if (lp.username.empty()) lp.username = "bblp";
++        if (lp.password.empty()) lp.password = a->lan_access_code_for(lp.dev_id);
++        if (!lp.dev_ip.empty() && !lp.password.empty() && !lp.filename.empty()) {
++            OBN_INFO("start_print: cloud_print=try_lan_first -> local print over LAN (dev=%s ip=%s)",
++                     lp.dev_id.c_str(), lp.dev_ip.c_str());
++            const int rc = a->run_local_print_job(lp, update_fn, cancel_fn);
++            if (rc == 0 || rc == BAMBU_NETWORK_ERR_CANCELED) return rc;
++            OBN_WARN("start_print: LAN print failed rc=%d; falling back to cloud print", rc);
++        } else {
++            OBN_INFO("start_print: try_lan_first skipped (missing %s); using cloud print",
++                     lp.dev_ip.empty() ? "dev_ip" : (lp.password.empty() ? "access code" : "file"));
++        }
++    }
+     return a->run_cloud_print_job(params, update_fn, cancel_fn,
+                                   /*use_lan_channel=*/false);
+ }
