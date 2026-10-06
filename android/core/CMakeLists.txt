@@ -91,7 +91,7 @@ find_package(OpenVDB 5.0 REQUIRED COMPONENTS openvdb)
 # --- Vendored sources (subset of deps_src/ that libslic3r uses) ------------------------------
 set(_deps_src ${ORCA_SRC}/deps_src)
 foreach(_dir agg ankerl earcut fast_float nanosvg nlohmann stb_dxt
-             Shiny admesh clipper clipper2 expat glu-libtess libigl libnest2d mcut miniz qhull qoi semver)
+             Shiny admesh clipper2 expat glu-libtess libigl libnest2d mcut miniz qhull qoi semver)
     add_subdirectory(${_deps_src}/${_dir} ${CMAKE_BINARY_DIR}/deps_src/${_dir})
 endforeach()
 include_directories(SYSTEM ${_deps_src})
