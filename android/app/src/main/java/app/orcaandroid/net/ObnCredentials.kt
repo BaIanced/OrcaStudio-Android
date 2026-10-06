@@ -2,8 +2,11 @@ package app.orcaandroid.net
 
 import android.content.Context
 import android.net.Uri
+import android.system.Os
+import android.util.Base64
 import java.io.File
 import java.io.IOException
+import java.security.KeyStore
 
 /**
  * The user's own Bambu slicer credentials (slicer_cert.pem, slicer_key.pem, slicer_crl.pem) used
@@ -77,5 +80,46 @@ object ObnCredentials {
             log_to_file = 1
             """.trimIndent() + "\n"
         )
+    }
+
+    @Volatile private var tlsReady = false
+
+    /**
+     * CA certificates for obn's cloud HTTPS (Bambu sign-in, the account's printer list): Android's
+     * CA store exported as one PEM file, which OpenSSL reads through SSL_CERT_FILE (the Android
+     * obn build enables curl's CA fallback, see android/obn/obn.cmake). Done once per process,
+     * before obn's first cloud request.
+     */
+    fun prepareTls(context: Context) {
+        if (tlsReady) return
+        synchronized(this) {
+            if (tlsReady) return
+            val pem = StringBuilder()
+            val store = KeyStore.getInstance("AndroidCAStore").apply { load(null) }
+            for (alias in store.aliases()) {
+                val cert = store.getCertificate(alias) ?: continue
+                pem.append("-----BEGIN CERTIFICATE-----\n")
+                Base64.encodeToString(cert.encoded, Base64.NO_WRAP).chunked(64).forEach { pem.append(it).append('\n') }
+                pem.append("-----END CERTIFICATE-----\n")
+            }
+            val file = File(dir(context), "cacert.pem")
+            file.writeText(pem.toString())
+            Os.setenv("SSL_CERT_FILE", file.path, true)
+            tlsReady = true
+        }
+    }
+
+    /** The last obn.log line containing [marker], to show obn's own reason for a failure. */
+    fun lastLogLine(context: Context, marker: String): String? {
+        val log = File(dir(context), "obn.log")
+        if (!log.isFile) return null
+        val tail = log.length().let { len ->
+            java.io.RandomAccessFile(log, "r").use { f ->
+                val from = maxOf(0L, len - 64 * 1024)
+                f.seek(from)
+                ByteArray((len - from).toInt()).also { f.readFully(it) }
+            }
+        }
+        return String(tail, Charsets.UTF_8).lineSequence().lastOrNull { it.contains(marker) }?.trim()
     }
 }

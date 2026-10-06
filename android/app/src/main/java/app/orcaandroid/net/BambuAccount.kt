@@ -20,6 +20,7 @@ object BambuAccount {
 
     private fun start(context: Context): String {
         ObnCredentials.writeDefaultConf(context)
+        ObnCredentials.prepareTls(context)
         return ObnNative.init(ObnCredentials.dir(context).path).ifEmpty { throw IOException("open-bamboo-networking failed to start") }
     }
 
@@ -27,6 +28,10 @@ object BambuAccount {
     fun clientVersion(context: Context): String = runCatching { start(context) }.getOrDefault("02.08.01.99")
 
     private fun parse(result: String) = JSONObject(result).let { HttpResult(it.optInt("rc", -1), it.optInt("http"), it.optString("body")) }
+
+    /** obn's own log line for a failed request (e.g. the curl error), appended to the message. */
+    private fun obnReason(context: Context, marker: String): String =
+        runCatching { ObnCredentials.lastLogLine(context, marker) }.getOrNull()?.let { "\n$it" } ?: ""
 
     /** Signed-in user name, or null when signed out. */
     fun userName(context: Context): String? {
@@ -45,7 +50,7 @@ object BambuAccount {
     fun loginWithTicket(context: Context, ticket: String): String {
         start(context)
         val token = parse(ObnNative.getMyToken(ticket))
-        if (token.rc != 0) throw IOException("Bambu sign-in failed (token: obn ${token.rc}, HTTP ${token.http})")
+        if (token.rc != 0) throw IOException("Bambu sign-in failed (token: obn ${token.rc}, HTTP ${token.http})" + obnReason(context, "get_my_token"))
         val t = JSONObject(token.body)
         val access = t.optString("accessToken")
         if (access.isEmpty()) throw IOException("Bambu sign-in failed (no access token)")
@@ -87,7 +92,7 @@ object BambuAccount {
     fun printers(context: Context): List<Printer> {
         start(context)
         val r = parse(ObnNative.userPrintInfo())
-        if (r.rc != 0) throw IOException("Could not load the account's printers (obn ${r.rc}, HTTP ${r.http})")
+        if (r.rc != 0) throw IOException("Could not load the account's printers (obn ${r.rc}, HTTP ${r.http})" + obnReason(context, "user_print"))
         val devices = JSONObject(r.body).optJSONArray("devices") ?: return emptyList()
         return (0 until devices.length()).mapNotNull { i ->
             val d = devices.optJSONObject(i) ?: return@mapNotNull null

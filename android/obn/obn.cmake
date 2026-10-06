@@ -22,6 +22,15 @@ set(OBN_EMBED_STATIC ON CACHE BOOL "" FORCE)
 set(OBN_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 # OpenSSL 3.x from the Android deps superbuild (android/deps), linked statically.
 set(OPENSSL_ROOT_DIR "${ORCA_DEPS_PREFIX}" CACHE PATH "" FORCE)
+# CA certificates for obn's cloud HTTPS (Bambu sign-in, printer list). obn's vendored curl
+# (cmake/VendorCurl.cmake) sets no CA source and obn has no setting for one, so on Android curl
+# had none and every cloud request failed before an HTTP reply (get_my_token: -19, HTTP 0).
+# With the fallback, curl uses OpenSSL's default paths, which honour SSL_CERT_FILE; the app
+# points that at a PEM export of Android's CA store (ObnCredentials.prepareTls). No build-host
+# path may be compiled in, hence "none".
+set(CURL_CA_BUNDLE "none" CACHE STRING "" FORCE)
+set(CURL_CA_PATH "none" CACHE STRING "" FORCE)
+set(CURL_CA_FALLBACK ON CACHE BOOL "" FORCE)
 
 find_package(Git REQUIRED)
 FetchContent_Declare(obn
