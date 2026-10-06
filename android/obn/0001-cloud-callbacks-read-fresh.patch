@@ -1,0 +1,64 @@
+diff --git a/src/agent.cpp b/src/agent.cpp
+index 6ccdc78..8390ae3 100644
+--- a/src/agent.cpp
++++ b/src/agent.cpp
+@@ -2576,7 +2576,20 @@ int Agent::connect_cloud()
+         }
+     };
+ 
+-    auto on_msg_cb = [this, on_msg, on_printer_connected]
++    // The slicer's callbacks are read FRESH for every report instead of
++    // using the snapshot taken above. When a saved session auto-connects in
++    // bambu_network_start(), connect_cloud() runs before the slicer has
++    // called set_on_message_fn / set_on_printer_connected_fn; a snapshot
++    // taken then stays null for the whole session, so every push_status is
++    // dropped and the device panel reports "Failed to connect to the
++    // printer" even though reports arrive. (OrcaStudio-ARM patch 0001.)
++    (void)on_msg;
++    (void)on_printer_connected;
++    // Devices already announced via on_printer_connected in this cloud
++    // session; separate from cloud_connected_devs_ so that a report which
++    // arrives before the callback exists does not swallow the notification.
++    auto notified = std::make_shared<std::set<std::string>>();
++    auto on_msg_cb = [this, notified]
+         (std::string dev_id, std::string json)
+     {
+         harvest_security_report(dev_id, json);
+@@ -2589,22 +2602,26 @@ int Agent::connect_cloud()
+         // notification so Studio moves the device from "subscribing"
+         // to "online" in its UI. App-cert provisioning is Studio-driven
+         // via bambu_network_install_device_cert (not eager on report).
+-        bool first = false;
++        bool                      notify = false;
++        BBL::OnPrinterConnectedFn printer_connected_cb;
++        BBL::OnMessageFn          msg_cb;
++        BBL::QueueOnMainFn        q;
+         {
+             std::lock_guard<std::mutex> lk(mu_);
+-            first = cloud_connected_devs_.insert(dev_id).second;
++            cloud_connected_devs_.insert(dev_id);
++            printer_connected_cb = on_printer_connected_;
++            msg_cb               = on_message_;
++            q                    = queue_on_main_;
++            if (printer_connected_cb)
++                notify = notified->insert(dev_id).second;
+         }
+-        if (first && on_printer_connected) {
+-            BBL::OnPrinterConnectedFn cb = on_printer_connected;
+-            BBL::QueueOnMainFn        q;
+-            {
+-                std::lock_guard<std::mutex> lk(mu_);
+-                q = queue_on_main_;
+-            }
+-            auto invoke = [cb, dev_id]() { cb("tunnel/" + dev_id); };
++        if (notify) {
++            auto invoke = [printer_connected_cb, dev_id]() {
++                printer_connected_cb("tunnel/" + dev_id);
++            };
+             if (q) q(invoke); else invoke();
+         }
+-        if (on_msg) on_msg(std::move(dev_id), std::move(json));
++        if (msg_cb) msg_cb(std::move(dev_id), std::move(json));
+     };
+ 
+     auto on_sub_fail_cb = [this, on_sub_fail](std::string dev_id) {

@@ -28,7 +28,12 @@ FetchContent_Declare(obn
     GIT_REPOSITORY https://github.com/ClusterM/open-bamboo-networking.git
     GIT_TAG        ${OBN_GIT_COMMIT_PIN} # ${OBN_GIT_TAG}
     GIT_SHALLOW    FALSE
-    PATCH_COMMAND  ${GIT_EXECUTABLE} apply --whitespace=nowarn ${CMAKE_CURRENT_LIST_DIR}/obn-android.patch
+    # obn-android.patch: static library build for Android.
+    # 0001-cloud-callbacks-read-fresh.patch: fix for v2.2.0 dropping every cloud
+    # report when a saved sign-in connects before the slicer registers its callbacks.
+    PATCH_COMMAND  ${GIT_EXECUTABLE} apply --whitespace=nowarn
+                   ${CMAKE_CURRENT_LIST_DIR}/obn-android.patch
+                   ${CMAKE_CURRENT_LIST_DIR}/0001-cloud-callbacks-read-fresh.patch
     UPDATE_DISCONNECTED TRUE)
 FetchContent_MakeAvailable(obn)
 
