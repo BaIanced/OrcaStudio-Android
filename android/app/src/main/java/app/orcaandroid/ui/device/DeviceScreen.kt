@@ -248,6 +248,14 @@ private fun ConnectionDialog(state: UiState, vm: AppViewModel, onDismiss: () -> 
                     placeholder = { Text(url) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 if (type == HostType.BAMBU) Text(stringResource(R.string.bambu_lan_hint), style = MaterialTheme.typography.bodySmall)
                 if (type == HostType.BAMBU_SIGNED) ObnCredentialsSection()
+                if (bambu) BambuAccountSection { p ->
+                    // A cloud-bound printer prints only with signed commands; the IP comes from discovery when found.
+                    type = HostType.BAMBU_SIGNED
+                    serial = p.serial
+                    if (p.accessCode.isNotEmpty()) apiKey = p.accessCode
+                    state.discovered.firstOrNull { it.serial == p.serial }?.let { url = it.address }
+                    if (state.discovered.none { it.serial == p.serial } && !state.discovering) vm.device.startDiscovery()
+                }
 
                 HorizontalDivider()
                 Row(verticalAlignment = Alignment.CenterVertically) {

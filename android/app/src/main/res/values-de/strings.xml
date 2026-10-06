@@ -308,4 +308,10 @@
     <string name="obn_credentials_missing">Slicer-Zugangsdaten fehlen: %1$s</string>
     <string name="obn_import">Zugangsdaten importieren…</string>
     <string name="obn_imported">Importiert: %1$s</string>
+    <string name="bambu_account_hint">Mit dem Bambu-Konto anmelden, um Seriennummer und Zugangscode des Druckers einzutragen.</string>
+    <string name="bambu_account_signed_in">Bambu-Konto: %1$s</string>
+    <string name="bambu_account_sign_in">Mit Bambu-Konto anmelden</string>
+    <string name="bambu_account_sign_out">Abmelden</string>
+    <string name="bambu_account_use_printer">Drucker aus dem Konto übernehmen</string>
+    <string name="bambu_account_no_printers">Mit diesem Bambu-Konto ist kein Drucker verbunden.</string>
 </resources>
