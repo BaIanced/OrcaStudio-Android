@@ -7,8 +7,8 @@ This Android port builds the unmodified OrcaSlicer sources in `../src-orca`.
 | | |
 |---|---|
 | Repository | https://github.com/SoftFever/OrcaSlicer |
-| Commit | `2769b12ce702f32a2aed72ee9c0d6a5946bf229a` |
-| Commit date | 2026-09-30 |
+| Commit | `f8dd56053c52c729eab3acf871f1b75451eaeabb` |
+| Commit date | 2026-10-06 |
 | Version | OrcaSlicer 2.5.0-dev (`SLIC3R_VERSION` 02.08.01.55) |
 
 ## Updating to a newer upstream
