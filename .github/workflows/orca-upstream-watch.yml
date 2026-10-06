@@ -1,0 +1,127 @@
+# Daily: if OrcaSlicer main moved past the src-orca pin on main, (re)build branch
+# upstream/orca-main = main + one commit moving src-orca to OrcaSlicer main, then start
+# android-apk.yml on that branch. Builds on that branch upload the APK as a workflow artifact
+# and never publish a release (android-apk.yml publishes only for refs/heads/main), so a
+# breaking upstream change shows up as a red run there while main and its releases stay as
+# they are. Merging the branch into main is a manual decision.
+#
+# upstream/orca-main is owned by this workflow: it is recreated from main on every update and
+# force-pushed. Do not commit to it by hand.
+name: OrcaSlicer upstream watch
+
+on:
+  schedule:
+    # 11:23 UTC daily, off the top of the hour (GitHub delays schedules under load).
+    - cron: '23 11 * * *'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Rebuild the branch and start a build even if nothing changed
+        type: boolean
+        default: false
+
+permissions: {}
+
+concurrency:
+  group: orca-upstream-watch
+  cancel-in-progress: false
+
+env:
+  UPSTREAM: https://github.com/SoftFever/OrcaSlicer.git
+  BRANCH: upstream/orca-main
+
+jobs:
+  watch:
+    # Never act in copies of this repository.
+    if: github.repository_owner == 'BaIanced'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: write   # push the upstream/orca-main branch
+      actions: write    # dispatch android-apk.yml on it
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 1
+          submodules: false
+
+      - name: Compare pins
+        id: cmp
+        env:
+          FORCE: ${{ inputs.force == true }}
+        run: |
+          set -euo pipefail
+          new=$(git ls-remote "$UPSTREAM" refs/heads/main | cut -f1)
+          [[ "$new" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::cannot read OrcaSlicer main"; exit 1; }
+          main_sha=$(git rev-parse HEAD)
+          main_pin=$(git rev-parse HEAD:src-orca)
+          # The branch is current when it pins the same upstream commit on top of today's main.
+          branch_pin="" branch_base=""
+          if git fetch -q --depth 2 origin "refs/heads/$BRANCH" 2>/dev/null; then
+            branch_pin=$(git rev-parse FETCH_HEAD:src-orca)
+            branch_base=$(git rev-parse FETCH_HEAD^ 2>/dev/null || true)
+          fi
+          update=false
+          if [ "$new" != "$main_pin" ] && { [ "$new" != "$branch_pin" ] || [ "$branch_base" != "$main_sha" ]; }; then
+            update=true
+          fi
+          [ "$FORCE" = "true" ] && [ "$new" != "$main_pin" ] && update=true
+          {
+            echo "new=$new"; echo "old=$main_pin"; echo "update=$update"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo "## OrcaSlicer upstream watch"
+            echo "| | commit |"; echo "|---|---|"
+            echo "| pinned on main | \`$main_pin\` |"
+            echo "| pinned on $BRANCH | \`${branch_pin:-none}\` |"
+            echo "| OrcaSlicer main | \`$new\` |"
+            echo; echo "update=$update"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Move src-orca and record it
+        if: steps.cmp.outputs.update == 'true'
+        env:
+          NEW: ${{ steps.cmp.outputs.new }}
+          OLD: ${{ steps.cmp.outputs.old }}
+        run: |
+          set -euo pipefail
+          # Trees only (blobs on demand): enough for the changed-path list and version.inc.
+          o="$RUNNER_TEMP/orca"
+          git init -q "$o"
+          git -C "$o" remote add origin "$UPSTREAM"
+          git -C "$o" fetch -q --depth 1 --filter=blob:none origin "$NEW" "$OLD"
+          git -C "$o" diff --no-renames --name-only "$OLD" "$NEW" > "$RUNNER_TEMP/changed.txt"
+          git -C "$o" show "$NEW:version.inc" > "$o/version.inc"
+          date=$(git -C "$o" log -1 --format=%cs "$NEW")
+          n=$(wc -l < "$RUNNER_TEMP/changed.txt")
+
+          python3 android/scripts/bump_upstream.py android/UPSTREAM.md "$o" "$NEW" "$date" \
+            "$RUNNER_TEMP/changed.txt" | tee "$RUNNER_TEMP/bump.txt"
+          git update-index --cacheinfo "160000,$NEW,src-orca"
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add android/UPSTREAM.md
+          {
+            echo "android: track OrcaSlicer main ${NEW:0:12} ($date)"
+            echo
+            echo "${OLD:0:12}..${NEW:0:12}: $n changed paths. Port-dependent files to review"
+            echo "(android/UPSTREAM.md, \"Updating to a newer upstream\"):"
+            echo
+            grep '^review: ' "$RUNNER_TEMP/bump.txt" | sed 's/^review: /- /' || echo "- none"
+          } > "$RUNNER_TEMP/msg.txt"
+          git commit -q -F "$RUNNER_TEMP/msg.txt"
+          # Bot-owned branch, rebuilt from main each time.
+          git push --force origin "HEAD:refs/heads/$BRANCH"
+          { echo; echo '```'; cat "$RUNNER_TEMP/msg.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Build the branch (no release)
+        if: steps.cmp.outputs.update == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh api -X POST "repos/$REPO/actions/workflows/android-apk.yml/dispatches" -f ref="$BRANCH"
+          echo "Started android-apk.yml on \`$BRANCH\`." >> "$GITHUB_STEP_SUMMARY"

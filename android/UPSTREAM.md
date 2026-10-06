@@ -13,6 +13,11 @@ This Android port builds the unmodified OrcaSlicer sources in `../src-orca`.
 
 ## Updating to a newer upstream
 
+`.github/workflows/orca-upstream-watch.yml` does steps 1 and 3 daily on the branch `upstream/orca-main`
+(main plus one commit moving `src-orca` to OrcaSlicer main, rebuilt and force-pushed by the workflow).
+It builds that branch without publishing a release and lists the changed files from step 2 in the
+commit message. Merging the branch into main, after the build and the tests pass, is done by hand.
+
 1. Check out the new commit in `src-orca` and update the table above.
 2. Review upstream changes to the files the port depends on:
    - `deps/*/*.cmake` – the Android superbuild (`android/deps`) includes these recipes.

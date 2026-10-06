@@ -126,9 +126,11 @@ jobs:
         id: depskey
         run: |
           set -euo pipefail
-          orca=$(git rev-parse HEAD:src-orca)
+          # Only what the deps superbuild reads from src-orca (deps/ recipes, cmake/modules), not
+          # the whole commit: tracking OrcaSlicer main must not rebuild the deps on every bump.
+          orca=$(git -C src-orca rev-parse HEAD:deps HEAD:cmake/modules | sha256sum | cut -c1-12)
           h=$(cat android/android-toolchain.cmake <(find android/deps -type f -print0 | sort -z | xargs -0 sha256sum) | sha256sum | cut -c1-16)
-          echo "key=android-deps-ndk${NDK_VERSION}-orca${orca:0:12}-${h}" >> "$GITHUB_OUTPUT"
+          echo "key=android-deps-ndk${NDK_VERSION}-orcadeps${orca}-${h}" >> "$GITHUB_OUTPUT"
 
       - name: Restore Android deps
         id: deps
