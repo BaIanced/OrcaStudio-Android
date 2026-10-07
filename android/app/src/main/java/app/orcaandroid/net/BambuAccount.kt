@@ -2,6 +2,7 @@ package app.orcaandroid.net
 
 import android.content.Context
 import org.json.JSONObject
+import java.io.File
 import java.io.IOException
 
 /**
@@ -31,7 +32,8 @@ object BambuAccount {
 
     /** obn's own log line for a failed request (e.g. the curl error), appended to the message. */
     private fun obnReason(context: Context, marker: String): String =
-        runCatching { ObnCredentials.lastLogLine(context, marker) }.getOrNull()?.let { "\n$it" } ?: ""
+        (runCatching { ObnCredentials.lastLogLine(context, marker) }.getOrNull()?.let { "\n$it" } ?: "") +
+            "\nCA file: ${ObnCredentials.caCount} certificates, ${File(ObnCredentials.dir(context), "cacert.pem").path}"
 
     /** Signed-in user name, or null when signed out. */
     fun userName(context: Context): String? {

@@ -84,6 +84,10 @@ object ObnCredentials {
 
     @Volatile private var tlsReady = false
 
+    /** Certificates written to cacert.pem by [prepareTls] (shown with cloud errors). */
+    @Volatile var caCount = 0
+        private set
+
     /**
      * CA certificates for obn's cloud HTTPS (Bambu sign-in, the account's printer list): Android's
      * CA store exported as one PEM file, which OpenSSL reads through SSL_CERT_FILE (the Android
@@ -95,9 +99,11 @@ object ObnCredentials {
         synchronized(this) {
             if (tlsReady) return
             val pem = StringBuilder()
+            var count = 0
             val store = KeyStore.getInstance("AndroidCAStore").apply { load(null) }
             for (alias in store.aliases()) {
                 val cert = store.getCertificate(alias) ?: continue
+                count++
                 pem.append("-----BEGIN CERTIFICATE-----\n")
                 Base64.encodeToString(cert.encoded, Base64.NO_WRAP).chunked(64).forEach { pem.append(it).append('\n') }
                 pem.append("-----END CERTIFICATE-----\n")
@@ -105,6 +111,7 @@ object ObnCredentials {
             val file = File(dir(context), "cacert.pem")
             file.writeText(pem.toString())
             Os.setenv("SSL_CERT_FILE", file.path, true)
+            caCount = count
             tlsReady = true
         }
     }
