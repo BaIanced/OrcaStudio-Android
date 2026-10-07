@@ -116,8 +116,38 @@ object ObnCredentials {
         }
     }
 
-    /** The last obn.log line containing [marker], to show obn's own reason for a failure. */
-    fun lastLogLine(context: Context, marker: String): String? {
+    /**
+     * Starts obn (once per process) with its config, the CA bundle for cloud HTTPS and Bambu's
+     * printer CA. Returns obn's version.
+     */
+    fun startAgent(context: Context): String {
+        writeDefaultConf(context)
+        prepareTls(context)
+        installPrinterCa(context)
+        return ObnNative.init(dir(context).path).ifEmpty { throw IOException("open-bamboo-networking failed to start") }
+    }
+
+    @Volatile private var printerCaReady = false
+
+    /**
+     * Bambu's printer CA (OrcaSlicer resources/cert/printer.cer, packed as assets/obn/printer.cer)
+     * in [dir], which the JNI bridge hands to obn as its cert folder (bambu_network_set_cert_file,
+     * as the desktop slicers pass resources/cert). Without it obn refuses LAN MQTT while TLS
+     * verification is on: "LanSession: TLS verify enabled but printer.cer missing" (obn -2).
+     */
+    private fun installPrinterCa(context: Context) {
+        if (printerCaReady) return
+        synchronized(this) {
+            if (printerCaReady) return
+            val bytes = context.assets.open("obn/printer.cer").use { it.readBytes() }
+            val target = File(dir(context), "printer.cer")
+            if (!target.isFile || !target.readBytes().contentEquals(bytes)) target.writeBytes(bytes)
+            printerCaReady = true
+        }
+    }
+
+    /** The last obn.log line containing one of [markers], to show obn's own reason for a failure. */
+    fun lastLogLine(context: Context, vararg markers: String): String? {
         val log = File(dir(context), "obn.log")
         if (!log.isFile) return null
         val tail = log.length().let { len ->
@@ -127,6 +157,6 @@ object ObnCredentials {
                 ByteArray((len - from).toInt()).also { f.readFully(it) }
             }
         }
-        return String(tail, Charsets.UTF_8).lineSequence().lastOrNull { it.contains(marker) }?.trim()
+        return String(tail, Charsets.UTF_8).lineSequence().lastOrNull { line -> markers.any { line.contains(it) } }?.trim()
     }
 }

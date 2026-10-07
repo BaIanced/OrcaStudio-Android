@@ -39,6 +39,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import app.orcaandroid.R
 import app.orcaandroid.net.BambuAccount
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -62,7 +63,7 @@ internal fun BambuAccountSection(onPrinter: (BambuAccount.Printer) -> Unit) {
         busy = true
         message = null
         scope.launch {
-            runCatching { withContext(Dispatchers.IO) { BambuAccount.printers(context) } }.fold(
+            onIo { BambuAccount.printers(context) }.fold(
                 { list ->
                     printers = list
                     if (list.isEmpty()) message = context.getString(R.string.bambu_account_no_printers)
@@ -73,8 +74,18 @@ internal fun BambuAccountSection(onPrinter: (BambuAccount.Printer) -> Unit) {
         }
     }
 
+    // Runs here, not in the sign-in dialog: the dialog closes as soon as the page hands over.
+    fun signIn(login: () -> String) {
+        showLogin = false
+        busy = true
+        message = null
+        scope.launch {
+            onIo(login).fold({ user = it; loadPrinters() }, { message = "✗ ${it.message}"; busy = false })
+        }
+    }
+
     LaunchedEffect(Unit) {
-        user = runCatching { withContext(Dispatchers.IO) { BambuAccount.userName(context) } }.getOrNull()
+        user = onIo { BambuAccount.userName(context) }.getOrNull()
     }
 
     Text(
@@ -88,7 +99,7 @@ internal fun BambuAccountSection(onPrinter: (BambuAccount.Printer) -> Unit) {
             OutlinedButton(onClick = ::loadPrinters, enabled = !busy) { Text(stringResource(R.string.bambu_account_use_printer)) }
             TextButton(onClick = {
                 scope.launch {
-                    withContext(Dispatchers.IO) { runCatching { BambuAccount.logout(context) } }
+                    onIo { BambuAccount.logout(context) }
                     user = null
                     printers = null
                 }
@@ -102,15 +113,22 @@ internal fun BambuAccountSection(onPrinter: (BambuAccount.Printer) -> Unit) {
     }
     message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
 
-    if (showLogin) BambuLoginDialog { name, error ->
-        showLogin = false
-        if (name != null) {
-            user = name
-            loadPrinters()
-        } else if (error != null) {
-            message = "✗ $error"
-        }
-    }
+    if (showLogin) BambuLoginDialog(
+        onClose = { error ->
+            showLogin = false
+            if (error != null) message = "✗ $error"
+        },
+        onLogin = ::signIn,
+    )
+}
+
+/** Runs [block] on the IO dispatcher. Failures become a [Result]; cancellation is not a failure. */
+private suspend fun <T> onIo(block: () -> T): Result<T> = try {
+    Result.success(withContext(Dispatchers.IO) { block() })
+} catch (e: CancellationException) {
+    throw e
+} catch (e: Exception) {
+    Result.failure(e)
 }
 
 /**
@@ -121,25 +139,23 @@ internal fun BambuAccountSection(onPrinter: (BambuAccount.Printer) -> Unit) {
  */
 @SuppressLint("SetJavaScriptEnabled", "JavascriptInterface")
 @Composable
-private fun BambuLoginDialog(onResult: (name: String?, error: String?) -> Unit) {
+private fun BambuLoginDialog(onClose: (error: String?) -> Unit, onLogin: (login: () -> String) -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var web by remember { mutableStateOf<WebView?>(null) }
-    var working by remember { mutableStateOf(false) }
     var done by remember { mutableStateOf(false) }
 
-    fun finish(name: String?, error: String?) {
+    fun close(error: String?) {
         if (done) return
         done = true
-        onResult(name, error)
+        onClose(error)
     }
 
-    fun complete(block: () -> String) {
-        if (working) return
-        working = true
-        scope.launch {
-            runCatching { withContext(Dispatchers.IO) { block() } }.fold({ finish(it, null) }, { finish(null, it.message ?: it.toString()) })
-        }
+    // The sign-in itself runs in the caller's scope, which outlives this dialog.
+    fun login(block: () -> String) {
+        if (done) return
+        done = true
+        onLogin(block)
     }
 
     val bridge = remember {
@@ -154,22 +170,21 @@ private fun BambuLoginDialog(onResult: (name: String?, error: String?) -> Unit) 
                 when (j.optString("command")) {
                     "user_ticket_login" -> {
                         val ticket = j.optJSONObject("data")?.optString("ticket").orEmpty()
-                        if (ticket.isNotEmpty()) complete { BambuAccount.loginWithTicket(context, ticket) }
+                        if (ticket.isNotEmpty()) login { BambuAccount.loginWithTicket(context, ticket) }
                     }
-                    "user_login" -> complete { BambuAccount.loginWithUserInfo(context, message) }
+                    "user_login" -> login { BambuAccount.loginWithUserInfo(context, message) }
                     else -> Log.i("BambuLogin", "ignored sign-in page command ${j.optString("command")}")
                 }
             }
         }
     }
 
-    Dialog(onDismissRequest = { finish(null, null) }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    Dialog(onDismissRequest = { close(null) }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(Modifier.fillMaxSize()) {
             Column {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.bambu_account_sign_in), Modifier.weight(1f).padding(8.dp), style = MaterialTheme.typography.titleMedium)
-                    if (working) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                    TextButton(onClick = { finish(null, null) }) { Text(stringResource(R.string.cancel)) }
+                    TextButton(onClick = { close(null) }) { Text(stringResource(R.string.cancel)) }
                 }
                 Box(Modifier.weight(1f)) {
                     AndroidView(
@@ -177,8 +192,6 @@ private fun BambuLoginDialog(onResult: (name: String?, error: String?) -> Unit) 
                             WebView(ctx).apply {
                                 settings.javaScriptEnabled = true
                                 settings.domStorageEnabled = true
-                                // The sign-in page offers the slicer hand-over only to Bambu's slicers.
-                                settings.userAgentString = "${settings.userAgentString} BBL-Slicer/v${BambuAccount.clientVersion(ctx)} (dark) BBL-Language/en"
                                 addJavascriptInterface(bridge, "orcaNative")
                                 webViewClient = object : WebViewClient() {
                                     override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) =
@@ -196,9 +209,12 @@ private fun BambuLoginDialog(onResult: (name: String?, error: String?) -> Unit) 
     }
     LaunchedEffect(web) {
         val w = web ?: return@LaunchedEffect
-        val url = runCatching { withContext(Dispatchers.IO) { BambuAccount.loginUrl(context) } }
-            .getOrElse { finish(null, it.message); return@LaunchedEffect }
-        w.loadUrl(url)
+        // Off the main thread: the first call starts obn (CA export, agent start).
+        onIo { BambuAccount.clientVersion(context) to BambuAccount.loginUrl(context) }.fold({ (version, url) ->
+            // The sign-in page offers the slicer hand-over only to Bambu's slicers.
+            w.settings.userAgentString = "${w.settings.userAgentString} BBL-Slicer/v$version (dark) BBL-Language/en"
+            w.loadUrl(url)
+        }, { close(it.message ?: it.toString()) })
     }
     DisposableEffect(Unit) { onDispose { web?.destroy() } }
 }

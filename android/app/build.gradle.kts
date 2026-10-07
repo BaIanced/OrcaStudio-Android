@@ -135,7 +135,8 @@ val packOrcaAssets = tasks.register<PackOrcaAssets>("packOrcaAssets") {
     val res = File(orcaSrc, "resources")
     resourcesRoot.set(res.path)
     resources.from(fileTree(res) {
-        include("profiles/**", "info/**", "flush/**", "filament_mixing/**", "printers/**", "custom_gcodes/**", "shapes/**", "calib/**", "handy_models/**")
+        include("profiles/**", "info/**", "flush/**", "filament_mixing/**", "printers/**", "custom_gcodes/**", "shapes/**", "calib/**", "handy_models/**",
+            "cert/printer.cer")
     })
     script.set(rootProject.file("scripts/pack_resources.py"))
     tabCpp.set(File(orcaSrc, "src/slic3r/GUI/Tab.cpp"))

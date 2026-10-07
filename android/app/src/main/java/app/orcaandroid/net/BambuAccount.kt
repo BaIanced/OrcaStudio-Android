@@ -19,11 +19,7 @@ object BambuAccount {
 
     private class HttpResult(val rc: Int, val http: Int, val body: String)
 
-    private fun start(context: Context): String {
-        ObnCredentials.writeDefaultConf(context)
-        ObnCredentials.prepareTls(context)
-        return ObnNative.init(ObnCredentials.dir(context).path).ifEmpty { throw IOException("open-bamboo-networking failed to start") }
-    }
+    private fun start(context: Context): String = ObnCredentials.startAgent(context)
 
     /** obn's plugin version (e.g. 02.08.01.99), reported to the sign-in page like Bambu Studio's client version. */
     fun clientVersion(context: Context): String = runCatching { start(context) }.getOrDefault("02.08.01.99")

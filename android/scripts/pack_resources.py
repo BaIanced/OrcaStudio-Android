@@ -14,6 +14,7 @@ Vendors are zipped separately so the app only extracts the ones the user install
 import argparse
 import json
 import os
+import shutil
 import subprocess
 import sys
 import zipfile
@@ -108,6 +109,10 @@ def main() -> None:
         for sub in RUNTIME_DIRS:
             if (args.resources / sub).is_dir():
                 zip_tree(zf, args.resources / sub, sub)
+
+    # Bambu's printer CA for open-bamboo-networking's LAN TLS (net/ObnCredentials.kt).
+    (args.assets / "obn").mkdir(exist_ok=True)
+    shutil.copyfile(args.resources / "cert" / "printer.cer", args.assets / "obn" / "printer.cer")
 
     profiles = args.resources / "profiles"
     index = []
