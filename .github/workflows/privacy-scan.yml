@@ -1,0 +1,42 @@
+name: privacy scan
+
+# Fails when a push adds printer serials, LAN addresses, personal e-mail addresses, sign-in
+# tokens or private keys (.claude/hooks/privacy_scan.py). The repository is public.
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          submodules: false
+          persist-credentials: false
+      - name: Tracked files and the pushed commits
+        env:
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          paths=(. ':(exclude)src-orca')
+          scan=.claude/hooks/privacy_scan.py
+          status=0
+          python3 "$scan" tree "${paths[@]}" || status=1
+          if [ "$EVENT" = pull_request ]; then
+            revs="$PR_BASE..$PR_HEAD"
+          elif [[ -n "$BEFORE" && ! "$BEFORE" =~ ^0+$ ]] && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            revs="$BEFORE..$GITHUB_SHA"
+          else
+            revs="$GITHUB_SHA --not origin/$DEFAULT_BRANCH"
+          fi
+          echo "commits: $revs"
+          python3 "$scan" range "$revs" "${paths[@]}" || status=1
+          exit $status

@@ -3,7 +3,10 @@
 *.so
 .stfolder/
 .stignore
-.claude/
+# Claude Code: the shared hook (privacy scan) is tracked, local settings are not.
+.claude/*
+!.claude/settings.json
+!.claude/hooks/
 # Release outputs and signing secrets
 dist/
 android/key.properties
