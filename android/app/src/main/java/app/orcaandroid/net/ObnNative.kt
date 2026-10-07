@@ -45,4 +45,6 @@ internal object ObnNative {
     external fun logout()
     /** The account's printers ("devices": dev_id, dev_name, dev_access_code, dev_online, ...). */
     external fun userPrintInfo(): String
+    /** The account's cloud presets for a profile bundle version: {"rc": Int, "presets": {name: {key: value}}}. */
+    external fun cloudPresets(bundleVersion: String): String
 }

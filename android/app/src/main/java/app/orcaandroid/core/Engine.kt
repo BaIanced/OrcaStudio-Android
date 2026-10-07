@@ -58,6 +58,26 @@ class Engine(private val cacheDir: File) {
 
     suspend fun presetFile(type: PresetType, name: String): String = call("presetFile", args("type" to type.id, "name" to name)).getString("path")
 
+    /** Loads cloud presets ({ name: { key: value } }) and saves them as user presets; returns how many and the printers. */
+    suspend fun loadCloudPresets(presets: JSONObject): Pair<Int, List<PrinterInfo>> =
+        call("loadCloudPresets", args("presets" to presets)).let { it.optInt("count") to parsePrinters(it) }
+
+    /** Installed version of a vendor's profiles, "" if not installed. */
+    suspend fun vendorVersion(vendor: String): String = call("vendorVersion", args("vendor" to vendor)).optString("version")
+
+    /**
+     * The desktop's filament sync: one slot per loaded tray (keys: filament_id, filament_type,
+     * color, colors, color_type, ams_id, slot_id, name). Returns the new slots and, per tray that
+     * had no exact preset, the tray name and the reason.
+     */
+    suspend fun syncFilaments(trays: List<Map<String, Any?>>, filaments: List<FilamentSlot>): Pair<List<FilamentSlot>, List<Pair<String, String>>> {
+        val fils = filaments.map { f -> mapOf("name" to f.preset, "color" to f.color) }
+        val r = call("syncFilaments", args("trays" to trays, "filaments" to fils))
+        val slots = r.getJSONArray("filaments").map { (it as JSONObject).let { f -> FilamentSlot(f.getString("name"), f.optString("color").ifEmpty { null }) } }
+        val unknown = r.getJSONArray("unknown").map { (it as JSONObject).let { u -> u.optString("tray") to u.optString("message") } }
+        return slots to unknown
+    }
+
     // --- Scene -----------------------------------------------------------------------------------
 
     suspend fun scene() = parseScene(call("scene"))

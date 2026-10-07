@@ -186,6 +186,17 @@ public:
     json export_stl(const std::string &path, int plate);
     // Imports user presets (.json / .zip / .orca_printer / .orca_filament ...).
     json import_presets(const std::vector<std::string> &paths);
+    // Loads the user's cloud presets like the desktop's cloud sync and saves them as user presets.
+    // presets: { name: { option or metadata key: serialized value } }, as open-bamboo-networking's
+    // get_user_presets returns them. Returns the printers and the setup like import_presets().
+    json load_cloud_presets(const json &presets);
+    // Version of an installed vendor's profiles, e.g. "02.00.00.55": { "version" } ("" if absent).
+    json vendor_version(const std::string &vendor);
+    // Picks a filament preset and colour per loaded tray, like the desktop's filament sync.
+    // trays: [{ "filament_id", "filament_type", "color" ("#RRGGBB"), "colors" [...], "ams_id",
+    // "slot_id", "name" }] in tray order; filaments: the current slots, as for set_selection().
+    // Returns { "filaments": [{ "name", "color" }], "unknown": [{ "tray", "message" }] }.
+    json sync_filaments(const json &trays, const json &filaments);
     // File of a user preset: { "path": ... }.
     json preset_file(const std::string &type, const std::string &name);
 

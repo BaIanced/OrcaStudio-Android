@@ -86,6 +86,19 @@ object BambuAccount {
         ObnNative.logout()
     }
 
+    /**
+     * The account's cloud presets for profile bundle [bundleVersion], as the desktop's sync loads
+     * them: { name: { option or metadata key: serialized value } }.
+     */
+    fun cloudPresets(context: Context, bundleVersion: String): JSONObject {
+        start(context)
+        if (ObnNative.userName().isEmpty()) throw IOException("Sign in to your Bambu account first")
+        val r = JSONObject(ObnNative.cloudPresets(bundleVersion))
+        val rc = r.optInt("rc", -1)
+        if (rc != 0) throw IOException("Could not load the cloud presets (obn $rc)" + obnReason(context, "preset"))
+        return r.optJSONObject("presets") ?: JSONObject()
+    }
+
     /** The printers bound to the signed-in account. */
     fun printers(context: Context): List<Printer> {
         start(context)

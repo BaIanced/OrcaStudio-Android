@@ -9,6 +9,7 @@ import app.orcaandroid.core.SettingsGroup
 import app.orcaandroid.core.SettingsPage
 import app.orcaandroid.core.map
 import app.orcaandroid.core.printerKey
+import app.orcaandroid.net.BambuAccount
 import java.io.File
 import kotlin.math.abs
 import kotlinx.coroutines.Dispatchers
@@ -124,6 +125,49 @@ class PresetController(private val store: Store, private val device: DeviceContr
     }
 
     private fun nextColor(i: Int) = SLOT_COLORS[i % SLOT_COLORS.size]
+
+    /**
+     * Sets the filament slots to what the connected Bambu printer has loaded (AMS slots, then the
+     * external spool), picking presets like the desktop's filament sync (PresetBundle::sync_ams_list).
+     */
+    fun syncFilamentsFromPrinter() = store.launch(store.str(R.string.syncing_filaments)) {
+        val trays = device.loadedFilaments()
+        if (trays.isEmpty()) {
+            store.toast(store.str(R.string.sync_filaments_none))
+            return@launch
+        }
+        val (slots, unknown) = engine.syncFilaments(trays.map { t ->
+            mapOf("filament_id" to t.filamentId, "filament_type" to t.type, "color" to t.color, "colors" to t.colors,
+                "color_type" to t.colorType, "ams_id" to t.amsId, "slot_id" to t.slotId, "name" to t.name)
+        }, store.value.filaments)
+        if (slots.isEmpty()) {
+            store.toast(store.str(R.string.sync_filaments_none))
+            return@launch
+        }
+        updateFilaments { withColors(slots) }
+        store.toast(store.str(R.string.sync_filaments_done, slots.size) +
+            unknown.joinToString("") { (tray, why) -> "\n$tray: $why" })
+    }
+
+    /**
+     * Loads the presets saved in the signed-in Bambu account, like the desktop's cloud sync, as
+     * user presets. Newer cloud versions replace local copies; presets made only in the app stay.
+     */
+    fun syncCloudPresets() = store.launch(store.str(R.string.syncing_cloud_presets)) {
+        val version = engine.vendorVersion("BBL")
+        val presets = withContext(Dispatchers.IO) { BambuAccount.cloudPresets(store.app, version) }
+        val (count, printers) = engine.loadCloudPresets(presets)
+        store.update { it.copy(printers = printers) }
+        val current = store.value.printer
+        if (current != null && printers.any { it.name == current }) {
+            val setup = engine.selectPrinter(current)
+            store.update { it.copy(setup = setup) }
+            refreshPresetValues(PresetType.entries)
+        } else {
+            store.value.visiblePrinters.firstOrNull()?.let { selectPrinterNow(it.name) }
+        }
+        store.toast(store.str(R.string.cloud_presets_synced, count))
+    }
 
     // --- Settings editor -----------------------------------------------------------------------------
 

@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -45,6 +46,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -55,8 +57,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import app.orcaandroid.R
+import app.orcaandroid.net.BambuReport
 import app.orcaandroid.net.HostType
 import app.orcaandroid.net.PrintHost
+import app.orcaandroid.net.PrinterAlert
 import app.orcaandroid.net.PrinterConnection
 import app.orcaandroid.net.PrinterStatus
 import app.orcaandroid.ui.AppViewModel
@@ -111,6 +115,8 @@ private fun StatusBar(state: UiState, vm: AppViewModel, connection: PrinterConne
     val status = state.printerStatus
     val error = state.printerStatusError
     var confirmCancel by remember { mutableStateOf(false) }
+    var showAlerts by remember { mutableStateOf(false) }
+    var dismissedPrompt by rememberSaveable { mutableStateOf<String?>(null) }
     val line = when {
         !connection.type.canUpload -> stringResource(R.string.web_ui_only_short)
         status != null -> listOfNotNull(
@@ -146,11 +152,102 @@ private fun StatusBar(state: UiState, vm: AppViewModel, connection: PrinterConne
                 IconButton(onClick = onEdit) { Icon(Icons.Default.Settings, stringResource(R.string.connection)) }
             }
             status?.progress?.takeIf { status.isActive }?.let { p -> LinearProgressIndicator(progress = { p }, modifier = Modifier.fillMaxWidth()) }
+            status?.alerts?.firstOrNull()?.let { first ->
+                Row(Modifier.fillMaxWidth().clickable { showAlerts = true }.padding(horizontal = 16.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Warning, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error)
+                    Text(alertText(first) + if (status.alerts.size > 1) "  (+${status.alerts.size - 1})" else "",
+                        Modifier.padding(start = 8.dp).weight(1f), style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
+            }
         }
     }
+    // The printer's prompt pops up like the desktop's error dialog, once per error until it changes.
+    val prompt = status?.alerts?.firstOrNull { it.isPrintError }
+    LaunchedEffect(prompt?.code) { if (prompt?.code != dismissedPrompt) dismissedPrompt = null }
+    if (prompt != null && prompt.code != dismissedPrompt) AlertPrompt(prompt, vm) { dismissedPrompt = prompt.code }
+    if (showAlerts && status != null) AlertList(status.alerts, { showAlerts = false }) { dismissedPrompt = null; showAlerts = false }
     if (confirmCancel) ConfirmDialog(stringResource(R.string.cancel_print), stringResource(R.string.cancel_print_text), stringResource(R.string.cancel_print),
         { vm.device.controlJob(PrintHost.JobAction.CANCEL) }) { confirmCancel = false }
 }
+
+@Composable
+private fun alertText(a: PrinterAlert) = a.text ?: stringResource(R.string.printer_error_code, a.display)
+
+/** A print error the printer waits on, with the desktop's buttons for it (DeviceErrorDialog). */
+@Composable
+private fun AlertPrompt(alert: PrinterAlert, vm: AppViewModel, onClose: () -> Unit) {
+    val buttons = alert.buttons.filter { it in BambuReport.SUPPORTED_BUTTONS }
+    AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text(stringResource(R.string.printer_message)) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(alertText(alert))
+                Text("[${alert.display}]", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (alert.buttons.any { it !in BambuReport.SUPPORTED_BUTTONS })
+                    Text(stringResource(R.string.printer_message_unsupported), style = MaterialTheme.typography.bodySmall)
+            }
+        },
+        confirmButton = {
+            Column(horizontalAlignment = Alignment.End) {
+                buttons.forEach { b ->
+                    TextButton(onClick = {
+                        if (b != BambuReport.ALERT_CANCEL) vm.device.answerAlert(alert, b)
+                        // "Not Extruded Yet, Retry" keeps the prompt open, as in the desktop app.
+                        if (b != BambuReport.ALERT_RETRY_EXTRUDED) onClose()
+                    }) { Text(alertButtonLabel(b)) }
+                }
+            }
+        },
+        dismissButton = { TextButton(onClick = onClose) { Text(stringResource(R.string.close)) } },
+    )
+}
+
+/** Everything the printer currently reports; a print error can be answered from here again. */
+@Composable
+private fun AlertList(alerts: List<PrinterAlert>, onClose: () -> Unit, onAnswer: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text(stringResource(R.string.printer_messages)) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                alerts.forEach { a ->
+                    Column(Modifier.fillMaxWidth().then(if (a.isPrintError) Modifier.clickable(onClick = onAnswer) else Modifier)) {
+                        Text(alertText(a), style = MaterialTheme.typography.bodyMedium)
+                        Text("[${a.display}]", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onClose) { Text(stringResource(R.string.close)) } },
+    )
+}
+
+@Composable
+private fun alertButtonLabel(id: Int) = stringResource(
+    when (id) {
+        2 -> R.string.alert_btn_resume_printing
+        3 -> R.string.alert_btn_resume_defects
+        4 -> R.string.alert_btn_resume_solved
+        5 -> R.string.alert_btn_stop
+        7 -> R.string.alert_btn_extruded
+        8 -> R.string.alert_btn_retry_extruded
+        9 -> R.string.alert_btn_finished_continue
+        11 -> R.string.ok
+        12 -> R.string.alert_btn_loaded_resume
+        23 -> R.string.alert_btn_no_reminder
+        25 -> R.string.alert_btn_ignore_no_reminder
+        27 -> R.string.alert_btn_ignore_resume
+        28 -> R.string.alert_btn_solved_resume
+        29 -> R.string.alert_btn_fire_alarm
+        34 -> R.string.alert_btn_retry_solved
+        35 -> R.string.alert_btn_stop_drying
+        51 -> R.string.alert_btn_abort
+        else -> R.string.cancel
+    }
+)
 
 @Composable
 private fun stateLabel(s: PrinterStatus.State) = stringResource(

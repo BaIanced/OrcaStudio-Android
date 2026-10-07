@@ -314,4 +314,36 @@
     <string name="bambu_account_sign_out">Abmelden</string>
     <string name="bambu_account_use_printer">Drucker aus dem Konto übernehmen</string>
     <string name="bambu_account_no_printers">Mit diesem Bambu-Konto ist kein Drucker verbunden.</string>
+    <!-- Druckermeldungen (Bambu-Druckfehler und HMS), Schaltflächen wie im Fehlerdialog der Desktop-App -->
+    <string name="printer_message">Druckermeldung</string>
+    <string name="printer_messages">Druckermeldungen</string>
+    <string name="printer_error_code">Druckerfehler %1$s</string>
+    <string name="printer_message_unsupported">Bitte am Drucker oder in Bambu Handy beantworten.</string>
+    <string name="alert_btn_resume_printing">Druck fortsetzen</string>
+    <string name="alert_btn_resume_defects">Fortsetzen (Fehler akzeptabel)</string>
+    <string name="alert_btn_resume_solved">Fortsetzen (Problem behoben)</string>
+    <string name="alert_btn_stop">Druck stoppen</string>
+    <string name="alert_btn_extruded">Filament extrudiert, weiter</string>
+    <string name="alert_btn_retry_extruded">Noch nicht extrudiert, erneut versuchen</string>
+    <string name="alert_btn_finished_continue">Erledigt, weiter</string>
+    <string name="alert_btn_loaded_resume">Filament geladen, fortsetzen</string>
+    <string name="alert_btn_no_reminder">Nicht mehr erinnern</string>
+    <string name="alert_btn_ignore_no_reminder">Ignorieren, nicht mehr erinnern</string>
+    <string name="alert_btn_ignore_resume">Ignorieren und fortsetzen</string>
+    <string name="alert_btn_solved_resume">Problem behoben, fortsetzen</string>
+    <string name="alert_btn_fire_alarm">Verstanden, Feueralarm ausschalten</string>
+    <string name="alert_btn_retry_solved">Erneut versuchen (Problem behoben)</string>
+    <string name="alert_btn_stop_drying">Trocknen beenden</string>
+    <string name="alert_btn_abort">Abbruch</string>
+    <!-- Filamente vom Bambu-Drucker übernehmen -->
+    <string name="sync_filaments">Filamente vom Drucker übernehmen</string>
+    <string name="syncing_filaments">Filamente des Druckers werden gelesen…</string>
+    <string name="sync_filaments_none">Der Drucker meldet kein geladenes Filament.</string>
+    <string name="sync_filaments_done">%1$d Filamentplatz/-plätze vom Drucker übernommen.</string>
+    <string name="sync_filaments_no_bambu">Für den Filamentabgleich ist eine Verbindung zu einem Bambu-Lab-Drucker nötig (Tab „Gerät“).</string>
+    <!-- Presets des Bambu-Kontos -->
+    <string name="sync_cloud_presets">Presets aus dem Bambu-Konto laden</string>
+    <string name="sync_cloud_presets_text">Deine Prozess-, Filament- und Drucker-Presets aus der Bambu-Cloud</string>
+    <string name="syncing_cloud_presets">Presets aus dem Bambu-Konto werden geladen…</string>
+    <string name="cloud_presets_synced">%1$d Preset(s) im Bambu-Konto; neuere geladen.</string>
 </resources>

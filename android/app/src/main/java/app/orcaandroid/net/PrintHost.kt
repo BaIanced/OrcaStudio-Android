@@ -77,6 +77,12 @@ data class PrinterStatus(
     val nozzleTemp: Float? = null,
     val bedTemp: Float? = null,
     val message: String? = null,
+    /** Bambu: what the printer currently shows (print error prompt, HMS items). */
+    val alerts: List<PrinterAlert> = emptyList(),
+    /** Bambu: loaded filaments (AMS slots, external spool). */
+    val trays: List<PrinterTray> = emptyList(),
+    val jobId: String? = null,
+    val subtaskId: String? = null,
 ) {
     enum class State { IDLE, PRINTING, PAUSED, FINISHED, ERROR, OFFLINE }
 
@@ -96,6 +102,15 @@ interface PrintHost {
 
     /** Pause/resume/cancel of the running job; false if unsupported. */
     fun control(action: JobAction): Boolean = false
+
+    /**
+     * Bambu: sends one {"print": ...} command and returns the printer's reply (null if none came);
+     * throws when the printer refuses it.
+     */
+    fun command(print: org.json.JSONObject): org.json.JSONObject? = throw UnsupportedOperationException("Not supported by this printer type")
+
+    /** Bambu: the status right after a full report (pushall), with the loaded filaments. */
+    fun fullStatus(): PrinterStatus? = status()
 
     fun close() {}
 

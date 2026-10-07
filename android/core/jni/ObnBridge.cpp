@@ -15,6 +15,7 @@
 #include <condition_variable>
 #include <deque>
 #include <functional>
+#include <map>
 #include <mutex>
 #include <string>
 
@@ -47,6 +48,9 @@ bool bambu_network_is_user_login(void *agent);
 std::string bambu_network_get_user_name(void *agent);
 int bambu_network_user_logout(void *agent, bool request);
 int bambu_network_get_user_print_info(void *agent, unsigned int *http_code, std::string *http_body);
+// Cloud user presets, as the desktop's preset sync uses them.
+int bambu_network_get_setting_list(void *agent, std::string bundle_version, BBL::ProgressFn pro_fn, BBL::WasCancelledFn cancel_fn);
+int bambu_network_get_user_presets(void *agent, std::map<std::string, std::map<std::string, std::string>> *user_presets);
 }
 
 namespace {
@@ -340,6 +344,30 @@ JNIEXPORT jstring JNICALL Java_app_orcaandroid_net_ObnNative_userPrintInfo(JNIEn
     std::string body;
     const int rc = agent ? bambu_network_get_user_print_info(agent, &http, &body) : BAMBU_NETWORK_ERR_INVALID_HANDLE;
     return http_result(env, rc, http, body);
+}
+
+// Downloads the account's cloud presets for profile bundle `version` (get_setting_list, then
+// get_user_presets, as the desktop's sync does). Returns {"rc": Int, "presets": {name: {key: value}}}
+// with option values serialized as libslic3r writes them.
+JNIEXPORT jstring JNICALL Java_app_orcaandroid_net_ObnNative_cloudPresets(JNIEnv *env, jobject, jstring version)
+{
+    void *agent = current_agent();
+    const int rc = agent ? bambu_network_get_setting_list(agent, jstr(env, version), BBL::ProgressFn(), BBL::WasCancelledFn())
+                         : BAMBU_NETWORK_ERR_INVALID_HANDLE;
+    std::map<std::string, std::map<std::string, std::string>> presets;
+    if (rc == 0) bambu_network_get_user_presets(agent, &presets);
+    std::string out = "{\"rc\":" + std::to_string(rc) + ",\"presets\":{";
+    for (auto p = presets.begin(); p != presets.end(); ++p) {
+        if (p != presets.begin()) out += ',';
+        out += "\"" + esc(p->first) + "\":{";
+        for (auto v = p->second.begin(); v != p->second.end(); ++v) {
+            if (v != p->second.begin()) out += ',';
+            out += "\"" + esc(v->first) + "\":\"" + esc(v->second) + "\"";
+        }
+        out += '}';
+    }
+    out += "}}";
+    return env->NewStringUTF(out.c_str());
 }
 
 } // extern "C"

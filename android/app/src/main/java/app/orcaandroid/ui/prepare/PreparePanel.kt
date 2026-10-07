@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -51,6 +52,7 @@ import app.orcaandroid.core.overrides
 import app.orcaandroid.core.PresetType
 import app.orcaandroid.core.Vec3
 import app.orcaandroid.core.VolumeType
+import app.orcaandroid.net.HostType
 import app.orcaandroid.ui.AppViewModel
 import app.orcaandroid.ui.EditorTarget
 import app.orcaandroid.ui.Selection
@@ -117,6 +119,10 @@ private fun PresetsTab(state: UiState, vm: AppViewModel) {
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         OutlinedButton(onClick = vm.presets::addFilament) { Icon(Icons.Default.Add, null); Text(stringResource(R.string.add_filament)) }
         if (state.filaments.size > 1) TextButton(onClick = vm.scene::autoFlushMatrix) { Text(stringResource(R.string.flushing_volumes)) }
+    }
+    // Like the desktop's filament sync: take the slots from what the connected Bambu printer has loaded.
+    if (state.connection?.type == HostType.BAMBU || state.connection?.type == HostType.BAMBU_SIGNED) {
+        OutlinedButton(onClick = vm.presets::syncFilamentsFromPrinter) { Icon(Icons.Default.Sync, null); Text(stringResource(R.string.sync_filaments)) }
     }
     if (state.filaments.size > 1) WipeTowerRow(state, vm)
 

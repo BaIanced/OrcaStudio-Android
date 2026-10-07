@@ -315,4 +315,36 @@
     <string name="bambu_account_sign_out">Sign out</string>
     <string name="bambu_account_use_printer">Use printer from account</string>
     <string name="bambu_account_no_printers">No printers are bound to this Bambu account.</string>
+    <!-- Printer messages (Bambu print errors and HMS), buttons as in the desktop's error dialog -->
+    <string name="printer_message">Printer message</string>
+    <string name="printer_messages">Printer messages</string>
+    <string name="printer_error_code">Printer error %1$s</string>
+    <string name="printer_message_unsupported">Answer this on the printer or in Bambu Handy.</string>
+    <string name="alert_btn_resume_printing">Resume Printing</string>
+    <string name="alert_btn_resume_defects">Resume (defects acceptable)</string>
+    <string name="alert_btn_resume_solved">Resume (problem solved)</string>
+    <string name="alert_btn_stop">Stop Printing</string>
+    <string name="alert_btn_extruded">Filament Extruded, Continue</string>
+    <string name="alert_btn_retry_extruded">Not Extruded Yet, Retry</string>
+    <string name="alert_btn_finished_continue">Finished, Continue</string>
+    <string name="alert_btn_loaded_resume">Filament Loaded, Resume</string>
+    <string name="alert_btn_no_reminder">No Reminder Next Time</string>
+    <string name="alert_btn_ignore_no_reminder">Ignore. Don\'t Remind Next Time</string>
+    <string name="alert_btn_ignore_resume">Ignore this and Resume</string>
+    <string name="alert_btn_solved_resume">Problem Solved and Resume</string>
+    <string name="alert_btn_fire_alarm">Got it, Turn off the Fire Alarm.</string>
+    <string name="alert_btn_retry_solved">Retry (problem solved)</string>
+    <string name="alert_btn_stop_drying">Stop Drying</string>
+    <string name="alert_btn_abort">Abort</string>
+    <!-- Filament sync from a Bambu printer -->
+    <string name="sync_filaments">Sync filaments from printer</string>
+    <string name="syncing_filaments">Reading the printer\'s filaments…</string>
+    <string name="sync_filaments_none">The printer reports no loaded filament.</string>
+    <string name="sync_filaments_done">%1$d filament slot(s) taken from the printer.</string>
+    <string name="sync_filaments_no_bambu">Filament sync needs a Bambu Lab printer connection (Device tab).</string>
+    <!-- Presets of the Bambu account -->
+    <string name="sync_cloud_presets">Sync presets from Bambu account</string>
+    <string name="sync_cloud_presets_text">Your process, filament and printer presets saved in the Bambu cloud</string>
+    <string name="syncing_cloud_presets">Loading presets from the Bambu account…</string>
+    <string name="cloud_presets_synced">%1$d preset(s) in the Bambu account; newer ones loaded.</string>
 </resources>

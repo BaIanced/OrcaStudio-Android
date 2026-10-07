@@ -73,6 +73,7 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
             Entry(stringResource(R.string.manage_printers), stringResource(R.string.n_printers_selected, state.selectedPrinters.size)) { vm.presets.openPrinterSetup() }
             Entry(stringResource(R.string.filament_vendors), stringResource(R.string.filament_vendors_text)) { dialog = "vendors" }
             Entry(stringResource(R.string.import_presets), stringResource(R.string.import_presets_text)) { importPresets.launch(arrayOf("*/*")) }
+            Entry(stringResource(R.string.sync_cloud_presets), stringResource(R.string.sync_cloud_presets_text)) { vm.presets.syncCloudPresets() }
             Entry(stringResource(R.string.compare_presets), null) { vm.presets.openEditor(EditorTarget.Preset(PresetType.PRINT)) }
             Entry(stringResource(R.string.check_profile_updates), null) { vm.presets.checkProfileUpdates() }
             state.profileUpdates?.takeIf { it.isNotEmpty() }?.let { updates ->

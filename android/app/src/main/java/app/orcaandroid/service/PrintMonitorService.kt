@@ -14,7 +14,9 @@ import androidx.core.content.ContextCompat
 import app.orcaandroid.OrcaApp
 import app.orcaandroid.R
 import app.orcaandroid.container
+import app.orcaandroid.net.HmsCatalog
 import app.orcaandroid.net.PrintHost
+import app.orcaandroid.net.PrinterAlert
 import app.orcaandroid.net.PrinterStatus
 import app.orcaandroid.ui.MainActivity
 import kotlinx.coroutines.CoroutineScope
@@ -63,14 +65,23 @@ class PrintMonitorService : Service() {
         job = scope.launch {
             var idlePolls = 0
             var failures = 0
+            var lastPrompt: String? = null
             while (true) {
-                val status = withContext(Dispatchers.IO) { runCatching { h.status() }.getOrNull() }
+                val status = withContext(Dispatchers.IO) {
+                    runCatching { h.status()?.let { HmsCatalog.describe(this@PrintMonitorService, connection.serial, it) } }.getOrNull()
+                }
                 if (status == null) {
                     if (++failures >= 6) break
                 } else {
                     failures = 0
                     application.container.printerStatus.value = status
-                    getSystemService(android.app.NotificationManager::class.java).notify(NOTIFICATION_ID, notification(printer, status))
+                    val manager = getSystemService(android.app.NotificationManager::class.java)
+                    manager.notify(NOTIFICATION_ID, notification(printer, status))
+                    // A new prompt (the printer waits for an answer) gets its own, audible notification.
+                    val prompt = status.alerts.firstOrNull { it.isPrintError }
+                    if (prompt != null && prompt.code != lastPrompt) manager.notify(ALERT_ID, alertNotification(printer, prompt))
+                    if (prompt == null) manager.cancel(ALERT_ID)
+                    lastPrompt = prompt?.code
                     // A just-started job may still report idle for a moment.
                     if (!status.isActive && ++idlePolls >= 3) break
                     if (status.isActive) idlePolls = 0
@@ -94,6 +105,20 @@ class PrintMonitorService : Service() {
         stopSelf()
     }
 
+    private fun alertText(a: PrinterAlert) = a.text ?: getString(R.string.printer_error_code, a.display)
+
+    private fun alertNotification(printer: String, a: PrinterAlert): Notification {
+        val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
+        return NotificationCompat.Builder(this, OrcaApp.CHANNEL_PRINT)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(getString(R.string.printer_message) + " · " + printer)
+            .setContentText(alertText(a))
+            .setStyle(NotificationCompat.BigTextStyle().bigText(alertText(a) + "\n[" + a.display + "]"))
+            .setContentIntent(open)
+            .setAutoCancel(true)
+            .build()
+    }
+
     private fun notification(printer: String, s: PrinterStatus): Notification {
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         fun action(a: String, code: Int) = PendingIntent.getService(this, code,
@@ -103,7 +128,7 @@ class PrintMonitorService : Service() {
         return NotificationCompat.Builder(this, OrcaApp.CHANNEL_PRINT)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(s.file ?: printer)
-            .setContentText("$percent %$remaining")
+            .setContentText(s.alerts.firstOrNull()?.let(::alertText) ?: "$percent %$remaining")
             .setProgress(100, percent, s.progress == null)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
@@ -125,6 +150,7 @@ class PrintMonitorService : Service() {
     companion object {
         private const val NOTIFICATION_ID = 2
         private const val DONE_ID = 3
+        private const val ALERT_ID = 4
         private const val POLL_MS = 5_000L
         private const val EXTRA_PRINTER = "printer"
         private const val ACTION_PAUSE = "pause"

@@ -47,6 +47,9 @@ const std::unordered_map<std::string, Handler> &handlers()
              return json{{"ok", true}};
          }},
         {"optionStates", [](OrcaEngine &e, const json &) { return e.option_states(); }},
+        {"loadCloudPresets", [](OrcaEngine &e, const json &a) { return e.load_cloud_presets(a.at("presets")); }},
+        {"vendorVersion", [](OrcaEngine &e, const json &a) { return e.vendor_version(a.at("vendor")); }},
+        {"syncFilaments", [](OrcaEngine &e, const json &a) { return e.sync_filaments(a.at("trays"), a.at("filaments")); }},
         // Scene
         {"scene", [](OrcaEngine &e, const json &) { return e.scene(); }},
         {"loadModels", [](OrcaEngine &e, const json &a) { return e.load_models(strings(a.at("paths")), a.value("append", false), a.value("plate", 0)); }},

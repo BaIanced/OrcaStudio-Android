@@ -254,6 +254,101 @@ json OrcaEngine::import_presets(const std::vector<std::string> &paths)
     return out;
 }
 
+json OrcaEngine::load_cloud_presets(const json &presets)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    require_printer();
+    std::map<std::string, std::map<std::string, std::string>> my_presets;
+    for (const auto &[name, values] : presets.items()) {
+        if (!values.is_object())
+            continue;
+        for (const auto &[key, value] : values.items())
+            my_presets[name][key] = value.is_string() ? value.get<std::string>() : value.dump();
+    }
+    // As the desktop's cloud sync: load (newer cloud versions replace local copies), then write the
+    // loaded presets (sync_info "save") to the user preset folder. Presets that were never synced
+    // (no setting_id) are not touched by the removal step inside load_user_presets().
+    AppConfig app_config;
+    m_bundle->load_user_presets(app_config, my_presets, ForwardCompatibilitySubstitutionRule::EnableSilent);
+    std::map<std::string, std::string> need_to_delete;
+    m_bundle->save_user_presets(app_config, need_to_delete);
+    for (PresetCollection *c : {static_cast<PresetCollection *>(&m_bundle->printers), &m_bundle->prints, &m_bundle->filaments})
+        for (size_t i = 0; i < c->size(); ++i)
+            c->preset(i, true).is_visible = true;
+    // The cloud may have removed the selected printer; the app selects one again from the list.
+    return {{"count", my_presets.size()}, {"printers", printer_list_locked()}};
+}
+
+json OrcaEngine::vendor_version(const std::string &vendor)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (!m_bundle)
+        throw std::runtime_error("Presets are not loaded");
+    const bool installed = m_bundle->vendors.find(vendor) != m_bundle->vendors.end();
+    return {{"version", installed ? m_bundle->get_vendor_profile_version(vendor).to_string() : std::string()}};
+}
+
+json OrcaEngine::sync_filaments(const json &trays, const json &filaments)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    require_printer();
+    // The current slots as the desktop's selection, with the per-filament project options sized to it.
+    std::vector<std::string> names, colors;
+    for (const json &f : filaments) {
+        names.push_back(f.at("name").get<std::string>());
+        colors.push_back(f.contains("color") && f["color"].is_string() ? f["color"].get<std::string>() : std::string("#FFFFFF"));
+    }
+    if (names.empty())
+        throw std::runtime_error("Select at least one filament");
+    m_bundle->filament_presets = names;
+    DynamicPrintConfig &project = m_bundle->project_config;
+    project.option<ConfigOptionStrings>("filament_colour", true)->values = colors;
+    project.option<ConfigOptionStrings>("filament_colour_type", true)->values.resize(names.size(), "1");
+    project.option<ConfigOptionStrings>("filament_multi_colour", true)->values.resize(names.size());
+    project.option<ConfigOptionInts>("filament_map", true)->values.resize(names.size(), 1);
+    project.option<ConfigOptionInts>("filament_volume_map", true)->values.resize(names.size(), int(nvtStandard));
+
+    // The trays as Sidebar::build_filament_ams_list() describes them, in the same order (AMS slots, then the external spool).
+    m_bundle->filament_ams_list.clear();
+    int index = 0;
+    for (const json &t : trays) {
+        DynamicPrintConfig tray;
+        tray.set_key_value("filament_id", new ConfigOptionStrings{t.value("filament_id", std::string())});
+        tray.set_key_value("ams_id", new ConfigOptionStrings{t.value("ams_id", std::string())});
+        tray.set_key_value("slot_id", new ConfigOptionStrings{t.value("slot_id", std::string())});
+        tray.set_key_value("filament_type", new ConfigOptionStrings{t.value("filament_type", std::string())});
+        tray.set_key_value("tray_name", new ConfigOptionStrings{t.value("name", std::string())});
+        tray.set_key_value("filament_colour", new ConfigOptionStrings{t.value("color", std::string())});
+        auto *multi = new ConfigOptionStrings();
+        if (t.contains("colors"))
+            for (const json &c : t["colors"])
+                multi->values.push_back(c.get<std::string>());
+        tray.set_key_value("filament_multi_colour", multi);
+        tray.set_key_value("filament_colour_type", new ConfigOptionStrings{t.value("color_type", std::string("1"))});
+        tray.set_key_value("filament_exist", new ConfigOptionBools{true});
+        tray.set_key_value("filament_changed", new ConfigOptionBool{true});
+        m_bundle->filament_ams_list.emplace(index++, std::move(tray));
+    }
+
+    // Direct sync (no slot mapping, no appending): one slot per loaded tray.
+    std::vector<std::pair<DynamicPrintConfig *, std::string>> unknowns;
+    std::map<int, AMSMapInfo> maps;
+    MergeFilamentInfo merge_info;
+    const unsigned int synced = m_bundle->sync_ams_list(unknowns, false, maps, false, merge_info);
+
+    json out = json::array();
+    if (synced > 0) {
+        const auto &synced_colors = project.option<ConfigOptionStrings>("filament_colour")->values;
+        for (size_t i = 0; i < m_bundle->filament_presets.size(); ++i)
+            out.push_back({{"name", m_bundle->filament_presets[i]}, {"color", i < synced_colors.size() ? synced_colors[i] : std::string()}});
+    }
+    json unknown = json::array();
+    for (const auto &[tray, message] : unknowns)
+        unknown.push_back({{"tray", tray->opt_string("tray_name", 0u)}, {"message", message}});
+    m_bundle->filament_ams_list.clear();
+    return {{"filaments", out}, {"unknown", unknown}};
+}
+
 json OrcaEngine::preset_file(const std::string &type, const std::string &name)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
