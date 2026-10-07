@@ -2,8 +2,11 @@ package app.orcaandroid.net
 
 import android.content.Context
 import android.net.Uri
+import android.system.Os
+import android.util.Base64
 import java.io.File
 import java.io.IOException
+import java.security.KeyStore
 
 /**
  * The user's own Bambu slicer credentials (slicer_cert.pem, slicer_key.pem, slicer_crl.pem) used
@@ -64,18 +67,110 @@ object ObnCredentials {
 
     /**
      * obn.conf for LAN printing with verification left on (open-bamboo-networking "Option B"):
-     * prints go straight to the printer over the LAN and no cloud record is written. Never
-     * overwrites a file the user edited.
+     * prints go straight to the printer over the LAN and no cloud record is written.
+     *
+     * mqtt_keep_connection = 0: every printer action here connects and disconnects (PrintHost per
+     * action). With obn's default (1) the disconnect is deferred and later drops the session
+     * without clearing obn's once-per-session "app certificate installed" latch (agent.cpp
+     * schedule_deferred_disconnect), so the next connection skips the certificate exchange and
+     * [ObnNative.installCert] never sees "device_cert_installed". An immediate disconnect clears
+     * the latch (agent.cpp disconnect_printer).
+     *
+     * Never overwrites a setting the user edited: an existing file only gets the keys it lacks.
      */
     fun writeDefaultConf(context: Context) {
         val conf = File(dir(context), "obn.conf")
-        if (conf.exists()) return
-        conf.writeText(
-            """
-            # Written by Orca-Android. See https://github.com/ClusterM/open-bamboo-networking#configuration-file
-            cloud_print = lan_only
-            log_to_file = 1
-            """.trimIndent() + "\n"
-        )
+        if (!conf.exists()) {
+            conf.writeText(
+                """
+                # Written by Orca-Android. See https://github.com/ClusterM/open-bamboo-networking#configuration-file
+                cloud_print = lan_only
+                log_to_file = 1
+                mqtt_keep_connection = 0
+                """.trimIndent() + "\n"
+            )
+            return
+        }
+        val text = conf.readText()
+        if (Regex("""(?m)^\s*mqtt_keep_connection\s*=""").containsMatchIn(text)) return
+        conf.appendText((if (text.isEmpty() || text.endsWith("\n")) "" else "\n") + "mqtt_keep_connection = 0\n")
+    }
+
+    @Volatile private var tlsReady = false
+
+    /** Certificates written to cacert.pem by [prepareTls] (shown with cloud errors). */
+    @Volatile var caCount = 0
+        private set
+
+    /**
+     * CA certificates for obn's cloud HTTPS (Bambu sign-in, the account's printer list): Android's
+     * CA store exported as one PEM file, which OpenSSL reads through SSL_CERT_FILE (the Android
+     * obn build enables curl's CA fallback, see android/obn/obn.cmake). Done once per process,
+     * before obn's first cloud request.
+     */
+    fun prepareTls(context: Context) {
+        if (tlsReady) return
+        synchronized(this) {
+            if (tlsReady) return
+            val pem = StringBuilder()
+            var count = 0
+            val store = KeyStore.getInstance("AndroidCAStore").apply { load(null) }
+            for (alias in store.aliases()) {
+                val cert = store.getCertificate(alias) ?: continue
+                count++
+                pem.append("-----BEGIN CERTIFICATE-----\n")
+                Base64.encodeToString(cert.encoded, Base64.NO_WRAP).chunked(64).forEach { pem.append(it).append('\n') }
+                pem.append("-----END CERTIFICATE-----\n")
+            }
+            val file = File(dir(context), "cacert.pem")
+            file.writeText(pem.toString())
+            Os.setenv("SSL_CERT_FILE", file.path, true)
+            caCount = count
+            tlsReady = true
+        }
+    }
+
+    /**
+     * Starts obn (once per process) with its config, the CA bundle for cloud HTTPS and Bambu's
+     * printer CA. Returns obn's version.
+     */
+    fun startAgent(context: Context): String {
+        writeDefaultConf(context)
+        prepareTls(context)
+        installPrinterCa(context)
+        return ObnNative.init(dir(context).path).ifEmpty { throw IOException("open-bamboo-networking failed to start") }
+    }
+
+    @Volatile private var printerCaReady = false
+
+    /**
+     * Bambu's printer CA (OrcaSlicer resources/cert/printer.cer, packed as assets/obn/printer.cer)
+     * in [dir], which the JNI bridge hands to obn as its cert folder (bambu_network_set_cert_file,
+     * as the desktop slicers pass resources/cert). Without it obn refuses LAN MQTT while TLS
+     * verification is on: "LanSession: TLS verify enabled but printer.cer missing" (obn -2).
+     */
+    private fun installPrinterCa(context: Context) {
+        if (printerCaReady) return
+        synchronized(this) {
+            if (printerCaReady) return
+            val bytes = context.assets.open("obn/printer.cer").use { it.readBytes() }
+            val target = File(dir(context), "printer.cer")
+            if (!target.isFile || !target.readBytes().contentEquals(bytes)) target.writeBytes(bytes)
+            printerCaReady = true
+        }
+    }
+
+    /** The last obn.log line containing one of [markers], to show obn's own reason for a failure. */
+    fun lastLogLine(context: Context, vararg markers: String): String? {
+        val log = File(dir(context), "obn.log")
+        if (!log.isFile) return null
+        val tail = log.length().let { len ->
+            java.io.RandomAccessFile(log, "r").use { f ->
+                val from = maxOf(0L, len - 64 * 1024)
+                f.seek(from)
+                ByteArray((len - from).toInt()).also { f.readFully(it) }
+            }
+        }
+        return String(tail, Charsets.UTF_8).lineSequence().lastOrNull { line -> markers.any { line.contains(it) } }?.trim()
     }
 }

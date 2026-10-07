@@ -26,12 +26,14 @@ internal class ObnHost(private val c: PrinterConnection) : PrintHost {
         if (c.serial.isBlank()) throw IOException("Enter the printer's serial number")
         if (host.isBlank() || c.apiKey.isBlank()) throw IOException("Enter the printer's IP address and access code")
         val ctx = ObnCredentials.appContext()
-        val dir = ObnCredentials.dir(ctx)
-        ObnCredentials.writeDefaultConf(ctx)
-        if (ObnNative.init(dir.path).isEmpty()) throw IOException("open-bamboo-networking failed to start")
+        ObnCredentials.startAgent(ctx)
         if (connected) return
         val rc = ObnNative.connect(c.serial, host, c.apiKey)
-        if (rc != 0) throw IOException("Connection to the printer failed (obn $rc)")
+        if (rc != 0) {
+            // obn logs the reason (TLS setup, MQTT connect error) in obn.log.
+            val reason = ObnCredentials.lastLogLine(ctx, "LanSession", "mqtt connect")?.let { "\n$it" }.orEmpty()
+            throw IOException("Connection to the printer failed (obn $rc)$reason")
+        }
         // obn connects asynchronously and reports the result as a "connect" event.
         val deadline = System.currentTimeMillis() + CONNECT_TIMEOUT_MS
         while (!connected && System.currentTimeMillis() < deadline) {

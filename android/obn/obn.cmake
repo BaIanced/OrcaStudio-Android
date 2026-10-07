@@ -22,6 +22,17 @@ set(OBN_EMBED_STATIC ON CACHE BOOL "" FORCE)
 set(OBN_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 # OpenSSL 3.x from the Android deps superbuild (android/deps), linked statically.
 set(OPENSSL_ROOT_DIR "${ORCA_DEPS_PREFIX}" CACHE PATH "" FORCE)
+# CA certificates for obn's cloud HTTPS (Bambu sign-in, printer list). obn's vendored curl
+# (cmake/VendorCurl.cmake) sets no CA source and obn passes none, so on Android every cloud
+# request failed verification: get_my_token "SSL peer certificate or SSH remote key was not OK"
+# (CURLE_PEER_FAILED_VERIFICATION). The CA-fallback-only attempt (SSL_CERT_FILE) still failed
+# that way on a device, so curl now gets a fixed bundle path: the PEM export of Android's CA
+# store that the app writes before its first cloud request (ObnCredentials.prepareTls), in the
+# release app's no-backup dir. /data/data/<id> is the primary user's data dir; debug builds
+# (".debug" id) and secondary users fall back to SSL_CERT_FILE via CURL_CA_FALLBACK.
+set(CURL_CA_BUNDLE "/data/data/io.github.baianced.orcastudio_android/no_backup/obn/cacert.pem" CACHE STRING "" FORCE)
+set(CURL_CA_PATH "none" CACHE STRING "" FORCE)
+set(CURL_CA_FALLBACK ON CACHE BOOL "" FORCE)
 
 find_package(Git REQUIRED)
 FetchContent_Declare(obn

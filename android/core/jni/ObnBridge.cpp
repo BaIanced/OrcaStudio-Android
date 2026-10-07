@@ -25,6 +25,7 @@
 extern "C" {
 void *bambu_network_create_agent(std::string log_dir);
 int bambu_network_set_config_dir(void *agent, std::string config_dir);
+int bambu_network_set_cert_file(void *agent, std::string folder, std::string filename);
 int bambu_network_start(void *agent);
 int bambu_network_connect_printer(void *agent, std::string dev_id, std::string dev_ip, std::string username,
                                   std::string password, bool use_ssl);
@@ -135,6 +136,10 @@ JNIEXPORT jstring JNICALL Java_app_orcaandroid_net_ObnNative_init(JNIEnv *env, j
         void *agent = bambu_network_create_agent(d);
         if (!agent) return env->NewStringUTF("");
         bambu_network_set_config_dir(agent, d);
+        // obn reads Bambu's printer CA as <folder>/printer.cer (ObnCredentials.installPrinterCa puts
+        // it in d); without it LAN MQTT fails while TLS verification is on. No file name: with one,
+        // obn would also use <folder>/<name> as the cloud MQTT CA, which stays as it was.
+        bambu_network_set_cert_file(agent, d, "");
         bambu_network_set_on_local_connect_fn(agent, [](int status, std::string dev_id, std::string msg) {
             push_event({"connect", std::move(dev_id), status, std::move(msg)});
         });
