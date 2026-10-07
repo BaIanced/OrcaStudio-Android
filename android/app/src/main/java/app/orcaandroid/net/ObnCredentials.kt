@@ -67,19 +67,33 @@ object ObnCredentials {
 
     /**
      * obn.conf for LAN printing with verification left on (open-bamboo-networking "Option B"):
-     * prints go straight to the printer over the LAN and no cloud record is written. Never
-     * overwrites a file the user edited.
+     * prints go straight to the printer over the LAN and no cloud record is written.
+     *
+     * mqtt_keep_connection = 0: every printer action here connects and disconnects (PrintHost per
+     * action). With obn's default (1) the disconnect is deferred and later drops the session
+     * without clearing obn's once-per-session "app certificate installed" latch (agent.cpp
+     * schedule_deferred_disconnect), so the next connection skips the certificate exchange and
+     * [ObnNative.installCert] never sees "device_cert_installed". An immediate disconnect clears
+     * the latch (agent.cpp disconnect_printer).
+     *
+     * Never overwrites a setting the user edited: an existing file only gets the keys it lacks.
      */
     fun writeDefaultConf(context: Context) {
         val conf = File(dir(context), "obn.conf")
-        if (conf.exists()) return
-        conf.writeText(
-            """
-            # Written by Orca-Android. See https://github.com/ClusterM/open-bamboo-networking#configuration-file
-            cloud_print = lan_only
-            log_to_file = 1
-            """.trimIndent() + "\n"
-        )
+        if (!conf.exists()) {
+            conf.writeText(
+                """
+                # Written by Orca-Android. See https://github.com/ClusterM/open-bamboo-networking#configuration-file
+                cloud_print = lan_only
+                log_to_file = 1
+                mqtt_keep_connection = 0
+                """.trimIndent() + "\n"
+            )
+            return
+        }
+        val text = conf.readText()
+        if (Regex("""(?m)^\s*mqtt_keep_connection\s*=""").containsMatchIn(text)) return
+        conf.appendText((if (text.isEmpty() || text.endsWith("\n")) "" else "\n") + "mqtt_keep_connection = 0\n")
     }
 
     @Volatile private var tlsReady = false
