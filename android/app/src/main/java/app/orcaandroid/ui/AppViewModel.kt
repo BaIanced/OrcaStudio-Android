@@ -3,6 +3,7 @@ package app.orcaandroid.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import app.orcaandroid.CrashReport
 import app.orcaandroid.core.ThemeMode
 import app.orcaandroid.core.Translator
 import kotlinx.coroutines.Dispatchers
@@ -40,6 +41,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 .onFailure { e -> store.update { it.copy(phase = Phase.SETUP, error = e.message ?: e.toString()) } }
         }
         viewModelScope.launch { store.container.printerStatus.collect { s -> store.update { it.copy(printerStatus = s) } } }
+        viewModelScope.launch {
+            val report = withContext(Dispatchers.IO) { runCatching { CrashReport.pending(store.app) }.getOrNull() }
+            if (report != null) store.update { it.copy(crashReport = report) }
+        }
+    }
+
+    fun dismissCrashReport() {
+        CrashReport.clear(store.app)
+        store.update { it.copy(crashReport = null) }
     }
 
     /** Unpacks the resources, starts the engine and loads the printers chosen before (or asks for them). */

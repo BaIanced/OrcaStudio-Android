@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.MoreHoriz
@@ -41,7 +43,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import app.orcaandroid.R
 import app.orcaandroid.render.PlateView
@@ -179,6 +183,24 @@ private fun GlobalDialogs(state: UiState, vm: AppViewModel) {
             // Engine errors are OrcaSlicer's (translatable) messages; show them in the app's language.
             text = { Text(vm.translator.tr(message)) },
             confirmButton = { TextButton(onClick = vm::dismissError) { Text(stringResource(R.string.ok)) } },
+        )
+    }
+    state.crashReport?.let { report ->
+        val context = LocalContext.current
+        AlertDialog(
+            onDismissRequest = vm::dismissCrashReport,
+            title = { Text(stringResource(R.string.crash_title)) },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.crash_text))
+                    Text(report, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace)
+                }
+            },
+            confirmButton = { TextButton(onClick = {
+                context.getSystemService(android.content.ClipboardManager::class.java)
+                    .setPrimaryClip(android.content.ClipData.newPlainText("Orca-Android crash", report))
+            }) { Text(stringResource(R.string.copy)) } },
+            dismissButton = { TextButton(onClick = vm::dismissCrashReport) { Text(stringResource(R.string.close)) } },
         )
     }
     val snackbar = remember { SnackbarHostState() }

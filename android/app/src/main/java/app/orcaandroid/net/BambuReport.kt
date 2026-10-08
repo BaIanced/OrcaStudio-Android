@@ -14,6 +14,7 @@ internal class BambuReport {
     private val snapshot = JSONObject()
     private val replies = HashMap<String, JSONObject>()
     private val lock = Object()
+    private var trayReports = 0
 
     /** Applies one report (the whole MQTT payload). */
     fun apply(payload: String) {
@@ -22,7 +23,10 @@ internal class BambuReport {
             val command = print.optString("command")
             val seq = print.optString("sequence_id")
             if (command.isNotEmpty() && command != "push_status" && seq.isNotEmpty()) replies[seq] = print
-            else print.keys().forEach { k -> snapshot.put(k, print.get(k)) }
+            else {
+                print.keys().forEach { k -> snapshot.put(k, print.get(k)) }
+                if (print.has("ams") || print.has("vt_tray") || print.has("vir_slot")) trayReports++
+            }
             lock.notifyAll()
         }
     }
@@ -49,8 +53,8 @@ internal class BambuReport {
     /** The printer's answer to the command sent with [seq], if it has arrived. */
     fun reply(seq: String): JSONObject? = synchronized(lock) { replies.remove(seq) }
 
-    /** True once a report carried AMS / external spool data. */
-    val hasTrays get() = synchronized(lock) { snapshot.has("ams") || snapshot.has("vt_tray") || snapshot.has("vir_slot") }
+    /** How many reports carried AMS / external spool data; a newer count means fresh tray data. */
+    val trayCount get() = synchronized(lock) { trayReports }
 
     fun status(): PrinterStatus = synchronized(lock) {
         val r = snapshot

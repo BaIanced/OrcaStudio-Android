@@ -134,6 +134,8 @@ data class UiState(
     val profileUpdates: List<ResourceStore.ProfileUpdate>? = null,
     /** Progress text while profile updates install in the background; null when idle. */
     val profileUpdateProgress: String? = null,
+    /** Report of a crash that closed the app last time (see CrashReport). */
+    val crashReport: String? = null,
 ) {
     fun presetName(type: PresetType) = when (type) {
         PresetType.PRINT -> print

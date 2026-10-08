@@ -346,4 +346,8 @@
     <string name="sync_cloud_presets_text">Deine Prozess-, Filament- und Drucker-Presets aus der Bambu-Cloud</string>
     <string name="syncing_cloud_presets">Presets aus dem Bambu-Konto werden geladen…</string>
     <string name="cloud_presets_synced">%1$d Preset(s) im Bambu-Konto; neuere geladen.</string>
+    <!-- Absturzbericht nach unerwartetem Beenden -->
+    <string name="crash_title">Die App wurde unerwartet beendet</string>
+    <string name="crash_text">Das ist der Bericht zum letzten Absturz. Kopiere ihn und schick ihn mit; prüfe ihn vorher auf Seriennummer oder IP-Adresse deines Druckers und ersetze sie.</string>
+    <string name="copy">Kopieren</string>
 </resources>

@@ -4,6 +4,7 @@
 #include "OrcaEngine.hpp"
 
 #include <cmath>
+#include <functional>
 #include <stdexcept>
 
 #include "libslic3r/AppConfig.hpp"
@@ -21,6 +22,12 @@ namespace orca {
 using namespace Slic3r;
 
 namespace {
+
+// Runs a function when the scope ends, also when an exception leaves it.
+struct OnExit {
+    std::function<void()> fn;
+    ~OnExit() { fn(); }
+};
 
 const Preset *find_by_name(const PresetCollection &collection, const std::string &name)
 {
@@ -268,6 +275,12 @@ json OrcaEngine::load_cloud_presets(const json &presets)
     // As the desktop's cloud sync: load (newer cloud versions replace local copies), then write the
     // loaded presets (sync_info "save") to the user preset folder. Presets that were never synced
     // (no setting_id) are not touched by the removal step inside load_user_presets().
+    // load_user_presets() also updates the desktop's filament selection and project options
+    // (update_multi_material_filament_presets); the engine keeps its own, so restore them.
+    OnExit restore{[this, presets = m_bundle->filament_presets, project = m_bundle->project_config] {
+        m_bundle->filament_presets = presets;
+        m_bundle->project_config   = project;
+    }};
     AppConfig app_config;
     m_bundle->load_user_presets(app_config, my_presets, ForwardCompatibilitySubstitutionRule::EnableSilent);
     std::map<std::string, std::string> need_to_delete;
@@ -292,6 +305,16 @@ json OrcaEngine::sync_filaments(const json &trays, const json &filaments)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
     require_printer();
+    // sync_ams_list() works on the desktop's selection state: the filament presets, the per-filament
+    // project options and flush matrix, the edited process preset. The engine keeps its own
+    // selection (set_selection), so all of that is restored once the result has been read.
+    OnExit restore{[this, presets = m_bundle->filament_presets, project = m_bundle->project_config,
+                     print = m_bundle->prints.get_edited_preset().config] {
+        m_bundle->filament_presets                 = presets;
+        m_bundle->project_config                   = project;
+        m_bundle->prints.get_edited_preset().config = print;
+        m_bundle->filament_ams_list.clear();
+    }};
     // The current slots as the desktop's selection, with the per-filament project options sized to it.
     std::vector<std::string> names, colors;
     for (const json &f : filaments) {
@@ -345,7 +368,6 @@ json OrcaEngine::sync_filaments(const json &trays, const json &filaments)
     json unknown = json::array();
     for (const auto &[tray, message] : unknowns)
         unknown.push_back({{"tray", tray->opt_string("tray_name", 0u)}, {"message", message}});
-    m_bundle->filament_ams_list.clear();
     return {{"filaments", out}, {"unknown", unknown}};
 }
 

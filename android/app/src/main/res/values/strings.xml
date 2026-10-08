@@ -347,4 +347,8 @@
     <string name="sync_cloud_presets_text">Your process, filament and printer presets saved in the Bambu cloud</string>
     <string name="syncing_cloud_presets">Loading presets from the Bambu account…</string>
     <string name="cloud_presets_synced">%1$d preset(s) in the Bambu account; newer ones loaded.</string>
+    <!-- Crash report shown after the app closed unexpectedly -->
+    <string name="crash_title">The app closed unexpectedly</string>
+    <string name="crash_text">This is the report of the last crash. Copy it and send it along; check it for your printer\'s serial number or IP address first and replace them.</string>
+    <string name="copy">Copy</string>
 </resources>

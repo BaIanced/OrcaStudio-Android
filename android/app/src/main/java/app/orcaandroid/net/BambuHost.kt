@@ -68,8 +68,9 @@ internal class BambuHost(private val c: PrinterConnection) : PrintHost {
     }
 
     override fun fullStatus(): PrinterStatus {
+        val before = report.trayCount
         pushAll()
-        report.await(5_000) { report.hasTrays }
+        report.await(5_000) { report.trayCount > before }
         return report.status()
     }
 

@@ -150,8 +150,9 @@ internal class ObnHost(private val c: PrinterConnection) : PrintHost {
     override fun fullStatus(): PrinterStatus {
         ensureConnected()
         val report = Session.report
+        val before = report.trayCount
         pushAll()
-        report.await(5_000, ::drain) { report.hasTrays }
+        report.await(5_000, ::drain) { report.trayCount > before }
         return report.status()
     }
 

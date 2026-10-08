@@ -34,6 +34,7 @@ class OrcaApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        CrashReport.install(this)
         container = AppContainer(this)
         app.orcaandroid.net.ObnCredentials.attach(this)
         getSystemService(NotificationManager::class.java).createNotificationChannels(listOf(
