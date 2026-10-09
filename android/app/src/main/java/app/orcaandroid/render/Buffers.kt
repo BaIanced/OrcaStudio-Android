@@ -5,7 +5,6 @@ import java.io.RandomAccessFile
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
-import java.nio.channels.FileChannel
 
 /**
  * Float data prepared off the GL thread and uploaded by [PlateRenderer]: the scene/paint meshes
@@ -18,9 +17,17 @@ class FloatData(val data: FloatBuffer, val stride: Int) {
         fun load(path: String, stride: Int): FloatData? {
             val file = File(path)
             if (!file.exists() || file.length() == 0L) return FloatData(directFloats(0), stride)
+            // Copied, not memory-mapped: the engine rewrites these files in place (each paint stroke,
+            // a new slice) while the GL thread may still upload the previous data, and a mapping of
+            // a truncated file raises SIGBUS in glBufferData.
             return RandomAccessFile(file, "r").use { f ->
-                val bytes = f.channel.map(FileChannel.MapMode.READ_ONLY, 0, f.length())
-                FloatData(bytes.order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer(), stride)
+                val bytes = ByteBuffer.allocateDirect(f.length().toInt()).order(ByteOrder.LITTLE_ENDIAN)
+                while (bytes.hasRemaining() && f.channel.read(bytes) > 0) Unit
+                // A file that shrank while being read keeps whole records only.
+                val record = 4 * stride
+                bytes.limit(bytes.position() / record * record)
+                bytes.position(0)
+                FloatData(bytes.asFloatBuffer(), stride)
             }
         }
 
