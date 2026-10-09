@@ -84,7 +84,7 @@ data class PrinterStatus(
     val jobId: String? = null,
     val subtaskId: String? = null,
 ) {
-    enum class State { IDLE, PRINTING, PAUSED, FINISHED, ERROR, OFFLINE }
+    enum class State { IDLE, PRINTING, PAUSED, FINISHED, STOPPED, ERROR, OFFLINE }
 
     val isActive get() = state == State.PRINTING || state == State.PAUSED
 }

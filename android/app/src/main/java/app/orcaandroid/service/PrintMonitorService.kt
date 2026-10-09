@@ -96,8 +96,14 @@ class PrintMonitorService : Service() {
     private fun finish(printer: String) {
         val last = application.container.printerStatus.value
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
-        if (last?.state == PrinterStatus.State.FINISHED || last?.state == PrinterStatus.State.ERROR) {
-            val text = getString(if (last.state == PrinterStatus.State.FINISHED) R.string.print_finished else R.string.print_failed)
+        val done = when (last?.state) {
+            PrinterStatus.State.FINISHED -> R.string.print_finished
+            PrinterStatus.State.STOPPED -> R.string.print_stopped
+            PrinterStatus.State.ERROR -> R.string.print_failed
+            else -> null
+        }
+        if (done != null) {
+            val text = getString(done)
             getSystemService(android.app.NotificationManager::class.java).notify(DONE_ID,
                 NotificationCompat.Builder(this, OrcaApp.CHANNEL_PRINT).setSmallIcon(R.drawable.ic_notification)
                     .setContentTitle(printer).setContentText(text).setAutoCancel(true).build())

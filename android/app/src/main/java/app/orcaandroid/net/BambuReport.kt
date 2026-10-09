@@ -58,11 +58,13 @@ internal class BambuReport {
 
     fun status(): PrinterStatus = synchronized(lock) {
         val r = snapshot
+        val alerts = alerts(r)
         val state = when (r.optString("gcode_state")) {
             "RUNNING", "PREPARE", "SLICING" -> PrinterStatus.State.PRINTING
             "PAUSE" -> PrinterStatus.State.PAUSED
             "FINISH" -> PrinterStatus.State.FINISHED
-            "FAILED" -> PrinterStatus.State.ERROR
+            // A print the user stopped also ends in FAILED, but without an error code or message.
+            "FAILED" -> if (alerts.isEmpty()) PrinterStatus.State.STOPPED else PrinterStatus.State.ERROR
             "" -> PrinterStatus.State.OFFLINE
             else -> PrinterStatus.State.IDLE
         }
@@ -73,7 +75,7 @@ internal class BambuReport {
             r.optInt("mc_remaining_time", -1).takeIf { it >= 0 }?.let { it * 60L },
             r.optDouble("nozzle_temper", Double.NaN).takeIf { !it.isNaN() }?.toFloat(),
             r.optDouble("bed_temper", Double.NaN).takeIf { !it.isNaN() }?.toFloat(),
-            alerts = alerts(r),
+            alerts = alerts,
             trays = trays(r),
             jobId = r.optString("job_id").ifBlank { null },
             subtaskId = r.optString("subtask_id").ifBlank { null },

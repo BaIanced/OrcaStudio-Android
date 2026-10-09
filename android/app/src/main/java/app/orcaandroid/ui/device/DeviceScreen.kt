@@ -259,6 +259,7 @@ private fun stateLabel(s: PrinterStatus.State) = stringResource(
         PrinterStatus.State.PRINTING -> R.string.state_printing
         PrinterStatus.State.PAUSED -> R.string.state_paused
         PrinterStatus.State.FINISHED -> R.string.state_finished
+        PrinterStatus.State.STOPPED -> R.string.state_stopped
         PrinterStatus.State.ERROR -> R.string.state_error
         PrinterStatus.State.OFFLINE -> R.string.state_offline
     }

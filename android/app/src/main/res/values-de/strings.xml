@@ -256,6 +256,8 @@
     <string name="starting">Starte…</string>
     <string name="state_error">Fehler</string>
     <string name="state_finished">Fertig</string>
+    <string name="state_stopped">Gestoppt</string>
+    <string name="print_stopped">Druck gestoppt</string>
     <string name="state_idle">Bereit</string>
     <string name="state_offline">Offline</string>
     <string name="state_paused">Pausiert</string>
