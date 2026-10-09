@@ -27,6 +27,7 @@ class PresetCollection;
 class DynamicPrintConfig;
 class AABBMesh;
 struct Calib_Params;
+struct PlateData;
 } // namespace Slic3r
 
 namespace orca {
@@ -300,6 +301,9 @@ private:
     // Guards m_running_print so cancel() never touches a Print that slice() is destroying.
     std::mutex                            m_cancel_mutex;
     Slic3r::Print                        *m_running_print{nullptr};
+    // Slice statistics per G-code file (time, weight, filaments) for the .gcode.3mf's
+    // slice_info.config, which printers and Bambu Handy read. Filled by slice().
+    std::map<std::string, std::shared_ptr<Slic3r::PlateData>> m_slice_info;
 };
 
 } // namespace orca

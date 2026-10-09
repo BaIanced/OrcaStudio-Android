@@ -26,6 +26,7 @@
 #include "libslic3r/PrintConfig.hpp"
 #include "libslic3r/Utils.hpp"
 #include "libslic3r/calib.hpp"
+#include "libslic3r/Format/bbs_3mf.hpp"
 
 #include "Preview.hpp"
 #include "Thumbnails.hpp"
@@ -628,6 +629,22 @@ json OrcaEngine::slice(int plate, const std::string &gcode_out, const std::strin
     out["filament_g"]   = stats.total_weight;
     out["cost"]         = stats.total_cost;
     out["warnings"]     = warnings;
+
+    // What PartPlateList::store_to_3mf_structure records for a sliced plate.
+    auto info = std::make_shared<PlateData>();
+    info->gcode_prediction        = std::to_string(int(normal.time));
+    info->first_layer_time        = std::to_string(result.initial_layer_time);
+    if (stats.total_weight != 0.) {
+        char weight[32];
+        std::snprintf(weight, sizeof(weight), "%.2f", stats.total_weight);
+        info->gcode_weight = weight;
+    }
+    info->toolpath_outside        = result.toolpath_outside;
+    info->is_label_object_enabled = result.label_object_enabled;
+    info->is_support_used         = print.is_support_used();
+    info->parse_filament_info(&result);
+    m_slice_info[gcode_path] = info;
+
     const std::array<double, 2> origin = plate_origin(plate);
     out["origin"]       = {origin[0], origin[1]};
     return out;

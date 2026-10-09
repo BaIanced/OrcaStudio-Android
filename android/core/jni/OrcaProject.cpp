@@ -4,7 +4,9 @@
 #include "OrcaEngine.hpp"
 
 #include <cmath>
+#include <fstream>
 #include <functional>
+#include <map>
 #include <stdexcept>
 
 #include "libslic3r/AppConfig.hpp"
@@ -14,6 +16,7 @@
 #include "libslic3r/Preset.hpp"
 #include "libslic3r/PresetBundle.hpp"
 #include "libslic3r/PrintConfig.hpp"
+#include "libslic3r/Utils.hpp"
 
 #include "Thumbnails.hpp"
 
@@ -35,6 +38,27 @@ const Preset *find_by_name(const PresetCollection &collection, const std::string
         if (collection.preset(i).name == name)
             return &collection.preset(i);
     return nullptr;
+}
+
+// The id a Bambu printer knows a filament by. OrcaSlicer re-keyed the Bambu bundle's filament_id
+// (upstream ec207e67a); resources/printers/bambu_filament_ids.json maps back, as
+// BBLPrinterAgent::from_orca_filament_id does on the desktop (libslic3r_gui, not built here).
+std::string bambu_filament_id(const std::string &id)
+{
+    static const std::map<std::string, std::string> to_bambu = [] {
+        std::map<std::string, std::string> m;
+        try {
+            std::ifstream file(resources_dir() + "/printers/bambu_filament_ids.json");
+            const json doc = json::parse(file);
+            for (const auto &[orca_id, row] : doc.at("filaments").items())
+                m.emplace(orca_id, row.at("bambu_id").get<std::string>());
+        } catch (const std::exception &) {
+            // Missing or unreadable: ids pass through, as on the desktop.
+        }
+        return m;
+    }();
+    auto it = to_bambu.find(id);
+    return it != to_bambu.end() ? it->second : id;
 }
 
 // Bambu printers report a tray's filament as Bambu's id (GFA00 = Bambu PLA Basic), but OrcaSlicer
@@ -233,6 +257,32 @@ json OrcaEngine::export_gcode_3mf(int plate, const std::string &gcode, const std
             pd->objects_and_instances.emplace_back(int(oi), int(ii));
     if (!m_plates[plate].bed_type.empty())
         pd->config.set_deserialize_strict("curr_bed_type", m_plates[plate].bed_type);
+    if (auto it = m_slice_info.find(gcode); it != m_slice_info.end()) {
+        const PlateData &s = *it->second;
+        pd->gcode_prediction        = s.gcode_prediction;
+        pd->gcode_weight            = s.gcode_weight;
+        pd->first_layer_time        = s.first_layer_time;
+        pd->toolpath_outside        = s.toolpath_outside;
+        pd->is_label_object_enabled = s.is_label_object_enabled;
+        pd->is_support_used         = s.is_support_used;
+        pd->slice_filaments_info    = s.slice_filaments_info;
+    }
+    // As Plater::export_3mf: the printer model's id and each used filament's type, colour and id.
+    const std::string &printer_model = config.opt_string("printer_model");
+    for (const auto &[name, vendor] : m_bundle->vendors)
+        for (const auto &m : vendor.models)
+            if (m.name == printer_model)
+                pd->printer_model_id = m.model_id;
+    const auto *ids     = config.option<ConfigOptionStrings>("filament_ids");
+    const auto *colours = config.option<ConfigOptionStrings>("filament_colour");
+    for (FilamentInfo &f : pd->slice_filaments_info) {
+        std::string displayed;
+        f.type        = config.get_filament_type(displayed, f.id);
+        f.filament_id = ids && !ids->values.empty() ? ids->get_at(f.id) : "";
+        if (m_bundle->is_bbl_vendor())
+            f.filament_id = bambu_filament_id(f.filament_id);
+        f.color = colours && !colours->values.empty() ? colours->get_at(f.id) : "#FFFFFF";
+    }
     plates.push_back(pd);
 
     StoreParams params;

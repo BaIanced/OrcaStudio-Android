@@ -555,6 +555,22 @@ class EngineTest {
     }
 
     @Test
+    fun f02b_gcode3mfSliceInfo() = runBlocking<Unit> {
+        use(A1)
+        clear()
+        cube(15f)
+        val (r, _) = slice()
+        val archive = File(app.cacheDir, "a1.gcode.3mf")
+        engine.exportGcode3mf(0, r.gcodeFile, archive.path)
+        val info = ZipFile(archive).use { z -> z.getInputStream(z.getEntry("Metadata/slice_info.config")).reader().readText() }
+        assertTrue(info, Regex("key=\"prediction\" value=\"[1-9]").containsMatchIn(info))
+        assertTrue(info, Regex("key=\"weight\" value=\"[0-9.]+\"").containsMatchIn(info))
+        assertTrue(info, Regex("key=\"printer_model_id\" value=\"\\w+\"").containsMatchIn(info))
+        // Printers know Bambu's filament ids (GF..), not OrcaSlicer's re-keyed ones.
+        assertTrue(info, Regex("<filament id=\"1\" tray_info_idx=\"GF\\w+\" type=\"PLA\"").containsMatchIn(info))
+    }
+
+    @Test
     fun f03_cancelSlicing() = runBlocking<Unit> {
         use(QIDI, mapOf("layer_height" to "0.08"))
         clear()
