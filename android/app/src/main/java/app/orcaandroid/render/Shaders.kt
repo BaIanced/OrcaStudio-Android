@@ -23,7 +23,8 @@ internal object Shaders {
         }"""
 
     /**
-     * uPass 0: opaque parts; 1: translucent modifiers/negative volumes/blockers/enforcers;
+     * uPass 0: opaque parts; 1: translucent modifiers/negative volumes/blockers/enforcers and the
+     * prime tower (type 99);
      * 2: paint overlay (types 5 fuzzy skin, 6/7 support enforce/block, 8/9 seam, 10+ filament).
      */
     const val MESH_FS = """#version 300 es
@@ -39,7 +40,8 @@ internal object Shaders {
         void main() {
             int type = int(vType + 0.5);
             if (uPass == 0 && type != 0) discard;
-            if (uPass == 1 && (type == 0 || type >= 5)) discard;
+            // 99: the estimated prime tower (scene mesh, translucent pass).
+            if (uPass == 1 && (type == 0 || (type >= 5 && type != 99))) discard;
             vec3 n = normalize(vNormal);
             float light = 0.35 + 0.65 * abs(dot(n, normalize(vec3(0.35, -0.55, 0.75))));
             vec3 base;
@@ -54,6 +56,7 @@ internal object Shaders {
             else if (type == 7) base = vec3(0.95, 0.25, 0.25);
             else if (type == 8) base = vec3(0.3, 0.55, 1.0);
             else if (type == 9) base = vec3(1.0, 0.6, 0.1);
+            else if (type == 99) { base = vec3(0.70, 0.89, 0.67); alpha = 0.5; }
             else base = uFilamentColors[clamp(type - 10, 0, 15)];
             color = vec4(base * light, alpha);
         }"""

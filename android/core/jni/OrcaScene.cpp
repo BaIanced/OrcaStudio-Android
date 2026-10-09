@@ -11,6 +11,7 @@
 #include <cmath>
 #include <cstdio>
 #include <fstream>
+#include <set>
 #include <stdexcept>
 
 #include <boost/log/trivial.hpp>
@@ -301,27 +302,76 @@ void OrcaEngine::write_mesh()
     std::ofstream f(tmp, std::ios::binary | std::ios::trunc);
     if (!f)
         throw std::runtime_error("Cannot write " + m_mesh_path);
+    auto emit = [&f](const TriangleMesh &mesh, float obj_code, float type_code) {
+        const indexed_triangle_set &its = mesh.its;
+        for (const Vec3i32 &tri : its.indices) {
+            const Vec3f &a = its.vertices[tri[0]], &b = its.vertices[tri[1]], &c = its.vertices[tri[2]];
+            Vec3f n = (b - a).cross(c - a);
+            const float len = n.norm();
+            n = len > 0.f ? Vec3f(n / len) : Vec3f(0.f, 0.f, 1.f);
+            for (const Vec3f *v : {&a, &b, &c}) {
+                for (int k = 0; k < 3; ++k) write_raw(f, (*v)[k]);
+                for (int k = 0; k < 3; ++k) write_raw(f, n[k]);
+                write_raw(f, obj_code);
+                write_raw(f, type_code);
+            }
+        }
+    };
     for (size_t oi = 0; oi < m_model->objects.size(); ++oi) {
         const ModelObject *obj = m_model->objects[oi];
         for (const ModelInstance *inst : obj->instances)
             for (const ModelVolume *vol : obj->volumes) {
                 TriangleMesh mesh = vol->mesh();
                 mesh.transform(inst->get_matrix() * vol->get_matrix());
-                const float obj_code = float(oi), type_code = float(volume_type_code(vol->type()));
-                const indexed_triangle_set &its = mesh.its;
-                for (const Vec3i32 &tri : its.indices) {
-                    const Vec3f &a = its.vertices[tri[0]], &b = its.vertices[tri[1]], &c = its.vertices[tri[2]];
-                    Vec3f n = (b - a).cross(c - a);
-                    const float len = n.norm();
-                    n = len > 0.f ? Vec3f(n / len) : Vec3f(0.f, 0.f, 1.f);
-                    for (const Vec3f *v : {&a, &b, &c}) {
-                        for (int k = 0; k < 3; ++k) write_raw(f, (*v)[k]);
-                        for (int k = 0; k < 3; ++k) write_raw(f, n[k]);
-                        write_raw(f, obj_code);
-                        write_raw(f, type_code);
+                emit(mesh, float(oi), float(volume_type_code(vol->type())));
+            }
+    }
+
+    // The prime tower as the desktop shows it before slicing: on a plate that uses more than one
+    // filament, a translucent box at the tower position, prime_tower_width square and as tall as
+    // the plate's objects (the real depth is only known after slicing). Object code -2 never
+    // matches a selection; type 99 is drawn by the translucent pass.
+    DynamicPrintConfig config;
+    try {
+        if (m_bundle && !m_printer.empty() && m_sel_filaments.size() > 1)
+            config = selection_config();
+    } catch (const std::exception &) {
+    }
+    if (config.has("enable_prime_tower") && config.opt_bool("enable_prime_tower") && config.has("prime_tower_width")) {
+        const double width = std::max(1., config.opt_float("prime_tower_width"));
+        const auto *cfg_x = config.option<ConfigOptionFloats>("wipe_tower_x");
+        const auto *cfg_y = config.option<ConfigOptionFloats>("wipe_tower_y");
+        for (size_t p = 0; p < m_plates.size(); ++p) {
+            std::set<int> used;
+            double height = 0.;
+            for (const ModelObject *obj : m_model->objects)
+                for (size_t i = 0; i < obj->instances.size(); ++i) {
+                    if (plate_of(*obj, i) != int(p))
+                        continue;
+                    height = std::max(height, obj->instance_bounding_box(i).max.z());
+                    const DynamicPrintConfig &oc = obj->config.get();
+                    const int obj_ext = oc.has("extruder") ? oc.opt_int("extruder") : 0;
+                    for (const ModelVolume *vol : obj->volumes) {
+                        if (!vol->is_model_part())
+                            continue;
+                        const DynamicPrintConfig &vc = vol->config.get();
+                        const int ext = vc.has("extruder") ? vc.opt_int("extruder") : 0;
+                        used.insert(ext > 0 ? ext : obj_ext > 0 ? obj_ext : 1);
+                        if (!vol->mmu_segmentation_facets.empty())
+                            used.insert(-1); // colour painting: more than one filament
                     }
                 }
-            }
+            if (used.size() < 2 || height <= 0.)
+                continue;
+            const PlateInfo &plate = m_plates[p];
+            auto at = [p](const ConfigOptionFloats *o) { return o && !o->values.empty() ? o->values[std::min(p, o->values.size() - 1)] : 0.; };
+            const double x = plate.has_wipe_tower_pos ? plate.wipe_tower_x : at(cfg_x);
+            const double y = plate.has_wipe_tower_pos ? plate.wipe_tower_y : at(cfg_y);
+            const auto origin = plate_origin(int(p));
+            TriangleMesh tower = make_cube(width, width, height);
+            tower.translate(float(origin[0] + x), float(origin[1] + y), 0.f);
+            emit(tower, -2.f, 99.f);
+        }
     }
     f.close();
     if (std::rename(tmp.c_str(), m_mesh_path.c_str()) != 0)
