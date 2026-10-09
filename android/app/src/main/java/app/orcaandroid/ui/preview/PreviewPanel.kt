@@ -46,6 +46,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -76,6 +77,7 @@ import java.io.File
 import java.io.RandomAccessFile
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /** Extrusion role names as the desktop shows them, by ExtrusionRole value. */
@@ -136,6 +138,7 @@ private fun Summary(state: UiState, vm: AppViewModel, r: SliceResult) {
 @Composable
 private fun Actions(state: UiState, vm: AppViewModel, r: SliceResult) {
     val context = LocalContext.current
+    val shareScope = rememberCoroutineScope()
     val saveGcode = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/x.gcode")) { it?.let(vm.files::saveGcode) }
     val save3mf = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("model/3mf")) { it?.let(vm.files::saveGcode3mf) }
     var menu by remember { mutableStateOf(false) }
@@ -165,11 +168,20 @@ private fun Actions(state: UiState, vm: AppViewModel, r: SliceResult) {
     Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
         OutlinedButton(onClick = { saveGcode.launch(vm.files.gcodeFileName()) }) { Icon(Icons.Default.Save, null); Text(" G-code") }
         IconButton(onClick = {
-            val file = File(r.gcodeFile)
-            val uri = FileProvider.getUriForFile(context, context.packageName + ".files", file)
-            val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_STREAM, uri)
-                .putExtra(Intent.EXTRA_TITLE, vm.files.gcodeFileName()).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            context.startActivity(Intent.createChooser(send, null))
+            val name = vm.files.gcodeFileName()
+            shareScope.launch {
+                // Receivers show the file's own name, so share a copy named like "Save G-code" would.
+                val file = withContext(Dispatchers.IO) {
+                    File(context.cacheDir, "out/share").let { dir ->
+                        dir.deleteRecursively(); dir.mkdirs()
+                        File(r.gcodeFile).copyTo(File(dir, name), overwrite = true)
+                    }
+                }
+                val uri = FileProvider.getUriForFile(context, context.packageName + ".files", file)
+                val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_STREAM, uri)
+                    .putExtra(Intent.EXTRA_TITLE, name).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                context.startActivity(Intent.createChooser(send, null))
+            }
         }) { Icon(Icons.Default.Share, stringResource(R.string.share)) }
         IconButton(onClick = { vm.slicing.updatePreview { it.copy(showGcode = !it.showGcode) } }) {
             Icon(Icons.Default.Code, stringResource(R.string.show_gcode), tint = if (state.preview.showGcode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
