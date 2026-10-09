@@ -9,6 +9,7 @@
 #include "OrcaEngine.hpp"
 
 #include <cmath>
+#include <cstdio>
 #include <fstream>
 #include <stdexcept>
 
@@ -295,7 +296,9 @@ void OrcaEngine::arrange_plate(int plate, const std::vector<std::pair<ModelObjec
 
 void OrcaEngine::write_mesh()
 {
-    std::ofstream f(m_mesh_path, std::ios::binary | std::ios::trunc);
+    // Written next to the target and renamed over it, so the app never reads a half-written file.
+    const std::string tmp = m_mesh_path + ".tmp";
+    std::ofstream f(tmp, std::ios::binary | std::ios::trunc);
     if (!f)
         throw std::runtime_error("Cannot write " + m_mesh_path);
     for (size_t oi = 0; oi < m_model->objects.size(); ++oi) {
@@ -320,6 +323,9 @@ void OrcaEngine::write_mesh()
                 }
             }
     }
+    f.close();
+    if (std::rename(tmp.c_str(), m_mesh_path.c_str()) != 0)
+        throw std::runtime_error("Cannot write " + m_mesh_path);
     ++m_mesh_version;
 }
 
