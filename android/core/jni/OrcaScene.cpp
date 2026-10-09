@@ -7,6 +7,7 @@
 // desktop 3MF projects.
 
 #include "OrcaEngine.hpp"
+#include "Thumbnails.hpp"
 
 #include <cmath>
 #include <cstdio>
@@ -323,7 +324,9 @@ void OrcaEngine::write_mesh()
             for (const ModelVolume *vol : obj->volumes) {
                 TriangleMesh mesh = vol->mesh();
                 mesh.transform(inst->get_matrix() * vol->get_matrix());
-                emit(mesh, float(oi), float(volume_type_code(vol->type())));
+                // Parts are drawn in their filament's colour: type 100 + 0-based filament.
+                const int type = vol->is_model_part() ? 100 + filament_of(*obj, *vol) : volume_type_code(vol->type());
+                emit(mesh, float(oi), float(type));
             }
     }
 

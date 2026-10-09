@@ -3,7 +3,7 @@ package app.orcaandroid.render
 /** GLSL ES 3.0 programs of [PlateRenderer]. Attribute locations are fixed with layout qualifiers. */
 internal object Shaders {
 
-    /** Scene mesh: position, normal, (object index, volume type). */
+    /** Scene mesh: position, normal, (object index, volume type; 100 + filament for parts). */
     const val MESH_VS = """#version 300 es
         uniform mat4 uMvp;
         uniform float uSelected;
@@ -23,7 +23,7 @@ internal object Shaders {
         }"""
 
     /**
-     * uPass 0: opaque parts; 1: translucent modifiers/negative volumes/blockers/enforcers and the
+     * uPass 0: opaque parts (type 0, or 100 + 0-based filament); 1: translucent modifiers/negative volumes/blockers/enforcers and the
      * prime tower (type 99);
      * 2: paint overlay (types 5 fuzzy skin, 6/7 support enforce/block, 8/9 seam, 10+ filament).
      */
@@ -39,14 +39,18 @@ internal object Shaders {
         out vec4 color;
         void main() {
             int type = int(vType + 0.5);
-            if (uPass == 0 && type != 0) discard;
+            bool part = type == 0 || type >= 100;
+            if (uPass == 0 && !part) discard;
             // 99: the estimated prime tower (scene mesh, translucent pass).
-            if (uPass == 1 && (type == 0 || (type >= 5 && type != 99))) discard;
+            if (uPass == 1 && (part || (type >= 5 && type != 99))) discard;
             vec3 n = normalize(vNormal);
             float light = 0.35 + 0.65 * abs(dot(n, normalize(vec3(0.35, -0.55, 0.75))));
             vec3 base;
             float alpha = 1.0;
-            if (type == 0) base = mix(uPartColor, uSelectedColor, vSelected * 0.75);
+            if (part) {
+                vec3 own = type >= 100 ? uFilamentColors[clamp(type - 100, 0, 15)] : uPartColor;
+                base = mix(own, uSelectedColor, vSelected * 0.75);
+            }
             else if (type == 1) { base = vec3(0.6, 0.6, 0.6); alpha = 0.45; }
             else if (type == 2) { base = vec3(0.95, 0.85, 0.3); alpha = 0.35; }
             else if (type == 3) { base = vec3(0.95, 0.25, 0.25); alpha = 0.4; }

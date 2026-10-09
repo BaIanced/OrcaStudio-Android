@@ -34,6 +34,8 @@ struct Tri
     std::array<float, 3> color;
 };
 
+} // namespace
+
 int filament_of(const ModelObject &obj, const ModelVolume &vol)
 {
     // Volume setting wins over the object setting; both are 1-based, 0 = inherit.
@@ -43,8 +45,6 @@ int filament_of(const ModelObject &obj, const ModelVolume &vol)
                 return e - 1;
     return 0;
 }
-
-} // namespace
 
 ThumbnailData render_thumbnail(const Model &model, unsigned width, unsigned height, const std::vector<std::array<float, 3>> &colors)
 {
