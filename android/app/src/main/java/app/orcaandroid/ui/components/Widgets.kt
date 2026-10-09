@@ -75,7 +75,11 @@ fun PickerDialog(title: String, selected: String?, items: List<PickerItem>, onDi
     var query by remember { mutableStateOf("") }
     val filtered = remember(query, items) {
         val words = query.trim().lowercase().split(' ').filter { it.isNotEmpty() }
+        // Callers' lists are not always sorted by group (synced user presets land between system ones),
+        // so each group is gathered under one header; LazyColumn keys must be unique.
         items.filter { item -> words.all { w -> item.label.lowercase().contains(w) || item.group.lowercase().contains(w) } }
+            .distinctBy { it.group to it.id }
+            .groupBy { it.group }
     }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -93,20 +97,20 @@ fun PickerDialog(title: String, selected: String?, items: List<PickerItem>, onDi
                     )
                 }
                 LazyColumn(Modifier.heightIn(max = 460.dp).padding(top = 8.dp)) {
-                    var lastGroup: String? = null
-                    filtered.forEach { item ->
-                        if (item.group.isNotEmpty() && item.group != lastGroup) {
-                            lastGroup = item.group
-                            item(key = "g:${item.group}") {
-                                Text(item.group, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
+                    filtered.forEach { (group, groupItems) ->
+                        if (group.isNotEmpty()) {
+                            item(key = "g:$group") {
+                                Text(group, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.padding(top = 12.dp, bottom = 4.dp))
                                 HorizontalDivider()
                             }
                         }
-                        item(key = "i:${item.group}:${item.id}") {
-                            Row(Modifier.fillMaxWidth().clickable { onPick(item.id) }, verticalAlignment = Alignment.CenterVertically) {
-                                RadioButton(selected = item.id == selected, onClick = { onPick(item.id) })
-                                Text(item.label, style = MaterialTheme.typography.bodyMedium)
+                        groupItems.forEach { item ->
+                            item(key = "i:$group:${item.id}") {
+                                Row(Modifier.fillMaxWidth().clickable { onPick(item.id) }, verticalAlignment = Alignment.CenterVertically) {
+                                    RadioButton(selected = item.id == selected, onClick = { onPick(item.id) })
+                                    Text(item.label, style = MaterialTheme.typography.bodyMedium)
+                                }
                             }
                         }
                     }
