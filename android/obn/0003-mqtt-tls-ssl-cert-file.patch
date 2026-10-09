@@ -1,0 +1,20 @@
+diff --git a/src/mqtt_client.cpp b/src/mqtt_client.cpp
+index 2e879f3..8dc281a 100644
+--- a/src/mqtt_client.cpp
++++ b/src/mqtt_client.cpp
+@@ -301,7 +301,15 @@ int Client::connect(const ConnectConfig& cfg)
+                 "/etc/ssl/ca-bundle.pem",                    // openSUSE
+                 "/etc/ssl/cert.pem",                         // Alpine, macOS
+             };
++            // SSL_CERT_FILE first, as OpenSSL's own default lookup does: Android
++            // has none of the paths below, and its app exports the system CA
++            // store to a PEM bundle named there. (OrcaStudio-ARM patch 0003.)
++            if (const char* e = std::getenv("SSL_CERT_FILE"); e && *e) {
++                FILE* f = std::fopen(e, "rb");
++                if (f) { std::fclose(f); trust_bundle = e; cafile = trust_bundle.c_str(); }
++            }
+             for (const char* p : kCaCandidates) {
++                if (cafile) break;
+                 FILE* f = std::fopen(p, "rb");
+                 if (f) { std::fclose(f); cafile = p; break; }
+             }
