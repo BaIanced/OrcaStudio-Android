@@ -155,8 +155,8 @@ void OrcaEngine::write_paint_mesh()
                 const indexed_triangle_set painted = annotation->get_facets(*vol, state);
                 if (painted.indices.empty())
                     continue;
-                for (const ModelInstance *inst : obj->instances)
-                    emit(painted, inst->get_matrix() * vol->get_matrix(), float(oi), code);
+                for (size_t ii = 0; ii < obj->instances.size(); ++ii)
+                    emit(painted, obj->instances[ii]->get_matrix() * vol->get_matrix(), float(oi * INSTANCE_ID_STRIDE + ii), code);
             }
         }
     }

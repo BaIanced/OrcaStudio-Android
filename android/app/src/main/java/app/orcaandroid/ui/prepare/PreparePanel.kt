@@ -1,6 +1,8 @@
 package app.orcaandroid.ui.prepare
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -220,6 +222,7 @@ internal fun ColorDialog(current: String?, onPick: (String) -> Unit, onDismiss: 
 
 // --- Objects -------------------------------------------------------------------------------------
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ObjectsTab(state: UiState, vm: AppViewModel) {
     val scene = state.scene
@@ -229,10 +232,18 @@ private fun ObjectsTab(state: UiState, vm: AppViewModel) {
     }
     if (scene.outsideCount > 0) Text(stringResource(R.string.objects_outside, scene.outsideCount), color = MaterialTheme.colorScheme.error,
         style = MaterialTheme.typography.bodySmall)
+    if (state.multiSelection.isNotEmpty()) MultiSelectionCard(state, vm)
     scene.objects.forEach { o ->
-        val selected = state.selection?.obj == o.index
+        val selected = state.selectedItems.any { it.obj == o.index }
         Card(
-            Modifier.fillMaxWidth().clickable { vm.scene.select(if (selected && state.selection?.volume == -1) null else Selection(o.index)) },
+            // Long press, or a tap in select mode, adds the object to the selection or removes it.
+            Modifier.fillMaxWidth().combinedClickable(
+                onClick = {
+                    if (state.selectMode) vm.scene.toggleObject(o.index)
+                    else vm.scene.select(if (selected && state.selection?.volume == -1) null else Selection(o.index))
+                },
+                onLongClick = { vm.scene.setSelectMode(true); vm.scene.toggleObject(o.index) },
+            ),
             shape = RoundedCornerShape(12.dp),
             colors = if (selected) CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer) else CardDefaults.cardColors(),
         ) {
@@ -245,7 +256,29 @@ private fun ObjectsTab(state: UiState, vm: AppViewModel) {
                     }
                     if (o.settings.overrides.isNotEmpty()) Icon(Icons.Default.Tune, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.tertiary)
                 }
-                if (selected) ObjectDetails(state, vm, o.index)
+                if (state.selection?.obj == o.index) ObjectDetails(state, vm, o.index)
+            }
+        }
+    }
+}
+
+/** Actions on all selected objects: their filament, duplicate, delete. */
+@Composable
+private fun MultiSelectionCard(state: UiState, vm: AppViewModel) {
+    val objs = state.selectedItems.map { it.obj }.distinct().mapNotNull { state.scene.objects.getOrNull(it) }
+    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(R.string.n_selected, state.selectedItems.size), style = MaterialTheme.typography.bodyLarge)
+            if (state.filaments.size > 1) {
+                // Shown when all selected objects share it; picking sets it on all of them.
+                val ext = objs.map { it.settings["extruder"] ?: "1" }.distinct().singleOrNull() ?: ""
+                PickerField(stringResource(R.string.filament), ext,
+                    state.filaments.mapIndexed { i, f -> PickerItem((i + 1).toString(), "${i + 1}: ${f.preset}") },
+                    { vm.scene.setSelectedObjectsSetting("extruder", it) })
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilledTonalButton(onClick = { vm.scene.duplicate(1) }) { Text(stringResource(R.string.duplicate)) }
+                OutlinedButton(onClick = vm.scene::deleteSelected) { Icon(Icons.Default.Delete, null); Text(" " + stringResource(R.string.delete)) }
             }
         }
     }

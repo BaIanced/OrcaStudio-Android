@@ -128,7 +128,7 @@ class MainActivity : ComponentActivity() {
             event.isCtrlPressed && keyCode == KeyEvent.KEYCODE_2 -> vm.setScreen(Screen.PREVIEW)
             event.isCtrlPressed && keyCode == KeyEvent.KEYCODE_3 -> vm.setScreen(Screen.DEVICE)
             event.isCtrlPressed && keyCode == KeyEvent.KEYCODE_N -> vm.files.newProject()
-            event.isCtrlPressed && keyCode == KeyEvent.KEYCODE_D && s.selection != null -> vm.scene.duplicate(1)
+            event.isCtrlPressed && keyCode == KeyEvent.KEYCODE_D && s.selectedItems.isNotEmpty() -> vm.scene.duplicate(1)
             else -> return super.onKeyShortcut(keyCode, event)
         }
         return true
@@ -138,9 +138,9 @@ class MainActivity : ComponentActivity() {
         val s = vm.state.value
         // Single-key shortcuts act on the 3D view only, not while a settings editor is open.
         if (s.editor == null && s.screen == Screen.PREPARE) when (keyCode) {
-            KeyEvent.KEYCODE_FORWARD_DEL, KeyEvent.KEYCODE_DEL -> if (s.selection != null) { vm.scene.deleteSelected(); return true }
-            KeyEvent.KEYCODE_ESCAPE -> if (s.tool != Tool.None || s.selection != null) {
-                vm.scene.setTool(Tool.None); vm.scene.select(null); return true
+            KeyEvent.KEYCODE_FORWARD_DEL, KeyEvent.KEYCODE_DEL -> if (s.selectedItems.isNotEmpty()) { vm.scene.deleteSelected(); return true }
+            KeyEvent.KEYCODE_ESCAPE -> if (s.tool != Tool.None || s.selectedItems.isNotEmpty() || s.selectMode) {
+                vm.scene.setTool(Tool.None); vm.scene.select(null); vm.scene.setSelectMode(false); return true
             }
             KeyEvent.KEYCODE_O -> if (s.selection != null && !event.isCtrlPressed) { vm.scene.autoOrient(); return true }
             KeyEvent.KEYCODE_F -> if (s.selection != null && !event.isCtrlPressed) { vm.scene.setTool(Tool.LayOnFace); return true }

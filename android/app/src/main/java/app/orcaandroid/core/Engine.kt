@@ -88,7 +88,12 @@ class Engine(private val cacheDir: File) {
             "transform" to buildMap { offset?.let { put("offset", it) }; rotation?.let { put("rotation", it) }; scale?.let { put("scale", it) }; mirror?.let { put("mirror", it) } })))
     suspend fun deleteObject(obj: Int) = parseScene(call("deleteObject", args("object" to obj)))
     suspend fun deleteInstance(obj: Int, instance: Int) = parseScene(call("deleteInstance", args("object" to obj, "instance" to instance)))
-    suspend fun duplicate(obj: Int, copies: Int) = parseScene(call("duplicate", args("object" to obj, "copies" to copies)))
+    /** [items]: (object, instance) pairs; each batch call is one undo step. */
+    suspend fun duplicate(items: List<Pair<Int, Int>>, copies: Int) =
+        parseScene(call("duplicate", args("items" to items.map { listOf(it.first, it.second) }, "copies" to copies)))
+    suspend fun deleteItems(items: List<Pair<Int, Int>>) = parseScene(call("deleteItems", args("items" to items.map { listOf(it.first, it.second) })))
+    suspend fun moveItems(items: List<Pair<Int, Int>>, dx: Float, dy: Float) =
+        parseScene(call("moveItems", args("items" to items.map { listOf(it.first, it.second) }, "dx" to dx, "dy" to dy)))
     suspend fun arrange(plate: Int) = parseScene(call("arrange", args("plate" to plate)))
     suspend fun layOnFace(obj: Int, instance: Int, normal: Vec3) = parseScene(call("layOnFace", args("object" to obj, "instance" to instance, "normal" to normal)))
     suspend fun autoOrient(obj: Int) = parseScene(call("autoOrient", args("object" to obj)))
@@ -102,6 +107,9 @@ class Engine(private val cacheDir: File) {
     suspend fun deleteVolume(obj: Int, volume: Int) = parseScene(call("deleteVolume", args("object" to obj, "volume" to volume)))
     suspend fun setObjectSetting(obj: Int, volume: Int, key: String, value: String?) =
         parseScene(call("setObjectSetting", args("object" to obj, "volume" to volume, "key" to key, "value" to value)))
+    /** The same object setting on several objects, as one undo step. */
+    suspend fun setObjectsSetting(objs: List<Int>, key: String, value: String?) =
+        parseScene(call("setObjectSetting", args("objects" to objs, "key" to key, "value" to value)))
     suspend fun setLayerRanges(obj: Int, ranges: List<LayerRange>) = parseScene(call("setLayerRanges", args("object" to obj,
         "ranges" to ranges.map { mapOf("from" to it.from, "to" to it.to, "settings" to it.settings) })))
     suspend fun addPlate() = parseScene(call("addPlate"))

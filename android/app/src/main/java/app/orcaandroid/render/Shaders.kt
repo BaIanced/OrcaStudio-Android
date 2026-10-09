@@ -3,10 +3,17 @@ package app.orcaandroid.render
 /** GLSL ES 3.0 programs of [PlateRenderer]. Attribute locations are fixed with layout qualifiers. */
 internal object Shaders {
 
-    /** Scene mesh: position, normal, (object index, volume type; 100 + filament for parts). */
+    /** Selected copies the mesh shader highlights and drags (more are selected but not drawn so). */
+    const val MAX_SELECTED = 64
+
+    /**
+     * Scene mesh: position, normal, (selection id = object * INSTANCE_ID_STRIDE + instance, volume
+     * type; 100 + filament for parts).
+     */
     const val MESH_VS = """#version 300 es
         uniform mat4 uMvp;
-        uniform float uSelected;
+        uniform float uSelected[64];
+        uniform int uSelectedCount;
         uniform vec3 uDrag;
         layout(location = 0) in vec3 aPos;
         layout(location = 1) in vec3 aNormal;
@@ -15,7 +22,9 @@ internal object Shaders {
         flat out float vType;
         flat out float vSelected;
         void main() {
-            float selected = abs(aInfo.x - uSelected) < 0.5 ? 1.0 : 0.0;
+            float selected = 0.0;
+            for (int i = 0; i < uSelectedCount; ++i)
+                if (abs(aInfo.x - uSelected[i]) < 0.5) selected = 1.0;
             vNormal = aNormal;
             vType = aInfo.y;
             vSelected = selected;

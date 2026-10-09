@@ -75,6 +75,7 @@
     <string name="discard">Discard</string>
     <string name="discard_changes">Discard unsaved changes of the current project?</string>
     <string name="discovered_printers">Printers in the network</string>
+    <string name="done">Done</string>
     <string name="duplicate">Duplicate</string>
     <string name="dynamic_color">Use wallpaper colors</string>
     <string name="edit">Edit</string>
@@ -88,6 +89,10 @@
     <string name="filament">Filament</string>
     <string name="filament_vendors">Filament brands</string>
     <string name="filament_vendors_text">Choose which brands appear in the filament lists</string>
+    <string name="n_selected">%d selected</string>
+    <string name="select_all">Select all</string>
+    <string name="select_mode_hint">Tap objects to select them</string>
+    <string name="select_multiple">Select multiple</string>
     <string name="show_all">Show all</string>
     <string name="hide_all">Hide all</string>
     <string name="filaments">Filaments</string>

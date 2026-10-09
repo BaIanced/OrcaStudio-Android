@@ -74,6 +74,7 @@
     <string name="discard">Verwerfen</string>
     <string name="discard_changes">Ungespeicherte Änderungen am aktuellen Projekt verwerfen?</string>
     <string name="discovered_printers">Drucker im Netzwerk</string>
+    <string name="done">Fertig</string>
     <string name="duplicate">Duplizieren</string>
     <string name="dynamic_color">Farben des Hintergrundbilds verwenden</string>
     <string name="edit">Bearbeiten</string>
@@ -87,6 +88,10 @@
     <string name="filament">Filament</string>
     <string name="filament_vendors">Filament-Hersteller</string>
     <string name="filament_vendors_text">Welche Hersteller in den Filamentlisten erscheinen</string>
+    <string name="n_selected">%d ausgewählt</string>
+    <string name="select_all">Alle auswählen</string>
+    <string name="select_mode_hint">Tippe auf Objekte, um sie auszuwählen</string>
+    <string name="select_multiple">Mehrere auswählen</string>
     <string name="show_all">Alle zeigen</string>
     <string name="hide_all">Alle ausblenden</string>
     <string name="filaments">Filamente</string>

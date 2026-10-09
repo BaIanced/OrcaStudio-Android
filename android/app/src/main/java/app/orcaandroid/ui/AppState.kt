@@ -106,6 +106,10 @@ data class UiState(
     val scene: Scene = Scene(),
     val activePlate: Int = 0,
     val selection: Selection? = null,
+    /** Two or more copies selected together (Ctrl/Shift click, select mode); [selection] is null then. */
+    val multiSelection: List<Selection> = emptyList(),
+    /** Taps on the 3D view and the object list add or remove objects instead of replacing the selection. */
+    val selectMode: Boolean = false,
     val tool: Tool = Tool.None,
     val measure: List<Vec3> = emptyList(),
     val layerProfile: LayerProfile? = null,
@@ -159,6 +163,23 @@ data class UiState(
         get() = if (selectedPrinters.isEmpty()) printers else printers.filter { !it.system || it.key in selectedPrinters }
 
     val selectedObject get() = selection?.let { scene.objects.getOrNull(it.obj) }
+
+    /** Every selected copy: the multi-selection, else the single selection. */
+    val selectedItems: List<Selection> get() = multiSelection.ifEmpty { listOfNotNull(selection) }
+
+    /** Selects the copies [items]: one becomes the single selection, more a multi-selection. */
+    fun withSelected(items: List<Selection>) = copy(
+        selection = items.singleOrNull(),
+        multiSelection = if (items.size > 1) items else emptyList(),
+        tool = if (items.size == 1) tool else Tool.None,
+    )
+
+    /** Adds [items] to the selection, or removes them when all of them are selected already. */
+    fun toggled(items: List<Selection>): UiState {
+        val current = selectedItems.map { it.copy(volume = -1) }
+        val keys = items.map { it.copy(volume = -1) }
+        return withSelected(if (keys.all { it in current }) current - keys.toSet() else current + keys.filterNot { it in current })
+    }
 
     /** The result shown in the preview (external G-code or the preview plate's slice). */
     val shownResult: SliceResult? get() = external ?: results[previewPlate]

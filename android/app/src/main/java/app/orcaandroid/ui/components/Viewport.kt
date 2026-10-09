@@ -13,6 +13,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import app.orcaandroid.core.SliceResult
 import app.orcaandroid.core.Vec3
 import app.orcaandroid.render.FloatData
+import app.orcaandroid.render.INSTANCE_ID_STRIDE
 import app.orcaandroid.render.InteractionMode
 import app.orcaandroid.render.PlateListener
 import app.orcaandroid.render.PlateView
@@ -75,9 +76,9 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         factory = { ctx ->
             PlateView(ctx).also { v ->
                 v.listener = object : PlateListener {
-                    override fun onTap(x: Float, y: Float) {
+                    override fun onTap(x: Float, y: Float, additive: Boolean) {
                         val (o, d) = v.camera.ray(x, y)
-                        vm.scene.onViewTap(o, d)
+                        vm.scene.onViewTap(o, d, additive)
                     }
                     override fun onMoved(dx: Float, dy: Float) {
                         v.onGl { dragOffset = floatArrayOf(0f, 0f, 0f) }
@@ -141,10 +142,11 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         val cols = state.filaments.map { hexToRgb(it.color ?: "#FF7F27") }
         v.onGl { filamentColors = cols }
     }
-    LaunchedEffect(v, state.selection, scene) {
-        val sel = state.selection
-        v.onGl { selectedObject = sel?.obj ?: -1 }
-        v.selectedBounds = sel?.let { s -> scene.objects.getOrNull(s.obj)?.instances?.map { it.min to (it.min + it.size) } }.orEmpty()
+    LaunchedEffect(v, state.selection, state.multiSelection, scene) {
+        val items = state.selectedItems
+        val ids = FloatArray(items.size) { (items[it].obj * INSTANCE_ID_STRIDE + items[it].instance).toFloat() }
+        v.onGl { selectedIds = ids }
+        v.selectedBounds = items.mapNotNull { s -> scene.objects.getOrNull(s.obj)?.instances?.getOrNull(s.instance)?.let { it.min to (it.min + it.size) } }
     }
     LaunchedEffect(v, state.tool) {
         v.mode = when (state.tool) {

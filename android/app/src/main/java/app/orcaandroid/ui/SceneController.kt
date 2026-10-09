@@ -20,12 +20,28 @@ class SceneController(private val store: Store, private val presets: PresetContr
 
     private val activePlate get() = store.value.activePlate
     private val selection get() = store.value.selection
+    private val selectedItems get() = store.value.selectedItems.map { it.obj to it.instance }
 
     // --- Selection -------------------------------------------------------------------------------------
 
     fun selectPlate(plate: Int) = store.update { it.copy(activePlate = plate) }
 
-    fun select(selection: Selection?) = store.update { it.copy(selection = selection, tool = if (selection == null) Tool.None else it.tool) }
+    fun select(selection: Selection?) = store.update {
+        it.copy(selection = selection, multiSelection = emptyList(), tool = if (selection == null) Tool.None else it.tool)
+    }
+
+    /** Adds every copy of the object to the selection, or removes them (the object list in select mode). */
+    fun toggleObject(obj: Int) = store.update { st ->
+        val copies = st.scene.objects.getOrNull(obj)?.instances?.map { Selection(obj, it.index) } ?: return@update st
+        st.toggled(copies)
+    }
+
+    /** Selects every copy on the active plate. */
+    fun selectAll() = store.update { st ->
+        st.withSelected(st.scene.objects.flatMap { o -> o.instances.filter { it.plate == st.activePlate }.map { Selection(o.index, it.index) } })
+    }
+
+    fun setSelectMode(on: Boolean) = store.update { it.copy(selectMode = on) }
 
     // --- Adding objects --------------------------------------------------------------------------------
 
@@ -46,9 +62,8 @@ class SceneController(private val store: Store, private val presets: PresetContr
     // --- Objects -----------------------------------------------------------------------------------------
 
     fun moveSelected(dx: Float, dy: Float) {
-        val sel = selection ?: return
-        val inst = store.value.scene.objects.getOrNull(sel.obj)?.instances?.getOrNull(sel.instance) ?: return
-        store.sceneOp { engine.setTransform(sel.obj, sel.instance, offset = inst.offset + Vec3(dx, dy, 0f)) }
+        val items = selectedItems.ifEmpty { return }
+        store.sceneOp { engine.moveItems(items, dx, dy) }
     }
 
     fun setTransform(offset: Vec3? = null, rotation: Vec3? = null, scale: Vec3? = null, mirror: Vec3? = null) {
@@ -56,8 +71,14 @@ class SceneController(private val store: Store, private val presets: PresetContr
         store.sceneOp { engine.setTransform(sel.obj, sel.instance, offset, rotation, scale, mirror) }
     }
 
-    /** Deletes the selected part, else the selected copy, else the whole object. */
+    /** Deletes the selected part, else the selected copy, else the whole object; or all selected copies. */
     fun deleteSelected() {
+        val multi = store.value.multiSelection
+        if (multi.isNotEmpty()) {
+            store.update { it.copy(multiSelection = emptyList(), tool = Tool.None) }
+            store.sceneOp { engine.deleteItems(multi.map { it.obj to it.instance }) }
+            return
+        }
         val sel = selection ?: return
         val copies = store.value.scene.objects.getOrNull(sel.obj)?.instances?.size ?: 1
         store.update { it.copy(selection = null, tool = Tool.None) }
@@ -77,7 +98,11 @@ class SceneController(private val store: Store, private val presets: PresetContr
         scene
     }
 
-    fun duplicate(copies: Int) = selection?.let { sel -> store.sceneOp { engine.duplicate(sel.obj, copies) } }
+    /** Adds copies of every selected copy. */
+    fun duplicate(copies: Int) {
+        val items = selectedItems.ifEmpty { return }
+        store.sceneOp { engine.duplicate(items, copies) }
+    }
     fun arrange(allPlates: Boolean) = store.sceneOp(store.str(R.string.arranging)) { engine.arrange(if (allPlates) -1 else activePlate) }
     fun autoOrient() = store.sceneOp(store.str(R.string.orienting)) { engine.autoOrient(selection?.obj ?: -1) }
 
@@ -104,6 +129,12 @@ class SceneController(private val store: Store, private val presets: PresetContr
 
     /** Per-object/part setting (null removes it). */
     fun setObjectSetting(obj: Int, volume: Int, key: String, value: String?) = store.sceneOp { engine.setObjectSetting(obj, volume, key, value) }
+
+    /** The same setting on every selected object (e.g. the filament of a multi-selection). */
+    fun setSelectedObjectsSetting(key: String, value: String?) {
+        val objs = store.value.selectedItems.map { it.obj }.distinct().ifEmpty { return }
+        store.sceneOp { engine.setObjectsSetting(objs, key, value) }
+    }
 
     fun setRangeSetting(obj: Int, range: Int, key: String, value: String?) = store.sceneOp {
         val ranges = store.value.scene.objects[obj].layerRanges.mapIndexed { i, r ->
@@ -143,17 +174,23 @@ class SceneController(private val store: Store, private val presets: PresetContr
         if (tool == Tool.LayerHeight) loadLayerProfile { engine.layerProfile(it) }
     }
 
-    /** Handles a tap on the 3D view according to the current tool. */
-    fun onViewTap(origin: Vec3, dir: Vec3) = store.launch {
+    /**
+     * Handles a tap on the 3D view according to the current tool. [additive] (Ctrl/Shift held) or
+     * select mode adds the tapped copy to the selection or removes it.
+     */
+    fun onViewTap(origin: Vec3, dir: Vec3, additive: Boolean = false) = store.launch {
         val hit = engine.pick(origin, dir)
         when (store.value.tool) {
             Tool.LayOnFace -> if (hit != null) {
                 store.applyScene(engine.layOnFace(hit.obj, hit.instance, hit.normal))
-                store.update { it.copy(tool = Tool.None, selection = Selection(hit.obj, hit.instance)) }
+                store.update { it.withSelected(listOf(Selection(hit.obj, hit.instance))).copy(tool = Tool.None) }
             }
             Tool.Measure -> if (hit != null) store.update { st -> st.copy(measure = (st.measure + hit.point).takeLast(2)) }
             else -> store.update { st ->
-                st.copy(selection = hit?.let { Selection(it.obj, it.instance) }, tool = if (hit == null) Tool.None else st.tool)
+                when {
+                    additive || st.selectMode -> if (hit == null) st else st.toggled(listOf(Selection(hit.obj, hit.instance)))
+                    else -> st.withSelected(listOfNotNull(hit?.let { Selection(it.obj, it.instance) }))
+                }
             }
         }
     }
@@ -163,7 +200,9 @@ class SceneController(private val store: Store, private val presets: PresetContr
         if (store.value.screen != Screen.PREPARE) return@launch
         val hit = engine.pick(origin, dir)
         store.update { st ->
-            st.copy(selection = hit?.let { Selection(it.obj, it.instance) }, tool = if (hit == null) Tool.None else st.tool, contextMenu = x to y)
+            // On a copy of the multi-selection the menu acts on all of them, as on the desktop.
+            val inMulti = hit != null && st.multiSelection.any { it.obj == hit.obj && it.instance == hit.instance }
+            (if (inMulti) st else st.withSelected(listOfNotNull(hit?.let { Selection(it.obj, it.instance) }))).copy(contextMenu = x to y)
         }
     }
 

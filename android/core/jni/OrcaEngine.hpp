@@ -35,6 +35,10 @@ namespace orca {
 using json       = nlohmann::json;
 using ProgressFn = std::function<void(int percent, const std::string &text)>;
 
+// Selection id of an instance in the scene and paint meshes: object * stride + instance (exact in
+// a float up to 4096 objects). The app highlights and drags instances by it.
+inline constexpr size_t INSTANCE_ID_STRIDE = 4096;
+
 class OrcaEngine
 {
 public:
@@ -87,7 +91,14 @@ public:
     json set_transform(int object, int instance, const json &transform);
     json delete_object(int object);
     json delete_instance(int object, int instance);
-    json duplicate(int object, int copies);
+    // Batch operations on several instances (object, instance), each one undo step.
+    using Items = std::vector<std::pair<int, int>>;
+    // Adds `copies` copies of each instance, arranged around what is on its plate.
+    json duplicate(const Items &items, int copies);
+    // Deletes the instances; an object without instances left is deleted.
+    json delete_items(const Items &items);
+    // Moves the instances by (dx, dy) mm on the bed.
+    json move_items(const Items &items, double dx, double dy);
     // Arranges one plate (or every plate for plate < 0).
     json arrange(int plate);
     // Rotates the instance so that the face with world normal `normal` lies on the bed.
@@ -107,8 +118,9 @@ public:
     json add_volume(int object, int type, const std::string &shape, const std::array<double, 3> &size,
                     const std::array<double, 3> &position);
     json delete_volume(int object, int volume);
-    // Per-object (volume < 0) or per-volume setting; a null value removes the override.
-    json set_object_setting(int object, int volume, const std::string &key, const json &value);
+    // Per-object (volume < 0) or per-volume setting; a null value removes the override. With
+    // several objects, the setting goes to each of them (volume must be < 0).
+    json set_object_setting(const std::vector<int> &objects, int volume, const std::string &key, const json &value);
 
     json add_plate();
     json delete_plate(int plate);
@@ -260,6 +272,7 @@ private:
     // Scene helpers (OrcaScene.cpp). All expect m_mutex to be held.
     void                  require_printer() const;
     Slic3r::ModelObject  &object_at(int object);
+    Items                 checked_items(Items items) const; // validated, sorted, without duplicates
     void                  push_undo();
     json                  scene_json();
     json                  commit(); // writes the mesh and returns scene_json()

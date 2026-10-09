@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.opengl.GLSurfaceView
 import android.view.GestureDetector
+import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
 import app.orcaandroid.core.Vec3
@@ -15,9 +16,12 @@ enum class InteractionMode { NAVIGATE, PAINT, LAY_ON_FACE, MEASURE }
 
 /** What the 3D view reports back to the app. Called on the UI thread. */
 interface PlateListener {
-    /** A tap (not a drag); the host picks and selects / lays on face / measures depending on the mode. */
-    fun onTap(x: Float, y: Float)
-    /** The selected object was dragged by (dx, dy) mm on the bed. */
+    /**
+     * A tap (not a drag); the host picks and selects / lays on face / measures depending on the mode.
+     * [additive]: Ctrl or Shift was held (adds to the selection, as on the desktop).
+     */
+    fun onTap(x: Float, y: Float, additive: Boolean)
+    /** The selected copies were dragged by (dx, dy) mm on the bed. */
     fun onMoved(dx: Float, dy: Float)
     /** Paint stroke sample at screen (x, y); [newStroke] for the first sample of a stroke. */
     fun onPaint(x: Float, y: Float, newStroke: Boolean)
@@ -38,7 +42,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     val renderer = PlateRenderer(camera)
     var listener: PlateListener? = null
     var mode = InteractionMode.NAVIGATE
-    /** World bounding boxes (min, max) of the selected object's instances; a drag starting on them moves it. */
+    /** World bounding boxes (min, max) of the selected copies; a drag starting on them moves them. */
     var selectedBounds: List<Pair<Vec3, Vec3>> = emptyList()
 
     private var lastX = 0f
@@ -150,6 +154,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                 }
             }
             MotionEvent.ACTION_UP -> {
+                val additive = event.metaState and (KeyEvent.META_CTRL_ON or KeyEvent.META_SHIFT_ON) != 0
                 if (longPressed || middleButton) {
                     // Handled: the menu is open, or the middle button only pans.
                 } else if (rightButton) {
@@ -159,9 +164,9 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                     val end = camera.rayOnPlane(event.x, event.y)
                     cancelDrag()
                     if (moved && start != null && end != null) listener?.onMoved(end.x - start.x, end.y - start.y)
-                    else if (!moved) listener?.onTap(event.x, event.y)
+                    else if (!moved) listener?.onTap(event.x, event.y, additive)
                 } else if (!moved && !multiTouch && mode != InteractionMode.PAINT) {
-                    listener?.onTap(event.x, event.y)
+                    listener?.onTap(event.x, event.y, additive)
                 }
             }
             MotionEvent.ACTION_CANCEL -> cancelDrag()
