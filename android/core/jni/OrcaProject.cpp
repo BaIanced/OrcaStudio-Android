@@ -37,6 +37,27 @@ const Preset *find_by_name(const PresetCollection &collection, const std::string
     return nullptr;
 }
 
+// Bambu printers report a tray's filament as Bambu's id (GFA00 = Bambu PLA Basic), but OrcaSlicer
+// re-keyed the Bambu bundle's filament_id to its own ids (upstream ec207e67a), so sync_ams_list()
+// no longer finds the preset and falls back to Generic. The bundle's setting_id still carries
+// Bambu's id (GFA00 -> GFSA00_04), so translate through it when the reported id matches nothing.
+std::string current_filament_id(const PresetCollection &filaments, const std::string &reported)
+{
+    if (reported.size() < 3 || reported.compare(0, 2, "GF") != 0)
+        return reported;
+    for (size_t i = 0; i < filaments.size(); ++i)
+        if (filaments.preset(i).filament_id == reported)
+            return reported;
+    const std::string prefix = "GFS" + reported.substr(2);
+    for (size_t i = 0; i < filaments.size(); ++i) {
+        const Preset &p = filaments.preset(i);
+        if (p.is_system && p.is_compatible && !p.filament_id.empty() &&
+            (p.setting_id == prefix || p.setting_id.compare(0, prefix.size() + 1, prefix + "_") == 0))
+            return p.filament_id;
+    }
+    return reported;
+}
+
 // Value of option `key` for filament slot `index` (vector options) or the scalar value.
 std::string value_at(const DynamicPrintConfig &config, const std::string &key, size_t index)
 {
@@ -336,7 +357,7 @@ json OrcaEngine::sync_filaments(const json &trays, const json &filaments)
     int index = 0;
     for (const json &t : trays) {
         DynamicPrintConfig tray;
-        tray.set_key_value("filament_id", new ConfigOptionStrings{t.value("filament_id", std::string())});
+        tray.set_key_value("filament_id", new ConfigOptionStrings{current_filament_id(m_bundle->filaments, t.value("filament_id", std::string()))});
         tray.set_key_value("ams_id", new ConfigOptionStrings{t.value("ams_id", std::string())});
         tray.set_key_value("slot_id", new ConfigOptionStrings{t.value("slot_id", std::string())});
         tray.set_key_value("filament_type", new ConfigOptionStrings{t.value("filament_type", std::string())});
