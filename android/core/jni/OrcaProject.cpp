@@ -72,14 +72,17 @@ std::string value_at(const DynamicPrintConfig &config, const std::string &key, s
     return values[std::min(index, values.size() - 1)];
 }
 
-// Options of `keys` whose value in `project` differs from `base` (slot `index` for vectors).
+// Options of `keys` whose value in `project` (slot `index` for vectors) differs from `base`. The base
+// is one preset: its vector entries are printer variants, not slots, so its first entry counts
+// (comparing slot 2 with the second variant marked e.g. filament_dev_ams_drying_ams_limitations
+// "1" vs "0" as changed on every reload).
 json diff_options(const DynamicPrintConfig &project, const DynamicPrintConfig &base, const std::vector<std::string> &keys, size_t index)
 {
     json out = json::object();
     for (const std::string &key : keys) {
         if (!project.has(key) || !base.has(key))
             continue;
-        const std::string a = value_at(project, key, index), b = value_at(base, key, index);
+        const std::string a = value_at(project, key, index), b = value_at(base, key, 0);
         if (a != b)
             out[key] = a;
     }
