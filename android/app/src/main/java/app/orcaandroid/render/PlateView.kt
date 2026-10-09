@@ -108,9 +108,14 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     /** Runs [block] on the GL thread. */
     fun onGl(block: PlateRenderer.() -> Unit) = queueEvent { renderer.block() }
 
+    // Compose would otherwise use arrow keys and Tab to move its focus before the activity sees them.
+    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean = onKey?.invoke(keyCode, event) == true || super.onKeyDown(keyCode, event)
+
     companion object {
         /** The app's 3D view, for keyboard shortcuts that move the camera. */
         var active: java.lang.ref.WeakReference<PlateView>? = null
+        /** Single-key shortcuts while the view has focus (set by the activity); true when handled. */
+        var onKey: ((Int, KeyEvent) -> Boolean)? = null
     }
 
     @SuppressLint("ClickableViewAccessibility")

@@ -49,6 +49,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         if (savedInstanceState == null) handleIntent(intent)
         requestNotificationPermission()
+        PlateView.onKey = ::viewKey
         setContent {
             val state by vm.state.collectAsStateWithLifecycle()
             OrcaTheme(state.themeMode, state.dynamicColor) {
@@ -152,9 +153,13 @@ class MainActivity : ComponentActivity() {
         return true
     }
 
-    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+    // Keys nothing else used (no text field or button took them).
+    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean = viewKey(keyCode, event) || super.onKeyDown(keyCode, event)
+
+    /** Single-key shortcuts of the 3D view, as on the desktop; the view forwards its keys here first. */
+    private fun viewKey(keyCode: Int, event: KeyEvent): Boolean {
         val s = vm.state.value
-        if (s.editor != null || event.isCtrlPressed || !viewFocused) return super.onKeyDown(keyCode, event)
+        if (s.editor != null || event.isCtrlPressed) return false
         if (keyCode == KeyEvent.KEYCODE_TAB && (s.screen == Screen.PREPARE || s.screen == Screen.PREVIEW)) {
             vm.setScreen(if (s.screen == Screen.PREPARE) Screen.PREVIEW else Screen.PREPARE)
             return true
@@ -164,9 +169,11 @@ class MainActivity : ComponentActivity() {
             KeyEvent.KEYCODE_I -> { view?.camera?.zoom(1.15f); return true }
             KeyEvent.KEYCODE_O -> { view?.camera?.zoom(1 / 1.15f); return true }
         }
-        if (s.screen == Screen.PREVIEW && previewKey(keyCode, s)) return true
-        if (s.screen == Screen.PREPARE && prepareKey(keyCode, event, s)) return true
-        return super.onKeyDown(keyCode, event)
+        return when (s.screen) {
+            Screen.PREVIEW -> previewKey(keyCode, s)
+            Screen.PREPARE -> prepareKey(keyCode, event, s)
+            else -> false
+        }
     }
 
     /** Single-key shortcuts of the Prepare 3D view, as on the desktop. */
