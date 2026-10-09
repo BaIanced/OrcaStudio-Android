@@ -248,7 +248,9 @@ private fun EditorFrame(
                         SegmentedButton(mode == i, { mode = i }, SegmentedButtonDefaults.itemShape(i, 3)) { Text(stringResource(label), maxLines = 1) }
                     }
                 }
-                if (objectMode) FilterChip(onlyModified, { onlyModified = !onlyModified }, label = { Text(stringResource(R.string.only_changed)) })
+                // Presets too: "N modified" in the title is otherwise hard to trace to its options.
+                if (objectMode || source.modifiedCount > 0 || onlyModified)
+                    FilterChip(onlyModified, { onlyModified = !onlyModified }, label = { Text(stringResource(R.string.only_changed)) })
             }
             HorizontalDivider()
 
