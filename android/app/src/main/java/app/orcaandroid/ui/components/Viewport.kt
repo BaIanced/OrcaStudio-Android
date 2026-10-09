@@ -129,7 +129,14 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         preview = data
         v.onGl { setPreview(data) }
     }
-    LaunchedEffect(v, state.activePlate) { v.onGl { activePlate = state.activePlate } }
+    // Follow the active plate when it changes (a new plate, a deleted one), not only on a chip tap.
+    var framedPlate by remember { mutableStateOf(-1) }
+    LaunchedEffect(v, state.activePlate) {
+        val plate = state.activePlate
+        val move = framedPlate >= 0 && framedPlate != plate
+        framedPlate = plate
+        v.onGl { activePlate = plate; if (move) frame(plate) }
+    }
     LaunchedEffect(v, state.filaments) {
         val cols = state.filaments.map { hexToRgb(it.color ?: "#FF7F27") }
         v.onGl { filamentColors = cols }
