@@ -86,7 +86,11 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
             }
         }
         if (wide) {
-            Column(Modifier.align(Alignment.CenterStart).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            // Below the top bar (and the calibration banner): a tall column (object selected) scrolls
+            // instead of covering the plate selector.
+            val top = if (state.calibration != null) 110.dp else 60.dp
+            Column(Modifier.align(Alignment.CenterStart).padding(top = top).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 ToolButtons(state, vm)
             }
         } else {
