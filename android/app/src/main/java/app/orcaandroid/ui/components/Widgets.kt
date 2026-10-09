@@ -226,12 +226,13 @@ fun Vec3Fields(
     label: String, x: Float, y: Float, z: Float, suffix: String, onCommit: (Float, Float, Float) -> Unit,
     decimals: Int = 2, live: Boolean = false,
 ) {
+    // The unit goes in the row label: three narrow fields cut off values like "115.09" next to a suffix.
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(label, style = MaterialTheme.typography.labelMedium)
+        Text("$label ($suffix)", style = MaterialTheme.typography.labelMedium)
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            NumberField(x, { onCommit(it, y, z) }, Modifier.weight(1f), "X", suffix, decimals, live)
-            NumberField(y, { onCommit(x, it, z) }, Modifier.weight(1f), "Y", suffix, decimals, live)
-            NumberField(z, { onCommit(x, y, it) }, Modifier.weight(1f), "Z", suffix, decimals, live)
+            NumberField(x, { onCommit(it, y, z) }, Modifier.weight(1f), "X", null, decimals, live)
+            NumberField(y, { onCommit(x, it, z) }, Modifier.weight(1f), "Y", null, decimals, live)
+            NumberField(z, { onCommit(x, y, it) }, Modifier.weight(1f), "Z", null, decimals, live)
         }
     }
 }
