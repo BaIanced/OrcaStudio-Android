@@ -87,6 +87,8 @@
     <string name="filament">Filament</string>
     <string name="filament_vendors">Filament-Hersteller</string>
     <string name="filament_vendors_text">Welche Hersteller in den Filamentlisten erscheinen</string>
+    <string name="show_all">Alle zeigen</string>
+    <string name="hide_all">Alle ausblenden</string>
     <string name="filaments">Filamente</string>
     <string name="flip_upper">Oberteil auf Schnittfläche legen</string>
     <string name="flow_linear">Ein Durchgang (YOLO)</string>

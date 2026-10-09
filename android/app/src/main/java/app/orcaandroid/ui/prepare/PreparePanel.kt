@@ -105,9 +105,9 @@ private fun PresetsTab(state: UiState, vm: AppViewModel) {
         var colorDialog by remember { mutableStateOf(false) }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             IconButton(onClick = { colorDialog = true }, modifier = Modifier.size(36.dp)) { ColorDot(slot.color, 22) }
-            val filaments = setup?.filaments.orEmpty().filter { it.system.not() || it.vendor !in state.hiddenFilamentVendors || it.name == slot.preset }
+            val filaments = setup?.filaments.orEmpty().filter { it.system.not() || it.brandName !in state.hiddenFilamentVendors || it.name == slot.preset }
             PickerField("${i + 1}", slot.preset,
-                filaments.map { PickerItem(it.name, it.name, if (it.system) it.vendor.ifEmpty { "Generic" } else vm.translator.tr("User presets")) },
+                filaments.map { PickerItem(it.name, it.name, if (it.system) it.brandName else vm.translator.tr("User presets")) },
                 { vm.presets.setFilament(i, it) }, Modifier.weight(1f), modified = slot.overrides.isNotEmpty())
             IconButton(onClick = { vm.presets.setActiveFilament(i); vm.presets.openEditor(EditorTarget.Preset(PresetType.FILAMENT)) }) {
                 Icon(Icons.Default.Edit, stringResource(R.string.edit))

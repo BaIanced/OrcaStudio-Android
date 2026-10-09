@@ -88,6 +88,8 @@
     <string name="filament">Filament</string>
     <string name="filament_vendors">Filament brands</string>
     <string name="filament_vendors_text">Choose which brands appear in the filament lists</string>
+    <string name="show_all">Show all</string>
+    <string name="hide_all">Hide all</string>
     <string name="filaments">Filaments</string>
     <string name="flip_upper">Place upper part on cut face</string>
     <string name="flow_linear">Single pass (YOLO)</string>

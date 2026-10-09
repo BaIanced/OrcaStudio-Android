@@ -27,6 +27,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -121,20 +122,34 @@ private fun Entry(title: String, subtitle: String?, onClick: () -> Unit) {
     }
 }
 
-/** Which filament vendors' system presets appear in the filament lists. */
+/** Which filament brands' system presets appear in the filament lists. */
 @Composable
 private fun FilamentVendorsDialog(state: UiState, vm: AppViewModel, onDismiss: () -> Unit) {
-    val vendors = remember(state.setup) { state.setup?.filaments.orEmpty().filter { it.system }.map { it.vendor.ifEmpty { "Generic" } }.distinct().sorted() }
+    val vendors = remember(state.setup) {
+        state.setup?.filaments.orEmpty().filter { it.system }.map { it.brandName }.distinct().sortedBy { it.lowercase() }
+    }
     var hidden by remember { mutableStateOf(state.hiddenFilamentVendors) }
+    var query by remember { mutableStateOf("") }
+    val shown = vendors.filter { it.contains(query.trim(), ignoreCase = true) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.filament_vendors)) },
         text = {
-            LazyColumn(Modifier.heightIn(max = 460.dp)) {
-                items(vendors) { v ->
-                    Row(Modifier.fillMaxWidth().clickable { hidden = if (v in hidden) hidden - v else hidden + v }, verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(v !in hidden, { hidden = if (it) hidden - v else hidden + v })
-                        Text(v)
+            Column {
+                if (vendors.size > 8)
+                    OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth(), singleLine = true,
+                        placeholder = { Text(stringResource(R.string.search)) })
+                Row {
+                    // Applies to the brands the search shows.
+                    TextButton(onClick = { hidden = hidden - shown.toSet() }) { Text(stringResource(R.string.show_all)) }
+                    TextButton(onClick = { hidden = hidden + shown }) { Text(stringResource(R.string.hide_all)) }
+                }
+                LazyColumn(Modifier.heightIn(max = 400.dp)) {
+                    items(shown) { v ->
+                        Row(Modifier.fillMaxWidth().clickable { hidden = if (v in hidden) hidden - v else hidden + v }, verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(v !in hidden, { hidden = if (it) hidden - v else hidden + v })
+                            Text(v)
+                        }
                     }
                 }
             }

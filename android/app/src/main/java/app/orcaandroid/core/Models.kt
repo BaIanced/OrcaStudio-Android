@@ -33,7 +33,10 @@ data class PrinterInfo(val name: String, val vendor: String, val model: String, 
     val key get() = printerKey(model, nozzle)
 }
 
-data class PresetRef(val name: String, val vendor: String, val system: Boolean)
+data class PresetRef(val name: String, val vendor: String, val system: Boolean, val brand: String = "") {
+    /** A system filament's brand (Bambu Lab, Generic, eSUN ...), for the brand filter and grouping. */
+    val brandName get() = brand.ifEmpty { vendor.ifEmpty { "Generic" } }
+}
 
 data class PrinterSetup(
     val prints: List<PresetRef>,
