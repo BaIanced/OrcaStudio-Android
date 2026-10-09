@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -18,6 +19,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
+import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.FileOpen
+import androidx.compose.material.icons.filled.Interests
+import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesomeMosaic
 import androidx.compose.material.icons.filled.Brush
@@ -30,6 +35,7 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material.icons.filled._3dRotation
 import androidx.compose.material.icons.filled.VerticalAlignBottom
@@ -57,12 +63,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import app.orcaandroid.R
 import app.orcaandroid.core.VolumeType
 import app.orcaandroid.render.PlateView
 import app.orcaandroid.ui.AppViewModel
 import app.orcaandroid.ui.SliceStatus
+import app.orcaandroid.ui.EditorTarget
 import app.orcaandroid.ui.Tool
 import app.orcaandroid.ui.UiState
 import app.orcaandroid.ui.components.ConfirmDialog
@@ -84,9 +93,14 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
                     }
                 }
             }
+            if (state.showSelectionBanner) SelectionBanner(state, vm)
         }
         if (wide) {
-            Column(Modifier.align(Alignment.CenterStart).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            // Below the top bar (and the banners): a tall column (object selected) scrolls instead of
+            // covering the plate selector.
+            val top = 60.dp + (if (state.calibration != null) 50.dp else 0.dp) + (if (state.showSelectionBanner) 50.dp else 0.dp)
+            Column(Modifier.align(Alignment.CenterStart).padding(top = top).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 ToolButtons(state, vm)
             }
         } else {
@@ -99,7 +113,74 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
             ToolPanel(state, vm)
         }
         SliceButton(state, vm, Modifier.align(Alignment.BottomEnd))
+        ViewContextMenu(state, vm)
     }
+}
+
+private val UiState.showSelectionBanner get() = selectMode || multiSelection.isNotEmpty()
+
+/** While several objects are selected or select mode is on: the count, select all, and leaving select mode. */
+@Composable
+private fun SelectionBanner(state: UiState, vm: AppViewModel) {
+    Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
+        Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            val count = state.selectedItems.size
+            Text(if (count == 0) stringResource(R.string.select_mode_hint) else stringResource(R.string.n_selected, count),
+                Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodySmall)
+            androidx.compose.material3.TextButton(onClick = vm.scene::selectAll) { Text(stringResource(R.string.select_all)) }
+            if (state.selectMode) androidx.compose.material3.TextButton(onClick = { vm.scene.setSelectMode(false) }) { Text(stringResource(R.string.done)) }
+        }
+    }
+}
+
+/**
+ * The 3D view's context menu (right click, long press) at the pointer, as on the desktop: object
+ * actions on an object (or on all selected objects), adding things on the empty bed.
+ */
+@Composable
+private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
+    var dialog by remember { mutableStateOf<String?>(null) }
+    val importModels = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { if (it.isNotEmpty()) vm.files.openModels(it) }
+    val at = state.contextMenu
+    // The overlay is inset by 8 dp from the view whose pixels [at] are in.
+    val inset = with(LocalDensity.current) { 8.dp.roundToPx() }
+    if (at != null) {
+        val close = vm.scene::closeContextMenu
+        Box(Modifier.offset { IntOffset(at.first.toInt() - inset, at.second.toInt() - inset) }) {
+            DropdownMenu(expanded = true, onDismissRequest = close) {
+                val sel = state.selection
+                if (state.selectedItems.isNotEmpty()) {
+                    DropdownMenuItem(text = { Text(stringResource(R.string.duplicate)) }, leadingIcon = { Icon(Icons.Default.ContentCopy, null) },
+                        onClick = { close(); vm.scene.duplicate(1) })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.delete)) }, leadingIcon = { Icon(Icons.Default.Delete, null) },
+                        onClick = { close(); vm.scene.deleteSelected() })
+                }
+                if (sel != null) {
+                    DropdownMenuItem(text = { Text(stringResource(R.string.select_multiple)) }, leadingIcon = { Icon(Icons.Default.SelectAll, null) },
+                        onClick = { close(); vm.scene.setSelectMode(true) })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.lay_on_face)) }, leadingIcon = { Icon(Icons.Default.VerticalAlignBottom, null) },
+                        onClick = { close(); vm.scene.setTool(Tool.LayOnFace) })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.add_modifier)) },
+                        onClick = { close(); vm.scene.addVolume(VolumeType.MODIFIER, "box") })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.object_settings_title)) },
+                        onClick = { close(); vm.presets.openEditor(EditorTarget.Object(sel.obj)) })
+                } else if (state.multiSelection.isEmpty()) {
+                    DropdownMenuItem(text = { Text(stringResource(R.string.import_model)) }, leadingIcon = { Icon(Icons.Default.FileOpen, null) },
+                        onClick = { close(); importModels.launch(arrayOf("*/*")) })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.add_shape)) }, leadingIcon = { Icon(Icons.Default.Interests, null) },
+                        onClick = { close(); dialog = "primitive" })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.add_text)) }, leadingIcon = { Icon(Icons.Default.TextFields, null) },
+                        onClick = { close(); dialog = "text" })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.add_svg)) }, leadingIcon = { Icon(Icons.Default.Category, null) },
+                        onClick = { close(); dialog = "svg" })
+                    if (!state.scene.isEmpty)
+                        DropdownMenuItem(text = { Text(stringResource(R.string.arrange)) }, leadingIcon = { Icon(Icons.Default.AutoAwesomeMosaic, null) },
+                            onClick = { close(); vm.scene.arrange(false) })
+                }
+            }
+        }
+    }
+    AddDialogs(state, vm, dialog) { dialog = null }
 }
 
 @Composable
@@ -220,7 +301,13 @@ private fun ToolButtons(state: UiState, vm: AppViewModel) {
     }
     ToolButton(Icons.Default.AutoAwesomeMosaic, stringResource(R.string.arrange), enabled = !state.scene.isEmpty) { vm.scene.arrange(false) }
     ToolButton(Icons.Default._3dRotation, stringResource(R.string.auto_orient), enabled = !state.scene.isEmpty) { vm.scene.autoOrient() }
-    if (selected) {
+    ToolButton(Icons.Default.SelectAll, stringResource(R.string.select_multiple), active = state.selectMode, enabled = !state.scene.isEmpty) {
+        vm.scene.setSelectMode(!state.selectMode)
+    }
+    if (state.multiSelection.isNotEmpty()) {
+        ToolButton(Icons.Default.ContentCopy, stringResource(R.string.duplicate)) { vm.scene.duplicate(1) }
+        ToolButton(Icons.Default.Delete, stringResource(R.string.delete)) { vm.scene.deleteSelected() }
+    } else if (selected) {
         ToolButton(Icons.Default.VerticalAlignBottom, stringResource(R.string.lay_on_face), active = state.tool == Tool.LayOnFace) {
             vm.scene.setTool(if (state.tool == Tool.LayOnFace) Tool.None else Tool.LayOnFace)
         }
@@ -302,7 +389,7 @@ private fun SliceButton(state: UiState, vm: AppViewModel, modifier: Modifier) {
         var menu by remember { mutableStateOf(false) }
         Box(modifier) {
             ExtendedFloatingActionButton(
-                onClick = { if (!state.scene.isEmpty) vm.slicing.slice() },
+                onClick = { vm.slicing.slice() },
                 text = { Text(stringResource(if (state.scene.plates.size > 1) R.string.slice_plate_n else R.string.slice, state.activePlate + 1)) },
                 icon = { Icon(Icons.Default.Layers, null) },
             )

@@ -40,7 +40,7 @@ class FileController(
         val s = engine.loadModels(files.map { it.path }, append = append || !store.value.scene.isEmpty, plate = store.value.activePlate)
         store.applyScene(s)
         uris.forEachIndexed { i, u -> rememberRecent(u, files[i].name, false) }
-        store.update { it.copy(selection = Selection(s.objects.lastIndex), screen = Screen.PREPARE) }
+        store.update { it.copy(selection = Selection(s.objects.lastIndex), multiSelection = emptyList(), screen = Screen.PREPARE) }
     }
 
     /** 3MF files with a desktop project config are opened as projects (with plates and settings). */
@@ -67,7 +67,7 @@ class FileController(
         presets.refreshPresetValues(listOf(PresetType.FILAMENT, PresetType.PRINT))
         store.applyScene(loaded, dirty = false)
         uri?.let { rememberRecent(it, file.name, true) }
-        store.update { it.copy(projectName = file.name.removeSuffix(".3mf"), projectDirty = false, selection = null, screen = Screen.PREPARE) }
+        store.update { it.copy(projectName = file.name.removeSuffix(".3mf"), projectDirty = false, selection = null, multiSelection = emptyList(), screen = Screen.PREPARE) }
     }
 
     // --- Session: the app comes back as it was left, even after Android ended the process ---------------

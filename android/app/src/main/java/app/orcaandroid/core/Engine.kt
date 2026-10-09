@@ -58,6 +58,26 @@ class Engine(private val cacheDir: File) {
 
     suspend fun presetFile(type: PresetType, name: String): String = call("presetFile", args("type" to type.id, "name" to name)).getString("path")
 
+    /** Loads cloud presets ({ name: { key: value } }) and saves them as user presets; returns how many and the printers. */
+    suspend fun loadCloudPresets(presets: JSONObject): Pair<Int, List<PrinterInfo>> =
+        call("loadCloudPresets", args("presets" to presets)).let { it.optInt("count") to parsePrinters(it) }
+
+    /** Installed version of a vendor's profiles, "" if not installed. */
+    suspend fun vendorVersion(vendor: String): String = call("vendorVersion", args("vendor" to vendor)).optString("version")
+
+    /**
+     * The desktop's filament sync: one slot per loaded tray (keys: filament_id, filament_type,
+     * color, colors, color_type, ams_id, slot_id, name). Returns the new slots and, per tray that
+     * had no exact preset, the tray name and the reason.
+     */
+    suspend fun syncFilaments(trays: List<Map<String, Any?>>, filaments: List<FilamentSlot>): Pair<List<FilamentSlot>, List<Pair<String, String>>> {
+        val fils = filaments.map { f -> mapOf("name" to f.preset, "color" to f.color) }
+        val r = call("syncFilaments", args("trays" to trays, "filaments" to fils))
+        val slots = r.getJSONArray("filaments").map { (it as JSONObject).let { f -> FilamentSlot(f.getString("name"), f.optString("color").ifEmpty { null }) } }
+        val unknown = r.getJSONArray("unknown").map { (it as JSONObject).let { u -> u.optString("tray") to u.optString("message") } }
+        return slots to unknown
+    }
+
     // --- Scene -----------------------------------------------------------------------------------
 
     suspend fun scene() = parseScene(call("scene"))
@@ -68,7 +88,12 @@ class Engine(private val cacheDir: File) {
             "transform" to buildMap { offset?.let { put("offset", it) }; rotation?.let { put("rotation", it) }; scale?.let { put("scale", it) }; mirror?.let { put("mirror", it) } })))
     suspend fun deleteObject(obj: Int) = parseScene(call("deleteObject", args("object" to obj)))
     suspend fun deleteInstance(obj: Int, instance: Int) = parseScene(call("deleteInstance", args("object" to obj, "instance" to instance)))
-    suspend fun duplicate(obj: Int, copies: Int) = parseScene(call("duplicate", args("object" to obj, "copies" to copies)))
+    /** [items]: (object, instance) pairs; each batch call is one undo step. */
+    suspend fun duplicate(items: List<Pair<Int, Int>>, copies: Int) =
+        parseScene(call("duplicate", args("items" to items.map { listOf(it.first, it.second) }, "copies" to copies)))
+    suspend fun deleteItems(items: List<Pair<Int, Int>>) = parseScene(call("deleteItems", args("items" to items.map { listOf(it.first, it.second) })))
+    suspend fun moveItems(items: List<Pair<Int, Int>>, dx: Float, dy: Float) =
+        parseScene(call("moveItems", args("items" to items.map { listOf(it.first, it.second) }, "dx" to dx, "dy" to dy)))
     suspend fun arrange(plate: Int) = parseScene(call("arrange", args("plate" to plate)))
     suspend fun layOnFace(obj: Int, instance: Int, normal: Vec3) = parseScene(call("layOnFace", args("object" to obj, "instance" to instance, "normal" to normal)))
     suspend fun autoOrient(obj: Int) = parseScene(call("autoOrient", args("object" to obj)))
@@ -82,6 +107,9 @@ class Engine(private val cacheDir: File) {
     suspend fun deleteVolume(obj: Int, volume: Int) = parseScene(call("deleteVolume", args("object" to obj, "volume" to volume)))
     suspend fun setObjectSetting(obj: Int, volume: Int, key: String, value: String?) =
         parseScene(call("setObjectSetting", args("object" to obj, "volume" to volume, "key" to key, "value" to value)))
+    /** The same object setting on several objects, as one undo step. */
+    suspend fun setObjectsSetting(objs: List<Int>, key: String, value: String?) =
+        parseScene(call("setObjectSetting", args("objects" to objs, "key" to key, "value" to value)))
     suspend fun setLayerRanges(obj: Int, ranges: List<LayerRange>) = parseScene(call("setLayerRanges", args("object" to obj,
         "ranges" to ranges.map { mapOf("from" to it.from, "to" to it.to, "settings" to it.settings) })))
     suspend fun addPlate() = parseScene(call("addPlate"))
@@ -170,7 +198,7 @@ class Engine(private val cacheDir: File) {
 
     private fun parseRefs(a: JSONArray) = a.map {
         val o = it as JSONObject
-        PresetRef(o.getString("name"), o.optString("vendor"), o.optBoolean("system"))
+        PresetRef(o.getString("name"), o.optString("vendor"), o.optBoolean("system"), o.optString("brand"), o.optString("type"))
     }
 
     private fun parseSetup(o: JSONObject): PrinterSetup {

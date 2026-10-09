@@ -1,6 +1,8 @@
 package app.orcaandroid.ui.prepare
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -51,6 +54,7 @@ import app.orcaandroid.core.overrides
 import app.orcaandroid.core.PresetType
 import app.orcaandroid.core.Vec3
 import app.orcaandroid.core.VolumeType
+import app.orcaandroid.net.HostType
 import app.orcaandroid.ui.AppViewModel
 import app.orcaandroid.ui.EditorTarget
 import app.orcaandroid.ui.Selection
@@ -103,10 +107,14 @@ private fun PresetsTab(state: UiState, vm: AppViewModel) {
         var colorDialog by remember { mutableStateOf(false) }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             IconButton(onClick = { colorDialog = true }, modifier = Modifier.size(36.dp)) { ColorDot(slot.color, 22) }
-            val filaments = setup?.filaments.orEmpty().filter { it.system.not() || it.vendor !in state.hiddenFilamentVendors || it.name == slot.preset }
-            PickerField("${i + 1}", slot.preset,
-                filaments.map { PickerItem(it.name, it.name, if (it.system) it.vendor.ifEmpty { "Generic" } else vm.translator.tr("User presets")) },
-                { vm.presets.setFilament(i, it) }, Modifier.weight(1f), modified = slot.overrides.isNotEmpty())
+            val userGroup = vm.translator.tr("User presets")
+            val filaments = setup?.filaments.orEmpty().filter { it.system.not() || it.brandName !in state.hiddenFilamentVendors || it.name == slot.preset }
+            // The user's (calibrated) presets first and open; system ones by brand, then material, collapsed.
+            val items = filaments.filter { !it.system }.sortedBy { it.name.lowercase() }.map { PickerItem(it.name, it.name, userGroup) } +
+                filaments.filter { it.system }.sortedWith(compareBy({ it.brandName.lowercase() }, { it.type }, { it.name.lowercase() }))
+                    .map { PickerItem(it.name, it.name, it.brandName, it.type.ifEmpty { "?" }) }
+            PickerField("${i + 1}", slot.preset, items,
+                { vm.presets.setFilament(i, it) }, Modifier.weight(1f), modified = slot.overrides.isNotEmpty(), openGroups = setOf(userGroup))
             IconButton(onClick = { vm.presets.setActiveFilament(i); vm.presets.openEditor(EditorTarget.Preset(PresetType.FILAMENT)) }) {
                 Icon(Icons.Default.Edit, stringResource(R.string.edit))
             }
@@ -114,9 +122,15 @@ private fun PresetsTab(state: UiState, vm: AppViewModel) {
         }
         if (colorDialog) ColorDialog(slot.color, { vm.presets.setFilamentColor(i, it) }) { colorDialog = false }
     }
+    var flushDialog by remember { mutableStateOf(false) }
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         OutlinedButton(onClick = vm.presets::addFilament) { Icon(Icons.Default.Add, null); Text(stringResource(R.string.add_filament)) }
-        if (state.filaments.size > 1) TextButton(onClick = vm.scene::autoFlushMatrix) { Text(stringResource(R.string.flushing_volumes)) }
+        if (state.filaments.size > 1) TextButton(onClick = { flushDialog = true }) { Text(stringResource(R.string.flushing_volumes)) }
+    }
+    if (flushDialog) FlushDialog(state, vm) { flushDialog = false }
+    // Like the desktop's filament sync: take the slots from what the connected Bambu printer has loaded.
+    if (state.connection?.type == HostType.BAMBU || state.connection?.type == HostType.BAMBU_SIGNED) {
+        OutlinedButton(onClick = vm.presets::syncFilamentsFromPrinter) { Icon(Icons.Default.Sync, null); Text(stringResource(R.string.sync_filaments)) }
     }
     if (state.filaments.size > 1) WipeTowerRow(state, vm)
 
@@ -208,6 +222,7 @@ internal fun ColorDialog(current: String?, onPick: (String) -> Unit, onDismiss: 
 
 // --- Objects -------------------------------------------------------------------------------------
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ObjectsTab(state: UiState, vm: AppViewModel) {
     val scene = state.scene
@@ -217,10 +232,18 @@ private fun ObjectsTab(state: UiState, vm: AppViewModel) {
     }
     if (scene.outsideCount > 0) Text(stringResource(R.string.objects_outside, scene.outsideCount), color = MaterialTheme.colorScheme.error,
         style = MaterialTheme.typography.bodySmall)
+    if (state.multiSelection.isNotEmpty()) MultiSelectionCard(state, vm)
     scene.objects.forEach { o ->
-        val selected = state.selection?.obj == o.index
+        val selected = state.selectedItems.any { it.obj == o.index }
         Card(
-            Modifier.fillMaxWidth().clickable { vm.scene.select(if (selected && state.selection?.volume == -1) null else Selection(o.index)) },
+            // Long press, or a tap in select mode, adds the object to the selection or removes it.
+            Modifier.fillMaxWidth().combinedClickable(
+                onClick = {
+                    if (state.selectMode) vm.scene.toggleObject(o.index)
+                    else vm.scene.select(if (selected && state.selection?.volume == -1) null else Selection(o.index))
+                },
+                onLongClick = { vm.scene.setSelectMode(true); vm.scene.toggleObject(o.index) },
+            ),
             shape = RoundedCornerShape(12.dp),
             colors = if (selected) CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer) else CardDefaults.cardColors(),
         ) {
@@ -233,7 +256,30 @@ private fun ObjectsTab(state: UiState, vm: AppViewModel) {
                     }
                     if (o.settings.overrides.isNotEmpty()) Icon(Icons.Default.Tune, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.tertiary)
                 }
-                if (selected) ObjectDetails(state, vm, o.index)
+                // In select mode the rows stay compact, so taps keep hitting the row they aim at.
+                if (state.selection?.obj == o.index && !state.selectMode) ObjectDetails(state, vm, o.index)
+            }
+        }
+    }
+}
+
+/** Actions on all selected objects: their filament, duplicate, delete. */
+@Composable
+private fun MultiSelectionCard(state: UiState, vm: AppViewModel) {
+    val objs = state.selectedItems.map { it.obj }.distinct().mapNotNull { state.scene.objects.getOrNull(it) }
+    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(R.string.n_selected, state.selectedItems.size), style = MaterialTheme.typography.bodyLarge)
+            if (state.filaments.size > 1) {
+                // Shown when all selected objects share it; picking sets it on all of them.
+                val ext = objs.map { it.settings["extruder"] ?: "1" }.distinct().singleOrNull() ?: ""
+                PickerField(stringResource(R.string.filament), ext,
+                    state.filaments.mapIndexed { i, f -> PickerItem((i + 1).toString(), "${i + 1}: ${f.preset}") },
+                    { vm.scene.setSelectedObjectsSetting("extruder", it) })
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilledTonalButton(onClick = { vm.scene.duplicate(1) }) { Text(stringResource(R.string.duplicate)) }
+                OutlinedButton(onClick = vm.scene::deleteSelected) { Icon(Icons.Default.Delete, null); Text(" " + stringResource(R.string.delete)) }
             }
         }
     }

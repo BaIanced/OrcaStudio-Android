@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.opengl.GLSurfaceView
 import android.view.GestureDetector
+import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
 import app.orcaandroid.core.Vec3
@@ -15,18 +16,24 @@ enum class InteractionMode { NAVIGATE, PAINT, LAY_ON_FACE, MEASURE }
 
 /** What the 3D view reports back to the app. Called on the UI thread. */
 interface PlateListener {
-    /** A tap (not a drag); the host picks and selects / lays on face / measures depending on the mode. */
-    fun onTap(x: Float, y: Float)
-    /** The selected object was dragged by (dx, dy) mm on the bed. */
+    /**
+     * A tap (not a drag); the host picks and selects / lays on face / measures depending on the mode.
+     * [additive]: Ctrl or Shift was held (adds to the selection, as on the desktop).
+     */
+    fun onTap(x: Float, y: Float, additive: Boolean)
+    /** The selected copies were dragged by (dx, dy) mm on the bed. */
     fun onMoved(dx: Float, dy: Float)
     /** Paint stroke sample at screen (x, y); [newStroke] for the first sample of a stroke. */
     fun onPaint(x: Float, y: Float, newStroke: Boolean)
+    /** A right click or a long press that did not drag: the host shows a context menu at (x, y). */
+    fun onContextMenu(x: Float, y: Float)
 }
 
 /**
  * GLSurfaceView hosting [PlateRenderer] with touch navigation: one finger orbits (or drags the
- * selected object), two fingers pinch-zoom and pan, double tap frames the plate. Mouse wheel zooms
- * and right-drag pans on tablets with a mouse.
+ * selected object), two fingers pinch-zoom and pan, double tap frames the plate, long press opens
+ * the context menu. With a mouse, as on the desktop: left-drag orbits, right- or middle-drag pans,
+ * the wheel zooms and a right click opens the context menu.
  */
 @SuppressLint("ViewConstructor")
 class PlateView(context: Context) : GLSurfaceView(context) {
@@ -35,7 +42,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     val renderer = PlateRenderer(camera)
     var listener: PlateListener? = null
     var mode = InteractionMode.NAVIGATE
-    /** World bounding boxes (min, max) of the selected object's instances; a drag starting on them moves it. */
+    /** World bounding boxes (min, max) of the selected copies; a drag starting on them moves them. */
     var selectedBounds: List<Pair<Vec3, Vec3>> = emptyList()
 
     private var lastX = 0f
@@ -48,6 +55,11 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     private var dragStart: Vec3? = null
     private var lastFocusX = 0f
     private var lastFocusY = 0f
+    /** The gesture began with the right / middle mouse button (pans; a right click opens the menu). */
+    private var rightButton = false
+    private var middleButton = false
+    /** A long press opened the context menu; the rest of the gesture is ignored. */
+    private var longPressed = false
 
     private val scaleDetector = ScaleGestureDetector(context, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
         override fun onScale(detector: ScaleGestureDetector): Boolean {
@@ -58,8 +70,15 @@ class PlateView(context: Context) : GLSurfaceView(context) {
 
     private val gestureDetector = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
         override fun onDoubleTap(e: MotionEvent): Boolean {
-            if (mode == InteractionMode.NAVIGATE) queueEvent { renderer.frame(renderer.activePlate) }
+            if (mode == InteractionMode.NAVIGATE && !rightButton && !middleButton) queueEvent { renderer.frame(renderer.activePlate) }
             return true
+        }
+
+        override fun onLongPress(e: MotionEvent) {
+            if (mode != InteractionMode.NAVIGATE || multiTouch || moved || rightButton || middleButton) return
+            cancelDrag()
+            longPressed = true
+            listener?.onContextMenu(e.x, e.y)
         }
     })
 
@@ -79,12 +98,16 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     override fun onTouchEvent(event: MotionEvent): Boolean {
         scaleDetector.onTouchEvent(event)
         gestureDetector.onTouchEvent(event)
-        val mouseRight = event.isFromSource(android.view.InputDevice.SOURCE_MOUSE) && event.buttonState and MotionEvent.BUTTON_SECONDARY != 0
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 lastX = event.x; lastY = event.y; downX = event.x; downY = event.y
-                multiTouch = false; moved = false; dragging = false
-                if (mode == InteractionMode.PAINT) listener?.onPaint(event.x, event.y, true)
+                multiTouch = false; moved = false; dragging = false; longPressed = false
+                // The button state is only known on DOWN; on UP it is already released.
+                val mouse = event.isFromSource(android.view.InputDevice.SOURCE_MOUSE)
+                rightButton = mouse && event.buttonState and MotionEvent.BUTTON_SECONDARY != 0
+                middleButton = mouse && event.buttonState and MotionEvent.BUTTON_TERTIARY != 0
+                if (rightButton || middleButton) Unit
+                else if (mode == InteractionMode.PAINT) listener?.onPaint(event.x, event.y, true)
                 else if (mode == InteractionMode.NAVIGATE && hitsSelection(event.x, event.y)) {
                     dragging = true
                     dragStart = camera.rayOnPlane(event.x, event.y)
@@ -102,13 +125,14 @@ class PlateView(context: Context) : GLSurfaceView(context) {
             }
             MotionEvent.ACTION_MOVE -> {
                 if (abs(event.x - downX) + abs(event.y - downY) > touchSlop) moved = true
+                if (longPressed) return true
                 if (event.pointerCount >= 2) {
                     val fx = focusX(event); val fy = focusY(event)
                     camera.pan(fx - lastFocusX, fy - lastFocusY)
                     lastFocusX = fx; lastFocusY = fy
                 } else if (!multiTouch) {
                     when {
-                        mouseRight -> camera.pan(event.x - lastX, event.y - lastY)
+                        rightButton || middleButton -> camera.pan(event.x - lastX, event.y - lastY)
                         mode == InteractionMode.PAINT -> {
                             // Fill gaps of fast strokes so the painted trail stays continuous.
                             val dx = event.x - lastX
@@ -130,14 +154,19 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                 }
             }
             MotionEvent.ACTION_UP -> {
-                if (dragging) {
+                val additive = event.metaState and (KeyEvent.META_CTRL_ON or KeyEvent.META_SHIFT_ON) != 0
+                if (longPressed || middleButton) {
+                    // Handled: the menu is open, or the middle button only pans.
+                } else if (rightButton) {
+                    if (!moved && mode == InteractionMode.NAVIGATE) listener?.onContextMenu(event.x, event.y)
+                } else if (dragging) {
                     val start = dragStart
                     val end = camera.rayOnPlane(event.x, event.y)
                     cancelDrag()
                     if (moved && start != null && end != null) listener?.onMoved(end.x - start.x, end.y - start.y)
-                    else if (!moved) listener?.onTap(event.x, event.y)
+                    else if (!moved) listener?.onTap(event.x, event.y, additive)
                 } else if (!moved && !multiTouch && mode != InteractionMode.PAINT) {
-                    listener?.onTap(event.x, event.y)
+                    listener?.onTap(event.x, event.y, additive)
                 }
             }
             MotionEvent.ACTION_CANCEL -> cancelDrag()

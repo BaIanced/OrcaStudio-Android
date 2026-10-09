@@ -75,6 +75,7 @@
     <string name="discard">Discard</string>
     <string name="discard_changes">Discard unsaved changes of the current project?</string>
     <string name="discovered_printers">Printers in the network</string>
+    <string name="done">Done</string>
     <string name="duplicate">Duplicate</string>
     <string name="dynamic_color">Use wallpaper colors</string>
     <string name="edit">Edit</string>
@@ -88,10 +89,18 @@
     <string name="filament">Filament</string>
     <string name="filament_vendors">Filament brands</string>
     <string name="filament_vendors_text">Choose which brands appear in the filament lists</string>
+    <string name="n_selected">%d selected</string>
+    <string name="select_all">Select all</string>
+    <string name="select_mode_hint">Tap objects to select them</string>
+    <string name="select_multiple">Select multiple</string>
+    <string name="show_all">Show all</string>
+    <string name="hide_all">Hide all</string>
     <string name="filaments">Filaments</string>
     <string name="flip_upper">Place upper part on cut face</string>
     <string name="flow_linear">Single pass (YOLO)</string>
     <string name="flushing_volumes">Flushing volumes</string>
+    <string name="flush_matrix_text">Purge volume in mm³ when changing from the filament of a row to the filament of a column.</string>
+    <string name="auto_calculate">Auto-calculate from colours</string>
     <string name="from">From</string>
     <string name="gcode_color">Color change</string>
     <string name="gcode_custom">Custom G-code</string>
@@ -244,6 +253,7 @@
     <string name="slice_all">Slice all plates</string>
     <string name="slice_plate">Slice plate</string>
     <string name="slice_plate_n">Slice plate %d</string>
+    <string name="nothing_to_slice">Nothing to slice: add a model to this plate first.</string>
     <string name="slicing">Slicing</string>
     <string name="smooth">Smooth</string>
     <string name="source_code">Source code</string>
@@ -254,6 +264,8 @@
     <string name="starting">Starting…</string>
     <string name="state_error">Error</string>
     <string name="state_finished">Finished</string>
+    <string name="state_stopped">Stopped</string>
+    <string name="print_stopped">Print stopped</string>
     <string name="state_idle">Ready</string>
     <string name="state_offline">Offline</string>
     <string name="state_paused">Paused</string>
@@ -315,4 +327,50 @@
     <string name="bambu_account_sign_out">Sign out</string>
     <string name="bambu_account_use_printer">Use printer from account</string>
     <string name="bambu_account_no_printers">No printers are bound to this Bambu account.</string>
+    <!-- Printer messages (Bambu print errors and HMS), buttons as in the desktop's error dialog -->
+    <string name="printer_message">Printer message</string>
+    <string name="printer_messages">Printer messages</string>
+    <string name="printer_error_code">Printer error %1$s</string>
+    <string name="printer_message_unsupported">Answer this on the printer or in Bambu Handy.</string>
+    <string name="alert_btn_resume_printing">Resume Printing</string>
+    <string name="alert_btn_resume_defects">Resume (defects acceptable)</string>
+    <string name="alert_btn_resume_solved">Resume (problem solved)</string>
+    <string name="alert_btn_stop">Stop Printing</string>
+    <string name="alert_btn_extruded">Filament Extruded, Continue</string>
+    <string name="alert_btn_retry_extruded">Not Extruded Yet, Retry</string>
+    <string name="alert_btn_finished_continue">Finished, Continue</string>
+    <string name="alert_btn_loaded_resume">Filament Loaded, Resume</string>
+    <string name="alert_btn_no_reminder">No Reminder Next Time</string>
+    <string name="alert_btn_ignore_no_reminder">Ignore. Don\'t Remind Next Time</string>
+    <string name="alert_btn_ignore_resume">Ignore this and Resume</string>
+    <string name="alert_btn_solved_resume">Problem Solved and Resume</string>
+    <string name="alert_btn_fire_alarm">Got it, Turn off the Fire Alarm.</string>
+    <string name="alert_btn_retry_solved">Retry (problem solved)</string>
+    <string name="alert_btn_stop_drying">Stop Drying</string>
+    <string name="alert_btn_abort">Abort</string>
+    <!-- Filament sync from a Bambu printer -->
+    <string name="sync_filaments">Sync filaments from printer</string>
+    <string name="device_job">Job</string>
+    <string name="device_temperatures">Temperatures</string>
+    <string name="device_nozzle">Nozzle</string>
+    <string name="device_bed">Bed</string>
+    <string name="loaded_filaments">Loaded filaments</string>
+    <string name="no_filaments_reported">The printer reports no loaded filament.</string>
+    <string name="syncing_filaments">Reading the printer\'s filaments…</string>
+    <string name="sync_filaments_none">The printer reports no loaded filament.</string>
+    <string name="sync_filaments_done">%1$d filament slot(s) taken from the printer.</string>
+    <string name="sync_filaments_no_bambu">Filament sync needs a Bambu Lab printer connection (Device tab).</string>
+    <!-- Presets of the Bambu account -->
+    <string name="sync_cloud_presets">Sync presets from Bambu account</string>
+    <string name="sync_cloud_presets_text">Your process, filament and printer presets saved in the Bambu cloud</string>
+    <string name="syncing_cloud_presets">Loading presets from the Bambu account…</string>
+    <string name="cloud_presets_synced">%1$d preset(s) in the Bambu account; newer ones loaded.</string>
+    <!-- Crash report shown after the app closed unexpectedly -->
+    <string name="crash_title">The app closed unexpectedly</string>
+    <string name="crash_text">This is the report of the last crash. Copy it and send it along; check it for your printer\'s serial number or IP address first and replace them.</string>
+    <string name="copy">Copy</string>
+    <!-- Opt-in use of the Bambu cloud (signed Bambu printers) -->
+    <string name="bambu_cloud_hint">Optional, off by default. Through your Bambu account, status, printer messages and filament sync also work when the printer is not on this network. Cloud printing uploads the print file to Bambu. Turning the cloud off fully applies after restarting the app.</string>
+    <string name="bambu_cloud">Use the Bambu cloud when the printer is not on this network</string>
+    <string name="bambu_cloud_print">Print through the Bambu cloud when the printer is not on this network</string>
 </resources>

@@ -15,8 +15,11 @@
 #include <condition_variable>
 #include <deque>
 #include <functional>
+#include <map>
 #include <mutex>
 #include <string>
+#include <thread>
+#include <vector>
 
 #include "obn/bambu_networking.hpp"
 
@@ -47,6 +50,17 @@ bool bambu_network_is_user_login(void *agent);
 std::string bambu_network_get_user_name(void *agent);
 int bambu_network_user_logout(void *agent, bool request);
 int bambu_network_get_user_print_info(void *agent, unsigned int *http_code, std::string *http_body);
+// Cloud user presets, as the desktop's preset sync uses them.
+int bambu_network_get_setting_list(void *agent, std::string bundle_version, BBL::ProgressFn pro_fn, BBL::WasCancelledFn cancel_fn);
+int bambu_network_get_user_presets(void *agent, std::map<std::string, std::map<std::string, std::string>> *user_presets);
+// Cloud channel (only with block_cloud = 0 in obn.conf): MQTT reports and commands through the
+// Bambu account, and cloud printing.
+int bambu_network_connect_server(void *agent);
+bool bambu_network_is_server_connected(void *agent);
+int bambu_network_add_subscribe(void *agent, std::vector<std::string> dev_list);
+int bambu_network_send_message(void *agent, std::string dev_id, std::string json_str, int qos, int flag);
+int bambu_network_start_print(void *agent, BBL::PrintParams params, BBL::OnUpdateStatusFn update_fn,
+                              BBL::WasCancelledFn cancel_fn, BBL::OnWaitFn wait_fn);
 }
 
 namespace {
@@ -61,6 +75,7 @@ struct Event {
 std::mutex g_mu;
 std::condition_variable g_cv;
 void *g_agent = nullptr;
+std::string g_dir;
 std::deque<Event> g_events;
 bool g_cert_installed = false;
 bool g_cancel = false;
@@ -150,6 +165,7 @@ JNIEXPORT jstring JNICALL Java_app_orcaandroid_net_ObnNative_init(JNIEnv *env, j
         bambu_network_set_on_message_fn(agent, on_msg);
         bambu_network_start(agent);
         g_agent = agent;
+        g_dir   = d;
     }
     return env->NewStringUTF(bambu_network_get_version().c_str());
 }
@@ -186,7 +202,40 @@ JNIEXPORT jint JNICALL Java_app_orcaandroid_net_ObnNative_send(JNIEnv *env, jobj
         agent = g_agent;
     }
     if (!agent) return BAMBU_NETWORK_ERR_INVALID_HANDLE;
-    return bambu_network_send_message_to_printer(agent, jstr(env, dev_id), jstr(env, json), 0, 0);
+    // obn's send_message: the LAN session when it is connected to this printer, else the cloud
+    // channel (refused while block_cloud is on). Print commands are signed on both.
+    return bambu_network_send_message(agent, jstr(env, dev_id), jstr(env, json), 0, 0);
+}
+
+// Re-reads obn.conf (block_cloud, cloud_print, ...): obn reloads it whenever the config dir is set
+// again (Agent::set_config_dir, written to be repeatable).
+JNIEXPORT jint JNICALL Java_app_orcaandroid_net_ObnNative_reloadConfig(JNIEnv *, jobject)
+{
+    void       *agent;
+    std::string dir;
+    {
+        std::lock_guard<std::mutex> lk(g_mu);
+        agent = g_agent;
+        dir   = g_dir;
+    }
+    return agent ? bambu_network_set_config_dir(agent, dir) : 0;
+}
+
+// Connects the cloud channel (if not yet) and subscribes to the printer's reports; waits up to
+// timeoutMs for the connection. Returns 0 when connected.
+JNIEXPORT jint JNICALL Java_app_orcaandroid_net_ObnNative_cloudConnect(JNIEnv *env, jobject, jstring dev_id, jint timeout_ms)
+{
+    void *agent = current_agent();
+    if (!agent) return BAMBU_NETWORK_ERR_INVALID_HANDLE;
+    if (!bambu_network_is_server_connected(agent)) {
+        const int rc = bambu_network_connect_server(agent);
+        if (rc != 0) return rc;
+    }
+    // obn keeps the subscription and applies it once the connection is up (CloudSession::add_subscribe).
+    bambu_network_add_subscribe(agent, {jstr(env, dev_id)});
+    for (int waited = 0; !bambu_network_is_server_connected(agent) && waited < timeout_ms; waited += 100)
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    return bambu_network_is_server_connected(agent) ? 0 : BAMBU_NETWORK_ERR_CONNECT_FAILED;
 }
 
 // Asks the printer to trust the user's slicer certificate and waits up to timeoutMs for the
@@ -241,7 +290,7 @@ JNIEXPORT jint JNICALL Java_app_orcaandroid_net_ObnNative_print(JNIEnv *env, job
                                                                jstring access_code, jstring file,
                                                                jstring project_name, jint plate_index,
                                                                jboolean use_ams, jstring ams_mapping,
-                                                               jobject listener)
+                                                               jboolean cloud, jobject listener)
 {
     void *agent;
     {
@@ -281,6 +330,12 @@ JNIEXPORT jint JNICALL Java_app_orcaandroid_net_ObnNative_print(JNIEnv *env, job
         std::lock_guard<std::mutex> lk(g_mu);
         return g_cancel;
     };
+    if (cloud == JNI_TRUE) {
+        // start_print: with cloud_print = try_lan_first (patch 0002) a LAN upload when the printer is
+        // reachable, else Bambu's cloud print (upload, POST /my/task).
+        p.connection_type = "cloud";
+        return bambu_network_start_print(agent, p, update, cancelled, BBL::OnWaitFn());
+    }
     return bambu_network_start_local_print(agent, p, update, cancelled);
 }
 
@@ -340,6 +395,30 @@ JNIEXPORT jstring JNICALL Java_app_orcaandroid_net_ObnNative_userPrintInfo(JNIEn
     std::string body;
     const int rc = agent ? bambu_network_get_user_print_info(agent, &http, &body) : BAMBU_NETWORK_ERR_INVALID_HANDLE;
     return http_result(env, rc, http, body);
+}
+
+// Downloads the account's cloud presets for profile bundle `version` (get_setting_list, then
+// get_user_presets, as the desktop's sync does). Returns {"rc": Int, "presets": {name: {key: value}}}
+// with option values serialized as libslic3r writes them.
+JNIEXPORT jstring JNICALL Java_app_orcaandroid_net_ObnNative_cloudPresets(JNIEnv *env, jobject, jstring version)
+{
+    void *agent = current_agent();
+    const int rc = agent ? bambu_network_get_setting_list(agent, jstr(env, version), BBL::ProgressFn(), BBL::WasCancelledFn())
+                         : BAMBU_NETWORK_ERR_INVALID_HANDLE;
+    std::map<std::string, std::map<std::string, std::string>> presets;
+    if (rc == 0) bambu_network_get_user_presets(agent, &presets);
+    std::string out = "{\"rc\":" + std::to_string(rc) + ",\"presets\":{";
+    for (auto p = presets.begin(); p != presets.end(); ++p) {
+        if (p != presets.begin()) out += ',';
+        out += "\"" + esc(p->first) + "\":{";
+        for (auto v = p->second.begin(); v != p->second.end(); ++v) {
+            if (v != p->second.begin()) out += ',';
+            out += "\"" + esc(v->first) + "\":\"" + esc(v->second) + "\"";
+        }
+        out += '}';
+    }
+    out += "}}";
+    return env->NewStringUTF(out.c_str());
 }
 
 } // extern "C"

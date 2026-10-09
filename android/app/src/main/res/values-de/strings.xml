@@ -74,6 +74,7 @@
     <string name="discard">Verwerfen</string>
     <string name="discard_changes">Ungespeicherte Änderungen am aktuellen Projekt verwerfen?</string>
     <string name="discovered_printers">Drucker im Netzwerk</string>
+    <string name="done">Fertig</string>
     <string name="duplicate">Duplizieren</string>
     <string name="dynamic_color">Farben des Hintergrundbilds verwenden</string>
     <string name="edit">Bearbeiten</string>
@@ -87,10 +88,18 @@
     <string name="filament">Filament</string>
     <string name="filament_vendors">Filament-Hersteller</string>
     <string name="filament_vendors_text">Welche Hersteller in den Filamentlisten erscheinen</string>
+    <string name="n_selected">%d ausgewählt</string>
+    <string name="select_all">Alle auswählen</string>
+    <string name="select_mode_hint">Tippe auf Objekte, um sie auszuwählen</string>
+    <string name="select_multiple">Mehrere auswählen</string>
+    <string name="show_all">Alle zeigen</string>
+    <string name="hide_all">Alle ausblenden</string>
     <string name="filaments">Filamente</string>
     <string name="flip_upper">Oberteil auf Schnittfläche legen</string>
     <string name="flow_linear">Ein Durchgang (YOLO)</string>
     <string name="flushing_volumes">Spülmengen</string>
+    <string name="flush_matrix_text">Spülmenge in mm³ beim Wechsel vom Filament einer Zeile zum Filament einer Spalte.</string>
+    <string name="auto_calculate">Aus den Farben berechnen</string>
     <string name="from">Von</string>
     <string name="gcode_color">Farbwechsel</string>
     <string name="gcode_custom">Eigener G-Code</string>
@@ -243,6 +252,7 @@
     <string name="slice_all">Alle Platten slicen</string>
     <string name="slice_plate">Platte slicen</string>
     <string name="slice_plate_n">Platte %d slicen</string>
+    <string name="nothing_to_slice">Nichts zu slicen: zuerst ein Modell auf diese Platte legen.</string>
     <string name="slicing">Slicen</string>
     <string name="smooth">Glätten</string>
     <string name="source_code">Quellcode</string>
@@ -253,6 +263,8 @@
     <string name="starting">Starte…</string>
     <string name="state_error">Fehler</string>
     <string name="state_finished">Fertig</string>
+    <string name="state_stopped">Gestoppt</string>
+    <string name="print_stopped">Druck gestoppt</string>
     <string name="state_idle">Bereit</string>
     <string name="state_offline">Offline</string>
     <string name="state_paused">Pausiert</string>
@@ -314,4 +326,50 @@
     <string name="bambu_account_sign_out">Abmelden</string>
     <string name="bambu_account_use_printer">Drucker aus dem Konto übernehmen</string>
     <string name="bambu_account_no_printers">Mit diesem Bambu-Konto ist kein Drucker verbunden.</string>
+    <!-- Druckermeldungen (Bambu-Druckfehler und HMS), Schaltflächen wie im Fehlerdialog der Desktop-App -->
+    <string name="printer_message">Druckermeldung</string>
+    <string name="printer_messages">Druckermeldungen</string>
+    <string name="printer_error_code">Druckerfehler %1$s</string>
+    <string name="printer_message_unsupported">Bitte am Drucker oder in Bambu Handy beantworten.</string>
+    <string name="alert_btn_resume_printing">Druck fortsetzen</string>
+    <string name="alert_btn_resume_defects">Fortsetzen (Fehler akzeptabel)</string>
+    <string name="alert_btn_resume_solved">Fortsetzen (Problem behoben)</string>
+    <string name="alert_btn_stop">Druck stoppen</string>
+    <string name="alert_btn_extruded">Filament extrudiert, weiter</string>
+    <string name="alert_btn_retry_extruded">Noch nicht extrudiert, erneut versuchen</string>
+    <string name="alert_btn_finished_continue">Erledigt, weiter</string>
+    <string name="alert_btn_loaded_resume">Filament geladen, fortsetzen</string>
+    <string name="alert_btn_no_reminder">Nicht mehr erinnern</string>
+    <string name="alert_btn_ignore_no_reminder">Ignorieren, nicht mehr erinnern</string>
+    <string name="alert_btn_ignore_resume">Ignorieren und fortsetzen</string>
+    <string name="alert_btn_solved_resume">Problem behoben, fortsetzen</string>
+    <string name="alert_btn_fire_alarm">Verstanden, Feueralarm ausschalten</string>
+    <string name="alert_btn_retry_solved">Erneut versuchen (Problem behoben)</string>
+    <string name="alert_btn_stop_drying">Trocknen beenden</string>
+    <string name="alert_btn_abort">Abbruch</string>
+    <!-- Filamente vom Bambu-Drucker übernehmen -->
+    <string name="sync_filaments">Filamente vom Drucker übernehmen</string>
+    <string name="device_job">Auftrag</string>
+    <string name="device_temperatures">Temperaturen</string>
+    <string name="device_nozzle">Düse</string>
+    <string name="device_bed">Bett</string>
+    <string name="loaded_filaments">Geladene Filamente</string>
+    <string name="no_filaments_reported">Der Drucker meldet kein geladenes Filament.</string>
+    <string name="syncing_filaments">Filamente des Druckers werden gelesen…</string>
+    <string name="sync_filaments_none">Der Drucker meldet kein geladenes Filament.</string>
+    <string name="sync_filaments_done">%1$d Filamentplatz/-plätze vom Drucker übernommen.</string>
+    <string name="sync_filaments_no_bambu">Für den Filamentabgleich ist eine Verbindung zu einem Bambu-Lab-Drucker nötig (Tab „Gerät“).</string>
+    <!-- Presets des Bambu-Kontos -->
+    <string name="sync_cloud_presets">Presets aus dem Bambu-Konto laden</string>
+    <string name="sync_cloud_presets_text">Deine Prozess-, Filament- und Drucker-Presets aus der Bambu-Cloud</string>
+    <string name="syncing_cloud_presets">Presets aus dem Bambu-Konto werden geladen…</string>
+    <string name="cloud_presets_synced">%1$d Preset(s) im Bambu-Konto; neuere geladen.</string>
+    <!-- Absturzbericht nach unerwartetem Beenden -->
+    <string name="crash_title">Die App wurde unerwartet beendet</string>
+    <string name="crash_text">Das ist der Bericht zum letzten Absturz. Kopiere ihn und schick ihn mit; prüfe ihn vorher auf Seriennummer oder IP-Adresse deines Druckers und ersetze sie.</string>
+    <string name="copy">Kopieren</string>
+    <!-- Bambu-Cloud nach Zustimmung (signierte Bambu-Drucker) -->
+    <string name="bambu_cloud_hint">Optional, standardmäßig aus. Über dein Bambu-Konto funktionieren Status, Druckermeldungen und Filamentabgleich auch, wenn der Drucker nicht im selben Netz ist. Beim Cloud-Druck wird die Druckdatei zu Bambu hochgeladen. Das Ausschalten wirkt vollständig nach einem Neustart der App.</string>
+    <string name="bambu_cloud">Bambu-Cloud nutzen, wenn der Drucker nicht im selben Netz ist</string>
+    <string name="bambu_cloud_print">Über die Bambu-Cloud drucken, wenn der Drucker nicht im selben Netz ist</string>
 </resources>

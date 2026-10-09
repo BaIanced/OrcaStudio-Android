@@ -12,6 +12,10 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -48,6 +52,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.orcaandroid.R
+import app.orcaandroid.core.PresetType
 import app.orcaandroid.core.LayerGcode
 import app.orcaandroid.core.Vec3
 import app.orcaandroid.ui.AppViewModel
@@ -77,6 +82,50 @@ internal fun AddMenu(state: UiState, vm: AppViewModel, open: Boolean, onDismiss:
         DropdownMenuItem(text = { Text(stringResource(R.string.calibration)) }, leadingIcon = { Icon(Icons.Default.Science, null) },
             onClick = { onDismiss(); onDialog("calib") }, enabled = state.calibration == null)
     }
+}
+
+/**
+ * The flushing volumes matrix like the desktop's dialog: purge volume (mm³) for each change from
+ * the row's filament to the column's, editable, with auto-calculation from the filament colours.
+ */
+@Composable
+internal fun FlushDialog(state: UiState, vm: AppViewModel, onDismiss: () -> Unit) {
+    val n = state.filaments.size
+    val stored = state.value(PresetType.PRINT, "flush_volumes_matrix")?.split(',')?.mapNotNull { it.trim().toFloatOrNull() }.orEmpty()
+    var matrix by remember(stored) { mutableStateOf(if (stored.size == n * n) stored else List(n * n) { 0f }) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.flushing_volumes)) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()).horizontalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(stringResource(R.string.flush_matrix_text), style = MaterialTheme.typography.bodySmall)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Spacer(Modifier.width(40.dp))
+                    state.filaments.forEach { f -> Box(Modifier.width(84.dp), contentAlignment = Alignment.Center) { ColorDot(f.color, 18) } }
+                }
+                for (from in 0 until n) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.width(40.dp), contentAlignment = Alignment.Center) { ColorDot(state.filaments[from].color, 18) }
+                        for (to in 0 until n) {
+                            if (from == to) Box(Modifier.width(84.dp), contentAlignment = Alignment.Center) { Text("—") }
+                            else NumberField(matrix[from * n + to], { v ->
+                                matrix = matrix.toMutableList().also { it[from * n + to] = v.coerceAtLeast(0f) }
+                            }, Modifier.width(84.dp), decimals = 0, live = true)
+                        }
+                    }
+                }
+                TextButton(onClick = { onDismiss(); vm.scene.autoFlushMatrix() }) { Text(stringResource(R.string.auto_calculate)) }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                onDismiss()
+                vm.presets.setOption(PresetType.PRINT, "flush_volumes_matrix", matrix.joinToString(",") { it.toInt().toString() })
+            }) { Text(stringResource(R.string.apply)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
 }
 
 @Composable
@@ -111,7 +160,7 @@ private fun PrimitiveDialog(vm: AppViewModel, onDismiss: () -> Unit) {
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             shapes.forEach { (id, label) -> FilterChip(selected = shape == id, onClick = { shape = id }, label = { Text(stringResource(label)) }) }
         }
-        Vec3Fields(stringResource(R.string.size), size.x, size.y, size.z, "mm", { x, y, z -> size = Vec3(x, y, z) })
+        Vec3Fields(stringResource(R.string.size), size.x, size.y, size.z, "mm", { x, y, z -> size = Vec3(x, y, z) }, live = true)
     }
 }
 
@@ -124,8 +173,8 @@ private fun TextDialog(vm: AppViewModel, onDismiss: () -> Unit) {
         onConfirm = { vm.scene.addText(text, height, depth) }, onDismiss = onDismiss) {
         OutlinedTextField(text, { text = it }, label = { Text(stringResource(R.string.text)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            NumberField(height, { height = it }, Modifier.weight(1f), stringResource(R.string.text_height), "mm")
-            NumberField(depth, { depth = it }, Modifier.weight(1f), stringResource(R.string.depth), "mm")
+            NumberField(height, { height = it }, Modifier.weight(1f), stringResource(R.string.text_height), "mm", live = true)
+            NumberField(depth, { depth = it }, Modifier.weight(1f), stringResource(R.string.depth), "mm", live = true)
         }
     }
 }
@@ -141,8 +190,8 @@ private fun SvgDialog(vm: AppViewModel, onDismiss: () -> Unit) {
     DialogFrame(stringResource(R.string.add_svg), stringResource(R.string.add), onConfirm = { vm.scene.addSvg(u, width, depth) }, onDismiss = onDismiss) {
         Text(u.lastPathSegment.orEmpty(), style = MaterialTheme.typography.bodySmall)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            NumberField(width, { width = it }, Modifier.weight(1f), stringResource(R.string.width), "mm")
-            NumberField(depth, { depth = it }, Modifier.weight(1f), stringResource(R.string.depth), "mm")
+            NumberField(width, { width = it }, Modifier.weight(1f), stringResource(R.string.width), "mm", live = true)
+            NumberField(depth, { depth = it }, Modifier.weight(1f), stringResource(R.string.depth), "mm", live = true)
         }
     }
 }
@@ -252,22 +301,22 @@ fun CalibrationDialog(vm: AppViewModel, onDismiss: () -> Unit) {
             }
             else -> {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    NumberField(start, { start = it }, Modifier.weight(1f), stringResource(R.string.from), test.unit, 3)
-                    NumberField(end, { end = it }, Modifier.weight(1f), stringResource(R.string.to), test.unit, 3)
-                    if (test.step > 0f) NumberField(step, { step = it }, Modifier.weight(1f), stringResource(R.string.step), test.unit, 3)
+                    NumberField(start, { start = it }, Modifier.weight(1f), stringResource(R.string.from), test.unit, 3, live = true)
+                    NumberField(end, { end = it }, Modifier.weight(1f), stringResource(R.string.to), test.unit, 3, live = true)
+                    if (test.step > 0f) NumberField(step, { step = it }, Modifier.weight(1f), stringResource(R.string.step), test.unit, 3, live = true)
                 }
                 if (test.id == "input_shaping_freq") {
                     Text(stringResource(R.string.y_axis), style = MaterialTheme.typography.labelMedium)
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        NumberField(freqY.first, { freqY = it to freqY.second }, Modifier.weight(1f), stringResource(R.string.from), "Hz")
-                        NumberField(freqY.second, { freqY = freqY.first to it }, Modifier.weight(1f), stringResource(R.string.to), "Hz")
+                        NumberField(freqY.first, { freqY = it to freqY.second }, Modifier.weight(1f), stringResource(R.string.from), "Hz", live = true)
+                        NumberField(freqY.second, { freqY = freqY.first to it }, Modifier.weight(1f), stringResource(R.string.to), "Hz", live = true)
                     }
-                    NumberField(damping, { damping = it.coerceIn(0f, 0.99f) }, Modifier.fillMaxWidth(), stringResource(R.string.damping), null, 3)
+                    NumberField(damping, { damping = it.coerceIn(0f, 0.99f) }, Modifier.fillMaxWidth(), stringResource(R.string.damping), null, 3, live = true)
                 }
                 if (test.id == "input_shaping_damp") {
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        NumberField(fixedFreq.first, { fixedFreq = it to fixedFreq.second }, Modifier.weight(1f), stringResource(R.string.frequency_x), "Hz")
-                        NumberField(fixedFreq.second, { fixedFreq = fixedFreq.first to it }, Modifier.weight(1f), stringResource(R.string.frequency_y), "Hz")
+                        NumberField(fixedFreq.first, { fixedFreq = it to fixedFreq.second }, Modifier.weight(1f), stringResource(R.string.frequency_x), "Hz", live = true)
+                        NumberField(fixedFreq.second, { fixedFreq = fixedFreq.first to it }, Modifier.weight(1f), stringResource(R.string.frequency_y), "Hz", live = true)
                     }
                 }
                 if (test.id.startsWith("input_shaping") || test.id == "cornering") {
@@ -308,7 +357,7 @@ internal fun LayerGcodeDialog(state: UiState, vm: AppViewModel, plate: Int, init
                 }
                 if (adding) {
                     HorizontalDivider()
-                    NumberField(z, { z = it }, Modifier.fillMaxWidth(), stringResource(R.string.height), "mm")
+                    NumberField(z, { z = it }, Modifier.fillMaxWidth(), stringResource(R.string.height), "mm", live = true)
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         types.forEach { (id, label) -> FilterChip(type == id, { type = id }, label = { Text(stringResource(label)) }) }
                     }

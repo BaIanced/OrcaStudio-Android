@@ -5,6 +5,7 @@
 #include "OrcaEngine.hpp"
 
 #include <cmath>
+#include <cstdio>
 #include <fstream>
 #include <stdexcept>
 
@@ -111,7 +112,9 @@ FacetsAnnotation &facets_of(ModelVolume &vol, const std::string &kind)
 
 void OrcaEngine::write_paint_mesh()
 {
-    std::ofstream f(m_paint_path, std::ios::binary | std::ios::trunc);
+    // Written next to the target and renamed over it, so the app never reads a half-written file.
+    const std::string tmp = m_paint_path + ".tmp";
+    std::ofstream f(tmp, std::ios::binary | std::ios::trunc);
     if (!f)
         throw std::runtime_error("Cannot write " + m_paint_path);
     auto emit = [&f](const indexed_triangle_set &its, const Transform3d &trafo, float obj_code, float type_code) {
@@ -152,11 +155,14 @@ void OrcaEngine::write_paint_mesh()
                 const indexed_triangle_set painted = annotation->get_facets(*vol, state);
                 if (painted.indices.empty())
                     continue;
-                for (const ModelInstance *inst : obj->instances)
-                    emit(painted, inst->get_matrix() * vol->get_matrix(), float(oi), code);
+                for (size_t ii = 0; ii < obj->instances.size(); ++ii)
+                    emit(painted, obj->instances[ii]->get_matrix() * vol->get_matrix(), float(oi * INSTANCE_ID_STRIDE + ii), code);
             }
         }
     }
+    f.close();
+    if (std::rename(tmp.c_str(), m_paint_path.c_str()) != 0)
+        throw std::runtime_error("Cannot write " + m_paint_path);
     ++m_paint_version;
 }
 

@@ -54,9 +54,11 @@ class Store(val app: Application, val scope: CoroutineScope) {
 
     /** Adopts a scene from the engine; any slice result is stale afterwards. */
     fun applyScene(scene: Scene, dirty: Boolean = true) = update { s ->
+        val multi = s.multiSelection.filter { it.obj < scene.objects.size && it.instance < scene.objects[it.obj].instances.size }
         s.copy(
             scene = scene,
-            selection = s.selection?.takeIf { it.obj < scene.objects.size },
+            selection = s.selection?.takeIf { it.obj < scene.objects.size } ?: multi.singleOrNull(),
+            multiSelection = multi.takeIf { it.size > 1 }.orEmpty(),
             activePlate = s.activePlate.coerceIn(0, (scene.plates.size - 1).coerceAtLeast(0)),
             results = emptyMap(),
             projectDirty = s.projectDirty || dirty,

@@ -30,6 +30,12 @@ commit message. Merging the branch into main, after the build and the tests pass
    - `src/slic3r/Utils/ColorSpaceConvert.cpp` – wx-free part extracted by `scripts/extract_color_space.py`
      (flushing volume calculation).
    - `src/slic3r/GUI/Plater.cpp` (`calib_*`) – ported by hand to `core/jni/OrcaExtras.cpp` (`calib_start`).
+   - `src/slic3r/GUI/Plater.cpp` (`Sidebar::build_filament_ams_list`, `Sidebar::sync_ams_list`) and
+     `src/slic3r/GUI/GUI_App.cpp` (cloud preset sync) – mirrored by `core/jni/OrcaProject.cpp`
+     (`sync_filaments`, `load_cloud_presets`).
+   - `src/slic3r/GUI/DeviceErrorDialog.cpp`, `HMS.cpp`, `DeviceManager.cpp` (`command_*`, report parsing),
+     `DeviceCore/DevHMS.cpp`, `DeviceCore/DevFilaSystem.cpp` – printer prompt buttons, message catalog and
+     report fields mirrored by `app/.../net/BambuReport.kt` and `HmsCatalog.kt`.
    - `src/slic3r/GUI/Jobs/ArrangeJob.cpp`, `GLGizmoCut.cpp` – conventions the scene code relies on
      (items start with `bed_idx = 0`; cut planes are relative to the instance offset).
    - `resources/profiles`, `localization/i18n` – packed into the app by `scripts/pack_resources.py`.

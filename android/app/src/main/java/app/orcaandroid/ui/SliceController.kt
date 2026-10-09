@@ -12,6 +12,10 @@ class SliceController(private val store: Store, private val presets: PresetContr
 
     fun slice(plate: Int = store.value.activePlate) = store.launch {
         if (store.value.isSlicing) return@launch
+        if (store.value.scene.objectsOn(plate).isEmpty()) {
+            store.toast(store.str(R.string.nothing_to_slice))
+            return@launch
+        }
         presets.syncSelection()
         val preparing = store.str(R.string.preparing)
         store.update { it.copy(slice = SliceStatus.Running(plate, 0, preparing)) }

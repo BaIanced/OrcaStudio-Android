@@ -7,9 +7,13 @@
 // desktop 3MF projects.
 
 #include "OrcaEngine.hpp"
+#include "Thumbnails.hpp"
 
+#include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <fstream>
+#include <set>
 #include <stdexcept>
 
 #include <boost/log/trivial.hpp>
@@ -113,6 +117,18 @@ ModelObject &OrcaEngine::object_at(int object)
     if (object < 0 || object >= int(m_model->objects.size()))
         throw std::runtime_error("Invalid object");
     return *m_model->objects[object];
+}
+
+OrcaEngine::Items OrcaEngine::checked_items(Items items) const
+{
+    if (items.empty())
+        throw std::runtime_error("Nothing selected");
+    for (const auto &[o, i] : items)
+        if (o < 0 || o >= int(m_model->objects.size()) || i < 0 || i >= int(m_model->objects[o]->instances.size()))
+            throw std::runtime_error("Invalid instance");
+    std::sort(items.begin(), items.end());
+    items.erase(std::unique(items.begin(), items.end()), items.end());
+    return items;
 }
 
 void OrcaEngine::push_undo()
@@ -295,31 +311,89 @@ void OrcaEngine::arrange_plate(int plate, const std::vector<std::pair<ModelObjec
 
 void OrcaEngine::write_mesh()
 {
-    std::ofstream f(m_mesh_path, std::ios::binary | std::ios::trunc);
+    // Written next to the target and renamed over it, so the app never reads a half-written file.
+    const std::string tmp = m_mesh_path + ".tmp";
+    std::ofstream f(tmp, std::ios::binary | std::ios::trunc);
     if (!f)
         throw std::runtime_error("Cannot write " + m_mesh_path);
+    auto emit = [&f](const TriangleMesh &mesh, float obj_code, float type_code) {
+        const indexed_triangle_set &its = mesh.its;
+        for (const Vec3i32 &tri : its.indices) {
+            const Vec3f &a = its.vertices[tri[0]], &b = its.vertices[tri[1]], &c = its.vertices[tri[2]];
+            Vec3f n = (b - a).cross(c - a);
+            const float len = n.norm();
+            n = len > 0.f ? Vec3f(n / len) : Vec3f(0.f, 0.f, 1.f);
+            for (const Vec3f *v : {&a, &b, &c}) {
+                for (int k = 0; k < 3; ++k) write_raw(f, (*v)[k]);
+                for (int k = 0; k < 3; ++k) write_raw(f, n[k]);
+                write_raw(f, obj_code);
+                write_raw(f, type_code);
+            }
+        }
+    };
     for (size_t oi = 0; oi < m_model->objects.size(); ++oi) {
         const ModelObject *obj = m_model->objects[oi];
-        for (const ModelInstance *inst : obj->instances)
+        for (size_t ii = 0; ii < obj->instances.size(); ++ii)
             for (const ModelVolume *vol : obj->volumes) {
                 TriangleMesh mesh = vol->mesh();
-                mesh.transform(inst->get_matrix() * vol->get_matrix());
-                const float obj_code = float(oi), type_code = float(volume_type_code(vol->type()));
-                const indexed_triangle_set &its = mesh.its;
-                for (const Vec3i32 &tri : its.indices) {
-                    const Vec3f &a = its.vertices[tri[0]], &b = its.vertices[tri[1]], &c = its.vertices[tri[2]];
-                    Vec3f n = (b - a).cross(c - a);
-                    const float len = n.norm();
-                    n = len > 0.f ? Vec3f(n / len) : Vec3f(0.f, 0.f, 1.f);
-                    for (const Vec3f *v : {&a, &b, &c}) {
-                        for (int k = 0; k < 3; ++k) write_raw(f, (*v)[k]);
-                        for (int k = 0; k < 3; ++k) write_raw(f, n[k]);
-                        write_raw(f, obj_code);
-                        write_raw(f, type_code);
-                    }
-                }
+                mesh.transform(obj->instances[ii]->get_matrix() * vol->get_matrix());
+                // Parts are drawn in their filament's colour: type 100 + 0-based filament.
+                const int type = vol->is_model_part() ? 100 + filament_of(*obj, *vol) : volume_type_code(vol->type());
+                emit(mesh, float(oi * INSTANCE_ID_STRIDE + ii), float(type));
             }
     }
+
+    // The prime tower as the desktop shows it before slicing: on a plate that uses more than one
+    // filament, a translucent box at the tower position, prime_tower_width square and as tall as
+    // the plate's objects (the real depth is only known after slicing). Selection id -2 never
+    // matches a selection; type 99 is drawn by the translucent pass.
+    DynamicPrintConfig config;
+    try {
+        if (m_bundle && !m_printer.empty() && m_sel_filaments.size() > 1)
+            config = selection_config();
+    } catch (const std::exception &) {
+    }
+    if (config.has("enable_prime_tower") && config.opt_bool("enable_prime_tower") && config.has("prime_tower_width")) {
+        const double width = std::max(1., config.opt_float("prime_tower_width"));
+        const auto *cfg_x = config.option<ConfigOptionFloats>("wipe_tower_x");
+        const auto *cfg_y = config.option<ConfigOptionFloats>("wipe_tower_y");
+        for (size_t p = 0; p < m_plates.size(); ++p) {
+            std::set<int> used;
+            double height = 0.;
+            for (const ModelObject *obj : m_model->objects)
+                for (size_t i = 0; i < obj->instances.size(); ++i) {
+                    if (plate_of(*obj, i) != int(p))
+                        continue;
+                    height = std::max(height, obj->instance_bounding_box(i).max.z());
+                    const DynamicPrintConfig &oc = obj->config.get();
+                    const int obj_ext = oc.has("extruder") ? oc.opt_int("extruder") : 0;
+                    for (const ModelVolume *vol : obj->volumes) {
+                        if (!vol->is_model_part())
+                            continue;
+                        const DynamicPrintConfig &vc = vol->config.get();
+                        const int ext = vc.has("extruder") ? vc.opt_int("extruder") : 0;
+                        used.insert(ext > 0 ? ext : obj_ext > 0 ? obj_ext : 1);
+                        if (!vol->mmu_segmentation_facets.empty())
+                            used.insert(-1); // colour painting: more than one filament
+                    }
+                }
+            if (used.size() < 2 || height <= 0.)
+                continue;
+            const PlateInfo &plate = m_plates[p];
+            auto at = [p](const ConfigOptionFloats *o) { return o && !o->values.empty() ? o->values[std::min(p, o->values.size() - 1)] : 0.; };
+            // Kept on the bed, as the slicer keeps the real (usually shallower) tower.
+            const std::array<double, 4> bed = bed_rect();
+            const double x = std::clamp(plate.has_wipe_tower_pos ? plate.wipe_tower_x : at(cfg_x), bed[0], std::max(bed[0], bed[2] - width));
+            const double y = std::clamp(plate.has_wipe_tower_pos ? plate.wipe_tower_y : at(cfg_y), bed[1], std::max(bed[1], bed[3] - width));
+            const auto origin = plate_origin(int(p));
+            TriangleMesh tower = make_cube(width, width, height);
+            tower.translate(float(origin[0] + x), float(origin[1] + y), 0.f);
+            emit(tower, -2.f, 99.f);
+        }
+    }
+    f.close();
+    if (std::rename(tmp.c_str(), m_mesh_path.c_str()) != 0)
+        throw std::runtime_error("Cannot write " + m_mesh_path);
     ++m_mesh_version;
 }
 
@@ -514,35 +588,56 @@ json OrcaEngine::delete_object(int object)
     return commit();
 }
 
-json OrcaEngine::delete_instance(int object, int instance)
+json OrcaEngine::delete_instance(int object, int instance) { return delete_items({{object, instance}}); }
+
+json OrcaEngine::delete_items(const Items &items)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
-    ModelObject &obj = object_at(object);
-    if (instance < 0 || instance >= int(obj.instances.size()))
-        throw std::runtime_error("Invalid instance");
+    const Items sorted = checked_items(items);
     push_undo();
-    if (obj.instances.size() == 1)
-        m_model->delete_object(size_t(object));
-    else
-        obj.delete_instance(size_t(instance));
+    // Last first, so the indices of the rest stay valid.
+    for (auto it = sorted.rbegin(); it != sorted.rend(); ++it) {
+        ModelObject &obj = *m_model->objects[it->first];
+        if (obj.instances.size() == 1)
+            m_model->delete_object(size_t(it->first));
+        else
+            obj.delete_instance(size_t(it->second));
+    }
     return commit();
 }
 
-json OrcaEngine::duplicate(int object, int copies)
+json OrcaEngine::duplicate(const Items &items, int copies)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
-    ModelObject &obj = object_at(object);
+    const Items sorted = checked_items(items);
     if (copies < 1 || copies > 100)
         throw std::runtime_error("Invalid number of copies");
     push_undo();
-    const int plate = std::max(0, plate_of(obj, obj.instances.size() - 1));
-    std::vector<std::pair<ModelObject *, size_t>> added;
-    for (int k = 0; k < copies; ++k) {
-        obj.add_instance(*obj.instances.back());
-        added.emplace_back(&obj, obj.instances.size() - 1);
+    std::map<int, std::vector<std::pair<ModelObject *, size_t>>> added; // by plate
+    for (const auto &[o, i] : sorted) {
+        ModelObject &obj = *m_model->objects[o];
+        const int plate = std::max(0, plate_of(obj, size_t(i)));
+        for (int k = 0; k < copies; ++k) {
+            obj.add_instance(*obj.instances[i]);
+            added[plate].emplace_back(&obj, obj.instances.size() - 1);
+        }
+        obj.invalidate_bounding_box();
     }
-    obj.invalidate_bounding_box();
-    arrange_plate(plate, &added);
+    for (auto &[plate, list] : added)
+        arrange_plate(plate, &list);
+    return commit();
+}
+
+json OrcaEngine::move_items(const Items &items, double dx, double dy)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    const Items sorted = checked_items(items);
+    push_undo();
+    for (const auto &[o, i] : sorted) {
+        ModelObject &obj = *m_model->objects[o];
+        obj.instances[i]->set_offset(obj.instances[i]->get_offset() + Vec3d(dx, dy, 0.));
+        obj.invalidate_bounding_box();
+    }
     return commit();
 }
 
@@ -768,26 +863,36 @@ json OrcaEngine::delete_volume(int object, int volume)
     return commit();
 }
 
-json OrcaEngine::set_object_setting(int object, int volume, const std::string &key, const json &value)
+json OrcaEngine::set_object_setting(const std::vector<int> &objects, int volume, const std::string &key, const json &value)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
-    ModelObject &obj = object_at(object);
-    if (volume >= int(obj.volumes.size()))
-        throw std::runtime_error("Invalid volume");
+    if (objects.empty() || (objects.size() > 1 && volume >= 0))
+        throw std::runtime_error("Invalid object");
+    for (int object : objects)
+        if (volume >= int(object_at(object).volumes.size()))
+            throw std::runtime_error("Invalid volume");
     if (print_config_def.get(key) == nullptr)
         throw std::runtime_error("Unknown setting: " + key);
-    push_undo();
-    ModelConfig &config = volume < 0 ? static_cast<ModelConfig &>(obj.config) : obj.volumes[volume]->config;
-    if (value.is_null()) {
-        config.erase(key);
-    } else {
-        const std::string str = value.is_string() ? value.get<std::string>() : value.is_boolean() ? (value.get<bool>() ? "1" : "0") : value.dump();
+    const std::string str = value.is_string() ? value.get<std::string>() : value.is_boolean() ? (value.get<bool>() ? "1" : "0") : value.dump();
+    if (!value.is_null()) {
+        // Checked once up front, so a bad value changes none of the objects.
+        DynamicPrintConfig probe;
         ConfigSubstitutionContext ctx(ForwardCompatibilitySubstitutionRule::Disable);
         try {
-            config.set_deserialize(key, str, ctx);
+            probe.set_deserialize(key, str, ctx);
         } catch (const std::exception &ex) {
-            m_undo.pop_back();
             throw std::runtime_error("Invalid value for " + key + ": " + ex.what());
+        }
+    }
+    push_undo();
+    for (int object : objects) {
+        ModelObject &obj = *m_model->objects[object];
+        ModelConfig &config = volume < 0 ? static_cast<ModelConfig &>(obj.config) : obj.volumes[volume]->config;
+        if (value.is_null()) {
+            config.erase(key);
+        } else {
+            ConfigSubstitutionContext ctx(ForwardCompatibilitySubstitutionRule::Disable);
+            config.set_deserialize(key, str, ctx);
         }
     }
     return commit();

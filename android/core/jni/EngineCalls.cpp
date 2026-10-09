@@ -29,6 +29,21 @@ std::vector<std::string> strings(const json &j)
     return out;
 }
 
+// [[object, instance], ...]
+OrcaEngine::Items item_list(const json &j)
+{
+    OrcaEngine::Items out;
+    for (const json &it : j)
+        out.emplace_back(it.at(0).get<int>(), it.at(1).get<int>());
+    return out;
+}
+
+// "objects": [..], else the single "object".
+std::vector<int> object_list(const json &a)
+{
+    return a.contains("objects") ? a["objects"].get<std::vector<int>>() : std::vector<int>{a.at("object").get<int>()};
+}
+
 using Handler = std::function<json(OrcaEngine &, const json &)>;
 
 const std::unordered_map<std::string, Handler> &handlers()
@@ -47,13 +62,18 @@ const std::unordered_map<std::string, Handler> &handlers()
              return json{{"ok", true}};
          }},
         {"optionStates", [](OrcaEngine &e, const json &) { return e.option_states(); }},
+        {"loadCloudPresets", [](OrcaEngine &e, const json &a) { return e.load_cloud_presets(a.at("presets")); }},
+        {"vendorVersion", [](OrcaEngine &e, const json &a) { return e.vendor_version(a.at("vendor")); }},
+        {"syncFilaments", [](OrcaEngine &e, const json &a) { return e.sync_filaments(a.at("trays"), a.at("filaments")); }},
         // Scene
         {"scene", [](OrcaEngine &e, const json &) { return e.scene(); }},
         {"loadModels", [](OrcaEngine &e, const json &a) { return e.load_models(strings(a.at("paths")), a.value("append", false), a.value("plate", 0)); }},
         {"setTransform", [](OrcaEngine &e, const json &a) { return e.set_transform(a.at("object"), a.at("instance"), a.at("transform")); }},
         {"deleteObject", [](OrcaEngine &e, const json &a) { return e.delete_object(a.at("object")); }},
         {"deleteInstance", [](OrcaEngine &e, const json &a) { return e.delete_instance(a.at("object"), a.at("instance")); }},
-        {"duplicate", [](OrcaEngine &e, const json &a) { return e.duplicate(a.at("object"), a.value("copies", 1)); }},
+        {"duplicate", [](OrcaEngine &e, const json &a) { return e.duplicate(item_list(a.at("items")), a.value("copies", 1)); }},
+        {"deleteItems", [](OrcaEngine &e, const json &a) { return e.delete_items(item_list(a.at("items"))); }},
+        {"moveItems", [](OrcaEngine &e, const json &a) { return e.move_items(item_list(a.at("items")), a.at("dx"), a.at("dy")); }},
         {"arrange", [](OrcaEngine &e, const json &a) { return e.arrange(a.value("plate", -1)); }},
         {"layOnFace", [](OrcaEngine &e, const json &a) { return e.lay_on_face(a.at("object"), a.at("instance"), vec3(a.at("normal"))); }},
         {"autoOrient", [](OrcaEngine &e, const json &a) { return e.auto_orient(a.value("object", -1)); }},
@@ -70,7 +90,7 @@ const std::unordered_map<std::string, Handler> &handlers()
          }},
         {"deleteVolume", [](OrcaEngine &e, const json &a) { return e.delete_volume(a.at("object"), a.at("volume")); }},
         {"setObjectSetting", [](OrcaEngine &e, const json &a) {
-             return e.set_object_setting(a.at("object"), a.value("volume", -1), a.at("key"), a.contains("value") ? a["value"] : json());
+             return e.set_object_setting(object_list(a), a.value("volume", -1), a.at("key"), a.contains("value") ? a["value"] : json());
          }},
         {"setLayerRanges", [](OrcaEngine &e, const json &a) { return e.set_layer_ranges(a.at("object"), a.at("ranges")); }},
         {"addPlate", [](OrcaEngine &e, const json &) { return e.add_plate(); }},

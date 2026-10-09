@@ -43,12 +43,14 @@ FetchContent_Declare(obn
     # 0001-cloud-callbacks-read-fresh.patch: fix for v2.2.0 dropping every cloud
     # report when a saved sign-in connects before the slicer registers its callbacks.
     # 0002-start-print-try-lan-first.patch: start_print honours cloud_print = try_lan_first.
-    # Kept in sync with the desktop build; the app prints with start_local_print, so it has
-    # no effect here today.
+    # 0003-mqtt-tls-ssl-cert-file.patch: MQTT TLS without a CA file (the cloud broker) reads
+    # SSL_CERT_FILE, which the app points at its export of Android's CA store; v2.2.0 only
+    # probes Linux paths, so cloud MQTT could not verify Bambu's certificate on Android.
     PATCH_COMMAND  ${GIT_EXECUTABLE} apply --whitespace=nowarn
                    ${CMAKE_CURRENT_LIST_DIR}/obn-android.patch
                    ${CMAKE_CURRENT_LIST_DIR}/0001-cloud-callbacks-read-fresh.patch
                    ${CMAKE_CURRENT_LIST_DIR}/0002-start-print-try-lan-first.patch
+                   ${CMAKE_CURRENT_LIST_DIR}/0003-mqtt-tls-ssl-cert-file.patch
     UPDATE_DISCONNECTED TRUE)
 FetchContent_MakeAvailable(obn)
 

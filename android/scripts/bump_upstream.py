@@ -18,7 +18,8 @@ from pathlib import Path
 REVIEW = re.compile(
     r"^(deps/CMakeLists\.txt|CMakeLists\.txt|cmake/modules/.*"
     r"|src/libslic3r/CMakeLists\.txt|src/OrcaSlicer\.cpp"
-    r"|src/slic3r/GUI/(Tab|ConfigManipulation|Plater)\.cpp"
+    r"|src/slic3r/GUI/(Tab|ConfigManipulation|Plater|GUI_App|DeviceErrorDialog|HMS|DeviceManager)\.cpp"
+    r"|src/slic3r/GUI/DeviceCore/(DevHMS|DevFilaSystem)\.cpp"
     r"|src/slic3r/Utils/ColorSpaceConvert\.cpp"
     r"|src/slic3r/GUI/Jobs/ArrangeJob\.cpp|src/slic3r/GUI/Gizmos/GLGizmoCut\.cpp)$"
 )

@@ -27,6 +27,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -73,7 +74,8 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
             Entry(stringResource(R.string.manage_printers), stringResource(R.string.n_printers_selected, state.selectedPrinters.size)) { vm.presets.openPrinterSetup() }
             Entry(stringResource(R.string.filament_vendors), stringResource(R.string.filament_vendors_text)) { dialog = "vendors" }
             Entry(stringResource(R.string.import_presets), stringResource(R.string.import_presets_text)) { importPresets.launch(arrayOf("*/*")) }
-            Entry(stringResource(R.string.compare_presets), null) { vm.presets.openEditor(EditorTarget.Preset(PresetType.PRINT)) }
+            Entry(stringResource(R.string.sync_cloud_presets), stringResource(R.string.sync_cloud_presets_text)) { vm.presets.syncCloudPresets() }
+            Entry(stringResource(R.string.compare_presets), null) { vm.presets.openEditor(EditorTarget.Preset(PresetType.PRINT, pickCompare = true)) }
             Entry(stringResource(R.string.check_profile_updates), null) { vm.presets.checkProfileUpdates() }
             state.profileUpdates?.takeIf { it.isNotEmpty() }?.let { updates ->
                 Card(Modifier.fillMaxWidth()) {
@@ -120,20 +122,34 @@ private fun Entry(title: String, subtitle: String?, onClick: () -> Unit) {
     }
 }
 
-/** Which filament vendors' system presets appear in the filament lists. */
+/** Which filament brands' system presets appear in the filament lists. */
 @Composable
 private fun FilamentVendorsDialog(state: UiState, vm: AppViewModel, onDismiss: () -> Unit) {
-    val vendors = remember(state.setup) { state.setup?.filaments.orEmpty().filter { it.system }.map { it.vendor.ifEmpty { "Generic" } }.distinct().sorted() }
+    val vendors = remember(state.setup) {
+        state.setup?.filaments.orEmpty().filter { it.system }.map { it.brandName }.distinct().sortedBy { it.lowercase() }
+    }
     var hidden by remember { mutableStateOf(state.hiddenFilamentVendors) }
+    var query by remember { mutableStateOf("") }
+    val shown = vendors.filter { it.contains(query.trim(), ignoreCase = true) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.filament_vendors)) },
         text = {
-            LazyColumn(Modifier.heightIn(max = 460.dp)) {
-                items(vendors) { v ->
-                    Row(Modifier.fillMaxWidth().clickable { hidden = if (v in hidden) hidden - v else hidden + v }, verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(v !in hidden, { hidden = if (it) hidden - v else hidden + v })
-                        Text(v)
+            Column {
+                if (vendors.size > 8)
+                    OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth(), singleLine = true,
+                        placeholder = { Text(stringResource(R.string.search)) })
+                Row {
+                    // Applies to the brands the search shows.
+                    TextButton(onClick = { hidden = hidden - shown.toSet() }) { Text(stringResource(R.string.show_all)) }
+                    TextButton(onClick = { hidden = hidden + shown }) { Text(stringResource(R.string.hide_all)) }
+                }
+                LazyColumn(Modifier.heightIn(max = 400.dp)) {
+                    items(shown) { v ->
+                        Row(Modifier.fillMaxWidth().clickable { hidden = if (v in hidden) hidden - v else hidden + v }, verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(v !in hidden, { hidden = if (it) hidden - v else hidden + v })
+                            Text(v)
+                        }
                     }
                 }
             }

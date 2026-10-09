@@ -62,6 +62,8 @@ fun PrinterSetupScreen(state: UiState, vm: AppViewModel) {
     val vendor = visible.firstOrNull { it.id == current }
 
     fun countFor(v: Vendor) = v.models.sumOf { m -> m.nozzles.count { printerKey(m.name, it) in chosen } }
+    // Wide layout: until a vendor is tapped, show the first one with chosen printers.
+    val shown = vendor ?: visible.firstOrNull { countFor(it) > 0 } ?: visible.firstOrNull()
 
     BackHandler(enabled = canCancel || current != null) { if (current != null) current = null else vm.presets.closePrinterSetup() }
 
@@ -79,7 +81,7 @@ fun PrinterSetupScreen(state: UiState, vm: AppViewModel) {
             val vendorList: @Composable (Modifier) -> Unit = { m ->
                 LazyColumn(m) {
                     items(visible, key = { it.id }) { v ->
-                        val isCurrent = wide && v.id == (vendor ?: visible.firstOrNull())?.id
+                        val isCurrent = wide && v.id == shown?.id
                         val count = countFor(v)
                         Row(
                             Modifier.fillMaxWidth()
@@ -115,7 +117,7 @@ fun PrinterSetupScreen(state: UiState, vm: AppViewModel) {
             if (wide) {
                 Row(Modifier.weight(1f).fillMaxWidth()) {
                     vendorList(Modifier.width(260.dp).fillMaxHeight())
-                    modelList(vendor ?: visible.firstOrNull(), Modifier.weight(1f).fillMaxHeight().padding(start = 24.dp))
+                    modelList(shown, Modifier.weight(1f).fillMaxHeight().padding(start = 24.dp))
                 }
             } else if (vendor == null) {
                 vendorList(Modifier.weight(1f).fillMaxWidth())

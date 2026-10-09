@@ -7,6 +7,9 @@ import java.nio.ByteOrder
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
 
+/** Selection id of a copy in the scene mesh: object * stride + instance (the engine's INSTANCE_ID_STRIDE). */
+const val INSTANCE_ID_STRIDE = 4096
+
 /** Colours of the 3D view, following the app theme (RGB 0..1). */
 data class ViewColors(
     val background: FloatArray = floatArrayOf(0.12f, 0.13f, 0.15f),
@@ -42,8 +45,9 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     private var bedOutline = FloatArray(0)
     private var plateOrigins = listOf(0f to 0f)
     var activePlate = 0
-    var selectedObject = -1
-    /** Live offset of the selected object while it is dragged. */
+    /** Selection ids (object * INSTANCE_ID_STRIDE + instance) of the selected copies. */
+    var selectedIds = FloatArray(0)
+    /** Live offset of the selected copies while they are dragged. */
     var dragOffset = floatArrayOf(0f, 0f, 0f)
     var showPreview = false
     var previewOrigin = floatArrayOf(0f, 0f)
@@ -252,7 +256,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glUseProgram(meshProgram)
         glUniformMatrix4fv(loc(meshProgram, "uMvp"), 1, false, mvp, 0)
         glUniform1i(loc(meshProgram, "uPass"), pass)
-        glUniform1f(loc(meshProgram, "uSelected"), selectedObject.toFloat())
+        glUniform1fv(loc(meshProgram, "uSelected"), Shaders.MAX_SELECTED, selectedIds.copyOf(Shaders.MAX_SELECTED), 0)
+        glUniform1i(loc(meshProgram, "uSelectedCount"), minOf(selectedIds.size, Shaders.MAX_SELECTED))
         glUniform3fv(loc(meshProgram, "uDrag"), 1, dragOffset, 0)
         glUniform3fv(loc(meshProgram, "uPartColor"), 1, colors.part, 0)
         glUniform3fv(loc(meshProgram, "uSelectedColor"), 1, colors.selected, 0)

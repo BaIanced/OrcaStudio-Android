@@ -15,23 +15,13 @@ import org.json.JSONObject
 internal class BambuHost(private val c: PrinterConnection) : PrintHost {
     private val host = c.baseUrl().substringAfter("://").substringBefore(':').substringBefore('/')
     private var mqtt: MqttClient? = null
-    /** Bambu reports are incremental; merged into one snapshot. */
-    private val report = JSONObject()
-    private val lock = Object()
+    private val report = BambuReport()
 
     private fun ensureConnected(): MqttClient {
         mqtt?.takeIf { it.isConnected }?.let { return it }
         if (c.serial.isBlank()) throw IOException("Enter the printer's serial number")
         val client = MqttClient(host, 8883, "orca-android-${System.currentTimeMillis()}", "bblp", c.apiKey) { _, payload ->
-            runCatching {
-                val msg = JSONObject(String(payload))
-                msg.optJSONObject("print")?.let { print ->
-                    synchronized(lock) {
-                        print.keys().forEach { k -> report.put(k, print.get(k)) }
-                        lock.notifyAll()
-                    }
-                }
-            }
+            report.apply(String(payload))
         }
         client.connect()
         client.subscribe("device/${c.serial}/report")
@@ -70,28 +60,30 @@ internal class BambuHost(private val c: PrinterConnection) : PrintHost {
     }
 
     override fun status(): PrinterStatus {
-        synchronized(lock) {
-            if (report.length() == 0) {
-                pushAll()
-                lock.wait(4_000)
-            }
-            val state = when (report.optString("gcode_state")) {
-                "RUNNING", "PREPARE", "SLICING" -> PrinterStatus.State.PRINTING
-                "PAUSE" -> PrinterStatus.State.PAUSED
-                "FINISH" -> PrinterStatus.State.FINISHED
-                "FAILED" -> PrinterStatus.State.ERROR
-                "" -> PrinterStatus.State.OFFLINE
-                else -> PrinterStatus.State.IDLE
-            }
-            return PrinterStatus(
-                state,
-                report.optInt("mc_percent", -1).takeIf { it >= 0 }?.let { it / 100f },
-                report.optString("subtask_name").ifBlank { null },
-                report.optInt("mc_remaining_time", -1).takeIf { it >= 0 }?.let { it * 60L },
-                report.optDouble("nozzle_temper", Double.NaN).takeIf { !it.isNaN() }?.toFloat(),
-                report.optDouble("bed_temper", Double.NaN).takeIf { !it.isNaN() }?.toFloat(),
-            )
+        if (report.isEmpty) {
+            pushAll()
+            report.await(4_000) { !report.isEmpty }
         }
+        return report.status()
+    }
+
+    override fun fullStatus(): PrinterStatus {
+        val before = report.trayCount
+        pushAll()
+        report.await(5_000) { report.trayCount > before }
+        return report.status()
+    }
+
+    override fun command(print: JSONObject): JSONObject? {
+        val seq = BambuReport.nextSequence()
+        request(JSONObject().put("print", JSONObject(print.toString()).put("sequence_id", seq)))
+        var reply: JSONObject? = null
+        report.await(5_000) { report.reply(seq)?.also { reply = it } != null }
+        reply?.takeIf { it.optString("result").equals("fail", ignoreCase = true) }?.let { r ->
+            val reason = r.optString("reason").ifBlank { r.optString("err_code") }
+            throw IOException("The printer refused \"${print.optString("command")}\"" + if (reason.isNotBlank()) ": $reason" else "")
+        }
+        return reply
     }
 
     override fun control(action: PrintHost.JobAction): Boolean {
@@ -100,7 +92,7 @@ internal class BambuHost(private val c: PrinterConnection) : PrintHost {
             PrintHost.JobAction.RESUME -> "resume"
             PrintHost.JobAction.CANCEL -> "stop"
         }
-        request(JSONObject().put("print", JSONObject().put("sequence_id", "0").put("command", command).put("param", "")))
+        command(JSONObject().put("command", command).put("param", ""))
         return true
     }
 

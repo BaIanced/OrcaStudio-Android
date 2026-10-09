@@ -2,12 +2,17 @@ package app.orcaandroid.ui
 
 import app.orcaandroid.R
 import app.orcaandroid.core.PresetType
+import app.orcaandroid.net.BambuReport
 import app.orcaandroid.net.Discovery
+import app.orcaandroid.net.HmsCatalog
 import app.orcaandroid.net.HostType
 import app.orcaandroid.net.PrintHost
+import app.orcaandroid.net.PrinterAlert
 import app.orcaandroid.net.PrinterConnection
+import app.orcaandroid.net.PrinterTray
 import app.orcaandroid.service.PrintMonitorService
 import java.io.File
+import java.io.IOException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -91,14 +96,31 @@ class DeviceController(private val store: Store) {
     fun controlJob(action: PrintHost.JobAction) = store.launch {
         val connection = store.value.connection ?: return@launch
         withHost(connection) { it.control(action) }
+        refreshStatus()
+    }
+
+    /** Answers the printer's prompt for [alert] with one of its buttons, as the desktop's error dialog does. */
+    fun answerAlert(alert: PrinterAlert, button: Int) = store.launch {
+        val connection = store.value.connection ?: return@launch
+        val status = store.value.printerStatus ?: return@launch
+        val command = BambuReport.alertCommand(button, alert, status) ?: return@launch
+        withHost(connection) { it.command(command) }
+        refreshStatus()
     }
 
     /** Refreshes the printer status once (device tab). */
     fun refreshStatus() = store.launch {
         val connection = store.value.connection ?: return@launch
-        val result = withHost(connection) { runCatching { it.status() } }
+        val result = withHost(connection) { host -> runCatching { host.status()?.let { HmsCatalog.describe(store.app, connection.serial, it) } } }
         store.container.printerStatus.value = result.getOrNull()
         store.update { it.copy(printerStatusError = result.exceptionOrNull()?.let { e -> e.message ?: e.toString() }) }
+    }
+
+    /** The filaments loaded in the connected printer (AMS slots, external spool), from a full report. */
+    suspend fun loadedFilaments(): List<PrinterTray> {
+        val connection = store.value.connection?.takeIf { it.type == HostType.BAMBU || it.type == HostType.BAMBU_SIGNED }
+            ?: throw IOException(store.str(R.string.sync_filaments_no_bambu))
+        return withHost(connection) { it.fullStatus()?.trays.orEmpty() }
     }
 
     private suspend fun <T> withHost(connection: PrinterConnection, block: (PrintHost) -> T): T = withContext(Dispatchers.IO) {

@@ -99,7 +99,7 @@ fun SettingsEditor(state: UiState, vm: AppViewModel) {
     val target = state.editor ?: return
     androidx.activity.compose.BackHandler(onBack = vm.presets::closeEditor)
     when (target) {
-        is EditorTarget.Preset -> PresetEditor(state, vm, target.type)
+        is EditorTarget.Preset -> PresetEditor(state, vm, target.type, target.pickCompare)
         is EditorTarget.Object -> {
             val o = state.scene.objects.getOrNull(target.obj) ?: run { LaunchedEffect(Unit) { vm.presets.closeEditor() }; return }
             val settings = (if (target.volume >= 0) o.volumes.getOrNull(target.volume)?.settings.orEmpty() else o.settings).overrides
@@ -135,10 +135,10 @@ fun SettingsEditor(state: UiState, vm: AppViewModel) {
 private val TYPE_TITLES = mapOf(PresetType.PRINT to R.string.process, PresetType.FILAMENT to R.string.filament, PresetType.PRINTER to R.string.printer)
 
 @Composable
-private fun PresetEditor(state: UiState, vm: AppViewModel, type: PresetType) {
+private fun PresetEditor(state: UiState, vm: AppViewModel, type: PresetType, pickCompare: Boolean = false) {
     var saveDialog by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
-    var comparePick by remember { mutableStateOf(false) }
+    var comparePick by remember { mutableStateOf(pickCompare) }
     var menu by remember { mutableStateOf(false) }
     val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { it?.let { u -> vm.presets.exportPreset(type, u) } }
     val source = EditSource(
@@ -248,7 +248,9 @@ private fun EditorFrame(
                         SegmentedButton(mode == i, { mode = i }, SegmentedButtonDefaults.itemShape(i, 3)) { Text(stringResource(label), maxLines = 1) }
                     }
                 }
-                if (objectMode) FilterChip(onlyModified, { onlyModified = !onlyModified }, label = { Text(stringResource(R.string.only_changed)) })
+                // Presets too: "N modified" in the title is otherwise hard to trace to its options.
+                if (objectMode || source.modifiedCount > 0 || onlyModified)
+                    FilterChip(onlyModified, { onlyModified = !onlyModified }, label = { Text(stringResource(R.string.only_changed)) })
             }
             HorizontalDivider()
 
@@ -390,7 +392,7 @@ private fun OptionEditor(def: OptionDef, value: String, enabled: Boolean, tr: Tr
     // Vector options with several distinct entries (e.g. per-extruder values) are edited as raw text.
     val single = !def.isVector || !value.contains(',')
     when {
-        def.readonly -> Text(value, style = MaterialTheme.typography.bodyMedium)
+        def.readonly -> Text(unquoted(def, value) ?: value, style = MaterialTheme.typography.bodyMedium)
         def.baseType == "bool" && single -> Switch(checked = value == "1", onCheckedChange = { onChange(if (it) "1" else "0") }, enabled = enabled)
         def.enumValues.isNotEmpty() && single -> EnumEditor(def, value, enabled, tr, onChange)
         def.isCode || def.multiline -> CodeEditor(tr.tr(def.label), value, enabled, onChange)
@@ -418,10 +420,14 @@ private fun EnumEditor(def: OptionDef, value: String, enabled: Boolean, tr: Tran
 /** Text field that commits on "done" or when focus leaves, so each keystroke does not trigger work. */
 @Composable
 private fun TextEditor(def: OptionDef, value: String, enabled: Boolean, tr: Translator, onChange: (String) -> Unit) {
-    var text by remember(value) { mutableStateOf(value) }
+    val plain = unquoted(def, value)
+    var text by remember(value) { mutableStateOf(plain ?: value) }
     val numeric = def.baseType in setOf("int", "float", "percent", "float_or_percent")
     var focused by remember { mutableStateOf(false) }
-    val commit = { if (text != value) onChange(text.trim()) }
+    val commit = {
+        val edited = if (plain != null) quoted(text.trim()) else text.trim()
+        if (edited != value) onChange(edited)
+    }
     OutlinedTextField(
         value = text,
         onValueChange = { text = it },
@@ -437,6 +443,18 @@ private fun TextEditor(def: OptionDef, value: String, enabled: Boolean, tr: Tran
         modifier = Modifier.fillMaxWidth().onFocusChanged { if (focused && !it.isFocused) commit(); focused = it.isFocused },
     )
 }
+
+/**
+ * A list-of-strings option with a single entry is serialized by libslic3r with C-style quotes
+ * ("Bambu Lab"); it is shown and edited as plain text and quoted again on commit. Null for anything
+ * else (several entries stay raw text).
+ */
+private fun unquoted(def: OptionDef, value: String): String? {
+    if (def.type != "strings" || value.length < 2 || !value.startsWith('"') || !value.endsWith('"') || value.contains("\";\"")) return null
+    return value.substring(1, value.length - 1).replace("\\\"", "\"").replace("\\\\", "\\")
+}
+
+private fun quoted(text: String) = "\"" + text.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 
 private fun isValidNumber(def: OptionDef, text: String): Boolean {
     if (def.isVector) return true

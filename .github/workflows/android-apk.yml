@@ -165,7 +165,7 @@ jobs:
           nm_bin="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-nm"
           so="$BUILD_ROOT/jniLibs/arm64-v8a/liborca_jni.so"
           n=$("$nm_bin" -D --defined-only "$so" | grep -c ' Java_app_orcaandroid_net_ObnNative_')
-          echo "ObnNative JNI exports: $n"; [ "$n" -eq 15 ]
+          echo "ObnNative JNI exports: $n"; [ "$n" -eq 18 ]
 
       - name: Name, checksum, upload
         id: out

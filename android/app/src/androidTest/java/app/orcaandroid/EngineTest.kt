@@ -296,7 +296,7 @@ class EngineTest {
         clear()
         var s = engine.loadModels(listOf(File(models, "3DBenchy.drc").path), false, 0)
         assertEquals(1, s.objects.size)
-        s = engine.duplicate(0, 2)
+        s = engine.duplicate(listOf(0 to 0), 2)
         assertEquals(3, s.objects[0].instances.size)
         s = engine.arrange(0)
         val offsets = s.objects[0].instances.map { it.offset.x to it.offset.y }.toSet()
@@ -370,6 +370,33 @@ class EngineTest {
         assertEquals(4, s.objects[0].volumes.size)
         s = step("reset setting") { engine.setObjectSetting(0, -1, "wall_loops", null) }
         assertTrue("wall_loops" !in s.objects[0].settings)
+    }
+
+    @Test
+    fun c05_multiSelectionBatchOps() = runBlocking<Unit> {
+        use(QIDI, filaments = 2)
+        clear()
+        repeat(5) { cube(10f) }
+        // Duplicate two of five cubes at once, as one undo step.
+        var s = engine.duplicate(listOf(1 to 0, 3 to 0), 1)
+        assertEquals(listOf(1, 2, 1, 2, 1), s.objects.map { it.instances.size })
+        s = engine.undo()
+        assertEquals(listOf(1, 1, 1, 1, 1), s.objects.map { it.instances.size })
+        s = engine.redo()
+        // Move both copies of cube 1.
+        val before = s.objects[1].instances.map { it.offset }
+        s = engine.moveItems(listOf(1 to 0, 1 to 1), 5f, -3f)
+        s.objects[1].instances.forEachIndexed { i, inst ->
+            assertEquals(before[i].x + 5f, inst.offset.x, 0.01f)
+            assertEquals(before[i].y - 3f, inst.offset.y, 0.01f)
+        }
+        // One filament for several objects.
+        s = engine.setObjectsSetting(listOf(0, 2, 4), "extruder", "2")
+        assertEquals(listOf("2", null, "2", null, "2"), s.objects.map { it.settings["extruder"] })
+        // A copy of cube 3 and all of cubes 0 and 4: the others keep their order.
+        s = engine.deleteItems(listOf(3 to 1, 0 to 0, 4 to 0))
+        assertEquals(listOf(2, 1, 1), s.objects.map { it.instances.size })
+        slice()
     }
 
     @Test
@@ -552,6 +579,22 @@ class EngineTest {
         val viewed = engine.viewGcode(copy.path) { _, _ -> }
         assertTrue(viewed.external)
         assertEquals(r.layers.size.toFloat(), viewed.layers.size.toFloat(), 2f)
+    }
+
+    @Test
+    fun f02b_gcode3mfSliceInfo() = runBlocking<Unit> {
+        use(A1)
+        clear()
+        cube(15f)
+        val (r, _) = slice()
+        val archive = File(app.cacheDir, "a1.gcode.3mf")
+        engine.exportGcode3mf(0, r.gcodeFile, archive.path)
+        val info = ZipFile(archive).use { z -> z.getInputStream(z.getEntry("Metadata/slice_info.config")).reader().readText() }
+        assertTrue(info, Regex("key=\"prediction\" value=\"[1-9]").containsMatchIn(info))
+        assertTrue(info, Regex("key=\"weight\" value=\"[0-9.]+\"").containsMatchIn(info))
+        assertTrue(info, Regex("key=\"printer_model_id\" value=\"\\w+\"").containsMatchIn(info))
+        // Printers know Bambu's filament ids (GF..), not OrcaSlicer's re-keyed ones.
+        assertTrue(info, Regex("<filament id=\"1\" tray_info_idx=\"GF\\w+\" type=\"PLA\"").containsMatchIn(info))
     }
 
     @Test

@@ -27,12 +27,17 @@ class PresetCollection;
 class DynamicPrintConfig;
 class AABBMesh;
 struct Calib_Params;
+struct PlateData;
 } // namespace Slic3r
 
 namespace orca {
 
 using json       = nlohmann::json;
 using ProgressFn = std::function<void(int percent, const std::string &text)>;
+
+// Selection id of an instance in the scene and paint meshes: object * stride + instance (exact in
+// a float up to 4096 objects). The app highlights and drags instances by it.
+inline constexpr size_t INSTANCE_ID_STRIDE = 4096;
 
 class OrcaEngine
 {
@@ -86,7 +91,14 @@ public:
     json set_transform(int object, int instance, const json &transform);
     json delete_object(int object);
     json delete_instance(int object, int instance);
-    json duplicate(int object, int copies);
+    // Batch operations on several instances (object, instance), each one undo step.
+    using Items = std::vector<std::pair<int, int>>;
+    // Adds `copies` copies of each instance, arranged around what is on its plate.
+    json duplicate(const Items &items, int copies);
+    // Deletes the instances; an object without instances left is deleted.
+    json delete_items(const Items &items);
+    // Moves the instances by (dx, dy) mm on the bed.
+    json move_items(const Items &items, double dx, double dy);
     // Arranges one plate (or every plate for plate < 0).
     json arrange(int plate);
     // Rotates the instance so that the face with world normal `normal` lies on the bed.
@@ -106,8 +118,9 @@ public:
     json add_volume(int object, int type, const std::string &shape, const std::array<double, 3> &size,
                     const std::array<double, 3> &position);
     json delete_volume(int object, int volume);
-    // Per-object (volume < 0) or per-volume setting; a null value removes the override.
-    json set_object_setting(int object, int volume, const std::string &key, const json &value);
+    // Per-object (volume < 0) or per-volume setting; a null value removes the override. With
+    // several objects, the setting goes to each of them (volume must be < 0).
+    json set_object_setting(const std::vector<int> &objects, int volume, const std::string &key, const json &value);
 
     json add_plate();
     json delete_plate(int plate);
@@ -186,6 +199,17 @@ public:
     json export_stl(const std::string &path, int plate);
     // Imports user presets (.json / .zip / .orca_printer / .orca_filament ...).
     json import_presets(const std::vector<std::string> &paths);
+    // Loads the user's cloud presets like the desktop's cloud sync and saves them as user presets.
+    // presets: { name: { option or metadata key: serialized value } }, as open-bamboo-networking's
+    // get_user_presets returns them. Returns the printers and the setup like import_presets().
+    json load_cloud_presets(const json &presets);
+    // Version of an installed vendor's profiles, e.g. "02.00.00.55": { "version" } ("" if absent).
+    json vendor_version(const std::string &vendor);
+    // Picks a filament preset and colour per loaded tray, like the desktop's filament sync.
+    // trays: [{ "filament_id", "filament_type", "color" ("#RRGGBB"), "colors" [...], "ams_id",
+    // "slot_id", "name" }] in tray order; filaments: the current slots, as for set_selection().
+    // Returns { "filaments": [{ "name", "color" }], "unknown": [{ "tray", "message" }] }.
+    json sync_filaments(const json &trays, const json &filaments);
     // File of a user preset: { "path": ... }.
     json preset_file(const std::string &type, const std::string &name);
 
@@ -248,6 +272,7 @@ private:
     // Scene helpers (OrcaScene.cpp). All expect m_mutex to be held.
     void                  require_printer() const;
     Slic3r::ModelObject  &object_at(int object);
+    Items                 checked_items(Items items) const; // validated, sorted, without duplicates
     void                  push_undo();
     json                  scene_json();
     json                  commit(); // writes the mesh and returns scene_json()
@@ -289,6 +314,9 @@ private:
     // Guards m_running_print so cancel() never touches a Print that slice() is destroying.
     std::mutex                            m_cancel_mutex;
     Slic3r::Print                        *m_running_print{nullptr};
+    // Slice statistics per G-code file (time, weight, filaments) for the .gcode.3mf's
+    // slice_info.config, which printers and Bambu Handy read. Filled by slice().
+    std::map<std::string, std::shared_ptr<Slic3r::PlateData>> m_slice_info;
 };
 
 } // namespace orca
