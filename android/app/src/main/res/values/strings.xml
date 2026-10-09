@@ -343,6 +343,12 @@
     <string name="alert_btn_abort">Abort</string>
     <!-- Filament sync from a Bambu printer -->
     <string name="sync_filaments">Sync filaments from printer</string>
+    <string name="device_job">Job</string>
+    <string name="device_temperatures">Temperatures</string>
+    <string name="device_nozzle">Nozzle</string>
+    <string name="device_bed">Bed</string>
+    <string name="loaded_filaments">Loaded filaments</string>
+    <string name="no_filaments_reported">The printer reports no loaded filament.</string>
     <string name="syncing_filaments">Reading the printer\'s filaments…</string>
     <string name="sync_filaments_none">The printer reports no loaded filament.</string>
     <string name="sync_filaments_done">%1$d filament slot(s) taken from the printer.</string>

@@ -342,6 +342,12 @@
     <string name="alert_btn_abort">Abbruch</string>
     <!-- Filamente vom Bambu-Drucker übernehmen -->
     <string name="sync_filaments">Filamente vom Drucker übernehmen</string>
+    <string name="device_job">Auftrag</string>
+    <string name="device_temperatures">Temperaturen</string>
+    <string name="device_nozzle">Düse</string>
+    <string name="device_bed">Bett</string>
+    <string name="loaded_filaments">Geladene Filamente</string>
+    <string name="no_filaments_reported">Der Drucker meldet kein geladenes Filament.</string>
     <string name="syncing_filaments">Filamente des Druckers werden gelesen…</string>
     <string name="sync_filaments_none">Der Drucker meldet kein geladenes Filament.</string>
     <string name="sync_filaments_done">%1$d Filamentplatz/-plätze vom Drucker übernommen.</string>

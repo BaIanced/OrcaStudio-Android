@@ -83,6 +83,11 @@ data class PrinterStatus(
     val trays: List<PrinterTray> = emptyList(),
     val jobId: String? = null,
     val subtaskId: String? = null,
+    /** Bambu: target temperatures and the current / total layer of the job. */
+    val nozzleTarget: Float? = null,
+    val bedTarget: Float? = null,
+    val layer: Int? = null,
+    val totalLayers: Int? = null,
 ) {
     enum class State { IDLE, PRINTING, PAUSED, FINISHED, STOPPED, ERROR, OFFLINE }
 

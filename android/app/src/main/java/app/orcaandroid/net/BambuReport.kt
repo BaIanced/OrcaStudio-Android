@@ -79,6 +79,10 @@ internal class BambuReport {
             trays = trays(r),
             jobId = r.optString("job_id").ifBlank { null },
             subtaskId = r.optString("subtask_id").ifBlank { null },
+            nozzleTarget = r.optDouble("nozzle_target_temper", Double.NaN).takeIf { !it.isNaN() }?.toFloat(),
+            bedTarget = r.optDouble("bed_target_temper", Double.NaN).takeIf { !it.isNaN() }?.toFloat(),
+            layer = r.optInt("layer_num", -1).takeIf { it >= 0 },
+            totalLayers = r.optInt("total_layer_num", -1).takeIf { it > 0 },
         )
     }
 
@@ -124,7 +128,8 @@ internal class BambuReport {
         val id = t.optString("tray_info_idx")
         if (type.isEmpty() && id.isEmpty()) return null
         val cols = t.optJSONArray("cols")?.let { a -> List(a.length()) { htmlColor(a.optString(it)) } }.orEmpty()
-        return PrinterTray(amsId, slotId, name, id, type, htmlColor(t.optString("tray_color")), cols, t.optInt("ctype", 0).toString())
+        return PrinterTray(amsId, slotId, name, id, type, htmlColor(t.optString("tray_color")), cols, t.optInt("ctype", 0).toString(),
+            t.optString("tray_sub_brands"))
     }
 
     companion object {
@@ -186,6 +191,8 @@ data class PrinterTray(
     val color: String,
     val colors: List<String>,
     val colorType: String,
+    /** The filament's product line as the printer names it ("PLA Matte"); empty for third-party spools. */
+    val subBrand: String = "",
 )
 
 /**

@@ -69,6 +69,7 @@ import app.orcaandroid.ui.components.ConfirmDialog
 import app.orcaandroid.ui.components.PickerField
 import app.orcaandroid.ui.components.PickerItem
 import app.orcaandroid.ui.components.formatDuration
+import app.orcaandroid.ui.prepare.ColorDot
 import app.orcaandroid.ui.prepare.SwitchRow
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
@@ -93,7 +94,8 @@ fun DeviceScreen(state: UiState, vm: AppViewModel) {
         // A slim bar above the web UI, so Mainsail/Fluidd keep the full width.
         Column(Modifier.fillMaxSize()) {
             StatusBar(state, vm, connection) { editing = true }
-            WebUi(connection, Modifier.weight(1f).fillMaxWidth())
+            if (connection.type.hasWebUi) WebUi(connection, Modifier.weight(1f).fillMaxWidth())
+            else PrinterPanel(state, vm, Modifier.weight(1f).fillMaxWidth())
         }
     }
     if (editing) ConnectionDialog(state, vm) { editing = false }
@@ -264,6 +266,87 @@ private fun stateLabel(s: PrinterStatus.State) = stringResource(
         PrinterStatus.State.OFFLINE -> R.string.state_offline
     }
 )
+
+/** The printer at a glance for hosts without a web UI (Bambu): job, temperatures, loaded filaments, messages. */
+@Composable
+private fun PrinterPanel(state: UiState, vm: AppViewModel, modifier: Modifier) {
+    val status = state.printerStatus
+    if (status == null) {
+        Box(modifier.padding(24.dp), contentAlignment = Alignment.Center) {
+            val error = state.printerStatusError
+            if (error == null) CircularProgressIndicator()
+            else Text(stringResource(R.string.status_failed, error), style = MaterialTheme.typography.bodyMedium)
+        }
+        return
+    }
+    Column(modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        PanelCard(stringResource(R.string.device_job)) {
+            Text(stateLabel(status.state), style = MaterialTheme.typography.titleMedium)
+            status.file?.let { Text(it, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis) }
+            if (status.isActive) {
+                status.progress?.let { p -> LinearProgressIndicator(progress = { p }, modifier = Modifier.fillMaxWidth()) }
+                val layer = status.layer
+                val total = status.totalLayers
+                Text(listOfNotNull(
+                    status.progress?.let { "${(it * 100).toInt()} %" },
+                    if (layer != null && total != null) stringResource(R.string.layer_of, layer, total) else null,
+                    status.remainingSeconds?.let { stringResource(R.string.remaining_fmt, formatDuration(it.toDouble())) },
+                ).joinToString("  ·  "), style = MaterialTheme.typography.bodySmall)
+            }
+        }
+        PanelCard(stringResource(R.string.device_temperatures)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(32.dp)) {
+                Temperature(stringResource(R.string.device_nozzle), status.nozzleTemp, status.nozzleTarget)
+                Temperature(stringResource(R.string.device_bed), status.bedTemp, status.bedTarget)
+            }
+        }
+        val bambu = state.connection?.type.let { it == HostType.BAMBU || it == HostType.BAMBU_SIGNED }
+        if (bambu || status.trays.isNotEmpty()) {
+            PanelCard(stringResource(R.string.loaded_filaments)) {
+                if (status.trays.isEmpty())
+                    Text(stringResource(R.string.no_filaments_reported), style = MaterialTheme.typography.bodySmall)
+                status.trays.forEach { t ->
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        ColorDot(t.color, 22)
+                        Text(t.name, style = MaterialTheme.typography.labelLarge, modifier = Modifier.width(36.dp))
+                        Text(t.subBrand.ifEmpty { t.type }, style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+                if (status.trays.isNotEmpty())
+                    OutlinedButton(onClick = vm.presets::syncFilamentsFromPrinter) { Text(stringResource(R.string.sync_filaments)) }
+            }
+        }
+        if (status.alerts.isNotEmpty()) {
+            PanelCard(stringResource(R.string.printer_messages)) {
+                status.alerts.forEach { a ->
+                    Text(alertText(a), style = MaterialTheme.typography.bodyMedium)
+                    Text("[${a.display}]", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PanelCard(title: String, content: @Composable () -> Unit) {
+    Surface(tonalElevation = 1.dp, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+            content()
+        }
+    }
+}
+
+/** "215° / 220°" (current / target); the target is left out while it is off. */
+@Composable
+private fun Temperature(label: String, current: Float?, target: Float?) {
+    Column {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text((current?.let { "%.0f°".format(Locale.ROOT, it) } ?: "—") +
+            (target?.takeIf { it > 0f }?.let { " / %.0f°".format(Locale.ROOT, it) } ?: ""),
+            style = MaterialTheme.typography.titleLarge)
+    }
+}
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
