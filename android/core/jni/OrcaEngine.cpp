@@ -89,9 +89,11 @@ json compatible_names(const PresetCollection &collection)
         if (p.is_default || !p.is_compatible)
             continue;
         json entry = {{"name", p.name}, {"system", p.is_system}, {"vendor", p.vendor ? p.vendor->name : "User"}};
-        // A filament's brand (Bambu Lab, Generic, eSUN ...), for the brand filter and grouping.
+        // A filament's brand (Bambu Lab, Generic, eSUN ...) and material, for filtering and grouping.
         if (const auto *brand = p.config.option<ConfigOptionStrings>("filament_vendor"); brand && !brand->values.empty())
             entry["brand"] = brand->values.front();
+        if (const auto *type = p.config.option<ConfigOptionStrings>("filament_type"); type && !type->values.empty())
+            entry["type"] = type->values.front();
         out.push_back(std::move(entry));
     }
     return out;

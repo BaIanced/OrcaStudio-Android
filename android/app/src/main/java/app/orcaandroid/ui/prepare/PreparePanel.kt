@@ -105,10 +105,14 @@ private fun PresetsTab(state: UiState, vm: AppViewModel) {
         var colorDialog by remember { mutableStateOf(false) }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             IconButton(onClick = { colorDialog = true }, modifier = Modifier.size(36.dp)) { ColorDot(slot.color, 22) }
+            val userGroup = vm.translator.tr("User presets")
             val filaments = setup?.filaments.orEmpty().filter { it.system.not() || it.brandName !in state.hiddenFilamentVendors || it.name == slot.preset }
-            PickerField("${i + 1}", slot.preset,
-                filaments.map { PickerItem(it.name, it.name, if (it.system) it.brandName else vm.translator.tr("User presets")) },
-                { vm.presets.setFilament(i, it) }, Modifier.weight(1f), modified = slot.overrides.isNotEmpty())
+            // The user's (calibrated) presets first and open; system ones by brand, then material, collapsed.
+            val items = filaments.filter { !it.system }.sortedBy { it.name.lowercase() }.map { PickerItem(it.name, it.name, userGroup) } +
+                filaments.filter { it.system }.sortedWith(compareBy({ it.brandName.lowercase() }, { it.type }, { it.name.lowercase() }))
+                    .map { PickerItem(it.name, it.name, it.brandName, it.type.ifEmpty { "?" }) }
+            PickerField("${i + 1}", slot.preset, items,
+                { vm.presets.setFilament(i, it) }, Modifier.weight(1f), modified = slot.overrides.isNotEmpty(), openGroups = setOf(userGroup))
             IconButton(onClick = { vm.presets.setActiveFilament(i); vm.presets.openEditor(EditorTarget.Preset(PresetType.FILAMENT)) }) {
                 Icon(Icons.Default.Edit, stringResource(R.string.edit))
             }

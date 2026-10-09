@@ -11,6 +11,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
@@ -23,6 +25,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -30,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -37,8 +41,11 @@ import androidx.compose.ui.unit.dp
 import app.orcaandroid.R
 import java.util.Locale
 
-/** An entry in a [PickerField]; [group] is shown as a section header (e.g. the vendor). */
-data class PickerItem(val id: String, val label: String = id, val group: String = "")
+/**
+ * An entry in a [PickerField]; [group] is shown as a section header (e.g. the brand). When any item
+ * has a [subgroup] (e.g. the material), groups and subgroups become collapsible sections.
+ */
+data class PickerItem(val id: String, val label: String = id, val group: String = "", val subgroup: String = "")
 
 /** A compact labelled field that opens a searchable single-choice dialog. */
 @Composable
@@ -50,6 +57,7 @@ fun PickerField(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     modified: Boolean = false,
+    openGroups: Set<String> = emptySet(),
 ) {
     var open by remember { mutableStateOf(false) }
     OutlinedCard(modifier = modifier.fillMaxWidth().clickable(enabled = enabled && items.isNotEmpty()) { open = true }) {
@@ -67,20 +75,37 @@ fun PickerField(
             )
         }
     }
-    if (open) PickerDialog(label, selected, items, onDismiss = { open = false }) { open = false; onSelect(it) }
+    if (open) PickerDialog(label, selected, items, onDismiss = { open = false }, openGroups = openGroups) { open = false; onSelect(it) }
 }
 
+/**
+ * Searchable single choice. With subgroups, sections start collapsed except [openGroups] and the
+ * ones holding the selection; while searching, every section with a match is open.
+ */
 @Composable
-fun PickerDialog(title: String, selected: String?, items: List<PickerItem>, onDismiss: () -> Unit, onPick: (String) -> Unit) {
+fun PickerDialog(
+    title: String,
+    selected: String?,
+    items: List<PickerItem>,
+    onDismiss: () -> Unit,
+    openGroups: Set<String> = emptySet(),
+    onPick: (String) -> Unit,
+) {
     var query by remember { mutableStateOf("") }
     val filtered = remember(query, items) {
         val words = query.trim().lowercase().split(' ').filter { it.isNotEmpty() }
         // Callers' lists are not always sorted by group (synced user presets land between system ones),
         // so each group is gathered under one header; LazyColumn keys must be unique.
-        items.filter { item -> words.all { w -> item.label.lowercase().contains(w) || item.group.lowercase().contains(w) } }
+        items.filter { item -> words.all { w -> listOf(item.label, item.group, item.subgroup).any { it.lowercase().contains(w) } } }
             .distinctBy { it.group to it.id }
             .groupBy { it.group }
+            .mapValues { (_, groupItems) -> groupItems.groupBy { it.subgroup } }
     }
+    val nested = remember(items) { items.any { it.subgroup.isNotEmpty() } }
+    val current = remember(items, selected) { items.firstOrNull { it.id == selected } }
+    val toggled = remember { mutableStateMapOf<String, Boolean>() }
+    val searching = query.isNotBlank()
+    fun isOpen(key: String, default: Boolean) = !nested || searching || (toggled[key] ?: default)
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
@@ -97,19 +122,34 @@ fun PickerDialog(title: String, selected: String?, items: List<PickerItem>, onDi
                     )
                 }
                 LazyColumn(Modifier.heightIn(max = 460.dp).padding(top = 8.dp)) {
-                    filtered.forEach { (group, groupItems) ->
+                    filtered.forEach { (group, subgroups) ->
+                        val groupKey = "g:$group"
+                        val groupOpen = group.isEmpty() || isOpen(groupKey, group in openGroups || current?.group == group)
                         if (group.isNotEmpty()) {
-                            item(key = "g:$group") {
-                                Text(group, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.padding(top = 12.dp, bottom = 4.dp))
+                            item(key = groupKey) {
+                                SectionHeader(group, subgroups.values.sumOf { it.size }, nested, groupOpen, MaterialTheme.typography.titleSmall) {
+                                    toggled[groupKey] = !groupOpen
+                                }
                                 HorizontalDivider()
                             }
                         }
-                        groupItems.forEach { item ->
-                            item(key = "i:$group:${item.id}") {
-                                Row(Modifier.fillMaxWidth().clickable { onPick(item.id) }, verticalAlignment = Alignment.CenterVertically) {
-                                    RadioButton(selected = item.id == selected, onClick = { onPick(item.id) })
-                                    Text(item.label, style = MaterialTheme.typography.bodyMedium)
+                        if (groupOpen) subgroups.forEach { (sub, subItems) ->
+                            val subKey = "s:$group/$sub"
+                            val subOpen = sub.isEmpty() || isOpen(subKey, current?.group == group && current.subgroup == sub)
+                            if (sub.isNotEmpty()) {
+                                item(key = subKey) {
+                                    SectionHeader(sub, subItems.size, nested, subOpen, MaterialTheme.typography.labelLarge, Modifier.padding(start = 16.dp)) {
+                                        toggled[subKey] = !subOpen
+                                    }
+                                }
+                            }
+                            if (subOpen) subItems.forEach { item ->
+                                item(key = "i:$group:${item.id}") {
+                                    Row(Modifier.fillMaxWidth().clickable { onPick(item.id) }.padding(start = if (sub.isEmpty()) 0.dp else 24.dp),
+                                        verticalAlignment = Alignment.CenterVertically) {
+                                        RadioButton(selected = item.id == selected, onClick = { onPick(item.id) })
+                                        Text(item.label, style = MaterialTheme.typography.bodyMedium)
+                                    }
                                 }
                             }
                         }
@@ -120,6 +160,28 @@ fun PickerDialog(title: String, selected: String?, items: List<PickerItem>, onDi
         confirmButton = {},
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
+}
+
+/** A [PickerDialog] section title; collapsible ones show an arrow and their item count. */
+@Composable
+private fun SectionHeader(
+    title: String,
+    count: Int,
+    collapsible: Boolean,
+    open: Boolean,
+    style: TextStyle,
+    modifier: Modifier = Modifier,
+    onToggle: () -> Unit,
+) {
+    Row(
+        modifier.fillMaxWidth().clickable(enabled = collapsible, onClick = onToggle).padding(top = 12.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (collapsible)
+            Icon(if (open) Icons.Default.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight, null,
+                tint = MaterialTheme.colorScheme.primary)
+        Text(if (collapsible) "$title ($count)" else title, style = style, color = MaterialTheme.colorScheme.primary)
+    }
 }
 
 /** Numeric text field that commits on "done" or focus loss (so typing does not trigger work). */
