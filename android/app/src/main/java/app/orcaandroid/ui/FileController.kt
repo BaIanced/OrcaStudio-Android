@@ -113,7 +113,7 @@ class FileController(
     }
 
     fun newProject() = store.launch {
-        scene.deleteAll().join()
+        scene.deleteAll()?.join()
         if (store.value.calibration != null) store.applyScene(engine.calibStop())
         store.update { it.copy(projectName = null, projectDirty = false, calibration = null, results = emptyMap(), external = null) }
     }

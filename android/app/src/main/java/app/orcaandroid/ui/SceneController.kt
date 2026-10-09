@@ -10,6 +10,7 @@ import app.orcaandroid.core.Scene
 import app.orcaandroid.core.Vec3
 import app.orcaandroid.core.VolumeType
 import java.io.File
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -138,10 +139,10 @@ class SceneController(private val store: Store, private val presets: PresetContr
     }
 
     /** Deletes every object, as one undo step. */
-    fun deleteAll() {
-        val all = store.value.scene.objects.flatMap { o -> o.instances.map { o.index to it.index } }.ifEmpty { return }
+    fun deleteAll(): Job? {
+        val all = store.value.scene.objects.flatMap { o -> o.instances.map { o.index to it.index } }.ifEmpty { return null }
         store.update { it.copy(selection = null, multiSelection = emptyList(), tool = Tool.None) }
-        store.sceneOp { engine.deleteItems(all) }
+        return store.sceneOp { engine.deleteItems(all) }
     }
 
     /** Opens the cut tool at the middle height of the selected copy. */
