@@ -24,6 +24,7 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -193,17 +194,22 @@ fun NumberField(
     label: String? = null,
     suffix: String? = null,
     decimals: Int = 2,
+    live: Boolean = false,
 ) {
     val formatted = "%.${decimals}f".format(Locale.ROOT, value + 0f)
         .let { if (it.contains('.')) it.trimEnd('0').trimEnd('.') else it }
         .let { if (it == "-0") "0" else it }
-    var text by remember(value) { mutableStateOf(formatted) }
+    var text by remember { mutableStateOf(formatted) }
+    // Follow outside changes of the value, but not the echo of an edit ("0." stays while typing "0.5").
+    LaunchedEffect(value) { if (text.replace(',', '.').toFloatOrNull() != value) text = formatted }
     var focused by remember { mutableStateOf(false) }
     // Only real edits count: the field shows a rounded value, which must not be written back.
     val commit = { if (text != formatted) text.replace(',', '.').toFloatOrNull()?.let { if (it != value) onCommit(it) } }
     OutlinedTextField(
         value = text,
-        onValueChange = { text = it },
+        // live: every valid edit is committed at once, for dialogs whose confirm button reads the
+        // value (a tap on it does not reliably move the focus first).
+        onValueChange = { text = it; if (live) commit() },
         label = label?.let { { Text(it, maxLines = 1) } },
         suffix = suffix?.let { { Text(it) } },
         singleLine = true,
@@ -216,13 +222,16 @@ fun NumberField(
 
 /** Three numeric fields in a row (x / y / z). */
 @Composable
-fun Vec3Fields(label: String, x: Float, y: Float, z: Float, suffix: String, onCommit: (Float, Float, Float) -> Unit, decimals: Int = 2) {
+fun Vec3Fields(
+    label: String, x: Float, y: Float, z: Float, suffix: String, onCommit: (Float, Float, Float) -> Unit,
+    decimals: Int = 2, live: Boolean = false,
+) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(label, style = MaterialTheme.typography.labelMedium)
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            NumberField(x, { onCommit(it, y, z) }, Modifier.weight(1f), "X", suffix, decimals)
-            NumberField(y, { onCommit(x, it, z) }, Modifier.weight(1f), "Y", suffix, decimals)
-            NumberField(z, { onCommit(x, y, it) }, Modifier.weight(1f), "Z", suffix, decimals)
+            NumberField(x, { onCommit(it, y, z) }, Modifier.weight(1f), "X", suffix, decimals, live)
+            NumberField(y, { onCommit(x, it, z) }, Modifier.weight(1f), "Y", suffix, decimals, live)
+            NumberField(z, { onCommit(x, y, it) }, Modifier.weight(1f), "Z", suffix, decimals, live)
         }
     }
 }

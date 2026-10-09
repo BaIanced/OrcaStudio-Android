@@ -246,6 +246,7 @@
     <string name="slice_all">Slice all plates</string>
     <string name="slice_plate">Slice plate</string>
     <string name="slice_plate_n">Slice plate %d</string>
+    <string name="nothing_to_slice">Nothing to slice: add a model to this plate first.</string>
     <string name="slicing">Slicing</string>
     <string name="smooth">Smooth</string>
     <string name="source_code">Source code</string>

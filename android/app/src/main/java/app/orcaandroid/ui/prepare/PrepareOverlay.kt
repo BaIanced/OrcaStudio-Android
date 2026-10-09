@@ -302,7 +302,7 @@ private fun SliceButton(state: UiState, vm: AppViewModel, modifier: Modifier) {
         var menu by remember { mutableStateOf(false) }
         Box(modifier) {
             ExtendedFloatingActionButton(
-                onClick = { if (!state.scene.isEmpty) vm.slicing.slice() },
+                onClick = { vm.slicing.slice() },
                 text = { Text(stringResource(if (state.scene.plates.size > 1) R.string.slice_plate_n else R.string.slice, state.activePlate + 1)) },
                 icon = { Icon(Icons.Default.Layers, null) },
             )

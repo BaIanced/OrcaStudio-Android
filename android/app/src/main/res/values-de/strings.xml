@@ -245,6 +245,7 @@
     <string name="slice_all">Alle Platten slicen</string>
     <string name="slice_plate">Platte slicen</string>
     <string name="slice_plate_n">Platte %d slicen</string>
+    <string name="nothing_to_slice">Nichts zu slicen: zuerst ein Modell auf diese Platte legen.</string>
     <string name="slicing">Slicen</string>
     <string name="smooth">Glätten</string>
     <string name="source_code">Quellcode</string>

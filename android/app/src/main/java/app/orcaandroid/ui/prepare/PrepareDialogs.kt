@@ -111,7 +111,7 @@ private fun PrimitiveDialog(vm: AppViewModel, onDismiss: () -> Unit) {
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             shapes.forEach { (id, label) -> FilterChip(selected = shape == id, onClick = { shape = id }, label = { Text(stringResource(label)) }) }
         }
-        Vec3Fields(stringResource(R.string.size), size.x, size.y, size.z, "mm", { x, y, z -> size = Vec3(x, y, z) })
+        Vec3Fields(stringResource(R.string.size), size.x, size.y, size.z, "mm", { x, y, z -> size = Vec3(x, y, z) }, live = true)
     }
 }
 
@@ -124,8 +124,8 @@ private fun TextDialog(vm: AppViewModel, onDismiss: () -> Unit) {
         onConfirm = { vm.scene.addText(text, height, depth) }, onDismiss = onDismiss) {
         OutlinedTextField(text, { text = it }, label = { Text(stringResource(R.string.text)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            NumberField(height, { height = it }, Modifier.weight(1f), stringResource(R.string.text_height), "mm")
-            NumberField(depth, { depth = it }, Modifier.weight(1f), stringResource(R.string.depth), "mm")
+            NumberField(height, { height = it }, Modifier.weight(1f), stringResource(R.string.text_height), "mm", live = true)
+            NumberField(depth, { depth = it }, Modifier.weight(1f), stringResource(R.string.depth), "mm", live = true)
         }
     }
 }
@@ -141,8 +141,8 @@ private fun SvgDialog(vm: AppViewModel, onDismiss: () -> Unit) {
     DialogFrame(stringResource(R.string.add_svg), stringResource(R.string.add), onConfirm = { vm.scene.addSvg(u, width, depth) }, onDismiss = onDismiss) {
         Text(u.lastPathSegment.orEmpty(), style = MaterialTheme.typography.bodySmall)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            NumberField(width, { width = it }, Modifier.weight(1f), stringResource(R.string.width), "mm")
-            NumberField(depth, { depth = it }, Modifier.weight(1f), stringResource(R.string.depth), "mm")
+            NumberField(width, { width = it }, Modifier.weight(1f), stringResource(R.string.width), "mm", live = true)
+            NumberField(depth, { depth = it }, Modifier.weight(1f), stringResource(R.string.depth), "mm", live = true)
         }
     }
 }
@@ -252,22 +252,22 @@ fun CalibrationDialog(vm: AppViewModel, onDismiss: () -> Unit) {
             }
             else -> {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    NumberField(start, { start = it }, Modifier.weight(1f), stringResource(R.string.from), test.unit, 3)
-                    NumberField(end, { end = it }, Modifier.weight(1f), stringResource(R.string.to), test.unit, 3)
-                    if (test.step > 0f) NumberField(step, { step = it }, Modifier.weight(1f), stringResource(R.string.step), test.unit, 3)
+                    NumberField(start, { start = it }, Modifier.weight(1f), stringResource(R.string.from), test.unit, 3, live = true)
+                    NumberField(end, { end = it }, Modifier.weight(1f), stringResource(R.string.to), test.unit, 3, live = true)
+                    if (test.step > 0f) NumberField(step, { step = it }, Modifier.weight(1f), stringResource(R.string.step), test.unit, 3, live = true)
                 }
                 if (test.id == "input_shaping_freq") {
                     Text(stringResource(R.string.y_axis), style = MaterialTheme.typography.labelMedium)
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        NumberField(freqY.first, { freqY = it to freqY.second }, Modifier.weight(1f), stringResource(R.string.from), "Hz")
-                        NumberField(freqY.second, { freqY = freqY.first to it }, Modifier.weight(1f), stringResource(R.string.to), "Hz")
+                        NumberField(freqY.first, { freqY = it to freqY.second }, Modifier.weight(1f), stringResource(R.string.from), "Hz", live = true)
+                        NumberField(freqY.second, { freqY = freqY.first to it }, Modifier.weight(1f), stringResource(R.string.to), "Hz", live = true)
                     }
-                    NumberField(damping, { damping = it.coerceIn(0f, 0.99f) }, Modifier.fillMaxWidth(), stringResource(R.string.damping), null, 3)
+                    NumberField(damping, { damping = it.coerceIn(0f, 0.99f) }, Modifier.fillMaxWidth(), stringResource(R.string.damping), null, 3, live = true)
                 }
                 if (test.id == "input_shaping_damp") {
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        NumberField(fixedFreq.first, { fixedFreq = it to fixedFreq.second }, Modifier.weight(1f), stringResource(R.string.frequency_x), "Hz")
-                        NumberField(fixedFreq.second, { fixedFreq = fixedFreq.first to it }, Modifier.weight(1f), stringResource(R.string.frequency_y), "Hz")
+                        NumberField(fixedFreq.first, { fixedFreq = it to fixedFreq.second }, Modifier.weight(1f), stringResource(R.string.frequency_x), "Hz", live = true)
+                        NumberField(fixedFreq.second, { fixedFreq = fixedFreq.first to it }, Modifier.weight(1f), stringResource(R.string.frequency_y), "Hz", live = true)
                     }
                 }
                 if (test.id.startsWith("input_shaping") || test.id == "cornering") {
@@ -308,7 +308,7 @@ internal fun LayerGcodeDialog(state: UiState, vm: AppViewModel, plate: Int, init
                 }
                 if (adding) {
                     HorizontalDivider()
-                    NumberField(z, { z = it }, Modifier.fillMaxWidth(), stringResource(R.string.height), "mm")
+                    NumberField(z, { z = it }, Modifier.fillMaxWidth(), stringResource(R.string.height), "mm", live = true)
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         types.forEach { (id, label) -> FilterChip(type == id, { type = id }, label = { Text(stringResource(label)) }) }
                     }
