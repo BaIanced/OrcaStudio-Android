@@ -87,6 +87,10 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                         val (o, d) = v.camera.ray(x, y)
                         vm.scene.paintAt(o, d, v.camera.eye(), newStroke)
                     }
+                    override fun onContextMenu(x: Float, y: Float) {
+                        val (o, d) = v.camera.ray(x, y)
+                        vm.scene.openContextMenu(o, d, x, y)
+                    }
                 }
                 view = v
                 onView(v)

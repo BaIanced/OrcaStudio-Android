@@ -158,6 +158,17 @@ class SceneController(private val store: Store, private val presets: PresetContr
         }
     }
 
+    /** Right click / long press on the 3D view: selects what lies there (or nothing), then opens the menu at (x, y). */
+    fun openContextMenu(origin: Vec3, dir: Vec3, x: Float, y: Float) = store.launch {
+        if (store.value.screen != Screen.PREPARE) return@launch
+        val hit = engine.pick(origin, dir)
+        store.update { st ->
+            st.copy(selection = hit?.let { Selection(it.obj, it.instance) }, tool = if (hit == null) Tool.None else st.tool, contextMenu = x to y)
+        }
+    }
+
+    fun closeContextMenu() = store.update { it.copy(contextMenu = null) }
+
     private val paintLock = Mutex()
     private val pendingPaint = ArrayDeque<Triple<Vec3, Vec3, Boolean>>()
 

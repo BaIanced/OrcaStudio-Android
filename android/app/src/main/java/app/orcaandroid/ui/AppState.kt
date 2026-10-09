@@ -77,6 +77,8 @@ data class UiState(
     val busy: String? = null,
     val error: String? = null,
     val message: String? = null,
+    /** Where the 3D view's context menu is open (view pixels), or null. */
+    val contextMenu: Pair<Float, Float>? = null,
     val screen: Screen = Screen.PREPARE,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val dynamicColor: Boolean = false,

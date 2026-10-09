@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -18,6 +19,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
+import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.FileOpen
+import androidx.compose.material.icons.filled.Interests
+import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesomeMosaic
 import androidx.compose.material.icons.filled.Brush
@@ -57,12 +62,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import app.orcaandroid.R
 import app.orcaandroid.core.VolumeType
 import app.orcaandroid.render.PlateView
 import app.orcaandroid.ui.AppViewModel
 import app.orcaandroid.ui.SliceStatus
+import app.orcaandroid.ui.EditorTarget
 import app.orcaandroid.ui.Tool
 import app.orcaandroid.ui.UiState
 import app.orcaandroid.ui.components.ConfirmDialog
@@ -103,7 +111,54 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
             ToolPanel(state, vm)
         }
         SliceButton(state, vm, Modifier.align(Alignment.BottomEnd))
+        ViewContextMenu(state, vm)
     }
+}
+
+/**
+ * The 3D view's context menu (right click, long press) at the pointer, as on the desktop: object
+ * actions on an object, adding things on the empty bed.
+ */
+@Composable
+private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
+    var dialog by remember { mutableStateOf<String?>(null) }
+    val importModels = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { if (it.isNotEmpty()) vm.files.openModels(it) }
+    val at = state.contextMenu
+    // The overlay is inset by 8 dp from the view whose pixels [at] are in.
+    val inset = with(LocalDensity.current) { 8.dp.roundToPx() }
+    if (at != null) {
+        val close = vm.scene::closeContextMenu
+        Box(Modifier.offset { IntOffset(at.first.toInt() - inset, at.second.toInt() - inset) }) {
+            DropdownMenu(expanded = true, onDismissRequest = close) {
+                val sel = state.selection
+                if (sel != null) {
+                    DropdownMenuItem(text = { Text(stringResource(R.string.duplicate)) }, leadingIcon = { Icon(Icons.Default.ContentCopy, null) },
+                        onClick = { close(); vm.scene.duplicate(1) })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.delete)) }, leadingIcon = { Icon(Icons.Default.Delete, null) },
+                        onClick = { close(); vm.scene.deleteSelected() })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.lay_on_face)) }, leadingIcon = { Icon(Icons.Default.VerticalAlignBottom, null) },
+                        onClick = { close(); vm.scene.setTool(Tool.LayOnFace) })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.add_modifier)) },
+                        onClick = { close(); vm.scene.addVolume(VolumeType.MODIFIER, "box") })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.object_settings_title)) },
+                        onClick = { close(); vm.presets.openEditor(EditorTarget.Object(sel.obj)) })
+                } else {
+                    DropdownMenuItem(text = { Text(stringResource(R.string.import_model)) }, leadingIcon = { Icon(Icons.Default.FileOpen, null) },
+                        onClick = { close(); importModels.launch(arrayOf("*/*")) })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.add_shape)) }, leadingIcon = { Icon(Icons.Default.Interests, null) },
+                        onClick = { close(); dialog = "primitive" })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.add_text)) }, leadingIcon = { Icon(Icons.Default.TextFields, null) },
+                        onClick = { close(); dialog = "text" })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.add_svg)) }, leadingIcon = { Icon(Icons.Default.Category, null) },
+                        onClick = { close(); dialog = "svg" })
+                    if (!state.scene.isEmpty)
+                        DropdownMenuItem(text = { Text(stringResource(R.string.arrange)) }, leadingIcon = { Icon(Icons.Default.AutoAwesomeMosaic, null) },
+                            onClick = { close(); vm.scene.arrange(false) })
+                }
+            }
+        }
+    }
+    AddDialogs(state, vm, dialog) { dialog = null }
 }
 
 @Composable
