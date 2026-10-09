@@ -38,7 +38,8 @@ android {
         minSdk = 29
         targetSdk = 36
         versionCode = 3
-        versionName = "0.1.2"
+        // CI builds carry their run number ("0.1.2-r23", as the APK file name), so About tells test builds apart.
+        versionName = "0.1.2" + providers.environmentVariable("GITHUB_RUN_NUMBER").map { "-r$it" }.getOrElse("")
         // The native core is only built for arm64.
         ndk { abiFilters += "arm64-v8a" }
         buildConfigField("String", "ORCA_VERSION", "\"$orcaVersion\"")
