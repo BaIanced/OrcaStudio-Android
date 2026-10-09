@@ -1,5 +1,8 @@
 package app.orcaandroid.ui.components
 
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -23,6 +26,7 @@ import app.orcaandroid.render.PreviewStyle
 import app.orcaandroid.render.ViewColors
 import app.orcaandroid.ui.AppViewModel
 import app.orcaandroid.ui.Screen
+import app.orcaandroid.ui.Selection
 import app.orcaandroid.ui.Tool
 import app.orcaandroid.ui.UiState
 import kotlinx.coroutines.Dispatchers
@@ -72,14 +76,33 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         selected = scheme.primary.rgb(),
     )
 
+    // The selection rectangle being drawn (Shift/Alt+drag), in view pixels: x0, y0, x1, y1.
+    var rectangle by remember { mutableStateOf<FloatArray?>(null) }
+    val rectangleColor = scheme.primary
+    Box(modifier) {
     AndroidView(
         factory = { ctx ->
             PlateView(ctx).also { v ->
+                PlateView.active = java.lang.ref.WeakReference(v)
                 v.listener = object : PlateListener {
-                    override fun onTap(x: Float, y: Float, additive: Boolean) {
+                    override fun onTap(x: Float, y: Float, additive: Boolean, part: Boolean) {
                         val (o, d) = v.camera.ray(x, y)
-                        vm.scene.onViewTap(o, d, additive)
+                        vm.scene.onViewTap(o, d, additive, part)
                     }
+                    override fun onRectangle(x0: Float, y0: Float, x1: Float, y1: Float, remove: Boolean, done: Boolean) {
+                        rectangle = if (done) null else floatArrayOf(x0, y0, x1, y1)
+                        if (!done) return
+                        // Copies whose bounding box centre falls inside the rectangle, as on the desktop.
+                        val (left, right) = minOf(x0, x1) to maxOf(x0, x1)
+                        val (top, bottom) = minOf(y0, y1) to maxOf(y0, y1)
+                        val inside = vm.state.value.scene.objects.flatMap { o ->
+                            o.instances.filter { inst ->
+                                v.camera.project(inst.min + inst.size * 0.5f)?.let { (px, py) -> px in left..right && py in top..bottom } == true
+                            }.map { Selection(o.index, it.index) }
+                        }
+                        vm.scene.changeSelection(inside, remove)
+                    }
+                    override fun onBrushScroll(steps: Int) = vm.scene.scaleBrush(if (steps > 0) 1.15f else 1 / 1.15f)
                     override fun onMoved(dx: Float, dy: Float) {
                         v.onGl { dragOffset = floatArrayOf(0f, 0f, 0f) }
                         vm.scene.moveSelected(dx, dy)
@@ -97,8 +120,17 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                 onView(v)
             }
         },
-        modifier = modifier,
+        modifier = Modifier.fillMaxSize(),
     )
+    rectangle?.let { r ->
+        Canvas(Modifier.fillMaxSize()) {
+            val topLeft = androidx.compose.ui.geometry.Offset(minOf(r[0], r[2]), minOf(r[1], r[3]))
+            val size = androidx.compose.ui.geometry.Size(kotlin.math.abs(r[2] - r[0]), kotlin.math.abs(r[3] - r[1]))
+            drawRect(rectangleColor.copy(alpha = 0.15f), topLeft, size)
+            drawRect(rectangleColor, topLeft, size, style = androidx.compose.ui.graphics.drawscope.Stroke(2f))
+        }
+    }
+    }
 
     val v = view ?: return
     val setup = state.setup

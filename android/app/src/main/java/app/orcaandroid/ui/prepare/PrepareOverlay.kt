@@ -312,8 +312,7 @@ private fun ToolButtons(state: UiState, vm: AppViewModel) {
             vm.scene.setTool(if (state.tool == Tool.LayOnFace) Tool.None else Tool.LayOnFace)
         }
         ToolButton(Icons.Default.ContentCut, stringResource(R.string.cut), active = state.tool is Tool.Cut) {
-            val inst = state.selectedObject?.instances?.getOrNull(state.selection!!.instance)
-            vm.scene.setTool(if (state.tool is Tool.Cut) Tool.None else Tool.Cut((inst?.let { it.min.z + it.size.z / 2 }) ?: 5f))
+            if (state.tool is Tool.Cut) vm.scene.setTool(Tool.None) else vm.scene.startCut()
         }
         Box {
             ToolButton(Icons.Default.Brush, stringResource(R.string.paint), active = state.tool is Tool.Paint) { paintMenu = true }
