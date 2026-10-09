@@ -58,6 +58,8 @@ internal object Shaders {
             float alpha = 1.0;
             if (part) {
                 vec3 own = type >= 100 ? uFilamentColors[clamp(type - 100, 0, 15)] : uPartColor;
+                // Very dark filaments keep some shading (black would be a flat silhouette).
+                own = max(own, vec3(0.13));
                 base = mix(own, uSelectedColor, vSelected * 0.75);
             }
             else if (type == 1) { base = vec3(0.6, 0.6, 0.6); alpha = 0.45; }

@@ -256,7 +256,8 @@ private fun ObjectsTab(state: UiState, vm: AppViewModel) {
                     }
                     if (o.settings.overrides.isNotEmpty()) Icon(Icons.Default.Tune, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.tertiary)
                 }
-                if (state.selection?.obj == o.index) ObjectDetails(state, vm, o.index)
+                // In select mode the rows stay compact, so taps keep hitting the row they aim at.
+                if (state.selection?.obj == o.index && !state.selectMode) ObjectDetails(state, vm, o.index)
             }
         }
     }
