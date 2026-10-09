@@ -94,6 +94,8 @@
     <string name="flip_upper">Place upper part on cut face</string>
     <string name="flow_linear">Single pass (YOLO)</string>
     <string name="flushing_volumes">Flushing volumes</string>
+    <string name="flush_matrix_text">Purge volume in mm³ when changing from the filament of a row to the filament of a column.</string>
+    <string name="auto_calculate">Auto-calculate from colours</string>
     <string name="from">From</string>
     <string name="gcode_color">Color change</string>
     <string name="gcode_custom">Custom G-code</string>

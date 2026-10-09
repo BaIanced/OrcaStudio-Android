@@ -120,10 +120,12 @@ private fun PresetsTab(state: UiState, vm: AppViewModel) {
         }
         if (colorDialog) ColorDialog(slot.color, { vm.presets.setFilamentColor(i, it) }) { colorDialog = false }
     }
+    var flushDialog by remember { mutableStateOf(false) }
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         OutlinedButton(onClick = vm.presets::addFilament) { Icon(Icons.Default.Add, null); Text(stringResource(R.string.add_filament)) }
-        if (state.filaments.size > 1) TextButton(onClick = vm.scene::autoFlushMatrix) { Text(stringResource(R.string.flushing_volumes)) }
+        if (state.filaments.size > 1) TextButton(onClick = { flushDialog = true }) { Text(stringResource(R.string.flushing_volumes)) }
     }
+    if (flushDialog) FlushDialog(state, vm) { flushDialog = false }
     // Like the desktop's filament sync: take the slots from what the connected Bambu printer has loaded.
     if (state.connection?.type == HostType.BAMBU || state.connection?.type == HostType.BAMBU_SIGNED) {
         OutlinedButton(onClick = vm.presets::syncFilamentsFromPrinter) { Icon(Icons.Default.Sync, null); Text(stringResource(R.string.sync_filaments)) }

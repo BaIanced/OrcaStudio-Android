@@ -93,6 +93,8 @@
     <string name="flip_upper">Oberteil auf Schnittfläche legen</string>
     <string name="flow_linear">Ein Durchgang (YOLO)</string>
     <string name="flushing_volumes">Spülmengen</string>
+    <string name="flush_matrix_text">Spülmenge in mm³ beim Wechsel vom Filament einer Zeile zum Filament einer Spalte.</string>
+    <string name="auto_calculate">Aus den Farben berechnen</string>
     <string name="from">Von</string>
     <string name="gcode_color">Farbwechsel</string>
     <string name="gcode_custom">Eigener G-Code</string>
