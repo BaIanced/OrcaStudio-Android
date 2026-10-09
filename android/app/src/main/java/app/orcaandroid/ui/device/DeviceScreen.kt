@@ -69,9 +69,12 @@ import app.orcaandroid.ui.components.ConfirmDialog
 import app.orcaandroid.ui.components.PickerField
 import app.orcaandroid.ui.components.PickerItem
 import app.orcaandroid.ui.components.formatDuration
+import app.orcaandroid.ui.prepare.SwitchRow
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** Device tab: printer status and job control, plus the printer's own web UI (Mainsail, Fluidd, ...). */
 @Composable
@@ -344,7 +347,7 @@ private fun ConnectionDialog(state: UiState, vm: AppViewModel, onDismiss: () -> 
                 if (type.hasWebUi) OutlinedTextField(webUrl, { webUrl = it }, label = { Text(stringResource(R.string.web_ui_url)) },
                     placeholder = { Text(url) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 if (type == HostType.BAMBU) Text(stringResource(R.string.bambu_lan_hint), style = MaterialTheme.typography.bodySmall)
-                if (type == HostType.BAMBU_SIGNED) ObnCredentialsSection()
+                if (type == HostType.BAMBU_SIGNED) { ObnCredentialsSection(); CloudSection() }
                 if (bambu) BambuAccountSection { p ->
                     // A cloud-bound printer prints only with signed commands; the IP comes from discovery when found.
                     type = HostType.BAMBU_SIGNED
@@ -394,6 +397,27 @@ private fun ConnectionDialog(state: UiState, vm: AppViewModel, onDismiss: () -> 
             }
         },
     )
+}
+
+/**
+ * The user's opt-in to the Bambu cloud for [HostType.BAMBU_SIGNED] (kept in obn.conf, both off by
+ * default): status, prompts and filament sync through the account when the LAN does not reach the
+ * printer, and printing through Bambu's cloud in that case.
+ */
+@Composable
+private fun CloudSection() {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var settings by remember { mutableStateOf<ObnCredentials.CloudSettings?>(null) }
+    LaunchedEffect(Unit) { settings = withContext(Dispatchers.IO) { runCatching { ObnCredentials.cloudSettings(context) }.getOrNull() } }
+    val current = settings ?: return
+    fun save(new: ObnCredentials.CloudSettings) {
+        settings = new
+        scope.launch(Dispatchers.IO) { runCatching { ObnCredentials.setCloudSettings(context, new) } }
+    }
+    Text(stringResource(R.string.bambu_cloud_hint), style = MaterialTheme.typography.bodySmall)
+    SwitchRow(stringResource(R.string.bambu_cloud), current.cloud) { on -> save(current.copy(cloud = on, cloudPrint = on && current.cloudPrint)) }
+    SwitchRow(stringResource(R.string.bambu_cloud_print), current.cloudPrint, enabled = current.cloud) { on -> save(current.copy(cloudPrint = on)) }
 }
 
 /** Import of the user's own slicer credentials for [HostType.BAMBU_SIGNED] (open-bamboo-networking). */

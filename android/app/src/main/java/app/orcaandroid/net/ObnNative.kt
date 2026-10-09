@@ -22,6 +22,7 @@ internal object ObnNative {
     external fun init(dir: String): String
     external fun connect(devId: String, ip: String, accessCode: String): Int
     external fun disconnect()
+    /** To the printer over the LAN session, else through the cloud when obn.conf allows it. */
     external fun send(devId: String, json: String): Int
     /** Certificate exchange with the printer; true once the printer has answered with its own. */
     external fun installCert(devId: String, timeoutMs: Int): Boolean
@@ -30,8 +31,12 @@ internal object ObnNative {
     external fun cancelPrint()
     external fun print(
         devId: String, ip: String, accessCode: String, file: String, projectName: String,
-        plateIndex: Int, useAms: Boolean, amsMapping: String, listener: PrintListener,
+        plateIndex: Int, useAms: Boolean, amsMapping: String, cloud: Boolean, listener: PrintListener,
     ): Int
+    /** Re-reads obn.conf (see ObnCredentials.setCloudSettings). */
+    external fun reloadConfig(): Int
+    /** Connects obn's cloud channel and subscribes to [devId]'s reports; 0 once connected within [timeoutMs]. */
+    external fun cloudConnect(devId: String, timeoutMs: Int): Int
 
     // Bambu account. The HTTP-style calls return {"rc": Int, "http": Int, "body": String}.
     /** Base URL of the Bambu sign-in site, e.g. https://bambulab.com. */

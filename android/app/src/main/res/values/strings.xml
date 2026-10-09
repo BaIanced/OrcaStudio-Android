@@ -351,4 +351,8 @@
     <string name="crash_title">The app closed unexpectedly</string>
     <string name="crash_text">This is the report of the last crash. Copy it and send it along; check it for your printer\'s serial number or IP address first and replace them.</string>
     <string name="copy">Copy</string>
+    <!-- Opt-in use of the Bambu cloud (signed Bambu printers) -->
+    <string name="bambu_cloud_hint">Optional, off by default. Through your Bambu account, status, printer messages and filament sync also work when the printer is not on this network. Cloud printing uploads the print file to Bambu. Turning the cloud off fully applies after restarting the app.</string>
+    <string name="bambu_cloud">Use the Bambu cloud when the printer is not on this network</string>
+    <string name="bambu_cloud_print">Print through the Bambu cloud when the printer is not on this network</string>
 </resources>

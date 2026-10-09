@@ -18,6 +18,10 @@ import org.json.JSONObject
  * obn keeps one LAN session per process, so every ObnHost shares it ([Session]): the device tab's
  * status polls and the print notification no longer disconnect each other, and the session closes
  * when the last host does.
+ *
+ * With the user's opt-in to the Bambu cloud ([ObnCredentials.CloudSettings]), a printer the LAN
+ * does not reach is followed through the account instead: obn's cloud MQTT carries the same
+ * reports and (signed) commands, and printing can go through Bambu's cloud.
  */
 internal class ObnHost(private val c: PrinterConnection) : PrintHost {
     private val host = c.baseUrl().substringAfter("://").substringBefore(':').substringBefore('/')
@@ -30,11 +34,12 @@ internal class ObnHost(private val c: PrinterConnection) : PrintHost {
         var lastError: String? = null
         var users = 0
         var report = BambuReport()
+        /** Connected through the cloud channel rather than the LAN. */
+        var cloud = false
     }
 
     private fun ensureConnected() {
         if (c.serial.isBlank()) throw IOException("Enter the printer's serial number")
-        if (host.isBlank() || c.apiKey.isBlank()) throw IOException("Enter the printer's IP address and access code")
         val ctx = ObnCredentials.appContext()
         ObnCredentials.startAgent(ctx)
         synchronized(Session) {
@@ -42,27 +47,50 @@ internal class ObnHost(private val c: PrinterConnection) : PrintHost {
             drain()
             if (Session.connected && Session.serial == c.serial) return
             if (Session.serial != c.serial) Session.report = BambuReport()
-            // Close a dropped session first: an immediate disconnect clears obn's per-session
-            // certificate latch (see ObnCredentials.writeDefaultConf), so the new one installs again.
-            if (Session.serial != null) ObnNative.disconnect()
-            Session.serial = c.serial
-            Session.connected = false
-            Session.lastError = null
-            val rc = ObnNative.connect(c.serial, host, c.apiKey)
-            if (rc != 0) {
-                // obn logs the reason (TLS setup, MQTT connect error) in obn.log.
-                val reason = ObnCredentials.lastLogLine(ctx, "LanSession", "mqtt connect")?.let { "\n$it" }.orEmpty()
-                throw IOException("Connection to the printer failed (obn $rc)$reason")
-            }
-            // obn connects asynchronously and reports the result as a "connect" event.
-            val deadline = System.currentTimeMillis() + CONNECT_TIMEOUT_MS
-            while (!Session.connected && System.currentTimeMillis() < deadline) {
-                drain()
-                Session.lastError?.let { throw IOException(it) }
-                if (!Session.connected) Thread.sleep(200)
-            }
-            if (!Session.connected) throw IOException("The printer did not answer on $host (MQTT :8883)")
+            val cloud = ObnCredentials.cloudSettings(ctx).cloud
+            val lanError = if (host.isBlank() || c.apiKey.isBlank()) IOException("Enter the printer's IP address and access code")
+            else runCatching { connectLan(ctx, if (cloud) LAN_TRY_MS else CONNECT_TIMEOUT_MS) }.exceptionOrNull()
+            if (lanError == null) return
+            if (!cloud) throw lanError
+            connectCloud(lanError)
         }
+    }
+
+    /** The LAN session (MQTT :8883). Called with [Session] locked. */
+    private fun connectLan(ctx: android.content.Context, timeoutMs: Long) {
+        // Close a dropped session first: an immediate disconnect clears obn's per-session
+        // certificate latch (see ObnCredentials.writeDefaultConf), so the new one installs again.
+        if (Session.serial != null && !Session.cloud) ObnNative.disconnect()
+        Session.serial = c.serial
+        Session.cloud = false
+        Session.connected = false
+        Session.lastError = null
+        val rc = ObnNative.connect(c.serial, host, c.apiKey)
+        if (rc != 0) {
+            // obn logs the reason (TLS setup, MQTT connect error) in obn.log.
+            val reason = ObnCredentials.lastLogLine(ctx, "LanSession", "mqtt connect")?.let { "\n$it" }.orEmpty()
+            throw IOException("Connection to the printer failed (obn $rc)$reason")
+        }
+        // obn connects asynchronously and reports the result as a "connect" event.
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (!Session.connected && System.currentTimeMillis() < deadline) {
+            drain()
+            Session.lastError?.let { throw IOException(it) }
+            if (!Session.connected) Thread.sleep(200)
+        }
+        if (!Session.connected) throw IOException("The printer did not answer on $host (MQTT :8883)")
+    }
+
+    /** The printer through the Bambu account (cloud MQTT), when the LAN failed with [lanError]. Called with [Session] locked. */
+    private fun connectCloud(lanError: Throwable) {
+        if (BambuAccount.userName(ObnCredentials.appContext()) == null)
+            throw IOException("${lanError.message}\nSign in to your Bambu account to reach the printer through the cloud.")
+        val rc = ObnNative.cloudConnect(c.serial, CLOUD_TIMEOUT_MS)
+        if (rc != 0) throw IOException("${lanError.message}\nThe Bambu cloud connection failed too (obn $rc).")
+        Session.serial = c.serial
+        Session.cloud = true
+        Session.connected = true
+        Session.lastError = null
     }
 
     /** Applies queued obn events: connection changes and printer reports. */
@@ -73,7 +101,7 @@ internal class ObnHost(private val c: PrinterConnection) : PrintHost {
                 val e = events.optJSONObject(i) ?: continue
                 if (e.optString("dev").let { it.isNotEmpty() && it != Session.serial }) continue
                 when (e.optString("kind")) {
-                    "connect" -> when (e.optInt("status")) {
+                    "connect" -> if (!Session.cloud) when (e.optInt("status")) {
                         0 -> { Session.connected = true; Session.lastError = null }
                         1 -> { Session.connected = false; Session.lastError = "Printer refused the connection: ${e.optString("text")}" }
                         else -> Session.connected = false
@@ -107,6 +135,8 @@ internal class ObnHost(private val c: PrinterConnection) : PrintHost {
         requireCredentials()
         ensureConnected()
         pushAll()
+        // The certificate exchange is a LAN step; through the cloud obn signs with the account's session.
+        if (Session.cloud) return "Bambu Lab · ${c.serial} · connected through the Bambu cloud (LAN not reachable)"
         val certified = ObnNative.installCert(c.serial, CERT_TIMEOUT_MS)
         return "Bambu Lab · ${c.serial} · " + if (certified) "signed printing ready" else "connected, certificate exchange pending"
     }
@@ -119,13 +149,16 @@ internal class ObnHost(private val c: PrinterConnection) : PrintHost {
         }
         requireCredentials()
         ensureConnected()
-        if (!ObnNative.installCert(c.serial, CERT_TIMEOUT_MS)) {
+        // Opted in to cloud printing: obn's start_print uploads over the LAN when the printer is
+        // reachable there, else through Bambu's cloud. Otherwise the signed LAN print as before.
+        val cloudPrint = ObnCredentials.cloudSettings(ObnCredentials.appContext()).cloudPrint
+        if (!cloudPrint && !ObnNative.installCert(c.serial, CERT_TIMEOUT_MS)) {
             throw IOException("The printer did not complete the certificate exchange; check the slicer credentials")
         }
         var failure: String? = null
         val rc = ObnNative.print(
             c.serial, host, c.apiKey, file.path, remoteName.removeSuffix(".gcode.3mf"),
-            1, false, "",
+            1, false, "", cloudPrint,
         ) { stage, code, message ->
             when (stage) {
                 ObnNative.STAGE_UPLOAD -> onProgress((code.coerceIn(0, 100)) / 100f)
@@ -184,7 +217,8 @@ internal class ObnHost(private val c: PrinterConnection) : PrintHost {
         synchronized(Session) {
             if (!joined) return
             joined = false
-            if (--Session.users == 0 && Session.connected) {
+            // The cloud channel stays subscribed; it is cheap and obn reconnects it itself.
+            if (--Session.users == 0 && Session.connected && !Session.cloud) {
                 ObnNative.disconnect()
                 Session.connected = false
             }
@@ -195,5 +229,8 @@ internal class ObnHost(private val c: PrinterConnection) : PrintHost {
         const val CONNECT_TIMEOUT_MS = 15_000L
         const val CERT_TIMEOUT_MS = 15_000
         const val REPLY_TIMEOUT_MS = 5_000L
+        /** With the cloud as fallback, a printer the LAN does not reach is given up on sooner. */
+        const val LAN_TRY_MS = 6_000L
+        const val CLOUD_TIMEOUT_MS = 15_000
     }
 }

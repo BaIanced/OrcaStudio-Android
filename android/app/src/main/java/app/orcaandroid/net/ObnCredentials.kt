@@ -96,6 +96,40 @@ object ObnCredentials {
         conf.appendText((if (text.isEmpty() || text.endsWith("\n")) "" else "\n") + "mqtt_keep_connection = 0\n")
     }
 
+    /**
+     * The user's opt-in for Bambu's cloud, kept in obn.conf: [cloud] turns block_cloud off (printer
+     * reports, prompts and commands through the account when the LAN does not reach the printer),
+     * [cloudPrint] sets cloud_print = try_lan_first (print over the LAN when possible, else through
+     * Bambu's cloud; obn patch 0002). Both are off unless the user turns them on.
+     */
+    data class CloudSettings(val cloud: Boolean, val cloudPrint: Boolean)
+
+    fun cloudSettings(context: Context): CloudSettings {
+        writeDefaultConf(context)
+        val text = File(dir(context), "obn.conf").readText()
+        fun value(key: String) = Regex("""(?m)^\s*$key\s*=\s*(\S+)""").find(text)?.groupValues?.get(1)?.lowercase()
+        // obn's defaults: block_cloud on; the app writes cloud_print = lan_only.
+        val cloud = value("block_cloud") in setOf("0", "false", "no")
+        return CloudSettings(cloud, cloud && value("cloud_print") in setOf("try_lan_first", "cloud_only"))
+    }
+
+    /** Writes the cloud settings to obn.conf and has a running obn re-read it. */
+    fun setCloudSettings(context: Context, settings: CloudSettings) {
+        writeDefaultConf(context)
+        val conf = File(dir(context), "obn.conf")
+        var text = conf.readText()
+        text = setKey(text, "block_cloud", if (settings.cloud) "0" else "1")
+        text = setKey(text, "cloud_print", if (settings.cloud && settings.cloudPrint) "try_lan_first" else "lan_only")
+        conf.writeText(text)
+        ObnNative.reloadConfig()
+    }
+
+    private fun setKey(text: String, key: String, value: String): String {
+        val line = Regex("""(?m)^\s*$key\s*=.*$""")
+        return if (line.containsMatchIn(text)) line.replace(text) { "$key = $value" }
+        else text + (if (text.isEmpty() || text.endsWith("\n")) "" else "\n") + "$key = $value\n"
+    }
+
     @Volatile private var tlsReady = false
 
     /** Certificates written to cacert.pem by [prepareTls] (shown with cloud errors). */
