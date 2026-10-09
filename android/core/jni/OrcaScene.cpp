@@ -365,8 +365,10 @@ void OrcaEngine::write_mesh()
                 continue;
             const PlateInfo &plate = m_plates[p];
             auto at = [p](const ConfigOptionFloats *o) { return o && !o->values.empty() ? o->values[std::min(p, o->values.size() - 1)] : 0.; };
-            const double x = plate.has_wipe_tower_pos ? plate.wipe_tower_x : at(cfg_x);
-            const double y = plate.has_wipe_tower_pos ? plate.wipe_tower_y : at(cfg_y);
+            // Kept on the bed, as the slicer keeps the real (usually shallower) tower.
+            const std::array<double, 4> bed = bed_rect();
+            const double x = std::clamp(plate.has_wipe_tower_pos ? plate.wipe_tower_x : at(cfg_x), bed[0], std::max(bed[0], bed[2] - width));
+            const double y = std::clamp(plate.has_wipe_tower_pos ? plate.wipe_tower_y : at(cfg_y), bed[1], std::max(bed[1], bed[3] - width));
             const auto origin = plate_origin(int(p));
             TriangleMesh tower = make_cube(width, width, height);
             tower.translate(float(origin[0] + x), float(origin[1] + y), 0.f);
