@@ -99,7 +99,7 @@ fun SettingsEditor(state: UiState, vm: AppViewModel) {
     val target = state.editor ?: return
     androidx.activity.compose.BackHandler(onBack = vm.presets::closeEditor)
     when (target) {
-        is EditorTarget.Preset -> PresetEditor(state, vm, target.type)
+        is EditorTarget.Preset -> PresetEditor(state, vm, target.type, target.pickCompare)
         is EditorTarget.Object -> {
             val o = state.scene.objects.getOrNull(target.obj) ?: run { LaunchedEffect(Unit) { vm.presets.closeEditor() }; return }
             val settings = (if (target.volume >= 0) o.volumes.getOrNull(target.volume)?.settings.orEmpty() else o.settings).overrides
@@ -135,10 +135,10 @@ fun SettingsEditor(state: UiState, vm: AppViewModel) {
 private val TYPE_TITLES = mapOf(PresetType.PRINT to R.string.process, PresetType.FILAMENT to R.string.filament, PresetType.PRINTER to R.string.printer)
 
 @Composable
-private fun PresetEditor(state: UiState, vm: AppViewModel, type: PresetType) {
+private fun PresetEditor(state: UiState, vm: AppViewModel, type: PresetType, pickCompare: Boolean = false) {
     var saveDialog by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
-    var comparePick by remember { mutableStateOf(false) }
+    var comparePick by remember { mutableStateOf(pickCompare) }
     var menu by remember { mutableStateOf(false) }
     val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { it?.let { u -> vm.presets.exportPreset(type, u) } }
     val source = EditSource(

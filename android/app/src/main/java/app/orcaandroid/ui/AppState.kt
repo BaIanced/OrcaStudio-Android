@@ -39,7 +39,8 @@ sealed interface Tool {
 
 /** What the settings editor currently edits. */
 sealed interface EditorTarget {
-    data class Preset(val type: PresetType) : EditorTarget
+    /** [pickCompare]: open with the "compare with" picker showing (More > Compare presets). */
+    data class Preset(val type: PresetType, val pickCompare: Boolean = false) : EditorTarget
     /** Per-object (volume < 0) or per-part/modifier settings. */
     data class Object(val obj: Int, val volume: Int = -1) : EditorTarget
     data class Range(val obj: Int, val range: Int) : EditorTarget
