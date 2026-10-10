@@ -148,6 +148,7 @@ data class Scene(
     val paintVersion: Int = -1,
     val canUndo: Boolean = false,
     val canRedo: Boolean = false,
+    val calibrationActive: Boolean = false,
     val plateWidth: Float = 200f,
     val plateDepth: Float = 200f,
     val plates: List<Plate> = emptyList(),

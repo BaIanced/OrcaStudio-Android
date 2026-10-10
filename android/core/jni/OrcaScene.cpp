@@ -134,8 +134,11 @@ OrcaEngine::Items OrcaEngine::checked_items(Items items) const
 void OrcaEngine::push_undo()
 {
     m_undo.push_back({std::make_shared<Model>(*m_model), m_plates});
-    if (m_undo.size() > MAX_UNDO)
+    if (m_undo.size() > MAX_UNDO) {
         m_undo.pop_front();
+        if (m_calib_undo_depth > 0)
+            --m_calib_undo_depth;
+    }
     m_redo.clear();
 }
 
@@ -466,6 +469,7 @@ json OrcaEngine::scene_json()
             {"mesh_version", m_mesh_version},
             {"can_undo", !m_undo.empty()},
             {"can_redo", !m_redo.empty()},
+            {"calibration_active", m_calib_config != nullptr},
             {"plate_size", {rect[2] - rect[0], rect[3] - rect[1]}},
             {"plates", plates},
             {"objects", objects}};
@@ -951,6 +955,14 @@ json OrcaEngine::undo()
     m_model  = std::make_unique<Model>(*m_undo.back().model);
     m_plates = m_undo.back().plates;
     m_undo.pop_back();
+    // Back before the calibration started: its test settings no longer apply (the desktop starts
+    // a calibration as a new project, so it has no undo across it).
+    if (m_calib_config && m_undo.size() < m_calib_undo_depth) {
+        m_calib.reset();
+        m_calib_config.reset();
+        m_calib_name.clear();
+        m_calib_undo_depth = 0;
+    }
     return commit();
 }
 

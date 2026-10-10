@@ -115,6 +115,8 @@ data class UiState(
     val layerProfile: LayerProfile? = null,
     val calibration: Calibration? = null,
     val projectName: String? = null,
+    /** The project name before a calibration replaced it, restored when Undo leaves the calibration. */
+    val nameBeforeCalibration: String? = null,
     /** Unsaved changes since the project was opened/saved. */
     val projectDirty: Boolean = false,
 

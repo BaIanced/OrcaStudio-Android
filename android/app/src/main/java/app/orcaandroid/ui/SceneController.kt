@@ -211,7 +211,12 @@ class SceneController(private val store: Store, private val presets: PresetContr
     fun setLayerGcodes(plate: Int, items: List<LayerGcode>) = store.sceneOp { engine.setLayerGcodes(plate, items) }
     fun setWipeTower(plate: Int, pos: Pair<Float, Float>?) = store.sceneOp { engine.setWipeTower(plate, pos) }
 
-    fun undo() = store.sceneOp { engine.undo() }
+    fun undo() = store.launch {
+        val scene = engine.undo()
+        store.applyScene(scene)
+        if (store.value.calibration != null && !scene.calibrationActive)
+            store.update { it.copy(calibration = null, projectName = it.nameBeforeCalibration) }
+    }
     fun redo() = store.sceneOp { engine.redo() }
 
     /** Fills the process's flushing matrix from the filament colours (like the desktop's auto-calc). */
@@ -306,7 +311,8 @@ class SceneController(private val store: Store, private val presets: PresetContr
         presets.syncSelection()
         val (scene, calib) = engine.calibStart(type, params)
         store.applyScene(scene)
-        store.update { it.copy(calibration = calib, selection = null, screen = Screen.PREPARE, projectName = calib.name) }
+        store.update { it.copy(calibration = calib, selection = null, screen = Screen.PREPARE, projectName = calib.name,
+            nameBeforeCalibration = if (it.calibration == null) it.projectName else it.nameBeforeCalibration) }
     }
 
     fun stopCalibration() = store.launch {

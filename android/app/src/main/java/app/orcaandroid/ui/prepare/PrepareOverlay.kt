@@ -109,7 +109,11 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
                 ToolButtons(state, vm)
             }
         }
-        Column(Modifier.align(Alignment.BottomStart).padding(start = if (wide) 64.dp else 0.dp, bottom = if (wide) 0.dp else 116.dp)) {
+        // The layer height graph is tall: on wide layouts it sits at the right edge (like the desktop's)
+        // above the Slice button, not over the object in the middle.
+        val rightPanel = wide && state.tool == Tool.LayerHeight
+        Column(if (rightPanel) Modifier.align(Alignment.BottomEnd).padding(bottom = 72.dp)
+               else Modifier.align(Alignment.BottomStart).padding(start = if (wide) 64.dp else 0.dp, bottom = if (wide) 0.dp else 116.dp)) {
             ToolPanel(state, vm)
         }
         SliceButton(state, vm, Modifier.align(Alignment.BottomEnd))
@@ -122,11 +126,13 @@ private val UiState.showSelectionBanner get() = selectMode || multiSelection.isN
 /** While several objects are selected or select mode is on: the count, select all, and leaving select mode. */
 @Composable
 private fun SelectionBanner(state: UiState, vm: AppViewModel) {
-    Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
+    // Full width with the text taking the rest, so the buttons stay put when the count changes.
+    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
         Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             val count = state.selectedItems.size
             Text(if (count == 0) stringResource(R.string.select_mode_hint) else stringResource(R.string.n_selected, count),
-                Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodySmall)
+                Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
             androidx.compose.material3.TextButton(onClick = vm.scene::selectAll) { Text(stringResource(R.string.select_all)) }
             if (state.selectMode) androidx.compose.material3.TextButton(onClick = { vm.scene.setSelectMode(false) }) { Text(stringResource(R.string.done)) }
         }

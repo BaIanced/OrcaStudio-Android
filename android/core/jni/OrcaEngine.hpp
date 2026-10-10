@@ -305,6 +305,8 @@ private:
     std::shared_ptr<Slic3r::Calib_Params>       m_calib;
     std::shared_ptr<Slic3r::DynamicPrintConfig> m_calib_config;
     std::string                                 m_calib_name;
+    // Undo depth right after the calibration's own snapshot: undoing below it leaves the test.
+    size_t                                      m_calib_undo_depth = 0;
     // Adds loaded objects to a plate (centred, arranged) - shared by load_models and add_*.
     json                  place_new_objects(const std::vector<Slic3r::ModelObject *> &objects, int plate);
     // Current selection (set_selection).

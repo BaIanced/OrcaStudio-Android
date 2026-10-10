@@ -242,6 +242,7 @@ class Engine(private val cacheDir: File) {
             paintVersion = o.optInt("paint_version"),
             canUndo = o.optBoolean("can_undo"),
             canRedo = o.optBoolean("can_redo"),
+            calibrationActive = o.optBoolean("calibration_active"),
             plateWidth = size[0],
             plateDepth = size[1],
             plates = o.getJSONArray("plates").let { a -> List(a.length()) { i ->
