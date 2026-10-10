@@ -406,4 +406,10 @@
     <string name="sync_orca_cloud_presets_text">Deine Presets, die OrcaSlicer am Desktop mit Orca Cloud abgleicht</string>
     <string name="syncing_orca_cloud_presets">Presets aus Orca Cloud werden geladen…</string>
     <string name="orca_cloud_presets_synced">%1$d Preset(s) in Orca Cloud; neuere geladen.</string>
+    <string name="upload_orca_cloud_presets">Presets in Orca Cloud hochladen</string>
+    <string name="upload_orca_cloud_presets_text">Neue und geänderte Presets aus dieser App, für OrcaSlicer auf deinen anderen Geräten</string>
+    <string name="uploading_orca_cloud_presets">Presets werden in Orca Cloud hochgeladen…</string>
+    <string name="orca_cloud_presets_uploaded">%1$d Preset(s) in Orca Cloud hochgeladen.</string>
+    <string name="orca_cloud_upload_conflicts">In Orca Cloud neuer, nicht hochgeladen (zuerst Presets aus Orca Cloud laden): %1$s</string>
+    <string name="orca_cloud_sign_in_first">Zuerst bei Orca Cloud anmelden (Mehr &gt; Orca Cloud).</string>
 </resources>

@@ -62,6 +62,14 @@ class Engine(private val cacheDir: File) {
     suspend fun loadCloudPresets(presets: JSONObject): Pair<Int, List<PrinterInfo>> =
         call("loadCloudPresets", args("presets" to presets)).let { it.optInt("count") to parsePrinters(it) }
 
+    /** User presets to upload to the cloud account [userId]: [{type, name, setting_id, sync_info, values}]. */
+    suspend fun cloudUploads(userId: String): org.json.JSONArray = call("cloudUploads", args("userId" to userId)).getJSONArray("presets")
+
+    /** Records an upload: the preset's cloud id, sync state ("" = in sync) and cloud updated_time. */
+    suspend fun markUploaded(type: String, name: String, settingId: String, syncInfo: String, updatedTime: Long) {
+        call("markUploaded", args("type" to type, "name" to name, "settingId" to settingId, "syncInfo" to syncInfo, "updatedTime" to updatedTime))
+    }
+
     /** Installed version of a vendor's profiles, "" if not installed. */
     suspend fun vendorVersion(vendor: String): String = call("vendorVersion", args("vendor" to vendor)).optString("version")
 

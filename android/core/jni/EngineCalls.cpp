@@ -63,6 +63,10 @@ const std::unordered_map<std::string, Handler> &handlers()
          }},
         {"optionStates", [](OrcaEngine &e, const json &) { return e.option_states(); }},
         {"loadCloudPresets", [](OrcaEngine &e, const json &a) { return e.load_cloud_presets(a.at("presets")); }},
+        {"cloudUploads", [](OrcaEngine &e, const json &a) { return json{{"presets", e.cloud_uploads(a.at("userId"))}}; }},
+        {"markUploaded", [](OrcaEngine &e, const json &a) {
+             return e.mark_uploaded(a.at("type"), a.at("name"), a.at("settingId"), a.value("syncInfo", std::string()), a.value("updatedTime", 0LL));
+         }},
         {"vendorVersion", [](OrcaEngine &e, const json &a) { return e.vendor_version(a.at("vendor")); }},
         {"syncFilaments", [](OrcaEngine &e, const json &a) { return e.sync_filaments(a.at("trays"), a.at("filaments")); }},
         // Scene

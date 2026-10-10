@@ -5,6 +5,7 @@ import app.orcaandroid.R
 import app.orcaandroid.core.AppBackup
 import app.orcaandroid.core.FilamentSlot
 import app.orcaandroid.core.OptionDef
+import app.orcaandroid.core.OrcaException
 import app.orcaandroid.core.PresetType
 import app.orcaandroid.core.SettingsGroup
 import app.orcaandroid.core.SettingsPage
@@ -165,6 +166,51 @@ class PresetController(private val store: Store, private val device: DeviceContr
     /** The same for the presets synced to the signed-in Orca Cloud account (pull only). */
     fun syncOrcaCloudPresets() = store.launch(store.str(R.string.syncing_orca_cloud_presets)) {
         loadCloudPresets(R.string.orca_cloud_presets_synced) { app.orcaandroid.net.OrcaCloud.cloudPresets(store.app) }
+    }
+
+    /**
+     * Uploads new and changed user presets to Orca Cloud, like the desktop's sync thread
+     * (GUI_App::sync_preset). An update carries the cloud version it was based on; if the cloud has
+     * a newer one (409) the preset is left as it is and reported. Deletions are never uploaded.
+     */
+    fun uploadOrcaCloudPresets() = store.launch(store.str(R.string.uploading_orca_cloud_presets)) {
+        val user = withContext(Dispatchers.IO) { app.orcaandroid.net.OrcaCloud.user(store.app) }
+            ?: throw OrcaException(store.str(R.string.orca_cloud_sign_in_first))
+        val uploads = engine.cloudUploads(user.id)
+        var done = 0
+        val conflicts = mutableListOf<String>()
+        val failed = mutableListOf<String>()
+        for (i in 0 until uploads.length()) {
+            val p = uploads.getJSONObject(i)
+            val type = p.getString("type")
+            val name = p.getString("name")
+            val settingId = p.optString("setting_id")
+            val values = p.getJSONObject("values")
+            val create = settingId.isEmpty() || p.optString("sync_info") == "create"
+            // The desktop drops a setting_id that is only the parent's (base_id) instead of uploading.
+            if (!create && values.optString("base_id") == settingId) {
+                engine.markUploaded(type, name, "", "", 0)
+                continue
+            }
+            val content = org.json.JSONObject()
+            for (key in values.keys()) if (key != "updated_time") content.put(key, values.get(key))
+            content.put("name", name)
+            val id = if (create) app.orcaandroid.net.OrcaCloud.settingId(name, user.id) else settingId
+            val result = withContext(Dispatchers.IO) {
+                app.orcaandroid.net.OrcaCloud.pushPreset(store.app, id, name, content, if (create) null else values.optString("updated_time"))
+            }
+            when (result.http) {
+                200 -> { engine.markUploaded(type, name, id, "", result.updatedTime); done++ }
+                409 -> conflicts += name
+                413 -> { engine.markUploaded(type, name, settingId, "will_not_sync", 0); failed += "$name (> 1 MB)" }
+                else -> failed += "$name (HTTP ${result.http})"
+            }
+        }
+        store.toast(buildString {
+            append(store.str(R.string.orca_cloud_presets_uploaded, done))
+            if (conflicts.isNotEmpty()) append('\n').append(store.str(R.string.orca_cloud_upload_conflicts, conflicts.joinToString()))
+            if (failed.isNotEmpty()) append("\n✗ ").append(failed.joinToString())
+        })
     }
 
     private suspend fun loadCloudPresets(doneMessage: Int, fetch: () -> org.json.JSONObject) {

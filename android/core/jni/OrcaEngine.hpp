@@ -203,6 +203,10 @@ public:
     // presets: { name: { option or metadata key: serialized value } }, as open-bamboo-networking's
     // get_user_presets returns them. Returns the printers and the setup like import_presets().
     json load_cloud_presets(const json &presets);
+    // Orca Cloud upload: new / changed user presets with their values, and the result of an upload.
+    json cloud_uploads(const std::string &user_id);
+    json mark_uploaded(const std::string &type, const std::string &name, const std::string &setting_id,
+                       const std::string &sync_info, long long updated_time);
     // Version of an installed vendor's profiles, e.g. "02.00.00.55": { "version" } ("" if absent).
     json vendor_version(const std::string &vendor);
     // Picks a filament preset and colour per loaded tray, like the desktop's filament sync.

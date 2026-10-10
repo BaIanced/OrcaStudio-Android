@@ -107,6 +107,7 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
             SectionTitle(stringResource(R.string.orca_cloud))
             OrcaCloudSection()
             Entry(stringResource(R.string.sync_orca_cloud_presets), stringResource(R.string.sync_orca_cloud_presets_text)) { vm.presets.syncOrcaCloudPresets() }
+            Entry(stringResource(R.string.upload_orca_cloud_presets), stringResource(R.string.upload_orca_cloud_presets_text)) { vm.presets.uploadOrcaCloudPresets() }
 
             SectionTitle(stringResource(R.string.backup))
             Entry(stringResource(R.string.backup_export), stringResource(R.string.backup_export_text)) { dialog = "backup_export" }
