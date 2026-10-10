@@ -103,7 +103,7 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel) {
             }
         }
         webChromeClient = object : android.webkit.WebChromeClient() {
-            override fun onProgressChanged(view: WebView, newProgress: Int) { progress = newProgress }
+            override fun onProgressChanged(view: WebView, newProgress: Int) { this@ModelBrowser.progress = newProgress }
         }
         // Plain file downloads (Printables, Thingiverse, MakerWorld's "Download STL/3MF").
         setDownloadListener { url, _, disposition, mime, _ ->
