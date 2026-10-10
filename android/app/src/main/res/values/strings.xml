@@ -392,6 +392,12 @@
     <string name="reload">Reload</string>
     <string name="home">Home</string>
     <string name="models_downloading">Downloading %1$s…</string>
+    <string name="models_full_site">Full site</string>
+    <string name="mw_following">Following</string>
+    <string name="mw_contests">Contests</string>
+    <string name="mw_history">History</string>
+    <string name="mw_collections">Collections</string>
+    <string name="mw_profile">Profile</string>
     <string name="models_bad_link">This link has no model file.</string>
     <string name="models_no_files">The download has no model files.</string>
     <string name="models_sign_in_hint">Sign in to your Bambu account under Device to use MakerWorld signed in.</string>

@@ -35,6 +35,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.remember
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -73,6 +81,15 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel) {
     var canGoForward by mutableStateOf(false)
         private set
     private var started = false
+    private val prefs = context.getSharedPreferences("orca", Context.MODE_PRIVATE)
+    /**
+     * MakerWorld's full site: with the slicer marker in the user agent MakerWorld leaves out its
+     * own header and sidebar (account, Collections, History), as the desktop slicer shows those.
+     * Without it the "Open in Bambu Studio" import is not offered to the app, so this is a switch.
+     */
+    var fullSite by mutableStateOf(prefs.getBoolean(PREF_FULL_SITE, false))
+        private set
+    private var slicerVersion = "02.08.01.99"
     // The WebView's own (Android) user agent; read before any site changes it.
     private val mobileUserAgent by lazy { web.settings.userAgentString }
 
@@ -81,9 +98,19 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel) {
      * The slicer integration is on the desktop site, so MakerWorld gets a desktop Chrome user
      * agent with Bambu Studio's BBL-Slicer suffix, like the desktop's embedded WebView.
      */
-    private fun makerWorldUserAgent(version: String): String {
+    private fun makerWorldUserAgent(): String {
         val chrome = Regex("Chrome/[0-9.]+").find(mobileUserAgent)?.value ?: "Chrome/118.0.0.0"
-        return "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) $chrome Safari/537.36 BBL-Slicer/v$version BBL-Language/en"
+        val desktop = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) $chrome Safari/537.36"
+        return if (fullSite) desktop else "$desktop BBL-Slicer/v$slicerVersion BBL-Language/en"
+    }
+
+    /** Switches MakerWorld between its full site and slicer mode, keeping the current page. */
+    fun toggleFullSite() {
+        fullSite = !fullSite
+        prefs.edit().putBoolean(PREF_FULL_SITE, fullSite).apply()
+        if (site != ModelSite.MAKERWORLD) return
+        web.settings.userAgentString = makerWorldUserAgent()
+        web.reload()
     }
 
     @SuppressLint("SetJavaScriptEnabled", "JavascriptInterface")
@@ -127,6 +154,7 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel) {
             }
             override fun onPageFinished(view: WebView, url: String?) {
                 view.evaluateJavascript(BRIDGE_JS, null)
+                if (site == ModelSite.MAKERWORLD && !fullSite) view.evaluateJavascript(MW_TRIM_JS, null)
                 updateNav()
             }
             override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) {
@@ -174,11 +202,26 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel) {
                 BambuAccount.clientVersion(context) to runCatching { BambuAccount.webTicket(context) }.getOrNull()
             }
             // MakerWorld offers its "open in slicer" hand-over only to Bambu's slicers.
-            web.settings.userAgentString = makerWorldUserAgent(version)
+            slicerVersion = version
+            web.settings.userAgentString = makerWorldUserAgent()
             val host = "https://makerworld.com/"
             web.loadUrl(if (ticket != null) "${host}api/sign-in/ticket?to=${Uri.encode(target.home)}&ticket=$ticket" else target.home)
         }
     }
+
+    /** A MakerWorld page by path ("following", "contests"); slicer mode has no header to reach them. */
+    fun openMakerWorld(path: String) = web.loadUrl("https://makerworld.com/en/$path")
+
+    /**
+     * A page of the signed-in MakerWorld user ("collections", "browsing-history", "" = profile).
+     * The page looks the handle up itself (/api/v1/user-service/my/profile, "name"), with its cookies.
+     */
+    fun openMakerWorldUser(path: String) = web.evaluateJavascript(
+        "fetch('/api/v1/user-service/my/profile').then(function(r){return r.json()}).then(function(j){" +
+            "location.href='/en/@'+encodeURIComponent(j.name)+'${if (path.isEmpty()) "" else "/$path"}'})" +
+            ".catch(function(){location.href='/en'})", null)
+
+    fun searchMakerWorld(query: String) = openMakerWorld("search/models?keyword=" + Uri.encode(query.trim()))
 
     fun back() { if (web.canGoBack()) web.goBack() }
     fun forward() { if (web.canGoForward()) web.goForward() }
@@ -256,8 +299,13 @@ fun ModelsScreen(browser: ModelBrowser) {
                 ModelSite.entries.forEach { s ->
                     FilterChip(selected = browser.site == s, onClick = { browser.open(s) }, label = { Text(s.label) }, modifier = Modifier.padding(horizontal = 3.dp))
                 }
+                if (browser.site == ModelSite.MAKERWORLD) {
+                    FilterChip(selected = browser.fullSite, onClick = browser::toggleFullSite, label = { Text(stringResource(R.string.models_full_site)) },
+                        modifier = Modifier.padding(start = 12.dp, end = 3.dp))
+                }
             }
         }
+        if (browser.site == ModelSite.MAKERWORLD && !browser.fullSite) MakerWorldLinks(browser)
         if (browser.progress < 100) LinearProgressIndicator(progress = { browser.progress / 100f }, modifier = Modifier.fillMaxWidth())
         Box(Modifier.weight(1f).fillMaxWidth()) {
             AndroidView(
@@ -268,8 +316,50 @@ fun ModelsScreen(browser: ModelBrowser) {
     }
 }
 
+/** MakerWorld's header links, which its slicer mode leaves out (the desktop slicer has its own). */
+@Composable
+private fun MakerWorldLinks(browser: ModelBrowser) {
+    var searching by remember { mutableStateOf(false) }
+    var query by remember { mutableStateOf("") }
+    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        IconButton(onClick = { searching = true }) { Icon(Icons.Default.Search, stringResource(R.string.search)) }
+        TextButton(onClick = { browser.openMakerWorld("following") }) { Text(stringResource(R.string.mw_following)) }
+        TextButton(onClick = { browser.openMakerWorld("makerlab") }) { Text("MakerLab") }
+        TextButton(onClick = { browser.openMakerWorld("contests") }) { Text(stringResource(R.string.mw_contests)) }
+        TextButton(onClick = { browser.openMakerWorldUser("browsing-history") }) { Text(stringResource(R.string.mw_history)) }
+        TextButton(onClick = { browser.openMakerWorldUser("collections") }) { Text(stringResource(R.string.mw_collections)) }
+        TextButton(onClick = { browser.openMakerWorldUser("") }) { Text(stringResource(R.string.mw_profile)) }
+    }
+    if (searching) AlertDialog(
+        onDismissRequest = { searching = false },
+        title = { Text(stringResource(R.string.search)) },
+        text = {
+            OutlinedTextField(query, { query = it }, singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { if (query.isNotBlank()) { browser.searchMakerWorld(query); searching = false } }))
+        },
+        confirmButton = { TextButton(onClick = { browser.searchMakerWorld(query); searching = false }, enabled = query.isNotBlank()) { Text(stringResource(R.string.search)) } },
+        dismissButton = { TextButton(onClick = { searching = false }) { Text(stringResource(R.string.cancel)) } },
+    )
+}
+
 private const val TAG = "Models"
 private const val WEB_DEBUG_TAG = "OrcaWeb"
+private const val PREF_FULL_SITE = "makerworld_full_site"
+
+/**
+ * Slicer mode leaves a blank strip where MakerWorld's header would be: the category bar stays
+ * fixed 60px down. Moves it to the top; re-applied when the page re-renders (client-side navigation).
+ */
+private const val MW_TRIM_JS = """(function(){
+  if (window.__orcaTrim) return; window.__orcaTrim = 1;
+  function trim(){ document.querySelectorAll('.global_new').forEach(function(g){
+    var s = getComputedStyle(g); if (s.position === 'fixed' && s.top === '60px') g.style.setProperty('top', '0px', 'important'); }); }
+  var pending = false;
+  new MutationObserver(function(){ if (pending) return; pending = true; requestAnimationFrame(function(){ pending = false; trim(); }); })
+    .observe(document.documentElement, { childList: true, subtree: true });
+  trim();
+})();"""
 
 private const val BRIDGE_JS = """(function(){
   if (window.__orcaBridge) return; window.__orcaBridge = 1;
