@@ -394,4 +394,12 @@
     <string name="models_bad_link">Dieser Link enthält keine Modelldatei.</string>
     <string name="models_no_files">Der Download enthält keine Modelldateien.</string>
     <string name="models_sign_in_hint">Melde dich unter Gerät mit deinem Bambu-Konto an, um MakerWorld angemeldet zu nutzen.</string>
+    <string name="orca_cloud">Orca Cloud</string>
+    <string name="orca_cloud_hint">Mit dem Orca-Cloud-Konto anmelden (nötig für Orca-Plugins und den Profilabgleich).</string>
+    <string name="orca_cloud_signed_in">Orca Cloud: %1$s</string>
+    <string name="orca_cloud_sign_in">Bei Orca Cloud anmelden</string>
+    <string name="orca_cloud_plugins">Abonnierte Plugins</string>
+    <string name="orca_cloud_no_plugins">Dieses Konto hat keine Plugins abonniert.</string>
+    <string name="orca_cloud_browser_hint">Die Anmeldung im Browser abschließen und dann zu dieser App zurückkehren.</string>
+    <string name="orca_cloud_no_loopback">Die Anmeldung im Browser braucht einen freien lokalen Port (41172-41174).</string>
 </resources>
