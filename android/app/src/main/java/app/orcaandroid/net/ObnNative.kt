@@ -52,4 +52,6 @@ internal object ObnNative {
     external fun userPrintInfo(): String
     /** The account's cloud presets for a profile bundle version: {"rc": Int, "presets": {name: {key: value}}}. */
     external fun cloudPresets(bundleVersion: String): String
+    /** A one-time web sign-in ticket for the signed-in account (MakerWorld's api/sign-in/ticket), or "". */
+    external fun webTicket(): String
 }

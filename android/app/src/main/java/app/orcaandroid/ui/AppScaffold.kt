@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material.icons.outlined.Print
+import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.ViewInAr
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomSheetScaffold
@@ -34,6 +35,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -55,6 +57,8 @@ import app.orcaandroid.ui.prepare.PrepareOverlay
 import app.orcaandroid.ui.prepare.PreparePanel
 import app.orcaandroid.ui.preview.PreviewOverlay
 import app.orcaandroid.ui.preview.PreviewPanel
+import app.orcaandroid.ui.models.ModelBrowser
+import app.orcaandroid.ui.models.ModelsScreen
 import app.orcaandroid.ui.settings.MoreScreen
 import app.orcaandroid.ui.settings.PrinterSetupScreen
 import app.orcaandroid.ui.settings.SettingsEditor
@@ -65,6 +69,7 @@ private val DESTINATIONS = listOf(
     Destination(Screen.PREPARE, R.string.tab_prepare, Icons.Outlined.ViewInAr),
     Destination(Screen.PREVIEW, R.string.tab_preview, Icons.Outlined.Layers),
     Destination(Screen.DEVICE, R.string.tab_device, Icons.Outlined.Print),
+    Destination(Screen.MODELS, R.string.tab_models, Icons.Outlined.Public),
     Destination(Screen.MORE, R.string.tab_more, Icons.Outlined.MoreHoriz),
 )
 
@@ -84,6 +89,10 @@ fun AppScaffold(state: UiState, vm: AppViewModel) {
 
 @Composable
 private fun MainLayout(state: UiState, vm: AppViewModel) {
+    // The Models tab's browser outlives the tab, so switching tabs keeps the page and its history.
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val browser = remember { lazy { ModelBrowser(context, vm) } }
+    DisposableEffect(Unit) { onDispose { if (browser.isInitialized()) browser.value.destroy() } }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wide = maxWidth >= WIDE_LAYOUT
         val content: @Composable (Modifier) -> Unit = { m ->
@@ -91,6 +100,7 @@ private fun MainLayout(state: UiState, vm: AppViewModel) {
                 when (state.screen) {
                     Screen.PREPARE, Screen.PREVIEW -> Workspace(state, vm, wide)
                     Screen.DEVICE -> DeviceScreen(state, vm)
+                    Screen.MODELS -> ModelsScreen(browser.value)
                     Screen.MORE -> MoreScreen(state, vm)
                 }
             }

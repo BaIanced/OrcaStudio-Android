@@ -6,6 +6,7 @@ import app.orcaandroid.R
 import app.orcaandroid.core.FilamentSlot
 import app.orcaandroid.core.PresetType
 import app.orcaandroid.core.RecentFile
+import app.orcaandroid.net.ModelDownloads
 import java.io.File
 import java.util.zip.ZipFile
 import org.json.JSONObject
@@ -41,6 +42,16 @@ class FileController(
         store.applyScene(s)
         uris.forEachIndexed { i, u -> rememberRecent(u, files[i].name, false) }
         store.update { it.copy(selection = Selection(s.objects.lastIndex), multiSelection = emptyList(), screen = Screen.PREPARE) }
+    }
+
+    /**
+     * Opens a file a model site hands over: [fetch] downloads or saves it (off the main thread);
+     * a zip opens the model files inside it.
+     */
+    fun openDownloaded(busy: String, fetch: () -> File) = store.launch(busy) {
+        val files = withContext(Dispatchers.IO) { ModelDownloads.modelFiles(fetch()) }
+        if (files.isEmpty()) store.toast(store.str(R.string.models_no_files))
+        else openModels(files.map { Uri.fromFile(it) })
     }
 
     /** 3MF files with a desktop project config are opened as projects (with plates and settings). */

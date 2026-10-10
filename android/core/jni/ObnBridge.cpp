@@ -50,6 +50,8 @@ bool bambu_network_is_user_login(void *agent);
 std::string bambu_network_get_user_name(void *agent);
 int bambu_network_user_logout(void *agent, bool request);
 int bambu_network_get_user_print_info(void *agent, unsigned int *http_code, std::string *http_body);
+// Web single sign-on ticket (MakerWorld), as the desktop MakerWorld tab uses it.
+int bambu_network_request_bind_ticket(void *agent, std::string *ticket);
 // Cloud user presets, as the desktop's preset sync uses them.
 int bambu_network_get_setting_list(void *agent, std::string bundle_version, BBL::ProgressFn pro_fn, BBL::WasCancelledFn cancel_fn);
 int bambu_network_get_user_presets(void *agent, std::map<std::string, std::map<std::string, std::string>> *user_presets);
@@ -395,6 +397,16 @@ JNIEXPORT jstring JNICALL Java_app_orcaandroid_net_ObnNative_userPrintInfo(JNIEn
     std::string body;
     const int rc = agent ? bambu_network_get_user_print_info(agent, &http, &body) : BAMBU_NETWORK_ERR_INVALID_HANDLE;
     return http_result(env, rc, http, body);
+}
+
+// One-time web sign-in ticket for the signed-in account (obn request_bind_ticket), exchanged by
+// MakerWorld at <host>api/sign-in/ticket like the desktop's MakerWorld tab does. "" on failure.
+JNIEXPORT jstring JNICALL Java_app_orcaandroid_net_ObnNative_webTicket(JNIEnv *env, jobject)
+{
+    void *agent = current_agent();
+    std::string ticket;
+    if (!agent || bambu_network_request_bind_ticket(agent, &ticket) != 0) ticket.clear();
+    return env->NewStringUTF(ticket.c_str());
 }
 
 // Downloads the account's cloud presets for profile bundle `version` (get_setting_list, then

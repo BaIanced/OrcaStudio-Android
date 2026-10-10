@@ -387,4 +387,12 @@
     <string name="passphrase">Passphrase</string>
     <string name="passphrase_repeat">Repeat passphrase</string>
     <string name="passphrase_min">At least %1$d characters</string>
+    <string name="tab_models">Models</string>
+    <string name="forward">Forward</string>
+    <string name="reload">Reload</string>
+    <string name="home">Home</string>
+    <string name="models_downloading">Downloading %1$s…</string>
+    <string name="models_bad_link">This link has no model file.</string>
+    <string name="models_no_files">The download has no model files.</string>
+    <string name="models_sign_in_hint">Sign in to your Bambu account under Device to use MakerWorld signed in.</string>
 </resources>

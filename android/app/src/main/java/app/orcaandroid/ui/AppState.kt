@@ -22,7 +22,7 @@ import app.orcaandroid.net.PrinterStatus
 enum class Phase { LOADING, SETUP, READY }
 
 /** Top-level destinations, like the desktop's Prepare / Preview / Device tabs. */
-enum class Screen { PREPARE, PREVIEW, DEVICE, MORE }
+enum class Screen { PREPARE, PREVIEW, DEVICE, MODELS, MORE }
 
 /** The object (and optionally one of its parts) the user works on. */
 data class Selection(val obj: Int, val instance: Int = 0, val volume: Int = -1)
