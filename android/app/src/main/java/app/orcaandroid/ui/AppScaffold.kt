@@ -93,6 +93,13 @@ private fun MainLayout(state: UiState, vm: AppViewModel) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val browser = remember { lazy { ModelBrowser(context, vm) } }
     DisposableEffect(Unit) { onDispose { if (browser.isInitialized()) browser.value.destroy() } }
+    // Back leads home: other tabs return to Prepare, and Prepare drops the tool and selection
+    // first (as Esc does). Screens composed below (the Models browser) take back before this.
+    val clearable = state.screen == Screen.PREPARE && (state.tool != Tool.None || state.selectedItems.isNotEmpty() || state.selectMode)
+    androidx.activity.compose.BackHandler(enabled = state.screen != Screen.PREPARE || clearable) {
+        if (state.screen != Screen.PREPARE) vm.setScreen(Screen.PREPARE)
+        else { vm.scene.setTool(Tool.None); vm.scene.select(null); vm.scene.setSelectMode(false) }
+    }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wide = maxWidth >= WIDE_LAYOUT
         val content: @Composable (Modifier) -> Unit = { m ->

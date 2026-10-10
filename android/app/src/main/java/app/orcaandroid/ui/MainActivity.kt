@@ -153,6 +153,16 @@ class MainActivity : ComponentActivity() {
         return true
     }
 
+    /**
+     * A mouse's back button arrives as Back. With nothing in the app left to go back to, Android
+     * would put the app in the background, which a desktop user doesn't expect from a mouse click.
+     */
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (event.keyCode == KeyEvent.KEYCODE_BACK && event.isFromSource(android.view.InputDevice.SOURCE_MOUSE) &&
+            !onBackPressedDispatcher.hasEnabledCallbacks()) return true
+        return super.dispatchKeyEvent(event)
+    }
+
     // Keys nothing else used (no text field or button took them).
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean = viewKey(keyCode, event) || super.onKeyDown(keyCode, event)
 
