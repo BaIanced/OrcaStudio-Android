@@ -43,9 +43,15 @@ object ModelDownloads {
         CookieManager.getInstance().getCookie(url)?.let { c.setRequestProperty("Cookie", it) }
         try {
             if (c.responseCode !in 200..299) throw IllegalStateException("HTTP ${c.responseCode}")
-            val file = target(context, name.ifBlank { fileNameOf(c) ?: Uri.parse(url).lastPathSegment.orEmpty() })
+            // The first name with a model or zip extension: the page's, the server's, the URL's.
+            // A guessed name (WebView makes "x.bin" of application/octet-stream) gets one from the content.
+            val candidates = listOfNotNull(name.ifBlank { null }, fileNameOf(c), Uri.parse(url).lastPathSegment)
+            val known = candidates.firstOrNull { hasKnownExtension(it) }
+            val file = target(context, known ?: candidates.firstOrNull().orEmpty())
             c.inputStream.use { input -> file.outputStream().use { input.copyTo(it) } }
-            return file
+            if (known != null) return file
+            val sniffed = File(file.parentFile, file.nameWithoutExtension + "." + sniffExtension(file))
+            return if (!sniffed.exists() && file.renameTo(sniffed)) sniffed else file
         } finally {
             c.disconnect()
         }
@@ -74,6 +80,20 @@ object ModelDownloads {
             }
         }
         return out
+    }
+
+    private fun hasKnownExtension(name: String) = name.substringAfterLast('.', "").lowercase().let { it in MODEL_EXTENSIONS || it == "zip" }
+
+    /** The model type of a downloaded file from its content: 3MF / zip, ASCII or binary STL, OBJ. */
+    private fun sniffExtension(file: File): String {
+        val head = file.inputStream().use { input -> ByteArray(512).let { it.copyOf(input.read(it).coerceAtLeast(0)) } }
+        val text = String(head, Charsets.ISO_8859_1)
+        return when {
+            text.startsWith("PK") -> if (runCatching { java.util.zip.ZipFile(file).use { it.getEntry("3D/3dmodel.model") != null } }.getOrDefault(false)) "3mf" else "zip"
+            text.trimStart().startsWith("solid") && text.contains("facet") -> "stl"
+            Regex("(?m)^\\s*(v|vn|vt|f|o|g|mtllib) ").containsMatchIn(text) -> "obj"
+            else -> "stl" // binary STL: 80-byte header, triangle count, 50 bytes per triangle
+        }
     }
 
     private fun fileNameOf(c: HttpURLConnection): String? =
