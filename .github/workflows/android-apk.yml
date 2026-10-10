@@ -14,6 +14,11 @@ name: Android APK
 
 on:
   workflow_dispatch:
+    inputs:
+      deps_artifact:
+        description: Also upload the Android deps prefix as an artifact (for local native builds)
+        type: boolean
+        default: false
   push:
     branches: [main]
     paths:
@@ -158,6 +163,14 @@ jobs:
         with:
           path: ${{ env.BUILD_ROOT }}/deps/OrcaSlicer_dep
           key: ${{ steps.depskey.outputs.key }}
+
+      - name: Upload Android deps (on request)
+        if: inputs.deps_artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-deps-${{ steps.depskey.outputs.key }}
+          path: ${{ env.BUILD_ROOT }}/deps/OrcaSlicer_dep/usr/local
+          retention-days: 3
 
       # liborca_jni.so depends only on these inputs; a build that changes none of them (app code,
       # resources) reuses the last one instead of a ~20 minute native build.
