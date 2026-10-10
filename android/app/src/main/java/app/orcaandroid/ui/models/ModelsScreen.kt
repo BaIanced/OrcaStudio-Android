@@ -73,11 +73,28 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel) {
     var canGoForward by mutableStateOf(false)
         private set
     private var started = false
+    // The WebView's own (Android) user agent; read before any site changes it.
+    private val mobileUserAgent by lazy { web.settings.userAgentString }
+
+    /**
+     * MakerWorld serves its phone site (with the Bambu Handy hand-over) to an Android user agent.
+     * The slicer integration is on the desktop site, so MakerWorld gets a desktop Chrome user
+     * agent with Bambu Studio's BBL-Slicer suffix, like the desktop's embedded WebView.
+     */
+    private fun makerWorldUserAgent(version: String): String {
+        val chrome = Regex("Chrome/[\d.]+").find(mobileUserAgent)?.value ?: "Chrome/118.0.0.0"
+        return "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) $chrome Safari/537.36 BBL-Slicer/v$version BBL-Language/en"
+    }
 
     @SuppressLint("SetJavaScriptEnabled", "JavascriptInterface")
-    val web: WebView = WebView(context).apply {
+    val web: WebView = WebView(context.also {
+        // `adb shell setprop log.tag.OrcaWeb DEBUG` (then restart) makes the pages inspectable (chrome://inspect).
+        if (Log.isLoggable(WEB_DEBUG_TAG, Log.DEBUG)) WebView.setWebContentsDebuggingEnabled(true)
+    }).apply {
         settings.javaScriptEnabled = true
         settings.domStorageEnabled = true
+        // Model pages open in window.open() / target=_blank; without multiple windows they load here.
+        settings.javaScriptCanOpenWindowsAutomatically = true
         settings.loadWithOverviewMode = true
         settings.useWideViewPort = true
         android.webkit.CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
@@ -126,6 +143,7 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel) {
     fun open(target: ModelSite) {
         site = target
         if (target != ModelSite.MAKERWORLD) {
+            web.settings.userAgentString = mobileUserAgent
             web.loadUrl(target.home)
             return
         }
@@ -134,8 +152,7 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel) {
                 BambuAccount.clientVersion(context) to runCatching { BambuAccount.webTicket(context) }.getOrNull()
             }
             // MakerWorld offers its "open in slicer" hand-over only to Bambu's slicers.
-            val ua = web.settings.userAgentString
-            if (!ua.contains("BBL-Slicer")) web.settings.userAgentString = "$ua BBL-Slicer/v$version BBL-Language/en"
+            web.settings.userAgentString = makerWorldUserAgent(version)
             val host = "https://makerworld.com/"
             web.loadUrl(if (ticket != null) "${host}api/sign-in/ticket?to=${Uri.encode(target.home)}&ticket=$ticket" else target.home)
         }
@@ -230,6 +247,7 @@ fun ModelsScreen(browser: ModelBrowser) {
 }
 
 private const val TAG = "Models"
+private const val WEB_DEBUG_TAG = "OrcaWeb"
 
 private const val BRIDGE_JS = """(function(){
   if (window.__orcaBridge) return; window.__orcaBridge = 1;
