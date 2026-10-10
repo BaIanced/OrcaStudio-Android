@@ -91,6 +91,8 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel) {
         // `adb shell setprop log.tag.OrcaWeb DEBUG` (then restart) makes the pages inspectable (chrome://inspect).
         if (Log.isLoggable(WEB_DEBUG_TAG, Log.DEBUG)) WebView.setWebContentsDebuggingEnabled(true)
     }).apply {
+        // AndroidView's default WRAP_CONTENT makes WebView lay pages out with height 0 (CSS 100vh = 0).
+        layoutParams = android.view.ViewGroup.LayoutParams(android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.MATCH_PARENT)
         settings.javaScriptEnabled = true
         settings.domStorageEnabled = true
         // Model pages open in window.open() / target=_blank; without multiple windows they load here.
@@ -117,6 +119,17 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel) {
             override fun onPageFinished(view: WebView, url: String?) {
                 view.evaluateJavascript(BRIDGE_JS, null)
                 updateNav()
+            }
+            override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) {
+                updateNav()
+                // MakerWorld's home cards only add ?modelid=<id> to the address, for a model pop-up
+                // that never shows here. Open the model page instead, as the desktop does
+                // (WebViewPanel::get_model_mall_detail_url: <host><lang>/models/<id>).
+                val u = url?.let(Uri::parse) ?: return
+                val id = u.getQueryParameter("modelid")?.takeIf { it.all(Char::isDigit) } ?: return
+                if (site != ModelSite.MAKERWORLD || u.host?.endsWith("makerworld.com") != true) return
+                val lang = u.pathSegments.firstOrNull()?.takeIf { it.length in 2..5 } ?: "en"
+                view.loadUrl("https://${u.host}/$lang/models/$id")
             }
         }
         webChromeClient = object : android.webkit.WebChromeClient() {

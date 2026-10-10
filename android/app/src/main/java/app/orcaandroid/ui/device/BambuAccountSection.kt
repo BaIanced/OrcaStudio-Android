@@ -190,6 +190,8 @@ private fun BambuLoginDialog(onClose: (error: String?) -> Unit, onLogin: (login:
                     AndroidView(
                         factory = { ctx ->
                             WebView(ctx).apply {
+                                // AndroidView's default WRAP_CONTENT makes WebView lay pages out with height 0 (CSS 100vh = 0).
+                                layoutParams = android.view.ViewGroup.LayoutParams(android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.MATCH_PARENT)
                                 settings.javaScriptEnabled = true
                                 settings.domStorageEnabled = true
                                 addJavascriptInterface(bridge, "orcaNative")

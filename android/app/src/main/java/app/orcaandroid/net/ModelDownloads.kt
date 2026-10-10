@@ -81,7 +81,8 @@ object ModelDownloads {
 
     /** A new file in the download folder; the name is reduced to a plain, unused file name. */
     private fun target(context: Context, name: String): File {
-        val dir = File(context.cacheDir, "models").apply { mkdirs() }
+        // Not "models": the import copies files there by name, and a copy onto itself truncates the file.
+        val dir = File(context.cacheDir, "downloads").apply { mkdirs() }
         val clean = safeName(name).ifEmpty { "model.3mf" }
         var file = File(dir, clean)
         var i = 1
@@ -90,5 +91,5 @@ object ModelDownloads {
     }
 
     private fun safeName(name: String) =
-        name.substringAfterLast('/').replace(Regex("[^A-Za-z0-9 ._()-]"), "_").trim('.', ' ').take(120)
+        name.substringAfterLast('/').replace(Regex("[^\\p{L}\\p{N} ._()-]"), "_").trim('.', ' ').take(120)
 }
