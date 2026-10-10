@@ -134,9 +134,14 @@ add_library(orca_jni SHARED
     jni/OptionToggles.hpp ${_toggles_out}
     ${_color_out}
     jni/nanosvg_impl.cpp
-    jni/ObnBridge.cpp)
+    jni/ObnBridge.cpp
+    jni/OrcaPlugins.cpp)
 target_include_directories(orca_jni PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/jni)
 target_link_libraries(orca_jni PRIVATE libslic3r boost_libs log android)
+
+# Orca plugins (embedded CPython + OrcaSlicer's plugin host).
+include(${CMAKE_CURRENT_LIST_DIR}/plugins.cmake)
+target_link_libraries(orca_jni PRIVATE orca_plugins)
 
 # Signed Bambu Lab LAN printing (open-bamboo-networking, statically linked).
 include(${CMAKE_CURRENT_LIST_DIR}/../obn/obn.cmake)

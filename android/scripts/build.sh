@@ -16,6 +16,10 @@ if [ ! -f "$root/deps/OrcaSlicer_dep/usr/local/lib/libopenvdb.a" ]; then
     cmake --build "$root/deps" --target deps -- -j4
 fi
 
+# CPython for the plugin runtime: headers/libpython for the core, its libraries for jniLibs and
+# the standard library for the app assets (cheap after the first download).
+python3 "$here/scripts/stage_python.py" "$root"
+
 # ORCA_CORE_PREBUILT=1: CI restored liborca_jni.so for unchanged native sources; skip the core.
 if [ "${ORCA_CORE_PREBUILT:-0}" = 1 ] && [ -f "$root/jniLibs/arm64-v8a/liborca_jni.so" ]; then
     echo "Native core unchanged: using the cached liborca_jni.so"

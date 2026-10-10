@@ -7,6 +7,7 @@ import app.orcaandroid.core.FilamentSlot
 import app.orcaandroid.core.PresetType
 import app.orcaandroid.core.RecentFile
 import app.orcaandroid.net.ModelDownloads
+import app.orcaandroid.plugins.Plugins
 import java.io.File
 import java.util.zip.ZipFile
 import org.json.JSONObject
@@ -155,9 +156,24 @@ class FileController(
     }
 
     fun saveGcode(target: Uri) = store.launch(store.str(R.string.saving)) {
-        val r = store.value.shownResult ?: return@launch
-        copyTo(File(r.gcodeFile), target)
+        val file = exportedGcode("File") ?: return@launch
+        copyTo(file, target)
         store.toast(store.str(R.string.saved))
+    }
+
+    /**
+     * The shown G-code as it leaves the app: a working copy with the G-code step of the
+     * slicing-pipeline plugins applied, as the desktop's PostProcessor does on each export and
+     * upload. [host] is "File" for files, else the printer type. Null without a result.
+     */
+    suspend fun exportedGcode(host: String, outputName: String = gcodeFileName()): File? {
+        val s = store.value
+        val r = s.shownResult ?: return null
+        if (r.external) return File(r.gcodeFile)
+        val copy = File(outDir, "export.gcode")
+        withContext(Dispatchers.IO) { File(r.gcodeFile).copyTo(copy, overwrite = true) }
+        Plugins.postProcess(s.previewPlate, copy, host, outputName).forEach { store.toast(it) }
+        return copy
     }
 
     /** Saves the preview plate as a sliced-plate archive (.gcode.3mf, as Bambu printers and the desktop use). */
@@ -168,10 +184,10 @@ class FileController(
     }
 
     /** Writes the shown slice result as .gcode.3mf into the cache; null without a result. */
-    suspend fun exportGcode3mf(): File? {
-        val s = store.value
-        val r = s.shownResult ?: return null
-        return File(outDir, "export.gcode.3mf").also { engine.exportGcode3mf(s.previewPlate, r.gcodeFile, it.path) }
+    suspend fun exportGcode3mf(host: String = "File"): File? {
+        val plate = store.value.previewPlate
+        val gcode = exportedGcode(host, gcodeFileName().removeSuffix(".gcode") + ".gcode.3mf") ?: return null
+        return File(outDir, "export.gcode.3mf").also { engine.exportGcode3mf(plate, gcode.path, it.path) }
     }
 
     fun openRecent(recent: RecentFile) {

@@ -154,10 +154,11 @@ object OrcaCloud {
     }
 
     /**
-     * Downloads a subscribed plugin's package into `files/plugins/<id>/` (get_plugin_download_url +
+     * Downloads a subscribed plugin's package to the cache (get_plugin_download_url +
      * CloudPluginService::download_cloud_plugin): `POST /api/v1/plugins/download?os=linux&arch=arm64`
      * returns a download link; the body is a wheel when it starts with "PK", else a single .py file.
-     * Returns the saved file. Native wheels for other platforms are not usable on Android.
+     * Returns the file for [app.orcaandroid.plugins.Plugins.install]. Wheels with native code for
+     * other platforms are not usable on Android.
      */
     fun downloadPlugin(context: Context, plugin: Plugin): File {
         val request = JSONObject().put("data", JSONArray().put(JSONObject().put("plugin_id", plugin.id)))
@@ -180,16 +181,11 @@ object OrcaCloud {
         }
         if (body.isEmpty()) throw IOException("Plugin download returned empty data")
         val wheel = body.size >= 4 && body[0] == 'P'.code.toByte() && body[1] == 'K'.code.toByte() && body[2] == 3.toByte() && body[3] == 4.toByte()
-        val dir = pluginDir(context, plugin.id).apply { deleteRecursively(); mkdirs() }
-        val file = File(dir, if (wheel) "plugin.whl" else "plugin.py")
+        val dir = File(context.cacheDir, "plugin-downloads").apply { mkdirs() }
+        val file = File(dir, plugin.id.filter { it.isLetterOrDigit() || it == '-' } + if (wheel) ".whl" else ".py")
         file.writeBytes(body)
-        File(dir, "cloud.json").writeText(JSONObject().put("id", plugin.id).put("name", plugin.name).put("version", plugin.version)
-            .put("author", plugin.author).put("types", JSONArray(plugin.types)).toString())
         return file
     }
-
-    /** Where a cloud plugin is installed. */
-    fun pluginDir(context: Context, id: String) = File(context.filesDir, "plugins/" + id.filter { it.isLetterOrDigit() || it == '-' })
 
     /**
      * All presets synced to this account, as { name: { key: value } } like the desktop's

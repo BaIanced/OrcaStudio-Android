@@ -171,10 +171,12 @@ private fun Actions(state: UiState, vm: AppViewModel, r: SliceResult) {
             val name = vm.files.gcodeFileName()
             shareScope.launch {
                 // Receivers show the file's own name, so share a copy named like "Save G-code" would.
+                val exported = runCatching { vm.files.exportedGcode("File", name) }
+                    .onFailure { vm.showError(it.message ?: it.toString()) }.getOrNull() ?: return@launch
                 val file = withContext(Dispatchers.IO) {
                     File(context.cacheDir, "out/share").let { dir ->
                         dir.deleteRecursively(); dir.mkdirs()
-                        File(r.gcodeFile).copyTo(File(dir, name), overwrite = true)
+                        exported.copyTo(File(dir, name), overwrite = true)
                     }
                 }
                 val uri = FileProvider.getUriForFile(context, context.packageName + ".files", file)

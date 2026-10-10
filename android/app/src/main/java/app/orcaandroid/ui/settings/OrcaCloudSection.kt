@@ -26,6 +26,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -43,12 +44,14 @@ import androidx.compose.ui.window.DialogProperties
 import app.orcaandroid.R
 import app.orcaandroid.net.OrcaCloud
 import app.orcaandroid.net.OrcaCloudLoopback
+import app.orcaandroid.plugins.Plugins
 import app.orcaandroid.ui.device.LoginJsBridge
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import java.io.File
 
 /** Orca Cloud account (More screen): sign in / out, and the plugins the account subscribed to. */
 @Composable
@@ -60,6 +63,9 @@ internal fun OrcaCloudSection() {
     var message by remember { mutableStateOf<String?>(null) }
     var showLogin by remember { mutableStateOf(false) }
     var plugins by remember { mutableStateOf<List<OrcaCloud.Plugin>?>(null) }
+    val installed by Plugins.plugins.collectAsState()
+    val runtimeError by Plugins.status.collectAsState()
+    var openPage by remember { mutableStateOf<Pair<String, String>?>(null) }
 
     LaunchedEffect(Unit) {
         user = onIo { OrcaCloud.user(context) }.getOrNull()
@@ -106,6 +112,22 @@ internal fun OrcaCloudSection() {
         if (busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
     }
     message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+    runtimeError?.let { Text("✗ $it", style = MaterialTheme.typography.bodySmall) }
+    // Installed plugins and their pages (Pages capabilities).
+    installed.forEach { p ->
+        Column(Modifier.fillMaxWidth().padding(top = 4.dp)) {
+            Text(p.name + if (p.version.isNotEmpty()) " ${p.version}" else "", style = MaterialTheme.typography.bodyMedium)
+            if (p.error.isNotEmpty()) Text("✗ ${p.error}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                p.capabilities.filter { it.type == "pages" && it.enabled }.forEach { c ->
+                    OutlinedButton(onClick = { openPage = p.key to c.name }) { Text(c.name) }
+                }
+            }
+            val others = p.capabilities.filter { it.type != "pages" }.joinToString(", ") { "${it.name} (${it.type})" }
+            if (others.isNotEmpty()) Text(others, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+    openPage?.let { (key, cap) -> PluginPageDialog(key, cap) { openPage = null } }
 
     if (showLogin) OrcaCloudLoginDialog(
         onClose = { error ->
@@ -123,7 +145,9 @@ internal fun OrcaCloudSection() {
                 else LazyColumn(Modifier.heightIn(max = 420.dp)) {
                     items(list, key = { it.id }) { p ->
                         var status by remember(p.id) {
-                            mutableStateOf(OrcaCloud.pluginDir(context, p.id).list()?.firstOrNull { it.startsWith("plugin.") })
+                            mutableStateOf(installed.firstOrNull { it.cloudUuid == p.id }?.let { i ->
+                                context.getString(R.string.orca_cloud_plugin_installed, i.version)
+                            })
                         }
                         var installing by remember(p.id) { mutableStateOf(false) }
                         Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -137,8 +161,13 @@ internal fun OrcaCloudSection() {
                             else TextButton(onClick = {
                                 installing = true
                                 scope.launch {
-                                    status = onIo { OrcaCloud.downloadPlugin(context, p) }
-                                        .fold({ "✓ " + context.getString(R.string.orca_cloud_plugin_installed, it.name) }, { "✗ ${it.message}" })
+                                    status = runCatching {
+                                        val file = onIo { OrcaCloud.downloadPlugin(context, p) }.getOrThrow()
+                                        val u = user ?: error("Sign in to Orca Cloud first")
+                                        if (!Plugins.isStarted) Plugins.start(context, File(context.filesDir, "data"), u.id)
+                                        Plugins.install(file, p.id, p.name, p.version)
+                                        file.delete()
+                                    }.fold({ "✓ " + context.getString(R.string.orca_cloud_plugin_installed, p.version) }, { "✗ ${it.message}" })
                                     installing = false
                                 }
                             }) { Text(stringResource(R.string.orca_cloud_plugin_install)) }

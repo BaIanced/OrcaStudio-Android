@@ -68,7 +68,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             presets.reloadPresets(emptySet())
             runCatching { files.restoreSession() }.onFailure { android.util.Log.w("Orca", "session not restored", it) }
             store.update { it.copy(phase = Phase.READY) }
+            startPlugins()
         }
+    }
+
+    /** Starts the Orca plugin runtime when the signed-in Orca Cloud user has plugins installed. */
+    private fun startPlugins() = store.container.appScope.launch {
+        val user = withContext(Dispatchers.IO) { runCatching { app.orcaandroid.net.OrcaCloud.user(store.app) }.getOrNull() } ?: return@launch
+        val dir = java.io.File(store.resources.dataDir, "orca_plugins/_subscribed/${user.id}")
+        if (dir.list().isNullOrEmpty()) return@launch
+        app.orcaandroid.plugins.Plugins.start(store.app, store.resources.dataDir, user.id)
     }
 
     /** Waits until startup has finished (intents that arrive while the app starts). */

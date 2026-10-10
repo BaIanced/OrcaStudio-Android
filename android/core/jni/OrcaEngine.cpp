@@ -596,6 +596,7 @@ json OrcaEngine::slice(int plate, const std::string &gcode_out, const std::strin
     }
     set_running(nullptr);
     progress(100, "Done");
+    m_slice_configs[plate] = std::make_shared<const DynamicPrintConfig>(config);
 
     json out = write_preview(result, preview_dir);
 
@@ -659,6 +660,13 @@ void OrcaEngine::cancel()
     std::lock_guard<std::mutex> cancel_lock(m_cancel_mutex);
     if (m_running_print)
         m_running_print->cancel();
+}
+
+std::shared_ptr<const DynamicPrintConfig> OrcaEngine::slice_config(int plate)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    auto                        it = m_slice_configs.find(plate);
+    return it == m_slice_configs.end() ? nullptr : it->second;
 }
 
 } // namespace orca

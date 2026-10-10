@@ -244,6 +244,12 @@ public:
     // Requests cancellation of a running slice(); a no-op otherwise.
     void cancel();
 
+    // For the plugin runtime: the preset bundle (read by plugins without the engine lock, as the
+    // desktop's plugins read the GUI's bundle), and the full config the last slice of `plate` used
+    // (null before the first slice), which the G-code post-process plugins read.
+    Slic3r::PresetBundle                             *preset_bundle() { return m_bundle.get(); }
+    std::shared_ptr<const Slic3r::DynamicPrintConfig> slice_config(int plate);
+
 private:
     OrcaEngine();
     ~OrcaEngine();
@@ -308,6 +314,7 @@ private:
     // Active calibration test: print parameters and the setting changes it needs.
     std::shared_ptr<Slic3r::Calib_Params>       m_calib;
     std::shared_ptr<Slic3r::DynamicPrintConfig> m_calib_config;
+    std::map<int, std::shared_ptr<const Slic3r::DynamicPrintConfig>> m_slice_configs;
     std::string                                 m_calib_name;
     // Undo depth right after the calibration's own snapshot: undoing below it leaves the test.
     size_t                                      m_calib_undo_depth = 0;
