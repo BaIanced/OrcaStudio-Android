@@ -104,6 +104,9 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
                 }
             }
 
+            SectionTitle(stringResource(R.string.orca_cloud))
+            OrcaCloudSection()
+
             SectionTitle(stringResource(R.string.backup))
             Entry(stringResource(R.string.backup_export), stringResource(R.string.backup_export_text)) { dialog = "backup_export" }
             Entry(stringResource(R.string.backup_import), stringResource(R.string.backup_import_text)) { restoreBackup.launch(arrayOf("*/*")) }
