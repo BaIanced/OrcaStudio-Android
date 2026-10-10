@@ -38,6 +38,7 @@ jobs:
     timeout-minutes: 340
     permissions:
       contents: write
+      actions: write # prune old build caches
     steps:
       - name: Check out (with the OrcaSlicer submodule)
         uses: actions/checkout@v7
@@ -158,14 +159,82 @@ jobs:
           path: ${{ env.BUILD_ROOT }}/deps/OrcaSlicer_dep
           key: ${{ steps.depskey.outputs.key }}
 
+      # liborca_jni.so depends only on these inputs; a build that changes none of them (app code,
+      # resources) reuses the last one instead of a ~20 minute native build.
+      - name: Native core cache key
+        id: corekey
+        run: |
+          set -euo pipefail
+          h=$( { git rev-parse HEAD:android/core HEAD:android/obn HEAD:android/scripts HEAD:android/android-toolchain.cmake
+                 git -C src-orca rev-parse HEAD
+                 echo "${{ steps.depskey.outputs.key }}"; } | sha256sum | cut -c1-16)
+          echo "key=android-core-${h}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore native core
+        id: core
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ env.BUILD_ROOT }}/jniLibs
+          key: ${{ steps.corekey.outputs.key }}
+
+      # When the core has to be rebuilt, ccache keeps unchanged translation units (most of libslic3r).
+      - name: ccache
+        if: steps.core.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get install -y -qq ccache >/dev/null
+          echo "CCACHE_DIR=$BUILD_ROOT/ccache" >> "$GITHUB_ENV"
+          echo "CCACHE_MAXSIZE=1500M" >> "$GITHUB_ENV"
+          echo "CCACHE_COMPRESS=1" >> "$GITHUB_ENV"
+          # Paths differ between checkouts only above the source tree; hash relative to it.
+          echo "CCACHE_BASEDIR=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
+          echo "CCACHE_NOHASHDIR=1" >> "$GITHUB_ENV"
+
+      - name: Restore ccache
+        if: steps.core.outputs.cache-hit != 'true'
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ env.BUILD_ROOT }}/ccache
+          key: android-ccache-${{ github.run_id }}
+          restore-keys: android-ccache-
+
       - name: Build native core and APK
+        env:
+          ORCA_CORE_PREBUILT: ${{ steps.core.outputs.cache-hit == 'true' && '1' || '0' }}
         run: |
           set -euo pipefail
           android/scripts/build.sh release
+          if command -v ccache >/dev/null && [ "$ORCA_CORE_PREBUILT" = 0 ]; then ccache -s | head -20; fi
           nm_bin="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-nm"
           so="$BUILD_ROOT/jniLibs/arm64-v8a/liborca_jni.so"
           n=$("$nm_bin" -D --defined-only "$so" | grep -c ' Java_app_orcaandroid_net_ObnNative_')
           echo "ObnNative JNI exports: $n"; [ "$n" -eq 19 ]
+
+      - name: Save native core
+        if: steps.core.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ env.BUILD_ROOT }}/jniLibs
+          key: ${{ steps.corekey.outputs.key }}
+
+      - name: Save ccache
+        if: steps.core.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ env.BUILD_ROOT }}/ccache
+          key: android-ccache-${{ github.run_id }}
+
+      # Keep only the newest ccache and two native cores, so they never push the deps cache
+      # (hours to rebuild) or the debug signing key out of the 10 GB Actions cache.
+      - name: Prune old caches
+        if: steps.core.outputs.cache-hit != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          prune() { gh cache list -R "$GITHUB_REPOSITORY" --key "$1" --sort created_at --order desc --limit 50 --json id -q ".[$2:][].id" |
+                    xargs -r -n1 gh cache delete -R "$GITHUB_REPOSITORY" || true; }
+          prune android-ccache- 1
+          prune android-core- 2
 
       - name: Name, checksum, upload
         id: out

@@ -16,12 +16,19 @@ if [ ! -f "$root/deps/OrcaSlicer_dep/usr/local/lib/libopenvdb.a" ]; then
     cmake --build "$root/deps" --target deps -- -j4
 fi
 
-cmake -G Ninja -S "$here/core" -B "$root/core" -DCMAKE_TOOLCHAIN_FILE="$toolchain" -DCMAKE_BUILD_TYPE=Release >/dev/null
-cmake --build "$root/core" --target orca_jni
+# ORCA_CORE_PREBUILT=1: CI restored liborca_jni.so for unchanged native sources; skip the core.
+if [ "${ORCA_CORE_PREBUILT:-0}" = 1 ] && [ -f "$root/jniLibs/arm64-v8a/liborca_jni.so" ]; then
+    echo "Native core unchanged: using the cached liborca_jni.so"
+else
+    launcher=()
+    if command -v ccache >/dev/null; then launcher=(-DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache); fi
+    cmake -G Ninja -S "$here/core" -B "$root/core" -DCMAKE_TOOLCHAIN_FILE="$toolchain" -DCMAKE_BUILD_TYPE=Release "${launcher[@]}" >/dev/null
+    cmake --build "$root/core" --target orca_jni
 
-mkdir -p "$root/jniLibs/arm64-v8a"
-"$ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip" --strip-unneeded \
-    -o "$root/jniLibs/arm64-v8a/liborca_jni.so" "$root/core/liborca_jni.so"
+    mkdir -p "$root/jniLibs/arm64-v8a"
+    "$ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip" --strip-unneeded \
+        -o "$root/jniLibs/arm64-v8a/liborca_jni.so" "$root/core/liborca_jni.so"
+fi
 
 task=assemble${variant^}
 (cd "$here" && ./gradlew --console=plain -q "$task")
