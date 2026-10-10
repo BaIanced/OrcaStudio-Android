@@ -91,8 +91,10 @@ fun AppScaffold(state: UiState, vm: AppViewModel) {
 private fun MainLayout(state: UiState, vm: AppViewModel) {
     // The Models tab's browser outlives the tab, so switching tabs keeps the page and its history.
     val context = androidx.compose.ui.platform.LocalContext.current
-    val browser = remember { lazy { ModelBrowser(context, vm) } }
-    DisposableEffect(Unit) { onDispose { if (browser.isInitialized()) browser.value.destroy() } }
+    // A theme change makes a new browser: the WebView takes light / dark from the context it is made with.
+    val dark = app.orcaandroid.ui.components.appIsDark()
+    val browser = remember(dark) { lazy { ModelBrowser(context, vm, dark) } }
+    DisposableEffect(browser) { onDispose { if (browser.isInitialized()) browser.value.destroy() } }
     // Back leads home: other tabs return to Prepare, and Prepare drops the tool and selection
     // first (as Esc does). Screens composed below (the Models browser) take back before this.
     val clearable = state.screen == Screen.PREPARE && (state.tool != Tool.None || state.selectedItems.isNotEmpty() || state.selectMode)

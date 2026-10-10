@@ -187,9 +187,10 @@ private fun BambuLoginDialog(onClose: (error: String?) -> Unit, onLogin: (login:
                     TextButton(onClick = { close(null) }) { Text(stringResource(R.string.cancel)) }
                 }
                 Box(Modifier.weight(1f)) {
+                    val dark = app.orcaandroid.ui.components.appIsDark()
                     AndroidView(
                         factory = { ctx ->
-                            WebView(ctx).apply {
+                            app.orcaandroid.ui.components.themedWebView(ctx, dark).apply {
                                 // AndroidView's default WRAP_CONTENT makes WebView lay pages out with height 0 (CSS 100vh = 0).
                                 layoutParams = android.view.ViewGroup.LayoutParams(android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.MATCH_PARENT)
                                 settings.javaScriptEnabled = true

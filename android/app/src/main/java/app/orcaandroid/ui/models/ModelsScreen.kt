@@ -70,7 +70,7 @@ enum class ModelSite(val label: String, val home: String, val hosts: List<String
  * The Models tab's browser. It outlives the tab (kept by the caller), so switching tabs keeps the
  * page, its history and the sign-in.
  */
-class ModelBrowser(private val context: Context, private val vm: AppViewModel) {
+class ModelBrowser(private val context: Context, private val vm: AppViewModel, dark: Boolean) {
     private val scope: CoroutineScope = MainScope()
     var site by mutableStateOf(ModelSite.MAKERWORLD)
         private set
@@ -114,10 +114,10 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel) {
     }
 
     @SuppressLint("SetJavaScriptEnabled", "JavascriptInterface")
-    val web: WebView = WebView(context.also {
+    val web: WebView = app.orcaandroid.ui.components.themedWebView(context.also {
         // `adb shell setprop log.tag.OrcaWeb DEBUG` (then restart) makes the pages inspectable (chrome://inspect).
         if (Log.isLoggable(WEB_DEBUG_TAG, Log.DEBUG)) WebView.setWebContentsDebuggingEnabled(true)
-    }).apply {
+    }, dark).apply {
         // AndroidView's default WRAP_CONTENT makes WebView lay pages out with height 0 (CSS 100vh = 0).
         layoutParams = android.view.ViewGroup.LayoutParams(android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.MATCH_PARENT)
         settings.javaScriptEnabled = true
