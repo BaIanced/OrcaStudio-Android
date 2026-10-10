@@ -82,7 +82,7 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel) {
      * agent with Bambu Studio's BBL-Slicer suffix, like the desktop's embedded WebView.
      */
     private fun makerWorldUserAgent(version: String): String {
-        val chrome = Regex("Chrome/[\d.]+").find(mobileUserAgent)?.value ?: "Chrome/118.0.0.0"
+        val chrome = Regex("Chrome/[0-9.]+").find(mobileUserAgent)?.value ?: "Chrome/118.0.0.0"
         return "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) $chrome Safari/537.36 BBL-Slicer/v$version BBL-Language/en"
     }
 
