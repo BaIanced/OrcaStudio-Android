@@ -154,6 +154,44 @@ object OrcaCloud {
     }
 
     /**
+     * Downloads a subscribed plugin's package into `files/plugins/<id>/` (get_plugin_download_url +
+     * CloudPluginService::download_cloud_plugin): `POST /api/v1/plugins/download?os=linux&arch=arm64`
+     * returns a download link; the body is a wheel when it starts with "PK", else a single .py file.
+     * Returns the saved file. Native wheels for other platforms are not usable on Android.
+     */
+    fun downloadPlugin(context: Context, plugin: Plugin): File {
+        val request = JSONObject().put("data", JSONArray().put(JSONObject().put("plugin_id", plugin.id)))
+        val (http, response) = apiCall(context, "POST", "/api/v1/plugins/download?os=linux&arch=arm64", request.toString())
+        if (http != 200) throw IOException("Orca Cloud: HTTP $http")
+        val root = JSONObject(response)
+        val link = root.optJSONArray("data")?.optJSONObject(0)?.optString("download_link").orEmpty()
+        if (link.isEmpty()) {
+            val reason = root.optJSONArray("not_found")?.optJSONObject(0)?.optString("reason").orEmpty()
+            throw IOException(if (reason.isNotEmpty()) "Plugin download not found: $reason" else "No download link for this plugin")
+        }
+        val c = URL(link).openConnection() as HttpURLConnection
+        val body = try {
+            c.connectTimeout = 30_000
+            c.readTimeout = 60_000
+            if (c.responseCode >= 400) throw IOException("Plugin download: HTTP ${c.responseCode}")
+            c.inputStream.use { it.readBytes() }
+        } finally {
+            c.disconnect()
+        }
+        if (body.isEmpty()) throw IOException("Plugin download returned empty data")
+        val wheel = body.size >= 4 && body[0] == 'P'.code.toByte() && body[1] == 'K'.code.toByte() && body[2] == 3.toByte() && body[3] == 4.toByte()
+        val dir = pluginDir(context, plugin.id).apply { deleteRecursively(); mkdirs() }
+        val file = File(dir, if (wheel) "plugin.whl" else "plugin.py")
+        file.writeBytes(body)
+        File(dir, "cloud.json").writeText(JSONObject().put("id", plugin.id).put("name", plugin.name).put("version", plugin.version)
+            .put("author", plugin.author).put("types", JSONArray(plugin.types)).toString())
+        return file
+    }
+
+    /** Where a cloud plugin is installed. */
+    fun pluginDir(context: Context, id: String) = File(context.filesDir, "plugins/" + id.filter { it.isLetterOrDigit() || it == '-' })
+
+    /**
      * All presets synced to this account, as { name: { key: value } } like the desktop's
      * get_user_presets(): a full pull (no cursor), with setting_id, user_id and updated_time added
      * where the content lacks them (PresetCollection::load_user_preset needs them).

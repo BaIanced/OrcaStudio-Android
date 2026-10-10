@@ -122,10 +122,26 @@ internal fun OrcaCloudSection() {
                 if (list.isEmpty()) Text(stringResource(R.string.orca_cloud_no_plugins))
                 else LazyColumn(Modifier.heightIn(max = 420.dp)) {
                     items(list, key = { it.id }) { p ->
-                        Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-                            Text(p.name + if (p.version.isNotEmpty()) " ${p.version}" else "", style = MaterialTheme.typography.bodyLarge)
-                            val sub = listOf(p.author, p.types.joinToString(", ")).filter { it.isNotEmpty() }.joinToString(" · ")
-                            if (sub.isNotEmpty()) Text(sub, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        var status by remember(p.id) {
+                            mutableStateOf(OrcaCloud.pluginDir(context, p.id).list()?.firstOrNull { it.startsWith("plugin.") })
+                        }
+                        var installing by remember(p.id) { mutableStateOf(false) }
+                        Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(p.name + if (p.version.isNotEmpty()) " ${p.version}" else "", style = MaterialTheme.typography.bodyLarge)
+                                val sub = listOf(p.author, p.types.joinToString(", ")).filter { it.isNotEmpty() }.joinToString(" · ")
+                                if (sub.isNotEmpty()) Text(sub, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                status?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary) }
+                            }
+                            if (installing) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                            else TextButton(onClick = {
+                                installing = true
+                                scope.launch {
+                                    status = onIo { OrcaCloud.downloadPlugin(context, p) }
+                                        .fold({ "✓ " + context.getString(R.string.orca_cloud_plugin_installed, it.name) }, { "✗ ${it.message}" })
+                                    installing = false
+                                }
+                            }) { Text(stringResource(R.string.orca_cloud_plugin_install)) }
                         }
                     }
                 }
