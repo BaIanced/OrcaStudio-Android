@@ -409,4 +409,14 @@
     <string name="orca_cloud_no_plugins">This account has no subscribed plugins.</string>
     <string name="orca_cloud_browser_hint">Finish signing in in the browser, then come back to this app.</string>
     <string name="orca_cloud_no_loopback">The browser sign-in needs a free local port (41172-41174).</string>
+    <string name="sync_orca_cloud_presets">Sync presets from Orca Cloud</string>
+    <string name="sync_orca_cloud_presets_text">Your presets synced to Orca Cloud by OrcaSlicer on the desktop</string>
+    <string name="syncing_orca_cloud_presets">Loading presets from Orca Cloud…</string>
+    <string name="orca_cloud_presets_synced">%1$d preset(s) in Orca Cloud; newer ones loaded.</string>
+    <string name="upload_orca_cloud_presets">Upload presets to Orca Cloud</string>
+    <string name="upload_orca_cloud_presets_text">New and changed presets from this app, for OrcaSlicer on your other devices</string>
+    <string name="uploading_orca_cloud_presets">Uploading presets to Orca Cloud…</string>
+    <string name="orca_cloud_presets_uploaded">%1$d preset(s) uploaded to Orca Cloud.</string>
+    <string name="orca_cloud_upload_conflicts">Newer in Orca Cloud, not uploaded (sync presets from Orca Cloud first): %1$s</string>
+    <string name="orca_cloud_sign_in_first">Sign in to Orca Cloud first (More &gt; Orca Cloud).</string>
 </resources>

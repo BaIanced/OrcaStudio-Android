@@ -44,6 +44,7 @@ object OrcaCloud {
 
     /** Upstream TOKEN_REFRESH_SKEW: refresh when the access token expires within 15 minutes. */
     private const val REFRESH_SKEW_S = 900L
+    private const val MAX_SYNC_PAYLOAD = 1_048_576 // ORCA_SYNC_MAX_PAYLOAD_SIZE
 
     private const val KEY_ALIAS = "orca_cloud_session"
 
@@ -152,18 +153,83 @@ object OrcaCloud {
         }
     }
 
+    /**
+     * All presets synced to this account, as { name: { key: value } } like the desktop's
+     * get_user_presets(): a full pull (no cursor), with setting_id, user_id and updated_time added
+     * where the content lacks them (PresetCollection::load_user_preset needs them).
+     */
+    fun cloudPresets(context: Context): JSONObject {
+        val root = JSONObject(apiGet(context, "/api/v1/sync/pull"))
+        val userId = user(context)?.id.orEmpty()
+        val out = JSONObject()
+        val upserts = root.optJSONArray("upserts") ?: JSONArray()
+        for (i in 0 until upserts.length()) {
+            val item = upserts.optJSONObject(i) ?: continue
+            val content = item.optJSONObject("content") ?: JSONObject()
+            val values = JSONObject()
+            for (key in content.keys()) values.put(key, content.get(key).let { it as? String ?: it.toString() })
+            if (!values.has("setting_id")) values.put("setting_id", item.optString("id"))
+            if (!values.has("user_id")) values.put("user_id", userId)
+            if (!values.has("updated_time")) values.put("updated_time", item.optLong("updated_time").toString())
+            val name = content.optString("name").ifEmpty { item.optString("name").ifEmpty { item.optString("id") } }
+            if (name.isNotEmpty()) out.put(name, values)
+        }
+        return out
+    }
+
     /** An authorised GET on the Orca Cloud API; refreshes the token first if needed, and once more on a 401. */
     fun apiGet(context: Context, path: String): String {
+        val (http, body) = apiCall(context, "GET", path, null)
+        if (http !in 200..299) throw IOException("Orca Cloud: HTTP $http")
+        return body
+    }
+
+    /** An authorised request on the Orca Cloud API; returns (HTTP status, body). */
+    private fun apiCall(context: Context, method: String, path: String, body: String?): Pair<Int, String> {
         load(context)
         ensureFresh(context)
         var token = synchronized(lock) { session?.access } ?: throw IOException("Sign in to Orca Cloud first")
-        var (http, body) = request("GET", "$API_URL$path", null, bearer = token)
-        if (http == 401 && refresh(context)) {
+        var result = request(method, "$API_URL$path", body, bearer = token)
+        if (result.first == 401 && refresh(context)) {
             token = synchronized(lock) { session?.access }.orEmpty()
-            request("GET", "$API_URL$path", null, bearer = token).let { http = it.first; body = it.second }
+            result = request(method, "$API_URL$path", body, bearer = token)
         }
-        if (http !in 200..299) throw IOException("Orca Cloud: HTTP $http")
-        return body
+        return result
+    }
+
+    /** The result of a preset upload: the HTTP status, and the cloud's new updated_time on success. */
+    data class PushResult(val http: Int, val updatedTime: Long, val message: String)
+
+    /**
+     * Uploads one preset (sync_push): `POST /api/v1/sync/push` with {id, name, content}, plus
+     * original_updated_time for an update, so the server refuses (409) to overwrite a newer cloud
+     * version. Content over 1 MB is refused locally with 413, like the desktop.
+     */
+    fun pushPreset(context: Context, id: String, name: String, content: JSONObject, originalUpdatedTime: String?): PushResult {
+        val body = JSONObject().put("id", id).put("name", name).put("content", content)
+        if (!originalUpdatedTime.isNullOrEmpty()) body.put("original_updated_time", originalUpdatedTime)
+        val text = body.toString()
+        if (text.toByteArray().size > MAX_SYNC_PAYLOAD) return PushResult(413, 0, "larger than 1 MB")
+        val (http, response) = apiCall(context, "POST", "/api/v1/sync/push", text)
+        val updated = if (http == 200) runCatching { JSONObject(response).optLong("updated_time") }.getOrDefault(0L) else 0L
+        return PushResult(if (http == 200 && updated == 0L) -1 else http, updated, response.take(200))
+    }
+
+    /**
+     * The cloud id of a new preset (generate_uuid_for_setting_id): a name-based (SHA-1, version 5)
+     * UUID of "<user id>/<preset name>" in Orca's namespace, so every device makes the same id.
+     */
+    fun settingId(name: String, userId: String): String {
+        val ns = java.util.UUID.fromString("f47ac10b-58cc-4372-a567-0e02b2c3d479")
+        val nsBytes = java.nio.ByteBuffer.allocate(16).putLong(ns.mostSignificantBits).putLong(ns.leastSignificantBits).array()
+        val hash = java.security.MessageDigest.getInstance("SHA-1").run {
+            update(nsBytes)
+            digest((if (userId.isEmpty()) name else "$userId/$name").toByteArray(Charsets.UTF_8))
+        }.copyOf(16)
+        hash[6] = ((hash[6].toInt() and 0x0f) or 0x50).toByte()
+        hash[8] = ((hash[8].toInt() and 0x3f) or 0x80).toByte()
+        val bb = java.nio.ByteBuffer.wrap(hash)
+        return java.util.UUID(bb.long, bb.long).toString()
     }
 
     // --- Session -------------------------------------------------------------------------------

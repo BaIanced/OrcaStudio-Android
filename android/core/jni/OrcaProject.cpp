@@ -366,6 +366,41 @@ json OrcaEngine::load_cloud_presets(const json &presets)
     return {{"count", my_presets.size()}, {"printers", printer_list_locked()}};
 }
 
+json OrcaEngine::cloud_uploads(const std::string &user_id)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (!m_bundle)
+        throw std::runtime_error("Presets are not loaded");
+    // As the desktop's sync thread: user presets that are new or changed (get_user_presets), with
+    // the values it uploads (get_differed_values_to_update). Deletions are not uploaded, and
+    // presets synced from another account (the Bambu cloud: its user_id) are left alone.
+    json out = json::array();
+    for (const char *type : {"print", "filament", "printer"}) {
+        std::vector<Preset> presets;
+        collection(type).get_user_presets(m_bundle.get(), presets);
+        for (Preset &preset : presets) {
+            if (preset.sync_info == "delete" || preset.sync_info == "will_not_sync")
+                continue;
+            if (!preset.setting_id.empty() && !preset.user_id.empty() && preset.user_id != user_id)
+                continue;
+            std::map<std::string, std::string> values;
+            if (m_bundle->get_differed_values_to_update(preset, values) != 0)
+                continue;
+            out.push_back({{"type", type}, {"name", preset.name}, {"setting_id", preset.setting_id},
+                           {"sync_info", preset.sync_info}, {"values", values}});
+        }
+    }
+    return out;
+}
+
+json OrcaEngine::mark_uploaded(const std::string &type, const std::string &name, const std::string &setting_id,
+                               const std::string &sync_info, long long updated_time)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    collection(type).set_sync_info_and_save(name, setting_id, sync_info, updated_time);
+    return {{"ok", true}};
+}
+
 json OrcaEngine::vendor_version(const std::string &vendor)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
