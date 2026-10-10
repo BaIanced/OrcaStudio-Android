@@ -188,6 +188,10 @@ jobs:
           # Paths differ between checkouts only above the source tree; hash relative to it.
           echo "CCACHE_BASEDIR=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
           echo "CCACHE_NOHASHDIR=1" >> "$GITHUB_ENV"
+          # The NDK is installed afresh on every run, so its compiler's mtime (ccache's default
+          # check) always changes and nothing ever hit; the pinned NDK version identifies it.
+          echo "CCACHE_COMPILERCHECK=string:$NDK_VERSION" >> "$GITHUB_ENV"
+          echo "CCACHE_SLOPPINESS=include_file_mtime,include_file_ctime,time_macros" >> "$GITHUB_ENV"
 
       - name: Restore ccache
         if: steps.core.outputs.cache-hit != 'true'
@@ -223,15 +227,16 @@ jobs:
           path: ${{ env.BUILD_ROOT }}/ccache
           key: android-ccache-${{ github.run_id }}
 
-      # Keep only the newest ccache and two native cores, so they never push the deps cache
-      # (hours to rebuild) or the debug signing key out of the 10 GB Actions cache.
+      # Keep only the newest ccache and two native cores per branch (a branch can only restore its
+      # own caches and main's), so they never push the deps cache (hours to rebuild) or the debug
+      # signing key out of the 10 GB Actions cache.
       - name: Prune old caches
         if: steps.core.outputs.cache-hit != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -uo pipefail
-          prune() { gh cache list -R "$GITHUB_REPOSITORY" --key "$1" --sort created_at --order desc --limit 50 --json id -q ".[$2:][].id" |
+          prune() { gh cache list -R "$GITHUB_REPOSITORY" --ref "$GITHUB_REF" --key "$1" --sort created_at --order desc --limit 50 --json id -q ".[$2:][].id" |
                     xargs -r -n1 gh cache delete -R "$GITHUB_REPOSITORY" || true; }
           prune android-ccache- 1
           prune android-core- 2
