@@ -159,7 +159,16 @@ class PresetController(private val store: Store, private val device: DeviceContr
      */
     fun syncCloudPresets() = store.launch(store.str(R.string.syncing_cloud_presets)) {
         val version = engine.vendorVersion("BBL")
-        val presets = withContext(Dispatchers.IO) { BambuAccount.cloudPresets(store.app, version) }
+        loadCloudPresets(R.string.cloud_presets_synced) { BambuAccount.cloudPresets(store.app, version) }
+    }
+
+    /** The same for the presets synced to the signed-in Orca Cloud account (pull only). */
+    fun syncOrcaCloudPresets() = store.launch(store.str(R.string.syncing_orca_cloud_presets)) {
+        loadCloudPresets(R.string.orca_cloud_presets_synced) { app.orcaandroid.net.OrcaCloud.cloudPresets(store.app) }
+    }
+
+    private suspend fun loadCloudPresets(doneMessage: Int, fetch: () -> org.json.JSONObject) {
+        val presets = withContext(Dispatchers.IO) { fetch() }
         val (count, printers) = engine.loadCloudPresets(presets)
         store.update { it.copy(printers = printers) }
         val current = store.value.printer
@@ -170,7 +179,7 @@ class PresetController(private val store: Store, private val device: DeviceContr
         } else {
             store.value.visiblePrinters.firstOrNull()?.let { selectPrinterNow(it.name) }
         }
-        store.toast(store.str(R.string.cloud_presets_synced, count))
+        store.toast(store.str(doneMessage, count))
     }
 
     // --- Settings editor -----------------------------------------------------------------------------

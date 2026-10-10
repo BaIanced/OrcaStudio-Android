@@ -152,6 +152,30 @@ object OrcaCloud {
         }
     }
 
+    /**
+     * All presets synced to this account, as { name: { key: value } } like the desktop's
+     * get_user_presets(): a full pull (no cursor), with setting_id, user_id and updated_time added
+     * where the content lacks them (PresetCollection::load_user_preset needs them).
+     */
+    fun cloudPresets(context: Context): JSONObject {
+        val root = JSONObject(apiGet(context, "/api/v1/sync/pull"))
+        val userId = user(context)?.id.orEmpty()
+        val out = JSONObject()
+        val upserts = root.optJSONArray("upserts") ?: JSONArray()
+        for (i in 0 until upserts.length()) {
+            val item = upserts.optJSONObject(i) ?: continue
+            val content = item.optJSONObject("content") ?: JSONObject()
+            val values = JSONObject()
+            for (key in content.keys()) values.put(key, content.get(key).let { it as? String ?: it.toString() })
+            if (!values.has("setting_id")) values.put("setting_id", item.optString("id"))
+            if (!values.has("user_id")) values.put("user_id", userId)
+            if (!values.has("updated_time")) values.put("updated_time", item.optLong("updated_time").toString())
+            val name = content.optString("name").ifEmpty { item.optString("name").ifEmpty { item.optString("id") } }
+            if (name.isNotEmpty()) out.put(name, values)
+        }
+        return out
+    }
+
     /** An authorised GET on the Orca Cloud API; refreshes the token first if needed, and once more on a 401. */
     fun apiGet(context: Context, path: String): String {
         load(context)

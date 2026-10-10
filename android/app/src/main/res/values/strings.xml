@@ -403,4 +403,8 @@
     <string name="orca_cloud_no_plugins">This account has no subscribed plugins.</string>
     <string name="orca_cloud_browser_hint">Finish signing in in the browser, then come back to this app.</string>
     <string name="orca_cloud_no_loopback">The browser sign-in needs a free local port (41172-41174).</string>
+    <string name="sync_orca_cloud_presets">Sync presets from Orca Cloud</string>
+    <string name="sync_orca_cloud_presets_text">Your presets synced to Orca Cloud by OrcaSlicer on the desktop</string>
+    <string name="syncing_orca_cloud_presets">Loading presets from Orca Cloud…</string>
+    <string name="orca_cloud_presets_synced">%1$d preset(s) in Orca Cloud; newer ones loaded.</string>
 </resources>
