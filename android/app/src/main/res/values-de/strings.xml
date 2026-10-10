@@ -68,6 +68,7 @@
     <string name="delete_plate">Platte löschen</string>
     <string name="delete_plate_text">Die Platte und alle Objekte darauf werden entfernt.</string>
     <string name="delete_preset">Preset löschen</string>
+    <string name="vendor_presets">Herstellerprofile</string>
     <string name="delete_preset_text">„%s“ wird dauerhaft gelöscht.</string>
     <string name="deleting_preset">Lösche Preset…</string>
     <string name="depth">Tiefe</string>

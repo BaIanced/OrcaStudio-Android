@@ -83,6 +83,7 @@ import app.orcaandroid.ui.components.PickerDialog
 import app.orcaandroid.ui.components.PickerItem
 import app.orcaandroid.ui.components.TextInputDialog
 import app.orcaandroid.ui.prepare.ColorDot
+import app.orcaandroid.ui.prepare.presetItems
 
 /** Where the edited values come from and go to: a preset, an object/part, or a height range. */
 private class EditSource(
@@ -183,12 +184,14 @@ private fun PresetEditor(state: UiState, vm: AppViewModel, type: PresetType, pic
     if (confirmDelete) ConfirmDialog(stringResource(R.string.delete_preset), stringResource(R.string.delete_preset_text, name), stringResource(R.string.delete),
         { vm.presets.deleteSelectedPreset(type) }) { confirmDelete = false }
     if (comparePick) {
+        val userGroup = vm.translator.tr("User presets")
+        val vendorGroup = stringResource(R.string.vendor_presets)
         val items = when (type) {
-            PresetType.PRINT -> state.setup?.prints.orEmpty().map { PickerItem(it.name, it.name, it.vendor) }
-            PresetType.FILAMENT -> state.setup?.filaments.orEmpty().map { PickerItem(it.name, it.name, it.vendor) }
-            PresetType.PRINTER -> state.printers.map { PickerItem(it.name, it.name, it.vendor) }
+            PresetType.PRINT -> presetItems(state.setup?.prints.orEmpty(), userGroup, vendorGroup, { it.name }, { it.system }) { listOf(it.vendor.ifEmpty { "System" }) }
+            PresetType.FILAMENT -> presetItems(state.setup?.filaments.orEmpty(), userGroup, vendorGroup, { it.name }, { it.system }) { listOf(it.brandName, it.type.ifEmpty { "?" }) }
+            PresetType.PRINTER -> presetItems(state.printers, userGroup, vendorGroup, { it.name }, { it.system }) { listOf(it.vendor) }
         }.filter { it.id != name }
-        PickerDialog(stringResource(R.string.compare_with), null, items, onDismiss = { comparePick = false }) {
+        PickerDialog(stringResource(R.string.compare_with), null, items, onDismiss = { comparePick = false }, openGroups = setOf(userGroup)) {
             comparePick = false
             vm.presets.openEditor(EditorTarget.Compare(type, name, it))
         }

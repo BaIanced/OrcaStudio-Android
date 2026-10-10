@@ -43,10 +43,13 @@ import app.orcaandroid.R
 import java.util.Locale
 
 /**
- * An entry in a [PickerField]; [group] is shown as a section header (e.g. the brand). When any item
- * has a [subgroup] (e.g. the material), groups and subgroups become collapsible sections.
+ * An entry in a [PickerField]; [group] is shown as a section header (e.g. "Vendor presets"),
+ * [subgroup] and [detail] as nested sections (e.g. the brand, then the material). When any item
+ * is nested, sections become collapsible.
  */
-data class PickerItem(val id: String, val label: String = id, val group: String = "", val subgroup: String = "")
+data class PickerItem(val id: String, val label: String = id, val group: String = "", val subgroup: String = "", val detail: String = "") {
+    val path: List<String> get() = listOf(group, subgroup, detail).filter { it.isNotEmpty() }
+}
 
 /** A compact labelled field that opens a searchable single-choice dialog. */
 @Composable
@@ -80,8 +83,8 @@ fun PickerField(
 }
 
 /**
- * Searchable single choice. With subgroups, sections start collapsed except [openGroups] and the
- * ones holding the selection; while searching, every section with a match is open.
+ * Searchable single choice. With nested items, sections start collapsed except the top-level
+ * [openGroups] and the ones holding the selection; while searching, every section with a match is open.
  */
 @Composable
 fun PickerDialog(
@@ -95,18 +98,14 @@ fun PickerDialog(
     var query by remember { mutableStateOf("") }
     val filtered = remember(query, items) {
         val words = query.trim().lowercase().split(' ').filter { it.isNotEmpty() }
-        // Callers' lists are not always sorted by group (synced user presets land between system ones),
-        // so each group is gathered under one header; LazyColumn keys must be unique.
-        items.filter { item -> words.all { w -> listOf(item.label, item.group, item.subgroup).any { it.lowercase().contains(w) } } }
-            .distinctBy { it.group to it.id }
-            .groupBy { it.group }
-            .mapValues { (_, groupItems) -> groupItems.groupBy { it.subgroup } }
+        // LazyColumn keys must be unique.
+        items.filter { item -> words.all { w -> (item.path + item.label).any { it.lowercase().contains(w) } } }
+            .distinctBy { it.path to it.id }
     }
-    val nested = remember(items) { items.any { it.subgroup.isNotEmpty() } }
+    val nested = remember(items) { items.any { it.path.size > 1 } }
     val current = remember(items, selected) { items.firstOrNull { it.id == selected } }
     val toggled = remember { mutableStateMapOf<String, Boolean>() }
     val searching = query.isNotBlank()
-    fun isOpen(key: String, default: Boolean) = !nested || searching || (toggled[key] ?: default)
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
@@ -123,38 +122,38 @@ fun PickerDialog(
                     )
                 }
                 LazyColumn(Modifier.heightIn(max = 460.dp).padding(top = 8.dp)) {
-                    filtered.forEach { (group, subgroups) ->
-                        val groupKey = "g:$group"
-                        val groupOpen = group.isEmpty() || isOpen(groupKey, group in openGroups || current?.group == group)
-                        if (group.isNotEmpty()) {
-                            item(key = groupKey) {
-                                SectionHeader(group, subgroups.values.sumOf { it.size }, nested, groupOpen, MaterialTheme.typography.titleSmall) {
-                                    toggled[groupKey] = !groupOpen
-                                }
-                                HorizontalDivider()
-                            }
-                        }
-                        if (groupOpen) subgroups.forEach { (sub, subItems) ->
-                            val subKey = "s:$group/$sub"
-                            val subOpen = sub.isEmpty() || isOpen(subKey, current?.group == group && current.subgroup == sub)
-                            if (sub.isNotEmpty()) {
-                                item(key = subKey) {
-                                    SectionHeader(sub, subItems.size, nested, subOpen, MaterialTheme.typography.labelLarge, Modifier.padding(start = 16.dp)) {
-                                        toggled[subKey] = !subOpen
+                    // One section per path element; callers' lists are not always sorted by group (synced
+                    // user presets land between system ones), so each section gathers all its items, in
+                    // the order of their first appearance.
+                    fun androidx.compose.foundation.lazy.LazyListScope.level(prefix: List<String>, levelItems: List<PickerItem>) {
+                        val depth = prefix.size
+                        levelItems.groupBy { it.path.getOrNull(depth) }.forEach { (name, sectionItems) ->
+                            if (name == null) {
+                                sectionItems.forEach { item ->
+                                    item(key = "i:${item.path.joinToString("/")}:${item.id}") {
+                                        Row(Modifier.fillMaxWidth().clickable { onPick(item.id) }.padding(start = (depth * 12).dp),
+                                            verticalAlignment = Alignment.CenterVertically) {
+                                            RadioButton(selected = item.id == selected, onClick = { onPick(item.id) })
+                                            Text(item.label, style = MaterialTheme.typography.bodyMedium)
+                                        }
                                     }
                                 }
+                                return@forEach
                             }
-                            if (subOpen) subItems.forEach { item ->
-                                item(key = "i:$group:${item.id}") {
-                                    Row(Modifier.fillMaxWidth().clickable { onPick(item.id) }.padding(start = if (sub.isEmpty()) 0.dp else 24.dp),
-                                        verticalAlignment = Alignment.CenterVertically) {
-                                        RadioButton(selected = item.id == selected, onClick = { onPick(item.id) })
-                                        Text(item.label, style = MaterialTheme.typography.bodyMedium)
-                                    }
-                                }
+                            val path = prefix + name
+                            val key = "g:" + path.joinToString("/")
+                            val holdsSelection = current != null && current.path.take(path.size) == path
+                            val open = !nested || searching || (toggled[key] ?: (holdsSelection || (depth == 0 && name in openGroups)))
+                            item(key = key) {
+                                SectionHeader(name, sectionItems.size, nested, open,
+                                    if (depth == 0) MaterialTheme.typography.titleSmall else MaterialTheme.typography.labelLarge,
+                                    Modifier.padding(start = (depth * 12).dp)) { toggled[key] = !open }
+                                if (depth == 0) HorizontalDivider()
                             }
+                            if (open) level(path, sectionItems)
                         }
                     }
+                    level(emptyList(), filtered)
                 }
             }
         },

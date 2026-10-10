@@ -85,14 +85,32 @@ fun PreparePanel(state: UiState, vm: AppViewModel, wide: Boolean) {
 
 // --- Presets -------------------------------------------------------------------------------------
 
+/**
+ * Preset picker entries: the user's presets first in one group (open by default), then every
+ * system preset inside one vendor group, nested by [sections] (vendor, or brand then material).
+ */
+internal fun <T> presetItems(
+    presets: List<T>, userGroup: String, vendorGroup: String,
+    name: (T) -> String, system: (T) -> Boolean, sections: (T) -> List<String>,
+): List<PickerItem> {
+    val (sys, user) = presets.partition(system)
+    return user.sortedBy { name(it).lowercase() }.map { PickerItem(name(it), name(it), userGroup) } +
+        sys.map { it to sections(it) }
+            .sortedWith(compareBy<Pair<T, List<String>>>({ it.second.getOrNull(0)?.lowercase() }, { it.second.getOrNull(1)?.lowercase() }, { name(it.first).lowercase() }))
+            .map { (p, s) -> PickerItem(name(p), name(p), vendorGroup, s.getOrElse(0) { "" }, s.getOrElse(1) { "" }) }
+}
+
 @Composable
 private fun PresetsTab(state: UiState, vm: AppViewModel) {
     val setup = state.setup
+    val userGroup = vm.translator.tr("User presets")
+    val vendorGroup = stringResource(R.string.vendor_presets)
     SectionTitle(stringResource(R.string.printer))
     Row(verticalAlignment = Alignment.CenterVertically) {
         PickerField(stringResource(R.string.printer), state.printer,
-            state.visiblePrinters.map { PickerItem(it.name, it.name, if (it.system) it.vendor else vm.translator.tr("User presets")) },
-            vm.presets::selectPrinter, Modifier.weight(1f), modified = state.overrides[PresetType.PRINTER].orEmpty().isNotEmpty())
+            presetItems(state.visiblePrinters, userGroup, vendorGroup, { it.name }, { it.system }) { listOf(it.vendor) },
+            vm.presets::selectPrinter, Modifier.weight(1f), modified = state.overrides[PresetType.PRINTER].orEmpty().isNotEmpty(),
+            openGroups = setOf(userGroup))
         IconButton(onClick = { vm.presets.openEditor(EditorTarget.Preset(PresetType.PRINTER)) }) { Icon(Icons.Default.Edit, stringResource(R.string.edit)) }
     }
     TextButton(onClick = vm.presets::openPrinterSetup) { Text(stringResource(R.string.manage_printers)) }
@@ -107,12 +125,8 @@ private fun PresetsTab(state: UiState, vm: AppViewModel) {
         var colorDialog by remember { mutableStateOf(false) }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             IconButton(onClick = { colorDialog = true }, modifier = Modifier.size(36.dp)) { ColorDot(slot.color, 22) }
-            val userGroup = vm.translator.tr("User presets")
             val filaments = setup?.filaments.orEmpty().filter { it.system.not() || it.brandName !in state.hiddenFilamentVendors || it.name == slot.preset }
-            // The user's (calibrated) presets first and open; system ones by brand, then material, collapsed.
-            val items = filaments.filter { !it.system }.sortedBy { it.name.lowercase() }.map { PickerItem(it.name, it.name, userGroup) } +
-                filaments.filter { it.system }.sortedWith(compareBy({ it.brandName.lowercase() }, { it.type }, { it.name.lowercase() }))
-                    .map { PickerItem(it.name, it.name, it.brandName, it.type.ifEmpty { "?" }) }
+            val items = presetItems(filaments, userGroup, vendorGroup, { it.name }, { it.system }) { listOf(it.brandName, it.type.ifEmpty { "?" }) }
             PickerField("${i + 1}", slot.preset, items,
                 { vm.presets.setFilament(i, it) }, Modifier.weight(1f), modified = slot.overrides.isNotEmpty(), openGroups = setOf(userGroup))
             IconButton(onClick = { vm.presets.setActiveFilament(i); vm.presets.openEditor(EditorTarget.Preset(PresetType.FILAMENT)) }) {
@@ -137,8 +151,9 @@ private fun PresetsTab(state: UiState, vm: AppViewModel) {
     SectionTitle(stringResource(R.string.process))
     Row(verticalAlignment = Alignment.CenterVertically) {
         PickerField(stringResource(R.string.process), state.print,
-            setup?.prints.orEmpty().map { PickerItem(it.name, it.name, if (it.system) "System" else vm.translator.tr("User presets")) },
-            vm.presets::selectPrint, Modifier.weight(1f), modified = state.overrides[PresetType.PRINT].orEmpty().isNotEmpty())
+            presetItems(setup?.prints.orEmpty(), userGroup, vendorGroup, { it.name }, { it.system }) { listOf(it.vendor.ifEmpty { "System" }) },
+            vm.presets::selectPrint, Modifier.weight(1f), modified = state.overrides[PresetType.PRINT].orEmpty().isNotEmpty(),
+            openGroups = setOf(userGroup))
         IconButton(onClick = { vm.presets.openEditor(EditorTarget.Preset(PresetType.PRINT)) }) { Icon(Icons.Default.Tune, stringResource(R.string.edit)) }
     }
     QuickSettings(state, vm)

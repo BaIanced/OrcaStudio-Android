@@ -69,6 +69,7 @@
     <string name="delete_plate">Delete plate</string>
     <string name="delete_plate_text">The plate and all objects on it will be removed.</string>
     <string name="delete_preset">Delete preset</string>
+    <string name="vendor_presets">Vendor presets</string>
     <string name="delete_preset_text">“%s” will be deleted permanently.</string>
     <string name="deleting_preset">Deleting preset…</string>
     <string name="depth">Depth</string>
