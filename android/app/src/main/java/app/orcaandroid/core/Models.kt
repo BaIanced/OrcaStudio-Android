@@ -29,8 +29,10 @@ data class PrinterModel(val name: String, val nozzles: List<String>)
 fun printerKey(model: String, nozzle: String): String = "$model|${nozzle.toDoubleOrNull() ?: nozzle}"
 fun printerKey(model: String, nozzle: Double): String = "$model|$nozzle"
 
-data class PrinterInfo(val name: String, val vendor: String, val model: String, val nozzle: Double, val system: Boolean) {
+/** [base]: the system preset a user preset inherits (empty for system presets). */
+data class PrinterInfo(val name: String, val vendor: String, val model: String, val nozzle: Double, val system: Boolean, val base: String = "") {
     val key get() = printerKey(model, nozzle)
+    val isBambu get() = vendor == "BBL" || vendor == "Bambu Lab" || model.startsWith("Bambu Lab")
 }
 
 data class PresetRef(val name: String, val vendor: String, val system: Boolean, val brand: String = "", val type: String = "") {

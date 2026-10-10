@@ -2,6 +2,7 @@ package app.orcaandroid.ui
 
 import android.net.Uri
 import app.orcaandroid.R
+import app.orcaandroid.core.AppBackup
 import app.orcaandroid.core.FilamentSlot
 import app.orcaandroid.core.OptionDef
 import app.orcaandroid.core.PresetType
@@ -63,8 +64,11 @@ class PresetController(private val store: Store, private val device: DeviceContr
     suspend fun selectPrinterNow(name: String, print: String? = null, filaments: List<FilamentSlot>? = null) {
         val setup = engine.selectPrinter(name)
         settings.lastPrinter = name
+        // A user printer preset shares the connection and loaded filaments of the system preset it inherits.
+        val base = store.value.printers.firstOrNull { it.name == name }?.base.orEmpty()
+        settings.setPrinterBase(name, base)
         val p = print?.takeIf { n -> setup.prints.any { it.name == n } }
-            ?: settings.lastPrint(name)?.takeIf { n -> setup.prints.any { it.name == n } }
+            ?: (settings.lastPrint(name) ?: base.takeIf { it.isNotEmpty() }?.let(settings::lastPrint))?.takeIf { n -> setup.prints.any { it.name == n } }
             ?: setup.defaultPrint
         val fils = withColors((filaments ?: settings.lastFilaments(name)).filter { f -> setup.filaments.any { it.name == f.preset } }
             .ifEmpty { listOf(FilamentSlot(setup.defaultFilament)) })
@@ -283,6 +287,37 @@ class PresetController(private val store: Store, private val device: DeviceContr
             store.app.contentResolver.openOutputStream(target, "wt")!!.use { out -> File(path).inputStream().use { it.copyTo(out) } }
         }
         store.toast(store.str(R.string.preset_exported))
+    }
+
+    // --- Backup ----------------------------------------------------------------------------------------
+
+    /** Writes the encrypted backup (settings, connections, user presets, Bambu login) to [target]. */
+    fun exportBackup(target: Uri, passphrase: CharArray) = store.launch(store.str(R.string.backup_working)) {
+        try {
+            withContext(Dispatchers.IO) {
+                store.app.contentResolver.openOutputStream(target, "wt")!!.use { AppBackup.export(store.app, it, passphrase) }
+            }
+        } finally {
+            passphrase.fill(' ')
+        }
+        store.toast(store.str(R.string.backup_saved))
+    }
+
+    /** Restores a backup over the current setup, installs its printers' profiles and restarts the app. */
+    fun importBackup(source: Uri, passphrase: CharArray) = store.launch(store.str(R.string.backup_working)) {
+        try {
+            withContext(Dispatchers.IO) {
+                store.app.contentResolver.openInputStream(source)!!.use { AppBackup.import(store.app, it, passphrase) }
+            }
+        } finally {
+            passphrase.fill(' ')
+        }
+        val keys = settings.selectedPrinters
+        resources.setInstalledVendors(store.value.vendors.filter { v -> v.models.any { m -> m.nozzles.any { printerKey(m.name, it) in keys } } }.map { it.id }.toSet())
+        val app = store.app
+        app.startActivity(app.packageManager.getLaunchIntentForPackage(app.packageName)!!
+            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK))
+        Runtime.getRuntime().exit(0)
     }
 
     // --- Profile updates -----------------------------------------------------------------------------

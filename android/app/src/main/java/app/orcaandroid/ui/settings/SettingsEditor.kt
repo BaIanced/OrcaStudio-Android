@@ -387,8 +387,23 @@ private fun OptionRow(
     }
 }
 
+/**
+ * Number of entries of a numeric / bool vector whose entries are all equal (profiles repeat a value
+ * once per nozzle variant, e.g. "190,190,190,190,190"), else 0. Such a value is shown and edited once.
+ */
+private fun uniformEntries(def: OptionDef, value: String): Int {
+    if (!def.isVector || def.type == "strings" || def.type == "points") return 0
+    val entries = value.split(',')
+    return if (entries.size > 1 && entries.all { it == entries[0] }) entries.size else 0
+}
+
 @Composable
 private fun OptionEditor(def: OptionDef, value: String, enabled: Boolean, tr: Translator, onChange: (String) -> Unit) {
+    val repeat = uniformEntries(def, value)
+    if (repeat > 0) {
+        OptionEditor(def, value.substringBefore(','), enabled, tr) { v -> onChange(if (v.contains(',')) v else List(repeat) { v.trim() }.joinToString(",")) }
+        return
+    }
     // Vector options with several distinct entries (e.g. per-extruder values) are edited as raw text.
     val single = !def.isVector || !value.contains(',')
     when {

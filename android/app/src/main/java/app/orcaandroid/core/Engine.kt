@@ -193,7 +193,7 @@ class Engine(private val cacheDir: File) {
 
     private fun parsePrinters(o: JSONObject) = o.getJSONArray("printers").map {
         val p = it as JSONObject
-        PrinterInfo(p.getString("name"), p.getString("vendor"), p.optString("model"), p.optDouble("nozzle"), p.optBoolean("system"))
+        PrinterInfo(p.getString("name"), p.getString("vendor"), p.optString("model"), p.optDouble("nozzle"), p.optBoolean("system"), p.optString("base"))
     }
 
     private fun parseRefs(a: JSONArray) = a.map {

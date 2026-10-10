@@ -2,6 +2,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-feature android:glEsVersion="0x00030000" android:required="true" />
+    <!-- Windows (WSA) and ChromeOS otherwise turn the mouse into emulated touches (the wheel becomes
+         a swipe that orbits the 3D view); the app handles the mouse itself (wheel zoom, middle-drag pan). -->
+    <uses-feature android:name="android.hardware.type.pc" android:required="false" />
 
     <!-- Printer hosts (Moonraker, OctoPrint, PrusaLink, Bambu LAN, ...) and profile updates. -->
     <uses-permission android:name="android.permission.INTERNET" />

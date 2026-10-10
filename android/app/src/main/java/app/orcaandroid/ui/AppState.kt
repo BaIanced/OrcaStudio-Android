@@ -190,4 +190,6 @@ data class UiState(
     val supportsBedTypes get() = setup?.bedTypes?.isNotEmpty() == true
 
     val selectedPrinterKeys get() = printers.filter { it.name == printer }.map { printerKey(it.model, it.nozzle) }
+
+    val printerInfo: PrinterInfo? get() = printers.firstOrNull { it.name == printer }
 }

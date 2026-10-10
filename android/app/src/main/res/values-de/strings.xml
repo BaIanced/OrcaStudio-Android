@@ -372,4 +372,17 @@
     <string name="bambu_cloud_hint">Optional, standardmäßig aus. Über dein Bambu-Konto funktionieren Status, Druckermeldungen und Filamentabgleich auch, wenn der Drucker nicht im selben Netz ist. Beim Cloud-Druck wird die Druckdatei zu Bambu hochgeladen. Das Ausschalten wirkt vollständig nach einem Neustart der App.</string>
     <string name="bambu_cloud">Bambu-Cloud nutzen, wenn der Drucker nicht im selben Netz ist</string>
     <string name="bambu_cloud_print">Über die Bambu-Cloud drucken, wenn der Drucker nicht im selben Netz ist</string>
+    <!-- Verschlüsselte Sicherung -->
+    <string name="backup">Sicherung</string>
+    <string name="backup_export">Einstellungen und Anmeldung sichern</string>
+    <string name="backup_export_text">Verschlüsselte Datei mit Einstellungen, Druckerverbindungen, Benutzer-Profilen und Bambu-Anmeldung</string>
+    <string name="backup_export_warning">Die Sicherung enthält die Zugangscodes deiner Drucker, die Bambu-Anmeldung und das Slicer-Zertifikat. Sie wird mit dieser Passphrase verschlüsselt; ohne sie lässt sich die Datei nicht öffnen, und eine vergessene Passphrase kann nicht wiederhergestellt werden. Bewahre die Datei privat auf.</string>
+    <string name="backup_import">Sicherung wiederherstellen</string>
+    <string name="backup_import_text">Ersetzt die aktuellen Einstellungen, Verbindungen und Benutzer-Profile; die App startet neu</string>
+    <string name="backup_import_warning">Gib die Passphrase der Sicherung ein. Die aktuellen Einstellungen, Verbindungen, Benutzer-Profile und die Anmeldung werden ersetzt, und die App startet neu.</string>
+    <string name="backup_working">Sicherung…</string>
+    <string name="backup_saved">Sicherung gespeichert</string>
+    <string name="passphrase">Passphrase</string>
+    <string name="passphrase_repeat">Passphrase wiederholen</string>
+    <string name="passphrase_min">Mindestens %1$d Zeichen</string>
 </resources>

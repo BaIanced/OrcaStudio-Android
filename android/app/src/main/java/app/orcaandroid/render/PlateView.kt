@@ -120,6 +120,8 @@ class PlateView(context: Context) : GLSurfaceView(context) {
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        // Compose's interop may hand the wheel over as a touch event.
+        if (event.actionMasked == MotionEvent.ACTION_SCROLL) return onGenericMotionEvent(event)
         scaleDetector.onTouchEvent(event)
         gestureDetector.onTouchEvent(event)
         when (event.actionMasked) {
@@ -211,7 +213,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     }
 
     override fun onGenericMotionEvent(event: MotionEvent): Boolean {
-        if (event.action == MotionEvent.ACTION_SCROLL) {
+        if (event.actionMasked == MotionEvent.ACTION_SCROLL) {
             val v = event.getAxisValue(MotionEvent.AXIS_VSCROLL)
             if (mode == InteractionMode.PAINT && event.metaState and KeyEvent.META_CTRL_ON != 0) listener?.onBrushScroll(if (v > 0) 1 else -1)
             else camera.zoom(if (v > 0) 1.15f else 1f / 1.15f)

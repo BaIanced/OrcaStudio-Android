@@ -39,7 +39,20 @@ class AppSettings(context: Context) {
     fun lastPrint(printer: String): String? = prefs.getString("print:$printer", null)
     fun setLastPrint(printer: String, print: String) = prefs.edit().putString("print:$printer", print).apply()
 
-    fun lastFilaments(printer: String): List<FilamentSlot> = prefs.getString("filaments:$printer", null)?.let { json ->
+    /**
+     * The system preset a user printer preset inherits: both stand for the same physical printer, so
+     * they share its connection and loaded filaments (kept under the base preset's name).
+     */
+    fun setPrinterBase(printer: String, base: String) = prefs.edit().apply {
+        if (base.isEmpty() || base == printer) remove("base:$printer") else putString("base:$printer", base)
+    }.apply()
+
+    private fun family(printer: String) = prefs.getString("base:$printer", null) ?: printer
+
+    fun lastFilaments(printer: String): List<FilamentSlot> =
+        filaments(family(printer)).ifEmpty { filaments(printer) }
+
+    private fun filaments(key: String): List<FilamentSlot> = prefs.getString("filaments:$key", null)?.let { json ->
         runCatching {
             JSONArray(json).map {
                 val o = it as JSONObject
@@ -49,16 +62,18 @@ class AppSettings(context: Context) {
     }.orEmpty()
 
     fun setLastFilaments(printer: String, slots: List<FilamentSlot>) = prefs.edit().putString(
-        "filaments:$printer",
+        "filaments:${family(printer)}",
         JSONArray(slots.map { JSONObject().put("preset", it.preset).put("color", it.color ?: "") }).toString(),
     ).apply()
 
-    fun connection(printer: String): PrinterConnection? =
-        prefs.getString("conn:$printer", null)?.let { runCatching { PrinterConnection.fromJson(it) }.getOrNull() }
+    fun connection(printer: String): PrinterConnection? = (prefs.getString("conn:${family(printer)}", null) ?: prefs.getString("conn:$printer", null))
+        ?.let { runCatching { PrinterConnection.fromJson(it) }.getOrNull() }
 
     fun setConnection(printer: String, connection: PrinterConnection?) {
+        val key = family(printer)
         prefs.edit().apply {
-            if (connection == null) remove("conn:$printer") else putString("conn:$printer", connection.toJson())
+            if (key != printer) remove("conn:$printer")
+            if (connection == null) remove("conn:$key") else putString("conn:$key", connection.toJson())
         }.apply()
     }
 

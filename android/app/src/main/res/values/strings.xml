@@ -373,4 +373,17 @@
     <string name="bambu_cloud_hint">Optional, off by default. Through your Bambu account, status, printer messages and filament sync also work when the printer is not on this network. Cloud printing uploads the print file to Bambu. Turning the cloud off fully applies after restarting the app.</string>
     <string name="bambu_cloud">Use the Bambu cloud when the printer is not on this network</string>
     <string name="bambu_cloud_print">Print through the Bambu cloud when the printer is not on this network</string>
+    <!-- Encrypted backup of settings, connections, user presets and the Bambu login -->
+    <string name="backup">Backup</string>
+    <string name="backup_export">Back up settings and login</string>
+    <string name="backup_export_text">Encrypted file with your settings, printer connections, user presets and Bambu login</string>
+    <string name="backup_export_warning">The backup holds your printer access codes, Bambu login and slicer certificate. It is encrypted with this passphrase; without it the file cannot be opened, and it cannot be recovered if you forget it. Keep the file private.</string>
+    <string name="backup_import">Restore backup</string>
+    <string name="backup_import_text">Replaces the current settings, connections and user presets; the app restarts</string>
+    <string name="backup_import_warning">Enter the passphrase of the backup. Your current settings, connections, user presets and login are replaced and the app restarts.</string>
+    <string name="backup_working">Backup…</string>
+    <string name="backup_saved">Backup saved</string>
+    <string name="passphrase">Passphrase</string>
+    <string name="passphrase_repeat">Repeat passphrase</string>
+    <string name="passphrase_min">At least %1$d characters</string>
 </resources>

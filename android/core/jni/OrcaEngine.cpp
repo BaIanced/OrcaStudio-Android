@@ -194,8 +194,12 @@ json OrcaEngine::printer_list_locked()
         const Preset &p = m_bundle->printers.preset(i);
         if (p.is_default)
             continue;
+        // A user preset belongs to the vendor and the physical printer of the system preset it inherits.
+        const Preset        *parent = p.is_system ? nullptr : m_bundle->printers.get_preset_parent(p);
+        const VendorProfile *vendor = m_bundle->printers.get_preset_with_vendor_profile(p).vendor;
         printers.push_back({{"name", p.name},
-                            {"vendor", p.vendor ? p.vendor->name : "User"},
+                            {"vendor", vendor ? vendor->name : "User"},
+                            {"base", parent && parent != &p ? parent->name : std::string()},
                             {"model", p.config.opt_string("printer_model")},
                             {"nozzle", nozzle_of(p)},
                             {"system", p.is_system}});
