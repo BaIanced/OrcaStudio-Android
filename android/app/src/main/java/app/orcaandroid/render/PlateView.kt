@@ -67,6 +67,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     /** The gesture began with the right / middle mouse button (pans; a right click opens the menu). */
     private var rightButton = false
     private var middleButton = false
+    private var hoverPanning = false
     /** A long press opened the context menu; the rest of the gesture is ignored. */
     private var longPressed = false
     /** Shift / Alt held when the gesture began: a drag draws a selection rectangle. */
@@ -120,6 +121,8 @@ class PlateView(context: Context) : GLSurfaceView(context) {
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (android.util.Log.isLoggable(INPUT_TAG, android.util.Log.DEBUG))
+            android.util.Log.d(INPUT_TAG, "touch ${MotionEvent.actionToString(event.action)} buttons=${event.buttonState}")
         // Compose's interop may hand the wheel over as a touch event.
         if (event.actionMasked == MotionEvent.ACTION_SCROLL) return onGenericMotionEvent(event)
         scaleDetector.onTouchEvent(event)
@@ -213,6 +216,18 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     }
 
     override fun onGenericMotionEvent(event: MotionEvent): Boolean {
+        if (android.util.Log.isLoggable(INPUT_TAG, android.util.Log.DEBUG))
+            android.util.Log.d(INPUT_TAG, "generic ${MotionEvent.actionToString(event.action)} buttons=${event.buttonState}")
+        // WSA delivers a right / middle drag as hover moves with the button held, not as touch moves.
+        if (event.actionMasked == MotionEvent.ACTION_HOVER_MOVE &&
+            event.buttonState and (MotionEvent.BUTTON_SECONDARY or MotionEvent.BUTTON_TERTIARY) != 0) {
+            if (hoverPanning) camera.pan(event.x - lastX, event.y - lastY)
+            hoverPanning = true
+            moved = true
+            lastX = event.x; lastY = event.y
+            return true
+        }
+        hoverPanning = false
         if (event.actionMasked == MotionEvent.ACTION_SCROLL) {
             val v = event.getAxisValue(MotionEvent.AXIS_VSCROLL)
             if (mode == InteractionMode.PAINT && event.metaState and KeyEvent.META_CTRL_ON != 0) listener?.onBrushScroll(if (v > 0) 1 else -1)
@@ -258,6 +273,9 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     private fun focusX(e: MotionEvent) = (0 until e.pointerCount).map { e.getX(it) }.average().toFloat()
     private fun focusY(e: MotionEvent) = (0 until e.pointerCount).map { e.getY(it) }.average().toFloat()
 }
+
+/** `adb shell setprop log.tag.OrcaInput DEBUG` logs the view's mouse / touch events. */
+private const val INPUT_TAG = "OrcaInput"
 
 /** Spacing of interpolated paint samples, in pixels. */
 private const val PAINT_STEP_PX = 12f
