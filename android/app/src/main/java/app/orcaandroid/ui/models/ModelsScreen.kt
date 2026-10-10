@@ -99,6 +99,15 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel) {
         settings.javaScriptCanOpenWindowsAutomatically = true
         settings.loadWithOverviewMode = true
         settings.useWideViewPort = true
+        // Pinch zoom, without the old on-screen +/- buttons; Ctrl+wheel zooms like a desktop browser.
+        settings.builtInZoomControls = true
+        settings.displayZoomControls = false
+        setOnGenericMotionListener { v, e ->
+            if (e.action != android.view.MotionEvent.ACTION_SCROLL || (e.metaState and android.view.KeyEvent.META_CTRL_ON) == 0) return@setOnGenericMotionListener false
+            val wheel = e.getAxisValue(android.view.MotionEvent.AXIS_VSCROLL)
+            if (wheel != 0f) (v as WebView).zoomBy(if (wheel > 0) 1.1f else 1 / 1.1f)
+            true
+        }
         android.webkit.CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
         addJavascriptInterface(Bridge(), "orcaNative")
         webViewClient = object : WebViewClient() {
