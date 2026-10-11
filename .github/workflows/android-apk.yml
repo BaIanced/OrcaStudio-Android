@@ -190,6 +190,34 @@ jobs:
           path: ${{ env.BUILD_ROOT }}/jniLibs
           key: ${{ steps.corekey.outputs.key }}
 
+      # libopenscad.so and its resources come from android-openscad.yml (same key, the
+      # android/openscad tree). Without them the APK still builds; the app then reports OpenSCAD as
+      # missing from the build.
+      - name: OpenSCAD core cache key
+        id: scadkey
+        run: echo "key=android-openscad-out-$(git rev-parse HEAD:android/openscad | cut -c1-16)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore OpenSCAD core
+        id: scad
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ env.BUILD_ROOT }}/openscad/out
+          key: ${{ steps.scadkey.outputs.key }}
+
+      - name: Stage OpenSCAD core
+        run: |
+          set -euo pipefail
+          out="$BUILD_ROOT/openscad/out"
+          rm -rf "$BUILD_ROOT/openscad-jniLibs" "$BUILD_ROOT/openscad-assets"
+          if [ ! -f "$out/lib/libopenscad.so" ]; then
+            echo "::warning::No OpenSCAD core for ${{ steps.scadkey.outputs.key }} (run android-openscad.yml on this branch); the APK ships without it."
+            exit 0
+          fi
+          mkdir -p "$BUILD_ROOT/openscad-jniLibs/arm64-v8a" "$BUILD_ROOT/openscad-assets/openscad"
+          cp "$out/lib/libopenscad.so" "$BUILD_ROOT/openscad-jniLibs/arm64-v8a/"
+          cp -r "$out/resources/." "$BUILD_ROOT/openscad-assets/openscad/"
+          du -sh "$BUILD_ROOT/openscad-jniLibs" "$BUILD_ROOT/openscad-assets"
+
       # When the core has to be rebuilt, ccache keeps unchanged translation units (most of libslic3r).
       - name: ccache
         if: steps.core.outputs.cache-hit != 'true'

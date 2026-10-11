@@ -1,6 +1,7 @@
 # Added to OpenSCAD's own build tree (see ../CMakeLists.txt, PATCH_COMMAND), so the bridge links
 # OpenSCADLibInternal with all of its usage requirements.
-add_library(scad_core SHARED ${CMAKE_CURRENT_LIST_DIR}/scad_bridge.cc)
+# scad_jni.cc: the JNI entry points the app's ScadNative calls (in its own process).
+add_library(scad_core SHARED ${CMAKE_CURRENT_LIST_DIR}/scad_bridge.cc ${CMAKE_CURRENT_LIST_DIR}/scad_jni.cc)
 # Static fontconfig/libzip leave their own dependencies (expat, zlib) to the final link.
 find_package(ZLIB REQUIRED)
 find_library(SCAD_EXPAT_LIBRARY NAMES expat libexpat REQUIRED)
