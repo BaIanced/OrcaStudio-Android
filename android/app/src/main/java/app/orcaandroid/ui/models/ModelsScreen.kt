@@ -182,7 +182,8 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel, d
                 url.startsWith("blob:") -> {
                     pendingBlobs[url] = name
                     evaluateJavascript(
-                        "fetch(${JSONObject.quote(url)}).then(function(r){return r.blob()}).then(function(b){" +
+                        "var k=window.__orcaBlobs&&window.__orcaBlobs[${JSONObject.quote(url)}];" +
+                            "(k?Promise.resolve(k):fetch(${JSONObject.quote(url)}).then(function(r){return r.blob()})).then(function(b){" +
                             "var f=new FileReader();f.onload=function(){orcaNative.blob(${JSONObject.quote(url)},f.result)};f.readAsDataURL(b)})", null)
                 }
                 url.startsWith("data:") -> saveData(url, name)
@@ -402,4 +403,9 @@ private const val BRIDGE_JS = """(function(){
   window.webkit.messageHandlers.wx = { postMessage: send };
   window.chrome = window.chrome || {}; window.chrome.webview = window.chrome.webview || {};
   window.chrome.webview.postMessage = send;
+  // Pages revoke a download's blob: URL right after clicking it; keep the blob so the app can read it.
+  window.__orcaBlobs = {};
+  var create = URL.createObjectURL, revoke = URL.revokeObjectURL;
+  URL.createObjectURL = function(o){ var u = create.apply(URL, arguments); if (o instanceof Blob) window.__orcaBlobs[u] = o; return u; };
+  URL.revokeObjectURL = function(u){ setTimeout(function(){ delete window.__orcaBlobs[u]; revoke.call(URL, u); }, 60000); };
 })();"""
