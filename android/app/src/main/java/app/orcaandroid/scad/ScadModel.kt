@@ -144,8 +144,8 @@ object ScadExamples {
         /* [Gear] */
         // Number of teeth
         teeth = 24; // [8:1:80]
-        // Circular pitch (pitch diameter = teeth * pitch / 180)
-        pitch = 300; // [100:10:600]
+        // Tooth size: mm along the pitch circle per tooth (diameter = teeth * pitch / pi)
+        pitch = 5; // [2:0.5:12]
         // Thickness (mm)
         thickness = 6; // [2:0.5:20]
         // Bore diameter (mm)
