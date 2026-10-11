@@ -24,6 +24,7 @@
 #include "core/EvaluationSession.h"
 #include "core/ScopeContext.h"
 #include "core/SourceFile.h"
+#include "core/RenderVariables.h"
 #include "core/Tree.h"
 #include "core/customizer/CommentParser.h"
 #include "core/customizer/ParameterObject.h"
@@ -197,11 +198,16 @@ scad_result *scad_render(const char *source, const char *filename, const char *p
             return r;
         }
         apply_params(root_file.get(), params_json);
+        // Loads use<>/include<> files (openscad.cc does this before do_export).
+        root_file->handleDependencies();
 
         const fs::path dir = source_dir(filename);
         fs::current_path(dir);
         EvaluationSession session{dir.string()};
         ContextHandle<BuiltinContext> builtin_context{Context::create<BuiltinContext>(&session)};
+        // $preview = false (a final render), $t = 0, default camera $vp*: as an STL export.
+        const RenderVariables render_variables{false, 0.0, Camera()};
+        render_variables.applyToContext(builtin_context);
         AbstractNode::resetIndexCounter();
         std::shared_ptr<const FileContext> file_context;
         std::shared_ptr<AbstractNode> absolute_root = root_file->instantiate(*builtin_context, &file_context);
