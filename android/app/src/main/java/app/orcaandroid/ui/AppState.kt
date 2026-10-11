@@ -95,6 +95,7 @@ data class UiState(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val dynamicColor: Boolean = false,
     val doubleBackToQuit: Boolean = false,
+    val undoLimit: Int = app.orcaandroid.core.DEFAULT_UNDO_LIMIT,
 
     // Printers and presets
     val vendors: List<Vendor> = emptyList(),

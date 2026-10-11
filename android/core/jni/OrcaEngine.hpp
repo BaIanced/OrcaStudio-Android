@@ -127,6 +127,8 @@ public:
     json set_plate_bed_type(int plate, const std::string &bed_type);
 
     json undo();
+    // Undo steps kept (More > Misc); the oldest are dropped beyond it.
+    json set_undo_limit(size_t limit);
     json redo();
 
     // --- Tools needing the current selection (see set_selection) ------------------------------
@@ -286,6 +288,7 @@ private:
     Slic3r::ModelObject  &object_at(int object);
     Items                 checked_items(Items items) const; // validated, sorted, without duplicates
     void                  push_undo();
+    void                  trim_undo();
     json                  scene_json();
     json                  commit(); // writes the mesh and returns scene_json()
     void                  write_mesh();
@@ -306,6 +309,7 @@ private:
     std::vector<PlateInfo>                m_plates{1};
     std::array<double, 4>                 m_layout_rect{0., 0., 200., 200.}; // bed the objects are laid out for
     std::deque<Snapshot>                  m_undo, m_redo;
+    size_t                                m_undo_limit = 200;
     std::string                           m_printer;
     std::string                           m_mesh_path;
     std::string                           m_paint_path;

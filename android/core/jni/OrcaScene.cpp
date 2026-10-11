@@ -37,7 +37,6 @@ namespace {
 
 constexpr double PLATE_GAP        = 1. / 5.; // PartPlate.cpp LOGICAL_PART_PLATE_GAP
 constexpr size_t MAX_PLATES       = 36;      // PartPlate.hpp MAX_PLATE_COUNT
-constexpr size_t MAX_UNDO         = 30;
 constexpr double ARRANGE_DISTANCE = 6.;      // mm between arranged objects
 
 int plate_columns(size_t count)
@@ -134,12 +133,26 @@ OrcaEngine::Items OrcaEngine::checked_items(Items items) const
 void OrcaEngine::push_undo()
 {
     m_undo.push_back({std::make_shared<Model>(*m_model), m_plates});
-    if (m_undo.size() > MAX_UNDO) {
+    trim_undo();
+    m_redo.clear();
+}
+
+void OrcaEngine::trim_undo()
+{
+    while (m_undo.size() > m_undo_limit) {
         m_undo.pop_front();
         if (m_calib_undo_depth > 0)
             --m_calib_undo_depth;
     }
-    m_redo.clear();
+}
+
+json OrcaEngine::set_undo_limit(size_t limit)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    // Snapshots share the meshes (ModelVolume keeps them in a shared_ptr), so a deep history is cheap.
+    m_undo_limit = std::max<size_t>(limit, 1);
+    trim_undo();
+    return scene_json();
 }
 
 std::array<double, 4> OrcaEngine::bed_rect() const

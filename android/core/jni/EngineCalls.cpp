@@ -102,6 +102,7 @@ const std::unordered_map<std::string, Handler> &handlers()
         {"setPlateBedType", [](OrcaEngine &e, const json &a) { return e.set_plate_bed_type(a.at("plate"), a.value("bedType", "")); }},
         {"undo", [](OrcaEngine &e, const json &) { return e.undo(); }},
         {"redo", [](OrcaEngine &e, const json &) { return e.redo(); }},
+        {"setUndoLimit", [](OrcaEngine &e, const json &a) { return e.set_undo_limit(a.at("limit").get<size_t>()); }},
         {"addPrimitive", [](OrcaEngine &e, const json &a) { return e.add_primitive(a.at("shape"), vec3(a.at("size")), a.value("plate", 0)); }},
         {"addText", [](OrcaEngine &e, const json &a) {
              return e.add_text(a.at("text"), a.at("font"), a.value("height", 10.0), a.value("depth", 2.0), a.value("plate", 0));

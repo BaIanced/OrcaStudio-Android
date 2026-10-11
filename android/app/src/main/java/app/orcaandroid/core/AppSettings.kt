@@ -22,6 +22,11 @@ class AppSettings(context: Context) {
         get() = prefs.getBoolean("dynamic_color", false)
         set(value) = prefs.edit().putBoolean("dynamic_color", value).apply()
 
+    /** Undo steps the engine keeps. */
+    var undoLimit: Int
+        get() = prefs.getInt("undo_limit", DEFAULT_UNDO_LIMIT)
+        set(value) = prefs.edit().putInt("undo_limit", value).apply()
+
     /** Back on the home screen quits after pressing it twice instead of asking. */
     var doubleBackToQuit: Boolean
         get() = prefs.getBoolean("double_back_quit", false)
@@ -97,3 +102,6 @@ class AppSettings(context: Context) {
         recents = (listOf(file) + recents.filter { it.uri != file.uri }).take(12)
     }
 }
+
+const val DEFAULT_UNDO_LIMIT = 200
+const val MAX_UNDO_LIMIT = 5000

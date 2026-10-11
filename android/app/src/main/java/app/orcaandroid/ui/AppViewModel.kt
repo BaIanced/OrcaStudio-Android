@@ -58,6 +58,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         translator = withContext(Dispatchers.IO) { Translator.load(store.app) }
         resources.prepare()
         store.engine.init(resources.resourcesDir, resources.dataDir)
+        runCatching { store.engine.setUndoLimit(store.settings.undoLimit) }
         val vendors = withContext(Dispatchers.IO) { resources.availableVendors() }
         val selected = store.settings.selectedPrinters
         store.update { it.copy(vendors = vendors, selectedPrinters = selected) }
@@ -100,6 +101,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun setDynamicColor(on: Boolean) {
         store.settings.dynamicColor = on
         store.update { it.copy(dynamicColor = on) }
+    }
+
+    fun setUndoLimit(limit: Int) {
+        store.settings.undoLimit = limit
+        store.update { it.copy(undoLimit = limit) }
+        store.sceneOp { store.engine.setUndoLimit(limit) }
     }
 
     fun setDoubleBackToQuit(on: Boolean) {

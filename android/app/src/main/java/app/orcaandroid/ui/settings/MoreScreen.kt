@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -83,6 +84,7 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
 
             SectionTitle(stringResource(R.string.misc))
             SwitchRow(stringResource(R.string.double_back_quit), state.doubleBackToQuit, onChange = vm::setDoubleBackToQuit)
+            UndoLimitRow(state.undoLimit, vm::setUndoLimit)
 
             SectionTitle(stringResource(R.string.printers_and_presets))
             Entry(stringResource(R.string.manage_printers), stringResource(R.string.n_printers_selected, state.selectedPrinters.size)) { vm.presets.openPrinterSetup() }
@@ -173,6 +175,27 @@ private fun PassphraseDialog(title: String, text: String, confirm: Boolean, onDi
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
+}
+
+/** Undo steps to keep; applied as soon as the field holds a valid number. */
+@Composable
+private fun UndoLimitRow(limit: Int, onChange: (Int) -> Unit) {
+    var text by remember(limit) { mutableStateOf(limit.toString()) }
+    val value = text.toIntOrNull()?.takeIf { it in 1..app.orcaandroid.core.MAX_UNDO_LIMIT }
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(stringResource(R.string.undo_limit), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+        OutlinedTextField(
+            text,
+            { t ->
+                text = t.filter(Char::isDigit).take(4)
+                text.toIntOrNull()?.takeIf { it in 1..app.orcaandroid.core.MAX_UNDO_LIMIT && it != limit }?.let(onChange)
+            },
+            Modifier.width(110.dp),
+            singleLine = true,
+            isError = value == null,
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+        )
+    }
 }
 
 @Composable
