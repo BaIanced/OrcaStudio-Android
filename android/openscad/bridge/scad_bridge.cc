@@ -3,6 +3,7 @@
 // leaves out together with its boost::program_options dependency.
 #include "scad_bridge.h"
 
+#include <algorithm>
 #include <cstdlib>
 #include <cstring>
 #include <exception>
@@ -11,6 +12,8 @@
 #include <sstream>
 #include <string>
 #include <vector>
+
+#include <sys/resource.h>
 
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
@@ -26,6 +29,7 @@
 #include "core/customizer/ParameterObject.h"
 #include "core/customizer/ParameterSet.h"
 #include "core/node.h"
+#include "core/parsersettings.h"
 #include "geometry/Geometry.h"
 #include "geometry/GeometryEvaluator.h"
 #include "geometry/PolySet.h"
@@ -154,6 +158,21 @@ int scad_init(const char *resource_dir)
     try {
         // Resources are looked up relative to the application path (PlatformUtils::lookupResourcesPath).
         PlatformUtils::registerApplicationPath(resource_dir && *resource_dir ? resource_dir : ".");
+        // Library search path (OPENSCADPATH, user and bundled libraries), as openscad.cc's main does.
+        parser_init();
+        // OpenSCAD's recursion guard (StackCheck) allows RLIMIT_STACK minus a margin, and Android
+        // keeps that at 8 MB, which designs with a few thousand loop iterations already exceed.
+        // The app renders on a thread with a 256 MB stack (ScadService); a main thread grows up to
+        // the raised limit. Must run before the first evaluation: StackCheck reads it once.
+        struct rlimit lim {};
+        if (getrlimit(RLIMIT_STACK, &lim) == 0) {
+            const rlim_t want = rlim_t(240) << 20;
+            const rlim_t cap = lim.rlim_max == RLIM_INFINITY ? want : std::min<rlim_t>(want, lim.rlim_max);
+            if (lim.rlim_cur != RLIM_INFINITY && lim.rlim_cur < cap) {
+                lim.rlim_cur = cap;
+                setrlimit(RLIMIT_STACK, &lim);
+            }
+        }
 #ifdef ENABLE_CGAL
         // As openscad_main(): throw instead of aborting on bad geometry.
         CGAL::set_error_behaviour(CGAL::THROW_EXCEPTION);

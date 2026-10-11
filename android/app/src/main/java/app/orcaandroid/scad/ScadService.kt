@@ -70,6 +70,8 @@ class ScadService : Service() {
     /** Loads the library and unpacks OpenSCAD's resources (fonts, MCAD) once per app update. */
     private fun ensureReady(): String = ready ?: run {
         val error = runCatching {
+            // Libraries the user adds (BOSL2 and the like) go here; searched before the bundled MCAD.
+            android.system.Os.setenv("OPENSCADPATH", File(filesDir, "openscad/libraries").apply { mkdirs() }.path, true)
             System.loadLibrary("openscad")
             val res = unpackResources()
             val cache = File(cacheDir, "openscad-fc").apply { mkdirs() }

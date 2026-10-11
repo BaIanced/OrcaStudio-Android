@@ -122,6 +122,9 @@ class ScadClient(private val context: Context) {
             putString(ScadService.KEY_PARAMS, params); putString(ScadService.KEY_OUT, out.path)
         })
         val o = checkError(json) ?: throw ScadUnavailable("No answer from OpenSCAD")
+        // After its recursion limit fired, OpenSCAD's stack guard rejects every later function
+        // call in that process (seen on WSA): start the next request in a fresh one.
+        if (o.optString("log").contains("Recursion detected")) kill()
         val triangles = o.optInt("triangles")
         return ScadRender(o.optBoolean("ok"), o.optInt("dimension"), triangles, o.optString("log"),
             out.takeIf { triangles > 0 && it.isFile }, System.currentTimeMillis() - start)
