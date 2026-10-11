@@ -35,6 +35,20 @@ class Camera {
         pitch = if (top) 89f else 40f
     }
 
+    /** Looks at the box [min]..[max] from the iso direction so that it fills the view. */
+    @Synchronized fun fit(min: Vec3, max: Vec3) {
+        target[0] = (min.x + max.x) / 2
+        target[1] = (min.y + max.y) / 2
+        target[2] = (min.z + max.z) / 2
+        val radius = (max - min).length() / 2
+        val aspect = width.toFloat() / height
+        // Distance at which a sphere around the box fits the narrower field of view.
+        val half = Math.toRadians(FOV / 2.0).let { kotlin.math.tan(it) }.toFloat() * minOf(1f, aspect)
+        distance = (radius / half * 1.1f).coerceIn(5f, 10000f)
+        yaw = -60f
+        pitch = 30f
+    }
+
     @Synchronized fun orbit(dxDeg: Float, dyDeg: Float) {
         yaw -= dxDeg
         pitch = (pitch + dyDeg).coerceIn(-89f, 89f)

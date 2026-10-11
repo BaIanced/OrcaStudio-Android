@@ -7,6 +7,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -35,11 +37,8 @@ import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.ViewInAr
 import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -62,6 +61,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -73,6 +73,7 @@ import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
@@ -92,8 +93,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.orcaandroid.R
-import app.orcaandroid.scad.ScadExamples
+import app.orcaandroid.scad.ScadHints
 import app.orcaandroid.scad.ScadParam
+import app.orcaandroid.scad.ScadSnippets
 import app.orcaandroid.ui.AppViewModel
 import app.orcaandroid.ui.ScadEditorState
 import app.orcaandroid.ui.components.NumberField
@@ -113,57 +115,101 @@ private val LINE_REF = Regex("""line (\d+)""")
 fun ScadPanel(s: ScadEditorState, vm: AppViewModel, onHide: (() -> Unit)? = null) {
     var tab by rememberSaveable { mutableStateOf(0) }
     var jump by remember { mutableStateOf<Int?>(null) }
+    var previewOpen by rememberSaveable { mutableStateOf(true) }
+    var templates by remember { mutableStateOf(false) }
+    var addSetting by remember { mutableStateOf(false) }
+    // A change for the code editor to apply to its text and cursor (Insert, Add a slider).
+    var codeEdit by remember { mutableStateOf<((TextFieldValue) -> TextFieldValue)?>(null) }
+    val context = LocalContext.current
+    // A design with sliders opens on the Customizer: changing it needs no code.
+    var shownLoad by rememberSaveable { mutableStateOf(-1) }
+    if (shownLoad != s.loadId) {
+        shownLoad = s.loadId
+        tab = if (s.source.contains(Regex("""//\s*\["""))) 1 else 0
+    }
     val save = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/x-openscad")) { it?.let(vm.scad::save) }
     val open = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { it?.let(vm.scad::openUri) }
     Column(
         Modifier.fillMaxSize().onPreviewKeyEvent { e ->
             if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
             when {
-                e.key == Key.F6 || e.key == Key.F5 || (e.isCtrlPressed && e.key == Key.Enter) -> { vm.scad.render(); true }
+                e.key == Key.F5 || (e.isCtrlPressed && e.key == Key.Enter) -> { vm.scad.preview(); true }
+                e.key == Key.F6 -> { vm.scad.render(); true }
                 e.isCtrlPressed && e.key == Key.S -> { save.launch(s.name); true }
                 else -> false
             }
         },
     ) {
-        Header(s, vm, onHide, onOpen = { open.launch(arrayOf("*/*")) }, onSave = { save.launch(s.name) })
+        Header(s, vm, onHide, onOpen = { open.launch(arrayOf("*/*")) }, onSave = { save.launch(s.name) }, onNew = { templates = true })
+        PreviewBar(s, vm, previewOpen) { previewOpen = !previewOpen }
+        if (previewOpen) BoxWithConstraints(Modifier.fillMaxWidth()) {
+            // The height is taken from the panel: about a third of it.
+            ScadPreviewPane(s, vm, Modifier.fillMaxWidth().height(previewHeight()))
+        }
         PrimaryTabRow(selectedTabIndex = tab) {
             Tab(tab == 0, { tab = 0 }, text = { Text(stringResource(R.string.scad_code)) })
             Tab(tab == 1, { tab = 1 }, text = {
                 Text(stringResource(R.string.scad_customizer) + if (s.params.isNotEmpty()) " · ${s.params.size}" else "")
             })
         }
-        Box(Modifier.weight(1f).fillMaxWidth()) {
-            if (tab == 0) CodeEditor(s, vm, jump, onJumped = { jump = null })
-            else Customizer(s, vm)
+        Column(Modifier.weight(1f).fillMaxWidth()) {
+            if (tab == 0) {
+                InsertBar(
+                    onInsert = { sn ->
+                        codeEdit = { v ->
+                            val (t, at) = ScadSnippets.insert(v.text, v.selection.start, v.selection.end, sn)
+                            TextFieldValue(t, TextRange(at))
+                        }
+                    },
+                    onAddSetting = { addSetting = true },
+                )
+                CodeEditor(s, vm, jump, onJumped = { jump = null }, edit = codeEdit, onEdited = { codeEdit = null })
+            } else Customizer(s, vm, onAddSetting = { addSetting = true })
         }
         HorizontalDivider()
+        HintCards(remember(s.log) { ScadHints.explain(s.log) }, onLine = { tab = 0; jump = it })
         Console(s, onLine = { tab = 0; jump = it })
         Actions(s, vm)
+    }
+    if (templates) TemplateGallery(onDismiss = { templates = false }, onPick = { templates = false; vm.scad.loadExample(it) })
+    if (addSetting) AddSettingDialog(onDismiss = { addSetting = false }) { label, mm, value, min, max, step ->
+        addSetting = false
+        val name = ScadSnippets.identifier(label)
+        val apply = { text: String -> ScadSnippets.addParameter(text, label, mm, value, min, max, step) }
+        if (tab == 0) codeEdit = { v -> apply(v.text).let { (t, at, _) -> TextFieldValue(t, TextRange(at)) } }
+        else vm.scad.edit(apply(s.source).first)
+        android.widget.Toast.makeText(context, context.getString(R.string.scad_setting_added, name), android.widget.Toast.LENGTH_LONG).show()
     }
 }
 
 @Composable
-private fun Header(s: ScadEditorState, vm: AppViewModel, onHide: (() -> Unit)?, onOpen: () -> Unit, onSave: () -> Unit) {
-    var menu by remember { mutableStateOf(false) }
+private fun androidx.compose.foundation.layout.BoxWithConstraintsScope.previewHeight() =
+    (maxWidth * 0.62f).coerceIn(150.dp, 300.dp)
+
+/** "Preview" header: live preview switch and show / hide. */
+@Composable
+private fun PreviewBar(s: ScadEditorState, vm: AppViewModel, open: Boolean, onToggle: () -> Unit) {
+    Row(Modifier.fillMaxWidth().clickable(onClick = onToggle).padding(start = 16.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(if (open) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+            stringResource(if (open) R.string.scad_preview_hide else R.string.scad_preview_show),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+        Text(stringResource(R.string.scad_preview), style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier.padding(start = 8.dp).weight(1f))
+        Text(stringResource(R.string.scad_auto_render), style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Switch(s.autoRender, vm.scad::setAutoRender, Modifier.padding(start = 8.dp).scale(0.8f))
+    }
+}
+
+@Composable
+private fun Header(s: ScadEditorState, vm: AppViewModel, onHide: (() -> Unit)?, onOpen: () -> Unit, onSave: () -> Unit, onNew: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Icon(Icons.Default.Code, null, tint = MaterialTheme.colorScheme.primary)
         Column(Modifier.weight(1f).padding(start = 12.dp)) {
             Text("OpenSCAD", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
             Text(s.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        Box {
-            IconButton(onClick = { menu = true }) { Icon(Icons.Default.Add, stringResource(R.string.scad_new)) }
-            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                DropdownMenuItem(text = { Text(stringResource(R.string.scad_new)) }, leadingIcon = { Icon(Icons.Outlined.Description, null) },
-                    onClick = { menu = false; vm.scad.new() })
-                HorizontalDivider()
-                Text(stringResource(R.string.scad_examples), style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-                ScadExamples.ALL.forEach { ex ->
-                    DropdownMenuItem(text = { Text(ex.title) }, onClick = { menu = false; vm.scad.loadExample(ex) })
-                }
-            }
-        }
+        IconButton(onClick = onNew) { Icon(Icons.Default.Add, stringResource(R.string.scad_new)) }
         IconButton(onClick = onOpen) { Icon(Icons.Default.FolderOpen, stringResource(R.string.scad_open)) }
         IconButton(onClick = onSave) { Icon(Icons.Default.Save, stringResource(R.string.scad_save)) }
         if (onHide != null) IconButton(onClick = onHide) { Icon(Icons.Default.ViewInAr, stringResource(R.string.scad_show_plate)) }
@@ -174,7 +220,10 @@ private fun Header(s: ScadEditorState, vm: AppViewModel, onHide: (() -> Unit)?, 
 // --- Code ----------------------------------------------------------------------------------------
 
 @Composable
-private fun CodeEditor(s: ScadEditorState, vm: AppViewModel, jump: Int?, onJumped: () -> Unit) {
+private fun CodeEditor(
+    s: ScadEditorState, vm: AppViewModel, jump: Int?, onJumped: () -> Unit,
+    edit: ((TextFieldValue) -> TextFieldValue)?, onEdited: () -> Unit,
+) {
     var value by remember(s.loadId) { mutableStateOf(TextFieldValue(s.source)) }
     val colors = scadColors()
     val highlight = remember(colors) { ScadHighlight(colors) }
@@ -198,6 +247,18 @@ private fun CodeEditor(s: ScadEditorState, vm: AppViewModel, jump: Int?, onJumpe
         val v = autoIndent(value, next)
         value = v
         vm.scad.edit(v.text)
+    }
+
+    LaunchedEffect(edit) {
+        val f = edit ?: return@LaunchedEffect
+        val v = f(value)
+        value = v
+        vm.scad.edit(v.text)
+        onEdited()
+        // Show the inserted lines.
+        val line = v.text.take(v.selection.start).count { it == '\n' }
+        vScroll.animateScrollTo(((line - 6) * lineHeight).roundToInt().coerceAtLeast(0))
+        runCatching { focus.requestFocus() }
     }
 
     Row(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceContainerLowest).verticalScroll(vScroll)) {
@@ -343,15 +404,15 @@ private class ScadHighlight(private val c: ScadColors) : VisualTransformation {
 // --- Customizer ----------------------------------------------------------------------------------
 
 @Composable
-private fun Customizer(s: ScadEditorState, vm: AppViewModel) {
+private fun Customizer(s: ScadEditorState, vm: AppViewModel, onAddSetting: () -> Unit) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         if (s.parseError) Notice(stringResource(R.string.scad_parse_error), error = true)
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.scad_auto_render), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-            Switch(s.autoRender, vm.scad::setAutoRender)
-        }
         if (s.params.isEmpty()) {
             Notice(stringResource(R.string.scad_no_params), error = false)
+            TextButton(onClick = onAddSetting) {
+                Icon(Icons.Default.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.scad_add_setting))
+            }
             return@Column
         }
         val general = stringResource(R.string.scad_parameters)
@@ -364,11 +425,17 @@ private fun Customizer(s: ScadEditorState, vm: AppViewModel) {
             }
             if (open) params.forEach { p -> Param(p, s.value(p), p.name in s.values) { vm.scad.setValue(p, it) } }
         }
-        if (s.values.isNotEmpty())
-            TextButton(onClick = vm.scad::resetValues) {
-                Icon(Icons.Default.RestartAlt, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.scad_reset_all))
+        Row {
+            TextButton(onClick = onAddSetting) {
+                Icon(Icons.Default.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.scad_add_setting))
             }
+            if (s.values.isNotEmpty())
+                TextButton(onClick = vm.scad::resetValues) {
+                    Icon(Icons.Default.RestartAlt, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.scad_reset_all))
+                }
+        }
     }
 }
 
@@ -465,7 +532,7 @@ private fun Console(s: ScadEditorState, onLine: (Int) -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         when {
-            s.rendering -> CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+            s.rendering || s.previewing -> CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
             s.statusError -> Icon(Icons.Default.ErrorOutline, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error)
             s.status != null -> Icon(Icons.Outlined.CheckCircle, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
         }
@@ -474,7 +541,7 @@ private fun Console(s: ScadEditorState, onLine: (Int) -> Unit) {
             style = MaterialTheme.typography.bodySmall,
             color = if (s.statusError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 2, overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f).padding(start = if (s.rendering || s.status != null) 10.dp else 0.dp),
+            modifier = Modifier.weight(1f).padding(start = if (s.rendering || s.previewing || s.status != null) 10.dp else 0.dp),
         )
         if (hasLog) Icon(if (open) Icons.Default.ExpandMore else Icons.Default.ExpandLess, stringResource(R.string.scad_console),
             tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -511,7 +578,7 @@ private fun Console(s: ScadEditorState, onLine: (Int) -> Unit) {
 private fun Actions(s: ScadEditorState, vm: AppViewModel) {
     Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 12.dp, top = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        if (s.rendering) {
+        if (s.rendering || s.previewing) {
             OutlinedButton(onClick = vm.scad::stop, modifier = Modifier.weight(1f)) {
                 Icon(Icons.Default.Stop, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.scad_stop))
