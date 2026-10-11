@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesomeMosaic
 import androidx.compose.material.icons.filled.Brush
+import androidx.compose.material.icons.filled.CallMerge
 import androidx.compose.material.icons.filled.CallSplit
 import androidx.compose.material.icons.filled.CenterFocusStrong
 import androidx.compose.material.icons.filled.ContentCopy
@@ -164,6 +165,9 @@ private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
                     DropdownMenuItem(text = { Text(stringResource(R.string.delete)) }, leadingIcon = { Icon(Icons.Default.Delete, null) },
                         onClick = { close(); vm.scene.deleteSelected() })
                 }
+                if (state.multiSelection.size >= 2)
+                    DropdownMenuItem(text = { Text(stringResource(R.string.assemble)) }, leadingIcon = { Icon(Icons.Default.CallMerge, null) },
+                        onClick = { close(); vm.scene.assemble() })
                 if (sel != null) {
                     if (ScadDesign.of(state.scene.objects.getOrNull(sel.obj)) != null)
                         DropdownMenuItem(text = { Text(stringResource(R.string.scad_edit_design)) }, leadingIcon = { Icon(Icons.Default.Code, null) },
@@ -174,6 +178,9 @@ private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
                         onClick = { close(); vm.scene.setTool(Tool.LayOnFace) })
                     DropdownMenuItem(text = { Text(stringResource(R.string.add_modifier)) },
                         onClick = { close(); vm.scene.addVolume(VolumeType.MODIFIER, "box") })
+                    if ((state.scene.objects.getOrNull(sel.obj)?.volumes?.count { it.type == VolumeType.PART } ?: 0) >= 2)
+                        DropdownMenuItem(text = { Text(stringResource(R.string.mesh_boolean)) },
+                            onClick = { close(); dialog = "boolean" })
                     DropdownMenuItem(text = { Text(stringResource(R.string.object_settings_title)) },
                         onClick = { close(); vm.presets.openEditor(EditorTarget.Object(sel.obj)) })
                 } else if (state.multiSelection.isEmpty()) {
@@ -325,6 +332,7 @@ private fun ToolButtons(state: UiState, vm: AppViewModel) {
     }
     if (state.multiSelection.isNotEmpty()) {
         ToolButton(Icons.Default.ContentCopy, stringResource(R.string.duplicate)) { vm.scene.duplicate(1) }
+        ToolButton(Icons.Default.CallMerge, stringResource(R.string.assemble), enabled = state.multiSelection.size >= 2) { vm.scene.assemble() }
         ToolButton(Icons.Default.Delete, stringResource(R.string.delete)) { vm.scene.deleteSelected() }
     } else if (selected) {
         ToolButton(Icons.Default.VerticalAlignBottom, stringResource(R.string.lay_on_face), active = state.tool == Tool.LayOnFace) {
@@ -361,6 +369,8 @@ private fun ToolButtons(state: UiState, vm: AppViewModel) {
         Box {
             ToolButton(Icons.Default.MoreVert, stringResource(R.string.more)) { moreMenu = true }
             DropdownMenu(expanded = moreMenu, onDismissRequest = { moreMenu = false }) {
+                DropdownMenuItem(text = { Text(stringResource(R.string.add_part)) }, onClick = { moreMenu = false; vm.scene.addVolume(VolumeType.PART, "box") })
+                DropdownMenuItem(text = { Text(stringResource(R.string.mesh_boolean)) }, onClick = { moreMenu = false; dialog = "boolean" })
                 DropdownMenuItem(text = { Text(stringResource(R.string.add_modifier)) }, onClick = { moreMenu = false; vm.scene.addVolume(VolumeType.MODIFIER, "box") })
                 DropdownMenuItem(text = { Text(stringResource(R.string.add_support_blocker)) }, onClick = { moreMenu = false; vm.scene.addVolume(VolumeType.SUPPORT_BLOCKER, "box") })
                 DropdownMenuItem(text = { Text(stringResource(R.string.add_support_enforcer)) }, onClick = { moreMenu = false; vm.scene.addVolume(VolumeType.SUPPORT_ENFORCER, "box") })

@@ -3,6 +3,7 @@ package app.orcaandroid.scad
 import app.orcaandroid.core.SceneObject
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 
 /** One Customizer parameter, from OpenSCAD's parameter JSON (src/io/export_param.cc). */
 data class ScadParam(
@@ -103,12 +104,40 @@ data class ScadParam(
  * reopened project can be edited again. Compact JSON escapes newlines, which XML attributes would
  * otherwise turn into spaces.
  */
-data class ScadDesign(val name: String, val source: String, val values: Map<String, Any>) {
+data class ScadDesign(
+    val name: String,
+    val source: String,
+    val values: Map<String, Any>,
+    /** Local include<> / use<> files, by path relative to the main file's folder (see [ScadDeps]). */
+    val files: Map<String, String> = emptyMap(),
+) {
     fun encode(): String = PREFIX + JSONObject()
         .put("name", name)
         .put("source", source)
         .put("values", ScadParam.encode(values))
+        .apply { if (files.isNotEmpty()) put("files", JSONObject(files)) }
         .toString()
+
+    /**
+     * Writes the main source and its [files] under [root] so include<> resolves as it did where the
+     * design was made; returns the main file. Paths leaving the main folder ("../lib.scad") get as
+     * many folder levels above the main file as they need.
+     */
+    fun unpack(root: File): File {
+        val up = files.keys.maxOfOrNull { k -> k.split('/').takeWhile { it == ".." }.size } ?: 0
+        val mainDir = (1..up).fold(root) { d, i -> File(d, "d$i") }
+        val main = File(mainDir, name.substringAfterLast('/').ifEmpty { "design.scad" })
+        root.deleteRecursively()
+        mainDir.mkdirs()
+        main.writeText(source)
+        for ((rel, text) in files) {
+            val f = File(mainDir, rel).canonicalFile
+            if (!f.path.startsWith(root.canonicalPath + File.separator)) continue
+            f.parentFile?.mkdirs()
+            f.writeText(text)
+        }
+        return main
+    }
 
     companion object {
         private const val PREFIX = "openscad:"
@@ -116,9 +145,46 @@ data class ScadDesign(val name: String, val source: String, val values: Map<Stri
         fun of(obj: SceneObject?): ScadDesign? {
             val module = obj?.module?.takeIf { it.startsWith(PREFIX) } ?: return null
             val o = runCatching { JSONObject(module.substring(PREFIX.length)) }.getOrNull() ?: return null
-            return ScadDesign(o.optString("name").ifEmpty { obj.name }, o.optString("source"), ScadParam.decode(o.optString("values")))
+            val files = o.optJSONObject("files")?.let { f -> f.keys().asSequence().associateWith { f.optString(it) } } ?: emptyMap()
+            return ScadDesign(o.optString("name").ifEmpty { obj.name }, o.optString("source"), ScadParam.decode(o.optString("values")), files)
         }
     }
+}
+
+/**
+ * The local files a design pulls in with include<> / use<>, so they can travel inside the project.
+ * OpenSCAD looks next to the including file first, then in the library path (find_valid_path in
+ * src/core/parsersettings.cc); only the first kind is collected, library files (MCAD) stay out.
+ * Data files for import() / surface() are not collected.
+ */
+object ScadDeps {
+    private val INCLUDE = Regex("""\b(?:include|use)\s*<([^>\n]+)>""")
+    private const val MAX_BYTES = 2 shl 20
+
+    fun collect(source: String, mainFile: String): Map<String, String> {
+        val base = File(mainFile).absoluteFile.parentFile ?: return emptyMap()
+        val out = LinkedHashMap<String, String>()
+        val seen = HashSet<String>()
+        var total = 0
+        fun scan(text: String, dir: File) {
+            for (m in INCLUDE.findAll(stripComments(text))) {
+                val ref = m.groupValues[1].trim()
+                if (ref.isEmpty() || File(ref).isAbsolute) continue
+                val f = File(dir, ref).canonicalFile
+                if (!f.isFile || !seen.add(f.path)) continue
+                total += f.length().toInt()
+                if (total > MAX_BYTES) return
+                val content = runCatching { f.readText() }.getOrNull() ?: continue
+                out[f.relativeTo(base.canonicalFile).invariantSeparatorsPath] = content
+                scan(content, f.parentFile!!)
+            }
+        }
+        scan(source, base)
+        return out
+    }
+
+    private fun stripComments(s: String) =
+        s.replace(Regex("""/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL), "").replace(Regex("""//[^\n]*"""), "")
 }
 
 /** Built-in starting points: each shows something the editor and renderer can do. */

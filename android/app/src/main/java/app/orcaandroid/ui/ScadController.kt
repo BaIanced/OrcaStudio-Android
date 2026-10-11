@@ -5,6 +5,7 @@ import app.orcaandroid.R
 import app.orcaandroid.core.Scene
 import app.orcaandroid.core.Vec3
 import app.orcaandroid.scad.ScadClient
+import app.orcaandroid.scad.ScadDeps
 import app.orcaandroid.scad.ScadDesign
 import app.orcaandroid.scad.ScadExamples
 import app.orcaandroid.scad.ScadParam
@@ -104,7 +105,11 @@ class ScadController(private val store: Store) {
         val obj = store.value.scene.objects.getOrNull(index) ?: return@launch
         val design = ScadDesign.of(obj) ?: return@launch
         if (st == null) open().join()
-        load(design.name, draftFile.path, design.source, design.values, onPlate = obj.name)
+        // A design with its own include files gets them back in a folder of its own.
+        val file = if (design.files.isEmpty()) draftFile.path else withContext(Dispatchers.IO) {
+            design.unpack(File(dir, "designs/" + Integer.toHexString(design.encode().hashCode()))).path
+        }
+        load(design.name, file, design.source, design.values, onPlate = obj.name)
     }
 
     fun loadExample(example: ScadExamples.Example) = load(example.file, draftFile.path, example.source)
@@ -192,12 +197,11 @@ class ScadController(private val store: Store) {
             val s = st
             if (s != null) withContext(Dispatchers.IO) {
                 runCatching {
-                    if (s.file == draftFile.path || !File(s.file).isFile || File(s.file).readText() != s.source) {
-                        draftFile.writeText(s.source)
-                    }
+                    // The source always goes to the draft; an opened file stays the include<> base.
+                    draftFile.writeText(s.source)
                     draftMeta.writeText(JSONObject()
                         .put("name", s.name)
-                        .put("file", if (s.file != draftFile.path && File(s.file).readText() == s.source) s.file else "")
+                        .put("file", if (s.file != draftFile.path) s.file else "")
                         .put("values", ScadParam.encode(s.values))
                         .put("onPlate", s.onPlate ?: "")
                         .put("autoRender", s.autoRender)
@@ -229,7 +233,8 @@ class ScadController(private val store: Store) {
                     stl == null && r.dimension == 2 -> fail(R.string.scad_2d)
                     stl == null -> fail(R.string.scad_empty)
                     else -> {
-                        val name = place(stl, if (asNew) null else s.onPlate, ScadDesign(s.name, s.source, s.values))
+                        val files = withContext(Dispatchers.IO) { ScadDeps.collect(s.source, s.file) }
+                        val name = place(stl, if (asNew) null else s.onPlate, ScadDesign(s.name, s.source, s.values, files))
                         set { it.copy(onPlate = name, status = summary(r), statusError = false) }
                         saveDraft()
                     }

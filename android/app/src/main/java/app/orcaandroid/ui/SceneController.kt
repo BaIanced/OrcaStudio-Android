@@ -165,6 +165,19 @@ class SceneController(private val store: Store, private val presets: PresetContr
         store.sceneOp { engine.split(sel.obj, toParts) }
     }
 
+    /** Desktop "Assemble": the selected copies become the parts of one object, each staying in place. */
+    fun assemble() {
+        val items = selectedItems.takeIf { it.size >= 2 } ?: return
+        store.update { it.copy(selection = null, multiSelection = emptyList(), selectMode = false) }
+        store.sceneOp { engine.assemble(items) }
+    }
+
+    /** Union / difference / intersection of two parts of an object (desktop Mesh Boolean gizmo). */
+    fun meshBoolean(obj: Int, src: Int, tool: Int, op: String, keepTool: Boolean) {
+        store.update { it.copy(selection = Selection(obj)) }
+        store.sceneOp { engine.meshBoolean(obj, src, tool, op, keepTool) }
+    }
+
     fun simplify(ratio: Float) = selection?.let { sel -> store.sceneOp(store.str(R.string.simplifying)) { engine.simplify(sel.obj, ratio) } }
     fun repair() = selection?.let { sel -> store.sceneOp { engine.repair(sel.obj) } }
 

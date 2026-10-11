@@ -106,6 +106,8 @@ public:
     // Automatic orientation for minimal supports (object < 0: all objects).
     json auto_orient(int object);
     json split(int object, bool to_parts);
+    json assemble(const Items &items);
+    json mesh_boolean(int object, int src, int tool, const std::string &op, bool keep_tool);
     // Horizontal cut at world height z.
     json cut(int object, int instance, double z, bool keep_upper, bool keep_lower, bool flip_upper);
     // Reduces the triangle count to `ratio` (0..1) of the original.

@@ -21,6 +21,7 @@
 #include "libslic3r/CustomGCode.hpp"
 #include "libslic3r/CutUtils.hpp"
 #include "libslic3r/Geometry.hpp"
+#include "libslic3r/MeshBoolean.hpp"
 #include "libslic3r/Model.hpp"
 #include "libslic3r/ModelArrange.hpp"
 #include "libslic3r/Orient.hpp"
@@ -749,6 +750,123 @@ json OrcaEngine::split(int object, bool to_parts)
     return commit();
 }
 
+// Like ObjectList::merge(true) ("Assemble"): the given instances become the parts of one new object,
+// each keeping its place on the bed; their objects lose those instances (or go when none is left).
+json OrcaEngine::assemble(const Items &items)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    const Items sorted = checked_items(items);
+    if (sorted.size() < 2)
+        throw std::runtime_error("Select at least two objects to assemble");
+    push_undo();
+
+    ModelObject *assembly = m_model->add_object();
+    assembly->name = "Assembly";
+    assembly->add_instance();
+    for (const auto &[o, i] : sorted) {
+        const ModelObject &object = *m_model->objects[o];
+        const ModelInstance &inst = *object.instances[i];
+        const Transform3d &trafo = inst.get_transformation().get_matrix();
+        for (const ModelVolume *volume : object.volumes) {
+            ModelVolume *v = assembly->add_volume(*volume);
+            v->set_transformation(trafo * v->get_matrix());
+            // Object settings can't go to a part (print object options), but the filament can.
+            if (object.volumes.size() > 1)
+                v->config.assign_config(volume->config);
+            if (!v->config.option("extruder"))
+                if (const ConfigOption *opt = object.config.option("extruder"))
+                    v->config.set_key_value("extruder", new ConfigOptionInt(opt->getInt()));
+        }
+        for (const std::string &key : object.config.keys())
+            if (!assembly->config.has(key))
+                assembly->config.set_key_value(key, object.config.option(key)->clone());
+        if (!inst.printable)
+            assembly->printable = assembly->instances[0]->printable = false;
+        for (const auto &range : object.layer_config_ranges)
+            assembly->layer_config_ranges.emplace(range);
+    }
+    assembly->sort_volumes(true);
+    assembly->ensure_on_bed();
+    assembly->center_around_origin();
+    assembly->translate_instances(-assembly->origin_translation);
+    assembly->origin_translation = Vec3d::Zero();
+    assembly->instances[0]->set_assemble_transformation(assembly->instances[0]->get_transformation());
+    assembly->invalidate_bounding_box();
+
+    for (auto it = sorted.rbegin(); it != sorted.rend(); ++it) {
+        ModelObject &obj = *m_model->objects[it->first];
+        if (obj.instances.size() == 1)
+            m_model->delete_object(size_t(it->first));
+        else
+            obj.delete_instance(size_t(it->second));
+    }
+    return commit();
+}
+
+// GLGizmoMeshBoolean's Union / Difference / Intersection of two parts of one object (mcut). The
+// result replaces part `src`; `tool` goes too unless kept (Union always removes it).
+json OrcaEngine::mesh_boolean(int object, int src, int tool, const std::string &op, bool keep_tool)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    ModelObject &obj = object_at(object);
+    const int n = int(obj.volumes.size());
+    if (src < 0 || src >= n || tool < 0 || tool >= n || src == tool)
+        throw std::runtime_error("Pick two different parts");
+    if (!obj.volumes[src]->is_model_part() || !obj.volumes[tool]->is_model_part())
+        throw std::runtime_error("Booleans work on parts, not on modifiers");
+    static const std::map<std::string, std::string> ops{{"union", "UNION"}, {"difference", "A_NOT_B"}, {"intersection", "INTERSECTION"}};
+    const auto mcut_op = ops.find(op);
+    if (mcut_op == ops.end())
+        throw std::runtime_error("Unknown boolean operation");
+
+    const ModelVolume *src_vol = obj.volumes[src];
+    const ModelVolume *tool_vol = obj.volumes[tool];
+    TriangleMesh src_mesh = src_vol->mesh();
+    src_mesh.transform(src_vol->get_matrix());
+    TriangleMesh tool_mesh = tool_vol->mesh();
+    tool_mesh.transform(tool_vol->get_matrix());
+    std::vector<TriangleMesh> results;
+    MeshBoolean::mcut::make_boolean(src_mesh, tool_mesh, results, mcut_op->second);
+    if (results.empty() || results.front().empty())
+        throw std::runtime_error("The boolean operation failed or left nothing. The parts may not overlap, or a mesh is not closed; try Repair first.");
+
+    // VolumeInfo::save_painting: painting moved into object coordinates like the meshes.
+    auto painting = [](const ModelVolume *v) {
+        auto saved = v->save_painting();
+        if (saved)
+            saved->mesh.transform(v->get_matrix());
+        return saved;
+    };
+    std::vector<std::optional<TriangleSelector::SavedPainting>> paintings{painting(src_vol)};
+    if (op != "difference")
+        paintings.push_back(painting(tool_vol));
+
+    push_undo();
+    const bool sinking = obj.min_z() < SINKING_Z_THRESHOLD;
+    // add_volume centres the mesh and sets the offset to match, so the result stays in place.
+    // (The gizmo then sets the old part's offset, which shifts a union with a part off to one side.)
+    ModelVolume *result = obj.add_volume(std::move(results.front()));
+    for (const auto &saved : paintings)
+        result->restore_painting(saved, true);
+    result->name = src_vol->name + " - " + op;
+    result->set_new_unique_id();
+    result->config.apply(src_vol->config);
+    result->set_type(src_vol->type());
+    result->set_material_id(src_vol->material_id());
+
+    // Delete the larger index first so the other stays valid.
+    std::vector<int> gone{src};
+    if (op == "union" || !keep_tool)
+        gone.push_back(tool);
+    std::sort(gone.rbegin(), gone.rend());
+    for (int v : gone)
+        obj.delete_volume(size_t(v));
+    obj.invalidate_bounding_box();
+    if (!sinking)
+        drop_to_bed(obj);
+    return commit();
+}
+
 json OrcaEngine::cut(int object, int instance, double z, bool keep_upper, bool keep_lower, bool flip_upper)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
@@ -906,6 +1024,7 @@ json OrcaEngine::add_volume(int object, int type, const std::string &shape, cons
     case ModelVolumeType::SUPPORT_BLOCKER: vol->name = "Support blocker"; break;
     case ModelVolumeType::SUPPORT_ENFORCER: vol->name = "Support enforcer"; break;
     case ModelVolumeType::NEGATIVE_VOLUME: vol->name = "Negative volume"; break;
+    case ModelVolumeType::MODEL_PART: vol->name = "Part " + std::to_string(obj.volumes.size()); break;
     default: vol->name = "Modifier"; break;
     }
     obj.invalidate_bounding_box();

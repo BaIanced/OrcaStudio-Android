@@ -82,6 +82,9 @@ const std::unordered_map<std::string, Handler> &handlers()
         {"layOnFace", [](OrcaEngine &e, const json &a) { return e.lay_on_face(a.at("object"), a.at("instance"), vec3(a.at("normal"))); }},
         {"autoOrient", [](OrcaEngine &e, const json &a) { return e.auto_orient(a.value("object", -1)); }},
         {"split", [](OrcaEngine &e, const json &a) { return e.split(a.at("object"), a.value("toParts", false)); }},
+        {"assemble", [](OrcaEngine &e, const json &a) { return e.assemble(item_list(a.at("items"))); }},
+        {"meshBoolean", [](OrcaEngine &e, const json &a) {
+             return e.mesh_boolean(a.at("object"), a.at("src"), a.at("tool"), a.at("op").get<std::string>(), a.value("keepTool", false)); }},
         {"cut", [](OrcaEngine &e, const json &a) {
              return e.cut(a.at("object"), a.value("instance", 0), a.at("z"), a.value("keepUpper", true), a.value("keepLower", true),
                           a.value("flipUpper", false));

@@ -106,6 +106,9 @@ class Engine(private val cacheDir: File) {
     suspend fun layOnFace(obj: Int, instance: Int, normal: Vec3) = parseScene(call("layOnFace", args("object" to obj, "instance" to instance, "normal" to normal)))
     suspend fun autoOrient(obj: Int) = parseScene(call("autoOrient", args("object" to obj)))
     suspend fun split(obj: Int, toParts: Boolean) = parseScene(call("split", args("object" to obj, "toParts" to toParts)))
+    suspend fun assemble(items: List<Pair<Int, Int>>) = parseScene(call("assemble", args("items" to items.map { listOf(it.first, it.second) })))
+    suspend fun meshBoolean(obj: Int, src: Int, tool: Int, op: String, keepTool: Boolean) =
+        parseScene(call("meshBoolean", args("object" to obj, "src" to src, "tool" to tool, "op" to op, "keepTool" to keepTool)))
     suspend fun cut(obj: Int, instance: Int, z: Float, keepUpper: Boolean, keepLower: Boolean, flipUpper: Boolean) =
         parseScene(call("cut", args("object" to obj, "instance" to instance, "z" to z, "keepUpper" to keepUpper, "keepLower" to keepLower, "flipUpper" to flipUpper)))
     suspend fun simplify(obj: Int, ratio: Float) = parseScene(call("simplify", args("object" to obj, "ratio" to ratio)))
