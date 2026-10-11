@@ -105,7 +105,10 @@ object Plugins {
         result.optString("error").takeIf { it.isNotEmpty() }?.let { throw IOException(it) }
         val messages = result.optJSONArray("messages") ?: JSONArray()
         (0 until messages.length()).mapNotNull { i ->
-            messages.getJSONObject(i).optJSONObject("result")?.optString("message")?.takeIf { it.isNotEmpty() }
+            val m = messages.getJSONObject(i)
+            val r = m.optJSONObject("result")
+            Log.i(TAG, "post-process ${m.optString("capability")}: ${r?.optString("status")} ${r?.optString("message").orEmpty()}")
+            r?.optString("message")?.takeIf { it.isNotEmpty() }
         }
     }
 

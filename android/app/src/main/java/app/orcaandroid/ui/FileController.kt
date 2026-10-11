@@ -158,7 +158,7 @@ class FileController(
     fun saveGcode(target: Uri) = store.launch(store.str(R.string.saving)) {
         val file = exportedGcode("File") ?: return@launch
         copyTo(file, target)
-        store.toast(store.str(R.string.saved))
+        toastSaved()
     }
 
     /**
@@ -168,19 +168,27 @@ class FileController(
      */
     suspend fun exportedGcode(host: String, outputName: String = gcodeFileName()): File? {
         val s = store.value
+        pluginMessages = emptyList()
         val r = s.shownResult ?: return null
         if (r.external) return File(r.gcodeFile)
         val copy = File(outDir, "export.gcode")
         withContext(Dispatchers.IO) { File(r.gcodeFile).copyTo(copy, overwrite = true) }
-        Plugins.postProcess(s.previewPlate, copy, host, outputName).forEach { store.toast(it) }
+        pluginMessages = Plugins.postProcess(s.previewPlate, copy, host, outputName)
+        pluginMessages.forEach { store.toast(it) }
         return copy
     }
+
+    /** Messages of the slicing-pipeline plugins from the last [exportedGcode]. */
+    private var pluginMessages = emptyList<String>()
+
+    /** "Saved", keeping the plugins' messages of that export visible below it. */
+    private fun toastSaved() = store.toast((listOf(store.str(R.string.saved)) + pluginMessages).joinToString("\n"))
 
     /** Saves the preview plate as a sliced-plate archive (.gcode.3mf, as Bambu printers and the desktop use). */
     fun saveGcode3mf(target: Uri) = store.launch(store.str(R.string.saving)) {
         val archive = exportGcode3mf() ?: return@launch
         copyTo(archive, target)
-        store.toast(store.str(R.string.saved))
+        toastSaved()
     }
 
     /** Writes the shown slice result as .gcode.3mf into the cache; null without a result. */
