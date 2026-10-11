@@ -45,8 +45,9 @@ jobs:
           sudo mkdir -p "$BUILD_ROOT" && sudo chown "$USER" "$BUILD_ROOT"
           mkdir -p "$HOME/build" && ln -sfn "$BUILD_ROOT" "$HOME/build/orca-android"
           sudo apt-get update -q
-          sudo apt-get install -y -q --no-install-recommends ninja-build pkg-config python3 flex bison gperf meson ccache
-          meson --version; flex --version; bison --version | head -1
+          sudo apt-get install -y -q --no-install-recommends ninja-build pkg-config python3 flex bison gperf ccache
+          pipx install "meson==1.9.1" && echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/meson" --version; flex --version; bison --version | head -1
 
       - name: Android NDK ${{ env.NDK_VERSION }}
         run: |
@@ -102,7 +103,7 @@ jobs:
         if: steps.scaddeps.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
-          cmake --build "$BUILD_ROOT/openscad" --target scad_deps
+          cmake --build "$BUILD_ROOT/openscad" --target scad_deps -- -k 0
           ls "$BUILD_ROOT/openscad/OpenSCAD_dep/lib"
 
       - name: Save OpenSCAD deps
