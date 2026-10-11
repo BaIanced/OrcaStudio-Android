@@ -134,7 +134,8 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         }
     }
     view?.section?.takeIf { it.panelOpen }?.let {
-        SectionViewPanel(it, Modifier.align(androidx.compose.ui.Alignment.TopCenter).padding(top = 72.dp, start = 8.dp, end = 8.dp).widthIn(max = 560.dp))
+        // Below the top bar and clear of the tool buttons down the left edge.
+        SectionViewPanel(it, Modifier.align(androidx.compose.ui.Alignment.TopCenter).padding(top = 72.dp, start = 80.dp, end = 8.dp).widthIn(max = 560.dp))
     }
     }
 
