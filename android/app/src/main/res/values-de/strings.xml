@@ -268,7 +268,7 @@
     <string name="split">Teilen</string>
     <string name="split_objects">In Objekte</string>
     <string name="split_parts">In Teile</string>
-    <string name="part_position">Position im Objekt (mm)</string>
+    <string name="part_position">Position im Objekt</string>
     <string name="assemble">Zusammenfügen</string>
     <string name="add_part">Teil hinzufügen</string>
     <string name="mesh_boolean">Boolesche Netzoperation</string>
