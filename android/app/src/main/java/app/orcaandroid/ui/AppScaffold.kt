@@ -117,12 +117,7 @@ private fun MainLayout(state: UiState, vm: AppViewModel) {
             }
         }
     }
-    if (askQuit) androidx.compose.material3.AlertDialog(
-        onDismissRequest = { askQuit = false },
-        title = { Text(stringResource(R.string.quit_title)) },
-        confirmButton = { TextButton(onClick = { askQuit = false; (context as? android.app.Activity)?.finish() }) { Text(stringResource(R.string.yes)) } },
-        dismissButton = { TextButton(onClick = { askQuit = false }) { Text(stringResource(R.string.no)) } },
-    )
+    if (askQuit) QuitDialog(onQuit = { askQuit = false; (context as? android.app.Activity)?.finish() }, onDismiss = { askQuit = false })
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wide = maxWidth >= WIDE_LAYOUT
         val content: @Composable (Modifier) -> Unit = { m ->
@@ -261,6 +256,27 @@ fun Busy(message: String) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
             CircularProgressIndicator()
             Text(message, style = MaterialTheme.typography.bodyLarge)
+        }
+    }
+}
+
+/** "Quit?" with a short note and two equal buttons; Back or a tap outside keeps the app open. */
+@Composable
+private fun QuitDialog(onQuit: () -> Unit, onDismiss: () -> Unit) {
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        androidx.compose.material3.Surface(shape = MaterialTheme.shapes.extraLarge, tonalElevation = 6.dp, modifier = Modifier.width(320.dp)) {
+            Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(stringResource(R.string.quit_title), style = MaterialTheme.typography.headlineSmall)
+                Text(
+                    stringResource(R.string.quit_text), Modifier.padding(top = 8.dp, bottom = 24.dp),
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    androidx.compose.material3.OutlinedButton(onClick = onDismiss, Modifier.weight(1f)) { Text(stringResource(R.string.no)) }
+                    androidx.compose.material3.Button(onClick = onQuit, Modifier.weight(1f)) { Text(stringResource(R.string.yes)) }
+                }
+            }
         }
     }
 }

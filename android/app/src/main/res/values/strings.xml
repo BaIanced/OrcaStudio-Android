@@ -84,6 +84,7 @@
     <string name="double_back_quit">Press Back twice to quit (instead of asking)</string>
     <string name="back_again_quit">Press Back again to quit</string>
     <string name="quit_title">Quit?</string>
+    <string name="quit_text">Your plates are kept for the next start.</string>
     <string name="yes">Yes</string>
     <string name="no">No</string>
     <string name="edit">Edit</string>
