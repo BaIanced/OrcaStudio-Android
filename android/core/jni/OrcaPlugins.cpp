@@ -141,6 +141,24 @@ JNIEXPORT void JNICALL Java_app_orcaandroid_plugins_PluginNative_pageClose(JNIEn
     orca::plugins::page_close(str(env, key), str(env, capability));
 }
 
+JNIEXPORT jstring JNICALL Java_app_orcaandroid_plugins_PluginNative_configOpen(JNIEnv *env, jobject, jstring key, jstring capability,
+                                                                               jstring type)
+{
+    return guarded(env, [&] { return orca::plugins::config_open(str(env, key), str(env, capability), str(env, type)); });
+}
+
+JNIEXPORT jstring JNICALL Java_app_orcaandroid_plugins_PluginNative_configSave(JNIEnv *env, jobject, jstring key, jstring capability,
+                                                                               jstring type, jstring config)
+{
+    return guarded(env, [&] { return orca::plugins::config_save(str(env, key), str(env, capability), str(env, type), str(env, config)); });
+}
+
+JNIEXPORT jstring JNICALL Java_app_orcaandroid_plugins_PluginNative_configRestore(JNIEnv *env, jobject, jstring key, jstring capability,
+                                                                                  jstring type)
+{
+    return guarded(env, [&] { return orca::plugins::config_restore(str(env, key), str(env, capability), str(env, type)); });
+}
+
 JNIEXPORT jstring JNICALL Java_app_orcaandroid_plugins_PluginNative_runScript(JNIEnv *env, jobject, jstring key, jstring capability)
 {
     return guarded(env, [&] { return orca::plugins::run_script(str(env, key), str(env, capability)); });

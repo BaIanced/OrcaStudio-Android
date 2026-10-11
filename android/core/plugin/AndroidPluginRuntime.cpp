@@ -163,6 +163,67 @@ void page_close(const std::string &plugin_key, const std::string &capability)
     } catch (const std::exception &) {}
 }
 
+namespace {
+std::pair<PluginCapabilityId, std::shared_ptr<PluginCapabilityInterface>> capability_for(const std::string &plugin_key,
+                                                                                       const std::string &capability, const std::string &type)
+{
+    PluginCapabilityId id{plugin_capability_type_from_string(type), capability, plugin_key};
+    auto               cap = PluginManager::instance().get_plugin_capability(id, false);
+    if (!cap)
+        throw std::runtime_error("This capability is no longer available.");
+    return {id, cap};
+}
+
+json stored_config(const PluginCapabilityId &id)
+{
+    const auto stored = PluginManager::instance().get_config().get_config(id);
+    return stored ? stored->config : json::object();
+}
+} // namespace
+
+json config_open(const std::string &plugin_key, const std::string &capability, const std::string &type)
+{
+    auto [id, cap] = capability_for(plugin_key, capability, type);
+    json out{{"config", stored_config(id)}, {"custom_html", ""}, {"error", ""}};
+    if (cap->config_ui_available()) {
+        // As on the desktop, a failing get_config_ui() only costs the custom UI.
+        try {
+            PythonGILState gil;
+            out["custom_html"] = cap->get_config_ui();
+        } catch (const std::exception &ex) {
+            out["error"] = std::string("The plugin's configuration UI failed to load (") + ex.what() + "). Showing the default editor.";
+        }
+    }
+    return out;
+}
+
+json config_save(const std::string &plugin_key, const std::string &capability, const std::string &type, const std::string &config)
+{
+    auto [id, cap] = capability_for(plugin_key, capability, type);
+    json parsed    = json::parse(config, nullptr, /* allow_exceptions */ false);
+    if (parsed.is_discarded())
+        return {{"ok", false}, {"error", "The configuration is not valid JSON. Your changes were not saved."}};
+    if (!PluginManager::instance().get_config().store_capability_config(id, parsed))
+        return {{"ok", false}, {"error", "The configuration could not be written to disk. Your changes were not saved."}};
+    return {{"ok", true}, {"config", stored_config(id)}, {"error", ""}};
+}
+
+json config_restore(const std::string &plugin_key, const std::string &capability, const std::string &type)
+{
+    auto [id, cap] = capability_for(plugin_key, capability, type);
+    json defaults;
+    try {
+        PythonGILState gil;
+        defaults = cap->get_default_config();
+    } catch (const std::exception &ex) {
+        // Better to restore nothing than to wipe the settings on the strength of a broken plugin.
+        return {{"ok", false}, {"error", std::string("The plugin could not supply a default configuration (") + ex.what() + "). Nothing was changed."}};
+    }
+    if (!PluginManager::instance().get_config().store_capability_config(id, defaults))
+        return {{"ok", false}, {"error", "The configuration could not be written to disk. Nothing was changed."}};
+    return {{"ok", true}, {"config", stored_config(id)}, {"error", ""}};
+}
+
 json run_script(const std::string &plugin_key, const std::string &capability)
 {
     std::string     error;

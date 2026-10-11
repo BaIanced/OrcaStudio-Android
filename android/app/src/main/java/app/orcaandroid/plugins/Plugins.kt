@@ -93,6 +93,25 @@ object Plugins {
         Unit
     }
 
+    /** A capability's stored settings and its own settings page (empty when it has none). */
+    data class Config(val config: String, val customHtml: String, val error: String)
+
+    suspend fun openConfig(pluginKey: String, capability: Capability): Config = withContext(thread) {
+        val r = JSONObject(PluginNative.configOpen(pluginKey, capability.name, capability.type))
+        if (!r.has("config")) throw IOException(r.optString("error"))
+        Config(r.get("config").toString(), r.optString("custom_html"), r.optString("error"))
+    }
+
+    /** Saves [config] (JSON text), or restores the plugin's defaults when null; returns what was stored. */
+    suspend fun saveConfig(pluginKey: String, capability: Capability, config: String?): String = withContext(thread) {
+        val r = JSONObject(
+            if (config == null) PluginNative.configRestore(pluginKey, capability.name, capability.type)
+            else PluginNative.configSave(pluginKey, capability.name, capability.type, config),
+        )
+        if (!r.optBoolean("ok")) throw IOException(r.optString("error"))
+        r.get("config").toString()
+    }
+
     suspend fun closePage(pluginKey: String, capability: String) = withContext(thread) { PluginNative.pageClose(pluginKey, capability) }
 
     /**

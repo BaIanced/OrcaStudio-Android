@@ -24,6 +24,9 @@ object PluginNative {
     external fun pageOpen(pluginKey: String, capability: String): String
     external fun pageMessage(pluginKey: String, capability: String, json: String): String
     external fun pageClose(pluginKey: String, capability: String)
+    external fun configOpen(pluginKey: String, capability: String, type: String): String
+    external fun configSave(pluginKey: String, capability: String, type: String, config: String): String
+    external fun configRestore(pluginKey: String, capability: String, type: String): String
     external fun runScript(pluginKey: String, capability: String): String
     external fun postProcess(plate: Int, gcodePath: String, host: String, outputName: String): String
 }

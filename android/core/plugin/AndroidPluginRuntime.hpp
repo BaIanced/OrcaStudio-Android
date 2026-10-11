@@ -41,6 +41,14 @@ nlohmann::json page_open(const std::string &plugin_key, const std::string &capab
 nlohmann::json page_message(const std::string &plugin_key, const std::string &capability, const std::string &json);
 void           page_close(const std::string &plugin_key, const std::string &capability);
 
+// Capability settings (the desktop Plugins dialog's config pane, PluginConfig.cpp
+// get_config_response / save_config_response / restore_config_response) in the global layer:
+// {"config", "custom_html", "error"} and {"ok", "config", "error"}. `type` is the type key
+// (plugin_capability_type_to_string).
+nlohmann::json config_open(const std::string &plugin_key, const std::string &capability, const std::string &type);
+nlohmann::json config_save(const std::string &plugin_key, const std::string &capability, const std::string &type, const std::string &config);
+nlohmann::json config_restore(const std::string &plugin_key, const std::string &capability, const std::string &type);
+
 nlohmann::json run_script(const std::string &plugin_key, const std::string &capability);
 
 // Runs the slicing-pipeline plugins the print config selects at Step.psGCodePostProcess on an

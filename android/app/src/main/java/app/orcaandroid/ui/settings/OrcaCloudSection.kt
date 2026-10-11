@@ -9,6 +9,7 @@ import android.webkit.WebViewClient
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -66,6 +67,7 @@ internal fun OrcaCloudSection() {
     val installed by Plugins.plugins.collectAsState()
     val runtimeError by Plugins.status.collectAsState()
     var openPage by remember { mutableStateOf<Pair<String, String>?>(null) }
+    var openConfig by remember { mutableStateOf<Pair<String, Plugins.Capability>?>(null) }
 
     LaunchedEffect(Unit) {
         user = onIo { OrcaCloud.user(context) }.getOrNull()
@@ -125,9 +127,16 @@ internal fun OrcaCloudSection() {
             }
             val others = p.capabilities.filter { it.type != "pages" }.joinToString(", ") { "${it.name} (${it.type})" }
             if (others.isNotEmpty()) Text(others, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            // Every capability is configurable (desktop Plugins dialog), with its own page or as JSON.
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                p.capabilities.forEach { c ->
+                    TextButton(onClick = { openConfig = p.key to c }) { Text(stringResource(R.string.plugin_settings, c.name)) }
+                }
+            }
         }
     }
     openPage?.let { (key, cap) -> PluginPageDialog(key, cap) { openPage = null } }
+    openConfig?.let { (key, cap) -> PluginConfigDialog(key, cap) { openConfig = null } }
 
     if (showLogin) OrcaCloudLoginDialog(
         onClose = { error ->
