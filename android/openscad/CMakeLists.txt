@@ -120,6 +120,18 @@ cpu = 'aarch64'
 endian = 'little'
 ")
 
+# OrcaSlicer's vendored expat (src-orca/deps/EXPAT) installs no pkg-config file.
+file(WRITE "${SCAD_PREFIX}/lib/pkgconfig/expat.pc"
+"prefix=${ORCA_DEPS}
+libdir=\${prefix}/lib
+includedir=\${prefix}/include
+Name: expat
+Description: expat XML parser (libslic3r deps prefix)
+Version: 2.5.0
+Libs: -L\${libdir} -lexpat
+Cflags: -I\${includedir}
+")
+
 ExternalProject_Add(dep_fontconfig
     EXCLUDE_FROM_ALL ON
     URL https://gitlab.freedesktop.org/api/v4/projects/890/packages/generic/fontconfig/2.17.1/fontconfig-2.17.1.tar.xz
