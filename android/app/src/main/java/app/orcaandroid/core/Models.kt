@@ -125,7 +125,11 @@ data class Instance(
     val min: Vec3,
 )
 
-data class Volume(val index: Int, val name: String, val type: VolumeType, val settings: Map<String, String>, val offset: Vec3, val size: Vec3)
+data class Volume(
+    val index: Int, val name: String, val type: VolumeType, val settings: Map<String, String>, val offset: Vec3, val size: Vec3,
+    /** Degrees and factors, in object coordinates. */
+    val rotation: Vec3 = Vec3(0f, 0f, 0f), val scale: Vec3 = Vec3(1f, 1f, 1f),
+)
 
 data class LayerRange(val from: Float, val to: Float, val settings: Map<String, String>)
 

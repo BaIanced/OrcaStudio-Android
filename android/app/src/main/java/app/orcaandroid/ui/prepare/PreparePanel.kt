@@ -53,6 +53,7 @@ import app.orcaandroid.core.LayerRange
 import app.orcaandroid.core.overrides
 import app.orcaandroid.core.PresetType
 import app.orcaandroid.core.Vec3
+import app.orcaandroid.core.Volume
 import app.orcaandroid.core.VolumeType
 import app.orcaandroid.net.HostType
 import app.orcaandroid.ui.AppViewModel
@@ -350,11 +351,25 @@ private fun ObjectDetails(state: UiState, vm: AppViewModel, objIndex: Int) {
                     }
                     IconButton(onClick = { vm.scene.select(sel.copy(volume = v.index)); vm.scene.deleteSelected() }) { Icon(Icons.Default.Delete, stringResource(R.string.delete)) }
                 }
+                if (vSel) VolumeTransform(vm, v)
             }
         }
 
         HorizontalDivider()
         LayerRanges(vm, objIndex, o.layerRanges, inst.size.z)
+    }
+}
+
+/** Position, rotation and size of the selected part, in its object's coordinates. */
+@Composable
+private fun VolumeTransform(vm: AppViewModel, v: Volume) {
+    Column(Modifier.padding(start = 8.dp, bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Vec3Fields(stringResource(R.string.part_position), v.offset.x, v.offset.y, v.offset.z, "mm", { x, y, z -> vm.scene.setVolumeTransform(offset = Vec3(x, y, z)) })
+        Vec3Fields(stringResource(R.string.rotation), v.rotation.x, v.rotation.y, v.rotation.z, "°", { x, y, z -> vm.scene.setVolumeTransform(rotation = Vec3(x, y, z)) }, 1)
+        Vec3Fields(stringResource(R.string.size), v.size.x, v.size.y, v.size.z, "mm", { x, y, z ->
+            vm.scene.setVolumeTransform(scale = Vec3(v.scale.x * x / v.size.x.coerceAtLeast(1e-3f), v.scale.y * y / v.size.y.coerceAtLeast(1e-3f),
+                v.scale.z * z / v.size.z.coerceAtLeast(1e-3f)))
+        })
     }
 }
 

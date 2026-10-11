@@ -118,6 +118,12 @@ class SceneController(private val store: Store, private val presets: PresetContr
         store.sceneOp { engine.setTransform(sel.obj, sel.instance, offset, rotation, scale, mirror) }
     }
 
+    /** Moves, turns or scales the selected part (or modifier) inside its object. */
+    fun setVolumeTransform(offset: Vec3? = null, rotation: Vec3? = null, scale: Vec3? = null) {
+        val sel = selection?.takeIf { it.volume >= 0 } ?: return
+        store.sceneOp { engine.setTransform(sel.obj, sel.instance, offset, rotation, scale, volume = sel.volume) }
+    }
+
     /** Deletes the selected part, else the selected copy, else the whole object; or all selected copies. */
     fun deleteSelected() {
         val multi = store.value.multiSelection

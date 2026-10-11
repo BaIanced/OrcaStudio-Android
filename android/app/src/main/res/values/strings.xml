@@ -272,6 +272,7 @@
     <string name="split">Split</string>
     <string name="split_objects">To objects</string>
     <string name="split_parts">To parts</string>
+    <string name="part_position">Position in object (mm)</string>
     <string name="assemble">Assemble</string>
     <string name="add_part">Add part</string>
     <string name="mesh_boolean">Mesh boolean</string>

@@ -80,6 +80,7 @@ int volume_type_code(ModelVolumeType t)
 ModelVolumeType volume_type_from_code(int code)
 {
     switch (code) {
+    case 0: return ModelVolumeType::MODEL_PART;
     case 1: return ModelVolumeType::NEGATIVE_VOLUME;
     case 2: return ModelVolumeType::PARAMETER_MODIFIER;
     case 3: return ModelVolumeType::SUPPORT_BLOCKER;
@@ -447,6 +448,8 @@ json OrcaEngine::scene_json()
                                {"type", volume_type_code(vol->type())},
                                {"settings", config_json(vol->config)},
                                {"offset", vec_json(vol->get_offset())},
+                               {"rotation", vec_json(vol->get_rotation() * (180. / M_PI))},
+                               {"scale", vec_json(vol->get_scaling_factor())},
                                {"size", vec_json(size)}});
         }
         json ranges = json::array();
@@ -574,15 +577,20 @@ json OrcaEngine::load_models(const std::vector<std::string> &paths, bool append,
     return commit();
 }
 
-json OrcaEngine::set_transform(int object, int instance, const json &transform)
+// With volume >= 0 the transform is the part's own (in object coordinates), as the desktop's
+// part manipulation panel in local coordinates.
+json OrcaEngine::set_transform(int object, int instance, const json &transform, int volume)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
     ModelObject &obj = object_at(object);
     if (instance < 0 || instance >= int(obj.instances.size()))
         throw std::runtime_error("Invalid instance");
+    if (volume >= int(obj.volumes.size()))
+        throw std::runtime_error("Invalid volume");
     push_undo();
     ModelInstance *inst = obj.instances[instance];
-    Geometry::Transformation t = inst->get_transformation();
+    ModelVolume *vol = volume >= 0 ? obj.volumes[volume] : nullptr;
+    Geometry::Transformation t = vol ? vol->get_transformation() : inst->get_transformation();
     if (transform.contains("offset"))
         t.set_offset(vec_from(transform["offset"]));
     if (transform.contains("rotation"))
@@ -595,7 +603,11 @@ json OrcaEngine::set_transform(int object, int instance, const json &transform)
     }
     if (transform.contains("mirror"))
         t.set_mirror(vec_from(transform["mirror"]));
-    inst->set_transformation(t);
+    if (vol) {
+        vol->set_transformation(t);
+        obj.invalidate_bounding_box();
+    } else
+        inst->set_transformation(t);
     drop_to_bed(obj);
     return commit();
 }
@@ -1013,11 +1025,22 @@ json OrcaEngine::add_volume(int object, int type, const std::string &shape, cons
     else
         mesh = make_cube(s.x(), s.y(), s.z());
 
+    const BoundingBoxf3 raw_bb = obj.raw_mesh_bounding_box();
+    const BoundingBoxf3 inst_bb = obj.instance_bounding_box(0);
+    const Vec3d mesh_size = mesh.bounding_box().size();
     ModelVolume *vol = obj.add_volume(std::move(mesh), vtype); // centres the geometry
     Vec3d pos(position[0], position[1], position[2]);
     if (!std::isfinite(pos.x())) {
-        // Default: middle of the object, in object coordinates.
-        pos = obj.raw_mesh_bounding_box().center();
+        if (vtype == ModelVolumeType::MODEL_PART) {
+            // ObjectList::load_generic_subobject: a new part sits beside the object (+X), on the bed.
+            const Geometry::Transformation &it = obj.instances[0]->get_transformation();
+            const Vec3d world = Vec3d(inst_bb.max.x(), inst_bb.min.y(), inst_bb.min.z()) + 0.5 * mesh_size - it.get_offset();
+            vol->set_transformation(it.get_matrix_no_offset().inverse());
+            pos = it.get_matrix_no_offset().inverse() * world;
+        } else {
+            // Default: middle of the object, in object coordinates.
+            pos = raw_bb.center();
+        }
     }
     vol->set_offset(pos);
     switch (vtype) {

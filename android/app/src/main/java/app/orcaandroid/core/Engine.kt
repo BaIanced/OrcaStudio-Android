@@ -91,8 +91,9 @@ class Engine(private val cacheDir: File) {
     suspend fun scene() = parseScene(call("scene"))
     suspend fun loadModels(paths: List<String>, append: Boolean, plate: Int) =
         parseScene(call("loadModels", args("paths" to paths, "append" to append, "plate" to plate)))
-    suspend fun setTransform(obj: Int, instance: Int, offset: Vec3? = null, rotation: Vec3? = null, scale: Vec3? = null, mirror: Vec3? = null) =
-        parseScene(call("setTransform", args("object" to obj, "instance" to instance,
+    /** [volume] >= 0 transforms that part within its object instead of the copy. */
+    suspend fun setTransform(obj: Int, instance: Int, offset: Vec3? = null, rotation: Vec3? = null, scale: Vec3? = null, mirror: Vec3? = null, volume: Int = -1) =
+        parseScene(call("setTransform", args("object" to obj, "instance" to instance, "volume" to volume,
             "transform" to buildMap { offset?.let { put("offset", it) }; rotation?.let { put("rotation", it) }; scale?.let { put("scale", it) }; mirror?.let { put("mirror", it) } })))
     suspend fun deleteObject(obj: Int) = parseScene(call("deleteObject", args("object" to obj)))
     suspend fun deleteInstance(obj: Int, instance: Int) = parseScene(call("deleteInstance", args("object" to obj, "instance" to instance)))
@@ -291,7 +292,8 @@ class Engine(private val cacheDir: File) {
                     settings = obj.stringMap("settings"),
                     volumes = obj.getJSONArray("volumes").let { va -> List(va.length()) { vi ->
                         val v = va.getJSONObject(vi)
-                        Volume(vi, v.optString("name"), VolumeType.of(v.getInt("type")), v.stringMap("settings"), v.vec3("offset"), v.vec3("size"))
+                        Volume(vi, v.optString("name"), VolumeType.of(v.getInt("type")), v.stringMap("settings"), v.vec3("offset"), v.vec3("size"),
+                            if (v.has("rotation")) v.vec3("rotation") else Vec3(0f, 0f, 0f), if (v.has("scale")) v.vec3("scale") else Vec3(1f, 1f, 1f))
                     } },
                     instances = obj.getJSONArray("instances").let { ia -> List(ia.length()) { ii ->
                         val inst = ia.getJSONObject(ii)

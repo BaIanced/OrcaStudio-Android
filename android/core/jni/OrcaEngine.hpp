@@ -88,7 +88,7 @@ public:
 
     // Partial update of an instance transform; json keys: offset [x,y,z] (mm), rotation [x,y,z]
     // (degrees), scale [x,y,z] (factor), mirror [x,y,z] (+1/-1). Objects are dropped onto the bed.
-    json set_transform(int object, int instance, const json &transform);
+    json set_transform(int object, int instance, const json &transform, int volume = -1);
     json delete_object(int object);
     json delete_instance(int object, int instance);
     // Batch operations on several instances (object, instance), each one undo step.

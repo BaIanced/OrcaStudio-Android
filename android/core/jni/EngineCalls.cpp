@@ -72,7 +72,7 @@ const std::unordered_map<std::string, Handler> &handlers()
         // Scene
         {"scene", [](OrcaEngine &e, const json &) { return e.scene(); }},
         {"loadModels", [](OrcaEngine &e, const json &a) { return e.load_models(strings(a.at("paths")), a.value("append", false), a.value("plate", 0)); }},
-        {"setTransform", [](OrcaEngine &e, const json &a) { return e.set_transform(a.at("object"), a.at("instance"), a.at("transform")); }},
+        {"setTransform", [](OrcaEngine &e, const json &a) { return e.set_transform(a.at("object"), a.at("instance"), a.at("transform"), a.value("volume", -1)); }},
         {"deleteObject", [](OrcaEngine &e, const json &a) { return e.delete_object(a.at("object")); }},
         {"deleteInstance", [](OrcaEngine &e, const json &a) { return e.delete_instance(a.at("object"), a.at("instance")); }},
         {"duplicate", [](OrcaEngine &e, const json &a) { return e.duplicate(item_list(a.at("items")), a.value("copies", 1)); }},
