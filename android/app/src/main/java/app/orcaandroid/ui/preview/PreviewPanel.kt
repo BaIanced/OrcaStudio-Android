@@ -162,7 +162,11 @@ private fun Actions(state: UiState, vm: AppViewModel, r: SliceResult) {
     }
     when (upload) {
         is UploadState.Running -> LinearProgressIndicator(progress = { upload.progress }, modifier = Modifier.fillMaxWidth())
-        is UploadState.Done -> Text(upload.message, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
+        is UploadState.Done -> {
+            Text(upload.message, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
+            // Like the site's slicer logger, which asks after each slice: log what was just sent.
+            TextButton(onClick = vm.files::logPrintToFilamentProfiles) { Text(stringResource(R.string.fp_log_print)) }
+        }
         null -> {}
     }
     Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
