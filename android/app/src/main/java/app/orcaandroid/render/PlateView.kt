@@ -229,6 +229,10 @@ class PlateView(context: Context) : GLSurfaceView(context) {
             return true
         }
         hoverPanning = false
+        // The desktop canvas takes keyboard focus when the mouse enters it, unless a text field has
+        // it (GLCanvas3D.cpp on_mouse Entering), so its shortcuts work without a click first.
+        if (event.actionMasked == MotionEvent.ACTION_HOVER_ENTER && !hasFocus() &&
+            rootView.findFocus()?.onCheckIsTextEditor() != true) requestFocus()
         if (event.actionMasked == MotionEvent.ACTION_SCROLL) {
             // Shift turns the wheel into a horizontal scroll; it still zooms, as on the desktop.
             val v = event.getAxisValue(MotionEvent.AXIS_VSCROLL).takeIf { it != 0f } ?: event.getAxisValue(MotionEvent.AXIS_HSCROLL)
