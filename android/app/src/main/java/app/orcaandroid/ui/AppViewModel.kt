@@ -29,6 +29,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val scene = SceneController(store, presets)
     val slicing = SliceController(store, presets)
     val files = FileController(store, presets, scene, slicing)
+    val scad = ScadController(store)
 
     /** Desktop translations of option labels for the device language. */
     var translator: Translator = Translator.NONE
@@ -36,6 +37,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     init {
         device.files = files
+        files.scad = scad
         viewModelScope.launch {
             runCatching { start() }
                 .onFailure { e -> store.update { it.copy(phase = Phase.SETUP, error = e.message ?: e.toString()) } }

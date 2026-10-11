@@ -25,12 +25,22 @@ class FileController(
     private val engine = store.engine
     private val settings = store.settings
     private val resources = store.resources
+    var scad: ScadController? = null
     private val outDir get() = File(store.app.cacheDir, "out").apply { mkdirs() }
 
     /** Opens models (appended to the plate), a project (replacing the scene) or a G-code file (preview). */
     fun openModels(uris: List<Uri>, append: Boolean = true) = store.launch(store.str(R.string.loading_model)) {
         if (uris.isEmpty()) return@launch
-        val files = uris.map { resources.importFile(it) }
+        val all = uris.map { resources.importFile(it) }
+        // OpenSCAD sources open in the editor; with several (a design and its libraries), the one no other includes.
+        val sources = all.filter { it.name.endsWith(".scad", true) }
+        if (sources.isNotEmpty()) {
+            val texts = sources.associateWith { runCatching { it.readText() }.getOrDefault("") }
+            val main = sources.firstOrNull { f -> texts.none { (o, t) -> o != f && Regex("""(include|use)\s*<([^>]*/)?${Regex.escape(f.name)}\s*>""").containsMatchIn(t) } }
+            scad?.openFile(main ?: sources.first())
+        }
+        val files = all - sources.toSet()
+        if (files.isEmpty()) return@launch
         files.firstOrNull { it.name.endsWith(".gcode", true) || it.name.endsWith(".gco", true) }?.let {
             slicing.viewGcodeFile(it)
             return@launch
@@ -42,7 +52,7 @@ class FileController(
         }
         val s = engine.loadModels(files.map { it.path }, append = append || !store.value.scene.isEmpty, plate = store.value.activePlate)
         store.applyScene(s)
-        uris.forEachIndexed { i, u -> rememberRecent(u, files[i].name, false) }
+        uris.forEachIndexed { i, u -> if (all[i] in files) rememberRecent(u, all[i].name, false) }
         store.update { it.copy(selection = Selection(s.objects.lastIndex), multiSelection = emptyList(), screen = Screen.PREPARE) }
     }
 

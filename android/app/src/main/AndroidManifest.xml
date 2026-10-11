@@ -72,6 +72,11 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Slicing a 3D model into printer G-code, started by the user; takes up to several minutes." />
         </service>
+        <!-- OpenSCAD renders in its own process, so a crash or a runaway design can't take the slicer down. -->
+        <service
+            android:name=".scad.ScadService"
+            android:exported="false"
+            android:process=":scad" />
         <service
             android:name=".service.PrintMonitorService"
             android:exported="false"

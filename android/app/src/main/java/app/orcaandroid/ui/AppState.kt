@@ -160,6 +160,8 @@ data class UiState(
     val profileUpdateProgress: String? = null,
     /** Report of a crash that closed the app last time (see CrashReport). */
     val crashReport: String? = null,
+    /** The OpenSCAD editor, while open. */
+    val scad: ScadEditorState? = null,
 ) {
     fun presetName(type: PresetType) = when (type) {
         PresetType.PRINT -> print

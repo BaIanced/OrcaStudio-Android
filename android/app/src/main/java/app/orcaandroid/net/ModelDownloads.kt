@@ -18,7 +18,7 @@ import java.util.zip.ZipInputStream
 object ModelDownloads {
     private val SLICER_LINK = Regex("^(orcaslicer|prusaslicer|bambustudio|cura)://open/?\\?file=", RegexOption.IGNORE_CASE)
     private val BAMBU_OPEN = Regex("^bambustudioopen://", RegexOption.IGNORE_CASE)
-    val MODEL_EXTENSIONS = setOf("3mf", "stl", "obj", "step", "stp", "amf", "svg")
+    val MODEL_EXTENSIONS = setOf("3mf", "stl", "obj", "step", "stp", "amf", "svg", "scad")
     /** Slicer preset files (filament profiles from 3D Filament Profiles and the like), imported as presets. */
     private val PRESET_EXTENSIONS = setOf("json", "orca_filament", "orca_bundle", "orca_printer")
 

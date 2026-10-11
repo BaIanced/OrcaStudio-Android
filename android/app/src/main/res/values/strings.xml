@@ -444,4 +444,32 @@
     <string name="plugin_not_loaded">Plugin not loaded</string>
     <string name="fp_log_print">Log print to 3D Filament Profiles</string>
     <string name="fp_no_usage">This G-code has no filament usage to log.</string>
+
+    <!-- OpenSCAD editor -->
+    <string name="add_openscad">OpenSCAD model</string>
+    <string name="scad_code">Code</string>
+    <string name="scad_customizer">Customizer</string>
+    <string name="scad_parameters">Parameters</string>
+    <string name="scad_render">Render</string>
+    <string name="scad_update">Update on plate</string>
+    <string name="scad_add_copy">Add as new</string>
+    <string name="scad_stop">Stop</string>
+    <string name="scad_rendering">Rendering…</string>
+    <string name="scad_rendered">%1$s triangles in %2$s s</string>
+    <string name="scad_failed">Render failed, see the console</string>
+    <string name="scad_2d">The design is 2D: extrude it (linear_extrude) to print it</string>
+    <string name="scad_empty">Nothing to render</string>
+    <string name="scad_stopped">Render stopped</string>
+    <string name="scad_not_in_build">This build does not include OpenSCAD</string>
+    <string name="scad_new">New design</string>
+    <string name="scad_examples">Examples</string>
+    <string name="scad_open">Open .scad file</string>
+    <string name="scad_save">Save .scad file</string>
+    <string name="scad_close">Close editor</string>
+    <string name="scad_show_plate">Show plate</string>
+    <string name="scad_console">Console</string>
+    <string name="scad_no_params">This design has no Customizer parameters. Annotate variables like  width = 20; // [10:100]  to get sliders here.</string>
+    <string name="scad_parse_error">Syntax error: the parameters are from the last version that parsed.</string>
+    <string name="scad_auto_render">Render on change</string>
+    <string name="scad_reset_all">Reset all</string>
 </resources>

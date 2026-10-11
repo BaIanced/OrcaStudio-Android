@@ -31,6 +31,10 @@ import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
+import androidx.compose.material3.VerticalDivider
+import androidx.compose.runtime.saveable.rememberSaveable
+import app.orcaandroid.ui.scad.ScadPanel
+import app.orcaandroid.ui.scad.ScadReopenButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberBottomSheetScaffoldState
@@ -180,10 +184,27 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
     val panel: @Composable () -> Unit = {
         if (state.screen == Screen.PREPARE) PreparePanel(state, vm, wide) else PreviewPanel(state, vm, wide)
     }
+    // The OpenSCAD editor takes the panel's place on Prepare; the 3D view shows what it renders.
+    val scad = state.scad?.takeIf { state.screen == Screen.PREPARE }
+    var scadHidden by rememberSaveable { mutableStateOf(false) }
     if (wide) {
-        Row(Modifier.fillMaxSize()) {
-            viewport(Modifier.weight(1f).fillMaxHeight())
-            Surface(Modifier.width(380.dp).fillMaxHeight(), tonalElevation = 1.dp) { panel() }
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            val editorWidth = (maxWidth * 0.45f).coerceIn(420.dp, 640.dp)
+            Row(Modifier.fillMaxSize()) {
+                viewport(Modifier.weight(1f).fillMaxHeight())
+                if (scad != null) {
+                    VerticalDivider()
+                    Surface(Modifier.width(editorWidth).fillMaxHeight(), tonalElevation = 1.dp) {
+                        ScadPanel(scad, vm)
+                    }
+                } else Surface(Modifier.width(380.dp).fillMaxHeight(), tonalElevation = 1.dp) { panel() }
+            }
+        }
+    } else if (scad != null) {
+        Box(Modifier.fillMaxSize()) {
+            viewport(Modifier.fillMaxSize())
+            if (scadHidden) ScadReopenButton({ scadHidden = false }, Modifier.align(Alignment.BottomEnd).padding(16.dp))
+            else Surface(Modifier.fillMaxSize()) { ScadPanel(scad, vm, onHide = { scadHidden = true }) }
         }
     } else {
         val sheet = rememberBottomSheetScaffoldState()

@@ -433,4 +433,32 @@
     <string name="plugin_not_loaded">Plugin nicht geladen</string>
     <string name="fp_log_print">Druck in 3D Filament Profiles erfassen</string>
     <string name="fp_no_usage">Dieser G-code enthält keinen Filamentverbrauch.</string>
+
+    <!-- OpenSCAD editor -->
+    <string name="add_openscad">OpenSCAD-Modell</string>
+    <string name="scad_code">Code</string>
+    <string name="scad_customizer">Customizer</string>
+    <string name="scad_parameters">Parameter</string>
+    <string name="scad_render">Rendern</string>
+    <string name="scad_update">Auf der Platte aktualisieren</string>
+    <string name="scad_add_copy">Als neues hinzufügen</string>
+    <string name="scad_stop">Stopp</string>
+    <string name="scad_rendering">Rendere…</string>
+    <string name="scad_rendered">%1$s Dreiecke in %2$s s</string>
+    <string name="scad_failed">Rendern fehlgeschlagen, siehe Konsole</string>
+    <string name="scad_2d">Das Design ist 2D: zum Drucken extrudieren (linear_extrude)</string>
+    <string name="scad_empty">Nichts zu rendern</string>
+    <string name="scad_stopped">Rendern gestoppt</string>
+    <string name="scad_not_in_build">Dieser Build enthält kein OpenSCAD</string>
+    <string name="scad_new">Neues Design</string>
+    <string name="scad_examples">Beispiele</string>
+    <string name="scad_open">.scad-Datei öffnen</string>
+    <string name="scad_save">.scad-Datei speichern</string>
+    <string name="scad_close">Editor schließen</string>
+    <string name="scad_show_plate">Platte zeigen</string>
+    <string name="scad_console">Konsole</string>
+    <string name="scad_no_params">Dieses Design hat keine Customizer-Parameter. Variablen wie  breite = 20; // [10:100]  erscheinen hier als Regler.</string>
+    <string name="scad_parse_error">Syntaxfehler: Die Parameter stammen von der letzten fehlerfreien Version.</string>
+    <string name="scad_auto_render">Bei Änderung rendern</string>
+    <string name="scad_reset_all">Alle zurücksetzen</string>
 </resources>

@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.Interests
@@ -180,6 +181,8 @@ private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
                         onClick = { close(); dialog = "text" })
                     DropdownMenuItem(text = { Text(stringResource(R.string.add_svg)) }, leadingIcon = { Icon(Icons.Default.Category, null) },
                         onClick = { close(); dialog = "svg" })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.add_openscad)) }, leadingIcon = { Icon(Icons.Default.Code, null) },
+                        onClick = { close(); vm.scad.open() })
                     if (!state.scene.isEmpty)
                         DropdownMenuItem(text = { Text(stringResource(R.string.arrange)) }, leadingIcon = { Icon(Icons.Default.AutoAwesomeMosaic, null) },
                             onClick = { close(); vm.scene.arrange(false) })
