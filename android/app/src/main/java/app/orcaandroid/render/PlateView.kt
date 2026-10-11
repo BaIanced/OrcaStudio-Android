@@ -119,6 +119,12 @@ class PlateView(context: Context) : GLSurfaceView(context) {
         var onKey: ((Int, KeyEvent) -> Boolean)? = null
     }
 
+    override fun onFocusChanged(gainFocus: Boolean, direction: Int, previouslyFocusedRect: android.graphics.Rect?) {
+        super.onFocusChanged(gainFocus, direction, previouslyFocusedRect)
+        if (android.util.Log.isLoggable(INPUT_TAG, android.util.Log.DEBUG))
+            android.util.Log.d(INPUT_TAG, "focus $gainFocus view=${System.identityHashCode(this)} root=${rootView.findFocus()?.javaClass?.simpleName}")
+    }
+
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (android.util.Log.isLoggable(INPUT_TAG, android.util.Log.DEBUG))
@@ -230,9 +236,9 @@ class PlateView(context: Context) : GLSurfaceView(context) {
         }
         hoverPanning = false
         // The desktop canvas takes keyboard focus when the mouse enters it, unless a text field has
-        // it (GLCanvas3D.cpp on_mouse Entering), so its shortcuts work without a click first.
-        if (event.actionMasked == MotionEvent.ACTION_HOVER_ENTER && !hasFocus() &&
-            rootView.findFocus()?.onCheckIsTextEditor() != true) requestFocus()
+        // it (GLCanvas3D.cpp on_mouse Entering), so its shortcuts work without a click first. WSA
+        // sends no enter when a closed menu leaves the pointer over the view, so any hover counts.
+        if (!hasFocus() && rootView.findFocus()?.onCheckIsTextEditor() != true) requestFocus()
         if (event.actionMasked == MotionEvent.ACTION_SCROLL) {
             // Shift turns the wheel into a horizontal scroll; it still zooms, as on the desktop.
             val v = event.getAxisValue(MotionEvent.AXIS_VSCROLL).takeIf { it != 0f } ?: event.getAxisValue(MotionEvent.AXIS_HSCROLL)

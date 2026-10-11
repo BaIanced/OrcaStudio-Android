@@ -130,6 +130,9 @@ class MainActivity : ComponentActivity() {
         val onPlate = viewFocused && s.editor == null && s.screen == Screen.PREPARE
         val onView = viewFocused && s.editor == null && (s.screen == Screen.PREPARE || s.screen == Screen.PREVIEW)
         val shift = event.isShiftPressed
+        if (android.util.Log.isLoggable("OrcaInput", android.util.Log.DEBUG))
+            android.util.Log.d("OrcaInput", "shortcut $keyCode ctrl=${event.isCtrlPressed} viewFocused=$viewFocused " +
+                "view=${view?.let { System.identityHashCode(it) }} focus=${window.decorView.findFocus()?.javaClass?.simpleName} screen=${s.screen} editor=${s.editor != null}")
         if (!event.isCtrlPressed) return super.onKeyShortcut(keyCode, event)
         when {
             keyCode == KeyEvent.KEYCODE_Z && shift -> vm.scene.redo()
