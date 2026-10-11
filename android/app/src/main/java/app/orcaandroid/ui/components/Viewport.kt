@@ -4,6 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -133,7 +134,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         }
     }
     view?.section?.takeIf { it.panelOpen }?.let {
-        SectionViewPanel(it, Modifier.align(androidx.compose.ui.Alignment.TopCenter).padding(top = 72.dp))
+        SectionViewPanel(it, Modifier.align(androidx.compose.ui.Alignment.TopCenter).padding(top = 72.dp, start = 8.dp, end = 8.dp).widthIn(max = 560.dp))
     }
     }
 
