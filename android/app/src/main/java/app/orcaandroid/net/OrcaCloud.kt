@@ -356,6 +356,19 @@ object OrcaCloud {
 
     private fun sessionFile(context: Context) = File(context.noBackupFilesDir, "orca_cloud/session.sec")
 
+    /** The stored session in plain form, for the passphrase-encrypted app backup; null when signed out. */
+    fun exportSession(context: Context): JSONObject? = readSecret(context)
+
+    /**
+     * Restores a backed-up session under this device's key. Refresh tokens are single-use, so a
+     * backup older than the last refresh no longer works and the next refresh signs out.
+     */
+    fun importSession(context: Context, secret: JSONObject) = synchronized(lock) {
+        session = null
+        loaded = false
+        writeSecret(context, secret)
+    }
+
     private fun key(): SecretKey {
         val ks = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
         (ks.getKey(KEY_ALIAS, null) as? SecretKey)?.let { return it }

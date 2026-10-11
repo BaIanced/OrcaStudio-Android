@@ -2,6 +2,7 @@ package app.orcaandroid.core
 
 import android.content.Context
 import app.orcaandroid.net.ObnCredentials
+import app.orcaandroid.net.OrcaCloud
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -23,8 +24,8 @@ import org.json.JSONObject
 
 /**
  * A passphrase-encrypted copy of what the user set up: app settings (printer connections, access
- * codes, remembered selections), user presets, and the Bambu login and slicer certificates. Moving
- * it to another device or reinstall restores the app as it was.
+ * codes, remembered selections), user presets, the Bambu login and slicer certificates, and the Orca
+ * Cloud sign-in. Moving it to another device or reinstall restores the app as it was.
  *
  * File: "OSBK1", 16-byte salt, 12-byte IV, then AES-256-GCM of a zip. The key comes from the
  * passphrase with PBKDF2-HMAC-SHA256; without the passphrase the file reveals nothing, and a wrong
@@ -38,6 +39,7 @@ object AppBackup {
     /** Rebuilt by the app (CA bundle) or not worth keeping (log). */
     private val SKIP_OBN = setOf("cacert.pem", "obn.log")
     const val MIN_PASSPHRASE = 8
+    private const val ORCA_CLOUD_ENTRY = "orca_cloud/session.json"
 
     fun export(context: Context, out: OutputStream, passphrase: CharArray) {
         val zip = ByteArrayOutputStream()
@@ -48,6 +50,11 @@ object AppBackup {
             }
             addTree(z, "user", File(context.filesDir, "data/user"))
             addTree(z, "obn", ObnCredentials.dir(context)) { it.name !in SKIP_OBN }
+            // Stored under a device-bound Keystore key, so it travels decrypted inside this encrypted zip.
+            OrcaCloud.exportSession(context)?.let {
+                z.putNextEntry(ZipEntry(ORCA_CLOUD_ENTRY))
+                z.write(it.toString().toByteArray())
+            }
         }
         val salt = random(16)
         val iv = random(12)
@@ -74,6 +81,7 @@ object AppBackup {
                 val name = e.name
                 when {
                     e.isDirectory -> Unit
+                    name == ORCA_CLOUD_ENTRY -> OrcaCloud.importSession(context, JSONObject(z.readBytes().decodeToString()))
                     name.startsWith("prefs/") -> name.removePrefix("prefs/").removeSuffix(".json").takeIf { it in PREFS }
                         ?.let { prefsFromJson(context, it, JSONObject(z.readBytes().decodeToString())) }
                     else -> {

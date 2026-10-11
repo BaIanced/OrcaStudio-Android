@@ -376,8 +376,8 @@
     <!-- Verschlüsselte Sicherung -->
     <string name="backup">Sicherung</string>
     <string name="backup_export">Einstellungen und Anmeldung sichern</string>
-    <string name="backup_export_text">Verschlüsselte Datei mit Einstellungen, Druckerverbindungen, Benutzer-Profilen und Bambu-Anmeldung</string>
-    <string name="backup_export_warning">Die Sicherung enthält die Zugangscodes deiner Drucker, die Bambu-Anmeldung und das Slicer-Zertifikat. Sie wird mit dieser Passphrase verschlüsselt; ohne sie lässt sich die Datei nicht öffnen, und eine vergessene Passphrase kann nicht wiederhergestellt werden. Bewahre die Datei privat auf.</string>
+    <string name="backup_export_text">Verschlüsselte Datei mit Einstellungen, Druckerverbindungen, Benutzer-Profilen sowie Bambu- und Orca-Cloud-Anmeldung</string>
+    <string name="backup_export_warning">Die Sicherung enthält die Zugangscodes deiner Drucker, die Bambu- und Orca-Cloud-Anmeldung und das Slicer-Zertifikat. Sie wird mit dieser Passphrase verschlüsselt; ohne sie lässt sich die Datei nicht öffnen, und eine vergessene Passphrase kann nicht wiederhergestellt werden. Bewahre die Datei privat auf.</string>
     <string name="backup_import">Sicherung wiederherstellen</string>
     <string name="backup_import_text">Ersetzt die aktuellen Einstellungen, Verbindungen und Benutzer-Profile; die App startet neu</string>
     <string name="backup_import_warning">Gib die Passphrase der Sicherung ein. Die aktuellen Einstellungen, Verbindungen, Benutzer-Profile und die Anmeldung werden ersetzt, und die App startet neu.</string>
