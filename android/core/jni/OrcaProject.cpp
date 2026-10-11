@@ -104,7 +104,8 @@ json diff_options(const DynamicPrintConfig &project, const DynamicPrintConfig &b
 {
     json out = json::object();
     for (const std::string &key : keys) {
-        if (!project.has(key) || !base.has(key))
+        // "plugins" is derived from the plugin pickers (OrcaEngine::selection_config), never an edit.
+        if (key == "plugins" || !project.has(key) || !base.has(key))
             continue;
         const std::string a = value_at(project, key, index), b = value_at(base, key, 0);
         if (a != b)
