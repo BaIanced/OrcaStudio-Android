@@ -156,7 +156,8 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel, d
             }
             override fun onPageFinished(view: WebView, url: String?) {
                 view.evaluateJavascript(BRIDGE_JS, null)
-                if (site == ModelSite.MAKERWORLD && !fullSite) view.evaluateJavascript(MW_TRIM_JS, null)
+                view.evaluateJavascript(ZOOM_JS, null)
+                if (site ==ModelSite.MAKERWORLD && !fullSite) view.evaluateJavascript(MW_TRIM_JS, null)
                 updateNav()
             }
             override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) {
@@ -393,6 +394,20 @@ private const val MW_TRIM_JS = """(function(){
   new MutationObserver(function(){ if (pending) return; pending = true; requestAnimationFrame(function(){ pending = false; trim(); }); })
     .observe(document.documentElement, { childList: true, subtree: true });
   trim();
+})();"""
+
+/**
+ * MakerWorld's viewport meta has `maximum-scale=1.0, user-scalable=no`, which blocks pinch and
+ * Ctrl+wheel zoom (WebView.zoomBy). Drops those limits, like Chrome's "Force enable zoom";
+ * re-applied when the page rewrites its head.
+ */
+private const val ZOOM_JS = """(function(){
+  if (window.__orcaZoom) return; window.__orcaZoom = 1;
+  function unlock(){ document.querySelectorAll('meta[name=viewport]').forEach(function(m){
+    var c = m.content || '', u = c.replace(/,?\s*(maximum-scale|minimum-scale|user-scalable)\s*=\s*[^,]*/gi, '');
+    if (u !== c) m.content = u; }); }
+  new MutationObserver(unlock).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['content'] });
+  unlock();
 })();"""
 
 private const val BRIDGE_JS = """(function(){
