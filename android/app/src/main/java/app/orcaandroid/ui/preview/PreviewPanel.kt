@@ -193,6 +193,7 @@ private fun Actions(state: UiState, vm: AppViewModel, r: SliceResult) {
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                 if (!r.external) DropdownMenuItem(text = { Text(stringResource(R.string.save_gcode_3mf)) },
                     onClick = { menu = false; save3mf.launch(vm.files.gcodeFileName().removeSuffix(".gcode") + ".gcode.3mf") })
+                DropdownMenuItem(text = { Text(stringResource(R.string.fp_log_print)) }, onClick = { menu = false; vm.files.logPrintToFilamentProfiles() })
                 if (!r.external && state.scene.plates.size > 1)
                     DropdownMenuItem(text = { Text(stringResource(R.string.slice_all)) }, onClick = { menu = false; vm.slicing.sliceAll() })
                 if (r.external) DropdownMenuItem(text = { Text(stringResource(R.string.close)) }, onClick = { menu = false; vm.slicing.closeExternal() })

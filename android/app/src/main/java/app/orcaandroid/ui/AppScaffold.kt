@@ -95,6 +95,9 @@ private fun MainLayout(state: UiState, vm: AppViewModel) {
     val dark = app.orcaandroid.ui.components.appIsDark()
     val browser = remember(dark) { lazy { ModelBrowser(context, vm, dark) } }
     DisposableEffect(browser) { onDispose { if (browser.isInitialized()) browser.value.destroy() } }
+    LaunchedEffect(browser, state.modelsUrl) {
+        state.modelsUrl?.let { browser.value.openUrl(it); vm.modelsUrlOpened() }
+    }
     // Back leads home: other tabs return to Prepare, and Prepare drops the tool and selection
     // first (as Esc does). Screens composed below (the Models browser) take back before this.
     val clearable = state.screen == Screen.PREPARE && (state.tool != Tool.None || state.selectedItems.isNotEmpty() || state.selectMode)

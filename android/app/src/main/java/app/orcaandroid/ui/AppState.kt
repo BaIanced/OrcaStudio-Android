@@ -77,6 +77,8 @@ data class UiState(
     val busy: String? = null,
     val error: String? = null,
     val message: String? = null,
+    /** A page the Models tab's browser should open next (e.g. a 3D Filament Profiles print log). */
+    val modelsUrl: String? = null,
     /** Where the 3D view's context menu is open (view pixels), or null. */
     val contextMenu: Pair<Float, Float>? = null,
     val screen: Screen = Screen.PREPARE,

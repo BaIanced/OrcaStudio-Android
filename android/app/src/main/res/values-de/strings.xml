@@ -421,4 +421,6 @@
     <string name="none">Keine</string>
     <string name="no_plugin_capabilities">Kein installiertes Plugin bietet das an. Plugins unter Mehr &gt; Orca Cloud installieren.</string>
     <string name="plugin_not_loaded">Plugin nicht geladen</string>
+    <string name="fp_log_print">Druck in 3D Filament Profiles erfassen</string>
+    <string name="fp_no_usage">Dieser G-code enthält keinen Filamentverbrauch.</string>
 </resources>

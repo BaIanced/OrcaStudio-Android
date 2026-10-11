@@ -87,6 +87,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setScreen(screen: Screen) = store.update { it.copy(screen = screen, tool = if (screen == Screen.PREPARE) it.tool else Tool.None) }
 
+    /** Shows [url] in the Models tab's browser. */
+    fun openInModels(url: String) = store.update { it.copy(modelsUrl = url, screen = Screen.MODELS, tool = Tool.None) }
+
+    fun modelsUrlOpened() = store.update { it.copy(modelsUrl = null) }
+
     fun setThemeMode(mode: ThemeMode) {
         store.settings.themeMode = mode
         store.update { it.copy(themeMode = mode) }

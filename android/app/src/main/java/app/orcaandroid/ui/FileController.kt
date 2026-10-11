@@ -6,6 +6,7 @@ import app.orcaandroid.R
 import app.orcaandroid.core.FilamentSlot
 import app.orcaandroid.core.PresetType
 import app.orcaandroid.core.RecentFile
+import app.orcaandroid.net.FilamentProfiles
 import app.orcaandroid.net.ModelDownloads
 import app.orcaandroid.plugins.Plugins
 import java.io.File
@@ -50,7 +51,15 @@ class FileController(
      * a zip opens the model files inside it.
      */
     fun openDownloaded(busy: String, fetch: () -> File) = store.launch(busy) {
-        val files = withContext(Dispatchers.IO) { ModelDownloads.modelFiles(fetch()) }
+        val file = withContext(Dispatchers.IO) { fetch() }
+        // Filament profiles (3D Filament Profiles and the like) go to the preset import instead.
+        if (withContext(Dispatchers.IO) { ModelDownloads.isPresetFile(file) }) {
+            val (printers, setup) = engine.importPresets(listOf(file.path))
+            store.update { it.copy(printers = printers, setup = setup) }
+            store.toast(store.str(R.string.presets_imported, 1))
+            return@launch
+        }
+        val files = withContext(Dispatchers.IO) { ModelDownloads.modelFiles(file) }
         if (files.isEmpty()) store.toast(store.str(R.string.models_no_files))
         else openModels(files.map { Uri.fromFile(it) })
     }
@@ -176,6 +185,15 @@ class FileController(
         pluginMessages = Plugins.postProcess(s.previewPlate, copy, host, outputName)
         pluginMessages.forEach { store.toast(it) }
         return copy
+    }
+
+    /** Opens the shown slice result in 3D Filament Profiles' print log (pick spools, subtract). */
+    fun logPrintToFilamentProfiles() = store.launch {
+        val s = store.value
+        val r = s.shownResult ?: return@launch
+        val url = withContext(Dispatchers.IO) { FilamentProfiles.printLogUrl(File(r.gcodeFile), gcodeFileName(), s.previewPlate + 1) }
+            ?: return@launch store.toast(store.str(R.string.fp_no_usage))
+        store.update { it.copy(modelsUrl = url, screen = Screen.MODELS, tool = Tool.None) }
     }
 
     /** Messages of the slicing-pipeline plugins from the last [exportedGcode]. */

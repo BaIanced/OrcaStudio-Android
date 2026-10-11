@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import app.orcaandroid.R
 import app.orcaandroid.net.BambuAccount
+import app.orcaandroid.net.FilamentProfiles
 import app.orcaandroid.net.ModelDownloads
 import app.orcaandroid.ui.AppViewModel
 import kotlinx.coroutines.CoroutineScope
@@ -64,6 +65,7 @@ enum class ModelSite(val label: String, val home: String, val hosts: List<String
     MAKERWORLD("MakerWorld", "https://makerworld.com/en", listOf("makerworld.com", "makerworld.com.cn", "bambulab.com", "bambulab.cn")),
     PRINTABLES("Printables", "https://www.printables.com/"),
     THINGIVERSE("Thingiverse", "https://www.thingiverse.com/"),
+    FILAMENT_PROFILES("3D Filament Profiles", FilamentProfiles.HOME),
 }
 
 /**
@@ -174,7 +176,18 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel, d
         }
         // Plain file downloads (Printables, Thingiverse, MakerWorld's "Download STL/3MF").
         setDownloadListener { url, _, disposition, mime, _ ->
-            download(url, URLUtil.guessFileName(url, disposition, mime))
+            val name = URLUtil.guessFileName(url, disposition, mime)
+            when {
+                // Files the page builds itself (profile exports): the page reads them back for us.
+                url.startsWith("blob:") -> {
+                    pendingBlobs[url] = name
+                    evaluateJavascript(
+                        "fetch(${JSONObject.quote(url)}).then(function(r){return r.blob()}).then(function(b){" +
+                            "var f=new FileReader();f.onload=function(){orcaNative.blob(${JSONObject.quote(url)},f.result)};f.readAsDataURL(b)})", null)
+                }
+                url.startsWith("data:") -> saveData(url, name)
+                else -> download(url, name)
+            }
         }
     }
 
@@ -207,6 +220,15 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel, d
             val host = "https://makerworld.com/"
             web.loadUrl(if (ticket != null) "${host}api/sign-in/ticket?to=${Uri.encode(target.home)}&ticket=$ticket" else target.home)
         }
+    }
+
+    /** Opens [url] of a site other than MakerWorld (which needs its sign-in ticket and user agent). */
+    fun openUrl(url: String) {
+        started = true
+        val host = Uri.parse(url).host.orEmpty()
+        site = ModelSite.entries.firstOrNull { Uri.parse(it.home).host?.removePrefix("www.") == host.removePrefix("www.") } ?: site
+        web.settings.userAgentString = mobileUserAgent
+        web.loadUrl(url)
     }
 
     /** A MakerWorld page by path ("following", "contests"); slicer mode has no header to reach them. */
@@ -242,7 +264,18 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel, d
             val j = runCatching { JSONObject(message) }.getOrNull() ?: return
             scope.launch { handle(j) }
         }
+
+        /** A blob download's content as a data: URL; only for blobs the download listener asked for. */
+        @JavascriptInterface
+        fun blob(url: String, data: String) {
+            scope.launch { pendingBlobs.remove(url)?.let { name -> saveData(data, name) } }
+        }
     }
+
+    private val pendingBlobs = HashMap<String, String>()
+
+    private fun saveData(data: String, name: String) =
+        vm.files.openDownloaded(context.getString(R.string.models_downloading, name)) { ModelDownloads.saveBase64(context, data, name) }
 
     private fun handle(j: JSONObject) {
         val host = web.url?.let { Uri.parse(it).host }?.lowercase().orEmpty()

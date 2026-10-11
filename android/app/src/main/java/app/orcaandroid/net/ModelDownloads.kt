@@ -19,6 +19,8 @@ object ModelDownloads {
     private val SLICER_LINK = Regex("^(orcaslicer|prusaslicer|bambustudio|cura)://open/?\\?file=", RegexOption.IGNORE_CASE)
     private val BAMBU_OPEN = Regex("^bambustudioopen://", RegexOption.IGNORE_CASE)
     val MODEL_EXTENSIONS = setOf("3mf", "stl", "obj", "step", "stp", "amf", "svg")
+    /** Slicer preset files (filament profiles from 3D Filament Profiles and the like), imported as presets. */
+    private val PRESET_EXTENSIONS = setOf("json", "orca_filament", "orca_bundle", "orca_printer")
 
     fun isSlicerLink(link: String) = SLICER_LINK.containsMatchIn(link) || BAMBU_OPEN.containsMatchIn(link)
 
@@ -61,7 +63,22 @@ object ModelDownloads {
     fun saveBase64(context: Context, data: String, name: String): File {
         val file = target(context, name)
         file.writeBytes(Base64.decode(data.substringAfter("base64,"), Base64.DEFAULT))
-        return file
+        if (hasKnownExtension(name)) return file
+        val sniffed = File(file.parentFile, file.nameWithoutExtension + "." + sniffExtension(file))
+        return if (!sniffed.exists() && file.renameTo(sniffed)) sniffed else file
+    }
+
+    /** A preset file or a zip of presets (JSON files, no models), for the preset import. */
+    fun isPresetFile(file: File): Boolean {
+        val ext = file.extension.lowercase()
+        if (ext in PRESET_EXTENSIONS) return true
+        if (ext != "zip") return false
+        return runCatching {
+            java.util.zip.ZipFile(file).use { z ->
+                val names = z.entries().asSequence().filter { !it.isDirectory }.map { it.name.substringAfterLast('.', "").lowercase() }.toList()
+                names.any { it == "json" } && names.none { it in MODEL_EXTENSIONS }
+            }
+        }.getOrDefault(false)
     }
 
     /** Model files to open: the file itself, or the model files inside a zip. */
@@ -82,7 +99,7 @@ object ModelDownloads {
         return out
     }
 
-    private fun hasKnownExtension(name: String) = name.substringAfterLast('.', "").lowercase().let { it in MODEL_EXTENSIONS || it == "zip" }
+    private fun hasKnownExtension(name: String) = name.substringAfterLast('.', "").lowercase().let { it in MODEL_EXTENSIONS || it in PRESET_EXTENSIONS || it == "zip" }
 
     /** The model type of a downloaded file from its content: 3MF / zip, ASCII or binary STL, OBJ. */
     private fun sniffExtension(file: File): String {
@@ -90,6 +107,7 @@ object ModelDownloads {
         val text = String(head, Charsets.ISO_8859_1)
         return when {
             text.startsWith("PK") -> if (runCatching { java.util.zip.ZipFile(file).use { it.getEntry("3D/3dmodel.model") != null } }.getOrDefault(false)) "3mf" else "zip"
+            text.trimStart().startsWith("{") -> "json"
             text.trimStart().startsWith("solid") && text.contains("facet") -> "stl"
             Regex("(?m)^\\s*(v|vn|vt|f|o|g|mtllib) ").containsMatchIn(text) -> "obj"
             else -> "stl" // binary STL: 80-byte header, triangle count, 50 bytes per triangle
