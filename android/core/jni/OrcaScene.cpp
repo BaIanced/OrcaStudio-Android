@@ -458,6 +458,8 @@ json OrcaEngine::scene_json()
                            {"settings", config_json(obj->config)},
                            {"volumes", volumes},
                            {"instances", instances}});
+        if (!obj->module_name.empty())
+            objects.back()["module"] = obj->module_name;
     }
     for (size_t p = 0; p < m_plates.size(); ++p) {
         const auto o = plate_origin(int(p));
@@ -827,6 +829,53 @@ json OrcaEngine::repair(int object)
     json out = commit();
     out["repaired"] = fixed;
     return out;
+}
+
+// Like Plater::priv::replace_volume_with_stl with "keep_painting" on.
+json OrcaEngine::replace_mesh(int object, const std::string &path, const std::string &module)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    ModelObject &obj = object_at(object);
+    const auto old_it = std::find_if(obj.volumes.begin(), obj.volumes.end(), [](const ModelVolume *v) { return v->is_model_part(); });
+    if (old_it == obj.volumes.end())
+        throw std::runtime_error("The object has no part to replace");
+
+    Model loaded = Model::read_from_file(path, nullptr, nullptr, LoadStrategy::AddDefaultInstances | LoadStrategy::LoadModel);
+    if (loaded.objects.size() != 1 || loaded.objects.front()->volumes.size() != 1)
+        throw std::runtime_error("Unable to replace with more than one volume");
+    loaded.objects.front()->center_around_origin();
+
+    push_undo();
+    const size_t old_idx = size_t(old_it - obj.volumes.begin());
+    ModelVolume *old_volume = obj.volumes[old_idx];
+    const bool sinking = obj.min_z() < SINKING_Z_THRESHOLD;
+    ModelVolume *new_volume = obj.add_volume(*loaded.objects.front()->volumes.front());
+    new_volume->set_new_unique_id();
+    new_volume->name = old_volume->name;
+    new_volume->config.apply(old_volume->config);
+    new_volume->set_type(old_volume->type());
+    new_volume->set_material_id(old_volume->material_id());
+    new_volume->set_transformation(old_volume->get_transformation());
+    new_volume->translate(new_volume->get_transformation().get_matrix_no_offset() * (new_volume->source.mesh_offset - old_volume->source.mesh_offset));
+    if (auto saved = old_volume->save_painting()) {
+        saved->mesh.transform(Geometry::translation_transform(new_volume->mesh().get_init_shift()));
+        new_volume->restore_painting(saved);
+    }
+    std::swap(obj.volumes[old_idx], obj.volumes.back());
+    obj.delete_volume(obj.volumes.size() - 1);
+    if (!module.empty())
+        obj.module_name = module;
+    obj.invalidate_bounding_box();
+    if (!sinking)
+        drop_to_bed(obj);
+    return commit();
+}
+
+json OrcaEngine::set_object_module(int object, const std::string &module)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    object_at(object).module_name = module;
+    return commit();
 }
 
 json OrcaEngine::add_volume(int object, int type, const std::string &shape, const std::array<double, 3> &size,

@@ -5,6 +5,7 @@ import app.orcaandroid.R
 import app.orcaandroid.core.Scene
 import app.orcaandroid.core.Vec3
 import app.orcaandroid.scad.ScadClient
+import app.orcaandroid.scad.ScadDesign
 import app.orcaandroid.scad.ScadExamples
 import app.orcaandroid.scad.ScadParam
 import app.orcaandroid.scad.ScadRender
@@ -98,14 +99,22 @@ class ScadController(private val store: Store) {
         openFile(store.resources.importFile(uri, "openscad")).join()
     }
 
+    /** Opens the design an object was rendered from (kept in the project, see [ScadDesign]). */
+    fun editObject(index: Int) = store.launch {
+        val obj = store.value.scene.objects.getOrNull(index) ?: return@launch
+        val design = ScadDesign.of(obj) ?: return@launch
+        if (st == null) open().join()
+        load(design.name, draftFile.path, design.source, design.values, onPlate = obj.name)
+    }
+
     fun loadExample(example: ScadExamples.Example) = load(example.file, draftFile.path, example.source)
 
     /** A new design from the box template. */
     fun new() = load("untitled.scad", draftFile.path, ScadExamples.BOX.source)
 
-    private fun load(name: String, file: String, source: String) {
-        set { it.copy(name = name, file = file, source = source, loadId = it.loadId + 1, values = emptyMap(),
-            params = emptyList(), log = "", status = null, onPlate = null) }
+    private fun load(name: String, file: String, source: String, values: Map<String, Any> = emptyMap(), onPlate: String? = null) {
+        set { it.copy(name = name, file = file, source = source, loadId = it.loadId + 1, values = values,
+            params = emptyList(), log = "", status = null, onPlate = onPlate) }
         refreshParams(0)
         saveDraft()
     }
@@ -220,7 +229,7 @@ class ScadController(private val store: Store) {
                     stl == null && r.dimension == 2 -> fail(R.string.scad_2d)
                     stl == null -> fail(R.string.scad_empty)
                     else -> {
-                        val name = place(stl, if (asNew) null else s.onPlate)
+                        val name = place(stl, if (asNew) null else s.onPlate, ScadDesign(s.name, s.source, s.values))
                         set { it.copy(onPlate = name, status = summary(r), statusError = false) }
                         saveDraft()
                     }
@@ -256,21 +265,30 @@ class ScadController(private val store: Store) {
         else -> e.message ?: e.toString()
     }
 
-    /** Adds the mesh to the plate, replacing the object named [replace] if it is still there; returns its name. */
-    private suspend fun place(stl: File, replace: String?): String {
-        val scene = store.value.scene
-        val oldIndex = replace?.let { n -> scene.objects.indexOfLast { it.name == n } }?.takeIf { it >= 0 }
-        val old = oldIndex?.let { scene.objects[it].instances.firstOrNull() }
-        var s = engine.loadModels(listOf(stl.path), append = true, plate = old?.plate ?: store.value.activePlate)
-        if (oldIndex != null && old != null) {
-            s = engine.deleteObject(oldIndex)
-            val placed = s.objects.last().instances.first()
-            s = engine.setTransform(s.objects.lastIndex, 0, offset = Vec3(old.offset.x, old.offset.y, placed.offset.z),
-                rotation = old.rotation, scale = old.scale, mirror = old.mirror)
-        } else s = placeFree(s, s.objects.lastIndex)
+    /**
+     * Adds the mesh to the plate tagged with its [design], or replaces the mesh of the object named
+     * [replace] if it is still there (keeping its settings, modifiers, copies and painting); returns
+     * the object's name.
+     */
+    private suspend fun place(stl: File, replace: String?, design: ScadDesign): String {
+        val objects = store.value.scene.objects
+        val oldIndex = replace?.let { n ->
+            objects.indexOfLast { it.name == n && ScadDesign.of(it) != null }.takeIf { it >= 0 } ?: objects.indexOfLast { it.name == n }
+        }?.takeIf { it >= 0 }
+        val index: Int
+        var s: Scene
+        if (oldIndex != null) {
+            s = engine.replaceMesh(oldIndex, stl.path, design.encode())
+            index = oldIndex
+        } else {
+            s = engine.loadModels(listOf(stl.path), append = true, plate = store.value.activePlate)
+            index = s.objects.lastIndex
+            s = engine.setObjectModule(index, design.encode())
+            s = placeFree(s, index)
+        }
         store.applyScene(s)
-        store.update { it.copy(selection = Selection(s.objects.lastIndex), multiSelection = emptyList()) }
-        return s.objects.last().name
+        store.update { it.copy(selection = Selection(index), multiSelection = emptyList()) }
+        return s.objects[index].name
     }
 
     /**

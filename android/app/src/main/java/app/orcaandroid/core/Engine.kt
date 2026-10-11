@@ -110,6 +110,10 @@ class Engine(private val cacheDir: File) {
         parseScene(call("cut", args("object" to obj, "instance" to instance, "z" to z, "keepUpper" to keepUpper, "keepLower" to keepLower, "flipUpper" to flipUpper)))
     suspend fun simplify(obj: Int, ratio: Float) = parseScene(call("simplify", args("object" to obj, "ratio" to ratio)))
     suspend fun repair(obj: Int) = parseScene(call("repair", args("object" to obj)))
+    suspend fun replaceMesh(obj: Int, path: String, module: String = "") =
+        parseScene(call("replaceMesh", args("object" to obj, "path" to path, "module" to module)))
+    suspend fun setObjectModule(obj: Int, module: String) =
+        parseScene(call("setObjectModule", args("object" to obj, "module" to module)))
     suspend fun addVolume(obj: Int, type: VolumeType, shape: String, size: Vec3) =
         parseScene(call("addVolume", args("object" to obj, "type" to type.code, "shape" to shape, "size" to size)))
     suspend fun deleteVolume(obj: Int, volume: Int) = parseScene(call("deleteVolume", args("object" to obj, "volume" to volume)))
@@ -295,6 +299,7 @@ class Engine(private val cacheDir: File) {
                         LayerRange(r.getDouble("from").toFloat(), r.getDouble("to").toFloat(), r.stringMap("settings"))
                     }.orEmpty(),
                     hasLayerProfile = obj.optBoolean("layer_profile"),
+                    module = obj.optString("module"),
                 )
             } },
         )

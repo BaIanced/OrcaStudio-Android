@@ -88,6 +88,8 @@ const std::unordered_map<std::string, Handler> &handlers()
          }},
         {"simplify", [](OrcaEngine &e, const json &a) { return e.simplify(a.at("object"), a.at("ratio")); }},
         {"repair", [](OrcaEngine &e, const json &a) { return e.repair(a.at("object")); }},
+        {"replaceMesh", [](OrcaEngine &e, const json &a) { return e.replace_mesh(a.at("object"), a.at("path"), a.value("module", std::string())); }},
+        {"setObjectModule", [](OrcaEngine &e, const json &a) { return e.set_object_module(a.at("object"), a.at("module")); }},
         {"addVolume", [](OrcaEngine &e, const json &a) {
              return e.add_volume(a.at("object"), a.at("type"), a.value("shape", "box"), vec3(a.at("size")),
                                  a.contains("position") ? vec3(a["position"]) : vec3(json()));

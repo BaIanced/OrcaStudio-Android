@@ -1,5 +1,6 @@
 package app.orcaandroid.scad
 
+import app.orcaandroid.core.SceneObject
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -92,6 +93,30 @@ data class ScadParam(
                     else -> v.toString()
                 }
             }
+        }
+    }
+}
+
+/**
+ * The OpenSCAD design an object on the plate was rendered from. Kept in the object's
+ * ModelObject::module_name ("openscad:" + compact JSON), which the 3MF stores per object, so a
+ * reopened project can be edited again. Compact JSON escapes newlines, which XML attributes would
+ * otherwise turn into spaces.
+ */
+data class ScadDesign(val name: String, val source: String, val values: Map<String, Any>) {
+    fun encode(): String = PREFIX + JSONObject()
+        .put("name", name)
+        .put("source", source)
+        .put("values", ScadParam.encode(values))
+        .toString()
+
+    companion object {
+        private const val PREFIX = "openscad:"
+
+        fun of(obj: SceneObject?): ScadDesign? {
+            val module = obj?.module?.takeIf { it.startsWith(PREFIX) } ?: return null
+            val o = runCatching { JSONObject(module.substring(PREFIX.length)) }.getOrNull() ?: return null
+            return ScadDesign(o.optString("name").ifEmpty { obj.name }, o.optString("source"), ScadParam.decode(o.optString("values")))
         }
     }
 }

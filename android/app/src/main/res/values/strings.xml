@@ -472,4 +472,5 @@
     <string name="scad_parse_error">Syntax error: the parameters are from the last version that parsed.</string>
     <string name="scad_auto_render">Render on change</string>
     <string name="scad_reset_all">Reset all</string>
+    <string name="scad_edit_design">Edit OpenSCAD design</string>
 </resources>

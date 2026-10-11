@@ -112,6 +112,12 @@ public:
     json simplify(int object, double ratio);
     // Merges duplicate vertices and removes degenerate faces.
     json repair(int object);
+    // Replaces the object's first model part with the single mesh in `path` (desktop "Replace with
+    // STL"): settings, modifiers and instances stay, painting is remapped. Sets `module` when not empty.
+    json replace_mesh(int object, const std::string &path, const std::string &module);
+    // Sets ModelObject::module_name, which the 3MF keeps per object (the OpenSCAD design of an
+    // object, see ScadController.kt). No undo step: only used right after the object was added.
+    json set_object_module(int object, const std::string &module);
 
     // Adds a volume of `type` (volume_type 1..4) shaped "box"|"cylinder"|"sphere" with `size`
     // [x,y,z] mm, centred at object-local `position`.

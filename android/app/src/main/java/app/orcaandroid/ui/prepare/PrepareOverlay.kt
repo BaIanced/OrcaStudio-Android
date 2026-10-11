@@ -69,6 +69,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import app.orcaandroid.R
+import app.orcaandroid.scad.ScadDesign
 import app.orcaandroid.core.VolumeType
 import app.orcaandroid.render.PlateView
 import app.orcaandroid.ui.AppViewModel
@@ -164,6 +165,9 @@ private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
                         onClick = { close(); vm.scene.deleteSelected() })
                 }
                 if (sel != null) {
+                    if (ScadDesign.of(state.scene.objects.getOrNull(sel.obj)) != null)
+                        DropdownMenuItem(text = { Text(stringResource(R.string.scad_edit_design)) }, leadingIcon = { Icon(Icons.Default.Code, null) },
+                            onClick = { close(); vm.scad.editObject(sel.obj) })
                     DropdownMenuItem(text = { Text(stringResource(R.string.select_multiple)) }, leadingIcon = { Icon(Icons.Default.SelectAll, null) },
                         onClick = { close(); vm.scene.setSelectMode(true) })
                     DropdownMenuItem(text = { Text(stringResource(R.string.lay_on_face)) }, leadingIcon = { Icon(Icons.Default.VerticalAlignBottom, null) },

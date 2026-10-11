@@ -141,6 +141,8 @@ data class SceneObject(
     val instances: List<Instance>,
     val layerRanges: List<LayerRange>,
     val hasLayerProfile: Boolean,
+    /** ModelObject::module_name, kept per object in the 3MF; "openscad:{...}" = the object's OpenSCAD design. */
+    val module: String = "",
 )
 
 data class Scene(
