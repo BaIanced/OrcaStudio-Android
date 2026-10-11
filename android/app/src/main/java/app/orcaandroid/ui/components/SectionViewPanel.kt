@@ -1,8 +1,8 @@
 package app.orcaandroid.ui.components
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -25,14 +25,16 @@ import app.orcaandroid.render.SectionView
 @Composable
 fun SectionViewPanel(section: SectionView, modifier: Modifier = Modifier) {
     Surface(modifier, shape = RoundedCornerShape(20.dp), tonalElevation = 3.dp) {
-        // Fits the narrow 3D view next to the sidebar: the slider takes what is left.
-        Row(Modifier.padding(start = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.section_view))
-            Slider(section.ratio, section::set, Modifier.padding(horizontal = 8.dp).weight(1f))
-            Text("%.2f".format(section.ratio), Modifier.width(40.dp))
-            IconButton(onClick = section::alignToCamera) { Icon(Icons.Default.Videocam, stringResource(R.string.section_view_align)) }
-            IconButton(onClick = { section.set(0f) }, enabled = section.active) { Icon(Icons.Default.Restore, stringResource(R.string.reset)) }
-            IconButton(onClick = { section.panelOpen = false }) { Icon(Icons.Default.Close, stringResource(R.string.close)) }
+        // Two rows, so the slider keeps its width in the narrow 3D view next to the sidebar.
+        Column(Modifier.padding(start = 16.dp, end = 4.dp, bottom = 4.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.section_view), Modifier.weight(1f))
+                Text("%.2f".format(section.ratio))
+                IconButton(onClick = section::alignToCamera) { Icon(Icons.Default.Videocam, stringResource(R.string.section_view_align)) }
+                IconButton(onClick = { section.set(0f) }, enabled = section.active) { Icon(Icons.Default.Restore, stringResource(R.string.reset)) }
+                IconButton(onClick = { section.panelOpen = false }) { Icon(Icons.Default.Close, stringResource(R.string.close)) }
+            }
+            Slider(section.ratio, section::set, Modifier.padding(end = 12.dp))
         }
     }
 }
