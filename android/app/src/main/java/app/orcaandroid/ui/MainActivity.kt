@@ -164,7 +164,7 @@ class MainActivity : ComponentActivity() {
         if (event.keyCode == KeyEvent.KEYCODE_BACK && event.isFromSource(android.view.InputDevice.SOURCE_MOUSE) &&
             !onBackPressedDispatcher.hasEnabledCallbacks()) return true
         if (event.isCtrlPressed && android.util.Log.isLoggable("OrcaInput", android.util.Log.DEBUG))
-            android.util.Log.d("OrcaInput", "key ${KeyEvent.actionToString(event.action)} ${event.keyCode} meta=${event.metaState} viewFocused=$viewFocused")
+            android.util.Log.d("OrcaInput", "key ${event.action} ${event.keyCode} meta=${event.metaState} viewFocused=$viewFocused")
         // Android offers Ctrl keys as shortcuts only when normal dispatch leaves them unused, and
         // with the 3D view focused they never got that far: Ctrl+digit camera views did nothing.
         if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0 && event.isCtrlPressed && viewFocused &&
