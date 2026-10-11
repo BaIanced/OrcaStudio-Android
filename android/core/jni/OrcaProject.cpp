@@ -233,7 +233,7 @@ json OrcaEngine::load_project(const std::string &path)
     return out;
 }
 
-json OrcaEngine::export_gcode_3mf(int plate, const std::string &gcode, const std::string &path)
+json OrcaEngine::export_gcode_3mf(int plate, const std::string &gcode, const std::string &path, const std::string &sliced)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
     require_printer();
@@ -258,7 +258,7 @@ json OrcaEngine::export_gcode_3mf(int plate, const std::string &gcode, const std
             pd->objects_and_instances.emplace_back(int(oi), int(ii));
     if (!m_plates[plate].bed_type.empty())
         pd->config.set_deserialize_strict("curr_bed_type", m_plates[plate].bed_type);
-    if (auto it = m_slice_info.find(gcode); it != m_slice_info.end()) {
+    if (auto it = m_slice_info.find(sliced.empty() ? gcode : sliced); it != m_slice_info.end()) {
         const PlateData &s = *it->second;
         pd->gcode_prediction        = s.gcode_prediction;
         pd->gcode_weight            = s.gcode_weight;

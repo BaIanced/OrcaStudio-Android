@@ -141,7 +141,7 @@ internal class ObnHost(private val c: PrinterConnection) : PrintHost {
         return "Bambu Lab · ${c.serial} · " + if (certified) "signed printing ready" else "connected, certificate exchange pending"
     }
 
-    override fun upload(file: File, remoteName: String, startPrint: Boolean, onProgress: (Float) -> Unit) {
+    override fun upload(file: File, remoteName: String, startPrint: Boolean, ams: AmsMapping?, onProgress: (Float) -> Unit) {
         if (!startPrint) {
             // Plain file transfer needs no signature.
             FtpsClient(host, "bblp", c.apiKey).upload(file, remoteName, onProgress)
@@ -158,7 +158,8 @@ internal class ObnHost(private val c: PrinterConnection) : PrintHost {
         var failure: String? = null
         val rc = ObnNative.print(
             c.serial, host, c.apiKey, file.path, remoteName.removeSuffix(".gcode.3mf"),
-            1, false, "", cloudPrint,
+            // The tray per filament (AmsMapping); without one, use_ams stays off.
+            1, ams?.useAms ?: false, ams?.v0().orEmpty(), ams?.v1().orEmpty(), cloudPrint,
         ) { stage, code, message ->
             when (stage) {
                 ObnNative.STAGE_UPLOAD -> onProgress((code.coerceIn(0, 100)) / 100f)

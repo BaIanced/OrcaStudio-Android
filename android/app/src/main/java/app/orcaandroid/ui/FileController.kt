@@ -213,7 +213,8 @@ class FileController(
     suspend fun exportGcode3mf(host: String = "File"): File? {
         val plate = store.value.previewPlate
         val gcode = exportedGcode(host, gcodeFileName().removeSuffix(".gcode") + ".gcode.3mf") ?: return null
-        return File(outDir, "export.gcode.3mf").also { engine.exportGcode3mf(plate, gcode.path, it.path) }
+        val sliced = store.value.shownResult?.gcodeFile ?: gcode.path
+        return File(outDir, "export.gcode.3mf").also { engine.exportGcode3mf(plate, gcode.path, it.path, sliced) }
     }
 
     fun openRecent(recent: RecentFile) {

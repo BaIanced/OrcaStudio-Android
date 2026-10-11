@@ -292,7 +292,8 @@ JNIEXPORT jint JNICALL Java_app_orcaandroid_net_ObnNative_print(JNIEnv *env, job
                                                                jstring access_code, jstring file,
                                                                jstring project_name, jint plate_index,
                                                                jboolean use_ams, jstring ams_mapping,
-                                                               jboolean cloud, jobject listener)
+                                                               jstring ams_mapping2, jboolean cloud,
+                                                               jobject listener)
 {
     void *agent;
     {
@@ -316,7 +317,8 @@ JNIEXPORT jint JNICALL Java_app_orcaandroid_net_ObnNative_print(JNIEnv *env, job
     p.connection_type = "lan";
     p.task_bed_leveling = true;
     p.task_use_ams = use_ams == JNI_TRUE;
-    p.ams_mapping = jstr(env, ams_mapping);
+    p.ams_mapping = jstr(env, ams_mapping);   // tray index per filament, as SelectMachineDialog
+    p.ams_mapping2 = jstr(env, ams_mapping2); // {ams_id, slot_id} per filament
     p.try_emmc_print = false; // FTPS :990 upload, the path Orca-Android already uses for Bambu
 
     jclass cls = listener ? env->GetObjectClass(listener) : nullptr;

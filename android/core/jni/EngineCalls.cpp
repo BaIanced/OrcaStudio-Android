@@ -127,7 +127,7 @@ const std::unordered_map<std::string, Handler> &handlers()
         // Files
         {"saveProject", [](OrcaEngine &e, const json &a) { return e.save_project(a.at("path")); }},
         {"loadProject", [](OrcaEngine &e, const json &a) { return e.load_project(a.at("path")); }},
-        {"exportGcode3mf", [](OrcaEngine &e, const json &a) { return e.export_gcode_3mf(a.at("plate"), a.at("gcode"), a.at("path")); }},
+        {"exportGcode3mf", [](OrcaEngine &e, const json &a) { return e.export_gcode_3mf(a.at("plate"), a.at("gcode"), a.at("path"), a.value("sliced", std::string())); }},
         {"exportStl", [](OrcaEngine &e, const json &a) { return e.export_stl(a.at("path"), a.value("plate", -1)); }},
         {"importPresets", [](OrcaEngine &e, const json &a) { return e.import_presets(strings(a.at("paths"))); }},
         {"presetFile", [](OrcaEngine &e, const json &a) { return e.preset_file(a.at("type"), a.at("name")); }},

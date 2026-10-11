@@ -179,7 +179,10 @@ class Engine(private val cacheDir: File) {
         )
     }
     suspend fun exportStl(path: String, plate: Int) { call("exportStl", args("path" to path, "plate" to plate)) }
-    suspend fun exportGcode3mf(plate: Int, gcode: String, path: String) { call("exportGcode3mf", args("plate" to plate, "gcode" to gcode, "path" to path)) }
+    /** [sliced]: the slice result's G-code when [gcode] is a post-processed copy of it (for slice_info.config). */
+    suspend fun exportGcode3mf(plate: Int, gcode: String, path: String, sliced: String = gcode) {
+        call("exportGcode3mf", args("plate" to plate, "gcode" to gcode, "path" to path, "sliced" to sliced))
+    }
 
     // --- Slicing ---------------------------------------------------------------------------------
 

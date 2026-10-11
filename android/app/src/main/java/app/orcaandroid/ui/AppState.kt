@@ -18,6 +18,8 @@ import app.orcaandroid.core.printerKey
 import app.orcaandroid.net.DiscoveredPrinter
 import app.orcaandroid.net.PrinterConnection
 import app.orcaandroid.net.PrinterStatus
+import app.orcaandroid.net.PrinterTray
+import app.orcaandroid.net.UsedFilament
 
 enum class Phase { LOADING, SETUP, READY }
 
@@ -57,6 +59,14 @@ sealed interface UploadState {
     data class Running(val progress: Float, val startPrint: Boolean) : UploadState
     data class Done(val message: String) : UploadState
 }
+
+/** A Bambu print waiting for the tray of each used filament; [choice] starts as the desktop's automatic mapping. */
+data class AmsPrompt(
+    val used: List<UsedFilament>,
+    val trays: List<PrinterTray>,
+    val choice: Map<Int, PrinterTray>,
+    val filamentCount: Int,
+)
 
 /** How the preview is shown. */
 data class PreviewUi(
@@ -134,6 +144,7 @@ data class UiState(
     val connection: PrinterConnection? = null,
     val suggestedConnection: PrinterConnection? = null,
     val upload: UploadState? = null,
+    val amsPrompt: AmsPrompt? = null,
     val printerStatus: PrinterStatus? = null,
     /** Why the last status request failed, shown instead of waiting forever. */
     val printerStatusError: String? = null,

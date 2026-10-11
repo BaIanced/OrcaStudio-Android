@@ -137,7 +137,7 @@ internal class MoonrakerHost(private val c: PrinterConnection) : PrintHost {
         return "Moonraker · Klipper: ${info?.optString("klippy_state") ?: "?"}"
     }
 
-    override fun upload(file: File, remoteName: String, startPrint: Boolean, onProgress: (Float) -> Unit) {
+    override fun upload(file: File, remoteName: String, startPrint: Boolean, ams: AmsMapping?, onProgress: (Float) -> Unit) {
         http.multipart("$base/server/files/upload", file, remoteName, mapOf("root" to "gcodes", "print" to startPrint.toString()), onProgress = onProgress)
     }
 
@@ -182,7 +182,7 @@ internal class OctoPrintHost(private val c: PrinterConnection) : PrintHost {
 
     override fun test() = "OctoPrint ${http.getJson("$base/api/version").optString("server")}"
 
-    override fun upload(file: File, remoteName: String, startPrint: Boolean, onProgress: (Float) -> Unit) {
+    override fun upload(file: File, remoteName: String, startPrint: Boolean, ams: AmsMapping?, onProgress: (Float) -> Unit) {
         http.multipart("$base/api/files/local", file, remoteName, mapOf("select" to startPrint.toString(), "print" to startPrint.toString()), onProgress = onProgress)
     }
 
@@ -227,7 +227,7 @@ internal class PrusaLinkHost(private val c: PrinterConnection) : PrintHost {
 
     override fun test() = "PrusaLink ${http.getJson("$base/api/version").optString("server")}"
 
-    override fun upload(file: File, remoteName: String, startPrint: Boolean, onProgress: (Float) -> Unit) {
+    override fun upload(file: File, remoteName: String, startPrint: Boolean, ams: AmsMapping?, onProgress: (Float) -> Unit) {
         val headers = mutableMapOf("Overwrite" to "?1")
         if (startPrint) headers["Print-After-Upload"] = "?1"
         http.raw("$base/api/v1/files/usb/${Http.enc(remoteName)}", "PUT", file, "text/x.gcode", headers, onProgress)
@@ -280,7 +280,7 @@ internal class DuetHost(private val c: PrinterConnection) : PrintHost {
         return "RepRapFirmware ${http.getJson("$base/rr_status?type=2").optString("firmwareVersion")}"
     }
 
-    override fun upload(file: File, remoteName: String, startPrint: Boolean, onProgress: (Float) -> Unit) {
+    override fun upload(file: File, remoteName: String, startPrint: Boolean, ams: AmsMapping?, onProgress: (Float) -> Unit) {
         connect()
         val path = "0:/gcodes/$remoteName"
         val r = JSONObject(http.raw("$base/rr_upload?name=${Http.enc(path)}", "POST", file, "application/octet-stream", onProgress = onProgress))
@@ -327,7 +327,7 @@ internal class RepetierHost(private val c: PrinterConnection) : PrintHost {
 
     override fun test() = "Repetier-Server · ${slug()}"
 
-    override fun upload(file: File, remoteName: String, startPrint: Boolean, onProgress: (Float) -> Unit) {
+    override fun upload(file: File, remoteName: String, startPrint: Boolean, ams: AmsMapping?, onProgress: (Float) -> Unit) {
         // "job" uploads start printing, "model" uploads are stored only.
         val kind = if (startPrint) "job" else "model"
         http.multipart("$base/printer/$kind/${slug()}?a=upload&${key()}", file, remoteName, mapOf("name" to remoteName.substringBeforeLast('.')),
@@ -367,7 +367,7 @@ internal class Esp3dHost(private val c: PrinterConnection) : PrintHost {
         return "ESP3D"
     }
 
-    override fun upload(file: File, remoteName: String, startPrint: Boolean, onProgress: (Float) -> Unit) {
+    override fun upload(file: File, remoteName: String, startPrint: Boolean, ams: AmsMapping?, onProgress: (Float) -> Unit) {
         http.multipart("$base/upload", file, remoteName, mapOf("path" to "/", "/${remoteName}S" to file.length().toString()),
             fileField = "myfile[]", onProgress = onProgress)
         if (startPrint) {
@@ -398,7 +398,7 @@ internal class MksHost(private val c: PrinterConnection) : PrintHost {
         return "MKS WiFi"
     }
 
-    override fun upload(file: File, remoteName: String, startPrint: Boolean, onProgress: (Float) -> Unit) {
+    override fun upload(file: File, remoteName: String, startPrint: Boolean, ams: AmsMapping?, onProgress: (Float) -> Unit) {
         http.raw("http://$host/upload?X-Filename=${Http.enc(remoteName)}", "POST", file, "application/octet-stream", onProgress = onProgress)
         if (startPrint) {
             send("M23 $remoteName")
@@ -422,7 +422,7 @@ internal class WebOnlyHost(private val c: PrinterConnection) : PrintHost {
         return "Web UI reachable"
     }
 
-    override fun upload(file: File, remoteName: String, startPrint: Boolean, onProgress: (Float) -> Unit) =
+    override fun upload(file: File, remoteName: String, startPrint: Boolean, ams: AmsMapping?, onProgress: (Float) -> Unit) =
         throw IOException("This printer type does not support uploads from the app")
 
     override fun status(): PrinterStatus? = null

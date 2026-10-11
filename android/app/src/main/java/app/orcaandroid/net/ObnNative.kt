@@ -31,7 +31,7 @@ internal object ObnNative {
     external fun cancelPrint()
     external fun print(
         devId: String, ip: String, accessCode: String, file: String, projectName: String,
-        plateIndex: Int, useAms: Boolean, amsMapping: String, cloud: Boolean, listener: PrintListener,
+        plateIndex: Int, useAms: Boolean, amsMapping: String, amsMapping2: String, cloud: Boolean, listener: PrintListener,
     ): Int
     /** Re-reads obn.conf (see ObnCredentials.setCloudSettings). */
     external fun reloadConfig(): Int

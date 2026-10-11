@@ -194,7 +194,9 @@ public:
     // settings relative to presets of the same name.
     json load_project(const std::string &path);
     // Packs a sliced plate's G-code into a ".gcode.3mf" (as Bambu printers expect) with thumbnail.
-    json export_gcode_3mf(int plate, const std::string &gcode, const std::string &path);
+    // sliced: the G-code path slice() returned, when gcode is a (post-processed) copy of it; its
+    // slice statistics and used filaments go into slice_info.config.
+    json export_gcode_3mf(int plate, const std::string &gcode, const std::string &path, const std::string &sliced);
     // Writes the objects of `plate` (or all for plate < 0) as one binary STL.
     json export_stl(const std::string &path, int plate);
     // Imports user presets (.json / .zip / .orca_printer / .orca_filament ...).

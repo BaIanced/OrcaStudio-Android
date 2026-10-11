@@ -184,6 +184,9 @@
     <string name="preset_exported">Preset exported</string>
     <string name="presets_imported">%d file(s) imported</string>
     <string name="print">Print</string>
+    <string name="ams_mapping_title">Filament → AMS tray</string>
+    <string name="ams_mapping_pick">Pick a tray</string>
+    <string name="ams_mapping_missing">No loaded tray has this filament type; pick one to print with.</string>
     <string name="print_failed">Print stopped</string>
     <string name="print_finished">Print finished</string>
     <string name="print_started">Print started</string>
