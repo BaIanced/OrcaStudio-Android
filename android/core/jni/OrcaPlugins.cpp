@@ -120,6 +120,11 @@ JNIEXPORT jstring JNICALL Java_app_orcaandroid_plugins_PluginNative_install(JNIE
     return guarded(env, [&] { return orca::plugins::install(str(env, path), str(env, uuid), str(env, name), str(env, version)); });
 }
 
+JNIEXPORT jstring JNICALL Java_app_orcaandroid_plugins_PluginNative_remove(JNIEnv *env, jobject, jstring key)
+{
+    return guarded(env, [&] { return orca::plugins::remove(str(env, key)); });
+}
+
 JNIEXPORT jstring JNICALL Java_app_orcaandroid_plugins_PluginNative_list(JNIEnv *env, jobject)
 {
     return guarded(env, [&] { return orca::plugins::list(); });

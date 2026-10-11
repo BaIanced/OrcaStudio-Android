@@ -308,6 +308,8 @@
     <string name="variable_layer_height">Variable layer height</string>
     <string name="view">View</string>
     <string name="view_fit">Fit plate</string>
+    <string name="section_view">Section view</string>
+    <string name="section_view_align">Set viewing angle</string>
     <string name="view_front">Front</string>
     <string name="view_iso">Isometric</string>
     <string name="view_left">Left</string>
@@ -419,6 +421,8 @@
     <string name="orca_cloud_plugins">Subscribed plugins</string>
     <string name="orca_cloud_no_plugins">This account has no subscribed plugins.</string>
     <string name="orca_cloud_plugin_install">Install</string>
+    <string name="orca_cloud_plugin_remove">Remove</string>
+    <string name="orca_cloud_plugin_removed">Removed</string>
     <string name="plugin_config_save">Save</string>
     <string name="plugin_config_restore">Restore defaults</string>
     <string name="plugin_settings">%1$s settings</string>

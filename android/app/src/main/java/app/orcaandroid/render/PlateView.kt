@@ -42,13 +42,15 @@ interface PlateListener {
  * selected object), two fingers pinch-zoom and pan, double tap frames the plate, long press opens
  * the context menu. With a mouse, as on the desktop: left-drag orbits, right- or middle-drag pans,
  * the wheel zooms, a right click opens the context menu, Shift+drag / Alt+drag selects / deselects
- * by rectangle, Alt+click selects a part and Ctrl+wheel sizes the paint brush.
+ * by rectangle, Alt+click selects a part, Ctrl+wheel sizes the paint brush and Alt+wheel moves the
+ * section view's cut.
  */
 @SuppressLint("ViewConstructor")
 class PlateView(context: Context) : GLSurfaceView(context) {
 
     val camera = Camera()
     val renderer = PlateRenderer(camera)
+    val section = SectionView(camera)
     var listener: PlateListener? = null
     var mode = InteractionMode.NAVIGATE
     /** World bounding boxes (min, max) of the selected copies; a drag starting on them moves them. */
@@ -243,7 +245,8 @@ class PlateView(context: Context) : GLSurfaceView(context) {
             // Shift turns the wheel into a horizontal scroll; it still zooms, as on the desktop.
             val v = event.getAxisValue(MotionEvent.AXIS_VSCROLL).takeIf { it != 0f } ?: event.getAxisValue(MotionEvent.AXIS_HSCROLL)
             if (v == 0f) return true
-            if (mode == InteractionMode.PAINT && event.metaState and KeyEvent.META_CTRL_ON != 0) listener?.onBrushScroll(if (v > 0) 1 else -1)
+            if (event.metaState and KeyEvent.META_ALT_ON != 0) section.step(v > 0)
+            else if (mode ==InteractionMode.PAINT && event.metaState and KeyEvent.META_CTRL_ON != 0) listener?.onBrushScroll(if (v > 0) 1 else -1)
             else camera.zoom(if (v > 0) 1.15f else 1f / 1.15f)
             return true
         }

@@ -57,6 +57,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var measurePoints: List<FloatArray> = emptyList()
     /** Height of the cut plane preview for the selected object's bounds (x0,y0,x1,y1,z), or null. */
     var cutPlane: FloatArray? = null
+    /** Section view plane (nx, ny, nz, d): world points with n . p > d are cut away; null = off. */
+    var section: FloatArray? = null
     var filamentColors: List<FloatArray> = emptyList()
     /** Plates known to the view; 0 until the first bed arrives (then the camera frames plate 1). */
     var plateOriginsCount = 0
@@ -262,6 +264,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glUniform3fv(loc(meshProgram, "uPartColor"), 1, colors.part, 0)
         glUniform3fv(loc(meshProgram, "uSelectedColor"), 1, colors.selected, 0)
         setFilamentColors(meshProgram)
+        setSection(meshProgram)
         glBindBuffer(GL_ARRAY_BUFFER, vbo)
         for (a in 0..2) glEnableVertexAttribArray(a)
         glVertexAttribPointer(0, 3, GL_FLOAT, false, 32, 0)
@@ -275,6 +278,12 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         val arr = FloatArray(16 * 3) { 0.8f }
         filamentColors.take(16).forEachIndexed { i, c -> arr[i * 3] = c[0]; arr[i * 3 + 1] = c[1]; arr[i * 3 + 2] = c[2] }
         glUniform3fv(loc(program, "uFilamentColors"), 16, arr, 0)
+    }
+
+    private fun setSection(program: Int) {
+        val s = section
+        glUniform1i(loc(program, "uSectionOn"), if (s != null) 1 else 0)
+        if (s != null) glUniform4fv(loc(program, "uSection"), 1, s, 0)
     }
 
     private fun drawPreview() {
@@ -292,6 +301,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             glUniform2f(loc(pathProgram, "uRange"), style.range.first, style.range.second)
             glUniform3fv(loc(pathProgram, "uRoleColors"), 20, Shaders.ROLE_COLORS, 0)
             setFilamentColors(pathProgram)
+            setSection(pathProgram)
             glBindBuffer(GL_ARRAY_BUFFER, boxVbo)
             glEnableVertexAttribArray(0)
             glEnableVertexAttribArray(1)

@@ -19,6 +19,7 @@ internal object Shaders {
         layout(location = 1) in vec3 aNormal;
         layout(location = 2) in vec2 aInfo;
         out vec3 vNormal;
+        out highp vec3 vWorld;
         flat out float vType;
         flat out float vSelected;
         void main() {
@@ -28,7 +29,8 @@ internal object Shaders {
             vNormal = aNormal;
             vType = aInfo.y;
             vSelected = selected;
-            gl_Position = uMvp * vec4(aPos + selected * uDrag, 1.0);
+            vWorld = aPos + selected * uDrag;
+            gl_Position = uMvp * vec4(vWorld, 1.0);
         }"""
 
     /**
@@ -42,7 +44,10 @@ internal object Shaders {
         uniform vec3 uPartColor;
         uniform vec3 uSelectedColor;
         uniform vec3 uFilamentColors[16];
+        uniform highp vec4 uSection;
+        uniform int uSectionOn;
         in vec3 vNormal;
+        in highp vec3 vWorld;
         flat in float vType;
         flat in float vSelected;
         out vec4 color;
@@ -52,6 +57,16 @@ internal object Shaders {
             if (uPass == 0 && !part) discard;
             // 99: the estimated prime tower (scene mesh, translucent pass).
             if (uPass == 1 && (part || (type >= 5 && type != 99))) discard;
+            if (uSectionOn == 1) {
+                // Section view: the camera side of the plane is cut away. Inside faces seen through
+                // the cut stand in for the desktop's cut faces (MeshClipper, dark grey).
+                if (dot(uSection.xyz, vWorld) > uSection.w) discard;
+                if (!gl_FrontFacing) {
+                    if (uPass != 0) discard;
+                    color = vec4(0.25, 0.25, 0.25, 1.0);
+                    return;
+                }
+            }
             vec3 n = normalize(vNormal);
             float light = 0.35 + 0.65 * abs(dot(n, normalize(vec3(0.35, -0.55, 0.75))));
             vec3 base;
@@ -137,6 +152,7 @@ internal object Shaders {
         layout(location = 7) in float aValue;
         out vec3 vColor;
         out vec3 vNormal;
+        out highp vec3 vWorld;
 
         vec3 gradient(float t) {
             t = clamp(t, 0.0, 1.0);
@@ -166,15 +182,20 @@ internal object Shaders {
             if (uScheme == 0) vColor = uRoleColors[role];
             else if (uScheme == 7) vColor = uFilamentColors[clamp(int(aValue + 0.5), 0, 15)];
             else vColor = gradient((aValue - uRange.x) / max(uRange.y - uRange.x, 1e-6));
+            vWorld = pos;
             gl_Position = uMvp * vec4(pos, 1.0);
         }"""
 
     const val PATH_FS = """#version 300 es
         precision mediump float;
+        uniform highp vec4 uSection;
+        uniform int uSectionOn;
         in vec3 vColor;
         in vec3 vNormal;
+        in highp vec3 vWorld;
         out vec4 color;
         void main() {
+            if (uSectionOn == 1 && dot(uSection.xyz, vWorld) > uSection.w) discard;
             float light = 0.4 + 0.6 * max(dot(normalize(vNormal), normalize(vec3(0.3, -0.5, 0.8))), 0.0);
             color = vec4(vColor * light, 1.0);
         }"""

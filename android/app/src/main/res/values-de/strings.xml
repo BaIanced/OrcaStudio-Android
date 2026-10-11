@@ -304,6 +304,8 @@
     <string name="variable_layer_height">Variable Schichthöhe</string>
     <string name="view">Ansicht</string>
     <string name="view_fit">Platte einpassen</string>
+    <string name="section_view">Schnittansicht</string>
+    <string name="section_view_align">Blickwinkel übernehmen</string>
     <string name="view_front">Vorne</string>
     <string name="view_iso">Isometrisch</string>
     <string name="view_left">Links</string>

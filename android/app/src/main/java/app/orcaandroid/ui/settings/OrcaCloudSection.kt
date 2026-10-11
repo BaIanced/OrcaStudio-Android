@@ -180,6 +180,15 @@ internal fun OrcaCloudSection() {
                                     installing = false
                                 }
                             }) { Text(stringResource(R.string.orca_cloud_plugin_install)) }
+                            val key = installed.firstOrNull { it.cloudUuid == p.id }?.key
+                            if (!installing && key != null) TextButton(onClick = {
+                                installing = true
+                                scope.launch {
+                                    status = runCatching { Plugins.remove(key) }
+                                        .fold({ context.getString(R.string.orca_cloud_plugin_removed) }, { "✗ ${it.message}" })
+                                    installing = false
+                                }
+                            }) { Text(stringResource(R.string.orca_cloud_plugin_remove)) }
                         }
                     }
                 }

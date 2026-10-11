@@ -83,6 +83,13 @@ class Camera {
         )
     }
 
+    /** Unit vector from the target towards the eye (the desktop's -get_dir_forward()). */
+    @Synchronized fun towardsEye(): Vec3 {
+        val yr = Math.toRadians(yaw.toDouble())
+        val pr = Math.toRadians(pitch.toDouble())
+        return Vec3((cos(pr) * cos(yr)).toFloat(), (cos(pr) * sin(yr)).toFloat(), sin(pr).toFloat())
+    }
+
     /** Fills [out] with projection * view. */
     @Synchronized fun viewProjection(out: FloatArray) {
         val e = eye()

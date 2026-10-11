@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.Interests
 import androidx.compose.material.icons.filled.TextFields
@@ -224,6 +225,11 @@ private fun TopBar(state: UiState, vm: AppViewModel, view: PlateView?) {
                         }
                         DropdownMenuItem(text = { Text(stringResource(R.string.view_fit)) }, onClick = { viewMenu = false; view?.framePlate(state.activePlate) },
                             leadingIcon = { Icon(Icons.Default.CenterFocusStrong, null) })
+                        // The desktop's canvas toolbar button: toggles the cut and opens its panel.
+                        DropdownMenuItem(text = { Text(stringResource(R.string.section_view)) },
+                            onClick = { viewMenu = false; view?.section?.let { it.toggle(); it.panelOpen = it.active } },
+                            leadingIcon = { Icon(Icons.Default.ContentCut, null) },
+                            trailingIcon = { if (view?.section?.active == true) Icon(Icons.Default.Check, null) })
                     }
                 }
                 Box {

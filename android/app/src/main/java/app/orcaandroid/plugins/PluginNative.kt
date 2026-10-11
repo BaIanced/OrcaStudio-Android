@@ -20,6 +20,7 @@ object PluginNative {
 
     external fun start(cloudUserId: String, language: String, listener: Listener): String
     external fun install(packagePath: String, cloudUuid: String, name: String, version: String): String
+    external fun remove(pluginKey: String): String
     external fun list(): String
     external fun pageOpen(pluginKey: String, capability: String): String
     external fun pageMessage(pluginKey: String, capability: String, json: String): String

@@ -33,6 +33,8 @@ const Host &host();
 nlohmann::json start(const std::string &cloud_user_id);
 // Installs a downloaded package (.py or .whl) for `cloud_uuid` and loads it.
 nlohmann::json install(const std::string &package_path, const std::string &cloud_uuid, const std::string &name, const std::string &version);
+// Unloads a plugin and deletes its package; returns list() or {"error": "..."}.
+nlohmann::json remove(const std::string &plugin_key);
 // Installed plugins with their capabilities and load errors.
 nlohmann::json list();
 

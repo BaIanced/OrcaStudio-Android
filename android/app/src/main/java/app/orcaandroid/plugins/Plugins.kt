@@ -80,6 +80,15 @@ object Plugins {
         Unit
     }
 
+    /** Unloads a plugin and deletes its package; its settings stay, as on the desktop. */
+    suspend fun remove(pluginKey: String) = withContext(thread) {
+        check(started) { _status.value ?: "The plugin runtime is not running" }
+        val result = JSONObject(PluginNative.remove(pluginKey))
+        apply(result)
+        result.optString("error").takeIf { it.isNotEmpty() }?.let { throw IOException(it) }
+        Unit
+    }
+
     suspend fun openPage(pluginKey: String, capability: String): String = withContext(thread) {
         val result = JSONObject(PluginNative.pageOpen(pluginKey, capability))
         result.optString("error").takeIf { it.isNotEmpty() }?.let { throw IOException(it) }

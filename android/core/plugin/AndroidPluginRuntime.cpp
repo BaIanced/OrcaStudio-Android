@@ -105,15 +105,25 @@ json install(const std::string &package_path, const std::string &cloud_uuid, con
 {
     PluginManager   &mgr = PluginManager::instance();
     PluginDescriptor descriptor;
+    std::string      error;
+    // An update replaces the installed package (unloaded first), as PluginManager::update_cloud_plugin.
+    if (mgr.try_get_plugin_descriptor(cloud_uuid, descriptor) && !mgr.delete_plugin(cloud_uuid, error))
+        return {{"error", error}};
+    descriptor         = PluginDescriptor{};
     descriptor.name    = name;
     descriptor.version = version;
     descriptor.cloud   = CloudPluginState{cloud_uuid, true, false, false, false, false};
-    if (mgr.is_plugin_loaded(cloud_uuid))
-        return {{"error", "Plugin is loaded; restart the app to update it"}};
-    std::string error;
     if (!mgr.install_plugin(boost::filesystem::path(package_path), descriptor, error))
         return {{"error", error}};
     load_all();
+    return list();
+}
+
+json remove(const std::string &plugin_key)
+{
+    std::string error;
+    if (!PluginManager::instance().delete_plugin(plugin_key, error))
+        return {{"error", error}};
     return list();
 }
 

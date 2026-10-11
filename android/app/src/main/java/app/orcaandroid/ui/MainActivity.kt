@@ -185,6 +185,8 @@ class MainActivity : ComponentActivity() {
         }
         val view = PlateView.active?.get()
         when (keyCode) {
+            // Before the tools and the selection, which Esc also closes (GLCanvas3D::on_key).
+            KeyEvent.KEYCODE_ESCAPE -> if (view?.section?.panelOpen == true) { view.section.panelOpen = false; return true }
             KeyEvent.KEYCODE_I -> { view?.camera?.zoom(1.15f); return true }
             KeyEvent.KEYCODE_O -> { view?.camera?.zoom(1 / 1.15f); return true }
         }

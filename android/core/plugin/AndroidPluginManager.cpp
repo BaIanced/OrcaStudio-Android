@@ -11,6 +11,7 @@
 #include "PythonPluginBridge.hpp"
 #include "pluginTypes/script/ScriptPluginCapability.hpp"
 
+#include <algorithm>
 #include <boost/filesystem.hpp>
 #include <boost/log/trivial.hpp>
 
@@ -283,6 +284,36 @@ void PluginManager::unload_all_plugins()
     }
     for (Plugin& plugin : plugins)
         plugin_loader::unload(plugin);
+}
+
+// Upstream delete_plugin / delete_installed_plugin_package: unload, then remove the package folder
+// (only inside the known plugin directories). Its saved configuration stays, as upstream.
+bool PluginManager::delete_plugin(const std::string& plugin_key, std::string& error)
+{
+    error.clear();
+    boost::filesystem::path root;
+    Plugin                  removed;
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        auto it = std::find_if(m_plugins.begin(), m_plugins.end(),
+                               [&](const Plugin& plugin) { return plugin.descriptor.plugin_key == plugin_key; });
+        if (it == m_plugins.end()) {
+            error = "Plugin not found: " + plugin_key;
+            return false;
+        }
+        if (!resolve_allowed_plugin_root(it->descriptor, get_plugin_directories(m_cloud_user_id),
+                                         "Refusing to delete a plugin outside the known plugin directories.", root, error))
+            return false;
+        removed = std::move(*it);
+        m_plugins.erase(it);
+        m_load_errors.erase(plugin_key);
+    }
+    if (removed.is_loaded())
+        plugin_loader::unload(removed);
+    if (!delete_plugin_root(root, plugin_key, error))
+        return false;
+    BOOST_LOG_TRIVIAL(info) << "Deleted plugin: " << plugin_key;
+    return true;
 }
 
 bool PluginManager::is_plugin_loaded(const std::string& plugin_key) const

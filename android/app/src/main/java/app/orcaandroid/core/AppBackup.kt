@@ -24,8 +24,9 @@ import org.json.JSONObject
 
 /**
  * A passphrase-encrypted copy of what the user set up: app settings (printer connections, access
- * codes, remembered selections), user presets, the Bambu login and slicer certificates, and the Orca
- * Cloud sign-in. Moving it to another device or reinstall restores the app as it was.
+ * codes, remembered selections), user presets, the Bambu login and slicer certificates, the Orca
+ * Cloud sign-in and the Orca plugins' settings (the plugins themselves come back from Orca Cloud).
+ * Moving it to another device or reinstall restores the app as it was.
  *
  * File: "OSBK1", 16-byte salt, 12-byte IV, then AES-256-GCM of a zip. The key comes from the
  * passphrase with PBKDF2-HMAC-SHA256; without the passphrase the file reveals nothing, and a wrong
@@ -40,6 +41,9 @@ object AppBackup {
     private val SKIP_OBN = setOf("cacert.pem", "obn.log")
     const val MIN_PASSPHRASE = 8
     private const val ORCA_CLOUD_ENTRY = "orca_cloud/session.json"
+    /** Capability settings of all plugins (PluginConfig's global layer), under filesDir. */
+    private const val PLUGIN_CONFIG = "data/orca_plugins/config.json"
+    private const val PLUGIN_CONFIG_ENTRY = "plugins/config.json"
 
     fun export(context: Context, out: OutputStream, passphrase: CharArray) {
         val zip = ByteArrayOutputStream()
@@ -54,6 +58,10 @@ object AppBackup {
             OrcaCloud.exportSession(context)?.let {
                 z.putNextEntry(ZipEntry(ORCA_CLOUD_ENTRY))
                 z.write(it.toString().toByteArray())
+            }
+            File(context.filesDir, PLUGIN_CONFIG).takeIf { it.isFile }?.let {
+                z.putNextEntry(ZipEntry(PLUGIN_CONFIG_ENTRY))
+                z.write(it.readBytes())
             }
         }
         val salt = random(16)
@@ -82,6 +90,7 @@ object AppBackup {
                 when {
                     e.isDirectory -> Unit
                     name == ORCA_CLOUD_ENTRY -> OrcaCloud.importSession(context, JSONObject(z.readBytes().decodeToString()))
+                    name == PLUGIN_CONFIG_ENTRY -> File(context.filesDir, PLUGIN_CONFIG).apply { parentFile?.mkdirs() }.writeBytes(z.readBytes())
                     name.startsWith("prefs/") -> name.removePrefix("prefs/").removeSuffix(".json").takeIf { it in PREFS }
                         ?.let { prefsFromJson(context, it, JSONObject(z.readBytes().decodeToString())) }
                     else -> {
