@@ -2,6 +2,7 @@ package app.orcaandroid.ui
 
 import android.net.Uri
 import app.orcaandroid.R
+import app.orcaandroid.core.Scene
 import app.orcaandroid.core.Vec3
 import app.orcaandroid.scad.ScadClient
 import app.orcaandroid.scad.ScadExamples
@@ -266,10 +267,43 @@ class ScadController(private val store: Store) {
             val placed = s.objects.last().instances.first()
             s = engine.setTransform(s.objects.lastIndex, 0, offset = Vec3(old.offset.x, old.offset.y, placed.offset.z),
                 rotation = old.rotation, scale = old.scale, mirror = old.mirror)
-        }
+        } else s = placeFree(s, s.objects.lastIndex)
         store.applyScene(s)
         store.update { it.copy(selection = Selection(s.objects.lastIndex), multiSelection = emptyList()) }
         return s.objects.last().name
+    }
+
+    /**
+     * Moves the new object [idx] to the free spot of its plate nearest the plate centre (5 mm grid,
+     * 5 mm gap), so it doesn't land inside another; the other objects stay where they are.
+     */
+    private suspend fun placeFree(s: Scene, idx: Int): Scene {
+        val inst = s.objects[idx].instances.firstOrNull() ?: return s
+        val plate = s.plates.getOrNull(inst.plate) ?: return s
+        val gap = 5f
+        val w = inst.size.x
+        val d = inst.size.y
+        val others = s.objects.filterIndexed { i, _ -> i != idx }.flatMap { o -> o.instances.filter { it.plate == inst.plate } }
+        fun free(x: Float, y: Float) = others.none { o ->
+            x < o.min.x + o.size.x + gap && x + w + gap > o.min.x && y < o.min.y + o.size.y + gap && y + d + gap > o.min.y
+        }
+        if (free(inst.min.x, inst.min.y) || w > s.plateWidth || d > s.plateDepth) return s
+        val cx = plate.originX + (s.plateWidth - w) / 2
+        val cy = plate.originY + (s.plateDepth - d) / 2
+        var best: Pair<Float, Float>? = null
+        var bestDist = Float.MAX_VALUE
+        var x = plate.originX
+        while (x + w <= plate.originX + s.plateWidth) {
+            var y = plate.originY
+            while (y + d <= plate.originY + s.plateDepth) {
+                val dist = (x - cx) * (x - cx) + (y - cy) * (y - cy)
+                if (dist < bestDist && free(x, y)) { bestDist = dist; best = x to y }
+                y += 5f
+            }
+            x += 5f
+        }
+        val (bx, by) = best ?: return s
+        return engine.setTransform(idx, 0, offset = Vec3(inst.offset.x + bx - inst.min.x, inst.offset.y + by - inst.min.y, inst.offset.z))
     }
 
     /** Writes the source to a file the user picked. */
