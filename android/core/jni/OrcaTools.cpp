@@ -118,10 +118,12 @@ void OrcaEngine::write_paint_mesh()
     if (!f)
         throw std::runtime_error("Cannot write " + m_paint_path);
     auto emit = [&f](const indexed_triangle_set &its, const Transform3d &trafo, float obj_code, float type_code) {
+        // A mirroring transform flips the winding; swap two corners so the triangles face out.
+        const bool mirrored = trafo.matrix().block<3, 3>(0, 0).determinant() < 0.;
         for (const Vec3i32 &t : its.indices) {
             const Vec3f a = (trafo * its.vertices[t[0]].cast<double>()).cast<float>();
-            const Vec3f b = (trafo * its.vertices[t[1]].cast<double>()).cast<float>();
-            const Vec3f c = (trafo * its.vertices[t[2]].cast<double>()).cast<float>();
+            const Vec3f b = (trafo * its.vertices[t[mirrored ? 2 : 1]].cast<double>()).cast<float>();
+            const Vec3f c = (trafo * its.vertices[t[mirrored ? 1 : 2]].cast<double>()).cast<float>();
             Vec3f n = (b - a).cross(c - a);
             n = n.norm() > 0.f ? Vec3f(n.normalized()) : Vec3f(0.f, 0.f, 1.f);
             for (const Vec3f *v : {&a, &b, &c}) {

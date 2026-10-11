@@ -352,7 +352,8 @@ void OrcaEngine::write_mesh()
         for (size_t ii = 0; ii < obj->instances.size(); ++ii)
             for (const ModelVolume *vol : obj->volumes) {
                 TriangleMesh mesh = vol->mesh();
-                mesh.transform(obj->instances[ii]->get_matrix() * vol->get_matrix());
+                // Mirrored copies keep their triangles facing out (the section view draws back faces as cut faces).
+                mesh.transform(obj->instances[ii]->get_matrix() * vol->get_matrix(), true);
                 // Parts are drawn in their filament's colour: type 100 + 0-based filament.
                 const int type = vol->is_model_part() ? 100 + filament_of(*obj, *vol) : volume_type_code(vol->type());
                 emit(mesh, float(oi * INSTANCE_ID_STRIDE + ii), float(type));
