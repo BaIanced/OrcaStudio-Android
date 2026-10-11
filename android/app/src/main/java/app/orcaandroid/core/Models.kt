@@ -72,6 +72,8 @@ data class OptionDef(
     val readonly: Boolean,
     val multiline: Boolean,
     val isCode: Boolean,
+    /** Capability type a plugin picker option selects from ("slicing-pipeline"), else empty. */
+    val pluginType: String = "",
 ) {
     val isVector get() = type.endsWith("s") && type != "float_or_percent"
     val baseType get() = when (type) {

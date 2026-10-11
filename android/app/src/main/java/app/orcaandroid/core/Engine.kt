@@ -239,6 +239,7 @@ class Engine(private val cacheDir: File) {
         readonly = o.optBoolean("readonly"),
         multiline = o.optBoolean("multiline"),
         isCode = o.optBoolean("is_code"),
+        pluginType = o.optString("plugin_type"),
     )
 
     private fun parseScene(o: JSONObject): Scene {

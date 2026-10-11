@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
@@ -50,6 +51,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -74,6 +76,7 @@ import app.orcaandroid.core.PresetType
 import app.orcaandroid.core.SettingsGroup
 import app.orcaandroid.core.SettingsPage
 import app.orcaandroid.core.Translator
+import app.orcaandroid.plugins.Plugins
 import app.orcaandroid.ui.AppViewModel
 import app.orcaandroid.ui.EditorTarget
 import app.orcaandroid.ui.UiState
@@ -411,6 +414,7 @@ private fun OptionEditor(def: OptionDef, value: String, enabled: Boolean, tr: Tr
     val single = !def.isVector || !value.contains(',')
     when {
         def.readonly -> Text(unquoted(def, value) ?: value, style = MaterialTheme.typography.bodyMedium)
+        def.pluginType.isNotEmpty() && def.type == "strings" -> PluginPicker(def, value, enabled, tr, onChange)
         def.baseType == "bool" && single -> Switch(checked = value == "1", onCheckedChange = { onChange(if (it) "1" else "0") }, enabled = enabled)
         def.enumValues.isNotEmpty() && single -> EnumEditor(def, value, enabled, tr, onChange)
         def.isCode || def.multiline -> CodeEditor(tr.tr(def.label), value, enabled, onChange)
@@ -432,6 +436,53 @@ private fun EnumEditor(def: OptionDef, value: String, enabled: Boolean, tr: Tran
                 DropdownMenuItem(text = { Text(tr.tr(def.enumLabels.getOrElse(i) { v })) }, onClick = { open = false; onChange(v) })
             }
         }
+    }
+}
+
+/**
+ * Plugin-backed list option (desktop: plugin_picker, e.g. slicing_pipeline_plugin): ticks the loaded
+ * capabilities of the option's type. The value holds bare capability names; the engine resolves them
+ * into the "plugins" manifest.
+ */
+@Composable
+private fun PluginPicker(def: OptionDef, value: String, enabled: Boolean, tr: Translator, onChange: (String) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    val plugins by Plugins.plugins.collectAsState()
+    val selected = remember(value) {
+        if (value.isBlank()) emptyList()
+        else value.split("\";\"").map { it.removePrefix("\"").removeSuffix("\"").replace("\\\"", "\"").replace("\\\\", "\\") }.filter { it.isNotEmpty() }
+    }
+    val none = stringResource(R.string.none)
+    OutlinedButton(onClick = { open = true }, enabled = enabled, modifier = Modifier.fillMaxWidth()) {
+        Text(selected.joinToString(", ").ifEmpty { none }, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+    if (open) {
+        // Selected names stay listed when their plugin is not loaded, so they can be unticked.
+        val available = plugins.flatMap { p -> p.capabilities.filter { it.type == def.pluginType }.map { it.name to p.name } }
+        val rows = available + selected.filter { s -> available.none { it.first == s } }.map { it to "" }
+        var picked by remember { mutableStateOf(selected) }
+        AlertDialog(
+            onDismissRequest = { open = false },
+            title = { Text(tr.tr(def.label)) },
+            text = {
+                Column {
+                    if (rows.isEmpty()) Text(stringResource(R.string.no_plugin_capabilities), style = MaterialTheme.typography.bodyMedium)
+                    rows.forEach { (name, plugin) ->
+                        Row(Modifier.fillMaxWidth().clickable { picked = if (name in picked) picked - name else picked + name },
+                            verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(name in picked, null)
+                            Column(Modifier.padding(start = 8.dp)) {
+                                Text(name, style = MaterialTheme.typography.bodyMedium)
+                                Text(plugin.ifEmpty { stringResource(R.string.plugin_not_loaded) }, style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.outline)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { open = false; onChange(picked.joinToString(";") { quoted(it) }) }) { Text(stringResource(R.string.apply)) } },
+            dismissButton = { TextButton(onClick = { open = false }) { Text(stringResource(R.string.cancel)) } },
+        )
     }
 }
 

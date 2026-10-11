@@ -342,7 +342,8 @@ json OrcaEngine::option_defs(const std::string &type)
                   {"readonly", def->readonly},
                   {"multiline", def->multiline},
                   {"is_code", def->is_code},
-                  {"gui_type", int(def->gui_type)}};
+                  {"gui_type", int(def->gui_type)},
+                  {"plugin_type", def->plugin_type}};
         put_limit(j, "min", def->min);
         put_limit(j, "max", def->max);
         if (!def->enum_values.empty()) {
@@ -488,6 +489,9 @@ DynamicPrintConfig OrcaEngine::selection_config()
     // An active calibration test overrides whatever it needs (see OrcaExtras.cpp).
     if (m_calib_config)
         config.apply(*m_calib_config);
+    // Plugin pickers store bare capability names; the dispatchers need the resolved "plugins"
+    // manifest (desktop: Tab::on_value_change). No-op until the plugin runtime is started.
+    config.update_plugin_manifest();
     return config;
 }
 

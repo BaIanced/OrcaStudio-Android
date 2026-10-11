@@ -421,4 +421,7 @@
     <string name="orca_cloud_presets_uploaded">%1$d preset(s) uploaded to Orca Cloud.</string>
     <string name="orca_cloud_upload_conflicts">Newer in Orca Cloud, not uploaded (sync presets from Orca Cloud first): %1$s</string>
     <string name="orca_cloud_sign_in_first">Sign in to Orca Cloud first (More &gt; Orca Cloud).</string>
+    <string name="none">None</string>
+    <string name="no_plugin_capabilities">No installed plugin provides this. Install plugins under More &gt; Orca Cloud.</string>
+    <string name="plugin_not_loaded">Plugin not loaded</string>
 </resources>
