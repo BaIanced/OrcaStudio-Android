@@ -183,7 +183,7 @@ ExternalProject_Add(dep_openscad
         -DHARFBUZZ_LIBRARIES=${SCAD_PREFIX}/lib/libharfbuzz.a
         -DFONTCONFIG_INCLUDE_DIR=${SCAD_PREFIX}/include
         -DFONTCONFIG_LIBRARIES=${SCAD_PREFIX}/lib/libfontconfig.a
-    BUILD_COMMAND ${CMAKE_COMMAND} --build . --target openscad scad_smoke -- -j${NPROC}
+    BUILD_COMMAND ${CMAKE_COMMAND} --build . --target scad_core scad_smoke -- -j${NPROC}
     INSTALL_COMMAND ${CMAKE_COMMAND} -DBIN=<BINARY_DIR> -DSRC=<SOURCE_DIR> -DOUT=${SCAD_OUT}
         -DHEADER=${CMAKE_CURRENT_LIST_DIR}/bridge/scad_bridge.h -DSTRIP=${_ndk_bin}/llvm-strip -P ${CMAKE_CURRENT_LIST_DIR}/install_openscad.cmake)
 
