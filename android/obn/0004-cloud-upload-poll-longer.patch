@@ -1,0 +1,31 @@
+diff --git a/src/cloud_print.cpp b/src/cloud_print.cpp
+--- a/src/cloud_print.cpp
++++ b/src/cloud_print.cpp
+@@ -499,7 +499,10 @@
+         + "/v1/iot-service/api/user/notification?action=upload&ticket="
+         + obn::http::url_encode(ticket);
+ 
+-    for (int attempt = 0; attempt < 20; ++attempt) {
++    // OrcaStudio-ARM patch 0004: 20 x 0.5 s gave up while the server still said "running"
++    // (seen on a 1 MB .gcode.3mf); allow up to two minutes.
++    std::string last_msg;
++    for (int attempt = 0; attempt < 240; ++attempt) {
+         if (cancel_fn && cancel_fn()) return BAMBU_NETWORK_ERR_CANCELED;
+         auto resp = obn::http::get_json(url, hdrs);
+         if (!resp.error.empty() || !status_ok(resp.status_code)) {
+@@ -512,6 +515,7 @@
+         auto root = obn::json::parse(resp.body);
+         const std::string msg = root ? root->find("message").as_string()
+                                      : std::string{};
++        last_msg = msg;
+         if (msg == "running") {
+             OBN_DEBUG("cloud_print: poll_upload running attempt=%d", attempt);
+             std::this_thread::sleep_for(std::chrono::milliseconds(500));
+@@ -524,6 +528,7 @@
+         return fail_stage(update_fn, BAMBU_NETWORK_ERR_PRINT_WR_GET_NOTIFICATION_FAILED,
+                           "poll_upload", resp);
+     }
++    OBN_WARN("cloud_print: upload poll timeout (last message '%s')", last_msg.c_str());
+     if (update_fn) update_fn(BBL::PrintingStageERROR,
+                              BAMBU_NETWORK_ERR_PRINT_WR_GET_NOTIFICATION_TIMEOUT,
+                              "upload poll timeout");

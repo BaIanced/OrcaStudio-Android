@@ -46,11 +46,14 @@ FetchContent_Declare(obn
     # 0003-mqtt-tls-ssl-cert-file.patch: MQTT TLS without a CA file (the cloud broker) reads
     # SSL_CERT_FILE, which the app points at its export of Android's CA store; v2.2.0 only
     # probes Linux paths, so cloud MQTT could not verify Bambu's certificate on Android.
+    # 0004-cloud-upload-poll-longer.patch: cloud print waits up to 2 min (was ~10 s) for the
+    # server to finish processing the upload (-2060 "upload poll timeout" on a cloud-only print).
     PATCH_COMMAND  ${GIT_EXECUTABLE} apply --whitespace=nowarn
                    ${CMAKE_CURRENT_LIST_DIR}/obn-android.patch
                    ${CMAKE_CURRENT_LIST_DIR}/0001-cloud-callbacks-read-fresh.patch
                    ${CMAKE_CURRENT_LIST_DIR}/0002-start-print-try-lan-first.patch
                    ${CMAKE_CURRENT_LIST_DIR}/0003-mqtt-tls-ssl-cert-file.patch
+                   ${CMAKE_CURRENT_LIST_DIR}/0004-cloud-upload-poll-longer.patch
     UPDATE_DISCONNECTED TRUE)
 FetchContent_MakeAvailable(obn)
 
