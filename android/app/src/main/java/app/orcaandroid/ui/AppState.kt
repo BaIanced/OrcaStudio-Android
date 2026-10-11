@@ -94,6 +94,7 @@ data class UiState(
     val screen: Screen = Screen.PREPARE,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val dynamicColor: Boolean = false,
+    val doubleBackToQuit: Boolean = false,
 
     // Printers and presets
     val vendors: List<Vendor> = emptyList(),

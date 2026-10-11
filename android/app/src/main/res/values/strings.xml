@@ -79,6 +79,12 @@
     <string name="done">Done</string>
     <string name="duplicate">Duplicate</string>
     <string name="dynamic_color">Use wallpaper colors</string>
+    <string name="misc">Misc</string>
+    <string name="double_back_quit">Press Back twice to quit (instead of asking)</string>
+    <string name="back_again_quit">Press Back again to quit</string>
+    <string name="quit_title">Quit?</string>
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
     <string name="edit">Edit</string>
     <string name="empty">(empty)</string>
     <string name="end_calibration">End</string>

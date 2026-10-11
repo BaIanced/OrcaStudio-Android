@@ -78,6 +78,12 @@
     <string name="done">Fertig</string>
     <string name="duplicate">Duplizieren</string>
     <string name="dynamic_color">Farben des Hintergrundbilds verwenden</string>
+    <string name="misc">Sonstiges</string>
+    <string name="double_back_quit">Zum Beenden zweimal Zurück drücken (statt nachzufragen)</string>
+    <string name="back_again_quit">Zum Beenden erneut Zurück drücken</string>
+    <string name="quit_title">Beenden?</string>
+    <string name="yes">Ja</string>
+    <string name="no">Nein</string>
     <string name="edit">Bearbeiten</string>
     <string name="empty">(leer)</string>
     <string name="end_calibration">Beenden</string>

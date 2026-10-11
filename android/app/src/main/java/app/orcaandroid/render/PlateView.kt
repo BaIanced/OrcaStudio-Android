@@ -122,7 +122,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (android.util.Log.isLoggable(INPUT_TAG, android.util.Log.DEBUG))
-            android.util.Log.d(INPUT_TAG, "touch ${MotionEvent.actionToString(event.action)} buttons=${event.buttonState}")
+            android.util.Log.d(INPUT_TAG, "touch ${MotionEvent.actionToString(event.action)} buttons=${event.buttonState} meta=${event.metaState} tool=${event.getToolType(0)} source=${event.source}")
         // Compose's interop may hand the wheel over as a touch event.
         if (event.actionMasked == MotionEvent.ACTION_SCROLL) return onGenericMotionEvent(event)
         scaleDetector.onTouchEvent(event)
@@ -217,7 +217,8 @@ class PlateView(context: Context) : GLSurfaceView(context) {
 
     override fun onGenericMotionEvent(event: MotionEvent): Boolean {
         if (android.util.Log.isLoggable(INPUT_TAG, android.util.Log.DEBUG))
-            android.util.Log.d(INPUT_TAG, "generic ${MotionEvent.actionToString(event.action)} buttons=${event.buttonState}")
+            android.util.Log.d(INPUT_TAG, "generic ${MotionEvent.actionToString(event.action)} buttons=${event.buttonState} meta=${event.metaState} " +
+                "v=${event.getAxisValue(MotionEvent.AXIS_VSCROLL)} h=${event.getAxisValue(MotionEvent.AXIS_HSCROLL)} source=${event.source}")
         // WSA delivers a right / middle drag as hover moves with the button held, not as touch moves.
         if (event.actionMasked == MotionEvent.ACTION_HOVER_MOVE &&
             event.buttonState and (MotionEvent.BUTTON_SECONDARY or MotionEvent.BUTTON_TERTIARY) != 0) {
@@ -229,7 +230,9 @@ class PlateView(context: Context) : GLSurfaceView(context) {
         }
         hoverPanning = false
         if (event.actionMasked == MotionEvent.ACTION_SCROLL) {
-            val v = event.getAxisValue(MotionEvent.AXIS_VSCROLL)
+            // Shift turns the wheel into a horizontal scroll; it still zooms, as on the desktop.
+            val v = event.getAxisValue(MotionEvent.AXIS_VSCROLL).takeIf { it != 0f } ?: event.getAxisValue(MotionEvent.AXIS_HSCROLL)
+            if (v == 0f) return true
             if (mode == InteractionMode.PAINT && event.metaState and KeyEvent.META_CTRL_ON != 0) listener?.onBrushScroll(if (v > 0) 1 else -1)
             else camera.zoom(if (v > 0) 1.15f else 1f / 1.15f)
             return true

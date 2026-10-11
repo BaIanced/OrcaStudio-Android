@@ -22,6 +22,11 @@ class AppSettings(context: Context) {
         get() = prefs.getBoolean("dynamic_color", false)
         set(value) = prefs.edit().putBoolean("dynamic_color", value).apply()
 
+    /** Back on the home screen quits after pressing it twice instead of asking. */
+    var doubleBackToQuit: Boolean
+        get() = prefs.getBoolean("double_back_quit", false)
+        set(value) = prefs.edit().putBoolean("double_back_quit", value).apply()
+
     /** Printers chosen in the setup, as printerKey(model, nozzle). */
     var selectedPrinters: Set<String>
         get() = prefs.getStringSet("selected_printers", emptySet()).orEmpty()

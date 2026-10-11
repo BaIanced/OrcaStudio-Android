@@ -100,11 +100,29 @@ private fun MainLayout(state: UiState, vm: AppViewModel) {
     }
     // Back leads home: other tabs return to Prepare, and Prepare drops the tool and selection
     // first (as Esc does). Screens composed below (the Models browser) take back before this.
+    // With nothing left to go back to, Back asks before quitting (or, as chosen under More, needs
+    // a second press within 2 s), instead of Android's default of sending the app to the background.
     val clearable = state.screen == Screen.PREPARE && (state.tool != Tool.None || state.selectedItems.isNotEmpty() || state.selectMode)
-    androidx.activity.compose.BackHandler(enabled = state.screen != Screen.PREPARE || clearable) {
-        if (state.screen != Screen.PREPARE) vm.setScreen(Screen.PREPARE)
-        else { vm.scene.setTool(Tool.None); vm.scene.select(null); vm.scene.setSelectMode(false) }
+    var askQuit by remember { mutableStateOf(false) }
+    var lastBack by remember { mutableStateOf(0L) }
+    androidx.activity.compose.BackHandler {
+        when {
+            state.screen != Screen.PREPARE -> vm.setScreen(Screen.PREPARE)
+            clearable -> { vm.scene.setTool(Tool.None); vm.scene.select(null); vm.scene.setSelectMode(false) }
+            !state.doubleBackToQuit -> askQuit = true
+            android.os.SystemClock.uptimeMillis() - lastBack < 2000 -> (context as? android.app.Activity)?.finish()
+            else -> {
+                lastBack = android.os.SystemClock.uptimeMillis()
+                android.widget.Toast.makeText(context, R.string.back_again_quit, android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
     }
+    if (askQuit) androidx.compose.material3.AlertDialog(
+        onDismissRequest = { askQuit = false },
+        title = { Text(stringResource(R.string.quit_title)) },
+        confirmButton = { TextButton(onClick = { askQuit = false; (context as? android.app.Activity)?.finish() }) { Text(stringResource(R.string.yes)) } },
+        dismissButton = { TextButton(onClick = { askQuit = false }) { Text(stringResource(R.string.no)) } },
+    )
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wide = maxWidth >= WIDE_LAYOUT
         val content: @Composable (Modifier) -> Unit = { m ->
