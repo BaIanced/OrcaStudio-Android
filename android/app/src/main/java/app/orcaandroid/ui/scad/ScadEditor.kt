@@ -125,8 +125,13 @@ fun ScadPanel(s: ScadEditorState, vm: AppViewModel, onHide: (() -> Unit)? = null
     var shownLoad by rememberSaveable { mutableStateOf(-1) }
     if (shownLoad != s.loadId) {
         shownLoad = s.loadId
-        tab = if (s.source.contains(Regex("""//\s*\["""))) 1 else 0
+        tab = if (s.shapes != null) 0 else if (s.source.contains(Regex("""//\s*\["""))) 1 else 0
     }
+    // Shape designs get a Shapes tab first; the code is generated (read only).
+    val builder = s.shapes != null
+    val tabs = if (builder) listOf("shapes", "code", "custom") else listOf("code", "custom")
+    val current = tabs.getOrElse(tab) { tabs[0] }
+    val codeTab = tabs.indexOf("code")
     val save = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/x-openscad")) { it?.let(vm.scad::save) }
     val open = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { it?.let(vm.scad::openUri) }
     BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -146,14 +151,23 @@ fun ScadPanel(s: ScadEditorState, vm: AppViewModel, onHide: (() -> Unit)? = null
         Header(s, vm, onHide, onOpen = { open.launch(arrayOf("*/*")) }, onSave = { save.launch(s.name) }, onNew = { templates = true })
         PreviewBar(s, vm, previewOpen) { previewOpen = !previewOpen }
         if (previewOpen) ScadPreviewPane(s, vm, Modifier.fillMaxWidth().height(previewHeight))
-        PrimaryTabRow(selectedTabIndex = tab) {
-            Tab(tab == 0, { tab = 0 }, text = { Text(stringResource(R.string.scad_code)) })
-            Tab(tab == 1, { tab = 1 }, text = {
-                Text(stringResource(R.string.scad_customizer) + if (s.params.isNotEmpty()) " · ${s.params.size}" else "")
-            })
+        PrimaryTabRow(selectedTabIndex = tabs.indexOf(current)) {
+            tabs.forEachIndexed { i, t ->
+                Tab(current == t, { tab = i }, text = {
+                    Text(when (t) {
+                        "shapes" -> stringResource(R.string.shape_tab)
+                        "code" -> stringResource(R.string.scad_code)
+                        else -> stringResource(R.string.scad_customizer) + if (s.params.isNotEmpty()) " · ${s.params.size}" else ""
+                    })
+                })
+            }
         }
         Column(Modifier.weight(1f).fillMaxWidth()) {
-            if (tab == 0) {
+            if (current == "shapes") ShapesTab(s, vm)
+            else if (current == "code" && builder) {
+                GeneratedNotice(onDetach = vm.scad::detachShapes)
+                CodeEditor(s, vm, jump, onJumped = { jump = null }, edit = null, onEdited = {}, readOnly = true)
+            } else if (current == "code") {
                 InsertBar(
                     onInsert = { sn ->
                         codeEdit = { v ->
@@ -167,17 +181,18 @@ fun ScadPanel(s: ScadEditorState, vm: AppViewModel, onHide: (() -> Unit)? = null
             } else Customizer(s, vm, onAddSetting = { addSetting = true })
         }
         HorizontalDivider()
-        HintCards(remember(s.log) { ScadHints.explain(s.log) }, onLine = { tab = 0; jump = it })
-        Console(s, onLine = { tab = 0; jump = it })
+        HintCards(remember(s.log) { ScadHints.explain(s.log) }, onLine = { tab = codeTab; jump = it })
+        Console(s, onLine = { tab = codeTab; jump = it })
         Actions(s, vm)
     }
     }
-    if (templates) TemplateGallery(onDismiss = { templates = false }, onPick = { templates = false; vm.scad.loadExample(it) })
+    if (templates) TemplateGallery(onDismiss = { templates = false }, onPick = { templates = false; vm.scad.loadExample(it) },
+        onShapes = { templates = false; vm.scad.newShapes() })
     if (addSetting) AddSettingDialog(onDismiss = { addSetting = false }) { label, mm, value, min, max, step ->
         addSetting = false
         val name = ScadSnippets.identifier(label)
         val apply = { text: String -> ScadSnippets.addParameter(text, label, mm, value, min, max, step) }
-        if (tab == 0) codeEdit = { v -> apply(v.text).let { (t, at, _) -> TextFieldValue(t, TextRange(at)) } }
+        if (current == "code" && !builder) codeEdit = { v -> apply(v.text).let { (t, at, _) -> TextFieldValue(t, TextRange(at)) } }
         else vm.scad.edit(apply(s.source).first)
         android.widget.Toast.makeText(context, context.getString(R.string.scad_setting_added, name), android.widget.Toast.LENGTH_LONG).show()
     }
@@ -203,7 +218,7 @@ private fun Header(s: ScadEditorState, vm: AppViewModel, onHide: (() -> Unit)?, 
     Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Icon(Icons.Default.Code, null, tint = MaterialTheme.colorScheme.primary)
         Column(Modifier.weight(1f).padding(start = 12.dp)) {
-            Text("OpenSCAD", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+            Text(if (s.shapes != null) stringResource(R.string.shape_builder) else "OpenSCAD", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
             Text(s.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         IconButton(onClick = onNew) { Icon(Icons.Default.Add, stringResource(R.string.scad_new)) }
@@ -216,12 +231,32 @@ private fun Header(s: ScadEditorState, vm: AppViewModel, onHide: (() -> Unit)?, 
 
 // --- Code ----------------------------------------------------------------------------------------
 
+/** Above generated code: where it comes from, and the way out to plain code. */
+@Composable
+private fun GeneratedNotice(onDetach: () -> Unit) {
+    var confirm by remember { mutableStateOf(false) }
+    Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.secondaryContainer).padding(start = 16.dp, end = 8.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        Text(stringResource(R.string.shape_generated), style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.weight(1f))
+        TextButton(onClick = { confirm = true }) { Text(stringResource(R.string.shape_edit_as_code)) }
+    }
+    if (confirm) androidx.compose.material3.AlertDialog(
+        onDismissRequest = { confirm = false },
+        title = { Text(stringResource(R.string.shape_edit_as_code)) },
+        text = { Text(stringResource(R.string.shape_edit_as_code_desc)) },
+        confirmButton = { TextButton(onClick = { confirm = false; onDetach() }) { Text(stringResource(R.string.shape_edit_as_code)) } },
+        dismissButton = { TextButton(onClick = { confirm = false }) { Text(stringResource(android.R.string.cancel)) } },
+    )
+}
+
 @Composable
 private fun CodeEditor(
     s: ScadEditorState, vm: AppViewModel, jump: Int?, onJumped: () -> Unit,
-    edit: ((TextFieldValue) -> TextFieldValue)?, onEdited: () -> Unit,
+    edit: ((TextFieldValue) -> TextFieldValue)?, onEdited: () -> Unit, readOnly: Boolean = false,
 ) {
-    var value by remember(s.loadId) { mutableStateOf(TextFieldValue(s.source)) }
+    // Generated code follows the design; typed code only changes on a new load.
+    var value by remember(s.loadId, if (readOnly) s.source else null) { mutableStateOf(TextFieldValue(s.source)) }
     val colors = scadColors()
     val highlight = remember(colors) { ScadHighlight(colors) }
     val vScroll = rememberScrollState()
@@ -271,6 +306,7 @@ private fun CodeEditor(
             BasicTextField(
                 value = value,
                 onValueChange = ::change,
+                readOnly = readOnly,
                 textStyle = CODE_STYLE.copy(color = textColor),
                 cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                 visualTransformation = highlight,

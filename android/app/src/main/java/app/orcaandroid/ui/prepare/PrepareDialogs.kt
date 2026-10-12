@@ -80,6 +80,8 @@ internal fun AddMenu(state: UiState, vm: AppViewModel, open: Boolean, onDismiss:
             onClick = { onDismiss(); onDialog("svg") })
         DropdownMenuItem(text = { Text(stringResource(R.string.add_openscad)) }, leadingIcon = { Icon(Icons.Default.Code, null) },
             onClick = { onDismiss(); vm.scad.open() })
+        DropdownMenuItem(text = { Text(stringResource(R.string.shape_builder)) }, leadingIcon = { Icon(Icons.Default.Interests, null) },
+            onClick = { onDismiss(); vm.scad.newShapes() })
         DropdownMenuItem(text = { Text(stringResource(R.string.sample_models)) }, leadingIcon = { Icon(Icons.Default.Toys, null) },
             onClick = { onDismiss(); onDialog("samples") })
         HorizontalDivider()

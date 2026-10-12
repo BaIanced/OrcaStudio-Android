@@ -110,12 +110,15 @@ data class ScadDesign(
     val values: Map<String, Any>,
     /** Local include<> / use<> files, by path relative to the main file's folder (see [ScadDeps]). */
     val files: Map<String, String> = emptyMap(),
+    /** The shape-builder design the source was generated from (null for hand-written code). */
+    val shapes: ShapeDesign? = null,
 ) {
     fun encode(): String = PREFIX + JSONObject()
         .put("name", name)
         .put("source", source)
         .put("values", ScadParam.encode(values))
         .apply { if (files.isNotEmpty()) put("files", JSONObject(files)) }
+        .apply { shapes?.let { put("shapes", it.json()) } }
         .toString()
 
     /**
@@ -146,7 +149,8 @@ data class ScadDesign(
             val module = obj?.module?.takeIf { it.startsWith(PREFIX) } ?: return null
             val o = runCatching { JSONObject(module.substring(PREFIX.length)) }.getOrNull() ?: return null
             val files = o.optJSONObject("files")?.let { f -> f.keys().asSequence().associateWith { f.optString(it) } } ?: emptyMap()
-            return ScadDesign(o.optString("name").ifEmpty { obj.name }, o.optString("source"), ScadParam.decode(o.optString("values")), files)
+            val shapes = o.optJSONObject("shapes")?.let { runCatching { ShapeDesign.of(it) }.getOrNull() }
+            return ScadDesign(o.optString("name").ifEmpty { obj.name }, o.optString("source"), ScadParam.decode(o.optString("values")), files, shapes)
         }
     }
 }

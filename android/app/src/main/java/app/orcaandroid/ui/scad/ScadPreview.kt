@@ -34,7 +34,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import app.orcaandroid.R
+import app.orcaandroid.core.Vec3
 import app.orcaandroid.render.MeshPreviewView
+import app.orcaandroid.render.PreviewBox
+import app.orcaandroid.render.PreviewPickListener
+import app.orcaandroid.scad.D3
+import app.orcaandroid.ui.ShapeController
 import app.orcaandroid.ui.AppViewModel
 import app.orcaandroid.ui.ScadEditorState
 
@@ -50,12 +55,33 @@ fun ScadPreviewPane(s: ScadEditorState, vm: AppViewModel, modifier: Modifier = M
     val background = scheme.surfaceContainerHighest.rgb()
     val grid = scheme.outlineVariant.rgb()
 
+    // Shape builder: outlines of the selection and the holes; taps pick, drags move.
+    val shapes = s.shapes
+    val boxes = remember(shapes, s.selected) {
+        if (shapes == null) emptyList() else {
+            val ids = shapes.shapes.map { it.id } + s.selected.filter { id -> shapes.shapes.none { it.id == id } }
+            ids.mapNotNull { id ->
+                val b = ShapeController.worldBounds(shapes, id) ?: return@mapNotNull null
+                PreviewBox(id, Vec3(b.min.x.toFloat(), b.min.y.toFloat(), b.min.z.toFloat()),
+                    Vec3(b.max.x.toFloat(), b.max.y.toFloat(), b.max.z.toFloat()), id in s.selected, shapes.find(id)?.hole == true)
+            }
+        }
+    }
+    val listener = remember(vm) {
+        object : PreviewPickListener {
+            override fun onPick(id: Int?, add: Boolean) = vm.shapes.tap(id, add)
+            override fun onMove(dx: Float, dy: Float) = vm.shapes.move(D3(dx.toDouble(), dy.toDouble(), 0.0))
+        }
+    }
+
     Box(modifier) {
         AndroidView(
             factory = { ctx -> MeshPreviewView(ctx).also { view = it } },
             update = { v ->
                 v.setColors(background, grid, floatArrayOf(0.96f, 0.58f, 0.2f))
                 v.setMesh(s.preview)
+                v.setBoxes(boxes)
+                v.pickListener = if (shapes != null) listener else null
             },
             modifier = Modifier.fillMaxSize(),
         )
@@ -66,7 +92,11 @@ fun ScadPreviewPane(s: ScadEditorState, vm: AppViewModel, modifier: Modifier = M
             Column(Modifier.align(Alignment.Center).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (s.previewing) CircularProgressIndicator(Modifier.size(28.dp), strokeWidth = 3.dp)
-                Text(stringResource(if (s.previewing) R.string.scad_preview_building else R.string.scad_preview_none),
+                Text(stringResource(when {
+                    s.previewing -> R.string.scad_preview_building
+                    shapes != null && shapes.shapes.isEmpty() -> R.string.shape_empty
+                    else -> R.string.scad_preview_none
+                }),
                     style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant, textAlign = TextAlign.Center)
             }
         } else {
@@ -99,7 +129,7 @@ fun ScadPreviewPane(s: ScadEditorState, vm: AppViewModel, modifier: Modifier = M
             }
         }
         if (mesh != null) Text(
-            stringResource(R.string.scad_preview_help),
+            stringResource(if (shapes != null) R.string.shape_preview_help else R.string.scad_preview_help),
             style = MaterialTheme.typography.labelSmall,
             color = scheme.onSurfaceVariant.copy(alpha = 0.8f),
             textAlign = TextAlign.Center,

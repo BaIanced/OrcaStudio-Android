@@ -194,6 +194,8 @@ private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
                         onClick = { close(); dialog = "svg" })
                     DropdownMenuItem(text = { Text(stringResource(R.string.add_openscad)) }, leadingIcon = { Icon(Icons.Default.Code, null) },
                         onClick = { close(); vm.scad.open() })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.shape_builder)) }, leadingIcon = { Icon(Icons.Default.Interests, null) },
+                        onClick = { close(); vm.scad.newShapes() })
                     if (!state.scene.isEmpty)
                         DropdownMenuItem(text = { Text(stringResource(R.string.arrange)) }, leadingIcon = { Icon(Icons.Default.AutoAwesomeMosaic, null) },
                             onClick = { close(); vm.scene.arrange(false) })

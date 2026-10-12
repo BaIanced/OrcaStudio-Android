@@ -152,7 +152,7 @@ fun AddSettingDialog(onDismiss: () -> Unit, onAdd: (label: String, mm: Boolean, 
 
 /** "New from template": cards with a title and what the template makes. */
 @Composable
-fun TemplateGallery(onDismiss: () -> Unit, onPick: (ScadExamples.Example) -> Unit) {
+fun TemplateGallery(onDismiss: () -> Unit, onPick: (ScadExamples.Example) -> Unit, onShapes: (() -> Unit)? = null) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.scad_templates_title)) },
@@ -167,6 +167,20 @@ fun TemplateGallery(onDismiss: () -> Unit, onPick: (ScadExamples.Example) -> Uni
                     contentPadding = PaddingValues(bottom = 4.dp),
                     modifier = Modifier.heightIn(max = 460.dp),
                 ) {
+                    // The no-code start: the shape builder.
+                    if (onShapes != null) item {
+                        Card(
+                            onClick = onShapes,
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                        ) {
+                            Column(Modifier.padding(12.dp).heightIn(min = 64.dp)) {
+                                Text(stringResource(R.string.shape_builder), style = MaterialTheme.typography.titleSmall)
+                                Spacer(Modifier.size(2.dp))
+                                Text(stringResource(R.string.shape_builder_desc), style = MaterialTheme.typography.bodySmall,
+                                    maxLines = 3, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
+                    }
                     items(ScadExamples.ALL) { ex ->
                         Card(
                             onClick = { onPick(ex) },

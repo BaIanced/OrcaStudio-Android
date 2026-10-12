@@ -63,6 +63,17 @@ class PreviewMesh(val data: FloatBuffer, val triangles: Int, val min: Vec3, val 
     }
 }
 
+/** A shape-builder box drawn over the preview: [selected] ones can be dragged, holes are always shown. */
+data class PreviewBox(val id: Int, val min: Vec3, val max: Vec3, val selected: Boolean, val hole: Boolean)
+
+/** Shape-builder input from the preview: picks and drags of [PreviewBox]es. */
+interface PreviewPickListener {
+    /** Tap on box [id] (null = empty space); [add] with Ctrl / Shift held. */
+    fun onPick(id: Int?, add: Boolean)
+    /** A drag of the selected boxes ended, moved by [dx], [dy] mm (snapped to 1 mm). */
+    fun onMove(dx: Float, dy: Float)
+}
+
 /**
  * Small 3D view of one mesh (the OpenSCAD editor's preview): the model on a grid at z = 0
  * with the X (red) and Y (green) axes. One finger orbits, two fingers pan and pinch zoom, the mouse
@@ -78,6 +89,17 @@ class MeshPreviewView(context: Context) : GLSurfaceView(context) {
     private var lastFocusY = 0f
     private var pointers = 0
     private var mesh: PreviewMesh? = null
+    private var boxes: List<PreviewBox> = emptyList()
+    var pickListener: PreviewPickListener? = null
+    /** Box under the finger at ACTION_DOWN, the drag plane height and start point, and the drag state. */
+    private var downBox: Int? = null
+    private var downX = 0f
+    private var downY = 0f
+    private var dragZ = 0f
+    private var dragStart: Vec3? = null
+    private var dragging = false
+    private var moved = false
+    private val slop = android.view.ViewConfiguration.get(context).scaledTouchSlop
 
     private val scaleDetector = ScaleGestureDetector(context, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
         override fun onScale(detector: ScaleGestureDetector): Boolean {
@@ -117,10 +139,109 @@ class MeshPreviewView(context: Context) : GLSurfaceView(context) {
         if (mesh != null && (old == null || !similar(old.size, mesh.size))) reframe() else requestRender()
     }
 
+    /** Shape-builder boxes over the mesh (empty outside the builder). */
+    fun setBoxes(list: List<PreviewBox>) {
+        if (list == boxes) return
+        val wasEmpty = boxes.isEmpty() && mesh == null
+        boxes = list
+        queueEvent { renderer.setBoxes(list) }
+        if (wasEmpty && list.isNotEmpty()) reframe() else requestRender()
+    }
+
     fun reframe() {
         val m = mesh
-        if (m != null) queueEvent { renderer.fitPending = m; requestRender() }
-        else requestRender()
+        val b = boxes.takeIf { it.isNotEmpty() }
+        if (m != null) queueEvent { renderer.fitPending = m.min to m.max; requestRender() }
+        else if (b != null) {
+            val min = Vec3(b.minOf { it.min.x }, b.minOf { it.min.y }, b.minOf { it.min.z })
+            val max = Vec3(b.maxOf { it.max.x }, b.maxOf { it.max.y }, b.maxOf { it.max.z })
+            queueEvent { renderer.fitPending = min to max; requestRender() }
+        } else requestRender()
+    }
+
+    /** Nearest box the ray through (x, y) hits (slab test), or null. */
+    private fun hit(x: Float, y: Float): PreviewBox? {
+        val (o, d) = camera.ray(x, y)
+        val os = floatArrayOf(o.x, o.y, o.z)
+        val ds = floatArrayOf(d.x, d.y, d.z)
+        var best: PreviewBox? = null
+        var bestT = Float.MAX_VALUE
+        for (b in boxes) {
+            val mn = floatArrayOf(b.min.x, b.min.y, b.min.z)
+            val mx = floatArrayOf(b.max.x, b.max.y, b.max.z)
+            var t0 = -Float.MAX_VALUE
+            var t1 = Float.MAX_VALUE
+            var miss = false
+            for (i in 0 until 3) {
+                if (kotlin.math.abs(ds[i]) < 1e-9f) {
+                    if (os[i] < mn[i] || os[i] > mx[i]) { miss = true; break }
+                    continue
+                }
+                var a = (mn[i] - os[i]) / ds[i]
+                var c = (mx[i] - os[i]) / ds[i]
+                if (a > c) { val t = a; a = c; c = t }
+                t0 = maxOf(t0, a); t1 = minOf(t1, c)
+            }
+            if (miss || t0 > t1 || t1 < 0f) continue
+            // Selected boxes win near ties, so a picked shape inside a hole's box can be dragged.
+            val t = maxOf(t0, 0f) - if (b.selected) 0.01f else 0f
+            if (t < bestT) { bestT = t; best = b }
+        }
+        return best
+    }
+
+    /** Shape-builder picking and dragging; true when the event was used for it. */
+    private fun shapeInput(event: MotionEvent): Boolean {
+        val l = pickListener ?: return false
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                downX = event.x; downY = event.y; dragging = false; moved = false; downBox = null
+                if (event.isButtonPressed(MotionEvent.BUTTON_SECONDARY) || event.isButtonPressed(MotionEvent.BUTTON_TERTIARY)) return false
+                val b = hit(event.x, event.y) ?: return false
+                downBox = b.id
+                dragZ = b.min.z
+                dragStart = camera.rayOnPlane(event.x, event.y, dragZ)
+                return true
+            }
+            MotionEvent.ACTION_MOVE -> {
+                if (!moved && kotlin.math.hypot(event.x - downX, event.y - downY) > slop) moved = true
+                val id = downBox ?: return false
+                if (event.pointerCount > 1) { downBox = null; return false }
+                if (moved && !dragging) {
+                    dragging = true
+                    if (boxes.none { it.id == id && it.selected }) l.onPick(id, false)
+                }
+                if (dragging) {
+                    val start = dragStart ?: return true
+                    val p = camera.rayOnPlane(event.x, event.y, dragZ) ?: return true
+                    val off = Vec3(Math.round(p.x - start.x).toFloat(), Math.round(p.y - start.y).toFloat(), 0f)
+                    queueEvent { renderer.dragOffset = off }
+                    requestRender()
+                }
+                return true
+            }
+            MotionEvent.ACTION_UP -> {
+                val id = downBox
+                downBox = null
+                if (dragging) {
+                    dragging = false
+                    val start = dragStart
+                    val p = camera.rayOnPlane(event.x, event.y, dragZ)
+                    if (start != null && p != null) l.onMove(Math.round(p.x - start.x).toFloat(), Math.round(p.y - start.y).toFloat())
+                    queueEvent { renderer.dragOffset = Vec3.ZERO }
+                    requestRender()
+                    return true
+                }
+                // A tap: picks the shape, or clears the selection on empty space.
+                if (!moved) l.onPick(id, event.isCtrlPressed || event.isShiftPressed)
+                return id != null
+            }
+            MotionEvent.ACTION_CANCEL -> {
+                if (dragging) { queueEvent { renderer.dragOffset = Vec3.ZERO }; requestRender() }
+                downBox = null; dragging = false
+            }
+        }
+        return false
     }
 
     private fun similar(a: Vec3, b: Vec3): Boolean {
@@ -131,6 +252,11 @@ class MeshPreviewView(context: Context) : GLSurfaceView(context) {
     override fun onTouchEvent(event: MotionEvent): Boolean {
         // The preview sits in a scrolling panel: keep the gesture.
         parent?.requestDisallowInterceptTouchEvent(true)
+        // Shape builder: taps pick shapes, a drag that starts on one moves the selection.
+        if (shapeInput(event)) {
+            lastX = event.x; lastY = event.y
+            return true
+        }
         scaleDetector.onTouchEvent(event)
         gestures.onTouchEvent(event)
         val fx = (0 until event.pointerCount).map { event.getX(it) }.average().toFloat()
@@ -176,8 +302,16 @@ private class PreviewRenderer(private val camera: Camera) : GLSurfaceView.Render
     @Volatile var background = floatArrayOf(0.12f, 0.13f, 0.15f)
     @Volatile var gridColor = floatArrayOf(0.4f, 0.42f, 0.46f)
     @Volatile var partColor = floatArrayOf(0.96f, 0.58f, 0.2f)
-    /** Frame this mesh on the next draw (after the viewport size is known). */
-    var fitPending: PreviewMesh? = null
+    /** Frame these bounds on the next draw (after the viewport size is known). */
+    var fitPending: Pair<Vec3, Vec3>? = null
+    /** Live offset of the selected boxes while they are dragged. */
+    var dragOffset = Vec3.ZERO
+    private var boxList: List<PreviewBox> = emptyList()
+    private var boxVbo = 0
+    private var boxesDirty = false
+    private var holeCount = 0
+    private var selStart = 0
+    private var selCount = 0
 
     private var meshProgram = 0
     private var lineProgram = 0
@@ -196,15 +330,23 @@ private class PreviewRenderer(private val camera: Camera) : GLSurfaceView.Render
         dirty = true
     }
 
+    fun setBoxes(list: List<PreviewBox>) {
+        boxList = list
+        boxesDirty = true
+        // Without a mesh the grid follows the boxes.
+        if (pending == null) dirty = true
+    }
+
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
         glEnable(GL_DEPTH_TEST)
         meshProgram = program(MESH_VS, MESH_FS)
         lineProgram = program(Shaders.LINE_VS, Shaders.LINE_FS)
-        val ids = IntArray(2)
-        glGenBuffers(2, ids, 0)
-        meshVbo = ids[0]; gridVbo = ids[1]
+        val ids = IntArray(3)
+        glGenBuffers(3, ids, 0)
+        meshVbo = ids[0]; gridVbo = ids[1]; boxVbo = ids[2]
         // A new EGL context lost the buffers: upload the last mesh again.
         dirty = true
+        boxesDirty = true
         meshCount = 0; gridCount = 0
     }
 
@@ -216,7 +358,8 @@ private class PreviewRenderer(private val camera: Camera) : GLSurfaceView.Render
 
     override fun onDrawFrame(gl: GL10?) {
         if (dirty) upload()
-        if (hasSize) fitPending?.let { camera.fit(it.min, it.max); fitPending = null }
+        if (boxesDirty) uploadBoxes()
+        if (hasSize) fitPending?.let { camera.fit(it.first, it.second); fitPending = null }
         val bg = background
         glClearColor(bg[0], bg[1], bg[2], 1f)
         glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
@@ -251,25 +394,79 @@ private class PreviewRenderer(private val camera: Camera) : GLSurfaceView.Render
             glDrawArrays(GL_TRIANGLES, 0, meshCount)
             glDisableVertexAttribArray(1)
         }
+        if (holeCount + selCount > 0) {
+            // Box outlines on top: holes grey (the render shows them only as cuts), the selection blue.
+            glDisable(GL_DEPTH_TEST)
+            glUseProgram(lineProgram)
+            glUniformMatrix4fv(glGetUniformLocation(lineProgram, "uMvp"), 1, false, mvp, 0)
+            glBindBuffer(GL_ARRAY_BUFFER, boxVbo)
+            glEnableVertexAttribArray(0)
+            glVertexAttribPointer(0, 3, GL_FLOAT, false, 12, 0)
+            val color = glGetUniformLocation(lineProgram, "uColor")
+            val offset = glGetUniformLocation(lineProgram, "uOffset")
+            glUniform3f(offset, 0f, 0f, 0f)
+            glUniform3fv(color, 1, gridColor, 0)
+            if (holeCount > 0) glDrawArrays(GL_LINES, 0, holeCount)
+            val d = dragOffset
+            glUniform3f(offset, d.x, d.y, d.z)
+            glUniform3f(color, 0.2f, 0.55f, 1f)
+            if (selCount > 0) glDrawArrays(GL_LINES, selStart, selCount)
+            glEnable(GL_DEPTH_TEST)
+        }
+    }
+
+    /** 12 edges per box: the unselected holes, then the selection. */
+    private fun uploadBoxes() {
+        boxesDirty = false
+        val lines = ArrayList<Float>()
+        fun box(b: PreviewBox) {
+            val x = floatArrayOf(b.min.x, b.max.x)
+            val y = floatArrayOf(b.min.y, b.max.y)
+            val z = floatArrayOf(b.min.z, b.max.z)
+            for (i in 0..1) for (j in 0..1) {
+                lines += listOf(x[0], y[i], z[j], x[1], y[i], z[j])
+                lines += listOf(x[i], y[0], z[j], x[i], y[1], z[j])
+                lines += listOf(x[i], y[j], z[0], x[i], y[j], z[1])
+            }
+        }
+        boxList.filter { !it.selected && it.hole }.forEach(::box)
+        holeCount = lines.size / 3
+        selStart = holeCount
+        boxList.filter { it.selected }.forEach(::box)
+        selCount = lines.size / 3 - selStart
+        if (lines.isEmpty()) return
+        val a = lines.toFloatArray()
+        val buf = ByteBuffer.allocateDirect(a.size * 4).order(ByteOrder.nativeOrder()).asFloatBuffer().put(a).also { it.flip() }
+        glBindBuffer(GL_ARRAY_BUFFER, boxVbo)
+        glBufferData(GL_ARRAY_BUFFER, a.size * 4, buf, GL_STATIC_DRAW)
     }
 
     private fun upload() {
         dirty = false
         val m = pending
         glBindBuffer(GL_ARRAY_BUFFER, meshVbo)
-        if (m == null) { meshCount = 0; gridCount = 0; return }
+        if (m == null) {
+            meshCount = 0
+            // The shape builder's workplane without a mesh: around the boxes, else 100 mm.
+            val b = boxList
+            if (b.isEmpty()) uploadGrid(Vec3(-50f, -50f, 0f), Vec3(50f, 50f, 0f))
+            else uploadGrid(Vec3(b.minOf { it.min.x }, b.minOf { it.min.y }, 0f), Vec3(b.maxOf { it.max.x }, b.maxOf { it.max.y }, 0f))
+            return
+        }
         m.data.position(0)
         glBufferData(GL_ARRAY_BUFFER, m.data.limit() * 4, m.data, GL_STATIC_DRAW)
         meshCount = m.triangles * 3
-        uploadGrid(m)
+        uploadGrid(m.min, m.max)
     }
 
     /** 10 mm grid lines (50 mm for big models) at z = 0 under the model, then the two axes. */
-    private fun uploadGrid(m: PreviewMesh) {
-        val step = if (maxOf(m.size.x, m.size.y) > 400f) 50f else 10f
-        val margin = maxOf(10f, maxOf(m.size.x, m.size.y) * 0.25f)
-        val x0 = floor((m.min.x - margin) / step) * step; val x1 = ceil((m.max.x + margin) / step) * step
-        val y0 = floor((m.min.y - margin) / step) * step; val y1 = ceil((m.max.y + margin) / step) * step
+    private fun uploadGrid(min: Vec3, max: Vec3) {
+        val sx = max.x - min.x
+        val sy = max.y - min.y
+        val step = if (maxOf(sx, sy) > 400f) 50f else 10f
+        val margin = maxOf(10f, maxOf(sx, sy) * 0.25f)
+        val x0 = floor((min.x - margin) / step) * step; val x1 = ceil((max.x + margin) / step) * step
+        val y0 = floor((min.y - margin) / step) * step; val y1 = ceil((max.y + margin) / step) * step
         val lines = ArrayList<Float>()
         var x = x0
         while (x <= x1 + 0.01f) { if (x != 0f) lines += listOf(x, y0, 0f, x, y1, 0f); x += step }

@@ -12,6 +12,7 @@ import app.orcaandroid.scad.ScadExamples
 import app.orcaandroid.scad.ScadParam
 import app.orcaandroid.scad.ScadRender
 import app.orcaandroid.scad.ScadUnavailable
+import app.orcaandroid.scad.ShapeDesign
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -49,6 +50,10 @@ data class ScadEditorState(
     /** The preview shows an older version (the current one failed or is being rendered). */
     val previewStale: Boolean = false,
     val previewing: Boolean = false,
+    /** Shape-builder design the source is generated from; null = hand-written code. */
+    val shapes: ShapeDesign? = null,
+    /** Selected shape ids in the builder. */
+    val selected: List<Int> = emptyList(),
 ) {
     fun value(p: ScadParam): Any = values[p.name] ?: p.initial
 }
@@ -97,6 +102,7 @@ class ScadController(private val store: Store) {
                 values = ScadParam.decode(meta?.optString("values")),
                 onPlate = meta?.optString("onPlate")?.takeIf { n -> n.isNotEmpty() },
                 autoRender = meta?.optBoolean("autoRender", true) ?: true,
+                shapes = meta?.optJSONObject("shapes")?.let { j -> runCatching { ShapeDesign.of(j) }.getOrNull() },
             ), screen = Screen.PREPARE)
         }
         refreshParams(0)
@@ -123,7 +129,7 @@ class ScadController(private val store: Store) {
         val file = if (design.files.isEmpty()) draftFile.path else withContext(Dispatchers.IO) {
             design.unpack(File(dir, "designs/" + Integer.toHexString(design.encode().hashCode()))).path
         }
-        load(design.name, file, design.source, design.values, onPlate = obj.name)
+        load(design.name, file, design.shapes?.toScad() ?: design.source, design.values, onPlate = obj.name, shapes = design.shapes)
     }
 
     fun loadExample(example: ScadExamples.Example) = load(example.file, draftFile.path, example.source)
@@ -131,9 +137,17 @@ class ScadController(private val store: Store) {
     /** A new design from the box template. */
     fun new() = load("untitled.scad", draftFile.path, ScadExamples.BLANK.source)
 
-    private fun load(name: String, file: String, source: String, values: Map<String, Any> = emptyMap(), onPlate: String? = null) {
+    /** A new design built from shapes (no code). */
+    fun newShapes() = store.launch {
+        if (st == null) open().join()
+        val d = ShapeDesign()
+        load(store.str(R.string.shape_new_name), draftFile.path, d.toScad(), shapes = d)
+    }
+
+    private fun load(name: String, file: String, source: String, values: Map<String, Any> = emptyMap(), onPlate: String? = null,
+                     shapes: ShapeDesign? = null) {
         set { it.copy(name = name, file = file, source = source, loadId = it.loadId + 1, values = values,
-            params = emptyList(), log = "", status = null, onPlate = onPlate, preview = null) }
+            params = emptyList(), log = "", status = null, onPlate = onPlate, preview = null, shapes = shapes, selected = emptyList()) }
         refreshParams(0)
         saveDraft()
         pushToPlate = false
@@ -150,8 +164,35 @@ class ScadController(private val store: Store) {
         client.release()
     }
 
+    /**
+     * The shape builder changed the design: the code is generated again and previewed. Customizer
+     * values are dropped, the dimensions hold them.
+     */
+    fun setShapes(design: ShapeDesign, selected: List<Int>) {
+        val s = st ?: return
+        val source = design.toScad()
+        // An empty design has nothing to preview: drop the last mesh.
+        set { it.copy(shapes = design, selected = selected, source = source, values = emptyMap(),
+            preview = if (design.shapes.isEmpty()) null else it.preview) }
+        if (s.source == source) return
+        refreshParams(300)
+        saveDraft()
+        // A dimension change is a Customizer-like change: the object on the plate follows.
+        pushToPlate = s.shapes?.let { it.shapes == design.shapes && it.dims != design.dims } == true
+        if (st?.autoRender == true) preview(500)
+    }
+
+    fun select(ids: List<Int>) = set { it.copy(selected = ids) }
+
+    /** Turns a shape design into plain code (the shapes are dropped, the code is kept). */
+    fun detachShapes() {
+        set { it.copy(shapes = null, selected = emptyList(), loadId = it.loadId + 1) }
+        saveDraft()
+    }
+
     /** The editor's text changed. */
     fun edit(source: String) {
+        if (st?.shapes != null) return
         if (st?.source == source) return
         set { it.copy(source = source) }
         refreshParams(600)
@@ -161,6 +202,12 @@ class ScadController(private val store: Store) {
     }
 
     fun setValue(p: ScadParam, value: Any) {
+        // Shape designs keep slider values in their dimensions.
+        val sd = st?.shapes
+        if (sd != null && value is Double && sd.dim(p.name) != null) {
+            setShapes(sd.copy(dims = sd.dims.map { if (it.name == p.name) it.copy(value = value) else it }), st?.selected.orEmpty())
+            return
+        }
         if (st?.value(p) == value) return
         set { s -> s.copy(values = if (value == p.initial) s.values - p.name else s.values + (p.name to value)) }
         saveDraft()
@@ -289,6 +336,7 @@ class ScadController(private val store: Store) {
                         .put("values", ScadParam.encode(s.values))
                         .put("onPlate", s.onPlate ?: "")
                         .put("autoRender", s.autoRender)
+                        .apply { s.shapes?.let { put("shapes", it.json()) } }
                         .toString())
                 }
             }
@@ -312,7 +360,7 @@ class ScadController(private val store: Store) {
                 val cached = previewStl?.takeIf { previewKey == key(s) && it.isFile }
                 if (cached != null) {
                     val files = withContext(Dispatchers.IO) { ScadDeps.collect(s.source, s.file) }
-                    val name = place(cached, if (asNew) null else s.onPlate, ScadDesign(s.name, s.source, s.values, files))
+                    val name = place(cached, if (asNew) null else s.onPlate, ScadDesign(s.name, s.source, s.values, files, s.shapes))
                     set { it.copy(onPlate = name, status = store.str(R.string.scad_placed), statusError = false) }
                     saveDraft()
                     return@launch
@@ -328,7 +376,7 @@ class ScadController(private val store: Store) {
                     stl == null -> fail(R.string.scad_empty)
                     else -> {
                         val files = withContext(Dispatchers.IO) { ScadDeps.collect(s.source, s.file) }
-                        val name = place(stl, if (asNew) null else s.onPlate, ScadDesign(s.name, s.source, s.values, files))
+                        val name = place(stl, if (asNew) null else s.onPlate, ScadDesign(s.name, s.source, s.values, files, s.shapes))
                         set { it.copy(onPlate = name, status = summary(r), statusError = false) }
                         saveDraft()
                         // The render doubles as the preview.

@@ -31,6 +31,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val slicing = SliceController(store, presets)
     val files = FileController(store, presets, scene, slicing)
     val scad = ScadController(store)
+    val shapes = ShapeController(store, scad)
 
     /** Desktop translations of option labels for the device language. */
     var translator: Translator = Translator.NONE
