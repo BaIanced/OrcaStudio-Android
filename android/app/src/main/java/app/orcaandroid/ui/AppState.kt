@@ -128,6 +128,9 @@ data class UiState(
     /** Plate types left out of the plate type pickers, and the user's default one ("" = the printer's). */
     val hiddenBedTypes: Set<String> = emptySet(),
     val preferredBedType: String = "",
+    /** Printer presets with another nozzle than the model's [installedNozzles] entry are hidden (switchable). */
+    val matchNozzle: Boolean = true,
+    val installedNozzles: Map<String, Float> = emptyMap(),
     val editor: EditorTarget? = null,
     val showPrinterSetup: Boolean = false,
 
@@ -192,9 +195,18 @@ data class UiState(
 
     fun isModified(type: PresetType, key: String) = overridesOf(type).containsKey(key)
 
-    /** Printers offered for selection: the chosen system printers plus all user printers. */
+    /**
+     * Printers offered for selection: the chosen system printers plus all user printers; with
+     * [matchNozzle], not those whose nozzle differs from what that model last reported (the selected one stays).
+     */
     val visiblePrinters: List<PrinterInfo>
-        get() = if (selectedPrinters.isEmpty()) printers else printers.filter { !it.system || it.key in selectedPrinters }
+        get() = (if (selectedPrinters.isEmpty()) printers else printers.filter { !it.system || it.key in selectedPrinters })
+            .filter { it.name == printer || !matchNozzle || nozzleFits(it) }
+
+    fun nozzleFits(p: PrinterInfo) = installedNozzles[p.model]?.let { kotlin.math.abs(it - p.nozzle) < 1e-3 } ?: true
+
+    /** The selected printer preset's nozzle differs from the one installed in that printer, which is [Float]. */
+    val nozzleMismatch: Float? get() = printerInfo?.takeIf { !nozzleFits(it) }?.let { installedNozzles[it.model] }
 
     val selectedObject get() = selection?.let { scene.objects.getOrNull(it.obj) }
 

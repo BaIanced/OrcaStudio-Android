@@ -88,6 +88,8 @@ data class PrinterStatus(
     val bedTarget: Float? = null,
     val layer: Int? = null,
     val totalLayers: Int? = null,
+    /** Bambu: diameter (mm) of the nozzle installed in the (first) toolhead, when reported. */
+    val nozzleDiameter: Float? = null,
 ) {
     enum class State { IDLE, PRINTING, PAUSED, FINISHED, STOPPED, ERROR, OFFLINE }
 

@@ -78,6 +78,17 @@ class AppSettings(context: Context) {
         get() = prefs.getString("preferred_bed_type", null).orEmpty()
         set(value) = prefs.edit().putString("preferred_bed_type", value).apply()
 
+    /** Hide printer presets whose nozzle differs from the one the connected printer reports. */
+    var matchNozzle: Boolean
+        get() = prefs.getBoolean("match_nozzle", true)
+        set(value) = prefs.edit().putBoolean("match_nozzle", value).apply()
+
+    /** Last nozzle diameter (mm) each printer model reported, by printer_model. */
+    var installedNozzles: Map<String, Float>
+        get() = runCatching { JSONObject(prefs.getString("installed_nozzles", null) ?: "{}") }.getOrNull()
+            ?.let { o -> o.keys().asSequence().associateWith { o.getDouble(it).toFloat() } }.orEmpty()
+        set(value) = prefs.edit().putString("installed_nozzles", JSONObject(value.mapValues { it.value.toDouble() }).toString()).apply()
+
     var lastPrinter: String?
         get() = prefs.getString("printer", null)
         set(value) = prefs.edit().putString("printer", value).apply()

@@ -122,6 +122,10 @@
     <string name="plate_types_text">Which build plates appear in the plate lists, and the default one</string>
     <string name="plate_types_hint">Ticked plates appear in the plate lists. The selected circle is the plate new plates use until you pick another.</string>
     <string name="plate_type_printer_default">The printer\'s default</string>
+    <string name="match_nozzle">Match the installed nozzle</string>
+    <string name="match_nozzle_text">A connected Bambu Lab printer reports its nozzle; printer presets for another nozzle size are then hidden and a mismatch is flagged. Switch off to see all of them.</string>
+    <string name="nozzle_mismatch">The printer reports a %1$s mm nozzle; this preset is for another size.</string>
+    <string name="use_printer">Use %1$s</string>
     <string name="n_selected">%d selected</string>
     <string name="select_all">Select all</string>
     <string name="select_mode_hint">Tap objects to select them</string>

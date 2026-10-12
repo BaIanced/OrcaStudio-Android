@@ -53,7 +53,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
         viewModelScope.launch { autoSave() }
         viewModelScope.launch { awaitReady(); if (store.settings.aiTools) setAiTools(true) }
-        viewModelScope.launch { store.container.printerStatus.collect { s -> store.update { it.copy(printerStatus = s) } } }
+        viewModelScope.launch {
+            store.container.printerStatus.collect { s ->
+                store.update { it.copy(printerStatus = s) }
+                s?.nozzleDiameter?.let(presets::recordNozzle)
+            }
+        }
         viewModelScope.launch {
             val report = withContext(Dispatchers.IO) { runCatching { CrashReport.pending(store.app) }.getOrNull() }
             if (report != null) store.update { it.copy(crashReport = report) }

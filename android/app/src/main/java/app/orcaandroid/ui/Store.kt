@@ -31,6 +31,8 @@ class Store(val app: Application, val scope: CoroutineScope) {
             hiddenFilamentVendors = settings.hiddenFilamentVendors,
             hiddenBedTypes = settings.hiddenBedTypes,
             preferredBedType = settings.preferredBedType,
+            matchNozzle = settings.matchNozzle,
+            installedNozzles = settings.installedNozzles,
             recents = settings.recents,
         )
     )

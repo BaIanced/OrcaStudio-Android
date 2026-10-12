@@ -12,6 +12,7 @@ import app.orcaandroid.core.SettingsPage
 import app.orcaandroid.core.map
 import app.orcaandroid.core.printerKey
 import app.orcaandroid.net.BambuAccount
+import app.orcaandroid.net.HostType
 import java.io.File
 import kotlin.math.abs
 import kotlinx.coroutines.Dispatchers
@@ -39,6 +40,22 @@ class PresetController(private val store: Store, private val device: DeviceContr
         store.update { it.copy(selectedPrinters = keys, showPrinterSetup = false) }
         reloadPresets(added)
         store.update { it.copy(phase = Phase.READY) }
+    }
+
+    /** The connected Bambu printer (the selected preset's) reported nozzle [diameter] mm: remembered for its model. */
+    fun recordNozzle(diameter: Float) {
+        val s = store.value
+        val model = s.printerInfo?.model?.takeIf { it.isNotEmpty() } ?: return
+        if (s.connection?.type != HostType.BAMBU && s.connection?.type != HostType.BAMBU_SIGNED) return
+        if (s.installedNozzles[model] == diameter) return
+        val nozzles = s.installedNozzles + (model to diameter)
+        settings.installedNozzles = nozzles
+        store.update { it.copy(installedNozzles = nozzles) }
+    }
+
+    fun setMatchNozzle(on: Boolean) {
+        settings.matchNozzle = on
+        store.update { it.copy(matchNozzle = on) }
     }
 
     /** Plate types shown in the pickers and the default of plates without their own ("" = the printer's). */
