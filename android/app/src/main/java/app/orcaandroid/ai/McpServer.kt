@@ -1,5 +1,8 @@
 package app.orcaandroid.ai
 
+import android.net.LocalServerSocket
+import android.net.LocalSocket
+import android.net.LocalSocketAddress
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -9,20 +12,22 @@ import kotlinx.coroutines.launch
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
+import java.io.OutputStream
 import java.net.InetAddress
 import java.net.ServerSocket
-import java.net.Socket
 import java.security.MessageDigest
 import java.util.UUID
 
 /**
- * A small MCP server (Streamable HTTP, JSON replies only, no SSE) on 127.0.0.1 (or, opted in, on
- * every interface: WSA routes Android's loopback to Windows, phones without USB need Wi-Fi) for AI clients:
- * one endpoint `POST /mcp` carrying JSON-RPC 2.0. Every request needs `Authorization: Bearer
+ * A small MCP server (Streamable HTTP, JSON replies only, no SSE) for AI clients: one endpoint
+ * `POST /mcp` carrying JSON-RPC 2.0. It listens on TCP 127.0.0.1 (all interfaces when opted in, for
+ * Wi-Fi) and on the abstract socket [SOCKET_NAME] for `adb forward tcp:8765 localabstract:...` (a TCP
+ * forward loops on WSA, which routes Android's loopback to Windows). Every request needs `Authorization: Bearer
  * <token>`; requests from a browser (with an `Origin` header) are refused. See `docs/mcp-tool-layer.md`.
  */
 class McpServer(private val port: Int, private val token: () -> String, private val tools: McpTools) {
     private var socket: ServerSocket? = null
+    private var local: LocalServerSocket? = null
     private var job: Job? = null
     /** Sessions issued by `initialize`; a request naming another one gets 404 so the client starts over. */
     private val sessions = java.util.Collections.synchronizedSet(mutableSetOf<String>())
@@ -38,10 +43,27 @@ class McpServer(private val port: Int, private val token: () -> String, private 
             bind(if (lan) java.net.InetSocketAddress(port) else java.net.InetSocketAddress(InetAddress.getByName("127.0.0.1"), port), 8)
         }
         socket = s
+        val l = runCatching { LocalServerSocket(SOCKET_NAME) }.onFailure { Log.w(TAG, "no abstract socket", it) }.getOrNull()
+        local = l
         job = scope.launch(Dispatchers.IO) {
-            while (isActive && !s.isClosed) {
-                val client = runCatching { s.accept() }.getOrNull() ?: break
-                launch { runCatching { client.use { handle(it) } }.onFailure { Log.w(TAG, "request failed", it) } }
+            launch {
+                while (isActive && !s.isClosed) {
+                    val client = runCatching { s.accept() }.getOrNull() ?: break
+                    launch {
+                        runCatching { client.use { it.soTimeout = TIMEOUT; handle(it.getInputStream(), it.getOutputStream(), it.inetAddress.hostAddress.orEmpty()) } }
+                            .onFailure { Log.w(TAG, "request failed", it) }
+                    }
+                }
+            }
+            if (l != null) launch {
+                while (isActive && local === l) {
+                    val client = runCatching { l.accept() }.getOrNull() ?: break
+                    if (local !== l) { runCatching { client.close() }; break }
+                    launch {
+                        runCatching { client.use { it.soTimeout = TIMEOUT; handle(it.inputStream, it.outputStream, "adb") } }
+                            .onFailure { Log.w(TAG, "request failed", it) }
+                    }
+                }
             }
         }
     }
@@ -50,6 +72,12 @@ class McpServer(private val port: Int, private val token: () -> String, private 
     fun stop() {
         runCatching { socket?.close() }
         socket = null
+        // Closing doesn't wake a blocked LocalServerSocket.accept(): connect once so the loop sees it's stopped.
+        local?.let { l ->
+            local = null
+            runCatching { LocalSocket().use { it.connect(LocalSocketAddress(SOCKET_NAME)) } }
+            runCatching { l.close() }
+        }
         job?.cancel()
         job = null
         sessions.clear()
@@ -61,12 +89,11 @@ class McpServer(private val port: Int, private val token: () -> String, private 
 
     private class Reply(val code: Int, val body: String = "", val headers: Map<String, String> = emptyMap())
 
-    private suspend fun handle(client: Socket) {
-        client.soTimeout = 15_000
-        val req = read(client.getInputStream()) ?: return write(client, Reply(400, error(null, -32700, "Bad HTTP request")))
+    private suspend fun handle(input: InputStream, output: OutputStream, peer: String) {
+        val req = read(input) ?: return write(output, Reply(400, error(null, -32700, "Bad HTTP request")))
         val reply = route(req)
-        if (Log.isLoggable(TAG, Log.DEBUG)) Log.d(TAG, "${req.method} ${req.path} from ${client.inetAddress.hostAddress} -> ${reply.code}")
-        write(client, reply)
+        if (Log.isLoggable(TAG, Log.DEBUG)) Log.d(TAG, "${req.method} ${req.path} from $peer -> ${reply.code}")
+        write(output, reply)
     }
 
     private suspend fun route(req: Request): Reply {
@@ -152,7 +179,7 @@ class McpServer(private val port: Int, private val token: () -> String, private 
         }
     }
 
-    private fun write(client: Socket, reply: Reply) {
+    private fun write(output: OutputStream, reply: Reply) {
         val body = reply.body.toByteArray(Charsets.UTF_8)
         val head = buildString {
             append("HTTP/1.1 ${reply.code} ${REASONS[reply.code] ?: "Status"}\r\n")
@@ -162,7 +189,7 @@ class McpServer(private val port: Int, private val token: () -> String, private 
             reply.headers.forEach { (k, v) -> append("$k: $v\r\n") }
             append("\r\n")
         }
-        client.getOutputStream().apply {
+        output.apply {
             write(head.toByteArray(Charsets.ISO_8859_1))
             write(body)
             flush()
@@ -171,6 +198,9 @@ class McpServer(private val port: Int, private val token: () -> String, private 
 
     companion object {
         private const val TAG = "OrcaMcp"
+        /** Abstract unix socket for `adb forward tcp:8765 localabstract:orcastudio_mcp`. */
+        const val SOCKET_NAME = "orcastudio_mcp"
+        private const val TIMEOUT = 15_000
         private const val MAX_BODY = 4 shl 20
         /** Newest first; an older client gets its own version back when we know it. */
         private val VERSIONS = listOf("2025-06-18", "2025-03-26", "2024-11-05")

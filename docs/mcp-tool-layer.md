@@ -15,7 +15,10 @@ on-screen confirm.
   `adb forward tcp:8765 tcp:8765` (real devices; untested). **Not on WSA:** its ip rules send
   Android's loopback traffic to Windows (tables 127/128), so adbd's connect to 127.0.0.1:8765 lands
   on adb's own forward listener and loops (thousands of sockets, adb wedges; seen 2026-10-12).
-  Opt-in switch "Also accept connections from the local network" binds all interfaces instead.
+  So the server also listens on the abstract unix socket `orcastudio_mcp`:
+  `adb forward tcp:8765 localabstract:orcastudio_mcp` (works for WSA and USB devices). Opt-in switch
+  "Also accept connections from the local network" binds TCP on all interfaces (Wi-Fi clients; WSA
+  doesn't route inbound TCP from Windows, tried 127.0.0.1, loopback0 and the PC's LAN address).
 - **Auth even on localhost** (other apps on the device can connect): random bearer token, shown /
   regenerated in Settings, required as `Authorization: Bearer <token>`. Reject requests that carry
   a browser `Origin` header (DNS-rebinding guard the MCP spec asks for).
