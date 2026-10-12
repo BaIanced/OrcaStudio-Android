@@ -119,12 +119,12 @@ class ScadController(private val store: Store) {
     fun openFile(file: File) = store.launch {
         val source = withContext(Dispatchers.IO) { file.readText() }
         if (st == null) open().join()
-        // A shape-builder design saved by [save] reopens in the builder, unless its code was edited since.
+        // A shape-builder design saved by [save] reopens in the builder; if its code was edited since, it opens as
+        // code without the (stale) shapes line.
         val code = source.substringBeforeLast("\n$SHAPES_MARK")
         val shapes = ShapeDesign.decode(source.substringAfterLast("\n$SHAPES_MARK", "").trim().ifEmpty { null })
-            ?.takeIf { it.toScad().trimEnd() == code.trimEnd() }
-        if (shapes != null) load(file.name, file.path, shapes.toScad(), shapes = shapes)
-        else load(file.name, file.path, source)
+        if (shapes != null && shapes.toScad().trimEnd() == code.trimEnd()) load(file.name, file.path, shapes.toScad(), shapes = shapes)
+        else load(file.name, file.path, if (shapes != null) code.trimEnd() + "\n" else source)
     }
 
     fun openUri(uri: Uri) = store.launch {
