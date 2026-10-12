@@ -611,11 +611,8 @@
     <string name="shape_multi">%1$d shapes selected: move them with the arrow keys, group or align them.</string>
     <string name="shape_box">Box</string>
     <string name="shape_rounded_box">Rounded box</string>
-    <string name="shape_cylinder">Cylinder</string>
     <string name="shape_prism">Prism</string>
-    <string name="shape_cone">Cone</string>
     <string name="shape_pyramid">Pyramid</string>
-    <string name="shape_sphere">Ball</string>
     <string name="shape_dome">Dome</string>
     <string name="shape_torus">Ring</string>
     <string name="shape_tube">Tube</string>

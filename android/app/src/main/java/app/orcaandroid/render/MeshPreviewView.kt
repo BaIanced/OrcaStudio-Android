@@ -233,7 +233,7 @@ class MeshPreviewView(context: Context) : GLSurfaceView(context) {
                     return true
                 }
                 // A tap: picks the shape, or clears the selection on empty space.
-                if (!moved) l.onPick(id, event.isCtrlPressed || event.isShiftPressed)
+                if (!moved) l.onPick(id, (event.metaState and (android.view.KeyEvent.META_CTRL_ON or android.view.KeyEvent.META_SHIFT_ON)) != 0)
                 return id != null
             }
             MotionEvent.ACTION_CANCEL -> {
