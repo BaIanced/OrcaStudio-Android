@@ -648,6 +648,7 @@
     <string name="sketch_chord">Corner to corner</string>
     <string name="sketch_fixed">%1$s (fixed)</string>
     <string name="sketch_free_length">Free the length</string>
+    <string name="sketch_fix_length">Fix the length</string>
     <string name="sketch_level">Level</string>
     <string name="sketch_plumb">Plumb</string>
     <string name="sketch_equal_to">Equal to…</string>

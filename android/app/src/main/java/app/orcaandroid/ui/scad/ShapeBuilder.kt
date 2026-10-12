@@ -441,7 +441,7 @@ private fun Dims(d: ShapeDesign, vm: AppViewModel) {
 
 @Composable
 private fun DimRow(dim: Dim, d: ShapeDesign, vm: AppViewModel) {
-    val users = d.shapes.flatMap { it.all().toList() }.count { it.bind.containsValue(dim.name) }
+    val users = d.shapes.flatMap { it.all().toList() }.count { s -> s.bind.containsValue(dim.name) || s.sketch?.cons?.any { it.dim == dim.name } == true }
     Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = MaterialTheme.shapes.medium) {
         Column(Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {

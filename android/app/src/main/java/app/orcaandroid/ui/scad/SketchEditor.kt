@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FitScreen
 import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.DropdownMenu
@@ -151,10 +152,13 @@ private class SketchState(initial: Sketch, initialDims: List<Dim>) {
         val n = s.loops[c.a.loop].pts.size
         val keep = if (c.b != null) setOf(c.a.loop to c.a.i, c.a.loop to (c.a.i + 1) % n) else emptySet()
         val rest = s.cons.filterNot { it.kind == c.kind && it.a == c.a && it.b == c.b || it.kind == c.kind && it.a == c.b && it.b == c.a }
-        edit(solved(s.copy(cons = rest + c), keep))
+        val first = solved(s.copy(cons = rest + c), keep)
+        // Kept still, side a may make a solvable set impossible (top fixed at 30, right equal to it): then let it move too.
+        edit(if (first.unmet(::dimValue).isEmpty()) first else solved(first))
     }
 
-    fun unconstrain(c: Con) = edit(sketch.copy(cons = sketch.cons - c))
+    /** Without [c]; the rest settle again (a conflict it caused goes away). */
+    fun unconstrain(c: Con) = edit(solved(sketch.copy(cons = sketch.cons - c)))
 
     /** Side [side] [mm] long: its fixed length (or the slider it follows) changes, else it becomes fixed. */
     fun setLength(side: Side, mm: Double) {
@@ -638,7 +642,7 @@ private fun SideConstraints(st: SketchState, side: Side, l: Loop, name: String) 
     var menu by remember { mutableStateOf(false) }
     Row(Modifier.horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         val title = stringResource(if (l.bulgeAt(side.i) != 0.0) R.string.sketch_chord else R.string.sketch_side_length)
-        NumberField(cur.toFloat(), { st.setLength(side, it.toDouble()) }, Modifier.width(150.dp), label = when {
+        NumberField(cur.toFloat(), { st.setLength(side, it.toDouble()) }, Modifier.width(if (bound != null) 230.dp else 160.dp), label = when {
             bound != null -> "$title = $bound"
             len != null -> stringResource(R.string.sketch_fixed, title)
             else -> title
@@ -648,6 +652,9 @@ private fun SideConstraints(st: SketchState, side: Side, l: Loop, name: String) 
             DropdownMenu(menu, { menu = false }) {
                 if (len != null) DropdownMenuItem(text = { Text(stringResource(R.string.sketch_free_length)) }, leadingIcon = { Icon(Icons.Default.LockOpen, null) },
                     onClick = { menu = false; st.unconstrain(len) })
+                // Typing the value it already has is no edit, so fixing it as it is needs its own item.
+                else DropdownMenuItem(text = { Text(stringResource(R.string.sketch_fix_length)) }, leadingIcon = { Icon(Icons.Default.Lock, null) },
+                    onClick = { menu = false; st.setLength(side, cur) })
                 if (bound != null) DropdownMenuItem(text = { Text(stringResource(R.string.shape_unlink, bound)) }, onClick = { menu = false; st.followDim(side, null) })
                 else {
                     DropdownMenuItem(text = { Text(stringResource(R.string.shape_make_slider)) }, leadingIcon = { Icon(Icons.Default.Add, null) }, onClick = {
