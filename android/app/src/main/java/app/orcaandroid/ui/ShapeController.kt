@@ -127,7 +127,7 @@ class ShapeController(private val store: Store, private val scad: ScadController
     private fun withField(d: ShapeDesign, id: Int, field: String, value: Double): ShapeDesign? {
         val s = d.find(id) ?: return null
         val dim = s.bind[field]?.let { d.dim(it) }
-        if (dim != null) return d.copy(dims = d.dims.map { if (it.name == dim.name) it.copy(value = value, min = minOf(it.min, value), max = maxOf(it.max, value)) else it })
+        if (dim != null) return d.withDims(d.dims.map { if (it.name == dim.name) it.copy(value = value, min = minOf(it.min, value), max = maxOf(it.max, value)) else it })
         return d.update(id) { sh -> setRaw(sh, field, value) }
     }
 
@@ -154,32 +154,19 @@ class ShapeController(private val store: Store, private val scad: ScadController
         commit(withField(d, id, "rot.z", z) ?: return)
     }
 
-    /** New drawing for sketch shape [id] (one undo step): its box takes the drawing's size, 1:1. */
-    fun setSketch(id: Int, sketch: Sketch) {
+    /**
+     * New drawing for sketch shape [id] (one undo step): its box takes the drawing's size, 1:1. [dims]: the
+     * sliders as the sketch editor left them (other sketches following a changed one are solved again).
+     */
+    fun setSketch(id: Int, sketch: Sketch, dims: List<Dim>? = null) {
         val d = design ?: return
-        commit(d.update(id) { fitSketch(it, sketch) })
+        commit((if (dims != null) d.withDims(dims) else d).update(id) { ShapeDesign.fitSketch(it, sketch) })
     }
 
     /** Sketch shape [id]: extrude ([revolve] false) or revolve about Z. */
     fun setRevolve(id: Int, revolve: Boolean) {
         val d = design ?: return
-        commit(d.update(id) { s -> fitSketch(s.copy(extra = s.extra + (Shape.REVOLVE to if (revolve) 1.0 else 0.0)), s.sketch ?: Sketch.START) })
-    }
-
-    private fun fitSketch(s: Shape, sketch: Sketch): Shape {
-        val (lo, hi) = sketch.bounds() ?: return s.copy(sketch = sketch)
-        if (s.x(Shape.REVOLVE, 0.0) != 0.0) {
-            val r = maxOf(0.5, hi.x)
-            return s.copy(sketch = sketch, size = D3(2 * r, 2 * r, maxOf(0.5, hi.y - lo.y)))
-        }
-        // Keep the unchanged part of the drawing in place: the box centre follows the drawing's centre.
-        val old = s.sketch?.bounds()
-        var pos = s.pos
-        if (old != null && s.kind == Shape.Kind.SKETCH) {
-            val shift = D3((lo.x + hi.x - old.first.x - old.second.x) / 2, (lo.y + hi.y - old.first.y - old.second.y) / 2, 0.0)
-            pos += ShapeDesign.rotate(shift, D3(0.0, 0.0, s.rot.z))
-        }
-        return s.copy(sketch = sketch, pos = pos, size = D3(maxOf(0.5, hi.x - lo.x), maxOf(0.5, hi.y - lo.y), s.size.z))
+        commit(d.update(id) { s -> ShapeDesign.fitSketch(s.copy(extra = s.extra + (Shape.REVOLVE to if (revolve) 1.0 else 0.0)), s.sketch ?: Sketch.START) })
     }
 
     private fun setRaw(s: Shape, field: String, v: Double): Shape {
@@ -307,9 +294,7 @@ class ShapeController(private val store: Store, private val scad: ScadController
         val d = design ?: return
         val s = d.find(id) ?: return
         val ident = identifier(name, d)
-        val v = current(d, s, field)
-        val dim = Dim(ident, v, if (field.startsWith("pos.") || field.startsWith("rot.")) minOf(v, -100.0) else 0.0,
-            if (field.startsWith("rot.")) 360.0 else maxOf(100.0, Math.ceil(v * 2 / 10) * 10), 1.0)
+        val dim = Dim.forLength(ident, current(d, s, field), signed = field.startsWith("pos.") || field.startsWith("rot."), angle = field.startsWith("rot."))
         commit(d.copy(dims = d.dims + dim).update(id) { it.copy(bind = it.bind + (field to ident)) })
     }
 
@@ -331,12 +316,18 @@ class ShapeController(private val store: Store, private val scad: ScadController
 
     fun setDim(dim: Dim) {
         val d = design ?: return
-        commit(d.copy(dims = d.dims.map { if (it.name == dim.name) dim else it }))
+        commit(d.withDims(d.dims.map { if (it.name == dim.name) dim else it }))
     }
 
     fun removeDim(name: String) {
         val d = design ?: return
-        var next = d.copy(dims = d.dims.filter { it.name != name })
+        val value = d.dim(name)?.value ?: 0.0
+        // Sketch lengths that followed it keep its value.
+        var next = d.copy(dims = d.dims.filter { it.name != name }).mapShapes { s ->
+            val sk = s.sketch
+            if (sk == null || sk.cons.none { it.dim == name }) s
+            else s.copy(sketch = sk.copy(cons = sk.cons.map { if (it.dim == name) it.copy(value = value, dim = null) else it }))
+        }
         d.shapes.flatMap { it.all().toList() }.filter { s -> s.bind.containsValue(name) }.forEach { s ->
             next = next.update(s.id) { sh ->
                 sh.bind.filterValues { it == name }.keys.fold(sh) { acc, f -> setRaw(acc, f, current(d, s, f)) }.copy(bind = sh.bind.filterValues { it != name })
@@ -355,14 +346,7 @@ class ShapeController(private val store: Store, private val scad: ScadController
         return d.value(s, field, raw)
     }
 
-    private fun identifier(label: String, d: ShapeDesign): String {
-        val base = label.trim().lowercase().replace(Regex("[^a-z0-9_]+"), "_").trim('_')
-            .let { if (it.isEmpty() || it[0].isDigit()) "d_$it" else it }
-        var name = base
-        var i = 2
-        while (d.dim(name) != null) name = base + "_" + i++
-        return name
-    }
+    private fun identifier(label: String, d: ShapeDesign) = Dim.ident(label) { d.dim(it) != null }
 
     companion object {
         fun snap(v: Double, grid: Double = 1.0) = Math.round(v / grid) * grid

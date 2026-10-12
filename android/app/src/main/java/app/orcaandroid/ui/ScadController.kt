@@ -178,7 +178,7 @@ class ScadController(private val store: Store) {
         refreshParams(300)
         saveDraft()
         // A dimension change is a Customizer-like change: the object on the plate follows.
-        pushToPlate = s.shapes?.let { it.shapes == design.shapes && it.dims != design.dims } == true
+        pushToPlate = s.shapes?.let { it.dims != design.dims && it.withDims(design.dims) == design } == true
         if (st?.autoRender == true) preview(500)
     }
 
@@ -205,7 +205,7 @@ class ScadController(private val store: Store) {
         // Shape designs keep slider values in their dimensions.
         val sd = st?.shapes
         if (sd != null && value is Double && sd.dim(p.name) != null) {
-            setShapes(sd.copy(dims = sd.dims.map { if (it.name == p.name) it.copy(value = value) else it }), st?.selected.orEmpty())
+            setShapes(sd.withDims(sd.dims.map { if (it.name == p.name) it.copy(value = value) else it }), st?.selected.orEmpty())
             return
         }
         if (st?.value(p) == value) return

@@ -644,6 +644,21 @@
     <string name="sketch_diameter">Ø %1$s mm</string>
     <string name="sketch_wh">%1$s × %2$s mm</string>
     <string name="sketch_length">%1$s mm</string>
+    <string name="sketch_side_length">Length</string>
+    <string name="sketch_chord">Corner to corner</string>
+    <string name="sketch_fixed">%1$s (fixed)</string>
+    <string name="sketch_free_length">Free the length</string>
+    <string name="sketch_level">Level</string>
+    <string name="sketch_plumb">Plumb</string>
+    <string name="sketch_equal_to">Equal to…</string>
+    <string name="sketch_parallel_to">Parallel to…</string>
+    <string name="sketch_pair_equal">Tap the side that should be as long as this one</string>
+    <string name="sketch_pair_parallel">Tap the side that should be parallel to this one</string>
+    <string name="sketch_remove_constraint">Remove</string>
+    <plurals name="sketch_unmet">
+        <item quantity="one">%1$d constraint can\'t hold (they fight each other)</item>
+        <item quantity="other">%1$d constraints can\'t all hold (they fight each other)</item>
+    </plurals>
     <string name="shape_undo">Undo (Ctrl+Z)</string>
     <string name="shape_redo">Redo (Ctrl+Y)</string>
     <string name="shape_duplicate">Duplicate (Ctrl+D)</string>

@@ -164,6 +164,20 @@ data class Dim(val name: String, val value: Double, val min: Double, val max: Do
 
     companion object {
         fun of(o: JSONObject) = Dim(o.optString("name"), o.optDouble("value"), o.optDouble("min", 0.0), o.optDouble("max", 100.0), o.optDouble("step", 1.0))
+
+        /** An OpenSCAD name made from [label] that isn't [taken] yet ("Box 1 width" -> box_1_width). */
+        fun ident(label: String, taken: (String) -> Boolean): String {
+            val base = label.trim().lowercase().replace(Regex("[^a-z0-9_]+"), "_").trim('_')
+                .let { if (it.isEmpty() || it[0].isDigit()) "d_$it" else it }
+            var name = base
+            var i = 2
+            while (taken(name)) name = base + "_" + i++
+            return name
+        }
+
+        /** A new slider for a length of [v] mm (or a position / angle when [signed]). */
+        fun forLength(name: String, v: Double, signed: Boolean = false, angle: Boolean = false) =
+            Dim(name, v, if (signed) minOf(v, -100.0) else 0.0, if (angle) 360.0 else maxOf(100.0, Math.ceil(v * 2 / 10) * 10), 1.0)
     }
 }
 
@@ -193,6 +207,26 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
         if (this.id == id) f(this) else if (children.isEmpty()) this else copy(children = children.map { it.updated(id, f) })
 
     fun dim(name: String) = dims.firstOrNull { it.name == name }
+
+    /** [f] applied to every shape, groups' children included. */
+    fun mapShapes(f: (Shape) -> Shape): ShapeDesign {
+        fun m(s: Shape): Shape = f(if (s.children.isEmpty()) s else s.copy(children = s.children.map(::m)))
+        return copy(shapes = shapes.map(::m))
+    }
+
+    /**
+     * The design with the sliders [next]: sketches with a side length that follows a changed slider are
+     * solved again, their boxes kept to the same scale.
+     */
+    fun withDims(next: List<Dim>): ShapeDesign {
+        val changed = next.filter { n -> dim(n.name)?.value != n.value }.map { it.name }.toSet()
+        val d = copy(dims = next)
+        if (changed.isEmpty()) return d
+        return d.mapShapes { s ->
+            val sk = s.sketch
+            if (sk == null || sk.cons.none { it.dim in changed }) s else fitSketch(s, sk.solve({ d.dim(it)?.value }), keepScale = true)
+        }
+    }
 
     /** The value a field has now: its dimension's value when bound. */
     fun value(s: Shape, field: String, raw: Double): Double = s.bind[field]?.let { dim(it)?.value } ?: raw
@@ -465,6 +499,29 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
             if (deg.y != 0.0) { val a = Math.toRadians(deg.y); val c = cos(a); val s = sin(a); val nx = x * c + z * s; z = -x * s + z * c; x = nx }
             if (deg.z != 0.0) { val a = Math.toRadians(deg.z); val c = cos(a); val s = sin(a); val nx = x * c - y * s; y = x * s + y * c; x = nx }
             return D3(x, y, z)
+        }
+
+        /**
+         * Sketch shape [s] with the drawing [sketch]: its box takes the drawing's size, 1:1 (or, with
+         * [keepScale], at the box's current scale), and the unchanged part of the drawing stays in place.
+         */
+        fun fitSketch(s: Shape, sketch: Sketch, keepScale: Boolean = false): Shape {
+            val (lo, hi) = sketch.bounds() ?: return s.copy(sketch = sketch)
+            val old = s.sketch?.bounds()
+            val revolve = s.x(Shape.REVOLVE, 0.0) != 0.0
+            fun box(lo: P2, hi: P2) = if (revolve) D3(2 * max(0.5, hi.x), 2 * max(0.5, hi.x), max(0.5, hi.y - lo.y))
+                else D3(max(0.5, hi.x - lo.x), max(0.5, hi.y - lo.y), s.size.z)
+            val now = box(lo, hi)
+            val k = if (keepScale && old != null) box(old.first, old.second).let { b -> D3(s.size.x / b.x, s.size.y / b.y, s.size.z / b.z) }
+                else D3(1.0, 1.0, 1.0)
+            if (revolve) return s.copy(sketch = sketch, size = D3(now.x * k.x, now.y * k.y, now.z * k.z))
+            var pos = s.pos
+            if (old != null) {
+                // The box centre follows the drawing's centre.
+                val shift = D3((lo.x + hi.x - old.first.x - old.second.x) / 2 * k.x, (lo.y + hi.y - old.first.y - old.second.y) / 2 * k.y, 0.0)
+                pos += rotate(shift, D3(0.0, 0.0, s.rot.z))
+            }
+            return s.copy(sketch = sketch, pos = pos, size = D3(now.x * k.x, now.y * k.y, s.size.z))
         }
 
         /** A new shape of [kind] with a default size, standing on the workplane at [at]. */

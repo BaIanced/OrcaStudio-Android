@@ -103,8 +103,8 @@ fun ShapesTab(s: ScadEditorState, vm: AppViewModel) {
     sketching?.let { id ->
         val shape = d.find(id)
         if (shape == null) sketching = null
-        else SketchEditor(shape.sketch ?: Sketch.START, shape.x(Shape.REVOLVE, 0.0) != 0.0,
-            onDone = { sh.setSketch(id, it); sketching = null }, onCancel = { sketching = null })
+        else SketchEditor(shape.sketch ?: Sketch.START, shape.x(Shape.REVOLVE, 0.0) != 0.0, d.dims, shape.name,
+            onDone = { s, dims -> sh.setSketch(id, s, dims); sketching = null }, onCancel = { sketching = null })
     }
     Column(
         Modifier.fillMaxSize().focusRequester(focus).focusable().onKeyEvent { e ->
