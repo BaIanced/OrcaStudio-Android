@@ -82,6 +82,9 @@ class ScadController(private val store: Store) {
     private var previewStl: File? = null
     private var previewKey: String? = null
 
+    /** Path of the STL the current preview mesh was read from, for [design_snapshot]; null when none rendered. */
+    val previewStlPath: String? get() = previewStl?.takeIf { it.isFile }?.path
+
     private val st get() = store.value.scad
 
     private fun set(transform: (ScadEditorState) -> ScadEditorState) =

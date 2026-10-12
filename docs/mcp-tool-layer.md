@@ -1,6 +1,9 @@
 # AI tool layer: MCP server in the app (design note)
 
-Status: milestones 1-2 built (2026-10-12: server, token, read tools, shape / dim / sketch edit tools, `design_preview`, `design_to_plate` with Allow / Deny; `ai/McpServer.kt`, `ai/McpTools.kt`). Not built yet: Undo action in the "AI: ..." toast, "AI connected" chip, milestones 3-4. Roadmap step 2 after the shape builder.
+Status: milestones 1-3 built (2026-10-12: server, token, read tools, shape / dim / sketch edit tools, `design_preview`,
+`design_to_plate` with Allow / Deny; milestone 3 adds `design_snapshot` (PNG via the `snapshot` engine call) and
+`plate_describe`; `ai/McpServer.kt`, `ai/McpTools.kt`). Not built yet: Undo action in the "AI: ..." toast, "AI connected"
+chip, milestone 4 (plate edit tools, then settings tools). Roadmap step 2 after the shape builder.
 
 Goal: let an AI client (Claude Code, Claude Desktop, any MCP client) model with the shape builder
 and inspect the plate **without the user writing code**, while every risky action stays behind an
@@ -66,18 +69,24 @@ mesh, group` (`:88-90`).
 Selection-based controller calls (`resize`, `turn`, `align`, ...) take explicit `ids` in the tool
 and select them first, so the AI never depends on what the user tapped.
 
-`design_snapshot`: v1 reuses the native CPU renderer `render_thumbnail` (`core/jni/Thumbnails.cpp:49`,
+`design_snapshot`: reuses the native CPU renderer `render_thumbnail` (`core/jni/Thumbnails.cpp:49`,
 already used for 3MF plate thumbnails at `OrcaProject.cpp:154`). It takes a `Model`, while the
-preview mesh comes from `ScadService` (separate `:scad` process), so the new engine call loads the
-preview STL into a temporary `Model` and renders that. Cheapest-first rule: the client should prefer `design_describe`, then `design_get`,
-and ask for a PNG only when shape matters.
+preview mesh comes from `ScadService` (separate `:scad` process), so the new `snapshot` engine call
+(`OrcaEngine::snapshot`, `OrcaProject.cpp`; dispatch `EngineCalls.cpp` key `snapshot`) loads the preview STL into a
+temporary `Model`, renders it, PNG-compresses with `GCodeThumbnails::compress_thumbnail` (which flips the bottom-up
+pixels upright) and base64s it. The tool runs `scad.preview()` to refresh, then reads the STL via
+`ScadController.previewStlPath` and returns MCP `image` content (base64 passes straight through, no re-encode) plus a
+one-line caption. It reuses the single `OrcaNative.call` JNI export, so the CI JNI-export count is unchanged.
+Cheapest-first rule: the client should prefer `design_describe`, then `design_get`, and ask for a PNG only when shape
+matters.
 
 ## Tools v2 (plate / engine, read first)
 
-Read: `scene` (`EngineCalls.cpp:73`), plate list, object list with sizes, current printer /
-filament / process names, slice estimate if sliced. Edit (undoable through engine `undo`, `:108`):
-`arrange`, `setTransform`, `duplicate`, `layOnFace`, `autoOrient`. All through the existing
-`AppViewModel` paths, not new raw calls.
+Read (built): `plate_describe` — printer / process / filament names, each plate's objects with their on-plate size (mm)
+and triangle count, and the slice estimate (time, grams, metres) when sliced. It reads `Store`'s `UiState` (`scene`,
+`printer`, `print`, `filaments`, `activePlate`, `results`), not raw engine calls, so it stays in step with the UI.
+Edit (not built; undoable through engine `undo`): `arrange`, `setTransform`, `duplicate`, `layOnFace`, `autoOrient`,
+all through the existing controller paths.
 
 ## Confirm-on-screen rules
 
@@ -100,7 +109,7 @@ filament / process names, slice estimate if sliced. Edit (undoable through engin
 1. Server skeleton: toggle, token, `initialize` / `tools/list` / `tools/call`, `design_get`,
    `design_describe`, `design_set`. Test: `adb forward` + curl, then Claude Code.
 2. Shape edit tools + `design_preview` + confirm dialog (`design_to_plate`).
-3. `design_snapshot` (new engine call), plate read tools.
+3. `design_snapshot` (new engine call), plate read tools. **Built 2026-10-12** (`snapshot` engine call, `plate_describe`).
 4. Plate edit tools; then settings tools (roadmap step 3).
 
 ## Open questions

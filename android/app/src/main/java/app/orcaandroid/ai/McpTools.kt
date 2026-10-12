@@ -23,7 +23,8 @@ import org.json.JSONObject
  */
 class McpTools(private val store: Store, private val scad: ScadController, private val shapes: ShapeController) {
 
-    private class Tool(val name: String, val description: String, val schema: JSONObject, val run: suspend (JSONObject) -> String)
+    /** [run] returns the reply text, or a ready-made `content` [JSONArray] (e.g. an image) for [reply]. */
+    private class Tool(val name: String, val description: String, val schema: JSONObject, val run: suspend (JSONObject) -> Any)
 
     private class ToolError(message: String) : Exception(message)
 
@@ -42,6 +43,9 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         Tool("design_describe", "Read: the open design as a short indented text tree (id, kind, name, size, position, " +
             "rotation, hole, repeat, dimension bindings, bounds). Cheapest way to see the design; prefer it over design_get.$OPENS",
             obj()) { describe() },
+        Tool("design_snapshot", "Read: a small PNG picture of the open design, rendered from the current preview (shaded, " +
+            "seen from the front-left above). Use it only when the shape matters; design_describe is far cheaper.$OPENS",
+            obj(emptyList(), "size" to p("integer", "Image size in px (square), 128..1024; default 512"))) { snapshot(it) },
         Tool("design_set", "Edit: replaces the whole shape-builder design.$OPENS " +
             "Prefer the shape_* tools for small changes. $EDIT Units: mm and degrees. $FORMAT",
             obj(listOf("design"), "design" to p("object", "The whole design: {shapes: [...], dims: [...]} as returned by design_get."))) { set(it) },
@@ -108,6 +112,10 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         },
         Tool("design_preview", "Read: renders the open design in the app's preview (OpenSCAD) and waits for it. Returns " +
             "the status, the result's size and OpenSCAD errors / warnings. Use it to check a design after editing.", obj()) { preview() },
+        Tool("plate_describe", "Read: the print set-up and plate(s): the chosen printer, process and filaments, then for " +
+            "each plate its objects with their on-plate size in mm (and the slice estimate when it has been sliced). This is " +
+            "the plate the user prints; the design_* tools show the shape-builder design, which is separate until design_to_plate.",
+            obj()) { plateDescribe() },
         Tool("design_to_plate", "Confirm: puts the open design on the active plate (replacing the object it made before). " +
             "Waits up to 60 s for the user to tap Allow in the app; fails with \"declined by the user\" otherwise.", obj()) { toPlate() },
     )
@@ -119,7 +127,10 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
     suspend fun call(name: String, args: JSONObject): JSONObject {
         val tool = tools.firstOrNull { it.name == name } ?: return reply("Unknown tool: $name", error = true)
         return try {
-            reply(tool.run(args))
+            when (val out = tool.run(args)) {
+                is JSONArray -> JSONObject().put("content", out)
+                else -> reply(out.toString())
+            }
         } catch (e: ToolError) {
             reply(e.message.orEmpty(), error = true)
         } catch (e: kotlinx.coroutines.CancellationException) {
@@ -191,6 +202,58 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             }
             val notes = st.log.lines().filter { l -> NOTE_WORDS.any { l.contains(it, ignoreCase = true) } }
             if (notes.isNotEmpty()) appendLine(notes.take(15).joinToString("\n"))
+        }
+    }
+
+    /** Renders the design's current preview to a PNG and returns it as MCP image content (plus a short caption). */
+    private suspend fun snapshot(args: JSONObject): JSONArray {
+        val size = if (args.has("size")) args.optInt("size").coerceIn(128, 1024) else 512
+        val (stl, caption) = withContext(Dispatchers.Main.immediate) {
+            editor()
+            scad.preview()
+            withTimeoutOrNull(RENDER_TIMEOUT) { scad.awaitIdle() } ?: throw ToolError("The preview takes longer than ${RENDER_TIMEOUT / 1000} s; try again later")
+            val st = store.value.scad ?: throw ToolError("The design editor was closed")
+            val path = scad.previewStlPath ?: throw ToolError(
+                if (st.statusError) "Nothing to show: ${st.status.orEmpty()}" else "Nothing to show: the design is empty.")
+            path to buildString {
+                append("Design \"${st.name}\"")
+                st.preview?.let { m -> append(", ${n(m.size.x.toDouble())} x ${n(m.size.y.toDouble())} x ${n(m.size.z.toDouble())} mm") }
+                if (st.previewStale) append(" (the preview is out of date; run design_preview to refresh it)")
+            }
+        }
+        val png = store.engine.snapshotPng(stl, size)
+        return JSONArray()
+            .put(JSONObject().put("type", "image").put("data", png).put("mimeType", "image/png"))
+            .put(JSONObject().put("type", "text").put("text", caption))
+    }
+
+    private suspend fun plateDescribe(): String = withContext(Dispatchers.Main.immediate) {
+        val s = store.value
+        buildString {
+            appendLine("Printer: ${s.printer ?: "(none selected)"}")
+            appendLine("Process: ${s.print ?: "(none)"}")
+            if (s.filaments.isEmpty()) appendLine("Filaments: (none)")
+            else s.filaments.forEachIndexed { i, f -> appendLine("Filament ${i + 1}: ${f.preset}${f.color?.let { c -> " ($c)" } ?: ""}") }
+            val scene = s.scene
+            if (scene.objects.isEmpty()) { append("The plate is empty."); return@buildString }
+            for (plate in scene.plates) {
+                val objs = scene.objectsOn(plate.index)
+                append("Plate ${plate.index + 1}")
+                if (plate.index == s.activePlate) append(" (active)")
+                if (plate.bedType.isNotEmpty()) append(", ${plate.bedType}")
+                appendLine(": ${objs.size} object(s)")
+                objs.forEach { o ->
+                    val here = o.instances.filter { it.plate == plate.index }
+                    append("  ${o.name}")
+                    if (here.size > 1) append(" x${here.size}")
+                    here.firstOrNull()?.size?.let { z -> append(" — ${n(z.x.toDouble())} x ${n(z.y.toDouble())} x ${n(z.z.toDouble())} mm") }
+                    appendLine(", ${o.triangles} triangles")
+                }
+                s.results[plate.index]?.let { r ->
+                    appendLine("  sliced: ${duration(r.printTimeSeconds)}, ${n(r.filamentGrams)} g, ${n(r.filamentMm / 1000.0)} m filament")
+                }
+            }
+            scene.outsideCount.takeIf { it > 0 }?.let { append("$it object(s) are off the plate.") }
         }
     }
 
@@ -417,6 +480,12 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         D3(a.getDouble(0), a.getDouble(1), a.getDouble(2))
     }
 
+    private fun duration(seconds: Double): String {
+        val total = seconds.toLong().coerceAtLeast(0)
+        val h = total / 3600; val m = (total % 3600) / 60
+        return if (h > 0) "${h}h ${m}m" else "${m}m"
+    }
+
     private fun flag(x: Double) = if (x != 0.0) 1.0 else 0.0
     private fun ref(ids: List<Int>) = ids.joinToString { "#$it" }
     private fun n(x: Double) = ShapeDesign.n(x)
@@ -475,8 +544,9 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
 
         const val INSTRUCTIONS = "OrcaStudio-Android (3D printing slicer). These tools edit the shape-builder design open in the " +
             "app's design editor (OpenSCAD is generated from it). Read with design_describe first (cheapest), design_get for " +
-            "the JSON. Change it with the shape_* / dim_* / sketch_set tools (or design_set for a whole new design), check " +
-            "with design_preview, and ask design_to_plate to put it on the plate (the user confirms on screen). Every " +
-            "edit is one undo step the user can revert in the app."
+            "the JSON, design_snapshot for a picture when shape matters. Change it with the shape_* / dim_* / sketch_set tools " +
+            "(or design_set for a whole new design), check with design_preview, and ask design_to_plate to put it on the plate " +
+            "(the user confirms on screen). plate_describe shows the print set-up and the plate itself (separate from the design). " +
+            "Every edit is one undo step the user can revert in the app."
     }
 }

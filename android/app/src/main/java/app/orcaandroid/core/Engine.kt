@@ -188,6 +188,9 @@ class Engine(private val cacheDir: File) {
         )
     }
     suspend fun exportStl(path: String, plate: Int) { call("exportStl", args("path" to path, "plate" to plate)) }
+    /** Renders a mesh file (e.g. the OpenSCAD preview STL) to a square PNG; returns its base64 (as MCP image data wants it). */
+    suspend fun snapshotPng(stlPath: String, size: Int): String =
+        call("snapshot", args("stl" to stlPath, "size" to size)).getString("png")
     /** [sliced]: the slice result's G-code when [gcode] is a post-processed copy of it (for slice_info.config). */
     suspend fun exportGcode3mf(plate: Int, gcode: String, path: String, sliced: String = gcode) {
         call("exportGcode3mf", args("plate" to plate, "gcode" to gcode, "path" to path, "sliced" to sliced))

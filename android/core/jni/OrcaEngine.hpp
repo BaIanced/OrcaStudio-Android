@@ -209,6 +209,10 @@ public:
     json export_gcode_3mf(int plate, const std::string &gcode, const std::string &path, const std::string &sliced);
     // Writes the objects of `plate` (or all for plate < 0) as one binary STL.
     json export_stl(const std::string &path, int plate);
+    // Renders a mesh file (e.g. the OpenSCAD preview STL) to a square PNG with the CPU thumbnailer
+    // (no scene state needed). `size` px is clamped to 128..1024. Returns { "png" (base64), "width",
+    // "height" }. Used by the AI tool layer's design_snapshot.
+    json snapshot(const std::string &path, int size);
     // Imports user presets (.json / .zip / .orca_printer / .orca_filament ...).
     json import_presets(const std::vector<std::string> &paths);
     // Loads the user's cloud presets like the desktop's cloud sync and saves them as user presets.
