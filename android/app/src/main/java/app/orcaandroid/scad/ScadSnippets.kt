@@ -130,6 +130,11 @@ object ScadSnippets {
      * place of an empty line), indented like it. Returns the new text and cursor position.
      */
     fun insert(text: String, selStart: Int, selEnd: Int, snippet: ScadSnippet): Pair<String, Int> {
+        // No cursor placed yet (a fresh editor sits at 0, inside the header comment): append.
+        if (selStart == 0 && selEnd == 0 && text.isNotBlank()) {
+            val head = text.trimEnd() + "\n\n"
+            return head + snippet.code + "\n" to head.length + snippet.code.length
+        }
         val a = minOf(selStart, selEnd).coerceIn(0, text.length)
         val b = maxOf(selStart, selEnd).coerceIn(0, text.length)
         val lineStart = text.lastIndexOf('\n', a - 1) + 1
@@ -171,7 +176,8 @@ object ScadSnippets {
     }
 
     private val ANNOTATED = Regex("""^\s*[A-Za-z_]\w*\s*=[^;]*;\s*//\s*\[.*$""")
-    private val STOP = Regex("""^\s*(module|function)\b|^\s*/\*\s*\[\s*Hidden\s*]\s*\*/""", RegexOption.IGNORE_CASE)
+    // The Customizer stops at the first module / function, the hidden section or the first shape.
+    private val STOP = Regex("""^\s*(module|function)\b|^\s*/\*\s*\[\s*Hidden\s*]\s*\*/|^\s*[A-Za-z_]\w*\s*\(""", RegexOption.IGNORE_CASE)
 
     /**
      * Adds a Customizer slider for a new variable. It goes after the last slider (above the hidden
