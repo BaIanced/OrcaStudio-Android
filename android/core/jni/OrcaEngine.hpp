@@ -60,9 +60,12 @@ public:
 
     // Selects the printer and returns the compatible process/filament presets and bed geometry:
     // { "prints": [...], "filaments": [...], "bed": [[x,y]...], "max_height": h,
-    //   "default_print": name, "default_filament": name, "bed_types": [...] }
+    //   "default_print": name, "default_filament": name, "bed_types": [...], "default_bed_type": name }
     // The scene is kept.
     json select_printer(const std::string &printer);
+    // The plate type plates without their own use, when the printer has it (empty: the printer's
+    // default, as on the desktop). Returns { "default_bed_type" } for the selected printer.
+    json set_default_bed_type(const std::string &bed_type);
 
     // type is "print", "filament" or "printer".
     json option_defs(const std::string &type);
@@ -270,6 +273,11 @@ private:
     OrcaEngine();
     ~OrcaEngine();
 
+    // The selected printer has plate types (Bambu Lab, or support_multi_bed_types).
+    bool has_bed_types() const;
+    // Plate type of a plate without its own: the user's choice, else the printer's; empty without plate types.
+    std::string default_bed_type() const;
+
     struct PlateInfo
     {
         std::string bed_type; // empty: printer/filament default
@@ -323,6 +331,7 @@ private:
     std::deque<Snapshot>                  m_undo, m_redo;
     size_t                                m_undo_limit = 200;
     std::string                           m_printer;
+    std::string                           m_preferred_bed_type; // set_default_bed_type
     std::string                           m_mesh_path;
     std::string                           m_paint_path;
     // Ray-cast acceleration per volume mesh, dropped whenever the scene changes (commit()).

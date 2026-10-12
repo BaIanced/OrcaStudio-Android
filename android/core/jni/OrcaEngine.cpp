@@ -246,16 +246,12 @@ json OrcaEngine::select_printer_locked(const std::string &printer)
 
     // Plate types (Cool Plate, Textured PEI, ...): Bambu Lab printers always have them, others only
     // when they declare them (as in the desktop's Plater).
-    json        bed_types = json::array();
-    std::string default_bed_type;
-    if (m_bundle->is_bbl_vendor() || cfg.opt_bool("support_multi_bed_types")) {
+    json bed_types = json::array();
+    if (has_bed_types())
         for (const auto &[name, value] : ConfigOptionEnum<BedType>::get_enum_values())
             if (value != btDefault)
                 bed_types.push_back(name);
-        default_bed_type = cfg.has("default_bed_type") ? cfg.opt_string("default_bed_type") : std::string();
-        if (default_bed_type.empty())
-            default_bed_type = print_config_def.get("curr_bed_type")->default_value->serialize();
-    }
+    const std::string default_bed_type = this->default_bed_type();
 
     return {{"prints", compatible_names(m_bundle->prints)},
             {"filaments", compatible_names(m_bundle->filaments)},
@@ -265,6 +261,31 @@ json OrcaEngine::select_printer_locked(const std::string &printer)
             {"default_filament", default_filament},
             {"bed_types", bed_types},
             {"default_bed_type", default_bed_type}};
+}
+
+bool OrcaEngine::has_bed_types() const
+{
+    return m_bundle->is_bbl_vendor() || m_bundle->printers.get_selected_preset().config.opt_bool("support_multi_bed_types");
+}
+
+std::string OrcaEngine::default_bed_type() const
+{
+    if (!has_bed_types())
+        return {};
+    BedType preferred;
+    if (!m_preferred_bed_type.empty() && ConfigOptionEnum<BedType>::from_string(m_preferred_bed_type, preferred) &&
+        preferred > btDefault && preferred < btCount)
+        return m_preferred_bed_type;
+    // Like the desktop: the printer's default_bed_type, else by model (Cool Plate for X1 / P1, PEI for the rest).
+    Preset &printer = m_bundle->printers.get_selected_preset();
+    return ConfigOptionEnum<BedType>(printer.get_default_bed_type(m_bundle.get())).serialize();
+}
+
+json OrcaEngine::set_default_bed_type(const std::string &bed_type)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    m_preferred_bed_type = bed_type;
+    return {{"default_bed_type", m_bundle && !m_printer.empty() ? default_bed_type() : std::string()}};
 }
 
 PresetCollection &OrcaEngine::collection(const std::string &type)
@@ -532,11 +553,11 @@ json OrcaEngine::slice(int plate, const std::string &gcode_out, const std::strin
         throw std::runtime_error("This plate is empty");
 
     DynamicPrintConfig config = selection_config();
-    // The plate's own type, else the printer's default (the UI shows the latter for "default").
+    // The plate's own type, else the default the UI shows for it (default_bed_type()).
     if (!m_plates[plate].bed_type.empty())
         config.set_deserialize_strict("curr_bed_type", m_plates[plate].bed_type);
-    else if (config.has("default_bed_type") && !config.opt_string("default_bed_type").empty())
-        config.set_deserialize_strict("curr_bed_type", config.opt_string("default_bed_type"));
+    else if (const std::string def = default_bed_type(); !def.empty())
+        config.set_deserialize_strict("curr_bed_type", def);
     if (m_plates[plate].has_wipe_tower_pos) {
         config.option<ConfigOptionFloats>("wipe_tower_x", true)->values = {m_plates[plate].wipe_tower_x};
         config.option<ConfigOptionFloats>("wipe_tower_y", true)->values = {m_plates[plate].wipe_tower_y};

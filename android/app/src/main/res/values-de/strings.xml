@@ -99,6 +99,10 @@
     <string name="filament">Filament</string>
     <string name="filament_vendors">Filament-Hersteller</string>
     <string name="filament_vendors_text">Welche Hersteller in den Filamentlisten erscheinen</string>
+    <string name="plate_types">Druckplatten</string>
+    <string name="plate_types_text">Welche Druckplatten in den Listen erscheinen und welche Standard ist</string>
+    <string name="plate_types_hint">Angehakte Platten erscheinen in den Listen. Der gewählte Kreis ist die Platte, die neue Platten verwenden, bis du eine andere wählst.</string>
+    <string name="plate_type_printer_default">Standard des Druckers</string>
     <string name="n_selected">%d ausgewählt</string>
     <string name="select_all">Alle auswählen</string>
     <string name="select_mode_hint">Tippe auf Objekte, um sie auszuwählen</string>

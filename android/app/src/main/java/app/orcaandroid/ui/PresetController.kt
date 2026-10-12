@@ -41,6 +41,14 @@ class PresetController(private val store: Store, private val device: DeviceContr
         store.update { it.copy(phase = Phase.READY) }
     }
 
+    /** Plate types shown in the pickers and the default of plates without their own ("" = the printer's). */
+    fun setPlateTypes(hidden: Set<String>, preferred: String) = store.launch {
+        settings.hiddenBedTypes = hidden
+        settings.preferredBedType = preferred
+        val default = engine.setDefaultBedType(preferred)
+        store.update { s -> s.copy(hiddenBedTypes = hidden, preferredBedType = preferred, setup = s.setup?.copy(defaultBedType = default)) }
+    }
+
     fun setHiddenFilamentVendors(vendors: Set<String>) {
         settings.hiddenFilamentVendors = vendors
         store.update { it.copy(hiddenFilamentVendors = vendors) }
@@ -63,10 +71,17 @@ class PresetController(private val store: Store, private val device: DeviceContr
 
     /** Activates printer [name] with [print] and [filaments] if given, else the ones last used with it. */
     suspend fun selectPrinterNow(name: String, print: String? = null, filaments: List<FilamentSlot>? = null) {
+        engine.setDefaultBedType(settings.preferredBedType)
         val setup = engine.selectPrinter(name)
         settings.lastPrinter = name
         // A user printer preset shares the connection and loaded filaments of the system preset it inherits.
-        val base = store.value.printers.firstOrNull { it.name == name }?.base.orEmpty()
+        // One without a system parent (detached, or made where its parent isn't installed) falls back to the
+        // system preset of the same printer model and nozzle, else it would lose them.
+        val info = store.value.printers.firstOrNull { it.name == name }
+        val base = info?.base?.ifEmpty { null }
+            ?: info?.takeIf { !it.system && it.model.isNotEmpty() }?.let { u ->
+                store.value.printers.firstOrNull { it.system && it.model == u.model && abs(it.nozzle - u.nozzle) < 1e-3 }?.name
+            }.orEmpty()
         settings.setPrinterBase(name, base)
         val p = print?.takeIf { n -> setup.prints.any { it.name == n } }
             ?: (settings.lastPrint(name) ?: base.takeIf { it.isNotEmpty() }?.let(settings::lastPrint))?.takeIf { n -> setup.prints.any { it.name == n } }

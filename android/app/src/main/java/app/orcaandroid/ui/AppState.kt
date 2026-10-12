@@ -125,6 +125,9 @@ data class UiState(
     val overrides: Map<PresetType, Map<String, String>> = emptyMap(),
     val optionStates: OptionStates = OptionStates(),
     val hiddenFilamentVendors: Set<String> = emptySet(),
+    /** Plate types left out of the plate type pickers, and the user's default one ("" = the printer's). */
+    val hiddenBedTypes: Set<String> = emptySet(),
+    val preferredBedType: String = "",
     val editor: EditorTarget? = null,
     val showPrinterSetup: Boolean = false,
 
@@ -219,6 +222,12 @@ data class UiState(
 
     /** Process options printers without multiple plate types never see. */
     val supportsBedTypes get() = setup?.bedTypes?.isNotEmpty() == true
+
+    /** Plate type [plate] slices with: its own, else the default. */
+    fun bedTypeOf(plate: Int): String? = scene.plates.getOrNull(plate)?.bedType?.ifEmpty { null } ?: setup?.defaultBedType
+
+    /** Plate types the pickers offer: the visible ones, plus [current] even when hidden. */
+    fun bedTypeChoices(current: String?): List<String> = setup?.bedTypes.orEmpty().filter { it !in hiddenBedTypes || it == current }
 
     val selectedPrinterKeys get() = printers.filter { it.name == printer }.map { printerKey(it.model, it.nozzle) }
 

@@ -29,6 +29,9 @@ class Engine(private val cacheDir: File) {
     suspend fun loadPresets(): List<PrinterInfo> = parsePrinters(call("loadPresets"))
     suspend fun printerList(): List<PrinterInfo> = parsePrinters(call("printerList"))
     suspend fun selectPrinter(name: String): PrinterSetup = parseSetup(call("selectPrinter", args("printer" to name)))
+    /** Plate type of plates without their own ("" = the printer's default); returns the selected printer's resulting default. */
+    suspend fun setDefaultBedType(bedType: String): String =
+        call("setDefaultBedType", args("bedType" to bedType)).optString("default_bed_type")
 
     private val defsCache = HashMap<PresetType, List<OptionDef>>()
 

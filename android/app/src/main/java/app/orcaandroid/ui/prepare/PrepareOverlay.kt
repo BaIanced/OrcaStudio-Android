@@ -267,17 +267,17 @@ private fun PlateMenu(state: UiState, vm: AppViewModel, plate: Int, onDismiss: (
         DropdownMenuItem(text = { Text(stringResource(R.string.slice_plate)) }, onClick = { onDismiss(); vm.slicing.slice(plate) })
         DropdownMenuItem(text = { Text(stringResource(R.string.arrange_plate)) }, onClick = { onDismiss(); vm.scene.arrange(false) })
         if (state.supportsBedTypes) {
-            val current = state.scene.plates.getOrNull(plate)?.bedType?.ifEmpty { null } ?: state.setup?.defaultBedType.orEmpty()
-            DropdownMenuItem(text = { Text(stringResource(R.string.plate_type) + ": " + vm.translator.tr(current)) }, onClick = { bedPicker = true })
+            DropdownMenuItem(text = { Text(stringResource(R.string.plate_type) + ": " + vm.translator.tr(state.bedTypeOf(plate).orEmpty())) },
+                onClick = { bedPicker = true })
         }
         DropdownMenuItem(text = { Text(stringResource(R.string.layer_gcodes)) }, onClick = { gcodes = true })
         if (state.scene.plates.size > 1)
             DropdownMenuItem(text = { Text(stringResource(R.string.delete_plate)) }, onClick = { confirmDelete = true })
     }
     if (bedPicker) {
-        PickerDialog(stringResource(R.string.plate_type),
-            state.scene.plates.getOrNull(plate)?.bedType?.ifEmpty { null } ?: state.setup?.defaultBedType,
-            state.setup?.bedTypes.orEmpty().map { PickerItem(it, vm.translator.tr(it)) }, onDismiss = { bedPicker = false; onDismiss() }) {
+        val current = state.bedTypeOf(plate)
+        PickerDialog(stringResource(R.string.plate_type), current,
+            state.bedTypeChoices(current).map { PickerItem(it, vm.translator.tr(it)) }, onDismiss = { bedPicker = false; onDismiss() }) {
             bedPicker = false; onDismiss(); vm.scene.setPlateBedType(plate, it)
         }
     }

@@ -118,6 +118,10 @@
     <string name="filament">Filament</string>
     <string name="filament_vendors">Filament brands</string>
     <string name="filament_vendors_text">Choose which brands appear in the filament lists</string>
+    <string name="plate_types">Plate types</string>
+    <string name="plate_types_text">Which build plates appear in the plate lists, and the default one</string>
+    <string name="plate_types_hint">Ticked plates appear in the plate lists. The selected circle is the plate new plates use until you pick another.</string>
+    <string name="plate_type_printer_default">The printer\'s default</string>
     <string name="n_selected">%d selected</string>
     <string name="select_all">Select all</string>
     <string name="select_mode_hint">Tap objects to select them</string>

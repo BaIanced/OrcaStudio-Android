@@ -68,6 +68,16 @@ class AppSettings(context: Context) {
         get() = prefs.getStringSet("hidden_filament_vendors", emptySet()).orEmpty()
         set(value) = prefs.edit().putStringSet("hidden_filament_vendors", value).apply()
 
+    /** Plate types hidden from the plate type pickers (like [hiddenFilamentVendors]). */
+    var hiddenBedTypes: Set<String>
+        get() = prefs.getStringSet("hidden_bed_types", emptySet()).orEmpty()
+        set(value) = prefs.edit().putStringSet("hidden_bed_types", value).apply()
+
+    /** Plate type of plates without their own; "" = the printer's default. */
+    var preferredBedType: String
+        get() = prefs.getString("preferred_bed_type", null).orEmpty()
+        set(value) = prefs.edit().putString("preferred_bed_type", value).apply()
+
     var lastPrinter: String?
         get() = prefs.getString("printer", null)
         set(value) = prefs.edit().putString("printer", value).apply()

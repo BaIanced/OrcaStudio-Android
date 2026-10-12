@@ -29,6 +29,8 @@ class Store(val app: Application, val scope: CoroutineScope) {
             undoLimit = settings.undoLimit,
             autoSaveSeconds = settings.autoSaveSeconds,
             hiddenFilamentVendors = settings.hiddenFilamentVendors,
+            hiddenBedTypes = settings.hiddenBedTypes,
+            preferredBedType = settings.preferredBedType,
             recents = settings.recents,
         )
     )

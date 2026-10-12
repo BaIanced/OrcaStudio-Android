@@ -53,6 +53,7 @@ const std::unordered_map<std::string, Handler> &handlers()
         {"loadPresets", [](OrcaEngine &e, const json &) { return e.load_presets(); }},
         {"printerList", [](OrcaEngine &e, const json &) { return e.printer_list(); }},
         {"selectPrinter", [](OrcaEngine &e, const json &a) { return e.select_printer(a.at("printer")); }},
+        {"setDefaultBedType", [](OrcaEngine &e, const json &a) { return e.set_default_bed_type(a.value("bedType", std::string())); }},
         {"optionDefs", [](OrcaEngine &e, const json &a) { return json{{"defs", e.option_defs(a.at("type"))}}; }},
         {"presetValues", [](OrcaEngine &e, const json &a) { return e.preset_values(a.at("type"), a.at("name")); }},
         {"savePreset", [](OrcaEngine &e, const json &a) { return e.save_preset(a.at("type"), a.at("base"), a.at("name"), a.at("overrides")); }},
