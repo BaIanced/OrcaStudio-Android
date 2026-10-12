@@ -313,7 +313,8 @@ class ShapeController(private val store: Store, private val scad: ScadController
         val d = design ?: return
         val s = d.find(id) ?: return
         val ident = identifier(name, d)
-        val dim = Dim.forLength(ident, current(d, s, field), signed = field.startsWith("pos.") || field.startsWith("rot."), angle = field.startsWith("rot."))
+        val dim = Dim.forLength(ident, current(d, s, field), signed = field.startsWith("pos.") || field.startsWith("rot."),
+            angle = field.startsWith("rot.") || field == Shape.ANGLE, small = field in setOf(Shape.EDGE, Shape.SHELL, Shape.WALL))
         commit(d.copy(dims = d.dims + dim).update(id) { it.copy(bind = it.bind + (field to ident)) })
     }
 

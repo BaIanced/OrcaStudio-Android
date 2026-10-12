@@ -352,16 +352,18 @@ fun SketchEditor(initial: Sketch, revolve: Boolean, dims: List<Dim>, name: Strin
                         FilterChip(st.tool == t, { st.closeDraft(); st.tool = t }, label = { Text(stringResource(t.label)) })
                     }
                 }
-                SketchCanvas(st, revolve, Modifier.weight(1f).fillMaxWidth())
+                SketchCanvas(st, revolve, focus, Modifier.weight(1f).fillMaxWidth())
                 PickBar(st, name)
             }
         }
     }
-    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+    // The keys need the focus here: a number field that leaves with its pick would leave none, and Esc then
+    // closes the dialog (Cancel), losing the drawing.
+    LaunchedEffect(st.pick) { runCatching { focus.requestFocus() } }
 }
 
 @Composable
-private fun SketchCanvas(st: SketchState, revolve: Boolean, modifier: Modifier) {
+private fun SketchCanvas(st: SketchState, revolve: Boolean, focus: FocusRequester, modifier: Modifier) {
     val scheme = MaterialTheme.colorScheme
     val measurer = rememberTextMeasurer()
     var fitted by remember { mutableStateOf(false) }
@@ -386,6 +388,8 @@ private fun SketchCanvas(st: SketchState, revolve: Boolean, modifier: Modifier) 
                             ch.consume()
                         }
                         PointerEventType.Press -> if (down == null) {
+                            // Takes the keys back from a number field (which commits its text on leaving).
+                            runCatching { focus.requestFocus() }
                             down = ch.position
                             moved = false
                             target = if (st.tool == Tool.SELECT) st.hit(ch.position, slop) else null
@@ -603,7 +607,7 @@ private fun PickBar(st: SketchState, name: String) {
             TextButton(onClick = st::closeDraft) { Text(stringResource(R.string.sketch_close)) }
         }
         if (p == null || l == null) return@Column
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(Modifier.horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             when (p.what) {
                 Pick.What.POINT -> {
                     val q = l.pts[p.index]
@@ -614,7 +618,7 @@ private fun PickBar(st: SketchState, name: String) {
                 Pick.What.SIDE -> {
                     val k = l.bulgeAt(p.index)
                     NumberField(k.toFloat(), { v -> st.setLoop(p.loop, { lp -> lp.copy(bulge = lp.pts.indices.map { j -> if (j == p.index) v.toDouble().coerceIn(-3.0, 3.0) else lp.bulgeAt(j) }) }) },
-                        Modifier.width(130.dp), label = stringResource(R.string.sketch_bend))
+                        Modifier.width(190.dp), label = stringResource(R.string.sketch_bend))
                     TextButton(onClick = { st.setLoop(p.loop, { lp -> lp.copy(bulge = lp.pts.indices.map { j -> if (j == p.index) 0.0 else lp.bulgeAt(j) }) }) }, enabled = k != 0.0) {
                         Text(stringResource(R.string.sketch_straight))
                     }

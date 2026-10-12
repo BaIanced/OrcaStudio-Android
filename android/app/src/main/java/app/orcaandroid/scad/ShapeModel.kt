@@ -175,9 +175,10 @@ data class Dim(val name: String, val value: Double, val min: Double, val max: Do
             return name
         }
 
-        /** A new slider for a length of [v] mm (or a position / angle when [signed]). */
-        fun forLength(name: String, v: Double, signed: Boolean = false, angle: Boolean = false) =
-            Dim(name, v, if (signed) minOf(v, -100.0) else 0.0, if (angle) 360.0 else maxOf(100.0, Math.ceil(v * 2 / 10) * 10), 1.0)
+        /** A new slider for a length of [v] mm (or a position / angle when [signed]; an edge or wall, in 0.1 mm steps, when [small]). */
+        fun forLength(name: String, v: Double, signed: Boolean = false, angle: Boolean = false, small: Boolean = false) =
+            if (small) Dim(name, v, 0.0, maxOf(10.0, Math.ceil(v * 2)), 0.1)
+            else Dim(name, v, if (signed) minOf(v, -100.0) else 0.0, if (angle) maxOf(360.0, v) else maxOf(100.0, Math.ceil(v * 2 / 10) * 10), 1.0)
     }
 }
 
