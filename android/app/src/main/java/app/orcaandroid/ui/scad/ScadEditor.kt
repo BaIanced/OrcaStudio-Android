@@ -134,6 +134,8 @@ fun ScadPanel(s: ScadEditorState, vm: AppViewModel, onHide: (() -> Unit)? = null
     val codeTab = tabs.indexOf("code")
     val save = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/x-openscad")) { it?.let(vm.scad::save) }
     val open = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { it?.let(vm.scad::openUri) }
+    // Android adds no extension for an OpenSCAD MIME type, so a shape design ("Shape design") gets one here.
+    val saveName = if (s.name.endsWith(".scad", ignoreCase = true)) s.name else s.name + ".scad"
     BoxWithConstraints(Modifier.fillMaxSize()) {
     // The preview gets a share of the panel, so the code / Customizer keep most of a short one.
     val previewHeight = minOf(maxWidth * 0.62f, maxHeight * 0.3f).coerceIn(110.dp, 300.dp)
@@ -143,12 +145,12 @@ fun ScadPanel(s: ScadEditorState, vm: AppViewModel, onHide: (() -> Unit)? = null
             when {
                 e.key == Key.F5 || (e.isCtrlPressed && e.key == Key.Enter) -> { vm.scad.preview(); true }
                 e.key == Key.F6 -> { vm.scad.render(); true }
-                e.isCtrlPressed && e.key == Key.S -> { save.launch(s.name); true }
+                e.isCtrlPressed && e.key == Key.S -> { save.launch(saveName); true }
                 else -> false
             }
         },
     ) {
-        Header(s, vm, onHide, onOpen = { open.launch(arrayOf("*/*")) }, onSave = { save.launch(s.name) }, onNew = { templates = true })
+        Header(s, vm, onHide, onOpen = { open.launch(arrayOf("*/*")) }, onSave = { save.launch(saveName) }, onNew = { templates = true })
         PreviewBar(s, vm, previewOpen) { previewOpen = !previewOpen }
         if (previewOpen) ScadPreviewPane(s, vm, Modifier.fillMaxWidth().height(previewHeight))
         PrimaryTabRow(selectedTabIndex = tabs.indexOf(current)) {

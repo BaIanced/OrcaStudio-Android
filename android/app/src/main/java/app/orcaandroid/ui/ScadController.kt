@@ -63,6 +63,9 @@ data class ScadEditorState(
  * ":scad" process, see [ScadClient]) onto the plate. The draft survives closing the editor and the
  * app (files/openscad/draft.*).
  */
+/** Starts the last line of a saved shape-builder .scad file; the rest of the line is the design's JSON. */
+private const val SHAPES_MARK = "// OrcaStudio shapes: "
+
 class ScadController(private val store: Store) {
     private val engine = store.engine
     private val client = ScadClient(store.app)
@@ -116,7 +119,12 @@ class ScadController(private val store: Store) {
     fun openFile(file: File) = store.launch {
         val source = withContext(Dispatchers.IO) { file.readText() }
         if (st == null) open().join()
-        load(file.name, file.path, source)
+        // A shape-builder design saved by [save] reopens in the builder, unless its code was edited since.
+        val code = source.substringBeforeLast("\n$SHAPES_MARK")
+        val shapes = ShapeDesign.decode(source.substringAfterLast("\n$SHAPES_MARK", "").trim().ifEmpty { null })
+            ?.takeIf { it.toScad().trimEnd() == code.trimEnd() }
+        if (shapes != null) load(file.name, file.path, shapes.toScad(), shapes = shapes)
+        else load(file.name, file.path, source)
     }
 
     fun openUri(uri: Uri) = store.launch {
@@ -508,11 +516,12 @@ class ScadController(private val store: Store) {
         return engine.setTransform(idx, 0, offset = Vec3(inst.offset.x + bx - inst.min.x, inst.offset.y + by - inst.min.y, inst.offset.z))
     }
 
-    /** Writes the source to a file the user picked. */
+    /** Writes the source to a file the user picked; a shape design adds its shapes as a last comment line. */
     fun save(target: Uri) = store.launch {
         val s = st ?: return@launch
+        val text = s.shapes?.let { s.source.trimEnd() + "\n\n$SHAPES_MARK" + it.encode() + "\n" } ?: s.source
         withContext(Dispatchers.IO) {
-            store.app.contentResolver.openOutputStream(target, "wt")!!.use { it.write(s.source.toByteArray()) }
+            store.app.contentResolver.openOutputStream(target, "wt")!!.use { it.write(text.toByteArray()) }
         }
         val name = store.resources.displayName(target)
         set { it.copy(name = name) }
