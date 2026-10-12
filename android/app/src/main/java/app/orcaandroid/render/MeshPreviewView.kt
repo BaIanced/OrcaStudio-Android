@@ -183,9 +183,9 @@ class MeshPreviewView(context: Context) : GLSurfaceView(context) {
     /** What was framed last (model space), so growth past it can re-frame. */
     private var framed: Pair<Vec3, Vec3>? = null
 
-    /** The mesh and the builder's boxes together. */
+    /** The builder's boxes (current at once, and around the mesh, which renders later), else the mesh. */
     private fun content(): Pair<Vec3, Vec3>? {
-        val all = listOfNotNull(mesh?.let { it.min to it.max }) + boxes.map { it.min to it.max }
+        val all = boxes.map { it.min to it.max }.ifEmpty { listOfNotNull(mesh?.let { it.min to it.max }) }
         if (all.isEmpty()) return null
         return Vec3(all.minOf { it.first.x }, all.minOf { it.first.y }, all.minOf { it.first.z }) to
             Vec3(all.maxOf { it.second.x }, all.maxOf { it.second.y }, all.maxOf { it.second.z })
