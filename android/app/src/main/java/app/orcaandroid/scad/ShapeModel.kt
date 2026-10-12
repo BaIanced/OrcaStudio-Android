@@ -6,6 +6,7 @@ import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
+import kotlin.math.sqrt
 
 /** Three numbers (mm or degrees). */
 data class D3(val x: Double = 0.0, val y: Double = 0.0, val z: Double = 0.0) {
@@ -326,19 +327,37 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
         val t = f(s, Shape.SHELL, s.x(Shape.SHELL, 0.0)).takeIf { s.kind in Shape.SHELLED && !revolve && value(s, Shape.SHELL, s.x(Shape.SHELL, 0.0)) > 0 }
         // A sketch rounds its outline in 2D; other shapes are shrunk by the edge and grown back with a ball (or a
         // double pyramid for a chamfer), exact for boxes and cylinders, close for the others.
-        fun solid(w: String, d: String, h: String, inset: String?): String =
+        fun solid(w: String, d: String, h: String, inset: String?, e: String?): String =
             if (e == null || sketch) primitive(s, w, d, h, e, chamfer, inset)
             else {
                 val tool = if (chamfer) "hull() { cylinder(h = $e, r1 = $e, r2 = 0, \$fn = 4); mirror([0, 0, 1]) cylinder(h = $e, r1 = $e, r2 = 0, \$fn = 4); }"
                 else "sphere(r = $e, \$fn = sides(2 * $e));"
                 "translate([0, 0, $e]) minkowski() { ${primitive(s, minus(w, e, 2.0), minus(d, e, 2.0), minus(h, e, 2.0))} $tool }"
             }
-        if (t == null) return solid(w, d, h, null)
+        if (t == null) return solid(w, d, h, null, e)
         // The cavity: the same shape smaller by the wall (a sketch's outline inset by it), open top reaching past the top.
+        // Its edges are smaller by the wall (a chamfer by (2 - sqrt 2) x wall) so the wall stays even round them.
         val open = s.x(Shape.OPEN, 0.0) != 0.0
-        val ih = if (open) minus(h, t, 1.0, 0.01) else minus(h, t, 2.0)
-        val inner = if (sketch) solid(w, d, ih, t) else solid(minus(w, t, 2.0), minus(d, t, 2.0), ih, null)
-        return "difference() { ${solid(w, d, h, null)} translate([0, 0, $t]) $inner }"
+        if (sketch) return "difference() { ${solid(w, d, h, null, e)} translate([0, 0, $t]) " +
+            "${solid(w, d, if (open) minus(h, t, 1.0, 0.01) else minus(h, t, 2.0), t, e)} }"
+        val ie = e?.let { edge(it, t, if (chamfer) 2 - sqrt(2.0) else 1.0) }
+        // An open top's cavity reaches past the top by its own edge, so its rounded rim doesn't leave a lip.
+        val ih = if (open) minus(h, t, 1.0, 0.01).let { if (ie == null) it else plus(it, ie) } else minus(h, t, 2.0)
+        return "difference() { ${solid(w, d, h, null, e)} translate([0, 0, $t]) ${solid(minus(w, t, 2.0), minus(d, t, 2.0), ih, null, ie)} }"
+    }
+
+    /** The edge [e] less [k] x [t]; null (sharp) when that leaves nothing, an expression when either is a slider. */
+    private fun edge(e: String, t: String, k: Double): String? {
+        val x = e.toDoubleOrNull()
+        val y = t.toDoubleOrNull()
+        return if (x != null && y != null) (x - k * y).takeIf { it > 0.01 }?.let(::n)
+        else "max(0.01, $e - ${n(k)} * $t)"
+    }
+
+    private fun plus(a: String, b: String): String {
+        val x = a.toDoubleOrNull()
+        val y = b.toDoubleOrNull()
+        return if (x != null && y != null) n(x + y) else "$a + $b"
     }
 
     /** [a] - [k] * [b] + [add], at least 0.01: a number when both are numbers, else an expression. */
@@ -408,8 +427,9 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
             val r = max(0.01, hi.x)
             val nh = max(0.01, hi.y - lo.y)
             val angle = s.x(Shape.ANGLE, 360.0).coerceIn(1.0, 360.0)
-            return "scale([$w / ${n(2 * r)}, $d / ${n(2 * r)}, $h / ${n(nh)}]) rotate_extrude(${if (angle < 360.0) "angle = ${n(angle)}, " else ""}\$fn = sides(max($w, $d))) " +
-                "intersection() { square([${n(r + 1)}, ${n(nh + 1)}]); ${mods(sk.toScad(P2(0.0, -lo.y)))} }"
+            // The profile is scaled to the box before rounding, so the edge stays in mm; depth follows by a y scale.
+            return "scale([1, $d / $w, 1]) rotate_extrude(${if (angle < 360.0) "angle = ${n(angle)}, " else ""}\$fn = sides(max($w, $d))) " +
+                "intersection() { square([$w / 2 + 1, $h + 1]); ${mods("scale([$w / ${n(2 * r)}, $h / ${n(nh)}]) ${sk.toScad(P2(0.0, -lo.y))}")} }"
         }
         val top = s.x(Shape.TOP, 1.0).coerceAtLeast(0.0)
         val c = (lo + hi) * 0.5
