@@ -236,7 +236,9 @@ class ScadController(private val store: Store) {
         preview(300)
     }
 
-    private fun key(s: ScadEditorState) = s.file + "\u0000" + s.source + "\u0000" + ScadParam.encode(s.values)
+    /** What a render depends on; whole-line comments don't count (renaming a shape only changes its comment). */
+    private fun key(s: ScadEditorState) = s.file + "\u0000" +
+        s.source.lineSequence().filterNot { it.trimStart().startsWith("//") }.joinToString("\n") + "\u0000" + ScadParam.encode(s.values)
 
     /** Renders the current design into the preview after [debounce] ms (F5). */
     fun preview(debounce: Long = 0) {

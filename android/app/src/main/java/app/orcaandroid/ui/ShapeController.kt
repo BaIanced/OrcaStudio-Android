@@ -253,7 +253,7 @@ class ShapeController(private val store: Store, private val scad: ScadController
         if (members.size < 2) return
         val b = members.map { d.bounds(it) }.reduce { a, c -> a.union(c) }
         val origin = D3(snap(b.center.x), snap(b.center.y), b.min.z)
-        val kids = members.map { it.copy(pos = it.pos - origin) }
+        val kids = members.map { placed(d, it, d.pos(it) - origin, d.rot(it)) }
         val g = Shape(d.nextId, Shape.Kind.GROUP, store.str(R.string.shape_group) + " " + d.nextId, D3(), origin, children = kids)
         val at = d.shapes.indexOfFirst { it.id in selected }
         val rest = d.shapes.filter { it.id !in selected }.toMutableList()
@@ -261,7 +261,7 @@ class ShapeController(private val store: Store, private val scad: ScadController
         commit(d.copy(shapes = rest, nextId = d.nextId + 1), listOf(g.id))
     }
 
-    /** Takes the selected groups apart, keeping where their shapes are. */
+    /** Takes the selected groups apart, keeping where their shapes are (the group's turn and mirror go to each shape). */
     fun ungroup() {
         val d = design ?: return
         val groups = d.shapes.filter { it.id in selected && it.isGroup }
@@ -270,16 +270,24 @@ class ShapeController(private val store: Store, private val scad: ScadController
         val sel = ArrayList<Int>()
         for (s in d.shapes) {
             if (s !in groups) { out += s; continue }
-            val h = d.bounds(s.copy(pos = D3(), rot = D3(), repeat = null)).max.z
+            val h = d.height(s)
             val gp = d.pos(s)
             val gr = d.rot(s)
+            val gm = s.mirror
+            val g = ShapeDesign.matrix(gr)
+            fun sign(i: Int) = if (gm[i] != 0.0) -1.0 else 1.0
             for (c in s.children) {
-                val ch = d.size(c).z.takeUnless { c.isGroup } ?: d.bounds(c.copy(pos = D3(), rot = D3(), repeat = null)).max.z
-                // The child's box centre through the group's turn; turns add up (exact for one axis).
-                val centre = ShapeDesign.rotate(c.pos + D3(0.0, 0.0, ch / 2) - D3(0.0, 0.0, h / 2), gr) + D3(0.0, 0.0, h / 2) + gp
-                out += c.copy(
-                    pos = centre - D3(0.0, 0.0, ch / 2),
-                    rot = if (gr == D3()) c.rot else c.rot + gr,
+                val ch = d.height(c)
+                // In OpenSCAD: T(gp + h/2) Rg Mg T(-h/2) T(cp + ch/2) Rc Mc T(-ch/2)
+                //            = T(gp + h/2 + Rg Mg (cp + ch/2 - h/2)) (Rg Mg Rc Mg) (Mg Mc) T(-ch/2).
+                val centre = ShapeDesign.rotate(ShapeDesign.flip(d.pos(c) + D3(0.0, 0.0, ch / 2 - h / 2), gm), gr) + D3(0.0, 0.0, h / 2) + gp
+                val rot = if (gr == D3() && gm == D3()) d.rot(c) else {
+                    val r = ShapeDesign.matrix(d.rot(c))
+                    ShapeDesign.angles(Array(3) { i -> DoubleArray(3) { j -> (0..2).sumOf { k -> g[i][k] * r[k][j] * sign(k) * sign(j) } } })
+                }
+                fun xor(i: Int) = if ((gm[i] != 0.0) != (c.mirror[i] != 0.0)) 1.0 else 0.0
+                out += placed(d, c, centre - D3(0.0, 0.0, ch / 2), rot).copy(
+                    mirror = D3(xor(0), xor(1), xor(2)),
                     hole = c.hole || s.hole,
                     repeat = c.repeat ?: s.repeat,
                 )
@@ -287,6 +295,15 @@ class ShapeController(private val store: Store, private val scad: ScadController
             }
         }
         commit(d.copy(shapes = out), sel)
+    }
+
+    /** [s] at [pos] turned by [rot]; a field bound to a dimension stays bound only while its value is unchanged. */
+    private fun placed(d: ShapeDesign, s: Shape, pos: D3, rot: D3): Shape {
+        var bind = s.bind
+        for ((k, old, new) in listOf(Triple("pos", d.pos(s), pos), Triple("rot", d.rot(s), rot))) for (i in 0..2) {
+            if (kotlin.math.abs(old[i] - new[i]) > 1e-9) bind = bind - "$k.${"xyz"[i]}"
+        }
+        return s.copy(pos = pos, rot = rot, bind = bind)
     }
 
     // --- Dimensions (sliders) ---------------------------------------------------------------------
@@ -383,13 +400,12 @@ class ShapeController(private val store: Store, private val scad: ScadController
             val p = path(d.shapes) ?: return null
             var b = d.bounds(p.last().let { if (p.size > 1) it.copy(repeat = null) else it })
             for (g in p.dropLast(1).asReversed()) {
-                val h = d.bounds(g.copy(pos = D3(), rot = D3(), repeat = null)).max.z
                 val r = d.rot(g)
                 val gp = d.pos(g)
-                val pivot = D3(0.0, 0.0, h / 2)
+                val pivot = D3(0.0, 0.0, d.height(g) / 2)
                 b = Bounds.of((0 until 8).map { i ->
                     val c = D3(if (i and 1 == 0) b.min.x else b.max.x, if (i and 2 == 0) b.min.y else b.max.y, if (i and 4 == 0) b.min.z else b.max.z)
-                    ShapeDesign.rotate(c - pivot, r) + pivot + gp
+                    ShapeDesign.rotate(ShapeDesign.flip(c - pivot, g.mirror), r) + pivot + gp
                 })
             }
             return b
@@ -409,10 +425,9 @@ class ShapeController(private val store: Store, private val scad: ScadController
             }
             val p = path(d.shapes) ?: return false to null
             val groups = p.dropLast(1)
-            if (groups.any { d.rot(it) != D3() }) return false to null
+            if (groups.any { d.rot(it) != D3() || it.mirror != D3() }) return false to null
             val s = p.last()
-            val h = if (s.isGroup) d.bounds(s.copy(pos = D3(), rot = D3(), repeat = null)).max.z else d.size(s).z
-            val pivot = groups.fold(d.pos(s) + D3(0.0, 0.0, h / 2)) { acc, g -> acc + d.pos(g) }
+            val pivot = groups.fold(d.pos(s) + D3(0.0, 0.0, d.height(s) / 2)) { acc, g -> acc + d.pos(g) }
             return (!s.isGroup && s.repeat == null && d.rot(s) == D3()) to pivot
         }
     }

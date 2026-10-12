@@ -160,16 +160,16 @@ class MeshPreviewView(context: Context) : GLSurfaceView(context) {
         requestRender()
     }
 
-    /** Shows [mesh]; the view is framed again when the model's size changed noticeably. */
+    /** Shows [mesh]; the view is framed again when the model's size changed noticeably or it grew out of the view. */
     fun setMesh(mesh: PreviewMesh?) {
         val old = this.mesh
         if (mesh === old) return
         this.mesh = mesh
         queueEvent { renderer.setMesh(mesh) }
-        if (mesh != null && (old == null || !similar(old.size, mesh.size))) reframe() else requestRender()
+        if (mesh != null && (old == null || !similar(old.size, mesh.size) || outgrown())) reframe() else requestRender()
     }
 
-    /** Shape-builder boxes over the mesh (empty outside the builder). */
+    /** Shape-builder boxes over the mesh (empty outside the builder); a shape added out of view re-frames it. */
     fun setBoxes(list: List<PreviewBox>) {
         if (list == boxes) return
         val wasEmpty = boxes.isEmpty() && mesh == null
@@ -177,16 +177,31 @@ class MeshPreviewView(context: Context) : GLSurfaceView(context) {
         if (handleKind >= 0 && handleBox() == null) handleKind = -1
         val overlay = overlay()
         queueEvent { renderer.setBoxes(list); renderer.overlay = overlay }
-        if (wasEmpty && list.isNotEmpty()) reframe() else requestRender()
+        if ((wasEmpty && list.isNotEmpty()) || outgrown()) reframe() else requestRender()
+    }
+
+    /** What was framed last (model space), so growth past it can re-frame. */
+    private var framed: Pair<Vec3, Vec3>? = null
+
+    /** The mesh and the builder's boxes together. */
+    private fun content(): Pair<Vec3, Vec3>? {
+        val all = listOfNotNull(mesh?.let { it.min to it.max }) + boxes.map { it.min to it.max }
+        if (all.isEmpty()) return null
+        return Vec3(all.minOf { it.first.x }, all.minOf { it.first.y }, all.minOf { it.first.z }) to
+            Vec3(all.maxOf { it.second.x }, all.maxOf { it.second.y }, all.maxOf { it.second.z })
+    }
+
+    /** The content reaches past the last framed box by more than 5 % of its size. */
+    private fun outgrown(): Boolean {
+        val f = framed ?: return false
+        val c = content() ?: return false
+        val m = (f.second - f.first).length() * 0.05f
+        return c.first.x < f.first.x - m || c.first.y < f.first.y - m || c.first.z < f.first.z - m ||
+            c.second.x > f.second.x + m || c.second.y > f.second.y + m || c.second.z > f.second.z + m
     }
 
     fun reframe() {
-        val m = mesh
-        val b = boxes.takeIf { it.isNotEmpty() }
-        var fit = if (m != null) m.min to m.max
-        else if (b != null) Vec3(b.minOf { it.min.x }, b.minOf { it.min.y }, b.minOf { it.min.z }) to
-            Vec3(b.maxOf { it.max.x }, b.maxOf { it.max.y }, b.maxOf { it.max.z })
-        else null
+        var fit = content()
         // Keep the turn handle's ring in view.
         val hb = handleBox()
         val p = hb?.pivot
@@ -195,6 +210,7 @@ class MeshPreviewView(context: Context) : GLSurfaceView(context) {
             fit = Vec3(minOf(fit.first.x, p.x - r), minOf(fit.first.y, p.y - r), fit.first.z) to
                 Vec3(maxOf(fit.second.x, p.x + r), maxOf(fit.second.y, p.y + r), fit.second.z)
         }
+        framed = fit
         if (fit != null) queueEvent { renderer.fitPending = fit; requestRender() } else requestRender()
     }
 
