@@ -7,6 +7,11 @@ import app.orcaandroid.scad.Dim
 import app.orcaandroid.scad.Repeat
 import app.orcaandroid.scad.Shape
 import app.orcaandroid.scad.ShapeDesign
+import app.orcaandroid.scad.Sketch
+import app.orcaandroid.scad.Stl
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.io.File
 
 /**
  * The shape builder's edits (no code): add, move, group, cut, align, repeat, sliders, with undo.
@@ -68,14 +73,40 @@ class ShapeController(private val store: Store, private val scad: ScadController
 
     // --- Adding ------------------------------------------------------------------------------------
 
-    fun add(kind: Shape.Kind) {
-        val d = design ?: return
+    /** Adds a new [kind] shape beside the others and selects it; returns its id. */
+    fun add(kind: Shape.Kind): Int? {
+        val d = design ?: return null
         val name = store.str(kindName(kind)) + " " + (d.shapes.flatMap { it.all().toList() }.count { it.kind == kind } + 1)
         var shape = ShapeDesign.create(kind, d.nextId, name)
         // Beside what is there already, so it can be seen and picked.
         if (d.shapes.isNotEmpty()) {
             val all = d.shapes.map { d.bounds(it) }.reduce { a, b -> a.union(b) }
             shape = shape.copy(pos = D3(snap(all.max.x + 5 + shape.size.x / 2), snap(all.center.y), 0.0))
+        }
+        commit(d.copy(shapes = d.shapes + shape, nextId = d.nextId + 1), listOf(shape.id))
+        return shape.id
+    }
+
+    /** Adds a picked STL as a mesh shape, at its own size; the file is kept in files/openscad/meshes. */
+    fun importMesh(uri: android.net.Uri) = store.launch {
+        val (file, b) = withContext(Dispatchers.IO) {
+            val src = store.resources.importFile(uri, "openscad")
+            val dir = File(store.app.filesDir, "openscad/meshes").apply { mkdirs() }
+            var dst = File(dir, src.name)
+            var i = 2
+            while (dst.exists() && dst.length() != src.length()) dst = File(dir, src.nameWithoutExtension + "_" + i++ + "." + src.extension)
+            src.copyTo(dst, overwrite = true)
+            src.delete()
+            dst to Stl.bounds(dst)
+        }
+        if (b == null) { file.delete(); store.toast(store.str(R.string.shape_import_failed)); return@launch }
+        val d = design ?: return@launch
+        val size = D3(maxOf(0.01, b[3] - b[0]), maxOf(0.01, b[4] - b[1]), maxOf(0.01, b[5] - b[2]))
+        var shape = Shape(d.nextId, Shape.Kind.MESH, file.nameWithoutExtension, size, file = file.absolutePath,
+            extra = Shape.MESH_BOUNDS.zip(b).toMap())
+        if (d.shapes.isNotEmpty()) {
+            val all = d.shapes.map { d.bounds(it) }.reduce { x, y -> x.union(y) }
+            shape = shape.copy(pos = D3(snap(all.max.x + 5 + size.x / 2), snap(all.center.y), 0.0))
         }
         commit(d.copy(shapes = d.shapes + shape, nextId = d.nextId + 1), listOf(shape.id))
     }
@@ -96,7 +127,7 @@ class ShapeController(private val store: Store, private val scad: ScadController
     private fun withField(d: ShapeDesign, id: Int, field: String, value: Double): ShapeDesign? {
         val s = d.find(id) ?: return null
         val dim = s.bind[field]?.let { d.dim(it) }
-        if (dim != null) return d.copy(dims = d.dims.map { if (it.name == dim.name) it.copy(value = value, min = minOf(it.min, value), max = maxOf(it.max, value)) else it })
+        if (dim != null) return d.withDims(d.dims.map { if (it.name == dim.name) it.copy(value = value, min = minOf(it.min, value), max = maxOf(it.max, value)) else it })
         return d.update(id) { sh -> setRaw(sh, field, value) }
     }
 
@@ -121,6 +152,21 @@ class ShapeController(private val store: Store, private val scad: ScadController
         if (z > 180) z -= 360.0
         if (z <= -180) z += 360.0
         commit(withField(d, id, "rot.z", z) ?: return)
+    }
+
+    /**
+     * New drawing for sketch shape [id] (one undo step): its box takes the drawing's size, 1:1. [dims]: the
+     * sliders as the sketch editor left them (other sketches following a changed one are solved again).
+     */
+    fun setSketch(id: Int, sketch: Sketch, dims: List<Dim>? = null) {
+        val d = design ?: return
+        commit((if (dims != null) d.withDims(dims) else d).update(id) { ShapeDesign.fitSketch(it, sketch) })
+    }
+
+    /** Sketch shape [id]: extrude ([revolve] false) or revolve about Z. */
+    fun setRevolve(id: Int, revolve: Boolean) {
+        val d = design ?: return
+        commit(d.update(id) { s -> ShapeDesign.fitSketch(s.copy(extra = s.extra + (Shape.REVOLVE to if (revolve) 1.0 else 0.0)), s.sketch ?: Sketch.START) })
     }
 
     private fun setRaw(s: Shape, field: String, v: Double): Shape {
@@ -248,9 +294,7 @@ class ShapeController(private val store: Store, private val scad: ScadController
         val d = design ?: return
         val s = d.find(id) ?: return
         val ident = identifier(name, d)
-        val v = current(d, s, field)
-        val dim = Dim(ident, v, if (field.startsWith("pos.") || field.startsWith("rot.")) minOf(v, -100.0) else 0.0,
-            if (field.startsWith("rot.")) 360.0 else maxOf(100.0, Math.ceil(v * 2 / 10) * 10), 1.0)
+        val dim = Dim.forLength(ident, current(d, s, field), signed = field.startsWith("pos.") || field.startsWith("rot."), angle = field.startsWith("rot."))
         commit(d.copy(dims = d.dims + dim).update(id) { it.copy(bind = it.bind + (field to ident)) })
     }
 
@@ -272,12 +316,18 @@ class ShapeController(private val store: Store, private val scad: ScadController
 
     fun setDim(dim: Dim) {
         val d = design ?: return
-        commit(d.copy(dims = d.dims.map { if (it.name == dim.name) dim else it }))
+        commit(d.withDims(d.dims.map { if (it.name == dim.name) dim else it }))
     }
 
     fun removeDim(name: String) {
         val d = design ?: return
-        var next = d.copy(dims = d.dims.filter { it.name != name })
+        val value = d.dim(name)?.value ?: 0.0
+        // Sketch lengths that followed it keep its value.
+        var next = d.copy(dims = d.dims.filter { it.name != name }).mapShapes { s ->
+            val sk = s.sketch
+            if (sk == null || sk.cons.none { it.dim == name }) s
+            else s.copy(sketch = sk.copy(cons = sk.cons.map { if (it.dim == name) it.copy(value = value, dim = null) else it }))
+        }
         d.shapes.flatMap { it.all().toList() }.filter { s -> s.bind.containsValue(name) }.forEach { s ->
             next = next.update(s.id) { sh ->
                 sh.bind.filterValues { it == name }.keys.fold(sh) { acc, f -> setRaw(acc, f, current(d, s, f)) }.copy(bind = sh.bind.filterValues { it != name })
@@ -296,14 +346,7 @@ class ShapeController(private val store: Store, private val scad: ScadController
         return d.value(s, field, raw)
     }
 
-    private fun identifier(label: String, d: ShapeDesign): String {
-        val base = label.trim().lowercase().replace(Regex("[^a-z0-9_]+"), "_").trim('_')
-            .let { if (it.isEmpty() || it[0].isDigit()) "d_$it" else it }
-        var name = base
-        var i = 2
-        while (d.dim(name) != null) name = base + "_" + i++
-        return name
-    }
+    private fun identifier(label: String, d: ShapeDesign) = Dim.ident(label) { d.dim(it) != null }
 
     companion object {
         fun snap(v: Double, grid: Double = 1.0) = Math.round(v / grid) * grid
@@ -321,6 +364,8 @@ class ShapeController(private val store: Store, private val scad: ScadController
             Shape.Kind.TUBE -> R.string.shape_tube
             Shape.Kind.WEDGE -> R.string.shape_wedge
             Shape.Kind.TEXT -> R.string.shape_text
+            Shape.Kind.SKETCH -> R.string.shape_sketch
+            Shape.Kind.MESH -> R.string.shape_mesh
             Shape.Kind.GROUP -> R.string.shape_group
         }
 

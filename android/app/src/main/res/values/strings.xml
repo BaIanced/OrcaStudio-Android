@@ -619,6 +619,47 @@
     <string name="shape_wedge">Wedge</string>
     <string name="shape_text">Text</string>
     <string name="shape_group">Group</string>
+    <string name="shape_sketch">Sketch</string>
+    <string name="sketch_edit">Edit sketch</string>
+    <string name="sketch_extrude">Extrude</string>
+    <string name="sketch_revolve">Revolve</string>
+    <string name="sketch_angle">Turn angle (°)</string>
+    <string name="sketch_top_scale">Top scale (1 = straight sides)</string>
+    <string name="sketch_title">Sketch (extruded upwards)</string>
+    <string name="sketch_title_revolve">Profile (turned about the dashed axis)</string>
+    <string name="sketch_done">Done</string>
+    <string name="sketch_fit">Fit the drawing</string>
+    <string name="sketch_select">Select</string>
+    <string name="sketch_lines">Lines</string>
+    <string name="sketch_rect">Rectangle</string>
+    <string name="sketch_circle">Circle</string>
+    <string name="sketch_hint_select">Tap an outline · drag corners · drag the square on a side to bend it · drag empty space to pan</string>
+    <string name="sketch_hint_lines">Tap corners · tap the first corner (or Close) to finish</string>
+    <string name="sketch_hint_rect">Drag from corner to corner</string>
+    <string name="sketch_hint_circle">Drag from the centre outwards</string>
+    <string name="sketch_close">Close the outline</string>
+    <string name="sketch_bend">Bend (1 = half circle)</string>
+    <string name="sketch_straight">Straighten</string>
+    <string name="sketch_split">Add a corner</string>
+    <string name="sketch_diameter">Ø %1$s mm</string>
+    <string name="sketch_wh">%1$s × %2$s mm</string>
+    <string name="sketch_length">%1$s mm</string>
+    <string name="sketch_side_length">Length</string>
+    <string name="sketch_chord">Corner to corner</string>
+    <string name="sketch_fixed">%1$s (fixed)</string>
+    <string name="sketch_free_length">Free the length</string>
+    <string name="sketch_fix_length">Fix the length</string>
+    <string name="sketch_level">Level</string>
+    <string name="sketch_plumb">Plumb</string>
+    <string name="sketch_equal_to">Equal to…</string>
+    <string name="sketch_parallel_to">Parallel to…</string>
+    <string name="sketch_pair_equal">Tap the side that should be as long as this one</string>
+    <string name="sketch_pair_parallel">Tap the side that should be parallel to this one</string>
+    <string name="sketch_remove_constraint">Remove</string>
+    <plurals name="sketch_unmet">
+        <item quantity="one">%1$d constraint can\'t hold (they fight each other)</item>
+        <item quantity="other">%1$d constraints can\'t all hold (they fight each other)</item>
+    </plurals>
     <string name="shape_undo">Undo (Ctrl+Z)</string>
     <string name="shape_redo">Redo (Ctrl+Y)</string>
     <string name="shape_duplicate">Duplicate (Ctrl+D)</string>
@@ -642,6 +683,18 @@
     <string name="shape_radius">Edge radius (mm)</string>
     <string name="shape_wall">Wall (mm)</string>
     <string name="shape_ring_thickness">Ring thickness (mm)</string>
+    <string name="shape_mesh">Model file</string>
+    <string name="shape_import">Import STL</string>
+    <string name="shape_import_failed">Could not read that STL file</string>
+    <string name="shape_edges">Edges</string>
+    <string name="shape_corners">Corners</string>
+    <string name="shape_edge_round">Round</string>
+    <string name="shape_edge_chamfer">Chamfer</string>
+    <string name="shape_edge_size">Edge size (mm, 0 = sharp)</string>
+    <string name="shape_hollow">Hollow</string>
+    <string name="shape_shell_wall">Wall (mm, 0 = solid)</string>
+    <string name="shape_open_top">Open top</string>
+    <string name="shape_mesh_file">From %1$s</string>
     <string name="shape_top">Top size (0 = point, 1 = straight)</string>
     <string name="shape_sides">Sides (0 = round)</string>
     <string name="shape_repeat">Repeat</string>
