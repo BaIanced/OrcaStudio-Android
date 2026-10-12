@@ -36,6 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -270,7 +271,7 @@ fun SketchEditor(initial: Sketch, revolve: Boolean, onDone: (Sketch) -> Unit, on
 private fun SketchCanvas(st: SketchState, revolve: Boolean, modifier: Modifier) {
     val scheme = MaterialTheme.colorScheme
     var fitted by remember { mutableStateOf(false) }
-    Box(modifier.onSizeChanged {
+    Box(modifier.clipToBounds().onSizeChanged {
         st.size = Size(it.width.toFloat(), it.height.toFloat())
         if (!fitted && it.width > 0) { fitted = true; st.fit() }
     }) {
