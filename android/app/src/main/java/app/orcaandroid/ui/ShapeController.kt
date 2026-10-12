@@ -90,13 +90,37 @@ class ShapeController(private val store: Store, private val scad: ScadController
     /** Sets a numeric field; a field bound to a dimension changes the dimension instead. */
     fun setField(id: Int, field: String, value: Double) {
         val d = design ?: return
-        val s = d.find(id) ?: return
+        commit(withField(d, id, field, value) ?: return)
+    }
+
+    private fun withField(d: ShapeDesign, id: Int, field: String, value: Double): ShapeDesign? {
+        val s = d.find(id) ?: return null
         val dim = s.bind[field]?.let { d.dim(it) }
-        if (dim != null) {
-            commit(d.copy(dims = d.dims.map { if (it.name == dim.name) it.copy(value = value, min = minOf(it.min, value), max = maxOf(it.max, value)) else it }))
-            return
-        }
-        commit(d.update(id) { sh -> setRaw(sh, field, value) })
+        if (dim != null) return d.copy(dims = d.dims.map { if (it.name == dim.name) it.copy(value = value, min = minOf(it.min, value), max = maxOf(it.max, value)) else it })
+        return d.update(id) { sh -> setRaw(sh, field, value) }
+    }
+
+    /** Size handle in the preview: the lone selected shape grows by [mm] along [axis], its min side kept (one undo step). */
+    fun resize(axis: Int, mm: Double) {
+        val d = design ?: return
+        val id = selected.singleOrNull() ?: return
+        val s = d.find(id) ?: return
+        val c = "xyz"[axis]
+        var next = withField(d, id, "size.$c", (d.size(s)[axis] + mm).coerceAtLeast(1.0)) ?: return
+        // pos is the bottom centre: x / y follow half the growth, z (the bottom) stays.
+        if (axis < 2) next = withField(next, id, "pos.$c", d.pos(s)[axis] + mm / 2) ?: return
+        commit(next)
+    }
+
+    /** Turn handle in the preview: the lone selected shape turns by [degrees] about Z, kept in -180..180. */
+    fun turn(degrees: Double) {
+        val d = design ?: return
+        val id = selected.singleOrNull() ?: return
+        val s = d.find(id) ?: return
+        var z = (d.rot(s).z + degrees) % 360.0
+        if (z > 180) z -= 360.0
+        if (z <= -180) z += 360.0
+        commit(withField(d, id, "rot.z", z) ?: return)
     }
 
     private fun setRaw(s: Shape, field: String, v: Double): Shape {
@@ -230,6 +254,14 @@ class ShapeController(private val store: Store, private val scad: ScadController
         commit(d.copy(dims = d.dims + dim).update(id) { it.copy(bind = it.bind + (field to ident)) })
     }
 
+    /** Customizer "Add a slider" in the builder: a new dimension no shape follows yet; returns its name. */
+    fun addDim(label: String, value: Double, min: Double, max: Double, step: Double): String? {
+        val d = design ?: return null
+        val ident = identifier(label, d)
+        commit(d.copy(dims = d.dims + Dim(ident, value, minOf(min, value), maxOf(max, value), step)))
+        return ident
+    }
+
     fun bind(id: Int, field: String, dim: String?) {
         val d = design ?: return
         val s = d.find(id) ?: return
@@ -314,6 +346,27 @@ class ShapeController(private val store: Store, private val scad: ScadController
                 })
             }
             return b
+        }
+
+        /**
+         * Preview handles for shape [id]: whether its world box is its own size (a plain shape, no
+         * turn, no copies, unturned groups) and its turn pivot in world space (null under a turned group).
+         */
+        fun handles(d: ShapeDesign, id: Int): Pair<Boolean, D3?> {
+            fun path(list: List<Shape>): List<Shape>? {
+                for (s in list) {
+                    if (s.id == id) return listOf(s)
+                    path(s.children)?.let { return listOf(s) + it }
+                }
+                return null
+            }
+            val p = path(d.shapes) ?: return false to null
+            val groups = p.dropLast(1)
+            if (groups.any { d.rot(it) != D3() }) return false to null
+            val s = p.last()
+            val h = if (s.isGroup) d.bounds(s.copy(pos = D3(), rot = D3(), repeat = null)).max.z else d.size(s).z
+            val pivot = groups.fold(d.pos(s) + D3(0.0, 0.0, h / 2)) { acc, g -> acc + d.pos(g) }
+            return (!s.isGroup && s.repeat == null && d.rot(s) == D3()) to pivot
         }
     }
 }

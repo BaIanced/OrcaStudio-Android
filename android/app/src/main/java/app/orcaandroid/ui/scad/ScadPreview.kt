@@ -62,8 +62,11 @@ fun ScadPreviewPane(s: ScadEditorState, vm: AppViewModel, modifier: Modifier = M
             val ids = shapes.shapes.map { it.id } + s.selected.filter { id -> shapes.shapes.none { it.id == id } }
             ids.mapNotNull { id ->
                 val b = ShapeController.worldBounds(shapes, id) ?: return@mapNotNull null
+                // Handles only for a lone selection.
+                val (scalable, pivot) = if (s.selected == listOf(id)) ShapeController.handles(shapes, id) else false to null
                 PreviewBox(id, Vec3(b.min.x.toFloat(), b.min.y.toFloat(), b.min.z.toFloat()),
-                    Vec3(b.max.x.toFloat(), b.max.y.toFloat(), b.max.z.toFloat()), id in s.selected, shapes.find(id)?.hole == true)
+                    Vec3(b.max.x.toFloat(), b.max.y.toFloat(), b.max.z.toFloat()), id in s.selected, shapes.find(id)?.hole == true,
+                    scalable, pivot?.let { Vec3(it.x.toFloat(), it.y.toFloat(), it.z.toFloat()) })
             }
         }
     }
@@ -71,6 +74,8 @@ fun ScadPreviewPane(s: ScadEditorState, vm: AppViewModel, modifier: Modifier = M
         object : PreviewPickListener {
             override fun onPick(id: Int?, add: Boolean) = vm.shapes.tap(id, add)
             override fun onMove(dx: Float, dy: Float) = vm.shapes.move(D3(dx.toDouble(), dy.toDouble(), 0.0))
+            override fun onResize(axis: Int, mm: Float) = vm.shapes.resize(axis, mm.toDouble())
+            override fun onRotate(degrees: Float) = vm.shapes.turn(degrees.toDouble())
         }
     }
 

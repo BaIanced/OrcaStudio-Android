@@ -657,6 +657,7 @@
     <string name="shape_unlink">Stop following “%1$s”</string>
     <string name="shape_dims">Sliders</string>
     <string name="shape_dims_hint">Use ⋮ next to a size or position to make it a slider. Sliders show up in the Customizer, and several shapes can follow one.</string>
+    <string name="shape_dim_added">Added “%1$s”: tap ⋮ next to a size or position to follow it.</string>
     <string name="shape_dim_remove">Remove</string>
     <string name="shape_dim_uses">used %1$d×</string>
     <string name="shape_generated">Made from the shapes; change the shapes to change it.</string>

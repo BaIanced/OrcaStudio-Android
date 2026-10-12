@@ -190,6 +190,13 @@ fun ScadPanel(s: ScadEditorState, vm: AppViewModel, onHide: (() -> Unit)? = null
         onShapes = { templates = false; vm.scad.newShapes() })
     if (addSetting) AddSettingDialog(onDismiss = { addSetting = false }) { label, mm, value, min, max, step ->
         addSetting = false
+        // Shape designs regenerate their code: the slider becomes a dimension of the design.
+        if (builder) {
+            vm.shapes.addDim(label, value, min, max, step)?.let { name ->
+                android.widget.Toast.makeText(context, context.getString(R.string.shape_dim_added, name), android.widget.Toast.LENGTH_LONG).show()
+            }
+            return@AddSettingDialog
+        }
         val name = ScadSnippets.identifier(label)
         val apply = { text: String -> ScadSnippets.addParameter(text, label, mm, value, min, max, step) }
         if (current == "code" && !builder) codeEdit = { v -> apply(v.text).let { (t, at, _) -> TextFieldValue(t, TextRange(at)) } }

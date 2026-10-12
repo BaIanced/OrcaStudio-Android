@@ -63,8 +63,28 @@ class PreviewMesh(val data: FloatBuffer, val triangles: Int, val min: Vec3, val 
     }
 }
 
-/** A shape-builder box drawn over the preview: [selected] ones can be dragged, holes are always shown. */
-data class PreviewBox(val id: Int, val min: Vec3, val max: Vec3, val selected: Boolean, val hole: Boolean)
+/**
+ * A shape-builder box drawn over the preview: [selected] ones can be dragged, holes are always shown.
+ * A lone selected box gets size handles when [scalable] (the box is the shape's own size) and a turn
+ * handle about Z through [pivot] when that is set.
+ */
+data class PreviewBox(
+    val id: Int, val min: Vec3, val max: Vec3, val selected: Boolean, val hole: Boolean,
+    val scalable: Boolean = false, val pivot: Vec3? = null,
+)
+
+/** World-space handle dots (x, y, z, r, g, b), guide lines and the live drag result (lines). */
+class PreviewOverlay(val points: FloatArray, val guide: FloatArray, val ghost: FloatArray) {
+    companion object { val EMPTY = PreviewOverlay(FloatArray(0), FloatArray(0), FloatArray(0)) }
+}
+
+/** The 12 edges of a box given as 8 corners (bit 0 = x, bit 1 = y, bit 2 = z side), as line pairs. */
+private fun boxLines(out: MutableList<Float>, c: List<Vec3>) {
+    for (i in 0 until 8) for (bit in intArrayOf(1, 2, 4)) if (i and bit == 0) {
+        val a = c[i]; val b = c[i or bit]
+        out += listOf(a.x, a.y, a.z, b.x, b.y, b.z)
+    }
+}
 
 /** Shape-builder input from the preview: picks and drags of [PreviewBox]es. */
 interface PreviewPickListener {
@@ -72,6 +92,10 @@ interface PreviewPickListener {
     fun onPick(id: Int?, add: Boolean)
     /** A drag of the selected boxes ended, moved by [dx], [dy] mm (snapped to 1 mm). */
     fun onMove(dx: Float, dy: Float)
+    /** A size handle drag ended: the selected shape grows by [mm] along [axis] (0..2), its min side kept. */
+    fun onResize(axis: Int, mm: Float)
+    /** The turn handle drag ended: the selected shape turns by [degrees] about Z. */
+    fun onRotate(degrees: Float)
 }
 
 /**
@@ -100,6 +124,11 @@ class MeshPreviewView(context: Context) : GLSurfaceView(context) {
     private var dragging = false
     private var moved = false
     private val slop = android.view.ViewConfiguration.get(context).scaledTouchSlop
+    /** Handle being dragged (-1 = none), its live value (mm or degrees) and the turn's start angle. */
+    private var handleKind = -1
+    private var handleValue = 0f
+    private var startAngle = 0f
+    private val density = resources.displayMetrics.density
 
     private val scaleDetector = ScaleGestureDetector(context, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
         override fun onScale(detector: ScaleGestureDetector): Boolean {
@@ -122,6 +151,7 @@ class MeshPreviewView(context: Context) : GLSurfaceView(context) {
         preserveEGLContextOnPause = true
         setRenderer(renderer)
         renderMode = RENDERMODE_WHEN_DIRTY
+        renderer.handleSize = 14 * density
     }
 
     fun setColors(background: FloatArray, grid: FloatArray, part: FloatArray) {
@@ -144,7 +174,9 @@ class MeshPreviewView(context: Context) : GLSurfaceView(context) {
         if (list == boxes) return
         val wasEmpty = boxes.isEmpty() && mesh == null
         boxes = list
-        queueEvent { renderer.setBoxes(list) }
+        if (handleKind >= 0 && handleBox() == null) handleKind = -1
+        val overlay = overlay()
+        queueEvent { renderer.setBoxes(list); renderer.overlay = overlay }
         if (wasEmpty && list.isNotEmpty()) reframe() else requestRender()
     }
 
@@ -157,6 +189,119 @@ class MeshPreviewView(context: Context) : GLSurfaceView(context) {
             val max = Vec3(b.maxOf { it.max.x }, b.maxOf { it.max.y }, b.maxOf { it.max.z })
             queueEvent { renderer.fitPending = min to max; requestRender() }
         } else requestRender()
+    }
+
+    // --- Handles of a lone selected box: 0..2 = size along X / Y / Z (on the max faces), 3 = turn about Z ---
+
+    private fun handleBox(): PreviewBox? = boxes.singleOrNull { it.selected }
+
+    /** Radius of the turn ring: clear of the box's corners. */
+    private fun ringRadius(b: PreviewBox, p: Vec3): Float {
+        val r = kotlin.math.hypot(maxOf(p.x - b.min.x, b.max.x - p.x), maxOf(p.y - b.min.y, b.max.y - p.y))
+        return r + maxOf(3f, r * 0.2f)
+    }
+
+    private fun handles(b: PreviewBox): List<Pair<Int, Vec3>> {
+        val c = (b.min + b.max) * 0.5f
+        val out = ArrayList<Pair<Int, Vec3>>()
+        if (b.scalable) {
+            out += 0 to Vec3(b.max.x, c.y, c.z)
+            out += 1 to Vec3(c.x, b.max.y, c.z)
+            out += 2 to Vec3(c.x, c.y, b.max.z)
+        }
+        b.pivot?.let { p -> out += 3 to Vec3(p.x, p.y - ringRadius(b, p), b.min.z) }
+        return out
+    }
+
+    /** The handle within reach of screen point (x, y), or null. */
+    private fun handleAt(x: Float, y: Float): Int? {
+        val b = handleBox() ?: return null
+        val reach = 24 * density
+        return handles(b).mapNotNull { (k, at) -> camera.project(at)?.let { (px, py) -> k to kotlin.math.hypot(px - x, py - y) } }
+            .filter { it.second <= reach }.minByOrNull { it.second }?.first
+    }
+
+    private fun axis(k: Int) = Vec3(if (k == 0) 1f else 0f, if (k == 1) 1f else 0f, if (k == 2) 1f else 0f)
+
+    /** Size change (whole mm, the box kept at least 1 mm) for a drag of size handle [k] to (x, y). */
+    private fun handleMm(b: PreviewBox, k: Int, x: Float, y: Float): Float {
+        val at = handles(b).first { it.first == k }.second
+        val a = camera.project(at) ?: return 0f
+        val e = camera.project(at + axis(k) * 10f) ?: return 0f
+        val sx = e.first - a.first
+        val sy = e.second - a.second
+        val len2 = sx * sx + sy * sy
+        // The axis points at the camera: no reliable direction on screen.
+        if (len2 < 16f) return 0f
+        val mm = Math.round(((x - downX) * sx + (y - downY) * sy) / len2 * 10f).toFloat()
+        val extent = (b.max - b.min).let { floatArrayOf(it.x, it.y, it.z)[k] }
+        return maxOf(mm, kotlin.math.ceil(1f - extent))
+    }
+
+    private fun angleAt(b: PreviewBox, x: Float, y: Float): Float? {
+        val p = b.pivot ?: return null
+        val q = camera.rayOnPlane(x, y, b.min.z) ?: return null
+        return Math.toDegrees(kotlin.math.atan2((q.y - p.y).toDouble(), (q.x - p.x).toDouble())).toFloat()
+    }
+
+    /** Turn (15° steps, 1° with Shift) for a drag of the turn handle to (x, y). */
+    private fun handleDegrees(b: PreviewBox, event: MotionEvent): Float {
+        val a = angleAt(b, event.x, event.y) ?: return handleValue
+        var d = (a - startAngle) % 360f
+        if (d > 180f) d -= 360f
+        if (d <= -180f) d += 360f
+        val step = if (event.metaState and android.view.KeyEvent.META_SHIFT_ON != 0) 1f else 15f
+        return Math.round(d / step) * step
+    }
+
+    /** Handle dots, guide lines and the live result of a handle drag, in world space. */
+    private fun overlay(): PreviewOverlay {
+        val b = handleBox() ?: return PreviewOverlay.EMPTY
+        val hs = handles(b)
+        if (hs.isEmpty()) return PreviewOverlay.EMPTY
+        val colors = arrayOf(floatArrayOf(0.9f, 0.25f, 0.25f), floatArrayOf(0.3f, 0.8f, 0.3f), floatArrayOf(0.25f, 0.5f, 1f), floatArrayOf(1f, 0.7f, 0.1f))
+        val points = ArrayList<Float>()
+        val guide = ArrayList<Float>()
+        val ghost = ArrayList<Float>()
+        val kind = handleKind
+        for ((k, at0) in hs) {
+            var at = at0
+            if (k == kind && k < 3) at = at + axis(k) * handleValue
+            points += listOf(at.x, at.y, at.z) + colors[k].toList()
+        }
+        b.pivot?.let { p ->
+            // An arc through the turn handle; the whole ring while turning.
+            val r = ringRadius(b, p)
+            val (from, to) = if (kind == 3) -180f to 180f else -115f to -65f
+            val n = if (kind == 3) 64 else 10
+            for (i in 0 until n) {
+                val a0 = Math.toRadians((from + (to - from) * i / n).toDouble())
+                val a1 = Math.toRadians((from + (to - from) * (i + 1) / n).toDouble())
+                guide += listOf(p.x + r * kotlin.math.cos(a0).toFloat(), p.y + r * kotlin.math.sin(a0).toFloat(), b.min.z,
+                    p.x + r * kotlin.math.cos(a1).toFloat(), p.y + r * kotlin.math.sin(a1).toFloat(), b.min.z)
+            }
+        }
+        if (kind in 0..2) {
+            val max = b.max + axis(kind) * handleValue
+            boxLines(ghost, (0 until 8).map { i -> Vec3(if (i and 1 == 0) b.min.x else max.x, if (i and 2 == 0) b.min.y else max.y, if (i and 4 == 0) b.min.z else max.z) })
+        } else if (kind == 3) {
+            val p = b.pivot!!
+            val a = Math.toRadians(handleValue.toDouble())
+            val c = kotlin.math.cos(a).toFloat()
+            val s = kotlin.math.sin(a).toFloat()
+            boxLines(ghost, (0 until 8).map { i ->
+                val x = (if (i and 1 == 0) b.min.x else b.max.x) - p.x
+                val y = (if (i and 2 == 0) b.min.y else b.max.y) - p.y
+                Vec3(p.x + x * c - y * s, p.y + x * s + y * c, if (i and 4 == 0) b.min.z else b.max.z)
+            })
+        }
+        return PreviewOverlay(points.toFloatArray(), guide.toFloatArray(), ghost.toFloatArray())
+    }
+
+    private fun pushOverlay() {
+        val o = overlay()
+        queueEvent { renderer.overlay = o }
+        requestRender()
     }
 
     /** Nearest box the ray through (x, y) hits (slab test), or null. */
@@ -195,8 +340,15 @@ class MeshPreviewView(context: Context) : GLSurfaceView(context) {
         val l = pickListener ?: return false
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
-                downX = event.x; downY = event.y; dragging = false; moved = false; downBox = null
+                downX = event.x; downY = event.y; dragging = false; moved = false; downBox = null; handleKind = -1
                 if (event.isButtonPressed(MotionEvent.BUTTON_SECONDARY) || event.isButtonPressed(MotionEvent.BUTTON_TERTIARY)) return false
+                handleAt(event.x, event.y)?.let { k ->
+                    val hb = handleBox()!!
+                    if (k == 3) startAngle = angleAt(hb, event.x, event.y) ?: return false
+                    handleKind = k; handleValue = 0f
+                    pushOverlay()
+                    return true
+                }
                 val b = hit(event.x, event.y) ?: return false
                 downBox = b.id
                 dragZ = b.min.z
@@ -205,6 +357,13 @@ class MeshPreviewView(context: Context) : GLSurfaceView(context) {
             }
             MotionEvent.ACTION_MOVE -> {
                 if (!moved && kotlin.math.hypot(event.x - downX, event.y - downY) > slop) moved = true
+                if (handleKind >= 0) {
+                    val hb = handleBox()
+                    if (event.pointerCount > 1 || hb == null) { handleKind = -1; pushOverlay(); return false }
+                    val v = if (handleKind == 3) handleDegrees(hb, event) else handleMm(hb, handleKind, event.x, event.y)
+                    if (v != handleValue) { handleValue = v; pushOverlay() }
+                    return true
+                }
                 val id = downBox ?: return false
                 if (event.pointerCount > 1) { downBox = null; return false }
                 if (moved && !dragging) {
@@ -221,6 +380,14 @@ class MeshPreviewView(context: Context) : GLSurfaceView(context) {
                 return true
             }
             MotionEvent.ACTION_UP -> {
+                if (handleKind >= 0) {
+                    val k = handleKind
+                    val v = handleValue
+                    handleKind = -1; handleValue = 0f
+                    pushOverlay()
+                    if (v != 0f) { if (k == 3) l.onRotate(v) else l.onResize(k, v) }
+                    return true
+                }
                 val id = downBox
                 downBox = null
                 if (dragging) {
@@ -238,6 +405,7 @@ class MeshPreviewView(context: Context) : GLSurfaceView(context) {
             }
             MotionEvent.ACTION_CANCEL -> {
                 if (dragging) { queueEvent { renderer.dragOffset = Vec3.ZERO }; requestRender() }
+                if (handleKind >= 0) { handleKind = -1; handleValue = 0f; pushOverlay() }
                 downBox = null; dragging = false
             }
         }
@@ -306,6 +474,14 @@ private class PreviewRenderer(private val camera: Camera) : GLSurfaceView.Render
     var fitPending: Pair<Vec3, Vec3>? = null
     /** Live offset of the selected boxes while they are dragged. */
     var dragOffset = Vec3.ZERO
+    /** Shape-builder handles; uploaded on the next draw when replaced. */
+    var overlay = PreviewOverlay.EMPTY
+        set(v) { field = v; overlayDirty = true }
+    private var overlayDirty = false
+    /** Handle dot diameter in pixels. */
+    @Volatile var handleSize = 14f
+    private var overlayVbo = 0
+    private var handleProgram = 0
     private var boxList: List<PreviewBox> = emptyList()
     private var boxVbo = 0
     private var boxesDirty = false
@@ -341,12 +517,14 @@ private class PreviewRenderer(private val camera: Camera) : GLSurfaceView.Render
         glEnable(GL_DEPTH_TEST)
         meshProgram = program(MESH_VS, MESH_FS)
         lineProgram = program(Shaders.LINE_VS, Shaders.LINE_FS)
-        val ids = IntArray(3)
-        glGenBuffers(3, ids, 0)
-        meshVbo = ids[0]; gridVbo = ids[1]; boxVbo = ids[2]
+        handleProgram = program(HANDLE_VS, Shaders.POINT_FS)
+        val ids = IntArray(4)
+        glGenBuffers(4, ids, 0)
+        meshVbo = ids[0]; gridVbo = ids[1]; boxVbo = ids[2]; overlayVbo = ids[3]
         // A new EGL context lost the buffers: upload the last mesh again.
         dirty = true
         boxesDirty = true
+        overlayDirty = true
         meshCount = 0; gridCount = 0
     }
 
@@ -359,6 +537,8 @@ private class PreviewRenderer(private val camera: Camera) : GLSurfaceView.Render
     override fun onDrawFrame(gl: GL10?) {
         if (dirty) upload()
         if (boxesDirty) uploadBoxes()
+        val ov = overlay
+        if (overlayDirty) uploadOverlay(ov)
         if (hasSize) fitPending?.let { camera.fit(it.first, it.second); fitPending = null }
         val bg = background
         glClearColor(bg[0], bg[1], bg[2], 1f)
@@ -410,9 +590,54 @@ private class PreviewRenderer(private val camera: Camera) : GLSurfaceView.Render
             val d = dragOffset
             glUniform3f(offset, d.x, d.y, d.z)
             glUniform3f(color, 0.2f, 0.55f, 1f)
-            if (selCount > 0) glDrawArrays(GL_LINES, selStart, selCount)
+            // While a handle is dragged its result (the ghost) stands in for the selection.
+            if (selCount > 0 && ov.ghost.isEmpty()) glDrawArrays(GL_LINES, selStart, selCount)
             glEnable(GL_DEPTH_TEST)
         }
+        if (ov.points.isNotEmpty()) drawOverlay(ov)
+    }
+
+    /** Buffer layout: points (6 floats each), then guide and ghost lines (3 floats per vertex). */
+    private fun uploadOverlay(o: PreviewOverlay) {
+        overlayDirty = false
+        val a = o.points + o.guide + o.ghost
+        if (a.isEmpty()) return
+        val buf = ByteBuffer.allocateDirect(a.size * 4).order(ByteOrder.nativeOrder()).asFloatBuffer().put(a).also { it.flip() }
+        glBindBuffer(GL_ARRAY_BUFFER, overlayVbo)
+        glBufferData(GL_ARRAY_BUFFER, a.size * 4, buf, GL_DYNAMIC_DRAW)
+    }
+
+    /** Ghost (blue) and guide lines (amber), then the handle dots, all on top of the model. */
+    private fun drawOverlay(o: PreviewOverlay) {
+        glDisable(GL_DEPTH_TEST)
+        val d = dragOffset
+        glBindBuffer(GL_ARRAY_BUFFER, overlayVbo)
+        glUseProgram(lineProgram)
+        glUniformMatrix4fv(glGetUniformLocation(lineProgram, "uMvp"), 1, false, mvp, 0)
+        val offset = glGetUniformLocation(lineProgram, "uOffset")
+        val color = glGetUniformLocation(lineProgram, "uColor")
+        glEnableVertexAttribArray(0)
+        glVertexAttribPointer(0, 3, GL_FLOAT, false, 12, o.points.size * 4)
+        if (o.guide.isNotEmpty()) {
+            glUniform3f(offset, d.x, d.y, d.z)
+            glUniform3f(color, 1f, 0.7f, 0.1f)
+            glDrawArrays(GL_LINES, 0, o.guide.size / 3)
+        }
+        if (o.ghost.isNotEmpty()) {
+            glUniform3f(offset, 0f, 0f, 0f)
+            glUniform3f(color, 0.2f, 0.55f, 1f)
+            glDrawArrays(GL_LINES, o.guide.size / 3, o.ghost.size / 3)
+        }
+        glUseProgram(handleProgram)
+        glUniformMatrix4fv(glGetUniformLocation(handleProgram, "uMvp"), 1, false, mvp, 0)
+        glUniform3f(glGetUniformLocation(handleProgram, "uOffset"), d.x, d.y, d.z)
+        glUniform1f(glGetUniformLocation(handleProgram, "uSize"), handleSize)
+        glEnableVertexAttribArray(1)
+        glVertexAttribPointer(0, 3, GL_FLOAT, false, 24, 0)
+        glVertexAttribPointer(1, 3, GL_FLOAT, false, 24, 12)
+        glDrawArrays(GL_POINTS, 0, o.points.size / 6)
+        glDisableVertexAttribArray(1)
+        glEnable(GL_DEPTH_TEST)
     }
 
     /** 12 edges per box: the unselected holes, then the selection. */
@@ -501,6 +726,20 @@ private class PreviewRenderer(private val camera: Camera) : GLSurfaceView.Render
     }
 
     private companion object {
+        /** Handle dots: a fixed pixel size, coloured per vertex (round in [Shaders.POINT_FS]). */
+        const val HANDLE_VS = """#version 300 es
+            uniform mat4 uMvp;
+            uniform vec3 uOffset;
+            uniform float uSize;
+            layout(location = 0) in vec3 aPos;
+            layout(location = 1) in vec3 aColor;
+            out vec3 vColor;
+            void main() {
+                vColor = aColor;
+                gl_Position = uMvp * vec4(aPos + uOffset, 1.0);
+                gl_PointSize = uSize;
+            }"""
+
         const val MESH_VS = """#version 300 es
             uniform mat4 uMvp;
             layout(location = 0) in vec3 aPos;
