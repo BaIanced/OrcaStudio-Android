@@ -183,12 +183,19 @@ class MeshPreviewView(context: Context) : GLSurfaceView(context) {
     fun reframe() {
         val m = mesh
         val b = boxes.takeIf { it.isNotEmpty() }
-        if (m != null) queueEvent { renderer.fitPending = m.min to m.max; requestRender() }
-        else if (b != null) {
-            val min = Vec3(b.minOf { it.min.x }, b.minOf { it.min.y }, b.minOf { it.min.z })
-            val max = Vec3(b.maxOf { it.max.x }, b.maxOf { it.max.y }, b.maxOf { it.max.z })
-            queueEvent { renderer.fitPending = min to max; requestRender() }
-        } else requestRender()
+        var fit = if (m != null) m.min to m.max
+        else if (b != null) Vec3(b.minOf { it.min.x }, b.minOf { it.min.y }, b.minOf { it.min.z }) to
+            Vec3(b.maxOf { it.max.x }, b.maxOf { it.max.y }, b.maxOf { it.max.z })
+        else null
+        // Keep the turn handle's ring in view.
+        val hb = handleBox()
+        val p = hb?.pivot
+        if (fit != null && p != null) {
+            val r = ringRadius(hb, p)
+            fit = Vec3(minOf(fit.first.x, p.x - r), minOf(fit.first.y, p.y - r), fit.first.z) to
+                Vec3(maxOf(fit.second.x, p.x + r), maxOf(fit.second.y, p.y + r), fit.second.z)
+        }
+        if (fit != null) queueEvent { renderer.fitPending = fit; requestRender() } else requestRender()
     }
 
     // --- Handles of a lone selected box: 0..2 = size along X / Y / Z (on the max faces), 3 = turn about Z ---

@@ -448,7 +448,8 @@ private fun Customizer(s: ScadEditorState, vm: AppViewModel, onAddSetting: () ->
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         if (s.parseError) Notice(stringResource(R.string.scad_parse_error), error = true)
         if (s.params.isEmpty()) {
-            Notice(stringResource(R.string.scad_no_params), error = false)
+            // Shape designs get sliders from the Shapes tab, not from code annotations.
+            Notice(stringResource(if (s.shapes != null) R.string.shape_dims_hint else R.string.scad_no_params), error = false)
             TextButton(onClick = onAddSetting) {
                 Icon(Icons.Default.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.scad_add_setting))
