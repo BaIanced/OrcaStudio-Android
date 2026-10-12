@@ -98,8 +98,8 @@
     <string name="ai_new_token">New token</string>
     <string name="ai_edit">AI: %1$s</string>
     <string name="ai_confirm_title">An AI client asks</string>
-    <string name="ai_confirm_plate">Put the design "%1$s" on plate %2$d?</string>
-    <string name="ai_confirm_replaces">It replaces "%1$s" there.</string>
+    <string name="ai_confirm_plate">Put the design \"%1$s\" on plate %2$d?</string>
+    <string name="ai_confirm_replaces">It replaces \"%1$s\" there.</string>
     <string name="ai_allow">Allow</string>
     <string name="ai_deny">Deny</string>
     <string name="back_again_quit">Press Back again to quit</string>

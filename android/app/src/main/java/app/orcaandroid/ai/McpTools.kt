@@ -36,13 +36,13 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
     }
 
     private val tools = listOf(
-        Tool("design_get", "Read: the shape-builder design open in the app's design editor, as JSON " +
-            "({open, name, selected, design}). design is the shape tree (see design_set for the format); when the " +
+        Tool("design_get", "Read: the shape-builder design in the app's design editor, as JSON " +
+            "({name, selected, design}).$OPENS design is the shape tree (see design_set for the format); when the " +
             "editor holds hand-written OpenSCAD code instead, source has the code and design is null.", obj()) { get() },
         Tool("design_describe", "Read: the open design as a short indented text tree (id, kind, name, size, position, " +
-            "rotation, hole, repeat, dimension bindings, bounds). Cheapest way to see the design; prefer it over design_get.",
+            "rotation, hole, repeat, dimension bindings, bounds). Cheapest way to see the design; prefer it over design_get.$OPENS",
             obj()) { describe() },
-        Tool("design_set", "Edit: replaces the whole shape-builder design. Opens the design editor when it is closed. " +
+        Tool("design_set", "Edit: replaces the whole shape-builder design.$OPENS " +
             "Prefer the shape_* tools for small changes. $EDIT Units: mm and degrees. $FORMAT",
             obj(listOf("design"), "design" to p("object", "The whole design: {shapes: [...], dims: [...]} as returned by design_get."))) { set(it) },
         Tool("shape_add", "Edit: adds one shape (any kind but group / mesh) and selects it. Without pos it is placed right " +
@@ -136,20 +136,19 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
 
     // --- Read ---------------------------------------------------------------------------------------
 
-    private fun get(): String {
-        val st = store.value.scad ?: return JSONObject().put("open", false)
-            .put("note", "The design editor is closed; design_set opens it.").toString(2)
-        return JSONObject().put("open", true).put("name", st.name)
+    private suspend fun get(): String = withContext(Dispatchers.Main.immediate) {
+        val st = editor()
+        JSONObject().put("name", st.name)
             .put("selected", JSONArray(st.selected))
             .put("design", st.shapes?.json() ?: JSONObject.NULL)
             .apply { if (st.shapes == null) put("source", st.source) }
             .toString(2)
     }
 
-    private fun describe(): String {
-        val st = store.value.scad ?: return "The design editor is closed; design_set opens it."
-        val d = st.shapes ?: return "The editor holds hand-written OpenSCAD code (${st.source.lines().size} lines), not a shape design."
-        return describe(st.name, d, st.selected)
+    private suspend fun describe(): String = withContext(Dispatchers.Main.immediate) {
+        val st = editor()
+        val d = st.shapes ?: return@withContext "The editor holds hand-written OpenSCAD code (${st.source.lines().size} lines), not a shape design."
+        describe(st.name, d, st.selected)
     }
 
     private fun describe(name: String, d: ShapeDesign, selected: List<Int>) = buildString {
@@ -433,6 +432,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         private const val CONFIRM_TIMEOUT = 60_000L
 
         private const val EDIT = "One undo step in the app (the user can press Undo)."
+        private const val OPENS = " Opens the design editor on the saved draft when it is closed."
 
         private fun p(type: String, description: String) = JSONObject().put("type", type).put("description", description)
         private fun vec(description: String) = JSONObject().put("type", "array").put("items", JSONObject().put("type", "number"))
