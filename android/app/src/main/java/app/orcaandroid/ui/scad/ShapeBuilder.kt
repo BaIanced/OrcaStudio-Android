@@ -7,8 +7,6 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -89,7 +87,6 @@ private val PALETTE = listOf(
  * settings. Keys while nothing is typed in a field: Delete, Ctrl+D / G / Shift+G / Z / Y / A,
  * arrows (1 mm, Shift 10 mm), Page Up / Down (height), H hole, S solid, Esc deselect.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ShapesTab(s: ScadEditorState, vm: AppViewModel) {
     val d = s.shapes ?: return
@@ -122,7 +119,7 @@ fun ShapesTab(s: ScadEditorState, vm: AppViewModel) {
     ) {
         Text(stringResource(R.string.shape_add), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(start = 16.dp, top = 8.dp))
-        FlowRow(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             PALETTE.forEach { k ->
                 AssistChip(onClick = { sh.add(k); runCatching { focus.requestFocus() } }, label = { Text(stringResource(ShapeController.kindName(k))) },
                     leadingIcon = { Icon(Icons.Default.Add, null, Modifier.size(16.dp)) })
@@ -238,14 +235,14 @@ private fun Properties(shape: Shape, d: ShapeDesign, vm: AppViewModel) {
                 label = { Text(stringResource(R.string.shape_text_value)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
         }
         if (!shape.isGroup) {
-            FieldRow(stringResource(R.string.shape_size), shape, d, vm, "size", listOf("W", "D", "H"), shape.size)
+            FieldRow(stringResource(R.string.shape_size), shape, d, vm, "size", listOf("W", "D", "H"), shape.size, listOf("width", "depth", "height"))
         } else {
             val b = d.bounds(shape.copy(pos = D3(), rot = D3(), repeat = null)).size
             Text(stringResource(R.string.scad_size, ShapeDesign.n(b.x), ShapeDesign.n(b.y), ShapeDesign.n(b.z)),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        FieldRow(stringResource(R.string.shape_position), shape, d, vm, "pos", listOf("X", "Y", "Z"), shape.pos)
-        FieldRow(stringResource(R.string.shape_rotation), shape, d, vm, "rot", listOf("X°", "Y°", "Z°"), shape.rot)
+        FieldRow(stringResource(R.string.shape_position), shape, d, vm, "pos", listOf("X", "Y", "Z"), shape.pos, listOf("x", "y", "z"))
+        FieldRow(stringResource(R.string.shape_rotation), shape, d, vm, "rot", listOf("X°", "Y°", "Z°"), shape.rot, listOf("turn_x", "turn_y", "turn_z"))
         when (shape.kind) {
             Shape.Kind.ROUNDED_BOX -> ExtraField(stringResource(R.string.shape_radius), shape, d, vm, Shape.RADIUS, 3.0)
             Shape.Kind.TUBE -> ExtraField(stringResource(R.string.shape_wall), shape, d, vm, Shape.WALL, 2.0)
@@ -261,7 +258,8 @@ private fun Properties(shape: Shape, d: ShapeDesign, vm: AppViewModel) {
 
 /** Three numbers (size / position / rotation); the menu turns one into a slider or links it to one. */
 @Composable
-private fun FieldRow(title: String, shape: Shape, d: ShapeDesign, vm: AppViewModel, prefix: String, labels: List<String>, raw: D3) {
+private fun FieldRow(title: String, shape: Shape, d: ShapeDesign, vm: AppViewModel, prefix: String, labels: List<String>, raw: D3,
+                     names: List<String>) {
     var menu by remember { mutableStateOf(false) }
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -279,7 +277,7 @@ private fun FieldRow(title: String, shape: Shape, d: ShapeDesign, vm: AppViewMod
                 IconButton(onClick = { menu = true }, modifier = Modifier.size(32.dp)) {
                     Icon(Icons.Default.MoreVert, stringResource(R.string.shape_slider_menu))
                 }
-                SliderMenu(menu, { menu = false }, shape, d, vm, labels.mapIndexed { i, l -> "$prefix.${"xyz"[i]}" to "$title $l" })
+                SliderMenu(menu, { menu = false }, shape, d, vm, labels.mapIndexed { i, l -> Triple("$prefix.${"xyz"[i]}", "$title $l", names[i]) })
             }
         }
     }
@@ -297,16 +295,16 @@ private fun ExtraField(title: String, shape: Shape, d: ShapeDesign, vm: AppViewM
             IconButton(onClick = { menu = true }, modifier = Modifier.size(32.dp)) {
                 Icon(Icons.Default.MoreVert, stringResource(R.string.shape_slider_menu))
             }
-            SliderMenu(menu, { menu = false }, shape, d, vm, listOf(key to title))
+            SliderMenu(menu, { menu = false }, shape, d, vm, listOf(Triple(key, title, key)))
         }
     }
 }
 
 /** Per field: make a new slider, link to an existing one, or unlink. */
 @Composable
-private fun SliderMenu(open: Boolean, onDismiss: () -> Unit, shape: Shape, d: ShapeDesign, vm: AppViewModel, fields: List<Pair<String, String>>) {
+private fun SliderMenu(open: Boolean, onDismiss: () -> Unit, shape: Shape, d: ShapeDesign, vm: AppViewModel, fields: List<Triple<String, String, String>>) {
     DropdownMenu(open, onDismiss) {
-        fields.forEach { (field, label) ->
+        fields.forEach { (field, label, word) ->
             val bound = shape.bind[field]
             Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
@@ -314,7 +312,7 @@ private fun SliderMenu(open: Boolean, onDismiss: () -> Unit, shape: Shape, d: Sh
                 onClick = { onDismiss(); vm.shapes.bind(shape.id, field, null) })
             else {
                 DropdownMenuItem(text = { Text(stringResource(R.string.shape_make_slider)) }, leadingIcon = { Icon(Icons.Default.Add, null) },
-                    onClick = { onDismiss(); vm.shapes.makeSlider(shape.id, field, "${shape.name} $label") })
+                    onClick = { onDismiss(); vm.shapes.makeSlider(shape.id, field, "${shape.name} $word") })
                 d.dims.forEach { dim ->
                     DropdownMenuItem(text = { Text(stringResource(R.string.shape_link, dim.name)) }, leadingIcon = { Icon(Icons.Default.Link, null) },
                         onClick = { onDismiss(); vm.shapes.bind(shape.id, field, dim.name) })

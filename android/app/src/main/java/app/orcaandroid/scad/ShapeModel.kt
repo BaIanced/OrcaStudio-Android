@@ -229,6 +229,8 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
         appendLine("/* [Hidden] */")
         appendLine("\$fs = 0.4;")
         appendLine("\$fa = 4;")
+        appendLine("// Sides for a round shape of diameter d: the shapes scale a 1 mm primitive, so \$fs alone would give too few.")
+        appendLine("function sides(d) = max(12, min(180, ceil(PI * d / 0.8)));")
         if (shapes.any { s -> s.all().any { it.kind == Shape.Kind.ROUNDED_BOX } }) {
             appendLine()
             appendLine("// A box with all edges rounded by r (hull of eight balls).")
@@ -295,18 +297,19 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
         val d = f(s, "size.y", s.size.y)
         val h = f(s, "size.z", s.size.z)
         val sides = s.x(Shape.SIDES, 0.0).toInt()
-        val fn = if (sides >= 3) ", \$fn = $sides" else ""
+        val fn = if (sides >= 3) ", \$fn = $sides" else ", \$fn = sides(max($w, $d))"
+        val round = "\$fn = sides(max($w, $d, $h))"
         return when (s.kind) {
             Shape.Kind.BOX -> "translate([-$w / 2, -$d / 2, 0]) cube([$w, $d, $h]);"
             Shape.Kind.ROUNDED_BOX -> "rounded_box([$w, $d, $h], ${f(s, Shape.RADIUS, s.x(Shape.RADIUS, 2.0))});"
             Shape.Kind.CYLINDER, Shape.Kind.PRISM -> "scale([$w, $d, $h]) cylinder(h = 1, d = 1$fn);"
             Shape.Kind.CONE -> "scale([$w, $d, $h]) cylinder(h = 1, d1 = 1, d2 = ${n(s.x(Shape.TOP, 0.0).coerceIn(0.0, 1.0))}$fn);"
             Shape.Kind.PYRAMID -> "scale([$w, $d, $h]) rotate([0, 0, 45]) cylinder(h = 1, d1 = sqrt(2), d2 = 0, \$fn = 4);"
-            Shape.Kind.SPHERE -> "translate([0, 0, $h / 2]) scale([$w, $d, $h]) sphere(d = 1);"
-            Shape.Kind.DOME -> "scale([$w / 2, $d / 2, $h]) intersection() { sphere(r = 1); translate([-1, -1, 0]) cube([2, 2, 1]); }"
+            Shape.Kind.SPHERE -> "translate([0, 0, $h / 2]) scale([$w, $d, $h]) sphere(d = 1, $round);"
+            Shape.Kind.DOME -> "scale([$w / 2, $d / 2, $h]) intersection() { sphere(r = 1, $round); translate([-1, -1, 0]) cube([2, 2, 1]); }"
             Shape.Kind.TORUS -> {
                 val t = f(s, Shape.TUBE, s.x(Shape.TUBE, 5.0))
-                "scale([1, $d / $w, 1]) rotate_extrude() translate([($w - min($t, $w / 2)) / 2, $h / 2]) scale([min($t, $w / 2) / 2, $h / 2]) circle(r = 1);"
+                "scale([1, $d / $w, 1]) rotate_extrude(\$fn = sides($w)) translate([($w - min($t, $w / 2)) / 2, $h / 2]) scale([min($t, $w / 2) / 2, $h / 2]) circle(r = 1, \$fn = sides(max(min($t, $w / 2), $h)));"
             }
             Shape.Kind.TUBE -> {
                 val t = f(s, Shape.WALL, s.x(Shape.WALL, 2.0))

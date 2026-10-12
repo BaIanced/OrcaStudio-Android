@@ -257,6 +257,12 @@ class ScadController(private val store: Store) {
                 val r = client.render(s.source, s.file, ScadParam.encode(s.values), out)
                 val stl = r.stl
                 val mesh = stl?.let { withContext(Dispatchers.IO) { runCatching { PreviewMesh.readStl(it) }.getOrNull() } }
+                // Another design was loaded meanwhile: this result is not its preview.
+                if (st?.let(::key) != k) {
+                    out.delete(); stl?.delete()
+                    previewAgain = true
+                    return@launch
+                }
                 if (stl != null && mesh != null) {
                     previewStl?.delete()
                     previewStl = stl
@@ -360,7 +366,15 @@ class ScadController(private val store: Store) {
                 val cached = previewStl?.takeIf { previewKey == key(s) && it.isFile }
                 if (cached != null) {
                     val files = withContext(Dispatchers.IO) { ScadDeps.collect(s.source, s.file) }
-                    val name = place(cached, if (asNew) null else s.onPlate, ScadDesign(s.name, s.source, s.values, files, s.shapes))
+                    // The object is named after its file: a copy named after the design, not the preview's.
+                    val stem = s.name.substringBeforeLast('.').ifEmpty { "openscad" }
+                    val named = File(store.app.cacheDir, "openscad/${System.nanoTime()}/$stem.stl")
+                    withContext(Dispatchers.IO) { cached.copyTo(named, overwrite = true) }
+                    val name = try {
+                        place(named, if (asNew) null else s.onPlate, ScadDesign(s.name, s.source, s.values, files, s.shapes))
+                    } finally {
+                        named.parentFile?.deleteRecursively()
+                    }
                     set { it.copy(onPlate = name, status = store.str(R.string.scad_placed), statusError = false) }
                     saveDraft()
                     return@launch
