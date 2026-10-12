@@ -96,7 +96,7 @@ data class UiState(
     val dynamicColor: Boolean = false,
     val doubleBackToQuit: Boolean = false,
     val undoLimit: Int = app.orcaandroid.core.DEFAULT_UNDO_LIMIT,
-    /** Auto-save interval in seconds; 0 = off. */
+    /** Auto-save interval in seconds; 0 or less = off (-seconds keeps the interval it had). */
     val autoSaveSeconds: Int = app.orcaandroid.core.DEFAULT_AUTO_SAVE_SECONDS,
     /** The MCP server for AI clients is switched on; [aiToken] is what they must send. */
     val aiTools: Boolean = false,

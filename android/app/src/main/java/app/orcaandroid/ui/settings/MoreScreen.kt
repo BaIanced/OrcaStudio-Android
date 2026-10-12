@@ -246,9 +246,10 @@ private fun AiToolsSection(state: UiState, vm: AppViewModel) {
 @Composable
 private fun AutoSaveRow(seconds: Int, onChange: (Int) -> Unit) {
     val range = app.orcaandroid.core.AUTO_SAVE_RANGE
-    var last by remember { mutableStateOf(if (seconds > 0) seconds else app.orcaandroid.core.DEFAULT_AUTO_SAVE_SECONDS) }
+    var last by remember { mutableStateOf(kotlin.math.abs(seconds).takeIf { it in range } ?: app.orcaandroid.core.DEFAULT_AUTO_SAVE_SECONDS) }
     var text by remember(seconds) { mutableStateOf(last.toString()) }
-    SwitchRow(stringResource(R.string.auto_save), seconds > 0, onChange = { on -> onChange(if (on) last else 0) })
+    // Off is stored as -interval, so the interval is still there when it is switched on again.
+    SwitchRow(stringResource(R.string.auto_save), seconds > 0, onChange = { on -> onChange(if (on) last else -last) })
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(R.string.auto_save_interval), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
         OutlinedTextField(

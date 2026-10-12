@@ -27,7 +27,8 @@ class AppSettings(context: Context) {
         get() = prefs.getInt("undo_limit", DEFAULT_UNDO_LIMIT)
         set(value) = prefs.edit().putInt("undo_limit", value).apply()
 
-    /** Saves the session this often (seconds) while the plate has unsaved changes; 0 = only when the app goes to the background. */
+    /** Saves the session this often (seconds) while the plate has unsaved changes; 0 or less = only when the app goes to the background
+     *  (switched off keeps the interval as -seconds, for switching it on again). */
     var autoSaveSeconds: Int
         get() = prefs.getInt("auto_save_seconds", DEFAULT_AUTO_SAVE_SECONDS)
         set(value) = prefs.edit().putInt("auto_save_seconds", value).apply()
