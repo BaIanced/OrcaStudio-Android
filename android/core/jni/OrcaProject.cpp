@@ -3,15 +3,20 @@
 
 #include "OrcaEngine.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <fstream>
 #include <functional>
 #include <map>
 #include <stdexcept>
+#include <string>
+
+#include <boost/beast/core/detail/base64.hpp>
 
 #include "libslic3r/AppConfig.hpp"
 #include "libslic3r/Format/STL.hpp"
 #include "libslic3r/Format/bbs_3mf.hpp"
+#include "libslic3r/GCode/Thumbnails.hpp"
 #include "libslic3r/Model.hpp"
 #include "libslic3r/Preset.hpp"
 #include "libslic3r/PresetBundle.hpp"
@@ -318,6 +323,25 @@ json OrcaEngine::export_stl(const std::string &path, int plate)
     if (!store_stl(path.c_str(), &mesh, true))
         throw std::runtime_error("Writing the STL failed");
     return {{"path", path}, {"triangles", mesh.facets_count()}};
+}
+
+json OrcaEngine::snapshot(const std::string &path, int size)
+{
+    // Standalone: renders the given mesh file, not the scene, so no engine lock is needed.
+    const unsigned px = unsigned(std::clamp(size, 128, 1024));
+    Model model = Model::read_from_file(path, nullptr, nullptr, LoadStrategy::AddDefaultInstances | LoadStrategy::LoadModel);
+    const ThumbnailData thumb = render_thumbnail(model, px, px, {});
+    if (!thumb.is_valid())
+        throw std::runtime_error("Nothing to render (the mesh is empty)");
+    const std::unique_ptr<GCodeThumbnails::CompressedImageBuffer> png =
+        GCodeThumbnails::compress_thumbnail(thumb, GCodeThumbnailsFormat::PNG);
+    if (!png || png->data == nullptr || png->size == 0)
+        throw std::runtime_error("Encoding the PNG failed");
+
+    std::string b64(boost::beast::detail::base64::encoded_size(png->size), '\0');
+    const size_t written = boost::beast::detail::base64::encode(b64.data(), png->data, png->size);
+    b64.resize(written);
+    return {{"png", b64}, {"width", int(px)}, {"height", int(px)}};
 }
 
 json OrcaEngine::import_presets(const std::vector<std::string> &paths)

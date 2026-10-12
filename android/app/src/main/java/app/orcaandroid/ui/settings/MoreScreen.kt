@@ -29,6 +29,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -87,9 +88,13 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
             UndoLimitRow(state.undoLimit, vm::setUndoLimit)
             AutoSaveRow(state.autoSaveSeconds, vm::setAutoSave)
 
+            SectionTitle(stringResource(R.string.ai_tools))
+            AiToolsSection(state, vm)
+
             SectionTitle(stringResource(R.string.printers_and_presets))
             Entry(stringResource(R.string.manage_printers), stringResource(R.string.n_printers_selected, state.selectedPrinters.size)) { vm.presets.openPrinterSetup() }
             Entry(stringResource(R.string.filament_vendors), stringResource(R.string.filament_vendors_text)) { dialog = "vendors" }
+            if (state.supportsBedTypes) Entry(stringResource(R.string.plate_types), stringResource(R.string.plate_types_text)) { dialog = "plates" }
             Entry(stringResource(R.string.import_presets), stringResource(R.string.import_presets_text)) { importPresets.launch(arrayOf("*/*")) }
             Entry(stringResource(R.string.sync_cloud_presets), stringResource(R.string.sync_cloud_presets_text)) { vm.presets.syncCloudPresets() }
             Entry(stringResource(R.string.compare_presets), null) { vm.presets.openEditor(EditorTarget.Preset(PresetType.PRINT, pickCompare = true)) }
@@ -134,6 +139,7 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
     when (dialog) {
         "calib" -> CalibrationDialog(vm) { dialog = null }
         "vendors" -> FilamentVendorsDialog(state, vm) { dialog = null }
+        "plates" -> PlateTypesDialog(state, vm) { dialog = null }
         "backup_export" -> PassphraseDialog(stringResource(R.string.backup_export), stringResource(R.string.backup_export_warning), confirm = true,
             onDismiss = { dialog = null }) { pass ->
             dialog = null
@@ -196,6 +202,37 @@ private fun UndoLimitRow(limit: Int, onChange: (Int) -> Unit) {
             isError = value == null,
             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
         )
+    }
+}
+
+/** The MCP server for AI clients: switch, address, token and a ready-made `claude mcp add` command. */
+@Composable
+private fun AiToolsSection(state: UiState, vm: AppViewModel) {
+    val context = LocalContext.current
+    val port = app.orcaandroid.core.AI_TOOLS_PORT
+    SwitchRow(stringResource(R.string.ai_tools_switch), state.aiTools, onChange = vm::setAiTools)
+    Text(stringResource(R.string.ai_tools_text, port), style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant)
+    if (!state.aiTools) return
+    SwitchRow(stringResource(R.string.ai_tools_lan), state.aiToolsLan, onChange = { vm.setAiTools(true, it) })
+    if (state.aiToolsLan) Text(stringResource(R.string.ai_tools_lan_text, state.aiAddresses.joinToString { "http://$it:$port/mcp" }.ifEmpty { "-" }),
+        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    state.aiError?.let { Text(stringResource(R.string.ai_tools_error, it), style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.error) }
+    var shown by remember { mutableStateOf(false) }
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(stringResource(R.string.ai_token) + ": " + if (shown) state.aiToken else "••••" + state.aiToken.takeLast(4),
+            Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+        TextButton(onClick = { shown = !shown }) { Text(stringResource(if (shown) R.string.ai_token_hide else R.string.ai_token_show)) }
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        TextButton(onClick = {
+            val cmd = "claude mcp add --transport http orca http://127.0.0.1:$port/mcp --header \"Authorization: Bearer ${state.aiToken}\""
+            context.getSystemService(android.content.ClipboardManager::class.java)
+                .setPrimaryClip(android.content.ClipData.newPlainText("MCP setup", cmd))
+            vm.toast(context.getString(R.string.ai_command_copied))
+        }) { Text(stringResource(R.string.ai_copy_command)) }
+        TextButton(onClick = vm::newAiToken) { Text(stringResource(R.string.ai_new_token)) }
     }
 }
 
@@ -267,6 +304,41 @@ private fun FilamentVendorsDialog(state: UiState, vm: AppViewModel, onDismiss: (
             }
         },
         confirmButton = { TextButton(onClick = { onDismiss(); vm.presets.setHiddenFilamentVendors(hidden) }) { Text(stringResource(R.string.ok)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
+}
+
+/** Which plate types the plate pickers offer (checkbox) and which one plates without their own use (radio). */
+@Composable
+private fun PlateTypesDialog(state: UiState, vm: AppViewModel, onDismiss: () -> Unit) {
+    val types = state.setup?.bedTypes.orEmpty()
+    var hidden by remember { mutableStateOf(state.hiddenBedTypes) }
+    var preferred by remember { mutableStateOf(state.preferredBedType.takeIf { it in types }.orEmpty()) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.plate_types)) },
+        text = {
+            LazyColumn(Modifier.heightIn(max = 440.dp)) {
+                item {
+                    Text(stringResource(R.string.plate_types_hint), style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(Modifier.fillMaxWidth().clickable { preferred = "" }, verticalAlignment = Alignment.CenterVertically) {
+                        RadioButton(preferred.isEmpty(), { preferred = "" })
+                        Text(stringResource(R.string.plate_type_printer_default))
+                    }
+                    HorizontalDivider()
+                }
+                items(types) { t ->
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        // The default stays visible.
+                        Checkbox(t !in hidden || t == preferred, { hidden = if (it) hidden - t else hidden + t }, enabled = t != preferred)
+                        Text(vm.translator.tr(t), Modifier.weight(1f))
+                        RadioButton(t == preferred, { preferred = t; hidden = hidden - t })
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { onDismiss(); vm.presets.setPlateTypes(hidden, preferred) }) { Text(stringResource(R.string.ok)) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
 }

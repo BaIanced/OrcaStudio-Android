@@ -29,6 +29,9 @@ class Engine(private val cacheDir: File) {
     suspend fun loadPresets(): List<PrinterInfo> = parsePrinters(call("loadPresets"))
     suspend fun printerList(): List<PrinterInfo> = parsePrinters(call("printerList"))
     suspend fun selectPrinter(name: String): PrinterSetup = parseSetup(call("selectPrinter", args("printer" to name)))
+    /** Plate type of plates without their own ("" = the printer's default); returns the selected printer's resulting default. */
+    suspend fun setDefaultBedType(bedType: String): String =
+        call("setDefaultBedType", args("bedType" to bedType)).optString("default_bed_type")
 
     private val defsCache = HashMap<PresetType, List<OptionDef>>()
 
@@ -188,6 +191,9 @@ class Engine(private val cacheDir: File) {
         )
     }
     suspend fun exportStl(path: String, plate: Int) { call("exportStl", args("path" to path, "plate" to plate)) }
+    /** Renders a mesh file (e.g. the OpenSCAD preview STL) to a square PNG; returns its base64 (as MCP image data wants it). */
+    suspend fun snapshotPng(stlPath: String, size: Int): String =
+        call("snapshot", args("stl" to stlPath, "size" to size)).getString("png")
     /** [sliced]: the slice result's G-code when [gcode] is a post-processed copy of it (for slice_info.config). */
     suspend fun exportGcode3mf(plate: Int, gcode: String, path: String, sliced: String = gcode) {
         call("exportGcode3mf", args("plate" to plate, "gcode" to gcode, "path" to path, "sliced" to sliced))

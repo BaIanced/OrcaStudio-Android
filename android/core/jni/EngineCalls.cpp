@@ -53,6 +53,7 @@ const std::unordered_map<std::string, Handler> &handlers()
         {"loadPresets", [](OrcaEngine &e, const json &) { return e.load_presets(); }},
         {"printerList", [](OrcaEngine &e, const json &) { return e.printer_list(); }},
         {"selectPrinter", [](OrcaEngine &e, const json &a) { return e.select_printer(a.at("printer")); }},
+        {"setDefaultBedType", [](OrcaEngine &e, const json &a) { return e.set_default_bed_type(a.value("bedType", std::string())); }},
         {"optionDefs", [](OrcaEngine &e, const json &a) { return json{{"defs", e.option_defs(a.at("type"))}}; }},
         {"presetValues", [](OrcaEngine &e, const json &a) { return e.preset_values(a.at("type"), a.at("name")); }},
         {"savePreset", [](OrcaEngine &e, const json &a) { return e.save_preset(a.at("type"), a.at("base"), a.at("name"), a.at("overrides")); }},
@@ -135,6 +136,7 @@ const std::unordered_map<std::string, Handler> &handlers()
         {"loadProject", [](OrcaEngine &e, const json &a) { return e.load_project(a.at("path")); }},
         {"exportGcode3mf", [](OrcaEngine &e, const json &a) { return e.export_gcode_3mf(a.at("plate"), a.at("gcode"), a.at("path"), a.value("sliced", std::string())); }},
         {"exportStl", [](OrcaEngine &e, const json &a) { return e.export_stl(a.at("path"), a.value("plate", -1)); }},
+        {"snapshot", [](OrcaEngine &e, const json &a) { return e.snapshot(a.at("stl").get<std::string>(), a.value("size", 512)); }},
         {"importPresets", [](OrcaEngine &e, const json &a) { return e.import_presets(strings(a.at("paths"))); }},
         {"presetFile", [](OrcaEngine &e, const json &a) { return e.preset_file(a.at("type"), a.at("name")); }},
     };

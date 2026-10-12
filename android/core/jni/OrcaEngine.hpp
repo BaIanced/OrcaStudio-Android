@@ -60,9 +60,12 @@ public:
 
     // Selects the printer and returns the compatible process/filament presets and bed geometry:
     // { "prints": [...], "filaments": [...], "bed": [[x,y]...], "max_height": h,
-    //   "default_print": name, "default_filament": name, "bed_types": [...] }
+    //   "default_print": name, "default_filament": name, "bed_types": [...], "default_bed_type": name }
     // The scene is kept.
     json select_printer(const std::string &printer);
+    // The plate type plates without their own use, when the printer has it (empty: the printer's
+    // default, as on the desktop). Returns { "default_bed_type" } for the selected printer.
+    json set_default_bed_type(const std::string &bed_type);
 
     // type is "print", "filament" or "printer".
     json option_defs(const std::string &type);
@@ -209,6 +212,10 @@ public:
     json export_gcode_3mf(int plate, const std::string &gcode, const std::string &path, const std::string &sliced);
     // Writes the objects of `plate` (or all for plate < 0) as one binary STL.
     json export_stl(const std::string &path, int plate);
+    // Renders a mesh file (e.g. the OpenSCAD preview STL) to a square PNG with the CPU thumbnailer
+    // (no scene state needed). `size` px is clamped to 128..1024. Returns { "png" (base64), "width",
+    // "height" }. Used by the AI tool layer's design_snapshot.
+    json snapshot(const std::string &path, int size);
     // Imports user presets (.json / .zip / .orca_printer / .orca_filament ...).
     json import_presets(const std::vector<std::string> &paths);
     // Loads the user's cloud presets like the desktop's cloud sync and saves them as user presets.
@@ -266,6 +273,11 @@ private:
     OrcaEngine();
     ~OrcaEngine();
 
+    // The selected printer has plate types (Bambu Lab, or support_multi_bed_types).
+    bool has_bed_types() const;
+    // Plate type of a plate without its own: the user's choice, else the printer's; empty without plate types.
+    std::string default_bed_type() const;
+
     struct PlateInfo
     {
         std::string bed_type; // empty: printer/filament default
@@ -319,6 +331,7 @@ private:
     std::deque<Snapshot>                  m_undo, m_redo;
     size_t                                m_undo_limit = 200;
     std::string                           m_printer;
+    std::string                           m_preferred_bed_type; // set_default_bed_type
     std::string                           m_mesh_path;
     std::string                           m_paint_path;
     // Ray-cast acceleration per volume mesh, dropped whenever the scene changes (commit()).

@@ -98,6 +98,16 @@ data class UiState(
     val undoLimit: Int = app.orcaandroid.core.DEFAULT_UNDO_LIMIT,
     /** Auto-save interval in seconds; 0 = off. */
     val autoSaveSeconds: Int = app.orcaandroid.core.DEFAULT_AUTO_SAVE_SECONDS,
+    /** The MCP server for AI clients is switched on; [aiToken] is what they must send. */
+    val aiTools: Boolean = false,
+    val aiToken: String = "",
+    /** It also listens on the local network; [aiAddresses] are this device's addresses there. */
+    val aiToolsLan: Boolean = false,
+    val aiAddresses: List<String> = emptyList(),
+    /** What an AI tool asks the user to allow (shown as a dialog), or null. */
+    val aiConfirm: String? = null,
+    /** Why the server isn't running although switched on (port taken, ...). */
+    val aiError: String? = null,
 
     // Printers and presets
     val vendors: List<Vendor> = emptyList(),
@@ -115,6 +125,9 @@ data class UiState(
     val overrides: Map<PresetType, Map<String, String>> = emptyMap(),
     val optionStates: OptionStates = OptionStates(),
     val hiddenFilamentVendors: Set<String> = emptySet(),
+    /** Plate types left out of the plate type pickers, and the user's default one ("" = the printer's). */
+    val hiddenBedTypes: Set<String> = emptySet(),
+    val preferredBedType: String = "",
     val editor: EditorTarget? = null,
     val showPrinterSetup: Boolean = false,
 
@@ -209,6 +222,12 @@ data class UiState(
 
     /** Process options printers without multiple plate types never see. */
     val supportsBedTypes get() = setup?.bedTypes?.isNotEmpty() == true
+
+    /** Plate type [plate] slices with: its own, else the default. */
+    fun bedTypeOf(plate: Int): String? = scene.plates.getOrNull(plate)?.bedType?.ifEmpty { null } ?: setup?.defaultBedType
+
+    /** Plate types the pickers offer: the visible ones, plus [current] even when hidden. */
+    fun bedTypeChoices(current: String?): List<String> = setup?.bedTypes.orEmpty().filter { it !in hiddenBedTypes || it == current }
 
     val selectedPrinterKeys get() = printers.filter { it.name == printer }.map { printerKey(it.model, it.nozzle) }
 

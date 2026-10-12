@@ -116,9 +116,9 @@ private fun PresetsTab(state: UiState, vm: AppViewModel) {
     }
     TextButton(onClick = vm.presets::openPrinterSetup) { Text(stringResource(R.string.manage_printers)) }
     if (state.supportsBedTypes) {
-        val plate = state.scene.plates.getOrNull(state.activePlate)
-        PickerField(stringResource(R.string.plate_type), plate?.bedType?.ifEmpty { null } ?: setup?.defaultBedType,
-            setup?.bedTypes.orEmpty().map { PickerItem(it, vm.translator.tr(it)) }, { vm.scene.setPlateBedType(state.activePlate, it) })
+        val current = state.bedTypeOf(state.activePlate)
+        PickerField(stringResource(R.string.plate_type), current,
+            state.bedTypeChoices(current).map { PickerItem(it, vm.translator.tr(it)) }, { vm.scene.setPlateBedType(state.activePlate, it) })
     }
 
     SectionTitle(stringResource(R.string.filaments))

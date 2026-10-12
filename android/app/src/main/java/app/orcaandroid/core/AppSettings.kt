@@ -37,6 +37,27 @@ class AppSettings(context: Context) {
         get() = prefs.getBoolean("double_back_quit", false)
         set(value) = prefs.edit().putBoolean("double_back_quit", value).apply()
 
+    /** The local MCP server for AI clients (see `docs/mcp-tool-layer.md`); off by default. */
+    var aiTools: Boolean
+        get() = prefs.getBoolean("ai_tools", false)
+        set(value) = prefs.edit().putBoolean("ai_tools", value).apply()
+
+    /** The MCP server also listens on the local network (all interfaces), not only on 127.0.0.1. */
+    var aiToolsLan: Boolean
+        get() = prefs.getBoolean("ai_tools_lan", false)
+        set(value) = prefs.edit().putBoolean("ai_tools_lan", value).apply()
+
+    /** Bearer token AI clients must send; made on first use, replaced by [newAiToken]. */
+    val aiToken: String
+        get() = prefs.getString("ai_token", null) ?: newAiToken()
+
+    fun newAiToken(): String {
+        val bytes = ByteArray(24).also { java.security.SecureRandom().nextBytes(it) }
+        val token = bytes.joinToString("") { "%02x".format(it) }
+        prefs.edit().putString("ai_token", token).apply()
+        return token
+    }
+
     /** Printers chosen in the setup, as printerKey(model, nozzle). */
     var selectedPrinters: Set<String>
         get() = prefs.getStringSet("selected_printers", emptySet()).orEmpty()
@@ -46,6 +67,16 @@ class AppSettings(context: Context) {
     var hiddenFilamentVendors: Set<String>
         get() = prefs.getStringSet("hidden_filament_vendors", emptySet()).orEmpty()
         set(value) = prefs.edit().putStringSet("hidden_filament_vendors", value).apply()
+
+    /** Plate types hidden from the plate type pickers (like [hiddenFilamentVendors]). */
+    var hiddenBedTypes: Set<String>
+        get() = prefs.getStringSet("hidden_bed_types", emptySet()).orEmpty()
+        set(value) = prefs.edit().putStringSet("hidden_bed_types", value).apply()
+
+    /** Plate type of plates without their own; "" = the printer's default. */
+    var preferredBedType: String
+        get() = prefs.getString("preferred_bed_type", null).orEmpty()
+        set(value) = prefs.edit().putString("preferred_bed_type", value).apply()
 
     var lastPrinter: String?
         get() = prefs.getString("printer", null)
@@ -112,3 +143,4 @@ const val DEFAULT_UNDO_LIMIT = 200
 const val MAX_UNDO_LIMIT = 5000
 const val DEFAULT_AUTO_SAVE_SECONDS = 60
 val AUTO_SAVE_RANGE = 10..3600
+const val AI_TOOLS_PORT = 8765

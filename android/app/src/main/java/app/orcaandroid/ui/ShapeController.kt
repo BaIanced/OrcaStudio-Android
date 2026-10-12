@@ -63,6 +63,9 @@ class ShapeController(private val store: Store, private val scad: ScadController
 
     fun select(ids: List<Int>) = scad.select(ids)
 
+    /** Replaces the whole design (AI tools) as one undo step; by default selected shapes that still exist stay selected. */
+    fun replace(next: ShapeDesign, sel: List<Int> = selected.filter { next.find(it) != null }) = commit(next, sel)
+
     /** Tap: only [id]; with Ctrl / Shift / long press ([add]) toggles it in the selection. */
     fun tap(id: Int?, add: Boolean) {
         if (id == null) { if (!add) select(emptyList()); return }
@@ -77,12 +80,7 @@ class ShapeController(private val store: Store, private val scad: ScadController
     fun add(kind: Shape.Kind): Int? {
         val d = design ?: return null
         val name = store.str(kindName(kind)) + " " + (d.shapes.flatMap { it.all().toList() }.count { it.kind == kind } + 1)
-        var shape = ShapeDesign.create(kind, d.nextId, name)
-        // Beside what is there already, so it can be seen and picked.
-        if (d.shapes.isNotEmpty()) {
-            val all = d.shapes.map { d.bounds(it) }.reduce { a, b -> a.union(b) }
-            shape = shape.copy(pos = D3(snap(all.max.x + 5 + shape.size.x / 2), snap(all.center.y), 0.0))
-        }
+        val shape = beside(d, ShapeDesign.create(kind, d.nextId, name))
         commit(d.copy(shapes = d.shapes + shape, nextId = d.nextId + 1), listOf(shape.id))
         return shape.id
     }
@@ -102,13 +100,16 @@ class ShapeController(private val store: Store, private val scad: ScadController
         if (b == null) { file.delete(); store.toast(store.str(R.string.shape_import_failed)); return@launch }
         val d = design ?: return@launch
         val size = D3(maxOf(0.01, b[3] - b[0]), maxOf(0.01, b[4] - b[1]), maxOf(0.01, b[5] - b[2]))
-        var shape = Shape(d.nextId, Shape.Kind.MESH, file.nameWithoutExtension, size, file = file.absolutePath,
-            extra = Shape.MESH_BOUNDS.zip(b).toMap())
-        if (d.shapes.isNotEmpty()) {
-            val all = d.shapes.map { d.bounds(it) }.reduce { x, y -> x.union(y) }
-            shape = shape.copy(pos = D3(snap(all.max.x + 5 + size.x / 2), snap(all.center.y), 0.0))
-        }
+        val shape = beside(d, Shape(d.nextId, Shape.Kind.MESH, file.nameWithoutExtension, size, file = file.absolutePath,
+            extra = Shape.MESH_BOUNDS.zip(b).toMap()))
         commit(d.copy(shapes = d.shapes + shape, nextId = d.nextId + 1), listOf(shape.id))
+    }
+
+    /** [shape] placed beside what is there already (right of it, on the workplane), so it can be seen and picked. */
+    fun beside(d: ShapeDesign, shape: Shape): Shape {
+        if (d.shapes.isEmpty()) return shape
+        val all = d.shapes.map { d.bounds(it) }.reduce { a, b -> a.union(b) }
+        return shape.copy(pos = D3(snap(all.max.x + 5 + shape.size.x / 2), snap(all.center.y), 0.0))
     }
 
     // --- Editing ------------------------------------------------------------------------------------
@@ -124,7 +125,8 @@ class ShapeController(private val store: Store, private val scad: ScadController
         commit(withField(d, id, field, value) ?: return)
     }
 
-    private fun withField(d: ShapeDesign, id: Int, field: String, value: Double): ShapeDesign? {
+    /** [d] with [field] of shape [id] set to [value]; a field bound to a dimension changes the dimension instead. */
+    fun withField(d: ShapeDesign, id: Int, field: String, value: Double): ShapeDesign? {
         val s = d.find(id) ?: return null
         val dim = s.bind[field]?.let { d.dim(it) }
         if (dim != null) return d.withDims(d.dims.map { if (it.name == dim.name) it.copy(value = value, min = minOf(it.min, value), max = maxOf(it.max, value)) else it })
