@@ -42,8 +42,13 @@ class ScadClient(private val context: Context) {
 
     private val replies = Messenger(Handler(Looper.getMainLooper()) { msg ->
         val result = msg.data.getString(ScadService.KEY_RESULT).orEmpty()
-        pending?.takeIf { it.isActive && msg.arg1 == nextId }?.resume(result)
-        pending = null
+        // Clear before resuming: the resumed caller may run inline and already send the next
+        // request, whose continuation must not be wiped here.
+        val cont = pending?.takeIf { msg.arg1 == nextId }
+        if (cont != null) {
+            pending = null
+            if (cont.isActive) cont.resume(result)
+        }
         true
     })
 
@@ -56,8 +61,9 @@ class ScadClient(private val context: Context) {
         override fun onServiceDisconnected(name: ComponentName?) {
             // The process died (crash or [cancel]); Android restarts it while we stay bound.
             if (service.isCompleted) service = CompletableDeferred()
-            pending?.takeIf { it.isActive }?.resumeWithException(ScadUnavailable("OpenSCAD stopped"))
+            val cont = pending
             pending = null
+            cont?.takeIf { it.isActive }?.resumeWithException(ScadUnavailable("OpenSCAD stopped"))
         }
     }
 

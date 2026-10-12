@@ -129,6 +129,9 @@ fun ScadPanel(s: ScadEditorState, vm: AppViewModel, onHide: (() -> Unit)? = null
     }
     val save = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/x-openscad")) { it?.let(vm.scad::save) }
     val open = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { it?.let(vm.scad::openUri) }
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+    // The preview gets a share of the panel, so the code / Customizer keep most of a short one.
+    val previewHeight = minOf(maxWidth * 0.62f, maxHeight * 0.3f).coerceIn(110.dp, 300.dp)
     Column(
         Modifier.fillMaxSize().onPreviewKeyEvent { e ->
             if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
@@ -142,10 +145,7 @@ fun ScadPanel(s: ScadEditorState, vm: AppViewModel, onHide: (() -> Unit)? = null
     ) {
         Header(s, vm, onHide, onOpen = { open.launch(arrayOf("*/*")) }, onSave = { save.launch(s.name) }, onNew = { templates = true })
         PreviewBar(s, vm, previewOpen) { previewOpen = !previewOpen }
-        if (previewOpen) BoxWithConstraints(Modifier.fillMaxWidth()) {
-            // The height is taken from the panel: about a third of it.
-            ScadPreviewPane(s, vm, Modifier.fillMaxWidth().height(previewHeight()))
-        }
+        if (previewOpen) ScadPreviewPane(s, vm, Modifier.fillMaxWidth().height(previewHeight))
         PrimaryTabRow(selectedTabIndex = tab) {
             Tab(tab == 0, { tab = 0 }, text = { Text(stringResource(R.string.scad_code)) })
             Tab(tab == 1, { tab = 1 }, text = {
@@ -171,6 +171,7 @@ fun ScadPanel(s: ScadEditorState, vm: AppViewModel, onHide: (() -> Unit)? = null
         Console(s, onLine = { tab = 0; jump = it })
         Actions(s, vm)
     }
+    }
     if (templates) TemplateGallery(onDismiss = { templates = false }, onPick = { templates = false; vm.scad.loadExample(it) })
     if (addSetting) AddSettingDialog(onDismiss = { addSetting = false }) { label, mm, value, min, max, step ->
         addSetting = false
@@ -181,10 +182,6 @@ fun ScadPanel(s: ScadEditorState, vm: AppViewModel, onHide: (() -> Unit)? = null
         android.widget.Toast.makeText(context, context.getString(R.string.scad_setting_added, name), android.widget.Toast.LENGTH_LONG).show()
     }
 }
-
-@Composable
-private fun androidx.compose.foundation.layout.BoxWithConstraintsScope.previewHeight() =
-    (maxWidth * 0.62f).coerceIn(150.dp, 300.dp)
 
 /** "Preview" header: live preview switch and show / hide. */
 @Composable
