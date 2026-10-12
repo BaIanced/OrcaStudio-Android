@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.AlignHorizontalCenter
 import androidx.compose.material.icons.filled.CallSplit
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Draw
 import androidx.compose.material.icons.filled.Flip
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.MoreVert
@@ -34,6 +35,7 @@ import androidx.compose.material.icons.filled.Circle
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -71,6 +73,7 @@ import app.orcaandroid.scad.Dim
 import app.orcaandroid.scad.Repeat
 import app.orcaandroid.scad.Shape
 import app.orcaandroid.scad.ShapeDesign
+import app.orcaandroid.scad.Sketch
 import app.orcaandroid.ui.AppViewModel
 import app.orcaandroid.ui.ScadEditorState
 import app.orcaandroid.ui.ShapeController
@@ -80,6 +83,7 @@ import app.orcaandroid.ui.components.NumberField
 private val PALETTE = listOf(
     Shape.Kind.BOX, Shape.Kind.CYLINDER, Shape.Kind.SPHERE, Shape.Kind.CONE, Shape.Kind.PYRAMID, Shape.Kind.WEDGE,
     Shape.Kind.ROUNDED_BOX, Shape.Kind.TUBE, Shape.Kind.TORUS, Shape.Kind.DOME, Shape.Kind.PRISM, Shape.Kind.TEXT,
+    Shape.Kind.SKETCH,
 )
 
 /**
@@ -92,6 +96,13 @@ fun ShapesTab(s: ScadEditorState, vm: AppViewModel) {
     val d = s.shapes ?: return
     val sh = vm.shapes
     val focus = remember { FocusRequester() }
+    var sketching by remember { mutableStateOf<Int?>(null) }
+    sketching?.let { id ->
+        val shape = d.find(id)
+        if (shape == null) sketching = null
+        else SketchEditor(shape.sketch ?: Sketch.START, shape.x(Shape.REVOLVE, 0.0) != 0.0,
+            onDone = { sh.setSketch(id, it); sketching = null }, onCancel = { sketching = null })
+    }
     Column(
         Modifier.fillMaxSize().focusRequester(focus).focusable().onKeyEvent { e ->
             if (e.type != KeyEventType.KeyDown) return@onKeyEvent false
@@ -121,7 +132,7 @@ fun ShapesTab(s: ScadEditorState, vm: AppViewModel) {
             modifier = Modifier.padding(start = 16.dp, top = 8.dp))
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             PALETTE.forEach { k ->
-                AssistChip(onClick = { sh.add(k); runCatching { focus.requestFocus() } }, label = { Text(stringResource(ShapeController.kindName(k))) },
+                AssistChip(onClick = { val id = sh.add(k); if (k == Shape.Kind.SKETCH) sketching = id; runCatching { focus.requestFocus() } }, label = { Text(stringResource(ShapeController.kindName(k))) },
                     leadingIcon = { Icon(Icons.Default.Add, null, Modifier.size(16.dp)) })
             }
         }
@@ -135,7 +146,7 @@ fun ShapesTab(s: ScadEditorState, vm: AppViewModel) {
         val one = s.selected.singleOrNull()?.let { d.find(it) }
         if (one != null) {
             HorizontalDivider(Modifier.padding(top = 8.dp))
-            Properties(one, d, vm)
+            Properties(one, d, vm) { sketching = one.id }
         } else if (s.selected.size > 1) {
             Text(stringResource(R.string.shape_multi, s.selected.size), style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp))
@@ -215,7 +226,7 @@ private fun ShapeRow(shape: Shape, depth: Int, s: ScadEditorState, vm: AppViewMo
 // --- Properties of the selected shape ------------------------------------------------------------
 
 @Composable
-private fun Properties(shape: Shape, d: ShapeDesign, vm: AppViewModel) {
+private fun Properties(shape: Shape, d: ShapeDesign, vm: AppViewModel, onEditSketch: () -> Unit) {
     val sh = vm.shapes
     Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         var name by remember(shape.id) { mutableStateOf(shape.name) }
@@ -234,6 +245,7 @@ private fun Properties(shape: Shape, d: ShapeDesign, vm: AppViewModel) {
             OutlinedTextField(text, { text = it; sh.update(shape.id) { s -> s.copy(text = it) } },
                 label = { Text(stringResource(R.string.shape_text_value)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
         }
+        if (shape.kind == Shape.Kind.SKETCH) SketchSettings(shape, d, vm, onEditSketch)
         if (!shape.isGroup) {
             FieldRow(stringResource(R.string.shape_size), shape, d, vm, "size", listOf("W", "D", "H"), shape.size, listOf("width", "depth", "height"))
         } else {
@@ -254,6 +266,29 @@ private fun Properties(shape: Shape, d: ShapeDesign, vm: AppViewModel) {
         }
         RepeatEditor(shape, vm)
     }
+}
+
+/** A sketch shape: open the drawing, extrude or revolve it. */
+@Composable
+private fun SketchSettings(shape: Shape, d: ShapeDesign, vm: AppViewModel, onEditSketch: () -> Unit) {
+    val revolve = shape.x(Shape.REVOLVE, 0.0) != 0.0
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FilledTonalButton(onClick = onEditSketch) {
+            Icon(Icons.Default.Draw, null, Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(stringResource(R.string.sketch_edit))
+        }
+        SingleChoiceSegmentedButtonRow(Modifier.weight(1f)) {
+            SegmentedButton(!revolve, { vm.shapes.setRevolve(shape.id, false) }, SegmentedButtonDefaults.itemShape(0, 2)) {
+                Text(stringResource(R.string.sketch_extrude))
+            }
+            SegmentedButton(revolve, { vm.shapes.setRevolve(shape.id, true) }, SegmentedButtonDefaults.itemShape(1, 2)) {
+                Text(stringResource(R.string.sketch_revolve))
+            }
+        }
+    }
+    if (revolve) ExtraField(stringResource(R.string.sketch_angle), shape, d, vm, Shape.ANGLE, 360.0)
+    else ExtraField(stringResource(R.string.sketch_top_scale), shape, d, vm, Shape.TOP, 1.0, slider = false)
 }
 
 /** Three numbers (size / position / rotation); the menu turns one into a slider or links it to one. */

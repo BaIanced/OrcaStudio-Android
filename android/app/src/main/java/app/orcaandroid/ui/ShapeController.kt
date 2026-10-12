@@ -7,6 +7,7 @@ import app.orcaandroid.scad.Dim
 import app.orcaandroid.scad.Repeat
 import app.orcaandroid.scad.Shape
 import app.orcaandroid.scad.ShapeDesign
+import app.orcaandroid.scad.Sketch
 
 /**
  * The shape builder's edits (no code): add, move, group, cut, align, repeat, sliders, with undo.
@@ -68,8 +69,9 @@ class ShapeController(private val store: Store, private val scad: ScadController
 
     // --- Adding ------------------------------------------------------------------------------------
 
-    fun add(kind: Shape.Kind) {
-        val d = design ?: return
+    /** Adds a new [kind] shape beside the others and selects it; returns its id. */
+    fun add(kind: Shape.Kind): Int? {
+        val d = design ?: return null
         val name = store.str(kindName(kind)) + " " + (d.shapes.flatMap { it.all().toList() }.count { it.kind == kind } + 1)
         var shape = ShapeDesign.create(kind, d.nextId, name)
         // Beside what is there already, so it can be seen and picked.
@@ -78,6 +80,7 @@ class ShapeController(private val store: Store, private val scad: ScadController
             shape = shape.copy(pos = D3(snap(all.max.x + 5 + shape.size.x / 2), snap(all.center.y), 0.0))
         }
         commit(d.copy(shapes = d.shapes + shape, nextId = d.nextId + 1), listOf(shape.id))
+        return shape.id
     }
 
     // --- Editing ------------------------------------------------------------------------------------
@@ -121,6 +124,34 @@ class ShapeController(private val store: Store, private val scad: ScadController
         if (z > 180) z -= 360.0
         if (z <= -180) z += 360.0
         commit(withField(d, id, "rot.z", z) ?: return)
+    }
+
+    /** New drawing for sketch shape [id] (one undo step): its box takes the drawing's size, 1:1. */
+    fun setSketch(id: Int, sketch: Sketch) {
+        val d = design ?: return
+        commit(d.update(id) { fitSketch(it, sketch) })
+    }
+
+    /** Sketch shape [id]: extrude ([revolve] false) or revolve about Z. */
+    fun setRevolve(id: Int, revolve: Boolean) {
+        val d = design ?: return
+        commit(d.update(id) { s -> fitSketch(s.copy(extra = s.extra + (Shape.REVOLVE to if (revolve) 1.0 else 0.0)), s.sketch ?: Sketch.START) })
+    }
+
+    private fun fitSketch(s: Shape, sketch: Sketch): Shape {
+        val (lo, hi) = sketch.bounds() ?: return s.copy(sketch = sketch)
+        if (s.x(Shape.REVOLVE, 0.0) != 0.0) {
+            val r = maxOf(0.5, hi.x)
+            return s.copy(sketch = sketch, size = D3(2 * r, 2 * r, maxOf(0.5, hi.y - lo.y)))
+        }
+        // Keep the unchanged part of the drawing in place: the box centre follows the drawing's centre.
+        val old = s.sketch?.bounds()
+        var pos = s.pos
+        if (old != null && s.kind == Shape.Kind.SKETCH) {
+            val shift = D3((lo.x + hi.x - old.first.x - old.second.x) / 2, (lo.y + hi.y - old.first.y - old.second.y) / 2, 0.0)
+            pos += ShapeDesign.rotate(shift, D3(0.0, 0.0, s.rot.z))
+        }
+        return s.copy(sketch = sketch, pos = pos, size = D3(maxOf(0.5, hi.x - lo.x), maxOf(0.5, hi.y - lo.y), s.size.z))
     }
 
     private fun setRaw(s: Shape, field: String, v: Double): Shape {
@@ -321,6 +352,7 @@ class ShapeController(private val store: Store, private val scad: ScadController
             Shape.Kind.TUBE -> R.string.shape_tube
             Shape.Kind.WEDGE -> R.string.shape_wedge
             Shape.Kind.TEXT -> R.string.shape_text
+            Shape.Kind.SKETCH -> R.string.shape_sketch
             Shape.Kind.GROUP -> R.string.shape_group
         }
 

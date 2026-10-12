@@ -619,6 +619,31 @@
     <string name="shape_wedge">Wedge</string>
     <string name="shape_text">Text</string>
     <string name="shape_group">Group</string>
+    <string name="shape_sketch">Sketch</string>
+    <string name="sketch_edit">Edit sketch</string>
+    <string name="sketch_extrude">Extrude</string>
+    <string name="sketch_revolve">Revolve</string>
+    <string name="sketch_angle">Turn angle (°)</string>
+    <string name="sketch_top_scale">Top scale (1 = straight sides)</string>
+    <string name="sketch_title">Sketch (extruded upwards)</string>
+    <string name="sketch_title_revolve">Profile (turned about the dashed axis)</string>
+    <string name="sketch_done">Done</string>
+    <string name="sketch_fit">Fit the drawing</string>
+    <string name="sketch_select">Select</string>
+    <string name="sketch_lines">Lines</string>
+    <string name="sketch_rect">Rectangle</string>
+    <string name="sketch_circle">Circle</string>
+    <string name="sketch_hint_select">Tap an outline · drag corners · drag the square on a side to bend it · drag empty space to pan</string>
+    <string name="sketch_hint_lines">Tap corners · tap the first corner (or Close) to finish</string>
+    <string name="sketch_hint_rect">Drag from corner to corner</string>
+    <string name="sketch_hint_circle">Drag from the centre outwards</string>
+    <string name="sketch_close">Close the outline</string>
+    <string name="sketch_bend">Bend (1 = half circle)</string>
+    <string name="sketch_straight">Straighten</string>
+    <string name="sketch_split">Add a corner</string>
+    <string name="sketch_diameter">Ø %1$s mm</string>
+    <string name="sketch_wh">%1$s × %2$s mm</string>
+    <string name="sketch_length">%1$s mm</string>
     <string name="shape_undo">Undo (Ctrl+Z)</string>
     <string name="shape_redo">Redo (Ctrl+Y)</string>
     <string name="shape_duplicate">Duplicate (Ctrl+D)</string>

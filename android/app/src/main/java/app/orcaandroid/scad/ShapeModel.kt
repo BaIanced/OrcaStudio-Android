@@ -76,13 +76,15 @@ data class Shape(
     val extra: Map<String, Double> = emptyMap(),
     val text: String = "",
     val repeat: Repeat? = null,
+    /** The drawing a SKETCH shape extrudes (or revolves, extra REVOLVE = 1). */
+    val sketch: Sketch? = null,
     /** Field ("size.x", "pos.z", "rot.y", "radius", ...) -> name of the [Dim] that drives it. */
     val bind: Map<String, String> = emptyMap(),
     val children: List<Shape> = emptyList(),
 ) {
     enum class Kind(val key: String) {
         BOX("box"), ROUNDED_BOX("rounded_box"), CYLINDER("cylinder"), PRISM("prism"), CONE("cone"), PYRAMID("pyramid"),
-        SPHERE("sphere"), DOME("dome"), TORUS("torus"), TUBE("tube"), WEDGE("wedge"), TEXT("text"), GROUP("group");
+        SPHERE("sphere"), DOME("dome"), TORUS("torus"), TUBE("tube"), WEDGE("wedge"), TEXT("text"), SKETCH("sketch"), GROUP("group");
 
         companion object {
             fun of(key: String) = entries.firstOrNull { it.key == key } ?: BOX
@@ -102,6 +104,7 @@ data class Shape(
             if (extra.isNotEmpty()) put("extra", JSONObject(extra))
             if (text.isNotEmpty()) put("text", text)
             repeat?.let { put("repeat", it.json()) }
+            sketch?.let { put("sketch", it.json()) }
             if (bind.isNotEmpty()) put("bind", JSONObject(bind))
             if (children.isNotEmpty()) put("children", JSONArray().apply { children.forEach { put(it.json()) } })
         }
@@ -115,6 +118,8 @@ data class Shape(
         const val WALL = "wall"
         const val TUBE = "tube"
         const val RADIUS = "radius"
+        const val REVOLVE = "revolve"
+        const val ANGLE = "angle"
 
         fun of(o: JSONObject): Shape = Shape(
             id = o.optInt("id"),
@@ -128,6 +133,7 @@ data class Shape(
             extra = o.optJSONObject("extra")?.let { e -> e.keys().asSequence().associateWith { e.optDouble(it) } } ?: emptyMap(),
             text = o.optString("text"),
             repeat = Repeat.of(o.optJSONObject("repeat")),
+            sketch = Sketch.of(o.optJSONObject("sketch")),
             bind = o.optJSONObject("bind")?.let { b -> b.keys().asSequence().associateWith { b.optString(it) } } ?: emptyMap(),
             children = o.optJSONArray("children")?.let { a -> (0 until a.length()).map { of(a.getJSONObject(it)) } } ?: emptyList(),
         )
@@ -319,8 +325,26 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
             Shape.Kind.WEDGE -> "scale([$w, $d, $h]) rotate([90, 0, 0]) linear_extrude(1, center = true) polygon([[-0.5, 0], [0.5, 0], [-0.5, 1]]);"
             Shape.Kind.TEXT -> if (s.text.isBlank()) "// (no text)" else
                 "resize([$w, $d, $h]) linear_extrude(1) text(${quote(s.text)}, size = 10, halign = \"center\", valign = \"center\");"
+            Shape.Kind.SKETCH -> sketch(s, w, d, h)
             Shape.Kind.GROUP -> ""
         }
+    }
+
+    /** A sketch extruded up [h] (its outline scaled to [w] x [d]), or revolved about Z (profile x = radius, y = height). */
+    private fun sketch(s: Shape, w: String, d: String, h: String): String {
+        val sk = s.sketch ?: return "// (no sketch)"
+        val (lo, hi) = sk.bounds() ?: return "// (empty sketch)"
+        if (s.x(Shape.REVOLVE, 0.0) != 0.0) {
+            val r = max(0.01, hi.x)
+            val nh = max(0.01, hi.y - lo.y)
+            val angle = s.x(Shape.ANGLE, 360.0).coerceIn(1.0, 360.0)
+            return "scale([$w / ${n(2 * r)}, $d / ${n(2 * r)}, $h / ${n(nh)}]) rotate_extrude(${if (angle < 360.0) "angle = ${n(angle)}, " else ""}\$fn = sides(max($w, $d))) " +
+                "intersection() { square([${n(r + 1)}, ${n(nh + 1)}]); ${sk.toScad(P2(0.0, -lo.y))} }"
+        }
+        val top = s.x(Shape.TOP, 1.0).coerceAtLeast(0.0)
+        val c = (lo + hi) * 0.5
+        return "scale([$w / ${n(max(0.01, hi.x - lo.x))}, $d / ${n(max(0.01, hi.y - lo.y))}, $h]) " +
+            "linear_extrude(1${if (top != 1.0) ", scale = ${n(top)}" else ""}) ${sk.toScad(P2(-c.x, -c.y))}"
     }
 
     /** A field's code: the bound dimension's name, else the number. */
@@ -362,6 +386,7 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
             Shape.Kind.PRISM -> Shape(id, kind, name, D3(20.0, 20.0, 20.0), at, extra = mapOf(Shape.SIDES to 6.0))
             Shape.Kind.CONE -> Shape(id, kind, name, D3(20.0, 20.0, 20.0), at, extra = mapOf(Shape.TOP to 0.0))
             Shape.Kind.DOME -> Shape(id, kind, name, D3(20.0, 20.0, 10.0), at)
+            Shape.Kind.SKETCH -> Shape(id, kind, name, D3(20.0, 20.0, 10.0), at, sketch = Sketch.START)
             else -> Shape(id, kind, name, D3(20.0, 20.0, 20.0), at)
         }
     }
