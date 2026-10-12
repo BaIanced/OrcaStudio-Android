@@ -101,6 +101,9 @@ data class UiState(
     /** The MCP server for AI clients is switched on; [aiToken] is what they must send. */
     val aiTools: Boolean = false,
     val aiToken: String = "",
+    /** It also listens on the local network; [aiAddresses] are this device's addresses there. */
+    val aiToolsLan: Boolean = false,
+    val aiAddresses: List<String> = emptyList(),
     /** Why the server isn't running although switched on (port taken, ...). */
     val aiError: String? = null,
 

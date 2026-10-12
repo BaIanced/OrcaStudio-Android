@@ -132,17 +132,26 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Switches the MCP server for AI clients on or off (and remembers it). */
-    fun setAiTools(on: Boolean) {
+    fun setAiTools(on: Boolean, lan: Boolean = store.settings.aiToolsLan) {
         store.settings.aiTools = on
-        store.update { it.copy(aiTools = on, aiToken = store.settings.aiToken, aiError = null) }
+        store.settings.aiToolsLan = lan
+        store.update { it.copy(aiTools = on, aiToolsLan = lan, aiToken = store.settings.aiToken, aiError = null) }
         viewModelScope.launch {
-            val error = withContext(Dispatchers.IO) {
+            val (error, addresses) = withContext(Dispatchers.IO) {
                 mcp.stop()
-                if (!on) null else runCatching { mcp.start(viewModelScope) }.exceptionOrNull()?.let { it.message ?: it.toString() }
+                val error = if (!on) null else runCatching { mcp.start(viewModelScope, lan) }.exceptionOrNull()?.let { it.message ?: it.toString() }
+                error to if (on && lan) lanAddresses() else emptyList()
             }
-            store.update { it.copy(aiError = error) }
+            store.update { it.copy(aiError = error, aiAddresses = addresses) }
         }
     }
+
+    /** This device's IPv4 addresses other than loopback (where LAN clients reach the AI tools). */
+    private fun lanAddresses(): List<String> = runCatching {
+        java.net.NetworkInterface.getNetworkInterfaces().toList().filter { it.isUp && !it.isLoopback }
+            .flatMap { it.inetAddresses.toList() }.filterIsInstance<java.net.Inet4Address>()
+            .filter { !it.isLinkLocalAddress }.map { it.hostAddress.orEmpty() }
+    }.getOrDefault(emptyList())
 
     /** A new token for AI clients: the old one stops working at once. */
     fun newAiToken() {

@@ -211,6 +211,9 @@ private fun AiToolsSection(state: UiState, vm: AppViewModel) {
     Text(stringResource(R.string.ai_tools_text, port), style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant)
     if (!state.aiTools) return
+    SwitchRow(stringResource(R.string.ai_tools_lan), state.aiToolsLan, onChange = { vm.setAiTools(true, it) })
+    if (state.aiToolsLan) Text(stringResource(R.string.ai_tools_lan_text, state.aiAddresses.joinToString { "http://$it:$port/mcp" }.ifEmpty { "-" }),
+        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     state.aiError?.let { Text(stringResource(R.string.ai_tools_error, it), style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.error) }
     var shown by remember { mutableStateOf(false) }

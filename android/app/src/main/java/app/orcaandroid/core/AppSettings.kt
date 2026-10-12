@@ -42,6 +42,11 @@ class AppSettings(context: Context) {
         get() = prefs.getBoolean("ai_tools", false)
         set(value) = prefs.edit().putBoolean("ai_tools", value).apply()
 
+    /** The MCP server also listens on the local network (all interfaces), not only on 127.0.0.1. */
+    var aiToolsLan: Boolean
+        get() = prefs.getBoolean("ai_tools_lan", false)
+        set(value) = prefs.edit().putBoolean("ai_tools_lan", value).apply()
+
     /** Bearer token AI clients must send; made on first use, replaced by [newAiToken]. */
     val aiToken: String
         get() = prefs.getString("ai_token", null) ?: newAiToken()

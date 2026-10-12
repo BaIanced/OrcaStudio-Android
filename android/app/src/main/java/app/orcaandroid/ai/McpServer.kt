@@ -16,7 +16,8 @@ import java.security.MessageDigest
 import java.util.UUID
 
 /**
- * A small MCP server (Streamable HTTP, JSON replies only, no SSE) on 127.0.0.1 for AI clients:
+ * A small MCP server (Streamable HTTP, JSON replies only, no SSE) on 127.0.0.1 (or, opted in, on
+ * every interface: WSA routes Android's loopback to Windows, phones without USB need Wi-Fi) for AI clients:
  * one endpoint `POST /mcp` carrying JSON-RPC 2.0. Every request needs `Authorization: Bearer
  * <token>`; requests from a browser (with an `Origin` header) are refused. See `docs/mcp-tool-layer.md`.
  */
@@ -28,13 +29,13 @@ class McpServer(private val port: Int, private val token: () -> String, private 
 
     val running get() = socket?.isClosed == false
 
-    /** Starts listening; throws when the port can't be bound. */
+    /** Starts listening (on all interfaces with [lan]); throws when the port can't be bound. */
     @Synchronized
-    fun start(scope: CoroutineScope) {
+    fun start(scope: CoroutineScope, lan: Boolean) {
         if (running) return
         val s = ServerSocket().apply {
             reuseAddress = true
-            bind(java.net.InetSocketAddress(InetAddress.getByName("127.0.0.1"), port), 8)
+            bind(if (lan) java.net.InetSocketAddress(port) else java.net.InetSocketAddress(InetAddress.getByName("127.0.0.1"), port), 8)
         }
         socket = s
         job = scope.launch(Dispatchers.IO) {
@@ -63,7 +64,9 @@ class McpServer(private val port: Int, private val token: () -> String, private 
     private suspend fun handle(client: Socket) {
         client.soTimeout = 15_000
         val req = read(client.getInputStream()) ?: return write(client, Reply(400, error(null, -32700, "Bad HTTP request")))
-        write(client, route(req))
+        val reply = route(req)
+        if (Log.isLoggable(TAG, Log.DEBUG)) Log.d(TAG, "${req.method} ${req.path} from ${client.inetAddress.hostAddress} -> ${reply.code}")
+        write(client, reply)
     }
 
     private suspend fun route(req: Request): Reply {

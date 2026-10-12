@@ -12,7 +12,10 @@ on-screen confirm.
   `application/json`; no SSE stream in v1 (no server-initiated messages needed). `GET /mcp` -> 405.
   `Mcp-Session-Id` header issued on `initialize`.
 - **Bind `127.0.0.1` only** by default (port 8765, configurable). Reach it from a PC with
-  `adb forward tcp:8765 tcp:8765` (untested on WSA). LAN binding is a later, opt-in switch.
+  `adb forward tcp:8765 tcp:8765` (real devices; untested). **Not on WSA:** its ip rules send
+  Android's loopback traffic to Windows (tables 127/128), so adbd's connect to 127.0.0.1:8765 lands
+  on adb's own forward listener and loops (thousands of sockets, adb wedges; seen 2026-10-12).
+  Opt-in switch "Also accept connections from the local network" binds all interfaces instead.
 - **Auth even on localhost** (other apps on the device can connect): random bearer token, shown /
   regenerated in Settings, required as `Authorization: Bearer <token>`. Reject requests that carry
   a browser `Origin` header (DNS-rebinding guard the MCP spec asks for).
@@ -99,6 +102,5 @@ filament / process names, slice estimate if sliced. Edit (undoable through engin
 
 ## Open questions
 
-- Port and whether LAN mode is wanted at all (adb forward covers a PC with USB / WSA).
+- Port (8765 fixed for now). LAN mode exists as an opt-in switch (needed for WSA and Wi-Fi only).
 - Should `design_to_plate` on an empty temp plate skip the confirm?
-- Does `adb forward` reach an app socket on `127.0.0.1` inside WSA (expected yes; untested).
