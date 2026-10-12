@@ -241,6 +241,15 @@ private fun GlobalDialogs(state: UiState, vm: AppViewModel) {
             confirmButton = { TextButton(onClick = vm::dismissError) { Text(stringResource(R.string.ok)) } },
         )
     }
+    state.aiConfirm?.let { text ->
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text(stringResource(R.string.ai_confirm_title)) },
+            text = { Text(text) },
+            confirmButton = { TextButton(onClick = { vm.answerAi(true) }) { Text(stringResource(R.string.ai_allow)) } },
+            dismissButton = { TextButton(onClick = { vm.answerAi(false) }) { Text(stringResource(R.string.ai_deny)) } },
+        )
+    }
     state.crashReport?.let { report ->
         val context = LocalContext.current
         AlertDialog(

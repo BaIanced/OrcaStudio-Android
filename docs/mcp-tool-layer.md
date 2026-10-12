@@ -1,6 +1,6 @@
 # AI tool layer: MCP server in the app (design note)
 
-Status: milestone 1 built (2026-10-12: toggle, token, `design_get` / `design_describe` / `design_set`, `ai/McpServer.kt`, `ai/McpTools.kt`); rest is design. Roadmap step 2 after the shape builder.
+Status: milestones 1-2 built (2026-10-12: server, token, read tools, shape / dim / sketch edit tools, `design_preview`, `design_to_plate` with Allow / Deny; `ai/McpServer.kt`, `ai/McpTools.kt`). Not built yet: Undo action in the "AI: ..." toast, "AI connected" chip, milestones 3-4. Roadmap step 2 after the shape builder.
 
 Goal: let an AI client (Claude Code, Claude Desktop, any MCP client) model with the shape builder
 and inspect the plate **without the user writing code**, while every risky action stays behind an

@@ -355,6 +355,14 @@ class ScadController(private val store: Store) {
      * Renders the design. The result replaces the object this editor placed before (keeping its
      * position, rotation and scale) unless [asNew].
      */
+    /** Waits until no preview or render is running or queued (AI tools). */
+    suspend fun awaitIdle() {
+        do {
+            previewDelay?.join(); previewJob?.join(); renderJob?.join()
+            kotlinx.coroutines.yield()
+        } while (previewDelay?.isActive == true || previewJob?.isActive == true || renderJob?.isActive == true)
+    }
+
     fun render(asNew: Boolean = false) {
         if (renderJob?.isActive == true) return
         if (previewJob?.isActive == true) { renderAgain = true; return }

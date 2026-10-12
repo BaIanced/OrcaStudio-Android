@@ -37,7 +37,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val shapes = ShapeController(store, scad)
 
     /** MCP server for AI clients (Settings > AI tools); runs while this view model lives and the switch is on. */
-    private val mcp = McpServer(AI_TOOLS_PORT, { store.settings.aiToken }, McpTools(store, scad, shapes))
+    private val aiTools = McpTools(store, scad, shapes)
+    private val mcp = McpServer(AI_TOOLS_PORT, { store.settings.aiToken }, aiTools)
 
     /** Desktop translations of option labels for the device language. */
     var translator: Translator = Translator.NONE
@@ -152,6 +153,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             .flatMap { it.inetAddresses.toList() }.filterIsInstance<java.net.Inet4Address>()
             .filter { !it.isLinkLocalAddress }.map { it.hostAddress.orEmpty() }
     }.getOrDefault(emptyList())
+
+    /** The user's Allow / Deny for an AI tool waiting on screen ([UiState.aiConfirm]). */
+    fun answerAi(allow: Boolean) = aiTools.answer(allow)
 
     /** A new token for AI clients: the old one stops working at once. */
     fun newAiToken() {

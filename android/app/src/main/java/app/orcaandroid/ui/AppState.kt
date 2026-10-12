@@ -104,6 +104,8 @@ data class UiState(
     /** It also listens on the local network; [aiAddresses] are this device's addresses there. */
     val aiToolsLan: Boolean = false,
     val aiAddresses: List<String> = emptyList(),
+    /** What an AI tool asks the user to allow (shown as a dialog), or null. */
+    val aiConfirm: String? = null,
     /** Why the server isn't running although switched on (port taken, ...). */
     val aiError: String? = null,
 

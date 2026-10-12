@@ -96,7 +96,12 @@
     <string name="ai_copy_command">Copy setup command</string>
     <string name="ai_command_copied">Copied the claude mcp add command</string>
     <string name="ai_new_token">New token</string>
-    <string name="ai_design_set">AI: changed the design (%1$d shapes)</string>
+    <string name="ai_edit">AI: %1$s</string>
+    <string name="ai_confirm_title">An AI client asks</string>
+    <string name="ai_confirm_plate">Put the design "%1$s" on plate %2$d?</string>
+    <string name="ai_confirm_replaces">It replaces "%1$s" there.</string>
+    <string name="ai_allow">Allow</string>
+    <string name="ai_deny">Deny</string>
     <string name="back_again_quit">Press Back again to quit</string>
     <string name="quit_title">Quit?</string>
     <string name="quit_text">Your plates are kept for the next start.</string>
