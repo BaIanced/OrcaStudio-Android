@@ -75,6 +75,8 @@ data class Shape(
     /** Kind specific: SIDES, TOP (cone top diameter / bottom), WALL / TUBE (mm), RADIUS (mm). */
     val extra: Map<String, Double> = emptyMap(),
     val text: String = "",
+    /** A MESH shape's model file (absolute path; OpenSCAD import()). */
+    val file: String = "",
     val repeat: Repeat? = null,
     /** The drawing a SKETCH shape extrudes (or revolves, extra REVOLVE = 1). */
     val sketch: Sketch? = null,
@@ -84,7 +86,7 @@ data class Shape(
 ) {
     enum class Kind(val key: String) {
         BOX("box"), ROUNDED_BOX("rounded_box"), CYLINDER("cylinder"), PRISM("prism"), CONE("cone"), PYRAMID("pyramid"),
-        SPHERE("sphere"), DOME("dome"), TORUS("torus"), TUBE("tube"), WEDGE("wedge"), TEXT("text"), SKETCH("sketch"), GROUP("group");
+        SPHERE("sphere"), DOME("dome"), TORUS("torus"), TUBE("tube"), WEDGE("wedge"), TEXT("text"), SKETCH("sketch"), MESH("mesh"), GROUP("group");
 
         companion object {
             fun of(key: String) = entries.firstOrNull { it.key == key } ?: BOX
@@ -103,6 +105,7 @@ data class Shape(
             if (mirror != D3()) put("mirror", mirror.json())
             if (extra.isNotEmpty()) put("extra", JSONObject(extra))
             if (text.isNotEmpty()) put("text", text)
+            if (file.isNotEmpty()) put("file", file)
             repeat?.let { put("repeat", it.json()) }
             sketch?.let { put("sketch", it.json()) }
             if (bind.isNotEmpty()) put("bind", JSONObject(bind))
@@ -120,6 +123,19 @@ data class Shape(
         const val RADIUS = "radius"
         const val REVOLVE = "revolve"
         const val ANGLE = "angle"
+        /** Rounded (or with CHAMFER = 1 chamfered) edges, mm; a sketch rounds its outline's corners. */
+        const val EDGE = "edge"
+        const val CHAMFER = "chamfer"
+        /** Hollow with this wall (mm); OPEN = 1 leaves the top open. */
+        const val SHELL = "shell"
+        const val OPEN = "open"
+        /** A MESH shape's own bounds (mm) as read from its file: min x / y / z, max x / y / z. */
+        val MESH_BOUNDS = listOf("mx0", "my0", "mz0", "mx1", "my1", "mz1")
+
+        /** Kinds whose edges can be rounded / chamfered, and kinds that can be hollowed. */
+        val EDGED = setOf(Kind.BOX, Kind.CYLINDER, Kind.PRISM, Kind.CONE, Kind.PYRAMID, Kind.WEDGE, Kind.SKETCH)
+        val SHELLED = setOf(Kind.BOX, Kind.ROUNDED_BOX, Kind.CYLINDER, Kind.PRISM, Kind.CONE, Kind.PYRAMID, Kind.SPHERE,
+            Kind.DOME, Kind.WEDGE, Kind.SKETCH)
 
         fun of(o: JSONObject): Shape = Shape(
             id = o.optInt("id"),
@@ -132,6 +148,7 @@ data class Shape(
             mirror = D3.of(o.optJSONArray("mirror")),
             extra = o.optJSONObject("extra")?.let { e -> e.keys().asSequence().associateWith { e.optDouble(it) } } ?: emptyMap(),
             text = o.optString("text"),
+            file = o.optString("file"),
             repeat = Repeat.of(o.optJSONObject("repeat")),
             sketch = Sketch.of(o.optJSONObject("sketch")),
             bind = o.optJSONObject("bind")?.let { b -> b.keys().asSequence().associateWith { b.optString(it) } } ?: emptyMap(),
@@ -293,15 +310,51 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
             out.appendLine("$ind}")
         } else {
             out.appendLine()
-            out.appendLine("$ind    ${primitive(s)}")
+            out.appendLine("$ind    ${body(s)}")
         }
     }
 
-    /** The primitive centred on x / y, standing on z = 0, filling its size box. */
-    private fun primitive(s: Shape): String {
+    /** A solid's code: its primitive, edges rounded / chamfered and hollowed when asked. */
+    private fun body(s: Shape): String {
         val w = f(s, "size.x", s.size.x)
         val d = f(s, "size.y", s.size.y)
         val h = f(s, "size.z", s.size.z)
+        val sketch = s.kind == Shape.Kind.SKETCH
+        val revolve = sketch && s.x(Shape.REVOLVE, 0.0) != 0.0
+        val e = f(s, Shape.EDGE, s.x(Shape.EDGE, 0.0)).takeIf { s.kind in Shape.EDGED && value(s, Shape.EDGE, s.x(Shape.EDGE, 0.0)) > 0 }
+        val chamfer = s.x(Shape.CHAMFER, 0.0) != 0.0
+        val t = f(s, Shape.SHELL, s.x(Shape.SHELL, 0.0)).takeIf { s.kind in Shape.SHELLED && !revolve && value(s, Shape.SHELL, s.x(Shape.SHELL, 0.0)) > 0 }
+        // A sketch rounds its outline in 2D; other shapes are shrunk by the edge and grown back with a ball (or a
+        // double pyramid for a chamfer), exact for boxes and cylinders, close for the others.
+        fun solid(w: String, d: String, h: String, inset: String?): String =
+            if (e == null || sketch) primitive(s, w, d, h, e, chamfer, inset)
+            else {
+                val tool = if (chamfer) "hull() { cylinder(h = $e, r1 = $e, r2 = 0, \$fn = 4); mirror([0, 0, 1]) cylinder(h = $e, r1 = $e, r2 = 0, \$fn = 4); }"
+                else "sphere(r = $e, \$fn = sides(2 * $e));"
+                "translate([0, 0, $e]) minkowski() { ${primitive(s, minus(w, e, 2.0), minus(d, e, 2.0), minus(h, e, 2.0))} $tool }"
+            }
+        if (t == null) return solid(w, d, h, null)
+        // The cavity: the same shape smaller by the wall (a sketch's outline inset by it), open top reaching past the top.
+        val open = s.x(Shape.OPEN, 0.0) != 0.0
+        val ih = if (open) minus(h, t, 1.0, 0.01) else minus(h, t, 2.0)
+        val inner = if (sketch) solid(w, d, ih, t) else solid(minus(w, t, 2.0), minus(d, t, 2.0), ih, null)
+        return "difference() { ${solid(w, d, h, null)} translate([0, 0, $t]) $inner }"
+    }
+
+    /** [a] - [k] * [b] + [add], at least 0.01: a number when both are numbers, else an expression. */
+    private fun minus(a: String, b: String, k: Double, add: Double = 0.0): String {
+        val x = a.toDoubleOrNull()
+        val y = b.toDoubleOrNull()
+        return if (x != null && y != null) n(max(0.01, x - k * y + add))
+        else "max(0.01, $a - ${n(k)} * $b${if (add != 0.0) " + ${n(add)}" else ""})"
+    }
+
+    /**
+     * The primitive centred on x / y, standing on z = 0, filling a [w] x [d] x [h] box. A sketch also rounds
+     * (or chamfers) its outline's corners by [edge] and insets the outline by [inset].
+     */
+    private fun primitive(s: Shape, w: String, d: String, h: String, edge: String? = null, chamfer: Boolean = false,
+                          inset: String? = null): String {
         val sides = s.x(Shape.SIDES, 0.0).toInt()
         val fn = if (sides >= 3) ", \$fn = $sides" else ", \$fn = sides(max($w, $d))"
         val round = "\$fn = sides(max($w, $d, $h))"
@@ -325,26 +378,43 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
             Shape.Kind.WEDGE -> "scale([$w, $d, $h]) rotate([90, 0, 0]) linear_extrude(1, center = true) polygon([[-0.5, 0], [0.5, 0], [-0.5, 1]]);"
             Shape.Kind.TEXT -> if (s.text.isBlank()) "// (no text)" else
                 "resize([$w, $d, $h]) linear_extrude(1) text(${quote(s.text)}, size = 10, halign = \"center\", valign = \"center\");"
-            Shape.Kind.SKETCH -> sketch(s, w, d, h)
+            Shape.Kind.SKETCH -> sketch(s, w, d, h, edge, chamfer, inset)
+            Shape.Kind.MESH -> {
+                val b = Shape.MESH_BOUNDS.map { s.x(it, 0.0) }
+                if (s.file.isBlank()) "// (no model file)"
+                else "scale([$w / ${n(max(0.01, b[3] - b[0]))}, $d / ${n(max(0.01, b[4] - b[1]))}, $h / ${n(max(0.01, b[5] - b[2]))}]) " +
+                    "translate([${n(-(b[0] + b[3]) / 2)}, ${n(-(b[1] + b[4]) / 2)}, ${n(-b[2])}]) import(${quote(s.file)}, convexity = 10);"
+            }
             Shape.Kind.GROUP -> ""
         }
     }
 
-    /** A sketch extruded up [h] (its outline scaled to [w] x [d]), or revolved about Z (profile x = radius, y = height). */
-    private fun sketch(s: Shape, w: String, d: String, h: String): String {
+    /**
+     * A sketch extruded up [h] (its outline scaled to [w] x [d]), or revolved about Z (profile x = radius, y = height).
+     * Corners are rounded / chamfered by [edge] and the outline inset by [inset] after scaling, so both are in mm.
+     */
+    private fun sketch(s: Shape, w: String, d: String, h: String, edge: String?, chamfer: Boolean, inset: String?): String {
         val sk = s.sketch ?: return "// (no sketch)"
         val (lo, hi) = sk.bounds() ?: return "// (empty sketch)"
+        fun mods(code: String): String {
+            var c = code
+            // Convex corners rounded by offset(r) after a shrink, concave ones by a grow first; a chamfer cuts convex ones.
+            if (edge != null) c = if (chamfer) "offset(delta = $edge, chamfer = true) offset(delta = -$edge) $c"
+            else "offset(r = $edge) offset(delta = -$edge) offset(r = -$edge) offset(delta = $edge) $c"
+            if (inset != null) c = "offset(delta = -$inset) $c"
+            return c
+        }
         if (s.x(Shape.REVOLVE, 0.0) != 0.0) {
             val r = max(0.01, hi.x)
             val nh = max(0.01, hi.y - lo.y)
             val angle = s.x(Shape.ANGLE, 360.0).coerceIn(1.0, 360.0)
             return "scale([$w / ${n(2 * r)}, $d / ${n(2 * r)}, $h / ${n(nh)}]) rotate_extrude(${if (angle < 360.0) "angle = ${n(angle)}, " else ""}\$fn = sides(max($w, $d))) " +
-                "intersection() { square([${n(r + 1)}, ${n(nh + 1)}]); ${sk.toScad(P2(0.0, -lo.y))} }"
+                "intersection() { square([${n(r + 1)}, ${n(nh + 1)}]); ${mods(sk.toScad(P2(0.0, -lo.y)))} }"
         }
         val top = s.x(Shape.TOP, 1.0).coerceAtLeast(0.0)
         val c = (lo + hi) * 0.5
-        return "scale([$w / ${n(max(0.01, hi.x - lo.x))}, $d / ${n(max(0.01, hi.y - lo.y))}, $h]) " +
-            "linear_extrude(1${if (top != 1.0) ", scale = ${n(top)}" else ""}) ${sk.toScad(P2(-c.x, -c.y))}"
+        return "linear_extrude($h${if (top != 1.0) ", scale = ${n(top)}" else ""}) " +
+            mods("scale([$w / ${n(max(0.01, hi.x - lo.x))}, $d / ${n(max(0.01, hi.y - lo.y))}]) ${sk.toScad(P2(-c.x, -c.y))}")
     }
 
     /** A field's code: the bound dimension's name, else the number. */

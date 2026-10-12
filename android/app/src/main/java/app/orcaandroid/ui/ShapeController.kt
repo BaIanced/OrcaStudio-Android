@@ -8,6 +8,10 @@ import app.orcaandroid.scad.Repeat
 import app.orcaandroid.scad.Shape
 import app.orcaandroid.scad.ShapeDesign
 import app.orcaandroid.scad.Sketch
+import app.orcaandroid.scad.Stl
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.io.File
 
 /**
  * The shape builder's edits (no code): add, move, group, cut, align, repeat, sliders, with undo.
@@ -81,6 +85,30 @@ class ShapeController(private val store: Store, private val scad: ScadController
         }
         commit(d.copy(shapes = d.shapes + shape, nextId = d.nextId + 1), listOf(shape.id))
         return shape.id
+    }
+
+    /** Adds a picked STL as a mesh shape, at its own size; the file is kept in files/openscad/meshes. */
+    fun importMesh(uri: android.net.Uri) = store.launch {
+        val (file, b) = withContext(Dispatchers.IO) {
+            val src = store.resources.importFile(uri, "openscad")
+            val dir = File(store.app.filesDir, "openscad/meshes").apply { mkdirs() }
+            var dst = File(dir, src.name)
+            var i = 2
+            while (dst.exists() && dst.length() != src.length()) dst = File(dir, src.nameWithoutExtension + "_" + i++ + "." + src.extension)
+            src.copyTo(dst, overwrite = true)
+            src.delete()
+            dst to Stl.bounds(dst)
+        }
+        if (b == null) { file.delete(); store.toast(store.str(R.string.shape_import_failed)); return@launch }
+        val d = design ?: return@launch
+        val size = D3(maxOf(0.01, b[3] - b[0]), maxOf(0.01, b[4] - b[1]), maxOf(0.01, b[5] - b[2]))
+        var shape = Shape(d.nextId, Shape.Kind.MESH, file.nameWithoutExtension, size, file = file.absolutePath,
+            extra = Shape.MESH_BOUNDS.zip(b).toMap())
+        if (d.shapes.isNotEmpty()) {
+            val all = d.shapes.map { d.bounds(it) }.reduce { x, y -> x.union(y) }
+            shape = shape.copy(pos = D3(snap(all.max.x + 5 + size.x / 2), snap(all.center.y), 0.0))
+        }
+        commit(d.copy(shapes = d.shapes + shape, nextId = d.nextId + 1), listOf(shape.id))
     }
 
     // --- Editing ------------------------------------------------------------------------------------
@@ -353,6 +381,7 @@ class ShapeController(private val store: Store, private val scad: ScadController
             Shape.Kind.WEDGE -> R.string.shape_wedge
             Shape.Kind.TEXT -> R.string.shape_text
             Shape.Kind.SKETCH -> R.string.shape_sketch
+            Shape.Kind.MESH -> R.string.shape_mesh
             Shape.Kind.GROUP -> R.string.shape_group
         }
 

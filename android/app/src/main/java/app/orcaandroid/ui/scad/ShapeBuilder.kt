@@ -1,5 +1,7 @@
 package app.orcaandroid.ui.scad
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -97,6 +99,7 @@ fun ShapesTab(s: ScadEditorState, vm: AppViewModel) {
     val sh = vm.shapes
     val focus = remember { FocusRequester() }
     var sketching by remember { mutableStateOf<Int?>(null) }
+    val stl = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { it?.let(sh::importMesh) }
     sketching?.let { id ->
         val shape = d.find(id)
         if (shape == null) sketching = null
@@ -135,6 +138,8 @@ fun ShapesTab(s: ScadEditorState, vm: AppViewModel) {
                 AssistChip(onClick = { val id = sh.add(k); if (k == Shape.Kind.SKETCH) sketching = id; runCatching { focus.requestFocus() } }, label = { Text(stringResource(ShapeController.kindName(k))) },
                     leadingIcon = { Icon(Icons.Default.Add, null, Modifier.size(16.dp)) })
             }
+            AssistChip(onClick = { stl.launch(arrayOf("model/stl", "application/sla", "application/vnd.ms-pki.stl", "application/octet-stream", "*/*")) },
+                label = { Text(stringResource(R.string.shape_import)) }, leadingIcon = { Icon(Icons.Default.Add, null, Modifier.size(16.dp)) })
         }
         Toolbar(s, vm)
         HorizontalDivider()
@@ -264,7 +269,39 @@ private fun Properties(shape: Shape, d: ShapeDesign, vm: AppViewModel, onEditSke
                 if (shape.kind == Shape.Kind.PRISM) 6.0 else 0.0, slider = false, decimals = 0)
             else -> {}
         }
+        if (shape.kind == Shape.Kind.MESH) Text(stringResource(R.string.shape_mesh_file, shape.file.substringAfterLast('/')),
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        val revolve = shape.x(Shape.REVOLVE, 0.0) != 0.0
+        if (shape.kind in Shape.EDGED) EdgeEditor(shape, d, vm)
+        if (shape.kind in Shape.SHELLED && !revolve) ShellEditor(shape, d, vm)
         RepeatEditor(shape, vm)
+    }
+}
+
+/** Rounded or chamfered edges (a sketch: its outline's corners). */
+@Composable
+private fun EdgeEditor(shape: Shape, d: ShapeDesign, vm: AppViewModel) {
+    val chamfer = shape.x(Shape.CHAMFER, 0.0) != 0.0
+    Text(stringResource(if (shape.kind == Shape.Kind.SKETCH) R.string.shape_corners else R.string.shape_edges), style = MaterialTheme.typography.labelLarge)
+    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+        SegmentedButton(!chamfer, { vm.shapes.update(shape.id) { it.copy(extra = it.extra + (Shape.CHAMFER to 0.0)) } }, SegmentedButtonDefaults.itemShape(0, 2)) {
+            Text(stringResource(R.string.shape_edge_round))
+        }
+        SegmentedButton(chamfer, { vm.shapes.update(shape.id) { it.copy(extra = it.extra + (Shape.CHAMFER to 1.0)) } }, SegmentedButtonDefaults.itemShape(1, 2)) {
+            Text(stringResource(R.string.shape_edge_chamfer))
+        }
+    }
+    ExtraField(stringResource(R.string.shape_edge_size), shape, d, vm, Shape.EDGE, 0.0)
+}
+
+/** Hollow: a wall thickness, top open or closed. */
+@Composable
+private fun ShellEditor(shape: Shape, d: ShapeDesign, vm: AppViewModel) {
+    Text(stringResource(R.string.shape_hollow), style = MaterialTheme.typography.labelLarge)
+    ExtraField(stringResource(R.string.shape_shell_wall), shape, d, vm, Shape.SHELL, 0.0)
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(stringResource(R.string.shape_open_top), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+        Switch(shape.x(Shape.OPEN, 0.0) != 0.0, { on -> vm.shapes.update(shape.id) { it.copy(extra = it.extra + (Shape.OPEN to if (on) 1.0 else 0.0)) } })
     }
 }
 
