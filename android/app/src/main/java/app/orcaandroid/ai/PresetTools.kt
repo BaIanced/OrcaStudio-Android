@@ -126,7 +126,14 @@ internal class PresetTools(
             ?: throw McpTools.ToolError("No ${label(type)} preset \"$name\" for this printer (see preset_list)")
         val edits = if (name == current) currentEdits else emptyMap()
         val values = presets.presetValuesOf(type, name)
-        val parent = ref.base.takeIf { !ref.system && it.isNotEmpty() }?.let { runCatching { presets.presetValuesOf(type, it) }.getOrNull() }
+        // A printer preset without a parent is compared with the system preset of its model and nozzle, as the app
+        // falls back to that one for its connection (PresetController.selectPrinterNow).
+        val base = ref.base.takeIf { !ref.system && it.isNotEmpty() } ?: store.value.printers.takeIf { type == PresetType.PRINTER && !ref.system }
+            ?.let { list ->
+                val me = list.firstOrNull { it.name == name } ?: return@let null
+                list.firstOrNull { it.system && me.model.isNotEmpty() && it.model == me.model && kotlin.math.abs(it.nozzle - me.nozzle) < 1e-3 }?.name
+            }
+        val parent = base?.let { runCatching { presets.presetValuesOf(type, it) }.getOrNull() }
         val defs = presets.optionDefs(type).associateBy { it.key }
         val keys = args.optJSONArray("keys")?.let { a -> (0 until a.length()).map { a.optString(it) } }
         val all = args.optBoolean("all")
@@ -139,13 +146,14 @@ internal class PresetTools(
             append("${label(type).replaceFirstChar(Char::uppercase)} preset \"$name\": ")
             append(when {
                 ref.system -> "system preset"
-                parent != null -> "user preset based on system preset \"${ref.base}\""
+                parent != null && ref.base.isNotEmpty() -> "user preset based on system preset \"$base\""
+                parent != null -> "user preset without a system parent (compared with \"$base\", same model and nozzle)"
                 else -> "user preset without a system parent"
             })
             if (name == current) append(if (type == PresetType.FILAMENT) ", in slot ${slot + 1}" else ", selected")
             appendLine(", ${edits.size} unsaved edit(s)")
-            if (keys == null && !all) appendLine(if (parent != null) "Settings that differ from \"${ref.base}\" (system value after |) and unsaved edits:"
-                else "Unsaved edits (a system preset has no parent to compare with; ask with keys or all):")
+            if (keys == null && !all) appendLine(if (parent != null) "Settings that differ from \"$base\" (system value after |) and unsaved edits:"
+                else "Unsaved edits (nothing to compare with: ask with keys or all for the settings):")
             for (k in shown) {
                 val def = defs[k]
                 val v = values[k]
@@ -173,10 +181,11 @@ internal class PresetTools(
         if (hits.isEmpty()) return "No ${label(type)} setting matches \"${args.optString("query")}\"."
         return buildString {
             hits.take(FIND_LIMIT).forEach { d ->
-                append("${d.key} (${d.label.ifEmpty { d.fullLabel }}) [${d.category}] = ")
-                append(s.value(type, d.key)?.let { show(it, d, false) } ?: "-")
-                if (d.sidetext.isNotEmpty()) append(" ").append(d.sidetext)
+                append("${d.key} (${d.label.ifEmpty { d.fullLabel }})")
+                if (d.category.isNotEmpty()) append(" [${d.category}]")
+                append(" = ").append(s.value(type, d.key)?.let { show(it, d, false) } ?: "-")
                 append("; ").append(d.type)
+                if (d.sidetext.contains(' ')) append(" (").append(d.sidetext).append(")")
                 if (d.min != null || d.max != null) append(" ${d.min?.let(::num) ?: ""}..${d.max?.let(::num) ?: ""}")
                 if (d.enumValues.isNotEmpty()) append(", choices ").append(d.enumValues.zip(d.enumLabels + List(d.enumValues.size) { "" })
                     .joinToString { (v, l) -> if (l.isEmpty() || l == v) v else "$v ($l)" })
@@ -337,8 +346,11 @@ internal class PresetTools(
 
     /** A value for the reply; long text (G-code) is cut unless asked for by key. */
     private fun show(v: String, def: OptionDef?, full: Boolean): String {
-        val unit = def?.sidetext?.takeIf { it.isNotEmpty() && it.length <= 6 }?.let { " $it" }.orEmpty()
-        return if (!full && v.length > VALUE_CHARS) "<${v.length} chars; ask with keys>" else v + unit
+        if (v.isEmpty()) return "\"\""
+        if (!full && v.length > VALUE_CHARS) return "<${v.length} chars; ask with keys>"
+        // Units only on plain numbers ("15%" already has its own; "mm or %" isn't one unit).
+        val unit = def?.sidetext?.takeIf { it.isNotEmpty() && !it.contains(' ') && !v.endsWith('%') && v.toDoubleOrNull() != null }
+        return if (unit != null) "$v $unit" else v
     }
 
     private fun num(x: Double) = if (x == Math.rint(x) && kotlin.math.abs(x) < 1e15) x.toLong().toString() else x.toString()
