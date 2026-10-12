@@ -37,6 +37,13 @@ object BambuAccount {
         return ObnNative.userName().ifEmpty { null }
     }
 
+    /** A one-time MakerWorld sign-in ticket for the signed-in account, or null (signed out or failed). */
+    fun webTicket(context: Context): String? {
+        start(context)
+        if (ObnNative.userName().isEmpty()) return null
+        return ObnNative.webTicket().ifEmpty { null }
+    }
+
     /** Bambu's sign-in page, as Bambu Studio opens it (<host>/<language>/sign-in). */
     fun loginUrl(context: Context): String {
         start(context)

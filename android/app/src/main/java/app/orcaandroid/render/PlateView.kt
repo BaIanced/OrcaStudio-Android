@@ -18,9 +18,17 @@ enum class InteractionMode { NAVIGATE, PAINT, LAY_ON_FACE, MEASURE }
 interface PlateListener {
     /**
      * A tap (not a drag); the host picks and selects / lays on face / measures depending on the mode.
-     * [additive]: Ctrl or Shift was held (adds to the selection, as on the desktop).
+     * [additive]: Ctrl or Shift was held (adds to the selection); [part]: Alt was held (selects the
+     * part under the pointer), as on the desktop.
      */
-    fun onTap(x: Float, y: Float, additive: Boolean)
+    fun onTap(x: Float, y: Float, additive: Boolean, part: Boolean)
+    /**
+     * Shift+drag (add) or Alt+drag (remove) draws a selection rectangle from (x0, y0) to (x1, y1);
+     * [done] once the button is released.
+     */
+    fun onRectangle(x0: Float, y0: Float, x1: Float, y1: Float, remove: Boolean, done: Boolean)
+    /** Ctrl+wheel while painting: [steps] > 0 grows the brush. */
+    fun onBrushScroll(steps: Int)
     /** The selected copies were dragged by (dx, dy) mm on the bed. */
     fun onMoved(dx: Float, dy: Float)
     /** Paint stroke sample at screen (x, y); [newStroke] for the first sample of a stroke. */
@@ -33,13 +41,16 @@ interface PlateListener {
  * GLSurfaceView hosting [PlateRenderer] with touch navigation: one finger orbits (or drags the
  * selected object), two fingers pinch-zoom and pan, double tap frames the plate, long press opens
  * the context menu. With a mouse, as on the desktop: left-drag orbits, right- or middle-drag pans,
- * the wheel zooms and a right click opens the context menu.
+ * the wheel zooms, a right click opens the context menu, Shift+drag / Alt+drag selects / deselects
+ * by rectangle, Alt+click selects a part, Ctrl+wheel sizes the paint brush and Alt+wheel moves the
+ * section view's cut.
  */
 @SuppressLint("ViewConstructor")
 class PlateView(context: Context) : GLSurfaceView(context) {
 
     val camera = Camera()
     val renderer = PlateRenderer(camera)
+    val section = SectionView(camera)
     var listener: PlateListener? = null
     var mode = InteractionMode.NAVIGATE
     /** World bounding boxes (min, max) of the selected copies; a drag starting on them moves them. */
@@ -58,8 +69,12 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     /** The gesture began with the right / middle mouse button (pans; a right click opens the menu). */
     private var rightButton = false
     private var middleButton = false
+    private var hoverPanning = false
     /** A long press opened the context menu; the rest of the gesture is ignored. */
     private var longPressed = false
+    /** Shift / Alt held when the gesture began: a drag draws a selection rectangle. */
+    private var rectangle = false
+    private var rectangleRemove = false
 
     private val scaleDetector = ScaleGestureDetector(context, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
         override fun onScale(detector: ScaleGestureDetector): Boolean {
@@ -75,7 +90,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
         }
 
         override fun onLongPress(e: MotionEvent) {
-            if (mode != InteractionMode.NAVIGATE || multiTouch || moved || rightButton || middleButton) return
+            if (mode != InteractionMode.NAVIGATE || multiTouch || moved || rightButton || middleButton || rectangle) return
             cancelDrag()
             longPressed = true
             listener?.onContextMenu(e.x, e.y)
@@ -88,25 +103,51 @@ class PlateView(context: Context) : GLSurfaceView(context) {
         preserveEGLContextOnPause = true
         setRenderer(renderer)
         renderMode = RENDERMODE_CONTINUOUSLY
+        // Takes keyboard focus on touch, like the desktop's canvas, for the 3D view's shortcuts.
         isFocusable = true
+        isFocusableInTouchMode = true
     }
 
     /** Runs [block] on the GL thread. */
     fun onGl(block: PlateRenderer.() -> Unit) = queueEvent { renderer.block() }
 
+    // Compose would otherwise use arrow keys and Tab to move its focus before the activity sees them.
+    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean = onKey?.invoke(keyCode, event) == true || super.onKeyDown(keyCode, event)
+
+    companion object {
+        /** The app's 3D view, for keyboard shortcuts that move the camera. */
+        var active: java.lang.ref.WeakReference<PlateView>? = null
+        /** Single-key shortcuts while the view has focus (set by the activity); true when handled. */
+        var onKey: ((Int, KeyEvent) -> Boolean)? = null
+    }
+
+    override fun onFocusChanged(gainFocus: Boolean, direction: Int, previouslyFocusedRect: android.graphics.Rect?) {
+        super.onFocusChanged(gainFocus, direction, previouslyFocusedRect)
+        if (android.util.Log.isLoggable(INPUT_TAG, android.util.Log.DEBUG))
+            android.util.Log.d(INPUT_TAG, "focus $gainFocus view=${System.identityHashCode(this)} root=${rootView.findFocus()?.javaClass?.simpleName}")
+    }
+
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (android.util.Log.isLoggable(INPUT_TAG, android.util.Log.DEBUG))
+            android.util.Log.d(INPUT_TAG, "touch ${MotionEvent.actionToString(event.action)} buttons=${event.buttonState} meta=${event.metaState} tool=${event.getToolType(0)} source=${event.source}")
+        // Compose's interop may hand the wheel over as a touch event.
+        if (event.actionMasked == MotionEvent.ACTION_SCROLL) return onGenericMotionEvent(event)
         scaleDetector.onTouchEvent(event)
         gestureDetector.onTouchEvent(event)
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
+                if (!hasFocus()) requestFocus()
                 lastX = event.x; lastY = event.y; downX = event.x; downY = event.y
                 multiTouch = false; moved = false; dragging = false; longPressed = false
                 // The button state is only known on DOWN; on UP it is already released.
                 val mouse = event.isFromSource(android.view.InputDevice.SOURCE_MOUSE)
                 rightButton = mouse && event.buttonState and MotionEvent.BUTTON_SECONDARY != 0
                 middleButton = mouse && event.buttonState and MotionEvent.BUTTON_TERTIARY != 0
-                if (rightButton || middleButton) Unit
+                rectangleRemove = event.metaState and KeyEvent.META_ALT_ON != 0
+                rectangle = mode == InteractionMode.NAVIGATE && !rightButton && !middleButton &&
+                    (rectangleRemove || event.metaState and KeyEvent.META_SHIFT_ON != 0)
+                if (rightButton || middleButton || rectangle) Unit
                 else if (mode == InteractionMode.PAINT) listener?.onPaint(event.x, event.y, true)
                 else if (mode == InteractionMode.NAVIGATE && hitsSelection(event.x, event.y)) {
                     dragging = true
@@ -132,6 +173,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                     lastFocusX = fx; lastFocusY = fy
                 } else if (!multiTouch) {
                     when {
+                        rectangle -> if (moved) listener?.onRectangle(downX, downY, event.x, event.y, rectangleRemove, false)
                         rightButton || middleButton -> camera.pan(event.x - lastX, event.y - lastY)
                         mode == InteractionMode.PAINT -> {
                             // Fill gaps of fast strokes so the painted trail stays continuous.
@@ -155,7 +197,10 @@ class PlateView(context: Context) : GLSurfaceView(context) {
             }
             MotionEvent.ACTION_UP -> {
                 val additive = event.metaState and (KeyEvent.META_CTRL_ON or KeyEvent.META_SHIFT_ON) != 0
-                if (longPressed || middleButton) {
+                val part = event.metaState and KeyEvent.META_ALT_ON != 0
+                if (rectangle && moved) {
+                    listener?.onRectangle(downX, downY, event.x, event.y, rectangleRemove, true)
+                } else if (longPressed || middleButton) {
                     // Handled: the menu is open, or the middle button only pans.
                 } else if (rightButton) {
                     if (!moved && mode == InteractionMode.NAVIGATE) listener?.onContextMenu(event.x, event.y)
@@ -164,20 +209,45 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                     val end = camera.rayOnPlane(event.x, event.y)
                     cancelDrag()
                     if (moved && start != null && end != null) listener?.onMoved(end.x - start.x, end.y - start.y)
-                    else if (!moved) listener?.onTap(event.x, event.y, additive)
+                    else if (!moved) listener?.onTap(event.x, event.y, additive, part)
                 } else if (!moved && !multiTouch && mode != InteractionMode.PAINT) {
-                    listener?.onTap(event.x, event.y, additive)
+                    listener?.onTap(event.x, event.y, additive, part)
                 }
             }
-            MotionEvent.ACTION_CANCEL -> cancelDrag()
+            MotionEvent.ACTION_CANCEL -> {
+                if (rectangle && moved) listener?.onRectangle(downX, downY, downX, downY, rectangleRemove, true)
+                rectangle = false
+                cancelDrag()
+            }
         }
         return true
     }
 
     override fun onGenericMotionEvent(event: MotionEvent): Boolean {
-        if (event.action == MotionEvent.ACTION_SCROLL) {
-            val v = event.getAxisValue(MotionEvent.AXIS_VSCROLL)
-            camera.zoom(if (v > 0) 1.15f else 1f / 1.15f)
+        if (android.util.Log.isLoggable(INPUT_TAG, android.util.Log.DEBUG))
+            android.util.Log.d(INPUT_TAG, "generic ${MotionEvent.actionToString(event.action)} buttons=${event.buttonState} meta=${event.metaState} " +
+                "v=${event.getAxisValue(MotionEvent.AXIS_VSCROLL)} h=${event.getAxisValue(MotionEvent.AXIS_HSCROLL)} source=${event.source}")
+        // WSA delivers a right / middle drag as hover moves with the button held, not as touch moves.
+        if (event.actionMasked == MotionEvent.ACTION_HOVER_MOVE &&
+            event.buttonState and (MotionEvent.BUTTON_SECONDARY or MotionEvent.BUTTON_TERTIARY) != 0) {
+            if (hoverPanning) camera.pan(event.x - lastX, event.y - lastY)
+            hoverPanning = true
+            moved = true
+            lastX = event.x; lastY = event.y
+            return true
+        }
+        hoverPanning = false
+        // The desktop canvas takes keyboard focus when the mouse enters it, unless a text field has
+        // it (GLCanvas3D.cpp on_mouse Entering), so its shortcuts work without a click first. WSA
+        // sends no enter when a closed menu leaves the pointer over the view, so any hover counts.
+        if (!hasFocus() && rootView.findFocus()?.onCheckIsTextEditor() != true) requestFocus()
+        if (event.actionMasked == MotionEvent.ACTION_SCROLL) {
+            // Shift turns the wheel into a horizontal scroll; it still zooms, as on the desktop.
+            val v = event.getAxisValue(MotionEvent.AXIS_VSCROLL).takeIf { it != 0f } ?: event.getAxisValue(MotionEvent.AXIS_HSCROLL)
+            if (v == 0f) return true
+            if (event.metaState and KeyEvent.META_ALT_ON != 0) section.step(v > 0)
+            else if (mode ==InteractionMode.PAINT && event.metaState and KeyEvent.META_CTRL_ON != 0) listener?.onBrushScroll(if (v > 0) 1 else -1)
+            else camera.zoom(if (v > 0) 1.15f else 1f / 1.15f)
             return true
         }
         return super.onGenericMotionEvent(event)
@@ -219,6 +289,9 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     private fun focusX(e: MotionEvent) = (0 until e.pointerCount).map { e.getX(it) }.average().toFloat()
     private fun focusY(e: MotionEvent) = (0 until e.pointerCount).map { e.getY(it) }.average().toFloat()
 }
+
+/** `adb shell setprop log.tag.OrcaInput DEBUG` logs the view's mouse / touch events. */
+private const val INPUT_TAG = "OrcaInput"
 
 /** Spacing of interpolated paint samples, in pixels. */
 private const val PAINT_STEP_PX = 12f

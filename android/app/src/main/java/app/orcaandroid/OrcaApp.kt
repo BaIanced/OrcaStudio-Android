@@ -34,6 +34,8 @@ class OrcaApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // The OpenSCAD renderer's own process (ScadService) needs none of the app's singletons.
+        if (getProcessName().endsWith(":scad")) return
         CrashReport.install(this)
         container = AppContainer(this)
         app.orcaandroid.net.ObnCredentials.attach(this)

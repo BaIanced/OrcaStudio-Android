@@ -194,8 +194,12 @@ json OrcaEngine::printer_list_locked()
         const Preset &p = m_bundle->printers.preset(i);
         if (p.is_default)
             continue;
+        // A user preset belongs to the vendor and the physical printer of the system preset it inherits.
+        const Preset        *parent = p.is_system ? nullptr : m_bundle->printers.get_preset_parent(p);
+        const VendorProfile *vendor = m_bundle->printers.get_preset_with_vendor_profile(p).vendor;
         printers.push_back({{"name", p.name},
-                            {"vendor", p.vendor ? p.vendor->name : "User"},
+                            {"vendor", vendor ? vendor->name : "User"},
+                            {"base", parent && parent != &p ? parent->name : std::string()},
                             {"model", p.config.opt_string("printer_model")},
                             {"nozzle", nozzle_of(p)},
                             {"system", p.is_system}});
@@ -338,7 +342,8 @@ json OrcaEngine::option_defs(const std::string &type)
                   {"readonly", def->readonly},
                   {"multiline", def->multiline},
                   {"is_code", def->is_code},
-                  {"gui_type", int(def->gui_type)}};
+                  {"gui_type", int(def->gui_type)},
+                  {"plugin_type", def->plugin_type}};
         put_limit(j, "min", def->min);
         put_limit(j, "max", def->max);
         if (!def->enum_values.empty()) {
@@ -484,6 +489,9 @@ DynamicPrintConfig OrcaEngine::selection_config()
     // An active calibration test overrides whatever it needs (see OrcaExtras.cpp).
     if (m_calib_config)
         config.apply(*m_calib_config);
+    // Plugin pickers store bare capability names; the dispatchers need the resolved "plugins"
+    // manifest (desktop: Tab::on_value_change). No-op until the plugin runtime is started.
+    config.update_plugin_manifest();
     return config;
 }
 
@@ -592,6 +600,7 @@ json OrcaEngine::slice(int plate, const std::string &gcode_out, const std::strin
     }
     set_running(nullptr);
     progress(100, "Done");
+    m_slice_configs[plate] = std::make_shared<const DynamicPrintConfig>(config);
 
     json out = write_preview(result, preview_dir);
 
@@ -655,6 +664,13 @@ void OrcaEngine::cancel()
     std::lock_guard<std::mutex> cancel_lock(m_cancel_mutex);
     if (m_running_print)
         m_running_print->cancel();
+}
+
+std::shared_ptr<const DynamicPrintConfig> OrcaEngine::slice_config(int plate)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    auto                        it = m_slice_configs.find(plate);
+    return it == m_slice_configs.end() ? nullptr : it->second;
 }
 
 } // namespace orca

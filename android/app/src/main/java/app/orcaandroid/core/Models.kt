@@ -29,8 +29,10 @@ data class PrinterModel(val name: String, val nozzles: List<String>)
 fun printerKey(model: String, nozzle: String): String = "$model|${nozzle.toDoubleOrNull() ?: nozzle}"
 fun printerKey(model: String, nozzle: Double): String = "$model|$nozzle"
 
-data class PrinterInfo(val name: String, val vendor: String, val model: String, val nozzle: Double, val system: Boolean) {
+/** [base]: the system preset a user preset inherits (empty for system presets). */
+data class PrinterInfo(val name: String, val vendor: String, val model: String, val nozzle: Double, val system: Boolean, val base: String = "") {
     val key get() = printerKey(model, nozzle)
+    val isBambu get() = vendor == "BBL" || vendor == "Bambu Lab" || model.startsWith("Bambu Lab")
 }
 
 data class PresetRef(val name: String, val vendor: String, val system: Boolean, val brand: String = "", val type: String = "") {
@@ -70,6 +72,8 @@ data class OptionDef(
     val readonly: Boolean,
     val multiline: Boolean,
     val isCode: Boolean,
+    /** Capability type a plugin picker option selects from ("slicing-pipeline"), else empty. */
+    val pluginType: String = "",
 ) {
     val isVector get() = type.endsWith("s") && type != "float_or_percent"
     val baseType get() = when (type) {
@@ -121,7 +125,11 @@ data class Instance(
     val min: Vec3,
 )
 
-data class Volume(val index: Int, val name: String, val type: VolumeType, val settings: Map<String, String>, val offset: Vec3, val size: Vec3)
+data class Volume(
+    val index: Int, val name: String, val type: VolumeType, val settings: Map<String, String>, val offset: Vec3, val size: Vec3,
+    /** Degrees and factors, in object coordinates. */
+    val rotation: Vec3 = Vec3(0f, 0f, 0f), val scale: Vec3 = Vec3(1f, 1f, 1f),
+)
 
 data class LayerRange(val from: Float, val to: Float, val settings: Map<String, String>)
 
@@ -137,6 +145,8 @@ data class SceneObject(
     val instances: List<Instance>,
     val layerRanges: List<LayerRange>,
     val hasLayerProfile: Boolean,
+    /** ModelObject::module_name, kept per object in the 3MF; "openscad:{...}" = the object's OpenSCAD design. */
+    val module: String = "",
 )
 
 data class Scene(
@@ -146,6 +156,7 @@ data class Scene(
     val paintVersion: Int = -1,
     val canUndo: Boolean = false,
     val canRedo: Boolean = false,
+    val calibrationActive: Boolean = false,
     val plateWidth: Float = 200f,
     val plateDepth: Float = 200f,
     val plates: List<Plate> = emptyList(),

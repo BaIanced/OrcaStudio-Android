@@ -104,7 +104,8 @@ json diff_options(const DynamicPrintConfig &project, const DynamicPrintConfig &b
 {
     json out = json::object();
     for (const std::string &key : keys) {
-        if (!project.has(key) || !base.has(key))
+        // "plugins" is derived from the plugin pickers (OrcaEngine::selection_config), never an edit.
+        if (key == "plugins" || !project.has(key) || !base.has(key))
             continue;
         const std::string a = value_at(project, key, index), b = value_at(base, key, 0);
         if (a != b)
@@ -232,7 +233,7 @@ json OrcaEngine::load_project(const std::string &path)
     return out;
 }
 
-json OrcaEngine::export_gcode_3mf(int plate, const std::string &gcode, const std::string &path)
+json OrcaEngine::export_gcode_3mf(int plate, const std::string &gcode, const std::string &path, const std::string &sliced)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
     require_printer();
@@ -257,7 +258,7 @@ json OrcaEngine::export_gcode_3mf(int plate, const std::string &gcode, const std
             pd->objects_and_instances.emplace_back(int(oi), int(ii));
     if (!m_plates[plate].bed_type.empty())
         pd->config.set_deserialize_strict("curr_bed_type", m_plates[plate].bed_type);
-    if (auto it = m_slice_info.find(gcode); it != m_slice_info.end()) {
+    if (auto it = m_slice_info.find(sliced.empty() ? gcode : sliced); it != m_slice_info.end()) {
         const PlateData &s = *it->second;
         pd->gcode_prediction        = s.gcode_prediction;
         pd->gcode_weight            = s.gcode_weight;
@@ -364,6 +365,41 @@ json OrcaEngine::load_cloud_presets(const json &presets)
             c->preset(i, true).is_visible = true;
     // The cloud may have removed the selected printer; the app selects one again from the list.
     return {{"count", my_presets.size()}, {"printers", printer_list_locked()}};
+}
+
+json OrcaEngine::cloud_uploads(const std::string &user_id)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (!m_bundle)
+        throw std::runtime_error("Presets are not loaded");
+    // As the desktop's sync thread: user presets that are new or changed (get_user_presets), with
+    // the values it uploads (get_differed_values_to_update). Deletions are not uploaded, and
+    // presets synced from another account (the Bambu cloud: its user_id) are left alone.
+    json out = json::array();
+    for (const char *type : {"print", "filament", "printer"}) {
+        std::vector<Preset> presets;
+        collection(type).get_user_presets(m_bundle.get(), presets);
+        for (Preset &preset : presets) {
+            if (preset.sync_info == "delete" || preset.sync_info == "will_not_sync")
+                continue;
+            if (!preset.setting_id.empty() && !preset.user_id.empty() && preset.user_id != user_id)
+                continue;
+            std::map<std::string, std::string> values;
+            if (m_bundle->get_differed_values_to_update(preset, values) != 0)
+                continue;
+            out.push_back({{"type", type}, {"name", preset.name}, {"setting_id", preset.setting_id},
+                           {"sync_info", preset.sync_info}, {"values", values}});
+        }
+    }
+    return out;
+}
+
+json OrcaEngine::mark_uploaded(const std::string &type, const std::string &name, const std::string &setting_id,
+                               const std::string &sync_info, long long updated_time)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    collection(type).set_sync_info_and_save(name, setting_id, sync_info, updated_time);
+    return {{"ok", true}};
 }
 
 json OrcaEngine::vendor_version(const std::string &vendor)

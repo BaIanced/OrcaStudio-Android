@@ -18,11 +18,13 @@ import app.orcaandroid.core.printerKey
 import app.orcaandroid.net.DiscoveredPrinter
 import app.orcaandroid.net.PrinterConnection
 import app.orcaandroid.net.PrinterStatus
+import app.orcaandroid.net.PrinterTray
+import app.orcaandroid.net.UsedFilament
 
 enum class Phase { LOADING, SETUP, READY }
 
 /** Top-level destinations, like the desktop's Prepare / Preview / Device tabs. */
-enum class Screen { PREPARE, PREVIEW, DEVICE, MORE }
+enum class Screen { PREPARE, PREVIEW, DEVICE, MODELS, MORE }
 
 /** The object (and optionally one of its parts) the user works on. */
 data class Selection(val obj: Int, val instance: Int = 0, val volume: Int = -1)
@@ -58,6 +60,14 @@ sealed interface UploadState {
     data class Done(val message: String) : UploadState
 }
 
+/** A Bambu print waiting for the tray of each used filament; [choice] starts as the desktop's automatic mapping. */
+data class AmsPrompt(
+    val used: List<UsedFilament>,
+    val trays: List<PrinterTray>,
+    val choice: Map<Int, PrinterTray>,
+    val filamentCount: Int,
+)
+
 /** How the preview is shown. */
 data class PreviewUi(
     val layerLow: Int = 0,
@@ -77,11 +87,17 @@ data class UiState(
     val busy: String? = null,
     val error: String? = null,
     val message: String? = null,
+    /** A page the Models tab's browser should open next (e.g. a 3D Filament Profiles print log). */
+    val modelsUrl: String? = null,
     /** Where the 3D view's context menu is open (view pixels), or null. */
     val contextMenu: Pair<Float, Float>? = null,
     val screen: Screen = Screen.PREPARE,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val dynamicColor: Boolean = false,
+    val doubleBackToQuit: Boolean = false,
+    val undoLimit: Int = app.orcaandroid.core.DEFAULT_UNDO_LIMIT,
+    /** Auto-save interval in seconds; 0 = off. */
+    val autoSaveSeconds: Int = app.orcaandroid.core.DEFAULT_AUTO_SAVE_SECONDS,
 
     // Printers and presets
     val vendors: List<Vendor> = emptyList(),
@@ -115,6 +131,8 @@ data class UiState(
     val layerProfile: LayerProfile? = null,
     val calibration: Calibration? = null,
     val projectName: String? = null,
+    /** The project name before a calibration replaced it, restored when Undo leaves the calibration. */
+    val nameBeforeCalibration: String? = null,
     /** Unsaved changes since the project was opened/saved. */
     val projectDirty: Boolean = false,
 
@@ -130,6 +148,7 @@ data class UiState(
     val connection: PrinterConnection? = null,
     val suggestedConnection: PrinterConnection? = null,
     val upload: UploadState? = null,
+    val amsPrompt: AmsPrompt? = null,
     val printerStatus: PrinterStatus? = null,
     /** Why the last status request failed, shown instead of waiting forever. */
     val printerStatusError: String? = null,
@@ -143,6 +162,8 @@ data class UiState(
     val profileUpdateProgress: String? = null,
     /** Report of a crash that closed the app last time (see CrashReport). */
     val crashReport: String? = null,
+    /** The OpenSCAD editor, while open. */
+    val scad: ScadEditorState? = null,
 ) {
     fun presetName(type: PresetType) = when (type) {
         PresetType.PRINT -> print
@@ -190,4 +211,6 @@ data class UiState(
     val supportsBedTypes get() = setup?.bedTypes?.isNotEmpty() == true
 
     val selectedPrinterKeys get() = printers.filter { it.name == printer }.map { printerKey(it.model, it.nozzle) }
+
+    val printerInfo: PrinterInfo? get() = printers.firstOrNull { it.name == printer }
 }

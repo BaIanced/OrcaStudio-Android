@@ -21,6 +21,7 @@
 #include "libslic3r/CustomGCode.hpp"
 #include "libslic3r/CutUtils.hpp"
 #include "libslic3r/Geometry.hpp"
+#include "libslic3r/MeshBoolean.hpp"
 #include "libslic3r/Model.hpp"
 #include "libslic3r/ModelArrange.hpp"
 #include "libslic3r/Orient.hpp"
@@ -37,7 +38,6 @@ namespace {
 
 constexpr double PLATE_GAP        = 1. / 5.; // PartPlate.cpp LOGICAL_PART_PLATE_GAP
 constexpr size_t MAX_PLATES       = 36;      // PartPlate.hpp MAX_PLATE_COUNT
-constexpr size_t MAX_UNDO         = 30;
 constexpr double ARRANGE_DISTANCE = 6.;      // mm between arranged objects
 
 int plate_columns(size_t count)
@@ -80,6 +80,7 @@ int volume_type_code(ModelVolumeType t)
 ModelVolumeType volume_type_from_code(int code)
 {
     switch (code) {
+    case 0: return ModelVolumeType::MODEL_PART;
     case 1: return ModelVolumeType::NEGATIVE_VOLUME;
     case 2: return ModelVolumeType::PARAMETER_MODIFIER;
     case 3: return ModelVolumeType::SUPPORT_BLOCKER;
@@ -134,9 +135,26 @@ OrcaEngine::Items OrcaEngine::checked_items(Items items) const
 void OrcaEngine::push_undo()
 {
     m_undo.push_back({std::make_shared<Model>(*m_model), m_plates});
-    if (m_undo.size() > MAX_UNDO)
-        m_undo.pop_front();
+    trim_undo();
     m_redo.clear();
+}
+
+void OrcaEngine::trim_undo()
+{
+    while (m_undo.size() > m_undo_limit) {
+        m_undo.pop_front();
+        if (m_calib_undo_depth > 0)
+            --m_calib_undo_depth;
+    }
+}
+
+json OrcaEngine::set_undo_limit(size_t limit)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    // Snapshots share the meshes (ModelVolume keeps them in a shared_ptr), so a deep history is cheap.
+    m_undo_limit = std::max<size_t>(limit, 1);
+    trim_undo();
+    return scene_json();
 }
 
 std::array<double, 4> OrcaEngine::bed_rect() const
@@ -336,7 +354,8 @@ void OrcaEngine::write_mesh()
         for (size_t ii = 0; ii < obj->instances.size(); ++ii)
             for (const ModelVolume *vol : obj->volumes) {
                 TriangleMesh mesh = vol->mesh();
-                mesh.transform(obj->instances[ii]->get_matrix() * vol->get_matrix());
+                // Mirrored copies keep their triangles facing out (the section view draws back faces as cut faces).
+                mesh.transform(obj->instances[ii]->get_matrix() * vol->get_matrix(), true);
                 // Parts are drawn in their filament's colour: type 100 + 0-based filament.
                 const int type = vol->is_model_part() ? 100 + filament_of(*obj, *vol) : volume_type_code(vol->type());
                 emit(mesh, float(oi * INSTANCE_ID_STRIDE + ii), float(type));
@@ -429,6 +448,8 @@ json OrcaEngine::scene_json()
                                {"type", volume_type_code(vol->type())},
                                {"settings", config_json(vol->config)},
                                {"offset", vec_json(vol->get_offset())},
+                               {"rotation", vec_json(vol->get_rotation() * (180. / M_PI))},
+                               {"scale", vec_json(vol->get_scaling_factor())},
                                {"size", vec_json(size)}});
         }
         json ranges = json::array();
@@ -441,6 +462,8 @@ json OrcaEngine::scene_json()
                            {"settings", config_json(obj->config)},
                            {"volumes", volumes},
                            {"instances", instances}});
+        if (!obj->module_name.empty())
+            objects.back()["module"] = obj->module_name;
     }
     for (size_t p = 0; p < m_plates.size(); ++p) {
         const auto o = plate_origin(int(p));
@@ -466,6 +489,7 @@ json OrcaEngine::scene_json()
             {"mesh_version", m_mesh_version},
             {"can_undo", !m_undo.empty()},
             {"can_redo", !m_redo.empty()},
+            {"calibration_active", m_calib_config != nullptr},
             {"plate_size", {rect[2] - rect[0], rect[3] - rect[1]}},
             {"plates", plates},
             {"objects", objects}};
@@ -553,15 +577,20 @@ json OrcaEngine::load_models(const std::vector<std::string> &paths, bool append,
     return commit();
 }
 
-json OrcaEngine::set_transform(int object, int instance, const json &transform)
+// With volume >= 0 the transform is the part's own (in object coordinates), as the desktop's
+// part manipulation panel in local coordinates.
+json OrcaEngine::set_transform(int object, int instance, const json &transform, int volume)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
     ModelObject &obj = object_at(object);
     if (instance < 0 || instance >= int(obj.instances.size()))
         throw std::runtime_error("Invalid instance");
+    if (volume >= int(obj.volumes.size()))
+        throw std::runtime_error("Invalid volume");
     push_undo();
     ModelInstance *inst = obj.instances[instance];
-    Geometry::Transformation t = inst->get_transformation();
+    ModelVolume *vol = volume >= 0 ? obj.volumes[volume] : nullptr;
+    Geometry::Transformation t = vol ? vol->get_transformation() : inst->get_transformation();
     if (transform.contains("offset"))
         t.set_offset(vec_from(transform["offset"]));
     if (transform.contains("rotation"))
@@ -574,7 +603,11 @@ json OrcaEngine::set_transform(int object, int instance, const json &transform)
     }
     if (transform.contains("mirror"))
         t.set_mirror(vec_from(transform["mirror"]));
-    inst->set_transformation(t);
+    if (vol) {
+        vol->set_transformation(t);
+        obj.invalidate_bounding_box();
+    } else
+        inst->set_transformation(t);
     drop_to_bed(obj);
     return commit();
 }
@@ -729,6 +762,123 @@ json OrcaEngine::split(int object, bool to_parts)
     return commit();
 }
 
+// Like ObjectList::merge(true) ("Assemble"): the given instances become the parts of one new object,
+// each keeping its place on the bed; their objects lose those instances (or go when none is left).
+json OrcaEngine::assemble(const Items &items)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    const Items sorted = checked_items(items);
+    if (sorted.size() < 2)
+        throw std::runtime_error("Select at least two objects to assemble");
+    push_undo();
+
+    ModelObject *assembly = m_model->add_object();
+    assembly->name = "Assembly";
+    assembly->add_instance();
+    for (const auto &[o, i] : sorted) {
+        const ModelObject &object = *m_model->objects[o];
+        const ModelInstance &inst = *object.instances[i];
+        const Transform3d &trafo = inst.get_transformation().get_matrix();
+        for (const ModelVolume *volume : object.volumes) {
+            ModelVolume *v = assembly->add_volume(*volume);
+            v->set_transformation(trafo * v->get_matrix());
+            // Object settings can't go to a part (print object options), but the filament can.
+            if (object.volumes.size() > 1)
+                v->config.assign_config(volume->config);
+            if (!v->config.option("extruder"))
+                if (const ConfigOption *opt = object.config.option("extruder"))
+                    v->config.set_key_value("extruder", new ConfigOptionInt(opt->getInt()));
+        }
+        for (const std::string &key : object.config.keys())
+            if (!assembly->config.has(key))
+                assembly->config.set_key_value(key, object.config.option(key)->clone());
+        if (!inst.printable)
+            assembly->printable = assembly->instances[0]->printable = false;
+        for (const auto &range : object.layer_config_ranges)
+            assembly->layer_config_ranges.emplace(range);
+    }
+    assembly->sort_volumes(true);
+    assembly->ensure_on_bed();
+    assembly->center_around_origin();
+    assembly->translate_instances(-assembly->origin_translation);
+    assembly->origin_translation = Vec3d::Zero();
+    assembly->instances[0]->set_assemble_transformation(assembly->instances[0]->get_transformation());
+    assembly->invalidate_bounding_box();
+
+    for (auto it = sorted.rbegin(); it != sorted.rend(); ++it) {
+        ModelObject &obj = *m_model->objects[it->first];
+        if (obj.instances.size() == 1)
+            m_model->delete_object(size_t(it->first));
+        else
+            obj.delete_instance(size_t(it->second));
+    }
+    return commit();
+}
+
+// GLGizmoMeshBoolean's Union / Difference / Intersection of two parts of one object (mcut). The
+// result replaces part `src`; `tool` goes too unless kept (Union always removes it).
+json OrcaEngine::mesh_boolean(int object, int src, int tool, const std::string &op, bool keep_tool)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    ModelObject &obj = object_at(object);
+    const int n = int(obj.volumes.size());
+    if (src < 0 || src >= n || tool < 0 || tool >= n || src == tool)
+        throw std::runtime_error("Pick two different parts");
+    if (!obj.volumes[src]->is_model_part() || !obj.volumes[tool]->is_model_part())
+        throw std::runtime_error("Booleans work on parts, not on modifiers");
+    static const std::map<std::string, std::string> ops{{"union", "UNION"}, {"difference", "A_NOT_B"}, {"intersection", "INTERSECTION"}};
+    const auto mcut_op = ops.find(op);
+    if (mcut_op == ops.end())
+        throw std::runtime_error("Unknown boolean operation");
+
+    const ModelVolume *src_vol = obj.volumes[src];
+    const ModelVolume *tool_vol = obj.volumes[tool];
+    TriangleMesh src_mesh = src_vol->mesh();
+    src_mesh.transform(src_vol->get_matrix());
+    TriangleMesh tool_mesh = tool_vol->mesh();
+    tool_mesh.transform(tool_vol->get_matrix());
+    std::vector<TriangleMesh> results;
+    MeshBoolean::mcut::make_boolean(src_mesh, tool_mesh, results, mcut_op->second);
+    if (results.empty() || results.front().empty())
+        throw std::runtime_error("The boolean operation failed or left nothing. The parts may not overlap, or a mesh is not closed; try Repair first.");
+
+    // VolumeInfo::save_painting: painting moved into object coordinates like the meshes.
+    auto painting = [](const ModelVolume *v) {
+        auto saved = v->save_painting();
+        if (saved)
+            saved->mesh.transform(v->get_matrix());
+        return saved;
+    };
+    std::vector<std::optional<TriangleSelector::SavedPainting>> paintings{painting(src_vol)};
+    if (op != "difference")
+        paintings.push_back(painting(tool_vol));
+
+    push_undo();
+    const bool sinking = obj.min_z() < SINKING_Z_THRESHOLD;
+    // add_volume centres the mesh and sets the offset to match, so the result stays in place.
+    // (The gizmo then sets the old part's offset, which shifts a union with a part off to one side.)
+    ModelVolume *result = obj.add_volume(std::move(results.front()));
+    for (const auto &saved : paintings)
+        result->restore_painting(saved, true);
+    result->name = src_vol->name + " - " + op;
+    result->set_new_unique_id();
+    result->config.apply(src_vol->config);
+    result->set_type(src_vol->type());
+    result->set_material_id(src_vol->material_id());
+
+    // Delete the larger index first so the other stays valid.
+    std::vector<int> gone{src};
+    if (op == "union" || !keep_tool)
+        gone.push_back(tool);
+    std::sort(gone.rbegin(), gone.rend());
+    for (int v : gone)
+        obj.delete_volume(size_t(v));
+    obj.invalidate_bounding_box();
+    if (!sinking)
+        drop_to_bed(obj);
+    return commit();
+}
+
 json OrcaEngine::cut(int object, int instance, double z, bool keep_upper, bool keep_lower, bool flip_upper)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
@@ -811,6 +961,53 @@ json OrcaEngine::repair(int object)
     return out;
 }
 
+// Like Plater::priv::replace_volume_with_stl with "keep_painting" on.
+json OrcaEngine::replace_mesh(int object, const std::string &path, const std::string &module)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    ModelObject &obj = object_at(object);
+    const auto old_it = std::find_if(obj.volumes.begin(), obj.volumes.end(), [](const ModelVolume *v) { return v->is_model_part(); });
+    if (old_it == obj.volumes.end())
+        throw std::runtime_error("The object has no part to replace");
+
+    Model loaded = Model::read_from_file(path, nullptr, nullptr, LoadStrategy::AddDefaultInstances | LoadStrategy::LoadModel);
+    if (loaded.objects.size() != 1 || loaded.objects.front()->volumes.size() != 1)
+        throw std::runtime_error("Unable to replace with more than one volume");
+    loaded.objects.front()->center_around_origin();
+
+    push_undo();
+    const size_t old_idx = size_t(old_it - obj.volumes.begin());
+    ModelVolume *old_volume = obj.volumes[old_idx];
+    const bool sinking = obj.min_z() < SINKING_Z_THRESHOLD;
+    ModelVolume *new_volume = obj.add_volume(*loaded.objects.front()->volumes.front());
+    new_volume->set_new_unique_id();
+    new_volume->name = old_volume->name;
+    new_volume->config.apply(old_volume->config);
+    new_volume->set_type(old_volume->type());
+    new_volume->set_material_id(old_volume->material_id());
+    new_volume->set_transformation(old_volume->get_transformation());
+    new_volume->translate(new_volume->get_transformation().get_matrix_no_offset() * (new_volume->source.mesh_offset - old_volume->source.mesh_offset));
+    if (auto saved = old_volume->save_painting()) {
+        saved->mesh.transform(Geometry::translation_transform(new_volume->mesh().get_init_shift()));
+        new_volume->restore_painting(saved);
+    }
+    std::swap(obj.volumes[old_idx], obj.volumes.back());
+    obj.delete_volume(obj.volumes.size() - 1);
+    if (!module.empty())
+        obj.module_name = module;
+    obj.invalidate_bounding_box();
+    if (!sinking)
+        drop_to_bed(obj);
+    return commit();
+}
+
+json OrcaEngine::set_object_module(int object, const std::string &module)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    object_at(object).module_name = module;
+    return commit();
+}
+
 json OrcaEngine::add_volume(int object, int type, const std::string &shape, const std::array<double, 3> &size,
                             const std::array<double, 3> &position)
 {
@@ -828,17 +1025,29 @@ json OrcaEngine::add_volume(int object, int type, const std::string &shape, cons
     else
         mesh = make_cube(s.x(), s.y(), s.z());
 
+    const BoundingBoxf3 raw_bb = obj.raw_mesh_bounding_box();
+    const BoundingBoxf3 inst_bb = obj.instance_bounding_box(0);
+    const Vec3d mesh_size = mesh.bounding_box().size();
     ModelVolume *vol = obj.add_volume(std::move(mesh), vtype); // centres the geometry
     Vec3d pos(position[0], position[1], position[2]);
     if (!std::isfinite(pos.x())) {
-        // Default: middle of the object, in object coordinates.
-        pos = obj.raw_mesh_bounding_box().center();
+        if (vtype == ModelVolumeType::MODEL_PART) {
+            // ObjectList::load_generic_subobject: a new part sits beside the object (+X), on the bed.
+            const Geometry::Transformation &it = obj.instances[0]->get_transformation();
+            const Vec3d world = Vec3d(inst_bb.max.x(), inst_bb.min.y(), inst_bb.min.z()) + 0.5 * mesh_size - it.get_offset();
+            vol->set_transformation(it.get_matrix_no_offset().inverse());
+            pos = it.get_matrix_no_offset().inverse() * world;
+        } else {
+            // Default: middle of the object, in object coordinates.
+            pos = raw_bb.center();
+        }
     }
     vol->set_offset(pos);
     switch (vtype) {
     case ModelVolumeType::SUPPORT_BLOCKER: vol->name = "Support blocker"; break;
     case ModelVolumeType::SUPPORT_ENFORCER: vol->name = "Support enforcer"; break;
     case ModelVolumeType::NEGATIVE_VOLUME: vol->name = "Negative volume"; break;
+    case ModelVolumeType::MODEL_PART: vol->name = "Part " + std::to_string(obj.volumes.size()); break;
     default: vol->name = "Modifier"; break;
     }
     obj.invalidate_bounding_box();
@@ -951,6 +1160,14 @@ json OrcaEngine::undo()
     m_model  = std::make_unique<Model>(*m_undo.back().model);
     m_plates = m_undo.back().plates;
     m_undo.pop_back();
+    // Back before the calibration started: its test settings no longer apply (the desktop starts
+    // a calibration as a new project, so it has no undo across it).
+    if (m_calib_config && m_undo.size() < m_calib_undo_depth) {
+        m_calib.reset();
+        m_calib_config.reset();
+        m_calib_name.clear();
+        m_calib_undo_depth = 0;
+    }
     return commit();
 }
 

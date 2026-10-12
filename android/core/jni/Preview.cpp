@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <climits>
+#include <cstdio>
 #include <cmath>
 #include <fstream>
 #include <limits>
@@ -19,18 +20,35 @@ using json = nlohmann::json;
 
 namespace {
 
+// Writes to "<path>.tmp" and renames it over <path> in finish(): the app memory-maps these files,
+// and truncating a mapped file in place would raise SIGBUS in the reader (a rename keeps the old
+// inode, and so an existing mapping, intact).
 class FloatWriter
 {
 public:
-    explicit FloatWriter(const std::string &path) : m_file(path, std::ios::binary | std::ios::trunc)
+    explicit FloatWriter(const std::string &path) : m_path(path), m_file(path + ".tmp", std::ios::binary | std::ios::trunc)
     {
         if (!m_file)
             throw std::runtime_error("Cannot write " + path);
     }
+    ~FloatWriter()
+    {
+        if (m_file.is_open()) {
+            m_file.close();
+            std::remove((m_path + ".tmp").c_str());
+        }
+    }
     void put(float v) { m_file.write(reinterpret_cast<const char *>(&v), sizeof(float)); }
     void put(const Vec3f &v) { put(v.x()); put(v.y()); put(v.z()); }
+    void finish()
+    {
+        m_file.close();
+        if (m_file.fail() || std::rename((m_path + ".tmp").c_str(), m_path.c_str()) != 0)
+            throw std::runtime_error("Cannot write " + m_path);
+    }
 
 private:
+    std::string   m_path;
     std::ofstream m_file;
 };
 
@@ -131,6 +149,9 @@ json write_preview(const GCodeProcessorResult &result, const std::string &dir)
         }
     }
     close_layer();
+    extrusions.finish();
+    travels.finish();
+    markers.finish();
 
     json roles = json::array();
     for (const auto &[role, time] : role_times)

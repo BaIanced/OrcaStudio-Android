@@ -35,6 +35,20 @@ class Camera {
         pitch = if (top) 89f else 40f
     }
 
+    /** Looks at the box [min]..[max] from the iso direction so that it fills the view. */
+    @Synchronized fun fit(min: Vec3, max: Vec3) {
+        target[0] = (min.x + max.x) / 2
+        target[1] = (min.y + max.y) / 2
+        target[2] = (min.z + max.z) / 2
+        val radius = (max - min).length() / 2
+        val aspect = width.toFloat() / height
+        // Distance at which a sphere around the box fits the narrower field of view.
+        val half = Math.toRadians(FOV / 2.0).let { kotlin.math.tan(it) }.toFloat() * minOf(1f, aspect)
+        distance = (radius / half * 1.1f).coerceIn(5f, 10000f)
+        yaw = -60f
+        pitch = 30f
+    }
+
     @Synchronized fun orbit(dxDeg: Float, dyDeg: Float) {
         yaw -= dxDeg
         pitch = (pitch + dyDeg).coerceIn(-89f, 89f)
@@ -51,15 +65,26 @@ class Camera {
         for (i in 0..2) target[i] += (-dx * r[i] + dy * u[i]) * scale
     }
 
-    /** View preset: 0 iso, 1 top, 2 front, 3 left, 4 right. */
+    /** View preset: 0 iso, 1 top, 2 front, 3 left, 4 right, 5 bottom, 6 rear. */
     @Synchronized fun preset(view: Int) {
         when (view) {
             1 -> { yaw = -90f; pitch = 89f }
             2 -> { yaw = -90f; pitch = 0f }
             3 -> { yaw = 180f; pitch = 0f }
             4 -> { yaw = 0f; pitch = 0f }
+            5 -> { yaw = -90f; pitch = -89f }
+            6 -> { yaw = 90f; pitch = 0f }
             else -> { yaw = -60f; pitch = 40f }
         }
+    }
+
+    /** Screen pixel of world point [p], or null when it lies behind the camera. */
+    @Synchronized fun project(p: Vec3): Pair<Float, Float>? {
+        val vp = FloatArray(16).also { viewProjection(it) }
+        val r = FloatArray(4)
+        Matrix.multiplyMV(r, 0, vp, 0, floatArrayOf(p.x, p.y, p.z, 1f), 0)
+        if (r[3] <= 0f) return null
+        return (r[0] / r[3] + 1f) * width / 2 to (1f - r[1] / r[3]) * height / 2
     }
 
     @Synchronized fun eye(): Vec3 {
@@ -70,6 +95,13 @@ class Camera {
             target[1] + (distance * cos(pr) * sin(yr)).toFloat(),
             target[2] + (distance * sin(pr)).toFloat(),
         )
+    }
+
+    /** Unit vector from the target towards the eye (the desktop's -get_dir_forward()). */
+    @Synchronized fun towardsEye(): Vec3 {
+        val yr = Math.toRadians(yaw.toDouble())
+        val pr = Math.toRadians(pitch.toDouble())
+        return Vec3((cos(pr) * cos(yr)).toFloat(), (cos(pr) * sin(yr)).toFloat(), sin(pr).toFloat())
     }
 
     /** Fills [out] with projection * view. */

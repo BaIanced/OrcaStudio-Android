@@ -153,6 +153,11 @@ androidComponents {
         variant.sources.assets?.addGeneratedSourceDirectory(packOrcaAssets, PackOrcaAssets::outputDir)
         // android/build.sh stages the stripped liborca_jni.so here.
         variant.sources.jniLibs?.addStaticSourceDirectory("$orcaBuildRoot/jniLibs")
+        // android/scripts/stage_python.py stages the Python standard library here.
+        variant.sources.assets?.addStaticSourceDirectory("$orcaBuildRoot/python-assets")
+        // CI stages libopenscad.so and OpenSCAD's resources (fonts, MCAD) here when it has them.
+        variant.sources.jniLibs?.addStaticSourceDirectory("$orcaBuildRoot/openscad-jniLibs")
+        variant.sources.assets?.addStaticSourceDirectory("$orcaBuildRoot/openscad-assets")
     }
 }
 

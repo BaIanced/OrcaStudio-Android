@@ -99,8 +99,8 @@ interface PrintHost {
     /** Checks that the host answers; returns a short description. */
     fun test(): String
 
-    /** Uploads [file] as [remoteName]; with [startPrint] the host starts printing it right away. */
-    fun upload(file: File, remoteName: String, startPrint: Boolean, onProgress: (Float) -> Unit)
+    /** Uploads [file] as [remoteName]; with [startPrint] the host starts printing it right away. [ams]: Bambu tray per filament. */
+    fun upload(file: File, remoteName: String, startPrint: Boolean, ams: AmsMapping? = null, onProgress: (Float) -> Unit)
 
     /** Current job state, or null if the protocol cannot report it. */
     fun status(): PrinterStatus?

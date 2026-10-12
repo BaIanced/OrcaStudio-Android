@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material.icons.outlined.Print
+import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.ViewInAr
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomSheetScaffold
@@ -30,10 +31,15 @@ import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
+import androidx.compose.material3.VerticalDivider
+import androidx.compose.runtime.saveable.rememberSaveable
+import app.orcaandroid.ui.scad.ScadPanel
+import app.orcaandroid.ui.scad.ScadReopenButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -55,6 +61,8 @@ import app.orcaandroid.ui.prepare.PrepareOverlay
 import app.orcaandroid.ui.prepare.PreparePanel
 import app.orcaandroid.ui.preview.PreviewOverlay
 import app.orcaandroid.ui.preview.PreviewPanel
+import app.orcaandroid.ui.models.ModelBrowser
+import app.orcaandroid.ui.models.ModelsScreen
 import app.orcaandroid.ui.settings.MoreScreen
 import app.orcaandroid.ui.settings.PrinterSetupScreen
 import app.orcaandroid.ui.settings.SettingsEditor
@@ -65,6 +73,7 @@ private val DESTINATIONS = listOf(
     Destination(Screen.PREPARE, R.string.tab_prepare, Icons.Outlined.ViewInAr),
     Destination(Screen.PREVIEW, R.string.tab_preview, Icons.Outlined.Layers),
     Destination(Screen.DEVICE, R.string.tab_device, Icons.Outlined.Print),
+    Destination(Screen.MODELS, R.string.tab_models, Icons.Outlined.Public),
     Destination(Screen.MORE, R.string.tab_more, Icons.Outlined.MoreHoriz),
 )
 
@@ -84,6 +93,35 @@ fun AppScaffold(state: UiState, vm: AppViewModel) {
 
 @Composable
 private fun MainLayout(state: UiState, vm: AppViewModel) {
+    // The Models tab's browser outlives the tab, so switching tabs keeps the page and its history.
+    val context = androidx.compose.ui.platform.LocalContext.current
+    // A theme change makes a new browser: the WebView takes light / dark from the context it is made with.
+    val dark = app.orcaandroid.ui.components.appIsDark()
+    val browser = remember(dark) { lazy { ModelBrowser(context, vm, dark) } }
+    DisposableEffect(browser) { onDispose { if (browser.isInitialized()) browser.value.destroy() } }
+    LaunchedEffect(browser, state.modelsUrl) {
+        state.modelsUrl?.let { browser.value.openUrl(it); vm.modelsUrlOpened() }
+    }
+    // Back leads home: other tabs return to Prepare, and Prepare drops the tool and selection
+    // first (as Esc does). Screens composed below (the Models browser) take back before this.
+    // With nothing left to go back to, Back asks before quitting (or, as chosen under More, needs
+    // a second press within 2 s), instead of Android's default of sending the app to the background.
+    val clearable = state.screen == Screen.PREPARE && (state.tool != Tool.None || state.selectedItems.isNotEmpty() || state.selectMode)
+    var askQuit by remember { mutableStateOf(false) }
+    var lastBack by remember { mutableStateOf(0L) }
+    androidx.activity.compose.BackHandler {
+        when {
+            state.screen != Screen.PREPARE -> vm.setScreen(Screen.PREPARE)
+            clearable -> { vm.scene.setTool(Tool.None); vm.scene.select(null); vm.scene.setSelectMode(false) }
+            !state.doubleBackToQuit -> askQuit = true
+            android.os.SystemClock.uptimeMillis() - lastBack < 2000 -> (context as? android.app.Activity)?.finish()
+            else -> {
+                lastBack = android.os.SystemClock.uptimeMillis()
+                android.widget.Toast.makeText(context, R.string.back_again_quit, android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+    if (askQuit) QuitDialog(onQuit = { askQuit = false; (context as? android.app.Activity)?.finish() }, onDismiss = { askQuit = false })
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wide = maxWidth >= WIDE_LAYOUT
         val content: @Composable (Modifier) -> Unit = { m ->
@@ -91,6 +129,7 @@ private fun MainLayout(state: UiState, vm: AppViewModel) {
                 when (state.screen) {
                     Screen.PREPARE, Screen.PREVIEW -> Workspace(state, vm, wide)
                     Screen.DEVICE -> DeviceScreen(state, vm)
+                    Screen.MODELS -> ModelsScreen(browser.value)
                     Screen.MORE -> MoreScreen(state, vm)
                 }
             }
@@ -145,10 +184,27 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
     val panel: @Composable () -> Unit = {
         if (state.screen == Screen.PREPARE) PreparePanel(state, vm, wide) else PreviewPanel(state, vm, wide)
     }
+    // The OpenSCAD editor takes the panel's place on Prepare; the 3D view shows what it renders.
+    val scad = state.scad?.takeIf { state.screen == Screen.PREPARE }
+    var scadHidden by rememberSaveable { mutableStateOf(false) }
     if (wide) {
-        Row(Modifier.fillMaxSize()) {
-            viewport(Modifier.weight(1f).fillMaxHeight())
-            Surface(Modifier.width(380.dp).fillMaxHeight(), tonalElevation = 1.dp) { panel() }
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            val editorWidth = (maxWidth * 0.45f).coerceIn(420.dp, 640.dp)
+            Row(Modifier.fillMaxSize()) {
+                viewport(Modifier.weight(1f).fillMaxHeight())
+                if (scad != null) {
+                    VerticalDivider()
+                    Surface(Modifier.width(editorWidth).fillMaxHeight(), tonalElevation = 1.dp) {
+                        ScadPanel(scad, vm)
+                    }
+                } else Surface(Modifier.width(380.dp).fillMaxHeight(), tonalElevation = 1.dp) { panel() }
+            }
+        }
+    } else if (scad != null) {
+        Box(Modifier.fillMaxSize()) {
+            viewport(Modifier.fillMaxSize())
+            if (scadHidden) ScadReopenButton({ scadHidden = false }, Modifier.align(Alignment.BottomEnd).padding(16.dp))
+            else Surface(Modifier.fillMaxSize()) { ScadPanel(scad, vm, onHide = { scadHidden = true }) }
         }
     } else {
         val sheet = rememberBottomSheetScaffoldState()
@@ -221,6 +277,27 @@ fun Busy(message: String) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
             CircularProgressIndicator()
             Text(message, style = MaterialTheme.typography.bodyLarge)
+        }
+    }
+}
+
+/** "Quit?" with a short note and two equal buttons; Back or a tap outside keeps the app open. */
+@Composable
+private fun QuitDialog(onQuit: () -> Unit, onDismiss: () -> Unit) {
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        androidx.compose.material3.Surface(shape = MaterialTheme.shapes.extraLarge, tonalElevation = 6.dp, modifier = Modifier.width(320.dp)) {
+            Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(stringResource(R.string.quit_title), style = MaterialTheme.typography.headlineSmall)
+                Text(
+                    stringResource(R.string.quit_text), Modifier.padding(top = 8.dp, bottom = 24.dp),
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    androidx.compose.material3.OutlinedButton(onClick = onDismiss, Modifier.weight(1f)) { Text(stringResource(R.string.no)) }
+                    androidx.compose.material3.Button(onClick = onQuit, Modifier.weight(1f)) { Text(stringResource(R.string.yes)) }
+                }
+            }
         }
     }
 }

@@ -2,6 +2,7 @@ package app.orcaandroid.ui
 
 import app.orcaandroid.R
 import app.orcaandroid.core.PresetType
+import app.orcaandroid.net.AmsMapping
 import app.orcaandroid.net.BambuReport
 import app.orcaandroid.net.Discovery
 import app.orcaandroid.net.HmsCatalog
@@ -65,29 +66,71 @@ class DeviceController(private val store: Store) {
         store.update { it.copy(discovering = false) }
     }
 
-    /** Sends the shown G-code to the connected printer, optionally starting the print. */
+    /**
+     * Sends the shown G-code to the connected printer, optionally starting the print. A Bambu print
+     * with an AMS first asks which tray each used filament prints from ([UiState.amsPrompt]), as the
+     * desktop's print dialog does; [confirmPrint] then starts it.
+     */
     fun upload(startPrint: Boolean) = store.launch {
         val s = store.value
         val result = s.shownResult ?: return@launch
         val connection = s.connection ?: return@launch
         if (s.upload is UploadState.Running) return@launch
-        store.update { it.copy(upload = UploadState.Running(0f, startPrint)) }
+        store.update { it.copy(upload = UploadState.Running(0f, startPrint), amsPrompt = null) }
         try {
+            val bambu = (connection.type == HostType.BAMBU || connection.type == HostType.BAMBU_SIGNED) && !result.external
             // Bambu printers print .gcode.3mf archives.
-            val (file, name) = if ((connection.type == HostType.BAMBU || connection.type == HostType.BAMBU_SIGNED) && !result.external) {
-                files.exportGcode3mf()!! to files.gcodeFileName().removeSuffix(".gcode") + ".gcode.3mf"
+            val (file, name) = if (bambu) {
+                files.exportGcode3mf(connection.type.name)!! to files.gcodeFileName().removeSuffix(".gcode") + ".gcode.3mf"
             } else {
-                File(result.gcodeFile) to files.gcodeFileName()
+                files.exportedGcode(connection.type.name)!! to files.gcodeFileName()
             }
-            withHost(connection) { host ->
-                host.upload(file, name, startPrint) { p -> store.update { it.copy(upload = UploadState.Running(p, startPrint)) } }
+            if (startPrint && bambu) {
+                val used = withContext(Dispatchers.IO) { AmsMapping.usedFilaments(file) }
+                val trays = if (used.isEmpty()) emptyList() else withHost(connection) { it.fullStatus()?.trays.orEmpty() }
+                if (trays.isNotEmpty()) {
+                    pendingPrint = file to name
+                    val count = maxOf(s.filaments.size, used.maxOf { it.id } + 1)
+                    store.update { it.copy(upload = null, amsPrompt = AmsPrompt(used, trays, AmsMapping.auto(used, trays), count)) }
+                    return@launch
+                }
             }
-            store.update { it.copy(upload = UploadState.Done(store.str(if (startPrint) R.string.print_started else R.string.sent_to_printer))) }
-            if (startPrint) monitorPrinter()
+            send(connection, file, name, startPrint, null)
         } catch (e: Exception) {
             store.update { it.copy(upload = null) }
             throw e
         }
+    }
+
+    /** The exported archive waiting for the user's tray choice. */
+    private var pendingPrint: Pair<File, String>? = null
+
+    /** Starts the print waiting in [UiState.amsPrompt] with [choice] (filament slot → tray). */
+    fun confirmPrint(choice: Map<Int, PrinterTray>) = store.launch {
+        val prompt = store.value.amsPrompt ?: return@launch
+        val connection = store.value.connection ?: return@launch
+        val (file, name) = pendingPrint ?: return@launch
+        pendingPrint = null
+        store.update { it.copy(amsPrompt = null, upload = UploadState.Running(0f, true)) }
+        try {
+            send(connection, file, name, true, AmsMapping(prompt.filamentCount, choice))
+        } catch (e: Exception) {
+            store.update { it.copy(upload = null) }
+            throw e
+        }
+    }
+
+    fun cancelPrint() {
+        pendingPrint = null
+        store.update { it.copy(amsPrompt = null) }
+    }
+
+    private suspend fun send(connection: PrinterConnection, file: File, name: String, startPrint: Boolean, ams: AmsMapping?) {
+        withHost(connection) { host ->
+            host.upload(file, name, startPrint, ams) { p -> store.update { it.copy(upload = UploadState.Running(p, startPrint)) } }
+        }
+        store.update { it.copy(upload = UploadState.Done(store.str(if (startPrint) R.string.print_started else R.string.sent_to_printer))) }
+        if (startPrint) monitorPrinter()
     }
 
     /** Shows the print progress as a notification (foreground service). */

@@ -6,10 +6,15 @@ import app.orcaandroid.R
 import app.orcaandroid.core.FilamentSlot
 import app.orcaandroid.core.PresetType
 import app.orcaandroid.core.RecentFile
+import app.orcaandroid.net.FilamentProfiles
+import app.orcaandroid.net.ModelDownloads
+import app.orcaandroid.plugins.Plugins
 import java.io.File
 import java.util.zip.ZipFile
 import org.json.JSONObject
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /** Opening models, projects and G-code, saving and exporting, and the recent files. */
@@ -22,12 +27,22 @@ class FileController(
     private val engine = store.engine
     private val settings = store.settings
     private val resources = store.resources
+    var scad: ScadController? = null
     private val outDir get() = File(store.app.cacheDir, "out").apply { mkdirs() }
 
     /** Opens models (appended to the plate), a project (replacing the scene) or a G-code file (preview). */
     fun openModels(uris: List<Uri>, append: Boolean = true) = store.launch(store.str(R.string.loading_model)) {
         if (uris.isEmpty()) return@launch
-        val files = uris.map { resources.importFile(it) }
+        val all = uris.map { resources.importFile(it) }
+        // OpenSCAD sources open in the editor; with several (a design and its libraries), the one no other includes.
+        val sources = all.filter { it.name.endsWith(".scad", true) }
+        if (sources.isNotEmpty()) {
+            val texts = sources.associateWith { runCatching { it.readText() }.getOrDefault("") }
+            val main = sources.firstOrNull { f -> texts.none { (o, t) -> o != f && Regex("""(include|use)\s*<([^>]*/)?${Regex.escape(f.name)}\s*>""").containsMatchIn(t) } }
+            scad?.openFile(main ?: sources.first())
+        }
+        val files = all - sources.toSet()
+        if (files.isEmpty()) return@launch
         files.firstOrNull { it.name.endsWith(".gcode", true) || it.name.endsWith(".gco", true) }?.let {
             slicing.viewGcodeFile(it)
             return@launch
@@ -39,8 +54,26 @@ class FileController(
         }
         val s = engine.loadModels(files.map { it.path }, append = append || !store.value.scene.isEmpty, plate = store.value.activePlate)
         store.applyScene(s)
-        uris.forEachIndexed { i, u -> rememberRecent(u, files[i].name, false) }
+        uris.forEachIndexed { i, u -> if (all[i] in files) rememberRecent(u, all[i].name, false) }
         store.update { it.copy(selection = Selection(s.objects.lastIndex), multiSelection = emptyList(), screen = Screen.PREPARE) }
+    }
+
+    /**
+     * Opens a file a model site hands over: [fetch] downloads or saves it (off the main thread);
+     * a zip opens the model files inside it.
+     */
+    fun openDownloaded(busy: String, fetch: () -> File) = store.launch(busy) {
+        val file = withContext(Dispatchers.IO) { fetch() }
+        // Filament profiles (3D Filament Profiles and the like) go to the preset import instead.
+        if (withContext(Dispatchers.IO) { ModelDownloads.isPresetFile(file) }) {
+            val (printers, setup) = engine.importPresets(listOf(file.path))
+            store.update { it.copy(printers = printers, setup = setup) }
+            store.toast(store.str(R.string.presets_imported, 1))
+            return@launch
+        }
+        val files = withContext(Dispatchers.IO) { ModelDownloads.modelFiles(file) }
+        if (files.isEmpty()) store.toast(store.str(R.string.models_no_files))
+        else openModels(files.map { Uri.fromFile(it) })
     }
 
     /** 3MF files with a desktop project config are opened as projects (with plates and settings). */
@@ -75,15 +108,17 @@ class FileController(
     private val sessionDir get() = File(store.app.filesDir, "session").apply { mkdirs() }
     private val sessionProject get() = File(sessionDir, "session.3mf")
     private val sessionInfo get() = File(sessionDir, "session.json")
+    /** Auto-save and the save on going to the background share the temporary file. */
+    private val sessionLock = Mutex()
 
     /** Saves the scene, presets and setting changes as a project (called when the app goes to the background). */
-    suspend fun saveSession() {
+    suspend fun saveSession() = sessionLock.withLock {
         val s = store.value
         if (s.phase != Phase.READY) return
         // A calibration test cannot be resumed from a project; an empty plate needs no session.
         if (s.scene.isEmpty || s.calibration != null) {
             sessionProject.delete(); sessionInfo.delete()
-            return
+            return@withLock
         }
         presets.syncSelection()
         val tmp = File(sessionDir, "session.tmp.3mf")
@@ -113,7 +148,7 @@ class FileController(
     }
 
     fun newProject() = store.launch {
-        scene.deleteAll().join()
+        scene.deleteAll()?.join()
         if (store.value.calibration != null) store.applyScene(engine.calibStop())
         store.update { it.copy(projectName = null, projectDirty = false, calibration = null, results = emptyMap(), external = null) }
     }
@@ -144,23 +179,56 @@ class FileController(
     }
 
     fun saveGcode(target: Uri) = store.launch(store.str(R.string.saving)) {
-        val r = store.value.shownResult ?: return@launch
-        copyTo(File(r.gcodeFile), target)
-        store.toast(store.str(R.string.saved))
+        val file = exportedGcode("File") ?: return@launch
+        copyTo(file, target)
+        toastSaved()
     }
+
+    /**
+     * The shown G-code as it leaves the app: a working copy with the G-code step of the
+     * slicing-pipeline plugins applied, as the desktop's PostProcessor does on each export and
+     * upload. [host] is "File" for files, else the printer type. Null without a result.
+     */
+    suspend fun exportedGcode(host: String, outputName: String = gcodeFileName()): File? {
+        val s = store.value
+        pluginMessages = emptyList()
+        val r = s.shownResult ?: return null
+        if (r.external) return File(r.gcodeFile)
+        val copy = File(outDir, "export.gcode")
+        withContext(Dispatchers.IO) { File(r.gcodeFile).copyTo(copy, overwrite = true) }
+        pluginMessages = Plugins.postProcess(s.previewPlate, copy, host, outputName)
+        pluginMessages.forEach { store.toast(it) }
+        return copy
+    }
+
+    /** Opens the shown slice result in 3D Filament Profiles' print log (pick spools, subtract). */
+    fun logPrintToFilamentProfiles() = store.launch {
+        val s = store.value
+        val r = s.shownResult ?: return@launch
+        val url = withContext(Dispatchers.IO) { FilamentProfiles.printLogUrl(File(r.gcodeFile), gcodeFileName(), s.previewPlate + 1) }
+            ?: return@launch store.toast(store.str(R.string.fp_no_usage))
+        store.update { it.copy(modelsUrl = url, screen = Screen.MODELS, tool = Tool.None) }
+    }
+
+    /** Messages of the slicing-pipeline plugins from the last [exportedGcode]. */
+    private var pluginMessages = emptyList<String>()
+
+    /** "Saved", keeping the plugins' messages of that export visible below it. */
+    private fun toastSaved() = store.toast((listOf(store.str(R.string.saved)) + pluginMessages).joinToString("\n"))
 
     /** Saves the preview plate as a sliced-plate archive (.gcode.3mf, as Bambu printers and the desktop use). */
     fun saveGcode3mf(target: Uri) = store.launch(store.str(R.string.saving)) {
         val archive = exportGcode3mf() ?: return@launch
         copyTo(archive, target)
-        store.toast(store.str(R.string.saved))
+        toastSaved()
     }
 
     /** Writes the shown slice result as .gcode.3mf into the cache; null without a result. */
-    suspend fun exportGcode3mf(): File? {
-        val s = store.value
-        val r = s.shownResult ?: return null
-        return File(outDir, "export.gcode.3mf").also { engine.exportGcode3mf(s.previewPlate, r.gcodeFile, it.path) }
+    suspend fun exportGcode3mf(host: String = "File"): File? {
+        val plate = store.value.previewPlate
+        val gcode = exportedGcode(host, gcodeFileName().removeSuffix(".gcode") + ".gcode.3mf") ?: return null
+        val sliced = store.value.shownResult?.gcodeFile ?: gcode.path
+        return File(outDir, "export.gcode.3mf").also { engine.exportGcode3mf(plate, gcode.path, it.path, sliced) }
     }
 
     fun openRecent(recent: RecentFile) {

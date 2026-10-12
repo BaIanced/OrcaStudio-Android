@@ -266,6 +266,7 @@ json OrcaEngine::calib_stop()
     m_calib.reset();
     m_calib_config.reset();
     m_calib_name.clear();
+    m_calib_undo_depth = 0;
     json out = scene_json();
     out["calibration"] = nullptr;
     return out;
@@ -547,6 +548,7 @@ json OrcaEngine::calib_start(const std::string &type, const json &params)
     m_calib        = p->mode == CalibMode::Calib_None ? nullptr : p;
     m_calib_config = cfg;
     m_calib_name   = name;
+    m_calib_undo_depth = m_undo.size();
     json out = commit();
     out["calibration"] = {{"type", type}, {"name", name}, {"start", start}, {"end", end}, {"step", step}};
     return out;

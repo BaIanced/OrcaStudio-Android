@@ -2,8 +2,10 @@ package app.orcaandroid.ui
 
 import android.net.Uri
 import app.orcaandroid.R
+import app.orcaandroid.core.AppBackup
 import app.orcaandroid.core.FilamentSlot
 import app.orcaandroid.core.OptionDef
+import app.orcaandroid.core.OrcaException
 import app.orcaandroid.core.PresetType
 import app.orcaandroid.core.SettingsGroup
 import app.orcaandroid.core.SettingsPage
@@ -63,8 +65,11 @@ class PresetController(private val store: Store, private val device: DeviceContr
     suspend fun selectPrinterNow(name: String, print: String? = null, filaments: List<FilamentSlot>? = null) {
         val setup = engine.selectPrinter(name)
         settings.lastPrinter = name
+        // A user printer preset shares the connection and loaded filaments of the system preset it inherits.
+        val base = store.value.printers.firstOrNull { it.name == name }?.base.orEmpty()
+        settings.setPrinterBase(name, base)
         val p = print?.takeIf { n -> setup.prints.any { it.name == n } }
-            ?: settings.lastPrint(name)?.takeIf { n -> setup.prints.any { it.name == n } }
+            ?: (settings.lastPrint(name) ?: base.takeIf { it.isNotEmpty() }?.let(settings::lastPrint))?.takeIf { n -> setup.prints.any { it.name == n } }
             ?: setup.defaultPrint
         val fils = withColors((filaments ?: settings.lastFilaments(name)).filter { f -> setup.filaments.any { it.name == f.preset } }
             .ifEmpty { listOf(FilamentSlot(setup.defaultFilament)) })
@@ -155,7 +160,61 @@ class PresetController(private val store: Store, private val device: DeviceContr
      */
     fun syncCloudPresets() = store.launch(store.str(R.string.syncing_cloud_presets)) {
         val version = engine.vendorVersion("BBL")
-        val presets = withContext(Dispatchers.IO) { BambuAccount.cloudPresets(store.app, version) }
+        loadCloudPresets(R.string.cloud_presets_synced) { BambuAccount.cloudPresets(store.app, version) }
+    }
+
+    /** The same for the presets synced to the signed-in Orca Cloud account (pull only). */
+    fun syncOrcaCloudPresets() = store.launch(store.str(R.string.syncing_orca_cloud_presets)) {
+        loadCloudPresets(R.string.orca_cloud_presets_synced) { app.orcaandroid.net.OrcaCloud.cloudPresets(store.app) }
+    }
+
+    /**
+     * Uploads new and changed user presets to Orca Cloud, like the desktop's sync thread
+     * (GUI_App::sync_preset). An update carries the cloud version it was based on; if the cloud has
+     * a newer one (409) the preset is left as it is and reported. Deletions are never uploaded.
+     */
+    fun uploadOrcaCloudPresets() = store.launch(store.str(R.string.uploading_orca_cloud_presets)) {
+        val user = withContext(Dispatchers.IO) { app.orcaandroid.net.OrcaCloud.user(store.app) }
+            ?: throw OrcaException(store.str(R.string.orca_cloud_sign_in_first))
+        val uploads = engine.cloudUploads(user.id)
+        var done = 0
+        val conflicts = mutableListOf<String>()
+        val failed = mutableListOf<String>()
+        for (i in 0 until uploads.length()) {
+            val p = uploads.getJSONObject(i)
+            val type = p.getString("type")
+            val name = p.getString("name")
+            val settingId = p.optString("setting_id")
+            val values = p.getJSONObject("values")
+            val create = settingId.isEmpty() || p.optString("sync_info") == "create"
+            // The desktop drops a setting_id that is only the parent's (base_id) instead of uploading.
+            if (!create && values.optString("base_id") == settingId) {
+                engine.markUploaded(type, name, "", "", 0)
+                continue
+            }
+            val content = org.json.JSONObject()
+            for (key in values.keys()) if (key != "updated_time") content.put(key, values.get(key))
+            content.put("name", name)
+            val id = if (create) app.orcaandroid.net.OrcaCloud.settingId(name, user.id) else settingId
+            val result = withContext(Dispatchers.IO) {
+                app.orcaandroid.net.OrcaCloud.pushPreset(store.app, id, name, content, if (create) null else values.optString("updated_time"))
+            }
+            when (result.http) {
+                200 -> { engine.markUploaded(type, name, id, "", result.updatedTime); done++ }
+                409 -> conflicts += name
+                413 -> { engine.markUploaded(type, name, settingId, "will_not_sync", 0); failed += "$name (> 1 MB)" }
+                else -> failed += "$name (HTTP ${result.http})"
+            }
+        }
+        store.toast(buildString {
+            append(store.str(R.string.orca_cloud_presets_uploaded, done))
+            if (conflicts.isNotEmpty()) append('\n').append(store.str(R.string.orca_cloud_upload_conflicts, conflicts.joinToString()))
+            if (failed.isNotEmpty()) append("\n✗ ").append(failed.joinToString())
+        })
+    }
+
+    private suspend fun loadCloudPresets(doneMessage: Int, fetch: () -> org.json.JSONObject) {
+        val presets = withContext(Dispatchers.IO) { fetch() }
         val (count, printers) = engine.loadCloudPresets(presets)
         store.update { it.copy(printers = printers) }
         val current = store.value.printer
@@ -166,7 +225,7 @@ class PresetController(private val store: Store, private val device: DeviceContr
         } else {
             store.value.visiblePrinters.firstOrNull()?.let { selectPrinterNow(it.name) }
         }
-        store.toast(store.str(R.string.cloud_presets_synced, count))
+        store.toast(store.str(doneMessage, count))
     }
 
     // --- Settings editor -----------------------------------------------------------------------------
@@ -283,6 +342,37 @@ class PresetController(private val store: Store, private val device: DeviceContr
             store.app.contentResolver.openOutputStream(target, "wt")!!.use { out -> File(path).inputStream().use { it.copyTo(out) } }
         }
         store.toast(store.str(R.string.preset_exported))
+    }
+
+    // --- Backup ----------------------------------------------------------------------------------------
+
+    /** Writes the encrypted backup (settings, connections, user presets, Bambu login) to [target]. */
+    fun exportBackup(target: Uri, passphrase: CharArray) = store.launch(store.str(R.string.backup_working)) {
+        try {
+            withContext(Dispatchers.IO) {
+                store.app.contentResolver.openOutputStream(target, "wt")!!.use { AppBackup.export(store.app, it, passphrase) }
+            }
+        } finally {
+            passphrase.fill(' ')
+        }
+        store.toast(store.str(R.string.backup_saved))
+    }
+
+    /** Restores a backup over the current setup, installs its printers' profiles and restarts the app. */
+    fun importBackup(source: Uri, passphrase: CharArray) = store.launch(store.str(R.string.backup_working)) {
+        try {
+            withContext(Dispatchers.IO) {
+                store.app.contentResolver.openInputStream(source)!!.use { AppBackup.import(store.app, it, passphrase) }
+            }
+        } finally {
+            passphrase.fill(' ')
+        }
+        val keys = settings.selectedPrinters
+        resources.setInstalledVendors(store.value.vendors.filter { v -> v.models.any { m -> m.nozzles.any { printerKey(m.name, it) in keys } } }.map { it.id }.toSet())
+        val app = store.app
+        app.startActivity(app.packageManager.getLaunchIntentForPackage(app.packageName)!!
+            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK))
+        Runtime.getRuntime().exit(0)
     }
 
     // --- Profile updates -----------------------------------------------------------------------------

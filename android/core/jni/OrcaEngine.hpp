@@ -88,7 +88,7 @@ public:
 
     // Partial update of an instance transform; json keys: offset [x,y,z] (mm), rotation [x,y,z]
     // (degrees), scale [x,y,z] (factor), mirror [x,y,z] (+1/-1). Objects are dropped onto the bed.
-    json set_transform(int object, int instance, const json &transform);
+    json set_transform(int object, int instance, const json &transform, int volume = -1);
     json delete_object(int object);
     json delete_instance(int object, int instance);
     // Batch operations on several instances (object, instance), each one undo step.
@@ -106,12 +106,20 @@ public:
     // Automatic orientation for minimal supports (object < 0: all objects).
     json auto_orient(int object);
     json split(int object, bool to_parts);
+    json assemble(const Items &items);
+    json mesh_boolean(int object, int src, int tool, const std::string &op, bool keep_tool);
     // Horizontal cut at world height z.
     json cut(int object, int instance, double z, bool keep_upper, bool keep_lower, bool flip_upper);
     // Reduces the triangle count to `ratio` (0..1) of the original.
     json simplify(int object, double ratio);
     // Merges duplicate vertices and removes degenerate faces.
     json repair(int object);
+    // Replaces the object's first model part with the single mesh in `path` (desktop "Replace with
+    // STL"): settings, modifiers and instances stay, painting is remapped. Sets `module` when not empty.
+    json replace_mesh(int object, const std::string &path, const std::string &module);
+    // Sets ModelObject::module_name, which the 3MF keeps per object (the OpenSCAD design of an
+    // object, see ScadController.kt). No undo step: only used right after the object was added.
+    json set_object_module(int object, const std::string &module);
 
     // Adds a volume of `type` (volume_type 1..4) shaped "box"|"cylinder"|"sphere" with `size`
     // [x,y,z] mm, centred at object-local `position`.
@@ -127,6 +135,8 @@ public:
     json set_plate_bed_type(int plate, const std::string &bed_type);
 
     json undo();
+    // Undo steps kept (More > Misc); the oldest are dropped beyond it.
+    json set_undo_limit(size_t limit);
     json redo();
 
     // --- Tools needing the current selection (see set_selection) ------------------------------
@@ -194,7 +204,9 @@ public:
     // settings relative to presets of the same name.
     json load_project(const std::string &path);
     // Packs a sliced plate's G-code into a ".gcode.3mf" (as Bambu printers expect) with thumbnail.
-    json export_gcode_3mf(int plate, const std::string &gcode, const std::string &path);
+    // sliced: the G-code path slice() returned, when gcode is a (post-processed) copy of it; its
+    // slice statistics and used filaments go into slice_info.config.
+    json export_gcode_3mf(int plate, const std::string &gcode, const std::string &path, const std::string &sliced);
     // Writes the objects of `plate` (or all for plate < 0) as one binary STL.
     json export_stl(const std::string &path, int plate);
     // Imports user presets (.json / .zip / .orca_printer / .orca_filament ...).
@@ -203,6 +215,10 @@ public:
     // presets: { name: { option or metadata key: serialized value } }, as open-bamboo-networking's
     // get_user_presets returns them. Returns the printers and the setup like import_presets().
     json load_cloud_presets(const json &presets);
+    // Orca Cloud upload: new / changed user presets with their values, and the result of an upload.
+    json cloud_uploads(const std::string &user_id);
+    json mark_uploaded(const std::string &type, const std::string &name, const std::string &setting_id,
+                       const std::string &sync_info, long long updated_time);
     // Version of an installed vendor's profiles, e.g. "02.00.00.55": { "version" } ("" if absent).
     json vendor_version(const std::string &vendor);
     // Picks a filament preset and colour per loaded tray, like the desktop's filament sync.
@@ -240,6 +256,12 @@ public:
     // Requests cancellation of a running slice(); a no-op otherwise.
     void cancel();
 
+    // For the plugin runtime: the preset bundle (read by plugins without the engine lock, as the
+    // desktop's plugins read the GUI's bundle), and the full config the last slice of `plate` used
+    // (null before the first slice), which the G-code post-process plugins read.
+    Slic3r::PresetBundle                             *preset_bundle() { return m_bundle.get(); }
+    std::shared_ptr<const Slic3r::DynamicPrintConfig> slice_config(int plate);
+
 private:
     OrcaEngine();
     ~OrcaEngine();
@@ -274,6 +296,7 @@ private:
     Slic3r::ModelObject  &object_at(int object);
     Items                 checked_items(Items items) const; // validated, sorted, without duplicates
     void                  push_undo();
+    void                  trim_undo();
     json                  scene_json();
     json                  commit(); // writes the mesh and returns scene_json()
     void                  write_mesh();
@@ -294,6 +317,7 @@ private:
     std::vector<PlateInfo>                m_plates{1};
     std::array<double, 4>                 m_layout_rect{0., 0., 200., 200.}; // bed the objects are laid out for
     std::deque<Snapshot>                  m_undo, m_redo;
+    size_t                                m_undo_limit = 200;
     std::string                           m_printer;
     std::string                           m_mesh_path;
     std::string                           m_paint_path;
@@ -304,7 +328,10 @@ private:
     // Active calibration test: print parameters and the setting changes it needs.
     std::shared_ptr<Slic3r::Calib_Params>       m_calib;
     std::shared_ptr<Slic3r::DynamicPrintConfig> m_calib_config;
+    std::map<int, std::shared_ptr<const Slic3r::DynamicPrintConfig>> m_slice_configs;
     std::string                                 m_calib_name;
+    // Undo depth right after the calibration's own snapshot: undoing below it leaves the test.
+    size_t                                      m_calib_undo_depth = 0;
     // Adds loaded objects to a plate (centred, arranged) - shared by load_models and add_*.
     json                  place_new_objects(const std::vector<Slic3r::ModelObject *> &objects, int plate);
     // Current selection (set_selection).

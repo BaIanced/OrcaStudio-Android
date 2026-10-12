@@ -118,10 +118,12 @@ void OrcaEngine::write_paint_mesh()
     if (!f)
         throw std::runtime_error("Cannot write " + m_paint_path);
     auto emit = [&f](const indexed_triangle_set &its, const Transform3d &trafo, float obj_code, float type_code) {
+        // A mirroring transform flips the winding; swap two corners so the triangles face out.
+        const bool mirrored = trafo.matrix().block<3, 3>(0, 0).determinant() < 0.;
         for (const Vec3i32 &t : its.indices) {
             const Vec3f a = (trafo * its.vertices[t[0]].cast<double>()).cast<float>();
-            const Vec3f b = (trafo * its.vertices[t[1]].cast<double>()).cast<float>();
-            const Vec3f c = (trafo * its.vertices[t[2]].cast<double>()).cast<float>();
+            const Vec3f b = (trafo * its.vertices[t[mirrored ? 2 : 1]].cast<double>()).cast<float>();
+            const Vec3f c = (trafo * its.vertices[t[mirrored ? 1 : 2]].cast<double>()).cast<float>();
             Vec3f n = (b - a).cross(c - a);
             n = n.norm() > 0.f ? Vec3f(n.normalized()) : Vec3f(0.f, 0.f, 1.f);
             for (const Vec3f *v : {&a, &b, &c}) {
@@ -369,6 +371,30 @@ json OrcaEngine::option_states()
             disabled.push_back(key);
     for (const auto &[key, visible] : toggles.line_visible)
         if (!visible)
+            hidden.push_back(key);
+
+    // Printer / filament options the desktop's TabPrinter / TabFilament hide for Bambu Lab printers
+    // (and the Bambu-only ones for others). Bambu printers also never see options of other firmware
+    // (Klipper, Marlin, pellet and toolchanger printers) or of print hosts: they connect from the
+    // Device screen.
+    static const char *non_bbl[] = {
+        "use_firmware_retraction", "use_relative_e_distances", "support_multi_bed_types", "pellet_modded_printer",
+        "bed_mesh_max", "bed_mesh_min", "bed_mesh_probe_distance", "adaptive_bed_mesh_margin", "thumbnails", "thumbnails_format",
+        "wipe_tower_type", "enable_filament_ramming", "cooling_tube_retraction", "cooling_tube_length", "parking_pos_retraction",
+        "extra_loading_move", "high_current_on_filament_swap", "purge_in_prime_tower", "tool_change_on_wipe_tower",
+        "filament_minimal_purge_on_wipe_tower", "filament_loading_speed_start", "filament_loading_speed",
+        "filament_unloading_speed_start", "filament_unloading_speed", "filament_toolchange_delay", "filament_cooling_moves",
+        "filament_cooling_initial_speed", "filament_cooling_final_speed",
+        "gcode_flavor", "accel_to_decel_enable", "accel_to_decel_factor", "exclude_object", "disable_m73",
+        "default_junction_deviation", "machine_max_junction_deviation", "pellet_flow_coefficient", "preheat_time", "preheat_steps",
+        "host_type", "print_host", "print_host_webui", "printhost_apikey", "printhost_cafile", "printhost_port",
+        "printhost_authorization_type", "printhost_user", "printhost_password", "printhost_ssl_ignore_revoke"};
+    static const char *bbl_only[] = {"scan_first_layer", "bbl_calib_mark_logo", "bbl_use_printhost"};
+    if (toggles.is_BBL_Printer)
+        for (const char *key : non_bbl)
+            hidden.push_back(key);
+    else
+        for (const char *key : bbl_only)
             hidden.push_back(key);
     return {{"disabled", disabled}, {"hidden", hidden}};
 }

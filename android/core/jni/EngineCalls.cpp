@@ -63,12 +63,16 @@ const std::unordered_map<std::string, Handler> &handlers()
          }},
         {"optionStates", [](OrcaEngine &e, const json &) { return e.option_states(); }},
         {"loadCloudPresets", [](OrcaEngine &e, const json &a) { return e.load_cloud_presets(a.at("presets")); }},
+        {"cloudUploads", [](OrcaEngine &e, const json &a) { return json{{"presets", e.cloud_uploads(a.at("userId"))}}; }},
+        {"markUploaded", [](OrcaEngine &e, const json &a) {
+             return e.mark_uploaded(a.at("type"), a.at("name"), a.at("settingId"), a.value("syncInfo", std::string()), a.value("updatedTime", 0LL));
+         }},
         {"vendorVersion", [](OrcaEngine &e, const json &a) { return e.vendor_version(a.at("vendor")); }},
         {"syncFilaments", [](OrcaEngine &e, const json &a) { return e.sync_filaments(a.at("trays"), a.at("filaments")); }},
         // Scene
         {"scene", [](OrcaEngine &e, const json &) { return e.scene(); }},
         {"loadModels", [](OrcaEngine &e, const json &a) { return e.load_models(strings(a.at("paths")), a.value("append", false), a.value("plate", 0)); }},
-        {"setTransform", [](OrcaEngine &e, const json &a) { return e.set_transform(a.at("object"), a.at("instance"), a.at("transform")); }},
+        {"setTransform", [](OrcaEngine &e, const json &a) { return e.set_transform(a.at("object"), a.at("instance"), a.at("transform"), a.value("volume", -1)); }},
         {"deleteObject", [](OrcaEngine &e, const json &a) { return e.delete_object(a.at("object")); }},
         {"deleteInstance", [](OrcaEngine &e, const json &a) { return e.delete_instance(a.at("object"), a.at("instance")); }},
         {"duplicate", [](OrcaEngine &e, const json &a) { return e.duplicate(item_list(a.at("items")), a.value("copies", 1)); }},
@@ -78,12 +82,17 @@ const std::unordered_map<std::string, Handler> &handlers()
         {"layOnFace", [](OrcaEngine &e, const json &a) { return e.lay_on_face(a.at("object"), a.at("instance"), vec3(a.at("normal"))); }},
         {"autoOrient", [](OrcaEngine &e, const json &a) { return e.auto_orient(a.value("object", -1)); }},
         {"split", [](OrcaEngine &e, const json &a) { return e.split(a.at("object"), a.value("toParts", false)); }},
+        {"assemble", [](OrcaEngine &e, const json &a) { return e.assemble(item_list(a.at("items"))); }},
+        {"meshBoolean", [](OrcaEngine &e, const json &a) {
+             return e.mesh_boolean(a.at("object"), a.at("src"), a.at("tool"), a.at("op").get<std::string>(), a.value("keepTool", false)); }},
         {"cut", [](OrcaEngine &e, const json &a) {
              return e.cut(a.at("object"), a.value("instance", 0), a.at("z"), a.value("keepUpper", true), a.value("keepLower", true),
                           a.value("flipUpper", false));
          }},
         {"simplify", [](OrcaEngine &e, const json &a) { return e.simplify(a.at("object"), a.at("ratio")); }},
         {"repair", [](OrcaEngine &e, const json &a) { return e.repair(a.at("object")); }},
+        {"replaceMesh", [](OrcaEngine &e, const json &a) { return e.replace_mesh(a.at("object"), a.at("path"), a.value("module", std::string())); }},
+        {"setObjectModule", [](OrcaEngine &e, const json &a) { return e.set_object_module(a.at("object"), a.at("module")); }},
         {"addVolume", [](OrcaEngine &e, const json &a) {
              return e.add_volume(a.at("object"), a.at("type"), a.value("shape", "box"), vec3(a.at("size")),
                                  a.contains("position") ? vec3(a["position"]) : vec3(json()));
@@ -98,6 +107,7 @@ const std::unordered_map<std::string, Handler> &handlers()
         {"setPlateBedType", [](OrcaEngine &e, const json &a) { return e.set_plate_bed_type(a.at("plate"), a.value("bedType", "")); }},
         {"undo", [](OrcaEngine &e, const json &) { return e.undo(); }},
         {"redo", [](OrcaEngine &e, const json &) { return e.redo(); }},
+        {"setUndoLimit", [](OrcaEngine &e, const json &a) { return e.set_undo_limit(a.at("limit").get<size_t>()); }},
         {"addPrimitive", [](OrcaEngine &e, const json &a) { return e.add_primitive(a.at("shape"), vec3(a.at("size")), a.value("plate", 0)); }},
         {"addText", [](OrcaEngine &e, const json &a) {
              return e.add_text(a.at("text"), a.at("font"), a.value("height", 10.0), a.value("depth", 2.0), a.value("plate", 0));
@@ -123,7 +133,7 @@ const std::unordered_map<std::string, Handler> &handlers()
         // Files
         {"saveProject", [](OrcaEngine &e, const json &a) { return e.save_project(a.at("path")); }},
         {"loadProject", [](OrcaEngine &e, const json &a) { return e.load_project(a.at("path")); }},
-        {"exportGcode3mf", [](OrcaEngine &e, const json &a) { return e.export_gcode_3mf(a.at("plate"), a.at("gcode"), a.at("path")); }},
+        {"exportGcode3mf", [](OrcaEngine &e, const json &a) { return e.export_gcode_3mf(a.at("plate"), a.at("gcode"), a.at("path"), a.value("sliced", std::string())); }},
         {"exportStl", [](OrcaEngine &e, const json &a) { return e.export_stl(a.at("path"), a.value("plate", -1)); }},
         {"importPresets", [](OrcaEngine &e, const json &a) { return e.import_presets(strings(a.at("paths"))); }},
         {"presetFile", [](OrcaEngine &e, const json &a) { return e.preset_file(a.at("type"), a.at("name")); }},

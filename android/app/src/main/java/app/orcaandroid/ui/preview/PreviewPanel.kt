@@ -160,9 +160,14 @@ private fun Actions(state: UiState, vm: AppViewModel, r: SliceResult) {
         else stringResource(R.string.connect_printer)
         OutlinedButton(onClick = { vm.setScreen(Screen.DEVICE) }, modifier = Modifier.fillMaxWidth()) { Text(label) }
     }
+    state.amsPrompt?.let { AmsMappingDialog(it, vm) }
     when (upload) {
         is UploadState.Running -> LinearProgressIndicator(progress = { upload.progress }, modifier = Modifier.fillMaxWidth())
-        is UploadState.Done -> Text(upload.message, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
+        is UploadState.Done -> {
+            Text(upload.message, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
+            // Like the site's slicer logger, which asks after each slice: log what was just sent.
+            TextButton(onClick = vm.files::logPrintToFilamentProfiles) { Text(stringResource(R.string.fp_log_print)) }
+        }
         null -> {}
     }
     Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -171,10 +176,12 @@ private fun Actions(state: UiState, vm: AppViewModel, r: SliceResult) {
             val name = vm.files.gcodeFileName()
             shareScope.launch {
                 // Receivers show the file's own name, so share a copy named like "Save G-code" would.
+                val exported = runCatching { vm.files.exportedGcode("File", name) }
+                    .onFailure { vm.showError(it.message ?: it.toString()) }.getOrNull() ?: return@launch
                 val file = withContext(Dispatchers.IO) {
                     File(context.cacheDir, "out/share").let { dir ->
                         dir.deleteRecursively(); dir.mkdirs()
-                        File(r.gcodeFile).copyTo(File(dir, name), overwrite = true)
+                        exported.copyTo(File(dir, name), overwrite = true)
                     }
                 }
                 val uri = FileProvider.getUriForFile(context, context.packageName + ".files", file)
@@ -191,6 +198,7 @@ private fun Actions(state: UiState, vm: AppViewModel, r: SliceResult) {
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                 if (!r.external) DropdownMenuItem(text = { Text(stringResource(R.string.save_gcode_3mf)) },
                     onClick = { menu = false; save3mf.launch(vm.files.gcodeFileName().removeSuffix(".gcode") + ".gcode.3mf") })
+                DropdownMenuItem(text = { Text(stringResource(R.string.fp_log_print)) }, onClick = { menu = false; vm.files.logPrintToFilamentProfiles() })
                 if (!r.external && state.scene.plates.size > 1)
                     DropdownMenuItem(text = { Text(stringResource(R.string.slice_all)) }, onClick = { menu = false; vm.slicing.sliceAll() })
                 if (r.external) DropdownMenuItem(text = { Text(stringResource(R.string.close)) }, onClick = { menu = false; vm.slicing.closeExternal() })

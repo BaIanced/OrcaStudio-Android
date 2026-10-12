@@ -5,3 +5,7 @@
 # callback it looks up by name.
 -keep class app.orcaandroid.net.ObnNative { *; }
 -keep interface app.orcaandroid.net.ObnNative$PrintListener { *; }
+# Orca plugin runtime (core/jni/OrcaPlugins.cpp): native methods and the listener callbacks it
+# looks up by name.
+-keep class app.orcaandroid.plugins.PluginNative { *; }
+-keep interface app.orcaandroid.plugins.PluginNative$Listener { *; }

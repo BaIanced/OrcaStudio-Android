@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -44,7 +45,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.orcaandroid.BuildConfig
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import app.orcaandroid.R
+import app.orcaandroid.core.AppBackup
 import app.orcaandroid.core.PresetType
 import app.orcaandroid.core.ThemeMode
 import app.orcaandroid.ui.AppViewModel
@@ -59,6 +62,15 @@ import app.orcaandroid.ui.prepare.SwitchRow
 fun MoreScreen(state: UiState, vm: AppViewModel) {
     var dialog by remember { mutableStateOf<String?>(null) }
     val importPresets = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { if (it.isNotEmpty()) vm.presets.importPresets(it) }
+    // The passphrase is asked first for a backup (then the file is created), after picking the file for a restore.
+    var backupPassphrase by remember { mutableStateOf<CharArray?>(null) }
+    var restoreFrom by remember { mutableStateOf<Uri?>(null) }
+    val saveBackup = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
+        val pass = backupPassphrase
+        backupPassphrase = null
+        if (uri != null && pass != null) vm.presets.exportBackup(uri, pass) else pass?.fill(' ')
+    }
+    val restoreBackup = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) { restoreFrom = uri; dialog = "backup_import" } }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
         Column(Modifier.widthIn(max = 720.dp).fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             SectionTitle(stringResource(R.string.appearance))
@@ -69,6 +81,11 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
                     }
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) SwitchRow(stringResource(R.string.dynamic_color), state.dynamicColor, onChange = vm::setDynamicColor)
+
+            SectionTitle(stringResource(R.string.misc))
+            SwitchRow(stringResource(R.string.double_back_quit), state.doubleBackToQuit, onChange = vm::setDoubleBackToQuit)
+            UndoLimitRow(state.undoLimit, vm::setUndoLimit)
+            AutoSaveRow(state.autoSaveSeconds, vm::setAutoSave)
 
             SectionTitle(stringResource(R.string.printers_and_presets))
             Entry(stringResource(R.string.manage_printers), stringResource(R.string.n_printers_selected, state.selectedPrinters.size)) { vm.presets.openPrinterSetup() }
@@ -93,6 +110,15 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
                 }
             }
 
+            SectionTitle(stringResource(R.string.orca_cloud))
+            OrcaCloudSection()
+            Entry(stringResource(R.string.sync_orca_cloud_presets), stringResource(R.string.sync_orca_cloud_presets_text)) { vm.presets.syncOrcaCloudPresets() }
+            Entry(stringResource(R.string.upload_orca_cloud_presets), stringResource(R.string.upload_orca_cloud_presets_text)) { vm.presets.uploadOrcaCloudPresets() }
+
+            SectionTitle(stringResource(R.string.backup))
+            Entry(stringResource(R.string.backup_export), stringResource(R.string.backup_export_text)) { dialog = "backup_export" }
+            Entry(stringResource(R.string.backup_import), stringResource(R.string.backup_import_text)) { restoreBackup.launch(arrayOf("*/*")) }
+
             SectionTitle(stringResource(R.string.calibration))
             Entry(stringResource(R.string.calibration_tests), stringResource(R.string.calibration_tests_text)) { dialog = "calib" }
 
@@ -108,6 +134,92 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
     when (dialog) {
         "calib" -> CalibrationDialog(vm) { dialog = null }
         "vendors" -> FilamentVendorsDialog(state, vm) { dialog = null }
+        "backup_export" -> PassphraseDialog(stringResource(R.string.backup_export), stringResource(R.string.backup_export_warning), confirm = true,
+            onDismiss = { dialog = null }) { pass ->
+            dialog = null
+            backupPassphrase = pass
+            saveBackup.launch("orcastudio-" + java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.ROOT).format(java.util.Date()) + ".osbk")
+        }
+        "backup_import" -> PassphraseDialog(stringResource(R.string.backup_import), stringResource(R.string.backup_import_warning), confirm = false,
+            onDismiss = { dialog = null; restoreFrom = null }) { pass ->
+            dialog = null
+            restoreFrom?.let { vm.presets.importBackup(it, pass) }
+            restoreFrom = null
+        }
+    }
+}
+
+/** Asks for the backup passphrase ([confirm]: twice, for a new backup). */
+@Composable
+private fun PassphraseDialog(title: String, text: String, confirm: Boolean, onDismiss: () -> Unit, onDone: (CharArray) -> Unit) {
+    var pass by remember { mutableStateOf("") }
+    var again by remember { mutableStateOf("") }
+    val tooShort = pass.length < AppBackup.MIN_PASSPHRASE
+    val mismatch = confirm && again != pass
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(text, style = MaterialTheme.typography.bodyMedium)
+                OutlinedTextField(pass, { pass = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text(stringResource(R.string.passphrase)) },
+                    visualTransformation = PasswordVisualTransformation(),
+                    supportingText = if (confirm && tooShort) { { Text(stringResource(R.string.passphrase_min, AppBackup.MIN_PASSPHRASE)) } } else null)
+                if (confirm) OutlinedTextField(again, { again = it }, Modifier.fillMaxWidth(), singleLine = true,
+                    label = { Text(stringResource(R.string.passphrase_repeat)) }, visualTransformation = PasswordVisualTransformation(), isError = again.isNotEmpty() && mismatch)
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onDone(pass.toCharArray()) }, enabled = pass.isNotEmpty() && !(confirm && (tooShort || mismatch))) {
+                Text(stringResource(R.string.ok))
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
+}
+
+/** Undo steps to keep; applied as soon as the field holds a valid number. */
+@Composable
+private fun UndoLimitRow(limit: Int, onChange: (Int) -> Unit) {
+    var text by remember(limit) { mutableStateOf(limit.toString()) }
+    val value = text.toIntOrNull()?.takeIf { it in 1..app.orcaandroid.core.MAX_UNDO_LIMIT }
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(stringResource(R.string.undo_limit), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+        OutlinedTextField(
+            text,
+            { t ->
+                text = t.filter(Char::isDigit).take(4)
+                text.toIntOrNull()?.takeIf { it in 1..app.orcaandroid.core.MAX_UNDO_LIMIT && it != limit }?.let(onChange)
+            },
+            Modifier.width(110.dp),
+            singleLine = true,
+            isError = value == null,
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+        )
+    }
+}
+
+/** Desktop Preferences > Backup: a switch and the period in seconds. */
+@Composable
+private fun AutoSaveRow(seconds: Int, onChange: (Int) -> Unit) {
+    val range = app.orcaandroid.core.AUTO_SAVE_RANGE
+    var last by remember { mutableStateOf(if (seconds > 0) seconds else app.orcaandroid.core.DEFAULT_AUTO_SAVE_SECONDS) }
+    var text by remember(seconds) { mutableStateOf(last.toString()) }
+    SwitchRow(stringResource(R.string.auto_save), seconds > 0, onChange = { on -> onChange(if (on) last else 0) })
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(stringResource(R.string.auto_save_interval), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+        OutlinedTextField(
+            text,
+            { t ->
+                text = t.filter(Char::isDigit).take(4)
+                text.toIntOrNull()?.takeIf { it in range }?.let { last = it; if (seconds > 0 && it != seconds) onChange(it) }
+            },
+            Modifier.width(110.dp),
+            enabled = seconds > 0,
+            singleLine = true,
+            isError = text.toIntOrNull()?.takeIf { it in range } == null,
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+        )
     }
 }
 

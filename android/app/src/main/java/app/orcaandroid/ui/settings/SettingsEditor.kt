@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
@@ -50,6 +51,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -74,6 +76,7 @@ import app.orcaandroid.core.PresetType
 import app.orcaandroid.core.SettingsGroup
 import app.orcaandroid.core.SettingsPage
 import app.orcaandroid.core.Translator
+import app.orcaandroid.plugins.Plugins
 import app.orcaandroid.ui.AppViewModel
 import app.orcaandroid.ui.EditorTarget
 import app.orcaandroid.ui.UiState
@@ -83,6 +86,7 @@ import app.orcaandroid.ui.components.PickerDialog
 import app.orcaandroid.ui.components.PickerItem
 import app.orcaandroid.ui.components.TextInputDialog
 import app.orcaandroid.ui.prepare.ColorDot
+import app.orcaandroid.ui.prepare.presetItems
 
 /** Where the edited values come from and go to: a preset, an object/part, or a height range. */
 private class EditSource(
@@ -183,12 +187,14 @@ private fun PresetEditor(state: UiState, vm: AppViewModel, type: PresetType, pic
     if (confirmDelete) ConfirmDialog(stringResource(R.string.delete_preset), stringResource(R.string.delete_preset_text, name), stringResource(R.string.delete),
         { vm.presets.deleteSelectedPreset(type) }) { confirmDelete = false }
     if (comparePick) {
+        val userGroup = vm.translator.tr("User presets")
+        val vendorGroup = stringResource(R.string.vendor_presets)
         val items = when (type) {
-            PresetType.PRINT -> state.setup?.prints.orEmpty().map { PickerItem(it.name, it.name, it.vendor) }
-            PresetType.FILAMENT -> state.setup?.filaments.orEmpty().map { PickerItem(it.name, it.name, it.vendor) }
-            PresetType.PRINTER -> state.printers.map { PickerItem(it.name, it.name, it.vendor) }
+            PresetType.PRINT -> presetItems(state.setup?.prints.orEmpty(), userGroup, vendorGroup, { it.name }, { it.system }) { listOf(it.vendor.ifEmpty { "System" }) }
+            PresetType.FILAMENT -> presetItems(state.setup?.filaments.orEmpty(), userGroup, vendorGroup, { it.name }, { it.system }) { listOf(it.brandName, it.type.ifEmpty { "?" }) }
+            PresetType.PRINTER -> presetItems(state.printers, userGroup, vendorGroup, { it.name }, { it.system }) { listOf(it.vendor) }
         }.filter { it.id != name }
-        PickerDialog(stringResource(R.string.compare_with), null, items, onDismiss = { comparePick = false }) {
+        PickerDialog(stringResource(R.string.compare_with), null, items, onDismiss = { comparePick = false }, openGroups = setOf(userGroup)) {
             comparePick = false
             vm.presets.openEditor(EditorTarget.Compare(type, name, it))
         }
@@ -387,12 +393,28 @@ private fun OptionRow(
     }
 }
 
+/**
+ * Number of entries of a numeric / bool vector whose entries are all equal (profiles repeat a value
+ * once per nozzle variant, e.g. "190,190,190,190,190"), else 0. Such a value is shown and edited once.
+ */
+private fun uniformEntries(def: OptionDef, value: String): Int {
+    if (!def.isVector || def.type == "strings" || def.type == "points") return 0
+    val entries = value.split(',')
+    return if (entries.size > 1 && entries.all { it == entries[0] }) entries.size else 0
+}
+
 @Composable
 private fun OptionEditor(def: OptionDef, value: String, enabled: Boolean, tr: Translator, onChange: (String) -> Unit) {
+    val repeat = uniformEntries(def, value)
+    if (repeat > 0) {
+        OptionEditor(def, value.substringBefore(','), enabled, tr) { v -> onChange(if (v.contains(',')) v else List(repeat) { v.trim() }.joinToString(",")) }
+        return
+    }
     // Vector options with several distinct entries (e.g. per-extruder values) are edited as raw text.
     val single = !def.isVector || !value.contains(',')
     when {
         def.readonly -> Text(unquoted(def, value) ?: value, style = MaterialTheme.typography.bodyMedium)
+        def.pluginType.isNotEmpty() && def.type == "strings" -> PluginPicker(def, value, enabled, tr, onChange)
         def.baseType == "bool" && single -> Switch(checked = value == "1", onCheckedChange = { onChange(if (it) "1" else "0") }, enabled = enabled)
         def.enumValues.isNotEmpty() && single -> EnumEditor(def, value, enabled, tr, onChange)
         def.isCode || def.multiline -> CodeEditor(tr.tr(def.label), value, enabled, onChange)
@@ -414,6 +436,53 @@ private fun EnumEditor(def: OptionDef, value: String, enabled: Boolean, tr: Tran
                 DropdownMenuItem(text = { Text(tr.tr(def.enumLabels.getOrElse(i) { v })) }, onClick = { open = false; onChange(v) })
             }
         }
+    }
+}
+
+/**
+ * Plugin-backed list option (desktop: plugin_picker, e.g. slicing_pipeline_plugin): ticks the loaded
+ * capabilities of the option's type. The value holds bare capability names; the engine resolves them
+ * into the "plugins" manifest.
+ */
+@Composable
+private fun PluginPicker(def: OptionDef, value: String, enabled: Boolean, tr: Translator, onChange: (String) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    val plugins by Plugins.plugins.collectAsState()
+    val selected = remember(value) {
+        if (value.isBlank()) emptyList()
+        else value.split("\";\"").map { it.removePrefix("\"").removeSuffix("\"").replace("\\\"", "\"").replace("\\\\", "\\") }.filter { it.isNotEmpty() }
+    }
+    val none = stringResource(R.string.none)
+    OutlinedButton(onClick = { open = true }, enabled = enabled, modifier = Modifier.fillMaxWidth()) {
+        Text(selected.joinToString(", ").ifEmpty { none }, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+    if (open) {
+        // Selected names stay listed when their plugin is not loaded, so they can be unticked.
+        val available = plugins.flatMap { p -> p.capabilities.filter { it.type == def.pluginType }.map { it.name to p.name } }
+        val rows = available + selected.filter { s -> available.none { it.first == s } }.map { it to "" }
+        var picked by remember { mutableStateOf(selected) }
+        AlertDialog(
+            onDismissRequest = { open = false },
+            title = { Text(tr.tr(def.label)) },
+            text = {
+                Column {
+                    if (rows.isEmpty()) Text(stringResource(R.string.no_plugin_capabilities), style = MaterialTheme.typography.bodyMedium)
+                    rows.forEach { (name, plugin) ->
+                        Row(Modifier.fillMaxWidth().clickable { picked = if (name in picked) picked - name else picked + name },
+                            verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(name in picked, null)
+                            Column(Modifier.padding(start = 8.dp)) {
+                                Text(name, style = MaterialTheme.typography.bodyMedium)
+                                Text(plugin.ifEmpty { stringResource(R.string.plugin_not_loaded) }, style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.outline)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { open = false; onChange(picked.joinToString(";") { quoted(it) }) }) { Text(stringResource(R.string.apply)) } },
+            dismissButton = { TextButton(onClick = { open = false }) { Text(stringResource(R.string.cancel)) } },
+        )
     }
 }
 

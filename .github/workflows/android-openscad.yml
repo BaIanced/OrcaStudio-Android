@@ -1,0 +1,157 @@
+# Builds libopenscad.so (OpenSCAD's core, headless, android/openscad) for arm64-v8a on top of the
+# libslic3r deps prefix that android-apk.yml caches, and uploads it with the scad_smoke test
+# executable and OpenSCAD's run-time resources.
+#
+# Needs the Android deps cache of the same branch (or main); it never builds those deps itself.
+# OpenSCAD's own deps (fontconfig, harfbuzz, libxml2, libzip, ...) are cached separately.
+name: Android OpenSCAD core
+
+on:
+  workflow_dispatch:
+  # Dispatch needs the file on the default branch; until then, pushes to work branches build it.
+  push:
+    branches: ["claude/**"]
+    paths:
+      - "android/openscad/**"
+      - ".github/workflows/android-openscad.yml"
+
+permissions: {}
+
+concurrency:
+  group: android-openscad-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NDK_VERSION: "28.2.13676358"
+  BUILD_ROOT: /mnt/orca-build
+
+jobs:
+  openscad:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 200
+    permissions:
+      contents: read
+    steps:
+      - name: Check out (with the OrcaSlicer submodule)
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Build root, host tools
+        run: |
+          set -euo pipefail
+          sudo mkdir -p "$BUILD_ROOT" && sudo chown "$USER" "$BUILD_ROOT"
+          mkdir -p "$HOME/build" && ln -sfn "$BUILD_ROOT" "$HOME/build/orca-android"
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends ninja-build pkg-config python3 flex bison gperf ccache
+          pipx install "meson==1.9.1"
+          command -v meson; meson --version; flex --version; bison --version | head -1
+
+      - name: Android NDK ${{ env.NDK_VERSION }}
+        run: |
+          set -euo pipefail
+          sdkm="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$sdkm" --licenses >/dev/null || true
+          "$sdkm" --install "ndk;$NDK_VERSION" >/dev/null
+          mkdir -p "$HOME/Android/Sdk/ndk"
+          ln -sfn "$ANDROID_HOME/ndk/$NDK_VERSION" "$HOME/Android/Sdk/ndk/$NDK_VERSION"
+
+      # Same key as android-apk.yml's "Deps cache key" step.
+      - name: Deps cache key
+        id: depskey
+        run: |
+          set -euo pipefail
+          orca=$(git -C src-orca rev-parse HEAD:deps HEAD:cmake/modules | sha256sum | cut -c1-12)
+          h=$(cat android/android-toolchain.cmake <(find android/deps -type f -print0 | sort -z | xargs -0 sha256sum) | sha256sum | cut -c1-16)
+          echo "key=android-deps-ndk${NDK_VERSION}-orcadeps${orca}-${h}" >> "$GITHUB_OUTPUT"
+          # OpenSCAD's own deps: the superbuild without the bridge / OpenSCAD pin parts that don't affect them.
+          s=$(cat android/openscad/CMakeLists.txt android/openscad/shim/cmake/FindGLIB2.cmake | sha256sum | cut -c1-16)
+          echo "scad=android-openscad-deps-${h}-${s}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore Android deps
+        id: deps
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ env.BUILD_ROOT }}/deps/OrcaSlicer_dep
+          key: ${{ steps.depskey.outputs.key }}
+          fail-on-cache-miss: true
+
+      - name: Restore OpenSCAD deps
+        id: scaddeps
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ env.BUILD_ROOT }}/openscad/OpenSCAD_dep
+          key: ${{ steps.depskey.outputs.scad }}
+
+      - name: Restore ccache
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ env.BUILD_ROOT }}/ccache-openscad
+          key: android-openscad-ccache-${{ github.run_id }}
+          restore-keys: android-openscad-ccache-
+
+      - name: Configure
+        run: |
+          set -euo pipefail
+          here="$PWD/android"
+          cmake -G Ninja -S "$here/openscad" -B "$BUILD_ROOT/openscad" \
+            -DCMAKE_TOOLCHAIN_FILE="$here/android-toolchain.cmake" -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build OpenSCAD deps (cache miss)
+        if: steps.scaddeps.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          cmake --build "$BUILD_ROOT/openscad" --target scad_deps -- -k 0
+          ls "$BUILD_ROOT/openscad/OpenSCAD_dep/lib"
+
+      - name: Save OpenSCAD deps
+        if: steps.scaddeps.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ env.BUILD_ROOT }}/openscad/OpenSCAD_dep
+          key: ${{ steps.depskey.outputs.scad }}
+
+      - name: Build libopenscad.so
+        env:
+          CCACHE_DIR: ${{ env.BUILD_ROOT }}/ccache-openscad
+          CCACHE_MAXSIZE: 800M
+          CCACHE_COMPRESS: "1"
+          CCACHE_COMPILERCHECK: string:${{ env.NDK_VERSION }}
+          CCACHE_SLOPPINESS: include_file_mtime,include_file_ctime,time_macros
+        run: |
+          set -euo pipefail
+          # Reconfigure: a restored deps prefix now has its .complete marker.
+          cmake "$BUILD_ROOT/openscad"
+          cmake --build "$BUILD_ROOT/openscad" --target openscad
+          ccache -s | head -12 || true
+          out="$BUILD_ROOT/openscad/out"
+          ls -la "$out/lib" "$out/bin"
+          nm_bin="$HOME/Android/Sdk/ndk/$NDK_VERSION/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-nm"
+          "$nm_bin" -D --defined-only "$out/lib/libopenscad.so" | grep ' T ' | tee /dev/stderr | grep -c ' scad_'
+
+      - name: Save ccache
+        if: always()
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ env.BUILD_ROOT }}/ccache-openscad
+          key: android-openscad-ccache-${{ github.run_id }}
+
+      # android-apk.yml restores this by the same key (the android/openscad tree) and ships the
+      # library and resources in the APK.
+      - name: OpenSCAD core cache key
+        id: outkey
+        run: echo "key=android-openscad-out-$(git rev-parse HEAD:android/openscad | cut -c1-16)" >> "$GITHUB_OUTPUT"
+
+      - name: Save OpenSCAD core
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ env.BUILD_ROOT }}/openscad/out
+          key: ${{ steps.outkey.outputs.key }}
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: libopenscad-arm64-v8a
+          path: ${{ env.BUILD_ROOT }}/openscad/out
+          retention-days: 14

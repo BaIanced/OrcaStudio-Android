@@ -155,6 +155,8 @@ class ResourceStore(private val context: Context) {
     suspend fun importFile(uri: Uri, subdir: String = ""): File = withContext(Dispatchers.IO) {
         val dir = File(importDir, subdir).apply { mkdirs() }
         val file = File(dir, displayName(uri))
+        // A file already at the target (a model download) must not be copied onto itself: that truncates it.
+        if (uri.scheme == "file" && uri.path?.let { File(it).canonicalPath } == file.canonicalPath) return@withContext file
         context.contentResolver.openInputStream(uri)!!.use { input -> file.outputStream().use { input.copyTo(it) } }
         file
     }

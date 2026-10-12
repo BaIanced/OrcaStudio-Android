@@ -20,12 +20,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.Interests
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesomeMosaic
 import androidx.compose.material.icons.filled.Brush
+import androidx.compose.material.icons.filled.CallMerge
 import androidx.compose.material.icons.filled.CallSplit
 import androidx.compose.material.icons.filled.CenterFocusStrong
 import androidx.compose.material.icons.filled.ContentCopy
@@ -67,6 +70,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import app.orcaandroid.R
+import app.orcaandroid.scad.ScadDesign
 import app.orcaandroid.core.VolumeType
 import app.orcaandroid.render.PlateView
 import app.orcaandroid.ui.AppViewModel
@@ -109,7 +113,11 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
                 ToolButtons(state, vm)
             }
         }
-        Column(Modifier.align(Alignment.BottomStart).padding(start = if (wide) 64.dp else 0.dp, bottom = if (wide) 0.dp else 116.dp)) {
+        // The layer height graph is tall: on wide layouts it sits at the right edge (like the desktop's)
+        // above the Slice button, not over the object in the middle.
+        val rightPanel = wide && state.tool == Tool.LayerHeight
+        Column(if (rightPanel) Modifier.align(Alignment.BottomEnd).padding(bottom = 72.dp)
+               else Modifier.align(Alignment.BottomStart).padding(start = if (wide) 64.dp else 0.dp, bottom = if (wide) 0.dp else 116.dp)) {
             ToolPanel(state, vm)
         }
         SliceButton(state, vm, Modifier.align(Alignment.BottomEnd))
@@ -122,11 +130,13 @@ private val UiState.showSelectionBanner get() = selectMode || multiSelection.isN
 /** While several objects are selected or select mode is on: the count, select all, and leaving select mode. */
 @Composable
 private fun SelectionBanner(state: UiState, vm: AppViewModel) {
-    Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
+    // Full width with the text taking the rest, so the buttons stay put when the count changes.
+    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
         Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             val count = state.selectedItems.size
             Text(if (count == 0) stringResource(R.string.select_mode_hint) else stringResource(R.string.n_selected, count),
-                Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodySmall)
+                Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
             androidx.compose.material3.TextButton(onClick = vm.scene::selectAll) { Text(stringResource(R.string.select_all)) }
             if (state.selectMode) androidx.compose.material3.TextButton(onClick = { vm.scene.setSelectMode(false) }) { Text(stringResource(R.string.done)) }
         }
@@ -155,13 +165,22 @@ private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
                     DropdownMenuItem(text = { Text(stringResource(R.string.delete)) }, leadingIcon = { Icon(Icons.Default.Delete, null) },
                         onClick = { close(); vm.scene.deleteSelected() })
                 }
+                if (state.multiSelection.size >= 2)
+                    DropdownMenuItem(text = { Text(stringResource(R.string.assemble)) }, leadingIcon = { Icon(Icons.Default.CallMerge, null) },
+                        onClick = { close(); vm.scene.assemble() })
                 if (sel != null) {
+                    if (ScadDesign.of(state.scene.objects.getOrNull(sel.obj)) != null)
+                        DropdownMenuItem(text = { Text(stringResource(R.string.scad_edit_design)) }, leadingIcon = { Icon(Icons.Default.Code, null) },
+                            onClick = { close(); vm.scad.editObject(sel.obj) })
                     DropdownMenuItem(text = { Text(stringResource(R.string.select_multiple)) }, leadingIcon = { Icon(Icons.Default.SelectAll, null) },
                         onClick = { close(); vm.scene.setSelectMode(true) })
                     DropdownMenuItem(text = { Text(stringResource(R.string.lay_on_face)) }, leadingIcon = { Icon(Icons.Default.VerticalAlignBottom, null) },
                         onClick = { close(); vm.scene.setTool(Tool.LayOnFace) })
                     DropdownMenuItem(text = { Text(stringResource(R.string.add_modifier)) },
                         onClick = { close(); vm.scene.addVolume(VolumeType.MODIFIER, "box") })
+                    if ((state.scene.objects.getOrNull(sel.obj)?.volumes?.count { it.type == VolumeType.PART } ?: 0) >= 2)
+                        DropdownMenuItem(text = { Text(stringResource(R.string.mesh_boolean)) },
+                            onClick = { close(); dialog = "boolean" })
                     DropdownMenuItem(text = { Text(stringResource(R.string.object_settings_title)) },
                         onClick = { close(); vm.presets.openEditor(EditorTarget.Object(sel.obj)) })
                 } else if (state.multiSelection.isEmpty()) {
@@ -173,6 +192,10 @@ private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
                         onClick = { close(); dialog = "text" })
                     DropdownMenuItem(text = { Text(stringResource(R.string.add_svg)) }, leadingIcon = { Icon(Icons.Default.Category, null) },
                         onClick = { close(); dialog = "svg" })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.add_openscad)) }, leadingIcon = { Icon(Icons.Default.Code, null) },
+                        onClick = { close(); vm.scad.open() })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.shape_builder)) }, leadingIcon = { Icon(Icons.Default.Interests, null) },
+                        onClick = { close(); vm.scad.newShapes() })
                     if (!state.scene.isEmpty)
                         DropdownMenuItem(text = { Text(stringResource(R.string.arrange)) }, leadingIcon = { Icon(Icons.Default.AutoAwesomeMosaic, null) },
                             onClick = { close(); vm.scene.arrange(false) })
@@ -218,6 +241,11 @@ private fun TopBar(state: UiState, vm: AppViewModel, view: PlateView?) {
                         }
                         DropdownMenuItem(text = { Text(stringResource(R.string.view_fit)) }, onClick = { viewMenu = false; view?.framePlate(state.activePlate) },
                             leadingIcon = { Icon(Icons.Default.CenterFocusStrong, null) })
+                        // The desktop's canvas toolbar button: toggles the cut and opens its panel.
+                        DropdownMenuItem(text = { Text(stringResource(R.string.section_view)) },
+                            onClick = { viewMenu = false; view?.section?.let { it.toggle(); it.panelOpen = it.active } },
+                            leadingIcon = { Icon(Icons.Default.ContentCut, null) },
+                            trailingIcon = { if (view?.section?.active == true) Icon(Icons.Default.Check, null) })
                     }
                 }
                 Box {
@@ -306,14 +334,14 @@ private fun ToolButtons(state: UiState, vm: AppViewModel) {
     }
     if (state.multiSelection.isNotEmpty()) {
         ToolButton(Icons.Default.ContentCopy, stringResource(R.string.duplicate)) { vm.scene.duplicate(1) }
+        ToolButton(Icons.Default.CallMerge, stringResource(R.string.assemble), enabled = state.multiSelection.size >= 2) { vm.scene.assemble() }
         ToolButton(Icons.Default.Delete, stringResource(R.string.delete)) { vm.scene.deleteSelected() }
     } else if (selected) {
         ToolButton(Icons.Default.VerticalAlignBottom, stringResource(R.string.lay_on_face), active = state.tool == Tool.LayOnFace) {
             vm.scene.setTool(if (state.tool == Tool.LayOnFace) Tool.None else Tool.LayOnFace)
         }
         ToolButton(Icons.Default.ContentCut, stringResource(R.string.cut), active = state.tool is Tool.Cut) {
-            val inst = state.selectedObject?.instances?.getOrNull(state.selection!!.instance)
-            vm.scene.setTool(if (state.tool is Tool.Cut) Tool.None else Tool.Cut((inst?.let { it.min.z + it.size.z / 2 }) ?: 5f))
+            if (state.tool is Tool.Cut) vm.scene.setTool(Tool.None) else vm.scene.startCut()
         }
         Box {
             ToolButton(Icons.Default.Brush, stringResource(R.string.paint), active = state.tool is Tool.Paint) { paintMenu = true }
@@ -343,6 +371,8 @@ private fun ToolButtons(state: UiState, vm: AppViewModel) {
         Box {
             ToolButton(Icons.Default.MoreVert, stringResource(R.string.more)) { moreMenu = true }
             DropdownMenu(expanded = moreMenu, onDismissRequest = { moreMenu = false }) {
+                DropdownMenuItem(text = { Text(stringResource(R.string.add_part)) }, onClick = { moreMenu = false; vm.scene.addVolume(VolumeType.PART, "box") })
+                DropdownMenuItem(text = { Text(stringResource(R.string.mesh_boolean)) }, onClick = { moreMenu = false; dialog = "boolean" })
                 DropdownMenuItem(text = { Text(stringResource(R.string.add_modifier)) }, onClick = { moreMenu = false; vm.scene.addVolume(VolumeType.MODIFIER, "box") })
                 DropdownMenuItem(text = { Text(stringResource(R.string.add_support_blocker)) }, onClick = { moreMenu = false; vm.scene.addVolume(VolumeType.SUPPORT_BLOCKER, "box") })
                 DropdownMenuItem(text = { Text(stringResource(R.string.add_support_enforcer)) }, onClick = { moreMenu = false; vm.scene.addVolume(VolumeType.SUPPORT_ENFORCER, "box") })

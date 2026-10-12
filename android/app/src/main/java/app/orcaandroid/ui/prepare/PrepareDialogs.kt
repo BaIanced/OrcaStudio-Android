@@ -20,6 +20,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.Science
@@ -55,6 +56,7 @@ import app.orcaandroid.R
 import app.orcaandroid.core.PresetType
 import app.orcaandroid.core.LayerGcode
 import app.orcaandroid.core.Vec3
+import app.orcaandroid.core.VolumeType
 import app.orcaandroid.ui.AppViewModel
 import app.orcaandroid.ui.UiState
 import app.orcaandroid.ui.components.NumberField
@@ -76,6 +78,10 @@ internal fun AddMenu(state: UiState, vm: AppViewModel, open: Boolean, onDismiss:
             onClick = { onDismiss(); onDialog("text") })
         DropdownMenuItem(text = { Text(stringResource(R.string.add_svg)) }, leadingIcon = { Icon(Icons.Default.Category, null) },
             onClick = { onDismiss(); onDialog("svg") })
+        DropdownMenuItem(text = { Text(stringResource(R.string.add_openscad)) }, leadingIcon = { Icon(Icons.Default.Code, null) },
+            onClick = { onDismiss(); vm.scad.open() })
+        DropdownMenuItem(text = { Text(stringResource(R.string.shape_builder)) }, leadingIcon = { Icon(Icons.Default.Interests, null) },
+            onClick = { onDismiss(); vm.scad.newShapes() })
         DropdownMenuItem(text = { Text(stringResource(R.string.sample_models)) }, leadingIcon = { Icon(Icons.Default.Toys, null) },
             onClick = { onDismiss(); onDialog("samples") })
         HorizontalDivider()
@@ -137,6 +143,39 @@ internal fun AddDialogs(state: UiState, vm: AppViewModel, dialog: String?, onDis
         "samples" -> SamplesDialog(vm, onDismiss)
         "calib" -> CalibrationDialog(vm, onDismiss)
         "simplify" -> SimplifyDialog(state, vm, onDismiss)
+        "boolean" -> MeshBooleanDialog(state, vm, onDismiss)
+    }
+}
+
+/** GLGizmoMeshBoolean as a dialog: two parts of the selected object, one operation. */
+@Composable
+private fun MeshBooleanDialog(state: UiState, vm: AppViewModel, onDismiss: () -> Unit) {
+    val obj = state.selectedObject ?: return onDismiss()
+    val parts = obj.volumes.filter { it.type == VolumeType.PART }
+    val ops = listOf("union" to R.string.boolean_union, "difference" to R.string.boolean_difference, "intersection" to R.string.boolean_intersection)
+    var op by remember { mutableStateOf("difference") }
+    var src by remember { mutableIntStateOf(parts.getOrNull(0)?.index ?: -1) }
+    var tool by remember { mutableIntStateOf(parts.getOrNull(1)?.index ?: -1) }
+    var keepTool by remember { mutableStateOf(false) }
+    val items = parts.map { PickerItem(it.index.toString(), it.name) }
+    DialogFrame(stringResource(R.string.mesh_boolean), stringResource(ops.first { it.first == op }.second),
+        enabled = src >= 0 && tool >= 0 && src != tool,
+        onConfirm = { vm.scene.meshBoolean(obj.index, src, tool, op, keepTool && op != "union") }, onDismiss = onDismiss) {
+        if (parts.size < 2) {
+            Text(stringResource(R.string.boolean_needs_parts), style = MaterialTheme.typography.bodyMedium)
+            return@DialogFrame
+        }
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            ops.forEach { (id, label) -> FilterChip(selected = op == id, onClick = { op = id }, label = { Text(stringResource(label)) }) }
+        }
+        PickerField(stringResource(if (op == "difference") R.string.boolean_subtract_from else R.string.boolean_part1), src.toString(), items,
+            { src = it.toInt() }, Modifier.fillMaxWidth())
+        PickerField(stringResource(if (op == "difference") R.string.boolean_subtract_with else R.string.boolean_part2), tool.toString(), items,
+            { tool = it.toInt() }, Modifier.fillMaxWidth())
+        if (op != "union") Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.boolean_keep_tool), Modifier.weight(1f))
+            Switch(keepTool, { keepTool = it })
+        }
     }
 }
 

@@ -62,6 +62,14 @@ class Engine(private val cacheDir: File) {
     suspend fun loadCloudPresets(presets: JSONObject): Pair<Int, List<PrinterInfo>> =
         call("loadCloudPresets", args("presets" to presets)).let { it.optInt("count") to parsePrinters(it) }
 
+    /** User presets to upload to the cloud account [userId]: [{type, name, setting_id, sync_info, values}]. */
+    suspend fun cloudUploads(userId: String): org.json.JSONArray = call("cloudUploads", args("userId" to userId)).getJSONArray("presets")
+
+    /** Records an upload: the preset's cloud id, sync state ("" = in sync) and cloud updated_time. */
+    suspend fun markUploaded(type: String, name: String, settingId: String, syncInfo: String, updatedTime: Long) {
+        call("markUploaded", args("type" to type, "name" to name, "settingId" to settingId, "syncInfo" to syncInfo, "updatedTime" to updatedTime))
+    }
+
     /** Installed version of a vendor's profiles, "" if not installed. */
     suspend fun vendorVersion(vendor: String): String = call("vendorVersion", args("vendor" to vendor)).optString("version")
 
@@ -83,8 +91,9 @@ class Engine(private val cacheDir: File) {
     suspend fun scene() = parseScene(call("scene"))
     suspend fun loadModels(paths: List<String>, append: Boolean, plate: Int) =
         parseScene(call("loadModels", args("paths" to paths, "append" to append, "plate" to plate)))
-    suspend fun setTransform(obj: Int, instance: Int, offset: Vec3? = null, rotation: Vec3? = null, scale: Vec3? = null, mirror: Vec3? = null) =
-        parseScene(call("setTransform", args("object" to obj, "instance" to instance,
+    /** [volume] >= 0 transforms that part within its object instead of the copy. */
+    suspend fun setTransform(obj: Int, instance: Int, offset: Vec3? = null, rotation: Vec3? = null, scale: Vec3? = null, mirror: Vec3? = null, volume: Int = -1) =
+        parseScene(call("setTransform", args("object" to obj, "instance" to instance, "volume" to volume,
             "transform" to buildMap { offset?.let { put("offset", it) }; rotation?.let { put("rotation", it) }; scale?.let { put("scale", it) }; mirror?.let { put("mirror", it) } })))
     suspend fun deleteObject(obj: Int) = parseScene(call("deleteObject", args("object" to obj)))
     suspend fun deleteInstance(obj: Int, instance: Int) = parseScene(call("deleteInstance", args("object" to obj, "instance" to instance)))
@@ -98,10 +107,17 @@ class Engine(private val cacheDir: File) {
     suspend fun layOnFace(obj: Int, instance: Int, normal: Vec3) = parseScene(call("layOnFace", args("object" to obj, "instance" to instance, "normal" to normal)))
     suspend fun autoOrient(obj: Int) = parseScene(call("autoOrient", args("object" to obj)))
     suspend fun split(obj: Int, toParts: Boolean) = parseScene(call("split", args("object" to obj, "toParts" to toParts)))
+    suspend fun assemble(items: List<Pair<Int, Int>>) = parseScene(call("assemble", args("items" to items.map { listOf(it.first, it.second) })))
+    suspend fun meshBoolean(obj: Int, src: Int, tool: Int, op: String, keepTool: Boolean) =
+        parseScene(call("meshBoolean", args("object" to obj, "src" to src, "tool" to tool, "op" to op, "keepTool" to keepTool)))
     suspend fun cut(obj: Int, instance: Int, z: Float, keepUpper: Boolean, keepLower: Boolean, flipUpper: Boolean) =
         parseScene(call("cut", args("object" to obj, "instance" to instance, "z" to z, "keepUpper" to keepUpper, "keepLower" to keepLower, "flipUpper" to flipUpper)))
     suspend fun simplify(obj: Int, ratio: Float) = parseScene(call("simplify", args("object" to obj, "ratio" to ratio)))
     suspend fun repair(obj: Int) = parseScene(call("repair", args("object" to obj)))
+    suspend fun replaceMesh(obj: Int, path: String, module: String = "") =
+        parseScene(call("replaceMesh", args("object" to obj, "path" to path, "module" to module)))
+    suspend fun setObjectModule(obj: Int, module: String) =
+        parseScene(call("setObjectModule", args("object" to obj, "module" to module)))
     suspend fun addVolume(obj: Int, type: VolumeType, shape: String, size: Vec3) =
         parseScene(call("addVolume", args("object" to obj, "type" to type.code, "shape" to shape, "size" to size)))
     suspend fun deleteVolume(obj: Int, volume: Int) = parseScene(call("deleteVolume", args("object" to obj, "volume" to volume)))
@@ -117,6 +133,7 @@ class Engine(private val cacheDir: File) {
     suspend fun setPlateBedType(plate: Int, bedType: String) = parseScene(call("setPlateBedType", args("plate" to plate, "bedType" to bedType)))
     suspend fun undo() = parseScene(call("undo"))
     suspend fun redo() = parseScene(call("redo"))
+    suspend fun setUndoLimit(limit: Int) = parseScene(call("setUndoLimit", args("limit" to limit)))
     suspend fun addPrimitive(shape: String, size: Vec3, plate: Int) = parseScene(call("addPrimitive", args("shape" to shape, "size" to size, "plate" to plate)))
     suspend fun addText(text: String, font: String, height: Float, depth: Float, plate: Int) =
         parseScene(call("addText", args("text" to text, "font" to font, "height" to height, "depth" to depth, "plate" to plate)))
@@ -171,7 +188,10 @@ class Engine(private val cacheDir: File) {
         )
     }
     suspend fun exportStl(path: String, plate: Int) { call("exportStl", args("path" to path, "plate" to plate)) }
-    suspend fun exportGcode3mf(plate: Int, gcode: String, path: String) { call("exportGcode3mf", args("plate" to plate, "gcode" to gcode, "path" to path)) }
+    /** [sliced]: the slice result's G-code when [gcode] is a post-processed copy of it (for slice_info.config). */
+    suspend fun exportGcode3mf(plate: Int, gcode: String, path: String, sliced: String = gcode) {
+        call("exportGcode3mf", args("plate" to plate, "gcode" to gcode, "path" to path, "sliced" to sliced))
+    }
 
     // --- Slicing ---------------------------------------------------------------------------------
 
@@ -193,7 +213,7 @@ class Engine(private val cacheDir: File) {
 
     private fun parsePrinters(o: JSONObject) = o.getJSONArray("printers").map {
         val p = it as JSONObject
-        PrinterInfo(p.getString("name"), p.getString("vendor"), p.optString("model"), p.optDouble("nozzle"), p.optBoolean("system"))
+        PrinterInfo(p.getString("name"), p.getString("vendor"), p.optString("model"), p.optDouble("nozzle"), p.optBoolean("system"), p.optString("base"))
     }
 
     private fun parseRefs(a: JSONArray) = a.map {
@@ -231,6 +251,7 @@ class Engine(private val cacheDir: File) {
         readonly = o.optBoolean("readonly"),
         multiline = o.optBoolean("multiline"),
         isCode = o.optBoolean("is_code"),
+        pluginType = o.optString("plugin_type"),
     )
 
     private fun parseScene(o: JSONObject): Scene {
@@ -242,6 +263,7 @@ class Engine(private val cacheDir: File) {
             paintVersion = o.optInt("paint_version"),
             canUndo = o.optBoolean("can_undo"),
             canRedo = o.optBoolean("can_redo"),
+            calibrationActive = o.optBoolean("calibration_active"),
             plateWidth = size[0],
             plateDepth = size[1],
             plates = o.getJSONArray("plates").let { a -> List(a.length()) { i ->
@@ -270,7 +292,8 @@ class Engine(private val cacheDir: File) {
                     settings = obj.stringMap("settings"),
                     volumes = obj.getJSONArray("volumes").let { va -> List(va.length()) { vi ->
                         val v = va.getJSONObject(vi)
-                        Volume(vi, v.optString("name"), VolumeType.of(v.getInt("type")), v.stringMap("settings"), v.vec3("offset"), v.vec3("size"))
+                        Volume(vi, v.optString("name"), VolumeType.of(v.getInt("type")), v.stringMap("settings"), v.vec3("offset"), v.vec3("size"),
+                            if (v.has("rotation")) v.vec3("rotation") else Vec3(0f, 0f, 0f), if (v.has("scale")) v.vec3("scale") else Vec3(1f, 1f, 1f))
                     } },
                     instances = obj.getJSONArray("instances").let { ia -> List(ia.length()) { ii ->
                         val inst = ia.getJSONObject(ii)
@@ -281,6 +304,7 @@ class Engine(private val cacheDir: File) {
                         LayerRange(r.getDouble("from").toFloat(), r.getDouble("to").toFloat(), r.stringMap("settings"))
                     }.orEmpty(),
                     hasLayerProfile = obj.optBoolean("layer_profile"),
+                    module = obj.optString("module"),
                 )
             } },
         )

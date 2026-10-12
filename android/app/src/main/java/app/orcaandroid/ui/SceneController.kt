@@ -10,6 +10,7 @@ import app.orcaandroid.core.Scene
 import app.orcaandroid.core.Vec3
 import app.orcaandroid.core.VolumeType
 import java.io.File
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -43,6 +44,52 @@ class SceneController(private val store: Store, private val presets: PresetContr
 
     fun setSelectMode(on: Boolean) = store.update { it.copy(selectMode = on) }
 
+    /** Adds the copies to the selection, or removes them (the desktop's Shift / Alt rectangle). */
+    fun changeSelection(items: List<Selection>, remove: Boolean) = store.update { st ->
+        val current = st.selectedItems.map { it.copy(volume = -1) }
+        st.withSelected(if (remove) current - items.toSet() else current + items.filterNot { it in current })
+    }
+
+    /** Selects every copy on every plate (Ctrl+Shift+A). */
+    fun selectAllPlates() = store.update { st ->
+        st.withSelected(st.scene.objects.flatMap { o -> o.instances.map { Selection(o.index, it.index) } })
+    }
+
+    /** Copies kept by Ctrl+C for Ctrl+V. */
+    private var clipboard: List<Pair<Int, Int>> = emptyList()
+
+    fun copySelected() { clipboard = selectedItems }
+
+    /** Ctrl+V: a copy of each copied object, placed next to the others (like Duplicate). */
+    fun paste() {
+        val scene = store.value.scene
+        val items = clipboard.filter { (o, i) -> scene.objects.getOrNull(o)?.instances?.getOrNull(i) != null }.ifEmpty { return }
+        store.sceneOp { engine.duplicate(items, 1) }
+    }
+
+    /** Arrow keys: moves the selected copies by (dx, dy) mm. */
+    fun nudge(dx: Float, dy: Float) = moveSelected(dx, dy)
+
+    /** Page up / down: rotates the selected copy about Z by [degrees]. */
+    fun rotateSelected(degrees: Float) {
+        val sel = selection ?: return
+        val inst = store.value.scene.objects.getOrNull(sel.obj)?.instances?.getOrNull(sel.instance) ?: return
+        store.sceneOp { engine.setTransform(sel.obj, sel.instance, rotation = inst.rotation.copy(z = inst.rotation.z + degrees)) }
+    }
+
+    /** "-" key: removes the selected object's last copy (never the only one). */
+    fun removeCopy() {
+        val sel = selection ?: return
+        val copies = store.value.scene.objects.getOrNull(sel.obj)?.instances?.size ?: return
+        if (copies > 1) store.sceneOp { engine.deleteInstance(sel.obj, copies - 1) }
+    }
+
+    /** Ctrl+wheel while painting: scales the brush within the panel slider's range. */
+    fun scaleBrush(factor: Float) {
+        val tool = store.value.tool as? Tool.Paint ?: return
+        store.update { it.copy(tool = tool.copy(radius = (tool.radius * factor).coerceIn(0.5f, 15f))) }
+    }
+
     // --- Adding objects --------------------------------------------------------------------------------
 
     fun sampleModels() = resources.sampleModels()
@@ -71,6 +118,12 @@ class SceneController(private val store: Store, private val presets: PresetContr
         store.sceneOp { engine.setTransform(sel.obj, sel.instance, offset, rotation, scale, mirror) }
     }
 
+    /** Moves, turns or scales the selected part (or modifier) inside its object. */
+    fun setVolumeTransform(offset: Vec3? = null, rotation: Vec3? = null, scale: Vec3? = null) {
+        val sel = selection?.takeIf { it.volume >= 0 } ?: return
+        store.sceneOp { engine.setTransform(sel.obj, sel.instance, offset, rotation, scale, volume = sel.volume) }
+    }
+
     /** Deletes the selected part, else the selected copy, else the whole object; or all selected copies. */
     fun deleteSelected() {
         val multi = store.value.multiSelection
@@ -91,11 +144,18 @@ class SceneController(private val store: Store, private val presets: PresetContr
         }
     }
 
-    fun deleteAll() = store.sceneOp {
-        var scene = store.value.scene
-        store.update { it.copy(selection = null) }
-        for (i in scene.objects.indices.reversed()) scene = engine.deleteObject(i)
-        scene
+    /** Deletes every object, as one undo step. */
+    fun deleteAll(): Job? {
+        val all = store.value.scene.objects.flatMap { o -> o.instances.map { o.index to it.index } }.ifEmpty { return null }
+        store.update { it.copy(selection = null, multiSelection = emptyList(), tool = Tool.None) }
+        return store.sceneOp { engine.deleteItems(all) }
+    }
+
+    /** Opens the cut tool at the middle height of the selected copy. */
+    fun startCut() {
+        val sel = selection ?: return
+        val inst = store.value.scene.objects.getOrNull(sel.obj)?.instances?.getOrNull(sel.instance)
+        setTool(Tool.Cut(inst?.let { it.min.z + it.size.z / 2 } ?: 5f))
     }
 
     /** Adds copies of every selected copy. */
@@ -109,6 +169,19 @@ class SceneController(private val store: Store, private val presets: PresetContr
     fun split(toParts: Boolean) = selection?.let { sel ->
         store.update { it.copy(selection = if (toParts) sel else null) }
         store.sceneOp { engine.split(sel.obj, toParts) }
+    }
+
+    /** Desktop "Assemble": the selected copies become the parts of one object, each staying in place. */
+    fun assemble() {
+        val items = selectedItems.takeIf { it.size >= 2 } ?: return
+        store.update { it.copy(selection = null, multiSelection = emptyList(), selectMode = false) }
+        store.sceneOp { engine.assemble(items) }
+    }
+
+    /** Union / difference / intersection of two parts of an object (desktop Mesh Boolean gizmo). */
+    fun meshBoolean(obj: Int, src: Int, tool: Int, op: String, keepTool: Boolean) {
+        store.update { it.copy(selection = Selection(obj)) }
+        store.sceneOp { engine.meshBoolean(obj, src, tool, op, keepTool) }
     }
 
     fun simplify(ratio: Float) = selection?.let { sel -> store.sceneOp(store.str(R.string.simplifying)) { engine.simplify(sel.obj, ratio) } }
@@ -157,7 +230,12 @@ class SceneController(private val store: Store, private val presets: PresetContr
     fun setLayerGcodes(plate: Int, items: List<LayerGcode>) = store.sceneOp { engine.setLayerGcodes(plate, items) }
     fun setWipeTower(plate: Int, pos: Pair<Float, Float>?) = store.sceneOp { engine.setWipeTower(plate, pos) }
 
-    fun undo() = store.sceneOp { engine.undo() }
+    fun undo() = store.launch {
+        val scene = engine.undo()
+        store.applyScene(scene)
+        if (store.value.calibration != null && !scene.calibrationActive)
+            store.update { it.copy(calibration = null, projectName = it.nameBeforeCalibration) }
+    }
     fun redo() = store.sceneOp { engine.redo() }
 
     /** Fills the process's flushing matrix from the filament colours (like the desktop's auto-calc). */
@@ -178,7 +256,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
      * Handles a tap on the 3D view according to the current tool. [additive] (Ctrl/Shift held) or
      * select mode adds the tapped copy to the selection or removes it.
      */
-    fun onViewTap(origin: Vec3, dir: Vec3, additive: Boolean = false) = store.launch {
+    fun onViewTap(origin: Vec3, dir: Vec3, additive: Boolean = false, part: Boolean = false) = store.launch {
         val hit = engine.pick(origin, dir)
         when (store.value.tool) {
             Tool.LayOnFace -> if (hit != null) {
@@ -188,6 +266,8 @@ class SceneController(private val store: Store, private val presets: PresetContr
             Tool.Measure -> if (hit != null) store.update { st -> st.copy(measure = (st.measure + hit.point).takeLast(2)) }
             else -> store.update { st ->
                 when {
+                    // Alt+click: the part under the pointer, as on the desktop.
+                    part && hit != null -> st.withSelected(listOf(Selection(hit.obj, hit.instance, hit.volume)))
                     additive || st.selectMode -> if (hit == null) st else st.toggled(listOf(Selection(hit.obj, hit.instance)))
                     else -> st.withSelected(listOfNotNull(hit?.let { Selection(it.obj, it.instance) }))
                 }
@@ -250,7 +330,8 @@ class SceneController(private val store: Store, private val presets: PresetContr
         presets.syncSelection()
         val (scene, calib) = engine.calibStart(type, params)
         store.applyScene(scene)
-        store.update { it.copy(calibration = calib, selection = null, screen = Screen.PREPARE, projectName = calib.name) }
+        store.update { it.copy(calibration = calib, selection = null, screen = Screen.PREPARE, projectName = calib.name,
+            nameBeforeCalibration = if (it.calibration == null) it.projectName else it.nameBeforeCalibration) }
     }
 
     fun stopCalibration() = store.launch {

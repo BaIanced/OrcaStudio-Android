@@ -3,6 +3,7 @@ package app.orcaandroid.net
 import java.io.File
 import java.io.IOException
 import java.security.MessageDigest
+import org.json.JSONArray
 import org.json.JSONObject
 
 /**
@@ -39,7 +40,7 @@ internal class BambuHost(private val c: PrinterConnection) : PrintHost {
         return "Bambu Lab · ${c.serial}"
     }
 
-    override fun upload(file: File, remoteName: String, startPrint: Boolean, onProgress: (Float) -> Unit) {
+    override fun upload(file: File, remoteName: String, startPrint: Boolean, ams: AmsMapping?, onProgress: (Float) -> Unit) {
         FtpsClient(host, "bblp", c.apiKey).upload(file, remoteName, onProgress)
         if (!startPrint) return
         val md5 = MessageDigest.getInstance("MD5").digest(file.readBytes()).joinToString("") { "%02x".format(it) }
@@ -55,7 +56,9 @@ internal class BambuHost(private val c: PrinterConnection) : PrintHost {
             .put("vibration_cali", false)
             .put("layer_inspect", false)
             .put("timelapse", false)
-            .put("use_ams", false)
+            .put("use_ams", ams?.useAms ?: false)
+            .put("ams_mapping", JSONArray(ams?.v0() ?: "[]"))
+            .put("ams_mapping2", JSONArray(ams?.v1() ?: "[]"))
             .put("profile_id", "0").put("project_id", "0").put("subtask_id", "0").put("task_id", "0")))
     }
 

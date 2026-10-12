@@ -36,6 +36,8 @@ import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import app.orcaandroid.core.ThemeMode
+import app.orcaandroid.render.PlateView
+import app.orcaandroid.ui.components.framePlate
 import java.io.File
 import kotlinx.coroutines.launch
 
@@ -47,6 +49,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         if (savedInstanceState == null) handleIntent(intent)
         requestNotificationPermission()
+        PlateView.onKey = ::viewKey
         setContent {
             val state by vm.state.collectAsStateWithLifecycle()
             OrcaTheme(state.themeMode, state.dynamicColor) {
@@ -115,37 +118,143 @@ class MainActivity : ComponentActivity() {
         const val LOCAL_NETWORK_PERMISSION = "android.permission.ACCESS_LOCAL_NETWORK"
     }
 
-    /** Hardware keyboard shortcuts, as on the desktop. */
+    /** The 3D view has keyboard focus (it takes it on touch); the desktop's canvas shortcuts need it. */
+    private val viewFocused get() = PlateView.active?.get()?.hasFocus() == true
+
+    /** Hardware keyboard shortcuts with Ctrl, as on the desktop (Shortcuts.cpp defaults). */
     override fun onKeyShortcut(keyCode: Int, event: KeyEvent): Boolean {
         val s = vm.state.value
+        val view = PlateView.active?.get()
+        // Selection and camera shortcuts only while the 3D view has focus, so Ctrl+A/C/V keep
+        // working in text fields.
+        val onPlate = viewFocused && s.editor == null && s.screen == Screen.PREPARE
+        val onView = viewFocused && s.editor == null && (s.screen == Screen.PREPARE || s.screen == Screen.PREVIEW)
+        val shift = event.isShiftPressed
+        if (android.util.Log.isLoggable("OrcaInput", android.util.Log.DEBUG))
+            android.util.Log.d("OrcaInput", "shortcut $keyCode ctrl=${event.isCtrlPressed} viewFocused=$viewFocused " +
+                "view=${view?.let { System.identityHashCode(it) }} focus=${window.decorView.findFocus()?.javaClass?.simpleName} screen=${s.screen} editor=${s.editor != null}")
+        if (!event.isCtrlPressed) return super.onKeyShortcut(keyCode, event)
         when {
-            event.isCtrlPressed && keyCode == KeyEvent.KEYCODE_Z && event.isShiftPressed -> vm.scene.redo()
-            event.isCtrlPressed && keyCode == KeyEvent.KEYCODE_Z -> vm.scene.undo()
-            event.isCtrlPressed && keyCode == KeyEvent.KEYCODE_Y -> vm.scene.redo()
-            event.isCtrlPressed && keyCode == KeyEvent.KEYCODE_R -> vm.slicing.slice()
-            event.isCtrlPressed && keyCode == KeyEvent.KEYCODE_A -> vm.scene.arrange(allPlates = false)
-            event.isCtrlPressed && keyCode == KeyEvent.KEYCODE_1 -> vm.setScreen(Screen.PREPARE)
-            event.isCtrlPressed && keyCode == KeyEvent.KEYCODE_2 -> vm.setScreen(Screen.PREVIEW)
-            event.isCtrlPressed && keyCode == KeyEvent.KEYCODE_3 -> vm.setScreen(Screen.DEVICE)
-            event.isCtrlPressed && keyCode == KeyEvent.KEYCODE_N -> vm.files.newProject()
-            event.isCtrlPressed && keyCode == KeyEvent.KEYCODE_D && s.selectedItems.isNotEmpty() -> vm.scene.duplicate(1)
+            keyCode == KeyEvent.KEYCODE_Z && shift -> vm.scene.redo()
+            keyCode == KeyEvent.KEYCODE_Z -> vm.scene.undo()
+            keyCode == KeyEvent.KEYCODE_Y -> vm.scene.redo()
+            keyCode == KeyEvent.KEYCODE_R -> vm.slicing.slice()
+            keyCode == KeyEvent.KEYCODE_N -> vm.files.newProject()
+            onPlate && keyCode == KeyEvent.KEYCODE_A && shift -> vm.scene.selectAllPlates()
+            onPlate && keyCode == KeyEvent.KEYCODE_A -> vm.scene.selectAll()
+            onPlate && keyCode == KeyEvent.KEYCODE_C -> vm.scene.copySelected()
+            onPlate && keyCode == KeyEvent.KEYCODE_V -> vm.scene.paste()
+            onPlate && keyCode == KeyEvent.KEYCODE_K -> vm.scene.duplicate(1)
+            onPlate && keyCode == KeyEvent.KEYCODE_D -> vm.scene.deleteAll()
+            // Camera views: 0 default, 1 top, 2 bottom, 3 front, 4 rear, 5 left, 6 right, 7 plate.
+            onView && view != null && keyCode in KeyEvent.KEYCODE_0..KeyEvent.KEYCODE_7 -> when (val n = keyCode - KeyEvent.KEYCODE_0) {
+                7 -> view.framePlate(s.activePlate)
+                else -> view.camera.preset(listOf(0, 1, 5, 2, 6, 3, 4)[n])
+            }
             else -> return super.onKeyShortcut(keyCode, event)
         }
         return true
     }
 
-    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+    /**
+     * A mouse's back button arrives as Back. With nothing in the app left to go back to, Android
+     * would put the app in the background, which a desktop user doesn't expect from a mouse click.
+     */
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (event.keyCode == KeyEvent.KEYCODE_BACK && event.isFromSource(android.view.InputDevice.SOURCE_MOUSE) &&
+            !onBackPressedDispatcher.hasEnabledCallbacks()) return true
+        if (event.isCtrlPressed && android.util.Log.isLoggable("OrcaInput", android.util.Log.DEBUG))
+            android.util.Log.d("OrcaInput", "key ${event.action} ${event.keyCode} meta=${event.metaState} viewFocused=$viewFocused")
+        // Android offers Ctrl keys as shortcuts only when normal dispatch leaves them unused, and
+        // with the 3D view focused they never got that far: Ctrl+digit camera views did nothing.
+        if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0 && event.isCtrlPressed && viewFocused &&
+            onKeyShortcut(event.keyCode, event)) return true
+        return super.dispatchKeyEvent(event)
+    }
+
+    // Keys nothing else used (no text field or button took them).
+    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean = viewKey(keyCode, event) || super.onKeyDown(keyCode, event)
+
+    /** Single-key shortcuts of the 3D view, as on the desktop; the view forwards its keys here first. */
+    private fun viewKey(keyCode: Int, event: KeyEvent): Boolean {
         val s = vm.state.value
-        // Single-key shortcuts act on the 3D view only, not while a settings editor is open.
-        if (s.editor == null && s.screen == Screen.PREPARE) when (keyCode) {
-            KeyEvent.KEYCODE_FORWARD_DEL, KeyEvent.KEYCODE_DEL -> if (s.selectedItems.isNotEmpty()) { vm.scene.deleteSelected(); return true }
-            KeyEvent.KEYCODE_ESCAPE -> if (s.tool != Tool.None || s.selectedItems.isNotEmpty() || s.selectMode) {
-                vm.scene.setTool(Tool.None); vm.scene.select(null); vm.scene.setSelectMode(false); return true
-            }
-            KeyEvent.KEYCODE_O -> if (s.selection != null && !event.isCtrlPressed) { vm.scene.autoOrient(); return true }
-            KeyEvent.KEYCODE_F -> if (s.selection != null && !event.isCtrlPressed) { vm.scene.setTool(Tool.LayOnFace); return true }
+        if (s.editor != null || event.isCtrlPressed) return false
+        if (keyCode == KeyEvent.KEYCODE_TAB && (s.screen == Screen.PREPARE || s.screen == Screen.PREVIEW)) {
+            vm.setScreen(if (s.screen == Screen.PREPARE) Screen.PREVIEW else Screen.PREPARE)
+            return true
         }
-        return super.onKeyDown(keyCode, event)
+        val view = PlateView.active?.get()
+        when (keyCode) {
+            // Before the tools and the selection, which Esc also closes (GLCanvas3D::on_key).
+            KeyEvent.KEYCODE_ESCAPE -> if (view?.section?.panelOpen == true) { view.section.panelOpen = false; return true }
+            KeyEvent.KEYCODE_I -> { view?.camera?.zoom(1.15f); return true }
+            KeyEvent.KEYCODE_O -> { view?.camera?.zoom(1 / 1.15f); return true }
+        }
+        return when (s.screen) {
+            Screen.PREVIEW -> previewKey(keyCode, s)
+            Screen.PREPARE -> prepareKey(keyCode, event, s)
+            else -> false
+        }
+    }
+
+    /** Single-key shortcuts of the Prepare 3D view, as on the desktop. */
+    private fun prepareKey(keyCode: Int, event: KeyEvent, s: UiState): Boolean {
+        val any = s.selectedItems.isNotEmpty()
+        val single = s.selection != null
+        val step = if (event.isShiftPressed) 1f else 10f
+        fun paint(kind: String, state: Int) = if (single) vm.scene.setTool(Tool.Paint(kind, state, 3f)) else null
+        when (keyCode) {
+            KeyEvent.KEYCODE_FORWARD_DEL, KeyEvent.KEYCODE_DEL -> if (any) vm.scene.deleteSelected() else return false
+            KeyEvent.KEYCODE_ESCAPE -> if (s.tool != Tool.None || any || s.selectMode) {
+                vm.scene.setTool(Tool.None); vm.scene.select(null); vm.scene.setSelectMode(false)
+            } else return false
+            KeyEvent.KEYCODE_A -> vm.scene.arrange(allPlates = !event.isShiftPressed)
+            KeyEvent.KEYCODE_Q -> vm.scene.autoOrient()
+            KeyEvent.KEYCODE_F -> if (single) vm.scene.setTool(Tool.LayOnFace) else return false
+            KeyEvent.KEYCODE_C -> if (single) vm.scene.startCut() else return false
+            KeyEvent.KEYCODE_L -> paint("support", 1) ?: return false
+            KeyEvent.KEYCODE_P -> paint("seam", 1) ?: return false
+            KeyEvent.KEYCODE_H -> paint("fuzzy", 1) ?: return false
+            KeyEvent.KEYCODE_N -> paint("color", 2) ?: return false
+            KeyEvent.KEYCODE_U -> vm.scene.setTool(Tool.Measure)
+            KeyEvent.KEYCODE_DPAD_LEFT -> if (any) vm.scene.nudge(-step, 0f) else return false
+            KeyEvent.KEYCODE_DPAD_RIGHT -> if (any) vm.scene.nudge(step, 0f) else return false
+            KeyEvent.KEYCODE_DPAD_UP -> if (any) vm.scene.nudge(0f, step) else return false
+            KeyEvent.KEYCODE_DPAD_DOWN -> if (any) vm.scene.nudge(0f, -step) else return false
+            KeyEvent.KEYCODE_PAGE_UP -> if (single) vm.scene.rotateSelected(45f) else return false
+            KeyEvent.KEYCODE_PAGE_DOWN -> if (single) vm.scene.rotateSelected(-45f) else return false
+            KeyEvent.KEYCODE_PLUS, KeyEvent.KEYCODE_NUMPAD_ADD -> if (any) vm.scene.duplicate(1) else return false
+            KeyEvent.KEYCODE_EQUALS -> if (any && event.isShiftPressed) vm.scene.duplicate(1) else return false
+            KeyEvent.KEYCODE_MINUS, KeyEvent.KEYCODE_NUMPAD_SUBTRACT -> if (single) vm.scene.removeCopy() else return false
+            in KeyEvent.KEYCODE_1..KeyEvent.KEYCODE_9 -> {
+                // Sets the filament of the selected objects.
+                val n = keyCode - KeyEvent.KEYCODE_0
+                if (any && n <= s.filaments.size) vm.scene.setSelectedObjectsSetting("extruder", n.toString()) else return false
+            }
+            else -> return false
+        }
+        return true
+    }
+
+    /** Preview: up / down step the layer, left / right the moves in it, Home / End the moves' ends. */
+    private fun previewKey(keyCode: Int, s: UiState): Boolean {
+        val layers = s.shownResult?.layers ?: return false
+        if (layers.isEmpty()) return false
+        val p = s.preview
+        val last = layers.lastIndex
+        val hi = p.layerHigh.coerceIn(0, last)
+        val moves = (layers.getOrNull(hi + 1)?.extrusion ?: s.shownResult!!.extrusionCount) - layers[hi].extrusion
+        val move = p.moveEnd ?: moves
+        when (keyCode) {
+            KeyEvent.KEYCODE_DPAD_UP -> vm.slicing.updatePreview { it.copy(layerHigh = (hi + 1).coerceAtMost(last), moveEnd = null) }
+            KeyEvent.KEYCODE_DPAD_DOWN -> vm.slicing.updatePreview { it.copy(layerHigh = (hi - 1).coerceAtLeast(p.layerLow.coerceIn(0, last)), moveEnd = null) }
+            KeyEvent.KEYCODE_DPAD_LEFT -> vm.slicing.updatePreview { it.copy(moveEnd = (move - 1).coerceAtLeast(1)) }
+            KeyEvent.KEYCODE_DPAD_RIGHT -> vm.slicing.updatePreview { it.copy(moveEnd = (move + 1).takeIf { m -> m < moves }) }
+            KeyEvent.KEYCODE_MOVE_HOME -> vm.slicing.updatePreview { it.copy(moveEnd = 1) }
+            KeyEvent.KEYCODE_MOVE_END -> vm.slicing.updatePreview { it.copy(moveEnd = null) }
+            else -> return false
+        }
+        return true
     }
 }
 

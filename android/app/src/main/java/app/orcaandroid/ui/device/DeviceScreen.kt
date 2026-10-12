@@ -362,9 +362,12 @@ private fun WebUi(connection: PrinterConnection, modifier: Modifier) {
     var loadError by remember(url) { mutableStateOf<String?>(null) }
     Surface(modifier) {
         Box {
+            val dark = app.orcaandroid.ui.components.appIsDark()
             AndroidView(
                 factory = { ctx ->
-                    WebView(ctx).apply {
+                    app.orcaandroid.ui.components.themedWebView(ctx, dark).apply {
+                        // AndroidView's default WRAP_CONTENT makes WebView lay pages out with height 0 (CSS 100vh = 0).
+                        layoutParams = android.view.ViewGroup.LayoutParams(android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.MATCH_PARENT)
                         settings.javaScriptEnabled = true
                         settings.domStorageEnabled = true
                         settings.mediaPlaybackRequiresUserGesture = false
@@ -398,8 +401,11 @@ private fun WebUi(connection: PrinterConnection, modifier: Modifier) {
 
 @Composable
 private fun ConnectionDialog(state: UiState, vm: AppViewModel, onDismiss: () -> Unit) {
+    // A Bambu Lab printer is only offered its own connection types (and discovered Bambu printers).
+    val bambuPrinter = state.printerInfo?.isBambu == true
+    val types = if (bambuPrinter) listOf(HostType.BAMBU, HostType.BAMBU_SIGNED) else HostType.entries
     val initial = state.connection ?: state.suggestedConnection ?: PrinterConnection()
-    var type by remember { mutableStateOf(initial.type) }
+    var type by remember { mutableStateOf(initial.type.takeIf { it in types } ?: types.first()) }
     var url by remember { mutableStateOf(initial.url) }
     var apiKey by remember { mutableStateOf(initial.apiKey) }
     var webUrl by remember { mutableStateOf(initial.webUrl) }
@@ -417,7 +423,7 @@ private fun ConnectionDialog(state: UiState, vm: AppViewModel, onDismiss: () -> 
         title = { Text(stringResource(R.string.connection)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                PickerField(stringResource(R.string.host_type), type.id, HostType.entries.map { PickerItem(it.id, it.label) },
+                PickerField(stringResource(R.string.host_type), type.id, types.map { PickerItem(it.id, it.label) },
                     { type = HostType.fromId(it) })
                 val bambu = type == HostType.BAMBU || type == HostType.BAMBU_SIGNED
                 OutlinedTextField(url, { url = it }, label = { Text(stringResource(if (bambu) R.string.ip_address else R.string.host_url)) },
@@ -447,7 +453,7 @@ private fun ConnectionDialog(state: UiState, vm: AppViewModel, onDismiss: () -> 
                     if (state.discovering) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                     else TextButton(onClick = vm.device::startDiscovery) { Text(stringResource(R.string.search)) }
                 }
-                state.discovered.forEach { d ->
+                state.discovered.filter { !bambuPrinter || it.type == HostType.BAMBU }.forEach { d ->
                     Text("${d.name} · ${d.type.label}\n${d.address}", style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.fillMaxWidth().clickable {
                             // A discovered Bambu printer keeps the signed mode if the user chose it.
