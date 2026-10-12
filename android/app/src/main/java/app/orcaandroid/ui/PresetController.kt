@@ -104,7 +104,7 @@ class PresetController(private val store: Store, private val device: DeviceContr
             ?: (settings.lastPrint(name) ?: base.takeIf { it.isNotEmpty() }?.let(settings::lastPrint))?.takeIf { n -> setup.prints.any { it.name == n } }
             ?: setup.defaultPrint
         val fils = withColors((filaments ?: settings.lastFilaments(name)).filter { f -> setup.filaments.any { it.name == f.preset } }
-            .ifEmpty { listOf(FilamentSlot(setup.defaultFilament)) })
+            .ifEmpty { listOf(FilamentSlot(myFilament(setup.defaultFilament, setup))) })
         store.update {
             it.copy(printer = name, setup = setup, print = p, filaments = fils, activeFilament = 0, overrides = emptyMap(), results = emptyMap())
         }
@@ -143,7 +143,38 @@ class PresetController(private val store: Store, private val device: DeviceContr
 
     // --- Filament slots ------------------------------------------------------------------------------
 
-    fun setFilament(slot: Int, name: String) = updateFilaments { list -> list.mapIndexed { i, f -> if (i == slot) FilamentSlot(name, f.color) else f } }
+    fun setFilament(slot: Int, name: String) {
+        rememberMyFilament(name)
+        updateFilaments { list -> list.mapIndexed { i, f -> if (i == slot) FilamentSlot(name, f.color) else f } }
+    }
+
+    /**
+     * Picking a user filament preset saved from a system one makes it stand in for that system preset
+     * ([myFilament]); picking the system preset itself drops that again.
+     */
+    private fun rememberMyFilament(name: String) {
+        val ref = store.value.setup?.filaments?.firstOrNull { it.name == name } ?: return
+        val mine = settings.myFilaments
+        settings.myFilaments = when {
+            !ref.system && ref.base.isNotEmpty() -> mine + (ref.base to name)
+            ref.system && name in mine -> mine - name
+            else -> return
+        }
+    }
+
+    /** [name], or the user's own preset that stands in for that system preset (when switched on and still usable). */
+    private fun myFilament(name: String, setup: app.orcaandroid.core.PrinterSetup? = store.value.setup): String {
+        if (!settings.preferMyFilaments) return name
+        val filaments = setup?.filaments.orEmpty()
+        settings.myFilaments[name]?.let { mine -> if (filaments.any { it.name == mine }) return mine }
+        // Never chosen yet: the only user preset saved from it, if there is exactly one.
+        return filaments.filter { !it.system && it.base == name }.singleOrNull()?.name ?: name
+    }
+
+    fun setPreferMyFilaments(on: Boolean) {
+        settings.preferMyFilaments = on
+        store.update { it.copy(preferMyFilaments = on) }
+    }
     fun addFilament() = updateFilaments { list -> list + FilamentSlot(list.last().preset, nextColor(list.size)) }
     fun removeFilament(slot: Int) = updateFilaments { list -> if (list.size <= 1) list else list.filterIndexed { i, _ -> i != slot } }
     fun setFilamentColor(slot: Int, color: String) = updateFilaments { list -> list.mapIndexed { i, f -> if (i == slot) f.copy(color = color) else f } }
@@ -181,7 +212,8 @@ class PresetController(private val store: Store, private val device: DeviceContr
             store.toast(store.str(R.string.sync_filaments_none))
             return@launch
         }
-        updateFilaments { withColors(slots) }
+        // The desktop's sync only picks system presets; the user's own ones stand in for them.
+        updateFilaments { withColors(slots.map { it.copy(preset = myFilament(it.preset)) }) }
         store.toast(store.str(R.string.sync_filaments_done, slots.size) +
             unknown.joinToString("") { (tray, why) -> "\n$tray: $why" })
     }
@@ -327,8 +359,13 @@ class PresetController(private val store: Store, private val device: DeviceContr
                 s.printer?.let { settings.setLastPrint(it, newName) }
                 store.update { it.copy(setup = setup, print = newName, overrides = it.overrides - type) }
             }
-            PresetType.FILAMENT -> store.update {
-                it.copy(setup = setup, filaments = it.filaments.mapIndexed { i, f -> if (i == it.activeFilament) FilamentSlot(newName, f.color) else f })
+            PresetType.FILAMENT -> {
+                store.update {
+                    it.copy(setup = setup, filaments = it.filaments.mapIndexed { i, f -> if (i == it.activeFilament) FilamentSlot(newName, f.color) else f })
+                }
+                // Saved from a system preset: it stands in for that one from now on (AMS sync, new slots).
+                rememberMyFilament(newName)
+                s.printer?.let { settings.setLastFilaments(it, store.value.filaments) }
             }
         }
         refreshPresetValues(listOf(type))

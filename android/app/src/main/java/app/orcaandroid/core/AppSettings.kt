@@ -78,6 +78,17 @@ class AppSettings(context: Context) {
         get() = prefs.getString("preferred_bed_type", null).orEmpty()
         set(value) = prefs.edit().putString("preferred_bed_type", value).apply()
 
+    /** AMS sync and new slots use the user's own filament preset in place of the system preset it was saved from. */
+    var preferMyFilaments: Boolean
+        get() = prefs.getBoolean("prefer_my_filaments", true)
+        set(value) = prefs.edit().putBoolean("prefer_my_filaments", value).apply()
+
+    /** System filament preset -> the user preset (saved from it) that stands in for it, last chosen. */
+    var myFilaments: Map<String, String>
+        get() = runCatching { JSONObject(prefs.getString("my_filaments", null) ?: "{}") }.getOrNull()
+            ?.let { o -> o.keys().asSequence().associateWith { o.getString(it) } }.orEmpty()
+        set(value) = prefs.edit().putString("my_filaments", JSONObject(value).toString()).apply()
+
     /** Hide printer presets whose nozzle differs from the one the connected printer reports. */
     var matchNozzle: Boolean
         get() = prefs.getBoolean("match_nozzle", true)
