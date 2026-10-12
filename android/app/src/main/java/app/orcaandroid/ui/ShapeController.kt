@@ -63,6 +63,9 @@ class ShapeController(private val store: Store, private val scad: ScadController
 
     fun select(ids: List<Int>) = scad.select(ids)
 
+    /** Replaces the whole design (AI tools) as one undo step; selected shapes that still exist stay selected. */
+    fun replace(next: ShapeDesign) = commit(next, selected.filter { next.find(it) != null })
+
     /** Tap: only [id]; with Ctrl / Shift / long press ([add]) toggles it in the selection. */
     fun tap(id: Int?, add: Boolean) {
         if (id == null) { if (!add) select(emptyList()); return }

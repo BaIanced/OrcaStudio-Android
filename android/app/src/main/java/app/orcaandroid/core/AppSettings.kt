@@ -37,6 +37,22 @@ class AppSettings(context: Context) {
         get() = prefs.getBoolean("double_back_quit", false)
         set(value) = prefs.edit().putBoolean("double_back_quit", value).apply()
 
+    /** The local MCP server for AI clients (see `docs/mcp-tool-layer.md`); off by default. */
+    var aiTools: Boolean
+        get() = prefs.getBoolean("ai_tools", false)
+        set(value) = prefs.edit().putBoolean("ai_tools", value).apply()
+
+    /** Bearer token AI clients must send; made on first use, replaced by [newAiToken]. */
+    val aiToken: String
+        get() = prefs.getString("ai_token", null) ?: newAiToken()
+
+    fun newAiToken(): String {
+        val bytes = ByteArray(24).also { java.security.SecureRandom().nextBytes(it) }
+        val token = bytes.joinToString("") { "%02x".format(it) }
+        prefs.edit().putString("ai_token", token).apply()
+        return token
+    }
+
     /** Printers chosen in the setup, as printerKey(model, nozzle). */
     var selectedPrinters: Set<String>
         get() = prefs.getStringSet("selected_printers", emptySet()).orEmpty()
@@ -112,3 +128,4 @@ const val DEFAULT_UNDO_LIMIT = 200
 const val MAX_UNDO_LIMIT = 5000
 const val DEFAULT_AUTO_SAVE_SECONDS = 60
 val AUTO_SAVE_RANGE = 10..3600
+const val AI_TOOLS_PORT = 8765

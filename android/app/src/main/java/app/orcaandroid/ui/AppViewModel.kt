@@ -4,6 +4,9 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import app.orcaandroid.CrashReport
+import app.orcaandroid.ai.McpServer
+import app.orcaandroid.ai.McpTools
+import app.orcaandroid.core.AI_TOOLS_PORT
 import app.orcaandroid.core.ThemeMode
 import app.orcaandroid.core.Translator
 import kotlinx.coroutines.Dispatchers
@@ -33,6 +36,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val scad = ScadController(store)
     val shapes = ShapeController(store, scad)
 
+    /** MCP server for AI clients (Settings > AI tools); runs while this view model lives and the switch is on. */
+    private val mcp = McpServer(AI_TOOLS_PORT, { store.settings.aiToken }, McpTools(store, scad, shapes))
+
     /** Desktop translations of option labels for the device language. */
     var translator: Translator = Translator.NONE
         private set
@@ -45,6 +51,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 .onFailure { e -> store.update { it.copy(phase = Phase.SETUP, error = e.message ?: e.toString()) } }
         }
         viewModelScope.launch { autoSave() }
+        viewModelScope.launch { awaitReady(); if (store.settings.aiTools) setAiTools(true) }
         viewModelScope.launch { store.container.printerStatus.collect { s -> store.update { it.copy(printerStatus = s) } } }
         viewModelScope.launch {
             val report = withContext(Dispatchers.IO) { runCatching { CrashReport.pending(store.app) }.getOrNull() }
@@ -122,6 +129,30 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun setAutoSave(seconds: Int) {
         store.settings.autoSaveSeconds = seconds
         store.update { it.copy(autoSaveSeconds = seconds) }
+    }
+
+    /** Switches the MCP server for AI clients on or off (and remembers it). */
+    fun setAiTools(on: Boolean) {
+        store.settings.aiTools = on
+        store.update { it.copy(aiTools = on, aiToken = store.settings.aiToken, aiError = null) }
+        viewModelScope.launch {
+            val error = withContext(Dispatchers.IO) {
+                mcp.stop()
+                if (!on) null else runCatching { mcp.start(viewModelScope) }.exceptionOrNull()?.let { it.message ?: it.toString() }
+            }
+            store.update { it.copy(aiError = error) }
+        }
+    }
+
+    /** A new token for AI clients: the old one stops working at once. */
+    fun newAiToken() {
+        val token = store.settings.newAiToken()
+        store.update { it.copy(aiToken = token) }
+    }
+
+    override fun onCleared() {
+        mcp.stop()
+        super.onCleared()
     }
 
     /** Keeps the current state for the next start; runs outside the view model so it survives the activity. */

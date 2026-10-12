@@ -98,6 +98,11 @@ data class UiState(
     val undoLimit: Int = app.orcaandroid.core.DEFAULT_UNDO_LIMIT,
     /** Auto-save interval in seconds; 0 = off. */
     val autoSaveSeconds: Int = app.orcaandroid.core.DEFAULT_AUTO_SAVE_SECONDS,
+    /** The MCP server for AI clients is switched on; [aiToken] is what they must send. */
+    val aiTools: Boolean = false,
+    val aiToken: String = "",
+    /** Why the server isn't running although switched on (port taken, ...). */
+    val aiError: String? = null,
 
     // Printers and presets
     val vendors: List<Vendor> = emptyList(),

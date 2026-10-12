@@ -84,6 +84,17 @@
     <string name="auto_save">Auto-save the plate</string>
     <string name="auto_save_interval">Auto-save every (seconds, 10-3600)</string>
     <string name="double_back_quit">Press Back twice to quit (instead of asking)</string>
+    <string name="ai_tools">AI tools (MCP)</string>
+    <string name="ai_tools_switch">Let AI clients read and edit shape designs</string>
+    <string name="ai_tools_text">Local only, while the app runs: http://127.0.0.1:%1$d/mcp. From a PC over USB: adb forward tcp:%1$d tcp:%1$d. Each edit is one undo step.</string>
+    <string name="ai_tools_error">Not running: %1$s</string>
+    <string name="ai_token">Access token</string>
+    <string name="ai_token_show">Show</string>
+    <string name="ai_token_hide">Hide</string>
+    <string name="ai_copy_command">Copy setup command</string>
+    <string name="ai_command_copied">Copied the claude mcp add command</string>
+    <string name="ai_new_token">New token</string>
+    <string name="ai_design_set">AI: changed the design (%1$d shapes)</string>
     <string name="back_again_quit">Press Back again to quit</string>
     <string name="quit_title">Quit?</string>
     <string name="quit_text">Your plates are kept for the next start.</string>

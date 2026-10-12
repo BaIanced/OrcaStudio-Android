@@ -1,6 +1,6 @@
 # AI tool layer: MCP server in the app (design note)
 
-Status: design only, nothing built yet (2026-10-12). Roadmap step 2 after the shape builder.
+Status: milestone 1 built (2026-10-12: toggle, token, `design_get` / `design_describe` / `design_set`, `ai/McpServer.kt`, `ai/McpTools.kt`); rest is design. Roadmap step 2 after the shape builder.
 
 Goal: let an AI client (Claude Code, Claude Desktop, any MCP client) model with the shape builder
 and inspect the plate **without the user writing code**, while every risky action stays behind an

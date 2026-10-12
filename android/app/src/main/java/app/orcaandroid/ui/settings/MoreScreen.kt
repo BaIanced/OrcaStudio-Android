@@ -87,6 +87,9 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
             UndoLimitRow(state.undoLimit, vm::setUndoLimit)
             AutoSaveRow(state.autoSaveSeconds, vm::setAutoSave)
 
+            SectionTitle(stringResource(R.string.ai_tools))
+            AiToolsSection(state, vm)
+
             SectionTitle(stringResource(R.string.printers_and_presets))
             Entry(stringResource(R.string.manage_printers), stringResource(R.string.n_printers_selected, state.selectedPrinters.size)) { vm.presets.openPrinterSetup() }
             Entry(stringResource(R.string.filament_vendors), stringResource(R.string.filament_vendors_text)) { dialog = "vendors" }
@@ -196,6 +199,34 @@ private fun UndoLimitRow(limit: Int, onChange: (Int) -> Unit) {
             isError = value == null,
             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
         )
+    }
+}
+
+/** The MCP server for AI clients: switch, address, token and a ready-made `claude mcp add` command. */
+@Composable
+private fun AiToolsSection(state: UiState, vm: AppViewModel) {
+    val context = LocalContext.current
+    val port = app.orcaandroid.core.AI_TOOLS_PORT
+    SwitchRow(stringResource(R.string.ai_tools_switch), state.aiTools, onChange = vm::setAiTools)
+    Text(stringResource(R.string.ai_tools_text, port), style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant)
+    if (!state.aiTools) return
+    state.aiError?.let { Text(stringResource(R.string.ai_tools_error, it), style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.error) }
+    var shown by remember { mutableStateOf(false) }
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(stringResource(R.string.ai_token) + ": " + if (shown) state.aiToken else "••••" + state.aiToken.takeLast(4),
+            Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+        TextButton(onClick = { shown = !shown }) { Text(stringResource(if (shown) R.string.ai_token_hide else R.string.ai_token_show)) }
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        TextButton(onClick = {
+            val cmd = "claude mcp add --transport http orca http://127.0.0.1:$port/mcp --header \"Authorization: Bearer ${state.aiToken}\""
+            context.getSystemService(android.content.ClipboardManager::class.java)
+                .setPrimaryClip(android.content.ClipData.newPlainText("MCP setup", cmd))
+            vm.toast(context.getString(R.string.ai_command_copied))
+        }) { Text(stringResource(R.string.ai_copy_command)) }
+        TextButton(onClick = vm::newAiToken) { Text(stringResource(R.string.ai_new_token)) }
     }
 }
 
