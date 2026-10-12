@@ -9,6 +9,7 @@ import app.orcaandroid.scad.Repeat
 import app.orcaandroid.scad.Shape
 import app.orcaandroid.scad.ShapeDesign
 import app.orcaandroid.scad.Sketch
+import app.orcaandroid.ui.PresetController
 import app.orcaandroid.ui.ScadController
 import app.orcaandroid.ui.ShapeController
 import app.orcaandroid.ui.Store
@@ -24,12 +25,12 @@ import org.json.JSONObject
  * thread, so every edit shows up live in the editor and is one undo step there. Putting a design on
  * the plate waits for the user's Allow on screen.
  */
-class McpTools(private val store: Store, private val scad: ScadController, private val shapes: ShapeController) {
+class McpTools(private val store: Store, private val scad: ScadController, private val shapes: ShapeController, presets: PresetController) {
 
     /** [run] returns the reply text, or a ready-made `content` [JSONArray] (e.g. an image) for [reply]. */
-    private class Tool(val name: String, val description: String, val schema: JSONObject, val run: suspend (JSONObject) -> Any)
+    internal class Tool(val name: String, val description: String, val schema: JSONObject, val run: suspend (JSONObject) -> Any)
 
-    private class ToolError(message: String) : Exception(message)
+    internal class ToolError(message: String) : Exception(message)
 
     /** The on-screen question a tool waits for (main thread only). */
     private var pending: CompletableDeferred<Boolean>? = null
@@ -38,6 +39,8 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
     fun answer(allow: Boolean) {
         pending?.complete(allow)
     }
+
+    private val presetTools = PresetTools(store, presets, ::confirm)
 
     private val tools = listOf(
         Tool("design_get", "Read: the shape-builder design in the app's design editor, as JSON " +
@@ -140,7 +143,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         Tool("plate_arrange", "Plate edit: arranges the objects on a plate (default the active one), or with all true " +
             "every object over all plates (plates are added when they don't fit). $PLATE_EDIT",
             obj(emptyList(), "plate" to p("integer", "Plate number"), "all" to p("boolean", "true = every plate"))) { arrange(it) },
-    )
+    ) + presetTools.tools
 
     fun list(): JSONArray = JSONArray().apply {
         tools.forEach { put(JSONObject().put("name", it.name).put("description", it.description).put("inputSchema", it.schema)) }
@@ -624,12 +627,12 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         private val COPY = arrayOf("object" to p("integer", "Object number from plate_describe"),
             "copy" to p("integer", "Copy number from plate_describe; default 1"))
 
-        private fun p(type: String, description: String) = JSONObject().put("type", type).put("description", description)
+        internal fun p(type: String, description: String) = JSONObject().put("type", type).put("description", description)
         private fun vec(description: String) = JSONObject().put("type", "array").put("items", JSONObject().put("type", "number"))
             .put("minItems", 3).put("maxItems", 3).put("description", description)
         private fun ids() = JSONObject().put("type", "array").put("items", JSONObject().put("type", "integer")).put("description", "Shape ids")
 
-        private fun obj(required: List<String> = emptyList(), vararg props: Pair<String, JSONObject>) = JSONObject().put("type", "object")
+        internal fun obj(required: List<String> = emptyList(), vararg props: Pair<String, JSONObject>) = JSONObject().put("type", "object")
             .put("properties", JSONObject().apply { props.forEach { (k, v) -> put(k, v) } })
             .apply { if (required.isNotEmpty()) put("required", JSONArray(required)) }
 
@@ -668,7 +671,9 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             "the JSON, design_snapshot for a picture when shape matters. Change it with the shape_* / dim_* / sketch_set tools " +
             "(or design_set for a whole new design), check with design_preview, and ask design_to_plate to put it on the plate " +
             "(the user confirms on screen). plate_describe shows the print set-up and the plate itself (separate from the design); " +
-            "the object_* / plate_arrange tools move, turn, scale, copy and arrange the objects on it. " +
+            "the object_* / plate_arrange tools move, turn, scale, copy and arrange the objects on it. Print settings: preset_list / " +
+            "preset_get / setting_find read the printer, process and filament presets, settings_edit changes settings as unsaved " +
+            "edits, preset_select switches process / filament, preset_save and preset_delete wait for the user's Allow. " +
             "Every edit is one undo step the user can revert in the app."
     }
 }

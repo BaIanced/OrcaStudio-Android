@@ -37,7 +37,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val shapes = ShapeController(store, scad)
 
     /** MCP server for AI clients (Settings > AI tools); runs while this view model lives and the switch is on. */
-    private val aiTools = McpTools(store, scad, shapes)
+    private val aiTools = McpTools(store, scad, shapes, presets)
     private val mcp = McpServer(AI_TOOLS_PORT, { store.settings.aiToken }, aiTools)
 
     /** Desktop translations of option labels for the device language. */

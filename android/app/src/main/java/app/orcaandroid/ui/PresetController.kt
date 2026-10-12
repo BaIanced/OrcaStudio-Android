@@ -135,18 +135,11 @@ class PresetController(private val store: Store, private val device: DeviceContr
         runCatching { engine.optionStates() }.onSuccess { st -> store.update { it.copy(optionStates = st) } }
     }
 
-    fun selectPrint(name: String) = store.launch {
-        settings.setLastPrint(store.value.printer ?: return@launch, name)
-        store.update { it.copy(print = name, overrides = it.overrides - PresetType.PRINT, results = emptyMap()) }
-        refreshPresetValues(listOf(PresetType.PRINT))
-    }
+    fun selectPrint(name: String) = store.launch { selectPrintNow(name) }
 
     // --- Filament slots ------------------------------------------------------------------------------
 
-    fun setFilament(slot: Int, name: String) {
-        rememberMyFilament(name)
-        updateFilaments { list -> list.mapIndexed { i, f -> if (i == slot) FilamentSlot(name, f.color) else f } }
-    }
+    fun setFilament(slot: Int, name: String) = store.launch { setFilamentNow(slot, name) }
 
     /**
      * Picking a user filament preset saved from a system one makes it stand in for that system preset
@@ -179,10 +172,7 @@ class PresetController(private val store: Store, private val device: DeviceContr
     fun removeFilament(slot: Int) = updateFilaments { list -> if (list.size <= 1) list else list.filterIndexed { i, _ -> i != slot } }
     fun setFilamentColor(slot: Int, color: String) = updateFilaments { list -> list.mapIndexed { i, f -> if (i == slot) f.copy(color = color) else f } }
 
-    fun setActiveFilament(slot: Int) = store.launch {
-        store.update { it.copy(activeFilament = slot.coerceIn(0, it.filaments.size - 1)) }
-        refreshPresetValues(listOf(PresetType.FILAMENT))
-    }
+    fun setActiveFilament(slot: Int) = store.launch { setActiveFilamentNow(slot) }
 
     private fun updateFilaments(transform: (List<FilamentSlot>) -> List<FilamentSlot>) = store.launch {
         val s = store.value
@@ -333,9 +323,14 @@ class PresetController(private val store: Store, private val device: DeviceContr
 
     /** Applies [edit] to the edits of [type] (filament: of the active slot) and syncs the engine. */
     private fun editOverrides(type: PresetType, edit: (Map<String, String>) -> Map<String, String>) = store.launch {
+        editOverridesNow(type, store.value.activeFilament, edit)
+    }
+
+    /** [editOverrides] for filament slot [slot], waiting until the engine has the new edits. */
+    suspend fun editOverridesNow(type: PresetType, slot: Int, edit: (Map<String, String>) -> Map<String, String>) {
         store.update { s ->
             if (type == PresetType.FILAMENT) {
-                s.copy(filaments = s.filaments.mapIndexed { i, f -> if (i == s.activeFilament) f.copy(overrides = edit(f.overrides)) else f }, results = emptyMap())
+                s.copy(filaments = s.filaments.mapIndexed { i, f -> if (i == slot) f.copy(overrides = edit(f.overrides)) else f }, results = emptyMap())
             } else {
                 s.copy(overrides = s.overrides + (type to edit(s.overrides[type].orEmpty())), results = emptyMap())
             }
@@ -344,9 +339,35 @@ class PresetController(private val store: Store, private val device: DeviceContr
         refreshOptionStates()
     }
 
-    fun savePresetAs(type: PresetType, name: String) = store.launch(store.str(R.string.saving_preset)) {
+    /** Shows filament slot [slot] in the settings editor (its values become [AppState.presetValues]). */
+    suspend fun setActiveFilamentNow(slot: Int) {
+        store.update { it.copy(activeFilament = slot.coerceIn(0, it.filaments.size - 1)) }
+        refreshPresetValues(listOf(PresetType.FILAMENT))
+    }
+
+    /** Selects process preset [name] (its unsaved edits are dropped). */
+    suspend fun selectPrintNow(name: String) {
+        settings.setLastPrint(store.value.printer ?: return, name)
+        store.update { it.copy(print = name, overrides = it.overrides - PresetType.PRINT, results = emptyMap()) }
+        refreshPresetValues(listOf(PresetType.PRINT))
+    }
+
+    /** Puts filament preset [name] in slot [slot] (its unsaved edits are dropped). */
+    suspend fun setFilamentNow(slot: Int, name: String) {
+        rememberMyFilament(name)
         val s = store.value
-        val base = s.presetName(type) ?: return@launch
+        val list = s.filaments.mapIndexed { i, f -> if (i == slot) FilamentSlot(name, f.color) else f }
+        settings.setLastFilaments(s.printer ?: return, list)
+        store.update { it.copy(filaments = list, results = emptyMap()) }
+        refreshPresetValues(listOf(PresetType.FILAMENT))
+    }
+
+    fun savePresetAs(type: PresetType, name: String) = store.launch(store.str(R.string.saving_preset)) { savePresetNow(type, name) }
+
+    /** Saves the selected preset of [type] (filament: the active slot's) with its edits as user preset [name] and selects it. */
+    suspend fun savePresetNow(type: PresetType, name: String) {
+        val s = store.value
+        val base = s.presetName(type) ?: return
         val newName = name.trim()
         val setup = engine.savePreset(type, base, newName, s.overridesOf(type))
         when (type) {
@@ -386,6 +407,18 @@ class PresetController(private val store: Store, private val device: DeviceContr
             }
         }
         refreshPresetValues(listOf(type))
+    }
+
+    /** Deletes user preset [name] of [type] that isn't selected anywhere (the selected one: [deleteSelectedPreset]). */
+    suspend fun deleteUnusedPresetNow(type: PresetType, name: String) {
+        val setup = engine.deletePreset(type, name)
+        if (type == PresetType.PRINTER) {
+            val printers = engine.printerList()
+            store.update { it.copy(printers = printers) }
+        } else {
+            store.update { it.copy(setup = setup) }
+        }
+        syncSelection()
     }
 
     fun isUserPreset(type: PresetType): Boolean {

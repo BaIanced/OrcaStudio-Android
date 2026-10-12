@@ -85,7 +85,7 @@
     <string name="auto_save_interval">Auto-save every (seconds, 10-3600)</string>
     <string name="double_back_quit">Press Back twice to quit (instead of asking)</string>
     <string name="ai_tools">AI tools (MCP)</string>
-    <string name="ai_tools_switch">Let AI clients read and edit shape designs and the plate</string>
+    <string name="ai_tools_switch">Let AI clients read and edit shape designs, the plate and print settings</string>
     <string name="ai_tools_text">Local only, while the app runs: http://127.0.0.1:%1$d/mcp. From a PC over USB (or WSA): adb forward tcp:%1$d localabstract:orcastudio_mcp. Each edit is one undo step.</string>
     <string name="ai_tools_lan">Also accept connections from the local network</string>
     <string name="ai_tools_lan_text">For clients on Wi-Fi (no USB). Plain HTTP: use only on a network you trust; the token is still required. Addresses: %1$s</string>
@@ -100,6 +100,9 @@
     <string name="ai_confirm_title">An AI client asks</string>
     <string name="ai_confirm_plate">Put the design \"%1$s\" on plate %2$d?</string>
     <string name="ai_confirm_replaces">It replaces \"%1$s\" there.</string>
+    <string name="ai_confirm_save">Save the %1$s preset \"%2$s\" with its %3$d unsaved edit(s) as your preset \"%4$s\"?</string>
+    <string name="ai_confirm_overwrites">This replaces your preset \"%1$s\".</string>
+    <string name="ai_confirm_delete">Delete your %1$s preset \"%2$s\"? This can\'t be undone.</string>
     <string name="ai_allow">Allow</string>
     <string name="ai_deny">Deny</string>
     <string name="back_again_quit">Press Back again to quit</string>
