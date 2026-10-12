@@ -96,6 +96,8 @@ data class UiState(
     val dynamicColor: Boolean = false,
     val doubleBackToQuit: Boolean = false,
     val undoLimit: Int = app.orcaandroid.core.DEFAULT_UNDO_LIMIT,
+    /** Auto-save interval in seconds; 0 = off. */
+    val autoSaveSeconds: Int = app.orcaandroid.core.DEFAULT_AUTO_SAVE_SECONDS,
 
     // Printers and presets
     val vendors: List<Vendor> = emptyList(),

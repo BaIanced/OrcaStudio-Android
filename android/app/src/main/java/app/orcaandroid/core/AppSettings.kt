@@ -27,6 +27,11 @@ class AppSettings(context: Context) {
         get() = prefs.getInt("undo_limit", DEFAULT_UNDO_LIMIT)
         set(value) = prefs.edit().putInt("undo_limit", value).apply()
 
+    /** Saves the session this often (seconds) while the plate has unsaved changes; 0 = only when the app goes to the background. */
+    var autoSaveSeconds: Int
+        get() = prefs.getInt("auto_save_seconds", DEFAULT_AUTO_SAVE_SECONDS)
+        set(value) = prefs.edit().putInt("auto_save_seconds", value).apply()
+
     /** Back on the home screen quits after pressing it twice instead of asking. */
     var doubleBackToQuit: Boolean
         get() = prefs.getBoolean("double_back_quit", false)
@@ -105,3 +110,5 @@ class AppSettings(context: Context) {
 
 const val DEFAULT_UNDO_LIMIT = 200
 const val MAX_UNDO_LIMIT = 5000
+const val DEFAULT_AUTO_SAVE_SECONDS = 60
+val AUTO_SAVE_RANGE = 10..3600

@@ -81,6 +81,8 @@
     <string name="dynamic_color">Use wallpaper colors</string>
     <string name="misc">Misc</string>
     <string name="undo_limit">Undo steps kept (1-5000)</string>
+    <string name="auto_save">Auto-save the plate</string>
+    <string name="auto_save_interval">Auto-save every (seconds, 10-3600)</string>
     <string name="double_back_quit">Press Back twice to quit (instead of asking)</string>
     <string name="back_again_quit">Press Back again to quit</string>
     <string name="quit_title">Quit?</string>

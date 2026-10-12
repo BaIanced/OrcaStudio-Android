@@ -80,6 +80,8 @@
     <string name="dynamic_color">Farben des Hintergrundbilds verwenden</string>
     <string name="misc">Sonstiges</string>
     <string name="undo_limit">Gespeicherte Rückgängig-Schritte (1-5000)</string>
+    <string name="auto_save">Platte automatisch speichern</string>
+    <string name="auto_save_interval">Automatisch speichern alle (Sekunden, 10-3600)</string>
     <string name="double_back_quit">Zum Beenden zweimal Zurück drücken (statt nachzufragen)</string>
     <string name="back_again_quit">Zum Beenden erneut Zurück drücken</string>
     <string name="quit_title">Beenden?</string>

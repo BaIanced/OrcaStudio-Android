@@ -85,6 +85,7 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
             SectionTitle(stringResource(R.string.misc))
             SwitchRow(stringResource(R.string.double_back_quit), state.doubleBackToQuit, onChange = vm::setDoubleBackToQuit)
             UndoLimitRow(state.undoLimit, vm::setUndoLimit)
+            AutoSaveRow(state.autoSaveSeconds, vm::setAutoSave)
 
             SectionTitle(stringResource(R.string.printers_and_presets))
             Entry(stringResource(R.string.manage_printers), stringResource(R.string.n_printers_selected, state.selectedPrinters.size)) { vm.presets.openPrinterSetup() }
@@ -193,6 +194,30 @@ private fun UndoLimitRow(limit: Int, onChange: (Int) -> Unit) {
             Modifier.width(110.dp),
             singleLine = true,
             isError = value == null,
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+        )
+    }
+}
+
+/** Desktop Preferences > Backup: a switch and the period in seconds. */
+@Composable
+private fun AutoSaveRow(seconds: Int, onChange: (Int) -> Unit) {
+    val range = app.orcaandroid.core.AUTO_SAVE_RANGE
+    var last by remember { mutableStateOf(if (seconds > 0) seconds else app.orcaandroid.core.DEFAULT_AUTO_SAVE_SECONDS) }
+    var text by remember(seconds) { mutableStateOf(last.toString()) }
+    SwitchRow(stringResource(R.string.auto_save), seconds > 0, onChange = { on -> onChange(if (on) last else 0) })
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(stringResource(R.string.auto_save_interval), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+        OutlinedTextField(
+            text,
+            { t ->
+                text = t.filter(Char::isDigit).take(4)
+                text.toIntOrNull()?.takeIf { it in range }?.let { last = it; if (seconds > 0 && it != seconds) onChange(it) }
+            },
+            Modifier.width(110.dp),
+            enabled = seconds > 0,
+            singleLine = true,
+            isError = text.toIntOrNull()?.takeIf { it in range } == null,
             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
         )
     }

@@ -13,6 +13,8 @@ import java.io.File
 import java.util.zip.ZipFile
 import org.json.JSONObject
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /** Opening models, projects and G-code, saving and exporting, and the recent files. */
@@ -106,15 +108,17 @@ class FileController(
     private val sessionDir get() = File(store.app.filesDir, "session").apply { mkdirs() }
     private val sessionProject get() = File(sessionDir, "session.3mf")
     private val sessionInfo get() = File(sessionDir, "session.json")
+    /** Auto-save and the save on going to the background share the temporary file. */
+    private val sessionLock = Mutex()
 
     /** Saves the scene, presets and setting changes as a project (called when the app goes to the background). */
-    suspend fun saveSession() {
+    suspend fun saveSession() = sessionLock.withLock {
         val s = store.value
         if (s.phase != Phase.READY) return
         // A calibration test cannot be resumed from a project; an empty plate needs no session.
         if (s.scene.isEmpty || s.calibration != null) {
             sessionProject.delete(); sessionInfo.delete()
-            return
+            return@withLock
         }
         presets.syncSelection()
         val tmp = File(sessionDir, "session.tmp.3mf")
