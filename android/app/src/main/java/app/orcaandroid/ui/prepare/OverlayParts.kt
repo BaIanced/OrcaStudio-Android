@@ -63,6 +63,9 @@ import app.orcaandroid.render.PlateView
 import app.orcaandroid.ui.AppViewModel
 import app.orcaandroid.ui.UiState
 import app.orcaandroid.ui.components.framePlate
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 
 /** Opacity of the control backgrounds over the 3D view (Layout lab). */
 val LocalOverlayAlpha = compositionLocalOf { 0.85f }
@@ -101,15 +104,18 @@ fun PlateTabs(state: UiState, vm: AppViewModel, view: PlateView?, modifier: Modi
         }
     }) { plate ->
             val active = plate.index == state.activePlate
+            val name = stringResource(R.string.plate_n, plate.index + 1)
             Box {
+                // Just the number, like the filmstrip (user, 2026-10-13); "Plate n" for TalkBack.
                 Column(
                     Modifier.clickable {
                         if (active) plateMenu = plate.index else { vm.scene.selectPlate(plate.index); view?.framePlate(plate.index) }
-                    }.padding(horizontal = 12.dp).height(44.dp),
+                    }.semantics(mergeDescendants = true) { contentDescription = name }
+                        .widthIn(min = 44.dp).padding(horizontal = 8.dp).height(44.dp),
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Text(stringResource(R.string.plate_n, plate.index + 1), style = MaterialTheme.typography.labelLarge,
+                    Text("${plate.index + 1}", style = MaterialTheme.typography.labelLarge,
                         fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
                         color = if (active) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(6.dp))

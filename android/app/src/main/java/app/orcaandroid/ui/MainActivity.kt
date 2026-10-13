@@ -16,7 +16,12 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.darkColorScheme
@@ -55,7 +60,12 @@ class MainActivity : ComponentActivity() {
             OrcaTheme(state.themeMode, state.dynamicColor) {
                 Immersive(state.lab.fullscreenPortrait)
                 Surface(Modifier.fillMaxSize()) {
-                    Box(Modifier.safeDrawingPadding()) { AppScaffold(state, vm) }
+                    // Landscape hides the bars: use the camera cutout's strip too instead of leaving it empty
+                    // (user, 2026-10-13); the rail goes there, other content keeps clear of it (AppScaffold).
+                    val landscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation ==
+                        android.content.res.Configuration.ORIENTATION_LANDSCAPE
+                    Box(if (landscape) Modifier.windowInsetsPadding(WindowInsets.systemBars.union(WindowInsets.ime))
+                        else Modifier.safeDrawingPadding()) { AppScaffold(state, vm) }
                 }
             }
         }

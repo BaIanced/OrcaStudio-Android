@@ -10,6 +10,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -164,11 +169,12 @@ private fun MainLayout(state: UiState, vm: AppViewModel) {
                         )
                     }
                 }
-                content(Modifier.weight(1f).fillMaxHeight())
+                // The rail may sit over the camera cutout (MainActivity); the content keeps clear of it.
+                content(Modifier.weight(1f).fillMaxHeight().windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.End)))
             }
         } else {
             Column(Modifier.fillMaxSize()) {
-                content(Modifier.weight(1f).fillMaxWidth())
+                content(Modifier.weight(1f).fillMaxWidth().windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal)))
                 NavigationBar {
                     DESTINATIONS.forEach { d ->
                         NavigationBarItem(

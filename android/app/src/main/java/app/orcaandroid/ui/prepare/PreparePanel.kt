@@ -65,6 +65,8 @@ import app.orcaandroid.ui.components.PickerField
 import app.orcaandroid.ui.components.PickerItem
 import app.orcaandroid.ui.components.SectionTitle
 import app.orcaandroid.ui.components.Vec3Fields
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 
 /** Side panel (tablet) / bottom sheet (phone) of the Prepare screen. */
 @Composable
@@ -203,9 +205,10 @@ private fun QuickSettings(state: UiState, vm: AppViewModel) {
 
 @Composable
 internal fun SwitchRow(label: String, checked: Boolean, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    // The whole row toggles, not just the switch.
+    Row(Modifier.fillMaxWidth().toggleable(checked, enabled = enabled, role = Role.Switch, onValueChange = onChange), verticalAlignment = Alignment.CenterVertically) {
         Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-        Switch(checked, onChange, enabled = enabled)
+        Switch(checked, null, enabled = enabled)
     }
 }
 
