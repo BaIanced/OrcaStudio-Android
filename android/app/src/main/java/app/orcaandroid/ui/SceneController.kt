@@ -233,7 +233,11 @@ class SceneController(private val store: Store, private val presets: PresetContr
         val scene = engine.deletePlates(plates.toList())
         store.applyScene(scene)
         store.update { it.copy(activePlate = (active - plates.count { p -> p < active }).coerceIn(0, scene.plates.lastIndex)) }
+        lastDelete = scene.plates.size to active
     }
+
+    /** Plate count after the last plate delete and the plate that was active before it, so its undo can restore it. */
+    private var lastDelete: Pair<Int, Int>? = null
     /**
      * Sets the plate's type. It also becomes the default for new plates until the user picks another
      * (user, 2026-10-13); other plates that followed the old default keep it.
@@ -250,8 +254,15 @@ class SceneController(private val store: Store, private val presets: PresetContr
     fun setWipeTower(plate: Int, pos: Pair<Float, Float>?) = store.sceneOp { engine.setWipeTower(plate, pos) }
 
     fun undo() = store.launch {
+        val before = store.value.scene.plates.size
         val scene = engine.undo()
         store.applyScene(scene)
+        lastDelete?.let { (after, active) ->
+            if (before == after && scene.plates.size > after) {
+                store.update { it.copy(activePlate = active.coerceIn(0, scene.plates.lastIndex)) }
+                lastDelete = null
+            }
+        }
         if (store.value.calibration != null && !scene.calibrationActive)
             store.update { it.copy(calibration = null, projectName = it.nameBeforeCalibration) }
     }

@@ -51,7 +51,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.runtime.saveable.rememberSaveable
 import app.orcaandroid.ui.scad.ScadReopenButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -258,13 +257,12 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
     if (wide) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val total = maxWidth
-            var editorWidth by rememberSaveable { mutableStateOf(0f) }
-            val width = (if (editorWidth > 0f) editorWidth.dp else (total * 0.45f).coerceIn(420.dp, 640.dp))
+            val width = (if (ScadEditorSize.width > 0f) ScadEditorSize.width.dp else (total * 0.45f).coerceIn(420.dp, 640.dp))
                 .coerceIn(300.dp, (total - 240.dp).coerceAtLeast(300.dp))
             Row(Modifier.fillMaxSize()) {
                 if (scad != null) {
                     scadView(Modifier.weight(1f).fillMaxHeight())
-                    DragHandle(vertical = true) { d -> editorWidth = (width - d).value }
+                    DragHandle(vertical = true) { d -> ScadEditorSize.width = (width - d).value }
                     Surface(Modifier.width(width).fillMaxHeight(), tonalElevation = 1.dp) { ScadPanel(scad, vm, embeddedPreview = false) }
                 } else {
                     viewport(Modifier.weight(1f).fillMaxHeight())
@@ -302,11 +300,10 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
             ScadReopenButton({ vm.setScadHidden(false) }, Modifier.align(Alignment.BottomEnd).padding(16.dp))
         } else BoxWithConstraints(Modifier.fillMaxSize()) {
             val total = maxHeight
-            var editorHeight by rememberSaveable { mutableStateOf(0f) }
-            val height = (if (editorHeight > 0f) editorHeight.dp else total * 0.55f).coerceIn(200.dp, (total - 120.dp).coerceAtLeast(200.dp))
+            val height = (if (ScadEditorSize.height > 0f) ScadEditorSize.height.dp else total * 0.55f).coerceIn(200.dp, (total - 120.dp).coerceAtLeast(200.dp))
             Column(Modifier.fillMaxSize()) {
                 scadView(Modifier.weight(1f).fillMaxWidth())
-                DragHandle(vertical = false) { d -> editorHeight = (height - d).value }
+                DragHandle(vertical = false) { d -> ScadEditorSize.height = (height - d).value }
                 Surface(Modifier.height(height).fillMaxWidth()) { ScadPanel(scad, vm, onHide = { vm.setScadHidden(true) }, embeddedPreview = false) }
             }
         }
@@ -342,6 +339,12 @@ private val PANEL_DEFAULT = 380.dp
 private val PANEL_MIN = 300.dp
 /** Let go narrower than this and the panel tucks away. */
 private val PANEL_SNAP = 200.dp
+
+/** The OpenSCAD editor's dragged size in dp (0 = default); kept for the session, so leaving Prepare doesn't reset it. */
+private object ScadEditorSize {
+    var width by mutableStateOf(0f)
+    var height by mutableStateOf(0f)
+}
 
 /** The settings panel's edge on wide layouts: drag to resize, tap to tuck the panel away or bring it back. */
 @Composable
