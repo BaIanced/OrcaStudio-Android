@@ -79,6 +79,15 @@ import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import app.orcaandroid.ui.components.ConfirmDialog
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
 
 /** Opacity of the control backgrounds over the 3D view (Layout lab). */
 val LocalOverlayAlpha = compositionLocalOf { 0.85f }
@@ -197,26 +206,40 @@ internal fun PlateRow(state: UiState, vm: AppViewModel, modifier: Modifier, spac
             verticalAlignment = align) {
             items(plates.size) { item(plates[it], picks) }
         }
-        if (picks.active) PickActions(state, vm, picks) else add()
+        // While picking, the add slot turns into a stop button of the same size, so the plates don't shift
+        // under the finger; the delete button floats beside the row (above the filmstrip, below the tabs).
+        Box(contentAlignment = Alignment.Center) {
+            Box(if (picks.active) Modifier.alpha(0f).clearAndSetSemantics {} else Modifier) { add() }
+            if (picks.active) {
+                IconButton(onClick = { picks.picked = emptySet() }, Modifier.matchParentSize()) {
+                    Icon(Icons.Default.Close, stringResource(R.string.cancel))
+                }
+                PickDelete(state, vm, picks, above = align == Alignment.Bottom)
+            }
+        }
     }
 }
 
-/** While picking: delete the picked plates (asks only when one holds objects) or stop. */
+/** "Delete n plates" next to the plate row's end; asks only when a picked plate holds objects. */
 @Composable
-private fun PickActions(state: UiState, vm: AppViewModel, picks: PlatePicks) {
+private fun PickDelete(state: UiState, vm: AppViewModel, picks: PlatePicks, above: Boolean) {
     var confirm by remember { mutableStateOf(false) }
     val title = pluralStringResource(R.plurals.delete_plates, picks.picked.size, picks.picked.size)
     val delete = { vm.scene.deletePlates(picks.picked); picks.picked = emptySet() }
-    Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surface.copy(alpha = LocalOverlayAlpha.current)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = { if (picks.picked.any { state.scene.objectsOn(it).isNotEmpty() }) confirm = true else delete() }) {
-                Icon(Icons.Default.Delete, null, Modifier.size(18.dp))
-                Spacer(Modifier.width(6.dp))
-                Text(title)
-            }
-            Tip(stringResource(R.string.cancel)) {
-                IconButton(onClick = { picks.picked = emptySet() }) { Icon(Icons.Default.Close, stringResource(R.string.cancel)) }
-            }
+    val gap = with(LocalDensity.current) { 6.dp.roundToPx() }
+    val position = remember(above, gap) {
+        object : PopupPositionProvider {
+            override fun calculatePosition(anchorBounds: IntRect, windowSize: IntSize, layoutDirection: LayoutDirection, popupContentSize: IntSize) =
+                IntOffset((anchorBounds.right - popupContentSize.width).coerceIn(0, (windowSize.width - popupContentSize.width).coerceAtLeast(0)),
+                    if (above) anchorBounds.top - popupContentSize.height - gap else anchorBounds.bottom + gap)
+        }
+    }
+    Popup(popupPositionProvider = position) {
+        FilledTonalButton(onClick = { if (picks.picked.any { state.scene.objectsOn(it).isNotEmpty() }) confirm = true else delete() },
+            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)) {
+            Icon(Icons.Default.Delete, null, Modifier.size(18.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(title)
         }
     }
     if (confirm) ConfirmDialog(title, stringResource(R.string.delete_plates_text), stringResource(R.string.delete), delete) { confirm = false }
