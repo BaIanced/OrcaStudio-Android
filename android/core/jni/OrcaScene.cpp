@@ -569,6 +569,12 @@ json OrcaEngine::load_models(const std::vector<std::string> &paths, bool append,
     }
     if (added.empty())
         throw std::runtime_error("The file does not contain any printable object");
+    // A placed layout wider than one bed (e.g. a multi-plate 3MF imported as models) would leave
+    // objects beside the plates; arrange it instead, which spills the rest onto new plates.
+    if (keep_layout)
+        for (const auto &[obj, i] : added)
+            if (plate_at(obj->instance_bounding_box(i).center(), m_plates.size(), rect) < 0)
+                keep_layout = false;
 
     // A single placed file (e.g. a 3MF plate) keeps its layout; everything else is arranged
     // around what is already on the plate.
@@ -1118,24 +1124,28 @@ json OrcaEngine::add_plate()
     m_plates.push_back({});
     relayout(old_count, m_layout_rect);
     // Objects outside every plate (an import with more than fit, or left beside the grid): the new
-    // plate takes the one nearest to it, instead of appearing at a grid spot that may hold none.
+    // plate takes the one nearest to it, instead of appearing at a grid spot that may hold none. A
+    // floater that already lies in the new plate's spot keeps it alone (no overlap at the centre).
     const std::array<double, 4> rect = bed_rect();
     const int plate = int(m_plates.size()) - 1;
     const auto origin = plate_origin(plate);
     const Vec2d centre(origin[0] + (rect[0] + rect[2]) / 2, origin[1] + (rect[1] + rect[3]) / 2);
     ModelInstance *nearest = nullptr;
     Vec2d nearest_centre;
+    bool occupied = false;
     for (ModelObject *obj : m_model->objects)
         for (size_t i = 0; i < obj->instances.size(); ++i) {
             const Vec3d c = obj->instance_bounding_box(i).center();
-            if (plate_at(c, m_plates.size(), rect) >= 0)
+            const int at = plate_at(c, m_plates.size(), rect);
+            occupied |= at == plate;
+            if (at >= 0)
                 continue;
             if (!nearest || (c.head<2>() - centre).squaredNorm() < (nearest_centre - centre).squaredNorm()) {
                 nearest = obj->instances[i];
                 nearest_centre = c.head<2>();
             }
         }
-    if (nearest) {
+    if (nearest && !occupied) {
         nearest->set_offset(nearest->get_offset() + Vec3d(centre.x() - nearest_centre.x(), centre.y() - nearest_centre.y(), 0.));
         nearest->get_object()->invalidate_bounding_box();
     }
