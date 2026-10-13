@@ -40,7 +40,7 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- "Open with" / "Share to" for models, projects, SVGs and G-code. Many file managers
+            <!-- "Open with" / "Share to" for models, projects, SVGs, G-code, OpenSCAD and zips of them. Many file managers
                  report these as application/octet-stream, so that is accepted too. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
@@ -60,6 +60,10 @@
                 <data android:mimeType="application/step" />
                 <data android:mimeType="text/x.gcode" />
                 <data android:mimeType="text/x-gcode" />
+                <data android:mimeType="application/x-openscad" />
+                <data android:mimeType="text/x-openscad" />
+                <data android:mimeType="application/zip" />
+                <data android:mimeType="application/x-zip-compressed" />
                 <data android:mimeType="application/octet-stream" />
             </intent-filter>
         </activity>

@@ -33,7 +33,14 @@ class FileController(
     /** Opens models (appended to the plate), a project (replacing the scene) or a G-code file (preview). */
     fun openModels(uris: List<Uri>, append: Boolean = true) = store.launch(store.str(R.string.loading_model)) {
         if (uris.isEmpty()) return@launch
-        val all = uris.map { resources.importFile(it) }
+        val imported = uris.map { resources.importFile(it) }
+        // A zip (a model site's download, "open with") opens the model files inside it.
+        val unpacked = withContext(Dispatchers.IO) { imported.map { ModelDownloads.modelFiles(it) } }
+        val all = unpacked.flatten()
+        if (all.isEmpty()) {
+            store.toast(store.str(R.string.models_no_files))
+            return@launch
+        }
         // OpenSCAD sources open in the editor; with several (a design and its libraries), the one no other includes.
         val sources = all.filter { it.name.endsWith(".scad", true) }
         if (sources.isNotEmpty()) {
@@ -54,7 +61,7 @@ class FileController(
         }
         val s = engine.loadModels(files.map { it.path }, append = append || !store.value.scene.isEmpty, plate = store.value.activePlate)
         store.applyScene(s)
-        uris.forEachIndexed { i, u -> if (all[i] in files) rememberRecent(u, all[i].name, false) }
+        uris.forEachIndexed { i, u -> if (unpacked[i].any { it in files }) rememberRecent(u, imported[i].name, false) }
         store.update { it.copy(selection = Selection(s.objects.lastIndex), multiSelection = emptyList(), screen = Screen.PREPARE) }
     }
 
@@ -71,9 +78,7 @@ class FileController(
             store.toast(store.str(R.string.presets_imported, 1))
             return@launch
         }
-        val files = withContext(Dispatchers.IO) { ModelDownloads.modelFiles(file) }
-        if (files.isEmpty()) store.toast(store.str(R.string.models_no_files))
-        else openModels(files.map { Uri.fromFile(it) })
+        openModels(listOf(Uri.fromFile(file)))
     }
 
     /** 3MF files with a desktop project config are opened as projects (with plates and settings). */
