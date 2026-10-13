@@ -1,11 +1,15 @@
 package app.orcaandroid.net
 
+import android.graphics.Bitmap
+import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import java.io.ByteArrayInputStream
 
 /**
- * Ad blocking for the Models tab's browser: requests to ad networks get an empty answer, and the
- * slots the sites keep for them are hidden. Thingiverse runs Raptive (AdThrive) with header bidding;
+ * Ad blocking for the app's WebViews ([Client]): requests to ad networks get an empty answer, and
+ * the slots the sites keep for them are hidden. Thingiverse runs Raptive (AdThrive) with header bidding;
  * the hosts are the ones its pages requested (2026-10-12) plus common ad exchanges.
  */
 object AdBlock {
@@ -38,7 +42,15 @@ object AdBlock {
         }
     }
 
-    fun emptyResponse() = WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream(ByteArray(0)))
+    private fun emptyResponse() = WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream(ByteArray(0)))
+
+    /** The client every app WebView uses; overrides of the page callbacks call super. */
+    open class Client : WebViewClient() {
+        override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
+            if (blocks(request.url.host)) emptyResponse() else null
+        override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) = view.evaluateJavascript(HIDE_JS, null)
+        override fun onPageFinished(view: WebView, url: String?) = view.evaluateJavascript(HIDE_JS, null)
+    }
 
     /** Hides the ad slots left behind (Thingiverse's own wrappers keep their size and border). */
     const val HIDE_JS = """(function(){

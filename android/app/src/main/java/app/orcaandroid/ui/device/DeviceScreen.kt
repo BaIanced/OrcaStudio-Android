@@ -6,7 +6,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalContext
 import app.orcaandroid.net.ObnCredentials
 import android.webkit.WebView
-import android.webkit.WebViewClient
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -371,11 +370,12 @@ private fun WebUi(connection: PrinterConnection, modifier: Modifier) {
                         settings.javaScriptEnabled = true
                         settings.domStorageEnabled = true
                         settings.mediaPlaybackRequiresUserGesture = false
-                        webViewClient = object : WebViewClient() {
+                        webViewClient = object : app.orcaandroid.net.AdBlock.Client() {
                             override fun onReceivedError(view: WebView, request: android.webkit.WebResourceRequest, error: android.webkit.WebResourceError) {
                                 if (request.isForMainFrame) loadError = "${error.description} (${error.errorCode})"
                             }
                             override fun onPageFinished(view: WebView, pageUrl: String?) {
+                                super.onPageFinished(view, pageUrl)
                                 if (loadError != null && view.progress == 100 && view.title?.isNotBlank() == true) loadError = null
                             }
                         }

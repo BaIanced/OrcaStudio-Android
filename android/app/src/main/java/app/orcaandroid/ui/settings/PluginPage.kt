@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import android.util.Log
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
-import android.webkit.WebViewClient
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -110,7 +109,7 @@ internal fun PluginPageDialog(pluginKey: String, capability: String, onClose: ()
                                         settings.javaScriptEnabled = true
                                         settings.domStorageEnabled = true
                                         addJavascriptInterface(bridge, "wx")
-                                        webViewClient = WebViewClient()
+                                        webViewClient = app.orcaandroid.net.AdBlock.Client()
                                         // Like the desktop's SetPage content: an opaque origin, links load in place.
                                         loadDataWithBaseURL(null, withBridge(page), "text/html", "utf-8", null)
                                         web = this

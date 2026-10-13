@@ -10,7 +10,6 @@ import android.webkit.JavascriptInterface
 import android.webkit.URLUtil
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
-import android.webkit.WebViewClient
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -140,7 +139,7 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel, d
         }
         android.webkit.CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
         addJavascriptInterface(Bridge(), "orcaNative")
-        webViewClient = object : WebViewClient() {
+        webViewClient = object : AdBlock.Client() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val url = request.url.toString()
                 if (ModelDownloads.isSlicerLink(url)) {
@@ -151,16 +150,14 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel, d
                 // Other apps' links (mailto:, intent:, market:) are not followed inside the tab.
                 return request.url.scheme !in setOf("http", "https")
             }
-            override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest) =
-                if (AdBlock.blocks(request.url.host)) AdBlock.emptyResponse() else null
             override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
+                super.onPageStarted(view, url, favicon)
                 view.evaluateJavascript(BRIDGE_JS, null)
-                view.evaluateJavascript(AdBlock.HIDE_JS, null)
                 updateNav()
             }
             override fun onPageFinished(view: WebView, url: String?) {
+                super.onPageFinished(view, url)
                 view.evaluateJavascript(BRIDGE_JS, null)
-                view.evaluateJavascript(AdBlock.HIDE_JS, null)
                 view.evaluateJavascript(ZOOM_JS, null)
                 if (site ==ModelSite.MAKERWORLD && !fullSite) view.evaluateJavascript(MW_TRIM_JS, null)
                 updateNav()

@@ -5,7 +5,6 @@ import android.content.Intent
 import android.net.Uri
 import android.util.Log
 import android.webkit.WebView
-import android.webkit.WebViewClient
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -300,7 +299,7 @@ private fun OrcaCloudLoginDialog(onClose: (error: String?) -> Unit, onLogin: (lo
                                 settings.domStorageEnabled = true
                                 // The page looks for window.wx (or webkit.messageHandlers.wx) when it loads.
                                 addJavascriptInterface(bridge, "wx")
-                                webViewClient = WebViewClient()
+                                webViewClient = app.orcaandroid.net.AdBlock.Client()
                                 web = this
                                 loadUrl(OrcaCloud.loginUrl())
                             }
