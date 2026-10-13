@@ -3,7 +3,6 @@ package app.orcaandroid.ui.settings
 import android.annotation.SuppressLint
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
-import android.webkit.WebViewClient
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -112,7 +111,7 @@ internal fun PluginConfigDialog(pluginKey: String, capability: Plugins.Capabilit
                                             android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.MATCH_PARENT)
                                         settings.javaScriptEnabled = true
                                         addJavascriptInterface(bridge, "orcaConfigHost")
-                                        webViewClient = WebViewClient()
+                                        webViewClient = app.orcaandroid.net.AdBlock.Client()
                                         loadDataWithBaseURL(null, document, "text/html", "utf-8", null)
                                         web = this
                                     }

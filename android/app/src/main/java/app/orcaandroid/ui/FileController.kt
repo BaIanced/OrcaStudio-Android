@@ -99,7 +99,11 @@ class FileController(
         if (printer != null) presets.selectPrinterNow(printer, info.print, filaments.ifEmpty { null })
         store.update { st ->
             val slots = if (filaments.isEmpty()) st.filaments
-            else filaments.map { f -> if (st.setup?.filaments?.any { it.name == f.preset } == true) f else f.copy(preset = st.filaments.first().preset) }
+            else filaments.mapIndexed { i, f ->
+                // Keep the AMS tray selectPrinterNow found for the slot.
+                val src = st.filaments.getOrNull(i)?.takeIf { it.preset == f.preset }?.source
+                if (st.setup?.filaments?.any { it.name == f.preset } == true) f.copy(source = src) else f.copy(preset = st.filaments.first().preset)
+            }
             st.copy(filaments = slots, overrides = if (info.printOverrides.isEmpty()) st.overrides else st.overrides + (PresetType.PRINT to info.printOverrides))
         }
         presets.refreshPresetValues(listOf(PresetType.FILAMENT, PresetType.PRINT))

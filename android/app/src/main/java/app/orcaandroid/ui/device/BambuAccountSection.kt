@@ -5,7 +5,6 @@ import android.net.Uri
 import android.util.Log
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
-import android.webkit.WebViewClient
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -196,10 +195,15 @@ private fun BambuLoginDialog(onClose: (error: String?) -> Unit, onLogin: (login:
                                 settings.javaScriptEnabled = true
                                 settings.domStorageEnabled = true
                                 addJavascriptInterface(bridge, "orcaNative")
-                                webViewClient = object : WebViewClient() {
-                                    override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) =
+                                webViewClient = object : app.orcaandroid.net.AdBlock.Client() {
+                                    override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
+                                        super.onPageStarted(view, url, favicon)
                                         view.evaluateJavascript(BRIDGE_JS, null)
-                                    override fun onPageFinished(view: WebView, url: String?) = view.evaluateJavascript(BRIDGE_JS, null)
+                                    }
+                                    override fun onPageFinished(view: WebView, url: String?) {
+                                        super.onPageFinished(view, url)
+                                        view.evaluateJavascript(BRIDGE_JS, null)
+                                    }
                                 }
                                 web = this
                             }

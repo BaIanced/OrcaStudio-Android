@@ -10,7 +10,6 @@ import android.webkit.JavascriptInterface
 import android.webkit.URLUtil
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
-import android.webkit.WebViewClient
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -36,6 +35,20 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TextButton
@@ -92,6 +105,16 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel, d
      */
     var fullSite by mutableStateOf(prefs.getBoolean(PREF_FULL_SITE, false))
         private set
+    var adBlockOn by mutableStateOf(AdBlock.isEnabled(context))
+        private set
+    /** The element picker: waiting for a tap, and the outlined element (selector to label). */
+    var picking by mutableStateOf(false)
+        private set
+    var picked by mutableStateOf<Pair<String, String>?>(null)
+        private set
+    /** Bumped when the blocked elements change, so their list re-reads them. */
+    var rulesVersion by mutableIntStateOf(0)
+        private set
     private var slicerVersion = "02.08.01.99"
     // The WebView's own (Android) user agent; read before any site changes it.
     private val mobileUserAgent by lazy { web.settings.userAgentString }
@@ -140,7 +163,8 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel, d
         }
         android.webkit.CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
         addJavascriptInterface(Bridge(), "orcaNative")
-        webViewClient = object : WebViewClient() {
+        addJavascriptInterface(Picker(), "orcaPicker")
+        webViewClient = object : AdBlock.Client() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val url = request.url.toString()
                 if (ModelDownloads.isSlicerLink(url)) {
@@ -151,17 +175,18 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel, d
                 // Other apps' links (mailto:, intent:, market:) are not followed inside the tab.
                 return request.url.scheme !in setOf("http", "https")
             }
-            override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest) =
-                if (AdBlock.blocks(request.url.host)) AdBlock.emptyResponse() else null
             override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
+                super.onPageStarted(view, url, favicon)
                 view.evaluateJavascript(BRIDGE_JS, null)
-                view.evaluateJavascript(AdBlock.HIDE_JS, null)
+                picking = false
+                picked = null
                 updateNav()
             }
             override fun onPageFinished(view: WebView, url: String?) {
+                super.onPageFinished(view, url)
                 view.evaluateJavascript(BRIDGE_JS, null)
-                view.evaluateJavascript(AdBlock.HIDE_JS, null)
                 view.evaluateJavascript(ZOOM_JS, null)
+                if (adBlockOn) view.evaluateJavascript(AdBlock.PICKER_JS, null)
                 if (site ==ModelSite.MAKERWORLD && !fullSite) view.evaluateJavascript(MW_TRIM_JS, null)
                 updateNav()
             }
@@ -256,6 +281,51 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel, d
     fun forward() { if (web.canGoForward()) web.goForward() }
     fun reload() = web.reload()
 
+    /** Ad blocking on / off for every app WebView; the page reloads without (or with) it. */
+    fun toggleAdBlock() {
+        adBlockOn = !adBlockOn
+        AdBlock.setEnabled(context, adBlockOn)
+        cancelPick()
+        web.reload()
+    }
+
+    /** The current page's site, the key of its blocked elements. */
+    fun currentSite() = AdBlock.site(web.url)
+    fun blockedHere() = AdBlock.blocked(context, currentSite())
+
+    /** Picks the next tapped / clicked element (a right-click or long-press picks one directly). */
+    fun startPicking() {
+        picked = null
+        picking = true
+        web.evaluateJavascript(AdBlock.PICKER_JS + ";__orcaPick.start()", null)
+    }
+    fun pickWider() = web.evaluateJavascript("window.__orcaPick&&__orcaPick.up()", null)
+    fun pickNarrower() = web.evaluateJavascript("window.__orcaPick&&__orcaPick.down()", null)
+    fun cancelPick() {
+        picking = false
+        picked = null
+        web.evaluateJavascript("window.__orcaPick&&__orcaPick.stop()", null)
+    }
+
+    /** Hides the outlined element (and the ones its selector matches) on this site from now on. */
+    fun blockPicked() {
+        val selector = picked?.first ?: return
+        AdBlock.block(context, currentSite(), selector)
+        cancelPick()
+        rulesChanged()
+    }
+
+    /** Shows one blocked element again, or all of this site's when [selector] is null. */
+    fun unblock(selector: String?) {
+        AdBlock.unblock(context, currentSite(), selector)
+        rulesChanged()
+    }
+
+    private fun rulesChanged() {
+        rulesVersion++
+        web.evaluateJavascript(AdBlock.applyJs(context, web.url), null)
+    }
+
     private fun download(url: String, name: String) {
         val ua = web.settings.userAgentString
         vm.files.openDownloaded(context.getString(R.string.models_downloading, name.ifBlank { url.substringAfterLast('/') })) {
@@ -276,6 +346,18 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel, d
         @JavascriptInterface
         fun blob(url: String, data: String) {
             scope.launch { pendingBlobs.remove(url)?.let { name -> saveData(data, name) } }
+        }
+    }
+
+    /** The element picker's reports ([AdBlock.PICKER_JS]); blocking still needs the user's tap on Block. */
+    inner class Picker {
+        @JavascriptInterface
+        fun picked(selector: String, label: String) {
+            scope.launch {
+                if (!adBlockOn) return@launch
+                picking = false
+                picked = selector.take(1000) to label.take(80)
+            }
         }
     }
 
@@ -344,14 +426,77 @@ fun ModelsScreen(browser: ModelBrowser) {
                         modifier = Modifier.padding(start = 12.dp, end = 3.dp))
                 }
             }
+            AdBlockMenu(browser)
         }
         if (browser.site == ModelSite.MAKERWORLD && !browser.fullSite) MakerWorldLinks(browser)
+        if (browser.picking || browser.picked != null) PickerBar(browser)
         if (browser.progress < 100) LinearProgressIndicator(progress = { browser.progress / 100f }, modifier = Modifier.fillMaxWidth())
         Box(Modifier.weight(1f).fillMaxWidth()) {
             AndroidView(
                 factory = { browser.web.also { (it.parent as? ViewGroup)?.removeView(it) } },
                 modifier = Modifier.fillMaxSize(),
             )
+        }
+    }
+}
+
+/** The toolbar's three-dot menu: ad blocking on / off, the element picker and the site's blocked elements. */
+@Composable
+private fun AdBlockMenu(browser: ModelBrowser) {
+    var menu by remember { mutableStateOf(false) }
+    var list by remember { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, stringResource(R.string.more)) }
+        DropdownMenu(menu, { menu = false }) {
+            DropdownMenuItem(text = { Text(stringResource(R.string.adblock_toggle)) }, leadingIcon = { Icon(Icons.Default.Shield, null) },
+                trailingIcon = { Checkbox(checked = browser.adBlockOn, onCheckedChange = null) },
+                onClick = { menu = false; browser.toggleAdBlock() })
+            DropdownMenuItem(text = { Text(stringResource(R.string.adblock_pick)) }, leadingIcon = { Icon(Icons.Default.Block, null) },
+                enabled = browser.adBlockOn, onClick = { menu = false; browser.startPicking() })
+            val count = remember(menu, browser.rulesVersion) { browser.blockedHere().size }
+            DropdownMenuItem(text = { Text(stringResource(R.string.adblock_blocked, count)) }, leadingIcon = { Icon(Icons.AutoMirrored.Filled.List, null) },
+                enabled = count > 0, onClick = { menu = false; list = true })
+        }
+    }
+    if (list) {
+        val site = browser.currentSite()
+        val blocked = remember(browser.rulesVersion, site) { browser.blockedHere() }
+        AlertDialog(
+            onDismissRequest = { list = false },
+            title = { Text(stringResource(R.string.adblock_blocked_on, site)) },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    if (blocked.isEmpty()) Text(stringResource(R.string.adblock_none))
+                    blocked.forEach { selector ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(selector, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace)
+                            IconButton(onClick = { browser.unblock(selector) }) { Icon(Icons.Default.Close, stringResource(R.string.adblock_unblock)) }
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { list = false }) { Text(stringResource(R.string.close)) } },
+            dismissButton = { TextButton(onClick = { browser.unblock(null) }, enabled = blocked.isNotEmpty()) { Text(stringResource(R.string.adblock_undo_all)) } },
+        )
+    }
+}
+
+/** The picker's bar: what is outlined, widen / narrow the pick, Block or Cancel. */
+@Composable
+private fun PickerBar(browser: ModelBrowser) {
+    val picked = browser.picked
+    Surface(tonalElevation = 3.dp, modifier = Modifier.fillMaxWidth()) {
+        // The label gives way so the buttons always fit on a phone.
+        Row(Modifier.padding(start = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(picked?.second ?: stringResource(R.string.adblock_pick_hint), Modifier.weight(1f).padding(end = 4.dp),
+                style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            val pad = PaddingValues(horizontal = 8.dp)
+            if (picked != null) {
+                TextButton(onClick = browser::pickNarrower, contentPadding = pad) { Text(stringResource(R.string.adblock_smaller)) }
+                TextButton(onClick = browser::pickWider, contentPadding = pad) { Text(stringResource(R.string.adblock_larger)) }
+                TextButton(onClick = browser::blockPicked, contentPadding = pad) { Text(stringResource(R.string.adblock_block)) }
+            }
+            TextButton(onClick = browser::cancelPick, contentPadding = pad) { Text(stringResource(R.string.cancel)) }
         }
     }
 }
