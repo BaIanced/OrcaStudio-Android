@@ -1117,6 +1117,28 @@ json OrcaEngine::add_plate()
     const size_t old_count = m_plates.size();
     m_plates.push_back({});
     relayout(old_count, m_layout_rect);
+    // Objects outside every plate (an import with more than fit, or left beside the grid): the new
+    // plate takes the one nearest to it, instead of appearing at a grid spot that may hold none.
+    const std::array<double, 4> rect = bed_rect();
+    const int plate = int(m_plates.size()) - 1;
+    const auto origin = plate_origin(plate);
+    const Vec2d centre(origin[0] + (rect[0] + rect[2]) / 2, origin[1] + (rect[1] + rect[3]) / 2);
+    ModelInstance *nearest = nullptr;
+    Vec2d nearest_centre;
+    for (ModelObject *obj : m_model->objects)
+        for (size_t i = 0; i < obj->instances.size(); ++i) {
+            const Vec3d c = obj->instance_bounding_box(i).center();
+            if (plate_at(c, m_plates.size(), rect) >= 0)
+                continue;
+            if (!nearest || (c.head<2>() - centre).squaredNorm() < (nearest_centre - centre).squaredNorm()) {
+                nearest = obj->instances[i];
+                nearest_centre = c.head<2>();
+            }
+        }
+    if (nearest) {
+        nearest->set_offset(nearest->get_offset() + Vec3d(centre.x() - nearest_centre.x(), centre.y() - nearest_centre.y(), 0.));
+        nearest->get_object()->invalidate_bounding_box();
+    }
     return commit();
 }
 

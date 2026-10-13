@@ -12,6 +12,9 @@ class Translator private constructor(private val entries: Map<String, String>) {
 
     fun tr(text: String): String = if (text.isEmpty()) text else entries[text] ?: text
 
+    /** A plate type's name: OrcaSlicer's "High Temp Plate" is the smooth PEI plate (the Engineering Plate is another one). */
+    fun plate(type: String): String = if (type == "High Temp Plate" && entries.isEmpty()) "Smooth PEI Plate" else tr(type)
+
     companion object {
         val NONE = Translator(emptyMap())
 

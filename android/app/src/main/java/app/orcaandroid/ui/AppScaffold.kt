@@ -35,6 +35,17 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.VerticalDivider
 import app.orcaandroid.ui.scad.ScadPanel
+import app.orcaandroid.ui.scad.ScadPreviewPane
+import app.orcaandroid.core.ScadView
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.runtime.saveable.rememberSaveable
 import app.orcaandroid.ui.scad.ScadReopenButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -185,26 +196,45 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
     val panel: @Composable () -> Unit = {
         if (state.screen == Screen.PREPARE) PreparePanel(state, vm, wide) else PreviewPanel(state, vm, wide)
     }
-    // The OpenSCAD editor takes the panel's place on Prepare; the 3D view shows what it renders.
+    // The OpenSCAD editor takes the panel's place on Prepare. The design shows alone on the main canvas,
+    // or (Layout lab) as a ghost on the plate; the editor can be resized with the handle.
     val scad = state.scad?.takeIf { state.screen == Screen.PREPARE }
+    val scadView: @Composable (Modifier) -> Unit = { m ->
+        // Shape designs keep the canvas: their handles and picking live in the design view.
+        if (scad != null && (state.lab.scadView == ScadView.CANVAS || scad.shapes != null)) Surface(m) { ScadPreviewPane(scad, vm, Modifier.fillMaxSize()) } else viewport(m)
+    }
     if (wide) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
-            val editorWidth = (maxWidth * 0.45f).coerceIn(420.dp, 640.dp)
+            val total = maxWidth
+            var editorWidth by rememberSaveable { mutableStateOf(0f) }
+            val width = (if (editorWidth > 0f) editorWidth.dp else (total * 0.45f).coerceIn(420.dp, 640.dp))
+                .coerceIn(300.dp, (total - 240.dp).coerceAtLeast(300.dp))
             Row(Modifier.fillMaxSize()) {
-                viewport(Modifier.weight(1f).fillMaxHeight())
                 if (scad != null) {
-                    VerticalDivider()
-                    Surface(Modifier.width(editorWidth).fillMaxHeight(), tonalElevation = 1.dp) {
-                        ScadPanel(scad, vm)
-                    }
-                } else Surface(Modifier.width(380.dp).fillMaxHeight(), tonalElevation = 1.dp) { panel() }
+                    scadView(Modifier.weight(1f).fillMaxHeight())
+                    DragHandle(vertical = true) { d -> editorWidth = (width - d).value }
+                    Surface(Modifier.width(width).fillMaxHeight(), tonalElevation = 1.dp) { ScadPanel(scad, vm, embeddedPreview = false) }
+                } else {
+                    viewport(Modifier.weight(1f).fillMaxHeight())
+                    val tucked = state.lab.panelTucked
+                    PanelEdge(tucked) { vm.setLab(state.lab.copy(panelTucked = !tucked)) }
+                    if (!tucked) Surface(Modifier.width(380.dp).fillMaxHeight(), tonalElevation = 1.dp) { panel() }
+                }
             }
         }
     } else if (scad != null) {
-        Box(Modifier.fillMaxSize()) {
+        if (state.scadHidden) Box(Modifier.fillMaxSize()) {
             viewport(Modifier.fillMaxSize())
-            if (state.scadHidden) ScadReopenButton({ vm.setScadHidden(false) }, Modifier.align(Alignment.BottomEnd).padding(16.dp))
-            else Surface(Modifier.fillMaxSize()) { ScadPanel(scad, vm, onHide = { vm.setScadHidden(true) }) }
+            ScadReopenButton({ vm.setScadHidden(false) }, Modifier.align(Alignment.BottomEnd).padding(16.dp))
+        } else BoxWithConstraints(Modifier.fillMaxSize()) {
+            val total = maxHeight
+            var editorHeight by rememberSaveable { mutableStateOf(0f) }
+            val height = (if (editorHeight > 0f) editorHeight.dp else total * 0.55f).coerceIn(200.dp, (total - 120.dp).coerceAtLeast(200.dp))
+            Column(Modifier.fillMaxSize()) {
+                scadView(Modifier.weight(1f).fillMaxWidth())
+                DragHandle(vertical = false) { d -> editorHeight = (height - d).value }
+                Surface(Modifier.height(height).fillMaxWidth()) { ScadPanel(scad, vm, onHide = { vm.setScadHidden(true) }, embeddedPreview = false) }
+            }
         }
     } else {
         val sheet = rememberBottomSheetScaffoldState()
@@ -214,6 +244,35 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
             sheetContent = { Box(Modifier.fillMaxWidth().fillMaxHeight(0.75f)) { panel() } },
         ) { padding ->
             viewport(Modifier.fillMaxSize().padding(bottom = padding.calculateBottomPadding()))
+        }
+    }
+}
+
+/** A grip between two panes; dragging it reports the move ([vertical] grip: sideways, else up/down). */
+@Composable
+private fun DragHandle(vertical: Boolean, onDrag: (androidx.compose.ui.unit.Dp) -> Unit) {
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val drag = androidx.compose.foundation.gestures.rememberDraggableState { px -> onDrag(with(density) { px.toDp() }) }
+    Box(
+        (if (vertical) Modifier.width(16.dp).fillMaxHeight() else Modifier.height(20.dp).fillMaxWidth())
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .draggable(drag, if (vertical) Orientation.Horizontal else Orientation.Vertical),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(Modifier.size(if (vertical) 4.dp else 40.dp, if (vertical) 40.dp else 4.dp)
+            .background(MaterialTheme.colorScheme.outline, RoundedCornerShape(2.dp)))
+    }
+}
+
+/** The settings panel's edge on wide layouts: tucks the panel away and brings it back. */
+@Composable
+private fun PanelEdge(tucked: Boolean, onClick: () -> Unit) {
+    val label = stringResource(if (tucked) R.string.show_panel else R.string.tuck_panel)
+    Surface(onClick = onClick, modifier = Modifier.width(if (tucked) 32.dp else 20.dp).fillMaxHeight(), tonalElevation = 2.dp) {
+        Box(contentAlignment = Alignment.Center) {
+            app.orcaandroid.ui.prepare.Tip(label) {
+                Icon(if (tucked) Icons.AutoMirrored.Filled.KeyboardArrowLeft else Icons.AutoMirrored.Filled.KeyboardArrowRight, label)
+            }
         }
     }
 }

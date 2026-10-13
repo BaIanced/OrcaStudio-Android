@@ -49,6 +49,8 @@ data class ScadEditorState(
     val preview: PreviewMesh? = null,
     /** The preview shows an older version (the current one failed or is being rendered). */
     val previewStale: Boolean = false,
+    /** The preview is a coarse one made while a slider is dragged. */
+    val draftPreview: Boolean = false,
     val previewing: Boolean = false,
     /** Shape-builder design the source is generated from; null = hand-written code. */
     val shapes: ShapeDesign? = null,
@@ -63,6 +65,9 @@ data class ScadEditorState(
  * ":scad" process, see [ScadClient]) onto the plate. The draft survives closing the editor and the
  * app (files/openscad/draft.*).
  */
+/** Delay before a preview while a slider is dragged (ms): the newest value is taken once the running render ends. */
+private const val DRAG_DEBOUNCE = 40L
+
 /** Starts the last line of a saved shape-builder .scad file; the rest of the line is the design's JSON. */
 private const val SHAPES_MARK = "// OrcaStudio shapes: "
 
@@ -81,6 +86,11 @@ class ScadController(private val store: Store) {
     private var previewAgain = false
     /** The next preview replaces the object on the plate (a Customizer change). */
     private var pushToPlate = false
+    /**
+     * A Customizer slider is being dragged: previews come at once and coarse (few circle segments),
+     * the full one when it is let go (user, 2026-10-13: as instant as possible).
+     */
+    private var dragging = false
     /** The STL [ScadEditorState.preview] was read from and the input it was rendered from. */
     private var previewStl: File? = null
     private var previewKey: String? = null
@@ -191,7 +201,7 @@ class ScadController(private val store: Store) {
         saveDraft()
         // A dimension change is a Customizer-like change: the object on the plate follows.
         pushToPlate = s.shapes?.let { it.dims != design.dims && it.withDims(design.dims) == design } == true
-        if (st?.autoRender == true) preview(500)
+        if (st?.autoRender == true) preview(if (dragging) DRAG_DEBOUNCE else 500)
     }
 
     fun select(ids: List<Int>) = set { it.copy(selected = ids) }
@@ -213,7 +223,8 @@ class ScadController(private val store: Store) {
         if (st?.autoRender == true) preview(1200)
     }
 
-    fun setValue(p: ScadParam, value: Any) {
+    fun setValue(p: ScadParam, value: Any, dragging: Boolean = false) {
+        this.dragging = dragging
         // Shape designs keep slider values in their dimensions.
         val sd = st?.shapes
         if (sd != null && value is Double && sd.dim(p.name) != null) {
@@ -224,6 +235,13 @@ class ScadController(private val store: Store) {
         set { s -> s.copy(values = if (value == p.initial) s.values - p.name else s.values + (p.name to value)) }
         saveDraft()
         onCustomizerChange()
+    }
+
+    /** The slider was let go: the full-quality preview (and the object on the plate) follow. */
+    fun endDrag() {
+        if (!dragging) return
+        dragging = false
+        if (st?.autoRender == true) preview()
     }
 
     fun resetValues() {
@@ -242,12 +260,13 @@ class ScadController(private val store: Store) {
     private fun onCustomizerChange() {
         if (st?.autoRender != true) return
         pushToPlate = true
-        preview(300)
+        preview(if (dragging) DRAG_DEBOUNCE else 300)
     }
 
     /** What a render depends on; whole-line comments don't count (renaming a shape only changes its comment). */
-    private fun key(s: ScadEditorState) = s.file + "\u0000" +
-        s.source.lineSequence().filterNot { it.trimStart().startsWith("//") }.joinToString("\n") + "\u0000" + ScadParam.encode(s.values)
+    private fun key(s: ScadEditorState, draft: Boolean = false) = s.file + "\u0000" +
+        s.source.lineSequence().filterNot { it.trimStart().startsWith("//") }.joinToString("\n") + "\u0000" + ScadParam.encode(s.values) +
+        if (draft) "\u0000draft" else ""
 
     /** Renders the current design into the preview after [debounce] ms (F5). */
     fun preview(debounce: Long = 0) {
@@ -262,17 +281,21 @@ class ScadController(private val store: Store) {
 
     private fun runPreview() {
         val s = st ?: return
-        val k = key(s)
+        val draft = dragging
+        val k = key(s, draft)
         if (k == previewKey && s.preview != null) { set { it.copy(previewStale = false) }; pushPreview(); return }
         previewJob = store.scope.launch {
             set { it.copy(previewing = true, previewStale = it.preview != null) }
             try {
                 val out = File(store.app.cacheDir, "openscad/preview/${System.nanoTime()}.stl")
-                val r = client.render(s.source, s.file, ScadParam.encode(s.values), out)
+                // Draft: a last top-level assignment wins in OpenSCAD, so this caps round things at 16 segments
+                // (calls with their own $fn keep it). Appended, so the line numbers stay the same.
+                val source = if (draft) s.source + "\n\$fn = 16;\n" else s.source
+                val r = client.render(source, s.file, ScadParam.encode(s.values), out)
                 val stl = r.stl
                 val mesh = stl?.let { withContext(Dispatchers.IO) { runCatching { PreviewMesh.readStl(it) }.getOrNull() } }
                 // Another design was loaded meanwhile: this result is not its preview.
-                if (st?.let(::key) != k) {
+                if (st?.let { key(it, draft) } != k) {
                     out.delete(); stl?.delete()
                     previewAgain = true
                     return@launch
@@ -281,7 +304,9 @@ class ScadController(private val store: Store) {
                     previewStl?.delete()
                     previewStl = stl
                     previewKey = k
-                    set { it.copy(log = r.log, preview = mesh, previewStale = false, status = summary(r), statusError = false) }
+                    // A draft's log would only warn about the overridden $fn.
+                    if (draft) set { it.copy(preview = mesh, previewStale = false, draftPreview = true) }
+                    else set { it.copy(log = r.log, preview = mesh, previewStale = false, status = summary(r), statusError = false, draftPreview = false) }
                     pushPreview()
                 } else {
                     out.delete()
@@ -302,7 +327,7 @@ class ScadController(private val store: Store) {
 
     /** After a Customizer change, puts the fresh preview on the plate in place of the old object. */
     private fun pushPreview() {
-        if (!pushToPlate) return
+        if (!pushToPlate || dragging) return
         pushToPlate = false
         val s = st ?: return
         if (s.onPlate == null || store.value.scene.objects.none { it.name == s.onPlate }) return

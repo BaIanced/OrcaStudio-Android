@@ -226,7 +226,18 @@ class SceneController(private val store: Store, private val presets: PresetContr
     }
 
     fun deletePlate(plate: Int) = store.sceneOp { engine.deletePlate(plate) }
-    fun setPlateBedType(plate: Int, bedType: String) = store.sceneOp { engine.setPlateBedType(plate, bedType) }
+    /**
+     * Sets the plate's type. It also becomes the default for new plates until the user picks another
+     * (user, 2026-10-13); other plates that followed the old default keep it.
+     */
+    fun setPlateBedType(plate: Int, bedType: String) = store.sceneOp {
+        val s = store.value
+        val old = s.setup?.defaultBedType.orEmpty()
+        if (bedType.isNotEmpty() && old.isNotEmpty() && bedType != old)
+            s.scene.plates.filter { it.index != plate && it.bedType.isEmpty() }.forEach { engine.setPlateBedType(it.index, old) }
+        if (bedType.isNotEmpty()) presets.rememberBedType(bedType)
+        engine.setPlateBedType(plate, bedType)
+    }
     fun setLayerGcodes(plate: Int, items: List<LayerGcode>) = store.sceneOp { engine.setLayerGcodes(plate, items) }
     fun setWipeTower(plate: Int, pos: Pair<Float, Float>?) = store.sceneOp { engine.setWipeTower(plate, pos) }
 

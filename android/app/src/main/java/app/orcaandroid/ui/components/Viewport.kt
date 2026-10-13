@@ -114,6 +114,8 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                         val (o, d) = v.camera.ray(x, y)
                         vm.scene.paintAt(o, d, v.camera.eye(), newStroke)
                     }
+                    override fun onPlateDoubleTap(index: Int) = vm.scene.selectPlate(index)
+
                     override fun onContextMenu(x: Float, y: Float) {
                         val (o, d) = v.camera.ray(x, y)
                         vm.scene.openContextMenu(o, d, x, y)
@@ -158,6 +160,18 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         if (scene.meshFile.isEmpty()) return@LaunchedEffect
         val mesh = withContext(Dispatchers.IO) { FloatData.load(scene.meshFile, 8) }
         v.onGl { setMesh(mesh) }
+    }
+    // Layout lab "ghost": the OpenSCAD design shown see-through, standing in the middle of the active plate.
+    val ghost = state.scad?.takeIf { it.shapes == null }?.preview?.takeIf { state.lab.scadView == app.orcaandroid.core.ScadView.GHOST && state.screen == app.orcaandroid.ui.Screen.PREPARE }
+    val plate = scene.plates.getOrNull(state.activePlate)
+    LaunchedEffect(v, ghost, plate?.originX, plate?.originY, setup?.bed) {
+        val bed = setup?.bed
+        val data = if (ghost == null || plate == null || bed == null || bed.size < 4) null else withContext(Dispatchers.Default) {
+            val xs = bed.filterIndexed { i, _ -> i % 2 == 0 }
+            val ys = bed.filterIndexed { i, _ -> i % 2 == 1 }
+            ghostData(ghost, plate.originX + (xs.min() + xs.max()) / 2, plate.originY + (ys.min() + ys.max()) / 2)
+        }
+        v.onGl { setGhost(data) }
     }
     LaunchedEffect(v, scene.paintVersion, scene.paintFile) {
         if (scene.paintFile.isEmpty()) return@LaunchedEffect
@@ -247,3 +261,20 @@ fun schemeKey(scheme: Int) = when (scheme) {
 
 /** Frames plate [plate] of the given view. */
 fun PlateView.framePlate(plate: Int, top: Boolean = false) = onGl { frame(plate, top) }
+
+/** [mesh] (position + normal per vertex) as scene-mesh vertices of type 98, centred on (cx, cy) and standing on the bed. */
+private fun ghostData(mesh: app.orcaandroid.render.PreviewMesh, cx: Float, cy: Float): FloatData {
+    val src = mesh.data.duplicate().apply { rewind() }
+    val vertices = src.limit() / 6
+    val out = FloatData.directFloats(vertices * 8)
+    val dx = cx - (mesh.min.x + mesh.max.x) / 2
+    val dy = cy - (mesh.min.y + mesh.max.y) / 2
+    val dz = -mesh.min.z
+    repeat(vertices) {
+        out.put(src.get() + dx); out.put(src.get() + dy); out.put(src.get() + dz)
+        out.put(src.get()); out.put(src.get()); out.put(src.get())
+        out.put(-1f); out.put(98f)
+    }
+    out.rewind()
+    return FloatData(out, 8)
+}

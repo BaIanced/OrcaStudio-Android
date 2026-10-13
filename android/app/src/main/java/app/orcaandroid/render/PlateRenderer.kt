@@ -70,6 +70,9 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
 
     private var meshVbo = 0; private var meshCount = 0
     private var paintVbo = 0; private var paintCount = 0
+    /** The OpenSCAD design as a see-through ghost on the plate (type 98, translucent pass). */
+    private var ghostVbo = 0; private var ghostCount = 0
+    private var pendingGhost: FloatData? = null
     private var extrVbo = 0; private var extrCount = 0
     private var travelVbo = 0; private var travelCount = 0
     private var markerVbo = 0; private var markerCount = 0
@@ -90,10 +93,21 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     }
 
     fun setMesh(data: FloatData?) { pendingMesh = data ?: FloatData(FloatData.directFloats(0), 8) }
+    fun setGhost(data: FloatData?) { pendingGhost = data ?: FloatData(FloatData.directFloats(0), 8) }
     fun setPaint(data: FloatData?) { pendingPaint = data ?: FloatData(FloatData.directFloats(0), 8) }
     fun setPreview(data: PreviewData?) {
         pendingPreview = data
         if (data == null) { extrCount = 0; travelCount = 0; markerCount = 0 }
+    }
+
+    /** The plate under screen point (x, y), or null. */
+    fun plateAt(x: Float, y: Float): Int? {
+        if (bedOutline.size < 4) return null
+        val p = camera.rayOnPlane(x, y) ?: return null
+        val xs = bedOutline.filterIndexed { i, _ -> i % 2 == 0 }
+        val ys = bedOutline.filterIndexed { i, _ -> i % 2 == 1 }
+        return plateOrigins.indexOfFirst { (ox, oy) -> p.x in xs.min() + ox..xs.max() + ox && p.y in ys.min() + oy..ys.max() + oy }
+            .takeIf { it >= 0 }
     }
 
     /** Frames plate [index] (or all plates for -1). */
@@ -115,8 +129,9 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         lineProgram = program(Shaders.LINE_VS, Shaders.LINE_FS)
         pathProgram = program(Shaders.PATH_VS, Shaders.PATH_FS)
         pointProgram = program(Shaders.POINT_VS, Shaders.POINT_FS)
-        val ids = IntArray(9)
-        glGenBuffers(9, ids, 0)
+        val ids = IntArray(10)
+        glGenBuffers(10, ids, 0)
+        ghostVbo = ids[9]; ghostCount = 0
         meshVbo = ids[0]; paintVbo = ids[1]; extrVbo = ids[2]; travelVbo = ids[3]; markerVbo = ids[4]
         bedVbo = ids[5]; boxVbo = ids[6]; boxIbo = ids[7]; scratchVbo = ids[8]
         uploadBox()
@@ -155,6 +170,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
             glDepthMask(false)
             drawMesh(meshVbo, meshCount, pass = 1)
+            drawMesh(ghostVbo, ghostCount, pass = 1)
             glDepthMask(true)
             glDisable(GL_BLEND)
         }
@@ -166,6 +182,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     private fun upload() {
         pendingMesh?.let { meshCount = uploadFloats(meshVbo, it); pendingMesh = null }
         pendingPaint?.let { paintCount = uploadFloats(paintVbo, it); pendingPaint = null }
+        pendingGhost?.let { ghostCount = uploadFloats(ghostVbo, it); pendingGhost = null }
         pendingPreview?.let {
             extrCount = uploadFloats(extrVbo, it.extrusions)
             travelCount = uploadFloats(travelVbo, it.travels)

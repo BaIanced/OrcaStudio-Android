@@ -33,6 +33,15 @@ class AppSettings(context: Context) {
         get() = prefs.getInt("auto_save_seconds", DEFAULT_AUTO_SAVE_SECONDS)
         set(value) = prefs.edit().putInt("auto_save_seconds", value).apply()
 
+    var layoutLab: LayoutLab
+        get() = LayoutLab.fromJson(prefs.getString("layout_lab", null))
+        set(value) = prefs.edit().putString("layout_lab", value.toJson()).apply()
+
+    /** When profile updates were last looked for (ms); the automatic check runs at most once a day. */
+    var lastProfileCheck: Long
+        get() = prefs.getLong("last_profile_check", 0L)
+        set(value) = prefs.edit().putLong("last_profile_check", value).apply()
+
     /** Back on the home screen quits after pressing it twice instead of asking. */
     var doubleBackToQuit: Boolean
         get() = prefs.getBoolean("double_back_quit", false)

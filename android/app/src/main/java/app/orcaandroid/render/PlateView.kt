@@ -35,6 +35,8 @@ interface PlateListener {
     fun onPaint(x: Float, y: Float, newStroke: Boolean)
     /** A right click or a long press that did not drag: the host shows a context menu at (x, y). */
     fun onContextMenu(x: Float, y: Float)
+    /** A double tap on plate [index] that isn't the active one: the host makes it active (the view frames it). */
+    fun onPlateDoubleTap(index: Int) {}
 }
 
 /**
@@ -85,7 +87,12 @@ class PlateView(context: Context) : GLSurfaceView(context) {
 
     private val gestureDetector = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
         override fun onDoubleTap(e: MotionEvent): Boolean {
-            if (mode == InteractionMode.NAVIGATE && !rightButton && !middleButton) queueEvent { renderer.frame(renderer.activePlate) }
+            if (mode != InteractionMode.NAVIGATE || rightButton || middleButton) return true
+            // On another plate: focus that one (user, 2026-10-13); else re-frame the active plate.
+            val other = renderer.plateAt(e.x, e.y)?.takeIf { it != renderer.activePlate }
+            if (other != null) listener?.onPlateDoubleTap(other)
+            val target = other ?: renderer.activePlate
+            queueEvent { renderer.frame(target) }
             return true
         }
 

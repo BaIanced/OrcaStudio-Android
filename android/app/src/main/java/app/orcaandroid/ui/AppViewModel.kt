@@ -88,6 +88,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             runCatching { files.restoreSession() }.onFailure { android.util.Log.w("Orca", "session not restored", it) }
             store.update { it.copy(phase = Phase.READY) }
             startPlugins()
+            presets.autoCheckProfileUpdates()
         }
     }
 
@@ -125,6 +126,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         store.settings.undoLimit = limit
         store.update { it.copy(undoLimit = limit) }
         store.sceneOp { store.engine.setUndoLimit(limit) }
+    }
+
+    fun setLab(lab: app.orcaandroid.core.LayoutLab) {
+        store.settings.layoutLab = lab
+        store.update { it.copy(lab = lab) }
     }
 
     fun setDoubleBackToQuit(on: Boolean) {
