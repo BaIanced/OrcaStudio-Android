@@ -28,8 +28,10 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -271,8 +273,11 @@ private fun GlobalDialogs(state: UiState, vm: AppViewModel) {
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(state.message) {
         state.message?.let {
-            snackbar.showSnackbar(it)
+            val action = state.messageAction
+            val result = snackbar.showSnackbar(it, actionLabel = action?.label,
+                duration = if (action != null) SnackbarDuration.Long else SnackbarDuration.Short)
             vm.dismissMessage()
+            if (result == SnackbarResult.ActionPerformed) action?.run?.invoke()
         }
     }
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
