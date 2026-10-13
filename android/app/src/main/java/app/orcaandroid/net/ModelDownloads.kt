@@ -120,7 +120,13 @@ object ModelDownloads {
 
     /** The model type of a downloaded file from its content: 3MF / zip, ASCII or binary STL, OBJ, OpenSCAD. */
     private fun sniffExtension(file: File): String {
-        val head = file.inputStream().use { input -> ByteArray(512).let { it.copyOf(input.read(it).coerceAtLeast(0)) } }
+        // 16 KB: OpenSCAD files often open with a long comment header (change logs, credits).
+        val head = file.inputStream().use { input ->
+            val buf = ByteArray(16384)
+            var n = 0
+            while (n < buf.size) n += input.read(buf, n, buf.size - n).takeIf { it > 0 } ?: break
+            buf.copyOf(n)
+        }
         val text = String(head, Charsets.ISO_8859_1)
         return when {
             text.startsWith("PK") -> if (runCatching { java.util.zip.ZipFile(file).use { it.getEntry("3D/3dmodel.model") != null } }.getOrDefault(false)) "3mf" else "zip"
@@ -128,7 +134,7 @@ object ModelDownloads {
             text.trimStart().startsWith("solid") && text.contains("facet") -> "stl"
             Regex("(?m)^\\s*(v|vn|vt|f|o|g|mtllib) ").containsMatchIn(text) -> "obj"
             // Text with OpenSCAD statements (a binary STL has zero bytes in its first 512).
-            '\u0000' !in text && SCAD_TEXT.containsMatchIn(text) -> "scad"
+            '\u0000' !in text.take(512) && SCAD_TEXT.containsMatchIn(text) -> "scad"
             else -> "stl" // binary STL: 80-byte header, triangle count, 50 bytes per triangle
         }
     }

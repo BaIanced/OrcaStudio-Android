@@ -215,7 +215,8 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel, d
                     evaluateJavascript(
                         "var k=window.__orcaBlobs&&window.__orcaBlobs[${JSONObject.quote(url)}];" +
                             "(k?Promise.resolve(k):fetch(${JSONObject.quote(url)}).then(function(r){return r.blob()})).then(function(b){" +
-                            "var f=new FileReader();f.onload=function(){orcaNative.blob(${JSONObject.quote(url)},f.result)};f.readAsDataURL(b)})", null)
+                            "var f=new FileReader();f.onload=function(){orcaNative.blob(${JSONObject.quote(url)},f.result," +
+                            "window.__orcaNames&&window.__orcaNames[${JSONObject.quote(url)}]||'')};f.readAsDataURL(b)})", null)
                 }
                 url.startsWith("data:") -> saveData(url, name)
                 else -> download(url, name)
@@ -342,10 +343,10 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel, d
             scope.launch { handle(j) }
         }
 
-        /** A blob download's content as a data: URL; only for blobs the download listener asked for. */
+        /** A blob download's content as a data: URL and its link's download name; only for blobs the listener asked for. */
         @JavascriptInterface
-        fun blob(url: String, data: String) {
-            scope.launch { pendingBlobs.remove(url)?.let { name -> saveData(data, name) } }
+        fun blob(url: String, data: String, pageName: String) {
+            scope.launch { pendingBlobs.remove(url)?.let { name -> saveData(data, pageName.ifBlank { name }) } }
         }
     }
 
@@ -573,4 +574,10 @@ private const val BRIDGE_JS = """(function(){
   var create = URL.createObjectURL, revoke = URL.revokeObjectURL;
   URL.createObjectURL = function(o){ var u = create.apply(URL, arguments); if (o instanceof Blob) window.__orcaBlobs[u] = o; return u; };
   URL.revokeObjectURL = function(u){ setTimeout(function(){ delete window.__orcaBlobs[u]; revoke.call(URL, u); }, 60000); };
+  // The download listener gets no <a download="name"> for blobs (Thingiverse's single files): note it on the click.
+  window.__orcaNames = {};
+  function named(a){ if (a && a.download && /^blob:/.test(a.href)) window.__orcaNames[a.href] = a.download; }
+  var click = HTMLAnchorElement.prototype.click;
+  HTMLAnchorElement.prototype.click = function(){ named(this); return click.apply(this, arguments); };
+  document.addEventListener('click', function(e){ named(e.target.closest && e.target.closest('a[download]')); }, true);
 })();"""
