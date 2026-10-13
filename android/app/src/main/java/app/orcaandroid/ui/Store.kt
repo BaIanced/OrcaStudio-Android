@@ -44,7 +44,7 @@ class Store(val app: Application, val scope: CoroutineScope) {
 
     fun str(@StringRes id: Int, vararg args: Any): String = app.getString(id, *args)
 
-    fun toast(message: String) = update { it.copy(message = message) }
+    fun toast(message: String, action: MessageAction? = null) = update { it.copy(message = message, messageAction = action) }
 
     /** Runs [block], showing [busy] (if any) and turning exceptions into an error dialog. */
     fun launch(busy: String? = null, block: suspend () -> Unit): Job = scope.launch {

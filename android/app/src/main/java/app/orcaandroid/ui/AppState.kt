@@ -60,6 +60,9 @@ sealed interface UploadState {
     data class Done(val message: String) : UploadState
 }
 
+/** A button on the message bar ([UiState.message]). */
+class MessageAction(val label: String, val run: () -> Unit)
+
 /** A Bambu print waiting for the tray of each used filament; [choice] starts as the desktop's automatic mapping. */
 data class AmsPrompt(
     val used: List<UsedFilament>,
@@ -87,6 +90,7 @@ data class UiState(
     val busy: String? = null,
     val error: String? = null,
     val message: String? = null,
+    val messageAction: MessageAction? = null,
     /** A page the Models tab's browser should open next (e.g. a 3D Filament Profiles print log). */
     val modelsUrl: String? = null,
     /** Where the 3D view's context menu is open (view pixels), or null. */
@@ -182,6 +186,8 @@ data class UiState(
     val crashReport: String? = null,
     /** The OpenSCAD editor, while open. */
     val scad: ScadEditorState? = null,
+    /** On narrow screens: the editor is folded away to show the plate ("Show plate"). */
+    val scadHidden: Boolean = false,
 ) {
     fun presetName(type: PresetType) = when (type) {
         PresetType.PRINT -> print

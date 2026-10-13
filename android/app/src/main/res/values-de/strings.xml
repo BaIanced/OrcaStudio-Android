@@ -445,6 +445,10 @@
     <string name="mw_profile">Profil</string>
     <string name="models_bad_link">Dieser Link enthält keine Modelldatei.</string>
     <string name="models_no_files">Der Download enthält keine Modelldateien.</string>
+    <plurals name="scad_zip_variants">
+        <item quantity="one">Das Design ist im Editor geöffnet. Das fertige Modell aus dem Zip liegt nicht auf der Platte.</item>
+        <item quantity="other">Das Design ist im Editor geöffnet. %1$d fertige Modelle aus dem Zip liegen nicht auf der Platte.</item>
+    </plurals>
     <string name="models_sign_in_hint">Melde dich unter Gerät mit deinem Bambu-Konto an, um MakerWorld angemeldet zu nutzen.</string>
     <string name="orca_cloud">Orca Cloud</string>
     <string name="orca_cloud_hint">Mit dem Orca-Cloud-Konto anmelden (nötig für Orca-Plugins und den Profilabgleich).</string>

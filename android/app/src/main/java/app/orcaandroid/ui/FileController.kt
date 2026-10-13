@@ -18,6 +18,9 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /** Opening models, projects and G-code, saving and exporting, and the recent files. */
+/** Mesh files a zip with an OpenSCAD design ships as pre-rendered variants of it. */
+private val VARIANT_EXTENSIONS = setOf("stl", "obj", "3mf", "step", "stp", "amf")
+
 class FileController(
     private val store: Store,
     private val presets: PresetController,
@@ -48,7 +51,13 @@ class FileController(
             val main = sources.firstOrNull { f -> texts.none { (o, t) -> o != f && Regex("""(include|use)\s*<([^>]*/)?${Regex.escape(f.name)}\s*>""").containsMatchIn(t) } }
             scad?.openFile(main ?: sources.first())
         }
-        val files = all - sources.toSet()
+        // A zip with a design (Thingiverse's Customizer things) ships pre-rendered variants of it: those stay off
+        // the plate (the editor places the design), behind an Add button on the message bar.
+        val variants = unpacked.filterIndexed { i, list -> imported[i].name.endsWith(".zip", true) && list.any { it in sources } }
+            .flatten().filter { it !in sources && it.extension.lowercase() in VARIANT_EXTENSIONS }
+        if (variants.isNotEmpty()) store.toast(store.app.resources.getQuantityString(R.plurals.scad_zip_variants, variants.size, variants.size),
+            MessageAction(store.str(R.string.add)) { addVariants(variants) })
+        val files = all - sources.toSet() - variants.toSet()
         if (files.isEmpty()) return@launch
         files.firstOrNull { it.name.endsWith(".gcode", true) || it.name.endsWith(".gco", true) }?.let {
             slicing.viewGcodeFile(it)
@@ -63,6 +72,12 @@ class FileController(
         store.applyScene(s)
         uris.forEachIndexed { i, u -> if (unpacked[i].any { it in files }) rememberRecent(u, imported[i].name, false) }
         store.update { it.copy(selection = Selection(s.objects.lastIndex), multiSelection = emptyList(), screen = Screen.PREPARE) }
+    }
+
+    private fun addVariants(files: List<File>) = store.launch(store.str(R.string.loading_model)) {
+        val s = engine.loadModels(files.map { it.path }, append = true, plate = store.value.activePlate)
+        store.applyScene(s)
+        store.update { it.copy(selection = Selection(s.objects.lastIndex), multiSelection = emptyList(), screen = Screen.PREPARE, scadHidden = true) }
     }
 
     /**
