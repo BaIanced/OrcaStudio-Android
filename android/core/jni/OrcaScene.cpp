@@ -271,6 +271,10 @@ void OrcaEngine::arrange_plate(int plate, const std::vector<std::pair<ModelObjec
     params.min_obj_distance = scaled(ARRANGE_DISTANCE);
     // A phone-sized scene nests quickly on one thread, and exceptions from TBB workers are fragile.
     params.parallel = false;
+    // libnest2d's final centring shifts the new items by the whole pile's centre, fixed objects
+    // included (nfpplacer.hpp finalAlign), which pushed imports and copies off a filled plate.
+    // The placer's own spots already avoid the fixed objects, like FillBedJob's.
+    params.do_final_align = fixed.empty();
     if (have_cfg) {
         params.is_seq_print            = cfg.opt_enum<PrintSequence>("print_sequence") == PrintSequence::ByObject;
         params.clearance_radius        = cfg.opt_float("extruder_clearance_radius");
