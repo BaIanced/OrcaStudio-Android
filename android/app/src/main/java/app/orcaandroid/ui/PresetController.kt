@@ -9,6 +9,7 @@ import app.orcaandroid.core.OrcaException
 import app.orcaandroid.core.PresetType
 import app.orcaandroid.core.SettingsGroup
 import app.orcaandroid.core.SettingsPage
+import app.orcaandroid.core.TraySource
 import app.orcaandroid.core.map
 import app.orcaandroid.core.printerKey
 import app.orcaandroid.net.BambuAccount
@@ -104,7 +105,7 @@ class PresetController(private val store: Store, private val device: DeviceContr
             ?: (settings.lastPrint(name) ?: base.takeIf { it.isNotEmpty() }?.let(settings::lastPrint))?.takeIf { n -> setup.prints.any { it.name == n } }
             ?: setup.defaultPrint
         val fils = withColors((filaments ?: settings.lastFilaments(name)).filter { f -> setup.filaments.any { it.name == f.preset } }
-            .ifEmpty { listOf(FilamentSlot(myFilament(setup.defaultFilament, setup))) })
+            .ifEmpty { listOf(FilamentSlot(setup.defaultFilament)) })
         store.update {
             it.copy(printer = name, setup = setup, print = p, filaments = fils, activeFilament = 0, overrides = emptyMap(), results = emptyMap())
         }
@@ -142,26 +143,13 @@ class PresetController(private val store: Store, private val device: DeviceContr
     fun setFilament(slot: Int, name: String) = store.launch { setFilamentNow(slot, name) }
 
     /**
-     * Picking a user filament preset saved from a system one makes it stand in for that system preset
-     * ([myFilament]); picking the system preset itself drops that again.
+     * A preset picked for a slot an AMS sync filled sticks to that tray ([AppSettings.trayPicks]) while the
+     * tray reports the same filament; picking the sync's own choice drops it again.
      */
-    private fun rememberMyFilament(name: String) {
-        val ref = store.value.setup?.filaments?.firstOrNull { it.name == name } ?: return
-        val mine = settings.myFilaments
-        settings.myFilaments = when {
-            !ref.system && ref.base.isNotEmpty() -> mine + (ref.base to name)
-            ref.system && name in mine -> mine - name
-            else -> return
-        }
-    }
-
-    /** [name], or the user's own preset that stands in for that system preset (when switched on and still usable). */
-    private fun myFilament(name: String, setup: app.orcaandroid.core.PrinterSetup? = store.value.setup): String {
-        if (!settings.preferMyFilaments) return name
-        val filaments = setup?.filaments.orEmpty()
-        settings.myFilaments[name]?.let { mine -> if (filaments.any { it.name == mine }) return mine }
-        // Never chosen yet: the only user preset saved from it, if there is exactly one.
-        return filaments.filter { !it.system && it.base == name }.singleOrNull()?.name ?: name
+    private fun rememberTrayPick(slot: FilamentSlot?, name: String) {
+        val src = slot?.source ?: return
+        val picks = settings.trayPicks
+        settings.trayPicks = if (name == src.synced) picks - src.key else picks + (src.key to (src.loaded to name))
     }
 
     fun setPreferMyFilaments(on: Boolean) {
@@ -202,8 +190,22 @@ class PresetController(private val store: Store, private val device: DeviceContr
             store.toast(store.str(R.string.sync_filaments_none))
             return@launch
         }
-        // The desktop's sync only picks system presets; the user's own ones stand in for them.
-        updateFilaments { withColors(slots.map { it.copy(preset = myFilament(it.preset)) }) }
+        // One slot per tray, in order. A tray that still reports the filament and colour it had when the user
+        // picked a preset for it keeps that pick; a changed tray (another spool: RFID, or set on the printer)
+        // takes the sync's preset and the old pick is dropped. Never-picked trays keep the sync's preset.
+        val serial = store.value.connection?.serial.orEmpty()
+        val available = store.value.setup?.filaments.orEmpty()
+        val picks = settings.trayPicks.toMutableMap()
+        val result = if (slots.size != trays.size) slots else slots.mapIndexed { i, slot ->
+            val t = trays[i]
+            val src = TraySource("$serial/${t.amsId}/${t.slotId}", "${t.filamentId} ${t.color}", slot.preset)
+            val pick = picks[src.key]
+            if (pick != null && pick.first != src.loaded) picks.remove(src.key)
+            val keep = pick?.takeIf { it.first == src.loaded && settings.preferMyFilaments && available.any { f -> f.name == it.second } }
+            slot.copy(preset = keep?.second ?: slot.preset, source = src)
+        }
+        settings.trayPicks = picks
+        updateFilaments { withColors(result) }
         store.toast(store.str(R.string.sync_filaments_done, slots.size) +
             unknown.joinToString("") { (tray, why) -> "\n$tray: $why" })
     }
@@ -354,9 +356,9 @@ class PresetController(private val store: Store, private val device: DeviceContr
 
     /** Puts filament preset [name] in slot [slot] (its unsaved edits are dropped). */
     suspend fun setFilamentNow(slot: Int, name: String) {
-        rememberMyFilament(name)
         val s = store.value
-        val list = s.filaments.mapIndexed { i, f -> if (i == slot) FilamentSlot(name, f.color) else f }
+        rememberTrayPick(s.filaments.getOrNull(slot), name)
+        val list = s.filaments.mapIndexed { i, f -> if (i == slot) FilamentSlot(name, f.color, source = f.source) else f }
         settings.setLastFilaments(s.printer ?: return, list)
         store.update { it.copy(filaments = list, results = emptyMap()) }
         refreshPresetValues(listOf(PresetType.FILAMENT))
@@ -382,10 +384,10 @@ class PresetController(private val store: Store, private val device: DeviceContr
             }
             PresetType.FILAMENT -> {
                 store.update {
-                    it.copy(setup = setup, filaments = it.filaments.mapIndexed { i, f -> if (i == it.activeFilament) FilamentSlot(newName, f.color) else f })
+                    it.copy(setup = setup, filaments = it.filaments.mapIndexed { i, f -> if (i == it.activeFilament) FilamentSlot(newName, f.color, source = f.source) else f })
                 }
-                // Saved from a system preset: it stands in for that one from now on (AMS sync, new slots).
-                rememberMyFilament(newName)
+                // Saving counts as picking it for the slot's AMS tray.
+                rememberTrayPick(s.filaments.getOrNull(s.activeFilament), newName)
                 s.printer?.let { settings.setLastFilaments(it, store.value.filaments) }
             }
         }
@@ -403,7 +405,7 @@ class PresetController(private val store: Store, private val device: DeviceContr
             }
             PresetType.PRINT -> store.update { it.copy(setup = setup, print = setup.defaultPrint, overrides = it.overrides - type) }
             PresetType.FILAMENT -> store.update {
-                it.copy(setup = setup, filaments = it.filaments.mapIndexed { i, f -> if (i == it.activeFilament) FilamentSlot(setup.defaultFilament, f.color) else f })
+                it.copy(setup = setup, filaments = it.filaments.mapIndexed { i, f -> if (i == it.activeFilament) FilamentSlot(setup.defaultFilament, f.color, source = f.source) else f })
             }
         }
         refreshPresetValues(listOf(type))

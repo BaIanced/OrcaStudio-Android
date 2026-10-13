@@ -79,16 +79,17 @@ class AppSettings(context: Context) {
         get() = prefs.getString("preferred_bed_type", null).orEmpty()
         set(value) = prefs.edit().putString("preferred_bed_type", value).apply()
 
-    /** AMS sync and new slots use the user's own filament preset in place of the system preset it was saved from. */
+    /** AMS sync keeps the filament presets the user picked for its trays ([trayPicks]). */
     var preferMyFilaments: Boolean
         get() = prefs.getBoolean("prefer_my_filaments", true)
         set(value) = prefs.edit().putBoolean("prefer_my_filaments", value).apply()
 
-    /** System filament preset -> the user preset (saved from it) that stands in for it, last chosen. */
-    var myFilaments: Map<String, String>
-        get() = runCatching { JSONObject(prefs.getString("my_filaments", null) ?: "{}") }.getOrNull()
-            ?.let { o -> o.keys().asSequence().associateWith { o.getString(it) } }.orEmpty()
-        set(value) = prefs.edit().putString("my_filaments", JSONObject(value).toString()).apply()
+    /** Presets the user picked for AMS trays: [TraySource.key] -> (what the tray reported then, the preset). */
+    var trayPicks: Map<String, Pair<String, String>>
+        get() = runCatching { JSONObject(prefs.getString("tray_picks", null) ?: "{}") }.getOrNull()
+            ?.let { o -> o.keys().asSequence().associateWith { k -> o.getJSONObject(k).let { it.getString("loaded") to it.getString("preset") } } }.orEmpty()
+        set(value) = prefs.edit().putString("tray_picks",
+            JSONObject(value.mapValues { (_, p) -> JSONObject().put("loaded", p.first).put("preset", p.second) }).toString()).apply()
 
     /** Hide printer presets whose nozzle differs from the one the connected printer reports. */
     var matchNozzle: Boolean
@@ -125,14 +126,19 @@ class AppSettings(context: Context) {
         runCatching {
             JSONArray(json).map {
                 val o = it as JSONObject
-                FilamentSlot(o.getString("preset"), o.optString("color").ifEmpty { null })
+                FilamentSlot(o.getString("preset"), o.optString("color").ifEmpty { null },
+                    source = o.optJSONObject("source")?.let { s -> TraySource(s.getString("key"), s.getString("loaded"), s.getString("synced")) })
             }
         }.getOrNull()
     }.orEmpty()
 
     fun setLastFilaments(printer: String, slots: List<FilamentSlot>) = prefs.edit().putString(
         "filaments:${family(printer)}",
-        JSONArray(slots.map { JSONObject().put("preset", it.preset).put("color", it.color ?: "") }).toString(),
+        JSONArray(slots.map { f ->
+            JSONObject().put("preset", f.preset).put("color", f.color ?: "").apply {
+                f.source?.let { put("source", JSONObject().put("key", it.key).put("loaded", it.loaded).put("synced", it.synced)) }
+            }
+        }).toString(),
     ).apply()
 
     fun connection(printer: String): PrinterConnection? = (prefs.getString("conn:${family(printer)}", null) ?: prefs.getString("conn:$printer", null))

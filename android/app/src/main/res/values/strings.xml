@@ -125,8 +125,8 @@
     <string name="plate_types_text">Which build plates appear in the plate lists, and the default one</string>
     <string name="plate_types_hint">Ticked plates appear in the plate lists. The selected circle is the plate new plates use until you pick another.</string>
     <string name="plate_type_printer_default">The printer\'s default</string>
-    <string name="prefer_my_filaments">Use my filament presets</string>
-    <string name="prefer_my_filaments_text">A filament preset you saved from a system one (Save as user preset in the filament settings) replaces it in AMS sync and new projects, so your changes stay the default. Picking the system preset in a slot switches that back.</string>
+    <string name="prefer_my_filaments">Keep my filament picks per AMS slot</string>
+    <string name="prefer_my_filaments_text">After a filament sync, a preset you pick for a slot (or save there) stays in that slot on later syncs, until the printer reports another filament or colour in it (a new spool, read by RFID or set on the printer). Slots you never picked get the printer\'s Bambu preset.</string>
     <string name="match_nozzle">Match the installed nozzle</string>
     <string name="match_nozzle_text">A connected Bambu Lab printer reports its nozzle; printer presets for another nozzle size are then hidden and a mismatch is flagged. Switch off to see all of them.</string>
     <string name="nozzle_mismatch">The printer reports a %1$s mm nozzle; this preset is for another size.</string>
