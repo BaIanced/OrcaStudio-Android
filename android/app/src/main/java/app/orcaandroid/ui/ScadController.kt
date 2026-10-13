@@ -57,7 +57,8 @@ data class ScadEditorState(
     /** Selected shape ids in the builder. */
     val selected: List<Int> = emptyList(),
 ) {
-    fun value(p: ScadParam): Any = values[p.name] ?: p.initial
+    // A shape design's sliders read its dimensions: the params re-parsed from the code lag behind while dragging.
+    fun value(p: ScadParam): Any = shapes?.dim(p.name)?.value ?: values[p.name] ?: p.initial
 }
 
 /**

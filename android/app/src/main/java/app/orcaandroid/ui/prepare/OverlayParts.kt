@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -36,6 +38,7 @@ import androidx.compose.material3.TooltipBox
 import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -52,8 +55,10 @@ import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.orcaandroid.R
+import app.orcaandroid.core.Plate
 import app.orcaandroid.render.PlateView
 import app.orcaandroid.ui.AppViewModel
 import app.orcaandroid.ui.UiState
@@ -90,8 +95,11 @@ val AutoOrientIcon: ImageVector by lazy {
 @Composable
 fun PlateTabs(state: UiState, vm: AppViewModel, view: PlateView?, modifier: Modifier = Modifier) {
     var plateMenu by remember { mutableStateOf<Int?>(null) }
-    Row(modifier.horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
-        state.scene.plates.forEach { plate ->
+    PlateRow(state, modifier, 0.dp, Alignment.CenterVertically, add = {
+        Tip(stringResource(R.string.add_plate)) {
+            IconButton(onClick = vm.scene::addPlate) { Icon(Icons.Default.Add, stringResource(R.string.add_plate)) }
+        }
+    }) { plate ->
             val active = plate.index == state.activePlate
             Box {
                 Column(
@@ -110,10 +118,31 @@ fun PlateTabs(state: UiState, vm: AppViewModel, view: PlateView?, modifier: Modi
                 }
                 if (plateMenu == plate.index) PlateMenu(state, vm, plate.index) { plateMenu = null }
             }
+    }
+}
+
+/**
+ * Plates in a scrolling row that keeps the active one in view (a new plate, or one picked on the canvas),
+ * with the add button pinned after it so it never scrolls away.
+ */
+@Composable
+private fun PlateRow(state: UiState, modifier: Modifier, spacing: Dp, align: Alignment.Vertical,
+                     add: @Composable () -> Unit, item: @Composable (Plate) -> Unit) {
+    val list = rememberLazyListState()
+    val plates = state.scene.plates
+    LaunchedEffect(state.activePlate, plates.size) {
+        val info = list.layoutInfo
+        val seen = info.visibleItemsInfo.firstOrNull { it.index == state.activePlate }
+        if (state.activePlate in plates.indices &&
+            (seen == null || seen.offset < info.viewportStartOffset || seen.offset + seen.size > info.viewportEndOffset))
+            list.animateScrollToItem(state.activePlate)
+    }
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(spacing), verticalAlignment = align) {
+        LazyRow(Modifier.weight(1f, fill = false), state = list, horizontalArrangement = Arrangement.spacedBy(spacing),
+            verticalAlignment = align) {
+            items(plates.size) { item(plates[it]) }
         }
-        Tip(stringResource(R.string.add_plate)) {
-            IconButton(onClick = vm.scene::addPlate) { Icon(Icons.Default.Add, stringResource(R.string.add_plate)) }
-        }
+        add()
     }
 }
 
@@ -136,8 +165,14 @@ fun Filmstrip(state: UiState, vm: AppViewModel, view: PlateView?, modifier: Modi
     var plateMenu by remember { mutableStateOf<Int?>(null) }
     val alpha = LocalOverlayAlpha.current
     val scheme = MaterialTheme.colorScheme
-    Row(modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
-        state.scene.plates.forEach { plate ->
+    PlateRow(state, modifier, 8.dp, Alignment.Bottom, add = {
+        Tip(stringResource(R.string.add_plate)) {
+            Surface(onClick = vm.scene::addPlate, shape = RoundedCornerShape(8.dp), color = scheme.surfaceContainerHigh.copy(alpha = alpha * 0.6f),
+                border = BorderStroke(1.dp, scheme.outlineVariant), modifier = Modifier.size(52.dp, 44.dp)) {
+                Box(contentAlignment = Alignment.Center) { Icon(Icons.Default.Add, stringResource(R.string.add_plate), tint = scheme.onSurfaceVariant) }
+            }
+        }
+    }) { plate ->
             val active = plate.index == state.activePlate
             Box {
                 Surface(
@@ -154,13 +189,6 @@ fun Filmstrip(state: UiState, vm: AppViewModel, view: PlateView?, modifier: Modi
                 }
                 if (plateMenu == plate.index) PlateMenu(state, vm, plate.index) { plateMenu = null }
             }
-        }
-        Tip(stringResource(R.string.add_plate)) {
-            Surface(onClick = vm.scene::addPlate, shape = RoundedCornerShape(8.dp), color = scheme.surfaceContainerHigh.copy(alpha = alpha * 0.6f),
-                border = BorderStroke(1.dp, scheme.outlineVariant), modifier = Modifier.size(52.dp, 44.dp)) {
-                Box(contentAlignment = Alignment.Center) { Icon(Icons.Default.Add, stringResource(R.string.add_plate), tint = scheme.onSurfaceVariant) }
-            }
-        }
     }
 }
 
