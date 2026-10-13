@@ -48,11 +48,13 @@ import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material.icons.filled.VerticalAlignBottom
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -259,22 +261,24 @@ private fun TopBar(state: UiState, vm: AppViewModel, view: PlateView?, viewButto
 @Composable
 private fun PlateChips(state: UiState, vm: AppViewModel, view: PlateView?) {
     var plateMenu by remember { mutableStateOf<Int?>(null) }
-    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        state.scene.plates.forEach { plate ->
-            Box {
-                FilterChip(
-                    selected = plate.index == state.activePlate,
-                    onClick = {
-                        if (plate.index == state.activePlate) plateMenu = plate.index
-                        else { vm.scene.selectPlate(plate.index); view?.framePlate(plate.index) }
-                    },
-                    label = { Text(stringResource(R.string.plate_n, plate.index + 1)) },
-                    trailingIcon = if (plate.index == state.activePlate) { { Icon(Icons.Default.ExpandMore, null, Modifier.size(16.dp)) } } else null,
-                )
-                if (plateMenu == plate.index) PlateMenu(state, vm, plate.index) { plateMenu = null }
-            }
+    // Unselected chips are transparent by default and vanish against the canvas; use the bar colour.
+    val bar = MaterialTheme.colorScheme.surface.copy(alpha = LocalOverlayAlpha.current)
+    PlateRow(state, Modifier, 4.dp, Alignment.CenterVertically, add = {
+        AssistChip(onClick = vm.scene::addPlate, label = { Text("+") }, colors = AssistChipDefaults.assistChipColors(containerColor = bar))
+    }) { plate ->
+        Box {
+            FilterChip(
+                selected = plate.index == state.activePlate,
+                onClick = {
+                    if (plate.index == state.activePlate) plateMenu = plate.index
+                    else { vm.scene.selectPlate(plate.index); view?.framePlate(plate.index) }
+                },
+                label = { Text(stringResource(R.string.plate_n, plate.index + 1)) },
+                trailingIcon = if (plate.index == state.activePlate) { { Icon(Icons.Default.ExpandMore, null, Modifier.size(16.dp)) } } else null,
+                colors = FilterChipDefaults.filterChipColors(containerColor = bar),
+            )
+            if (plateMenu == plate.index) PlateMenu(state, vm, plate.index) { plateMenu = null }
         }
-        AssistChip(onClick = vm.scene::addPlate, label = { Text("+") })
     }
 }
 

@@ -126,7 +126,7 @@ fun PlateTabs(state: UiState, vm: AppViewModel, view: PlateView?, modifier: Modi
  * with the add button pinned after it so it never scrolls away.
  */
 @Composable
-private fun PlateRow(state: UiState, modifier: Modifier, spacing: Dp, align: Alignment.Vertical,
+internal fun PlateRow(state: UiState, modifier: Modifier, spacing: Dp, align: Alignment.Vertical,
                      add: @Composable () -> Unit, item: @Composable (Plate) -> Unit) {
     val list = rememberLazyListState()
     val plates = state.scene.plates
