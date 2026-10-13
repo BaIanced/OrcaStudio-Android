@@ -131,10 +131,15 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
         }
         // With the tool column the filmstrip shares the bottom row with the Slice button and takes the space it leaves.
         val stripWithSlice = filmstrip && column
-        if (stripWithSlice) Row(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(start = 60.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
-            Filmstrip(state, vm, view, Modifier.weight(1f))
-            SliceButton(state, vm, Modifier)
+        // On a narrow canvas (less than about two thumbnails left beside it) the strip gets its own row above.
+        if (stripWithSlice) androidx.compose.foundation.layout.BoxWithConstraints(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(start = 60.dp)) {
+            if (maxWidth >= 360.dp) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
+                Filmstrip(state, vm, view, Modifier.weight(1f))
+                SliceButton(state, vm, Modifier)
+            } else Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Filmstrip(state, vm, view, Modifier.fillMaxWidth())
+                SliceButton(state, vm, Modifier)
+            }
         } else if (filmstrip) Filmstrip(state, vm, view, Modifier.align(Alignment.BottomStart).padding(bottom = 120.dp))
         // The layer height graph is tall: on wide layouts it sits at the right edge (like the desktop's)
         // above the Slice button, not over the object in the middle.
