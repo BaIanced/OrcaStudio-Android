@@ -452,6 +452,17 @@
     <string name="home">Home</string>
     <string name="models_downloading">Downloading %1$s…</string>
     <string name="models_full_site">Full site</string>
+    <string name="adblock_toggle">Block ads</string>
+    <string name="adblock_pick">Block an element</string>
+    <string name="adblock_pick_hint">Tap the element to hide (or right-click / long-press it)</string>
+    <string name="adblock_blocked">Blocked elements (%1$d)</string>
+    <string name="adblock_blocked_on">Blocked on %1$s</string>
+    <string name="adblock_none">Nothing blocked on this site.</string>
+    <string name="adblock_unblock">Show again</string>
+    <string name="adblock_undo_all">Undo all</string>
+    <string name="adblock_smaller">Smaller</string>
+    <string name="adblock_larger">Larger</string>
+    <string name="adblock_block">Block</string>
     <string name="mw_following">Following</string>
     <string name="mw_contests">Contests</string>
     <string name="mw_history">History</string>
