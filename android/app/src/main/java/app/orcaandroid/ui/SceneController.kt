@@ -227,7 +227,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
 
     fun deletePlate(plate: Int) = deletePlates(listOf(plate))
 
-    /** Deletes the plates (and their objects) as one undo step; the active plate stays the same plate. */
+    /** Deletes the plates as one undo step (their objects move off the grid); the active plate stays the same plate. */
     fun deletePlates(plates: Collection<Int>) = store.launch {
         val active = store.state.value.activePlate
         val scene = engine.deletePlates(plates.toList())

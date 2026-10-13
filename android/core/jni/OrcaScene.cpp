@@ -1197,21 +1197,31 @@ json OrcaEngine::delete_plates(std::vector<int> plates)
     if (plates.empty() || plates.front() < 0 || plates.back() >= int(m_plates.size()) || plates.size() >= m_plates.size())
         throw std::runtime_error("This plate cannot be deleted");
     push_undo();
-    const auto picked = [&plates](int p) { return std::binary_search(plates.begin(), plates.end(), p); };
-    // Drop the plates' instances, then close the gaps in the plate grid.
-    for (int oi = int(m_model->objects.size()) - 1; oi >= 0; --oi) {
-        ModelObject *obj = m_model->objects[oi];
-        for (int i = int(obj->instances.size()) - 1; i >= 0; --i)
-            if (picked(plate_of(*obj, size_t(i))))
-                obj->delete_instance(size_t(i));
-        if (obj->instances.empty())
-            m_model->delete_object(size_t(oi));
-    }
     const size_t old_count = m_plates.size();
     for (auto it = plates.rbegin(); it != plates.rend(); ++it)
         m_plates.erase(m_plates.begin() + *it);
-    relayout(old_count, m_layout_rect,
-             [&plates](int p) { return p - int(std::lower_bound(plates.begin(), plates.end(), p) - plates.begin()); });
+    // Like the desktop (PartPlateList::delete_plate), a deleted plate's objects stay: they move off
+    // the grid as floaters (into the free grid spots after the last plate, one spot per plate, skipping
+    // spots other floaters already use), and the plates after it close the gap.
+    const std::array<double, 4> rect = bed_rect();
+    std::vector<Vec3d> floaters;
+    for (const ModelObject *obj : m_model->objects)
+        for (size_t i = 0; i < obj->instances.size(); ++i)
+            if (plate_at(obj->instance_bounding_box(i).center(), old_count, m_layout_rect) < 0)
+                floaters.push_back(obj->instance_bounding_box(i).center());
+    std::vector<int> spots;
+    for (int s = int(m_plates.size()); spots.size() < plates.size(); ++s) {
+        const auto o = origin_of(s, m_plates.size(), rect);
+        if (std::none_of(floaters.begin(), floaters.end(), [&](const Vec3d &c) {
+                return c.x() >= o[0] + rect[0] && c.x() <= o[0] + rect[2] && c.y() >= o[1] + rect[1] && c.y() <= o[1] + rect[3];
+            }))
+            spots.push_back(s);
+    }
+    relayout(old_count, m_layout_rect, [&plates, &spots](int p) {
+        const auto it = std::lower_bound(plates.begin(), plates.end(), p);
+        const int k = int(it - plates.begin());
+        return it != plates.end() && *it == p ? spots[k] : p - k;
+    });
     return commit();
 }
 

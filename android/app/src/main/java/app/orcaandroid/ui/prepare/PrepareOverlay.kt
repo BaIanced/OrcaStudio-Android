@@ -312,10 +312,9 @@ private fun ViewButtons(state: UiState, vm: AppViewModel, view: PlateView?, rail
 @Composable
 internal fun PlateMenu(state: UiState, vm: AppViewModel, plate: Int, onDismiss: () -> Unit) {
     var bedPicker by remember { mutableStateOf(false) }
-    var confirmDelete by remember { mutableStateOf(false) }
     var gcodes by remember { mutableStateOf(false) }
     // The menu hides while one of its dialogs is open.
-    DropdownMenu(expanded = !bedPicker && !confirmDelete && !gcodes, onDismissRequest = onDismiss) {
+    DropdownMenu(expanded = !bedPicker && !gcodes, onDismissRequest = onDismiss) {
         DropdownMenuItem(text = { Text(stringResource(R.string.slice_plate)) }, onClick = { onDismiss(); vm.slicing.slice(plate) })
         DropdownMenuItem(text = { Text(stringResource(R.string.arrange_plate)) }, onClick = { onDismiss(); vm.scene.arrange(false) })
         if (state.supportsBedTypes) {
@@ -324,10 +323,8 @@ internal fun PlateMenu(state: UiState, vm: AppViewModel, plate: Int, onDismiss: 
         }
         DropdownMenuItem(text = { Text(stringResource(R.string.layer_gcodes)) }, onClick = { gcodes = true })
         if (state.scene.plates.size > 1)
-            // An empty plate goes without asking (user, 2026-10-13).
-            DropdownMenuItem(text = { Text(stringResource(R.string.delete_plate)) }, onClick = {
-                if (state.scene.objectsOn(plate).isEmpty()) { onDismiss(); vm.scene.deletePlate(plate) } else confirmDelete = true
-            })
+            // No confirm: the plate's objects stay as floaters, like on the desktop (user, 2026-10-13).
+            DropdownMenuItem(text = { Text(stringResource(R.string.delete_plate)) }, onClick = { onDismiss(); vm.scene.deletePlate(plate) })
     }
     if (bedPicker) {
         val current = state.bedTypeOf(plate)
@@ -336,8 +333,6 @@ internal fun PlateMenu(state: UiState, vm: AppViewModel, plate: Int, onDismiss: 
             bedPicker = false; onDismiss(); vm.scene.setPlateBedType(plate, it)
         }
     }
-    if (confirmDelete) ConfirmDialog(stringResource(R.string.delete_plate), stringResource(R.string.delete_plate_text), stringResource(R.string.delete),
-        { vm.scene.deletePlate(plate) }) { confirmDelete = false; onDismiss() }
     if (gcodes) LayerGcodeDialog(state, vm, plate) { gcodes = false; onDismiss() }
 }
 

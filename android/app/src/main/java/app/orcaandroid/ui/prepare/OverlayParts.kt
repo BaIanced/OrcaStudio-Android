@@ -78,7 +78,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
-import app.orcaandroid.ui.components.ConfirmDialog
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -214,16 +213,15 @@ internal fun PlateRow(state: UiState, vm: AppViewModel, modifier: Modifier, spac
                 IconButton(onClick = { picks.picked = emptySet() }, Modifier.matchParentSize()) {
                     Icon(Icons.Default.Close, stringResource(R.string.cancel))
                 }
-                PickDelete(state, vm, picks, above = align == Alignment.Bottom)
+                PickDelete(vm, picks, above = align == Alignment.Bottom)
             }
         }
     }
 }
 
-/** "Delete n plates" next to the plate row's end; asks only when a picked plate holds objects. */
+/** "Delete n plates" next to the plate row's end; their objects stay as floaters. */
 @Composable
-private fun PickDelete(state: UiState, vm: AppViewModel, picks: PlatePicks, above: Boolean) {
-    var confirm by remember { mutableStateOf(false) }
+private fun PickDelete(vm: AppViewModel, picks: PlatePicks, above: Boolean) {
     val title = pluralStringResource(R.plurals.delete_plates, picks.picked.size, picks.picked.size)
     val delete = { vm.scene.deletePlates(picks.picked); picks.picked = emptySet() }
     val gap = with(LocalDensity.current) { 6.dp.roundToPx() }
@@ -235,14 +233,13 @@ private fun PickDelete(state: UiState, vm: AppViewModel, picks: PlatePicks, abov
         }
     }
     Popup(popupPositionProvider = position) {
-        FilledTonalButton(onClick = { if (picks.picked.any { state.scene.objectsOn(it).isNotEmpty() }) confirm = true else delete() },
+        FilledTonalButton(onClick = delete,
             contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)) {
             Icon(Icons.Default.Delete, null, Modifier.size(18.dp))
             Spacer(Modifier.width(6.dp))
             Text(title)
         }
     }
-    if (confirm) ConfirmDialog(title, stringResource(R.string.delete_plates_text), stringResource(R.string.delete), delete) { confirm = false }
 }
 
 /** "Plate n of m" with the plate menu (filmstrip layout's optional label). */

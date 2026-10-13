@@ -66,12 +66,10 @@
     <string name="cutting">Schneide…</string>
     <string name="delete">Löschen</string>
     <string name="delete_plate">Platte löschen</string>
-    <string name="delete_plate_text">Die Platte und alle Objekte darauf werden entfernt.</string>
     <plurals name="delete_plates">
         <item quantity="one">%d Platte löschen</item>
         <item quantity="other">%d Platten löschen</item>
     </plurals>
-    <string name="delete_plates_text">Auf einigen der gewählten Platten liegen Objekte. Sie werden mit den Platten entfernt.</string>
     <string name="delete_preset">Preset löschen</string>
     <string name="vendor_presets">Herstellerprofile</string>
     <string name="delete_preset_text">„%s“ wird dauerhaft gelöscht.</string>
