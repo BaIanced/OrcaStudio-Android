@@ -93,6 +93,8 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     private val gestureDetector = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
         override fun onDoubleTap(e: MotionEvent): Boolean {
             if (mode != InteractionMode.NAVIGATE || rightButton || middleButton) return true
+            // The first tap hit a badge (the view may have moved since): the second one does nothing.
+            if (badgeTapTime >= e.eventTime) return true
             // On another plate: focus that one (user, 2026-10-13); else re-frame the active plate.
             val other = renderer.plateAt(e.x, e.y)?.takeIf { it != renderer.activePlate }
             if (other != null) listener?.onPlateDoubleTap(other)
