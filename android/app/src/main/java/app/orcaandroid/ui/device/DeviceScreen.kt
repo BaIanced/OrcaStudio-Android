@@ -9,6 +9,7 @@ import android.webkit.WebView
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -64,6 +65,7 @@ import app.orcaandroid.net.PrinterConnection
 import app.orcaandroid.net.PrinterStatus
 import app.orcaandroid.ui.AppViewModel
 import app.orcaandroid.ui.UiState
+import app.orcaandroid.ui.WIDE_LAYOUT
 import app.orcaandroid.ui.components.ConfirmDialog
 import app.orcaandroid.ui.components.PickerField
 import app.orcaandroid.ui.components.PickerItem
@@ -278,7 +280,7 @@ private fun PrinterPanel(state: UiState, vm: AppViewModel, modifier: Modifier) {
         }
         return
     }
-    Column(modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    val jobAndTemps: @Composable () -> Unit = {
         PanelCard(stringResource(R.string.device_job)) {
             Text(stateLabel(status.state), style = MaterialTheme.typography.titleMedium)
             status.file?.let { Text(it, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis) }
@@ -299,6 +301,8 @@ private fun PrinterPanel(state: UiState, vm: AppViewModel, modifier: Modifier) {
                 Temperature(stringResource(R.string.device_bed), status.bedTemp, status.bedTarget)
             }
         }
+    }
+    val traysAndAlerts: @Composable () -> Unit = {
         val bambu = state.connection?.type.let { it == HostType.BAMBU || it == HostType.BAMBU_SIGNED }
         if (bambu || status.trays.isNotEmpty()) {
             PanelCard(stringResource(R.string.loaded_filaments)) {
@@ -323,6 +327,15 @@ private fun PrinterPanel(state: UiState, vm: AppViewModel, modifier: Modifier) {
                 }
             }
         }
+    }
+    // Wide screens: two columns, so the cards don't stretch across the whole window.
+    BoxWithConstraints(modifier) {
+        val scroll = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)
+        val gap = Arrangement.spacedBy(12.dp)
+        if (maxWidth >= WIDE_LAYOUT) Row(scroll, horizontalArrangement = gap) {
+            Column(Modifier.weight(1f), verticalArrangement = gap) { jobAndTemps() }
+            Column(Modifier.weight(1f), verticalArrangement = gap) { traysAndAlerts() }
+        } else Column(scroll, verticalArrangement = gap) { jobAndTemps(); traysAndAlerts() }
     }
 }
 

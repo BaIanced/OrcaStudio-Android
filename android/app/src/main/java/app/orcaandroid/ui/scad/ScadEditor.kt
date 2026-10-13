@@ -47,6 +47,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Tab
@@ -511,6 +512,9 @@ private fun Param(p: ScadParam, value: Any, modified: Boolean, onChange: (Any) -
                         onValueChange = { f -> onChange(snap(f.toDouble(), min, step)) },
                         valueRange = min.toFloat()..max.toFloat(),
                         steps = if (count in 2..200) count - 1 else 0,
+                        // Many steps would draw a solid row of tick dots; show ticks only when they're few.
+                        colors = if (count > 20) SliderDefaults.colors(activeTickColor = Color.Transparent, inactiveTickColor = Color.Transparent)
+                            else SliderDefaults.colors(),
                         modifier = Modifier.weight(1f),
                     )
                     Spacer(Modifier.width(12.dp))
