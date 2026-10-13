@@ -63,6 +63,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
@@ -161,13 +163,15 @@ private fun MainLayout(state: UiState, vm: AppViewModel) {
             Row(Modifier.fillMaxSize()) {
                 // No insets of its own: MainActivity pads the bars, and in landscape the rail may use the cutout strip.
                 NavigationRail(windowInsets = WindowInsets(0)) {
-                    DESTINATIONS.forEach { d ->
-                        NavigationRailItem(
-                            selected = state.screen == d.screen,
-                            onClick = { vm.setScreen(d.screen) },
-                            icon = { Icon(d.icon, null) },
-                            label = { Text(stringResource(d.label)) },
-                        )
+                    CutoutAwareColumn {
+                        DESTINATIONS.forEach { d ->
+                            NavigationRailItem(
+                                selected = state.screen == d.screen,
+                                onClick = { vm.setScreen(d.screen) },
+                                icon = { Icon(d.icon, null) },
+                                label = { Text(stringResource(d.label)) },
+                            )
+                        }
                     }
                 }
                 // The rail may sit over the camera cutout (MainActivity); the content keeps clear of it.
@@ -188,6 +192,36 @@ private fun MainLayout(state: UiState, vm: AppViewModel) {
                 }
             }
         }
+    }
+}
+
+/**
+ * Rail items stacked from the top like NavigationRail's own column; an item that would overlap a
+ * camera cutout under the rail moves below it (landscape lets the rail use the cutout strip).
+ */
+@Composable
+private fun CutoutAwareColumn(content: @Composable () -> Unit) {
+    val view = androidx.compose.ui.platform.LocalView.current
+    // Reading the inset recomposes on rotation; the hole rects come from the view.
+    WindowInsets.displayCutout.getLeft(androidx.compose.ui.platform.LocalDensity.current, androidx.compose.ui.unit.LayoutDirection.Ltr)
+    val holes = view.rootWindowInsets?.displayCutout?.boundingRects.orEmpty()
+    var origin by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
+    androidx.compose.ui.layout.Layout(content, Modifier.fillMaxHeight().onGloballyPositioned { origin = it.positionInWindow() }) { ms, c ->
+        val gap = 4.dp.roundToPx()
+        val ps = ms.map { it.measure(c.copy(minHeight = 0)) }
+        val w = ps.maxOfOrNull { it.width } ?: 0
+        val x0 = origin.x.toInt()
+        // Holes under the rail, in this layout's coordinates (top to bottom).
+        val blocked = holes.filter { it.left < x0 + w && it.right > x0 }
+            .map { (it.top - origin.y.toInt()) to (it.bottom - origin.y.toInt()) }.sortedBy { it.first }
+        val ys = IntArray(ps.size)
+        var y = 0
+        ps.forEachIndexed { i, p ->
+            blocked.forEach { (top, bottom) -> if (y < bottom && y + p.height > top) y = bottom + gap }
+            ys[i] = y
+            y += p.height + gap
+        }
+        layout(w, c.maxHeight) { ps.forEachIndexed { i, p -> p.placeRelative((w - p.width) / 2, ys[i]) } }
     }
 }
 
