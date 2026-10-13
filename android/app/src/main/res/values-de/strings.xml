@@ -429,7 +429,7 @@
     <string name="models_full_site">Ganze Website</string>
     <string name="adblock_toggle">Werbung blockieren</string>
     <string name="adblock_pick">Element blockieren</string>
-    <string name="adblock_pick_hint">Tippe auf das Element, das verschwinden soll (oder Rechtsklick / lange drücken)</string>
+    <string name="adblock_pick_hint">Tippe auf das, was verschwinden soll</string>
     <string name="adblock_blocked">Blockierte Elemente (%1$d)</string>
     <string name="adblock_blocked_on">Blockiert auf %1$s</string>
     <string name="adblock_none">Auf dieser Website ist nichts blockiert.</string>

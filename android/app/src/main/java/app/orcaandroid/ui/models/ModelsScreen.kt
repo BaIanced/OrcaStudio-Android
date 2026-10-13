@@ -47,6 +47,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TextButton
@@ -484,14 +486,17 @@ private fun AdBlockMenu(browser: ModelBrowser) {
 private fun PickerBar(browser: ModelBrowser) {
     val picked = browser.picked
     Surface(tonalElevation = 3.dp, modifier = Modifier.fillMaxWidth()) {
-        Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(picked?.second ?: stringResource(R.string.adblock_pick_hint), Modifier.padding(end = 8.dp), maxLines = 1)
+        // The label gives way so the buttons always fit on a phone.
+        Row(Modifier.padding(start = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(picked?.second ?: stringResource(R.string.adblock_pick_hint), Modifier.weight(1f).padding(end = 4.dp),
+                style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            val pad = PaddingValues(horizontal = 8.dp)
             if (picked != null) {
-                TextButton(onClick = browser::pickNarrower) { Text(stringResource(R.string.adblock_smaller)) }
-                TextButton(onClick = browser::pickWider) { Text(stringResource(R.string.adblock_larger)) }
-                TextButton(onClick = browser::blockPicked) { Text(stringResource(R.string.adblock_block)) }
+                TextButton(onClick = browser::pickNarrower, contentPadding = pad) { Text(stringResource(R.string.adblock_smaller)) }
+                TextButton(onClick = browser::pickWider, contentPadding = pad) { Text(stringResource(R.string.adblock_larger)) }
+                TextButton(onClick = browser::blockPicked, contentPadding = pad) { Text(stringResource(R.string.adblock_block)) }
             }
-            TextButton(onClick = browser::cancelPick) { Text(stringResource(R.string.cancel)) }
+            TextButton(onClick = browser::cancelPick, contentPadding = pad) { Text(stringResource(R.string.cancel)) }
         }
     }
 }
