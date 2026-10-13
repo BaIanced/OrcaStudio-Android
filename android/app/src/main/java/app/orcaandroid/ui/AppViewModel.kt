@@ -209,6 +209,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun dismissError() = store.update { it.copy(error = null) }
     fun dismissMessage() = store.update { it.copy(message = null, messageAction = null) }
+    fun setScadHidden(hidden: Boolean) = store.update { it.copy(scadHidden = hidden) }
     fun toast(message: String) = store.toast(message)
     fun showError(message: String) = store.update { it.copy(error = message) }
 }

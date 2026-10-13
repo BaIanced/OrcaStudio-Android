@@ -119,6 +119,7 @@ class ScadController(private val store: Store) {
     fun openFile(file: File) = store.launch {
         val source = withContext(Dispatchers.IO) { file.readText() }
         if (st == null) open().join()
+        store.update { it.copy(scadHidden = false) }
         // A shape-builder design saved by [save] reopens in the builder; if its code was edited since, it opens as
         // code without the (stale) shapes line.
         val code = source.substringBeforeLast("\n$SHAPES_MARK")

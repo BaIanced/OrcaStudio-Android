@@ -55,7 +55,7 @@ class FileController(
         // the plate (the editor places the design), behind an Add button on the message bar.
         val variants = unpacked.filterIndexed { i, list -> imported[i].name.endsWith(".zip", true) && list.any { it in sources } }
             .flatten().filter { it !in sources && it.extension.lowercase() in VARIANT_EXTENSIONS }
-        if (variants.isNotEmpty()) store.toast(store.str(R.string.scad_zip_variants, variants.size),
+        if (variants.isNotEmpty()) store.toast(store.app.resources.getQuantityString(R.plurals.scad_zip_variants, variants.size, variants.size),
             MessageAction(store.str(R.string.add)) { addVariants(variants) })
         val files = all - sources.toSet() - variants.toSet()
         if (files.isEmpty()) return@launch
@@ -77,7 +77,7 @@ class FileController(
     private fun addVariants(files: List<File>) = store.launch(store.str(R.string.loading_model)) {
         val s = engine.loadModels(files.map { it.path }, append = true, plate = store.value.activePlate)
         store.applyScene(s)
-        store.update { it.copy(selection = Selection(s.objects.lastIndex), multiSelection = emptyList(), screen = Screen.PREPARE) }
+        store.update { it.copy(selection = Selection(s.objects.lastIndex), multiSelection = emptyList(), screen = Screen.PREPARE, scadHidden = true) }
     }
 
     /**

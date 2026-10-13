@@ -186,6 +186,8 @@ data class UiState(
     val crashReport: String? = null,
     /** The OpenSCAD editor, while open. */
     val scad: ScadEditorState? = null,
+    /** On narrow screens: the editor is folded away to show the plate ("Show plate"). */
+    val scadHidden: Boolean = false,
 ) {
     fun presetName(type: PresetType) = when (type) {
         PresetType.PRINT -> print

@@ -34,7 +34,6 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.VerticalDivider
-import androidx.compose.runtime.saveable.rememberSaveable
 import app.orcaandroid.ui.scad.ScadPanel
 import app.orcaandroid.ui.scad.ScadReopenButton
 import androidx.compose.material3.Text
@@ -188,7 +187,6 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
     }
     // The OpenSCAD editor takes the panel's place on Prepare; the 3D view shows what it renders.
     val scad = state.scad?.takeIf { state.screen == Screen.PREPARE }
-    var scadHidden by rememberSaveable { mutableStateOf(false) }
     if (wide) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val editorWidth = (maxWidth * 0.45f).coerceIn(420.dp, 640.dp)
@@ -205,8 +203,8 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
     } else if (scad != null) {
         Box(Modifier.fillMaxSize()) {
             viewport(Modifier.fillMaxSize())
-            if (scadHidden) ScadReopenButton({ scadHidden = false }, Modifier.align(Alignment.BottomEnd).padding(16.dp))
-            else Surface(Modifier.fillMaxSize()) { ScadPanel(scad, vm, onHide = { scadHidden = true }) }
+            if (state.scadHidden) ScadReopenButton({ vm.setScadHidden(false) }, Modifier.align(Alignment.BottomEnd).padding(16.dp))
+            else Surface(Modifier.fillMaxSize()) { ScadPanel(scad, vm, onHide = { vm.setScadHidden(true) }) }
         }
     } else {
         val sheet = rememberBottomSheetScaffoldState()
