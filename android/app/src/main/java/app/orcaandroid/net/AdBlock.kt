@@ -97,14 +97,22 @@ object AdBlock {
         saveRules(context)
     }
 
-    /** Hides the built-in ad slots and the user's blocked elements of [url]'s site (re-run after a rule change). */
+    /**
+     * Hides the built-in ad slots and the user's blocked elements of [url]'s site (re-run after a rule change).
+     * Also drops Sentry's `sentry-trace` / `baggage` XHR headers: with the ad scripts blocked, Thingiverse's Sentry
+     * puts them on `/download:<id>`, which redirects to cdn.thingiverse.com, whose CORS preflight rejects them
+     * ("Error downloading file").
+     */
     fun applyJs(context: Context, url: String?): String {
         val on = isEnabled(context)
         val user = if (on) blocked(context, site(url)) else emptyList()
         return "(function(){" +
+            "var x=XMLHttpRequest.prototype;if(!x.__orcaNoTrace){x.__orcaNoTrace=1;var h=x.setRequestHeader;" +
+            "x.setRequestHeader=function(k){if(/^(sentry-trace|baggage)$/i.test(k))return;return h.apply(this,arguments)}}" +
             "function put(id,css){var s=document.getElementById(id);" +
             "if(!css){if(s)s.remove();return}" +
-            "if(!s){s=document.createElement('style');s.id=id;(document.head||document.documentElement).appendChild(s)}" +
+            "var r=document.head||document.documentElement;if(!r)return;" +
+            "if(!s){s=document.createElement('style');s.id=id;r.appendChild(s)}" +
             "if(s.textContent!==css)s.textContent=css}" +
             "put('orca-adblock',${JSONObject.quote(if (on) HIDE_CSS else "")});" +
             "put('orca-userblock',${JSONObject.quote(if (user.isEmpty()) "" else user.joinToString(",") + "{display:none!important}")});" +
