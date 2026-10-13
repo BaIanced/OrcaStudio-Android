@@ -206,7 +206,7 @@ internal fun PlateRow(state: UiState, vm: AppViewModel, modifier: Modifier, spac
             items(plates.size) { item(plates[it], picks) }
         }
         // While picking, the add slot turns into a stop button of the same size, so the plates don't shift
-        // under the finger; the delete button floats beside the row (above the filmstrip, below the tabs).
+        // under the finger; the delete button floats beside the row (above the filmstrip, right of the tabs).
         Box(contentAlignment = Alignment.Center) {
             Box(if (picks.active) Modifier.alpha(0f).clearAndSetSemantics {} else Modifier) { add() }
             if (picks.active) {
@@ -227,9 +227,13 @@ private fun PickDelete(vm: AppViewModel, picks: PlatePicks, above: Boolean) {
     val gap = with(LocalDensity.current) { 6.dp.roundToPx() }
     val position = remember(above, gap) {
         object : PopupPositionProvider {
+            // Filmstrip: above the row's end. Tabs (top row): right of the stop button, so it doesn't cover
+            // the tool column below the row (it hid Undo, seen on WSA r158).
             override fun calculatePosition(anchorBounds: IntRect, windowSize: IntSize, layoutDirection: LayoutDirection, popupContentSize: IntSize) =
-                IntOffset((anchorBounds.right - popupContentSize.width).coerceIn(0, (windowSize.width - popupContentSize.width).coerceAtLeast(0)),
-                    if (above) anchorBounds.top - popupContentSize.height - gap else anchorBounds.bottom + gap)
+                if (above) IntOffset((anchorBounds.right - popupContentSize.width).coerceIn(0, (windowSize.width - popupContentSize.width).coerceAtLeast(0)),
+                    anchorBounds.top - popupContentSize.height - gap)
+                else IntOffset((anchorBounds.right + gap).coerceAtMost((windowSize.width - popupContentSize.width).coerceAtLeast(0)),
+                    anchorBounds.center.y - popupContentSize.height / 2)
         }
     }
     Popup(popupPositionProvider = position) {
