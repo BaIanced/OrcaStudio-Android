@@ -427,6 +427,7 @@
     <string name="home">Startseite</string>
     <string name="models_downloading">%1$s wird heruntergeladen…</string>
     <string name="models_full_site">Ganze Website</string>
+    <string name="models_infinite_scroll">Endlos scrollen</string>
     <string name="adblock_toggle">Werbung blockieren</string>
     <string name="adblock_pick">Element blockieren</string>
     <string name="adblock_pick_hint">Tippe auf das, was verschwinden soll</string>

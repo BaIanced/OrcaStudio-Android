@@ -452,6 +452,7 @@
     <string name="home">Home</string>
     <string name="models_downloading">Downloading %1$s…</string>
     <string name="models_full_site">Full site</string>
+    <string name="models_infinite_scroll">Infinite scroll</string>
     <string name="adblock_toggle">Block ads</string>
     <string name="adblock_pick">Block an element</string>
     <string name="adblock_pick_hint">Tap what to hide</string>

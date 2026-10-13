@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.KeyboardDoubleArrowDown
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -107,6 +108,9 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel, d
         private set
     var adBlockOn by mutableStateOf(AdBlock.isEnabled(context))
         private set
+    /** Listing pages with page numbers (Thingiverse, Printables) load the next page as you scroll. */
+    var infiniteScroll by mutableStateOf(prefs.getBoolean(PREF_INFINITE_SCROLL, true))
+        private set
     /** The element picker: waiting for a tap, and the outlined element (selector to label). */
     var picking by mutableStateOf(false)
         private set
@@ -188,6 +192,7 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel, d
                 view.evaluateJavascript(ZOOM_JS, null)
                 if (adBlockOn) view.evaluateJavascript(AdBlock.PICKER_JS, null)
                 if (site ==ModelSite.MAKERWORLD && !fullSite) view.evaluateJavascript(MW_TRIM_JS, null)
+                if (infiniteScroll) view.evaluateJavascript(MORE_JS, null)
                 updateNav()
             }
             override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) {
@@ -287,6 +292,12 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel, d
         adBlockOn = !adBlockOn
         AdBlock.setEnabled(context, adBlockOn)
         cancelPick()
+        web.reload()
+    }
+
+    fun toggleInfiniteScroll() {
+        infiniteScroll = !infiniteScroll
+        prefs.edit().putBoolean(PREF_INFINITE_SCROLL, infiniteScroll).apply()
         web.reload()
     }
 
@@ -452,6 +463,9 @@ private fun AdBlockMenu(browser: ModelBrowser) {
             DropdownMenuItem(text = { Text(stringResource(R.string.adblock_toggle)) }, leadingIcon = { Icon(Icons.Default.Shield, null) },
                 trailingIcon = { Checkbox(checked = browser.adBlockOn, onCheckedChange = null) },
                 onClick = { menu = false; browser.toggleAdBlock() })
+            DropdownMenuItem(text = { Text(stringResource(R.string.models_infinite_scroll)) }, leadingIcon = { Icon(Icons.Default.KeyboardDoubleArrowDown, null) },
+                trailingIcon = { Checkbox(checked = browser.infiniteScroll, onCheckedChange = null) },
+                onClick = { menu = false; browser.toggleInfiniteScroll() })
             DropdownMenuItem(text = { Text(stringResource(R.string.adblock_pick)) }, leadingIcon = { Icon(Icons.Default.Block, null) },
                 enabled = browser.adBlockOn, onClick = { menu = false; browser.startPicking() })
             val count = remember(menu, browser.rulesVersion) { browser.blockedHere().size }
@@ -532,6 +546,7 @@ private fun MakerWorldLinks(browser: ModelBrowser) {
 private const val TAG = "Models"
 private const val WEB_DEBUG_TAG = "OrcaWeb"
 private const val PREF_FULL_SITE = "makerworld_full_site"
+private const val PREF_INFINITE_SCROLL = "models_infinite_scroll"
 
 /**
  * Slicer mode leaves a blank strip where MakerWorld's header would be: the category bar stays
@@ -580,4 +595,115 @@ private const val BRIDGE_JS = """(function(){
   var click = HTMLAnchorElement.prototype.click;
   HTMLAnchorElement.prototype.click = function(){ named(this); return click.apply(this, arguments); };
   document.addEventListener('click', function(e){ named(e.target.closest && e.target.closest('a[download]')); }, true);
+})();"""
+
+/**
+ * Infinite scroll for listings with page numbers (Thingiverse; Printables' lists): near the end,
+ * the next page loads in a hidden frame and a copy of its cards goes below the current ones (the
+ * page's pager is hidden meanwhile), or a "Load more" button is pressed. Back from a model loads
+ * the same pages again and returns to the same spot. MakerWorld already loads more by itself.
+ */
+private const val MORE_JS = """(function(){
+  // MakerWorld loads more on its own as you scroll.
+  if (window.__orcaMore || /makerworld/.test(location.host)) return; window.__orcaMore = 1;
+  var ITEM = /thing:\d|\/model\/\d|\/models\/\d/;
+  var url = location.href, grid = null, box = null, pager = null, next = null, pages = [], busy = false, done = false;
+  // Back from a model: load the same pages again and return to the same spot.
+  var KEY = 'orcaMore:' + url, saved = null;
+  try { var nav = performance.getEntriesByType('navigation')[0];
+    if (nav && nav.type === 'back_forward') saved = JSON.parse(sessionStorage.getItem(KEY) || 'null'); } catch (e) {}
+  function save(){ try { if (pages.length) sessionStorage.setItem(KEY, JSON.stringify({ pages: pages, y: (document.scrollingElement || document.documentElement).scrollTop })); } catch (e) {} }
+  addEventListener('pagehide', save);
+  document.addEventListener('click', function(e){ if (box && e.target.closest && e.target.closest('a[href]') && box.contains(e.target)) save(); }, true);
+  function vis(e){ var r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; }
+  // The results grid: the element with the most children that hold model links.
+  function findGrid(doc){
+    var kids = new Map();
+    [].forEach.call(doc.querySelectorAll('a[href]'), function(a){
+      if (!ITEM.test(a.getAttribute('href')) || (box && box.contains(a))) return;
+      for (var e = a; e.parentElement && e.parentElement !== doc.body; e = e.parentElement) {
+        var s = kids.get(e.parentElement); if (!s) kids.set(e.parentElement, s = new Set()); s.add(e);
+      }
+    });
+    var best = null, n = 5;
+    kids.forEach(function(s, p){ if (s.size > n || (s.size === n && best && best.contains(p))) { best = p; n = s.size; } });
+    return best;
+  }
+  function findNext(doc){
+    var a = doc.querySelector('a[rel~=next][href], a[aria-label="Next page" i][href], a[aria-label="Next" i][href]');
+    if (a) return a;
+    return [].find.call(doc.querySelectorAll('[class*=agination] a[href], nav a[href]'), function(x){
+      return /^\s*(next|›|»|>)\s*$/i.test(x.textContent) || /next/i.test(x.getAttribute('aria-label') || '');
+    }) || null;
+  }
+  function findMore(){
+    var gb = grid.getBoundingClientRect().bottom;
+    return [].find.call(document.querySelectorAll('button, a[role=button], [role=button]'), function(b){
+      return !b.disabled && vis(b) && b.getBoundingClientRect().top >= gb - 4 && /^\s*(load|show|view|see) more\b/i.test(b.innerText || '');
+    }) || null;
+  }
+  function reset(){ if (box) box.remove(); if (pager) pager.style.display = '';
+    url = location.href; KEY = 'orcaMore:' + url; saved = null; grid = box = pager = next = null; pages = []; busy = done = false; }
+  function label(n){ var d = document.createElement('div'); d.textContent = 'Page ' + n;
+    d.style.cssText = 'margin:16px 0 8px;padding:6px 0;text-align:center;opacity:.6;font:600 13px sans-serif;border-top:1px solid rgba(128,128,128,.35)';
+    return d; }
+  // Loads a page in a hidden frame, waits for its grid and adds a copy of it below ours.
+  function load(href, n){
+    return new Promise(function(ok){
+      var f = document.createElement('iframe'), t0 = Date.now(), tg = 0;
+      f.setAttribute('aria-hidden', 'true'); f.tabIndex = -1;
+      f.style.cssText = 'position:fixed;left:-10000px;top:0;width:' + innerWidth + 'px;height:' + (innerHeight * 4) + 'px;border:0;visibility:hidden';
+      f.src = href; document.body.appendChild(f);
+      (function poll(){
+        var g = null, d = null;
+        try { d = f.contentDocument; g = d && findGrid(d); } catch (e) {}
+        var ready = g && g.children.length >= Math.min(grid.children.length, 8);
+        // The pager can render after the cards: give it a few seconds more.
+        if (ready && !findNext(d)) { tg = tg || Date.now(); if (Date.now() - tg < 4000) return setTimeout(poll, 400); }
+        if (!ready && Date.now() - t0 < 20000) return setTimeout(poll, 400);
+        if (ready) {
+          var c = document.importNode(g, true);
+          [].forEach.call(c.querySelectorAll('img'), function(i){
+            var s = i.getAttribute('data-src'); if (s && !i.getAttribute('src')) i.setAttribute('src', s);
+            var ss = i.getAttribute('data-srcset'); if (ss && !i.getAttribute('srcset')) i.setAttribute('srcset', ss);
+          });
+          [].forEach.call(c.querySelectorAll('a[href]'), function(a){ a.href = a.href; });
+          // Keep the view where it is: scroll anchoring would follow the footer below the new cards.
+          var se = document.scrollingElement || document.documentElement, y = se.scrollTop;
+          box.appendChild(label(n)); box.appendChild(c);
+          se.scrollTop = y;
+          var nx = findNext(d); next = nx ? nx.href : null;
+        }
+        f.remove(); ok(!!ready);
+      })();
+    });
+  }
+  function tick(){
+    if (location.href !== url) reset();
+    if (busy || done) return;
+    var se = document.scrollingElement || document.documentElement;
+    if (!saved && se.scrollTop + innerHeight < se.scrollHeight - innerHeight * 2) return;
+    if (!grid || !grid.isConnected) { grid = findGrid(document); if (!grid) return; }
+    if (!pages.length) {
+      var m = !saved && findMore();
+      if (m) { busy = true; m.click(); setTimeout(function(){ busy = false; }, 1500); return; }
+      var a = findNext(document); if (!a) { done = true; return; }
+      next = a.href;
+      pager = a.closest('[class*=agination], nav') || a.parentElement;
+    }
+    if (saved && pages.length < saved.pages.length) next = saved.pages[pages.length];
+    if (!next || pages.length >= 50) { done = true; if (pager) pager.style.display = ''; return; }
+    if (!box) { box = document.createElement('div'); box.className = 'orca-more'; grid.parentNode.insertBefore(box, grid.nextSibling); }
+    busy = true; var href = next; pages.push(href);
+    if (pager) pager.style.display = 'none';
+    load(href, pages.length + 1).then(function(ok){
+      busy = false;
+      if (!ok) { done = true; saved = null; if (pager) pager.style.display = ''; }
+      else if (saved && pages.length >= saved.pages.length) { (document.scrollingElement || document.documentElement).scrollTop = saved.y; saved = null; }
+      else tick();
+    });
+  }
+  var queued = false;
+  addEventListener('scroll', function(){ if (queued) return; queued = true; setTimeout(function(){ queued = false; tick(); }, 250); }, true);
+  setInterval(tick, 1500);
 })();"""
