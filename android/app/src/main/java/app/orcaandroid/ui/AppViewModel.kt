@@ -37,7 +37,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val shapes = ShapeController(store, scad)
 
     /** MCP server for AI clients (Settings > AI tools); runs while this view model lives and the switch is on. */
-    private val aiTools = McpTools(store, scad, shapes)
+    private val aiTools = McpTools(store, scad, shapes, presets)
     private val mcp = McpServer(AI_TOOLS_PORT, { store.settings.aiToken }, aiTools)
 
     /** Desktop translations of option labels for the device language. */
@@ -53,7 +53,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
         viewModelScope.launch { autoSave() }
         viewModelScope.launch { awaitReady(); if (store.settings.aiTools) setAiTools(true) }
-        viewModelScope.launch { store.container.printerStatus.collect { s -> store.update { it.copy(printerStatus = s) } } }
+        viewModelScope.launch {
+            store.container.printerStatus.collect { s ->
+                store.update { it.copy(printerStatus = s) }
+                s?.nozzleDiameter?.let(presets::recordNozzle)
+            }
+        }
         viewModelScope.launch {
             val report = withContext(Dispatchers.IO) { runCatching { CrashReport.pending(store.app) }.getOrNull() }
             if (report != null) store.update { it.copy(crashReport = report) }

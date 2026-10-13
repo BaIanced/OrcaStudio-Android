@@ -83,7 +83,22 @@ internal class BambuReport {
             bedTarget = r.optDouble("bed_target_temper", Double.NaN).takeIf { !it.isNaN() }?.toFloat(),
             layer = r.optInt("layer_num", -1).takeIf { it >= 0 },
             totalLayers = r.optInt("total_layer_num", -1).takeIf { it > 0 },
+            nozzleDiameter = nozzleDiameter(r),
         )
+    }
+
+    /**
+     * The installed nozzle like the desktop's DevNozzleSystemParser: device.nozzle.info (newer firmware;
+     * the toolhead nozzle with the lowest id, rack nozzles have bit 4 of the id set), else nozzle_diameter.
+     */
+    private fun nozzleDiameter(r: JSONObject): Float? {
+        val info = r.optJSONObject("device")?.optJSONObject("nozzle")?.optJSONArray("info")
+        if (info != null) {
+            val heads = (0 until info.length()).mapNotNull(info::optJSONObject).filter { ((it.optInt("id") shr 4) and 0xF) != 1 }
+            heads.minByOrNull { it.optInt("id") }?.optDouble("diameter", Double.NaN)?.takeIf { it > 0 }?.let { return it.toFloat() }
+        }
+        val d = r.opt("nozzle_diameter")?.toString()?.toFloatOrNull() ?: return null
+        return (Math.round(d * 10) / 10f).takeIf { it > 0f }
     }
 
     private fun alerts(r: JSONObject): List<PrinterAlert> {

@@ -27,7 +27,8 @@ class AppSettings(context: Context) {
         get() = prefs.getInt("undo_limit", DEFAULT_UNDO_LIMIT)
         set(value) = prefs.edit().putInt("undo_limit", value).apply()
 
-    /** Saves the session this often (seconds) while the plate has unsaved changes; 0 = only when the app goes to the background. */
+    /** Saves the session this often (seconds) while the plate has unsaved changes; 0 or less = only when the app goes to the background
+     *  (switched off keeps the interval as -seconds, for switching it on again). */
     var autoSaveSeconds: Int
         get() = prefs.getInt("auto_save_seconds", DEFAULT_AUTO_SAVE_SECONDS)
         set(value) = prefs.edit().putInt("auto_save_seconds", value).apply()
@@ -77,6 +78,28 @@ class AppSettings(context: Context) {
     var preferredBedType: String
         get() = prefs.getString("preferred_bed_type", null).orEmpty()
         set(value) = prefs.edit().putString("preferred_bed_type", value).apply()
+
+    /** AMS sync and new slots use the user's own filament preset in place of the system preset it was saved from. */
+    var preferMyFilaments: Boolean
+        get() = prefs.getBoolean("prefer_my_filaments", true)
+        set(value) = prefs.edit().putBoolean("prefer_my_filaments", value).apply()
+
+    /** System filament preset -> the user preset (saved from it) that stands in for it, last chosen. */
+    var myFilaments: Map<String, String>
+        get() = runCatching { JSONObject(prefs.getString("my_filaments", null) ?: "{}") }.getOrNull()
+            ?.let { o -> o.keys().asSequence().associateWith { o.getString(it) } }.orEmpty()
+        set(value) = prefs.edit().putString("my_filaments", JSONObject(value).toString()).apply()
+
+    /** Hide printer presets whose nozzle differs from the one the connected printer reports. */
+    var matchNozzle: Boolean
+        get() = prefs.getBoolean("match_nozzle", true)
+        set(value) = prefs.edit().putBoolean("match_nozzle", value).apply()
+
+    /** Last nozzle diameter (mm) each printer model reported, by printer_model. */
+    var installedNozzles: Map<String, Float>
+        get() = runCatching { JSONObject(prefs.getString("installed_nozzles", null) ?: "{}") }.getOrNull()
+            ?.let { o -> o.keys().asSequence().associateWith { o.getDouble(it).toFloat() } }.orEmpty()
+        set(value) = prefs.edit().putString("installed_nozzles", JSONObject(value.mapValues { it.value.toDouble() }).toString()).apply()
 
     var lastPrinter: String?
         get() = prefs.getString("printer", null)

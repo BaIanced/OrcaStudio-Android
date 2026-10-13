@@ -35,7 +35,11 @@ data class PrinterInfo(val name: String, val vendor: String, val model: String, 
     val isBambu get() = vendor == "BBL" || vendor == "Bambu Lab" || model.startsWith("Bambu Lab")
 }
 
-data class PresetRef(val name: String, val vendor: String, val system: Boolean, val brand: String = "", val type: String = "") {
+data class PresetRef(
+    val name: String, val vendor: String, val system: Boolean, val brand: String = "", val type: String = "",
+    /** A user preset's system parent, else "". */
+    val base: String = "",
+) {
     /** A system filament's brand (Bambu Lab, Generic, eSUN ...), for the brand filter and grouping. */
     val brandName get() = brand.ifEmpty { vendor.ifEmpty { "Generic" } }
 }

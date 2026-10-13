@@ -81,27 +81,44 @@ object ModelDownloads {
         }.getOrDefault(false)
     }
 
-    /** Model files to open: the file itself, or the model files inside a zip. */
+    /**
+     * Model files to open: the file itself, or the model files inside a zip. A zip with OpenSCAD
+     * sources is unpacked whole with its folders, so include <lib/x.scad> and import("part.stl")
+     * still resolve; model files a source names stay out of the list (they are the design's data).
+     */
     fun modelFiles(file: File): List<File> {
         if (!file.name.endsWith(".zip", true)) return listOf(file)
-        val dir = File(file.parentFile, file.nameWithoutExtension).apply { deleteRecursively(); mkdirs() }
+        // Not the plain name: the import folder also holds folders of its own ("openscad", "presets").
+        val dir = File(file.parentFile, file.nameWithoutExtension + "_files").apply { deleteRecursively(); mkdirs() }
+        val root = dir.canonicalPath + File.separator
+        val hasScad = java.util.zip.ZipFile(file).use { z -> z.entries().asSequence().any { it.name.endsWith(".scad", true) } }
         val out = mutableListOf<File>()
         ZipInputStream(file.inputStream()).use { zip ->
             while (true) {
                 val e = zip.nextEntry ?: break
                 val base = e.name.substringAfterLast('/')
-                if (e.isDirectory || base.substringAfterLast('.', "").lowercase() !in MODEL_EXTENSIONS || base.startsWith("._")) continue
-                val f = File(dir, safeName(base))
+                if (e.isDirectory || base.startsWith("._") || e.name.startsWith("__MACOSX/")) continue
+                val model = base.substringAfterLast('.', "").lowercase() in MODEL_EXTENSIONS
+                if (!model && !hasScad) continue
+                val f = if (hasScad) File(dir, e.name).takeIf { it.canonicalPath.startsWith(root) } ?: continue
+                    else File(dir, safeName(base))
+                f.parentFile?.mkdirs()
                 f.outputStream().use { zip.copyTo(it) }
-                out += f
+                if (model) out += f
             }
         }
-        return out
+        if (!hasScad) return out
+        // Sources nearest the top first: the design is usually there, its libraries in folders.
+        val sources = out.filter { it.extension.equals("scad", true) }.sortedBy { it.relativeTo(dir).path.count { c -> c == '/' } }
+        val texts = sources.joinToString("\n") { runCatching { it.readText() }.getOrDefault("") }
+        return sources + out.filter { !it.extension.equals("scad", true) && !texts.contains(it.name) }
     }
 
     private fun hasKnownExtension(name: String) = name.substringAfterLast('.', "").lowercase().let { it in MODEL_EXTENSIONS || it in PRESET_EXTENSIONS || it == "zip" }
 
-    /** The model type of a downloaded file from its content: 3MF / zip, ASCII or binary STL, OBJ. */
+    private val SCAD_TEXT = Regex("""\b(cube|cylinder|sphere|polygon|polyhedron|difference|union|intersection|translate|linear_extrude|rotate_extrude)\s*\(|\b(module|function)\s+\w+\s*\(|\b(include|use)\s*<|\${'$'}fn\s*=""")
+
+    /** The model type of a downloaded file from its content: 3MF / zip, ASCII or binary STL, OBJ, OpenSCAD. */
     private fun sniffExtension(file: File): String {
         val head = file.inputStream().use { input -> ByteArray(512).let { it.copyOf(input.read(it).coerceAtLeast(0)) } }
         val text = String(head, Charsets.ISO_8859_1)
@@ -110,6 +127,8 @@ object ModelDownloads {
             text.trimStart().startsWith("{") -> "json"
             text.trimStart().startsWith("solid") && text.contains("facet") -> "stl"
             Regex("(?m)^\\s*(v|vn|vt|f|o|g|mtllib) ").containsMatchIn(text) -> "obj"
+            // Text with OpenSCAD statements (a binary STL has zero bytes in its first 512).
+            '\u0000' !in text && SCAD_TEXT.containsMatchIn(text) -> "scad"
             else -> "stl" // binary STL: 80-byte header, triangle count, 50 bytes per triangle
         }
     }

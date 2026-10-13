@@ -1,11 +1,15 @@
 package app.orcaandroid.ai
 
 import app.orcaandroid.R
+import app.orcaandroid.core.Instance
+import app.orcaandroid.core.Scene
+import app.orcaandroid.core.Vec3
 import app.orcaandroid.scad.D3
 import app.orcaandroid.scad.Repeat
 import app.orcaandroid.scad.Shape
 import app.orcaandroid.scad.ShapeDesign
 import app.orcaandroid.scad.Sketch
+import app.orcaandroid.ui.PresetController
 import app.orcaandroid.ui.ScadController
 import app.orcaandroid.ui.ShapeController
 import app.orcaandroid.ui.Store
@@ -21,12 +25,12 @@ import org.json.JSONObject
  * thread, so every edit shows up live in the editor and is one undo step there. Putting a design on
  * the plate waits for the user's Allow on screen.
  */
-class McpTools(private val store: Store, private val scad: ScadController, private val shapes: ShapeController) {
+class McpTools(private val store: Store, private val scad: ScadController, private val shapes: ShapeController, presets: PresetController) {
 
     /** [run] returns the reply text, or a ready-made `content` [JSONArray] (e.g. an image) for [reply]. */
-    private class Tool(val name: String, val description: String, val schema: JSONObject, val run: suspend (JSONObject) -> Any)
+    internal class Tool(val name: String, val description: String, val schema: JSONObject, val run: suspend (JSONObject) -> Any)
 
-    private class ToolError(message: String) : Exception(message)
+    internal class ToolError(message: String) : Exception(message)
 
     /** The on-screen question a tool waits for (main thread only). */
     private var pending: CompletableDeferred<Boolean>? = null
@@ -35,6 +39,8 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
     fun answer(allow: Boolean) {
         pending?.complete(allow)
     }
+
+    private val presetTools = PresetTools(store, presets, ::confirm)
 
     private val tools = listOf(
         Tool("design_get", "Read: the shape-builder design in the app's design editor, as JSON " +
@@ -118,7 +124,26 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             obj()) { plateDescribe() },
         Tool("design_to_plate", "Confirm: puts the open design on the active plate (replacing the object it made before). " +
             "Waits up to 60 s for the user to tap Allow in the app; fails with \"declined by the user\" otherwise.", obj()) { toPlate() },
-    )
+        Tool("object_transform", "Plate edit: places one copy of an object. pos = centre of its footprint [x, y] in mm from " +
+            "the front-left corner of a plate (its own plate, or plate); rot = degrees about X, Y, Z (absolute, as plate_describe " +
+            "lists); scale = % per axis (100 = original size). Given fields change, others stay; the copy then rests on the bed. " +
+            "With pos and rot / scale together it is two undo steps. $PLATE_EDIT",
+            obj(listOf("object"), *COPY, "pos" to JSONObject().put("type", "array").put("items", JSONObject().put("type", "number"))
+                .put("minItems", 2).put("maxItems", 2).put("description", "Footprint centre [x, y] mm on the plate"),
+                "plate" to p("integer", "Plate number for pos (moves the copy there); default its current plate"),
+                "rot" to vec("Degrees about X, Y, Z"), "scale" to vec("Percent per axis, > 0"))) { transform(it) },
+        Tool("object_lay_on_face", "Plate edit: turns one copy so its face that now points in direction normal lies flat on " +
+            "the bed (plate frame: [1,0,0] right, [0,1,0] back, [0,0,1] up; e.g. [0,1,0] puts its back face down). $PLATE_EDIT",
+            obj(listOf("object", "normal"), *COPY, "normal" to vec("Direction the face points in now"))) { layOnFace(it) },
+        Tool("object_auto_orient", "Plate edit: turns every copy of an object (or of all objects, object omitted) the way " +
+            "OrcaSlicer's auto orient finds best for printing (less support, flat on the bed). $PLATE_EDIT",
+            obj(emptyList(), "object" to p("integer", "Object number from plate_describe; omitted = all"))) { autoOrient(it) },
+        Tool("object_duplicate", "Plate edit: adds copies of one copy of an object; they are arranged on its plate. $PLATE_EDIT",
+            obj(listOf("object"), *COPY, "copies" to p("integer", "How many, 1..100; default 1"))) { duplicate(it) },
+        Tool("plate_arrange", "Plate edit: arranges the objects on a plate (default the active one), or with all true " +
+            "every object over all plates (plates are added when they don't fit). $PLATE_EDIT",
+            obj(emptyList(), "plate" to p("integer", "Plate number"), "all" to p("boolean", "true = every plate"))) { arrange(it) },
+    ) + presetTools.tools
 
     fun list(): JSONArray = JSONArray().apply {
         tools.forEach { put(JSONObject().put("name", it.name).put("description", it.description).put("inputSchema", it.schema)) }
@@ -235,25 +260,116 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             if (s.filaments.isEmpty()) appendLine("Filaments: (none)")
             else s.filaments.forEachIndexed { i, f -> appendLine("Filament ${i + 1}: ${f.preset}${f.color?.let { c -> " ($c)" } ?: ""}") }
             val scene = s.scene
+            appendLine("Plate size ${n(scene.plateWidth.toDouble())} x ${n(scene.plateDepth.toDouble())} mm")
             if (scene.objects.isEmpty()) { append("The plate is empty."); return@buildString }
+            fun copies(plate: Int) = scene.objects.forEach { o ->
+                val here = o.instances.filter { it.plate == plate }
+                if (here.isEmpty()) return@forEach
+                appendLine("  object ${o.index + 1} \"${o.name}\", ${o.triangles} triangles")
+                here.forEach { i ->
+                    append("    copy ${i.index + 1}: ")
+                    if (plate >= 0) append("centre ${v2(footprint(scene, i))}, ")
+                    append("size ${n(i.size.x.toDouble())} x ${n(i.size.y.toDouble())} x ${n(i.size.z.toDouble())} mm")
+                    i.rotation.takeIf { r -> r.x != 0f || r.y != 0f || r.z != 0f }?.let { append(", rot ${v(it.d3())}") }
+                    i.scale.takeIf { c -> c.x != 1f || c.y != 1f || c.z != 1f }?.let { append(", scale ${v((it * 100f).d3())} %") }
+                    appendLine()
+                }
+            }
             for (plate in scene.plates) {
-                val objs = scene.objectsOn(plate.index)
                 append("Plate ${plate.index + 1}")
                 if (plate.index == s.activePlate) append(" (active)")
                 if (plate.bedType.isNotEmpty()) append(", ${plate.bedType}")
-                appendLine(": ${objs.size} object(s)")
-                objs.forEach { o ->
-                    val here = o.instances.filter { it.plate == plate.index }
-                    append("  ${o.name}")
-                    if (here.size > 1) append(" x${here.size}")
-                    here.firstOrNull()?.size?.let { z -> append(" — ${n(z.x.toDouble())} x ${n(z.y.toDouble())} x ${n(z.z.toDouble())} mm") }
-                    appendLine(", ${o.triangles} triangles")
-                }
+                appendLine(": ${scene.objectsOn(plate.index).size} object(s)")
+                copies(plate.index)
                 s.results[plate.index]?.let { r ->
                     appendLine("  sliced: ${duration(r.printTimeSeconds)}, ${n(r.filamentGrams)} g, ${n(r.filamentMm / 1000.0)} m filament")
                 }
             }
-            scene.outsideCount.takeIf { it > 0 }?.let { append("$it object(s) are off the plate.") }
+            if (scene.outsideCount > 0) { appendLine("Off the plates:"); copies(-1) }
+        }
+    }
+
+    // --- Plate edits ----------------------------------------------------------------------------------
+
+    /** Centre of [i]'s footprint in its plate's frame (mm from the plate's front-left corner). */
+    private fun footprint(scene: Scene, i: Instance, plate: Int = i.plate): Pair<Double, Double> {
+        val p = scene.plates.getOrNull(plate) ?: scene.plates.firstOrNull()
+        return (i.min.x + i.size.x / 2 - (p?.originX ?: 0f)).toDouble() to (i.min.y + i.size.y / 2 - (p?.originY ?: 0f)).toDouble()
+    }
+
+    /** The 0-based object and copy that [args] name (1-based "object" / "copy"). */
+    private fun copyOf(args: JSONObject): Pair<Int, Instance> {
+        val o = args.optInt("object", 0) - 1
+        val obj = store.value.scene.objects.getOrNull(o) ?: throw ToolError("No object ${o + 1} (see plate_describe)")
+        val c = args.optInt("copy", 1) - 1
+        return o to (obj.instances.getOrNull(c) ?: throw ToolError("Object ${o + 1} has no copy ${c + 1}"))
+    }
+
+    /** Runs engine operation [op], adopts its scene (one undo step in the app) and returns the new plate description. */
+    private suspend fun plateEdit(summary: String, busy: Int? = null, op: suspend () -> Scene): String {
+        if (busy != null) store.update { it.copy(busy = store.str(busy)) }
+        try {
+            val scene = op()
+            withContext(Dispatchers.Main.immediate) { store.applyScene(scene) }
+        } finally {
+            if (busy != null) store.update { it.copy(busy = null) }
+        }
+        store.toast(store.str(R.string.ai_edit, summary))
+        return plateDescribe()
+    }
+
+    private suspend fun transform(args: JSONObject): String {
+        val (o, inst) = copyOf(args)
+        val rot = args.vec3("rot")
+        val scale = args.vec3("scale")?.also { if (it.x <= 0 || it.y <= 0 || it.z <= 0) throw ToolError("scale must be > 0") }
+        val pos = args.optJSONArray("pos")?.let { a ->
+            if (a.length() != 2 || (0..1).any { !a.optDouble(it).isFinite() }) throw ToolError("pos must be 2 numbers")
+            a.getDouble(0) to a.getDouble(1)
+        }
+        val plate = if (args.has("plate")) args.optInt("plate") - 1 else null
+        if (plate != null && store.value.scene.plates.getOrNull(plate) == null) throw ToolError("No plate ${plate + 1}")
+        if (plate != null && pos == null) throw ToolError("plate needs pos")
+        if (pos == null && rot == null && scale == null) throw ToolError("Give pos, rot or scale")
+        val ref = "object ${o + 1} copy ${inst.index + 1}"
+        var out = ""
+        if (rot != null || scale != null) out = plateEdit("turned / scaled $ref") {
+            store.engine.setTransform(o, inst.index, rotation = rot?.f(), scale = scale?.let { (it.f() * 0.01f) })
+        }
+        if (pos != null) out = plateEdit("moved $ref") {
+            // After a turn / scale the footprint has moved: measure it in the current scene.
+            val scene = store.value.scene
+            val now = scene.objects[o].instances[inst.index]
+            val (x, y) = footprint(scene, now, plate ?: now.plate.coerceAtLeast(0))
+            store.engine.setTransform(o, inst.index, offset = now.offset + Vec3((pos.first - x).toFloat(), (pos.second - y).toFloat(), 0f))
+        }
+        return out
+    }
+
+    private suspend fun layOnFace(args: JSONObject): String {
+        val (o, inst) = copyOf(args)
+        val normal = args.vec3("normal") ?: throw ToolError("normal must be 3 numbers")
+        if (normal.x == 0.0 && normal.y == 0.0 && normal.z == 0.0) throw ToolError("normal must not be [0, 0, 0]")
+        return plateEdit("laid object ${o + 1} copy ${inst.index + 1} on a face") { store.engine.layOnFace(o, inst.index, normal.f()) }
+    }
+
+    private suspend fun autoOrient(args: JSONObject): String {
+        val o = if (args.has("object")) copyOf(args).first else -1
+        return plateEdit(if (o < 0) "oriented all objects" else "oriented object ${o + 1}", R.string.orienting) { store.engine.autoOrient(o) }
+    }
+
+    private suspend fun duplicate(args: JSONObject): String {
+        val (o, inst) = copyOf(args)
+        val copies = if (args.has("copies")) args.optInt("copies", 0) else 1
+        if (copies !in 1..100) throw ToolError("copies must be 1..100")
+        return plateEdit("added $copies cop${if (copies == 1) "y" else "ies"} of object ${o + 1}") { store.engine.duplicate(listOf(o to inst.index), copies) }
+    }
+
+    private suspend fun arrange(args: JSONObject): String {
+        val all = args.optBoolean("all")
+        val plate = if (args.has("plate")) args.optInt("plate") - 1 else store.value.activePlate
+        if (!all && store.value.scene.plates.getOrNull(plate) == null) throw ToolError("No plate ${plate + 1}")
+        return plateEdit(if (all) "arranged all plates" else "arranged plate ${plate + 1}", R.string.arranging) {
+            store.engine.arrange(if (all) -1 else plate)
         }
     }
 
@@ -490,6 +606,9 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
     private fun ref(ids: List<Int>) = ids.joinToString { "#$it" }
     private fun n(x: Double) = ShapeDesign.n(x)
     private fun v(p: D3) = "[${n(p.x)}, ${n(p.y)}, ${n(p.z)}]"
+    private fun v2(p: Pair<Double, Double>) = "[${n(p.first)}, ${n(p.second)}]"
+    private fun Vec3.d3() = D3(x.toDouble(), y.toDouble(), z.toDouble())
+    private fun D3.f() = Vec3(x.toFloat(), y.toFloat(), z.toFloat())
 
     companion object {
         private val IDENT = Regex("[A-Za-z_][A-Za-z0-9_]*")
@@ -502,13 +621,18 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
 
         private const val EDIT = "One undo step in the app (the user can press Undo)."
         private const val OPENS = " Opens the design editor on the saved draft when it is closed."
+        private const val PLATE_EDIT = "Changes the user's plate (not the design); one undo step in the app. Returns plate_describe."
 
-        private fun p(type: String, description: String) = JSONObject().put("type", type).put("description", description)
+        /** Which copy a plate tool works on. */
+        private val COPY = arrayOf("object" to p("integer", "Object number from plate_describe"),
+            "copy" to p("integer", "Copy number from plate_describe; default 1"))
+
+        internal fun p(type: String, description: String) = JSONObject().put("type", type).put("description", description)
         private fun vec(description: String) = JSONObject().put("type", "array").put("items", JSONObject().put("type", "number"))
             .put("minItems", 3).put("maxItems", 3).put("description", description)
         private fun ids() = JSONObject().put("type", "array").put("items", JSONObject().put("type", "integer")).put("description", "Shape ids")
 
-        private fun obj(required: List<String> = emptyList(), vararg props: Pair<String, JSONObject>) = JSONObject().put("type", "object")
+        internal fun obj(required: List<String> = emptyList(), vararg props: Pair<String, JSONObject>) = JSONObject().put("type", "object")
             .put("properties", JSONObject().apply { props.forEach { (k, v) -> put(k, v) } })
             .apply { if (required.isNotEmpty()) put("required", JSONArray(required)) }
 
@@ -546,7 +670,10 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             "app's design editor (OpenSCAD is generated from it). Read with design_describe first (cheapest), design_get for " +
             "the JSON, design_snapshot for a picture when shape matters. Change it with the shape_* / dim_* / sketch_set tools " +
             "(or design_set for a whole new design), check with design_preview, and ask design_to_plate to put it on the plate " +
-            "(the user confirms on screen). plate_describe shows the print set-up and the plate itself (separate from the design). " +
+            "(the user confirms on screen). plate_describe shows the print set-up and the plate itself (separate from the design); " +
+            "the object_* / plate_arrange tools move, turn, scale, copy and arrange the objects on it. Print settings: preset_list / " +
+            "preset_get / setting_find read the printer, process and filament presets, settings_edit changes settings as unsaved " +
+            "edits, preset_select switches process / filament, preset_save and preset_delete wait for the user's Allow. " +
             "Every edit is one undo step the user can revert in the app."
     }
 }

@@ -90,6 +90,10 @@ json compatible_names(const PresetCollection &collection)
         if (p.is_default || !p.is_compatible)
             continue;
         json entry = {{"name", p.name}, {"system", p.is_system}, {"vendor", p.vendor ? p.vendor->name : "User"}};
+        // A user preset's system parent (what AMS sync would pick instead of it).
+        if (!p.is_system)
+            if (const Preset *parent = collection.get_preset_parent(p); parent && parent != &p && parent->is_system)
+                entry["base"] = parent->name;
         // A filament's brand (Bambu Lab, Generic, eSUN ...) and material, for filtering and grouping.
         if (const auto *brand = p.config.option<ConfigOptionStrings>("filament_vendor"); brand && !brand->values.empty())
             entry["brand"] = brand->values.front();

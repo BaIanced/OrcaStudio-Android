@@ -175,9 +175,10 @@ data class Dim(val name: String, val value: Double, val min: Double, val max: Do
             return name
         }
 
-        /** A new slider for a length of [v] mm (or a position / angle when [signed]). */
-        fun forLength(name: String, v: Double, signed: Boolean = false, angle: Boolean = false) =
-            Dim(name, v, if (signed) minOf(v, -100.0) else 0.0, if (angle) 360.0 else maxOf(100.0, Math.ceil(v * 2 / 10) * 10), 1.0)
+        /** A new slider for a length of [v] mm (or a position / angle when [signed]; an edge or wall, in 0.1 mm steps, when [small]). */
+        fun forLength(name: String, v: Double, signed: Boolean = false, angle: Boolean = false, small: Boolean = false) =
+            if (small) Dim(name, v, 0.0, maxOf(10.0, Math.ceil(v * 2)), 0.1)
+            else Dim(name, v, if (signed) minOf(v, -100.0) else 0.0, if (angle) maxOf(360.0, v) else maxOf(100.0, Math.ceil(v * 2 / 10) * 10), 1.0)
     }
 }
 
@@ -231,6 +232,9 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
     /** The value a field has now: its dimension's value when bound. */
     fun value(s: Shape, field: String, raw: Double): Double = s.bind[field]?.let { dim(it)?.value } ?: raw
 
+    /** Height of [s] whose middle it turns and flips about: its size, or a group's children's top. */
+    fun height(s: Shape): Double = if (s.isGroup) s.children.maxOfOrNull { bounds(it).max.z } ?: 0.0 else size(s).z
+
     /** Bounds of [s] in its parent's frame, copies included. */
     fun bounds(s: Shape): Bounds {
         val local: Bounds
@@ -250,7 +254,7 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
         val corners = (0 until 8).map { i ->
             val c = D3(if (i and 1 == 0) local.min.x else local.max.x, if (i and 2 == 0) local.min.y else local.max.y,
                 if (i and 4 == 0) local.min.z else local.max.z)
-            rotate(c - pivot, r) + pivot + p
+            rotate(flip(c - pivot, s.mirror), r) + pivot + p
         }
         var b = Bounds.of(corners)
         s.repeat?.let { rep ->
@@ -330,7 +334,7 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
             }
             ind += "    "
         }
-        val h = if (s.isGroup) n(bounds(s.copy(pos = D3(), rot = D3(), repeat = null)).max.z) else f(s, "size.z", s.size.z)
+        val h = if (s.isGroup) n(height(s)) else f(s, "size.z", s.size.z)
         val rotated = s.rot != D3() || s.bind.keys.any { it.startsWith("rot.") }
         val pivot = rotated || s.mirror.z != 0.0
         out.append("${ind}translate([${f(s, "pos.x", s.pos.x)}, ${f(s, "pos.y", s.pos.y)}, ${f(s, "pos.z", s.pos.z)}${if (pivot) " + $h / 2" else ""}])")
@@ -499,6 +503,28 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
             if (deg.y != 0.0) { val a = Math.toRadians(deg.y); val c = cos(a); val s = sin(a); val nx = x * c + z * s; z = -x * s + z * c; x = nx }
             if (deg.z != 0.0) { val a = Math.toRadians(deg.z); val c = cos(a); val s = sin(a); val nx = x * c - y * s; y = x * s + y * c; x = nx }
             return D3(x, y, z)
+        }
+
+        /** [p] through OpenSCAD's mirror() of the axes set in [m]. */
+        fun flip(p: D3, m: D3) = D3(if (m.x != 0.0) -p.x else p.x, if (m.y != 0.0) -p.y else p.y, if (m.z != 0.0) -p.z else p.z)
+
+        /** rotate([a, b, c]) as a row-major matrix (Rz * Ry * Rx). */
+        fun matrix(deg: D3): Array<DoubleArray> {
+            val ex = rotate(D3(1.0, 0.0, 0.0), deg)
+            val ey = rotate(D3(0.0, 1.0, 0.0), deg)
+            val ez = rotate(D3(0.0, 0.0, 1.0), deg)
+            return Array(3) { i -> doubleArrayOf(ex[i], ey[i], ez[i]) }
+        }
+
+        /** The rotate([a, b, c]) angles of rotation matrix [m], each in -180..180. */
+        fun angles(m: Array<DoubleArray>): D3 {
+            val sy = -m[2][0].coerceIn(-1.0, 1.0)
+            val b = Math.asin(sy)
+            // Gimbal lock (b = ±90°): only a - c (or a + c) counts; put it all in c.
+            val (a, c) = if (kotlin.math.abs(sy) > 1 - 1e-9) 0.0 to kotlin.math.atan2(-m[0][1], m[1][1])
+                else kotlin.math.atan2(m[2][1], m[2][2]) to kotlin.math.atan2(m[1][0], m[0][0])
+            fun deg(r: Double) = Math.round(Math.toDegrees(r) * 1e6) / 1e6 + 0.0
+            return D3(deg(a), deg(b), deg(c))
         }
 
         /**

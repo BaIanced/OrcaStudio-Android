@@ -49,6 +49,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import app.orcaandroid.R
+import app.orcaandroid.net.AdBlock
 import app.orcaandroid.net.BambuAccount
 import app.orcaandroid.net.FilamentProfiles
 import app.orcaandroid.net.ModelDownloads
@@ -150,12 +151,16 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel, d
                 // Other apps' links (mailto:, intent:, market:) are not followed inside the tab.
                 return request.url.scheme !in setOf("http", "https")
             }
+            override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest) =
+                if (AdBlock.blocks(request.url.host)) AdBlock.emptyResponse() else null
             override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
                 view.evaluateJavascript(BRIDGE_JS, null)
+                view.evaluateJavascript(AdBlock.HIDE_JS, null)
                 updateNav()
             }
             override fun onPageFinished(view: WebView, url: String?) {
                 view.evaluateJavascript(BRIDGE_JS, null)
+                view.evaluateJavascript(AdBlock.HIDE_JS, null)
                 view.evaluateJavascript(ZOOM_JS, null)
                 if (site ==ModelSite.MAKERWORLD && !fullSite) view.evaluateJavascript(MW_TRIM_JS, null)
                 updateNav()

@@ -115,6 +115,15 @@ private fun PresetsTab(state: UiState, vm: AppViewModel) {
         IconButton(onClick = { vm.presets.openEditor(EditorTarget.Preset(PresetType.PRINTER)) }) { Icon(Icons.Default.Edit, stringResource(R.string.edit)) }
     }
     TextButton(onClick = vm.presets::openPrinterSetup) { Text(stringResource(R.string.manage_printers)) }
+    // Like the desktop's nozzle check: the connected printer reported another nozzle than this preset's.
+    val installed = state.nozzleMismatch
+    if (installed != null && state.matchNozzle) {
+        val model = state.printerInfo?.model
+        val match = state.visiblePrinters.firstOrNull { it.model == model && it.name != state.printer && state.nozzleFits(it) }
+        Text(stringResource(R.string.nozzle_mismatch, "%.1f".format(installed)), style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error)
+        match?.let { m -> TextButton(onClick = { vm.presets.selectPrinter(m.name) }) { Text(stringResource(R.string.use_printer, m.name)) } }
+    }
     if (state.supportsBedTypes) {
         val current = state.bedTypeOf(state.activePlate)
         PickerField(stringResource(R.string.plate_type), current,

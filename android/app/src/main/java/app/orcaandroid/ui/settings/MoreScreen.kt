@@ -95,6 +95,12 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
             Entry(stringResource(R.string.manage_printers), stringResource(R.string.n_printers_selected, state.selectedPrinters.size)) { vm.presets.openPrinterSetup() }
             Entry(stringResource(R.string.filament_vendors), stringResource(R.string.filament_vendors_text)) { dialog = "vendors" }
             if (state.supportsBedTypes) Entry(stringResource(R.string.plate_types), stringResource(R.string.plate_types_text)) { dialog = "plates" }
+            SwitchRow(stringResource(R.string.prefer_my_filaments), state.preferMyFilaments, onChange = vm.presets::setPreferMyFilaments)
+            Text(stringResource(R.string.prefer_my_filaments_text), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            SwitchRow(stringResource(R.string.match_nozzle), state.matchNozzle, onChange = vm.presets::setMatchNozzle)
+            Text(stringResource(R.string.match_nozzle_text) + state.installedNozzles.entries.joinToString("") { "\n${it.key}: %.1f mm".format(it.value) },
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Entry(stringResource(R.string.import_presets), stringResource(R.string.import_presets_text)) { importPresets.launch(arrayOf("*/*")) }
             Entry(stringResource(R.string.sync_cloud_presets), stringResource(R.string.sync_cloud_presets_text)) { vm.presets.syncCloudPresets() }
             Entry(stringResource(R.string.compare_presets), null) { vm.presets.openEditor(EditorTarget.Preset(PresetType.PRINT, pickCompare = true)) }
@@ -240,9 +246,10 @@ private fun AiToolsSection(state: UiState, vm: AppViewModel) {
 @Composable
 private fun AutoSaveRow(seconds: Int, onChange: (Int) -> Unit) {
     val range = app.orcaandroid.core.AUTO_SAVE_RANGE
-    var last by remember { mutableStateOf(if (seconds > 0) seconds else app.orcaandroid.core.DEFAULT_AUTO_SAVE_SECONDS) }
+    var last by remember { mutableStateOf(kotlin.math.abs(seconds).takeIf { it in range } ?: app.orcaandroid.core.DEFAULT_AUTO_SAVE_SECONDS) }
     var text by remember(seconds) { mutableStateOf(last.toString()) }
-    SwitchRow(stringResource(R.string.auto_save), seconds > 0, onChange = { on -> onChange(if (on) last else 0) })
+    // Off is stored as -interval, so the interval is still there when it is switched on again.
+    SwitchRow(stringResource(R.string.auto_save), seconds > 0, onChange = { on -> onChange(if (on) last else -last) })
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(R.string.auto_save_interval), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
         OutlinedTextField(

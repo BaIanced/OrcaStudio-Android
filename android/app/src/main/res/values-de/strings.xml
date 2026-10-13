@@ -103,6 +103,12 @@
     <string name="plate_types_text">Welche Druckplatten in den Listen erscheinen und welche Standard ist</string>
     <string name="plate_types_hint">Angehakte Platten erscheinen in den Listen. Der gewählte Kreis ist die Platte, die neue Platten verwenden, bis du eine andere wählst.</string>
     <string name="plate_type_printer_default">Standard des Druckers</string>
+    <string name="prefer_my_filaments">Meine Filamentprofile verwenden</string>
+    <string name="prefer_my_filaments_text">Ein Filamentprofil, das du aus einem Systemprofil gespeichert hast (In den Filamenteinstellungen als Benutzerprofil speichern), ersetzt dieses beim AMS-Abgleich und in neuen Projekten, damit deine Änderungen Standard bleiben. Wählst du in einem Platz das Systemprofil, gilt wieder dieses.</string>
+    <string name="match_nozzle">Eingebaute Düse abgleichen</string>
+    <string name="match_nozzle_text">Ein verbundener Bambu-Lab-Drucker meldet seine Düse; Druckerprofile für eine andere Düsengröße werden dann ausgeblendet und eine Abweichung wird angezeigt. Ausschalten, um alle zu sehen.</string>
+    <string name="nozzle_mismatch">Der Drucker meldet eine %1$s-mm-Düse; dieses Profil ist für eine andere Größe.</string>
+    <string name="use_printer">%1$s verwenden</string>
     <string name="n_selected">%d ausgewählt</string>
     <string name="select_all">Alle auswählen</string>
     <string name="select_mode_hint">Tippe auf Objekte, um sie auszuwählen</string>
