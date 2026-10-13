@@ -159,7 +159,8 @@ private fun MainLayout(state: UiState, vm: AppViewModel) {
         }
         if (wide) {
             Row(Modifier.fillMaxSize()) {
-                NavigationRail {
+                // No insets of its own: MainActivity pads the bars, and in landscape the rail may use the cutout strip.
+                NavigationRail(windowInsets = WindowInsets(0)) {
                     DESTINATIONS.forEach { d ->
                         NavigationRailItem(
                             selected = state.screen == d.screen,
