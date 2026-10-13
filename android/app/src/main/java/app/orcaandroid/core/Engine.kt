@@ -133,6 +133,8 @@ class Engine(private val cacheDir: File) {
         "ranges" to ranges.map { mapOf("from" to it.from, "to" to it.to, "settings" to it.settings) })))
     suspend fun addPlate() = parseScene(call("addPlate"))
     suspend fun deletePlate(plate: Int) = parseScene(call("deletePlate", args("plate" to plate)))
+    /** Several plates as one undo step. */
+    suspend fun deletePlates(plates: List<Int>) = parseScene(call("deletePlate", args("plates" to plates)))
     suspend fun setPlateBedType(plate: Int, bedType: String) = parseScene(call("setPlateBedType", args("plate" to plate, "bedType" to bedType)))
     suspend fun undo() = parseScene(call("undo"))
     suspend fun redo() = parseScene(call("redo"))

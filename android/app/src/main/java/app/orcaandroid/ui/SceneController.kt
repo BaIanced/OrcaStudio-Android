@@ -225,7 +225,15 @@ class SceneController(private val store: Store, private val presets: PresetContr
         store.update { it.copy(activePlate = it.scene.plates.lastIndex) }
     }
 
-    fun deletePlate(plate: Int) = store.sceneOp { engine.deletePlate(plate) }
+    fun deletePlate(plate: Int) = deletePlates(listOf(plate))
+
+    /** Deletes the plates (and their objects) as one undo step; the active plate stays the same plate. */
+    fun deletePlates(plates: Collection<Int>) = store.launch {
+        val active = store.state.value.activePlate
+        val scene = engine.deletePlates(plates.toList())
+        store.applyScene(scene)
+        store.update { it.copy(activePlate = (active - plates.count { p -> p < active }).coerceIn(0, scene.plates.lastIndex)) }
+    }
     /**
      * Sets the plate's type. It also becomes the default for new plates until the user picks another
      * (user, 2026-10-13); other plates that followed the old default keep it.

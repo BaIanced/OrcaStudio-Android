@@ -263,9 +263,9 @@ private fun PlateChips(state: UiState, vm: AppViewModel, view: PlateView?) {
     var plateMenu by remember { mutableStateOf<Int?>(null) }
     // Unselected chips are transparent by default and vanish against the canvas; use the bar colour.
     val bar = MaterialTheme.colorScheme.surface.copy(alpha = LocalOverlayAlpha.current)
-    PlateRow(state, Modifier, 4.dp, Alignment.CenterVertically, add = {
+    PlateRow(state, vm, Modifier, 4.dp, Alignment.CenterVertically, add = {
         AssistChip(onClick = vm.scene::addPlate, label = { Text("+") }, colors = AssistChipDefaults.assistChipColors(containerColor = bar))
-    }) { plate ->
+    }) { plate, _ ->
         Box {
             FilterChip(
                 selected = plate.index == state.activePlate,
@@ -324,7 +324,10 @@ internal fun PlateMenu(state: UiState, vm: AppViewModel, plate: Int, onDismiss: 
         }
         DropdownMenuItem(text = { Text(stringResource(R.string.layer_gcodes)) }, onClick = { gcodes = true })
         if (state.scene.plates.size > 1)
-            DropdownMenuItem(text = { Text(stringResource(R.string.delete_plate)) }, onClick = { confirmDelete = true })
+            // An empty plate goes without asking (user, 2026-10-13).
+            DropdownMenuItem(text = { Text(stringResource(R.string.delete_plate)) }, onClick = {
+                if (state.scene.objectsOn(plate).isEmpty()) { onDismiss(); vm.scene.deletePlate(plate) } else confirmDelete = true
+            })
     }
     if (bedPicker) {
         val current = state.bedTypeOf(plate)

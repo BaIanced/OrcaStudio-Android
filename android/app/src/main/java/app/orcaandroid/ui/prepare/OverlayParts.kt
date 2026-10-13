@@ -65,7 +65,20 @@ import app.orcaandroid.ui.UiState
 import app.orcaandroid.ui.components.framePlate
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.runtime.Stable
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.hapticfeedback.HapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import app.orcaandroid.ui.components.ConfirmDialog
 
 /** Opacity of the control backgrounds over the 3D view (Layout lab). */
 val LocalOverlayAlpha = compositionLocalOf { 0.85f }
@@ -94,30 +107,60 @@ val AutoOrientIcon: ImageVector by lazy {
     }.build()
 }
 
+/**
+ * Plates picked for deleting together (user, 2026-10-13): long press an inactive plate in the tabs or
+ * filmstrip, then tap more; the active plate can't be picked. Empty = not picking.
+ */
+@Stable
+class PlatePicks(private val haptic: HapticFeedback) {
+    var picked by mutableStateOf(emptySet<Int>())
+    val active get() = picked.isNotEmpty()
+    fun toggle(plate: Int) { picked = if (plate in picked) picked - plate else picked + plate }
+    fun longPress(plate: Int, activePlate: Int) {
+        if (plate == activePlate) return
+        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        toggle(plate)
+    }
+}
+
+/** Tap focuses a plate (the active one opens [menu]); while picking, taps pick or drop inactive plates. */
+@OptIn(ExperimentalFoundationApi::class)
+private fun Modifier.plateClicks(state: UiState, vm: AppViewModel, view: PlateView?, picks: PlatePicks, plate: Int, menu: () -> Unit) =
+    combinedClickable(onLongClick = { picks.longPress(plate, state.activePlate) }) {
+        when {
+            picks.active -> if (plate != state.activePlate) picks.toggle(plate)
+            plate == state.activePlate -> menu()
+            else -> { vm.scene.selectPlate(plate); view?.framePlate(plate) }
+        }
+    }
+
 /** Plates as text tabs with an underline under the active one (taskbar style); tap the active one for its menu. */
 @Composable
 fun PlateTabs(state: UiState, vm: AppViewModel, view: PlateView?, modifier: Modifier = Modifier) {
     var plateMenu by remember { mutableStateOf<Int?>(null) }
-    PlateRow(state, modifier, 0.dp, Alignment.CenterVertically, add = {
+    PlateRow(state, vm, modifier, 0.dp, Alignment.CenterVertically, add = {
         Tip(stringResource(R.string.add_plate)) {
             IconButton(onClick = vm.scene::addPlate) { Icon(Icons.Default.Add, stringResource(R.string.add_plate)) }
         }
-    }) { plate ->
+    }) { plate, picks ->
             val active = plate.index == state.activePlate
+            val picked = plate.index in picks.picked
             val name = stringResource(R.string.plate_n, plate.index + 1)
+            val scheme = MaterialTheme.colorScheme
             Box {
                 // Just the number, like the filmstrip (user, 2026-10-13); "Plate n" for TalkBack.
                 Column(
-                    Modifier.clickable {
-                        if (active) plateMenu = plate.index else { vm.scene.selectPlate(plate.index); view?.framePlate(plate.index) }
-                    }.semantics(mergeDescendants = true) { contentDescription = name }
+                    Modifier.clip(RoundedCornerShape(8.dp))
+                        .background(if (picked) scheme.primaryContainer else Color.Transparent)
+                        .plateClicks(state, vm, view, picks, plate.index) { plateMenu = plate.index }
+                        .semantics(mergeDescendants = true) { contentDescription = name; selected = picked }
                         .widthIn(min = 44.dp).padding(horizontal = 8.dp).height(44.dp),
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Text("${plate.index + 1}", style = MaterialTheme.typography.labelLarge,
                         fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
-                        color = if (active) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
+                        color = when { picked -> scheme.onPrimaryContainer; active -> scheme.onSurface; else -> scheme.onSurfaceVariant })
                     Spacer(Modifier.height(6.dp))
                     Box(Modifier.width(28.dp).height(2.dp).background(if (active) MaterialTheme.colorScheme.primary else Color.Transparent,
                         RoundedCornerShape(1.dp)))
@@ -132,10 +175,16 @@ fun PlateTabs(state: UiState, vm: AppViewModel, view: PlateView?, modifier: Modi
  * with the add button pinned after it so it never scrolls away.
  */
 @Composable
-internal fun PlateRow(state: UiState, modifier: Modifier, spacing: Dp, align: Alignment.Vertical,
-                     add: @Composable () -> Unit, item: @Composable (Plate) -> Unit) {
+internal fun PlateRow(state: UiState, vm: AppViewModel, modifier: Modifier, spacing: Dp, align: Alignment.Vertical,
+                     add: @Composable () -> Unit, item: @Composable (Plate, PlatePicks) -> Unit) {
     val list = rememberLazyListState()
     val plates = state.scene.plates
+    val haptic = LocalHapticFeedback.current
+    val picks = remember { PlatePicks(haptic) }
+    // Plate numbers shift when plates come or go: start over.
+    LaunchedEffect(plates.size) { picks.picked = emptySet() }
+    LaunchedEffect(state.activePlate) { picks.picked -= state.activePlate }
+    BackHandler(picks.active) { picks.picked = emptySet() }
     LaunchedEffect(state.activePlate, plates.size) {
         val info = list.layoutInfo
         val seen = info.visibleItemsInfo.firstOrNull { it.index == state.activePlate }
@@ -146,10 +195,31 @@ internal fun PlateRow(state: UiState, modifier: Modifier, spacing: Dp, align: Al
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(spacing), verticalAlignment = align) {
         LazyRow(Modifier.weight(1f, fill = false), state = list, horizontalArrangement = Arrangement.spacedBy(spacing),
             verticalAlignment = align) {
-            items(plates.size) { item(plates[it]) }
+            items(plates.size) { item(plates[it], picks) }
         }
-        add()
+        if (picks.active) PickActions(state, vm, picks) else add()
     }
+}
+
+/** While picking: delete the picked plates (asks only when one holds objects) or stop. */
+@Composable
+private fun PickActions(state: UiState, vm: AppViewModel, picks: PlatePicks) {
+    var confirm by remember { mutableStateOf(false) }
+    val title = pluralStringResource(R.plurals.delete_plates, picks.picked.size, picks.picked.size)
+    val delete = { vm.scene.deletePlates(picks.picked); picks.picked = emptySet() }
+    Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surface.copy(alpha = LocalOverlayAlpha.current)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onClick = { if (picks.picked.any { state.scene.objectsOn(it).isNotEmpty() }) confirm = true else delete() }) {
+                Icon(Icons.Default.Delete, null, Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(title)
+            }
+            Tip(stringResource(R.string.cancel)) {
+                IconButton(onClick = { picks.picked = emptySet() }) { Icon(Icons.Default.Close, stringResource(R.string.cancel)) }
+            }
+        }
+    }
+    if (confirm) ConfirmDialog(title, stringResource(R.string.delete_plates_text), stringResource(R.string.delete), delete) { confirm = false }
 }
 
 /** "Plate n of m" with the plate menu (filmstrip layout's optional label). */
@@ -171,26 +241,30 @@ fun Filmstrip(state: UiState, vm: AppViewModel, view: PlateView?, modifier: Modi
     var plateMenu by remember { mutableStateOf<Int?>(null) }
     val alpha = LocalOverlayAlpha.current
     val scheme = MaterialTheme.colorScheme
-    PlateRow(state, modifier, 8.dp, Alignment.Bottom, add = {
+    PlateRow(state, vm, modifier, 8.dp, Alignment.Bottom, add = {
         Tip(stringResource(R.string.add_plate)) {
             Surface(onClick = vm.scene::addPlate, shape = RoundedCornerShape(8.dp), color = scheme.surfaceContainerHigh.copy(alpha = alpha * 0.6f),
                 border = BorderStroke(1.dp, scheme.outlineVariant), modifier = Modifier.size(52.dp, 44.dp)) {
                 Box(contentAlignment = Alignment.Center) { Icon(Icons.Default.Add, stringResource(R.string.add_plate), tint = scheme.onSurfaceVariant) }
             }
         }
-    }) { plate ->
+    }) { plate, picks ->
             val active = plate.index == state.activePlate
+            val picked = plate.index in picks.picked
+            val shape = RoundedCornerShape(8.dp)
             Box {
                 Surface(
-                    onClick = { if (active) plateMenu = plate.index else { vm.scene.selectPlate(plate.index); view?.framePlate(plate.index) } },
-                    shape = RoundedCornerShape(8.dp),
-                    color = scheme.surfaceContainerHigh.copy(alpha = alpha),
-                    border = BorderStroke(if (active) 2.dp else 1.dp, if (active) scheme.primary else scheme.outlineVariant),
-                    modifier = Modifier.size(52.dp, if (active) 52.dp else 44.dp),
+                    shape = shape,
+                    color = if (picked) scheme.primaryContainer else scheme.surfaceContainerHigh.copy(alpha = alpha),
+                    border = BorderStroke(if (active || picked) 2.dp else 1.dp, if (active || picked) scheme.primary else scheme.outlineVariant),
+                    modifier = Modifier.size(52.dp, if (active) 52.dp else 44.dp).clip(shape)
+                        .plateClicks(state, vm, view, picks, plate.index) { plateMenu = plate.index }
+                        .semantics { selected = picked },
                 ) {
                     Box(contentAlignment = Alignment.BottomCenter) {
+                        if (picked) Icon(Icons.Default.Check, null, Modifier.align(Alignment.TopEnd).padding(3.dp).size(14.dp), tint = scheme.onPrimaryContainer)
                         Text("${plate.index + 1}", Modifier.padding(bottom = 4.dp), style = MaterialTheme.typography.labelLarge,
-                            color = if (active) scheme.onSurface else scheme.onSurfaceVariant)
+                            color = when { picked -> scheme.onPrimaryContainer; active -> scheme.onSurface; else -> scheme.onSurfaceVariant })
                     }
                 }
                 if (plateMenu == plate.index) PlateMenu(state, vm, plate.index) { plateMenu = null }

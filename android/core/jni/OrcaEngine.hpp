@@ -134,7 +134,8 @@ public:
     json set_object_setting(const std::vector<int> &objects, int volume, const std::string &key, const json &value);
 
     json add_plate();
-    json delete_plate(int plate);
+    // Deletes the plates and the objects on them as one undo step; later plates move up.
+    json delete_plates(std::vector<int> plates);
     json set_plate_bed_type(int plate, const std::string &bed_type);
 
     json undo();

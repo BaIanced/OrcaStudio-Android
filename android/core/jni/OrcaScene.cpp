@@ -690,7 +690,40 @@ json OrcaEngine::arrange(int plate)
     require_printer();
     push_undo();
     if (plate >= 0 && plate < int(m_plates.size())) {
-        arrange_plate(plate);
+        // Objects off every plate (beside the grid after an import, or left by a deleted plate) go
+        // onto the plate nearest to them (user, 2026-10-13): into free spots on other plates, whose
+        // objects stay put; the arranged plate takes its own floaters along with its objects.
+        const std::array<double, 4> rect = bed_rect();
+        std::vector<std::vector<std::pair<ModelObject *, size_t>>> floaters(m_plates.size());
+        for (ModelObject *obj : m_model->objects)
+            for (size_t i = 0; i < obj->instances.size(); ++i) {
+                const Vec3d c = obj->instance_bounding_box(i).center();
+                if (plate_at(c, m_plates.size(), rect) >= 0)
+                    continue;
+                size_t best = 0;
+                double best_dist = 0.;
+                for (size_t p = 0; p < m_plates.size(); ++p) {
+                    const auto o = origin_of(int(p), m_plates.size(), rect);
+                    // Distance from the object's centre to the plate's rectangle.
+                    const double dx = std::max({o[0] + rect[0] - c.x(), 0., c.x() - o[0] - rect[2]});
+                    const double dy = std::max({o[1] + rect[1] - c.y(), 0., c.y() - o[1] - rect[3]});
+                    if (p == 0 || dx * dx + dy * dy < best_dist) {
+                        best      = p;
+                        best_dist = dx * dx + dy * dy;
+                    }
+                }
+                floaters[best].emplace_back(obj, i);
+            }
+        std::vector<std::pair<ModelObject *, size_t>> own = floaters[plate];
+        for (ModelObject *obj : m_model->objects)
+            for (size_t i = 0; i < obj->instances.size(); ++i)
+                if (plate_of(*obj, i) == plate)
+                    own.emplace_back(obj, i);
+        // Plates only get added at the end, so the indices stay valid across the calls.
+        for (size_t p = 0; p < floaters.size(); ++p)
+            if (int(p) != plate && !floaters[p].empty())
+                arrange_plate(int(p), &floaters[p]);
+        arrange_plate(plate, &own);
     } else {
         // Everything, starting from plate 0; overflow creates further plates.
         std::vector<std::pair<ModelObject *, size_t>> all;
@@ -1156,24 +1189,29 @@ json OrcaEngine::add_plate()
     return commit();
 }
 
-json OrcaEngine::delete_plate(int plate)
+json OrcaEngine::delete_plates(std::vector<int> plates)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
-    if (plate < 0 || plate >= int(m_plates.size()) || m_plates.size() == 1)
+    std::sort(plates.begin(), plates.end());
+    plates.erase(std::unique(plates.begin(), plates.end()), plates.end());
+    if (plates.empty() || plates.front() < 0 || plates.back() >= int(m_plates.size()) || plates.size() >= m_plates.size())
         throw std::runtime_error("This plate cannot be deleted");
     push_undo();
-    // Drop the plate's instances, then close the gap in the plate grid.
+    const auto picked = [&plates](int p) { return std::binary_search(plates.begin(), plates.end(), p); };
+    // Drop the plates' instances, then close the gaps in the plate grid.
     for (int oi = int(m_model->objects.size()) - 1; oi >= 0; --oi) {
         ModelObject *obj = m_model->objects[oi];
         for (int i = int(obj->instances.size()) - 1; i >= 0; --i)
-            if (plate_of(*obj, size_t(i)) == plate)
+            if (picked(plate_of(*obj, size_t(i))))
                 obj->delete_instance(size_t(i));
         if (obj->instances.empty())
             m_model->delete_object(size_t(oi));
     }
     const size_t old_count = m_plates.size();
-    m_plates.erase(m_plates.begin() + plate);
-    relayout(old_count, m_layout_rect, [plate](int p) { return p > plate ? p - 1 : p; });
+    for (auto it = plates.rbegin(); it != plates.rend(); ++it)
+        m_plates.erase(m_plates.begin() + *it);
+    relayout(old_count, m_layout_rect,
+             [&plates](int p) { return p - int(std::lower_bound(plates.begin(), plates.end(), p) - plates.begin()); });
     return commit();
 }
 
