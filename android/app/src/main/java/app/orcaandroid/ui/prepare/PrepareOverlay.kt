@@ -17,6 +17,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import kotlinx.coroutines.launch
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Category
@@ -108,11 +113,15 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
         if (column) {
             // Below the top bar (and the banners): the column scrolls instead of covering the plate selector.
             val top = 60.dp + (if (state.calibration != null) 50.dp else 0.dp) + (if (state.showSelectionBanner) 50.dp else 0.dp)
-            Column(Modifier.align(Alignment.TopStart).padding(top = top, bottom = if (filmstrip) 64.dp else 0.dp).verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                ViewButtons(state, vm, view, rail = true)
-                HorizontalDivider(Modifier.width(48.dp).padding(horizontal = 8.dp))
-                ToolButtons(state, vm)
+            val scroll = rememberScrollState()
+            Box(Modifier.align(Alignment.TopStart).padding(top = top, bottom = if (filmstrip) 64.dp else 0.dp)) {
+                Column(Modifier.verticalScroll(scroll), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    ViewButtons(state, vm, view, rail = true)
+                    HorizontalDivider(Modifier.width(48.dp).padding(horizontal = 8.dp))
+                    ToolButtons(state, vm)
+                }
+                ScrollCue(scroll, up = true, Modifier.align(Alignment.TopCenter))
+                ScrollCue(scroll, up = false, Modifier.align(Alignment.BottomCenter))
             }
         } else {
             Row(Modifier.align(Alignment.BottomStart).padding(bottom = 64.dp).horizontalScroll(rememberScrollState()),
@@ -462,6 +471,28 @@ private fun SliceButton(state: UiState, vm: AppViewModel, modifier: Modifier) {
                     DropdownMenuItem(text = { Text(stringResource(R.string.slice_all)) }, onClick = { menu = false; vm.slicing.sliceAll() })
                 }
             }
+        }
+    }
+}
+
+/**
+ * Small arrow at the end of the tool column while more buttons are hidden that way (user, 2026-10-13);
+ * tapping it scrolls by most of a screen.
+ */
+@Composable
+private fun ScrollCue(scroll: androidx.compose.foundation.ScrollState, up: Boolean, modifier: Modifier) {
+    val show = if (up) scroll.canScrollBackward else scroll.canScrollForward
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    androidx.compose.animation.AnimatedVisibility(show, modifier, enter = androidx.compose.animation.fadeIn(),
+        exit = androidx.compose.animation.fadeOut()) {
+        Surface(
+            onClick = { scope.launch { scroll.animateScrollBy(if (up) -scroll.viewportSize * 0.8f else scroll.viewportSize * 0.8f) } },
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = LocalOverlayAlpha.current),
+            modifier = Modifier.size(width = 28.dp, height = 18.dp),
+        ) {
+            Icon(if (up) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                stringResource(if (up) R.string.scroll_up else R.string.scroll_down), Modifier.padding(1.dp))
         }
     }
 }

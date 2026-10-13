@@ -224,6 +224,10 @@ private fun LayoutLabSection(state: UiState, vm: AppViewModel) {
         SwitchRow(stringResource(R.string.lab_fullscreen_portrait), lab.fullscreenPortrait, onChange = { vm.setLab(lab.copy(fullscreenPortrait = it)) })
         Text(stringResource(R.string.lab_overlay_alpha, (lab.overlayAlpha * 100).toInt()), style = MaterialTheme.typography.bodyMedium)
         androidx.compose.material3.Slider(lab.overlayAlpha, { vm.setLab(lab.copy(overlayAlpha = it)) }, valueRange = 0.2f..1f)
+        Text(stringResource(R.string.lab_scale_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        ScaleSlider(R.string.lab_text_scale, lab.textScale, app.orcaandroid.core.LayoutLab.TEXT_SCALES) { vm.setLab(state.lab.copy(textScale = it)) }
+        ScaleSlider(R.string.lab_ui_scale, lab.uiScale, app.orcaandroid.core.LayoutLab.UI_SCALES) { vm.setLab(state.lab.copy(uiScale = it)) }
+        ScaleSlider(R.string.lab_overlay_scale, lab.overlayScale, app.orcaandroid.core.LayoutLab.OVERLAY_SCALES) { vm.setLab(state.lab.copy(overlayScale = it)) }
         Text(stringResource(R.string.lab_scad_view), style = MaterialTheme.typography.bodyMedium)
         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
             listOf(ScadView.CANVAS to R.string.lab_scad_canvas, ScadView.GHOST to R.string.lab_scad_ghost)
@@ -233,6 +237,15 @@ private fun LayoutLabSection(state: UiState, vm: AppViewModel) {
         }
         TextButton(onClick = { vm.setLab(app.orcaandroid.core.LayoutLab()) }) { Text(stringResource(R.string.reset)) }
     }
+}
+
+/** A size slider in 5 % steps; applied on release, so the slider doesn't move under the finger as the layout resizes. */
+@Composable
+private fun ScaleSlider(label: Int, value: Float, range: ClosedFloatingPointRange<Float>, onSet: (Float) -> Unit) {
+    var live by remember(value) { mutableStateOf(value) }
+    Text(stringResource(label, kotlin.math.round(live * 100).toInt()), style = MaterialTheme.typography.bodyMedium)
+    androidx.compose.material3.Slider(live, { live = kotlin.math.round(it * 20) / 20f }, valueRange = range,
+        steps = kotlin.math.round((range.endInclusive - range.start) * 20).toInt() - 1, onValueChangeFinished = { onSet(live) })
 }
 
 /** Asks for the backup passphrase ([confirm]: twice, for a new backup). */

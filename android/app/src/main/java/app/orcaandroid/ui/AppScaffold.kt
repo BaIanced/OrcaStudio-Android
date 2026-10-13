@@ -41,6 +41,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
@@ -94,13 +95,18 @@ val WIDE_LAYOUT = 840.dp
 
 @Composable
 fun AppScaffold(state: UiState, vm: AppViewModel) {
-    when {
-        state.phase == Phase.LOADING -> Busy(state.busy ?: stringResource(R.string.starting))
-        state.phase == Phase.SETUP || state.showPrinterSetup -> PrinterSetupScreen(state, vm)
-        state.editor != null -> SettingsEditor(state, vm)
-        else -> MainLayout(state, vm)
+    // Interface and text size (Layout lab), on top of the system's display and font size.
+    val base = androidx.compose.ui.platform.LocalDensity.current
+    androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides
+        androidx.compose.ui.unit.Density(base.density * state.lab.uiScale, base.fontScale * state.lab.textScale)) {
+        when {
+            state.phase == Phase.LOADING -> Busy(state.busy ?: stringResource(R.string.starting))
+            state.phase == Phase.SETUP || state.showPrinterSetup -> PrinterSetupScreen(state, vm)
+            state.editor != null -> SettingsEditor(state, vm)
+            else -> MainLayout(state, vm)
+        }
+        GlobalDialogs(state, vm)
     }
-    GlobalDialogs(state, vm)
 }
 
 @Composable
@@ -189,8 +195,13 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
     val viewport: @Composable (Modifier) -> Unit = { m ->
         Box(m) {
             Viewport(state, vm, onView = { plateView = it }, modifier = Modifier.fillMaxSize())
-            if (state.screen == Screen.PREPARE) PrepareOverlay(state, vm, plateView, wide)
-            else PreviewOverlay(state, vm, plateView, wide)
+            // Floating controls have their own size (Layout lab).
+            val base = androidx.compose.ui.platform.LocalDensity.current
+            androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides
+                androidx.compose.ui.unit.Density(base.density * state.lab.overlayScale, base.fontScale)) {
+                if (state.screen == Screen.PREPARE) PrepareOverlay(state, vm, plateView, wide)
+                else PreviewOverlay(state, vm, plateView, wide)
+            }
         }
     }
     val panel: @Composable () -> Unit = {
@@ -216,9 +227,31 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
                     Surface(Modifier.width(width).fillMaxHeight(), tonalElevation = 1.dp) { ScadPanel(scad, vm, embeddedPreview = false) }
                 } else {
                     viewport(Modifier.weight(1f).fillMaxHeight())
-                    val tucked = state.lab.panelTucked
-                    PanelEdge(tucked) { vm.setLab(state.lab.copy(panelTucked = !tucked)) }
-                    if (!tucked) Surface(Modifier.width(380.dp).fillMaxHeight(), tonalElevation = 1.dp) { panel() }
+                    // The edge drags to resize the panel (like the OpenSCAD editor's); let go below the snap
+                    // width and it tucks away. A tap tucks it away or brings it back.
+                    val lab = state.lab
+                    val maxPanel = (total - 240.dp).coerceAtLeast(PANEL_MIN)
+                    val stored = (if (lab.panelWidth > 0f) lab.panelWidth.dp else PANEL_DEFAULT).coerceIn(PANEL_MIN, maxPanel)
+                    var live by remember { mutableStateOf<androidx.compose.ui.unit.Dp?>(null) }
+                    val shown = live ?: if (lab.panelTucked) 0.dp else stored
+                    PanelEdge(
+                        tucked = shown < PANEL_SNAP,
+                        onClick = { vm.setLab(lab.copy(panelTucked = !lab.panelTucked)) },
+                        onDrag = { d -> live = ((live ?: shown) - d).coerceIn(0.dp, maxPanel) },
+                        onDragEnd = {
+                            live?.let { w ->
+                                vm.setLab(if (w < PANEL_SNAP) lab.copy(panelTucked = true)
+                                          else lab.copy(panelTucked = false, panelWidth = w.coerceAtLeast(PANEL_MIN).value))
+                            }
+                            live = null
+                        },
+                    )
+                    if (shown > 0.dp) Surface(Modifier.width(shown).fillMaxHeight(), tonalElevation = 1.dp) {
+                        // While dragging narrower than the panel can be, it keeps its layout and is clipped.
+                        Box(Modifier.fillMaxHeight().clipToBounds()) {
+                            Box(Modifier.wrapContentWidth(Alignment.Start, unbounded = true).width(shown.coerceAtLeast(PANEL_MIN)).fillMaxHeight()) { panel() }
+                        }
+                    }
                 }
             }
         }
@@ -264,15 +297,25 @@ private fun DragHandle(vertical: Boolean, onDrag: (androidx.compose.ui.unit.Dp) 
     }
 }
 
-/** The settings panel's edge on wide layouts: tucks the panel away and brings it back. */
+private val PANEL_DEFAULT = 380.dp
+private val PANEL_MIN = 300.dp
+/** Let go narrower than this and the panel tucks away. */
+private val PANEL_SNAP = 200.dp
+
+/** The settings panel's edge on wide layouts: drag to resize, tap to tuck the panel away or bring it back. */
 @Composable
-private fun PanelEdge(tucked: Boolean, onClick: () -> Unit) {
+private fun PanelEdge(tucked: Boolean, onClick: () -> Unit, onDrag: (androidx.compose.ui.unit.Dp) -> Unit, onDragEnd: () -> Unit) {
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val drag = androidx.compose.foundation.gestures.rememberDraggableState { px -> onDrag(with(density) { px.toDp() }) }
     val label = stringResource(if (tucked) R.string.show_panel else R.string.tuck_panel)
-    Surface(onClick = onClick, modifier = Modifier.width(if (tucked) 32.dp else 20.dp).fillMaxHeight(), tonalElevation = 2.dp) {
-        Box(contentAlignment = Alignment.Center) {
+    Surface(onClick = onClick, tonalElevation = 2.dp, modifier = Modifier.width(if (tucked) 32.dp else 20.dp).fillMaxHeight()
+        .draggable(drag, Orientation.Horizontal, onDragStopped = { onDragEnd() })) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+            Box(Modifier.size(4.dp, 32.dp).background(MaterialTheme.colorScheme.outline, RoundedCornerShape(2.dp)))
             app.orcaandroid.ui.prepare.Tip(label) {
                 Icon(if (tucked) Icons.AutoMirrored.Filled.KeyboardArrowLeft else Icons.AutoMirrored.Filled.KeyboardArrowRight, label)
             }
+            Box(Modifier.size(4.dp, 32.dp).background(MaterialTheme.colorScheme.outline, RoundedCornerShape(2.dp)))
         }
     }
 }
