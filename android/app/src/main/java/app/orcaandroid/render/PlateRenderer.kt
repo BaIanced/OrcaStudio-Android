@@ -2,6 +2,7 @@ package app.orcaandroid.render
 
 import android.opengl.GLES30.*
 import android.opengl.GLSurfaceView
+import android.opengl.GLUtils
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import javax.microedition.khronos.egl.EGLConfig
@@ -9,6 +10,10 @@ import javax.microedition.khronos.opengles.GL10
 
 /** Selection id of a copy in the scene mesh: object * stride + instance (the engine's INSTANCE_ID_STRIDE). */
 const val INSTANCE_ID_STRIDE = 4096
+
+/** Plate badge size and gap, as fractions of the bed depth (desktop: 16 and 3 mm per 200 mm, a bit bigger for touch). */
+private const val BADGE_SIZE = 0.1f
+private const val BADGE_GAP = 0.02f
 
 /** Colours of the 3D view, following the app theme (RGB 0..1). */
 data class ViewColors(
@@ -79,17 +84,42 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     private var bedVbo = 0; private var bedCount = 0; private var outlineStart = 0
     private var boxVbo = 0; private var boxIbo = 0
     private var scratchVbo = 0
+    /** Plate badges: icons per plate (top down, right of the plate; empty = numbers only), atlas, quads. */
+    private var badgeIcons: List<PlateBadge> = emptyList()
+    private var atlas: BadgeAtlas? = null
+    private var pendingAtlas: BadgeAtlas? = null
+    private var atlasTex = 0
+    private var badgeVbo = 0; private var badgeCount = 0
+    private var badgesDirty = true
+    private var badgesActive = -1
+    /** Tap targets of the badges, replaced on the GL thread and read on the UI thread. */
+    @Volatile private var badgeRects: List<BadgeRect> = emptyList()
 
     private var meshProgram = 0
     private var lineProgram = 0
     private var pathProgram = 0
     private var pointProgram = 0
+    private var badgeProgram = 0
     private val mvp = FloatArray(16)
 
     fun setBed(outline: FloatArray, origins: List<Pair<Float, Float>>) {
         bedOutline = outline
         plateOrigins = origins.ifEmpty { listOf(0f to 0f) }
         bedDirty = true
+        badgesDirty = true
+    }
+
+    /** The badge art and which icons each plate shows (GL thread). */
+    fun setBadges(atlas: BadgeAtlas, icons: List<PlateBadge>) {
+        if (atlas !== this.atlas) pendingAtlas = atlas
+        badgeIcons = icons
+        badgesDirty = true
+    }
+
+    /** The plate badge under screen point (x, y), or null. */
+    fun badgeAt(x: Float, y: Float): Pair<Int, PlateBadge>? {
+        val p = camera.rayOnPlane(x, y) ?: return null
+        return badgeRects.firstOrNull { p.x in it.x0..it.x1 && p.y in it.y0..it.y1 }?.let { it.plate to it.badge }
     }
 
     fun setMesh(data: FloatData?) { pendingMesh = data ?: FloatData(FloatData.directFloats(0), 8) }
@@ -129,9 +159,16 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         lineProgram = program(Shaders.LINE_VS, Shaders.LINE_FS)
         pathProgram = program(Shaders.PATH_VS, Shaders.PATH_FS)
         pointProgram = program(Shaders.POINT_VS, Shaders.POINT_FS)
-        val ids = IntArray(10)
-        glGenBuffers(10, ids, 0)
+        badgeProgram = program(Shaders.BADGE_VS, Shaders.BADGE_FS)
+        val ids = IntArray(11)
+        glGenBuffers(11, ids, 0)
         ghostVbo = ids[9]; ghostCount = 0
+        badgeVbo = ids[10]
+        val tex = IntArray(1)
+        glGenTextures(1, tex, 0)
+        atlasTex = tex[0]
+        if (pendingAtlas == null) pendingAtlas = atlas
+        badgesDirty = true
         meshVbo = ids[0]; paintVbo = ids[1]; extrVbo = ids[2]; travelVbo = ids[3]; markerVbo = ids[4]
         bedVbo = ids[5]; boxVbo = ids[6]; boxIbo = ids[7]; scratchVbo = ids[8]
         uploadBox()
@@ -155,6 +192,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         camera.viewProjection(mvp)
 
         drawBeds()
+        drawBadges()
         if (showPreview) {
             drawPreview()
         } else {
@@ -196,6 +234,55 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             bedCount = lines.size / 3
             bedDirty = false
         }
+        pendingAtlas?.let { a ->
+            glBindTexture(GL_TEXTURE_2D, atlasTex)
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR)
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
+            GLUtils.texImage2D(GL_TEXTURE_2D, 0, a.bitmap, 0)
+            glGenerateMipmap(GL_TEXTURE_2D)
+            atlas = a
+            pendingAtlas = null
+            badgesDirty = true
+        }
+        if (badgesDirty || badgesActive != activePlate) uploadBadges()
+    }
+
+    /**
+     * Badge quads beside every plate, as on the desktop (PartPlate::calc_vertex_for_icons): the icons
+     * down the right side from the top, the plate number at the bottom right. Sizes follow the bed depth.
+     */
+    private fun uploadBadges() {
+        badgesDirty = false
+        badgesActive = activePlate
+        val a = atlas
+        if (a == null || bedOutline.size < 4) { badgeCount = 0; badgeRects = emptyList(); return }
+        val xs = bedOutline.filterIndexed { i, _ -> i % 2 == 0 }
+        val ys = bedOutline.filterIndexed { i, _ -> i % 2 == 1 }
+        val depth = ys.max() - ys.min()
+        val s = depth * BADGE_SIZE
+        val g = depth * BADGE_GAP
+        val v = ArrayList<Float>()
+        val rects = ArrayList<BadgeRect>()
+        fun quad(plate: Int, badge: PlateBadge, cell: Int, x0: Float, y0: Float) {
+            val (u0, v0, u1, v1) = a.uv(cell)
+            val x1 = x0 + s; val y1 = y0 + s
+            // Upright when seen from the front: the cell's top row lies on the far edge.
+            v += listOf(x0, y0, 0f, u0, v1, x1, y0, 0f, u1, v1, x1, y1, 0f, u1, v0)
+            v += listOf(x0, y0, 0f, u0, v1, x1, y1, 0f, u1, v0, x0, y1, 0f, u0, v0)
+            rects += BadgeRect(plate, badge, x0 - g / 2, y0 - g / 2, x1 + g / 2, y1 + g / 2)
+        }
+        plateOrigins.forEachIndexed { i, (ox, oy) ->
+            val x0 = xs.max() + ox + g
+            badgeIcons.forEachIndexed { k, b -> quad(i, b, b.ordinal, x0, ys.max() + oy - k * (s + g) - s) }
+            if (i < a.plates) quad(i, PlateBadge.NUMBER, BadgeAtlas.numberCell(i, i == activePlate), x0, ys.min() + oy)
+        }
+        val data = v.toFloatArray()
+        glBindBuffer(GL_ARRAY_BUFFER, badgeVbo)
+        glBufferData(GL_ARRAY_BUFFER, data.size * 4, floats(data), GL_STATIC_DRAW)
+        badgeCount = data.size / 5
+        badgeRects = rects
     }
 
     private fun uploadFloats(vbo: Int, data: FloatData): Int {
@@ -374,6 +461,28 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
                 glDisableVertexAttribArray(1)
             }
         }
+    }
+
+    private fun drawBadges() {
+        if (badgeCount == 0) return
+        glUseProgram(badgeProgram)
+        glUniformMatrix4fv(loc(badgeProgram, "uMvp"), 1, false, mvp, 0)
+        glActiveTexture(GL_TEXTURE0)
+        glBindTexture(GL_TEXTURE_2D, atlasTex)
+        glUniform1i(loc(badgeProgram, "uAtlas"), 0)
+        glEnable(GL_BLEND)
+        glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA)
+        glDepthMask(false)
+        glBindBuffer(GL_ARRAY_BUFFER, badgeVbo)
+        glEnableVertexAttribArray(0)
+        glEnableVertexAttribArray(1)
+        glVertexAttribPointer(0, 3, GL_FLOAT, false, 20, 0)
+        glVertexAttribPointer(1, 2, GL_FLOAT, false, 20, 12)
+        glDrawArrays(GL_TRIANGLES, 0, badgeCount)
+        glDisableVertexAttribArray(1)
+        glDisableVertexAttribArray(0)
+        glDepthMask(true)
+        glDisable(GL_BLEND)
     }
 
     /** Measurement line and cut plane outline, drawn without depth test so they stay visible. */

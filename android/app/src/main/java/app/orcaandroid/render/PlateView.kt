@@ -7,6 +7,7 @@ import android.view.GestureDetector
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
+import android.view.ViewConfiguration
 import app.orcaandroid.core.Vec3
 import kotlin.math.abs
 import kotlin.math.max
@@ -37,6 +38,8 @@ interface PlateListener {
     fun onContextMenu(x: Float, y: Float)
     /** A double tap on plate [index] that isn't the active one: the host makes it active (the view frames it). */
     fun onPlateDoubleTap(index: Int) {}
+    /** A tap on a badge beside plate [plate] (its number or one of its icons) at view point (x, y). */
+    fun onPlateBadge(plate: Int, badge: PlateBadge, x: Float, y: Float) {}
 }
 
 /**
@@ -77,6 +80,8 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     /** Shift / Alt held when the gesture began: a drag draws a selection rectangle. */
     private var rectangle = false
     private var rectangleRemove = false
+    /** When a badge was last tapped: the second tap of a double tap must not hit the next plate's badge. */
+    private var badgeTapTime = 0L
 
     private val scaleDetector = ScaleGestureDetector(context, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
         override fun onScale(detector: ScaleGestureDetector): Boolean {
@@ -218,7 +223,12 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                     if (moved && start != null && end != null) listener?.onMoved(end.x - start.x, end.y - start.y)
                     else if (!moved) listener?.onTap(event.x, event.y, additive, part)
                 } else if (!moved && !multiTouch && mode != InteractionMode.PAINT) {
-                    listener?.onTap(event.x, event.y, additive, part)
+                    val badge = if (mode == InteractionMode.NAVIGATE && !additive && !part) renderer.badgeAt(event.x, event.y) else null
+                    if (badge == null) listener?.onTap(event.x, event.y, additive, part)
+                    else if (event.eventTime - badgeTapTime > ViewConfiguration.getDoubleTapTimeout()) {
+                        badgeTapTime = event.eventTime
+                        listener?.onPlateBadge(badge.first, badge.second, event.x, event.y)
+                    }
                 }
             }
             MotionEvent.ACTION_CANCEL -> {

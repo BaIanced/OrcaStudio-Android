@@ -104,6 +104,21 @@ internal object Shaders {
         out vec4 color;
         void main() { color = vec4(uColor, 1.0); }"""
 
+    /** Plate badges (numbers, icons): textured quads on the bed plane from a premultiplied atlas. */
+    const val BADGE_VS = """#version 300 es
+        uniform mat4 uMvp;
+        layout(location = 0) in vec3 aPos;
+        layout(location = 1) in vec2 aUv;
+        out vec2 vUv;
+        void main() { vUv = aUv; gl_Position = uMvp * vec4(aPos, 1.0); }"""
+
+    const val BADGE_FS = """#version 300 es
+        precision mediump float;
+        uniform sampler2D uAtlas;
+        in vec2 vUv;
+        out vec4 color;
+        void main() { color = texture(uAtlas, vUv); }"""
+
     const val POINT_FS = """#version 300 es
         precision mediump float;
         in vec3 vColor;

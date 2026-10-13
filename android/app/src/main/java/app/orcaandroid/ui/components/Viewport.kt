@@ -3,6 +3,7 @@ package app.orcaandroid.ui.components
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.MaterialTheme
@@ -14,6 +15,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import app.orcaandroid.core.SliceResult
@@ -21,6 +23,7 @@ import app.orcaandroid.core.Vec3
 import app.orcaandroid.render.FloatData
 import app.orcaandroid.render.INSTANCE_ID_STRIDE
 import app.orcaandroid.render.InteractionMode
+import app.orcaandroid.render.PlateBadge
 import app.orcaandroid.render.PlateListener
 import app.orcaandroid.render.PlateView
 import app.orcaandroid.render.PreviewData
@@ -32,6 +35,7 @@ import app.orcaandroid.ui.Screen
 import app.orcaandroid.ui.Selection
 import app.orcaandroid.ui.Tool
 import app.orcaandroid.ui.UiState
+import app.orcaandroid.ui.prepare.PlateMenu
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -81,6 +85,8 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
 
     // The selection rectangle being drawn (Shift/Alt+drag), in view pixels: x0, y0, x1, y1.
     var rectangle by remember { mutableStateOf<FloatArray?>(null) }
+    // The plate menu opened from a plate's menu badge: plate, view x, y.
+    var plateMenu by remember { mutableStateOf<Triple<Int, Float, Float>?>(null) }
     val rectangleColor = scheme.primary
     Box(modifier) {
     AndroidView(
@@ -115,6 +121,15 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                         vm.scene.paintAt(o, d, v.camera.eye(), newStroke)
                     }
                     override fun onPlateDoubleTap(index: Int) = vm.scene.selectPlate(index)
+                    // Icons act on their plate, which becomes the active one (except delete), as on the desktop.
+                    override fun onPlateBadge(plate: Int, badge: PlateBadge, x: Float, y: Float) {
+                        when (badge) {
+                            PlateBadge.NUMBER -> vm.scene.selectPlate(plate)
+                            PlateBadge.DELETE -> vm.scene.deletePlate(plate)
+                            PlateBadge.ARRANGE -> { vm.scene.selectPlate(plate); vm.scene.arrange(false) }
+                            PlateBadge.MENU -> { vm.scene.selectPlate(plate); plateMenu = Triple(plate, x, y) }
+                        }
+                    }
 
                     override fun onContextMenu(x: Float, y: Float) {
                         val (o, d) = v.camera.ray(x, y)
@@ -135,6 +150,9 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
             drawRect(rectangleColor, topLeft, size, style = androidx.compose.ui.graphics.drawscope.Stroke(2f))
         }
     }
+    plateMenu?.let { (plate, x, y) ->
+        Box(Modifier.offset { IntOffset(x.toInt(), y.toInt()) }) { PlateMenu(state, vm, plate) { plateMenu = null } }
+    }
     view?.section?.takeIf { it.panelOpen }?.let {
         // Below the top bar and clear of the tool buttons down the left edge.
         SectionViewPanel(it, Modifier.align(androidx.compose.ui.Alignment.TopCenter).padding(top = 72.dp, start = 80.dp, end = 8.dp).widthIn(max = 420.dp))
@@ -146,6 +164,11 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     val scene = state.scene
 
     LaunchedEffect(v, colors) { v.onGl { this.colors = colors } }
+    // Plate numbers always; the plate icons only while arranging (Prepare).
+    val atlas = rememberBadgeAtlas(scene.plates.size)
+    val badges = if (showPreview) emptyList()
+        else listOfNotNull(PlateBadge.DELETE.takeIf { scene.plates.size > 1 }, PlateBadge.ARRANGE, PlateBadge.MENU)
+    LaunchedEffect(v, atlas, badges) { v.onGl { setBadges(atlas, badges) } }
     LaunchedEffect(v, setup?.bed, scene.plates.map { it.originX to it.originY }) {
         val bed = setup?.bed ?: return@LaunchedEffect
         val origins = scene.plates.map { it.originX to it.originY }
