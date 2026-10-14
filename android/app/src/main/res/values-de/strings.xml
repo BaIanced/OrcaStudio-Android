@@ -629,6 +629,7 @@
     <string name="design_editing_dark">Bearbeitet das dunkle Design</string>
     <string name="design_editing_light">Bearbeitet das helle Design</string>
     <string name="design_minimize">Feld einklappen</string>
+    <string name="design_unfold">Feld ausklappen</string>
     <string name="design_part">Bereich der App</string>
     <string name="design_hue">Farbton</string>
     <string name="design_saturation">Sättigung</string>

@@ -121,8 +121,9 @@ fun AppScaffold(state: UiState, vm: AppViewModel) {
             state.editor != null -> Themed(Region.EDITOR, Modifier.fillMaxSize(), fill = true) { SettingsEditor(state, vm) }
             else -> MainLayout(state, vm)
         }
-        Themed(Region.DIALOGS) { GlobalDialogs(state, vm) }
+        // The design panel under the dialogs: the message bar sits at the panel's height (it hid it, phone r189).
         if (state.designMode) ThemeDesignPanel(state, vm)
+        Themed(Region.DIALOGS) { GlobalDialogs(state, vm) }
     }
 }
 
@@ -328,7 +329,8 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
     } else if (scad != null) {
         if (state.scadHidden) Box(Modifier.fillMaxSize()) {
             viewport(Modifier.fillMaxSize())
-            ScadReopenButton({ vm.setScadHidden(false) }, Modifier.align(Alignment.BottomEnd).padding(16.dp))
+            // Above the Slice button (same corner; it covered it, phone r189).
+            ScadReopenButton({ vm.setScadHidden(false) }, Modifier.align(Alignment.BottomEnd).padding(end = 8.dp, bottom = 76.dp))
         } else BoxWithConstraints(Modifier.fillMaxSize()) {
             val total = maxHeight
             val height = (if (ScadEditorSize.height > 0f) ScadEditorSize.height.dp else total * 0.55f).coerceIn(200.dp, (total - 120.dp).coerceAtLeast(200.dp))

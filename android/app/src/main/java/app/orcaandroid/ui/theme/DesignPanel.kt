@@ -112,7 +112,7 @@ fun ThemeDesignPanel(state: UiState, vm: AppViewModel) {
                                 style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         IconButton({ minimized = !minimized }) {
-                            Icon(if (minimized) Icons.Default.ExpandLess else Icons.Default.ExpandMore, stringResource(R.string.design_minimize))
+                            Icon(if (minimized) Icons.Default.ExpandLess else Icons.Default.ExpandMore, stringResource(if (minimized) R.string.design_unfold else R.string.design_minimize))
                         }
                         IconButton({ vm.setDesignMode(false) }) { Icon(Icons.Default.Close, stringResource(R.string.close)) }
                     }
