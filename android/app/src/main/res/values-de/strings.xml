@@ -408,7 +408,10 @@
     <string name="sync_cloud_presets">Presets aus dem Bambu-Konto laden</string>
     <string name="sync_cloud_presets_text">Deine Prozess-, Filament- und Drucker-Presets aus der Bambu-Cloud</string>
     <string name="syncing_cloud_presets">Presets aus dem Bambu-Konto werden geladen…</string>
-    <string name="cloud_presets_synced">%1$d Preset(s) im Bambu-Konto; neuere geladen.</string>
+    <plurals name="cloud_presets_synced">
+        <item quantity="one">%1$d Preset im Bambu-Konto; neuere geladen.</item>
+        <item quantity="other">%1$d Presets im Bambu-Konto; neuere geladen.</item>
+    </plurals>
     <!-- Absturzbericht nach unerwartetem Beenden -->
     <string name="crash_title">Die App wurde unerwartet beendet</string>
     <string name="crash_text">Das ist der Bericht zum letzten Absturz. Kopiere ihn und schick ihn mit; prüfe ihn vorher auf Seriennummer oder IP-Adresse deines Druckers und ersetze sie.</string>
@@ -471,11 +474,17 @@
     <string name="sync_orca_cloud_presets">Presets aus Orca Cloud laden</string>
     <string name="sync_orca_cloud_presets_text">Deine Presets, die OrcaSlicer am Desktop mit Orca Cloud abgleicht</string>
     <string name="syncing_orca_cloud_presets">Presets aus Orca Cloud werden geladen…</string>
-    <string name="orca_cloud_presets_synced">%1$d Preset(s) in Orca Cloud; neuere geladen.</string>
+    <plurals name="orca_cloud_presets_synced">
+        <item quantity="one">%1$d Preset in Orca Cloud; neuere geladen.</item>
+        <item quantity="other">%1$d Presets in Orca Cloud; neuere geladen.</item>
+    </plurals>
     <string name="upload_orca_cloud_presets">Presets in Orca Cloud hochladen</string>
     <string name="upload_orca_cloud_presets_text">Neue und geänderte Presets aus dieser App, für OrcaSlicer auf deinen anderen Geräten</string>
     <string name="uploading_orca_cloud_presets">Presets werden in Orca Cloud hochgeladen…</string>
-    <string name="orca_cloud_presets_uploaded">%1$d Preset(s) in Orca Cloud hochgeladen.</string>
+    <plurals name="orca_cloud_presets_uploaded">
+        <item quantity="one">%1$d Preset in Orca Cloud hochgeladen.</item>
+        <item quantity="other">%1$d Presets in Orca Cloud hochgeladen.</item>
+    </plurals>
     <string name="orca_cloud_upload_conflicts">In Orca Cloud neuer, nicht hochgeladen (zuerst Presets aus Orca Cloud laden): %1$s</string>
     <string name="orca_cloud_sign_in_first">Zuerst bei Orca Cloud anmelden (Mehr &gt; Orca Cloud).</string>
     <string name="none">Keine</string>
