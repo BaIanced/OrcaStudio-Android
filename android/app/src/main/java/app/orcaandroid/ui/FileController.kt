@@ -90,7 +90,7 @@ class FileController(
         if (withContext(Dispatchers.IO) { ModelDownloads.isPresetFile(file) }) {
             val (printers, setup) = engine.importPresets(listOf(file.path))
             store.update { it.copy(printers = printers, setup = setup) }
-            store.toast(store.str(R.string.presets_imported, 1))
+            store.toast(store.app.resources.getQuantityString(R.plurals.presets_imported, 1, 1))
             return@launch
         }
         openModels(listOf(Uri.fromFile(file)))

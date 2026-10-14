@@ -186,14 +186,16 @@ class MainActivity : ComponentActivity() {
             onPlate && keyCode == KeyEvent.KEYCODE_V -> vm.scene.paste()
             onPlate && keyCode == KeyEvent.KEYCODE_K -> vm.scene.duplicate(1)
             onPlate && keyCode == KeyEvent.KEYCODE_D -> vm.scene.deleteAll()
-            // Camera views: 0 default, 1 top, 2 bottom, 3 front, 4 rear, 5 left, 6 right, 7 plate.
-            onView && view != null && keyCode in KeyEvent.KEYCODE_0..KeyEvent.KEYCODE_7 -> when (val n = keyCode - KeyEvent.KEYCODE_0) {
-                7 -> view.framePlate(s.activePlate)
-                else -> view.camera.preset(listOf(0, 1, 5, 2, 6, 3, 4)[n])
-            }
+            onView && view != null && keyCode in KeyEvent.KEYCODE_0..KeyEvent.KEYCODE_7 ->
+                cameraView(view, keyCode - KeyEvent.KEYCODE_0, s)
             else -> return super.onKeyShortcut(keyCode, event)
         }
         return true
+    }
+
+    /** Camera views: 0 default, 1 top, 2 bottom, 3 front, 4 rear, 5 left, 6 right, 7 plate. */
+    private fun cameraView(view: PlateView, n: Int, s: UiState) {
+        if (n == 7) view.framePlate(s.activePlate) else view.camera.preset(listOf(0, 1, 5, 2, 6, 3, 4)[n])
     }
 
     /**
@@ -229,6 +231,12 @@ class MainActivity : ComponentActivity() {
             KeyEvent.KEYCODE_ESCAPE -> if (view?.section?.panelOpen == true) { view.section.panelOpen = false; return true }
             KeyEvent.KEYCODE_I -> { view?.camera?.zoom(1.15f); return true }
             KeyEvent.KEYCODE_O -> { view?.camera?.zoom(1 / 1.15f); return true }
+            // Numpad 0-7 also pick the camera views: some systems keep Ctrl+digit as their own hotkeys.
+            // Only with Num Lock on, so the numpad arrows still nudge.
+            in KeyEvent.KEYCODE_NUMPAD_0..KeyEvent.KEYCODE_NUMPAD_7 -> if (view != null && event.isNumLockOn &&
+                (s.screen == Screen.PREPARE || s.screen == Screen.PREVIEW)) {
+                cameraView(view, keyCode - KeyEvent.KEYCODE_NUMPAD_0, s); return true
+            }
         }
         return when (s.screen) {
             Screen.PREVIEW -> previewKey(keyCode, s)

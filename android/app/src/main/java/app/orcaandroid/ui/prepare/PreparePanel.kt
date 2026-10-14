@@ -46,6 +46,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.orcaandroid.R
@@ -268,7 +269,7 @@ private fun ObjectsTab(state: UiState, vm: AppViewModel) {
         Text(stringResource(R.string.no_objects_hint), style = MaterialTheme.typography.bodyMedium)
         return
     }
-    if (scene.outsideCount > 0) Text(stringResource(R.string.objects_outside, scene.outsideCount), color = MaterialTheme.colorScheme.error,
+    if (scene.outsideCount > 0) Text(pluralStringResource(R.plurals.objects_outside, scene.outsideCount, scene.outsideCount), color = MaterialTheme.colorScheme.error,
         style = MaterialTheme.typography.bodySmall)
     if (state.multiSelection.isNotEmpty()) MultiSelectionCard(state, vm)
     scene.objects.forEach { o ->

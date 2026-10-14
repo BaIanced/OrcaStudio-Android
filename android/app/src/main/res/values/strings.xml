@@ -204,7 +204,10 @@
     <string name="object_info">%1$d× · plate %2$s · %3$d triangles</string>
     <string name="object_settings">Object settings (%d)</string>
     <string name="object_settings_title">Object settings</string>
-    <string name="objects_outside">%d object(s) outside the plates</string>
+    <plurals name="objects_outside">
+        <item quantity="one">%d object outside the plates</item>
+        <item quantity="other">%d objects outside the plates</item>
+    </plurals>
     <string name="ok">OK</string>
     <string name="only_changed">Changed only</string>
     <string name="open_project">Open…</string>
@@ -226,7 +229,10 @@
     <string name="preparing">Preparing…</string>
     <string name="preparing_calibration">Preparing calibration…</string>
     <string name="preset_exported">Preset exported</string>
-    <string name="presets_imported">%d file(s) imported</string>
+    <plurals name="presets_imported">
+        <item quantity="one">%d file imported</item>
+        <item quantity="other">%d files imported</item>
+    </plurals>
     <string name="print">Print</string>
     <string name="ams_mapping_title">Filament → AMS tray</string>
     <string name="ams_mapping_pick">Pick a tray</string>

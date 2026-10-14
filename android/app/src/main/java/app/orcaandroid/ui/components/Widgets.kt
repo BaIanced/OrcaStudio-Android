@@ -185,6 +185,9 @@ private fun SectionHeader(
     }
 }
 
+/** A typed number, or null: "NaN", "Infinity" and absurd magnitudes parse as floats but break the engine calls behind the fields. */
+internal fun parseNumber(text: String): Float? = text.replace(',', '.').toFloatOrNull()?.takeIf { it.isFinite() && kotlin.math.abs(it) <= 1_000_000f }
+
 /** Numeric text field that commits on "done" or focus loss (so typing does not trigger work). */
 @Composable
 fun NumberField(
@@ -201,10 +204,10 @@ fun NumberField(
         .let { if (it == "-0") "0" else it }
     var text by remember { mutableStateOf(formatted) }
     // Follow outside changes of the value, but not the echo of an edit ("0." stays while typing "0.5").
-    LaunchedEffect(value) { if (text.replace(',', '.').toFloatOrNull() != value) text = formatted }
+    LaunchedEffect(value) { if (parseNumber(text) != value) text = formatted }
     var focused by remember { mutableStateOf(false) }
     // Only real edits count: the field shows a rounded value, which must not be written back.
-    val commit = { if (text != formatted) text.replace(',', '.').toFloatOrNull()?.let { if (it != value) onCommit(it) } }
+    val commit = { if (text != formatted) parseNumber(text)?.let { if (it != value) onCommit(it) } }
     OutlinedTextField(
         value = text,
         // live: every valid edit is committed at once, for dialogs whose confirm button reads the
@@ -213,7 +216,7 @@ fun NumberField(
         label = label?.let { { Text(it, maxLines = 1) } },
         suffix = suffix?.let { { Text(it) } },
         singleLine = true,
-        isError = text.replace(',', '.').toFloatOrNull() == null,
+        isError = parseNumber(text) == null,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
         keyboardActions = KeyboardActions(onDone = { commit() }),
         modifier = modifier.onFocusChanged { if (focused && !it.isFocused) commit(); focused = it.isFocused },

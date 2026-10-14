@@ -452,7 +452,7 @@ class PresetController(private val store: Store, private val device: DeviceContr
         val files = uris.map { resources.importFile(it, "presets").path }
         val (printers, setup) = engine.importPresets(files)
         store.update { it.copy(printers = printers, setup = setup) }
-        store.toast(store.str(R.string.presets_imported, files.size))
+        store.toast(store.app.resources.getQuantityString(R.plurals.presets_imported, files.size, files.size))
     }
 
     fun exportPreset(type: PresetType, target: Uri) = store.launch {
