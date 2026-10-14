@@ -150,11 +150,13 @@ private fun MainLayout(state: UiState, vm: AppViewModel) {
         val wide = maxWidth >= WIDE_LAYOUT
         val content: @Composable (Modifier) -> Unit = { m ->
             Box(m.clipToBounds()) {
+                // Fullscreen portrait leaves the camera strip at the top to the 3D view only; the rest keeps clear.
+                val belowHole = Modifier.windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Top))
                 when (state.screen) {
                     Screen.PREPARE, Screen.PREVIEW -> Workspace(state, vm, wide)
-                    Screen.DEVICE -> DeviceScreen(state, vm)
-                    Screen.MODELS -> ModelsScreen(browser.value)
-                    Screen.MORE -> MoreScreen(state, vm)
+                    Screen.DEVICE -> Box(belowHole) { DeviceScreen(state, vm) }
+                    Screen.MODELS -> Box(belowHole) { ModelsScreen(browser.value) }
+                    Screen.MORE -> Box(belowHole) { MoreScreen(state, vm) }
                 }
             }
         }
@@ -250,11 +252,13 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
     // The OpenSCAD editor takes the panel's place on Prepare. The design shows alone in the design view,
     // or (eye toggle, user 2026-10-13) as a ghost on the plate; the editor can be resized with the handle.
     val scad = state.scad?.takeIf { state.screen == Screen.PREPARE }
+    // Fullscreen portrait: the 3D view uses the camera strip at the top, everything else keeps below it.
+    val belowHole = Modifier.windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Top))
     val scadView: @Composable (Modifier) -> Unit = { m ->
         if (scad != null && state.scadOnPlate) Box(m) {
             viewport(Modifier.fillMaxSize())
-            ScadPlateToggle(onPlate = true, { vm.setScadOnPlate(false) }, Modifier.align(Alignment.TopEnd).padding(top = 76.dp, end = 12.dp))
-        } else if (scad != null) Surface(m) { ScadPreviewPane(scad, vm, Modifier.fillMaxSize()) } else viewport(m)
+            ScadPlateToggle(onPlate = true, { vm.setScadOnPlate(false) }, Modifier.align(Alignment.TopEnd).then(belowHole).padding(top = 76.dp, end = 12.dp))
+        } else if (scad != null) Surface(m) { ScadPreviewPane(scad, vm, Modifier.fillMaxSize().then(belowHole)) } else viewport(m)
     }
     if (wide) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -265,7 +269,7 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
                 if (scad != null) {
                     scadView(Modifier.weight(1f).fillMaxHeight())
                     DragHandle(vertical = true) { d -> ScadEditorSize.width = (width - d).value }
-                    Surface(Modifier.width(width).fillMaxHeight(), tonalElevation = 1.dp) { ScadPanel(scad, vm, embeddedPreview = false) }
+                    Surface(Modifier.width(width).fillMaxHeight(), tonalElevation = 1.dp) { Box(belowHole) { ScadPanel(scad, vm, embeddedPreview = false) } }
                 } else {
                     viewport(Modifier.weight(1f).fillMaxHeight())
                     // The edge drags to resize the panel (like the OpenSCAD editor's); let go below the snap
@@ -290,7 +294,7 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
                     if (shown > 0.dp) Surface(Modifier.width(shown).fillMaxHeight(), tonalElevation = 1.dp) {
                         // While dragging narrower than the panel can be, it keeps its layout and is clipped.
                         Box(Modifier.fillMaxHeight().clipToBounds()) {
-                            Box(Modifier.wrapContentWidth(Alignment.Start, unbounded = true).width(shown.coerceAtLeast(PANEL_MIN)).fillMaxHeight()) { panel() }
+                            Box(Modifier.wrapContentWidth(Alignment.Start, unbounded = true).width(shown.coerceAtLeast(PANEL_MIN)).fillMaxHeight().then(belowHole)) { panel() }
                         }
                     }
                 }

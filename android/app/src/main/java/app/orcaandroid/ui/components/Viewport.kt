@@ -4,7 +4,10 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -155,8 +158,9 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         Box(Modifier.offset { IntOffset(x.toInt(), y.toInt()) }) { PlateMenu(state, vm, plate) { plateMenu = null } }
     }
     view?.section?.takeIf { it.panelOpen }?.let {
-        // Below the top bar and clear of the tool buttons down the left edge.
-        SectionViewPanel(it, Modifier.align(androidx.compose.ui.Alignment.TopCenter).padding(top = 72.dp, start = 80.dp, end = 8.dp).widthIn(max = 420.dp))
+        // Below the top bar (and a camera hole in fullscreen portrait) and clear of the tool buttons down the left edge.
+        SectionViewPanel(it, Modifier.align(androidx.compose.ui.Alignment.TopCenter)
+            .windowInsetsPadding(androidx.compose.foundation.layout.WindowInsets.displayCutout.only(androidx.compose.foundation.layout.WindowInsetsSides.Top)).padding(top = 72.dp, start = 80.dp, end = 8.dp).widthIn(max = 420.dp))
     }
     }
 

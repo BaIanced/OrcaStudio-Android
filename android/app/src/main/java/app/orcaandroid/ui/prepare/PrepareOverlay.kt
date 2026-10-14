@@ -69,6 +69,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -87,6 +88,7 @@ import app.orcaandroid.ui.EditorTarget
 import app.orcaandroid.ui.Tool
 import app.orcaandroid.ui.UiState
 import app.orcaandroid.ui.components.ConfirmDialog
+import app.orcaandroid.ui.components.CutoutRow
 import app.orcaandroid.ui.components.PickerDialog
 import app.orcaandroid.ui.components.PickerItem
 import app.orcaandroid.ui.components.framePlate
@@ -101,7 +103,11 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
     val filmstrip = lab.plates == PlateSwitcher.FILMSTRIP && state.tool == Tool.None
     CompositionLocalProvider(LocalOverlayAlpha provides lab.overlayAlpha) {
     Box(Modifier.fillMaxSize().padding(8.dp)) {
-        Column(Modifier.align(Alignment.TopStart).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        // Measured: the top bar moves below a camera hole it can't sit beside (CutoutRow).
+        var bars by remember { mutableStateOf(0.dp) }
+        val density = LocalDensity.current
+        Column(Modifier.align(Alignment.TopStart).fillMaxWidth().onSizeChanged { bars = with(density) { it.height.toDp() } },
+            verticalArrangement = Arrangement.spacedBy(6.dp)) {
             TopBar(state, vm, view, viewButtons = !column)
             state.calibration?.let { cal ->
                 Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.tertiaryContainer) {
@@ -115,7 +121,7 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
         }
         if (column) {
             // Below the top bar (and the banners): the column scrolls instead of covering the plate selector.
-            val top = 60.dp + (if (state.calibration != null) 50.dp else 0.dp) + (if (state.showSelectionBanner) 50.dp else 0.dp)
+            val top = maxOf(bars + 12.dp, 60.dp + (if (state.calibration != null) 50.dp else 0.dp) + (if (state.showSelectionBanner) 50.dp else 0.dp))
             val scroll = rememberScrollState()
             Box(Modifier.align(Alignment.TopStart).padding(top = top, bottom = if (filmstrip) 64.dp else 0.dp)) {
                 Column(Modifier.verticalScroll(scroll), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -244,14 +250,14 @@ private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
 private fun TopBar(state: UiState, vm: AppViewModel, view: PlateView?, viewButtons: Boolean) {
     val alpha = LocalOverlayAlpha.current
     val bar = MaterialTheme.colorScheme.surface.copy(alpha = alpha)
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        Box(Modifier.weight(1f)) {
-            when (state.lab.plates) {
-                PlateSwitcher.TABS -> Surface(shape = RoundedCornerShape(20.dp), color = bar) { PlateTabs(state, vm, view, Modifier.padding(start = 4.dp)) }
-                PlateSwitcher.FILMSTRIP -> if (state.lab.plateLabel) Surface(shape = RoundedCornerShape(20.dp), color = bar) { PlateLabel(state, vm) }
-                PlateSwitcher.CHIPS -> PlateChips(state, vm, view)
-            }
+    // In fullscreen portrait the bar can sit beside the camera hole (CutoutRow).
+    CutoutRow(minStart = 96.dp, start = {
+        when (state.lab.plates) {
+            PlateSwitcher.TABS -> Surface(shape = RoundedCornerShape(20.dp), color = bar) { PlateTabs(state, vm, view, Modifier.padding(start = 4.dp)) }
+            PlateSwitcher.FILMSTRIP -> if (state.lab.plateLabel) Surface(shape = RoundedCornerShape(20.dp), color = bar) { PlateLabel(state, vm) }
+            PlateSwitcher.CHIPS -> PlateChips(state, vm, view)
         }
+    }) {
         UpdatesChip(state, vm)
         if (viewButtons) Surface(shape = RoundedCornerShape(20.dp), color = bar) { Row { ViewButtons(state, vm, view, rail = false) } }
         FileButton(state, vm)

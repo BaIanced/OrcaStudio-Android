@@ -64,9 +64,10 @@ class MainActivity : ComponentActivity() {
                 Surface(Modifier.fillMaxSize()) {
                     // Landscape hides the bars: use the camera cutout's strip too instead of leaving it empty
                     // (user, 2026-10-13); the rail goes there, other content keeps clear of it (AppScaffold).
+                    // Fullscreen portrait likewise gives the top strip to the 3D view (user, 2026-10-13).
                     val landscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation ==
                         android.content.res.Configuration.ORIENTATION_LANDSCAPE
-                    Box(if (landscape) Modifier.windowInsetsPadding(WindowInsets.systemBars.union(WindowInsets.ime))
+                    Box(if (landscape || state.lab.fullscreenPortrait) Modifier.windowInsetsPadding(WindowInsets.systemBars.union(WindowInsets.ime))
                         else Modifier.safeDrawingPadding()) { AppScaffold(state, vm) }
                 }
             }
