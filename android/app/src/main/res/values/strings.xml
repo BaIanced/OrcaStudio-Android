@@ -817,6 +817,7 @@
     <string name="design_brightness">Brightness</string>
     <string name="design_reset_color">Back to the preset color</string>
     <string name="design_reset_part">Reset this part</string>
+    <string name="design_low_contrast">Text is hard to read here. Make “Background” and “Panels and cards” both dark or both light, or change “Text”.</string>
     <string name="design_reset_all">Reset all</string>
     <string name="reset_colors">Reset custom colors</string>
     <string name="reset_colors_confirm">Drop all your custom colors (light and dark theme)? The preset stays.</string>

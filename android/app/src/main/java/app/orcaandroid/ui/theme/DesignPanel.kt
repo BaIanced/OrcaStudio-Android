@@ -128,6 +128,8 @@ fun ThemeDesignPanel(state: UiState, vm: AppViewModel) {
                         }
                         if (slot.hint != 0) Text(stringResource(slot.hint), style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (colors.lowContrast(region)) Text(stringResource(R.string.design_low_contrast),
+                            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
                         ColorEditor(
                             key = region.key + "/" + slot.key,
                             color = colors.color(region, slot),
