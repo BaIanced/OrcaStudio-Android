@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.Science
+import androidx.compose.material.icons.filled.Architecture
 import androidx.compose.material.icons.filled.Interests
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.Toys
@@ -81,7 +82,7 @@ internal fun AddMenu(state: UiState, vm: AppViewModel, open: Boolean, onDismiss:
             onClick = { onDismiss(); onDialog("svg") })
         DropdownMenuItem(text = { Text(stringResource(R.string.add_openscad)) }, leadingIcon = { Icon(Icons.Default.Code, null) },
             onClick = { onDismiss(); vm.scad.open() })
-        DropdownMenuItem(text = { Text(stringResource(R.string.shape_builder)) }, leadingIcon = { Icon(Icons.Default.Interests, null) },
+        DropdownMenuItem(text = { Text(stringResource(R.string.shape_builder)) }, leadingIcon = { Icon(Icons.Default.Architecture, null) },
             onClick = { onDismiss(); vm.scad.newShapes() })
         DropdownMenuItem(text = { Text(stringResource(R.string.sample_models)) }, leadingIcon = { Icon(Icons.Default.Toys, null) },
             onClick = { onDismiss(); onDialog("samples") })
