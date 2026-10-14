@@ -356,7 +356,7 @@ class ScadController(private val store: Store) {
                 set { it.copy(status = store.str(R.string.scad_stopped), statusError = false) }
                 throw e
             } catch (e: Exception) {
-                set { it.copy(status = message(e), statusError = true) }
+                set { it.copy(log = "", status = message(e), statusError = true) }
             } finally {
                 set { it.copy(previewing = false) }
                 afterRequest()

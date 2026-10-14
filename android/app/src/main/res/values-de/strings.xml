@@ -182,7 +182,10 @@
     <string name="object_info">%1$d× · Platte %2$s · %3$d Dreiecke</string>
     <string name="object_settings">Objekteinstellungen (%d)</string>
     <string name="object_settings_title">Objekteinstellungen</string>
-    <string name="objects_outside">%d Objekt(e) außerhalb der Platten</string>
+    <plurals name="objects_outside">
+        <item quantity="one">%d Objekt außerhalb der Platten</item>
+        <item quantity="other">%d Objekte außerhalb der Platten</item>
+    </plurals>
     <string name="ok">OK</string>
     <string name="only_changed">Nur geänderte</string>
     <string name="open_project">Öffnen…</string>
@@ -204,7 +207,10 @@
     <string name="preparing">Vorbereiten…</string>
     <string name="preparing_calibration">Bereite Kalibrierung vor…</string>
     <string name="preset_exported">Preset exportiert</string>
-    <string name="presets_imported">%d Datei(en) importiert</string>
+    <plurals name="presets_imported">
+        <item quantity="one">%d Datei importiert</item>
+        <item quantity="other">%d Dateien importiert</item>
+    </plurals>
     <string name="print">Drucken</string>
     <string name="print_failed">Druck abgebrochen</string>
     <string name="print_finished">Druck fertig</string>
