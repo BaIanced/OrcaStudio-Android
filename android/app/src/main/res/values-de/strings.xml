@@ -402,7 +402,10 @@
     <string name="no_filaments_reported">Der Drucker meldet kein geladenes Filament.</string>
     <string name="syncing_filaments">Filamente des Druckers werden gelesen…</string>
     <string name="sync_filaments_none">Der Drucker meldet kein geladenes Filament.</string>
-    <string name="sync_filaments_done">%1$d Filamentplatz/-plätze vom Drucker übernommen.</string>
+    <plurals name="sync_filaments_done">
+        <item quantity="one">%1$d Filamentplatz vom Drucker übernommen.</item>
+        <item quantity="other">%1$d Filamentplätze vom Drucker übernommen.</item>
+    </plurals>
     <string name="sync_filaments_no_bambu">Für den Filamentabgleich ist eine Verbindung zu einem Bambu-Lab-Drucker nötig (Tab „Gerät“).</string>
     <!-- Presets des Bambu-Kontos -->
     <string name="sync_cloud_presets">Presets aus dem Bambu-Konto laden</string>
