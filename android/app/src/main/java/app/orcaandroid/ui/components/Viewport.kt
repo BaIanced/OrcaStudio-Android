@@ -94,7 +94,6 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         factory = { ctx ->
             PlateView(ctx).also { v ->
                 PlateView.active = java.lang.ref.WeakReference(v)
-                savedCamera?.let(v.camera::restore)
                 v.listener = object : PlateListener {
                     override fun onTap(x: Float, y: Float, additive: Boolean, part: Boolean) {
                         val (o, d) = v.camera.ray(x, y)
@@ -163,6 +162,8 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
 
     val v = view ?: return
     DisposableEffect(v) { onDispose { savedCamera = v.camera.state() } }
+    // Restored here, not in the factory: a new view can be made before the old one's onDispose has saved.
+    val restored = remember(v) { savedCamera?.also(v.camera::restore) != null }
     val setup = state.setup
     val scene = state.scene
 
@@ -179,7 +180,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
             val first = plateOriginsCount == 0
             setBed(bed, origins)
             plateOriginsCount = origins.size
-            if (first && savedCamera == null) frame(state.activePlate)
+            if (first && !restored) frame(state.activePlate)
         }
     }
     LaunchedEffect(v, scene.meshVersion, scene.meshFile) {
@@ -213,7 +214,8 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     var framedPlate by remember { mutableStateOf(-1) }
     LaunchedEffect(v, state.activePlate) {
         val plate = state.activePlate
-        val move = framedPlate >= 0 && framedPlate != plate
+        // A view with a restored camera also brings the active plate on screen (it may have changed meanwhile).
+        val move = framedPlate != plate && (framedPlate >= 0 || restored)
         framedPlate = plate
         // A plate already on screen becomes active without moving the camera (user, 2026-10-13); double tap frames it.
         v.onGl { activePlate = plate; if (move && !plateInView(plate)) frame(plate) }
@@ -294,6 +296,9 @@ fun schemeKey(scheme: Int) = when (scheme) {
 private var savedCamera: FloatArray? = null
 
 fun PlateView.framePlate(plate: Int, top: Boolean = false) = onGl { frame(plate, top) }
+
+/** Brings plate [plate] into view: the camera stays when its centre is already on screen (user, 2026-10-13). */
+fun PlateView.showPlate(plate: Int) = onGl { if (!plateInView(plate)) frame(plate) }
 
 /** [mesh] (position + normal per vertex) as scene-mesh vertices of type 98, centred on (cx, cy) and standing on the bed. */
 private fun ghostData(mesh: app.orcaandroid.render.PreviewMesh, cx: Float, cy: Float): FloatData {

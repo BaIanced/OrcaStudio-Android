@@ -41,7 +41,7 @@ import app.orcaandroid.R
 import app.orcaandroid.render.PlateView
 import app.orcaandroid.ui.AppViewModel
 import app.orcaandroid.ui.UiState
-import app.orcaandroid.ui.components.framePlate
+import app.orcaandroid.ui.components.showPlate
 import java.io.File
 import java.util.Locale
 
@@ -66,7 +66,7 @@ fun PreviewOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
                     state.scene.plates.forEach { p ->
                         FilterChip(
                             selected = p.index == state.previewPlate,
-                            onClick = { vm.slicing.setPreviewPlate(p.index); view?.framePlate(p.index) },
+                            onClick = { vm.slicing.setPreviewPlate(p.index); view?.showPlate(p.index) },
                             label = { Text(stringResource(R.string.plate_n, p.index + 1) + if (state.results.containsKey(p.index)) " ✓" else "") },
                         )
                     }
