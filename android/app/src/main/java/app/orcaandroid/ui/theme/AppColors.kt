@@ -271,6 +271,9 @@ fun OrcaTheme(mode: ThemeMode, dynamicColor: Boolean, spec: ThemeSpec, content: 
 
 fun ColorScheme.withRoles(roles: Map<Role, Color>, dark: Boolean): ColorScheme =
     Role.entries.fold(this) { s, r -> roles[r]?.let { s.with(r, it, dark) } ?: s }
+        // inversePrimary = the snackbar's action text on inverseSurface (the Text colour): the accent, shaded until it
+        // reads. Set for every scheme; Material's default was purple on the plain Prusa schemes.
+        .let { it.copy(inversePrimary = legibleOn(it.primary, it.inverseSurface)) }
 
 private fun ColorScheme.with(role: Role, c: Color, dark: Boolean): ColorScheme = when (role) {
     // Blend towards the flipped cards (s), not this scheme's: a dark Background in light mode gave grey sheets/menus.
@@ -297,8 +300,7 @@ private fun ColorScheme.with(role: Role, c: Color, dark: Boolean): ColorScheme =
     )
     Role.TEXT -> copy(onBackground = c, onSurface = c, onSecondaryContainer = c, inverseSurface = c, surfaceTint = c)
     Role.ACCENT -> copy(
-        // inversePrimary = the snackbar's action text on inverseSurface (the Text colour): shade it until it reads.
-        primary = c, onPrimary = onColor(c), inversePrimary = legibleOn(c, inverseSurface),
+        primary = c, onPrimary = onColor(c),
         primaryContainer = lerp(c, background, if (dark) 0.65f else 0.78f),
         onPrimaryContainer = lerp(c, if (dark) Color.White else Color.Black, 0.7f),
     )
