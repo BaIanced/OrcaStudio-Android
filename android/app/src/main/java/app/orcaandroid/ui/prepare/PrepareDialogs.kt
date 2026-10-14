@@ -6,6 +6,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -190,13 +191,17 @@ private fun DialogFrame(title: String, confirm: String, enabled: Boolean = true,
     )
 }
 
+/** A size a mesh can be built from: above zero and not absurdly large (a 99999 mm cube hangs the slicer). */
+private fun sizeOk(vararg mm: Float) = mm.all { it in 0.1f..1000f }
+
 @Composable
 private fun PrimitiveDialog(vm: AppViewModel, onDismiss: () -> Unit) {
     val shapes = listOf("cube" to R.string.shape_cube, "cylinder" to R.string.shape_cylinder, "sphere" to R.string.shape_sphere, "cone" to R.string.shape_cone)
     var shape by remember { mutableStateOf("cube") }
     var size by remember { mutableStateOf(Vec3(20f, 20f, 20f)) }
-    DialogFrame(stringResource(R.string.add_shape), stringResource(R.string.add), onConfirm = { vm.scene.addPrimitive(shape, size) }, onDismiss = onDismiss) {
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+    DialogFrame(stringResource(R.string.add_shape), stringResource(R.string.add), enabled = sizeOk(size.x, size.y, size.z),
+        onConfirm = { vm.scene.addPrimitive(shape, size) }, onDismiss = onDismiss) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             shapes.forEach { (id, label) -> FilterChip(selected = shape == id, onClick = { shape = id }, label = { Text(stringResource(label)) }) }
         }
         Vec3Fields(stringResource(R.string.size), size.x, size.y, size.z, "mm", { x, y, z -> size = Vec3(x, y, z) }, live = true)
@@ -208,7 +213,7 @@ private fun TextDialog(vm: AppViewModel, onDismiss: () -> Unit) {
     var text by remember { mutableStateOf("Orca") }
     var height by remember { mutableFloatStateOf(10f) }
     var depth by remember { mutableFloatStateOf(3f) }
-    DialogFrame(stringResource(R.string.add_text), stringResource(R.string.add), enabled = text.isNotBlank(),
+    DialogFrame(stringResource(R.string.add_text), stringResource(R.string.add), enabled = text.isNotBlank() && sizeOk(height, depth),
         onConfirm = { vm.scene.addText(text, height, depth) }, onDismiss = onDismiss) {
         OutlinedTextField(text, { text = it }, label = { Text(stringResource(R.string.text)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -226,7 +231,7 @@ private fun SvgDialog(vm: AppViewModel, onDismiss: () -> Unit) {
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { if (it != null) uri = it else if (uri == null) onDismiss() }
     androidx.compose.runtime.LaunchedEffect(Unit) { pick.launch(arrayOf("image/svg+xml", "*/*")) }
     val u = uri ?: return
-    DialogFrame(stringResource(R.string.add_svg), stringResource(R.string.add), onConfirm = { vm.scene.addSvg(u, width, depth) }, onDismiss = onDismiss) {
+    DialogFrame(stringResource(R.string.add_svg), stringResource(R.string.add), enabled = sizeOk(width, depth), onConfirm = { vm.scene.addSvg(u, width, depth) }, onDismiss = onDismiss) {
         Text(u.lastPathSegment.orEmpty(), style = MaterialTheme.typography.bodySmall)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             NumberField(width, { width = it }, Modifier.weight(1f), stringResource(R.string.width), "mm", live = true)

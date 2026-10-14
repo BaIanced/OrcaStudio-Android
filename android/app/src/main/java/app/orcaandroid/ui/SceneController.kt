@@ -115,15 +115,18 @@ class SceneController(private val store: Store, private val presets: PresetContr
         store.sceneOp { engine.moveItems(items, dx, dy) }
     }
 
+    /** A typed 0 or negative scale would flatten or flip the part, a huge one hang the viewer: keep 0.1 % to 100x. */
+    private fun Vec3.sane() = Vec3(x.coerceIn(0.001f, 100f), y.coerceIn(0.001f, 100f), z.coerceIn(0.001f, 100f))
+
     fun setTransform(offset: Vec3? = null, rotation: Vec3? = null, scale: Vec3? = null, mirror: Vec3? = null) {
         val sel = selection ?: return
-        store.sceneOp { engine.setTransform(sel.obj, sel.instance, offset, rotation, scale, mirror) }
+        store.sceneOp { engine.setTransform(sel.obj, sel.instance, offset, rotation, scale?.sane(), mirror) }
     }
 
     /** Moves, turns or scales the selected part (or modifier) inside its object. */
     fun setVolumeTransform(offset: Vec3? = null, rotation: Vec3? = null, scale: Vec3? = null) {
         val sel = selection?.takeIf { it.volume >= 0 } ?: return
-        store.sceneOp { engine.setTransform(sel.obj, sel.instance, offset, rotation, scale, volume = sel.volume) }
+        store.sceneOp { engine.setTransform(sel.obj, sel.instance, offset, rotation, scale?.sane(), volume = sel.volume) }
     }
 
     /** Deletes the selected part, else the selected copy, else the whole object; or all selected copies. */
