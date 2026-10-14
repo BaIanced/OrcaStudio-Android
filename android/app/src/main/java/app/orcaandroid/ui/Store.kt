@@ -25,6 +25,7 @@ class Store(val app: Application, val scope: CoroutineScope) {
         UiState(
             themeMode = settings.themeMode,
             dynamicColor = settings.dynamicColor,
+            themeSpec = settings.themeSpec,
             doubleBackToQuit = settings.doubleBackToQuit,
             lab = settings.layoutLab,
             undoLimit = settings.undoLimit,

@@ -63,8 +63,9 @@ internal class OrcaCloudLoopback(
         val code = uri.getQueryParameter("code").orEmpty()
         val state = uri.getQueryParameter("orca_state") ?: uri.getQueryParameter("state").orEmpty()
         val ok = code.isNotEmpty()
-        // Back to the app: an intent link (works from a tap in Chrome; the activity is singleTask).
-        val back = "intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=$appPackage;end"
+        // Back to the app: an intent link to the manifest's BROWSABLE "orcastudio-android://signed-in" filter, pinned to
+        // this package so a debug build next to a release one doesn't ask which (the activity is singleTask).
+        val back = "intent://signed-in#Intent;scheme=${OrcaCloud.RETURN_SCHEME};package=$appPackage;end"
         val html = """<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
             |<style>body{font-family:sans-serif;margin:32px;}a{display:inline-block;padding:10px 16px;margin-top:12px;background:#009688;color:#fff;text-decoration:none;border-radius:6px;}</style>
             |</head><body><h2>${if (ok) "Authentication complete" else "Authentication failed"}</h2>

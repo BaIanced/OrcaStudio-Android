@@ -98,6 +98,9 @@ data class UiState(
     val screen: Screen = Screen.PREPARE,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val dynamicColor: Boolean = false,
+    val themeSpec: app.orcaandroid.core.ThemeSpec = app.orcaandroid.core.ThemeSpec(),
+    /** The floating colour panel is open over the app (design mode). */
+    val designMode: Boolean = false,
     val doubleBackToQuit: Boolean = false,
     val lab: app.orcaandroid.core.LayoutLab = app.orcaandroid.core.LayoutLab(),
     val undoLimit: Int = app.orcaandroid.core.DEFAULT_UNDO_LIMIT,

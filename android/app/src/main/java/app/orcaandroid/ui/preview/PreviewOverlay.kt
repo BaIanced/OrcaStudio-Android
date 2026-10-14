@@ -41,6 +41,7 @@ import app.orcaandroid.R
 import app.orcaandroid.render.PlateView
 import app.orcaandroid.ui.AppViewModel
 import app.orcaandroid.ui.UiState
+import app.orcaandroid.ui.components.CutoutRow
 import app.orcaandroid.ui.components.showPlate
 import java.io.File
 import java.util.Locale
@@ -56,9 +57,9 @@ internal val SCHEMES = listOf(
 fun PreviewOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boolean) {
     val result = state.shownResult
     Box(Modifier.fillMaxSize().padding(8.dp)) {
-        Row(Modifier.align(Alignment.TopStart).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        // In fullscreen portrait the bar can sit beside the camera hole (CutoutRow).
+        CutoutRow(Modifier.align(Alignment.TopStart), minStart = 96.dp, start = {
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 if (state.external != null) {
                     AssistChip(onClick = vm.slicing::closeExternal, label = { Text(File(state.external.gcodeFile).name, maxLines = 1) },
                         trailingIcon = { Icon(Icons.Default.Close, stringResource(R.string.close), Modifier.size(16.dp)) })
@@ -72,6 +73,7 @@ fun PreviewOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
                     }
                 }
             }
+        }) {
             if (result != null) SchemeButton(state, vm)
         }
         if (result != null && result.layers.isNotEmpty()) {

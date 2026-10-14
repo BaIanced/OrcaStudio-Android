@@ -69,10 +69,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -87,6 +90,7 @@ import app.orcaandroid.ui.EditorTarget
 import app.orcaandroid.ui.Tool
 import app.orcaandroid.ui.UiState
 import app.orcaandroid.ui.components.ConfirmDialog
+import app.orcaandroid.ui.components.CutoutRow
 import app.orcaandroid.ui.components.PickerDialog
 import app.orcaandroid.ui.components.PickerItem
 import app.orcaandroid.ui.components.framePlate
@@ -101,7 +105,11 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
     val filmstrip = lab.plates == PlateSwitcher.FILMSTRIP && state.tool == Tool.None
     CompositionLocalProvider(LocalOverlayAlpha provides lab.overlayAlpha) {
     Box(Modifier.fillMaxSize().padding(8.dp)) {
-        Column(Modifier.align(Alignment.TopStart).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        // Measured: the top bar moves below a camera hole it can't sit beside (CutoutRow).
+        var bars by remember { mutableStateOf(0.dp) }
+        val density = LocalDensity.current
+        Column(Modifier.align(Alignment.TopStart).fillMaxWidth().onSizeChanged { bars = with(density) { it.height.toDp() } },
+            verticalArrangement = Arrangement.spacedBy(6.dp)) {
             TopBar(state, vm, view, viewButtons = !column)
             state.calibration?.let { cal ->
                 Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.tertiaryContainer) {
@@ -115,7 +123,7 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
         }
         if (column) {
             // Below the top bar (and the banners): the column scrolls instead of covering the plate selector.
-            val top = 60.dp + (if (state.calibration != null) 50.dp else 0.dp) + (if (state.showSelectionBanner) 50.dp else 0.dp)
+            val top = maxOf(bars + 12.dp, 60.dp + (if (state.calibration != null) 50.dp else 0.dp) + (if (state.showSelectionBanner) 50.dp else 0.dp))
             val scroll = rememberScrollState()
             Box(Modifier.align(Alignment.TopStart).padding(top = top, bottom = if (filmstrip) 64.dp else 0.dp)) {
                 Column(Modifier.verticalScroll(scroll), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -244,14 +252,14 @@ private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
 private fun TopBar(state: UiState, vm: AppViewModel, view: PlateView?, viewButtons: Boolean) {
     val alpha = LocalOverlayAlpha.current
     val bar = MaterialTheme.colorScheme.surface.copy(alpha = alpha)
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        Box(Modifier.weight(1f)) {
-            when (state.lab.plates) {
-                PlateSwitcher.TABS -> Surface(shape = RoundedCornerShape(20.dp), color = bar) { PlateTabs(state, vm, view, Modifier.padding(start = 4.dp)) }
-                PlateSwitcher.FILMSTRIP -> if (state.lab.plateLabel) Surface(shape = RoundedCornerShape(20.dp), color = bar) { PlateLabel(state, vm) }
-                PlateSwitcher.CHIPS -> PlateChips(state, vm, view)
-            }
+    // In fullscreen portrait the bar can sit beside the camera hole (CutoutRow).
+    CutoutRow(minStart = 96.dp, start = {
+        when (state.lab.plates) {
+            PlateSwitcher.TABS -> Surface(shape = RoundedCornerShape(20.dp), color = bar) { PlateTabs(state, vm, view, Modifier.padding(start = 4.dp)) }
+            PlateSwitcher.FILMSTRIP -> if (state.lab.plateLabel) Surface(shape = RoundedCornerShape(20.dp), color = bar) { PlateLabel(state, vm) }
+            PlateSwitcher.CHIPS -> PlateChips(state, vm, view)
         }
+    }) {
         UpdatesChip(state, vm)
         if (viewButtons) Surface(shape = RoundedCornerShape(20.dp), color = bar) { Row { ViewButtons(state, vm, view, rail = false) } }
         FileButton(state, vm)
@@ -267,6 +275,7 @@ private fun PlateChips(state: UiState, vm: AppViewModel, view: PlateView?) {
     PlateRow(state, vm, Modifier, 4.dp, Alignment.CenterVertically, add = {
         AssistChip(onClick = vm.scene::addPlate, label = { Text("+") }, colors = AssistChipDefaults.assistChipColors(containerColor = bar))
     }) { plate, _ ->
+        val plateName = stringResource(R.string.plate_n, plate.index + 1)
         Box {
             FilterChip(
                 selected = plate.index == state.activePlate,
@@ -274,7 +283,9 @@ private fun PlateChips(state: UiState, vm: AppViewModel, view: PlateView?) {
                     if (plate.index == state.activePlate) plateMenu = plate.index
                     else { vm.scene.selectPlate(plate.index); view?.showPlate(plate.index) }
                 },
-                label = { Text(stringResource(R.string.plate_n, plate.index + 1)) },
+                // Just the number ("Plate" took too much room, user 2026-10-14); "Plate n" for TalkBack.
+                label = { Text("${plate.index + 1}") },
+                modifier = Modifier.semantics { contentDescription = plateName },
                 trailingIcon = if (plate.index == state.activePlate) { { Icon(Icons.Default.ExpandMore, null, Modifier.size(16.dp)) } } else null,
                 colors = FilterChipDefaults.filterChipColors(containerColor = bar),
             )

@@ -1,10 +1,21 @@
 package app.orcaandroid.ui.components
 
+import app.orcaandroid.ui.theme.LocalAppColors
+import app.orcaandroid.ui.theme.Region
+import app.orcaandroid.ui.theme.Slot
+import app.orcaandroid.ui.theme.VIEW_ACTIVE_PLATE
+import app.orcaandroid.ui.theme.VIEW_BACKGROUND
+import app.orcaandroid.ui.theme.VIEW_GRID
+import app.orcaandroid.ui.theme.VIEW_PART
+import app.orcaandroid.ui.theme.VIEW_SELECTION
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -76,12 +87,15 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     val result = state.shownResult
 
     val scheme = MaterialTheme.colorScheme
+    // The 3D view's colours (theme defaults or the user's, design mode).
+    val appColors = LocalAppColors.current
+    fun slot(s: Slot) = appColors.color(Region.VIEW_3D, s).rgb()
     val colors = ViewColors(
-        background = scheme.surfaceContainerHighest.rgb(),
-        grid = scheme.outline.rgb(),
-        activePlate = scheme.primary.rgb(),
-        part = floatArrayOf(0.96f, 0.58f, 0.2f),
-        selected = scheme.primary.rgb(),
+        background = slot(VIEW_BACKGROUND),
+        grid = slot(VIEW_GRID),
+        activePlate = slot(VIEW_ACTIVE_PLATE),
+        part = slot(VIEW_PART),
+        selected = slot(VIEW_SELECTION),
     )
 
     // The selection rectangle being drawn (Shift/Alt+drag), in view pixels: x0, y0, x1, y1.
@@ -155,8 +169,9 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         Box(Modifier.offset { IntOffset(x.toInt(), y.toInt()) }) { PlateMenu(state, vm, plate) { plateMenu = null } }
     }
     view?.section?.takeIf { it.panelOpen }?.let {
-        // Below the top bar and clear of the tool buttons down the left edge.
-        SectionViewPanel(it, Modifier.align(androidx.compose.ui.Alignment.TopCenter).padding(top = 72.dp, start = 80.dp, end = 8.dp).widthIn(max = 420.dp))
+        // Below the top bar (and a camera hole in fullscreen portrait) and clear of the tool buttons down the left edge.
+        SectionViewPanel(it, Modifier.align(androidx.compose.ui.Alignment.TopCenter)
+            .windowInsetsPadding(androidx.compose.foundation.layout.WindowInsets.displayCutout.only(androidx.compose.foundation.layout.WindowInsetsSides.Top)).padding(top = 72.dp, start = 80.dp, end = 8.dp).widthIn(max = 420.dp))
     }
     }
 

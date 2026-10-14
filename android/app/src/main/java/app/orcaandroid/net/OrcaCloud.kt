@@ -39,6 +39,8 @@ object OrcaCloud {
 
     const val LOOPBACK_PORT = 41172 // auth_constants::LOOPBACK_PORT, then +1, +2
     const val LOOPBACK_PATH = "/callback"
+    /** The sign-in page's "Return to the app" link (AndroidManifest.xml, MainActivity ignores it). */
+    const val RETURN_SCHEME = "orcastudio-android"
     private const val TOKEN_PATH = "/auth/v1/token"
     private const val LOGOUT_PATH = "/auth/v1/logout"
 

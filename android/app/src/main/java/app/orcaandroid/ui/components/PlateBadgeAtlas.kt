@@ -1,12 +1,18 @@
 package app.orcaandroid.ui.components
 
+import app.orcaandroid.ui.theme.BADGE
+import app.orcaandroid.ui.theme.BADGE_ACTIVE
+import app.orcaandroid.ui.theme.BADGE_ACTIVE_TEXT
+import app.orcaandroid.ui.theme.BADGE_TEXT
+import app.orcaandroid.ui.theme.LocalAppColors
+import app.orcaandroid.ui.theme.Region
+import app.orcaandroid.ui.theme.Slot
 import android.graphics.Paint
 import android.graphics.Typeface
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesomeMosaic
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.geometry.CornerRadius
@@ -31,14 +37,15 @@ import app.orcaandroid.render.PlateBadge
 /** The plate badge art for [plates] plates in the theme's colours (icons in [PlateBadge] order, then the numbers). */
 @Composable
 fun rememberBadgeAtlas(plates: Int): BadgeAtlas {
-    val scheme = MaterialTheme.colorScheme
+    val appColors = LocalAppColors.current
     val density = LocalDensity.current
     // Same order as PlateBadge: DELETE, ARRANGE, MENU.
     val icons = listOf(Icons.Default.Delete, Icons.Default.AutoAwesomeMosaic, Icons.Default.MoreVert).map { rememberVectorPainter(it) }
-    val back = scheme.secondaryContainer
-    val fore = scheme.onSecondaryContainer
-    val activeBack = scheme.primary
-    val activeFore = scheme.onPrimary
+    fun slot(s: Slot) = appColors.color(Region.BADGES, s)
+    val back = slot(BADGE)
+    val fore = slot(BADGE_TEXT)
+    val activeBack = slot(BADGE_ACTIVE)
+    val activeFore = slot(BADGE_ACTIVE_TEXT)
     return remember(plates, back, fore, activeBack, activeFore) {
         val cell = BadgeAtlas.CELL.toFloat()
         val rows = (BadgeAtlas.cells(plates) + BadgeAtlas.COLUMNS - 1) / BadgeAtlas.COLUMNS
