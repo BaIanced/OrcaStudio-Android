@@ -152,9 +152,9 @@ class Engine(private val cacheDir: File) {
         else PickHit(o.getInt("object"), o.getInt("instance"), o.getInt("volume"), o.getInt("facet"), o.vec3("point"), o.vec3("normal"), o.vec3("local"))
     }
 
-    suspend fun paint(hit: PickHit, camera: Vec3, radius: Float, kind: String, state: Int, newStroke: Boolean) = parseScene(call("paint", args(
+    suspend fun paint(hit: PickHit, camera: Vec3, radius: Float, kind: String, state: Int, newStroke: Boolean, section: FloatArray? = null) = parseScene(call("paint", args(
         "object" to hit.obj, "instance" to hit.instance, "volume" to hit.volume, "facet" to hit.facet, "local" to hit.local,
-        "camera" to camera, "radius" to radius, "kind" to kind, "state" to state, "newStroke" to newStroke)))
+        "camera" to camera, "radius" to radius, "kind" to kind, "state" to state, "newStroke" to newStroke, "section" to section)))
     suspend fun paintClear(obj: Int, kind: String) = parseScene(call("paintClear", args("object" to obj, "kind" to kind)))
 
     private fun parseProfile(o: JSONObject) = parseScene(o) to LayerProfile(

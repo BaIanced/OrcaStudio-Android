@@ -169,7 +169,8 @@ void OrcaEngine::write_paint_mesh()
 }
 
 json OrcaEngine::paint(int object, int instance, int volume, int facet, const std::array<double, 3> &local,
-                       const std::array<double, 3> &camera, double radius, const std::string &kind, int state, bool new_stroke)
+                       const std::array<double, 3> &camera, double radius, const std::string &kind, int state, bool new_stroke,
+                       const std::vector<double> &section)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
     ModelObject &obj = object_at(object);
@@ -184,13 +185,21 @@ json OrcaEngine::paint(int object, int instance, int volume, int facet, const st
     Transform3d trafo_no_translate = trafo;
     trafo_no_translate.translation() = Vec3d::Zero();
     const Vec3f camera_local = (trafo.inverse() * to_vec(camera)).cast<float>();
+    // The section plane in volume coordinates, as the desktop's get_clipping_plane_in_volume_coordinates:
+    // n.(T q) <= d  <=>  (L^T n).q <= d - n.t.
+    TriangleSelector::ClippingPlane clip;
+    if (section.size() == 4) {
+        const Vec3d n(section[0], section[1], section[2]);
+        const Vec3d n_local = trafo.linear().transpose() * n;
+        clip = TriangleSelector::ClippingPlane({float(n_local.x()), float(n_local.y()), float(n_local.z()),
+                                                float(section[3] - n.dot(trafo.translation()))});
+    }
 
     TriangleSelector selector(vol->mesh());
     selector.deserialize(facets.get_data(), false);
     selector.select_patch(facet,
                           TriangleSelector::SinglePointCursor::cursor_factory(to_vec(local).cast<float>(), camera_local, float(radius),
-                                                                            TriangleSelector::CursorType::SPHERE, trafo,
-                                                                            TriangleSelector::ClippingPlane()),
+                                                                            TriangleSelector::CursorType::SPHERE, trafo, clip),
                           EnforcerBlockerType(std::clamp(state, 0, int(EnforcerBlockerType::ExtruderMax))), trafo_no_translate, true);
     facets.set(selector);
     write_paint_mesh();

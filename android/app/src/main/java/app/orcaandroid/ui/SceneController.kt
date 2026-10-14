@@ -331,6 +331,8 @@ class SceneController(private val store: Store, private val presets: PresetContr
     private val paintLock = Mutex()
     private class PaintSample(val origin: Vec3, val dir: Vec3, val newStroke: Boolean, val section: FloatArray?)
     private val pendingPaint = ArrayDeque<PaintSample>()
+    /** A stroke began but none of its samples hit yet: its first hit takes the undo snapshot. Guarded by [paintLock]. */
+    private var strokePending = false
 
     /** Paint sample from the 3D view; samples are queued and applied in order on the engine thread. */
     fun paintAt(origin: Vec3, dir: Vec3, camera: Vec3, newStroke: Boolean, section: FloatArray? = null) {
@@ -341,8 +343,10 @@ class SceneController(private val store: Store, private val presets: PresetContr
             paintLock.withLock {
                 while (true) {
                     val p = synchronized(pendingPaint) { pendingPaint.removeFirstOrNull() } ?: break
+                    if (p.newStroke) strokePending = true
                     val hit = pick(p.origin, p.dir, p.section) ?: continue
-                    store.applyScene(engine.paint(hit, camera, tool.radius, tool.kind, tool.state, p.newStroke))
+                    store.applyScene(engine.paint(hit, camera, tool.radius, tool.kind, tool.state, strokePending, p.section))
+                    strokePending = false
                 }
             }
         }

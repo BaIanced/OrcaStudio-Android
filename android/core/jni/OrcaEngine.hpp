@@ -153,9 +153,11 @@ public:
     // fuzzy skin), "support" / "seam" (1 enforce, 2 block), "color" (state = 1-based filament);
     // state 0 erases. `new_stroke` records an undo step. Rewrites the paint overlay mesh (scene
     // mesh format; volume_type 5 fuzzy, 6/7 support enforce/block, 8/9 seam enforce/block,
-    // 10 + filament index for colour) and returns scene_json().
+    // 10 + filament index for colour) and returns scene_json(). [section] = the section view's world plane
+    // {nx, ny, nz, d} (kept where n.p <= d) or empty: the brush leaves what it cuts away unpainted.
     json paint(int object, int instance, int volume, int facet, const std::array<double, 3> &local,
-               const std::array<double, 3> &camera, double radius, const std::string &kind, int state, bool new_stroke);
+               const std::array<double, 3> &camera, double radius, const std::string &kind, int state, bool new_stroke,
+               const std::vector<double> &section = {});
     // Clears one kind of painting (or all for an empty kind) of an object.
     json paint_clear(int object, const std::string &kind);
 
