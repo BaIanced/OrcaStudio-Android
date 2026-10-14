@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -157,12 +158,14 @@ fun PlateTabs(state: UiState, vm: AppViewModel, view: PlateView?, modifier: Modi
             val scheme = MaterialTheme.colorScheme
             Box {
                 // Just the number, like the filmstrip (user, 2026-10-13); "Plate n" for TalkBack.
+                // 2 dp each side keeps picked neighbours' backgrounds apart (they merged, user 2026-10-14);
+                // the tab stays 44 dp wide.
                 Column(
-                    Modifier.clip(RoundedCornerShape(8.dp))
+                    Modifier.padding(horizontal = 2.dp).clip(RoundedCornerShape(8.dp))
                         .background(if (picked) scheme.primaryContainer else Color.Transparent)
                         .plateClicks(state, vm, view, picks, plate.index) { plateMenu = plate.index }
                         .semantics(mergeDescendants = true) { contentDescription = name; selected = picked }
-                        .widthIn(min = 44.dp).padding(horizontal = 8.dp).height(44.dp),
+                        .widthIn(min = 40.dp).padding(horizontal = 6.dp).height(44.dp),
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
@@ -225,21 +228,25 @@ private fun PickDelete(vm: AppViewModel, picks: PlatePicks, above: Boolean) {
     val title = pluralStringResource(R.plurals.delete_plates, picks.picked.size, picks.picked.size)
     val delete = { vm.scene.deletePlates(picks.picked); picks.picked = emptySet() }
     val gap = with(LocalDensity.current) { 6.dp.roundToPx() }
-    val position = remember(above, gap) {
+    val below = with(LocalDensity.current) { 12.dp.roundToPx() }
+    val position = remember(above, gap, below) {
         object : PopupPositionProvider {
-            // Filmstrip: above the row's end. Tabs (top row): right of the stop button, so it doesn't cover
-            // the tool column below the row (it hid Undo, seen on WSA r158).
+            // Filmstrip: above the row's end. Tabs (top row): under the stop button, reaching right, so it covers
+            // neither the tool column on the left (it hid Undo, WSA r158) nor the top bar (beside the row it met
+            // the File button, phone r178).
             override fun calculatePosition(anchorBounds: IntRect, windowSize: IntSize, layoutDirection: LayoutDirection, popupContentSize: IntSize) =
                 if (above) IntOffset((anchorBounds.right - popupContentSize.width).coerceIn(0, (windowSize.width - popupContentSize.width).coerceAtLeast(0)),
                     anchorBounds.top - popupContentSize.height - gap)
-                else IntOffset((anchorBounds.right + gap).coerceAtMost((windowSize.width - popupContentSize.width).coerceAtLeast(0)),
-                    anchorBounds.center.y - popupContentSize.height / 2)
+                else IntOffset(anchorBounds.left.coerceAtMost((windowSize.width - popupContentSize.width).coerceAtLeast(0)),
+                    anchorBounds.bottom + below)
         }
     }
     Popup(popupPositionProvider = position) {
+        // Dark grey with a small red bin in both themes (user, 2026-10-14).
         FilledTonalButton(onClick = delete,
+            colors = ButtonDefaults.filledTonalButtonColors(containerColor = Color(0xFF2B2C32), contentColor = Color(0xFFEDEEF0)),
             contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)) {
-            Icon(Icons.Default.Delete, null, Modifier.size(18.dp))
+            Icon(Icons.Default.Delete, null, Modifier.size(16.dp), tint = Color(0xFFFF5A5F))
             Spacer(Modifier.width(6.dp))
             Text(title)
         }

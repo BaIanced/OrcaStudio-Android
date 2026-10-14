@@ -84,7 +84,8 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         grid = scheme.outline.rgb(),
         activePlate = scheme.primary.rgb(),
         part = floatArrayOf(0.96f, 0.58f, 0.2f),
-        selected = scheme.primary.rgb(),
+        // Not primary: the orange theme would hide the selection on orange parts.
+        selected = scheme.tertiary.rgb(),
     )
 
     // The selection rectangle being drawn (Shift/Alt+drag), in view pixels: x0, y0, x1, y1.

@@ -74,6 +74,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -273,6 +275,7 @@ private fun PlateChips(state: UiState, vm: AppViewModel, view: PlateView?) {
     PlateRow(state, vm, Modifier, 4.dp, Alignment.CenterVertically, add = {
         AssistChip(onClick = vm.scene::addPlate, label = { Text("+") }, colors = AssistChipDefaults.assistChipColors(containerColor = bar))
     }) { plate, _ ->
+        val plateName = stringResource(R.string.plate_n, plate.index + 1)
         Box {
             FilterChip(
                 selected = plate.index == state.activePlate,
@@ -280,7 +283,9 @@ private fun PlateChips(state: UiState, vm: AppViewModel, view: PlateView?) {
                     if (plate.index == state.activePlate) plateMenu = plate.index
                     else { vm.scene.selectPlate(plate.index); view?.showPlate(plate.index) }
                 },
-                label = { Text(stringResource(R.string.plate_n, plate.index + 1)) },
+                // Just the number ("Plate" took too much room, user 2026-10-14); "Plate n" for TalkBack.
+                label = { Text("${plate.index + 1}") },
+                modifier = Modifier.semantics { contentDescription = plateName },
                 trailingIcon = if (plate.index == state.activePlate) { { Icon(Icons.Default.ExpandMore, null, Modifier.size(16.dp)) } } else null,
                 colors = FilterChipDefaults.filterChipColors(containerColor = bar),
             )
