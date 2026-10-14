@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CenterFocusStrong
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalIconButton
@@ -132,6 +133,9 @@ fun ScadPreviewPane(s: ScadEditorState, vm: AppViewModel, modifier: Modifier = M
             }
             if (mesh != null) FilledTonalIconButton(onClick = { view?.reframe() }, colors = colors, modifier = Modifier.size(36.dp)) {
                 Icon(Icons.Default.CenterFocusStrong, stringResource(R.string.scad_preview_frame), Modifier.size(20.dp))
+            }
+            if (mesh != null) FilledTonalIconButton(onClick = { vm.setScadOnPlate(true) }, colors = colors, modifier = Modifier.size(36.dp)) {
+                Icon(Icons.Default.Visibility, stringResource(R.string.scad_on_plate), Modifier.size(20.dp))
             }
         }
         if (mesh != null) Text(

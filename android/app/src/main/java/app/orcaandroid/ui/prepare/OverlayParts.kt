@@ -62,7 +62,7 @@ import app.orcaandroid.core.Plate
 import app.orcaandroid.render.PlateView
 import app.orcaandroid.ui.AppViewModel
 import app.orcaandroid.ui.UiState
-import app.orcaandroid.ui.components.framePlate
+import app.orcaandroid.ui.components.showPlate
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
@@ -138,7 +138,7 @@ private fun Modifier.plateClicks(state: UiState, vm: AppViewModel, view: PlateVi
         when {
             picks.active -> if (plate != state.activePlate) picks.toggle(plate)
             plate == state.activePlate -> menu()
-            else -> { vm.scene.selectPlate(plate); view?.framePlate(plate) }
+            else -> { vm.scene.selectPlate(plate); view?.showPlate(plate) }
         }
     }
 

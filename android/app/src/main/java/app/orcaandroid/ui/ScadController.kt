@@ -104,8 +104,11 @@ class ScadController(private val store: Store) {
     private fun set(transform: (ScadEditorState) -> ScadEditorState) =
         store.update { s -> s.copy(scad = s.scad?.let(transform)) }
 
-    /** Opens the editor on the saved draft (or the first example). */
-    fun open() = store.launch {
+    /**
+     * Opens the editor on the saved draft (or the first example). A [newDesign] (not an object's own design)
+     * moves to an empty plate when the draft isn't on the plate yet.
+     */
+    fun open(newDesign: Boolean = true) = store.launch {
         if (st != null) return@launch
         val (source, meta) = withContext(Dispatchers.IO) {
             (draftFile.takeIf { it.isFile }?.readText() ?: ScadExamples.BOX.source) to
@@ -122,8 +125,31 @@ class ScadController(private val store: Store) {
                 shapes = meta?.optJSONObject("shapes")?.let { j -> runCatching { ShapeDesign.of(j) }.getOrNull() },
             ), screen = Screen.PREPARE)
         }
+        val placed = st?.onPlate?.let { n -> store.value.scene.objects.any { it.name == n } } == true
+        if (newDesign && !placed) useEmptyPlate()
         refreshParams(0)
         preview()
+    }
+
+    /** The plate [useEmptyPlate] added; it goes again when the editor closes while it is still empty. */
+    private var addedPlate: Int? = null
+
+    private fun Scene.plateEmpty(plate: Int) = objects.none { o -> o.instances.any { it.plate == plate } }
+
+    /**
+     * A new design starts on an empty plate (user, 2026-10-13), so placing it can't land on or move the
+     * project's objects: the active plate if it is empty, else the first empty one, else a new one.
+     */
+    private suspend fun useEmptyPlate() {
+        val s = store.value.scene
+        if (s.plates.isEmpty() || s.plateEmpty(store.value.activePlate)) return
+        val free = s.plates.indices.firstOrNull { s.plateEmpty(it) }
+        if (free != null) { store.update { it.copy(activePlate = free) }; return }
+        // At the plate limit (or without a printer) the design stays on the active plate.
+        val scene = runCatching { engine.addPlate() }.getOrNull() ?: return
+        store.applyScene(scene)
+        addedPlate = scene.plates.lastIndex
+        store.update { it.copy(activePlate = scene.plates.lastIndex) }
     }
 
     /** Opens a .scad file (from the file picker, a download or a model site's zip). */
@@ -147,7 +173,7 @@ class ScadController(private val store: Store) {
     fun editObject(index: Int) = store.launch {
         val obj = store.value.scene.objects.getOrNull(index) ?: return@launch
         val design = ScadDesign.of(obj) ?: return@launch
-        if (st == null) open().join()
+        if (st == null) open(newDesign = false).join()
         // A design with its own include files gets them back in a folder of its own.
         val file = if (design.files.isEmpty()) draftFile.path else withContext(Dispatchers.IO) {
             design.unpack(File(dir, "designs/" + Integer.toHexString(design.encode().hashCode()))).path
@@ -174,6 +200,7 @@ class ScadController(private val store: Store) {
         refreshParams(0)
         saveDraft()
         pushToPlate = false
+        if (onPlate == null) store.launch { useEmptyPlate() }
         preview()
     }
 
@@ -183,8 +210,19 @@ class ScadController(private val store: Store) {
         previewJob?.cancel()
         previewStl?.delete(); previewStl = null; previewKey = null
         saveDraft(now = true)
-        store.update { it.copy(scad = null) }
+        store.update { it.copy(scad = null, scadOnPlate = false) }
         client.release()
+        // The plate added for the design goes again if nothing was placed on it.
+        addedPlate?.let { plate ->
+            addedPlate = null
+            store.launch {
+                val s = store.value.scene
+                if (s.plates.size < 2 || plate !in s.plates.indices || !s.plateEmpty(plate)) return@launch
+                val scene = engine.deletePlates(listOf(plate))
+                store.applyScene(scene)
+                store.update { it.copy(activePlate = (if (it.activePlate > plate) it.activePlate - 1 else it.activePlate).coerceIn(0, scene.plates.lastIndex)) }
+            }
+        }
     }
 
     /**

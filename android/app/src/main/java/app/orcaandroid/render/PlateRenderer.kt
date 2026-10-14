@@ -140,6 +140,17 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             .takeIf { it >= 0 }
     }
 
+    /** Whether plate [index]'s centre is on screen (then making it active leaves the camera alone). */
+    fun plateInView(index: Int): Boolean {
+        if (bedOutline.size < 4 || index !in plateOrigins.indices) return false
+        val xs = bedOutline.filterIndexed { i, _ -> i % 2 == 0 }
+        val ys = bedOutline.filterIndexed { i, _ -> i % 2 == 1 }
+        val (ox, oy) = plateOrigins[index]
+        val (w, h) = camera.viewportSize()
+        val (px, py) = camera.project(app.orcaandroid.core.Vec3(ox + (xs.min() + xs.max()) / 2, oy + (ys.min() + ys.max()) / 2, 0f)) ?: return false
+        return px in 0f..w.toFloat() && py in 0f..h.toFloat()
+    }
+
     /** Frames plate [index] (or all plates for -1). */
     private var lastFrame: Pair<Int, Boolean>? = null
 
@@ -196,8 +207,10 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         if (showPreview) {
             drawPreview()
         } else {
-            drawMesh(meshVbo, meshCount, pass = 0)
-            if (paintCount > 0) {
+            // The OpenSCAD design on the plate stands alone: the project's objects are hidden meanwhile.
+            val models = ghostCount == 0
+            if (models) drawMesh(meshVbo, meshCount, pass = 0)
+            if (models && paintCount > 0) {
                 glEnable(GL_POLYGON_OFFSET_FILL)
                 glPolygonOffset(-1f, -2f)
                 drawMesh(paintVbo, paintCount, pass = 2)
@@ -207,7 +220,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             glEnable(GL_BLEND)
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
             glDepthMask(false)
-            drawMesh(meshVbo, meshCount, pass = 1)
+            if (models) drawMesh(meshVbo, meshCount, pass = 1)
             drawMesh(ghostVbo, ghostCount, pass = 1)
             glDepthMask(true)
             glDisable(GL_BLEND)

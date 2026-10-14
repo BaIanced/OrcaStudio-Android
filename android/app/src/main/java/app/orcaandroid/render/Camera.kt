@@ -18,6 +18,16 @@ class Camera {
     private var width = 1
     private var height = 1
 
+    /** Yaw, pitch, distance and target, for [restore] in a new view. */
+    @Synchronized fun state() = floatArrayOf(yaw, pitch, distance, target[0], target[1], target[2])
+
+    @Synchronized fun restore(s: FloatArray) {
+        yaw = s[0]; pitch = s[1]; distance = s[2]
+        for (i in 0..2) target[i] = s[3 + i]
+    }
+
+    @Synchronized fun viewportSize() = width to height
+
     @Synchronized fun setViewport(w: Int, h: Int) {
         width = max(w, 1)
         height = max(h, 1)

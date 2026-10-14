@@ -90,6 +90,7 @@ import app.orcaandroid.ui.components.ConfirmDialog
 import app.orcaandroid.ui.components.PickerDialog
 import app.orcaandroid.ui.components.PickerItem
 import app.orcaandroid.ui.components.framePlate
+import app.orcaandroid.ui.components.showPlate
 
 /** Controls over the 3D view on the Prepare screen. */
 @Composable
@@ -271,7 +272,7 @@ private fun PlateChips(state: UiState, vm: AppViewModel, view: PlateView?) {
                 selected = plate.index == state.activePlate,
                 onClick = {
                     if (plate.index == state.activePlate) plateMenu = plate.index
-                    else { vm.scene.selectPlate(plate.index); view?.framePlate(plate.index) }
+                    else { vm.scene.selectPlate(plate.index); view?.showPlate(plate.index) }
                 },
                 label = { Text(stringResource(R.string.plate_n, plate.index + 1)) },
                 trailingIcon = if (plate.index == state.activePlate) { { Icon(Icons.Default.ExpandMore, null, Modifier.size(16.dp)) } } else null,

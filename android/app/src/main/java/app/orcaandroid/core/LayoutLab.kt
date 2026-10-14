@@ -5,9 +5,6 @@ import org.json.JSONObject
 /** How the Prepare screen switches plates. */
 enum class PlateSwitcher { TABS, FILMSTRIP, CHIPS }
 
-/** How the OpenSCAD editor shows the design: alone on the main canvas, or as a ghost on the real plate. */
-enum class ScadView { CANVAS, GHOST }
-
 /**
  * Temporary "Layout lab" (user, 2026-10-13): layout variants to try on the device side by side.
  * Once the user has picked, the losing variants and this class go away.
@@ -30,7 +27,6 @@ data class LayoutLab(
     val uiScale: Float = 1f,
     /** Size of the controls floating over the 3D view only. */
     val overlayScale: Float = 1f,
-    val scadView: ScadView = ScadView.CANVAS,
     /** Hide the status and navigation bars in portrait too (landscape always hides them). */
     val fullscreenPortrait: Boolean = false,
 ) {
@@ -38,7 +34,6 @@ data class LayoutLab(
         .put("plates", plates.name).put("plateLabel", plateLabel).put("overlayAlpha", overlayAlpha.toDouble())
         .put("toolsLeft", toolsLeft).put("panelTucked", panelTucked).put("panelWidth", panelWidth.toDouble())
         .put("textScale", textScale.toDouble()).put("uiScale", uiScale.toDouble()).put("overlayScale", overlayScale.toDouble())
-        .put("scadView", scadView.name)
         .put("fullscreenPortrait", fullscreenPortrait).toString()
 
     companion object {
@@ -59,7 +54,6 @@ data class LayoutLab(
                 textScale = o.optDouble("textScale", 1.0).toFloat().coerceIn(TEXT_SCALES.start, TEXT_SCALES.endInclusive),
                 uiScale = o.optDouble("uiScale", 1.0).toFloat().coerceIn(UI_SCALES.start, UI_SCALES.endInclusive),
                 overlayScale = o.optDouble("overlayScale", 1.0).toFloat().coerceIn(OVERLAY_SCALES.start, OVERLAY_SCALES.endInclusive),
-                scadView = runCatching { ScadView.valueOf(o.getString("scadView")) }.getOrDefault(d.scadView),
                 fullscreenPortrait = o.optBoolean("fullscreenPortrait", d.fullscreenPortrait),
             )
         }
