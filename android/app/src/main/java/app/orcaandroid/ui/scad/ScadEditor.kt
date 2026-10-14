@@ -113,7 +113,7 @@ private val LINE_REF = Regex("""line (\d+)""")
  * beside the 3D view (tablets) or over it (phones, [onHide] shows the plate), which shows the result.
  */
 @Composable
-fun ScadPanel(s: ScadEditorState, vm: AppViewModel, onHide: (() -> Unit)? = null) {
+fun ScadPanel(s: ScadEditorState, vm: AppViewModel, onHide: (() -> Unit)? = null, embeddedPreview: Boolean = true) {
     var tab by rememberSaveable { mutableStateOf(0) }
     var jump by remember { mutableStateOf<Int?>(null) }
     var previewOpen by rememberSaveable { mutableStateOf(true) }
@@ -152,8 +152,9 @@ fun ScadPanel(s: ScadEditorState, vm: AppViewModel, onHide: (() -> Unit)? = null
         },
     ) {
         Header(s, vm, onHide, onOpen = { open.launch(arrayOf("*/*")) }, onSave = { save.launch(saveName) }, onNew = { templates = true })
-        PreviewBar(s, vm, previewOpen) { previewOpen = !previewOpen }
-        if (previewOpen) ScadPreviewPane(s, vm, Modifier.fillMaxWidth().height(previewHeight))
+        // Without the embedded preview (the design is on the main canvas or the plate) only the auto-render switch stays.
+        PreviewBar(s, vm, previewOpen, toggle = embeddedPreview) { previewOpen = !previewOpen }
+        if (embeddedPreview && previewOpen) ScadPreviewPane(s, vm, Modifier.fillMaxWidth().height(previewHeight))
         PrimaryTabRow(selectedTabIndex = tabs.indexOf(current)) {
             tabs.forEachIndexed { i, t ->
                 Tab(current == t, { tab = i }, text = {
@@ -210,9 +211,10 @@ fun ScadPanel(s: ScadEditorState, vm: AppViewModel, onHide: (() -> Unit)? = null
 
 /** "Preview" header: live preview switch and show / hide. */
 @Composable
-private fun PreviewBar(s: ScadEditorState, vm: AppViewModel, open: Boolean, onToggle: () -> Unit) {
-    Row(Modifier.fillMaxWidth().clickable(onClick = onToggle).padding(start = 16.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(if (open) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+private fun PreviewBar(s: ScadEditorState, vm: AppViewModel, open: Boolean, toggle: Boolean = true, onToggle: () -> Unit) {
+    Row(Modifier.fillMaxWidth().then(if (toggle) Modifier.clickable(onClick = onToggle) else Modifier).padding(start = 16.dp, end = 8.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        if (toggle) Icon(if (open) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
             stringResource(if (open) R.string.scad_preview_hide else R.string.scad_preview_show),
             tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
         Text(stringResource(R.string.scad_preview), style = MaterialTheme.typography.labelLarge,
@@ -467,7 +469,11 @@ private fun Customizer(s: ScadEditorState, vm: AppViewModel, onAddSetting: () ->
                     modifier = Modifier.weight(1f))
                 Icon(if (open) Icons.Default.ExpandLess else Icons.Default.ExpandMore, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            if (open) params.forEach { p -> Param(p, s.value(p), p.name in s.values) { vm.scad.setValue(p, it) } }
+            if (open) params.forEach { p ->
+                Param(p, s.value(p), p.name in s.values, onSlide = { vm.scad.setValue(p, it, dragging = true) }, onSlideEnd = vm.scad::endDrag) {
+                    vm.scad.setValue(p, it)
+                }
+            }
         }
         Row {
             TextButton(onClick = onAddSetting) {
@@ -493,7 +499,7 @@ private fun Notice(text: String, error: Boolean) {
 }
 
 @Composable
-private fun Param(p: ScadParam, value: Any, modified: Boolean, onChange: (Any) -> Unit) {
+private fun Param(p: ScadParam, value: Any, modified: Boolean, onSlide: (Any) -> Unit = {}, onSlideEnd: () -> Unit = {}, onChange: (Any) -> Unit) {
     val label = p.caption.ifEmpty { p.name.replace('_', ' ') }
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         if (p.kind != ScadParam.Kind.BOOLEAN && p.kind != ScadParam.Kind.CHOICE) Row(verticalAlignment = Alignment.CenterVertically) {
@@ -509,7 +515,8 @@ private fun Param(p: ScadParam, value: Any, modified: Boolean, onChange: (Any) -
                     val count = ((max - min) / step).roundToInt()
                     Slider(
                         value = v.coerceIn(min.toFloat(), max.toFloat()),
-                        onValueChange = { f -> onChange(snap(f.toDouble(), min, step)) },
+                        onValueChange = { f -> onSlide(snap(f.toDouble(), min, step)) },
+                        onValueChangeFinished = onSlideEnd,
                         valueRange = min.toFloat()..max.toFloat(),
                         steps = if (count in 2..200) count - 1 else 0,
                         // Many steps would draw a solid row of tick dots; show ticks only when they're few.

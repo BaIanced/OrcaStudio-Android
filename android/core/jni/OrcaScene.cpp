@@ -271,6 +271,10 @@ void OrcaEngine::arrange_plate(int plate, const std::vector<std::pair<ModelObjec
     params.min_obj_distance = scaled(ARRANGE_DISTANCE);
     // A phone-sized scene nests quickly on one thread, and exceptions from TBB workers are fragile.
     params.parallel = false;
+    // libnest2d's final centring shifts the new items by the whole pile's centre, fixed objects
+    // included (nfpplacer.hpp finalAlign), which pushed imports and copies off a filled plate.
+    // The placer's own spots already avoid the fixed objects, like FillBedJob's.
+    params.do_final_align = fixed.empty();
     if (have_cfg) {
         params.is_seq_print            = cfg.opt_enum<PrintSequence>("print_sequence") == PrintSequence::ByObject;
         params.clearance_radius        = cfg.opt_float("extruder_clearance_radius");
@@ -569,6 +573,12 @@ json OrcaEngine::load_models(const std::vector<std::string> &paths, bool append,
     }
     if (added.empty())
         throw std::runtime_error("The file does not contain any printable object");
+    // A placed layout wider than one bed (e.g. a multi-plate 3MF imported as models) would leave
+    // objects beside the plates; arrange it instead, which spills the rest onto new plates.
+    if (keep_layout)
+        for (const auto &[obj, i] : added)
+            if (plate_at(obj->instance_bounding_box(i).center(), m_plates.size(), rect) < 0)
+                keep_layout = false;
 
     // A single placed file (e.g. a 3MF plate) keeps its layout; everything else is arranged
     // around what is already on the plate.
@@ -680,7 +690,40 @@ json OrcaEngine::arrange(int plate)
     require_printer();
     push_undo();
     if (plate >= 0 && plate < int(m_plates.size())) {
-        arrange_plate(plate);
+        // Objects off every plate (beside the grid after an import, or left by a deleted plate) go
+        // onto the plate nearest to them (user, 2026-10-13): into free spots on other plates, whose
+        // objects stay put; the arranged plate takes its own floaters along with its objects.
+        const std::array<double, 4> rect = bed_rect();
+        std::vector<std::vector<std::pair<ModelObject *, size_t>>> floaters(m_plates.size());
+        for (ModelObject *obj : m_model->objects)
+            for (size_t i = 0; i < obj->instances.size(); ++i) {
+                const Vec3d c = obj->instance_bounding_box(i).center();
+                if (plate_at(c, m_plates.size(), rect) >= 0)
+                    continue;
+                size_t best = 0;
+                double best_dist = 0.;
+                for (size_t p = 0; p < m_plates.size(); ++p) {
+                    const auto o = origin_of(int(p), m_plates.size(), rect);
+                    // Distance from the object's centre to the plate's rectangle.
+                    const double dx = std::max({o[0] + rect[0] - c.x(), 0., c.x() - o[0] - rect[2]});
+                    const double dy = std::max({o[1] + rect[1] - c.y(), 0., c.y() - o[1] - rect[3]});
+                    if (p == 0 || dx * dx + dy * dy < best_dist) {
+                        best      = p;
+                        best_dist = dx * dx + dy * dy;
+                    }
+                }
+                floaters[best].emplace_back(obj, i);
+            }
+        std::vector<std::pair<ModelObject *, size_t>> own = floaters[plate];
+        for (ModelObject *obj : m_model->objects)
+            for (size_t i = 0; i < obj->instances.size(); ++i)
+                if (plate_of(*obj, i) == plate)
+                    own.emplace_back(obj, i);
+        // Plates only get added at the end, so the indices stay valid across the calls.
+        for (size_t p = 0; p < floaters.size(); ++p)
+            if (int(p) != plate && !floaters[p].empty())
+                arrange_plate(int(p), &floaters[p]);
+        arrange_plate(plate, &own);
     } else {
         // Everything, starting from plate 0; overflow creates further plates.
         std::vector<std::pair<ModelObject *, size_t>> all;
@@ -1117,27 +1160,68 @@ json OrcaEngine::add_plate()
     const size_t old_count = m_plates.size();
     m_plates.push_back({});
     relayout(old_count, m_layout_rect);
+    // Objects outside every plate (an import with more than fit, or left beside the grid): the new
+    // plate takes the one nearest to it, instead of appearing at a grid spot that may hold none. A
+    // floater that already lies in the new plate's spot keeps it alone (no overlap at the centre).
+    const std::array<double, 4> rect = bed_rect();
+    const int plate = int(m_plates.size()) - 1;
+    const auto origin = plate_origin(plate);
+    const Vec2d centre(origin[0] + (rect[0] + rect[2]) / 2, origin[1] + (rect[1] + rect[3]) / 2);
+    ModelInstance *nearest = nullptr;
+    Vec2d nearest_centre;
+    bool occupied = false;
+    for (ModelObject *obj : m_model->objects)
+        for (size_t i = 0; i < obj->instances.size(); ++i) {
+            const Vec3d c = obj->instance_bounding_box(i).center();
+            const int at = plate_at(c, m_plates.size(), rect);
+            occupied |= at == plate;
+            if (at >= 0)
+                continue;
+            if (!nearest || (c.head<2>() - centre).squaredNorm() < (nearest_centre - centre).squaredNorm()) {
+                nearest = obj->instances[i];
+                nearest_centre = c.head<2>();
+            }
+        }
+    if (nearest && !occupied) {
+        nearest->set_offset(nearest->get_offset() + Vec3d(centre.x() - nearest_centre.x(), centre.y() - nearest_centre.y(), 0.));
+        nearest->get_object()->invalidate_bounding_box();
+    }
     return commit();
 }
 
-json OrcaEngine::delete_plate(int plate)
+json OrcaEngine::delete_plates(std::vector<int> plates)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
-    if (plate < 0 || plate >= int(m_plates.size()) || m_plates.size() == 1)
+    std::sort(plates.begin(), plates.end());
+    plates.erase(std::unique(plates.begin(), plates.end()), plates.end());
+    if (plates.empty() || plates.front() < 0 || plates.back() >= int(m_plates.size()) || plates.size() >= m_plates.size())
         throw std::runtime_error("This plate cannot be deleted");
     push_undo();
-    // Drop the plate's instances, then close the gap in the plate grid.
-    for (int oi = int(m_model->objects.size()) - 1; oi >= 0; --oi) {
-        ModelObject *obj = m_model->objects[oi];
-        for (int i = int(obj->instances.size()) - 1; i >= 0; --i)
-            if (plate_of(*obj, size_t(i)) == plate)
-                obj->delete_instance(size_t(i));
-        if (obj->instances.empty())
-            m_model->delete_object(size_t(oi));
-    }
     const size_t old_count = m_plates.size();
-    m_plates.erase(m_plates.begin() + plate);
-    relayout(old_count, m_layout_rect, [plate](int p) { return p > plate ? p - 1 : p; });
+    for (auto it = plates.rbegin(); it != plates.rend(); ++it)
+        m_plates.erase(m_plates.begin() + *it);
+    // Like the desktop (PartPlateList::delete_plate), a deleted plate's objects stay: they move off
+    // the grid as floaters (into the free grid spots after the last plate, one spot per plate, skipping
+    // spots other floaters already use), and the plates after it close the gap.
+    const std::array<double, 4> rect = bed_rect();
+    std::vector<Vec3d> floaters;
+    for (const ModelObject *obj : m_model->objects)
+        for (size_t i = 0; i < obj->instances.size(); ++i)
+            if (plate_at(obj->instance_bounding_box(i).center(), old_count, m_layout_rect) < 0)
+                floaters.push_back(obj->instance_bounding_box(i).center());
+    std::vector<int> spots;
+    for (int s = int(m_plates.size()); spots.size() < plates.size(); ++s) {
+        const auto o = origin_of(s, m_plates.size(), rect);
+        if (std::none_of(floaters.begin(), floaters.end(), [&](const Vec3d &c) {
+                return c.x() >= o[0] + rect[0] && c.x() <= o[0] + rect[2] && c.y() >= o[1] + rect[1] && c.y() <= o[1] + rect[3];
+            }))
+            spots.push_back(s);
+    }
+    relayout(old_count, m_layout_rect, [&plates, &spots](int p) {
+        const auto it = std::lower_bound(plates.begin(), plates.end(), p);
+        const int k = int(it - plates.begin());
+        return it != plates.end() && *it == p ? spots[k] : p - k;
+    });
     return commit();
 }
 

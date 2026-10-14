@@ -121,6 +121,7 @@ fun ScadPreviewPane(s: ScadEditorState, vm: AppViewModel, modifier: Modifier = M
                 Chip(stringResource(R.string.scad_size, f(size.x), f(size.y), f(size.z)))
                 if (warning != null) Chip(warning, warn = true)
                 if (s.previewStale && !s.previewing) Chip(stringResource(R.string.scad_preview_stale), warn = true)
+                if (s.draftPreview) Chip(stringResource(R.string.scad_draft_preview))
             }
         }
 

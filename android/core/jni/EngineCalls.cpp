@@ -104,7 +104,9 @@ const std::unordered_map<std::string, Handler> &handlers()
          }},
         {"setLayerRanges", [](OrcaEngine &e, const json &a) { return e.set_layer_ranges(a.at("object"), a.at("ranges")); }},
         {"addPlate", [](OrcaEngine &e, const json &) { return e.add_plate(); }},
-        {"deletePlate", [](OrcaEngine &e, const json &a) { return e.delete_plate(a.at("plate")); }},
+        {"deletePlate", [](OrcaEngine &e, const json &a) {
+             return e.delete_plates(a.contains("plates") ? a["plates"].get<std::vector<int>>() : std::vector<int>{a.at("plate").get<int>()});
+         }},
         {"setPlateBedType", [](OrcaEngine &e, const json &a) { return e.set_plate_bed_type(a.at("plate"), a.value("bedType", "")); }},
         {"undo", [](OrcaEngine &e, const json &) { return e.undo(); }},
         {"redo", [](OrcaEngine &e, const json &) { return e.redo(); }},

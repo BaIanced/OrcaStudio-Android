@@ -66,7 +66,10 @@
     <string name="cutting">Schneide…</string>
     <string name="delete">Löschen</string>
     <string name="delete_plate">Platte löschen</string>
-    <string name="delete_plate_text">Die Platte und alle Objekte darauf werden entfernt.</string>
+    <plurals name="delete_plates">
+        <item quantity="one">%d Platte löschen</item>
+        <item quantity="other">%d Platten löschen</item>
+    </plurals>
     <string name="delete_preset">Preset löschen</string>
     <string name="vendor_presets">Herstellerprofile</string>
     <string name="delete_preset_text">„%s“ wird dauerhaft gelöscht.</string>
@@ -427,6 +430,7 @@
     <string name="home">Startseite</string>
     <string name="models_downloading">%1$s wird heruntergeladen…</string>
     <string name="models_full_site">Ganze Website</string>
+    <string name="models_infinite_scroll">Endlos scrollen</string>
     <string name="adblock_toggle">Werbung blockieren</string>
     <string name="adblock_pick">Element blockieren</string>
     <string name="adblock_pick_hint">Tippe auf das, was verschwinden soll</string>

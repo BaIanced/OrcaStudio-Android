@@ -21,6 +21,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.FolderZip
+import androidx.compose.foundation.layout.size
+import app.orcaandroid.core.PlateSwitcher
+import app.orcaandroid.core.ScadView
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
@@ -74,72 +79,64 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
     val restoreBackup = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) { restoreFrom = uri; dialog = "backup_import" } }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
         Column(Modifier.widthIn(max = 720.dp).fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            SectionTitle(stringResource(R.string.appearance))
-            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                listOf(ThemeMode.SYSTEM to R.string.theme_system, ThemeMode.LIGHT to R.string.theme_light, ThemeMode.DARK to R.string.theme_dark)
-                    .forEachIndexed { i, (mode, label) ->
-                        SegmentedButton(state.themeMode == mode, { vm.setThemeMode(mode) }, SegmentedButtonDefaults.itemShape(i, 3)) { Text(stringResource(label)) }
-                    }
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) SwitchRow(stringResource(R.string.dynamic_color), state.dynamicColor, onChange = vm::setDynamicColor)
+            LayoutLabSection(state, vm)
 
-            SectionTitle(stringResource(R.string.misc))
-            SwitchRow(stringResource(R.string.double_back_quit), state.doubleBackToQuit, onChange = vm::setDoubleBackToQuit)
-            UndoLimitRow(state.undoLimit, vm::setUndoLimit)
-            AutoSaveRow(state.autoSaveSeconds, vm::setAutoSave)
-
-            SectionTitle(stringResource(R.string.ai_tools))
-            AiToolsSection(state, vm)
-
-            SectionTitle(stringResource(R.string.printers_and_presets))
-            Entry(stringResource(R.string.manage_printers), stringResource(R.string.n_printers_selected, state.selectedPrinters.size)) { vm.presets.openPrinterSetup() }
-            Entry(stringResource(R.string.filament_vendors), stringResource(R.string.filament_vendors_text)) { dialog = "vendors" }
-            if (state.supportsBedTypes) Entry(stringResource(R.string.plate_types), stringResource(R.string.plate_types_text)) { dialog = "plates" }
-            SwitchRow(stringResource(R.string.prefer_my_filaments), state.preferMyFilaments, onChange = vm.presets::setPreferMyFilaments)
-            Text(stringResource(R.string.prefer_my_filaments_text), style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-            SwitchRow(stringResource(R.string.match_nozzle), state.matchNozzle, onChange = vm.presets::setMatchNozzle)
-            Text(stringResource(R.string.match_nozzle_text) + state.installedNozzles.entries.joinToString("") { "\n${it.key}: %.1f mm".format(it.value) },
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Entry(stringResource(R.string.import_presets), stringResource(R.string.import_presets_text)) { importPresets.launch(arrayOf("*/*")) }
-            Entry(stringResource(R.string.sync_cloud_presets), stringResource(R.string.sync_cloud_presets_text)) { vm.presets.syncCloudPresets() }
-            Entry(stringResource(R.string.compare_presets), null) { vm.presets.openEditor(EditorTarget.Preset(PresetType.PRINT, pickCompare = true)) }
-            Entry(stringResource(R.string.check_profile_updates), null) { vm.presets.checkProfileUpdates() }
-            state.profileUpdates?.takeIf { it.isNotEmpty() }?.let { updates ->
+            if (state.recents.isNotEmpty()) Section(stringResource(R.string.recent), initiallyOpen = true) {
                 Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(12.dp)) {
-                        updates.forEach { Text("${it.vendor}: ${it.installed} → ${it.available}", style = MaterialTheme.typography.bodySmall) }
-                        val progress = state.profileUpdateProgress
-                        if (progress != null) {
-                            Text(progress, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(top = 8.dp))
-                            LinearProgressIndicator(Modifier.fillMaxWidth().padding(vertical = 4.dp))
-                        } else {
-                            TextButton(onClick = vm.presets::installProfileUpdates) { Text(stringResource(R.string.install_updates)) }
-                        }
-                    }
+                    Column(Modifier.padding(vertical = 4.dp)) { state.recents.take(10).forEach { r -> RecentRow(r) { vm.files.openRecent(r) } } }
                 }
             }
-
-            SectionTitle(stringResource(R.string.orca_cloud))
-            OrcaCloudSection()
-            Entry(stringResource(R.string.sync_orca_cloud_presets), stringResource(R.string.sync_orca_cloud_presets_text)) { vm.presets.syncOrcaCloudPresets() }
-            Entry(stringResource(R.string.upload_orca_cloud_presets), stringResource(R.string.upload_orca_cloud_presets_text)) { vm.presets.uploadOrcaCloudPresets() }
-
-            SectionTitle(stringResource(R.string.backup))
-            Entry(stringResource(R.string.backup_export), stringResource(R.string.backup_export_text)) { dialog = "backup_export" }
-            Entry(stringResource(R.string.backup_import), stringResource(R.string.backup_import_text)) { restoreBackup.launch(arrayOf("*/*")) }
 
             SectionTitle(stringResource(R.string.calibration))
             Entry(stringResource(R.string.calibration_tests), stringResource(R.string.calibration_tests_text)) { dialog = "calib" }
 
-            if (state.recents.isNotEmpty()) {
-                SectionTitle(stringResource(R.string.recent))
-                state.recents.take(10).forEach { r -> Entry(r.name, if (r.isProject) stringResource(R.string.project) else null) { vm.files.openRecent(r) } }
+            Section(stringResource(R.string.printers_and_presets), initiallyOpen = true) {
+                Entry(stringResource(R.string.manage_printers), stringResource(R.string.n_printers_selected, state.selectedPrinters.size)) { vm.presets.openPrinterSetup() }
+                Entry(stringResource(R.string.filament_vendors), stringResource(R.string.filament_vendors_text)) { dialog = "vendors" }
+                if (state.supportsBedTypes) Entry(stringResource(R.string.plate_types), stringResource(R.string.plate_types_text)) { dialog = "plates" }
+                SwitchRow(stringResource(R.string.prefer_my_filaments), state.preferMyFilaments, onChange = vm.presets::setPreferMyFilaments)
+                Text(stringResource(R.string.prefer_my_filaments_text), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                SwitchRow(stringResource(R.string.match_nozzle), state.matchNozzle, onChange = vm.presets::setMatchNozzle)
+                Text(stringResource(R.string.match_nozzle_text) + state.installedNozzles.entries.joinToString("") { "\n${it.key}: %.1f mm".format(it.value) },
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Entry(stringResource(R.string.import_presets), stringResource(R.string.import_presets_text)) { importPresets.launch(arrayOf("*/*")) }
+                Entry(stringResource(R.string.sync_cloud_presets), stringResource(R.string.sync_cloud_presets_text)) { vm.presets.syncCloudPresets() }
+                Entry(stringResource(R.string.compare_presets), null) { vm.presets.openEditor(EditorTarget.Preset(PresetType.PRINT, pickCompare = true)) }
+                Entry(stringResource(R.string.check_profile_updates), stringResource(R.string.check_profile_updates_text)) { vm.presets.checkProfileUpdates() }
+                ProfileUpdatesCard(state, vm)
             }
 
-            SectionTitle(stringResource(R.string.about))
-            About()
+            Section(stringResource(R.string.ai_tools), summary = stringResource(if (state.aiTools) R.string.on else R.string.off)) { AiToolsSection(state, vm) }
+
+            Section(stringResource(R.string.orca_cloud)) {
+                OrcaCloudSection()
+                Entry(stringResource(R.string.sync_orca_cloud_presets), stringResource(R.string.sync_orca_cloud_presets_text)) { vm.presets.syncOrcaCloudPresets() }
+                Entry(stringResource(R.string.upload_orca_cloud_presets), stringResource(R.string.upload_orca_cloud_presets_text)) { vm.presets.uploadOrcaCloudPresets() }
+            }
+
+            Section(stringResource(R.string.backup)) {
+                Entry(stringResource(R.string.backup_export), stringResource(R.string.backup_export_text)) { dialog = "backup_export" }
+                Entry(stringResource(R.string.backup_import), stringResource(R.string.backup_import_text)) { restoreBackup.launch(arrayOf("*/*")) }
+            }
+
+            Section(stringResource(R.string.appearance)) {
+                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                    listOf(ThemeMode.SYSTEM to R.string.theme_system, ThemeMode.LIGHT to R.string.theme_light, ThemeMode.DARK to R.string.theme_dark)
+                        .forEachIndexed { i, (mode, label) ->
+                            SegmentedButton(state.themeMode == mode, { vm.setThemeMode(mode) }, SegmentedButtonDefaults.itemShape(i, 3)) { Text(stringResource(label)) }
+                        }
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) SwitchRow(stringResource(R.string.dynamic_color), state.dynamicColor, onChange = vm::setDynamicColor)
+            }
+
+            Section(stringResource(R.string.misc)) {
+                SwitchRow(stringResource(R.string.double_back_quit), state.doubleBackToQuit, onChange = vm::setDoubleBackToQuit)
+                UndoLimitRow(state.undoLimit, vm::setUndoLimit)
+                AutoSaveRow(state.autoSaveSeconds, vm::setAutoSave)
+            }
+
+            Section(stringResource(R.string.about), summary = BuildConfig.VERSION_NAME) { About() }
         }
     }
     when (dialog) {
@@ -159,6 +156,96 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
             restoreFrom = null
         }
     }
+}
+
+/** A More section whose content folds away under its title (state kept while the screen lives). */
+@Composable
+private fun Section(title: String, initiallyOpen: Boolean = false, summary: String? = null, content: @Composable () -> Unit) {
+    var open by androidx.compose.runtime.saveable.rememberSaveable(title) { mutableStateOf(initiallyOpen) }
+    app.orcaandroid.ui.components.CollapsibleTitle(title, open, { open = !open }) {
+        if (!open && summary != null) Text(summary, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.End, maxLines = 1)
+    }
+    if (open) Column(verticalArrangement = Arrangement.spacedBy(4.dp)) { content() }
+}
+
+/** A recent file, desktop style: file icon, name, and when it was used. */
+@Composable
+private fun RecentRow(r: app.orcaandroid.core.RecentFile, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Icon(if (r.isProject) Icons.Outlined.FolderZip else Icons.Outlined.Description, null, Modifier.size(18.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(r.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+        if (r.time > 0) Text(android.text.format.DateUtils.getRelativeTimeSpanString(r.time, System.currentTimeMillis(),
+            android.text.format.DateUtils.MINUTE_IN_MILLIS, android.text.format.DateUtils.FORMAT_ABBREV_RELATIVE).toString(),
+            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/** Found profile updates with Install. */
+@Composable
+private fun ProfileUpdatesCard(state: UiState, vm: AppViewModel) {
+    val updates = state.profileUpdates?.takeIf { it.isNotEmpty() } ?: return
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(12.dp)) {
+            updates.forEach { Text("${it.vendor}: ${it.installed} → ${it.available}", style = MaterialTheme.typography.bodySmall) }
+            val progress = state.profileUpdateProgress
+            if (progress != null) {
+                Text(progress, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(top = 8.dp))
+                LinearProgressIndicator(Modifier.fillMaxWidth().padding(vertical = 4.dp))
+            } else {
+                TextButton(onClick = vm.presets::installProfileUpdates) { Text(stringResource(R.string.install_updates)) }
+            }
+        }
+    }
+}
+
+/**
+ * Temporary (user, 2026-10-13): layout variants to try on the device. Goes away once the user has
+ * picked; the picks become the only layout.
+ */
+@Composable
+private fun LayoutLabSection(state: UiState, vm: AppViewModel) {
+    val lab = state.lab
+    Section(stringResource(R.string.layout_lab), summary = stringResource(R.string.layout_lab_summary)) {
+        Text(stringResource(R.string.layout_lab_text), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(stringResource(R.string.lab_plate_switcher), style = MaterialTheme.typography.bodyMedium)
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+            listOf(PlateSwitcher.TABS to R.string.lab_tabs, PlateSwitcher.FILMSTRIP to R.string.lab_filmstrip, PlateSwitcher.CHIPS to R.string.lab_chips)
+                .forEachIndexed { i, (v, label) ->
+                    SegmentedButton(lab.plates == v, { vm.setLab(lab.copy(plates = v)) }, SegmentedButtonDefaults.itemShape(i, 3)) { Text(stringResource(label)) }
+                }
+        }
+        SwitchRow(stringResource(R.string.lab_plate_label), lab.plateLabel, onChange = { vm.setLab(lab.copy(plateLabel = it)) })
+        SwitchRow(stringResource(R.string.lab_tools_left), lab.toolsLeft, onChange = { vm.setLab(lab.copy(toolsLeft = it)) })
+        SwitchRow(stringResource(R.string.lab_fullscreen_portrait), lab.fullscreenPortrait, onChange = { vm.setLab(lab.copy(fullscreenPortrait = it)) })
+        Text(stringResource(R.string.lab_overlay_alpha, (lab.overlayAlpha * 100).toInt()), style = MaterialTheme.typography.bodyMedium)
+        androidx.compose.material3.Slider(lab.overlayAlpha, { vm.setLab(lab.copy(overlayAlpha = it)) }, valueRange = 0.2f..1f)
+        Text(stringResource(R.string.lab_scale_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        ScaleSlider(R.string.lab_text_scale, lab.textScale, app.orcaandroid.core.LayoutLab.TEXT_SCALES) { vm.setLab(state.lab.copy(textScale = it)) }
+        ScaleSlider(R.string.lab_ui_scale, lab.uiScale, app.orcaandroid.core.LayoutLab.UI_SCALES) { vm.setLab(state.lab.copy(uiScale = it)) }
+        ScaleSlider(R.string.lab_overlay_scale, lab.overlayScale, app.orcaandroid.core.LayoutLab.OVERLAY_SCALES) { vm.setLab(state.lab.copy(overlayScale = it)) }
+        Text(stringResource(R.string.lab_scad_view), style = MaterialTheme.typography.bodyMedium)
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+            listOf(ScadView.CANVAS to R.string.lab_scad_canvas, ScadView.GHOST to R.string.lab_scad_ghost)
+                .forEachIndexed { i, (v, label) ->
+                    SegmentedButton(lab.scadView == v, { vm.setLab(lab.copy(scadView = v)) }, SegmentedButtonDefaults.itemShape(i, 2)) { Text(stringResource(label)) }
+                }
+        }
+        TextButton(onClick = { vm.setLab(app.orcaandroid.core.LayoutLab()) }) { Text(stringResource(R.string.reset)) }
+    }
+}
+
+/** A size slider in 5 % steps; applied on release, so the slider doesn't move under the finger as the layout resizes. */
+@Composable
+private fun ScaleSlider(label: Int, value: Float, range: ClosedFloatingPointRange<Float>, onSet: (Float) -> Unit) {
+    var live by remember(value) { mutableStateOf(value) }
+    Text(stringResource(label, kotlin.math.round(live * 100).toInt()), style = MaterialTheme.typography.bodyMedium)
+    androidx.compose.material3.Slider(live, { live = kotlin.math.round(it * 20) / 20f }, valueRange = range,
+        steps = kotlin.math.round((range.endInclusive - range.start) * 20).toInt() - 1, onValueChangeFinished = { onSet(live) })
 }
 
 /** Asks for the backup passphrase ([confirm]: twice, for a new backup). */
@@ -339,7 +426,7 @@ private fun PlateTypesDialog(state: UiState, vm: AppViewModel, onDismiss: () -> 
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         // The default stays visible.
                         Checkbox(t !in hidden || t == preferred, { hidden = if (it) hidden - t else hidden + t }, enabled = t != preferred)
-                        Text(vm.translator.tr(t), Modifier.weight(1f))
+                        Text(vm.translator.plate(t), Modifier.weight(1f))
                         RadioButton(t == preferred, { preferred = t; hidden = hidden - t })
                     }
                 }

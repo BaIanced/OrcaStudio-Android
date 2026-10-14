@@ -10,6 +10,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -35,6 +40,17 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.VerticalDivider
 import app.orcaandroid.ui.scad.ScadPanel
+import app.orcaandroid.ui.scad.ScadPreviewPane
+import app.orcaandroid.core.ScadView
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import app.orcaandroid.ui.scad.ScadReopenButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -46,6 +62,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
@@ -83,13 +101,18 @@ val WIDE_LAYOUT = 840.dp
 
 @Composable
 fun AppScaffold(state: UiState, vm: AppViewModel) {
-    when {
-        state.phase == Phase.LOADING -> Busy(state.busy ?: stringResource(R.string.starting))
-        state.phase == Phase.SETUP || state.showPrinterSetup -> PrinterSetupScreen(state, vm)
-        state.editor != null -> SettingsEditor(state, vm)
-        else -> MainLayout(state, vm)
+    // Interface and text size (Layout lab), on top of the system's display and font size.
+    val base = androidx.compose.ui.platform.LocalDensity.current
+    androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides
+        androidx.compose.ui.unit.Density(base.density * state.lab.uiScale, base.fontScale * state.lab.textScale)) {
+        when {
+            state.phase == Phase.LOADING -> Busy(state.busy ?: stringResource(R.string.starting))
+            state.phase == Phase.SETUP || state.showPrinterSetup -> PrinterSetupScreen(state, vm)
+            state.editor != null -> SettingsEditor(state, vm)
+            else -> MainLayout(state, vm)
+        }
+        GlobalDialogs(state, vm)
     }
-    GlobalDialogs(state, vm)
 }
 
 @Composable
@@ -137,21 +160,25 @@ private fun MainLayout(state: UiState, vm: AppViewModel) {
         }
         if (wide) {
             Row(Modifier.fillMaxSize()) {
-                NavigationRail {
-                    DESTINATIONS.forEach { d ->
-                        NavigationRailItem(
-                            selected = state.screen == d.screen,
-                            onClick = { vm.setScreen(d.screen) },
-                            icon = { Icon(d.icon, null) },
-                            label = { Text(stringResource(d.label)) },
-                        )
+                // No insets of its own: MainActivity pads the bars, and in landscape the rail may use the cutout strip.
+                NavigationRail(windowInsets = WindowInsets(0)) {
+                    CutoutAwareColumn {
+                        DESTINATIONS.forEach { d ->
+                            NavigationRailItem(
+                                selected = state.screen == d.screen,
+                                onClick = { vm.setScreen(d.screen) },
+                                icon = { Icon(d.icon, null) },
+                                label = { Text(stringResource(d.label)) },
+                            )
+                        }
                     }
                 }
-                content(Modifier.weight(1f).fillMaxHeight())
+                // The rail may sit over the camera cutout (MainActivity); the content keeps clear of it.
+                content(Modifier.weight(1f).fillMaxHeight().windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.End)))
             }
         } else {
             Column(Modifier.fillMaxSize()) {
-                content(Modifier.weight(1f).fillMaxWidth())
+                content(Modifier.weight(1f).fillMaxWidth().windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal)))
                 NavigationBar {
                     DESTINATIONS.forEach { d ->
                         NavigationBarItem(
@@ -168,6 +195,36 @@ private fun MainLayout(state: UiState, vm: AppViewModel) {
 }
 
 /**
+ * Rail items stacked from the top like NavigationRail's own column; an item that would overlap a
+ * camera cutout under the rail moves below it (landscape lets the rail use the cutout strip).
+ */
+@Composable
+private fun CutoutAwareColumn(content: @Composable () -> Unit) {
+    val view = androidx.compose.ui.platform.LocalView.current
+    // Reading the inset recomposes on rotation; the hole rects come from the view.
+    WindowInsets.displayCutout.getLeft(androidx.compose.ui.platform.LocalDensity.current, androidx.compose.ui.unit.LayoutDirection.Ltr)
+    val holes = view.rootWindowInsets?.displayCutout?.boundingRects.orEmpty()
+    var origin by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
+    androidx.compose.ui.layout.Layout(content, Modifier.fillMaxHeight().onGloballyPositioned { origin = it.positionInWindow() }) { ms, c ->
+        val gap = 4.dp.roundToPx()
+        val ps = ms.map { it.measure(c.copy(minHeight = 0)) }
+        val w = ps.maxOfOrNull { it.width } ?: 0
+        val x0 = origin.x.toInt()
+        // Holes under the rail, in this layout's coordinates (top to bottom).
+        val blocked = holes.filter { it.left < x0 + w && it.right > x0 }
+            .map { (it.top - origin.y.toInt()) to (it.bottom - origin.y.toInt()) }.sortedBy { it.first }
+        val ys = IntArray(ps.size)
+        var y = 0
+        ps.forEachIndexed { i, p ->
+            blocked.forEach { (top, bottom) -> if (y < bottom && y + p.height > top) y = bottom + gap }
+            ys[i] = y
+            y += p.height + gap
+        }
+        layout(w, c.maxHeight) { ps.forEachIndexed { i, p -> p.placeRelative((w - p.width) / 2, ys[i]) } }
+    }
+}
+
+/**
  * Prepare and Preview share one 3D view. Tablets show the settings/preview panel beside it,
  * phones in a bottom sheet so the view keeps the full screen.
  */
@@ -178,33 +235,77 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
     val viewport: @Composable (Modifier) -> Unit = { m ->
         Box(m) {
             Viewport(state, vm, onView = { plateView = it }, modifier = Modifier.fillMaxSize())
-            if (state.screen == Screen.PREPARE) PrepareOverlay(state, vm, plateView, wide)
-            else PreviewOverlay(state, vm, plateView, wide)
+            // Floating controls have their own size (Layout lab).
+            val base = androidx.compose.ui.platform.LocalDensity.current
+            androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides
+                androidx.compose.ui.unit.Density(base.density * state.lab.overlayScale, base.fontScale)) {
+                if (state.screen == Screen.PREPARE) PrepareOverlay(state, vm, plateView, wide)
+                else PreviewOverlay(state, vm, plateView, wide)
+            }
         }
     }
     val panel: @Composable () -> Unit = {
         if (state.screen == Screen.PREPARE) PreparePanel(state, vm, wide) else PreviewPanel(state, vm, wide)
     }
-    // The OpenSCAD editor takes the panel's place on Prepare; the 3D view shows what it renders.
+    // The OpenSCAD editor takes the panel's place on Prepare. The design shows alone on the main canvas,
+    // or (Layout lab) as a ghost on the plate; the editor can be resized with the handle.
     val scad = state.scad?.takeIf { state.screen == Screen.PREPARE }
+    val scadView: @Composable (Modifier) -> Unit = { m ->
+        // Shape designs keep the canvas: their handles and picking live in the design view.
+        if (scad != null && (state.lab.scadView == ScadView.CANVAS || scad.shapes != null)) Surface(m) { ScadPreviewPane(scad, vm, Modifier.fillMaxSize()) } else viewport(m)
+    }
     if (wide) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
-            val editorWidth = (maxWidth * 0.45f).coerceIn(420.dp, 640.dp)
+            val total = maxWidth
+            val width = (if (ScadEditorSize.width > 0f) ScadEditorSize.width.dp else (total * 0.45f).coerceIn(420.dp, 640.dp))
+                .coerceIn(300.dp, (total - 240.dp).coerceAtLeast(300.dp))
             Row(Modifier.fillMaxSize()) {
-                viewport(Modifier.weight(1f).fillMaxHeight())
                 if (scad != null) {
-                    VerticalDivider()
-                    Surface(Modifier.width(editorWidth).fillMaxHeight(), tonalElevation = 1.dp) {
-                        ScadPanel(scad, vm)
+                    scadView(Modifier.weight(1f).fillMaxHeight())
+                    DragHandle(vertical = true) { d -> ScadEditorSize.width = (width - d).value }
+                    Surface(Modifier.width(width).fillMaxHeight(), tonalElevation = 1.dp) { ScadPanel(scad, vm, embeddedPreview = false) }
+                } else {
+                    viewport(Modifier.weight(1f).fillMaxHeight())
+                    // The edge drags to resize the panel (like the OpenSCAD editor's); let go below the snap
+                    // width and it tucks away. A tap tucks it away or brings it back.
+                    val lab = state.lab
+                    val maxPanel = (total - 240.dp).coerceAtLeast(PANEL_MIN)
+                    val stored = (if (lab.panelWidth > 0f) lab.panelWidth.dp else PANEL_DEFAULT).coerceIn(PANEL_MIN, maxPanel)
+                    var live by remember { mutableStateOf<androidx.compose.ui.unit.Dp?>(null) }
+                    val shown = live ?: if (lab.panelTucked) 0.dp else stored
+                    PanelEdge(
+                        tucked = shown < PANEL_SNAP,
+                        onClick = { vm.setLab(lab.copy(panelTucked = !lab.panelTucked)) },
+                        onDrag = { d -> live = ((live ?: shown) - d).coerceIn(0.dp, maxPanel) },
+                        onDragEnd = {
+                            live?.let { w ->
+                                vm.setLab(if (w < PANEL_SNAP) lab.copy(panelTucked = true)
+                                          else lab.copy(panelTucked = false, panelWidth = w.coerceAtLeast(PANEL_MIN).value))
+                            }
+                            live = null
+                        },
+                    )
+                    if (shown > 0.dp) Surface(Modifier.width(shown).fillMaxHeight(), tonalElevation = 1.dp) {
+                        // While dragging narrower than the panel can be, it keeps its layout and is clipped.
+                        Box(Modifier.fillMaxHeight().clipToBounds()) {
+                            Box(Modifier.wrapContentWidth(Alignment.Start, unbounded = true).width(shown.coerceAtLeast(PANEL_MIN)).fillMaxHeight()) { panel() }
+                        }
                     }
-                } else Surface(Modifier.width(380.dp).fillMaxHeight(), tonalElevation = 1.dp) { panel() }
+                }
             }
         }
     } else if (scad != null) {
-        Box(Modifier.fillMaxSize()) {
+        if (state.scadHidden) Box(Modifier.fillMaxSize()) {
             viewport(Modifier.fillMaxSize())
-            if (state.scadHidden) ScadReopenButton({ vm.setScadHidden(false) }, Modifier.align(Alignment.BottomEnd).padding(16.dp))
-            else Surface(Modifier.fillMaxSize()) { ScadPanel(scad, vm, onHide = { vm.setScadHidden(true) }) }
+            ScadReopenButton({ vm.setScadHidden(false) }, Modifier.align(Alignment.BottomEnd).padding(16.dp))
+        } else BoxWithConstraints(Modifier.fillMaxSize()) {
+            val total = maxHeight
+            val height = (if (ScadEditorSize.height > 0f) ScadEditorSize.height.dp else total * 0.55f).coerceIn(200.dp, (total - 120.dp).coerceAtLeast(200.dp))
+            Column(Modifier.fillMaxSize()) {
+                scadView(Modifier.weight(1f).fillMaxWidth())
+                DragHandle(vertical = false) { d -> ScadEditorSize.height = (height - d).value }
+                Surface(Modifier.height(height).fillMaxWidth()) { ScadPanel(scad, vm, onHide = { vm.setScadHidden(true) }, embeddedPreview = false) }
+            }
         }
     } else {
         val sheet = rememberBottomSheetScaffoldState()
@@ -214,6 +315,51 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
             sheetContent = { Box(Modifier.fillMaxWidth().fillMaxHeight(0.75f)) { panel() } },
         ) { padding ->
             viewport(Modifier.fillMaxSize().padding(bottom = padding.calculateBottomPadding()))
+        }
+    }
+}
+
+/** A grip between two panes; dragging it reports the move ([vertical] grip: sideways, else up/down). */
+@Composable
+private fun DragHandle(vertical: Boolean, onDrag: (androidx.compose.ui.unit.Dp) -> Unit) {
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val drag = androidx.compose.foundation.gestures.rememberDraggableState { px -> onDrag(with(density) { px.toDp() }) }
+    Box(
+        (if (vertical) Modifier.width(16.dp).fillMaxHeight() else Modifier.height(20.dp).fillMaxWidth())
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .draggable(drag, if (vertical) Orientation.Horizontal else Orientation.Vertical),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(Modifier.size(if (vertical) 4.dp else 40.dp, if (vertical) 40.dp else 4.dp)
+            .background(MaterialTheme.colorScheme.outline, RoundedCornerShape(2.dp)))
+    }
+}
+
+private val PANEL_DEFAULT = 380.dp
+private val PANEL_MIN = 300.dp
+/** Let go narrower than this and the panel tucks away. */
+private val PANEL_SNAP = 200.dp
+
+/** The OpenSCAD editor's dragged size in dp (0 = default); kept for the session, so leaving Prepare doesn't reset it. */
+private object ScadEditorSize {
+    var width by mutableStateOf(0f)
+    var height by mutableStateOf(0f)
+}
+
+/** The settings panel's edge on wide layouts: drag to resize, tap to tuck the panel away or bring it back. */
+@Composable
+private fun PanelEdge(tucked: Boolean, onClick: () -> Unit, onDrag: (androidx.compose.ui.unit.Dp) -> Unit, onDragEnd: () -> Unit) {
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val drag = androidx.compose.foundation.gestures.rememberDraggableState { px -> onDrag(with(density) { px.toDp() }) }
+    val label = stringResource(if (tucked) R.string.show_panel else R.string.tuck_panel)
+    Surface(onClick = onClick, tonalElevation = 2.dp, modifier = Modifier.width(if (tucked) 32.dp else 20.dp).fillMaxHeight()
+        .draggable(drag, Orientation.Horizontal, onDragStopped = { onDragEnd() })) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+            Box(Modifier.size(4.dp, 32.dp).background(MaterialTheme.colorScheme.outline, RoundedCornerShape(2.dp)))
+            app.orcaandroid.ui.prepare.Tip(label) {
+                Icon(if (tucked) Icons.AutoMirrored.Filled.KeyboardArrowLeft else Icons.AutoMirrored.Filled.KeyboardArrowRight, label)
+            }
+            Box(Modifier.size(4.dp, 32.dp).background(MaterialTheme.colorScheme.outline, RoundedCornerShape(2.dp)))
         }
     }
 }

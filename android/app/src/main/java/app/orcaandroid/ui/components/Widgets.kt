@@ -1,6 +1,7 @@
 package app.orcaandroid.ui.components
 
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -278,4 +279,22 @@ fun LabeledValue(label: String, value: String, modifier: Modifier = Modifier) {
 @Composable
 fun SectionTitle(text: String, modifier: Modifier = Modifier) {
     Text(text, modifier.padding(top = 8.dp), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+}
+
+/**
+ * A section title that folds its section: [summary] shows next to it (collapsed: what the section holds,
+ * e.g. the filament colours), the arrow at the end turns.
+ */
+@Composable
+fun CollapsibleTitle(text: String, open: Boolean, onToggle: () -> Unit, modifier: Modifier = Modifier, summary: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {}) {
+    Row(
+        modifier.fillMaxWidth().clickable(onClick = onToggle).padding(top = 8.dp, bottom = 4.dp),
+        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(text, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+        Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) { summary() }
+        Icon(Icons.Default.KeyboardArrowDown, null, Modifier.graphicsLayer { rotationZ = if (open) 180f else 0f },
+            tint = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
 }

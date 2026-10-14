@@ -18,6 +18,7 @@ import java.io.File
 import kotlin.math.abs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 import org.json.JSONObject
 
 /** Printer selection, presets and their edits, filament slots and the settings editor. */
@@ -65,6 +66,16 @@ class PresetController(private val store: Store, private val device: DeviceContr
         settings.preferredBedType = preferred
         val default = engine.setDefaultBedType(preferred)
         store.update { s -> s.copy(hiddenBedTypes = hidden, preferredBedType = preferred, setup = s.setup?.copy(defaultBedType = default)) }
+    }
+
+    /** Makes [bedType] the default of plates without their own type (and keeps it shown in the pickers). */
+    suspend fun rememberBedType(bedType: String) {
+        if (bedType == settings.preferredBedType) return
+        val hidden = store.value.hiddenBedTypes - bedType
+        settings.preferredBedType = bedType
+        settings.hiddenBedTypes = hidden
+        val default = engine.setDefaultBedType(bedType)
+        store.update { s -> s.copy(hiddenBedTypes = hidden, preferredBedType = bedType, setup = s.setup?.copy(defaultBedType = default)) }
     }
 
     fun setHiddenFilamentVendors(vendors: Set<String>) {
@@ -487,8 +498,20 @@ class PresetController(private val store: Store, private val device: DeviceContr
 
     fun checkProfileUpdates() = store.launch(store.str(R.string.checking_updates)) {
         val updates = resources.checkProfileUpdates()
+        settings.lastProfileCheck = System.currentTimeMillis()
         store.update { it.copy(profileUpdates = updates) }
         if (updates.isEmpty()) store.toast(store.str(R.string.profiles_up_to_date))
+    }
+
+    /** At most once a day, quietly in the background: found updates show as a chip on Prepare. */
+    fun autoCheckProfileUpdates() {
+        val now = System.currentTimeMillis()
+        if (now - settings.lastProfileCheck < 24 * 3600_000L) return
+        store.container.appScope.launch {
+            val updates = runCatching { resources.checkProfileUpdates() }.getOrNull() ?: return@launch
+            settings.lastProfileCheck = now
+            store.update { it.copy(profileUpdates = updates) }
+        }
     }
 
     /** Installs the found updates in the background; the app stays usable meanwhile. */

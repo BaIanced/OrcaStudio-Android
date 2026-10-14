@@ -65,6 +65,8 @@ import app.orcaandroid.ui.components.PickerField
 import app.orcaandroid.ui.components.PickerItem
 import app.orcaandroid.ui.components.SectionTitle
 import app.orcaandroid.ui.components.Vec3Fields
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 
 /** Side panel (tablet) / bottom sheet (phone) of the Prepare screen. */
 @Composable
@@ -127,10 +129,30 @@ private fun PresetsTab(state: UiState, vm: AppViewModel) {
     if (state.supportsBedTypes) {
         val current = state.bedTypeOf(state.activePlate)
         PickerField(stringResource(R.string.plate_type), current,
-            state.bedTypeChoices(current).map { PickerItem(it, vm.translator.tr(it)) }, { vm.scene.setPlateBedType(state.activePlate, it) })
+            state.bedTypeChoices(current).map { PickerItem(it, vm.translator.plate(it)) }, { vm.scene.setPlateBedType(state.activePlate, it) })
     }
 
-    SectionTitle(stringResource(R.string.filaments))
+    var filamentsOpen by rememberSaveable { mutableStateOf(true) }
+    app.orcaandroid.ui.components.CollapsibleTitle(stringResource(R.string.filaments), filamentsOpen, { filamentsOpen = !filamentsOpen }) {
+        if (!filamentsOpen) state.filaments.forEach { ColorDot(it.color, 16) }
+    }
+    if (filamentsOpen) FilamentSlots(state, vm, userGroup, vendorGroup)
+
+    SectionTitle(stringResource(R.string.process))
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        PickerField(stringResource(R.string.process), state.print,
+            presetItems(setup?.prints.orEmpty(), userGroup, vendorGroup, { it.name }, { it.system }) { listOf(it.vendor.ifEmpty { "System" }) },
+            vm.presets::selectPrint, Modifier.weight(1f), modified = state.overrides[PresetType.PRINT].orEmpty().isNotEmpty(),
+            openGroups = setOf(userGroup))
+        IconButton(onClick = { vm.presets.openEditor(EditorTarget.Preset(PresetType.PRINT)) }) { Icon(Icons.Default.Tune, stringResource(R.string.edit)) }
+    }
+    QuickSettings(state, vm)
+}
+
+/** The filament slots with their pickers, colours and the flushing / sync / prime tower controls. */
+@Composable
+private fun FilamentSlots(state: UiState, vm: AppViewModel, userGroup: String, vendorGroup: String) {
+    val setup = state.setup
     state.filaments.forEachIndexed { i, slot ->
         var colorDialog by remember { mutableStateOf(false) }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -157,16 +179,6 @@ private fun PresetsTab(state: UiState, vm: AppViewModel) {
         OutlinedButton(onClick = vm.presets::syncFilamentsFromPrinter) { Icon(Icons.Default.Sync, null); Text(stringResource(R.string.sync_filaments)) }
     }
     if (state.filaments.size > 1) WipeTowerRow(state, vm)
-
-    SectionTitle(stringResource(R.string.process))
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        PickerField(stringResource(R.string.process), state.print,
-            presetItems(setup?.prints.orEmpty(), userGroup, vendorGroup, { it.name }, { it.system }) { listOf(it.vendor.ifEmpty { "System" }) },
-            vm.presets::selectPrint, Modifier.weight(1f), modified = state.overrides[PresetType.PRINT].orEmpty().isNotEmpty(),
-            openGroups = setOf(userGroup))
-        IconButton(onClick = { vm.presets.openEditor(EditorTarget.Preset(PresetType.PRINT)) }) { Icon(Icons.Default.Tune, stringResource(R.string.edit)) }
-    }
-    QuickSettings(state, vm)
 }
 
 /** The handful of process options people change all the time, one tap away. */
@@ -193,9 +205,10 @@ private fun QuickSettings(state: UiState, vm: AppViewModel) {
 
 @Composable
 internal fun SwitchRow(label: String, checked: Boolean, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    // The whole row toggles, not just the switch.
+    Row(Modifier.fillMaxWidth().toggleable(checked, enabled = enabled, role = Role.Switch, onValueChange = onChange), verticalAlignment = Alignment.CenterVertically) {
         Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-        Switch(checked, onChange, enabled = enabled)
+        Switch(checked, null, enabled = enabled)
     }
 }
 

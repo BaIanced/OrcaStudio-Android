@@ -67,7 +67,10 @@
     <string name="cutting">Cutting…</string>
     <string name="delete">Delete</string>
     <string name="delete_plate">Delete plate</string>
-    <string name="delete_plate_text">The plate and all objects on it will be removed.</string>
+    <plurals name="delete_plates">
+        <item quantity="one">Delete %d plate</item>
+        <item quantity="other">Delete %d plates</item>
+    </plurals>
     <string name="delete_preset">Delete preset</string>
     <string name="vendor_presets">Vendor presets</string>
     <string name="delete_preset_text">“%s” will be deleted permanently.</string>
@@ -452,6 +455,7 @@
     <string name="home">Home</string>
     <string name="models_downloading">Downloading %1$s…</string>
     <string name="models_full_site">Full site</string>
+    <string name="models_infinite_scroll">Infinite scroll</string>
     <string name="adblock_toggle">Block ads</string>
     <string name="adblock_pick">Block an element</string>
     <string name="adblock_pick_hint">Tap what to hide</string>
@@ -762,4 +766,38 @@
     <string name="shape_generated">Made from the shapes; change the shapes to change it.</string>
     <string name="shape_edit_as_code">Edit as code</string>
     <string name="shape_edit_as_code_desc">The design becomes plain OpenSCAD code you can type in. The Shapes tab goes away for this design (Undo in the shape builder cannot bring it back).</string>
+    <!-- UI refinement batch (2026-10-13) -->
+    <string name="on">On</string>
+    <string name="off">Off</string>
+    <string name="check_profile_updates_text">Newer printer, filament and process profiles from the OrcaSlicer repository. Checked automatically once a day.</string>
+    <plurals name="profile_updates_chip">
+        <item quantity="one">%d profile update</item>
+        <item quantity="other">%d profile updates</item>
+    </plurals>
+    <string name="file">File</string>
+    <string name="plate_n_of_m">Plate %1$d of %2$d</string>
+    <string name="add_plate">Add plate</string>
+    <string name="tuck_panel">Tuck the panel away</string>
+    <string name="show_panel">Show the panel</string>
+    <string name="layout_lab">Layout lab (temporary)</string>
+    <string name="layout_lab_summary">Try layouts</string>
+    <string name="layout_lab_text">Layout variants to try out. Once you have picked, the others are removed and this section goes away.</string>
+    <string name="lab_plate_switcher">Plate switcher</string>
+    <string name="lab_tabs">Tabs</string>
+    <string name="lab_filmstrip">Filmstrip</string>
+    <string name="lab_chips">Chips</string>
+    <string name="lab_plate_label">\"Plate n of m\" label (filmstrip)</string>
+    <string name="lab_tools_left">Portrait: tools in a column on the left</string>
+    <string name="lab_overlay_alpha">Control background opacity: %d %%</string>
+    <string name="lab_text_scale">Text size: %d %%</string>
+    <string name="lab_ui_scale">Interface size (everything): %d %%</string>
+    <string name="lab_overlay_scale">Floating controls over the 3D view: %d %%</string>
+    <string name="lab_scale_hint">Sizes apply when you let go of the slider.</string>
+    <string name="scroll_up">Scroll up</string>
+    <string name="scroll_down">Scroll down</string>
+    <string name="lab_fullscreen_portrait">Fullscreen in portrait too</string>
+    <string name="lab_scad_view">OpenSCAD design view</string>
+    <string name="scad_draft_preview">Draft while dragging</string>
+    <string name="lab_scad_canvas">Main canvas</string>
+    <string name="lab_scad_ghost">Ghost on plate</string>
 </resources>

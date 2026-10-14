@@ -56,7 +56,7 @@ internal object Shaders {
             bool part = type == 0 || type >= 100;
             if (uPass == 0 && !part) discard;
             // 99: the estimated prime tower (scene mesh, translucent pass).
-            if (uPass == 1 && (part || (type >= 5 && type != 99))) discard;
+            if (uPass == 1 && (part || (type >= 5 && type != 99 && type != 98))) discard;
             if (uSectionOn == 1) {
                 // Section view: the camera side of the plane is cut away. Inside faces seen through
                 // the cut stand in for the desktop's cut faces (MeshClipper, dark grey).
@@ -87,6 +87,7 @@ internal object Shaders {
             else if (type == 8) base = vec3(0.3, 0.55, 1.0);
             else if (type == 9) base = vec3(1.0, 0.6, 0.1);
             else if (type == 99) { base = vec3(0.70, 0.89, 0.67); alpha = 0.5; }
+            else if (type == 98) { base = vec3(0.96, 0.58, 0.2); alpha = 0.45; }
             else base = uFilamentColors[clamp(type - 10, 0, 15)];
             color = vec4(base * light, alpha);
         }"""
@@ -102,6 +103,21 @@ internal object Shaders {
         uniform vec3 uColor;
         out vec4 color;
         void main() { color = vec4(uColor, 1.0); }"""
+
+    /** Plate badges (numbers, icons): textured quads on the bed plane from a premultiplied atlas. */
+    const val BADGE_VS = """#version 300 es
+        uniform mat4 uMvp;
+        layout(location = 0) in vec3 aPos;
+        layout(location = 1) in vec2 aUv;
+        out vec2 vUv;
+        void main() { vUv = aUv; gl_Position = uMvp * vec4(aPos, 1.0); }"""
+
+    const val BADGE_FS = """#version 300 es
+        precision mediump float;
+        uniform sampler2D uAtlas;
+        in vec2 vUv;
+        out vec4 color;
+        void main() { color = texture(uAtlas, vUv); }"""
 
     const val POINT_FS = """#version 300 es
         precision mediump float;

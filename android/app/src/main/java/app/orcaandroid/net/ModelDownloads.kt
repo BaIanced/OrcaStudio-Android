@@ -139,8 +139,20 @@ object ModelDownloads {
         }
     }
 
-    private fun fileNameOf(c: HttpURLConnection): String? =
-        c.getHeaderField("Content-Disposition")?.let { Regex("filename\\*?=(?:UTF-8'')?\"?([^\";]+)").find(it)?.groupValues?.get(1) }?.let(Uri::decode)
+    private fun fileNameOf(c: HttpURLConnection): String? = dispositionName(c.getHeaderField("Content-Disposition"))
+
+    /**
+     * The file name in a Content-Disposition header: `filename*=utf-8''...` first, then `filename=`.
+     * (`URLUtil.guessFileName` keeps everything after `filename=`, so a header with both gave
+     * "x.3mf_filename__utf-8__x.3mf".)
+     */
+    fun dispositionName(header: String?): String? {
+        if (header == null) return null
+        Regex("filename\\*\\s*=\\s*[^';]*'[^';]*'([^;]+)", RegexOption.IGNORE_CASE).find(header)
+            ?.let { return Uri.decode(it.groupValues[1].trim().trim('"')).ifBlank { null } }
+        return Regex("filename\\s*=\\s*(?:\"([^\"]*)\"|([^;]+))", RegexOption.IGNORE_CASE).find(header)
+            ?.let { m -> m.groupValues[1].ifEmpty { m.groupValues[2] }.trim().ifBlank { null } }
+    }
 
     /** A new file in the download folder; the name is reduced to a plain, unused file name. */
     private fun target(context: Context, name: String): File {
