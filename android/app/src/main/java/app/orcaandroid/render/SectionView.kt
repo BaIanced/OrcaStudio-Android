@@ -18,6 +18,8 @@ class SectionView(private val camera: Camera) {
     var normal by mutableStateOf<Vec3?>(null)
         private set
     var panelOpen by mutableStateOf(false)
+    /** The plane last handed to the renderer, for picking; null when off. */
+    var current: FloatArray? = null
     private var lastRatio = 0f
 
     val active get() = ratio > 0f
@@ -47,5 +49,25 @@ class SectionView(private val camera: Camera) {
         val center = (min + max) * 0.5f
         val radius = (max - min).length() * 0.5f
         return floatArrayOf(n.x, n.y, n.z, n.dot(center) + radius - 2f * radius * ratio)
+    }
+
+    companion object {
+        /**
+         * Where a pick ray [origin] + t [dir] enters the kept side of [plane] (as the desktop's raycaster
+         * skips clipped hits), or null when the ray never does.
+         */
+        fun rayStart(plane: FloatArray, origin: Vec3, dir: Vec3): Vec3? {
+            val n = Vec3(plane[0], plane[1], plane[2])
+            val side = n.dot(origin) - plane[3]
+            val along = n.dot(dir)
+            return when {
+                side <= 0f -> origin
+                along >= 0f -> null
+                else -> origin + dir * (side / -along)
+            }
+        }
+
+        /** A hit at [point] is visible: not on the cut-away side (a little slack for the cut face itself). */
+        fun kept(plane: FloatArray, point: Vec3) = Vec3(plane[0], plane[1], plane[2]).dot(point) <= plane[3] + 1e-3f
     }
 }

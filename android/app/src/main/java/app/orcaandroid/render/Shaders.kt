@@ -96,13 +96,21 @@ internal object Shaders {
         uniform mat4 uMvp;
         uniform vec3 uOffset;
         layout(location = 0) in vec3 aPos;
-        void main() { gl_Position = uMvp * vec4(aPos + uOffset, 1.0); }"""
+        out highp vec3 vWorld;
+        void main() { vWorld = aPos + uOffset; gl_Position = uMvp * vec4(vWorld, 1.0); }"""
 
+    /** Beds, travels and overlays; travels are cut by the section view like the toolpaths. */
     const val LINE_FS = """#version 300 es
         precision mediump float;
         uniform vec3 uColor;
+        uniform highp vec4 uSection;
+        uniform int uSectionOn;
+        in highp vec3 vWorld;
         out vec4 color;
-        void main() { color = vec4(uColor, 1.0); }"""
+        void main() {
+            if (uSectionOn == 1 && dot(uSection.xyz, vWorld) > uSection.w) discard;
+            color = vec4(uColor, 1.0);
+        }"""
 
     /** Plate badges (numbers, icons): textured quads on the bed plane from a premultiplied atlas. */
     const val BADGE_VS = """#version 300 es
@@ -134,15 +142,21 @@ internal object Shaders {
         uniform mat4 uMvp;
         uniform vec3 uOffset;
         uniform int uKinds;
+        uniform highp vec4 uSection;
+        uniform int uSectionOn;
         layout(location = 0) in vec3 aPos;
         layout(location = 1) in float aKind;
         out vec3 vColor;
         void main() {
             int kind = int(aKind + 0.5);
-            if (((uKinds >> kind) & 1) == 0) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+            vec3 world = aPos + uOffset;
+            // Hidden kinds and markers on the section view's cut-away side go off screen.
+            if (((uKinds >> kind) & 1) == 0 || (uSectionOn == 1 && dot(uSection.xyz, world) > uSection.w)) {
+                gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return;
+            }
             vColor = kind == 0 ? vec3(0.9, 0.1, 0.9) : kind == 1 ? vec3(0.1, 0.8, 0.9) : kind == 2 ? vec3(0.95, 0.95, 0.95)
                    : kind == 3 ? vec3(1.0, 0.9, 0.0) : vec3(1.0, 0.3, 0.3);
-            gl_Position = uMvp * vec4(aPos + uOffset, 1.0);
+            gl_Position = uMvp * vec4(world, 1.0);
             gl_PointSize = kind == 4 ? 16.0 : 7.0;
         }"""
 
