@@ -293,7 +293,7 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
             Row(Modifier.fillMaxSize()) {
                 if (scad != null) {
                     scadView(Modifier.weight(1f).fillMaxHeight())
-                    DragHandle(vertical = true) { d -> ScadEditorSize.width = (width - d).value }
+                    Themed(Region.OPENSCAD) { DragHandle(vertical = true) { d -> ScadEditorSize.width = (width - d).value } }
                     Themed(Region.OPENSCAD) { Surface(Modifier.width(width).fillMaxHeight(), tonalElevation = 1.dp) { Box(belowHole) { ScadPanel(scad, vm, embeddedPreview = false) } } }
                 } else {
                     viewport(Modifier.weight(1f).fillMaxHeight())
@@ -334,7 +334,7 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
             val height = (if (ScadEditorSize.height > 0f) ScadEditorSize.height.dp else total * 0.55f).coerceIn(200.dp, (total - 120.dp).coerceAtLeast(200.dp))
             Column(Modifier.fillMaxSize()) {
                 scadView(Modifier.weight(1f).fillMaxWidth())
-                DragHandle(vertical = false) { d -> ScadEditorSize.height = (height - d).value }
+                Themed(Region.OPENSCAD) { DragHandle(vertical = false) { d -> ScadEditorSize.height = (height - d).value } }
                 Themed(Region.OPENSCAD) { Surface(Modifier.height(height).fillMaxWidth()) { ScadPanel(scad, vm, onHide = { vm.setScadHidden(true) }, embeddedPreview = false) } }
             }
         }

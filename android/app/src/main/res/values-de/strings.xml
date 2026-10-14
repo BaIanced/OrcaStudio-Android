@@ -635,6 +635,7 @@
     <string name="design_brightness">Helligkeit</string>
     <string name="design_reset_color">Zurück zur Farbe der Vorlage</string>
     <string name="design_reset_part">Bereich zurücksetzen</string>
+    <string name="design_low_contrast">Text ist hier schlecht lesbar. „Hintergrund“ und „Felder und Karten“ beide dunkel oder beide hell wählen oder „Text“ ändern.</string>
     <string name="design_reset_all">Alles zurücksetzen</string>
     <string name="reset_colors">Eigene Farben zurücksetzen</string>
     <string name="reset_colors_confirm">Alle eigenen Farben (helles und dunkles Design) verwerfen? Die Vorlage bleibt.</string>

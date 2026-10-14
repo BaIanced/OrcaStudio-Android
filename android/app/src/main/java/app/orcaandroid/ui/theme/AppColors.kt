@@ -214,6 +214,14 @@ class AppColors(val dark: Boolean, base: ColorScheme, val overrides: Map<String,
     fun isCustom(r: Region, slot: Slot) = overrides[r.key]?.containsKey(slot.key) == true
 
     fun customCount(r: Region) = overrides[r.key]?.size ?: 0
+
+    /**
+     * Text that no longer reads on the region's background or cards, e.g. dark Panels and cards alone in light mode:
+     * one text colour can't suit both, so the panel says so instead of recolouring something the user didn't pick.
+     */
+    fun lowContrast(r: Region): Boolean = r.usesRoles && scheme(r).let {
+        contrast(it.onSurface, it.background) < 3f || contrast(it.onSurface, it.surfaceContainerHigh) < 3f
+    }
 }
 
 val LocalAppColors = staticCompositionLocalOf { AppColors(false, LightColors, emptyMap()) }
@@ -265,13 +273,14 @@ fun ColorScheme.withRoles(roles: Map<Role, Color>, dark: Boolean): ColorScheme =
     Role.entries.fold(this) { s, r -> roles[r]?.let { s.with(r, it, dark) } ?: s }
 
 private fun ColorScheme.with(role: Role, c: Color, dark: Boolean): ColorScheme = when (role) {
-    Role.BACKGROUND -> readableOn(c).copy(
+    // Blend towards the flipped cards (s), not this scheme's: a dark Background in light mode gave grey sheets/menus.
+    Role.BACKGROUND -> readableOn(c).let { s -> s.copy(
         background = c, surface = c, inverseOnSurface = c,
         surfaceContainerLowest = if (onColor(c) == Color.White) lerp(c, Color.Black, 0.3f) else lerp(c, Color.White, 0.7f),
-        surfaceContainerLow = lerp(c, surfaceContainerHigh, 0.3f),
-        surfaceContainer = lerp(c, surfaceContainerHigh, 0.55f),
-        surfaceDim = lerp(c, Color.Black, 0.1f), surfaceBright = lerp(c, surfaceContainerHigh, 0.8f),
-    )
+        surfaceContainerLow = lerp(c, s.surfaceContainerHigh, 0.3f),
+        surfaceContainer = lerp(c, s.surfaceContainerHigh, 0.55f),
+        surfaceDim = lerp(c, Color.Black, 0.1f), surfaceBright = lerp(c, s.surfaceContainerHigh, 0.8f),
+    ) }
     Role.SURFACE -> copy(
         surfaceContainerHigh = c,
         surfaceContainerLow = lerp(background, c, 0.3f),
@@ -288,7 +297,8 @@ private fun ColorScheme.with(role: Role, c: Color, dark: Boolean): ColorScheme =
     )
     Role.TEXT -> copy(onBackground = c, onSurface = c, onSecondaryContainer = c, inverseSurface = c, surfaceTint = c)
     Role.ACCENT -> copy(
-        primary = c, onPrimary = onColor(c), inversePrimary = c,
+        // inversePrimary = the snackbar's action text on inverseSurface (the Text colour): shade it until it reads.
+        primary = c, onPrimary = onColor(c), inversePrimary = legibleOn(c, inverseSurface),
         primaryContainer = lerp(c, background, if (dark) 0.65f else 0.78f),
         onPrimaryContainer = lerp(c, if (dark) Color.White else Color.Black, 0.7f),
     )
@@ -319,6 +329,10 @@ private fun ColorScheme.readableOn(c: Color): ColorScheme {
 }
 
 private val INK = Color(0xFF1E1F24)
+
+/** [c], shaded towards ink or white just enough to reach 4.5:1 on [back]. */
+private fun legibleOn(c: Color, back: Color): Color = (0..10).map { lerp(c, onColor(back), it / 10f) }
+    .firstOrNull { contrast(it, back) >= 4.5f } ?: onColor(back)
 
 /** Dark ink or white, whichever reads better on [c]. */
 fun onColor(c: Color): Color = if (contrast(c, INK) >= contrast(c, Color.White)) INK else Color.White
