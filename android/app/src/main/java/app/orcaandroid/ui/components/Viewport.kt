@@ -97,7 +97,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                 v.listener = object : PlateListener {
                     override fun onTap(x: Float, y: Float, additive: Boolean, part: Boolean) {
                         val (o, d) = v.camera.ray(x, y)
-                        vm.scene.onViewTap(o, d, additive, part)
+                        vm.scene.onViewTap(o, d, additive, part, v.section.current)
                     }
                     override fun onRectangle(x0: Float, y0: Float, x1: Float, y1: Float, remove: Boolean, done: Boolean) {
                         rectangle = if (done) null else floatArrayOf(x0, y0, x1, y1)
@@ -119,7 +119,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                     }
                     override fun onPaint(x: Float, y: Float, newStroke: Boolean) {
                         val (o, d) = v.camera.ray(x, y)
-                        vm.scene.paintAt(o, d, v.camera.eye(), newStroke)
+                        vm.scene.paintAt(o, d, v.camera.eye(), newStroke, v.section.current)
                     }
                     override fun onPlateDoubleTap(index: Int) = vm.scene.selectPlate(index)
                     // Icons act on their plate, which becomes the active one (except delete), as on the desktop.
@@ -134,7 +134,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
 
                     override fun onContextMenu(x: Float, y: Float) {
                         val (o, d) = v.camera.ray(x, y)
-                        vm.scene.openContextMenu(o, d, x, y)
+                        vm.scene.openContextMenu(o, d, x, y, v.section.current)
                     }
                 }
                 view = v
@@ -254,6 +254,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     val section = v.section
     LaunchedEffect(v, section.ratio, section.normal, bounds) {
         val plane = bounds?.let { (min, max) -> section.plane(min, max) }
+        section.current = plane
         v.onGl { this.section = plane }
     }
     LaunchedEffect(v, state.measure) {

@@ -355,6 +355,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         if (bedCount == 0) return
         glUseProgram(lineProgram)
         glUniformMatrix4fv(loc(lineProgram, "uMvp"), 1, false, mvp, 0)
+        setSection(lineProgram, on = false)
         glBindBuffer(GL_ARRAY_BUFFER, bedVbo)
         glEnableVertexAttribArray(0)
         glVertexAttribPointer(0, 3, GL_FLOAT, false, 12, 0)
@@ -397,8 +398,9 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glUniform3fv(loc(program, "uFilamentColors"), 16, arr, 0)
     }
 
-    private fun setSection(program: Int) {
-        val s = section
+    /** The section view's cut for [program]; [on] false draws it whole (beds, overlays). */
+    private fun setSection(program: Int, on: Boolean = true) {
+        val s = section.takeIf { on }
         glUniform1i(loc(program, "uSectionOn"), if (s != null) 1 else 0)
         if (s != null) glUniform4fv(loc(program, "uSection"), 1, s, 0)
     }
@@ -449,6 +451,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
                 glUniformMatrix4fv(loc(lineProgram, "uMvp"), 1, false, mvp, 0)
                 glUniform3f(loc(lineProgram, "uOffset"), previewOrigin[0], previewOrigin[1], 0f)
                 glUniform3f(loc(lineProgram, "uColor"), 0.2f, 0.45f, 1f)
+                setSection(lineProgram)
                 glBindBuffer(GL_ARRAY_BUFFER, travelVbo)
                 glEnableVertexAttribArray(0)
                 glVertexAttribPointer(0, 3, GL_FLOAT, false, 12, tFirst * 24)
@@ -464,6 +467,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
                 glUniformMatrix4fv(loc(pointProgram, "uMvp"), 1, false, mvp, 0)
                 glUniform3f(loc(pointProgram, "uOffset"), previewOrigin[0], previewOrigin[1], 0f)
                 glUniform1i(loc(pointProgram, "uKinds"), (if (style.showRetracts) 0b0011 else 0) or (if (style.showSeams) 0b0100 else 0))
+                setSection(pointProgram)
                 glBindBuffer(GL_ARRAY_BUFFER, markerVbo)
                 glEnableVertexAttribArray(0)
                 glEnableVertexAttribArray(1)
@@ -512,6 +516,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glUniformMatrix4fv(loc(lineProgram, "uMvp"), 1, false, mvp, 0)
         glUniform3f(loc(lineProgram, "uOffset"), 0f, 0f, 0f)
         glUniform3f(loc(lineProgram, "uColor"), 1f, 0.3f, 0.3f)
+        setSection(lineProgram, on = false)
         glLineWidth(3f)
         glBindBuffer(GL_ARRAY_BUFFER, scratchVbo)
         val data = (lines + measurePoints.flatMap { it.toList() }).toFloatArray()
@@ -526,6 +531,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             glUniformMatrix4fv(loc(pointProgram, "uMvp"), 1, false, mvp, 0)
             glUniform3f(loc(pointProgram, "uOffset"), 0f, 0f, 0f)
             glUniform1i(loc(pointProgram, "uKinds"), 0b10000)
+            setSection(pointProgram, on = false)
             glEnableVertexAttribArray(0)
             glVertexAttribPointer(0, 3, GL_FLOAT, false, 12, lines.size * 4)
             glVertexAttrib1f(1, 4f)

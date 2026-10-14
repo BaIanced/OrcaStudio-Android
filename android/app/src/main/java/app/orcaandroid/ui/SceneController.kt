@@ -5,9 +5,11 @@ import app.orcaandroid.R
 import app.orcaandroid.core.LayerGcode
 import app.orcaandroid.core.LayerProfile
 import app.orcaandroid.core.LayerRange
+import app.orcaandroid.core.PickHit
 import app.orcaandroid.core.PresetType
 import app.orcaandroid.core.Scene
 import app.orcaandroid.core.Vec3
+import app.orcaandroid.render.SectionView
 import app.orcaandroid.core.VolumeType
 import java.io.File
 import kotlinx.coroutines.Job
@@ -284,10 +286,11 @@ class SceneController(private val store: Store, private val presets: PresetContr
 
     /**
      * Handles a tap on the 3D view according to the current tool. [additive] (Ctrl/Shift held) or
-     * select mode adds the tapped copy to the selection or removes it.
+     * select mode adds the tapped copy to the selection or removes it. [section] = the section view's
+     * plane: what it cuts away can't be picked.
      */
-    fun onViewTap(origin: Vec3, dir: Vec3, additive: Boolean = false, part: Boolean = false) = store.launch {
-        val hit = engine.pick(origin, dir)
+    fun onViewTap(origin: Vec3, dir: Vec3, additive: Boolean = false, part: Boolean = false, section: FloatArray? = null) = store.launch {
+        val hit = pick(origin, dir, section)
         when (store.value.tool) {
             Tool.LayOnFace -> if (hit != null) {
                 store.applyScene(engine.layOnFace(hit.obj, hit.instance, hit.normal))
@@ -306,9 +309,9 @@ class SceneController(private val store: Store, private val presets: PresetContr
     }
 
     /** Right click / long press on the 3D view: selects what lies there (or nothing), then opens the menu at (x, y). */
-    fun openContextMenu(origin: Vec3, dir: Vec3, x: Float, y: Float) = store.launch {
+    fun openContextMenu(origin: Vec3, dir: Vec3, x: Float, y: Float, section: FloatArray? = null) = store.launch {
         if (store.value.screen != Screen.PREPARE) return@launch
-        val hit = engine.pick(origin, dir)
+        val hit = pick(origin, dir, section)
         store.update { st ->
             // On a copy of the multi-selection the menu acts on all of them, as on the desktop.
             val inMulti = hit != null && st.multiSelection.any { it.obj == hit.obj && it.instance == hit.instance }
@@ -318,20 +321,28 @@ class SceneController(private val store: Store, private val presets: PresetContr
 
     fun closeContextMenu() = store.update { it.copy(contextMenu = null) }
 
+    /** The first hit along the ray that the section view [section] leaves visible. */
+    private suspend fun pick(origin: Vec3, dir: Vec3, section: FloatArray?): PickHit? {
+        if (section == null) return engine.pick(origin, dir)
+        val start = SectionView.rayStart(section, origin, dir) ?: return null
+        return engine.pick(start, dir)?.takeIf { SectionView.kept(section, it.point) }
+    }
+
     private val paintLock = Mutex()
-    private val pendingPaint = ArrayDeque<Triple<Vec3, Vec3, Boolean>>()
+    private class PaintSample(val origin: Vec3, val dir: Vec3, val newStroke: Boolean, val section: FloatArray?)
+    private val pendingPaint = ArrayDeque<PaintSample>()
 
     /** Paint sample from the 3D view; samples are queued and applied in order on the engine thread. */
-    fun paintAt(origin: Vec3, dir: Vec3, camera: Vec3, newStroke: Boolean) {
+    fun paintAt(origin: Vec3, dir: Vec3, camera: Vec3, newStroke: Boolean, section: FloatArray? = null) {
         val tool = store.value.tool as? Tool.Paint ?: return
-        synchronized(pendingPaint) { pendingPaint.addLast(Triple(origin, dir, newStroke)) }
+        synchronized(pendingPaint) { pendingPaint.addLast(PaintSample(origin, dir, newStroke, section)) }
         if (paintLock.isLocked) return
         store.launch {
             paintLock.withLock {
                 while (true) {
-                    val (o, d, stroke) = synchronized(pendingPaint) { pendingPaint.removeFirstOrNull() } ?: break
-                    val hit = engine.pick(o, d) ?: continue
-                    store.applyScene(engine.paint(hit, camera, tool.radius, tool.kind, tool.state, stroke))
+                    val p = synchronized(pendingPaint) { pendingPaint.removeFirstOrNull() } ?: break
+                    val hit = pick(p.origin, p.dir, p.section) ?: continue
+                    store.applyScene(engine.paint(hit, camera, tool.radius, tool.kind, tool.state, p.newStroke))
                 }
             }
         }
