@@ -499,7 +499,7 @@
     <string name="scad_open">.scad-Datei öffnen</string>
     <string name="scad_save">.scad-Datei speichern</string>
     <string name="scad_close">Editor schließen</string>
-    <string name="scad_show_plate">Platte zeigen</string>
+    <string name="scad_hide_editor">Editor ausblenden</string>
     <string name="scad_on_plate">Entwurf auf der Platte zeigen</string>
     <string name="scad_off_plate">Zurück zur Entwurfsansicht</string>
     <string name="scad_console">Konsole</string>
