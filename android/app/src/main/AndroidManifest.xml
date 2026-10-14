@@ -40,6 +40,14 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- The "Return to the app" link on the Orca Cloud browser sign-in page (OrcaCloudLoopback). Browsers add
+                 BROWSABLE to intent: links, so the launcher filter above can't take it (they fall back to the Play Store). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="orcastudio-android" android:host="signed-in" />
+            </intent-filter>
             <!-- "Open with" / "Share to" for models, projects, SVGs, G-code, OpenSCAD and zips of them. Many file managers
                  report these as application/octet-stream, so that is accepted too. -->
             <intent-filter>

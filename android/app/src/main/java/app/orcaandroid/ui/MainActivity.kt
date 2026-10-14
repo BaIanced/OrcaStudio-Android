@@ -42,6 +42,7 @@ import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import app.orcaandroid.core.ThemeMode
+import app.orcaandroid.net.OrcaCloud
 import app.orcaandroid.render.PlateView
 import app.orcaandroid.ui.components.framePlate
 import java.io.File
@@ -122,7 +123,8 @@ class MainActivity : ComponentActivity() {
     private fun handleIntent(intent: Intent?) {
         intent ?: return
         val uris = when (intent.action) {
-            Intent.ACTION_VIEW -> listOfNotNull(intent.data)
+            // The Orca Cloud sign-in page's return link only brings the app to the front.
+            Intent.ACTION_VIEW -> listOfNotNull(intent.data?.takeIf { it.scheme != OrcaCloud.RETURN_SCHEME })
             Intent.ACTION_SEND -> listOfNotNull(IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java))
             Intent.ACTION_SEND_MULTIPLE -> IntentCompat.getParcelableArrayListExtra(intent, Intent.EXTRA_STREAM, Uri::class.java).orEmpty()
             else -> emptyList()
