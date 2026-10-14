@@ -103,7 +103,10 @@
     <string name="ai_confirm_title">An AI client asks</string>
     <string name="ai_confirm_plate">Put the design \"%1$s\" on plate %2$d?</string>
     <string name="ai_confirm_replaces">It replaces \"%1$s\" there.</string>
-    <string name="ai_confirm_save">Save the %1$s preset \"%2$s\" with its %3$d unsaved edit(s) as your preset \"%4$s\"?</string>
+    <plurals name="ai_confirm_save">
+        <item quantity="one">Save the %2$s preset \"%3$s\" with its %1$d unsaved edit as your preset \"%4$s\"?</item>
+        <item quantity="other">Save the %2$s preset \"%3$s\" with its %1$d unsaved edits as your preset \"%4$s\"?</item>
+    </plurals>
     <string name="ai_confirm_overwrites">This replaces your preset \"%1$s\".</string>
     <string name="ai_confirm_delete">Delete your %1$s preset \"%2$s\"? This can\'t be undone.</string>
     <string name="ai_allow">Allow</string>
@@ -427,13 +430,19 @@
     <string name="no_filaments_reported">The printer reports no loaded filament.</string>
     <string name="syncing_filaments">Reading the printer\'s filaments…</string>
     <string name="sync_filaments_none">The printer reports no loaded filament.</string>
-    <string name="sync_filaments_done">%1$d filament slot(s) taken from the printer.</string>
+    <plurals name="sync_filaments_done">
+        <item quantity="one">%1$d filament slot taken from the printer.</item>
+        <item quantity="other">%1$d filament slots taken from the printer.</item>
+    </plurals>
     <string name="sync_filaments_no_bambu">Filament sync needs a Bambu Lab printer connection (Device tab).</string>
     <!-- Presets of the Bambu account -->
     <string name="sync_cloud_presets">Sync presets from Bambu account</string>
     <string name="sync_cloud_presets_text">Your process, filament and printer presets saved in the Bambu cloud</string>
     <string name="syncing_cloud_presets">Loading presets from the Bambu account…</string>
-    <string name="cloud_presets_synced">%1$d preset(s) in the Bambu account; newer ones loaded.</string>
+    <plurals name="cloud_presets_synced">
+        <item quantity="one">%1$d preset in the Bambu account; newer ones loaded.</item>
+        <item quantity="other">%1$d presets in the Bambu account; newer ones loaded.</item>
+    </plurals>
     <!-- Crash report shown after the app closed unexpectedly -->
     <string name="crash_title">The app closed unexpectedly</string>
     <string name="crash_text">This is the report of the last crash. Copy it and send it along; check it for your printer\'s serial number or IP address first and replace them.</string>
@@ -503,11 +512,17 @@
     <string name="sync_orca_cloud_presets">Sync presets from Orca Cloud</string>
     <string name="sync_orca_cloud_presets_text">Your presets synced to Orca Cloud by OrcaSlicer on the desktop</string>
     <string name="syncing_orca_cloud_presets">Loading presets from Orca Cloud…</string>
-    <string name="orca_cloud_presets_synced">%1$d preset(s) in Orca Cloud; newer ones loaded.</string>
+    <plurals name="orca_cloud_presets_synced">
+        <item quantity="one">%1$d preset in Orca Cloud; newer ones loaded.</item>
+        <item quantity="other">%1$d presets in Orca Cloud; newer ones loaded.</item>
+    </plurals>
     <string name="upload_orca_cloud_presets">Upload presets to Orca Cloud</string>
     <string name="upload_orca_cloud_presets_text">New and changed presets from this app, for OrcaSlicer on your other devices</string>
     <string name="uploading_orca_cloud_presets">Uploading presets to Orca Cloud…</string>
-    <string name="orca_cloud_presets_uploaded">%1$d preset(s) uploaded to Orca Cloud.</string>
+    <plurals name="orca_cloud_presets_uploaded">
+        <item quantity="one">%1$d preset uploaded to Orca Cloud.</item>
+        <item quantity="other">%1$d presets uploaded to Orca Cloud.</item>
+    </plurals>
     <string name="orca_cloud_upload_conflicts">Newer in Orca Cloud, not uploaded (sync presets from Orca Cloud first): %1$s</string>
     <string name="orca_cloud_sign_in_first">Sign in to Orca Cloud first (More &gt; Orca Cloud).</string>
     <string name="none">None</string>

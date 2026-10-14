@@ -1,6 +1,7 @@
 package app.orcaandroid.ui
 
 import android.app.Application
+import androidx.annotation.PluralsRes
 import androidx.annotation.StringRes
 import app.orcaandroid.container
 import app.orcaandroid.core.Scene
@@ -45,6 +46,8 @@ class Store(val app: Application, val scope: CoroutineScope) {
     fun update(transform: (UiState) -> UiState) = state.update(transform)
 
     fun str(@StringRes id: Int, vararg args: Any): String = app.getString(id, *args)
+
+    fun plural(@PluralsRes id: Int, count: Int, vararg args: Any): String = app.resources.getQuantityString(id, count, *args)
 
     fun toast(message: String, action: MessageAction? = null) = update { it.copy(message = message, messageAction = action) }
 

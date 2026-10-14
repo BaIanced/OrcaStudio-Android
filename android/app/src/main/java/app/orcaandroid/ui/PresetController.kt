@@ -221,7 +221,7 @@ class PresetController(private val store: Store, private val device: DeviceContr
         }
         settings.trayPicks = picks
         updateFilaments { withColors(result) }
-        store.toast(store.str(R.string.sync_filaments_done, slots.size) +
+        store.toast(store.plural(R.plurals.sync_filaments_done, slots.size, slots.size) +
             unknown.joinToString("") { (tray, why) -> "\n$tray: $why" })
     }
 
@@ -231,12 +231,12 @@ class PresetController(private val store: Store, private val device: DeviceContr
      */
     fun syncCloudPresets() = store.launch(store.str(R.string.syncing_cloud_presets)) {
         val version = engine.vendorVersion("BBL")
-        loadCloudPresets(R.string.cloud_presets_synced) { BambuAccount.cloudPresets(store.app, version) }
+        loadCloudPresets(R.plurals.cloud_presets_synced) { BambuAccount.cloudPresets(store.app, version) }
     }
 
     /** The same for the presets synced to the signed-in Orca Cloud account (pull only). */
     fun syncOrcaCloudPresets() = store.launch(store.str(R.string.syncing_orca_cloud_presets)) {
-        loadCloudPresets(R.string.orca_cloud_presets_synced) { app.orcaandroid.net.OrcaCloud.cloudPresets(store.app) }
+        loadCloudPresets(R.plurals.orca_cloud_presets_synced) { app.orcaandroid.net.OrcaCloud.cloudPresets(store.app) }
     }
 
     /**
@@ -278,7 +278,7 @@ class PresetController(private val store: Store, private val device: DeviceContr
             }
         }
         store.toast(buildString {
-            append(store.str(R.string.orca_cloud_presets_uploaded, done))
+            append(store.plural(R.plurals.orca_cloud_presets_uploaded, done, done))
             if (conflicts.isNotEmpty()) append('\n').append(store.str(R.string.orca_cloud_upload_conflicts, conflicts.joinToString()))
             if (failed.isNotEmpty()) append("\n✗ ").append(failed.joinToString())
         })
@@ -296,7 +296,7 @@ class PresetController(private val store: Store, private val device: DeviceContr
         } else {
             store.value.visiblePrinters.firstOrNull()?.let { selectPrinterNow(it.name) }
         }
-        store.toast(store.str(doneMessage, count))
+        store.toast(store.plural(doneMessage, count, count))
     }
 
     // --- Settings editor -----------------------------------------------------------------------------

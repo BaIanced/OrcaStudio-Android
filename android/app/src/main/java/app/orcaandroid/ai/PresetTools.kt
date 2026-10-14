@@ -254,7 +254,7 @@ internal class PresetTools(
         val (current, edits) = selected(type, slot)
         val existing = refs(type).firstOrNull { it.name == name } ?: store.value.printers.firstOrNull { it.name == name }?.let { Ref(it.name, it.system, it.base, "") }
         if (existing?.system == true) throw McpTools.ToolError("\"$name\" is a system preset; pick another name")
-        val text = store.str(R.string.ai_confirm_save, label(type), current, edits.size, name) +
+        val text = store.plural(R.plurals.ai_confirm_save, edits.size, edits.size, label(type), current, name) +
             (existing?.let { "\n" + store.str(R.string.ai_confirm_overwrites, name) } ?: "")
         if (!confirm(text)) throw McpTools.ToolError("Declined by the user (or no answer within 60 s)")
         withContext(Dispatchers.Main.immediate) {
