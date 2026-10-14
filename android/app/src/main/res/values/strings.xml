@@ -810,6 +810,7 @@
     <string name="design_editing_dark">Editing the dark theme</string>
     <string name="design_editing_light">Editing the light theme</string>
     <string name="design_minimize">Fold the panel</string>
+    <string name="design_unfold">Unfold the panel</string>
     <string name="design_part">Part of the app</string>
     <string name="design_hex">Hex</string>
     <string name="design_hue">Hue</string>
