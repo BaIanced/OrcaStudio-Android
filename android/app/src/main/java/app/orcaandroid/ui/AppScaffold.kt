@@ -346,6 +346,9 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
         BottomSheetScaffold(
             scaffoldState = sheet,
             sheetPeekHeight = 132.dp,
+            // Full width: with the default 640 dp cap a tablet in portrait left side strips where the open sheet
+            // covered only part of the Slice button (Chromebook r203, 811 dp wide).
+            sheetMaxWidth = androidx.compose.ui.unit.Dp.Infinity,
             sheetContainerColor = sheetColors.surfaceContainerLow,
             sheetContentColor = sheetColors.onSurface,
             sheetContent = { Themed(panelRegion) { Box(Modifier.fillMaxWidth().fillMaxHeight(0.75f)) { panel() } } },
