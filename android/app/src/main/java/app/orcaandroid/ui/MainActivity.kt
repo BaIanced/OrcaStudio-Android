@@ -9,6 +9,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.view.KeyEvent
+import android.view.MotionEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -69,6 +70,41 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    // High refresh while the user interacts: some systems (ColorOS) hold unlisted apps at 60 Hz. The 3D view renders
+    // continuously, so ask for the display's fastest mode only during input and 2 s after, then drop the request.
+    private val fastMode by lazy {
+        val d = window.decorView.display ?: return@lazy 0
+        val cur = d.mode
+        d.supportedModes.filter { it.physicalWidth == cur.physicalWidth && it.physicalHeight == cur.physicalHeight }
+            .maxByOrNull { it.refreshRate }?.takeIf { it.refreshRate > 61f }?.modeId ?: 0
+    }
+    private val dropFastMode = Runnable { setDisplayMode(0) }
+
+    private fun setDisplayMode(id: Int) {
+        val lp = window.attributes
+        if (lp.preferredDisplayModeId == id) return
+        lp.preferredDisplayModeId = id
+        window.attributes = lp
+    }
+
+    private fun boostRefresh() {
+        if (fastMode == 0) return
+        val h = window.decorView.handler ?: return
+        h.removeCallbacks(dropFastMode)
+        setDisplayMode(fastMode)
+        h.postDelayed(dropFastMode, 2000)
+    }
+
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        boostRefresh()
+        return super.dispatchTouchEvent(ev)
+    }
+
+    override fun dispatchGenericMotionEvent(ev: MotionEvent): Boolean {
+        boostRefresh()
+        return super.dispatchGenericMotionEvent(ev)
     }
 
     /** Android may end the process any time after this; keep the state for the next start. */
