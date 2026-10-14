@@ -37,7 +37,7 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.ViewInAr
+import androidx.compose.material.icons.filled.VerticalAlignBottom
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -238,7 +238,7 @@ private fun Header(s: ScadEditorState, vm: AppViewModel, onHide: (() -> Unit)?, 
         IconButton(onClick = onNew) { Icon(Icons.Default.Add, stringResource(R.string.scad_new)) }
         IconButton(onClick = onOpen) { Icon(Icons.Default.FolderOpen, stringResource(R.string.scad_open)) }
         IconButton(onClick = onSave) { Icon(Icons.Default.Save, stringResource(R.string.scad_save)) }
-        if (onHide != null) IconButton(onClick = onHide) { Icon(Icons.Default.ViewInAr, stringResource(R.string.scad_show_plate)) }
+        if (onHide != null) IconButton(onClick = onHide) { Icon(Icons.Default.VerticalAlignBottom, stringResource(R.string.scad_hide_editor)) }
         IconButton(onClick = vm.scad::close) { Icon(Icons.Default.Close, stringResource(R.string.scad_close)) }
     }
 }

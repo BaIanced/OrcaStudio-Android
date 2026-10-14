@@ -531,7 +531,7 @@
     <string name="scad_open">Open .scad file</string>
     <string name="scad_save">Save .scad file</string>
     <string name="scad_close">Close editor</string>
-    <string name="scad_show_plate">Show plate</string>
+    <string name="scad_hide_editor">Hide editor</string>
     <string name="scad_console">Console</string>
     <string name="scad_no_params">This design has no Customizer parameters. Annotate variables like  width = 20; // [10:100]  to get sliders here.</string>
     <string name="scad_parse_error">Syntax error: the parameters are from the last version that parsed.</string>

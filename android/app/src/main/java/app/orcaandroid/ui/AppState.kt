@@ -187,7 +187,7 @@ data class UiState(
     val crashReport: String? = null,
     /** The OpenSCAD editor, while open. */
     val scad: ScadEditorState? = null,
-    /** On narrow screens: the editor is folded away to show the plate ("Show plate"). */
+    /** On narrow screens: the editor is folded away to show the plate ("Hide editor"). */
     val scadHidden: Boolean = false,
     /** The OpenSCAD design is shown on the active plate (eye toggle) instead of alone in the design view. */
     val scadOnPlate: Boolean = false,
