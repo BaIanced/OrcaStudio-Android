@@ -796,8 +796,7 @@
     <string name="scroll_up">Scroll up</string>
     <string name="scroll_down">Scroll down</string>
     <string name="lab_fullscreen_portrait">Fullscreen in portrait too</string>
-    <string name="lab_scad_view">OpenSCAD design view</string>
     <string name="scad_draft_preview">Draft while dragging</string>
-    <string name="lab_scad_canvas">Main canvas</string>
-    <string name="lab_scad_ghost">Ghost on plate</string>
+    <string name="scad_on_plate">Show the design on the plate</string>
+    <string name="scad_off_plate">Back to the design view</string>
 </resources>

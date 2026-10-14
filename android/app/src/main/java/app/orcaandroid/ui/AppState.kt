@@ -189,6 +189,8 @@ data class UiState(
     val scad: ScadEditorState? = null,
     /** On narrow screens: the editor is folded away to show the plate ("Show plate"). */
     val scadHidden: Boolean = false,
+    /** The OpenSCAD design is shown on the active plate (eye toggle) instead of alone in the design view. */
+    val scadOnPlate: Boolean = false,
 ) {
     fun presetName(type: PresetType) = when (type) {
         PresetType.PRINT -> print

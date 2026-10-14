@@ -500,6 +500,8 @@
     <string name="scad_save">.scad-Datei speichern</string>
     <string name="scad_close">Editor schließen</string>
     <string name="scad_show_plate">Platte zeigen</string>
+    <string name="scad_on_plate">Entwurf auf der Platte zeigen</string>
+    <string name="scad_off_plate">Zurück zur Entwurfsansicht</string>
     <string name="scad_console">Konsole</string>
     <string name="scad_no_params">Dieses Design hat keine Customizer-Parameter. Variablen wie  breite = 20; // [10:100]  erscheinen hier als Regler.</string>
     <string name="scad_parse_error">Syntaxfehler: Die Parameter stammen von der letzten fehlerfreien Version.</string>

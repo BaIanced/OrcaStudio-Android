@@ -33,6 +33,8 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.RestartAlt
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.ViewInAr
@@ -646,6 +648,15 @@ private fun Actions(s: ScadEditorState, vm: AppViewModel) {
                 Text(stringResource(R.string.scad_add_copy), maxLines = 1)
             }
         }
+    }
+}
+
+/** Over the plate while the design shows on it: back to the design view (eye toggle). */
+@Composable
+fun ScadPlateToggle(onPlate: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    androidx.compose.material3.FilledTonalIconButton(onClick = onClick, modifier = modifier) {
+        Icon(if (onPlate) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+            stringResource(if (onPlate) R.string.scad_off_plate else R.string.scad_on_plate))
     }
 }
 

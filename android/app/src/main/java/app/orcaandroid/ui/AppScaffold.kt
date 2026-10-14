@@ -41,7 +41,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.VerticalDivider
 import app.orcaandroid.ui.scad.ScadPanel
 import app.orcaandroid.ui.scad.ScadPreviewPane
-import app.orcaandroid.core.ScadView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
@@ -51,6 +50,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import app.orcaandroid.ui.scad.ScadPlateToggle
 import app.orcaandroid.ui.scad.ScadReopenButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -247,12 +247,14 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
     val panel: @Composable () -> Unit = {
         if (state.screen == Screen.PREPARE) PreparePanel(state, vm, wide) else PreviewPanel(state, vm, wide)
     }
-    // The OpenSCAD editor takes the panel's place on Prepare. The design shows alone on the main canvas,
-    // or (Layout lab) as a ghost on the plate; the editor can be resized with the handle.
+    // The OpenSCAD editor takes the panel's place on Prepare. The design shows alone in the design view,
+    // or (eye toggle, user 2026-10-13) as a ghost on the plate; the editor can be resized with the handle.
     val scad = state.scad?.takeIf { state.screen == Screen.PREPARE }
     val scadView: @Composable (Modifier) -> Unit = { m ->
-        // Shape designs keep the canvas: their handles and picking live in the design view.
-        if (scad != null && (state.lab.scadView == ScadView.CANVAS || scad.shapes != null)) Surface(m) { ScadPreviewPane(scad, vm, Modifier.fillMaxSize()) } else viewport(m)
+        if (scad != null && state.scadOnPlate) Box(m) {
+            viewport(Modifier.fillMaxSize())
+            ScadPlateToggle(onPlate = true, { vm.setScadOnPlate(false) }, Modifier.align(Alignment.TopEnd).padding(top = 76.dp, end = 12.dp))
+        } else if (scad != null) Surface(m) { ScadPreviewPane(scad, vm, Modifier.fillMaxSize()) } else viewport(m)
     }
     if (wide) {
         BoxWithConstraints(Modifier.fillMaxSize()) {

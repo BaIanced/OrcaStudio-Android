@@ -25,7 +25,6 @@ import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.FolderZip
 import androidx.compose.foundation.layout.size
 import app.orcaandroid.core.PlateSwitcher
-import app.orcaandroid.core.ScadView
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
@@ -228,13 +227,6 @@ private fun LayoutLabSection(state: UiState, vm: AppViewModel) {
         ScaleSlider(R.string.lab_text_scale, lab.textScale, app.orcaandroid.core.LayoutLab.TEXT_SCALES) { vm.setLab(state.lab.copy(textScale = it)) }
         ScaleSlider(R.string.lab_ui_scale, lab.uiScale, app.orcaandroid.core.LayoutLab.UI_SCALES) { vm.setLab(state.lab.copy(uiScale = it)) }
         ScaleSlider(R.string.lab_overlay_scale, lab.overlayScale, app.orcaandroid.core.LayoutLab.OVERLAY_SCALES) { vm.setLab(state.lab.copy(overlayScale = it)) }
-        Text(stringResource(R.string.lab_scad_view), style = MaterialTheme.typography.bodyMedium)
-        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-            listOf(ScadView.CANVAS to R.string.lab_scad_canvas, ScadView.GHOST to R.string.lab_scad_ghost)
-                .forEachIndexed { i, (v, label) ->
-                    SegmentedButton(lab.scadView == v, { vm.setLab(lab.copy(scadView = v)) }, SegmentedButtonDefaults.itemShape(i, 2)) { Text(stringResource(label)) }
-                }
-        }
         TextButton(onClick = { vm.setLab(app.orcaandroid.core.LayoutLab()) }) { Text(stringResource(R.string.reset)) }
     }
 }

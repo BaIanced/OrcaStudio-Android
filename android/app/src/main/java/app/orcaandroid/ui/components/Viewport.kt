@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -93,6 +94,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         factory = { ctx ->
             PlateView(ctx).also { v ->
                 PlateView.active = java.lang.ref.WeakReference(v)
+                savedCamera?.let(v.camera::restore)
                 v.listener = object : PlateListener {
                     override fun onTap(x: Float, y: Float, additive: Boolean, part: Boolean) {
                         val (o, d) = v.camera.ray(x, y)
@@ -160,6 +162,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     }
 
     val v = view ?: return
+    DisposableEffect(v) { onDispose { savedCamera = v.camera.state() } }
     val setup = state.setup
     val scene = state.scene
 
@@ -176,7 +179,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
             val first = plateOriginsCount == 0
             setBed(bed, origins)
             plateOriginsCount = origins.size
-            if (first) frame(state.activePlate)
+            if (first && savedCamera == null) frame(state.activePlate)
         }
     }
     LaunchedEffect(v, scene.meshVersion, scene.meshFile) {
@@ -184,8 +187,8 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         val mesh = withContext(Dispatchers.IO) { FloatData.load(scene.meshFile, 8) }
         v.onGl { setMesh(mesh) }
     }
-    // Layout lab "ghost": the OpenSCAD design shown see-through, standing in the middle of the active plate.
-    val ghost = state.scad?.takeIf { it.shapes == null }?.preview?.takeIf { state.lab.scadView == app.orcaandroid.core.ScadView.GHOST && state.screen == app.orcaandroid.ui.Screen.PREPARE }
+    // Eye toggle: the OpenSCAD design shown see-through, standing in the middle of the active plate (other objects hidden).
+    val ghost = state.scad?.preview?.takeIf { state.scadOnPlate && !state.scadHidden && state.screen == app.orcaandroid.ui.Screen.PREPARE }
     val plate = scene.plates.getOrNull(state.activePlate)
     LaunchedEffect(v, ghost, plate?.originX, plate?.originY, setup?.bed) {
         val bed = setup?.bed
@@ -212,7 +215,8 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         val plate = state.activePlate
         val move = framedPlate >= 0 && framedPlate != plate
         framedPlate = plate
-        v.onGl { activePlate = plate; if (move) frame(plate) }
+        // A plate already on screen becomes active without moving the camera (user, 2026-10-13); double tap frames it.
+        v.onGl { activePlate = plate; if (move && !plateInView(plate)) frame(plate) }
     }
     LaunchedEffect(v, state.filaments) {
         val cols = state.filaments.map { hexToRgb(it.color ?: "#FF7F27") }
@@ -283,6 +287,12 @@ fun schemeKey(scheme: Int) = when (scheme) {
 }
 
 /** Frames plate [plate] of the given view. */
+/**
+ * The 3D view's camera when its view went away (the OpenSCAD design view replaced it, the screen turned), so the
+ * next view looks the same instead of framing plate 1 again.
+ */
+private var savedCamera: FloatArray? = null
+
 fun PlateView.framePlate(plate: Int, top: Boolean = false) = onGl { frame(plate, top) }
 
 /** [mesh] (position + normal per vertex) as scene-mesh vertices of type 98, centred on (cx, cy) and standing on the bed. */
