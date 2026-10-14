@@ -811,7 +811,6 @@
     <string name="design_editing_light">Editing the light theme</string>
     <string name="design_minimize">Fold the panel</string>
     <string name="design_part">Part of the app</string>
-    <string name="design_custom">custom</string>
     <string name="design_hex">Hex</string>
     <string name="design_hue">Hue</string>
     <string name="design_saturation">Saturation</string>

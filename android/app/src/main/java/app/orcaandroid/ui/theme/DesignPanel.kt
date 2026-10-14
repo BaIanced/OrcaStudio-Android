@@ -96,7 +96,8 @@ fun ThemeDesignPanel(state: UiState, vm: AppViewModel) {
             Surface(
                 Modifier.align(Alignment.BottomEnd).padding(8.dp).padding(bottom = 72.dp)
                     .offset { IntOffset(drag.x.roundToInt(), drag.y.roundToInt()) }.width(width),
-                shape = RoundedCornerShape(16.dp), tonalElevation = 3.dp, shadowElevation = 8.dp,
+                // Plain container colour: tonal elevation would tint the panel with the accent.
+                shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh, shadowElevation = 8.dp,
             ) {
                 Column(Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
                     // Header: drag it to move the panel out of the way.
@@ -119,9 +120,14 @@ fun ThemeDesignPanel(state: UiState, vm: AppViewModel) {
                         verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         PresetChips(state, vm, dark)
                         RegionPicker(region, colors) { region = it; slotKey = it.slots.first().key }
-                        region.slots.forEach { s ->
-                            SlotRow(s, colors.color(region, s), colors.isCustom(region, s), s.key == slot.key) { slotKey = s.key }
+                        // One row of colour chips keeps the sliders in view without scrolling.
+                        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            region.slots.forEach { s ->
+                                SlotChip(s, colors.color(region, s), colors.isCustom(region, s), s.key == slot.key) { slotKey = s.key }
+                            }
                         }
+                        if (slot.hint != 0) Text(stringResource(slot.hint), style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
                         ColorEditor(
                             key = region.key + "/" + slot.key,
                             color = colors.color(region, slot),
@@ -192,22 +198,16 @@ private fun RegionPicker(region: Region, colors: AppColors, onPick: (Region) -> 
     }
 }
 
+/** A colour slot as a chip: its colour, its name, and "custom" when changed. */
 @Composable
-private fun SlotRow(slot: Slot, color: Color, custom: Boolean, selected: Boolean, onClick: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-            .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
-            .clickable(onClick = onClick).padding(horizontal = 8.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Box(Modifier.size(26.dp).clip(RoundedCornerShape(6.dp)).background(color).border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(6.dp)))
-        Column(Modifier.weight(1f)) {
-            Text(stringResource(slot.label), style = MaterialTheme.typography.bodyMedium)
-            if (slot.hint != 0) Text(stringResource(slot.hint), style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
-        if (custom) Text(stringResource(R.string.design_custom), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-    }
+private fun SlotChip(slot: Slot, color: Color, custom: Boolean, selected: Boolean, onClick: () -> Unit) {
+    FilterChip(
+        selected = selected, onClick = onClick,
+        label = { Text(stringResource(slot.label) + if (custom) " •" else "", maxLines = 1) },
+        leadingIcon = {
+            Box(Modifier.size(18.dp).clip(RoundedCornerShape(4.dp)).background(color).border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(4.dp)))
+        },
+    )
 }
 
 /** Ready-made colours: every preset's palette in both modes, for a quick start. */
