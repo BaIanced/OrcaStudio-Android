@@ -33,7 +33,8 @@ import app.orcaandroid.core.ThemeSpec
 
 // Prusa-style orange on neutral greys (user, 2026-10-14; values from prusa3d.com's CSS: brand #FD5000,
 // buttons #FF7300, text #1E1F24). Greys are set explicitly: Material's defaults are purple-tinted.
-// Tertiary (modified settings, warnings) is blue so it stays apart from the orange.
+// Tertiary (modified settings, warnings) is blue so it stays apart from the orange. Elevated surfaces are
+// tinted with the text colour, not the accent, so panels stay neutral grey instead of turning peach.
 private val LightColors = lightColorScheme(
     primary = Color(0xFFD84000),
     onPrimary = Color.White,
@@ -50,6 +51,7 @@ private val LightColors = lightColorScheme(
     onBackground = Color(0xFF1E1F24),
     surface = Color(0xFFFCFCFD),
     onSurface = Color(0xFF1E1F24),
+    surfaceTint = Color(0xFF1E1F24),
     surfaceVariant = Color(0xFFE4E5EA),
     onSurfaceVariant = Color(0xFF60646C),
     surfaceContainerLowest = Color.White,
@@ -81,6 +83,7 @@ private val DarkColors = darkColorScheme(
     onBackground = Color(0xFFEDEEF0),
     surface = Color(0xFF1A1B1F),
     onSurface = Color(0xFFEDEEF0),
+    surfaceTint = Color(0xFFEDEEF0),
     surfaceVariant = Color(0xFF3A3B42),
     onSurfaceVariant = Color(0xFFB9BBC6),
     surfaceContainerLowest = Color(0xFF141518),
@@ -274,9 +277,9 @@ private fun ColorScheme.with(role: Role, c: Color, dark: Boolean): ColorScheme =
         surfaceContainerHighest = lerp(surfaceContainerHigh, c, 0.45f),
         secondaryContainer = lerp(surfaceContainerHigh, c, 0.6f),
     )
-    Role.TEXT -> copy(onBackground = c, onSurface = c, onSecondaryContainer = c, inverseSurface = c)
+    Role.TEXT -> copy(onBackground = c, onSurface = c, onSecondaryContainer = c, inverseSurface = c, surfaceTint = c)
     Role.ACCENT -> copy(
-        primary = c, onPrimary = onColor(c), surfaceTint = c, inversePrimary = c,
+        primary = c, onPrimary = onColor(c), inversePrimary = c,
         primaryContainer = lerp(c, background, if (dark) 0.65f else 0.78f),
         onPrimaryContainer = lerp(c, if (dark) Color.White else Color.Black, 0.7f),
     )
