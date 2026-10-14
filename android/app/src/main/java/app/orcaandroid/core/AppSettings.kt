@@ -22,6 +22,11 @@ class AppSettings(context: Context) {
         get() = prefs.getBoolean("dynamic_color", false)
         set(value) = prefs.edit().putBoolean("dynamic_color", value).apply()
 
+    /** Colour preset and the user's own colours (More > Appearance, design mode). */
+    var themeSpec: ThemeSpec
+        get() = ThemeSpec.fromJson(prefs.getString("theme_spec", null))
+        set(value) = prefs.edit().putString("theme_spec", value.toJson()).apply()
+
     /** Undo steps the engine keeps. */
     var undoLimit: Int
         get() = prefs.getInt("undo_limit", DEFAULT_UNDO_LIMIT)

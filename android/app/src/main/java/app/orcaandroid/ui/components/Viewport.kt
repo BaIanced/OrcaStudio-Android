@@ -1,5 +1,13 @@
 package app.orcaandroid.ui.components
 
+import app.orcaandroid.ui.theme.LocalAppColors
+import app.orcaandroid.ui.theme.Region
+import app.orcaandroid.ui.theme.Slot
+import app.orcaandroid.ui.theme.VIEW_ACTIVE_PLATE
+import app.orcaandroid.ui.theme.VIEW_BACKGROUND
+import app.orcaandroid.ui.theme.VIEW_GRID
+import app.orcaandroid.ui.theme.VIEW_PART
+import app.orcaandroid.ui.theme.VIEW_SELECTION
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -79,13 +87,15 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     val result = state.shownResult
 
     val scheme = MaterialTheme.colorScheme
+    // The 3D view's colours (theme defaults or the user's, design mode).
+    val appColors = LocalAppColors.current
+    fun slot(s: Slot) = appColors.color(Region.VIEW_3D, s).rgb()
     val colors = ViewColors(
-        background = scheme.surfaceContainerHighest.rgb(),
-        grid = scheme.outline.rgb(),
-        activePlate = scheme.primary.rgb(),
-        part = floatArrayOf(0.96f, 0.58f, 0.2f),
-        // Not primary: the orange theme would hide the selection on orange parts.
-        selected = scheme.tertiary.rgb(),
+        background = slot(VIEW_BACKGROUND),
+        grid = slot(VIEW_GRID),
+        activePlate = slot(VIEW_ACTIVE_PLATE),
+        part = slot(VIEW_PART),
+        selected = slot(VIEW_SELECTION),
     )
 
     // The selection rectangle being drawn (Shift/Alt+drag), in view pixels: x0, y0, x1, y1.

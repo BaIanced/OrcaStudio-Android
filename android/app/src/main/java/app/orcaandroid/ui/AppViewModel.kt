@@ -122,6 +122,23 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         store.update { it.copy(dynamicColor = on) }
     }
 
+    /** New colours; [persist] = false while a slider is still moving (saved when it's let go). */
+    fun setThemeSpec(spec: app.orcaandroid.core.ThemeSpec, persist: Boolean = true) {
+        if (persist) store.settings.themeSpec = spec
+        store.update { it.copy(themeSpec = spec) }
+    }
+
+    /** Picks a colour preset; wallpaper colours would hide it, so they go off. */
+    fun setThemePreset(key: String) {
+        if (state.value.dynamicColor) setDynamicColor(false)
+        setThemeSpec(state.value.themeSpec.copy(preset = key))
+    }
+
+    /** Design mode: the colour panel floats over the app; opened from More, it starts on Prepare. */
+    fun setDesignMode(on: Boolean) = store.update {
+        it.copy(designMode = on, screen = if (on && it.screen == Screen.MORE) Screen.PREPARE else it.screen)
+    }
+
     fun setUndoLimit(limit: Int) {
         store.settings.undoLimit = limit
         store.update { it.copy(undoLimit = limit) }

@@ -1,5 +1,13 @@
 package app.orcaandroid.ui
 
+import app.orcaandroid.ui.theme.LocalAppColors
+import app.orcaandroid.ui.theme.NAV_BAR
+import app.orcaandroid.ui.theme.NAV_ICONS
+import app.orcaandroid.ui.theme.NAV_PILL
+import app.orcaandroid.ui.theme.NAV_SELECTED
+import app.orcaandroid.ui.theme.Region
+import app.orcaandroid.ui.theme.ThemeDesignPanel
+import app.orcaandroid.ui.theme.Themed
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -107,11 +115,12 @@ fun AppScaffold(state: UiState, vm: AppViewModel) {
         androidx.compose.ui.unit.Density(base.density * state.lab.uiScale, base.fontScale * state.lab.textScale)) {
         when {
             state.phase == Phase.LOADING -> Busy(state.busy ?: stringResource(R.string.starting))
-            state.phase == Phase.SETUP || state.showPrinterSetup -> PrinterSetupScreen(state, vm)
-            state.editor != null -> SettingsEditor(state, vm)
+            state.phase == Phase.SETUP || state.showPrinterSetup -> Themed(Region.EDITOR, Modifier.fillMaxSize(), fill = true) { PrinterSetupScreen(state, vm) }
+            state.editor != null -> Themed(Region.EDITOR, Modifier.fillMaxSize(), fill = true) { SettingsEditor(state, vm) }
             else -> MainLayout(state, vm)
         }
-        GlobalDialogs(state, vm)
+        Themed(Region.DIALOGS) { GlobalDialogs(state, vm) }
+        if (state.designMode) ThemeDesignPanel(state, vm)
     }
 }
 
@@ -146,6 +155,12 @@ private fun MainLayout(state: UiState, vm: AppViewModel) {
         }
     }
     if (askQuit) QuitDialog(onQuit = { askQuit = false; (context as? android.app.Activity)?.finish() }, onDismiss = { askQuit = false })
+    // Tab bar / rail colours (design mode); the rail keeps its own default background unless changed.
+    val colors = LocalAppColors.current
+    val navBar = colors.color(Region.NAV, NAV_BAR)
+    val navPill = colors.color(Region.NAV, NAV_PILL)
+    val navSelected = colors.color(Region.NAV, NAV_SELECTED)
+    val navIcons = colors.color(Region.NAV, NAV_ICONS)
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wide = maxWidth >= WIDE_LAYOUT
         val content: @Composable (Modifier) -> Unit = { m ->
@@ -154,16 +169,17 @@ private fun MainLayout(state: UiState, vm: AppViewModel) {
                 val belowHole = Modifier.windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Top))
                 when (state.screen) {
                     Screen.PREPARE, Screen.PREVIEW -> Workspace(state, vm, wide)
-                    Screen.DEVICE -> Box(belowHole) { DeviceScreen(state, vm) }
-                    Screen.MODELS -> Box(belowHole) { ModelsScreen(browser.value) }
-                    Screen.MORE -> Box(belowHole) { MoreScreen(state, vm) }
+                    Screen.DEVICE -> Themed(Region.DEVICE, Modifier.fillMaxSize(), fill = true) { Box(belowHole) { DeviceScreen(state, vm) } }
+                    Screen.MODELS -> Themed(Region.MODELS, Modifier.fillMaxSize(), fill = true) { Box(belowHole) { ModelsScreen(browser.value) } }
+                    Screen.MORE -> Themed(Region.MORE, Modifier.fillMaxSize(), fill = true) { Box(belowHole) { MoreScreen(state, vm) } }
                 }
             }
         }
         if (wide) {
             Row(Modifier.fillMaxSize()) {
                 // No insets of its own: MainActivity pads the bars, and in landscape the rail may use the cutout strip.
-                NavigationRail(windowInsets = WindowInsets(0)) {
+                NavigationRail(windowInsets = WindowInsets(0),
+                    containerColor = if (colors.isCustom(Region.NAV, NAV_BAR)) navBar else androidx.compose.material3.NavigationRailDefaults.ContainerColor) {
                     CutoutAwareColumn {
                         DESTINATIONS.forEach { d ->
                             NavigationRailItem(
@@ -171,6 +187,8 @@ private fun MainLayout(state: UiState, vm: AppViewModel) {
                                 onClick = { vm.setScreen(d.screen) },
                                 icon = { Icon(d.icon, null) },
                                 label = { Text(stringResource(d.label)) },
+                                colors = androidx.compose.material3.NavigationRailItemDefaults.colors(selectedIconColor = navSelected,
+                                    selectedTextColor = navSelected, indicatorColor = navPill, unselectedIconColor = navIcons, unselectedTextColor = navIcons),
                             )
                         }
                     }
@@ -181,13 +199,15 @@ private fun MainLayout(state: UiState, vm: AppViewModel) {
         } else {
             Column(Modifier.fillMaxSize()) {
                 content(Modifier.weight(1f).fillMaxWidth().windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal)))
-                NavigationBar {
+                NavigationBar(containerColor = navBar) {
                     DESTINATIONS.forEach { d ->
                         NavigationBarItem(
                             selected = state.screen == d.screen,
                             onClick = { vm.setScreen(d.screen) },
                             icon = { Icon(d.icon, null) },
                             label = { Text(stringResource(d.label)) },
+                            colors = androidx.compose.material3.NavigationBarItemDefaults.colors(selectedIconColor = navSelected,
+                                selectedTextColor = navSelected, indicatorColor = navPill, unselectedIconColor = navIcons, unselectedTextColor = navIcons),
                         )
                     }
                 }
@@ -241,11 +261,12 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
             val base = androidx.compose.ui.platform.LocalDensity.current
             androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides
                 androidx.compose.ui.unit.Density(base.density * state.lab.overlayScale, base.fontScale)) {
-                if (state.screen == Screen.PREPARE) PrepareOverlay(state, vm, plateView, wide)
-                else PreviewOverlay(state, vm, plateView, wide)
+                if (state.screen == Screen.PREPARE) Themed(Region.PREPARE_TOOLS) { PrepareOverlay(state, vm, plateView, wide) }
+                else Themed(Region.PREVIEW_TOOLS) { PreviewOverlay(state, vm, plateView, wide) }
             }
         }
     }
+    val panelRegion = if (state.screen == Screen.PREPARE) Region.PREPARE_PANEL else Region.PREVIEW_PANEL
     val panel: @Composable () -> Unit = {
         if (state.screen == Screen.PREPARE) PreparePanel(state, vm, wide) else PreviewPanel(state, vm, wide)
     }
@@ -258,7 +279,7 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
         if (scad != null && state.scadOnPlate) Box(m) {
             viewport(Modifier.fillMaxSize())
             ScadPlateToggle(onPlate = true, { vm.setScadOnPlate(false) }, Modifier.align(Alignment.TopEnd).then(belowHole).padding(top = 76.dp, end = 12.dp))
-        } else if (scad != null) Surface(m) { ScadPreviewPane(scad, vm, Modifier.fillMaxSize().then(belowHole)) } else viewport(m)
+        } else if (scad != null) Themed(Region.OPENSCAD) { Surface(m) { ScadPreviewPane(scad, vm, Modifier.fillMaxSize().then(belowHole)) } } else viewport(m)
     }
     if (wide) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -269,7 +290,7 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
                 if (scad != null) {
                     scadView(Modifier.weight(1f).fillMaxHeight())
                     DragHandle(vertical = true) { d -> ScadEditorSize.width = (width - d).value }
-                    Surface(Modifier.width(width).fillMaxHeight(), tonalElevation = 1.dp) { Box(belowHole) { ScadPanel(scad, vm, embeddedPreview = false) } }
+                    Themed(Region.OPENSCAD) { Surface(Modifier.width(width).fillMaxHeight(), tonalElevation = 1.dp) { Box(belowHole) { ScadPanel(scad, vm, embeddedPreview = false) } } }
                 } else {
                     viewport(Modifier.weight(1f).fillMaxHeight())
                     // The edge drags to resize the panel (like the OpenSCAD editor's); let go below the snap
@@ -291,12 +312,12 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
                             live = null
                         },
                     )
-                    if (shown > 0.dp) Surface(Modifier.width(shown).fillMaxHeight(), tonalElevation = 1.dp) {
+                    if (shown > 0.dp) Themed(panelRegion) { Surface(Modifier.width(shown).fillMaxHeight(), tonalElevation = 1.dp) {
                         // While dragging narrower than the panel can be, it keeps its layout and is clipped.
                         Box(Modifier.fillMaxHeight().clipToBounds()) {
                             Box(Modifier.wrapContentWidth(Alignment.Start, unbounded = true).width(shown.coerceAtLeast(PANEL_MIN)).fillMaxHeight().then(belowHole)) { panel() }
                         }
-                    }
+                    } }
                 }
             }
         }
@@ -310,15 +331,18 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
             Column(Modifier.fillMaxSize()) {
                 scadView(Modifier.weight(1f).fillMaxWidth())
                 DragHandle(vertical = false) { d -> ScadEditorSize.height = (height - d).value }
-                Surface(Modifier.height(height).fillMaxWidth()) { ScadPanel(scad, vm, onHide = { vm.setScadHidden(true) }, embeddedPreview = false) }
+                Themed(Region.OPENSCAD) { Surface(Modifier.height(height).fillMaxWidth()) { ScadPanel(scad, vm, onHide = { vm.setScadHidden(true) }, embeddedPreview = false) } }
             }
         }
     } else {
         val sheet = rememberBottomSheetScaffoldState()
+        val sheetColors = LocalAppColors.current.scheme(panelRegion)
         BottomSheetScaffold(
             scaffoldState = sheet,
             sheetPeekHeight = 132.dp,
-            sheetContent = { Box(Modifier.fillMaxWidth().fillMaxHeight(0.75f)) { panel() } },
+            sheetContainerColor = sheetColors.surfaceContainerLow,
+            sheetContentColor = sheetColors.onSurface,
+            sheetContent = { Themed(panelRegion) { Box(Modifier.fillMaxWidth().fillMaxHeight(0.75f)) { panel() } } },
         ) { padding ->
             viewport(Modifier.fillMaxSize().padding(bottom = padding.calculateBottomPadding()))
         }

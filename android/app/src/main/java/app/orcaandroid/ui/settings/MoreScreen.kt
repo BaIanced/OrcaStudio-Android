@@ -47,6 +47,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.orcaandroid.BuildConfig
@@ -127,6 +128,10 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
                         }
                 }
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) SwitchRow(stringResource(R.string.dynamic_color), state.dynamicColor, onChange = vm::setDynamicColor)
+                ThemePresetList(state, vm)
+                Entry(stringResource(R.string.design_mode), stringResource(R.string.design_mode_text)) { vm.setDesignMode(true) }
+                val custom = state.themeSpec.customCount(true) + state.themeSpec.customCount(false)
+                if (custom > 0) Entry(stringResource(R.string.reset_colors), pluralStringResource(R.plurals.n_custom_colors, custom, custom)) { dialog = "reset_colors" }
             }
 
             Section(stringResource(R.string.misc)) {
@@ -140,6 +145,12 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
     }
     when (dialog) {
         "calib" -> CalibrationDialog(vm) { dialog = null }
+        "reset_colors" -> AlertDialog(
+            onDismissRequest = { dialog = null },
+            text = { Text(stringResource(R.string.reset_colors_confirm)) },
+            confirmButton = { TextButton({ dialog = null; vm.setThemeSpec(state.themeSpec.reset(true).reset(false)) }) { Text(stringResource(R.string.reset)) } },
+            dismissButton = { TextButton({ dialog = null }) { Text(stringResource(R.string.cancel)) } },
+        )
         "vendors" -> FilamentVendorsDialog(state, vm) { dialog = null }
         "plates" -> PlateTypesDialog(state, vm) { dialog = null }
         "backup_export" -> PassphraseDialog(stringResource(R.string.backup_export), stringResource(R.string.backup_export_warning), confirm = true,
@@ -343,6 +354,22 @@ private fun AutoSaveRow(seconds: Int, onChange: (Int) -> Unit) {
             isError = text.toIntOrNull()?.takeIf { it in range } == null,
             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
         )
+    }
+}
+
+/** The colour presets with a preview of their colours in the current mode. */
+@Composable
+private fun ThemePresetList(state: UiState, vm: AppViewModel) {
+    val dark = app.orcaandroid.ui.theme.LocalAppColors.current.dark
+    Text(stringResource(R.string.color_preset), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
+    app.orcaandroid.ui.theme.ThemePreset.entries.forEach { p ->
+        val selected = !state.dynamicColor && state.themeSpec.preset == p.key
+        Row(Modifier.fillMaxWidth().clickable { vm.setThemePreset(p.key) }.padding(vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            RadioButton(selected, { vm.setThemePreset(p.key) })
+            Text(stringResource(p.label), Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+            app.orcaandroid.ui.theme.PresetSwatches(p, dark, 16)
+        }
     }
 }
 

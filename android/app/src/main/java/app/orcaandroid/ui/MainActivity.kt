@@ -14,7 +14,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.WindowInsets
@@ -23,25 +22,16 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.content.ContextCompat
 import androidx.core.content.IntentCompat
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
-import app.orcaandroid.core.ThemeMode
 import app.orcaandroid.net.OrcaCloud
 import app.orcaandroid.render.PlateView
 import app.orcaandroid.ui.components.framePlate
@@ -59,7 +49,7 @@ class MainActivity : ComponentActivity() {
         PlateView.onKey = ::viewKey
         setContent {
             val state by vm.state.collectAsStateWithLifecycle()
-            OrcaTheme(state.themeMode, state.dynamicColor) {
+            app.orcaandroid.ui.theme.OrcaTheme(state.themeMode, state.dynamicColor, state.themeSpec) {
                 Immersive(state.lab.fullscreenPortrait)
                 Surface(Modifier.fillMaxSize()) {
                     // Landscape hides the bars: use the camera cutout's strip too instead of leaving it empty
@@ -308,71 +298,6 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// Prusa-style orange on neutral greys (user, 2026-10-14; values from prusa3d.com's CSS: brand #FD5000,
-// buttons #FF7300, text #1E1F24). Greys are set explicitly: Material's defaults are purple-tinted.
-// Tertiary (modified settings, warnings) is blue so it stays apart from the orange.
-private val LightColors = lightColorScheme(
-    primary = Color(0xFFD84000),
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFFFFDBCA),
-    onPrimaryContainer = Color(0xFF3A1100),
-    secondary = Color(0xFF60646C),
-    onSecondary = Color.White,
-    secondaryContainer = Color(0xFFE4E5EA),
-    onSecondaryContainer = Color(0xFF1E1F24),
-    tertiary = Color(0xFF2F6FD0),
-    tertiaryContainer = Color(0xFFD6E4FF),
-    onTertiaryContainer = Color(0xFF0B2A55),
-    background = Color(0xFFFCFCFD),
-    onBackground = Color(0xFF1E1F24),
-    surface = Color(0xFFFCFCFD),
-    onSurface = Color(0xFF1E1F24),
-    surfaceVariant = Color(0xFFE4E5EA),
-    onSurfaceVariant = Color(0xFF60646C),
-    surfaceContainerLowest = Color.White,
-    surfaceContainerLow = Color(0xFFF6F6F8),
-    surfaceContainer = Color(0xFFF0F0F3),
-    surfaceContainerHigh = Color(0xFFEDEEF0),
-    surfaceContainerHighest = Color(0xFFE4E5EA),
-    outline = Color(0xFF8B8D98),
-    outlineVariant = Color(0xFFD9DAE0),
-    error = Color(0xFFCE2C31),
-    errorContainer = Color(0xFFFFDBDC),
-    onErrorContainer = Color(0xFF64181B),
-)
-
-private val DarkColors = darkColorScheme(
-    primary = Color(0xFFFF7300),
-    onPrimary = Color(0xFF1E1F24),
-    primaryContainer = Color(0xFF5C2400),
-    onPrimaryContainer = Color(0xFFFFDBCA),
-    secondary = Color(0xFFB9BBC6),
-    onSecondary = Color(0xFF1E1F24),
-    secondaryContainer = Color(0xFF3A3B42),
-    onSecondaryContainer = Color(0xFFF0F0F3),
-    tertiary = Color(0xFF7FB3FF),
-    onTertiary = Color(0xFF0B2A55),
-    tertiaryContainer = Color(0xFF1F3A5F),
-    onTertiaryContainer = Color(0xFFD6E4FF),
-    background = Color(0xFF1A1B1F),
-    onBackground = Color(0xFFEDEEF0),
-    surface = Color(0xFF1A1B1F),
-    onSurface = Color(0xFFEDEEF0),
-    surfaceVariant = Color(0xFF3A3B42),
-    onSurfaceVariant = Color(0xFFB9BBC6),
-    surfaceContainerLowest = Color(0xFF141518),
-    surfaceContainerLow = Color(0xFF1E1F24),
-    surfaceContainer = Color(0xFF222328),
-    surfaceContainerHigh = Color(0xFF2B2C32),
-    surfaceContainerHighest = Color(0xFF36373D),
-    outline = Color(0xFF7F818C),
-    outlineVariant = Color(0xFF45464E),
-    error = Color(0xFFFF5A5F),
-    onError = Color(0xFF3B0A0C),
-    errorContainer = Color(0xFF64181B),
-    onErrorContainer = Color(0xFFFFD9D9),
-)
-
 /**
  * Landscape (and, if chosen, portrait) hides the status and navigation bars; a swipe from the edge
  * shows them for a moment (user, 2026-10-13).
@@ -390,30 +315,4 @@ private fun Immersive(portraitToo: Boolean) {
             else show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
         }
     }
-}
-
-@Composable
-fun OrcaTheme(mode: ThemeMode, dynamicColor: Boolean, content: @Composable () -> Unit) {
-    val dark = when (mode) {
-        ThemeMode.SYSTEM -> isSystemInDarkTheme()
-        ThemeMode.LIGHT -> false
-        ThemeMode.DARK -> true
-    }
-    val context = LocalContext.current
-    val colors = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        dark -> DarkColors
-        else -> LightColors
-    }
-    val view = LocalView.current
-    if (!view.isInEditMode) {
-        SideEffect {
-            val window = (view.context as Activity).window
-            WindowCompat.getInsetsController(window, view).apply {
-                isAppearanceLightStatusBars = !dark
-                isAppearanceLightNavigationBars = !dark
-            }
-        }
-    }
-    MaterialTheme(colorScheme = colors, content = content)
 }
