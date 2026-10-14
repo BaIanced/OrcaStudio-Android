@@ -144,15 +144,18 @@ enum class ThemePreset(val key: String, @StringRes val label: Int, private val p
     }
 }
 
-/** One colour the user can change; [read] gives its value when not changed. */
-class Slot(val key: String, @StringRes val label: Int, @StringRes val hint: Int = 0, val read: (ColorScheme) -> Color)
+/**
+ * One colour the user can change; [read] gives its value when not changed. A text or icon slot names the slot it
+ * sits [on]: when only that one is changed, the default follows it if it would no longer be readable.
+ */
+class Slot(val key: String, @StringRes val label: Int, @StringRes val hint: Int = 0, val on: Slot? = null, val read: (ColorScheme) -> Color)
 
-private val ROLE_SLOTS = Role.entries.map { r -> Slot(r.key, r.label, r.hint, r.read) }
+private val ROLE_SLOTS = Role.entries.map { r -> Slot(r.key, r.label, r.hint, read = r.read) }
 
 val NAV_BAR = Slot("bar", R.string.slot_nav_bar) { it.surfaceContainer }
 val NAV_PILL = Slot("pill", R.string.slot_nav_pill) { it.secondaryContainer }
-val NAV_SELECTED = Slot("selected", R.string.slot_nav_selected) { it.onSecondaryContainer }
-val NAV_ICONS = Slot("icons", R.string.slot_nav_icons) { it.onSurfaceVariant }
+val NAV_SELECTED = Slot("selected", R.string.slot_nav_selected, on = NAV_PILL) { it.onSecondaryContainer }
+val NAV_ICONS = Slot("icons", R.string.slot_nav_icons, on = NAV_BAR) { it.onSurfaceVariant }
 
 val VIEW_BACKGROUND = Slot("background", R.string.slot_view_background) { it.surfaceContainerHighest }
 val VIEW_GRID = Slot("grid", R.string.slot_view_grid) { it.outline }
@@ -162,9 +165,9 @@ val VIEW_SELECTION = Slot("selection", R.string.slot_view_selection) { it.tertia
 val VIEW_PART = Slot("part", R.string.slot_view_part) { Color(0xFFF59433) }
 
 val BADGE = Slot("badge", R.string.slot_badge) { it.secondaryContainer }
-val BADGE_TEXT = Slot("badge_text", R.string.slot_badge_text) { it.onSecondaryContainer }
+val BADGE_TEXT = Slot("badge_text", R.string.slot_badge_text, on = BADGE) { it.onSecondaryContainer }
 val BADGE_ACTIVE = Slot("active", R.string.slot_badge_active) { it.primary }
-val BADGE_ACTIVE_TEXT = Slot("active_text", R.string.slot_badge_active_text) { it.onPrimary }
+val BADGE_ACTIVE_TEXT = Slot("active_text", R.string.slot_badge_active_text, on = BADGE_ACTIVE) { it.onPrimary }
 
 /**
  * Parts of the app with colours of their own. Regions with the role slots get their own Material scheme
@@ -200,7 +203,13 @@ class AppColors(val dark: Boolean, base: ColorScheme, val overrides: Map<String,
 
     fun scheme(r: Region): ColorScheme = if (r == Region.GLOBAL) global else schemes.getOrPut(r) { global.withRoles(roles(r), dark) }
 
-    fun color(r: Region, slot: Slot): Color = overrides[r.key]?.get(slot.key)?.let { Color(it) } ?: slot.read(scheme(r))
+    fun color(r: Region, slot: Slot): Color {
+        overrides[r.key]?.get(slot.key)?.let { return Color(it) }
+        val default = slot.read(scheme(r))
+        val back = slot.on?.takeIf { isCustom(r, it) }?.let { color(r, it) } ?: return default
+        // E.g. a dark tab bar in light mode: grey labels would vanish, so they turn light (a bit muted, like before).
+        return if (contrast(default, back) >= 3f) default else onColor(back).let { if (slot == NAV_ICONS) lerp(it, back, 0.2f) else it }
+    }
 
     fun isCustom(r: Region, slot: Slot) = overrides[r.key]?.containsKey(slot.key) == true
 
@@ -256,9 +265,9 @@ fun ColorScheme.withRoles(roles: Map<Role, Color>, dark: Boolean): ColorScheme =
     Role.entries.fold(this) { s, r -> roles[r]?.let { s.with(r, it, dark) } ?: s }
 
 private fun ColorScheme.with(role: Role, c: Color, dark: Boolean): ColorScheme = when (role) {
-    Role.BACKGROUND -> copy(
+    Role.BACKGROUND -> readableOn(c).copy(
         background = c, surface = c, inverseOnSurface = c,
-        surfaceContainerLowest = lerp(c, if (dark) Color.Black else Color.White, if (dark) 0.3f else 0.7f),
+        surfaceContainerLowest = if (onColor(c) == Color.White) lerp(c, Color.Black, 0.3f) else lerp(c, Color.White, 0.7f),
         surfaceContainerLow = lerp(c, surfaceContainerHigh, 0.3f),
         surfaceContainer = lerp(c, surfaceContainerHigh, 0.55f),
         surfaceDim = lerp(c, Color.Black, 0.1f), surfaceBright = lerp(c, surfaceContainerHigh, 0.8f),
@@ -288,6 +297,24 @@ private fun ColorScheme.with(role: Role, c: Color, dark: Boolean): ColorScheme =
         tertiary = c, onTertiary = onColor(c),
         tertiaryContainer = lerp(c, background, if (dark) 0.65f else 0.78f),
         onTertiaryContainer = lerp(c, if (dark) Color.White else Color.Black, 0.7f),
+    )
+}
+
+/**
+ * A background the text no longer reads on (e.g. a dark Device tab in light mode): text, cards, lines and the
+ * soft accents turn to the other side, so only Background has to be set. Text or Muted set after it still win.
+ */
+private fun ColorScheme.readableOn(c: Color): ColorScheme {
+    if (contrast(onSurface, c) >= 4.5f) return this
+    val t = onColor(c)
+    val darkBg = t == Color.White
+    return copy(
+        onBackground = t, onSurface = t, onSecondaryContainer = t, inverseSurface = t, surfaceTint = t,
+        onSurfaceVariant = lerp(t, c, 0.35f), secondary = lerp(t, c, 0.35f), onSecondary = c,
+        outline = lerp(c, t, 0.45f), outlineVariant = lerp(c, t, 0.2f), surfaceVariant = lerp(c, t, 0.2f),
+        surfaceContainerHigh = lerp(c, t, 0.1f), surfaceContainerHighest = lerp(c, t, 0.16f), secondaryContainer = lerp(c, t, 0.2f),
+        primaryContainer = lerp(primary, c, if (darkBg) 0.65f else 0.78f), onPrimaryContainer = lerp(primary, t, 0.7f),
+        tertiaryContainer = lerp(tertiary, c, if (darkBg) 0.65f else 0.78f), onTertiaryContainer = lerp(tertiary, t, 0.7f),
     )
 }
 
