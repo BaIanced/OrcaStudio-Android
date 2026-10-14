@@ -852,6 +852,9 @@
     <string name="region_editor">Settings editor and printer setup</string>
     <string name="region_openscad">OpenSCAD editor</string>
     <string name="region_dialogs">Messages and dialogs</string>
+    <string name="design_sample_title">Sample dialog</string>
+    <string name="design_sample_text">Dialogs, errors and the message bar use these colors.</string>
+    <string name="design_sample_message">A message at the bottom of the screen</string>
     <string name="slot_nav_bar">Bar</string>
     <string name="slot_nav_pill">Selected tab pill</string>
     <string name="slot_nav_selected">Selected icon and label</string>

@@ -670,6 +670,9 @@
     <string name="region_editor">Einstellungseditor und Druckereinrichtung</string>
     <string name="region_openscad">OpenSCAD-Editor</string>
     <string name="region_dialogs">Meldungen und Dialoge</string>
+    <string name="design_sample_title">Beispieldialog</string>
+    <string name="design_sample_text">Dialoge, Fehler und die Meldungsleiste verwenden diese Farben.</string>
+    <string name="design_sample_message">Eine Meldung am unteren Bildschirmrand</string>
     <string name="slot_nav_bar">Leiste</string>
     <string name="slot_nav_pill">Markierung des gewählten Tabs</string>
     <string name="slot_nav_selected">Gewähltes Symbol und Beschriftung</string>
