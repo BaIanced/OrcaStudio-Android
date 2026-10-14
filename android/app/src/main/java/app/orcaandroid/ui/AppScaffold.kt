@@ -8,6 +8,8 @@ import app.orcaandroid.ui.theme.NAV_SELECTED
 import app.orcaandroid.ui.theme.Region
 import app.orcaandroid.ui.theme.ThemeDesignPanel
 import app.orcaandroid.ui.theme.Themed
+import app.orcaandroid.ui.theme.contrast
+import app.orcaandroid.ui.theme.onColor
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -161,6 +163,8 @@ private fun MainLayout(state: UiState, vm: AppViewModel) {
     val navPill = colors.color(Region.NAV, NAV_PILL)
     val navSelected = colors.color(Region.NAV, NAV_SELECTED)
     val navIcons = colors.color(Region.NAV, NAV_ICONS)
+    // The selected label sits on the bar under the pill: the pill's text colour may not read there.
+    val navLabel = if (contrast(navSelected, navBar) >= 3f) navSelected else onColor(navBar)
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wide = maxWidth >= WIDE_LAYOUT
         val content: @Composable (Modifier) -> Unit = { m ->
@@ -188,7 +192,7 @@ private fun MainLayout(state: UiState, vm: AppViewModel) {
                                 icon = { Icon(d.icon, null) },
                                 label = { Text(stringResource(d.label)) },
                                 colors = androidx.compose.material3.NavigationRailItemDefaults.colors(selectedIconColor = navSelected,
-                                    selectedTextColor = navSelected, indicatorColor = navPill, unselectedIconColor = navIcons, unselectedTextColor = navIcons),
+                                    selectedTextColor = navLabel, indicatorColor = navPill, unselectedIconColor = navIcons, unselectedTextColor = navIcons),
                             )
                         }
                     }
@@ -207,7 +211,7 @@ private fun MainLayout(state: UiState, vm: AppViewModel) {
                             icon = { Icon(d.icon, null) },
                             label = { Text(stringResource(d.label)) },
                             colors = androidx.compose.material3.NavigationBarItemDefaults.colors(selectedIconColor = navSelected,
-                                selectedTextColor = navSelected, indicatorColor = navPill, unselectedIconColor = navIcons, unselectedTextColor = navIcons),
+                                selectedTextColor = navLabel, indicatorColor = navPill, unselectedIconColor = navIcons, unselectedTextColor = navIcons),
                         )
                     }
                 }
