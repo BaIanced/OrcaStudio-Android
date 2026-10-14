@@ -30,6 +30,7 @@ import androidx.core.view.WindowCompat
 import app.orcaandroid.R
 import app.orcaandroid.core.ThemeMode
 import app.orcaandroid.core.ThemeSpec
+import kotlin.math.abs
 
 // Prusa-style orange on neutral greys (user, 2026-10-14; values from prusa3d.com's CSS: brand #FD5000,
 // buttons #FF7300, text #1E1F24). Greys are set explicitly: Material's defaults are purple-tinted.
@@ -160,9 +161,14 @@ val NAV_ICONS = Slot("icons", R.string.slot_nav_icons, on = NAV_BAR) { it.onSurf
 val VIEW_BACKGROUND = Slot("background", R.string.slot_view_background) { it.surfaceContainerHighest }
 val VIEW_GRID = Slot("grid", R.string.slot_view_grid) { it.outline }
 val VIEW_ACTIVE_PLATE = Slot("active_plate", R.string.slot_view_active_plate) { it.primary }
-// Not primary: an orange theme would hide the selection on orange parts.
-val VIEW_SELECTION = Slot("selection", R.string.slot_view_selection) { it.tertiary }
-val VIEW_PART = Slot("part", R.string.slot_view_part) { Color(0xFFF59433) }
+private val PART_ORANGE = Color(0xFFF59433)
+// Not primary: an orange theme would hide the selection on orange parts. A Status colour close to orange (Prusa
+// Industrial's yellow, Minimal Warm's amber) is hidden the same way, so those get the Prusa blue instead.
+val VIEW_SELECTION = Slot("selection", R.string.slot_view_selection) { s ->
+    s.tertiary.takeUnless { nearHue(it, PART_ORANGE) }
+        ?: if (s.background.luminance() < 0.5f) Color(0xFF7FB3FF) else Color(0xFF2F6FD0)
+}
+val VIEW_PART = Slot("part", R.string.slot_view_part) { PART_ORANGE }
 
 val BADGE = Slot("badge", R.string.slot_badge) { it.secondaryContainer }
 val BADGE_TEXT = Slot("badge_text", R.string.slot_badge_text, on = BADGE) { it.onSecondaryContainer }
@@ -347,6 +353,13 @@ fun contrast(a: Color, b: Color): Float {
 }
 
 private fun hsl(c: Color) = FloatArray(3).also { ColorUtils.colorToHSL(c.toArgb(), it) }
+
+/** Whether [a] is a saturated colour within 60° of [b]'s hue (greys have no hue to clash with). */
+private fun nearHue(a: Color, b: Color): Boolean {
+    val (ha, sa) = hsl(a)
+    val d = abs(ha - hsl(b)[0]).let { minOf(it, 360f - it) }
+    return sa >= 0.25f && d < 60f
+}
 
 /** A dark palette's light counterpart: neutrals in the background's hue, accents darkened to 3:1 on the background. */
 private fun lightFrom(dark: Map<Role, Color>): Map<Role, Color> {
