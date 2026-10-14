@@ -56,6 +56,7 @@ class Store(val app: Application, val scope: CoroutineScope) {
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
+            android.util.Log.w("OrcaStore", "operation failed", e)
             update { it.copy(error = e.message ?: e.toString()) }
         } finally {
             if (busy != null) update { it.copy(busy = null) }
