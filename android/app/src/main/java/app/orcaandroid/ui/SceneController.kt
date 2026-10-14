@@ -342,7 +342,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
                 while (true) {
                     val p = synchronized(pendingPaint) { pendingPaint.removeFirstOrNull() } ?: break
                     val hit = pick(p.origin, p.dir, p.section) ?: continue
-                    store.applyScene(engine.paint(hit, camera, tool.radius, tool.kind, tool.state, p.newStroke))
+                    store.applyScene(engine.paint(hit, camera, tool.radius, tool.kind, tool.state, p.newStroke, p.section))
                 }
             }
         }
