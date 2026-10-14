@@ -212,7 +212,7 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel, d
         }
         // Plain file downloads (Printables, Thingiverse, MakerWorld's "Download STL/3MF").
         setDownloadListener { url, _, disposition, mime, _ ->
-            val name = URLUtil.guessFileName(url, disposition, mime)
+            val name = ModelDownloads.dispositionName(disposition) ?: URLUtil.guessFileName(url, disposition, mime)
             when {
                 // Files the page builds itself (profile exports): the page reads them back for us.
                 url.startsWith("blob:") -> {
