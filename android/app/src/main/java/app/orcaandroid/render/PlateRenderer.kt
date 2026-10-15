@@ -381,6 +381,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glUniform3fv(loc(meshProgram, "uDrag"), 1, dragOffset, 0)
         glUniform3fv(loc(meshProgram, "uPartColor"), 1, colors.part, 0)
         glUniform3fv(loc(meshProgram, "uSelectedColor"), 1, colors.selected, 0)
+        camera.eye().let { glUniform3f(loc(meshProgram, "uEye"), it.x, it.y, it.z) }
         setFilamentColors(meshProgram)
         setSection(meshProgram)
         glBindBuffer(GL_ARRAY_BUFFER, vbo)

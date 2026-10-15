@@ -503,7 +503,9 @@ DynamicPrintConfig OrcaEngine::selection_config()
     if (auto *matrix = config.option<ConfigOptionFloats>("flush_volumes_matrix")) {
         const size_t filaments = config.option<ConfigOptionStrings>("filament_colour")->values.size();
         const auto  *mult      = config.option<ConfigOptionFloats>("flush_multiplier");
-        const size_t heads     = std::max<size_t>(1, mult ? mult->values.size() : 1);
+        const auto  *nozzles   = config.option<ConfigOptionFloats>("nozzle_diameter");
+        // ToolOrdering splits the matrix per nozzle (size / nozzle count): a dual-nozzle printer needs one block each.
+        const size_t heads     = std::max<size_t>({1, mult ? mult->values.size() : 1, nozzles ? nozzles->values.size() : 1});
         // Also for one filament: an empty matrix there crashed ToolOrdering (reads filaments^2 floats).
         if (filaments >= 1 && matrix->values.size() != filaments * filaments * heads) {
             const std::vector<double> one = auto_flush_matrix(config);

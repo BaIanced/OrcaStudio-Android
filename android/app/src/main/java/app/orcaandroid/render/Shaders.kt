@@ -46,6 +46,7 @@ internal object Shaders {
         uniform vec3 uFilamentColors[16];
         uniform highp vec4 uSection;
         uniform int uSectionOn;
+        uniform highp vec3 uEye;
         in vec3 vNormal;
         in highp vec3 vWorld;
         flat in float vType;
@@ -89,6 +90,21 @@ internal object Shaders {
             else if (type == 99) { base = vec3(0.70, 0.89, 0.67); alpha = 0.5; }
             else if (type == 98) { base = vec3(0.96, 0.58, 0.2); alpha = 0.45; }
             else base = uFilamentColors[clamp(type - 10, 0, 15)];
+            if (part) {
+                // Soft studio look for the model: sky/ground ambient (z is up), a key and a fill light, a
+                // faint plastic highlight and a cool rim on silhouettes. The slice preview keeps its flat colours.
+                vec3 v = normalize(uEye - vWorld);
+                if (dot(n, v) < 0.0) n = -n;
+                vec3 lk = normalize(vec3(0.35, -0.55, 0.75));
+                vec3 lf = normalize(vec3(-0.6, 0.4, 0.35));
+                float sky = 0.5 + 0.5 * n.z;
+                float diff = 0.22 + 0.16 * sky + 0.50 * max(dot(n, lk), 0.0) + 0.20 * max(dot(n, lf), 0.0);
+                float spec = pow(max(dot(n, normalize(lk + v)), 0.0), 36.0) * 0.16;
+                float rim = pow(1.0 - max(dot(n, v), 0.0), 3.0) * 0.14;
+                vec3 shaded = base * diff + vec3(spec) + vec3(0.55, 0.7, 1.0) * rim * (0.4 + 0.6 * sky);
+                color = vec4(shaded, alpha);
+                return;
+            }
             color = vec4(base * light, alpha);
         }"""
 
