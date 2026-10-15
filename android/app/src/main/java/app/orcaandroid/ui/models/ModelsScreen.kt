@@ -18,12 +18,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.KeyboardDoubleArrowDown
 import androidx.compose.material.icons.filled.Refresh
+import app.orcaandroid.ui.components.SplitAroundCutout
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -424,11 +426,14 @@ fun ModelsScreen(browser: ModelBrowser) {
     // Android's back button goes back in the page history first.
     androidx.activity.compose.BackHandler(enabled = browser.canGoBack) { browser.back() }
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = browser::back, enabled = browser.canGoBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back)) }
-            IconButton(onClick = browser::forward, enabled = browser.canGoForward) { Icon(Icons.AutoMirrored.Filled.ArrowForward, stringResource(R.string.forward)) }
-            IconButton(onClick = browser::reload) { Icon(Icons.Default.Refresh, stringResource(R.string.reload)) }
-            IconButton(onClick = { browser.open(browser.site) }) { Icon(Icons.Default.Home, stringResource(R.string.home)) }
+        // Fullscreen portrait: the buttons and the site chips share the strip beside the camera hole.
+        SplitAroundCutout(Modifier.padding(horizontal = 4.dp), left = {
+            val small = Modifier.size(40.dp)
+            IconButton(onClick = browser::back, small, enabled = browser.canGoBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back)) }
+            IconButton(onClick = browser::forward, small, enabled = browser.canGoForward) { Icon(Icons.AutoMirrored.Filled.ArrowForward, stringResource(R.string.forward)) }
+            IconButton(onClick = browser::reload, small) { Icon(Icons.Default.Refresh, stringResource(R.string.reload)) }
+            IconButton(onClick = { browser.open(browser.site) }, small) { Icon(Icons.Default.Home, stringResource(R.string.home)) }
+        }, right = {
             Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
                 ModelSite.entries.forEach { s ->
                     FilterChip(selected = browser.site == s, onClick = { browser.open(s) }, label = { Text(s.label) }, modifier = Modifier.padding(horizontal = 3.dp))
@@ -439,7 +444,7 @@ fun ModelsScreen(browser: ModelBrowser) {
                 }
             }
             AdBlockMenu(browser)
-        }
+        })
         if (browser.site == ModelSite.MAKERWORLD && !browser.fullSite) MakerWorldLinks(browser)
         if (browser.picking || browser.picked != null) PickerBar(browser)
         if (browser.progress < 100) LinearProgressIndicator(progress = { browser.progress / 100f }, modifier = Modifier.fillMaxWidth())

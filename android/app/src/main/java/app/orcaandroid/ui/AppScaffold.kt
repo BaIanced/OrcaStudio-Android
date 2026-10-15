@@ -175,7 +175,8 @@ private fun MainLayout(state: UiState, vm: AppViewModel) {
                 when (state.screen) {
                     Screen.PREPARE, Screen.PREVIEW -> Workspace(state, vm, wide)
                     Screen.DEVICE -> Themed(Region.DEVICE, Modifier.fillMaxSize(), fill = true) { Box(belowHole) { DeviceScreen(state, vm) } }
-                    Screen.MODELS -> Themed(Region.MODELS, Modifier.fillMaxSize(), fill = true) { Box(belowHole) { ModelsScreen(browser.value) } }
+                    // The Models toolbar uses the camera strip itself (SplitAroundCutout), so no belowHole here.
+                    Screen.MODELS -> Themed(Region.MODELS, Modifier.fillMaxSize(), fill = true) { ModelsScreen(browser.value) }
                     Screen.MORE -> Themed(Region.MORE, Modifier.fillMaxSize(), fill = true) { Box(belowHole) { MoreScreen(state, vm) } }
                 }
             }

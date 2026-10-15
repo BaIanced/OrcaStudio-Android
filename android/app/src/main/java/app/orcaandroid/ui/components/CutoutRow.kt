@@ -68,3 +68,40 @@ fun CutoutRow(
         }
     }
 }
+
+/**
+ * A toolbar split around a camera cutout in its way (fullscreen portrait): [left] keeps to the start edge,
+ * [right] fills the space past the hole. When [left] doesn't fit before the hole (or there is no hole in the
+ * way) it lays out as one row, [left] then [right] filling the rest, and below the hole if that is in the way.
+ */
+@Composable
+fun SplitAroundCutout(modifier: Modifier = Modifier, gap: Dp = 4.dp, left: @Composable RowScope.() -> Unit, right: @Composable RowScope.() -> Unit) {
+    val view = LocalView.current
+    WindowInsets.displayCutout.getTop(LocalDensity.current)
+    val holes = view.rootWindowInsets?.displayCutout?.boundingRects.orEmpty()
+    var origin by remember { mutableStateOf(Offset.Zero) }
+    Layout(
+        { Row(verticalAlignment = Alignment.CenterVertically, content = left); Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, content = right) },
+        modifier.fillMaxWidth().onGloballyPositioned { origin = it.positionInWindow() },
+    ) { ms, c ->
+        val g = gap.roundToPx()
+        val w = c.maxWidth
+        val lp = ms[0].measure(c.copy(minWidth = 0, minHeight = 0))
+        val x0 = origin.x.roundToInt()
+        val y0 = origin.y.roundToInt()
+        val hit = holes.filter { it.top < y0 + lp.height && it.bottom > y0 && it.left < x0 + w && it.right > x0 }
+            .map { android.graphics.Rect(it.left - x0, it.top - y0, it.right - x0, it.bottom - y0) }
+        val holeLeft = hit.minOfOrNull { it.left } ?: w
+        val holeRight = hit.maxOfOrNull { it.right } ?: 0
+        val beside = hit.isNotEmpty() && holeLeft - g >= lp.width
+        val shift = if (hit.isEmpty() || beside) 0 else hit.maxOf { it.bottom }
+        val rx = if (beside) holeRight + g else lp.width
+        val rw = (w - rx).coerceAtLeast(0)
+        val rp = ms[1].measure(c.copy(minWidth = rw, maxWidth = rw, minHeight = 0))
+        val h = maxOf(lp.height, rp.height, if (beside) hit.maxOf { it.bottom } else 0)
+        layout(w, shift + h) {
+            lp.place(0, shift + (h - lp.height) / 2)
+            rp.place(rx, shift + (h - rp.height) / 2)
+        }
+    }
+}
