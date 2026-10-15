@@ -88,6 +88,7 @@ import app.orcaandroid.R
 import app.orcaandroid.render.PlateView
 import app.orcaandroid.ui.components.Viewport
 import app.orcaandroid.ui.device.DeviceScreen
+import app.orcaandroid.ui.prepare.PlateSwitcherBar
 import app.orcaandroid.ui.prepare.PrepareOverlay
 import app.orcaandroid.ui.prepare.ProblemFocus
 import app.orcaandroid.ui.prepare.PreparePanel
@@ -359,7 +360,10 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
             val height = (if (PanelSize.height > 0f) PanelSize.height.dp else 132.dp).coerceIn(56.dp, (total * 0.85f).coerceAtLeast(56.dp))
             Column(Modifier.fillMaxSize()) {
                 viewport(Modifier.weight(1f).fillMaxWidth())
-                Themed(panelRegion) { DragHandle(vertical = false) { d -> PanelSize.height = (height - d).value } }
+                val onHandle = state.lab.platesOnHandle && state.screen == Screen.PREPARE
+                Themed(panelRegion) {
+                    DragHandle(vertical = false, header = if (onHandle) ({ PlateSwitcherBar(state, vm, plateView, Modifier.fillMaxWidth().padding(horizontal = 8.dp)) }) else null) { d -> PanelSize.height = (height - d).value }
+                }
                 Surface(Modifier.height(height).fillMaxWidth(), color = sheetColors.surfaceContainerLow, contentColor = sheetColors.onSurface) {
                     Themed(panelRegion) { Box(Modifier.fillMaxSize()) { panel() } }
                 }
@@ -370,9 +374,19 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
 
 /** A grip between two panes; dragging it reports the move ([vertical] grip: sideways, else up/down). */
 @Composable
-private fun DragHandle(vertical: Boolean, onDrag: (androidx.compose.ui.unit.Dp) -> Unit) {
+private fun DragHandle(vertical: Boolean, header: (@Composable () -> Unit)? = null, onDrag: (androidx.compose.ui.unit.Dp) -> Unit) {
     val density = androidx.compose.ui.platform.LocalDensity.current
     val drag = androidx.compose.foundation.gestures.rememberDraggableState { px -> onDrag(with(density) { px.toDp() }) }
+    // Something nested on the grip (the plate switcher): it rides on top of the grip row, which alone drags.
+    if (header != null && !vertical) {
+        Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainer)) {
+            header()
+            Box(Modifier.height(20.dp).fillMaxWidth().draggable(drag, Orientation.Vertical), contentAlignment = Alignment.Center) {
+                Box(Modifier.size(40.dp, 4.dp).background(MaterialTheme.colorScheme.outline, RoundedCornerShape(2.dp)))
+            }
+        }
+        return
+    }
     Box(
         (if (vertical) Modifier.width(16.dp).fillMaxHeight() else Modifier.height(20.dp).fillMaxWidth())
             .background(MaterialTheme.colorScheme.surfaceContainer)

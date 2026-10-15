@@ -29,17 +29,22 @@ data class LayoutLab(
     val overlayScale: Float = 1f,
     /** Hide the status and navigation bars in portrait too (landscape always hides them). */
     val fullscreenPortrait: Boolean = false,
+    /** Portrait: the plate switcher sits on the grip above the settings panel instead of over the 3D view. */
+    val platesOnHandle: Boolean = false,
+    /** Size of the plate switcher alone (tabs, filmstrip tiles or chips). */
+    val plateScale: Float = 1f,
 ) {
     fun toJson(): String = JSONObject()
         .put("plates", plates.name).put("plateLabel", plateLabel).put("overlayAlpha", overlayAlpha.toDouble())
         .put("toolsLeft", toolsLeft).put("panelTucked", panelTucked).put("panelWidth", panelWidth.toDouble())
         .put("textScale", textScale.toDouble()).put("uiScale", uiScale.toDouble()).put("overlayScale", overlayScale.toDouble())
-        .put("fullscreenPortrait", fullscreenPortrait).toString()
+        .put("fullscreenPortrait", fullscreenPortrait).put("platesOnHandle", platesOnHandle).put("plateScale", plateScale.toDouble()).toString()
 
     companion object {
         val TEXT_SCALES = 0.7f..1.3f
         val UI_SCALES = 0.7f..1.3f
         val OVERLAY_SCALES = 0.6f..1.2f
+        val PLATE_SCALES = 0.6f..1.6f
 
         fun fromJson(json: String?): LayoutLab {
             val o = json?.let { runCatching { JSONObject(it) }.getOrNull() } ?: return LayoutLab()
@@ -55,6 +60,8 @@ data class LayoutLab(
                 uiScale = o.optDouble("uiScale", 1.0).toFloat().coerceIn(UI_SCALES.start, UI_SCALES.endInclusive),
                 overlayScale = o.optDouble("overlayScale", 1.0).toFloat().coerceIn(OVERLAY_SCALES.start, OVERLAY_SCALES.endInclusive),
                 fullscreenPortrait = o.optBoolean("fullscreenPortrait", d.fullscreenPortrait),
+                platesOnHandle = o.optBoolean("platesOnHandle", d.platesOnHandle),
+                plateScale = o.optDouble("plateScale", 1.0).toFloat().coerceIn(PLATE_SCALES.start, PLATE_SCALES.endInclusive),
             )
         }
     }

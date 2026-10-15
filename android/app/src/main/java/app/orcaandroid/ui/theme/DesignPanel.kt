@@ -57,6 +57,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -69,6 +70,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
@@ -104,9 +107,21 @@ fun ThemeDesignPanel(state: UiState, vm: AppViewModel) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val width = (maxWidth - 16.dp).coerceAtMost(360.dp)
             val listHeight = maxHeight * 0.55f
+            // The panel grows upward from the bottom: keep it fully on screen wherever it was dragged, also once unfolded.
+            var panelHeight by remember { mutableIntStateOf(0) }
+            val density = LocalDensity.current
+            val topInset = WindowInsets.statusBars.getTop(density)
+            val shown = with(density) {
+                val gap = 8.dp.toPx()
+                val minX = -(constraints.maxWidth - width.toPx() - 2 * gap)
+                val minY = -(constraints.maxHeight - 80.dp.toPx() - panelHeight - topInset - gap)
+                Offset(drag.x.coerceIn(minX.coerceAtMost(0f), 0f), drag.y.coerceIn(minY.coerceAtMost(0f), 72.dp.toPx()))
+            }
+            LaunchedEffect(shown) { if (shown != drag) drag = shown }
             Surface(
                 Modifier.align(Alignment.BottomEnd).padding(8.dp).padding(bottom = 72.dp)
-                    .offset { IntOffset(drag.x.roundToInt(), drag.y.roundToInt()) }.width(width),
+                    .offset { IntOffset(shown.x.roundToInt(), shown.y.roundToInt()) }.width(width)
+                    .onSizeChanged { panelHeight = it.height },
                 // Plain container colour: tonal elevation would tint the panel with the accent.
                 shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh, shadowElevation = 8.dp,
             ) {

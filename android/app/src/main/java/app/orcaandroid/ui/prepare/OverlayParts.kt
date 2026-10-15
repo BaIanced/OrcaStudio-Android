@@ -92,6 +92,14 @@ import androidx.compose.ui.window.PopupPositionProvider
 /** Opacity of the control backgrounds over the 3D view (Layout lab). */
 val LocalOverlayAlpha = compositionLocalOf { 0.85f }
 
+/** Scales the plate switcher alone (Layout lab), on top of the interface and overlay sizes. */
+@Composable
+fun PlateScale(scale: Float, content: @Composable () -> Unit) {
+    val base = androidx.compose.ui.platform.LocalDensity.current
+    androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides
+        androidx.compose.ui.unit.Density(base.density * scale, base.fontScale), content = content)
+}
+
 /** A short label for an icon-only control: shown on long press (touch) and on mouse hover. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

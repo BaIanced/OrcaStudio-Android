@@ -8,6 +8,7 @@
 // thread while slice() is running.
 
 #include <array>
+#include <optional>
 #include <deque>
 #include <map>
 #include <functional>
@@ -318,6 +319,11 @@ private:
     void                  write_mesh();
     std::array<double, 4> bed_rect() const; // min x, min y, max x, max y of plate 0
     std::array<double, 2> plate_origin(int plate) const;
+    // The prime tower the plate prints, in plate coordinates: the plate's own or the preset's position kept on the bed using the
+    // slicer's footprint estimate (depth, brim, cone), as the desktop's placement clamp does. Empty when the plate prints none.
+    struct TowerBox { double x, y, width, depth, height; };
+    std::optional<TowerBox> tower_box(const Slic3r::DynamicPrintConfig &config, int plate) const;
+    std::vector<std::optional<TowerBox>> m_tower_boxes; // per plate, as of the last write_mesh()
     int                   plate_of(const Slic3r::ModelObject &obj, size_t instance) const;
     // Arranges the instances on `plate`; with `movable`, only those move around the others.
     void                  arrange_plate(int plate, const std::vector<std::pair<Slic3r::ModelObject *, size_t>> *movable = nullptr);

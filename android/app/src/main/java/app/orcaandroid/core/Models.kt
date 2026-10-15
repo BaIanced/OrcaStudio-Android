@@ -124,6 +124,8 @@ data class Plate(
     val instances: Int,
     val layerGcodes: List<LayerGcode>,
     val wipeTower: Pair<Float, Float>?,
+    /** The prime tower box as drawn and sliced: x, y, width, depth, height in plate mm; null when the plate prints none. */
+    val tower: FloatArray? = null,
 )
 
 data class Instance(

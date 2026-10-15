@@ -151,7 +151,7 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
                 Text(stringResource(R.string.project_filaments), style = MaterialTheme.typography.titleSmall)
                 SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                     listOf("ask" to R.string.pf_ask, "mine" to R.string.pf_mine, "project" to R.string.pf_project, "both" to R.string.pf_both).forEachIndexed { i, (mode, label) ->
-                        SegmentedButton(state.projectFilaments == mode, { vm.setProjectFilaments(mode) }, SegmentedButtonDefaults.itemShape(i, 4)) { Text(stringResource(label)) }
+                        SegmentedButton(state.projectFilaments == mode, { vm.setProjectFilaments(mode) }, SegmentedButtonDefaults.itemShape(i, 4)) { Text(stringResource(label), maxLines = 1) }
                     }
                 }
                 Text(stringResource(R.string.project_filaments_text), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -250,12 +250,14 @@ private fun LayoutLabSection(state: UiState, vm: AppViewModel) {
         }
         SwitchRow(stringResource(R.string.lab_plate_label), lab.plateLabel, onChange = { vm.setLab(lab.copy(plateLabel = it)) })
         SwitchRow(stringResource(R.string.lab_tools_left), lab.toolsLeft, onChange = { vm.setLab(lab.copy(toolsLeft = it)) })
+        SwitchRow(stringResource(R.string.lab_plates_on_handle), lab.platesOnHandle, onChange = { vm.setLab(lab.copy(platesOnHandle = it)) })
         SwitchRow(stringResource(R.string.lab_fullscreen_portrait), lab.fullscreenPortrait, onChange = { vm.setLab(lab.copy(fullscreenPortrait = it)) })
         Text(stringResource(R.string.lab_overlay_alpha, (lab.overlayAlpha * 100).toInt()), style = MaterialTheme.typography.bodyMedium)
         androidx.compose.material3.Slider(lab.overlayAlpha, { vm.setLab(lab.copy(overlayAlpha = it)) }, valueRange = 0.2f..1f)
         Text(stringResource(R.string.lab_scale_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         ScaleSlider(R.string.lab_text_scale, lab.textScale, app.orcaandroid.core.LayoutLab.TEXT_SCALES) { vm.setLab(state.lab.copy(textScale = it)) }
         ScaleSlider(R.string.lab_ui_scale, lab.uiScale, app.orcaandroid.core.LayoutLab.UI_SCALES) { vm.setLab(state.lab.copy(uiScale = it)) }
+        ScaleSlider(R.string.lab_plate_scale, lab.plateScale, app.orcaandroid.core.LayoutLab.PLATE_SCALES) { vm.setLab(state.lab.copy(plateScale = it)) }
         ScaleSlider(R.string.lab_overlay_scale, lab.overlayScale, app.orcaandroid.core.LayoutLab.OVERLAY_SCALES) { vm.setLab(state.lab.copy(overlayScale = it)) }
         TextButton(onClick = { vm.setLab(app.orcaandroid.core.LayoutLab()) }) { Text(stringResource(R.string.reset)) }
     }

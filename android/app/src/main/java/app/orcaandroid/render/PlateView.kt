@@ -32,6 +32,8 @@ interface PlateListener {
     fun onBrushScroll(steps: Int)
     /** The selected copies were dragged by (dx, dy) mm on the bed. */
     fun onMoved(dx: Float, dy: Float)
+    /** The prime tower of [plate] was dragged by (dx, dy) mm on the bed. */
+    fun onTowerMoved(plate: Int, dx: Float, dy: Float) {}
     /** Paint stroke sample at screen (x, y); [newStroke] for the first sample of a stroke. */
     fun onPaint(x: Float, y: Float, newStroke: Boolean)
     /** A drag began inside the selection's bounding box: [result] gets whether the mesh itself lies under (x, y). */
@@ -52,6 +54,9 @@ interface PlateListener {
  * by rectangle, Alt+click selects a part, Ctrl+wheel sizes the paint brush and Alt+wheel moves the
  * section view's cut.
  */
+/** A plate's prime tower: its world bounding box. */
+class TowerBox(val plate: Int, val lo: Vec3, val hi: Vec3)
+
 @SuppressLint("ViewConstructor")
 class PlateView(context: Context) : GLSurfaceView(context) {
 
@@ -62,6 +67,9 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     var mode = InteractionMode.NAVIGATE
     /** World bounding boxes (min, max) of the selected copies; a drag starting on them moves them. */
     var selectedBounds: List<Pair<Vec3, Vec3>> = emptyList()
+    /** The prime towers (world mm); a drag starting on one moves it. */
+    var towerBoxes: List<TowerBox> = emptyList()
+    private var towerPlate = -1
 
     private var lastX = 0f
     private var lastY = 0f
@@ -171,6 +179,13 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                     // The box is bigger than the mesh at some angles: a miss on the mesh hands the touch back to the camera.
                     val id = ++dragCheckId
                     listener?.onDragCheck(event.x, event.y) { hit -> if (!hit && id == dragCheckId && dragging) cancelDrag() }
+                } else if (mode == InteractionMode.NAVIGATE) {
+                    towerBoxes.firstOrNull { rayHitsBox(event.x, event.y, listOf(it.lo to it.hi)) }?.let { t ->
+                        towerPlate = t.plate
+                        dragging = true
+                        dragStart = camera.rayOnPlane(event.x, event.y)
+                        queueEvent { renderer.dragTower = true }
+                    }
                 }
             }
             MotionEvent.ACTION_POINTER_DOWN -> {
@@ -231,7 +246,10 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                         // made the object jump back to its old spot until the engine answered.
                         dragging = false
                         dragStart = null
-                        listener?.onMoved(end.x - start.x, end.y - start.y)
+                        val plate = towerPlate
+                        towerPlate = -1
+                        if (plate >= 0) listener?.onTowerMoved(plate, end.x - start.x, end.y - start.y)
+                        else listener?.onMoved(end.x - start.x, end.y - start.y)
                     } else {
                         cancelDrag()
                         if (!moved) listener?.onTap(event.x, event.y, additive, part)
@@ -291,13 +309,16 @@ class PlateView(context: Context) : GLSurfaceView(context) {
         if (dragging) queueEvent { renderer.dragOffset = floatArrayOf(0f, 0f, 0f) }
         dragging = false
         dragStart = null
+        towerPlate = -1
     }
 
     /** Ray / axis-aligned box test against the selected object's instances. */
-    private fun hitsSelection(x: Float, y: Float): Boolean {
-        if (selectedBounds.isEmpty()) return false
+    private fun hitsSelection(x: Float, y: Float) = rayHitsBox(x, y, selectedBounds)
+
+    private fun rayHitsBox(x: Float, y: Float, boxes: List<Pair<Vec3, Vec3>>): Boolean {
+        if (boxes.isEmpty()) return false
         val (o, d) = camera.ray(x, y)
-        return selectedBounds.any { (lo, hi) ->
+        return boxes.any { (lo, hi) ->
             var tMin = 0f
             var tMax = Float.MAX_VALUE
             val os = floatArrayOf(o.x, o.y, o.z); val ds = floatArrayOf(d.x, d.y, d.z)

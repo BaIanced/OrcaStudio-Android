@@ -569,32 +569,13 @@ json OrcaEngine::slice(int plate, const std::string &gcode_out, const std::strin
         config.set_deserialize_strict("curr_bed_type", m_plates[plate].bed_type);
     else if (const std::string def = default_bed_type(); !def.empty())
         config.set_deserialize_strict("curr_bed_type", def);
-    if (m_plates[plate].has_wipe_tower_pos) {
+    if (const auto tower = tower_box(config, plate)) {
+        // Same box the 3D view shows: the position kept on the bed with the tower's real depth, brim and cone.
+        config.option<ConfigOptionFloats>("wipe_tower_x", true)->values = {tower->x};
+        config.option<ConfigOptionFloats>("wipe_tower_y", true)->values = {tower->y};
+    } else if (m_plates[plate].has_wipe_tower_pos) {
         config.option<ConfigOptionFloats>("wipe_tower_x", true)->values = {m_plates[plate].wipe_tower_x};
         config.option<ConfigOptionFloats>("wipe_tower_y", true)->values = {m_plates[plate].wipe_tower_y};
-    } else if (config.has("enable_prime_tower") && config.opt_bool("enable_prime_tower") && config.has("prime_tower_width")) {
-        // The preset's tower position can lie partly off a smaller bed ("Prime Tower is partially outside the printable
-        // area"); keep it on the bed like the 3D view shows it (OrcaScene.cpp tower mesh).
-        const auto &pts = config.option<ConfigOptionPoints>("printable_area")->values;
-        if (!pts.empty()) {
-            double minx = pts[0].x(), miny = pts[0].y(), maxx = minx, maxy = miny;
-            for (const auto &q : pts) {
-                minx = std::min(minx, q.x()); maxx = std::max(maxx, q.x());
-                miny = std::min(miny, q.y()); maxy = std::max(maxy, q.y());
-            }
-            const double brim = config.has("prime_tower_brim_width") ? std::max(0., config.opt_float("prime_tower_brim_width")) : 0.;
-            const double margin = brim + 1.;
-            const double width = std::max(1., config.opt_float("prime_tower_width")) + 2. * margin;
-            auto fit = [&](const char *key, double lo, double hi) {
-                auto *o = config.option<ConfigOptionFloats>(key, true);
-                if (o->values.empty())
-                    o->values = {0.};
-                double &v = o->values[std::min<size_t>(plate, o->values.size() - 1)];
-                v = std::clamp(v, lo + margin, std::max(lo + margin, hi - width + margin));
-            };
-            fit("wipe_tower_x", minx, maxx);
-            fit("wipe_tower_y", miny, maxy);
-        }
     }
     const size_t filament_count = m_sel_filaments.size();
 

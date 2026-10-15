@@ -292,6 +292,7 @@ class Engine(private val cacheDir: File) {
                         LayerGcode(g.getDouble("z").toFloat(), g.getString("type"), g.optString("extra"), g.optString("color"), g.optInt("extruder", 1))
                     }.orEmpty(),
                     wipeTower = wt?.let { it[0] to it[1] },
+                    tower = p.optJSONArray("tower")?.floats(),
                 )
             } },
             objects = o.getJSONArray("objects").let { a -> List(a.length()) { i ->

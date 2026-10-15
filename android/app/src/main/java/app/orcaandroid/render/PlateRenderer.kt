@@ -10,6 +10,8 @@ import javax.microedition.khronos.opengles.GL10
 
 /** Selection id of a copy in the scene mesh: object * stride + instance (the engine's INSTANCE_ID_STRIDE). */
 const val INSTANCE_ID_STRIDE = 4096
+/** The scene mesh tags the prime tower with id -2 (OrcaScene.cpp write_mesh). */
+private val TOWER_IDS = floatArrayOf(-2f)
 
 /** Plate badge size and gap, as fractions of the bed depth (desktop: 16 and 3 mm per 200 mm, a bit bigger for touch). */
 private const val BADGE_SIZE = 0.1f
@@ -58,6 +60,12 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var selectedIds = FloatArray(0)
     /** Live offset of the selected copies while they are dragged. */
     var dragOffset = floatArrayOf(0f, 0f, 0f)
+        set(v) {
+            field = v
+            if (v[0] == 0f && v[1] == 0f) dragTower = false
+        }
+    /** The prime tower (selection id -2) is the thing being dragged: it takes the highlight and [dragOffset]. */
+    var dragTower = false
     var showPreview = false
     var previewOrigin = floatArrayOf(0f, 0f)
     var previewStyle = PreviewStyle()
@@ -228,7 +236,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         val bounds = meshBounds
         val shadow = contactShadows && !showPreview && models && meshCount > 0 && bounds != null
         if (shadow) {
-            val key = listOf(meshVersion, dragOffset.toList(), selectedIds.toList(), section?.toList())
+            val key = listOf(meshVersion, dragOffset.toList(), selectedIds.toList(), dragTower, section?.toList())
             // A dragged copy may leave the footprint: widen it by the drag.
             // A fixed widening for the whole drag: any change of the map area mid-drag rescales the texels and
             // shows as a step ("strobe") in the shadow.
@@ -478,8 +486,9 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glUniformMatrix4fv(loc(meshProgram, "uMvp"), 1, false, mvp, 0)
         glUniform1i(loc(meshProgram, "uPass"), pass)
         glUniform1f(loc(meshProgram, "uShadowFade"), SHADOW_FADE_MM)
-        glUniform1fv(loc(meshProgram, "uSelected"), Shaders.MAX_SELECTED, selectedIds.copyOf(Shaders.MAX_SELECTED), 0)
-        glUniform1i(loc(meshProgram, "uSelectedCount"), minOf(selectedIds.size, Shaders.MAX_SELECTED))
+        val ids = if (dragTower) TOWER_IDS else selectedIds
+        glUniform1fv(loc(meshProgram, "uSelected"), Shaders.MAX_SELECTED, ids.copyOf(Shaders.MAX_SELECTED), 0)
+        glUniform1i(loc(meshProgram, "uSelectedCount"), minOf(ids.size, Shaders.MAX_SELECTED))
         glUniform3fv(loc(meshProgram, "uDrag"), 1, dragOffset, 0)
         glUniform3fv(loc(meshProgram, "uPartColor"), 1, colors.part, 0)
         glUniform3fv(loc(meshProgram, "uSelectedColor"), 1, colors.selected, 0)

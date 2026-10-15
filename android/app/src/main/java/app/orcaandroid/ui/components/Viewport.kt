@@ -41,6 +41,7 @@ import app.orcaandroid.render.PlateView
 import app.orcaandroid.render.PreviewData
 import app.orcaandroid.render.PreviewRange
 import app.orcaandroid.render.PreviewStyle
+import app.orcaandroid.render.TowerBox
 import app.orcaandroid.render.ViewColors
 import app.orcaandroid.ui.AppViewModel
 import app.orcaandroid.ui.Screen
@@ -139,6 +140,14 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                         vm.scene.moveSelected(dx, dy)?.invokeOnCompletion {
                             v.postDelayed({ if (dragPending[0]) { dragPending[0] = false; v.onGl { dragOffset = floatArrayOf(0f, 0f, 0f) } } }, 500)
                         } ?: run { dragPending[0] = false; v.onGl { dragOffset = floatArrayOf(0f, 0f, 0f) } }
+                    }
+                    override fun onTowerMoved(plate: Int, dx: Float, dy: Float) {
+                        val t = vm.state.value.scene.plates.getOrNull(plate)?.tower ?: return
+                        dragPending[0] = true
+                        // The engine keeps the position on the bed, so a drop past the edge stops at it.
+                        vm.scene.setWipeTower(plate, (t[0] + dx) to (t[1] + dy)).invokeOnCompletion {
+                            v.postDelayed({ if (dragPending[0]) { dragPending[0] = false; v.onGl { dragOffset = floatArrayOf(0f, 0f, 0f) } } }, 500)
+                        }
                     }
                     override fun onPaint(x: Float, y: Float, newStroke: Boolean) {
                         val (o, d) = v.camera.ray(x, y)
@@ -257,6 +266,10 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         val items = state.selectedItems
         val ids = FloatArray(items.size) { (items[it].obj * INSTANCE_ID_STRIDE + items[it].instance).toFloat() }
         v.onGl { selectedIds = ids }
+        v.towerBoxes = scene.plates.mapNotNull { p -> p.tower?.let { t ->
+            val lo = Vec3(p.originX + t[0], p.originY + t[1], 0f)
+            TowerBox(p.index, lo, Vec3(lo.x + t[2], lo.y + t[3], t[4]))
+        } }
         v.selectedBounds = items.mapNotNull { s -> scene.objects.getOrNull(s.obj)?.instances?.getOrNull(s.instance)?.let { it.min to (it.min + it.size) } }
     }
     LaunchedEffect(v, state.tool) {

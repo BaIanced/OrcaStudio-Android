@@ -125,11 +125,11 @@
     <string name="filament_keep_mine">Keep mine</string>
     <string name="project_filaments">Filaments of opened projects</string>
     <string name="pf_ask">Ask</string>
-    <string name="pf_mine">Keep mine</string>
+    <string name="pf_mine">Mine</string>
     <string name="pf_project">Project\'s</string>
     <string name="pf_both">Both</string>
     <string name="filament_use_both">Both (project\'s, then mine)</string>
-    <string name="project_filaments_text">Which filaments a project you open uses. Keep mine leaves your AMS sync and filament edits alone.</string>
+    <string name="project_filaments_text">Which filaments a project you open uses. Mine leaves your AMS sync and filament edits alone.</string>
     <string name="quit_title">Quit?</string>
     <string name="quit_text">Your plates are kept for the next start.</string>
     <string name="yes">Yes</string>
@@ -840,6 +840,8 @@
     <string name="lab_scale_hint">Sizes apply when you let go of the slider.</string>
     <string name="scroll_up">Scroll up</string>
     <string name="scroll_down">Scroll down</string>
+    <string name="lab_plates_on_handle">Portrait: plate switcher on the panel grip</string>
+    <string name="lab_plate_scale">Plate switcher size: %d %%</string>
     <string name="lab_fullscreen_portrait">Fullscreen in portrait too</string>
     <string name="scad_draft_preview">Draft while dragging</string>
     <string name="scad_on_plate">Show the design on the plate</string>
