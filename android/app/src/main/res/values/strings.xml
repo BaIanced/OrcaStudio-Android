@@ -215,6 +215,7 @@
     <string name="only_changed">Changed only</string>
     <string name="open_project">Open…</string>
     <string name="opening_project">Opening project…</string>
+    <string name="project_printer_kept">This project is for %1$s. Kept your printer %2$s; switch it in Device if intended.</string>
     <string name="orienting">Orienting…</string>
     <string name="paint">Paint</string>
     <string name="paint_color">Color painting</string>

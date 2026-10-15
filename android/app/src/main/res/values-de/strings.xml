@@ -190,6 +190,7 @@
     <string name="only_changed">Nur geänderte</string>
     <string name="open_project">Öffnen…</string>
     <string name="opening_project">Öffne Projekt…</string>
+    <string name="project_printer_kept">Dieses Projekt ist für %1$s. Dein Drucker %2$s bleibt gewählt; bei Bedarf unter Gerät wechseln.</string>
     <string name="orienting">Richte aus…</string>
     <string name="paint">Malen</string>
     <string name="paint_color">Farbe malen</string>

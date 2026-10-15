@@ -131,7 +131,12 @@ class FileController(
         val (loaded, info) = engine.loadProject(file.path)
         val s = store.value
         // Use the project's presets where they exist here, with its setting changes on top.
-        val printer = s.printers.firstOrNull { it.name == info.printer }?.name ?: s.printer
+        // A file the user opens or downloads never switches the printer (a MakerWorld project for another printer
+        // or nozzle would slice for the wrong machine; user 2026-10-15). Only the session restore brings its printer back.
+        val projectPrinter = s.printers.firstOrNull { it.name == info.printer }?.name
+        val printer = if (uri == null) projectPrinter ?: s.printer else s.printer ?: projectPrinter
+        if (uri != null && info.printer.isNotBlank() && s.printer != null && info.printer != s.printer)
+            store.toast(store.str(R.string.project_printer_kept, info.printer, s.printer))
         val filaments = PresetController.withColors(info.filaments.mapIndexed { i, name ->
             FilamentSlot(name, info.filamentColors.getOrNull(i)?.ifBlank { null }, info.filamentOverrides.getOrNull(i).orEmpty())
         })
