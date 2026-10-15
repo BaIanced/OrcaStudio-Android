@@ -167,6 +167,31 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel, d
             if (wheel != 0f) (v as WebView).zoomBy(if (wheel > 0) 1.1f else 1 / 1.1f)
             true
         }
+        // Swipe in from the left edge = back, from the right edge = forward (user, 2026-10-14). The system's own
+        // back gesture takes the outermost few dp on gesture navigation, so the zone is wider than that. The
+        // listener only watches (returns false): the page still sees the touches.
+        val dp = context.resources.displayMetrics.density
+        var edge = 0 // -1 = started at the left edge, 1 = right edge, 0 = neither / cancelled
+        var downX = 0f
+        var downY = 0f
+        setOnTouchListener { v, e ->
+            when (e.actionMasked) {
+                android.view.MotionEvent.ACTION_DOWN -> {
+                    downX = e.x; downY = e.y
+                    edge = when { e.x <= 40 * dp -> -1; e.x >= v.width - 40 * dp -> 1; else -> 0 }
+                }
+                android.view.MotionEvent.ACTION_POINTER_DOWN, android.view.MotionEvent.ACTION_CANCEL -> edge = 0
+                android.view.MotionEvent.ACTION_UP -> {
+                    val dx = e.x - downX
+                    val dy = e.y - downY
+                    if (edge != 0 && Math.abs(dx) >= 80 * dp && Math.abs(dx) > 2 * Math.abs(dy)) {
+                        if (edge < 0 && dx > 0) back() else if (edge > 0 && dx < 0) forward()
+                    }
+                    edge = 0
+                }
+            }
+            false
+        }
         android.webkit.CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
         addJavascriptInterface(Bridge(), "orcaNative")
         addJavascriptInterface(Picker(), "orcaPicker")
