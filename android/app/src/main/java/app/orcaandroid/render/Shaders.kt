@@ -196,9 +196,21 @@ internal object Shaders {
         layout(location = 5) in float aWidth;
         layout(location = 6) in float aHeight;
         layout(location = 7) in float aValue;
+        // Ends of the previous and next segments in the buffer (far away at its ends): they mitre the joints.
+        layout(location = 8) in vec3 aPrevP0;
+        layout(location = 9) in vec3 aPrevP1;
+        layout(location = 10) in vec3 aNextP0;
+        layout(location = 11) in vec3 aNextP1;
         out vec3 vColor;
         out vec3 vNormal;
         out highp vec3 vWorld;
+        out float vBead;
+        flat out float vSideFace;
+
+        vec3 rightOf(vec3 a, vec3 b) {
+            vec3 s = cross(b - a, vec3(0.0, 0.0, 1.0));
+            return length(s) > 1e-6 ? normalize(s) : vec3(0.0);
+        }
 
         vec3 gradient(float t) {
             t = clamp(t, 0.0, 1.0);
@@ -221,10 +233,27 @@ internal object Shaders {
             vec3 up = cross(right, dir);
             float w = max(aWidth, 0.05) * 0.5;
             float h = max(aHeight, 0.05);
-            // Extend each segment by half its width so consecutive segments join without gaps.
-            vec3 along = mix(aP0 - dir * w * 0.5, aP1 + dir * w * 0.5, aCorner.x);
-            vec3 pos = along + right * aCorner.y * w + up * (aCorner.z * 0.5 - 0.5) * h + uOrigin;
-            vNormal = normalize(right * aFace.x + up * aFace.y + dir * aFace.z);
+            // A joint with the segment before / after (same point) is mitred: the end face bisects the turn, so
+            // the boxes neither overlap nor leave a notch (their end caps poked out as dark dashes and moire).
+            // Gentle bends also share the side normal, so curved walls shade smoothly instead of in facets.
+            bool atEnd = aCorner.x > 0.5;
+            vec3 rn = atEnd ? (distance(aNextP0, aP1) < 1e-3 ? rightOf(aNextP0, aNextP1) : vec3(0.0))
+                            : (distance(aPrevP1, aP0) < 1e-3 ? rightOf(aPrevP0, aPrevP1) : vec3(0.0));
+            float c = dot(rn, right);
+            vec3 across;
+            vec3 sideNormal = right;
+            if (dot(rn, rn) > 0.5 && c > -0.5) {
+                vec3 m = normalize(right + rn);
+                across = m * (aCorner.y * w / dot(m, right));
+                if (c > 0.77) sideNormal = m;
+            } else {
+                // Open end or sharp turn (over 120 degrees): extend by a quarter width so the corner has no gap.
+                across = right * aCorner.y * w + dir * (atEnd ? 0.5 : -0.5) * w;
+            }
+            vec3 pos = (atEnd ? aP1 : aP0) + across + up * (aCorner.z * 0.5 - 0.5) * h + uOrigin;
+            vNormal = normalize(sideNormal * aFace.x + up * aFace.y + dir * aFace.z);
+            vBead = aCorner.z;
+            vSideFace = abs(aFace.x);
             if (uScheme == 0) vColor = uRoleColors[role];
             else if (uScheme == 7) vColor = uFilamentColors[clamp(int(aValue + 0.5), 0, 15)];
             else vColor = gradient((aValue - uRange.x) / max(uRange.y - uRange.x, 1e-6));
@@ -239,12 +268,18 @@ internal object Shaders {
         in vec3 vColor;
         in vec3 vNormal;
         in highp vec3 vWorld;
+        in float vBead;
+        flat in float vSideFace;
         out vec4 color;
         void main() {
             if (uSectionOn == 1 && dot(uSection.xyz, vWorld) > uSection.w) discard;
             // Same soft key/fill/sky light as the model (no highlight: it would shimmer on layer lines),
             // so faces turned from the key light keep their shape instead of dropping to one dark tone.
             vec3 n = normalize(vNormal);
+            // Side walls are rounded like a real bead (normal tilts up at the top of each layer, down at the
+            // bottom). It fades out once a layer is only a few pixels tall, where it would turn into moire.
+            float bead = vSideFace * 0.9 * (1.0 - smoothstep(0.35, 0.8, fwidth(vBead)));
+            n = normalize(n + vec3(0.0, 0.0, vBead * bead));
             float sky = 0.5 + 0.5 * n.z;
             float light = 0.30 + 0.12 * sky + 0.42 * max(dot(n, normalize(vec3(0.35, -0.55, 0.75))), 0.0)
                 + 0.24 * max(dot(n, normalize(vec3(-0.6, 0.4, 0.35))), 0.0);

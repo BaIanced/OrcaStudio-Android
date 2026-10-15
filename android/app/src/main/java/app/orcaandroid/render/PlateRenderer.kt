@@ -235,7 +235,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         pendingPaint?.let { paintCount = uploadFloats(paintVbo, it); pendingPaint = null }
         pendingGhost?.let { ghostCount = uploadFloats(ghostVbo, it); pendingGhost = null }
         pendingPreview?.let {
-            extrCount = uploadFloats(extrVbo, it.extrusions)
+            extrCount = uploadPadded(extrVbo, it.extrusions, PreviewData.EXTRUSION_STRIDE)
             travelCount = uploadFloats(travelVbo, it.travels)
             markerCount = uploadFloats(markerVbo, it.markers)
             pendingPreview = null
@@ -301,6 +301,22 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     private fun uploadFloats(vbo: Int, data: FloatData): Int {
         glBindBuffer(GL_ARRAY_BUFFER, vbo)
         glBufferData(GL_ARRAY_BUFFER, data.data.limit() * 4, data.data.position(0), GL_STATIC_DRAW)
+        return data.count
+    }
+
+    /**
+     * [data] between two far-away dummy records, so the toolpath shader can read each segment's
+     * neighbours (previous / next record) from the same buffer to mitre the joints.
+     */
+    private fun uploadPadded(vbo: Int, data: FloatData, stride: Int): Int {
+        val bytes = data.data.limit() * 4
+        val pad = stride * 4
+        val far = floats(FloatArray(stride) { -1e6f })
+        glBindBuffer(GL_ARRAY_BUFFER, vbo)
+        glBufferData(GL_ARRAY_BUFFER, bytes + 2 * pad, null, GL_STATIC_DRAW)
+        glBufferSubData(GL_ARRAY_BUFFER, 0, pad, far)
+        glBufferSubData(GL_ARRAY_BUFFER, pad, bytes, data.data.position(0))
+        glBufferSubData(GL_ARRAY_BUFFER, pad + bytes, pad, far.position(0))
         return data.count
     }
 
@@ -429,10 +445,12 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             glVertexAttribPointer(1, 3, GL_FLOAT, false, 24, 12)
             glBindBuffer(GL_ARRAY_BUFFER, extrVbo)
             val stride = PreviewData.EXTRUSION_STRIDE * 4
-            val base = first * stride
+            // Record 0 of the buffer is padding (uploadPadded), so segment i is record i + 1.
+            val base = (first + 1) * stride
             val valueColumn = when (style.scheme) { 1 -> 9; 2 -> 8; 3 -> 7; 4 -> 10; 5 -> 11; 6 -> 12; 7 -> 13; else -> 6 }
-            // aP0, aP1, aRole, aWidth, aHeight, aValue
-            val attribs = listOf(2 to (3 to 0), 3 to (3 to 12), 4 to (1 to 24), 5 to (1 to 28), 6 to (1 to 32), 7 to (1 to valueColumn * 4))
+            // aP0, aP1, aRole, aWidth, aHeight, aValue, then the previous and next segments' ends
+            val attribs = listOf(2 to (3 to 0), 3 to (3 to 12), 4 to (1 to 24), 5 to (1 to 28), 6 to (1 to 32), 7 to (1 to valueColumn * 4),
+                8 to (3 to -stride), 9 to (3 to 12 - stride), 10 to (3 to stride), 11 to (3 to stride + 12))
             for ((a, fmt) in attribs) {
                 glEnableVertexAttribArray(a)
                 glVertexAttribPointer(a, fmt.first, GL_FLOAT, false, stride, base + fmt.second)
