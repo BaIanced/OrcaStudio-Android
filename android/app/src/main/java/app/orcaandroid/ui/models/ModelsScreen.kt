@@ -52,6 +52,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DesktopWindows
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.Checkbox
@@ -470,15 +471,8 @@ fun ModelsScreen(browser: ModelBrowser) {
             IconButton(onClick = browser::reload, small) { Icon(Icons.Default.Refresh, stringResource(R.string.reload)) }
             IconButton(onClick = { browser.open(browser.site) }, small) { Icon(Icons.Default.Home, stringResource(R.string.home)) }
         }, right = {
-            // Beside the camera hole: the full-site switch (MakerWorld only) and the menu.
+            // Beside the camera hole: just the menu.
             Row(Modifier.weight(1f), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-                if (browser.site == ModelSite.MAKERWORLD) {
-                    Row(Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = browser::toggleFullSite).padding(start = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically) {
-                        Text(stringResource(R.string.models_full_site), style = MaterialTheme.typography.labelMedium)
-                        Switch(browser.fullSite, null, Modifier.scale(0.7f))
-                    }
-                }
                 AdBlockMenu(browser)
             }
         })
@@ -520,6 +514,10 @@ private fun AdBlockMenu(browser: ModelBrowser) {
     Box {
         IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, stringResource(R.string.more)) }
         DropdownMenu(menu, { menu = false }) {
+            if (browser.site == ModelSite.MAKERWORLD) DropdownMenuItem(text = { Text(stringResource(R.string.models_full_site)) },
+                leadingIcon = { Icon(Icons.Default.DesktopWindows, null) },
+                trailingIcon = { Checkbox(checked = browser.fullSite, onCheckedChange = null) },
+                onClick = { menu = false; browser.toggleFullSite() })
             DropdownMenuItem(text = { Text(stringResource(R.string.adblock_toggle)) }, leadingIcon = { Icon(Icons.Default.Shield, null) },
                 trailingIcon = { Checkbox(checked = browser.adBlockOn, onCheckedChange = null) },
                 onClick = { menu = false; browser.toggleAdBlock() })
