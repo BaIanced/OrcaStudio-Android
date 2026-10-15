@@ -68,6 +68,28 @@ class Camera {
         distance = (distance / factor).coerceIn(5f, 10000f)
     }
 
+    /**
+     * Zooms toward screen point (x, y), like the desktop's zoom to the mouse cursor: the point under it on
+     * the plane through the target (facing the camera) stays put, so the target moves toward it and you can
+     * get close to any part of the view, not only the orbit centre.
+     */
+    @Synchronized fun zoomAt(factor: Float, x: Float, y: Float) {
+        val (o, d) = ray(x, y)
+        val n = towardsEye()
+        val t = target.let { Vec3(it[0], it[1], it[2]) }
+        val old = distance
+        zoom(factor)
+        val f = old / distance
+        val along = d.dot(n)
+        if (f == 1f || kotlin.math.abs(along) < 1e-6f) return
+        val hit = (t - o).dot(n) / along
+        if (hit <= 0f) return
+        val p = o + d * hit
+        target[0] = p.x + (t.x - p.x) / f
+        target[1] = p.y + (t.y - p.y) / f
+        target[2] = p.z + (t.z - p.z) / f
+    }
+
     /** Pans in the view plane; dx/dy in screen pixels. */
     @Synchronized fun pan(dx: Float, dy: Float) {
         val scale = distance / height * 0.8f

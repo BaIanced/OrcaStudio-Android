@@ -85,7 +85,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
 
     private val scaleDetector = ScaleGestureDetector(context, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
         override fun onScale(detector: ScaleGestureDetector): Boolean {
-            camera.zoom(detector.scaleFactor)
+            camera.zoomAt(detector.scaleFactor, detector.focusX, detector.focusY)
             return true
         }
     })
@@ -273,7 +273,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
             if (v == 0f) return true
             if (event.metaState and KeyEvent.META_ALT_ON != 0) section.step(v > 0)
             else if (mode ==InteractionMode.PAINT && event.metaState and KeyEvent.META_CTRL_ON != 0) listener?.onBrushScroll(if (v > 0) 1 else -1)
-            else camera.zoom(if (v > 0) 1.15f else 1f / 1.15f)
+            else camera.zoomAt(if (v > 0) 1.15f else 1f / 1.15f, event.x, event.y)
             return true
         }
         return super.onGenericMotionEvent(event)
