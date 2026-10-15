@@ -17,6 +17,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PriorityHigh
 import kotlinx.coroutines.launch
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -162,6 +163,16 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
             ToolPanel(state, vm)
         }
         if (!stripWithSlice) SliceButton(state, vm, Modifier.align(Alignment.BottomEnd))
+        // Setup problems (first case: a filament slot of the wrong type): tap opens the panel at the offending setting.
+        val problems = state.setupProblems()
+        if (problems.isNotEmpty() && !rightPanel) {
+            val label = stringResource(R.string.filament_type_mismatch, problems[0].have, problems[0].tray)
+            androidx.compose.material3.SmallFloatingActionButton(
+                onClick = { ProblemFocus.show(problems[0].slot) },
+                modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = 72.dp),
+                containerColor = androidx.compose.ui.graphics.Color.Red, contentColor = androidx.compose.ui.graphics.Color.White,
+            ) { Icon(Icons.Default.PriorityHigh, label) }
+        }
         ViewContextMenu(state, vm)
     }
     }

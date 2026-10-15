@@ -89,6 +89,7 @@ import app.orcaandroid.render.PlateView
 import app.orcaandroid.ui.components.Viewport
 import app.orcaandroid.ui.device.DeviceScreen
 import app.orcaandroid.ui.prepare.PrepareOverlay
+import app.orcaandroid.ui.prepare.ProblemFocus
 import app.orcaandroid.ui.prepare.PreparePanel
 import app.orcaandroid.ui.preview.PreviewOverlay
 import app.orcaandroid.ui.preview.PreviewPanel
@@ -263,6 +264,12 @@ private fun CutoutAwareColumn(content: @Composable () -> Unit) {
 @Composable
 private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
     var plateView by remember { mutableStateOf<PlateView?>(null) }
+    // The red problems badge on the 3D view asks for the panel: slide it up (portrait) or bring it back (wide).
+    LaunchedEffect(ProblemFocus.tick) {
+        if (ProblemFocus.tick == 0) return@LaunchedEffect
+        if (PanelSize.height < 360f) PanelSize.height = 360f
+        if (state.lab.panelTucked) vm.setLab(state.lab.copy(panelTucked = false))
+    }
     val viewport: @Composable (Modifier) -> Unit = { m ->
         Box(m) {
             Viewport(state, vm, onView = { plateView = it }, modifier = Modifier.fillMaxSize())
