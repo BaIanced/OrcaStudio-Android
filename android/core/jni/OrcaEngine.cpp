@@ -504,7 +504,8 @@ DynamicPrintConfig OrcaEngine::selection_config()
         const size_t filaments = config.option<ConfigOptionStrings>("filament_colour")->values.size();
         const auto  *mult      = config.option<ConfigOptionFloats>("flush_multiplier");
         const size_t heads     = std::max<size_t>(1, mult ? mult->values.size() : 1);
-        if (filaments > 1 && matrix->values.size() != filaments * filaments * heads) {
+        // Also for one filament: an empty matrix there crashed ToolOrdering (reads filaments^2 floats).
+        if (filaments >= 1 && matrix->values.size() != filaments * filaments * heads) {
             const std::vector<double> one = auto_flush_matrix(config);
             matrix->values.clear();
             for (size_t h = 0; h < heads; ++h)
