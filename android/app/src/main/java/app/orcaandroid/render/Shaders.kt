@@ -36,11 +36,13 @@ internal object Shaders {
     /**
      * uPass 0: opaque parts (type 0, or 100 + 0-based filament); 1: translucent modifiers/negative volumes/blockers/enforcers and the
      * prime tower (type 99);
-     * 2: paint overlay (types 5 fuzzy skin, 6/7 support enforce/block, 8/9 seam, 10+ filament).
+     * 2: paint overlay (types 5 fuzzy skin, 6/7 support enforce/block, 8/9 seam, 10+ filament);
+     * 3: contact shadow map (parts seen from above; how close to the bed, max-blended).
      */
     const val MESH_FS = """#version 300 es
         precision mediump float;
         uniform int uPass;
+        uniform float uShadowFade;
         uniform vec3 uPartColor;
         uniform vec3 uSelectedColor;
         uniform vec3 uFilamentColors[16];
@@ -55,6 +57,13 @@ internal object Shaders {
         void main() {
             int type = int(vType + 0.5);
             bool part = type == 0 || type >= 100;
+            if (uPass == 3) {
+                // Contact shadow: geometry near the bed casts most, fading out by uShadowFade mm up.
+                if (!part || (uSectionOn == 1 && dot(uSection.xyz, vWorld) > uSection.w)) discard;
+                float k = 1.0 - clamp(vWorld.z / uShadowFade, 0.0, 1.0);
+                color = vec4(k * k);
+                return;
+            }
             if (uPass == 0 && !part) discard;
             // 99: the estimated prime tower (scene mesh, translucent pass).
             if (uPass == 1 && (part || (type >= 5 && type != 99 && type != 98))) discard;
@@ -289,6 +298,135 @@ internal object Shaders {
                 + 0.24 * max(dot(n, normalize(vec3(-0.6, 0.4, 0.35))), 0.0);
             color = vec4(vColor * light, 1.0);
         }"""
+
+    /** Full-screen triangle (no vertex buffer): vUv covers the target 0..1. */
+    const val FULLSCREEN_VS = """#version 300 es
+        out vec2 vUv;
+        void main() {
+            vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2));
+            vUv = p;
+            gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
+        }"""
+
+    /** Separable Gaussian (9 taps folded into 5 linear samples) along uStep (uv per tap unit). */
+    const val BLUR_FS = """#version 300 es
+        precision mediump float;
+        uniform sampler2D uTex;
+        uniform vec2 uStep;
+        in vec2 vUv;
+        out vec4 color;
+        void main() {
+            vec4 c = texture(uTex, vUv) * 0.2270270270;
+            c += (texture(uTex, vUv + uStep * 1.3846153846) + texture(uTex, vUv - uStep * 1.3846153846)) * 0.3162162162;
+            c += (texture(uTex, vUv + uStep * 3.2307692308) + texture(uTex, vUv - uStep * 3.2307692308)) * 0.0702702703;
+            color = c;
+        }"""
+
+    /** The blurred contact shadow map laid on the bed: a quad over uRect (x0, y0, x1, y1) just under z = 0. */
+    const val SHADOW_VS = """#version 300 es
+        uniform mat4 uMvp;
+        uniform highp vec4 uRect;
+        out vec2 vUv;
+        void main() {
+            vec2 c = vec2(float(gl_VertexID & 1), float((gl_VertexID >> 1) & 1));
+            vUv = c;
+            gl_Position = uMvp * vec4(mix(uRect.xy, uRect.zw, c), -0.02, 1.0);
+        }"""
+
+    const val SHADOW_FS = """#version 300 es
+        precision mediump float;
+        uniform sampler2D uTex;
+        uniform float uStrength;
+        in vec2 vUv;
+        out vec4 color;
+        void main() { color = vec4(0.0, 0.0, 0.0, uStrength * texture(uTex, vUv).r); }"""
+
+    /** View-space position from the depth texture (perspective; camera looks down -z). */
+    private const val VIEW_POS = """
+        uniform highp sampler2D uDepth;
+        uniform vec2 uNearFar;
+        uniform vec2 uTanHalf;
+        float viewZ(float d) {
+            float n = uNearFar.x, f = uNearFar.y;
+            return 2.0 * n * f / ((f - n) * (2.0 * d - 1.0) - (f + n));
+        }
+        vec3 viewPos(vec2 uv) {
+            float z = viewZ(texture(uDepth, uv).r);
+            return vec3((uv * 2.0 - 1.0) * uTanHalf * -z, z);
+        }"""
+
+    /**
+     * Screen-space ambient occlusion from the depth pre-pass: normal from the depth neighbours (the smaller
+     * step per axis, so silhouettes stay clean), then a spiral of samples within uRadius mm; each counts by
+     * how far it rises above the surface (cosine), faded by distance so far-away geometry has no halo.
+     */
+    const val SSAO_FS = """#version 300 es
+        precision highp float;
+        """ + VIEW_POS + """
+        uniform vec2 uSize;
+        uniform float uRadius;
+        uniform float uIntensity;
+        uniform float uProjScale;
+        out vec4 color;
+        void main() {
+            vec2 px = 1.0 / uSize;
+            vec2 uv = gl_FragCoord.xy * px;
+            if (texture(uDepth, uv).r >= 1.0) { color = vec4(1.0); return; }
+            vec3 p = viewPos(uv);
+            vec3 pr = viewPos(uv + vec2(px.x, 0.0)), pl = viewPos(uv - vec2(px.x, 0.0));
+            vec3 pu = viewPos(uv + vec2(0.0, px.y)), pd = viewPos(uv - vec2(0.0, px.y));
+            vec3 dx = abs(pr.z - p.z) < abs(p.z - pl.z) ? pr - p : p - pl;
+            vec3 dy = abs(pu.z - p.z) < abs(p.z - pd.z) ? pu - p : p - pd;
+            vec3 n = normalize(cross(dx, dy));
+            float rPx = min(uRadius * uProjScale / -p.z, 80.0);
+            if (rPx < 1.5) { color = vec4(1.0); return; }
+            // Interleaved gradient noise turns the spiral per pixel; the blur pass smooths it out.
+            float spin = 6.2831853 * fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+            float r2 = uRadius * uRadius;
+            float sum = 0.0;
+            const int N = 12;
+            for (int i = 0; i < N; ++i) {
+                float t = (float(i) + 0.5) / float(N);
+                float a = t * 18.849556 + spin;
+                vec3 v = viewPos(uv + vec2(cos(a), sin(a)) * (t * rPx) * px) - p;
+                float vv = dot(v, v);
+                float fall = max(1.0 - vv / r2, 0.0);
+                sum += max(dot(v, n) * inversesqrt(vv + 1e-6) - 0.1, 0.0) * fall;
+            }
+            color = vec4(vec3(clamp(1.0 - uIntensity * sum / float(N), 0.0, 1.0)), 1.0);
+        }"""
+
+    /** Depth-aware blur of the occlusion along uStep (texels), so it doesn't bleed across silhouettes. */
+    const val AO_BLUR_FS = """#version 300 es
+        precision highp float;
+        """ + VIEW_POS + """
+        uniform sampler2D uAo;
+        uniform vec2 uStep;
+        in vec2 vUv;
+        out vec4 color;
+        void main() {
+            float zc = viewZ(texture(uDepth, vUv).r);
+            float sum = texture(uAo, vUv).r * 0.2;
+            float wsum = 0.2;
+            for (int i = 1; i <= 4; ++i) {
+                float g = 0.2 * exp(-float(i * i) / 8.0);
+                for (int s = -1; s <= 1; s += 2) {
+                    vec2 uv = vUv + uStep * float(i * s);
+                    float w = abs(viewZ(texture(uDepth, uv).r) - zc) < 0.03 * -zc + 0.3 ? g : 0.0;
+                    sum += texture(uAo, uv).r * w;
+                    wsum += w;
+                }
+            }
+            color = vec4(vec3(sum / wsum), 1.0);
+        }"""
+
+    /** Multiplies the frame by the occlusion (blend ZERO, SRC_COLOR). */
+    const val AO_COMPOSITE_FS = """#version 300 es
+        precision mediump float;
+        uniform sampler2D uAo;
+        uniform vec2 uSize;
+        out vec4 color;
+        void main() { color = vec4(vec3(texture(uAo, gl_FragCoord.xy / uSize).r), 1.0); }"""
 
     /** Colours per libslic3r ExtrusionRole (erNone ... erMixed), close to OrcaSlicer's defaults. */
     val ROLE_COLORS = floatArrayOf(

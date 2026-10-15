@@ -102,6 +102,9 @@ data class UiState(
     /** The floating colour panel is open over the app (design mode). */
     val designMode: Boolean = false,
     val doubleBackToQuit: Boolean = false,
+    /** 3D view ambient occlusion (0 off, 1 soft, 2 full) and contact shadows. */
+    val ambientOcclusion: Int = 0,
+    val contactShadows: Boolean = true,
     val lab: app.orcaandroid.core.LayoutLab = app.orcaandroid.core.LayoutLab(),
     val undoLimit: Int = app.orcaandroid.core.DEFAULT_UNDO_LIMIT,
     /** Auto-save interval in seconds; 0 or less = off (-seconds keeps the interval it had). */

@@ -155,6 +155,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         store.update { it.copy(doubleBackToQuit = on) }
     }
 
+    fun setAmbientOcclusion(level: Int) {
+        store.settings.ambientOcclusion = level
+        store.update { it.copy(ambientOcclusion = level) }
+    }
+
+    fun setContactShadows(on: Boolean) {
+        store.settings.contactShadows = on
+        store.update { it.copy(contactShadows = on) }
+    }
+
     fun setAutoSave(seconds: Int) {
         store.settings.autoSaveSeconds = seconds
         store.update { it.copy(autoSaveSeconds = seconds) }

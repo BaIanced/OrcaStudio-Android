@@ -129,6 +129,15 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
                 }
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) SwitchRow(stringResource(R.string.dynamic_color), state.dynamicColor, onChange = vm::setDynamicColor)
                 ThemePresetList(state, vm)
+                Text(stringResource(R.string.ambient_occlusion), style = MaterialTheme.typography.titleSmall)
+                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                    listOf(R.string.off, R.string.ao_soft, R.string.ao_full).forEachIndexed { i, label ->
+                        SegmentedButton(state.ambientOcclusion == i, { vm.setAmbientOcclusion(i) }, SegmentedButtonDefaults.itemShape(i, 3)) { Text(stringResource(label)) }
+                    }
+                }
+                Text(stringResource(R.string.ambient_occlusion_text), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                SwitchRow(stringResource(R.string.contact_shadows), state.contactShadows, onChange = vm::setContactShadows)
                 Entry(stringResource(R.string.design_mode), stringResource(R.string.design_mode_text)) { vm.setDesignMode(true) }
                 val custom = state.themeSpec.customCount(true) + state.themeSpec.customCount(false)
                 if (custom > 0) Entry(stringResource(R.string.reset_colors), pluralStringResource(R.plurals.n_custom_colors, custom, custom)) { dialog = "reset_colors" }

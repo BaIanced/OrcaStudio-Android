@@ -15,6 +15,10 @@ const val INSTANCE_ID_STRIDE = 4096
 private const val BADGE_SIZE = 0.1f
 private const val BADGE_GAP = 0.02f
 
+/** Contact shadow: geometry up to this height above the bed casts it, mm; darkness right under a part. */
+private const val SHADOW_FADE_MM = 12f
+private const val SHADOW_STRENGTH = 0.55f
+
 /** Colours of the 3D view, following the app theme (RGB 0..1). */
 data class ViewColors(
     val background: FloatArray = floatArrayOf(0.12f, 0.13f, 0.15f),
@@ -67,6 +71,16 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var filamentColors: List<FloatArray> = emptyList()
     /** Plates known to the view; 0 until the first bed arrives (then the camera frames plate 1). */
     var plateOriginsCount = 0
+    /** Ambient occlusion level (AO_OFF, 1 soft, 2 full) and the contact shadow under objects (Prepare). */
+    var aoLevel = AO_OFF
+    var contactShadows = true
+
+    private val effects = SceneEffects()
+    private var viewW = 1
+    private var viewH = 1
+    /** x0, y0, x1, y1 of the scene mesh (null = empty) and a counter of its uploads, for the shadow. */
+    private var meshBounds: FloatArray? = null
+    private var meshVersion = 0
 
     private var pendingMesh: FloatData? = null
     private var pendingPaint: FloatData? = null
@@ -183,6 +197,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         meshVbo = ids[0]; paintVbo = ids[1]; extrVbo = ids[2]; travelVbo = ids[3]; markerVbo = ids[4]
         bedVbo = ids[5]; boxVbo = ids[6]; boxIbo = ids[7]; scratchVbo = ids[8]
         uploadBox()
+        effects.create { vs, fs -> program(vs, fs) }
         // A new EGL context lost all buffers; everything is uploaded again by the host.
         bedDirty = true
         meshCount = 0; paintCount = 0; extrCount = 0; travelCount = 0; markerCount = 0
@@ -190,6 +205,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
 
     override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
         glViewport(0, 0, width, height)
+        viewW = width; viewH = height
         camera.setViewport(width, height)
         // The framing depends on the aspect ratio; redo it for the new size (first layout, rotation).
         lastFrame?.let { (index, top) -> frame(index, top) }
@@ -201,14 +217,37 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glClearColor(bg[0], bg[1], bg[2], 1f)
         glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
         camera.viewProjection(mvp)
+        val clip = camera.clip()
+        // The OpenSCAD design on the plate stands alone: the project's objects are hidden meanwhile.
+        val models = ghostCount == 0
+        val bounds = meshBounds
+        val shadow = contactShadows && !showPreview && models && meshCount > 0 && bounds != null
+        if (shadow) {
+            val key = listOf(meshVersion, dragOffset.toList(), selectedIds.toList(), section?.toList())
+            // A dragged copy may leave the footprint: widen it by the drag.
+            val dx = kotlin.math.abs(dragOffset[0]); val dy = kotlin.math.abs(dragOffset[1])
+            val area = floatArrayOf(bounds!![0] - dx, bounds[1] - dy, bounds[2] + dx, bounds[3] + dy)
+            effects.renderShadow(area, key, viewW, viewH) { ortho ->
+                val frame = mvp.copyOf()
+                ortho.copyInto(mvp)
+                drawMesh(meshVbo, meshCount, pass = 3)
+                frame.copyInto(mvp)
+            }
+            // The shadow pass changed the clear colour.
+            glClearColor(bg[0], bg[1], bg[2], 1f)
+        }
+        val ao = effects.renderAo(aoLevel, viewW, viewH, clip) {
+            if (showPreview) drawExtrusions() else if (models) drawMesh(meshVbo, meshCount, pass = 0)
+        }
 
+        if (shadow) effects.drawShadow(mvp, SHADOW_STRENGTH)
         drawBeds()
         drawBadges()
         if (showPreview) {
-            drawPreview()
+            drawExtrusions()
+            if (ao) effects.compositeAo(viewW, viewH)
+            drawPreviewExtras()
         } else {
-            // The OpenSCAD design on the plate stands alone: the project's objects are hidden meanwhile.
-            val models = ghostCount == 0
             if (models) drawMesh(meshVbo, meshCount, pass = 0)
             if (models && paintCount > 0) {
                 glEnable(GL_POLYGON_OFFSET_FILL)
@@ -216,6 +255,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
                 drawMesh(paintVbo, paintCount, pass = 2)
                 glDisable(GL_POLYGON_OFFSET_FILL)
             }
+            if (ao) effects.compositeAo(viewW, viewH)
             // Modifiers and support blockers/enforcers are drawn translucent on top.
             glEnable(GL_BLEND)
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
@@ -231,7 +271,12 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     // --- Upload --------------------------------------------------------------------------------
 
     private fun upload() {
-        pendingMesh?.let { meshCount = uploadFloats(meshVbo, it); pendingMesh = null }
+        pendingMesh?.let {
+            meshCount = uploadFloats(meshVbo, it)
+            meshBounds = footprint(it)
+            meshVersion++
+            pendingMesh = null
+        }
         pendingPaint?.let { paintCount = uploadFloats(paintVbo, it); pendingPaint = null }
         pendingGhost?.let { ghostCount = uploadFloats(ghostVbo, it); pendingGhost = null }
         pendingPreview?.let {
@@ -296,6 +341,19 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glBufferData(GL_ARRAY_BUFFER, data.size * 4, floats(data), GL_STATIC_DRAW)
         badgeCount = data.size / 5
         badgeRects = rects
+    }
+
+    /** x0, y0, x1, y1 of the scene mesh's vertices (stride 8, position first), or null when empty. */
+    private fun footprint(data: FloatData): FloatArray? {
+        if (data.count == 0) return null
+        val b = data.data
+        val r = floatArrayOf(Float.MAX_VALUE, Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE)
+        for (i in 0 until data.count) {
+            val x = b.get(i * 8); val y = b.get(i * 8 + 1)
+            if (x < r[0]) r[0] = x; if (y < r[1]) r[1] = y
+            if (x > r[2]) r[2] = x; if (y > r[3]) r[3] = y
+        }
+        return r
     }
 
     private fun uploadFloats(vbo: Int, data: FloatData): Int {
@@ -392,6 +450,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glUseProgram(meshProgram)
         glUniformMatrix4fv(loc(meshProgram, "uMvp"), 1, false, mvp, 0)
         glUniform1i(loc(meshProgram, "uPass"), pass)
+        glUniform1f(loc(meshProgram, "uShadowFade"), SHADOW_FADE_MM)
         glUniform1fv(loc(meshProgram, "uSelected"), Shaders.MAX_SELECTED, selectedIds.copyOf(Shaders.MAX_SELECTED), 0)
         glUniform1i(loc(meshProgram, "uSelectedCount"), minOf(selectedIds.size, Shaders.MAX_SELECTED))
         glUniform3fv(loc(meshProgram, "uDrag"), 1, dragOffset, 0)
@@ -422,7 +481,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         if (s != null) glUniform4fv(loc(program, "uSection"), 1, s, 0)
     }
 
-    private fun drawPreview() {
+    private fun drawExtrusions() {
         val style = previewStyle
         val range = previewRange
         // Extrusions: one instanced box per segment.
@@ -462,6 +521,12 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             glDisableVertexAttribArray(0)
             glDisableVertexAttribArray(1)
         }
+    }
+
+    /** Travels and markers over the toolpaths. */
+    private fun drawPreviewExtras() {
+        val style = previewStyle
+        val range = previewRange
         if (style.showTravels) {
             val tFirst = range.travels.first.coerceIn(0, travelCount)
             val tLast = (range.travels.last + 1).coerceIn(tFirst, travelCount)

@@ -136,12 +136,16 @@ class Camera {
         return Vec3((cos(pr) * cos(yr)).toFloat(), (cos(pr) * sin(yr)).toFloat(), sin(pr).toFloat())
     }
 
+    /** Near and far clip distances of the projection. */
+    @Synchronized fun clip() = max(0.5f, distance / 200f) to distance * 20f
+
     /** Fills [out] with projection * view. */
     @Synchronized fun viewProjection(out: FloatArray) {
         val e = eye()
         val proj = FloatArray(16)
         val view = FloatArray(16)
-        Matrix.perspectiveM(proj, 0, FOV, width.toFloat() / height, max(0.5f, distance / 200f), distance * 20f)
+        val (near, far) = clip()
+        Matrix.perspectiveM(proj, 0, FOV, width.toFloat() / height, near, far)
         Matrix.setLookAtM(view, 0, e.x, e.y, e.z, target[0], target[1], target[2], 0f, 0f, 1f)
         Matrix.multiplyMM(out, 0, proj, 0, view, 0)
     }
@@ -181,7 +185,8 @@ class Camera {
         return right to up
     }
 
-    private companion object {
+    companion object {
+        /** Vertical field of view, degrees. */
         const val FOV = 35f
     }
 }

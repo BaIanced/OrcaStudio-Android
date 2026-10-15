@@ -188,6 +188,9 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     val scene = state.scene
 
     LaunchedEffect(v, colors) { v.onGl { this.colors = colors } }
+    LaunchedEffect(v, state.ambientOcclusion, state.contactShadows) {
+        v.onGl { aoLevel = state.ambientOcclusion; contactShadows = state.contactShadows }
+    }
     // Plate numbers always; the plate icons only while arranging (Prepare).
     val atlas = rememberBadgeAtlas(scene.plates.size)
     val badges = if (showPreview) emptyList()

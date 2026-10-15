@@ -52,6 +52,16 @@ class AppSettings(context: Context) {
         get() = prefs.getBoolean("double_back_quit", false)
         set(value) = prefs.edit().putBoolean("double_back_quit", value).apply()
 
+    /** 3D view ambient occlusion: 0 off, 1 soft, 2 full (render/SceneEffects.kt). */
+    var ambientOcclusion: Int
+        get() = prefs.getInt("ambient_occlusion", 0)
+        set(value) = prefs.edit().putInt("ambient_occlusion", value).apply()
+
+    /** Soft shadow under the objects on the bed (Prepare). */
+    var contactShadows: Boolean
+        get() = prefs.getBoolean("contact_shadows", true)
+        set(value) = prefs.edit().putBoolean("contact_shadows", value).apply()
+
     /** The local MCP server for AI clients (see `docs/mcp-tool-layer.md`); off by default. */
     var aiTools: Boolean
         get() = prefs.getBoolean("ai_tools", false)
