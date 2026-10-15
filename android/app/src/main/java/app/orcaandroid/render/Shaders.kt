@@ -280,8 +280,9 @@ internal object Shaders {
             // so faces turned from the key light keep their shape instead of dropping to one dark tone.
             vec3 n = normalize(vNormal);
             // Side walls are rounded like a real bead (normal tilts up at the top of each layer, down at the
-            // bottom). It fades out once a layer is only a few pixels tall, where it would turn into moire.
-            float bead = vSideFace * 0.9 * (1.0 - smoothstep(0.35, 0.8, fwidth(vBead)));
+            // bottom). It fades out below ~8 px per layer (fwidth 0.25; vBead spans 2 per layer): smaller
+            // layers beat against the pixel grid into wavy moire.
+            float bead = vSideFace * 0.8 * (1.0 - smoothstep(0.12, 0.25, fwidth(vBead)));
             n = normalize(n + vec3(0.0, 0.0, vBead * bead));
             float sky = 0.5 + 0.5 * n.z;
             float light = 0.30 + 0.12 * sky + 0.42 * max(dot(n, normalize(vec3(0.35, -0.55, 0.75))), 0.0)
