@@ -34,6 +34,8 @@ interface PlateListener {
     fun onMoved(dx: Float, dy: Float)
     /** Paint stroke sample at screen (x, y); [newStroke] for the first sample of a stroke. */
     fun onPaint(x: Float, y: Float, newStroke: Boolean)
+    /** A drag began inside the selection's bounding box: [result] gets whether the mesh itself lies under (x, y). */
+    fun onDragCheck(x: Float, y: Float, result: (Boolean) -> Unit) = result(true)
     /** A right click or a long press that did not drag: the host shows a context menu at (x, y). */
     fun onContextMenu(x: Float, y: Float)
     /** A double tap on plate [index] that isn't the active one: the host makes it active (the view frames it). */
@@ -166,6 +168,9 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                 else if (mode == InteractionMode.NAVIGATE && hitsSelection(event.x, event.y)) {
                     dragging = true
                     dragStart = camera.rayOnPlane(event.x, event.y)
+                    // The box is bigger than the mesh at some angles: a miss on the mesh hands the touch back to the camera.
+                    val id = ++dragCheckId
+                    listener?.onDragCheck(event.x, event.y) { hit -> if (!hit && id == dragCheckId && dragging) cancelDrag() }
                 }
             }
             MotionEvent.ACTION_POINTER_DOWN -> {
@@ -183,12 +188,12 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                 if (longPressed) return true
                 if (event.pointerCount >= 2) {
                     val fx = focusX(event); val fy = focusY(event)
-                    camera.pan(fx - lastFocusX, fy - lastFocusY)
+                    camera.panGrab(lastFocusX, lastFocusY, fx, fy)
                     lastFocusX = fx; lastFocusY = fy
                 } else if (!multiTouch) {
                     when {
                         rectangle -> if (moved) listener?.onRectangle(downX, downY, event.x, event.y, rectangleRemove, false)
-                        rightButton || middleButton -> camera.pan(event.x - lastX, event.y - lastY)
+                        rightButton || middleButton -> camera.panGrab(lastX, lastY, event.x, event.y)
                         mode == InteractionMode.PAINT -> {
                             // Fill gaps of fast strokes so the painted trail stays continuous.
                             val dx = event.x - lastX
@@ -256,7 +261,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
         // WSA delivers a right / middle drag as hover moves with the button held, not as touch moves.
         if (event.actionMasked == MotionEvent.ACTION_HOVER_MOVE &&
             event.buttonState and (MotionEvent.BUTTON_SECONDARY or MotionEvent.BUTTON_TERTIARY) != 0) {
-            if (hoverPanning) camera.pan(event.x - lastX, event.y - lastY)
+            if (hoverPanning) camera.panGrab(lastX, lastY, event.x, event.y)
             hoverPanning = true
             moved = true
             lastX = event.x; lastY = event.y
@@ -279,7 +284,10 @@ class PlateView(context: Context) : GLSurfaceView(context) {
         return super.onGenericMotionEvent(event)
     }
 
+    private var dragCheckId = 0
+
     private fun cancelDrag() {
+        dragCheckId++
         if (dragging) queueEvent { renderer.dragOffset = floatArrayOf(0f, 0f, 0f) }
         dragging = false
         dragStart = null

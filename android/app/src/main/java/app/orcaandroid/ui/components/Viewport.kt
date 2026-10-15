@@ -114,6 +114,10 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                         val (o, d) = v.camera.ray(x, y)
                         vm.scene.onViewTap(o, d, additive, part, v.section.current)
                     }
+                    override fun onDragCheck(x: Float, y: Float, result: (Boolean) -> Unit) {
+                        val (o, d) = v.camera.ray(x, y)
+                        vm.scene.checkDragStart(o, d, v.section.current) { hit -> v.post { result(hit) } }
+                    }
                     override fun onRectangle(x0: Float, y0: Float, x1: Float, y1: Float, remove: Boolean, done: Boolean) {
                         rectangle = if (done) null else floatArrayOf(x0, y0, x1, y1)
                         if (!done) return

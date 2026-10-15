@@ -92,9 +92,21 @@ class Camera {
 
     /** Pans in the view plane; dx/dy in screen pixels. */
     @Synchronized fun pan(dx: Float, dy: Float) {
-        val scale = distance / height * 0.8f
+        val scale = 2f * distance * kotlin.math.tan(Math.toRadians(FOV / 2.0)).toFloat() / height
         val (r, u) = axes()
         for (i in 0..2) target[i] += (-dx * r[i] + dy * u[i]) * scale
+    }
+
+    /**
+     * Pans so the build-plate point that was under screen (x0, y0) ends up under (x1, y1): the plate follows
+     * the finger exactly at any zoom and pitch. Falls back to [pan] when a ray misses the plate plane.
+     */
+    @Synchronized fun panGrab(x0: Float, y0: Float, x1: Float, y1: Float) {
+        val a = rayOnPlane(x0, y0)
+        val b = rayOnPlane(x1, y1)
+        if (a == null || b == null) { pan(x1 - x0, y1 - y0); return }
+        target[0] += a.x - b.x
+        target[1] += a.y - b.y
     }
 
     /** View preset: 0 iso, 1 top, 2 front, 3 left, 4 right, 5 bottom, 6 rear. */

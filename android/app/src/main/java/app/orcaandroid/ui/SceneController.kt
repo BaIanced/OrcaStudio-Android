@@ -311,6 +311,14 @@ class SceneController(private val store: Store, private val presets: PresetContr
         }
     }
 
+    /** Whether the ray first hits a copy in the selection: the bounding-box test of a drag start is only a pre-check. */
+    fun checkDragStart(origin: Vec3, dir: Vec3, section: FloatArray?, result: (Boolean) -> Unit) {
+        store.launch {
+            val hit = pick(origin, dir, section)
+            result(hit != null && store.value.selectedItems.any { it.obj == hit.obj && it.instance == hit.instance })
+        }
+    }
+
     /** Right click / long press on the 3D view: selects what lies there (or nothing), then opens the menu at (x, y). */
     fun openContextMenu(origin: Vec3, dir: Vec3, x: Float, y: Float, section: FloatArray? = null) = store.launch {
         if (store.value.screen != Screen.PREPARE) return@launch
