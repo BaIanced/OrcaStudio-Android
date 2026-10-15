@@ -413,7 +413,7 @@ private fun PanelEdge(tucked: Boolean, onClick: () -> Unit, onDrag: (androidx.co
 @Composable
 private fun GlobalDialogs(state: UiState, vm: AppViewModel) {
     // The filament question comes up while a project opens: it replaces the busy dialog, which would cover it.
-    state.filamentChoice?.let { FilamentChoiceDialog(it) { keep, remember -> vm.files.answerFilaments(keep, remember) } }
+    state.filamentChoice?.let { FilamentChoiceDialog(it) { mode, remember -> vm.files.answerFilaments(mode, remember) } }
     state.projectOrImport?.let { name ->
         AlertDialog(
             onDismissRequest = { vm.files.answerOpenAsProject(false) },
@@ -519,9 +519,9 @@ private fun QuitDialog(onQuit: () -> Unit, onDismiss: () -> Unit) {
 
 /** Opened project with other filaments: current (app) circles above, the project's below; keep mine or use the project's. */
 @Composable
-private fun FilamentChoiceDialog(choice: FilamentChoice, onAnswer: (keepMine: Boolean, remember: Boolean) -> Unit) {
+private fun FilamentChoiceDialog(choice: FilamentChoice, onAnswer: (mode: String, remember: Boolean) -> Unit) {
     var remember by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
-    androidx.compose.ui.window.Dialog(onDismissRequest = { onAnswer(true, false) }) {
+    androidx.compose.ui.window.Dialog(onDismissRequest = { onAnswer("mine", false) }) {
         androidx.compose.material3.Surface(shape = MaterialTheme.shapes.extraLarge, tonalElevation = 6.dp, modifier = Modifier.width(340.dp)) {
             Column(Modifier.padding(24.dp)) {
                 Text(stringResource(R.string.filament_choice_title), style = MaterialTheme.typography.headlineSmall)
@@ -540,9 +540,11 @@ private fun FilamentChoiceDialog(choice: FilamentChoice, onAnswer: (keepMine: Bo
                     Text(stringResource(R.string.filament_remember), style = MaterialTheme.typography.bodyMedium)
                 }
                 Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    androidx.compose.material3.OutlinedButton(onClick = { onAnswer(false, remember) }, Modifier.weight(1f)) { Text(stringResource(R.string.filament_use_project)) }
-                    androidx.compose.material3.Button(onClick = { onAnswer(true, remember) }, Modifier.weight(1f)) { Text(stringResource(R.string.filament_keep_mine)) }
+                    androidx.compose.material3.OutlinedButton(onClick = { onAnswer("project", remember) }, Modifier.weight(1f)) { Text(stringResource(R.string.filament_use_project)) }
+                    androidx.compose.material3.Button(onClick = { onAnswer("mine", remember) }, Modifier.weight(1f)) { Text(stringResource(R.string.filament_keep_mine)) }
                 }
+                // Additive: the project's slots first (its objects use them), then mine that it lacks.
+                androidx.compose.material3.OutlinedButton(onClick = { onAnswer("both", remember) }, Modifier.fillMaxWidth().padding(top = 8.dp)) { Text(stringResource(R.string.filament_use_both)) }
             }
         }
     }

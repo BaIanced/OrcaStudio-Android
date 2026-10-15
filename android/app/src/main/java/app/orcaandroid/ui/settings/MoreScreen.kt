@@ -147,8 +147,8 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
                 SwitchRow(stringResource(R.string.double_back_quit), state.doubleBackToQuit, onChange = vm::setDoubleBackToQuit)
                 Text(stringResource(R.string.project_filaments), style = MaterialTheme.typography.titleSmall)
                 SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                    listOf("ask" to R.string.pf_ask, "mine" to R.string.pf_mine, "project" to R.string.pf_project).forEachIndexed { i, (mode, label) ->
-                        SegmentedButton(state.projectFilaments == mode, { vm.setProjectFilaments(mode) }, SegmentedButtonDefaults.itemShape(i, 3)) { Text(stringResource(label)) }
+                    listOf("ask" to R.string.pf_ask, "mine" to R.string.pf_mine, "project" to R.string.pf_project, "both" to R.string.pf_both).forEachIndexed { i, (mode, label) ->
+                        SegmentedButton(state.projectFilaments == mode, { vm.setProjectFilaments(mode) }, SegmentedButtonDefaults.itemShape(i, 4)) { Text(stringResource(label)) }
                     }
                 }
                 Text(stringResource(R.string.project_filaments_text), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

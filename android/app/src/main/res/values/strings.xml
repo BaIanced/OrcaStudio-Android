@@ -127,6 +127,8 @@
     <string name="pf_ask">Ask</string>
     <string name="pf_mine">Keep mine</string>
     <string name="pf_project">Project\'s</string>
+    <string name="pf_both">Both</string>
+    <string name="filament_use_both">Both (project\'s, then mine)</string>
     <string name="project_filaments_text">Which filaments a project you open uses. Keep mine leaves your AMS sync and filament edits alone.</string>
     <string name="quit_title">Quit?</string>
     <string name="quit_text">Your plates are kept for the next start.</string>

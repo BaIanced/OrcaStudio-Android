@@ -145,12 +145,13 @@ class FileController(
         // A project the user opens may bring its own filaments, which would undo their syncs and edits: they choose.
         val mine = s.filaments
         if (uri != null && filaments.isNotEmpty() && mine.isNotEmpty() && filaments.map { it.preset to it.color } != mine.map { it.preset to it.color }) {
-            val keep = when (s.projectFilaments) {
-                "mine" -> true
-                "project" -> false
-                else -> askFilaments(mine, filaments)
+            val mode = s.projectFilaments.takeIf { it != "ask" } ?: askFilaments(mine, filaments)
+            filaments = when (mode) {
+                "mine" -> List(filaments.size) { mine.getOrNull(it) ?: mine.last() }
+                // Both: the project's slots stay where its objects use them; mine that it lacks come after.
+                "both" -> filaments + mine.filter { m -> filaments.none { it.preset == m.preset && it.color.equals(m.color, true) } }
+                else -> filaments
             }
-            if (keep) filaments = List(filaments.size) { mine.getOrNull(it) ?: mine.last() }
         }
         if (printer != null) presets.selectPrinterNow(printer, info.print, filaments.ifEmpty { null })
         store.update { st ->
@@ -168,11 +169,11 @@ class FileController(
         store.update { it.copy(projectName = file.name.removeSuffix(".3mf"), projectDirty = false, selection = null, multiSelection = emptyList(), screen = Screen.PREPARE) }
     }
 
-    private var filamentAnswer: kotlinx.coroutines.CompletableDeferred<Boolean>? = null
+    private var filamentAnswer: kotlinx.coroutines.CompletableDeferred<String>? = null
 
-    /** Asks whether to keep the app's filaments (true) or take the project's; waits for the answer. */
-    private suspend fun askFilaments(mine: List<FilamentSlot>, project: List<FilamentSlot>): Boolean {
-        val answer = kotlinx.coroutines.CompletableDeferred<Boolean>()
+    /** Asks whether to keep the app's filaments ("mine"), take the project's ("project") or both; waits for the answer. */
+    private suspend fun askFilaments(mine: List<FilamentSlot>, project: List<FilamentSlot>): String {
+        val answer = kotlinx.coroutines.CompletableDeferred<String>()
         filamentAnswer = answer
         store.update { it.copy(filamentChoice = FilamentChoice(mine, project)) }
         return answer.await()
@@ -195,14 +196,13 @@ class FileController(
     }
 
     /** The dialog's answer; [remember] makes it the standing choice. */
-    fun answerFilaments(keepMine: Boolean, remember: Boolean) {
+    fun answerFilaments(mode: String, remember: Boolean) {
         if (remember) {
-            val mode = if (keepMine) "mine" else "project"
             store.settings.projectFilaments = mode
             store.update { it.copy(projectFilaments = mode) }
         }
         store.update { it.copy(filamentChoice = null) }
-        filamentAnswer?.complete(keepMine)
+        filamentAnswer?.complete(mode)
         filamentAnswer = null
     }
 
