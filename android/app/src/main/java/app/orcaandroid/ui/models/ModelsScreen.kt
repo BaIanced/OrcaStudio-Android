@@ -64,6 +64,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TextButton
@@ -474,7 +476,8 @@ private fun SiteTabs(browser: ModelBrowser) {
     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 4.dp)) {
         ModelSite.entries.forEach { site ->
             val active = browser.site == site
-            Box(Modifier.clickable { browser.open(site) }.padding(horizontal = 14.dp).height(44.dp)) {
+            // IntrinsicSize.Max: in the scrolling row the width is unbounded, and the line's fillMaxWidth came out 0 wide.
+            Box(Modifier.clickable { browser.open(site) }.padding(horizontal = 14.dp).height(44.dp).width(IntrinsicSize.Max)) {
                 Text(site.label, style = MaterialTheme.typography.labelLarge, fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
                     color = if (active) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1,
                     modifier = Modifier.align(Alignment.Center).padding(bottom = 4.dp))
