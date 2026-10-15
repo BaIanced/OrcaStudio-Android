@@ -17,7 +17,7 @@ private const val BADGE_GAP = 0.02f
 
 /** Contact shadow: geometry up to this height above the bed casts it, mm; darkness right under a part. */
 private const val SHADOW_FADE_MM = 12f
-private const val SHADOW_STRENGTH = 0.55f
+private const val SHADOW_STRENGTH = 0.8f
 
 /** Colours of the 3D view, following the app theme (RGB 0..1). */
 data class ViewColors(
@@ -81,6 +81,10 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     /** x0, y0, x1, y1 of the scene mesh (null = empty) and a counter of its uploads, for the shadow. */
     private var meshBounds: FloatArray? = null
     private var meshVersion = 0
+    private var previewVersion = 0
+    /** Preview's occlusion: last frame's matrix (camera moving?) and what the kept occlusion was made for. */
+    private val lastMvp = FloatArray(16)
+    private var previewAoKey: Any? = null
 
     private var pendingMesh: FloatData? = null
     private var pendingPaint: FloatData? = null
@@ -198,6 +202,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         bedVbo = ids[5]; boxVbo = ids[6]; boxIbo = ids[7]; scratchVbo = ids[8]
         uploadBox()
         effects.create { vs, fs -> program(vs, fs) }
+        previewAoKey = null
         // A new EGL context lost all buffers; everything is uploaded again by the host.
         bedDirty = true
         meshCount = 0; paintCount = 0; extrCount = 0; travelCount = 0; markerCount = 0
@@ -236,8 +241,9 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             // The shadow pass changed the clear colour.
             glClearColor(bg[0], bg[1], bg[2], 1f)
         }
-        val ao = effects.renderAo(aoLevel, viewW, viewH, clip) {
-            if (showPreview) drawExtrusions() else if (models) drawMesh(meshVbo, meshCount, pass = 0)
+        val ao = if (showPreview) previewAo(clip) else {
+            previewAoKey = null
+            effects.renderAo(aoLevel, viewW, viewH, clip) { if (models) drawMesh(meshVbo, meshCount, pass = 0) }
         }
 
         if (shadow) effects.drawShadow(mvp, SHADOW_STRENGTH)
@@ -268,6 +274,22 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         drawOverlays()
     }
 
+    /**
+     * Big toolpaths cost as much again in the occlusion's depth pass (17 instead of 26 fps on a phone), so in
+     * Preview it is left out while the camera moves and kept as long as the view and the toolpaths stay the same.
+     */
+    private fun previewAo(clip: Pair<Float, Float>): Boolean {
+        val moving = !mvp.contentEquals(lastMvp)
+        mvp.copyInto(lastMvp)
+        if (aoLevel == AO_OFF || moving) { previewAoKey = null; return false }
+        val key = listOf(aoLevel, viewW, viewH, previewVersion, previewRange, previewStyle, section?.toList())
+        if (key == previewAoKey) return true
+        previewAoKey = null
+        if (!effects.renderAo(aoLevel, viewW, viewH, clip) { drawExtrusions() }) return false
+        previewAoKey = key
+        return true
+    }
+
     // --- Upload --------------------------------------------------------------------------------
 
     private fun upload() {
@@ -283,6 +305,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             extrCount = uploadPadded(extrVbo, it.extrusions, PreviewData.EXTRUSION_STRIDE)
             travelCount = uploadFloats(travelVbo, it.travels)
             markerCount = uploadFloats(markerVbo, it.markers)
+            previewVersion++
             pendingPreview = null
         }
         if (bedDirty) {

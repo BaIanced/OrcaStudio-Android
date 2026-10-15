@@ -87,9 +87,9 @@ internal class SceneEffects {
         draw(ortho)
         glBlendEquation(GL_FUNC_ADD)
         glDisable(GL_BLEND)
-        // Two blur rounds, wide then narrow: a soft penumbra without the banding of one wide pass.
+        // Three blur rounds, wide to narrow: a soft penumbra without the banding of one wide pass.
         glUseProgram(blurProgram)
-        for (reach in floatArrayOf(SHADOW_BLUR_MM, SHADOW_BLUR_MM / 2)) {
+        for (reach in floatArrayOf(SHADOW_BLUR_MM, SHADOW_BLUR_MM / 2, SHADOW_BLUR_MM / 4)) {
             blur(shadowTex[0], shadowFbo[1], reach / 3.23f / ex, 0f)
             blur(shadowTex[1], shadowFbo[0], 0f, reach / 3.23f / ey)
         }
@@ -262,6 +262,6 @@ internal class SceneEffects {
         /** Room around the parts for the blur (and a dragged copy), mm. */
         const val SHADOW_MARGIN = 20f
         /** Reach of the first blur round, mm. */
-        const val SHADOW_BLUR_MM = 6f
+        const val SHADOW_BLUR_MM = 10f
     }
 }

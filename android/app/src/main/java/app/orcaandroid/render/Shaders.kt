@@ -388,7 +388,10 @@ internal object Shaders {
             for (int i = 0; i < N; ++i) {
                 float t = (float(i) + 0.5) / float(N);
                 float a = t * 18.849556 + spin;
-                vec3 v = viewPos(uv + vec2(cos(a), sin(a)) * (t * rPx) * px) - p;
+                // On a texel centre: the depth is NEAREST-sampled, and an off-centre uv would put that depth at
+                // the wrong x/y (slanted flat faces then occlude themselves, as grainy darkening).
+                vec2 s = (floor((uv + vec2(cos(a), sin(a)) * (t * rPx) * px) * uSize) + 0.5) * px;
+                vec3 v = viewPos(s) - p;
                 float vv = dot(v, v);
                 float fall = max(1.0 - vv / r2, 0.0);
                 sum += max(dot(v, n) * inversesqrt(vv + 1e-6) - 0.1, 0.0) * fall;
