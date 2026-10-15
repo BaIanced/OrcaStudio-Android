@@ -105,6 +105,8 @@ data class UiState(
     /** What an opened project does to the filament slots ("ask", "project", "mine") and the question being asked. */
     val projectFilaments: String = "ask",
     val filamentChoice: FilamentChoice? = null,
+    /** A project file dropped onto a plate with objects: its name while asking open-as-project vs import. */
+    val projectOrImport: String? = null,
     /** 3D view ambient occlusion (0 off, 1 soft, 2 full) and contact shadows. */
     val ambientOcclusion: Int = 0,
     val contactShadows: Boolean = true,

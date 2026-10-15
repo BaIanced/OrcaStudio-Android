@@ -410,7 +410,16 @@ private fun PanelEdge(tucked: Boolean, onClick: () -> Unit, onDrag: (androidx.co
 private fun GlobalDialogs(state: UiState, vm: AppViewModel) {
     // The filament question comes up while a project opens: it replaces the busy dialog, which would cover it.
     state.filamentChoice?.let { FilamentChoiceDialog(it) { keep, remember -> vm.files.answerFilaments(keep, remember) } }
-    if (state.busy != null && state.phase != Phase.LOADING && state.filamentChoice == null) {
+    state.projectOrImport?.let { name ->
+        AlertDialog(
+            onDismissRequest = { vm.files.answerOpenAsProject(false) },
+            title = { Text(stringResource(R.string.open_or_import_title)) },
+            text = { Text(stringResource(R.string.open_or_import_text, name)) },
+            confirmButton = { androidx.compose.material3.TextButton({ vm.files.answerOpenAsProject(true) }) { Text(stringResource(R.string.open_as_project)) } },
+            dismissButton = { androidx.compose.material3.TextButton({ vm.files.answerOpenAsProject(false) }) { Text(stringResource(R.string.import_models_only)) } },
+        )
+    }
+    if (state.busy != null && state.phase != Phase.LOADING && state.filamentChoice == null && state.projectOrImport == null) {
         AlertDialog(
             onDismissRequest = {},
             confirmButton = {},

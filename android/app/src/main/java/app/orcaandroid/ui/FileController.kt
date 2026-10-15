@@ -66,7 +66,8 @@ class FileController(
             return@launch
         }
         val project = files.singleOrNull()?.takeIf { it.name.endsWith(".3mf", true) && isProject(it) }
-        if (project != null && (!append || store.value.scene.isEmpty)) {
+        // A project onto a plate with objects: open it as a project (its plates, settings, filaments) or import its models.
+        if (project != null && (!append || store.value.scene.isEmpty || askOpenAsProject(project.name))) {
             openProjectFile(project, uris.first())
             return@launch
         }
@@ -175,6 +176,22 @@ class FileController(
         filamentAnswer = answer
         store.update { it.copy(filamentChoice = FilamentChoice(mine, project)) }
         return answer.await()
+    }
+
+    private var openAnswer: kotlinx.coroutines.CompletableDeferred<Boolean>? = null
+
+    /** Asks whether a project file replaces the current project (true) or only adds its models; waits for the answer. */
+    private suspend fun askOpenAsProject(name: String): Boolean {
+        val answer = kotlinx.coroutines.CompletableDeferred<Boolean>()
+        openAnswer = answer
+        store.update { it.copy(projectOrImport = name) }
+        return answer.await()
+    }
+
+    fun answerOpenAsProject(asProject: Boolean) {
+        store.update { it.copy(projectOrImport = null) }
+        openAnswer?.complete(asProject)
+        openAnswer = null
     }
 
     /** The dialog's answer; [remember] makes it the standing choice. */

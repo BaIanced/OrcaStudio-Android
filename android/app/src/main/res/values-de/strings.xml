@@ -87,6 +87,10 @@
     <string name="auto_save_interval">Automatisch speichern alle (Sekunden, 10-3600)</string>
     <string name="double_back_quit">Zum Beenden zweimal Zurück drücken (statt nachzufragen)</string>
     <string name="back_again_quit">Zum Beenden erneut Zurück drücken</string>
+    <string name="open_or_import_title">Projekt öffnen?</string>
+    <string name="open_or_import_text">%1$s ist ein Projekt. Öffnen (ersetzt das aktuelle Projekt mit Platten, Einstellungen und Filamenten) oder nur die Modelle importieren?</string>
+    <string name="open_as_project">Projekt öffnen</string>
+    <string name="import_models_only">Modelle importieren</string>
     <string name="quit_title">Beenden?</string>
     <string name="quit_text">Deine Platten bleiben für den nächsten Start erhalten.</string>
     <string name="yes">Ja</string>

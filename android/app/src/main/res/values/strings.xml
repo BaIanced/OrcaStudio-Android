@@ -112,6 +112,10 @@
     <string name="ai_allow">Allow</string>
     <string name="ai_deny">Deny</string>
     <string name="back_again_quit">Press Back again to quit</string>
+    <string name="open_or_import_title">Open project?</string>
+    <string name="open_or_import_text">%1$s is a project. Open it (replaces the current project, with its plates, settings and filaments) or import only its models?</string>
+    <string name="open_as_project">Open project</string>
+    <string name="import_models_only">Import models</string>
     <string name="filament_choice_title">Filaments in this project</string>
     <string name="filament_choice_text">The project brings its own filaments. Replacing yours resets your synced AMS colours and filament edits.</string>
     <string name="filament_current">Current (yours)</string>
