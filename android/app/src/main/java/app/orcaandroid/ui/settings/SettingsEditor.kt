@@ -195,7 +195,7 @@ private fun PresetEditor(state: UiState, vm: AppViewModel, type: PresetType, pic
         val vendorGroup = stringResource(R.string.vendor_presets)
         val items = when (type) {
             PresetType.PRINT -> presetItems(state.setup?.prints.orEmpty(), userGroup, vendorGroup, { it.name }, { it.system }) { listOf(it.vendor.ifEmpty { "System" }) }
-            PresetType.FILAMENT -> presetItems(state.setup?.filaments.orEmpty(), userGroup, vendorGroup, { it.name }, { it.system }) { listOf(it.brandName, it.type.ifEmpty { "?" }) }
+            PresetType.FILAMENT -> presetItems(state.setup?.filaments.orEmpty(), userGroup, vendorGroup, { it.name }, { it.system }, { it.color }) { listOf(it.brandName, it.type.ifEmpty { "?" }) }
             PresetType.PRINTER -> presetItems(state.printers, userGroup, vendorGroup, { it.name }, { it.system }) { listOf(it.vendor) }
         }.filter { it.id != name }
         PickerDialog(stringResource(R.string.compare_with), null, items, onDismiss = { comparePick = false }, openGroups = setOf(userGroup)) {

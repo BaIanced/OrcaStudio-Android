@@ -95,10 +95,10 @@ fun PreparePanel(state: UiState, vm: AppViewModel, wide: Boolean) {
  */
 internal fun <T> presetItems(
     presets: List<T>, userGroup: String, vendorGroup: String,
-    name: (T) -> String, system: (T) -> Boolean, sections: (T) -> List<String>,
+    name: (T) -> String, system: (T) -> Boolean, color: (T) -> String = { "" }, sections: (T) -> List<String>,
 ): List<PickerItem> {
     val (sys, user) = presets.partition(system)
-    return user.sortedBy { name(it).lowercase() }.map { PickerItem(name(it), name(it), userGroup) } +
+    return user.sortedBy { name(it).lowercase() }.map { PickerItem(name(it), name(it), userGroup, color = color(it)) } +
         sys.map { it to sections(it) }
             .sortedWith(compareBy<Pair<T, List<String>>>({ it.second.getOrNull(0)?.lowercase() }, { it.second.getOrNull(1)?.lowercase() }, { name(it.first).lowercase() }))
             .map { (p, s) -> PickerItem(name(p), name(p), vendorGroup, s.getOrElse(0) { "" }, s.getOrElse(1) { "" }) }
@@ -159,7 +159,7 @@ private fun FilamentSlots(state: UiState, vm: AppViewModel, userGroup: String, v
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             IconButton(onClick = { colorDialog = true }, modifier = Modifier.size(36.dp)) { ColorDot(slot.color, 22) }
             val filaments = setup?.filaments.orEmpty().filter { it.system.not() || it.brandName !in state.hiddenFilamentVendors || it.name == slot.preset }
-            val items = presetItems(filaments, userGroup, vendorGroup, { it.name }, { it.system }) { listOf(it.brandName, it.type.ifEmpty { "?" }) }
+            val items = presetItems(filaments, userGroup, vendorGroup, { it.name }, { it.system }, { it.color }) { listOf(it.brandName, it.type.ifEmpty { "?" }) }
             PickerField("${i + 1}", slot.preset, items,
                 { vm.presets.setFilament(i, it) }, Modifier.weight(1f), modified = slot.overrides.isNotEmpty(), openGroups = setOf(userGroup))
             IconButton(onClick = { vm.presets.setActiveFilament(i); vm.presets.openEditor(EditorTarget.Preset(PresetType.FILAMENT)) }) {

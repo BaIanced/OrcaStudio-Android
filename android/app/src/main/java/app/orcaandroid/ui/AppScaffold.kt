@@ -344,19 +344,18 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
             }
         }
     } else {
-        val sheet = rememberBottomSheetScaffoldState()
+        // A panel the grip resizes to any height (user 2026-10-15: the sheet snapped to 75 % to reach nested options).
         val sheetColors = LocalAppColors.current.scheme(panelRegion)
-        BottomSheetScaffold(
-            scaffoldState = sheet,
-            sheetPeekHeight = 132.dp,
-            // Full width: with the default 640 dp cap a tablet in portrait left side strips where the open sheet
-            // covered only part of the Slice button (Chromebook r203, 811 dp wide).
-            sheetMaxWidth = androidx.compose.ui.unit.Dp.Infinity,
-            sheetContainerColor = sheetColors.surfaceContainerLow,
-            sheetContentColor = sheetColors.onSurface,
-            sheetContent = { Themed(panelRegion) { Box(Modifier.fillMaxWidth().fillMaxHeight(0.75f)) { panel() } } },
-        ) { padding ->
-            viewport(Modifier.fillMaxSize().padding(bottom = padding.calculateBottomPadding()))
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            val total = maxHeight
+            val height = (if (PanelSize.height > 0f) PanelSize.height.dp else 132.dp).coerceIn(56.dp, (total * 0.85f).coerceAtLeast(56.dp))
+            Column(Modifier.fillMaxSize()) {
+                viewport(Modifier.weight(1f).fillMaxWidth())
+                Themed(panelRegion) { DragHandle(vertical = false) { d -> PanelSize.height = (height - d).value } }
+                Surface(Modifier.height(height).fillMaxWidth(), color = sheetColors.surfaceContainerLow, contentColor = sheetColors.onSurface) {
+                    Themed(panelRegion) { Box(Modifier.fillMaxSize()) { panel() } }
+                }
+            }
         }
     }
 }
@@ -383,6 +382,11 @@ private val PANEL_MIN = 300.dp
 private val PANEL_SNAP = 200.dp
 
 /** The OpenSCAD editor's dragged size in dp (0 = default); kept for the session, so leaving Prepare doesn't reset it. */
+/** Height of the portrait panel (dp, 0 = default), kept while the app runs. */
+private object PanelSize {
+    var height by mutableStateOf(0f)
+}
+
 private object ScadEditorSize {
     var width by mutableStateOf(0f)
     var height by mutableStateOf(0f)

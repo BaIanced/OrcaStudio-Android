@@ -99,6 +99,10 @@ json compatible_names(const PresetCollection &collection)
             entry["brand"] = brand->values.front();
         if (const auto *type = p.config.option<ConfigOptionStrings>("filament_type"); type && !type->values.empty())
             entry["type"] = type->values.front();
+        // A user filament's own colour (desktop: picking it recolours the slot).
+        if (!p.is_system)
+            if (const auto *colour = p.config.option<ConfigOptionStrings>("default_filament_colour"); colour && !colour->values.empty() && !colour->values.front().empty())
+                entry["color"] = colour->values.front();
         out.push_back(std::move(entry));
     }
     return out;

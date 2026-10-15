@@ -48,7 +48,7 @@ import java.util.Locale
  * [subgroup] and [detail] as nested sections (e.g. the brand, then the material). When any item
  * is nested, sections become collapsible.
  */
-data class PickerItem(val id: String, val label: String = id, val group: String = "", val subgroup: String = "", val detail: String = "") {
+data class PickerItem(val id: String, val label: String = id, val group: String = "", val subgroup: String = "", val detail: String = "", val color: String = "") {
     val path: List<String> get() = listOf(group, subgroup, detail).filter { it.isNotEmpty() }
 }
 
@@ -135,6 +135,7 @@ fun PickerDialog(
                                         Row(Modifier.fillMaxWidth().clickable { onPick(item.id) }.padding(start = (depth * 12).dp),
                                             verticalAlignment = Alignment.CenterVertically) {
                                             RadioButton(selected = item.id == selected, onClick = { onPick(item.id) })
+                                            if (item.color.isNotEmpty()) androidx.compose.foundation.layout.Box(Modifier.padding(end = 8.dp)) { app.orcaandroid.ui.prepare.ColorDot(item.color, 16) }
                                             Text(item.label, style = MaterialTheme.typography.bodyMedium)
                                         }
                                     }

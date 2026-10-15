@@ -373,7 +373,9 @@ class PresetController(private val store: Store, private val device: DeviceContr
     suspend fun setFilamentNow(slot: Int, name: String) {
         val s = store.value
         rememberTrayPick(s.filaments.getOrNull(slot), name)
-        val list = s.filaments.mapIndexed { i, f -> if (i == slot) FilamentSlot(name, f.color, source = f.source) else f }
+        // A user filament with its own colour recolours the slot, as on the desktop.
+        val own = s.setup?.filaments?.firstOrNull { it.name == name }?.color?.ifEmpty { null }
+        val list = s.filaments.mapIndexed { i, f -> if (i == slot) FilamentSlot(name, own ?: f.color, source = f.source) else f }
         settings.setLastFilaments(s.printer ?: return, list)
         store.update { it.copy(filaments = list, results = emptyMap()) }
         refreshPresetValues(listOf(PresetType.FILAMENT))

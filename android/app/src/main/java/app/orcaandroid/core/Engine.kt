@@ -226,7 +226,7 @@ class Engine(private val cacheDir: File) {
 
     private fun parseRefs(a: JSONArray) = a.map {
         val o = it as JSONObject
-        PresetRef(o.getString("name"), o.optString("vendor"), o.optBoolean("system"), o.optString("brand"), o.optString("type"), o.optString("base"))
+        PresetRef(o.getString("name"), o.optString("vendor"), o.optBoolean("system"), o.optString("brand"), o.optString("type"), o.optString("base"), o.optString("color"))
     }
 
     private fun parseSetup(o: JSONObject): PrinterSetup {
