@@ -242,7 +242,12 @@ internal object Shaders {
         out vec4 color;
         void main() {
             if (uSectionOn == 1 && dot(uSection.xyz, vWorld) > uSection.w) discard;
-            float light = 0.4 + 0.6 * max(dot(normalize(vNormal), normalize(vec3(0.3, -0.5, 0.8))), 0.0);
+            // Same soft key/fill/sky light as the model (no highlight: it would shimmer on layer lines),
+            // so faces turned from the key light keep their shape instead of dropping to one dark tone.
+            vec3 n = normalize(vNormal);
+            float sky = 0.5 + 0.5 * n.z;
+            float light = 0.30 + 0.12 * sky + 0.42 * max(dot(n, normalize(vec3(0.35, -0.55, 0.75))), 0.0)
+                + 0.24 * max(dot(n, normalize(vec3(-0.6, 0.4, 0.35))), 0.0);
             color = vec4(vColor * light, 1.0);
         }"""
 
