@@ -31,6 +31,17 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
+import androidx.compose.material3.Switch
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -459,17 +470,19 @@ fun ModelsScreen(browser: ModelBrowser) {
             IconButton(onClick = browser::reload, small) { Icon(Icons.Default.Refresh, stringResource(R.string.reload)) }
             IconButton(onClick = { browser.open(browser.site) }, small) { Icon(Icons.Default.Home, stringResource(R.string.home)) }
         }, right = {
-            Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
-                ModelSite.entries.forEach { s ->
-                    FilterChip(selected = browser.site == s, onClick = { browser.open(s) }, label = { Text(s.label) }, modifier = Modifier.padding(horizontal = 3.dp))
-                }
+            // Beside the camera hole: the full-site switch (MakerWorld only) and the menu.
+            Row(Modifier.weight(1f), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
                 if (browser.site == ModelSite.MAKERWORLD) {
-                    FilterChip(selected = browser.fullSite, onClick = browser::toggleFullSite, label = { Text(stringResource(R.string.models_full_site)) },
-                        modifier = Modifier.padding(start = 12.dp, end = 3.dp))
+                    Row(Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = browser::toggleFullSite).padding(start = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Text(stringResource(R.string.models_full_site), style = MaterialTheme.typography.labelMedium)
+                        Switch(browser.fullSite, null, Modifier.scale(0.7f))
+                    }
                 }
+                AdBlockMenu(browser)
             }
-            AdBlockMenu(browser)
         })
+        SiteTabs(browser)
         if (browser.site == ModelSite.MAKERWORLD && !browser.fullSite) MakerWorldLinks(browser)
         if (browser.picking || browser.picked != null) PickerBar(browser)
         if (browser.progress < 100) LinearProgressIndicator(progress = { browser.progress / 100f }, modifier = Modifier.fillMaxWidth())
@@ -478,6 +491,23 @@ fun ModelsScreen(browser: ModelBrowser) {
                 factory = { browser.web.also { (it.parent as? ViewGroup)?.removeView(it) } },
                 modifier = Modifier.fillMaxSize(),
             )
+        }
+    }
+}
+
+/** The sites as browser-style tabs: the label with a line under the active one (like the plate tabs). */
+@Composable
+private fun SiteTabs(browser: ModelBrowser) {
+    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 4.dp)) {
+        ModelSite.entries.forEach { site ->
+            val active = browser.site == site
+            Column(Modifier.clickable { browser.open(site) }.padding(horizontal = 14.dp).height(40.dp), verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(site.label, style = MaterialTheme.typography.labelLarge, fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+                    color = if (active) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                Spacer(Modifier.height(6.dp))
+                Box(Modifier.fillMaxWidth().height(2.dp).background(if (active) MaterialTheme.colorScheme.primary else Color.Transparent, RoundedCornerShape(1.dp)))
+            }
         }
     }
 }
