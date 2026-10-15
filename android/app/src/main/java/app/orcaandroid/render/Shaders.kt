@@ -228,8 +228,9 @@ internal object Shaders {
             vec3 d = aP1 - aP0;
             float len = length(d);
             vec3 dir = len > 1e-5 ? d / len : vec3(1.0, 0.0, 0.0);
-            vec3 side = cross(dir, vec3(0.0, 0.0, 1.0));
-            vec3 right = length(side) > 1e-4 ? normalize(side) : vec3(1.0, 0.0, 0.0);
+            // Same function as for the neighbours' sides below, so a joint's two segments agree bit for bit.
+            vec3 right = rightOf(aP0, aP1);
+            if (dot(right, right) < 0.5) right = vec3(1.0, 0.0, 0.0);
             vec3 up = cross(right, dir);
             float w = max(aWidth, 0.05) * 0.5;
             float h = max(aHeight, 0.05);
@@ -243,14 +244,16 @@ internal object Shaders {
             vec3 across;
             vec3 sideNormal = right;
             if (dot(rn, rn) > 0.5 && c > -0.5) {
-                vec3 m = normalize(right + rn);
-                across = m * (aCorner.y * w / dot(m, right));
-                if (c > 0.77) sideNormal = m;
+                // (right + rn) / (1 + c) is symmetric in the two segments, so both compute the same corner
+                // bit for bit (a watertight joint; any difference left hairline cracks along the layers).
+                across = (right + rn) * (aCorner.y * w / (1.0 + c));
+                if (c > 0.77) sideNormal = normalize(right + rn);
             } else {
                 // Open end or sharp turn (over 120 degrees): extend by a quarter width so the corner has no gap.
                 across = right * aCorner.y * w + dir * (atEnd ? 0.5 : -0.5) * w;
             }
-            vec3 pos = (atEnd ? aP1 : aP0) + across + up * (aCorner.z * 0.5 - 0.5) * h + uOrigin;
+            // The layer's height goes straight down (exact z), so neighbouring boxes share their edges exactly.
+            vec3 pos = (atEnd ? aP1 : aP0) + across + vec3(0.0, 0.0, (aCorner.z * 0.5 - 0.5) * h) + uOrigin;
             vNormal = normalize(sideNormal * aFace.x + up * aFace.y + dir * aFace.z);
             vBead = aCorner.z;
             vSideFace = abs(aFace.x);
