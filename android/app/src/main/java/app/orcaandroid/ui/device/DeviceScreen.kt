@@ -304,6 +304,7 @@ private fun PrinterPanel(state: UiState, vm: AppViewModel, modifier: Modifier) {
     }
     val traysAndAlerts: @Composable () -> Unit = {
         val bambu = state.connection?.type.let { it == HostType.BAMBU || it == HostType.BAMBU_SIGNED }
+        if (bambu) state.connection?.let { CameraCard(it) }
         if (bambu || status.trays.isNotEmpty()) {
             PanelCard(stringResource(R.string.loaded_filaments)) {
                 if (status.trays.isEmpty())
@@ -340,7 +341,7 @@ private fun PrinterPanel(state: UiState, vm: AppViewModel, modifier: Modifier) {
 }
 
 @Composable
-private fun PanelCard(title: String, content: @Composable () -> Unit) {
+internal fun PanelCard(title: String, content: @Composable () -> Unit) {
     Surface(tonalElevation = 1.dp, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)

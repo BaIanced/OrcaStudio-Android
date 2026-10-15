@@ -708,4 +708,14 @@
         <item quantity="one">%d eigene Farbe</item>
         <item quantity="other">%d eigene Farben</item>
     </plurals>
+    <string name="device_camera">Kamera</string>
+    <string name="camera_hint">Live-Bild über das Heimnetz. Läuft nur, solange es eingeschaltet ist.</string>
+    <string name="camera_start">Start</string>
+    <string name="camera_stop">Stopp</string>
+    <string name="camera_snapshot">Schnappschuss speichern</string>
+    <string name="camera_saved">Schnappschuss in Downloads gespeichert</string>
+    <string name="camera_save_failed">Schnappschuss konnte nicht gespeichert werden</string>
+    <string name="camera_unreachable">Die Kamera des Druckers ist nicht erreichbar. Ist dieses Gerät im selben Netzwerk und der Drucker an?</string>
+    <string name="camera_rejected">Der Drucker hat die Verbindung abgelehnt. Prüfe den Zugangscode.</string>
+    <string name="camera_broken">Die Kameraverbindung wurde getrennt. Mit Start erneut versuchen.</string>
 </resources>

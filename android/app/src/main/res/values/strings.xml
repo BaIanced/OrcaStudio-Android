@@ -893,4 +893,14 @@
         <item quantity="one">%d custom color</item>
         <item quantity="other">%d custom colors</item>
     </plurals>
+    <string name="device_camera">Camera</string>
+    <string name="camera_hint">Live view over your home network. Only runs while switched on.</string>
+    <string name="camera_start">Start</string>
+    <string name="camera_stop">Stop</string>
+    <string name="camera_snapshot">Save snapshot</string>
+    <string name="camera_saved">Snapshot saved to Downloads</string>
+    <string name="camera_save_failed">Could not save the snapshot</string>
+    <string name="camera_unreachable">Can\'t reach the printer\'s camera. Is this device on the same network, and is the printer on?</string>
+    <string name="camera_rejected">The printer refused the connection. Check the access code.</string>
+    <string name="camera_broken">The camera connection dropped. Press Start to try again.</string>
 </resources>
