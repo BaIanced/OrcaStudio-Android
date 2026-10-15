@@ -5,6 +5,7 @@ import android.net.Uri
 import app.orcaandroid.R
 import app.orcaandroid.core.FilamentSlot
 import app.orcaandroid.core.PresetType
+import app.orcaandroid.core.Scene
 import app.orcaandroid.core.RecentFile
 import app.orcaandroid.net.FilamentProfiles
 import app.orcaandroid.net.ModelDownloads
@@ -68,10 +69,33 @@ class FileController(
             openProjectFile(project, uris.first())
             return@launch
         }
-        val s = engine.loadModels(files.map { it.path }, append = append || !store.value.scene.isEmpty, plate = store.value.activePlate)
-        store.applyScene(s)
+        val s = if (store.value.scene.isEmpty) engine.loadModels(files.map { it.path }, append = append, plate = store.value.activePlate).also { store.applyScene(it) }
+        else {
+            // Objects already in the project stay where they are: each new file gets a plate of its own (user, 2026-10-14).
+            var last = store.value.scene
+            for (f in files) {
+                useEmptyPlate()
+                last = engine.loadModels(listOf(f.path), append = true, plate = store.value.activePlate)
+                store.applyScene(last)
+            }
+            last
+        }
         uris.forEachIndexed { i, u -> if (unpacked[i].any { it in files }) rememberRecent(u, imported[i].name, false) }
         store.update { it.copy(selection = Selection(s.objects.lastIndex), multiSelection = emptyList(), screen = Screen.PREPARE) }
+    }
+
+    private fun Scene.plateEmpty(plate: Int) = objects.none { o -> o.instances.any { it.plate == plate } }
+
+    /** The plate a new file goes on: the active plate if it is empty, else the first empty one, else a new one. */
+    private suspend fun useEmptyPlate() {
+        val s = store.value.scene
+        if (s.plates.isEmpty() || s.plateEmpty(store.value.activePlate)) return
+        val free = s.plates.indices.firstOrNull { s.plateEmpty(it) }
+        if (free != null) { store.update { it.copy(activePlate = free) }; return }
+        // At the plate limit the file stays on the active plate.
+        val added = runCatching { engine.addPlate() }.getOrNull() ?: return
+        store.applyScene(added)
+        store.update { it.copy(activePlate = added.plates.lastIndex) }
     }
 
     private fun addVariants(files: List<File>) = store.launch(store.str(R.string.loading_model)) {

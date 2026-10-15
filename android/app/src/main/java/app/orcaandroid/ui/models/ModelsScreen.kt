@@ -113,13 +113,6 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel, d
         private set
     private var started = false
     private val prefs = context.getSharedPreferences("orca", Context.MODE_PRIVATE)
-    /**
-     * MakerWorld's full site: with the slicer marker in the user agent MakerWorld leaves out its
-     * own header and sidebar (account, Collections, History), as the desktop slicer shows those.
-     * Without it the "Open in Bambu Studio" import is not offered to the app, so this is a switch.
-     */
-    var fullSite by mutableStateOf(prefs.getBoolean(PREF_FULL_SITE, false))
-        private set
     var adBlockOn by mutableStateOf(AdBlock.isEnabled(context))
         private set
     /** Listing pages with page numbers (Thingiverse, Printables) load the next page as you scroll. */
@@ -133,31 +126,20 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel, d
     /** Bumped when the blocked elements change, so their list re-reads them. */
     var rulesVersion by mutableIntStateOf(0)
         private set
-    private var slicerVersion = "02.08.01.99"
     // The WebView's own (Android) user agent; read before any site changes it.
     private val mobileUserAgent by lazy { web.settings.userAgentString }
 
     /**
      * MakerWorld serves its phone site (with the Bambu Handy hand-over) to an Android user agent.
-     * The slicer integration is on the desktop site, so MakerWorld gets a desktop Chrome user
-     * agent with Bambu Studio's BBL-Slicer suffix, like the desktop's embedded WebView.
+     * Its full desktop site (header, sidebar, "Open in Bambu Studio" as a bambustudio:// link the app
+     * handles) is served to a desktop Chrome user agent; there is no slicer mode (user, 2026-10-14).
      */
     private fun makerWorldUserAgent(): String {
         val chrome = Regex("Chrome/[0-9.]+").find(mobileUserAgent)?.value ?: "Chrome/118.0.0.0"
         val desktop = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) $chrome Safari/537.36"
-        return if (fullSite) desktop else "$desktop BBL-Slicer/v$slicerVersion BBL-Language/en"
+        return desktop
     }
 
-    /** Switches MakerWorld between its full site and slicer mode, keeping the current page. */
-    fun toggleFullSite() {
-        fullSite = !fullSite
-        prefs.edit().putBoolean(PREF_FULL_SITE, fullSite).apply()
-        if (site != ModelSite.MAKERWORLD) return
-        web.settings.userAgentString = makerWorldUserAgent()
-        // The page's HTML differs per user agent; a cached copy for the other one broke the layout (user, 2026-10-14).
-        web.clearCache(false)
-        web.reload()
-    }
 
     @SuppressLint("SetJavaScriptEnabled", "JavascriptInterface")
     val web: WebView = app.orcaandroid.ui.components.themedWebView(context.also {
@@ -199,7 +181,8 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel, d
                     val dx = e.x - downX
                     val dy = e.y - downY
                     if (edge != 0 && Math.abs(dx) >= 80 * dp && Math.abs(dx) > 2 * Math.abs(dy)) {
-                        if (edge < 0 && dx > 0) back() else if (edge > 0 && dx < 0) forward()
+                        if (edge < 0 && dx > 0) { v.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK); back() }
+                        else if (edge > 0 && dx < 0) { v.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK); forward() }
                     }
                     edge = 0
                 }
@@ -232,7 +215,6 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel, d
                 view.evaluateJavascript(BRIDGE_JS, null)
                 view.evaluateJavascript(ZOOM_JS, null)
                 if (adBlockOn) view.evaluateJavascript(AdBlock.PICKER_JS, null)
-                if (site ==ModelSite.MAKERWORLD && !fullSite) view.evaluateJavascript(MW_TRIM_JS, null)
                 if (infiniteScroll) view.evaluateJavascript(MORE_JS, null)
                 updateNav()
             }
@@ -290,11 +272,7 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel, d
             return
         }
         scope.launch {
-            val (version, ticket) = withContext(Dispatchers.IO) {
-                BambuAccount.clientVersion(context) to runCatching { BambuAccount.webTicket(context) }.getOrNull()
-            }
-            // MakerWorld offers its "open in slicer" hand-over only to Bambu's slicers.
-            slicerVersion = version
+            val ticket = withContext(Dispatchers.IO) { runCatching { BambuAccount.webTicket(context) }.getOrNull() }
             web.settings.userAgentString = makerWorldUserAgent()
             val host = "https://makerworld.com/"
             web.loadUrl(if (ticket != null) "${host}api/sign-in/ticket?to=${Uri.encode(target.home)}&ticket=$ticket" else target.home)
@@ -479,7 +457,6 @@ fun ModelsScreen(browser: ModelBrowser) {
             }
         })
         SiteTabs(browser)
-        if (browser.site == ModelSite.MAKERWORLD && !browser.fullSite) MakerWorldLinks(browser)
         if (browser.picking || browser.picked != null) PickerBar(browser)
         if (browser.progress < 100) LinearProgressIndicator(progress = { browser.progress / 100f }, modifier = Modifier.fillMaxWidth())
         Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -515,10 +492,6 @@ private fun AdBlockMenu(browser: ModelBrowser) {
     Box {
         IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, stringResource(R.string.more)) }
         DropdownMenu(menu, { menu = false }) {
-            if (browser.site == ModelSite.MAKERWORLD) DropdownMenuItem(text = { Text(stringResource(R.string.models_full_site)) },
-                leadingIcon = { Icon(Icons.Default.DesktopWindows, null) },
-                trailingIcon = { Checkbox(checked = browser.fullSite, onCheckedChange = null) },
-                onClick = { menu = false; browser.toggleFullSite() })
             DropdownMenuItem(text = { Text(stringResource(R.string.adblock_toggle)) }, leadingIcon = { Icon(Icons.Default.Shield, null) },
                 trailingIcon = { Checkbox(checked = browser.adBlockOn, onCheckedChange = null) },
                 onClick = { menu = false; browser.toggleAdBlock() })
@@ -575,53 +548,9 @@ private fun PickerBar(browser: ModelBrowser) {
     }
 }
 
-/** MakerWorld's header links, which its slicer mode leaves out (the desktop slicer has its own). */
-@Composable
-private fun MakerWorldLinks(browser: ModelBrowser) {
-    var searching by remember { mutableStateOf(false) }
-    var query by remember { mutableStateOf("") }
-    // Its own shade, so the page's dark header doesn't blend into the toolbar above.
-    Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerHigh).horizontalScroll(rememberScrollState()).padding(horizontal = 4.dp),
-        verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = { searching = true }) { Icon(Icons.Default.Search, stringResource(R.string.search)) }
-        TextButton(onClick = { browser.openMakerWorld("following") }) { Text(stringResource(R.string.mw_following)) }
-        TextButton(onClick = { browser.openMakerWorld("makerlab") }) { Text("MakerLab") }
-        TextButton(onClick = { browser.openMakerWorld("contests") }) { Text(stringResource(R.string.mw_contests)) }
-        TextButton(onClick = { browser.openMakerWorldUser("browsing-history") }) { Text(stringResource(R.string.mw_history)) }
-        TextButton(onClick = { browser.openMakerWorldUser("collections") }) { Text(stringResource(R.string.mw_collections)) }
-        TextButton(onClick = { browser.openMakerWorldUser("") }) { Text(stringResource(R.string.mw_profile)) }
-    }
-    if (searching) AlertDialog(
-        onDismissRequest = { searching = false },
-        title = { Text(stringResource(R.string.search)) },
-        text = {
-            OutlinedTextField(query, { query = it }, singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = { if (query.isNotBlank()) { browser.searchMakerWorld(query); searching = false } }))
-        },
-        confirmButton = { TextButton(onClick = { browser.searchMakerWorld(query); searching = false }, enabled = query.isNotBlank()) { Text(stringResource(R.string.search)) } },
-        dismissButton = { TextButton(onClick = { searching = false }) { Text(stringResource(R.string.cancel)) } },
-    )
-}
-
 private const val TAG = "Models"
 private const val WEB_DEBUG_TAG = "OrcaWeb"
-private const val PREF_FULL_SITE = "makerworld_full_site"
 private const val PREF_INFINITE_SCROLL = "models_infinite_scroll"
-
-/**
- * Slicer mode leaves a blank strip where MakerWorld's header would be: the category bar stays
- * fixed 60px down. Moves it to the top; re-applied when the page re-renders (client-side navigation).
- */
-private const val MW_TRIM_JS = """(function(){
-  if (window.__orcaTrim) return; window.__orcaTrim = 1;
-  function trim(){ document.querySelectorAll('.global_new').forEach(function(g){
-    var s = getComputedStyle(g); if (s.position === 'fixed' && s.top === '60px') g.style.setProperty('top', '0px', 'important'); }); }
-  var pending = false;
-  new MutationObserver(function(){ if (pending) return; pending = true; requestAnimationFrame(function(){ pending = false; trim(); }); })
-    .observe(document.documentElement, { childList: true, subtree: true });
-  trim();
-})();"""
 
 /**
  * MakerWorld's viewport meta has `maximum-scale=1.0, user-scalable=no`, which blocks pinch and

@@ -41,7 +41,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.SegmentedButton
@@ -296,15 +298,18 @@ private fun EditorFrame(
                     shown.forEachIndexed { i, p -> Tab(i == current, { pageIndex = i }, text = { Text(tr.tr(p.title)) }) }
                 }
             }
-            Row(Modifier.fillMaxSize().pointerInput(shown.size, showPages) {
+            val haptic = LocalHapticFeedback.current
+            // `current` is a key: the gesture lambda would otherwise keep the page it started on and only swipe once.
+            Row(Modifier.fillMaxSize().pointerInput(shown.size, showPages, current) {
                 if (!showPages) return@pointerInput
                 // Swipe sideways to move between tabs.
                 var drag = 0f
                 detectHorizontalDragGestures(
                     onDragStart = { drag = 0f },
                     onDragEnd = {
-                        if (drag < -80.dp.toPx() && current < shown.lastIndex) pageIndex = current + 1
-                        else if (drag > 80.dp.toPx() && current > 0) pageIndex = current - 1
+                        val to = if (drag < -80.dp.toPx() && current < shown.lastIndex) current + 1
+                            else if (drag > 80.dp.toPx() && current > 0) current - 1 else null
+                        if (to != null) { pageIndex = to; haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) }
                     },
                 ) { _, dx -> drag += dx }
             }) {
