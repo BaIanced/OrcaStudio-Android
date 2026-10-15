@@ -101,6 +101,7 @@ class PresetController(private val store: Store, private val device: DeviceContr
     /** Activates printer [name] with [print] and [filaments] if given, else the ones last used with it. */
     suspend fun selectPrinterNow(name: String, print: String? = null, filaments: List<FilamentSlot>? = null) {
         engine.setDefaultBedType(settings.preferredBedType)
+        engine.setAllowMixedTemperatures(settings.allowMixedTemps)
         val setup = engine.selectPrinter(name)
         settings.lastPrinter = name
         // A user printer preset shares the connection and loaded filaments of the system preset it inherits.
@@ -165,6 +166,12 @@ class PresetController(private val store: Store, private val device: DeviceContr
         val src = slot?.source ?: return
         val picks = settings.trayPicks
         settings.trayPicks = if (name == src.synced) picks - src.key else picks + (src.key to (src.loaded to name))
+    }
+
+    fun setAllowMixedTemps(on: Boolean) = store.launch {
+        settings.allowMixedTemps = on
+        engine.setAllowMixedTemperatures(on)
+        store.update { it.copy(allowMixedTemps = on) }
     }
 
     fun setPreferMyFilaments(on: Boolean) {

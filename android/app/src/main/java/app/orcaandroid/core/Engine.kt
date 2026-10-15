@@ -33,6 +33,9 @@ class Engine(private val cacheDir: File) {
     suspend fun setDefaultBedType(bedType: String): String =
         call("setDefaultBedType", args("bedType" to bedType)).optString("default_bed_type")
 
+    /** Lets filaments whose nozzle temperatures are far apart share a print (desktop: "Remove mixed temperature restriction"). */
+    suspend fun setAllowMixedTemperatures(allow: Boolean) { call("setAllowMixedTemperatures", args("allow" to allow)) }
+
     private val defsCache = HashMap<PresetType, List<OptionDef>>()
 
     suspend fun optionDefs(type: PresetType): List<OptionDef> = defsCache[type] ?: call("optionDefs", args("type" to type.id))

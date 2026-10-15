@@ -587,6 +587,7 @@ json OrcaEngine::slice(int plate, const std::string &gcode_out, const std::strin
     });
     print.apply(*model, config);
     print.is_BBL_printer() = m_bundle->is_bbl_vendor();
+    print.set_check_multi_filaments_compatibility(!m_allow_mixed_temp);
     if (m_calib)
         print.set_calib_params(*m_calib);
 

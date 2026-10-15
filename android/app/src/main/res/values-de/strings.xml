@@ -398,6 +398,11 @@
     <string name="alert_btn_stop_drying">Trocknen beenden</string>
     <string name="alert_btn_abort">Abbruch</string>
     <!-- Filamente vom Bambu-Drucker übernehmen -->
+    <string name="filament_type_mismatch">%1$s hier, aber das Fach des Druckers enthält %2$s: Slicen schlägt fehl</string>
+    <string name="filament_reset_to_ams">Auswahl des Druckers verwenden (%1$s)</string>
+    <string name="allow_mixed_temps">Beschränkung für gemischte Temperaturen aufheben</string>
+    <string name="allow_mixed_temps_text">Filamente mit weit auseinanderliegenden Düsentemperaturen in einem Druck slicen. Risiko: Düsenverstopfung oder Druckerschaden.</string>
+    <string name="mixed_temps_hint">Wenn du trotzdem drucken willst, aktiviere %1$s.</string>
     <string name="sync_filaments">Filamente vom Drucker übernehmen</string>
     <string name="device_job">Auftrag</string>
     <string name="device_temperatures">Temperaturen</string>

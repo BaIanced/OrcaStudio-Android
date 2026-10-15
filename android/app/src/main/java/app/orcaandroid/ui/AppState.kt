@@ -146,6 +146,7 @@ data class UiState(
     val preferredBedType: String = "",
     /** AMS sync and new slots take the user's own filament preset saved from a system one (switchable). */
     val preferMyFilaments: Boolean = true,
+    val allowMixedTemps: Boolean = false,
     /** Printer presets with another nozzle than the model's [installedNozzles] entry are hidden (switchable). */
     val matchNozzle: Boolean = true,
     val installedNozzles: Map<String, Float> = emptyMap(),

@@ -97,6 +97,9 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
                 SwitchRow(stringResource(R.string.prefer_my_filaments), state.preferMyFilaments, onChange = vm.presets::setPreferMyFilaments)
                 Text(stringResource(R.string.prefer_my_filaments_text), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
+                SwitchRow(stringResource(SettingPath.MIXED_TEMPS.label), state.allowMixedTemps, onChange = vm.presets::setAllowMixedTemps)
+                Text(stringResource(R.string.allow_mixed_temps_text), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
                 SwitchRow(stringResource(R.string.match_nozzle), state.matchNozzle, onChange = vm.presets::setMatchNozzle)
                 Text(stringResource(R.string.match_nozzle_text) + state.installedNozzles.entries.joinToString("") { "\n${it.key}: %.1f mm".format(it.value) },
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

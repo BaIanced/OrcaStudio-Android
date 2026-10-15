@@ -1,5 +1,6 @@
 package app.orcaandroid.ui
 
+import app.orcaandroid.ui.settings.engineErrorText
 import app.orcaandroid.ui.theme.LocalAppColors
 import app.orcaandroid.ui.theme.NAV_BAR
 import app.orcaandroid.ui.theme.NAV_ICONS
@@ -440,7 +441,7 @@ private fun GlobalDialogs(state: UiState, vm: AppViewModel) {
             onDismissRequest = vm::dismissError,
             title = { Text(stringResource(R.string.error)) },
             // Engine errors are OrcaSlicer's (translatable) messages; show them in the app's language.
-            text = { Text(vm.translator.tr(message)) },
+            text = { Text(engineErrorText(message, vm.translator)) },
             confirmButton = { TextButton(onClick = vm::dismissError) { Text(stringResource(R.string.ok)) } },
         )
     }

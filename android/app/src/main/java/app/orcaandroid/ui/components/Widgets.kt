@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -72,12 +73,16 @@ fun PickerField(
                 style = MaterialTheme.typography.labelSmall,
                 color = if (modified) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary,
             )
-            Text(
-                items.firstOrNull { it.id == selected }?.label ?: selected ?: "—",
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            val current = items.firstOrNull { it.id == selected }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (!current?.color.isNullOrEmpty()) Box(Modifier.padding(end = 8.dp)) { app.orcaandroid.ui.prepare.ColorDot(current!!.color, 16) }
+                Text(
+                    current?.label ?: selected ?: "—",
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
     if (open) PickerDialog(label, selected, items, onDismiss = { open = false }, openGroups = openGroups) { open = false; onSelect(it) }

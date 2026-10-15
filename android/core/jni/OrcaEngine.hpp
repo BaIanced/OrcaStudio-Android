@@ -66,6 +66,7 @@ public:
     // The plate type plates without their own use, when the printer has it (empty: the printer's
     // default, as on the desktop). Returns { "default_bed_type" } for the selected printer.
     json set_default_bed_type(const std::string &bed_type);
+    void set_allow_mixed_temperatures(bool allow) { m_allow_mixed_temp = allow; }
 
     // type is "print", "filament" or "printer".
     json option_defs(const std::string &type);
@@ -335,6 +336,7 @@ private:
     size_t                                m_undo_limit = 200;
     std::string                           m_printer;
     std::string                           m_preferred_bed_type; // set_default_bed_type
+    bool                                  m_allow_mixed_temp = false; // slice filaments with far apart nozzle temperatures together
     std::string                           m_mesh_path;
     std::string                           m_paint_path;
     // Ray-cast acceleration per volume mesh, dropped whenever the scene changes (commit()).

@@ -29,6 +29,7 @@ class Store(val app: Application, val scope: CoroutineScope) {
             themeSpec = settings.themeSpec,
             doubleBackToQuit = settings.doubleBackToQuit,
             projectFilaments = settings.projectFilaments,
+            allowMixedTemps = settings.allowMixedTemps,
             ambientOcclusion = settings.ambientOcclusion,
             contactShadows = settings.contactShadows,
             lab = settings.layoutLab,

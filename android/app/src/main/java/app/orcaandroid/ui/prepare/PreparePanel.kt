@@ -19,6 +19,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.PriorityHigh
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
@@ -44,6 +46,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.pluralStringResource
@@ -101,7 +104,7 @@ internal fun <T> presetItems(
     return user.sortedBy { name(it).lowercase() }.map { PickerItem(name(it), name(it), userGroup, color = color(it)) } +
         sys.map { it to sections(it) }
             .sortedWith(compareBy<Pair<T, List<String>>>({ it.second.getOrNull(0)?.lowercase() }, { it.second.getOrNull(1)?.lowercase() }, { name(it.first).lowercase() }))
-            .map { (p, s) -> PickerItem(name(p), name(p), vendorGroup, s.getOrElse(0) { "" }, s.getOrElse(1) { "" }) }
+            .map { (p, s) -> PickerItem(name(p), name(p), vendorGroup, s.getOrElse(0) { "" }, s.getOrElse(1) { "" }, color(p)) }
 }
 
 @Composable
@@ -162,6 +165,17 @@ private fun FilamentSlots(state: UiState, vm: AppViewModel, userGroup: String, v
             val items = presetItems(filaments, userGroup, vendorGroup, { it.name }, { it.system }, { it.color }) { listOf(it.brandName, it.type.ifEmpty { "?" }) }
             PickerField("${i + 1}", slot.preset, items,
                 { vm.presets.setFilament(i, it) }, Modifier.weight(1f), modified = slot.overrides.isNotEmpty(), openGroups = setOf(userGroup))
+            // The slot came from an AMS sync but now holds another material type (not just other settings for the same
+            // filament): slicing is going to fail, so flag it and offer the way back to the printer's choice.
+            val synced = slot.source?.synced
+            val types = setup?.filaments.orEmpty().associate { it.name to it.type }
+            if (synced != null && synced != slot.preset && types[synced].orEmpty().isNotEmpty() && !types[synced].equals(types[slot.preset], true)) {
+                Icon(Icons.Default.PriorityHigh, stringResource(R.string.filament_type_mismatch, types[slot.preset].orEmpty(), types[synced].orEmpty()),
+                    tint = Color.Red, modifier = Modifier.size(16.dp))
+                IconButton(onClick = { vm.presets.setFilament(i, synced) }, modifier = Modifier.size(36.dp)) {
+                    Icon(Icons.Default.Refresh, stringResource(R.string.filament_reset_to_ams, synced))
+                }
+            }
             IconButton(onClick = { vm.presets.setActiveFilament(i); vm.presets.openEditor(EditorTarget.Preset(PresetType.FILAMENT)) }) {
                 Icon(Icons.Default.Edit, stringResource(R.string.edit))
             }
@@ -313,7 +327,7 @@ private fun MultiSelectionCard(state: UiState, vm: AppViewModel) {
                 // Shown when all selected objects share it; picking sets it on all of them.
                 val ext = objs.map { it.settings["extruder"] ?: "1" }.distinct().singleOrNull() ?: ""
                 PickerField(stringResource(R.string.filament), ext,
-                    state.filaments.mapIndexed { i, f -> PickerItem((i + 1).toString(), "${i + 1}: ${f.preset}") },
+                    state.filaments.mapIndexed { i, f -> PickerItem((i + 1).toString(), "${i + 1}: ${f.preset}", color = f.color.orEmpty()) },
                     { vm.scene.setSelectedObjectsSetting("extruder", it) })
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -354,7 +368,7 @@ private fun ObjectDetails(state: UiState, vm: AppViewModel, objIndex: Int) {
         if (state.filaments.size > 1) {
             val ext = o.settings["extruder"] ?: "1"
             PickerField(stringResource(R.string.filament), ext,
-                state.filaments.mapIndexed { i, f -> PickerItem((i + 1).toString(), "${i + 1}: ${f.preset}") },
+                state.filaments.mapIndexed { i, f -> PickerItem((i + 1).toString(), "${i + 1}: ${f.preset}", color = f.color.orEmpty()) },
                 { vm.scene.setObjectSetting(objIndex, -1, "extruder", it) })
         }
         FilledTonalButton(onClick = { vm.presets.openEditor(EditorTarget.Object(objIndex)) }, modifier = Modifier.fillMaxWidth()) {

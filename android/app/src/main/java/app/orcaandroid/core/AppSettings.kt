@@ -108,6 +108,11 @@ class AppSettings(context: Context) {
         get() = prefs.getString("preferred_bed_type", null).orEmpty()
         set(value) = prefs.edit().putString("preferred_bed_type", value).apply()
 
+    /** Filaments with far apart nozzle temperatures may share a print. */
+    var allowMixedTemps: Boolean
+        get() = prefs.getBoolean("allow_mixed_temps", false)
+        set(value) = prefs.edit().putBoolean("allow_mixed_temps", value).apply()
+
     /** AMS sync keeps the filament presets the user picked for its trays ([trayPicks]). */
     var preferMyFilaments: Boolean
         get() = prefs.getBoolean("prefer_my_filaments", true)
