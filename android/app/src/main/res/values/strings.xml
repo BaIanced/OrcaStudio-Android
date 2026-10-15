@@ -440,8 +440,8 @@
     <string name="alert_btn_stop_drying">Stop Drying</string>
     <string name="alert_btn_abort">Abort</string>
     <!-- Filament sync from a Bambu printer -->
-    <string name="filament_type_mismatch">%1$s here, but the printer's tray holds %2$s: slicing will fail</string>
-    <string name="filament_reset_to_ams">Use the printer's choice (%1$s)</string>
+    <string name="filament_type_mismatch">%1$s here, but the printer\'s tray holds %2$s: slicing will fail</string>
+    <string name="filament_reset_to_ams">Use the printer\'s choice (%1$s)</string>
     <string name="allow_mixed_temps">Remove mixed temperature restriction</string>
     <string name="allow_mixed_temps_text">Slice filaments whose nozzle temperatures are far apart in one print. Risk: clogging or printer damage.</string>
     <string name="mixed_temps_hint">If you still want to print, turn on %1$s.</string>
