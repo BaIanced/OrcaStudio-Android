@@ -40,6 +40,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.SegmentedButton
@@ -262,6 +264,11 @@ private fun EditorFrame(
 
             fun visible(def: OptionDef) = def.mode <= mode || (mode == 2 && def.mode == 3)
             val hidden = state.optionStates.hidden
+            // A tab with no option at this mode (e.g. Speed in Simple) is dropped.
+            val shown = pages.filter { page ->
+                page.groups.any { g -> g.options.any { key -> defs[key]?.let { visible(it) && key !in hidden && source.value(key) != null } == true } }
+            }.ifEmpty { pages }
+            val current = pageIndex.coerceIn(0, (shown.size - 1).coerceAtLeast(0))
             val groups: List<SettingsGroup> = when {
                 query.isNotBlank() -> {
                     val q = query.trim().lowercase()
@@ -281,20 +288,30 @@ private fun EditorFrame(
                         if (hits.isEmpty()) null else SettingsGroup("${tr.tr(page.title)} › ${tr.tr(g.title)}", hits)
                     }
                 }
-                else -> pages.getOrNull(pageIndex)?.groups.orEmpty()
+                else -> shown.getOrNull(current)?.groups.orEmpty()
             }
             val showPages = query.isBlank() && !onlyModified
-
-            if (!wide && showPages && pages.isNotEmpty()) {
-                PrimaryScrollableTabRow(selectedTabIndex = pageIndex.coerceIn(0, pages.lastIndex), edgePadding = 8.dp) {
-                    pages.forEachIndexed { i, p -> Tab(i == pageIndex, { pageIndex = i }, text = { Text(tr.tr(p.title)) }) }
+            if (!wide && showPages && shown.isNotEmpty()) {
+                PrimaryScrollableTabRow(selectedTabIndex = current, edgePadding = 8.dp) {
+                    shown.forEachIndexed { i, p -> Tab(i == current, { pageIndex = i }, text = { Text(tr.tr(p.title)) }) }
                 }
             }
-            Row(Modifier.fillMaxSize()) {
+            Row(Modifier.fillMaxSize().pointerInput(shown.size, showPages) {
+                if (!showPages) return@pointerInput
+                // Swipe sideways to move between tabs.
+                var drag = 0f
+                detectHorizontalDragGestures(
+                    onDragStart = { drag = 0f },
+                    onDragEnd = {
+                        if (drag < -80.dp.toPx() && current < shown.lastIndex) pageIndex = current + 1
+                        else if (drag > 80.dp.toPx() && current > 0) pageIndex = current - 1
+                    },
+                ) { _, dx -> drag += dx }
+            }) {
                 if (wide && showPages) {
                     LazyColumn(Modifier.width(220.dp).fillMaxHeight().padding(vertical = 8.dp)) {
-                        itemsIndexed(pages) { i, page ->
-                            val selected = i == pageIndex
+                        itemsIndexed(shown) { i, page ->
+                            val selected = i == current
                             Text(
                                 tr.tr(page.title),
                                 style = MaterialTheme.typography.titleSmall,

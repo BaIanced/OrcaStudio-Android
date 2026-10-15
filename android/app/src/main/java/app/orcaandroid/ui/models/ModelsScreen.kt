@@ -500,7 +500,7 @@ private fun SiteTabs(browser: ModelBrowser) {
                 Text(site.label, style = MaterialTheme.typography.labelLarge, fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
                     color = if (active) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                 Spacer(Modifier.height(6.dp))
-                Box(Modifier.fillMaxWidth().height(2.dp).background(if (active) MaterialTheme.colorScheme.primary else Color.Transparent, RoundedCornerShape(1.dp)))
+                Box(Modifier.fillMaxWidth().height(2.dp).background(if (active) MaterialTheme.colorScheme.onSurface else Color.Transparent, RoundedCornerShape(1.dp)))
             }
         }
     }
@@ -579,7 +579,9 @@ private fun PickerBar(browser: ModelBrowser) {
 private fun MakerWorldLinks(browser: ModelBrowser) {
     var searching by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
-    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+    // Its own shade, so the page's dark header doesn't blend into the toolbar above.
+    Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerHigh).horizontalScroll(rememberScrollState()).padding(horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = { searching = true }) { Icon(Icons.Default.Search, stringResource(R.string.search)) }
         TextButton(onClick = { browser.openMakerWorld("following") }) { Text(stringResource(R.string.mw_following)) }
         TextButton(onClick = { browser.openMakerWorld("makerlab") }) { Text("MakerLab") }
