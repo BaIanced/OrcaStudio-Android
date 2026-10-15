@@ -159,7 +159,6 @@ private fun MainLayout(state: UiState, vm: AppViewModel) {
             }
         }
     }
-    state.filamentChoice?.let { FilamentChoiceDialog(it) { keep, remember -> vm.files.answerFilaments(keep, remember) } }
     if (askQuit) QuitDialog(onQuit = { askQuit = false; (context as? android.app.Activity)?.finish() }, onDismiss = { askQuit = false })
     // Tab bar / rail colours (design mode); the rail keeps its own default background unless changed.
     val colors = LocalAppColors.current
@@ -409,7 +408,9 @@ private fun PanelEdge(tucked: Boolean, onClick: () -> Unit, onDrag: (androidx.co
 
 @Composable
 private fun GlobalDialogs(state: UiState, vm: AppViewModel) {
-    if (state.busy != null && state.phase != Phase.LOADING) {
+    // The filament question comes up while a project opens: it replaces the busy dialog, which would cover it.
+    state.filamentChoice?.let { FilamentChoiceDialog(it) { keep, remember -> vm.files.answerFilaments(keep, remember) } }
+    if (state.busy != null && state.phase != Phase.LOADING && state.filamentChoice == null) {
         AlertDialog(
             onDismissRequest = {},
             confirmButton = {},
