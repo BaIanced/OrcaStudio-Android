@@ -110,9 +110,9 @@ class SceneController(private val store: Store, private val presets: PresetContr
 
     // --- Objects -----------------------------------------------------------------------------------------
 
-    fun moveSelected(dx: Float, dy: Float) {
-        val items = selectedItems.ifEmpty { return }
-        store.sceneOp { engine.moveItems(items, dx, dy) }
+    fun moveSelected(dx: Float, dy: Float): Job? {
+        val items = selectedItems.ifEmpty { return null }
+        return store.sceneOp { engine.moveItems(items, dx, dy) }
     }
 
     /** A typed 0 or negative scale would flatten or flip the part, a huge one hang the viewer: keep 0.1 % to 100x. */

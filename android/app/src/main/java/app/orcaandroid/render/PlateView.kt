@@ -221,9 +221,16 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                 } else if (dragging) {
                     val start = dragStart
                     val end = camera.rayOnPlane(event.x, event.y)
-                    cancelDrag()
-                    if (moved && start != null && end != null) listener?.onMoved(end.x - start.x, end.y - start.y)
-                    else if (!moved) listener?.onTap(event.x, event.y, additive, part)
+                    if (moved && start != null && end != null) {
+                        // The listener clears the drag offset once the moved scene is drawn; clearing it here
+                        // made the object jump back to its old spot until the engine answered.
+                        dragging = false
+                        dragStart = null
+                        listener?.onMoved(end.x - start.x, end.y - start.y)
+                    } else {
+                        cancelDrag()
+                        if (!moved) listener?.onTap(event.x, event.y, additive, part)
+                    }
                 } else if (!moved && !multiTouch && mode != InteractionMode.PAINT) {
                     val badge = if (mode == InteractionMode.NAVIGATE && !additive && !part) renderer.badgeAt(event.x, event.y) else null
                     if (badge == null) listener?.onTap(event.x, event.y, additive, part)

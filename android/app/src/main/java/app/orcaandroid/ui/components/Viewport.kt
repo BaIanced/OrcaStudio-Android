@@ -100,6 +100,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
 
     // The selection rectangle being drawn (Shift/Alt+drag), in view pixels: x0, y0, x1, y1.
     var rectangle by remember { mutableStateOf<FloatArray?>(null) }
+    val dragPending = remember { booleanArrayOf(false) }
     // The plate menu opened from a plate's menu badge: plate, view x, y.
     var plateMenu by remember { mutableStateOf<Triple<Int, Float, Float>?>(null) }
     val rectangleColor = scheme.primary
@@ -128,8 +129,12 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                     }
                     override fun onBrushScroll(steps: Int) = vm.scene.scaleBrush(if (steps > 0) 1.15f else 1 / 1.15f)
                     override fun onMoved(dx: Float, dy: Float) {
-                        v.onGl { dragOffset = floatArrayOf(0f, 0f, 0f) }
-                        vm.scene.moveSelected(dx, dy)
+                        // The drag offset stays until the moved mesh is uploaded (below); the timer covers a move
+                        // that changes nothing or fails.
+                        dragPending[0] = true
+                        vm.scene.moveSelected(dx, dy)?.invokeOnCompletion {
+                            v.postDelayed({ if (dragPending[0]) { dragPending[0] = false; v.onGl { dragOffset = floatArrayOf(0f, 0f, 0f) } } }, 500)
+                        } ?: run { dragPending[0] = false; v.onGl { dragOffset = floatArrayOf(0f, 0f, 0f) } }
                     }
                     override fun onPaint(x: Float, y: Float, newStroke: Boolean) {
                         val (o, d) = v.camera.ray(x, y)
@@ -202,6 +207,8 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         if (scene.meshFile.isEmpty()) return@LaunchedEffect
         val mesh = withContext(Dispatchers.IO) { FloatData.load(scene.meshFile, 8) }
         v.onGl { setMesh(mesh) }
+        // A finished drag: the moved mesh is queued first, so the old offset goes away without a jump back.
+        if (dragPending[0]) { dragPending[0] = false; v.onGl { dragOffset = floatArrayOf(0f, 0f, 0f) } }
     }
     // Eye toggle: the OpenSCAD design shown see-through, standing in the middle of the active plate (other objects hidden).
     val ghost = state.scad?.preview?.takeIf { state.scadOnPlate && !state.scadHidden && state.screen == app.orcaandroid.ui.Screen.PREPARE }
