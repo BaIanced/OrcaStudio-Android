@@ -230,7 +230,9 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         if (shadow) {
             val key = listOf(meshVersion, dragOffset.toList(), selectedIds.toList(), section?.toList())
             // A dragged copy may leave the footprint: widen it by the drag.
-            val dx = kotlin.math.abs(dragOffset[0]); val dy = kotlin.math.abs(dragOffset[1])
+            // In 20 mm steps: a map area that grows every frame makes the texel grid swim under the shadow.
+            val dx = kotlin.math.ceil(kotlin.math.abs(dragOffset[0]) / 20f) * 20f
+            val dy = kotlin.math.ceil(kotlin.math.abs(dragOffset[1]) / 20f) * 20f
             val area = floatArrayOf(bounds!![0] - dx, bounds[1] - dy, bounds[2] + dx, bounds[3] + dy)
             effects.renderShadow(area, key, viewW, viewH) { ortho ->
                 val frame = mvp.copyOf()

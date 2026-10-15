@@ -115,7 +115,8 @@ internal class SceneEffects {
         if (broken) return
         glUseProgram(shadowProgram)
         glUniformMatrix4fv(glGetUniformLocation(shadowProgram, "uMvp"), 1, false, mvp, 0)
-        glUniform4fv(glGetUniformLocation(shadowProgram, "uRect"), 1, rect, 0)
+        val shifted = floatArrayOf(rect[0] + SHADOW_SHIFT_X, rect[1] + SHADOW_SHIFT_Y, rect[2] + SHADOW_SHIFT_X, rect[3] + SHADOW_SHIFT_Y)
+        glUniform4fv(glGetUniformLocation(shadowProgram, "uRect"), 1, shifted, 0)
         glUniform1f(glGetUniformLocation(shadowProgram, "uStrength"), strength)
         glActiveTexture(GL_TEXTURE0)
         glBindTexture(GL_TEXTURE_2D, shadowTex[0])
@@ -262,6 +263,9 @@ internal class SceneEffects {
         /** Room around the parts for the blur (and a dragged copy), mm. */
         const val SHADOW_MARGIN = 20f
         /** Reach of the first blur round, mm. */
-        const val SHADOW_BLUR_MM = 10f
+        const val SHADOW_BLUR_MM = 5f
+        /** The shadow sits this far from the parts, away from the light (matches the mesh shader's light), mm. */
+        const val SHADOW_SHIFT_X = -1.2f
+        const val SHADOW_SHIFT_Y = 1.8f
     }
 }
