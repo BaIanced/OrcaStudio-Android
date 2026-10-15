@@ -10,6 +10,7 @@ import app.orcaandroid.ui.theme.ThemeDesignPanel
 import app.orcaandroid.ui.theme.Themed
 import app.orcaandroid.ui.theme.contrast
 import app.orcaandroid.ui.theme.onColor
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -147,6 +148,7 @@ private fun MainLayout(state: UiState, vm: AppViewModel) {
     var lastBack by remember { mutableStateOf(0L) }
     androidx.activity.compose.BackHandler {
         when {
+            state.scad != null && state.screen == Screen.PREPARE -> if (state.scadOnPlate) vm.setScadOnPlate(false) else vm.scad.close()
             state.screen != Screen.PREPARE -> vm.setScreen(Screen.PREPARE)
             clearable -> { vm.scene.setTool(Tool.None); vm.scene.select(null); vm.scene.setSelectMode(false) }
             !state.doubleBackToQuit -> askQuit = true
@@ -157,6 +159,7 @@ private fun MainLayout(state: UiState, vm: AppViewModel) {
             }
         }
     }
+    state.filamentChoice?.let { FilamentChoiceDialog(it) { keep, remember -> vm.files.answerFilaments(keep, remember) } }
     if (askQuit) QuitDialog(onQuit = { askQuit = false; (context as? android.app.Activity)?.finish() }, onDismiss = { askQuit = false })
     // Tab bar / rail colours (design mode); the rail keeps its own default background unless changed.
     val colors = LocalAppColors.current
@@ -494,6 +497,37 @@ private fun QuitDialog(onQuit: () -> Unit, onDismiss: () -> Unit) {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     androidx.compose.material3.OutlinedButton(onClick = onDismiss, Modifier.weight(1f)) { Text(stringResource(R.string.no)) }
                     androidx.compose.material3.Button(onClick = onQuit, Modifier.weight(1f)) { Text(stringResource(R.string.yes)) }
+                }
+            }
+        }
+    }
+}
+
+/** Opened project with other filaments: current (app) circles above, the project's below; keep mine or use the project's. */
+@Composable
+private fun FilamentChoiceDialog(choice: FilamentChoice, onAnswer: (keepMine: Boolean, remember: Boolean) -> Unit) {
+    var remember by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    androidx.compose.ui.window.Dialog(onDismissRequest = { onAnswer(true, false) }) {
+        androidx.compose.material3.Surface(shape = MaterialTheme.shapes.extraLarge, tonalElevation = 6.dp, modifier = Modifier.width(340.dp)) {
+            Column(Modifier.padding(24.dp)) {
+                Text(stringResource(R.string.filament_choice_title), style = MaterialTheme.typography.headlineSmall)
+                Text(stringResource(R.string.filament_choice_text), Modifier.padding(top = 8.dp, bottom = 16.dp),
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                @Composable fun row(label: Int, slots: List<app.orcaandroid.core.FilamentSlot>) {
+                    Text(stringResource(label), style = MaterialTheme.typography.labelLarge)
+                    Row(Modifier.padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        slots.take(8).forEach { app.orcaandroid.ui.prepare.ColorDot(it.color, 26) }
+                    }
+                }
+                row(R.string.filament_current, choice.current)
+                row(R.string.filament_project, choice.project)
+                Row(Modifier.fillMaxWidth().padding(top = 8.dp).then(Modifier.clickable { remember = !remember }), verticalAlignment = Alignment.CenterVertically) {
+                    androidx.compose.material3.Checkbox(remember, { remember = it })
+                    Text(stringResource(R.string.filament_remember), style = MaterialTheme.typography.bodyMedium)
+                }
+                Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    androidx.compose.material3.OutlinedButton(onClick = { onAnswer(false, remember) }, Modifier.weight(1f)) { Text(stringResource(R.string.filament_use_project)) }
+                    androidx.compose.material3.Button(onClick = { onAnswer(true, remember) }, Modifier.weight(1f)) { Text(stringResource(R.string.filament_keep_mine)) }
                 }
             }
         }

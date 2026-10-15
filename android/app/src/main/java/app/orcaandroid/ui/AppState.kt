@@ -102,6 +102,9 @@ data class UiState(
     /** The floating colour panel is open over the app (design mode). */
     val designMode: Boolean = false,
     val doubleBackToQuit: Boolean = false,
+    /** What an opened project does to the filament slots ("ask", "project", "mine") and the question being asked. */
+    val projectFilaments: String = "ask",
+    val filamentChoice: FilamentChoice? = null,
     /** 3D view ambient occlusion (0 off, 1 soft, 2 full) and contact shadows. */
     val ambientOcclusion: Int = 0,
     val contactShadows: Boolean = true,
@@ -262,3 +265,6 @@ data class UiState(
 
     val printerInfo: PrinterInfo? get() = printers.firstOrNull { it.name == printer }
 }
+
+/** A project came with filaments that differ from the app's: the user picks which slots to keep. */
+data class FilamentChoice(val current: List<app.orcaandroid.core.FilamentSlot>, val project: List<app.orcaandroid.core.FilamentSlot>)

@@ -145,6 +145,13 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
 
             Section(stringResource(R.string.misc)) {
                 SwitchRow(stringResource(R.string.double_back_quit), state.doubleBackToQuit, onChange = vm::setDoubleBackToQuit)
+                Text(stringResource(R.string.project_filaments), style = MaterialTheme.typography.titleSmall)
+                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                    listOf("ask" to R.string.pf_ask, "mine" to R.string.pf_mine, "project" to R.string.pf_project).forEachIndexed { i, (mode, label) ->
+                        SegmentedButton(state.projectFilaments == mode, { vm.setProjectFilaments(mode) }, SegmentedButtonDefaults.itemShape(i, 3)) { Text(stringResource(label)) }
+                    }
+                }
+                Text(stringResource(R.string.project_filaments_text), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 UndoLimitRow(state.undoLimit, vm::setUndoLimit)
                 AutoSaveRow(state.autoSaveSeconds, vm::setAutoSave)
             }

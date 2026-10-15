@@ -5,6 +5,7 @@ import android.net.Uri
 import app.orcaandroid.R
 import app.orcaandroid.core.FilamentSlot
 import app.orcaandroid.core.PresetType
+import app.orcaandroid.ui.FilamentChoice
 import app.orcaandroid.core.Scene
 import app.orcaandroid.core.RecentFile
 import app.orcaandroid.net.FilamentProfiles
@@ -137,9 +138,19 @@ class FileController(
         val printer = if (uri == null) projectPrinter ?: s.printer else s.printer ?: projectPrinter
         if (uri != null && info.printer.isNotBlank() && s.printer != null && info.printer != s.printer)
             store.toast(store.str(R.string.project_printer_kept, info.printer, s.printer))
-        val filaments = PresetController.withColors(info.filaments.mapIndexed { i, name ->
+        var filaments = PresetController.withColors(info.filaments.mapIndexed { i, name ->
             FilamentSlot(name, info.filamentColors.getOrNull(i)?.ifBlank { null }, info.filamentOverrides.getOrNull(i).orEmpty())
         })
+        // A project the user opens may bring its own filaments, which would undo their syncs and edits: they choose.
+        val mine = s.filaments
+        if (uri != null && filaments.isNotEmpty() && mine.isNotEmpty() && filaments.map { it.preset to it.color } != mine.map { it.preset to it.color }) {
+            val keep = when (s.projectFilaments) {
+                "mine" -> true
+                "project" -> false
+                else -> askFilaments(mine, filaments)
+            }
+            if (keep) filaments = List(filaments.size) { mine.getOrNull(it) ?: mine.last() }
+        }
         if (printer != null) presets.selectPrinterNow(printer, info.print, filaments.ifEmpty { null })
         store.update { st ->
             val slots = if (filaments.isEmpty()) st.filaments
@@ -154,6 +165,28 @@ class FileController(
         store.applyScene(loaded, dirty = false)
         uri?.let { rememberRecent(it, file.name, true) }
         store.update { it.copy(projectName = file.name.removeSuffix(".3mf"), projectDirty = false, selection = null, multiSelection = emptyList(), screen = Screen.PREPARE) }
+    }
+
+    private var filamentAnswer: kotlinx.coroutines.CompletableDeferred<Boolean>? = null
+
+    /** Asks whether to keep the app's filaments (true) or take the project's; waits for the answer. */
+    private suspend fun askFilaments(mine: List<FilamentSlot>, project: List<FilamentSlot>): Boolean {
+        val answer = kotlinx.coroutines.CompletableDeferred<Boolean>()
+        filamentAnswer = answer
+        store.update { it.copy(filamentChoice = FilamentChoice(mine, project)) }
+        return answer.await()
+    }
+
+    /** The dialog's answer; [remember] makes it the standing choice. */
+    fun answerFilaments(keepMine: Boolean, remember: Boolean) {
+        if (remember) {
+            val mode = if (keepMine) "mine" else "project"
+            store.settings.projectFilaments = mode
+            store.update { it.copy(projectFilaments = mode) }
+        }
+        store.update { it.copy(filamentChoice = null) }
+        filamentAnswer?.complete(keepMine)
+        filamentAnswer = null
     }
 
     // --- Session: the app comes back as it was left, even after Android ended the process ---------------

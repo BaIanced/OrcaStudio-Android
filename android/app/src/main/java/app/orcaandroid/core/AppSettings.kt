@@ -52,6 +52,11 @@ class AppSettings(context: Context) {
         get() = prefs.getBoolean("double_back_quit", false)
         set(value) = prefs.edit().putBoolean("double_back_quit", value).apply()
 
+    /** Filaments of an opened project: "ask" (default), "project" (use its filaments) or "mine" (keep the app's). */
+    var projectFilaments: String
+        get() = prefs.getString("project_filaments", "ask") ?: "ask"
+        set(value) = prefs.edit().putString("project_filaments", value).apply()
+
     /** 3D view ambient occlusion: 0 off, 1 soft, 2 full (render/SceneEffects.kt). */
     var ambientOcclusion: Int
         get() = prefs.getInt("ambient_occlusion", 0)

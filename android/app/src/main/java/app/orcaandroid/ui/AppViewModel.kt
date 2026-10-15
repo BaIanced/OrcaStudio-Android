@@ -155,6 +155,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         store.update { it.copy(doubleBackToQuit = on) }
     }
 
+    fun setProjectFilaments(mode: String) {
+        store.settings.projectFilaments = mode
+        store.update { it.copy(projectFilaments = mode) }
+    }
+
     fun setAmbientOcclusion(level: Int) {
         store.settings.ambientOcclusion = level
         store.update { it.copy(ambientOcclusion = level) }
