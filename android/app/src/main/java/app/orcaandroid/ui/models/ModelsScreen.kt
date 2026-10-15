@@ -154,6 +154,8 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel, d
         prefs.edit().putBoolean(PREF_FULL_SITE, fullSite).apply()
         if (site != ModelSite.MAKERWORLD) return
         web.settings.userAgentString = makerWorldUserAgent()
+        // The page's HTML differs per user agent; a cached copy for the other one broke the layout (user, 2026-10-14).
+        web.clearCache(false)
         web.reload()
     }
 
@@ -495,12 +497,11 @@ private fun SiteTabs(browser: ModelBrowser) {
     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 4.dp)) {
         ModelSite.entries.forEach { site ->
             val active = browser.site == site
-            Column(Modifier.clickable { browser.open(site) }.padding(horizontal = 14.dp).height(40.dp), verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(Modifier.clickable { browser.open(site) }.padding(horizontal = 14.dp).height(44.dp)) {
                 Text(site.label, style = MaterialTheme.typography.labelLarge, fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
-                    color = if (active) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-                Spacer(Modifier.height(6.dp))
-                Box(Modifier.fillMaxWidth().height(2.dp).background(if (active) MaterialTheme.colorScheme.onSurface else Color.Transparent, RoundedCornerShape(1.dp)))
+                    color = if (active) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1,
+                    modifier = Modifier.align(Alignment.Center).padding(bottom = 4.dp))
+                Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(2.dp).background(if (active) MaterialTheme.colorScheme.onSurface else Color.Transparent, RoundedCornerShape(1.dp)))
             }
         }
     }
