@@ -40,6 +40,8 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -62,6 +64,16 @@ import app.orcaandroid.ui.UiState
 import app.orcaandroid.ui.components.SectionTitle
 import app.orcaandroid.ui.prepare.CalibrationDialog
 import app.orcaandroid.ui.prepare.SwitchRow
+
+/**
+ * State of the Layout lab's peek (user, 2026-10-15): while the lab section is open, Prepare stays composed under More;
+ * touching a control fades More out so the plate shows behind it. [frozen] = the lab at the touch, for More's own sizes.
+ */
+object LabPeek {
+    var open by mutableStateOf(false)
+    var touching by mutableStateOf(false)
+    var frozen by mutableStateOf<app.orcaandroid.core.LayoutLab?>(null)
+}
 
 /** App settings, preset management, calibration, recent files and about. */
 @Composable
@@ -239,7 +251,22 @@ private fun ProfileUpdatesCard(state: UiState, vm: AppViewModel) {
 @Composable
 private fun LayoutLabSection(state: UiState, vm: AppViewModel) {
     val lab = state.lab
+    val current by androidx.compose.runtime.rememberUpdatedState(lab)
     Section(stringResource(R.string.layout_lab), summary = stringResource(R.string.layout_lab_summary)) {
+      androidx.compose.runtime.DisposableEffect(Unit) {
+        LabPeek.open = true
+        onDispose { LabPeek.open = false; LabPeek.touching = false; LabPeek.frozen = null }
+      }
+      Column(Modifier.pointerInput(Unit) {
+        awaitPointerEventScope {
+            while (true) {
+                val down = awaitPointerEvent(PointerEventPass.Initial).changes.any { it.pressed }
+                if (down && !LabPeek.touching) LabPeek.frozen = current
+                if (!down) LabPeek.frozen = null
+                LabPeek.touching = down
+            }
+        }
+      }, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(stringResource(R.string.layout_lab_text), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(stringResource(R.string.lab_plate_switcher), style = MaterialTheme.typography.bodyMedium)
         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
@@ -260,16 +287,16 @@ private fun LayoutLabSection(state: UiState, vm: AppViewModel) {
         ScaleSlider(R.string.lab_plate_scale, lab.plateScale, app.orcaandroid.core.LayoutLab.PLATE_SCALES) { vm.setLab(state.lab.copy(plateScale = it)) }
         ScaleSlider(R.string.lab_overlay_scale, lab.overlayScale, app.orcaandroid.core.LayoutLab.OVERLAY_SCALES) { vm.setLab(state.lab.copy(overlayScale = it)) }
         TextButton(onClick = { vm.setLab(app.orcaandroid.core.LayoutLab()) }) { Text(stringResource(R.string.reset)) }
+      }
     }
 }
 
-/** A size slider in 5 % steps; applied on release, so the slider doesn't move under the finger as the layout resizes. */
+/** A size slider in 5 % steps, applied live (More is frozen at its touch-time size while dragging, so it doesn't move under the finger). */
 @Composable
 private fun ScaleSlider(label: Int, value: Float, range: ClosedFloatingPointRange<Float>, onSet: (Float) -> Unit) {
-    var live by remember(value) { mutableStateOf(value) }
-    Text(stringResource(label, kotlin.math.round(live * 100).toInt()), style = MaterialTheme.typography.bodyMedium)
-    androidx.compose.material3.Slider(live, { live = kotlin.math.round(it * 20) / 20f }, valueRange = range,
-        steps = kotlin.math.round((range.endInclusive - range.start) * 20).toInt() - 1, onValueChangeFinished = { onSet(live) })
+    Text(stringResource(label, kotlin.math.round(value * 100).toInt()), style = MaterialTheme.typography.bodyMedium)
+    androidx.compose.material3.Slider(value, { onSet(kotlin.math.round(it * 20) / 20f) }, valueRange = range,
+        steps = kotlin.math.round((range.endInclusive - range.start) * 20).toInt() - 1)
 }
 
 /** Asks for the backup passphrase ([confirm]: twice, for a new backup). */

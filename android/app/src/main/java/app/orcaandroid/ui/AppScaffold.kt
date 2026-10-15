@@ -96,7 +96,9 @@ import app.orcaandroid.ui.preview.PreviewOverlay
 import app.orcaandroid.ui.preview.PreviewPanel
 import app.orcaandroid.ui.models.ModelBrowser
 import app.orcaandroid.ui.models.ModelsScreen
+import app.orcaandroid.ui.settings.LabPeek
 import app.orcaandroid.ui.settings.MoreScreen
+import androidx.compose.ui.graphics.graphicsLayer
 import app.orcaandroid.ui.settings.PrinterSetupScreen
 import app.orcaandroid.ui.settings.SettingsEditor
 
@@ -182,7 +184,21 @@ private fun MainLayout(state: UiState, vm: AppViewModel) {
                     Screen.DEVICE -> Themed(Region.DEVICE, Modifier.fillMaxSize(), fill = true) { Box(belowHole) { DeviceScreen(state, vm) } }
                     // The Models toolbar uses the camera strip itself (SplitAroundCutout), so no belowHole here.
                     Screen.MODELS -> Themed(Region.MODELS, Modifier.fillMaxSize(), fill = true) { ModelsScreen(browser.value) }
-                    Screen.MORE -> Themed(Region.MORE, Modifier.fillMaxSize(), fill = true) { Box(belowHole) { MoreScreen(state, vm) } }
+                    Screen.MORE -> {
+                        // Layout lab open: Prepare stays composed under More, which fades out while a control is touched.
+                        if (LabPeek.open) Workspace(state.copy(screen = Screen.PREPARE), vm, wide)
+                        val fade by androidx.compose.animation.core.animateFloatAsState(if (LabPeek.touching) 0f else 1f, label = "labFade")
+                        // While touched, More keeps the sizes it had at the touch, so a slider doesn't move under the finger.
+                        val frozen = LabPeek.frozen
+                        val here = androidx.compose.ui.platform.LocalDensity.current
+                        val keep = if (frozen == null) here else androidx.compose.ui.unit.Density(
+                            here.density / state.lab.uiScale * frozen.uiScale, here.fontScale / state.lab.textScale * frozen.textScale)
+                        androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides keep) {
+                            Box(Modifier.fillMaxSize().graphicsLayer { alpha = fade }) {
+                                Themed(Region.MORE, Modifier.fillMaxSize(), fill = true) { Box(belowHole) { MoreScreen(state, vm) } }
+                            }
+                        }
+                    }
                 }
             }
         }
