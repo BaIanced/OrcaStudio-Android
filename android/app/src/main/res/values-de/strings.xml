@@ -104,6 +104,16 @@
     <string name="export_preset">Preset exportieren</string>
     <string name="export_stl">Platte als STL exportieren</string>
     <string name="filament">Filament</string>
+    <string name="filament_choice_title">Filamente in diesem Projekt</string>
+    <string name="filament_choice_text">Das Projekt bringt eigene Filamente mit. Wenn du deine ersetzt, werden synchronisierte AMS-Farben und Filament-Änderungen zurückgesetzt.</string>
+    <string name="filament_current">Aktuell (deine)</string>
+    <string name="filament_project">Projekt</string>
+    <string name="filament_remember">Auswahl merken</string>
+    <string name="filament_use_project">Die des Projekts</string>
+    <string name="filament_keep_mine">Meine behalten</string>
+    <string name="project_filaments">Filamente geöffneter Projekte</string>
+    <string name="filament_use_both">Beide (erst Projekt, dann meine)</string>
+    <string name="project_filaments_text">Welche Filamente ein geöffnetes Projekt verwendet. „Meine“ lässt AMS-Sync und Filament-Änderungen unberührt.</string>
     <string name="filament_vendors">Filament-Hersteller</string>
     <string name="filament_vendors_text">Welche Hersteller in den Filamentlisten erscheinen</string>
     <string name="plate_types">Druckplatten</string>
