@@ -274,8 +274,14 @@ private fun LayoutLabSection(state: UiState, vm: AppViewModel) {
         SwitchRow(stringResource(R.string.lab_tools_left), lab.toolsLeft, onChange = { vm.setLab(lab.copy(toolsLeft = it)) })
         SwitchRow(stringResource(R.string.lab_plates_on_handle), lab.platesOnHandle, onChange = { vm.setLab(lab.copy(platesOnHandle = it)) })
         SwitchRow(stringResource(R.string.lab_fullscreen_portrait), lab.fullscreenPortrait, onChange = { vm.setLab(lab.copy(fullscreenPortrait = it)) })
-        Text(stringResource(R.string.lab_overlay_alpha, (lab.overlayAlpha * 100).toInt()), style = MaterialTheme.typography.bodyMedium)
-        LabSlider(lab.overlayAlpha, { vm.setLab(lab.copy(overlayAlpha = it)) }, 0.2f..1f, current)
+        val alphaContext = LocalContext.current
+        val alphaText = stringResource(R.string.lab_overlay_alpha, (lab.overlayAlpha * 100).toInt())
+        Text(alphaText, style = MaterialTheme.typography.bodyMedium)
+        // Same readout card as the size sliders: More is faded while dragging, so the value stays in view.
+        LabSlider(lab.overlayAlpha, {
+            LabPeek.readout = alphaContext.getString(R.string.lab_overlay_alpha, (it * 100).toInt()) to (it - 0.2f) / 0.8f
+            vm.setLab(lab.copy(overlayAlpha = it))
+        }, 0.2f..1f, current)
         Text(stringResource(R.string.lab_scale_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         ScaleSlider(R.string.lab_text_scale, lab.textScale, app.orcaandroid.core.LayoutLab.TEXT_SCALES, current) { vm.setLab(state.lab.copy(textScale = it)) }
         ScaleSlider(R.string.lab_ui_scale, lab.uiScale, app.orcaandroid.core.LayoutLab.UI_SCALES, current) { vm.setLab(state.lab.copy(uiScale = it)) }
