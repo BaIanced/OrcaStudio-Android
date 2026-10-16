@@ -165,6 +165,7 @@ private fun Actions(state: UiState, vm: AppViewModel, r: SliceResult) {
         OutlinedButton(onClick = { vm.setScreen(Screen.DEVICE) }, modifier = Modifier.fillMaxWidth()) { Text(label) }
     }
     state.amsPrompt?.let { AmsMappingDialog(it, vm) }
+    state.mismatchPrompt?.let { MismatchDialog(it, vm) }
     when (upload) {
         is UploadState.Running -> LinearProgressIndicator(progress = { upload.progress }, modifier = Modifier.fillMaxWidth())
         is UploadState.Done -> {

@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import app.orcaandroid.R
 import app.orcaandroid.net.PrinterTray
 import app.orcaandroid.ui.AmsPrompt
+import app.orcaandroid.ui.MismatchPrompt
 import app.orcaandroid.ui.AppViewModel
 import app.orcaandroid.ui.prepare.ColorDot
 
@@ -76,4 +77,16 @@ private fun TrayPicker(selected: PrinterTray?, trays: List<PrinterTray>, onPick:
 private fun TrayLabel(t: PrinterTray) = Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
     ColorDot(t.color)
     Text("${t.name} · ${t.subBrand.ifBlank { t.type }}")
+}
+
+/** Asks before sending a file sliced for one printer model to a different connected one. */
+@Composable
+fun MismatchDialog(prompt: MismatchPrompt, vm: AppViewModel) {
+    AlertDialog(
+        onDismissRequest = vm.device::dismissMismatch,
+        title = { Text(stringResource(R.string.printer_mismatch_title)) },
+        text = { Text(stringResource(R.string.printer_mismatch_text, prompt.sliced, prompt.connected)) },
+        confirmButton = { TextButton(vm.device::confirmMismatch) { Text(stringResource(if (prompt.startPrint) R.string.print_anyway else R.string.send_anyway)) } },
+        dismissButton = { TextButton(vm.device::dismissMismatch) { Text(stringResource(R.string.cancel)) } },
+    )
 }

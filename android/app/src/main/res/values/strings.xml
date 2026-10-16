@@ -359,6 +359,11 @@
     <string name="state_offline">Offline</string>
     <string name="state_paused">Paused</string>
     <string name="state_printing">Printing</string>
+    <string name="printer_mismatch_title">Different printer model</string>
+    <string name="printer_mismatch_text">This file was sliced for a %1$s, but the connected printer is a %2$s. G-code for the wrong model can fail or damage the printer.</string>
+    <string name="print_anyway">Print anyway</string>
+    <string name="send_anyway">Send anyway</string>
+    <string name="device_status">Printer status</string>
     <string name="status_unknown">Waiting for status…</string>
     <string name="status_failed">No status: %1$s</string>
     <string name="web_ui_only_short">Web UI only – choose the printer type in the connection settings for status and printing</string>

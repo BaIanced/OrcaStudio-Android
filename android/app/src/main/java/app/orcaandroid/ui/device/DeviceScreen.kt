@@ -273,10 +273,19 @@ private fun stateLabel(s: PrinterStatus.State) = stringResource(
 private fun PrinterPanel(state: UiState, vm: AppViewModel, modifier: Modifier) {
     val status = state.printerStatus
     if (status == null) {
-        Box(modifier.padding(24.dp), contentAlignment = Alignment.Center) {
-            val error = state.printerStatusError
-            if (error == null) CircularProgressIndicator()
-            else Text(stringResource(R.string.status_failed, error), style = MaterialTheme.typography.bodyMedium)
+        val error = state.printerStatusError
+        if (error == null) {
+            Box(modifier.padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+        } else {
+            // The error wraps and scrolls instead of being cut off, and the rest of the page stays usable.
+            Column(modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                PanelCard(stringResource(R.string.device_status)) {
+                    Text(stringResource(R.string.status_failed, error), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+                    OutlinedButton(onClick = vm.device::refreshStatus) { Text(stringResource(R.string.retry)) }
+                }
+                val bambu = state.connection?.type.let { it == HostType.BAMBU || it == HostType.BAMBU_SIGNED }
+                if (bambu) state.connection?.let { CameraCard(it) }
+            }
         }
         return
     }

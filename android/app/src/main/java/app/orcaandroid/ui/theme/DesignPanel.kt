@@ -70,6 +70,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -110,6 +111,7 @@ fun ThemeDesignPanel(state: UiState, vm: AppViewModel) {
             val listHeight = maxHeight * 0.55f
             // The panel grows upward from the bottom: keep it fully on screen wherever it was dragged, also once unfolded.
             var panelHeight by remember { mutableIntStateOf(0) }
+            val laidOutHeight = remember { IntArray(1) }
             val density = LocalDensity.current
             val topInset = WindowInsets.statusBars.getTop(density)
             val shown = with(density) {
@@ -121,6 +123,14 @@ fun ThemeDesignPanel(state: UiState, vm: AppViewModel) {
             LaunchedEffect(shown) { if (shown != drag) drag = shown }
             Surface(
                 Modifier.align(Alignment.BottomEnd).padding(8.dp).padding(bottom = 72.dp)
+                    // Folding changes the height before onSizeChanged can move the anchor (one frame later, seen as a snap):
+                    // shift the panel by the same amount in the frame that lays it out.
+                    .layout { measurable, c ->
+                        val p = measurable.measure(c)
+                        val shift = if (toggled && laidOutHeight[0] > 0) p.height - laidOutHeight[0] else 0
+                        laidOutHeight[0] = p.height
+                        layout(p.width, p.height) { p.place(0, shift) }
+                    }
                     .offset { IntOffset(shown.x.roundToInt(), shown.y.roundToInt()) }.width(width)
                     .onSizeChanged {
                         // Folding keeps the title bar where it is: the panel is anchored at the bottom, so move that anchor by the size change.
