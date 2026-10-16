@@ -398,17 +398,21 @@ internal object Shaders {
             color = c;
         }"""
 
-    /** The blurred contact shadow map laid on the bed: a quad over uRect (x0, y0, x1, y1) just under z = 0. */
+    /**
+     * The blurred contact shadow map laid on the bed just under z = 0: the map covers uRect (x0, y0, x1, y1), the quad
+     * is uClip (that rect cut to one bed, so a long shadow doesn't hang in the air past the bed's edge).
+     */
     const val SHADOW_VS = """#version 300 es
         uniform mat4 uMvp;
         uniform mat4 uLightMvp;
         uniform highp vec4 uRect;
+        uniform highp vec4 uClip;
         out vec2 vUv;
         out highp vec4 vShadowCoord;
         void main() {
             vec2 c = vec2(float(gl_VertexID & 1), float((gl_VertexID >> 1) & 1));
-            vUv = c;
-            highp vec2 xy = mix(uRect.xy, uRect.zw, c);
+            highp vec2 xy = mix(uClip.xy, uClip.zw, c);
+            vUv = (xy - uRect.xy) / (uRect.zw - uRect.xy);
             vShadowCoord = uLightMvp * vec4(xy, 0.0, 1.0);
             gl_Position = uMvp * vec4(xy, -0.02, 1.0);
         }"""

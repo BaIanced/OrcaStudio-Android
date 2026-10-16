@@ -4,6 +4,7 @@ import android.opengl.GLES30.*
 import android.opengl.Matrix
 import android.util.Log
 import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.tan
 
@@ -187,8 +188,8 @@ internal class SceneEffects {
         glDrawArrays(GL_TRIANGLES, 0, 3)
     }
 
-    /** Lays the shadow on the bed (before the grid, so its lines stay on top). */
-    fun drawShadow(mvp: FloatArray, strength: Float, softMm: Float = 0f, biasMm: Float = 0f) {
+    /** Lays the shadow on the beds [beds] (x0, y0, x1, y1 each; before the grid, so its lines stay on top). */
+    fun drawShadow(mvp: FloatArray, strength: Float, softMm: Float, biasMm: Float, beds: List<FloatArray>) {
         val rect = shadowRect ?: return
         if (broken) return
         glUseProgram(shadowProgram)
@@ -217,7 +218,14 @@ internal class SceneEffects {
         glEnable(GL_BLEND)
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
         glDepthMask(false)
-        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4)
+        val clipLoc = glGetUniformLocation(shadowProgram, "uClip")
+        for (b in beds) {
+            val x0 = max(shifted[0], b[0]); val y0 = max(shifted[1], b[1])
+            val x1 = min(shifted[2], b[2]); val y1 = min(shifted[3], b[3])
+            if (x0 >= x1 || y0 >= y1) continue
+            glUniform4f(clipLoc, x0, y0, x1, y1)
+            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4)
+        }
         glDepthMask(true)
         glDisable(GL_BLEND)
         if (real) { glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_2D, 0); glActiveTexture(GL_TEXTURE0) }

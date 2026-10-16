@@ -198,6 +198,14 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         return px in 0f..w.toFloat() && py in 0f..h.toFloat()
     }
 
+    /** Each plate's bed box (x0, y0, x1, y1); one unbounded box while no bed is known. */
+    private fun bedRects(): List<FloatArray> {
+        if (bedOutline.size < 4) return listOf(floatArrayOf(-1e9f, -1e9f, 1e9f, 1e9f))
+        val xs = bedOutline.filterIndexed { i, _ -> i % 2 == 0 }
+        val ys = bedOutline.filterIndexed { i, _ -> i % 2 == 1 }
+        return plateOrigins.map { (ox, oy) -> floatArrayOf(xs.min() + ox, ys.min() + oy, xs.max() + ox, ys.max() + oy) }
+    }
+
     /** Frames plate [index] (or all plates for -1). */
     private var lastFrame: Pair<Int, Boolean>? = null
 
@@ -289,7 +297,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             }
         }
 
-        if (shadow) effects.drawShadow(mvp, if (effects.isRealShadow) shadowStrength else SHADOW_STRENGTH, shadowSoftMm, shadowBiasMm)
+        if (shadow) effects.drawShadow(mvp, if (effects.isRealShadow) shadowStrength else SHADOW_STRENGTH, shadowSoftMm, shadowBiasMm, bedRects())
         drawBeds()
         drawBadges()
         if (showPreview) {
