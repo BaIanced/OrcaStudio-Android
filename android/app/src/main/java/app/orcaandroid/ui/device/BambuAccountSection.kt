@@ -91,21 +91,22 @@ internal fun BambuAccountSection(onPrinter: (BambuAccount.Printer) -> Unit) {
         user?.let { stringResource(R.string.bambu_account_signed_in, it) } ?: stringResource(R.string.bambu_account_hint),
         style = MaterialTheme.typography.bodySmall,
     )
+    // Own rows: side by side in the narrow connection dialog, "Sign out" was squeezed into a one-letter column.
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
         if (user == null) {
             OutlinedButton(onClick = { showLogin = true }, enabled = !busy) { Text(stringResource(R.string.bambu_account_sign_in)) }
         } else {
             OutlinedButton(onClick = ::loadPrinters, enabled = !busy) { Text(stringResource(R.string.bambu_account_use_printer)) }
-            TextButton(onClick = {
-                scope.launch {
-                    onIo { BambuAccount.logout(context) }
-                    user = null
-                    printers = null
-                }
-            }, enabled = !busy) { Text(stringResource(R.string.bambu_account_sign_out)) }
         }
         if (busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
     }
+    if (user != null) TextButton(onClick = {
+        scope.launch {
+            onIo { BambuAccount.logout(context) }
+            user = null
+            printers = null
+        }
+    }, enabled = !busy) { Text(stringResource(R.string.bambu_account_sign_out)) }
     printers?.takeIf { it.size > 1 }?.forEach { p ->
         Text("${p.name} · ${p.model} · ${p.serial}" + if (p.online) "" else " (offline)", style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.fillMaxWidth().clickable { onPrinter(p) }.padding(vertical = 6.dp))
