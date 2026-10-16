@@ -130,7 +130,11 @@ private fun Summary(state: UiState, vm: AppViewModel, r: SliceResult) {
                     }
                 }
             }
-            r.warnings.forEach { Text(vm.translator.tr(it), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+            // Mixed temperatures the user has allowed are only a heads-up (upstream returns it as a warning), not an error.
+            r.warnings.forEach {
+                val allowed = state.allowMixedTemps && it.startsWith("Selected nozzle temperatures are incompatible")
+                Text(vm.translator.tr(it), color = if (allowed) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            }
         }
     }
 }

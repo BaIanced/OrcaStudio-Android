@@ -73,6 +73,8 @@ object LabPeek {
     var open by mutableStateOf(false)
     var touching by mutableStateOf(false)
     var frozen by mutableStateOf<app.orcaandroid.core.LayoutLab?>(null)
+    /** The slider being dragged (label, bar position 0..1), shown by the scaffold while More is faded, so its value stays visible. */
+    var readout by mutableStateOf<Pair<String, Float>?>(null)
 }
 
 /** App settings, preset management, calibration, recent files and about. */
@@ -255,14 +257,14 @@ private fun LayoutLabSection(state: UiState, vm: AppViewModel) {
     Section(stringResource(R.string.layout_lab), summary = stringResource(R.string.layout_lab_summary)) {
       androidx.compose.runtime.DisposableEffect(Unit) {
         LabPeek.open = true
-        onDispose { LabPeek.open = false; LabPeek.touching = false; LabPeek.frozen = null }
+        onDispose { LabPeek.open = false; LabPeek.touching = false; LabPeek.frozen = null; LabPeek.readout = null }
       }
       Column(Modifier.pointerInput(Unit) {
         awaitPointerEventScope {
             while (true) {
                 val down = awaitPointerEvent(PointerEventPass.Initial).changes.any { it.pressed }
                 if (down && !LabPeek.touching) LabPeek.frozen = current
-                if (!down) LabPeek.frozen = null
+                if (!down) { LabPeek.frozen = null; LabPeek.readout = null }
                 LabPeek.touching = down
             }
         }
@@ -294,8 +296,10 @@ private fun LayoutLabSection(state: UiState, vm: AppViewModel) {
 /** A size slider in 5 % steps, applied live (More is frozen at its touch-time size while dragging, so it doesn't move under the finger). */
 @Composable
 private fun ScaleSlider(label: Int, value: Float, range: ClosedFloatingPointRange<Float>, onSet: (Float) -> Unit) {
-    Text(stringResource(label, kotlin.math.round(value * 100).toInt()), style = MaterialTheme.typography.bodyMedium)
-    androidx.compose.material3.Slider(value, { onSet(kotlin.math.round(it * 20) / 20f) }, valueRange = range,
+    val text = stringResource(label, kotlin.math.round(value * 100).toInt())
+    Text(text, style = MaterialTheme.typography.bodyMedium)
+    // While a finger is down the whole of More is faded; the scaffold shows this readout so the value stays in view.
+    androidx.compose.material3.Slider(value, { LabPeek.readout = text to (it - range.start) / (range.endInclusive - range.start); onSet(kotlin.math.round(it * 20) / 20f) }, valueRange = range,
         steps = kotlin.math.round((range.endInclusive - range.start) * 20).toInt() - 1)
 }
 
