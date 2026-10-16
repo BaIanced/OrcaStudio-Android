@@ -3,6 +3,27 @@ package app.orcaandroid.render
 /** GLSL ES 3.0 programs of [PlateRenderer]. Attribute locations are fixed with layout qualifiers. */
 internal object Shaders {
 
+    /**
+     * Fraction of the key light that reaches [sc] (light-space uv + depth): 0 shadow .. 1 lit. Golden-angle taps in a disc of
+     * uSoft (uv), turned per pixel so the few taps blur instead of banding; each tap is a hardware 2x2 compare. The bias
+     * (uBiasMm, over the 1040 mm depth range) shrinks on faces turned towards the light. highp: fp16 depth compares are all acne.
+     */
+    private const val PCF = """
+        uniform mediump sampler2DShadow uRealShadowMap;
+        uniform highp float uSoft;
+        uniform highp float uBiasMm;
+        highp float lightAt(highp vec3 sc, highp float ndl, int taps) {
+            highp float z = sc.z - uBiasMm * max(1.0 - ndl, 0.15) / 1040.0;
+            highp float rot = 6.2832 * fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+            highp float s = 0.0;
+            for (int i = 0; i < taps; ++i) {
+                highp float a = float(i) * 2.39996 + rot;
+                highp float r = sqrt((float(i) + 0.5) / float(taps)) * uSoft;
+                s += texture(uRealShadowMap, vec3(sc.xy + vec2(cos(a), sin(a)) * r, z));
+            }
+            return s / float(taps);
+        }"""
+
     /** Selected copies the mesh shader highlights and drags (more are selected but not drawn so). */
     const val MAX_SELECTED = 64
 
@@ -54,8 +75,9 @@ internal object Shaders {
         uniform highp vec4 uSection;
         uniform int uSectionOn;
         uniform highp vec3 uEye;
-        uniform mediump sampler2DShadow uRealShadowMap;
+        """ + PCF + """
         uniform int uUseRealShadow;
+        uniform float uShadowStrength;
         in vec3 vNormal;
         in highp vec3 vWorld;
         in highp vec4 vShadowCoord;
@@ -121,19 +143,12 @@ internal object Shaders {
                 vec3 lf = normalize(vec3(-0.6, 0.4, 0.35));
                 float sky = 0.5 + 0.5 * n.z;
                 // Real shadow (highp: the depth compare needs it; fp16 would be all acne). The key light only: ambient and
-                // fill stay, so the occlusion pass doesn't darken the same place twice. Five hardware-PCF taps = soft edge.
+                // fill stay, so the occlusion pass doesn't darken the same place twice.
                 float lit = 1.0;
                 if (uUseRealShadow == 1 && uPass == 0) {
                     highp vec3 sc = vShadowCoord.xyz / vShadowCoord.w * 0.5 + 0.5;
                     if (sc.z < 1.0 && sc.x > 0.0 && sc.x < 1.0 && sc.y > 0.0 && sc.y < 1.0) {
-                        highp float bias = max(0.003 * (1.0 - dot(normalize(vNormal), lk)), 0.0005);
-                        highp float z = sc.z - bias;
-                        highp float t = 1.5 / 2048.0;
-                        lit = 0.2 * (texture(uRealShadowMap, vec3(sc.xy, z))
-                            + texture(uRealShadowMap, vec3(sc.xy + vec2(t, 0.0), z))
-                            + texture(uRealShadowMap, vec3(sc.xy - vec2(t, 0.0), z))
-                            + texture(uRealShadowMap, vec3(sc.xy + vec2(0.0, t), z))
-                            + texture(uRealShadowMap, vec3(sc.xy - vec2(0.0, t), z)));
+                        lit = 1.0 - uShadowStrength * (1.0 - lightAt(sc, dot(normalize(vNormal), lk), 8));
                     }
                 }
                 float diff = 0.22 + 0.16 * sky + 0.50 * max(dot(n, lk), 0.0) * lit + 0.20 * max(dot(n, lf), 0.0);
@@ -389,7 +404,7 @@ internal object Shaders {
     const val SHADOW_FS = """#version 300 es
         precision mediump float;
         uniform sampler2D uTex;
-        uniform mediump sampler2DShadow uRealShadowMap;
+        """ + PCF + """
         uniform int uReal;
         uniform float uStrength;
         in vec2 vUv;
@@ -397,17 +412,10 @@ internal object Shaders {
         out vec4 color;
         void main() {
             if (uReal == 0) { color = vec4(0.0, 0.0, 0.0, uStrength * texture(uTex, vUv).r); return; }
-            // Real shadow on the bed: 3 x 3 hardware-PCF taps, 2 texels apart, for a soft penumbra.
+            // Real shadow on the bed (flat, facing up: dot with the key light 0.75).
             highp vec3 sc = vShadowCoord.xyz / vShadowCoord.w * 0.5 + 0.5;
             float lit = 1.0;
-            if (sc.z < 1.0 && sc.x > 0.0 && sc.x < 1.0 && sc.y > 0.0 && sc.y < 1.0) {
-                highp float z = sc.z - 0.0005;
-                lit = 0.0;
-                for (int i = -1; i <= 1; ++i)
-                    for (int j = -1; j <= 1; ++j)
-                        lit += texture(uRealShadowMap, vec3(sc.xy + vec2(float(i), float(j)) * (2.0 / 2048.0), z));
-                lit /= 9.0;
-            }
+            if (sc.z < 1.0 && sc.x > 0.0 && sc.x < 1.0 && sc.y > 0.0 && sc.y < 1.0) lit = lightAt(sc, 0.75, 16);
             color = vec4(0.0, 0.0, 0.0, uStrength * (1.0 - lit));
         }"""
 

@@ -84,6 +84,10 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var contactShadows = true
     /** Set per frame: the lit mesh pass samples the real shadow map (a depth map was rendered this frame or before, and shadows are on). */
     private var useRealShadow = false
+    /** Real shadow look (Layout lab): darkness 0-1, penumbra and depth bias in mm. */
+    var shadowStrength = 0.55f
+    var shadowSoftMm = 3f
+    var shadowBiasMm = 3f
 
     private val effects = SceneEffects()
     /** Set by the view from the screen configuration (read on the GL thread, so volatile). */
@@ -275,7 +279,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             }
         }
 
-        if (shadow) effects.drawShadow(mvp, SHADOW_STRENGTH)
+        if (shadow) effects.drawShadow(mvp, if (effects.isRealShadow) shadowStrength else SHADOW_STRENGTH, shadowSoftMm, shadowBiasMm)
         drawBeds()
         drawBadges()
         if (showPreview) {
@@ -536,6 +540,9 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glUniform1i(loc(meshProgram, "uRealShadowMap"), 2)
         if (real) {
             glUniformMatrix4fv(loc(meshProgram, "uLightMvp"), 1, false, effects.lightMvp, 0)
+            glUniform1f(loc(meshProgram, "uShadowStrength"), shadowStrength)
+            glUniform1f(loc(meshProgram, "uSoft"), shadowSoftMm / effects.lightSpanMm)
+            glUniform1f(loc(meshProgram, "uBiasMm"), shadowBiasMm + 0.3f * shadowSoftMm)
             glActiveTexture(GL_TEXTURE2)
             glBindTexture(GL_TEXTURE_2D, effects.realShadowTex)
             glActiveTexture(GL_TEXTURE0)

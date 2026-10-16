@@ -42,6 +42,8 @@ internal class SceneEffects {
     /** Texture and light matrix of the last real shadow render. */
     val realShadowTex get() = realTex
     val lightMvp = FloatArray(16)
+    /** Width of the light's view in mm (one uv unit of the depth map), to turn mm of penumbra into uv. */
+    var lightSpanMm = 1f; private set
     /** True when a real shadow map is rendered and may be sampled. */
     val realShadowReady get() = isRealShadow && shadowRect != null && !broken
 
@@ -158,6 +160,7 @@ internal class SceneEffects {
         val proj = FloatArray(16)
         Matrix.orthoM(proj, 0, -r, r, -r, r, 10f, REAL_DISTANCE * 3f)
         Matrix.multiplyMM(lightMvp, 0, proj, 0, view, 0)
+        lightSpanMm = 2f * r
         glBindFramebuffer(GL_FRAMEBUFFER, realFbo)
         glViewport(0, 0, REAL_SIZE, REAL_SIZE)
         glEnable(GL_DEPTH_TEST)
@@ -182,7 +185,7 @@ internal class SceneEffects {
     }
 
     /** Lays the shadow on the bed (before the grid, so its lines stay on top). */
-    fun drawShadow(mvp: FloatArray, strength: Float) {
+    fun drawShadow(mvp: FloatArray, strength: Float, softMm: Float = 0f, biasMm: Float = 0f) {
         val rect = shadowRect ?: return
         if (broken) return
         glUseProgram(shadowProgram)
@@ -202,6 +205,8 @@ internal class SceneEffects {
         glBindTexture(GL_TEXTURE_2D, if (real) 0 else shadowTex[0])
         if (real) {
             glUniformMatrix4fv(glGetUniformLocation(shadowProgram, "uLightMvp"), 1, false, lightMvp, 0)
+            glUniform1f(glGetUniformLocation(shadowProgram, "uSoft"), softMm / lightSpanMm)
+            glUniform1f(glGetUniformLocation(shadowProgram, "uBiasMm"), biasMm + 0.3f * softMm)
             glActiveTexture(GL_TEXTURE1)
             glBindTexture(GL_TEXTURE_2D, realTex)
             glActiveTexture(GL_TEXTURE0)

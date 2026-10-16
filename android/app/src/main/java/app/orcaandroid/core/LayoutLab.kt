@@ -33,18 +33,26 @@ data class LayoutLab(
     val platesOnHandle: Boolean = false,
     /** Size of the plate switcher alone (tabs, filmstrip tiles or chips). */
     val plateScale: Float = 1f,
+    /** Real shadow (Prepare): how dark (0.1-1), how soft in mm of penumbra, and the depth bias in mm (acne vs. light under parts). */
+    val shadowStrength: Float = 0.55f,
+    val shadowSoft: Float = 3f,
+    val shadowBias: Float = 3f,
 ) {
     fun toJson(): String = JSONObject()
         .put("plates", plates.name).put("plateLabel", plateLabel).put("overlayAlpha", overlayAlpha.toDouble())
         .put("toolsLeft", toolsLeft).put("panelTucked", panelTucked).put("panelWidth", panelWidth.toDouble())
         .put("textScale", textScale.toDouble()).put("uiScale", uiScale.toDouble()).put("overlayScale", overlayScale.toDouble())
-        .put("fullscreenPortrait", fullscreenPortrait).put("platesOnHandle", platesOnHandle).put("plateScale", plateScale.toDouble()).toString()
+        .put("fullscreenPortrait", fullscreenPortrait).put("platesOnHandle", platesOnHandle).put("plateScale", plateScale.toDouble())
+        .put("shadowStrength", shadowStrength.toDouble()).put("shadowSoft", shadowSoft.toDouble()).put("shadowBias", shadowBias.toDouble()).toString()
 
     companion object {
         val TEXT_SCALES = 0.7f..1.3f
         val UI_SCALES = 0.7f..1.3f
         val OVERLAY_SCALES = 0.6f..1.2f
         val PLATE_SCALES = 0.6f..1.6f
+        val SHADOW_STRENGTHS = 0.1f..1f
+        val SHADOW_SOFTS = 0.5f..12f
+        val SHADOW_BIASES = 0.5f..8f
 
         fun fromJson(json: String?): LayoutLab {
             val o = json?.let { runCatching { JSONObject(it) }.getOrNull() } ?: return LayoutLab()
@@ -62,6 +70,9 @@ data class LayoutLab(
                 fullscreenPortrait = o.optBoolean("fullscreenPortrait", d.fullscreenPortrait),
                 platesOnHandle = o.optBoolean("platesOnHandle", d.platesOnHandle),
                 plateScale = o.optDouble("plateScale", 1.0).toFloat().coerceIn(PLATE_SCALES.start, PLATE_SCALES.endInclusive),
+                shadowStrength = o.optDouble("shadowStrength", d.shadowStrength.toDouble()).toFloat().coerceIn(SHADOW_STRENGTHS.start, SHADOW_STRENGTHS.endInclusive),
+                shadowSoft = o.optDouble("shadowSoft", d.shadowSoft.toDouble()).toFloat().coerceIn(SHADOW_SOFTS.start, SHADOW_SOFTS.endInclusive),
+                shadowBias = o.optDouble("shadowBias", d.shadowBias.toDouble()).toFloat().coerceIn(SHADOW_BIASES.start, SHADOW_BIASES.endInclusive),
             )
         }
     }
