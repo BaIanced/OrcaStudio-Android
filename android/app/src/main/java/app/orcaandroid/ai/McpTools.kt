@@ -143,6 +143,22 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         Tool("plate_arrange", "Plate edit: arranges the objects on a plate (default the active one), or with all true " +
             "every object over all plates (plates are added when they don't fit). $PLATE_EDIT",
             obj(emptyList(), "plate" to p("integer", "Plate number"), "all" to p("boolean", "true = every plate"))) { arrange(it) },
+        Tool("view_set", "View: sets the 3D view of the plate (not the design editor): a preset view or camera angles, the " +
+            "section view cut and the 3D look. Given fields change, others stay. Returns the camera and what is on. " +
+            "Needs the Prepare tab's 3D view on screen.",
+            obj(emptyList(),
+                "view" to p("string", "iso, top, front, left, right, bottom, rear or fit (frames the plate)"),
+                "plate" to p("integer", "Plate number to frame with view fit; default the active plate"),
+                "yaw" to p("number", "Degrees around the plate"), "pitch" to p("number", "Degrees above the bed, -89..89"),
+                "distance" to p("number", "Camera distance from the target, mm"),
+                "target" to vec("Point the camera looks at, mm"),
+                "section" to p("number", "Section view cut 0..1 (0 = off)"),
+                "ao" to p("integer", "Ambient occlusion 0 off, 1 soft, 2 full"),
+                "shadows" to p("boolean", "Shadows under objects"))) { viewSet(it) },
+        Tool("view_screenshot", "Read: a PNG of the plate's 3D view as drawn now (no buttons or panels), after a short wait " +
+            "for the last view change. Costs far more than text: use plate_describe or view_set's reply when they answer it. " +
+            "Needs the Prepare tab's 3D view on screen.",
+            obj(emptyList(), "size" to p("integer", "Longer side in px, 256..1280; default 720"))) { viewShot(it) },
     ) + presetTools.tools
 
     fun list(): JSONArray = JSONArray().apply {
@@ -249,6 +265,68 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         val png = store.engine.snapshotPng(stl, size)
         return JSONArray()
             .put(JSONObject().put("type", "image").put("data", png).put("mimeType", "image/png"))
+            .put(JSONObject().put("type", "text").put("text", caption))
+    }
+
+    private fun plateView(): app.orcaandroid.render.PlateView =
+        app.orcaandroid.render.PlateView.active?.get()?.takeIf { it.isShown }
+            ?: throw ToolError("No 3D view is on screen: open the Prepare tab in the app")
+
+    private fun viewState(view: app.orcaandroid.render.PlateView): String {
+        val c = view.camera.state()
+        val s = store.value
+        return "Camera yaw ${n(c[0].toDouble())}, pitch ${n(c[1].toDouble())}, distance ${n(c[2].toDouble())} mm, " +
+            "target [${n(c[3].toDouble())}, ${n(c[4].toDouble())}, ${n(c[5].toDouble())}]; section ${n(view.section.ratio.toDouble())}, " +
+            "ambient occlusion ${s.ambientOcclusion}, shadows ${if (s.contactShadows) "on" else "off"}; plate ${s.activePlate + 1} active."
+    }
+
+    private suspend fun viewSet(args: JSONObject): String = withContext(Dispatchers.Main.immediate) {
+        val view = plateView()
+        args.optString("view").takeIf { it.isNotEmpty() }?.let { name ->
+            if (name == "fit") {
+                val plate = if (args.has("plate")) args.optInt("plate") - 1 else store.value.activePlate
+                if (plate !in 0 until store.value.scene.plates.size) throw ToolError("No plate ${plate + 1}")
+                view.onGl { frame(plate, false) }
+            } else {
+                val id = listOf("iso", "top", "front", "left", "right", "bottom", "rear").indexOf(name)
+                if (id < 0) throw ToolError("view must be iso, top, front, left, right, bottom, rear or fit")
+                view.camera.preset(id)
+            }
+        }
+        val target = args.vec3("target")
+        fun num(key: String) = if (args.has(key)) args.optDouble(key).takeIf { it.isFinite() }?.toFloat() ?: throw ToolError("$key must be a number") else null
+        view.camera.aim(num("yaw"), num("pitch"), num("distance"), target?.let { Vec3(it.x.toFloat(), it.y.toFloat(), it.z.toFloat()) })
+        num("section")?.let { r -> view.section.set(r); view.section.panelOpen = view.section.active }
+        if (args.has("ao")) {
+            val level = args.optInt("ao").coerceIn(0, 2)
+            store.settings.ambientOcclusion = level
+            store.update { it.copy(ambientOcclusion = level) }
+        }
+        if (args.has("shadows")) {
+            val on = args.optBoolean("shadows")
+            store.settings.contactShadows = on
+            store.update { it.copy(contactShadows = on) }
+        }
+        viewState(view)
+    }
+
+    private suspend fun viewShot(args: JSONObject): JSONArray {
+        val size = if (args.has("size")) args.optInt("size").coerceIn(256, 1280) else 720
+        val (view, caption) = withContext(Dispatchers.Main.immediate) { plateView().let { it to viewState(it) } }
+        // The GL thread takes the last view change on its next frame; the shadow map and AO follow one frame later.
+        kotlinx.coroutines.delay(400)
+        val bitmap = android.graphics.Bitmap.createBitmap(view.width.coerceAtLeast(1), view.height.coerceAtLeast(1), android.graphics.Bitmap.Config.ARGB_8888)
+        val done = CompletableDeferred<Int>()
+        withContext(Dispatchers.Main.immediate) {
+            android.view.PixelCopy.request(view, bitmap, { done.complete(it) }, android.os.Handler(android.os.Looper.getMainLooper()))
+        }
+        val code = withTimeoutOrNull(5_000) { done.await() } ?: throw ToolError("The 3D view did not answer in time")
+        if (code != android.view.PixelCopy.SUCCESS) throw ToolError("The screen copy failed (code $code); is the app in the foreground?")
+        val scale = size.toFloat() / maxOf(bitmap.width, bitmap.height)
+        val shot = if (scale < 1f) android.graphics.Bitmap.createScaledBitmap(bitmap, (bitmap.width * scale).toInt().coerceAtLeast(1), (bitmap.height * scale).toInt().coerceAtLeast(1), true) else bitmap
+        val png = java.io.ByteArrayOutputStream().also { shot.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }.toByteArray()
+        return JSONArray()
+            .put(JSONObject().put("type", "image").put("data", android.util.Base64.encodeToString(png, android.util.Base64.NO_WRAP)).put("mimeType", "image/png"))
             .put(JSONObject().put("type", "text").put("text", caption))
     }
 
