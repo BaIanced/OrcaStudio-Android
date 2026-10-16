@@ -112,6 +112,24 @@
     <string name="ai_allow">Allow</string>
     <string name="ai_deny">Deny</string>
     <string name="back_again_quit">Press Back again to quit</string>
+    <string name="open_or_import_title">Open project?</string>
+    <string name="open_or_import_text">%1$s is a project. Open it (replaces the current project, with its plates, settings and filaments) or import only its models?</string>
+    <string name="open_as_project">Open project</string>
+    <string name="import_models_only">Import models</string>
+    <string name="filament_choice_title">Filaments in this project</string>
+    <string name="filament_choice_text">The project brings its own filaments. Replacing yours resets your synced AMS colours and filament edits.</string>
+    <string name="filament_current">Current (yours)</string>
+    <string name="filament_project">Project</string>
+    <string name="filament_remember">Remember my choice</string>
+    <string name="filament_use_project">Use project\'s</string>
+    <string name="filament_keep_mine">Keep mine</string>
+    <string name="project_filaments">Filaments of opened projects</string>
+    <string name="pf_ask">Ask</string>
+    <string name="pf_mine">Mine</string>
+    <string name="pf_project">Project\'s</string>
+    <string name="pf_both">Both</string>
+    <string name="filament_use_both">Both (project\'s, then mine)</string>
+    <string name="project_filaments_text">Which filaments a project you open uses. Mine leaves your AMS sync and filament edits alone.</string>
     <string name="quit_title">Quit?</string>
     <string name="quit_text">Your plates are kept for the next start.</string>
     <string name="yes">Yes</string>
@@ -215,6 +233,7 @@
     <string name="only_changed">Changed only</string>
     <string name="open_project">Open…</string>
     <string name="opening_project">Opening project…</string>
+    <string name="project_printer_kept">This project is for %1$s. Kept your printer %2$s; switch it in Device if intended.</string>
     <string name="orienting">Orienting…</string>
     <string name="paint">Paint</string>
     <string name="paint_color">Color painting</string>
@@ -421,6 +440,11 @@
     <string name="alert_btn_stop_drying">Stop Drying</string>
     <string name="alert_btn_abort">Abort</string>
     <!-- Filament sync from a Bambu printer -->
+    <string name="filament_type_mismatch">%1$s here, but the printer\'s tray holds %2$s: slicing will fail</string>
+    <string name="filament_reset_to_ams">Use the printer\'s choice (%1$s)</string>
+    <string name="allow_mixed_temps">Remove mixed temperature restriction</string>
+    <string name="allow_mixed_temps_text">Slice filaments whose nozzle temperatures are far apart in one print. Risk: clogging or printer damage.</string>
+    <string name="mixed_temps_hint">If you still want to print, turn on %1$s.</string>
     <string name="sync_filaments">Sync filaments from printer</string>
     <string name="device_job">Job</string>
     <string name="device_temperatures">Temperatures</string>
@@ -816,6 +840,8 @@
     <string name="lab_scale_hint">Sizes apply when you let go of the slider.</string>
     <string name="scroll_up">Scroll up</string>
     <string name="scroll_down">Scroll down</string>
+    <string name="lab_plates_on_handle">Portrait: plate switcher on the panel grip</string>
+    <string name="lab_plate_scale">Plate switcher size: %d %%</string>
     <string name="lab_fullscreen_portrait">Fullscreen in portrait too</string>
     <string name="scad_draft_preview">Draft while dragging</string>
     <string name="scad_on_plate">Show the design on the plate</string>
@@ -827,6 +853,11 @@
     <string name="preset_printables_night">Printables Night</string>
     <string name="preset_prusa_minimal">Prusa Minimal Warm</string>
     <string name="design_mode">Design mode</string>
+    <string name="ambient_occlusion">3D view: ambient occlusion</string>
+    <string name="ambient_occlusion_text">Darkens corners and creases of the models and toolpaths for depth. Uses more GPU and battery.</string>
+    <string name="ao_soft">Soft</string>
+    <string name="ao_full">Full</string>
+    <string name="contact_shadows">3D view: shadows under objects</string>
     <string name="design_mode_text">Change the colors live, part by part, in a panel over the app</string>
     <string name="design_editing_dark">Editing the dark theme</string>
     <string name="design_editing_light">Editing the light theme</string>
@@ -893,4 +924,14 @@
         <item quantity="one">%d custom color</item>
         <item quantity="other">%d custom colors</item>
     </plurals>
+    <string name="device_camera">Camera</string>
+    <string name="camera_hint">Live view over your home network. Only runs while switched on.</string>
+    <string name="camera_start">Start</string>
+    <string name="camera_stop">Stop</string>
+    <string name="camera_snapshot">Save snapshot</string>
+    <string name="camera_saved">Snapshot saved to Downloads</string>
+    <string name="camera_save_failed">Could not save the snapshot</string>
+    <string name="camera_unreachable">Can\'t reach the printer\'s camera. Is this device on the same network, and is the printer on?</string>
+    <string name="camera_rejected">The printer refused the connection. Check the access code.</string>
+    <string name="camera_broken">The camera connection dropped. Press Start to try again.</string>
 </resources>

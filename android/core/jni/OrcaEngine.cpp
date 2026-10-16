@@ -99,6 +99,10 @@ json compatible_names(const PresetCollection &collection)
             entry["brand"] = brand->values.front();
         if (const auto *type = p.config.option<ConfigOptionStrings>("filament_type"); type && !type->values.empty())
             entry["type"] = type->values.front();
+        // A user filament's own colour (desktop: picking it recolours the slot).
+        if (!p.is_system)
+            if (const auto *colour = p.config.option<ConfigOptionStrings>("default_filament_colour"); colour && !colour->values.empty() && !colour->values.front().empty())
+                entry["color"] = colour->values.front();
         out.push_back(std::move(entry));
     }
     return out;
@@ -503,8 +507,11 @@ DynamicPrintConfig OrcaEngine::selection_config()
     if (auto *matrix = config.option<ConfigOptionFloats>("flush_volumes_matrix")) {
         const size_t filaments = config.option<ConfigOptionStrings>("filament_colour")->values.size();
         const auto  *mult      = config.option<ConfigOptionFloats>("flush_multiplier");
-        const size_t heads     = std::max<size_t>(1, mult ? mult->values.size() : 1);
-        if (filaments > 1 && matrix->values.size() != filaments * filaments * heads) {
+        const auto  *nozzles   = config.option<ConfigOptionFloats>("nozzle_diameter");
+        // ToolOrdering splits the matrix per nozzle (size / nozzle count): a dual-nozzle printer needs one block each.
+        const size_t heads     = std::max<size_t>({1, mult ? mult->values.size() : 1, nozzles ? nozzles->values.size() : 1});
+        // Also for one filament: an empty matrix there crashed ToolOrdering (reads filaments^2 floats).
+        if (filaments >= 1 && matrix->values.size() != filaments * filaments * heads) {
             const std::vector<double> one = auto_flush_matrix(config);
             matrix->values.clear();
             for (size_t h = 0; h < heads; ++h)
@@ -562,7 +569,13 @@ json OrcaEngine::slice(int plate, const std::string &gcode_out, const std::strin
         config.set_deserialize_strict("curr_bed_type", m_plates[plate].bed_type);
     else if (const std::string def = default_bed_type(); !def.empty())
         config.set_deserialize_strict("curr_bed_type", def);
-    if (m_plates[plate].has_wipe_tower_pos) {
+    if (const auto tower = tower_box(config, plate)) {
+        if (tower->clash)
+            throw std::runtime_error("The prime tower finds no free spot on the plate: it would overlap an object. Move or remove an object.");
+        // Same box the 3D view shows: the position kept on the bed with the tower's real depth, brim and cone.
+        config.option<ConfigOptionFloats>("wipe_tower_x", true)->values = {tower->x};
+        config.option<ConfigOptionFloats>("wipe_tower_y", true)->values = {tower->y};
+    } else if (m_plates[plate].has_wipe_tower_pos) {
         config.option<ConfigOptionFloats>("wipe_tower_x", true)->values = {m_plates[plate].wipe_tower_x};
         config.option<ConfigOptionFloats>("wipe_tower_y", true)->values = {m_plates[plate].wipe_tower_y};
     }
@@ -580,6 +593,7 @@ json OrcaEngine::slice(int plate, const std::string &gcode_out, const std::strin
     });
     print.apply(*model, config);
     print.is_BBL_printer() = m_bundle->is_bbl_vendor();
+    print.set_check_multi_filaments_compatibility(!m_allow_mixed_temp);
     if (m_calib)
         print.set_calib_params(*m_calib);
 

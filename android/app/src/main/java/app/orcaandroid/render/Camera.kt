@@ -68,11 +68,45 @@ class Camera {
         distance = (distance / factor).coerceIn(5f, 10000f)
     }
 
+    /**
+     * Zooms toward screen point (x, y), like the desktop's zoom to the mouse cursor: the point under it on
+     * the plane through the target (facing the camera) stays put, so the target moves toward it and you can
+     * get close to any part of the view, not only the orbit centre.
+     */
+    @Synchronized fun zoomAt(factor: Float, x: Float, y: Float) {
+        val (o, d) = ray(x, y)
+        val n = towardsEye()
+        val t = target.let { Vec3(it[0], it[1], it[2]) }
+        val old = distance
+        zoom(factor)
+        val f = old / distance
+        val along = d.dot(n)
+        if (f == 1f || kotlin.math.abs(along) < 1e-6f) return
+        val hit = (t - o).dot(n) / along
+        if (hit <= 0f) return
+        val p = o + d * hit
+        target[0] = p.x + (t.x - p.x) / f
+        target[1] = p.y + (t.y - p.y) / f
+        target[2] = p.z + (t.z - p.z) / f
+    }
+
     /** Pans in the view plane; dx/dy in screen pixels. */
     @Synchronized fun pan(dx: Float, dy: Float) {
-        val scale = distance / height * 0.8f
+        val scale = 2f * distance * kotlin.math.tan(Math.toRadians(FOV / 2.0)).toFloat() / height
         val (r, u) = axes()
         for (i in 0..2) target[i] += (-dx * r[i] + dy * u[i]) * scale
+    }
+
+    /**
+     * Pans so the build-plate point that was under screen (x0, y0) ends up under (x1, y1): the plate follows
+     * the finger exactly at any zoom and pitch. Falls back to [pan] when a ray misses the plate plane.
+     */
+    @Synchronized fun panGrab(x0: Float, y0: Float, x1: Float, y1: Float) {
+        val a = rayOnPlane(x0, y0)
+        val b = rayOnPlane(x1, y1)
+        if (a == null || b == null) { pan(x1 - x0, y1 - y0); return }
+        target[0] += a.x - b.x
+        target[1] += a.y - b.y
     }
 
     /** View preset: 0 iso, 1 top, 2 front, 3 left, 4 right, 5 bottom, 6 rear. */
@@ -114,12 +148,16 @@ class Camera {
         return Vec3((cos(pr) * cos(yr)).toFloat(), (cos(pr) * sin(yr)).toFloat(), sin(pr).toFloat())
     }
 
+    /** Near and far clip distances of the projection. */
+    @Synchronized fun clip() = max(0.5f, distance / 200f) to distance * 20f
+
     /** Fills [out] with projection * view. */
     @Synchronized fun viewProjection(out: FloatArray) {
         val e = eye()
         val proj = FloatArray(16)
         val view = FloatArray(16)
-        Matrix.perspectiveM(proj, 0, FOV, width.toFloat() / height, max(0.5f, distance / 200f), distance * 20f)
+        val (near, far) = clip()
+        Matrix.perspectiveM(proj, 0, FOV, width.toFloat() / height, near, far)
         Matrix.setLookAtM(view, 0, e.x, e.y, e.z, target[0], target[1], target[2], 0f, 0f, 1f)
         Matrix.multiplyMM(out, 0, proj, 0, view, 0)
     }
@@ -159,7 +197,8 @@ class Camera {
         return right to up
     }
 
-    private companion object {
+    companion object {
+        /** Vertical field of view, degrees. */
         const val FOV = 35f
     }
 }

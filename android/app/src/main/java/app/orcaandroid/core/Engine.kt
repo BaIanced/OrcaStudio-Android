@@ -33,6 +33,9 @@ class Engine(private val cacheDir: File) {
     suspend fun setDefaultBedType(bedType: String): String =
         call("setDefaultBedType", args("bedType" to bedType)).optString("default_bed_type")
 
+    /** Lets filaments whose nozzle temperatures are far apart share a print (desktop: "Remove mixed temperature restriction"). */
+    suspend fun setAllowMixedTemperatures(allow: Boolean) { call("setAllowMixedTemperatures", args("allow" to allow)) }
+
     private val defsCache = HashMap<PresetType, List<OptionDef>>()
 
     suspend fun optionDefs(type: PresetType): List<OptionDef> = defsCache[type] ?: call("optionDefs", args("type" to type.id))
@@ -226,7 +229,7 @@ class Engine(private val cacheDir: File) {
 
     private fun parseRefs(a: JSONArray) = a.map {
         val o = it as JSONObject
-        PresetRef(o.getString("name"), o.optString("vendor"), o.optBoolean("system"), o.optString("brand"), o.optString("type"), o.optString("base"))
+        PresetRef(o.getString("name"), o.optString("vendor"), o.optBoolean("system"), o.optString("brand"), o.optString("type"), o.optString("base"), o.optString("color"))
     }
 
     private fun parseSetup(o: JSONObject): PrinterSetup {
@@ -289,6 +292,7 @@ class Engine(private val cacheDir: File) {
                         LayerGcode(g.getDouble("z").toFloat(), g.getString("type"), g.optString("extra"), g.optString("color"), g.optInt("extruder", 1))
                     }.orEmpty(),
                     wipeTower = wt?.let { it[0] to it[1] },
+                    tower = p.optJSONArray("tower")?.floats(),
                 )
             } },
             objects = o.getJSONArray("objects").let { a -> List(a.length()) { i ->

@@ -41,6 +41,7 @@ import app.orcaandroid.render.PlateView
 import app.orcaandroid.render.PreviewData
 import app.orcaandroid.render.PreviewRange
 import app.orcaandroid.render.PreviewStyle
+import app.orcaandroid.render.TowerBox
 import app.orcaandroid.render.ViewColors
 import app.orcaandroid.ui.AppViewModel
 import app.orcaandroid.ui.Screen
@@ -100,6 +101,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
 
     // The selection rectangle being drawn (Shift/Alt+drag), in view pixels: x0, y0, x1, y1.
     var rectangle by remember { mutableStateOf<FloatArray?>(null) }
+    val dragPending = remember { booleanArrayOf(false) }
     // The plate menu opened from a plate's menu badge: plate, view x, y.
     var plateMenu by remember { mutableStateOf<Triple<Int, Float, Float>?>(null) }
     val rectangleColor = scheme.primary
@@ -109,9 +111,13 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
             PlateView(ctx).also { v ->
                 PlateView.active = java.lang.ref.WeakReference(v)
                 v.listener = object : PlateListener {
-                    override fun onTap(x: Float, y: Float, additive: Boolean, part: Boolean) {
+                    override fun onTap(x: Float, y: Float, additive: Boolean, part: Boolean, emptyPlate: Int?) {
                         val (o, d) = v.camera.ray(x, y)
-                        vm.scene.onViewTap(o, d, additive, part, v.section.current)
+                        vm.scene.onViewTap(o, d, additive, part, v.section.current, emptyPlate)
+                    }
+                    override fun onDragCheck(x: Float, y: Float, result: (Boolean) -> Unit) {
+                        val (o, d) = v.camera.ray(x, y)
+                        vm.scene.checkDragStart(o, d, v.section.current) { hit -> v.post { result(hit) } }
                     }
                     override fun onRectangle(x0: Float, y0: Float, x1: Float, y1: Float, remove: Boolean, done: Boolean) {
                         rectangle = if (done) null else floatArrayOf(x0, y0, x1, y1)
@@ -128,8 +134,20 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                     }
                     override fun onBrushScroll(steps: Int) = vm.scene.scaleBrush(if (steps > 0) 1.15f else 1 / 1.15f)
                     override fun onMoved(dx: Float, dy: Float) {
-                        v.onGl { dragOffset = floatArrayOf(0f, 0f, 0f) }
-                        vm.scene.moveSelected(dx, dy)
+                        // The drag offset stays until the moved mesh is uploaded (below); the timer covers a move
+                        // that changes nothing or fails.
+                        dragPending[0] = true
+                        vm.scene.moveSelected(dx, dy)?.invokeOnCompletion {
+                            v.postDelayed({ if (dragPending[0]) { dragPending[0] = false; v.onGl { dragOffset = floatArrayOf(0f, 0f, 0f) } } }, 500)
+                        } ?: run { dragPending[0] = false; v.onGl { dragOffset = floatArrayOf(0f, 0f, 0f) } }
+                    }
+                    override fun onTowerMoved(plate: Int, dx: Float, dy: Float) {
+                        val t = vm.state.value.scene.plates.getOrNull(plate)?.tower ?: return
+                        dragPending[0] = true
+                        // The engine keeps the position on the bed, so a drop past the edge stops at it.
+                        vm.scene.setWipeTower(plate, (t[0] + dx) to (t[1] + dy)).invokeOnCompletion {
+                            v.postDelayed({ if (dragPending[0]) { dragPending[0] = false; v.onGl { dragOffset = floatArrayOf(0f, 0f, 0f) } } }, 500)
+                        }
                     }
                     override fun onPaint(x: Float, y: Float, newStroke: Boolean) {
                         val (o, d) = v.camera.ray(x, y)
@@ -183,6 +201,9 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     val scene = state.scene
 
     LaunchedEffect(v, colors) { v.onGl { this.colors = colors } }
+    LaunchedEffect(v, state.ambientOcclusion, state.contactShadows) {
+        v.onGl { aoLevel = state.ambientOcclusion; contactShadows = state.contactShadows }
+    }
     // Plate numbers always; the plate icons only while arranging (Prepare).
     val atlas = rememberBadgeAtlas(scene.plates.size)
     val badges = if (showPreview) emptyList()
@@ -202,6 +223,8 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         if (scene.meshFile.isEmpty()) return@LaunchedEffect
         val mesh = withContext(Dispatchers.IO) { FloatData.load(scene.meshFile, 8) }
         v.onGl { setMesh(mesh) }
+        // A finished drag: the moved mesh is queued first, so the old offset goes away without a jump back.
+        if (dragPending[0]) { dragPending[0] = false; v.onGl { dragOffset = floatArrayOf(0f, 0f, 0f) } }
     }
     // Eye toggle: the OpenSCAD design shown see-through, standing in the middle of the active plate (other objects hidden).
     val ghost = state.scad?.preview?.takeIf { state.scadOnPlate && !state.scadHidden && state.screen == app.orcaandroid.ui.Screen.PREPARE }
@@ -233,7 +256,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         val move = framedPlate != plate && (framedPlate >= 0 || restored)
         framedPlate = plate
         // A plate already on screen becomes active without moving the camera (user, 2026-10-13); double tap frames it.
-        v.onGl { activePlate = plate; if (move && !plateInView(plate)) frame(plate) }
+        v.onGl { activePlate = plate }
     }
     LaunchedEffect(v, state.filaments) {
         val cols = state.filaments.map { hexToRgb(it.color ?: "#FF7F27") }
@@ -243,6 +266,10 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         val items = state.selectedItems
         val ids = FloatArray(items.size) { (items[it].obj * INSTANCE_ID_STRIDE + items[it].instance).toFloat() }
         v.onGl { selectedIds = ids }
+        v.towerBoxes = scene.plates.mapNotNull { p -> p.tower?.let { t ->
+            val lo = Vec3(p.originX + t[0], p.originY + t[1], 0f)
+            TowerBox(p.index, lo, Vec3(lo.x + t[2], lo.y + t[3], t[4]))
+        } }
         v.selectedBounds = items.mapNotNull { s -> scene.objects.getOrNull(s.obj)?.instances?.getOrNull(s.instance)?.let { it.min to (it.min + it.size) } }
     }
     LaunchedEffect(v, state.tool) {
@@ -314,7 +341,7 @@ private var savedCamera: FloatArray? = null
 fun PlateView.framePlate(plate: Int, top: Boolean = false) = onGl { frame(plate, top) }
 
 /** Brings plate [plate] into view: the camera stays when its centre is already on screen (user, 2026-10-13). */
-fun PlateView.showPlate(plate: Int) = onGl { if (!plateInView(plate)) frame(plate) }
+fun PlateView.showPlate(plate: Int) = Unit // selecting a plate no longer moves the camera (user, 2026-10-15)
 
 /** [mesh] (position + normal per vertex) as scene-mesh vertices of type 98, centred on (cx, cy) and standing on the bed. */
 private fun ghostData(mesh: app.orcaandroid.render.PreviewMesh, cx: Float, cy: Float): FloatData {

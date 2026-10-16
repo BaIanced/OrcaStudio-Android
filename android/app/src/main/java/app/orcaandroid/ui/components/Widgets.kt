@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -48,7 +49,7 @@ import java.util.Locale
  * [subgroup] and [detail] as nested sections (e.g. the brand, then the material). When any item
  * is nested, sections become collapsible.
  */
-data class PickerItem(val id: String, val label: String = id, val group: String = "", val subgroup: String = "", val detail: String = "") {
+data class PickerItem(val id: String, val label: String = id, val group: String = "", val subgroup: String = "", val detail: String = "", val color: String = "") {
     val path: List<String> get() = listOf(group, subgroup, detail).filter { it.isNotEmpty() }
 }
 
@@ -72,12 +73,16 @@ fun PickerField(
                 style = MaterialTheme.typography.labelSmall,
                 color = if (modified) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary,
             )
-            Text(
-                items.firstOrNull { it.id == selected }?.label ?: selected ?: "—",
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            val current = items.firstOrNull { it.id == selected }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (!current?.color.isNullOrEmpty()) Box(Modifier.padding(end = 8.dp)) { app.orcaandroid.ui.prepare.ColorDot(current!!.color, 16) }
+                Text(
+                    current?.label ?: selected ?: "—",
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
     if (open) PickerDialog(label, selected, items, onDismiss = { open = false }, openGroups = openGroups) { open = false; onSelect(it) }
@@ -135,6 +140,7 @@ fun PickerDialog(
                                         Row(Modifier.fillMaxWidth().clickable { onPick(item.id) }.padding(start = (depth * 12).dp),
                                             verticalAlignment = Alignment.CenterVertically) {
                                             RadioButton(selected = item.id == selected, onClick = { onPick(item.id) })
+                                            if (item.color.isNotEmpty()) androidx.compose.foundation.layout.Box(Modifier.padding(end = 8.dp)) { app.orcaandroid.ui.prepare.ColorDot(item.color, 16) }
                                             Text(item.label, style = MaterialTheme.typography.bodyMedium)
                                         }
                                     }

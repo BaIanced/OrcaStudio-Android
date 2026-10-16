@@ -86,7 +86,7 @@ fun PreviewOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
 private fun SchemeButton(state: UiState, vm: AppViewModel) {
     var open by remember { mutableStateOf(false) }
     Box {
-        Surface(shape = RoundedCornerShape(20.dp), tonalElevation = 3.dp) {
+        Surface(onClick = { open = true }, shape = RoundedCornerShape(20.dp), tonalElevation = 3.dp) {
             Row(Modifier.padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = { open = true }) { Icon(Icons.Default.Palette, stringResource(R.string.color_scheme)) }
                 Text(stringResource(SCHEMES[state.preview.scheme]), Modifier.padding(end = 12.dp), style = MaterialTheme.typography.labelLarge)

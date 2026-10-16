@@ -19,6 +19,7 @@
 #include <boost/log/trivial.hpp>
 
 #include "libslic3r/CustomGCode.hpp"
+#include "libslic3r/GCode/WipeTowerEstimate.hpp"
 #include "libslic3r/CutUtils.hpp"
 #include "libslic3r/Geometry.hpp"
 #include "libslic3r/MeshBoolean.hpp"
@@ -169,6 +170,91 @@ std::array<double, 4> OrcaEngine::bed_rect() const
 }
 
 std::array<double, 2> OrcaEngine::plate_origin(int plate) const { return origin_of(plate, m_plates.size(), bed_rect()); }
+
+// Free space kept between the prime tower (with brim) and any object, mm.
+static constexpr double TOWER_CLEARANCE = 3.;
+
+std::optional<OrcaEngine::TowerBox> OrcaEngine::tower_box(const DynamicPrintConfig &config, int plate) const
+{
+    if (!config.has("enable_prime_tower") || !config.opt_bool("enable_prime_tower") || !config.has("prime_tower_width"))
+        return std::nullopt;
+    std::set<int> used;
+    double height = 0.;
+    const std::array<double, 2> origin = plate_origin(plate);
+    std::vector<BoundingBoxf3> footprints; // plate-local, to keep the tower clear of the objects
+    for (const ModelObject *obj : m_model->objects)
+        for (size_t i = 0; i < obj->instances.size(); ++i) {
+            if (plate_of(*obj, i) != plate)
+                continue;
+            const BoundingBoxf3 ibb = obj->instance_bounding_box(i);
+            footprints.push_back(ibb);
+            height = std::max(height, ibb.max.z());
+            const DynamicPrintConfig &oc = obj->config.get();
+            const int obj_ext = oc.has("extruder") ? oc.opt_int("extruder") : 0;
+            for (const ModelVolume *vol : obj->volumes) {
+                if (!vol->is_model_part())
+                    continue;
+                const DynamicPrintConfig &vc = vol->config.get();
+                const int ext = vc.has("extruder") ? vc.opt_int("extruder") : 0;
+                used.insert(ext > 0 ? ext : obj_ext > 0 ? obj_ext : 1);
+                if (!vol->mmu_segmentation_facets.empty())
+                    used.insert(-1); // colour painting: more than one filament
+            }
+        }
+    if (used.size() < 2 || height <= 0.)
+        return std::nullopt;
+    std::vector<unsigned int> ids;
+    for (int e : used)
+        ids.push_back(e > 0 ? unsigned(e - 1) : unsigned(ids.size()));
+    const double layer_height = config.has("layer_height") ? config.opt_float("layer_height") : 0.2;
+    const WipeTowerFootprint fp = estimate_wipe_tower_footprint(config, resolve_wipe_tower_type(config), ids, layer_height, height);
+    if (fp.depth <= 0.)
+        return std::nullopt;
+    // The brim and a cone base stick out of the body box; the real footprint must lie on the bed (PartPlate.cpp
+    // estimate_wipe_tower_polygon). Without the depth a tower near the far edge failed with "partially outside".
+    const BoundingBox outline = get_extents(estimate_wipe_tower_first_layer_outline(config, resolve_wipe_tower_type(config), fp.width, fp.depth, height));
+    const double bulge = std::max({0., unscaled(outline.max.x()) - fp.width, unscaled(outline.max.y()) - fp.depth, -unscaled(outline.min.x()), -unscaled(outline.min.y())});
+    const double margin = WIPE_TOWER_MARGIN + fp.brim_width + bulge;
+    const PlateInfo &pi = m_plates[plate];
+    auto at = [plate](const char *key, const DynamicPrintConfig &c) {
+        const auto *o = c.option<ConfigOptionFloats>(key);
+        return o && !o->values.empty() ? o->values[std::min<size_t>(plate, o->values.size() - 1)] : 0.;
+    };
+    const std::array<double, 4> bed = bed_rect();
+    auto fit = [&](double v, double lo, double hi, double size) {
+        const double min = lo + margin;
+        return std::clamp(v, min, std::max(min, hi - size - margin));
+    };
+    const double x0 = fit(pi.has_wipe_tower_pos ? pi.wipe_tower_x : at("wipe_tower_x", config), bed[0], bed[2], fp.width);
+    const double y0 = fit(pi.has_wipe_tower_pos ? pi.wipe_tower_y : at("wipe_tower_y", config), bed[1], bed[3], fp.depth);
+    // The tower never overlaps an object (user 2026-10-15): the box plus brim, cone and a clearance must stay off every
+    // object's footprint. A position that clashes slides to the nearest free spot; with none, `clash` blocks slicing.
+    const double pad = fp.brim_width + bulge + TOWER_CLEARANCE;
+    auto clashes = [&](double x, double y) {
+        for (const BoundingBoxf3 &b : footprints)
+            if (x - pad < b.max.x() - origin[0] && x + fp.width + pad > b.min.x() - origin[0] &&
+                y - pad < b.max.y() - origin[1] && y + fp.depth + pad > b.min.y() - origin[1])
+                return true;
+        return false;
+    };
+    if (!clashes(x0, y0))
+        return TowerBox{x0, y0, fp.width, fp.depth, height};
+    const double lo_x = bed[0] + margin, hi_x = std::max(lo_x, bed[2] - fp.width - margin);
+    const double lo_y = bed[1] + margin, hi_y = std::max(lo_y, bed[3] - fp.depth - margin);
+    double best = 1e30, bx = x0, by = y0;
+    for (double y = lo_y; y <= hi_y + 1e-6; y += 2.)
+        for (double x = lo_x; x <= hi_x + 1e-6; x += 2.) {
+            const double d = (x - x0) * (x - x0) + (y - y0) * (y - y0);
+            if (d < best && !clashes(x, y)) {
+                best = d;
+                bx = x;
+                by = y;
+            }
+        }
+    TowerBox box{bx, by, fp.width, fp.depth, height};
+    box.clash = best >= 1e30;
+    return box;
+}
 
 int OrcaEngine::plate_of(const ModelObject &obj, size_t instance) const
 {
@@ -368,51 +454,24 @@ void OrcaEngine::write_mesh()
 
     // The prime tower as the desktop shows it before slicing: on a plate that uses more than one
     // filament, a translucent box at the tower position, prime_tower_width square and as tall as
-    // the plate's objects (the real depth is only known after slicing). Selection id -2 never
-    // matches a selection; type 99 is drawn by the translucent pass.
+    // the plate's objects (the real depth is only known after slicing). Selection id -2 - plate
+    // never matches a selection (the renderer highlights and drags one tower by it); type 99 is drawn by the translucent pass.
     DynamicPrintConfig config;
     try {
         if (m_bundle && !m_printer.empty() && m_sel_filaments.size() > 1)
             config = selection_config();
     } catch (const std::exception &) {
     }
-    if (config.has("enable_prime_tower") && config.opt_bool("enable_prime_tower") && config.has("prime_tower_width")) {
-        const double width = std::max(1., config.opt_float("prime_tower_width"));
-        const auto *cfg_x = config.option<ConfigOptionFloats>("wipe_tower_x");
-        const auto *cfg_y = config.option<ConfigOptionFloats>("wipe_tower_y");
-        for (size_t p = 0; p < m_plates.size(); ++p) {
-            std::set<int> used;
-            double height = 0.;
-            for (const ModelObject *obj : m_model->objects)
-                for (size_t i = 0; i < obj->instances.size(); ++i) {
-                    if (plate_of(*obj, i) != int(p))
-                        continue;
-                    height = std::max(height, obj->instance_bounding_box(i).max.z());
-                    const DynamicPrintConfig &oc = obj->config.get();
-                    const int obj_ext = oc.has("extruder") ? oc.opt_int("extruder") : 0;
-                    for (const ModelVolume *vol : obj->volumes) {
-                        if (!vol->is_model_part())
-                            continue;
-                        const DynamicPrintConfig &vc = vol->config.get();
-                        const int ext = vc.has("extruder") ? vc.opt_int("extruder") : 0;
-                        used.insert(ext > 0 ? ext : obj_ext > 0 ? obj_ext : 1);
-                        if (!vol->mmu_segmentation_facets.empty())
-                            used.insert(-1); // colour painting: more than one filament
-                    }
-                }
-            if (used.size() < 2 || height <= 0.)
-                continue;
-            const PlateInfo &plate = m_plates[p];
-            auto at = [p](const ConfigOptionFloats *o) { return o && !o->values.empty() ? o->values[std::min(p, o->values.size() - 1)] : 0.; };
-            // Kept on the bed, as the slicer keeps the real (usually shallower) tower.
-            const std::array<double, 4> bed = bed_rect();
-            const double x = std::clamp(plate.has_wipe_tower_pos ? plate.wipe_tower_x : at(cfg_x), bed[0], std::max(bed[0], bed[2] - width));
-            const double y = std::clamp(plate.has_wipe_tower_pos ? plate.wipe_tower_y : at(cfg_y), bed[1], std::max(bed[1], bed[3] - width));
-            const auto origin = plate_origin(int(p));
-            TriangleMesh tower = make_cube(width, width, height);
-            tower.translate(float(origin[0] + x), float(origin[1] + y), 0.f);
-            emit(tower, -2.f, 99.f);
-        }
+    m_tower_boxes.assign(m_plates.size(), std::nullopt);
+    for (size_t p = 0; p < m_plates.size(); ++p) {
+        m_tower_boxes[p] = tower_box(config, int(p));
+        if (!m_tower_boxes[p])
+            continue;
+        const TowerBox &t = *m_tower_boxes[p];
+        const auto origin = plate_origin(int(p));
+        TriangleMesh tower = make_cube(t.width, t.depth, t.height);
+        tower.translate(float(origin[0] + t.x), float(origin[1] + t.y), 0.f);
+        emit(tower, -2.f - float(p), 99.f);
     }
     f.close();
     if (std::rename(tmp.c_str(), m_mesh_path.c_str()) != 0)
@@ -484,8 +543,14 @@ json OrcaEngine::scene_json()
                                  {"color", item.color},
                                  {"extruder", item.extruder}});
         plates[p]["layer_gcodes"] = items;
-        if (m_plates[p].has_wipe_tower_pos)
-            plates[p]["wipe_tower"] = {m_plates[p].wipe_tower_x, m_plates[p].wipe_tower_y};
+        if (m_plates[p].has_wipe_tower_pos) {
+            // Show the position the tower really takes (on the bed), not a raw value dragged past the edge.
+            const bool boxed = p < m_tower_boxes.size() && m_tower_boxes[p];
+            plates[p]["wipe_tower"] = {boxed ? m_tower_boxes[p]->x : m_plates[p].wipe_tower_x,
+                                       boxed ? m_tower_boxes[p]->y : m_plates[p].wipe_tower_y};
+        }
+        if (p < m_tower_boxes.size() && m_tower_boxes[p])
+            plates[p]["tower"] = {m_tower_boxes[p]->x, m_tower_boxes[p]->y, m_tower_boxes[p]->width, m_tower_boxes[p]->depth, m_tower_boxes[p]->height};
     }
     return {{"mesh", m_mesh_path},
             {"paint_mesh", m_paint_path},

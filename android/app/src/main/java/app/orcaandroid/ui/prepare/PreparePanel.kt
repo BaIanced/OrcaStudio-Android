@@ -13,12 +13,16 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.border
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.PriorityHigh
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
@@ -44,6 +48,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.pluralStringResource
@@ -69,10 +74,34 @@ import app.orcaandroid.ui.components.Vec3Fields
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.semantics.Role
 
+/** A setup problem that will make slicing fail: filament slot [slot] holds [have] where the printer's tray [synced] holds [tray]. */
+internal data class SetupProblem(val slot: Int, val have: String, val tray: String, val synced: String)
+
+/**
+ * The one list behind the red badge on the 3D view and the red outline on the slot: a slot that came from an AMS
+ * sync but now holds another material type (not just other settings for the same filament).
+ */
+internal fun UiState.setupProblems(): List<SetupProblem> {
+    val types = setup?.filaments.orEmpty().associate { it.name to it.type }
+    return filaments.mapIndexedNotNull { i, slot ->
+        val synced = slot.source?.synced ?: return@mapIndexedNotNull null
+        if (synced != slot.preset && types[synced].orEmpty().isNotEmpty() && !types[synced].equals(types[slot.preset], true))
+            SetupProblem(i, types[slot.preset].orEmpty(), types[synced].orEmpty(), synced) else null
+    }
+}
+
+/** The badge asks the panel to show a problem: [tick] changes per tap, [slot] is the slot to scroll to. */
+internal object ProblemFocus {
+    var tick by mutableIntStateOf(0)
+    var slot by mutableIntStateOf(0)
+    fun show(slot: Int) { this.slot = slot; tick++ }
+}
+
 /** Side panel (tablet) / bottom sheet (phone) of the Prepare screen. */
 @Composable
 fun PreparePanel(state: UiState, vm: AppViewModel, wide: Boolean) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
+    androidx.compose.runtime.LaunchedEffect(ProblemFocus.tick) { if (ProblemFocus.tick > 0) tab = 0 }
     // Selecting an object in the view jumps to the object tab.
     val selKey = state.selection?.obj
     androidx.compose.runtime.LaunchedEffect(selKey) { if (selKey != null) tab = 1 }
@@ -95,13 +124,13 @@ fun PreparePanel(state: UiState, vm: AppViewModel, wide: Boolean) {
  */
 internal fun <T> presetItems(
     presets: List<T>, userGroup: String, vendorGroup: String,
-    name: (T) -> String, system: (T) -> Boolean, sections: (T) -> List<String>,
+    name: (T) -> String, system: (T) -> Boolean, color: (T) -> String = { "" }, sections: (T) -> List<String>,
 ): List<PickerItem> {
     val (sys, user) = presets.partition(system)
-    return user.sortedBy { name(it).lowercase() }.map { PickerItem(name(it), name(it), userGroup) } +
+    return user.sortedBy { name(it).lowercase() }.map { PickerItem(name(it), name(it), userGroup, color = color(it)) } +
         sys.map { it to sections(it) }
             .sortedWith(compareBy<Pair<T, List<String>>>({ it.second.getOrNull(0)?.lowercase() }, { it.second.getOrNull(1)?.lowercase() }, { name(it.first).lowercase() }))
-            .map { (p, s) -> PickerItem(name(p), name(p), vendorGroup, s.getOrElse(0) { "" }, s.getOrElse(1) { "" }) }
+            .map { (p, s) -> PickerItem(name(p), name(p), vendorGroup, s.getOrElse(0) { "" }, s.getOrElse(1) { "" }, color(p)) }
 }
 
 @Composable
@@ -134,6 +163,7 @@ private fun PresetsTab(state: UiState, vm: AppViewModel) {
     }
 
     var filamentsOpen by rememberSaveable { mutableStateOf(true) }
+    androidx.compose.runtime.LaunchedEffect(ProblemFocus.tick) { if (ProblemFocus.tick > 0) filamentsOpen = true }
     app.orcaandroid.ui.components.CollapsibleTitle(stringResource(R.string.filaments), filamentsOpen, { filamentsOpen = !filamentsOpen }) {
         if (!filamentsOpen) state.filaments.forEach { ColorDot(it.color, 16) }
     }
@@ -154,19 +184,35 @@ private fun PresetsTab(state: UiState, vm: AppViewModel) {
 @Composable
 private fun FilamentSlots(state: UiState, vm: AppViewModel, userGroup: String, vendorGroup: String) {
     val setup = state.setup
+    val problems = state.setupProblems().associateBy { it.slot }
     state.filaments.forEachIndexed { i, slot ->
         var colorDialog by remember { mutableStateOf(false) }
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        val problem = problems[i]
+        val reveal = remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
+        androidx.compose.runtime.LaunchedEffect(ProblemFocus.tick) {
+            if (ProblemFocus.tick > 0 && ProblemFocus.slot == i) { kotlinx.coroutines.delay(350); reveal.bringIntoView() }
+        }
+        Row(Modifier.bringIntoViewRequester(reveal).then(if (problem != null) Modifier.border(1.dp, Color.Red, RoundedCornerShape(8.dp)) else Modifier),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             IconButton(onClick = { colorDialog = true }, modifier = Modifier.size(36.dp)) { ColorDot(slot.color, 22) }
             val filaments = setup?.filaments.orEmpty().filter { it.system.not() || it.brandName !in state.hiddenFilamentVendors || it.name == slot.preset }
-            val items = presetItems(filaments, userGroup, vendorGroup, { it.name }, { it.system }) { listOf(it.brandName, it.type.ifEmpty { "?" }) }
+            val items = presetItems(filaments, userGroup, vendorGroup, { it.name }, { it.system }, { it.color }) { listOf(it.brandName, it.type.ifEmpty { "?" }) }
             PickerField("${i + 1}", slot.preset, items,
                 { vm.presets.setFilament(i, it) }, Modifier.weight(1f), modified = slot.overrides.isNotEmpty(), openGroups = setOf(userGroup))
+            // A type mismatch with the AMS sync (see setupProblems): slicing is going to fail, so offer the way back.
+            if (problem != null) {
+                Icon(Icons.Default.PriorityHigh, null, tint = Color.Red, modifier = Modifier.size(16.dp))
+                IconButton(onClick = { vm.presets.setFilament(i, problem.synced) }, modifier = Modifier.size(36.dp)) {
+                    Icon(Icons.Default.Refresh, stringResource(R.string.filament_reset_to_ams, problem.synced))
+                }
+            }
             IconButton(onClick = { vm.presets.setActiveFilament(i); vm.presets.openEditor(EditorTarget.Preset(PresetType.FILAMENT)) }) {
                 Icon(Icons.Default.Edit, stringResource(R.string.edit))
             }
             if (state.filaments.size > 1) IconButton(onClick = { vm.presets.removeFilament(i) }) { Icon(Icons.Default.Delete, stringResource(R.string.delete)) }
         }
+        if (problem != null) Text(stringResource(R.string.filament_type_mismatch, problem.have, problem.tray),
+            style = MaterialTheme.typography.bodySmall, color = Color.Red)
         if (colorDialog) ColorDialog(slot.color, { vm.presets.setFilamentColor(i, it) }) { colorDialog = false }
     }
     var flushDialog by remember { mutableStateOf(false) }
@@ -313,7 +359,7 @@ private fun MultiSelectionCard(state: UiState, vm: AppViewModel) {
                 // Shown when all selected objects share it; picking sets it on all of them.
                 val ext = objs.map { it.settings["extruder"] ?: "1" }.distinct().singleOrNull() ?: ""
                 PickerField(stringResource(R.string.filament), ext,
-                    state.filaments.mapIndexed { i, f -> PickerItem((i + 1).toString(), "${i + 1}: ${f.preset}") },
+                    state.filaments.mapIndexed { i, f -> PickerItem((i + 1).toString(), "${i + 1}: ${f.preset}", color = f.color.orEmpty()) },
                     { vm.scene.setSelectedObjectsSetting("extruder", it) })
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -354,7 +400,7 @@ private fun ObjectDetails(state: UiState, vm: AppViewModel, objIndex: Int) {
         if (state.filaments.size > 1) {
             val ext = o.settings["extruder"] ?: "1"
             PickerField(stringResource(R.string.filament), ext,
-                state.filaments.mapIndexed { i, f -> PickerItem((i + 1).toString(), "${i + 1}: ${f.preset}") },
+                state.filaments.mapIndexed { i, f -> PickerItem((i + 1).toString(), "${i + 1}: ${f.preset}", color = f.color.orEmpty()) },
                 { vm.scene.setObjectSetting(objIndex, -1, "extruder", it) })
         }
         FilledTonalButton(onClick = { vm.presets.openEditor(EditorTarget.Object(objIndex)) }, modifier = Modifier.fillMaxWidth()) {

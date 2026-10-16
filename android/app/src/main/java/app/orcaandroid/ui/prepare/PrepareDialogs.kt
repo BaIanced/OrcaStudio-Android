@@ -412,7 +412,7 @@ internal fun LayerGcodeDialog(state: UiState, vm: AppViewModel, plate: Int, init
                             Text(stringResource(R.string.color_change_needs_filament), style = MaterialTheme.typography.bodySmall)
                         } else {
                             PickerField(stringResource(R.string.filament), extruder.toString(),
-                                state.filaments.mapIndexed { i, f -> PickerItem((i + 1).toString(), "${i + 1}: ${f.preset}") }, { extruder = it.toInt() })
+                                state.filaments.mapIndexed { i, f -> PickerItem((i + 1).toString(), "${i + 1}: ${f.preset}", color = f.color.orEmpty()) }, { extruder = it.toInt() })
                         }
                         "custom" -> OutlinedTextField(extra, { extra = it }, label = { Text("G-code") }, minLines = 3, modifier = Modifier.fillMaxWidth())
                         else -> OutlinedTextField(extra, { extra = it }, label = { Text(stringResource(R.string.message)) }, singleLine = true, modifier = Modifier.fillMaxWidth())

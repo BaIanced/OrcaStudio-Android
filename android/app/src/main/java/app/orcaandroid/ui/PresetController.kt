@@ -101,6 +101,7 @@ class PresetController(private val store: Store, private val device: DeviceContr
     /** Activates printer [name] with [print] and [filaments] if given, else the ones last used with it. */
     suspend fun selectPrinterNow(name: String, print: String? = null, filaments: List<FilamentSlot>? = null) {
         engine.setDefaultBedType(settings.preferredBedType)
+        engine.setAllowMixedTemperatures(settings.allowMixedTemps)
         val setup = engine.selectPrinter(name)
         settings.lastPrinter = name
         // A user printer preset shares the connection and loaded filaments of the system preset it inherits.
@@ -165,6 +166,12 @@ class PresetController(private val store: Store, private val device: DeviceContr
         val src = slot?.source ?: return
         val picks = settings.trayPicks
         settings.trayPicks = if (name == src.synced) picks - src.key else picks + (src.key to (src.loaded to name))
+    }
+
+    fun setAllowMixedTemps(on: Boolean) = store.launch {
+        settings.allowMixedTemps = on
+        engine.setAllowMixedTemperatures(on)
+        store.update { it.copy(allowMixedTemps = on) }
     }
 
     fun setPreferMyFilaments(on: Boolean) {
@@ -373,7 +380,9 @@ class PresetController(private val store: Store, private val device: DeviceContr
     suspend fun setFilamentNow(slot: Int, name: String) {
         val s = store.value
         rememberTrayPick(s.filaments.getOrNull(slot), name)
-        val list = s.filaments.mapIndexed { i, f -> if (i == slot) FilamentSlot(name, f.color, source = f.source) else f }
+        // A user filament with its own colour recolours the slot, as on the desktop.
+        val own = s.setup?.filaments?.firstOrNull { it.name == name }?.color?.ifEmpty { null }
+        val list = s.filaments.mapIndexed { i, f -> if (i == slot) FilamentSlot(name, own ?: f.color, source = f.source) else f }
         settings.setLastFilaments(s.printer ?: return, list)
         store.update { it.copy(filaments = list, results = emptyMap()) }
         refreshPresetValues(listOf(PresetType.FILAMENT))

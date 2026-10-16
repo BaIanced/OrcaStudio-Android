@@ -22,7 +22,8 @@ interface PlateListener {
      * [additive]: Ctrl or Shift was held (adds to the selection); [part]: Alt was held (selects the
      * part under the pointer), as on the desktop.
      */
-    fun onTap(x: Float, y: Float, additive: Boolean, part: Boolean)
+    /** [emptyPlate]: another plate under the touch; it becomes active when the tap hits no object. */
+    fun onTap(x: Float, y: Float, additive: Boolean, part: Boolean, emptyPlate: Int? = null)
     /**
      * Shift+drag (add) or Alt+drag (remove) draws a selection rectangle from (x0, y0) to (x1, y1);
      * [done] once the button is released.
@@ -32,8 +33,12 @@ interface PlateListener {
     fun onBrushScroll(steps: Int)
     /** The selected copies were dragged by (dx, dy) mm on the bed. */
     fun onMoved(dx: Float, dy: Float)
+    /** The prime tower of [plate] was dragged by (dx, dy) mm on the bed. */
+    fun onTowerMoved(plate: Int, dx: Float, dy: Float) {}
     /** Paint stroke sample at screen (x, y); [newStroke] for the first sample of a stroke. */
     fun onPaint(x: Float, y: Float, newStroke: Boolean)
+    /** A drag began inside the selection's bounding box: [result] gets whether the mesh itself lies under (x, y). */
+    fun onDragCheck(x: Float, y: Float, result: (Boolean) -> Unit) = result(true)
     /** A right click or a long press that did not drag: the host shows a context menu at (x, y). */
     fun onContextMenu(x: Float, y: Float)
     /** A double tap on plate [index] that isn't the active one: the host makes it active (the view frames it). */
@@ -50,16 +55,24 @@ interface PlateListener {
  * by rectangle, Alt+click selects a part, Ctrl+wheel sizes the paint brush and Alt+wheel moves the
  * section view's cut.
  */
+/** A plate's prime tower: its world bounding box. */
+class TowerBox(val plate: Int, val lo: Vec3, val hi: Vec3)
+
 @SuppressLint("ViewConstructor")
 class PlateView(context: Context) : GLSurfaceView(context) {
 
     val camera = Camera()
-    val renderer = PlateRenderer(camera)
+    val renderer = PlateRenderer(camera).also {
+        it.deviceLandscape = context.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+    }
     val section = SectionView(camera)
     var listener: PlateListener? = null
     var mode = InteractionMode.NAVIGATE
     /** World bounding boxes (min, max) of the selected copies; a drag starting on them moves them. */
     var selectedBounds: List<Pair<Vec3, Vec3>> = emptyList()
+    /** The prime towers (world mm); a drag starting on one moves it. */
+    var towerBoxes: List<TowerBox> = emptyList()
+    private var towerPlate = -1
 
     private var lastX = 0f
     private var lastY = 0f
@@ -85,12 +98,23 @@ class PlateView(context: Context) : GLSurfaceView(context) {
 
     private val scaleDetector = ScaleGestureDetector(context, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
         override fun onScale(detector: ScaleGestureDetector): Boolean {
-            camera.zoom(detector.scaleFactor)
+            camera.zoomAt(detector.scaleFactor, detector.focusX, detector.focusY)
             return true
         }
     })
 
-    private val gestureDetector = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        renderer.deviceLandscape = resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        super.onSizeChanged(w, h, oldw, oldh)
+    }
+
+    /** A plain tap on empty bed of another plate makes it the active one (user, 2026-10-15); the scene decides after the pick. */
+    private fun tap(x: Float, y: Float, additive: Boolean, part: Boolean) {
+        val other = if (mode == InteractionMode.NAVIGATE && !additive && !part) renderer.plateAt(x, y)?.takeIf { it != renderer.activePlate } else null
+        listener?.onTap(x, y, additive, part, other)
+    }
+
+    private val gestureDetector =GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
         override fun onDoubleTap(e: MotionEvent): Boolean {
             if (mode != InteractionMode.NAVIGATE || rightButton || middleButton) return true
             // The first tap hit a badge (the view may have moved since): the second one does nothing.
@@ -98,8 +122,8 @@ class PlateView(context: Context) : GLSurfaceView(context) {
             // On another plate: focus that one (user, 2026-10-13); else re-frame the active plate.
             val other = renderer.plateAt(e.x, e.y)?.takeIf { it != renderer.activePlate }
             if (other != null) listener?.onPlateDoubleTap(other)
-            val target = other ?: renderer.activePlate
-            queueEvent { renderer.frame(target) }
+            // Selecting another plate leaves the camera alone (user, 2026-10-15); only the active plate is re-framed.
+            if (other == null) queueEvent { renderer.frame(renderer.activePlate) }
             return true
         }
 
@@ -166,6 +190,16 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                 else if (mode == InteractionMode.NAVIGATE && hitsSelection(event.x, event.y)) {
                     dragging = true
                     dragStart = camera.rayOnPlane(event.x, event.y)
+                    // The box is bigger than the mesh at some angles: a miss on the mesh hands the touch back to the camera.
+                    val id = ++dragCheckId
+                    listener?.onDragCheck(event.x, event.y) { hit -> if (!hit && id == dragCheckId && dragging) cancelDrag() }
+                } else if (mode == InteractionMode.NAVIGATE) {
+                    towerBoxes.firstOrNull { rayHitsBox(event.x, event.y, listOf(it.lo to it.hi)) }?.let { t ->
+                        towerPlate = t.plate
+                        dragging = true
+                        dragStart = camera.rayOnPlane(event.x, event.y)
+                        queueEvent { renderer.dragTower = t.plate }
+                    }
                 }
             }
             MotionEvent.ACTION_POINTER_DOWN -> {
@@ -183,12 +217,12 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                 if (longPressed) return true
                 if (event.pointerCount >= 2) {
                     val fx = focusX(event); val fy = focusY(event)
-                    camera.pan(fx - lastFocusX, fy - lastFocusY)
+                    camera.panGrab(lastFocusX, lastFocusY, fx, fy)
                     lastFocusX = fx; lastFocusY = fy
                 } else if (!multiTouch) {
                     when {
                         rectangle -> if (moved) listener?.onRectangle(downX, downY, event.x, event.y, rectangleRemove, false)
-                        rightButton || middleButton -> camera.pan(event.x - lastX, event.y - lastY)
+                        rightButton || middleButton -> camera.panGrab(lastX, lastY, event.x, event.y)
                         mode == InteractionMode.PAINT -> {
                             // Fill gaps of fast strokes so the painted trail stays continuous.
                             val dx = event.x - lastX
@@ -221,12 +255,22 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                 } else if (dragging) {
                     val start = dragStart
                     val end = camera.rayOnPlane(event.x, event.y)
-                    cancelDrag()
-                    if (moved && start != null && end != null) listener?.onMoved(end.x - start.x, end.y - start.y)
-                    else if (!moved) listener?.onTap(event.x, event.y, additive, part)
+                    if (moved && start != null && end != null) {
+                        // The listener clears the drag offset once the moved scene is drawn; clearing it here
+                        // made the object jump back to its old spot until the engine answered.
+                        dragging = false
+                        dragStart = null
+                        val plate = towerPlate
+                        towerPlate = -1
+                        if (plate >= 0) listener?.onTowerMoved(plate, end.x - start.x, end.y - start.y)
+                        else listener?.onMoved(end.x - start.x, end.y - start.y)
+                    } else {
+                        cancelDrag()
+                        if (!moved) tap(event.x, event.y, additive, part)
+                    }
                 } else if (!moved && !multiTouch && mode != InteractionMode.PAINT) {
                     val badge = if (mode == InteractionMode.NAVIGATE && !additive && !part) renderer.badgeAt(event.x, event.y) else null
-                    if (badge == null) listener?.onTap(event.x, event.y, additive, part)
+                    if (badge == null) tap(event.x, event.y, additive, part)
                     else if (event.eventTime - badgeTapTime > ViewConfiguration.getDoubleTapTimeout()) {
                         badgeTapTime = event.eventTime
                         listener?.onPlateBadge(badge.first, badge.second, event.x, event.y)
@@ -249,7 +293,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
         // WSA delivers a right / middle drag as hover moves with the button held, not as touch moves.
         if (event.actionMasked == MotionEvent.ACTION_HOVER_MOVE &&
             event.buttonState and (MotionEvent.BUTTON_SECONDARY or MotionEvent.BUTTON_TERTIARY) != 0) {
-            if (hoverPanning) camera.pan(event.x - lastX, event.y - lastY)
+            if (hoverPanning) camera.panGrab(lastX, lastY, event.x, event.y)
             hoverPanning = true
             moved = true
             lastX = event.x; lastY = event.y
@@ -266,23 +310,29 @@ class PlateView(context: Context) : GLSurfaceView(context) {
             if (v == 0f) return true
             if (event.metaState and KeyEvent.META_ALT_ON != 0) section.step(v > 0)
             else if (mode ==InteractionMode.PAINT && event.metaState and KeyEvent.META_CTRL_ON != 0) listener?.onBrushScroll(if (v > 0) 1 else -1)
-            else camera.zoom(if (v > 0) 1.15f else 1f / 1.15f)
+            else camera.zoomAt(if (v > 0) 1.15f else 1f / 1.15f, event.x, event.y)
             return true
         }
         return super.onGenericMotionEvent(event)
     }
 
+    private var dragCheckId = 0
+
     private fun cancelDrag() {
+        dragCheckId++
         if (dragging) queueEvent { renderer.dragOffset = floatArrayOf(0f, 0f, 0f) }
         dragging = false
         dragStart = null
+        towerPlate = -1
     }
 
     /** Ray / axis-aligned box test against the selected object's instances. */
-    private fun hitsSelection(x: Float, y: Float): Boolean {
-        if (selectedBounds.isEmpty()) return false
+    private fun hitsSelection(x: Float, y: Float) = rayHitsBox(x, y, selectedBounds)
+
+    private fun rayHitsBox(x: Float, y: Float, boxes: List<Pair<Vec3, Vec3>>): Boolean {
+        if (boxes.isEmpty()) return false
         val (o, d) = camera.ray(x, y)
-        return selectedBounds.any { (lo, hi) ->
+        return boxes.any { (lo, hi) ->
             var tMin = 0f
             var tMax = Float.MAX_VALUE
             val os = floatArrayOf(o.x, o.y, o.z); val ds = floatArrayOf(d.x, d.y, d.z)

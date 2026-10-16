@@ -102,6 +102,14 @@ data class UiState(
     /** The floating colour panel is open over the app (design mode). */
     val designMode: Boolean = false,
     val doubleBackToQuit: Boolean = false,
+    /** What an opened project does to the filament slots ("ask", "project", "mine") and the question being asked. */
+    val projectFilaments: String = "ask",
+    val filamentChoice: FilamentChoice? = null,
+    /** A project file dropped onto a plate with objects: its name while asking open-as-project vs import. */
+    val projectOrImport: String? = null,
+    /** 3D view ambient occlusion (0 off, 1 soft, 2 full) and contact shadows. */
+    val ambientOcclusion: Int = 0,
+    val contactShadows: Boolean = true,
     val lab: app.orcaandroid.core.LayoutLab = app.orcaandroid.core.LayoutLab(),
     val undoLimit: Int = app.orcaandroid.core.DEFAULT_UNDO_LIMIT,
     /** Auto-save interval in seconds; 0 or less = off (-seconds keeps the interval it had). */
@@ -138,6 +146,7 @@ data class UiState(
     val preferredBedType: String = "",
     /** AMS sync and new slots take the user's own filament preset saved from a system one (switchable). */
     val preferMyFilaments: Boolean = true,
+    val allowMixedTemps: Boolean = false,
     /** Printer presets with another nozzle than the model's [installedNozzles] entry are hidden (switchable). */
     val matchNozzle: Boolean = true,
     val installedNozzles: Map<String, Float> = emptyMap(),
@@ -259,3 +268,6 @@ data class UiState(
 
     val printerInfo: PrinterInfo? get() = printers.firstOrNull { it.name == printer }
 }
+
+/** A project came with filaments that differ from the app's: the user picks which slots to keep. */
+data class FilamentChoice(val current: List<app.orcaandroid.core.FilamentSlot>, val project: List<app.orcaandroid.core.FilamentSlot>)

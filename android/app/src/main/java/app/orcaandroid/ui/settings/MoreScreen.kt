@@ -40,6 +40,8 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -62,6 +64,16 @@ import app.orcaandroid.ui.UiState
 import app.orcaandroid.ui.components.SectionTitle
 import app.orcaandroid.ui.prepare.CalibrationDialog
 import app.orcaandroid.ui.prepare.SwitchRow
+
+/**
+ * State of the Layout lab's peek (user, 2026-10-15): while the lab section is open, Prepare stays composed under More;
+ * touching a control fades More out so the plate shows behind it. [frozen] = the lab at the touch, for More's own sizes.
+ */
+object LabPeek {
+    var open by mutableStateOf(false)
+    var touching by mutableStateOf(false)
+    var frozen by mutableStateOf<app.orcaandroid.core.LayoutLab?>(null)
+}
 
 /** App settings, preset management, calibration, recent files and about. */
 @Composable
@@ -97,6 +109,9 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
                 SwitchRow(stringResource(R.string.prefer_my_filaments), state.preferMyFilaments, onChange = vm.presets::setPreferMyFilaments)
                 Text(stringResource(R.string.prefer_my_filaments_text), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
+                SwitchRow(stringResource(SettingPath.MIXED_TEMPS.label), state.allowMixedTemps, onChange = vm.presets::setAllowMixedTemps)
+                Text(stringResource(R.string.allow_mixed_temps_text), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
                 SwitchRow(stringResource(R.string.match_nozzle), state.matchNozzle, onChange = vm.presets::setMatchNozzle)
                 Text(stringResource(R.string.match_nozzle_text) + state.installedNozzles.entries.joinToString("") { "\n${it.key}: %.1f mm".format(it.value) },
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -129,6 +144,15 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
                 }
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) SwitchRow(stringResource(R.string.dynamic_color), state.dynamicColor, onChange = vm::setDynamicColor)
                 ThemePresetList(state, vm)
+                Text(stringResource(R.string.ambient_occlusion), style = MaterialTheme.typography.titleSmall)
+                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                    listOf(R.string.off, R.string.ao_soft, R.string.ao_full).forEachIndexed { i, label ->
+                        SegmentedButton(state.ambientOcclusion == i, { vm.setAmbientOcclusion(i) }, SegmentedButtonDefaults.itemShape(i, 3)) { Text(stringResource(label)) }
+                    }
+                }
+                Text(stringResource(R.string.ambient_occlusion_text), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                SwitchRow(stringResource(R.string.contact_shadows), state.contactShadows, onChange = vm::setContactShadows)
                 Entry(stringResource(R.string.design_mode), stringResource(R.string.design_mode_text)) { vm.setDesignMode(true) }
                 val custom = state.themeSpec.customCount(true) + state.themeSpec.customCount(false)
                 if (custom > 0) Entry(stringResource(R.string.reset_colors), pluralStringResource(R.plurals.n_custom_colors, custom, custom)) { dialog = "reset_colors" }
@@ -136,6 +160,13 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
 
             Section(stringResource(R.string.misc)) {
                 SwitchRow(stringResource(R.string.double_back_quit), state.doubleBackToQuit, onChange = vm::setDoubleBackToQuit)
+                Text(stringResource(R.string.project_filaments), style = MaterialTheme.typography.titleSmall)
+                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                    listOf("ask" to R.string.pf_ask, "mine" to R.string.pf_mine, "project" to R.string.pf_project, "both" to R.string.pf_both).forEachIndexed { i, (mode, label) ->
+                        SegmentedButton(state.projectFilaments == mode, { vm.setProjectFilaments(mode) }, SegmentedButtonDefaults.itemShape(i, 4)) { Text(stringResource(label), maxLines = 1) }
+                    }
+                }
+                Text(stringResource(R.string.project_filaments_text), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 UndoLimitRow(state.undoLimit, vm::setUndoLimit)
                 AutoSaveRow(state.autoSaveSeconds, vm::setAutoSave)
             }
@@ -220,7 +251,22 @@ private fun ProfileUpdatesCard(state: UiState, vm: AppViewModel) {
 @Composable
 private fun LayoutLabSection(state: UiState, vm: AppViewModel) {
     val lab = state.lab
+    val current by androidx.compose.runtime.rememberUpdatedState(lab)
     Section(stringResource(R.string.layout_lab), summary = stringResource(R.string.layout_lab_summary)) {
+      androidx.compose.runtime.DisposableEffect(Unit) {
+        LabPeek.open = true
+        onDispose { LabPeek.open = false; LabPeek.touching = false; LabPeek.frozen = null }
+      }
+      Column(Modifier.pointerInput(Unit) {
+        awaitPointerEventScope {
+            while (true) {
+                val down = awaitPointerEvent(PointerEventPass.Initial).changes.any { it.pressed }
+                if (down && !LabPeek.touching) LabPeek.frozen = current
+                if (!down) LabPeek.frozen = null
+                LabPeek.touching = down
+            }
+        }
+      }, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(stringResource(R.string.layout_lab_text), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(stringResource(R.string.lab_plate_switcher), style = MaterialTheme.typography.bodyMedium)
         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
@@ -231,24 +277,26 @@ private fun LayoutLabSection(state: UiState, vm: AppViewModel) {
         }
         SwitchRow(stringResource(R.string.lab_plate_label), lab.plateLabel, onChange = { vm.setLab(lab.copy(plateLabel = it)) })
         SwitchRow(stringResource(R.string.lab_tools_left), lab.toolsLeft, onChange = { vm.setLab(lab.copy(toolsLeft = it)) })
+        SwitchRow(stringResource(R.string.lab_plates_on_handle), lab.platesOnHandle, onChange = { vm.setLab(lab.copy(platesOnHandle = it)) })
         SwitchRow(stringResource(R.string.lab_fullscreen_portrait), lab.fullscreenPortrait, onChange = { vm.setLab(lab.copy(fullscreenPortrait = it)) })
         Text(stringResource(R.string.lab_overlay_alpha, (lab.overlayAlpha * 100).toInt()), style = MaterialTheme.typography.bodyMedium)
         androidx.compose.material3.Slider(lab.overlayAlpha, { vm.setLab(lab.copy(overlayAlpha = it)) }, valueRange = 0.2f..1f)
         Text(stringResource(R.string.lab_scale_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         ScaleSlider(R.string.lab_text_scale, lab.textScale, app.orcaandroid.core.LayoutLab.TEXT_SCALES) { vm.setLab(state.lab.copy(textScale = it)) }
         ScaleSlider(R.string.lab_ui_scale, lab.uiScale, app.orcaandroid.core.LayoutLab.UI_SCALES) { vm.setLab(state.lab.copy(uiScale = it)) }
+        ScaleSlider(R.string.lab_plate_scale, lab.plateScale, app.orcaandroid.core.LayoutLab.PLATE_SCALES) { vm.setLab(state.lab.copy(plateScale = it)) }
         ScaleSlider(R.string.lab_overlay_scale, lab.overlayScale, app.orcaandroid.core.LayoutLab.OVERLAY_SCALES) { vm.setLab(state.lab.copy(overlayScale = it)) }
         TextButton(onClick = { vm.setLab(app.orcaandroid.core.LayoutLab()) }) { Text(stringResource(R.string.reset)) }
+      }
     }
 }
 
-/** A size slider in 5 % steps; applied on release, so the slider doesn't move under the finger as the layout resizes. */
+/** A size slider in 5 % steps, applied live (More is frozen at its touch-time size while dragging, so it doesn't move under the finger). */
 @Composable
 private fun ScaleSlider(label: Int, value: Float, range: ClosedFloatingPointRange<Float>, onSet: (Float) -> Unit) {
-    var live by remember(value) { mutableStateOf(value) }
-    Text(stringResource(label, kotlin.math.round(live * 100).toInt()), style = MaterialTheme.typography.bodyMedium)
-    androidx.compose.material3.Slider(live, { live = kotlin.math.round(it * 20) / 20f }, valueRange = range,
-        steps = kotlin.math.round((range.endInclusive - range.start) * 20).toInt() - 1, onValueChangeFinished = { onSet(live) })
+    Text(stringResource(label, kotlin.math.round(value * 100).toInt()), style = MaterialTheme.typography.bodyMedium)
+    androidx.compose.material3.Slider(value, { onSet(kotlin.math.round(it * 20) / 20f) }, valueRange = range,
+        steps = kotlin.math.round((range.endInclusive - range.start) * 20).toInt() - 1)
 }
 
 /** Asks for the backup passphrase ([confirm]: twice, for a new backup). */

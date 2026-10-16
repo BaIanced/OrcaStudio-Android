@@ -52,6 +52,21 @@ class AppSettings(context: Context) {
         get() = prefs.getBoolean("double_back_quit", false)
         set(value) = prefs.edit().putBoolean("double_back_quit", value).apply()
 
+    /** Filaments of an opened project: "ask" (default), "project" (use its filaments) or "mine" (keep the app's). */
+    var projectFilaments: String
+        get() = prefs.getString("project_filaments", "ask") ?: "ask"
+        set(value) = prefs.edit().putString("project_filaments", value).apply()
+
+    /** 3D view ambient occlusion: 0 off, 1 soft, 2 full (render/SceneEffects.kt). */
+    var ambientOcclusion: Int
+        get() = prefs.getInt("ambient_occlusion", 0)
+        set(value) = prefs.edit().putInt("ambient_occlusion", value).apply()
+
+    /** Soft shadow under the objects on the bed (Prepare). */
+    var contactShadows: Boolean
+        get() = prefs.getBoolean("contact_shadows", true)
+        set(value) = prefs.edit().putBoolean("contact_shadows", value).apply()
+
     /** The local MCP server for AI clients (see `docs/mcp-tool-layer.md`); off by default. */
     var aiTools: Boolean
         get() = prefs.getBoolean("ai_tools", false)
@@ -92,6 +107,11 @@ class AppSettings(context: Context) {
     var preferredBedType: String
         get() = prefs.getString("preferred_bed_type", null).orEmpty()
         set(value) = prefs.edit().putString("preferred_bed_type", value).apply()
+
+    /** Filaments with far apart nozzle temperatures may share a print. */
+    var allowMixedTemps: Boolean
+        get() = prefs.getBoolean("allow_mixed_temps", false)
+        set(value) = prefs.edit().putBoolean("allow_mixed_temps", value).apply()
 
     /** AMS sync keeps the filament presets the user picked for its trays ([trayPicks]). */
     var preferMyFilaments: Boolean

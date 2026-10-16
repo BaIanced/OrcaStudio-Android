@@ -87,6 +87,10 @@
     <string name="auto_save_interval">Automatisch speichern alle (Sekunden, 10-3600)</string>
     <string name="double_back_quit">Zum Beenden zweimal Zurück drücken (statt nachzufragen)</string>
     <string name="back_again_quit">Zum Beenden erneut Zurück drücken</string>
+    <string name="open_or_import_title">Projekt öffnen?</string>
+    <string name="open_or_import_text">%1$s ist ein Projekt. Öffnen (ersetzt das aktuelle Projekt mit Platten, Einstellungen und Filamenten) oder nur die Modelle importieren?</string>
+    <string name="open_as_project">Projekt öffnen</string>
+    <string name="import_models_only">Modelle importieren</string>
     <string name="quit_title">Beenden?</string>
     <string name="quit_text">Deine Platten bleiben für den nächsten Start erhalten.</string>
     <string name="yes">Ja</string>
@@ -190,6 +194,7 @@
     <string name="only_changed">Nur geänderte</string>
     <string name="open_project">Öffnen…</string>
     <string name="opening_project">Öffne Projekt…</string>
+    <string name="project_printer_kept">Dieses Projekt ist für %1$s. Dein Drucker %2$s bleibt gewählt; bei Bedarf unter Gerät wechseln.</string>
     <string name="orienting">Richte aus…</string>
     <string name="paint">Malen</string>
     <string name="paint_color">Farbe malen</string>
@@ -393,6 +398,11 @@
     <string name="alert_btn_stop_drying">Trocknen beenden</string>
     <string name="alert_btn_abort">Abbruch</string>
     <!-- Filamente vom Bambu-Drucker übernehmen -->
+    <string name="filament_type_mismatch">%1$s hier, aber das Fach des Druckers enthält %2$s: Slicen schlägt fehl</string>
+    <string name="filament_reset_to_ams">Auswahl des Druckers verwenden (%1$s)</string>
+    <string name="allow_mixed_temps">Beschränkung für gemischte Temperaturen aufheben</string>
+    <string name="allow_mixed_temps_text">Filamente mit weit auseinanderliegenden Düsentemperaturen in einem Druck slicen. Risiko: Düsenverstopfung oder Druckerschaden.</string>
+    <string name="mixed_temps_hint">Wenn du trotzdem drucken willst, aktiviere %1$s.</string>
     <string name="sync_filaments">Filamente vom Drucker übernehmen</string>
     <string name="device_job">Auftrag</string>
     <string name="device_temperatures">Temperaturen</string>
@@ -643,6 +653,11 @@
     <string name="color_preset">Farbvorlage</string>
     <string name="preset_prusa">Prusa (Standard)</string>
     <string name="design_mode">Designmodus</string>
+    <string name="ambient_occlusion">3D-Ansicht: Umgebungsverdeckung</string>
+    <string name="ambient_occlusion_text">Dunkelt Ecken und Kanten der Modelle und Bahnen für mehr Tiefe ab. Braucht mehr GPU und Akku.</string>
+    <string name="ao_soft">Weich</string>
+    <string name="ao_full">Voll</string>
+    <string name="contact_shadows">3D-Ansicht: Schatten unter Objekten</string>
     <string name="design_mode_text">Farben live ändern, Bereich für Bereich, in einem Feld über der App</string>
     <string name="design_editing_dark">Bearbeitet das dunkle Design</string>
     <string name="design_editing_light">Bearbeitet das helle Design</string>
@@ -708,4 +723,14 @@
         <item quantity="one">%d eigene Farbe</item>
         <item quantity="other">%d eigene Farben</item>
     </plurals>
+    <string name="device_camera">Kamera</string>
+    <string name="camera_hint">Live-Bild über das Heimnetz. Läuft nur, solange es eingeschaltet ist.</string>
+    <string name="camera_start">Start</string>
+    <string name="camera_stop">Stopp</string>
+    <string name="camera_snapshot">Schnappschuss speichern</string>
+    <string name="camera_saved">Schnappschuss in Downloads gespeichert</string>
+    <string name="camera_save_failed">Schnappschuss konnte nicht gespeichert werden</string>
+    <string name="camera_unreachable">Die Kamera des Druckers ist nicht erreichbar. Ist dieses Gerät im selben Netzwerk und der Drucker an?</string>
+    <string name="camera_rejected">Der Drucker hat die Verbindung abgelehnt. Prüfe den Zugangscode.</string>
+    <string name="camera_broken">Die Kameraverbindung wurde getrennt. Mit Start erneut versuchen.</string>
 </resources>

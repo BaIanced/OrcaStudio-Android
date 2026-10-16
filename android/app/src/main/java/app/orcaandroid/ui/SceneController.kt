@@ -110,9 +110,9 @@ class SceneController(private val store: Store, private val presets: PresetContr
 
     // --- Objects -----------------------------------------------------------------------------------------
 
-    fun moveSelected(dx: Float, dy: Float) {
-        val items = selectedItems.ifEmpty { return }
-        store.sceneOp { engine.moveItems(items, dx, dy) }
+    fun moveSelected(dx: Float, dy: Float): Job? {
+        val items = selectedItems.ifEmpty { return null }
+        return store.sceneOp { engine.moveItems(items, dx, dy) }
     }
 
     /** A typed 0 or negative scale would flatten or flip the part, a huge one hang the viewer: keep 0.1 % to 100x. */
@@ -292,8 +292,12 @@ class SceneController(private val store: Store, private val presets: PresetContr
      * select mode adds the tapped copy to the selection or removes it. [section] = the section view's
      * plane: what it cuts away can't be picked.
      */
-    fun onViewTap(origin: Vec3, dir: Vec3, additive: Boolean = false, part: Boolean = false, section: FloatArray? = null) = store.launch {
+    fun onViewTap(origin: Vec3, dir: Vec3, additive: Boolean = false, part: Boolean = false, section: FloatArray? = null, emptyPlate: Int? = null) = store.launch {
         val hit = pick(origin, dir, section)
+        if (hit == null && emptyPlate != null && store.value.tool == Tool.None) {
+            selectPlate(emptyPlate)
+            return@launch
+        }
         when (store.value.tool) {
             Tool.LayOnFace -> if (hit != null) {
                 store.applyScene(engine.layOnFace(hit.obj, hit.instance, hit.normal))
@@ -308,6 +312,14 @@ class SceneController(private val store: Store, private val presets: PresetContr
                     else -> st.withSelected(listOfNotNull(hit?.let { Selection(it.obj, it.instance) }))
                 }
             }
+        }
+    }
+
+    /** Whether the ray first hits a copy in the selection: the bounding-box test of a drag start is only a pre-check. */
+    fun checkDragStart(origin: Vec3, dir: Vec3, section: FloatArray?, result: (Boolean) -> Unit) {
+        store.launch {
+            val hit = pick(origin, dir, section)
+            result(hit != null && store.value.selectedItems.any { it.obj == hit.obj && it.instance == hit.instance })
         }
     }
 

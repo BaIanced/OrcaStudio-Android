@@ -18,17 +18,30 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.KeyboardDoubleArrowDown
 import androidx.compose.material.icons.filled.Refresh
+import app.orcaandroid.ui.components.SplitAroundCutout
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
+import androidx.compose.material3.Switch
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -39,6 +52,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DesktopWindows
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.Checkbox
@@ -50,6 +64,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TextButton
@@ -99,13 +115,6 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel, d
         private set
     private var started = false
     private val prefs = context.getSharedPreferences("orca", Context.MODE_PRIVATE)
-    /**
-     * MakerWorld's full site: with the slicer marker in the user agent MakerWorld leaves out its
-     * own header and sidebar (account, Collections, History), as the desktop slicer shows those.
-     * Without it the "Open in Bambu Studio" import is not offered to the app, so this is a switch.
-     */
-    var fullSite by mutableStateOf(prefs.getBoolean(PREF_FULL_SITE, false))
-        private set
     var adBlockOn by mutableStateOf(AdBlock.isEnabled(context))
         private set
     /** Listing pages with page numbers (Thingiverse, Printables) load the next page as you scroll. */
@@ -119,29 +128,20 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel, d
     /** Bumped when the blocked elements change, so their list re-reads them. */
     var rulesVersion by mutableIntStateOf(0)
         private set
-    private var slicerVersion = "02.08.01.99"
     // The WebView's own (Android) user agent; read before any site changes it.
     private val mobileUserAgent by lazy { web.settings.userAgentString }
 
     /**
      * MakerWorld serves its phone site (with the Bambu Handy hand-over) to an Android user agent.
-     * The slicer integration is on the desktop site, so MakerWorld gets a desktop Chrome user
-     * agent with Bambu Studio's BBL-Slicer suffix, like the desktop's embedded WebView.
+     * Its full desktop site (header, sidebar, "Open in Bambu Studio" as a bambustudio:// link the app
+     * handles) is served to a desktop Chrome user agent; there is no slicer mode (user, 2026-10-14).
      */
     private fun makerWorldUserAgent(): String {
         val chrome = Regex("Chrome/[0-9.]+").find(mobileUserAgent)?.value ?: "Chrome/118.0.0.0"
         val desktop = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) $chrome Safari/537.36"
-        return if (fullSite) desktop else "$desktop BBL-Slicer/v$slicerVersion BBL-Language/en"
+        return desktop
     }
 
-    /** Switches MakerWorld between its full site and slicer mode, keeping the current page. */
-    fun toggleFullSite() {
-        fullSite = !fullSite
-        prefs.edit().putBoolean(PREF_FULL_SITE, fullSite).apply()
-        if (site != ModelSite.MAKERWORLD) return
-        web.settings.userAgentString = makerWorldUserAgent()
-        web.reload()
-    }
 
     @SuppressLint("SetJavaScriptEnabled", "JavascriptInterface")
     val web: WebView = app.orcaandroid.ui.components.themedWebView(context.also {
@@ -164,6 +164,32 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel, d
             val wheel = e.getAxisValue(android.view.MotionEvent.AXIS_VSCROLL)
             if (wheel != 0f) (v as WebView).zoomBy(if (wheel > 0) 1.1f else 1 / 1.1f)
             true
+        }
+        // Swipe in from the left edge = back, from the right edge = forward (user, 2026-10-14). The system's own
+        // back gesture takes the outermost few dp on gesture navigation, so the zone is wider than that. The
+        // listener only watches (returns false): the page still sees the touches.
+        val dp = context.resources.displayMetrics.density
+        var edge = 0 // -1 = started at the left edge, 1 = right edge, 0 = neither / cancelled
+        var downX = 0f
+        var downY = 0f
+        setOnTouchListener { v, e ->
+            when (e.actionMasked) {
+                android.view.MotionEvent.ACTION_DOWN -> {
+                    downX = e.x; downY = e.y
+                    edge = when { e.x <= 40 * dp -> -1; e.x >= v.width - 40 * dp -> 1; else -> 0 }
+                }
+                android.view.MotionEvent.ACTION_POINTER_DOWN, android.view.MotionEvent.ACTION_CANCEL -> edge = 0
+                android.view.MotionEvent.ACTION_UP -> {
+                    val dx = e.x - downX
+                    val dy = e.y - downY
+                    if (edge != 0 && Math.abs(dx) >= 80 * dp && Math.abs(dx) > 2 * Math.abs(dy)) {
+                        if (edge < 0 && dx > 0) { v.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK); back() }
+                        else if (edge > 0 && dx < 0) { v.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK); forward() }
+                    }
+                    edge = 0
+                }
+            }
+            false
         }
         android.webkit.CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
         addJavascriptInterface(Bridge(), "orcaNative")
@@ -191,7 +217,6 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel, d
                 view.evaluateJavascript(BRIDGE_JS, null)
                 view.evaluateJavascript(ZOOM_JS, null)
                 if (adBlockOn) view.evaluateJavascript(AdBlock.PICKER_JS, null)
-                if (site ==ModelSite.MAKERWORLD && !fullSite) view.evaluateJavascript(MW_TRIM_JS, null)
                 if (infiniteScroll) view.evaluateJavascript(MORE_JS, null)
                 updateNav()
             }
@@ -249,11 +274,7 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel, d
             return
         }
         scope.launch {
-            val (version, ticket) = withContext(Dispatchers.IO) {
-                BambuAccount.clientVersion(context) to runCatching { BambuAccount.webTicket(context) }.getOrNull()
-            }
-            // MakerWorld offers its "open in slicer" hand-over only to Bambu's slicers.
-            slicerVersion = version
+            val ticket = withContext(Dispatchers.IO) { runCatching { BambuAccount.webTicket(context) }.getOrNull() }
             web.settings.userAgentString = makerWorldUserAgent()
             val host = "https://makerworld.com/"
             web.loadUrl(if (ticket != null) "${host}api/sign-in/ticket?to=${Uri.encode(target.home)}&ticket=$ticket" else target.home)
@@ -424,23 +445,20 @@ fun ModelsScreen(browser: ModelBrowser) {
     // Android's back button goes back in the page history first.
     androidx.activity.compose.BackHandler(enabled = browser.canGoBack) { browser.back() }
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = browser::back, enabled = browser.canGoBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back)) }
-            IconButton(onClick = browser::forward, enabled = browser.canGoForward) { Icon(Icons.AutoMirrored.Filled.ArrowForward, stringResource(R.string.forward)) }
-            IconButton(onClick = browser::reload) { Icon(Icons.Default.Refresh, stringResource(R.string.reload)) }
-            IconButton(onClick = { browser.open(browser.site) }) { Icon(Icons.Default.Home, stringResource(R.string.home)) }
-            Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
-                ModelSite.entries.forEach { s ->
-                    FilterChip(selected = browser.site == s, onClick = { browser.open(s) }, label = { Text(s.label) }, modifier = Modifier.padding(horizontal = 3.dp))
-                }
-                if (browser.site == ModelSite.MAKERWORLD) {
-                    FilterChip(selected = browser.fullSite, onClick = browser::toggleFullSite, label = { Text(stringResource(R.string.models_full_site)) },
-                        modifier = Modifier.padding(start = 12.dp, end = 3.dp))
-                }
+        // Fullscreen portrait: the buttons and the site chips share the strip beside the camera hole.
+        SplitAroundCutout(Modifier.padding(horizontal = 4.dp), left = {
+            val small = Modifier.size(40.dp)
+            IconButton(onClick = browser::back, small, enabled = browser.canGoBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back)) }
+            IconButton(onClick = browser::forward, small, enabled = browser.canGoForward) { Icon(Icons.AutoMirrored.Filled.ArrowForward, stringResource(R.string.forward)) }
+            IconButton(onClick = browser::reload, small) { Icon(Icons.Default.Refresh, stringResource(R.string.reload)) }
+            IconButton(onClick = { browser.open(browser.site) }, small) { Icon(Icons.Default.Home, stringResource(R.string.home)) }
+        }, right = {
+            // Beside the camera hole: just the menu.
+            Row(Modifier.weight(1f), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+                AdBlockMenu(browser)
             }
-            AdBlockMenu(browser)
-        }
-        if (browser.site == ModelSite.MAKERWORLD && !browser.fullSite) MakerWorldLinks(browser)
+        })
+        SiteTabs(browser)
         if (browser.picking || browser.picked != null) PickerBar(browser)
         if (browser.progress < 100) LinearProgressIndicator(progress = { browser.progress / 100f }, modifier = Modifier.fillMaxWidth())
         Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -448,6 +466,23 @@ fun ModelsScreen(browser: ModelBrowser) {
                 factory = { browser.web.also { (it.parent as? ViewGroup)?.removeView(it) } },
                 modifier = Modifier.fillMaxSize(),
             )
+        }
+    }
+}
+
+/** The sites as browser-style tabs: the label with a line under the active one (like the plate tabs). */
+@Composable
+private fun SiteTabs(browser: ModelBrowser) {
+    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 4.dp)) {
+        ModelSite.entries.forEach { site ->
+            val active = browser.site == site
+            // IntrinsicSize.Max: in the scrolling row the width is unbounded, and the line's fillMaxWidth came out 0 wide.
+            Box(Modifier.clickable { browser.open(site) }.padding(horizontal = 14.dp).height(44.dp).width(IntrinsicSize.Max)) {
+                Text(site.label, style = MaterialTheme.typography.labelLarge, fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+                    color = if (active) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1,
+                    modifier = Modifier.align(Alignment.Center).padding(bottom = 4.dp))
+                Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(2.dp).background(if (active) MaterialTheme.colorScheme.onSurface else Color.Transparent, RoundedCornerShape(1.dp)))
+            }
         }
     }
 }
@@ -516,51 +551,9 @@ private fun PickerBar(browser: ModelBrowser) {
     }
 }
 
-/** MakerWorld's header links, which its slicer mode leaves out (the desktop slicer has its own). */
-@Composable
-private fun MakerWorldLinks(browser: ModelBrowser) {
-    var searching by remember { mutableStateOf(false) }
-    var query by remember { mutableStateOf("") }
-    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = { searching = true }) { Icon(Icons.Default.Search, stringResource(R.string.search)) }
-        TextButton(onClick = { browser.openMakerWorld("following") }) { Text(stringResource(R.string.mw_following)) }
-        TextButton(onClick = { browser.openMakerWorld("makerlab") }) { Text("MakerLab") }
-        TextButton(onClick = { browser.openMakerWorld("contests") }) { Text(stringResource(R.string.mw_contests)) }
-        TextButton(onClick = { browser.openMakerWorldUser("browsing-history") }) { Text(stringResource(R.string.mw_history)) }
-        TextButton(onClick = { browser.openMakerWorldUser("collections") }) { Text(stringResource(R.string.mw_collections)) }
-        TextButton(onClick = { browser.openMakerWorldUser("") }) { Text(stringResource(R.string.mw_profile)) }
-    }
-    if (searching) AlertDialog(
-        onDismissRequest = { searching = false },
-        title = { Text(stringResource(R.string.search)) },
-        text = {
-            OutlinedTextField(query, { query = it }, singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = { if (query.isNotBlank()) { browser.searchMakerWorld(query); searching = false } }))
-        },
-        confirmButton = { TextButton(onClick = { browser.searchMakerWorld(query); searching = false }, enabled = query.isNotBlank()) { Text(stringResource(R.string.search)) } },
-        dismissButton = { TextButton(onClick = { searching = false }) { Text(stringResource(R.string.cancel)) } },
-    )
-}
-
 private const val TAG = "Models"
 private const val WEB_DEBUG_TAG = "OrcaWeb"
-private const val PREF_FULL_SITE = "makerworld_full_site"
 private const val PREF_INFINITE_SCROLL = "models_infinite_scroll"
-
-/**
- * Slicer mode leaves a blank strip where MakerWorld's header would be: the category bar stays
- * fixed 60px down. Moves it to the top; re-applied when the page re-renders (client-side navigation).
- */
-private const val MW_TRIM_JS = """(function(){
-  if (window.__orcaTrim) return; window.__orcaTrim = 1;
-  function trim(){ document.querySelectorAll('.global_new').forEach(function(g){
-    var s = getComputedStyle(g); if (s.position === 'fixed' && s.top === '60px') g.style.setProperty('top', '0px', 'important'); }); }
-  var pending = false;
-  new MutationObserver(function(){ if (pending) return; pending = true; requestAnimationFrame(function(){ pending = false; trim(); }); })
-    .observe(document.documentElement, { childList: true, subtree: true });
-  trim();
-})();"""
 
 /**
  * MakerWorld's viewport meta has `maximum-scale=1.0, user-scalable=no`, which blocks pinch and

@@ -5,6 +5,8 @@ import android.net.Uri
 import app.orcaandroid.R
 import app.orcaandroid.core.FilamentSlot
 import app.orcaandroid.core.PresetType
+import app.orcaandroid.ui.FilamentChoice
+import app.orcaandroid.core.Scene
 import app.orcaandroid.core.RecentFile
 import app.orcaandroid.net.FilamentProfiles
 import app.orcaandroid.net.ModelDownloads
@@ -64,14 +66,38 @@ class FileController(
             return@launch
         }
         val project = files.singleOrNull()?.takeIf { it.name.endsWith(".3mf", true) && isProject(it) }
-        if (project != null && (!append || store.value.scene.isEmpty)) {
+        // A project onto a plate with objects: open it as a project (its plates, settings, filaments) or import its models.
+        if (project != null && (!append || store.value.scene.isEmpty || askOpenAsProject(project.name))) {
             openProjectFile(project, uris.first())
             return@launch
         }
-        val s = engine.loadModels(files.map { it.path }, append = append || !store.value.scene.isEmpty, plate = store.value.activePlate)
-        store.applyScene(s)
+        val s = if (store.value.scene.isEmpty) engine.loadModels(files.map { it.path }, append = append, plate = store.value.activePlate).also { store.applyScene(it) }
+        else {
+            // Objects already in the project stay where they are: each new file gets a plate of its own (user, 2026-10-14).
+            var last = store.value.scene
+            for (f in files) {
+                useEmptyPlate()
+                last = engine.loadModels(listOf(f.path), append = true, plate = store.value.activePlate)
+                store.applyScene(last)
+            }
+            last
+        }
         uris.forEachIndexed { i, u -> if (unpacked[i].any { it in files }) rememberRecent(u, imported[i].name, false) }
         store.update { it.copy(selection = Selection(s.objects.lastIndex), multiSelection = emptyList(), screen = Screen.PREPARE) }
+    }
+
+    private fun Scene.plateEmpty(plate: Int) = objects.none { o -> o.instances.any { it.plate == plate } }
+
+    /** The plate a new file goes on: the active plate if it is empty, else the first empty one, else a new one. */
+    private suspend fun useEmptyPlate() {
+        val s = store.value.scene
+        if (s.plates.isEmpty() || s.plateEmpty(store.value.activePlate)) return
+        val free = s.plates.indices.firstOrNull { s.plateEmpty(it) }
+        if (free != null) { store.update { it.copy(activePlate = free) }; return }
+        // At the plate limit the file stays on the active plate.
+        val added = runCatching { engine.addPlate() }.getOrNull() ?: return
+        store.applyScene(added)
+        store.update { it.copy(activePlate = added.plates.lastIndex) }
     }
 
     private fun addVariants(files: List<File>) = store.launch(store.str(R.string.loading_model)) {
@@ -107,10 +133,26 @@ class FileController(
         val (loaded, info) = engine.loadProject(file.path)
         val s = store.value
         // Use the project's presets where they exist here, with its setting changes on top.
-        val printer = s.printers.firstOrNull { it.name == info.printer }?.name ?: s.printer
-        val filaments = PresetController.withColors(info.filaments.mapIndexed { i, name ->
+        // A file the user opens or downloads never switches the printer (a MakerWorld project for another printer
+        // or nozzle would slice for the wrong machine; user 2026-10-15). Only the session restore brings its printer back.
+        val projectPrinter = s.printers.firstOrNull { it.name == info.printer }?.name
+        val printer = if (uri == null) projectPrinter ?: s.printer else s.printer ?: projectPrinter
+        if (uri != null && info.printer.isNotBlank() && s.printer != null && info.printer != s.printer)
+            store.toast(store.str(R.string.project_printer_kept, info.printer, s.printer))
+        var filaments = PresetController.withColors(info.filaments.mapIndexed { i, name ->
             FilamentSlot(name, info.filamentColors.getOrNull(i)?.ifBlank { null }, info.filamentOverrides.getOrNull(i).orEmpty())
         })
+        // A project the user opens may bring its own filaments, which would undo their syncs and edits: they choose.
+        val mine = s.filaments
+        if (uri != null && filaments.isNotEmpty() && mine.isNotEmpty() && filaments.map { it.preset to it.color } != mine.map { it.preset to it.color }) {
+            val mode = s.projectFilaments.takeIf { it != "ask" } ?: askFilaments(mine, filaments)
+            filaments = when (mode) {
+                "mine" -> List(filaments.size) { mine.getOrNull(it) ?: mine.last() }
+                // Both: the project's slots stay where its objects use them; mine that it lacks come after.
+                "both" -> filaments + mine.filter { m -> filaments.none { it.preset == m.preset && it.color.equals(m.color, true) } }
+                else -> filaments
+            }
+        }
         if (printer != null) presets.selectPrinterNow(printer, info.print, filaments.ifEmpty { null })
         store.update { st ->
             val slots = if (filaments.isEmpty()) st.filaments
@@ -125,6 +167,43 @@ class FileController(
         store.applyScene(loaded, dirty = false)
         uri?.let { rememberRecent(it, file.name, true) }
         store.update { it.copy(projectName = file.name.removeSuffix(".3mf"), projectDirty = false, selection = null, multiSelection = emptyList(), screen = Screen.PREPARE) }
+    }
+
+    private var filamentAnswer: kotlinx.coroutines.CompletableDeferred<String>? = null
+
+    /** Asks whether to keep the app's filaments ("mine"), take the project's ("project") or both; waits for the answer. */
+    private suspend fun askFilaments(mine: List<FilamentSlot>, project: List<FilamentSlot>): String {
+        val answer = kotlinx.coroutines.CompletableDeferred<String>()
+        filamentAnswer = answer
+        store.update { it.copy(filamentChoice = FilamentChoice(mine, project)) }
+        return answer.await()
+    }
+
+    private var openAnswer: kotlinx.coroutines.CompletableDeferred<Boolean>? = null
+
+    /** Asks whether a project file replaces the current project (true) or only adds its models; waits for the answer. */
+    private suspend fun askOpenAsProject(name: String): Boolean {
+        val answer = kotlinx.coroutines.CompletableDeferred<Boolean>()
+        openAnswer = answer
+        store.update { it.copy(projectOrImport = name) }
+        return answer.await()
+    }
+
+    fun answerOpenAsProject(asProject: Boolean) {
+        store.update { it.copy(projectOrImport = null) }
+        openAnswer?.complete(asProject)
+        openAnswer = null
+    }
+
+    /** The dialog's answer; [remember] makes it the standing choice. */
+    fun answerFilaments(mode: String, remember: Boolean) {
+        if (remember) {
+            store.settings.projectFilaments = mode
+            store.update { it.copy(projectFilaments = mode) }
+        }
+        store.update { it.copy(filamentChoice = null) }
+        filamentAnswer?.complete(mode)
+        filamentAnswer = null
     }
 
     // --- Session: the app comes back as it was left, even after Android ended the process ---------------

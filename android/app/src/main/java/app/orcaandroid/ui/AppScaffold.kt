@@ -1,5 +1,6 @@
 package app.orcaandroid.ui
 
+import app.orcaandroid.ui.settings.engineErrorText
 import app.orcaandroid.ui.theme.LocalAppColors
 import app.orcaandroid.ui.theme.NAV_BAR
 import app.orcaandroid.ui.theme.NAV_ICONS
@@ -10,6 +11,7 @@ import app.orcaandroid.ui.theme.ThemeDesignPanel
 import app.orcaandroid.ui.theme.Themed
 import app.orcaandroid.ui.theme.contrast
 import app.orcaandroid.ui.theme.onColor
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -86,13 +88,17 @@ import app.orcaandroid.R
 import app.orcaandroid.render.PlateView
 import app.orcaandroid.ui.components.Viewport
 import app.orcaandroid.ui.device.DeviceScreen
+import app.orcaandroid.ui.prepare.PlateSwitcherBar
 import app.orcaandroid.ui.prepare.PrepareOverlay
+import app.orcaandroid.ui.prepare.ProblemFocus
 import app.orcaandroid.ui.prepare.PreparePanel
 import app.orcaandroid.ui.preview.PreviewOverlay
 import app.orcaandroid.ui.preview.PreviewPanel
 import app.orcaandroid.ui.models.ModelBrowser
 import app.orcaandroid.ui.models.ModelsScreen
+import app.orcaandroid.ui.settings.LabPeek
 import app.orcaandroid.ui.settings.MoreScreen
+import androidx.compose.ui.graphics.graphicsLayer
 import app.orcaandroid.ui.settings.PrinterSetupScreen
 import app.orcaandroid.ui.settings.SettingsEditor
 
@@ -147,6 +153,7 @@ private fun MainLayout(state: UiState, vm: AppViewModel) {
     var lastBack by remember { mutableStateOf(0L) }
     androidx.activity.compose.BackHandler {
         when {
+            state.scad != null && state.screen == Screen.PREPARE -> if (state.scadOnPlate) vm.setScadOnPlate(false) else vm.scad.close()
             state.screen != Screen.PREPARE -> vm.setScreen(Screen.PREPARE)
             clearable -> { vm.scene.setTool(Tool.None); vm.scene.select(null); vm.scene.setSelectMode(false) }
             !state.doubleBackToQuit -> askQuit = true
@@ -175,8 +182,23 @@ private fun MainLayout(state: UiState, vm: AppViewModel) {
                 when (state.screen) {
                     Screen.PREPARE, Screen.PREVIEW -> Workspace(state, vm, wide)
                     Screen.DEVICE -> Themed(Region.DEVICE, Modifier.fillMaxSize(), fill = true) { Box(belowHole) { DeviceScreen(state, vm) } }
-                    Screen.MODELS -> Themed(Region.MODELS, Modifier.fillMaxSize(), fill = true) { Box(belowHole) { ModelsScreen(browser.value) } }
-                    Screen.MORE -> Themed(Region.MORE, Modifier.fillMaxSize(), fill = true) { Box(belowHole) { MoreScreen(state, vm) } }
+                    // The Models toolbar uses the camera strip itself (SplitAroundCutout), so no belowHole here.
+                    Screen.MODELS -> Themed(Region.MODELS, Modifier.fillMaxSize(), fill = true) { ModelsScreen(browser.value) }
+                    Screen.MORE -> {
+                        // Layout lab open: Prepare stays composed under More, which fades out while a control is touched.
+                        if (LabPeek.open) Workspace(state.copy(screen = Screen.PREPARE), vm, wide)
+                        val fade by androidx.compose.animation.core.animateFloatAsState(if (LabPeek.touching) 0f else 1f, label = "labFade")
+                        // While touched, More keeps the sizes it had at the touch, so a slider doesn't move under the finger.
+                        val frozen = LabPeek.frozen
+                        val here = androidx.compose.ui.platform.LocalDensity.current
+                        val keep = if (frozen == null) here else androidx.compose.ui.unit.Density(
+                            here.density / state.lab.uiScale * frozen.uiScale, here.fontScale / state.lab.textScale * frozen.textScale)
+                        androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides keep) {
+                            Box(Modifier.fillMaxSize().graphicsLayer { alpha = fade }) {
+                                Themed(Region.MORE, Modifier.fillMaxSize(), fill = true) { Box(belowHole) { MoreScreen(state, vm) } }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -259,6 +281,12 @@ private fun CutoutAwareColumn(content: @Composable () -> Unit) {
 @Composable
 private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
     var plateView by remember { mutableStateOf<PlateView?>(null) }
+    // The red problems badge on the 3D view asks for the panel: slide it up (portrait) or bring it back (wide).
+    LaunchedEffect(ProblemFocus.tick) {
+        if (ProblemFocus.tick == 0) return@LaunchedEffect
+        if (PanelSize.height < 360f) PanelSize.height = 360f
+        if (state.lab.panelTucked) vm.setLab(state.lab.copy(panelTucked = false))
+    }
     val viewport: @Composable (Modifier) -> Unit = { m ->
         Box(m) {
             Viewport(state, vm, onView = { plateView = it }, modifier = Modifier.fillMaxSize())
@@ -341,25 +369,40 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
             }
         }
     } else {
-        val sheet = rememberBottomSheetScaffoldState()
+        // A panel the grip resizes to any height (user 2026-10-15: the sheet snapped to 75 % to reach nested options).
         val sheetColors = LocalAppColors.current.scheme(panelRegion)
-        BottomSheetScaffold(
-            scaffoldState = sheet,
-            sheetPeekHeight = 132.dp,
-            sheetContainerColor = sheetColors.surfaceContainerLow,
-            sheetContentColor = sheetColors.onSurface,
-            sheetContent = { Themed(panelRegion) { Box(Modifier.fillMaxWidth().fillMaxHeight(0.75f)) { panel() } } },
-        ) { padding ->
-            viewport(Modifier.fillMaxSize().padding(bottom = padding.calculateBottomPadding()))
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            val total = maxHeight
+            val height = (if (PanelSize.height > 0f) PanelSize.height.dp else 132.dp).coerceIn(56.dp, (total * 0.85f).coerceAtLeast(56.dp))
+            Column(Modifier.fillMaxSize()) {
+                viewport(Modifier.weight(1f).fillMaxWidth())
+                val onHandle = state.lab.platesOnHandle && state.screen == Screen.PREPARE
+                Themed(panelRegion) {
+                    DragHandle(vertical = false, header = if (onHandle) ({ PlateSwitcherBar(state, vm, plateView, Modifier.fillMaxWidth().padding(horizontal = 8.dp)) }) else null) { d -> PanelSize.height = (height - d).value }
+                }
+                Surface(Modifier.height(height).fillMaxWidth(), color = sheetColors.surfaceContainerLow, contentColor = sheetColors.onSurface) {
+                    Themed(panelRegion) { Box(Modifier.fillMaxSize()) { panel() } }
+                }
+            }
         }
     }
 }
 
 /** A grip between two panes; dragging it reports the move ([vertical] grip: sideways, else up/down). */
 @Composable
-private fun DragHandle(vertical: Boolean, onDrag: (androidx.compose.ui.unit.Dp) -> Unit) {
+private fun DragHandle(vertical: Boolean, header: (@Composable () -> Unit)? = null, onDrag: (androidx.compose.ui.unit.Dp) -> Unit) {
     val density = androidx.compose.ui.platform.LocalDensity.current
     val drag = androidx.compose.foundation.gestures.rememberDraggableState { px -> onDrag(with(density) { px.toDp() }) }
+    // Something nested on the grip (the plate switcher): it rides on top of the grip row, which alone drags.
+    if (header != null && !vertical) {
+        Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainer)) {
+            header()
+            Box(Modifier.height(20.dp).fillMaxWidth().draggable(drag, Orientation.Vertical), contentAlignment = Alignment.Center) {
+                Box(Modifier.size(40.dp, 4.dp).background(MaterialTheme.colorScheme.outline, RoundedCornerShape(2.dp)))
+            }
+        }
+        return
+    }
     Box(
         (if (vertical) Modifier.width(16.dp).fillMaxHeight() else Modifier.height(20.dp).fillMaxWidth())
             .background(MaterialTheme.colorScheme.surfaceContainer)
@@ -377,6 +420,11 @@ private val PANEL_MIN = 300.dp
 private val PANEL_SNAP = 200.dp
 
 /** The OpenSCAD editor's dragged size in dp (0 = default); kept for the session, so leaving Prepare doesn't reset it. */
+/** Height of the portrait panel (dp, 0 = default), kept while the app runs. */
+private object PanelSize {
+    var height by mutableStateOf(0f)
+}
+
 private object ScadEditorSize {
     var width by mutableStateOf(0f)
     var height by mutableStateOf(0f)
@@ -402,7 +450,18 @@ private fun PanelEdge(tucked: Boolean, onClick: () -> Unit, onDrag: (androidx.co
 
 @Composable
 private fun GlobalDialogs(state: UiState, vm: AppViewModel) {
-    if (state.busy != null && state.phase != Phase.LOADING) {
+    // The filament question comes up while a project opens: it replaces the busy dialog, which would cover it.
+    state.filamentChoice?.let { FilamentChoiceDialog(it) { mode, remember -> vm.files.answerFilaments(mode, remember) } }
+    state.projectOrImport?.let { name ->
+        AlertDialog(
+            onDismissRequest = { vm.files.answerOpenAsProject(false) },
+            title = { Text(stringResource(R.string.open_or_import_title)) },
+            text = { Text(stringResource(R.string.open_or_import_text, name)) },
+            confirmButton = { androidx.compose.material3.TextButton({ vm.files.answerOpenAsProject(true) }) { Text(stringResource(R.string.open_as_project)) } },
+            dismissButton = { androidx.compose.material3.TextButton({ vm.files.answerOpenAsProject(false) }) { Text(stringResource(R.string.import_models_only)) } },
+        )
+    }
+    if (state.busy != null && state.phase != Phase.LOADING && state.filamentChoice == null && state.projectOrImport == null) {
         AlertDialog(
             onDismissRequest = {},
             confirmButton = {},
@@ -419,7 +478,7 @@ private fun GlobalDialogs(state: UiState, vm: AppViewModel) {
             onDismissRequest = vm::dismissError,
             title = { Text(stringResource(R.string.error)) },
             // Engine errors are OrcaSlicer's (translatable) messages; show them in the app's language.
-            text = { Text(vm.translator.tr(message)) },
+            text = { Text(engineErrorText(message, vm.translator)) },
             confirmButton = { TextButton(onClick = vm::dismissError) { Text(stringResource(R.string.ok)) } },
         )
     }
@@ -491,6 +550,39 @@ private fun QuitDialog(onQuit: () -> Unit, onDismiss: () -> Unit) {
                     androidx.compose.material3.OutlinedButton(onClick = onDismiss, Modifier.weight(1f)) { Text(stringResource(R.string.no)) }
                     androidx.compose.material3.Button(onClick = onQuit, Modifier.weight(1f)) { Text(stringResource(R.string.yes)) }
                 }
+            }
+        }
+    }
+}
+
+/** Opened project with other filaments: current (app) circles above, the project's below; keep mine or use the project's. */
+@Composable
+private fun FilamentChoiceDialog(choice: FilamentChoice, onAnswer: (mode: String, remember: Boolean) -> Unit) {
+    var remember by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    androidx.compose.ui.window.Dialog(onDismissRequest = { onAnswer("mine", false) }) {
+        androidx.compose.material3.Surface(shape = MaterialTheme.shapes.extraLarge, tonalElevation = 6.dp, modifier = Modifier.width(340.dp)) {
+            Column(Modifier.padding(24.dp)) {
+                Text(stringResource(R.string.filament_choice_title), style = MaterialTheme.typography.headlineSmall)
+                Text(stringResource(R.string.filament_choice_text), Modifier.padding(top = 8.dp, bottom = 16.dp),
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                @Composable fun row(label: Int, slots: List<app.orcaandroid.core.FilamentSlot>) {
+                    Text(stringResource(label), style = MaterialTheme.typography.labelLarge)
+                    Row(Modifier.padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        slots.take(8).forEach { app.orcaandroid.ui.prepare.ColorDot(it.color, 26) }
+                    }
+                }
+                row(R.string.filament_current, choice.current)
+                row(R.string.filament_project, choice.project)
+                Row(Modifier.fillMaxWidth().padding(top = 8.dp).then(Modifier.clickable { remember = !remember }), verticalAlignment = Alignment.CenterVertically) {
+                    androidx.compose.material3.Checkbox(remember, { remember = it })
+                    Text(stringResource(R.string.filament_remember), style = MaterialTheme.typography.bodyMedium)
+                }
+                Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    androidx.compose.material3.OutlinedButton(onClick = { onAnswer("project", remember) }, Modifier.weight(1f)) { Text(stringResource(R.string.filament_use_project)) }
+                    androidx.compose.material3.Button(onClick = { onAnswer("mine", remember) }, Modifier.weight(1f)) { Text(stringResource(R.string.filament_keep_mine)) }
+                }
+                // Additive: the project's slots first (its objects use them), then mine that it lacks.
+                androidx.compose.material3.OutlinedButton(onClick = { onAnswer("both", remember) }, Modifier.fillMaxWidth().padding(top = 8.dp)) { Text(stringResource(R.string.filament_use_both)) }
             }
         }
     }

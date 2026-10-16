@@ -17,6 +17,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PriorityHigh
 import kotlinx.coroutines.launch
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -103,7 +104,9 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
     val lab = state.lab
     // Tools in a column on the left: wide layouts always, portrait if chosen in the Layout lab.
     val column = wide || lab.toolsLeft
-    val filmstrip = lab.plates == PlateSwitcher.FILMSTRIP && state.tool == Tool.None
+    // Portrait with the switcher on the panel grip (AppScaffold): nothing of it over the 3D view.
+    val onHandle = lab.platesOnHandle && !wide
+    val filmstrip = lab.plates == PlateSwitcher.FILMSTRIP && state.tool == Tool.None && !onHandle
     CompositionLocalProvider(LocalOverlayAlpha provides lab.overlayAlpha) {
     Box(Modifier.fillMaxSize().padding(8.dp)) {
         // Measured: the top bar moves below a camera hole it can't sit beside (CutoutRow).
@@ -111,7 +114,7 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
         val density = LocalDensity.current
         Column(Modifier.align(Alignment.TopStart).fillMaxWidth().onSizeChanged { bars = with(density) { it.height.toDp() } },
             verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            TopBar(state, vm, view, viewButtons = !column)
+            TopBar(state, vm, view, viewButtons = !column, onHandle = onHandle)
             state.calibration?.let { cal ->
                 Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.tertiaryContainer) {
                     Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -146,13 +149,13 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
         // On a narrow canvas (less than about two thumbnails left beside it) the strip gets its own row above.
         if (stripWithSlice) androidx.compose.foundation.layout.BoxWithConstraints(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(start = 60.dp)) {
             if (maxWidth >= 360.dp) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
-                Filmstrip(state, vm, view, Modifier.weight(1f))
+                PlateScale(lab.plateScale) { Filmstrip(state, vm, view, Modifier.weight(1f)) }
                 SliceButton(state, vm, Modifier)
             } else Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Filmstrip(state, vm, view, Modifier.fillMaxWidth())
+                PlateScale(lab.plateScale) { Filmstrip(state, vm, view, Modifier.fillMaxWidth()) }
                 SliceButton(state, vm, Modifier)
             }
-        } else if (filmstrip) Filmstrip(state, vm, view, Modifier.align(Alignment.BottomStart).padding(bottom = 120.dp))
+        } else if (filmstrip) PlateScale(lab.plateScale) { Filmstrip(state, vm, view, Modifier.align(Alignment.BottomStart).padding(bottom = 120.dp)) }
         // The layer height graph is tall: on wide layouts it sits at the right edge (like the desktop's)
         // above the Slice button, not over the object in the middle.
         val rightPanel = wide && state.tool == Tool.LayerHeight
@@ -162,6 +165,16 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
             ToolPanel(state, vm)
         }
         if (!stripWithSlice) SliceButton(state, vm, Modifier.align(Alignment.BottomEnd))
+        // Setup problems (first case: a filament slot of the wrong type): tap opens the panel at the offending setting.
+        val problems = state.setupProblems()
+        if (problems.isNotEmpty() && !rightPanel) {
+            val label = stringResource(R.string.filament_type_mismatch, problems[0].have, problems[0].tray)
+            androidx.compose.material3.SmallFloatingActionButton(
+                onClick = { ProblemFocus.show(problems[0].slot) },
+                modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = 72.dp),
+                containerColor = androidx.compose.ui.graphics.Color.Red, contentColor = androidx.compose.ui.graphics.Color.White,
+            ) { Icon(Icons.Default.PriorityHigh, label) }
+        }
         ViewContextMenu(state, vm)
     }
     }
@@ -250,15 +263,17 @@ private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
 
 /** Plate switcher (as chosen in the Layout lab), profile-update chip, undo/redo/view (when not in the tool column) and File. */
 @Composable
-private fun TopBar(state: UiState, vm: AppViewModel, view: PlateView?, viewButtons: Boolean) {
+private fun TopBar(state: UiState, vm: AppViewModel, view: PlateView?, viewButtons: Boolean, onHandle: Boolean) {
     val alpha = LocalOverlayAlpha.current
     val bar = MaterialTheme.colorScheme.surface.copy(alpha = alpha)
     // In fullscreen portrait the bar can sit beside the camera hole (CutoutRow).
     CutoutRow(minStart = 96.dp, start = {
-        when (state.lab.plates) {
-            PlateSwitcher.TABS -> Surface(shape = RoundedCornerShape(20.dp), color = bar) { PlateTabs(state, vm, view, Modifier.padding(start = 4.dp)) }
-            PlateSwitcher.FILMSTRIP -> if (state.lab.plateLabel) Surface(shape = RoundedCornerShape(20.dp), color = bar) { PlateLabel(state, vm) }
-            PlateSwitcher.CHIPS -> PlateChips(state, vm, view)
+        if (!onHandle) PlateScale(state.lab.plateScale) {
+            when (state.lab.plates) {
+                PlateSwitcher.TABS -> Surface(shape = RoundedCornerShape(20.dp), color = bar) { PlateTabs(state, vm, view, Modifier.padding(start = 4.dp)) }
+                PlateSwitcher.FILMSTRIP -> if (state.lab.plateLabel) Surface(shape = RoundedCornerShape(20.dp), color = bar) { PlateLabel(state, vm) }
+                PlateSwitcher.CHIPS -> PlateChips(state, vm, view)
+            }
         }
     }) {
         UpdatesChip(state, vm)
@@ -518,6 +533,20 @@ private fun ScrollCue(scroll: androidx.compose.foundation.ScrollState, up: Boole
         ) {
             Icon(if (up) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
                 stringResource(if (up) R.string.scroll_up else R.string.scroll_down), Modifier.padding(1.dp))
+        }
+    }
+}
+
+/** The plate switcher chosen in the Layout lab, as a bar of its own (nested on the portrait panel's grip). */
+@Composable
+fun PlateSwitcherBar(state: UiState, vm: AppViewModel, view: PlateView?, modifier: Modifier = Modifier) {
+    PlateScale(state.lab.plateScale) {
+        Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+            when (state.lab.plates) {
+                PlateSwitcher.TABS -> PlateTabs(state, vm, view, Modifier.weight(1f))
+                PlateSwitcher.FILMSTRIP -> Filmstrip(state, vm, view, Modifier.weight(1f))
+                PlateSwitcher.CHIPS -> Box(Modifier.weight(1f)) { PlateChips(state, vm, view) }
+            }
         }
     }
 }

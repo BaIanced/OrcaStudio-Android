@@ -39,6 +39,8 @@ data class PresetRef(
     val name: String, val vendor: String, val system: Boolean, val brand: String = "", val type: String = "",
     /** A user preset's system parent, else "". */
     val base: String = "",
+    /** A user filament's own colour (#RRGGBB), else "". */
+    val color: String = "",
 ) {
     /** A system filament's brand (Bambu Lab, Generic, eSUN ...), for the brand filter and grouping. */
     val brandName get() = brand.ifEmpty { vendor.ifEmpty { "Generic" } }
@@ -122,6 +124,8 @@ data class Plate(
     val instances: Int,
     val layerGcodes: List<LayerGcode>,
     val wipeTower: Pair<Float, Float>?,
+    /** The prime tower box as drawn and sliced: x, y, width, depth, height in plate mm; null when the plate prints none. */
+    val tower: FloatArray? = null,
 )
 
 data class Instance(
