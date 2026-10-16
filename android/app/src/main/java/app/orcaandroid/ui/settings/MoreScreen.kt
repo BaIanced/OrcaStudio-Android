@@ -287,9 +287,23 @@ private fun LayoutLabSection(state: UiState, vm: AppViewModel) {
         ScaleSlider(R.string.lab_ui_scale, lab.uiScale, app.orcaandroid.core.LayoutLab.UI_SCALES, current) { vm.setLab(state.lab.copy(uiScale = it)) }
         ScaleSlider(R.string.lab_plate_scale, lab.plateScale, app.orcaandroid.core.LayoutLab.PLATE_SCALES, current) { vm.setLab(state.lab.copy(plateScale = it)) }
         ScaleSlider(R.string.lab_overlay_scale, lab.overlayScale, app.orcaandroid.core.LayoutLab.OVERLAY_SCALES, current) { vm.setLab(state.lab.copy(overlayScale = it)) }
+        ShadowSlider(R.string.lab_shadow_strength, lab.shadowStrength, 100f, "%", app.orcaandroid.core.LayoutLab.SHADOW_STRENGTHS, current) { vm.setLab(state.lab.copy(shadowStrength = it)) }
+        ShadowSlider(R.string.lab_shadow_soft, lab.shadowSoft, 1f, " mm", app.orcaandroid.core.LayoutLab.SHADOW_SOFTS, current) { vm.setLab(state.lab.copy(shadowSoft = it)) }
+        ShadowSlider(R.string.lab_shadow_bias, lab.shadowBias, 1f, " mm", app.orcaandroid.core.LayoutLab.SHADOW_BIASES, current) { vm.setLab(state.lab.copy(shadowBias = it)) }
+        ShadowSlider(R.string.lab_light_azimuth, lab.lightAzimuth, 1f, "°", app.orcaandroid.core.LayoutLab.LIGHT_AZIMUTHS, current) { vm.setLab(state.lab.copy(lightAzimuth = it)) }
+        ShadowSlider(R.string.lab_light_elevation, lab.lightElevation, 1f, "°", app.orcaandroid.core.LayoutLab.LIGHT_ELEVATIONS, current) { vm.setLab(state.lab.copy(lightElevation = it)) }
+        ShadowSlider(R.string.lab_light_strength, lab.lightStrength, 100f, "%", app.orcaandroid.core.LayoutLab.LIGHT_STRENGTHS, current) { vm.setLab(state.lab.copy(lightStrength = it)) }
         TextButton(onClick = { vm.setLab(app.orcaandroid.core.LayoutLab()) }) { Text(stringResource(R.string.reset)) }
       }
     }
+}
+
+/** A shadow look slider (strength in %, penumbra and bias in mm): live on the plate behind, like the size sliders. */
+@Composable
+private fun ShadowSlider(label: Int, value: Float, factor: Float, unit: String, range: ClosedFloatingPointRange<Float>, lab: app.orcaandroid.core.LayoutLab, onSet: (Float) -> Unit) {
+    val text = stringResource(label, if (factor == 1f) "%.1f".format(value) + unit else kotlin.math.round(value * factor).toInt().toString() + unit)
+    Text(text, style = MaterialTheme.typography.bodyMedium)
+    LabSlider(value, { LabPeek.readout = text to (it - range.start) / (range.endInclusive - range.start); onSet(it) }, range, lab)
 }
 
 /** A size slider in 5 % steps, applied live (More is frozen at its touch-time size while dragging, so it doesn't move under the finger). */

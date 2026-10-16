@@ -841,6 +841,12 @@
     <string name="lab_overlay_alpha">Control background opacity: %d %%</string>
     <string name="lab_text_scale">Text size: %d %%</string>
     <string name="lab_ui_scale">Interface size (everything): %d %%</string>
+    <string name="lab_shadow_strength">Shadow darkness: %s</string>
+    <string name="lab_shadow_soft">Shadow softness (edge width): %s</string>
+    <string name="lab_light_azimuth">Light direction around the plate: %s</string>
+    <string name="lab_light_elevation">Light height above the bed: %s</string>
+    <string name="lab_light_strength">Light strength (the shadow follows the direction): %s</string>
+    <string name="lab_shadow_bias">Shadow bias (raise if striped, lower if light leaks under parts): %s</string>
     <string name="lab_overlay_scale">Floating controls over the 3D view: %d %%</string>
     <string name="lab_scale_hint">Sizes apply when you let go of the slider.</string>
     <string name="scroll_up">Scroll up</string>

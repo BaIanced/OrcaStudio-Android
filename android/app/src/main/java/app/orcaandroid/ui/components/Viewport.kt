@@ -204,6 +204,12 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     LaunchedEffect(v, state.ambientOcclusion, state.contactShadows) {
         v.onGl { aoLevel = state.ambientOcclusion; contactShadows = state.contactShadows }
     }
+    LaunchedEffect(v, state.lab.shadowStrength, state.lab.shadowSoft, state.lab.shadowBias) {
+        v.onGl { shadowStrength = state.lab.shadowStrength; shadowSoftMm = state.lab.shadowSoft; shadowBiasMm = state.lab.shadowBias }
+    }
+    LaunchedEffect(v, state.lab.lightAzimuth, state.lab.lightElevation, state.lab.lightStrength) {
+        v.onGl { keyAzimuth = state.lab.lightAzimuth; keyElevation = state.lab.lightElevation; keyStrength = state.lab.lightStrength }
+    }
     // Plate numbers always; the plate icons only while arranging (Prepare).
     val atlas = rememberBadgeAtlas(scene.plates.size)
     val badges = if (showPreview) emptyList()
@@ -286,9 +292,11 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         }
         v.onGl { cutPlane = cut }
     }
-    // Section view: the plane sweeps the bounding box of all objects (GLCanvas3D::_get_section_view_plane).
-    val bounds = remember(scene.objects) {
-        val boxes = scene.objects.flatMap { it.instances }
+    // Section view: the plane sweeps the bounding box of the active plate's objects, else of all objects
+    // (GLCanvas3D::_get_section_view_plane, volumes_bounding_box(true)).
+    val bounds = remember(scene.objects, state.activePlate) {
+        val all = scene.objects.flatMap { it.instances }
+        val boxes = all.filter { it.plate == state.activePlate }.ifEmpty { all }
         if (boxes.isEmpty()) null else
             Vec3(boxes.minOf { it.min.x }, boxes.minOf { it.min.y }, boxes.minOf { it.min.z }) to
                 Vec3(boxes.maxOf { it.min.x + it.size.x }, boxes.maxOf { it.min.y + it.size.y }, boxes.maxOf { it.min.z + it.size.z })

@@ -552,11 +552,10 @@ private fun ObnCredentialsSection() {
         else stringResource(R.string.obn_credentials_missing, missing.joinToString()),
         style = MaterialTheme.typography.bodySmall,
     )
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedButton(onClick = { pick.launch(arrayOf("*/*")) }) { Text(stringResource(R.string.obn_import)) }
-        if (missing.size < 3) TextButton(onClick = { ObnCredentials.clear(context); missing = ObnCredentials.missing(context); message = null }) {
-            Text(stringResource(R.string.remove))
-        }
+    // Own rows: side by side in the narrow dialog, "Remove" wrapped letter by letter.
+    OutlinedButton(onClick = { pick.launch(arrayOf("*/*")) }) { Text(stringResource(R.string.obn_import)) }
+    if (missing.size < 3) TextButton(onClick = { ObnCredentials.clear(context); missing = ObnCredentials.missing(context); message = null }) {
+        Text(stringResource(R.string.remove))
     }
     message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
 }

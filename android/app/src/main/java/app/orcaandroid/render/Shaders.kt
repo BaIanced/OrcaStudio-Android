@@ -3,6 +3,36 @@ package app.orcaandroid.render
 /** GLSL ES 3.0 programs of [PlateRenderer]. Attribute locations are fixed with layout qualifiers. */
 internal object Shaders {
 
+    /**
+     * Fraction of the key light that reaches [sc] (light-space uv + depth): 0 shadow .. 1 lit. Golden-angle taps in a disc of
+     * uSoft (uv), turned per pixel so the few taps blur instead of banding; each tap is a hardware 2x2 compare. The bias
+     * (uBiasMm, over the 1040 mm depth range) shrinks on faces turned towards the light. Every tap's depth follows the
+     * receiver's own slope (planeGrad, from the screen derivatives: call it outside any branch), so a wide disc on a tilted
+     * face doesn't shadow itself (grain). highp: fp16 depth compares are all acne.
+     */
+    private const val PCF = """
+        uniform mediump sampler2DShadow uRealShadowMap;
+        uniform highp float uSoft;
+        uniform highp float uBiasMm;
+        highp vec2 planeGrad(highp vec3 sc) {
+            highp vec2 dx = dFdx(sc.xy), dy = dFdy(sc.xy);
+            highp float det = dx.x * dy.y - dx.y * dy.x;
+            if (abs(det) < 1e-12) return vec2(0.0);
+            return clamp(vec2(dFdx(sc.z) * dy.y - dFdy(sc.z) * dx.y, dFdy(sc.z) * dx.x - dFdx(sc.z) * dy.x) / det, -4.0, 4.0);
+        }
+        highp float lightAt(highp vec3 sc, highp vec2 grad, highp float ndl, int taps) {
+            highp float z = sc.z - uBiasMm * max(1.0 - ndl, 0.15) / 1040.0;
+            highp float rot = 6.2832 * fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+            highp float s = 0.0;
+            for (int i = 0; i < taps; ++i) {
+                highp float a = float(i) * 2.39996 + rot;
+                highp float r = sqrt((float(i) + 0.5) / float(taps)) * uSoft;
+                highp vec2 o = vec2(cos(a), sin(a)) * r;
+                s += texture(uRealShadowMap, vec3(sc.xy + o, z + dot(o, grad)));
+            }
+            return s / float(taps);
+        }"""
+
     /** Selected copies the mesh shader highlights and drags (more are selected but not drawn so). */
     const val MAX_SELECTED = 64
 
@@ -12,6 +42,7 @@ internal object Shaders {
      */
     const val MESH_VS = """#version 300 es
         uniform mat4 uMvp;
+        uniform mat4 uLightMvp;
         uniform float uSelected[64];
         uniform int uSelectedCount;
         uniform vec3 uDrag;
@@ -20,6 +51,7 @@ internal object Shaders {
         layout(location = 2) in vec2 aInfo;
         out vec3 vNormal;
         out highp vec3 vWorld;
+        out highp vec4 vShadowCoord;
         flat out float vType;
         flat out float vSelected;
         void main() {
@@ -30,6 +62,8 @@ internal object Shaders {
             vType = aInfo.y;
             vSelected = selected;
             vWorld = aPos + selected * uDrag;
+            // Normal offset (0.4 mm): the receiver is looked up a little outside its own surface, against acne.
+            vShadowCoord = uLightMvp * vec4(vWorld + aNormal * 0.4, 1.0);
             gl_Position = uMvp * vec4(vWorld, 1.0);
         }"""
 
@@ -37,7 +71,8 @@ internal object Shaders {
      * uPass 0: opaque parts (type 0, or 100 + 0-based filament); 1: translucent modifiers/negative volumes/blockers/enforcers and the
      * prime tower (type 99);
      * 2: paint overlay (types 5 fuzzy skin, 6/7 support enforce/block, 8/9 seam, 10+ filament);
-     * 3: contact shadow map (parts seen from above; how close to the bed, max-blended).
+     * 3: contact shadow map (parts seen from above; how close to the bed, max-blended);
+     * 4: depth-only pass of the real shadow map (parts seen from the key light).
      */
     const val MESH_FS = """#version 300 es
         precision mediump float;
@@ -49,14 +84,25 @@ internal object Shaders {
         uniform highp vec4 uSection;
         uniform int uSectionOn;
         uniform highp vec3 uEye;
+        """ + PCF + """
+        uniform int uUseRealShadow;
+        uniform float uShadowStrength;
+        uniform vec3 uKeyDir;
+        uniform float uKeyStrength;
         in vec3 vNormal;
         in highp vec3 vWorld;
+        in highp vec4 vShadowCoord;
         flat in float vType;
         flat in float vSelected;
         out vec4 color;
         void main() {
             int type = int(vType + 0.5);
             bool part = type == 0 || type >= 100;
+            if (uPass == 4) {
+                // Real shadow map: depth only; parts cast, cut-away geometry doesn't.
+                if (!part || (uSectionOn == 1 && dot(uSection.xyz, vWorld) > uSection.w)) discard;
+                return;
+            }
             if (uPass == 3) {
                 // Contact shadow: geometry near the bed casts most, fading out by uShadowFade mm up.
                 if (!part || (uSectionOn == 1 && dot(uSection.xyz, vWorld) > uSection.w)) discard;
@@ -104,11 +150,21 @@ internal object Shaders {
                 // faint plastic highlight and a cool rim on silhouettes. The slice preview keeps its flat colours.
                 vec3 v = normalize(uEye - vWorld);
                 if (dot(n, v) < 0.0) n = -n;
-                vec3 lk = normalize(vec3(0.35, -0.55, 0.75));
+                vec3 lk = normalize(uKeyDir);
                 vec3 lf = normalize(vec3(-0.6, 0.4, 0.35));
                 float sky = 0.5 + 0.5 * n.z;
-                float diff = 0.22 + 0.16 * sky + 0.50 * max(dot(n, lk), 0.0) + 0.20 * max(dot(n, lf), 0.0);
-                float spec = pow(max(dot(n, normalize(lk + v)), 0.0), 36.0) * 0.16;
+                // Real shadow (highp: the depth compare needs it; fp16 would be all acne). The key light only: ambient and
+                // fill stay, so the occlusion pass doesn't darken the same place twice.
+                float lit = 1.0;
+                if (uUseRealShadow == 1 && uPass == 0) {
+                    highp vec3 sc = vShadowCoord.xyz / vShadowCoord.w * 0.5 + 0.5;
+                    highp vec2 grad = planeGrad(sc);
+                    if (sc.z < 1.0 && sc.x > 0.0 && sc.x < 1.0 && sc.y > 0.0 && sc.y < 1.0) {
+                        lit = 1.0 - uShadowStrength * (1.0 - lightAt(sc, grad, dot(normalize(vNormal), lk), 8));
+                    }
+                }
+                float diff = 0.22 + 0.16 * sky + 0.50 * uKeyStrength * max(dot(n, lk), 0.0) * lit + 0.20 * max(dot(n, lf), 0.0);
+                float spec = pow(max(dot(n, normalize(lk + v)), 0.0), 36.0) * 0.16 * uKeyStrength * lit;
                 float rim = pow(1.0 - max(dot(n, v), 0.0), 3.0) * 0.14;
                 vec3 shaded = base * diff + vec3(spec) + vec3(0.55, 0.7, 1.0) * rim * (0.4 + 0.6 * sky);
                 color = vec4(shaded, alpha);
@@ -342,24 +398,43 @@ internal object Shaders {
             color = c;
         }"""
 
-    /** The blurred contact shadow map laid on the bed: a quad over uRect (x0, y0, x1, y1) just under z = 0. */
+    /**
+     * The blurred contact shadow map laid on the bed just under z = 0: the map covers uRect (x0, y0, x1, y1), the quad
+     * is uClip (that rect cut to one bed, so a long shadow doesn't hang in the air past the bed's edge).
+     */
     const val SHADOW_VS = """#version 300 es
         uniform mat4 uMvp;
+        uniform mat4 uLightMvp;
         uniform highp vec4 uRect;
+        uniform highp vec4 uClip;
         out vec2 vUv;
+        out highp vec4 vShadowCoord;
         void main() {
             vec2 c = vec2(float(gl_VertexID & 1), float((gl_VertexID >> 1) & 1));
-            vUv = c;
-            gl_Position = uMvp * vec4(mix(uRect.xy, uRect.zw, c), -0.02, 1.0);
+            highp vec2 xy = mix(uClip.xy, uClip.zw, c);
+            vUv = (xy - uRect.xy) / (uRect.zw - uRect.xy);
+            vShadowCoord = uLightMvp * vec4(xy, 0.0, 1.0);
+            gl_Position = uMvp * vec4(xy, -0.02, 1.0);
         }"""
 
     const val SHADOW_FS = """#version 300 es
         precision mediump float;
         uniform sampler2D uTex;
+        """ + PCF + """
+        uniform int uReal;
         uniform float uStrength;
         in vec2 vUv;
+        in highp vec4 vShadowCoord;
         out vec4 color;
-        void main() { color = vec4(0.0, 0.0, 0.0, uStrength * texture(uTex, vUv).r); }"""
+        void main() {
+            if (uReal == 0) { color = vec4(0.0, 0.0, 0.0, uStrength * texture(uTex, vUv).r); return; }
+            // Real shadow on the bed (flat, facing up: dot with the key light 0.75).
+            highp vec3 sc = vShadowCoord.xyz / vShadowCoord.w * 0.5 + 0.5;
+            float lit = 1.0;
+            highp vec2 grad = planeGrad(sc);
+            if (sc.z < 1.0 && sc.x > 0.0 && sc.x < 1.0 && sc.y > 0.0 && sc.y < 1.0) lit = lightAt(sc, grad, 0.75, 16);
+            color = vec4(0.0, 0.0, 0.0, uStrength * (1.0 - lit));
+        }"""
 
     /** View-space position from the depth texture (perspective; camera looks down -z). */
     private const val VIEW_POS = """
@@ -448,8 +523,9 @@ internal object Shaders {
         precision mediump float;
         uniform sampler2D uAo;
         uniform vec2 uSize;
+        uniform float uStrength;
         out vec4 color;
-        void main() { color = vec4(vec3(texture(uAo, gl_FragCoord.xy / uSize).r), 1.0); }"""
+        void main() { color = vec4(vec3(mix(1.0, texture(uAo, gl_FragCoord.xy / uSize).r, uStrength)), 1.0); }"""
 
     /** Colours per libslic3r ExtrusionRole (erNone ... erMixed), close to OrcaSlicer's defaults. */
     val ROLE_COLORS = floatArrayOf(

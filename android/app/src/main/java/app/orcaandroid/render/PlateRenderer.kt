@@ -18,6 +18,8 @@ private const val BADGE_GAP = 0.02f
 /** Contact shadow: geometry up to this height above the bed casts it, mm; darkness right under a part. */
 private const val SHADOW_FADE_MM = 12f
 private const val SHADOW_STRENGTH = 0.8f
+private const val AO_FADE_S = 0.2f
+private const val LIVE_AO_MAX_SEGMENTS = 250_000
 
 /** Colours of the 3D view, following the app theme (RGB 0..1). */
 data class ViewColors(
@@ -80,6 +82,21 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     /** Ambient occlusion level (AO_OFF, 1 soft, 2 full) and the contact shadow under objects (Prepare). */
     var aoLevel = AO_OFF
     var contactShadows = true
+    /** Set per frame: the lit mesh pass samples the real shadow map (a depth map was rendered this frame or before, and shadows are on). */
+    private var useRealShadow = false
+    /** Real shadow look (Layout lab): darkness 0-1, penumbra and depth bias in mm. */
+    var shadowStrength = 0.5f
+    var shadowSoftMm = 6f
+    var shadowBiasMm = 2f
+    /** Key light of the models (layout lab): azimuth about the plate from +X and elevation above the bed in degrees, strength 1 = as designed. */
+    var keyAzimuth = -57.5f
+    var keyElevation = 49f
+    var keyStrength = 1f
+    private val keyDir get() = Math.toRadians(keyElevation.toDouble()).let { el ->
+        Math.toRadians(keyAzimuth.toDouble()).let { az ->
+            floatArrayOf((Math.cos(el) * Math.cos(az)).toFloat(), (Math.cos(el) * Math.sin(az)).toFloat(), Math.sin(el).toFloat())
+        }
+    }
 
     private val effects = SceneEffects()
     /** Set by the view from the screen configuration (read on the GL thread, so volatile). */
@@ -94,6 +111,9 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     /** Preview's occlusion: last frame's matrix (camera moving?) and what the kept occlusion was made for. */
     private val lastMvp = FloatArray(16)
     private var previewAoKey: Any? = null
+    private var previewAoFade = 0f
+    private var lastMoveNs = 0L
+    private var lastAoFrameNs = 0L
 
     private var pendingMesh: FloatData? = null
     private var pendingPaint: FloatData? = null
@@ -178,6 +198,14 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         return px in 0f..w.toFloat() && py in 0f..h.toFloat()
     }
 
+    /** Each plate's bed box (x0, y0, x1, y1); one unbounded box while no bed is known. */
+    private fun bedRects(): List<FloatArray> {
+        if (bedOutline.size < 4) return listOf(floatArrayOf(-1e9f, -1e9f, 1e9f, 1e9f))
+        val xs = bedOutline.filterIndexed { i, _ -> i % 2 == 0 }
+        val ys = bedOutline.filterIndexed { i, _ -> i % 2 == 1 }
+        return plateOrigins.map { (ox, oy) -> floatArrayOf(xs.min() + ox, ys.min() + oy, xs.max() + ox, ys.max() + oy) }
+    }
+
     /** Frames plate [index] (or all plates for -1). */
     private var lastFrame: Pair<Int, Boolean>? = null
 
@@ -240,8 +268,10 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         val models = ghostCount == 0
         val bounds = meshBounds
         val shadow = contactShadows && !showPreview && models && meshCount > 0 && bounds != null
+        useRealShadow = false
         if (shadow) {
-            val key = listOf(meshVersion, dragOffset.toList(), selectedIds.toList(), dragTower, section?.toList())
+            effects.lightDir = keyDir
+            val key = listOf(meshVersion, dragOffset.toList(), selectedIds.toList(), dragTower, section?.toList(), keyAzimuth, keyElevation)
             // A dragged copy may leave the footprint: widen it by the drag.
             // A fixed widening for the whole drag: any change of the map area mid-drag rescales the texels and
             // shows as a step ("strobe") in the shadow.
@@ -249,26 +279,30 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             val dx = if (dragging) 150f else 0f
             val dy = dx
             val area = floatArrayOf(bounds!![0] - dx, bounds[1] - dy, bounds[2] + dx, bounds[3] + dy)
+            useRealShadow = false
             effects.renderShadow(area, key, viewW, viewH) { ortho ->
                 val frame = mvp.copyOf()
                 ortho.copyInto(mvp)
-                drawMesh(meshVbo, meshCount, pass = 3)
+                drawMesh(meshVbo, meshCount, pass = if (effects.isRealShadow) 4 else 3)
                 frame.copyInto(mvp)
             }
+            useRealShadow = effects.realShadowReady
             // The shadow pass changed the clear colour.
             glClearColor(bg[0], bg[1], bg[2], 1f)
         }
         val ao = if (showPreview) previewAo(clip) else {
             previewAoKey = null
-            effects.renderAo(aoLevel, viewW, viewH, clip) { if (models) drawMesh(meshVbo, meshCount, pass = 0) }
+            effects.renderAo(aoLevel, viewW, viewH, clip) {
+                if (models) { val real = useRealShadow; useRealShadow = false; drawMesh(meshVbo, meshCount, pass = 0); useRealShadow = real }
+            }
         }
 
-        if (shadow) effects.drawShadow(mvp, SHADOW_STRENGTH)
+        if (shadow) effects.drawShadow(mvp, if (effects.isRealShadow) shadowStrength else SHADOW_STRENGTH, shadowSoftMm, shadowBiasMm, bedRects())
         drawBeds()
         drawBadges()
         if (showPreview) {
             drawExtrusions()
-            if (ao) effects.compositeAo(viewW, viewH)
+            if (ao) effects.compositeAo(viewW, viewH, previewAoFade)
             drawPreviewExtras()
         } else {
             if (models) drawMesh(meshVbo, meshCount, pass = 0)
@@ -292,18 +326,45 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     }
 
     /**
-     * Big toolpaths cost as much again in the occlusion's depth pass (17 instead of 26 fps on a phone), so in
-     * Preview it is left out while the camera moves and kept as long as the view and the toolpaths stay the same.
+     * Big toolpaths cost as much again in the occlusion's depth pass (17 instead of 26 fps on a phone), so above
+     * [LIVE_AO_MAX_SEGMENTS] the occlusion fades out while the camera moves and is kept as long as the view and the
+     * toolpaths stay the same. Smaller ones recompute it every frame.
      */
     private fun previewAo(clip: Pair<Float, Float>): Boolean {
+        val now = System.nanoTime()
+        val dt = ((now - lastAoFrameNs) / 1e9f).coerceIn(0f, 0.1f)
+        lastAoFrameNs = now
         val moving = !mvp.contentEquals(lastMvp)
+        if (moving) lastMoveNs = now
         mvp.copyInto(lastMvp)
-        if (aoLevel == AO_OFF || moving) { previewAoKey = null; return false }
+        if (aoLevel == AO_OFF) { previewAoKey = null; previewAoFade = 0f; return false }
+        // Small toolpaths: the occlusion is recomputed every frame like in Prepare. Without it the deep corners
+        // (the gap between the top skin and the wall) were bright while the camera moved and dark at rest (a glow
+        // that strobed), and the stale occlusion left a ghost behind.
         val key = listOf(aoLevel, viewW, viewH, previewVersion, previewRange, previewStyle, section?.toList())
-        if (key == previewAoKey) return true
-        previewAoKey = null
-        if (!effects.renderAo(aoLevel, viewW, viewH, clip) { drawExtrusions() }) return false
-        previewAoKey = key
+        if (extrCount <= LIVE_AO_MAX_SEGMENTS) {
+            if (moving || key != previewAoKey) {
+                previewAoKey = null
+                if (!effects.renderAo(aoLevel, viewW, viewH, clip) { drawExtrusions() }) { previewAoFade = 0f; return false }
+                previewAoKey = key
+            }
+            previewAoFade = 1f
+            return true
+        }
+        // The occlusion is only recomputed once the camera has rested (0.25 s, so a slow or damped orbit doesn't
+        // flap between the two states). Its strength fades out when the camera starts and back in when it rests;
+        // switching it on and off outright strobed the whole picture (a hard brightness step on every move).
+        if (now - lastMoveNs < 250_000_000L) {
+            previewAoKey = null
+            previewAoFade = (previewAoFade - dt / AO_FADE_S).coerceAtLeast(0f)
+            return previewAoFade > 0f
+        }
+        if (key != previewAoKey) {
+            previewAoKey = null
+            if (!effects.renderAo(aoLevel, viewW, viewH, clip) { drawExtrusions() }) { previewAoFade = 0f; return false }
+            previewAoKey = key
+        }
+        previewAoFade = (previewAoFade + dt / AO_FADE_S).coerceAtMost(1f)
         return true
     }
 
@@ -491,7 +552,22 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glUniformMatrix4fv(loc(meshProgram, "uMvp"), 1, false, mvp, 0)
         glUniform1i(loc(meshProgram, "uPass"), pass)
         glUniform1f(loc(meshProgram, "uShadowFade"), SHADOW_FADE_MM)
+        // The real shadow map is sampled by the lit pass only (not while it is being drawn, not in the occlusion pre-pass).
+        val real = useRealShadow && pass == 0
+        glUniform1i(loc(meshProgram, "uUseRealShadow"), if (real) 1 else 0)
+        glUniform1i(loc(meshProgram, "uRealShadowMap"), 2)
+        if (real) {
+            glUniformMatrix4fv(loc(meshProgram, "uLightMvp"), 1, false, effects.lightMvp, 0)
+            glUniform1f(loc(meshProgram, "uShadowStrength"), shadowStrength)
+            glUniform1f(loc(meshProgram, "uSoft"), shadowSoftMm / effects.lightSpanMm)
+            glUniform1f(loc(meshProgram, "uBiasMm"), shadowBiasMm)
+            glActiveTexture(GL_TEXTURE2)
+            glBindTexture(GL_TEXTURE_2D, effects.realShadowTex)
+            glActiveTexture(GL_TEXTURE0)
+        }
         val ids = if (dragTower >= 0) floatArrayOf(-2f - dragTower) else selectedIds
+        keyDir.let { glUniform3f(loc(meshProgram, "uKeyDir"), it[0], it[1], it[2]) }
+        glUniform1f(loc(meshProgram, "uKeyStrength"), keyStrength)
         glUniform1fv(loc(meshProgram, "uSelected"), Shaders.MAX_SELECTED, ids.copyOf(Shaders.MAX_SELECTED), 0)
         glUniform1i(loc(meshProgram, "uSelectedCount"), minOf(ids.size, Shaders.MAX_SELECTED))
         glUniform3fv(loc(meshProgram, "uDrag"), 1, dragOffset, 0)
@@ -507,6 +583,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glVertexAttribPointer(2, 2, GL_FLOAT, false, 32, 24)
         glDrawArrays(GL_TRIANGLES, 0, count)
         for (a in 0..2) glDisableVertexAttribArray(a)
+        // Nothing left bound on unit 2: the next pass must not sample the map while it renders into it.
+        if (real) { glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_2D, 0); glActiveTexture(GL_TEXTURE0) }
     }
 
     private fun setFilamentColors(program: Int) {

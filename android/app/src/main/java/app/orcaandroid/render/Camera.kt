@@ -109,6 +109,14 @@ class Camera {
         target[1] += a.y - b.y
     }
 
+    /** Sets any of yaw / pitch (degrees), distance (mm) and target; null leaves it as it is. */
+    @Synchronized fun aim(yaw: Float? = null, pitch: Float? = null, distance: Float? = null, target: Vec3? = null) {
+        yaw?.let { this.yaw = it }
+        pitch?.let { this.pitch = it.coerceIn(-89f, 89f) }
+        distance?.let { this.distance = it.coerceIn(5f, 10000f) }
+        target?.let { this.target[0] = it.x; this.target[1] = it.y; this.target[2] = it.z }
+    }
+
     /** View preset: 0 iso, 1 top, 2 front, 3 left, 4 right, 5 bottom, 6 rear. */
     @Synchronized fun preset(view: Int) {
         when (view) {
