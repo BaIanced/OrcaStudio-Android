@@ -171,17 +171,24 @@ std::array<double, 4> OrcaEngine::bed_rect() const
 
 std::array<double, 2> OrcaEngine::plate_origin(int plate) const { return origin_of(plate, m_plates.size(), bed_rect()); }
 
+// Free space kept between the prime tower (with brim) and any object, mm.
+static constexpr double TOWER_CLEARANCE = 3.;
+
 std::optional<OrcaEngine::TowerBox> OrcaEngine::tower_box(const DynamicPrintConfig &config, int plate) const
 {
     if (!config.has("enable_prime_tower") || !config.opt_bool("enable_prime_tower") || !config.has("prime_tower_width"))
         return std::nullopt;
     std::set<int> used;
     double height = 0.;
+    const std::array<double, 2> origin = plate_origin(plate);
+    std::vector<BoundingBoxf3> footprints; // plate-local, to keep the tower clear of the objects
     for (const ModelObject *obj : m_model->objects)
         for (size_t i = 0; i < obj->instances.size(); ++i) {
             if (plate_of(*obj, i) != plate)
                 continue;
-            height = std::max(height, obj->instance_bounding_box(i).max.z());
+            const BoundingBoxf3 ibb = obj->instance_bounding_box(i);
+            footprints.push_back(ibb);
+            height = std::max(height, ibb.max.z());
             const DynamicPrintConfig &oc = obj->config.get();
             const int obj_ext = oc.has("extruder") ? oc.opt_int("extruder") : 0;
             for (const ModelVolume *vol : obj->volumes) {
@@ -218,9 +225,35 @@ std::optional<OrcaEngine::TowerBox> OrcaEngine::tower_box(const DynamicPrintConf
         const double min = lo + margin;
         return std::clamp(v, min, std::max(min, hi - size - margin));
     };
-    return TowerBox{fit(pi.has_wipe_tower_pos ? pi.wipe_tower_x : at("wipe_tower_x", config), bed[0], bed[2], fp.width),
-                    fit(pi.has_wipe_tower_pos ? pi.wipe_tower_y : at("wipe_tower_y", config), bed[1], bed[3], fp.depth),
-                    fp.width, fp.depth, height};
+    const double x0 = fit(pi.has_wipe_tower_pos ? pi.wipe_tower_x : at("wipe_tower_x", config), bed[0], bed[2], fp.width);
+    const double y0 = fit(pi.has_wipe_tower_pos ? pi.wipe_tower_y : at("wipe_tower_y", config), bed[1], bed[3], fp.depth);
+    // The tower never overlaps an object (user 2026-10-15): the box plus brim, cone and a clearance must stay off every
+    // object's footprint. A position that clashes slides to the nearest free spot; with none, `clash` blocks slicing.
+    const double pad = fp.brim_width + bulge + TOWER_CLEARANCE;
+    auto clashes = [&](double x, double y) {
+        for (const BoundingBoxf3 &b : footprints)
+            if (x - pad < b.max.x() - origin[0] && x + fp.width + pad > b.min.x() - origin[0] &&
+                y - pad < b.max.y() - origin[1] && y + fp.depth + pad > b.min.y() - origin[1])
+                return true;
+        return false;
+    };
+    if (!clashes(x0, y0))
+        return TowerBox{x0, y0, fp.width, fp.depth, height};
+    const double lo_x = bed[0] + margin, hi_x = std::max(lo_x, bed[2] - fp.width - margin);
+    const double lo_y = bed[1] + margin, hi_y = std::max(lo_y, bed[3] - fp.depth - margin);
+    double best = 1e30, bx = x0, by = y0;
+    for (double y = lo_y; y <= hi_y + 1e-6; y += 2.)
+        for (double x = lo_x; x <= hi_x + 1e-6; x += 2.) {
+            const double d = (x - x0) * (x - x0) + (y - y0) * (y - y0);
+            if (d < best && !clashes(x, y)) {
+                best = d;
+                bx = x;
+                by = y;
+            }
+        }
+    TowerBox box{bx, by, fp.width, fp.depth, height};
+    box.clash = best >= 1e30;
+    return box;
 }
 
 int OrcaEngine::plate_of(const ModelObject &obj, size_t instance) const

@@ -98,6 +98,7 @@ fun ThemeDesignPanel(state: UiState, vm: AppViewModel) {
     val slot = region.slots.firstOrNull { it.key == slotKey } ?: region.slots.first()
     var minimized by rememberSaveable { mutableStateOf(false) }
     var drag by remember { mutableStateOf(Offset.Zero) }
+    var toggled by remember { mutableStateOf(false) }
 
     fun set(c: Color?, persist: Boolean = true) = vm.setThemeSpec(spec.with(dark, region.key, slot.key, c?.toArgb()), persist)
 
@@ -121,7 +122,12 @@ fun ThemeDesignPanel(state: UiState, vm: AppViewModel) {
             Surface(
                 Modifier.align(Alignment.BottomEnd).padding(8.dp).padding(bottom = 72.dp)
                     .offset { IntOffset(shown.x.roundToInt(), shown.y.roundToInt()) }.width(width)
-                    .onSizeChanged { panelHeight = it.height },
+                    .onSizeChanged {
+                        // Folding keeps the title bar where it is: the panel is anchored at the bottom, so move that anchor by the size change.
+                        if (toggled && panelHeight > 0) drag = Offset(drag.x, drag.y + (it.height - panelHeight))
+                        toggled = false
+                        panelHeight = it.height
+                    },
                 // Plain container colour: tonal elevation would tint the panel with the accent.
                 shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh, shadowElevation = 8.dp,
             ) {
@@ -137,7 +143,7 @@ fun ThemeDesignPanel(state: UiState, vm: AppViewModel) {
                             Text(stringResource(if (dark) R.string.design_editing_dark else R.string.design_editing_light),
                                 style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        IconButton({ minimized = !minimized }) {
+                        IconButton({ toggled = true; minimized = !minimized }) {
                             Icon(if (minimized) Icons.Default.ExpandLess else Icons.Default.ExpandMore, stringResource(if (minimized) R.string.design_unfold else R.string.design_minimize))
                         }
                         IconButton({ vm.setDesignMode(false) }) { Icon(Icons.Default.Close, stringResource(R.string.close)) }

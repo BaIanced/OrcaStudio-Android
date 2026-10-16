@@ -321,7 +321,7 @@ private:
     std::array<double, 2> plate_origin(int plate) const;
     // The prime tower the plate prints, in plate coordinates: the plate's own or the preset's position kept on the bed using the
     // slicer's footprint estimate (depth, brim, cone), as the desktop's placement clamp does. Empty when the plate prints none.
-    struct TowerBox { double x, y, width, depth, height; };
+    struct TowerBox { double x, y, width, depth, height; bool clash = false; };
     std::optional<TowerBox> tower_box(const Slic3r::DynamicPrintConfig &config, int plate) const;
     std::vector<std::optional<TowerBox>> m_tower_boxes; // per plate, as of the last write_mesh()
     int                   plate_of(const Slic3r::ModelObject &obj, size_t instance) const;
