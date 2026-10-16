@@ -611,9 +611,10 @@ private const val PRINTER_JS = """(function(){
   var done = '';
   function pick(){
     if (done === location.pathname || !/\/models\/\d/.test(location.pathname)) return;
+    // The chip row is the nearest ancestor (up to 4 levels) whose text starts with "All".
+    function inRow(e){ for (var p = e.parentElement, i = 0; p && i < 4; p = p.parentElement, i++) if (/^\s*All[A-Z0-9]/.test(p.textContent)) return true; return false; }
     var chip = [].find.call(document.querySelectorAll('div,span,button'), function(e){
-      return e.children.length === 0 && e.textContent.trim() === '__LABEL__' && e.getBoundingClientRect().width > 0
-        && e.parentElement && /^\s*All\b/.test(e.parentElement.textContent);
+      return e.children.length === 0 && e.textContent.trim() === '__LABEL__' && e.getBoundingClientRect().width > 0 && inRow(e);
     });
     if (chip) { done = location.pathname; chip.click(); }
   }
