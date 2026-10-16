@@ -18,6 +18,7 @@ private const val BADGE_GAP = 0.02f
 /** Contact shadow: geometry up to this height above the bed casts it, mm; darkness right under a part. */
 private const val SHADOW_FADE_MM = 12f
 private const val SHADOW_STRENGTH = 0.8f
+private const val AO_FADE_S = 0.2f
 
 /** Colours of the 3D view, following the app theme (RGB 0..1). */
 data class ViewColors(
@@ -94,6 +95,9 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     /** Preview's occlusion: last frame's matrix (camera moving?) and what the kept occlusion was made for. */
     private val lastMvp = FloatArray(16)
     private var previewAoKey: Any? = null
+    private var previewAoFade = 0f
+    private var lastMoveNs = 0L
+    private var lastAoFrameNs = 0L
 
     private var pendingMesh: FloatData? = null
     private var pendingPaint: FloatData? = null
@@ -268,7 +272,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         drawBadges()
         if (showPreview) {
             drawExtrusions()
-            if (ao) effects.compositeAo(viewW, viewH)
+            if (ao) effects.compositeAo(viewW, viewH, previewAoFade)
             drawPreviewExtras()
         } else {
             if (models) drawMesh(meshVbo, meshCount, pass = 0)
@@ -296,14 +300,27 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
      * Preview it is left out while the camera moves and kept as long as the view and the toolpaths stay the same.
      */
     private fun previewAo(clip: Pair<Float, Float>): Boolean {
-        val moving = !mvp.contentEquals(lastMvp)
+        val now = System.nanoTime()
+        val dt = ((now - lastAoFrameNs) / 1e9f).coerceIn(0f, 0.1f)
+        lastAoFrameNs = now
+        if (!mvp.contentEquals(lastMvp)) lastMoveNs = now
         mvp.copyInto(lastMvp)
-        if (aoLevel == AO_OFF || moving) { previewAoKey = null; return false }
+        if (aoLevel == AO_OFF) { previewAoKey = null; previewAoFade = 0f; return false }
+        // The occlusion is only recomputed once the camera has rested (0.25 s, so a slow or damped orbit doesn't
+        // flap between the two states). Its strength fades out when the camera starts and back in when it rests;
+        // switching it on and off outright strobed the whole picture (a hard brightness step on every move).
+        if (now - lastMoveNs < 250_000_000L) {
+            previewAoKey = null
+            previewAoFade = (previewAoFade - dt / AO_FADE_S).coerceAtLeast(0f)
+            return previewAoFade > 0f
+        }
         val key = listOf(aoLevel, viewW, viewH, previewVersion, previewRange, previewStyle, section?.toList())
-        if (key == previewAoKey) return true
-        previewAoKey = null
-        if (!effects.renderAo(aoLevel, viewW, viewH, clip) { drawExtrusions() }) return false
-        previewAoKey = key
+        if (key != previewAoKey) {
+            previewAoKey = null
+            if (!effects.renderAo(aoLevel, viewW, viewH, clip) { drawExtrusions() }) { previewAoFade = 0f; return false }
+            previewAoKey = key
+        }
+        previewAoFade = (previewAoFade + dt / AO_FADE_S).coerceAtMost(1f)
         return true
     }
 

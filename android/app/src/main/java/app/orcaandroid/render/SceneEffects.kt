@@ -191,8 +191,9 @@ internal class SceneEffects {
     }
 
     /** Multiplies the frame (opaque geometry drawn so far) by the occlusion. */
-    fun compositeAo(viewW: Int, viewH: Int) {
+    fun compositeAo(viewW: Int, viewH: Int, strength: Float = 1f) {
         glUseProgram(compositeProgram)
+        glUniform1f(glGetUniformLocation(compositeProgram, "uStrength"), strength)
         glActiveTexture(GL_TEXTURE0)
         glBindTexture(GL_TEXTURE_2D, aoTex[0])
         glUniform1i(glGetUniformLocation(compositeProgram, "uAo"), 0)

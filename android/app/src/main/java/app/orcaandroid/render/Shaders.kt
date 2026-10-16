@@ -443,8 +443,9 @@ internal object Shaders {
         precision mediump float;
         uniform sampler2D uAo;
         uniform vec2 uSize;
+        uniform float uStrength;
         out vec4 color;
-        void main() { color = vec4(vec3(texture(uAo, gl_FragCoord.xy / uSize).r), 1.0); }"""
+        void main() { color = vec4(vec3(mix(1.0, texture(uAo, gl_FragCoord.xy / uSize).r, uStrength)), 1.0); }"""
 
     /** Colours per libslic3r ExtrusionRole (erNone ... erMixed), close to OrcaSlicer's defaults. */
     val ROLE_COLORS = floatArrayOf(
