@@ -454,8 +454,8 @@ void OrcaEngine::write_mesh()
 
     // The prime tower as the desktop shows it before slicing: on a plate that uses more than one
     // filament, a translucent box at the tower position, prime_tower_width square and as tall as
-    // the plate's objects (the real depth is only known after slicing). Selection id -2 never
-    // matches a selection; type 99 is drawn by the translucent pass.
+    // the plate's objects (the real depth is only known after slicing). Selection id -2 - plate
+    // never matches a selection (the renderer highlights and drags one tower by it); type 99 is drawn by the translucent pass.
     DynamicPrintConfig config;
     try {
         if (m_bundle && !m_printer.empty() && m_sel_filaments.size() > 1)
@@ -471,7 +471,7 @@ void OrcaEngine::write_mesh()
         const auto origin = plate_origin(int(p));
         TriangleMesh tower = make_cube(t.width, t.depth, t.height);
         tower.translate(float(origin[0] + t.x), float(origin[1] + t.y), 0.f);
-        emit(tower, -2.f, 99.f);
+        emit(tower, -2.f - float(p), 99.f);
     }
     f.close();
     if (std::rename(tmp.c_str(), m_mesh_path.c_str()) != 0)

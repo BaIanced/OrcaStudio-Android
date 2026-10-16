@@ -292,8 +292,12 @@ class SceneController(private val store: Store, private val presets: PresetContr
      * select mode adds the tapped copy to the selection or removes it. [section] = the section view's
      * plane: what it cuts away can't be picked.
      */
-    fun onViewTap(origin: Vec3, dir: Vec3, additive: Boolean = false, part: Boolean = false, section: FloatArray? = null) = store.launch {
+    fun onViewTap(origin: Vec3, dir: Vec3, additive: Boolean = false, part: Boolean = false, section: FloatArray? = null, emptyPlate: Int? = null) = store.launch {
         val hit = pick(origin, dir, section)
+        if (hit == null && emptyPlate != null && store.value.tool == Tool.None) {
+            selectPlate(emptyPlate)
+            return@launch
+        }
         when (store.value.tool) {
             Tool.LayOnFace -> if (hit != null) {
                 store.applyScene(engine.layOnFace(hit.obj, hit.instance, hit.normal))

@@ -10,8 +10,6 @@ import javax.microedition.khronos.opengles.GL10
 
 /** Selection id of a copy in the scene mesh: object * stride + instance (the engine's INSTANCE_ID_STRIDE). */
 const val INSTANCE_ID_STRIDE = 4096
-/** The scene mesh tags the prime tower with id -2 (OrcaScene.cpp write_mesh). */
-private val TOWER_IDS = floatArrayOf(-2f)
 
 /** Plate badge size and gap, as fractions of the bed depth (desktop: 16 and 3 mm per 200 mm, a bit bigger for touch). */
 private const val BADGE_SIZE = 0.1f
@@ -62,10 +60,10 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var dragOffset = floatArrayOf(0f, 0f, 0f)
         set(v) {
             field = v
-            if (v[0] == 0f && v[1] == 0f) dragTower = false
+            if (v[0] == 0f && v[1] == 0f) dragTower = -1
         }
-    /** The prime tower (selection id -2) is the thing being dragged: it takes the highlight and [dragOffset]. */
-    var dragTower = false
+    /** Plate whose prime tower (selection id -2 - plate) is being dragged, or -1: it takes the highlight and [dragOffset]. */
+    var dragTower = -1
     var showPreview = false
     var previewOrigin = floatArrayOf(0f, 0f)
     var previewStyle = PreviewStyle()
@@ -84,6 +82,9 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var contactShadows = true
 
     private val effects = SceneEffects()
+    /** Set by the view from the screen configuration (read on the GL thread, so volatile). */
+    @Volatile var deviceLandscape = false
+    private var frameLandscape = false
     private var viewW = 1
     private var viewH = 1
     /** x0, y0, x1, y1 of the scene mesh (null = empty) and a counter of its uploads, for the shadow. */
@@ -220,7 +221,9 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glViewport(0, 0, width, height)
         // Resizing the surface (pulling the panel handle) keeps the camera (user, 2026-10-15); only the first layout and a
         // rotation re-frame, since the framing depends on the aspect ratio.
-        val reframe = viewW <= 1 || (width > height) != (viewW > viewH)
+        // The device orientation decides, not the surface's own aspect: a tall panel turns the canvas wide in portrait.
+        val reframe = viewW <= 1 || deviceLandscape != frameLandscape
+        frameLandscape = deviceLandscape
         viewW = width; viewH = height
         camera.setViewport(width, height)
         if (reframe) lastFrame?.let { (index, top) -> frame(index, top) }
@@ -488,7 +491,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glUniformMatrix4fv(loc(meshProgram, "uMvp"), 1, false, mvp, 0)
         glUniform1i(loc(meshProgram, "uPass"), pass)
         glUniform1f(loc(meshProgram, "uShadowFade"), SHADOW_FADE_MM)
-        val ids = if (dragTower) TOWER_IDS else selectedIds
+        val ids = if (dragTower >= 0) floatArrayOf(-2f - dragTower) else selectedIds
         glUniform1fv(loc(meshProgram, "uSelected"), Shaders.MAX_SELECTED, ids.copyOf(Shaders.MAX_SELECTED), 0)
         glUniform1i(loc(meshProgram, "uSelectedCount"), minOf(ids.size, Shaders.MAX_SELECTED))
         glUniform3fv(loc(meshProgram, "uDrag"), 1, dragOffset, 0)

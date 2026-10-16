@@ -111,9 +111,9 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
             PlateView(ctx).also { v ->
                 PlateView.active = java.lang.ref.WeakReference(v)
                 v.listener = object : PlateListener {
-                    override fun onTap(x: Float, y: Float, additive: Boolean, part: Boolean) {
+                    override fun onTap(x: Float, y: Float, additive: Boolean, part: Boolean, emptyPlate: Int?) {
                         val (o, d) = v.camera.ray(x, y)
-                        vm.scene.onViewTap(o, d, additive, part, v.section.current)
+                        vm.scene.onViewTap(o, d, additive, part, v.section.current, emptyPlate)
                     }
                     override fun onDragCheck(x: Float, y: Float, result: (Boolean) -> Unit) {
                         val (o, d) = v.camera.ray(x, y)

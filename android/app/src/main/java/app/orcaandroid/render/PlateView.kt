@@ -22,7 +22,8 @@ interface PlateListener {
      * [additive]: Ctrl or Shift was held (adds to the selection); [part]: Alt was held (selects the
      * part under the pointer), as on the desktop.
      */
-    fun onTap(x: Float, y: Float, additive: Boolean, part: Boolean)
+    /** [emptyPlate]: another plate under the touch; it becomes active when the tap hits no object. */
+    fun onTap(x: Float, y: Float, additive: Boolean, part: Boolean, emptyPlate: Int? = null)
     /**
      * Shift+drag (add) or Alt+drag (remove) draws a selection rectangle from (x0, y0) to (x1, y1);
      * [done] once the button is released.
@@ -61,7 +62,9 @@ class TowerBox(val plate: Int, val lo: Vec3, val hi: Vec3)
 class PlateView(context: Context) : GLSurfaceView(context) {
 
     val camera = Camera()
-    val renderer = PlateRenderer(camera)
+    val renderer = PlateRenderer(camera).also {
+        it.deviceLandscape = context.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+    }
     val section = SectionView(camera)
     var listener: PlateListener? = null
     var mode = InteractionMode.NAVIGATE
@@ -100,7 +103,18 @@ class PlateView(context: Context) : GLSurfaceView(context) {
         }
     })
 
-    private val gestureDetector = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        renderer.deviceLandscape = resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        super.onSizeChanged(w, h, oldw, oldh)
+    }
+
+    /** A plain tap on empty bed of another plate makes it the active one (user, 2026-10-15); the scene decides after the pick. */
+    private fun tap(x: Float, y: Float, additive: Boolean, part: Boolean) {
+        val other = if (mode == InteractionMode.NAVIGATE && !additive && !part) renderer.plateAt(x, y)?.takeIf { it != renderer.activePlate } else null
+        listener?.onTap(x, y, additive, part, other)
+    }
+
+    private val gestureDetector =GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
         override fun onDoubleTap(e: MotionEvent): Boolean {
             if (mode != InteractionMode.NAVIGATE || rightButton || middleButton) return true
             // The first tap hit a badge (the view may have moved since): the second one does nothing.
@@ -184,7 +198,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                         towerPlate = t.plate
                         dragging = true
                         dragStart = camera.rayOnPlane(event.x, event.y)
-                        queueEvent { renderer.dragTower = true }
+                        queueEvent { renderer.dragTower = t.plate }
                     }
                 }
             }
@@ -252,11 +266,11 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                         else listener?.onMoved(end.x - start.x, end.y - start.y)
                     } else {
                         cancelDrag()
-                        if (!moved) listener?.onTap(event.x, event.y, additive, part)
+                        if (!moved) tap(event.x, event.y, additive, part)
                     }
                 } else if (!moved && !multiTouch && mode != InteractionMode.PAINT) {
                     val badge = if (mode == InteractionMode.NAVIGATE && !additive && !part) renderer.badgeAt(event.x, event.y) else null
-                    if (badge == null) listener?.onTap(event.x, event.y, additive, part)
+                    if (badge == null) tap(event.x, event.y, additive, part)
                     else if (event.eventTime - badgeTapTime > ViewConfiguration.getDoubleTapTimeout()) {
                         badgeTapTime = event.eventTime
                         listener?.onPlateBadge(badge.first, badge.second, event.x, event.y)
