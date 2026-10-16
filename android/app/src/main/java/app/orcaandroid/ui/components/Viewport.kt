@@ -292,9 +292,11 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         }
         v.onGl { cutPlane = cut }
     }
-    // Section view: the plane sweeps the bounding box of all objects (GLCanvas3D::_get_section_view_plane).
-    val bounds = remember(scene.objects) {
-        val boxes = scene.objects.flatMap { it.instances }
+    // Section view: the plane sweeps the bounding box of the active plate's objects, else of all objects
+    // (GLCanvas3D::_get_section_view_plane, volumes_bounding_box(true)).
+    val bounds = remember(scene.objects, state.activePlate) {
+        val all = scene.objects.flatMap { it.instances }
+        val boxes = all.filter { it.plate == state.activePlate }.ifEmpty { all }
         if (boxes.isEmpty()) null else
             Vec3(boxes.minOf { it.min.x }, boxes.minOf { it.min.y }, boxes.minOf { it.min.z }) to
                 Vec3(boxes.maxOf { it.min.x + it.size.x }, boxes.maxOf { it.min.y + it.size.y }, boxes.maxOf { it.min.z + it.size.z })
