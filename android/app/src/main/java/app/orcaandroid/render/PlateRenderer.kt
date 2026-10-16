@@ -128,7 +128,9 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     private var extrVbo = 0; private var extrCount = 0
     private var travelVbo = 0; private var travelCount = 0
     private var markerVbo = 0; private var markerCount = 0
-    private var bedVbo = 0; private var bedCount = 0; private var outlineStart = 0
+    private var bedVbo = 0; private var bedCount = 0
+    /** The grid's quad: the bed outline's box, plate-local (x0, y0, x1, y1). */
+    private var gridRect: FloatArray? = null
     private var boxVbo = 0; private var boxIbo = 0
     private var scratchVbo = 0
     /** Plate badges: icons per plate (top down, right of the plate; empty = numbers only), atlas, quads. */
@@ -147,6 +149,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     private var pathProgram = 0
     private var pointProgram = 0
     private var badgeProgram = 0
+    private var gridProgram = 0
     private val mvp = FloatArray(16)
 
     fun setBed(outline: FloatArray, origins: List<Pair<Float, Float>>) {
@@ -226,6 +229,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         pathProgram = program(Shaders.PATH_VS, Shaders.PATH_FS)
         pointProgram = program(Shaders.POINT_VS, Shaders.POINT_FS)
         badgeProgram = program(Shaders.BADGE_VS, Shaders.BADGE_FS)
+        gridProgram = program(Shaders.GRID_VS, Shaders.GRID_FS)
         val ids = IntArray(11)
         glGenBuffers(11, ids, 0)
         ghostVbo = ids[9]; ghostCount = 0
@@ -479,18 +483,15 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         return data.count
     }
 
-    /** 10 mm grid then the outline, as x,y,z line vertices in plate-local coordinates. */
+    /** The bed outline as x,y,z line vertices in plate-local coordinates; sets [gridRect] (the grid is a shader quad). */
     private fun bedLines(): FloatArray {
         val out = ArrayList<Float>()
         fun line(x0: Float, y0: Float, x1: Float, y1: Float) { out += listOf(x0, y0, 0f, x1, y1, 0f) }
+        gridRect = null
         if (bedOutline.size >= 6) {
             val xs = bedOutline.filterIndexed { i, _ -> i % 2 == 0 }
             val ys = bedOutline.filterIndexed { i, _ -> i % 2 == 1 }
-            var x = (xs.min() / 10).toInt() * 10f + 10f
-            while (x < xs.max()) { line(x, ys.min(), x, ys.max()); x += 10f }
-            var y = (ys.min() / 10).toInt() * 10f + 10f
-            while (y < ys.max()) { line(xs.min(), y, xs.max(), y); y += 10f }
-            outlineStart = out.size / 3
+            gridRect = floatArrayOf(xs.min(), ys.min(), xs.max(), ys.max())
             val n = bedOutline.size / 2
             for (i in 0 until n) {
                 val j = (i + 1) % n
@@ -528,6 +529,21 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
 
     private fun drawBeds() {
         if (bedCount == 0) return
+        gridRect?.let { rect ->
+            glUseProgram(gridProgram)
+            glUniformMatrix4fv(loc(gridProgram, "uMvp"), 1, false, mvp, 0)
+            glUniform4fv(loc(gridProgram, "uRect"), 1, rect, 0)
+            glUniform3fv(loc(gridProgram, "uColor"), 1, colors.grid, 0)
+            glEnable(GL_BLEND)
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+            glDepthMask(false)
+            for ((ox, oy) in plateOrigins) {
+                glUniform3f(loc(gridProgram, "uOffset"), ox, oy, 0f)
+                glDrawArrays(GL_TRIANGLE_STRIP, 0, 4)
+            }
+            glDepthMask(true)
+            glDisable(GL_BLEND)
+        }
         glUseProgram(lineProgram)
         glUniformMatrix4fv(loc(lineProgram, "uMvp"), 1, false, mvp, 0)
         setSection(lineProgram, on = false)
@@ -536,11 +552,9 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glVertexAttribPointer(0, 3, GL_FLOAT, false, 12, 0)
         plateOrigins.forEachIndexed { i, (ox, oy) ->
             glUniform3f(loc(lineProgram, "uOffset"), ox, oy, 0f)
-            glUniform3fv(loc(lineProgram, "uColor"), 1, colors.grid, 0)
-            glDrawArrays(GL_LINES, 0, outlineStart)
             glUniform3fv(loc(lineProgram, "uColor"), 1, if (i == activePlate) colors.activePlate else colors.grid, 0)
             glLineWidth(if (i == activePlate) 3f else 1f)
-            glDrawArrays(GL_LINES, outlineStart, bedCount - outlineStart)
+            glDrawArrays(GL_LINES, 0, bedCount)
             glLineWidth(1f)
         }
         glDisableVertexAttribArray(0)

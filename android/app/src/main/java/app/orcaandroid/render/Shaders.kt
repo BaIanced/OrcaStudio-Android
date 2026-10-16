@@ -153,20 +153,23 @@ internal object Shaders {
                 vec3 lk = normalize(uKeyDir);
                 vec3 lf = normalize(vec3(-0.6, 0.4, 0.35));
                 float sky = 0.5 + 0.5 * n.z;
-                // Real shadow (highp: the depth compare needs it; fp16 would be all acne). The key light only: ambient and
-                // fill stay, so the occlusion pass doesn't darken the same place twice.
+                // Real shadow (highp: the depth compare needs it; fp16 would be all acne). Darkens a face as much as the
+                // bed's shadow at the same darkness (dropping only the key term left it faint at 50 %); faces turned
+                // from the key light are left alone (already unlit; darkening them again would double the shade).
+                float ndl = max(dot(n, lk), 0.0);
                 float lit = 1.0;
                 if (uUseRealShadow == 1 && uPass == 0) {
                     highp vec3 sc = vShadowCoord.xyz / vShadowCoord.w * 0.5 + 0.5;
                     highp vec2 grad = planeGrad(sc);
                     if (sc.z < 1.0 && sc.x > 0.0 && sc.x < 1.0 && sc.y > 0.0 && sc.y < 1.0) {
-                        lit = 1.0 - uShadowStrength * (1.0 - lightAt(sc, grad, dot(normalize(vNormal), lk), 8));
+                        float occ = 1.0 - lightAt(sc, grad, dot(normalize(vNormal), lk), 8);
+                        lit = 1.0 - uShadowStrength * occ * smoothstep(0.0, 0.2, ndl);
                     }
                 }
-                float diff = 0.22 + 0.16 * sky + 0.50 * uKeyStrength * max(dot(n, lk), 0.0) * lit + 0.20 * max(dot(n, lf), 0.0);
-                float spec = pow(max(dot(n, normalize(lk + v)), 0.0), 36.0) * 0.16 * uKeyStrength * lit;
+                float diff = 0.22 + 0.16 * sky + 0.50 * uKeyStrength * ndl + 0.20 * max(dot(n, lf), 0.0);
+                float spec = pow(max(dot(n, normalize(lk + v)), 0.0), 36.0) * 0.16 * uKeyStrength;
                 float rim = pow(1.0 - max(dot(n, v), 0.0), 3.0) * 0.14;
-                vec3 shaded = base * diff + vec3(spec) + vec3(0.55, 0.7, 1.0) * rim * (0.4 + 0.6 * sky);
+                vec3 shaded = (base * diff + vec3(spec)) * lit + vec3(0.55, 0.7, 1.0) * rim * (0.4 + 0.6 * sky);
                 color = vec4(shaded, alpha);
                 return;
             }
@@ -191,6 +194,43 @@ internal object Shaders {
         void main() {
             if (uSectionOn == 1 && dot(uSection.xyz, vWorld) > uSection.w) discard;
             color = vec4(uColor, 1.0);
+        }"""
+
+    /**
+     * The bed's 10 mm grid as one quad per bed (uRect, plate-local x0, y0, x1, y1, moved by uOffset): each line is
+     * drawn from its distance in pixels, so it stays 1 px wide and smooth instead of the stepped, broken GL_LINES of
+     * near-top views, and a direction whose lines crowd from ~8 to ~3 px apart fades out instead of shimmering into dashes.
+     */
+    const val GRID_VS = """#version 300 es
+        uniform mat4 uMvp;
+        uniform highp vec4 uRect;
+        uniform vec3 uOffset;
+        out highp vec2 vLocal;
+        void main() {
+            vec2 c = vec2(float(gl_VertexID & 1), float((gl_VertexID >> 1) & 1));
+            vLocal = mix(uRect.xy, uRect.zw, c);
+            gl_Position = uMvp * vec4(vLocal + uOffset.xy, 0.0, 1.0);
+        }"""
+
+    const val GRID_FS = """#version 300 es
+        precision highp float;
+        uniform vec3 uColor;
+        uniform vec4 uRect;
+        in vec2 vLocal;
+        out vec4 color;
+        float axis(float g, float w, float lo, float hi) {
+            // Lines on the bed's edge belong to the outline.
+            float at = floor(g + 0.5) * 10.0;
+            if (at < lo + 0.01 || at > hi - 0.01) return 0.0;
+            float d = abs(g - floor(g + 0.5)) / max(w, 1e-6);
+            return clamp(1.0 - d, 0.0, 1.0) * (1.0 - smoothstep(0.12, 0.3, w));
+        }
+        void main() {
+            vec2 g = vLocal / 10.0;
+            vec2 w = fwidth(g);
+            float a = max(axis(g.x, w.x, uRect.x, uRect.z), axis(g.y, w.y, uRect.y, uRect.w));
+            if (a < 0.004) discard;
+            color = vec4(uColor, a);
         }"""
 
     /** Plate badges (numbers, icons): textured quads on the bed plane from a premultiplied atlas. */
@@ -423,16 +463,17 @@ internal object Shaders {
         """ + PCF + """
         uniform int uReal;
         uniform float uStrength;
+        uniform float uBedNdl;
         in vec2 vUv;
         in highp vec4 vShadowCoord;
         out vec4 color;
         void main() {
             if (uReal == 0) { color = vec4(0.0, 0.0, 0.0, uStrength * texture(uTex, vUv).r); return; }
-            // Real shadow on the bed (flat, facing up: dot with the key light 0.75).
+            // Real shadow on the bed (flat, facing up: uBedNdl = the key light's height, z of its direction).
             highp vec3 sc = vShadowCoord.xyz / vShadowCoord.w * 0.5 + 0.5;
             float lit = 1.0;
             highp vec2 grad = planeGrad(sc);
-            if (sc.z < 1.0 && sc.x > 0.0 && sc.x < 1.0 && sc.y > 0.0 && sc.y < 1.0) lit = lightAt(sc, grad, 0.75, 16);
+            if (sc.z < 1.0 && sc.x > 0.0 && sc.x < 1.0 && sc.y > 0.0 && sc.y < 1.0) lit = lightAt(sc, grad, uBedNdl, 16);
             color = vec4(0.0, 0.0, 0.0, uStrength * (1.0 - lit));
         }"""
 

@@ -211,6 +211,8 @@ internal class SceneEffects {
             glUniformMatrix4fv(glGetUniformLocation(shadowProgram, "uLightMvp"), 1, false, lightMvp, 0)
             glUniform1f(glGetUniformLocation(shadowProgram, "uSoft"), softMm / lightSpanMm)
             glUniform1f(glGetUniformLocation(shadowProgram, "uBiasMm"), biasMm)
+            val (lx, ly, lz) = lightDir
+            glUniform1f(glGetUniformLocation(shadowProgram, "uBedNdl"), lz / kotlin.math.sqrt(lx * lx + ly * ly + lz * lz))
             glActiveTexture(GL_TEXTURE1)
             glBindTexture(GL_TEXTURE_2D, realTex)
             glActiveTexture(GL_TEXTURE0)
