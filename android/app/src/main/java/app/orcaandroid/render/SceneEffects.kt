@@ -42,6 +42,8 @@ internal class SceneEffects {
     /** Texture and light matrix of the last real shadow render. */
     val realShadowTex get() = realTex
     val lightMvp = FloatArray(16)
+    /** Direction towards the key light (the mesh shader's `uKeyDir`): set by the renderer, read when the depth map is drawn. */
+    var lightDir = floatArrayOf(LIGHT_X, LIGHT_Y, LIGHT_Z)
     /** Width of the light's view in mm (one uv unit of the depth map), to turn mm of penumbra into uv. */
     var lightSpanMm = 1f; private set
     /** True when a real shadow map is rendered and may be sampled. */
@@ -153,9 +155,10 @@ internal class SceneEffects {
         val cx = (bounds[0] + bounds[2]) / 2f
         val cy = (bounds[1] + bounds[3]) / 2f
         val r = max(bounds[2] - bounds[0], bounds[3] - bounds[1]) / 2f + m
-        val len = kotlin.math.sqrt(LIGHT_X * LIGHT_X + LIGHT_Y * LIGHT_Y + LIGHT_Z * LIGHT_Z)
+        val (lx, ly, lz) = lightDir
+        val len = kotlin.math.sqrt(lx * lx + ly * ly + lz * lz)
         val view = FloatArray(16)
-        Matrix.setLookAtM(view, 0, cx + LIGHT_X / len * REAL_DISTANCE, cy + LIGHT_Y / len * REAL_DISTANCE, LIGHT_Z / len * REAL_DISTANCE,
+        Matrix.setLookAtM(view, 0, cx + lx / len * REAL_DISTANCE, cy + ly / len * REAL_DISTANCE, lz / len * REAL_DISTANCE,
             cx, cy, 0f, 0f, 0f, 1f)
         val proj = FloatArray(16)
         Matrix.orthoM(proj, 0, -r, r, -r, r, 10f, REAL_DISTANCE * 3f)
@@ -364,7 +367,7 @@ internal class SceneEffects {
         const val REAL_MARGIN = 300f
         /** The key light's distance from the plate centre, mm (taller than any print). */
         const val REAL_DISTANCE = 350f
-        /** Direction towards the key light: the mesh shader's `lk` (Shaders.MESH_FS), keep in step. */
+        /** Default direction towards the key light (azimuth -57.5, elevation 49 degrees in the layout lab). */
         const val LIGHT_X = 0.35f
         const val LIGHT_Y = -0.55f
         const val LIGHT_Z = 0.75f

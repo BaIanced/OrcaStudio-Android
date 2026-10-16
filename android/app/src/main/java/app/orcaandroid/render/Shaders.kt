@@ -87,6 +87,8 @@ internal object Shaders {
         """ + PCF + """
         uniform int uUseRealShadow;
         uniform float uShadowStrength;
+        uniform vec3 uKeyDir;
+        uniform float uKeyStrength;
         in vec3 vNormal;
         in highp vec3 vWorld;
         in highp vec4 vShadowCoord;
@@ -148,7 +150,7 @@ internal object Shaders {
                 // faint plastic highlight and a cool rim on silhouettes. The slice preview keeps its flat colours.
                 vec3 v = normalize(uEye - vWorld);
                 if (dot(n, v) < 0.0) n = -n;
-                vec3 lk = normalize(vec3(0.35, -0.55, 0.75));
+                vec3 lk = normalize(uKeyDir);
                 vec3 lf = normalize(vec3(-0.6, 0.4, 0.35));
                 float sky = 0.5 + 0.5 * n.z;
                 // Real shadow (highp: the depth compare needs it; fp16 would be all acne). The key light only: ambient and
@@ -161,8 +163,8 @@ internal object Shaders {
                         lit = 1.0 - uShadowStrength * (1.0 - lightAt(sc, grad, dot(normalize(vNormal), lk), 8));
                     }
                 }
-                float diff = 0.22 + 0.16 * sky + 0.50 * max(dot(n, lk), 0.0) * lit + 0.20 * max(dot(n, lf), 0.0);
-                float spec = pow(max(dot(n, normalize(lk + v)), 0.0), 36.0) * 0.16 * lit;
+                float diff = 0.22 + 0.16 * sky + 0.50 * uKeyStrength * max(dot(n, lk), 0.0) * lit + 0.20 * max(dot(n, lf), 0.0);
+                float spec = pow(max(dot(n, normalize(lk + v)), 0.0), 36.0) * 0.16 * uKeyStrength * lit;
                 float rim = pow(1.0 - max(dot(n, v), 0.0), 3.0) * 0.14;
                 vec3 shaded = base * diff + vec3(spec) + vec3(0.55, 0.7, 1.0) * rim * (0.4 + 0.6 * sky);
                 color = vec4(shaded, alpha);

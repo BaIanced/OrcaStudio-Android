@@ -88,6 +88,15 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var shadowStrength = 0.5f
     var shadowSoftMm = 6f
     var shadowBiasMm = 2f
+    /** Key light of the models (layout lab): azimuth about the plate from +X and elevation above the bed in degrees, strength 1 = as designed. */
+    var keyAzimuth = -57.5f
+    var keyElevation = 49f
+    var keyStrength = 1f
+    private val keyDir get() = Math.toRadians(keyElevation.toDouble()).let { el ->
+        Math.toRadians(keyAzimuth.toDouble()).let { az ->
+            floatArrayOf((Math.cos(el) * Math.cos(az)).toFloat(), (Math.cos(el) * Math.sin(az)).toFloat(), Math.sin(el).toFloat())
+        }
+    }
 
     private val effects = SceneEffects()
     /** Set by the view from the screen configuration (read on the GL thread, so volatile). */
@@ -253,7 +262,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         val shadow = contactShadows && !showPreview && models && meshCount > 0 && bounds != null
         useRealShadow = false
         if (shadow) {
-            val key = listOf(meshVersion, dragOffset.toList(), selectedIds.toList(), dragTower, section?.toList())
+            effects.lightDir = keyDir
+            val key = listOf(meshVersion, dragOffset.toList(), selectedIds.toList(), dragTower, section?.toList(), keyAzimuth, keyElevation)
             // A dragged copy may leave the footprint: widen it by the drag.
             // A fixed widening for the whole drag: any change of the map area mid-drag rescales the texels and
             // shows as a step ("strobe") in the shadow.
@@ -548,6 +558,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             glActiveTexture(GL_TEXTURE0)
         }
         val ids = if (dragTower >= 0) floatArrayOf(-2f - dragTower) else selectedIds
+        keyDir.let { glUniform3f(loc(meshProgram, "uKeyDir"), it[0], it[1], it[2]) }
+        glUniform1f(loc(meshProgram, "uKeyStrength"), keyStrength)
         glUniform1fv(loc(meshProgram, "uSelected"), Shaders.MAX_SELECTED, ids.copyOf(Shaders.MAX_SELECTED), 0)
         glUniform1i(loc(meshProgram, "uSelectedCount"), minOf(ids.size, Shaders.MAX_SELECTED))
         glUniform3fv(loc(meshProgram, "uDrag"), 1, dragOffset, 0)

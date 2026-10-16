@@ -37,13 +37,18 @@ data class LayoutLab(
     val shadowStrength: Float = 0.5f,
     val shadowSoft: Float = 6f,
     val shadowBias: Float = 2f,
+    /** Key light of the 3D models: direction (azimuth about the plate from +X, elevation above the bed, degrees) and strength (1 = as designed). */
+    val lightAzimuth: Float = -57.5f,
+    val lightElevation: Float = 49f,
+    val lightStrength: Float = 1f,
 ) {
     fun toJson(): String = JSONObject()
         .put("plates", plates.name).put("plateLabel", plateLabel).put("overlayAlpha", overlayAlpha.toDouble())
         .put("toolsLeft", toolsLeft).put("panelTucked", panelTucked).put("panelWidth", panelWidth.toDouble())
         .put("textScale", textScale.toDouble()).put("uiScale", uiScale.toDouble()).put("overlayScale", overlayScale.toDouble())
         .put("fullscreenPortrait", fullscreenPortrait).put("platesOnHandle", platesOnHandle).put("plateScale", plateScale.toDouble())
-        .put("shadowStrength", shadowStrength.toDouble()).put("shadowSoft", shadowSoft.toDouble()).put("shadowBias", shadowBias.toDouble()).toString()
+        .put("shadowStrength", shadowStrength.toDouble()).put("shadowSoft", shadowSoft.toDouble()).put("shadowBias", shadowBias.toDouble())
+        .put("lightAzimuth", lightAzimuth.toDouble()).put("lightElevation", lightElevation.toDouble()).put("lightStrength", lightStrength.toDouble()).toString()
 
     companion object {
         val TEXT_SCALES = 0.7f..1.3f
@@ -53,6 +58,9 @@ data class LayoutLab(
         val SHADOW_STRENGTHS = 0.1f..1f
         val SHADOW_SOFTS = 0.5f..12f
         val SHADOW_BIASES = 0.2f..8f
+        val LIGHT_AZIMUTHS = -180f..180f
+        val LIGHT_ELEVATIONS = 20f..85f
+        val LIGHT_STRENGTHS = 0.2f..2f
 
         fun fromJson(json: String?): LayoutLab {
             val o = json?.let { runCatching { JSONObject(it) }.getOrNull() } ?: return LayoutLab()
@@ -73,6 +81,9 @@ data class LayoutLab(
                 shadowStrength = o.optDouble("shadowStrength", d.shadowStrength.toDouble()).toFloat().coerceIn(SHADOW_STRENGTHS.start, SHADOW_STRENGTHS.endInclusive),
                 shadowSoft = o.optDouble("shadowSoft", d.shadowSoft.toDouble()).toFloat().coerceIn(SHADOW_SOFTS.start, SHADOW_SOFTS.endInclusive),
                 shadowBias = o.optDouble("shadowBias", d.shadowBias.toDouble()).toFloat().coerceIn(SHADOW_BIASES.start, SHADOW_BIASES.endInclusive),
+                lightAzimuth = o.optDouble("lightAzimuth", d.lightAzimuth.toDouble()).toFloat().coerceIn(LIGHT_AZIMUTHS.start, LIGHT_AZIMUTHS.endInclusive),
+                lightElevation = o.optDouble("lightElevation", d.lightElevation.toDouble()).toFloat().coerceIn(LIGHT_ELEVATIONS.start, LIGHT_ELEVATIONS.endInclusive),
+                lightStrength = o.optDouble("lightStrength", d.lightStrength.toDouble()).toFloat().coerceIn(LIGHT_STRENGTHS.start, LIGHT_STRENGTHS.endInclusive),
             )
         }
     }
