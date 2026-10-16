@@ -327,8 +327,16 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         }
         val code = withTimeoutOrNull(5_000) { done.await() } ?: throw ToolError("The 3D view did not answer in time")
         if (code != android.view.PixelCopy.SUCCESS) throw ToolError("The screen copy failed (code $code); is the app in the foreground?")
-        val scale = size.toFloat() / maxOf(bitmap.width, bitmap.height)
-        val shot = if (scale < 1f) android.graphics.Bitmap.createScaledBitmap(bitmap, (bitmap.width * scale).toInt().coerceAtLeast(1), (bitmap.height * scale).toInt().coerceAtLeast(1), true) else bitmap
+        // The shadow and AO passes blend into the surface's alpha too: laid on the view's background colour, as the
+        // screen shows it, instead of read as an opaque picture (where a shadow turns into a light halo).
+        val bg = view.renderer.colors.background
+        val flat = android.graphics.Bitmap.createBitmap(bitmap.width, bitmap.height, android.graphics.Bitmap.Config.ARGB_8888)
+        android.graphics.Canvas(flat).apply {
+            drawColor(android.graphics.Color.rgb((bg[0] * 255).toInt(), (bg[1] * 255).toInt(), (bg[2] * 255).toInt()))
+            drawBitmap(bitmap, 0f, 0f, null)
+        }
+        val scale = size.toFloat() / maxOf(flat.width, flat.height)
+        val shot = if (scale < 1f) android.graphics.Bitmap.createScaledBitmap(flat, (flat.width * scale).toInt().coerceAtLeast(1), (flat.height * scale).toInt().coerceAtLeast(1), true) else flat
         val png = java.io.ByteArrayOutputStream().also { shot.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }.toByteArray()
         return JSONArray()
             .put(JSONObject().put("type", "image").put("data", android.util.Base64.encodeToString(png, android.util.Base64.NO_WRAP)).put("mimeType", "image/png"))
