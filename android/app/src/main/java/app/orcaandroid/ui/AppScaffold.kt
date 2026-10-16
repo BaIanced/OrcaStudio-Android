@@ -200,7 +200,7 @@ private fun MainLayout(state: UiState, vm: AppViewModel) {
                             }
                         }
                         LabPeek.readout?.takeIf { LabPeek.touching }?.let { (text, fraction) ->
-                            androidx.compose.material3.Surface(Modifier.align(Alignment.TopCenter).then(belowHole).padding(top = 12.dp).widthIn(max = 360.dp).fillMaxWidth(0.8f),
+                            androidx.compose.material3.Surface(Modifier.align(Alignment.Center).widthIn(max = 360.dp).fillMaxWidth(0.8f),
                                 shape = RoundedCornerShape(12.dp), tonalElevation = 6.dp, shadowElevation = 4.dp) {
                                 Column(Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
                                     Text(text, style = MaterialTheme.typography.bodyMedium)
