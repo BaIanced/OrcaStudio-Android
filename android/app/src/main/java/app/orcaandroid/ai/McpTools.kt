@@ -327,12 +327,11 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         }
         val code = withTimeoutOrNull(5_000) { done.await() } ?: throw ToolError("The 3D view did not answer in time")
         if (code != android.view.PixelCopy.SUCCESS) throw ToolError("The screen copy failed (code $code); is the app in the foreground?")
-        // The shadow and AO passes blend into the surface's alpha too: laid on the view's background colour, as the
-        // screen shows it, instead of read as an opaque picture (where a shadow turns into a light halo).
-        val bg = view.renderer.colors.background
+        // The shadow pass lowers the surface's alpha: the screen shows that over the dark window behind it, so lay the
+        // copy on black, not as an opaque picture (where a shadow turns into a light halo).
         val flat = android.graphics.Bitmap.createBitmap(bitmap.width, bitmap.height, android.graphics.Bitmap.Config.ARGB_8888)
         android.graphics.Canvas(flat).apply {
-            drawColor(android.graphics.Color.rgb((bg[0] * 255).toInt(), (bg[1] * 255).toInt(), (bg[2] * 255).toInt()))
+            drawColor(android.graphics.Color.BLACK)
             drawBitmap(bitmap, 0f, 0f, null)
         }
         val scale = size.toFloat() / maxOf(flat.width, flat.height)
