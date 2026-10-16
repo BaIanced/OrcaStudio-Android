@@ -277,7 +277,12 @@ internal object Shaders {
             else if (uScheme == 7) vColor = uFilamentColors[clamp(int(aValue + 0.5), 0, 15)];
             else vColor = gradient((aValue - uRange.x) / max(uRange.y - uRange.x, 1e-6));
             vWorld = pos;
-            gl_Position = uMvp * vec4(pos, 1.0);
+            // Beads of different roles overlap on the same plane (skin ends run into the walls): which one won the
+            // depth test flipped with every camera move (the sawtooth that strobed). A fixed lift per role makes the
+            // winner the same from every angle: walls over gap fill over top skin over solid infill over sparse infill.
+            float lift = role == 2 ? 4.0 : (role == 1 || role == 3) ? 3.0 : (role == 6 || role == 8 || role == 11) ? 2.0
+                : (role == 5 || role == 7 || role == 9 || role == 10) ? 1.0 : 0.0;
+            gl_Position = uMvp * vec4(pos + vec3(0.0, 0.0, lift * 0.01), 1.0);
         }"""
 
     const val PATH_FS = """#version 300 es
