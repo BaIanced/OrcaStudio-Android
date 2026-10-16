@@ -256,7 +256,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         val move = framedPlate != plate && (framedPlate >= 0 || restored)
         framedPlate = plate
         // A plate already on screen becomes active without moving the camera (user, 2026-10-13); double tap frames it.
-        v.onGl { activePlate = plate; if (move && !plateInView(plate)) frame(plate) }
+        v.onGl { activePlate = plate }
     }
     LaunchedEffect(v, state.filaments) {
         val cols = state.filaments.map { hexToRgb(it.color ?: "#FF7F27") }
@@ -341,7 +341,7 @@ private var savedCamera: FloatArray? = null
 fun PlateView.framePlate(plate: Int, top: Boolean = false) = onGl { frame(plate, top) }
 
 /** Brings plate [plate] into view: the camera stays when its centre is already on screen (user, 2026-10-13). */
-fun PlateView.showPlate(plate: Int) = onGl { if (!plateInView(plate)) frame(plate) }
+fun PlateView.showPlate(plate: Int) = Unit // selecting a plate no longer moves the camera (user, 2026-10-15)
 
 /** [mesh] (position + normal per vertex) as scene-mesh vertices of type 98, centred on (cx, cy) and standing on the bed. */
 private fun ghostData(mesh: app.orcaandroid.render.PreviewMesh, cx: Float, cy: Float): FloatData {

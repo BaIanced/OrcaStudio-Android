@@ -108,8 +108,8 @@ class PlateView(context: Context) : GLSurfaceView(context) {
             // On another plate: focus that one (user, 2026-10-13); else re-frame the active plate.
             val other = renderer.plateAt(e.x, e.y)?.takeIf { it != renderer.activePlate }
             if (other != null) listener?.onPlateDoubleTap(other)
-            val target = other ?: renderer.activePlate
-            queueEvent { renderer.frame(target) }
+            // Selecting another plate leaves the camera alone (user, 2026-10-15); only the active plate is re-framed.
+            if (other == null) queueEvent { renderer.frame(renderer.activePlate) }
             return true
         }
 

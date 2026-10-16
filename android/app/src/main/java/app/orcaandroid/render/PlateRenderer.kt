@@ -218,10 +218,12 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
 
     override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
         glViewport(0, 0, width, height)
+        // Resizing the surface (pulling the panel handle) keeps the camera (user, 2026-10-15); only the first layout and a
+        // rotation re-frame, since the framing depends on the aspect ratio.
+        val reframe = viewW <= 1 || (width > height) != (viewW > viewH)
         viewW = width; viewH = height
         camera.setViewport(width, height)
-        // The framing depends on the aspect ratio; redo it for the new size (first layout, rotation).
-        lastFrame?.let { (index, top) -> frame(index, top) }
+        if (reframe) lastFrame?.let { (index, top) -> frame(index, top) }
     }
 
     override fun onDrawFrame(gl: GL10?) {
