@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -196,6 +197,15 @@ private fun MainLayout(state: UiState, vm: AppViewModel) {
                         androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides keep) {
                             Box(Modifier.fillMaxSize().graphicsLayer { alpha = fade }) {
                                 Themed(Region.MORE, Modifier.fillMaxSize(), fill = true) { Box(belowHole) { MoreScreen(state, vm) } }
+                            }
+                        }
+                        LabPeek.readout?.takeIf { LabPeek.touching }?.let { (text, fraction) ->
+                            androidx.compose.material3.Surface(Modifier.align(Alignment.Center).widthIn(max = 360.dp).fillMaxWidth(0.8f),
+                                shape = RoundedCornerShape(12.dp), tonalElevation = 6.dp, shadowElevation = 4.dp) {
+                                Column(Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
+                                    Text(text, style = MaterialTheme.typography.bodyMedium)
+                                    androidx.compose.material3.LinearProgressIndicator({ fraction.coerceIn(0f, 1f) }, Modifier.fillMaxWidth().padding(top = 6.dp))
+                                }
                             }
                         }
                     }

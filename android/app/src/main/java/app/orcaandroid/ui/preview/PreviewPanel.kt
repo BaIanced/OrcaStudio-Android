@@ -130,7 +130,11 @@ private fun Summary(state: UiState, vm: AppViewModel, r: SliceResult) {
                     }
                 }
             }
-            r.warnings.forEach { Text(vm.translator.tr(it), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+            // Mixed temperatures the user has allowed are only a heads-up (upstream returns it as a warning), not an error.
+            r.warnings.forEach {
+                val allowed = state.allowMixedTemps && it.startsWith("Selected nozzle temperatures are incompatible")
+                Text(vm.translator.tr(it), color = if (allowed) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            }
         }
     }
 }
@@ -161,6 +165,7 @@ private fun Actions(state: UiState, vm: AppViewModel, r: SliceResult) {
         OutlinedButton(onClick = { vm.setScreen(Screen.DEVICE) }, modifier = Modifier.fillMaxWidth()) { Text(label) }
     }
     state.amsPrompt?.let { AmsMappingDialog(it, vm) }
+    state.mismatchPrompt?.let { MismatchDialog(it, vm) }
     when (upload) {
         is UploadState.Running -> LinearProgressIndicator(progress = { upload.progress }, modifier = Modifier.fillMaxWidth())
         is UploadState.Done -> {

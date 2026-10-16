@@ -316,7 +316,8 @@ fun Filmstrip(state: UiState, vm: AppViewModel, view: PlateView?, modifier: Modi
 fun FileButton(state: UiState, vm: AppViewModel) {
     var open by remember { mutableStateOf(false) }
     Box {
-        FilledTonalButton(onClick = { open = true }, contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)) {
+        FilledTonalButton(onClick = { open = true }, colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
+            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = LocalOverlayAlpha.current), contentColor = MaterialTheme.colorScheme.onSurface), contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)) {
             Icon(Icons.Default.Folder, null, Modifier.size(18.dp))
             Spacer(Modifier.width(6.dp))
             Text(stringResource(R.string.file))

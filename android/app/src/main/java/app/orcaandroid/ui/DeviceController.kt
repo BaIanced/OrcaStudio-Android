@@ -10,6 +10,7 @@ import app.orcaandroid.net.HostType
 import app.orcaandroid.net.PrintHost
 import app.orcaandroid.net.PrinterAlert
 import app.orcaandroid.net.PrinterConnection
+import app.orcaandroid.net.PrinterModel
 import app.orcaandroid.net.PrinterTray
 import app.orcaandroid.service.PrintMonitorService
 import java.io.File
@@ -71,11 +72,17 @@ class DeviceController(private val store: Store) {
      * with an AMS first asks which tray each used filament prints from ([UiState.amsPrompt]), as the
      * desktop's print dialog does; [confirmPrint] then starts it.
      */
-    fun upload(startPrint: Boolean) = store.launch {
+    fun upload(startPrint: Boolean, confirmed: Boolean = false) = store.launch {
         val s = store.value
         val result = s.shownResult ?: return@launch
         val connection = s.connection ?: return@launch
         if (s.upload is UploadState.Running) return@launch
+        if (!confirmed && !result.external) {
+            PrinterModel.mismatch(s.printer, connection.serial)?.let { (sliced, connected) ->
+                store.update { it.copy(mismatchPrompt = MismatchPrompt(sliced, connected, startPrint)) }
+                return@launch
+            }
+        }
         store.update { it.copy(upload = UploadState.Running(0f, startPrint), amsPrompt = null) }
         try {
             val bambu = (connection.type == HostType.BAMBU || connection.type == HostType.BAMBU_SIGNED) && !result.external
@@ -100,6 +107,15 @@ class DeviceController(private val store: Store) {
             store.update { it.copy(upload = null) }
             throw e
         }
+    }
+
+    fun dismissMismatch() = store.update { it.copy(mismatchPrompt = null) }
+
+    /** Sends anyway after the user confirmed the model warning. */
+    fun confirmMismatch() {
+        val prompt = store.value.mismatchPrompt ?: return
+        dismissMismatch()
+        upload(prompt.startPrint, confirmed = true)
     }
 
     /** The exported archive waiting for the user's tray choice. */

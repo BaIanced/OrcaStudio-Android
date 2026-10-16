@@ -214,7 +214,10 @@ internal object Shaders {
         out vec3 vNormal;
         out highp vec3 vWorld;
         out float vBead;
+        out float vAcross;
+        out vec3 vRight;
         flat out float vSideFace;
+        flat out float vTopFace;
 
         vec3 rightOf(vec3 a, vec3 b) {
             vec3 s = cross(b - a, vec3(0.0, 0.0, 1.0));
@@ -266,11 +269,20 @@ internal object Shaders {
             vNormal = normalize(sideNormal * aFace.x + up * aFace.y + dir * aFace.z);
             vBead = aCorner.z;
             vSideFace = abs(aFace.x);
+            // Top / bottom faces are rounded across the bead's width in the fragment shader: u spans -1..1 over it.
+            vTopFace = abs(aFace.y);
+            vAcross = aCorner.y;
+            vRight = sideNormal;
             if (uScheme == 0) vColor = uRoleColors[role];
             else if (uScheme == 7) vColor = uFilamentColors[clamp(int(aValue + 0.5), 0, 15)];
             else vColor = gradient((aValue - uRange.x) / max(uRange.y - uRange.x, 1e-6));
             vWorld = pos;
-            gl_Position = uMvp * vec4(pos, 1.0);
+            // Beads of different roles overlap on the same plane (skin ends run into the walls): which one won the
+            // depth test flipped with every camera move (the sawtooth that strobed). A fixed lift per role makes the
+            // winner the same from every angle: walls over gap fill over top skin over solid infill over sparse infill.
+            float lift = role == 2 ? 4.0 : (role == 1 || role == 3) ? 3.0 : (role == 6 || role == 8 || role == 11) ? 2.0
+                : (role == 5 || role == 7 || role == 9 || role == 10) ? 1.0 : 0.0;
+            gl_Position = uMvp * vec4(pos + vec3(0.0, 0.0, lift * 0.01), 1.0);
         }"""
 
     const val PATH_FS = """#version 300 es
@@ -281,7 +293,10 @@ internal object Shaders {
         in vec3 vNormal;
         in highp vec3 vWorld;
         in float vBead;
+        in float vAcross;
+        in vec3 vRight;
         flat in float vSideFace;
+        flat in float vTopFace;
         out vec4 color;
         void main() {
             if (uSectionOn == 1 && dot(uSection.xyz, vWorld) > uSection.w) discard;
@@ -293,9 +308,14 @@ internal object Shaders {
             // layers beat against the pixel grid into wavy moire.
             float bead = vSideFace * 0.8 * (1.0 - smoothstep(0.12, 0.25, fwidth(vBead)));
             n = normalize(n + vec3(0.0, 0.0, vBead * bead));
+            // Top and bottom skins read as separate extrusions: the normal rolls off towards the bead's edges
+            // and the edge itself darkens a little. Fades out when a bead is under ~8 px wide (moire).
+            float rounding = vTopFace * (1.0 - smoothstep(0.12, 0.25, fwidth(vAcross)));
+            n = normalize(n + vRight * (vAcross * 0.9 * rounding));
             float sky = 0.5 + 0.5 * n.z;
             float light = 0.30 + 0.12 * sky + 0.42 * max(dot(n, normalize(vec3(0.35, -0.55, 0.75))), 0.0)
                 + 0.24 * max(dot(n, normalize(vec3(-0.6, 0.4, 0.35))), 0.0);
+            light *= 1.0 - 0.3 * rounding * pow(abs(vAcross), 6.0);
             color = vec4(vColor * light, 1.0);
         }"""
 

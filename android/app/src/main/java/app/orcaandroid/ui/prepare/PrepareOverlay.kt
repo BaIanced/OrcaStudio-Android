@@ -480,7 +480,7 @@ private fun ToolButton(icon: ImageVector, label: String, active: Boolean = false
             colors = if (active) androidx.compose.material3.IconButtonDefaults.filledTonalIconButtonColors(
                 containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary) else
                 androidx.compose.material3.IconButtonDefaults.filledTonalIconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = alpha)),
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = alpha)),
             modifier = Modifier.size(48.dp),
         ) { Icon(icon, label) }
     }

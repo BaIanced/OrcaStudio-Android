@@ -71,6 +71,9 @@ data class AmsPrompt(
     val filamentCount: Int,
 )
 
+/** A print or send held back because the sliced printer model differs from the connected one. */
+data class MismatchPrompt(val sliced: String, val connected: String, val startPrint: Boolean)
+
 /** How the preview is shown. */
 data class PreviewUi(
     val layerLow: Int = 0,
@@ -184,6 +187,7 @@ data class UiState(
     val suggestedConnection: PrinterConnection? = null,
     val upload: UploadState? = null,
     val amsPrompt: AmsPrompt? = null,
+    val mismatchPrompt: MismatchPrompt? = null,
     val printerStatus: PrinterStatus? = null,
     /** Why the last status request failed, shown instead of waiting forever. */
     val printerStatusError: String? = null,
