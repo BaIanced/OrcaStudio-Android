@@ -19,6 +19,7 @@ private const val BADGE_GAP = 0.02f
 private const val SHADOW_FADE_MM = 12f
 private const val SHADOW_STRENGTH = 0.8f
 private const val AO_FADE_S = 0.2f
+private const val LIVE_AO_MAX_SEGMENTS = 250_000
 
 /** Colours of the 3D view, following the app theme (RGB 0..1). */
 data class ViewColors(
@@ -296,16 +297,31 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     }
 
     /**
-     * Big toolpaths cost as much again in the occlusion's depth pass (17 instead of 26 fps on a phone), so in
-     * Preview it is left out while the camera moves and kept as long as the view and the toolpaths stay the same.
+     * Big toolpaths cost as much again in the occlusion's depth pass (17 instead of 26 fps on a phone), so above
+     * [LIVE_AO_MAX_SEGMENTS] the occlusion fades out while the camera moves and is kept as long as the view and the
+     * toolpaths stay the same. Smaller ones recompute it every frame.
      */
     private fun previewAo(clip: Pair<Float, Float>): Boolean {
         val now = System.nanoTime()
         val dt = ((now - lastAoFrameNs) / 1e9f).coerceIn(0f, 0.1f)
         lastAoFrameNs = now
-        if (!mvp.contentEquals(lastMvp)) lastMoveNs = now
+        val moving = !mvp.contentEquals(lastMvp)
+        if (moving) lastMoveNs = now
         mvp.copyInto(lastMvp)
         if (aoLevel == AO_OFF) { previewAoKey = null; previewAoFade = 0f; return false }
+        // Small toolpaths: the occlusion is recomputed every frame like in Prepare. Without it the deep corners
+        // (the gap between the top skin and the wall) were bright while the camera moved and dark at rest (a glow
+        // that strobed), and the stale occlusion left a ghost behind.
+        val key = listOf(aoLevel, viewW, viewH, previewVersion, previewRange, previewStyle, section?.toList())
+        if (extrCount <= LIVE_AO_MAX_SEGMENTS) {
+            if (moving || key != previewAoKey) {
+                previewAoKey = null
+                if (!effects.renderAo(aoLevel, viewW, viewH, clip) { drawExtrusions() }) { previewAoFade = 0f; return false }
+                previewAoKey = key
+            }
+            previewAoFade = 1f
+            return true
+        }
         // The occlusion is only recomputed once the camera has rested (0.25 s, so a slow or damped orbit doesn't
         // flap between the two states). Its strength fades out when the camera starts and back in when it rests;
         // switching it on and off outright strobed the whole picture (a hard brightness step on every move).
@@ -314,7 +330,6 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             previewAoFade = (previewAoFade - dt / AO_FADE_S).coerceAtLeast(0f)
             return previewAoFade > 0f
         }
-        val key = listOf(aoLevel, viewW, viewH, previewVersion, previewRange, previewStyle, section?.toList())
         if (key != previewAoKey) {
             previewAoKey = null
             if (!effects.renderAo(aoLevel, viewW, viewH, clip) { drawExtrusions() }) { previewAoFade = 0f; return false }
