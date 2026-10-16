@@ -510,8 +510,12 @@ json OrcaEngine::scene_json()
                                  {"color", item.color},
                                  {"extruder", item.extruder}});
         plates[p]["layer_gcodes"] = items;
-        if (m_plates[p].has_wipe_tower_pos)
-            plates[p]["wipe_tower"] = {m_plates[p].wipe_tower_x, m_plates[p].wipe_tower_y};
+        if (m_plates[p].has_wipe_tower_pos) {
+            // Show the position the tower really takes (on the bed), not a raw value dragged past the edge.
+            const bool boxed = p < m_tower_boxes.size() && m_tower_boxes[p];
+            plates[p]["wipe_tower"] = {boxed ? m_tower_boxes[p]->x : m_plates[p].wipe_tower_x,
+                                       boxed ? m_tower_boxes[p]->y : m_plates[p].wipe_tower_y};
+        }
         if (p < m_tower_boxes.size() && m_tower_boxes[p])
             plates[p]["tower"] = {m_tower_boxes[p]->x, m_tower_boxes[p]->y, m_tower_boxes[p]->width, m_tower_boxes[p]->depth, m_tower_boxes[p]->height};
     }
