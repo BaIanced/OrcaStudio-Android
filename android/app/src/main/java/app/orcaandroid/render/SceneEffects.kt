@@ -33,6 +33,18 @@ internal class SceneEffects {
     private var shadowRect: FloatArray? = null
     private var shadowKey: Any? = null
 
+    /** Real shadow map (user wishlist 2026-10: stage 4): the parts' depth from the key light; the old contact shadow stays as the fallback. */
+    private var realTex = 0
+    private var realFbo = 0
+    private var realFailed = false
+    /** The depth target works on this GPU (else the contact shadow is used). */
+    var isRealShadow = false; private set
+    /** Texture and light matrix of the last real shadow render. */
+    val realShadowTex get() = realTex
+    val lightMvp = FloatArray(16)
+    /** True when a real shadow map is rendered and may be sampled. */
+    val realShadowReady get() = isRealShadow && shadowRect != null && !broken
+
     private var depthTex = 0
     private var depthFbo = 0
     private val aoTex = IntArray(2)
@@ -53,6 +65,8 @@ internal class SceneEffects {
         aoW = 0; aoH = 0; depthTex = 0; depthFbo = 0
         shadowTex.fill(0); shadowFbo.fill(0); aoTex.fill(0); aoFbo.fill(0)
         broken = false
+        // The old context's objects are gone: forget the ids (deleting them could hit new objects with the same names).
+        realTex = 0; realFbo = 0; realFailed = false; isRealShadow = false
     }
 
     // --- Contact shadow ------------------------------------------------------------------------
@@ -64,6 +78,8 @@ internal class SceneEffects {
     fun renderShadow(bounds: FloatArray, key: Any, viewW: Int, viewH: Int, draw: (FloatArray) -> Unit) {
         if (broken) return
         if (key == shadowKey && shadowRect != null) return
+        if (!isRealShadow && !realFailed) realTargets()
+        if (isRealShadow) { renderReal(bounds, key, viewW, viewH, draw); return }
         val m = SHADOW_MARGIN
         val rect = floatArrayOf(bounds[0] - m, bounds[1] - m, bounds[2] + m, bounds[3] + m)
         val ex = rect[2] - rect[0]
@@ -100,6 +116,62 @@ internal class SceneEffects {
         shadowKey = key
     }
 
+    /** Creates the depth-only target of the real shadow map; on a GPU that can't, [realFailed] keeps the contact shadow. */
+    private fun realTargets() {
+        val ids = IntArray(1)
+        glGenTextures(1, ids, 0); realTex = ids[0]
+        glGenFramebuffers(1, ids, 0); realFbo = ids[0]
+        glBindTexture(GL_TEXTURE_2D, realTex)
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, REAL_SIZE, REAL_SIZE, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, null)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
+        glBindFramebuffer(GL_FRAMEBUFFER, realFbo)
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, realTex, 0)
+        // Depth only: no colour attachment to draw to or read from.
+        glDrawBuffers(1, intArrayOf(GL_NONE), 0)
+        glReadBuffer(GL_NONE)
+        val status = glCheckFramebufferStatus(GL_FRAMEBUFFER)
+        glBindFramebuffer(GL_FRAMEBUFFER, 0)
+        glBindTexture(GL_TEXTURE_2D, 0)
+        if (status == GL_FRAMEBUFFER_COMPLETE) { isRealShadow = true; return }
+        Log.w("OrcaRender", "shadow map target incomplete: 0x${status.toString(16)}; contact shadow instead")
+        glDeleteTextures(1, intArrayOf(realTex), 0)
+        glDeleteFramebuffers(1, intArrayOf(realFbo), 0)
+        realTex = 0; realFbo = 0; realFailed = true
+    }
+
+    /** Depth of the parts seen from the key light (the mesh shader's `lk`), an orthographic box fitted round [bounds]. */
+    private fun renderReal(bounds: FloatArray, key: Any, viewW: Int, viewH: Int, draw: (FloatArray) -> Unit) {
+        val m = REAL_MARGIN
+        val rect = floatArrayOf(bounds[0] - m, bounds[1] - m, bounds[2] + m, bounds[3] + m)
+        val cx = (bounds[0] + bounds[2]) / 2f
+        val cy = (bounds[1] + bounds[3]) / 2f
+        val r = max(bounds[2] - bounds[0], bounds[3] - bounds[1]) / 2f + m
+        val len = kotlin.math.sqrt(LIGHT_X * LIGHT_X + LIGHT_Y * LIGHT_Y + LIGHT_Z * LIGHT_Z)
+        val view = FloatArray(16)
+        Matrix.setLookAtM(view, 0, cx + LIGHT_X / len * REAL_DISTANCE, cy + LIGHT_Y / len * REAL_DISTANCE, LIGHT_Z / len * REAL_DISTANCE,
+            cx, cy, 0f, 0f, 0f, 1f)
+        val proj = FloatArray(16)
+        Matrix.orthoM(proj, 0, -r, r, -r, r, 10f, REAL_DISTANCE * 3f)
+        Matrix.multiplyMM(lightMvp, 0, proj, 0, view, 0)
+        glBindFramebuffer(GL_FRAMEBUFFER, realFbo)
+        glViewport(0, 0, REAL_SIZE, REAL_SIZE)
+        glEnable(GL_DEPTH_TEST)
+        glDepthMask(true)
+        glClear(GL_DEPTH_BUFFER_BIT)
+        glColorMask(false, false, false, false)
+        draw(lightMvp)
+        glColorMask(true, true, true, true)
+        glBindFramebuffer(GL_FRAMEBUFFER, 0)
+        glViewport(0, 0, viewW, viewH)
+        shadowRect = rect
+        shadowKey = key
+    }
+
     private fun blur(src: Int, dst: Int, du: Float, dv: Float) {
         glBindFramebuffer(GL_FRAMEBUFFER, dst)
         glActiveTexture(GL_TEXTURE0)
@@ -115,18 +187,32 @@ internal class SceneEffects {
         if (broken) return
         glUseProgram(shadowProgram)
         glUniformMatrix4fv(glGetUniformLocation(shadowProgram, "uMvp"), 1, false, mvp, 0)
-        val shifted = floatArrayOf(rect[0] + SHADOW_SHIFT_X, rect[1] + SHADOW_SHIFT_Y, rect[2] + SHADOW_SHIFT_X, rect[3] + SHADOW_SHIFT_Y)
+        val real = isRealShadow
+        // The real shadow already falls away from the light: no shift.
+        val dx = if (real) 0f else SHADOW_SHIFT_X
+        val dy = if (real) 0f else SHADOW_SHIFT_Y
+        val shifted = floatArrayOf(rect[0] + dx, rect[1] + dy, rect[2] + dx, rect[3] + dy)
         glUniform4fv(glGetUniformLocation(shadowProgram, "uRect"), 1, shifted, 0)
         glUniform1f(glGetUniformLocation(shadowProgram, "uStrength"), strength)
-        glActiveTexture(GL_TEXTURE0)
-        glBindTexture(GL_TEXTURE_2D, shadowTex[0])
+        glUniform1i(glGetUniformLocation(shadowProgram, "uReal"), if (real) 1 else 0)
+        // Two samplers of different types must not share a unit (INVALID_OPERATION at the draw): contact map 0, depth map 1.
         glUniform1i(glGetUniformLocation(shadowProgram, "uTex"), 0)
+        glUniform1i(glGetUniformLocation(shadowProgram, "uRealShadowMap"), 1)
+        glActiveTexture(GL_TEXTURE0)
+        glBindTexture(GL_TEXTURE_2D, if (real) 0 else shadowTex[0])
+        if (real) {
+            glUniformMatrix4fv(glGetUniformLocation(shadowProgram, "uLightMvp"), 1, false, lightMvp, 0)
+            glActiveTexture(GL_TEXTURE1)
+            glBindTexture(GL_TEXTURE_2D, realTex)
+            glActiveTexture(GL_TEXTURE0)
+        }
         glEnable(GL_BLEND)
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
         glDepthMask(false)
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4)
         glDepthMask(true)
         glDisable(GL_BLEND)
+        if (real) { glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_2D, 0); glActiveTexture(GL_TEXTURE0) }
     }
 
     /** Forgets the shadow (no parts, or switched off). */
@@ -268,5 +354,14 @@ internal class SceneEffects {
         /** The shadow sits this far from the parts, away from the light (matches the mesh shader's light), mm. */
         const val SHADOW_SHIFT_X = -1.2f
         const val SHADOW_SHIFT_Y = 1.8f
+        /** Real shadow map: texels per side (one render per scene change), room round the parts for shadows falling off them, mm. */
+        const val REAL_SIZE = 2048
+        const val REAL_MARGIN = 300f
+        /** The key light's distance from the plate centre, mm (taller than any print). */
+        const val REAL_DISTANCE = 350f
+        /** Direction towards the key light: the mesh shader's `lk` (Shaders.MESH_FS), keep in step. */
+        const val LIGHT_X = 0.35f
+        const val LIGHT_Y = -0.55f
+        const val LIGHT_Z = 0.75f
     }
 }

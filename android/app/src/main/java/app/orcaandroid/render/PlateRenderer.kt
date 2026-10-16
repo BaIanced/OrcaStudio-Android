@@ -82,6 +82,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     /** Ambient occlusion level (AO_OFF, 1 soft, 2 full) and the contact shadow under objects (Prepare). */
     var aoLevel = AO_OFF
     var contactShadows = true
+    /** Set per frame: the lit mesh pass samples the real shadow map (a depth map was rendered this frame or before, and shadows are on). */
+    private var useRealShadow = false
 
     private val effects = SceneEffects()
     /** Set by the view from the screen configuration (read on the GL thread, so volatile). */
@@ -245,6 +247,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         val models = ghostCount == 0
         val bounds = meshBounds
         val shadow = contactShadows && !showPreview && models && meshCount > 0 && bounds != null
+        useRealShadow = false
         if (shadow) {
             val key = listOf(meshVersion, dragOffset.toList(), selectedIds.toList(), dragTower, section?.toList())
             // A dragged copy may leave the footprint: widen it by the drag.
@@ -254,18 +257,22 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             val dx = if (dragging) 150f else 0f
             val dy = dx
             val area = floatArrayOf(bounds!![0] - dx, bounds[1] - dy, bounds[2] + dx, bounds[3] + dy)
+            useRealShadow = false
             effects.renderShadow(area, key, viewW, viewH) { ortho ->
                 val frame = mvp.copyOf()
                 ortho.copyInto(mvp)
-                drawMesh(meshVbo, meshCount, pass = 3)
+                drawMesh(meshVbo, meshCount, pass = if (effects.isRealShadow) 4 else 3)
                 frame.copyInto(mvp)
             }
+            useRealShadow = effects.realShadowReady
             // The shadow pass changed the clear colour.
             glClearColor(bg[0], bg[1], bg[2], 1f)
         }
         val ao = if (showPreview) previewAo(clip) else {
             previewAoKey = null
-            effects.renderAo(aoLevel, viewW, viewH, clip) { if (models) drawMesh(meshVbo, meshCount, pass = 0) }
+            effects.renderAo(aoLevel, viewW, viewH, clip) {
+                if (models) { val real = useRealShadow; useRealShadow = false; drawMesh(meshVbo, meshCount, pass = 0); useRealShadow = real }
+            }
         }
 
         if (shadow) effects.drawShadow(mvp, SHADOW_STRENGTH)
@@ -523,6 +530,16 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glUniformMatrix4fv(loc(meshProgram, "uMvp"), 1, false, mvp, 0)
         glUniform1i(loc(meshProgram, "uPass"), pass)
         glUniform1f(loc(meshProgram, "uShadowFade"), SHADOW_FADE_MM)
+        // The real shadow map is sampled by the lit pass only (not while it is being drawn, not in the occlusion pre-pass).
+        val real = useRealShadow && pass == 0
+        glUniform1i(loc(meshProgram, "uUseRealShadow"), if (real) 1 else 0)
+        glUniform1i(loc(meshProgram, "uRealShadowMap"), 2)
+        if (real) {
+            glUniformMatrix4fv(loc(meshProgram, "uLightMvp"), 1, false, effects.lightMvp, 0)
+            glActiveTexture(GL_TEXTURE2)
+            glBindTexture(GL_TEXTURE_2D, effects.realShadowTex)
+            glActiveTexture(GL_TEXTURE0)
+        }
         val ids = if (dragTower >= 0) floatArrayOf(-2f - dragTower) else selectedIds
         glUniform1fv(loc(meshProgram, "uSelected"), Shaders.MAX_SELECTED, ids.copyOf(Shaders.MAX_SELECTED), 0)
         glUniform1i(loc(meshProgram, "uSelectedCount"), minOf(ids.size, Shaders.MAX_SELECTED))
@@ -539,6 +556,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glVertexAttribPointer(2, 2, GL_FLOAT, false, 32, 24)
         glDrawArrays(GL_TRIANGLES, 0, count)
         for (a in 0..2) glDisableVertexAttribArray(a)
+        // Nothing left bound on unit 2: the next pass must not sample the map while it renders into it.
+        if (real) { glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_2D, 0); glActiveTexture(GL_TEXTURE0) }
     }
 
     private fun setFilamentColors(program: Int) {
