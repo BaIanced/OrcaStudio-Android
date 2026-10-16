@@ -282,20 +282,25 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
 
     private suspend fun viewSet(args: JSONObject): String = withContext(Dispatchers.Main.immediate) {
         val view = plateView()
+        val target = args.vec3("target")
+        fun num(key: String) = if (args.has(key)) args.optDouble(key).takeIf { it.isFinite() }?.toFloat() ?: throw ToolError("$key must be a number") else null
+        val yaw = num("yaw"); val pitch = num("pitch"); val distance = num("distance")
+        val to = target?.let { Vec3(it.x.toFloat(), it.y.toFloat(), it.z.toFloat()) }
+        var fitted = false
         args.optString("view").takeIf { it.isNotEmpty() }?.let { name ->
             if (name == "fit") {
                 val plate = if (args.has("plate")) args.optInt("plate") - 1 else store.value.activePlate
                 if (plate !in 0 until store.value.scene.plates.size) throw ToolError("No plate ${plate + 1}")
-                view.onGl { frame(plate, false) }
+                // The fit runs on the GL thread and sets the angles itself: the given ones go after it.
+                view.onGl { frame(plate, false); view.camera.aim(yaw, pitch, distance, to) }
+                fitted = true
             } else {
                 val id = listOf("iso", "top", "front", "left", "right", "bottom", "rear").indexOf(name)
                 if (id < 0) throw ToolError("view must be iso, top, front, left, right, bottom, rear or fit")
                 view.camera.preset(id)
             }
         }
-        val target = args.vec3("target")
-        fun num(key: String) = if (args.has(key)) args.optDouble(key).takeIf { it.isFinite() }?.toFloat() ?: throw ToolError("$key must be a number") else null
-        view.camera.aim(num("yaw"), num("pitch"), num("distance"), target?.let { Vec3(it.x.toFloat(), it.y.toFloat(), it.z.toFloat()) })
+        if (fitted) kotlinx.coroutines.delay(150) else view.camera.aim(yaw, pitch, distance, to)
         num("section")?.let { r -> view.section.set(r); view.section.panelOpen = view.section.active }
         if (args.has("ao")) {
             val level = args.optInt("ao").coerceIn(0, 2)
