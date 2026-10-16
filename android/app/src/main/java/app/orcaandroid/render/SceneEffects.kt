@@ -206,7 +206,7 @@ internal class SceneEffects {
         if (real) {
             glUniformMatrix4fv(glGetUniformLocation(shadowProgram, "uLightMvp"), 1, false, lightMvp, 0)
             glUniform1f(glGetUniformLocation(shadowProgram, "uSoft"), softMm / lightSpanMm)
-            glUniform1f(glGetUniformLocation(shadowProgram, "uBiasMm"), biasMm + 0.3f * softMm)
+            glUniform1f(glGetUniformLocation(shadowProgram, "uBiasMm"), biasMm)
             glActiveTexture(GL_TEXTURE1)
             glBindTexture(GL_TEXTURE_2D, realTex)
             glActiveTexture(GL_TEXTURE0)

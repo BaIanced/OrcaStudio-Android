@@ -6,20 +6,29 @@ internal object Shaders {
     /**
      * Fraction of the key light that reaches [sc] (light-space uv + depth): 0 shadow .. 1 lit. Golden-angle taps in a disc of
      * uSoft (uv), turned per pixel so the few taps blur instead of banding; each tap is a hardware 2x2 compare. The bias
-     * (uBiasMm, over the 1040 mm depth range) shrinks on faces turned towards the light. highp: fp16 depth compares are all acne.
+     * (uBiasMm, over the 1040 mm depth range) shrinks on faces turned towards the light. Every tap's depth follows the
+     * receiver's own slope (planeGrad, from the screen derivatives: call it outside any branch), so a wide disc on a tilted
+     * face doesn't shadow itself (grain). highp: fp16 depth compares are all acne.
      */
     private const val PCF = """
         uniform mediump sampler2DShadow uRealShadowMap;
         uniform highp float uSoft;
         uniform highp float uBiasMm;
-        highp float lightAt(highp vec3 sc, highp float ndl, int taps) {
+        highp vec2 planeGrad(highp vec3 sc) {
+            highp vec2 dx = dFdx(sc.xy), dy = dFdy(sc.xy);
+            highp float det = dx.x * dy.y - dx.y * dy.x;
+            if (abs(det) < 1e-12) return vec2(0.0);
+            return clamp(vec2(dFdx(sc.z) * dy.y - dFdy(sc.z) * dx.y, dFdy(sc.z) * dx.x - dFdx(sc.z) * dy.x) / det, -4.0, 4.0);
+        }
+        highp float lightAt(highp vec3 sc, highp vec2 grad, highp float ndl, int taps) {
             highp float z = sc.z - uBiasMm * max(1.0 - ndl, 0.15) / 1040.0;
             highp float rot = 6.2832 * fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
             highp float s = 0.0;
             for (int i = 0; i < taps; ++i) {
                 highp float a = float(i) * 2.39996 + rot;
                 highp float r = sqrt((float(i) + 0.5) / float(taps)) * uSoft;
-                s += texture(uRealShadowMap, vec3(sc.xy + vec2(cos(a), sin(a)) * r, z));
+                highp vec2 o = vec2(cos(a), sin(a)) * r;
+                s += texture(uRealShadowMap, vec3(sc.xy + o, z + dot(o, grad)));
             }
             return s / float(taps);
         }"""
@@ -147,8 +156,9 @@ internal object Shaders {
                 float lit = 1.0;
                 if (uUseRealShadow == 1 && uPass == 0) {
                     highp vec3 sc = vShadowCoord.xyz / vShadowCoord.w * 0.5 + 0.5;
+                    highp vec2 grad = planeGrad(sc);
                     if (sc.z < 1.0 && sc.x > 0.0 && sc.x < 1.0 && sc.y > 0.0 && sc.y < 1.0) {
-                        lit = 1.0 - uShadowStrength * (1.0 - lightAt(sc, dot(normalize(vNormal), lk), 8));
+                        lit = 1.0 - uShadowStrength * (1.0 - lightAt(sc, grad, dot(normalize(vNormal), lk), 8));
                     }
                 }
                 float diff = 0.22 + 0.16 * sky + 0.50 * max(dot(n, lk), 0.0) * lit + 0.20 * max(dot(n, lf), 0.0);
@@ -415,7 +425,8 @@ internal object Shaders {
             // Real shadow on the bed (flat, facing up: dot with the key light 0.75).
             highp vec3 sc = vShadowCoord.xyz / vShadowCoord.w * 0.5 + 0.5;
             float lit = 1.0;
-            if (sc.z < 1.0 && sc.x > 0.0 && sc.x < 1.0 && sc.y > 0.0 && sc.y < 1.0) lit = lightAt(sc, 0.75, 16);
+            highp vec2 grad = planeGrad(sc);
+            if (sc.z < 1.0 && sc.x > 0.0 && sc.x < 1.0 && sc.y > 0.0 && sc.y < 1.0) lit = lightAt(sc, grad, 0.75, 16);
             color = vec4(0.0, 0.0, 0.0, uStrength * (1.0 - lit));
         }"""
 

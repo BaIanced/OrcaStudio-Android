@@ -34,9 +34,9 @@ data class LayoutLab(
     /** Size of the plate switcher alone (tabs, filmstrip tiles or chips). */
     val plateScale: Float = 1f,
     /** Real shadow (Prepare): how dark (0.1-1), how soft in mm of penumbra, and the depth bias in mm (acne vs. light under parts). */
-    val shadowStrength: Float = 0.55f,
-    val shadowSoft: Float = 3f,
-    val shadowBias: Float = 3f,
+    val shadowStrength: Float = 0.5f,
+    val shadowSoft: Float = 6f,
+    val shadowBias: Float = 2f,
 ) {
     fun toJson(): String = JSONObject()
         .put("plates", plates.name).put("plateLabel", plateLabel).put("overlayAlpha", overlayAlpha.toDouble())
@@ -52,7 +52,7 @@ data class LayoutLab(
         val PLATE_SCALES = 0.6f..1.6f
         val SHADOW_STRENGTHS = 0.1f..1f
         val SHADOW_SOFTS = 0.5f..12f
-        val SHADOW_BIASES = 0.5f..8f
+        val SHADOW_BIASES = 0.2f..8f
 
         fun fromJson(json: String?): LayoutLab {
             val o = json?.let { runCatching { JSONObject(it) }.getOrNull() } ?: return LayoutLab()
