@@ -83,6 +83,7 @@ import app.orcaandroid.net.AdBlock
 import app.orcaandroid.net.BambuAccount
 import app.orcaandroid.net.FilamentProfiles
 import app.orcaandroid.net.ModelDownloads
+import app.orcaandroid.net.PrinterModel
 import app.orcaandroid.ui.AppViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -120,6 +121,12 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel, d
     /** Listing pages with page numbers (Thingiverse, Printables) load the next page as you scroll. */
     var infiniteScroll by mutableStateOf(prefs.getBoolean(PREF_INFINITE_SCROLL, true))
         private set
+    /** MakerWorld's printer chip for the current printer preset ("A1", "X1 Carbon", ...), or null when unknown. */
+    private fun chipLabel(): String? {
+        val model = vm.state.value.printer?.let(PrinterModel::ofPreset) ?: return null
+        return if (model == "X1C") "X1 Carbon" else model
+    }
+
     /** The element picker: waiting for a tap, and the outlined element (selector to label). */
     var picking by mutableStateOf(false)
         private set
@@ -218,6 +225,7 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel, d
                 view.evaluateJavascript(ZOOM_JS, null)
                 if (adBlockOn) view.evaluateJavascript(AdBlock.PICKER_JS, null)
                 if (infiniteScroll) view.evaluateJavascript(MORE_JS, null)
+                chipLabel()?.let { view.evaluateJavascript(PRINTER_JS.replace("__LABEL__", it), null) }
                 updateNav()
             }
             override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) {
@@ -596,6 +604,23 @@ private const val BRIDGE_JS = """(function(){
  * page's pager is hidden meanwhile), or a "Load more" button is pressed. Back from a model loads
  * the same pages again and returns to the same spot. MakerWorld already loads more by itself.
  */
+private const val PRINTER_JS = """(function(){
+  // MakerWorld model pages show a "Print Files" chip row (All, A1 mini, ...) that resets to All on every
+  // load: click the chip for the current printer once per model page.
+  if (window.__orcaPrinter || !/makerworld/.test(location.host)) return; window.__orcaPrinter = 1;
+  var done = '';
+  function pick(){
+    if (done === location.pathname || !/\/models\/\d/.test(location.pathname)) return;
+    var chip = [].find.call(document.querySelectorAll('div,span,button'), function(e){
+      return e.children.length === 0 && e.textContent.trim() === '__LABEL__' && e.getBoundingClientRect().width > 0
+        && e.parentElement && /^\s*All\b/.test(e.parentElement.textContent);
+    });
+    if (chip) { done = location.pathname; chip.click(); }
+  }
+  new MutationObserver(pick).observe(document.body, { childList: true, subtree: true });
+  pick();
+})();"""
+
 private const val MORE_JS = """(function(){
   // MakerWorld loads more on its own as you scroll.
   if (window.__orcaMore || /makerworld/.test(location.host)) return; window.__orcaMore = 1;
