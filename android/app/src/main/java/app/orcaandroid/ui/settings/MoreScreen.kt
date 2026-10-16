@@ -40,6 +40,8 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.runtime.getValue
@@ -259,16 +261,7 @@ private fun LayoutLabSection(state: UiState, vm: AppViewModel) {
         LabPeek.open = true
         onDispose { LabPeek.open = false; LabPeek.touching = false; LabPeek.frozen = null; LabPeek.readout = null }
       }
-      Column(Modifier.pointerInput(Unit) {
-        awaitPointerEventScope {
-            while (true) {
-                val down = awaitPointerEvent(PointerEventPass.Initial).changes.any { it.pressed }
-                if (down && !LabPeek.touching) LabPeek.frozen = current
-                if (!down) { LabPeek.frozen = null; LabPeek.readout = null }
-                LabPeek.touching = down
-            }
-        }
-      }, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+      Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(stringResource(R.string.layout_lab_text), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(stringResource(R.string.lab_plate_switcher), style = MaterialTheme.typography.bodyMedium)
         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
@@ -282,12 +275,12 @@ private fun LayoutLabSection(state: UiState, vm: AppViewModel) {
         SwitchRow(stringResource(R.string.lab_plates_on_handle), lab.platesOnHandle, onChange = { vm.setLab(lab.copy(platesOnHandle = it)) })
         SwitchRow(stringResource(R.string.lab_fullscreen_portrait), lab.fullscreenPortrait, onChange = { vm.setLab(lab.copy(fullscreenPortrait = it)) })
         Text(stringResource(R.string.lab_overlay_alpha, (lab.overlayAlpha * 100).toInt()), style = MaterialTheme.typography.bodyMedium)
-        androidx.compose.material3.Slider(lab.overlayAlpha, { vm.setLab(lab.copy(overlayAlpha = it)) }, valueRange = 0.2f..1f)
+        LabSlider(lab.overlayAlpha, { vm.setLab(lab.copy(overlayAlpha = it)) }, 0.2f..1f, current)
         Text(stringResource(R.string.lab_scale_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        ScaleSlider(R.string.lab_text_scale, lab.textScale, app.orcaandroid.core.LayoutLab.TEXT_SCALES) { vm.setLab(state.lab.copy(textScale = it)) }
-        ScaleSlider(R.string.lab_ui_scale, lab.uiScale, app.orcaandroid.core.LayoutLab.UI_SCALES) { vm.setLab(state.lab.copy(uiScale = it)) }
-        ScaleSlider(R.string.lab_plate_scale, lab.plateScale, app.orcaandroid.core.LayoutLab.PLATE_SCALES) { vm.setLab(state.lab.copy(plateScale = it)) }
-        ScaleSlider(R.string.lab_overlay_scale, lab.overlayScale, app.orcaandroid.core.LayoutLab.OVERLAY_SCALES) { vm.setLab(state.lab.copy(overlayScale = it)) }
+        ScaleSlider(R.string.lab_text_scale, lab.textScale, app.orcaandroid.core.LayoutLab.TEXT_SCALES, current) { vm.setLab(state.lab.copy(textScale = it)) }
+        ScaleSlider(R.string.lab_ui_scale, lab.uiScale, app.orcaandroid.core.LayoutLab.UI_SCALES, current) { vm.setLab(state.lab.copy(uiScale = it)) }
+        ScaleSlider(R.string.lab_plate_scale, lab.plateScale, app.orcaandroid.core.LayoutLab.PLATE_SCALES, current) { vm.setLab(state.lab.copy(plateScale = it)) }
+        ScaleSlider(R.string.lab_overlay_scale, lab.overlayScale, app.orcaandroid.core.LayoutLab.OVERLAY_SCALES, current) { vm.setLab(state.lab.copy(overlayScale = it)) }
         TextButton(onClick = { vm.setLab(app.orcaandroid.core.LayoutLab()) }) { Text(stringResource(R.string.reset)) }
       }
     }
@@ -295,12 +288,26 @@ private fun LayoutLabSection(state: UiState, vm: AppViewModel) {
 
 /** A size slider in 5 % steps, applied live (More is frozen at its touch-time size while dragging, so it doesn't move under the finger). */
 @Composable
-private fun ScaleSlider(label: Int, value: Float, range: ClosedFloatingPointRange<Float>, onSet: (Float) -> Unit) {
+private fun ScaleSlider(label: Int, value: Float, range: ClosedFloatingPointRange<Float>, lab: app.orcaandroid.core.LayoutLab, onSet: (Float) -> Unit) {
     val text = stringResource(label, kotlin.math.round(value * 100).toInt())
     Text(text, style = MaterialTheme.typography.bodyMedium)
-    // While a finger is down the whole of More is faded; the scaffold shows this readout so the value stays in view.
-    androidx.compose.material3.Slider(value, { LabPeek.readout = text to (it - range.start) / (range.endInclusive - range.start); onSet(kotlin.math.round(it * 20) / 20f) }, valueRange = range,
+    // While a finger is down on a slider the whole of More is faded; the scaffold shows this readout so the value stays in view.
+    LabSlider(value, { LabPeek.readout = text to (it - range.start) / (range.endInclusive - range.start); onSet(kotlin.math.round(it * 20) / 20f) }, range, lab,
         steps = kotlin.math.round((range.endInclusive - range.start) * 20).toInt() - 1)
+}
+
+/** A lab slider: only a finger on the slider itself fades/freezes More (not any touch in the section). */
+@Composable
+private fun LabSlider(value: Float, onChange: (Float) -> Unit, range: ClosedFloatingPointRange<Float>, lab: app.orcaandroid.core.LayoutLab, steps: Int = 0) {
+    val source = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val pressed by source.collectIsPressedAsState()
+    val dragged by source.collectIsDraggedAsState()
+    val down = pressed || dragged
+    androidx.compose.runtime.LaunchedEffect(down) {
+        if (down) { if (!LabPeek.touching) LabPeek.frozen = lab } else { LabPeek.frozen = null; LabPeek.readout = null }
+        LabPeek.touching = down
+    }
+    androidx.compose.material3.Slider(value, onChange, valueRange = range, steps = steps, interactionSource = source)
 }
 
 /** Asks for the backup passphrase ([confirm]: twice, for a new backup). */
