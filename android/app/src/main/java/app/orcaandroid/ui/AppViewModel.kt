@@ -160,11 +160,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         store.update { it.copy(projectFilaments = mode) }
     }
 
-    fun setAmbientOcclusion(level: Int) {
-        store.settings.ambientOcclusion = level
-        store.update { it.copy(ambientOcclusion = level) }
-    }
-
     fun setContactShadows(on: Boolean) {
         store.settings.contactShadows = on
         store.update { it.copy(contactShadows = on) }

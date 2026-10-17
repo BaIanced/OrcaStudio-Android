@@ -83,12 +83,16 @@ import app.orcaandroid.net.AdBlock
 import app.orcaandroid.net.BambuAccount
 import app.orcaandroid.net.FilamentProfiles
 import app.orcaandroid.net.ModelDownloads
+import app.orcaandroid.net.PrinterModel
 import app.orcaandroid.ui.AppViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONObject
 
 /** A model site in the Models tab. [hosts] may post page messages (MakerWorld's slicer commands). */
@@ -120,6 +124,12 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel, d
     /** Listing pages with page numbers (Thingiverse, Printables) load the next page as you scroll. */
     var infiniteScroll by mutableStateOf(prefs.getBoolean(PREF_INFINITE_SCROLL, true))
         private set
+    /** MakerWorld's printer chip for the current printer preset ("A1", "X1 Carbon", ...), or null when unknown. */
+    private fun chipLabel(): String? {
+        val model = vm.state.value.printer?.let(PrinterModel::ofPreset) ?: return null
+        return if (model == "X1C") "X1 Carbon" else model
+    }
+
     /** The element picker: waiting for a tap, and the outlined element (selector to label). */
     var picking by mutableStateOf(false)
         private set
@@ -218,6 +228,7 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel, d
                 view.evaluateJavascript(ZOOM_JS, null)
                 if (adBlockOn) view.evaluateJavascript(AdBlock.PICKER_JS, null)
                 if (infiniteScroll) view.evaluateJavascript(MORE_JS, null)
+                chipLabel()?.let { view.evaluateJavascript(PRINTER_JS.replace("__LABEL__", it), null) }
                 updateNav()
             }
             override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) {
@@ -428,14 +439,72 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel, d
             "common_openurl" -> j.optString("url").takeIf { it.startsWith("https://") }?.let {
                 runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(it)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
             }
+            "orca_printer_chip_missing" -> chipLabel()?.let { vm.toast(context.getString(R.string.models_printer_chip_missing, it)) }
             "homepage_login_or_register" -> vm.toast(context.getString(R.string.models_sign_in_hint))
             else -> Log.i(TAG, "ignored page command ${cmd.take(64)}")
         }
     }
 
     fun destroy() {
+        if (active?.get() === this) active = null
         (web.parent as? ViewGroup)?.removeView(web)
         web.destroy()
+    }
+
+    init { active = java.lang.ref.WeakReference(this) }
+
+    /**
+     * MCP `models_human_check`: when the page shows Cloudflare's "Verify you are human" box, taps it like a finger
+     * (once it has had time to turn from a spinner into a box; again if the check stays) and waits for the page to
+     * go on. The user's standing OK covers these taps (2026-10-16).
+     */
+    suspend fun humanCheck(): String = withContext(Dispatchers.Main) {
+        check(web.isShown) { "The Models tab isn't on screen: open it in the app" }
+        var taps = 0
+        var seen = 0
+        var lastTap = 0
+        for (second in 0 until 25) {
+            val s = probeCheck()
+            val page = "\"${s?.optString("t").orEmpty()}\" (${Uri.parse(web.url.orEmpty()).let { it.host + it.path }})"
+            if (s == null || !s.optBoolean("check")) {
+                return@withContext if (taps > 0) "Passed after $taps tap(s), ${second}s: now on $page" else "No human check on $page"
+            }
+            val box = s.optJSONArray("box")
+            if (box != null) seen++
+            if (box != null && seen >= 2 && taps < 3 && (taps == 0 || second - lastTap >= 6)) {
+                // The checkbox sits 21 CSS px in from the widget's left edge, half way down its 65 px.
+                val k = web.width / s.optDouble("w", 1.0)
+                tapAt(((box.optDouble(0) + 21) * k).toFloat(), ((box.optDouble(1) + 32) * k).toFloat())
+                taps++
+                lastTap = second
+            }
+            delay(1000)
+        }
+        if (taps > 0) "Tapped $taps time(s); still on the check after 25 s" else "The check's box did not show within 25 s"
+    }
+
+    private suspend fun probeCheck(): JSONObject? {
+        val done = CompletableDeferred<String?>()
+        web.evaluateJavascript(HUMAN_CHECK_JS) { done.complete(it) }
+        val raw = withTimeoutOrNull(3_000) { done.await() } ?: return null
+        return runCatching { JSONObject(org.json.JSONTokener(raw).nextValue() as String) }.getOrNull()
+    }
+
+    private suspend fun tapAt(x: Float, y: Float) {
+        val t = android.os.SystemClock.uptimeMillis()
+        fun send(action: Int) = android.view.MotionEvent.obtain(t, android.os.SystemClock.uptimeMillis(), action, x, y, 0).run {
+            source = android.view.InputDevice.SOURCE_TOUCHSCREEN
+            web.dispatchTouchEvent(this)
+            recycle()
+        }
+        send(android.view.MotionEvent.ACTION_DOWN)
+        delay(90)
+        send(android.view.MotionEvent.ACTION_UP)
+    }
+
+    companion object {
+        /** The live browser, for the MCP tools (null until the Models tab first opens). */
+        var active: java.lang.ref.WeakReference<ModelBrowser>? = null
     }
 }
 
@@ -596,6 +665,46 @@ private const val BRIDGE_JS = """(function(){
  * page's pager is hidden meanwhile), or a "Load more" button is pressed. Back from a model loads
  * the same pages again and returns to the same spot. MakerWorld already loads more by itself.
  */
+/**
+ * Finds Cloudflare's human check: its iframe or `.cf-turnstile` on a normal page, or on the full-page check ("Just a
+ * moment...", Ray ID footer) the empty host element of its closed shadow root. Returns JSON: title `t`, CSS viewport
+ * width `w`, `check` (a check is up), `box` [left, top, width, height] in CSS px or null while it isn't drawn yet.
+ */
+private const val HUMAN_CHECK_JS = """(function(){
+  function vis(e){ var r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 ? r : null; }
+  function all(s){ return [].slice.call(document.querySelectorAll(s)); }
+  var f = all('iframe').filter(function(e){ return /challenges\.cloudflare\.com/.test(e.src) && vis(e); })[0]
+    || all('.cf-turnstile').filter(vis)[0];
+  var page = /^Just a moment/.test(document.title) || !!document.querySelector('.ray-id');
+  if (!f && page) f = all('body div').filter(function(e){ var r = vis(e);
+    return r && !e.children.length && !e.textContent.trim() && r.width >= 280 && r.height >= 50 && r.height <= 120; }).pop();
+  var r = f && vis(f);
+  return JSON.stringify({ t: document.title, w: innerWidth, check: page || !!f, box: r ? [r.left, r.top, r.width, r.height] : null });
+})()"""
+
+private const val PRINTER_JS = """(function(){
+  // MakerWorld model pages show a "Print Files" chip row (All, A1 mini, ...) that resets to All on every
+  // load: click the chip for the current printer once per model page.
+  if (window.__orcaPrinter || !/makerworld/.test(location.host)) return; window.__orcaPrinter = 1;
+  var done = '', warned = '', tpath = '', timer = 0;
+  function pick(){
+    if (done === location.pathname || !/\/models\/\d/.test(location.pathname)) return;
+    // Not found within 8 s of landing on the page (site changed, or this model has no file for the printer): tell the user once.
+    if (timer && tpath !== location.pathname) { clearTimeout(timer); timer = 0; }
+    if (!timer && warned !== location.pathname) { var path = tpath = location.pathname;
+      timer = setTimeout(function(){ timer = 0; if (done !== path && location.pathname === path) { warned = path;
+        orcaNative.postMessage(JSON.stringify({ command: 'orca_printer_chip_missing' })); } }, 8000); }
+    // The chip row is the nearest ancestor (up to 4 levels) whose text starts with "All".
+    function inRow(e){ for (var p = e.parentElement, i = 0; p && i < 4; p = p.parentElement, i++) if (/^\s*All[A-Z0-9]/.test(p.textContent)) return true; return false; }
+    var chip = [].find.call(document.querySelectorAll('div,span,button'), function(e){
+      return e.children.length === 0 && e.textContent.trim() === '__LABEL__' && e.getBoundingClientRect().width > 0 && inRow(e);
+    });
+    if (chip) { done = location.pathname; chip.click(); }
+  }
+  new MutationObserver(pick).observe(document.body, { childList: true, subtree: true });
+  pick();
+})();"""
+
 private const val MORE_JS = """(function(){
   // MakerWorld loads more on its own as you scroll.
   if (window.__orcaMore || /makerworld/.test(location.host)) return; window.__orcaMore = 1;

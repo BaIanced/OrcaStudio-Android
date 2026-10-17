@@ -89,6 +89,7 @@ import app.orcaandroid.ui.components.ConfirmDialog
 import app.orcaandroid.ui.components.PickerDialog
 import app.orcaandroid.ui.components.PickerItem
 import app.orcaandroid.ui.components.TextInputDialog
+import app.orcaandroid.ui.components.inactiveTabLine
 import app.orcaandroid.ui.prepare.ColorDot
 import app.orcaandroid.ui.prepare.presetItems
 
@@ -162,7 +163,7 @@ private fun PresetEditor(state: UiState, vm: AppViewModel, type: PresetType, pic
         tabs = {
             PrimaryTabRow(selectedTabIndex = type.ordinal) {
                 PresetType.entries.forEach { t ->
-                    Tab(t == type, { vm.presets.openEditor(EditorTarget.Preset(t)) }, text = { Text(stringResource(TYPE_TITLES.getValue(t))) })
+                    Tab(t == type, { vm.presets.openEditor(EditorTarget.Preset(t)) }, Modifier.inactiveTabLine(t == type), text ={ Text(stringResource(TYPE_TITLES.getValue(t))) })
                 }
             }
             if (type == PresetType.FILAMENT && state.filaments.size > 1) {
@@ -295,7 +296,7 @@ private fun EditorFrame(
             val showPages = query.isBlank() && !onlyModified
             if (!wide && showPages && shown.isNotEmpty()) {
                 PrimaryScrollableTabRow(selectedTabIndex = current, edgePadding = 8.dp) {
-                    shown.forEachIndexed { i, p -> Tab(i == current, { pageIndex = i }, text = { Text(tr.tr(p.title)) }) }
+                    shown.forEachIndexed { i, p -> Tab(i == current, { pageIndex = i }, Modifier.inactiveTabLine(i == current), text ={ Text(tr.tr(p.title)) }) }
                 }
             }
             val haptic = LocalHapticFeedback.current

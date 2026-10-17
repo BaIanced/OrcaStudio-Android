@@ -16,7 +16,10 @@ class Engine(private val cacheDir: File) {
     private val thread = Executors.newSingleThreadExecutor { r -> Thread(r, "orca-engine") }.asCoroutineDispatcher()
 
     private suspend fun call(method: String, args: JSONObject = JSONObject()): JSONObject = withContext(thread) {
-        JSONObject(OrcaNative.call(method, args.toString())).throwIfError()
+        // Android's JSONObject.toString() returns null when a nested array holds NaN or Infinity (put() rejects them
+        // only at the top level); unchecked, that null surfaced as a bare NullPointerException dialog (r197).
+        val json: String = args.toString() ?: throw OrcaException("$method: a number is not finite (NaN or Infinity)")
+        JSONObject(OrcaNative.call(method, json)).throwIfError()
     }
 
     suspend fun init(resourcesDir: File, dataDir: File) = withContext(thread) {

@@ -18,8 +18,6 @@ private const val BADGE_GAP = 0.02f
 /** Contact shadow: geometry up to this height above the bed casts it, mm; darkness right under a part. */
 private const val SHADOW_FADE_MM = 12f
 private const val SHADOW_STRENGTH = 0.8f
-private const val AO_FADE_S = 0.2f
-private const val LIVE_AO_MAX_SEGMENTS = 250_000
 
 /** Colours of the 3D view, following the app theme (RGB 0..1). */
 data class ViewColors(
@@ -79,8 +77,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var filamentColors: List<FloatArray> = emptyList()
     /** Plates known to the view; 0 until the first bed arrives (then the camera frames plate 1). */
     var plateOriginsCount = 0
-    /** Ambient occlusion level (AO_OFF, 1 soft, 2 full) and the contact shadow under objects (Prepare). */
-    var aoLevel = AO_OFF
+    /** The shadow under objects (Prepare). */
     var contactShadows = true
     /** Set per frame: the lit mesh pass samples the real shadow map (a depth map was rendered this frame or before, and shadows are on). */
     private var useRealShadow = false
@@ -108,12 +105,6 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     private var meshBounds: FloatArray? = null
     private var meshVersion = 0
     private var previewVersion = 0
-    /** Preview's occlusion: last frame's matrix (camera moving?) and what the kept occlusion was made for. */
-    private val lastMvp = FloatArray(16)
-    private var previewAoKey: Any? = null
-    private var previewAoFade = 0f
-    private var lastMoveNs = 0L
-    private var lastAoFrameNs = 0L
 
     private var pendingMesh: FloatData? = null
     private var pendingPaint: FloatData? = null
@@ -243,7 +234,6 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         bedVbo = ids[5]; boxVbo = ids[6]; boxIbo = ids[7]; scratchVbo = ids[8]
         uploadBox()
         effects.create { vs, fs -> program(vs, fs) }
-        previewAoKey = null
         // A new EGL context lost all buffers; everything is uploaded again by the host.
         bedDirty = true
         meshCount = 0; paintCount = 0; extrCount = 0; travelCount = 0; markerCount = 0
@@ -267,7 +257,6 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glClearColor(bg[0], bg[1], bg[2], 1f)
         glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
         camera.viewProjection(mvp)
-        val clip = camera.clip()
         // The OpenSCAD design on the plate stands alone: the project's objects are hidden meanwhile.
         val models = ghostCount == 0
         val bounds = meshBounds
@@ -294,19 +283,11 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             // The shadow pass changed the clear colour.
             glClearColor(bg[0], bg[1], bg[2], 1f)
         }
-        val ao = if (showPreview) previewAo(clip) else {
-            previewAoKey = null
-            effects.renderAo(aoLevel, viewW, viewH, clip) {
-                if (models) { val real = useRealShadow; useRealShadow = false; drawMesh(meshVbo, meshCount, pass = 0); useRealShadow = real }
-            }
-        }
-
         if (shadow) effects.drawShadow(mvp, if (effects.isRealShadow) shadowStrength else SHADOW_STRENGTH, shadowSoftMm, shadowBiasMm, bedRects())
         drawBeds()
         drawBadges()
         if (showPreview) {
             drawExtrusions()
-            if (ao) effects.compositeAo(viewW, viewH, previewAoFade)
             drawPreviewExtras()
         } else {
             if (models) drawMesh(meshVbo, meshCount, pass = 0)
@@ -316,7 +297,6 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
                 drawMesh(paintVbo, paintCount, pass = 2)
                 glDisable(GL_POLYGON_OFFSET_FILL)
             }
-            if (ao) effects.compositeAo(viewW, viewH)
             // Modifiers and support blockers/enforcers are drawn translucent on top.
             glEnable(GL_BLEND)
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
@@ -327,49 +307,6 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             glDisable(GL_BLEND)
         }
         drawOverlays()
-    }
-
-    /**
-     * Big toolpaths cost as much again in the occlusion's depth pass (17 instead of 26 fps on a phone), so above
-     * [LIVE_AO_MAX_SEGMENTS] the occlusion fades out while the camera moves and is kept as long as the view and the
-     * toolpaths stay the same. Smaller ones recompute it every frame.
-     */
-    private fun previewAo(clip: Pair<Float, Float>): Boolean {
-        val now = System.nanoTime()
-        val dt = ((now - lastAoFrameNs) / 1e9f).coerceIn(0f, 0.1f)
-        lastAoFrameNs = now
-        val moving = !mvp.contentEquals(lastMvp)
-        if (moving) lastMoveNs = now
-        mvp.copyInto(lastMvp)
-        if (aoLevel == AO_OFF) { previewAoKey = null; previewAoFade = 0f; return false }
-        // Small toolpaths: the occlusion is recomputed every frame like in Prepare. Without it the deep corners
-        // (the gap between the top skin and the wall) were bright while the camera moved and dark at rest (a glow
-        // that strobed), and the stale occlusion left a ghost behind.
-        val key = listOf(aoLevel, viewW, viewH, previewVersion, previewRange, previewStyle, section?.toList())
-        if (extrCount <= LIVE_AO_MAX_SEGMENTS) {
-            if (moving || key != previewAoKey) {
-                previewAoKey = null
-                if (!effects.renderAo(aoLevel, viewW, viewH, clip) { drawExtrusions() }) { previewAoFade = 0f; return false }
-                previewAoKey = key
-            }
-            previewAoFade = 1f
-            return true
-        }
-        // The occlusion is only recomputed once the camera has rested (0.25 s, so a slow or damped orbit doesn't
-        // flap between the two states). Its strength fades out when the camera starts and back in when it rests;
-        // switching it on and off outright strobed the whole picture (a hard brightness step on every move).
-        if (now - lastMoveNs < 250_000_000L) {
-            previewAoKey = null
-            previewAoFade = (previewAoFade - dt / AO_FADE_S).coerceAtLeast(0f)
-            return previewAoFade > 0f
-        }
-        if (key != previewAoKey) {
-            previewAoKey = null
-            if (!effects.renderAo(aoLevel, viewW, viewH, clip) { drawExtrusions() }) { previewAoFade = 0f; return false }
-            previewAoKey = key
-        }
-        previewAoFade = (previewAoFade + dt / AO_FADE_S).coerceAtMost(1f)
-        return true
     }
 
     // --- Upload --------------------------------------------------------------------------------

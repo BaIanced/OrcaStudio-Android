@@ -201,8 +201,8 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     val scene = state.scene
 
     LaunchedEffect(v, colors) { v.onGl { this.colors = colors } }
-    LaunchedEffect(v, state.ambientOcclusion, state.contactShadows) {
-        v.onGl { aoLevel = state.ambientOcclusion; contactShadows = state.contactShadows }
+    LaunchedEffect(v, state.contactShadows) {
+        v.onGl { contactShadows = state.contactShadows }
     }
     LaunchedEffect(v, state.lab.shadowStrength, state.lab.shadowSoft, state.lab.shadowBias) {
         v.onGl { shadowStrength = state.lab.shadowStrength; shadowSoftMm = state.lab.shadowSoft; shadowBiasMm = state.lab.shadowBias }

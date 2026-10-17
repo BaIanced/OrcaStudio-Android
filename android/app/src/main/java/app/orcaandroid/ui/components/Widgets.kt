@@ -1,6 +1,9 @@
 package app.orcaandroid.ui.components
 
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -267,6 +270,18 @@ fun TextInputDialog(title: String, initial: String, label: String, onConfirm: (S
         confirmButton = { TextButton(onClick = { onDismiss(); onConfirm(text) }, enabled = text.isNotBlank()) { Text(stringResource(R.string.ok)) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
+}
+
+/** A faint underline under an unselected tab, so each one reads as a tab (the selected one has the row's indicator). */
+@Composable
+fun Modifier.inactiveTabLine(selected: Boolean): Modifier {
+    if (selected) return this
+    val color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
+    return drawBehind {
+        val y = size.height - 1.dp.toPx()
+        val inset = 12.dp.toPx()
+        drawLine(color, Offset(inset, y), Offset(size.width - inset, y), 2.dp.toPx(), StrokeCap.Round)
+    }
 }
 
 /** Formats seconds as "2 h 5 min" / "5 min 3 s". */

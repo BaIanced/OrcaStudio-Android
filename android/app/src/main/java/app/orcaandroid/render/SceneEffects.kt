@@ -6,25 +6,15 @@ import android.util.Log
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
-import kotlin.math.tan
-
-/** Ambient occlusion levels of the 3D view (More > Appearance): 0 off, 1 soft, 2 full. */
-const val AO_OFF = 0
 
 /**
- * Two screen effects of [PlateRenderer] (GL thread):
- * - contact shadow: the parts seen from straight above into a small texture (nearer the bed = darker),
- *   blurred and laid on the bed under them, so objects sit on the plate instead of floating;
- * - ambient occlusion: a half-resolution depth pre-pass, occlusion from it, a depth-aware blur, then the
- *   frame is multiplied by it after the opaque geometry.
- * Both draw through callbacks so they use the renderer's own mesh / toolpath drawing.
+ * Shadow of [PlateRenderer] (GL thread): a real shadow map from the key light, with the old contact shadow
+ * (the parts seen from straight above into a small texture, blurred) as the fallback. Draws through a callback so
+ * it uses the renderer's own mesh drawing.
  */
 internal class SceneEffects {
     private var blurProgram = 0
     private var shadowProgram = 0
-    private var ssaoProgram = 0
-    private var aoBlurProgram = 0
-    private var compositeProgram = 0
 
     private val shadowTex = IntArray(2)
     private val shadowFbo = IntArray(2)
@@ -50,25 +40,15 @@ internal class SceneEffects {
     /** True when a real shadow map is rendered and may be sampled. */
     val realShadowReady get() = isRealShadow && shadowRect != null && !broken
 
-    private var depthTex = 0
-    private var depthFbo = 0
-    private val aoTex = IntArray(2)
-    private val aoFbo = IntArray(2)
-    private var aoW = 0
-    private var aoH = 0
-    /** A render target failed on this GPU: the effects stay off. */
+    /** A render target failed on this GPU: the shadow stays off. */
     private var broken = false
 
     /** New GL context: the old objects are gone. */
     fun create(program: (String, String) -> Int) {
         blurProgram = program(Shaders.FULLSCREEN_VS, Shaders.BLUR_FS)
         shadowProgram = program(Shaders.SHADOW_VS, Shaders.SHADOW_FS)
-        ssaoProgram = program(Shaders.FULLSCREEN_VS, Shaders.SSAO_FS)
-        aoBlurProgram = program(Shaders.FULLSCREEN_VS, Shaders.AO_BLUR_FS)
-        compositeProgram = program(Shaders.FULLSCREEN_VS, Shaders.AO_COMPOSITE_FS)
         shadowW = 0; shadowH = 0; shadowRect = null; shadowKey = null
-        aoW = 0; aoH = 0; depthTex = 0; depthFbo = 0
-        shadowTex.fill(0); shadowFbo.fill(0); aoTex.fill(0); aoFbo.fill(0)
+        shadowTex.fill(0); shadowFbo.fill(0)
         broken = false
         // The old context's objects are gone: forget the ids (deleting them could hit new objects with the same names).
         realTex = 0; realFbo = 0; realFailed = false; isRealShadow = false
@@ -236,82 +216,6 @@ internal class SceneEffects {
     /** Forgets the shadow (no parts, or switched off). */
     fun clearShadow() { shadowRect = null; shadowKey = null }
 
-    // --- Ambient occlusion ---------------------------------------------------------------------
-
-    /**
-     * Computes the occlusion for this frame: [draw] draws the opaque geometry with the frame's matrix (depth
-     * only); [clip] = the projection's near/far. Returns false when it couldn't (then skip [compositeAo]).
-     */
-    fun renderAo(level: Int, viewW: Int, viewH: Int, clip: Pair<Float, Float>, draw: () -> Unit): Boolean {
-        if (broken || level == AO_OFF) return false
-        val w = max(1, viewW / 2)
-        val h = max(1, viewH / 2)
-        if (w != aoW || h != aoH) {
-            if (!aoTargets(w, h)) return false
-            aoW = w; aoH = h
-        }
-        glBindFramebuffer(GL_FRAMEBUFFER, depthFbo)
-        glViewport(0, 0, w, h)
-        glClear(GL_DEPTH_BUFFER_BIT)
-        glColorMask(false, false, false, false)
-        draw()
-        glColorMask(true, true, true, true)
-        glDisable(GL_DEPTH_TEST)
-
-        val tanY = tan(Math.toRadians(Camera.FOV / 2.0)).toFloat()
-        val aspect = viewW.toFloat() / viewH
-        glBindFramebuffer(GL_FRAMEBUFFER, aoFbo[0])
-        glUseProgram(ssaoProgram)
-        bindDepth(ssaoProgram, clip, tanY * aspect, tanY)
-        glUniform2f(glGetUniformLocation(ssaoProgram, "uSize"), w.toFloat(), h.toFloat())
-        glUniform1f(glGetUniformLocation(ssaoProgram, "uRadius"), if (level >= 2) 6f else 3f)
-        glUniform1f(glGetUniformLocation(ssaoProgram, "uIntensity"), if (level >= 2) 2.2f else 1.3f)
-        glUniform1f(glGetUniformLocation(ssaoProgram, "uProjScale"), h / (2f * tanY))
-        glDrawArrays(GL_TRIANGLES, 0, 3)
-
-        glUseProgram(aoBlurProgram)
-        bindDepth(aoBlurProgram, clip, tanY * aspect, tanY)
-        for ((src, dst, step) in listOf(Triple(0, 1, floatArrayOf(1f / w, 0f)), Triple(1, 0, floatArrayOf(0f, 1f / h)))) {
-            glBindFramebuffer(GL_FRAMEBUFFER, aoFbo[dst])
-            glActiveTexture(GL_TEXTURE1)
-            glBindTexture(GL_TEXTURE_2D, aoTex[src])
-            glUniform1i(glGetUniformLocation(aoBlurProgram, "uAo"), 1)
-            glUniform2f(glGetUniformLocation(aoBlurProgram, "uStep"), step[0], step[1])
-            glDrawArrays(GL_TRIANGLES, 0, 3)
-        }
-        glActiveTexture(GL_TEXTURE0)
-        glBindFramebuffer(GL_FRAMEBUFFER, 0)
-        glViewport(0, 0, viewW, viewH)
-        glEnable(GL_DEPTH_TEST)
-        return true
-    }
-
-    private fun bindDepth(program: Int, clip: Pair<Float, Float>, tanX: Float, tanY: Float) {
-        glActiveTexture(GL_TEXTURE0)
-        glBindTexture(GL_TEXTURE_2D, depthTex)
-        glUniform1i(glGetUniformLocation(program, "uDepth"), 0)
-        glUniform2f(glGetUniformLocation(program, "uNearFar"), clip.first, clip.second)
-        glUniform2f(glGetUniformLocation(program, "uTanHalf"), tanX, tanY)
-    }
-
-    /** Multiplies the frame (opaque geometry drawn so far) by the occlusion. */
-    fun compositeAo(viewW: Int, viewH: Int, strength: Float = 1f) {
-        glUseProgram(compositeProgram)
-        glUniform1f(glGetUniformLocation(compositeProgram, "uStrength"), strength)
-        glActiveTexture(GL_TEXTURE0)
-        glBindTexture(GL_TEXTURE_2D, aoTex[0])
-        glUniform1i(glGetUniformLocation(compositeProgram, "uAo"), 0)
-        glUniform2f(glGetUniformLocation(compositeProgram, "uSize"), viewW.toFloat(), viewH.toFloat())
-        glDisable(GL_DEPTH_TEST)
-        glDepthMask(false)
-        glEnable(GL_BLEND)
-        glBlendFunc(GL_ZERO, GL_SRC_COLOR)
-        glDrawArrays(GL_TRIANGLES, 0, 3)
-        glDisable(GL_BLEND)
-        glDepthMask(true)
-        glEnable(GL_DEPTH_TEST)
-    }
-
     // --- Targets -------------------------------------------------------------------------------
 
     /** (Re)creates two linear R8 colour targets of w x h. */
@@ -334,29 +238,10 @@ internal class SceneEffects {
         return true
     }
 
-    private fun aoTargets(w: Int, h: Int): Boolean {
-        if (!targets(aoTex, aoFbo, w, h)) return false
-        if (depthTex != 0) { glDeleteTextures(1, intArrayOf(depthTex), 0); glDeleteFramebuffers(1, intArrayOf(depthFbo), 0) }
-        val ids = IntArray(1)
-        glGenTextures(1, ids, 0); depthTex = ids[0]
-        glGenFramebuffers(1, ids, 0); depthFbo = ids[0]
-        glBindTexture(GL_TEXTURE_2D, depthTex)
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, w, h, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, null)
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
-        glBindFramebuffer(GL_FRAMEBUFFER, depthFbo)
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthTex, 0)
-        val ok = complete()
-        glBindFramebuffer(GL_FRAMEBUFFER, 0)
-        return ok
-    }
-
     private fun complete(): Boolean {
         val status = glCheckFramebufferStatus(GL_FRAMEBUFFER)
         if (status == GL_FRAMEBUFFER_COMPLETE) return true
-        Log.w("OrcaRender", "effect target incomplete: 0x${status.toString(16)}; shadows/AO off")
+        Log.w("OrcaRender", "effect target incomplete: 0x${status.toString(16)}; shadows off")
         glBindFramebuffer(GL_FRAMEBUFFER, 0)
         broken = true
         return false
