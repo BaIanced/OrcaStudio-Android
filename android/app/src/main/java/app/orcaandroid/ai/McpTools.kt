@@ -158,6 +158,12 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             "for the last view change. Costs far more than text: use plate_describe or view_set's reply when they answer it. " +
             "Needs the Prepare tab's 3D view on screen.",
             obj(emptyList(), "size" to p("integer", "Longer side in px, 256..1280; default 720"))) { viewShot(it) },
+        Tool("models_human_check", "Web: if the Models tab's page shows Cloudflare's \"Verify you are human\" check, taps " +
+            "its box and waits (up to 25 s) for the page to go on. Replies with the outcome and the page it ends on. Needs " +
+            "the Models tab on screen.", obj()) {
+            app.orcaandroid.ui.models.ModelBrowser.active?.get()?.humanCheck()
+                ?: throw ToolError("The Models browser isn't open yet: open the Models tab in the app")
+        },
     ) + presetTools.tools
 
     fun list(): JSONArray = JSONArray().apply {

@@ -87,9 +87,12 @@ import app.orcaandroid.net.PrinterModel
 import app.orcaandroid.ui.AppViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONObject
 
 /** A model site in the Models tab. [hosts] may post page messages (MakerWorld's slicer commands). */
@@ -443,8 +446,65 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel, d
     }
 
     fun destroy() {
+        if (active?.get() === this) active = null
         (web.parent as? ViewGroup)?.removeView(web)
         web.destroy()
+    }
+
+    init { active = java.lang.ref.WeakReference(this) }
+
+    /**
+     * MCP `models_human_check`: when the page shows Cloudflare's "Verify you are human" box, taps it like a finger
+     * (once it has had time to turn from a spinner into a box; again if the check stays) and waits for the page to
+     * go on. The user's standing OK covers these taps (2026-10-16).
+     */
+    suspend fun humanCheck(): String = withContext(Dispatchers.Main) {
+        check(web.isShown) { "The Models tab isn't on screen: open it in the app" }
+        var taps = 0
+        var seen = 0
+        var lastTap = 0
+        for (second in 0 until 25) {
+            val s = probeCheck()
+            val page = "\"${s?.optString("t").orEmpty()}\" (${Uri.parse(web.url.orEmpty()).let { it.host + it.path }})"
+            if (s == null || !s.optBoolean("check")) {
+                return@withContext if (taps > 0) "Passed after $taps tap(s), ${second}s: now on $page" else "No human check on $page"
+            }
+            val box = s.optJSONArray("box")
+            if (box != null) seen++
+            if (box != null && seen >= 2 && taps < 3 && (taps == 0 || second - lastTap >= 6)) {
+                // The checkbox sits 21 CSS px in from the widget's left edge, half way down its 65 px.
+                val k = web.width / s.optDouble("w", 1.0)
+                tapAt(((box.optDouble(0) + 21) * k).toFloat(), ((box.optDouble(1) + 32) * k).toFloat())
+                taps++
+                lastTap = second
+            }
+            delay(1000)
+        }
+        if (taps > 0) "Tapped $taps time(s); still on the check after 25 s" else "The check's box did not show within 25 s"
+    }
+
+    private suspend fun probeCheck(): JSONObject? {
+        val done = CompletableDeferred<String?>()
+        web.evaluateJavascript(HUMAN_CHECK_JS) { done.complete(it) }
+        val raw = withTimeoutOrNull(3_000) { done.await() } ?: return null
+        return runCatching { JSONObject(org.json.JSONTokener(raw).nextValue() as String) }.getOrNull()
+    }
+
+    private suspend fun tapAt(x: Float, y: Float) {
+        val t = android.os.SystemClock.uptimeMillis()
+        fun send(action: Int) = android.view.MotionEvent.obtain(t, android.os.SystemClock.uptimeMillis(), action, x, y, 0).run {
+            source = android.view.InputDevice.SOURCE_TOUCHSCREEN
+            web.dispatchTouchEvent(this)
+            recycle()
+        }
+        send(android.view.MotionEvent.ACTION_DOWN)
+        delay(90)
+        send(android.view.MotionEvent.ACTION_UP)
+    }
+
+    companion object {
+        /** The live browser, for the MCP tools (null until the Models tab first opens). */
+        var active: java.lang.ref.WeakReference<ModelBrowser>? = null
     }
 }
 
@@ -605,6 +665,23 @@ private const val BRIDGE_JS = """(function(){
  * page's pager is hidden meanwhile), or a "Load more" button is pressed. Back from a model loads
  * the same pages again and returns to the same spot. MakerWorld already loads more by itself.
  */
+/**
+ * Finds Cloudflare's human check: its iframe or `.cf-turnstile` on a normal page, or on the full-page check ("Just a
+ * moment...", Ray ID footer) the empty host element of its closed shadow root. Returns JSON: title `t`, CSS viewport
+ * width `w`, `check` (a check is up), `box` [left, top, width, height] in CSS px or null while it isn't drawn yet.
+ */
+private const val HUMAN_CHECK_JS = """(function(){
+  function vis(e){ var r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 ? r : null; }
+  function all(s){ return [].slice.call(document.querySelectorAll(s)); }
+  var f = all('iframe').filter(function(e){ return /challenges\.cloudflare\.com/.test(e.src) && vis(e); })[0]
+    || all('.cf-turnstile').filter(vis)[0];
+  var page = /^Just a moment/.test(document.title) || !!document.querySelector('.ray-id');
+  if (!f && page) f = all('body div').filter(function(e){ var r = vis(e);
+    return r && !e.children.length && !e.textContent.trim() && r.width >= 280 && r.height >= 50 && r.height <= 120; }).pop();
+  var r = f && vis(f);
+  return JSON.stringify({ t: document.title, w: innerWidth, check: page || !!f, box: r ? [r.left, r.top, r.width, r.height] : null });
+})()"""
+
 private const val PRINTER_JS = """(function(){
   // MakerWorld model pages show a "Print Files" chip row (All, A1 mini, ...) that resets to All on every
   // load: click the chip for the current printer once per model page.
