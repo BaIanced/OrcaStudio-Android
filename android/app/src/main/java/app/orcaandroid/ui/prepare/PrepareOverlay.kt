@@ -76,11 +76,24 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.PointerInputScope
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
 import app.orcaandroid.R
 import app.orcaandroid.core.PlateSwitcher
 import app.orcaandroid.scad.ScadDesign
@@ -108,7 +121,12 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
     val onHandle = lab.platesOnHandle && !wide
     val filmstrip = lab.plates == PlateSwitcher.FILMSTRIP && state.tool == Tool.None && !onHandle
     CompositionLocalProvider(LocalOverlayAlpha provides lab.overlayAlpha) {
-    Box(Modifier.fillMaxSize().padding(8.dp)) {
+    var containerSize by remember { mutableStateOf(IntSize.Zero) }
+    var rowSize by remember { mutableStateOf(IntSize.Zero) }
+    var dragOffsetX by remember { mutableStateOf(0f) }
+    var dragOffsetY by remember { mutableStateOf(0f) }
+    val haptic = LocalHapticFeedback.current
+    Box(Modifier.fillMaxSize().padding(8.dp).onSizeChanged { containerSize = it }) {
         // Measured: the top bar moves below a camera hole it can't sit beside (CutoutRow).
         var bars by remember { mutableStateOf(0.dp) }
         val density = LocalDensity.current
@@ -139,9 +157,46 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
                 ScrollCue(scroll, up = false, Modifier.align(Alignment.BottomCenter))
             }
         } else {
-            Row(Modifier.align(Alignment.BottomStart).padding(bottom = 64.dp).horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                ToolButtons(state, vm)
+            val defaultY = maxOf(0f, (containerSize.height - rowSize.height - with(density) { 64.dp.roundToPx() }).toFloat())
+            val rowScroll = rememberScrollState()
+            Row(
+                Modifier
+                    .offset {
+                        val curX = (if (lab.toolsRowX >= 0f) with(density) { lab.toolsRowX.dp.toPx() } else 0f) + dragOffsetX
+                        val curY = (if (lab.toolsRowY >= 0f) with(density) { lab.toolsRowY.dp.toPx() } else defaultY) + dragOffsetY
+                        val maxX = maxOf(0f, (containerSize.width - rowSize.width).toFloat())
+                        val maxY = maxOf(0f, (containerSize.height - rowSize.height).toFloat())
+                        IntOffset(curX.coerceIn(0f, maxX).roundToInt(), curY.coerceIn(0f, maxY).roundToInt())
+                    }
+                    .then(if (containerSize.width > 0) Modifier.widthIn(max = with(density) { containerSize.width.toDp() }) else Modifier)
+                    .onSizeChanged { rowSize = it }
+                    .pointerInput(Unit) { detectTapGestures { } }
+                    .horizontalScroll(rowScroll),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                ToolButtons(
+                    state, vm,
+                    collapsed = lab.toolsCollapsed,
+                    onAddDrag = { delta ->
+                        dragOffsetX += delta.x
+                        dragOffsetY += delta.y
+                    },
+                    onAddDragEnd = {
+                        val curX = (if (lab.toolsRowX >= 0f) with(density) { lab.toolsRowX.dp.toPx() } else 0f) + dragOffsetX
+                        val curY = (if (lab.toolsRowY >= 0f) with(density) { lab.toolsRowY.dp.toPx() } else defaultY) + dragOffsetY
+                        val maxX = maxOf(0f, (containerSize.width - rowSize.width).toFloat())
+                        val maxY = maxOf(0f, (containerSize.height - rowSize.height).toFloat())
+                        val finalX = curX.coerceIn(0f, maxX)
+                        val finalY = curY.coerceIn(0f, maxY)
+                        dragOffsetX = 0f
+                        dragOffsetY = 0f
+                        vm.setLab(lab.copy(toolsRowX = with(density) { finalX.toDp().value }, toolsRowY = with(density) { finalY.toDp().value }))
+                    },
+                    onAddLongPress = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        vm.setLab(lab.copy(toolsCollapsed = !lab.toolsCollapsed))
+                    }
+                )
             }
         }
         // With the tool column the filmstrip shares the bottom row with the Slice button and takes the space it leaves.
@@ -393,7 +448,14 @@ internal fun ProjectMenu(state: UiState, vm: AppViewModel, open: Boolean, onDism
 
 /** Context-dependent tool buttons: plate tools always, object tools once something is selected. */
 @Composable
-private fun ToolButtons(state: UiState, vm: AppViewModel) {
+private fun ToolButtons(
+    state: UiState,
+    vm: AppViewModel,
+    collapsed: Boolean = false,
+    onAddDrag: ((Offset) -> Unit)? = null,
+    onAddDragEnd: (() -> Unit)? = null,
+    onAddLongPress: (() -> Unit)? = null,
+) {
     var addMenu by remember { mutableStateOf(false) }
     var moreMenu by remember { mutableStateOf(false) }
     var paintMenu by remember { mutableStateOf(false) }
@@ -401,79 +463,101 @@ private fun ToolButtons(state: UiState, vm: AppViewModel) {
     var dialog by remember { mutableStateOf<String?>(null) }
     val selected = state.selection != null
 
-    Box {
-        ToolButton(Icons.Default.Add, stringResource(R.string.add), active = false) { addMenu = true }
+    val currentOnTap by rememberUpdatedState { addMenu = true }
+    val currentOnLongPress by rememberUpdatedState(onAddLongPress)
+    val currentOnDrag by rememberUpdatedState(onAddDrag)
+    val currentOnDragEnd by rememberUpdatedState(onAddDragEnd)
+
+    val addModifier = if (onAddDrag != null) {
+        Modifier.pointerInput(Unit) {
+            detectTapDragOrLongPress(
+                onTap = { currentOnTap() },
+                onLongPress = { currentOnLongPress?.invoke() },
+                onDrag = { currentOnDrag?.invoke(it) },
+                onDragEnd = { currentOnDragEnd?.invoke() }
+            )
+        }
+    } else Modifier
+
+    Box(addModifier) {
+        ToolButton(Icons.Default.Add, stringResource(R.string.add), active = false, tip = onAddDrag == null) {
+            if (onAddDrag == null) addMenu = true
+        }
         AddMenu(state, vm, addMenu, onDismiss = { addMenu = false }, onDialog = { dialog = it })
     }
-    ToolButton(Icons.Default.AutoAwesomeMosaic, stringResource(R.string.arrange), enabled = !state.scene.isEmpty) { vm.scene.arrange(false) }
-    ToolButton(AutoOrientIcon, stringResource(R.string.auto_orient), enabled = !state.scene.isEmpty) { vm.scene.autoOrient() }
-    ToolButton(Icons.Default.SelectAll, stringResource(R.string.select_multiple), active = state.selectMode, enabled = !state.scene.isEmpty) {
-        vm.scene.setSelectMode(!state.selectMode)
-    }
-    if (state.multiSelection.isNotEmpty()) {
-        ToolButton(Icons.Default.ContentCopy, stringResource(R.string.duplicate)) { vm.scene.duplicate(1) }
-        ToolButton(Icons.Default.CallMerge, stringResource(R.string.assemble), enabled = state.multiSelection.size >= 2) { vm.scene.assemble() }
-        ToolButton(Icons.Default.Delete, stringResource(R.string.delete)) { vm.scene.deleteSelected() }
-    } else if (selected) {
-        ToolButton(Icons.Default.VerticalAlignBottom, stringResource(R.string.lay_on_face), active = state.tool == Tool.LayOnFace) {
-            vm.scene.setTool(if (state.tool == Tool.LayOnFace) Tool.None else Tool.LayOnFace)
+    if (!collapsed) {
+        ToolButton(Icons.Default.AutoAwesomeMosaic, stringResource(R.string.arrange), enabled = !state.scene.isEmpty) { vm.scene.arrange(false) }
+        ToolButton(AutoOrientIcon, stringResource(R.string.auto_orient), enabled = !state.scene.isEmpty) { vm.scene.autoOrient() }
+        ToolButton(Icons.Default.SelectAll, stringResource(R.string.select_multiple), active = state.selectMode, enabled = !state.scene.isEmpty) {
+            vm.scene.setSelectMode(!state.selectMode)
         }
-        ToolButton(Icons.Default.ContentCut, stringResource(R.string.cut), active = state.tool is Tool.Cut) {
-            if (state.tool is Tool.Cut) vm.scene.setTool(Tool.None) else vm.scene.startCut()
-        }
-        Box {
-            ToolButton(Icons.Default.Brush, stringResource(R.string.paint), active = state.tool is Tool.Paint) { paintMenu = true }
-            DropdownMenu(expanded = paintMenu, onDismissRequest = { paintMenu = false }) {
-                listOf(
-                    Triple(R.string.paint_supports, "support", 1),
-                    Triple(R.string.paint_seam, "seam", 1),
-                    Triple(R.string.paint_fuzzy, "fuzzy", 1),
-                    Triple(R.string.paint_color, "color", 2),
-                ).forEach { (label, kind, state0) ->
-                    DropdownMenuItem(text = { Text(stringResource(label)) }, onClick = { paintMenu = false; vm.scene.setTool(Tool.Paint(kind, state0, 3f)) })
+        if (state.multiSelection.isNotEmpty()) {
+            ToolButton(Icons.Default.ContentCopy, stringResource(R.string.duplicate)) { vm.scene.duplicate(1) }
+            ToolButton(Icons.Default.CallMerge, stringResource(R.string.assemble), enabled = state.multiSelection.size >= 2) { vm.scene.assemble() }
+            ToolButton(Icons.Default.Delete, stringResource(R.string.delete)) { vm.scene.deleteSelected() }
+        } else if (selected) {
+            ToolButton(Icons.Default.VerticalAlignBottom, stringResource(R.string.lay_on_face), active = state.tool == Tool.LayOnFace) {
+                vm.scene.setTool(if (state.tool == Tool.LayOnFace) Tool.None else Tool.LayOnFace)
+            }
+            ToolButton(Icons.Default.ContentCut, stringResource(R.string.cut), active = state.tool is Tool.Cut) {
+                if (state.tool is Tool.Cut) vm.scene.setTool(Tool.None) else vm.scene.startCut()
+            }
+            Box {
+                ToolButton(Icons.Default.Brush, stringResource(R.string.paint), active = state.tool is Tool.Paint) { paintMenu = true }
+                DropdownMenu(expanded = paintMenu, onDismissRequest = { paintMenu = false }) {
+                    listOf(
+                        Triple(R.string.paint_supports, "support", 1),
+                        Triple(R.string.paint_seam, "seam", 1),
+                        Triple(R.string.paint_fuzzy, "fuzzy", 1),
+                        Triple(R.string.paint_color, "color", 2),
+                    ).forEach { (label, kind, state0) ->
+                        DropdownMenuItem(text = { Text(stringResource(label)) }, onClick = { paintMenu = false; vm.scene.setTool(Tool.Paint(kind, state0, 3f)) })
+                    }
                 }
             }
-        }
-        ToolButton(Icons.Default.Layers, stringResource(R.string.variable_layer_height), active = state.tool == Tool.LayerHeight) {
-            vm.scene.setTool(if (state.tool == Tool.LayerHeight) Tool.None else Tool.LayerHeight)
-        }
-        ToolButton(Icons.Default.ContentCopy, stringResource(R.string.duplicate)) { vm.scene.duplicate(1) }
-        ToolButton(Icons.Default.Delete, stringResource(R.string.delete)) { vm.scene.deleteSelected() }
-        Box {
-            ToolButton(Icons.Default.CallSplit, stringResource(R.string.split)) { splitMenu = true }
-            DropdownMenu(expanded = splitMenu, onDismissRequest = { splitMenu = false }) {
-                DropdownMenuItem(text = { Text(stringResource(R.string.split_objects)) }, onClick = { splitMenu = false; vm.scene.split(false) })
-                DropdownMenuItem(text = { Text(stringResource(R.string.split_parts)) }, onClick = { splitMenu = false; vm.scene.split(true) })
+            ToolButton(Icons.Default.Layers, stringResource(R.string.variable_layer_height), active = state.tool == Tool.LayerHeight) {
+                vm.scene.setTool(if (state.tool == Tool.LayerHeight) Tool.None else Tool.LayerHeight)
             }
-        }
-        Box {
-            ToolButton(Icons.Default.MoreVert, stringResource(R.string.more)) { moreMenu = true }
-            DropdownMenu(expanded = moreMenu, onDismissRequest = { moreMenu = false }) {
-                DropdownMenuItem(text = { Text(stringResource(R.string.add_part)) }, onClick = { moreMenu = false; vm.scene.addVolume(VolumeType.PART, "box") })
-                DropdownMenuItem(text = { Text(stringResource(R.string.mesh_boolean)) }, onClick = { moreMenu = false; dialog = "boolean" })
-                DropdownMenuItem(text = { Text(stringResource(R.string.add_modifier)) }, onClick = { moreMenu = false; vm.scene.addVolume(VolumeType.MODIFIER, "box") })
-                DropdownMenuItem(text = { Text(stringResource(R.string.add_support_blocker)) }, onClick = { moreMenu = false; vm.scene.addVolume(VolumeType.SUPPORT_BLOCKER, "box") })
-                DropdownMenuItem(text = { Text(stringResource(R.string.add_support_enforcer)) }, onClick = { moreMenu = false; vm.scene.addVolume(VolumeType.SUPPORT_ENFORCER, "box") })
-                DropdownMenuItem(text = { Text(stringResource(R.string.add_negative_volume)) }, onClick = { moreMenu = false; vm.scene.addVolume(VolumeType.NEGATIVE, "box") })
-                HorizontalDivider()
-                DropdownMenuItem(text = { Text(stringResource(R.string.simplify)) }, onClick = { moreMenu = false; dialog = "simplify" })
-                DropdownMenuItem(text = { Text(stringResource(R.string.repair)) }, onClick = { moreMenu = false; vm.scene.repair() })
-                DropdownMenuItem(text = { Text(stringResource(R.string.measure)) }, onClick = { moreMenu = false; vm.scene.setTool(Tool.Measure) },
-                    leadingIcon = { Icon(Icons.Default.Straighten, null) })
+            ToolButton(Icons.Default.ContentCopy, stringResource(R.string.duplicate)) { vm.scene.duplicate(1) }
+            ToolButton(Icons.Default.Delete, stringResource(R.string.delete)) { vm.scene.deleteSelected() }
+            Box {
+                ToolButton(Icons.Default.CallSplit, stringResource(R.string.split)) { splitMenu = true }
+                DropdownMenu(expanded = splitMenu, onDismissRequest = { splitMenu = false }) {
+                    DropdownMenuItem(text = { Text(stringResource(R.string.split_objects)) }, onClick = { splitMenu = false; vm.scene.split(false) })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.split_parts)) }, onClick = { splitMenu = false; vm.scene.split(true) })
+                }
             }
-        }
-    } else if (!state.scene.isEmpty) {
-        ToolButton(Icons.Default.Straighten, stringResource(R.string.measure), active = state.tool == Tool.Measure) {
-            vm.scene.setTool(if (state.tool == Tool.Measure) Tool.None else Tool.Measure)
+            Box {
+                ToolButton(Icons.Default.MoreVert, stringResource(R.string.more)) { moreMenu = true }
+                DropdownMenu(expanded = moreMenu, onDismissRequest = { moreMenu = false }) {
+                    DropdownMenuItem(text = { Text(stringResource(R.string.add_part)) }, onClick = { moreMenu = false; vm.scene.addVolume(VolumeType.PART, "box") })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.mesh_boolean)) }, onClick = { moreMenu = false; dialog = "boolean" })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.add_modifier)) }, onClick = { moreMenu = false; vm.scene.addVolume(VolumeType.MODIFIER, "box") })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.add_support_blocker)) }, onClick = { moreMenu = false; vm.scene.addVolume(VolumeType.SUPPORT_BLOCKER, "box") })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.add_support_enforcer)) }, onClick = { moreMenu = false; vm.scene.addVolume(VolumeType.SUPPORT_ENFORCER, "box") })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.add_negative_volume)) }, onClick = { moreMenu = false; vm.scene.addVolume(VolumeType.NEGATIVE, "box") })
+                    HorizontalDivider()
+                    DropdownMenuItem(text = { Text(stringResource(R.string.simplify)) }, onClick = { moreMenu = false; dialog = "simplify" })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.repair)) }, onClick = { moreMenu = false; vm.scene.repair() })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.measure)) }, onClick = { moreMenu = false; vm.scene.setTool(Tool.Measure) },
+                        leadingIcon = { Icon(Icons.Default.Straighten, null) })
+                }
+            }
+        } else if (!state.scene.isEmpty) {
+            ToolButton(Icons.Default.Straighten, stringResource(R.string.measure), active = state.tool == Tool.Measure) {
+                vm.scene.setTool(if (state.tool == Tool.Measure) Tool.None else Tool.Measure)
+            }
         }
     }
     AddDialogs(state, vm, dialog) { dialog = null }
 }
 
 @Composable
-private fun ToolButton(icon: ImageVector, label: String, active: Boolean = false, enabled: Boolean = true, onClick: () -> Unit) {
+private fun ToolButton(icon: ImageVector, label: String, active: Boolean = false, enabled: Boolean = true, tip: Boolean = true, onClick: () -> Unit) {
     val alpha = LocalOverlayAlpha.current
-    Tip(label) {
+    // No tooltip where long press means something else (the movable row's + collapses the row).
+    val wrap: @Composable (@Composable () -> Unit) -> Unit = if (tip) { c -> Tip(label, c) } else { c -> c() }
+    wrap {
         FilledTonalIconButton(
             onClick = onClick,
             enabled = enabled,
@@ -546,6 +630,73 @@ fun PlateSwitcherBar(state: UiState, vm: AppViewModel, view: PlateView?, modifie
                 PlateSwitcher.TABS -> PlateTabs(state, vm, view, Modifier.weight(1f))
                 PlateSwitcher.FILMSTRIP -> Filmstrip(state, vm, view, Modifier.weight(1f))
                 PlateSwitcher.CHIPS -> Box(Modifier.weight(1f)) { PlateChips(state, vm, view) }
+            }
+        }
+    }
+}
+
+/**
+ * Detects tap, long-press, or drag on the + button without gesture conflicts.
+ * Pointer movements past touch slop are consumed so the underlying 3D view does not orbit.
+ */
+private suspend fun PointerInputScope.detectTapDragOrLongPress(
+    onTap: () -> Unit,
+    onLongPress: () -> Unit,
+    onDrag: (Offset) -> Unit,
+    onDragEnd: () -> Unit,
+) {
+    awaitEachGesture {
+        val down = awaitFirstDown(requireUnconsumed = false)
+        val slop = viewConfiguration.touchSlop
+        var totalDrag = Offset.Zero
+        var isDragging = false
+        var tapped = false
+
+        val passedSlop = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
+            while (true) {
+                val event = awaitPointerEvent()
+                val change = event.changes.firstOrNull { it.id == down.id } ?: return@withTimeoutOrNull false
+                if (!change.pressed) {
+                    change.consume()
+                    tapped = true
+                    return@withTimeoutOrNull false
+                }
+                totalDrag += change.positionChange()
+                if (totalDrag.x * totalDrag.x + totalDrag.y * totalDrag.y > slop * slop) {
+                    change.consume()
+                    return@withTimeoutOrNull true
+                }
+            }
+            @Suppress("UNREACHABLE_CODE") false
+        }
+
+        if (tapped) {
+            onTap()
+            return@awaitEachGesture
+        }
+        if (passedSlop == null) {
+            onLongPress()
+        } else if (passedSlop) {
+            isDragging = true
+            onDrag(totalDrag)
+        }
+
+        while (true) {
+            val event = awaitPointerEvent()
+            val change = event.changes.firstOrNull { it.id == down.id } ?: break
+            if (!change.pressed) {
+                if (isDragging) onDragEnd()
+                break
+            }
+            // positionChange(): both positions in the button's current coordinates, so the row moving under the finger doesn't skew it.
+            val diff = change.positionChange()
+            totalDrag += diff
+            if (!isDragging && (totalDrag.x * totalDrag.x + totalDrag.y * totalDrag.y > slop * slop)) {
+                isDragging = true
+            }
+            if (isDragging) {
+                change.consume()
+                onDrag(diff)
             }
         }
     }
