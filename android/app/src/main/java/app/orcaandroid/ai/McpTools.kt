@@ -155,9 +155,13 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
                 "section" to p("number", "Section view cut 0..1 (0 = off)"),
                 "shadows" to p("boolean", "Shadows under objects"))) { viewSet(it) },
         Tool("view_screenshot", "Read: a PNG of the plate's 3D view as drawn now (no buttons or panels), after a short wait " +
-            "for the last view change. Costs far more than text: use plate_describe or view_set's reply when they answer it. " +
-            "Needs the Prepare tab's 3D view on screen.",
+            "for the last view change. Costs far more than text: use view_state, plate_describe or view_set's reply when " +
+            "they answer it. Needs the Prepare tab's 3D view on screen.",
             obj(emptyList(), "size" to p("integer", "Longer side in px, 256..1280; default 720"))) { viewShot(it) },
+        Tool("view_state", "Read: what the plate's 3D view shows now, as text: camera, interaction mode and tool, the " +
+            "selection, and where each plate, object copy and prime tower is on screen (screen px: left,top width x height; " +
+            "tapping a box's centre hits it unless something covers it), marked when off or partly off the view. Far " +
+            "cheaper than view_screenshot. Needs the Prepare tab's 3D view on screen.", obj()) { viewReport() },
         Tool("models_human_check", "Web: if the Models tab's page shows Cloudflare's \"Verify you are human\" check, taps " +
             "its box and waits (up to 25 s) for the page to go on. Replies with the outcome and the page it ends on. Needs " +
             "the Models tab on screen.", obj()) {
@@ -313,6 +317,59 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             store.update { it.copy(contactShadows = on) }
         }
         viewState(view)
+    }
+
+    private suspend fun viewReport(): String = withContext(Dispatchers.Main.immediate) {
+        val view = plateView()
+        val s = store.value
+        val scene = s.scene
+        val at = IntArray(2).also { view.getLocationOnScreen(it) }
+        val w = view.width.toFloat(); val h = view.height.toFloat()
+        fun px(x: Float, y: Float) = "${Math.round(x + at[0])},${Math.round(y + at[1])}"
+        /** The screen box of the world box [lo]..[hi], or where it is instead. */
+        fun box(lo: Vec3, hi: Vec3): String {
+            val corners = listOf(lo.x, hi.x).flatMap { x -> listOf(lo.y, hi.y).flatMap { y -> listOf(lo.z, hi.z).map { z -> Vec3(x, y, z) } } }
+            val seen = corners.mapNotNull { view.camera.project(it) }
+            if (seen.isEmpty()) return "behind the camera"
+            val l = seen.minOf { it.first }; val r = seen.maxOf { it.first }
+            val t = seen.minOf { it.second }; val b = seen.maxOf { it.second }
+            if (r < 0f || b < 0f || l > w || t > h) return "off the view"
+            val cl = l.coerceIn(0f, w); val cr = r.coerceIn(0f, w); val ct = t.coerceIn(0f, h); val cb = b.coerceIn(0f, h)
+            val clipped = seen.size < corners.size || cl != l || cr != r || ct != t || cb != b
+            return "${px(cl, ct)} ${Math.round(cr - cl)}x${Math.round(cb - ct)}" + if (clipped) " (partly off the view)" else ""
+        }
+        val selected = s.selectedItems
+        buildString {
+            appendLine("3D view ${view.width}x${view.height} px at screen ${at[0]},${at[1]}. ${viewState(view)}")
+            append("Mode ${view.mode.name.lowercase()}; tool ")
+            append(when (val tool = s.tool) {
+                app.orcaandroid.ui.Tool.None -> "none"
+                is app.orcaandroid.ui.Tool.Paint -> "paint ${tool.kind} (state ${tool.state}, radius ${n(tool.radius.toDouble())} mm)"
+                app.orcaandroid.ui.Tool.LayOnFace -> "lay on face"
+                app.orcaandroid.ui.Tool.Measure -> "measure, ${s.measure.size} point(s)"
+                is app.orcaandroid.ui.Tool.Cut -> "cut at Z ${n(tool.z.toDouble())} mm"
+                app.orcaandroid.ui.Tool.LayerHeight -> "variable layer height"
+            })
+            if (s.selectMode) append("; select mode on")
+            s.contextMenu?.let { (x, y) -> append("; context menu open at ${px(x, y)}") }
+            appendLine(".")
+            appendLine("Selected: " + if (selected.isEmpty()) "nothing" else selected.joinToString { sel ->
+                "object ${sel.obj + 1} copy ${sel.instance + 1}" + if (sel.volume >= 0) " part ${sel.volume + 1}" else ""
+            })
+            for (plate in scene.plates) {
+                val lo = Vec3(plate.originX, plate.originY, 0f)
+                append("Plate ${plate.index + 1}${if (plate.index == s.activePlate) " (active)" else ""}: ")
+                appendLine(box(lo, Vec3(plate.originX + scene.plateWidth, plate.originY + scene.plateDepth, 0f)))
+                plate.tower?.let { (x, y, tw, td, th) ->
+                    appendLine("  prime tower: ${box(Vec3(lo.x + x, lo.y + y, 0f), Vec3(lo.x + x + tw, lo.y + y + td, th))}")
+                }
+            }
+            for (o in scene.objects) for (i in o.instances) {
+                val mark = if (selected.any { it.obj == o.index && it.instance == i.index }) " [selected]" else ""
+                val where = if (i.plate < 0) " (off the plates)" else ""
+                appendLine("object ${o.index + 1} \"${o.name}\" copy ${i.index + 1}$mark$where: ${box(i.min, i.min + i.size)}")
+            }
+        }.trimEnd()
     }
 
     private suspend fun viewShot(args: JSONObject): JSONArray {
