@@ -865,10 +865,6 @@
     <string name="preset_printables_night">Printables Night</string>
     <string name="preset_prusa_minimal">Prusa Minimal Warm</string>
     <string name="design_mode">Design mode</string>
-    <string name="ambient_occlusion">3D view: ambient occlusion</string>
-    <string name="ambient_occlusion_text">Darkens corners and creases of the models and toolpaths for depth. Uses more GPU and battery.</string>
-    <string name="ao_soft">Soft</string>
-    <string name="ao_full">Full</string>
     <string name="contact_shadows">3D view: shadows under objects</string>
     <string name="design_mode_text">Change the colors live, part by part, in a panel over the app</string>
     <string name="design_editing_dark">Editing the dark theme</string>

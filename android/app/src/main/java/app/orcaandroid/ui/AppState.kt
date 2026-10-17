@@ -110,8 +110,7 @@ data class UiState(
     val filamentChoice: FilamentChoice? = null,
     /** A project file dropped onto a plate with objects: its name while asking open-as-project vs import. */
     val projectOrImport: String? = null,
-    /** 3D view ambient occlusion (0 off, 1 soft, 2 full) and contact shadows. */
-    val ambientOcclusion: Int = 0,
+    /** 3D view contact shadows. */
     val contactShadows: Boolean = true,
     val lab: app.orcaandroid.core.LayoutLab = app.orcaandroid.core.LayoutLab(),
     val undoLimit: Int = app.orcaandroid.core.DEFAULT_UNDO_LIMIT,

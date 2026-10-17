@@ -57,10 +57,6 @@ class AppSettings(context: Context) {
         get() = prefs.getString("project_filaments", "ask") ?: "ask"
         set(value) = prefs.edit().putString("project_filaments", value).apply()
 
-    /** 3D view ambient occlusion: 0 off, 1 soft, 2 full (render/SceneEffects.kt). */
-    var ambientOcclusion: Int
-        get() = prefs.getInt("ambient_occlusion", 0)
-        set(value) = prefs.edit().putInt("ambient_occlusion", value).apply()
 
     /** Soft shadow under the objects on the bed (Prepare). */
     var contactShadows: Boolean

@@ -663,10 +663,6 @@
     <string name="color_preset">Farbvorlage</string>
     <string name="preset_prusa">Prusa (Standard)</string>
     <string name="design_mode">Designmodus</string>
-    <string name="ambient_occlusion">3D-Ansicht: Umgebungsverdeckung</string>
-    <string name="ambient_occlusion_text">Dunkelt Ecken und Kanten der Modelle und Bahnen für mehr Tiefe ab. Braucht mehr GPU und Akku.</string>
-    <string name="ao_soft">Weich</string>
-    <string name="ao_full">Voll</string>
     <string name="contact_shadows">3D-Ansicht: Schatten unter Objekten</string>
     <string name="design_mode_text">Farben live ändern, Bereich für Bereich, in einem Feld über der App</string>
     <string name="design_editing_dark">Bearbeitet das dunkle Design</string>

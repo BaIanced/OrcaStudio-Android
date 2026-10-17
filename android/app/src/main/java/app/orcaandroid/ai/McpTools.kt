@@ -153,7 +153,6 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
                 "distance" to p("number", "Camera distance from the target, mm"),
                 "target" to vec("Point the camera looks at, mm"),
                 "section" to p("number", "Section view cut 0..1 (0 = off)"),
-                "ao" to p("integer", "Ambient occlusion 0 off, 1 soft, 2 full"),
                 "shadows" to p("boolean", "Shadows under objects"))) { viewSet(it) },
         Tool("view_screenshot", "Read: a PNG of the plate's 3D view as drawn now (no buttons or panels), after a short wait " +
             "for the last view change. Costs far more than text: use plate_describe or view_set's reply when they answer it. " +
@@ -277,7 +276,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         val s = store.value
         return "Camera yaw ${n(c[0].toDouble())}, pitch ${n(c[1].toDouble())}, distance ${n(c[2].toDouble())} mm, " +
             "target [${n(c[3].toDouble())}, ${n(c[4].toDouble())}, ${n(c[5].toDouble())}]; section ${n(view.section.ratio.toDouble())}, " +
-            "ambient occlusion ${s.ambientOcclusion}, shadows ${if (s.contactShadows) "on" else "off"}; plate ${s.activePlate + 1} active."
+            "shadows ${if (s.contactShadows) "on" else "off"}; plate ${s.activePlate + 1} active."
     }
 
     private suspend fun viewSet(args: JSONObject): String = withContext(Dispatchers.Main.immediate) {
@@ -302,11 +301,6 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         }
         if (fitted) kotlinx.coroutines.delay(150) else view.camera.aim(yaw, pitch, distance, to)
         num("section")?.let { r -> view.section.set(r); view.section.panelOpen = view.section.active }
-        if (args.has("ao")) {
-            val level = args.optInt("ao").coerceIn(0, 2)
-            store.settings.ambientOcclusion = level
-            store.update { it.copy(ambientOcclusion = level) }
-        }
         if (args.has("shadows")) {
             val on = args.optBoolean("shadows")
             store.settings.contactShadows = on
@@ -318,7 +312,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
     private suspend fun viewShot(args: JSONObject): JSONArray {
         val size = if (args.has("size")) args.optInt("size").coerceIn(256, 1280) else 720
         val (view, caption) = withContext(Dispatchers.Main.immediate) { plateView().let { it to viewState(it) } }
-        // The GL thread takes the last view change on its next frame; the shadow map and AO follow one frame later.
+        // The GL thread takes the last view change on its next frame; the shadow map follows one frame later.
         kotlinx.coroutines.delay(400)
         val bitmap = android.graphics.Bitmap.createBitmap(view.width.coerceAtLeast(1), view.height.coerceAtLeast(1), android.graphics.Bitmap.Config.ARGB_8888)
         val done = CompletableDeferred<Int>()
