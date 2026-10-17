@@ -480,7 +480,7 @@ private fun ToolButtons(
     } else Modifier
 
     Box(addModifier) {
-        ToolButton(Icons.Default.Add, stringResource(R.string.add), active = false) {
+        ToolButton(Icons.Default.Add, stringResource(R.string.add), active = false, tip = onAddDrag == null) {
             if (onAddDrag == null) addMenu = true
         }
         AddMenu(state, vm, addMenu, onDismiss = { addMenu = false }, onDialog = { dialog = it })
@@ -553,9 +553,11 @@ private fun ToolButtons(
 }
 
 @Composable
-private fun ToolButton(icon: ImageVector, label: String, active: Boolean = false, enabled: Boolean = true, onClick: () -> Unit) {
+private fun ToolButton(icon: ImageVector, label: String, active: Boolean = false, enabled: Boolean = true, tip: Boolean = true, onClick: () -> Unit) {
     val alpha = LocalOverlayAlpha.current
-    Tip(label) {
+    // No tooltip where long press means something else (the movable row's + collapses the row).
+    val wrap: @Composable (@Composable () -> Unit) -> Unit = if (tip) { c -> Tip(label, c) } else { c -> c() }
+    wrap {
         FilledTonalIconButton(
             onClick = onClick,
             enabled = enabled,
