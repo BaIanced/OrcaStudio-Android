@@ -81,7 +81,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /** Extrusion role names as the desktop shows them, by ExtrusionRole value. */
-private val ROLE_NAMES = listOf(
+internal val ROLE_NAMES = listOf(
     "Undefined", "Inner wall", "Outer wall", "Overhang wall", "Sparse infill", "Internal solid infill", "Top surface",
     "Bottom surface", "Ironing", "Bridge", "Internal Bridge", "Gap infill", "Skirt", "Brim", "Support", "Support interface",
     "Support transition", "Prime tower", "Custom", "Multiple",

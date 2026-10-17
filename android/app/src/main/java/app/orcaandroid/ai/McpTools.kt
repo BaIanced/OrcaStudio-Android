@@ -12,6 +12,8 @@ import app.orcaandroid.scad.Sketch
 import app.orcaandroid.ui.PresetController
 import app.orcaandroid.ui.ScadController
 import app.orcaandroid.ui.ShapeController
+import app.orcaandroid.ui.SliceController
+import app.orcaandroid.ui.preview.ROLE_NAMES
 import app.orcaandroid.ui.Store
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -25,7 +27,8 @@ import org.json.JSONObject
  * thread, so every edit shows up live in the editor and is one undo step there. Putting a design on
  * the plate waits for the user's Allow on screen.
  */
-class McpTools(private val store: Store, private val scad: ScadController, private val shapes: ShapeController, presets: PresetController) {
+class McpTools(private val store: Store, private val scad: ScadController, private val shapes: ShapeController, presets: PresetController,
+               private val slicing: SliceController) {
 
     /** [run] returns the reply text, or a ready-made `content` [JSONArray] (e.g. an image) for [reply]. */
     internal class Tool(val name: String, val description: String, val schema: JSONObject, val run: suspend (JSONObject) -> Any)
@@ -143,6 +146,12 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         Tool("plate_arrange", "Plate edit: arranges the objects on a plate (default the active one), or with all true " +
             "every object over all plates (plates are added when they don't fit). $PLATE_EDIT",
             obj(emptyList(), "plate" to p("integer", "Plate number"), "all" to p("boolean", "true = every plate"))) { arrange(it) },
+        Tool("slice", "Run: slices a plate (default the active one) with the chosen printer, process and filaments and waits " +
+            "for it (up to 10 min). The app then shows the Preview tab. Replies with the result like slice_result, or the error.",
+            obj(emptyList(), "plate" to p("integer", "Plate number; default the active plate"))) { slice(it) },
+        Tool("slice_result", "Read: the last slice of a plate (default the active one): print time, filament, layers, time and " +
+            "filament per extrusion role, and the slicer's warnings. Nothing is sliced here; use slice for that.",
+            obj(emptyList(), "plate" to p("integer", "Plate number; default the active plate"))) { sliceResult(it) },
         Tool("view_set", "View: sets the 3D view of the plate (not the design editor): a preset view or camera angles, the " +
             "section view cut and the 3D look. Given fields change, others stay. Returns the camera and what is on. " +
             "Needs the Prepare tab's 3D view on screen.",
@@ -397,6 +406,41 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         return JSONArray()
             .put(JSONObject().put("type", "image").put("data", android.util.Base64.encodeToString(png, android.util.Base64.NO_WRAP)).put("mimeType", "image/png"))
             .put(JSONObject().put("type", "text").put("text", caption))
+    }
+
+    private fun plateArg(args: JSONObject): Int {
+        val scene = store.value.scene
+        if (!args.has("plate")) return store.value.activePlate
+        val plate = args.optInt("plate", 0) - 1
+        if (plate !in scene.plates.indices) throw ToolError("No plate ${plate + 1}; there are ${scene.plates.size}")
+        return plate
+    }
+
+    private suspend fun slice(args: JSONObject): String {
+        val plate = withContext(Dispatchers.Main.immediate) {
+            plateArg(args).also { p ->
+                if (store.value.isSlicing) throw ToolError("A slice is already running")
+                if (store.value.scene.objectsOn(p).isEmpty()) throw ToolError("Plate ${p + 1} is empty")
+                store.update { it.copy(error = null) }
+            }
+        }
+        val job = slicing.slice(plate)
+        if (withTimeoutOrNull(SLICE_TIMEOUT) { job.join() } == null) throw ToolError("Slicing takes longer than ${SLICE_TIMEOUT / 1000} s; it goes on in the app (slice_result later)")
+        store.value.error?.let { throw ToolError("Slicing failed: $it") }
+        return sliceResult(JSONObject().put("plate", plate + 1))
+    }
+
+    private suspend fun sliceResult(args: JSONObject): String = withContext(Dispatchers.Main.immediate) {
+        val plate = plateArg(args)
+        val r = store.value.results[plate] ?: throw ToolError("Plate ${plate + 1} has no slice result: run slice first")
+        buildString {
+            appendLine("Plate ${plate + 1}: ${duration(r.printTimeSeconds)} print time, ${n(r.filamentGrams)} g (${n(r.filamentMm / 1000.0)} m) filament, " +
+                "cost ${n(r.cost)}, ${r.layers.size} layers, top at z ${n(r.layers.lastOrNull()?.z?.toDouble() ?: 0.0)} mm, travel ${duration(r.travelTime.toDouble())}")
+            r.roles.filter { it.time > 0f || it.filamentG > 0f }.forEach {
+                appendLine("  ${ROLE_NAMES.getOrElse(it.role) { "?" }}: ${duration(it.time.toDouble())}, ${n(it.filamentG.toDouble())} g")
+            }
+            if (r.warnings.isEmpty()) append("No warnings.") else appendLine("Warnings:").also { r.warnings.take(15).forEach { w -> appendLine("  $w") } }
+        }.trimEnd()
     }
 
     private suspend fun plateDescribe(): String = withContext(Dispatchers.Main.immediate) {
@@ -764,6 +808,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         private val BIND_FIELDS = listOf("size", "pos", "rot").flatMap { f -> "xyz".map { "$f.$it" } }
         private val NOTE_WORDS = listOf("ERROR", "WARNING")
         private const val RENDER_TIMEOUT = 180_000L
+        private const val SLICE_TIMEOUT = 600_000L
         private const val CONFIRM_TIMEOUT = 60_000L
 
         private const val EDIT = "One undo step in the app (the user can press Undo)."
