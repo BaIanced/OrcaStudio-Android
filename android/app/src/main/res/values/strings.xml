@@ -522,6 +522,7 @@
         <item quantity="one">The design opened in the editor. The zip\'s ready-made model is not on the plate.</item>
         <item quantity="other">The design opened in the editor. The zip\'s %1$d ready-made models are not on the plate.</item>
     </plurals>
+    <string name="models_printer_chip_missing">Couldn\'t pick %1$s on this page. Choose your printer in the Print Files row.</string>
     <string name="models_sign_in_hint">Sign in to your Bambu account under Device to use MakerWorld signed in.</string>
     <string name="orca_cloud">Orca Cloud</string>
     <string name="orca_cloud_hint">Sign in with your Orca Cloud account (needed for Orca plugins and profile sync).</string>

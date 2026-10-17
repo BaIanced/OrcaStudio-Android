@@ -436,6 +436,7 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel, d
             "common_openurl" -> j.optString("url").takeIf { it.startsWith("https://") }?.let {
                 runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(it)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
             }
+            "orca_printer_chip_missing" -> chipLabel()?.let { vm.toast(context.getString(R.string.models_printer_chip_missing, it)) }
             "homepage_login_or_register" -> vm.toast(context.getString(R.string.models_sign_in_hint))
             else -> Log.i(TAG, "ignored page command ${cmd.take(64)}")
         }
@@ -608,9 +609,14 @@ private const val PRINTER_JS = """(function(){
   // MakerWorld model pages show a "Print Files" chip row (All, A1 mini, ...) that resets to All on every
   // load: click the chip for the current printer once per model page.
   if (window.__orcaPrinter || !/makerworld/.test(location.host)) return; window.__orcaPrinter = 1;
-  var done = '';
+  var done = '', warned = '', tpath = '', timer = 0;
   function pick(){
     if (done === location.pathname || !/\/models\/\d/.test(location.pathname)) return;
+    // Not found within 8 s of landing on the page (site changed, or this model has no file for the printer): tell the user once.
+    if (timer && tpath !== location.pathname) { clearTimeout(timer); timer = 0; }
+    if (!timer && warned !== location.pathname) { var path = tpath = location.pathname;
+      timer = setTimeout(function(){ timer = 0; if (done !== path && location.pathname === path) { warned = path;
+        orcaNative.postMessage(JSON.stringify({ command: 'orca_printer_chip_missing' })); } }, 8000); }
     // The chip row is the nearest ancestor (up to 4 levels) whose text starts with "All".
     function inRow(e){ for (var p = e.parentElement, i = 0; p && i < 4; p = p.parentElement, i++) if (/^\s*All[A-Z0-9]/.test(p.textContent)) return true; return false; }
     var chip = [].find.call(document.querySelectorAll('div,span,button'), function(e){
