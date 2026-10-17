@@ -488,7 +488,8 @@ private fun settle(to: Float, from: Float, set: (Float) -> Unit) {
 }
 
 private object GripGlide {
-    val scope = kotlinx.coroutines.MainScope()
+    // animate() needs a MonotonicFrameClock: plain MainScope() has none and crashed every fling (r283).
+    val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + androidx.compose.ui.platform.AndroidUiDispatcher.Main)
     var job: kotlinx.coroutines.Job? = null
 }
 
