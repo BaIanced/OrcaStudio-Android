@@ -322,9 +322,12 @@ private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
 private fun TopBar(state: UiState, vm: AppViewModel, view: PlateView?, viewButtons: Boolean, onHandle: Boolean) {
     val alpha = LocalOverlayAlpha.current
     val bar = MaterialTheme.colorScheme.surface.copy(alpha = alpha)
-    // In fullscreen portrait the bar can sit beside the camera hole (CutoutRow).
+    val views: @Composable () -> Unit = { Surface(shape = RoundedCornerShape(20.dp), color = bar) { Row { ViewButtons(state, vm, view, rail = false) } } }
+    // In fullscreen portrait the bar can sit beside the camera hole (CutoutRow). With the switcher on the grip the
+    // view buttons take the free start, left of the hole, and File stays right of it (together they didn't fit past it).
     CutoutRow(minStart = 96.dp, start = {
-        if (!onHandle) PlateScale(state.lab.plateScale) {
+        if (onHandle) { if (viewButtons) views() }
+        else PlateScale(state.lab.plateScale) {
             when (state.lab.plates) {
                 PlateSwitcher.TABS -> Surface(shape = RoundedCornerShape(20.dp), color = bar) { PlateTabs(state, vm, view, Modifier.padding(start = 4.dp)) }
                 PlateSwitcher.FILMSTRIP -> if (state.lab.plateLabel) Surface(shape = RoundedCornerShape(20.dp), color = bar) { PlateLabel(state, vm) }
@@ -333,7 +336,7 @@ private fun TopBar(state: UiState, vm: AppViewModel, view: PlateView?, viewButto
         }
     }) {
         UpdatesChip(state, vm)
-        if (viewButtons) Surface(shape = RoundedCornerShape(20.dp), color = bar) { Row { ViewButtons(state, vm, view, rail = false) } }
+        if (viewButtons && !onHandle) views()
         FileButton(state, vm)
     }
 }
