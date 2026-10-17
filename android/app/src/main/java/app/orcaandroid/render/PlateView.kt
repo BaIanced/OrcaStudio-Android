@@ -12,6 +12,7 @@ import app.orcaandroid.core.Vec3
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.pow
 
 enum class InteractionMode { NAVIGATE, PAINT, LAY_ON_FACE, MEASURE }
 
@@ -84,6 +85,17 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     private var dragStart: Vec3? = null
     private var lastFocusX = 0f
     private var lastFocusY = 0f
+    /**
+     * What a two-finger gesture turned out to be: undecided until the fingers' gap or their midpoint moves past
+     * the touch slop. A pinch only zooms (the midpoint wanders as fingers spread, which panned the view, user
+     * 2026-10-17); a two-finger drag pans and zooms.
+     */
+    private var twoFinger = TwoFinger.UNDECIDED
+    private var startSpan = 0f
+    private var startFocusX = 0f
+    private var startFocusY = 0f
+    /** Pinch zoom speed (Layout lab): the exponent on the fingers' gap ratio, 1 = the gap ratio itself. */
+    var pinchSpeed = 0.6f
     /** The gesture began with the right / middle mouse button (pans; a right click opens the menu). */
     private var rightButton = false
     private var middleButton = false
@@ -98,7 +110,13 @@ class PlateView(context: Context) : GLSurfaceView(context) {
 
     private val scaleDetector = ScaleGestureDetector(context, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
         override fun onScale(detector: ScaleGestureDetector): Boolean {
-            camera.zoomAt(detector.scaleFactor, detector.focusX, detector.focusY)
+            // Double-tap-and-drag (one finger) zooms at once.
+            if (multiTouch && twoFinger == TwoFinger.UNDECIDED) return true
+            // The pad keeps fingers close together from zooming in leaps (a 1 mm wobble is a big gap ratio there);
+            // the camera's own limits are unchanged, so the deep zoom-in only takes more pinching.
+            val pad = PINCH_PAD_DP * resources.displayMetrics.density
+            val ratio = (detector.currentSpan + pad) / (detector.previousSpan + pad)
+            camera.zoomAt(ratio.pow(pinchSpeed), detector.focusX, detector.focusY)
             return true
         }
     })
@@ -157,6 +175,8 @@ class PlateView(context: Context) : GLSurfaceView(context) {
         var active: java.lang.ref.WeakReference<PlateView>? = null
         /** Single-key shortcuts while the view has focus (set by the activity); true when handled. */
         var onKey: ((Int, KeyEvent) -> Boolean)? = null
+        /** Added to both finger gaps of a pinch step (see onScale). */
+        private const val PINCH_PAD_DP = 40f
     }
 
     override fun onFocusChanged(gainFocus: Boolean, direction: Int, previouslyFocusedRect: android.graphics.Rect?) {
@@ -206,6 +226,10 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                 multiTouch = true
                 cancelDrag()
                 lastFocusX = focusX(event); lastFocusY = focusY(event)
+                if (event.pointerCount == 2) {
+                    twoFinger = TwoFinger.UNDECIDED
+                    startSpan = span(event); startFocusX = lastFocusX; startFocusY = lastFocusY
+                }
             }
             MotionEvent.ACTION_POINTER_UP -> {
                 val remaining = if (event.actionIndex == 0) 1 else 0
@@ -217,7 +241,14 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                 if (longPressed) return true
                 if (event.pointerCount >= 2) {
                     val fx = focusX(event); val fy = focusY(event)
-                    camera.panGrab(lastFocusX, lastFocusY, fx, fy)
+                    if (twoFinger == TwoFinger.UNDECIDED) {
+                        // One finger still while the other spreads moves the midpoint half as far as the gap changes.
+                        val gap = abs(span(event) - startSpan)
+                        val shift = kotlin.math.hypot(fx - startFocusX, fy - startFocusY)
+                        if (gap > touchSlop && gap >= shift) twoFinger = TwoFinger.PINCH
+                        else if (shift > touchSlop) twoFinger = TwoFinger.PAN
+                    }
+                    if (twoFinger == TwoFinger.PAN) camera.panGrab(lastFocusX, lastFocusY, fx, fy)
                     lastFocusX = fx; lastFocusY = fy
                 } else if (!multiTouch) {
                     when {
@@ -357,6 +388,10 @@ class PlateView(context: Context) : GLSurfaceView(context) {
 
     private fun focusX(e: MotionEvent) = (0 until e.pointerCount).map { e.getX(it) }.average().toFloat()
     private fun focusY(e: MotionEvent) = (0 until e.pointerCount).map { e.getY(it) }.average().toFloat()
+    private fun span(e: MotionEvent) = kotlin.math.hypot(e.getX(1) - e.getX(0), e.getY(1) - e.getY(0))
+
+    private enum class TwoFinger { UNDECIDED, PINCH, PAN }
+
 }
 
 /** `adb shell setprop log.tag.OrcaInput DEBUG` logs the view's mouse / touch events. */

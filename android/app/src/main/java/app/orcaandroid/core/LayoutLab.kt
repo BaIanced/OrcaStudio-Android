@@ -46,6 +46,8 @@ data class LayoutLab(
     val lightAzimuth: Float = -57.5f,
     val lightElevation: Float = 49f,
     val lightStrength: Float = 1f,
+    /** Pinch zoom speed: exponent on the fingers' gap ratio (1 = the old 1:1 pinch, user 2026-10-17: too sensitive). */
+    val pinchSpeed: Float = 0.6f,
 ) {
     fun toJson(): String = JSONObject()
         .put("plates", plates.name).put("plateLabel", plateLabel).put("overlayAlpha", overlayAlpha.toDouble())
@@ -55,7 +57,8 @@ data class LayoutLab(
         .put("textScale", textScale.toDouble()).put("uiScale", uiScale.toDouble()).put("overlayScale", overlayScale.toDouble())
         .put("fullscreenPortrait", fullscreenPortrait).put("platesOnHandle", platesOnHandle).put("plateScale", plateScale.toDouble())
         .put("shadowStrength", shadowStrength.toDouble()).put("shadowSoft", shadowSoft.toDouble()).put("shadowBias", shadowBias.toDouble())
-        .put("lightAzimuth", lightAzimuth.toDouble()).put("lightElevation", lightElevation.toDouble()).put("lightStrength", lightStrength.toDouble()).toString()
+        .put("lightAzimuth", lightAzimuth.toDouble()).put("lightElevation", lightElevation.toDouble()).put("lightStrength", lightStrength.toDouble())
+        .put("pinchSpeed", pinchSpeed.toDouble()).toString()
 
     companion object {
         val TEXT_SCALES = 0.7f..1.3f
@@ -68,6 +71,7 @@ data class LayoutLab(
         val LIGHT_AZIMUTHS = -180f..180f
         val LIGHT_ELEVATIONS = 20f..85f
         val LIGHT_STRENGTHS = 0.2f..2f
+        val PINCH_SPEEDS = 0.2f..1f
 
         fun fromJson(json: String?): LayoutLab {
             val o = json?.let { runCatching { JSONObject(it) }.getOrNull() } ?: return LayoutLab()
@@ -94,6 +98,7 @@ data class LayoutLab(
                 lightAzimuth = o.optDouble("lightAzimuth", d.lightAzimuth.toDouble()).toFloat().coerceIn(LIGHT_AZIMUTHS.start, LIGHT_AZIMUTHS.endInclusive),
                 lightElevation = o.optDouble("lightElevation", d.lightElevation.toDouble()).toFloat().coerceIn(LIGHT_ELEVATIONS.start, LIGHT_ELEVATIONS.endInclusive),
                 lightStrength = o.optDouble("lightStrength", d.lightStrength.toDouble()).toFloat().coerceIn(LIGHT_STRENGTHS.start, LIGHT_STRENGTHS.endInclusive),
+                pinchSpeed = o.optDouble("pinchSpeed", d.pinchSpeed.toDouble()).toFloat().coerceIn(PINCH_SPEEDS.start, PINCH_SPEEDS.endInclusive),
             )
         }
     }

@@ -11,7 +11,6 @@ import android.os.Bundle
 import android.view.KeyEvent
 import android.view.MotionEvent
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Box
@@ -47,7 +46,8 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState == null) handleIntent(intent)
         requestNotificationPermission()
         PlateView.onKey = ::viewKey
-        setContent {
+        // FocusGuardLayout: rotating crashed in Compose's focus code (see the class).
+        setContentView(FocusGuardLayout(this).apply { addView(androidx.compose.ui.platform.ComposeView(context).apply { setContent {
             val state by vm.state.collectAsStateWithLifecycle()
             app.orcaandroid.ui.theme.OrcaTheme(state.themeMode, state.dynamicColor, state.themeSpec) {
                 Immersive(state.lab.fullscreenPortrait)
@@ -61,7 +61,7 @@ class MainActivity : ComponentActivity() {
                         else Modifier.safeDrawingPadding()) { AppScaffold(state, vm) }
                 }
             }
-        }
+        } }) })
     }
 
     // High refresh while the user interacts: some systems (ColorOS) hold unlisted apps at 60 Hz. The 3D view renders

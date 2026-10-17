@@ -300,6 +300,14 @@ jobs:
           retention-days: 7
           compression-level: 0
 
+      # R8's map turns obfuscated crash traces back into names (retrace).
+      - uses: actions/upload-artifact@v7
+        with:
+          name: OrcaStudio-Android-mapping-r${{ github.run_number }}
+          path: ${{ env.BUILD_ROOT }}/gradle/app/outputs/mapping/release/mapping.txt
+          retention-days: 90
+          if-no-files-found: warn
+
       - name: Publish release
         if: github.ref == 'refs/heads/main'
         env:
