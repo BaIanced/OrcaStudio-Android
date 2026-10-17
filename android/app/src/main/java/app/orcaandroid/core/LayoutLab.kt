@@ -48,6 +48,8 @@ data class LayoutLab(
     val lightStrength: Float = 1f,
     /** Pinch zoom speed: exponent on the fingers' gap ratio (1 = the old 1:1 pinch, user 2026-10-17: too sensitive). */
     val pinchSpeed: Float = 0.6f,
+    /** Size of the Slice button on the portrait panel's grip; only the main UI size scales it too (user, 2026-10-17). */
+    val sliceScale: Float = 1f,
 ) {
     fun toJson(): String = JSONObject()
         .put("plates", plates.name).put("plateLabel", plateLabel).put("overlayAlpha", overlayAlpha.toDouble())
@@ -58,13 +60,14 @@ data class LayoutLab(
         .put("fullscreenPortrait", fullscreenPortrait).put("platesOnHandle", platesOnHandle).put("plateScale", plateScale.toDouble())
         .put("shadowStrength", shadowStrength.toDouble()).put("shadowSoft", shadowSoft.toDouble()).put("shadowBias", shadowBias.toDouble())
         .put("lightAzimuth", lightAzimuth.toDouble()).put("lightElevation", lightElevation.toDouble()).put("lightStrength", lightStrength.toDouble())
-        .put("pinchSpeed", pinchSpeed.toDouble()).toString()
+        .put("pinchSpeed", pinchSpeed.toDouble()).put("sliceScale", sliceScale.toDouble()).toString()
 
     companion object {
         val TEXT_SCALES = 0.7f..1.3f
         val UI_SCALES = 0.7f..1.3f
         val OVERLAY_SCALES = 0.6f..1.2f
         val PLATE_SCALES = 0.6f..1.6f
+        val SLICE_SCALES = 0.5f..1.5f
         val SHADOW_STRENGTHS = 0.1f..1f
         val SHADOW_SOFTS = 0.5f..12f
         val SHADOW_BIASES = 0.2f..8f
@@ -98,6 +101,7 @@ data class LayoutLab(
                 lightAzimuth = o.optDouble("lightAzimuth", d.lightAzimuth.toDouble()).toFloat().coerceIn(LIGHT_AZIMUTHS.start, LIGHT_AZIMUTHS.endInclusive),
                 lightElevation = o.optDouble("lightElevation", d.lightElevation.toDouble()).toFloat().coerceIn(LIGHT_ELEVATIONS.start, LIGHT_ELEVATIONS.endInclusive),
                 lightStrength = o.optDouble("lightStrength", d.lightStrength.toDouble()).toFloat().coerceIn(LIGHT_STRENGTHS.start, LIGHT_STRENGTHS.endInclusive),
+                sliceScale = o.optDouble("sliceScale", 1.0).toFloat().coerceIn(SLICE_SCALES.start, SLICE_SCALES.endInclusive),
                 pinchSpeed = o.optDouble("pinchSpeed", d.pinchSpeed.toDouble()).toFloat().coerceIn(PINCH_SPEEDS.start, PINCH_SPEEDS.endInclusive),
             )
         }

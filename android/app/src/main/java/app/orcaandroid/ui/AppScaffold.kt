@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -347,8 +348,9 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
                         tucked = shown < PANEL_SNAP,
                         onClick = { vm.setLab(lab.copy(panelTucked = !lab.panelTucked)) },
                         onDrag = { d -> live = ((live ?: shown) - d).coerceIn(0.dp, maxPanel) },
-                        onDragEnd = {
-                            live?.let { w ->
+                        onDragEnd = { flick ->
+                            if (flick != null) vm.setLab(lab.copy(panelTucked = flick))
+                            else live?.let { w ->
                                 vm.setLab(if (w < PANEL_SNAP) lab.copy(panelTucked = true)
                                           else lab.copy(panelTucked = false, panelWidth = w.coerceAtLeast(PANEL_MIN).value))
                             }
@@ -374,7 +376,12 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
             val height = (if (ScadEditorSize.height > 0f) ScadEditorSize.height.dp else total * 0.55f).coerceIn(200.dp, (total - 120.dp).coerceAtLeast(200.dp))
             Column(Modifier.fillMaxSize()) {
                 scadView(Modifier.weight(1f).fillMaxWidth())
-                Themed(Region.OPENSCAD) { DragHandle(vertical = false) { d -> ScadEditorSize.height = (height - d).value } }
+                val tallest = (total - 120.dp).coerceAtLeast(200.dp)
+                Themed(Region.OPENSCAD) {
+                    DragHandle(vertical = false, onFling = { down -> settle(if (down) 200f else tallest.value, height.value) { ScadEditorSize.height = it } }) { d ->
+                        ScadEditorSize.height = (height - d).value
+                    }
+                }
                 Themed(Region.OPENSCAD) { Surface(Modifier.height(height).fillMaxWidth()) { ScadPanel(scad, vm, onHide = { vm.setScadHidden(true) }, embeddedPreview = false) } }
             }
         }
@@ -387,8 +394,18 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
             Column(Modifier.fillMaxSize()) {
                 viewport(Modifier.weight(1f).fillMaxWidth())
                 val onHandle = state.lab.platesOnHandle && state.screen == Screen.PREPARE
+                val slice = state.screen == Screen.PREPARE && app.orcaandroid.ui.prepare.sliceOnGrip(state, wide)
+                val header: (@Composable () -> Unit)? = if (onHandle || slice) ({
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        if (onHandle) PlateSwitcherBar(state, vm, plateView, Modifier.weight(1f)) else Box(Modifier.weight(1f))
+                        if (slice) app.orcaandroid.ui.prepare.GripSliceButton(state, vm, Modifier.padding(start = 8.dp))
+                    }
+                }) else null
+                val tallest = (total * 0.85f).coerceAtLeast(56.dp)
                 Themed(panelRegion) {
-                    DragHandle(vertical = false, header = if (onHandle) ({ PlateSwitcherBar(state, vm, plateView, Modifier.fillMaxWidth().padding(horizontal = 8.dp)) }) else null) { d -> PanelSize.height = (height - d).value }
+                    DragHandle(vertical = false, header = header,
+                        onFling = { down -> settle(if (down) 56f else tallest.value, height.value) { PanelSize.height = it } },
+                    ) { d -> PanelSize.height = (height - d).value }
                 }
                 Surface(Modifier.height(height).fillMaxWidth(), color = sheetColors.surfaceContainerLow, contentColor = sheetColors.onSurface) {
                     Themed(panelRegion) { Box(Modifier.fillMaxSize()) { panel() } }
@@ -398,16 +415,24 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
     }
 }
 
-/** A grip between two panes; dragging it reports the move ([vertical] grip: sideways, else up/down). */
+/**
+ * A grip between two panes; dragging it reports the move ([vertical] grip: sideways, else up/down). Let go of a quick
+ * flick and [onFling] gets its direction (true = down / right); a slow release stays where the finger left it.
+ */
 @Composable
-private fun DragHandle(vertical: Boolean, header: (@Composable () -> Unit)? = null, onDrag: (androidx.compose.ui.unit.Dp) -> Unit) {
+private fun DragHandle(vertical: Boolean, header: (@Composable () -> Unit)? = null, onFling: ((Boolean) -> Unit)? = null,
+                       onDrag: (androidx.compose.ui.unit.Dp) -> Unit) {
     val density = androidx.compose.ui.platform.LocalDensity.current
     val drag = androidx.compose.foundation.gestures.rememberDraggableState { px -> onDrag(with(density) { px.toDp() }) }
+    val stopped: suspend kotlinx.coroutines.CoroutineScope.(Float) -> Unit = { v ->
+        val dps = with(density) { v.toDp() }
+        if (onFling != null && kotlin.math.abs(dps.value) >= FLING_DP_PER_S) onFling(dps.value > 0)
+    }
     // Something nested on the grip (the plate switcher): it rides on top of the grip row, which alone drags.
     if (header != null && !vertical) {
         Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainer)) {
             header()
-            Box(Modifier.height(20.dp).fillMaxWidth().draggable(drag, Orientation.Vertical), contentAlignment = Alignment.Center) {
+            Box(Modifier.height(20.dp).fillMaxWidth().draggable(drag, Orientation.Vertical, onDragStarted = { GripGlide.job?.cancel() }, onDragStopped = stopped), contentAlignment = Alignment.Center) {
                 Box(Modifier.size(40.dp, 4.dp).background(MaterialTheme.colorScheme.outline, RoundedCornerShape(2.dp)))
             }
         }
@@ -416,12 +441,26 @@ private fun DragHandle(vertical: Boolean, header: (@Composable () -> Unit)? = nu
     Box(
         (if (vertical) Modifier.width(16.dp).fillMaxHeight() else Modifier.height(20.dp).fillMaxWidth())
             .background(MaterialTheme.colorScheme.surfaceContainer)
-            .draggable(drag, if (vertical) Orientation.Horizontal else Orientation.Vertical),
+            .draggable(drag, if (vertical) Orientation.Horizontal else Orientation.Vertical, onDragStarted = { GripGlide.job?.cancel() }, onDragStopped = stopped),
         contentAlignment = Alignment.Center,
     ) {
         Box(Modifier.size(if (vertical) 4.dp else 40.dp, if (vertical) 40.dp else 4.dp)
             .background(MaterialTheme.colorScheme.outline, RoundedCornerShape(2.dp)))
     }
+}
+
+/** Release speed (dp/s) from which a grip flick collapses or expands its pane. */
+private const val FLING_DP_PER_S = 800f
+
+/** Glides a pane size (dp) from [from] to [to] after a flick. */
+private fun settle(to: Float, from: Float, set: (Float) -> Unit) {
+    GripGlide.job?.cancel()
+    GripGlide.job = GripGlide.scope.launch { androidx.compose.animation.core.animate(from, to) { v, _ -> set(v) } }
+}
+
+private object GripGlide {
+    val scope = kotlinx.coroutines.MainScope()
+    var job: kotlinx.coroutines.Job? = null
 }
 
 private val PANEL_DEFAULT = 380.dp
@@ -442,12 +481,15 @@ private object ScadEditorSize {
 
 /** The settings panel's edge on wide layouts: drag to resize, tap to tuck the panel away or bring it back. */
 @Composable
-private fun PanelEdge(tucked: Boolean, onClick: () -> Unit, onDrag: (androidx.compose.ui.unit.Dp) -> Unit, onDragEnd: () -> Unit) {
+private fun PanelEdge(tucked: Boolean, onClick: () -> Unit, onDrag: (androidx.compose.ui.unit.Dp) -> Unit, onDragEnd: (flick: Boolean?) -> Unit) {
     val density = androidx.compose.ui.platform.LocalDensity.current
     val drag = androidx.compose.foundation.gestures.rememberDraggableState { px -> onDrag(with(density) { px.toDp() }) }
     val label = stringResource(if (tucked) R.string.show_panel else R.string.tuck_panel)
     Surface(onClick = onClick, tonalElevation = 2.dp, modifier = Modifier.width(if (tucked) 32.dp else 20.dp).fillMaxHeight()
-        .draggable(drag, Orientation.Horizontal, onDragStopped = { onDragEnd() })) {
+        .draggable(drag, Orientation.Horizontal, onDragStopped = { v ->
+            val dps = with(density) { v.toDp() }.value
+            onDragEnd(if (kotlin.math.abs(dps) >= FLING_DP_PER_S) dps > 0 else null)
+        })) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             Box(Modifier.size(4.dp, 32.dp).background(MaterialTheme.colorScheme.outline, RoundedCornerShape(2.dp)))
             app.orcaandroid.ui.prepare.Tip(label) {

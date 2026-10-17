@@ -278,6 +278,7 @@ private fun LayoutLabSection(state: UiState, vm: AppViewModel) {
         ScaleSlider(R.string.lab_text_scale, lab.textScale, app.orcaandroid.core.LayoutLab.TEXT_SCALES, current) { vm.setLab(state.lab.copy(textScale = it)) }
         ScaleSlider(R.string.lab_ui_scale, lab.uiScale, app.orcaandroid.core.LayoutLab.UI_SCALES, current) { vm.setLab(state.lab.copy(uiScale = it)) }
         ScaleSlider(R.string.lab_plate_scale, lab.plateScale, app.orcaandroid.core.LayoutLab.PLATE_SCALES, current) { vm.setLab(state.lab.copy(plateScale = it)) }
+        ScaleSlider(R.string.lab_slice_scale, lab.sliceScale, app.orcaandroid.core.LayoutLab.SLICE_SCALES, current) { vm.setLab(state.lab.copy(sliceScale = it)) }
         ScaleSlider(R.string.lab_overlay_scale, lab.overlayScale, app.orcaandroid.core.LayoutLab.OVERLAY_SCALES, current) { vm.setLab(state.lab.copy(overlayScale = it)) }
         ShadowSlider(R.string.lab_shadow_strength, lab.shadowStrength, 100f, "%", app.orcaandroid.core.LayoutLab.SHADOW_STRENGTHS, current) { vm.setLab(state.lab.copy(shadowStrength = it)) }
         ShadowSlider(R.string.lab_shadow_soft, lab.shadowSoft, 1f, " mm", app.orcaandroid.core.LayoutLab.SHADOW_SOFTS, current) { vm.setLab(state.lab.copy(shadowSoft = it)) }

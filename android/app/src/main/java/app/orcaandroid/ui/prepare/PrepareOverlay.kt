@@ -115,6 +115,7 @@ import app.orcaandroid.ui.components.showPlate
 @Composable
 fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boolean) {
     val lab = state.lab
+    val sliceOnGrip = sliceOnGrip(state, wide)
     // Tools in a column on the left: wide layouts always, portrait if chosen in the Layout lab.
     val column = wide || lab.toolsLeft
     // Portrait with the switcher on the panel grip (AppScaffold): nothing of it over the 3D view.
@@ -205,10 +206,10 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
         if (stripWithSlice) androidx.compose.foundation.layout.BoxWithConstraints(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(start = 60.dp)) {
             if (maxWidth >= 360.dp) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
                 PlateScale(lab.plateScale) { Filmstrip(state, vm, view, Modifier.weight(1f)) }
-                SliceButton(state, vm, Modifier)
+                if (!sliceOnGrip) SliceButton(state, vm, Modifier)
             } else Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 PlateScale(lab.plateScale) { Filmstrip(state, vm, view, Modifier.fillMaxWidth()) }
-                SliceButton(state, vm, Modifier)
+                if (!sliceOnGrip) SliceButton(state, vm, Modifier)
             }
         } else if (filmstrip) PlateScale(lab.plateScale) { Filmstrip(state, vm, view, Modifier.align(Alignment.BottomStart).padding(bottom = 120.dp)) }
         // The layer height graph is tall: on wide layouts it sits at the right edge (like the desktop's)
@@ -219,7 +220,7 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
                    bottom = if (wide) 0.dp else if (column) 72.dp else 116.dp)) {
             ToolPanel(state, vm)
         }
-        if (!stripWithSlice) SliceButton(state, vm, Modifier.align(Alignment.BottomEnd))
+        if (!stripWithSlice && !sliceOnGrip) SliceButton(state, vm, Modifier.align(Alignment.BottomEnd))
         // Setup problems (first case: a filament slot of the wrong type): tap opens the panel at the offending setting.
         val problems = state.setupProblems()
         if (problems.isNotEmpty() && !rightPanel) {
@@ -567,6 +568,19 @@ private fun ToolButton(icon: ImageVector, label: String, active: Boolean = false
                     containerColor = MaterialTheme.colorScheme.surface.copy(alpha = alpha)),
             modifier = Modifier.size(48.dp),
         ) { Icon(icon, label) }
+    }
+}
+
+/** Portrait Prepare without the OpenSCAD editor: the Slice button sits at the right end of the panel's grip (user, 2026-10-17). */
+fun sliceOnGrip(state: UiState, wide: Boolean) = !wide && state.scad == null
+
+/** The Slice button on the panel grip, sized by the Layout lab's own slider (on top of the main UI size only). */
+@Composable
+fun GripSliceButton(state: UiState, vm: AppViewModel, modifier: Modifier = Modifier) {
+    val base = androidx.compose.ui.platform.LocalDensity.current
+    androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides
+        androidx.compose.ui.unit.Density(base.density * state.lab.sliceScale, base.fontScale)) {
+        SliceButton(state, vm, modifier.padding(vertical = 4.dp))
     }
 }
 
