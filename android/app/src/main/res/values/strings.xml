@@ -846,7 +846,7 @@
     <string name="lab_shadow_soft">Shadow softness (edge width): %s</string>
     <string name="lab_light_azimuth">Light direction around the plate: %s</string>
     <string name="lab_light_elevation">Light height above the bed: %s</string>
-    <string name="lab_pinch_speed">Pinch zoom speed (100 % = as fast as the fingers): %s</string>
+    <string name="lab_pinch_speed">Pinch zoom speed (100 %% = as fast as the fingers): %s</string>
     <string name="lab_light_strength">Light strength (the shadow follows the direction): %s</string>
     <string name="lab_shadow_bias">Shadow bias (raise if striped, lower if light leaks under parts): %s</string>
     <string name="lab_overlay_scale">Floating controls over the 3D view: %d %%</string>

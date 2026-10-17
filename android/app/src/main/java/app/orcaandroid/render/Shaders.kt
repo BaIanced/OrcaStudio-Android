@@ -293,6 +293,8 @@ internal object Shaders {
         uniform vec2 uRange;
         uniform vec3 uRoleColors[20];
         uniform vec3 uFilamentColors[16];
+        // Index of the first drawn segment, so a segment's depth order (below) doesn't change with the layer slider.
+        uniform int uFirst;
         layout(location = 0) in vec3 aCorner;
         layout(location = 1) in vec3 aFace;
         layout(location = 2) in vec3 aP0;
@@ -362,6 +364,11 @@ internal object Shaders {
             }
             // The layer's height goes straight down (exact z), so neighbouring boxes share their edges exactly.
             vec3 pos = (atEnd ? aP1 : aP0) + across + vec3(0.0, 0.0, (aCorner.z * 0.5 - 0.5) * h) + uOrigin;
+            // The bottom reaches a little into the layer below: the layers' edges never share vertices (T-junctions),
+            // so single-pixel cracks showed the darker inside through them and danced as the camera moved (user,
+            // 2026-10-17). The overlap is pushed back in depth below, so the layer below keeps its own top edge.
+            bool bottom = aCorner.z < 0.0;
+            if (bottom) pos.z -= clamp(pos.z, 0.0, 0.15 * h);
             vNormal = normalize(sideNormal * aFace.x + up * aFace.y + dir * aFace.z);
             vBead = aCorner.z;
             vSideFace = abs(aFace.x);
@@ -379,6 +386,12 @@ internal object Shaders {
             float lift = role == 2 ? 4.0 : (role == 1 || role == 3) ? 3.0 : (role == 6 || role == 8 || role == 11) ? 2.0
                 : (role == 5 || role == 7 || role == 9 || role == 10) ? 1.0 : 0.0;
             gl_Position = uMvp * vec4(pos + vec3(0.0, 0.0, lift * 0.01), 1.0);
+            // Fixed depth order for faces on the same plane (a few depth-buffer steps each, any zoom): the role as
+            // above, then odd segments over even ones (a loop's seam ends and crossing infill lines of one role
+            // overlap). The bottom overlap goes behind all of it.
+            float order = lift * 2.0 + float((gl_InstanceID + uFirst) & 1);
+            gl_Position.z -= order * 5e-7 * gl_Position.w;
+            if (bottom) gl_Position.z += 6e-6 * gl_Position.w;
         }"""
 
     const val PATH_FS = """#version 300 es

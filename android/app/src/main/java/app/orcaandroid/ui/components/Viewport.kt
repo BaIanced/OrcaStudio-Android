@@ -279,12 +279,15 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         } }
         v.selectedBounds = items.mapNotNull { s -> scene.objects.getOrNull(s.obj)?.instances?.getOrNull(s.instance)?.let { it.min to (it.min + it.size) } }
     }
-    LaunchedEffect(v, state.tool) {
-        v.mode = when (state.tool) {
+    LaunchedEffect(v, state.tool, showPreview) {
+        v.mode = when {
+            showPreview -> InteractionMode.VIEW
+            else -> when (state.tool) {
             is Tool.Paint -> InteractionMode.PAINT
             Tool.LayOnFace -> InteractionMode.LAY_ON_FACE
             Tool.Measure -> InteractionMode.MEASURE
             else -> InteractionMode.NAVIGATE
+            }
         }
         val cut = (state.tool as? Tool.Cut)?.let { t ->
             state.selectedObject?.instances?.getOrNull(state.selection?.instance ?: 0)?.let { i ->

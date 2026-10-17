@@ -14,7 +14,8 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
 
-enum class InteractionMode { NAVIGATE, PAINT, LAY_ON_FACE, MEASURE }
+/** VIEW: camera only (the Preview tab: nothing to pick, select or move, as on the desktop). */
+enum class InteractionMode { NAVIGATE, PAINT, LAY_ON_FACE, MEASURE, VIEW }
 
 /** What the 3D view reports back to the app. Called on the UI thread. */
 interface PlateListener {
@@ -134,6 +135,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
 
     private val gestureDetector =GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
         override fun onDoubleTap(e: MotionEvent): Boolean {
+            if (mode == InteractionMode.VIEW && !rightButton && !middleButton) { queueEvent { renderer.frame(renderer.activePlate) }; return true }
             if (mode != InteractionMode.NAVIGATE || rightButton || middleButton) return true
             // The first tap hit a badge (the view may have moved since): the second one does nothing.
             if (badgeTapTime >= e.eventTime) return true
@@ -299,7 +301,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                         cancelDrag()
                         if (!moved) tap(event.x, event.y, additive, part)
                     }
-                } else if (!moved && !multiTouch && mode != InteractionMode.PAINT) {
+                } else if (!moved && !multiTouch && mode != InteractionMode.PAINT && mode != InteractionMode.VIEW) {
                     val badge = if (mode == InteractionMode.NAVIGATE && !additive && !part) renderer.badgeAt(event.x, event.y) else null
                     if (badge == null) tap(event.x, event.y, additive, part)
                     else if (event.eventTime - badgeTapTime > ViewConfiguration.getDoubleTapTimeout()) {
