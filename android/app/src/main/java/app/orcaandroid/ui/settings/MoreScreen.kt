@@ -285,7 +285,7 @@ private fun LayoutLabSection(state: UiState, vm: AppViewModel) {
         ShadowSlider(R.string.lab_light_azimuth, lab.lightAzimuth, 1f, "°", app.orcaandroid.core.LayoutLab.LIGHT_AZIMUTHS, current) { vm.setLab(state.lab.copy(lightAzimuth = it)) }
         ShadowSlider(R.string.lab_light_elevation, lab.lightElevation, 1f, "°", app.orcaandroid.core.LayoutLab.LIGHT_ELEVATIONS, current) { vm.setLab(state.lab.copy(lightElevation = it)) }
         ShadowSlider(R.string.lab_light_strength, lab.lightStrength, 100f, "%", app.orcaandroid.core.LayoutLab.LIGHT_STRENGTHS, current) { vm.setLab(state.lab.copy(lightStrength = it)) }
-        ShadowSlider(R.string.lab_pinch_speed, lab.pinchSpeed, 100f, "%", app.orcaandroid.core.LayoutLab.PINCH_SPEEDS, current) { vm.setLab(state.lab.copy(pinchSpeed = it)) }
+        ShadowSlider(R.string.lab_pinch_speed, lab.pinchSpeed, 100f, "%", app.orcaandroid.core.LayoutLab.PINCH_SPEEDS, current, peek = false) { vm.setLab(state.lab.copy(pinchSpeed = it)) }
         TextButton(onClick = { vm.setLab(app.orcaandroid.core.LayoutLab()) }) { Text(stringResource(R.string.reset)) }
       }
     }
@@ -293,10 +293,11 @@ private fun LayoutLabSection(state: UiState, vm: AppViewModel) {
 
 /** A shadow look slider (strength in %, penumbra and bias in mm): live on the plate behind, like the size sliders. */
 @Composable
-private fun ShadowSlider(label: Int, value: Float, factor: Float, unit: String, range: ClosedFloatingPointRange<Float>, lab: app.orcaandroid.core.LayoutLab, onSet: (Float) -> Unit) {
+private fun ShadowSlider(label: Int, value: Float, factor: Float, unit: String, range: ClosedFloatingPointRange<Float>, lab: app.orcaandroid.core.LayoutLab, peek: Boolean = true, onSet: (Float) -> Unit) {
     val text = stringResource(label, if (factor == 1f) "%.1f".format(value) + unit else kotlin.math.round(value * factor).toInt().toString() + unit)
     Text(text, style = MaterialTheme.typography.bodyMedium)
-    LabSlider(value, { LabPeek.readout = text to (it - range.start) / (range.endInclusive - range.start); onSet(it) }, range, lab)
+    if (!peek) androidx.compose.material3.Slider(value, onSet, valueRange = range) // nothing to see behind: More stays lit
+    else LabSlider(value, { LabPeek.readout = text to (it - range.start) / (range.endInclusive - range.start); onSet(it) }, range, lab)
 }
 
 /** A size slider in 5 % steps, applied live (More is frozen at its touch-time size while dragging, so it doesn't move under the finger). */
