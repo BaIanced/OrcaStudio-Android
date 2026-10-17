@@ -42,6 +42,10 @@ class AppSettings(context: Context) {
         get() = LayoutLab.fromJson(prefs.getString("layout_lab", null))
         set(value) = prefs.edit().putString("layout_lab", value.toJson()).apply()
 
+    var pen: PenConfig
+        get() = PenConfig.fromJson(prefs.getString("pen", null))
+        set(value) = prefs.edit().putString("pen", value.toJson()).apply()
+
     /** When profile updates were last looked for (ms); the automatic check runs at most once a day. */
     var lastProfileCheck: Long
         get() = prefs.getLong("last_profile_check", 0L)

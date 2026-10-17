@@ -105,6 +105,7 @@ data class UiState(
     /** The floating colour panel is open over the app (design mode). */
     val designMode: Boolean = false,
     val doubleBackToQuit: Boolean = false,
+    val pen: app.orcaandroid.core.PenConfig = app.orcaandroid.core.PenConfig(),
     /** What an opened project does to the filament slots ("ask", "project", "mine") and the question being asked. */
     val projectFilaments: String = "ask",
     val filamentChoice: FilamentChoice? = null,

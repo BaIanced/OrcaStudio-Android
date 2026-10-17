@@ -164,6 +164,15 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                         }
                     }
 
+                    override fun onPenAction(action: app.orcaandroid.core.PenAction) {
+                        when (action) {
+                            app.orcaandroid.core.PenAction.UNDO -> vm.scene.undo()
+                            app.orcaandroid.core.PenAction.REDO -> vm.scene.redo()
+                            app.orcaandroid.core.PenAction.FRAME -> v.onGl { frame(activePlate) }
+                            else -> Unit
+                        }
+                    }
+
                     override fun onContextMenu(x: Float, y: Float) {
                         val (o, d) = v.camera.ray(x, y)
                         vm.scene.openContextMenu(o, d, x, y, v.section.current)
@@ -211,6 +220,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         v.onGl { keyAzimuth = state.lab.lightAzimuth; keyElevation = state.lab.lightElevation; keyStrength = state.lab.lightStrength }
     }
     LaunchedEffect(v, state.lab.pinchSpeed) { v.pinchSpeed = state.lab.pinchSpeed }
+    LaunchedEffect(v, state.pen) { v.pen = state.pen }
     // Plate numbers always; the plate icons only while arranging (Prepare).
     val atlas = rememberBadgeAtlas(scene.plates.size)
     val badges = if (showPreview) emptyList()

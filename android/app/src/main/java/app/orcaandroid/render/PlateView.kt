@@ -8,6 +8,8 @@ import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
 import android.view.ViewConfiguration
+import app.orcaandroid.core.PenAction
+import app.orcaandroid.core.PenConfig
 import app.orcaandroid.core.Vec3
 import kotlin.math.abs
 import kotlin.math.max
@@ -47,6 +49,8 @@ interface PlateListener {
     fun onPlateDoubleTap(index: Int) {}
     /** A tap on a badge beside plate [plate] (its number or one of its icons) at view point (x, y). */
     fun onPlateBadge(plate: Int, badge: PlateBadge, x: Float, y: Float) {}
+    /** A pen button or the eraser end was mapped to an instant action (undo, redo, frame). */
+    fun onPenAction(action: PenAction) {}
 }
 
 /**
@@ -97,6 +101,17 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     private var startFocusY = 0f
     /** Pinch zoom speed (Layout lab): the exponent on the fingers' gap ratio, 1 = the gap ratio itself. */
     var pinchSpeed = 0.6f
+    /** Pen buttons and eraser mapping, and palm rejection (More > Pen). */
+    var pen = PenConfig()
+    /** When a pen last touched or hovered (uptime ms); 0 after it left the hover range. */
+    private var lastPenEvent = 0L
+    private val penNear get() = lastPenEvent != 0L && android.os.SystemClock.uptimeMillis() - lastPenEvent < PEN_NEAR_MS
+    /** The gesture is a finger touch that came while the pen was near (a resting palm): ignored to its end. */
+    private var ignoreGesture = false
+    /** The gesture began with a pen button / eraser mapped to Orbit, or to an instant action ([penInstant], fires on a tap). */
+    private var penOrbit = false
+    private var penInstant: PenAction? = null
+    private var lastInstantTime = 0L
     /** The gesture began with the right / middle mouse button (pans; a right click opens the menu). */
     private var rightButton = false
     private var middleButton = false
@@ -148,7 +163,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
         }
 
         override fun onLongPress(e: MotionEvent) {
-            if (mode != InteractionMode.NAVIGATE || multiTouch || moved || rightButton || middleButton || rectangle) return
+            if (mode != InteractionMode.NAVIGATE || multiTouch || moved || rightButton || middleButton || rectangle || penOrbit || penInstant != null) return
             cancelDrag()
             longPressed = true
             listener?.onContextMenu(e.x, e.y)
@@ -179,6 +194,26 @@ class PlateView(context: Context) : GLSurfaceView(context) {
         var onKey: ((Int, KeyEvent) -> Boolean)? = null
         /** Added to both finger gaps of a pinch step (see onScale). */
         private const val PINCH_PAD_DP = 40f
+        /** Fingers stay ignored this long after the pen's last event (a hovering pen sends none while it rests). */
+        private const val PEN_NEAR_MS = 1000L
+        /** A button press already fired its instant action; the tap that follows within this time does not fire it again. */
+        private const val INSTANT_REPEAT_MS = 1500L
+    }
+
+    private fun isPenTool(tool: Int) = tool == MotionEvent.TOOL_TYPE_STYLUS || tool == MotionEvent.TOOL_TYPE_ERASER
+
+    /** Some pens report their button as the mouse's secondary / tertiary button instead of the stylus buttons. */
+    private fun penActionOf(tool: Int, buttons: Int): PenAction = when {
+        tool == MotionEvent.TOOL_TYPE_ERASER -> pen.eraser
+        tool != MotionEvent.TOOL_TYPE_STYLUS -> PenAction.TIP
+        buttons and (MotionEvent.BUTTON_STYLUS_PRIMARY or MotionEvent.BUTTON_SECONDARY) != 0 -> pen.button1
+        buttons and (MotionEvent.BUTTON_STYLUS_SECONDARY or MotionEvent.BUTTON_TERTIARY) != 0 -> pen.button2
+        else -> PenAction.TIP
+    }
+
+    private fun fireInstant(action: PenAction) {
+        lastInstantTime = android.os.SystemClock.uptimeMillis()
+        listener?.onPenAction(action)
     }
 
     override fun onFocusChanged(gainFocus: Boolean, direction: Int, previouslyFocusedRect: android.graphics.Rect?) {
@@ -193,6 +228,14 @@ class PlateView(context: Context) : GLSurfaceView(context) {
             android.util.Log.d(INPUT_TAG, "touch ${MotionEvent.actionToString(event.action)} buttons=${event.buttonState} meta=${event.metaState} tool=${event.getToolType(0)} source=${event.source}")
         // Compose's interop may hand the wheel over as a touch event.
         if (event.actionMasked == MotionEvent.ACTION_SCROLL) return onGenericMotionEvent(event)
+        val penTouch = isPenTool(event.getToolType(0))
+        if (penTouch) lastPenEvent = android.os.SystemClock.uptimeMillis()
+        // Palm rejection: a finger that lands while the pen is near is ignored until it lifts.
+        if (event.actionMasked == MotionEvent.ACTION_DOWN) ignoreGesture = !penTouch && pen.ignoreFingers && penNear
+        if (ignoreGesture) {
+            if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) ignoreGesture = false
+            return true
+        }
         scaleDetector.onTouchEvent(event)
         gestureDetector.onTouchEvent(event)
         when (event.actionMasked) {
@@ -207,7 +250,20 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                 rectangleRemove = event.metaState and KeyEvent.META_ALT_ON != 0
                 rectangle = mode == InteractionMode.NAVIGATE && !rightButton && !middleButton &&
                     (rectangleRemove || event.metaState and KeyEvent.META_SHIFT_ON != 0)
-                if (rightButton || middleButton || rectangle) Unit
+                penOrbit = false; penInstant = null
+                val penAction = penActionOf(event.getToolType(0), event.buttonState)
+                when (penAction) {
+                    PenAction.PAN -> middleButton = true
+                    PenAction.MENU -> rightButton = true
+                    PenAction.ORBIT -> penOrbit = true
+                    PenAction.SELECT_ADD, PenAction.SELECT_REMOVE -> if (mode == InteractionMode.NAVIGATE) {
+                        rectangle = true
+                        rectangleRemove = penAction == PenAction.SELECT_REMOVE
+                    }
+                    PenAction.UNDO, PenAction.REDO, PenAction.FRAME -> penInstant = penAction
+                    PenAction.TIP -> Unit
+                }
+                if (rightButton || middleButton || rectangle || penOrbit || penInstant != null) Unit
                 else if (mode == InteractionMode.PAINT) listener?.onPaint(event.x, event.y, true)
                 else if (mode == InteractionMode.NAVIGATE && hitsSelection(event.x, event.y)) {
                     dragging = true
@@ -256,6 +312,8 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                     when {
                         rectangle -> if (moved) listener?.onRectangle(downX, downY, event.x, event.y, rectangleRemove, false)
                         rightButton || middleButton -> camera.panGrab(lastX, lastY, event.x, event.y)
+                        penOrbit -> camera.orbit((event.x - lastX) * 0.3f, (event.y - lastY) * 0.3f)
+                        penInstant != null -> Unit
                         mode == InteractionMode.PAINT -> {
                             // Fill gaps of fast strokes so the painted trail stays continuous.
                             val dx = event.x - lastX
@@ -281,6 +339,9 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                 val part = event.metaState and KeyEvent.META_ALT_ON != 0
                 if (rectangle && moved) {
                     listener?.onRectangle(downX, downY, event.x, event.y, rectangleRemove, true)
+                } else if (penInstant != null || penOrbit) {
+                    val action = penInstant
+                    if (action != null && !moved && android.os.SystemClock.uptimeMillis() - lastInstantTime > INSTANT_REPEAT_MS) fireInstant(action)
                 } else if (longPressed || middleButton) {
                     // Handled: the menu is open, or the middle button only pans.
                 } else if (rightButton) {
@@ -323,6 +384,15 @@ class PlateView(context: Context) : GLSurfaceView(context) {
         if (android.util.Log.isLoggable(INPUT_TAG, android.util.Log.DEBUG))
             android.util.Log.d(INPUT_TAG, "generic ${MotionEvent.actionToString(event.action)} buttons=${event.buttonState} meta=${event.metaState} " +
                 "v=${event.getAxisValue(MotionEvent.AXIS_VSCROLL)} h=${event.getAxisValue(MotionEvent.AXIS_HSCROLL)} source=${event.source}")
+        // A pen near the screen (palm rejection) and a button pressed in the air fire an instant action (undo, redo, frame).
+        if (isPenTool(event.getToolType(0))) {
+            when (event.actionMasked) {
+                MotionEvent.ACTION_HOVER_ENTER, MotionEvent.ACTION_HOVER_MOVE -> lastPenEvent = android.os.SystemClock.uptimeMillis()
+                MotionEvent.ACTION_HOVER_EXIT -> lastPenEvent = 0L
+                MotionEvent.ACTION_BUTTON_PRESS -> penActionOf(event.getToolType(0), event.actionButton).takeIf { it.instant }?.let(::fireInstant)
+            }
+            return true
+        }
         // WSA delivers a right / middle drag as hover moves with the button held, not as touch moves.
         if (event.actionMasked == MotionEvent.ACTION_HOVER_MOVE &&
             event.buttonState and (MotionEvent.BUTTON_SECONDARY or MotionEvent.BUTTON_TERTIARY) != 0) {

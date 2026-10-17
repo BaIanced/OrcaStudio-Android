@@ -154,6 +154,15 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
                 if (custom > 0) Entry(stringResource(R.string.reset_colors), pluralStringResource(R.plurals.n_custom_colors, custom, custom)) { dialog = "reset_colors" }
             }
 
+            Section(stringResource(R.string.pen)) {
+                val pen = state.pen
+                SwitchRow(stringResource(R.string.pen_ignore_fingers), pen.ignoreFingers, onChange = { vm.setPen(pen.copy(ignoreFingers = it)) })
+                PenActionRow(stringResource(R.string.pen_button1), pen.button1) { vm.setPen(pen.copy(button1 = it)) }
+                PenActionRow(stringResource(R.string.pen_button2), pen.button2) { vm.setPen(pen.copy(button2 = it)) }
+                PenActionRow(stringResource(R.string.pen_eraser), pen.eraser) { vm.setPen(pen.copy(eraser = it)) }
+                Text(stringResource(R.string.pen_text), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+
             Section(stringResource(R.string.misc)) {
                 SwitchRow(stringResource(R.string.double_back_quit), state.doubleBackToQuit, onChange = vm::setDoubleBackToQuit)
                 Text(stringResource(R.string.project_filaments), style = MaterialTheme.typography.titleSmall)
@@ -403,6 +412,34 @@ private fun AiToolsSection(state: UiState, vm: AppViewModel) {
             vm.toast(context.getString(R.string.ai_command_copied))
         }) { Text(stringResource(R.string.ai_copy_command)) }
         TextButton(onClick = vm::newAiToken) { Text(stringResource(R.string.ai_new_token)) }
+    }
+}
+
+/** A pen button or the eraser end with the action it is mapped to, picked from a menu. */
+@Composable
+private fun PenActionRow(label: String, action: app.orcaandroid.core.PenAction, onChange: (app.orcaandroid.core.PenAction) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    @Composable fun name(a: app.orcaandroid.core.PenAction) = stringResource(when (a) {
+        app.orcaandroid.core.PenAction.TIP -> R.string.pen_act_tip
+        app.orcaandroid.core.PenAction.PAN -> R.string.pen_act_pan
+        app.orcaandroid.core.PenAction.ORBIT -> R.string.pen_act_orbit
+        app.orcaandroid.core.PenAction.SELECT_ADD -> R.string.pen_act_select_add
+        app.orcaandroid.core.PenAction.SELECT_REMOVE -> R.string.pen_act_select_remove
+        app.orcaandroid.core.PenAction.MENU -> R.string.pen_act_menu
+        app.orcaandroid.core.PenAction.UNDO -> R.string.pen_act_undo
+        app.orcaandroid.core.PenAction.REDO -> R.string.pen_act_redo
+        app.orcaandroid.core.PenAction.FRAME -> R.string.pen_act_frame
+    })
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+        androidx.compose.foundation.layout.Box {
+            TextButton({ open = true }) { Text(name(action)) }
+            androidx.compose.material3.DropdownMenu(open, { open = false }) {
+                app.orcaandroid.core.PenAction.entries.forEach { a ->
+                    androidx.compose.material3.DropdownMenuItem({ Text(name(a)) }, { open = false; onChange(a) })
+                }
+            }
+        }
     }
 }
 

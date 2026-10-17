@@ -150,6 +150,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         store.update { it.copy(lab = lab) }
     }
 
+    fun setPen(pen: app.orcaandroid.core.PenConfig) {
+        store.settings.pen = pen
+        store.update { it.copy(pen = pen) }
+    }
+
     fun setDoubleBackToQuit(on: Boolean) {
         store.settings.doubleBackToQuit = on
         store.update { it.copy(doubleBackToQuit = on) }

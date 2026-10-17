@@ -28,6 +28,7 @@ class Store(val app: Application, val scope: CoroutineScope) {
             dynamicColor = settings.dynamicColor,
             themeSpec = settings.themeSpec,
             doubleBackToQuit = settings.doubleBackToQuit,
+            pen = settings.pen,
             projectFilaments = settings.projectFilaments,
             allowMixedTemps = settings.allowMixedTemps,
             contactShadows = settings.contactShadows,
