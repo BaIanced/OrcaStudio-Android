@@ -116,7 +116,13 @@ private fun MainControls(status: PrinterStatus, send: (PrinterControl) -> Unit, 
             }
         }
 
-        status.light?.let { on -> SwitchRow(stringResource(R.string.control_light), on) { send(PrinterControl.light(it)) } }
+        status.light?.let { on ->
+            // Show the tap at once; the printer's report follows a few seconds later (it reverts after the hold if never confirmed).
+            var asked by remember { mutableStateOf<Boolean?>(null) }
+            LaunchedEffect(asked) { if (asked != null) { delay(FAN_HOLD_MS); asked = null } }
+            LaunchedEffect(on) { if (on == asked) asked = null }
+            SwitchRow(stringResource(R.string.control_light), asked ?: on) { asked = it; send(PrinterControl.light(it)) }
+        }
 
         val reported = status.partFan
         var fan by remember { mutableFloatStateOf((reported ?: 0).toFloat()) }
