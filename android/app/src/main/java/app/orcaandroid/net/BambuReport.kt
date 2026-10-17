@@ -15,6 +15,7 @@ internal class BambuReport {
     private val replies = HashMap<String, JSONObject>()
     private val lock = Object()
     private var trayReports = 0
+    private var fullReports = 0
 
     /** Applies one report (the whole MQTT payload). */
     fun apply(payload: String) {
@@ -26,6 +27,7 @@ internal class BambuReport {
             else {
                 print.keys().forEach { k -> snapshot.put(k, print.get(k)) }
                 if (print.has("ams") || print.has("vt_tray") || print.has("vir_slot")) trayReports++
+                if (print.length() >= FULL_REPORT_KEYS) fullReports++
             }
             lock.notifyAll()
         }
@@ -56,6 +58,12 @@ internal class BambuReport {
     /** How many reports carried AMS / external spool data; a newer count means fresh tray data. */
     val trayCount get() = synchronized(lock) { trayReports }
 
+    /**
+     * How many reports were complete (the answer to "pushall"; the printer otherwise sends only what changed).
+     * A newer count means the snapshot no longer misses changes made while the app was disconnected.
+     */
+    val fullCount get() = synchronized(lock) { fullReports }
+
     fun status(): PrinterStatus = synchronized(lock) {
         val r = snapshot
         val alerts = alerts(r)
@@ -85,10 +93,15 @@ internal class BambuReport {
             totalLayers = r.optInt("total_layer_num", -1).takeIf { it > 0 },
             nozzleDiameter = nozzleDiameter(r),
             speedLevel = r.optInt("spd_lvl", -1).takeIf { it in 1..4 },
-            // The fan reports a gear 0..15 (as a string); DevFan.cpp scales it to 0..255.
-            partFan = r.optString("cooling_fan_speed").toIntOrNull()?.let { (it.coerceIn(0, 15) * 100 + 7) / 15 },
+            partFan = partFan(r),
             light = lights(r),
         )
+    }
+
+    /** The part fan in percent, as DevFan.cpp reads it: `fan_gear` (0..255 in its low byte), else `cooling_fan_speed` (a gear 0..15 as a string). */
+    private fun partFan(r: JSONObject): Int? {
+        if (r.has("fan_gear")) return ((r.optLong("fan_gear") and 0xFF).toInt() * 100 + 127) / 255
+        return r.optString("cooling_fan_speed").toIntOrNull()?.let { (it.coerceIn(0, 15) * 100 + 7) / 15 }
     }
 
     /**
@@ -162,6 +175,9 @@ internal class BambuReport {
     }
 
     companion object {
+        /** A report with this many fields is a full one (untested threshold: pushall answers carry far more than a delta). */
+        private const val FULL_REPORT_KEYS = 20
+
         private val sequence = AtomicLong(20_000)
 
         /** A fresh sequence_id, so a command's reply can be told apart. */

@@ -31,6 +31,8 @@ internal class ObnHost(private val c: PrinterConnection) : PrintHost {
     private object Session {
         var serial: String? = null
         var connected = false
+        /** The snapshot has been refreshed by a pushall since the last (re)connect; the printer sends only changes otherwise. */
+        var synced = false
         var lastError: String? = null
         var users = 0
         var report = BambuReport()
@@ -64,6 +66,7 @@ internal class ObnHost(private val c: PrinterConnection) : PrintHost {
         Session.serial = c.serial
         Session.cloud = false
         Session.connected = false
+        Session.synced = false
         Session.lastError = null
         val rc = ObnNative.connect(c.serial, host, c.apiKey)
         if (rc != 0) {
@@ -90,6 +93,7 @@ internal class ObnHost(private val c: PrinterConnection) : PrintHost {
         Session.serial = c.serial
         Session.cloud = true
         Session.connected = true
+        Session.synced = false
         Session.lastError = null
     }
 
@@ -173,9 +177,11 @@ internal class ObnHost(private val c: PrinterConnection) : PrintHost {
     override fun status(): PrinterStatus {
         ensureConnected()
         val report = Session.report
-        if (report.isEmpty) {
+        if (!Session.synced) {
+            val before = report.fullCount
             pushAll()
-            report.await(4_000, ::drain) { !report.isEmpty }
+            report.await(4_000, ::drain) { report.fullCount > before }
+            Session.synced = true
         }
         drain()
         return report.status()

@@ -87,10 +87,7 @@ fun DeviceScreen(state: UiState, vm: AppViewModel) {
         NotConnected(state, vm) { editing = true }
     } else {
         LaunchedEffect(connection) {
-            while (true) {
-                vm.device.refreshStatus()
-                delay(5000)
-            }
+            vm.device.pollStatus()
         }
         // A slim bar above the web UI, so Mainsail/Fluidd keep the full width.
         Column(Modifier.fillMaxSize()) {

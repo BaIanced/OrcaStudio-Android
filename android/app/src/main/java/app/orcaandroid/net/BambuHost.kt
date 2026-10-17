@@ -17,6 +17,8 @@ internal class BambuHost(private val c: PrinterConnection) : PrintHost {
     private val host = c.baseUrl().substringAfter("://").substringBefore(':').substringBefore('/')
     private var mqtt: MqttClient? = null
     private val report = BambuReport()
+    /** A pushall has refreshed the snapshot; the printer otherwise sends only what changed. */
+    private var synced = false
 
     private fun ensureConnected(): MqttClient {
         mqtt?.takeIf { it.isConnected }?.let { return it }
@@ -63,9 +65,11 @@ internal class BambuHost(private val c: PrinterConnection) : PrintHost {
     }
 
     override fun status(): PrinterStatus {
-        if (report.isEmpty) {
+        if (!synced) {
+            val before = report.fullCount
             pushAll()
-            report.await(4_000) { !report.isEmpty }
+            report.await(4_000) { report.fullCount > before }
+            synced = true
         }
         return report.status()
     }

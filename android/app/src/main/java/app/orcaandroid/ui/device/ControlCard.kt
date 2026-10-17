@@ -22,13 +22,16 @@ import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -46,6 +49,9 @@ import kotlin.math.roundToInt
 
 /** The nozzle must be at least this hot (°C) before the extruder moves; the printer refuses colder moves. */
 private const val EXTRUDE_MIN_TEMP = 170f
+
+/** How long the fan slider keeps the user's value before following the printer's report again. */
+private const val FAN_HOLD_MS = 5_000L
 
 private enum class TempTarget { NOZZLE, BED }
 
@@ -113,11 +119,21 @@ private fun MainControls(status: PrinterStatus, send: (PrinterControl) -> Unit, 
         status.light?.let { on -> SwitchRow(stringResource(R.string.control_light), on) { send(PrinterControl.light(it)) } }
 
         val reported = status.partFan
-        var fan by remember(reported) { mutableFloatStateOf((reported ?: 0).toFloat()) }
+        var fan by remember { mutableFloatStateOf((reported ?: 0).toFloat()) }
+        // Keep what the user set until the printer has had time to report it, so the slider does not jump back to an older report.
+        var holdUntil by remember { mutableLongStateOf(0L) }
+        var holding by remember { mutableStateOf(false) }
+        LaunchedEffect(holdUntil) {
+            if (holdUntil > 0L) { holding = true; delay(FAN_HOLD_MS); holding = false }
+        }
+        LaunchedEffect(reported, holding) { if (!holding) fan = (reported ?: 0).toFloat() }
         Text(stringResource(R.string.control_part_fan, fan.roundToInt()), style = MaterialTheme.typography.bodyMedium)
         Slider(
-            fan, { fan = it }, enabled = reported != null, valueRange = 0f..100f,
-            onValueChangeFinished = { send(PrinterControl.partFan(fan.roundToInt())) },
+            fan, { fan = it; holding = true }, enabled = reported != null, valueRange = 0f..100f,
+            onValueChangeFinished = {
+                send(PrinterControl.partFan(fan.roundToInt()))
+                holdUntil = System.currentTimeMillis()
+            },
         )
     }
 }
