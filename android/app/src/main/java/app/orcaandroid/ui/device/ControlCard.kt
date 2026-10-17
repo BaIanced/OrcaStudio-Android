@@ -103,6 +103,7 @@ private fun MainControls(status: PrinterStatus, send: (PrinterControl) -> Unit, 
             ).forEach { (level, label) ->
                 FilterChip(
                     status.speedLevel == level, { send(PrinterControl.speed(level)) },
+                    enabled = status.isActive,
                     label = { Text(stringResource(label), style = MaterialTheme.typography.labelSmall, maxLines = 1) },
                     modifier = Modifier.weight(1f),
                 )
