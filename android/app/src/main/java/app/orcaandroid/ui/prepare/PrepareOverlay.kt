@@ -597,10 +597,13 @@ private fun SliceButton(state: UiState, vm: AppViewModel, modifier: Modifier) {
         }
     } else {
         var menu by remember { mutableStateOf(false) }
+        val label = stringResource(if (state.scene.plates.size > 1) R.string.slice_plate_n else R.string.slice, state.activePlate + 1)
         Box(modifier) {
+            // The FAB's text isn't in the accessibility tree (no label for TalkBack or ui dumps): name it here.
             ExtendedFloatingActionButton(
                 onClick = { vm.slicing.slice() },
-                text = { Text(stringResource(if (state.scene.plates.size > 1) R.string.slice_plate_n else R.string.slice, state.activePlate + 1)) },
+                modifier = Modifier.semantics { contentDescription = label },
+                text = { Text(label) },
                 icon = { Icon(Icons.Default.Layers, null) },
             )
             if (state.scene.plates.size > 1) {

@@ -76,6 +76,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.Alignment
@@ -424,15 +425,16 @@ private fun DragHandle(vertical: Boolean, header: (@Composable () -> Unit)? = nu
                        onDrag: (androidx.compose.ui.unit.Dp) -> Unit) {
     val density = androidx.compose.ui.platform.LocalDensity.current
     val drag = androidx.compose.foundation.gestures.rememberDraggableState { px -> onDrag(with(density) { px.toDp() }) }
-    val stopped: suspend kotlinx.coroutines.CoroutineScope.(Float) -> Unit = { v ->
-        val dps = with(density) { v.toDp() }
+    val speed = remember { FingerSpeed() }
+    val stopped: suspend kotlinx.coroutines.CoroutineScope.(Float) -> Unit = {
+        val dps = with(density) { speed.release(vertical = !vertical).toDp() }
         if (onFling != null && kotlin.math.abs(dps.value) >= FLING_DP_PER_S) onFling(dps.value > 0)
     }
     // Something nested on the grip (the plate switcher): it rides on top of the grip row, which alone drags.
     if (header != null && !vertical) {
         Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainer)) {
             header()
-            Box(Modifier.height(20.dp).fillMaxWidth().draggable(drag, Orientation.Vertical, onDragStarted = { GripGlide.job?.cancel() }, onDragStopped = stopped), contentAlignment = Alignment.Center) {
+            Box(Modifier.height(20.dp).fillMaxWidth().trackFinger(speed).draggable(drag, Orientation.Vertical, onDragStarted = { GripGlide.job?.cancel() }, onDragStopped = stopped), contentAlignment = Alignment.Center) {
                 Box(Modifier.size(40.dp, 4.dp).background(MaterialTheme.colorScheme.outline, RoundedCornerShape(2.dp)))
             }
         }
@@ -441,6 +443,7 @@ private fun DragHandle(vertical: Boolean, header: (@Composable () -> Unit)? = nu
     Box(
         (if (vertical) Modifier.width(16.dp).fillMaxHeight() else Modifier.height(20.dp).fillMaxWidth())
             .background(MaterialTheme.colorScheme.surfaceContainer)
+            .trackFinger(speed)
             .draggable(drag, if (vertical) Orientation.Horizontal else Orientation.Vertical, onDragStarted = { GripGlide.job?.cancel() }, onDragStopped = stopped),
         contentAlignment = Alignment.Center,
     ) {
@@ -451,6 +454,32 @@ private fun DragHandle(vertical: Boolean, header: (@Composable () -> Unit)? = nu
 
 /** Release speed (dp/s) from which a grip flick collapses or expands its pane. */
 private const val FLING_DP_PER_S = 800f
+
+/**
+ * The finger's speed over a grip, in window pixels. A grip follows the finger, so the speed relative to it (what
+ * draggable's onDragStopped reports) stays near 0 and flicks never fired (r281).
+ */
+private class FingerSpeed {
+    val tracker = androidx.compose.ui.input.pointer.util.VelocityTracker()
+    var coords: androidx.compose.ui.layout.LayoutCoordinates? = null
+
+    /** Speed at release (px/s) along y ([vertical]) or x; 0 when the finger rested before letting go. */
+    fun release(vertical: Boolean): Float = tracker.calculateVelocity().let { if (vertical) it.y else it.x }
+}
+
+private fun Modifier.trackFinger(s: FingerSpeed) = onGloballyPositioned { s.coords = it }.pointerInput(s) {
+    awaitPointerEventScope {
+        while (true) {
+            // Initial pass, nothing consumed: the draggable below still gets every event.
+            val change = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial).changes.firstOrNull() ?: continue
+            val coords = s.coords ?: continue
+            if (change.pressed && !change.previousPressed) s.tracker.resetTracking()
+            // Event positions are local to the layout as it is now: map them to the root before the grip moves again.
+            change.historical.forEach { s.tracker.addPosition(it.uptimeMillis, coords.localToRoot(it.position)) }
+            s.tracker.addPosition(change.uptimeMillis, coords.localToRoot(change.position))
+        }
+    }
+}
 
 /** Glides a pane size (dp) from [from] to [to] after a flick. */
 private fun settle(to: Float, from: Float, set: (Float) -> Unit) {
@@ -485,9 +514,11 @@ private fun PanelEdge(tucked: Boolean, onClick: () -> Unit, onDrag: (androidx.co
     val density = androidx.compose.ui.platform.LocalDensity.current
     val drag = androidx.compose.foundation.gestures.rememberDraggableState { px -> onDrag(with(density) { px.toDp() }) }
     val label = stringResource(if (tucked) R.string.show_panel else R.string.tuck_panel)
+    val speed = remember { FingerSpeed() }
     Surface(onClick = onClick, tonalElevation = 2.dp, modifier = Modifier.width(if (tucked) 32.dp else 20.dp).fillMaxHeight()
-        .draggable(drag, Orientation.Horizontal, onDragStopped = { v ->
-            val dps = with(density) { v.toDp() }.value
+        .trackFinger(speed)
+        .draggable(drag, Orientation.Horizontal, onDragStopped = {
+            val dps = with(density) { speed.release(vertical = false).toDp() }.value
             onDragEnd(if (kotlin.math.abs(dps) >= FLING_DP_PER_S) dps > 0 else null)
         })) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
