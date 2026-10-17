@@ -944,4 +944,22 @@
     <string name="camera_unreachable">Can\'t reach the printer\'s camera. Is this device on the same network, and is the printer on?</string>
     <string name="camera_rejected">The printer refused the connection. Check the access code.</string>
     <string name="camera_broken">The camera connection dropped. Press Start to try again.</string>
+    <string name="control_title">Controls</string>
+    <string name="control_tab_main">Control</string>
+    <string name="control_tab_xyz">XYZ</string>
+    <string name="control_extrude">Extrude</string>
+    <string name="control_retract">Retract</string>
+    <string name="control_speed">Speed</string>
+    <string name="control_speed_silent">Silent</string>
+    <string name="control_speed_standard">Standard</string>
+    <string name="control_speed_sport">Sport</string>
+    <string name="control_speed_ludicrous">Ludicrous</string>
+    <string name="control_light">Light</string>
+    <string name="control_part_fan">Part fan: %1$d %%</string>
+    <string name="control_set_temp">Set %1$s temperature (°C, 0 = off)</string>
+    <string name="control_step">Step: %1$s mm</string>
+    <string name="control_home">Home</string>
+    <string name="control_busy_print">Moving and extruding are off while a print runs.</string>
+    <string name="control_cold_nozzle">Heat the nozzle to at least 170° to extrude or retract.</string>
+    <string name="control_unknown_model">The printer model is unknown, so the move directions cannot be chosen.</string>
 </resources>

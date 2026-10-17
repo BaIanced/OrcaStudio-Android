@@ -84,6 +84,10 @@ internal class BambuReport {
             layer = r.optInt("layer_num", -1).takeIf { it >= 0 },
             totalLayers = r.optInt("total_layer_num", -1).takeIf { it > 0 },
             nozzleDiameter = nozzleDiameter(r),
+            speedLevel = r.optInt("spd_lvl", -1).takeIf { it in 1..4 },
+            // The fan reports a gear 0..15 (as a string); DevFan.cpp scales it to 0..255.
+            partFan = r.optString("cooling_fan_speed").toIntOrNull()?.let { (it.coerceIn(0, 15) * 100 + 7) / 15 },
+            light = lights(r),
         )
     }
 
@@ -99,6 +103,16 @@ internal class BambuReport {
         }
         val d = r.opt("nozzle_diameter")?.toString()?.toFloatOrNull() ?: return null
         return (Math.round(d * 10) / 10f).takeIf { it > 0f }
+    }
+
+    /** The chamber light (DeviceManager.cpp: lights_report, node "chamber_light"); null when the printer has none. */
+    private fun lights(r: JSONObject): Boolean? {
+        val list = r.optJSONArray("lights_report") ?: return null
+        for (i in 0 until list.length()) {
+            val l = list.optJSONObject(i) ?: continue
+            if (l.optString("node") == "chamber_light") return l.optString("mode") == "on"
+        }
+        return null
     }
 
     private fun alerts(r: JSONObject): List<PrinterAlert> {

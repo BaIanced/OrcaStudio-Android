@@ -304,7 +304,8 @@ private fun PrinterPanel(state: UiState, vm: AppViewModel, modifier: Modifier) {
                 ).joinToString("  ·  "), style = MaterialTheme.typography.bodySmall)
             }
         }
-        PanelCard(stringResource(R.string.device_temperatures)) {
+        val bambuHost = state.connection?.takeIf { it.type == HostType.BAMBU || it.type == HostType.BAMBU_SIGNED }
+        if (bambuHost != null) PrinterControlCard(status, bambuHost.serial, vm) else PanelCard(stringResource(R.string.device_temperatures)) {
             Row(horizontalArrangement = Arrangement.spacedBy(32.dp)) {
                 Temperature(stringResource(R.string.device_nozzle), status.nozzleTemp, status.nozzleTarget)
                 Temperature(stringResource(R.string.device_bed), status.bedTemp, status.bedTarget)

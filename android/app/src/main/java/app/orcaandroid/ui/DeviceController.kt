@@ -10,6 +10,7 @@ import app.orcaandroid.net.HostType
 import app.orcaandroid.net.PrintHost
 import app.orcaandroid.net.PrinterAlert
 import app.orcaandroid.net.PrinterConnection
+import app.orcaandroid.net.PrinterControl
 import app.orcaandroid.net.PrinterModel
 import app.orcaandroid.net.PrinterTray
 import app.orcaandroid.service.PrintMonitorService
@@ -17,6 +18,7 @@ import java.io.File
 import java.io.IOException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -155,6 +157,20 @@ class DeviceController(private val store: Store) {
     fun controlJob(action: PrintHost.JobAction) = store.launch {
         val connection = store.value.connection ?: return@launch
         withHost(connection) { it.control(action) }
+        refreshStatus()
+    }
+
+    /** Sends a manual control (temperature, speed, fan, light, jog) and refreshes once the printer has reported it. */
+    fun sendControl(control: PrinterControl) = store.launch {
+        val connection = store.value.connection ?: return@launch
+        val result = runCatching {
+            withHost(connection) { host ->
+                control.print?.let { host.command(it) }
+                control.system?.let { host.systemCommand(it) }
+            }
+        }
+        store.update { it.copy(printerStatusError = result.exceptionOrNull()?.let { e -> e.message ?: e.toString() }) }
+        delay(900)
         refreshStatus()
     }
 

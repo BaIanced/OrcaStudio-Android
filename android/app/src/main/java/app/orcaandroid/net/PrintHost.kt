@@ -90,6 +90,10 @@ data class PrinterStatus(
     val totalLayers: Int? = null,
     /** Bambu: diameter (mm) of the nozzle installed in the (first) toolhead, when reported. */
     val nozzleDiameter: Float? = null,
+    /** Bambu: print speed level (1 silent .. 4 ludicrous), part fan in percent and chamber light, when reported. */
+    val speedLevel: Int? = null,
+    val partFan: Int? = null,
+    val light: Boolean? = null,
 ) {
     enum class State { IDLE, PRINTING, PAUSED, FINISHED, STOPPED, ERROR, OFFLINE }
 
@@ -115,6 +119,9 @@ interface PrintHost {
      * throws when the printer refuses it.
      */
     fun command(print: org.json.JSONObject): org.json.JSONObject? = throw UnsupportedOperationException("Not supported by this printer type")
+
+    /** Bambu: sends one {"system": ...} command (lights); throws when the printer refuses it. */
+    fun systemCommand(system: org.json.JSONObject): Unit = throw UnsupportedOperationException("Not supported by this printer type")
 
     /** Bambu: the status right after a full report (pushall), with the loaded filaments. */
     fun fullStatus(): PrinterStatus? = status()

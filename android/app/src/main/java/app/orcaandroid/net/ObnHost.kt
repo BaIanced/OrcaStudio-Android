@@ -203,6 +203,10 @@ internal class ObnHost(private val c: PrinterConnection) : PrintHost {
         return reply
     }
 
+    override fun systemCommand(system: JSONObject) {
+        request(JSONObject().put("system", JSONObject(system.toString()).put("sequence_id", BambuReport.nextSequence())))
+    }
+
     override fun control(action: PrintHost.JobAction): Boolean {
         val command = when (action) {
             PrintHost.JobAction.PAUSE -> "pause"
