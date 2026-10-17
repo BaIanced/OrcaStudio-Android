@@ -17,6 +17,11 @@ data class LayoutLab(
     val overlayAlpha: Float = 0.85f,
     /** Portrait: tool buttons in a column on the left instead of a row at the bottom. */
     val toolsLeft: Boolean = true,
+    /** Portrait: tool row collapsed into just the + button. */
+    val toolsCollapsed: Boolean = false,
+    /** Portrait floating tool row offset in dp (-1 = default at bottom left). */
+    val toolsRowX: Float = -1f,
+    val toolsRowY: Float = -1f,
     /** Wide layouts: the settings panel is tucked away to a thin edge. */
     val panelTucked: Boolean = false,
     /** Wide layouts: the settings panel's width in dp, set by dragging its edge (0 = default). */
@@ -44,7 +49,9 @@ data class LayoutLab(
 ) {
     fun toJson(): String = JSONObject()
         .put("plates", plates.name).put("plateLabel", plateLabel).put("overlayAlpha", overlayAlpha.toDouble())
-        .put("toolsLeft", toolsLeft).put("panelTucked", panelTucked).put("panelWidth", panelWidth.toDouble())
+        .put("toolsLeft", toolsLeft).put("toolsCollapsed", toolsCollapsed)
+        .put("toolsRowX", toolsRowX.toDouble()).put("toolsRowY", toolsRowY.toDouble())
+        .put("panelTucked", panelTucked).put("panelWidth", panelWidth.toDouble())
         .put("textScale", textScale.toDouble()).put("uiScale", uiScale.toDouble()).put("overlayScale", overlayScale.toDouble())
         .put("fullscreenPortrait", fullscreenPortrait).put("platesOnHandle", platesOnHandle).put("plateScale", plateScale.toDouble())
         .put("shadowStrength", shadowStrength.toDouble()).put("shadowSoft", shadowSoft.toDouble()).put("shadowBias", shadowBias.toDouble())
@@ -70,6 +77,9 @@ data class LayoutLab(
                 plateLabel = o.optBoolean("plateLabel", d.plateLabel),
                 overlayAlpha = o.optDouble("overlayAlpha", d.overlayAlpha.toDouble()).toFloat().coerceIn(0.2f, 1f),
                 toolsLeft = o.optBoolean("toolsLeft", d.toolsLeft),
+                toolsCollapsed = o.optBoolean("toolsCollapsed", d.toolsCollapsed),
+                toolsRowX = o.optDouble("toolsRowX", d.toolsRowX.toDouble()).toFloat(),
+                toolsRowY = o.optDouble("toolsRowY", d.toolsRowY.toDouble()).toFloat(),
                 panelTucked = o.optBoolean("panelTucked", d.panelTucked),
                 panelWidth = o.optDouble("panelWidth", 0.0).toFloat().coerceAtLeast(0f),
                 textScale = o.optDouble("textScale", 1.0).toFloat().coerceIn(TEXT_SCALES.start, TEXT_SCALES.endInclusive),
