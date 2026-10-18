@@ -185,11 +185,15 @@ internal object Shaders {
                 vec3 shaded = (base * diff + vec3(spec)) * lit + vec3(0.55, 0.7, 1.0) * rim * (0.4 + 0.6 * sky);
                 if (vSelected > 0.5 && uPass == 0) {
                     // Rim glow: the selection colour on faces turning away from the eye.
-                    if ((uSelStyle & 4) != 0) shaded += uSelectedColor * pow(1.0 - max(dot(n, v), 0.0), 2.0) * 0.9;
-                    // Wireframe: the triangle edges, about 1 px (fwidth) wide.
+                    if ((uSelStyle & 4) != 0)
+                        shaded = mix(shaded, uSelectedColor * 1.2, smoothstep(0.3, 0.9, 1.0 - max(dot(n, v), 0.0)));
+                    // Wireframe: the triangle edges, about 1 px (fwidth) wide; fades out on triangles under ~10 px
+                    // (dense meshes would turn solid).
                     if ((uSelStyle & 8) != 0) {
-                        vec3 e = smoothstep(vec3(0.0), fwidth(vBary) * 1.2, vBary);
-                        shaded = mix(shaded, uSelectedColor, (1.0 - min(min(e.x, e.y), e.z)) * 0.85);
+                        vec3 w = fwidth(vBary);
+                        vec3 e = smoothstep(vec3(0.0), w, vBary);
+                        float dense = 1.0 - smoothstep(0.06, 0.12, max(max(w.x, w.y), w.z));
+                        shaded = mix(shaded, uSelectedColor, (1.0 - min(min(e.x, e.y), e.z)) * 0.8 * dense);
                     }
                 }
                 color = vec4(shaded, alpha);
