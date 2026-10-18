@@ -250,7 +250,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
             MotionEvent.ACTION_DOWN -> {
                 if (!hasFocus()) requestFocus()
                 lastX = event.x; lastY = event.y; downX = event.x; downY = event.y
-                multiTouch = false; moved = false; dragging = false; longPressed = false; maxTravel = 0f
+                multiTouch = false; moved = false; dragging = false; longPressed = false; maxTravel = 0f; resizeTried = false
                 // The button state is only known on DOWN; on UP it is already released.
                 val mouse = event.isFromSource(android.view.InputDevice.SOURCE_MOUSE)
                 rightButton = mouse && event.buttonState and MotionEvent.BUTTON_SECONDARY != 0
@@ -272,7 +272,6 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                     PenAction.TIP -> Unit
                 }
                 if (rightButton || middleButton || rectangle || penOrbit || penInstant != null) Unit
-                else if (mode == InteractionMode.NAVIGATE && startResize(event.x, event.y)) Unit
                 else if (mode == InteractionMode.PAINT) listener?.onPaint(event.x, event.y, true)
                 else if (mode == InteractionMode.NAVIGATE && hitsSelection(event.x, event.y)) {
                     dragging = true
@@ -306,6 +305,17 @@ class PlateView(context: Context) : GLSurfaceView(context) {
             MotionEvent.ACTION_MOVE -> {
                 maxTravel = max(maxTravel, abs(event.x - downX) + abs(event.y - downY))
                 if (maxTravel > touchSlop) moved = true
+                // A corner drag only starts once a single finger has really moved from the corner, so a two-finger gesture
+                // landing on the selection never starts (or leaves behind) a resize.
+                if (moved && !resizeTried) {
+                    resizeTried = true
+                    if (!multiTouch && event.pointerCount == 1 && mode == InteractionMode.NAVIGATE && !rightButton && !middleButton && !rectangle &&
+                        !penOrbit && penInstant == null && startResize(downX, downY)) {
+                        dragCheckId++
+                        dragging = false; dragStart = null
+                        queueEvent { renderer.dragOffset = floatArrayOf(0f, 0f, 0f) }
+                    }
+                }
                 if (longPressed) return true
                 if (event.pointerCount >= 2) {
                     val fx = focusX(event); val fy = focusY(event)
@@ -448,6 +458,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     private var resizeAnchorPx = 0f to 0f
     private var resizeStartDist = 1f
     private var resizeFactor = 1f
+    private var resizeTried = false
 
     /** A touch on a corner of the lone selected box starts a uniform resize about the opposite corner. */
     private fun startResize(x: Float, y: Float): Boolean {
