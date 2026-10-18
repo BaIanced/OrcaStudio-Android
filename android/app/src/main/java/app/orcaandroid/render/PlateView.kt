@@ -37,6 +37,11 @@ interface PlateListener {
     fun onBrushScroll(steps: Int)
     /** The selected copies were dragged by (dx, dy) mm on the bed. */
     fun onMoved(dx: Float, dy: Float)
+    /**
+     * A corner of the single selected copy's box is being dragged to scale it uniformly about the opposite corner [anchor];
+     * (x, y) is the finger. [factor] <= 0 when the drag was cancelled; [done] once let go.
+     */
+    fun onResizeCorner(factor: Float, anchor: Vec3, x: Float, y: Float, done: Boolean) {}
     /** The prime tower of [plate] was dragged by (dx, dy) mm on the bed. */
     fun onTowerMoved(plate: Int, dx: Float, dy: Float) {}
     /** Paint stroke sample at screen (x, y); [newStroke] for the first sample of a stroke. */
@@ -265,6 +270,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                     PenAction.TIP -> Unit
                 }
                 if (rightButton || middleButton || rectangle || penOrbit || penInstant != null) Unit
+                else if (mode == InteractionMode.NAVIGATE && startResize(event.x, event.y)) Unit
                 else if (mode == InteractionMode.PAINT) listener?.onPaint(event.x, event.y, true)
                 else if (mode == InteractionMode.NAVIGATE && hitsSelection(event.x, event.y)) {
                     dragging = true
@@ -322,6 +328,11 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                             val steps = (kotlin.math.hypot(dx, dy) / PAINT_STEP_PX).toInt().coerceIn(1, 32)
                             for (i in 1..steps) listener?.onPaint(lastX + dx * i / steps, lastY + dy * i / steps, false)
                         }
+                        resizeAnchor != null -> {
+                            val a = resizeAnchor!!
+                            resizeFactor = (kotlin.math.hypot(event.x - resizeAnchorPx.first, event.y - resizeAnchorPx.second) / resizeStartDist).coerceIn(0.1f, 10f)
+                            if (moved) listener?.onResizeCorner(resizeFactor, a, event.x, event.y, false)
+                        }
                         dragging -> {
                             val start = dragStart
                             val now = camera.rayOnPlane(event.x, event.y)
@@ -347,6 +358,10 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                     // Handled: the menu is open, or the middle button only pans.
                 } else if (rightButton) {
                     if (!moved && mode == InteractionMode.NAVIGATE) listener?.onContextMenu(event.x, event.y)
+                } else if (resizeAnchor != null) {
+                    val a = resizeAnchor!!
+                    resizeAnchor = null
+                    listener?.onResizeCorner(if (moved) resizeFactor else 0f, a, event.x, event.y, true)
                 } else if (dragging) {
                     val start = dragStart
                     val end = camera.rayOnPlane(event.x, event.y)
@@ -422,7 +437,39 @@ class PlateView(context: Context) : GLSurfaceView(context) {
 
     private var dragCheckId = 0
 
+    private var resizeAnchor: Vec3? = null
+    private var resizeAnchorPx = 0f to 0f
+    private var resizeStartDist = 1f
+    private var resizeFactor = 1f
+
+    /** A touch on a corner of the lone selected box starts a uniform resize about the opposite corner. */
+    private fun startResize(x: Float, y: Float): Boolean {
+        val (lo, hi) = selectedBounds.singleOrNull() ?: return false
+        var best: Vec3? = null
+        var bestD = touchSlop * 3f
+        for (cx in 0..1) for (cy in 0..1) for (cz in 0..1) {
+            val c = Vec3(if (cx == 0) lo.x else hi.x, if (cy == 0) lo.y else hi.y, if (cz == 0) lo.z else hi.z)
+            val (px, py) = camera.project(c) ?: continue
+            val d = kotlin.math.hypot(px - x, py - y)
+            if (d < bestD) { bestD = d; best = c }
+        }
+        val corner = best ?: return false
+        val anchor = Vec3(lo.x + hi.x - corner.x, lo.y + hi.y - corner.y, lo.z + hi.z - corner.z)
+        val a = camera.project(anchor) ?: return false
+        resizeAnchor = anchor; resizeAnchorPx = a
+        resizeStartDist = kotlin.math.hypot(x - a.first, y - a.second).coerceAtLeast(1f)
+        resizeFactor = 1f
+        return true
+    }
+
+    private fun cancelResize(x: Float = 0f, y: Float = 0f) {
+        val a = resizeAnchor ?: return
+        resizeAnchor = null
+        listener?.onResizeCorner(0f, a, x, y, true)
+    }
+
     private fun cancelDrag() {
+        cancelResize()
         dragCheckId++
         if (dragging) queueEvent { renderer.dragOffset = floatArrayOf(0f, 0f, 0f) }
         dragging = false

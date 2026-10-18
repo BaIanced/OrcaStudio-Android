@@ -105,6 +105,8 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     // The plate menu opened from a plate's menu badge: plate, view x, y.
     var plateMenu by remember { mutableStateOf<Triple<Int, Float, Float>?>(null) }
     val rectangleColor = scheme.primary
+    // Live size (mm) beside the finger while a box corner is dragged: text, view x, y.
+    var resizeLabel by remember { mutableStateOf<Triple<String, Float, Float>?>(null) }
     Box(modifier) {
     AndroidView(
         factory = { ctx ->
@@ -131,6 +133,20 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                             }.map { Selection(o.index, it.index) }
                         }
                         vm.scene.changeSelection(inside, remove)
+                    }
+                    override fun onResizeCorner(factor: Float, anchor: Vec3, x: Float, y: Float, done: Boolean) {
+                        val sel = vm.state.value.selectedItems.singleOrNull()
+                        val inst = sel?.let { vm.state.value.scene.objects.getOrNull(it.obj)?.instances?.getOrNull(it.instance) }
+                        if (!done && inst != null) {
+                            val z = inst.size * factor
+                            resizeLabel = Triple("%.1f x %.1f x %.1f mm".format(z.x, z.y, z.z), x, y)
+                            return
+                        }
+                        resizeLabel = null
+                        if (!done || factor <= 0f || inst == null) return
+                        // Uniform scale about the opposite corner: its position stays, the offset follows it (x, y; the engine drops onto the bed).
+                        val off = Vec3(anchor.x + (inst.offset.x - anchor.x) * factor, anchor.y + (inst.offset.y - anchor.y) * factor, inst.offset.z)
+                        vm.scene.setTransform(offset = off, scale = inst.scale * factor)
                     }
                     override fun onBrushScroll(steps: Int) = vm.scene.scaleBrush(if (steps > 0) 1.15f else 1 / 1.15f)
                     override fun onMoved(dx: Float, dy: Float) {
@@ -190,6 +206,11 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
             val size = androidx.compose.ui.geometry.Size(kotlin.math.abs(r[2] - r[0]), kotlin.math.abs(r[3] - r[1]))
             drawRect(rectangleColor.copy(alpha = 0.15f), topLeft, size)
             drawRect(rectangleColor, topLeft, size, style = androidx.compose.ui.graphics.drawscope.Stroke(2f))
+        }
+    }
+    resizeLabel?.let { (text, x, y) ->
+        androidx.compose.material3.Surface(Modifier.offset { IntOffset((x + 24).toInt(), (y - 90).toInt()) }, shape = MaterialTheme.shapes.small, tonalElevation = 4.dp) {
+            androidx.compose.material3.Text(text, Modifier.padding(horizontal = 8.dp, vertical = 4.dp), style = MaterialTheme.typography.labelLarge)
         }
     }
     plateMenu?.let { (plate, x, y) ->
