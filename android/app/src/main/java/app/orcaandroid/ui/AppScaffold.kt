@@ -332,12 +332,16 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
             val width = (if (ScadEditorSize.width > 0f) ScadEditorSize.width.dp else (total * 0.45f).coerceIn(420.dp, 640.dp))
                 .coerceIn(300.dp, (total - 240.dp).coerceAtLeast(300.dp))
             Row(Modifier.fillMaxSize()) {
-                if (scad != null) {
+                if (scad != null && !state.scadHidden) {
                     scadView(Modifier.weight(1f).fillMaxHeight())
                     Themed(Region.OPENSCAD) { DragHandle(vertical = true) { d -> ScadEditorSize.width = (width - d).value } }
                     Themed(Region.OPENSCAD) { Surface(Modifier.width(width).fillMaxHeight(), tonalElevation = 1.dp) { Box(belowHole) { ScadPanel(scad, vm, embeddedPreview = false) } } }
                 } else {
-                    viewport(Modifier.weight(1f).fillMaxHeight())
+                    // A tucked-away design editor (design placed on the plate, or an MCP view tool) comes back with its button.
+                    if (scad != null) Box(Modifier.weight(1f).fillMaxHeight()) {
+                        viewport(Modifier.fillMaxSize())
+                        ScadReopenButton({ vm.setScadHidden(false) }, Modifier.align(Alignment.BottomEnd).padding(end = 8.dp, bottom = 76.dp))
+                    } else viewport(Modifier.weight(1f).fillMaxHeight())
                     // The edge drags to resize the panel (like the OpenSCAD editor's); let go below the snap
                     // width and it tucks away. A tap tucks it away or brings it back.
                     val lab = state.lab
