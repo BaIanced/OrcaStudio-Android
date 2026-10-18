@@ -622,6 +622,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
                 glUniformMatrix4fv(loc(pointProgram, "uMvp"), 1, false, mvp, 0)
                 glUniform3f(loc(pointProgram, "uOffset"), previewOrigin[0], previewOrigin[1], 0f)
                 glUniform1i(loc(pointProgram, "uKinds"), (if (style.showRetracts) 0b0011 else 0) or (if (style.showSeams) 0b0100 else 0))
+                camera.eye().let { glUniform3f(loc(pointProgram, "uEye"), it.x, it.y, it.z) }
                 setSection(pointProgram)
                 glBindBuffer(GL_ARRAY_BUFFER, markerVbo)
                 glEnableVertexAttribArray(0)

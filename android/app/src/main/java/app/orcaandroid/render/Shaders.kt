@@ -263,6 +263,7 @@ internal object Shaders {
         uniform mat4 uMvp;
         uniform vec3 uOffset;
         uniform int uKinds;
+        uniform vec3 uEye;
         uniform highp vec4 uSection;
         uniform int uSectionOn;
         layout(location = 0) in vec3 aPos;
@@ -271,13 +272,18 @@ internal object Shaders {
         void main() {
             int kind = int(aKind + 0.5);
             vec3 world = aPos + uOffset;
+            // Toolpath markers sit on the bead's centre line at its top, inside the wall's lifted box (PATH_VS), so the
+            // point's one depth value lost from every angle (seams never showed, user r297). Pull them toward the camera:
+            // sideways past the bead's half width, up only past the lift, so a seam one layer down stays hidden from above.
+            vec3 toEye = normalize(uEye - world);
+            vec3 pull = kind == 4 ? vec3(0.0) : vec3(toEye.xy * 0.35, toEye.z * 0.07);
             // Hidden kinds and markers on the section view's cut-away side go off screen.
             if (((uKinds >> kind) & 1) == 0 || (uSectionOn == 1 && dot(uSection.xyz, world) > uSection.w)) {
                 gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return;
             }
             vColor = kind == 0 ? vec3(0.9, 0.1, 0.9) : kind == 1 ? vec3(0.1, 0.8, 0.9) : kind == 2 ? vec3(0.95, 0.95, 0.95)
                    : kind == 3 ? vec3(1.0, 0.9, 0.0) : vec3(1.0, 0.3, 0.3);
-            gl_Position = uMvp * vec4(world, 1.0);
+            gl_Position = uMvp * vec4(world + pull, 1.0);
             gl_PointSize = kind == 4 ? 16.0 : 7.0;
         }"""
 
