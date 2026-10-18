@@ -124,6 +124,8 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     private var hoverPanning = false
     /** A long press opened the context menu; the rest of the gesture is ignored. */
     private var longPressed = false
+    /** Farthest the finger got from the touch-down point: a slow orbit stays inside the touch slop but is no long press. */
+    private var maxTravel = 0f
     /** Shift / Alt held when the gesture began: a drag draws a selection rectangle. */
     private var rectangle = false
     private var rectangleRemove = false
@@ -169,7 +171,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
         }
 
         override fun onLongPress(e: MotionEvent) {
-            if (mode != InteractionMode.NAVIGATE || multiTouch || moved || rightButton || middleButton || rectangle || penOrbit || penInstant != null) return
+            if (mode != InteractionMode.NAVIGATE || multiTouch || moved || maxTravel > touchSlop / 3 || rightButton || middleButton || rectangle || penOrbit || penInstant != null) return
             cancelDrag()
             longPressed = true
             listener?.onContextMenu(e.x, e.y)
@@ -248,7 +250,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
             MotionEvent.ACTION_DOWN -> {
                 if (!hasFocus()) requestFocus()
                 lastX = event.x; lastY = event.y; downX = event.x; downY = event.y
-                multiTouch = false; moved = false; dragging = false; longPressed = false
+                multiTouch = false; moved = false; dragging = false; longPressed = false; maxTravel = 0f
                 // The button state is only known on DOWN; on UP it is already released.
                 val mouse = event.isFromSource(android.view.InputDevice.SOURCE_MOUSE)
                 rightButton = mouse && event.buttonState and MotionEvent.BUTTON_SECONDARY != 0
@@ -302,7 +304,8 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                 lastFocusX = focusX(event); lastFocusY = focusY(event)
             }
             MotionEvent.ACTION_MOVE -> {
-                if (abs(event.x - downX) + abs(event.y - downY) > touchSlop) moved = true
+                maxTravel = max(maxTravel, abs(event.x - downX) + abs(event.y - downY))
+                if (maxTravel > touchSlop) moved = true
                 if (longPressed) return true
                 if (event.pointerCount >= 2) {
                     val fx = focusX(event); val fy = focusY(event)
@@ -446,7 +449,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     private fun startResize(x: Float, y: Float): Boolean {
         val (lo, hi) = selectedBounds.singleOrNull() ?: return false
         var best: Vec3? = null
-        var bestD = touchSlop * 3f
+        var bestD = 48f * resources.displayMetrics.density
         for (cx in 0..1) for (cy in 0..1) for (cz in 0..1) {
             val c = Vec3(if (cx == 0) lo.x else hi.x, if (cy == 0) lo.y else hi.y, if (cz == 0) lo.z else hi.z)
             val (px, py) = camera.project(c) ?: continue
