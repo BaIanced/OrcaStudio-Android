@@ -4,6 +4,7 @@ import app.orcaandroid.R
 import app.orcaandroid.core.Instance
 import app.orcaandroid.core.Scene
 import app.orcaandroid.core.Vec3
+import app.orcaandroid.scad.Bounds
 import app.orcaandroid.scad.D3
 import app.orcaandroid.scad.Repeat
 import app.orcaandroid.scad.Shape
@@ -16,6 +17,7 @@ import app.orcaandroid.ui.ShapeController
 import app.orcaandroid.ui.SliceController
 import app.orcaandroid.ui.preview.ROLE_NAMES
 import app.orcaandroid.ui.Store
+import kotlin.math.sqrt
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -149,7 +151,8 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             "every object over all plates (plates are added when they don't fit). $PLATE_EDIT",
             obj(emptyList(), "plate" to p("integer", "Plate number"), "all" to p("boolean", "true = every plate"))) { arrange(it) },
         Tool("slice", "Run: slices a plate (default the active one) with the chosen printer, process and filaments and waits " +
-            "for it (up to 10 min). The app then shows the Preview tab. Replies with the result like slice_result, or the error.",
+            "for it (up to 10 min). The app then shows the Preview tab. Replies with the full result (same as slice_result, " +
+            "which is only for re-reading it later), or the error.",
             obj(emptyList(), "plate" to p("integer", "Plate number; default the active plate"))) { slice(it) },
         Tool("slice_result", "Read: the last slice of a plate (default the active one): print time, filament, layers, time and " +
             "filament per extrusion role, and the slicer's warnings. Nothing is sliced here; use slice for that.",
@@ -251,6 +254,39 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         }
         d.shapes.forEach { line(it, 0) }
         if (d.shapes.isEmpty()) appendLine("(empty)")
+        appendLine(fitNotes(d))
+    }
+
+    /**
+     * Text check for parts that float or sit off the bed, from the top-level solids' bounding boxes (holes ignored).
+     * Boxes of rotated shapes are larger than the shape, so "touching" can be a false positive; "apart" never is.
+     */
+    private fun fitNotes(d: ShapeDesign): String {
+        val solids = d.shapes.filter { !it.hole }
+        if (solids.isEmpty()) return ""
+        val boxes = solids.map { d.bounds(it) }
+        fun gap(a: Bounds, b: Bounds): Double {
+            fun g(amin: Double, amax: Double, bmin: Double, bmax: Double) = maxOf(amin - bmax, bmin - amax, 0.0)
+            val x = g(a.min.x, a.max.x, b.min.x, b.max.x)
+            val y = g(a.min.y, a.max.y, b.min.y, b.max.y)
+            val z = g(a.min.z, a.max.z, b.min.z, b.max.z)
+            return sqrt(x * x + y * y + z * z)
+        }
+        val group = IntArray(solids.size) { it }
+        fun root(i: Int): Int { var r = i; while (group[r] != r) r = group[r]; return r }
+        for (i in solids.indices) for (j in i + 1 until solids.size) if (gap(boxes[i], boxes[j]) <= 0.05) group[root(j)] = root(i)
+        val pieces = solids.indices.groupBy { root(it) }.values.toList()
+        val notes = mutableListOf<String>()
+        if (pieces.size > 1) {
+            val names = pieces.joinToString("; ") { p -> p.joinToString(", ") { "#${solids[it].id}" } }
+            val nearest = pieces.indices.flatMap { a -> (a + 1 until pieces.size).map { b ->
+                pieces[a].minOf { i -> pieces[b].minOf { j -> gap(boxes[i], boxes[j]) } } } }.minOrNull() ?: 0.0
+            notes += "${pieces.size} separate pieces, not touching (bounding boxes): $names; closest gap ${n(nearest)} mm"
+        }
+        val low = boxes.minOf { it.min.z }
+        if (low > 0.05) notes += "lowest point is ${n(low)} mm above the bed (nothing to print on)"
+        if (low < -0.05) notes += "lowest point is ${n(-low)} mm below the bed (that part is cut off)"
+        return if (notes.isEmpty()) "Fit check: one connected piece on the bed (bounding boxes)." else notes.joinToString("\n") { "Fit check: $it" }
     }
 
     /** Renders the editor's design as its preview and reports how it went. */
@@ -897,10 +933,12 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             "shape = {id (unique positive int), kind (box, rounded_box, cylinder, prism, cone, pyramid, sphere, dome, torus, " +
             "tube, wedge, text, sketch, mesh, group), name, size [x,y,z] (bounding box), pos [x,y,z] (centre of the box's " +
             "bottom in x/y, its bottom in z, in the parent's frame), rot [x,y,z] (about the box centre, X then Y then Z), " +
-            "hole (true = cuts the solids of its own group), mirror [x,y,z] (1 = mirrored on that axis), extra {sides, top " +
+            "hole (true = cuts the solids of its own group), mirror [x,y,z] (1 = mirrored on that axis about the shape's own pos: " +
+            "to mirror across the origin, mirror a group placed at the origin), extra {sides, top " +
             "(cone top / bottom ratio), wall, tube, radius, edge (rounded edges mm), chamfer (1 = chamfer edge), shell " +
             "(hollow wall mm), open (1 = open top)}, text (text kind), repeat {circular, count, step [x,y,z], angle, " +
-            "center [x,y,z]}, sketch (sketch kind, see sketch_set), bind {\"size.x\": dimName, ...} (field driven by a " +
+            "center [x,y,z]; circular: angle 360 spreads the copies evenly round the circle, any other angle puts the first copy " +
+            "and the last angle apart}, sketch (sketch kind, see sketch_set), bind {\"size.x\": dimName, ...} (field driven by a " +
             "dim), children [shape] (group only)}. Keep ids of shapes you don't change; give new shapes new ids."
 
         const val INSTRUCTIONS = "OrcaStudio-Android (3D printing slicer). These tools edit the shape-builder design open in the " +
