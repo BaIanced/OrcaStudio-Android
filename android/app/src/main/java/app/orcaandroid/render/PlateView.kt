@@ -70,6 +70,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     val camera = Camera()
     val renderer = PlateRenderer(camera).also {
         it.deviceLandscape = context.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        it.outlinePx = 2.5f * context.resources.displayMetrics.density
     }
     val section = SectionView(camera)
     var listener: PlateListener? = null

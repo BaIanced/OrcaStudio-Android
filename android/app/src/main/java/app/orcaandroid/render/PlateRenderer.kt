@@ -95,7 +95,14 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         }
     }
 
+    /** How the selection shows ([SelectionStyle] bits) and the outline width in px. */
+    var selectionStyle = SelectionStyle.DEFAULT
+    var outlinePx = 6f
+    /** Bounds (x0, y0, z0, x1, y1, z1) of each selection id's parts in the scene mesh, for the bounding box. */
+    private var copyBounds: Map<Int, FloatArray> = emptyMap()
+
     private val effects = SceneEffects()
+    private val selection = SelectionOverlay()
     /** Set by the view from the screen configuration (read on the GL thread, so volatile). */
     @Volatile var deviceLandscape = false
     private var frameLandscape = false
@@ -234,6 +241,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         bedVbo = ids[5]; boxVbo = ids[6]; boxIbo = ids[7]; scratchVbo = ids[8]
         uploadBox()
         effects.create { vs, fs -> program(vs, fs) }
+        selection.create { vs, fs -> program(vs, fs) }
         // A new EGL context lost all buffers; everything is uploaded again by the host.
         bedDirty = true
         meshCount = 0; paintCount = 0; extrCount = 0; travelCount = 0; markerCount = 0
@@ -305,6 +313,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             drawMesh(ghostVbo, ghostCount, pass = 1)
             glDepthMask(true)
             glDisable(GL_BLEND)
+            if (models) drawSelection()
         }
         drawOverlays()
     }
@@ -315,6 +324,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         pendingMesh?.let {
             meshCount = uploadFloats(meshVbo, it)
             meshBounds = footprint(it)
+            copyBounds = copyBounds(it)
             meshVersion++
             pendingMesh = null
         }
@@ -516,7 +526,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             glBindTexture(GL_TEXTURE_2D, effects.realShadowTex)
             glActiveTexture(GL_TEXTURE0)
         }
-        val ids = if (dragTower >= 0) floatArrayOf(-2f - dragTower) else selectedIds
+        val ids = highlighted
+        glUniform1i(loc(meshProgram, "uSelStyle"), selectionStyle)
         keyDir.let { glUniform3f(loc(meshProgram, "uKeyDir"), it[0], it[1], it[2]) }
         glUniform1f(loc(meshProgram, "uKeyStrength"), keyStrength)
         glUniform1fv(loc(meshProgram, "uSelected"), Shaders.MAX_SELECTED, ids.copyOf(Shaders.MAX_SELECTED), 0)
@@ -536,6 +547,79 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         for (a in 0..2) glDisableVertexAttribArray(a)
         // Nothing left bound on unit 2: the next pass must not sample the map while it renders into it.
         if (real) { glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_2D, 0); glActiveTexture(GL_TEXTURE0) }
+    }
+
+    /** Selection ids shown as selected: the dragged prime tower, else the selected copies. */
+    private val highlighted get() = if (dragTower >= 0) floatArrayOf(-2f - dragTower) else selectedIds
+
+    /** Outline / x-ray and the bounding box of the selection (Prepare). */
+    private fun drawSelection() {
+        val ids = highlighted
+        if (ids.isEmpty() || meshCount == 0) return
+        if (selectionStyle and (SelectionStyle.OUTLINE or SelectionStyle.XRAY) != 0)
+            selection.draw(viewW, viewH, selectionStyle, colors.selected, outlinePx) { pass -> drawMesh(meshVbo, meshCount, pass) }
+        if (selectionStyle and SelectionStyle.BOX != 0) drawSelectionBox(ids)
+    }
+
+    /**
+     * Corner brackets of the selection's bounding box, as on the desktop (Selection::render_bounding_box): at each corner
+     * three strokes a quarter of the shortest side long, moved with the drag.
+     */
+    private fun drawSelectionBox(ids: FloatArray) {
+        val b = floatArrayOf(Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE)
+        var any = false
+        for (id in ids) {
+            val c = copyBounds[Math.round(id)] ?: continue
+            any = true
+            for (k in 0..2) { b[k] = minOf(b[k], c[k]); b[k + 3] = maxOf(b[k + 3], c[k + 3]) }
+        }
+        if (!any) return
+        // A little off the surface, so the strokes don't sink into faces flush with the box.
+        val pad = 0.5f
+        for (k in 0..2) { b[k] -= pad; b[k + 3] += pad }
+        val len = minOf(b[3] - b[0], b[4] - b[1], b[5] - b[2]).coerceAtLeast(1f) * 0.25f
+        val lines = ArrayList<Float>(8 * 3 * 6)
+        for (cx in 0..1) for (cy in 0..1) for (cz in 0..1) {
+            val p = floatArrayOf(b[cx * 3], b[1 + cy * 3], b[2 + cz * 3])
+            val dir = floatArrayOf(if (cx == 0) 1f else -1f, if (cy == 0) 1f else -1f, if (cz == 0) 1f else -1f)
+            for (axis in 0..2) {
+                val q = p.copyOf(); q[axis] += dir[axis] * len
+                lines += p.toList(); lines += q.toList()
+            }
+        }
+        glUseProgram(lineProgram)
+        glUniformMatrix4fv(loc(lineProgram, "uMvp"), 1, false, mvp, 0)
+        glUniform3fv(loc(lineProgram, "uOffset"), 1, dragOffset, 0)
+        glUniform3fv(loc(lineProgram, "uColor"), 1, colors.selected, 0)
+        setSection(lineProgram, on = false)
+        glLineWidth(3f)
+        glBindBuffer(GL_ARRAY_BUFFER, scratchVbo)
+        val data = lines.toFloatArray()
+        glBufferData(GL_ARRAY_BUFFER, data.size * 4, floats(data), GL_STREAM_DRAW)
+        glEnableVertexAttribArray(0)
+        glVertexAttribPointer(0, 3, GL_FLOAT, false, 12, 0)
+        glDrawArrays(GL_LINES, 0, data.size / 3)
+        glDisableVertexAttribArray(0)
+        glLineWidth(1f)
+    }
+
+    /** Bounds of the parts (type 0, 100+) and prime towers (99) per selection id; stride 8 (position, normal, id, type). */
+    private fun copyBounds(data: FloatData): Map<Int, FloatArray> {
+        val out = HashMap<Int, FloatArray>()
+        val f = data.data
+        for (i in 0 until data.count) {
+            val type = Math.round(f.get(i * 8 + 7))
+            if (type != 0 && type != 99 && type < 100) continue
+            val r = out.getOrPut(Math.round(f.get(i * 8 + 6))) {
+                floatArrayOf(Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE)
+            }
+            for (k in 0..2) {
+                val v = f.get(i * 8 + k)
+                if (v < r[k]) r[k] = v
+                if (v > r[k + 3]) r[k + 3] = v
+            }
+        }
+        return out
     }
 
     private fun setFilamentColors(program: Int) {

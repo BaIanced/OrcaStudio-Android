@@ -32,6 +32,7 @@ class Store(val app: Application, val scope: CoroutineScope) {
             projectFilaments = settings.projectFilaments,
             allowMixedTemps = settings.allowMixedTemps,
             contactShadows = settings.contactShadows,
+            selectionStyle = settings.selectionStyle,
             lab = settings.layoutLab,
             undoLimit = settings.undoLimit,
             autoSaveSeconds = settings.autoSaveSeconds,

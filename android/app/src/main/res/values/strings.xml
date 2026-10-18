@@ -883,6 +883,13 @@
     <string name="preset_prusa_minimal">Prusa Minimal Warm</string>
     <string name="design_mode">Design mode</string>
     <string name="contact_shadows">3D view: shadows under objects</string>
+    <string name="selection_style">3D view: how selected objects show</string>
+    <string name="selection_outline">Outline</string>
+    <string name="selection_xray">X-ray outline</string>
+    <string name="selection_rim">Rim glow</string>
+    <string name="selection_wireframe">Wireframe</string>
+    <string name="selection_box">Bounding box</string>
+    <string name="selection_tint">Tint</string>
     <string name="design_mode_text">Change the colors live, part by part, in a panel over the app</string>
     <string name="design_editing_dark">Editing the dark theme</string>
     <string name="design_editing_light">Editing the light theme</string>

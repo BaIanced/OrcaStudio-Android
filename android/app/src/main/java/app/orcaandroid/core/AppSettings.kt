@@ -67,6 +67,11 @@ class AppSettings(context: Context) {
         get() = prefs.getBoolean("contact_shadows", true)
         set(value) = prefs.edit().putBoolean("contact_shadows", value).apply()
 
+    /** How the selection shows in the 3D view ([app.orcaandroid.render.SelectionStyle] bits). */
+    var selectionStyle: Int
+        get() = prefs.getInt("selection_style", app.orcaandroid.render.SelectionStyle.DEFAULT)
+        set(value) = prefs.edit().putInt("selection_style", value).apply()
+
     /** The local MCP server for AI clients (see `docs/mcp-tool-layer.md`); off by default. */
     var aiTools: Boolean
         get() = prefs.getBoolean("ai_tools", false)

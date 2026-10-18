@@ -213,6 +213,9 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     LaunchedEffect(v, state.contactShadows) {
         v.onGl { contactShadows = state.contactShadows }
     }
+    LaunchedEffect(v, state.selectionStyle) {
+        v.onGl { selectionStyle = state.selectionStyle }
+    }
     LaunchedEffect(v, state.lab.shadowStrength, state.lab.shadowSoft, state.lab.shadowBias) {
         v.onGl { shadowStrength = state.lab.shadowStrength; shadowSoftMm = state.lab.shadowSoft; shadowBiasMm = state.lab.shadowBias }
     }

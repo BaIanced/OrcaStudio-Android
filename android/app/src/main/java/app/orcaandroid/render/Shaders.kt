@@ -54,7 +54,11 @@ internal object Shaders {
         out highp vec4 vShadowCoord;
         flat out float vType;
         flat out float vSelected;
+        out vec3 vBary;
         void main() {
+            // Non-indexed triangles: the corner within its triangle, for the wireframe selection style.
+            int k = gl_VertexID % 3;
+            vBary = vec3(k == 0, k == 1, k == 2);
             float selected = 0.0;
             for (int i = 0; i < uSelectedCount; ++i)
                 if (abs(aInfo.x - uSelected[i]) < 0.5) selected = 1.0;
@@ -89,6 +93,8 @@ internal object Shaders {
         uniform float uShadowStrength;
         uniform vec3 uKeyDir;
         uniform float uKeyStrength;
+        uniform int uSelStyle;
+        in vec3 vBary;
         in vec3 vNormal;
         in highp vec3 vWorld;
         in highp vec4 vShadowCoord;
@@ -98,6 +104,13 @@ internal object Shaders {
         void main() {
             int type = int(vType + 0.5);
             bool part = type == 0 || type >= 100;
+            if (uPass >= 5) {
+                // Selection mask: 5 the selected parts as seen (other parts hide them), 6 all of them (x-ray, no depth test).
+                if (!(part || type == 99) || (uSectionOn == 1 && dot(uSection.xyz, vWorld) > uSection.w)) discard;
+                if ((type == 99 || uPass == 6) && vSelected < 0.5) discard;
+                color = vec4(vSelected);
+                return;
+            }
             if (uPass == 4) {
                 // Real shadow map: depth only; parts cast, cut-away geometry doesn't.
                 if (!part || (uSectionOn == 1 && dot(uSection.xyz, vWorld) > uSection.w)) discard;
@@ -131,7 +144,7 @@ internal object Shaders {
                 vec3 own = type >= 100 ? uFilamentColors[clamp(type - 100, 0, 15)] : uPartColor;
                 // Very dark filaments keep some shading (black would be a flat silhouette).
                 own = max(own, vec3(0.13));
-                base = mix(own, uSelectedColor, vSelected * 0.75);
+                base = (uSelStyle & 32) != 0 ? mix(own, uSelectedColor, vSelected * 0.75) : own;
             }
             else if (type == 1) { base = vec3(0.6, 0.6, 0.6); alpha = 0.45; }
             else if (type == 2) { base = vec3(0.95, 0.85, 0.3); alpha = 0.35; }
@@ -170,6 +183,15 @@ internal object Shaders {
                 float spec = pow(max(dot(n, normalize(lk + v)), 0.0), 36.0) * 0.16 * uKeyStrength;
                 float rim = pow(1.0 - max(dot(n, v), 0.0), 3.0) * 0.14;
                 vec3 shaded = (base * diff + vec3(spec)) * lit + vec3(0.55, 0.7, 1.0) * rim * (0.4 + 0.6 * sky);
+                if (vSelected > 0.5 && uPass == 0) {
+                    // Rim glow: the selection colour on faces turning away from the eye.
+                    if ((uSelStyle & 4) != 0) shaded += uSelectedColor * pow(1.0 - max(dot(n, v), 0.0), 2.0) * 0.9;
+                    // Wireframe: the triangle edges, about 1 px (fwidth) wide.
+                    if ((uSelStyle & 8) != 0) {
+                        vec3 e = smoothstep(vec3(0.0), fwidth(vBary) * 1.2, vBary);
+                        shaded = mix(shaded, uSelectedColor, (1.0 - min(min(e.x, e.y), e.z)) * 0.85);
+                    }
+                }
                 color = vec4(shaded, alpha);
                 return;
             }
@@ -445,6 +467,35 @@ internal object Shaders {
             vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2));
             vUv = p;
             gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
+        }"""
+
+    /**
+     * Selection outline over the frame from the mask (r: selected parts as seen, g: all of them): a ring uWidth px around
+     * the seen parts (uOutline), and with uXray a fainter ring and fill where they are hidden behind other parts.
+     */
+    const val OUTLINE_FS = """#version 300 es
+        precision mediump float;
+        uniform sampler2D uMask;
+        uniform vec2 uTexel;
+        uniform float uWidth;
+        uniform vec3 uColor;
+        uniform int uOutline;
+        uniform int uXray;
+        in vec2 vUv;
+        out vec4 color;
+        void main() {
+            vec2 c = texture(uMask, vUv).rg;
+            vec2 near = vec2(0.0);
+            for (int i = 0; i < 12; ++i) {
+                float a = float(i) * 0.5235988;
+                vec2 d = vec2(cos(a), sin(a)) * uTexel * uWidth;
+                near = max(near, max(texture(uMask, vUv + d).rg, texture(uMask, vUv + d * 0.5).rg));
+            }
+            float alpha = 0.0;
+            if (uOutline == 1) alpha = near.r * (1.0 - c.r);
+            if (uXray == 1) alpha = max(alpha, max(near.g * (1.0 - c.g) * 0.6, max(c.g - c.r, 0.0) * 0.22));
+            if (alpha < 0.01) discard;
+            color = vec4(uColor, alpha);
         }"""
 
     /** Separable Gaussian (9 taps folded into 5 linear samples) along uStep (uv per tap unit). */

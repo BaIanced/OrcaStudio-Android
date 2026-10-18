@@ -170,6 +170,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         store.update { it.copy(contactShadows = on) }
     }
 
+    fun setSelectionStyle(style: Int) {
+        store.settings.selectionStyle = style
+        store.update { it.copy(selectionStyle = style) }
+    }
+
     fun setAutoSave(seconds: Int) {
         store.settings.autoSaveSeconds = seconds
         store.update { it.copy(autoSaveSeconds = seconds) }

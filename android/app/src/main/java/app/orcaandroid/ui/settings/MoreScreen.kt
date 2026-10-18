@@ -149,6 +149,16 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) SwitchRow(stringResource(R.string.dynamic_color), state.dynamicColor, onChange = vm::setDynamicColor)
                 ThemePresetList(state, vm)
                 SwitchRow(stringResource(R.string.contact_shadows), state.contactShadows, onChange = vm::setContactShadows)
+                Text(stringResource(R.string.selection_style), style = MaterialTheme.typography.bodyLarge)
+                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val labels = listOf(R.string.selection_outline, R.string.selection_xray, R.string.selection_rim,
+                        R.string.selection_wireframe, R.string.selection_box, R.string.selection_tint)
+                    app.orcaandroid.render.SelectionStyle.ALL.zip(labels).forEach { (bit, label) ->
+                        val on = state.selectionStyle and bit != 0
+                        androidx.compose.material3.FilterChip(on, { vm.setSelectionStyle(state.selectionStyle xor bit) },
+                            label = { Text(stringResource(label)) })
+                    }
+                }
                 Entry(stringResource(R.string.design_mode), stringResource(R.string.design_mode_text)) { vm.setDesignMode(true) }
                 val custom = state.themeSpec.customCount(true) + state.themeSpec.customCount(false)
                 if (custom > 0) Entry(stringResource(R.string.reset_colors), pluralStringResource(R.plurals.n_custom_colors, custom, custom)) { dialog = "reset_colors" }
