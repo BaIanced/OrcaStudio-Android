@@ -323,6 +323,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         val yaw = num("yaw"); val pitch = num("pitch"); val distance = num("distance")
         val to = target?.let { Vec3(it.x.toFloat(), it.y.toFloat(), it.z.toFloat()) }
         var fitted = false
+        if (args.has("object") && args.optString("view") == "fit") throw ToolError("Give view fit or object, not both")
         args.optString("view").takeIf { it.isNotEmpty() }?.let { name ->
             if (name == "fit") {
                 val plate = if (args.has("plate")) args.optInt("plate") - 1 else store.value.activePlate
@@ -337,7 +338,6 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             }
         }
         if (args.has("object")) {
-            if (fitted) throw ToolError("Give view fit or object, not both")
             val scene = store.value.scene
             val which = args.optInt("object", -1)
             val copies = when (which) {
