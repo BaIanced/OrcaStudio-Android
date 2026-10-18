@@ -330,7 +330,9 @@ class PresetController(private val store: Store, private val device: DeviceContr
             val page = p as JSONObject
             SettingsPage(page.getString("page"), page.getJSONArray("groups").map { g ->
                 val group = g as JSONObject
-                SettingsGroup(group.getString("group"), group.getJSONArray("options").map { it as String })
+                val rows = group.optJSONObject("lines")
+                SettingsGroup(group.getString("group"), group.getJSONArray("options").map { it as String },
+                    rows?.keys()?.asSequence()?.associateWith { rows.getString(it) }.orEmpty())
             })
         }
     }

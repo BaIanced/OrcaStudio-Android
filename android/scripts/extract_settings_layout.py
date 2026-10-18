@@ -25,6 +25,10 @@ FUNC_RE = re.compile(r"^\S[^;]*?\b(Tab\w+::\w+)\s*\(", re.M)
 PAGE_RE = re.compile(r'add_options_page\(\s*(?:L\("([^"]+)"\))?')
 GROUP_RE = re.compile(r'new_optgroup\(\s*L\("([^"]+)"\)')
 OPTION_RE = re.compile(r'(?:append_single_option_line|get_option)\(\s*"([a-z0-9_]+)"')
+# A multi-option row: `line = { L("Cool Plate"), ... }` then line.append_option(...) per option. The row label is
+# what tells e.g. the six plates' "First layer" / "Other layers" apart, so it is kept per option ("lines").
+LINE_RE = re.compile(r'\b(?:Line\s+)?\w*line\s*=\s*(?:Line\s*)?\{\s*(?:L\("([^"]*)"\))?')
+LINE_END_RE = re.compile(r'append_line\(|append_single_option_line\(')
 
 
 def function_bodies(source: str) -> dict:
@@ -38,9 +42,11 @@ def function_bodies(source: str) -> dict:
 
 
 def parse(body: str, pages: list) -> None:
-    page = group = None
+    page = group = row = None
     for raw in body.splitlines():
         line = raw.split("//", 1)[0]
+        if m := LINE_RE.search(line):
+            row = m.group(1) or None
         if m := PAGE_RE.search(line):
             title = m.group(1) or "Extruder"
             page = next((p for p in pages if p["page"] == title), None)
@@ -55,9 +61,13 @@ def parse(body: str, pages: list) -> None:
             if group is None:
                 group = {"group": m.group(1), "options": []}
                 page["groups"].append(group)
+        if LINE_END_RE.search(line):
+            row = None
         for key in OPTION_RE.findall(line):
             if group is not None and key not in group["options"]:
                 group["options"].append(key)
+                if row:
+                    group.setdefault("lines", {})[key] = row
 
 
 def main() -> None:

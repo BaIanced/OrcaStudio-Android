@@ -266,6 +266,7 @@ private fun EditorFrame(
             HorizontalDivider()
 
             fun visible(def: OptionDef) = def.mode <= mode || (mode == 2 && def.mode == 3)
+            val rows = remember(pages) { pages.rowLabels() }
             val hidden = state.optionStates.hidden
             // A tab with no option at this mode (e.g. Speed in Simple) is dropped.
             val shown = pages.filter { page ->
@@ -279,7 +280,8 @@ private fun EditorFrame(
                         page.groups.mapNotNull { g ->
                             val hits = g.options.filter { key ->
                                 val d = defs[key] ?: return@filter false
-                                listOf(key, d.label, d.fullLabel, tr.tr(d.label), tr.tr(d.fullLabel), tr.tr(d.tooltip)).any { it.lowercase().contains(q) }
+                                val row = rows[key].orEmpty()
+                                listOf(key, d.label, d.fullLabel, row, tr.tr(d.label), tr.tr(d.fullLabel), tr.tr(row), tr.tr(d.tooltip)).any { it.lowercase().contains(q) }
                             }
                             if (hits.isEmpty()) null else SettingsGroup("${tr.tr(page.title)} › ${tr.tr(g.title)}", hits)
                         }
@@ -341,7 +343,7 @@ private fun EditorFrame(
                             HorizontalDivider()
                         }
                         items(options, key = { "o:${group.title}:${it.key}" }) { def ->
-                            OptionRow(def, source.value(def.key).orEmpty(), source.isModified(def.key), def.key !in state.optionStates.disabled,
+                            OptionRow(def, rows[def.key], source.value(def.key).orEmpty(),source.isModified(def.key), def.key !in state.optionStates.disabled,
                                 wide, tr, { source.set(def.key, it) }, { source.reset(def.key) })
                         }
                     }
@@ -365,11 +367,18 @@ private fun buildPages(layout: List<SettingsPage>, defs: Map<String, OptionDef>)
     else layout.mapIndexed { i, p -> if (i == others) p.copy(groups = p.groups + extra) else p }
 }
 
+/** Option key -> label of the desktop row it shares (see [SettingsGroup.rows]). */
+private fun List<SettingsPage>.rowLabels(): Map<String, String> = flatMap { p -> p.groups.flatMap { it.rows.entries } }.associate { it.key to it.value }
+
+/** "Cool Plate · First layer" for an option on a shared row, else the option's own label. */
+private fun withRow(row: String?, own: String, tr: Translator): String = row?.let { tr.tr(it) }?.takeIf { it != own }?.let { "$it · $own" } ?: own
+
 private fun suggestUserName(base: String): String = base.substringBefore(" @").trim().ifEmpty { base } + " - Custom"
 
 @Composable
 private fun OptionRow(
     def: OptionDef,
+    row: String?,
     value: String,
     modified: Boolean,
     enabled: Boolean,
@@ -379,10 +388,12 @@ private fun OptionRow(
     onReset: () -> Unit,
 ) {
     var showTooltip by remember { mutableStateOf(false) }
+    // Options sharing a desktop row carry its label: six plates each have a "First layer" / "Other layers".
+    val text = withRow(row, tr.tr(def.label.ifEmpty { def.fullLabel.ifEmpty { def.key } }), tr)
     val label: @Composable (Modifier) -> Unit = { m ->
         Row(m, verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(8.dp).background(if (modified) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.surface, CircleShape))
-            Text(tr.tr(def.label.ifEmpty { def.fullLabel.ifEmpty { def.key } }), Modifier.padding(start = 8.dp).clickable(enabled = def.tooltip.isNotEmpty()) { showTooltip = true },
+            Text(text, Modifier.padding(start = 8.dp).clickable(enabled = def.tooltip.isNotEmpty()) { showTooltip = true },
                 style = MaterialTheme.typography.bodyMedium,
                 color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline)
         }
@@ -409,7 +420,7 @@ private fun OptionRow(
     if (showTooltip) {
         AlertDialog(
             onDismissRequest = { showTooltip = false },
-            title = { Text(tr.tr(def.fullLabel.ifEmpty { def.label })) },
+            title = { Text(if (row != null) text else tr.tr(def.fullLabel.ifEmpty { def.label })) },
             text = { Text(tr.tr(def.tooltip) + "\n\n" + def.key, style = MaterialTheme.typography.bodyMedium) },
             confirmButton = { TextButton(onClick = { showTooltip = false }) { Text(stringResource(R.string.ok)) } },
         )
@@ -614,6 +625,7 @@ private fun CompareView(vm: AppViewModel, target: EditorTarget.Compare) {
     var defs by remember { mutableStateOf<Map<String, OptionDef>>(emptyMap()) }
     var left by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var right by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    val rows = remember(target.type) { vm.presets.settingsLayout(target.type).rowLabels() }
     LaunchedEffect(target) {
         runCatching {
             defs = vm.presets.optionDefs(target.type).associateBy { it.key }
@@ -638,7 +650,7 @@ private fun CompareView(vm: AppViewModel, target: EditorTarget.Compare) {
             items(diff, key = { it }) { key ->
                 val d = defs[key]
                 Column(Modifier.padding(vertical = 6.dp)) {
-                    Text(tr.tr(d?.let { it.label.ifEmpty { it.fullLabel } } ?: key), style = MaterialTheme.typography.bodyMedium)
+                    Text(withRow(rows[key], tr.tr(d?.let { it.label.ifEmpty { it.fullLabel } } ?: key), tr), style = MaterialTheme.typography.bodyMedium)
                     Row {
                         Text(unescape(left[key] ?: "—").take(200), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
                         Text(unescape(right[key] ?: "—").take(200), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
