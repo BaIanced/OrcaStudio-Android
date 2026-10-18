@@ -77,6 +77,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.Alignment
@@ -86,6 +87,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.unit.constrainHeight
+import androidx.compose.ui.unit.constrainWidth
 import androidx.compose.ui.unit.dp
 import app.orcaandroid.R
 import app.orcaandroid.render.PlateView
@@ -301,7 +304,7 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
     }
     val viewport: @Composable (Modifier) -> Unit = { m ->
         Box(m) {
-            Viewport(state, vm, onView = { plateView = it }, modifier = Modifier.fillMaxSize())
+            Viewport(state, vm, onView = { plateView = it }, modifier = Modifier.fillMaxSize().steadyThroughGlide())
             // Floating controls have their own size (Layout lab).
             val base = androidx.compose.ui.platform.LocalDensity.current
             androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides
@@ -488,13 +491,34 @@ private fun Modifier.trackFinger(s: FingerSpeed) = onGloballyPositioned { s.coor
 /** Glides a pane size (dp) from [from] to [to] after a flick. */
 private fun settle(to: Float, from: Float, set: (Float) -> Unit) {
     GripGlide.job?.cancel()
-    GripGlide.job = GripGlide.scope.launch { androidx.compose.animation.core.animate(from, to) { v, _ -> set(v) } }
+    val low = minOf(from, to)
+    GripGlide.job = GripGlide.scope.launch {
+        val me = coroutineContext[kotlinx.coroutines.Job]
+        try {
+            androidx.compose.animation.core.animate(from, to) { v, _ -> GripGlide.extra = v - low; set(v) }
+        } finally {
+            if (GripGlide.job === me) GripGlide.extra = 0f
+        }
+    }
 }
 
 private object GripGlide {
     // animate() needs a MonotonicFrameClock: plain MainScope() has none and crashed every fling (r283).
     val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + androidx.compose.ui.platform.AndroidUiDispatcher.Main)
     var job: kotlinx.coroutines.Job? = null
+    /** How far (dp) the gliding pane is above its smallest size on this glide; 0 when no glide runs. */
+    var extra by mutableStateOf(0f)
+}
+
+/**
+ * During a grip glide the 3D view keeps the largest size it reaches (the rest hides under the panel), so its GL surface
+ * resizes once instead of on every frame: the stretched stale frames made the plate jiggle "jello" (user, r294).
+ */
+private fun Modifier.steadyThroughGlide() = layout { m, c ->
+    val extra = GripGlide.extra.dp.roundToPx()
+    val tall = if (extra > 0 && c.hasBoundedHeight) c.maxHeight + extra else -1
+    val p = m.measure(if (tall > 0) c.copy(minHeight = tall, maxHeight = tall) else c)
+    layout(c.constrainWidth(p.width), c.constrainHeight(p.height)) { p.place(0, 0) }
 }
 
 private val PANEL_DEFAULT = 380.dp
