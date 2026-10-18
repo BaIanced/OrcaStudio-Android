@@ -334,7 +334,11 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                         resizeAnchor != null -> {
                             val a = resizeAnchor!!
                             resizeFactor = (kotlin.math.hypot(event.x - resizeAnchorPx.first, event.y - resizeAnchorPx.second) / resizeStartDist).coerceIn(0.1f, 10f)
-                            if (moved) listener?.onResizeCorner(resizeFactor, a, event.x, event.y, false)
+                            if (moved) {
+                                val f = resizeFactor
+                                queueEvent { renderer.resizeAnchor = floatArrayOf(a.x, a.y, 0f); renderer.resizeScale = f }
+                                listener?.onResizeCorner(f, a, event.x, event.y, false)
+                            }
                         }
                         dragging -> {
                             val start = dragStart

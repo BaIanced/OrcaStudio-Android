@@ -58,6 +58,9 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var selectedIds = FloatArray(0)
     /** Live offset of the selected copies while they are dragged. */
     var dragOffset = floatArrayOf(0f, 0f, 0f)
+    /** Live corner-drag resize: the selection is drawn scaled by this about [resizeAnchor] (plate x, y, bed height). */
+    var resizeScale = 1f
+    var resizeAnchor = floatArrayOf(0f, 0f, 0f)
         set(v) {
             field = v
             if (v[0] == 0f && v[1] == 0f) dragTower = -1
@@ -272,7 +275,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         useRealShadow = false
         if (shadow) {
             effects.lightDir = keyDir
-            val key = listOf(meshVersion, dragOffset.toList(), selectedIds.toList(), dragTower, section?.toList(), keyAzimuth, keyElevation)
+            val key = listOf(meshVersion, dragOffset.toList(), resizeScale, selectedIds.toList(), dragTower, section?.toList(), keyAzimuth, keyElevation)
             // A dragged copy may leave the footprint: widen it by the drag.
             // A fixed widening for the whole drag: any change of the map area mid-drag rescales the texels and
             // shows as a step ("strobe") in the shadow.
@@ -533,6 +536,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glUniform1fv(loc(meshProgram, "uSelected"), Shaders.MAX_SELECTED, ids.copyOf(Shaders.MAX_SELECTED), 0)
         glUniform1i(loc(meshProgram, "uSelectedCount"), minOf(ids.size, Shaders.MAX_SELECTED))
         glUniform3fv(loc(meshProgram, "uDrag"), 1, dragOffset, 0)
+        glUniform3fv(loc(meshProgram, "uScaleAnchor"), 1, resizeAnchor, 0)
+        glUniform1f(loc(meshProgram, "uScale"), resizeScale)
         glUniform3fv(loc(meshProgram, "uPartColor"), 1, colors.part, 0)
         glUniform3fv(loc(meshProgram, "uSelectedColor"), 1, colors.selected, 0)
         camera.eye().let { glUniform3f(loc(meshProgram, "uEye"), it.x, it.y, it.z) }
@@ -574,6 +579,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             for (k in 0..2) { b[k] = minOf(b[k], c[k]); b[k + 3] = maxOf(b[k + 3], c[k + 3]) }
         }
         if (!any) return
+        if (resizeScale != 1f) for (k in 0..2) { b[k] = resizeAnchor[k] + (b[k] - resizeAnchor[k]) * resizeScale; b[k + 3] = resizeAnchor[k] + (b[k + 3] - resizeAnchor[k]) * resizeScale }
         // A little off the surface, so the strokes don't sink into faces flush with the box.
         val pad = 0.5f
         for (k in 0..2) { b[k] -= pad; b[k + 3] += pad }

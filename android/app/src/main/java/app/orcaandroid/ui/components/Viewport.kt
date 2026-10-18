@@ -143,7 +143,10 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                             return
                         }
                         resizeLabel = null
-                        if (!done || factor <= 0f || inst == null) return
+                        if (!done || factor <= 0f || inst == null) { v.onGl { resizeScale = 1f }; return }
+                        // The live scale stays until the scaled mesh is uploaded (cleared there), or after a timeout.
+                        dragPending[0] = true
+                        v.postDelayed({ if (dragPending[0]) { dragPending[0] = false; v.onGl { resizeScale = 1f } } }, 1500)
                         // Uniform scale about the opposite corner: its position stays, the offset follows it (x, y; the engine drops onto the bed).
                         val off = Vec3(anchor.x + (inst.offset.x - anchor.x) * factor, anchor.y + (inst.offset.y - anchor.y) * factor, inst.offset.z)
                         vm.scene.setTransform(offset = off, scale = inst.scale * factor)
@@ -209,7 +212,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         }
     }
     resizeLabel?.let { (text, x, y) ->
-        androidx.compose.material3.Surface(Modifier.offset { IntOffset((x + 24).toInt(), (y - 90).toInt()) }, shape = MaterialTheme.shapes.small, tonalElevation = 4.dp) {
+        androidx.compose.material3.Surface(Modifier.align(androidx.compose.ui.Alignment.TopCenter).padding(top = 72.dp), shape = MaterialTheme.shapes.small, tonalElevation = 4.dp) {
             androidx.compose.material3.Text(text, Modifier.padding(horizontal = 8.dp, vertical = 4.dp), style = MaterialTheme.typography.labelLarge)
         }
     }
@@ -265,7 +268,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         val mesh = withContext(Dispatchers.IO) { FloatData.load(scene.meshFile, 8) }
         v.onGl { setMesh(mesh) }
         // A finished drag: the moved mesh is queued first, so the old offset goes away without a jump back.
-        if (dragPending[0]) { dragPending[0] = false; v.onGl { dragOffset = floatArrayOf(0f, 0f, 0f) } }
+        if (dragPending[0]) { dragPending[0] = false; v.onGl { dragOffset = floatArrayOf(0f, 0f, 0f); resizeScale = 1f } }
     }
     // Eye toggle: the OpenSCAD design shown see-through, standing in the middle of the active plate (other objects hidden).
     val ghost = state.scad?.preview?.takeIf { state.scadOnPlate && !state.scadHidden && state.screen == app.orcaandroid.ui.Screen.PREPARE }
