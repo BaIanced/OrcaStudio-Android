@@ -42,9 +42,10 @@ class PrinterControl private constructor(val print: JSONObject? = null, val syst
         fun home() = gcode("G28 \n")
 
         /**
-         * Pushes ([mm] > 0) or pulls back the filament; the printer refuses it while the nozzle is cold. Same form as
-         * Bambu Handy's move: F150 (~6 mm³/s; Studio's F900 is ~36, more than the hotend melts near the 170 °C
-         * unlock), and push/pop_ref_mode puts the printer's E mode back afterwards.
+         * Pushes ([mm] > 0) or pulls back the filament; the printer refuses it while the nozzle is cold. Wrapped like
+         * [jog] (the desktop's axis move, DeviceManager.cpp command_axis_control), so push/pop_ref_mode puts the
+         * printer's E mode back afterwards. F150 = 2.5 mm/s of 1.75 mm filament, ~6 mm³/s: the desktop's F900 is ~36,
+         * more than the hotend melts near the 170 °C unlock.
          */
         fun extrude(mm: Double) = gcode("M211 S \nM211 X1 Y1 Z1\nM1002 push_ref_mode\nM83 \n" +
             "G1 E${"%.1f".format(java.util.Locale.ROOT, mm)} F150\nM1002 pop_ref_mode\nM211 R\n")
