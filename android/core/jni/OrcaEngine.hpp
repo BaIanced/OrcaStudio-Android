@@ -180,8 +180,9 @@ public:
     json flush_matrix();
 
     // Current process option states per the desktop's dependency rules:
-    // { "disabled": [keys], "hidden": [keys] }.
-    json option_states();
+    // { "disabled": [keys], "hidden": [keys] }. [object]: per-object / part / range settings (string values) applied
+    // over the process first, as the desktop's ObjectSettings does; null for the process itself.
+    json option_states(const json &object = nullptr);
 
     // --- Adding things ------------------------------------------------------------------------
 

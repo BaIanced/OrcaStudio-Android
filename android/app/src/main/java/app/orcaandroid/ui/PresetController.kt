@@ -5,6 +5,7 @@ import app.orcaandroid.R
 import app.orcaandroid.core.AppBackup
 import app.orcaandroid.core.FilamentSlot
 import app.orcaandroid.core.OptionDef
+import app.orcaandroid.core.OptionStates
 import app.orcaandroid.core.OrcaException
 import app.orcaandroid.core.PresetType
 import app.orcaandroid.core.SettingsGroup
@@ -147,6 +148,9 @@ class PresetController(private val store: Store, private val device: DeviceContr
         if (s.filaments.isEmpty()) return
         engine.setSelection(print, s.filaments, s.overrides[PresetType.PRINTER].orEmpty() + s.overrides[PresetType.PRINT].orEmpty())
     }
+
+    /** Greyed-out / hidden options of an object / part / range editor with [settings] (desktop ObjectSettings rules). */
+    suspend fun objectOptionStates(settings: Map<String, String>): OptionStates = engine.optionStates(settings)
 
     private suspend fun refreshOptionStates() {
         runCatching { engine.optionStates() }.onSuccess { st -> store.update { it.copy(optionStates = st) } }

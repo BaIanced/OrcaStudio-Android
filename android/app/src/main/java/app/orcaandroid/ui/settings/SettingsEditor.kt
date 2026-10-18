@@ -59,6 +59,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -121,7 +122,8 @@ fun SettingsEditor(state: UiState, vm: AppViewModel) {
                 reset = { k -> vm.scene.setObjectSetting(target.obj, target.volume, k, null) },
                 modifiedCount = settings.size,
             )
-            EditorFrame(vm, state, stringResource(R.string.object_settings_title), title, source, objectMode = true)
+            val merged = if (target.volume >= 0) o.settings.overrides + settings else settings
+            EditorFrame(vm, state, stringResource(R.string.object_settings_title), title, source, objectMode = true, objectSettings = merged)
         }
         is EditorTarget.Range -> {
             val o = state.scene.objects.getOrNull(target.obj)
@@ -135,7 +137,7 @@ fun SettingsEditor(state: UiState, vm: AppViewModel) {
                 modifiedCount = r.settings.overrides.size,
             )
             EditorFrame(vm, state, stringResource(R.string.range_settings_title), "${o.name} · %.2f–%.2f mm".format(java.util.Locale.ROOT, r.from, r.to),
-                source, objectMode = true)
+                source, objectMode = true, objectSettings = o.settings.overrides + r.settings.overrides)
         }
         is EditorTarget.Compare -> CompareView(vm, target)
     }
@@ -214,11 +216,16 @@ private fun EditorFrame(
     subtitle: String,
     source: EditSource,
     objectMode: Boolean,
+    objectSettings: Map<String, String>? = null,
     tabs: @Composable () -> Unit = {},
     actions: @Composable () -> Unit = {},
 ) {
     val type = source.type
     val tr = vm.translator
+    // An object's editor greys out by the object's own settings (support enabled there, not in the process).
+    val optionStates by produceState(state.optionStates, objectSettings, state.optionStates) {
+        value = objectSettings?.let { s -> runCatching { vm.presets.objectOptionStates(s) }.getOrNull() } ?: state.optionStates
+    }
     var defs by remember(type) { mutableStateOf<Map<String, OptionDef>>(emptyMap()) }
     LaunchedEffect(type) {
         runCatching { vm.presets.optionDefs(type) }.onSuccess { list -> defs = list.associateBy { it.key } }
@@ -267,7 +274,7 @@ private fun EditorFrame(
 
             fun visible(def: OptionDef) = def.mode <= mode || (mode == 2 && def.mode == 3)
             val rows = remember(pages) { pages.rowLabels() }
-            val hidden = state.optionStates.hidden
+            val hidden = optionStates.hidden
             // A tab with no option at this mode (e.g. Speed in Simple) is dropped.
             val shown = pages.filter { page ->
                 page.groups.any { g -> g.options.any { key -> defs[key]?.let { visible(it) && key !in hidden && source.value(key) != null } == true } }
@@ -343,7 +350,7 @@ private fun EditorFrame(
                             HorizontalDivider()
                         }
                         items(options, key = { "o:${group.title}:${it.key}" }) { def ->
-                            OptionRow(def, rows[def.key], source.value(def.key).orEmpty(),source.isModified(def.key), def.key !in state.optionStates.disabled,
+                            OptionRow(def, rows[def.key], source.value(def.key).orEmpty(),source.isModified(def.key), def.key !in optionStates.disabled,
                                 wide, tr, { source.set(def.key, it) }, { source.reset(def.key) })
                         }
                     }

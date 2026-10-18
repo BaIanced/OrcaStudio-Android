@@ -366,14 +366,19 @@ json OrcaEngine::flush_matrix()
     return {{"matrix", matrix}, {"size", size_t(std::lround(std::sqrt(double(matrix.size()))))}};
 }
 
-json OrcaEngine::option_states()
+json OrcaEngine::option_states(const json &object)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
     DynamicPrintConfig config = selection_config();
+    // GUI_ObjectSettings.cpp update_config_values: the object's own settings decide what is greyed out in its editor.
+    if (object.is_object())
+        for (const auto &[key, value] : object.items())
+            if (value.is_string() && config.has(key))
+                try { config.set_deserialize_strict(key, value.get<std::string>()); } catch (const std::exception &) {}
     GUI::wxGetApp().preset_bundle = m_bundle.get();
     GUI::ConfigManipulation toggles;
     toggles.is_BBL_Printer = m_bundle->is_bbl_vendor();
-    toggles.toggle_print_fff_options(&config, 0, true);
+    toggles.toggle_print_fff_options(&config, 0, !object.is_object());
     json disabled = json::array(), hidden = json::array();
     for (const auto &[key, enabled] : toggles.field_enabled)
         if (!enabled)
