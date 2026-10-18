@@ -12,7 +12,6 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -26,7 +25,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -45,13 +43,20 @@ import app.orcaandroid.net.PrinterStatus
 import app.orcaandroid.ui.AppViewModel
 import app.orcaandroid.ui.prepare.SwitchRow
 import java.util.Locale
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /** The nozzle must be at least this hot (°C) before the extruder moves; the printer refuses colder moves. */
 private const val EXTRUDE_MIN_TEMP = 170f
 
-/** How long the fan slider keeps the user's value before following the printer's report again. */
-private const val FAN_HOLD_MS = 5_000L
+/** How long a tapped switch keeps its new position before following the printer's report. */
+private const val ASK_HOLD_MS = 5_000L
+
+/** The longest the fan slider keeps the user's value while waiting for the printer to report it (the fan ramps over a few seconds). */
+private const val FAN_HOLD_MS = 12_000L
+
+/** A fan report this close (percent points) to the value just set counts as "the printer has it". */
+private const val FAN_MATCH_PCT = 4
 
 private enum class TempTarget { NOZZLE, BED }
 
@@ -86,11 +91,15 @@ private fun MainControls(status: PrinterStatus, send: (PrinterControl) -> Unit, 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             TempTile(stringResource(R.string.device_nozzle), status.nozzleTemp, status.nozzleTarget, Modifier.weight(1f)) { edit(TempTarget.NOZZLE) }
-            IconButton({ send(PrinterControl.extrude(-10.0)) }, enabled = canExtrude) {
-                Icon(Icons.Filled.KeyboardArrowUp, stringResource(R.string.control_retract))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton({ send(PrinterControl.extrude(-10.0)) }, Modifier.weight(1f), enabled = canExtrude) {
+                Icon(Icons.Filled.KeyboardArrowUp, null)
+                Text(stringResource(R.string.control_retract))
             }
-            IconButton({ send(PrinterControl.extrude(10.0)) }, enabled = canExtrude) {
-                Icon(Icons.Filled.KeyboardArrowDown, stringResource(R.string.control_extrude))
+            OutlinedButton({ send(PrinterControl.extrude(10.0)) }, Modifier.weight(1f), enabled = canExtrude) {
+                Icon(Icons.Filled.KeyboardArrowDown, null)
+                Text(stringResource(R.string.control_extrude))
             }
         }
         if (!canExtrude) Text(
@@ -119,26 +128,31 @@ private fun MainControls(status: PrinterStatus, send: (PrinterControl) -> Unit, 
         status.light?.let { on ->
             // Show the tap at once; the printer's report follows a few seconds later (it reverts after the hold if never confirmed).
             var asked by remember { mutableStateOf<Boolean?>(null) }
-            LaunchedEffect(asked) { if (asked != null) { delay(FAN_HOLD_MS); asked = null } }
+            LaunchedEffect(asked) { if (asked != null) { delay(ASK_HOLD_MS); asked = null } }
             LaunchedEffect(on) { if (on == asked) asked = null }
             SwitchRow(stringResource(R.string.control_light), asked ?: on) { asked = it; send(PrinterControl.light(it)) }
         }
 
         val reported = status.partFan
         var fan by remember { mutableFloatStateOf((reported ?: 0).toFloat()) }
-        // Keep what the user set until the printer has had time to report it, so the slider does not jump back to an older report.
-        var holdUntil by remember { mutableLongStateOf(0L) }
-        var holding by remember { mutableStateOf(false) }
-        LaunchedEffect(holdUntil) {
-            if (holdUntil > 0L) { holding = true; delay(FAN_HOLD_MS); holding = false }
+        // After a set, keep the user's value until the printer reports about that value (or the hold runs out):
+        // reports in between are the fan still ramping or answers to earlier sets, and made the slider jump.
+        var dragging by remember { mutableStateOf(false) }
+        var asked by remember { mutableStateOf<Pair<Int, Long>?>(null) }
+        LaunchedEffect(asked) { if (asked != null) { delay(FAN_HOLD_MS); asked = null } }
+        LaunchedEffect(reported) {
+            val a = asked
+            if (a != null && reported != null && abs(reported - a.first) <= FAN_MATCH_PCT) asked = null
         }
-        LaunchedEffect(reported, holding) { if (!holding) fan = (reported ?: 0).toFloat() }
+        LaunchedEffect(reported, asked, dragging) { if (!dragging && asked == null) fan = (reported ?: 0).toFloat() }
         Text(stringResource(R.string.control_part_fan, fan.roundToInt()), style = MaterialTheme.typography.bodyMedium)
         Slider(
-            fan, { fan = it; holding = true }, enabled = reported != null, valueRange = 0f..100f,
+            fan, { fan = it; dragging = true }, enabled = reported != null, valueRange = 0f..100f,
             onValueChangeFinished = {
-                send(PrinterControl.partFan(fan.roundToInt()))
-                holdUntil = System.currentTimeMillis()
+                dragging = false
+                val target = fan.roundToInt()
+                send(PrinterControl.partFan(target))
+                asked = target to System.currentTimeMillis()
             },
         )
     }
