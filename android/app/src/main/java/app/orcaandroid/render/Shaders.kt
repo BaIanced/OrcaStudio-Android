@@ -387,11 +387,15 @@ internal object Shaders {
                 : (role == 5 || role == 7 || role == 9 || role == 10) ? 1.0 : 0.0;
             gl_Position = uMvp * vec4(pos + vec3(0.0, 0.0, lift * 0.01), 1.0);
             // Fixed depth order for faces on the same plane (a few depth-buffer steps each, any zoom): the role as
-            // above, then odd segments over even ones (a loop's seam ends and crossing infill lines of one role
-            // overlap). The bottom overlap goes behind all of it.
-            float order = lift * 2.0 + float((gl_InstanceID + uFirst) & 1);
+            // above, then the line's direction in three 60 degree bins (crossing infill lines of one role: parity
+            // alone tied whenever both lines had the same, user r294), then odd segments over even ones (a loop's
+            // seam ends, neighbouring parallel lines). Bin edges sit at 7.5 + 60k degrees, off the usual infill angles.
+            float a = atan(dir.y, dir.x) - 0.1309;
+            float bin = mod(floor(a * 0.9549297), 3.0);
+            float order = lift * 6.0 + bin * 2.0 + float((gl_InstanceID + uFirst) & 1);
             gl_Position.z -= order * 5e-7 * gl_Position.w;
-            if (bottom) gl_Position.z += 6e-6 * gl_Position.w;
+            // The bottom overlap goes behind all of it.
+            if (bottom) gl_Position.z += 1.6e-5 * gl_Position.w;
         }"""
 
     const val PATH_FS = """#version 300 es
