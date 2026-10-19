@@ -2317,3 +2317,5 @@ User: "you just tested something we already confirmed worked". Cross-checked eac
   1/8 flipped PAN -> PINCH at the turnaround (last ~280 ms: shift ~0 while the scripted gap drifts 80 px) and back to PAN 210 ms
   later (synthetic; real fingers rarely spread 80 px while reversing). batch2: base 3/3 PAN, forced landing PINCH locks 3/3 -> PAN
   at shift 79-93 px. No regression vs r310. User feel pending.
+- (2026-10-19, user, r311 phone) Two-finger pan: "pans feel fine" (VERIFIED; misses + Z-pan stall closed). New bug: pinch zoom-out
+  stops as soon as one finger crosses the object (backlog).

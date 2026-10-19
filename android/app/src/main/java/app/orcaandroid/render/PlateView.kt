@@ -98,6 +98,8 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     private var dragAnchor: Vec3? = null
     private var lastFocusX = 0f
     private var lastFocusY = 0f
+    /** The two fingers' gap at the last move, 0 = not yet known (a finger came or went). */
+    private var lastSpan = 0f
     /** Pan or pinch ([TwoFingerGesture]); lazy because [touchSlop] is declared further down. */
     private val twoFinger by lazy { TwoFingerGesture(touchSlop.toFloat()) }
     /** Pinch zoom speed (Layout lab): the exponent on the fingers' gap ratio, 1 = the gap ratio itself. */
@@ -129,13 +131,10 @@ class PlateView(context: Context) : GLSurfaceView(context) {
 
     private val scaleDetector = ScaleGestureDetector(context, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
         override fun onScale(detector: ScaleGestureDetector): Boolean {
-            // Double-tap-and-drag (one finger) zooms at once; two fingers zoom only once the gesture is a pinch.
-            if (multiTouch && twoFinger.mode != TwoFingerGesture.Mode.PINCH) return true
-            // The pad keeps fingers close together from zooming in leaps (a 1 mm wobble is a big gap ratio there);
-            // the camera's own limits are unchanged, so the deep zoom-in only takes more pinching.
-            val pad = PINCH_PAD_DP * resources.displayMetrics.density
-            val ratio = (detector.currentSpan + pad) / (detector.previousSpan + pad)
-            camera.zoomAt(ratio.pow(pinchSpeed), detector.focusX, detector.focusY)
+            // Only double-tap-and-drag (one finger). Two fingers zoom in ACTION_MOVE: the detector ends its gesture
+            // once they are closer than ~27 mm, so a pinch-out stopped as the fingers closed in (user r311).
+            if (multiTouch) return true
+            pinchZoom(detector.previousSpan, detector.currentSpan, detector.focusX, detector.focusY)
             return true
         }
     })
@@ -293,11 +292,13 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                 multiTouch = true
                 cancelDrag()
                 lastFocusX = focusX(event); lastFocusY = focusY(event)
+                lastSpan = 0f
                 if (event.pointerCount == 2) twoFinger.down((event.eventTime - event.downTime).toFloat(), span(event), lastFocusX, lastFocusY)
                 inputLog { "2f down n=${event.pointerCount} span=${span(event).toInt()} slop=$touchSlop after=${event.eventTime - event.downTime}ms longPressed=$longPressed moved=$moved mode=$mode" }
             }
             MotionEvent.ACTION_POINTER_UP -> {
                 inputLog { "2f up n=${event.pointerCount} ${twoFinger.mode} gap=${twoFinger.gap(span(event)).toInt()} shift=${twoFinger.shift(focusX(event), focusY(event)).toInt()} longPressed=$longPressed" }
+                lastSpan = 0f
                 val remaining = if (event.actionIndex == 0) 1 else 0
                 lastX = event.getX(remaining); lastY = event.getY(remaining)
                 lastFocusX = focusX(event); lastFocusY = focusY(event)
@@ -325,6 +326,9 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                     val step = twoFinger.move((event.eventTime - event.downTime).toFloat(), span(event), fx, fy, lastFocusX, lastFocusY)
                     step.log?.let { inputLog { "2f $it after=${event.eventTime - event.downTime}ms" } }
                     if (step.pans) camera.panGrab(step.panFromX, step.panFromY, fx, fy)
+                    val sp = span(event)
+                    if (twoFinger.mode == TwoFingerGesture.Mode.PINCH && lastSpan > 0f) pinchZoom(lastSpan, sp, fx, fy)
+                    lastSpan = sp
                     lastFocusX = fx; lastFocusY = fy
                 } else if (!multiTouch) {
                     when {
@@ -538,6 +542,14 @@ class PlateView(context: Context) : GLSurfaceView(context) {
 
     private fun focusX(e: MotionEvent) = (0 until e.pointerCount).map { e.getX(it) }.average().toFloat()
     private fun focusY(e: MotionEvent) = (0 until e.pointerCount).map { e.getY(it) }.average().toFloat()
+    /** Zooms by the fingers' gap ratio at ([x], [y]). */
+    private fun pinchZoom(previous: Float, current: Float, x: Float, y: Float) {
+        // The pad keeps fingers close together from zooming in leaps (a 1 mm wobble is a big gap ratio there);
+        // the camera's own limits are unchanged, so the deep zoom-in only takes more pinching.
+        val pad = PINCH_PAD_DP * resources.displayMetrics.density
+        camera.zoomAt(((current + pad) / (previous + pad)).pow(pinchSpeed), x, y)
+    }
+
     private fun span(e: MotionEvent) = kotlin.math.hypot(e.getX(1) - e.getX(0), e.getY(1) - e.getY(0))
 
 

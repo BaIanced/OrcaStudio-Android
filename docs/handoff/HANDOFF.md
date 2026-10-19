@@ -27,8 +27,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - User sessions backed up: phone `/data/local/tmp/phone-session-backup.{3mf,json}` (8 plates), WSA `/data/local/tmp/session-backup.{3mf,json}`.
   Test zip `scadzip-test.zip` stays in `/sdcard/Download` on phone + Chromebook. LAN access code was given in chat: never write it anywhere.
 ## Next task
-- **Two-finger pan** (backlog last 2 lines): r311 (2b9dee5) installed on all 4 (2026-10-19); scripts re-run on the phone, no
-  regression (archive). **User feel pending** ("a lot better, still misses" on r308). Local builds + JVM tests: recipes in reference.
+- **Pinch zoom-out stops when a finger crosses the object** (user r311 phone, backlog last line): investigating.
+- Two-finger pan: USER VERIFIED r311 ("pans feel fine", archive). Local builds + JVM tests: recipes in reference.
 - **Seams toggle** (user r297): fixed r298, Claude-verified on WSA (archive); user look pending.
 - Open: **fan slider jumps** (r295 hold-until-within-4 %,
   needs the printer; Studio's sync logic is in the backlog line), Retract/Extrude buttons (r295; e13bebb+3bad1db = F150 in push/pop_ref_mode, in r298; needs the printer).
