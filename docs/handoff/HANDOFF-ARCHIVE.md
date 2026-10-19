@@ -2357,3 +2357,6 @@ User: "you just tested something we already confirmed worked". Cross-checked eac
 - Seam paint 1.5 s diagonal stroke: whole stroke drawn in the screenshot taken right at stroke end (no lag tail). Color paint with filament 1 on an orange cube shows nothing (same color, expected). Test paint cleared.
 - `input tap X Y & sleep 0.12; input tap X Y` in one adb shell = a double tap on ARC.
 
+- r316 More > Appearance "Orthographic camera (K)" switch (Chromebook, 2026-10-19): on = flat head-on cube, plate as a line;
+  K in Prepare turns it off and the switch follows. MCP app_state / log_tail / perf answer on WSA r316 (perf without a
+  3D view on screen says so; WSA window not in front).
