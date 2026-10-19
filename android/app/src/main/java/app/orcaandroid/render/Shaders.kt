@@ -473,9 +473,11 @@ internal object Shaders {
             float rounding = vTopFace * (1.0 - smoothstep(0.12, 0.25, fwidth(vAcross)));
             n = normalize(n + vRight * (vAcross * 0.9 * rounding));
             float light = shade(n) * (1.0 - 0.3 * rounding * pow(abs(vAcross), 6.0));
-            // Far away layers are a few pixels apart (under ~9; 5 left faint dashes, r318): the lit top strip and the
-            // darker side beat against the pixel grid into dashed bands (user r316). There both faces take the mean of
-            // the two shades, weighted by how much of each the eye sees, as a pixel covering several layers shows.
+            // A layer's lit top strip and darker side beat against the pixel grid into dashed bands (user r316) when
+            // the layers are a few pixels apart (under ~9; 5 left faint dashes, r318) or either face is under ~3 px
+            // (a low view still showed dotted arcs at 9+ px apart, r319). There both faces take the mean of the two
+            // shades, weighted by how much of each the eye sees, as a pixel covering both shows; each face keeps its
+            // own shading in that mean, so a big face (a top skin seen from above) looks the same.
             if (vTopFace + vSideFace > 0.5) {
                 highp vec3 v = normalize(uEye - vWorld);
                 vec3 side = vRight * (dot(vRight, v) < 0.0 ? -1.0 : 1.0);
@@ -483,8 +485,10 @@ internal object Shaders {
                 float wSide = vHeight * abs(dot(side, v));
                 // World size of a pixel here: the less stretched screen direction (the other one runs along the face).
                 highp float pix = max(min(length(dFdx(vWorld)), length(dFdy(vWorld))), 1e-6);
-                float far = 1.0 - smoothstep(3.0, 9.0, (wTop + wSide) / pix);
-                float mean = (wTop * shade(vec3(0.0, 0.0, 1.0)) + wSide * shade(side)) / max(wTop + wSide, 1e-4);
+                float far = max(1.0 - smoothstep(3.0, 9.0, (wTop + wSide) / pix), 1.0 - smoothstep(1.0, 3.0, min(wTop, wSide) / pix));
+                float lTop = vTopFace > 0.5 ? light : shade(vec3(0.0, 0.0, 1.0));
+                float lSide = vSideFace > 0.5 ? light : shade(side);
+                float mean = (wTop * lTop + wSide * lSide) / max(wTop + wSide, 1e-4);
                 light = mix(light, mean, far);
             }
             color = vec4(vColor * light, 1.0);

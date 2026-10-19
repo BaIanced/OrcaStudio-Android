@@ -368,10 +368,24 @@ private:
         std::shared_ptr<const Slic3r::TriangleMesh> mesh;
         uint64_t                                    timestamp = 0;
         std::shared_ptr<Slic3r::TriangleSelector>   selector;
+        // The annotation's timestamp before the last paint call and the state it painted: a state that was empty
+        // then and wasn't painted is still empty (painting only takes triangles from the other states).
+        uint64_t                                    previous = 0;
+        int                                         state = -1;
     };
     LivePaint                             m_live_paint;
     // Painted triangles per (mesh, annotation timestamp, state): write_paint_mesh re-extracts only what changed.
-    std::map<std::tuple<const void *, uint64_t, int>, std::shared_ptr<indexed_triangle_set>> m_paint_facets;
+    using PaintKey = std::tuple<const void *, uint64_t, int>;
+    std::map<PaintKey, std::shared_ptr<indexed_triangle_set>> m_paint_facets;
+    // Their file bytes per copy (key, overlay code, copy code) with the transform they were made with.
+    struct PaintBytes {
+        std::array<double, 16>              trafo;
+        std::shared_ptr<std::vector<float>> data;
+    };
+    std::map<std::tuple<PaintKey, float, float>, PaintBytes> m_paint_bytes;
+    // Last write_paint_mesh: time extracting triangles from selectors, time making file bytes, triangles written.
+    double                                m_paint_extract_ms = 0., m_paint_bytes_ms = 0.;
+    size_t                                m_paint_triangles = 0;
     // Active calibration test: print parameters and the setting changes it needs.
     std::shared_ptr<Slic3r::Calib_Params>       m_calib;
     std::shared_ptr<Slic3r::DynamicPrintConfig> m_calib_config;

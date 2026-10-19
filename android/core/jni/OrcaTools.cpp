@@ -121,22 +121,41 @@ void OrcaEngine::write_paint_mesh()
     std::ofstream f(tmp, std::ios::binary | std::ios::trunc);
     if (!f)
         throw std::runtime_error("Cannot write " + m_paint_path);
-    auto emit = [&f](const indexed_triangle_set &its, const Transform3d &trafo, float obj_code, float type_code) {
-        // A mirroring transform flips the winding; swap two corners so the triangles face out.
-        const bool mirrored = trafo.matrix().block<3, 3>(0, 0).determinant() < 0.;
-        for (const Vec3i32 &t : its.indices) {
-            const Vec3f a = (trafo * its.vertices[t[0]].cast<double>()).cast<float>();
-            const Vec3f b = (trafo * its.vertices[t[mirrored ? 2 : 1]].cast<double>()).cast<float>();
-            const Vec3f c = (trafo * its.vertices[t[mirrored ? 1 : 2]].cast<double>()).cast<float>();
-            Vec3f n = (b - a).cross(c - a);
-            n = n.norm() > 0.f ? Vec3f(n.normalized()) : Vec3f(0.f, 0.f, 1.f);
-            for (const Vec3f *v : {&a, &b, &c}) {
-                for (int k = 0; k < 3; ++k) write_raw(f, (*v)[k]);
-                for (int k = 0; k < 3; ++k) write_raw(f, n[k]);
-                write_raw(f, obj_code);
-                write_raw(f, type_code);
+    using clock = std::chrono::steady_clock;
+    auto ms = [](clock::time_point a) { return std::chrono::duration<double, std::milli>(clock::now() - a).count(); };
+    m_paint_extract_ms = m_paint_bytes_ms = 0.;
+    m_paint_triangles = 0;
+    // File bytes of one copy's painted triangles: reused while the triangles and the copy's transform are the same
+    // (written one float at a time, every copy of every painted object, on every paint call before).
+    decltype(m_paint_bytes) bytes_used;
+    auto emit = [&](const PaintKey &key, const indexed_triangle_set &its, const Transform3d &trafo, float obj_code, float type_code) {
+        const auto bytes_key = std::make_tuple(key, obj_code, type_code);
+        std::array<double, 16> matrix;
+        std::copy(trafo.matrix().data(), trafo.matrix().data() + 16, matrix.begin());
+        auto it = m_paint_bytes.find(bytes_key);
+        std::shared_ptr<std::vector<float>> data;
+        if (it != m_paint_bytes.end() && it->second.trafo == matrix) {
+            data = it->second.data;
+        } else {
+            const auto t = clock::now();
+            data = std::make_shared<std::vector<float>>();
+            data->reserve(its.indices.size() * 24);
+            // A mirroring transform flips the winding; swap two corners so the triangles face out.
+            const bool mirrored = trafo.matrix().block<3, 3>(0, 0).determinant() < 0.;
+            for (const Vec3i32 &tri : its.indices) {
+                const Vec3f a = (trafo * its.vertices[tri[0]].cast<double>()).cast<float>();
+                const Vec3f b = (trafo * its.vertices[tri[mirrored ? 2 : 1]].cast<double>()).cast<float>();
+                const Vec3f c = (trafo * its.vertices[tri[mirrored ? 1 : 2]].cast<double>()).cast<float>();
+                Vec3f n = (b - a).cross(c - a);
+                n = n.norm() > 0.f ? Vec3f(n.normalized()) : Vec3f(0.f, 0.f, 1.f);
+                for (const Vec3f *v : {&a, &b, &c})
+                    data->insert(data->end(), {(*v)[0], (*v)[1], (*v)[2], n[0], n[1], n[2], obj_code, type_code});
             }
+            m_paint_bytes_ms += ms(t);
         }
+        bytes_used[bytes_key] = {matrix, data};
+        m_paint_triangles += its.indices.size();
+        f.write(reinterpret_cast<const char *>(data->data()), std::streamsize(data->size() * sizeof(float)));
     };
     const int max_filament = std::max<int>(1, int(m_sel_filaments.size()));
     // Painted triangles of one annotation state: from the cache, else from the live paint selector, else from one
@@ -144,23 +163,29 @@ void OrcaEngine::write_paint_mesh()
     decltype(m_paint_facets) used;
     const TriangleSelector *loaded = nullptr;
     std::unique_ptr<TriangleSelector> own;
-    auto facets_for = [&](const ModelVolume &vol, const FacetsAnnotation &annotation, EnforcerBlockerType state) -> const indexed_triangle_set & {
-        const auto key = std::make_tuple(static_cast<const void *>(&vol.mesh()), uint64_t(annotation.timestamp()), int(state));
+    auto facets_for = [&](const PaintKey &key, const ModelVolume &vol, const FacetsAnnotation &annotation, EnforcerBlockerType state) -> const indexed_triangle_set & {
         auto it = m_paint_facets.find(key);
         std::shared_ptr<indexed_triangle_set> its;
+        const LivePaint &live = m_live_paint;
+        const bool is_live = live.selector && live.annotation == &annotation && live.timestamp == annotation.timestamp() &&
+                             live.mesh.get() == &vol.mesh();
         if (it != m_paint_facets.end()) {
             its = it->second;
+        } else if (auto before = m_paint_facets.find(PaintKey{&vol.mesh(), live.previous, int(state)});
+                   is_live && int(state) != live.state && before != m_paint_facets.end() && before->second->indices.empty()) {
+            its = before->second;
         } else {
+            const auto t = clock::now();
             const TriangleSelector *selector = loaded;
-            if (m_live_paint.selector && m_live_paint.annotation == &annotation && m_live_paint.timestamp == annotation.timestamp() &&
-                m_live_paint.mesh.get() == &vol.mesh()) {
-                selector = m_live_paint.selector.get();
+            if (is_live) {
+                selector = live.selector.get();
             } else if (selector == nullptr) {
                 own = std::make_unique<TriangleSelector>(vol.mesh());
                 own->deserialize(annotation.get_data(), false);
                 selector = loaded = own.get();
             }
             its = std::make_shared<indexed_triangle_set>(selector->get_facets(state));
+            m_paint_extract_ms += ms(t);
         }
         used[key] = its;
         return *its;
@@ -190,15 +215,17 @@ void OrcaEngine::write_paint_mesh()
                     loaded = nullptr;
                     previous = annotation;
                 }
-                const indexed_triangle_set &painted = facets_for(*vol, *annotation, state);
+                const PaintKey key{&vol->mesh(), uint64_t(annotation->timestamp()), int(state)};
+                const indexed_triangle_set &painted = facets_for(key, *vol, *annotation, state);
                 if (painted.indices.empty())
                     continue;
                 for (size_t ii = 0; ii < obj->instances.size(); ++ii)
-                    emit(painted, obj->instances[ii]->get_matrix() * vol->get_matrix(), float(oi * INSTANCE_ID_STRIDE + ii), code);
+                    emit(key, painted, obj->instances[ii]->get_matrix() * vol->get_matrix(), float(oi * INSTANCE_ID_STRIDE + ii), code);
             }
         }
     }
     m_paint_facets = std::move(used);
+    m_paint_bytes = std::move(bytes_used);
     f.close();
     if (std::rename(tmp.c_str(), m_paint_path.c_str()) != 0)
         throw std::runtime_error("Cannot write " + m_paint_path);
@@ -252,6 +279,8 @@ json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<doubl
                                   TriangleSelector::SinglePointCursor::cursor_factory(to_vec(hits[i].local).cast<float>(), camera_local,
                                                                                     float(radius), TriangleSelector::CursorType::SPHERE, trafo, clip),
                                   EnforcerBlockerType(std::clamp(state, 0, int(EnforcerBlockerType::ExtruderMax))), trafo_no_translate, true);
+        live.previous = facets.timestamp();
+        live.state = std::clamp(state, 0, int(EnforcerBlockerType::ExtruderMax));
         facets.set(selector);
         live.timestamp = facets.timestamp();
     }
@@ -263,7 +292,8 @@ json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<doubl
     auto ms = [](auto a, auto b) { return std::chrono::duration<double, std::milli>(b - a).count(); };
     if (ms(t0, t3) > 30.)
         BOOST_LOG_TRIVIAL(warning) << "paint: " << hits.size() << " hits, " << loads << " selector loads, select " << ms(t0, t1)
-                                << " ms, paint mesh " << ms(t1, t2) << " ms, scene " << ms(t2, t3) << " ms";
+                                << " ms, paint mesh " << ms(t1, t2) << " ms (extract " << m_paint_extract_ms << ", bytes "
+                                << m_paint_bytes_ms << ", " << m_paint_triangles << " triangles), scene " << ms(t2, t3) << " ms";
     return out;
 }
 

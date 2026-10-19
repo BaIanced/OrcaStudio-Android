@@ -340,7 +340,13 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             meshVersion++
             pendingMesh = null
         }
-        pendingPaint?.let { paintCount = uploadFloats(paintVbo, it); pendingPaint = null }
+        pendingPaint?.let {
+            val start = android.os.SystemClock.elapsedRealtime()
+            paintCount = uploadFloats(paintVbo, it)
+            pendingPaint = null
+            val upload = android.os.SystemClock.elapsedRealtime() - start
+            if (upload > 10) android.util.Log.w("OrcaRender", "paint mesh upload $upload ms")
+        }
         pendingGhost?.let { ghostCount = uploadFloats(ghostVbo, it); pendingGhost = null }
         pendingPreview?.let {
             extrCount = uploadPadded(extrVbo, it.extrusions, PreviewData.EXTRUSION_STRIDE)

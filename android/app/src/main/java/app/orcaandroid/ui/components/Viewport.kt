@@ -301,7 +301,11 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     }
     LaunchedEffect(v, scene.paintVersion, scene.paintFile) {
         if (scene.paintFile.isEmpty()) return@LaunchedEffect
+        val start = android.os.SystemClock.elapsedRealtime()
         val paint = withContext(Dispatchers.IO) { FloatData.load(scene.paintFile, 8) }
+        val read = android.os.SystemClock.elapsedRealtime() - start
+        // Slow reads show next to the engine's "paint:" timings in logcat (paint lag, user r316).
+        if (read > 20) android.util.Log.w("OrcaRender", "paint mesh read $read ms")
         v.onGl { setPaint(paint) }
     }
     LaunchedEffect(v, result?.previewDir, result?.gcodeFile) {
