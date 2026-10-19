@@ -207,7 +207,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
         private const val PINCH_PAD_DP = 40f
         /** How many times the midpoint's travel the finger gap must change for a two-finger gesture to be a pinch. */
         private const val PINCH_LEAD = 1.5f
-        /** Touch slops of gap change (also leading the midpoint by [PINCH_LEAD]) that turn a two-finger pan into a pinch. */
+        /** Touch slops of gap change (leading the midpoint by [PINCH_LEAD]) that turn a two-finger pan into a pinch, and of midpoint travel (leading the gap) back. */
         private const val PAN_TO_PINCH_SLOPS = 3f
         /** Fingers stay ignored this long after the pen's last event (a hovering pen sends none while it rests). */
         private const val PEN_NEAR_MS = 1000L
@@ -351,6 +351,15 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                         if (gap > PAN_TO_PINCH_SLOPS * touchSlop && gap >= PINCH_LEAD * shift) {
                             twoFinger = TwoFinger.PINCH
                             inputLog { "2f PAN -> PINCH gap=${gap.toInt()} shift=${shift.toInt()}" }
+                        }
+                    } else if (twoFinger == TwoFinger.PINCH) {
+                        // Landing jitter can lock a pan into PINCH (gap 30 px vs shift 15 px at 54 ms, then a 172 px drag
+                        // did nothing, phone r307); a real pinch moves the midpoint at most half the gap change.
+                        val gap = abs(span(event) - startSpan)
+                        val shift = kotlin.math.hypot(fx - startFocusX, fy - startFocusY)
+                        if (shift > PAN_TO_PINCH_SLOPS * touchSlop && shift >= PINCH_LEAD * gap) {
+                            twoFinger = TwoFinger.PAN
+                            inputLog { "2f PINCH -> PAN gap=${gap.toInt()} shift=${shift.toInt()}" }
                         }
                     }
                     if (twoFinger == TwoFinger.PAN) camera.panGrab(lastFocusX, lastFocusY, fx, fy)
