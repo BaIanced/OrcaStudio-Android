@@ -65,7 +65,7 @@ Each line says who last checked it, on which build, when (e.g. "user r249 2026-1
 - (user, 2026-10-17, queued; **2026-10-19: super low priority, later date**; r290 More > Pen untested by the user) Stylus support: Samsung S Pen (check whether one API covers old and new: plain Android MotionEvent
   TOOL_TYPE_STYLUS / BUTTON_STYLUS_PRIMARY / pressure / hover vs Samsung's SDKs, e.g. Air actions only on newer pens).
   User's devices: Note 10.1 2014 tablet, Note 10+, S24 Ultra (screen broken now), a newer 13" Galaxy Tab S. Also a head start
-  on the Lenovo Duet 5 (Chromebook) USI stylus, which only the user could test. Open. **Desk research 2026-10-17 (Claude, r289, no
+  on the Chromebook USI stylus, which only the user could test. Open. **Desk research 2026-10-17 (Claude, r289, no
   device; web per developer.android.com "advanced stylus features", unverified on hardware):** plain MotionEvent covers every
   pen: `getToolType` STYLUS / ERASER, AXIS_PRESSURE / TILT / ORIENTATION, hover = ACTION_HOVER_* (pen near screen), barrel button =
   `BUTTON_STYLUS_PRIMARY` (some devices report `BUTTON_SECONDARY`/`TERTIARY` instead, so test all three). Samsung SDKs (S Pen
