@@ -75,6 +75,14 @@ internal fun ToolPanel(state: UiState, vm: AppViewModel) {
     var drag by remember { mutableStateOf(Offset.Zero) }
     var folded by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
     var bounds by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
+    // Unfolding grows the card past the view edge when it was dragged to a corner folded (user r325): pull it back in.
+    androidx.compose.runtime.LaunchedEffect(bounds?.width, bounds?.height) {
+        val b = bounds ?: return@LaunchedEffect
+        val area = CanvasBounds.rect ?: return@LaunchedEffect
+        val dx = (area.right - b.right).coerceAtMost(0f).let { if (it == 0f) (area.left - b.left).coerceAtLeast(0f) else it }
+        val dy = (area.bottom - b.bottom).coerceAtMost(0f).let { if (it == 0f) (area.top - b.top).coerceAtLeast(0f) else it }
+        if (dx != 0f || dy != 0f) drag += Offset(dx, dy)
+    }
     Surface(Modifier.widthIn(max = 360.dp)
         .offset { androidx.compose.ui.unit.IntOffset(drag.x.roundToInt(), drag.y.roundToInt()) }
         .onGloballyPositioned { bounds = it.boundsInWindow() },

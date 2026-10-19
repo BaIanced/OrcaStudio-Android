@@ -27,9 +27,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - User sessions backed up: phone `/data/local/tmp/phone-session-backup.{3mf,json}` (8 plates), WSA `/data/local/tmp/session-backup.{3mf,json}`.
   Test zip `scadzip-test.zip` stays in `/sdcard/Download` on phone + Chromebook. LAN access code was given in chat: never write it anywhere.
 ## Next task
-- **Quest batch r325 (run 39334485418), on all devices; Claude-verified WSA** (archive): paint capsule joins, Notices card + red ! badge, tool card fold/drag/clamp, tower on first colour stroke, tower tap no stuck highlight. **Waiting on the user (Quest):** Settings > Controls stick zoom speed, tower tap, paint feel, error card for the supportless cone. Open after: resize overhaul (Opus), extended paint tools (big), phone<->Quest link (wishlist).
-- r316 paint batching etc. merged (PR #32); double-tap feel pending. Moire (r320+) Claude-verified, user look pending.
-- Pinch zoom-out stopping: fixed r312 (backlog), user feel pending.
+- **Fix batch from the user's r325 phone test (2026-10-19; details in backlog, grep "phone r325"):** paint window off-screen after expand; prime tower: no bbox/settings, x-ray outline only; preview top-surface line jiggle; tower z-fight; moire tune (too aggressive); one-finger orbit while painting; paint edge-detection toggle. Verified by the user: paint feel, tower fix (archive). Waiting on the user (Quest): stick zoom speed, error card for the supportless cone. Open after: resize overhaul (Opus), extended paint tools (big).
+- r316 paint batching etc. merged (PR #32); double-tap feel pending.
 - Need the printer (backlog): fan slider jumps (r295 hold), Retract/Extrude F150 (e13bebb), extrude/jog, speed chips.
 - User hasn't seen: bead look (top-surface shading zoomed in), part shadows, light sliders (Layout lab), tool row (r276 movable
   portrait tool row). User-only: r283/r284 top bar + flick (explained to the user 2026-10-17), r280 pinch lock (preview locked mode).

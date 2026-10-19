@@ -545,7 +545,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             glActiveTexture(GL_TEXTURE0)
         }
         val ids = highlighted
-        glUniform1i(loc(meshProgram, "uSelStyle"), selectionStyle)
+        glUniform1i(loc(meshProgram, "uSelStyle"), activeSelectionStyle)
         keyDir.let { glUniform3f(loc(meshProgram, "uKeyDir"), it[0], it[1], it[2]) }
         glUniform1f(loc(meshProgram, "uKeyStrength"), keyStrength)
         glUniform1fv(loc(meshProgram, "uSelected"), Shaders.MAX_SELECTED, ids.copyOf(Shaders.MAX_SELECTED), 0)
@@ -572,13 +572,17 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     /** Selection ids shown as selected: the dragged prime tower, else the selected copies. */
     private val highlighted get() = if (dragTower >= 0) floatArrayOf(-2f - dragTower) else selectedIds
 
+    /** The prime tower is always shown x-ray outlined while touched, whatever the selection style setting (user r325). */
+    private val activeSelectionStyle get() = if (dragTower >= 0) SelectionStyle.OUTLINE or SelectionStyle.XRAY else selectionStyle
+
     /** Outline / x-ray and the bounding box of the selection (Prepare). */
     private fun drawSelection() {
         val ids = highlighted
         if (ids.isEmpty() || meshCount == 0) return
-        if (selectionStyle and (SelectionStyle.OUTLINE or SelectionStyle.XRAY) != 0)
-            selection.draw(viewW, viewH, selectionStyle, colors.selected, outlinePx) { pass -> drawMesh(meshVbo, meshCount, pass) }
-        if (selectionStyle and SelectionStyle.BOX != 0) drawSelectionBox(ids)
+        val style = activeSelectionStyle
+        if (style and (SelectionStyle.OUTLINE or SelectionStyle.XRAY) != 0)
+            selection.draw(viewW, viewH, style, colors.selected, outlinePx) { pass -> drawMesh(meshVbo, meshCount, pass) }
+        if (style and SelectionStyle.BOX != 0) drawSelectionBox(ids)
     }
 
     /**

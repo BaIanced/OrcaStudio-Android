@@ -1,0 +1,139 @@
+ ▐▛███▛█   Claude Code v2.1.301
+▝▜██████▀  Sonnet 5.5 · Claude Pro
+ ▝▝   ▝▝   ~\OrcaProjectsGithub\OrcaStudio-Android
+
+
+> /clear                                                                        
+
+> /next                                                                         
+
+  Searched for 1 pattern, read 1 file, ran 3 shell commands (ctrl+o to expand)
+  ⎿  Loaded OrcaStudio\CLAUDE.md
+  ⎿  Loaded OrcaStudio\AGENTS.md
+
+● Update(~\OrcaProjectsGithub\OrcaStudio\arm-build\HANDOFF.md)
+  ⎿  Added 1 line, removed 1 line
+      32  Still UNTESTED on device: preview bead look, haptics on setting
+          s tabs/Models swipes, light/shadow sliders by finger.
+      33  Done: r266 (shadows/bias/AA grid) verified and merged (PR #28; 
+          archive "2026-10-16 r266"). Blind-test findings all closed. Pho
+          ne lab back to defaults. Phone scene: plate 1 cube [172.3, 123.
+          1] + pillar [136.3, 95.0], plate 2 table.
+      34  Done: r267 (faint line under inactive settings tabs) verified o
+          n WSA (archive "2026-10-16 r267"); install on phone + Chromeboo
+          k when back on adb.
+      35 -Done: MakerWorld printer chip auto-select (runs 38975729124, + 
+         -failure toast in 38991526428 r271, toast untested) verified on 
+         -WSA (archive "MakerWorld printer chip"); install on phone + Chr
+         -omebook when back on adb (r267 + chip fix, SHIELD has r269 only
+         -).                                                             
+      35 +Done: MakerWorld printer chip auto-select (runs 38975729124, + 
+         +failure toast in 38991526428 r271, toast untested) verified on 
+         +WSA (archive "MakerWorld printer chip"); install on phone + Chr
+         +omebook when back on adb (r267 + chip fix; SHIELD now has r271,
+         + 2026-10-16).                                                  
+      36  Then: pick from the backlog (grep "Not done / ideas").
+      37  Phone tools: `~/orca-android-tools/mcpao.sh 'tool:{json}'` (pho
+          ne MCP, token never printed), `aopair.sh '<view_set json>'` (AO
+           off/on/mid-orbit/rest). Phone dropped wireless adb twice; re-p
+          aired 2026-10-16 (`adb pair` needs the code on the command line
+          ). Phone restored: section off, light defaults, AO 0.
+      38  Waiting on the user: plate switcher pick (still undecided). Lau
+          ncher icon colour removed from the list.
+
+● I installed r271 on the SHIELD, and the handoff is updated to say so. I had no
+  other task to start because the open items all need the phone or Chromebook.
+
+  - Devices: only the SHIELD and WSA are on adb. The phone and Chromebook are
+    offline, so r271 is not on either of them.
+  - Still untested on a device: the preview bead look, haptics on the settings
+    tabs and Models swipes, and the light/shadow sliders by finger. The
+    MakerWorld printer chip failure toast is also untested.
+  - Backlog: I found no item in it that could be done on the SHIELD or WSA
+    alone.
+
+  When the phone or Chromebook is back on adb, tell me and I'll install r271 and
+  run those checks. Otherwise it's a good time to /clear then /next.
+
+✻ Crunched for 26s · done 8:23 PM
+
+> phone adb available, push install i'll test                                   
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● r271 is installed on the phone, so go ahead and test. The Chromebook is still
+  offline, so it doesn't have r271 yet.
+
+✻ Crunched for 9s · done 8:57 PM
+
+> what settings "tabs" are supposed to have haptics, models back and forward    
+  gesture is confirmed to have haptics. also the menu still shows 3d view       
+  ambient occusion, off soft full. are these settings even relevant after doing 
+  the shadow map or whatever                                                    
+
+  Searched for 2 patterns (ctrl+o to expand)
+
+● Haptics: settings tabs only get a tick when you swipe sideways between pages
+  (SettingsEditor.kt:313, the TextHandleMove buzz). Tapping a tab gives nothing.
+  The Models back/forward edge swipes have a tick too, which you've confirmed.
+  The plate picks have a long-press haptic (OverlayParts.kt:138). So on the
+  phone, test by swiping the settings page body, not by tapping the tabs.
+
+  AO vs shadows: they're two different effects, and the shadow map didn't
+  replace AO.
+  - AO is a screen-space pass that darkens creases and contact areas
+    (SceneEffects.kt:239, setting ambientOcclusion, default off).
+  - Shadows are the separate light-cast shadow, with its own toggle
+    (contactShadows, Viewport.kt:205) and the light/shadow sliders.
+
+  AO is still wired and works, but it's mostly redundant now, and it's off by
+  default. I haven't looked at what it adds on top of the shadows by eye, so
+  that's untested. I can remove the AO row, the ambientOcclusion setting and the
+  MCP ao parameter, or keep them. I'd remove it unless you like the look. Tell
+  me which.
+
+✻ Worked for 8s · done 9:05 PM
+
+> okay in "object settings" yes haptics are active. The ambient occuulsion is   
+  what causes the jackolantern effect, plus the double exposure shadow          
+  duplicate fade out on screen rotation                                         
+
+  Read 2 files, ran 3 shell commands (ctrl+o to expand)
+
+● Removing the AO code from the renderer (PlateRenderer) next.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● My rm removed too much text around the "A new EGL" comment, so I'm fixing that
+  line.
+
+  Ran 3 shell commands (ctrl+o to expand)
+
+● Everything from VIEW_POS through AO_COMPOSITE_FS is AO-only, so I'll cut that
+  whole block along with the UI, settings and MCP pieces.
+
+  Ran 5 shell commands (ctrl+o to expand)
+
+● Ambient occlusion is removed from the app, and the change compiles, is pushed
+  and is building as run 38998000561. I haven't looked at it on a device yet.
+
+  - What went: the More > Appearance row (off/soft/full), its setting, the
+    screen-space pass in the renderer and shaders, and the preview fade. The
+    fade is the double-exposure ghost on rotation.
+  - What stays: the shadows toggle and the shadow map are unchanged.
+  - Side effect: the MCP view_set tool no longer has an ao argument, so the
+    phone's aopair.sh helper will stop working.
+  - German strings: I deleted the AO entries from the German strings file
+    (values-de/strings.xml) so nothing is left orphaned. I translated nothing.
+
+  I'll watch the run and install it on every device once it's done. After that,
+  please check that the jack-o-lantern look is gone and that rotating no longer
+  leaves a ghost.
+
+✻ Cooked for 1m 57s · done 9:14 PM
+
+> /model 
+  ⎿  Kept model as Sonnet 5.5
+
+> /export                                                                       
+  ⎿  Export cancelled

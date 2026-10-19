@@ -117,6 +117,8 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     private var ignoreGesture = false
     /** The gesture began with a pen button / eraser mapped to Orbit, or to an instant action ([penInstant], fires on a tap). */
     private var penOrbit = false
+    /** Paint mode: this touch started off the selected object, so it orbits the camera instead of painting. */
+    private var paintOrbit = false
     private var penInstant: PenAction? = null
     private var lastInstantTime = 0L
     /** The gesture began with the right / middle mouse button (pans; a right click opens the menu). */
@@ -284,7 +286,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                 rectangleRemove = event.metaState and KeyEvent.META_ALT_ON != 0
                 rectangle = mode == InteractionMode.NAVIGATE && !rightButton && !middleButton &&
                     (rectangleRemove || event.metaState and KeyEvent.META_SHIFT_ON != 0)
-                penOrbit = false; penInstant = null
+                penOrbit = false; penInstant = null; paintOrbit = false
                 val penAction = penActionOf(event.getToolType(0), event.buttonState)
                 when (penAction) {
                     PenAction.PAN -> middleButton = true
@@ -298,7 +300,17 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                     PenAction.TIP -> Unit
                 }
                 if (rightButton || middleButton || rectangle || penOrbit || penInstant != null) Unit
-                else if (mode == InteractionMode.PAINT) listener?.onPaint(event.x, event.y, true)
+                else if (mode == InteractionMode.PAINT) {
+                    // A touch that starts off the selected object orbits the camera instead of painting (user r325).
+                    if (selectedBounds.isNotEmpty() && rayBoxEntry(event.x, event.y, selectedBounds) == null) paintOrbit = true
+                    else {
+                        listener?.onPaint(event.x, event.y, true)
+                        if (selectedBounds.isNotEmpty()) {
+                            val id = ++dragCheckId
+                            listener?.onDragCheck(event.x, event.y) { hit -> if (!hit && id == dragCheckId) paintOrbit = true }
+                        }
+                    }
+                }
                 else if (mode == InteractionMode.NAVIGATE && rayBoxEntry(event.x, event.y, selectedBounds)?.also { dragAnchor = it } != null) {
                     dragging = true
                     dragStart = dragAt(event.x, event.y)
@@ -363,6 +375,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                         rightButton || middleButton -> camera.panGrab(lastX, lastY, event.x, event.y)
                         penOrbit -> camera.orbit((event.x - lastX) * 0.3f, (event.y - lastY) * 0.3f)
                         penInstant != null -> Unit
+                        mode == InteractionMode.PAINT && paintOrbit -> camera.orbit((event.x - lastX) * 0.3f, (event.y - lastY) * 0.3f)
                         mode == InteractionMode.PAINT -> {
                             // Fill gaps of fast strokes so the painted trail stays continuous.
                             val dx = event.x - lastX
