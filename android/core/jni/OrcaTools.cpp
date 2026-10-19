@@ -116,11 +116,6 @@ FacetsAnnotation &facets_of(ModelVolume &vol, const std::string &kind)
 
 void OrcaEngine::write_paint_mesh()
 {
-    // Written next to the target and renamed over it, so the app never reads a half-written file.
-    const std::string tmp = m_paint_path + ".tmp";
-    std::ofstream f(tmp, std::ios::binary | std::ios::trunc);
-    if (!f)
-        throw std::runtime_error("Cannot write " + m_paint_path);
     using clock = std::chrono::steady_clock;
     auto ms = [](clock::time_point a) { return std::chrono::duration<double, std::milli>(clock::now() - a).count(); };
     m_paint_extract_ms = m_paint_bytes_ms = 0.;
@@ -128,6 +123,8 @@ void OrcaEngine::write_paint_mesh()
     // File bytes of one copy's painted triangles: reused while the triangles and the copy's transform are the same
     // (written one float at a time, every copy of every painted object, on every paint call before).
     decltype(m_paint_bytes) bytes_used;
+    std::vector<std::shared_ptr<std::vector<float>>> parts;
+    bool changed = false;
     auto emit = [&](const PaintKey &key, const indexed_triangle_set &its, const Transform3d &trafo, float obj_code, float type_code) {
         const auto bytes_key = std::make_tuple(key, obj_code, type_code);
         std::array<double, 16> matrix;
@@ -152,10 +149,11 @@ void OrcaEngine::write_paint_mesh()
                     data->insert(data->end(), {(*v)[0], (*v)[1], (*v)[2], n[0], n[1], n[2], obj_code, type_code});
             }
             m_paint_bytes_ms += ms(t);
+            changed = true;
         }
         bytes_used[bytes_key] = {matrix, data};
         m_paint_triangles += its.indices.size();
-        f.write(reinterpret_cast<const char *>(data->data()), std::streamsize(data->size() * sizeof(float)));
+        parts.push_back(data);
     };
     const int max_filament = std::max<int>(1, int(m_sel_filaments.size()));
     // Painted triangles of one annotation state: from the cache, else from the live paint selector, else from one
@@ -225,7 +223,19 @@ void OrcaEngine::write_paint_mesh()
         }
     }
     m_paint_facets = std::move(used);
+    // The same parts as last time (a stroke over paint already there): the file and the app's copy stay as they are,
+    // since rewriting and re-reading ~10 MB took ~60 ms a call on a well-painted model (r320).
+    changed = changed || bytes_used.size() != m_paint_bytes.size() || m_paint_version == 0;
     m_paint_bytes = std::move(bytes_used);
+    if (!changed)
+        return;
+    // Written next to the target and renamed over it, so the app never reads a half-written file.
+    const std::string tmp = m_paint_path + ".tmp";
+    std::ofstream f(tmp, std::ios::binary | std::ios::trunc);
+    if (!f)
+        throw std::runtime_error("Cannot write " + m_paint_path);
+    for (const auto &data : parts)
+        f.write(reinterpret_cast<const char *>(data->data()), std::streamsize(data->size() * sizeof(float)));
     f.close();
     if (std::rename(tmp.c_str(), m_paint_path.c_str()) != 0)
         throw std::runtime_error("Cannot write " + m_paint_path);
