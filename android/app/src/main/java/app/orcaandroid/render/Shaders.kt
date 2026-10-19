@@ -351,6 +351,8 @@ internal object Shaders {
         out vec3 vRight;
         flat out float vSideFace;
         flat out float vTopFace;
+        flat out float vWidth;
+        flat out float vHeight;
 
         vec3 rightOf(vec3 a, vec3 b) {
             vec3 s = cross(b - a, vec3(0.0, 0.0, 1.0));
@@ -411,6 +413,8 @@ internal object Shaders {
             vTopFace = abs(aFace.y);
             vAcross = aCorner.y;
             vRight = sideNormal;
+            vWidth = 2.0 * w;
+            vHeight = h;
             if (uScheme == 0) vColor = uRoleColors[role];
             else if (uScheme == 7) vColor = uFilamentColors[clamp(int(aValue + 0.5), 0, 15)];
             else vColor = gradient((aValue - uRange.x) / max(uRange.y - uRange.x, 1e-6));
@@ -445,11 +449,19 @@ internal object Shaders {
         in vec3 vRight;
         flat in float vSideFace;
         flat in float vTopFace;
+        flat in float vWidth;
+        flat in float vHeight;
+        uniform highp vec3 uEye;
         out vec4 color;
+        // Same soft key/fill/sky light as the model (no highlight: it would shimmer on layer lines),
+        // so faces turned from the key light keep their shape instead of dropping to one dark tone.
+        float shade(vec3 n) {
+            float sky = 0.5 + 0.5 * n.z;
+            return 0.30 + 0.12 * sky + 0.42 * max(dot(n, normalize(vec3(0.35, -0.55, 0.75))), 0.0)
+                + 0.24 * max(dot(n, normalize(vec3(-0.6, 0.4, 0.35))), 0.0);
+        }
         void main() {
             if (uSectionOn == 1 && dot(uSection.xyz, vWorld) > uSection.w) discard;
-            // Same soft key/fill/sky light as the model (no highlight: it would shimmer on layer lines),
-            // so faces turned from the key light keep their shape instead of dropping to one dark tone.
             vec3 n = normalize(vNormal);
             // Side walls are rounded like a real bead (normal tilts up at the top of each layer, down at the
             // bottom). It fades out below ~8 px per layer (fwidth 0.25; vBead spans 2 per layer): smaller
@@ -460,10 +472,21 @@ internal object Shaders {
             // and the edge itself darkens a little. Fades out when a bead is under ~8 px wide (moire).
             float rounding = vTopFace * (1.0 - smoothstep(0.12, 0.25, fwidth(vAcross)));
             n = normalize(n + vRight * (vAcross * 0.9 * rounding));
-            float sky = 0.5 + 0.5 * n.z;
-            float light = 0.30 + 0.12 * sky + 0.42 * max(dot(n, normalize(vec3(0.35, -0.55, 0.75))), 0.0)
-                + 0.24 * max(dot(n, normalize(vec3(-0.6, 0.4, 0.35))), 0.0);
-            light *= 1.0 - 0.3 * rounding * pow(abs(vAcross), 6.0);
+            float light = shade(n) * (1.0 - 0.3 * rounding * pow(abs(vAcross), 6.0));
+            // Far away a layer is a pixel or two tall: its lit top strip and darker side beat against the pixel grid
+            // into dashed bands (user r316). There both faces take the mean of the two shades, weighted by how much
+            // of each the eye sees, which is what a pixel covering several layers shows.
+            if (vTopFace + vSideFace > 0.5) {
+                highp vec3 v = normalize(uEye - vWorld);
+                vec3 side = vRight * (dot(vRight, v) < 0.0 ? -1.0 : 1.0);
+                float wTop = vWidth * max(v.z, 0.0);
+                float wSide = vHeight * abs(dot(side, v));
+                // World size of a pixel here: the less stretched screen direction (the other one runs along the face).
+                highp float pix = max(min(length(dFdx(vWorld)), length(dFdy(vWorld))), 1e-6);
+                float far = 1.0 - smoothstep(2.0, 5.0, (wTop + wSide) / pix);
+                float mean = (wTop * shade(vec3(0.0, 0.0, 1.0)) + wSide * shade(side)) / max(wTop + wSide, 1e-4);
+                light = mix(light, mean, far);
+            }
             color = vec4(vColor * light, 1.0);
         }"""
 
