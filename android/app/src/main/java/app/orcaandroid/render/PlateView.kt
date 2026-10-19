@@ -101,7 +101,8 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     /**
      * What a two-finger gesture turned out to be: undecided until the fingers' gap or their midpoint moves past
      * the touch slop. A pinch only zooms (the midpoint wanders as fingers spread, which panned the view, user
-     * 2026-10-17); a two-finger drag pans and zooms.
+     * 2026-10-17); a two-finger drag only pans (the gap drifts while dragging, which zoomed, user 2026-10-19)
+     * until the gap clearly changes ([PAN_TO_PINCH_SLOPS]).
      */
     private var twoFinger = TwoFinger.UNDECIDED
     private var startSpan = 0f
@@ -136,8 +137,8 @@ class PlateView(context: Context) : GLSurfaceView(context) {
 
     private val scaleDetector = ScaleGestureDetector(context, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
         override fun onScale(detector: ScaleGestureDetector): Boolean {
-            // Double-tap-and-drag (one finger) zooms at once.
-            if (multiTouch && twoFinger == TwoFinger.UNDECIDED) return true
+            // Double-tap-and-drag (one finger) zooms at once; two fingers zoom only once the gesture is a pinch.
+            if (multiTouch && twoFinger != TwoFinger.PINCH) return true
             // The pad keeps fingers close together from zooming in leaps (a 1 mm wobble is a big gap ratio there);
             // the camera's own limits are unchanged, so the deep zoom-in only takes more pinching.
             val pad = PINCH_PAD_DP * resources.displayMetrics.density
@@ -204,6 +205,10 @@ class PlateView(context: Context) : GLSurfaceView(context) {
         var onKey: ((Int, KeyEvent) -> Boolean)? = null
         /** Added to both finger gaps of a pinch step (see onScale). */
         private const val PINCH_PAD_DP = 40f
+        /** How many times the midpoint's travel the finger gap must change for a two-finger gesture to be a pinch. */
+        private const val PINCH_LEAD = 1.5f
+        /** Touch slops of gap change (also leading the midpoint by [PINCH_LEAD]) that turn a two-finger pan into a pinch. */
+        private const val PAN_TO_PINCH_SLOPS = 3f
         /** Fingers stay ignored this long after the pen's last event (a hovering pen sends none while it rests). */
         private const val PEN_NEAR_MS = 1000L
         /** A button press already fired its instant action; the tap that follows within this time does not fire it again. */
@@ -326,8 +331,13 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                         // One finger still while the other spreads moves the midpoint half as far as the gap changes.
                         val gap = abs(span(event) - startSpan)
                         val shift = kotlin.math.hypot(fx - startFocusX, fy - startFocusY)
-                        if (gap > touchSlop && gap >= shift) twoFinger = TwoFinger.PINCH
+                        // A drag's gap drifts too, so a pinch needs the gap to clearly lead (gap >= shift locked pans into zoom).
+                        if (gap > touchSlop && gap >= PINCH_LEAD * shift) twoFinger = TwoFinger.PINCH
                         else if (shift > touchSlop) twoFinger = TwoFinger.PAN
+                    } else if (twoFinger == TwoFinger.PAN) {
+                        val gap = abs(span(event) - startSpan)
+                        val shift = kotlin.math.hypot(fx - startFocusX, fy - startFocusY)
+                        if (gap > PAN_TO_PINCH_SLOPS * touchSlop && gap >= PINCH_LEAD * shift) twoFinger = TwoFinger.PINCH
                     }
                     if (twoFinger == TwoFinger.PAN) camera.panGrab(lastFocusX, lastFocusY, fx, fy)
                     lastFocusX = fx; lastFocusY = fy
