@@ -2351,3 +2351,9 @@ User: "you just tested something we already confirmed worked". Cross-checked eac
   don't want to add complexity where there doesn't need to be any. Keep Ortho if there's legitimate uses for it, if not nest it into the
   appearance setting as a toggle since other slicers use it." Zoom: CLOSED, no curve. Ortho moved from the View menu to a More >
   Appearance switch (r316; K still toggles).
+
+## 2026-10-19: r316 paint batching + double tap focus (Claude-verified, Chromebook)
+- Double tap on the cube: head-on front view, zoomed to fit; again: back to the view before; on empty canvas after an orbit: plate framed, selection cleared.
+- Seam paint 1.5 s diagonal stroke: whole stroke drawn in the screenshot taken right at stroke end (no lag tail). Color paint with filament 1 on an orange cube shows nothing (same color, expected). Test paint cleared.
+- `input tap X Y & sleep 0.12; input tap X Y` in one adb shell = a double tap on ARC.
+
