@@ -473,9 +473,9 @@ internal object Shaders {
             float rounding = vTopFace * (1.0 - smoothstep(0.12, 0.25, fwidth(vAcross)));
             n = normalize(n + vRight * (vAcross * 0.9 * rounding));
             float light = shade(n) * (1.0 - 0.3 * rounding * pow(abs(vAcross), 6.0));
-            // Far away a layer is a pixel or two tall: its lit top strip and darker side beat against the pixel grid
-            // into dashed bands (user r316). There both faces take the mean of the two shades, weighted by how much
-            // of each the eye sees, which is what a pixel covering several layers shows.
+            // Far away layers are a few pixels apart (under ~9; 5 left faint dashes, r318): the lit top strip and the
+            // darker side beat against the pixel grid into dashed bands (user r316). There both faces take the mean of
+            // the two shades, weighted by how much of each the eye sees, as a pixel covering several layers shows.
             if (vTopFace + vSideFace > 0.5) {
                 highp vec3 v = normalize(uEye - vWorld);
                 vec3 side = vRight * (dot(vRight, v) < 0.0 ? -1.0 : 1.0);
@@ -483,7 +483,7 @@ internal object Shaders {
                 float wSide = vHeight * abs(dot(side, v));
                 // World size of a pixel here: the less stretched screen direction (the other one runs along the face).
                 highp float pix = max(min(length(dFdx(vWorld)), length(dFdy(vWorld))), 1e-6);
-                float far = 1.0 - smoothstep(2.0, 5.0, (wTop + wSide) / pix);
+                float far = 1.0 - smoothstep(3.0, 9.0, (wTop + wSide) / pix);
                 float mean = (wTop * shade(vec3(0.0, 0.0, 1.0)) + wSide * shade(side)) / max(wTop + wSide, 1e-4);
                 light = mix(light, mean, far);
             }

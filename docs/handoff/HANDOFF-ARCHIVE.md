@@ -2366,3 +2366,4 @@ User: "you just tested something we already confirmed worked". Cross-checked eac
 - 2026-10-19: main merged at r316 (PR #32, c47c8a6, merge commit; whole branch, all verified).
 - (2026-10-19, user, r316) "Look of seams and selection styles confirmed good." Preview seams toggle and selection styles look: closed.
 - (2026-10-19, user, r316) Paint lag NOT fixed: "Fast and fluid at first then the longer I go it's like it's building cache and hitting a bottleneck." Reopened (backlog).
+- r318 Chromebook (Claude, 2026-10-19): 40 seam strokes covering the whole cube (3414 tris), then a Block stroke: fully drawn in the screenshot at stroke end (no lag). Timing log silent: Boost log level is warnings only (OrcaEngine.cpp:141), raised to warning in r319. Preview moire gone far out; faint dashes left at medium zoom (blend 2-5 px period), widened to 3-9 px in r319. r318 installed on phone, SHIELD, WSA, Chromebook.

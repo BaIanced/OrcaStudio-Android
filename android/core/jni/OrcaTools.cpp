@@ -262,7 +262,7 @@ json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<doubl
     const auto t3 = std::chrono::steady_clock::now();
     auto ms = [](auto a, auto b) { return std::chrono::duration<double, std::milli>(b - a).count(); };
     if (ms(t0, t3) > 30.)
-        BOOST_LOG_TRIVIAL(info) << "paint: " << hits.size() << " hits, " << loads << " selector loads, select " << ms(t0, t1)
+        BOOST_LOG_TRIVIAL(warning) << "paint: " << hits.size() << " hits, " << loads << " selector loads, select " << ms(t0, t1)
                                 << " ms, paint mesh " << ms(t1, t2) << " ms, scene " << ms(t2, t3) << " ms";
     return out;
 }
