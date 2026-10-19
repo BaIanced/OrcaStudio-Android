@@ -60,6 +60,11 @@ import app.orcaandroid.ui.UiState
 import app.orcaandroid.ui.components.hexToRgb
 import java.util.Locale
 
+/** The 3D view's bounds in the window (set by the workspace): floating cards are dragged within it. */
+internal object CanvasBounds {
+    var rect: androidx.compose.ui.geometry.Rect? = null
+}
+
 /** Options of the active 3D tool, shown as a small floating card. */
 @Composable
 internal fun ToolPanel(state: UiState, vm: AppViewModel) {
@@ -70,7 +75,6 @@ internal fun ToolPanel(state: UiState, vm: AppViewModel) {
     var drag by remember { mutableStateOf(Offset.Zero) }
     var folded by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
     var bounds by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
-    val window = androidx.compose.ui.platform.LocalWindowInfo.current.containerSize
     Surface(Modifier.widthIn(max = 360.dp)
         .offset { androidx.compose.ui.unit.IntOffset(drag.x.roundToInt(), drag.y.roundToInt()) }
         .onGloballyPositioned { bounds = it.boundsInWindow() },
@@ -79,9 +83,11 @@ internal fun ToolPanel(state: UiState, vm: AppViewModel) {
             Row(Modifier.pointerInput(Unit) {
                 detectDragGestures { change, d ->
                     change.consume()
+                    // Within the 3D view: the window also holds the nav rail and panel, which drew over it (WSA r324).
                     val b = bounds
-                    drag += if (b == null) d else Offset(d.x.coerceIn(-b.left, (window.width - b.right).coerceAtLeast(0f)),
-                        d.y.coerceIn(-b.top, (window.height - b.bottom).coerceAtLeast(0f)))
+                    val area = CanvasBounds.rect
+                    drag += if (b == null || area == null) d else Offset(d.x.coerceIn((area.left - b.left).coerceAtMost(0f), (area.right - b.right).coerceAtLeast(0f)),
+                        d.y.coerceIn((area.top - b.top).coerceAtMost(0f), (area.bottom - b.bottom).coerceAtLeast(0f)))
                 }
             }, verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.DragIndicator, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)

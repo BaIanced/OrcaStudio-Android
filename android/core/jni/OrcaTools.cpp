@@ -258,12 +258,16 @@ json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<doubl
     if (new_stroke)
         m_paint_prev.reset();
 
+    // Colour painting that starts or ends a volume's painting changes whether its plate gets a prime tower,
+    // which is part of the scene mesh (write_mesh): the tower showed only after the next move (WSA r324).
+    bool tower_changed = false;
     // Runs of hits on the same volume copy share one selector: deserialized once, saved once.
     for (size_t i = 0; i < hits.size();) {
         const PaintHit &first = hits[i];
         ModelObject &obj = object_at(first.object);
         ModelVolume *vol = obj.volumes[first.volume];
         FacetsAnnotation &facets = facets_of(*vol, kind);
+        const bool was_empty = facets.empty();
 
         const Transform3d trafo = obj.instances[first.instance]->get_matrix() * vol->get_matrix();
         Transform3d trafo_no_translate = trafo;
@@ -304,7 +308,11 @@ json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<doubl
         live.state = std::clamp(state, 0, int(EnforcerBlockerType::ExtruderMax));
         facets.set(selector);
         live.timestamp = facets.timestamp();
+        if (kind == "color" && was_empty != facets.empty())
+            tower_changed = true;
     }
+    if (tower_changed)
+        write_mesh();
     const auto t1 = std::chrono::steady_clock::now();
     write_paint_mesh();
     const auto t2 = std::chrono::steady_clock::now();
@@ -323,7 +331,10 @@ json OrcaEngine::paint_clear(int object, const std::string &kind)
     std::lock_guard<std::mutex> lock(m_mutex);
     ModelObject &obj = object_at(object);
     push_undo();
+    bool tower_changed = false;
     for (ModelVolume *vol : obj.volumes) {
+        if ((kind.empty() || kind == "color") && !vol->mmu_segmentation_facets.empty())
+            tower_changed = true;
         if (kind.empty()) {
             for (const char *k : {"fuzzy", "support", "seam", "color"})
                 facets_of(*vol, k).reset();
@@ -331,6 +342,8 @@ json OrcaEngine::paint_clear(int object, const std::string &kind)
             facets_of(*vol, kind).reset();
         }
     }
+    if (tower_changed)
+        write_mesh();
     write_paint_mesh();
     return scene_json();
 }
