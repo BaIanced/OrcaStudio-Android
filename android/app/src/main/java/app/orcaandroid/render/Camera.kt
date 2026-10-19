@@ -19,6 +19,12 @@ class Camera {
     private var width = 1
     private var height = 1
 
+    /**
+     * Perspective (default, as the desktop's use_perspective_camera) or orthographic. Ortho shows the target plane at
+     * the size perspective would (half height = distance * tan(FOV / 2)), so zoom, pan and fit keep their feel.
+     */
+    @Volatile var perspective = true
+
     /** Yaw, pitch, distance and target, for [restore] in a new view. */
     @Synchronized fun state() = floatArrayOf(yaw, pitch, distance, target[0], target[1], target[2])
 
@@ -59,6 +65,13 @@ class Camera {
         if (keepAngles) return
         yaw = -60f
         pitch = 30f
+    }
+
+    /** Looks level at the box [min]..[max] from its mid height, from the side (yaw a multiple of 90) nearest the current view. */
+    @Synchronized fun focus(min: Vec3, max: Vec3) {
+        yaw = Math.round(yaw / 90f) * 90f
+        pitch = 0f
+        fit(min, max, keepAngles = true)
     }
 
     @Synchronized fun orbit(dxDeg: Float, dyDeg: Float) {
@@ -155,15 +168,19 @@ class Camera {
         return (r[0] / r[3] + 1f) * width / 2 to (1f - r[1] / r[3]) * height / 2
     }
 
+    /** Where the view looks from; in ortho well behind [distance], so nothing in front of the target is clipped. */
     @Synchronized fun eye(): Vec3 {
+        val e = eyeDistance()
         val yr = Math.toRadians(yaw.toDouble())
         val pr = Math.toRadians(pitch.toDouble())
         return Vec3(
-            target[0] + (distance * cos(pr) * cos(yr)).toFloat(),
-            target[1] + (distance * cos(pr) * sin(yr)).toFloat(),
-            target[2] + (distance * sin(pr)).toFloat(),
+            target[0] + (e * cos(pr) * cos(yr)).toFloat(),
+            target[1] + (e * cos(pr) * sin(yr)).toFloat(),
+            target[2] + (e * sin(pr)).toFloat(),
         )
     }
+
+    private fun eyeDistance() = if (perspective) distance else distance + ORTHO_BACK
 
     /** Unit vector from the target towards the eye (the desktop's -get_dir_forward()). */
     @Synchronized fun towardsEye(): Vec3 {
@@ -173,7 +190,8 @@ class Camera {
     }
 
     /** Near and far clip distances of the projection. */
-    @Synchronized fun clip() = max(0.5f, distance / 200f) to distance * 20f
+    @Synchronized fun clip() =
+        if (perspective) max(0.5f, distance / 200f) to distance * 20f else 1f to eyeDistance() + ORTHO_BACK
 
     /** Fills [out] with projection * view. */
     @Synchronized fun viewProjection(out: FloatArray) {
@@ -181,7 +199,12 @@ class Camera {
         val proj = FloatArray(16)
         val view = FloatArray(16)
         val (near, far) = clip()
-        Matrix.perspectiveM(proj, 0, FOV, width.toFloat() / height, near, far)
+        val aspect = width.toFloat() / height
+        if (perspective) Matrix.perspectiveM(proj, 0, FOV, aspect, near, far)
+        else {
+            val h = distance * kotlin.math.tan(Math.toRadians(FOV / 2.0)).toFloat()
+            Matrix.orthoM(proj, 0, -h * aspect, h * aspect, -h, h, near, far)
+        }
         Matrix.setLookAtM(view, 0, e.x, e.y, e.z, target[0], target[1], target[2], 0f, 0f, 1f)
         Matrix.multiplyMM(out, 0, proj, 0, view, 0)
     }
@@ -246,5 +269,7 @@ class Camera {
         /** Two-finger pans grab a camera-facing plane at or below this pitch, a level one from [PAN_LEVEL_DEG] up. */
         const val PAN_FACING_DEG = 10f
         const val PAN_LEVEL_DEG = 45f
+        /** How far behind the orbit distance the orthographic eye sits (mm; larger than any bed). */
+        const val ORTHO_BACK = 2000f
     }
 }

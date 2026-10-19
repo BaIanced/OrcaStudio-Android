@@ -23,6 +23,7 @@ headless display below instead (no takeover needed). Don't drive WSA's own windo
   hides the display); `TARGET=wsa start window` = old windowed mode. Old research notes: `headless-display-notes.md`.
 
 ### Chromebook (ARC)
+- Before launching: `dumpsys window | grep mCurrentFocus`; another app in front = the user is on it, don't take over (2026-10-19). Run the check alone, never chained with `am start` (2026-10-19 slip: launched over the user's app, then put it back).
 - `<chromebook-ip>:5555` (memory `test-on-phone`), Android 13, arm64, 1920x1080 (app area ~1813x948, shelf below), **no root**.
 - Install: `install-build.ps1 -Run <id> -Device <ip>:5555`. Launch:
   `am start -n io.github.baianced.orcastudio_android/app.orcaandroid.ui.MainActivity`

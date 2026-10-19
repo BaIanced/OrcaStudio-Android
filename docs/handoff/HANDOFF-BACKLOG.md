@@ -20,7 +20,7 @@ Each line says who last checked it, on which build, when (e.g. "user r249 2026-1
 - Preview: shading gone after slice? (user unsure of convention, r284, 2026-10-17). Inner z-fighting when the layer slider
   is scrubbed down and the camera moves (user, r284, 2026-10-17): cracks + seam fights fixed r285 (Claude-verified
   2026-10-17, archive); user's look pending.
-- Zoom too slow when zoomed out; user suggests zoom-dependent curve, hasn't tried the zoom speed slider (r284, 2026-10-17; lab opens again in r285).
+- Zoom too slow when zoomed out; user suggests zoom-dependent curve, hasn't tried the zoom speed slider (r284, 2026-10-17; lab opens again in r285). User 2026-10-19 (r312): "100% is fine, maybe just a tad too slow when zoomed out and a tad too fast zoomed really far in"; may be perspective vs ortho habit: orthographic camera added r314 (View menu / K); zoom curve waits for the user's verdict on ortho. CLOSED 2026-10-19 (user: "Zooming is fine", no curve).
 - r197 NPE root cause fixed in 6ad69ef, built in r273 (Claude 2026-10-16); no UI path sends NaN since 776f261, so no in-app repro.
 
 ## Untested (needs the user or a special setup)
@@ -116,3 +116,6 @@ Each line says who last checked it, on which build, when (e.g. "user r249 2026-1
   wants to stay there for a split second". Cause: PAN -> PINCH near landing; fixed r310 (Claude-verified by script). USER VERIFIED r311 2026-10-19 ("pans feel fine"). Also seen in the same log: long pans flip PAN <-> PINCH (gap/shift measured from landing).
 - (user, 2026-10-19, r311 phone) Pinch zoom-out with the object in the middle between the fingers: "zooming out when one finger
   intersects object, zoom out immediately stops". Cause: ScaleGestureDetector min span (~27 mm). Fixed r312 (Claude-verified by pinch.sh, archive), user feel pending.
+- (user, 2026-10-19, r314) Paint brush lags behind strokes, worse over a few seconds of painting. Cause: each sample = full selector deserialize + whole paint-mesh rewrite + scene JSON, one per sample, so the queue grew. Fix r315 (batched hits). Untested. Fixed r316 (batched hits): Claude-verified on Chromebook 2026-10-19 (1.5 s seam stroke fully drawn at stroke end); user feel pending.
+- (user, 2026-10-19, r314) Double tap on an object: frame it head-on at object height, zoomed in; double tap on it again returns to the view
+  before; double tap on empty plate space unchanged (re-frames the plate). Built r316 (yaw snapped to nearest 90, pitch 0, fit). Claude-verified on Chromebook 2026-10-19 (focus, return, empty = plate frame); user feel pending.

@@ -117,6 +117,10 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                         val (o, d) = v.camera.ray(x, y)
                         vm.scene.onViewTap(o, d, additive, part, v.section.current, emptyPlate)
                     }
+                    override fun onCopyAt(x: Float, y: Float, result: (Pair<Int, Int>?, Vec3, Vec3) -> Unit) {
+                        val (o, d) = v.camera.ray(x, y)
+                        vm.scene.copyAt(o, d, v.section.current) { copy, lo, hi -> v.post { result(copy, lo, hi) } }
+                    }
                     override fun onDragCheck(x: Float, y: Float, result: (Boolean) -> Unit) {
                         val (o, d) = v.camera.ray(x, y)
                         vm.scene.checkDragStart(o, d, v.section.current) { hit -> v.post { result(hit) } }
@@ -258,6 +262,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         v.onGl { keyAzimuth = state.lab.lightAzimuth; keyElevation = state.lab.lightElevation; keyStrength = state.lab.lightStrength }
     }
     LaunchedEffect(v, state.lab.pinchSpeed) { v.pinchSpeed = state.lab.pinchSpeed }
+    LaunchedEffect(v, state.perspective) { v.camera.perspective = state.perspective }
     LaunchedEffect(v, state.pen) { v.pen = state.pen }
     LaunchedEffect(v, state.resizing, showPreview) { v.resizeMode = state.resizing && !showPreview }
     // Plate numbers always; the plate icons only while arranging (Prepare).

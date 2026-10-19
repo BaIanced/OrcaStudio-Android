@@ -262,7 +262,16 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         if (reframe) lastFrame?.let { (index, top) -> frame(index, top) }
     }
 
+    /** Frame timing for the MCP perf tool. */
+    val frameStats = FrameStats()
+
     override fun onDrawFrame(gl: GL10?) {
+        val start = System.nanoTime()
+        drawFrame()
+        frameStats.record(start, System.nanoTime())
+    }
+
+    private fun drawFrame() {
         upload()
         val bg = colors.background
         glClearColor(bg[0], bg[1], bg[2], 1f)

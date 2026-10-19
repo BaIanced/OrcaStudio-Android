@@ -170,7 +170,8 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
                 "distance" to p("number", "Camera distance from the target, mm"),
                 "target" to vec("Point the camera looks at, mm"),
                 "section" to p("number", "Section view cut 0..1 (0 = off)"),
-                "shadows" to p("boolean", "Shadows under objects"))) { viewSet(it) },
+                "shadows" to p("boolean", "Shadows under objects"),
+                "projection" to p("string", "perspective or orthographic (the user's setting, also in the app's View menu)"))) { viewSet(it) },
         Tool("view_screenshot", "Read: a PNG of the plate's 3D view as drawn now (no buttons or panels), after a short wait " +
             "for the last view change. Costs far more than text: use view_state, plate_describe or view_set's reply when " +
             "they answer it. Shows the Prepare tab's 3D view first.",
@@ -179,6 +180,17 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             "selection, and where each plate, object copy and prime tower is on screen (screen px: left,top width x height; " +
             "tapping a box's centre hits it unless something covers it), marked when off or partly off the view. Far " +
             "cheaper than view_screenshot. Shows the Prepare tab's 3D view first.", obj()) { viewReport() },
+        Tool("app_state", "Read (debug): the app's state as text: version, screen / tab, busy / error / message, open " +
+            "dialogs and editors, chosen presets, plates and objects count, selection and tool, the 3D view's camera when " +
+            "one is shown, memory, and whether a crash report is waiting. Nothing changes.", obj()) { appState() },
+        Tool("log_tail", "Read (debug): the newest lines of the app's own Android log (logcat of this process only), " +
+            "oldest first. Values next to token / code / password / key / cookie / auth are masked.",
+            obj(emptyList(), "lines" to p("integer", "How many lines, 1..500; default 100"),
+                "filter" to p("string", "Only lines containing this text (case-insensitive), e.g. a tag like OrcaInput"),
+                "level" to p("string", "Lowest level: V, D, I, W, E; default V"))) { logTail(it) },
+        Tool("perf", "Read (debug): frame timing of the 3D view over its last 240 frames (fps, frame gaps, draw time on " +
+            "the GL thread) and the app's memory. Move the camera first to measure drawing under load; an idle view " +
+            "still draws every frame.", obj()) { perf() },
         Tool("models_human_check", "Web: if the Models tab's page shows Cloudflare's \"Verify you are human\" check, taps " +
             "its box and waits (up to 25 s) for the page to go on. Replies with the outcome and the page it ends on. Needs " +
             "the Models tab on screen.", obj()) {
@@ -349,7 +361,8 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         val s = store.value
         return "Camera yaw ${n(c[0].toDouble())}, pitch ${n(c[1].toDouble())}, distance ${n(c[2].toDouble())} mm, " +
             "target [${n(c[3].toDouble())}, ${n(c[4].toDouble())}, ${n(c[5].toDouble())}]; section ${n(view.section.ratio.toDouble())}, " +
-            "shadows ${if (s.contactShadows) "on" else "off"}; plate ${s.activePlate + 1} active."
+            "shadows ${if (s.contactShadows) "on" else "off"}, ${if (view.camera.perspective) "perspective" else "orthographic"}; " +
+            "plate ${s.activePlate + 1} active."
     }
 
     private suspend fun viewSet(args: JSONObject): String = withContext(Dispatchers.Main.immediate) {
@@ -393,7 +406,82 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             store.settings.contactShadows = on
             store.update { it.copy(contactShadows = on) }
         }
+        args.optString("projection").takeIf { it.isNotEmpty() }?.let { name ->
+            val on = when (name) {
+                "perspective" -> true
+                "orthographic" -> false
+                else -> throw ToolError("projection must be perspective or orthographic")
+            }
+            store.settings.perspective = on
+            store.update { it.copy(perspective = on) }
+            view.camera.perspective = on
+        }
         viewState(view)
+    }
+
+    private fun memory(): String {
+        val rt = Runtime.getRuntime()
+        val mb = 1024 * 1024
+        val native = android.os.Debug.getNativeHeapAllocatedSize() / mb
+        return "memory: Java heap ${(rt.totalMemory() - rt.freeMemory()) / mb} of ${rt.maxMemory() / mb} MB, native heap $native MB"
+    }
+
+    private suspend fun appState(): String = withContext(Dispatchers.Main.immediate) {
+        val s = store.value
+        val ctx = store.app
+        val info = ctx.packageManager.getPackageInfo(ctx.packageName, 0)
+        val cfg = ctx.resources.configuration
+        buildString {
+            appendLine("App ${info.versionName} (Android ${android.os.Build.VERSION.RELEASE}, API ${android.os.Build.VERSION.SDK_INT}); " +
+                "screen ${cfg.screenWidthDp}x${cfg.screenHeightDp} dp, " +
+                (if (cfg.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) "landscape" else "portrait") + ".")
+            appendLine("Phase ${s.phase.name.lowercase()}; tab ${s.screen.name.lowercase()}" +
+                (s.busy?.let { "; busy: $it" } ?: "") + (s.error?.let { "; error: $it" } ?: "") +
+                (s.message?.let { "; message: $it" } ?: "") + ".")
+            val open = listOfNotNull(
+                s.editor?.let { "preset editor" },
+                s.addDialog?.let { "add dialog ($it)" },
+                s.scad?.let { "design editor" },
+                "printer setup".takeIf { s.showPrinterSetup },
+                s.filamentChoice?.let { "filament choice" },
+                s.projectOrImport?.let { "project-or-import question" },
+                s.aiConfirm?.let { "MCP confirmation: $it" },
+                s.contextMenu?.let { "3D context menu" },
+            )
+            appendLine("Open: " + open.joinToString().ifEmpty { "nothing over the main screen" } + ".")
+            appendLine("Presets: printer ${s.printer ?: "none"}; process ${s.print ?: "none"}; filaments ${s.filaments.size}" +
+                (if (s.overrides.values.any { it.isNotEmpty() }) " (unsaved changes)" else "") + ".")
+            val scene = s.scene
+            appendLine("Plates ${scene.plates.size}, active ${s.activePlate + 1}; objects ${scene.objects.size}, copies " +
+                "${scene.objects.sumOf { it.instances.size }}; selected ${s.selectedItems.size}; tool ${s.tool.javaClass.simpleName}" +
+                (if (s.selectMode) "; select mode" else "") + (if (s.resizing) "; resizing" else "") + ".")
+            appendLine("Design mode ${if (s.designMode) "on" else "off"}; undo limit ${s.undoLimit}; auto-save " +
+                (if (s.autoSaveSeconds > 0) "${s.autoSaveSeconds} s" else "off") + ".")
+            appendLine("3D view: " + (app.orcaandroid.render.PlateView.active?.get()?.let { viewState(it) } ?: "none on screen."))
+            val crash = java.io.File(ctx.filesDir, "crash_report.txt")
+            append(memory() + "; " + if (crash.isFile) "crash report waiting: " + crash.readLines().firstOrNull().orEmpty().take(200)
+                else "no crash report waiting")
+        }
+    }
+
+    private suspend fun logTail(args: JSONObject): String = withContext(Dispatchers.IO) {
+        val lines = args.optInt("lines", 100).coerceIn(1, 500)
+        val level = args.optString("level", "V").uppercase().takeIf { it in listOf("V", "D", "I", "W", "E") }
+            ?: throw ToolError("level must be V, D, I, W or E")
+        val filter = args.optString("filter").takeIf { it.isNotEmpty() }
+        // An app may read its own process's log without any permission.
+        val proc = ProcessBuilder("logcat", "-d", "-v", "time", "--pid=${android.os.Process.myPid()}", "*:$level")
+            .redirectErrorStream(true).start()
+        val all = proc.inputStream.bufferedReader().readLines()
+        proc.waitFor()
+        val picked = all.filter { filter == null || it.contains(filter, ignoreCase = true) }.takeLast(lines)
+        if (picked.isEmpty()) "No log lines" + (filter?.let { " containing \"$it\"" } ?: "") + "."
+        else picked.joinToString("\n") { LogMask.mask(it) }
+    }
+
+    private suspend fun perf(): String = withContext(Dispatchers.Main.immediate) {
+        val view = app.orcaandroid.render.PlateView.active?.get()
+        (view?.renderer?.frameStats?.report()?.let { "3D view: $it" } ?: "No 3D view on screen.") + "\n" + memory()
     }
 
     private suspend fun viewReport(): String = withContext(Dispatchers.Main.immediate) {

@@ -122,6 +122,8 @@ data class UiState(
     val contactShadows: Boolean = true,
     /** How the selection shows ([app.orcaandroid.render.SelectionStyle] bits). */
     val selectionStyle: Int = app.orcaandroid.render.SelectionStyle.DEFAULT,
+    /** 3D view projection: perspective, or orthographic when false. */
+    val perspective: Boolean = true,
     val lab: app.orcaandroid.core.LayoutLab = app.orcaandroid.core.LayoutLab(),
     val undoLimit: Int = app.orcaandroid.core.DEFAULT_UNDO_LIMIT,
     /** Auto-save interval in seconds; 0 or less = off (-seconds keeps the interval it had). */

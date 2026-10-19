@@ -323,6 +323,16 @@ class SceneController(private val store: Store, private val presets: PresetContr
         }
     }
 
+    /** The copy under the ray, as (object, copy, box min, box max), or null; [result] runs on the engine's coroutine. */
+    fun copyAt(origin: Vec3, dir: Vec3, section: FloatArray?, result: (Pair<Int, Int>?, Vec3, Vec3) -> Unit) {
+        store.launch {
+            val hit = pick(origin, dir, section)
+            val copy = hit?.let { store.value.scene.objects.getOrNull(it.obj)?.instances?.getOrNull(it.instance) }
+            if (hit == null || copy == null) result(null, Vec3.ZERO, Vec3.ZERO)
+            else result(hit.obj to hit.instance, copy.min, copy.min + copy.size)
+        }
+    }
+
     /** Right click / long press on the 3D view: selects what lies there (or nothing), then opens the menu at (x, y). */
     fun openContextMenu(origin: Vec3, dir: Vec3, x: Float, y: Float, section: FloatArray? = null) = store.launch {
         if (store.value.screen != Screen.PREPARE) return@launch
@@ -352,23 +362,35 @@ class SceneController(private val store: Store, private val presets: PresetContr
     }
 
     private val paintLock = Mutex()
-    private class PaintSample(val origin: Vec3, val dir: Vec3, val newStroke: Boolean, val section: FloatArray?)
+    private class PaintSample(val origin: Vec3, val dir: Vec3, val camera: Vec3, val newStroke: Boolean, val section: FloatArray?)
     private val pendingPaint = ArrayDeque<PaintSample>()
     /** A stroke began but none of its samples hit yet: its first hit takes the undo snapshot. Guarded by [paintLock]. */
     private var strokePending = false
 
-    /** Paint sample from the 3D view; samples are queued and applied in order on the engine thread. */
+    /**
+     * Paint sample from the 3D view; samples are queued and applied in order on the engine thread. Every sample that
+     * queued up while the engine painted goes into the next engine call together (up to the next stroke's start):
+     * one paint per sample fell further and further behind the finger, since each pass rebuilds the whole paint mesh
+     * (user r314).
+     */
     fun paintAt(origin: Vec3, dir: Vec3, camera: Vec3, newStroke: Boolean, section: FloatArray? = null) {
         val tool = store.value.tool as? Tool.Paint ?: return
-        synchronized(pendingPaint) { pendingPaint.addLast(PaintSample(origin, dir, newStroke, section)) }
+        synchronized(pendingPaint) { pendingPaint.addLast(PaintSample(origin, dir, camera, newStroke, section)) }
         if (paintLock.isLocked) return
         store.launch {
             paintLock.withLock {
                 while (true) {
-                    val p = synchronized(pendingPaint) { pendingPaint.removeFirstOrNull() } ?: break
-                    if (p.newStroke) strokePending = true
-                    val hit = pick(p.origin, p.dir, p.section) ?: continue
-                    store.applyScene(engine.paint(hit, camera, tool.radius, tool.kind, tool.state, strokePending, p.section))
+                    val batch = synchronized(pendingPaint) {
+                        val out = mutableListOf<PaintSample>()
+                        while (pendingPaint.isNotEmpty() && (out.isEmpty() || !pendingPaint.first().newStroke)) out += pendingPaint.removeFirst()
+                        out
+                    }
+                    if (batch.isEmpty()) break
+                    if (batch.first().newStroke) strokePending = true
+                    val hits = batch.mapNotNull { pick(it.origin, it.dir, it.section) }
+                    if (hits.isEmpty()) continue
+                    val last = batch.last()
+                    store.applyScene(engine.paint(hits, last.camera, tool.radius, tool.kind, tool.state, strokePending, last.section))
                     strokePending = false
                 }
             }

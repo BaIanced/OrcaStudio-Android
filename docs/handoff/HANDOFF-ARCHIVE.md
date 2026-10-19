@@ -2323,3 +2323,40 @@ User: "you just tested something we already confirmed worked". Cross-checked eac
   below its min span (~27 mm, ~500-600 px on the phone). r311 by pinch.sh: gap 800->500 zoomed, 500->240 and 240->80 did nothing.
   Fix: two-finger zoom done in PlateView's ACTION_MOVE (pinchZoom, same pad/speed); the detector only drives double-tap-drag.
   r312: 500->240 x1.65, 240->80 to the 10000 mm cap, 80->720 zooms in, 800->80 over the object x4.25. Installed on all 4. User feel pending.
+
+## 2026-10-19 Android main merged at r312 (PR #31)
+- PR #31 (merge commit 1ecdace): 47 commits r277-r312 (crash fixes, portrait grip/flick, preview lock/z-fight/seams, printer controls,
+  MCP view/slice/fit check, settings labels + greying, selection styles, gated resize, two-finger classifier + pinch fix).
+- User chose "Whole branch r312" over stopping at r289: includes untested pen input (7d3a263), fan slider hold (298ee9f) and
+  Extrude/Retract F150 (e13bebb); their backlog lines stay open. Work branch = main afterwards.
+- (2026-10-19, user, r312) Zoom feel: "I think 100% is fine, maybe just a tad too slow when zoomed out and a tad too fast zoomed
+  really far in. BUT this may be due to Perspective/Orthographic views and what I'm used to." Asked for the missing view (ortho) first,
+  zoom fixes after their verdict. Also: "Drive Chromebook, build mcp tools".
+
+## 2026-10-19 r314 orthographic camera (run 39238373782; Claude on the Chromebook)
+- Camera.perspective (setting perspective_camera, default true like the desktop): ortho half height = distance * tan(FOV/2) so it
+  matches perspective at the target; eye sits ORTHO_BACK 2000 mm behind, near 1 / far eye + 2000. View menu Perspective /
+  Orthographic (check mark), K toggles (PrusaSlicer's key; Orca only has the menu), MCP view_set projection, view_state reports it.
+- Chromebook r314: Fit plate perspective vs ortho = parallel plate edges in ortho; scroll-zoom 25 in (cube face fills the view,
+  no near clip) and 50 out (plate a small diamond, no far clip); K switches back. Fine stripes on the close-up surface exist in both
+  modes (not ortho). User's zoom-feel verdict pending.
+- MCP app_state / log_tail (own-pid logcat, LogMask masks token/code/password/key/cookie/auth values) / perf (FrameStats, last 240
+  frames) built r314; JVM tests McpDebugToolsTest 5/5. NOT run on a device: Chromebook has no root and run-as is disabled in ARC
+  (debug APK can't expose its token); needs WSA or the phone (app not running there; launching takes over a screen).
+- (2026-10-19, user, r314) Bug: "painting brush very slow/lagging behind stokes over a few seconds gets worse over time." Open (backlog).
+- (2026-10-19, user, r314) Feature: "Double clicking directly on an object should reframe it in a focused way zoomed in looking at it head on
+  object height. Double tap on object returns to previous view active before double tap. Double tap empty space on build plate remains the same." Open (backlog).
+- (2026-10-19, user, r314) Ortho: "I can't tell the difference, is it active?" (Claude had left the Chromebook in perspective after the K test.)
+- (2026-10-19, user, r314) "I prefer perspective, but that's nothing to do with zooming and just the looks on plate. Zooming is fine I
+  don't want to add complexity where there doesn't need to be any. Keep Ortho if there's legitimate uses for it, if not nest it into the
+  appearance setting as a toggle since other slicers use it." Zoom: CLOSED, no curve. Ortho moved from the View menu to a More >
+  Appearance switch (r316; K still toggles).
+
+## 2026-10-19: r316 paint batching + double tap focus (Claude-verified, Chromebook)
+- Double tap on the cube: head-on front view, zoomed to fit; again: back to the view before; on empty canvas after an orbit: plate framed, selection cleared.
+- Seam paint 1.5 s diagonal stroke: whole stroke drawn in the screenshot taken right at stroke end (no lag tail). Color paint with filament 1 on an orange cube shows nothing (same color, expected). Test paint cleared.
+- `input tap X Y & sleep 0.12; input tap X Y` in one adb shell = a double tap on ARC.
+
+- r316 More > Appearance "Orthographic camera (K)" switch (Chromebook, 2026-10-19): on = flat head-on cube, plate as a line;
+  K in Prepare turns it off and the switch follows. MCP app_state / log_tail / perf answer on WSA r316 (perf without a
+  3D view on screen says so; WSA window not in front).
