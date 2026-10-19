@@ -19,7 +19,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - One repo: OrcaStudio-Android (code + these docs, `docs/handoff/`), branch `claude/handoff-continuation-rseql3`. Autonomy (user, 2026-10-11): decide branches and next steps
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = c47c8a6 (PR #32, r316, merged 2026-10-19); work branch = main. Untested in main: pen 7d3a263, fan hold 298ee9f, Extrude F150 e13bebb (backlog).
-- Installed: r320 (run 39298585855) on SHIELD, WSA, Chromebook; phone r318 (2026-10-19; Chromebook adb port changes: ask the user for ip:port). `install-build.ps1 -Run <id> -Device <serial>`.
+- Installed: r321 (run 39300569740) on SHIELD, WSA, Chromebook; phone r318 (2026-10-19; Chromebook adb port changes: ask the user for ip:port). `install-build.ps1 -Run <id> -Device <serial>`.
 - **Active device = `/target`** (p/w/c|t, default WSA): `sh ~/orca-android-tools/target.sh serial`; shot.sh/mcpao.sh follow it.
 - Devices: phone = wireless `adb-...` entry; Chromebook ARC `<chromebook-ip>:5555` (reference); WSA `127.0.0.1:58526`; **USB serial = the user's
   SHIELD TV** (rooted; installs only).
@@ -27,7 +27,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - User sessions backed up: phone `/data/local/tmp/phone-session-backup.{3mf,json}` (8 plates), WSA `/data/local/tmp/session-backup.{3mf,json}`.
   Test zip `scadzip-test.zip` stays in `/sdcard/Download` on phone + Chromebook. LAN access code was given in chat: never write it anywhere.
 ## Next task
-- **r321 (run 39300569740)**: paint mesh not rewritten when unchanged. r320 Claude-verified on Chromebook: paint mesh 55-86 -> 15-28 ms, moire gone (archive). Next: install, repeat bunny strokes + logcat (`-s OrcaCore OrcaRender`). Remaining cost when painting new area: ~10 MB file rewrite + app read/upload per call; next step would be per-object chunks with partial GPU upload. User feel (paint, moire) pending.
+- **Paint lag (user r316, reopened)**: r321 installed (not phone). Chromebook bunny: repainting painted area mostly < 30 ms a call; new area ~50 ms a call (12 MB file write + app read/upload of the whole paint mesh). User feel on r321 pending (phone needs adb). If still laggy: per-object paint chunks, re-upload only the changed one. Moire (r320+) Claude-verified, user look pending.
 - r316 paint batching, double tap focus, ortho switch, MCP app_state/log_tail/perf: Claude-verified, merged (PR #32); double-tap feel pending; **paint lag still there (user r316), reopened**.
 - **Pinch zoom-out stopping** (user r311, backlog last line): cause = ScaleGestureDetector min span; fixed r312, Claude-verified; user feel pending.
 - Need the printer (backlog): fan slider jumps (r295 hold), Retract/Extrude F150 (e13bebb), extrude/jog, speed chips.
