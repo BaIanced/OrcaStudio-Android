@@ -29,15 +29,13 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 ## Next task
 - **r318 (run 39293784637; r317 cancelled)**: preview moire fix (PATH_FS far blend) + paint lag fix 0224a59 (live selector across calls, per-state paint facet cache; slow calls log `paint: ... ms` to logcat). Install on all; Chromebook: preview zoomed out vs r316 shot, long color-paint session + `adb logcat -s OrcaCore` timings. If still slow, next suspect = app re-reading/uploading the whole paint_mesh.bin per batch (Viewport.kt:302). Untested.
 - r316 paint batching, double tap focus, ortho switch, MCP app_state/log_tail/perf: Claude-verified, merged (PR #32); double-tap feel pending; **paint lag still there (user r316), reopened**.
-- Ortho camera: user prefers perspective, zoom fine (closed); ortho = More > Appearance switch (r316), K, MCP view_set projection. MCP app_state / log_tail / perf (r314+, JVM-tested) need a run on WSA/phone (Chromebook: no root, run-as off).
 - **Pinch zoom-out stopping** (user r311, backlog last line): cause = ScaleGestureDetector min span; fixed r312, Claude-verified; user feel pending.
 - Need the printer (backlog): fan slider jumps (r295 hold), Retract/Extrude F150 (e13bebb), extrude/jog, speed chips.
 - User hasn't seen: bead look (top-surface shading zoomed in), part shadows, light sliders (Layout lab), tool row (r276 movable
   portrait tool row). User-only: r283/r284 top bar + flick (explained to the user 2026-10-17), r280 pinch lock (preview locked mode).
-- Pen input: backlog, super low priority (user 2026-10-19).
 - Seams + selection styles look: user-verified r316 (archive). r305 resize gating (long-press Resize / Ctrl+T / S,
   drag plane) Claude-verified WSA; user feel pending (backlog).
-- Quest port skipped (backlog). Waiting on the user: plate switcher pick.
+- Pen input (super low priority) and Quest port: backlog. Waiting on the user: plate switcher pick.
 
 ## User decisions (2026-10-13)
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
