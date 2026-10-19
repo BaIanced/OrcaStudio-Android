@@ -2303,3 +2303,7 @@ User: "you just tested something we already confirmed worked". Cross-checked eac
   New: "It misses two finger touches probably 20-30 percent of the time" (pan doesn't start). Open (backlog).
 - (2026-10-19, user, r307 phone) Controlled run: "done, 1 failed (number 9)". Log: 8 PAN, 1 PINCH locked at 54 ms (gap 30 vs shift
   15, slop 24; then shift 172 with no pan). Fix e5b975c (r308): PINCH -> PAN once shift > 3 slops and >= 1.5x gap.
+- (2026-10-19, Claude, r308 phone) User asked Claude to test pans. Scripted jittery two-finger landings (pan2j.sh): 3/3 forced
+  PINCH locks switched to PAN at shift ~80-90 px; 16/16 staggered/wobbled/diagonal/1->2 cases decided PAN. Follow-up 4192099 (r309):
+  catch-up pan from the landing point on the deciding move.
+- (2026-10-19, user, r308 phone) Two-finger pan: "it feels alot better but still misses sometimes". Still open (backlog).

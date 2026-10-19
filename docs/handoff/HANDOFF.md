@@ -29,11 +29,11 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **r306 (fa1754c + 72dd138, run 39223408744)**: two-finger pinch/pan lock + low-view pan in Z (backlog last 2 lines). User: "two
   finger" = camera pan, not object drag. Low-view pan USER VERIFIED r306.
   **Open: ~20-30 % of two-finger pans miss** (backlog last line): cause = landing jitter locks PINCH (r307 log);
-  fix e5b975c = r308 installed all 4, phone log cleared + OrcaInput DEBUG on: user re-runs pans (diagonal, near shadow).
+  fix e5b975c = r308: Claude-verified by scripted jitter (backlog). 4192099 = r309 (run 39227996155) catch-up pan: install. User r308: "a lot better, still misses sometimes" (open).
 - **Seams toggle** (user r297): fixed r298, Claude-verified on WSA (archive); user look pending.
 - Open: **fan slider jumps** (r295 hold-until-within-4 %,
   needs the printer; Studio's sync logic is in the backlog line), Retract/Extrude buttons (r295; e13bebb+3bad1db = F150 in push/pop_ref_mode, in r298; needs the printer).
-- r285 preview overlap flicker remains; printer controls (extrude/jog, speed chips) need the printer (backlog).
+- Printer controls (extrude/jog, speed chips) need the printer (backlog). Preview z-fight: user verified r304 (archive).
 - User hasn't seen: bead look (top-surface shading zoomed in), part shadows, light sliders (Layout lab), tool row (r276 movable
   portrait tool row). User-only: r283/r284 top bar + flick (explained to the user 2026-10-17), r280 pinch lock (preview locked mode).
 - Pen input: backlog, super low priority (user 2026-10-19).

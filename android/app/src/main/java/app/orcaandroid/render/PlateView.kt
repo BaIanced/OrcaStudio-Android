@@ -108,6 +108,12 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     private var startSpan = 0f
     private var startFocusX = 0f
     private var startFocusY = 0f
+    /**
+     * Recent two-finger samples (ms since down, span, focus x, focus y), oldest at least [SWITCH_WINDOW_MS] back: a decided
+     * gesture switches on recent motion only. Measured from the landing, a long pan's drifting gap flipped it to PINCH
+     * whenever the fingers came back near where they landed (the view stalled as the object reached the centre, user r308).
+     */
+    private val twoFingerTrail = ArrayDeque<FloatArray>()
     /** Pinch zoom speed (Layout lab): the exponent on the fingers' gap ratio, 1 = the gap ratio itself. */
     var pinchSpeed = 0.6f
     /** Pen buttons and eraser mapping, and palm rejection (More > Pen). */
@@ -209,6 +215,8 @@ class PlateView(context: Context) : GLSurfaceView(context) {
         private const val PINCH_LEAD = 1.5f
         /** Touch slops of gap change (leading the midpoint by [PINCH_LEAD]) that turn a two-finger pan into a pinch, and of midpoint travel (leading the gap) back. */
         private const val PAN_TO_PINCH_SLOPS = 3f
+        /** How far back a decided two-finger gesture looks to switch between pan and pinch ([twoFingerTrail]). */
+        private const val SWITCH_WINDOW_MS = 250f
         /** Fingers stay ignored this long after the pen's last event (a hovering pen sends none while it rests). */
         private const val PEN_NEAR_MS = 1000L
         /** A button press already fired its instant action; the tap that follows within this time does not fire it again. */
@@ -308,6 +316,8 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                 if (event.pointerCount == 2) {
                     twoFinger = TwoFinger.UNDECIDED
                     startSpan = span(event); startFocusX = lastFocusX; startFocusY = lastFocusY
+                    twoFingerTrail.clear()
+                    twoFingerTrail.addLast(floatArrayOf((event.eventTime - event.downTime).toFloat(), startSpan, startFocusX, startFocusY))
                 }
                 inputLog { "2f down n=${event.pointerCount} span=${startSpan.toInt()} slop=$touchSlop after=${event.eventTime - event.downTime}ms longPressed=$longPressed moved=$moved mode=$mode" }
             }
@@ -337,7 +347,15 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                 }
                 if (event.pointerCount >= 2) {
                     val fx = focusX(event); val fy = focusY(event)
-                    val wasPan = twoFinger == TwoFinger.PAN
+                    val before = twoFinger
+                    val sp = span(event)
+                    val now = (event.eventTime - event.downTime).toFloat()
+                    twoFingerTrail.addLast(floatArrayOf(now, sp, fx, fy))
+                    while (twoFingerTrail.size > 1 && now - twoFingerTrail[1][0] >= SWITCH_WINDOW_MS) twoFingerTrail.removeFirst()
+                    val ref = twoFingerTrail.first()
+                    // Switches compare against the trail's oldest sample, not the landing.
+                    val recentGap = abs(sp - ref[1])
+                    val recentShift = kotlin.math.hypot(fx - ref[2], fy - ref[3])
                     if (twoFinger == TwoFinger.UNDECIDED) {
                         // One finger still while the other spreads moves the midpoint half as far as the gap changes.
                         val gap = abs(span(event) - startSpan)
@@ -347,26 +365,29 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                         else if (shift > touchSlop) twoFinger = TwoFinger.PAN
                         if (twoFinger != TwoFinger.UNDECIDED) inputLog { "2f decided $twoFinger gap=${gap.toInt()} shift=${shift.toInt()} after=${event.eventTime - event.downTime}ms" }
                     } else if (twoFinger == TwoFinger.PAN) {
-                        val gap = abs(span(event) - startSpan)
-                        val shift = kotlin.math.hypot(fx - startFocusX, fy - startFocusY)
-                        if (gap > PAN_TO_PINCH_SLOPS * touchSlop && gap >= PINCH_LEAD * shift) {
+                        if (recentGap > PAN_TO_PINCH_SLOPS * touchSlop && recentGap >= PINCH_LEAD * recentShift) {
                             twoFinger = TwoFinger.PINCH
-                            inputLog { "2f PAN -> PINCH gap=${gap.toInt()} shift=${shift.toInt()}" }
+                            inputLog { "2f PAN -> PINCH gap=${recentGap.toInt()} shift=${recentShift.toInt()} (last ${(now - ref[0]).toInt()}ms)" }
                         }
                     } else if (twoFinger == TwoFinger.PINCH) {
                         // Landing jitter can lock a pan into PINCH (gap 30 px vs shift 15 px at 54 ms, then a 172 px drag
                         // did nothing, phone r307); a real pinch moves the midpoint at most half the gap change.
-                        val gap = abs(span(event) - startSpan)
-                        val shift = kotlin.math.hypot(fx - startFocusX, fy - startFocusY)
-                        if (shift > PAN_TO_PINCH_SLOPS * touchSlop && shift >= PINCH_LEAD * gap) {
+                        if (recentShift > PAN_TO_PINCH_SLOPS * touchSlop && recentShift >= PINCH_LEAD * recentGap) {
                             twoFinger = TwoFinger.PAN
-                            inputLog { "2f PINCH -> PAN gap=${gap.toInt()} shift=${shift.toInt()}" }
+                            inputLog { "2f PINCH -> PAN gap=${recentGap.toInt()} shift=${recentShift.toInt()} (last ${(now - ref[0]).toInt()}ms)" }
                         }
                     }
-                    // The move that turns the gesture into a pan grabs from where the fingers landed, so the travel spent
-                    // deciding (25-45 px, ~90 px after a PINCH -> PAN switch) still moves the view.
-                    if (twoFinger == TwoFinger.PAN) {
-                        if (wasPan) camera.panGrab(lastFocusX, lastFocusY, fx, fy) else camera.panGrab(startFocusX, startFocusY, fx, fy)
+                    // The move that turns the gesture into a pan catches up the travel spent deciding (25-45 px from the
+                    // landing; after a PINCH -> PAN switch, the trail's travel, ~90 px), so the pan doesn't start late.
+                    if (twoFinger == TwoFinger.PAN) when (before) {
+                        TwoFinger.PAN -> camera.panGrab(lastFocusX, lastFocusY, fx, fy)
+                        TwoFinger.UNDECIDED -> camera.panGrab(startFocusX, startFocusY, fx, fy)
+                        else -> camera.panGrab(ref[2], ref[3], fx, fy)
+                    }
+                    // A new mode measures its own way back from here (an older trail would still hold the motion that switched).
+                    if (twoFinger != before && before != TwoFinger.UNDECIDED) {
+                        twoFingerTrail.clear()
+                        twoFingerTrail.addLast(floatArrayOf(now, sp, fx, fy))
                     }
                     lastFocusX = fx; lastFocusY = fy
                 } else if (!multiTouch) {
