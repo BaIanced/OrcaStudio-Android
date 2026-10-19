@@ -361,6 +361,9 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                                 queueEvent { renderer.dragOffset = d }
                             }
                         }
+                        // In resize mode the view holds still until the touch slop decides between resize and orbit
+                        // (a corner resize also turned the camera ~1.5 degrees, WSA r305).
+                        resizeMode && !resizeTried -> Unit
                         else -> camera.orbit((event.x - lastX) * 0.3f, (event.y - lastY) * 0.3f)
                     }
                     lastX = event.x; lastY = event.y
