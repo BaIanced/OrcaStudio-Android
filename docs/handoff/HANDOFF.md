@@ -18,7 +18,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 ## State
 - One repo: OrcaStudio-Android (code + these docs, `docs/handoff/`), branch `claude/handoff-continuation-rseql3`. Autonomy (user, 2026-10-11): decide branches and next steps
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
-- Android main = 1ecdace (PR #31, r312, merged 2026-10-19, user picked "whole branch"); work branch = main. Untested in main: pen 7d3a263, fan hold 298ee9f, Extrude F150 e13bebb (backlog).
+- Android main = c47c8a6 (PR #32, r316, merged 2026-10-19); work branch = main. Untested in main: pen 7d3a263, fan hold 298ee9f, Extrude F150 e13bebb (backlog).
 - Installed: r316 (run 39287887140) on SHIELD, WSA, Chromebook; phone still r314 (off adb) (2026-10-19; Chromebook adb port changes: ask the user for ip:port). `install-build.ps1 -Run <id> -Device <serial>`.
 - **Active device = `/target`** (p/w/c|t, default WSA): `sh ~/orca-android-tools/target.sh serial`; shot.sh/mcpao.sh follow it.
 - Devices: phone = wireless `adb-...` entry; Chromebook ARC `<chromebook-ip>:5555` (reference); WSA `127.0.0.1:58526`; **USB serial = the user's
@@ -27,7 +27,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - User sessions backed up: phone `/data/local/tmp/phone-session-backup.{3mf,json}` (8 plates), WSA `/data/local/tmp/session-backup.{3mf,json}`.
   Test zip `scadzip-test.zip` stays in `/sdcard/Download` on phone + Chromebook. LAN access code was given in chat: never write it anywhere.
 ## Next task
-- r316 paint batching + double tap focus: Claude-verified on Chromebook 2026-10-19 (archive); user feel pending (backlog).
+- r316 paint batching, double tap focus, ortho switch, MCP app_state/log_tail/perf: Claude-verified, merged (PR #32); paint/double-tap feel pending (backlog).
 - Ortho camera: user prefers perspective, zoom fine (closed); ortho = More > Appearance switch (r316), K, MCP view_set projection. MCP app_state / log_tail / perf (r314+, JVM-tested) need a run on WSA/phone (Chromebook: no root, run-as off).
 - **Pinch zoom-out stopping** (user r311, backlog last line): cause = ScaleGestureDetector min span; fixed r312, Claude-verified; user feel pending.
 - **Seams toggle** (user r297): fixed r298, Claude-verified on WSA (archive); user look pending.
@@ -35,8 +35,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - User hasn't seen: bead look (top-surface shading zoomed in), part shadows, light sliders (Layout lab), tool row (r276 movable
   portrait tool row). User-only: r283/r284 top bar + flick (explained to the user 2026-10-17), r280 pinch lock (preview locked mode).
 - Pen input: backlog, super low priority (user 2026-10-19).
-- Selection styles r300 + r305 resize gating (long-press Resize / Ctrl+T / S, T = text, drag plane): Claude-verified WSA,
-  user feel pending (backlog).
+- Selection styles: all re-verified on Chromebook r316 incl. x-ray behind a copy (user asked); r305 resize gating
+  (long-press Resize / Ctrl+T / S, drag plane) Claude-verified WSA; user feel pending (backlog).
 - Quest port skipped (backlog). Waiting on the user: plate switcher pick.
 
 ## User decisions (2026-10-13)

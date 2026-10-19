@@ -2360,3 +2360,8 @@ User: "you just tested something we already confirmed worked". Cross-checked eac
 - r316 More > Appearance "Orthographic camera (K)" switch (Chromebook, 2026-10-19): on = flat head-on cube, plate as a line;
   K in Prepare turns it off and the switch follows. MCP app_state / log_tail / perf answer on WSA r316 (perf without a
   3D view on screen says so; WSA window not in front).
+- (user asked "verify the 3d outlines", 2026-10-19) Selection styles on Chromebook r316: outline+box (default), x-ray only,
+  rim glow, wireframe all draw; chips toggle each style. X-ray behind another object: hidden part of the back copy shows
+  through the front cube with its outline. Copy deleted, styles back to outline+box.
+- 2026-10-19: main merged at r316 (PR #32, c47c8a6, merge commit; whole branch, all verified).
+
