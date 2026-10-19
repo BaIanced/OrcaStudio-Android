@@ -115,4 +115,4 @@ Each line says who last checked it, on which build, when (e.g. "user r249 2026-1
 - (user, 2026-10-19, r308 phone) Two-finger up/down pan in Z: "when either object or plate hits the center view it stalls like it
   wants to stay there for a split second". Cause: PAN -> PINCH near landing; fixed r310 (Claude-verified by script). USER VERIFIED r311 2026-10-19 ("pans feel fine"). Also seen in the same log: long pans flip PAN <-> PINCH (gap/shift measured from landing).
 - (user, 2026-10-19, r311 phone) Pinch zoom-out with the object in the middle between the fingers: "zooming out when one finger
-  intersects object, zoom out immediately stops". Open (Claude investigating).
+  intersects object, zoom out immediately stops". Cause: ScaleGestureDetector min span (~27 mm). Fixed r312 (Claude-verified by pinch.sh, archive), user feel pending.

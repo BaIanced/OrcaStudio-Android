@@ -19,7 +19,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - One repo: OrcaStudio-Android (code + these docs, `docs/handoff/`), branch `claude/handoff-continuation-rseql3`. Autonomy (user, 2026-10-11): decide branches and next steps
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = ab790b9 (PR #30, r276, merged 2026-10-16); work branch up to d08415a (r281-r298: UI fixes, printer controls, MCP slice/view, pen, settings labels/greying), unmerged.
-- Installed: r311 (2b9dee5) on phone, SHIELD, WSA, Chromebook (2026-10-19; Chromebook adb port changes: ask the user for ip:port). `install-build.ps1 -Run <id> -Device <serial>`.
+- Installed: r312 (run 39233411471) on phone, SHIELD, WSA, Chromebook (2026-10-19; Chromebook adb port changes: ask the user for ip:port). `install-build.ps1 -Run <id> -Device <serial>`.
 - **Active device = `/target`** (p/w/c|t, default WSA): `sh ~/orca-android-tools/target.sh serial`; shot.sh/mcpao.sh follow it.
 - Devices: phone = wireless `adb-...` entry; Chromebook ARC `<chromebook-ip>:5555` (reference); WSA `127.0.0.1:58526`; **USB serial = the user's
   SHIELD TV** (rooted; installs only).
@@ -27,7 +27,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - User sessions backed up: phone `/data/local/tmp/phone-session-backup.{3mf,json}` (8 plates), WSA `/data/local/tmp/session-backup.{3mf,json}`.
   Test zip `scadzip-test.zip` stays in `/sdcard/Download` on phone + Chromebook. LAN access code was given in chat: never write it anywhere.
 ## Next task
-- **Pinch zoom-out stops when a finger crosses the object** (user r311 phone, backlog last line): investigating.
+- **Pinch zoom-out stopping** (user r311, backlog last line): cause = ScaleGestureDetector min span; fixed r312, Claude-verified; user feel pending.
 - Two-finger pan: USER VERIFIED r311 ("pans feel fine", archive). Local builds + JVM tests: recipes in reference.
 - **Seams toggle** (user r297): fixed r298, Claude-verified on WSA (archive); user look pending.
 - Open: **fan slider jumps** (r295 hold-until-within-4 %,
