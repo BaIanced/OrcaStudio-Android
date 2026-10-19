@@ -19,17 +19,17 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - One repo: OrcaStudio-Android (code + these docs, `docs/handoff/`), branch `claude/handoff-continuation-rseql3`. Autonomy (user, 2026-10-11): decide branches and next steps
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = ab790b9 (PR #30, r276, merged 2026-10-16); work branch up to d08415a (r281-r298: UI fixes, printer controls, MCP slice/view, pen, settings labels/greying), unmerged.
-- Installed: r308 (e5b975c) on phone, SHIELD, WSA, Chromebook (2026-10-19; Chromebook adb port changes: ask the user for ip:port). `install-build.ps1 -Run <id> -Device <serial>`.
+- Installed: r310 (4f37eb9) on phone, SHIELD, WSA, Chromebook (2026-10-19; Chromebook adb port changes: ask the user for ip:port). `install-build.ps1 -Run <id> -Device <serial>`.
 - Devices: phone = wireless `adb-...` entry; Chromebook ARC `<chromebook-ip>:5555` (reference); WSA `127.0.0.1:58526`; **USB serial = the user's
   SHIELD TV** (rooted; installs only).
 - User away from the printer: no printer tests. SHIELD installs only. Phone in use for two-finger tests (2026-10-19).
 - User sessions backed up: phone `/data/local/tmp/phone-session-backup.{3mf,json}` (8 plates), WSA `/data/local/tmp/session-backup.{3mf,json}`.
   Test zip `scadzip-test.zip` stays in `/sdcard/Download` on phone + Chromebook. LAN access code was given in chat: never write it anywhere.
 ## Next task
-- **r306 (fa1754c + 72dd138, run 39223408744)**: two-finger pinch/pan lock + low-view pan in Z (backlog last 2 lines). User: "two
-  finger" = camera pan, not object drag. Low-view pan USER VERIFIED r306.
-  **Open: ~20-30 % of two-finger pans miss** (backlog last line): cause = landing jitter locks PINCH (r307 log);
-  fix e5b975c = r308: Claude-verified by scripted jitter (backlog). 4192099 = r309 (run 39227996155) catch-up pan: install. User r308: "a lot better, still misses sometimes" (open).
+- **Two-finger pan** (backlog last 2 lines): r310 (4f37eb9) installed all 4: switches PAN<->PINCH on the last 250 ms (Z-pan
+  stall near centre) + catch-up pan. Claude-verified by script (archive); user feel pending ("a lot better, still misses" on r308).
+- **Next (user yes 2026-10-19):** (1) local APK builds (`assembleDebug` reusing CI's native libs?) instead of 7-min CI runs;
+  (2) JVM unit tests, first the two-finger classifier pulled out of PlateView.kt (replay logged traces).
 - **Seams toggle** (user r297): fixed r298, Claude-verified on WSA (archive); user look pending.
 - Open: **fan slider jumps** (r295 hold-until-within-4 %,
   needs the printer; Studio's sync logic is in the backlog line), Retract/Extrude buttons (r295; e13bebb+3bad1db = F150 in push/pop_ref_mode, in r298; needs the printer).

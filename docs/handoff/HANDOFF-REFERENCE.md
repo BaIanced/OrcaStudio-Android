@@ -84,6 +84,12 @@ headless display below instead (no takeover needed). Don't drive WSA's own windo
   lists the tabs before tapping (the first tap after start is often lost).
 
 ## Build and tools
+- **Local APK (2026-10-19, ~7 s incremental, 3.5 min cold):** `sh ~/orca-android-tools/stage-from-apk.sh` (native libs + OpenSCAD/
+  Python assets from the newest CI APK in `builds/`; redo after native changes), then the compile command below with
+  `:app:assembleDebug` -> `~/build/orca-android/gradle/app/outputs/apk/debug/app-debug.apk` (`adb install -r "$(cygpath -w ...)"`).
+  Package `io.github.baianced.orcastudio_android.debug`: side by side with the CI app, own (empty) data, different signing key,
+  debuggable (`run-as` works). Use it for Claude's iteration; the user's installs stay CI builds. Needs `orca.python=python` in
+  `~/.gradle/gradle.properties` (set).
 - Compile Kotlin locally before every push (12 s warm):
   `cd OrcaStudio-Android/android && JAVA_HOME="/c/Program Files/Java/jdk-22" ANDROID_HOME='C:\android_sdk' ./gradlew --console=plain -q :app:compileReleaseKotlin`
   Add `:app:mergeReleaseResources` when strings change, and read the exit code (a grep on the output hid a failure once).

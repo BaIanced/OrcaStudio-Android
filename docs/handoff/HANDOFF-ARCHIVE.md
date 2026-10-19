@@ -2307,3 +2307,9 @@ User: "you just tested something we already confirmed worked". Cross-checked eac
   PINCH locks switched to PAN at shift ~80-90 px; 16/16 staggered/wobbled/diagonal/1->2 cases decided PAN. Follow-up 4192099 (r309):
   catch-up pan from the landing point on the deciding move.
 - (2026-10-19, user, r308 phone) Two-finger pan: "it feels alot better but still misses sometimes". Still open (backlog).
+- (2026-10-19, Claude, r310 = 4f37eb9, run 39228986041, phone) Z-pan stall = long pans flipping PAN -> PINCH near the landing point
+  (gap/shift measured from landing). Script `pan2b.sh 650 800 400 200 8` (out and back, gap drifting): r308 flipped 3/3, r310 stays
+  PAN 3/3 (switches use the last 250 ms). Landing locks still recover 3/3, pinch in/out stays PINCH. r309 skipped (catch-up replayed
+  earlier pan segments). r310 installed on all 4. User feel pending.
+- (2026-10-19, user) Asked if the workflow is efficient; said "yes to both": (1) local APK builds instead of 7-min CI runs,
+  (2) unit tests for pure logic, starting with the two-finger classifier.

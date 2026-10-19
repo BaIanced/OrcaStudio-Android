@@ -110,6 +110,10 @@ abstract class PackOrcaAssets : DefaultTask() {
     @get:InputFile
     abstract val script: RegularFileProperty
 
+    /** The Python to run it with (`orca.python`, e.g. `python` on Windows, where `python3` is a Store stub). */
+    @get:Input
+    abstract val python: Property<String>
+
     @get:OutputDirectory
     abstract val outputDir: DirectoryProperty
 
@@ -122,7 +126,7 @@ abstract class PackOrcaAssets : DefaultTask() {
         out.deleteRecursively()
         execOps.exec {
             commandLine(
-                "python3", script.get().asFile.path,
+                python.get(), script.get().asFile.path,
                 "--resources", resourcesRoot.get(),
                 "--assets", out.path,
                 "--tab-cpp", tabCpp.get().asFile.path,
@@ -140,6 +144,7 @@ val packOrcaAssets = tasks.register<PackOrcaAssets>("packOrcaAssets") {
             "cert/printer.cer")
     })
     script.set(rootProject.file("scripts/pack_resources.py"))
+    python.set(providers.gradleProperty("orca.python").orElse("python3"))
     tabCpp.set(File(orcaSrc, "src/slic3r/GUI/Tab.cpp"))
     val i18n = File(orcaSrc, "localization/i18n")
     translationsRoot.set(i18n.path)
