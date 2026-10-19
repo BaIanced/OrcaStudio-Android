@@ -20,7 +20,7 @@ Each line says who last checked it, on which build, when (e.g. "user r249 2026-1
 - Preview: shading gone after slice? (user unsure of convention, r284, 2026-10-17). Inner z-fighting when the layer slider
   is scrubbed down and the camera moves (user, r284, 2026-10-17): cracks + seam fights fixed r285 (Claude-verified
   2026-10-17, archive); user's look pending.
-- Zoom too slow when zoomed out; user suggests zoom-dependent curve, hasn't tried the zoom speed slider (r284, 2026-10-17; lab opens again in r285).
+- Zoom too slow when zoomed out; user suggests zoom-dependent curve, hasn't tried the zoom speed slider (r284, 2026-10-17; lab opens again in r285). User 2026-10-19 (r312): "100% is fine, maybe just a tad too slow when zoomed out and a tad too fast zoomed really far in"; may be perspective vs ortho habit: orthographic camera added r314 (View menu / K); zoom curve waits for the user's verdict on ortho.
 - r197 NPE root cause fixed in 6ad69ef, built in r273 (Claude 2026-10-16); no UI path sends NaN since 776f261, so no in-app repro.
 
 ## Untested (needs the user or a special setup)

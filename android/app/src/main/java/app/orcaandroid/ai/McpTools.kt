@@ -476,7 +476,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         proc.waitFor()
         val picked = all.filter { filter == null || it.contains(filter, ignoreCase = true) }.takeLast(lines)
         if (picked.isEmpty()) "No log lines" + (filter?.let { " containing \"$it\"" } ?: "") + "."
-        else picked.joinToString("\n") { line -> SECRET.replace(line) { it.groupValues[1] + "***" } }
+        else picked.joinToString("\n") { LogMask.mask(it) }
     }
 
     private suspend fun perf(): String = withContext(Dispatchers.Main.immediate) {
@@ -989,8 +989,6 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             "copy" to p("integer", "Copy number from plate_describe; default 1"))
 
         internal fun p(type: String, description: String) = JSONObject().put("type", type).put("description", description)
-        /** A secret-looking key and its separator; log_tail masks the value after it. */
-        private val SECRET = Regex("""(?i)((?:token|code|password|passwd|secret|key|cookie|auth\w*)["']?\s*[:=]\s*["']?)[^\s"',;&}]+""")
         private fun vec(description: String) = JSONObject().put("type", "array").put("items", JSONObject().put("type", "number"))
             .put("minItems", 3).put("maxItems", 3).put("description", description)
         private fun ids() = JSONObject().put("type", "array").put("items", JSONObject().put("type", "integer")).put("description", "Shape ids")

@@ -19,7 +19,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - One repo: OrcaStudio-Android (code + these docs, `docs/handoff/`), branch `claude/handoff-continuation-rseql3`. Autonomy (user, 2026-10-11): decide branches and next steps
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 1ecdace (PR #31, r312, merged 2026-10-19, user picked "whole branch"); work branch = main. Untested in main: pen 7d3a263, fan hold 298ee9f, Extrude F150 e13bebb (backlog).
-- Installed: r312 (run 39233411471) on phone, SHIELD, WSA, Chromebook (2026-10-19; Chromebook adb port changes: ask the user for ip:port). `install-build.ps1 -Run <id> -Device <serial>`.
+- Installed: r314 (run 39238373782) on phone, SHIELD, WSA, Chromebook (2026-10-19; Chromebook adb port changes: ask the user for ip:port). `install-build.ps1 -Run <id> -Device <serial>`.
 - **Active device = `/target`** (p/w/c|t, default WSA): `sh ~/orca-android-tools/target.sh serial`; shot.sh/mcpao.sh follow it.
 - Devices: phone = wireless `adb-...` entry; Chromebook ARC `<chromebook-ip>:5555` (reference); WSA `127.0.0.1:58526`; **USB serial = the user's
   SHIELD TV** (rooted; installs only).
@@ -27,12 +27,12 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - User sessions backed up: phone `/data/local/tmp/phone-session-backup.{3mf,json}` (8 plates), WSA `/data/local/tmp/session-backup.{3mf,json}`.
   Test zip `scadzip-test.zip` stays in `/sdcard/Download` on phone + Chromebook. LAN access code was given in chat: never write it anywhere.
 ## Next task
+- **Orthographic camera** r314 (user 2026-10-19 asked; View menu Perspective / Orthographic, K, MCP view_set projection): user verdict on zoom feel in ortho decides the zoom curve (backlog "Zoom too slow"). MCP app_state / log_tail / perf (r314, JVM-tested; LogMask split in 2nd commit, unbuilt) need a run on WSA/phone (Chromebook: no root, run-as off).
 - **Pinch zoom-out stopping** (user r311, backlog last line): cause = ScaleGestureDetector min span; fixed r312, Claude-verified; user feel pending.
-- Two-finger pan: USER VERIFIED r311 ("pans feel fine", archive). Local builds + JVM tests: recipes in reference.
 - **Seams toggle** (user r297): fixed r298, Claude-verified on WSA (archive); user look pending.
 - Open: **fan slider jumps** (r295 hold-until-within-4 %,
   needs the printer; Studio's sync logic is in the backlog line), Retract/Extrude buttons (r295; e13bebb+3bad1db = F150 in push/pop_ref_mode, in r298; needs the printer).
-- Printer controls (extrude/jog, speed chips) need the printer (backlog). Preview z-fight: user verified r304 (archive).
+- Printer controls (extrude/jog, speed chips) need the printer (backlog).
 - User hasn't seen: bead look (top-surface shading zoomed in), part shadows, light sliders (Layout lab), tool row (r276 movable
   portrait tool row). User-only: r283/r284 top bar + flick (explained to the user 2026-10-17), r280 pinch lock (preview locked mode).
 - Pen input: backlog, super low priority (user 2026-10-19).

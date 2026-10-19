@@ -2329,3 +2329,17 @@ User: "you just tested something we already confirmed worked". Cross-checked eac
   MCP view/slice/fit check, settings labels + greying, selection styles, gated resize, two-finger classifier + pinch fix).
 - User chose "Whole branch r312" over stopping at r289: includes untested pen input (7d3a263), fan slider hold (298ee9f) and
   Extrude/Retract F150 (e13bebb); their backlog lines stay open. Work branch = main afterwards.
+- (2026-10-19, user, r312) Zoom feel: "I think 100% is fine, maybe just a tad too slow when zoomed out and a tad too fast zoomed
+  really far in. BUT this may be due to Perspective/Orthographic views and what I'm used to." Asked for the missing view (ortho) first,
+  zoom fixes after their verdict. Also: "Drive Chromebook, build mcp tools".
+
+## 2026-10-19 r314 orthographic camera (run 39238373782; Claude on the Chromebook)
+- Camera.perspective (setting perspective_camera, default true like the desktop): ortho half height = distance * tan(FOV/2) so it
+  matches perspective at the target; eye sits ORTHO_BACK 2000 mm behind, near 1 / far eye + 2000. View menu Perspective /
+  Orthographic (check mark), K toggles (PrusaSlicer's key; Orca only has the menu), MCP view_set projection, view_state reports it.
+- Chromebook r314: Fit plate perspective vs ortho = parallel plate edges in ortho; scroll-zoom 25 in (cube face fills the view,
+  no near clip) and 50 out (plate a small diamond, no far clip); K switches back. Fine stripes on the close-up surface exist in both
+  modes (not ortho). User's zoom-feel verdict pending.
+- MCP app_state / log_tail (own-pid logcat, LogMask masks token/code/password/key/cookie/auth values) / perf (FrameStats, last 240
+  frames) built r314; JVM tests McpDebugToolsTest 5/5. NOT run on a device: Chromebook has no root and run-as is disabled in ARC
+  (debug APK can't expose its token); needs WSA or the phone (app not running there; launching takes over a screen).
