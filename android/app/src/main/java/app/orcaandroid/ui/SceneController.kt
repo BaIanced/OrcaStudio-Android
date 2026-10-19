@@ -336,6 +336,14 @@ class SceneController(private val store: Store, private val presets: PresetContr
 
     fun closeContextMenu() = store.update { it.copy(contextMenu = null) }
 
+    /** Turns corner resizing of the lone selected copy on, or off when it is already on. */
+    fun toggleResize() = store.update {
+        val one = it.selectedItems.singleOrNull()
+        it.copy(resizeFor = if (it.resizeFor != null && it.resizeFor == one) null else one)
+    }
+
+    fun openAddDialog(name: String?) = store.update { it.copy(addDialog = name) }
+
     /** The first hit along the ray that the section view [section] leaves visible. */
     private suspend fun pick(origin: Vec3, dir: Vec3, section: FloatArray?): PickHit? {
         if (section == null) return engine.pick(origin, dir)

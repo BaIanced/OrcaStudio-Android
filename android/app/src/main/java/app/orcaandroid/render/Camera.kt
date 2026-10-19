@@ -2,6 +2,7 @@ package app.orcaandroid.render
 
 import android.opengl.Matrix
 import app.orcaandroid.core.Vec3
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.sin
@@ -198,6 +199,23 @@ class Camera {
         return if (t < 0) null else o + d * t
     }
 
+    /**
+     * Where a drag grabbed at [anchor] is now, for the finger at (x, y), as on the desktop (GLCanvas3D::on_mouse):
+     * on the level plane through [anchor], or from a side view (pitch within [SIDE_VIEW_DEG]; the desktop switches
+     * only at exactly level) on the plane facing the camera, keeping the sideways part since objects stay on the bed.
+     */
+    @Synchronized fun dragPoint(x: Float, y: Float, anchor: Vec3): Vec3? {
+        if (abs(pitch) >= SIDE_VIEW_DEG) return rayOnPlane(x, y, anchor.z)
+        val (o, d) = ray(x, y)
+        val n = towardsEye()
+        val dn = d.dot(n)
+        if (abs(dn) < 1e-6f) return null
+        val p = o + d * ((anchor - o).dot(n) / dn)
+        val (r, _) = axes()
+        val right = Vec3(r[0], r[1], r[2])
+        return anchor + right * (p - anchor).dot(right)
+    }
+
     private fun axes(): Pair<FloatArray, FloatArray> {
         val yr = Math.toRadians(yaw.toDouble())
         val pr = Math.toRadians(pitch.toDouble())
@@ -209,5 +227,7 @@ class Camera {
     companion object {
         /** Vertical field of view, degrees. */
         const val FOV = 35f
+        /** Below this pitch a level drag plane is too shallow to follow a finger; drags go sideways instead. */
+        const val SIDE_VIEW_DEG = 12f
     }
 }

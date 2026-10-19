@@ -98,6 +98,13 @@ data class UiState(
     val modelsUrl: String? = null,
     /** Where the 3D view's context menu is open (view pixels), or null. */
     val contextMenu: Pair<Float, Float>? = null,
+    /**
+     * The copy whose box corners resize it (Resize in the context menu, Ctrl+T or S); off again once the
+     * selection changes, so a drag can't resize by accident (user, 2026-10-19).
+     */
+    val resizeFor: Selection? = null,
+    /** An add dialog asked for by a shortcut ("text" for T), shown by the 3D view's context menu host. */
+    val addDialog: String? = null,
     val screen: Screen = Screen.PREPARE,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val dynamicColor: Boolean = false,
@@ -241,6 +248,9 @@ data class UiState(
 
     /** Every selected copy: the multi-selection, else the single selection. */
     val selectedItems: List<Selection> get() = multiSelection.ifEmpty { listOfNotNull(selection) }
+
+    /** Corner resizing is on for the lone selected copy. */
+    val resizing: Boolean get() = resizeFor != null && selectedItems.singleOrNull() == resizeFor
 
     /** Selects the copies [items]: one becomes the single selection, more a multi-selection. */
     fun withSelected(items: List<Selection>) = copy(

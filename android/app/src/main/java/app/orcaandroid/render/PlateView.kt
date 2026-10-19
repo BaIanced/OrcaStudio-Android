@@ -94,6 +94,8 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     private var moved = false
     private var dragging = false
     private var dragStart: Vec3? = null
+    /** Where the drag grabbed the selection's box (or tower): the drag plane goes through it. */
+    private var dragAnchor: Vec3? = null
     private var lastFocusX = 0f
     private var lastFocusY = 0f
     /**
@@ -273,9 +275,9 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                 }
                 if (rightButton || middleButton || rectangle || penOrbit || penInstant != null) Unit
                 else if (mode == InteractionMode.PAINT) listener?.onPaint(event.x, event.y, true)
-                else if (mode == InteractionMode.NAVIGATE && hitsSelection(event.x, event.y)) {
+                else if (mode == InteractionMode.NAVIGATE && rayBoxEntry(event.x, event.y, selectedBounds)?.also { dragAnchor = it } != null) {
                     dragging = true
-                    dragStart = camera.rayOnPlane(event.x, event.y)
+                    dragStart = dragAt(event.x, event.y)
                     // The box is bigger than the mesh at some angles: a miss on the mesh hands the touch back to the camera.
                     val id = ++dragCheckId
                     listener?.onDragCheck(event.x, event.y) { hit -> if (!hit && id == dragCheckId && dragging) cancelDrag() }
@@ -283,7 +285,8 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                     towerBoxes.firstOrNull { rayHitsBox(event.x, event.y, listOf(it.lo to it.hi)) }?.let { t ->
                         towerPlate = t.plate
                         dragging = true
-                        dragStart = camera.rayOnPlane(event.x, event.y)
+                        dragAnchor = rayBoxEntry(event.x, event.y, listOf(t.lo to t.hi))
+                        dragStart = dragAt(event.x, event.y)
                         queueEvent { renderer.dragTower = t.plate }
                     }
                 }
@@ -352,7 +355,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                         }
                         dragging -> {
                             val start = dragStart
-                            val now = camera.rayOnPlane(event.x, event.y)
+                            val now = dragAt(event.x, event.y)
                             if (start != null && now != null) {
                                 val d = floatArrayOf(now.x - start.x, now.y - start.y, 0f)
                                 queueEvent { renderer.dragOffset = d }
@@ -381,7 +384,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                     listener?.onResizeCorner(if (moved) resizeFactor else 0f, a, event.x, event.y, true)
                 } else if (dragging) {
                     val start = dragStart
-                    val end = camera.rayOnPlane(event.x, event.y)
+                    val end = dragAt(event.x, event.y)
                     if (moved && start != null && end != null) {
                         // The listener clears the drag offset once the moved scene is drawn; clearing it here
                         // made the object jump back to its old spot until the engine answered.
@@ -460,11 +463,16 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     private var resizeFactor = 1f
     private var resizeTried = false
 
-    /** A touch on a corner of the lone selected box starts a uniform resize about the opposite corner. */
+    /** Corner resizing is on (Resize in the context menu, Ctrl+T or S); off, box corners move the selection like the rest. */
+    @Volatile var resizeMode = false
+
+    /** In [resizeMode], a touch on a corner of the lone selected box starts a uniform resize about the opposite corner. */
     private fun startResize(x: Float, y: Float): Boolean {
+        if (!resizeMode) return false
         val (lo, hi) = selectedBounds.singleOrNull() ?: return false
         var best: Vec3? = null
-        var bestD = 48f * resources.displayMetrics.density
+        // 48 dp grabbed too much of a small box (user, r304).
+        var bestD = 32f * resources.displayMetrics.density
         for (cx in 0..1) for (cy in 0..1) for (cz in 0..1) {
             val c = Vec3(if (cx == 0) lo.x else hi.x, if (cy == 0) lo.y else hi.y, if (cz == 0) lo.z else hi.z)
             val (px, py) = camera.project(c) ?: continue
@@ -495,31 +503,37 @@ class PlateView(context: Context) : GLSurfaceView(context) {
         towerPlate = -1
     }
 
-    /** Ray / axis-aligned box test against the selected object's instances. */
-    private fun hitsSelection(x: Float, y: Float) = rayHitsBox(x, y, selectedBounds)
+    /** The drag's point under (x, y) on its plane (Camera.dragPoint), or on the bed without an anchor. */
+    private fun dragAt(x: Float, y: Float) = dragAnchor?.let { camera.dragPoint(x, y, it) } ?: camera.rayOnPlane(x, y)
 
-    private fun rayHitsBox(x: Float, y: Float, boxes: List<Pair<Vec3, Vec3>>): Boolean {
-        if (boxes.isEmpty()) return false
+    private fun rayHitsBox(x: Float, y: Float, boxes: List<Pair<Vec3, Vec3>>) = rayBoxEntry(x, y, boxes) != null
+
+    /** Where the ray through (x, y) first enters one of [boxes] (the nearest), or null on a miss. */
+    private fun rayBoxEntry(x: Float, y: Float, boxes: List<Pair<Vec3, Vec3>>): Vec3? {
+        if (boxes.isEmpty()) return null
         val (o, d) = camera.ray(x, y)
-        return boxes.any { (lo, hi) ->
+        var nearest = Float.MAX_VALUE
+        for ((lo, hi) in boxes) {
             var tMin = 0f
             var tMax = Float.MAX_VALUE
             val os = floatArrayOf(o.x, o.y, o.z); val ds = floatArrayOf(d.x, d.y, d.z)
             val los = floatArrayOf(lo.x, lo.y, lo.z); val his = floatArrayOf(hi.x, hi.y, hi.z)
+            var hit = true
             for (i in 0..2) {
                 if (abs(ds[i]) < 1e-8f) {
-                    if (os[i] < los[i] || os[i] > his[i]) return@any false
+                    if (os[i] < los[i] || os[i] > his[i]) hit = false
                 } else {
                     var t1 = (los[i] - os[i]) / ds[i]
                     var t2 = (his[i] - os[i]) / ds[i]
                     if (t1 > t2) { val t = t1; t1 = t2; t2 = t }
                     tMin = max(tMin, t1)
                     tMax = min(tMax, t2)
-                    if (tMin > tMax) return@any false
+                    if (tMin > tMax) hit = false
                 }
             }
-            true
+            if (hit) nearest = min(nearest, tMin)
         }
+        return if (nearest == Float.MAX_VALUE) null else o + d * nearest
     }
 
     private val touchSlop = android.view.ViewConfiguration.get(context).scaledTouchSlop

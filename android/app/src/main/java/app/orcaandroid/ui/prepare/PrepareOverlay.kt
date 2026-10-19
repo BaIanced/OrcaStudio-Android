@@ -45,6 +45,7 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material.icons.filled.VerticalAlignBottom
@@ -287,6 +288,9 @@ private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
                         onClick = { close(); vm.scene.setSelectMode(true) })
                     DropdownMenuItem(text = { Text(stringResource(R.string.lay_on_face)) }, leadingIcon = { Icon(Icons.Default.VerticalAlignBottom, null) },
                         onClick = { close(); vm.scene.setTool(Tool.LayOnFace) })
+                    if (state.multiSelection.isEmpty())
+                        DropdownMenuItem(text = { Text(stringResource(if (state.resizing) R.string.resize_done else R.string.resize)) },
+                            leadingIcon = { Icon(Icons.Default.OpenInFull, null) }, onClick = { close(); vm.scene.toggleResize() })
                     DropdownMenuItem(text = { Text(stringResource(R.string.add_modifier)) },
                         onClick = { close(); vm.scene.addVolume(VolumeType.MODIFIER, "box") })
                     if ((state.scene.objects.getOrNull(sel.obj)?.volumes?.count { it.type == VolumeType.PART } ?: 0) >= 2)
@@ -314,7 +318,7 @@ private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
             }
         }
     }
-    AddDialogs(state, vm, dialog) { dialog = null }
+    AddDialogs(state, vm, dialog ?: state.addDialog) { dialog = null; vm.scene.openAddDialog(null) }
 }
 
 /** Plate switcher (as chosen in the Layout lab), profile-update chip, undo/redo/view (when not in the tool column) and File. */
