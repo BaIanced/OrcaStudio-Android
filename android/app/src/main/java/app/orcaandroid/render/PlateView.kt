@@ -337,6 +337,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                 }
                 if (event.pointerCount >= 2) {
                     val fx = focusX(event); val fy = focusY(event)
+                    val wasPan = twoFinger == TwoFinger.PAN
                     if (twoFinger == TwoFinger.UNDECIDED) {
                         // One finger still while the other spreads moves the midpoint half as far as the gap changes.
                         val gap = abs(span(event) - startSpan)
@@ -362,7 +363,11 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                             inputLog { "2f PINCH -> PAN gap=${gap.toInt()} shift=${shift.toInt()}" }
                         }
                     }
-                    if (twoFinger == TwoFinger.PAN) camera.panGrab(lastFocusX, lastFocusY, fx, fy)
+                    // The move that turns the gesture into a pan grabs from where the fingers landed, so the travel spent
+                    // deciding (25-45 px, ~90 px after a PINCH -> PAN switch) still moves the view.
+                    if (twoFinger == TwoFinger.PAN) {
+                        if (wasPan) camera.panGrab(lastFocusX, lastFocusY, fx, fy) else camera.panGrab(startFocusX, startFocusY, fx, fy)
+                    }
                     lastFocusX = fx; lastFocusY = fy
                 } else if (!multiTouch) {
                     when {
