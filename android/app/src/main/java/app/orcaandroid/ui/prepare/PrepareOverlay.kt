@@ -391,6 +391,13 @@ private fun ViewButtons(state: UiState, vm: AppViewModel, view: PlateView?, rail
             }
             DropdownMenuItem(text = { Text(stringResource(R.string.view_fit)) }, onClick = { viewMenu = false; view?.framePlate(state.activePlate) },
                 leadingIcon = { Icon(Icons.Default.CenterFocusStrong, null) })
+            HorizontalDivider()
+            // The desktop's View menu: Use Perspective View / Use Orthogonal View (K toggles).
+            listOf(R.string.view_perspective to true, R.string.view_orthographic to false).forEach { (label, on) ->
+                DropdownMenuItem(text = { Text(stringResource(label)) }, onClick = { viewMenu = false; vm.setPerspective(on) },
+                    trailingIcon = { if (state.perspective == on) Icon(Icons.Default.Check, null) })
+            }
+            HorizontalDivider()
             // The desktop's canvas toolbar button: toggles the cut and opens its panel.
             DropdownMenuItem(text = { Text(stringResource(R.string.section_view)) },
                 onClick = { viewMenu = false; view?.section?.let { it.toggle(); it.panelOpen = it.active } },

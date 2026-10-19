@@ -175,6 +175,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         store.update { it.copy(selectionStyle = style) }
     }
 
+    fun setPerspective(on: Boolean) {
+        store.settings.perspective = on
+        store.update { it.copy(perspective = on) }
+    }
+
     fun setAutoSave(seconds: Int) {
         store.settings.autoSaveSeconds = seconds
         store.update { it.copy(autoSaveSeconds = seconds) }

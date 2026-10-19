@@ -72,6 +72,11 @@ class AppSettings(context: Context) {
         get() = prefs.getInt("selection_style", app.orcaandroid.render.SelectionStyle.DEFAULT)
         set(value) = prefs.edit().putInt("selection_style", value).apply()
 
+    /** 3D view projection: perspective (default) or orthographic, the desktop's use_perspective_camera. */
+    var perspective: Boolean
+        get() = prefs.getBoolean("perspective_camera", true)
+        set(value) = prefs.edit().putBoolean("perspective_camera", value).apply()
+
     /** The local MCP server for AI clients (see `docs/mcp-tool-layer.md`); off by default. */
     var aiTools: Boolean
         get() = prefs.getBoolean("ai_tools", false)
