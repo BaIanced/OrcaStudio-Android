@@ -67,6 +67,13 @@ class Camera {
         pitch = 30f
     }
 
+    /** Looks level at the box [min]..[max] from its mid height, from the side (yaw a multiple of 90) nearest the current view. */
+    @Synchronized fun focus(min: Vec3, max: Vec3) {
+        yaw = Math.round(yaw / 90f) * 90f
+        pitch = 0f
+        fit(min, max, keepAngles = true)
+    }
+
     @Synchronized fun orbit(dxDeg: Float, dyDeg: Float) {
         yaw -= dxDeg
         pitch = (pitch + dyDeg).coerceIn(-89f, 89f)

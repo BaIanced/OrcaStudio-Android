@@ -157,9 +157,14 @@ public:
     // mesh format; volume_type 5 fuzzy, 6/7 support enforce/block, 8/9 seam enforce/block,
     // 10 + filament index for colour) and returns scene_json(). [section] = the section view's world plane
     // {nx, ny, nz, d} (kept where n.p <= d) or empty: the brush leaves what it cuts away unpainted.
-    json paint(int object, int instance, int volume, int facet, const std::array<double, 3> &local,
-               const std::array<double, 3> &camera, double radius, const std::string &kind, int state, bool new_stroke,
-               const std::vector<double> &section = {});
+    // [hits] are the brush positions of one stroke in order (several at once when the app's samples queued up): the
+    // painting and the paint mesh are rebuilt once for all of them, not per sample (user r314: the brush fell behind).
+    struct PaintHit {
+        int object, instance, volume, facet;
+        std::array<double, 3> local;
+    };
+    json paint(const std::vector<PaintHit> &hits, const std::array<double, 3> &camera, double radius, const std::string &kind,
+               int state, bool new_stroke, const std::vector<double> &section = {});
     // Clears one kind of painting (or all for an empty kind) of an object.
     json paint_clear(int object, const std::string &kind);
 

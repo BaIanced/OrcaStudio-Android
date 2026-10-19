@@ -117,6 +117,10 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                         val (o, d) = v.camera.ray(x, y)
                         vm.scene.onViewTap(o, d, additive, part, v.section.current, emptyPlate)
                     }
+                    override fun onCopyAt(x: Float, y: Float, result: (Pair<Int, Int>?, Vec3, Vec3) -> Unit) {
+                        val (o, d) = v.camera.ray(x, y)
+                        vm.scene.copyAt(o, d, v.section.current) { copy, lo, hi -> v.post { result(copy, lo, hi) } }
+                    }
                     override fun onDragCheck(x: Float, y: Float, result: (Boolean) -> Unit) {
                         val (o, d) = v.camera.ray(x, y)
                         vm.scene.checkDragStart(o, d, v.section.current) { hit -> v.post { result(hit) } }

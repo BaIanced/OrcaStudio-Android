@@ -50,6 +50,8 @@ interface PlateListener {
     fun onDragCheck(x: Float, y: Float, result: (Boolean) -> Unit) = result(true)
     /** A right click or a long press that did not drag: the host shows a context menu at (x, y). */
     fun onContextMenu(x: Float, y: Float)
+    /** The copy under view point (x, y) for a double tap: [result] gets its (object, copy) and box, or null (on the UI thread). */
+    fun onCopyAt(x: Float, y: Float, result: (Pair<Int, Int>?, Vec3, Vec3) -> Unit) = result(null, Vec3.ZERO, Vec3.ZERO)
     /** A double tap on plate [index] that isn't the active one: the host makes it active (the view frames it). */
     fun onPlateDoubleTap(index: Int) {}
     /** A tap on a badge beside plate [plate] (its number or one of its icons) at view point (x, y). */
@@ -160,7 +162,10 @@ class PlateView(context: Context) : GLSurfaceView(context) {
             val other = renderer.plateAt(e.x, e.y)?.takeIf { it != renderer.activePlate }
             if (other != null) listener?.onPlateDoubleTap(other)
             // Selecting another plate leaves the camera alone (user, 2026-10-15); only the active plate is re-framed.
-            if (other == null) queueEvent { renderer.frame(renderer.activePlate) }
+            if (other == null) {
+                val x = e.x; val y = e.y
+                listener?.onCopyAt(x, y) { copy, lo, hi -> focusCopy(copy, lo, hi) } ?: queueEvent { renderer.frame(renderer.activePlate) }
+            }
             return true
         }
 
@@ -171,6 +176,26 @@ class PlateView(context: Context) : GLSurfaceView(context) {
             listener?.onContextMenu(e.x, e.y)
         }
     })
+
+    /** The copy a double tap focused on and the camera from before it (user 2026-10-19), or null. */
+    private var focused: Pair<Int, Int>? = null
+    private var beforeFocus: FloatArray? = null
+
+    /**
+     * Double tap on a copy: frames it head on at its mid height (level, facing the side nearest the current view);
+     * the same copy again goes back to the view from before. Empty space re-frames the plate as before.
+     */
+    private fun focusCopy(copy: Pair<Int, Int>?, lo: Vec3, hi: Vec3) {
+        when {
+            copy == null -> { focused = null; beforeFocus = null; queueEvent { renderer.frame(renderer.activePlate) } }
+            copy == focused -> { beforeFocus?.let { camera.restore(it) }; focused = null; beforeFocus = null }
+            else -> {
+                if (focused == null) beforeFocus = camera.state()
+                focused = copy
+                camera.focus(lo, hi)
+            }
+        }
+    }
 
     init {
         setEGLContextClientVersion(3)

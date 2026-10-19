@@ -168,40 +168,48 @@ void OrcaEngine::write_paint_mesh()
     ++m_paint_version;
 }
 
-json OrcaEngine::paint(int object, int instance, int volume, int facet, const std::array<double, 3> &local,
-                       const std::array<double, 3> &camera, double radius, const std::string &kind, int state, bool new_stroke,
-                       const std::vector<double> &section)
+json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<double, 3> &camera, double radius, const std::string &kind,
+                       int state, bool new_stroke, const std::vector<double> &section)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
-    ModelObject &obj = object_at(object);
-    if (instance < 0 || instance >= int(obj.instances.size()) || volume < 0 || volume >= int(obj.volumes.size()))
-        throw std::runtime_error("Invalid paint target");
-    ModelVolume *vol = obj.volumes[volume];
-    FacetsAnnotation &facets = facets_of(*vol, kind);
-    if (new_stroke)
+    for (const PaintHit &h : hits) {
+        ModelObject &obj = object_at(h.object);
+        if (h.instance < 0 || h.instance >= int(obj.instances.size()) || h.volume < 0 || h.volume >= int(obj.volumes.size()))
+            throw std::runtime_error("Invalid paint target");
+    }
+    if (new_stroke && !hits.empty())
         push_undo();
 
-    const Transform3d trafo = obj.instances[instance]->get_matrix() * vol->get_matrix();
-    Transform3d trafo_no_translate = trafo;
-    trafo_no_translate.translation() = Vec3d::Zero();
-    const Vec3f camera_local = (trafo.inverse() * to_vec(camera)).cast<float>();
-    // The section plane in volume coordinates, as the desktop's get_clipping_plane_in_volume_coordinates:
-    // n.(T q) <= d  <=>  (L^T n).q <= d - n.t.
-    TriangleSelector::ClippingPlane clip;
-    if (section.size() == 4) {
-        const Vec3d n(section[0], section[1], section[2]);
-        const Vec3d n_local = trafo.linear().transpose() * n;
-        clip = TriangleSelector::ClippingPlane({float(n_local.x()), float(n_local.y()), float(n_local.z()),
-                                                float(section[3] - n.dot(trafo.translation()))});
-    }
+    // Runs of hits on the same volume copy share one selector: deserialized once, saved once.
+    for (size_t i = 0; i < hits.size();) {
+        const PaintHit &first = hits[i];
+        ModelObject &obj = object_at(first.object);
+        ModelVolume *vol = obj.volumes[first.volume];
+        FacetsAnnotation &facets = facets_of(*vol, kind);
 
-    TriangleSelector selector(vol->mesh());
-    selector.deserialize(facets.get_data(), false);
-    selector.select_patch(facet,
-                          TriangleSelector::SinglePointCursor::cursor_factory(to_vec(local).cast<float>(), camera_local, float(radius),
-                                                                            TriangleSelector::CursorType::SPHERE, trafo, clip),
-                          EnforcerBlockerType(std::clamp(state, 0, int(EnforcerBlockerType::ExtruderMax))), trafo_no_translate, true);
-    facets.set(selector);
+        const Transform3d trafo = obj.instances[first.instance]->get_matrix() * vol->get_matrix();
+        Transform3d trafo_no_translate = trafo;
+        trafo_no_translate.translation() = Vec3d::Zero();
+        const Vec3f camera_local = (trafo.inverse() * to_vec(camera)).cast<float>();
+        // The section plane in volume coordinates, as the desktop's get_clipping_plane_in_volume_coordinates:
+        // n.(T q) <= d  <=>  (L^T n).q <= d - n.t.
+        TriangleSelector::ClippingPlane clip;
+        if (section.size() == 4) {
+            const Vec3d n(section[0], section[1], section[2]);
+            const Vec3d n_local = trafo.linear().transpose() * n;
+            clip = TriangleSelector::ClippingPlane({float(n_local.x()), float(n_local.y()), float(n_local.z()),
+                                                    float(section[3] - n.dot(trafo.translation()))});
+        }
+
+        TriangleSelector selector(vol->mesh());
+        selector.deserialize(facets.get_data(), false);
+        for (; i < hits.size() && hits[i].object == first.object && hits[i].instance == first.instance && hits[i].volume == first.volume; ++i)
+            selector.select_patch(hits[i].facet,
+                                  TriangleSelector::SinglePointCursor::cursor_factory(to_vec(hits[i].local).cast<float>(), camera_local,
+                                                                                    float(radius), TriangleSelector::CursorType::SPHERE, trafo, clip),
+                                  EnforcerBlockerType(std::clamp(state, 0, int(EnforcerBlockerType::ExtruderMax))), trafo_no_translate, true);
+        facets.set(selector);
+    }
     write_paint_mesh();
     return scene_json();
 }

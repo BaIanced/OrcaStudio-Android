@@ -2343,3 +2343,7 @@ User: "you just tested something we already confirmed worked". Cross-checked eac
 - MCP app_state / log_tail (own-pid logcat, LogMask masks token/code/password/key/cookie/auth values) / perf (FrameStats, last 240
   frames) built r314; JVM tests McpDebugToolsTest 5/5. NOT run on a device: Chromebook has no root and run-as is disabled in ARC
   (debug APK can't expose its token); needs WSA or the phone (app not running there; launching takes over a screen).
+- (2026-10-19, user, r314) Bug: "painting brush very slow/lagging behind stokes over a few seconds gets worse over time." Open (backlog).
+- (2026-10-19, user, r314) Feature: "Double clicking directly on an object should reframe it in a focused way zoomed in looking at it head on
+  object height. Double tap on object returns to previous view active before double tap. Double tap empty space on build plate remains the same." Open (backlog).
+- (2026-10-19, user, r314) Ortho: "I can't tell the difference, is it active?" (Claude had left the Chromebook in perspective after the K test.)
