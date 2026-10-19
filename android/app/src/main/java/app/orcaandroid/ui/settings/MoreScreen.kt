@@ -139,6 +139,13 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
                 Entry(stringResource(R.string.backup_import), stringResource(R.string.backup_import_text)) { restoreBackup.launch(arrayOf("*/*")) }
             }
 
+            // Zoom speeds (user 2026-10-19: the Quest thumbstick zooms far too fast; was the Layout lab's pinch slider only).
+            Section(stringResource(R.string.controls)) {
+                val lab = state.lab
+                ShadowSlider(R.string.lab_pinch_speed, lab.pinchSpeed, 100f, "%", app.orcaandroid.core.LayoutLab.PINCH_SPEEDS, lab, peek = false) { vm.setLab(state.lab.copy(pinchSpeed = it)) }
+                ShadowSlider(R.string.wheel_zoom_speed, lab.wheelSpeed, 100f, "%", app.orcaandroid.core.LayoutLab.WHEEL_SPEEDS, lab, peek = false) { vm.setLab(state.lab.copy(wheelSpeed = it)) }
+            }
+
             Section(stringResource(R.string.appearance)) {
                 SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                     listOf(ThemeMode.SYSTEM to R.string.theme_system, ThemeMode.LIGHT to R.string.theme_light, ThemeMode.DARK to R.string.theme_dark)
@@ -307,7 +314,6 @@ private fun LayoutLabSection(state: UiState, vm: AppViewModel) {
         ShadowSlider(R.string.lab_light_azimuth, lab.lightAzimuth, 1f, "°", app.orcaandroid.core.LayoutLab.LIGHT_AZIMUTHS, current) { vm.setLab(state.lab.copy(lightAzimuth = it)) }
         ShadowSlider(R.string.lab_light_elevation, lab.lightElevation, 1f, "°", app.orcaandroid.core.LayoutLab.LIGHT_ELEVATIONS, current) { vm.setLab(state.lab.copy(lightElevation = it)) }
         ShadowSlider(R.string.lab_light_strength, lab.lightStrength, 100f, "%", app.orcaandroid.core.LayoutLab.LIGHT_STRENGTHS, current) { vm.setLab(state.lab.copy(lightStrength = it)) }
-        ShadowSlider(R.string.lab_pinch_speed, lab.pinchSpeed, 100f, "%", app.orcaandroid.core.LayoutLab.PINCH_SPEEDS, current, peek = false) { vm.setLab(state.lab.copy(pinchSpeed = it)) }
         TextButton(onClick = { vm.setLab(app.orcaandroid.core.LayoutLab()) }) { Text(stringResource(R.string.reset)) }
       }
     }

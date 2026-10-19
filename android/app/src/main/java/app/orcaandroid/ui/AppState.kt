@@ -188,6 +188,8 @@ data class UiState(
     // Slicing and preview
     val slice: SliceStatus = SliceStatus.Idle,
     val results: Map<Int, SliceResult> = emptyMap(),
+    /** Why the last slice failed (plate, message), shown on the 3D view (Notices); cleared by the next slice. */
+    val sliceError: Pair<Int, String>? = null,
     val previewPlate: Int = 0,
     /** An opened external G-code file (preview only). */
     val external: SliceResult? = null,

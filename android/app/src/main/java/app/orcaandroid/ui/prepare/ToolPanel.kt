@@ -3,6 +3,7 @@ package app.orcaandroid.ui.prepare
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -19,6 +21,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DragIndicator
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
@@ -43,6 +48,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
+import kotlin.math.roundToInt
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.orcaandroid.R
@@ -57,13 +65,33 @@ import java.util.Locale
 internal fun ToolPanel(state: UiState, vm: AppViewModel) {
     val tool = state.tool
     if (tool == Tool.None) return
-    Surface(Modifier.widthIn(max = 360.dp), shape = RoundedCornerShape(16.dp), tonalElevation = 6.dp, shadowElevation = 2.dp) {
+    // The header drags the card around the canvas and folds it to the title, so it can stay out of the way while
+    // painting (user 2026-10-19, like the Design window). Kept on screen while dragging.
+    var drag by remember { mutableStateOf(Offset.Zero) }
+    var folded by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    var bounds by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
+    val window = androidx.compose.ui.platform.LocalWindowInfo.current.containerSize
+    Surface(Modifier.widthIn(max = 360.dp)
+        .offset { androidx.compose.ui.unit.IntOffset(drag.x.roundToInt(), drag.y.roundToInt()) }
+        .onGloballyPositioned { bounds = it.boundsInWindow() },
+        shape = RoundedCornerShape(16.dp), tonalElevation = 6.dp, shadowElevation = 2.dp) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(toolTitle(tool), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+            Row(Modifier.pointerInput(Unit) {
+                detectDragGestures { change, d ->
+                    change.consume()
+                    val b = bounds
+                    drag += if (b == null) d else Offset(d.x.coerceIn(-b.left, (window.width - b.right).coerceAtLeast(0f)),
+                        d.y.coerceIn(-b.top, (window.height - b.bottom).coerceAtLeast(0f)))
+                }
+            }, verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.DragIndicator, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(toolTitle(tool), Modifier.weight(1f).padding(start = 4.dp), style = MaterialTheme.typography.titleSmall)
+                IconButton(onClick = { folded = !folded }, modifier = Modifier.size(32.dp)) {
+                    Icon(if (folded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, stringResource(if (folded) R.string.design_unfold else R.string.design_minimize))
+                }
                 IconButton(onClick = { vm.scene.setTool(Tool.None) }, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.Close, stringResource(R.string.close)) }
             }
-            when (tool) {
+            if (!folded) when (tool) {
                 is Tool.Paint -> PaintOptions(state, vm, tool)
                 is Tool.Cut -> CutOptions(state, vm, tool)
                 Tool.Measure -> MeasureOptions(state, vm)

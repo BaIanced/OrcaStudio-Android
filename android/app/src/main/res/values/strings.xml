@@ -155,6 +155,10 @@
     <string name="enforce">Enforce</string>
     <string name="erase">Erase</string>
     <string name="error">Error</string>
+    <string name="notice_slice_failed">Slicing plate %1$d failed</string>
+    <string name="notice_slicer_warnings">Slicer warnings</string>
+    <string name="notice_printer">Printer</string>
+    <string name="notice_show">Show messages</string>
     <string name="export_preset">Export preset</string>
     <string name="export_stl">Export plate as STL</string>
     <string name="filament">Filament</string>
@@ -865,6 +869,8 @@
     <string name="lab_shadow_soft">Shadow softness (edge width): %s</string>
     <string name="lab_light_azimuth">Light direction around the plate: %s</string>
     <string name="lab_light_elevation">Light height above the bed: %s</string>
+    <string name="controls">Controls</string>
+    <string name="wheel_zoom_speed">Mouse wheel / thumbstick zoom speed: %s</string>
     <string name="lab_pinch_speed">Pinch zoom speed (100 %% = as fast as the fingers): %s</string>
     <string name="lab_light_strength">Light strength (the shadow follows the direction): %s</string>
     <string name="lab_shadow_bias">Shadow bias (raise if striped, lower if light leaks under parts): %s</string>

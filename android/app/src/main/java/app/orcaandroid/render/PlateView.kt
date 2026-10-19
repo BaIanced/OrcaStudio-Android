@@ -106,6 +106,8 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     private val twoFinger by lazy { TwoFingerGesture(touchSlop.toFloat()) }
     /** Pinch zoom speed (Layout lab): the exponent on the fingers' gap ratio, 1 = the gap ratio itself. */
     var pinchSpeed = 0.6f
+    /** Wheel zoom speed (LayoutLab.wheelSpeed): 15 % per notch raised to this power. */
+    var wheelSpeed = 1f
     /** Pen buttons and eraser mapping, and palm rejection (More > Pen). */
     var pen = PenConfig()
     /** When a pen last touched or hovered (uptime ms); 0 after it left the hover range. */
@@ -476,7 +478,8 @@ class PlateView(context: Context) : GLSurfaceView(context) {
             if (v == 0f) return true
             if (event.metaState and KeyEvent.META_ALT_ON != 0) section.step(v > 0)
             else if (mode ==InteractionMode.PAINT && event.metaState and KeyEvent.META_CTRL_ON != 0) listener?.onBrushScroll(if (v > 0) 1 else -1)
-            else camera.zoomAt(if (v > 0) 1.15f else 1f / 1.15f, event.x, event.y)
+            // By the scroll amount: a thumbstick (Quest) or touchpad sends many fractional steps, a wheel notch 1.
+            else camera.zoomAt(1.15f.pow(v.coerceIn(-3f, 3f) * wheelSpeed), event.x, event.y)
             return true
         }
         return super.onGenericMotionEvent(event)

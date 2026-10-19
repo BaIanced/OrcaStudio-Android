@@ -437,7 +437,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
                 (if (cfg.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) "landscape" else "portrait") + ".")
             appendLine("Phase ${s.phase.name.lowercase()}; tab ${s.screen.name.lowercase()}" +
                 (s.busy?.let { "; busy: $it" } ?: "") + (s.error?.let { "; error: $it" } ?: "") +
-                (s.message?.let { "; message: $it" } ?: "") + ".")
+                (s.sliceError?.let { "; slice error (plate ${it.first + 1}): ${it.second}" } ?: "") + (s.message?.let { "; message: $it" } ?: "") + ".")
             val open = listOfNotNull(
                 s.editor?.let { "preset editor" },
                 s.addDialog?.let { "add dialog ($it)" },
@@ -582,7 +582,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         }
         val job = slicing.slice(plate)
         if (withTimeoutOrNull(SLICE_TIMEOUT) { job.join() } == null) throw ToolError("Slicing takes longer than ${SLICE_TIMEOUT / 1000} s; it goes on in the app (slice_result later)")
-        store.value.error?.let { throw ToolError("Slicing failed: $it") }
+        (store.value.sliceError?.second ?: store.value.error)?.let { throw ToolError("Slicing failed: $it") }
         return sliceResult(JSONObject().put("plate", plate + 1))
     }
 

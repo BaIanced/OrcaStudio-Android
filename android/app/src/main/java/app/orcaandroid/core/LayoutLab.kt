@@ -48,6 +48,8 @@ data class LayoutLab(
     val lightStrength: Float = 1f,
     /** Pinch zoom speed: exponent on the fingers' gap ratio (1 = the old 1:1 pinch, user 2026-10-17: too sensitive). */
     val pinchSpeed: Float = 0.6f,
+    /** Mouse wheel / touchpad / Quest thumbstick zoom speed: exponent on the 15 % per wheel notch (user 2026-10-19: stick too fast). */
+    val wheelSpeed: Float = 1f,
     /** Size of the Slice button on the portrait panel's grip; only the main UI size scales it too (user, 2026-10-17). */
     val sliceScale: Float = 1f,
 ) {
@@ -60,7 +62,7 @@ data class LayoutLab(
         .put("fullscreenPortrait", fullscreenPortrait).put("platesOnHandle", platesOnHandle).put("plateScale", plateScale.toDouble())
         .put("shadowStrength", shadowStrength.toDouble()).put("shadowSoft", shadowSoft.toDouble()).put("shadowBias", shadowBias.toDouble())
         .put("lightAzimuth", lightAzimuth.toDouble()).put("lightElevation", lightElevation.toDouble()).put("lightStrength", lightStrength.toDouble())
-        .put("pinchSpeed", pinchSpeed.toDouble()).put("sliceScale", sliceScale.toDouble()).toString()
+        .put("pinchSpeed", pinchSpeed.toDouble()).put("wheelSpeed", wheelSpeed.toDouble()).put("sliceScale", sliceScale.toDouble()).toString()
 
     companion object {
         val TEXT_SCALES = 0.7f..1.3f
@@ -75,6 +77,7 @@ data class LayoutLab(
         val LIGHT_ELEVATIONS = 20f..85f
         val LIGHT_STRENGTHS = 0.2f..2f
         val PINCH_SPEEDS = 0.2f..1f
+        val WHEEL_SPEEDS = 0.1f..2f
 
         fun fromJson(json: String?): LayoutLab {
             val o = json?.let { runCatching { JSONObject(it) }.getOrNull() } ?: return LayoutLab()
@@ -103,6 +106,7 @@ data class LayoutLab(
                 lightStrength = o.optDouble("lightStrength", d.lightStrength.toDouble()).toFloat().coerceIn(LIGHT_STRENGTHS.start, LIGHT_STRENGTHS.endInclusive),
                 sliceScale = o.optDouble("sliceScale", 1.0).toFloat().coerceIn(SLICE_SCALES.start, SLICE_SCALES.endInclusive),
                 pinchSpeed = o.optDouble("pinchSpeed", d.pinchSpeed.toDouble()).toFloat().coerceIn(PINCH_SPEEDS.start, PINCH_SPEEDS.endInclusive),
+                wheelSpeed = o.optDouble("wheelSpeed", d.wheelSpeed.toDouble()).toFloat().coerceIn(WHEEL_SPEEDS.start, WHEEL_SPEEDS.endInclusive),
             )
         }
     }

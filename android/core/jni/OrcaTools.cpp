@@ -255,6 +255,8 @@ json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<doubl
     int loads = 0;
     if (new_stroke && !hits.empty())
         push_undo();
+    if (new_stroke)
+        m_paint_prev.reset();
 
     // Runs of hits on the same volume copy share one selector: deserialized once, saved once.
     for (size_t i = 0; i < hits.size();) {
@@ -284,11 +286,20 @@ json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<doubl
             ++loads;
         }
         TriangleSelector &selector = *live.selector;
-        for (; i < hits.size() && hits[i].object == first.object && hits[i].instance == first.instance && hits[i].volume == first.volume; ++i)
-            selector.select_patch(hits[i].facet,
-                                  TriangleSelector::SinglePointCursor::cursor_factory(to_vec(hits[i].local).cast<float>(), camera_local,
-                                                                                    float(radius), TriangleSelector::CursorType::SPHERE, trafo, clip),
+        for (; i < hits.size() && hits[i].object == first.object && hits[i].instance == first.instance && hits[i].volume == first.volume; ++i) {
+            const PaintHit &h = hits[i];
+            // A fast stroke's hits are far apart: join them with a capsule (GLGizmoPainterBase::gizmo_event) so the line
+            // has no gaps; a hit after a miss or on another part starts a new line.
+            const PaintHit *prev = h.join && m_paint_prev && m_paint_prev->object == h.object && m_paint_prev->instance == h.instance &&
+                                   m_paint_prev->volume == h.volume ? &*m_paint_prev : nullptr;
+            auto cursor = prev ? TriangleSelector::DoublePointCursor::cursor_factory(to_vec(prev->local).cast<float>(), to_vec(h.local).cast<float>(),
+                                                                                    camera_local, float(radius), TriangleSelector::CursorType::SPHERE, trafo, clip)
+                               : TriangleSelector::SinglePointCursor::cursor_factory(to_vec(h.local).cast<float>(), camera_local,
+                                                                                    float(radius), TriangleSelector::CursorType::SPHERE, trafo, clip);
+            selector.select_patch(prev ? prev->facet : h.facet, std::move(cursor),
                                   EnforcerBlockerType(std::clamp(state, 0, int(EnforcerBlockerType::ExtruderMax))), trafo_no_translate, true);
+            m_paint_prev = h;
+        }
         live.previous = facets.timestamp();
         live.state = std::clamp(state, 0, int(EnforcerBlockerType::ExtruderMax));
         facets.set(selector);

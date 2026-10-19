@@ -58,13 +58,13 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var selectedIds = FloatArray(0)
     /** Live offset of the selected copies while they are dragged. */
     var dragOffset = floatArrayOf(0f, 0f, 0f)
-    /** Live corner-drag resize: the selection is drawn scaled by this about [resizeAnchor] (plate x, y, bed height). */
-    var resizeScale = 1f
-    var resizeAnchor = floatArrayOf(0f, 0f, 0f)
         set(v) {
             field = v
             if (v[0] == 0f && v[1] == 0f) dragTower = -1
         }
+    /** Live corner-drag resize: the selection is drawn scaled by this about [resizeAnchor] (plate x, y, bed height). */
+    var resizeScale = 1f
+    var resizeAnchor = floatArrayOf(0f, 0f, 0f)
     /** Plate whose prime tower (selection id -2 - plate) is being dragged, or -1: it takes the highlight and [dragOffset]. */
     var dragTower = -1
     var showPreview = false

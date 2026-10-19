@@ -123,7 +123,7 @@ const std::unordered_map<std::string, Handler> &handlers()
              // "hits": [{object, instance, volume, facet, local}...] in stroke order, or one hit's fields at the top level.
              std::vector<OrcaEngine::PaintHit> hits;
              auto hit = [](const json &h) {
-                 return OrcaEngine::PaintHit{h.at("object"), h.at("instance"), h.at("volume"), h.at("facet"), vec3(h.at("local"))};
+                 return OrcaEngine::PaintHit{h.at("object"), h.at("instance"), h.at("volume"), h.at("facet"), vec3(h.at("local")), h.value("join", false)};
              };
              if (a.contains("hits"))
                  for (const json &h : a.at("hits")) hits.push_back(hit(h));

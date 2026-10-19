@@ -312,6 +312,8 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
                 if (state.screen == Screen.PREPARE) Themed(Region.PREPARE_TOOLS) { PrepareOverlay(state, vm, plateView, wide) }
                 else Themed(Region.PREVIEW_TOOLS) { PreviewOverlay(state, vm, plateView, wide) }
             }
+            // Below the top tool row, centered.
+            app.orcaandroid.ui.components.Notices(state, vm, Modifier.align(Alignment.TopCenter).padding(top = 64.dp))
         }
     }
     val panelRegion = if (state.screen == Screen.PREPARE) Region.PREPARE_PANEL else Region.PREVIEW_PANEL

@@ -168,6 +168,8 @@ public:
     struct PaintHit {
         int object, instance, volume, facet;
         std::array<double, 3> local;
+        // Continues the line from the stroke's previous hit (a capsule between them, as the desktop's DoublePointCursor).
+        bool join = false;
     };
     json paint(const std::vector<PaintHit> &hits, const std::array<double, 3> &camera, double radius, const std::string &kind,
                int state, bool new_stroke, const std::vector<double> &section = {});
@@ -374,6 +376,8 @@ private:
         int                                         state = -1;
     };
     LivePaint                             m_live_paint;
+    // The stroke's last painted hit, start of the next joined capsule.
+    std::optional<PaintHit>               m_paint_prev;
     // Painted triangles per (mesh, annotation timestamp, state): write_paint_mesh re-extracts only what changed.
     using PaintKey = std::tuple<const void *, uint64_t, int>;
     std::map<PaintKey, std::shared_ptr<indexed_triangle_set>> m_paint_facets;

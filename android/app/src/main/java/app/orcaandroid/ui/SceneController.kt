@@ -366,6 +366,8 @@ class SceneController(private val store: Store, private val presets: PresetContr
     private val pendingPaint = ArrayDeque<PaintSample>()
     /** A stroke began but none of its samples hit yet: its first hit takes the undo snapshot. Guarded by [paintLock]. */
     private var strokePending = false
+    /** The stroke's last sample hit the model: the next hit joins it (a miss breaks the line, as on the desktop). */
+    private var paintLastHit = false
 
     /**
      * Paint sample from the 3D view; samples are queued and applied in order on the engine thread. Every sample that
@@ -387,10 +389,17 @@ class SceneController(private val store: Store, private val presets: PresetContr
                     }
                     if (batch.isEmpty()) break
                     if (batch.first().newStroke) strokePending = true
-                    val hits = batch.mapNotNull { pick(it.origin, it.dir, it.section) }
+                    val hits = mutableListOf<PickHit>()
+                    val joins = mutableListOf<Boolean>()
+                    for (s in batch) {
+                        if (s.newStroke) paintLastHit = false
+                        val hit = pick(s.origin, s.dir, s.section)
+                        if (hit != null) { hits += hit; joins += paintLastHit }
+                        paintLastHit = hit != null
+                    }
                     if (hits.isEmpty()) continue
                     val last = batch.last()
-                    store.applyScene(engine.paint(hits, last.camera, tool.radius, tool.kind, tool.state, strokePending, last.section))
+                    store.applyScene(engine.paint(hits, last.camera, tool.radius, tool.kind, tool.state, strokePending, last.section, joins))
                     strokePending = false
                 }
             }
