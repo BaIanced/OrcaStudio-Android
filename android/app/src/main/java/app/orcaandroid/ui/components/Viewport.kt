@@ -105,6 +105,8 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     // The plate menu opened from a plate's menu badge: plate, view x, y.
     var plateMenu by remember { mutableStateOf<Triple<Int, Float, Float>?>(null) }
     val rectangleColor = scheme.primary
+    // Live size (mm) beside the finger while a box corner is dragged: text, view x, y.
+    var resizeLabel by remember { mutableStateOf<Triple<String, Float, Float>?>(null) }
     Box(modifier) {
     AndroidView(
         factory = { ctx ->
@@ -131,6 +133,23 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                             }.map { Selection(o.index, it.index) }
                         }
                         vm.scene.changeSelection(inside, remove)
+                    }
+                    override fun onResizeCorner(factor: Float, anchor: Vec3, x: Float, y: Float, done: Boolean) {
+                        val sel = vm.state.value.selectedItems.singleOrNull()
+                        val inst = sel?.let { vm.state.value.scene.objects.getOrNull(it.obj)?.instances?.getOrNull(it.instance) }
+                        if (!done && inst != null) {
+                            val z = inst.size * factor
+                            resizeLabel = Triple("%.1f x %.1f x %.1f mm".format(z.x, z.y, z.z), x, y)
+                            return
+                        }
+                        resizeLabel = null
+                        if (!done || factor <= 0f || inst == null) { v.onGl { resizeScale = 1f }; return }
+                        // The live scale stays until the scaled mesh is uploaded (cleared there), or after a timeout.
+                        dragPending[0] = true
+                        v.postDelayed({ if (dragPending[0]) { dragPending[0] = false; v.onGl { resizeScale = 1f } } }, 1500)
+                        // Uniform scale about the opposite corner: its position stays, the offset follows it (x, y; the engine drops onto the bed).
+                        val off = Vec3(anchor.x + (inst.offset.x - anchor.x) * factor, anchor.y + (inst.offset.y - anchor.y) * factor, inst.offset.z)
+                        vm.scene.setTransform(offset = off, scale = inst.scale * factor)
                     }
                     override fun onBrushScroll(steps: Int) = vm.scene.scaleBrush(if (steps > 0) 1.15f else 1 / 1.15f)
                     override fun onMoved(dx: Float, dy: Float) {
@@ -164,6 +183,15 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                         }
                     }
 
+                    override fun onPenAction(action: app.orcaandroid.core.PenAction) {
+                        when (action) {
+                            app.orcaandroid.core.PenAction.UNDO -> vm.scene.undo()
+                            app.orcaandroid.core.PenAction.REDO -> vm.scene.redo()
+                            app.orcaandroid.core.PenAction.FRAME -> v.onGl { frame(activePlate) }
+                            else -> Unit
+                        }
+                    }
+
                     override fun onContextMenu(x: Float, y: Float) {
                         val (o, d) = v.camera.ray(x, y)
                         vm.scene.openContextMenu(o, d, x, y, v.section.current)
@@ -181,6 +209,22 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
             val size = androidx.compose.ui.geometry.Size(kotlin.math.abs(r[2] - r[0]), kotlin.math.abs(r[3] - r[1]))
             drawRect(rectangleColor.copy(alpha = 0.15f), topLeft, size)
             drawRect(rectangleColor, topLeft, size, style = androidx.compose.ui.graphics.drawscope.Stroke(2f))
+        }
+    }
+    val label = resizeLabel
+    if (label != null) {
+        androidx.compose.material3.Surface(Modifier.align(androidx.compose.ui.Alignment.TopCenter).padding(top = 72.dp), shape = MaterialTheme.shapes.small, tonalElevation = 4.dp) {
+            androidx.compose.material3.Text(label.first, Modifier.padding(horizontal = 8.dp, vertical = 4.dp), style = MaterialTheme.typography.labelLarge)
+        }
+    } else if (state.resizing && !showPreview) {
+        // While corner resizing is on: what to do, and the way out on a touchscreen.
+        androidx.compose.material3.Surface(Modifier.align(androidx.compose.ui.Alignment.TopCenter).padding(top = 72.dp), shape = MaterialTheme.shapes.small, tonalElevation = 4.dp) {
+            androidx.compose.foundation.layout.Row(Modifier.padding(start = 8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                androidx.compose.material3.Text(androidx.compose.ui.res.stringResource(app.orcaandroid.R.string.resize_hint), style = MaterialTheme.typography.labelLarge)
+                androidx.compose.material3.TextButton(onClick = vm.scene::toggleResize) {
+                    androidx.compose.material3.Text(androidx.compose.ui.res.stringResource(app.orcaandroid.R.string.done))
+                }
+            }
         }
     }
     plateMenu?.let { (plate, x, y) ->
@@ -204,12 +248,18 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     LaunchedEffect(v, state.contactShadows) {
         v.onGl { contactShadows = state.contactShadows }
     }
+    LaunchedEffect(v, state.selectionStyle) {
+        v.onGl { selectionStyle = state.selectionStyle }
+    }
     LaunchedEffect(v, state.lab.shadowStrength, state.lab.shadowSoft, state.lab.shadowBias) {
         v.onGl { shadowStrength = state.lab.shadowStrength; shadowSoftMm = state.lab.shadowSoft; shadowBiasMm = state.lab.shadowBias }
     }
     LaunchedEffect(v, state.lab.lightAzimuth, state.lab.lightElevation, state.lab.lightStrength) {
         v.onGl { keyAzimuth = state.lab.lightAzimuth; keyElevation = state.lab.lightElevation; keyStrength = state.lab.lightStrength }
     }
+    LaunchedEffect(v, state.lab.pinchSpeed) { v.pinchSpeed = state.lab.pinchSpeed }
+    LaunchedEffect(v, state.pen) { v.pen = state.pen }
+    LaunchedEffect(v, state.resizing, showPreview) { v.resizeMode = state.resizing && !showPreview }
     // Plate numbers always; the plate icons only while arranging (Prepare).
     val atlas = rememberBadgeAtlas(scene.plates.size)
     val badges = if (showPreview) emptyList()
@@ -230,7 +280,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         val mesh = withContext(Dispatchers.IO) { FloatData.load(scene.meshFile, 8) }
         v.onGl { setMesh(mesh) }
         // A finished drag: the moved mesh is queued first, so the old offset goes away without a jump back.
-        if (dragPending[0]) { dragPending[0] = false; v.onGl { dragOffset = floatArrayOf(0f, 0f, 0f) } }
+        if (dragPending[0]) { dragPending[0] = false; v.onGl { dragOffset = floatArrayOf(0f, 0f, 0f); resizeScale = 1f } }
     }
     // Eye toggle: the OpenSCAD design shown see-through, standing in the middle of the active plate (other objects hidden).
     val ghost = state.scad?.preview?.takeIf { state.scadOnPlate && !state.scadHidden && state.screen == app.orcaandroid.ui.Screen.PREPARE }
@@ -278,12 +328,15 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         } }
         v.selectedBounds = items.mapNotNull { s -> scene.objects.getOrNull(s.obj)?.instances?.getOrNull(s.instance)?.let { it.min to (it.min + it.size) } }
     }
-    LaunchedEffect(v, state.tool) {
-        v.mode = when (state.tool) {
+    LaunchedEffect(v, state.tool, showPreview) {
+        v.mode = when {
+            showPreview -> InteractionMode.VIEW
+            else -> when (state.tool) {
             is Tool.Paint -> InteractionMode.PAINT
             Tool.LayOnFace -> InteractionMode.LAY_ON_FACE
             Tool.Measure -> InteractionMode.MEASURE
             else -> InteractionMode.NAVIGATE
+            }
         }
         val cut = (state.tool as? Tool.Cut)?.let { t ->
             state.selectedObject?.instances?.getOrNull(state.selection?.instance ?: 0)?.let { i ->

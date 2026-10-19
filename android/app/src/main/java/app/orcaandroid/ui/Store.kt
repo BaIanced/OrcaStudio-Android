@@ -28,9 +28,11 @@ class Store(val app: Application, val scope: CoroutineScope) {
             dynamicColor = settings.dynamicColor,
             themeSpec = settings.themeSpec,
             doubleBackToQuit = settings.doubleBackToQuit,
+            pen = settings.pen,
             projectFilaments = settings.projectFilaments,
             allowMixedTemps = settings.allowMixedTemps,
             contactShadows = settings.contactShadows,
+            selectionStyle = settings.selectionStyle,
             lab = settings.layoutLab,
             undoLimit = settings.undoLimit,
             autoSaveSeconds = settings.autoSaveSeconds,
@@ -46,7 +48,10 @@ class Store(val app: Application, val scope: CoroutineScope) {
 
     val value: UiState get() = state.value
 
-    fun update(transform: (UiState) -> UiState) = state.update(transform)
+    // Corner resizing ends with any selection change, so selecting the copy again later doesn't bring it back.
+    fun update(transform: (UiState) -> UiState) = state.update { s ->
+        transform(s).let { if (it.resizeFor != null && !it.resizing) it.copy(resizeFor = null) else it }
+    }
 
     fun str(@StringRes id: Int, vararg args: Any): String = app.getString(id, *args)
 

@@ -593,4 +593,10 @@ class ScadController(private val store: Store) {
         saveDraft()
         store.toast(store.str(R.string.saved))
     }
+
+    /** Names the open design (MCP design_set). */
+    fun rename(name: String) {
+        set { it.copy(name = name) }
+        saveDraft()
+    }
 }

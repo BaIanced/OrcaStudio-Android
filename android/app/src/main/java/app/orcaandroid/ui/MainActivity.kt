@@ -11,7 +11,6 @@ import android.os.Bundle
 import android.view.KeyEvent
 import android.view.MotionEvent
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Box
@@ -47,7 +46,8 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState == null) handleIntent(intent)
         requestNotificationPermission()
         PlateView.onKey = ::viewKey
-        setContent {
+        // FocusGuardLayout: rotating crashed in Compose's focus code (see the class).
+        setContentView(FocusGuardLayout(this).apply { addView(androidx.compose.ui.platform.ComposeView(context).apply { setContent {
             val state by vm.state.collectAsStateWithLifecycle()
             app.orcaandroid.ui.theme.OrcaTheme(state.themeMode, state.dynamicColor, state.themeSpec) {
                 Immersive(state.lab.fullscreenPortrait)
@@ -61,7 +61,7 @@ class MainActivity : ComponentActivity() {
                         else Modifier.safeDrawingPadding()) { AppScaffold(state, vm) }
                 }
             }
-        }
+        } }) })
     }
 
     // High refresh while the user interacts: some systems (ColorOS) hold unlisted apps at 60 Hz. The 3D view renders
@@ -186,6 +186,8 @@ class MainActivity : ComponentActivity() {
             onPlate && keyCode == KeyEvent.KEYCODE_V -> vm.scene.paste()
             onPlate && keyCode == KeyEvent.KEYCODE_K -> vm.scene.duplicate(1)
             onPlate && keyCode == KeyEvent.KEYCODE_D -> vm.scene.deleteAll()
+            // Ctrl+T (transform, user 2026-10-19) = S: corner resizing.
+            onPlate && keyCode == KeyEvent.KEYCODE_T && s.selection != null -> vm.scene.toggleResize()
             onView && view != null && keyCode in KeyEvent.KEYCODE_0..KeyEvent.KEYCODE_7 ->
                 cameraView(view, keyCode - KeyEvent.KEYCODE_0, s)
             else -> return super.onKeyShortcut(keyCode, event)
@@ -265,6 +267,9 @@ class MainActivity : ComponentActivity() {
             KeyEvent.KEYCODE_H -> paint("fuzzy", 1) ?: return false
             KeyEvent.KEYCODE_N -> paint("color", 2) ?: return false
             KeyEvent.KEYCODE_U -> vm.scene.setTool(Tool.Measure)
+            // As on the desktop: S = scale (here the box-corner resize), T = text.
+            KeyEvent.KEYCODE_S -> if (single) vm.scene.toggleResize() else return false
+            KeyEvent.KEYCODE_T -> vm.scene.openAddDialog("text")
             KeyEvent.KEYCODE_DPAD_LEFT -> if (any) vm.scene.nudge(-step, 0f) else return false
             KeyEvent.KEYCODE_DPAD_RIGHT -> if (any) vm.scene.nudge(step, 0f) else return false
             KeyEvent.KEYCODE_DPAD_UP -> if (any) vm.scene.nudge(0f, step) else return false

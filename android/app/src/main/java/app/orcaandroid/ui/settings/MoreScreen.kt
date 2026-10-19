@@ -149,9 +149,28 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) SwitchRow(stringResource(R.string.dynamic_color), state.dynamicColor, onChange = vm::setDynamicColor)
                 ThemePresetList(state, vm)
                 SwitchRow(stringResource(R.string.contact_shadows), state.contactShadows, onChange = vm::setContactShadows)
+                Text(stringResource(R.string.selection_style), style = MaterialTheme.typography.bodyLarge)
+                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val labels = listOf(R.string.selection_outline, R.string.selection_xray, R.string.selection_rim,
+                        R.string.selection_wireframe, R.string.selection_box, R.string.selection_tint)
+                    app.orcaandroid.render.SelectionStyle.ALL.zip(labels).forEach { (bit, label) ->
+                        val on = state.selectionStyle and bit != 0
+                        androidx.compose.material3.FilterChip(on, { vm.setSelectionStyle(state.selectionStyle xor bit) },
+                            label = { Text(stringResource(label)) })
+                    }
+                }
                 Entry(stringResource(R.string.design_mode), stringResource(R.string.design_mode_text)) { vm.setDesignMode(true) }
                 val custom = state.themeSpec.customCount(true) + state.themeSpec.customCount(false)
                 if (custom > 0) Entry(stringResource(R.string.reset_colors), pluralStringResource(R.plurals.n_custom_colors, custom, custom)) { dialog = "reset_colors" }
+            }
+
+            Section(stringResource(R.string.pen)) {
+                val pen = state.pen
+                SwitchRow(stringResource(R.string.pen_ignore_fingers), pen.ignoreFingers, onChange = { vm.setPen(pen.copy(ignoreFingers = it)) })
+                PenActionRow(stringResource(R.string.pen_button1), pen.button1) { vm.setPen(pen.copy(button1 = it)) }
+                PenActionRow(stringResource(R.string.pen_button2), pen.button2) { vm.setPen(pen.copy(button2 = it)) }
+                PenActionRow(stringResource(R.string.pen_eraser), pen.eraser) { vm.setPen(pen.copy(eraser = it)) }
+                Text(stringResource(R.string.pen_text), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
             Section(stringResource(R.string.misc)) {
@@ -278,6 +297,7 @@ private fun LayoutLabSection(state: UiState, vm: AppViewModel) {
         ScaleSlider(R.string.lab_text_scale, lab.textScale, app.orcaandroid.core.LayoutLab.TEXT_SCALES, current) { vm.setLab(state.lab.copy(textScale = it)) }
         ScaleSlider(R.string.lab_ui_scale, lab.uiScale, app.orcaandroid.core.LayoutLab.UI_SCALES, current) { vm.setLab(state.lab.copy(uiScale = it)) }
         ScaleSlider(R.string.lab_plate_scale, lab.plateScale, app.orcaandroid.core.LayoutLab.PLATE_SCALES, current) { vm.setLab(state.lab.copy(plateScale = it)) }
+        ScaleSlider(R.string.lab_slice_scale, lab.sliceScale, app.orcaandroid.core.LayoutLab.SLICE_SCALES, current) { vm.setLab(state.lab.copy(sliceScale = it)) }
         ScaleSlider(R.string.lab_overlay_scale, lab.overlayScale, app.orcaandroid.core.LayoutLab.OVERLAY_SCALES, current) { vm.setLab(state.lab.copy(overlayScale = it)) }
         ShadowSlider(R.string.lab_shadow_strength, lab.shadowStrength, 100f, "%", app.orcaandroid.core.LayoutLab.SHADOW_STRENGTHS, current) { vm.setLab(state.lab.copy(shadowStrength = it)) }
         ShadowSlider(R.string.lab_shadow_soft, lab.shadowSoft, 1f, " mm", app.orcaandroid.core.LayoutLab.SHADOW_SOFTS, current) { vm.setLab(state.lab.copy(shadowSoft = it)) }
@@ -285,6 +305,7 @@ private fun LayoutLabSection(state: UiState, vm: AppViewModel) {
         ShadowSlider(R.string.lab_light_azimuth, lab.lightAzimuth, 1f, "°", app.orcaandroid.core.LayoutLab.LIGHT_AZIMUTHS, current) { vm.setLab(state.lab.copy(lightAzimuth = it)) }
         ShadowSlider(R.string.lab_light_elevation, lab.lightElevation, 1f, "°", app.orcaandroid.core.LayoutLab.LIGHT_ELEVATIONS, current) { vm.setLab(state.lab.copy(lightElevation = it)) }
         ShadowSlider(R.string.lab_light_strength, lab.lightStrength, 100f, "%", app.orcaandroid.core.LayoutLab.LIGHT_STRENGTHS, current) { vm.setLab(state.lab.copy(lightStrength = it)) }
+        ShadowSlider(R.string.lab_pinch_speed, lab.pinchSpeed, 100f, "%", app.orcaandroid.core.LayoutLab.PINCH_SPEEDS, current, peek = false) { vm.setLab(state.lab.copy(pinchSpeed = it)) }
         TextButton(onClick = { vm.setLab(app.orcaandroid.core.LayoutLab()) }) { Text(stringResource(R.string.reset)) }
       }
     }
@@ -292,10 +313,11 @@ private fun LayoutLabSection(state: UiState, vm: AppViewModel) {
 
 /** A shadow look slider (strength in %, penumbra and bias in mm): live on the plate behind, like the size sliders. */
 @Composable
-private fun ShadowSlider(label: Int, value: Float, factor: Float, unit: String, range: ClosedFloatingPointRange<Float>, lab: app.orcaandroid.core.LayoutLab, onSet: (Float) -> Unit) {
+private fun ShadowSlider(label: Int, value: Float, factor: Float, unit: String, range: ClosedFloatingPointRange<Float>, lab: app.orcaandroid.core.LayoutLab, peek: Boolean = true, onSet: (Float) -> Unit) {
     val text = stringResource(label, if (factor == 1f) "%.1f".format(value) + unit else kotlin.math.round(value * factor).toInt().toString() + unit)
     Text(text, style = MaterialTheme.typography.bodyMedium)
-    LabSlider(value, { LabPeek.readout = text to (it - range.start) / (range.endInclusive - range.start); onSet(it) }, range, lab)
+    if (!peek) androidx.compose.material3.Slider(value, onSet, valueRange = range) // nothing to see behind: More stays lit
+    else LabSlider(value, { LabPeek.readout = text to (it - range.start) / (range.endInclusive - range.start); onSet(it) }, range, lab)
 }
 
 /** A size slider in 5 % steps, applied live (More is frozen at its touch-time size while dragging, so it doesn't move under the finger). */
@@ -400,6 +422,34 @@ private fun AiToolsSection(state: UiState, vm: AppViewModel) {
             vm.toast(context.getString(R.string.ai_command_copied))
         }) { Text(stringResource(R.string.ai_copy_command)) }
         TextButton(onClick = vm::newAiToken) { Text(stringResource(R.string.ai_new_token)) }
+    }
+}
+
+/** A pen button or the eraser end with the action it is mapped to, picked from a menu. */
+@Composable
+private fun PenActionRow(label: String, action: app.orcaandroid.core.PenAction, onChange: (app.orcaandroid.core.PenAction) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    @Composable fun name(a: app.orcaandroid.core.PenAction) = stringResource(when (a) {
+        app.orcaandroid.core.PenAction.TIP -> R.string.pen_act_tip
+        app.orcaandroid.core.PenAction.PAN -> R.string.pen_act_pan
+        app.orcaandroid.core.PenAction.ORBIT -> R.string.pen_act_orbit
+        app.orcaandroid.core.PenAction.SELECT_ADD -> R.string.pen_act_select_add
+        app.orcaandroid.core.PenAction.SELECT_REMOVE -> R.string.pen_act_select_remove
+        app.orcaandroid.core.PenAction.MENU -> R.string.pen_act_menu
+        app.orcaandroid.core.PenAction.UNDO -> R.string.pen_act_undo
+        app.orcaandroid.core.PenAction.REDO -> R.string.pen_act_redo
+        app.orcaandroid.core.PenAction.FRAME -> R.string.pen_act_frame
+    })
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+        androidx.compose.foundation.layout.Box {
+            TextButton({ open = true }) { Text(name(action)) }
+            androidx.compose.material3.DropdownMenu(open, { open = false }) {
+                app.orcaandroid.core.PenAction.entries.forEach { a ->
+                    androidx.compose.material3.DropdownMenuItem({ Text(name(a)) }, { open = false; onChange(a) })
+                }
+            }
+        }
     }
 }
 

@@ -46,6 +46,8 @@ internal object Shaders {
         uniform float uSelected[64];
         uniform int uSelectedCount;
         uniform vec3 uDrag;
+        uniform vec3 uScaleAnchor;
+        uniform float uScale;
         layout(location = 0) in vec3 aPos;
         layout(location = 1) in vec3 aNormal;
         layout(location = 2) in vec2 aInfo;
@@ -54,14 +56,19 @@ internal object Shaders {
         out highp vec4 vShadowCoord;
         flat out float vType;
         flat out float vSelected;
+        out vec3 vBary;
         void main() {
+            // Non-indexed triangles: the corner within its triangle, for the wireframe selection style.
+            int k = gl_VertexID % 3;
+            vBary = vec3(k == 0, k == 1, k == 2);
             float selected = 0.0;
             for (int i = 0; i < uSelectedCount; ++i)
                 if (abs(aInfo.x - uSelected[i]) < 0.5) selected = 1.0;
             vNormal = aNormal;
             vType = aInfo.y;
             vSelected = selected;
-            vWorld = aPos + selected * uDrag;
+            // A corner drag shows the new size live: the selection scales about the opposite corner.
+            vWorld = uScaleAnchor + (aPos - uScaleAnchor) * mix(1.0, uScale, selected) + selected * uDrag;
             // Normal offset (0.4 mm): the receiver is looked up a little outside its own surface, against acne.
             vShadowCoord = uLightMvp * vec4(vWorld + aNormal * 0.4, 1.0);
             gl_Position = uMvp * vec4(vWorld, 1.0);
@@ -89,6 +96,8 @@ internal object Shaders {
         uniform float uShadowStrength;
         uniform vec3 uKeyDir;
         uniform float uKeyStrength;
+        uniform int uSelStyle;
+        in vec3 vBary;
         in vec3 vNormal;
         in highp vec3 vWorld;
         in highp vec4 vShadowCoord;
@@ -98,6 +107,13 @@ internal object Shaders {
         void main() {
             int type = int(vType + 0.5);
             bool part = type == 0 || type >= 100;
+            if (uPass >= 5) {
+                // Selection mask: 5 the selected parts as seen (other parts hide them), 6 all of them (x-ray, no depth test).
+                if (!(part || type == 99) || (uSectionOn == 1 && dot(uSection.xyz, vWorld) > uSection.w)) discard;
+                if ((type == 99 || uPass == 6) && vSelected < 0.5) discard;
+                color = vec4(vSelected);
+                return;
+            }
             if (uPass == 4) {
                 // Real shadow map: depth only; parts cast, cut-away geometry doesn't.
                 if (!part || (uSectionOn == 1 && dot(uSection.xyz, vWorld) > uSection.w)) discard;
@@ -131,7 +147,7 @@ internal object Shaders {
                 vec3 own = type >= 100 ? uFilamentColors[clamp(type - 100, 0, 15)] : uPartColor;
                 // Very dark filaments keep some shading (black would be a flat silhouette).
                 own = max(own, vec3(0.13));
-                base = mix(own, uSelectedColor, vSelected * 0.75);
+                base = (uSelStyle & 32) != 0 ? mix(own, uSelectedColor, vSelected * 0.75) : own;
             }
             else if (type == 1) { base = vec3(0.6, 0.6, 0.6); alpha = 0.45; }
             else if (type == 2) { base = vec3(0.95, 0.85, 0.3); alpha = 0.35; }
@@ -170,6 +186,19 @@ internal object Shaders {
                 float spec = pow(max(dot(n, normalize(lk + v)), 0.0), 36.0) * 0.16 * uKeyStrength;
                 float rim = pow(1.0 - max(dot(n, v), 0.0), 3.0) * 0.14;
                 vec3 shaded = (base * diff + vec3(spec)) * lit + vec3(0.55, 0.7, 1.0) * rim * (0.4 + 0.6 * sky);
+                if (vSelected > 0.5 && uPass == 0) {
+                    // Rim glow: the selection colour on faces turning away from the eye.
+                    if ((uSelStyle & 4) != 0)
+                        shaded = mix(shaded, uSelectedColor * 1.2, smoothstep(0.3, 0.9, 1.0 - max(dot(n, v), 0.0)));
+                    // Wireframe: the triangle edges, about 1 px (fwidth) wide; fades out on triangles under ~10 px
+                    // (dense meshes would turn solid).
+                    if ((uSelStyle & 8) != 0) {
+                        vec3 w = fwidth(vBary);
+                        vec3 e = smoothstep(vec3(0.0), w, vBary);
+                        float dense = 1.0 - smoothstep(0.06, 0.12, max(max(w.x, w.y), w.z));
+                        shaded = mix(shaded, uSelectedColor, (1.0 - min(min(e.x, e.y), e.z)) * 0.8 * dense);
+                    }
+                }
                 color = vec4(shaded, alpha);
                 return;
             }
@@ -263,6 +292,7 @@ internal object Shaders {
         uniform mat4 uMvp;
         uniform vec3 uOffset;
         uniform int uKinds;
+        uniform vec3 uEye;
         uniform highp vec4 uSection;
         uniform int uSectionOn;
         layout(location = 0) in vec3 aPos;
@@ -271,13 +301,18 @@ internal object Shaders {
         void main() {
             int kind = int(aKind + 0.5);
             vec3 world = aPos + uOffset;
+            // Toolpath markers sit on the bead's centre line at its top, inside the wall's lifted box (PATH_VS), so the
+            // point's one depth value lost from every angle (seams never showed, user r297). Pull them toward the camera:
+            // sideways past the bead's half width, up only past the lift, so a seam one layer down stays hidden from above.
+            vec3 toEye = normalize(uEye - world);
+            vec3 pull = kind == 4 ? vec3(0.0) : vec3(toEye.xy * 0.35, toEye.z * 0.07);
             // Hidden kinds and markers on the section view's cut-away side go off screen.
             if (((uKinds >> kind) & 1) == 0 || (uSectionOn == 1 && dot(uSection.xyz, world) > uSection.w)) {
                 gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return;
             }
             vColor = kind == 0 ? vec3(0.9, 0.1, 0.9) : kind == 1 ? vec3(0.1, 0.8, 0.9) : kind == 2 ? vec3(0.95, 0.95, 0.95)
                    : kind == 3 ? vec3(1.0, 0.9, 0.0) : vec3(1.0, 0.3, 0.3);
-            gl_Position = uMvp * vec4(world, 1.0);
+            gl_Position = uMvp * vec4(world + pull, 1.0);
             gl_PointSize = kind == 4 ? 16.0 : 7.0;
         }"""
 
@@ -293,6 +328,8 @@ internal object Shaders {
         uniform vec2 uRange;
         uniform vec3 uRoleColors[20];
         uniform vec3 uFilamentColors[16];
+        // Index of the first drawn segment, so a segment's depth order (below) doesn't change with the layer slider.
+        uniform int uFirst;
         layout(location = 0) in vec3 aCorner;
         layout(location = 1) in vec3 aFace;
         layout(location = 2) in vec3 aP0;
@@ -362,6 +399,11 @@ internal object Shaders {
             }
             // The layer's height goes straight down (exact z), so neighbouring boxes share their edges exactly.
             vec3 pos = (atEnd ? aP1 : aP0) + across + vec3(0.0, 0.0, (aCorner.z * 0.5 - 0.5) * h) + uOrigin;
+            // The bottom reaches a little into the layer below: the layers' edges never share vertices (T-junctions),
+            // so single-pixel cracks showed the darker inside through them and danced as the camera moved (user,
+            // 2026-10-17). The overlap is pushed back in depth below, so the layer below keeps its own top edge.
+            bool bottom = aCorner.z < 0.0;
+            if (bottom) pos.z -= clamp(pos.z, 0.0, 0.15 * h);
             vNormal = normalize(sideNormal * aFace.x + up * aFace.y + dir * aFace.z);
             vBead = aCorner.z;
             vSideFace = abs(aFace.x);
@@ -379,6 +421,16 @@ internal object Shaders {
             float lift = role == 2 ? 4.0 : (role == 1 || role == 3) ? 3.0 : (role == 6 || role == 8 || role == 11) ? 2.0
                 : (role == 5 || role == 7 || role == 9 || role == 10) ? 1.0 : 0.0;
             gl_Position = uMvp * vec4(pos + vec3(0.0, 0.0, lift * 0.01), 1.0);
+            // Fixed depth order for faces on the same plane (a few depth-buffer steps each, any zoom): the role as
+            // above, then the line's direction in three 60 degree bins (crossing infill lines of one role: parity
+            // alone tied whenever both lines had the same, user r294), then odd segments over even ones (a loop's
+            // seam ends, neighbouring parallel lines). Bin edges sit at 7.5 + 60k degrees, off the usual infill angles.
+            float a = atan(dir.y, dir.x) - 0.1309;
+            float bin = mod(floor(a * 0.9549297), 3.0);
+            float order = lift * 6.0 + bin * 2.0 + float((gl_InstanceID + uFirst) & 1);
+            gl_Position.z -= order * 5e-7 * gl_Position.w;
+            // The bottom overlap goes behind all of it.
+            if (bottom) gl_Position.z += 1.6e-5 * gl_Position.w;
         }"""
 
     const val PATH_FS = """#version 300 es
@@ -422,6 +474,35 @@ internal object Shaders {
             vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2));
             vUv = p;
             gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
+        }"""
+
+    /**
+     * Selection outline over the frame from the mask (r: selected parts as seen, g: all of them): a ring uWidth px around
+     * the seen parts (uOutline), and with uXray a fainter ring and fill where they are hidden behind other parts.
+     */
+    const val OUTLINE_FS = """#version 300 es
+        precision mediump float;
+        uniform sampler2D uMask;
+        uniform vec2 uTexel;
+        uniform float uWidth;
+        uniform vec3 uColor;
+        uniform int uOutline;
+        uniform int uXray;
+        in vec2 vUv;
+        out vec4 color;
+        void main() {
+            vec2 c = texture(uMask, vUv).rg;
+            vec2 near = vec2(0.0);
+            for (int i = 0; i < 12; ++i) {
+                float a = float(i) * 0.5235988;
+                vec2 d = vec2(cos(a), sin(a)) * uTexel * uWidth;
+                near = max(near, max(texture(uMask, vUv + d).rg, texture(uMask, vUv + d * 0.5).rg));
+            }
+            float alpha = 0.0;
+            if (uOutline == 1) alpha = near.r * (1.0 - c.r);
+            if (uXray == 1) alpha = max(alpha, max(near.g * (1.0 - c.g) * 0.6, max(c.g - c.r, 0.0) * 0.22));
+            if (alpha < 0.01) discard;
+            color = vec4(uColor, alpha);
         }"""
 
     /** Separable Gaussian (9 taps folded into 5 linear samples) along uStep (uv per tap unit). */

@@ -1,0 +1,118 @@
+# Backlog (pending / untested / ideas). Grep, do not read up front. Moved here from HANDOFF.md 2026-10-15.
+Rules: never delete an item; when one is verified, move its details to HANDOFF-ARCHIVE.md. User 2026-10-15: do NOT bring up the X2D again.
+Pruned 2026-10-16: verified entries moved to archive "2026-10-16 Backlog stale-item prune". Before re-testing anything, grep the archive.
+Each line says who last checked it, on which build, when (e.g. "user r249 2026-10-15: no vibration"). A user verdict in chat is logged here + archive at once.
+
+## Plan
+- **Plan (user, 2026-10-14):** camera LAN (done) -> off-LAN camera (cloud P2P path; REA on Handy is the tool; VPN-home the
+  fallback) -> print history (capture Handy's history call, own client, Device tab) -> REA on MakerWorld. Own printer/account,
+  personal use, own code only; rule 7 holds.
+- Settings audit, bed temp "First layer"/"Other layers" duplicates (user 2026-10-17, safety): fixed 1bfe89f, Claude-verified on WSA r293 2026-10-17 (archive "settings audit"). User to look on the phone (r293 installed). USER VERIFIED r294 2026-10-17 (archive "User verdicts on r294").
+- **HIGH PRIORITY (user 2026-10-17, queued after r283): printer controls on the Device tab**, like Handy's Control page
+  (user screenshot): tabs Control | XYZ. Control = nozzle temp cur/target + extrude up/down arrows + "More"; Speed level
+  (Standard 100 %); Heatbed temp cur/target; Light toggle; Part Fan %. XYZ = jog + home. Orca's source already has every
+  command (no REA needed for this): `DeviceManager.cpp` command_set_nozzle 1689, set_bed 1683, set_printing_speed 1928,
+  axis_control 2007, extruder_control 2015, go_home 1560; `DevFan.cpp:54` control_fan; `DevLampCtrl.cpp:38` chamber light.
+  Kotlin side: `android/.../ui/device/DeviceScreen.kt`. The user said they may use REA for other parts. Not started (Claude 2026-10-17).
+
+## Open bugs
+- **Preview seams toggle shows nothing** (user r297 2026-10-18: "'seams' don't show in preview section when toggled"). Fixed r298, Claude-verified on WSA 2026-10-18 (archive "r298 preview seams"); user look pending.
+- Preview: shading gone after slice? (user unsure of convention, r284, 2026-10-17). Inner z-fighting when the layer slider
+  is scrubbed down and the camera moves (user, r284, 2026-10-17): cracks + seam fights fixed r285 (Claude-verified
+  2026-10-17, archive); user's look pending.
+- Zoom too slow when zoomed out; user suggests zoom-dependent curve, hasn't tried the zoom speed slider (r284, 2026-10-17; lab opens again in r285).
+- r197 NPE root cause fixed in 6ad69ef, built in r273 (Claude 2026-10-16); no UI path sends NaN since 776f261, so no in-app repro.
+
+## Untested (needs the user or a special setup)
+- Pinch (r280, run 39011426374; user: too sensitive, fingers close also pan): two-finger gesture locks to PINCH (zoom only)
+  or PAN (pan+zoom) past the slop; gap ratio padded 40 dp; Layout lab "Pinch zoom speed" (default 60 %). Camera limits
+  unchanged. Feel = user-only; ask after install (Claude 2026-10-17, not yet asked).
+- User hasn't seen yet (Claude-verified by test): preview bead look (Chromebook, zoomed in), part shadows r266, light/shadow lab sliders (r263, via `labset.py`).
+- "Failed OpenSCAD run clears the old log": no repro.
+- Element blocker / ad-block rules in other WebViews: plugin pages, Device page (needs a printer with a web UI).
+- Nozzle match: newer-firmware `device.nozzle.info` path; stale status after switching printer models; spool change -> printer's
+  preset wins and the pick is dropped (only when the user swaps a spool). Phone plate: 1 slot "Bambu PLA Basic @BBL A1".
+- A true EGL context loss (no repro). Badges are ~23 dp at plate zoom on the phone (under 48 dp; told the user).
+- Model-mismatch guard (54b4ca6): built, can't be tested (user has one printer).
+- SHIELD TV: r210 settings/logins copied from the phone; sign-ins untested.
+
+## Waiting on the user
+- Plate switcher pick (lab stays until they say; don't ask again).
+- Launcher icon colour (still teal, "decide later").
+- REA MCP (github.com/morluto/rea): installed, not enabled (the user enables it); fits release APK / `liborca_jni.so` inspection and
+  HAR traces of the MakerWorld / Thingiverse flows only. Plan items need it.
+
+## Ideas (not started)
+- Floating Theme | Layout designer = ~half a day (+1-2 h for a collapsible icon); ask first.
+- Maybe study Bambu Handy's MakerWorld integration.
+- Headless display gaps (do only when a task needs them, Reference "Headless display"): pinch on the virtual display
+  (uinput device bound to the display, or scrcpy control protocol); `start` stress test (launch was flaky 2 of 5 early on,
+  3/3 OK since); WSA virtual-display screenshot (try reading the finished mkv after stop, or the app's MCP screenshot).
+- (2026-10-17, user, queued) Explore porting to Meta Quest (Quest runs Android/Horizon OS: check whether the existing APK installs and runs as a 2D panel app, what input (controllers/hands, no touch/stylus) and GL/Vulkan limits mean, and what a native VR view of the plate would take). **Desk research done 2026-10-17 (Claude, no Quest to test; web claims per Meta docs, unverified on device):** the APK should install as a 2D panel: Horizon OS is AOSP-based (min API 32 vs our minSdk 29), our manifest needs no GMS/camera/telephony (no play-services dep), GLES 3.0 only (`#version 300 es`, `GLSurfaceView` in PlateView/MeshPreviewView), arm64-only OK, v2 signing OK. Meta says taps/swipes map from controllers/hands to 2D apps; two-finger pinch/orbit likely does NOT (single pointer): the Layout lab pinch-speed slider and wheel zoom (mouse path exists in PlateView.onGenericMotionEvent) are the fallback, needs a zoom/orbit-mode button. Open unknowns: WebView version on Horizon OS (Models tab, Bambu login, plugin pages), min panel 384x500dp layout, long-press = right-click. Native VR view (Spatial SDK Kotlin/Compose panels + own GLES->OpenXR scene, or OpenXR NDK) is a big separate project: needs a headset to start. **User 2026-10-17: Quest is multi-pointer (so the pinch-risk above is probably moot); no single-pointer workarounds wanted; SKIPPED for now, resume only on request.** Next step: `adb install` + test panel input. User (2026-10-17) has a headset with dev mode on; wireless adb is unreliable and works when they trigger it manually; they will set it up later (ask them to connect it, don't poll).
+- 3D wishlist: preview colours stay flat on purpose. Filament colour mixing (upstream `FilamentMixer.cpp`). Not wanted: iOS port.
+- Orca plugin runtime: kept as a general capability (no plugin in use). Not done: audit prompts, create_window, per-preset config
+  overrides, printerAgent capability. **FilamentHub is dropped for good; never suggest, test with, or mention it.**
+
+## Known limits (no action)
+- Design mode: hard-coded colours (delete popup #2B2C32 + red bin = user's pick 2026-10-14, `OverlayParts.kt:253`; preview legend)
+  don't follow; the Models page keeps its own colours; a dark 3D background under a light theme hides the floating tool icons
+  ("Prepare: floating buttons" can be changed).
+- Real keyboard Ctrl+1 does nothing (system hotkey). Inactive-plate double tap re-frames (user: fine).
+- Flatpak r9 MakerLab tab, weekly upstream bump, obn follow-ups: archive (2026-10-12 trim).
+- (user, 2026-10-17, queued) Drag handles: a fast downward fling should collapse the panel (now it stops right where the finger lets go). DragHandle in AppScaffold (portrait sheet, OpenSCAD panel; wide PanelEdge flung sideways). r283 (user 2026-10-17): every fling crashed; fixed in r284 (Claude 2026-10-17, phone: portrait sheet flick up expands, down collapses, no crash). User r294 2026-10-17: portrait flick docks fine. Wide PanelEdge (Claude 2026-10-18, WSA r300, mouse drag): drag right collapses, drag left to widen works; fast adb-swipe flicks did nothing (inconclusive, WSA mouse only). OpenSCAD grips untested.
+- (user, 2026-10-17, queued, low priority "put makeup on it") Explore free open-source colour icon sets (licence must allow use in a public app, e.g. MIT/Apache/CC-BY) to give some icons colour, not all; the app is "beautiful as is". Deliver: shortlist + mockup of which icons get colour, user picks. Open, not started.
+- (user, 2026-10-17, TOP) Slice button in the drag handle's right side (where the plates are); own size slider, follows only main UI scale. Built r281; USER VERIFIED r294 2026-10-17 (archive), incl. size slider.
+- (user, 2026-10-17, queued; **2026-10-19: super low priority, later date**; r290 More > Pen untested by the user) Stylus support: Samsung S Pen (check whether one API covers old and new: plain Android MotionEvent
+  TOOL_TYPE_STYLUS / BUTTON_STYLUS_PRIMARY / pressure / hover vs Samsung's SDKs, e.g. Air actions only on newer pens).
+  User's devices: Note 10.1 2014 tablet, Note 10+, S24 Ultra (screen broken now), a newer 13" Galaxy Tab S. Also a head start
+  on the Lenovo Duet 5 (Chromebook) USI stylus, which only the user could test. Open. **Desk research 2026-10-17 (Claude, r289, no
+  device; web per developer.android.com "advanced stylus features", unverified on hardware):** plain MotionEvent covers every
+  pen: `getToolType` STYLUS / ERASER, AXIS_PRESSURE / TILT / ORIENTATION, hover = ACTION_HOVER_* (pen near screen), barrel button =
+  `BUTTON_STYLUS_PRIMARY` (some devices report `BUTTON_SECONDARY`/`TERTIARY` instead, so test all three). Samsung SDKs (S Pen
+  Remote, Air actions) are only for the in-air remote/gestures of Bluetooth pens (newer than 2014/Note 10.1); not needed for
+  drawing/tapping. Not confirmed: whether the 2014 EMR pen sends hover/button on the Note 10.1, or ARC passes USI pressure/tilt.
+  **Code today (PlateView.kt:191-320):** touch only, no tool-type use except `SOURCE_MOUSE` for right/middle (l.204); a pen
+  already works as one finger (orbit / drag / paint / tap). Proposed (not built): pen barrel button or eraser end = pan (same
+  as the mouse's middle path, l.205-206 + 258), pen hover shows the paint-brush cursor, pressure scales PAINT brush size.
+  Palm rejection: OS cancels via ACTION_CANCEL (handled l.313). **BUILT 7d3a263 (run 39070383865, 2026-10-17), untested on a pen.**
+  **User decisions 2026-10-17:** keep two-finger pan/pinch (like Squid); palm rejection ON for pen/stylus (also ignore
+  TOOL_TYPE_FINGER while the pen is down or hovering); NO pressure/tilt use; eraser end + every pen button must be
+  user-mappable to an app action (Settings list: pan, undo, redo, select, paint, none...; reads BUTTON_STYLUS_PRIMARY/
+  SECONDARY/SECONDARY/TERTIARY + TOOL_TYPE_ERASER). Idea (user, open, not decided): **Sketch mode** = draw a rough object
+  with the pen and have MCP create it (open: who interprets the sketch? Claude through MCP in a session, e.g. a saved PNG
+  + `view_state`, vs. on-device; Claude can read the image and write OpenSCAD/primitives, no on-device model). Not started.
+- (2026-10-17, user, open) Portrait Undo/Redo used to sit in the top-left corner (status bar area, fullscreen); moved at some point; File belongs in the status bar area right of the camera cutout. r283 (Claude, phone, 2026-10-17): Undo/Redo at top left y 58, File at top right x 1141; the user hasn't judged the look yet.
+- (2026-10-17, user idea, open) Next MCP tool candidates: debug `app_state`, `log_tail`, `perf` (`slice` + `slice_result` done r289, archive). Last checked: Claude, r289.
+- Object settings: support options stayed greyed after enabling support (user 2026-10-17, r291): fixed 44f68d9, Claude-verified on WSA r293 2026-10-17 (archive "settings audit"). User to confirm on the phone. USER VERIFIED r294 2026-10-17.
+- (user, 2026-10-17, r294) Preview z-fight: overlapping filament paths flicker fast in the overlap, only inside the object (layer scrubber) and only while the camera moves; r285 fix did not remove it. Open. Lead (Claude, 2026-10-18, not tried): order bias is role lift + segment parity only (Shaders.kt:392), so two overlapping paths of one role with the same parity still tie; near plane max(0.5, distance/200) (Camera.kt:161). Fix c1c9c1f (run 39113308619, Claude 2026-10-18): depth order adds the line direction in 3 bins of 60 degrees (Shaders.kt ~392), bottom push 1.6e-5. Claude-VERIFIED on the phone r297 (archive, before/after at a sparse X crossing). USER VERIFIED r304 2026-10-19 ("The z fight is fixed", archive).
+- (user, 2026-10-17, r294) Fan slider jumps (random value ~5 s after a set, then correct); plan: hold until the report matches, ignore stale reports. When decompiling Handy / Bambu Studio check how they sync. Studio answer (Claude 2026-10-18, FanControl.cpp:19/821/988): after a set it skips the next 6 status reports, then follows them (no sequence_id match). Handy side not recoverable from strings. r295 hold-until-within-4 % is stricter. r295 untested (needs the printer).
+- (user, 2026-10-17, r294) Extruder controls hard to find: r295 labels them Retract/Extrude (298ee9f). Claude 2026-10-18: e13bebb (+ comment fix) wraps E like the desktop's own jog (M211 save/on, push_ref_mode, M83, G1 E±10 F150, pop_ref_mode, M211 R; was Studio's legacy G0 F900 = ~36 mm3/s). Not in a build yet (next after r297). UNTESTED, needs the printer.
+- (Claude, 2026-10-18) HMS texts: already done our own way (HmsCatalog.kt fetches them at runtime from Bambu's server like HMS.cpp:92, cached on the device). Handy's bundled copies stay a local reference only, never in a repo. Nothing to do.
+- (user, 2026-10-18) Selection styles (outline, x-ray, rim, wireframe, box; tint optional, user dislikes tint): 2f43327 + 3c fix (run 39117345666, r300) installed phone, SHIELD, WSA. Claude-checked WSA: default outline+box, x-ray ring, rim OK; wireframe hides triangles under ~10 px (dense models show lines only on big/sliver tris when zoomed). X-ray behind another object untested. User look pending.
+- (user, 2026-10-18, idea) Resize by grabbing a bounding-box corner and dragging; a small live label at the dragged end shows the exact dimension; the box frame shows X/Y/Z measurements on its edges. Follow-up to the selection box. BUILT r301 (run 39146274001, 3D box corners = handles, uniform scale about opposite corner, live mm label); Claude-checked WSA 2026-10-18: drag grew box 142x220 -> 191x290 px, opposite x edge stayed. Label look + feel untested, user look pending. Installed WSA only. r302 (bigger 48 dp grab, slow-orbit no long-press) + r303 (live scaled draw, label top-centre) built; r303 installed WSA+SHIELD, WSA render unchanged when idle; live drag untested by Claude (mdrag cannot screenshot mid-drag). User look pending. r304 (run 39156324047): resize starts only after one finger moves from the corner, to fix user-reported two-finger pan failing with a selection in side/front views (cause not found by reading; fix is a guess, untested). WSA+SHIELD installed. **User r304 2026-10-19: still finicky, touch target too wide; wants resize gated behind the long-press menu + Ctrl+T.**
+- (user, 2026-10-19, r304) Corner resize gated + drag plane: ed8b77e (run 39219555564, r305): resize only after long-press Resize /
+  Ctrl+T / S (off on selection change; hint + Done shown), grab 32 dp; T = Add text dialog. Drags now use the level plane through
+  the grabbed box point (was the bed, z=0: grabs high on tall objects outran the finger and side views (pitch 0) did nothing or
+  jumped); within 12 deg of level they go sideways on the camera-facing plane. Upstream (GLCanvas3D.cpp:4486-4514) switches only
+  at exactly level (|forward.z| < 1e-4, the preset side views) and uses the mesh hit point; ours uses the box entry point (sync,
+  no engine round-trip). r305 installed all 4 devices. Claude-VERIFIED WSA main window 2026-10-19 (archive). 72dd138 (pushed, not
+  built): no orbit before the slop decides in resize mode. User feel/look pending.
+- (user, 2026-10-19, r305) Two-finger pan sometimes turns into zoom / not fluid, intermittent. Causes (Claude, PlateView.kt):
+  onScale zoomed during PAN too (gap drift while dragging); start decision gap >= shift can lock a pan into PINCH (zoom only).
+  onScale now zooms only in PINCH + KDoc mentions PAN_TO_PINCH_SLOPS. PINCH needs gap >= 1.5x shift; PAN -> PINCH once gap > PAN_TO_PINCH_SLOPS (3) x
+  slop. DONE fa1754c (PINCH_LEAD 1.5, PAN_TO_PINCH_SLOPS 3), r306. User r305: "still broken". Untested on r306.
+- (user, 2026-10-19, r305, WSA) Two-finger CAMERA pan from low/under views: up/down slid the view along Y, then flipped to
+  Z near plate level. Cause: Camera.panGrab grabbed the bed plane (edge-on when low; fell back to screen pan on a miss). Fix
+  fa1754c (r306, run 39223408744): plane through the target tilting level (pitch>=45) -> camera-facing (<=10). Two-finger
+  pinch/pan fix (line above) also in fa1754c with 72dd138. USER VERIFIED r306 2026-10-19 (directions as expected).
+- (user, 2026-10-19, r306) Two-finger pan misses 20-30 % of two-finger touches (no pan). Cause unknown. Suspects (Claude): landing gap
+  jitter > slop locks PINCH (no way back to PAN); long press before finger 2 blocks it. r307 (408ef89, run 39224864574) logs
+  '2f ...' lines under OrcaInput (setprop log.tag.OrcaInput DEBUG; logcat -s OrcaInput | grep 2f) while the user only pans.
+  CAUSE CONFIRMED (r307 log): landing jitter locked PINCH. Fix e5b975c (r308, run 39226161149) PINCH -> PAN. Claude r308 phone 2026-10-19 (scripted
+  jittery landings, `~/orca-android-tools/pan2j.sh` + `pan2j-batch*.sh`): 3/3 forced PINCH locks -> PAN, 16/16 other two-finger cases PAN
+  (stagger, gap wobble, diagonal, 1->2 after orbit); dropped events in the first case per batch = sendevent artifact. 4192099 (r309,
+  run 39227996155): the deciding move grabs from the landing point (no lost 25-90 px). User r308 2026-10-19: "feels alot better but still misses sometimes". r310 (4f37eb9) windowed switches; r311 (2b9dee5) re-run by script 2026-10-19 (archive). USER VERIFIED r311 2026-10-19 ("pans feel fine").
+- (user, 2026-10-19, r308 phone) Two-finger up/down pan in Z: "when either object or plate hits the center view it stalls like it
+  wants to stay there for a split second". Cause: PAN -> PINCH near landing; fixed r310 (Claude-verified by script). USER VERIFIED r311 2026-10-19 ("pans feel fine"). Also seen in the same log: long pans flip PAN <-> PINCH (gap/shift measured from landing).
+- (user, 2026-10-19, r311 phone) Pinch zoom-out with the object in the middle between the fingers: "zooming out when one finger
+  intersects object, zoom out immediately stops". Cause: ScaleGestureDetector min span (~27 mm). Fixed r312 (Claude-verified by pinch.sh, archive), user feel pending.

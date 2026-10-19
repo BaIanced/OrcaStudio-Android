@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -75,6 +76,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.Alignment
@@ -84,6 +87,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.unit.constrainHeight
+import androidx.compose.ui.unit.constrainWidth
 import androidx.compose.ui.unit.dp
 import app.orcaandroid.R
 import app.orcaandroid.render.PlateView
@@ -299,7 +304,7 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
     }
     val viewport: @Composable (Modifier) -> Unit = { m ->
         Box(m) {
-            Viewport(state, vm, onView = { plateView = it }, modifier = Modifier.fillMaxSize())
+            Viewport(state, vm, onView = { plateView = it }, modifier = Modifier.fillMaxSize().steadyThroughGlide())
             // Floating controls have their own size (Layout lab).
             val base = androidx.compose.ui.platform.LocalDensity.current
             androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides
@@ -330,12 +335,16 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
             val width = (if (ScadEditorSize.width > 0f) ScadEditorSize.width.dp else (total * 0.45f).coerceIn(420.dp, 640.dp))
                 .coerceIn(300.dp, (total - 240.dp).coerceAtLeast(300.dp))
             Row(Modifier.fillMaxSize()) {
-                if (scad != null) {
+                if (scad != null && !state.scadHidden) {
                     scadView(Modifier.weight(1f).fillMaxHeight())
                     Themed(Region.OPENSCAD) { DragHandle(vertical = true) { d -> ScadEditorSize.width = (width - d).value } }
                     Themed(Region.OPENSCAD) { Surface(Modifier.width(width).fillMaxHeight(), tonalElevation = 1.dp) { Box(belowHole) { ScadPanel(scad, vm, embeddedPreview = false) } } }
                 } else {
-                    viewport(Modifier.weight(1f).fillMaxHeight())
+                    // A tucked-away design editor (design placed on the plate, or an MCP view tool) comes back with its button.
+                    if (scad != null) Box(Modifier.weight(1f).fillMaxHeight()) {
+                        viewport(Modifier.fillMaxSize())
+                        ScadReopenButton({ vm.setScadHidden(false) }, Modifier.align(Alignment.BottomEnd).padding(end = 8.dp, bottom = 76.dp))
+                    } else viewport(Modifier.weight(1f).fillMaxHeight())
                     // The edge drags to resize the panel (like the OpenSCAD editor's); let go below the snap
                     // width and it tucks away. A tap tucks it away or brings it back.
                     val lab = state.lab
@@ -347,8 +356,9 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
                         tucked = shown < PANEL_SNAP,
                         onClick = { vm.setLab(lab.copy(panelTucked = !lab.panelTucked)) },
                         onDrag = { d -> live = ((live ?: shown) - d).coerceIn(0.dp, maxPanel) },
-                        onDragEnd = {
-                            live?.let { w ->
+                        onDragEnd = { flick ->
+                            if (flick != null) vm.setLab(lab.copy(panelTucked = flick))
+                            else live?.let { w ->
                                 vm.setLab(if (w < PANEL_SNAP) lab.copy(panelTucked = true)
                                           else lab.copy(panelTucked = false, panelWidth = w.coerceAtLeast(PANEL_MIN).value))
                             }
@@ -374,7 +384,12 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
             val height = (if (ScadEditorSize.height > 0f) ScadEditorSize.height.dp else total * 0.55f).coerceIn(200.dp, (total - 120.dp).coerceAtLeast(200.dp))
             Column(Modifier.fillMaxSize()) {
                 scadView(Modifier.weight(1f).fillMaxWidth())
-                Themed(Region.OPENSCAD) { DragHandle(vertical = false) { d -> ScadEditorSize.height = (height - d).value } }
+                val tallest = (total - 120.dp).coerceAtLeast(200.dp)
+                Themed(Region.OPENSCAD) {
+                    DragHandle(vertical = false, onFling = { down -> settle(if (down) 200f else tallest.value, height.value) { ScadEditorSize.height = it } }) { d ->
+                        ScadEditorSize.height = (height - d).value
+                    }
+                }
                 Themed(Region.OPENSCAD) { Surface(Modifier.height(height).fillMaxWidth()) { ScadPanel(scad, vm, onHide = { vm.setScadHidden(true) }, embeddedPreview = false) } }
             }
         }
@@ -387,8 +402,18 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
             Column(Modifier.fillMaxSize()) {
                 viewport(Modifier.weight(1f).fillMaxWidth())
                 val onHandle = state.lab.platesOnHandle && state.screen == Screen.PREPARE
+                val slice = state.screen == Screen.PREPARE && app.orcaandroid.ui.prepare.sliceOnGrip(state, wide)
+                val header: (@Composable () -> Unit)? = if (onHandle || slice) ({
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        if (onHandle) PlateSwitcherBar(state, vm, plateView, Modifier.weight(1f)) else Box(Modifier.weight(1f))
+                        if (slice) app.orcaandroid.ui.prepare.GripSliceButton(state, vm, Modifier.padding(start = 8.dp))
+                    }
+                }) else null
+                val tallest = (total * 0.85f).coerceAtLeast(56.dp)
                 Themed(panelRegion) {
-                    DragHandle(vertical = false, header = if (onHandle) ({ PlateSwitcherBar(state, vm, plateView, Modifier.fillMaxWidth().padding(horizontal = 8.dp)) }) else null) { d -> PanelSize.height = (height - d).value }
+                    DragHandle(vertical = false, header = header,
+                        onFling = { down -> settle(if (down) 56f else tallest.value, height.value) { PanelSize.height = it } },
+                    ) { d -> PanelSize.height = (height - d).value }
                 }
                 Surface(Modifier.height(height).fillMaxWidth(), color = sheetColors.surfaceContainerLow, contentColor = sheetColors.onSurface) {
                     Themed(panelRegion) { Box(Modifier.fillMaxSize()) { panel() } }
@@ -398,16 +423,25 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
     }
 }
 
-/** A grip between two panes; dragging it reports the move ([vertical] grip: sideways, else up/down). */
+/**
+ * A grip between two panes; dragging it reports the move ([vertical] grip: sideways, else up/down). Let go of a quick
+ * flick and [onFling] gets its direction (true = down / right); a slow release stays where the finger left it.
+ */
 @Composable
-private fun DragHandle(vertical: Boolean, header: (@Composable () -> Unit)? = null, onDrag: (androidx.compose.ui.unit.Dp) -> Unit) {
+private fun DragHandle(vertical: Boolean, header: (@Composable () -> Unit)? = null, onFling: ((Boolean) -> Unit)? = null,
+                       onDrag: (androidx.compose.ui.unit.Dp) -> Unit) {
     val density = androidx.compose.ui.platform.LocalDensity.current
     val drag = androidx.compose.foundation.gestures.rememberDraggableState { px -> onDrag(with(density) { px.toDp() }) }
+    val speed = remember { FingerSpeed() }
+    val stopped: suspend kotlinx.coroutines.CoroutineScope.(Float) -> Unit = {
+        val dps = with(density) { speed.release(vertical = !vertical).toDp() }
+        if (onFling != null && kotlin.math.abs(dps.value) >= FLING_DP_PER_S) onFling(dps.value > 0)
+    }
     // Something nested on the grip (the plate switcher): it rides on top of the grip row, which alone drags.
     if (header != null && !vertical) {
         Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainer)) {
             header()
-            Box(Modifier.height(20.dp).fillMaxWidth().draggable(drag, Orientation.Vertical), contentAlignment = Alignment.Center) {
+            Box(Modifier.height(20.dp).fillMaxWidth().trackFinger(speed).draggable(drag, Orientation.Vertical, onDragStarted = { GripGlide.job?.cancel() }, onDragStopped = stopped), contentAlignment = Alignment.Center) {
                 Box(Modifier.size(40.dp, 4.dp).background(MaterialTheme.colorScheme.outline, RoundedCornerShape(2.dp)))
             }
         }
@@ -416,12 +450,75 @@ private fun DragHandle(vertical: Boolean, header: (@Composable () -> Unit)? = nu
     Box(
         (if (vertical) Modifier.width(16.dp).fillMaxHeight() else Modifier.height(20.dp).fillMaxWidth())
             .background(MaterialTheme.colorScheme.surfaceContainer)
-            .draggable(drag, if (vertical) Orientation.Horizontal else Orientation.Vertical),
+            .trackFinger(speed)
+            .draggable(drag, if (vertical) Orientation.Horizontal else Orientation.Vertical, onDragStarted = { GripGlide.job?.cancel() }, onDragStopped = stopped),
         contentAlignment = Alignment.Center,
     ) {
         Box(Modifier.size(if (vertical) 4.dp else 40.dp, if (vertical) 40.dp else 4.dp)
             .background(MaterialTheme.colorScheme.outline, RoundedCornerShape(2.dp)))
     }
+}
+
+/** Release speed (dp/s) from which a grip flick collapses or expands its pane. */
+private const val FLING_DP_PER_S = 800f
+
+/**
+ * The finger's speed over a grip, in window pixels. A grip follows the finger, so the speed relative to it (what
+ * draggable's onDragStopped reports) stays near 0 and flicks never fired (r281).
+ */
+private class FingerSpeed {
+    val tracker = androidx.compose.ui.input.pointer.util.VelocityTracker()
+    var coords: androidx.compose.ui.layout.LayoutCoordinates? = null
+
+    /** Speed at release (px/s) along y ([vertical]) or x; 0 when the finger rested before letting go. */
+    fun release(vertical: Boolean): Float = tracker.calculateVelocity().let { if (vertical) it.y else it.x }
+}
+
+private fun Modifier.trackFinger(s: FingerSpeed) = onGloballyPositioned { s.coords = it }.pointerInput(s) {
+    awaitPointerEventScope {
+        while (true) {
+            // Initial pass, nothing consumed: the draggable below still gets every event.
+            val change = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial).changes.firstOrNull() ?: continue
+            val coords = s.coords ?: continue
+            if (change.pressed && !change.previousPressed) s.tracker.resetTracking()
+            // Event positions are local to the layout as it is now: map them to the root before the grip moves again.
+            change.historical.forEach { s.tracker.addPosition(it.uptimeMillis, coords.localToRoot(it.position)) }
+            s.tracker.addPosition(change.uptimeMillis, coords.localToRoot(change.position))
+        }
+    }
+}
+
+/** Glides a pane size (dp) from [from] to [to] after a flick. */
+private fun settle(to: Float, from: Float, set: (Float) -> Unit) {
+    GripGlide.job?.cancel()
+    val low = minOf(from, to)
+    GripGlide.job = GripGlide.scope.launch {
+        val me = coroutineContext[kotlinx.coroutines.Job]
+        try {
+            androidx.compose.animation.core.animate(from, to) { v, _ -> GripGlide.extra = v - low; set(v) }
+        } finally {
+            if (GripGlide.job === me) GripGlide.extra = 0f
+        }
+    }
+}
+
+private object GripGlide {
+    // animate() needs a MonotonicFrameClock: plain MainScope() has none and crashed every fling (r283).
+    val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + androidx.compose.ui.platform.AndroidUiDispatcher.Main)
+    var job: kotlinx.coroutines.Job? = null
+    /** How far (dp) the gliding pane is above its smallest size on this glide; 0 when no glide runs. */
+    var extra by mutableStateOf(0f)
+}
+
+/**
+ * During a grip glide the 3D view keeps the largest size it reaches (the rest hides under the panel), so its GL surface
+ * resizes once instead of on every frame: the stretched stale frames made the plate jiggle "jello" (user, r294).
+ */
+private fun Modifier.steadyThroughGlide() = layout { m, c ->
+    val extra = GripGlide.extra.dp.roundToPx()
+    val tall = if (extra > 0 && c.hasBoundedHeight) c.maxHeight + extra else -1
+    val p = m.measure(if (tall > 0) c.copy(minHeight = tall, maxHeight = tall) else c)
+    layout(c.constrainWidth(p.width), c.constrainHeight(p.height)) { p.place(0, 0) }
 }
 
 private val PANEL_DEFAULT = 380.dp
@@ -442,12 +539,17 @@ private object ScadEditorSize {
 
 /** The settings panel's edge on wide layouts: drag to resize, tap to tuck the panel away or bring it back. */
 @Composable
-private fun PanelEdge(tucked: Boolean, onClick: () -> Unit, onDrag: (androidx.compose.ui.unit.Dp) -> Unit, onDragEnd: () -> Unit) {
+private fun PanelEdge(tucked: Boolean, onClick: () -> Unit, onDrag: (androidx.compose.ui.unit.Dp) -> Unit, onDragEnd: (flick: Boolean?) -> Unit) {
     val density = androidx.compose.ui.platform.LocalDensity.current
     val drag = androidx.compose.foundation.gestures.rememberDraggableState { px -> onDrag(with(density) { px.toDp() }) }
     val label = stringResource(if (tucked) R.string.show_panel else R.string.tuck_panel)
+    val speed = remember { FingerSpeed() }
     Surface(onClick = onClick, tonalElevation = 2.dp, modifier = Modifier.width(if (tucked) 32.dp else 20.dp).fillMaxHeight()
-        .draggable(drag, Orientation.Horizontal, onDragStopped = { onDragEnd() })) {
+        .trackFinger(speed)
+        .draggable(drag, Orientation.Horizontal, onDragStopped = {
+            val dps = with(density) { speed.release(vertical = false).toDp() }.value
+            onDragEnd(if (kotlin.math.abs(dps) >= FLING_DP_PER_S) dps > 0 else null)
+        })) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             Box(Modifier.size(4.dp, 32.dp).background(MaterialTheme.colorScheme.outline, RoundedCornerShape(2.dp)))
             app.orcaandroid.ui.prepare.Tip(label) {

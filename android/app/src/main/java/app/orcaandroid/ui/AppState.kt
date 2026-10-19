@@ -98,6 +98,13 @@ data class UiState(
     val modelsUrl: String? = null,
     /** Where the 3D view's context menu is open (view pixels), or null. */
     val contextMenu: Pair<Float, Float>? = null,
+    /**
+     * The copy whose box corners resize it (Resize in the context menu, Ctrl+T or S); off again once the
+     * selection changes, so a drag can't resize by accident (user, 2026-10-19).
+     */
+    val resizeFor: Selection? = null,
+    /** An add dialog asked for by a shortcut ("text" for T), shown by the 3D view's context menu host. */
+    val addDialog: String? = null,
     val screen: Screen = Screen.PREPARE,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val dynamicColor: Boolean = false,
@@ -105,6 +112,7 @@ data class UiState(
     /** The floating colour panel is open over the app (design mode). */
     val designMode: Boolean = false,
     val doubleBackToQuit: Boolean = false,
+    val pen: app.orcaandroid.core.PenConfig = app.orcaandroid.core.PenConfig(),
     /** What an opened project does to the filament slots ("ask", "project", "mine") and the question being asked. */
     val projectFilaments: String = "ask",
     val filamentChoice: FilamentChoice? = null,
@@ -112,6 +120,8 @@ data class UiState(
     val projectOrImport: String? = null,
     /** 3D view contact shadows. */
     val contactShadows: Boolean = true,
+    /** How the selection shows ([app.orcaandroid.render.SelectionStyle] bits). */
+    val selectionStyle: Int = app.orcaandroid.render.SelectionStyle.DEFAULT,
     val lab: app.orcaandroid.core.LayoutLab = app.orcaandroid.core.LayoutLab(),
     val undoLimit: Int = app.orcaandroid.core.DEFAULT_UNDO_LIMIT,
     /** Auto-save interval in seconds; 0 or less = off (-seconds keeps the interval it had). */
@@ -238,6 +248,9 @@ data class UiState(
 
     /** Every selected copy: the multi-selection, else the single selection. */
     val selectedItems: List<Selection> get() = multiSelection.ifEmpty { listOfNotNull(selection) }
+
+    /** Corner resizing is on for the lone selected copy. */
+    val resizing: Boolean get() = resizeFor != null && selectedItems.singleOrNull() == resizeFor
 
     /** Selects the copies [items]: one becomes the single selection, more a multi-selection. */
     fun withSelected(items: List<Selection>) = copy(

@@ -10,6 +10,7 @@ import app.orcaandroid.net.HostType
 import app.orcaandroid.net.PrintHost
 import app.orcaandroid.net.PrinterAlert
 import app.orcaandroid.net.PrinterConnection
+import app.orcaandroid.net.PrinterControl
 import app.orcaandroid.net.PrinterModel
 import app.orcaandroid.net.PrinterTray
 import app.orcaandroid.service.PrintMonitorService
@@ -17,7 +18,11 @@ import java.io.File
 import java.io.IOException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -158,6 +163,18 @@ class DeviceController(private val store: Store) {
         refreshStatus()
     }
 
+    /** Sends a manual control (temperature, speed, fan, light, jog); the status poll shows the printer's report of it. */
+    fun sendControl(control: PrinterControl) = store.launch {
+        val connection = store.value.connection ?: return@launch
+        val result = runCatching {
+            withHost(connection) { host ->
+                control.print?.let { host.command(it) }
+                control.system?.let { host.systemCommand(it) }
+            }
+        }
+        store.update { it.copy(printerStatusError = result.exceptionOrNull()?.let { e -> e.message ?: e.toString() }) }
+    }
+
     /** Answers the printer's prompt for [alert] with one of its buttons, as the desktop's error dialog does. */
     fun answerAlert(alert: PrinterAlert, button: Int) = store.launch {
         val connection = store.value.connection ?: return@launch
@@ -168,8 +185,33 @@ class DeviceController(private val store: Store) {
     }
 
     /** Refreshes the printer status once (device tab). */
-    fun refreshStatus() = store.launch {
-        val connection = store.value.connection ?: return@launch
+    fun refreshStatus() = store.launch { refreshNow() }
+
+    /**
+     * Polls the status while the Device tab shows its printer. One host stays open meanwhile, so the controls
+     * and the polls reuse its connection instead of connecting (TLS + MQTT) for each, and the printer's
+     * changes are not missed between polls.
+     */
+    suspend fun pollStatus() {
+        polling = true
+        try {
+            while (true) {
+                refreshNow()
+                delay(POLL_MS)
+            }
+        } finally {
+            withContext(NonCancellable + Dispatchers.IO) {
+                liveLock.withLock {
+                    polling = false
+                    live?.second?.close()
+                    live = null
+                }
+            }
+        }
+    }
+
+    private suspend fun refreshNow() {
+        val connection = store.value.connection ?: return
         val result = withHost(connection) { host -> runCatching { host.status()?.let { HmsCatalog.describe(store.app, connection.serial, it) } } }
         store.container.printerStatus.value = result.getOrNull()
         store.update { it.copy(printerStatusError = result.exceptionOrNull()?.let { e -> e.message ?: e.toString() }) }
@@ -182,12 +224,25 @@ class DeviceController(private val store: Store) {
         return withHost(connection) { it.fullStatus()?.trays.orEmpty() }
     }
 
+    @Volatile private var polling = false
+    private val liveLock = Mutex()
+    private var live: Pair<PrinterConnection, PrintHost>? = null
+
     private suspend fun <T> withHost(connection: PrinterConnection, block: (PrintHost) -> T): T = withContext(Dispatchers.IO) {
-        val host = PrintHost.create(connection)
-        try { block(host) } finally { host.close() }
+        if (!polling) {
+            val host = PrintHost.create(connection)
+            try { block(host) } finally { host.close() }
+        } else liveLock.withLock {
+            val held = live?.takeIf { it.first == connection }?.second ?: run {
+                live?.second?.close()
+                PrintHost.create(connection).also { live = connection to it }
+            }
+            block(held)
+        }
     }
 
     private companion object {
         const val DISCOVERY_MS = 20_000L
+        const val POLL_MS = 1_000L
     }
 }

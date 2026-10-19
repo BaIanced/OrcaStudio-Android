@@ -18,6 +18,9 @@ object PrinterModel {
 
     fun ofSerial(serial: String): String? = serialPrefixes[serial.trim().take(3).uppercase()]
 
+    /** True for CoreXY models, false for the bed-slinger A1 series, null when the model is unknown. */
+    fun isCoreXy(serial: String): Boolean? = ofSerial(serial)?.let { !it.startsWith("A1") }
+
     fun ofPreset(name: String): String? {
         val lower = name.lowercase()
         if (!lower.contains("bambu")) return null

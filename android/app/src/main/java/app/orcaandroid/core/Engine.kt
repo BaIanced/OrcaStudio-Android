@@ -58,7 +58,9 @@ class Engine(private val cacheDir: File) {
         call("setSelection", args("print" to print, "filaments" to fils, "overrides" to overrides))
     }
 
-    suspend fun optionStates(): OptionStates = call("optionStates").let { o ->
+    /** [objectSettings]: an object / part / range editor's settings, applied over the process (null: the process). */
+    suspend fun optionStates(objectSettings: Map<String, String>? = null): OptionStates =
+        call("optionStates", if (objectSettings == null) JSONObject() else args("object" to objectSettings)).let { o ->
         OptionStates(o.getJSONArray("disabled").map { it as String }.toSet(), o.getJSONArray("hidden").map { it as String }.toSet())
     }
 

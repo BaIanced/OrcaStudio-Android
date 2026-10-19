@@ -28,6 +28,9 @@ PATTERNS = [
                                    r"|proton|protonmail|pm)\.[a-z.]{2,}", re.I)),
     ("sign-in token", re.compile(r"eyJ[\w-]{8,}\.eyJ[\w-]{8,}")),
     ("private key", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----")),
+    # Printer LAN access code (8 letters/digits, at least one digit) written next to its name.
+    ("access code", re.compile(r"(?:access[ _-]?code|dev_access_code|BBL_CODE|lan[ _-]?code)\W{1,6}"
+                               r"(?=[0-9A-Za-z]{0,7}\d)[0-9A-Za-z]{8}(?![0-9A-Za-z])", re.I)),
 ]
 
 

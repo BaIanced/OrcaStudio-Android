@@ -89,7 +89,8 @@ data class OptionDef(
     }
 }
 
-data class SettingsGroup(val title: String, val options: List<String>)
+/** [rows]: option key -> label of the desktop row it shares with others (e.g. "Cool Plate" for its "First layer"). */
+data class SettingsGroup(val title: String, val options: List<String>, val rows: Map<String, String> = emptyMap())
 data class SettingsPage(val title: String, val groups: List<SettingsGroup>)
 
 /** Which process options the desktop rules grey out / hide for the current values. */

@@ -4,15 +4,20 @@ import app.orcaandroid.R
 import app.orcaandroid.core.Instance
 import app.orcaandroid.core.Scene
 import app.orcaandroid.core.Vec3
+import app.orcaandroid.scad.Bounds
 import app.orcaandroid.scad.D3
 import app.orcaandroid.scad.Repeat
 import app.orcaandroid.scad.Shape
 import app.orcaandroid.scad.ShapeDesign
 import app.orcaandroid.scad.Sketch
 import app.orcaandroid.ui.PresetController
+import app.orcaandroid.ui.Screen
 import app.orcaandroid.ui.ScadController
 import app.orcaandroid.ui.ShapeController
+import app.orcaandroid.ui.SliceController
+import app.orcaandroid.ui.preview.ROLE_NAMES
 import app.orcaandroid.ui.Store
+import kotlin.math.sqrt
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -25,7 +30,8 @@ import org.json.JSONObject
  * thread, so every edit shows up live in the editor and is one undo step there. Putting a design on
  * the plate waits for the user's Allow on screen.
  */
-class McpTools(private val store: Store, private val scad: ScadController, private val shapes: ShapeController, presets: PresetController) {
+class McpTools(private val store: Store, private val scad: ScadController, private val shapes: ShapeController, presets: PresetController,
+               private val slicing: SliceController) {
 
     /** [run] returns the reply text, or a ready-made `content` [JSONArray] (e.g. an image) for [reply]. */
     internal class Tool(val name: String, val description: String, val schema: JSONObject, val run: suspend (JSONObject) -> Any)
@@ -54,7 +60,8 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             obj(emptyList(), "size" to p("integer", "Image size in px (square), 128..1024; default 512"))) { snapshot(it) },
         Tool("design_set", "Edit: replaces the whole shape-builder design.$OPENS " +
             "Prefer the shape_* tools for small changes. $EDIT Units: mm and degrees. $FORMAT",
-            obj(listOf("design"), "design" to p("object", "The whole design: {shapes: [...], dims: [...]} as returned by design_get."))) { set(it) },
+            obj(listOf("design"), "design" to p("object", "The whole design: {shapes: [...], dims: [...]}, i.e. design_get's design field (not its whole reply)."),
+                "name" to p("string", "The design's name; default unchanged"))) { set(it) },
         Tool("shape_add", "Edit: adds one shape (any kind but group / mesh) and selects it. Without pos it is placed right " +
             "of the others on the workplane. Returns its id in the tree. $EDIT",
             obj(listOf("kind"), "kind" to p("string", "box, rounded_box, cylinder, prism, cone, pyramid, sphere, dome, torus, tube, wedge, text, sketch"),
@@ -143,21 +150,35 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         Tool("plate_arrange", "Plate edit: arranges the objects on a plate (default the active one), or with all true " +
             "every object over all plates (plates are added when they don't fit). $PLATE_EDIT",
             obj(emptyList(), "plate" to p("integer", "Plate number"), "all" to p("boolean", "true = every plate"))) { arrange(it) },
+        Tool("slice", "Run: slices a plate (default the active one) with the chosen printer, process and filaments and waits " +
+            "for it (up to 10 min). The app then shows the Preview tab. Replies with the full result (same as slice_result, " +
+            "which is only for re-reading it later), or the error.",
+            obj(emptyList(), "plate" to p("integer", "Plate number; default the active plate"))) { slice(it) },
+        Tool("slice_result", "Read: the last slice of a plate (default the active one): print time, filament, layers, time and " +
+            "filament per extrusion role, and the slicer's warnings. Nothing is sliced here; use slice for that.",
+            obj(emptyList(), "plate" to p("integer", "Plate number; default the active plate"))) { sliceResult(it) },
         Tool("view_set", "View: sets the 3D view of the plate (not the design editor): a preset view or camera angles, the " +
             "section view cut and the 3D look. Given fields change, others stay. Returns the camera and what is on. " +
-            "Needs the Prepare tab's 3D view on screen.",
+            "Shows the Prepare tab's 3D view first (the design editor stays open behind it). To look at a part from a side, " +
+            "give a preset view with object: fit always uses the iso angles.",
             obj(emptyList(),
-                "view" to p("string", "iso, top, front, left, right, bottom, rear or fit (frames the plate)"),
+                "view" to p("string", "iso, top, front, left, right, bottom, rear or fit (frames the plate from the iso angles)"),
                 "plate" to p("integer", "Plate number to frame with view fit; default the active plate"),
+                "object" to p("integer", "Object number (plate_describe) to fill the view with, seen from the given view or " +
+                    "the current angles; 0 = every object on the active plate"),
                 "yaw" to p("number", "Degrees around the plate"), "pitch" to p("number", "Degrees above the bed, -89..89"),
                 "distance" to p("number", "Camera distance from the target, mm"),
                 "target" to vec("Point the camera looks at, mm"),
                 "section" to p("number", "Section view cut 0..1 (0 = off)"),
                 "shadows" to p("boolean", "Shadows under objects"))) { viewSet(it) },
         Tool("view_screenshot", "Read: a PNG of the plate's 3D view as drawn now (no buttons or panels), after a short wait " +
-            "for the last view change. Costs far more than text: use plate_describe or view_set's reply when they answer it. " +
-            "Needs the Prepare tab's 3D view on screen.",
+            "for the last view change. Costs far more than text: use view_state, plate_describe or view_set's reply when " +
+            "they answer it. Shows the Prepare tab's 3D view first.",
             obj(emptyList(), "size" to p("integer", "Longer side in px, 256..1280; default 720"))) { viewShot(it) },
+        Tool("view_state", "Read: what the plate's 3D view shows now, as text: camera, interaction mode and tool, the " +
+            "selection, and where each plate, object copy and prime tower is on screen (screen px: left,top width x height; " +
+            "tapping a box's centre hits it unless something covers it), marked when off or partly off the view. Far " +
+            "cheaper than view_screenshot. Shows the Prepare tab's 3D view first.", obj()) { viewReport() },
         Tool("models_human_check", "Web: if the Models tab's page shows Cloudflare's \"Verify you are human\" check, taps " +
             "its box and waits (up to 25 s) for the page to go on. Replies with the outcome and the page it ends on. Needs " +
             "the Models tab on screen.", obj()) {
@@ -233,6 +254,39 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         }
         d.shapes.forEach { line(it, 0) }
         if (d.shapes.isEmpty()) appendLine("(empty)")
+        appendLine(fitNotes(d))
+    }
+
+    /**
+     * Text check for parts that float or sit off the bed, from the top-level solids' bounding boxes (holes ignored).
+     * Boxes of rotated shapes are larger than the shape, so "touching" can be a false positive; "apart" never is.
+     */
+    private fun fitNotes(d: ShapeDesign): String {
+        val solids = d.shapes.filter { !it.hole }
+        if (solids.isEmpty()) return ""
+        val boxes = solids.map { d.bounds(it) }
+        fun gap(a: Bounds, b: Bounds): Double {
+            fun g(amin: Double, amax: Double, bmin: Double, bmax: Double) = maxOf(amin - bmax, bmin - amax, 0.0)
+            val x = g(a.min.x, a.max.x, b.min.x, b.max.x)
+            val y = g(a.min.y, a.max.y, b.min.y, b.max.y)
+            val z = g(a.min.z, a.max.z, b.min.z, b.max.z)
+            return sqrt(x * x + y * y + z * z)
+        }
+        val group = IntArray(solids.size) { it }
+        fun root(i: Int): Int { var r = i; while (group[r] != r) r = group[r]; return r }
+        for (i in solids.indices) for (j in i + 1 until solids.size) if (gap(boxes[i], boxes[j]) <= 0.05) group[root(j)] = root(i)
+        val pieces = solids.indices.groupBy { root(it) }.values.toList()
+        val notes = mutableListOf<String>()
+        if (pieces.size > 1) {
+            val names = pieces.joinToString("; ") { p -> p.joinToString(", ") { "#${solids[it].id}" } }
+            val nearest = pieces.indices.flatMap { a -> (a + 1 until pieces.size).map { b ->
+                pieces[a].minOf { i -> pieces[b].minOf { j -> gap(boxes[i], boxes[j]) } } } }.minOrNull() ?: 0.0
+            notes += "${pieces.size} separate pieces, not touching (bounding boxes): $names; closest gap ${n(nearest)} mm"
+        }
+        val low = boxes.minOf { it.min.z }
+        if (low > 0.05) notes += "lowest point is ${n(low)} mm above the bed (nothing to print on)"
+        if (low < -0.05) notes += "lowest point is ${n(-low)} mm below the bed (that part is cut off)"
+        return if (notes.isEmpty()) "Fit check: one connected piece on the bed (bounding boxes)." else notes.joinToString("\n") { "Fit check: $it" }
     }
 
     /** Renders the editor's design as its preview and reports how it went. */
@@ -273,9 +327,22 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             .put(JSONObject().put("type", "text").put("text", caption))
     }
 
-    private fun plateView(): app.orcaandroid.render.PlateView =
-        app.orcaandroid.render.PlateView.active?.get()?.takeIf { it.isShown }
-            ?: throw ToolError("No 3D view is on screen: open the Prepare tab in the app")
+    /**
+     * The plate's 3D view (main thread). Brings it on screen first: the Prepare tab unless Preview is up, and the
+     * design editor tucked away (it stays open with its undo; the OpenSCAD button brings it back).
+     */
+    private suspend fun plateView(): app.orcaandroid.render.PlateView {
+        fun shown() = app.orcaandroid.render.PlateView.active?.get()?.takeIf { it.isShown }
+        val s = store.value
+        if (s.screen != Screen.PREPARE && s.screen != Screen.PREVIEW) store.update { it.copy(screen = Screen.PREPARE) }
+        if (s.scad != null && !s.scadOnPlate && !s.scadHidden) store.update { it.copy(scadHidden = true) }
+        if (store.value != s) kotlinx.coroutines.delay(300)
+        return shown() ?: withTimeoutOrNull(3_000) {
+            var v = shown()
+            while (v == null) { kotlinx.coroutines.delay(100); v = shown() }
+            v
+        } ?: throw ToolError("No 3D view is on screen: is the app in the foreground?")
+    }
 
     private fun viewState(view: app.orcaandroid.render.PlateView): String {
         val c = view.camera.state()
@@ -292,6 +359,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         val yaw = num("yaw"); val pitch = num("pitch"); val distance = num("distance")
         val to = target?.let { Vec3(it.x.toFloat(), it.y.toFloat(), it.z.toFloat()) }
         var fitted = false
+        if (args.has("object") && args.optString("view") == "fit") throw ToolError("Give view fit or object, not both")
         args.optString("view").takeIf { it.isNotEmpty() }?.let { name ->
             if (name == "fit") {
                 val plate = if (args.has("plate")) args.optInt("plate") - 1 else store.value.activePlate
@@ -305,6 +373,19 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
                 view.camera.preset(id)
             }
         }
+        if (args.has("object")) {
+            val scene = store.value.scene
+            val which = args.optInt("object", -1)
+            val copies = when (which) {
+                0 -> scene.objects.flatMap { it.instances }.filter { it.plate == store.value.activePlate }
+                in 1..scene.objects.size -> scene.objects[which - 1].instances
+                else -> throw ToolError("No object $which (there are ${scene.objects.size})")
+            }
+            if (copies.isEmpty()) throw ToolError("Nothing to frame: plate ${store.value.activePlate + 1} is empty")
+            val lo = Vec3(copies.minOf { it.min.x }, copies.minOf { it.min.y }, copies.minOf { it.min.z })
+            val hi = Vec3(copies.maxOf { it.min.x + it.size.x }, copies.maxOf { it.min.y + it.size.y }, copies.maxOf { it.min.z + it.size.z })
+            view.camera.fit(lo, hi, keepAngles = true)
+        }
         if (fitted) kotlinx.coroutines.delay(150) else view.camera.aim(yaw, pitch, distance, to)
         num("section")?.let { r -> view.section.set(r); view.section.panelOpen = view.section.active }
         if (args.has("shadows")) {
@@ -313,6 +394,59 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             store.update { it.copy(contactShadows = on) }
         }
         viewState(view)
+    }
+
+    private suspend fun viewReport(): String = withContext(Dispatchers.Main.immediate) {
+        val view = plateView()
+        val s = store.value
+        val scene = s.scene
+        val at = IntArray(2).also { view.getLocationOnScreen(it) }
+        val w = view.width.toFloat(); val h = view.height.toFloat()
+        fun px(x: Float, y: Float) = "${Math.round(x + at[0])},${Math.round(y + at[1])}"
+        /** The screen box of the world box [lo]..[hi], or where it is instead. */
+        fun box(lo: Vec3, hi: Vec3): String {
+            val corners = listOf(lo.x, hi.x).flatMap { x -> listOf(lo.y, hi.y).flatMap { y -> listOf(lo.z, hi.z).map { z -> Vec3(x, y, z) } } }
+            val seen = corners.mapNotNull { view.camera.project(it) }
+            if (seen.isEmpty()) return "behind the camera"
+            val l = seen.minOf { it.first }; val r = seen.maxOf { it.first }
+            val t = seen.minOf { it.second }; val b = seen.maxOf { it.second }
+            if (r < 0f || b < 0f || l > w || t > h) return "off the view"
+            val cl = l.coerceIn(0f, w); val cr = r.coerceIn(0f, w); val ct = t.coerceIn(0f, h); val cb = b.coerceIn(0f, h)
+            val clipped = seen.size < corners.size || cl != l || cr != r || ct != t || cb != b
+            return "${px(cl, ct)} ${Math.round(cr - cl)}x${Math.round(cb - ct)}" + if (clipped) " (partly off the view)" else ""
+        }
+        val selected = s.selectedItems
+        buildString {
+            appendLine("3D view ${view.width}x${view.height} px at screen ${at[0]},${at[1]}. ${viewState(view)}")
+            append("Mode ${view.mode.name.lowercase()}; tool ")
+            append(when (val tool = s.tool) {
+                app.orcaandroid.ui.Tool.None -> "none"
+                is app.orcaandroid.ui.Tool.Paint -> "paint ${tool.kind} (state ${tool.state}, radius ${n(tool.radius.toDouble())} mm)"
+                app.orcaandroid.ui.Tool.LayOnFace -> "lay on face"
+                app.orcaandroid.ui.Tool.Measure -> "measure, ${s.measure.size} point(s)"
+                is app.orcaandroid.ui.Tool.Cut -> "cut at Z ${n(tool.z.toDouble())} mm"
+                app.orcaandroid.ui.Tool.LayerHeight -> "variable layer height"
+            })
+            if (s.selectMode) append("; select mode on")
+            s.contextMenu?.let { (x, y) -> append("; context menu open at ${px(x, y)}") }
+            appendLine(".")
+            appendLine("Selected: " + if (selected.isEmpty()) "nothing" else selected.joinToString { sel ->
+                "object ${sel.obj + 1} copy ${sel.instance + 1}" + if (sel.volume >= 0) " part ${sel.volume + 1}" else ""
+            })
+            for (plate in scene.plates) {
+                val lo = Vec3(plate.originX, plate.originY, 0f)
+                append("Plate ${plate.index + 1}${if (plate.index == s.activePlate) " (active)" else ""}: ")
+                appendLine(box(lo, Vec3(plate.originX + scene.plateWidth, plate.originY + scene.plateDepth, 0f)))
+                plate.tower?.let { (x, y, tw, td, th) ->
+                    appendLine("  prime tower: ${box(Vec3(lo.x + x, lo.y + y, 0f), Vec3(lo.x + x + tw, lo.y + y + td, th))}")
+                }
+            }
+            for (o in scene.objects) for (i in o.instances) {
+                val mark = if (selected.any { it.obj == o.index && it.instance == i.index }) " [selected]" else ""
+                val where = if (i.plate < 0) " (off the plates)" else ""
+                appendLine("object ${o.index + 1} \"${o.name}\" copy ${i.index + 1}$mark$where: ${box(i.min, i.min + i.size)}")
+            }
+        }.trimEnd()
     }
 
     private suspend fun viewShot(args: JSONObject): JSONArray {
@@ -340,6 +474,41 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         return JSONArray()
             .put(JSONObject().put("type", "image").put("data", android.util.Base64.encodeToString(png, android.util.Base64.NO_WRAP)).put("mimeType", "image/png"))
             .put(JSONObject().put("type", "text").put("text", caption))
+    }
+
+    private fun plateArg(args: JSONObject): Int {
+        val scene = store.value.scene
+        if (!args.has("plate")) return store.value.activePlate
+        val plate = args.optInt("plate", 0) - 1
+        if (plate !in scene.plates.indices) throw ToolError("No plate ${plate + 1}; there are ${scene.plates.size}")
+        return plate
+    }
+
+    private suspend fun slice(args: JSONObject): String {
+        val plate = withContext(Dispatchers.Main.immediate) {
+            plateArg(args).also { p ->
+                if (store.value.isSlicing) throw ToolError("A slice is already running")
+                if (store.value.scene.objectsOn(p).isEmpty()) throw ToolError("Plate ${p + 1} is empty")
+                store.update { it.copy(error = null) }
+            }
+        }
+        val job = slicing.slice(plate)
+        if (withTimeoutOrNull(SLICE_TIMEOUT) { job.join() } == null) throw ToolError("Slicing takes longer than ${SLICE_TIMEOUT / 1000} s; it goes on in the app (slice_result later)")
+        store.value.error?.let { throw ToolError("Slicing failed: $it") }
+        return sliceResult(JSONObject().put("plate", plate + 1))
+    }
+
+    private suspend fun sliceResult(args: JSONObject): String = withContext(Dispatchers.Main.immediate) {
+        val plate = plateArg(args)
+        val r = store.value.results[plate] ?: throw ToolError("Plate ${plate + 1} has no slice result: run slice first")
+        buildString {
+            appendLine("Plate ${plate + 1}: ${duration(r.printTimeSeconds)} print time, ${n(r.filamentGrams)} g (${n(r.filamentMm / 1000.0)} m) filament, " +
+                "cost ${n(r.cost)}, ${r.layers.size} layers, top at z ${n(r.layers.lastOrNull()?.z?.toDouble() ?: 0.0)} mm, travel ${duration(r.travelTime.toDouble())}")
+            r.roles.filter { it.time > 0f || it.filamentG > 0f }.forEach {
+                appendLine("  ${ROLE_NAMES.getOrElse(it.role) { "?" }}: ${duration(it.time.toDouble())}, ${n(it.filamentG.toDouble())} g")
+            }
+            if (r.warnings.isEmpty()) append("No warnings.") else appendLine("Warnings:").also { r.warnings.take(15).forEach { w -> appendLine("  $w") } }
+        }.trimEnd()
     }
 
     private suspend fun plateDescribe(): String = withContext(Dispatchers.Main.immediate) {
@@ -494,7 +663,11 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         val problems = validate(o, store.value.scad?.shapes)
         if (problems.isNotEmpty()) throw ToolError("Design not valid:\n" + problems.joinToString("\n"))
         val next = ShapeDesign.of(o)
-        return edit("changed the design (${next.shapes.sumOf { it.all().count() }} shapes)") { shapes.replace(next) }
+        val name = args.optString("name").trim().takeIf { it.isNotEmpty() }
+        return edit("changed the design (${next.shapes.sumOf { it.all().count() }} shapes)") {
+            shapes.replace(next)
+            name?.let(scad::rename)
+        }
     }
 
     private suspend fun add(args: JSONObject): String {
@@ -528,7 +701,16 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         }
         o.optJSONObject("extra")?.let { e ->
             e.keys().forEach { k ->
-                if (k !in EXTRA_KEYS) throw ToolError("extra.$k is not one of ${EXTRA_KEYS.joinToString()}")
+                if (k == Shape.REVOLVE) {
+                    // Like sketch_set's revolve: the sketch's box follows the drawing turned or extruded.
+                    val s = d.find(id)
+                    val sk = s?.sketch?.takeIf { s.kind == Shape.Kind.SKETCH } ?: throw ToolError("extra.revolve is only for sketch shapes")
+                    val on = !e.isNull(k) && (e.optBoolean(k) || e.optDouble(k, 0.0) != 0.0)
+                    val solved = sk.solve({ d.dim(it)?.value })
+                    d = d.update(id) { ShapeDesign.fitSketch(it.copy(extra = it.extra + (Shape.REVOLVE to if (on) 1.0 else 0.0)), solved) }
+                    return@forEach
+                }
+                if (k !in EXTRA_KEYS) throw ToolError("extra.$k is not one of ${(EXTRA_KEYS + Shape.REVOLVE).joinToString()}")
                 if (e.isNull(k)) d = d.update(id) { it.copy(extra = it.extra - k, bind = it.bind - k) }
                 else num(k, e.optDouble(k).takeIf { it.isFinite() } ?: throw ToolError("extra.$k must be a number or null"))
             }
@@ -707,6 +889,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         private val BIND_FIELDS = listOf("size", "pos", "rot").flatMap { f -> "xyz".map { "$f.$it" } }
         private val NOTE_WORDS = listOf("ERROR", "WARNING")
         private const val RENDER_TIMEOUT = 180_000L
+        private const val SLICE_TIMEOUT = 600_000L
         private const val CONFIRM_TIMEOUT = 60_000L
 
         private const val EDIT = "One undo step in the app (the user can press Undo)."
@@ -735,7 +918,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             "hole" to p("boolean", "true = cuts the solids of its own group"),
             "mirror" to vec("1 = mirrored on that axis, 0 = not"),
             "extra" to p("object", "Kind specific numbers (null removes one): sides, top (cone top / bottom ratio), wall, tube, " +
-                "radius, edge (rounded edges mm), chamfer (1 = chamfer the edge), shell (hollow wall mm), open (1 = open top), angle"),
+                "radius, edge (rounded edges mm), chamfer (1 = chamfer the edge), shell (hollow wall mm), open (1 = open top), angle, revolve (sketch: 1 = turn about Z)"),
             "text" to p("string", "The text of a text shape"),
             "repeat" to JSONObject().put("type", JSONArray().put("object").put("null"))
                 .put("description", "Copies: {circular, count, step [x,y,z], angle, center [x,y,z]}, or null for none"),
@@ -750,10 +933,12 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             "shape = {id (unique positive int), kind (box, rounded_box, cylinder, prism, cone, pyramid, sphere, dome, torus, " +
             "tube, wedge, text, sketch, mesh, group), name, size [x,y,z] (bounding box), pos [x,y,z] (centre of the box's " +
             "bottom in x/y, its bottom in z, in the parent's frame), rot [x,y,z] (about the box centre, X then Y then Z), " +
-            "hole (true = cuts the solids of its own group), mirror [x,y,z] (1 = mirrored on that axis), extra {sides, top " +
+            "hole (true = cuts the solids of its own group), mirror [x,y,z] (1 = mirrored on that axis about the shape's own pos: " +
+            "to mirror across the origin, mirror a group placed at the origin), extra {sides, top " +
             "(cone top / bottom ratio), wall, tube, radius, edge (rounded edges mm), chamfer (1 = chamfer edge), shell " +
             "(hollow wall mm), open (1 = open top)}, text (text kind), repeat {circular, count, step [x,y,z], angle, " +
-            "center [x,y,z]}, sketch (sketch kind, see sketch_set), bind {\"size.x\": dimName, ...} (field driven by a " +
+            "center [x,y,z]; circular: angle 360 spreads the copies evenly round the circle, any other angle puts the first copy " +
+            "and the last angle apart}, sketch (sketch kind, see sketch_set), bind {\"size.x\": dimName, ...} (field driven by a " +
             "dim), children [shape] (group only)}. Keep ids of shapes you don't change; give new shapes new ids."
 
         const val INSTRUCTIONS = "OrcaStudio-Android (3D printing slicer). These tools edit the shape-builder design open in the " +

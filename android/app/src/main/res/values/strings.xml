@@ -83,6 +83,21 @@
     <string name="duplicate">Duplicate</string>
     <string name="dynamic_color">Use wallpaper colors</string>
     <string name="misc">Misc</string>
+    <string name="pen">Pen</string>
+    <string name="pen_ignore_fingers">Ignore fingers while the pen is near (palm rejection)</string>
+    <string name="pen_button1">Pen button 1</string>
+    <string name="pen_button2">Pen button 2</string>
+    <string name="pen_eraser">Eraser end</string>
+    <string name="pen_text">The pen tip works like one finger. Two fingers still pan and zoom. Buttons and the eraser end can be mapped to an action: drag actions apply while the button is held (or the eraser touches), Undo / Redo / Frame fire on a tap or button press. Pressure and tilt are not used.</string>
+    <string name="pen_act_tip">Like the tip</string>
+    <string name="pen_act_pan">Pan the view</string>
+    <string name="pen_act_orbit">Orbit the view</string>
+    <string name="pen_act_select_add">Select by rectangle</string>
+    <string name="pen_act_select_remove">Deselect by rectangle</string>
+    <string name="pen_act_menu">Context menu</string>
+    <string name="pen_act_undo">Undo</string>
+    <string name="pen_act_redo">Redo</string>
+    <string name="pen_act_frame">Frame the plate</string>
     <string name="undo_limit">Undo steps kept (1-5000)</string>
     <string name="auto_save">Auto-save the plate</string>
     <string name="auto_save_interval">Auto-save every (seconds, 10-3600)</string>
@@ -280,6 +295,9 @@
     <string name="repair">Repair mesh</string>
     <string name="reset">Reset</string>
     <string name="reset_all">Reset all changes</string>
+    <string name="resize">Resize</string>
+    <string name="resize_done">Done resizing</string>
+    <string name="resize_hint">Drag a corner of the box to resize</string>
     <string name="resume">Resume</string>
     <string name="retractions">Retractions</string>
     <string name="rotation">Rotation</string>
@@ -846,6 +864,7 @@
     <string name="lab_shadow_soft">Shadow softness (edge width): %s</string>
     <string name="lab_light_azimuth">Light direction around the plate: %s</string>
     <string name="lab_light_elevation">Light height above the bed: %s</string>
+    <string name="lab_pinch_speed">Pinch zoom speed (100 %% = as fast as the fingers): %s</string>
     <string name="lab_light_strength">Light strength (the shadow follows the direction): %s</string>
     <string name="lab_shadow_bias">Shadow bias (raise if striped, lower if light leaks under parts): %s</string>
     <string name="lab_overlay_scale">Floating controls over the 3D view: %d %%</string>
@@ -853,6 +872,7 @@
     <string name="scroll_up">Scroll up</string>
     <string name="scroll_down">Scroll down</string>
     <string name="lab_plates_on_handle">Portrait: plate switcher on the panel grip</string>
+    <string name="lab_slice_scale">Slice button size (portrait, on the panel grip): %d %%</string>
     <string name="lab_plate_scale">Plate switcher size: %d %%</string>
     <string name="lab_fullscreen_portrait">Fullscreen in portrait too</string>
     <string name="scad_draft_preview">Draft while dragging</string>
@@ -866,6 +886,13 @@
     <string name="preset_prusa_minimal">Prusa Minimal Warm</string>
     <string name="design_mode">Design mode</string>
     <string name="contact_shadows">3D view: shadows under objects</string>
+    <string name="selection_style">3D view: how selected objects show</string>
+    <string name="selection_outline">Outline</string>
+    <string name="selection_xray">X-ray outline</string>
+    <string name="selection_rim">Rim glow</string>
+    <string name="selection_wireframe">Wireframe</string>
+    <string name="selection_box">Bounding box</string>
+    <string name="selection_tint">Tint</string>
     <string name="design_mode_text">Change the colors live, part by part, in a panel over the app</string>
     <string name="design_editing_dark">Editing the dark theme</string>
     <string name="design_editing_light">Editing the light theme</string>
@@ -942,4 +969,22 @@
     <string name="camera_unreachable">Can\'t reach the printer\'s camera. Is this device on the same network, and is the printer on?</string>
     <string name="camera_rejected">The printer refused the connection. Check the access code.</string>
     <string name="camera_broken">The camera connection dropped. Press Start to try again.</string>
+    <string name="control_title">Controls</string>
+    <string name="control_tab_main">Control</string>
+    <string name="control_tab_xyz">XYZ</string>
+    <string name="control_extrude">Extrude</string>
+    <string name="control_retract">Retract</string>
+    <string name="control_speed">Speed</string>
+    <string name="control_speed_silent">Silent</string>
+    <string name="control_speed_standard">Standard</string>
+    <string name="control_speed_sport">Sport</string>
+    <string name="control_speed_ludicrous">Ludicrous</string>
+    <string name="control_light">Light</string>
+    <string name="control_part_fan">Part fan: %1$d %%</string>
+    <string name="control_set_temp">Set %1$s temperature (°C, 0 = off)</string>
+    <string name="control_step">Step: %1$s mm</string>
+    <string name="control_home">Home</string>
+    <string name="control_busy_print">Moving and extruding are off while a print runs.</string>
+    <string name="control_cold_nozzle">Heat the nozzle to at least 170° to extrude or retract.</string>
+    <string name="control_unknown_model">The printer model is unknown, so the move directions cannot be chosen.</string>
 </resources>

@@ -63,7 +63,7 @@ const std::unordered_map<std::string, Handler> &handlers()
              e.set_selection(a.at("print"), a.at("filaments"), a.value("overrides", json::object()));
              return json{{"ok", true}};
          }},
-        {"optionStates", [](OrcaEngine &e, const json &) { return e.option_states(); }},
+        {"optionStates", [](OrcaEngine &e, const json &a) { return e.option_states(a.value("object", json())); }},
         {"loadCloudPresets", [](OrcaEngine &e, const json &a) { return e.load_cloud_presets(a.at("presets")); }},
         {"cloudUploads", [](OrcaEngine &e, const json &a) { return json{{"presets", e.cloud_uploads(a.at("userId"))}}; }},
         {"markUploaded", [](OrcaEngine &e, const json &a) {

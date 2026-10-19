@@ -37,7 +37,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val shapes = ShapeController(store, scad)
 
     /** MCP server for AI clients (Settings > AI tools); runs while this view model lives and the switch is on. */
-    private val aiTools = McpTools(store, scad, shapes, presets)
+    private val aiTools = McpTools(store, scad, shapes, presets, slicing)
     private val mcp = McpServer(AI_TOOLS_PORT, { store.settings.aiToken }, aiTools)
 
     /** Desktop translations of option labels for the device language. */
@@ -150,6 +150,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         store.update { it.copy(lab = lab) }
     }
 
+    fun setPen(pen: app.orcaandroid.core.PenConfig) {
+        store.settings.pen = pen
+        store.update { it.copy(pen = pen) }
+    }
+
     fun setDoubleBackToQuit(on: Boolean) {
         store.settings.doubleBackToQuit = on
         store.update { it.copy(doubleBackToQuit = on) }
@@ -163,6 +168,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun setContactShadows(on: Boolean) {
         store.settings.contactShadows = on
         store.update { it.copy(contactShadows = on) }
+    }
+
+    fun setSelectionStyle(style: Int) {
+        store.settings.selectionStyle = style
+        store.update { it.copy(selectionStyle = style) }
     }
 
     fun setAutoSave(seconds: Int) {

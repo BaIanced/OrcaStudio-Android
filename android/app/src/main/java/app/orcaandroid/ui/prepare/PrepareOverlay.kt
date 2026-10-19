@@ -45,6 +45,7 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material.icons.filled.VerticalAlignBottom
@@ -115,6 +116,7 @@ import app.orcaandroid.ui.components.showPlate
 @Composable
 fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boolean) {
     val lab = state.lab
+    val sliceOnGrip = sliceOnGrip(state, wide)
     // Tools in a column on the left: wide layouts always, portrait if chosen in the Layout lab.
     val column = wide || lab.toolsLeft
     // Portrait with the switcher on the panel grip (AppScaffold): nothing of it over the 3D view.
@@ -205,10 +207,10 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
         if (stripWithSlice) androidx.compose.foundation.layout.BoxWithConstraints(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(start = 60.dp)) {
             if (maxWidth >= 360.dp) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
                 PlateScale(lab.plateScale) { Filmstrip(state, vm, view, Modifier.weight(1f)) }
-                SliceButton(state, vm, Modifier)
+                if (!sliceOnGrip) SliceButton(state, vm, Modifier)
             } else Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 PlateScale(lab.plateScale) { Filmstrip(state, vm, view, Modifier.fillMaxWidth()) }
-                SliceButton(state, vm, Modifier)
+                if (!sliceOnGrip) SliceButton(state, vm, Modifier)
             }
         } else if (filmstrip) PlateScale(lab.plateScale) { Filmstrip(state, vm, view, Modifier.align(Alignment.BottomStart).padding(bottom = 120.dp)) }
         // The layer height graph is tall: on wide layouts it sits at the right edge (like the desktop's)
@@ -219,7 +221,7 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
                    bottom = if (wide) 0.dp else if (column) 72.dp else 116.dp)) {
             ToolPanel(state, vm)
         }
-        if (!stripWithSlice) SliceButton(state, vm, Modifier.align(Alignment.BottomEnd))
+        if (!stripWithSlice && !sliceOnGrip) SliceButton(state, vm, Modifier.align(Alignment.BottomEnd))
         // Setup problems (first case: a filament slot of the wrong type): tap opens the panel at the offending setting.
         val problems = state.setupProblems()
         if (problems.isNotEmpty() && !rightPanel) {
@@ -286,6 +288,9 @@ private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
                         onClick = { close(); vm.scene.setSelectMode(true) })
                     DropdownMenuItem(text = { Text(stringResource(R.string.lay_on_face)) }, leadingIcon = { Icon(Icons.Default.VerticalAlignBottom, null) },
                         onClick = { close(); vm.scene.setTool(Tool.LayOnFace) })
+                    if (state.multiSelection.isEmpty())
+                        DropdownMenuItem(text = { Text(stringResource(if (state.resizing) R.string.resize_done else R.string.resize)) },
+                            leadingIcon = { Icon(Icons.Default.OpenInFull, null) }, onClick = { close(); vm.scene.toggleResize() })
                     DropdownMenuItem(text = { Text(stringResource(R.string.add_modifier)) },
                         onClick = { close(); vm.scene.addVolume(VolumeType.MODIFIER, "box") })
                     if ((state.scene.objects.getOrNull(sel.obj)?.volumes?.count { it.type == VolumeType.PART } ?: 0) >= 2)
@@ -313,7 +318,7 @@ private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
             }
         }
     }
-    AddDialogs(state, vm, dialog) { dialog = null }
+    AddDialogs(state, vm, dialog ?: state.addDialog) { dialog = null; vm.scene.openAddDialog(null) }
 }
 
 /** Plate switcher (as chosen in the Layout lab), profile-update chip, undo/redo/view (when not in the tool column) and File. */
@@ -321,9 +326,12 @@ private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
 private fun TopBar(state: UiState, vm: AppViewModel, view: PlateView?, viewButtons: Boolean, onHandle: Boolean) {
     val alpha = LocalOverlayAlpha.current
     val bar = MaterialTheme.colorScheme.surface.copy(alpha = alpha)
-    // In fullscreen portrait the bar can sit beside the camera hole (CutoutRow).
+    val views: @Composable () -> Unit = { Surface(shape = RoundedCornerShape(20.dp), color = bar) { Row { ViewButtons(state, vm, view, rail = false) } } }
+    // In fullscreen portrait the bar can sit beside the camera hole (CutoutRow). With the switcher on the grip the
+    // view buttons take the free start, left of the hole, and File stays right of it (together they didn't fit past it).
     CutoutRow(minStart = 96.dp, start = {
-        if (!onHandle) PlateScale(state.lab.plateScale) {
+        if (onHandle) { if (viewButtons) views() }
+        else PlateScale(state.lab.plateScale) {
             when (state.lab.plates) {
                 PlateSwitcher.TABS -> Surface(shape = RoundedCornerShape(20.dp), color = bar) { PlateTabs(state, vm, view, Modifier.padding(start = 4.dp)) }
                 PlateSwitcher.FILMSTRIP -> if (state.lab.plateLabel) Surface(shape = RoundedCornerShape(20.dp), color = bar) { PlateLabel(state, vm) }
@@ -332,7 +340,7 @@ private fun TopBar(state: UiState, vm: AppViewModel, view: PlateView?, viewButto
         }
     }) {
         UpdatesChip(state, vm)
-        if (viewButtons) Surface(shape = RoundedCornerShape(20.dp), color = bar) { Row { ViewButtons(state, vm, view, rail = false) } }
+        if (viewButtons && !onHandle) views()
         FileButton(state, vm)
     }
 }
@@ -570,6 +578,19 @@ private fun ToolButton(icon: ImageVector, label: String, active: Boolean = false
     }
 }
 
+/** Portrait Prepare without the OpenSCAD editor: the Slice button sits at the right end of the panel's grip (user, 2026-10-17). */
+fun sliceOnGrip(state: UiState, wide: Boolean) = !wide && state.scad == null
+
+/** The Slice button on the panel grip, sized by the Layout lab's own slider (on top of the main UI size only). */
+@Composable
+fun GripSliceButton(state: UiState, vm: AppViewModel, modifier: Modifier = Modifier) {
+    val base = androidx.compose.ui.platform.LocalDensity.current
+    androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides
+        androidx.compose.ui.unit.Density(base.density * state.lab.sliceScale, base.fontScale)) {
+        SliceButton(state, vm, modifier.padding(vertical = 4.dp))
+    }
+}
+
 @Composable
 private fun SliceButton(state: UiState, vm: AppViewModel, modifier: Modifier) {
     val running = state.slice as? SliceStatus.Running
@@ -583,10 +604,13 @@ private fun SliceButton(state: UiState, vm: AppViewModel, modifier: Modifier) {
         }
     } else {
         var menu by remember { mutableStateOf(false) }
+        val label = stringResource(if (state.scene.plates.size > 1) R.string.slice_plate_n else R.string.slice, state.activePlate + 1)
         Box(modifier) {
+            // The FAB's text isn't in the accessibility tree (no label for TalkBack or ui dumps): name it here.
             ExtendedFloatingActionButton(
                 onClick = { vm.slicing.slice() },
-                text = { Text(stringResource(if (state.scene.plates.size > 1) R.string.slice_plate_n else R.string.slice, state.activePlate + 1)) },
+                modifier = Modifier.semantics { contentDescription = label },
+                text = { Text(label) },
                 icon = { Icon(Icons.Default.Layers, null) },
             )
             if (state.scene.plates.size > 1) {

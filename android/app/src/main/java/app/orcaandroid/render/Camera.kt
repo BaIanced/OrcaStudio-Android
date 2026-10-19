@@ -2,6 +2,7 @@ package app.orcaandroid.render
 
 import android.opengl.Matrix
 import app.orcaandroid.core.Vec3
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.sin
@@ -45,8 +46,8 @@ class Camera {
         pitch = if (top) 89f else 40f
     }
 
-    /** Looks at the box [min]..[max] from the iso direction so that it fills the view. */
-    @Synchronized fun fit(min: Vec3, max: Vec3) {
+    /** Looks at the box [min]..[max] from the iso direction (or the current one with [keepAngles]) so that it fills the view. */
+    @Synchronized fun fit(min: Vec3, max: Vec3, keepAngles: Boolean = false) {
         target[0] = (min.x + max.x) / 2
         target[1] = (min.y + max.y) / 2
         target[2] = (min.z + max.z) / 2
@@ -55,6 +56,7 @@ class Camera {
         // Distance at which a sphere around the box fits the narrower field of view.
         val half = Math.toRadians(FOV / 2.0).let { kotlin.math.tan(it) }.toFloat() * minOf(1f, aspect)
         distance = (radius / half * 1.1f).coerceIn(5f, 10000f)
+        if (keepAngles) return
         yaw = -60f
         pitch = 30f
     }
@@ -98,15 +100,29 @@ class Camera {
     }
 
     /**
-     * Pans so the build-plate point that was under screen (x0, y0) ends up under (x1, y1): the plate follows
-     * the finger exactly at any zoom and pitch. Falls back to [pan] when a ray misses the plate plane.
+     * Pans so the point that was under screen (x0, y0) ends up under (x1, y1), on a plane through the target: level
+     * from above (the plate follows the finger), tilting to face the camera towards side and under views, where the
+     * level plane is edge-on (up/down slid the view along Y, then switched to Z where the rays missed it, user
+     * 2026-10-19). The desktop pans on the camera plane. Falls back to [pan] when a ray misses the plane.
      */
     @Synchronized fun panGrab(x0: Float, y0: Float, x1: Float, y1: Float) {
-        val a = rayOnPlane(x0, y0)
-        val b = rayOnPlane(x1, y1)
+        val eye = towardsEye()
+        val t = ((pitch - PAN_FACING_DEG) / (PAN_LEVEL_DEG - PAN_FACING_DEG)).coerceIn(0f, 1f).let { it * it * (3 - 2 * it) }
+        val n = (eye * (1 - t) + Vec3(0f, 0f, 1f) * t).let { it * (1f / it.length()) }
+        val c = Vec3(target[0], target[1], target[2])
+        fun hit(x: Float, y: Float): Vec3? {
+            val (o, d) = ray(x, y)
+            val dn = d.dot(n)
+            if (abs(dn) < 1e-6f) return null
+            val s = (c - o).dot(n) / dn
+            return if (s < 0) null else o + d * s
+        }
+        val a = hit(x0, y0)
+        val b = hit(x1, y1)
         if (a == null || b == null) { pan(x1 - x0, y1 - y0); return }
         target[0] += a.x - b.x
         target[1] += a.y - b.y
+        target[2] += a.z - b.z
     }
 
     /** Sets any of yaw / pitch (degrees), distance (mm) and target; null leaves it as it is. */
@@ -197,6 +213,23 @@ class Camera {
         return if (t < 0) null else o + d * t
     }
 
+    /**
+     * Where a drag grabbed at [anchor] is now, for the finger at (x, y), as on the desktop (GLCanvas3D::on_mouse):
+     * on the level plane through [anchor], or from a side view (pitch within [SIDE_VIEW_DEG]; the desktop switches
+     * only at exactly level) on the plane facing the camera, keeping the sideways part since objects stay on the bed.
+     */
+    @Synchronized fun dragPoint(x: Float, y: Float, anchor: Vec3): Vec3? {
+        if (abs(pitch) >= SIDE_VIEW_DEG) return rayOnPlane(x, y, anchor.z)
+        val (o, d) = ray(x, y)
+        val n = towardsEye()
+        val dn = d.dot(n)
+        if (abs(dn) < 1e-6f) return null
+        val p = o + d * ((anchor - o).dot(n) / dn)
+        val (r, _) = axes()
+        val right = Vec3(r[0], r[1], r[2])
+        return anchor + right * (p - anchor).dot(right)
+    }
+
     private fun axes(): Pair<FloatArray, FloatArray> {
         val yr = Math.toRadians(yaw.toDouble())
         val pr = Math.toRadians(pitch.toDouble())
@@ -208,5 +241,10 @@ class Camera {
     companion object {
         /** Vertical field of view, degrees. */
         const val FOV = 35f
+        /** Below this pitch a level drag plane is too shallow to follow a finger; drags go sideways instead. */
+        const val SIDE_VIEW_DEG = 12f
+        /** Two-finger pans grab a camera-facing plane at or below this pitch, a level one from [PAN_LEVEL_DEG] up. */
+        const val PAN_FACING_DEG = 10f
+        const val PAN_LEVEL_DEG = 45f
     }
 }
