@@ -30,13 +30,12 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - r316 paint batching, double tap focus, ortho switch, MCP app_state/log_tail/perf: Claude-verified, merged (PR #32); paint/double-tap feel pending (backlog).
 - Ortho camera: user prefers perspective, zoom fine (closed); ortho = More > Appearance switch (r316), K, MCP view_set projection. MCP app_state / log_tail / perf (r314+, JVM-tested) need a run on WSA/phone (Chromebook: no root, run-as off).
 - **Pinch zoom-out stopping** (user r311, backlog last line): cause = ScaleGestureDetector min span; fixed r312, Claude-verified; user feel pending.
-- **Seams toggle** (user r297): fixed r298, Claude-verified on WSA (archive); user look pending.
 - Need the printer (backlog): fan slider jumps (r295 hold), Retract/Extrude F150 (e13bebb), extrude/jog, speed chips.
 - User hasn't seen: bead look (top-surface shading zoomed in), part shadows, light sliders (Layout lab), tool row (r276 movable
   portrait tool row). User-only: r283/r284 top bar + flick (explained to the user 2026-10-17), r280 pinch lock (preview locked mode).
 - Pen input: backlog, super low priority (user 2026-10-19).
-- Selection styles: all re-verified on Chromebook r316 incl. x-ray behind a copy (user asked); r305 resize gating
-  (long-press Resize / Ctrl+T / S, drag plane) Claude-verified WSA; user feel pending (backlog).
+- Seams + selection styles look: user-verified r316 (archive). r305 resize gating (long-press Resize / Ctrl+T / S,
+  drag plane) Claude-verified WSA; user feel pending (backlog).
 - Quest port skipped (backlog). Waiting on the user: plate switcher pick.
 
 ## User decisions (2026-10-13)

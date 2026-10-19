@@ -2364,4 +2364,5 @@ User: "you just tested something we already confirmed worked". Cross-checked eac
   rim glow, wireframe all draw; chips toggle each style. X-ray behind another object: hidden part of the back copy shows
   through the front cube with its outline. Copy deleted, styles back to outline+box.
 - 2026-10-19: main merged at r316 (PR #32, c47c8a6, merge commit; whole branch, all verified).
+- (2026-10-19, user, r316) "Look of seams and selection styles confirmed good." Preview seams toggle and selection styles look: closed.
 
