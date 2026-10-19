@@ -149,6 +149,8 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) SwitchRow(stringResource(R.string.dynamic_color), state.dynamicColor, onChange = vm::setDynamicColor)
                 ThemePresetList(state, vm)
                 SwitchRow(stringResource(R.string.contact_shadows), state.contactShadows, onChange = vm::setContactShadows)
+                // The desktop's View > Use Orthogonal View; a setting here since perspective is the usual look (user 2026-10-19). K toggles.
+                SwitchRow(stringResource(R.string.orthographic_camera), !state.perspective, onChange = { vm.setPerspective(!it) })
                 Text(stringResource(R.string.selection_style), style = MaterialTheme.typography.bodyLarge)
                 androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     val labels = listOf(R.string.selection_outline, R.string.selection_xray, R.string.selection_rim,

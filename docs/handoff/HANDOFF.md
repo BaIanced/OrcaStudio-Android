@@ -27,12 +27,11 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - User sessions backed up: phone `/data/local/tmp/phone-session-backup.{3mf,json}` (8 plates), WSA `/data/local/tmp/session-backup.{3mf,json}`.
   Test zip `scadzip-test.zip` stays in `/sdcard/Download` on phone + Chromebook. LAN access code was given in chat: never write it anywhere.
 ## Next task
-- **Orthographic camera** r314 (user 2026-10-19 asked; View menu Perspective / Orthographic, K, MCP view_set projection): user verdict on zoom feel in ortho decides the zoom curve (backlog "Zoom too slow"). MCP app_state / log_tail / perf (r314, JVM-tested; LogMask split in 2nd commit, unbuilt) need a run on WSA/phone (Chromebook: no root, run-as off).
+- **r315 (run 39286606394)**: paint batching (native `paint` takes `hits`; SceneController drains the queue per stroke) for the user's brush lag; double tap on a copy = head-on focus (Camera.focus), again = view before, empty = frame plate. Untested.
+- Ortho camera: user prefers perspective, zoom fine (closed); ortho = More > Appearance switch (r316), K, MCP view_set projection. MCP app_state / log_tail / perf (r314+, JVM-tested) need a run on WSA/phone (Chromebook: no root, run-as off).
 - **Pinch zoom-out stopping** (user r311, backlog last line): cause = ScaleGestureDetector min span; fixed r312, Claude-verified; user feel pending.
 - **Seams toggle** (user r297): fixed r298, Claude-verified on WSA (archive); user look pending.
-- Open: **fan slider jumps** (r295 hold-until-within-4 %,
-  needs the printer; Studio's sync logic is in the backlog line), Retract/Extrude buttons (r295; e13bebb+3bad1db = F150 in push/pop_ref_mode, in r298; needs the printer).
-- Printer controls (extrude/jog, speed chips) need the printer (backlog).
+- Need the printer (backlog): fan slider jumps (r295 hold), Retract/Extrude F150 (e13bebb), extrude/jog, speed chips.
 - User hasn't seen: bead look (top-surface shading zoomed in), part shadows, light sliders (Layout lab), tool row (r276 movable
   portrait tool row). User-only: r283/r284 top bar + flick (explained to the user 2026-10-17), r280 pinch lock (preview locked mode).
 - Pen input: backlog, super low priority (user 2026-10-19).

@@ -2347,3 +2347,7 @@ User: "you just tested something we already confirmed worked". Cross-checked eac
 - (2026-10-19, user, r314) Feature: "Double clicking directly on an object should reframe it in a focused way zoomed in looking at it head on
   object height. Double tap on object returns to previous view active before double tap. Double tap empty space on build plate remains the same." Open (backlog).
 - (2026-10-19, user, r314) Ortho: "I can't tell the difference, is it active?" (Claude had left the Chromebook in perspective after the K test.)
+- (2026-10-19, user, r314) "I prefer perspective, but that's nothing to do with zooming and just the looks on plate. Zooming is fine I
+  don't want to add complexity where there doesn't need to be any. Keep Ortho if there's legitimate uses for it, if not nest it into the
+  appearance setting as a toggle since other slicers use it." Zoom: CLOSED, no curve. Ortho moved from the View menu to a More >
+  Appearance switch (r316; K still toggles).
