@@ -29,7 +29,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 ## Next task
 - **Two-finger pan** (backlog last 2 lines): r310 (4f37eb9) installed all 4: switches PAN<->PINCH on the last 250 ms (Z-pan
   stall near centre) + catch-up pan. Claude-verified by script (archive); user feel pending ("a lot better, still misses" on r308).
-- **Done 2026-10-19 (user yes):** local APK builds + JVM tests (`TwoFingerGesture`, r311 run 39231442360); recipes in reference.
+- **Done 2026-10-19 (user yes):** local APK builds + JVM tests (`TwoFingerGesture`, r311 run 39231442360); recipes in reference. **r311 not installed yet: install on all 4, rerun pan2b + batch2 on the phone, then user feel.**
 - **Seams toggle** (user r297): fixed r298, Claude-verified on WSA (archive); user look pending.
 - Open: **fan slider jumps** (r295 hold-until-within-4 %,
   needs the printer; Studio's sync logic is in the backlog line), Retract/Extrude buttons (r295; e13bebb+3bad1db = F150 in push/pop_ref_mode, in r298; needs the printer).

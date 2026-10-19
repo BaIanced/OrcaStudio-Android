@@ -91,7 +91,7 @@ headless display below instead (no takeover needed). Don't drive WSA's own windo
   debuggable (`run-as` works). Use it for Claude's iteration; the user's installs stay CI builds. Needs `orca.python=python` in
   `~/.gradle/gradle.properties` (set).
 - **JVM unit tests** (`android/app/src/test`, 2026-10-19): same env as the compile command plus `PATH="${PATH//\"/}"` (the system
-  PATH's PowerToys entry ends in a stray `"`, which breaks the test JVM launch: "main class Files"; `./gradlew --stop` once after
+  PATH's PowerToys entry ended in a stray `"` (user fixed it 2026-10-19; only shells started before need the strip) - it broke the test JVM launch: "main class Files"; `./gradlew --stop` once after
   changing PATH), then `./gradlew -q :app:testDebugUnitTest`. Results: `~/build/orca-android/gradle/app/test-results/`.
 - Compile Kotlin locally before every push (12 s warm):
   `cd OrcaStudio-Android/android && JAVA_HOME="/c/Program Files/Java/jdk-22" ANDROID_HOME='C:\android_sdk' ./gradlew --console=plain -q :app:compileReleaseKotlin`
