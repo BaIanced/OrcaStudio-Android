@@ -27,7 +27,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - User sessions backed up: phone `/data/local/tmp/phone-session-backup.{3mf,json}` (8 plates), WSA `/data/local/tmp/session-backup.{3mf,json}`.
   Test zip `scadzip-test.zip` stays in `/sdcard/Download` on phone + Chromebook. LAN access code was given in chat: never write it anywhere.
 ## Next task
-- **r315 (run 39286606394)**: paint batching (native `paint` takes `hits`; SceneController drains the queue per stroke) for the user's brush lag; double tap on a copy = head-on focus (Camera.focus), again = view before, empty = frame plate. Untested.
+- **r316 (run 39287887140; r315 cancelled; NOT installed yet: install on all devices, then test paint + double tap on the Chromebook)**: paint batching (native `paint` takes `hits`; SceneController drains the queue per stroke) for the user's brush lag; double tap on a copy = head-on focus (Camera.focus), again = view before, empty = frame plate. Untested.
 - Ortho camera: user prefers perspective, zoom fine (closed); ortho = More > Appearance switch (r316), K, MCP view_set projection. MCP app_state / log_tail / perf (r314+, JVM-tested) need a run on WSA/phone (Chromebook: no root, run-as off).
 - **Pinch zoom-out stopping** (user r311, backlog last line): cause = ScaleGestureDetector min span; fixed r312, Claude-verified; user feel pending.
 - **Seams toggle** (user r297): fixed r298, Claude-verified on WSA (archive); user look pending.
