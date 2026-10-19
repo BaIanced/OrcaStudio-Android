@@ -4,10 +4,14 @@
 
 #include "OrcaEngine.hpp"
 
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <fstream>
+#include <memory>
 #include <stdexcept>
+
+#include <boost/log/trivial.hpp>
 
 #include "libslic3r/AABBMesh.hpp"
 #include "libslic3r/CustomGCode.hpp"
@@ -135,6 +139,32 @@ void OrcaEngine::write_paint_mesh()
         }
     };
     const int max_filament = std::max<int>(1, int(m_sel_filaments.size()));
+    // Painted triangles of one annotation state: from the cache, else from the live paint selector, else from one
+    // selector per annotation (FacetsAnnotation::get_facets deserialized the whole annotation again for every state).
+    decltype(m_paint_facets) used;
+    const TriangleSelector *loaded = nullptr;
+    std::unique_ptr<TriangleSelector> own;
+    auto facets_for = [&](const ModelVolume &vol, const FacetsAnnotation &annotation, EnforcerBlockerType state) -> const indexed_triangle_set & {
+        const auto key = std::make_tuple(static_cast<const void *>(&vol.mesh()), uint64_t(annotation.timestamp()), int(state));
+        auto it = m_paint_facets.find(key);
+        std::shared_ptr<indexed_triangle_set> its;
+        if (it != m_paint_facets.end()) {
+            its = it->second;
+        } else {
+            const TriangleSelector *selector = loaded;
+            if (m_live_paint.selector && m_live_paint.annotation == &annotation && m_live_paint.timestamp == annotation.timestamp() &&
+                m_live_paint.mesh.get() == &vol.mesh()) {
+                selector = m_live_paint.selector.get();
+            } else if (selector == nullptr) {
+                own = std::make_unique<TriangleSelector>(vol.mesh());
+                own->deserialize(annotation.get_data(), false);
+                selector = loaded = own.get();
+            }
+            its = std::make_shared<indexed_triangle_set>(selector->get_facets(state));
+        }
+        used[key] = its;
+        return *its;
+    };
     for (size_t oi = 0; oi < m_model->objects.size(); ++oi) {
         const ModelObject *obj = m_model->objects[oi];
         for (const ModelVolume *vol : obj->volumes) {
@@ -153,8 +183,14 @@ void OrcaEngine::write_paint_mesh()
             if (!vol->mmu_segmentation_facets.empty())
                 for (int e = 1; e <= max_filament; ++e)
                     layers.emplace_back(&vol->mmu_segmentation_facets, EnforcerBlockerType(e), 10.f + float(e - 1));
+            const FacetsAnnotation *previous = nullptr;
             for (const auto &[annotation, state, code] : layers) {
-                const indexed_triangle_set painted = annotation->get_facets(*vol, state);
+                if (annotation != previous) {
+                    // A new annotation: the selector loaded for the previous one doesn't apply.
+                    loaded = nullptr;
+                    previous = annotation;
+                }
+                const indexed_triangle_set &painted = facets_for(*vol, *annotation, state);
                 if (painted.indices.empty())
                     continue;
                 for (size_t ii = 0; ii < obj->instances.size(); ++ii)
@@ -162,6 +198,7 @@ void OrcaEngine::write_paint_mesh()
             }
         }
     }
+    m_paint_facets = std::move(used);
     f.close();
     if (std::rename(tmp.c_str(), m_paint_path.c_str()) != 0)
         throw std::runtime_error("Cannot write " + m_paint_path);
@@ -177,6 +214,8 @@ json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<doubl
         if (h.instance < 0 || h.instance >= int(obj.instances.size()) || h.volume < 0 || h.volume >= int(obj.volumes.size()))
             throw std::runtime_error("Invalid paint target");
     }
+    const auto t0 = std::chrono::steady_clock::now();
+    int loads = 0;
     if (new_stroke && !hits.empty())
         push_undo();
 
@@ -201,17 +240,31 @@ json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<doubl
                                                     float(section[3] - n.dot(trafo.translation()))});
         }
 
-        TriangleSelector selector(vol->mesh());
-        selector.deserialize(facets.get_data(), false);
+        LivePaint &live = m_live_paint;
+        if (!live.selector || live.annotation != &facets || live.timestamp != facets.timestamp() || live.mesh.get() != &vol->mesh()) {
+            live = {&facets, vol->mesh_ptr(), 0, std::make_shared<TriangleSelector>(vol->mesh())};
+            live.selector->deserialize(facets.get_data(), false);
+            ++loads;
+        }
+        TriangleSelector &selector = *live.selector;
         for (; i < hits.size() && hits[i].object == first.object && hits[i].instance == first.instance && hits[i].volume == first.volume; ++i)
             selector.select_patch(hits[i].facet,
                                   TriangleSelector::SinglePointCursor::cursor_factory(to_vec(hits[i].local).cast<float>(), camera_local,
                                                                                     float(radius), TriangleSelector::CursorType::SPHERE, trafo, clip),
                                   EnforcerBlockerType(std::clamp(state, 0, int(EnforcerBlockerType::ExtruderMax))), trafo_no_translate, true);
         facets.set(selector);
+        live.timestamp = facets.timestamp();
     }
+    const auto t1 = std::chrono::steady_clock::now();
     write_paint_mesh();
-    return scene_json();
+    const auto t2 = std::chrono::steady_clock::now();
+    json out = scene_json();
+    const auto t3 = std::chrono::steady_clock::now();
+    auto ms = [](auto a, auto b) { return std::chrono::duration<double, std::milli>(b - a).count(); };
+    if (ms(t0, t3) > 30.)
+        BOOST_LOG_TRIVIAL(info) << "paint: " << hits.size() << " hits, " << loads << " selector loads, select " << ms(t0, t1)
+                                << " ms, paint mesh " << ms(t1, t2) << " ms, scene " << ms(t2, t3) << " ms";
+    return out;
 }
 
 json OrcaEngine::paint_clear(int object, const std::string &kind)

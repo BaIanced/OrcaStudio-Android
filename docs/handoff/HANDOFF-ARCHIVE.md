@@ -2365,4 +2365,4 @@ User: "you just tested something we already confirmed worked". Cross-checked eac
   through the front cube with its outline. Copy deleted, styles back to outline+box.
 - 2026-10-19: main merged at r316 (PR #32, c47c8a6, merge commit; whole branch, all verified).
 - (2026-10-19, user, r316) "Look of seams and selection styles confirmed good." Preview seams toggle and selection styles look: closed.
-
+- (2026-10-19, user, r316) Paint lag NOT fixed: "Fast and fluid at first then the longer I go it's like it's building cache and hitting a bottleneck." Reopened (backlog).

@@ -8,6 +8,8 @@
 // thread while slice() is running.
 
 #include <array>
+#include <cstdint>
+#include <tuple>
 #include <optional>
 #include <deque>
 #include <map>
@@ -29,7 +31,11 @@ class DynamicPrintConfig;
 class AABBMesh;
 struct Calib_Params;
 struct PlateData;
+class TriangleMesh;
+class TriangleSelector;
+class FacetsAnnotation;
 } // namespace Slic3r
+struct indexed_triangle_set;
 
 namespace orca {
 
@@ -355,6 +361,17 @@ private:
     std::map<const void *, std::shared_ptr<Slic3r::AABBMesh>> m_aabb;
     int                                   m_mesh_version = 0;
     int                                   m_paint_version = 0;
+    // The selector of the volume being painted stays live between paint calls while its annotation is unchanged:
+    // deserializing it on every call grew slower with every painted triangle (user r316). Holds the mesh it points to.
+    struct LivePaint {
+        const Slic3r::FacetsAnnotation             *annotation = nullptr;
+        std::shared_ptr<const Slic3r::TriangleMesh> mesh;
+        uint64_t                                    timestamp = 0;
+        std::shared_ptr<Slic3r::TriangleSelector>   selector;
+    };
+    LivePaint                             m_live_paint;
+    // Painted triangles per (mesh, annotation timestamp, state): write_paint_mesh re-extracts only what changed.
+    std::map<std::tuple<const void *, uint64_t, int>, std::shared_ptr<indexed_triangle_set>> m_paint_facets;
     // Active calibration test: print parameters and the setting changes it needs.
     std::shared_ptr<Slic3r::Calib_Params>       m_calib;
     std::shared_ptr<Slic3r::DynamicPrintConfig> m_calib_config;
