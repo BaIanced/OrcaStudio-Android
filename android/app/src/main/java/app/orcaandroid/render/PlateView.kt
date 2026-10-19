@@ -237,6 +237,10 @@ class PlateView(context: Context) : GLSurfaceView(context) {
             android.util.Log.d(INPUT_TAG, "focus $gainFocus view=${System.identityHashCode(this)} root=${rootView.findFocus()?.javaClass?.simpleName}")
     }
 
+    private inline fun inputLog(msg: () -> String) {
+        if (android.util.Log.isLoggable(INPUT_TAG, android.util.Log.DEBUG)) android.util.Log.d(INPUT_TAG, msg())
+    }
+
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (android.util.Log.isLoggable(INPUT_TAG, android.util.Log.DEBUG))
@@ -248,6 +252,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
         // Palm rejection: a finger that lands while the pen is near is ignored until it lifts.
         if (event.actionMasked == MotionEvent.ACTION_DOWN) ignoreGesture = !penTouch && pen.ignoreFingers && penNear
         if (ignoreGesture) {
+            if (event.actionMasked == MotionEvent.ACTION_POINTER_DOWN) inputLog { "2f blocked: palm rejection (pen near)" }
             if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) ignoreGesture = false
             return true
         }
@@ -304,8 +309,10 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                     twoFinger = TwoFinger.UNDECIDED
                     startSpan = span(event); startFocusX = lastFocusX; startFocusY = lastFocusY
                 }
+                inputLog { "2f down n=${event.pointerCount} span=${startSpan.toInt()} slop=$touchSlop after=${event.eventTime - event.downTime}ms longPressed=$longPressed moved=$moved mode=$mode" }
             }
             MotionEvent.ACTION_POINTER_UP -> {
+                inputLog { "2f up n=${event.pointerCount} $twoFinger gap=${abs(span(event) - startSpan).toInt()} shift=${kotlin.math.hypot(focusX(event) - startFocusX, focusY(event) - startFocusY).toInt()} longPressed=$longPressed" }
                 val remaining = if (event.actionIndex == 0) 1 else 0
                 lastX = event.getX(remaining); lastY = event.getY(remaining)
                 lastFocusX = focusX(event); lastFocusY = focusY(event)
@@ -324,7 +331,10 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                         queueEvent { renderer.dragOffset = floatArrayOf(0f, 0f, 0f) }
                     }
                 }
-                if (longPressed) return true
+                if (longPressed) {
+                    if (event.pointerCount >= 2) inputLog { "2f blocked: long press" }
+                    return true
+                }
                 if (event.pointerCount >= 2) {
                     val fx = focusX(event); val fy = focusY(event)
                     if (twoFinger == TwoFinger.UNDECIDED) {
@@ -334,10 +344,14 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                         // A drag's gap drifts too, so a pinch needs the gap to clearly lead (gap >= shift locked pans into zoom).
                         if (gap > touchSlop && gap >= PINCH_LEAD * shift) twoFinger = TwoFinger.PINCH
                         else if (shift > touchSlop) twoFinger = TwoFinger.PAN
+                        if (twoFinger != TwoFinger.UNDECIDED) inputLog { "2f decided $twoFinger gap=${gap.toInt()} shift=${shift.toInt()} after=${event.eventTime - event.downTime}ms" }
                     } else if (twoFinger == TwoFinger.PAN) {
                         val gap = abs(span(event) - startSpan)
                         val shift = kotlin.math.hypot(fx - startFocusX, fy - startFocusY)
-                        if (gap > PAN_TO_PINCH_SLOPS * touchSlop && gap >= PINCH_LEAD * shift) twoFinger = TwoFinger.PINCH
+                        if (gap > PAN_TO_PINCH_SLOPS * touchSlop && gap >= PINCH_LEAD * shift) {
+                            twoFinger = TwoFinger.PINCH
+                            inputLog { "2f PAN -> PINCH gap=${gap.toInt()} shift=${shift.toInt()}" }
+                        }
                     }
                     if (twoFinger == TwoFinger.PAN) camera.panGrab(lastFocusX, lastFocusY, fx, fy)
                     lastFocusX = fx; lastFocusY = fy
