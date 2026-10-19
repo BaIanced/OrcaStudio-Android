@@ -27,7 +27,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - User sessions backed up: phone `/data/local/tmp/phone-session-backup.{3mf,json}` (8 plates), WSA `/data/local/tmp/session-backup.{3mf,json}`.
   Test zip `scadzip-test.zip` stays in `/sdcard/Download` on phone + Chromebook. LAN access code was given in chat: never write it anywhere.
 ## Next task
-- **r320 (building)**: paint mesh caches (empty states, file bytes) + split timings, app read/upload timings; moire blend also for thin faces (archive "r319 Chromebook"). Next: install, repeat 60 seam strokes on the painted bunny (Chromebook plate 1), `adb logcat -s OrcaCore OrcaRender`; compare with r319 (paint mesh 55-86 ms). Then preview at low angle, 6 zooms. r318/r319 paint: no visible lag on Chromebook; user feel pending.
+- **r320 (run 39298585855)**: paint mesh caches (empty states, file bytes) + split timings, app read/upload timings; moire blend also for thin faces (archive "r319 Chromebook"). Next: install, repeat 60 seam strokes on the painted bunny (Chromebook plate 1), `adb logcat -s OrcaCore OrcaRender`; compare with r319 (paint mesh 55-86 ms). Then preview at low angle, 6 zooms. r318/r319 paint: no visible lag on Chromebook; user feel pending.
 - r316 paint batching, double tap focus, ortho switch, MCP app_state/log_tail/perf: Claude-verified, merged (PR #32); double-tap feel pending; **paint lag still there (user r316), reopened**.
 - **Pinch zoom-out stopping** (user r311, backlog last line): cause = ScaleGestureDetector min span; fixed r312, Claude-verified; user feel pending.
 - Need the printer (backlog): fan slider jumps (r295 hold), Retract/Extrude F150 (e13bebb), extrude/jog, speed chips.
