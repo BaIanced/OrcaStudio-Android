@@ -19,7 +19,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - One repo: OrcaStudio-Android (code + these docs, `docs/handoff/`), branch `claude/handoff-continuation-rseql3`. Autonomy (user, 2026-10-11): decide branches and next steps
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = c47c8a6 (PR #32, r316, merged 2026-10-19); work branch = main. Untested in main: pen 7d3a263, fan hold 298ee9f, Extrude F150 e13bebb (backlog).
-- Installed: run 39300569740 (apk named r323, handoff calls it r321) on SHIELD, WSA, Chromebook, phone (2026-10-19; Chromebook/phone/Quest adb ports change: ask the user for ip:port; Quest needs `adb pair` first). `install-build.ps1 -Run <id> -Device <serial>`.
+- Installed: r325 (run 39334485418) on SHIELD, WSA, Chromebook, phone, Quest (2026-10-19; Chromebook/phone/Quest adb ports change: ask the user for ip:port; Quest needs `adb pair` first). `install-build.ps1 -Run <id> -Device <serial>`.
 - **Active device = `/target`** (p/w/c|t, default WSA): `sh ~/orca-android-tools/target.sh serial`; shot.sh/mcpao.sh follow it.
 - Devices: phone = wireless `adb-...` entry; Chromebook ARC `<chromebook-ip>:5555` (reference); WSA `127.0.0.1:58526`; **USB serial = the user's
   SHIELD TV** (rooted; installs only).
@@ -27,9 +27,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - User sessions backed up: phone `/data/local/tmp/phone-session-backup.{3mf,json}` (8 plates), WSA `/data/local/tmp/session-backup.{3mf,json}`.
   Test zip `scadzip-test.zip` stays in `/sdcard/Download` on phone + Chromebook. LAN access code was given in chat: never write it anywhere.
 ## Next task
-- **Quest feedback (user 2026-10-19, apk r323; backlog last 7 lines)**: paint slowdown FIXED; now: fast strokes = scattered dots (interpolate), stuck prime-tower selection, hidden slice errors (front-and-center + red ! badge), Settings zoom slider (stick too sensitive), collapsible paint panel, resize overhaul (desktop-like), extended paint tools (big), phone<->Quest link (wishlist).
+- **Quest batch r325 (run 39334485418), on all devices; Claude-verified WSA** (archive): paint capsule joins, Notices card + red ! badge, tool card fold/drag/clamp, tower on first colour stroke, tower tap no stuck highlight. **Waiting on the user (Quest):** Settings > Controls stick zoom speed, tower tap, paint feel, error card for the supportless cone. Open after: resize overhaul (Opus), extended paint tools (big), phone<->Quest link (wishlist).
 - r316 paint batching etc. merged (PR #32); double-tap feel pending. Moire (r320+) Claude-verified, user look pending.
-- **Pinch zoom-out stopping** (user r311, backlog last line): cause = ScaleGestureDetector min span; fixed r312, Claude-verified; user feel pending.
+- Pinch zoom-out stopping: fixed r312 (backlog), user feel pending.
 - Need the printer (backlog): fan slider jumps (r295 hold), Retract/Extrude F150 (e13bebb), extrude/jog, speed chips.
 - User hasn't seen: bead look (top-surface shading zoomed in), part shadows, light sliders (Layout lab), tool row (r276 movable
   portrait tool row). User-only: r283/r284 top bar + flick (explained to the user 2026-10-17), r280 pinch lock (preview locked mode).
