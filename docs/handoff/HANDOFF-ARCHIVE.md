@@ -2323,3 +2323,9 @@ User: "you just tested something we already confirmed worked". Cross-checked eac
   below its min span (~27 mm, ~500-600 px on the phone). r311 by pinch.sh: gap 800->500 zoomed, 500->240 and 240->80 did nothing.
   Fix: two-finger zoom done in PlateView's ACTION_MOVE (pinchZoom, same pad/speed); the detector only drives double-tap-drag.
   r312: 500->240 x1.65, 240->80 to the 10000 mm cap, 80->720 zooms in, 800->80 over the object x4.25. Installed on all 4. User feel pending.
+
+## 2026-10-19 Android main merged at r312 (PR #31)
+- PR #31 (merge commit 1ecdace): 47 commits r277-r312 (crash fixes, portrait grip/flick, preview lock/z-fight/seams, printer controls,
+  MCP view/slice/fit check, settings labels + greying, selection styles, gated resize, two-finger classifier + pinch fix).
+- User chose "Whole branch r312" over stopping at r289: includes untested pen input (7d3a263), fan slider hold (298ee9f) and
+  Extrude/Retract F150 (e13bebb); their backlog lines stay open. Work branch = main afterwards.
