@@ -2313,3 +2313,7 @@ User: "you just tested something we already confirmed worked". Cross-checked eac
   earlier pan segments). r310 installed on all 4. User feel pending.
 - (2026-10-19, user) Asked if the workflow is efficient; said "yes to both": (1) local APK builds instead of 7-min CI runs,
   (2) unit tests for pure logic, starting with the two-finger classifier.
+- (2026-10-19, Claude, r311 = 2b9dee5, run 39231442360) Installed on all 4. Phone scripts: `pan2b.sh 650 800 400 200 8` 7/8 stay PAN;
+  1/8 flipped PAN -> PINCH at the turnaround (last ~280 ms: shift ~0 while the scripted gap drifts 80 px) and back to PAN 210 ms
+  later (synthetic; real fingers rarely spread 80 px while reversing). batch2: base 3/3 PAN, forced landing PINCH locks 3/3 -> PAN
+  at shift 79-93 px. No regression vs r310. User feel pending.

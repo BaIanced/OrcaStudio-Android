@@ -111,6 +111,6 @@ Each line says who last checked it, on which build, when (e.g. "user r249 2026-1
   CAUSE CONFIRMED (r307 log): landing jitter locked PINCH. Fix e5b975c (r308, run 39226161149) PINCH -> PAN. Claude r308 phone 2026-10-19 (scripted
   jittery landings, `~/orca-android-tools/pan2j.sh` + `pan2j-batch*.sh`): 3/3 forced PINCH locks -> PAN, 16/16 other two-finger cases PAN
   (stagger, gap wobble, diagonal, 1->2 after orbit); dropped events in the first case per batch = sendevent artifact. 4192099 (r309,
-  run 39227996155): the deciding move grabs from the landing point (no lost 25-90 px). User r308 2026-10-19: "feels alot better but still misses sometimes". r310 (4f37eb9) windowed switches, Claude-verified, user feel pending.
+  run 39227996155): the deciding move grabs from the landing point (no lost 25-90 px). User r308 2026-10-19: "feels alot better but still misses sometimes". r310 (4f37eb9) windowed switches; r311 (2b9dee5) re-run by script 2026-10-19 (archive), user feel pending.
 - (user, 2026-10-19, r308 phone) Two-finger up/down pan in Z: "when either object or plate hits the center view it stalls like it
   wants to stay there for a split second". Cause: PAN -> PINCH near landing; fixed r310 (Claude-verified by script), user feel pending. Also seen in the same log: long pans flip PAN <-> PINCH (gap/shift measured from landing).

@@ -19,7 +19,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - One repo: OrcaStudio-Android (code + these docs, `docs/handoff/`), branch `claude/handoff-continuation-rseql3`. Autonomy (user, 2026-10-11): decide branches and next steps
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = ab790b9 (PR #30, r276, merged 2026-10-16); work branch up to d08415a (r281-r298: UI fixes, printer controls, MCP slice/view, pen, settings labels/greying), unmerged.
-- Installed: r310 (4f37eb9) on phone, SHIELD, WSA, Chromebook (2026-10-19; Chromebook adb port changes: ask the user for ip:port). `install-build.ps1 -Run <id> -Device <serial>`.
+- Installed: r311 (2b9dee5) on phone, SHIELD, WSA, Chromebook (2026-10-19; Chromebook adb port changes: ask the user for ip:port). `install-build.ps1 -Run <id> -Device <serial>`.
 - **Active device = `/target`** (p/w/c|t, default WSA): `sh ~/orca-android-tools/target.sh serial`; shot.sh/mcpao.sh follow it.
 - Devices: phone = wireless `adb-...` entry; Chromebook ARC `<chromebook-ip>:5555` (reference); WSA `127.0.0.1:58526`; **USB serial = the user's
   SHIELD TV** (rooted; installs only).
@@ -27,9 +27,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - User sessions backed up: phone `/data/local/tmp/phone-session-backup.{3mf,json}` (8 plates), WSA `/data/local/tmp/session-backup.{3mf,json}`.
   Test zip `scadzip-test.zip` stays in `/sdcard/Download` on phone + Chromebook. LAN access code was given in chat: never write it anywhere.
 ## Next task
-- **Two-finger pan** (backlog last 2 lines): r310 (4f37eb9) installed all 4: switches PAN<->PINCH on the last 250 ms (Z-pan
-  stall near centre) + catch-up pan. Claude-verified by script (archive); user feel pending ("a lot better, still misses" on r308).
-- **Done 2026-10-19 (user yes):** local APK builds + JVM tests (`TwoFingerGesture`, r311 run 39231442360); recipes in reference. **r311 not installed yet: install on all 4, rerun pan2b + batch2 on the phone, then user feel.**
+- **Two-finger pan** (backlog last 2 lines): r311 (2b9dee5) installed on all 4 (2026-10-19); scripts re-run on the phone, no
+  regression (archive). **User feel pending** ("a lot better, still misses" on r308). Local builds + JVM tests: recipes in reference.
 - **Seams toggle** (user r297): fixed r298, Claude-verified on WSA (archive); user look pending.
 - Open: **fan slider jumps** (r295 hold-until-within-4 %,
   needs the printer; Studio's sync logic is in the backlog line), Retract/Extrude buttons (r295; e13bebb+3bad1db = F150 in push/pop_ref_mode, in r298; needs the printer).
