@@ -20,6 +20,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = ab790b9 (PR #30, r276, merged 2026-10-16); work branch up to d08415a (r281-r298: UI fixes, printer controls, MCP slice/view, pen, settings labels/greying), unmerged.
 - Installed: r310 (4f37eb9) on phone, SHIELD, WSA, Chromebook (2026-10-19; Chromebook adb port changes: ask the user for ip:port). `install-build.ps1 -Run <id> -Device <serial>`.
+- **Active device = `/target`** (p/w/c|t, default WSA): `sh ~/orca-android-tools/target.sh serial`; shot.sh/mcpao.sh follow it.
 - Devices: phone = wireless `adb-...` entry; Chromebook ARC `<chromebook-ip>:5555` (reference); WSA `127.0.0.1:58526`; **USB serial = the user's
   SHIELD TV** (rooted; installs only).
 - User away from the printer: no printer tests. SHIELD installs only. Phone in use for two-finger tests (2026-10-19).
@@ -28,8 +29,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 ## Next task
 - **Two-finger pan** (backlog last 2 lines): r310 (4f37eb9) installed all 4: switches PAN<->PINCH on the last 250 ms (Z-pan
   stall near centre) + catch-up pan. Claude-verified by script (archive); user feel pending ("a lot better, still misses" on r308).
-- **Next (user yes 2026-10-19):** (1) local APK builds (`assembleDebug` reusing CI's native libs?) instead of 7-min CI runs;
-  (2) JVM unit tests, first the two-finger classifier pulled out of PlateView.kt (replay logged traces).
+- **Done 2026-10-19 (user yes):** local APK builds + JVM tests (`TwoFingerGesture`, r311 run 39231442360); recipes in reference.
 - **Seams toggle** (user r297): fixed r298, Claude-verified on WSA (archive); user look pending.
 - Open: **fan slider jumps** (r295 hold-until-within-4 %,
   needs the printer; Studio's sync logic is in the backlog line), Retract/Extrude buttons (r295; e13bebb+3bad1db = F150 in push/pop_ref_mode, in r298; needs the printer).
