@@ -344,11 +344,14 @@ internal object Shaders {
         layout(location = 10) in vec3 aNextP0;
         layout(location = 11) in vec3 aNextP1;
         out vec3 vColor;
-        out vec3 vNormal;
         out highp vec3 vWorld;
         out float vBead;
         out float vAcross;
         out vec3 vRight;
+        // The face (right, up, dir weights) comes from each triangle's last vertex: the box shares its corners (PlateRenderer.uploadBox).
+        flat out vec3 vFace;
+        flat out vec3 vUp;
+        flat out vec3 vDir;
         flat out float vSideFace;
         flat out float vTopFace;
         flat out float vWidth;
@@ -400,14 +403,22 @@ internal object Shaders {
                 across = right * aCorner.y * w + dir * (atEnd ? 0.5 : -0.5) * w;
             }
             // The layer's height goes straight down (exact z), so neighbouring boxes share their edges exactly.
-            vec3 pos = (atEnd ? aP1 : aP0) + across + vec3(0.0, 0.0, (aCorner.z * 0.5 - 0.5) * h) + uOrigin;
+            // aCorner.z: 1 the top, -1 the layer's bottom, -2 the bottom of the overlap below.
+            float t = max(aCorner.z, -1.0);
+            vec3 pos = (atEnd ? aP1 : aP0) + across + vec3(0.0, 0.0, (t * 0.5 - 0.5) * h) + uOrigin;
             // The bottom reaches a little into the layer below: the layers' edges never share vertices (T-junctions),
             // so single-pixel cracks showed the darker inside through them and danced as the camera moved (user,
-            // 2026-10-17). The overlap is pushed back in depth below, so the layer below keeps its own top edge.
-            bool bottom = aCorner.z < 0.0;
-            if (bottom) pos.z -= clamp(pos.z, 0.0, 0.15 * h);
-            vNormal = normalize(sideNormal * aFace.x + up * aFace.y + dir * aFace.z);
-            vBead = aCorner.z;
+            // 2026-10-17). The overlap is pushed back in depth below, so the layer below keeps its own top edge. Only
+            // the overlap: the walls have their own vertex ring at the layer's bottom, since a push fading up the whole
+            // wall let the lower layer's top face show through above the joint (dotted rows crawling with the camera,
+            // prime tower walls, user r325).
+            bool overlap = aCorner.z < -1.5;
+            float drop = overlap ? clamp(pos.z, 0.0, 0.15 * h) : 0.0;
+            pos.z -= drop;
+            vFace = aFace;
+            vUp = up;
+            vDir = dir;
+            vBead = t - 2.0 * drop / h;
             vSideFace = abs(aFace.x);
             // Top / bottom faces are rounded across the bead's width in the fragment shader: u spans -1..1 over it.
             vTopFace = abs(aFace.y);
@@ -429,12 +440,14 @@ internal object Shaders {
             // above, then the line's direction in three 60 degree bins (crossing infill lines of one role: parity
             // alone tied whenever both lines had the same, user r294), then odd segments over even ones (a loop's
             // seam ends, neighbouring parallel lines). Bin edges sit at 7.5 + 60k degrees, off the usual infill angles.
+            // Below the top the walls take the top bin: a wall's foot under the layer below's top face (another bin) let
+            // that face show through as dotted rows. Crossing lines' walls are never coplanar.
             float a = atan(dir.y, dir.x) - 0.1309;
-            float bin = mod(floor(a * 0.9549297), 3.0);
+            float bin = aCorner.z < 0.0 ? 2.0 : mod(floor(a * 0.9549297), 3.0);
             float order = lift * 6.0 + bin * 2.0 + float((gl_InstanceID + uFirst) & 1);
             gl_Position.z -= order * 5e-7 * gl_Position.w;
             // The bottom overlap goes behind all of it.
-            if (bottom) gl_Position.z += 1.6e-5 * gl_Position.w;
+            if (overlap) gl_Position.z += 1.6e-5 * gl_Position.w;
         }"""
 
     const val PATH_FS = """#version 300 es
@@ -442,11 +455,13 @@ internal object Shaders {
         uniform highp vec4 uSection;
         uniform int uSectionOn;
         in vec3 vColor;
-        in vec3 vNormal;
         in highp vec3 vWorld;
         in float vBead;
         in float vAcross;
         in vec3 vRight;
+        flat in vec3 vFace;
+        flat in vec3 vUp;
+        flat in vec3 vDir;
         flat in float vSideFace;
         flat in float vTopFace;
         flat in float vWidth;
@@ -462,7 +477,7 @@ internal object Shaders {
         }
         void main() {
             if (uSectionOn == 1 && dot(uSection.xyz, vWorld) > uSection.w) discard;
-            vec3 n = normalize(vNormal);
+            vec3 n = normalize(vRight * vFace.x + vUp * vFace.y + vDir * vFace.z);
             // Side walls are rounded like a real bead (normal tilts up at the top of each layer, down at the
             // bottom). It fades out below ~8 px per layer (fwidth 0.25; vBead spans 2 per layer): smaller
             // layers beat against the pixel grid into wavy moire.
@@ -491,6 +506,11 @@ internal object Shaders {
                 float mean = (wTop * lTop + wSide * lSide) / max(wTop + wSide, 1e-4);
                 light = mix(light, mean, far);
             }
+            // Layer lines: a thin dark groove (about a pixel) where two layers meet, as on a print. It stays when the bead
+            // shading has faded out, and fades itself from ~7 to 4 px apart (closer lines beat into moire). vBead spans 2 a layer.
+            float fb = max(fwidth(vBead), 1e-4);
+            float groove = vSideFace * (1.0 - smoothstep(0.0, 0.6, (1.0 - abs(vBead)) / fb)) * (1.0 - smoothstep(0.3, 0.5, fb));
+            light *= 1.0 - 0.22 * groove;
             color = vec4(vColor * light, 1.0);
         }"""
 

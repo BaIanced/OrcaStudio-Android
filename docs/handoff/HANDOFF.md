@@ -21,20 +21,18 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Android main = c47c8a6 (PR #32, r316, merged 2026-10-19); work branch = main. Untested in main: pen 7d3a263, fan hold 298ee9f, Extrude F150 e13bebb (backlog).
 - Installed: r327 (run 39346587455: paint card clamp fix, tower x-ray only, off-model orbit [Claude-verified r326 Chromebook]) on all 6 adb devices (2026-10-19; Chromebook/phone/Quest adb ports change: ask the user for ip:port; Quest needs `adb pair` first). `install-build.ps1 -Run <id> -Device <serial>`.
 - **Active device = `/target`** (p/w/c|t, default WSA): `sh ~/orca-android-tools/target.sh serial`; shot.sh/mcpao.sh follow it.
-- Devices: phone = wireless `adb-...` entry; Chromebook ARC `<chromebook-ip>:5555` (reference); WSA `127.0.0.1:58526`; **USB serial = the user's
-  SHIELD TV** (rooted; installs only).
-- User away from the printer: no printer tests. SHIELD installs only. Phone in use for two-finger tests (2026-10-19).
+- Devices (2026-10-19): phone = `ip:5555` now, Chromebook = another `ip:port`, Quest = `adb-...tls` + `ip:port`: use `target.sh phone|chromebook`
+  (probes the kind; reference "Phone"). WSA `127.0.0.1:58526`; **USB serial = the user's SHIELD TV** (rooted; installs only).
+- User away from the printer: no printer tests. SHIELD installs only. User OK'd phone tests (main screen) 2026-10-19 while gaming on the PC: don't drive WSA then.
 - User sessions backed up: phone `/data/local/tmp/phone-session-backup.{3mf,json}` (8 plates), WSA `/data/local/tmp/session-backup.{3mf,json}`.
   Test zip `scadzip-test.zip` stays in `/sdcard/Download` on phone + Chromebook. LAN access code was given in chat: never write it anywhere.
 ## Next task
-- **Fix batch from the user's r325 phone test (2026-10-19; details in backlog, grep "phone r325"):** r327 built, untested: paint card unfold clamp (retest on Chromebook when free), tower x-ray only (untested); prime tower: no bbox/settings, x-ray outline only; preview top-surface line jiggle; tower z-fight; moire tune (too aggressive); one-finger orbit while painting; paint edge-detection toggle. Verified by the user: paint feel, tower fix (archive). Waiting on the user (Quest): stick zoom speed, error card for the supportless cone. Open after: resize overhaul (Opus), extended paint tools (big).
-- r316 paint batching etc. merged (PR #32); double-tap feel pending.
+- **Fix batch from the user's r325 phone test (2026-10-19; details in backlog, grep "phone r325"):** r327 card clamp + tower x-ray outline Claude-verified WSA. r328 (building): Preview wall leak = tower z-fight fix + ~1.5x orbit fps (archive "wall leak"); Claude-verified phone debug build; check WSA once the user is off the PC. Open: preview top-surface line jiggle (ask after r328), moire tune, paint edge-detection toggle, tower "no settings" part. Verified by the user: paint feel, tower fix (archive). Waiting on the user (Quest): stick zoom speed, error card for the supportless cone. Open after: resize overhaul (Opus), extended paint tools (big).
 - Need the printer (backlog): fan slider jumps (r295 hold), Retract/Extrude F150 (e13bebb), extrude/jog, speed chips.
 - User hasn't seen: bead look (top-surface shading zoomed in), part shadows, light sliders (Layout lab), tool row (r276 movable
   portrait tool row). User-only: r283/r284 top bar + flick (explained to the user 2026-10-17), r280 pinch lock (preview locked mode).
-- Seams + selection styles look: user-verified r316 (archive). r305 resize gating (long-press Resize / Ctrl+T / S,
-  drag plane) Claude-verified WSA; user feel pending (backlog).
-- Pen input (super low priority): backlog. **Quest**: runs well as 2D panel (user 2026-10-19). Waiting on the user: plate switcher pick.
+- User feel pending (backlog): r316 double tap, r305 resize gating.
+- Pen input (super low priority): backlog. Waiting on the user: plate switcher pick.
 
 ## User decisions (2026-10-13)
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).

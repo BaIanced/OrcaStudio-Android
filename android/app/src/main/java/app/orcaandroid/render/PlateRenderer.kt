@@ -132,7 +132,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     private var bedVbo = 0; private var bedCount = 0
     /** The grid's quad: the bed outline's box, plate-local (x0, y0, x1, y1). */
     private var gridRect: FloatArray? = null
-    private var boxVbo = 0; private var boxIbo = 0
+    private var boxVbo = 0; private var boxIbo = 0; private var boxIndexCount = 0
     private var scratchVbo = 0
     /** Plate badges: icons per plate (top down, right of the plate; empty = numbers only), atlas, quads. */
     private var badgeIcons: List<PlateBadge> = emptyList()
@@ -466,22 +466,38 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         return out.toFloatArray()
     }
 
-    /** Unit box for instanced toolpaths: per vertex (u, side, vertical) + face normal (right, up, dir). */
+    /**
+     * Unit box for instanced toolpaths: 12 shared corners, per vertex (u, side, vertical) + a face (right, up, dir weights).
+     * Vertical: 1 the top, -1 the layer's bottom, -2 the bottom of the overlap into the layer below (PATH_VS); the walls
+     * have a vertex ring at -1, so only the overlap is pushed back in depth. Faces share corners (the vertex shader runs
+     * 12 times a segment, not 4 per face): each triangle ends on a corner carrying its face, read as flat (last vertex).
+     */
     private fun uploadBox() {
+        // Corner (ring r: 0 top, 1 layer bottom, 2 overlap bottom; k: 0 start/left, 1 start/right, 2 end/right, 3 end/left) = r * 4 + k.
+        val us = floatArrayOf(0f, 0f, 1f, 1f)
+        val ss = floatArrayOf(-1f, 1f, 1f, -1f)
+        val ts = floatArrayOf(1f, -1f, -2f)
+        val faceOf = mapOf(0 to floatArrayOf(0f, 1f, 0f), 8 to floatArrayOf(0f, -1f, 0f), 5 to floatArrayOf(1f, 0f, 0f),
+            7 to floatArrayOf(-1f, 0f, 0f), 6 to floatArrayOf(0f, 0f, 1f), 4 to floatArrayOf(0f, 0f, -1f))
         val v = ArrayList<Float>()
-        val idx = ArrayList<Short>()
-        fun face(corners: List<FloatArray>, n: FloatArray) {
-            val base = (v.size / 6).toShort()
-            corners.forEach { c -> v += c.toList(); v += n.toList() }
-            idx += listOf(base, (base + 1).toShort(), (base + 2).toShort(), base, (base + 2).toShort(), (base + 3).toShort())
+        for (r in 0..2) for (k in 0..3) {
+            v += listOf(us[k], ss[k], ts[r])
+            v += (faceOf[r * 4 + k] ?: floatArrayOf(0f, 0f, 0f)).toList()
         }
-        fun c(u: Float, s: Float, t: Float) = floatArrayOf(u, s, t)
-        face(listOf(c(0f, -1f, 1f), c(1f, -1f, 1f), c(1f, 1f, 1f), c(0f, 1f, 1f)), floatArrayOf(0f, 1f, 0f))      // top
-        face(listOf(c(0f, 1f, -1f), c(1f, 1f, -1f), c(1f, -1f, -1f), c(0f, -1f, -1f)), floatArrayOf(0f, -1f, 0f))  // bottom
-        face(listOf(c(0f, 1f, -1f), c(0f, 1f, 1f), c(1f, 1f, 1f), c(1f, 1f, -1f)), floatArrayOf(1f, 0f, 0f))       // right
-        face(listOf(c(1f, -1f, -1f), c(1f, -1f, 1f), c(0f, -1f, 1f), c(0f, -1f, -1f)), floatArrayOf(-1f, 0f, 0f))  // left
-        face(listOf(c(1f, 1f, -1f), c(1f, 1f, 1f), c(1f, -1f, 1f), c(1f, -1f, -1f)), floatArrayOf(0f, 0f, 1f))     // end
-        face(listOf(c(0f, -1f, -1f), c(0f, -1f, 1f), c(0f, 1f, 1f), c(0f, 1f, -1f)), floatArrayOf(0f, 0f, -1f))    // start
+        val idx = ArrayList<Short>()
+        /** Quad a b c d (outward winding) as a fan ending on [f], the corner that carries the face. */
+        fun quad(f: Int, vararg q: Int) {
+            val i = q.indexOf(f)
+            val p = IntArray(4) { q[(i + it) % 4] }
+            listOf(p[1], p[2], f, p[2], p[3], f).forEach { idx += it.toShort() }
+        }
+        quad(0, 0, 3, 2, 1)                                  // top
+        quad(8, 9, 10, 11, 8)                                // bottom
+        quad(5, 5, 1, 2, 6); quad(5, 9, 5, 6, 10)            // right: layer, overlap
+        quad(7, 7, 3, 0, 4); quad(7, 11, 7, 4, 8)            // left
+        quad(6, 6, 2, 3, 7); quad(6, 10, 6, 7, 11)           // end
+        quad(4, 4, 0, 1, 5); quad(4, 8, 4, 5, 9)             // start
+        boxIndexCount = idx.size
         glBindBuffer(GL_ARRAY_BUFFER, boxVbo)
         glBufferData(GL_ARRAY_BUFFER, v.size * 4, floats(v.toFloatArray()), GL_STATIC_DRAW)
         val ib = ByteBuffer.allocateDirect(idx.size * 2).order(ByteOrder.nativeOrder()).asShortBuffer().put(idx.toShortArray())
@@ -697,7 +713,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
                 glVertexAttribDivisor(a, 1)
             }
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, boxIbo)
-            glDrawElementsInstanced(GL_TRIANGLES, 36, GL_UNSIGNED_SHORT, 0, last - first)
+            glDrawElementsInstanced(GL_TRIANGLES, boxIndexCount, GL_UNSIGNED_SHORT, 0, last - first)
             for ((a, _) in attribs) { glVertexAttribDivisor(a, 0); glDisableVertexAttribArray(a) }
             glDisableVertexAttribArray(0)
             glDisableVertexAttribArray(1)

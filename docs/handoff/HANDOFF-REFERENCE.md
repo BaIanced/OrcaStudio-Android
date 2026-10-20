@@ -9,7 +9,8 @@ Nothing pending lives here: open / untested items stay in `HANDOFF.md`.
 **WSA** when both are away. The user drives sessions from the phone: ask before taking over its main screen; use the
 headless display below instead (no takeover needed). Don't drive WSA's own window while the user uses the PC.
 
-### Headless display (`~/orca-android-tools/orca-vd.sh`, verified 2026-10-19)
+### Headless display (`~/orca-android-tools/orca-vd.sh`, verified 2026-10-19 on the old phone)
+- **2026-10-19: fails on the current phone** (scrcpy logs "Device disconnected" right after the new display; app never resumes). Use the main screen when the user OKs it.
 - `sh orca-vd.sh start|stop|status|shot <out.png> [w] [crop]|tap X Y|swipe x0 y0 x1 y1 [ms]|ui [out.xml]`. `start` opens a
   scrcpy `--new-display` (1080x2340/420, hidden, no PC window), launches the app there, retries until resumed, and saves
   ids to `.vd-phone.state`. The user keeps the phone screen and the PC. `SHOW=1` = scrcpy window on the PC for
@@ -36,7 +37,8 @@ headless display below instead (no takeover needed). Don't drive WSA's own windo
   -t application/zip --grant-read-uri-permission`), which works without root.
 
 ### Phone
-- Serial = the `adb-...._adb-tls-connect._tcp` entry in `adb devices` (`adb disconnect` a stale `ip:port`).
+- Serial: `sh ~/orca-android-tools/target.sh phone` (2026-10-19 the phone is an `ip:5555` entry and the Quest also shows as `adb-..._adb-tls-connect` + `ip:port`; target.sh probes: Oculus = Quest, feature `org.chromium.arc` = Chromebook, else phone; cache `.kinds`, delete it if a serial gets reused).
+- Debug app on the phone: copy `files/session/*` + `shared_prefs/app_settings.xml` from the release app via su (chown to the debug uid), force-stop the release app (it holds the MCP socket name), run tools with `PKG=io.github.baianced.orcastudio_android.debug` (mcpao.sh, orca-vd.sh). First start shows the printer picker: Apply, then copy the session again.
 - Setup: archive "Phone test setup", memory `test-on-phone`; `phone-ui.py` needs `PYTHONIOENCODING=utf-8`;
   pull binaries with `adb exec-out "su -c '...'"`; Delete key = `su -c 'input keyevent 112'`.
 - **MCP on a real phone:** the `localabstract` forward works over wireless adb; the socket binds only after an
