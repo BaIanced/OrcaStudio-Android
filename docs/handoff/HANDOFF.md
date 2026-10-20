@@ -19,7 +19,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - One repo: OrcaStudio-Android (code + these docs, `docs/handoff/`), branch `claude/handoff-continuation-rseql3`. Autonomy (user, 2026-10-11): decide branches and next steps
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = b98e6ad (PR #33, r335, merged 2026-10-20). Untested in main: pen 7d3a263, fan hold 298ee9f, Extrude F150 e13bebb,
-  Quest stick zoom (r324); still broken in main: paint card unfold, layer lines at framing zoom (below).
+  Quest stick zoom (r324); still broken in main: paint card unfold (fixed r336, unmerged), layer lines at framing zoom (below).
 - Installed: r336 (run 39379527770, paint card fix) on all devices 2026-10-20 (phone, Chromebook, SHIELD, Quest, WSA).
 - **Active device = `/target`** (p/w/c|t, default WSA): `sh ~/orca-android-tools/target.sh serial`; shot.sh/mcpao.sh follow it.
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
@@ -30,10 +30,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   Test zip `scadzip-test.zip` stays in `/sdcard/Download` on phone + Chromebook. LAN access code was given in chat: never write it anywhere.
 ## Next task
 - Fix next:
-  (1) paint card (backlog "Paint window: collapse"): fix 2d35887 (ToolPanel.kt, Design
-  window's 9fe3f66 approach: clamp in the layout pass, height change shifts the anchor), r336 installed everywhere. **Untested**:
-  WSA + Chromebook drew black 2026-10-20 night (displays asleep). Test: Paint tool, fold, drag to top-left, unfold, fold.
-  (2) preview layer lines (backlog "Moire"), **user GO 2026-10-20** (r335 shots: sharp lines, light band, moire under table top):
+  Paint card fold 2d35887 **user-verified r336** (archive); fold-direction-by-edge idea = backlog, low priority.
+  (1) preview layer lines (backlog "Moire"), **user GO 2026-10-20** (r335 shots: sharp lines, light band, moire under table top):
   (a) light band = the 3 shading regimes in Shaders.kt PATH_FS (profile l.515, wave l.505, two-face mean l.534) differ in mean
   brightness inside their crossfades: make all three share one mean. (b) supersampling: render the preview at 2-4x and downsample
   once the camera stops (PlateView.kt:208 has no MSAA). (c) **Settings option: supersample while moving too** (off by default,
