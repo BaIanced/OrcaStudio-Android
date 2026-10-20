@@ -30,7 +30,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   Test zip `scadzip-test.zip` stays in `/sdcard/Download` on phone + Chromebook. LAN access code was given in chat: never write it anywhere.
 ## Next task
 - **Extended paint tools** batch 1 (1858dc3, r343) colour tests passed on WSA 2026-10-20 (Claude). **Batch 2 gap fill** (Colour + Support,
-  `GapFiller` in OrcaTools.cpp, `paintGapFill`; chip "Gap fill", area slider, "Fill gaps"): in the local debug build on all devices (not on CI);
+  `GapFiller` in OrcaTools.cpp, `paintGapFill`; chip "Gap fill", area slider, "Fill gaps"): in the local debug build on all devices; CI run 39517474174 (dispatched 2026-10-20, not yet installed);
   WSA-tested for colour and support kinds (small dots vanish, 3 mm strokes stay). Re-pick the "Gap fill" chip after any other shape chip.
   **"On overhangs only"** (Support brush, angle slider) WSA-tested: off paints, on paints nothing on a side wall; no overhang highlight view yet.
   Support shapes (circle, triangle, fill) WSA OK. Untested: user feel. Left (backlog): stroke lock, filament remap, survey; then edge outline.
