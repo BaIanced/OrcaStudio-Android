@@ -33,7 +33,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   `GapFiller` in OrcaTools.cpp, `paintGapFill`; chip "Gap fill", area slider, "Fill gaps"): in the local debug build on all devices (not on CI);
   WSA-tested for colour and support kinds (small dots vanish, 3 mm strokes stay). Re-pick the "Gap fill" chip after any other shape chip.
   **"On overhangs only"** (Support brush, angle slider) WSA-tested: off paints, on paints nothing on a side wall; no overhang highlight view yet.
-  Untested: user feel, shapes in Support painting, Height slider. Left (backlog): stroke lock, filament remap, survey; then edge outline.
+  Support shapes (circle, triangle, fill) WSA OK. Untested: user feel. Left (backlog): stroke lock, filament remap, survey; then edge outline.
 - Preview layer-line work merged (PR #34); repro tools `abshot.sh` / `abtop.sh` (reference).
   Idea offered: Preview camera-light slider (no GO yet). C: tight; old build dirs move to `D:\orca-builds-archive`.
 - Need the printer (backlog): fan slider jumps (r295 hold), Retract/Extrude F150 (e13bebb), extrude/jog, speed chips.
