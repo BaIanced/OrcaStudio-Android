@@ -19,7 +19,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - One repo: OrcaStudio-Android (code + these docs, `docs/handoff/`), branch `claude/handoff-continuation-rseql3`. Autonomy (user, 2026-10-11): decide branches and next steps
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = b98e6ad (PR #33, r335, merged 2026-10-20). Untested in main: pen 7d3a263, fan hold 298ee9f, Extrude F150 e13bebb,
-  Quest stick zoom (r324); still broken in main: paint card unfold (fixed r336, unmerged), layer lines at framing zoom (below).
+  Quest stick zoom (r324); paint card fix r336 verified, unmerged; still broken: layer lines at framing zoom (below).
 - Installed: r336 (run 39379527770, paint card fix) on all devices 2026-10-20 (phone, Chromebook, SHIELD, Quest, WSA).
 - **Active device = `/target`** (p/w/c|t, default WSA): `sh ~/orca-android-tools/target.sh serial`; shot.sh/mcpao.sh follow it.
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
@@ -30,17 +30,16 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   Test zip `scadzip-test.zip` stays in `/sdcard/Download` on phone + Chromebook. LAN access code was given in chat: never write it anywhere.
 ## Next task
 - Fix next:
-  Paint card fold 2d35887 **user-verified r336** (archive); fold-direction-by-edge idea = backlog, low priority.
-  (1) preview layer lines (backlog "Moire"), **user GO 2026-10-20**, WIP commit (paused by the user mid-task, Claude-tested WSA
-  debug only, no CI build yet): (a) light band: PATH_FS wave level = beadMean (profile's mean), wall sides join the far mean
-  only as slivers (share < 0.3). (b) `Supersampler.kt`: Preview drawn 2x + tent downsample once the camera rests 200 ms;
-  the rested frame is cached (re-averaged, redrawn on a key change or every 1 s): idle 60 fps / 0.2 ms vs 43 fps without.
-  Regimes go by view px (`uPxScale`), filters by samples. (c) Settings > supersampling Off / When still / Always (MCP
-  `view_set {"supersample":...}`). Shots: sphere rings + table speckle gone, table leg shows lines; lying cylinder
-  (object 5, yaw -60 pitch 25) still faint moire arcs (lit tops vs sides at ~1.5 px). Next: decide on that, CI build, user check.
-  Black WSA shots = PC display asleep: `wake-display.ps1` (now in wsa-preview2.sh). 3D view crop on WSA: 105,38,745,938.
-- WSA debug app (`...debug`) holds the phone's session; `~/orca-android-tools/wsa-cycle.sh <prefix>`
-  = build + install + slice + Preview + 3 sphere shots (`wsa-preview2.sh` alone skips the build).
+  (1) preview layer lines (backlog "Moire"). WIP 6c1002e (WSA debug only, no CI): band fix (PATH_FS wave level = beadMean,
+  wall sides join the far mean only as slivers), `Supersampler.kt` 2x + tent downsample when still, cached still frame,
+  Settings Off/When still/Always (MCP `view_set {"supersample":..}`), regimes by view px (`uPxScale`). Lying cylinder
+  (object 5, yaw -60 pitch 25) keeps faint arcs. **Next (user-approved 2026-10-20, Gemini-reviewed): replace the 2x
+  buffer with temporal accumulation when still**: per frame a sub-pixel projection jitter, tent-distributed over +-1 px
+  (sum of two Halton uniforms), drawn into a 1x RGBA8+depth FBO, mixed 1/n into an RGBA16F buffer (check
+  EXT_color_buffer_half_float / ES 3.2 at start, else fall back to the 2x path), 32 frames; any key change restarts.
+  Lower the PATH_FS fade thresholds while accumulating (tune on the cylinder). Moving: 4x MSAA on the default
+  framebuffer via a custom EGLConfigChooser, falling back to no MSAA. Then CI build + user check.
+- WSA shader loop: `wsa-cycle.sh` / `wsa-preview2.sh`, black shots = display asleep (reference "Build and tools").
 - Need the printer (backlog): fan slider jumps (r295 hold), Retract/Extrude F150 (e13bebb), extrude/jog, speed chips.
 - User-only checks pending (backlog): bead look, part shadows, light sliders, r276 tool row, r283/r284 top bar, r280 pinch lock,
   r316 double tap, r305 resize gating.

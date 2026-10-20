@@ -92,6 +92,10 @@ headless display below instead (no takeover needed). Don't drive WSA's own windo
   lists the tabs before tapping (the first tap after start is often lost).
 
 ## Build and tools
+- WSA shader loop (2026-10-20): the debug app (`...debug`) holds the phone's session; `~/orca-android-tools/wsa-cycle.sh <prefix>`
+  = build + install + slice + Preview + 3 sphere shots (`wsa-preview2.sh` alone skips the build). Black screencaps / MCP
+  "No 3D view is on screen" = the PC display is asleep: `wake-display.ps1` (1 px mouse nudge; wsa-preview2.sh runs it).
+  WSA 3D view crop (Preview, wide panel): 105,38,745,938.
 - **Local APK (2026-10-19, ~7 s incremental, 3.5 min cold):** `sh ~/orca-android-tools/stage-from-apk.sh` (native libs + OpenSCAD/
   Python assets from the newest CI APK in `builds/`; redo after native changes), then the compile command below with
   `:app:assembleDebug` -> `~/build/orca-android/gradle/app/outputs/apk/debug/app-debug.apk` (`adb install -r "$(cygpath -w ...)"`).
