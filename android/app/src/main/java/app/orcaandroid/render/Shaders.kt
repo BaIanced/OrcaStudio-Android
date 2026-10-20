@@ -505,8 +505,10 @@ internal object Shaders {
             if (uSectionOn == 1 && dot(uSection.xyz, vWorld) > uSection.w) discard;
             // A top or bottom face seen from inside the bead is never the one to show: from below, the bead's own top
             // won over its bottom wherever the overlap's depth push outgrew a layer (zoomed out: dark stepped patches,
-            // user r339). Sides stay two-sided (they fill the cracks between layers).
-            if (vTopFace > 0.5 && !gl_FrontFacing) discard;
+            // user r339). Sides stay two-sided (they fill the cracks between layers). The box winds every face clockwise
+            // seen from outside (PlateRenderer.uploadBox), so GL calls the outside the back face (r340 tested the other
+            // way and dropped every top seen from above: blocky lines, user r340).
+            if (vTopFace > 0.5 && gl_FrontFacing) discard;
             // Undersides are lit like tops (user 2026-10-20, as desktop Orca's camera light and Blender's viewport do):
             // the lights here sit above, which left a bottom skin flat dark with no lines.
             vec3 n = normalize(vRight * vFace.x + vUp * abs(vFace.y) + vDir * vFace.z);

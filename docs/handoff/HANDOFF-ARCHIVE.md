@@ -2434,3 +2434,6 @@ User: "you just tested something we already confirmed worked". Cross-checked eac
 
 ### 2026-10-20 Underside fix (r339) user check
 - (2026-10-20, user, phone r339, screenshot plate 1 layer 232 from below/side) "Everything is good except these defects that I've circled in red": underside fix cc0af56 verified. Open: (a) table top (blue top skin) edges, two arrows at the skin border by the wall; (b) lying cylinder end cap near the bed: light streaks/shards. Investigating.
+
+### 2026-10-20 Lit undersides (r340) user check
+- (2026-10-20, user, phone r340, 4 shots: plate 2 layer 9 close/mid/fit, plate 1 layer 232) "Previous build did something to the entire output of lines on all layers. They look like blocks being built instead of smooth extrusion lines. Top surface color shifts depending on angle viewed." Cause (Claude): 6b465f8 `discard` on `!gl_FrontFacing` for top/bottom faces, but `uploadBox` winds every face clockwise from outside, so tops were dropped from above (insides of walls/caps showed). User GO: invert the test (keep lit undersides), re-check above + below.

@@ -21,7 +21,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Android main = b98e6ad (PR #33, r335, merged 2026-10-20). Untested in main: pen 7d3a263, fan hold 298ee9f, Extrude F150 e13bebb,
   Quest stick zoom (r324); paint card fix r336 + layer-line fix r338 verified, unmerged.
 - Installed: r340 (run 39406746733, lit undersides 6b465f8) on all devices 2026-10-20 (phone, Chromebook, SHIELD, Quest, WSA).
-- **Active device = `/target`** (p/w/c|t, default WSA): `sh ~/orca-android-tools/target.sh serial`; shot.sh/mcpao.sh follow it.
+- **Test device = WSA** (user 2026-10-20: `/target` skill removed for good). `target.sh` stays only as the serial helper (`target.sh serial|phone|chromebook`); shot.sh/mcpao.sh use it.
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
   WSA `127.0.0.1:58526`; **USB serial = the user's SHIELD TV** (rooted; installs only).
 - User away from the printer: no printer tests. SHIELD installs only. **User 2026-10-19 (later): keep using WSA, not the phone;
@@ -39,7 +39,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   Fix 6b465f8: PATH_FS discards back-facing top/bottom faces + bottom faces use the top's normal (`abs(vFace.y)`); checked on
   WSA at 60/120/200 mm below + from above: patches gone, lines kept, no cylinder stripes; wall rims from below a bit lighter
   (their far mean now takes the lit underside). Rejected: label rank for a bottom ring (no change), no push for it (stripes).
-  **r340 installed everywhere; waiting on the user:** underside, rim, cylinder end-cap shards. C: had filled up -> WSA storage hung; old build dirs now move to `D:\orca-builds-archive`.
+  **User r340: blocky lines everywhere (6b465f8 dropped tops from above; box winds CW). Fixing: invert the test, recheck above+below.** Still open: rim, cylinder end-cap shards. C: had filled up -> WSA storage hung; old build dirs now move to `D:\orca-builds-archive`.
 - WSA shader loop: `wsa-cycle.sh` / `wsa-preview2.sh`, black shots = display asleep (reference "Build and tools").
 - Need the printer (backlog): fan slider jumps (r295 hold), Retract/Extrude F150 (e13bebb), extrude/jog, speed chips.
 - User-only checks pending (backlog): bead look, part shadows, light sliders, r276 tool row, r283/r284 top bar, r280 pinch lock,
