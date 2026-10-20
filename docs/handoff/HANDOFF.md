@@ -29,10 +29,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - User sessions backed up: phone `/data/local/tmp/phone-session-backup.{3mf,json}` (8 plates), WSA `/data/local/tmp/session-backup.{3mf,json}`.
   Test zip `scadzip-test.zip` stays in `/sdcard/Download` on phone + Chromebook. LAN access code was given in chat: never write it anywhere.
 ## Next task
-- **Extended paint tools, batch 1** (1858dc3, r343): WSA colour tests passed 2026-10-20 (Claude, shots: Sphere, Circle, Triangle facet, Fill floods the whole
-  connected mesh, Fill + "Stop at edges" = top face only, Height range 0.2 mm band, Erase+Fill clears). Not yet tested: shapes in Support painting,
-  Height slider, user feel (backlog). Next: batch 2 (gap fill: port `TriangleSelectorPatch` fragment merge; supports "on overhangs only"),
-  then answer the edge-outline item (backlog).
+- **Extended paint tools** batch 1 (1858dc3, r343) colour tests passed on WSA 2026-10-20 (Claude). **Batch 2 gap fill** (Colour + Support,
+  `GapFiller` in OrcaTools.cpp, `paintGapFill`; chip "Gap fill", area slider, "Fill gaps"): committed, local debug build on all devices, WSA
+  test passed (0.5 mm dots vanish at 1.0 mm2; 3 mm spots stay); not pushed to CI. Untested: support-kind gap fill, user feel, shapes in
+  Support painting, Height slider. Left (backlog): stroke lock, supports "on overhangs only", filament remap, survey; then the edge-outline item.
 - Preview layer-line work done and merged (PR #34). Preview repro tools: `abshot.sh` / `abtop.sh` (WSA pinned 1366x768/density 200).
   Idea offered: Preview camera-light slider (no GO yet). C: tight; old build dirs move to `D:\orca-builds-archive`.
 - WSA shader loop: `wsa-cycle.sh` / `wsa-preview2.sh`, black shots = display asleep (reference "Build and tools").
