@@ -18,10 +18,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 ## State
 - One repo: OrcaStudio-Android (code + these docs, `docs/handoff/`), branch `claude/handoff-continuation-rseql3`. Autonomy (user, 2026-10-11): decide branches and next steps
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
-- Android main = c47c8a6 (PR #32, r316, merged 2026-10-19); work branch is ~14 commits ahead (r328-r335: preview, paint edges, scale gizmo, slice error text, tower fit; no user verdict yet). Untested in main: pen 7d3a263, fan hold 298ee9f, Extrude F150 e13bebb (backlog).
-- Installed: r333 (run 39372024774, scale gizmo) on all devices 2026-10-19 (phone, Chromebook, SHIELD, Quest, WSA).
-  r335 (run 39376118065: slice error text 64420c3 + painted-plate tower fit d14af27, both WSA-verified) installed on all
-  devices 2026-10-19; ask the user to re-slice their plate 1.
+- Android main = c47c8a6 (PR #32, r316, merged 2026-10-19); work branch r317-r335 user-checked 2026-10-20 (archive): 10 verified,
+  2 still broken (below), Quest stick zoom untested but OK to merge. Untested in main: pen 7d3a263, fan hold 298ee9f, Extrude F150 e13bebb.
+- Installed: r335 (run 39376118065) on all devices 2026-10-19 (phone, Chromebook, SHIELD, Quest, WSA).
 - **Active device = `/target`** (p/w/c|t, default WSA): `sh ~/orca-android-tools/target.sh serial`; shot.sh/mcpao.sh follow it.
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
   WSA `127.0.0.1:58526`; **USB serial = the user's SHIELD TV** (rooted; installs only).
@@ -30,12 +29,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - User sessions backed up: phone `/data/local/tmp/phone-session-backup.{3mf,json}` (8 plates), WSA `/data/local/tmp/session-backup.{3mf,json}`.
   Test zip `scadzip-test.zip` stays in `/sdcard/Download` on phone + Chromebook. LAN access code was given in chat: never write it anywhere.
 ## Next task
-- **Waiting on the user (r332):** preview lines at the framing zoom (backlog "phone r325) Moire"), support/infill joint z-fight
-  (backlog "Support z-fight", fix c116b71; WSA static shots clean; the phone needs a re-slice), r328 tower z-fight, r329 top jiggle.
-  Paint "Stop at edges" (d1355c9, r332 run 39369547613, installed everywhere; WSA-verified with a local
-  native build): ask the user. **Resize overhaul** (scale gizmo, 0c35daf, run 39372024774; WSA-checked, archive):
-  installed everywhere r333, ask the user (backlog "edges THROUGH").
-  Quest: stick zoom speed, error card for the supportless cone (now shows the real message, 64420c3 r335, WSA-verified).
+- **Merge offered** (r317-r335): merge on "merge" / `/next-merge`. Then fix:
+  (1) paint card (backlog "Paint window: collapse"): folds toward its bottom edge + rubberband when unfolded in the top-left corner;
+  same issue the Design window had: copy its fix (grep the archive "Design window" / DesignPanel.kt).
+  (2) preview layer lines at the framing zoom still broken r335 (backlog "Moire"): ask the user washed out vs moire back + screenshot.
 - WSA debug app (`...debug`) holds the phone's session; `~/orca-android-tools/wsa-cycle.sh <prefix>`
   = build + install + slice + Preview + 3 sphere shots (`wsa-preview2.sh` alone skips the build).
 - Need the printer (backlog): fan slider jumps (r295 hold), Retract/Extrude F150 (e13bebb), extrude/jog, speed chips.

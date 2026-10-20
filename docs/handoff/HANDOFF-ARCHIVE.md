@@ -2407,3 +2407,13 @@ User: "you just tested something we already confirmed worked". Cross-checked eac
   Rib wall (PrintConfig.cpp wipe_tower_wall_type) squares the tower to the purge count, so the real tower was wider AND deeper than the box.
 - Fix d14af27: count `get_extruders_from_multi_material_painting()` per volume. Claude-verified WSA debug: plate 2 slices untouched
   (12h18m). CI run 39376118065 = r335 (also has the slice error text 64420c3). User check pending.
+
+### 2026-10-20 User verdicts, r335 (interactive check, device unstated)
+- "Works": prime tower fit on painted plates (d14af27), slice error card text (64420c3), scale gizmo / resize overhaul (0c35daf),
+  paint "Stop at edges" (d1355c9). All four VERIFIED.
+- Same check: tower drag x-ray outline (r327) "Works"; paint one-finger orbit off the model (r326) "Works": both VERIFIED.
+  Quest stick zoom setting (r324): not tested, user: "don't want to hold up merge". Paint card unfold (r327): STILL BROKEN: "doesn't go off
+  screen but it collapses to its bottom edge and there's a rubberband effect when expanded to the top left corner. same exact issue we dealt
+  with on the design editor window."
+- Same check, preview: support z-fight notch (c116b71, r331) "Works"; top-surface jiggle (r329) gone, "Works"; tower wall z-fight /
+  joint leak (05d553c, r328) "Works": all VERIFIED. Layer lines at the framing zoom (2d8d6aa, r330): "Still broken" (detail pending).
