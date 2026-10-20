@@ -32,14 +32,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Fix next:
   (1) preview layer lines: Moire fix user-verified r338, underside cc0af56 user-verified r339 (archive). Now fixing 2 user defects (r339 shot, plate 1 layer 232):
   table top skin edges (arrows) + light shards on the lying cylinder end cap near the bed. Then offer `/next-merge`.
-  **2026-10-20 findings (uncommitted, debug on WSA only):** repro = plate 1 layer 232, user camera (distance 200.474), via
-  `~/orca-android-tools/abshot.sh <name> [build]` (WSA pinned `wm size 1366x768`/`density 200`; baseline `shots/base2.png`).
-  Cause: the overlap's NDC push (PATH_VS `7.2e-5`, ~distance/550 mm) outgrew a layer zoomed out, so from below the bead's
-  own *top* face showed through. **User 2026-10-20: undersides "lit like a top"** (desktop Orca / Blender viewport style).
-  Fix 6b465f8: PATH_FS discards back-facing top/bottom faces + bottom faces use the top's normal (`abs(vFace.y)`); checked on
-  WSA at 60/120/200 mm below + from above: patches gone, lines kept, no cylinder stripes; wall rims from below a bit lighter
-  (their far mean now takes the lit underside). Rejected: label rank for a bottom ring (no change), no push for it (stripes).
-  **User r340: blocky lines everywhere (6b465f8 dropped tops from above; box winds CW). Fixing: invert the test, recheck above+below.** Still open: rim, cylinder end-cap shards. C: had filled up -> WSA storage hung; old build dirs now move to `D:\orca-builds-archive`.
+  Repro: plate 1 layer 232 on WSA (pinned 1366x768/density 200): `abshot.sh <name> [build]` from below (baseline `shots/base2.png`),
+  `abtop.sh` from above. Underside: 6b465f8 + r341 flip (archive). **r341 installed; user check pending:** tops from above + underside.
+  Still open: rim arrows, cylinder end-cap shards. C: tight; old build dirs move to `D:\orca-builds-archive`.
 - WSA shader loop: `wsa-cycle.sh` / `wsa-preview2.sh`, black shots = display asleep (reference "Build and tools").
 - Need the printer (backlog): fan slider jumps (r295 hold), Retract/Extrude F150 (e13bebb), extrude/jog, speed chips.
 - User-only checks pending (backlog): bead look, part shadows, light sliders, r276 tool row, r283/r284 top bar, r280 pinch lock,
