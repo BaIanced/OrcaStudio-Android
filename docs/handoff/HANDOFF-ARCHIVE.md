@@ -2442,3 +2442,6 @@ User: "you just tested something we already confirmed worked". Cross-checked eac
 ### 2026-10-20 r341 user check
 - (2026-10-20, user, phone r341) "I've checked and everything looks perfect": tops from above (6b465f8 flip) + lit undersides verified. User asked about camera light: Preview toolpaths use fixed studio lights only (`shade()`), lab light sliders affect the Prepare mesh only; camera-light slider offered (easy), no GO yet.
 - (2026-10-20, user, phone r341) on the r339 rim arrows + cylinder end-cap shards: "I've zoomed around and tried finding what that means and I can't notice anything defective in our current implementation" -> closed (not visible in r341).
+
+### 2026-10-20 paint gap fill, support kind (WSA, local debug build)
+- (Claude, WSA) Support painting, Enforce, cylinder: 3 mm strokes (about 20 mm2) stay at the max gap area 5.0 mm2; 1.4 mm taps vanish on "Fill gaps". Tapping a shape chip (e.g. Sphere) leaves Gap fill mode, so re-select the "Gap fill" chip before "Fill gaps". "Clear painting" worked. Odd: two green dots on the neighbouring plate stayed after Clear painting (probably painted earlier on another object; not chased).
