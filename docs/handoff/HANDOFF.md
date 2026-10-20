@@ -18,8 +18,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 ## State
 - One repo: OrcaStudio-Android (code + these docs, `docs/handoff/`), branch `claude/handoff-continuation-rseql3`. Autonomy (user, 2026-10-11): decide branches and next steps
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
-- Android main = c47c8a6 (PR #32, r316, merged 2026-10-19); work branch is 10 commits ahead (r328-r332: preview, paint edges; no user verdict yet). Untested in main: pen 7d3a263, fan hold 298ee9f, Extrude F150 e13bebb (backlog).
-- Installed: r332 (run 39369547613) on all 5 devices 2026-10-19 (phone, Chromebook, SHIELD, Quest, WSA). `install-build.ps1 -Run <id> -Device <serial>` (Quest needs `adb pair` first).
+- Android main = c47c8a6 (PR #32, r316, merged 2026-10-19); work branch is ~12 commits ahead (r328-r333: preview, paint edges, scale gizmo; no user verdict yet). Untested in main: pen 7d3a263, fan hold 298ee9f, Extrude F150 e13bebb (backlog).
+- Installed: r333 (run 39372024774, scale gizmo) on all devices 2026-10-19 (phone, Chromebook, SHIELD, Quest, WSA). `install-build.ps1 -Run <id> -Device <serial>` (Quest needs `adb pair` first).
 - **Active device = `/target`** (p/w/c|t, default WSA): `sh ~/orca-android-tools/target.sh serial`; shot.sh/mcpao.sh follow it.
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
   WSA `127.0.0.1:58526`; **USB serial = the user's SHIELD TV** (rooted; installs only).
@@ -31,7 +31,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **Waiting on the user (r332):** preview lines at the framing zoom (backlog "phone r325) Moire"), support/infill joint z-fight
   (backlog "Support z-fight", fix c116b71; WSA static shots clean; the phone needs a re-slice), r328 tower z-fight, r329 top jiggle.
   Paint "Stop at edges" (d1355c9, r332 run 39369547613, installed everywhere; WSA-verified with a local
-  native build): ask the user. Next open: resize overhaul (Opus). Quest: stick zoom speed, error card for the supportless cone.
+  native build): ask the user. **Resize overhaul** (scale gizmo, 0c35daf, run 39372024774; WSA-checked, archive):
+  installed everywhere r333, ask the user (backlog "edges THROUGH").
+  Quest: stick zoom speed, error card for the supportless cone.
 - WSA debug app (`...debug`) holds the phone's session (plate 2 tower drifts off the bed; drag it back from a top view, distance 450); `~/orca-android-tools/wsa-cycle.sh <prefix>`
   = build + install + slice + Preview + 3 sphere shots (`wsa-preview2.sh` alone skips the build).
 - Need the printer (backlog): fan slider jumps (r295 hold), Retract/Extrude F150 (e13bebb), extrude/jog, speed chips.

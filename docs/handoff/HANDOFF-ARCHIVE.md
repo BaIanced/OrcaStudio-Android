@@ -2385,3 +2385,11 @@ User: "you just tested something we already confirmed worked". Cross-checked eac
 - Untested: WSA (GL translation and the last-vertex flat rule), Chromebook, the user's eye.
 - Top-surface jiggle (r329, Claude, phone hidden display, 2026-10-19): plate 1 cube top, pitch 50, d 30, yaw -60/-59.8/-59.6: r328 showed comb z-fight in the overlap strip of neighbouring top lines, moving per 0.2 deg. Parity XOR direction did nothing; 4x depth steps removed it -> kept with the near plane at distance/50 (min 1) so the order bias costs about the same mm as before. Overview fit and cube section (sparse crossings) look the same as r328.
 - (2026-10-19, user, phone r329, 5 screenshots plate 2) Moire blend goes too far: "at this zoom level with the beeper plate, I should see layer lines ... to get layers to show up I have to zoom too far in. Double clicking a selected object frames the object, at that zoom the layer lines should be visible and pristine. If eliminating moire isn't 100 percent possible without degrading the useful visual data (layer lines) then I'd rather deal with it and keep the layer line detail." Spheres show lines only very close; framed beeper plate (top view) shows none. "Z-fighting occurring still": circled a triangular notch where a red support line meets a diagonal one (layer 221/301, close zoom), "only visible when panning camera or zooming", likely others. Tower / top-jiggle not separately judged.
+
+## 2026-10-19 Resize overhaul: desktop scale gizmo (0c35daf, Claude-verified WSA debug app)
+- Sphere (unrotated), yaw -60 pitch 40: 3 front corners + red X + green Y + blue Z shown, back corner/midpoints hidden.
+- X drag: 60.1 -> 117.7 mm on X only, centre kept, handle ended ~15 px from the finger. Z drag: top under the finger.
+- Corner drag: uniform 0.866 on all axes, centre kept. Top view (pitch 89): ring on the box top, all 4 corners + 4 midpoints + Z.
+- Level side view (pitch 0): front corners + Y shown; Z hidden by the box top at first, fixed (Z shows whenever the eye is above
+  the box bottom); Z drag of 42 px moved the top 42 px. Cylinder rot [90,117,117]: corners only (as designed).
+- Known limits: from an exact front view the X handles sit on edge-on faces and hide (orbit a little); handles draw over other objects.
