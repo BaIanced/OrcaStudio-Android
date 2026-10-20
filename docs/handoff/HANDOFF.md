@@ -18,8 +18,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 ## State
 - One repo: OrcaStudio-Android (code + these docs, `docs/handoff/`), branch `claude/handoff-continuation-rseql3`. Autonomy (user, 2026-10-11): decide branches and next steps
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
-- Android main = c47c8a6 (PR #32, r316, merged 2026-10-19); work branch is 6 commits ahead (r328-r330 preview, no user verdict yet). Untested in main: pen 7d3a263, fan hold 298ee9f, Extrude F150 e13bebb (backlog).
-- Installed: r330 (run 39365242353) on all 5 devices 2026-10-19 (phone, Chromebook, SHIELD, Quest, WSA). `install-build.ps1 -Run <id> -Device <serial>` (Quest needs `adb pair` first).
+- Android main = c47c8a6 (PR #32, r316, merged 2026-10-19); work branch is 8 commits ahead (r328-r331 preview, no user verdict yet). Untested in main: pen 7d3a263, fan hold 298ee9f, Extrude F150 e13bebb (backlog).
+- Installed: r331 (run 39367658519) on all 5 devices 2026-10-19 (phone, Chromebook, SHIELD, Quest, WSA). `install-build.ps1 -Run <id> -Device <serial>` (Quest needs `adb pair` first).
 - **Active device = `/target`** (p/w/c|t, default WSA): `sh ~/orca-android-tools/target.sh serial`; shot.sh/mcpao.sh follow it.
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
   WSA `127.0.0.1:58526`; **USB serial = the user's SHIELD TV** (rooted; installs only).
@@ -28,13 +28,13 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - User sessions backed up: phone `/data/local/tmp/phone-session-backup.{3mf,json}` (8 plates), WSA `/data/local/tmp/session-backup.{3mf,json}`.
   Test zip `scadzip-test.zip` stays in `/sdcard/Download` on phone + Chromebook. LAN access code was given in chat: never write it anywhere.
 ## Next task
-- **Preview look (user r329 2026-10-19, grep backlog "phone r325) Moire"):** r330 (run 39365242353) brings layer/skin lines back at the
-  framing zoom (filtered profile + cosine wave); user check pending. **Support z-fight** (backlog "Support z-fight"): fix c116b71
-  = native greedy depth labels (Preview.cpp `label_layer`, role + 32 * (label + 1)); CI run 39367658519 (r331) building.
-  Next: install on all devices, WSA debug app: re-slice plate 2 (`wsa-preview2.sh`), check slice time + a cropped close shot of
-  supports while orbiting (`mdrag.ps1`; MCP view_set leaves Preview), then ask the user. r328 tower z-fight / r329 top jiggle: user hasn't judged. Open after: paint edge-detection toggle (native, with extended paint
-  tools), resize overhaul (Opus). Waiting on the user (Quest): stick zoom speed, error card for the supportless cone.
-- WSA debug app (`...debug`) holds the phone's session with plate 2's tower moved on the bed; `~/orca-android-tools/wsa-cycle.sh <prefix>`
+- **Waiting on the user (r331):** preview lines at the framing zoom (backlog "phone r325) Moire"), support/infill joint z-fight
+  (backlog "Support z-fight", fix c116b71; WSA static shots clean; the phone needs a re-slice), r328 tower z-fight, r329 top jiggle.
+  Next open: paint edge-detection toggle (native, with extended paint tools), resize overhaul (Opus). Quest: stick zoom speed,
+  error card for the supportless cone.
+- WSA Preview close-ups: `view_set` (object/yaw/pitch/distance) then tap the Preview tab (52,165) keeps the camera; layer handle
+  drag on y 833 (track x 450-1195); WSA `input` has no mouse scroll, and double tap doesn't frame in Preview.
+- WSA debug app (`...debug`) holds the phone's session (plate 2 tower drifts off the bed; drag it back from a top view, distance 450); `~/orca-android-tools/wsa-cycle.sh <prefix>`
   = build + install + slice + Preview + 3 sphere shots (`wsa-preview2.sh` alone skips the build).
 - Need the printer (backlog): fan slider jumps (r295 hold), Retract/Extrude F150 (e13bebb), extrude/jog, speed chips.
 - User-only checks pending (backlog): bead look, part shadows, light sliders, r276 tool row, r283/r284 top bar, r280 pinch lock,
