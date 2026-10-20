@@ -20,7 +20,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = f1c4a17 (PR #34, r341, merged 2026-10-20). Untested in main: pen 7d3a263, fan hold 298ee9f, Extrude F150 e13bebb,
   Quest stick zoom (r324). Nothing unmerged on the branch.
-- Installed: r343 (run 39490672782) on all devices 2026-10-20. Tablet (wireless adb, unrooted; user's): only the debug app + a copy of the phone's data (CI release app removed at the user's request); no root = no data copy into a release app.
+- Installed: run 39517474174 (paint batch 2, 2026-10-20; was r343 run 39490672782) on all devices 2026-10-20. Tablet (wireless adb, unrooted; user's): only the debug app + a copy of the phone's data (CI release app removed at the user's request); no root = no data copy into a release app.
 - **Test device = WSA** (user 2026-10-20: `/target` skill removed for good). `target.sh` stays only as the serial helper (`target.sh serial|phone|chromebook`); shot.sh/mcpao.sh use it.
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
   WSA `127.0.0.1:58526`; **USB serial = the user's SHIELD TV** (rooted; installs only).
@@ -30,7 +30,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   Test zip `scadzip-test.zip` stays in `/sdcard/Download` on phone + Chromebook. LAN access code was given in chat: never write it anywhere.
 ## Next task
 - **Extended paint tools** batch 1 (1858dc3, r343) colour tests passed on WSA 2026-10-20 (Claude). **Batch 2 gap fill** (Colour + Support,
-  `GapFiller` in OrcaTools.cpp, `paintGapFill`; chip "Gap fill", area slider, "Fill gaps"): in the local debug build on all devices; CI run 39517474174 (dispatched 2026-10-20, not yet installed);
+  `GapFiller` in OrcaTools.cpp, `paintGapFill`; chip "Gap fill", area slider, "Fill gaps"): in the local debug build on all devices; CI run 39517474174 installed on all 4 devices 2026-10-20 (user-feel check pending);
   WSA-tested for colour and support kinds (small dots vanish, 3 mm strokes stay). Re-pick the "Gap fill" chip after any other shape chip.
   **"On overhangs only"** (Support brush, angle slider) WSA-tested: off paints, on paints nothing on a side wall; no overhang highlight view yet.
   Support shapes (circle, triangle, fill) WSA OK. Untested: user feel. Left (backlog): stroke lock, filament remap, survey; then edge outline.
