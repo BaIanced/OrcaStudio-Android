@@ -16,6 +16,10 @@ headless display below instead (no takeover needed). Don't drive WSA's own windo
   ids to `.vd-phone.state`. The user keeps the phone screen and the PC. `SHOW=1` = scrcpy window on the PC for
   shared viewing (user can click in it too; untested). The display lives only while scrcpy runs; `stop` after testing and
   check `tasklist | grep scrcpy` is empty (2026-10-19: two hand-started WSA scrcpy runs were left running ~30 min).
+- No PC window (user, 2026-10-19): scrcpy starts hidden via PowerShell with `--no-window` (`-N` still opened a small control
+  window that took focus). Debug installs: `adb install -r -g` (+ `pm grant ... POST_NOTIFICATIONS`) so no permission dialog lands
+  on the phone's main screen. WSA: launch with `wsa-start.ps1` (parks the WSA windows off-screen, unfocused; minimized = no
+  drawing; `-Show` brings them back); avoid `mdrag.ps1` there (moves the user's real cursor), use `adb shell input`.
 - `shot.sh` / `phone-ui.py` target it with `. ./.vd-phone.state; export VD=$LOGICAL,$SFID`. `mcpao.sh` works unchanged.
 - Layout differs from the real screen: get coordinates from `view_state` (3D) or a regex-cut `phone-ui.py layout` (2D),
   not a shot. No pinch yet (`pinch.sh`/`drag1.sh`/
@@ -38,7 +42,7 @@ headless display below instead (no takeover needed). Don't drive WSA's own windo
 
 ### Phone
 - Serial: `sh ~/orca-android-tools/target.sh phone` (2026-10-19 the phone is an `ip:5555` entry and the Quest also shows as `adb-..._adb-tls-connect` + `ip:port`; target.sh probes: Oculus = Quest, feature `org.chromium.arc` = Chromebook, else phone; cache `.kinds`, delete it if a serial gets reused).
-- Debug app on the phone: copy `files/session/*` + `shared_prefs/app_settings.xml` from the release app via su (chown to the debug uid), force-stop the release app (it holds the MCP socket name), run tools with `PKG=io.github.baianced.orcastudio_android.debug` (mcpao.sh, orca-vd.sh). First start shows the printer picker: Apply, then copy the session again.
+- Debug app on the phone: copy `files/session/*` + `shared_prefs/app_settings.xml` from the release app via su (chown to the debug uid), force-stop the release app (it holds the MCP socket name), run tools with `PKG=io.github.baianced.orcastudio_android.debug` (mcpao.sh, orca-vd.sh). First start shows the printer picker: Apply, then copy the session again. **Uninstall it (`adb uninstall ...debug`) when done** (user, 2026-10-19: two apps on the phone confused them).
 - Setup: archive "Phone test setup", memory `test-on-phone`; `phone-ui.py` needs `PYTHONIOENCODING=utf-8`;
   pull binaries with `adb exec-out "su -c '...'"`; Delete key = `su -c 'input keyevent 112'`.
 - **MCP on a real phone:** the `localabstract` forward works over wireless adb; the socket binds only after an
