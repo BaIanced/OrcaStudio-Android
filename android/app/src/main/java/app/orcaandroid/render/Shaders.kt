@@ -436,7 +436,8 @@ internal object Shaders {
             float lift = role == 2 ? 4.0 : (role == 1 || role == 3) ? 3.0 : (role == 6 || role == 8 || role == 11) ? 2.0
                 : (role == 5 || role == 7 || role == 9 || role == 10) ? 1.0 : 0.0;
             gl_Position = uMvp * vec4(pos + vec3(0.0, 0.0, lift * 0.01), 1.0);
-            // Fixed depth order for faces on the same plane (a few depth-buffer steps each, any zoom): the role as
+            // Fixed depth order for faces on the same plane (about 4 depth-buffer steps a rank, any zoom; at 1 step the
+            // overlap of neighbouring top lines still z-fought in combs, user r325 "jiggle"; Camera.clip): the role as
             // above, then the line's direction in three 60 degree bins (crossing infill lines of one role: parity
             // alone tied whenever both lines had the same, user r294), then odd segments over even ones (a loop's
             // seam ends, neighbouring parallel lines). Bin edges sit at 7.5 + 60k degrees, off the usual infill angles.
@@ -445,9 +446,9 @@ internal object Shaders {
             float a = atan(dir.y, dir.x) - 0.1309;
             float bin = aCorner.z < 0.0 ? 2.0 : mod(floor(a * 0.9549297), 3.0);
             float order = lift * 6.0 + bin * 2.0 + float((gl_InstanceID + uFirst) & 1);
-            gl_Position.z -= order * 5e-7 * gl_Position.w;
+            gl_Position.z -= order * 2e-6 * gl_Position.w;
             // The bottom overlap goes behind all of it.
-            if (overlap) gl_Position.z += 1.6e-5 * gl_Position.w;
+            if (overlap) gl_Position.z += 6.4e-5 * gl_Position.w;
         }"""
 
     const val PATH_FS = """#version 300 es
