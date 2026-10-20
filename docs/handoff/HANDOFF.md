@@ -35,7 +35,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   second; 2x `Supersampler` is the fallback; "Always" = 2x while moving) + **4x MSAA** (`MsaaConfigChooser.kt`, falls
   back to none). WSA (Claude): cylinder arcs nearly gone, still frame 0.2 ms. Lowering the regimes (MCP `view_set
   {"regime":x}`, default 1) brought arcs back, so kept at 1. MCP screenshot waits for `renderer.settled`.
-  **r338 installed everywhere; waiting on the user** (framing zoom layer lines, band,
+  **User r338 2026-10-20: moire gone, lines visible (verified).** Open: table underside lines smoothed on one side (band,
   table-top moire, moving smoothness/fps with MSAA on the phone).
 - WSA shader loop: `wsa-cycle.sh` / `wsa-preview2.sh`, black shots = display asleep (reference "Build and tools").
 - Need the printer (backlog): fan slider jumps (r295 hold), Retract/Extrude F150 (e13bebb), extrude/jog, speed chips.

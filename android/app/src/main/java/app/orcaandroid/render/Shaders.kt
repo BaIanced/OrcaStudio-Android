@@ -543,7 +543,10 @@ internal object Shaders {
             if (vTopFace + vSideFace > 0.5) {
                 highp vec3 v = normalize(uEye - vWorld);
                 vec3 side = vRight * (dot(vRight, v) < 0.0 ? -1.0 : 1.0);
-                float wTop = vWidth * max(v.z, 0.0);
+                // "Top" is whichever flat face the eye sees: the bottom skin from below (max(v.z, 0) took it as unseen
+                // and flattened bottom skins to the side's mean wherever the bead sides didn't show, user r338).
+                float facing = dot(vUp, v);
+                float wTop = vWidth * abs(facing);
                 float wSide = vHeight * abs(dot(side, v));
                 // World size of a pixel here: the less stretched screen direction (the other one runs along the face).
                 highp float pix = max(min(length(dFdx(vWorld)), length(dFdy(vWorld))), 1e-6) * uPxScale;
@@ -553,7 +556,7 @@ internal object Shaders {
                 // wall where its layers got small (user r335). A top that is drawn at all is seen.
                 if (!top) far *= 1.0 - smoothstep(0.15, 0.3, wSide / max(wTop + wSide, 1e-4));
                 // The other face at its own level (its wave's mean), as its pixels show it.
-                float lTop = top ? light : beadMean(vUp, vRight, 0.9, 0.3);
+                float lTop = top ? light : beadMean(facing < 0.0 ? -vUp : vUp, vRight, 0.9, 0.3);
                 float lSide = top ? beadMean(side, vec3(0.0, 0.0, 1.0), 0.8, 0.0) * 0.945 : light;
                 float mean = (wTop * lTop + wSide * lSide) / max(wTop + wSide, 1e-4);
                 light = mix(light, mean, far);

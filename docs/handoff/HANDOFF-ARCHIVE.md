@@ -2426,3 +2426,6 @@ User: "you just tested something we already confirmed worked". Cross-checked eac
 ### 2026-10-20 Paint card fold fix verified (r336)
 - (2026-10-20, user, r336) Paint card fix 2d35887: "paint card rubberband fix works, collapses in top right correctly." Verified.
 - Follow-up idea (user, low priority, logged in backlog): fold direction should depend on where the handle sits; the handle should want to stay near the top or bottom screen edge, so folding never leaves it mid-screen.
+
+### 2026-10-20 Temporal accumulation + MSAA (r338) user check
+- (2026-10-20, user, phone r338) "Incredible. Moire gone, layer lines visible." Verified: moire fix + framing-zoom layer lines (backlog "Moire"). One issue: table underside (bottom surface seen from below), left part's lines "completely smoothed away compared to right side" (screenshot in chat). Open, being fixed.
