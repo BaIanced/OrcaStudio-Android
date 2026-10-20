@@ -20,7 +20,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = b98e6ad (PR #33, r335, merged 2026-10-20). Untested in main: pen 7d3a263, fan hold 298ee9f, Extrude F150 e13bebb,
   Quest stick zoom (r324); paint card fix r336 + layer-line fix r338 verified, unmerged.
-- Installed: r341 (run 39482253748, tops-from-above fix for r340) on all devices 2026-10-20 (phone, Chromebook, SHIELD, Quest, WSA); user check pending.
+- Installed: r341 (run 39482253748, tops-from-above fix) on all devices 2026-10-20, user-verified.
 - **Test device = WSA** (user 2026-10-20: `/target` skill removed for good). `target.sh` stays only as the serial helper (`target.sh serial|phone|chromebook`); shot.sh/mcpao.sh use it.
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
   WSA `127.0.0.1:58526`; **USB serial = the user's SHIELD TV** (rooted; installs only).
@@ -33,7 +33,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   (1) preview layer lines: Moire fix user-verified r338, underside cc0af56 user-verified r339 (archive). Now fixing 2 user defects (r339 shot, plate 1 layer 232):
   table top skin edges (arrows) + light shards on the lying cylinder end cap near the bed. Then offer `/next-merge`.
   Repro: plate 1 layer 232 on WSA (pinned 1366x768/density 200): `abshot.sh <name> [build]` from below (baseline `shots/base2.png`),
-  `abtop.sh` from above. Underside: 6b465f8 + r341 flip (archive). **r341 installed; user check pending:** tops from above + underside.
+  `abtop.sh` from above. Underside 6b465f8 + r341 flip **user-verified r341** (archive). Idea offered: Preview camera-light slider (no GO yet).
   Still open: rim arrows, cylinder end-cap shards. C: tight; old build dirs move to `D:\orca-builds-archive`.
 - WSA shader loop: `wsa-cycle.sh` / `wsa-preview2.sh`, black shots = display asleep (reference "Build and tools").
 - Need the printer (backlog): fan slider jumps (r295 hold), Retract/Extrude F150 (e13bebb), extrude/jog, speed chips.
