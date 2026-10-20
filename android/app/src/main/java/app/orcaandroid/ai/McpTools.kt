@@ -171,6 +171,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
                 "target" to vec("Point the camera looks at, mm"),
                 "section" to p("number", "Section view cut 0..1 (0 = off)"),
                 "shadows" to p("boolean", "Shadows under objects"),
+                "supersample" to p("string", "Preview supersampling: off, still (when the camera stops; default) or always"),
                 "projection" to p("string", "perspective or orthographic (the user's setting, also in the app's View menu)"))) { viewSet(it) },
         Tool("view_screenshot", "Read: a PNG of the plate's 3D view as drawn now (no buttons or panels), after a short wait " +
             "for the last view change. Costs far more than text: use view_state, plate_describe or view_set's reply when " +
@@ -361,7 +362,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         val s = store.value
         return "Camera yaw ${n(c[0].toDouble())}, pitch ${n(c[1].toDouble())}, distance ${n(c[2].toDouble())} mm, " +
             "target [${n(c[3].toDouble())}, ${n(c[4].toDouble())}, ${n(c[5].toDouble())}]; section ${n(view.section.ratio.toDouble())}, " +
-            "shadows ${if (s.contactShadows) "on" else "off"}, ${if (view.camera.perspective) "perspective" else "orthographic"}; " +
+            "shadows ${if (s.contactShadows) "on" else "off"}, supersample ${listOf("off", "still", "always").getOrElse(s.supersample) { "?" }}, ${if (view.camera.perspective) "perspective" else "orthographic"}; " +
             "plate ${s.activePlate + 1} active."
     }
 
@@ -405,6 +406,12 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             val on = args.optBoolean("shadows")
             store.settings.contactShadows = on
             store.update { it.copy(contactShadows = on) }
+        }
+        args.optString("supersample").takeIf { it.isNotEmpty() }?.let { name ->
+            val mode = listOf("off", "still", "always").indexOf(name)
+            if (mode < 0) throw ToolError("supersample: off, still or always")
+            store.settings.supersample = mode
+            store.update { it.copy(supersample = mode) }
         }
         args.optString("projection").takeIf { it.isNotEmpty() }?.let { name ->
             val on = when (name) {

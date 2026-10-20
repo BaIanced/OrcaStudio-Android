@@ -175,6 +175,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         store.update { it.copy(selectionStyle = style) }
     }
 
+    fun setSupersample(mode: Int) {
+        store.settings.supersample = mode
+        store.update { it.copy(supersample = mode) }
+    }
+
     fun setPerspective(on: Boolean) {
         store.settings.perspective = on
         store.update { it.copy(perspective = on) }

@@ -123,6 +123,8 @@ data class UiState(
     val contactShadows: Boolean = true,
     /** How the selection shows ([app.orcaandroid.render.SelectionStyle] bits). */
     val selectionStyle: Int = app.orcaandroid.render.SelectionStyle.DEFAULT,
+    /** Preview supersampling ([app.orcaandroid.render.Supersample]). */
+    val supersample: Int = app.orcaandroid.render.Supersample.STILL,
     /** 3D view projection: perspective, or orthographic when false. */
     val perspective: Boolean = true,
     val lab: app.orcaandroid.core.LayoutLab = app.orcaandroid.core.LayoutLab(),

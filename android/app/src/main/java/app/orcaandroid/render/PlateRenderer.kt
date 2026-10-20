@@ -18,6 +18,10 @@ private const val BADGE_GAP = 0.02f
 /** Contact shadow: geometry up to this height above the bed casts it, mm; darkness right under a part. */
 private const val SHADOW_FADE_MM = 12f
 private const val SHADOW_STRENGTH = 0.8f
+/** Preview supersampling: samples per view pixel each way (4 a pixel), and how long the camera rests before it starts. */
+private const val SUPERSAMPLE = 2
+private const val STILL_NS = 200_000_000L
+private const val SUPER_REFRESH_NS = 1_000_000_000L
 
 /** Colours of the 3D view, following the app theme (RGB 0..1). */
 data class ViewColors(
@@ -110,6 +114,18 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var outlinePx = 6f
     /** Bounds (x0, y0, z0, x1, y1, z1) of each selection id's parts in the scene mesh, for the bounding box. */
     private var copyBounds: Map<Int, FloatArray> = emptyMap()
+
+    /** Preview supersampling ([Supersample]). */
+    var supersample = Supersample.STILL
+    private val supersampler = Supersampler()
+    /** Samples per view pixel each way in this frame (1 unless supersampled): px sizes (lines, points) scale by it. */
+    private var pxScale = 1f
+    /** The last frame's view-projection and when it last changed, for "the camera stopped". */
+    private val lastMvp = FloatArray(16)
+    private var movedAt = 0L
+    /** What the supersampled frame in the target shows ([superKey]) and when it was drawn: an unchanged view only re-averages it. */
+    private var superShown: List<Any?>? = null
+    private var superAt = 0L
 
     private val effects = SceneEffects()
     private val selection = SelectionOverlay()
@@ -252,6 +268,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         uploadBox()
         effects.create { vs, fs -> program(vs, fs) }
         selection.create { vs, fs -> program(vs, fs) }
+        supersampler.create { vs, fs -> program(vs, fs) }
+        superShown = null
         // A new EGL context lost all buffers; everything is uploaded again by the host.
         bedDirty = true
         meshCount = 0; paintCount = 0; extrCount = 0; travelCount = 0; markerCount = 0
@@ -280,10 +298,37 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
 
     private fun drawFrame() {
         upload()
+        camera.viewProjection(mvp)
+        val now = System.nanoTime()
+        if (!mvp.contentEquals(lastMvp)) { mvp.copyInto(lastMvp); movedAt = now }
+        // Preview only: its layer lines are what beats against the pixel grid. "Still" waits a moment, so a finger
+        // resting mid-drag doesn't flip the look back and forth.
+        val wantSuper = showPreview && when (supersample) {
+            Supersample.ALWAYS -> true
+            Supersample.STILL -> now - movedAt > STILL_NS
+            else -> false
+        }
+        if (!showPreview) { supersampler.release(); superShown = null }
+        // The view redraws continuously: while nothing changes, the frame already in the target is averaged again
+        // instead of drawing 4 times the pixels. A fresh one now and then covers any state the key misses.
+        val key = if (wantSuper) superKey() else null
+        if (key != null && key == superShown && now - superAt < SUPER_REFRESH_NS) { supersampler.end(viewW, viewH); return }
+        val supered = wantSuper && supersampler.begin(viewW, viewH, SUPERSAMPLE)
+        pxScale = if (supered) supersampler.factor.toFloat() else 1f
+        drawScene()
+        if (supered) { supersampler.end(viewW, viewH); superShown = key; superAt = now } else superShown = null
+        pxScale = 1f
+    }
+
+    /** Everything the Preview frame depends on (data classes compare by value, arrays by identity unless listed). */
+    private fun superKey(): List<Any?> = listOf(mvp.toList(), viewW, viewH, previewVersion, previewStyle, previewRange,
+        previewOrigin.toList(), section?.toList(), filamentColors, colors, measurePoints.map { it.toList() }, cutPlane?.toList(),
+        bedCount, plateOrigins, activePlate, badgeCount, atlas, gridRect?.toList())
+
+    private fun drawScene() {
         val bg = colors.background
         glClearColor(bg[0], bg[1], bg[2], 1f)
         glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
-        camera.viewProjection(mvp)
         // The OpenSCAD design on the plate stands alone: the project's objects are hidden meanwhile.
         val models = ghostCount == 0
         val bounds = meshBounds
@@ -522,6 +567,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             glUniformMatrix4fv(loc(gridProgram, "uMvp"), 1, false, mvp, 0)
             glUniform4fv(loc(gridProgram, "uRect"), 1, rect, 0)
             glUniform3fv(loc(gridProgram, "uColor"), 1, colors.grid, 0)
+            glUniform1f(loc(gridProgram, "uPxScale"), pxScale)
             glEnable(GL_BLEND)
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
             glDepthMask(false)
@@ -541,7 +587,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         plateOrigins.forEachIndexed { i, (ox, oy) ->
             glUniform3f(loc(lineProgram, "uOffset"), ox, oy, 0f)
             glUniform3fv(loc(lineProgram, "uColor"), 1, if (i == activePlate) colors.activePlate else colors.grid, 0)
-            glLineWidth(if (i == activePlate) 3f else 1f)
+            glLineWidth((if (i == activePlate) 3f else 1f) * pxScale)
             glDrawArrays(GL_LINES, 0, bedCount)
             glLineWidth(1f)
         }
@@ -695,7 +741,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glUniform3fv(loc(lineProgram, "uOffset"), 1, dragOffset, 0)
         glUniform3fv(loc(lineProgram, "uColor"), 1, colors.selected, 0)
         setSection(lineProgram, on = false)
-        glLineWidth(3f)
+        glLineWidth(3f * pxScale)
         glBindBuffer(GL_ARRAY_BUFFER, scratchVbo)
         val data = lines.toFloatArray()
         glBufferData(GL_ARRAY_BUFFER, data.size * 4, floats(data), GL_STREAM_DRAW)
@@ -752,6 +798,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             glUniform1i(loc(pathProgram, "uHidden"), style.hiddenRoles)
             glUniform2f(loc(pathProgram, "uRange"), style.range.first, style.range.second)
             glUniform1i(loc(pathProgram, "uFirst"), first)
+            glUniform1f(loc(pathProgram, "uPxScale"), pxScale)
             camera.eye().let { glUniform3f(loc(pathProgram, "uEye"), it.x, it.y, it.z) }
             glUniform3fv(loc(pathProgram, "uRoleColors"), 20, Shaders.ROLE_COLORS, 0)
             setFilamentColors(pathProgram)
@@ -798,7 +845,9 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
                 glBindBuffer(GL_ARRAY_BUFFER, travelVbo)
                 glEnableVertexAttribArray(0)
                 glVertexAttribPointer(0, 3, GL_FLOAT, false, 12, tFirst * 24)
+                glLineWidth(pxScale)
                 glDrawArrays(GL_LINES, 0, (tLast - tFirst) * 2)
+                glLineWidth(1f)
                 glDisableVertexAttribArray(0)
             }
         }
@@ -809,6 +858,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
                 glUseProgram(pointProgram)
                 glUniformMatrix4fv(loc(pointProgram, "uMvp"), 1, false, mvp, 0)
                 glUniform3f(loc(pointProgram, "uOffset"), previewOrigin[0], previewOrigin[1], 0f)
+                glUniform1f(loc(pointProgram, "uPxScale"), pxScale)
                 glUniform1i(loc(pointProgram, "uKinds"), (if (style.showRetracts) 0b0011 else 0) or (if (style.showSeams) 0b0100 else 0))
                 camera.eye().let { glUniform3f(loc(pointProgram, "uEye"), it.x, it.y, it.z) }
                 setSection(pointProgram)
@@ -861,7 +911,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glUniform3f(loc(lineProgram, "uOffset"), 0f, 0f, 0f)
         glUniform3f(loc(lineProgram, "uColor"), 1f, 0.3f, 0.3f)
         setSection(lineProgram, on = false)
-        glLineWidth(3f)
+        glLineWidth(3f * pxScale)
         glBindBuffer(GL_ARRAY_BUFFER, scratchVbo)
         val data = (lines + measurePoints.flatMap { it.toList() }).toFloatArray()
         glBufferData(GL_ARRAY_BUFFER, data.size * 4, floats(data), GL_STREAM_DRAW)
@@ -875,6 +925,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             glUniformMatrix4fv(loc(pointProgram, "uMvp"), 1, false, mvp, 0)
             glUniform3f(loc(pointProgram, "uOffset"), 0f, 0f, 0f)
             glUniform1i(loc(pointProgram, "uKinds"), 0b10000)
+            glUniform1f(loc(pointProgram, "uPxScale"), pxScale)
             setSection(pointProgram, on = false)
             glEnableVertexAttribArray(0)
             glVertexAttribPointer(0, 3, GL_FLOAT, false, 12, lines.size * 4)

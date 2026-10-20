@@ -31,11 +31,15 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 ## Next task
 - Fix next:
   Paint card fold 2d35887 **user-verified r336** (archive); fold-direction-by-edge idea = backlog, low priority.
-  (1) preview layer lines (backlog "Moire"), **user GO 2026-10-20** (r335 shots: sharp lines, light band, moire under table top):
-  (a) light band = the 3 shading regimes in Shaders.kt PATH_FS (profile l.515, wave l.505, two-face mean l.534) differ in mean
-  brightness inside their crossfades: make all three share one mean. (b) supersampling: render the preview at 2-4x and downsample
-  once the camera stops (PlateView.kt:208 has no MSAA). (c) **Settings option: supersample while moving too** (off by default,
-  GPU cost). No more blend-threshold tuning. Before/after shots of the orange box + table underside (WSA, once it draws).
+  (1) preview layer lines (backlog "Moire"), **user GO 2026-10-20**, WIP commit (paused by the user mid-task, Claude-tested WSA
+  debug only, no CI build yet): (a) light band: PATH_FS wave level = beadMean (profile's mean), wall sides join the far mean
+  only as slivers (share < 0.3). (b) `Supersampler.kt`: Preview drawn 2x + tent downsample once the camera rests 200 ms;
+  the rested frame is cached (re-averaged, redrawn on a key change or every 1 s): idle 60 fps / 0.2 ms vs 43 fps without.
+  Regimes go by view px (`uPxScale`), filters by samples. (c) Settings > supersampling Off / When still / Always (MCP
+  `view_set {"supersample":...}`). Shots: sphere rings + table speckle gone, table leg shows lines; lying cylinder
+  (object 5, yaw -60 pitch 25) still faint moire arcs (lit tops vs sides at ~1.5 px). Next: decide on that, CI build, user check.
+  Black WSA shots = PC display asleep: `wake-display.ps1` (now in wsa-preview2.sh). Shot pairs: `$JOB/tmp/sspair.sh` (lost; 
+  = view_set + supersample off/still + crop 105,38,745,938).
 - WSA debug app (`...debug`) holds the phone's session; `~/orca-android-tools/wsa-cycle.sh <prefix>`
   = build + install + slice + Preview + 3 sphere shots (`wsa-preview2.sh` alone skips the build).
 - Need the printer (backlog): fan slider jumps (r295 hold), Retract/Extrude F150 (e13bebb), extrude/jog, speed chips.

@@ -158,6 +158,13 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
                 SwitchRow(stringResource(R.string.contact_shadows), state.contactShadows, onChange = vm::setContactShadows)
                 // The desktop's View > Use Orthogonal View; a setting here since perspective is the usual look (user 2026-10-19). K toggles.
                 SwitchRow(stringResource(R.string.orthographic_camera), !state.perspective, onChange = { vm.setPerspective(!it) })
+                // Sharp layer lines without moire in Preview (user 2026-10-20); while moving costs GPU, so off by default.
+                Text(stringResource(R.string.preview_supersample), style = MaterialTheme.typography.bodyLarge)
+                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                    listOf(R.string.supersample_off, R.string.supersample_still, R.string.supersample_always).forEachIndexed { i, label ->
+                        SegmentedButton(state.supersample == i, { vm.setSupersample(i) }, SegmentedButtonDefaults.itemShape(i, 3)) { Text(stringResource(label)) }
+                    }
+                }
                 Text(stringResource(R.string.selection_style), style = MaterialTheme.typography.bodyLarge)
                 androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     val labels = listOf(R.string.selection_outline, R.string.selection_xray, R.string.selection_rim,
