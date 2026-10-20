@@ -20,7 +20,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = b98e6ad (PR #33, r335, merged 2026-10-20). Untested in main: pen 7d3a263, fan hold 298ee9f, Extrude F150 e13bebb,
   Quest stick zoom (r324); paint card fix r336 + layer-line fix r338 verified, unmerged.
-- Installed: r340 (run 39406746733, lit undersides 6b465f8) on all devices 2026-10-20 (phone, Chromebook, SHIELD, Quest, WSA).
+- Installed: r341 (run 39482253748, tops-from-above fix for r340) on all devices 2026-10-20 (phone, Chromebook, SHIELD, Quest, WSA); user check pending.
 - **Test device = WSA** (user 2026-10-20: `/target` skill removed for good). `target.sh` stays only as the serial helper (`target.sh serial|phone|chromebook`); shot.sh/mcpao.sh use it.
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
   WSA `127.0.0.1:58526`; **USB serial = the user's SHIELD TV** (rooted; installs only).
