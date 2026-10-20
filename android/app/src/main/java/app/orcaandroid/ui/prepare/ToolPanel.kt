@@ -162,13 +162,29 @@ private fun PaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Paint) {
         }
         FilterChip(tool.state == 0, { vm.scene.setTool(tool.copy(state = 0)) }, label = { Text(stringResource(R.string.erase)) })
     }
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    // The desktop's painting tools per kind (GLGizmoMmuSegmentation / FdmSupports / Seam / FuzzySkin).
+    val shapes = when (tool.kind) {
+        "color" -> listOf("sphere", "circle", "triangle", "fill", "height")
+        "seam" -> listOf("sphere", "circle")
+        else -> listOf("sphere", "circle", "triangle", "fill")
+    }
+    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        shapes.forEach { s ->
+            FilterChip(tool.shape == s, { vm.scene.setTool(tool.copy(shape = s)) }, label = { Text(stringResource(paintShapeLabel(s))) })
+        }
+    }
+    val brush = tool.shape == "sphere" || tool.shape == "circle"
+    if (brush) Row(verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(R.string.brush_size, tool.radius), style = MaterialTheme.typography.bodySmall)
         Slider(tool.radius, { vm.scene.setTool(tool.copy(radius = it)) }, valueRange = 0.5f..15f, modifier = Modifier.weight(1f).padding(start = 8.dp))
     }
-    // Edge detection: the angle stays remembered while it is off.
+    if (tool.shape == "height") Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(stringResource(R.string.paint_height_range, tool.height), style = MaterialTheme.typography.bodySmall)
+        Slider(tool.height, { vm.scene.setTool(tool.copy(height = it)) }, valueRange = 0.1f..8f, modifier = Modifier.weight(1f).padding(start = 8.dp))
+    }
+    // Edge detection (brush) / smart fill angle (fill): the angle stays remembered while it is off.
     var edgeAngle by rememberSaveable { mutableFloatStateOf(30f) }
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    if (brush || tool.shape == "fill") Row(verticalAlignment = Alignment.CenterVertically) {
         FilterChip(tool.edgeAngle > 0f, { vm.scene.setTool(tool.copy(edgeAngle = if (tool.edgeAngle > 0f) 0f else edgeAngle)) },
             label = { Text(stringResource(R.string.paint_stop_at_edges)) })
         if (tool.edgeAngle > 0f) {
@@ -179,6 +195,11 @@ private fun PaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Paint) {
         }
     }
     TextButton(onClick = { vm.scene.paintClear(tool.kind) }) { Text(stringResource(R.string.clear_painting)) }
+}
+
+private fun paintShapeLabel(shape: String) = when (shape) {
+    "circle" -> R.string.paint_shape_circle; "triangle" -> R.string.paint_shape_triangle; "fill" -> R.string.paint_shape_fill
+    "height" -> R.string.paint_shape_height; else -> R.string.paint_shape_sphere
 }
 
 @Composable

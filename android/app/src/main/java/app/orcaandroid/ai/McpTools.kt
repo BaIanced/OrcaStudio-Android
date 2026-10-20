@@ -518,7 +518,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             append("Mode ${view.mode.name.lowercase()}; tool ")
             append(when (val tool = s.tool) {
                 app.orcaandroid.ui.Tool.None -> "none"
-                is app.orcaandroid.ui.Tool.Paint -> "paint ${tool.kind} (state ${tool.state}, radius ${n(tool.radius.toDouble())} mm)"
+                is app.orcaandroid.ui.Tool.Paint -> "paint ${tool.kind} ${tool.shape} (state ${tool.state}, radius ${n(tool.radius.toDouble())} mm)"
                 app.orcaandroid.ui.Tool.LayOnFace -> "lay on face"
                 app.orcaandroid.ui.Tool.Measure -> "measure, ${s.measure.size} point(s)"
                 is app.orcaandroid.ui.Tool.Cut -> "cut at Z ${n(tool.z.toDouble())} mm"

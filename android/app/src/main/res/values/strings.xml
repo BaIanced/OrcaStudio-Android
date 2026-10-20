@@ -33,6 +33,12 @@
     <string name="brush_size">Brush %.1f mm</string>
     <string name="paint_stop_at_edges">Stop at edges</string>
     <string name="paint_edge_angle">%d°</string>
+    <string name="paint_shape_sphere">Sphere</string>
+    <string name="paint_shape_circle">Circle</string>
+    <string name="paint_shape_triangle">Triangle</string>
+    <string name="paint_shape_fill">Fill</string>
+    <string name="paint_shape_height">Height range</string>
+    <string name="paint_height_range">Height %.1f mm</string>
     <string name="calib_cornering">Cornering (jerk / junction deviation)</string>
     <string name="calib_flow">Flow rate</string>
     <string name="calib_is_damp">Input shaping damping</string>
