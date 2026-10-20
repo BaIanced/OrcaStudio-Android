@@ -20,7 +20,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = f1c4a17 (PR #34, r341, merged 2026-10-20). Untested in main: pen 7d3a263, fan hold 298ee9f, Extrude F150 e13bebb,
   Quest stick zoom (r324). Nothing unmerged on the branch.
-- Installed: r341 (run 39482253748, tops-from-above fix) on all devices 2026-10-20, user-verified.
+- Installed: r343 (run 39490672782) on all devices 2026-10-20. Tablet (wireless adb, unrooted; user's): only the debug app + a copy of the phone's data (CI release app removed at the user's request); no root = no data copy into a release app.
 - **Test device = WSA** (user 2026-10-20: `/target` skill removed for good). `target.sh` stays only as the serial helper (`target.sh serial|phone|chromebook`); shot.sh/mcpao.sh use it.
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
   WSA `127.0.0.1:58526`; **USB serial = the user's SHIELD TV** (rooted; installs only).
@@ -29,10 +29,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - User sessions backed up: phone `/data/local/tmp/phone-session-backup.{3mf,json}` (8 plates), WSA `/data/local/tmp/session-backup.{3mf,json}`.
   Test zip `scadzip-test.zip` stays in `/sdcard/Download` on phone + Chromebook. LAN access code was given in chat: never write it anywhere.
 ## Next task
-- **Extended paint tools, batch 1** (1858dc3, run 39490672782 = r343, built, UNTESTED): shape chips Sphere/Circle/Triangle/Fill/Height range
-  (`Tool.Paint.shape/height`, native `OrcaEngine::paint` shape arg; fill = bucket fill at a line's first hit, "Stop at edges" = smart fill
-  angle; height = band [hit z, z+h] on all parts). Next: install r343 on all devices, test each shape on WSA (colour + support), then
-  batch 2 (gap fill: port `TriangleSelectorPatch` fragment merge; supports "on overhangs only"). Then answer the edge-outline item (backlog).
+- **Extended paint tools, batch 1** (1858dc3, r343): WSA colour tests passed 2026-10-20 (Claude, shots: Sphere, Circle, Triangle facet, Fill floods the whole
+  connected mesh, Fill + "Stop at edges" = top face only, Height range 0.2 mm band, Erase+Fill clears). Not yet tested: shapes in Support painting,
+  Height slider, user feel (backlog). Next: batch 2 (gap fill: port `TriangleSelectorPatch` fragment merge; supports "on overhangs only"),
+  then answer the edge-outline item (backlog).
 - Preview layer-line work done and merged (PR #34). Preview repro tools: `abshot.sh` / `abtop.sh` (WSA pinned 1366x768/density 200).
   Idea offered: Preview camera-light slider (no GO yet). C: tight; old build dirs move to `D:\orca-builds-archive`.
 - WSA shader loop: `wsa-cycle.sh` / `wsa-preview2.sh`, black shots = display asleep (reference "Build and tools").
