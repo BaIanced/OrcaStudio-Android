@@ -18,12 +18,13 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 ## State
 - One repo: OrcaStudio-Android (code + these docs, `docs/handoff/`), branch `claude/handoff-continuation-rseql3`. Autonomy (user, 2026-10-11): decide branches and next steps
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
-- Android main = c47c8a6 (PR #32, r316, merged 2026-10-19); work branch = main. Untested in main: pen 7d3a263, fan hold 298ee9f, Extrude F150 e13bebb (backlog).
+- Android main = c47c8a6 (PR #32, r316, merged 2026-10-19); work branch is 6 commits ahead (r328-r330 preview, no user verdict yet). Untested in main: pen 7d3a263, fan hold 298ee9f, Extrude F150 e13bebb (backlog).
 - Installed: r330 (run 39365242353) on all 5 devices 2026-10-19 (phone, Chromebook, SHIELD, Quest, WSA). `install-build.ps1 -Run <id> -Device <serial>` (Quest needs `adb pair` first).
 - **Active device = `/target`** (p/w/c|t, default WSA): `sh ~/orca-android-tools/target.sh serial`; shot.sh/mcpao.sh follow it.
-- Devices (2026-10-19): phone = `ip:5555` now, Chromebook = another `ip:port`, Quest = `adb-...tls` + `ip:port`: use `target.sh phone|chromebook`
-  (probes the kind; reference "Phone"). WSA `127.0.0.1:58526`; **USB serial = the user's SHIELD TV** (rooted; installs only).
-- User away from the printer: no printer tests. SHIELD installs only. User OK'd phone tests (main screen) 2026-10-19 while gaming on the PC: don't drive WSA then.
+- Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
+  WSA `127.0.0.1:58526`; **USB serial = the user's SHIELD TV** (rooted; installs only).
+- User away from the printer: no printer tests. SHIELD installs only. **User 2026-10-19 (later): keep using WSA, not the phone;
+  cheapest interface first** (MCP `mcpao.sh` ~150 tok > `phone-ui.py layout` cut by regex > cropped shot only for GL looks).
 - User sessions backed up: phone `/data/local/tmp/phone-session-backup.{3mf,json}` (8 plates), WSA `/data/local/tmp/session-backup.{3mf,json}`.
   Test zip `scadzip-test.zip` stays in `/sdcard/Download` on phone + Chromebook. LAN access code was given in chat: never write it anywhere.
 ## Next task
@@ -72,7 +73,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
    - Android: `python .claude/hooks/privacy_scan.py range "HEAD --not --remotes" . ':(exclude)src-orca'`
    - (Handoff docs moved here from `OrcaStudio/arm-build` 2026-10-19; that repo is Flatpak-only now, untouched unless asked.)
 9. Commit trailer: `Co-Authored-By` + `Claude-Session` lines as given in the session.
-11. **Model fit (user, 2026-10-16):** when a task would be better suited to Opus (hard rendering/shader/math debugging, subtle multi-file design, after 2 failed attempts), say so before starting or as soon as it shows, and tell the user to `/model` swap and `/next`. Otherwise stay on the current model.
-10. Efficiency (user, 2026-10-10): compile Kotlin locally before every push (command in the reference); batch 2-4 changes per
+10. **Model fit (user, 2026-10-16):** say when a task suits Opus better (hard shader/math debugging, subtle multi-file
+    design, after 2 failed tries), before starting or as soon as it shows (`/model` swap + `/next`).
+11. Efficiency (user, 2026-10-10): compile Kotlin locally before every push (command in the reference); batch 2-4 changes per
     build, don't dispatch builds that will be superseded; write code with Edit or python raw strings, never plain python
     heredocs (they ate backslashes 5x); write python scripts with Write, then run them.
