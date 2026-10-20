@@ -264,7 +264,7 @@ public:
 
     // Slices one plate with the current selection and exports G-code (with thumbnails) to
     // gcode_out. Preview data goes to preview_dir:
-    //   extrusions.bin  15 floats per segment: x0,y0,z0,x1,y1,z1, role, width, height, speed,
+    //   extrusions.bin  15 floats per segment: x0,y0,z0,x1,y1,z1, role + 32 * (depth label + 1), width, height, speed,
     //                   fan, temperature, volumetric rate, filament, G-code line
     //   travels.bin     6 floats per travel: x0,y0,z0,x1,y1,z1
     //   markers.bin     4 floats per marker: x,y,z, kind (0 retract, 1 unretract, 2 seam, 3 wipe)

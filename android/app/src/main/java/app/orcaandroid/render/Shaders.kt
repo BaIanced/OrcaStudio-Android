@@ -373,7 +373,10 @@ internal object Shaders {
         }
 
         void main() {
-            int role = clamp(int(aRole + 0.5), 0, 19);
+            // aRole = role + 32 * (depth label + 1) (Preview.cpp label_layer); older files carry the role alone.
+            int roleTag = int(aRole + 0.5);
+            int role = clamp(roleTag & 31, 0, 19);
+            int label = (roleTag >> 5) - 1;
             if (((uHidden >> role) & 1) == 1) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
             vec3 d = aP1 - aP0;
             float len = length(d);
@@ -438,17 +441,19 @@ internal object Shaders {
             gl_Position = uMvp * vec4(pos + vec3(0.0, 0.0, lift * 0.01), 1.0);
             // Fixed depth order for faces on the same plane (about 4 depth-buffer steps a rank, any zoom; at 1 step the
             // overlap of neighbouring top lines still z-fought in combs, user r325 "jiggle"; Camera.clip): the role as
-            // above, then the line's direction in three 60 degree bins (crossing infill lines of one role: parity
-            // alone tied whenever both lines had the same, user r294), then odd segments over even ones (a loop's
-            // seam ends, neighbouring parallel lines). Bin edges sit at 7.5 + 60k degrees, off the usual infill angles.
-            // Below the top the walls take the top bin: a wall's foot under the layer below's top face (another bin) let
-            // that face show through as dotted rows. Crossing lines' walls are never coplanar.
+            // above, then the top's depth label, which differs between touching beads of one class (Preview.cpp; the
+            // direction bins it replaced tied where support lines met at under 60 degrees, user r329 notch). The walls
+            // rank above every top of their class, odd segments over even ones: a wall's foot under the layer below's
+            // top face let that face show through as dotted rows. Crossing lines' walls are never coplanar.
+            // Older preview files: the line's direction in three 60 degree bins (edges at 7.5 + 60k degrees), then parity.
+            float parity = float((gl_InstanceID + uFirst) & 1);
             float a = atan(dir.y, dir.x) - 0.1309;
-            float bin = aCorner.z < 0.0 ? 2.0 : mod(floor(a * 0.9549297), 3.0);
-            float order = lift * 6.0 + bin * 2.0 + float((gl_InstanceID + uFirst) & 1);
+            float rank = aCorner.z < 0.0 ? 5.0 + parity
+                : label >= 0 ? float(label) : mod(floor(a * 0.9549297), 3.0) * 2.0 + parity;
+            float order = lift * 7.0 + rank;
             gl_Position.z -= order * 2e-6 * gl_Position.w;
-            // The bottom overlap goes behind all of it.
-            if (overlap) gl_Position.z += 6.4e-5 * gl_Position.w;
+            // The bottom overlap goes behind all of it (36 ranks; the orders above reach 34).
+            if (overlap) gl_Position.z += 7.2e-5 * gl_Position.w;
         }"""
 
     const val PATH_FS = """#version 300 es
