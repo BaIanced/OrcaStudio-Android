@@ -20,8 +20,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = c47c8a6 (PR #32, r316, merged 2026-10-19); work branch is ~14 commits ahead (r328-r335: preview, paint edges, scale gizmo, slice error text, tower fit; no user verdict yet). Untested in main: pen 7d3a263, fan hold 298ee9f, Extrude F150 e13bebb (backlog).
 - Installed: r333 (run 39372024774, scale gizmo) on all devices 2026-10-19 (phone, Chromebook, SHIELD, Quest, WSA).
-  r335 (run 39376118065: slice error text 64420c3 + tower-off-bed on painted plates d14af27, both WSA-verified) building:
-  install on all devices when green, then ask the user to re-slice their plate 1. `install-build.ps1 -Run <id> -Device <serial>` (Quest needs `adb pair` first).
+  r335 (run 39376118065: slice error text 64420c3 + painted-plate tower fit d14af27, both WSA-verified) installed on all
+  devices 2026-10-19; ask the user to re-slice their plate 1.
 - **Active device = `/target`** (p/w/c|t, default WSA): `sh ~/orca-android-tools/target.sh serial`; shot.sh/mcpao.sh follow it.
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
   WSA `127.0.0.1:58526`; **USB serial = the user's SHIELD TV** (rooted; installs only).
