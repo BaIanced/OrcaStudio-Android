@@ -18,8 +18,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 ## State
 - One repo: OrcaStudio-Android (code + these docs, `docs/handoff/`), branch `claude/handoff-continuation-rseql3`. Autonomy (user, 2026-10-11): decide branches and next steps
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
-- Android main = b98e6ad (PR #33, r335, merged 2026-10-20). Untested in main: pen 7d3a263, fan hold 298ee9f, Extrude F150 e13bebb,
-  Quest stick zoom (r324); paint card fix r336 + layer-line fix r338 verified, unmerged.
+- Android main = f1c4a17 (PR #34, r341, merged 2026-10-20). Untested in main: pen 7d3a263, fan hold 298ee9f, Extrude F150 e13bebb,
+  Quest stick zoom (r324). Nothing unmerged on the branch.
 - Installed: r341 (run 39482253748, tops-from-above fix) on all devices 2026-10-20, user-verified.
 - **Test device = WSA** (user 2026-10-20: `/target` skill removed for good). `target.sh` stays only as the serial helper (`target.sh serial|phone|chromebook`); shot.sh/mcpao.sh use it.
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
@@ -29,12 +29,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - User sessions backed up: phone `/data/local/tmp/phone-session-backup.{3mf,json}` (8 plates), WSA `/data/local/tmp/session-backup.{3mf,json}`.
   Test zip `scadzip-test.zip` stays in `/sdcard/Download` on phone + Chromebook. LAN access code was given in chat: never write it anywhere.
 ## Next task
-- Fix next:
-  (1) preview layer lines: Moire fix user-verified r338, underside cc0af56 user-verified r339 (archive). Now fixing 2 user defects (r339 shot, plate 1 layer 232):
-  table top skin edges (arrows) + light shards on the lying cylinder end cap near the bed. Then offer `/next-merge`.
-  Repro: plate 1 layer 232 on WSA (pinned 1366x768/density 200): `abshot.sh <name> [build]` from below (baseline `shots/base2.png`),
-  `abtop.sh` from above. Underside 6b465f8 + r341 flip **user-verified r341** (archive). Idea offered: Preview camera-light slider (no GO yet).
-  Rim arrows + end-cap shards: user saw nothing in r341, closed. Next: offer `/next-merge`. C: tight; old build dirs move to `D:\orca-builds-archive`.
+- Preview layer-line work done and merged (PR #34). Preview repro tools: `abshot.sh` / `abtop.sh` (WSA pinned 1366x768/density 200).
+  Idea offered: Preview camera-light slider (no GO yet). C: tight; old build dirs move to `D:\orca-builds-archive`.
 - WSA shader loop: `wsa-cycle.sh` / `wsa-preview2.sh`, black shots = display asleep (reference "Build and tools").
 - Need the printer (backlog): fan slider jumps (r295 hold), Retract/Extrude F150 (e13bebb), extrude/jog, speed chips.
 - User-only checks pending (backlog): bead look, part shadows, light sliders, r276 tool row, r283/r284 top bar, r280 pinch lock,
