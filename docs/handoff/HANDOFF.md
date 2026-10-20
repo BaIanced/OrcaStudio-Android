@@ -30,15 +30,13 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   Test zip `scadzip-test.zip` stays in `/sdcard/Download` on phone + Chromebook. LAN access code was given in chat: never write it anywhere.
 ## Next task
 - Fix next:
-  (1) preview layer lines (backlog "Moire"). WIP 6c1002e (WSA debug only, no CI): band fix (PATH_FS wave level = beadMean,
-  wall sides join the far mean only as slivers), `Supersampler.kt` 2x + tent downsample when still, cached still frame,
-  Settings Off/When still/Always (MCP `view_set {"supersample":..}`), regimes by view px (`uPxScale`). Lying cylinder
-  (object 5, yaw -60 pitch 25) keeps faint arcs. **Next (user-approved 2026-10-20, Gemini-reviewed): replace the 2x
-  buffer with temporal accumulation when still**: per frame a sub-pixel projection jitter, tent-distributed over +-1 px
-  (sum of two Halton uniforms), drawn into a 1x RGBA8+depth FBO, mixed 1/n into an RGBA16F buffer (check
-  EXT_color_buffer_half_float / ES 3.2 at start, else fall back to the 2x path), 32 frames; any key change restarts.
-  Lower the PATH_FS fade thresholds while accumulating (tune on the cylinder). Moving: 4x MSAA on the default
-  framebuffer via a custom EGLConfigChooser, falling back to no MSAA. Then CI build + user check.
+  (1) preview layer lines (backlog "Moire"). 6c1002e band fix + 2x supersample; **696c5a6 temporal accumulation when
+  still** (`Accumulator.kt`: 32 Halton-tent jittered 1x frames blended 1/n into RGBA16F, then cached; 1/32 refresh each
+  second; 2x `Supersampler` is the fallback; "Always" = 2x while moving) + **4x MSAA** (`MsaaConfigChooser.kt`, falls
+  back to none). WSA (Claude): cylinder arcs nearly gone, still frame 0.2 ms. Lowering the regimes (MCP `view_set
+  {"regime":x}`, default 1) brought arcs back, so kept at 1. MCP screenshot waits for `renderer.settled`.
+  **CI r338 (run 39385485023) building: install on all devices, then ask the user** (framing zoom layer lines, band,
+  table-top moire, moving smoothness/fps with MSAA on the phone).
 - WSA shader loop: `wsa-cycle.sh` / `wsa-preview2.sh`, black shots = display asleep (reference "Build and tools").
 - Need the printer (backlog): fan slider jumps (r295 hold), Retract/Extrude F150 (e13bebb), extrude/jog, speed chips.
 - User-only checks pending (backlog): bead look, part shadows, light sliders, r276 tool row, r283/r284 top bar, r280 pinch lock,
