@@ -10,7 +10,7 @@ Nothing pending lives here: open / untested items stay in `HANDOFF.md`.
 headless display below instead (no takeover needed). Don't drive WSA's own window while the user uses the PC.
 
 ### Headless display (`~/orca-android-tools/orca-vd.sh`, verified 2026-10-19 on the old phone)
-- **2026-10-19: fails on the current phone** (scrcpy logs "Device disconnected" right after the new display; app never resumes). Use the main screen when the user OKs it.
+- 2026-10-19 current phone: first `start` failed (scrcpy "Device disconnected"), the retry worked (with `PKG=...debug`); retry once before falling back to the main screen. Pass `PKG` for the debug app.
 - `sh orca-vd.sh start|stop|status|shot <out.png> [w] [crop]|tap X Y|swipe x0 y0 x1 y1 [ms]|ui [out.xml]`. `start` opens a
   scrcpy `--new-display` (1080x2340/420, hidden, no PC window), launches the app there, retries until resumed, and saves
   ids to `.vd-phone.state`. The user keeps the phone screen and the PC. `SHOW=1` = scrcpy window on the PC for
