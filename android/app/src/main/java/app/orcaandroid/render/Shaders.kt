@@ -476,24 +476,46 @@ internal object Shaders {
             return 0.30 + 0.12 * sky + 0.42 * max(dot(n, normalize(vec3(0.35, -0.55, 0.75))), 0.0)
                 + 0.24 * max(dot(n, normalize(vec3(-0.6, 0.4, 0.35))), 0.0);
         }
+        // A bead's shade at u (-1..1 across a skin line or up a wall's layer; past the ends it wraps onto the next bead):
+        // the normal rolls off along axis towards the bead's edges, which darken by edge.
+        float beadShade(vec3 n, vec3 axis, float u, float tilt, float edge) {
+            u -= 2.0 * floor((u + 1.0) * 0.5);
+            return shade(normalize(n + axis * (u * tilt))) * (1.0 - edge * pow(abs(u), 6.0));
+        }
         void main() {
             if (uSectionOn == 1 && dot(uSection.xyz, vWorld) > uSection.w) discard;
             vec3 n = normalize(vRight * vFace.x + vUp * vFace.y + vDir * vFace.z);
-            // Side walls are rounded like a real bead (normal tilts up at the top of each layer, down at the
-            // bottom). It fades out below ~8 px per layer (fwidth 0.25; vBead spans 2 per layer): smaller
-            // layers beat against the pixel grid into wavy moire.
-            float bead = vSideFace * 0.8 * (1.0 - smoothstep(0.12, 0.25, fwidth(vBead)));
-            n = normalize(n + vec3(0.0, 0.0, vBead * bead));
-            // Top and bottom skins read as separate extrusions: the normal rolls off towards the bead's edges
-            // and the edge itself darkens a little. Fades out when a bead is under ~8 px wide (moire).
-            float rounding = vTopFace * (1.0 - smoothstep(0.12, 0.25, fwidth(vAcross)));
-            n = normalize(n + vRight * (vAcross * 0.9 * rounding));
-            float light = shade(n) * (1.0 - 0.3 * rounding * pow(abs(vAcross), 6.0));
+            float light = shade(n);
+            // Beads are rounded like real extrusions: skin lines across their width (edges a little darker), walls up
+            // each layer with a groove where two layers meet. Close up (8+ px a bead) that profile is drawn, averaged
+            // over the pixel's footprint (4 samples). Smaller, its sharp edges beat against the pixel grid into contour
+            // rings, so it turns into a smooth wave (dark at the joints): a wave can't alias down to 2 px a bead, and it
+            // fades out from 3 to 2 px. (r317-r329 faded the lines out below 8 px: none at the framing zoom, user r329
+            // "keep the layer line detail" over a perfect moire fix.) u spans 2 a bead.
+            bool top = vTopFace > 0.5;
+            float u = top ? vAcross : vBead;
+            float fu = max(fwidth(u), 1e-4);
+            if (vTopFace + vSideFace > 0.5) {
+                float detail = 1.0 - smoothstep(0.25, 0.5, fu);
+                float wave = light * (1.0 + (top ? 0.1 : 0.15) * cos(3.14159265 * u) * (1.0 - smoothstep(0.67, 1.0, fu)));
+                float profile = wave;
+                if (detail > 0.0) {
+                    vec3 axis = top ? vRight : vec3(0.0, 0.0, 1.0);
+                    float sum = 0.0;
+                    for (int i = 0; i < 4; ++i)
+                        sum += beadShade(n, axis, u + fu * (float(i) * 0.25 - 0.375), top ? 0.9 : 0.8, top ? 0.3 : 0.0);
+                    // The groove: a tent 1 px each side of the joint, so a line darkens the same whatever its sub-pixel
+                    // position (a thinner, sharper one broke into dashes crossing pixel rows).
+                    float groove = top ? 0.0 : clamp(1.0 - (1.0 - abs(u)) / fu, 0.0, 1.0);
+                    profile = sum * 0.25 * (1.0 - 0.22 * groove);
+                }
+                light = mix(wave, profile, detail);
+            }
             // A layer's lit top strip and darker side beat against the pixel grid into dashed bands (user r316) when
-            // the layers are a few pixels apart (under ~9; 5 left faint dashes, r318) or either face is under ~3 px
-            // (a low view still showed dotted arcs at 9+ px apart, r319). There both faces take the mean of the two
-            // shades, weighted by how much of each the eye sees, as a pixel covering both shows; each face keeps its
-            // own shading in that mean, so a big face (a top skin seen from above) looks the same.
+            // the layers are only a pixel or two apart or a face is under a pixel (dotted arcs, r319). There both faces
+            // take the mean of the two shades, weighted by how much of each the eye sees, as a pixel covering both
+            // shows; each face keeps its own shading in that mean, so a big face (a top skin seen from above) looks the
+            // same. Only that close: r320 blended up to 9 px apart and washed out the layer lines (user r329).
             if (vTopFace + vSideFace > 0.5) {
                 highp vec3 v = normalize(uEye - vWorld);
                 vec3 side = vRight * (dot(vRight, v) < 0.0 ? -1.0 : 1.0);
@@ -507,11 +529,6 @@ internal object Shaders {
                 float mean = (wTop * lTop + wSide * lSide) / max(wTop + wSide, 1e-4);
                 light = mix(light, mean, far);
             }
-            // Layer lines: a thin dark groove (about a pixel) where two layers meet, as on a print. It stays when the bead
-            // shading has faded out, and fades itself from ~7 to 4 px apart (closer lines beat into moire). vBead spans 2 a layer.
-            float fb = max(fwidth(vBead), 1e-4);
-            float groove = vSideFace * (1.0 - smoothstep(0.0, 0.6, (1.0 - abs(vBead)) / fb)) * (1.0 - smoothstep(0.3, 0.5, fb));
-            light *= 1.0 - 0.22 * groove;
             color = vec4(vColor * light, 1.0);
         }"""
 
