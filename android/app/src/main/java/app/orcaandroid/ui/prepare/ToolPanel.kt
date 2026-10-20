@@ -38,6 +38,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -153,6 +154,18 @@ private fun PaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Paint) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(R.string.brush_size, tool.radius), style = MaterialTheme.typography.bodySmall)
         Slider(tool.radius, { vm.scene.setTool(tool.copy(radius = it)) }, valueRange = 0.5f..15f, modifier = Modifier.weight(1f).padding(start = 8.dp))
+    }
+    // Edge detection: the angle stays remembered while it is off.
+    var edgeAngle by rememberSaveable { mutableFloatStateOf(30f) }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        FilterChip(tool.edgeAngle > 0f, { vm.scene.setTool(tool.copy(edgeAngle = if (tool.edgeAngle > 0f) 0f else edgeAngle)) },
+            label = { Text(stringResource(R.string.paint_stop_at_edges)) })
+        if (tool.edgeAngle > 0f) {
+            Text(stringResource(R.string.paint_edge_angle, tool.edgeAngle.roundToInt()), style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(start = 8.dp))
+            Slider(tool.edgeAngle, { edgeAngle = it; vm.scene.setTool(tool.copy(edgeAngle = it)) }, valueRange = 5f..89f,
+                modifier = Modifier.weight(1f).padding(start = 8.dp))
+        }
     }
     TextButton(onClick = { vm.scene.paintClear(tool.kind) }) { Text(stringResource(R.string.clear_painting)) }
 }

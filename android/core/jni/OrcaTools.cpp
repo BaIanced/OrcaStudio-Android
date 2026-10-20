@@ -4,12 +4,14 @@
 
 #include "OrcaEngine.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <fstream>
 #include <memory>
 #include <stdexcept>
+#include <utility>
 
 #include <boost/log/trivial.hpp>
 
@@ -21,6 +23,7 @@
 #include "libslic3r/Print.hpp"
 #include "libslic3r/PrintConfig.hpp"
 #include "libslic3r/Slicing.hpp"
+#include "libslic3r/TriangleMesh.hpp"
 #include "libslic3r/TriangleSelector.hpp"
 
 #include "OptionToggles.hpp"
@@ -242,8 +245,52 @@ void OrcaEngine::write_paint_mesh()
     ++m_paint_version;
 }
 
+namespace {
+
+// A brush cursor whose flood over the mesh (TriangleSelector::select_patch) stays on the faces in [faces].
+template<class Base> class EdgeLimited : public Base
+{
+public:
+    template<class... Args>
+    explicit EdgeLimited(const std::vector<bool> &faces, Args &&...args) : Base(std::forward<Args>(args)...), m_faces(faces) {}
+    bool is_facet_visible(int facet_idx, const std::vector<Vec3f> &face_normals) const override
+    {
+        return m_faces[facet_idx] && Base::is_facet_visible(facet_idx, face_normals);
+    }
+
+private:
+    const std::vector<bool> &m_faces;
+};
+
+// Faces reachable from [seed] over edges between faces whose normals differ by at most [angle] degrees: the desktop's
+// smart fill test (TriangleSelector::seed_fill_select_triangles, neighbour against neighbour).
+std::vector<bool> flood_surface(const indexed_triangle_set &its, const std::vector<int> &neighbors, int seed, double angle)
+{
+    std::vector<bool> faces(its.indices.size(), false);
+    if (seed < 0 || seed >= int(faces.size()))
+        return faces;
+    const double limit = std::cos(angle * M_PI / 180.) - EPSILON;
+    std::vector<int> queue{seed};
+    faces[seed] = true;
+    while (!queue.empty()) {
+        const int f = queue.back();
+        queue.pop_back();
+        const Vec3f n = its_face_normal(its, f).normalized();
+        for (int k = 0; k < 3; ++k) {
+            const int g = neighbors[3 * f + k];
+            if (g >= 0 && !faces[g] && std::clamp(n.dot(its_face_normal(its, g).normalized()), 0.f, 1.f) >= limit) {
+                faces[g] = true;
+                queue.push_back(g);
+            }
+        }
+    }
+    return faces;
+}
+
+} // namespace
+
 json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<double, 3> &camera, double radius, const std::string &kind,
-                       int state, bool new_stroke, const std::vector<double> &section)
+                       int state, bool new_stroke, const std::vector<double> &section, double edge_angle)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
     for (const PaintHit &h : hits) {
@@ -255,8 +302,10 @@ json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<doubl
     int loads = 0;
     if (new_stroke && !hits.empty())
         push_undo();
-    if (new_stroke)
+    if (new_stroke) {
         m_paint_prev.reset();
+        m_paint_region.object = -1;
+    }
 
     // Colour painting that starts or ends a volume's painting changes whether its plate gets a prime tower,
     // which is part of the scene mesh (write_mesh): the tower showed only after the next move (WSA r324).
@@ -290,16 +339,42 @@ json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<doubl
             ++loads;
         }
         TriangleSelector &selector = *live.selector;
+        // Edge detection: the stroke's surface on this volume, from its first hit there.
+        PaintRegion &region = m_paint_region;
+        const bool limited = edge_angle > 0.;
+        if (limited && (region.object != first.object || region.volume != first.volume || region.mesh.get() != &vol->mesh())) {
+            if (region.mesh.get() != &vol->mesh()) {
+                region.mesh = vol->mesh_ptr();
+                region.neighbors.clear();
+                for (const Vec3i32 &n : its_face_neighbors(vol->mesh().its))
+                    region.neighbors.insert(region.neighbors.end(), {n.x(), n.y(), n.z()});
+            }
+            region.object = first.object;
+            region.volume = first.volume;
+            region.faces  = flood_surface(vol->mesh().its, region.neighbors, first.facet, edge_angle);
+        }
         for (; i < hits.size() && hits[i].object == first.object && hits[i].instance == first.instance && hits[i].volume == first.volume; ++i) {
             const PaintHit &h = hits[i];
+            // Off the stroke's surface: nothing to paint; the line goes on from the last hit on it.
+            if (limited && (h.facet < 0 || h.facet >= int(region.faces.size()) || !region.faces[h.facet]))
+                continue;
             // A fast stroke's hits are far apart: join them with a capsule (GLGizmoPainterBase::gizmo_event) so the line
             // has no gaps; a hit after a miss or on another part starts a new line.
             const PaintHit *prev = h.join && m_paint_prev && m_paint_prev->object == h.object && m_paint_prev->instance == h.instance &&
                                    m_paint_prev->volume == h.volume ? &*m_paint_prev : nullptr;
-            auto cursor = prev ? TriangleSelector::DoublePointCursor::cursor_factory(to_vec(prev->local).cast<float>(), to_vec(h.local).cast<float>(),
-                                                                                    camera_local, float(radius), TriangleSelector::CursorType::SPHERE, trafo, clip)
-                               : TriangleSelector::SinglePointCursor::cursor_factory(to_vec(h.local).cast<float>(), camera_local,
-                                                                                    float(radius), TriangleSelector::CursorType::SPHERE, trafo, clip);
+            const Vec3f center = to_vec(h.local).cast<float>();
+            std::unique_ptr<TriangleSelector::Cursor> cursor;
+            if (limited && prev)
+                cursor = std::make_unique<EdgeLimited<TriangleSelector::Capsule3D>>(region.faces, to_vec(prev->local).cast<float>(), center, camera_local,
+                                                                                    float(radius), trafo, clip);
+            else if (limited)
+                cursor = std::make_unique<EdgeLimited<TriangleSelector::Sphere>>(region.faces, center, camera_local, float(radius), trafo, clip);
+            else if (prev)
+                cursor = TriangleSelector::DoublePointCursor::cursor_factory(to_vec(prev->local).cast<float>(), center, camera_local, float(radius),
+                                                                             TriangleSelector::CursorType::SPHERE, trafo, clip);
+            else
+                cursor = TriangleSelector::SinglePointCursor::cursor_factory(center, camera_local, float(radius), TriangleSelector::CursorType::SPHERE,
+                                                                             trafo, clip);
             selector.select_patch(prev ? prev->facet : h.facet, std::move(cursor),
                                   EnforcerBlockerType(std::clamp(state, 0, int(EnforcerBlockerType::ExtruderMax))), trafo_no_translate, true);
             m_paint_prev = h;

@@ -171,8 +171,10 @@ public:
         // Continues the line from the stroke's previous hit (a capsule between them, as the desktop's DoublePointCursor).
         bool join = false;
     };
+    // [edge_angle] > 0 (degrees) = edge detection, as the desktop's smart fill angle: a stroke paints only the
+    // surface it started on, up to edges sharper than that angle between neighbouring faces.
     json paint(const std::vector<PaintHit> &hits, const std::array<double, 3> &camera, double radius, const std::string &kind,
-               int state, bool new_stroke, const std::vector<double> &section = {});
+               int state, bool new_stroke, const std::vector<double> &section = {}, double edge_angle = 0.);
     // Clears one kind of painting (or all for an empty kind) of an object.
     json paint_clear(int object, const std::string &kind);
 
@@ -378,6 +380,15 @@ private:
     LivePaint                             m_live_paint;
     // The stroke's last painted hit, start of the next joined capsule.
     std::optional<PaintHit>               m_paint_prev;
+    // Edge detection: the faces of the stroke's starting surface on one volume mesh (flood over edges up to the
+    // angle), and that mesh's face neighbours, kept while the mesh is the same.
+    struct PaintRegion {
+        std::shared_ptr<const Slic3r::TriangleMesh> mesh;
+        std::vector<int>                            neighbors; // 3 per face, -1 = open edge
+        int                                         object = -1, volume = -1;
+        std::vector<bool>                           faces;
+    };
+    PaintRegion                           m_paint_region;
     // Painted triangles per (mesh, annotation timestamp, state): write_paint_mesh re-extracts only what changed.
     using PaintKey = std::tuple<const void *, uint64_t, int>;
     std::map<PaintKey, std::shared_ptr<indexed_triangle_set>> m_paint_facets;

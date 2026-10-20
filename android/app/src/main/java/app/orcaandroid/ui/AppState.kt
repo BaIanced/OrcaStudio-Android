@@ -32,7 +32,8 @@ data class Selection(val obj: Int, val instance: Int = 0, val volume: Int = -1)
 /** A modal interaction with the 3D view. */
 sealed interface Tool {
     data object None : Tool
-    data class Paint(val kind: String, val state: Int, val radius: Float) : Tool
+    // edgeAngle > 0: edge detection (degrees, the desktop's smart fill angle): a stroke stays on the surface it started on.
+    data class Paint(val kind: String, val state: Int, val radius: Float, val edgeAngle: Float = 0f) : Tool
     data object LayOnFace : Tool
     data object Measure : Tool
     data class Cut(val z: Float) : Tool

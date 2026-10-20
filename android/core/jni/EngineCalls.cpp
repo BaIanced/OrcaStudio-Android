@@ -131,7 +131,8 @@ const std::unordered_map<std::string, Handler> &handlers()
                  hits.push_back(hit(a));
              return e.paint(hits, vec3(a.at("camera")), a.value("radius", 2.0), a.value("kind", "fuzzy"), a.value("state", 1),
                             a.value("newStroke", false),
-                            a.contains("section") && a["section"].is_array() ? a["section"].get<std::vector<double>>() : std::vector<double>{});
+                            a.contains("section") && a["section"].is_array() ? a["section"].get<std::vector<double>>() : std::vector<double>{},
+                            a.value("edgeAngle", 0.0));
          }},
         {"paintClear", [](OrcaEngine &e, const json &a) { return e.paint_clear(a.at("object"), a.value("kind", "")); }},
         {"layerProfile", [](OrcaEngine &e, const json &a) { return e.layer_profile(a.at("object")); }},

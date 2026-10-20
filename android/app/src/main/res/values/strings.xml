@@ -31,6 +31,8 @@
     <string name="bambu_lan_hint">Enable LAN mode on the printer. IP address, access code and serial number are shown in its network settings.</string>
     <string name="block">Block</string>
     <string name="brush_size">Brush %.1f mm</string>
+    <string name="paint_stop_at_edges">Stop at edges</string>
+    <string name="paint_edge_angle">%d°</string>
     <string name="calib_cornering">Cornering (jerk / junction deviation)</string>
     <string name="calib_flow">Flow rate</string>
     <string name="calib_is_damp">Input shaping damping</string>
