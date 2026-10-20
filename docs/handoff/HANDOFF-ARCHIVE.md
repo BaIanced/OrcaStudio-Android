@@ -2429,3 +2429,5 @@ User: "you just tested something we already confirmed worked". Cross-checked eac
 
 ### 2026-10-20 Temporal accumulation + MSAA (r338) user check
 - (2026-10-20, user, phone r338) "Incredible. Moire gone, layer lines visible." Verified: moire fix + framing-zoom layer lines (backlog "Moire"). One issue: table underside (bottom surface seen from below), left part's lines "completely smoothed away compared to right side" (screenshot in chat). Open, being fixed.
+- Implementation (verified r338): 696c5a6 `Accumulator.kt` = 32 jittered 1x frames (Halton 2/3 + 5/7 sums, tent +-1 px) blended 1/n via GL_CONSTANT_ALPHA into RGBA16F (ES 3.2 or EXT_color_buffer_half_float/_float, else 2x `Supersampler`), cached once done, 1/32 refresh each second; `MsaaConfigChooser.kt` 4x MSAA on PlateView, falls back to none. Regime scale below 1 brought cylinder arcs back on WSA (0.7 faint, 0.5 clear, 0.35 strong): kept 1. MCP view_screenshot waits for `renderer.settled`.
+- Underside fix cc0af56 (Claude WSA-verified 2026-10-20, r339 for the user): far-mean `wTop` = vWidth * abs(dot(vUp, v)), lTop uses the seen face's normal.

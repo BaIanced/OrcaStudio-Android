@@ -19,7 +19,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - One repo: OrcaStudio-Android (code + these docs, `docs/handoff/`), branch `claude/handoff-continuation-rseql3`. Autonomy (user, 2026-10-11): decide branches and next steps
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = b98e6ad (PR #33, r335, merged 2026-10-20). Untested in main: pen 7d3a263, fan hold 298ee9f, Extrude F150 e13bebb,
-  Quest stick zoom (r324); paint card fix r336 verified, unmerged; still broken: layer lines at framing zoom (below).
+  Quest stick zoom (r324); paint card fix r336 + layer-line fix r338 verified, unmerged.
 - Installed: r338 (run 39385485023, temporal accumulation + MSAA) on all devices 2026-10-20 (phone, Chromebook, SHIELD, Quest, WSA).
 - **Active device = `/target`** (p/w/c|t, default WSA): `sh ~/orca-android-tools/target.sh serial`; shot.sh/mcpao.sh follow it.
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
@@ -30,13 +30,12 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   Test zip `scadzip-test.zip` stays in `/sdcard/Download` on phone + Chromebook. LAN access code was given in chat: never write it anywhere.
 ## Next task
 - Fix next:
-  (1) preview layer lines (backlog "Moire"). 6c1002e band fix + 2x supersample; **696c5a6 temporal accumulation when
-  still** (`Accumulator.kt`: 32 Halton-tent jittered 1x frames blended 1/n into RGBA16F, then cached; 1/32 refresh each
-  second; 2x `Supersampler` is the fallback; "Always" = 2x while moving) + **4x MSAA** (`MsaaConfigChooser.kt`, falls
-  back to none). WSA (Claude): cylinder arcs nearly gone, still frame 0.2 ms. Lowering the regimes (MCP `view_set
-  {"regime":x}`, default 1) brought arcs back, so kept at 1. MCP screenshot waits for `renderer.settled`.
-  **User r338 2026-10-20: moire gone, lines visible (verified).** Open: table underside lines smoothed on one side (band,
-  table-top moire, moving smoothness/fps with MSAA on the phone).
+  (1) preview layer lines (backlog "Moire"): **verified by the user on r338** ("Moire gone, layer lines visible"; 6c1002e
+  band fix, 696c5a6 temporal accumulation `Accumulator.kt` + 4x MSAA `MsaaConfigChooser.kt`; details in the archive).
+  Follow-up cc0af56: bottom skins seen from below kept only the side's flat mean (`wTop` used `max(v.z,0)`), now
+  `abs(dot(vUp, v))`; Claude WSA-verified (table underside even). **CI r339 (run 39388784420): install everywhere, ask
+  the user about the table underside.** Then offer `/next-merge` (6c1002e..cc0af56 + paint card r336).
+  Tuning knob if needed: MCP `view_set {"regime":x}` (default 1; lower brought arcs back on WSA).
 - WSA shader loop: `wsa-cycle.sh` / `wsa-preview2.sh`, black shots = display asleep (reference "Build and tools").
 - Need the printer (backlog): fan slider jumps (r295 hold), Retract/Extrude F150 (e13bebb), extrude/jog, speed chips.
 - User-only checks pending (backlog): bead look, part shadows, light sliders, r276 tool row, r283/r284 top bar, r280 pinch lock,
