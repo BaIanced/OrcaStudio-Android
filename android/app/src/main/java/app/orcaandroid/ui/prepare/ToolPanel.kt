@@ -48,7 +48,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.unit.toSize
 import androidx.compose.ui.layout.onGloballyPositioned
 import kotlin.math.roundToInt
 import androidx.compose.ui.res.stringResource
@@ -85,7 +86,8 @@ internal fun ToolPanel(state: UiState, vm: AppViewModel) {
     }
     Surface(Modifier.widthIn(max = 360.dp)
         .offset { androidx.compose.ui.unit.IntOffset(drag.x.roundToInt(), drag.y.roundToInt()) }
-        .onGloballyPositioned { bounds = it.boundsInWindow() },
+        // Not boundsInWindow(): that is clipped to the window, so a card hanging off the edge looked fully inside (r326).
+        .onGloballyPositioned { val p = it.positionInWindow(); bounds = androidx.compose.ui.geometry.Rect(p, it.size.toSize()) },
         shape = RoundedCornerShape(16.dp), tonalElevation = 6.dp, shadowElevation = 2.dp) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(Modifier.pointerInput(Unit) {
