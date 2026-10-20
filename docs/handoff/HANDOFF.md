@@ -19,7 +19,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - One repo: OrcaStudio-Android (code + these docs, `docs/handoff/`), branch `claude/handoff-continuation-rseql3`. Autonomy (user, 2026-10-11): decide branches and next steps
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = c47c8a6 (PR #32, r316, merged 2026-10-19); work branch = main. Untested in main: pen 7d3a263, fan hold 298ee9f, Extrude F150 e13bebb (backlog).
-- Installed: r326 (run 39344743609: paint card clamp, tower x-ray only, off-model orbit; untested) on all 6 adb devices (2026-10-19; Chromebook/phone/Quest adb ports change: ask the user for ip:port; Quest needs `adb pair` first). `install-build.ps1 -Run <id> -Device <serial>`.
+- Installed: r327 (run 39346587455: paint card clamp fix, tower x-ray only, off-model orbit [Claude-verified r326 Chromebook]) on all 6 adb devices (2026-10-19; Chromebook/phone/Quest adb ports change: ask the user for ip:port; Quest needs `adb pair` first). `install-build.ps1 -Run <id> -Device <serial>`.
 - **Active device = `/target`** (p/w/c|t, default WSA): `sh ~/orca-android-tools/target.sh serial`; shot.sh/mcpao.sh follow it.
 - Devices: phone = wireless `adb-...` entry; Chromebook ARC `<chromebook-ip>:5555` (reference); WSA `127.0.0.1:58526`; **USB serial = the user's
   SHIELD TV** (rooted; installs only).
@@ -27,7 +27,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - User sessions backed up: phone `/data/local/tmp/phone-session-backup.{3mf,json}` (8 plates), WSA `/data/local/tmp/session-backup.{3mf,json}`.
   Test zip `scadzip-test.zip` stays in `/sdcard/Download` on phone + Chromebook. LAN access code was given in chat: never write it anywhere.
 ## Next task
-- **Fix batch from the user's r325 phone test (2026-10-19; details in backlog, grep "phone r325"):** paint window off-screen after expand; prime tower: no bbox/settings, x-ray outline only; preview top-surface line jiggle; tower z-fight; moire tune (too aggressive); one-finger orbit while painting; paint edge-detection toggle. Verified by the user: paint feel, tower fix (archive). Waiting on the user (Quest): stick zoom speed, error card for the supportless cone. Open after: resize overhaul (Opus), extended paint tools (big).
+- **Fix batch from the user's r325 phone test (2026-10-19; details in backlog, grep "phone r325"):** r327 built, untested: paint card unfold clamp (retest on Chromebook when free), tower x-ray only (untested); prime tower: no bbox/settings, x-ray outline only; preview top-surface line jiggle; tower z-fight; moire tune (too aggressive); one-finger orbit while painting; paint edge-detection toggle. Verified by the user: paint feel, tower fix (archive). Waiting on the user (Quest): stick zoom speed, error card for the supportless cone. Open after: resize overhaul (Opus), extended paint tools (big).
 - r316 paint batching etc. merged (PR #32); double-tap feel pending.
 - Need the printer (backlog): fan slider jumps (r295 hold), Retract/Extrude F150 (e13bebb), extrude/jog, speed chips.
 - User hasn't seen: bead look (top-surface shading zoomed in), part shadows, light sliders (Layout lab), tool row (r276 movable
