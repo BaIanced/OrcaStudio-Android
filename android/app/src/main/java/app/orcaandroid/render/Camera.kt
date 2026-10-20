@@ -180,7 +180,13 @@ class Camera {
         )
     }
 
-    private fun eyeDistance() = if (perspective) distance else distance + ORTHO_BACK
+    /** World size of one screen pixel at [p]. */
+    @Synchronized fun pxSize(p: Vec3): Float {
+        val depth = if (perspective) max(1f, (eye() - p).dot(towardsEye())) else distance
+        return 2f * depth * kotlin.math.tan(Math.toRadians(FOV / 2.0)).toFloat() / height
+    }
+
+    private fun eyeDistance() =if (perspective) distance else distance + ORTHO_BACK
 
     /** Unit vector from the target towards the eye (the desktop's -get_dir_forward()). */
     @Synchronized fun towardsEye(): Vec3 {

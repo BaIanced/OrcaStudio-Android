@@ -47,7 +47,7 @@ internal object Shaders {
         uniform int uSelectedCount;
         uniform vec3 uDrag;
         uniform vec3 uScaleAnchor;
-        uniform float uScale;
+        uniform vec3 uScale;
         layout(location = 0) in vec3 aPos;
         layout(location = 1) in vec3 aNormal;
         layout(location = 2) in vec2 aInfo;
@@ -67,8 +67,8 @@ internal object Shaders {
             vNormal = aNormal;
             vType = aInfo.y;
             vSelected = selected;
-            // A corner drag shows the new size live: the selection scales about the opposite corner.
-            vWorld = uScaleAnchor + (aPos - uScaleAnchor) * mix(1.0, uScale, selected) + selected * uDrag;
+            // A resize drag shows the new size live: the selection scales about its box's bottom centre.
+            vWorld = uScaleAnchor + (aPos - uScaleAnchor) * mix(vec3(1.0), uScale, selected) + selected * uDrag;
             // Normal offset (0.4 mm): the receiver is looked up a little outside its own surface, against acne.
             vShadowCoord = uLightMvp * vec4(vWorld + aNormal * 0.4, 1.0);
             gl_Position = uMvp * vec4(vWorld, 1.0);

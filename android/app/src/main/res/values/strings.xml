@@ -303,7 +303,7 @@
     <string name="reset_all">Reset all changes</string>
     <string name="resize">Resize</string>
     <string name="resize_done">Done resizing</string>
-    <string name="resize_hint">Drag a corner of the box to resize</string>
+    <string name="resize_hint">Drag a handle: corners scale evenly, colours stretch one axis</string>
     <string name="resume">Resume</string>
     <string name="retractions">Retractions</string>
     <string name="rotation">Rotation</string>

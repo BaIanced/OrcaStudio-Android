@@ -62,9 +62,16 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             field = v
             if (v[0] == 0f && v[1] == 0f) dragTower = -1
         }
-    /** Live corner-drag resize: the selection is drawn scaled by this about [resizeAnchor] (plate x, y, bed height). */
-    var resizeScale = 1f
+    /** Live resize: the selection is drawn scaled by this (x, y, z) about [resizeAnchor] (its box's bottom centre). */
+    var resizeScale = floatArrayOf(1f, 1f, 1f)
     var resizeAnchor = floatArrayOf(0f, 0f, 0f)
+    /** Resize mode: the scale gizmo's handles ([ScaleGizmo]) on the selection box; [gizmoAxes] false shows only the corners. */
+    var gizmo = false
+    var gizmoAxes = true
+    /** The handle being dragged: only it shows meanwhile, moved with the scale. */
+    var gizmoGrab: ScaleGizmo.Handle? = null
+    /** Half the side of a handle square, px. */
+    var handlePx = 14f
     /** Plate whose prime tower (selection id -2 - plate) is being dragged, or -1: it takes the highlight and [dragOffset]. */
     var dragTower = -1
     var showPreview = false
@@ -284,7 +291,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         useRealShadow = false
         if (shadow) {
             effects.lightDir = keyDir
-            val key = listOf(meshVersion, dragOffset.toList(), resizeScale, selectedIds.toList(), dragTower, section?.toList(), keyAzimuth, keyElevation)
+            val key = listOf(meshVersion, dragOffset.toList(), resizeScale.toList(), selectedIds.toList(), dragTower, section?.toList(), keyAzimuth, keyElevation)
             // A dragged copy may leave the footprint: widen it by the drag.
             // A fixed widening for the whole drag: any change of the map area mid-drag rescales the texels and
             // shows as a step ("strobe") in the shadow.
@@ -568,7 +575,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glUniform1i(loc(meshProgram, "uSelectedCount"), minOf(ids.size, Shaders.MAX_SELECTED))
         glUniform3fv(loc(meshProgram, "uDrag"), 1, dragOffset, 0)
         glUniform3fv(loc(meshProgram, "uScaleAnchor"), 1, resizeAnchor, 0)
-        glUniform1f(loc(meshProgram, "uScale"), resizeScale)
+        glUniform3fv(loc(meshProgram, "uScale"), 1, resizeScale, 0)
         glUniform3fv(loc(meshProgram, "uPartColor"), 1, colors.part, 0)
         glUniform3fv(loc(meshProgram, "uSelectedColor"), 1, colors.selected, 0)
         camera.eye().let { glUniform3f(loc(meshProgram, "uEye"), it.x, it.y, it.z) }
@@ -598,14 +605,13 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         val style = activeSelectionStyle
         if (style and (SelectionStyle.OUTLINE or SelectionStyle.XRAY) != 0)
             selection.draw(viewW, viewH, style, colors.selected, outlinePx) { pass -> drawMesh(meshVbo, meshCount, pass) }
-        if (style and SelectionStyle.BOX != 0) drawSelectionBox(ids)
+        val box = selectionBox(ids) ?: return
+        if (style and SelectionStyle.BOX != 0 || gizmo) drawSelectionBox(box.copyOf())
+        if (gizmo) drawGizmo(box)
     }
 
-    /**
-     * Corner brackets of the selection's bounding box, as on the desktop (Selection::render_bounding_box): at each corner
-     * three strokes a quarter of the shortest side long, moved with the drag.
-     */
-    private fun drawSelectionBox(ids: FloatArray) {
+    /** The bounding box (x0, y0, z0, x1, y1, z1) of the selection ids [ids], with the live resize. */
+    private fun selectionBox(ids: FloatArray): FloatArray? {
         val b = floatArrayOf(Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE)
         var any = false
         for (id in ids) {
@@ -613,8 +619,64 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             any = true
             for (k in 0..2) { b[k] = minOf(b[k], c[k]); b[k + 3] = maxOf(b[k + 3], c[k + 3]) }
         }
-        if (!any) return
-        if (resizeScale != 1f) for (k in 0..2) { b[k] = resizeAnchor[k] + (b[k] - resizeAnchor[k]) * resizeScale; b[k + 3] = resizeAnchor[k] + (b[k + 3] - resizeAnchor[k]) * resizeScale }
+        if (!any) return null
+        for (k in 0..2) {
+            val s = resizeScale[k]
+            if (s != 1f) { b[k] = resizeAnchor[k] + (b[k] - resizeAnchor[k]) * s; b[k + 3] = resizeAnchor[k] + (b[k + 3] - resizeAnchor[k]) * s }
+        }
+        return b
+    }
+
+    /**
+     * The scale gizmo's handles ([ScaleGizmo]) on [box] as screen-size squares on top of the scene (the desktop draws its
+     * grabbers on top too; only those the box doesn't hide are shown). While one is dragged, only it shows, moved with the scale.
+     */
+    private fun drawGizmo(box: FloatArray) {
+        val lo = app.orcaandroid.core.Vec3(box[0], box[1], box[2])
+        val hi = app.orcaandroid.core.Vec3(box[3], box[4], box[5])
+        val grab = gizmoGrab
+        val handles = if (grab == null) ScaleGizmo.visible(lo, hi, camera, gizmoAxes) else {
+            val p = resizeAnchor
+            val q = grab.pos
+            listOf(ScaleGizmo.Handle(grab.index, app.orcaandroid.core.Vec3(
+                p[0] + (q.x - p[0]) * resizeScale[0], p[1] + (q.y - p[1]) * resizeScale[1], p[2] + (q.z - p[2]) * resizeScale[2]), grab.axis))
+        }
+        if (handles.isEmpty()) return
+        val identity = FloatArray(16).also { android.opengl.Matrix.setIdentityM(it, 0) }
+        glUseProgram(lineProgram)
+        glUniformMatrix4fv(loc(lineProgram, "uMvp"), 1, false, identity, 0)
+        glUniform3fv(loc(lineProgram, "uOffset"), 1, floatArrayOf(0f, 0f, 0f), 0)
+        setSection(lineProgram, on = false)
+        glDisable(GL_DEPTH_TEST)
+        glBindBuffer(GL_ARRAY_BUFFER, scratchVbo)
+        glEnableVertexAttribArray(0)
+        val clip = FloatArray(4)
+        for (h in handles) {
+            android.opengl.Matrix.multiplyMV(clip, 0, mvp, 0, floatArrayOf(h.pos.x, h.pos.y, h.pos.z, 1f), 0)
+            if (clip[3] <= 0f) continue
+            val x = clip[0] / clip[3]
+            val y = clip[1] / clip[3]
+            // A dark rim, then the colour; the dragged handle a little bigger.
+            val size = if (grab != null) handlePx * 1.25f else handlePx
+            for ((px, color) in listOf(size + outlinePx * 0.6f to floatArrayOf(0.1f, 0.1f, 0.1f), size to ScaleGizmo.color(h.axis))) {
+                val hx = px * 2f / viewW
+                val hy = px * 2f / viewH
+                val quad = floatArrayOf(x - hx, y - hy, 0f, x + hx, y - hy, 0f, x + hx, y + hy, 0f, x - hx, y - hy, 0f, x + hx, y + hy, 0f, x - hx, y + hy, 0f)
+                glUniform3fv(loc(lineProgram, "uColor"), 1, color, 0)
+                glBufferData(GL_ARRAY_BUFFER, quad.size * 4, floats(quad), GL_STREAM_DRAW)
+                glVertexAttribPointer(0, 3, GL_FLOAT, false, 12, 0)
+                glDrawArrays(GL_TRIANGLES, 0, 6)
+            }
+        }
+        glDisableVertexAttribArray(0)
+        glEnable(GL_DEPTH_TEST)
+    }
+
+    /**
+     * Corner brackets of the selection's bounding box [b], as on the desktop (Selection::render_bounding_box): at each corner
+     * three strokes a quarter of the shortest side long, moved with the drag.
+     */
+    private fun drawSelectionBox(b: FloatArray) {
         // A little off the surface, so the strokes don't sink into faces flush with the box.
         val pad = 0.5f
         for (k in 0..2) { b[k] -= pad; b[k + 3] += pad }
