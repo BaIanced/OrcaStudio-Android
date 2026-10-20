@@ -38,8 +38,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   Regimes go by view px (`uPxScale`), filters by samples. (c) Settings > supersampling Off / When still / Always (MCP
   `view_set {"supersample":...}`). Shots: sphere rings + table speckle gone, table leg shows lines; lying cylinder
   (object 5, yaw -60 pitch 25) still faint moire arcs (lit tops vs sides at ~1.5 px). Next: decide on that, CI build, user check.
-  Black WSA shots = PC display asleep: `wake-display.ps1` (now in wsa-preview2.sh). Shot pairs: `$JOB/tmp/sspair.sh` (lost; 
-  = view_set + supersample off/still + crop 105,38,745,938).
+  Black WSA shots = PC display asleep: `wake-display.ps1` (now in wsa-preview2.sh). 3D view crop on WSA: 105,38,745,938.
 - WSA debug app (`...debug`) holds the phone's session; `~/orca-android-tools/wsa-cycle.sh <prefix>`
   = build + install + slice + Preview + 3 sphere shots (`wsa-preview2.sh` alone skips the build).
 - Need the printer (backlog): fan slider jumps (r295 hold), Retract/Extrude F150 (e13bebb), extrude/jog, speed chips.
