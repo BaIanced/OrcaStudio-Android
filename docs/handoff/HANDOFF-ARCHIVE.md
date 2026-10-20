@@ -2420,3 +2420,5 @@ User: "you just tested something we already confirmed worked". Cross-checked eac
 
 ### 2026-10-20 Merge PR #33 (r335)
 - Work branch r317-r335 merged to main as b98e6ad (PR #33, merge commit), on the user's "merge". Open in main: paint card unfold, layer lines at framing zoom; untested: Quest stick zoom.
+- (2026-10-20, user, r335, 2 screenshots) Layer lines: orange box walls show sharp lines but "Distracting band of light visible in center of orange object image" (the 2-3 px fade zone); "Moire visible under table top" (beeper/table plate). Asked whether moire-free + sharp lines is possible at all; Claude: not by shader tuning (sampling limit), only supersampling. Item paused for the user's pick.
+- (2026-10-20, user) Decision: fix the light band (shared mean brightness) and add supersampling when the camera stops, plus a Settings option to supersample while moving too. r336 (run 39379527770) installed on all devices.
