@@ -180,7 +180,13 @@ class Camera {
         )
     }
 
-    private fun eyeDistance() = if (perspective) distance else distance + ORTHO_BACK
+    /** World size of one screen pixel at [p]. */
+    @Synchronized fun pxSize(p: Vec3): Float {
+        val depth = if (perspective) max(1f, (eye() - p).dot(towardsEye())) else distance
+        return 2f * depth * kotlin.math.tan(Math.toRadians(FOV / 2.0)).toFloat() / height
+    }
+
+    private fun eyeDistance() =if (perspective) distance else distance + ORTHO_BACK
 
     /** Unit vector from the target towards the eye (the desktop's -get_dir_forward()). */
     @Synchronized fun towardsEye(): Vec3 {
@@ -189,9 +195,13 @@ class Camera {
         return Vec3((cos(pr) * cos(yr)).toFloat(), (cos(pr) * sin(yr)).toFloat(), sin(pr).toFloat())
     }
 
-    /** Near and far clip distances of the projection. */
+    /**
+     * Near and far clip distances of the projection. The near plane sits well out (distance / 50): the toolpaths' fixed
+     * depth order takes 4 depth-buffer steps a rank (fewer let neighbouring top lines z-fight), and a farther near plane
+     * keeps that from turning into millimetres when zoomed out.
+     */
     @Synchronized fun clip() =
-        if (perspective) max(0.5f, distance / 200f) to distance * 20f else 1f to eyeDistance() + ORTHO_BACK
+        if (perspective) max(1f, distance / 50f) to distance * 20f else 1f to eyeDistance() + ORTHO_BACK
 
     /** Fills [out] with projection * view. */
     @Synchronized fun viewProjection(out: FloatArray) {

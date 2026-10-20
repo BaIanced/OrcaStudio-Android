@@ -8,6 +8,8 @@
 // thread while slice() is running.
 
 #include <array>
+#include <cstdint>
+#include <tuple>
 #include <optional>
 #include <deque>
 #include <map>
@@ -29,7 +31,11 @@ class DynamicPrintConfig;
 class AABBMesh;
 struct Calib_Params;
 struct PlateData;
+class TriangleMesh;
+class TriangleSelector;
+class FacetsAnnotation;
 } // namespace Slic3r
+struct indexed_triangle_set;
 
 namespace orca {
 
@@ -162,9 +168,13 @@ public:
     struct PaintHit {
         int object, instance, volume, facet;
         std::array<double, 3> local;
+        // Continues the line from the stroke's previous hit (a capsule between them, as the desktop's DoublePointCursor).
+        bool join = false;
     };
+    // [edge_angle] > 0 (degrees) = edge detection, as the desktop's smart fill angle: a stroke paints only the
+    // surface it started on, up to edges sharper than that angle between neighbouring faces.
     json paint(const std::vector<PaintHit> &hits, const std::array<double, 3> &camera, double radius, const std::string &kind,
-               int state, bool new_stroke, const std::vector<double> &section = {});
+               int state, bool new_stroke, const std::vector<double> &section = {}, double edge_angle = 0.);
     // Clears one kind of painting (or all for an empty kind) of an object.
     json paint_clear(int object, const std::string &kind);
 
@@ -256,7 +266,7 @@ public:
 
     // Slices one plate with the current selection and exports G-code (with thumbnails) to
     // gcode_out. Preview data goes to preview_dir:
-    //   extrusions.bin  15 floats per segment: x0,y0,z0,x1,y1,z1, role, width, height, speed,
+    //   extrusions.bin  15 floats per segment: x0,y0,z0,x1,y1,z1, role + 32 * (depth label + 1), width, height, speed,
     //                   fan, temperature, volumetric rate, filament, G-code line
     //   travels.bin     6 floats per travel: x0,y0,z0,x1,y1,z1
     //   markers.bin     4 floats per marker: x,y,z, kind (0 retract, 1 unretract, 2 seam, 3 wipe)
@@ -355,6 +365,42 @@ private:
     std::map<const void *, std::shared_ptr<Slic3r::AABBMesh>> m_aabb;
     int                                   m_mesh_version = 0;
     int                                   m_paint_version = 0;
+    // The selector of the volume being painted stays live between paint calls while its annotation is unchanged:
+    // deserializing it on every call grew slower with every painted triangle (user r316). Holds the mesh it points to.
+    struct LivePaint {
+        const Slic3r::FacetsAnnotation             *annotation = nullptr;
+        std::shared_ptr<const Slic3r::TriangleMesh> mesh;
+        uint64_t                                    timestamp = 0;
+        std::shared_ptr<Slic3r::TriangleSelector>   selector;
+        // The annotation's timestamp before the last paint call and the state it painted: a state that was empty
+        // then and wasn't painted is still empty (painting only takes triangles from the other states).
+        uint64_t                                    previous = 0;
+        int                                         state = -1;
+    };
+    LivePaint                             m_live_paint;
+    // The stroke's last painted hit, start of the next joined capsule.
+    std::optional<PaintHit>               m_paint_prev;
+    // Edge detection: the faces of the stroke's starting surface on one volume mesh (flood over edges up to the
+    // angle), and that mesh's face neighbours, kept while the mesh is the same.
+    struct PaintRegion {
+        std::shared_ptr<const Slic3r::TriangleMesh> mesh;
+        std::vector<int>                            neighbors; // 3 per face, -1 = open edge
+        int                                         object = -1, volume = -1;
+        std::vector<bool>                           faces;
+    };
+    PaintRegion                           m_paint_region;
+    // Painted triangles per (mesh, annotation timestamp, state): write_paint_mesh re-extracts only what changed.
+    using PaintKey = std::tuple<const void *, uint64_t, int>;
+    std::map<PaintKey, std::shared_ptr<indexed_triangle_set>> m_paint_facets;
+    // Their file bytes per copy (key, overlay code, copy code) with the transform they were made with.
+    struct PaintBytes {
+        std::array<double, 16>              trafo;
+        std::shared_ptr<std::vector<float>> data;
+    };
+    std::map<std::tuple<PaintKey, float, float>, PaintBytes> m_paint_bytes;
+    // Last write_paint_mesh: time extracting triangles from selectors, time making file bytes, triangles written.
+    double                                m_paint_extract_ms = 0., m_paint_bytes_ms = 0.;
+    size_t                                m_paint_triangles = 0;
     // Active calibration test: print parameters and the setting changes it needs.
     std::shared_ptr<Slic3r::Calib_Params>       m_calib;
     std::shared_ptr<Slic3r::DynamicPrintConfig> m_calib_config;

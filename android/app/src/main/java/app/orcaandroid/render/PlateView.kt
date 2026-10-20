@@ -38,10 +38,11 @@ interface PlateListener {
     /** The selected copies were dragged by (dx, dy) mm on the bed. */
     fun onMoved(dx: Float, dy: Float)
     /**
-     * A corner of the single selected copy's box is being dragged to scale it uniformly about the opposite corner [anchor];
-     * (x, y) is the finger. [factor] <= 0 when the drag was cancelled; [done] once let go.
+     * A handle of the scale gizmo on the single selected copy is being dragged ([ScaleGizmo]): the copy scales by [scale]
+     * (world x, y, z) about [pivot], its box's bottom centre; (x, y) is the finger. [scale] is null when the drag was
+     * cancelled; [done] once let go.
      */
-    fun onResizeCorner(factor: Float, anchor: Vec3, x: Float, y: Float, done: Boolean) {}
+    fun onResize(scale: Vec3?, pivot: Vec3, x: Float, y: Float, done: Boolean) {}
     /** The prime tower of [plate] was dragged by (dx, dy) mm on the bed. */
     fun onTowerMoved(plate: Int, dx: Float, dy: Float) {}
     /** Paint stroke sample at screen (x, y); [newStroke] for the first sample of a stroke. */
@@ -78,6 +79,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     val renderer = PlateRenderer(camera).also {
         it.deviceLandscape = context.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
         it.outlinePx = 2.5f * context.resources.displayMetrics.density
+        it.handlePx = 7f * context.resources.displayMetrics.density
     }
     val section = SectionView(camera)
     var listener: PlateListener? = null
@@ -106,6 +108,8 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     private val twoFinger by lazy { TwoFingerGesture(touchSlop.toFloat()) }
     /** Pinch zoom speed (Layout lab): the exponent on the fingers' gap ratio, 1 = the gap ratio itself. */
     var pinchSpeed = 0.6f
+    /** Wheel zoom speed (LayoutLab.wheelSpeed): 15 % per notch raised to this power. */
+    var wheelSpeed = 1f
     /** Pen buttons and eraser mapping, and palm rejection (More > Pen). */
     var pen = PenConfig()
     /** When a pen last touched or hovered (uptime ms); 0 after it left the hover range. */
@@ -115,6 +119,8 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     private var ignoreGesture = false
     /** The gesture began with a pen button / eraser mapped to Orbit, or to an instant action ([penInstant], fires on a tap). */
     private var penOrbit = false
+    /** Paint mode: this touch started off the selected object, so it orbits the camera instead of painting. */
+    private var paintOrbit = false
     private var penInstant: PenAction? = null
     private var lastInstantTime = 0L
     /** The gesture began with the right / middle mouse button (pans; a right click opens the menu). */
@@ -282,7 +288,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                 rectangleRemove = event.metaState and KeyEvent.META_ALT_ON != 0
                 rectangle = mode == InteractionMode.NAVIGATE && !rightButton && !middleButton &&
                     (rectangleRemove || event.metaState and KeyEvent.META_SHIFT_ON != 0)
-                penOrbit = false; penInstant = null
+                penOrbit = false; penInstant = null; paintOrbit = false
                 val penAction = penActionOf(event.getToolType(0), event.buttonState)
                 when (penAction) {
                     PenAction.PAN -> middleButton = true
@@ -296,7 +302,17 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                     PenAction.TIP -> Unit
                 }
                 if (rightButton || middleButton || rectangle || penOrbit || penInstant != null) Unit
-                else if (mode == InteractionMode.PAINT) listener?.onPaint(event.x, event.y, true)
+                else if (mode == InteractionMode.PAINT) {
+                    // A touch that starts off the selected object orbits the camera instead of painting (user r325).
+                    if (selectedBounds.isNotEmpty() && rayBoxEntry(event.x, event.y, selectedBounds) == null) paintOrbit = true
+                    else {
+                        listener?.onPaint(event.x, event.y, true)
+                        if (selectedBounds.isNotEmpty()) {
+                            val id = ++dragCheckId
+                            listener?.onDragCheck(event.x, event.y) { hit -> if (!hit && id == dragCheckId) paintOrbit = true }
+                        }
+                    }
+                }
                 else if (mode == InteractionMode.NAVIGATE && rayBoxEntry(event.x, event.y, selectedBounds)?.also { dragAnchor = it } != null) {
                     dragging = true
                     dragStart = dragAt(event.x, event.y)
@@ -361,6 +377,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                         rightButton || middleButton -> camera.panGrab(lastX, lastY, event.x, event.y)
                         penOrbit -> camera.orbit((event.x - lastX) * 0.3f, (event.y - lastY) * 0.3f)
                         penInstant != null -> Unit
+                        mode == InteractionMode.PAINT && paintOrbit -> camera.orbit((event.x - lastX) * 0.3f, (event.y - lastY) * 0.3f)
                         mode == InteractionMode.PAINT -> {
                             // Fill gaps of fast strokes so the painted trail stays continuous.
                             val dx = event.x - lastX
@@ -368,13 +385,15 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                             val steps = (kotlin.math.hypot(dx, dy) / PAINT_STEP_PX).toInt().coerceIn(1, 32)
                             for (i in 1..steps) listener?.onPaint(lastX + dx * i / steps, lastY + dy * i / steps, false)
                         }
-                        resizeAnchor != null -> {
-                            val a = resizeAnchor!!
-                            resizeFactor = (kotlin.math.hypot(event.x - resizeAnchorPx.first, event.y - resizeAnchorPx.second) / resizeStartDist).coerceIn(0.1f, 10f)
+                        resizeHandle != null -> {
+                            val h = resizeHandle!!
+                            val (lo, hi) = resizeBox!!
+                            val s = ScaleGizmo.scale(h, ScaleGizmo.ratio(h, lo, hi, camera, downX, downY, event.x, event.y))
+                            resizeScale = s
                             if (moved) {
-                                val f = resizeFactor
-                                queueEvent { renderer.resizeAnchor = floatArrayOf(a.x, a.y, 0f); renderer.resizeScale = f }
-                                listener?.onResizeCorner(f, a, event.x, event.y, false)
+                                val p = ScaleGizmo.pivot(lo, hi)
+                                queueEvent { renderer.resizeAnchor = floatArrayOf(p.x, p.y, p.z); renderer.resizeScale = floatArrayOf(s.x, s.y, s.z) }
+                                listener?.onResize(s, p, event.x, event.y, false)
                             }
                         }
                         dragging -> {
@@ -405,10 +424,8 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                     // Handled: the menu is open, or the middle button only pans.
                 } else if (rightButton) {
                     if (!moved && mode == InteractionMode.NAVIGATE) listener?.onContextMenu(event.x, event.y)
-                } else if (resizeAnchor != null) {
-                    val a = resizeAnchor!!
-                    resizeAnchor = null
-                    listener?.onResizeCorner(if (moved) resizeFactor else 0f, a, event.x, event.y, true)
+                } else if (resizeHandle != null) {
+                    endResize(if (moved) resizeScale else null, event.x, event.y)
                 } else if (dragging) {
                     val start = dragStart
                     val end = dragAt(event.x, event.y)
@@ -476,7 +493,8 @@ class PlateView(context: Context) : GLSurfaceView(context) {
             if (v == 0f) return true
             if (event.metaState and KeyEvent.META_ALT_ON != 0) section.step(v > 0)
             else if (mode ==InteractionMode.PAINT && event.metaState and KeyEvent.META_CTRL_ON != 0) listener?.onBrushScroll(if (v > 0) 1 else -1)
-            else camera.zoomAt(if (v > 0) 1.15f else 1f / 1.15f, event.x, event.y)
+            // By the scroll amount: a thumbstick (Quest) or touchpad sends many fractional steps, a wheel notch 1.
+            else camera.zoomAt(1.15f.pow(v.coerceIn(-3f, 3f) * wheelSpeed), event.x, event.y)
             return true
         }
         return super.onGenericMotionEvent(event)
@@ -484,42 +502,43 @@ class PlateView(context: Context) : GLSurfaceView(context) {
 
     private var dragCheckId = 0
 
-    private var resizeAnchor: Vec3? = null
-    private var resizeAnchorPx = 0f to 0f
-    private var resizeStartDist = 1f
-    private var resizeFactor = 1f
+    private var resizeHandle: ScaleGizmo.Handle? = null
+    private var resizeBox: Pair<Vec3, Vec3>? = null
+    private var resizeScale = Vec3(1f, 1f, 1f)
     private var resizeTried = false
 
-    /** Corner resizing is on (Resize in the context menu, Ctrl+T or S); off, box corners move the selection like the rest. */
+    /** Resizing is on (Resize in the context menu, Ctrl+T or S): the scale gizmo's handles show on the lone selection. */
     @Volatile var resizeMode = false
+        set(value) { field = value; queueEvent { renderer.gizmo = value } }
 
-    /** In [resizeMode], a touch on a corner of the lone selected box starts a uniform resize about the opposite corner. */
+    /** The selected copy is turned only in 90 degree steps about Z, so X, Y and Z can be scaled alone (else corners only). */
+    @Volatile var resizeAxes = true
+        set(value) { field = value; queueEvent { renderer.gizmoAxes = value } }
+
+    /** In [resizeMode], a touch on a visible handle of the lone selected box starts a resize ([ScaleGizmo]). */
     private fun startResize(x: Float, y: Float): Boolean {
         if (!resizeMode) return false
-        val (lo, hi) = selectedBounds.singleOrNull() ?: return false
-        var best: Vec3? = null
+        val box = selectedBounds.singleOrNull() ?: return false
         // 48 dp grabbed too much of a small box (user, r304).
-        var bestD = 32f * resources.displayMetrics.density
-        for (cx in 0..1) for (cy in 0..1) for (cz in 0..1) {
-            val c = Vec3(if (cx == 0) lo.x else hi.x, if (cy == 0) lo.y else hi.y, if (cz == 0) lo.z else hi.z)
-            val (px, py) = camera.project(c) ?: continue
-            val d = kotlin.math.hypot(px - x, py - y)
-            if (d < bestD) { bestD = d; best = c }
-        }
-        val corner = best ?: return false
-        val anchor = Vec3(lo.x + hi.x - corner.x, lo.y + hi.y - corner.y, lo.z + hi.z - corner.z)
-        val a = camera.project(anchor) ?: return false
-        resizeAnchor = anchor; resizeAnchorPx = a
-        resizeStartDist = kotlin.math.hypot(x - a.first, y - a.second).coerceAtLeast(1f)
-        resizeFactor = 1f
+        val reach = 32f * resources.displayMetrics.density
+        val h = ScaleGizmo.visible(box.first, box.second, camera, resizeAxes).mapNotNull { h ->
+            camera.project(h.pos)?.let { (px, py) -> h to kotlin.math.hypot(px - x, py - y) }
+        }.filter { it.second < reach }.minByOrNull { it.second }?.first ?: return false
+        resizeHandle = h; resizeBox = box; resizeScale = Vec3(1f, 1f, 1f)
+        queueEvent { renderer.gizmoGrab = h }
         return true
     }
 
-    private fun cancelResize(x: Float = 0f, y: Float = 0f) {
-        val a = resizeAnchor ?: return
-        resizeAnchor = null
-        listener?.onResizeCorner(0f, a, x, y, true)
+    /** Ends a resize: applies [scale], or cancels with null. */
+    private fun endResize(scale: Vec3?, x: Float = 0f, y: Float = 0f) {
+        resizeHandle ?: return
+        val box = resizeBox!!
+        resizeHandle = null; resizeBox = null
+        queueEvent { renderer.gizmoGrab = null }
+        listener?.onResize(scale, ScaleGizmo.pivot(box.first, box.second), x, y, true)
     }
+
+    private fun cancelResize() = endResize(null)
 
     private fun cancelDrag() {
         cancelResize()

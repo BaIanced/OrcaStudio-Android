@@ -3,6 +3,7 @@ package app.orcaandroid.ui.prepare
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -19,6 +21,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DragIndicator
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
@@ -33,6 +38,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -43,6 +49,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.unit.toSize
+import androidx.compose.ui.layout.onGloballyPositioned
+import kotlin.math.roundToInt
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.orcaandroid.R
@@ -52,18 +62,53 @@ import app.orcaandroid.ui.UiState
 import app.orcaandroid.ui.components.hexToRgb
 import java.util.Locale
 
+/** The 3D view's bounds in the window (set by the workspace): floating cards are dragged within it. */
+internal object CanvasBounds {
+    var rect: androidx.compose.ui.geometry.Rect? = null
+}
+
 /** Options of the active 3D tool, shown as a small floating card. */
 @Composable
 internal fun ToolPanel(state: UiState, vm: AppViewModel) {
     val tool = state.tool
     if (tool == Tool.None) return
-    Surface(Modifier.widthIn(max = 360.dp), shape = RoundedCornerShape(16.dp), tonalElevation = 6.dp, shadowElevation = 2.dp) {
+    // The header drags the card around the canvas and folds it to the title, so it can stay out of the way while
+    // painting (user 2026-10-19, like the Design window). Kept on screen while dragging.
+    var drag by remember { mutableStateOf(Offset.Zero) }
+    var folded by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    var bounds by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
+    // Unfolding grows the card past the view edge when it was dragged to a corner folded (user r325): pull it back in.
+    androidx.compose.runtime.LaunchedEffect(bounds?.width, bounds?.height) {
+        val b = bounds ?: return@LaunchedEffect
+        val area = CanvasBounds.rect ?: return@LaunchedEffect
+        val dx = (area.right - b.right).coerceAtMost(0f).let { if (it == 0f) (area.left - b.left).coerceAtLeast(0f) else it }
+        val dy = (area.bottom - b.bottom).coerceAtMost(0f).let { if (it == 0f) (area.top - b.top).coerceAtLeast(0f) else it }
+        if (dx != 0f || dy != 0f) drag += Offset(dx, dy)
+    }
+    Surface(Modifier.widthIn(max = 360.dp)
+        .offset { androidx.compose.ui.unit.IntOffset(drag.x.roundToInt(), drag.y.roundToInt()) }
+        // Not boundsInWindow(): that is clipped to the window, so a card hanging off the edge looked fully inside (r326).
+        .onGloballyPositioned { val p = it.positionInWindow(); bounds = androidx.compose.ui.geometry.Rect(p, it.size.toSize()) },
+        shape = RoundedCornerShape(16.dp), tonalElevation = 6.dp, shadowElevation = 2.dp) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(toolTitle(tool), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+            Row(Modifier.pointerInput(Unit) {
+                detectDragGestures { change, d ->
+                    change.consume()
+                    // Within the 3D view: the window also holds the nav rail and panel, which drew over it (WSA r324).
+                    val b = bounds
+                    val area = CanvasBounds.rect
+                    drag += if (b == null || area == null) d else Offset(d.x.coerceIn((area.left - b.left).coerceAtMost(0f), (area.right - b.right).coerceAtLeast(0f)),
+                        d.y.coerceIn((area.top - b.top).coerceAtMost(0f), (area.bottom - b.bottom).coerceAtLeast(0f)))
+                }
+            }, verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.DragIndicator, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(toolTitle(tool), Modifier.weight(1f).padding(start = 4.dp), style = MaterialTheme.typography.titleSmall)
+                IconButton(onClick = { folded = !folded }, modifier = Modifier.size(32.dp)) {
+                    Icon(if (folded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, stringResource(if (folded) R.string.design_unfold else R.string.design_minimize))
+                }
                 IconButton(onClick = { vm.scene.setTool(Tool.None) }, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.Close, stringResource(R.string.close)) }
             }
-            when (tool) {
+            if (!folded) when (tool) {
                 is Tool.Paint -> PaintOptions(state, vm, tool)
                 is Tool.Cut -> CutOptions(state, vm, tool)
                 Tool.Measure -> MeasureOptions(state, vm)
@@ -109,6 +154,18 @@ private fun PaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Paint) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(R.string.brush_size, tool.radius), style = MaterialTheme.typography.bodySmall)
         Slider(tool.radius, { vm.scene.setTool(tool.copy(radius = it)) }, valueRange = 0.5f..15f, modifier = Modifier.weight(1f).padding(start = 8.dp))
+    }
+    // Edge detection: the angle stays remembered while it is off.
+    var edgeAngle by rememberSaveable { mutableFloatStateOf(30f) }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        FilterChip(tool.edgeAngle > 0f, { vm.scene.setTool(tool.copy(edgeAngle = if (tool.edgeAngle > 0f) 0f else edgeAngle)) },
+            label = { Text(stringResource(R.string.paint_stop_at_edges)) })
+        if (tool.edgeAngle > 0f) {
+            Text(stringResource(R.string.paint_edge_angle, tool.edgeAngle.roundToInt()), style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(start = 8.dp))
+            Slider(tool.edgeAngle, { edgeAngle = it; vm.scene.setTool(tool.copy(edgeAngle = it)) }, valueRange = 5f..89f,
+                modifier = Modifier.weight(1f).padding(start = 8.dp))
+        }
     }
     TextButton(onClick = { vm.scene.paintClear(tool.kind) }) { Text(stringResource(R.string.clear_painting)) }
 }

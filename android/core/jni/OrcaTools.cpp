@@ -4,10 +4,16 @@
 
 #include "OrcaEngine.hpp"
 
+#include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <fstream>
+#include <memory>
 #include <stdexcept>
+#include <utility>
+
+#include <boost/log/trivial.hpp>
 
 #include "libslic3r/AABBMesh.hpp"
 #include "libslic3r/CustomGCode.hpp"
@@ -17,6 +23,7 @@
 #include "libslic3r/Print.hpp"
 #include "libslic3r/PrintConfig.hpp"
 #include "libslic3r/Slicing.hpp"
+#include "libslic3r/TriangleMesh.hpp"
 #include "libslic3r/TriangleSelector.hpp"
 
 #include "OptionToggles.hpp"
@@ -112,29 +119,78 @@ FacetsAnnotation &facets_of(ModelVolume &vol, const std::string &kind)
 
 void OrcaEngine::write_paint_mesh()
 {
-    // Written next to the target and renamed over it, so the app never reads a half-written file.
-    const std::string tmp = m_paint_path + ".tmp";
-    std::ofstream f(tmp, std::ios::binary | std::ios::trunc);
-    if (!f)
-        throw std::runtime_error("Cannot write " + m_paint_path);
-    auto emit = [&f](const indexed_triangle_set &its, const Transform3d &trafo, float obj_code, float type_code) {
-        // A mirroring transform flips the winding; swap two corners so the triangles face out.
-        const bool mirrored = trafo.matrix().block<3, 3>(0, 0).determinant() < 0.;
-        for (const Vec3i32 &t : its.indices) {
-            const Vec3f a = (trafo * its.vertices[t[0]].cast<double>()).cast<float>();
-            const Vec3f b = (trafo * its.vertices[t[mirrored ? 2 : 1]].cast<double>()).cast<float>();
-            const Vec3f c = (trafo * its.vertices[t[mirrored ? 1 : 2]].cast<double>()).cast<float>();
-            Vec3f n = (b - a).cross(c - a);
-            n = n.norm() > 0.f ? Vec3f(n.normalized()) : Vec3f(0.f, 0.f, 1.f);
-            for (const Vec3f *v : {&a, &b, &c}) {
-                for (int k = 0; k < 3; ++k) write_raw(f, (*v)[k]);
-                for (int k = 0; k < 3; ++k) write_raw(f, n[k]);
-                write_raw(f, obj_code);
-                write_raw(f, type_code);
+    using clock = std::chrono::steady_clock;
+    auto ms = [](clock::time_point a) { return std::chrono::duration<double, std::milli>(clock::now() - a).count(); };
+    m_paint_extract_ms = m_paint_bytes_ms = 0.;
+    m_paint_triangles = 0;
+    // File bytes of one copy's painted triangles: reused while the triangles and the copy's transform are the same
+    // (written one float at a time, every copy of every painted object, on every paint call before).
+    decltype(m_paint_bytes) bytes_used;
+    std::vector<std::shared_ptr<std::vector<float>>> parts;
+    bool changed = false;
+    auto emit = [&](const PaintKey &key, const indexed_triangle_set &its, const Transform3d &trafo, float obj_code, float type_code) {
+        const auto bytes_key = std::make_tuple(key, obj_code, type_code);
+        std::array<double, 16> matrix;
+        std::copy(trafo.matrix().data(), trafo.matrix().data() + 16, matrix.begin());
+        auto it = m_paint_bytes.find(bytes_key);
+        std::shared_ptr<std::vector<float>> data;
+        if (it != m_paint_bytes.end() && it->second.trafo == matrix) {
+            data = it->second.data;
+        } else {
+            const auto t = clock::now();
+            data = std::make_shared<std::vector<float>>();
+            data->reserve(its.indices.size() * 24);
+            // A mirroring transform flips the winding; swap two corners so the triangles face out.
+            const bool mirrored = trafo.matrix().block<3, 3>(0, 0).determinant() < 0.;
+            for (const Vec3i32 &tri : its.indices) {
+                const Vec3f a = (trafo * its.vertices[tri[0]].cast<double>()).cast<float>();
+                const Vec3f b = (trafo * its.vertices[tri[mirrored ? 2 : 1]].cast<double>()).cast<float>();
+                const Vec3f c = (trafo * its.vertices[tri[mirrored ? 1 : 2]].cast<double>()).cast<float>();
+                Vec3f n = (b - a).cross(c - a);
+                n = n.norm() > 0.f ? Vec3f(n.normalized()) : Vec3f(0.f, 0.f, 1.f);
+                for (const Vec3f *v : {&a, &b, &c})
+                    data->insert(data->end(), {(*v)[0], (*v)[1], (*v)[2], n[0], n[1], n[2], obj_code, type_code});
             }
+            m_paint_bytes_ms += ms(t);
+            changed = true;
         }
+        bytes_used[bytes_key] = {matrix, data};
+        m_paint_triangles += its.indices.size();
+        parts.push_back(data);
     };
     const int max_filament = std::max<int>(1, int(m_sel_filaments.size()));
+    // Painted triangles of one annotation state: from the cache, else from the live paint selector, else from one
+    // selector per annotation (FacetsAnnotation::get_facets deserialized the whole annotation again for every state).
+    decltype(m_paint_facets) used;
+    const TriangleSelector *loaded = nullptr;
+    std::unique_ptr<TriangleSelector> own;
+    auto facets_for = [&](const PaintKey &key, const ModelVolume &vol, const FacetsAnnotation &annotation, EnforcerBlockerType state) -> const indexed_triangle_set & {
+        auto it = m_paint_facets.find(key);
+        std::shared_ptr<indexed_triangle_set> its;
+        const LivePaint &live = m_live_paint;
+        const bool is_live = live.selector && live.annotation == &annotation && live.timestamp == annotation.timestamp() &&
+                             live.mesh.get() == &vol.mesh();
+        if (it != m_paint_facets.end()) {
+            its = it->second;
+        } else if (auto before = m_paint_facets.find(PaintKey{&vol.mesh(), live.previous, int(state)});
+                   is_live && int(state) != live.state && before != m_paint_facets.end() && before->second->indices.empty()) {
+            its = before->second;
+        } else {
+            const auto t = clock::now();
+            const TriangleSelector *selector = loaded;
+            if (is_live) {
+                selector = live.selector.get();
+            } else if (selector == nullptr) {
+                own = std::make_unique<TriangleSelector>(vol.mesh());
+                own->deserialize(annotation.get_data(), false);
+                selector = loaded = own.get();
+            }
+            its = std::make_shared<indexed_triangle_set>(selector->get_facets(state));
+            m_paint_extract_ms += ms(t);
+        }
+        used[key] = its;
+        return *its;
+    };
     for (size_t oi = 0; oi < m_model->objects.size(); ++oi) {
         const ModelObject *obj = m_model->objects[oi];
         for (const ModelVolume *vol : obj->volumes) {
@@ -153,23 +209,88 @@ void OrcaEngine::write_paint_mesh()
             if (!vol->mmu_segmentation_facets.empty())
                 for (int e = 1; e <= max_filament; ++e)
                     layers.emplace_back(&vol->mmu_segmentation_facets, EnforcerBlockerType(e), 10.f + float(e - 1));
+            const FacetsAnnotation *previous = nullptr;
             for (const auto &[annotation, state, code] : layers) {
-                const indexed_triangle_set painted = annotation->get_facets(*vol, state);
+                if (annotation != previous) {
+                    // A new annotation: the selector loaded for the previous one doesn't apply.
+                    loaded = nullptr;
+                    previous = annotation;
+                }
+                const PaintKey key{&vol->mesh(), uint64_t(annotation->timestamp()), int(state)};
+                const indexed_triangle_set &painted = facets_for(key, *vol, *annotation, state);
                 if (painted.indices.empty())
                     continue;
                 for (size_t ii = 0; ii < obj->instances.size(); ++ii)
-                    emit(painted, obj->instances[ii]->get_matrix() * vol->get_matrix(), float(oi * INSTANCE_ID_STRIDE + ii), code);
+                    emit(key, painted, obj->instances[ii]->get_matrix() * vol->get_matrix(), float(oi * INSTANCE_ID_STRIDE + ii), code);
             }
         }
     }
+    m_paint_facets = std::move(used);
+    // The same parts as last time (a stroke over paint already there): the file and the app's copy stay as they are,
+    // since rewriting and re-reading ~10 MB took ~60 ms a call on a well-painted model (r320).
+    changed = changed || bytes_used.size() != m_paint_bytes.size() || m_paint_version == 0;
+    m_paint_bytes = std::move(bytes_used);
+    if (!changed)
+        return;
+    // Written next to the target and renamed over it, so the app never reads a half-written file.
+    const std::string tmp = m_paint_path + ".tmp";
+    std::ofstream f(tmp, std::ios::binary | std::ios::trunc);
+    if (!f)
+        throw std::runtime_error("Cannot write " + m_paint_path);
+    for (const auto &data : parts)
+        f.write(reinterpret_cast<const char *>(data->data()), std::streamsize(data->size() * sizeof(float)));
     f.close();
     if (std::rename(tmp.c_str(), m_paint_path.c_str()) != 0)
         throw std::runtime_error("Cannot write " + m_paint_path);
     ++m_paint_version;
 }
 
+namespace {
+
+// A brush cursor whose flood over the mesh (TriangleSelector::select_patch) stays on the faces in [faces].
+template<class Base> class EdgeLimited : public Base
+{
+public:
+    template<class... Args>
+    explicit EdgeLimited(const std::vector<bool> &faces, Args &&...args) : Base(std::forward<Args>(args)...), m_faces(faces) {}
+    bool is_facet_visible(int facet_idx, const std::vector<Vec3f> &face_normals) const override
+    {
+        return m_faces[facet_idx] && Base::is_facet_visible(facet_idx, face_normals);
+    }
+
+private:
+    const std::vector<bool> &m_faces;
+};
+
+// Faces reachable from [seed] over edges between faces whose normals differ by at most [angle] degrees: the desktop's
+// smart fill test (TriangleSelector::seed_fill_select_triangles, neighbour against neighbour).
+std::vector<bool> flood_surface(const indexed_triangle_set &its, const std::vector<int> &neighbors, int seed, double angle)
+{
+    std::vector<bool> faces(its.indices.size(), false);
+    if (seed < 0 || seed >= int(faces.size()))
+        return faces;
+    const double limit = std::cos(angle * M_PI / 180.) - EPSILON;
+    std::vector<int> queue{seed};
+    faces[seed] = true;
+    while (!queue.empty()) {
+        const int f = queue.back();
+        queue.pop_back();
+        const Vec3f n = its_face_normal(its, f).normalized();
+        for (int k = 0; k < 3; ++k) {
+            const int g = neighbors[3 * f + k];
+            if (g >= 0 && !faces[g] && std::clamp(n.dot(its_face_normal(its, g).normalized()), 0.f, 1.f) >= limit) {
+                faces[g] = true;
+                queue.push_back(g);
+            }
+        }
+    }
+    return faces;
+}
+
+} // namespace
+
 json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<double, 3> &camera, double radius, const std::string &kind,
-                       int state, bool new_stroke, const std::vector<double> &section)
+                       int state, bool new_stroke, const std::vector<double> &section, double edge_angle)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
     for (const PaintHit &h : hits) {
@@ -177,15 +298,25 @@ json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<doubl
         if (h.instance < 0 || h.instance >= int(obj.instances.size()) || h.volume < 0 || h.volume >= int(obj.volumes.size()))
             throw std::runtime_error("Invalid paint target");
     }
+    const auto t0 = std::chrono::steady_clock::now();
+    int loads = 0;
     if (new_stroke && !hits.empty())
         push_undo();
+    if (new_stroke) {
+        m_paint_prev.reset();
+        m_paint_region.object = -1;
+    }
 
+    // Colour painting that starts or ends a volume's painting changes whether its plate gets a prime tower,
+    // which is part of the scene mesh (write_mesh): the tower showed only after the next move (WSA r324).
+    bool tower_changed = false;
     // Runs of hits on the same volume copy share one selector: deserialized once, saved once.
     for (size_t i = 0; i < hits.size();) {
         const PaintHit &first = hits[i];
         ModelObject &obj = object_at(first.object);
         ModelVolume *vol = obj.volumes[first.volume];
         FacetsAnnotation &facets = facets_of(*vol, kind);
+        const bool was_empty = facets.empty();
 
         const Transform3d trafo = obj.instances[first.instance]->get_matrix() * vol->get_matrix();
         Transform3d trafo_no_translate = trafo;
@@ -201,17 +332,73 @@ json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<doubl
                                                     float(section[3] - n.dot(trafo.translation()))});
         }
 
-        TriangleSelector selector(vol->mesh());
-        selector.deserialize(facets.get_data(), false);
-        for (; i < hits.size() && hits[i].object == first.object && hits[i].instance == first.instance && hits[i].volume == first.volume; ++i)
-            selector.select_patch(hits[i].facet,
-                                  TriangleSelector::SinglePointCursor::cursor_factory(to_vec(hits[i].local).cast<float>(), camera_local,
-                                                                                    float(radius), TriangleSelector::CursorType::SPHERE, trafo, clip),
+        LivePaint &live = m_live_paint;
+        if (!live.selector || live.annotation != &facets || live.timestamp != facets.timestamp() || live.mesh.get() != &vol->mesh()) {
+            live = {&facets, vol->mesh_ptr(), 0, std::make_shared<TriangleSelector>(vol->mesh())};
+            live.selector->deserialize(facets.get_data(), false);
+            ++loads;
+        }
+        TriangleSelector &selector = *live.selector;
+        // Edge detection: the stroke's surface on this volume, from its first hit there.
+        PaintRegion &region = m_paint_region;
+        const bool limited = edge_angle > 0.;
+        if (limited && (region.object != first.object || region.volume != first.volume || region.mesh.get() != &vol->mesh())) {
+            if (region.mesh.get() != &vol->mesh()) {
+                region.mesh = vol->mesh_ptr();
+                region.neighbors.clear();
+                for (const Vec3i32 &n : its_face_neighbors(vol->mesh().its))
+                    region.neighbors.insert(region.neighbors.end(), {n.x(), n.y(), n.z()});
+            }
+            region.object = first.object;
+            region.volume = first.volume;
+            region.faces  = flood_surface(vol->mesh().its, region.neighbors, first.facet, edge_angle);
+        }
+        for (; i < hits.size() && hits[i].object == first.object && hits[i].instance == first.instance && hits[i].volume == first.volume; ++i) {
+            const PaintHit &h = hits[i];
+            // Off the stroke's surface: nothing to paint; the line goes on from the last hit on it.
+            if (limited && (h.facet < 0 || h.facet >= int(region.faces.size()) || !region.faces[h.facet]))
+                continue;
+            // A fast stroke's hits are far apart: join them with a capsule (GLGizmoPainterBase::gizmo_event) so the line
+            // has no gaps; a hit after a miss or on another part starts a new line.
+            const PaintHit *prev = h.join && m_paint_prev && m_paint_prev->object == h.object && m_paint_prev->instance == h.instance &&
+                                   m_paint_prev->volume == h.volume ? &*m_paint_prev : nullptr;
+            const Vec3f center = to_vec(h.local).cast<float>();
+            std::unique_ptr<TriangleSelector::Cursor> cursor;
+            if (limited && prev)
+                cursor = std::make_unique<EdgeLimited<TriangleSelector::Capsule3D>>(region.faces, to_vec(prev->local).cast<float>(), center, camera_local,
+                                                                                    float(radius), trafo, clip);
+            else if (limited)
+                cursor = std::make_unique<EdgeLimited<TriangleSelector::Sphere>>(region.faces, center, camera_local, float(radius), trafo, clip);
+            else if (prev)
+                cursor = TriangleSelector::DoublePointCursor::cursor_factory(to_vec(prev->local).cast<float>(), center, camera_local, float(radius),
+                                                                             TriangleSelector::CursorType::SPHERE, trafo, clip);
+            else
+                cursor = TriangleSelector::SinglePointCursor::cursor_factory(center, camera_local, float(radius), TriangleSelector::CursorType::SPHERE,
+                                                                             trafo, clip);
+            selector.select_patch(prev ? prev->facet : h.facet, std::move(cursor),
                                   EnforcerBlockerType(std::clamp(state, 0, int(EnforcerBlockerType::ExtruderMax))), trafo_no_translate, true);
+            m_paint_prev = h;
+        }
+        live.previous = facets.timestamp();
+        live.state = std::clamp(state, 0, int(EnforcerBlockerType::ExtruderMax));
         facets.set(selector);
+        live.timestamp = facets.timestamp();
+        if (kind == "color" && was_empty != facets.empty())
+            tower_changed = true;
     }
+    if (tower_changed)
+        write_mesh();
+    const auto t1 = std::chrono::steady_clock::now();
     write_paint_mesh();
-    return scene_json();
+    const auto t2 = std::chrono::steady_clock::now();
+    json out = scene_json();
+    const auto t3 = std::chrono::steady_clock::now();
+    auto ms = [](auto a, auto b) { return std::chrono::duration<double, std::milli>(b - a).count(); };
+    if (ms(t0, t3) > 30.)
+        BOOST_LOG_TRIVIAL(warning) << "paint: " << hits.size() << " hits, " << loads << " selector loads, select " << ms(t0, t1)
+                                << " ms, paint mesh " << ms(t1, t2) << " ms (extract " << m_paint_extract_ms << ", bytes "
+                                << m_paint_bytes_ms << ", " << m_paint_triangles << " triangles), scene " << ms(t2, t3) << " ms";
+    return out;
 }
 
 json OrcaEngine::paint_clear(int object, const std::string &kind)
@@ -219,7 +406,10 @@ json OrcaEngine::paint_clear(int object, const std::string &kind)
     std::lock_guard<std::mutex> lock(m_mutex);
     ModelObject &obj = object_at(object);
     push_undo();
+    bool tower_changed = false;
     for (ModelVolume *vol : obj.volumes) {
+        if ((kind.empty() || kind == "color") && !vol->mmu_segmentation_facets.empty())
+            tower_changed = true;
         if (kind.empty()) {
             for (const char *k : {"fuzzy", "support", "seam", "color"})
                 facets_of(*vol, k).reset();
@@ -227,6 +417,8 @@ json OrcaEngine::paint_clear(int object, const std::string &kind)
             facets_of(*vol, kind).reset();
         }
     }
+    if (tower_changed)
+        write_mesh();
     write_paint_mesh();
     return scene_json();
 }

@@ -9,12 +9,17 @@ Nothing pending lives here: open / untested items stay in `HANDOFF.md`.
 **WSA** when both are away. The user drives sessions from the phone: ask before taking over its main screen; use the
 headless display below instead (no takeover needed). Don't drive WSA's own window while the user uses the PC.
 
-### Headless display (`~/orca-android-tools/orca-vd.sh`, verified 2026-10-19)
+### Headless display (`~/orca-android-tools/orca-vd.sh`, verified 2026-10-19 on the old phone)
+- 2026-10-19 current phone: first `start` failed (scrcpy "Device disconnected"), the retry worked (with `PKG=...debug`); retry once before falling back to the main screen. Pass `PKG` for the debug app.
 - `sh orca-vd.sh start|stop|status|shot <out.png> [w] [crop]|tap X Y|swipe x0 y0 x1 y1 [ms]|ui [out.xml]`. `start` opens a
   scrcpy `--new-display` (1080x2340/420, hidden, no PC window), launches the app there, retries until resumed, and saves
   ids to `.vd-phone.state`. The user keeps the phone screen and the PC. `SHOW=1` = scrcpy window on the PC for
   shared viewing (user can click in it too; untested). The display lives only while scrcpy runs; `stop` after testing and
   check `tasklist | grep scrcpy` is empty (2026-10-19: two hand-started WSA scrcpy runs were left running ~30 min).
+- No PC window (user, 2026-10-19): scrcpy starts hidden via PowerShell with `--no-window` (`-N` still opened a small control
+  window that took focus). Debug installs: `adb install -r -g` (+ `pm grant ... POST_NOTIFICATIONS`) so no permission dialog lands
+  on the phone's main screen. WSA: launch with `wsa-start.ps1` (parks the WSA windows off-screen, unfocused; minimized = no
+  drawing; `-Show` brings them back); avoid `mdrag.ps1` there (moves the user's real cursor), use `adb shell input`.
 - `shot.sh` / `phone-ui.py` target it with `. ./.vd-phone.state; export VD=$LOGICAL,$SFID`. `mcpao.sh` works unchanged.
 - Layout differs from the real screen: get coordinates from `view_state` (3D) or a regex-cut `phone-ui.py layout` (2D),
   not a shot. No pinch yet (`pinch.sh`/`drag1.sh`/
@@ -36,7 +41,8 @@ headless display below instead (no takeover needed). Don't drive WSA's own windo
   -t application/zip --grant-read-uri-permission`), which works without root.
 
 ### Phone
-- Serial = the `adb-...._adb-tls-connect._tcp` entry in `adb devices` (`adb disconnect` a stale `ip:port`).
+- Serial: `sh ~/orca-android-tools/target.sh phone` (2026-10-19 the phone is an `ip:5555` entry and the Quest also shows as `adb-..._adb-tls-connect` + `ip:port`; target.sh probes: Oculus = Quest, feature `org.chromium.arc` = Chromebook, else phone; cache `.kinds`, delete it if a serial gets reused).
+- Debug app on the phone: copy `files/session/*` + `shared_prefs/app_settings.xml` from the release app via su (chown to the debug uid), force-stop the release app (it holds the MCP socket name), run tools with `PKG=io.github.baianced.orcastudio_android.debug` (mcpao.sh, orca-vd.sh). First start shows the printer picker: Apply, then copy the session again. **Uninstall it (`adb uninstall ...debug`) when done** (user, 2026-10-19: two apps on the phone confused them).
 - Setup: archive "Phone test setup", memory `test-on-phone`; `phone-ui.py` needs `PYTHONIOENCODING=utf-8`;
   pull binaries with `adb exec-out "su -c '...'"`; Delete key = `su -c 'input keyevent 112'`.
 - **MCP on a real phone:** the `localabstract` forward works over wireless adb; the socket binds only after an
@@ -68,6 +74,7 @@ headless display below instead (no takeover needed). Don't drive WSA's own windo
 - WSA -> LAN printer: run `wsa-lan.ps1 <printer-ip>` after each WSA start. Safe print-dialog test:
   `iptables -I OUTPUT -d <ip> -p tcp --dport 990 -j REJECT` (root), Print, Cancel, `iptables -D ...`.
 - Closing the WSA window (`CloseMainWindow()` on the "OrcaStudio-Android" window) runs onStop (saves the session).
+- WSA Preview close-ups: `view_set` (object/yaw/pitch/distance) then tap the Preview tab (52,165) keeps the camera; layer handle drag on y 833 (track x 450-1195); WSA `input` has no mouse scroll, and double tap doesn't frame in Preview.
 - Phone view on WSA (`phone-view.sh`): back-burnered (user, 2026-10-13: "didn't look right"); notes in the archive.
 
 ### All devices
@@ -99,6 +106,7 @@ headless display below instead (no takeover needed). Don't drive WSA's own windo
   Add `:app:mergeReleaseResources` when strings change, and read the exit code (a grep on the output hid a failure once).
 - Local native build in WSL: `MSYS_NO_PATHCONV=1 wsl -d Ubuntu -- bash /mnt/c/Users/Vince/orca-android-tools/wsl/corebuild.sh`
   (25 min cold, seconds incremental; details in the archive).
+- Native change on the debug app without CI (2026-10-19, ~3 min): `corebuild.sh`, then in WSL `llvm-strip -o /mnt/c/Users/Vince/build/orca-android/jniLibs/arm64-v8a/liborca_jni.so ~/orca-build/core/liborca_jni.so` (NDK 28.2 llvm-strip) over the staged CI libs, `:app:assembleDebug`, `adb install -r -g`.
 - CI (`android-apk.yml`, dispatch only: `gh workflow run android-apk.yml --ref <branch>`; cache details in the archive):
   checks **19** `ObnNative` JNI exports (update when adding one). Release-signed since build 32.
 - `~\orca-android-tools`: `install-build.ps1 -Run <id> [-Device <serial>]` (WSA default), `ui.ps1 [-Device] [-Shot png]`,
@@ -127,3 +135,5 @@ headless display below instead (no takeover needed). Don't drive WSA's own windo
 | `BaIanced/OrcaStudio-Android` | cl1x/Orca-Android + signed Bambu printing via obn (static in `liborca_jni.so`, `android/obn`). Bot branch `upstream/orca-main` (never commit). |
 | `BaIanced/OrcaStudio` | Flatpak fork; ours: `arm-build/` (README, NOTES-ci/obn/updates), `.github/workflows/arm-*.yml`. Handoff docs moved to OrcaStudio-Android/docs/handoff (2026-10-19). Latest release r9 (MakerLab tab). Details in the archive. |
 | `ClusterM/open-bamboo-networking` | obn pinned v2.2.0 + local patches 0001 (cloud callbacks), 0002 (start_print try LAN first), 0003 (MQTT CA from `SSL_CERT_FILE`). |
+
+- Handoff docs moved here from `OrcaStudio/arm-build` 2026-10-19; that repo is Flatpak-only now, untouched unless asked.

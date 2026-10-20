@@ -47,7 +47,7 @@ internal object Shaders {
         uniform int uSelectedCount;
         uniform vec3 uDrag;
         uniform vec3 uScaleAnchor;
-        uniform float uScale;
+        uniform vec3 uScale;
         layout(location = 0) in vec3 aPos;
         layout(location = 1) in vec3 aNormal;
         layout(location = 2) in vec2 aInfo;
@@ -67,8 +67,8 @@ internal object Shaders {
             vNormal = aNormal;
             vType = aInfo.y;
             vSelected = selected;
-            // A corner drag shows the new size live: the selection scales about the opposite corner.
-            vWorld = uScaleAnchor + (aPos - uScaleAnchor) * mix(1.0, uScale, selected) + selected * uDrag;
+            // A resize drag shows the new size live: the selection scales about its box's bottom centre.
+            vWorld = uScaleAnchor + (aPos - uScaleAnchor) * mix(vec3(1.0), uScale, selected) + selected * uDrag;
             // Normal offset (0.4 mm): the receiver is looked up a little outside its own surface, against acne.
             vShadowCoord = uLightMvp * vec4(vWorld + aNormal * 0.4, 1.0);
             gl_Position = uMvp * vec4(vWorld, 1.0);
@@ -344,13 +344,18 @@ internal object Shaders {
         layout(location = 10) in vec3 aNextP0;
         layout(location = 11) in vec3 aNextP1;
         out vec3 vColor;
-        out vec3 vNormal;
         out highp vec3 vWorld;
         out float vBead;
         out float vAcross;
         out vec3 vRight;
+        // The face (right, up, dir weights) comes from each triangle's last vertex: the box shares its corners (PlateRenderer.uploadBox).
+        flat out vec3 vFace;
+        flat out vec3 vUp;
+        flat out vec3 vDir;
         flat out float vSideFace;
         flat out float vTopFace;
+        flat out float vWidth;
+        flat out float vHeight;
 
         vec3 rightOf(vec3 a, vec3 b) {
             vec3 s = cross(b - a, vec3(0.0, 0.0, 1.0));
@@ -368,7 +373,10 @@ internal object Shaders {
         }
 
         void main() {
-            int role = clamp(int(aRole + 0.5), 0, 19);
+            // aRole = role + 32 * (depth label + 1) (Preview.cpp label_layer); older files carry the role alone.
+            int roleTag = int(aRole + 0.5);
+            int role = clamp(roleTag & 31, 0, 19);
+            int label = (roleTag >> 5) - 1;
             if (((uHidden >> role) & 1) == 1) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
             vec3 d = aP1 - aP0;
             float len = length(d);
@@ -398,19 +406,29 @@ internal object Shaders {
                 across = right * aCorner.y * w + dir * (atEnd ? 0.5 : -0.5) * w;
             }
             // The layer's height goes straight down (exact z), so neighbouring boxes share their edges exactly.
-            vec3 pos = (atEnd ? aP1 : aP0) + across + vec3(0.0, 0.0, (aCorner.z * 0.5 - 0.5) * h) + uOrigin;
+            // aCorner.z: 1 the top, -1 the layer's bottom, -2 the bottom of the overlap below.
+            float t = max(aCorner.z, -1.0);
+            vec3 pos = (atEnd ? aP1 : aP0) + across + vec3(0.0, 0.0, (t * 0.5 - 0.5) * h) + uOrigin;
             // The bottom reaches a little into the layer below: the layers' edges never share vertices (T-junctions),
             // so single-pixel cracks showed the darker inside through them and danced as the camera moved (user,
-            // 2026-10-17). The overlap is pushed back in depth below, so the layer below keeps its own top edge.
-            bool bottom = aCorner.z < 0.0;
-            if (bottom) pos.z -= clamp(pos.z, 0.0, 0.15 * h);
-            vNormal = normalize(sideNormal * aFace.x + up * aFace.y + dir * aFace.z);
-            vBead = aCorner.z;
+            // 2026-10-17). The overlap is pushed back in depth below, so the layer below keeps its own top edge. Only
+            // the overlap: the walls have their own vertex ring at the layer's bottom, since a push fading up the whole
+            // wall let the lower layer's top face show through above the joint (dotted rows crawling with the camera,
+            // prime tower walls, user r325).
+            bool overlap = aCorner.z < -1.5;
+            float drop = overlap ? clamp(pos.z, 0.0, 0.15 * h) : 0.0;
+            pos.z -= drop;
+            vFace = aFace;
+            vUp = up;
+            vDir = dir;
+            vBead = t - 2.0 * drop / h;
             vSideFace = abs(aFace.x);
             // Top / bottom faces are rounded across the bead's width in the fragment shader: u spans -1..1 over it.
             vTopFace = abs(aFace.y);
             vAcross = aCorner.y;
             vRight = sideNormal;
+            vWidth = 2.0 * w;
+            vHeight = h;
             if (uScheme == 0) vColor = uRoleColors[role];
             else if (uScheme == 7) vColor = uFilamentColors[clamp(int(aValue + 0.5), 0, 15)];
             else vColor = gradient((aValue - uRange.x) / max(uRange.y - uRange.x, 1e-6));
@@ -421,16 +439,21 @@ internal object Shaders {
             float lift = role == 2 ? 4.0 : (role == 1 || role == 3) ? 3.0 : (role == 6 || role == 8 || role == 11) ? 2.0
                 : (role == 5 || role == 7 || role == 9 || role == 10) ? 1.0 : 0.0;
             gl_Position = uMvp * vec4(pos + vec3(0.0, 0.0, lift * 0.01), 1.0);
-            // Fixed depth order for faces on the same plane (a few depth-buffer steps each, any zoom): the role as
-            // above, then the line's direction in three 60 degree bins (crossing infill lines of one role: parity
-            // alone tied whenever both lines had the same, user r294), then odd segments over even ones (a loop's
-            // seam ends, neighbouring parallel lines). Bin edges sit at 7.5 + 60k degrees, off the usual infill angles.
+            // Fixed depth order for faces on the same plane (about 4 depth-buffer steps a rank, any zoom; at 1 step the
+            // overlap of neighbouring top lines still z-fought in combs, user r325 "jiggle"; Camera.clip): the role as
+            // above, then the top's depth label, which differs between touching beads of one class (Preview.cpp; the
+            // direction bins it replaced tied where support lines met at under 60 degrees, user r329 notch). The walls
+            // rank above every top of their class, odd segments over even ones: a wall's foot under the layer below's
+            // top face let that face show through as dotted rows. Crossing lines' walls are never coplanar.
+            // Older preview files: the line's direction in three 60 degree bins (edges at 7.5 + 60k degrees), then parity.
+            float parity = float((gl_InstanceID + uFirst) & 1);
             float a = atan(dir.y, dir.x) - 0.1309;
-            float bin = mod(floor(a * 0.9549297), 3.0);
-            float order = lift * 6.0 + bin * 2.0 + float((gl_InstanceID + uFirst) & 1);
-            gl_Position.z -= order * 5e-7 * gl_Position.w;
-            // The bottom overlap goes behind all of it.
-            if (bottom) gl_Position.z += 1.6e-5 * gl_Position.w;
+            float rank = aCorner.z < 0.0 ? 5.0 + parity
+                : label >= 0 ? float(label) : mod(floor(a * 0.9549297), 3.0) * 2.0 + parity;
+            float order = lift * 7.0 + rank;
+            gl_Position.z -= order * 2e-6 * gl_Position.w;
+            // The bottom overlap goes behind all of it (36 ranks; the orders above reach 34).
+            if (overlap) gl_Position.z += 7.2e-5 * gl_Position.w;
         }"""
 
     const val PATH_FS = """#version 300 es
@@ -438,32 +461,79 @@ internal object Shaders {
         uniform highp vec4 uSection;
         uniform int uSectionOn;
         in vec3 vColor;
-        in vec3 vNormal;
         in highp vec3 vWorld;
         in float vBead;
         in float vAcross;
         in vec3 vRight;
+        flat in vec3 vFace;
+        flat in vec3 vUp;
+        flat in vec3 vDir;
         flat in float vSideFace;
         flat in float vTopFace;
+        flat in float vWidth;
+        flat in float vHeight;
+        uniform highp vec3 uEye;
         out vec4 color;
+        // Same soft key/fill/sky light as the model (no highlight: it would shimmer on layer lines),
+        // so faces turned from the key light keep their shape instead of dropping to one dark tone.
+        float shade(vec3 n) {
+            float sky = 0.5 + 0.5 * n.z;
+            return 0.30 + 0.12 * sky + 0.42 * max(dot(n, normalize(vec3(0.35, -0.55, 0.75))), 0.0)
+                + 0.24 * max(dot(n, normalize(vec3(-0.6, 0.4, 0.35))), 0.0);
+        }
+        // A bead's shade at u (-1..1 across a skin line or up a wall's layer; past the ends it wraps onto the next bead):
+        // the normal rolls off along axis towards the bead's edges, which darken by edge.
+        float beadShade(vec3 n, vec3 axis, float u, float tilt, float edge) {
+            u -= 2.0 * floor((u + 1.0) * 0.5);
+            return shade(normalize(n + axis * (u * tilt))) * (1.0 - edge * pow(abs(u), 6.0));
+        }
         void main() {
             if (uSectionOn == 1 && dot(uSection.xyz, vWorld) > uSection.w) discard;
-            // Same soft key/fill/sky light as the model (no highlight: it would shimmer on layer lines),
-            // so faces turned from the key light keep their shape instead of dropping to one dark tone.
-            vec3 n = normalize(vNormal);
-            // Side walls are rounded like a real bead (normal tilts up at the top of each layer, down at the
-            // bottom). It fades out below ~8 px per layer (fwidth 0.25; vBead spans 2 per layer): smaller
-            // layers beat against the pixel grid into wavy moire.
-            float bead = vSideFace * 0.8 * (1.0 - smoothstep(0.12, 0.25, fwidth(vBead)));
-            n = normalize(n + vec3(0.0, 0.0, vBead * bead));
-            // Top and bottom skins read as separate extrusions: the normal rolls off towards the bead's edges
-            // and the edge itself darkens a little. Fades out when a bead is under ~8 px wide (moire).
-            float rounding = vTopFace * (1.0 - smoothstep(0.12, 0.25, fwidth(vAcross)));
-            n = normalize(n + vRight * (vAcross * 0.9 * rounding));
-            float sky = 0.5 + 0.5 * n.z;
-            float light = 0.30 + 0.12 * sky + 0.42 * max(dot(n, normalize(vec3(0.35, -0.55, 0.75))), 0.0)
-                + 0.24 * max(dot(n, normalize(vec3(-0.6, 0.4, 0.35))), 0.0);
-            light *= 1.0 - 0.3 * rounding * pow(abs(vAcross), 6.0);
+            vec3 n = normalize(vRight * vFace.x + vUp * vFace.y + vDir * vFace.z);
+            float light = shade(n);
+            // Beads are rounded like real extrusions: skin lines across their width (edges a little darker), walls up
+            // each layer with a groove where two layers meet. Close up (8+ px a bead) that profile is drawn, averaged
+            // over the pixel's footprint (4 samples). Smaller, its sharp edges beat against the pixel grid into contour
+            // rings, so it turns into a smooth wave (dark at the joints): a wave can't alias down to 2 px a bead, and it
+            // fades out from 3 to 2 px. (r317-r329 faded the lines out below 8 px: none at the framing zoom, user r329
+            // "keep the layer line detail" over a perfect moire fix.) u spans 2 a bead.
+            bool top = vTopFace > 0.5;
+            float u = top ? vAcross : vBead;
+            float fu = max(fwidth(u), 1e-4);
+            if (vTopFace + vSideFace > 0.5) {
+                float detail = 1.0 - smoothstep(0.25, 0.5, fu);
+                float wave = light * (1.0 + (top ? 0.1 : 0.15) * cos(3.14159265 * u) * (1.0 - smoothstep(0.67, 1.0, fu)));
+                float profile = wave;
+                if (detail > 0.0) {
+                    vec3 axis = top ? vRight : vec3(0.0, 0.0, 1.0);
+                    float sum = 0.0;
+                    for (int i = 0; i < 4; ++i)
+                        sum += beadShade(n, axis, u + fu * (float(i) * 0.25 - 0.375), top ? 0.9 : 0.8, top ? 0.3 : 0.0);
+                    // The groove: a tent 1 px each side of the joint, so a line darkens the same whatever its sub-pixel
+                    // position (a thinner, sharper one broke into dashes crossing pixel rows).
+                    float groove = top ? 0.0 : clamp(1.0 - (1.0 - abs(u)) / fu, 0.0, 1.0);
+                    profile = sum * 0.25 * (1.0 - 0.22 * groove);
+                }
+                light = mix(wave, profile, detail);
+            }
+            // A layer's lit top strip and darker side beat against the pixel grid into dashed bands (user r316) when
+            // the layers are only a pixel or two apart or a face is under a pixel (dotted arcs, r319). There both faces
+            // take the mean of the two shades, weighted by how much of each the eye sees, as a pixel covering both
+            // shows; each face keeps its own shading in that mean, so a big face (a top skin seen from above) looks the
+            // same. Only that close: r320 blended up to 9 px apart and washed out the layer lines (user r329).
+            if (vTopFace + vSideFace > 0.5) {
+                highp vec3 v = normalize(uEye - vWorld);
+                vec3 side = vRight * (dot(vRight, v) < 0.0 ? -1.0 : 1.0);
+                float wTop = vWidth * max(v.z, 0.0);
+                float wSide = vHeight * abs(dot(side, v));
+                // World size of a pixel here: the less stretched screen direction (the other one runs along the face).
+                highp float pix = max(min(length(dFdx(vWorld)), length(dFdy(vWorld))), 1e-6);
+                float far = max(1.0 - smoothstep(3.0, 9.0, (wTop + wSide) / pix), 1.0 - smoothstep(1.0, 3.0, min(wTop, wSide) / pix));
+                float lTop = vTopFace > 0.5 ? light : shade(vec3(0.0, 0.0, 1.0));
+                float lSide = vSideFace > 0.5 ? light : shade(side);
+                float mean = (wTop * lTop + wSide * lSide) / max(wTop + wSide, 1e-4);
+                light = mix(light, mean, far);
+            }
             color = vec4(vColor * light, 1.0);
         }"""
 

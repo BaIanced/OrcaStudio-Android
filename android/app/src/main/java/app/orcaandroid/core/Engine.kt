@@ -161,9 +161,12 @@ class Engine(private val cacheDir: File) {
     }
 
     /** Paints [hits] (one stroke's brush positions, in order) in one engine pass. */
-    suspend fun paint(hits: List<PickHit>, camera: Vec3, radius: Float, kind: String, state: Int, newStroke: Boolean, section: FloatArray? = null) = parseScene(call("paint", args(
-        "hits" to hits.map { mapOf("object" to it.obj, "instance" to it.instance, "volume" to it.volume, "facet" to it.facet, "local" to it.local) },
-        "camera" to camera, "radius" to radius, "kind" to kind, "state" to state, "newStroke" to newStroke, "section" to section)))
+    /** [joins]: per hit, whether it continues the line from the stroke's previous hit (painted as a capsule, no gaps). */
+    suspend fun paint(hits: List<PickHit>, camera: Vec3, radius: Float, kind: String, state: Int, newStroke: Boolean, section: FloatArray? = null,
+                      joins: List<Boolean> = emptyList(), edgeAngle: Float = 0f) = parseScene(call("paint", args(
+        "hits" to hits.mapIndexed { i, it -> mapOf("object" to it.obj, "instance" to it.instance, "volume" to it.volume, "facet" to it.facet, "local" to it.local,
+            "join" to joins.getOrElse(i) { false }) },
+        "camera" to camera, "radius" to radius, "kind" to kind, "state" to state, "newStroke" to newStroke, "section" to section, "edgeAngle" to edgeAngle)))
     suspend fun paintClear(obj: Int, kind: String) = parseScene(call("paintClear", args("object" to obj, "kind" to kind)))
 
     private fun parseProfile(o: JSONObject) = parseScene(o) to LayerProfile(

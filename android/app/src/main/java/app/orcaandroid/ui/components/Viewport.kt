@@ -138,22 +138,26 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                         }
                         vm.scene.changeSelection(inside, remove)
                     }
-                    override fun onResizeCorner(factor: Float, anchor: Vec3, x: Float, y: Float, done: Boolean) {
+                    override fun onResize(scale: Vec3?, pivot: Vec3, x: Float, y: Float, done: Boolean) {
                         val sel = vm.state.value.selectedItems.singleOrNull()
                         val inst = sel?.let { vm.state.value.scene.objects.getOrNull(it.obj)?.instances?.getOrNull(it.instance) }
-                        if (!done && inst != null) {
-                            val z = inst.size * factor
-                            resizeLabel = Triple("%.1f x %.1f x %.1f mm".format(z.x, z.y, z.z), x, y)
+                        if (!done && inst != null && scale != null) {
+                            resizeLabel = Triple("%.1f x %.1f x %.1f mm".format(inst.size.x * scale.x, inst.size.y * scale.y, inst.size.z * scale.z), x, y)
                             return
                         }
                         resizeLabel = null
-                        if (!done || factor <= 0f || inst == null) { v.onGl { resizeScale = 1f }; return }
+                        val noScale = floatArrayOf(1f, 1f, 1f)
+                        if (!done || scale == null || inst == null) { v.onGl { resizeScale = noScale }; return }
                         // The live scale stays until the scaled mesh is uploaded (cleared there), or after a timeout.
                         dragPending[0] = true
-                        v.postDelayed({ if (dragPending[0]) { dragPending[0] = false; v.onGl { resizeScale = 1f } } }, 1500)
-                        // Uniform scale about the opposite corner: its position stays, the offset follows it (x, y; the engine drops onto the bed).
-                        val off = Vec3(anchor.x + (inst.offset.x - anchor.x) * factor, anchor.y + (inst.offset.y - anchor.y) * factor, inst.offset.z)
-                        vm.scene.setTransform(offset = off, scale = inst.scale * factor)
+                        v.postDelayed({ if (dragPending[0]) { dragPending[0] = false; v.onGl { resizeScale = noScale } } }, 1500)
+                        // World scale about the pivot: it stays put, the offset follows it (x, y; the engine drops onto the bed).
+                        // On the copy's own axes, which lie along the world's in some order ([ownAxes]; a uniform scale needs none).
+                        val f = floatArrayOf(scale.x, scale.y, scale.z)
+                        val own = ownAxes(inst.rotation)?.let { m -> FloatArray(3).also { o -> for (i in 0..2) o[m[i]] = f[i] } }
+                            ?.let { Vec3(it[0], it[1], it[2]) } ?: Vec3(scale.x, scale.x, scale.x)
+                        val off = Vec3(pivot.x + (inst.offset.x - pivot.x) * scale.x, pivot.y + (inst.offset.y - pivot.y) * scale.y, inst.offset.z)
+                        vm.scene.setTransform(offset = off, scale = Vec3(inst.scale.x * own.x, inst.scale.y * own.y, inst.scale.z * own.z))
                     }
                     override fun onBrushScroll(steps: Int) = vm.scene.scaleBrush(if (steps > 0) 1.15f else 1 / 1.15f)
                     override fun onMoved(dx: Float, dy: Float) {
@@ -262,6 +266,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         v.onGl { keyAzimuth = state.lab.lightAzimuth; keyElevation = state.lab.lightElevation; keyStrength = state.lab.lightStrength }
     }
     LaunchedEffect(v, state.lab.pinchSpeed) { v.pinchSpeed = state.lab.pinchSpeed }
+    LaunchedEffect(v, state.lab.wheelSpeed) { v.wheelSpeed = state.lab.wheelSpeed }
     LaunchedEffect(v, state.perspective) { v.camera.perspective = state.perspective }
     LaunchedEffect(v, state.pen) { v.pen = state.pen }
     LaunchedEffect(v, state.resizing, showPreview) { v.resizeMode = state.resizing && !showPreview }
@@ -285,7 +290,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         val mesh = withContext(Dispatchers.IO) { FloatData.load(scene.meshFile, 8) }
         v.onGl { setMesh(mesh) }
         // A finished drag: the moved mesh is queued first, so the old offset goes away without a jump back.
-        if (dragPending[0]) { dragPending[0] = false; v.onGl { dragOffset = floatArrayOf(0f, 0f, 0f); resizeScale = 1f } }
+        if (dragPending[0]) { dragPending[0] = false; v.onGl { dragOffset = floatArrayOf(0f, 0f, 0f); resizeScale = floatArrayOf(1f, 1f, 1f) } }
     }
     // Eye toggle: the OpenSCAD design shown see-through, standing in the middle of the active plate (other objects hidden).
     val ghost = state.scad?.preview?.takeIf { state.scadOnPlate && !state.scadHidden && state.screen == app.orcaandroid.ui.Screen.PREPARE }
@@ -301,7 +306,11 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     }
     LaunchedEffect(v, scene.paintVersion, scene.paintFile) {
         if (scene.paintFile.isEmpty()) return@LaunchedEffect
+        val start = android.os.SystemClock.elapsedRealtime()
         val paint = withContext(Dispatchers.IO) { FloatData.load(scene.paintFile, 8) }
+        val read = android.os.SystemClock.elapsedRealtime() - start
+        // Slow reads show next to the engine's "paint:" timings in logcat (paint lag, user r316).
+        if (read > 20) android.util.Log.w("OrcaRender", "paint mesh read $read ms")
         v.onGl { setPaint(paint) }
     }
     LaunchedEffect(v, result?.previewDir, result?.gcodeFile) {
@@ -331,7 +340,9 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
             val lo = Vec3(p.originX + t[0], p.originY + t[1], 0f)
             TowerBox(p.index, lo, Vec3(lo.x + t[2], lo.y + t[3], t[4]))
         } }
-        v.selectedBounds = items.mapNotNull { s -> scene.objects.getOrNull(s.obj)?.instances?.getOrNull(s.instance)?.let { it.min to (it.min + it.size) } }
+        val insts = items.mapNotNull { s -> scene.objects.getOrNull(s.obj)?.instances?.getOrNull(s.instance) }
+        v.selectedBounds = insts.map { it.min to (it.min + it.size) }
+        v.resizeAxes = insts.singleOrNull()?.let { ownAxes(it.rotation) != null } ?: true
     }
     LaunchedEffect(v, state.tool, showPreview) {
         v.mode = when {
@@ -403,6 +414,29 @@ fun schemeKey(scheme: Int) = when (scheme) {
  * next view looks the same instead of framing plate 1 again.
  */
 private var savedCamera: FloatArray? = null
+
+/**
+ * For a copy turned [rotation] (degrees, applied X then Y then Z as the engine's Geometry::rotation_transform) only in
+ * 90 degree steps: for each world axis the copy's own axis along it. Null for other turns, where one world axis can't be
+ * scaled alone.
+ */
+private fun ownAxes(rotation: Vec3): IntArray? {
+    fun cs(deg: Float): Pair<Int, Int>? {
+        val q = deg / 90f
+        val k = Math.round(q)
+        if (kotlin.math.abs(q - k) > 0.01f) return null
+        return when (Math.floorMod(k, 4)) { 0 -> 1 to 0; 1 -> 0 to 1; 2 -> -1 to 0; else -> 0 to -1 }
+    }
+    val (cx, sx) = cs(rotation.x) ?: return null
+    val (cy, sy) = cs(rotation.y) ?: return null
+    val (cz, sz) = cs(rotation.z) ?: return null
+    fun mul(a: Array<IntArray>, b: Array<IntArray>) = Array(3) { i -> IntArray(3) { j -> (0..2).sumOf { a[i][it] * b[it][j] } } }
+    val rx = arrayOf(intArrayOf(1, 0, 0), intArrayOf(0, cx, -sx), intArrayOf(0, sx, cx))
+    val ry = arrayOf(intArrayOf(cy, 0, sy), intArrayOf(0, 1, 0), intArrayOf(-sy, 0, cy))
+    val rz = arrayOf(intArrayOf(cz, -sz, 0), intArrayOf(sz, cz, 0), intArrayOf(0, 0, 1))
+    val r = mul(rz, mul(ry, rx))
+    return IntArray(3) { i -> (0..2).first { r[i][it] != 0 } }
+}
 
 fun PlateView.framePlate(plate: Int, top: Boolean = false) = onGl { frame(plate, top) }
 

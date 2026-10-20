@@ -58,13 +58,20 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var selectedIds = FloatArray(0)
     /** Live offset of the selected copies while they are dragged. */
     var dragOffset = floatArrayOf(0f, 0f, 0f)
-    /** Live corner-drag resize: the selection is drawn scaled by this about [resizeAnchor] (plate x, y, bed height). */
-    var resizeScale = 1f
-    var resizeAnchor = floatArrayOf(0f, 0f, 0f)
         set(v) {
             field = v
             if (v[0] == 0f && v[1] == 0f) dragTower = -1
         }
+    /** Live resize: the selection is drawn scaled by this (x, y, z) about [resizeAnchor] (its box's bottom centre). */
+    var resizeScale = floatArrayOf(1f, 1f, 1f)
+    var resizeAnchor = floatArrayOf(0f, 0f, 0f)
+    /** Resize mode: the scale gizmo's handles ([ScaleGizmo]) on the selection box; [gizmoAxes] false shows only the corners. */
+    var gizmo = false
+    var gizmoAxes = true
+    /** The handle being dragged: only it shows meanwhile, moved with the scale. */
+    var gizmoGrab: ScaleGizmo.Handle? = null
+    /** Half the side of a handle square, px. */
+    var handlePx = 14f
     /** Plate whose prime tower (selection id -2 - plate) is being dragged, or -1: it takes the highlight and [dragOffset]. */
     var dragTower = -1
     var showPreview = false
@@ -132,7 +139,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     private var bedVbo = 0; private var bedCount = 0
     /** The grid's quad: the bed outline's box, plate-local (x0, y0, x1, y1). */
     private var gridRect: FloatArray? = null
-    private var boxVbo = 0; private var boxIbo = 0
+    private var boxVbo = 0; private var boxIbo = 0; private var boxIndexCount = 0
     private var scratchVbo = 0
     /** Plate badges: icons per plate (top down, right of the plate; empty = numbers only), atlas, quads. */
     private var badgeIcons: List<PlateBadge> = emptyList()
@@ -284,7 +291,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         useRealShadow = false
         if (shadow) {
             effects.lightDir = keyDir
-            val key = listOf(meshVersion, dragOffset.toList(), resizeScale, selectedIds.toList(), dragTower, section?.toList(), keyAzimuth, keyElevation)
+            val key = listOf(meshVersion, dragOffset.toList(), resizeScale.toList(), selectedIds.toList(), dragTower, section?.toList(), keyAzimuth, keyElevation)
             // A dragged copy may leave the footprint: widen it by the drag.
             // A fixed widening for the whole drag: any change of the map area mid-drag rescales the texels and
             // shows as a step ("strobe") in the shadow.
@@ -340,7 +347,13 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             meshVersion++
             pendingMesh = null
         }
-        pendingPaint?.let { paintCount = uploadFloats(paintVbo, it); pendingPaint = null }
+        pendingPaint?.let {
+            val start = android.os.SystemClock.elapsedRealtime()
+            paintCount = uploadFloats(paintVbo, it)
+            pendingPaint = null
+            val upload = android.os.SystemClock.elapsedRealtime() - start
+            if (upload > 10) android.util.Log.w("OrcaRender", "paint mesh upload $upload ms")
+        }
         pendingGhost?.let { ghostCount = uploadFloats(ghostVbo, it); pendingGhost = null }
         pendingPreview?.let {
             extrCount = uploadPadded(extrVbo, it.extrusions, PreviewData.EXTRUSION_STRIDE)
@@ -460,22 +473,38 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         return out.toFloatArray()
     }
 
-    /** Unit box for instanced toolpaths: per vertex (u, side, vertical) + face normal (right, up, dir). */
+    /**
+     * Unit box for instanced toolpaths: 12 shared corners, per vertex (u, side, vertical) + a face (right, up, dir weights).
+     * Vertical: 1 the top, -1 the layer's bottom, -2 the bottom of the overlap into the layer below (PATH_VS); the walls
+     * have a vertex ring at -1, so only the overlap is pushed back in depth. Faces share corners (the vertex shader runs
+     * 12 times a segment, not 4 per face): each triangle ends on a corner carrying its face, read as flat (last vertex).
+     */
     private fun uploadBox() {
+        // Corner (ring r: 0 top, 1 layer bottom, 2 overlap bottom; k: 0 start/left, 1 start/right, 2 end/right, 3 end/left) = r * 4 + k.
+        val us = floatArrayOf(0f, 0f, 1f, 1f)
+        val ss = floatArrayOf(-1f, 1f, 1f, -1f)
+        val ts = floatArrayOf(1f, -1f, -2f)
+        val faceOf = mapOf(0 to floatArrayOf(0f, 1f, 0f), 8 to floatArrayOf(0f, -1f, 0f), 5 to floatArrayOf(1f, 0f, 0f),
+            7 to floatArrayOf(-1f, 0f, 0f), 6 to floatArrayOf(0f, 0f, 1f), 4 to floatArrayOf(0f, 0f, -1f))
         val v = ArrayList<Float>()
-        val idx = ArrayList<Short>()
-        fun face(corners: List<FloatArray>, n: FloatArray) {
-            val base = (v.size / 6).toShort()
-            corners.forEach { c -> v += c.toList(); v += n.toList() }
-            idx += listOf(base, (base + 1).toShort(), (base + 2).toShort(), base, (base + 2).toShort(), (base + 3).toShort())
+        for (r in 0..2) for (k in 0..3) {
+            v += listOf(us[k], ss[k], ts[r])
+            v += (faceOf[r * 4 + k] ?: floatArrayOf(0f, 0f, 0f)).toList()
         }
-        fun c(u: Float, s: Float, t: Float) = floatArrayOf(u, s, t)
-        face(listOf(c(0f, -1f, 1f), c(1f, -1f, 1f), c(1f, 1f, 1f), c(0f, 1f, 1f)), floatArrayOf(0f, 1f, 0f))      // top
-        face(listOf(c(0f, 1f, -1f), c(1f, 1f, -1f), c(1f, -1f, -1f), c(0f, -1f, -1f)), floatArrayOf(0f, -1f, 0f))  // bottom
-        face(listOf(c(0f, 1f, -1f), c(0f, 1f, 1f), c(1f, 1f, 1f), c(1f, 1f, -1f)), floatArrayOf(1f, 0f, 0f))       // right
-        face(listOf(c(1f, -1f, -1f), c(1f, -1f, 1f), c(0f, -1f, 1f), c(0f, -1f, -1f)), floatArrayOf(-1f, 0f, 0f))  // left
-        face(listOf(c(1f, 1f, -1f), c(1f, 1f, 1f), c(1f, -1f, 1f), c(1f, -1f, -1f)), floatArrayOf(0f, 0f, 1f))     // end
-        face(listOf(c(0f, -1f, -1f), c(0f, -1f, 1f), c(0f, 1f, 1f), c(0f, 1f, -1f)), floatArrayOf(0f, 0f, -1f))    // start
+        val idx = ArrayList<Short>()
+        /** Quad a b c d (outward winding) as a fan ending on [f], the corner that carries the face. */
+        fun quad(f: Int, vararg q: Int) {
+            val i = q.indexOf(f)
+            val p = IntArray(4) { q[(i + it) % 4] }
+            listOf(p[1], p[2], f, p[2], p[3], f).forEach { idx += it.toShort() }
+        }
+        quad(0, 0, 3, 2, 1)                                  // top
+        quad(8, 9, 10, 11, 8)                                // bottom
+        quad(5, 5, 1, 2, 6); quad(5, 9, 5, 6, 10)            // right: layer, overlap
+        quad(7, 7, 3, 0, 4); quad(7, 11, 7, 4, 8)            // left
+        quad(6, 6, 2, 3, 7); quad(6, 10, 6, 7, 11)           // end
+        quad(4, 4, 0, 1, 5); quad(4, 8, 4, 5, 9)             // start
+        boxIndexCount = idx.size
         glBindBuffer(GL_ARRAY_BUFFER, boxVbo)
         glBufferData(GL_ARRAY_BUFFER, v.size * 4, floats(v.toFloatArray()), GL_STATIC_DRAW)
         val ib = ByteBuffer.allocateDirect(idx.size * 2).order(ByteOrder.nativeOrder()).asShortBuffer().put(idx.toShortArray())
@@ -539,14 +568,14 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             glActiveTexture(GL_TEXTURE0)
         }
         val ids = highlighted
-        glUniform1i(loc(meshProgram, "uSelStyle"), selectionStyle)
+        glUniform1i(loc(meshProgram, "uSelStyle"), activeSelectionStyle)
         keyDir.let { glUniform3f(loc(meshProgram, "uKeyDir"), it[0], it[1], it[2]) }
         glUniform1f(loc(meshProgram, "uKeyStrength"), keyStrength)
         glUniform1fv(loc(meshProgram, "uSelected"), Shaders.MAX_SELECTED, ids.copyOf(Shaders.MAX_SELECTED), 0)
         glUniform1i(loc(meshProgram, "uSelectedCount"), minOf(ids.size, Shaders.MAX_SELECTED))
         glUniform3fv(loc(meshProgram, "uDrag"), 1, dragOffset, 0)
         glUniform3fv(loc(meshProgram, "uScaleAnchor"), 1, resizeAnchor, 0)
-        glUniform1f(loc(meshProgram, "uScale"), resizeScale)
+        glUniform3fv(loc(meshProgram, "uScale"), 1, resizeScale, 0)
         glUniform3fv(loc(meshProgram, "uPartColor"), 1, colors.part, 0)
         glUniform3fv(loc(meshProgram, "uSelectedColor"), 1, colors.selected, 0)
         camera.eye().let { glUniform3f(loc(meshProgram, "uEye"), it.x, it.y, it.z) }
@@ -566,20 +595,23 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     /** Selection ids shown as selected: the dragged prime tower, else the selected copies. */
     private val highlighted get() = if (dragTower >= 0) floatArrayOf(-2f - dragTower) else selectedIds
 
+    /** The prime tower is always shown x-ray outlined while touched, whatever the selection style setting (user r325). */
+    private val activeSelectionStyle get() = if (dragTower >= 0) SelectionStyle.OUTLINE or SelectionStyle.XRAY else selectionStyle
+
     /** Outline / x-ray and the bounding box of the selection (Prepare). */
     private fun drawSelection() {
         val ids = highlighted
         if (ids.isEmpty() || meshCount == 0) return
-        if (selectionStyle and (SelectionStyle.OUTLINE or SelectionStyle.XRAY) != 0)
-            selection.draw(viewW, viewH, selectionStyle, colors.selected, outlinePx) { pass -> drawMesh(meshVbo, meshCount, pass) }
-        if (selectionStyle and SelectionStyle.BOX != 0) drawSelectionBox(ids)
+        val style = activeSelectionStyle
+        if (style and (SelectionStyle.OUTLINE or SelectionStyle.XRAY) != 0)
+            selection.draw(viewW, viewH, style, colors.selected, outlinePx) { pass -> drawMesh(meshVbo, meshCount, pass) }
+        val box = selectionBox(ids) ?: return
+        if (style and SelectionStyle.BOX != 0 || gizmo) drawSelectionBox(box.copyOf())
+        if (gizmo) drawGizmo(box)
     }
 
-    /**
-     * Corner brackets of the selection's bounding box, as on the desktop (Selection::render_bounding_box): at each corner
-     * three strokes a quarter of the shortest side long, moved with the drag.
-     */
-    private fun drawSelectionBox(ids: FloatArray) {
+    /** The bounding box (x0, y0, z0, x1, y1, z1) of the selection ids [ids], with the live resize. */
+    private fun selectionBox(ids: FloatArray): FloatArray? {
         val b = floatArrayOf(Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE)
         var any = false
         for (id in ids) {
@@ -587,8 +619,64 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             any = true
             for (k in 0..2) { b[k] = minOf(b[k], c[k]); b[k + 3] = maxOf(b[k + 3], c[k + 3]) }
         }
-        if (!any) return
-        if (resizeScale != 1f) for (k in 0..2) { b[k] = resizeAnchor[k] + (b[k] - resizeAnchor[k]) * resizeScale; b[k + 3] = resizeAnchor[k] + (b[k + 3] - resizeAnchor[k]) * resizeScale }
+        if (!any) return null
+        for (k in 0..2) {
+            val s = resizeScale[k]
+            if (s != 1f) { b[k] = resizeAnchor[k] + (b[k] - resizeAnchor[k]) * s; b[k + 3] = resizeAnchor[k] + (b[k + 3] - resizeAnchor[k]) * s }
+        }
+        return b
+    }
+
+    /**
+     * The scale gizmo's handles ([ScaleGizmo]) on [box] as screen-size squares on top of the scene (the desktop draws its
+     * grabbers on top too; only those the box doesn't hide are shown). While one is dragged, only it shows, moved with the scale.
+     */
+    private fun drawGizmo(box: FloatArray) {
+        val lo = app.orcaandroid.core.Vec3(box[0], box[1], box[2])
+        val hi = app.orcaandroid.core.Vec3(box[3], box[4], box[5])
+        val grab = gizmoGrab
+        val handles = if (grab == null) ScaleGizmo.visible(lo, hi, camera, gizmoAxes) else {
+            val p = resizeAnchor
+            val q = grab.pos
+            listOf(ScaleGizmo.Handle(grab.index, app.orcaandroid.core.Vec3(
+                p[0] + (q.x - p[0]) * resizeScale[0], p[1] + (q.y - p[1]) * resizeScale[1], p[2] + (q.z - p[2]) * resizeScale[2]), grab.axis))
+        }
+        if (handles.isEmpty()) return
+        val identity = FloatArray(16).also { android.opengl.Matrix.setIdentityM(it, 0) }
+        glUseProgram(lineProgram)
+        glUniformMatrix4fv(loc(lineProgram, "uMvp"), 1, false, identity, 0)
+        glUniform3fv(loc(lineProgram, "uOffset"), 1, floatArrayOf(0f, 0f, 0f), 0)
+        setSection(lineProgram, on = false)
+        glDisable(GL_DEPTH_TEST)
+        glBindBuffer(GL_ARRAY_BUFFER, scratchVbo)
+        glEnableVertexAttribArray(0)
+        val clip = FloatArray(4)
+        for (h in handles) {
+            android.opengl.Matrix.multiplyMV(clip, 0, mvp, 0, floatArrayOf(h.pos.x, h.pos.y, h.pos.z, 1f), 0)
+            if (clip[3] <= 0f) continue
+            val x = clip[0] / clip[3]
+            val y = clip[1] / clip[3]
+            // A dark rim, then the colour; the dragged handle a little bigger.
+            val size = if (grab != null) handlePx * 1.25f else handlePx
+            for ((px, color) in listOf(size + outlinePx * 0.6f to floatArrayOf(0.1f, 0.1f, 0.1f), size to ScaleGizmo.color(h.axis))) {
+                val hx = px * 2f / viewW
+                val hy = px * 2f / viewH
+                val quad = floatArrayOf(x - hx, y - hy, 0f, x + hx, y - hy, 0f, x + hx, y + hy, 0f, x - hx, y - hy, 0f, x + hx, y + hy, 0f, x - hx, y + hy, 0f)
+                glUniform3fv(loc(lineProgram, "uColor"), 1, color, 0)
+                glBufferData(GL_ARRAY_BUFFER, quad.size * 4, floats(quad), GL_STREAM_DRAW)
+                glVertexAttribPointer(0, 3, GL_FLOAT, false, 12, 0)
+                glDrawArrays(GL_TRIANGLES, 0, 6)
+            }
+        }
+        glDisableVertexAttribArray(0)
+        glEnable(GL_DEPTH_TEST)
+    }
+
+    /**
+     * Corner brackets of the selection's bounding box [b], as on the desktop (Selection::render_bounding_box): at each corner
+     * three strokes a quarter of the shortest side long, moved with the drag.
+     */
+    private fun drawSelectionBox(b: FloatArray) {
         // A little off the surface, so the strokes don't sink into faces flush with the box.
         val pad = 0.5f
         for (k in 0..2) { b[k] -= pad; b[k + 3] += pad }
@@ -664,6 +752,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             glUniform1i(loc(pathProgram, "uHidden"), style.hiddenRoles)
             glUniform2f(loc(pathProgram, "uRange"), style.range.first, style.range.second)
             glUniform1i(loc(pathProgram, "uFirst"), first)
+            camera.eye().let { glUniform3f(loc(pathProgram, "uEye"), it.x, it.y, it.z) }
             glUniform3fv(loc(pathProgram, "uRoleColors"), 20, Shaders.ROLE_COLORS, 0)
             setFilamentColors(pathProgram)
             setSection(pathProgram)
@@ -686,7 +775,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
                 glVertexAttribDivisor(a, 1)
             }
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, boxIbo)
-            glDrawElementsInstanced(GL_TRIANGLES, 36, GL_UNSIGNED_SHORT, 0, last - first)
+            glDrawElementsInstanced(GL_TRIANGLES, boxIndexCount, GL_UNSIGNED_SHORT, 0, last - first)
             for ((a, _) in attribs) { glVertexAttribDivisor(a, 0); glDisableVertexAttribArray(a) }
             glDisableVertexAttribArray(0)
             glDisableVertexAttribArray(1)

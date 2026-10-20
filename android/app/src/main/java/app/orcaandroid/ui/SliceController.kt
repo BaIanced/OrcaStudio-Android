@@ -18,7 +18,7 @@ class SliceController(private val store: Store, private val presets: PresetContr
         }
         presets.syncSelection()
         val preparing = store.str(R.string.preparing)
-        store.update { it.copy(slice = SliceStatus.Running(plate, 0, preparing)) }
+        store.update { it.copy(slice = SliceStatus.Running(plate, 0, preparing), sliceError = null) }
         progress.value = SliceProgress(0, preparing)
         runCatching { SliceService.start(store.app) }
         try {
@@ -30,6 +30,12 @@ class SliceController(private val store: Store, private val presets: PresetContr
                 it.copy(results = it.results + (plate to result), previewPlate = plate, external = null, screen = Screen.PREVIEW,
                     preview = it.preview.showingAll(result.layers.lastIndex), upload = null)
             }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // On the 3D view (Notices), not in a dialog: a dialog window could open out of sight (Quest panel, user 2026-10-19).
+            android.util.Log.w("OrcaSlice", "slice failed", e)
+            store.update { it.copy(sliceError = plate to (e.message ?: e.toString())) }
         } finally {
             progress.value = null
             store.update { it.copy(slice = SliceStatus.Idle) }
@@ -41,7 +47,7 @@ class SliceController(private val store: Store, private val presets: PresetContr
         for (p in store.value.scene.plates.indices) {
             if (store.value.scene.objectsOn(p).isEmpty()) continue
             slice(p).join()
-            if (store.value.error != null) break
+            if (store.value.error != null || store.value.sliceError != null) break
         }
     }
 

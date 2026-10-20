@@ -32,7 +32,8 @@ data class Selection(val obj: Int, val instance: Int = 0, val volume: Int = -1)
 /** A modal interaction with the 3D view. */
 sealed interface Tool {
     data object None : Tool
-    data class Paint(val kind: String, val state: Int, val radius: Float) : Tool
+    // edgeAngle > 0: edge detection (degrees, the desktop's smart fill angle): a stroke stays on the surface it started on.
+    data class Paint(val kind: String, val state: Int, val radius: Float, val edgeAngle: Float = 0f) : Tool
     data object LayOnFace : Tool
     data object Measure : Tool
     data class Cut(val z: Float) : Tool
@@ -188,6 +189,8 @@ data class UiState(
     // Slicing and preview
     val slice: SliceStatus = SliceStatus.Idle,
     val results: Map<Int, SliceResult> = emptyMap(),
+    /** Why the last slice failed (plate, message), shown on the 3D view (Notices); cleared by the next slice. */
+    val sliceError: Pair<Int, String>? = null,
     val previewPlate: Int = 0,
     /** An opened external G-code file (preview only). */
     val external: SliceResult? = null,
