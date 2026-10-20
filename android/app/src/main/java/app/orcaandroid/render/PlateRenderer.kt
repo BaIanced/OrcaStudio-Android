@@ -22,6 +22,12 @@ private const val SHADOW_STRENGTH = 0.8f
 private const val SUPERSAMPLE = 2
 private const val STILL_NS = 200_000_000L
 private const val SUPER_REFRESH_NS = 1_000_000_000L
+/**
+ * Temporal supersampling: jittered frames per still view, and the path shader's regime scale meanwhile. Below 1 the
+ * lying cylinder's layer lines (1-2 px apart) came back as arcs (WSA 2026-10-20: 0.7 faint, 0.5 clear, 0.35 strong).
+ */
+private const val ACCUM_FRAMES = 32
+private const val ACCUM_REGIME = 1f
 
 /** Colours of the 3D view, following the app theme (RGB 0..1). */
 data class ViewColors(
@@ -126,6 +132,20 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     /** What the supersampled frame in the target shows ([superKey]) and when it was drawn: an unchanged view only re-averages it. */
     private var superShown: List<Any?>? = null
     private var superAt = 0L
+    /** Temporal supersampling when still (the 2x target is its fallback): what the sum shows, its frames, the next jitter. */
+    private val accumulator = Accumulator()
+    private var accumShown: List<Any?>? = null
+    private var accumFrames = 0
+    private var jitterIndex = 0
+    /**
+     * The path shader's view-pixel regimes go by uPxScale * this: while accumulating the samples' tent filter holds finer
+     * patterns, so the layer profile and wave stay down to a smaller size (MCP view_set "regime" while tuning).
+     */
+    @Volatile var accumRegime = ACCUM_REGIME
+    private var regimeScale = 1f
+    /** False while the still frame is still being refined (the MCP screenshot waits for it). */
+    @Volatile var settled = true
+        private set
 
     private val effects = SceneEffects()
     private val selection = SelectionOverlay()
@@ -269,7 +289,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         effects.create { vs, fs -> program(vs, fs) }
         selection.create { vs, fs -> program(vs, fs) }
         supersampler.create { vs, fs -> program(vs, fs) }
-        superShown = null
+        accumulator.create { vs, fs -> program(vs, fs) }
+        superShown = null; accumShown = null
         // A new EGL context lost all buffers; everything is uploaded again by the host.
         bedDirty = true
         meshCount = 0; paintCount = 0; extrCount = 0; travelCount = 0; markerCount = 0
@@ -303,12 +324,17 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         if (!mvp.contentEquals(lastMvp)) { mvp.copyInto(lastMvp); movedAt = now }
         // Preview only: its layer lines are what beats against the pixel grid. "Still" waits a moment, so a finger
         // resting mid-drag doesn't flip the look back and forth.
+        val still = showPreview && supersample != Supersample.OFF && now - movedAt > STILL_NS
         val wantSuper = showPreview && when (supersample) {
             Supersample.ALWAYS -> true
-            Supersample.STILL -> now - movedAt > STILL_NS
+            Supersample.STILL -> still
             else -> false
         }
-        if (!showPreview) { supersampler.release(); superShown = null }
+        if (!showPreview) { supersampler.release(); accumulator.release(); superShown = null; accumShown = null }
+        if (!still) accumShown = null
+        if (still && accumulate(now)) { settled = accumFrames >= ACCUM_FRAMES; return }
+        // Only the wait before a still view starts refining is unsettled (the 2x fallback is done in one frame).
+        settled = !(showPreview && supersample != Supersample.OFF && !still)
         // The view redraws continuously: while nothing changes, the frame already in the target is averaged again
         // instead of drawing 4 times the pixels. A fresh one now and then covers any state the key misses.
         val key = if (wantSuper) superKey() else null
@@ -318,6 +344,37 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         drawScene()
         if (supered) { supersampler.end(viewW, viewH); superShown = key; superAt = now } else superShown = null
         pxScale = 1f
+    }
+
+    /**
+     * One step of temporal supersampling on a still Preview: a frame with the projection shifted by a sub-pixel jitter
+     * mixed into the sum, until [ACCUM_FRAMES] are in; then the sum is shown as it is, with one more frame now and then
+     * (weight 1/[ACCUM_FRAMES], so no restart flashes) for any state [superKey] misses. Any change of the key restarts.
+     * False when the GPU can't (the 2x path then draws).
+     */
+    private fun accumulate(now: Long): Boolean {
+        val key = superKey() + accumRegime
+        if (key != accumShown) { accumFrames = 0; jitterIndex = 0 }
+        if (accumFrames >= ACCUM_FRAMES && now - superAt < SUPER_REFRESH_NS) { accumulator.show(viewW, viewH); return true }
+        if (!accumulator.begin(viewW, viewH)) return false
+        // "Always" draws 2x again as soon as the camera moves: keep its target then.
+        if (supersample != Supersample.ALWAYS) supersampler.release()
+        superShown = null
+        val (jx, jy) = Accumulator.jitter(jitterIndex % ACCUM_FRAMES)
+        jitterIndex++
+        // Clip x += dx * w moves the image by jx px (NDC spans 2 over the view); column-major, row 0/1 += d * row 3.
+        val frame = mvp.copyOf()
+        val dx = 2f * jx / viewW
+        val dy = 2f * jy / viewH
+        for (c in 0 until 4) { mvp[4 * c] += dx * mvp[4 * c + 3]; mvp[4 * c + 1] += dy * mvp[4 * c + 3] }
+        regimeScale = accumRegime
+        drawScene()
+        regimeScale = 1f
+        frame.copyInto(mvp)
+        accumFrames = minOf(accumFrames + 1, ACCUM_FRAMES)
+        accumulator.end(viewW, viewH, 1f / accumFrames)
+        accumShown = key; superAt = now
+        return true
     }
 
     /** Everything the Preview frame depends on (data classes compare by value, arrays by identity unless listed). */
@@ -798,7 +855,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             glUniform1i(loc(pathProgram, "uHidden"), style.hiddenRoles)
             glUniform2f(loc(pathProgram, "uRange"), style.range.first, style.range.second)
             glUniform1i(loc(pathProgram, "uFirst"), first)
-            glUniform1f(loc(pathProgram, "uPxScale"), pxScale)
+            glUniform1f(loc(pathProgram, "uPxScale"), pxScale * regimeScale)
             camera.eye().let { glUniform3f(loc(pathProgram, "uEye"), it.x, it.y, it.z) }
             glUniform3fv(loc(pathProgram, "uRoleColors"), 20, Shaders.ROLE_COLORS, 0)
             setFilamentColors(pathProgram)

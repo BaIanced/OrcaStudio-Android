@@ -570,6 +570,15 @@ internal object Shaders {
             gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
         }"""
 
+    /** One texel per pixel of a target the view's size (Accumulator). */
+    const val COPY_FS = """#version 300 es
+        precision highp float;
+        uniform sampler2D uFrame;
+        out vec4 color;
+        void main() {
+            color = vec4(texelFetch(uFrame, ivec2(gl_FragCoord.xy), 0).rgb, 1.0);
+        }"""
+
     /**
      * Supersampling: each view pixel is a tent-weighted mean of the big frame's samples within a view pixel of its centre
      * (Supersampler). A plain mean of its own block let layer lines about 1.5 px apart through as moire arcs.
