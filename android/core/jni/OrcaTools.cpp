@@ -10,6 +10,7 @@
 #include <cstdio>
 #include <fstream>
 #include <memory>
+#include <set>
 #include <stdexcept>
 #include <utility>
 
@@ -287,6 +288,73 @@ std::vector<bool> flood_surface(const indexed_triangle_set &its, const std::vect
     return faces;
 }
 
+// The desktop's gap fill (TriangleSelectorPatch::update_triangles_per_patch / update_selector_triangles): a patch is a
+// connected run of leaf triangles in one state; a patch under [max_area] mm2 takes the state of its first neighbouring patch.
+class GapFiller : public TriangleSelector
+{
+public:
+    using TriangleSelector::TriangleSelector;
+
+    bool fill(float max_area)
+    {
+        auto [neighbors, neighbors_propagated] = precompute_all_neighbors();
+        std::vector<bool> visited(m_triangles.size(), false);
+        struct Patch
+        {
+            std::vector<int> facets;
+            std::set<EnforcerBlockerType> neighbor_types;
+            double area = 0.;
+        };
+        std::vector<Patch> patches;
+        for (size_t start = 0; start < m_triangles.size(); ++start) {
+            if (visited[start] || !m_triangles[start].valid() || m_triangles[start].is_split())
+                continue;
+            const EnforcerBlockerType state = m_triangles[start].get_state();
+            Patch patch;
+            std::vector<int> queue{int(start)};
+            visited[start] = true;
+            while (!queue.empty()) {
+                const int f = queue.back();
+                queue.pop_back();
+                const Triangle &t = m_triangles[f];
+                patch.facets.push_back(f);
+                const stl_vertex &v0 = m_vertices[t.verts_idxs[0]].v;
+                patch.area += double((v0 - m_vertices[t.verts_idxs[1]].v).cross(v0 - m_vertices[t.verts_idxs[2]].v).norm()) / 2.;
+                std::vector<int> touching;
+                const Vec3i32 &nb = neighbors[f];
+                append_touching_subtriangles(nb(0), t.verts_idxs[1], t.verts_idxs[0], touching);
+                append_touching_subtriangles(nb(1), t.verts_idxs[2], t.verts_idxs[1], touching);
+                append_touching_subtriangles(nb(2), t.verts_idxs[0], t.verts_idxs[2], touching);
+                for (int k = 0; k < 3; ++k) {
+                    const int n = neighbors_propagated[f](k);
+                    if (n != -1 && !m_triangles[n].is_split())
+                        touching.push_back(n);
+                }
+                for (int g : touching) {
+                    if (g < 0)
+                        continue;
+                    if (m_triangles[g].get_state() != state)
+                        patch.neighbor_types.insert(m_triangles[g].get_state());
+                    else if (!visited[g]) {
+                        visited[g] = true;
+                        queue.push_back(g);
+                    }
+                }
+            }
+            patches.push_back(std::move(patch));
+        }
+        bool changed = false;
+        for (const Patch &patch : patches) {
+            if (patch.area >= max_area || patch.neighbor_types.empty())
+                continue;
+            for (int f : patch.facets)
+                m_triangles[f].set_state(*patch.neighbor_types.begin());
+            changed = true;
+        }
+        return changed;
+    }
+};
+
 } // namespace
 
 json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<double, 3> &camera, double radius, const std::string &kind,
@@ -491,6 +559,32 @@ json OrcaEngine::paint_clear(int object, const std::string &kind)
         } else {
             facets_of(*vol, kind).reset();
         }
+    }
+    if (tower_changed)
+        write_mesh();
+    write_paint_mesh();
+    return scene_json();
+}
+
+json OrcaEngine::paint_gap_fill(int object, const std::string &kind, double area)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    ModelObject &obj = object_at(object);
+    bool pushed = false, tower_changed = false;
+    for (ModelVolume *vol : obj.volumes) {
+        FacetsAnnotation &facets = facets_of(*vol, kind);
+        if (facets.empty())
+            continue;
+        GapFiller filler(vol->mesh());
+        filler.deserialize(facets.get_data(), false);
+        if (!filler.fill(float(area)))
+            continue;
+        if (!pushed)
+            push_undo();
+        pushed = true;
+        facets.set(filler);
+        if (kind == "color" && facets.empty())
+            tower_changed = true;
     }
     if (tower_changed)
         write_mesh();

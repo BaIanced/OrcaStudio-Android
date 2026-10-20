@@ -88,7 +88,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
 
     /** Ctrl+wheel while painting: scales the brush within the panel slider's range. */
     fun scaleBrush(factor: Float) {
-        val tool = store.value.tool as? Tool.Paint ?: return
+        val tool = (store.value.tool as? Tool.Paint)?.takeIf { it.shape != "gap" } ?: return
         store.update { it.copy(tool = tool.copy(radius = (tool.radius * factor).coerceIn(0.5f, 15f))) }
     }
 
@@ -376,7 +376,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
      * (user r314).
      */
     fun paintAt(origin: Vec3, dir: Vec3, camera: Vec3, newStroke: Boolean, section: FloatArray? = null) {
-        val tool = store.value.tool as? Tool.Paint ?: return
+        val tool = (store.value.tool as? Tool.Paint)?.takeIf { it.shape != "gap" } ?: return
         synchronized(pendingPaint) { pendingPaint.addLast(PaintSample(origin, dir, camera, newStroke, section)) }
         if (paintLock.isLocked) return
         store.launch {
@@ -408,6 +408,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
     }
 
     fun paintClear(kind: String) = selection?.let { sel -> store.sceneOp { engine.paintClear(sel.obj, kind) } }
+    fun paintGapFill(kind: String, area: Float) = selection?.let { sel -> store.sceneOp { engine.paintGapFill(sel.obj, kind, area) } }
 
     // --- Variable layer height ------------------------------------------------------------------------
 

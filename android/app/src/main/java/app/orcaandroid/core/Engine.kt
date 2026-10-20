@@ -169,6 +169,7 @@ class Engine(private val cacheDir: File) {
         "camera" to camera, "radius" to radius, "kind" to kind, "state" to state, "newStroke" to newStroke, "section" to section, "edgeAngle" to edgeAngle,
         "shape" to shape, "height" to height)))
     suspend fun paintClear(obj: Int, kind: String) = parseScene(call("paintClear", args("object" to obj, "kind" to kind)))
+    suspend fun paintGapFill(obj: Int, kind: String, area: Float) = parseScene(call("paintGapFill", args("object" to obj, "kind" to kind, "area" to area)))
 
     private fun parseProfile(o: JSONObject) = parseScene(o) to LayerProfile(
         o.getJSONArray("profile").floats(), o.getDouble("min").toFloat(), o.getDouble("max").toFloat(), o.getDouble("height").toFloat())

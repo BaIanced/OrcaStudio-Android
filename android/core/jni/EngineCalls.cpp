@@ -135,6 +135,7 @@ const std::unordered_map<std::string, Handler> &handlers()
                             a.value("edgeAngle", 0.0), a.value("shape", std::string("sphere")), a.value("height", 2.0));
          }},
         {"paintClear", [](OrcaEngine &e, const json &a) { return e.paint_clear(a.at("object"), a.value("kind", "")); }},
+        {"paintGapFill", [](OrcaEngine &e, const json &a) { return e.paint_gap_fill(a.at("object"), a.at("kind"), a.at("area")); }},
         {"layerProfile", [](OrcaEngine &e, const json &a) { return e.layer_profile(a.at("object")); }},
         {"layerAdaptive", [](OrcaEngine &e, const json &a) { return e.layer_adaptive(a.at("object"), a.value("quality", 0.5)); }},
         {"layerSmooth", [](OrcaEngine &e, const json &a) { return e.layer_smooth(a.at("object"), a.value("radius", 5), a.value("keepMin", false)); }},

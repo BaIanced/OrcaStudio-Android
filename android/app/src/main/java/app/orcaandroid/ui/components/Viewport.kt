@@ -351,7 +351,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         v.mode = when {
             showPreview -> InteractionMode.VIEW
             else -> when (state.tool) {
-            is Tool.Paint -> InteractionMode.PAINT
+            is Tool.Paint -> if (state.tool.shape == "gap") InteractionMode.VIEW else InteractionMode.PAINT
             Tool.LayOnFace -> InteractionMode.LAY_ON_FACE
             Tool.Measure -> InteractionMode.MEASURE
             else -> InteractionMode.NAVIGATE

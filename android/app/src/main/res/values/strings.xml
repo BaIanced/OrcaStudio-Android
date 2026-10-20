@@ -38,6 +38,9 @@
     <string name="paint_shape_triangle">Triangle</string>
     <string name="paint_shape_fill">Fill</string>
     <string name="paint_shape_height">Height range</string>
+    <string name="paint_shape_gap">Gap fill</string>
+    <string name="paint_gap_area">Gap area %.1f mm²</string>
+    <string name="paint_gap_apply">Fill gaps</string>
     <string name="paint_height_range">Height %.1f mm</string>
     <string name="calib_cornering">Cornering (jerk / junction deviation)</string>
     <string name="calib_flow">Flow rate</string>
