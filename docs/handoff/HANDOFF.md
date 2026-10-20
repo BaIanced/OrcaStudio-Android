@@ -20,7 +20,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = b98e6ad (PR #33, r335, merged 2026-10-20). Untested in main: pen 7d3a263, fan hold 298ee9f, Extrude F150 e13bebb,
   Quest stick zoom (r324); paint card fix r336 verified, unmerged; still broken: layer lines at framing zoom (below).
-- Installed: r336 (run 39379527770, paint card fix) on all devices 2026-10-20 (phone, Chromebook, SHIELD, Quest, WSA).
+- Installed: r338 (run 39385485023, temporal accumulation + MSAA) on all devices 2026-10-20 (phone, Chromebook, SHIELD, Quest, WSA).
 - **Active device = `/target`** (p/w/c|t, default WSA): `sh ~/orca-android-tools/target.sh serial`; shot.sh/mcpao.sh follow it.
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
   WSA `127.0.0.1:58526`; **USB serial = the user's SHIELD TV** (rooted; installs only).
@@ -35,7 +35,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   second; 2x `Supersampler` is the fallback; "Always" = 2x while moving) + **4x MSAA** (`MsaaConfigChooser.kt`, falls
   back to none). WSA (Claude): cylinder arcs nearly gone, still frame 0.2 ms. Lowering the regimes (MCP `view_set
   {"regime":x}`, default 1) brought arcs back, so kept at 1. MCP screenshot waits for `renderer.settled`.
-  **CI r338 (run 39385485023) building: install on all devices, then ask the user** (framing zoom layer lines, band,
+  **r338 installed everywhere; waiting on the user** (framing zoom layer lines, band,
   table-top moire, moving smoothness/fps with MSAA on the phone).
 - WSA shader loop: `wsa-cycle.sh` / `wsa-preview2.sh`, black shots = display asleep (reference "Build and tools").
 - Need the printer (backlog): fan slider jumps (r295 hold), Retract/Extrude F150 (e13bebb), extrude/jog, speed chips.
