@@ -33,9 +33,9 @@ data class Selection(val obj: Int, val instance: Int = 0, val volume: Int = -1)
 sealed interface Tool {
     data object None : Tool
     // edgeAngle > 0: edge detection (degrees, the desktop's smart fill angle): a stroke stays on the surface it started on.
-    /** [shape]: "sphere" / "circle" brush, "triangle", "fill" (bucket fill, bounded by [edgeAngle]), "height" (band of [height] mm). */
+    /** [shape]: "sphere" / "circle" brush, "triangle", "fill" (bucket fill, bounded by [edgeAngle]), "height" (band of [height] mm). [overhang] > 0: support brushes paint only faces overhanging by more than that many degrees. */
     data class Paint(val kind: String, val state: Int, val radius: Float, val edgeAngle: Float = 0f, val shape: String = "sphere",
-                     val height: Float = 0.2f) : Tool
+                     val height: Float = 0.2f, val overhang: Float = 0f) : Tool
     data object LayOnFace : Tool
     data object Measure : Tool
     data class Cut(val z: Float) : Tool

@@ -176,9 +176,10 @@ public:
     // [shape], as the desktop's painting tools: "sphere" / "circle" brush; "triangle" paints the hit triangle; "fill"
     // paints the hit's same-state region (bucket fill, bounded by [edge_angle] when > 0) at a line's first hit;
     // "height" paints every part of the object in [hit z, hit z + height] (height range).
+    // [overhang] > 0 (degrees): a brush paints only faces that overhang by more than that (support painting's "on overhangs only").
     json paint(const std::vector<PaintHit> &hits, const std::array<double, 3> &camera, double radius, const std::string &kind,
                int state, bool new_stroke, const std::vector<double> &section = {}, double edge_angle = 0.,
-               const std::string &shape = "sphere", double height = 2.);
+               const std::string &shape = "sphere", double height = 2., double overhang = 0.);
     // Clears one kind of painting (or all for an empty kind) of an object.
     json paint_clear(int object, const std::string &kind);
     json paint_gap_fill(int object, const std::string &kind, double area);

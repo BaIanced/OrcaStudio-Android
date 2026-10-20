@@ -163,11 +163,11 @@ class Engine(private val cacheDir: File) {
     /** Paints [hits] (one stroke's brush positions, in order) in one engine pass. */
     /** [joins]: per hit, whether it continues the line from the stroke's previous hit (painted as a capsule, no gaps). */
     suspend fun paint(hits: List<PickHit>, camera: Vec3, radius: Float, kind: String, state: Int, newStroke: Boolean, section: FloatArray? = null,
-                      joins: List<Boolean> = emptyList(), edgeAngle: Float = 0f, shape: String = "sphere", height: Float = 0.2f) = parseScene(call("paint", args(
+                      joins: List<Boolean> = emptyList(), edgeAngle: Float = 0f, shape: String = "sphere", height: Float = 0.2f, overhang: Float = 0f) = parseScene(call("paint", args(
         "hits" to hits.mapIndexed { i, it -> mapOf("object" to it.obj, "instance" to it.instance, "volume" to it.volume, "facet" to it.facet, "local" to it.local,
             "join" to joins.getOrElse(i) { false }) },
         "camera" to camera, "radius" to radius, "kind" to kind, "state" to state, "newStroke" to newStroke, "section" to section, "edgeAngle" to edgeAngle,
-        "shape" to shape, "height" to height)))
+        "shape" to shape, "height" to height, "overhang" to overhang)))
     suspend fun paintClear(obj: Int, kind: String) = parseScene(call("paintClear", args("object" to obj, "kind" to kind)))
     suspend fun paintGapFill(obj: Int, kind: String, area: Float) = parseScene(call("paintGapFill", args("object" to obj, "kind" to kind, "area" to area)))
 

@@ -400,7 +400,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
                     if (hits.isEmpty()) continue
                     val last = batch.last()
                     store.applyScene(engine.paint(hits, last.camera, tool.radius, tool.kind, tool.state, strokePending, last.section, joins, tool.edgeAngle,
-                        tool.shape, tool.height))
+                        tool.shape, tool.height, tool.overhang))
                     strokePending = false
                 }
             }

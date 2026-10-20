@@ -31,8 +31,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 ## Next task
 - **Extended paint tools** batch 1 (1858dc3, r343) colour tests passed on WSA 2026-10-20 (Claude). **Batch 2 gap fill** (Colour + Support,
   `GapFiller` in OrcaTools.cpp, `paintGapFill`; chip "Gap fill", area slider, "Fill gaps"): pushed, local debug build on all devices (no CI build yet), WSA
-  test passed (0.5 mm dots vanish at 1.0 mm2; 3 mm spots stay); not pushed to CI. Untested: support-kind gap fill, user feel, shapes in
-  Support painting, Height slider. Left (backlog): stroke lock, supports "on overhangs only", filament remap, survey; then the edge-outline item.
+  test passed (0.5 mm dots vanish at 1.0 mm2; 3 mm spots stay); not pushed to CI. **"On overhangs only"** (Support brush, angle slider, `select_patch` highlight_by_angle) WSA-tested: off paints, on paints nothing on a side wall. No overhang highlight view yet. Untested: support-kind gap fill, user feel, shapes in
+  Support painting, Height slider. Left (backlog): stroke lock, filament remap, survey; then the edge-outline item.
 - Preview layer-line work done and merged (PR #34). Preview repro tools: `abshot.sh` / `abtop.sh` (WSA pinned 1366x768/density 200).
   Idea offered: Preview camera-light slider (no GO yet). C: tight; old build dirs move to `D:\orca-builds-archive`.
 - WSA shader loop: `wsa-cycle.sh` / `wsa-preview2.sh`, black shots = display asleep (reference "Build and tools").

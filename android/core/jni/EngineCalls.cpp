@@ -132,7 +132,7 @@ const std::unordered_map<std::string, Handler> &handlers()
              return e.paint(hits, vec3(a.at("camera")), a.value("radius", 2.0), a.value("kind", "fuzzy"), a.value("state", 1),
                             a.value("newStroke", false),
                             a.contains("section") && a["section"].is_array() ? a["section"].get<std::vector<double>>() : std::vector<double>{},
-                            a.value("edgeAngle", 0.0), a.value("shape", std::string("sphere")), a.value("height", 2.0));
+                            a.value("edgeAngle", 0.0), a.value("shape", std::string("sphere")), a.value("height", 2.0), a.value("overhang", 0.0));
          }},
         {"paintClear", [](OrcaEngine &e, const json &a) { return e.paint_clear(a.at("object"), a.value("kind", "")); }},
         {"paintGapFill", [](OrcaEngine &e, const json &a) { return e.paint_gap_fill(a.at("object"), a.at("kind"), a.at("area")); }},

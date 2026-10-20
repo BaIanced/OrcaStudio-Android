@@ -359,7 +359,7 @@ public:
 
 json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<double, 3> &camera, double radius, const std::string &kind,
                        int state, bool new_stroke, const std::vector<double> &section, double edge_angle,
-                       const std::string &shape, double height)
+                       const std::string &shape, double height, double overhang)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
     for (const PaintHit &h : hits) {
@@ -524,7 +524,7 @@ json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<doubl
                                                                              cursor_type, trafo, clip);
             else
                 cursor = TriangleSelector::SinglePointCursor::cursor_factory(center, camera_local, float(radius), cursor_type, trafo, clip);
-            selector.select_patch(prev ? prev->facet : h.facet, std::move(cursor), new_state, trafo_no_translate, true);
+            selector.select_patch(prev ? prev->facet : h.facet, std::move(cursor), new_state, trafo_no_translate, true, float(overhang));
             m_paint_prev = h;
         }
         save_live(facets, was_empty);

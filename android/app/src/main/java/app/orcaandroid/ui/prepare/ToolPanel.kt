@@ -204,6 +204,18 @@ private fun PaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Paint) {
                 modifier = Modifier.weight(1f).padding(start = 8.dp))
         }
     }
+    // Support painting's "on overhangs only" (brush): only faces overhanging by more than the angle are painted; the angle stays remembered while off.
+    var overhang by rememberSaveable { mutableFloatStateOf(40f) }
+    if (brush && tool.kind == "support") Row(verticalAlignment = Alignment.CenterVertically) {
+        FilterChip(tool.overhang > 0f, { vm.scene.setTool(tool.copy(overhang = if (tool.overhang > 0f) 0f else overhang)) },
+            label = { Text(stringResource(R.string.paint_overhangs_only)) })
+        if (tool.overhang > 0f) {
+            Text(stringResource(R.string.paint_overhang_angle, tool.overhang.roundToInt()), style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(start = 8.dp))
+            Slider(tool.overhang, { overhang = it; vm.scene.setTool(tool.copy(overhang = it)) }, valueRange = 1f..90f,
+                modifier = Modifier.weight(1f).padding(start = 8.dp))
+        }
+    }
     TextButton(onClick = { vm.scene.paintClear(tool.kind) }) { Text(stringResource(R.string.clear_painting)) }
 }
 
