@@ -503,7 +503,13 @@ internal object Shaders {
         }
         void main() {
             if (uSectionOn == 1 && dot(uSection.xyz, vWorld) > uSection.w) discard;
-            vec3 n = normalize(vRight * vFace.x + vUp * vFace.y + vDir * vFace.z);
+            // A top or bottom face seen from inside the bead is never the one to show: from below, the bead's own top
+            // won over its bottom wherever the overlap's depth push outgrew a layer (zoomed out: dark stepped patches,
+            // user r339). Sides stay two-sided (they fill the cracks between layers).
+            if (vTopFace > 0.5 && !gl_FrontFacing) discard;
+            // Undersides are lit like tops (user 2026-10-20, as desktop Orca's camera light and Blender's viewport do):
+            // the lights here sit above, which left a bottom skin flat dark with no lines.
+            vec3 n = normalize(vRight * vFace.x + vUp * abs(vFace.y) + vDir * vFace.z);
             float light = shade(n);
             // Beads are rounded like real extrusions: skin lines across their width (edges a little darker), walls up
             // each layer with a groove where two layers meet. Close up (8+ px a bead) that profile is drawn, averaged
@@ -556,7 +562,7 @@ internal object Shaders {
                 // wall where its layers got small (user r335). A top that is drawn at all is seen.
                 if (!top) far *= 1.0 - smoothstep(0.15, 0.3, wSide / max(wTop + wSide, 1e-4));
                 // The other face at its own level (its wave's mean), as its pixels show it.
-                float lTop = top ? light : beadMean(facing < 0.0 ? -vUp : vUp, vRight, 0.9, 0.3);
+                float lTop = top ? light : beadMean(vUp, vRight, 0.9, 0.3);
                 float lSide = top ? beadMean(side, vec3(0.0, 0.0, 1.0), 0.8, 0.0) * 0.945 : light;
                 float mean = (wTop * lTop + wSide * lSide) / max(wTop + wSide, 1e-4);
                 light = mix(light, mean, far);

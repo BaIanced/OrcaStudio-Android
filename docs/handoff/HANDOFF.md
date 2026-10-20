@@ -30,12 +30,16 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   Test zip `scadzip-test.zip` stays in `/sdcard/Download` on phone + Chromebook. LAN access code was given in chat: never write it anywhere.
 ## Next task
 - Fix next:
-  (1) preview layer lines (backlog "Moire"): **verified by the user on r338** ("Moire gone, layer lines visible"; 6c1002e
-  band fix, 696c5a6 temporal accumulation `Accumulator.kt` + 4x MSAA `MsaaConfigChooser.kt`; details in the archive).
-  Follow-up cc0af56: bottom skins seen from below kept only the side's flat mean (`wTop` used `max(v.z,0)`), now
-  `abs(dot(vUp, v))`; Claude WSA-verified (table underside even). **r339 installed everywhere 2026-10-20; ask
-  the user about the table underside.** Then offer `/next-merge` (6c1002e..cc0af56 + paint card r336).
-  Tuning knob if needed: MCP `view_set {"regime":x}` (default 1; lower brought arcs back on WSA).
+  (1) preview layer lines: Moire fix user-verified r338, underside cc0af56 user-verified r339 (archive). Now fixing 2 user defects (r339 shot, plate 1 layer 232):
+  table top skin edges (arrows) + light shards on the lying cylinder end cap near the bed. Then offer `/next-merge`.
+  **2026-10-20 findings (uncommitted, debug on WSA only):** repro = plate 1 layer 232, user camera (distance 200.474), via
+  `~/orca-android-tools/abshot.sh <name> [build]` (WSA pinned `wm size 1366x768`/`density 200`; baseline `shots/base2.png`).
+  Try 2 (box ring -3 = bottom face, rank `5+label*0.25`): no change. Real cause: the overlap's NDC push (PATH_VS `7.2e-5`)
+  is ~distance/550 mm (near = distance/50), more than a layer at 200 mm, so from below the bead's own *top* face shows
+  through (the lit underside with lines the user liked IS that inner top face; dark patches = where the bottom face won).
+  Try 3 (no push for ring -3): patches gone, but the true bottom face is flat dark (shade() lights from above only) and the
+  cylinder wall got fine stripes (bottom-face slivers in front of the pushed overlap sides). **User 2026-10-20: undersides "lit
+  like a top"** (like desktop Orca / Blender viewport, camera-lit); implementing + fixing the cylinder stripes. C: had filled up -> WSA storage hung; old build dirs now move to `D:\orca-builds-archive`.
 - WSA shader loop: `wsa-cycle.sh` / `wsa-preview2.sh`, black shots = display asleep (reference "Build and tools").
 - Need the printer (backlog): fan slider jumps (r295 hold), Retract/Extrude F150 (e13bebb), extrude/jog, speed chips.
 - User-only checks pending (backlog): bead look, part shadows, light sliders, r276 tool row, r283/r284 top bar, r280 pinch lock,
