@@ -29,9 +29,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   Test zip `scadzip-test.zip` stays in `/sdcard/Download` on phone + Chromebook. LAN access code was given in chat: never write it anywhere.
 ## Next task
 - **Preview look (user r329 2026-10-19, grep backlog "phone r325) Moire"):** r330 (run 39365242353) brings layer/skin lines back at the
-  framing zoom (filtered profile + cosine wave); user check pending. Next: **support z-fight** (user r329: red support, plate 2
-  layer 221, triangular notch where a diagonal support line meets another, shows while panning; repro on WSA debug app first).
-  r328 tower z-fight / r329 top jiggle: user hasn't judged. Open after: paint edge-detection toggle (native, with extended paint
+  framing zoom (filtered profile + cosine wave); user check pending. **Support z-fight** (backlog "Support z-fight"): fix c116b71
+  = native greedy depth labels (Preview.cpp `label_layer`, role + 32 * (label + 1)); CI run 39367658519 (r331) building.
+  Next: install on all devices, WSA debug app: re-slice plate 2 (`wsa-preview2.sh`), check slice time + a cropped close shot of
+  supports while orbiting (`mdrag.ps1`; MCP view_set leaves Preview), then ask the user. r328 tower z-fight / r329 top jiggle: user hasn't judged. Open after: paint edge-detection toggle (native, with extended paint
   tools), resize overhaul (Opus). Waiting on the user (Quest): stick zoom speed, error card for the supportless cone.
 - WSA debug app (`...debug`) holds the phone's session with plate 2's tower moved on the bed; `~/orca-android-tools/wsa-cycle.sh <prefix>`
   = build + install + slice + Preview + 3 sphere shots (`wsa-preview2.sh` alone skips the build).
