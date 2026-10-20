@@ -2417,3 +2417,6 @@ User: "you just tested something we already confirmed worked". Cross-checked eac
   with on the design editor window."
 - Same check, preview: support z-fight notch (c116b71, r331) "Works"; top-surface jiggle (r329) gone, "Works"; tower wall z-fight /
   joint leak (05d553c, r328) "Works": all VERIFIED. Layer lines at the framing zoom (2d8d6aa, r330): "Still broken" (detail pending).
+
+### 2026-10-20 Merge PR #33 (r335)
+- Work branch r317-r335 merged to main as b98e6ad (PR #33, merge commit), on the user's "merge". Open in main: paint card unfold, layer lines at framing zoom; untested: Quest stick zoom.

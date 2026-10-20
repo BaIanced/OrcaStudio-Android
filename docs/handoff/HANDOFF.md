@@ -18,8 +18,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 ## State
 - One repo: OrcaStudio-Android (code + these docs, `docs/handoff/`), branch `claude/handoff-continuation-rseql3`. Autonomy (user, 2026-10-11): decide branches and next steps
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
-- Android main = c47c8a6 (PR #32, r316, merged 2026-10-19); work branch r317-r335 user-checked 2026-10-20 (archive): 10 verified,
-  2 still broken (below), Quest stick zoom untested but OK to merge. Untested in main: pen 7d3a263, fan hold 298ee9f, Extrude F150 e13bebb.
+- Android main = b98e6ad (PR #33, r335, merged 2026-10-20). Untested in main: pen 7d3a263, fan hold 298ee9f, Extrude F150 e13bebb,
+  Quest stick zoom (r324); still broken in main: paint card unfold, layer lines at framing zoom (below).
 - Installed: r335 (run 39376118065) on all devices 2026-10-19 (phone, Chromebook, SHIELD, Quest, WSA).
 - **Active device = `/target`** (p/w/c|t, default WSA): `sh ~/orca-android-tools/target.sh serial`; shot.sh/mcpao.sh follow it.
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
@@ -29,7 +29,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - User sessions backed up: phone `/data/local/tmp/phone-session-backup.{3mf,json}` (8 plates), WSA `/data/local/tmp/session-backup.{3mf,json}`.
   Test zip `scadzip-test.zip` stays in `/sdcard/Download` on phone + Chromebook. LAN access code was given in chat: never write it anywhere.
 ## Next task
-- **Merge offered** (r317-r335): merge on "merge" / `/next-merge`. Then fix:
+- Fix next:
   (1) paint card (backlog "Paint window: collapse"): folds toward its bottom edge + rubberband when unfolded in the top-left corner;
   same issue the Design window had: copy its fix (grep the archive "Design window" / DesignPanel.kt).
   (2) preview layer lines at the framing zoom still broken r335 (backlog "Moire"): ask the user washed out vs moire back + screenshot.
