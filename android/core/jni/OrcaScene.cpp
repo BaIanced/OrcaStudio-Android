@@ -197,15 +197,17 @@ std::optional<OrcaEngine::TowerBox> OrcaEngine::tower_box(const DynamicPrintConf
                 const DynamicPrintConfig &vc = vol->config.get();
                 const int ext = vc.has("extruder") ? vc.opt_int("extruder") : 0;
                 used.insert(ext > 0 ? ext : obj_ext > 0 ? obj_ext : 1);
-                if (!vol->mmu_segmentation_facets.empty())
-                    used.insert(-1); // colour painting: more than one filament
+                // Each painted colour is a filament of its own: a rib tower grows in both axes with the count, so
+                // counting them as one placed it too close to the edge ("partially outside", user 2026-10-19).
+                for (size_t e : vol->get_extruders_from_multi_material_painting())
+                    used.insert(int(e) + 1);
             }
         }
     if (used.size() < 2 || height <= 0.)
         return std::nullopt;
     std::vector<unsigned int> ids;
     for (int e : used)
-        ids.push_back(e > 0 ? unsigned(e - 1) : unsigned(ids.size()));
+        ids.push_back(unsigned(e - 1));
     const double layer_height = config.has("layer_height") ? config.opt_float("layer_height") : 0.2;
     const WipeTowerFootprint fp = estimate_wipe_tower_footprint(config, resolve_wipe_tower_type(config), ids, layer_height, height);
     if (fp.depth <= 0.)
