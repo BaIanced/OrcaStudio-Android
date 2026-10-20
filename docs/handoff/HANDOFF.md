@@ -29,6 +29,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - User sessions backed up: phone `/data/local/tmp/phone-session-backup.{3mf,json}` (8 plates), WSA `/data/local/tmp/session-backup.{3mf,json}`.
   Test zip `scadzip-test.zip` stays in `/sdcard/Download` on phone + Chromebook. LAN access code was given in chat: never write it anywhere.
 ## Next task
+- **Extended paint tools, batch 1** (1858dc3, run 39490672782 = r343, built, UNTESTED): shape chips Sphere/Circle/Triangle/Fill/Height range
+  (`Tool.Paint.shape/height`, native `OrcaEngine::paint` shape arg; fill = bucket fill at a line's first hit, "Stop at edges" = smart fill
+  angle; height = band [hit z, z+h] on all parts). Next: install r343 on all devices, test each shape on WSA (colour + support), then
+  batch 2 (gap fill: port `TriangleSelectorPatch` fragment merge; supports "on overhangs only"). Then answer the edge-outline item (backlog).
 - Preview layer-line work done and merged (PR #34). Preview repro tools: `abshot.sh` / `abtop.sh` (WSA pinned 1366x768/density 200).
   Idea offered: Preview camera-light slider (no GO yet). C: tight; old build dirs move to `D:\orca-builds-archive`.
 - WSA shader loop: `wsa-cycle.sh` / `wsa-preview2.sh`, black shots = display asleep (reference "Build and tools").
