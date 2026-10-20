@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -50,7 +49,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.positionInWindow
-import androidx.compose.ui.unit.toSize
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
 import kotlin.math.roundToInt
 import androidx.compose.ui.res.stringResource
@@ -76,29 +75,41 @@ internal fun ToolPanel(state: UiState, vm: AppViewModel) {
     // painting (user 2026-10-19, like the Design window). Kept on screen while dragging.
     var drag by remember { mutableStateOf(Offset.Zero) }
     var folded by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
-    var bounds by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
-    // Unfolding grows the card past the view edge when it was dragged to a corner folded (user r325): pull it back in.
-    androidx.compose.runtime.LaunchedEffect(bounds?.width, bounds?.height) {
-        val b = bounds ?: return@LaunchedEffect
-        val area = CanvasBounds.rect ?: return@LaunchedEffect
-        val dx = (area.right - b.right).coerceAtMost(0f).let { if (it == 0f) (area.left - b.left).coerceAtLeast(0f) else it }
-        val dy = (area.bottom - b.bottom).coerceAtMost(0f).let { if (it == 0f) (area.top - b.top).coerceAtLeast(0f) else it }
-        if (dx != 0f || dy != 0f) drag += Offset(dx, dy)
+    // Undragged left and bottom edge in the window (the card sits at the bottom of its column), last laid out size, last placement.
+    val anchor = remember { FloatArray(2) { Float.NaN } }
+    val laidOut = remember { IntArray(2) }
+    val placed = remember { arrayOf(Offset.Zero) }
+    // Keeps a w x h card inside the 3D view: the window also holds the nav rail and panel, which drew over it (WSA r324).
+    // Too tall for the view: the title bar stays visible.
+    fun clamped(o: Offset, w: Int, h: Int): Offset {
+        val area = CanvasBounds.rect
+        if (area == null || anchor[0].isNaN()) return o
+        val minX = area.left - anchor[0]
+        val minY = area.top + h - anchor[1]
+        return Offset(o.x.coerceIn(minX, (area.right - w - anchor[0]).coerceAtLeast(minX)),
+            o.y.coerceIn(minY, (area.bottom - anchor[1]).coerceAtLeast(minY)))
     }
-    Surface(Modifier.widthIn(max = 360.dp)
-        .offset { androidx.compose.ui.unit.IntOffset(drag.x.roundToInt(), drag.y.roundToInt()) }
-        // Not boundsInWindow(): that is clipped to the window, so a card hanging off the edge looked fully inside (r326).
-        .onGloballyPositioned { val p = it.positionInWindow(); bounds = androidx.compose.ui.geometry.Rect(p, it.size.toSize()) },
+    Surface(Modifier
+        .onGloballyPositioned { val p = it.positionInWindow(); anchor[0] = p.x; anchor[1] = p.y + it.size.height }
+        .layout { measurable, c ->
+            val p = measurable.measure(c)
+            // A height change (fold, unfold, other options) keeps the title bar where it is: the card is anchored at its bottom,
+            // so it moves by the change (user r335: it folded toward its bottom edge).
+            val shift = if (laidOut[1] > 0) p.height - laidOut[1] else 0
+            laidOut[0] = p.width; laidOut[1] = p.height
+            // Clamped with the size just measured, not last frame's: an unfold in the top-left corner went past it, then snapped back (r335).
+            val at = clamped(Offset(drag.x, drag.y + shift), p.width, p.height)
+            placed[0] = at
+            layout(p.width, p.height) { p.place(at.x.roundToInt(), at.y.roundToInt()) }
+        }
+        .onGloballyPositioned { if (placed[0] != drag) drag = placed[0] }
+        .widthIn(max = 360.dp),
         shape = RoundedCornerShape(16.dp), tonalElevation = 6.dp, shadowElevation = 2.dp) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(Modifier.pointerInput(Unit) {
                 detectDragGestures { change, d ->
                     change.consume()
-                    // Within the 3D view: the window also holds the nav rail and panel, which drew over it (WSA r324).
-                    val b = bounds
-                    val area = CanvasBounds.rect
-                    drag += if (b == null || area == null) d else Offset(d.x.coerceIn((area.left - b.left).coerceAtMost(0f), (area.right - b.right).coerceAtLeast(0f)),
-                        d.y.coerceIn((area.top - b.top).coerceAtMost(0f), (area.bottom - b.bottom).coerceAtLeast(0f)))
+                    drag = clamped(drag + d, laidOut[0], laidOut[1])
                 }
             }, verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.DragIndicator, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
