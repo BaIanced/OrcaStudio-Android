@@ -19,7 +19,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - One repo: OrcaStudio-Android (code + these docs, `docs/handoff/`), branch `claude/handoff-continuation-rseql3`. Autonomy (user, 2026-10-11): decide branches and next steps
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = c47c8a6 (PR #32, r316, merged 2026-10-19); work branch = main. Untested in main: pen 7d3a263, fan hold 298ee9f, Extrude F150 e13bebb (backlog).
-- Installed: r329 (run 39354442650) on all 5 devices 2026-10-19 (r330 pending) (phone, Chromebook, SHIELD, Quest, WSA). `install-build.ps1 -Run <id> -Device <serial>` (Quest needs `adb pair` first).
+- Installed: r330 (run 39365242353) on all 5 devices 2026-10-19 (phone, Chromebook, SHIELD, Quest, WSA). `install-build.ps1 -Run <id> -Device <serial>` (Quest needs `adb pair` first).
 - **Active device = `/target`** (p/w/c|t, default WSA): `sh ~/orca-android-tools/target.sh serial`; shot.sh/mcpao.sh follow it.
 - Devices (2026-10-19): phone = `ip:5555` now, Chromebook = another `ip:port`, Quest = `adb-...tls` + `ip:port`: use `target.sh phone|chromebook`
   (probes the kind; reference "Phone"). WSA `127.0.0.1:58526`; **USB serial = the user's SHIELD TV** (rooted; installs only).
