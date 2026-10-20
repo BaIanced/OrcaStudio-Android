@@ -17,6 +17,7 @@
 
 #include "libslic3r/AppConfig.hpp"
 #include "libslic3r/BuildVolume.hpp"
+#include "libslic3r/Exception.hpp"
 #include "libslic3r/GCode/GCodeProcessor.hpp"
 #include "libslic3r/Model.hpp"
 #include "libslic3r/ModelArrange.hpp"
@@ -633,6 +634,10 @@ json OrcaEngine::slice(int plate, const std::string &gcode_out, const std::strin
     } catch (const CanceledException &) {
         set_running(nullptr);
         throw std::runtime_error("Slicing cancelled");
+    } catch (const SlicingErrors &errors) {
+        // Its own message is just "Errors"; show the per-object ones (e.g. an empty first layer).
+        set_running(nullptr);
+        throw std::runtime_error(print.slicing_errors_message(errors));
     } catch (...) {
         set_running(nullptr);
         throw;
