@@ -18,8 +18,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 ## State
 - One repo: OrcaStudio-Android (code + these docs, `docs/handoff/`), branch `claude/handoff-continuation-rseql3`. Autonomy (user, 2026-10-11): decide branches and next steps
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
-- Android main = c47c8a6 (PR #32, r316, merged 2026-10-19); work branch is ~12 commits ahead (r328-r333: preview, paint edges, scale gizmo; no user verdict yet). Untested in main: pen 7d3a263, fan hold 298ee9f, Extrude F150 e13bebb (backlog).
-- Installed: r333 (run 39372024774, scale gizmo) on all devices 2026-10-19 (phone, Chromebook, SHIELD, Quest, WSA). `install-build.ps1 -Run <id> -Device <serial>` (Quest needs `adb pair` first).
+- Android main = c47c8a6 (PR #32, r316, merged 2026-10-19); work branch is ~14 commits ahead (r328-r335: preview, paint edges, scale gizmo, slice error text, tower fit; no user verdict yet). Untested in main: pen 7d3a263, fan hold 298ee9f, Extrude F150 e13bebb (backlog).
+- Installed: r333 (run 39372024774, scale gizmo) on all devices 2026-10-19 (phone, Chromebook, SHIELD, Quest, WSA).
+  r335 (run 39376118065: slice error text 64420c3 + tower-off-bed on painted plates d14af27, both WSA-verified) building:
+  install on all devices when green, then ask the user to re-slice their plate 1. `install-build.ps1 -Run <id> -Device <serial>` (Quest needs `adb pair` first).
 - **Active device = `/target`** (p/w/c|t, default WSA): `sh ~/orca-android-tools/target.sh serial`; shot.sh/mcpao.sh follow it.
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
   WSA `127.0.0.1:58526`; **USB serial = the user's SHIELD TV** (rooted; installs only).
@@ -33,8 +35,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   Paint "Stop at edges" (d1355c9, r332 run 39369547613, installed everywhere; WSA-verified with a local
   native build): ask the user. **Resize overhaul** (scale gizmo, 0c35daf, run 39372024774; WSA-checked, archive):
   installed everywhere r333, ask the user (backlog "edges THROUGH").
-  Quest: stick zoom speed, error card for the supportless cone.
-- WSA debug app (`...debug`) holds the phone's session (plate 2 tower drifts off the bed; drag it back from a top view, distance 450); `~/orca-android-tools/wsa-cycle.sh <prefix>`
+  Quest: stick zoom speed, error card for the supportless cone (now shows the real message, 64420c3 r335, WSA-verified).
+- WSA debug app (`...debug`) holds the phone's session; `~/orca-android-tools/wsa-cycle.sh <prefix>`
   = build + install + slice + Preview + 3 sphere shots (`wsa-preview2.sh` alone skips the build).
 - Need the printer (backlog): fan slider jumps (r295 hold), Retract/Extrude F150 (e13bebb), extrude/jog, speed chips.
 - User-only checks pending (backlog): bead look, part shadows, light sliders, r276 tool row, r283/r284 top bar, r280 pinch lock,
@@ -72,7 +74,6 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
    MakerWorld handle, device models, tokens) in files, commits or PR text. Use placeholders. Run the
    privacy scan before every push (python is `python` on this PC):
    - Android: `python .claude/hooks/privacy_scan.py range "HEAD --not --remotes" . ':(exclude)src-orca'`
-   - (Handoff docs moved here from `OrcaStudio/arm-build` 2026-10-19; that repo is Flatpak-only now, untouched unless asked.)
 9. Commit trailer: `Co-Authored-By` + `Claude-Session` lines as given in the session.
 10. **Model fit (user, 2026-10-16):** say when a task suits Opus better (hard shader/math debugging, subtle multi-file
     design, after 2 failed tries), before starting or as soon as it shows (`/model` swap + `/next`).

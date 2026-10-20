@@ -2393,3 +2393,17 @@ User: "you just tested something we already confirmed worked". Cross-checked eac
 - Level side view (pitch 0): front corners + Y shown; Z hidden by the box top at first, fixed (Z shows whenever the eye is above
   the box bottom); Z drag of 42 px moved the top 42 px. Cylinder rot [90,117,117]: corners only (as designed).
 - Known limits: from an exact front view the X handles sit on edge-on faces and hide (orbit a little); handles draw over other objects.
+
+### 2026-10-19 Slice error text (upside-down cone, Quest r323 report)
+- Repro WSA debug (Claude): Add > Shape > Cone 20 mm on empty plate 3, `object_transform` rot [180,0,0], slice -> card said only
+  "Slicing plate 3 failed / Errors": libslic3r wraps per-object errors in `SlicingErrors` whose own text is "Errors" (Exception.hpp:46).
+- Fix 64420c3 (OrcaEngine.cpp catch -> upstream `Print::slicing_errors_message`): card now reads "Cone: One object has an empty
+  first layer and can't be printed. Please Cut the bottom or enable supports." Claude-verified WSA (local native build). CI run 39375222936 (r334).
+
+### 2026-10-19 Prime tower "partially outside" on painted plates (user phone screenshot, r333)
+- User: plate 1 (painted sphere + box + 2 cylinders), green tower box near the front-right corner, slice -> "Prime Tower is partially
+  outside the printable area". Same as the WSA plate 2 "tower drifts off the bed" (wsa-preview2.sh workaround).
+- Cause: `OrcaEngine::tower_box` (OrcaScene.cpp) counted all painted colours as one filament (id collided with filament 1). The default
+  Rib wall (PrintConfig.cpp wipe_tower_wall_type) squares the tower to the purge count, so the real tower was wider AND deeper than the box.
+- Fix d14af27: count `get_extruders_from_multi_material_painting()` per volume. Claude-verified WSA debug: plate 2 slices untouched
+  (12h18m). CI run 39376118065 = r335 (also has the slice error text 64420c3). User check pending.

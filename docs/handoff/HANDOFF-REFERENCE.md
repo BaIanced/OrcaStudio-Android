@@ -135,3 +135,5 @@ headless display below instead (no takeover needed). Don't drive WSA's own windo
 | `BaIanced/OrcaStudio-Android` | cl1x/Orca-Android + signed Bambu printing via obn (static in `liborca_jni.so`, `android/obn`). Bot branch `upstream/orca-main` (never commit). |
 | `BaIanced/OrcaStudio` | Flatpak fork; ours: `arm-build/` (README, NOTES-ci/obn/updates), `.github/workflows/arm-*.yml`. Handoff docs moved to OrcaStudio-Android/docs/handoff (2026-10-19). Latest release r9 (MakerLab tab). Details in the archive. |
 | `ClusterM/open-bamboo-networking` | obn pinned v2.2.0 + local patches 0001 (cloud callbacks), 0002 (start_print try LAN first), 0003 (MQTT CA from `SSL_CERT_FILE`). |
+
+- Handoff docs moved here from `OrcaStudio/arm-build` 2026-10-19; that repo is Flatpak-only now, untouched unless asked.
