@@ -30,7 +30,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   Test zip `scadzip-test.zip` stays in `/sdcard/Download` on phone + Chromebook. LAN access code was given in chat: never write it anywhere.
 ## Next task
 - **Extended paint tools** batch 1 (1858dc3, r343) colour tests passed on WSA 2026-10-20 (Claude). **Batch 2 gap fill** (Colour + Support,
-  `GapFiller` in OrcaTools.cpp, `paintGapFill`; chip "Gap fill", area slider, "Fill gaps"): committed, local debug build on all devices, WSA
+  `GapFiller` in OrcaTools.cpp, `paintGapFill`; chip "Gap fill", area slider, "Fill gaps"): pushed, local debug build on all devices (no CI build yet), WSA
   test passed (0.5 mm dots vanish at 1.0 mm2; 3 mm spots stay); not pushed to CI. Untested: support-kind gap fill, user feel, shapes in
   Support painting, Height slider. Left (backlog): stroke lock, supports "on overhangs only", filament remap, survey; then the edge-outline item.
 - Preview layer-line work done and merged (PR #34). Preview repro tools: `abshot.sh` / `abtop.sh` (WSA pinned 1366x768/density 200).
@@ -39,7 +39,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Need the printer (backlog): fan slider jumps (r295 hold), Retract/Extrude F150 (e13bebb), extrude/jog, speed chips.
 - User-only checks pending (backlog): bead look, part shadows, light sliders, r276 tool row, r283/r284 top bar, r280 pinch lock,
   r316 double tap, r305 resize gating.
-- Pen input (super low priority): backlog. Waiting on the user: plate switcher pick.
+- Pen input (super low priority) + plate switcher pick: backlog.
 
 ## User decisions (2026-10-13)
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
