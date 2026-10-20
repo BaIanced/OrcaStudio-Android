@@ -34,7 +34,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   table top skin edges (arrows) + light shards on the lying cylinder end cap near the bed. Then offer `/next-merge`.
   Repro: plate 1 layer 232 on WSA (pinned 1366x768/density 200): `abshot.sh <name> [build]` from below (baseline `shots/base2.png`),
   `abtop.sh` from above. Underside 6b465f8 + r341 flip **user-verified r341** (archive). Idea offered: Preview camera-light slider (no GO yet).
-  Still open: rim arrows, cylinder end-cap shards. C: tight; old build dirs move to `D:\orca-builds-archive`.
+  Rim arrows + end-cap shards: user saw nothing in r341, closed. Next: offer `/next-merge`. C: tight; old build dirs move to `D:\orca-builds-archive`.
 - WSA shader loop: `wsa-cycle.sh` / `wsa-preview2.sh`, black shots = display asleep (reference "Build and tools").
 - Need the printer (backlog): fan slider jumps (r295 hold), Retract/Extrude F150 (e13bebb), extrude/jog, speed chips.
 - User-only checks pending (backlog): bead look, part shadows, light sliders, r276 tool row, r283/r284 top bar, r280 pinch lock,
