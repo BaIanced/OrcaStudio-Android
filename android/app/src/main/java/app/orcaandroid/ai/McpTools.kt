@@ -171,6 +171,8 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
                 "target" to vec("Point the camera looks at, mm"),
                 "section" to p("number", "Section view cut 0..1 (0 = off)"),
                 "shadows" to p("boolean", "Shadows under objects"),
+                "supersample" to p("string", "Preview supersampling: off, still (when the camera stops; default) or always"),
+                "regime" to p("number", "Tuning: scale of the Preview layer-line regimes while a still view is refined, 0.3..1.5 (default 1)"),
                 "projection" to p("string", "perspective or orthographic (the user's setting, also in the app's View menu)"))) { viewSet(it) },
         Tool("view_screenshot", "Read: a PNG of the plate's 3D view as drawn now (no buttons or panels), after a short wait " +
             "for the last view change. Costs far more than text: use view_state, plate_describe or view_set's reply when " +
@@ -361,7 +363,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         val s = store.value
         return "Camera yaw ${n(c[0].toDouble())}, pitch ${n(c[1].toDouble())}, distance ${n(c[2].toDouble())} mm, " +
             "target [${n(c[3].toDouble())}, ${n(c[4].toDouble())}, ${n(c[5].toDouble())}]; section ${n(view.section.ratio.toDouble())}, " +
-            "shadows ${if (s.contactShadows) "on" else "off"}, ${if (view.camera.perspective) "perspective" else "orthographic"}; " +
+            "shadows ${if (s.contactShadows) "on" else "off"}, supersample ${listOf("off", "still", "always").getOrElse(s.supersample) { "?" }}, ${if (view.camera.perspective) "perspective" else "orthographic"}; " +
             "plate ${s.activePlate + 1} active."
     }
 
@@ -406,6 +408,13 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             store.settings.contactShadows = on
             store.update { it.copy(contactShadows = on) }
         }
+        args.optString("supersample").takeIf { it.isNotEmpty() }?.let { name ->
+            val mode = listOf("off", "still", "always").indexOf(name)
+            if (mode < 0) throw ToolError("supersample: off, still or always")
+            store.settings.supersample = mode
+            store.update { it.copy(supersample = mode) }
+        }
+        num("regime")?.let { r -> view.renderer.accumRegime = r.coerceIn(0.3f, 1.5f) }
         args.optString("projection").takeIf { it.isNotEmpty() }?.let { name ->
             val on = when (name) {
                 "perspective" -> true
@@ -542,7 +551,9 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         val (view, caption) = withContext(Dispatchers.Main.immediate) { plateView().let { it to viewState(it) } }
         // The GL thread takes the last view change on its next frame; the shadow map follows one frame later.
         kotlinx.coroutines.delay(400)
-        val bitmap = android.graphics.Bitmap.createBitmap(view.width.coerceAtLeast(1), view.height.coerceAtLeast(1), android.graphics.Bitmap.Config.ARGB_8888)
+        // A still Preview refines over ~32 frames (temporal supersampling): wait for it, a few seconds at most.
+        for (i in 0 until 40) { if (view.renderer.settled) break; kotlinx.coroutines.delay(100) }
+        val bitmap =android.graphics.Bitmap.createBitmap(view.width.coerceAtLeast(1), view.height.coerceAtLeast(1), android.graphics.Bitmap.Config.ARGB_8888)
         val done = CompletableDeferred<Int>()
         withContext(Dispatchers.Main.immediate) {
             android.view.PixelCopy.request(view, bitmap, { done.complete(it) }, android.os.Handler(android.os.Looper.getMainLooper()))

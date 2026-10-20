@@ -245,6 +245,8 @@ internal object Shaders {
         precision highp float;
         uniform vec3 uColor;
         uniform vec4 uRect;
+        // Samples per view pixel (supersampling): the lines stay a view pixel wide.
+        uniform float uPxScale;
         in vec2 vLocal;
         out vec4 color;
         float axis(float g, float w, float lo, float hi) {
@@ -256,7 +258,7 @@ internal object Shaders {
         }
         void main() {
             vec2 g = vLocal / 10.0;
-            vec2 w = fwidth(g);
+            vec2 w = fwidth(g) * uPxScale;
             float a = max(axis(g.x, w.x, uRect.x, uRect.z), axis(g.y, w.y, uRect.y, uRect.w));
             if (a < 0.004) discard;
             color = vec4(uColor, a);
@@ -293,6 +295,7 @@ internal object Shaders {
         uniform vec3 uOffset;
         uniform int uKinds;
         uniform vec3 uEye;
+        uniform float uPxScale;
         uniform highp vec4 uSection;
         uniform int uSectionOn;
         layout(location = 0) in vec3 aPos;
@@ -313,7 +316,7 @@ internal object Shaders {
             vColor = kind == 0 ? vec3(0.9, 0.1, 0.9) : kind == 1 ? vec3(0.1, 0.8, 0.9) : kind == 2 ? vec3(0.95, 0.95, 0.95)
                    : kind == 3 ? vec3(1.0, 0.9, 0.0) : vec3(1.0, 0.3, 0.3);
             gl_Position = uMvp * vec4(world + pull, 1.0);
-            gl_PointSize = kind == 4 ? 16.0 : 7.0;
+            gl_PointSize = (kind == 4 ? 16.0 : 7.0) * uPxScale;
         }"""
 
     /**
@@ -473,6 +476,9 @@ internal object Shaders {
         flat in float vWidth;
         flat in float vHeight;
         uniform highp vec3 uEye;
+        // Samples per view pixel each way (supersampling): the regimes below go by view pixels, since a pattern finer
+        // than the view's pixels beats against them however finely it is drawn; the filters use the samples.
+        uniform float uPxScale;
         out vec4 color;
         // Same soft key/fill/sky light as the model (no highlight: it would shimmer on layer lines),
         // so faces turned from the key light keep their shape instead of dropping to one dark tone.
@@ -487,9 +493,25 @@ internal object Shaders {
             u -= 2.0 * floor((u + 1.0) * 0.5);
             return shade(normalize(n + axis * (u * tilt))) * (1.0 - edge * pow(abs(u), 6.0));
         }
+        // The mean of beadShade over a bead (4 points, midpoint rule; the edge's |u|^6 averages 1/7). The wave and the far
+        // mean below take it as their level, so no regime shifts the brightness where it fades in or out (a flat shade()
+        // level made a light band where the layers were 2-3 px apart, user r335).
+        float beadMean(vec3 n, vec3 axis, float tilt, float edge) {
+            float s = 0.0;
+            for (int i = 0; i < 4; ++i) s += shade(normalize(n + axis * ((float(i) * 0.5 - 0.75) * tilt)));
+            return s * 0.25 * (1.0 - edge / 7.0);
+        }
         void main() {
             if (uSectionOn == 1 && dot(uSection.xyz, vWorld) > uSection.w) discard;
-            vec3 n = normalize(vRight * vFace.x + vUp * vFace.y + vDir * vFace.z);
+            // A top or bottom face seen from inside the bead is never the one to show: from below, the bead's own top
+            // won over its bottom wherever the overlap's depth push outgrew a layer (zoomed out: dark stepped patches,
+            // user r339). Sides stay two-sided (they fill the cracks between layers). The box winds every face clockwise
+            // seen from outside (PlateRenderer.uploadBox), so GL calls the outside the back face (r340 tested the other
+            // way and dropped every top seen from above: blocky lines, user r340).
+            if (vTopFace > 0.5 && gl_FrontFacing) discard;
+            // Undersides are lit like tops (user 2026-10-20, as desktop Orca's camera light and Blender's viewport do):
+            // the lights here sit above, which left a bottom skin flat dark with no lines.
+            vec3 n = normalize(vRight * vFace.x + vUp * abs(vFace.y) + vDir * vFace.z);
             float light = shade(n);
             // Beads are rounded like real extrusions: skin lines across their width (edges a little darker), walls up
             // each layer with a groove where two layers meet. Close up (8+ px a bead) that profile is drawn, averaged
@@ -500,15 +522,20 @@ internal object Shaders {
             bool top = vTopFace > 0.5;
             float u = top ? vAcross : vBead;
             float fu = max(fwidth(u), 1e-4);
+            float fv = fu * uPxScale;
             if (vTopFace + vSideFace > 0.5) {
-                float detail = 1.0 - smoothstep(0.25, 0.5, fu);
-                float wave = light * (1.0 + (top ? 0.1 : 0.15) * cos(3.14159265 * u) * (1.0 - smoothstep(0.67, 1.0, fu)));
+                float detail = 1.0 - smoothstep(0.25, 0.5, fv);
+                vec3 axis = top ? vRight : vec3(0.0, 0.0, 1.0);
+                float tilt = top ? 0.9 : 0.8;
+                float edge = top ? 0.3 : 0.0;
+                // The profile's mean: the bead's, less the groove's (its tent averages fu / 2), held where the profile is gone.
+                float level = beadMean(n, axis, tilt, edge) * (top ? 1.0 : 1.0 - 0.11 * min(fu, 0.5 / uPxScale));
+                float wave = level * (1.0 + (top ? 0.1 : 0.15) * cos(3.14159265 * u) * (1.0 - smoothstep(0.67, 1.0, fv)));
                 float profile = wave;
                 if (detail > 0.0) {
-                    vec3 axis = top ? vRight : vec3(0.0, 0.0, 1.0);
                     float sum = 0.0;
                     for (int i = 0; i < 4; ++i)
-                        sum += beadShade(n, axis, u + fu * (float(i) * 0.25 - 0.375), top ? 0.9 : 0.8, top ? 0.3 : 0.0);
+                        sum += beadShade(n, axis, u + fu * (float(i) * 0.25 - 0.375), tilt, edge);
                     // The groove: a tent 1 px each side of the joint, so a line darkens the same whatever its sub-pixel
                     // position (a thinner, sharper one broke into dashes crossing pixel rows).
                     float groove = top ? 0.0 : clamp(1.0 - (1.0 - abs(u)) / fu, 0.0, 1.0);
@@ -524,13 +551,21 @@ internal object Shaders {
             if (vTopFace + vSideFace > 0.5) {
                 highp vec3 v = normalize(uEye - vWorld);
                 vec3 side = vRight * (dot(vRight, v) < 0.0 ? -1.0 : 1.0);
-                float wTop = vWidth * max(v.z, 0.0);
+                // "Top" is whichever flat face the eye sees: the bottom skin from below (max(v.z, 0) took it as unseen
+                // and flattened bottom skins to the side's mean wherever the bead sides didn't show, user r338).
+                float facing = dot(vUp, v);
+                float wTop = vWidth * abs(facing);
                 float wSide = vHeight * abs(dot(side, v));
                 // World size of a pixel here: the less stretched screen direction (the other one runs along the face).
-                highp float pix = max(min(length(dFdx(vWorld)), length(dFdy(vWorld))), 1e-6);
+                highp float pix = max(min(length(dFdx(vWorld)), length(dFdy(vWorld))), 1e-6) * uPxScale;
                 float far = max(1.0 - smoothstep(3.0, 9.0, (wTop + wSide) / pix), 1.0 - smoothstep(1.0, 3.0, min(wTop, wSide) / pix));
-                float lTop = vTopFace > 0.5 ? light : shade(vec3(0.0, 0.0, 1.0));
-                float lSide = vSideFace > 0.5 ? light : shade(side);
+                // A wall's side takes the mean only as a sliver beside the tops (seen from high above): a straight wall
+                // hides each layer's top under the next layer, so mixing that lit top in made a light band across the
+                // wall where its layers got small (user r335). A top that is drawn at all is seen.
+                if (!top) far *= 1.0 - smoothstep(0.15, 0.3, wSide / max(wTop + wSide, 1e-4));
+                // The other face at its own level (its wave's mean), as its pixels show it.
+                float lTop = top ? light : beadMean(vUp, vRight, 0.9, 0.3);
+                float lSide = top ? beadMean(side, vec3(0.0, 0.0, 1.0), 0.8, 0.0) * 0.945 : light;
                 float mean = (wTop * lTop + wSide * lSide) / max(wTop + wSide, 1e-4);
                 light = mix(light, mean, far);
             }
@@ -544,6 +579,41 @@ internal object Shaders {
             vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2));
             vUv = p;
             gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
+        }"""
+
+    /** One texel per pixel of a target the view's size (Accumulator). */
+    const val COPY_FS = """#version 300 es
+        precision highp float;
+        uniform sampler2D uFrame;
+        out vec4 color;
+        void main() {
+            color = vec4(texelFetch(uFrame, ivec2(gl_FragCoord.xy), 0).rgb, 1.0);
+        }"""
+
+    /**
+     * Supersampling: each view pixel is a tent-weighted mean of the big frame's samples within a view pixel of its centre
+     * (Supersampler). A plain mean of its own block let layer lines about 1.5 px apart through as moire arcs.
+     */
+    const val DOWNSAMPLE_FS = """#version 300 es
+        precision highp float;
+        uniform sampler2D uFrame;
+        uniform int uFactor;
+        out vec4 color;
+        void main() {
+            float f = float(uFactor);
+            vec2 c = gl_FragCoord.xy * f;
+            ivec2 lo = ivec2(floor(c - f + 0.5)), last = textureSize(uFrame, 0) - 1;
+            vec3 sum = vec3(0.0);
+            float total = 0.0;
+            for (int y = 0; y < 2 * uFactor; ++y) {
+                float wy = max(1.0 - abs(float(lo.y + y) + 0.5 - c.y) / f, 0.0);
+                for (int x = 0; x < 2 * uFactor; ++x) {
+                    float w = wy * max(1.0 - abs(float(lo.x + x) + 0.5 - c.x) / f, 0.0);
+                    sum += w * texelFetch(uFrame, clamp(lo + ivec2(x, y), ivec2(0), last), 0).rgb;
+                    total += w;
+                }
+            }
+            color = vec4(sum / total, 1.0);
         }"""
 
     /**

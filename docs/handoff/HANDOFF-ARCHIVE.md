@@ -2417,3 +2417,28 @@ User: "you just tested something we already confirmed worked". Cross-checked eac
   with on the design editor window."
 - Same check, preview: support z-fight notch (c116b71, r331) "Works"; top-surface jiggle (r329) gone, "Works"; tower wall z-fight /
   joint leak (05d553c, r328) "Works": all VERIFIED. Layer lines at the framing zoom (2d8d6aa, r330): "Still broken" (detail pending).
+
+### 2026-10-20 Merge PR #33 (r335)
+- Work branch r317-r335 merged to main as b98e6ad (PR #33, merge commit), on the user's "merge". Open in main: paint card unfold, layer lines at framing zoom; untested: Quest stick zoom.
+- (2026-10-20, user, r335, 2 screenshots) Layer lines: orange box walls show sharp lines but "Distracting band of light visible in center of orange object image" (the 2-3 px fade zone); "Moire visible under table top" (beeper/table plate). Asked whether moire-free + sharp lines is possible at all; Claude: not by shader tuning (sampling limit), only supersampling. Item paused for the user's pick.
+- (2026-10-20, user) Decision: fix the light band (shared mean brightness) and add supersampling when the camera stops, plus a Settings option to supersample while moving too. r336 (run 39379527770) installed on all devices.
+
+### 2026-10-20 Paint card fold fix verified (r336)
+- (2026-10-20, user, r336) Paint card fix 2d35887: "paint card rubberband fix works, collapses in top right correctly." Verified.
+- Follow-up idea (user, low priority, logged in backlog): fold direction should depend on where the handle sits; the handle should want to stay near the top or bottom screen edge, so folding never leaves it mid-screen.
+
+### 2026-10-20 Temporal accumulation + MSAA (r338) user check
+- (2026-10-20, user, phone r338) "Incredible. Moire gone, layer lines visible." Verified: moire fix + framing-zoom layer lines (backlog "Moire"). One issue: table underside (bottom surface seen from below), left part's lines "completely smoothed away compared to right side" (screenshot in chat). Open, being fixed.
+- Implementation (verified r338): 696c5a6 `Accumulator.kt` = 32 jittered 1x frames (Halton 2/3 + 5/7 sums, tent +-1 px) blended 1/n via GL_CONSTANT_ALPHA into RGBA16F (ES 3.2 or EXT_color_buffer_half_float/_float, else 2x `Supersampler`), cached once done, 1/32 refresh each second; `MsaaConfigChooser.kt` 4x MSAA on PlateView, falls back to none. Regime scale below 1 brought cylinder arcs back on WSA (0.7 faint, 0.5 clear, 0.35 strong): kept 1. MCP view_screenshot waits for `renderer.settled`.
+- Underside fix cc0af56 (Claude WSA-verified 2026-10-20, r339 for the user): far-mean `wTop` = vWidth * abs(dot(vUp, v)), lTop uses the seen face's normal.
+
+### 2026-10-20 Underside fix (r339) user check
+- (2026-10-20, user, phone r339, screenshot plate 1 layer 232 from below/side) "Everything is good except these defects that I've circled in red": underside fix cc0af56 verified. Open: (a) table top (blue top skin) edges, two arrows at the skin border by the wall; (b) lying cylinder end cap near the bed: light streaks/shards. Investigating.
+
+### 2026-10-20 Lit undersides (r340) user check
+- (2026-10-20, user, phone r340, 4 shots: plate 2 layer 9 close/mid/fit, plate 1 layer 232) "Previous build did something to the entire output of lines on all layers. They look like blocks being built instead of smooth extrusion lines. Top surface color shifts depending on angle viewed." Cause (Claude): 6b465f8 `discard` on `!gl_FrontFacing` for top/bottom faces, but `uploadBox` winds every face clockwise from outside, so tops were dropped from above (insides of walls/caps showed). User GO: invert the test (keep lit undersides), re-check above + below.
+- Underside details (moved from HANDOFF 2026-10-20): cause = the overlap's NDC push (PATH_VS `7.2e-5`, ~distance/550 mm) outgrew a layer zoomed out, so from below the bead's own top showed through. User: undersides "lit like a top". 6b465f8 = discard top/bottom faces seen from inside + bottom faces take `abs(vFace.y)`; its facing test was inverted (r340 blocky). Fix 1-char flip, r341 (run 39482253748): WSA abtop.sh (above, close+mid) clean, abshot.sh (below) no stepped patches vs base2. Rejected earlier: label rank for a bottom ring (no change), no push for it (stripes). Wall rims from below a bit lighter.
+
+### 2026-10-20 r341 user check
+- (2026-10-20, user, phone r341) "I've checked and everything looks perfect": tops from above (6b465f8 flip) + lit undersides verified. User asked about camera light: Preview toolpaths use fixed studio lights only (`shade()`), lab light sliders affect the Prepare mesh only; camera-light slider offered (easy), no GO yet.
+- (2026-10-20, user, phone r341) on the r339 rim arrows + cylinder end-cap shards: "I've zoomed around and tried finding what that means and I can't notice anything defective in our current implementation" -> closed (not visible in r341).

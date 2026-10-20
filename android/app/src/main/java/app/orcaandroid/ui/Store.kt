@@ -34,6 +34,7 @@ class Store(val app: Application, val scope: CoroutineScope) {
             contactShadows = settings.contactShadows,
             selectionStyle = settings.selectionStyle,
             perspective = settings.perspective,
+            supersample = settings.supersample,
             lab = settings.layoutLab,
             undoLimit = settings.undoLimit,
             autoSaveSeconds = settings.autoSaveSeconds,

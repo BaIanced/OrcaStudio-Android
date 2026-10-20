@@ -205,7 +205,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
 
     init {
         setEGLContextClientVersion(3)
-        setEGLConfigChooser(8, 8, 8, 8, 24, 4)
+        setEGLConfigChooser(MsaaConfigChooser())
         preserveEGLContextOnPause = true
         setRenderer(renderer)
         renderMode = RENDERMODE_CONTINUOUSLY

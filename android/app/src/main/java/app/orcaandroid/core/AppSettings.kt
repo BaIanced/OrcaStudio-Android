@@ -72,6 +72,11 @@ class AppSettings(context: Context) {
         get() = prefs.getInt("selection_style", app.orcaandroid.render.SelectionStyle.DEFAULT)
         set(value) = prefs.edit().putInt("selection_style", value).apply()
 
+    /** Preview supersampling ([app.orcaandroid.render.Supersample]): off, when the camera is still (default), always. */
+    var supersample: Int
+        get() = prefs.getInt("preview_supersample", app.orcaandroid.render.Supersample.STILL)
+        set(value) = prefs.edit().putInt("preview_supersample", value).apply()
+
     /** 3D view projection: perspective (default) or orthographic, the desktop's use_perspective_camera. */
     var perspective: Boolean
         get() = prefs.getBoolean("perspective_camera", true)
