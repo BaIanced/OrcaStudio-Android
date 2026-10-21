@@ -29,9 +29,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - User sessions backed up: phone `/data/local/tmp/phone-session-backup.{3mf,json}` (8 plates), WSA `/data/local/tmp/session-backup.{3mf,json}`.
   Test zip `scadzip-test.zip` stays in `/sdcard/Download` on phone + Chromebook. LAN access code was given in chat: never write it anywhere.
 ## Next task
-- **Extended paint tools** (details: backlog "Extended paint tools"): batches 1-2, filament remap, stroke lock (Lock ↕/↔) and
-  overhang highlight (support chip "Highlight overhangs") all WSA-tested OK by Claude 2026-10-20/21; user feel pending. Stroke lock +
-  highlight: run 39553342864 installed on all 4 devices 2026-10-21. Web survey done (`NOTES-paint-survey.md`, 8 ranked ideas), waiting on the user's pick; edge outline needs GO.
+- **Extended paint tools** (backlog "Extended paint tools", survey `NOTES-paint-survey.md`): the user's 4 survey picks (2026-10-21)
+  all done + WSA OK (Claude): hold-to-preview fill, eyedropper, colour each part, clean specks, guard plane, "Fill over colours",
+  regions view. CI run 39557578074: install on all devices when built, then ask the user to try them. Edge outline in Prepare
+  (backlog) could reuse `crease_lines`. Earlier batches (brushes, remap, stroke lock, overhang highlight): user feel pending.
 - Layer-line repro tools `abshot.sh` / `abtop.sh` (reference).
   Idea offered: Preview camera-light slider (no GO yet). C: tight; old build dirs move to `D:\orca-builds-archive`.
 - First print: fixed by printer calibration (user, 2026-10-20; archive). **Open issue: app 3MF export fails in desktop Orca** (fix `match_filament_indices` in run 39529670166, installed on all devices; untested on a 4-filament export: the user exports from the phone and opens it in desktop Orca).
