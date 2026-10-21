@@ -176,8 +176,11 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                             v.postDelayed({ if (dragPending[0]) { dragPending[0] = false; v.onGl { dragOffset = floatArrayOf(0f, 0f, 0f) } } }, 500)
                         }
                     }
+                    private var strokeStart = 0f to 0f
                     override fun onPaint(x: Float, y: Float, newStroke: Boolean) {
-                        val (o, d) = v.camera.ray(x, y)
+                        if (newStroke) strokeStart = x to y
+                        val lock = (vm.state.value.tool as? Tool.Paint)?.lock
+                        val (o, d) = v.camera.ray(if (lock == "v") strokeStart.first else x, if (lock == "h") strokeStart.second else y)
                         vm.scene.paintAt(o, d, v.camera.eye(), newStroke, v.section.current)
                     }
                     override fun onPlateDoubleTap(index: Int) = vm.scene.selectPlate(index)

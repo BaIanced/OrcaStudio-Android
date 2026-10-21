@@ -206,6 +206,11 @@ private fun PaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Paint) {
                 modifier = Modifier.weight(1f).padding(start = 8.dp))
         }
     }
+    // Stroke lock (brush): the stroke keeps to a screen axis through its first point (straight lines).
+    if (brush) Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        FilterChip(tool.lock == "v", { vm.scene.setTool(tool.copy(lock = if (tool.lock == "v") "" else "v")) }, label = { Text(stringResource(R.string.paint_lock_vertical)) })
+        FilterChip(tool.lock == "h", { vm.scene.setTool(tool.copy(lock = if (tool.lock == "h") "" else "h")) }, label = { Text(stringResource(R.string.paint_lock_horizontal)) })
+    }
     // Support painting's "on overhangs only" (brush): only faces overhanging by more than the angle are painted; the angle stays remembered while off.
     var overhang by rememberSaveable { mutableFloatStateOf(40f) }
     if (brush && tool.kind == "support") Row(verticalAlignment = Alignment.CenterVertically) {
