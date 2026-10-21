@@ -35,7 +35,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   not remapped): WSA-tested OK (2->1) on run 39521072810, installed on WSA only. Left (backlog): stroke lock, survey, edge outline.
 - Preview layer-line work merged (PR #34); repro tools `abshot.sh` / `abtop.sh` (reference).
   Idea offered: Preview camera-light slider (no GO yet). C: tight; old build dirs move to `D:\orca-builds-archive`.
-- First print failed 2026-10-20 (plate/Z suspects; backlog). 3MF export fix `match_filament_indices` (run 39529670166, installed on all devices): needs the user to load a new export in desktop Orca.
+- First print: fixed by printer calibration (user, 2026-10-20; archive). **Open issue: app 3MF export fails in desktop Orca** (fix `match_filament_indices` in run 39529670166, installed on all devices; untested on a 4-filament export: the user exports from the phone and opens it in desktop Orca).
 - Need the printer, and user-only checks (bead look, shadows, light sliders, r276/r283/r284/r280/r316/r305): backlog.
 - Pen input (super low priority) + plate switcher pick: backlog.
 
