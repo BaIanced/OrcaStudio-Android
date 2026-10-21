@@ -20,7 +20,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = f1c4a17 (PR #34, r341, merged 2026-10-20). Untested in main: pen 7d3a263, fan hold 298ee9f, Extrude F150 e13bebb,
   Quest stick zoom (r324). Nothing unmerged on the branch.
-- Installed: run 39650160035 (r356, Z rail ad82885) on WSA, phone, Chromebook, SHIELD, Note 2026-10-21. Tablet (unrooted): debug app only (user's request).
+- Installed: run 39650160035 (r356, Z rail ad82885; Check mesh run 39657856306 pending) on WSA, phone, Chromebook, SHIELD, Note 2026-10-21. Tablet (unrooted): debug app only (user's request).
 - **Test device = WSA** (user 2026-10-20). **Note** (added 2026-10-21) = S Pen test device only, not the main target (user); Quest = pseudo-pen device (user, untested). Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
   WSA `127.0.0.1:58526`; **USB serial = the user's SHIELD TV** (rooted; installs only).
@@ -31,7 +31,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 ## Next task
 - **User 2026-10-21: one small step per session.** Cue `/clear` + `/next` after EACH step:
   1. View cube DONE (r353, lab switch, off). 2. Rotate gizmo rings DONE fd83086 (menu / R). 3. Rotate ticks + snap DONE 45dc651
-     (WSA OK Claude; CI run 39582935998; user feel of 2+3 pending, backlog). 4. Z rail (lift dot) DONE ad82885 (WSA OK Claude r356; archive; user feel pending, backlog). 5a. Check mesh CODED bb57009 (local debug build, WSA OK Claude, NOT in a CI build yet): native `checkMesh` (OrcaTools.cpp: open edges, shells, volume, zero-area faces, thin walls by inward ray; returns up to 400 `thinPoints` world x,y,z, unused so far), object More menu > Check mesh dialog (thin-wall slider), MCP `object_check_mesh`. 5b NEXT: self-intersections check + show the thin spots / open edges in the 3D view (overhang tint pattern, PlateRenderer.overhangHighlight), then dispatch CI and install everywhere.
+     (WSA OK Claude; CI run 39582935998; user feel of 2+3 pending, backlog). 4. Z rail (lift dot) DONE ad82885 (WSA OK Claude r356; archive; user feel pending, backlog).
+     5. Check mesh DONE (bb57009 + 5b; WSA OK Claude; archive; user feel pending, backlog). CI run 39657856306: install on every device when done.
      6. Pie menu / tool-bar collapse (discuss first).
 - **Paint tools** (survey `NOTES-paint-survey.md`): 4 picks done, WSA OK (Claude), run 39557578074 installed all devices
   2026-10-21; user feel pending (all paint batches).
