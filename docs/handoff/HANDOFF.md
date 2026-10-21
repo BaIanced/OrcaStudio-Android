@@ -21,7 +21,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Android main = f1c4a17 (PR #34, r341, merged 2026-10-20). Untested in main: pen 7d3a263, fan hold 298ee9f, Extrude F150 e13bebb,
   Quest stick zoom (r324). Nothing unmerged on the branch.
 - Installed: run 39582935998 (rotate snap, 45dc651) on WSA, phone, Chromebook, SHIELD 2026-10-21. Tablet (unrooted): debug app only (user's request).
-- **Test device = Note** (user 2026-10-21 "new target"; unrooted, wireless; `target.sh n`, reference "Note"; r355 + debug app with the phone's session installed). Locked screen blocks the app: waiting for the user to unlock it. WSA = fallback.
+- **Test device = WSA** (user 2026-10-20). **Note** (added 2026-10-21) = S Pen test device only, not the main target (user); Quest = pseudo-pen device (user, untested). Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
   WSA `127.0.0.1:58526`; **USB serial = the user's SHIELD TV** (rooted; installs only).
 - User away from the printer: no printer tests. SHIELD installs only. **User 2026-10-19 (later): keep using WSA, not the phone;
@@ -38,7 +38,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - C: tight; old build dirs move to `D:\orca-builds-archive`.
 - First print: fixed by printer calibration (user, 2026-10-20; archive). **Open issue: app 3MF export fails in desktop Orca** (fix `match_filament_indices` in run 39529670166, installed on all devices; untested on a 4-filament export: the user exports from the phone and opens it in desktop Orca).
 - Need the printer, and user-only checks (bead look, shadows, light sliders, r276/r283/r284/r280/r316/r305): backlog.
-- Pen input (super low priority) + plate switcher pick: backlog.
+- Pen input (super low priority; test on the Note / Quest) + plate switcher pick: backlog.
 
 ## User decisions (2026-10-13)
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
