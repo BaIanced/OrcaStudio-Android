@@ -104,6 +104,8 @@ internal object Shaders {
         uniform float uKeyStrength;
         uniform int uSelStyle;
         uniform float uOverhangZ;
+        uniform highp vec4 uCutBand;
+        uniform int uCutBandOn;
         in vec3 vBary;
         in vec3 vNormal;
         in highp vec3 vWorld;
@@ -208,6 +210,14 @@ internal object Shaders {
                         float dense = 1.0 - smoothstep(0.06, 0.12, max(max(w.x, w.y), w.z));
                         shaded = mix(shaded, uSelectedColor, (1.0 - min(min(e.x, e.y), e.z)) * 0.8 * dense);
                     }
+                }
+                // Cut tool: a red line where the cut plane meets the selected object's surface (about 3 px wide, at least 0.3 mm),
+                // and a light red wash on the part that goes above the plane.
+                if (uCutBandOn == 1 && vSelected > 0.5 && uPass == 0) {
+                    highp float s = dot(uCutBand.xyz, vWorld) - uCutBand.w;
+                    float hw = max(fwidth(s) * 1.5, 0.3);
+                    shaded = mix(shaded, vec3(1.0, 0.15, 0.15), 0.9 * (1.0 - smoothstep(hw * 0.6, hw, abs(s))));
+                    shaded = mix(shaded, vec3(1.0, 0.3, 0.3), s > 0.0 ? 0.12 : 0.0);
                 }
                 color = vec4(shaded, alpha);
                 return;

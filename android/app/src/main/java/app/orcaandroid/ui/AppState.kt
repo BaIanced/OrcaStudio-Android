@@ -48,7 +48,8 @@ sealed interface Tool {
                      val overColours: Boolean = false) : Tool
     data object LayOnFace : Tool
     data object Measure : Tool
-    data class Cut(val z: Float) : Tool
+    /** The cut plane passes through the object's middle at height [z], turned by [rot] (Euler degrees) from the horizontal. */
+    data class Cut(val z: Float, val rot: Vec3 = Vec3(0f, 0f, 0f)) : Tool
     data object LayerHeight : Tool
 }
 

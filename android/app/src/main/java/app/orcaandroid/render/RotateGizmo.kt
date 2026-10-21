@@ -51,12 +51,12 @@ object RotateGizmo {
     }
 
     /** The ring (0 X, 1 Y, 2 Z) whose drawn line passes within [reach] pixels of (x, y), nearest first, or -1. */
-    fun pick(lo: Vec3, hi: Vec3, camera: Camera, x: Float, y: Float, reach: Float): Int {
+    fun pick(lo: Vec3, hi: Vec3, camera: Camera, x: Float, y: Float, reach: Float, axisCount: Int = 3): Int {
         val c = center(lo, hi)
         val r = radius(lo, hi, camera)
         var best = -1
         var bestD = reach
-        for (axis in 0..2) {
+        for (axis in 0 until axisCount) {
             val pts = ring(axis, c, r).map { camera.project(it) }
             for (i in 0 until pts.size - 1) {
                 val a = pts[i] ?: continue
@@ -181,7 +181,7 @@ object RotateGizmo {
     }
 
     /** Even-odd test of (x, y) against the closed outline [pts]. */
-    private fun inside(pts: List<Pair<Float, Float>>, x: Float, y: Float): Boolean {
+    fun inside(pts: List<Pair<Float, Float>>, x: Float, y: Float): Boolean {
         var odd = false
         var j = pts.size - 1
         for (i in pts.indices) {

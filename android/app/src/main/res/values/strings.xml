@@ -293,6 +293,8 @@
     <string name="pass_n">Pass %d</string>
     <string name="pause">Pause</string>
     <string name="perform_cut">Cut</string>
+    <string name="cut_hint">Drag the red disc up or down to set the height; drag a ring to tilt it (snaps every 5°, 45° near the centre). The red line on the object is where it cuts.</string>
+    <string name="cut_level">Level</string>
     <string name="plate_n">Plate %d</string>
     <string name="plate_type">Plate type</string>
     <string name="position">Position</string>

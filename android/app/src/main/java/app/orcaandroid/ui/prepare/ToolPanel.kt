@@ -57,6 +57,7 @@ import kotlin.math.roundToInt
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.orcaandroid.R
+import app.orcaandroid.render.CutPlane
 import app.orcaandroid.ui.AppViewModel
 import app.orcaandroid.ui.Tool
 import app.orcaandroid.ui.UiState
@@ -312,8 +313,13 @@ private fun CutOptions(state: UiState, vm: AppViewModel, tool: Tool.Cut) {
     var onCut by remember { mutableStateOf(false) }
     val lo = inst.min.z
     val hi = inst.min.z + inst.size.z
-    Text("Z = %.2f mm".format(Locale.ROOT, tool.z), style = MaterialTheme.typography.bodyMedium)
-    Slider(tool.z.coerceIn(lo, hi), { vm.scene.setTool(Tool.Cut(it)) }, valueRange = lo..hi)
+    val tilt = CutPlane.tilt(tool.rot)
+    Text(stringResource(R.string.cut_hint), style = MaterialTheme.typography.bodySmall)
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text("Z = %.2f mm,  %.1f°".format(Locale.ROOT, tool.z, tilt), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+        if (tilt > 0.05f) TextButton(onClick = { vm.scene.setTool(Tool.Cut(tool.z)) }) { Text(stringResource(R.string.cut_level)) }
+    }
+    Slider(tool.z.coerceIn(lo, hi), { vm.scene.setTool(Tool.Cut(it, tool.rot)) }, valueRange = lo..hi)
     Row(verticalAlignment = Alignment.CenterVertically) {
         Checkbox(keepUpper, { keepUpper = it }); Text(stringResource(R.string.keep_upper))
         Checkbox(keepLower, { keepLower = it }); Text(stringResource(R.string.keep_lower))
@@ -324,7 +330,7 @@ private fun CutOptions(state: UiState, vm: AppViewModel, tool: Tool.Cut) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Checkbox(flip, { flip = it }, enabled = keepUpper); Text(stringResource(R.string.flip_upper_down))
     }
-    FilledTonalButton(onClick = { vm.scene.cut(tool.z, keepUpper, keepLower, flip, onCut) }, enabled = keepUpper || keepLower, modifier = Modifier.fillMaxWidth()) {
+    FilledTonalButton(onClick = { vm.scene.cut(tool.z, tool.rot, keepUpper, keepLower, flip, onCut) }, enabled = keepUpper || keepLower, modifier = Modifier.fillMaxWidth()) {
         Text(stringResource(R.string.perform_cut))
     }
 }

@@ -2464,3 +2464,6 @@ User: "you just tested something we already confirmed worked". Cross-checked eac
 ## 2026-10-21 Rotate gizmo + haptics: USER VERIFIED (r358)
 - User: "Rotate gizmo is perfect, haptics are a nice touch as well, feel good." Covers rings (fd83086), ticks + snap (45dc651), tick haptics. Backlog line 151 closed.
 - Same message, pie menu: user wants it as a stylus/S Pen button-activated, customizable tool picker (low priority; backlog). Bugs reported (backlog): prime tower selectable through objects; Check mesh 3D markers static when object moves; lab slider value vs fade-out label differ ~5%; Cut "place upper part on cut face" fails (auto drop to plate; per-object auto-drop off).
+
+## 2026-10-21 Bug batch verdicts (run 39671546192)
+- User: "Prime tower fixed. Mesh dots fixed. Lab slider fixed." (all three USER VERIFIED). Cut: upper part stays floating (OK) but the parts are auto-arranged after the operation; "flip" upper part makes the paint on the object disappear (open bug). Cut UI redesign requested: show where the cut meets the surface (red box walls visible through the object), touch-friendly height adjust with the tool window open, rotate gizmo for angular cuts (backlog).

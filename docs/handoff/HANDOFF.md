@@ -20,7 +20,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = f1c4a17 (PR #34, r341, merged 2026-10-20). Untested in main: pen 7d3a263, fan hold 298ee9f, Extrude F150 e13bebb,
   Quest stick zoom (r324). Nothing unmerged on the branch.
-- Installed: run 39671546192 (4 bug fixes, built from ac474c2 minus docs; pie menu r358 + Check mesh + Z rail inside) on WSA, phone, Chromebook, SHIELD, Note 2026-10-21. Tablet (unrooted): debug app only (user's request).
+- Installed: run 39671546192 (4 bug fixes; pie menu r358 + Check mesh + Z rail inside) on WSA, phone, Chromebook, SHIELD, Note 2026-10-21; the cut batch is only on WSA (debug build) until the next CI run. Tablet (unrooted): debug app only (user's request).
 - **Test device = WSA** (user 2026-10-20). **Note** (added 2026-10-21) = S Pen test device only, not the main target (user; it locks: user says when it is awake, 2026-10-21); Quest = pseudo-pen device (user, untested). Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
   WSA `127.0.0.1:58526`; **USB serial = the user's SHIELD TV** (rooted; installs only).
@@ -32,8 +32,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **User 2026-10-21: one small step per session.** Cue `/clear` + `/next` after EACH step. Steps 1-6 (view cube r353, rotate gizmo + ticks + snap + haptics, Z rail ad82885,
   Check mesh, pie menu 55b328b/r358) are built and installed everywhere. **Rotate gizmo + haptics USER VERIFIED 2026-10-21** (archive). Feel pending: view cube, Z rail, Check mesh, pie menu (backlog).
   Pie menu: user wants it as an S Pen button-activated customizable picker (LOW, backlog); column collapse stays undone.
-- **Bugs (user 2026-10-21, backlog "BUG, fixed untested"): all 4 coded + compiled, CI run 39671546192 (prime tower pick-through, Check mesh dots follow the copy, Cut place-upper-on-cut-face = floats with auto drop off, lab readout one step behind).**
-  Run is green and installed on every device 2026-10-21. Next: Claude-test each on WSA (cut, tower, Check mesh move), then ask the user to confirm the cut interpretation.
+- **Bugs 2026-10-21: prime tower pick, Check mesh dots, lab readout USER VERIFIED (archive).** Cut: upper floats = OK. **Cut batch built, WSA OK (Claude), user feel pending** (backlog "redesign, BUILT"): paint kept (KeepPaint), plane disc + red line on the surface, drag disc = height, X/Y rings = tilt, no selection look during cut. Ask the user: parts auto-arranged after the cut, wanted?
 - **Paint tools** (survey `NOTES-paint-survey.md`): 4 picks done, WSA OK (Claude), run 39557578074 installed all devices
   2026-10-21; user feel pending (all paint batches).
 - C: tight; old build dirs move to `D:\orca-builds-archive`.

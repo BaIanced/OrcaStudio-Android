@@ -110,6 +110,13 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var meshMarkers: FloatArray? = null
     /** How far the checked copy has moved since [meshMarkers] were found. */
     var meshMarkerShift = floatArrayOf(0f, 0f, 0f)
+    /** Cut tool: the plane as a disc (centre xyz, in-plane radius vectors u xyz and v xyz), drawn depth-tested; null = none. */
+    var cutDisc: FloatArray? = null
+    /** Cut tool: the plane (nx, ny, nz, d) the selected object shows as a red line on its surface; null = off. */
+    var cutBand: FloatArray? = null
+    /** Cut tool: tilt rings (X and Y only) round this centre xyz, radius of the plane disc; null = none. */
+    var cutRings: FloatArray? = null
+
     /** Section view plane (nx, ny, nz, d): world points with n . p > d are cut away; null = off. */
     var section: FloatArray? = null
     var filamentColors: List<FloatArray> = emptyList()
@@ -399,7 +406,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
 
     /** Everything the Preview frame depends on (data classes compare by value, arrays by identity unless listed). */
     private fun superKey(): List<Any?> = listOf(mvp.toList(), viewW, viewH, previewVersion, previewStyle, previewRange,
-        previewOrigin.toList(), section?.toList(), filamentColors, colors, measurePoints.map { it.toList() }, cutPlane?.toList(),
+        previewOrigin.toList(), section?.toList(), filamentColors, colors, measurePoints.map { it.toList() }, cutPlane?.toList(), cutDisc?.toList(),
         bedCount, plateOrigins, activePlate, badgeCount, atlas, gridRect?.toList())
 
     private fun drawScene() {
@@ -697,6 +704,10 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glUniform1f(loc(meshProgram, "uKeyStrength"), keyStrength)
         // TriangleSelector::select_patch's test: world normal z below -cos(angle); -2 = off.
         glUniform1f(loc(meshProgram, "uOverhangZ"), if (overhangHighlight > 0f) -Math.cos(Math.toRadians(overhangHighlight.toDouble())).toFloat() else -2f)
+        cutBand.let { b ->
+            glUniform1i(loc(meshProgram, "uCutBandOn"), if (b != null) 1 else 0)
+            if (b != null) glUniform4f(loc(meshProgram, "uCutBand"), b[0], b[1], b[2], b[3])
+        }
         glUniform1fv(loc(meshProgram, "uSelected"), Shaders.MAX_SELECTED, ids.copyOf(Shaders.MAX_SELECTED), 0)
         glUniform1i(loc(meshProgram, "uSelectedCount"), minOf(ids.size, Shaders.MAX_SELECTED))
         glUniform3fv(loc(meshProgram, "uDrag"), 1, dragOffset, 0)
@@ -728,8 +739,9 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     /** Selection ids shown as selected: the dragged prime tower, else the selected copies. */
     private val highlighted get() = if (dragTower >= 0) floatArrayOf(-2f - dragTower) else selectedIds
 
+    // The cut tool shows the object plain: its own red line and disc mark the cut, not the selection look.
     /** The prime tower is always shown x-ray outlined while touched, whatever the selection style setting (user r325). */
-    private val activeSelectionStyle get() = if (dragTower >= 0) SelectionStyle.OUTLINE or SelectionStyle.XRAY else selectionStyle
+    private val activeSelectionStyle get() = if (cutBand != null) 0 else if (dragTower >= 0) SelectionStyle.OUTLINE or SelectionStyle.XRAY else selectionStyle
 
     /** Outline / x-ray and the bounding box of the selection (Prepare). */
     private fun drawSelection() {
@@ -744,11 +756,53 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         if (rotateGizmo) drawRings(box)
     }
 
+    /** The cut tool's tilt rings (X red, Y green) round the plane disc's centre. */
+    private fun drawCutRings() {
+        val g = cutRings ?: return
+        val k = g[3] / Math.sqrt(3.0).toFloat()
+        drawRings(floatArrayOf(g[0] - k, g[1] - k, g[2] - k, g[0] + k, g[1] + k, g[2] + k), 2)
+    }
+
+    /** The cut plane: a translucent disc and its rim, depth-tested so the object hides the part inside it. */
+    private fun drawCutDisc() {
+        val d = cutDisc ?: return
+        val n = 64
+        val pts = FloatArray((n + 2) * 3)
+        pts[0] = d[0]; pts[1] = d[1]; pts[2] = d[2]
+        for (i in 0..n) {
+            val a = i * 2.0 * Math.PI / n
+            val c = Math.cos(a).toFloat(); val s = Math.sin(a).toFloat()
+            for (k in 0..2) pts[(i + 1) * 3 + k] = d[k] + d[3 + k] * c + d[6 + k] * s
+        }
+        glUseProgram(lineProgram)
+        glUniformMatrix4fv(loc(lineProgram, "uMvp"), 1, false, mvp, 0)
+        glUniform3f(loc(lineProgram, "uOffset"), 0f, 0f, 0f)
+        setSection(lineProgram, on = false)
+        glBindBuffer(GL_ARRAY_BUFFER, scratchVbo)
+        glBufferData(GL_ARRAY_BUFFER, pts.size * 4, floats(pts), GL_STREAM_DRAW)
+        glEnableVertexAttribArray(0)
+        glVertexAttribPointer(0, 3, GL_FLOAT, false, 12, 0)
+        glEnable(GL_DEPTH_TEST)
+        glDepthMask(false)
+        glEnable(GL_BLEND)
+        glBlendColor(0f, 0f, 0f, 0.2f)
+        glBlendFunc(GL_CONSTANT_ALPHA, GL_ONE_MINUS_CONSTANT_ALPHA)
+        glUniform3f(loc(lineProgram, "uColor"), 1f, 0.25f, 0.25f)
+        glDrawArrays(GL_TRIANGLE_FAN, 0, n + 2)
+        glDisable(GL_BLEND)
+        glLineWidth(3f * pxScale)
+        glUniform3f(loc(lineProgram, "uColor"), 1f, 0.3f, 0.3f)
+        glDrawArrays(GL_LINE_STRIP, 1, n + 1)
+        glLineWidth(1f)
+        glDepthMask(true)
+        glDisableVertexAttribArray(0)
+    }
+
     /**
      * The rotate gizmo's rings ([RotateGizmo]) round [box]'s centre, on top of the scene as the desktop draws them. While one
      * is dragged only it shows, thicker, with spokes from where the drag started to where it has turned.
      */
-    private fun drawRings(box: FloatArray) {
+    private fun drawRings(box: FloatArray, axisCount: Int = 3) {
         val lo = app.orcaandroid.core.Vec3(box[0], box[1], box[2])
         val hi = app.orcaandroid.core.Vec3(box[3], box[4], box[5])
         val c = RotateGizmo.center(lo, hi)
@@ -770,7 +824,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             glDrawArrays(mode, 0, points.size)
         }
         val dark = floatArrayOf(0.1f, 0.1f, 0.1f)
-        for (axis in 0..2) {
+        for (axis in 0 until axisCount) {
             if (grab >= 0 && axis != grab) continue
             val ring = RotateGizmo.ring(axis, c, r)
             val w = if (grab >= 0) 4f else 3f
@@ -1097,6 +1151,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     }
 
     private fun drawOverlays() {
+        drawCutDisc()
+        if (cutRings != null) drawCutRings()
         val lines = ArrayList<Float>()
         if (measurePoints.size >= 2) measurePoints.take(2).forEach { lines += it.toList() }
         cutPlane?.let { c ->
