@@ -301,6 +301,7 @@ private fun LayoutLabSection(state: UiState, vm: AppViewModel) {
         SwitchRow(stringResource(R.string.lab_tools_left), lab.toolsLeft, onChange = { vm.setLab(lab.copy(toolsLeft = it)) })
         SwitchRow(stringResource(R.string.lab_plates_on_handle), lab.platesOnHandle, onChange = { vm.setLab(lab.copy(platesOnHandle = it)) })
         SwitchRow(stringResource(R.string.lab_fullscreen_portrait), lab.fullscreenPortrait, onChange = { vm.setLab(lab.copy(fullscreenPortrait = it)) })
+        SwitchRow(stringResource(R.string.lab_view_cube), lab.viewCube, onChange = { vm.setLab(lab.copy(viewCube = it)) })
         val alphaContext = LocalContext.current
         val alphaText = stringResource(R.string.lab_overlay_alpha, (lab.overlayAlpha * 100).toInt())
         Text(alphaText, style = MaterialTheme.typography.bodyMedium)

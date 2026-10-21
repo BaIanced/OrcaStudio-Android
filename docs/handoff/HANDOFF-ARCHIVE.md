@@ -2453,3 +2453,4 @@ User: "you just tested something we already confirmed worked". Cross-checked eac
 
 ### 2026-10-21 view cube verified
 - (user, 2026-10-21, run 39563849841) View cube: "View cube works great, could it be drag and drop?" Follow-up: make the cube movable on screen (backlog).
+- (user, 2026-10-21, r352 run 39568391863) Movable view cube: "Haptics works, cube moves around, can we put the cube inside the lab section and disable it? It's causing me motion sickness, not sure why". Follow-up: lab toggle, off by default.
