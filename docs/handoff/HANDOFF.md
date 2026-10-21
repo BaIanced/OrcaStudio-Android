@@ -29,10 +29,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - User sessions backed up: phone `/data/local/tmp/phone-session-backup.{3mf,json}` (8 plates), WSA `/data/local/tmp/session-backup.{3mf,json}`.
   Test zip `scadzip-test.zip` stays in `/sdcard/Download` on phone + Chromebook. LAN access code was given in chat: never write it anywhere.
 ## Next task
-- **Extended paint tools**: batch 1 (circle/triangle/fill/height) and batch 2 (gap fill, "On overhangs only", Support shapes) WSA-tested OK by
-  Claude 2026-10-20; CI run 39517474174 on all 4 devices (user-feel check pending). Re-pick the "Gap fill" chip after another shape chip.
-  **Filament remap** (Colour chip "Remap filaments", `paint_remap` in OrcaTools.cpp via `FacetsAnnotation::remap_states`; base extruder
-  not remapped): WSA-tested OK (2->1), WSA only. **Stroke lock** (brush chips "Lock ↕/↔", screen axis through the stroke start; Viewport.onPaint) WSA OK (local debug build, 2026-10-20), pushed, no CI build yet. Left (backlog): survey, edge outline (needs GO).
+- **Extended paint tools** (details: backlog "Extended paint tools"): batches 1-2, filament remap, stroke lock (Lock ↕/↔) and
+  overhang highlight (support chip "Highlight overhangs") all WSA-tested OK by Claude 2026-10-20/21; user feel pending. Stroke lock +
+  highlight: run 39553342864 installed on all 4 devices 2026-10-21. Web survey done (`NOTES-paint-survey.md`, 8 ranked ideas), waiting on the user's pick; edge outline needs GO.
 - Layer-line repro tools `abshot.sh` / `abtop.sh` (reference).
   Idea offered: Preview camera-light slider (no GO yet). C: tight; old build dirs move to `D:\orca-builds-archive`.
 - First print: fixed by printer calibration (user, 2026-10-20; archive). **Open issue: app 3MF export fails in desktop Orca** (fix `match_filament_indices` in run 39529670166, installed on all devices; untested on a 4-filament export: the user exports from the phone and opens it in desktop Orca).
