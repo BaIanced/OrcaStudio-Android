@@ -18,6 +18,9 @@
 #include <utility>
 
 #include <boost/log/trivial.hpp>
+#include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
+#include <CGAL/Polygon_mesh_processing/self_intersections.h>
+#include <CGAL/Surface_mesh/Surface_mesh.h>
 
 #include "libslic3r/AABBMesh.hpp"
 #include "libslic3r/CustomGCode.hpp"
@@ -1135,7 +1138,7 @@ json OrcaEngine::check_mesh(int object, int instance, double thickness)
         throw std::runtime_error("Invalid instance");
     constexpr size_t max_points = 400;
     json parts = json::array();
-    std::vector<float> thin_points;
+    std::vector<float> thin_points, open_points, cross_points;
     size_t thin_total = 0;
     for (int v = 0; v < int(obj.volumes.size()); ++v) {
         const ModelVolume *vol = obj.volumes[v];
@@ -1159,6 +1162,48 @@ json OrcaEngine::check_mesh(int object, int instance, double thickness)
             if (n.norm() < 1e-9f) { ++degenerate; skip[f] = 1; }
         }
         part["degenerate"] = degenerate;
+        // Open edges: an edge used by one face only; its midpoint marks the hole in the view.
+        {
+            std::map<std::pair<int, int>, int> uses;
+            for (const auto &t : its.indices)
+                for (int k = 0; k < 3; ++k)
+                    ++uses[{std::min(t[k], t[(k + 1) % 3]), std::max(t[k], t[(k + 1) % 3])}];
+            for (const auto &[edge, n] : uses)
+                if (n == 1 && open_points.size() < max_points * 3) {
+                    const Vec3f m = (its.vertices[edge.first] + its.vertices[edge.second]) / 2.f;
+                    open_points.insert(open_points.end(), {m.x(), m.y(), m.z()});
+                }
+        }
+        // Self-intersections: pairs of faces that cut through each other (CGAL); the first face of a pair marks it.
+        size_t crossings = 0;
+        try {
+            using Kernel = CGAL::Exact_predicates_inexact_constructions_kernel;
+            CGAL::Surface_mesh<Kernel::Point_3> sm;
+            std::vector<CGAL::SM_Vertex_index> vi;
+            for (const stl_vertex &p : its.vertices)
+                vi.push_back(sm.add_vertex({p.x(), p.y(), p.z()}));
+            std::vector<size_t> face_of; // surface-mesh face index -> its face
+            for (size_t f = 0; f < its.indices.size(); ++f) {
+                if (skip[f])
+                    continue;
+                const auto &t = its.indices[f];
+                if (sm.add_face(vi[t[0]], vi[t[1]], vi[t[2]]) != CGAL::Surface_mesh<Kernel::Point_3>::null_face())
+                    face_of.push_back(f);
+            }
+            std::vector<std::pair<CGAL::SM_Face_index, CGAL::SM_Face_index>> pairs;
+            CGAL::Polygon_mesh_processing::self_intersections(sm, std::back_inserter(pairs));
+            crossings = pairs.size();
+            for (const auto &pr : pairs) {
+                if (cross_points.size() >= max_points * 3)
+                    break;
+                const auto &t = its.indices[face_of[size_t(pr.first)]];
+                const Vec3f c = (its.vertices[t[0]] + its.vertices[t[1]] + its.vertices[t[2]]) / 3.f;
+                cross_points.insert(cross_points.end(), {c.x(), c.y(), c.z()});
+            }
+        } catch (const std::exception &e) {
+            BOOST_LOG_TRIVIAL(warning) << "check_mesh self-intersections: " << e.what();
+        }
+        part["intersections"] = crossings;
         // Thin walls: from each face's centre a ray goes just inside; hitting a face of the same mesh within
         // [thickness] means the wall is thinner than that.
         if (thickness > 0. && !its.indices.empty()) {
@@ -1182,7 +1227,8 @@ json OrcaEngine::check_mesh(int object, int instance, double thickness)
         thin_total += thin;
         parts.push_back(std::move(part));
     }
-    return {{"parts", parts}, {"thickness", thickness}, {"thinFaces", thin_total}, {"thinPoints", thin_points}};
+    return {{"parts", parts}, {"thickness", thickness}, {"thinFaces", thin_total}, {"thinPoints", thin_points},
+            {"openPoints", open_points}, {"crossPoints", cross_points}};
 }
 
 } // namespace orca

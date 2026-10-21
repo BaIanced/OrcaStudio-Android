@@ -21,6 +21,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -401,6 +402,13 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         }
         val highlight = (state.tool as? Tool.Paint)?.takeIf { !showPreview && it.kind == "support" }?.highlight ?: 0f
         v.onGl { cutPlane = cut; overhangHighlight = highlight }
+    }
+    // Check mesh: the problem spots stay up until another copy is selected.
+    val marks by vm.scene.meshMarkers.collectAsState()
+    LaunchedEffect(v, marks, state.selection) {
+        if (marks != null && marks?.first != state.selection) vm.scene.clearMeshMarkers()
+        val data = marks?.takeIf { it.first == state.selection }?.second
+        v.onGl { meshMarkers = data }
     }
     // Regions view: the selected copy's crease lines, again after the model or the angle changes (a paint stroke changes
     // the scene too, but the lines only depend on the geometry; recomputing them is cheap next to a stroke).

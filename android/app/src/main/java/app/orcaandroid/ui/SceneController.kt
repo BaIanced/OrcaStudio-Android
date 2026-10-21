@@ -194,8 +194,21 @@ class SceneController(private val store: Store, private val presets: PresetContr
 
     /** Report of the selected copy's mesh problems (null without a selection); [thickness] is the thin-wall limit in mm. */
     suspend fun meshReport(thickness: Float): String? = selection?.let { sel ->
-        app.orcaandroid.core.MeshReport.text(store.engine.checkMesh(sel.obj, sel.instance, thickness))
+        val r = store.engine.checkMesh(sel.obj, sel.instance, thickness)
+        lastCheck = sel to app.orcaandroid.core.MeshReport.markers(r)
+        app.orcaandroid.core.MeshReport.text(r)
     }
+
+    private var lastCheck: Pair<Selection, FloatArray>? = null
+
+    /** Problem spots (x, y, z, kind quadruples) of the copy they were found on, drawn in the 3D view until the selection changes. */
+    val meshMarkers = kotlinx.coroutines.flow.MutableStateFlow<Pair<Selection, FloatArray>?>(null)
+
+    /** True when the last report found spots to show. */
+    val hasMeshMarkers get() = lastCheck?.second?.isNotEmpty() == true
+
+    fun showMeshMarkers() { meshMarkers.value = lastCheck }
+    fun clearMeshMarkers() { meshMarkers.value = null }
 
     fun cut(z: Float, keepUpper: Boolean, keepLower: Boolean, flip: Boolean) {
         val sel = selection ?: return

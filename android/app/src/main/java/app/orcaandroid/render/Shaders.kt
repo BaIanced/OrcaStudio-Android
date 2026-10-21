@@ -299,7 +299,7 @@ internal object Shaders {
             color = vec4(vColor, 1.0);
         }"""
 
-    /** Markers: position + kind (0 retract, 1 unretract, 2 seam, 3 wipe, 4 measurement). */
+    /** Markers: position + kind (0 retract, 1 unretract, 2 seam, 3 wipe, 4 measurement, 5 thin wall, 6 open edge, 7 self-intersection). */
     const val POINT_VS = """#version 300 es
         uniform mat4 uMvp;
         uniform vec3 uOffset;
@@ -324,9 +324,10 @@ internal object Shaders {
                 gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return;
             }
             vColor = kind == 0 ? vec3(0.9, 0.1, 0.9) : kind == 1 ? vec3(0.1, 0.8, 0.9) : kind == 2 ? vec3(0.95, 0.95, 0.95)
-                   : kind == 3 ? vec3(1.0, 0.9, 0.0) : vec3(1.0, 0.3, 0.3);
+                   : kind == 3 ? vec3(1.0, 0.9, 0.0) : kind == 5 ? vec3(1.0, 0.55, 0.0) : kind == 6 ? vec3(0.9, 0.1, 0.1)
+                   : kind == 7 ? vec3(0.9, 0.2, 1.0) : vec3(1.0, 0.3, 0.3);
             gl_Position = uMvp * vec4(world + pull, 1.0);
-            gl_PointSize = (kind == 4 ? 16.0 : 7.0) * uPxScale;
+            gl_PointSize = (kind == 4 ? 16.0 : kind >= 5 ? 13.0 : 7.0) * uPxScale;
         }"""
 
     /**

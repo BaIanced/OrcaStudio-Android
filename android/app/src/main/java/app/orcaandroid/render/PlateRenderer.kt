@@ -106,6 +106,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var cutPlane: FloatArray? = null
     /** Regions view: crease line segments (x, y, z per end, world), drawn over the model with depth test. */
     var creaseLines: FloatArray? = null
+    /** Check mesh problem spots: x, y, z, kind (5 thin wall, 6 open edge, 7 self-intersection) per marker. */
+    var meshMarkers: FloatArray? = null
     /** Section view plane (nx, ny, nz, d): world points with n . p > d are cut away; null = off. */
     var section: FloatArray? = null
     var filamentColors: List<FloatArray> = emptyList()
@@ -442,7 +444,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
                 drawMesh(paintVbo, paintCount, pass = 2)
                 glDisable(GL_POLYGON_OFFSET_FILL)
             }
-            if (models) drawCreases()
+            if (models) { drawCreases(); drawMeshMarkers() }
             // Modifiers and support blockers/enforcers are drawn translucent on top.
             glEnable(GL_BLEND)
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
@@ -1069,6 +1071,27 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     }
 
     /** Measurement line and cut plane outline, drawn without depth test so they stay visible. */
+    private fun drawMeshMarkers() {
+        val data = meshMarkers?.takeIf { it.isNotEmpty() } ?: return
+        glEnable(GL_DEPTH_TEST)
+        glUseProgram(pointProgram)
+        glUniformMatrix4fv(loc(pointProgram, "uMvp"), 1, false, mvp, 0)
+        glUniform3f(loc(pointProgram, "uOffset"), 0f, 0f, 0f)
+        camera.eye().let { glUniform3f(loc(pointProgram, "uEye"), it.x, it.y, it.z) }
+        glUniform1i(loc(pointProgram, "uKinds"), 0b11100000)
+        glUniform1f(loc(pointProgram, "uPxScale"), pxScale)
+        setSection(pointProgram)
+        glBindBuffer(GL_ARRAY_BUFFER, scratchVbo)
+        glBufferData(GL_ARRAY_BUFFER, data.size * 4, floats(data), GL_STREAM_DRAW)
+        glEnableVertexAttribArray(0)
+        glVertexAttribPointer(0, 3, GL_FLOAT, false, 16, 0)
+        glEnableVertexAttribArray(1)
+        glVertexAttribPointer(1, 1, GL_FLOAT, false, 16, 12)
+        glDrawArrays(GL_POINTS, 0, data.size / 4)
+        glDisableVertexAttribArray(0)
+        glDisableVertexAttribArray(1)
+    }
+
     private fun drawOverlays() {
         val lines = ArrayList<Float>()
         if (measurePoints.size >= 2) measurePoints.take(2).forEach { lines += it.toList() }

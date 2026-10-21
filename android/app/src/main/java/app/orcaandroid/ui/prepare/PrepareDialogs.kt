@@ -437,9 +437,11 @@ internal fun LayerGcodeDialog(state: UiState, vm: AppViewModel, plate: Int, init
 private fun CheckMeshDialog(vm: AppViewModel, onDismiss: () -> Unit) {
     var thickness by remember { mutableFloatStateOf(0.4f) }
     var report by remember { mutableStateOf<String?>(null) }
+    var hasMarkers by remember { mutableStateOf(false) }
     androidx.compose.runtime.LaunchedEffect(thickness) {
         kotlinx.coroutines.delay(300)
         report = runCatching { vm.scene.meshReport(thickness) }.getOrElse { it.message ?: it.toString() } ?: ""
+        hasMarkers = vm.scene.hasMeshMarkers
     }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -451,6 +453,10 @@ private fun CheckMeshDialog(vm: AppViewModel, onDismiss: () -> Unit) {
                 Text(report ?: stringResource(R.string.checking))
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) } },
+        confirmButton = {
+            if (hasMarkers) TextButton(onClick = { vm.scene.showMeshMarkers(); onDismiss() }) { Text(stringResource(R.string.check_mesh_show)) }
+            else TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) }
+        },
+        dismissButton = { if (hasMarkers) TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) } },
     )
 }

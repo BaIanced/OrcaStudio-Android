@@ -17,14 +17,32 @@ object MeshReport {
             val degenerate = p.optInt("degenerate")
             val shells = p.optInt("shells")
             val thin = p.optInt("thinFaces")
+            val crossing = p.optInt("intersections")
             val volume = p.optDouble("volumeMm3")
             out.appendLine("$name: ${p.optInt("faces")} faces, $shells shell${if (shells == 1) "" else "s"}, volume ${"%.0f".format(volume)} mm3")
             if (open > 0) { problems++; out.appendLine("  - $open open edges (the mesh has holes; Repair may help)") }
             if (degenerate > 0) { problems++; out.appendLine("  - $degenerate zero-area faces (Repair removes them)") }
             if (volume < 0) { problems++; out.appendLine("  - negative volume (faces point inward)") }
+            if (crossing > 0) { problems++; out.appendLine("  - $crossing pairs of faces cut through each other (self-intersections)") }
             if (thin > 0) { problems++; out.appendLine("  - $thin faces with a wall thinner than ${"%.2f".format(thickness)} mm") }
         }
         out.appendLine(if (problems == 0) "No problems found." else "$problems problem${if (problems == 1) "" else "s"} found.")
         return out.toString().trimEnd()
+    }
+
+    /** Marker kinds of the point shader: thin wall, open edge, self-intersection. */
+    private val KINDS = listOf("thinPoints" to 5f, "openPoints" to 6f, "crossPoints" to 7f)
+
+    /** The problem spots of a `checkMesh` result as x, y, z, kind quadruples (empty when it found none). */
+    fun markers(r: JSONObject): FloatArray {
+        val out = ArrayList<Float>()
+        for ((key, kind) in KINDS) {
+            val pts = r.optJSONArray(key) ?: continue
+            for (i in 0 until pts.length() / 3) {
+                for (k in 0 until 3) out += pts.getDouble(i * 3 + k).toFloat()
+                out += kind
+            }
+        }
+        return out.toFloatArray()
     }
 }
