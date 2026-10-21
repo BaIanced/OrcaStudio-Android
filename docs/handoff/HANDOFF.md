@@ -31,7 +31,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 ## Next task
 - **User 2026-10-21: one small step per session.** Cue `/clear` + `/next` after EACH step:
   1. View cube DONE (r353, lab switch, off). 2. Rotate gizmo rings DONE fd83086 (menu / R). 3. Rotate ticks + snap DONE 45dc651
-     (WSA OK Claude; CI run 39582935998; user feel of 2+3 pending, backlog). 4. Z rail (lift dot) DONE ad82885 (WSA OK Claude r356; archive; user feel pending, backlog). 5. print3d_toolbox checks (thin wall/intersections).
+     (WSA OK Claude; CI run 39582935998; user feel of 2+3 pending, backlog). 4. Z rail (lift dot) DONE ad82885 (WSA OK Claude r356; archive; user feel pending, backlog). 5a. Check mesh CODED bb57009 (local debug build, WSA OK Claude, NOT in a CI build yet): native `checkMesh` (OrcaTools.cpp: open edges, shells, volume, zero-area faces, thin walls by inward ray; returns up to 400 `thinPoints` world x,y,z, unused so far), object More menu > Check mesh dialog (thin-wall slider), MCP `object_check_mesh`. 5b NEXT: self-intersections check + show the thin spots / open edges in the 3D view (overhang tint pattern, PlateRenderer.overhangHighlight), then dispatch CI and install everywhere.
      6. Pie menu / tool-bar collapse (discuss first).
 - **Paint tools** (survey `NOTES-paint-survey.md`): 4 picks done, WSA OK (Claude), run 39557578074 installed all devices
   2026-10-21; user feel pending (all paint batches).
