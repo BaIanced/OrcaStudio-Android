@@ -1126,4 +1126,63 @@ json OrcaEngine::option_states(const json &object)
     return {{"disabled", disabled}, {"hidden", hidden}};
 }
 
+
+json OrcaEngine::check_mesh(int object, int instance, double thickness)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    const ModelObject &obj = object_at(object);
+    if (instance < 0 || instance >= int(obj.instances.size()))
+        throw std::runtime_error("Invalid instance");
+    constexpr size_t max_points = 400;
+    json parts = json::array();
+    std::vector<float> thin_points;
+    size_t thin_total = 0;
+    for (int v = 0; v < int(obj.volumes.size()); ++v) {
+        const ModelVolume *vol = obj.volumes[v];
+        if (!vol->is_model_part())
+            continue;
+        // World frame, so the thickness is in millimetres however the copy is scaled.
+        const Transform3d trafo = obj.instances[instance]->get_matrix() * vol->get_matrix();
+        indexed_triangle_set its = vol->mesh().its;
+        const double side = trafo.linear().determinant() < 0 ? -1. : 1.;
+        for (stl_vertex &p : its.vertices)
+            p = (trafo * p.cast<double>()).cast<float>();
+        json part = {{"volume", v}, {"name", vol->name}, {"faces", its.indices.size()}};
+        part["openEdges"] = its_num_open_edges(its);
+        part["shells"] = its_number_of_patches(its);
+        part["volumeMm3"] = its_volume(its);
+        size_t degenerate = 0, thin = 0;
+        std::vector<char> skip(its.indices.size(), 0);
+        for (size_t f = 0; f < its.indices.size(); ++f) {
+            const auto &t = its.indices[f];
+            const Vec3f n = (its.vertices[t[1]] - its.vertices[t[0]]).cross(its.vertices[t[2]] - its.vertices[t[0]]);
+            if (n.norm() < 1e-9f) { ++degenerate; skip[f] = 1; }
+        }
+        part["degenerate"] = degenerate;
+        // Thin walls: from each face's centre a ray goes just inside; hitting a face of the same mesh within
+        // [thickness] means the wall is thinner than that.
+        if (thickness > 0. && !its.indices.empty()) {
+            const AABBMesh tree(its);
+            for (size_t f = 0; f < its.indices.size(); ++f) {
+                if (skip[f])
+                    continue;
+                const auto &t = its.indices[f];
+                const Vec3d a = its.vertices[t[0]].cast<double>(), b = its.vertices[t[1]].cast<double>(), c = its.vertices[t[2]].cast<double>();
+                const Vec3d n = (b - a).cross(c - a).normalized() * side;
+                const Vec3d centre = (a + b + c) / 3.;
+                const auto hit = tree.query_ray_hit(centre - n * 1e-3, -n);
+                if (hit.is_hit() && hit.distance() < thickness) {
+                    ++thin;
+                    if (thin_points.size() < max_points * 3)
+                        thin_points.insert(thin_points.end(), {float(centre.x()), float(centre.y()), float(centre.z())});
+                }
+            }
+        }
+        part["thinFaces"] = thin;
+        thin_total += thin;
+        parts.push_back(std::move(part));
+    }
+    return {{"parts", parts}, {"thickness", thickness}, {"thinFaces", thin_total}, {"thinPoints", thin_points}};
+}
+
 } // namespace orca

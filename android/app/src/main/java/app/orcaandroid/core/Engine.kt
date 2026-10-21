@@ -125,6 +125,9 @@ class Engine(private val cacheDir: File) {
         parseScene(call("cut", args("object" to obj, "instance" to instance, "z" to z, "keepUpper" to keepUpper, "keepLower" to keepLower, "flipUpper" to flipUpper)))
     suspend fun simplify(obj: Int, ratio: Float) = parseScene(call("simplify", args("object" to obj, "ratio" to ratio)))
     suspend fun repair(obj: Int) = parseScene(call("repair", args("object" to obj)))
+    /** Read-only mesh report of one copy; see [MeshReport.text]. Faces whose wall is thinner than [thickness] mm are counted. */
+    suspend fun checkMesh(obj: Int, instance: Int = 0, thickness: Float = 0.4f): JSONObject =
+        call("checkMesh", args("object" to obj, "instance" to instance, "thickness" to thickness))
     suspend fun replaceMesh(obj: Int, path: String, module: String = "") =
         parseScene(call("replaceMesh", args("object" to obj, "path" to path, "module" to module)))
     suspend fun setObjectModule(obj: Int, module: String) =

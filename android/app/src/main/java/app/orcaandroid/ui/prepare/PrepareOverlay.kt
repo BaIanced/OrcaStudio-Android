@@ -551,6 +551,7 @@ private fun ToolButtons(
                     HorizontalDivider()
                     DropdownMenuItem(text = { Text(stringResource(R.string.simplify)) }, onClick = { moreMenu = false; dialog = "simplify" })
                     DropdownMenuItem(text = { Text(stringResource(R.string.repair)) }, onClick = { moreMenu = false; vm.scene.repair() })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.check_mesh)) }, onClick = { moreMenu = false; dialog = "check" })
                     DropdownMenuItem(text = { Text(stringResource(R.string.measure)) }, onClick = { moreMenu = false; vm.scene.setTool(Tool.Measure) },
                         leadingIcon = { Icon(Icons.Default.Straighten, null) })
                 }

@@ -325,6 +325,9 @@
     <string name="remaining_fmt">%s left</string>
     <string name="remove">Remove</string>
     <string name="repair">Repair mesh</string>
+    <string name="check_mesh">Check mesh</string>
+    <string name="check_mesh_thin">Thin wall limit: %1$s mm</string>
+    <string name="checking">Checking…</string>
     <string name="reset">Reset</string>
     <string name="reset_all">Reset all changes</string>
     <string name="resize">Resize</string>

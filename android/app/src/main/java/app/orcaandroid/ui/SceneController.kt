@@ -192,6 +192,11 @@ class SceneController(private val store: Store, private val presets: PresetContr
     fun simplify(ratio: Float) = selection?.let { sel -> store.sceneOp(store.str(R.string.simplifying)) { engine.simplify(sel.obj, ratio) } }
     fun repair() = selection?.let { sel -> store.sceneOp { engine.repair(sel.obj) } }
 
+    /** Report of the selected copy's mesh problems (null without a selection); [thickness] is the thin-wall limit in mm. */
+    suspend fun meshReport(thickness: Float): String? = selection?.let { sel ->
+        app.orcaandroid.core.MeshReport.text(store.engine.checkMesh(sel.obj, sel.instance, thickness))
+    }
+
     fun cut(z: Float, keepUpper: Boolean, keepLower: Boolean, flip: Boolean) {
         val sel = selection ?: return
         store.update { it.copy(selection = null, tool = Tool.None) }

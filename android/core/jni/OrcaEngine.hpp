@@ -193,6 +193,9 @@ public:
     // Regions view: {"lines": [x0,y0,z0, x1,y1,z1, ...]} world segments of one copy's crease edges (faces meeting at more
     // than [angle] degrees) and open edges.
     json crease_lines(int object, int instance, double angle);
+    // Read-only mesh report of one copy, per model part: faces, open edges, shells, volume, zero-area faces and (when
+    // [thickness] > 0) faces whose wall is thinner than that many mm; plus up to 400 of the thin spots as world x,y,z.
+    json check_mesh(int object, int instance, double thickness);
     json paint_gap_fill(int object, const std::string &kind, double area);
     json paint_remap(int object, const std::vector<int> &dest);
 
