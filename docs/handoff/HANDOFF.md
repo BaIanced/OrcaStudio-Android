@@ -32,7 +32,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **Extended paint tools**: batch 1 (circle/triangle/fill/height) and batch 2 (gap fill, "On overhangs only", Support shapes) WSA-tested OK by
   Claude 2026-10-20; CI run 39517474174 on all 4 devices (user-feel check pending). Re-pick the "Gap fill" chip after another shape chip.
   **Filament remap** (Colour chip "Remap filaments", `paint_remap` in OrcaTools.cpp via `FacetsAnnotation::remap_states`; base extruder
-  not remapped): written, Kotlin compiled, native untested -> needs a CI build + WSA test. Left (backlog): stroke lock, survey, edge outline.
+  not remapped): WSA-tested OK (2->1) on run 39521072810, installed on WSA only. Left (backlog): stroke lock, survey, edge outline.
 - Preview layer-line work merged (PR #34); repro tools `abshot.sh` / `abtop.sh` (reference).
   Idea offered: Preview camera-light slider (no GO yet). C: tight; old build dirs move to `D:\orca-builds-archive`.
 - Need the printer (backlog): fan slider jumps (r295 hold), Retract/Extrude F150 (e13bebb), extrude/jog, speed chips.
