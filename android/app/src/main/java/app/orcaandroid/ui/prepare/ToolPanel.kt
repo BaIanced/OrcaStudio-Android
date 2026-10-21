@@ -24,6 +24,8 @@ import androidx.compose.material.icons.filled.DragIndicator
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -214,6 +216,38 @@ private fun PaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Paint) {
                 modifier = Modifier.padding(start = 8.dp))
             Slider(tool.overhang, { overhang = it; vm.scene.setTool(tool.copy(overhang = it)) }, valueRange = 1f..90f,
                 modifier = Modifier.weight(1f).padding(start = 8.dp))
+        }
+    }
+    // Remap filaments (the desktop's tool): painted filament i becomes filament remap[i] on the whole object.
+    var remapOpen by rememberSaveable { mutableStateOf(false) }
+    if (tool.kind == "color" && state.filaments.size > 1) {
+        val n = state.filaments.size
+        var remap by remember(n) { mutableStateOf(List(n) { it }) }
+        FilterChip(remapOpen, { remapOpen = !remapOpen }, label = { Text(stringResource(R.string.paint_remap)) })
+        if (remapOpen) {
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                state.filaments.forEachIndexed { i, f ->
+                    var menu by remember { mutableStateOf(false) }
+                    ColorDot(f.color)
+                    Text("${i + 1} →", style = MaterialTheme.typography.bodySmall)
+                    Box {
+                        FilterChip(remap[i] != i, { menu = true }, label = { Text("${remap[i] + 1}") },
+                            leadingIcon = { ColorDot(state.filaments[remap[i]].color) })
+                        DropdownMenu(menu, { menu = false }) {
+                            state.filaments.forEachIndexed { j, g ->
+                                DropdownMenuItem(text = { Row(verticalAlignment = Alignment.CenterVertically) { ColorDot(g.color); Text(" ${j + 1}") } },
+                                    onClick = { remap = remap.toMutableList().also { it[i] = j }; menu = false })
+                            }
+                        }
+                    }
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilledTonalButton(onClick = { vm.scene.paintRemap(remap); remap = List(n) { it } }, enabled = remap.withIndex().any { it.index != it.value }) {
+                    Text(stringResource(R.string.paint_remap_apply))
+                }
+                TextButton(onClick = { remap = List(n) { it } }) { Text(stringResource(R.string.paint_remap_reset)) }
+            }
         }
     }
     TextButton(onClick = { vm.scene.paintClear(tool.kind) }) { Text(stringResource(R.string.clear_painting)) }

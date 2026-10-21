@@ -592,6 +592,43 @@ json OrcaEngine::paint_gap_fill(int object, const std::string &kind, double area
     return scene_json();
 }
 
+// The desktop's "Remap filaments" (GLGizmoMmuSegmentation::remap_filament_assignments): [dest][i] is the 0-based filament
+// that painted filament i becomes. Colour painting only; the object's base extruder is left alone.
+json OrcaEngine::paint_remap(int object, const std::vector<int> &dest)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    ModelObject &obj = object_at(object);
+    constexpr int max_state = int(EnforcerBlockerType::ExtruderMax);
+    EnforcerBlockerStateMap state_map;
+    for (int i = 0; i <= max_state; ++i)
+        state_map[i] = EnforcerBlockerType(i);
+    const int first = int(EnforcerBlockerType::Extruder1);
+    bool any = false;
+    for (int src = 0; src < int(dest.size()) && src + first <= max_state; ++src) {
+        const int dst = dest[src];
+        if (dst == src || dst < 0 || dst + first > max_state)
+            continue;
+        state_map[src + first] = EnforcerBlockerType(dst + first);
+        any = true;
+    }
+    if (!any)
+        return scene_json();
+    bool pushed = false;
+    for (ModelVolume *vol : obj.volumes) {
+        if (vol->mmu_segmentation_facets.empty())
+            continue;
+        if (!pushed)
+            push_undo();
+        pushed = true;
+        vol->mmu_segmentation_facets.remap_states(*vol, state_map);
+    }
+    if (pushed) {
+        write_mesh();
+        write_paint_mesh();
+    }
+    return scene_json();
+}
+
 // --- Variable layer height -----------------------------------------------------------------------
 
 json OrcaEngine::layer_result(ModelObject &obj)

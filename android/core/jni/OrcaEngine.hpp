@@ -183,6 +183,7 @@ public:
     // Clears one kind of painting (or all for an empty kind) of an object.
     json paint_clear(int object, const std::string &kind);
     json paint_gap_fill(int object, const std::string &kind, double area);
+    json paint_remap(int object, const std::vector<int> &dest);
 
     // Variable layer height. All return { "profile": [z, h, ...], "min", "max", "height" } plus the
     // scene. `quality` 0..1 (adaptive), `radius` layers (smooth), `delta` mm over `band` mm.

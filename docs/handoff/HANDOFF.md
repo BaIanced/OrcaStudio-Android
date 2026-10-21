@@ -29,11 +29,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - User sessions backed up: phone `/data/local/tmp/phone-session-backup.{3mf,json}` (8 plates), WSA `/data/local/tmp/session-backup.{3mf,json}`.
   Test zip `scadzip-test.zip` stays in `/sdcard/Download` on phone + Chromebook. LAN access code was given in chat: never write it anywhere.
 ## Next task
-- **Extended paint tools** batch 1 (1858dc3, r343) colour tests passed on WSA 2026-10-20 (Claude). **Batch 2 gap fill** (Colour + Support,
-  `GapFiller` in OrcaTools.cpp, `paintGapFill`; chip "Gap fill", area slider, "Fill gaps"): in the local debug build on all devices; CI run 39517474174 installed on all 4 devices 2026-10-20 (user-feel check pending);
-  WSA-tested for colour and support kinds (small dots vanish, 3 mm strokes stay). Re-pick the "Gap fill" chip after any other shape chip.
-  **"On overhangs only"** (Support brush, angle slider) WSA-tested: off paints, on paints nothing on a side wall; no overhang highlight view yet.
-  Support shapes (circle, triangle, fill) WSA OK. Untested: user feel. Left (backlog): stroke lock, filament remap, survey; then edge outline.
+- **Extended paint tools**: batch 1 (circle/triangle/fill/height) and batch 2 (gap fill, "On overhangs only", Support shapes) WSA-tested OK by
+  Claude 2026-10-20; CI run 39517474174 on all 4 devices (user-feel check pending). Re-pick the "Gap fill" chip after another shape chip.
+  **Filament remap** (Colour chip "Remap filaments", `paint_remap` in OrcaTools.cpp via `FacetsAnnotation::remap_states`; base extruder
+  not remapped): written, Kotlin compiled, native untested -> needs a CI build + WSA test. Left (backlog): stroke lock, survey, edge outline.
 - Preview layer-line work merged (PR #34); repro tools `abshot.sh` / `abtop.sh` (reference).
   Idea offered: Preview camera-light slider (no GO yet). C: tight; old build dirs move to `D:\orca-builds-archive`.
 - Need the printer (backlog): fan slider jumps (r295 hold), Retract/Extrude F150 (e13bebb), extrude/jog, speed chips.

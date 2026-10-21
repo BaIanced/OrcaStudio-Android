@@ -41,6 +41,9 @@
     <string name="paint_shape_gap">Gap fill</string>
     <string name="paint_gap_area">Gap area %.1f mm²</string>
     <string name="paint_gap_apply">Fill gaps</string>
+    <string name="paint_remap">Remap filaments</string>
+    <string name="paint_remap_apply">Remap</string>
+    <string name="paint_remap_reset">Reset</string>
     <string name="paint_overhangs_only">On overhangs only</string>
     <string name="paint_overhang_angle">Over %d°</string>
     <string name="paint_height_range">Height %.1f mm</string>
