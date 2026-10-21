@@ -41,7 +41,11 @@ sealed interface Tool {
                      /** Brush stroke locked to a screen axis through its first point: "v" (straight up/down), "h" (sideways) or "". */
                      val lock: String = "",
                      /** The shape the eyedropper ("pick") goes back to after a pick. */
-                     val back: String = "sphere") : Tool
+                     val back: String = "sphere",
+                     /** Guard plane: painting stops at the horizontal plane at [guardZ] mm (world) while [guardOn]. */
+                     val guardOn: Boolean = false, val guardZ: Float = 10f,
+                     /** Fill over colours: the fill ignores existing colours and stops only at edges / the guard plane. */
+                     val overColours: Boolean = false) : Tool
     data object LayOnFace : Tool
     data object Measure : Tool
     data class Cut(val z: Float) : Tool

@@ -14,6 +14,7 @@
 #include <deque>
 #include <map>
 #include <functional>
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -179,7 +180,8 @@ public:
     // [overhang] > 0 (degrees): a brush paints only faces that overhang by more than that (support painting's "on overhangs only").
     json paint(const std::vector<PaintHit> &hits, const std::array<double, 3> &camera, double radius, const std::string &kind,
                int state, bool new_stroke, const std::vector<double> &section = {}, double edge_angle = 0.,
-               const std::string &shape = "sphere", double height = 2., double overhang = 0.);
+               const std::string &shape = "sphere", double height = 2., double overhang = 0.,
+               double guard = std::numeric_limits<double>::quiet_NaN(), bool over_colours = false);
     // Clears one kind of painting (or all for an empty kind) of an object.
     json paint_clear(int object, const std::string &kind);
     // Ends a fill preview by restoring the annotation from before the stroke (the finger slid off the model).
@@ -406,6 +408,8 @@ private:
     // the fill follows the finger, and paint_fill_cancel puts it back (OrcaTools.cpp).
     struct FillPreview;
     std::shared_ptr<FillPreview>          m_fill_preview;
+    // Guard plane: the stroke keeps below (true) or above the plane, the side where it started.
+    bool                                  m_guard_below = true;
     // Painted triangles per (mesh, annotation timestamp, state): write_paint_mesh re-extracts only what changed.
     using PaintKey = std::tuple<const void *, uint64_t, int>;
     std::map<PaintKey, std::shared_ptr<indexed_triangle_set>> m_paint_facets;

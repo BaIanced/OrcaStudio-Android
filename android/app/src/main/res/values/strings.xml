@@ -50,6 +50,9 @@
     <string name="paint_pick_hint">Tap the model: its colour there becomes the brush colour.</string>
     <string name="paint_clean_specks">Clean specks</string>
     <string name="paint_by_part">Colour each part</string>
+    <string name="paint_over_colours">Fill over colours</string>
+    <string name="paint_guard">Guard plane</string>
+    <string name="paint_guard_z">%.1f mm</string>
     <string name="paint_lock_vertical">Lock ↕</string>
     <string name="paint_lock_horizontal">Lock ↔</string>
     <string name="paint_overhang_angle">Over %d°</string>

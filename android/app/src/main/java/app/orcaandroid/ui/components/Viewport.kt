@@ -364,6 +364,11 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
             state.selectedObject?.instances?.getOrNull(state.selection?.instance ?: 0)?.let { i ->
                 floatArrayOf(i.min.x - 5, i.min.y - 5, i.min.x + i.size.x + 5, i.min.y + i.size.y + 5, t.z)
             }
+        } ?: (state.tool as? Tool.Paint)?.takeIf { it.guardOn && !showPreview }?.let { t ->
+            // The paint guard plane, drawn as the cut plane.
+            state.selectedObject?.instances?.getOrNull(state.selection?.instance ?: 0)?.let { i ->
+                floatArrayOf(i.min.x - 5, i.min.y - 5, i.min.x + i.size.x + 5, i.min.y + i.size.y + 5, t.guardZ)
+            }
         }
         val highlight = (state.tool as? Tool.Paint)?.takeIf { !showPreview && it.kind == "support" }?.highlight ?: 0f
         v.onGl { cutPlane = cut; overhangHighlight = highlight }

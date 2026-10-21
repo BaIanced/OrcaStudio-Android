@@ -211,6 +211,22 @@ private fun PaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Paint) {
                 modifier = Modifier.weight(1f).padding(start = 8.dp))
         }
     }
+    // Fill over colours: the fill ignores existing colours (the desktop's stops at them) and stops only at edges / the guard plane.
+    if (tool.shape == "fill") FilterChip(tool.overColours, { vm.scene.setTool(tool.copy(overColours = !tool.overColours)) },
+        label = { Text(stringResource(R.string.paint_over_colours)) })
+    // Guard plane: painting stops at a horizontal plane (drawn like the cut plane); a stroke keeps to the side it starts on.
+    val inst = state.selectedObject?.instances?.getOrNull(state.selection?.instance ?: 0)
+    if (tool.shape != "pick" && inst != null) Row(verticalAlignment = Alignment.CenterVertically) {
+        val range = inst.min.z..(inst.min.z + inst.size.z)
+        FilterChip(tool.guardOn, {
+            vm.scene.setTool(tool.copy(guardOn = !tool.guardOn, guardZ = if (tool.guardZ in range) tool.guardZ else inst.min.z + inst.size.z / 2))
+        }, label = { Text(stringResource(R.string.paint_guard)) })
+        if (tool.guardOn) {
+            Text(stringResource(R.string.paint_guard_z, tool.guardZ), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 8.dp))
+            Slider(tool.guardZ.coerceIn(range), { vm.scene.setTool(tool.copy(guardZ = it)) }, valueRange = range,
+                modifier = Modifier.weight(1f).padding(start = 8.dp))
+        }
+    }
     // Stroke lock (brush): the stroke keeps to a screen axis through its first point (straight lines).
     if (brush) Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         FilterChip(tool.lock == "v", { vm.scene.setTool(tool.copy(lock = if (tool.lock == "v") "" else "v")) }, label = { Text(stringResource(R.string.paint_lock_vertical)) })

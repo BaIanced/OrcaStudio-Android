@@ -9,6 +9,9 @@
 #include <cmath>
 #include <cstdio>
 #include <fstream>
+#include <functional>
+#include <limits>
+#include <map>
 #include <memory>
 #include <set>
 #include <stdexcept>
@@ -265,7 +268,9 @@ private:
 
 // Faces reachable from [seed] over edges between faces whose normals differ by at most [angle] degrees: the desktop's
 // smart fill test (TriangleSelector::seed_fill_select_triangles, neighbour against neighbour).
-std::vector<bool> flood_surface(const indexed_triangle_set &its, const std::vector<int> &neighbors, int seed, double angle)
+// [allowed]: faces the flood may enter (all when empty).
+std::vector<bool> flood_surface(const indexed_triangle_set &its, const std::vector<int> &neighbors, int seed, double angle,
+                                const std::function<bool(int)> &allowed = {})
 {
     std::vector<bool> faces(its.indices.size(), false);
     if (seed < 0 || seed >= int(faces.size()))
@@ -279,7 +284,7 @@ std::vector<bool> flood_surface(const indexed_triangle_set &its, const std::vect
         const Vec3f n = its_face_normal(its, f).normalized();
         for (int k = 0; k < 3; ++k) {
             const int g = neighbors[3 * f + k];
-            if (g >= 0 && !faces[g] && std::clamp(n.dot(its_face_normal(its, g).normalized()), 0.f, 1.f) >= limit) {
+            if (g >= 0 && !faces[g] && std::clamp(n.dot(its_face_normal(its, g).normalized()), 0.f, 1.f) >= limit && (!allowed || allowed(g))) {
                 faces[g] = true;
                 queue.push_back(g);
             }
@@ -401,6 +406,22 @@ private:
     }
 };
 
+// A guarded fill's selector: puts back the states a spare state stood in for, from the selector before the stroke.
+class FillSelector : public TriangleSelector
+{
+public:
+    using TriangleSelector::TriangleSelector;
+
+    void restore(EnforcerBlockerType spare, const StateProbe &before)
+    {
+        for (Triangle &t : m_triangles)
+            if (t.valid() && !t.is_split() && t.get_state() == spare) {
+                const Vec3f c = (m_vertices[t.verts_idxs[0]].v + m_vertices[t.verts_idxs[1]].v + m_vertices[t.verts_idxs[2]].v) / 3.f;
+                t.set_state(before.state_at(t.source_triangle, c));
+            }
+    }
+};
+
 } // namespace
 
 json OrcaEngine::paint_state_at(int object, int volume, int facet, const std::array<double, 3> &local, const std::string &kind)
@@ -484,7 +505,7 @@ struct OrcaEngine::FillPreview
 
 json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<double, 3> &camera, double radius, const std::string &kind,
                        int state, bool new_stroke, const std::vector<double> &section, double edge_angle,
-                       const std::string &shape, double height, double overhang)
+                       const std::string &shape, double height, double overhang, double guard, bool over_colours)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
     for (const PaintHit &h : hits) {
@@ -502,6 +523,17 @@ json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<doubl
         m_fill_preview.reset();
     }
 
+    // Guard plane: a horizontal plane at [guard] mm the paint doesn't cross. A stroke keeps to the side it started on, a
+    // fill to the side under the finger. It takes the section plane's place (a selector clips by one plane).
+    std::vector<double> clip_plane = section;
+    if (std::isfinite(guard) && !hits.empty()) {
+        if (new_stroke || shape == "fill") {
+            const PaintHit &h = shape == "fill" ? hits.back() : hits.front();
+            const ModelObject &obj = object_at(h.object);
+            m_guard_below = (obj.instances[h.instance]->get_matrix() * obj.volumes[h.volume]->get_matrix() * to_vec(h.local)).z() < guard;
+        }
+        clip_plane = m_guard_below ? std::vector<double>{0., 0., 1., guard} : std::vector<double>{0., 0., -1., -guard};
+    }
     const EnforcerBlockerType new_state = EnforcerBlockerType(std::clamp(state, 0, int(EnforcerBlockerType::ExtruderMax)));
     // Colour painting that starts or ends a volume's painting changes whether its plate gets a prime tower,
     // which is part of the scene mesh (write_mesh): the tower showed only after the next move (WSA r324).
@@ -530,11 +562,11 @@ json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<doubl
     // n.(T q) <= d  <=>  (L^T n).q <= d - n.t.
     auto clip_of = [&](const Transform3d &trafo) {
         TriangleSelector::ClippingPlane clip;
-        if (section.size() == 4) {
-            const Vec3d n(section[0], section[1], section[2]);
+        if (clip_plane.size() == 4) {
+            const Vec3d n(clip_plane[0], clip_plane[1], clip_plane[2]);
             const Vec3d n_local = trafo.linear().transpose() * n;
             clip = TriangleSelector::ClippingPlane({float(n_local.x()), float(n_local.y()), float(n_local.z()),
-                                                    float(section[3] - n.dot(trafo.translation()))});
+                                                    float(clip_plane[3] - n.dot(trafo.translation()))});
         }
         return clip;
     };
@@ -565,12 +597,74 @@ json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<doubl
         if (!m_fill_preview)
             m_fill_preview = std::make_shared<FillPreview>(FillPreview{vol, kind, facets.get_data()});
         const Transform3d trafo = obj.instances[h.instance]->get_matrix() * vol->get_matrix();
-        TriangleSelector selector(vol->mesh());
+        FillSelector selector(vol->mesh());
         selector.deserialize(m_fill_preview->before, false);
         ++loads;
-        selector.bucket_fill_select_triangles(to_vec(h.local).cast<float>(), h.facet, clip_of(trafo), edge_angle > 0. ? float(edge_angle) : -1.f,
-                                              true, true);
-        selector.seed_fill_apply_on_triangles(new_state);
+        Transform3d trafo_no_translate = trafo;
+        trafo_no_translate.translation() = Vec3d::Zero();
+        const Vec3f camera_local = (trafo.inverse() * to_vec(camera)).cast<float>();
+        const indexed_triangle_set &its = vol->mesh().its;
+        PaintRegion &region = m_paint_region;
+        if (region.mesh.get() != &vol->mesh()) {
+            region.mesh = vol->mesh_ptr();
+            region.neighbors.clear();
+            for (const Vec3i32 &n : its_face_neighbors(its))
+                region.neighbors.insert(region.neighbors.end(), {n.x(), n.y(), n.z()});
+            region.object = -1;
+        }
+        // Faces with a corner on the kept side of the guard / section plane, and with one beyond it.
+        auto reaches = [&](int f, bool kept_side) {
+            const Vec3d n(clip_plane[0], clip_plane[1], clip_plane[2]);
+            for (int k = 0; k < 3; ++k)
+                if ((n.dot(trafo * its.vertices[its.indices[f][k]].cast<double>()) <= clip_plane[3]) == kept_side)
+                    return true;
+            return false;
+        };
+        std::function<bool(int)> kept;
+        if (clip_plane.size() == 4)
+            kept = [&](int f) { return reaches(f, true); };
+        const bool guarded = std::isfinite(guard);
+        // The guard's two sides as height bands: HeightRange splits the triangles at the band's ends, at the plane.
+        constexpr float FAR = 1e5f;
+        const float kept_z = m_guard_below ? float(guard) - FAR : float(guard), beyond_z = m_guard_below ? float(guard) : float(guard) - FAR;
+        if (over_colours) {
+            // Fill over colours: the faces up to the edge angle (else the whole shell) whatever their colour; with a guard,
+            // only their part on its side.
+            const std::vector<bool> faces = flood_surface(its, region.neighbors, h.facet, edge_angle > 0. ? edge_angle : 180., kept);
+            if (guarded)
+                selector.select_patch(h.facet, std::make_unique<EdgeLimited<TriangleSelector::HeightRange>>(faces, kept_z, camera_local, FAR, trafo,
+                                                                                                            TriangleSelector::ClippingPlane()),
+                                      new_state, trafo_no_translate, true);
+            else
+                for (int f = 0; f < int(faces.size()); ++f)
+                    if (faces[f])
+                        selector.set_facet(f, new_state);
+        } else if (guarded) {
+            // The desktop's fill (same colour only) cut at the guard: the far side takes a spare state first, which splits
+            // the triangles at the plane and stops the fill there; then the far side gets its own states back.
+            const auto spare = EnforcerBlockerType::ExtruderMax;
+            std::vector<bool> done(its.indices.size(), false);
+            for (int f = 0; f < int(its.indices.size()); ++f) {
+                if (done[f] || !reaches(f, false))
+                    continue;
+                // One seed per connected run of faces reaching beyond (select_patch floods from its seed).
+                const std::vector<bool> run = flood_surface(its, region.neighbors, f, 180., [&](int g) { return reaches(g, false); });
+                for (size_t g = 0; g < run.size(); ++g)
+                    done[g] = done[g] || run[g];
+                selector.select_patch(f, std::make_unique<TriangleSelector::HeightRange>(beyond_z, camera_local, FAR, trafo, TriangleSelector::ClippingPlane()),
+                                      spare, trafo_no_translate, true);
+            }
+            selector.bucket_fill_select_triangles(to_vec(h.local).cast<float>(), h.facet, TriangleSelector::ClippingPlane(),
+                                                  edge_angle > 0. ? float(edge_angle) : -1.f, true, true);
+            selector.seed_fill_apply_on_triangles(new_state);
+            StateProbe before(vol->mesh());
+            before.deserialize(m_fill_preview->before, false);
+            selector.restore(spare, before);
+        } else {
+            selector.bucket_fill_select_triangles(to_vec(h.local).cast<float>(), h.facet, clip_of(trafo), edge_angle > 0. ? float(edge_angle) : -1.f,
+                                                  true, true);
+            selector.seed_fill_apply_on_triangles(new_state);
+        }
         TriangleSelector::TriangleSplittingData data = selector.serialize();
         if (data != facets.get_data()) {
             const bool was_empty = facets.empty();
