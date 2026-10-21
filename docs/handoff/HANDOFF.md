@@ -30,7 +30,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   Test zip `scadzip-test.zip` stays in `/sdcard/Download` on phone + Chromebook. LAN access code was given in chat: never write it anywhere.
 ## Next task
 - **User 2026-10-21: one small step per session (last round went over 250k).** Cue `/clear` + `/next` after EACH step:
-  1. View cube DONE (WSA OK, CI pending; backlog). Next: 2. Rotate gizmo rings + drag + angle label. 3. Rotate tick snap +
+  1. View cube DONE (WSA OK; run 39563849841 installed all devices 2026-10-21, user feel pending). Next: 2. Rotate gizmo rings + drag + angle label. 3. Rotate tick snap +
      touch tuning. 4. Z rail for shapes in the CAD section (backlog "Move in Z"). 5. print3d_toolbox checks (thin wall/
      intersections). 6. Pie menu / tool-bar collapse (discuss first).
 - **Paint tools** (survey `NOTES-paint-survey.md`): 4 picks done, WSA OK (Claude), run 39557578074 installed all devices
