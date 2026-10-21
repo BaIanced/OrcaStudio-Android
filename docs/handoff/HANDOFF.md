@@ -20,8 +20,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = f1c4a17 (PR #34, r341, merged 2026-10-20). Untested in main: pen 7d3a263, fan hold 298ee9f, Extrude F150 e13bebb,
   Quest stick zoom (r324). Nothing unmerged on the branch.
-- Installed: run 39582935998 (rotate snap, 45dc651) on WSA, phone, Chromebook, SHIELD 2026-10-21. Tablet (wireless adb, unrooted; user's): only the debug app + a copy of the phone's data (CI release app removed at the user's request); no root = no data copy into a release app.
-- **Test device = WSA** (user 2026-10-20: `/target` skill removed for good). `target.sh` stays only as the serial helper (`target.sh serial|phone|chromebook`); shot.sh/mcpao.sh use it.
+- Installed: run 39582935998 (rotate snap, 45dc651) on WSA, phone, Chromebook, SHIELD 2026-10-21. Tablet (unrooted): debug app only (user's request).
+- **Test device = Note** (user 2026-10-21 "new target"; unrooted, wireless; `target.sh n`, reference "Note"; r355 + debug app with the phone's session installed). Locked screen blocks the app: waiting for the user to unlock it. WSA = fallback.
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
   WSA `127.0.0.1:58526`; **USB serial = the user's SHIELD TV** (rooted; installs only).
 - User away from the printer: no printer tests. SHIELD installs only. **User 2026-10-19 (later): keep using WSA, not the phone;

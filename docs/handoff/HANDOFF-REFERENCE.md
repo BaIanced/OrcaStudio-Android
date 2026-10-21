@@ -55,6 +55,11 @@ headless display below instead (no takeover needed). Don't drive WSA's own windo
 - Raw `sendevent` gestures are slow (a one-finger drag turns into a long press): use `input swipe x0 y0 x1 y1 <ms>`
   in the background and screencap mid-way. Pinch fingers must start off any button/badge (they eat the touch).
 
+### Note (unrooted phone, target `n`, added 2026-10-21)
+- Android 12, arm64, Adreno, 1440x3040 at density 560, S Pen. Wireless adb only (the connect port changes: `adb mdns services`). Serial: `sh ~/orca-android-tools/target.sh note` (probe: model prefix, cached in `.kinds`).
+- **No root.** Both apps installed; test with the debug app (`PKG=...debug`): `run-as` reads its files, `mcpao.sh` falls back to `run-as` for the token. Session/settings copied from the phone (tar via su on the phone, `run-as ... tar xf` on the Note; push with `MSYS_NO_PATHCONV=1`).
+- Hidden display: `TARGET=note orca-vd.sh start` (1440x3040/560, no su). **Needs the screen unlocked**: with the keyguard up the app never resumes on the virtual display (2026-10-21, "not resumed after 5 tries").
+
 ### SHIELD TV (USB serial in `adb devices`, the user's, rooted)
 - Only touch it when asked / for installs. Copy the phone's settings: `reinstall-with-data.ps1`-style tar via su, excluding `files/session`.
 
