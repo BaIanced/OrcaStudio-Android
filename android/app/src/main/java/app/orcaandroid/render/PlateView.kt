@@ -55,6 +55,8 @@ interface PlateListener {
     fun onPaint(x: Float, y: Float, newStroke: Boolean)
     /** A drag began inside the selection's bounding box: [result] gets whether the mesh itself lies under (x, y). */
     fun onDragCheck(x: Float, y: Float, result: (Boolean) -> Unit) = result(true)
+    /** A drag began inside a prime tower's box at [entry]: [result] gets false when an object lies in front of it (the touch is the camera's). */
+    fun onTowerCheck(x: Float, y: Float, entry: Vec3, result: (Boolean) -> Unit) = result(true)
     /** A right click or a long press that did not drag: the host shows a context menu at (x, y). */
     fun onContextMenu(x: Float, y: Float)
     /** After a long press opened the menu the finger is still down: it moved to (x, y) ([held] false = it lifted there). */
@@ -336,6 +338,10 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                         dragAnchor = rayBoxEntry(event.x, event.y, listOf(t.lo to t.hi))
                         dragStart = dragAt(event.x, event.y)
                         queueEvent { renderer.dragTower = t.plate }
+                        val id = ++dragCheckId
+                        dragAnchor?.let { entry ->
+                            listener?.onTowerCheck(event.x, event.y, entry) { clear -> if (!clear && id == dragCheckId && dragging) cancelDrag() }
+                        }
                     }
                 }
             }

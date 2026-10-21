@@ -341,6 +341,14 @@ class SceneController(private val store: Store, private val presets: PresetContr
         }
     }
 
+    /** A drag began on a prime tower's box at [entry]: [result] gets false when an object is hit nearer than the box. */
+    fun checkTowerStart(origin: Vec3, dir: Vec3, entry: Vec3, section: FloatArray?, result: (Boolean) -> Unit) {
+        store.launch {
+            val hit = pick(origin, dir, section)
+            result(hit == null || (hit.point - origin).length() >= (entry - origin).length() - 0.5f)
+        }
+    }
+
     /** The copy under the ray, as (object, copy, box min, box max), or null; [result] runs on the engine's coroutine. */
     fun copyAt(origin: Vec3, dir: Vec3, section: FloatArray?, result: (Pair<Int, Int>?, Vec3, Vec3) -> Unit) {
         store.launch {
