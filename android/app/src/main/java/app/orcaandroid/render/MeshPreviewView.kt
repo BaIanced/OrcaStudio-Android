@@ -96,6 +96,8 @@ interface PreviewPickListener {
     fun onResize(axis: Int, mm: Float)
     /** The turn handle drag ended: the selected shape turns by [degrees] about Z. */
     fun onRotate(degrees: Float)
+    /** The lift handle drag ended: the selected shape moves [dz] mm up (down when negative). */
+    fun onLift(dz: Float)
 }
 
 /**
@@ -128,6 +130,9 @@ class MeshPreviewView(context: Context) : GLSurfaceView(context) {
     private var handleKind = -1
     private var handleValue = 0f
     private var startAngle = 0f
+    /** Height the live lift sticks to (null = none), and when the lift dot was last tapped (double tap = drop to floor). */
+    private var liftSnap: Float? = null
+    private var dotTapAt = 0L
     private val density = resources.displayMetrics.density
 
     private val scaleDetector = ScaleGestureDetector(context, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
@@ -210,11 +215,15 @@ class MeshPreviewView(context: Context) : GLSurfaceView(context) {
             fit = Vec3(minOf(fit.first.x, p.x - r), minOf(fit.first.y, p.y - r), fit.first.z) to
                 Vec3(maxOf(fit.second.x, p.x + r), maxOf(fit.second.y, p.y + r), fit.second.z)
         }
+        if (fit != null && hb != null) {
+            val top = hb.max.z + ZRail.gap(hb.min, hb.max)
+            fit = fit.first to Vec3(fit.second.x, fit.second.y, maxOf(fit.second.z, top))
+        }
         framed = fit
         if (fit != null) queueEvent { renderer.fitPending = fit; requestRender() } else requestRender()
     }
 
-    // --- Handles of a lone selected box: 0..2 = size along X / Y / Z (on the max faces), 3 = turn about Z ---
+    // --- Handles of a lone selected box: 0..2 = size along X / Y / Z (on the max faces), 3 = turn about Z, 4 = lift (Z rail) ---
 
     private fun handleBox(): PreviewBox? = boxes.singleOrNull { it.selected }
 
@@ -233,6 +242,7 @@ class MeshPreviewView(context: Context) : GLSurfaceView(context) {
             out += 2 to Vec3(c.x, c.y, b.max.z)
         }
         b.pivot?.let { p -> out += 3 to Vec3(p.x, p.y - ringRadius(b, p), b.min.z) }
+        out += 4 to Vec3(c.x, c.y, b.max.z + ZRail.gap(b.min, b.max))
         return out
     }
 
@@ -261,6 +271,26 @@ class MeshPreviewView(context: Context) : GLSurfaceView(context) {
         return maxOf(mm, kotlin.math.ceil(1f - extent))
     }
 
+    /** Lift (and the height it sticks to) for a drag of the lift dot to (x, y); the live values when the axis is edge-on. */
+    private fun liftMm(b: PreviewBox, x: Float, y: Float, fine: Boolean): Pair<Float, Float?> {
+        val at = handles(b).first { it.first == 4 }.second
+        val keep = handleValue to liftSnap
+        val a = camera.project(at) ?: return keep
+        val e = camera.project(at + Vec3(0f, 0f, 10f)) ?: return keep
+        val sx = e.first - a.first
+        val sy = e.second - a.second
+        val len2 = sx * sx + sy * sy
+        if (len2 < 16f) return keep
+        val raw = ((x - downX) * sx + (y - downY) * sy) / len2 * 10f
+        val pxPerMm = kotlin.math.sqrt(len2) / 10f
+        val targets = ArrayList<Float>()
+        targets += 0f
+        for (o in boxes) if (o.id != b.id && o.min.x < b.max.x && o.max.x > b.min.x && o.min.y < b.max.y && o.max.y > b.min.y) {
+            targets += o.min.z; targets += o.max.z
+        }
+        return ZRail.lift(raw, b.min.z, b.max.z, targets, 10 * density / pxPerMm, if (fine) 0.1f else 1f)
+    }
+
     private fun angleAt(b: PreviewBox, x: Float, y: Float): Float? {
         val p = b.pivot ?: return null
         val q = camera.rayOnPlane(x, y, b.min.z) ?: return null
@@ -282,7 +312,7 @@ class MeshPreviewView(context: Context) : GLSurfaceView(context) {
         val b = handleBox() ?: return PreviewOverlay.EMPTY
         val hs = handles(b)
         if (hs.isEmpty()) return PreviewOverlay.EMPTY
-        val colors = arrayOf(floatArrayOf(0.9f, 0.25f, 0.25f), floatArrayOf(0.3f, 0.8f, 0.3f), floatArrayOf(0.25f, 0.5f, 1f), floatArrayOf(1f, 0.7f, 0.1f))
+        val colors = arrayOf(floatArrayOf(0.9f, 0.25f, 0.25f), floatArrayOf(0.3f, 0.8f, 0.3f), floatArrayOf(0.25f, 0.5f, 1f), floatArrayOf(1f, 0.7f, 0.1f), floatArrayOf(0.7f, 0.35f, 0.9f))
         val points = ArrayList<Float>()
         val guide = ArrayList<Float>()
         val ghost = ArrayList<Float>()
@@ -290,6 +320,7 @@ class MeshPreviewView(context: Context) : GLSurfaceView(context) {
         for ((k, at0) in hs) {
             var at = at0
             if (k == kind && k < 3) at = at + axis(k) * handleValue
+            if (k == kind && k == 4) at = at + Vec3(0f, 0f, handleValue)
             points += listOf(at.x, at.y, at.z) + colors[k].toList()
         }
         b.pivot?.let { p ->
@@ -304,7 +335,19 @@ class MeshPreviewView(context: Context) : GLSurfaceView(context) {
                     p.x + r * kotlin.math.cos(a1).toFloat(), p.y + r * kotlin.math.sin(a1).toFloat(), b.min.z)
             }
         }
-        if (kind in 0..2) {
+        // The rail: from the floor up to the lift dot.
+        val mid = (b.min + b.max) * 0.5f
+        val dotZ = b.max.z + ZRail.gap(b.min, b.max) + if (kind == 4) handleValue else 0f
+        guide += listOf(mid.x, mid.y, 0f, mid.x, mid.y, dotZ)
+        if (kind == 4) {
+            // The shifted box, and its footprint at the height it sticks to.
+            boxLines(ghost, (0 until 8).map { i -> Vec3(if (i and 1 == 0) b.min.x else b.max.x, if (i and 2 == 0) b.min.y else b.max.y, (if (i and 4 == 0) b.min.z else b.max.z) + handleValue) })
+            liftSnap?.let { z ->
+                val xs = floatArrayOf(b.min.x, b.max.x, b.max.x, b.min.x)
+                val ys = floatArrayOf(b.min.y, b.min.y, b.max.y, b.max.y)
+                for (i in 0 until 4) { val j = (i + 1) % 4; ghost += listOf(xs[i], ys[i], z, xs[j], ys[j], z) }
+            }
+        } else if (kind in 0..2) {
             val max = b.max + axis(kind) * handleValue
             boxLines(ghost, (0 until 8).map { i -> Vec3(if (i and 1 == 0) b.min.x else max.x, if (i and 2 == 0) b.min.y else max.y, if (i and 4 == 0) b.min.z else max.z) })
         } else if (kind == 3) {
@@ -368,7 +411,7 @@ class MeshPreviewView(context: Context) : GLSurfaceView(context) {
                 handleAt(event.x, event.y)?.let { k ->
                     val hb = handleBox()!!
                     if (k == 3) startAngle = angleAt(hb, event.x, event.y) ?: return false
-                    handleKind = k; handleValue = 0f
+                    handleKind = k; handleValue = 0f; liftSnap = null
                     pushOverlay()
                     return true
                 }
@@ -383,6 +426,13 @@ class MeshPreviewView(context: Context) : GLSurfaceView(context) {
                 if (handleKind >= 0) {
                     val hb = handleBox()
                     if (event.pointerCount > 1 || hb == null) { handleKind = -1; pushOverlay(); return false }
+                    if (handleKind == 4) {
+                        val fine = event.metaState and android.view.KeyEvent.META_SHIFT_ON != 0
+                        val (v, snap) = liftMm(hb, event.x, event.y, fine)
+                        if (snap != null && snap != liftSnap) performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+                        if (v != handleValue || snap != liftSnap) { handleValue = v; liftSnap = snap; pushOverlay() }
+                        return true
+                    }
                     val v = if (handleKind == 3) handleDegrees(hb, event) else handleMm(hb, handleKind, event.x, event.y)
                     if (v != handleValue) { handleValue = v; pushOverlay() }
                     return true
@@ -406,9 +456,23 @@ class MeshPreviewView(context: Context) : GLSurfaceView(context) {
                 if (handleKind >= 0) {
                     val k = handleKind
                     val v = handleValue
-                    handleKind = -1; handleValue = 0f
+                    handleKind = -1; handleValue = 0f; liftSnap = null
                     pushOverlay()
-                    if (v != 0f) { if (k == 3) l.onRotate(v) else l.onResize(k, v) }
+                    if (k == 4 && !moved) {
+                        // A double tap on the lift dot drops the shape onto the floor.
+                        val now = event.eventTime
+                        val b = handleBox()
+                        val again = now - dotTapAt <= android.view.ViewConfiguration.getDoubleTapTimeout()
+                        if (again && b != null && b.min.z != 0f) l.onLift(-b.min.z)
+                        dotTapAt = if (again) 0L else now
+                    }
+                    if (v != 0f) {
+                        when (k) {
+                            3 -> l.onRotate(v)
+                            4 -> l.onLift(Math.round(v * 100f) / 100f)
+                            else -> l.onResize(k, v)
+                        }
+                    }
                     return true
                 }
                 val id = downBox
@@ -428,7 +492,7 @@ class MeshPreviewView(context: Context) : GLSurfaceView(context) {
             }
             MotionEvent.ACTION_CANCEL -> {
                 if (dragging) { queueEvent { renderer.dragOffset = Vec3.ZERO }; requestRender() }
-                if (handleKind >= 0) { handleKind = -1; handleValue = 0f; pushOverlay() }
+                if (handleKind >= 0) { handleKind = -1; handleValue = 0f; liftSnap = null; pushOverlay() }
                 downBox = null; dragging = false
             }
         }

@@ -77,6 +77,7 @@ fun ScadPreviewPane(s: ScadEditorState, vm: AppViewModel, modifier: Modifier = M
             override fun onMove(dx: Float, dy: Float) = vm.shapes.move(D3(dx.toDouble(), dy.toDouble(), 0.0))
             override fun onResize(axis: Int, mm: Float) = vm.shapes.resize(axis, mm.toDouble())
             override fun onRotate(degrees: Float) = vm.shapes.turn(degrees.toDouble())
+            override fun onLift(dz: Float) = vm.shapes.move(D3(0.0, 0.0, dz.toDouble()))
         }
     }
 
