@@ -2460,3 +2460,7 @@ User: "you just tested something we already confirmed worked". Cross-checked eac
 
 ## 2026-10-21 Check mesh (5a bb57009, 5b)
 - Claude verified on WSA debug build (local native): test STL with two overlapping cubes (one top face missing) + 0.3 mm slab: report "34 faces, 3 shells, 4 open edges, 12 face pairs self-intersecting, 4 thin faces"; Show in 3D view drew red/magenta/orange markers. Native: OrcaTools.cpp check_mesh (CGAL self_intersections, open edge midpoints, thin-wall rays); markers = PlateRenderer.drawMeshMarkers + point shader kinds 5-7; SceneController.meshMarkers. User feel pending. Test STL recipe: edits/make_bad_stl.py in orca-android-tools, push to /data/local/tmp, run-as cp into files/, VIEW intent with file:///data/data/<pkg>/files/bad.stl.
+
+## 2026-10-21 Rotate gizmo + haptics: USER VERIFIED (r358)
+- User: "Rotate gizmo is perfect, haptics are a nice touch as well, feel good." Covers rings (fd83086), ticks + snap (45dc651), tick haptics. Backlog line 151 closed.
+- Same message, pie menu: user wants it as a stylus/S Pen button-activated, customizable tool picker (low priority; backlog). Bugs reported (backlog): prime tower selectable through objects; Check mesh 3D markers static when object moves; lab slider value vs fade-out label differ ~5%; Cut "place upper part on cut face" fails (auto drop to plate; per-object auto-drop off).

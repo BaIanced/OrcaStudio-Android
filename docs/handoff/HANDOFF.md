@@ -29,12 +29,11 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - User sessions backed up: phone `/data/local/tmp/phone-session-backup.{3mf,json}` (8 plates), WSA `/data/local/tmp/session-backup.{3mf,json}`.
   Test zip `scadzip-test.zip` stays in `/sdcard/Download` on phone + Chromebook. LAN access code was given in chat: never write it anywhere.
 ## Next task
-- **User 2026-10-21: one small step per session.** Cue `/clear` + `/next` after EACH step:
-  1. View cube DONE (r353, lab switch, off). 2. Rotate gizmo rings DONE fd83086 (menu / R). 3. Rotate ticks + snap DONE 45dc651
-     (WSA OK Claude; CI run 39582935998; user feel of 2+3 pending, backlog). 4. Z rail (lift dot) DONE ad82885 (WSA OK Claude r356; archive; user feel pending, backlog).
-     5. Check mesh DONE (bb57009 + 5b; WSA OK Claude; installed all devices, run 39657856306; user feel pending, backlog).
-     6. Pie menu DONE (user OK 2026-10-21 to build; lab switch "Pie menu", off; PieMenu.kt, long press -> wedges, slide+release or tap, "More" = old list;
-        WSA OK Claude via adb motionevent: empty plate / selection pies, hover, release pick, tap pick). CI run 39660181216 (r358) installed on every device 2026-10-21. Tool-column collapse NOT done (waits on the user's feel of the pie). Backlog line.
+- **User 2026-10-21: one small step per session.** Cue `/clear` + `/next` after EACH step. Steps 1-6 (view cube r353, rotate gizmo + ticks + snap + haptics, Z rail ad82885,
+  Check mesh, pie menu 55b328b/r358) are built and installed everywhere. **Rotate gizmo + haptics USER VERIFIED 2026-10-21** (archive). Feel pending: view cube, Z rail, Check mesh, pie menu (backlog).
+  Pie menu: user wants it as an S Pen button-activated customizable picker (LOW, backlog); column collapse stays undone.
+- **Open bugs (user 2026-10-21, backlog "BUG, open"), one per session, in this order:** 1. prime tower selectable through objects. 2. Check mesh 3D dots static when the object moves.
+  3. Cut > place upper part on cut face fails (turn auto drop off for that part). 4. Lab slider value vs fade-out label ~5% off.
 - **Paint tools** (survey `NOTES-paint-survey.md`): 4 picks done, WSA OK (Claude), run 39557578074 installed all devices
   2026-10-21; user feel pending (all paint batches).
 - C: tight; old build dirs move to `D:\orca-builds-archive`.
