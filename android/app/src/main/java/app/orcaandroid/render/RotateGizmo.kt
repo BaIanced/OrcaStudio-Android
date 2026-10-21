@@ -18,6 +18,12 @@ object RotateGizmo {
     /** How far the rings sit outside the box's half diagonal, in pixels (the desktop's Offset, in screen terms). */
     const val RING_GAP_PX = 18f
     const val SEGMENTS = 96
+    /** Fine snap, with the finger outside the ring (the desktop's tick scale, ScaleStepsCount 72). */
+    const val FINE_STEP = 5f
+    /** Coarse snap, with the finger well inside the ring (the desktop's SnapRegionsCount 8). */
+    const val COARSE_STEP = 45f
+    /** Half the width of the free band along the ring, in dp: a finger on the ring drifts, and the desktop's bands are mouse-thin. */
+    const val FREE_BAND_DP = 14f
 
     fun center(lo: Vec3, hi: Vec3) = Vec3((lo.x + hi.x) / 2, (lo.y + hi.y) / 2, (lo.z + hi.z) / 2)
 
@@ -29,7 +35,7 @@ object RotateGizmo {
     fun axisVec(axis: Int) = when (axis) { 0 -> Vec3(1f, 0f, 0f); 1 -> Vec3(0f, 1f, 0f); else -> Vec3(0f, 0f, 1f) }
 
     /** Two unit vectors spanning the plane of the ring about [axis] (u x v = the axis). */
-    private fun basis(axis: Int) = when (axis) {
+    fun basis(axis: Int) = when (axis) {
         0 -> Vec3(0f, 1f, 0f) to Vec3(0f, 0f, 1f)
         1 -> Vec3(0f, 0f, 1f) to Vec3(1f, 0f, 0f)
         else -> Vec3(1f, 0f, 0f) to Vec3(0f, 1f, 0f)
@@ -71,17 +77,36 @@ object RotateGizmo {
     }
 
     /**
-     * One drag of the ring about [axis] round [c] (radius [r]) from screen (x0, y0). [update] gives the angle turned so far
-     * in degrees, counter-clockwise seen from the axis tip, unwrapped (it keeps counting past half a turn).
+     * The snap step for a finger [len] from the centre in the ring plane (null: edge-on), as GLGizmoRotate::on_dragging:
+     * [FINE_STEP] outside the ring, [COARSE_STEP] well inside it, free along it within [freeHalf] (world units).
      */
-    class Drag(val axis: Int, val c: Vec3, private val r: Float, private val camera: Camera, x0: Float, y0: Float) {
+    fun snapStep(len: Float?, r: Float, freeHalf: Float) = when {
+        len == null -> 0f
+        len > r + freeHalf -> FINE_STEP
+        len < minOf(r * 2f / 3f, r - freeHalf) -> COARSE_STEP
+        else -> 0f
+    }
+
+    /**
+     * One drag of the ring about [axis] round [c] (radius [r]) from screen (x0, y0). [update] gives the angle turned so far
+     * in degrees, counter-clockwise seen from the axis tip, unwrapped (it keeps counting past half a turn), snapped to
+     * [step] where the finger is in a snap zone ([snapStep]; [freeBandPx] is the free band's half width on screen). The
+     * steps count from where the drag started, as the desktop's count from its grabber.
+     */
+    class Drag(val axis: Int, val c: Vec3, private val r: Float, private val camera: Camera, x0: Float, y0: Float, private val freeBandPx: Float) {
         private val n = axisVec(axis)
+        private val freeHalf = minOf(camera.pxSize(c) * freeBandPx, r * 0.25f)
         private var last: Vec3? = inPlane(x0, y0)
         /** Where the drag started, from the centre in the ring plane (null when it started edge-on). */
         val start: Vec3? = last
         private var lastX = x0
         private var lastY = y0
+        private var raw = 0f
+        /** The turn so far, snapped to [step]. */
         var degrees = 0f
+            private set
+        /** The snap step in force (0 = free). */
+        var step = 0f
             private set
 
         /** The finger's ray on the ring plane, as a direction from the centre; null where the plane is (nearly) edge-on. */
@@ -97,12 +122,31 @@ object RotateGizmo {
         fun update(x: Float, y: Float): Float {
             val now = inPlane(x, y)
             val prev = last
-            degrees += if (now != null && prev != null) {
+            raw += if (now != null && prev != null) {
                 Math.toDegrees(atan2(cross(prev, now).dot(n), prev.dot(now)).toDouble()).toFloat()
             } else screenStep(lastX, lastY, x, y)
             last = now
             lastX = x; lastY = y
+            step = if (now != null) snapStep(now.length(), r, freeHalf) else screenSnap(x, y)
+            degrees = if (step > 0f) Math.round(raw / step) * step else raw
             return degrees
+        }
+
+        /**
+         * [snapStep] on screen, where the finger's ray misses the ring plane or grazes it (far outside a tilted ring, WSA):
+         * fine outside the ring's outline, coarse inside its 2/3 outline, free within [freeBandPx] of the ring.
+         */
+        private fun screenSnap(x: Float, y: Float): Float {
+            val outer = ring(axis, c, r).mapNotNull { camera.project(it) }
+            if (outer.size < 3) return 0f
+            var near = Float.MAX_VALUE
+            for (i in 0 until outer.size - 1) {
+                near = minOf(near, segmentDistance(x, y, outer[i].first, outer[i].second, outer[i + 1].first, outer[i + 1].second))
+            }
+            if (near < freeBandPx) return 0f
+            if (!inside(outer, x, y)) return FINE_STEP
+            val inner = ring(axis, c, r * 2f / 3f).mapNotNull { camera.project(it) }
+            return if (inner.size >= 3 && inside(inner, x, y)) COARSE_STEP else 0f
         }
 
         /**
@@ -134,6 +178,19 @@ object RotateGizmo {
             val along = ((x1 - x0) * tx + (y1 - y0) * ty) / tl
             return Math.toDegrees((along / rPx).toDouble()).toFloat()
         }
+    }
+
+    /** Even-odd test of (x, y) against the closed outline [pts]. */
+    private fun inside(pts: List<Pair<Float, Float>>, x: Float, y: Float): Boolean {
+        var odd = false
+        var j = pts.size - 1
+        for (i in pts.indices) {
+            val (xi, yi) = pts[i]
+            val (xj, yj) = pts[j]
+            if ((yi > y) != (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) odd = !odd
+            j = i
+        }
+        return odd
     }
 
     /** |cos| between the finger's ray and the ring plane's normal below which the plane counts as edge-on (~80 deg). */

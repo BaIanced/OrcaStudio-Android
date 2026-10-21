@@ -86,6 +86,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
         it.deviceLandscape = context.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
         it.outlinePx = 2.5f * context.resources.displayMetrics.density
         it.handlePx = 7f * context.resources.displayMetrics.density
+        it.density = context.resources.displayMetrics.density
     }
     val section = SectionView(camera)
     var listener: PlateListener? = null
@@ -393,10 +394,14 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                         }
                         rotateDrag != null -> {
                             val d = rotateDrag!!
+                            val before = d.degrees
                             val deg = d.update(event.x, event.y)
+                            // A click per snap step, as the view cube's press.
+                            if (d.step > 0f && deg != before) performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
                             val m = RotateGizmo.matrix(d.axis, deg)
                             val c = d.c
-                            queueEvent { renderer.rotatePivot = floatArrayOf(c.x, c.y, c.z); renderer.rotateMatrix = m }
+                            val step = d.step
+                            queueEvent { renderer.rotatePivot = floatArrayOf(c.x, c.y, c.z); renderer.rotateMatrix = m; renderer.rotateStep = step }
                             listener?.onRotate(d.axis, deg, c, event.x, event.y, false)
                         }
                         resizeHandle != null -> {
@@ -573,7 +578,8 @@ class PlateView(context: Context) : GLSurfaceView(context) {
         val axis = RotateGizmo.pick(box.first, box.second, camera, x0, y0, reach)
         if (axis < 0) return false
         val c = RotateGizmo.center(box.first, box.second)
-        val d = RotateGizmo.Drag(axis, c, RotateGizmo.radius(box.first, box.second, camera), camera, x0, y0)
+        val d = RotateGizmo.Drag(axis, c, RotateGizmo.radius(box.first, box.second, camera), camera, x0, y0,
+            RotateGizmo.FREE_BAND_DP * resources.displayMetrics.density)
         rotateDrag = d
         val from = d.start
         queueEvent { renderer.rotateAxis = axis; renderer.rotateFrom = from }
@@ -585,7 +591,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     private fun endRotate(degrees: Float?, x: Float = 0f, y: Float = 0f) {
         val d = rotateDrag ?: return
         rotateDrag = null
-        queueEvent { renderer.rotateAxis = -1; renderer.rotateFrom = null }
+        queueEvent { renderer.rotateAxis = -1; renderer.rotateFrom = null; renderer.rotateStep = 0f }
         listener?.onRotate(d.axis, degrees, d.c, x, y, true)
     }
 

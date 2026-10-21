@@ -90,6 +90,10 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     /** Live rotate: the selection is drawn turned by this row-major 3x3 about [rotatePivot] (its box's centre); null = none. */
     var rotateMatrix: FloatArray? = null
     var rotatePivot = floatArrayOf(0f, 0f, 0f)
+    /** The snap step in force on the dragged ring (0 free, [RotateGizmo.FINE_STEP] or [RotateGizmo.COARSE_STEP]): its marks show bolder. */
+    var rotateStep = 0f
+    /** Screen density (px per dp), for the rotate gizmo's tick lengths. */
+    var density = 1f
     /** Plate whose prime tower (selection id -2 - plate) is being dragged, or -1: it takes the highlight and [dragOffset]. */
     var dragTower = -1
     var showPreview = false
@@ -772,6 +776,27 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         }
         val from = rotateFrom
         val m = rotateMatrix
+        if (grab >= 0) {
+            // The desktop's scale (a tick every 5 degrees, long every 10, just outside the ring) and its 45 degree snap
+            // radii (r/3 to 2r/3), counted from where the drag started: a snapped spoke lands on a mark.
+            val a0 = from?.takeIf { it.length() > 1e-6f }?.let { it * (1f / it.length()) } ?: RotateGizmo.basis(grab).first
+            val px = camera.pxSize(c) * density
+            val color = RotateGizmo.color(grab)
+            val ticks = ArrayList<app.orcaandroid.core.Vec3>()
+            for (k in 0 until (360f / RotateGizmo.FINE_STEP).toInt()) {
+                val dir = RotateGizmo.apply(RotateGizmo.matrix(grab, k * RotateGizmo.FINE_STEP), a0)
+                ticks += c + dir * r
+                ticks += c + dir * (r + px * (if (k % 2 == 0) 10f else 5f))
+            }
+            draw(ticks, GL_LINES, color, if (rotateStep == RotateGizmo.FINE_STEP) 2.5f else 1.5f)
+            val spokes = ArrayList<app.orcaandroid.core.Vec3>()
+            for (k in 0 until (360f / RotateGizmo.COARSE_STEP).toInt()) {
+                val dir = RotateGizmo.apply(RotateGizmo.matrix(grab, k * RotateGizmo.COARSE_STEP), a0)
+                spokes += c + dir * (r / 3f)
+                spokes += c + dir * (r * 2f / 3f)
+            }
+            draw(spokes, GL_LINES, color, if (rotateStep == RotateGizmo.COARSE_STEP) 3f else 1.5f)
+        }
         if (grab >= 0 && from != null && from.length() > 1e-6f) {
             val a = from * (r / from.length())
             val b = if (m != null) RotateGizmo.apply(m, a) else a
