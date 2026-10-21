@@ -35,9 +35,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   not remapped): WSA-tested OK (2->1) on run 39521072810, installed on WSA only. Left (backlog): stroke lock, survey, edge outline.
 - Preview layer-line work merged (PR #34); repro tools `abshot.sh` / `abtop.sh` (reference).
   Idea offered: Preview camera-light slider (no GO yet). C: tight; old build dirs move to `D:\orca-builds-archive`.
-- Need the printer (backlog): fan slider jumps (r295 hold), Retract/Extrude F150 (e13bebb), extrude/jog, speed chips.
-- User-only checks pending (backlog): bead look, part shadows, light sliders, r276 tool row, r283/r284 top bar, r280 pinch lock,
-  r316 double tap, r305 resize gating.
+- First print failed 2026-10-20 (plate/Z suspects; backlog). 3MF export fix `match_filament_indices` (CI run 39529670166): needs the user to load a new export in desktop Orca.
+- Need the printer, and user-only checks (bead look, shadows, light sliders, r276/r283/r284/r280/r316/r305): backlog.
 - Pen input (super low priority) + plate switcher pick: backlog.
 
 ## User decisions (2026-10-13)
