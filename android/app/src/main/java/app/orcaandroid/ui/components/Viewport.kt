@@ -373,6 +373,14 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         val highlight = (state.tool as? Tool.Paint)?.takeIf { !showPreview && it.kind == "support" }?.highlight ?: 0f
         v.onGl { cutPlane = cut; overhangHighlight = highlight }
     }
+    // Regions view: the selected copy's crease lines, again after the model or the angle changes (a paint stroke changes
+    // the scene too, but the lines only depend on the geometry; recomputing them is cheap next to a stroke).
+    val regions = (state.tool as? Tool.Paint)?.takeIf { it.shape == "regions" && !showPreview }
+    val regionAngle = regions?.edgeAngle?.takeIf { it > 0f } ?: 30f
+    LaunchedEffect(v, regions != null, regionAngle, state.selection, scene.objects) {
+        val lines = if (regions != null) runCatching { vm.scene.creaseLines(regionAngle) }.getOrNull() else null
+        v.onGl { creaseLines = lines }
+    }
     // Section view: the plane sweeps the bounding box of the active plate's objects, else of all objects
     // (GLCanvas3D::_get_section_view_plane, volumes_bounding_box(true)).
     val bounds = remember(scene.objects, state.activePlate) {

@@ -403,7 +403,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
                         strokePending = false
                         continue
                     }
-                    if (tool.shape == "fill") {
+                    if (tool.shape == "fill" || tool.shape == "regions") {
                         // Hold-to-preview fill: the fill follows the finger (only its latest position counts) and stays
                         // when it lifts; sliding off the model drops it. Back on the model = a new fill.
                         val last = batch.last()
@@ -413,7 +413,8 @@ class SceneController(private val store: Store, private val presets: PresetContr
                             fillShown = false
                         } else {
                             store.applyScene(engine.paint(listOf(hit), last.camera, tool.radius, tool.kind, tool.state, !fillShown, last.section,
-                                listOf(false), tool.edgeAngle, tool.shape, tool.height, tool.overhang, tool.guardZ.takeIf { tool.guardOn }, tool.overColours))
+                                listOf(false), tool.edgeAngle, "fill", tool.height, tool.overhang, tool.guardZ.takeIf { tool.guardOn },
+                                tool.overColours || tool.shape == "regions"))
                             fillShown = true
                         }
                         strokePending = false
@@ -439,6 +440,8 @@ class SceneController(private val store: Store, private val presets: PresetContr
 
     fun paintClear(kind: String) = selection?.let { sel -> store.sceneOp { engine.paintClear(sel.obj, kind) } }
     fun paintRemap(dest: List<Int>) = selection?.let { sel -> store.sceneOp { engine.paintRemap(sel.obj, dest) } }
+    /** Regions view: the selected copy's crease lines, or null without a selection. */
+    suspend fun creaseLines(angle: Float): FloatArray? = selection?.let { engine.creaseLines(it.obj, it.instance, angle) }
     fun paintByPart() = selection?.let { sel -> store.sceneOp { engine.paintByPart(sel.obj) } }
     fun paintGapFill(kind: String, area: Float) = selection?.let { sel -> store.sceneOp { engine.paintGapFill(sel.obj, kind, area) } }
 

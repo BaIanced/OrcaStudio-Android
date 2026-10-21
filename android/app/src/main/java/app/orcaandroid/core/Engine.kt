@@ -175,6 +175,9 @@ class Engine(private val cacheDir: File) {
     suspend fun paintStateAt(hit: PickHit, kind: String) = call("paintStateAt", args("object" to hit.obj, "volume" to hit.volume,
         "facet" to hit.facet, "local" to hit.local, "kind" to kind)).let { it.getInt("state") to it.optInt("base", 0) }
     suspend fun paintByPart(obj: Int) = parseScene(call("paintByPart", args("object" to obj)))
+    /** Regions view: world line segments (x, y, z per end) of a copy's crease edges sharper than [angle] degrees and open edges. */
+    suspend fun creaseLines(obj: Int, instance: Int, angle: Float): FloatArray =
+        call("creaseLines", args("object" to obj, "instance" to instance, "angle" to angle)).getJSONArray("lines").floats()
     suspend fun paintRemap(obj: Int, dest: List<Int>) = parseScene(call("paintRemap", args("object" to obj, "dest" to dest)))
     suspend fun paintGapFill(obj: Int, kind: String, area: Float) = parseScene(call("paintGapFill", args("object" to obj, "kind" to kind, "area" to area)))
 

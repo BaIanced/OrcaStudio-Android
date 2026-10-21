@@ -92,6 +92,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var measurePoints: List<FloatArray> = emptyList()
     /** Height of the cut plane preview for the selected object's bounds (x0,y0,x1,y1,z), or null. */
     var cutPlane: FloatArray? = null
+    /** Regions view: crease line segments (x, y, z per end, world), drawn over the model with depth test. */
+    var creaseLines: FloatArray? = null
     /** Section view plane (nx, ny, nz, d): world points with n . p > d are cut away; null = off. */
     var section: FloatArray? = null
     var filamentColors: List<FloatArray> = emptyList()
@@ -428,6 +430,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
                 drawMesh(paintVbo, paintCount, pass = 2)
                 glDisable(GL_POLYGON_OFFSET_FILL)
             }
+            if (models) drawCreases()
             // Modifiers and support blockers/enforcers are drawn translucent on top.
             glEnable(GL_BLEND)
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
@@ -955,6 +958,27 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glDisableVertexAttribArray(0)
         glDepthMask(true)
         glDisable(GL_BLEND)
+    }
+
+    /** Regions view outlines: depth-tested, pulled a hair toward the eye so they win over the faces they lie on. */
+    private fun drawCreases() {
+        val data = creaseLines?.takeIf { it.isNotEmpty() } ?: return
+        glEnable(GL_DEPTH_TEST)
+        glDepthRangef(0f, 0.9998f)
+        glUseProgram(lineProgram)
+        glUniformMatrix4fv(loc(lineProgram, "uMvp"), 1, false, mvp, 0)
+        glUniform3f(loc(lineProgram, "uOffset"), 0f, 0f, 0f)
+        glUniform3f(loc(lineProgram, "uColor"), 0.08f, 0.08f, 0.1f)
+        setSection(lineProgram)
+        glLineWidth(2f * pxScale)
+        glBindBuffer(GL_ARRAY_BUFFER, scratchVbo)
+        glBufferData(GL_ARRAY_BUFFER, data.size * 4, floats(data), GL_STREAM_DRAW)
+        glEnableVertexAttribArray(0)
+        glVertexAttribPointer(0, 3, GL_FLOAT, false, 12, 0)
+        glDrawArrays(GL_LINES, 0, data.size / 3)
+        glDisableVertexAttribArray(0)
+        glLineWidth(1f)
+        glDepthRangef(0f, 1f)
     }
 
     /** Measurement line and cut plane outline, drawn without depth test so they stay visible. */

@@ -190,6 +190,9 @@ public:
     json paint_state_at(int object, int volume, int facet, const std::array<double, 3> &local, const std::string &kind);
     // Colour painting: each separate shell of the object gets its own filament, largest first.
     json paint_by_part(int object);
+    // Regions view: {"lines": [x0,y0,z0, x1,y1,z1, ...]} world segments of one copy's crease edges (faces meeting at more
+    // than [angle] degrees) and open edges.
+    json crease_lines(int object, int instance, double angle);
     json paint_gap_fill(int object, const std::string &kind, double area);
     json paint_remap(int object, const std::vector<int> &dest);
 

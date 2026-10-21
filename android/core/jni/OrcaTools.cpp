@@ -441,6 +441,36 @@ json OrcaEngine::paint_state_at(int object, int volume, int facet, const std::ar
     return {{"state", state}, {"base", vol.extruder_id()}};
 }
 
+json OrcaEngine::crease_lines(int object, int instance, double angle)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    const ModelObject &obj = object_at(object);
+    if (instance < 0 || instance >= int(obj.instances.size()))
+        throw std::runtime_error("Invalid instance");
+    const double limit = std::cos(angle * M_PI / 180.);
+    std::vector<float> lines;
+    for (const ModelVolume *vol : obj.volumes) {
+        if (!vol->is_model_part())
+            continue;
+        const Transform3d trafo = obj.instances[instance]->get_matrix() * vol->get_matrix();
+        const indexed_triangle_set &its = vol->mesh().its;
+        const std::vector<Vec3i32> neighbors = its_face_neighbors(its);
+        for (int f = 0; f < int(its.indices.size()); ++f)
+            for (int k = 0; k < 3; ++k) {
+                const int g = neighbors[f][k];
+                // Each shared edge once (from its lower face); open edges always.
+                if (g >= 0 && (g < f || its_face_normal(its, f).normalized().dot(its_face_normal(its, g).normalized()) >= limit))
+                    continue;
+                const Vec2i32 e = its_triangle_edge(its.indices[f], k);
+                for (int v : {e[0], e[1]}) {
+                    const Vec3d p = trafo * its.vertices[v].cast<double>();
+                    lines.insert(lines.end(), {float(p.x()), float(p.y()), float(p.z())});
+                }
+            }
+    }
+    return {{"lines", lines}};
+}
+
 json OrcaEngine::paint_by_part(int object)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
