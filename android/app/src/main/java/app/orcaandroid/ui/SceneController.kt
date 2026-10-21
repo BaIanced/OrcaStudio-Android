@@ -196,10 +196,15 @@ class SceneController(private val store: Store, private val presets: PresetContr
     suspend fun meshReport(thickness: Float): String? = selection?.let { sel ->
         val r = store.engine.checkMesh(sel.obj, sel.instance, thickness)
         lastCheck = sel to app.orcaandroid.core.MeshReport.markers(r)
+        checkBase = store.value.scene.objects.getOrNull(sel.obj)?.instances?.getOrNull(sel.instance)
         app.orcaandroid.core.MeshReport.text(r)
     }
 
     private var lastCheck: Pair<Selection, FloatArray>? = null
+
+    /** The checked copy as it was when the spots were found: the spots follow its moves, and go when it turns or scales. */
+    var checkBase: app.orcaandroid.core.Instance? = null
+        private set
 
     /** Problem spots (x, y, z, kind quadruples) of the copy they were found on, drawn in the 3D view until the selection changes. */
     val meshMarkers = kotlinx.coroutines.flow.MutableStateFlow<Pair<Selection, FloatArray>?>(null)

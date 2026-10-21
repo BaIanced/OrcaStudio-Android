@@ -412,10 +412,17 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     }
     // Check mesh: the problem spots stay up until another copy is selected.
     val marks by vm.scene.meshMarkers.collectAsState()
-    LaunchedEffect(v, marks, state.selection) {
-        if (marks != null && marks?.first != state.selection) vm.scene.clearMeshMarkers()
-        val data = marks?.takeIf { it.first == state.selection }?.second
-        v.onGl { meshMarkers = data }
+    LaunchedEffect(v, marks, state.selection, state.scene) {
+        // The spots follow the copy's moves; a turn, scale or mirror makes them wrong, so they go.
+        val base = vm.scene.checkBase
+        val now = state.selection?.let { s -> state.scene.objects.getOrNull(s.obj)?.instances?.getOrNull(s.instance) }
+        fun near(a: Vec3, b: Vec3) = (a - b).length() < 1e-3f
+        val unchanged = base != null && now != null && near(now.rotation, base.rotation) && near(now.scale, base.scale) &&
+            near(now.mirror, base.mirror) && near(now.size, base.size)
+        if (marks != null && (marks?.first != state.selection || !unchanged)) vm.scene.clearMeshMarkers()
+        val data = marks?.takeIf { it.first == state.selection && unchanged }?.second
+        val shift = if (data != null && base != null && now != null) now.min - base.min else Vec3.ZERO
+        v.onGl { meshMarkers = data; meshMarkerShift = floatArrayOf(shift.x, shift.y, shift.z) }
     }
     // Regions view: the selected copy's crease lines, again after the model or the angle changes (a paint stroke changes
     // the scene too, but the lines only depend on the geometry; recomputing them is cheap next to a stroke).

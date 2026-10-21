@@ -108,6 +108,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var creaseLines: FloatArray? = null
     /** Check mesh problem spots: x, y, z, kind (5 thin wall, 6 open edge, 7 self-intersection) per marker. */
     var meshMarkers: FloatArray? = null
+    /** How far the checked copy has moved since [meshMarkers] were found. */
+    var meshMarkerShift = floatArrayOf(0f, 0f, 0f)
     /** Section view plane (nx, ny, nz, d): world points with n . p > d are cut away; null = off. */
     var section: FloatArray? = null
     var filamentColors: List<FloatArray> = emptyList()
@@ -1073,10 +1075,12 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     /** Measurement line and cut plane outline, drawn without depth test so they stay visible. */
     private fun drawMeshMarkers() {
         val data = meshMarkers?.takeIf { it.isNotEmpty() } ?: return
+        // A live turn or resize moves the copy's surface but not the spots: hide them until it is applied.
+        if (rotateMatrix != null || resizeScale.any { it != 1f }) return
         glEnable(GL_DEPTH_TEST)
         glUseProgram(pointProgram)
         glUniformMatrix4fv(loc(pointProgram, "uMvp"), 1, false, mvp, 0)
-        glUniform3f(loc(pointProgram, "uOffset"), 0f, 0f, 0f)
+        glUniform3f(loc(pointProgram, "uOffset"), dragOffset[0] + meshMarkerShift[0], dragOffset[1] + meshMarkerShift[1], dragOffset[2] + meshMarkerShift[2])
         camera.eye().let { glUniform3f(loc(pointProgram, "uEye"), it.x, it.y, it.z) }
         glUniform1i(loc(pointProgram, "uKinds"), 0b11100000)
         glUniform1f(loc(pointProgram, "uPxScale"), pxScale)
