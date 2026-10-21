@@ -48,6 +48,9 @@ internal object Shaders {
         uniform vec3 uDrag;
         uniform vec3 uScaleAnchor;
         uniform vec3 uScale;
+        uniform int uRotOn;
+        uniform mat3 uRot;
+        uniform vec3 uRotPivot;
         layout(location = 0) in vec3 aPos;
         layout(location = 1) in vec3 aNormal;
         layout(location = 2) in vec2 aInfo;
@@ -68,7 +71,10 @@ internal object Shaders {
             vType = aInfo.y;
             vSelected = selected;
             // A resize drag shows the new size live: the selection scales about its box's bottom centre.
-            vWorld = uScaleAnchor + (aPos - uScaleAnchor) * mix(vec3(1.0), uScale, selected) + selected * uDrag;
+            vec3 p = uScaleAnchor + (aPos - uScaleAnchor) * mix(vec3(1.0), uScale, selected);
+            // A rotate drag turns it live about its box's centre (uRotOn is 0 unless set).
+            if (uRotOn == 1 && selected > 0.5) { p = uRotPivot + uRot * (p - uRotPivot); vNormal = uRot * aNormal; }
+            vWorld = p + selected * uDrag;
             // Normal offset (0.4 mm): the receiver is looked up a little outside its own surface, against acne.
             vShadowCoord = uLightMvp * vec4(vWorld + aNormal * 0.4, 1.0);
             gl_Position = uMvp * vec4(vWorld, 1.0);

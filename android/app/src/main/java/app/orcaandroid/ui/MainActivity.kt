@@ -269,8 +269,9 @@ class MainActivity : ComponentActivity() {
             KeyEvent.KEYCODE_H -> paint("fuzzy", 1) ?: return false
             KeyEvent.KEYCODE_N -> paint("color", 2) ?: return false
             KeyEvent.KEYCODE_U -> vm.scene.setTool(Tool.Measure)
-            // As on the desktop: S = scale (here the box-corner resize), T = text.
+            // As on the desktop: S = scale (here the box-corner resize), R = rotate, T = text.
             KeyEvent.KEYCODE_S -> if (single) vm.scene.toggleResize() else return false
+            KeyEvent.KEYCODE_R -> if (single) vm.scene.toggleRotate() else return false
             KeyEvent.KEYCODE_T -> vm.scene.openAddDialog("text")
             KeyEvent.KEYCODE_DPAD_LEFT -> if (any) vm.scene.nudge(-step, 0f) else return false
             KeyEvent.KEYCODE_DPAD_RIGHT -> if (any) vm.scene.nudge(step, 0f) else return false

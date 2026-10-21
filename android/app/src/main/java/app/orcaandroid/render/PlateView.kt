@@ -43,6 +43,12 @@ interface PlateListener {
      * cancelled; [done] once let go.
      */
     fun onResize(scale: Vec3?, pivot: Vec3, x: Float, y: Float, done: Boolean) {}
+    /**
+     * A ring of the rotate gizmo on the single selected copy is being dragged ([RotateGizmo]): the copy turns by [degrees]
+     * about world [axis] (0 X, 1 Y, 2 Z) through [pivot], its box's centre; (x, y) is the finger. [degrees] is null when the
+     * drag was cancelled; [done] once let go.
+     */
+    fun onRotate(axis: Int, degrees: Float?, pivot: Vec3, x: Float, y: Float, done: Boolean) {}
     /** The prime tower of [plate] was dragged by (dx, dy) mm on the bed. */
     fun onTowerMoved(plate: Int, dx: Float, dy: Float) {}
     /** Paint stroke sample at screen (x, y); [newStroke] for the first sample of a stroke. */
@@ -352,7 +358,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                 if (moved && !resizeTried) {
                     resizeTried = true
                     if (!multiTouch && event.pointerCount == 1 && mode == InteractionMode.NAVIGATE && !rightButton && !middleButton && !rectangle &&
-                        !penOrbit && penInstant == null && startResize(downX, downY)) {
+                        !penOrbit && penInstant == null && (startResize(downX, downY) || startRotate(downX, downY, event.x, event.y))) {
                         dragCheckId++
                         dragging = false; dragStart = null
                         queueEvent { renderer.dragOffset = floatArrayOf(0f, 0f, 0f) }
@@ -385,6 +391,14 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                             val steps = (kotlin.math.hypot(dx, dy) / PAINT_STEP_PX).toInt().coerceIn(1, 32)
                             for (i in 1..steps) listener?.onPaint(lastX + dx * i / steps, lastY + dy * i / steps, false)
                         }
+                        rotateDrag != null -> {
+                            val d = rotateDrag!!
+                            val deg = d.update(event.x, event.y)
+                            val m = RotateGizmo.matrix(d.axis, deg)
+                            val c = d.c
+                            queueEvent { renderer.rotatePivot = floatArrayOf(c.x, c.y, c.z); renderer.rotateMatrix = m }
+                            listener?.onRotate(d.axis, deg, c, event.x, event.y, false)
+                        }
                         resizeHandle != null -> {
                             val h = resizeHandle!!
                             val (lo, hi) = resizeBox!!
@@ -406,7 +420,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                         }
                         // In resize mode the view holds still until the touch slop decides between resize and orbit
                         // (a corner resize also turned the camera ~1.5 degrees, WSA r305).
-                        resizeMode && !resizeTried -> Unit
+                        (resizeMode || rotateMode) && !resizeTried -> Unit
                         else -> camera.orbit((event.x - lastX) * 0.3f, (event.y - lastY) * 0.3f)
                     }
                     lastX = event.x; lastY = event.y
@@ -424,6 +438,8 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                     // Handled: the menu is open, or the middle button only pans.
                 } else if (rightButton) {
                     if (!moved && mode == InteractionMode.NAVIGATE) listener?.onContextMenu(event.x, event.y)
+                } else if (rotateDrag != null) {
+                    endRotate(if (moved) rotateDrag!!.degrees else null, event.x, event.y)
                 } else if (resizeHandle != null) {
                     endResize(if (moved) resizeScale else null, event.x, event.y)
                 } else if (dragging) {
@@ -538,7 +554,40 @@ class PlateView(context: Context) : GLSurfaceView(context) {
         listener?.onResize(scale, ScaleGizmo.pivot(box.first, box.second), x, y, true)
     }
 
-    private fun cancelResize() = endResize(null)
+    private fun cancelResize() { endResize(null); endRotate(null) }
+
+    private var rotateDrag: RotateGizmo.Drag? = null
+
+    /** Rotating is on (Rotate in the context menu or R): the rotate gizmo's rings show on the lone selection. */
+    @Volatile var rotateMode = false
+        set(value) { field = value; queueEvent { renderer.rotateGizmo = value } }
+
+    /**
+     * In [rotateMode], a touch on a ring of the lone selected box starts a turn ([RotateGizmo]) from where the finger landed
+     * ([x0], [y0]); ([x], [y]) is where it is now, past the touch slop, so the turn so far isn't lost.
+     */
+    private fun startRotate(x0: Float, y0: Float, x: Float, y: Float): Boolean {
+        if (!rotateMode) return false
+        val box = selectedBounds.singleOrNull() ?: return false
+        val reach = 24f * resources.displayMetrics.density
+        val axis = RotateGizmo.pick(box.first, box.second, camera, x0, y0, reach)
+        if (axis < 0) return false
+        val c = RotateGizmo.center(box.first, box.second)
+        val d = RotateGizmo.Drag(axis, c, RotateGizmo.radius(box.first, box.second, camera), camera, x0, y0)
+        rotateDrag = d
+        val from = d.start
+        queueEvent { renderer.rotateAxis = axis; renderer.rotateFrom = from }
+        d.update(x, y)
+        return true
+    }
+
+    /** Ends a turn: applies [degrees], or cancels with null. */
+    private fun endRotate(degrees: Float?, x: Float = 0f, y: Float = 0f) {
+        val d = rotateDrag ?: return
+        rotateDrag = null
+        queueEvent { renderer.rotateAxis = -1; renderer.rotateFrom = null }
+        listener?.onRotate(d.axis, degrees, d.c, x, y, true)
+    }
 
     private fun cancelDrag() {
         cancelResize()

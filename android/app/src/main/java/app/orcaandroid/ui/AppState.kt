@@ -116,6 +116,8 @@ data class UiState(
      * selection changes, so a drag can't resize by accident (user, 2026-10-19).
      */
     val resizeFor: Selection? = null,
+    /** The copy the rotate gizmo is on (Rotate in the context menu or R), as [resizeFor]. */
+    val rotateFor: Selection? = null,
     /** An add dialog asked for by a shortcut ("text" for T), shown by the 3D view's context menu host. */
     val addDialog: String? = null,
     val screen: Screen = Screen.PREPARE,
@@ -270,6 +272,9 @@ data class UiState(
 
     /** Corner resizing is on for the lone selected copy. */
     val resizing: Boolean get() = resizeFor != null && selectedItems.singleOrNull() == resizeFor
+
+    /** The rotate gizmo is on for the lone selected copy. */
+    val rotating: Boolean get() = rotateFor != null && selectedItems.singleOrNull() == rotateFor
 
     /** Selects the copies [items]: one becomes the single selection, more a multi-selection. */
     fun withSelected(items: List<Selection>) = copy(

@@ -330,6 +330,9 @@
     <string name="resize">Resize</string>
     <string name="resize_done">Done resizing</string>
     <string name="resize_hint">Drag a handle: corners scale evenly, colours stretch one axis</string>
+    <string name="rotate">Rotate</string>
+    <string name="rotate_done">Done rotating</string>
+    <string name="rotate_hint">Drag a ring to turn about its axis</string>
     <string name="resume">Resume</string>
     <string name="retractions">Retractions</string>
     <string name="rotation">Rotation</string>

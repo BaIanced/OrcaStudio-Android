@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.FileOpen
+import androidx.compose.material.icons.filled.Rotate90DegreesCcw
 import androidx.compose.material.icons.filled.Architecture
 import androidx.compose.material.icons.filled.Interests
 import androidx.compose.material.icons.filled.TextFields
@@ -291,6 +292,9 @@ private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
                     if (state.multiSelection.isEmpty())
                         DropdownMenuItem(text = { Text(stringResource(if (state.resizing) R.string.resize_done else R.string.resize)) },
                             leadingIcon = { Icon(Icons.Default.OpenInFull, null) }, onClick = { close(); vm.scene.toggleResize() })
+                    if (state.multiSelection.isEmpty())
+                        DropdownMenuItem(text = { Text(stringResource(if (state.rotating) R.string.rotate_done else R.string.rotate)) },
+                            leadingIcon = { Icon(Icons.Default.Rotate90DegreesCcw, null) }, onClick = { close(); vm.scene.toggleRotate() })
                     DropdownMenuItem(text = { Text(stringResource(R.string.add_modifier)) },
                         onClick = { close(); vm.scene.addVolume(VolumeType.MODIFIER, "box") })
                     if ((state.scene.objects.getOrNull(sel.obj)?.volumes?.count { it.type == VolumeType.PART } ?: 0) >= 2)

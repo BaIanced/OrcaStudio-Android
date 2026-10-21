@@ -349,7 +349,13 @@ class SceneController(private val store: Store, private val presets: PresetContr
     /** Turns corner resizing of the lone selected copy on, or off when it is already on. */
     fun toggleResize() = store.update {
         val one = it.selectedItems.singleOrNull()
-        it.copy(resizeFor = if (it.resizeFor != null && it.resizeFor == one) null else one)
+        it.copy(resizeFor = if (it.resizeFor != null && it.resizeFor == one) null else one, rotateFor = null)
+    }
+
+    /** Turns the rotate gizmo on the lone selected copy on, or off when it is already on (resizing goes off). */
+    fun toggleRotate() = store.update {
+        val one = it.selectedItems.singleOrNull()
+        it.copy(rotateFor = if (it.rotateFor != null && it.rotateFor == one) null else one, resizeFor = null)
     }
 
     fun openAddDialog(name: String?) = store.update { it.copy(addDialog = name) }

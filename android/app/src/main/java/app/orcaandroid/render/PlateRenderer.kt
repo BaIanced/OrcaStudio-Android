@@ -82,6 +82,14 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var gizmoGrab: ScaleGizmo.Handle? = null
     /** Half the side of a handle square, px. */
     var handlePx = 14f
+    /** Rotate mode: the rotate gizmo's rings ([RotateGizmo]) round the selection box. */
+    var rotateGizmo = false
+    /** The ring being dragged (0 X, 1 Y, 2 Z) or -1: only it shows meanwhile, with spokes from [rotateFrom] to its turn. */
+    var rotateAxis = -1
+    var rotateFrom: app.orcaandroid.core.Vec3? = null
+    /** Live rotate: the selection is drawn turned by this row-major 3x3 about [rotatePivot] (its box's centre); null = none. */
+    var rotateMatrix: FloatArray? = null
+    var rotatePivot = floatArrayOf(0f, 0f, 0f)
     /** Plate whose prime tower (selection id -2 - plate) is being dragged, or -1: it takes the highlight and [dragOffset]. */
     var dragTower = -1
     var showPreview = false
@@ -397,7 +405,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         useRealShadow = false
         if (shadow) {
             effects.lightDir = keyDir
-            val key = listOf(meshVersion, dragOffset.toList(), resizeScale.toList(), selectedIds.toList(), dragTower, section?.toList(), keyAzimuth, keyElevation)
+            val key = listOf(meshVersion, dragOffset.toList(), resizeScale.toList(), rotateMatrix?.toList(), selectedIds.toList(), dragTower, section?.toList(), keyAzimuth, keyElevation)
             // A dragged copy may leave the footprint: widen it by the drag.
             // A fixed widening for the whole drag: any change of the map area mid-drag rescales the texels and
             // shows as a step ("strobe") in the shadow.
@@ -686,6 +694,13 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glUniform3fv(loc(meshProgram, "uDrag"), 1, dragOffset, 0)
         glUniform3fv(loc(meshProgram, "uScaleAnchor"), 1, resizeAnchor, 0)
         glUniform3fv(loc(meshProgram, "uScale"), 1, resizeScale, 0)
+        val rot = rotateMatrix
+        glUniform1i(loc(meshProgram, "uRotOn"), if (rot != null) 1 else 0)
+        if (rot != null) {
+            // Column major for GL.
+            glUniformMatrix3fv(loc(meshProgram, "uRot"), 1, false, floatArrayOf(rot[0], rot[3], rot[6], rot[1], rot[4], rot[7], rot[2], rot[5], rot[8]), 0)
+            glUniform3fv(loc(meshProgram, "uRotPivot"), 1, rotatePivot, 0)
+        }
         glUniform3fv(loc(meshProgram, "uPartColor"), 1, colors.part, 0)
         glUniform3fv(loc(meshProgram, "uSelectedColor"), 1, colors.selected, 0)
         camera.eye().let { glUniform3f(loc(meshProgram, "uEye"), it.x, it.y, it.z) }
@@ -718,6 +733,53 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         val box = selectionBox(ids) ?: return
         if (style and SelectionStyle.BOX != 0 || gizmo) drawSelectionBox(box.copyOf())
         if (gizmo) drawGizmo(box)
+        if (rotateGizmo) drawRings(box)
+    }
+
+    /**
+     * The rotate gizmo's rings ([RotateGizmo]) round [box]'s centre, on top of the scene as the desktop draws them. While one
+     * is dragged only it shows, thicker, with spokes from where the drag started to where it has turned.
+     */
+    private fun drawRings(box: FloatArray) {
+        val lo = app.orcaandroid.core.Vec3(box[0], box[1], box[2])
+        val hi = app.orcaandroid.core.Vec3(box[3], box[4], box[5])
+        val c = RotateGizmo.center(lo, hi)
+        val r = RotateGizmo.radius(lo, hi, camera)
+        val grab = rotateAxis
+        glUseProgram(lineProgram)
+        glUniformMatrix4fv(loc(lineProgram, "uMvp"), 1, false, mvp, 0)
+        glUniform3fv(loc(lineProgram, "uOffset"), 1, floatArrayOf(0f, 0f, 0f), 0)
+        setSection(lineProgram, on = false)
+        glDisable(GL_DEPTH_TEST)
+        glBindBuffer(GL_ARRAY_BUFFER, scratchVbo)
+        glEnableVertexAttribArray(0)
+        fun draw(points: List<app.orcaandroid.core.Vec3>, mode: Int, color: FloatArray, width: Float) {
+            val data = FloatArray(points.size * 3).also { d -> points.forEachIndexed { i, p -> d[i * 3] = p.x; d[i * 3 + 1] = p.y; d[i * 3 + 2] = p.z } }
+            glUniform3fv(loc(lineProgram, "uColor"), 1, color, 0)
+            glLineWidth(width * pxScale)
+            glBufferData(GL_ARRAY_BUFFER, data.size * 4, floats(data), GL_STREAM_DRAW)
+            glVertexAttribPointer(0, 3, GL_FLOAT, false, 12, 0)
+            glDrawArrays(mode, 0, points.size)
+        }
+        val dark = floatArrayOf(0.1f, 0.1f, 0.1f)
+        for (axis in 0..2) {
+            if (grab >= 0 && axis != grab) continue
+            val ring = RotateGizmo.ring(axis, c, r)
+            val w = if (grab >= 0) 4f else 3f
+            // A dark rim under the colour, as the handles have.
+            draw(ring, GL_LINE_STRIP, dark, w + 2f)
+            draw(ring, GL_LINE_STRIP, RotateGizmo.color(axis), w)
+        }
+        val from = rotateFrom
+        val m = rotateMatrix
+        if (grab >= 0 && from != null && from.length() > 1e-6f) {
+            val a = from * (r / from.length())
+            val b = if (m != null) RotateGizmo.apply(m, a) else a
+            draw(listOf(c, c + a, c, c + b), GL_LINES, floatArrayOf(0.85f, 0.85f, 0.85f), 2f)
+        }
+        glDisableVertexAttribArray(0)
+        glLineWidth(1f)
+        glEnable(GL_DEPTH_TEST)
     }
 
     /** The bounding box (x0, y0, z0, x1, y1, z1) of the selection ids [ids], with the live resize. */

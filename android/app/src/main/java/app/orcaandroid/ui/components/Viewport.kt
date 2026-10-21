@@ -41,6 +41,7 @@ import app.orcaandroid.render.PlateView
 import app.orcaandroid.render.PreviewData
 import app.orcaandroid.render.PreviewRange
 import app.orcaandroid.render.PreviewStyle
+import app.orcaandroid.render.RotateGizmo
 import app.orcaandroid.render.TowerBox
 import app.orcaandroid.render.ViewColors
 import app.orcaandroid.ui.AppViewModel
@@ -159,6 +160,24 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                         val off = Vec3(pivot.x + (inst.offset.x - pivot.x) * scale.x, pivot.y + (inst.offset.y - pivot.y) * scale.y, inst.offset.z)
                         vm.scene.setTransform(offset = off, scale = Vec3(inst.scale.x * own.x, inst.scale.y * own.y, inst.scale.z * own.z))
                     }
+                    override fun onRotate(axis: Int, degrees: Float?, pivot: Vec3, x: Float, y: Float, done: Boolean) {
+                        val sel = vm.state.value.selectedItems.singleOrNull()
+                        val inst = sel?.let { vm.state.value.scene.objects.getOrNull(it.obj)?.instances?.getOrNull(it.instance) }
+                        if (!done && degrees != null) {
+                            resizeLabel = Triple("%s %.1f°".format("XYZ"[axis], degrees), x, y)
+                            return
+                        }
+                        resizeLabel = null
+                        if (degrees == null || inst == null || kotlin.math.abs(degrees) < 0.05f) { v.onGl { rotateMatrix = null }; return }
+                        // The live turn stays until the turned mesh is uploaded (cleared there), or after a timeout.
+                        dragPending[0] = true
+                        v.postDelayed({ if (dragPending[0]) { dragPending[0] = false; v.onGl { rotateMatrix = null } } }, 1500)
+                        // A world turn about the box centre: the rotation is composed in front of the copy's own
+                        // (Rz * Ry * Rx) and the offset turns round the centre; the engine drops the copy onto the bed.
+                        val m = RotateGizmo.matrix(axis, degrees)
+                        val rotation = RotateGizmo.toEuler(RotateGizmo.mul(m, RotateGizmo.fromEuler(inst.rotation)))
+                        vm.scene.setTransform(offset = pivot + RotateGizmo.apply(m, inst.offset - pivot), rotation = rotation)
+                    }
                     override fun onBrushScroll(steps: Int) = vm.scene.scaleBrush(if (steps > 0) 1.15f else 1 / 1.15f)
                     override fun onMoved(dx: Float, dy: Float) {
                         // The drag offset stays until the moved mesh is uploaded (below); the timer covers a move
@@ -237,6 +256,15 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                 }
             }
         }
+    } else if (state.rotating && !showPreview) {
+        androidx.compose.material3.Surface(Modifier.align(androidx.compose.ui.Alignment.TopCenter).padding(top = 72.dp), shape = MaterialTheme.shapes.small, tonalElevation = 4.dp) {
+            androidx.compose.foundation.layout.Row(Modifier.padding(start = 8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                androidx.compose.material3.Text(androidx.compose.ui.res.stringResource(app.orcaandroid.R.string.rotate_hint), style = MaterialTheme.typography.labelLarge)
+                androidx.compose.material3.TextButton(onClick = vm.scene::toggleRotate) {
+                    androidx.compose.material3.Text(androidx.compose.ui.res.stringResource(app.orcaandroid.R.string.done))
+                }
+            }
+        }
     }
     plateMenu?.let { (plate, x, y) ->
         Box(Modifier.offset { IntOffset(x.toInt(), y.toInt()) }) { PlateMenu(state, vm, plate) { plateMenu = null } }
@@ -276,6 +304,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     LaunchedEffect(v, state.perspective) { v.camera.perspective = state.perspective }
     LaunchedEffect(v, state.pen) { v.pen = state.pen }
     LaunchedEffect(v, state.resizing, showPreview) { v.resizeMode = state.resizing && !showPreview }
+    LaunchedEffect(v, state.rotating, showPreview) { v.rotateMode = state.rotating && !showPreview }
     // Plate numbers always; the plate icons only while arranging (Prepare).
     val atlas = rememberBadgeAtlas(scene.plates.size)
     val badges = if (showPreview) emptyList()
@@ -296,7 +325,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         val mesh = withContext(Dispatchers.IO) { FloatData.load(scene.meshFile, 8) }
         v.onGl { setMesh(mesh) }
         // A finished drag: the moved mesh is queued first, so the old offset goes away without a jump back.
-        if (dragPending[0]) { dragPending[0] = false; v.onGl { dragOffset = floatArrayOf(0f, 0f, 0f); resizeScale = floatArrayOf(1f, 1f, 1f) } }
+        if (dragPending[0]) { dragPending[0] = false; v.onGl { dragOffset = floatArrayOf(0f, 0f, 0f); resizeScale = floatArrayOf(1f, 1f, 1f); rotateMatrix = null } }
     }
     // Eye toggle: the OpenSCAD design shown see-through, standing in the middle of the active plate (other objects hidden).
     val ghost = state.scad?.preview?.takeIf { state.scadOnPlate && !state.scadHidden && state.screen == app.orcaandroid.ui.Screen.PREPARE }
