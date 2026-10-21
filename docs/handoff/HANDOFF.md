@@ -20,7 +20,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = f1c4a17 (PR #34, r341, merged 2026-10-20). Untested in main: pen 7d3a263, fan hold 298ee9f, Extrude F150 e13bebb,
   Quest stick zoom (r324). Nothing unmerged on the branch.
-- Installed: run 39671546192 (4 bug fixes; pie menu r358 + Check mesh + Z rail inside) on WSA, phone, Chromebook, SHIELD, Note 2026-10-21; cut batch = run 39678582217, installed on all 5 adb devices 2026-10-21. Tablet (unrooted): debug app only (user's request).
+- Installed: cut batch run 39678582217 (includes all earlier steps) on all 5 adb devices 2026-10-21. Tablet (unrooted): debug app only (user's request).
 - **Test device = WSA** (user 2026-10-20). **Note** (added 2026-10-21) = S Pen test device only, not the main target (user; it locks: user says when it is awake, 2026-10-21); Quest = pseudo-pen device (user, untested). Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
   WSA `127.0.0.1:58526`; **USB serial = the user's SHIELD TV** (rooted; installs only).
@@ -29,14 +29,15 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - User sessions backed up: phone `/data/local/tmp/phone-session-backup.{3mf,json}` (8 plates), WSA `/data/local/tmp/session-backup.{3mf,json}`.
   Test zip `scadzip-test.zip` stays in `/sdcard/Download` on phone + Chromebook. LAN access code was given in chat: never write it anywhere.
 ## Next task
-- **User 2026-10-21: one small step per session.** Cue `/clear` + `/next` after EACH step. Steps 1-6 (view cube r353, rotate gizmo + ticks + snap + haptics, Z rail ad82885,
-  Check mesh, pie menu 55b328b/r358) are built and installed everywhere. **Rotate gizmo + haptics USER VERIFIED 2026-10-21** (archive). Feel pending: view cube, Z rail, Check mesh, pie menu (backlog).
-  Pie menu: user wants it as an S Pen button-activated customizable picker (LOW, backlog); column collapse stays undone.
-- **Bugs 2026-10-21: prime tower pick, Check mesh dots, lab readout USER VERIFIED (archive).** Cut: upper floats = OK. **Cut batch built, WSA OK (Claude), user feel pending** (backlog "redesign, BUILT"): paint kept (KeepPaint), plane disc + red line on the surface, drag disc = height, X/Y rings = tilt, no selection look during cut. Ask the user: parts auto-arranged after the cut, wanted?
-- **Paint tools** (survey `NOTES-paint-survey.md`): 4 picks done, WSA OK (Claude), run 39557578074 installed all devices
-  2026-10-21; user feel pending (all paint batches).
+- **User 2026-10-21: one small step per session.** Cue `/clear` + `/next` after EACH step. USER VERIFIED 2026-10-21: rotate gizmo + haptics,
+  cut redesign ("much better"), Z rail feel (archive). Pie menu: user dislikes it -> LOW S Pen customizable picker, not now (backlog).
+- **Waiting on the user's pick (asked 2026-10-21):** (1) cut follow-up: upper part = radio Lay on cut face / Flip / Leave in place +
+  nested "Arrange parts after cut" (off for Leave in place; today `arrange_plate` always runs, OrcaScene.cpp:1046);
+  (2) Z rail live drag (only a wireframe ghost moves, the one CSG mesh re-renders on release, MeshPreviewView.kt:342);
+  (3) shape builder on the main canvas (shapes as Orca volumes + existing mcut booleans, OrcaScene.cpp:928): assessed, user decides;
+  (4) paint panel layouts A rail / B tabbed card / C task modes (recommended C), ToolPanel.kt:152. Feel pending: view cube, Check mesh, paint batches.
 - C: tight; old build dirs move to `D:\orca-builds-archive`.
-- First print: fixed by printer calibration (user, 2026-10-20; archive). **Open issue: app 3MF export fails in desktop Orca** (fix `match_filament_indices` in run 39529670166, installed on all devices; untested on a 4-filament export: the user exports from the phone and opens it in desktop Orca).
+- **Open issue: app 3MF export fails in desktop Orca** (fix `match_filament_indices` in run 39529670166, installed on all devices; untested on a 4-filament export: the user exports from the phone and opens it in desktop Orca).
 - Need the printer, and user-only checks (bead look, shadows, light sliders, r276/r283/r284/r280/r316/r305): backlog.
 - Pen input (super low priority; test on the Note / Quest) + plate switcher pick: backlog.
 

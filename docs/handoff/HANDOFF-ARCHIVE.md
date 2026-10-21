@@ -2467,3 +2467,9 @@ User: "you just tested something we already confirmed worked". Cross-checked eac
 
 ## 2026-10-21 Bug batch verdicts (run 39671546192)
 - User: "Prime tower fixed. Mesh dots fixed. Lab slider fixed." (all three USER VERIFIED). Cut: upper part stays floating (OK) but the parts are auto-arranged after the operation; "flip" upper part makes the paint on the object disappear (open bug). Cut UI redesign requested: show where the cut meets the surface (red box walls visible through the object), touch-friendly height adjust with the tool window open, rotate gizmo for angular cuts (backlog).
+
+## 2026-10-21 User verdicts on the cut batch (run 39678582217)
+- Cut redesign: "The cut function is much better." USER VERIFIED (feel). Follow-ups (backlog): no auto orient/arrange when "Place upper part on cut face" is on; otherwise floaters make no sense, so make auto orient a nested option in the cut window. User asks what "Flip upper part upside down" is for.
+- Z rail: "Z rail feels fine", but "it doesn't draw object as I drag along it into a position" (no live preview while dragging; backlog).
+- Pie menu: "I do not like the pie menu"; low-priority S Pen/stylus feature, fully customizable (users add/remove tools), any S Pen button(s) mappable to open it. Not today.
+- Asked: shape builder in the main canvas (mesh menu on the main view, interconnected), for/against assessment; paint menu UI evaluation with 2-3 alternative layouts (hard to find tools, unclear what each does).
