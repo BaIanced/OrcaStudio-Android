@@ -20,7 +20,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = f1c4a17 (PR #34, r341, merged 2026-10-20). Untested in main: pen 7d3a263, fan hold 298ee9f, Extrude F150 e13bebb,
   Quest stick zoom (r324). Nothing unmerged on the branch.
-- Installed: run 39671546192 (4 bug fixes; pie menu r358 + Check mesh + Z rail inside) on WSA, phone, Chromebook, SHIELD, Note 2026-10-21; the cut batch is only on WSA (debug build) until the next CI run. Tablet (unrooted): debug app only (user's request).
+- Installed: run 39671546192 (4 bug fixes; pie menu r358 + Check mesh + Z rail inside) on WSA, phone, Chromebook, SHIELD, Note 2026-10-21; cut batch = run 39678582217, installed on all 5 adb devices 2026-10-21. Tablet (unrooted): debug app only (user's request).
 - **Test device = WSA** (user 2026-10-20). **Note** (added 2026-10-21) = S Pen test device only, not the main target (user; it locks: user says when it is awake, 2026-10-21); Quest = pseudo-pen device (user, untested). Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
   WSA `127.0.0.1:58526`; **USB serial = the user's SHIELD TV** (rooted; installs only).
