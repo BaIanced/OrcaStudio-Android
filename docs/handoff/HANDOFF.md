@@ -29,12 +29,14 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - User sessions backed up: phone `/data/local/tmp/phone-session-backup.{3mf,json}` (8 plates), WSA `/data/local/tmp/session-backup.{3mf,json}`.
   Test zip `scadzip-test.zip` stays in `/sdcard/Download` on phone + Chromebook. LAN access code was given in chat: never write it anywhere.
 ## Next task
-- **Extended paint tools** (backlog "Extended paint tools", survey `NOTES-paint-survey.md`): the user's 4 survey picks (2026-10-21)
-  all done + WSA OK (Claude): hold-to-preview fill, eyedropper, colour each part, clean specks, guard plane, "Fill over colours",
-  regions view. CI run 39557578074: install on all devices when built, then ask the user to try them. Edge outline in Prepare
-  (backlog) could reuse `crease_lines`. Earlier batches (brushes, remap, stroke lock, overhang highlight): user feel pending.
+- **User 2026-10-21: one small step per session (last round went over 250k).** Cue `/clear` + `/next` after EACH step:
+  1. View cube DONE (WSA OK, CI pending; backlog). Next: 2. Rotate gizmo rings + drag + angle label. 3. Rotate tick snap +
+     touch tuning. 4. Z rail for shapes in the CAD section (backlog "Move in Z"). 5. print3d_toolbox checks (thin wall/
+     intersections). 6. Pie menu / tool-bar collapse (discuss first).
+- **Paint tools** (survey `NOTES-paint-survey.md`): 4 picks done, WSA OK (Claude), run 39557578074 installed all devices
+  2026-10-21; user feel pending (all paint batches).
 - Layer-line repro tools `abshot.sh` / `abtop.sh` (reference).
-  Idea offered: Preview camera-light slider (no GO yet). C: tight; old build dirs move to `D:\orca-builds-archive`.
+  C: tight; old build dirs move to `D:\orca-builds-archive`.
 - First print: fixed by printer calibration (user, 2026-10-20; archive). **Open issue: app 3MF export fails in desktop Orca** (fix `match_filament_indices` in run 39529670166, installed on all devices; untested on a 4-filament export: the user exports from the phone and opens it in desktop Orca).
 - Need the printer, and user-only checks (bead look, shadows, light sliders, r276/r283/r284/r280/r316/r305): backlog.
 - Pen input (super low priority) + plate switcher pick: backlog.

@@ -314,6 +314,7 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
                 if (state.screen == Screen.PREPARE) Themed(Region.PREPARE_TOOLS) { PrepareOverlay(state, vm, plateView, wide) }
                 else Themed(Region.PREVIEW_TOOLS) { PreviewOverlay(state, vm, plateView, wide) }
             }
+            plateView?.let { app.orcaandroid.ui.components.ViewCube(it.camera, Modifier.align(Alignment.TopEnd).padding(top = 72.dp, end = 8.dp)) }
             // Below the top tool row, centered.
             app.orcaandroid.ui.components.Notices(state, vm, Modifier.align(Alignment.TopCenter).padding(top = 64.dp))
         }

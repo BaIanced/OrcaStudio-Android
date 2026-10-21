@@ -443,9 +443,11 @@
     <string name="orthographic_camera">Orthographic camera (K)</string>
     <string name="section_view">Section view</string>
     <string name="section_view_align">Set viewing angle</string>
+    <string name="view_bottom">Bottom</string>
     <string name="view_front">Front</string>
     <string name="view_iso">Isometric</string>
     <string name="view_left">Left</string>
+    <string name="view_rear">Rear</string>
     <string name="view_right">Right</string>
     <string name="view_top">Top</string>
     <string name="vol_blocker">Support blocker</string>
