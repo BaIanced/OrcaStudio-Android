@@ -20,7 +20,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = f1c4a17 (PR #34, r341, merged 2026-10-20). Untested in main: pen 7d3a263, fan hold 298ee9f, Extrude F150 e13bebb,
   Quest stick zoom (r324). Nothing unmerged on the branch.
-- Installed: run 39578686940 (rotate gizmo, fd83086) on WSA, phone, Chromebook, SHIELD 2026-10-21. Tablet (wireless adb, unrooted; user's): only the debug app + a copy of the phone's data (CI release app removed at the user's request); no root = no data copy into a release app.
+- Installed: run 39582935998 (rotate snap, 45dc651) on WSA, phone, Chromebook, SHIELD 2026-10-21. Tablet (wireless adb, unrooted; user's): only the debug app + a copy of the phone's data (CI release app removed at the user's request); no root = no data copy into a release app.
 - **Test device = WSA** (user 2026-10-20: `/target` skill removed for good). `target.sh` stays only as the serial helper (`target.sh serial|phone|chromebook`); shot.sh/mcpao.sh use it.
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
   WSA `127.0.0.1:58526`; **USB serial = the user's SHIELD TV** (rooted; installs only).
@@ -30,14 +30,12 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   Test zip `scadzip-test.zip` stays in `/sdcard/Download` on phone + Chromebook. LAN access code was given in chat: never write it anywhere.
 ## Next task
 - **User 2026-10-21: one small step per session.** Cue `/clear` + `/next` after EACH step:
-  1. View cube DONE (user OK r352; lab switch, OFF by default, r353). 2. Rotate gizmo DONE fd83086 (Rotate in the menu / R;
-     rings, drag, live label; WSA OK Claude incl. edge-on; CI run 39578686940 installed; user feel pending). Next: 3. Rotate tick snap +
-     touch tuning. 4. Z rail for shapes in the CAD section (backlog "Move in Z"). 5. print3d_toolbox checks (thin wall/
+  1. View cube DONE (r353, lab switch, off). 2. Rotate gizmo rings DONE fd83086 (menu / R). 3. Rotate ticks + snap DONE 45dc651
+     (WSA OK Claude; CI run 39582935998; user feel of 2+3 pending, backlog). Next: 4. Z rail for shapes in the CAD section (backlog "Move in Z"). 5. print3d_toolbox checks (thin wall/
      intersections). 6. Pie menu / tool-bar collapse (discuss first).
 - **Paint tools** (survey `NOTES-paint-survey.md`): 4 picks done, WSA OK (Claude), run 39557578074 installed all devices
   2026-10-21; user feel pending (all paint batches).
-- Layer-line repro tools `abshot.sh` / `abtop.sh` (reference).
-  C: tight; old build dirs move to `D:\orca-builds-archive`.
+- C: tight; old build dirs move to `D:\orca-builds-archive`.
 - First print: fixed by printer calibration (user, 2026-10-20; archive). **Open issue: app 3MF export fails in desktop Orca** (fix `match_filament_indices` in run 39529670166, installed on all devices; untested on a 4-filament export: the user exports from the phone and opens it in desktop Orca).
 - Need the printer, and user-only checks (bead look, shadows, light sliders, r276/r283/r284/r280/r316/r305): backlog.
 - Pen input (super low priority) + plate switcher pick: backlog.
