@@ -97,6 +97,7 @@ internal object Shaders {
         uniform vec3 uKeyDir;
         uniform float uKeyStrength;
         uniform int uSelStyle;
+        uniform float uOverhangZ;
         in vec3 vBary;
         in vec3 vNormal;
         in highp vec3 vWorld;
@@ -186,6 +187,9 @@ internal object Shaders {
                 float spec = pow(max(dot(n, normalize(lk + v)), 0.0), 36.0) * 0.16 * uKeyStrength;
                 float rim = pow(1.0 - max(dot(n, v), 0.0), 3.0) * 0.14;
                 vec3 shaded = (base * diff + vec3(spec)) * lit + vec3(0.55, 0.7, 1.0) * rim * (0.4 + 0.6 * sky);
+                // Highlight overhangs (support painting): the selection's faces steeper than the angle, by their own normal.
+                if (vSelected > 0.5 && uPass == 0 && normalize(vNormal).z < uOverhangZ)
+                    shaded = mix(shaded, vec3(1.0, 0.35, 0.2) * (0.45 + 0.55 * diff), 0.6);
                 if (vSelected > 0.5 && uPass == 0) {
                     // Rim glow: the selection colour on faces turning away from the eye.
                     if ((uSelStyle & 4) != 0)

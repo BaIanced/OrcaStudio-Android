@@ -109,6 +109,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var keyAzimuth = -57.5f
     var keyElevation = 49f
     var keyStrength = 1f
+    /** Support painting's "Highlight overhangs": > 0 tints the selected parts' faces overhanging by more than this many degrees. */
+    var overhangHighlight = 0f
     private val keyDir get() = Math.toRadians(keyElevation.toDouble()).let { el ->
         Math.toRadians(keyAzimuth.toDouble()).let { az ->
             floatArrayOf((Math.cos(el) * Math.cos(az)).toFloat(), (Math.cos(el) * Math.sin(az)).toFloat(), Math.sin(el).toFloat())
@@ -674,6 +676,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glUniform1i(loc(meshProgram, "uSelStyle"), activeSelectionStyle)
         keyDir.let { glUniform3f(loc(meshProgram, "uKeyDir"), it[0], it[1], it[2]) }
         glUniform1f(loc(meshProgram, "uKeyStrength"), keyStrength)
+        // TriangleSelector::select_patch's test: world normal z below -cos(angle); -2 = off.
+        glUniform1f(loc(meshProgram, "uOverhangZ"), if (overhangHighlight > 0f) -Math.cos(Math.toRadians(overhangHighlight.toDouble())).toFloat() else -2f)
         glUniform1fv(loc(meshProgram, "uSelected"), Shaders.MAX_SELECTED, ids.copyOf(Shaders.MAX_SELECTED), 0)
         glUniform1i(loc(meshProgram, "uSelectedCount"), minOf(ids.size, Shaders.MAX_SELECTED))
         glUniform3fv(loc(meshProgram, "uDrag"), 1, dragOffset, 0)

@@ -211,16 +211,22 @@ private fun PaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Paint) {
         FilterChip(tool.lock == "v", { vm.scene.setTool(tool.copy(lock = if (tool.lock == "v") "" else "v")) }, label = { Text(stringResource(R.string.paint_lock_vertical)) })
         FilterChip(tool.lock == "h", { vm.scene.setTool(tool.copy(lock = if (tool.lock == "h") "" else "h")) }, label = { Text(stringResource(R.string.paint_lock_horizontal)) })
     }
-    // Support painting's "on overhangs only" (brush): only faces overhanging by more than the angle are painted; the angle stays remembered while off.
+    // Support painting's overhang angle (the desktop's): "Highlight overhangs" tints the faces overhanging by more than it,
+    // "On overhangs only" (brush) paints only those. One shared angle, remembered while both are off.
     var overhang by rememberSaveable { mutableFloatStateOf(40f) }
-    if (brush && tool.kind == "support") Row(verticalAlignment = Alignment.CenterVertically) {
-        FilterChip(tool.overhang > 0f, { vm.scene.setTool(tool.copy(overhang = if (tool.overhang > 0f) 0f else overhang)) },
-            label = { Text(stringResource(R.string.paint_overhangs_only)) })
-        if (tool.overhang > 0f) {
-            Text(stringResource(R.string.paint_overhang_angle, tool.overhang.roundToInt()), style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(start = 8.dp))
-            Slider(tool.overhang, { overhang = it; vm.scene.setTool(tool.copy(overhang = it)) }, valueRange = 1f..90f,
-                modifier = Modifier.weight(1f).padding(start = 8.dp))
+    if (tool.kind == "support") {
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            FilterChip(tool.highlight > 0f, { vm.scene.setTool(tool.copy(highlight = if (tool.highlight > 0f) 0f else overhang)) },
+                label = { Text(stringResource(R.string.paint_highlight_overhangs)) })
+            if (brush) FilterChip(tool.overhang > 0f, { vm.scene.setTool(tool.copy(overhang = if (tool.overhang > 0f) 0f else overhang)) },
+                label = { Text(stringResource(R.string.paint_overhangs_only)) })
+        }
+        if (tool.highlight > 0f || (brush && tool.overhang > 0f)) Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.paint_overhang_angle, overhang.roundToInt()), style = MaterialTheme.typography.bodySmall)
+            Slider(overhang, {
+                overhang = it
+                vm.scene.setTool(tool.copy(overhang = if (tool.overhang > 0f) it else 0f, highlight = if (tool.highlight > 0f) it else 0f))
+            }, valueRange = 1f..90f, modifier = Modifier.weight(1f).padding(start = 8.dp))
         }
     }
     // Remap filaments (the desktop's tool): painted filament i becomes filament remap[i] on the whole object.

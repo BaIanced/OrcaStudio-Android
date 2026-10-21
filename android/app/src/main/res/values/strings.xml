@@ -45,6 +45,7 @@
     <string name="paint_remap_apply">Remap</string>
     <string name="paint_remap_reset">Reset</string>
     <string name="paint_overhangs_only">On overhangs only</string>
+    <string name="paint_highlight_overhangs">Highlight overhangs</string>
     <string name="paint_lock_vertical">Lock ↕</string>
     <string name="paint_lock_horizontal">Lock ↔</string>
     <string name="paint_overhang_angle">Over %d°</string>

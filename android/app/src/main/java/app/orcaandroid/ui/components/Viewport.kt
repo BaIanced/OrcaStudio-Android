@@ -365,7 +365,8 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                 floatArrayOf(i.min.x - 5, i.min.y - 5, i.min.x + i.size.x + 5, i.min.y + i.size.y + 5, t.z)
             }
         }
-        v.onGl { cutPlane = cut }
+        val highlight = (state.tool as? Tool.Paint)?.takeIf { !showPreview && it.kind == "support" }?.highlight ?: 0f
+        v.onGl { cutPlane = cut; overhangHighlight = highlight }
     }
     // Section view: the plane sweeps the bounding box of the active plate's objects, else of all objects
     // (GLCanvas3D::_get_section_view_plane, volumes_bounding_box(true)).
