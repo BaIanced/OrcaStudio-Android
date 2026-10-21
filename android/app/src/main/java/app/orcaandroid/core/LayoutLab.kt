@@ -57,6 +57,8 @@ data class LayoutLab(
     /** View cube spot, as a fraction (0-1) of the room left and right / above and below it in the 3D view (-1 = default top right). */
     val viewCubeX: Float = -1f,
     val viewCubeY: Float = -1f,
+    /** Long press on the 3D view opens a pie menu (slide to a wedge and release, or tap one) instead of the list menu (user 2026-10-21). */
+    val pieMenu: Boolean = false,
 ) {
     fun toJson(): String = JSONObject()
         .put("plates", plates.name).put("plateLabel", plateLabel).put("overlayAlpha", overlayAlpha.toDouble())
@@ -68,7 +70,7 @@ data class LayoutLab(
         .put("shadowStrength", shadowStrength.toDouble()).put("shadowSoft", shadowSoft.toDouble()).put("shadowBias", shadowBias.toDouble())
         .put("lightAzimuth", lightAzimuth.toDouble()).put("lightElevation", lightElevation.toDouble()).put("lightStrength", lightStrength.toDouble())
         .put("pinchSpeed", pinchSpeed.toDouble()).put("wheelSpeed", wheelSpeed.toDouble()).put("sliceScale", sliceScale.toDouble())
-        .put("viewCube", viewCube).put("viewCubeX", viewCubeX.toDouble()).put("viewCubeY", viewCubeY.toDouble()).toString()
+        .put("viewCube", viewCube).put("viewCubeX", viewCubeX.toDouble()).put("viewCubeY", viewCubeY.toDouble()).put("pieMenu", pieMenu).toString()
 
     companion object {
         val TEXT_SCALES = 0.7f..1.3f
@@ -116,6 +118,7 @@ data class LayoutLab(
                 viewCube = o.optBoolean("viewCube", d.viewCube),
                 viewCubeX = o.optDouble("viewCubeX", -1.0).toFloat().coerceAtMost(1f),
                 viewCubeY = o.optDouble("viewCubeY", -1.0).toFloat().coerceAtMost(1f),
+                pieMenu = o.optBoolean("pieMenu", d.pieMenu),
             )
         }
     }

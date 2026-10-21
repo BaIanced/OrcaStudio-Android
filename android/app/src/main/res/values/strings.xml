@@ -919,6 +919,7 @@
     <string name="lab_slice_scale">Slice button size (portrait, on the panel grip): %d %%</string>
     <string name="lab_plate_scale">Plate switcher size: %d %%</string>
     <string name="lab_fullscreen_portrait">Fullscreen in portrait too</string>
+    <string name="lab_pie_menu">Pie menu on long press in the 3D view (slide to a wedge and release)</string>
     <string name="lab_view_cube">View cube in the 3D view (long press to move it)</string>
     <string name="scad_draft_preview">Draft while dragging</string>
     <string name="scad_on_plate">Show the design on the plate</string>

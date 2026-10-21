@@ -1,5 +1,6 @@
 package app.orcaandroid.ui
 
+import app.orcaandroid.ui.prepare.PieTouch
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -34,6 +35,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val slicing = SliceController(store, presets)
     val files = FileController(store, presets, scene, slicing)
     val scad = ScadController(store)
+    /** Where the finger is that opened the pie menu (the 3D view feeds it, the menu reads it). */
+    val pieTouch = PieTouch()
     val shapes = ShapeController(store, scad)
 
     /** MCP server for AI clients (Settings > AI tools); runs while this view model lives and the switch is on. */

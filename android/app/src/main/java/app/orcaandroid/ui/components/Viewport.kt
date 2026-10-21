@@ -224,9 +224,12 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                     }
 
                     override fun onContextMenu(x: Float, y: Float) {
+                        vm.pieTouch.reset()
                         val (o, d) = v.camera.ray(x, y)
                         vm.scene.openContextMenu(o, d, x, y, v.section.current)
                     }
+
+                    override fun onLongPressTouch(x: Float, y: Float, held: Boolean) = vm.pieTouch.update(x, y, held)
                 }
                 view = v
                 onView(v)
