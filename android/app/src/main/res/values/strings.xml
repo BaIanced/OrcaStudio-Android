@@ -46,6 +46,10 @@
     <string name="paint_remap_reset">Reset</string>
     <string name="paint_overhangs_only">On overhangs only</string>
     <string name="paint_highlight_overhangs">Highlight overhangs</string>
+    <string name="paint_shape_pick">Pick colour</string>
+    <string name="paint_pick_hint">Tap the model: its colour there becomes the brush colour.</string>
+    <string name="paint_clean_specks">Clean specks</string>
+    <string name="paint_by_part">Colour each part</string>
     <string name="paint_lock_vertical">Lock ↕</string>
     <string name="paint_lock_horizontal">Lock ↔</string>
     <string name="paint_overhang_angle">Over %d°</string>

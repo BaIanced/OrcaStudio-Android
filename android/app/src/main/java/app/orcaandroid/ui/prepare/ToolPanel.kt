@@ -166,14 +166,15 @@ private fun PaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Paint) {
     }
     // The desktop's painting tools per kind (GLGizmoMmuSegmentation / FdmSupports / Seam / FuzzySkin).
     val shapes = when (tool.kind) {
-        "color" -> listOf("sphere", "circle", "triangle", "fill", "height", "gap")
+        "color" -> listOf("sphere", "circle", "triangle", "fill", "height", "pick")
         "seam" -> listOf("sphere", "circle")
-        "support" -> listOf("sphere", "circle", "triangle", "fill", "gap")
+        "support" -> listOf("sphere", "circle", "triangle", "fill", "pick")
         else -> listOf("sphere", "circle", "triangle", "fill")
     }
     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         shapes.forEach { s ->
-            FilterChip(tool.shape == s, { vm.scene.setTool(tool.copy(shape = s)) }, label = { Text(stringResource(paintShapeLabel(s))) })
+            FilterChip(tool.shape == s, { vm.scene.setTool(tool.copy(shape = s, back = if (s == "pick") tool.shape.takeIf { it != "pick" } ?: tool.back else tool.back)) },
+                label = { Text(stringResource(paintShapeLabel(s))) })
         }
     }
     val brush = tool.shape == "sphere" || tool.shape == "circle"
@@ -185,14 +186,18 @@ private fun PaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Paint) {
         Text(stringResource(R.string.paint_height_range, tool.height), style = MaterialTheme.typography.bodySmall)
         Slider(tool.height, { vm.scene.setTool(tool.copy(height = it)) }, valueRange = 0.1f..8f, modifier = Modifier.weight(1f).padding(start = 8.dp))
     }
-    // Gap fill (the desktop's tool): painted patches smaller than the area take their neighbour's state, on the whole object.
+    if (tool.shape == "pick") Text(stringResource(R.string.paint_pick_hint), style = MaterialTheme.typography.bodySmall)
+    // One-tap actions on the whole object. Clean specks = the desktop's gap fill: painted patches under the area take the
+    // state that borders them most. Colour each part: every separate shell gets its own filament, largest first.
     var gapArea by rememberSaveable { mutableFloatStateOf(1f) }
-    if (tool.shape == "gap") {
+    if (tool.kind == "color" || tool.kind == "support") {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.paint_gap_area, gapArea), style = MaterialTheme.typography.bodySmall)
+            FilledTonalButton(onClick = { vm.scene.paintGapFill(tool.kind, gapArea) }) { Text(stringResource(R.string.paint_clean_specks)) }
+            Text(stringResource(R.string.paint_gap_area, gapArea), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 8.dp))
             Slider(gapArea, { gapArea = it }, valueRange = 0.1f..5f, modifier = Modifier.weight(1f).padding(start = 8.dp))
         }
-        FilledTonalButton(onClick = { vm.scene.paintGapFill(tool.kind, gapArea) }) { Text(stringResource(R.string.paint_gap_apply)) }
+        if (tool.kind == "color" && state.filaments.size > 1)
+            FilledTonalButton(onClick = { vm.scene.paintByPart() }) { Text(stringResource(R.string.paint_by_part)) }
     }
     // Edge detection (brush) / smart fill angle (fill): the angle stays remembered while it is off.
     var edgeAngle by rememberSaveable { mutableFloatStateOf(30f) }
@@ -266,7 +271,7 @@ private fun PaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Paint) {
 
 private fun paintShapeLabel(shape: String) = when (shape) {
     "circle" -> R.string.paint_shape_circle; "triangle" -> R.string.paint_shape_triangle; "fill" -> R.string.paint_shape_fill
-    "height" -> R.string.paint_shape_height; "gap" -> R.string.paint_shape_gap; else -> R.string.paint_shape_sphere
+    "height" -> R.string.paint_shape_height; "pick" -> R.string.paint_shape_pick; else -> R.string.paint_shape_sphere
 }
 
 @Composable

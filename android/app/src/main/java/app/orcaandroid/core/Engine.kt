@@ -169,6 +169,11 @@ class Engine(private val cacheDir: File) {
         "camera" to camera, "radius" to radius, "kind" to kind, "state" to state, "newStroke" to newStroke, "section" to section, "edgeAngle" to edgeAngle,
         "shape" to shape, "height" to height, "overhang" to overhang)))
     suspend fun paintClear(obj: Int, kind: String) = parseScene(call("paintClear", args("object" to obj, "kind" to kind)))
+    suspend fun paintFillCancel() = parseScene(call("paintFillCancel", args()))
+    /** Eyedropper: the paint state under [hit] (0 = unpainted) and the part's own extruder (1-based, 0 = the object's). */
+    suspend fun paintStateAt(hit: PickHit, kind: String) = call("paintStateAt", args("object" to hit.obj, "volume" to hit.volume,
+        "facet" to hit.facet, "local" to hit.local, "kind" to kind)).let { it.getInt("state") to it.optInt("base", 0) }
+    suspend fun paintByPart(obj: Int) = parseScene(call("paintByPart", args("object" to obj)))
     suspend fun paintRemap(obj: Int, dest: List<Int>) = parseScene(call("paintRemap", args("object" to obj, "dest" to dest)))
     suspend fun paintGapFill(obj: Int, kind: String, area: Float) = parseScene(call("paintGapFill", args("object" to obj, "kind" to kind, "area" to area)))
 

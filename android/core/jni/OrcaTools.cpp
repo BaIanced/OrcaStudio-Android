@@ -289,7 +289,7 @@ std::vector<bool> flood_surface(const indexed_triangle_set &its, const std::vect
 }
 
 // The desktop's gap fill (TriangleSelectorPatch::update_triangles_per_patch / update_selector_triangles): a patch is a
-// connected run of leaf triangles in one state; a patch under [max_area] mm2 takes the state of its first neighbouring patch.
+// connected run of leaf triangles in one state; a patch under [max_area] mm2 takes the state that borders it most.
 class GapFiller : public TriangleSelector
 {
 public:
@@ -302,7 +302,7 @@ public:
         struct Patch
         {
             std::vector<int> facets;
-            std::set<EnforcerBlockerType> neighbor_types;
+            std::map<EnforcerBlockerType, int> neighbor_types; // state -> touching triangles
             double area = 0.;
         };
         std::vector<Patch> patches;
@@ -334,7 +334,7 @@ public:
                     if (g < 0)
                         continue;
                     if (m_triangles[g].get_state() != state)
-                        patch.neighbor_types.insert(m_triangles[g].get_state());
+                        ++patch.neighbor_types[m_triangles[g].get_state()];
                     else if (!visited[g]) {
                         visited[g] = true;
                         queue.push_back(g);
@@ -347,15 +347,140 @@ public:
         for (const Patch &patch : patches) {
             if (patch.area >= max_area || patch.neighbor_types.empty())
                 continue;
+            // The surrounding state: the one touching the patch most (a speck on a border joins the longer side).
+            const auto most = std::max_element(patch.neighbor_types.begin(), patch.neighbor_types.end(),
+                                               [](const auto &a, const auto &b) { return a.second < b.second; });
             for (int f : patch.facets)
-                m_triangles[f].set_state(*patch.neighbor_types.begin());
+                m_triangles[f].set_state(most->first);
             changed = true;
         }
         return changed;
     }
 };
 
+// The state under a point of one original facet: walks down the facet's splits to the leaf triangle nearest the point.
+class StateProbe : public TriangleSelector
+{
+public:
+    using TriangleSelector::TriangleSelector;
+
+    EnforcerBlockerType state_at(int facet, const Vec3f &p) const
+    {
+        int t = facet;
+        while (m_triangles[t].is_split()) {
+            const Triangle &tri = m_triangles[t];
+            int best = tri.children[0];
+            float best_d = FLT_MAX;
+            for (int c = 0; c <= tri.number_of_split_sides(); ++c) {
+                const float d = distance(m_triangles[tri.children[c]], p);
+                if (d < best_d) {
+                    best_d = d;
+                    best = tri.children[c];
+                }
+            }
+            t = best;
+        }
+        return m_triangles[t].get_state();
+    }
+
+private:
+    // How far p lies outside the triangle (0 inside; children share the facet's plane, so in-plane distance decides).
+    float distance(const Triangle &t, const Vec3f &p) const
+    {
+        const Vec3f &a = m_vertices[t.verts_idxs[0]].v, &b = m_vertices[t.verts_idxs[1]].v, &c = m_vertices[t.verts_idxs[2]].v;
+        const Vec3f n = (b - a).cross(c - a);
+        float d = 0.f;
+        const Vec3f *corners[4] = {&a, &b, &c, &a};
+        for (int k = 0; k < 3; ++k) {
+            const Vec3f &u = *corners[k], &v = *corners[k + 1];
+            const float side = (v - u).cross(p - u).dot(n);
+            if (side < 0.f)
+                d = std::max(d, -side / std::max(n.norm() * (v - u).norm(), 1e-12f));
+        }
+        return d;
+    }
+};
+
 } // namespace
+
+json OrcaEngine::paint_state_at(int object, int volume, int facet, const std::array<double, 3> &local, const std::string &kind)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    ModelObject &obj = object_at(object);
+    if (volume < 0 || volume >= int(obj.volumes.size()))
+        throw std::runtime_error("Invalid volume");
+    ModelVolume &vol = *obj.volumes[volume];
+    const FacetsAnnotation &facets = facets_of(vol, kind);
+    int state = 0;
+    if (!facets.empty() && facet >= 0 && facet < int(vol.mesh().its.indices.size())) {
+        StateProbe probe(vol.mesh());
+        probe.deserialize(facets.get_data(), false);
+        state = int(probe.state_at(facet, to_vec(local).cast<float>()));
+    }
+    return {{"state", state}, {"base", vol.extruder_id()}};
+}
+
+json OrcaEngine::paint_by_part(int object)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    ModelObject &obj = object_at(object);
+    // Every separate shell of every part, largest surface first: filament 1, 2, ... (round again past the last).
+    struct Shell { ModelVolume *vol; std::vector<int> faces; double area = 0.; };
+    std::vector<Shell> shells;
+    for (ModelVolume *vol : obj.volumes) {
+        if (!vol->is_model_part())
+            continue;
+        const indexed_triangle_set &its = vol->mesh().its;
+        const std::vector<Vec3i32> neighbors = its_face_neighbors(its);
+        std::vector<bool> seen(its.indices.size(), false);
+        for (size_t start = 0; start < its.indices.size(); ++start) {
+            if (seen[start])
+                continue;
+            Shell shell{vol};
+            std::vector<int> queue{int(start)};
+            seen[start] = true;
+            while (!queue.empty()) {
+                const int f = queue.back();
+                queue.pop_back();
+                shell.faces.push_back(f);
+                const Vec3f &a = its.vertices[its.indices[f][0]];
+                shell.area += double((its.vertices[its.indices[f][1]] - a).cross(its.vertices[its.indices[f][2]] - a).norm()) / 2.;
+                for (int k = 0; k < 3; ++k)
+                    if (const int n = neighbors[f][k]; n >= 0 && !seen[n]) {
+                        seen[n] = true;
+                        queue.push_back(n);
+                    }
+            }
+            shells.push_back(std::move(shell));
+        }
+    }
+    if (shells.size() < 2)
+        return scene_json();
+    std::stable_sort(shells.begin(), shells.end(), [](const Shell &a, const Shell &b) { return a.area > b.area; });
+    push_undo();
+    const int filaments = std::max<int>(1, int(m_sel_filaments.size()));
+    std::map<ModelVolume *, std::unique_ptr<TriangleSelector>> selectors;
+    for (size_t k = 0; k < shells.size(); ++k) {
+        std::unique_ptr<TriangleSelector> &sel = selectors[shells[k].vol];
+        if (!sel)
+            sel = std::make_unique<TriangleSelector>(shells[k].vol->mesh());
+        const auto state = EnforcerBlockerType(int(k % size_t(filaments)) + 1);
+        for (int f : shells[k].faces)
+            sel->set_facet(f, state);
+    }
+    for (auto &[vol, sel] : selectors)
+        vol->mmu_segmentation_facets.set(*sel);
+    write_mesh();
+    write_paint_mesh();
+    return scene_json();
+}
+
+struct OrcaEngine::FillPreview
+{
+    ModelVolume                                    *volume = nullptr;
+    std::string                                     kind;
+    TriangleSelector::TriangleSplittingData before;
+};
 
 json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<double, 3> &camera, double radius, const std::string &kind,
                        int state, bool new_stroke, const std::vector<double> &section, double edge_angle,
@@ -374,6 +499,7 @@ json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<doubl
     if (new_stroke) {
         m_paint_prev.reset();
         m_paint_region.object = -1;
+        m_fill_preview.reset();
     }
 
     const EnforcerBlockerType new_state = EnforcerBlockerType(std::clamp(state, 0, int(EnforcerBlockerType::ExtruderMax)));
@@ -417,6 +543,43 @@ json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<doubl
         return float((obj.instances[h.instance]->get_matrix() * obj.volumes[h.volume]->get_matrix() * to_vec(h.local)).z());
     };
 
+    // Fill: only the stroke's latest hit counts. It fills from the target's state before the stroke, so moving the finger
+    // moves the fill (a preview: lifting keeps it, paint_fill_cancel drops it). Unchanged result = nothing rewritten.
+    bool fill_changed = false;
+    if (shape == "fill" && !hits.empty() && hits.back().facet >= 0) {
+        const PaintHit &h = hits.back();
+        ModelObject &obj = object_at(h.object);
+        ModelVolume *vol = obj.volumes[h.volume];
+        FacetsAnnotation &facets = facets_of(*vol, kind);
+        if (m_fill_preview && (m_fill_preview->volume != vol || m_fill_preview->kind != kind)) {
+            // Another part: it goes back to how it was, the fill moves here.
+            FacetsAnnotation &old = facets_of(*m_fill_preview->volume, m_fill_preview->kind);
+            if (old.get_data() != m_fill_preview->before) {
+                const bool was_empty = old.empty();
+                old.set_data(TriangleSelector::TriangleSplittingData(m_fill_preview->before));
+                tower_changed |= m_fill_preview->kind == "color" && was_empty != old.empty();
+                fill_changed = true;
+            }
+            m_fill_preview.reset();
+        }
+        if (!m_fill_preview)
+            m_fill_preview = std::make_shared<FillPreview>(FillPreview{vol, kind, facets.get_data()});
+        const Transform3d trafo = obj.instances[h.instance]->get_matrix() * vol->get_matrix();
+        TriangleSelector selector(vol->mesh());
+        selector.deserialize(m_fill_preview->before, false);
+        ++loads;
+        selector.bucket_fill_select_triangles(to_vec(h.local).cast<float>(), h.facet, clip_of(trafo), edge_angle > 0. ? float(edge_angle) : -1.f,
+                                              true, true);
+        selector.seed_fill_apply_on_triangles(new_state);
+        TriangleSelector::TriangleSplittingData data = selector.serialize();
+        if (data != facets.get_data()) {
+            const bool was_empty = facets.empty();
+            facets.set_data(std::move(data));
+            tower_changed |= kind == "color" && was_empty != facets.empty();
+            fill_changed = true;
+        }
+        m_paint_prev = h;
+    }
     if (shape == "height") {
         // Height range (GLGizmoPainterBase::get_projected_height_range): the band from the hit up, on every part of the object.
         for (const PaintHit &h : hits) {
@@ -460,7 +623,7 @@ json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<doubl
     const bool brush = shape != "height" && shape != "triangle" && shape != "fill";
     const TriangleSelector::CursorType cursor_type = shape == "circle" ? TriangleSelector::CursorType::CIRCLE : TriangleSelector::CursorType::SPHERE;
     // Runs of hits on the same volume copy share one selector: deserialized once, saved once.
-    for (size_t i = shape == "height" ? hits.size() : 0; i < hits.size();) {
+    for (size_t i = shape == "height" || shape == "fill" ? hits.size() : 0; i < hits.size();) {
         const PaintHit &first = hits[i];
         ModelObject &obj = object_at(first.object);
         ModelVolume *vol = obj.volumes[first.volume];
@@ -532,7 +695,8 @@ json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<doubl
     if (tower_changed)
         write_mesh();
     const auto t1 = std::chrono::steady_clock::now();
-    write_paint_mesh();
+    if (shape != "fill" || fill_changed)
+        write_paint_mesh();
     const auto t2 = std::chrono::steady_clock::now();
     json out = scene_json();
     const auto t3 = std::chrono::steady_clock::now();
@@ -542,6 +706,25 @@ json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<doubl
                                 << " ms, paint mesh " << ms(t1, t2) << " ms (extract " << m_paint_extract_ms << ", bytes "
                                 << m_paint_bytes_ms << ", " << m_paint_triangles << " triangles), scene " << ms(t2, t3) << " ms";
     return out;
+}
+
+json OrcaEngine::paint_fill_cancel()
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (m_fill_preview) {
+        FacetsAnnotation &facets = facets_of(*m_fill_preview->volume, m_fill_preview->kind);
+        const bool was_empty = facets.empty();
+        facets.set_data(std::move(m_fill_preview->before));
+        // The stroke's undo step would undo nothing now.
+        if (!m_undo.empty())
+            m_undo.pop_back();
+        if (m_fill_preview->kind == "color" && was_empty != facets.empty())
+            write_mesh();
+        m_fill_preview.reset();
+        m_paint_prev.reset();
+        write_paint_mesh();
+    }
+    return scene_json();
 }
 
 json OrcaEngine::paint_clear(int object, const std::string &kind)

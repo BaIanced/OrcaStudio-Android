@@ -182,6 +182,12 @@ public:
                const std::string &shape = "sphere", double height = 2., double overhang = 0.);
     // Clears one kind of painting (or all for an empty kind) of an object.
     json paint_clear(int object, const std::string &kind);
+    // Ends a fill preview by restoring the annotation from before the stroke (the finger slid off the model).
+    json paint_fill_cancel();
+    // Eyedropper: {"state": the paint state under the hit (0 = unpainted), "base": the part's extruder}.
+    json paint_state_at(int object, int volume, int facet, const std::array<double, 3> &local, const std::string &kind);
+    // Colour painting: each separate shell of the object gets its own filament, largest first.
+    json paint_by_part(int object);
     json paint_gap_fill(int object, const std::string &kind, double area);
     json paint_remap(int object, const std::vector<int> &dest);
 
@@ -396,6 +402,10 @@ private:
         std::vector<bool>                           faces;
     };
     PaintRegion                           m_paint_region;
+    // Hold-to-preview fill: the stroke's target annotation as it was before the stroke; each fill hit repaints from it, so
+    // the fill follows the finger, and paint_fill_cancel puts it back (OrcaTools.cpp).
+    struct FillPreview;
+    std::shared_ptr<FillPreview>          m_fill_preview;
     // Painted triangles per (mesh, annotation timestamp, state): write_paint_mesh re-extracts only what changed.
     using PaintKey = std::tuple<const void *, uint64_t, int>;
     std::map<PaintKey, std::shared_ptr<indexed_triangle_set>> m_paint_facets;

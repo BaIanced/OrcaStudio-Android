@@ -135,6 +135,11 @@ const std::unordered_map<std::string, Handler> &handlers()
                             a.value("edgeAngle", 0.0), a.value("shape", std::string("sphere")), a.value("height", 2.0), a.value("overhang", 0.0));
          }},
         {"paintClear", [](OrcaEngine &e, const json &a) { return e.paint_clear(a.at("object"), a.value("kind", "")); }},
+        {"paintFillCancel", [](OrcaEngine &e, const json &) { return e.paint_fill_cancel(); }},
+        {"paintStateAt", [](OrcaEngine &e, const json &a) {
+             return e.paint_state_at(a.at("object"), a.at("volume"), a.at("facet"), vec3(a.at("local")), a.at("kind"));
+         }},
+        {"paintByPart", [](OrcaEngine &e, const json &a) { return e.paint_by_part(a.at("object")); }},
         {"paintRemap", [](OrcaEngine &e, const json &a) { return e.paint_remap(a.at("object"), a.at("dest").get<std::vector<int>>()); }},
         {"paintGapFill", [](OrcaEngine &e, const json &a) { return e.paint_gap_fill(a.at("object"), a.at("kind"), a.at("area")); }},
         {"layerProfile", [](OrcaEngine &e, const json &a) { return e.layer_profile(a.at("object")); }},

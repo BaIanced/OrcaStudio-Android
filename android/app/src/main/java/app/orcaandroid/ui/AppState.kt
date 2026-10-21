@@ -39,7 +39,9 @@ sealed interface Tool {
                      /** > 0: support painting tints the selection's faces overhanging by more than this many degrees (the desktop's "Highlight overhangs"). */
                      val highlight: Float = 0f,
                      /** Brush stroke locked to a screen axis through its first point: "v" (straight up/down), "h" (sideways) or "". */
-                     val lock: String = "") : Tool
+                     val lock: String = "",
+                     /** The shape the eyedropper ("pick") goes back to after a pick. */
+                     val back: String = "sphere") : Tool
     data object LayOnFace : Tool
     data object Measure : Tool
     data class Cut(val z: Float) : Tool

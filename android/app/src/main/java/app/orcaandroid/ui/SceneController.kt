@@ -368,6 +368,8 @@ class SceneController(private val store: Store, private val presets: PresetContr
     private var strokePending = false
     /** The stroke's last sample hit the model: the next hit joins it (a miss breaks the line, as on the desktop). */
     private var paintLastHit = false
+    /** Hold-to-preview fill: this stroke's fill is on the model (native FillPreview). Guarded by [paintLock]. */
+    private var fillShown = false
 
     /**
      * Paint sample from the 3D view; samples are queued and applied in order on the engine thread. Every sample that
@@ -388,7 +390,35 @@ class SceneController(private val store: Store, private val presets: PresetContr
                         out
                     }
                     if (batch.isEmpty()) break
-                    if (batch.first().newStroke) strokePending = true
+                    if (batch.first().newStroke) { strokePending = true; fillShown = false }
+                    if (tool.shape == "pick") {
+                        // Eyedropper: the state under the finger becomes the brush's, then the previous shape is back.
+                        // Unpainted colour = the part's own filament.
+                        val last = batch.last()
+                        val hit = pick(last.origin, last.dir, last.section) ?: continue
+                        val (picked, base) = engine.paintStateAt(hit, tool.kind)
+                        val s = if (picked == 0 && tool.kind == "color") base.coerceAtLeast(1) else picked
+                        (store.value.tool as? Tool.Paint)?.let { t -> store.update { it.copy(tool = t.copy(state = s, shape = t.back)) } }
+                        synchronized(pendingPaint) { pendingPaint.clear() }
+                        strokePending = false
+                        continue
+                    }
+                    if (tool.shape == "fill") {
+                        // Hold-to-preview fill: the fill follows the finger (only its latest position counts) and stays
+                        // when it lifts; sliding off the model drops it. Back on the model = a new fill.
+                        val last = batch.last()
+                        val hit = pick(last.origin, last.dir, last.section)
+                        if (hit == null) {
+                            if (fillShown) store.applyScene(engine.paintFillCancel())
+                            fillShown = false
+                        } else {
+                            store.applyScene(engine.paint(listOf(hit), last.camera, tool.radius, tool.kind, tool.state, !fillShown, last.section,
+                                listOf(false), tool.edgeAngle, tool.shape, tool.height, tool.overhang))
+                            fillShown = true
+                        }
+                        strokePending = false
+                        continue
+                    }
                     val hits = mutableListOf<PickHit>()
                     val joins = mutableListOf<Boolean>()
                     for (s in batch) {
@@ -409,6 +439,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
 
     fun paintClear(kind: String) = selection?.let { sel -> store.sceneOp { engine.paintClear(sel.obj, kind) } }
     fun paintRemap(dest: List<Int>) = selection?.let { sel -> store.sceneOp { engine.paintRemap(sel.obj, dest) } }
+    fun paintByPart() = selection?.let { sel -> store.sceneOp { engine.paintByPart(sel.obj) } }
     fun paintGapFill(kind: String, area: Float) = selection?.let { sel -> store.sceneOp { engine.paintGapFill(sel.obj, kind, area) } }
 
     // --- Variable layer height ------------------------------------------------------------------------
