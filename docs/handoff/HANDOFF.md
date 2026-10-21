@@ -20,7 +20,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = f1c4a17 (PR #34, r341, merged 2026-10-20). Untested in main: pen 7d3a263, fan hold 298ee9f, Extrude F150 e13bebb,
   Quest stick zoom (r324). Nothing unmerged on the branch.
-- Installed: run 39582935998 (rotate snap, 45dc651) on WSA, phone, Chromebook, SHIELD 2026-10-21. Tablet (unrooted): debug app only (user's request).
+- Installed: run 39650160035 (r356, Z rail ad82885) on WSA, phone, Chromebook, SHIELD, Note 2026-10-21. Tablet (unrooted): debug app only (user's request).
 - **Test device = WSA** (user 2026-10-20). **Note** (added 2026-10-21) = S Pen test device only, not the main target (user); Quest = pseudo-pen device (user, untested). Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
   WSA `127.0.0.1:58526`; **USB serial = the user's SHIELD TV** (rooted; installs only).
