@@ -309,6 +309,7 @@ private fun CutOptions(state: UiState, vm: AppViewModel, tool: Tool.Cut) {
     var keepUpper by remember { mutableStateOf(true) }
     var keepLower by remember { mutableStateOf(true) }
     var flip by remember { mutableStateOf(false) }
+    var onCut by remember { mutableStateOf(false) }
     val lo = inst.min.z
     val hi = inst.min.z + inst.size.z
     Text("Z = %.2f mm".format(Locale.ROOT, tool.z), style = MaterialTheme.typography.bodyMedium)
@@ -318,9 +319,12 @@ private fun CutOptions(state: UiState, vm: AppViewModel, tool: Tool.Cut) {
         Checkbox(keepLower, { keepLower = it }); Text(stringResource(R.string.keep_lower))
     }
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Checkbox(flip, { flip = it }, enabled = keepUpper); Text(stringResource(R.string.flip_upper))
+        Checkbox(onCut, { onCut = it }, enabled = keepUpper); Text(stringResource(R.string.flip_upper))
     }
-    FilledTonalButton(onClick = { vm.scene.cut(tool.z, keepUpper, keepLower, flip) }, enabled = keepUpper || keepLower, modifier = Modifier.fillMaxWidth()) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Checkbox(flip, { flip = it }, enabled = keepUpper); Text(stringResource(R.string.flip_upper_down))
+    }
+    FilledTonalButton(onClick = { vm.scene.cut(tool.z, keepUpper, keepLower, flip, onCut) }, enabled = keepUpper || keepLower, modifier = Modifier.fillMaxWidth()) {
         Text(stringResource(R.string.perform_cut))
     }
 }

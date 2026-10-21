@@ -989,7 +989,7 @@ json OrcaEngine::mesh_boolean(int object, int src, int tool, const std::string &
     return commit();
 }
 
-json OrcaEngine::cut(int object, int instance, double z, bool keep_upper, bool keep_lower, bool flip_upper)
+json OrcaEngine::cut(int object, int instance, double z, bool keep_upper, bool keep_lower, bool flip_upper, bool float_upper)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
     ModelObject &obj = object_at(object);
@@ -1017,8 +1017,15 @@ json OrcaEngine::cut(int object, int instance, double z, bool keep_upper, bool k
     const int plate = std::max(0, plate_of(obj, size_t(instance)));
 
     std::vector<std::pair<ModelObject *, size_t>> added;
+    // The upper part comes first in the result (Cut::post_process).
+    bool first = true;
     for (const ModelObject *part : parts) {
         ModelObject *copy = m_model->add_object(*part);
+        // Like the desktop's per-object auto drop: ensure_on_bed() leaves instances without it where they are.
+        if (first && keep_upper && float_upper)
+            for (ModelInstance *inst : copy->instances)
+                inst->auto_drop = false;
+        first = false;
         drop_to_bed(*copy);
         for (size_t i = 0; i < copy->instances.size(); ++i)
             added.emplace_back(copy, i);

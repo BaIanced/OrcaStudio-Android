@@ -215,10 +215,10 @@ class SceneController(private val store: Store, private val presets: PresetContr
     fun showMeshMarkers() { meshMarkers.value = lastCheck }
     fun clearMeshMarkers() { meshMarkers.value = null }
 
-    fun cut(z: Float, keepUpper: Boolean, keepLower: Boolean, flip: Boolean) {
+    fun cut(z: Float, keepUpper: Boolean, keepLower: Boolean, flip: Boolean, floatUpper: Boolean) {
         val sel = selection ?: return
         store.update { it.copy(selection = null, tool = Tool.None) }
-        store.sceneOp(store.str(R.string.cutting)) { engine.cut(sel.obj, sel.instance, z, keepUpper, keepLower, flip) }
+        store.sceneOp(store.str(R.string.cutting)) { engine.cut(sel.obj, sel.instance, z, keepUpper, keepLower, flip, floatUpper) }
     }
 
     /** Adds a modifier, blocker, enforcer or negative volume sized to the selected object. */

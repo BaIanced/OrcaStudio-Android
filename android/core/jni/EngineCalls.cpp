@@ -89,7 +89,7 @@ const std::unordered_map<std::string, Handler> &handlers()
              return e.mesh_boolean(a.at("object"), a.at("src"), a.at("tool"), a.at("op").get<std::string>(), a.value("keepTool", false)); }},
         {"cut", [](OrcaEngine &e, const json &a) {
              return e.cut(a.at("object"), a.value("instance", 0), a.at("z"), a.value("keepUpper", true), a.value("keepLower", true),
-                          a.value("flipUpper", false));
+                          a.value("flipUpper", false), a.value("floatUpper", false));
          }},
         {"simplify", [](OrcaEngine &e, const json &a) { return e.simplify(a.at("object"), a.at("ratio")); }},
         {"repair", [](OrcaEngine &e, const json &a) { return e.repair(a.at("object")); }},

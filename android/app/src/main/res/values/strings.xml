@@ -209,7 +209,8 @@
     <string name="show_all">Show all</string>
     <string name="hide_all">Hide all</string>
     <string name="filaments">Filaments</string>
-    <string name="flip_upper">Place upper part on cut face</string>
+    <string name="flip_upper">Place upper part on cut face (stays at the cut height, auto drop off)</string>
+    <string name="flip_upper_down">Flip upper part upside down</string>
     <string name="flow_linear">Single pass (YOLO)</string>
     <string name="flushing_volumes">Flushing volumes</string>
     <string name="flush_matrix_text">Purge volume in mm³ when changing from the filament of a row to the filament of a column.</string>
