@@ -2454,3 +2454,6 @@ User: "you just tested something we already confirmed worked". Cross-checked eac
 ### 2026-10-21 view cube verified
 - (user, 2026-10-21, run 39563849841) View cube: "View cube works great, could it be drag and drop?" Follow-up: make the cube movable on screen (backlog).
 - (user, 2026-10-21, r352 run 39568391863) Movable view cube: "Haptics works, cube moves around, can we put the cube inside the lab section and disable it? It's causing me motion sickness, not sure why". Follow-up: lab toggle, off by default.
+
+### 2026-10-21 Z rail verified on WSA (Claude)
+- r356 (run 39650160035, ad82885), Shape builder, 2 boxes: drag purple dot up 64 px = lift 6 mm (bbox 20 -> 26); double-tap dot (two clicks 120 ms apart via `mclick.ps1 -Double`) = drop to floor (26 -> 20); Undo/Redo toggle 26/20; boxes overlapping in XY: drag to ~19.4 mm snaps to the other box top (height 40), 18 mm does not snap. Shift 0.1 step and haptic untested. User feel pending.

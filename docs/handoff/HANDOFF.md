@@ -31,10 +31,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 ## Next task
 - **User 2026-10-21: one small step per session.** Cue `/clear` + `/next` after EACH step:
   1. View cube DONE (r353, lab switch, off). 2. Rotate gizmo rings DONE fd83086 (menu / R). 3. Rotate ticks + snap DONE 45dc651
-     (WSA OK Claude; CI run 39582935998; user feel of 2+3 pending, backlog). 4. Z rail (lift dot) CODED ad82885, CI run 39650160035 (compiled, ZRailTest green;
-     NOT yet run on WSA): purple dot above a lone selected shape, drag = lift 1 mm (Shift 0.1), snaps to floor + z faces of XY-overlapping
-     boxes (CLOCK_TICK), ghost + footprint, double-tap dot = drop to floor. Next session: install the CI build on WSA, test in the CAD
-     shape section (drag, snap, double tap, undo), then mark DONE. 5. print3d_toolbox checks (thin wall/intersections).
+     (WSA OK Claude; CI run 39582935998; user feel of 2+3 pending, backlog). 4. Z rail (lift dot) DONE ad82885 (WSA OK Claude r356; archive; user feel pending, backlog). 5. print3d_toolbox checks (thin wall/intersections).
      6. Pie menu / tool-bar collapse (discuss first).
 - **Paint tools** (survey `NOTES-paint-survey.md`): 4 picks done, WSA OK (Claude), run 39557578074 installed all devices
   2026-10-21; user feel pending (all paint batches).
