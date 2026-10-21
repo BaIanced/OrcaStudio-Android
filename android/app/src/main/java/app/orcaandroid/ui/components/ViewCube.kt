@@ -9,6 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -21,8 +22,11 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.orcaandroid.R
@@ -30,6 +34,7 @@ import app.orcaandroid.core.Vec3
 import app.orcaandroid.render.Camera
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
@@ -40,9 +45,13 @@ import kotlin.math.sin
  * Orientation cube in a corner of the 3D view, like Fusion's / Onshape's view cube. It turns with [camera]; a tap on a
  * face, edge or corner (each face is split 3 x 3: centre = face, sides = edges, corners = corners) swings the camera to
  * look from there, and a drag on the cube orbits the view. Drawn in Compose with its own projection, not in GL.
+ * A long press picks the cube up: dragging then moves it ([onMove] gets each step in px, [onMoveEnd] the release).
  */
 @Composable
-fun ViewCube(camera: Camera, modifier: Modifier = Modifier, size: Dp = 96.dp) {
+fun ViewCube(
+    camera: Camera, modifier: Modifier = Modifier, size: Dp = 96.dp,
+    onMove: ((Offset) -> Unit)? = null, onMoveEnd: () -> Unit = {},
+) {
     // Yaw and pitch as last drawn; polled each frame (the 3D view renders continuously and has no change callback).
     var angles by remember { mutableStateOf(0f to 0f) }
     LaunchedEffect(camera) {
@@ -52,6 +61,11 @@ fun ViewCube(camera: Camera, modifier: Modifier = Modifier, size: Dp = 96.dp) {
         }
     }
     var pressed by remember { mutableStateOf<Cell?>(null) }
+    var moving by remember { mutableStateOf(false) }
+    val move by rememberUpdatedState(onMove)
+    val moveEnd by rememberUpdatedState(onMoveEnd)
+    val haptics = LocalHapticFeedback.current
+    val view = LocalView.current
     val scope = rememberCoroutineScope()
     var swing by remember { mutableStateOf<Job?>(null) }
     val scheme = MaterialTheme.colorScheme
@@ -68,9 +82,37 @@ fun ViewCube(camera: Camera, modifier: Modifier = Modifier, size: Dp = 96.dp) {
             val (yaw, pitch) = camera.state().let { it[0] to it[1] }
             val start = hit(cells(yaw, pitch, this.size.width / 2f), down.position)
             pressed = start
+            // A key click as a face, edge or corner lights up (user, 2026-10-21).
+            if (start != null) view.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
             var dragging = false
             var total = Offset.Zero
-            while (true) {
+            // Held still past the long-press time (and moving is offered): pick the cube up instead.
+            val held = move != null && withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
+                while (true) {
+                    val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
+                    if (!change.pressed) break
+                    total += change.positionChange()
+                    if (total.getDistance() > viewConfiguration.touchSlop) break
+                }
+                false
+            } == null
+            if (held) {
+                moving = true; pressed = null
+                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                while (true) {
+                    val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
+                    if (!change.pressed) break
+                    move?.invoke(change.positionChange())
+                    change.consume()
+                }
+                moving = false
+                moveEnd()
+                return@awaitEachGesture
+            }
+            // Lifted or slid before the long press: a tap or an orbit (the slide so far counts toward the slop).
+            if (total.getDistance() > viewConfiguration.touchSlop) { dragging = true; pressed = null }
+            val lifted = currentEvent.changes.firstOrNull { it.id == down.id }?.pressed == false
+            while (!lifted) {
                 val event = awaitPointerEvent()
                 val change = event.changes.firstOrNull { it.id == down.id } ?: break
                 if (!change.pressed) break
@@ -88,6 +130,8 @@ fun ViewCube(camera: Camera, modifier: Modifier = Modifier, size: Dp = 96.dp) {
         val (yaw, pitch) = angles
         val eye = basis(yaw, pitch).third
         val outline = Stroke(1.dp.toPx())
+        // Picked up to move: a ring round the cube.
+        if (moving) drawCircle(hot, half - 1.dp.toPx(), style = Stroke(2.dp.toPx()))
         fun quadPath(q: List<Offset>) = Path().apply { moveTo(q[0].x, q[0].y); for (i in 1..3) lineTo(q[i].x, q[i].y); close() }
         // Faces lit by how squarely they face the eye, so the cube reads as solid.
         for (f in FACES) {

@@ -2450,3 +2450,6 @@ User: "you just tested something we already confirmed worked". Cross-checked eac
 
 ### 2026-10-20 first print fixed
 - (user, 2026-10-20) First print failed (blobs, strings), cause was the printer, not the G-code: "printer fixed ran full printer motor calibration and bed level it's currently printing and it's printing fine". Both G-codes (app and PC-sliced) were sane; plate was a Supertack cool plate, bed 45 C is right. Their PC slice error: "forget the error".
+
+### 2026-10-21 view cube verified
+- (user, 2026-10-21, run 39563849841) View cube: "View cube works great, could it be drag and drop?" Follow-up: make the cube movable on screen (backlog).

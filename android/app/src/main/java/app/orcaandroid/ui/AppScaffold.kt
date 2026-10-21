@@ -61,6 +61,10 @@ import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.onSizeChanged
+import kotlin.math.roundToInt
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -303,8 +307,9 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
         if (PanelSize.height < 360f) PanelSize.height = 360f
         if (state.lab.panelTucked) vm.setLab(state.lab.copy(panelTucked = false))
     }
+    var viewportSize by remember { mutableStateOf(androidx.compose.ui.unit.IntSize.Zero) }
     val viewport: @Composable (Modifier) -> Unit = { m ->
-        Box(m) {
+        Box(m.onSizeChanged { viewportSize = it }) {
             Viewport(state, vm, onView = { plateView = it }, modifier = Modifier.fillMaxSize().steadyThroughGlide()
                 .onGloballyPositioned { app.orcaandroid.ui.prepare.CanvasBounds.rect = it.boundsInWindow() })
             // Floating controls have their own size (Layout lab).
@@ -314,7 +319,7 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
                 if (state.screen == Screen.PREPARE) Themed(Region.PREPARE_TOOLS) { PrepareOverlay(state, vm, plateView, wide) }
                 else Themed(Region.PREVIEW_TOOLS) { PreviewOverlay(state, vm, plateView, wide) }
             }
-            plateView?.let { app.orcaandroid.ui.components.ViewCube(it.camera, Modifier.align(Alignment.TopEnd).padding(top = 72.dp, end = 8.dp)) }
+            plateView?.let { ViewCubeSpot(it.camera, state.lab, vm, viewportSize) }
             // Below the top tool row, centered.
             app.orcaandroid.ui.components.Notices(state, vm, Modifier.align(Alignment.TopCenter).padding(top = 64.dp))
         }
@@ -703,4 +708,30 @@ private fun FilamentChoiceDialog(choice: FilamentChoice, onAnswer: (mode: String
             }
         }
     }
+}
+
+/**
+ * The view cube where the user left it: top right by default; a long press on it picks it up and dragging moves it
+ * (kept inside the 3D view, saved as fractions of the free room so it stays put across rotation and resizing).
+ */
+@Composable
+private fun ViewCubeSpot(camera: app.orcaandroid.render.Camera, lab: app.orcaandroid.core.LayoutLab, vm: AppViewModel, area: androidx.compose.ui.unit.IntSize) {
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val cube = with(density) { 96.dp.toPx() }
+    val roomX = (area.width - cube).coerceAtLeast(0f)
+    val roomY = (area.height - cube).coerceAtLeast(0f)
+    fun saved() = if (lab.viewCubeX < 0f || lab.viewCubeY < 0f) Offset(roomX - with(density) { 8.dp.toPx() }, with(density) { 72.dp.toPx() })
+        else Offset(lab.viewCubeX * roomX, lab.viewCubeY * roomY)
+    var live by remember { mutableStateOf<Offset?>(null) }
+    val at = (live ?: saved()).let { Offset(it.x.coerceIn(0f, roomX), it.y.coerceIn(0f, roomY)) }
+    app.orcaandroid.ui.components.ViewCube(camera,
+        Modifier.offset { androidx.compose.ui.unit.IntOffset(at.x.roundToInt(), at.y.roundToInt()) },
+        onMove = { d -> (at + d).let { live = Offset(it.x.coerceIn(0f, roomX), it.y.coerceIn(0f, roomY)) } },
+        onMoveEnd = {
+            live?.let { p ->
+                vm.setLab(lab.copy(viewCubeX = if (roomX > 0f) (p.x / roomX).coerceIn(0f, 1f) else 0f,
+                                   viewCubeY = if (roomY > 0f) (p.y / roomY).coerceIn(0f, 1f) else 0f))
+            }
+            live = null
+        })
 }
