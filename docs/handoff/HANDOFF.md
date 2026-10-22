@@ -33,7 +33,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **User 2026-10-21: design deviations pre-approved** ("deviate if you find a more logical, intuitive way; I trust your judgement"); say what changed.
 - Steps 1a-1c built + Claude WSA-checked (backlog "Paint panel UI"); 1d (frame the painted copy on entry, same angles; Done
   restores the plate camera; Viewport.kt `shopCamera`, PlateRenderer `fitPending`; run 39710599220) Claude WSA-checked
-  2026-10-21; user feel untested. Next: 1e = palette as layers (hide/lock/%/remap).
+  2026-10-21; user feel untested. 1e-i (filament layers: share %, Turn into; d031c20, run 39712935294) Claude WSA-checked
+  2026-10-21 (landscape; portrait long-press untested). Next: 1e-ii = hide + lock per filament (native: shader skip, paint guard).
 - **NEXT (user ACCEPTED 2026-10-21, this order, one step per session):** (1) **paint shop workspace** (steps above; mockup `%TEMP%/paintshop-mockup/`). (2) **Top depth** setting decoupled from top shell layers
   (same as shells / N layers / all the way through), native MultiMaterialSegmentation.cpp:1254/:1410, Object mode; sides = existing
   mmu_segmented_region_max_width. (3) **Colour change + waste counter** (estimate; flush volumes from the profile). Details: backlog "Paint".
