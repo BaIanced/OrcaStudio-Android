@@ -20,7 +20,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = f1c4a17 (PR #34, r341, merged 2026-10-20). Untested in main: pen 7d3a263, fan hold 298ee9f, Extrude F150 e13bebb,
   Quest stick zoom (r324). Nothing unmerged on the branch.
-- Installed: cut batch run 39678582217 (includes all earlier steps) on all 5 adb devices 2026-10-21. Tablet (unrooted): debug app only (user's request).
+- Installed: run 39703898053 (paint modes) on WSA/phone/Chromebook/Quest/SHIELD 2026-10-21; Note not connected. Tablet (unrooted): debug app only (user's request).
 - **Test device = WSA** (user 2026-10-20). **Note** (added 2026-10-21) = S Pen test device only, not the main target (user; it locks: user says when it is awake, 2026-10-21); Quest = pseudo-pen device (user, untested). Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
   WSA `127.0.0.1:58526`; **USB serial = the user's SHIELD TV** (rooted; installs only).
@@ -29,17 +29,15 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - User sessions backed up: phone `/data/local/tmp/phone-session-backup.{3mf,json}` (8 plates), WSA `/data/local/tmp/session-backup.{3mf,json}`.
   Test zip `scadzip-test.zip` stays in `/sdcard/Download` on phone + Chromebook. LAN access code was given in chat: never write it anywhere.
 ## Next task
-- **User 2026-10-21: one small step per session.** Cue `/clear` + `/next` after EACH step. USER VERIFIED 2026-10-21: rotate gizmo + haptics,
-  cut redesign ("much better"), Z rail feel (archive). Pie menu: user dislikes it -> LOW S Pen customizable picker, not now (backlog).
-- **NEXT (user ACCEPTED 2026-10-21, this order, one step per session):** (1) **paint shop workspace**: full-screen focus mode (purple
-  frame, others hidden, Done/back), option C modes Brush/Fill/Bands/Object; portrait bottom dock (options+desc / swatches+Pick /
-  modes), landscape side panel = filament layer rows (hide/lock/% come later as their own step); mockup source
-  `%TEMP%/paintshop-mockup/mockup.html`; today's panel ToolPanel.kt:152. (2) **Top depth** setting decoupled from top shell layers
+- **User 2026-10-21: one small step per session.** Cue `/clear` + `/next` after EACH step. Pie menu disliked -> backlog.
+- **User 2026-10-21: design deviations pre-approved** ("deviate if you find a more logical, intuitive way; I trust your judgement"); say what changed.
+- Step 1a DONE (run 39703898053, installed on 4 devices; Claude WSA-checked: modes, texts, Fill restore, Object tap; user feel untested): colour paint card = Brush/Fill/Bands/Object modes + description + swatch row (Erase, Pick);
+  Object = fill over colours, no edge limit (tap = whole part) + part/specks/remap/clear (ToolPanel.kt ColorPaintOptions). Next: 1b shell.
+- **NEXT (user ACCEPTED 2026-10-21, this order, one step per session):** (1) **paint shop workspace** (1a done; 1b = full-screen focus
+  shell: purple frame, others hidden, Done/back, portrait bottom dock / landscape side panel; mockup `%TEMP%/paintshop-mockup/`). (2) **Top depth** setting decoupled from top shell layers
   (same as shells / N layers / all the way through), native MultiMaterialSegmentation.cpp:1254/:1410, Object mode; sides = existing
   mmu_segmented_region_max_width. (3) **Colour change + waste counter** (estimate; flush volumes from the profile). Details: backlog "Paint".
-- Later (awaiting go): cut radio Lay on cut face / Flip / Leave + nested "Arrange after cut" (arrange_plate always runs, OrcaScene.cpp:1046;
-  with the design pose, Leave goes away); Z rail live drag (MeshPreviewView.kt:342); Build workspace (shapes as Orca parts, design pose).
-  Feel pending: view cube, Check mesh, paint batches.
+- Later (awaiting go): cut radio + Arrange after cut, Z rail live drag, Build workspace; feel pending: view cube, Check mesh (backlog "Later").
 - C: tight; old build dirs move to `D:\orca-builds-archive`.
 - **Open issue: app 3MF export fails in desktop Orca** (fix `match_filament_indices`, run 39529670166; untested: user exports a 4-filament 3MF from the phone, opens it in desktop Orca).
 - Printer-needed + user-only checks, pen input, plate switcher pick: backlog.
