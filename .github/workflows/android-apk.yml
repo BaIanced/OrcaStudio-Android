@@ -6,8 +6,9 @@
 #      keyed on android/deps, the toolchain file, the OrcaSlicer submodule commit and the NDK.
 #   3. liborca_jni.so (libslic3r + JNI bridge + open-bamboo-networking), then the APK.
 #
-# Signing: with repository secrets ANDROID_KEYSTORE_B64 / ANDROID_KEYSTORE_PASSWORD /
-# ANDROID_KEY_ALIAS / ANDROID_KEY_PASSWORD the APK is release-signed. Without them it is signed
+# Signing: with the secrets ANDROID_KEYSTORE_B64 / ANDROID_KEYSTORE_PASSWORD / ANDROID_KEY_ALIAS /
+# ANDROID_KEY_PASSWORD the APK is release-signed. They live in the "release" environment, which only
+# main and claude/* may deploy from, so workflows on other branches never see them. Without them it is signed
 # with a debug key that is kept in the Actions cache, so consecutive test builds install as
 # updates of each other (a new key after cache eviction requires one uninstall).
 name: Android APK
@@ -41,6 +42,7 @@ jobs:
   apk:
     runs-on: ubuntu-24.04
     timeout-minutes: 340
+    environment: release
     permissions:
       contents: write
       actions: write # prune old build caches
