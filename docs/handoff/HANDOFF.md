@@ -44,8 +44,12 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   verifies (pr-check, review, fixes pushed to the task branch), merges, then cherry-picks code (not MUSE-TASKS.md) onto the
   work branch. **Muse never merges; main still needs the user.** Tasks 1-11 done (9 = no Gradle in Muse's VM, see
   `MUSE-TOOLCHAIN.md`; 10 = `android/scripts/check_3mf.py`, a797c20; Task 1 finding 4: fix the patch comment when
-  regenerating 0001). Task 12 (JNI audit) next. Stacked PRs conflict after a squash merge: merge muse/work into the next.
-  mechanically checkable work (no small fixes: spec+check costs as much as doing it).
+  regenerating 0001). **Comms (user-approved 2026-10-22): GitHub is the mailbox, no relaying.** Tasks in MUSE-TASKS.md on
+  muse/work, then comment `TASK <n> READY` on issue #46; Muse replies via PR + log entry, pings #46 (`PR #<n> UPDATED`).
+  **Every session start: check open `muse/*` PRs and #46.** Review on the PR. PR #51 (protocol + Task 13 loopback test,
+  before Task 12) awaits merge: self-merge needs the user's `Bash(gh pr merge:*)` allow rule; after it merges, comment
+  `PROTOCOL LIVE` + `TASK 13 READY` on #46. Muse role verdict waits on Task 13 (compiles -> Kotlin tasks OK again; else
+  audits/research/pure tested logic only). No stacking.
 - C: tight; old build dirs -> `D:\orca-builds-archive`.
 - Open (backlog): app 3MF fails in desktop Orca (fix untested), printer/user-only checks, pen input, plate switcher pick.
 
