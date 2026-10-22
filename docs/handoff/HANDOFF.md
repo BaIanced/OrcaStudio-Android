@@ -20,7 +20,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = f1c4a17 (PR #34, r341, merged 2026-10-20). Untested in main: pen 7d3a263, fan hold 298ee9f, Extrude F150 e13bebb,
   Quest stick zoom (r324). Nothing unmerged on the branch.
-- Installed: run 39709156358 (paint shop 1c) on WSA/phone/Quest/SHIELD 2026-10-21 (Chromebook, Note not connected). Tablet: debug app only.
+- Installed: run 39709156358 (paint shop 1c; 1d run 39710599220 building, install on all when done) on WSA/phone/Quest/SHIELD 2026-10-21 (Chromebook, Note not connected). Tablet: debug app only.
 - **Test device = WSA** (user 2026-10-20). **Note** (added 2026-10-21) = S Pen test device only, not the main target (user; it locks: user says when it is awake, 2026-10-21); Quest = pseudo-pen device (user, untested). Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
   WSA `127.0.0.1:58526`; **USB serial = the user's SHIELD TV** (rooted; installs only).
@@ -31,11 +31,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 ## Next task
 - **User 2026-10-21: one small step per session.** Cue `/clear` + `/next` after EACH step. Pie menu disliked -> backlog.
 - **User 2026-10-21: design deviations pre-approved** ("deviate if you find a more logical, intuitive way; I trust your judgement"); say what changed.
-- Steps 1a (modes), 1b (shell, PaintShop.kt) and 1c (solo view: only the selected copy + its paint/shadow drawn, `uSolo` in
-  Shaders.kt MESH_VS; commit 3e17ac2, run 39709156358) built; Claude WSA-checked 1b+1c 2026-10-21; user feel untested.
-  Next: 1d = frame the painted object on entry, then palette as layers.
-- **NEXT (user ACCEPTED 2026-10-21, this order, one step per session):** (1) **paint shop workspace** (1a done; 1b = full-screen focus
-  shell: purple frame, others hidden, Done/back, portrait bottom dock / landscape side panel; mockup `%TEMP%/paintshop-mockup/`). (2) **Top depth** setting decoupled from top shell layers
+- Steps 1a-1c built + Claude WSA-checked (backlog "Paint panel UI"); 1d (frame the painted copy on entry, same angles; Done
+  restores the plate camera; Viewport.kt `shopCamera`, PlateRenderer `fitPending`; run 39710599220) Claude WSA-checked
+  2026-10-21; user feel untested. Next: 1e = palette as layers (hide/lock/%/remap).
+- **NEXT (user ACCEPTED 2026-10-21, this order, one step per session):** (1) **paint shop workspace** (steps above; mockup `%TEMP%/paintshop-mockup/`). (2) **Top depth** setting decoupled from top shell layers
   (same as shells / N layers / all the way through), native MultiMaterialSegmentation.cpp:1254/:1410, Object mode; sides = existing
   mmu_segmented_region_max_width. (3) **Colour change + waste counter** (estimate; flush volumes from the profile). Details: backlog "Paint".
 - Later (awaiting go) + feel-pending items: backlog "Later".
