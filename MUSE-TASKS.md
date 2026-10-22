@@ -154,3 +154,21 @@ UNVERIFIED: not compiled and tests not run (no toolchain); `pr-check.yml` and Vi
 local run are the first execution. Density-missing filaments contribute mm3 but 0 g
 (documented in the KDoc); that case is a design choice, not covered by a test.
 Open questions: JDK/Android SDK install in Muse's VM (see Status, Vincent's call).
+
+### Task 3 - 2026-10-22 - muse/task-3-pure-logic-tests - this commit
+Tests only, no main-code changes. New `render/CameraTest.kt` (11 tests: defaults, presets,
+orbit/zoom/aim clamps, frame, fit, focus yaw snap, eye/towardsEye, clip distances, pan,
+state/restore) and `render/ScaleGizmoTest.kt` (6 tests: pivot, per-axis scale, colours,
+handle visibility from a side camera with and without axes, zero-reach ratio). Expected
+values hand-computed in comments; the visibility scenario and pan/frame/fit numbers were
+cross-checked against a line-by-line mirror of the algorithms before pushing.
+Skipped: `ui/components/ViewCube.kt` — its cell/hit helpers (`basis`, `cells`, `hit`) are
+all `private`, and the task rule is to note that instead of changing visibility. Nothing
+looked wrong in the code covered, so there are no `@Ignore`d suspected-bug tests.
+Build: UNCOMPILED (no toolchain in Muse's VM; Vincent's JDK/SDK call still open).
+Privacy self-scan: tree exit 0, range exit 0.
+UNVERIFIED: not compiled and tests not run (no toolchain); `pr-check.yml` and Vincent's
+local run are the first execution. The GL-matrix paths (`viewProjection`, `ray`, `project`)
+are deliberately untested here: they need `android.opengl.Matrix`, which a plain JVM unit
+test cannot run.
+Open questions: JDK/Android SDK install in Muse's VM (see Status, Vincent's call).
