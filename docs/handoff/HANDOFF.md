@@ -30,17 +30,15 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **User 2026-10-21: one small step per session.** Cue `/clear` + `/next` after EACH step. Pie menu disliked -> backlog.
 - **User 2026-10-21: design deviations pre-approved** ("deviate if you find a more logical, intuitive way; I trust your judgement"); say what changed.
 - Paint plan (user ACCEPTED 2026-10-21): steps (1)-(2) done, user feel untested (backlog "Paint panel UI", "Paint penetration").
-  **Next: step (3) Colour change + waste counter**: post-slice half done (Muse Task 11 1740dcf + chute flush 82f2d7a, both
-  unbuilt). Flush rule done (2026-10-22, JVM-tested): `ColourChangeEstimate.estimate(..., grabMm3,
-  minPurgeMm3)`; tower path floors chute purge at 100 mm3 (`GCode.cpp:153`/`:1267`; WSA plate_1: 6 x L41.5752 = 100).
-  Per-layer filament ids done without JNI (2026-10-22, 5 JVM tests): `PaintLayers.spans(paintBuffer, keep)` reads the
-  viewport paint mesh (typeCode 10+f), `PaintLayers.layers(spans, first, h)` bins by layer mid. **Next small step:** the
-  paint-shop line: in ToolPanel, load `scene.paintFile`, keep active-plate copies, add a base span per instance (object
-  `extruder` - 1, `min.z..min.z+size.z`; check `Instance.min` is world), feed `ColourChangeEstimate`; show changes + g.
+  **Step (3) Colour change + waste counter: code complete, untested on device.** Post-slice line (Muse Task 11 1740dcf +
+  chute flush 82f2d7a) and paint-shop line (152abaf: `PaintLayers.forPlate` -> `ColourChangeEstimate`, ToolPanel under
+  the swatches) are all in **r372 = run 39869256888** (building at handoff). **Next small step:** install r372 on all adb
+  devices, then WSA check both lines on a painted multi-colour plate (backlog "Paint-shop plate estimate line", "Preview
+  colour-change line"): paint-shop N vs the Preview count after slicing.
 - Muse (2026-10-22): tasks in `MUSE-TASKS.md` on `muse/work` (edit via a `claude/*` PR, self-merge), then `TASK <n> READY`
   on #46; Muse answers with one draft PR per task. Claude verifies, merges into muse/work, cherry-picks code onto the work
   branch. Task 1 finding 4: fix the patch comment when regenerating 0001. **Each session start: check open `muse/*` PRs + #46.**
-  Tasks 1-13 merged (#52: Java IPv6 loopback works, build dies at TLS/PKIX). Task 14 (trust store) sent, no reply yet.
+  Tasks 1-13 merged (#54 = Task 12 JNI audit, fixes in backlog). Task 14 (trust store) sent, no reply yet.
   Merge commands START with `gh pr merge`. Muse role verdict waits on Task 14 (compiles -> Kotlin OK; else audits). No stacking.
 - Open (backlog): app 3MF fails in desktop Orca (fix untested), printer/user-only checks, pen input, plate switcher pick.
 
