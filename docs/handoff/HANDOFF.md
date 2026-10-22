@@ -40,8 +40,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   verifies, merges, cherry-picks code (not MUSE-TASKS.md) onto the work branch. Muse never merges. Tasks 1-11 done (Task 1
   finding 4: fix the patch comment when regenerating 0001). **Comms (user-approved 2026-10-22): GitHub is the mailbox, no relaying.** Tasks in MUSE-TASKS.md on
   muse/work, then comment `TASK <n> READY` on issue #46; Muse replies via PR + log entry, pings #46 (`PR #<n> UPDATED`).
-  **Every session start: check open `muse/*` PRs and #46** (Task 13 loopback sent 2026-10-22, no reply yet). Self-merge: the
-  command STARTS with `gh pr merge`. Muse role verdict waits on Task 13 (compiles -> Kotlin OK; else audits/pure logic). No stacking.
+  **Every session start: check open `muse/*` PRs and #46.** Task 13 merged (#52: Java IPv4 loopback blocked, IPv6 works;
+  build then dies at TLS/PKIX via proxy). Task 14 (trust store rebuild) sent 2026-10-22, no reply yet. Self-merge: the
+  command STARTS with `gh pr merge`. Muse role verdict waits on Task 14 (compiles -> Kotlin OK; else audits/pure logic). No stacking.
 - Open (backlog): app 3MF fails in desktop Orca (fix untested), printer/user-only checks, pen input, plate switcher pick.
 
 ## User decisions (2026-10-13)
