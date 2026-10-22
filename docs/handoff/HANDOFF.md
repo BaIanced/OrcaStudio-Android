@@ -35,7 +35,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   nested "Arrange parts after cut" (off for Leave in place; today `arrange_plate` always runs, OrcaScene.cpp:1046);
   (2) Z rail live drag (only a wireframe ghost moves, the one CSG mesh re-renders on release, MeshPreviewView.kt:342);
   (3) shape builder: user wants same look, own plate, isolated focus mode; workspaces + design/print pose plan given in chat, awaiting go;
-  (4) paint panel: USER PICKED C (task modes), not started, ToolPanel.kt:152. Feel pending: view cube, Check mesh, paint batches.
+  (4) paint panel: USER PICKED C; paint shop mockup sent (bottom dock + layers panel), awaiting OK, ToolPanel.kt:152. Feel pending: view cube, Check mesh, paint batches.
 - C: tight; old build dirs move to `D:\orca-builds-archive`.
 - **Open issue: app 3MF export fails in desktop Orca** (fix `match_filament_indices` in run 39529670166, installed on all devices; untested on a 4-filament export: the user exports from the phone and opens it in desktop Orca).
 - Need the printer, and user-only checks (bead look, shadows, light sliders, r276/r283/r284/r280/r316/r305): backlog.
