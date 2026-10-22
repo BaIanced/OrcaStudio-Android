@@ -305,3 +305,28 @@ be open in Object mode; repeat with Brush (circle) and Bands — both should als
 survive; then open Device and return to Prepare: the tool should be cleared, as
 before. Also confirm painting strokes still do nothing while Preview is showing.
 Open questions: JDK/Android SDK install in Muse's VM (see Status, Vincent's call).
+
+### Task 8 - 2026-10-22 - muse/task-8-more-pure-tests - this commit
+Tests only, no main-code changes. New `net/AmsMappingTest.kt` (8 tests) and
+`core/ModelsTest.kt` (5 tests), covering four previously untested pure targets found
+by grepping the test folder first (ColourChangeEstimate, Camera, ScaleGizmo and
+LogTail were already covered and were not duplicated): `AmsMapping.colorDistance`
+(CIE76 Lab distance: identical = 0, black <-> white = 100.0, red <-> green = 170.58,
+unparseable = the 999999 sentinel), `AmsMapping.auto` (closest-colour greedy
+assignment, same-type only with case-insensitive type match, a tray re-used only
+for an exact-colour second filament, unmatched filaments left out),
+`printerKey` (numeric nozzle normalised through Double, non-numeric kept verbatim,
+the String and Double overloads agree) and `OptionDef.isVector` / `baseType`
+(plural native types are vectors, `float_or_percent` is not, vector types unwrap
+to their element type). Expected values were cross-checked against a line-by-line
+mirror of the Lab conversion before pushing. Nothing looked wrong in the code
+covered, so there are no `@Ignore`d suspected-bug tests. Not covered, deliberately:
+`AmsMapping.v0` / `v1` and `usedFilaments` — they need a real `org.json` / a zip
+file, which plain JVM unit tests here do not have, and the task allows hand-written
+fixtures only where they stay plain JVM.
+Stacked on `muse/task-7-paint-mode-session` (Tasks 5-7 not merged yet).
+Build: UNCOMPILED (no toolchain in Muse's VM; Vincent's JDK/SDK call still open).
+Privacy self-scan: tree exit 0, range exit 0.
+UNVERIFIED: not compiled and tests not run (no toolchain); `pr-check.yml` and
+Vincent's local run are the first execution.
+Open questions: JDK/Android SDK install in Muse's VM (see Status, Vincent's call).
