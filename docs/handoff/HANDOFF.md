@@ -39,7 +39,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   **Next: step (3) Colour change + waste counter** (estimate; flush volumes from the profile; G-code tool-change counting in
   `~/orca-android-tools/gcode-tools.py` can cross-check it). Small fix to batch with it: paint mode resets to Fill after Preview.
 - Muse replaces Grok (2026-10-22): `MUSE-TASKS.md` on branch `muse/work`, one draft PR per task into muse/work; Claude
-  verifies, then cherry-picks code onto the work branch. Pilot = Task 1 (patch review). Grok's run had no output.
+  verifies, then cherry-picks code onto the work branch. Pilot Task 1 (patch review) merged into muse/work 2026-10-22 (PR #37,
+  `MUSE-REVIEW-0001.md`): patch sound; finding 4 confirmed = inset freezes one step below the shells, keep behaviour, fix the
+  patch comment when regenerating it. Tasks 2-4 wait for the user's go; JDK/SDK install in Muse's VM: user undecided.
 - Later + feel-pending items: backlog "Later". C: tight; old build dirs -> `D:\orca-builds-archive`.
 - **Open: app 3MF export fails in desktop Orca** (fix run 39529670166, untested by the user; backlog).
 - Printer-needed + user-only checks, pen input, plate switcher pick: backlog.
