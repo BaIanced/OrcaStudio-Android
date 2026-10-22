@@ -60,4 +60,58 @@ class PaintModeTest {
         assertSame(paint, toolAfterScreenChange(Screen.DEVICE, Screen.PREPARE, paint))
         assertEquals(Tool.None, toolAfterScreenChange(Screen.PREPARE, Screen.PREPARE, Tool.None))
     }
+
+    // Task 11 (the Task 7 follow-up): the per-mode shapes and the fill settings Object
+    // mode overrides live on the tool, and PaintMode.entered moves between modes.
+
+    @Test fun enteredRestoresEachModesShape() {
+        // The tool remembers circle for Brush and regions for Fill, on the tool itself.
+        val paint = Tool.Paint("color", 1, 3f, shape = "height", brushShape = "circle", fillShape = "regions")
+        val brush = PaintMode.entered(paint, PaintMode.BANDS, PaintMode.BRUSH)
+        assertEquals("circle", brush.shape)
+        assertEquals("circle", brush.back)
+        val fill = PaintMode.entered(brush, PaintMode.BRUSH, PaintMode.FILL)
+        assertEquals("regions", fill.shape)
+        // Regions bumps a zero smart-fill angle to 30, as the composable used to.
+        assertEquals(30f, fill.edgeAngle)
+    }
+
+    @Test fun enteredObjectSavesAndLeavingRestoresFillSettings() {
+        val paint = Tool.Paint("color", 1, 3f, shape = "fill", edgeAngle = 45f, overColours = false, guardOn = true, guardZ = 7f)
+        val obj = PaintMode.entered(paint, PaintMode.FILL, PaintMode.OBJECT)
+        // Object applies its overrides and sets the flag.
+        assertEquals("fill", obj.shape)
+        assertEquals(0f, obj.edgeAngle)
+        assertEquals(true, obj.overColours)
+        assertEquals(false, obj.guardOn)
+        assertEquals(true, obj.objectMode)
+        // Leaving Object restores the saved fill settings, not the overrides.
+        val back = PaintMode.entered(obj, PaintMode.OBJECT, PaintMode.FILL)
+        assertEquals(45f, back.edgeAngle)
+        assertEquals(false, back.overColours)
+        assertEquals(true, back.guardOn)
+        assertEquals(false, back.objectMode)
+    }
+
+    @Test fun paintSettingsSurvivePreviewRoundTrip() {
+        // The whole point of the follow-up: the settings are fields of the tool, and the
+        // tool is what toolAfterScreenChange carries across Prepare <-> Preview, so a
+        // round-trip (which recreates ColorPaintOptions) cannot lose them.
+        var paint = Tool.Paint("color", 1, 3f, shape = "regions", fillShape = "regions", brushShape = "triangle", edgeAngle = 45f)
+        paint = PaintMode.entered(paint, PaintMode.FILL, PaintMode.OBJECT)
+        val inPrepare = toolAfterScreenChange(Screen.PREVIEW, Screen.PREPARE,
+            toolAfterScreenChange(Screen.PREPARE, Screen.PREVIEW, paint))
+        assertSame(paint, inPrepare)
+        val back = PaintMode.entered(inPrepare, PaintMode.OBJECT, PaintMode.FILL)
+        assertEquals("regions", back.shape)
+        assertEquals(45f, back.edgeAngle)
+        assertEquals("triangle", PaintMode.entered(back, PaintMode.FILL, PaintMode.BRUSH).shape)
+    }
+
+    @Test fun enteredObjectFromEraseSelectsAFilament() {
+        val paint = Tool.Paint("color", 0, 3f, shape = "fill")
+        assertEquals(1, PaintMode.entered(paint, PaintMode.FILL, PaintMode.OBJECT).state)
+        // Same mode is a no-op and returns the tool untouched.
+        assertSame(paint, PaintMode.entered(paint, PaintMode.FILL, PaintMode.FILL))
+    }
 }

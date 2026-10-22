@@ -288,23 +288,13 @@ internal fun ColorPaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Pain
     val shape = if (tool.shape == "pick") tool.back else tool.shape
     // The mode follows the tool (PaintMode): Object only while its fill is still the active shape.
     val mode = PaintMode.of(shape, tool.objectMode)
-    // The shape each mode used last, and the fill settings Object mode overrides (back when leaving it).
-    var brushShape by rememberSaveable { mutableStateOf(if (mode == "brush") shape else "sphere") }
-    var fillShape by rememberSaveable { mutableStateOf(if (shape == "regions") "regions" else "fill") }
-    val fillKeep = remember { arrayOf(tool) }
+    // The shape each mode used last, and the fill settings Object mode overrides, live on
+    // the tool itself (PaintMode.entered / the Tool.Paint fields), so they survive the
+    // paint shop leaving composition — as rememberSaveable / remember state here, a
+    // Preview round-trip reset them (Task 11, the Task 7 follow-up).
     fun enter(m: String) {
         if (m == mode) return
-        val base = if (mode == "object") tool.copy(edgeAngle = fillKeep[0].edgeAngle, overColours = fillKeep[0].overColours, guardOn = fillKeep[0].guardOn) else tool
-        if (m == "object") fillKeep[0] = tool
-        val next = when (m) {
-            "brush" -> base.copy(shape = brushShape)
-            "fill" -> base.copy(shape = fillShape, edgeAngle = if (fillShape == "regions" && base.edgeAngle <= 0f) 30f else base.edgeAngle)
-            "bands" -> base.copy(shape = "height")
-            else -> base.copy(shape = "fill", edgeAngle = 0f, overColours = true, guardOn = false)
-        }
-        // Erase has no meaning for a whole part; coming from the eyedropper it goes back to the mode's shape.
-        vm.scene.setTool(next.copy(back = next.shape, objectMode = m == PaintMode.OBJECT,
-            state = if (m == "object" && next.state == 0) 1 else next.state))
+        vm.scene.setTool(PaintMode.entered(tool, mode, m))
     }
     Row(Modifier.fillMaxWidth()) {
         listOf(
@@ -369,7 +359,7 @@ internal fun ColorPaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Pain
         "brush" -> {
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 listOf("sphere", "circle", "triangle").forEach { s ->
-                    FilterChip(shape == s, { brushShape = s; vm.scene.setTool(tool.copy(shape = s, back = s)) }, label = { Text(stringResource(paintShapeLabel(s))) })
+                    FilterChip(shape == s, { vm.scene.setTool(tool.copy(shape = s, back = s, brushShape = s)) }, label = { Text(stringResource(paintShapeLabel(s))) })
                 }
             }
             if (shape != "triangle") Row(verticalAlignment = Alignment.CenterVertically) {
@@ -381,11 +371,10 @@ internal fun ColorPaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Pain
         }
         "fill" -> {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                FilterChip(shape == "fill", { fillShape = "fill"; vm.scene.setTool(tool.copy(shape = "fill", back = "fill")) },
+                FilterChip(shape == "fill", { vm.scene.setTool(tool.copy(shape = "fill", back = "fill", fillShape = "fill")) },
                     label = { Text(stringResource(R.string.paint_smart_fill)) })
                 FilterChip(shape == "regions", {
-                    fillShape = "regions"
-                    vm.scene.setTool(tool.copy(shape = "regions", back = "regions", edgeAngle = if (tool.edgeAngle <= 0f) 30f else tool.edgeAngle))
+                    vm.scene.setTool(tool.copy(shape = "regions", back = "regions", fillShape = "regions", edgeAngle = if (tool.edgeAngle <= 0f) 30f else tool.edgeAngle))
                 }, label = { Text(stringResource(R.string.paint_shape_regions)) })
             }
             if (shape == "regions") Row(verticalAlignment = Alignment.CenterVertically) {

@@ -211,6 +211,7 @@
     <string name="export_preset">Export preset</string>
     <string name="export_stl">Export plate as STL</string>
     <string name="filament">Filament</string>
+    <string name="colour_changes">Colour changes</string>
     <string name="filament_vendors">Filament brands</string>
     <string name="filament_vendors_text">Choose which brands appear in the filament lists</string>
     <string name="plate_types">Plate types</string>

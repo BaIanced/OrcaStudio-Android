@@ -2,13 +2,21 @@ package app.orcaandroid.ui
 
 import app.orcaandroid.R
 import app.orcaandroid.SliceProgress
+import app.orcaandroid.core.SliceResult
 import app.orcaandroid.service.SliceService
+import app.orcaandroid.ui.preview.ColourChangeLine
 import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.withContext
 
 /** Slicing with progress, the preview state and viewing external G-code files. */
 class SliceController(private val store: Store, private val presets: PresetController) {
     private val engine = store.engine
     private val progress = store.container.sliceProgress
+
+    /** The in-flight G-code tool-change parse for the last slice (Task 11); cancelled on re-slice or plate switch. */
+    private var parseJob: Job? = null
 
     fun slice(plate: Int = store.value.activePlate) = store.launch {
         if (store.value.isSlicing) return@launch
@@ -17,6 +25,7 @@ class SliceController(private val store: Store, private val presets: PresetContr
             return@launch
         }
         presets.syncSelection()
+        parseJob?.cancel()
         val preparing = store.str(R.string.preparing)
         store.update { it.copy(slice = SliceStatus.Running(plate, 0, preparing), sliceError = null) }
         progress.value = SliceProgress(0, preparing)
@@ -30,6 +39,7 @@ class SliceController(private val store: Store, private val presets: PresetContr
                 it.copy(results = it.results + (plate to result), previewPlate = plate, external = null, screen = Screen.PREVIEW,
                     preview = it.preview.showingAll(result.layers.lastIndex), upload = null)
             }
+            parseToolChanges(plate, result)
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -66,8 +76,38 @@ class SliceController(private val store: Store, private val presets: PresetContr
 
     fun closeExternal() = store.update { it.copy(external = null) }
 
-    fun setPreviewPlate(plate: Int) = store.update { s ->
-        s.copy(previewPlate = plate, external = null, preview = s.preview.showingAll(s.results[plate]?.layers?.lastIndex ?: 0))
+    /**
+     * Counts [result]'s tool changes off the main thread (Task 11): the G-code is streamed
+     * line by line (`useLines`), never read whole — the files can be 50+ MB. The count is
+     * attached to that plate's result; a re-slice replaces the result (discarding the old
+     * count), and starting a re-slice or switching plates cancels an in-flight parse.
+     * A parse failure just leaves the result without a count (the Preview line stays hidden).
+     */
+    private fun parseToolChanges(plate: Int, result: SliceResult) {
+        parseJob?.cancel()
+        parseJob = store.launch {
+            val parsed = try {
+                withContext(Dispatchers.IO) {
+                    File(result.gcodeFile).bufferedReader().useLines { lines -> ColourChangeLine.parse(lines) }
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                android.util.Log.w("OrcaSlice", "tool-change parse failed", e)
+                null
+            } ?: return@launch
+            // Attach only if this slice is still the plate's result (not re-sliced meanwhile).
+            store.update { s ->
+                if (s.results[plate] === result) s.copy(results = s.results + (plate to result.copy(toolChanges = parsed))) else s
+            }
+        }
+    }
+
+    fun setPreviewPlate(plate: Int) {
+        parseJob?.cancel()
+        store.update { s ->
+            s.copy(previewPlate = plate, external = null, preview = s.preview.showingAll(s.results[plate]?.layers?.lastIndex ?: 0))
+        }
     }
 
     fun updatePreview(transform: (PreviewUi) -> PreviewUi) = store.update { it.copy(preview = transform(it.preview)) }

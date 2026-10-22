@@ -438,3 +438,96 @@ unverified — no attempt got that far. The two fork mismatches are reported by
 Open questions: none for the task itself; compiling in Muse's VM stays blocked
 until the Java-initiated loopback TCP block is lifted, which is Vincent's /
 the platform's call, not a repo change.
+
+### Task 10 - 2026-10-22 - muse/task-10-check-3mf - this commit
+New `android/scripts/check_3mf.py` (standard library only) plus
+`android/scripts/test_check_3mf.py`; no app code changed. Branched from the
+latest `origin/muse/work` (PR #48 is merged, so no stacking this time).
+The script prints `OK|FAIL|WARN <check id> <detail>` per check and exits 1 on
+any FAIL. It implements every Task 6 review check decidable from the file
+alone: zip readability; `_rels/.rels` start part; every relationship target
+(root and sub-model rels) present; `Metadata/project_settings.config`
+present and parsing as a JSON object; `filament_colour` non-empty
+(`PresetBundle.cpp:5363-5367`); the `filament_self_index` /
+`filament_extruder_variant` length rule copied exactly, healing included,
+and stated in the module docstring (`PresetBundle.cpp:5407-5429`); every
+other per-filament vector the desktop `resize()`s reported as WARN, not
+FAIL (`PresetBundle.cpp:5386-5390`, `:5506`, `:5552-5556`); the model files
+the reader opens present and containing at least one object with vertices
+and triangles (`bbs_3mf.cpp:846`, `:1614-1618`; `Plater.cpp:10225-10232`);
+`Metadata/model_settings.config` parsing (`bbs_3mf.cpp:1661-1666`); files
+referenced from its plates present (missing `gcode_file` FAIL, missing
+thumbnails WARN, `bbs_3mf.cpp:4606-4628`). Checks that need the desktop's
+installed presets (the `*_settings_id` names) print WARN saying so
+(`PresetBundle.cpp:5460-5474`). Task 6's suspected item is included as the
+`filament_self_index_identity` WARN when decidable: a non-identity
+`filament_self_index` on a single-nozzle printer (one `nozzle_diameter`
+entry). Desktop code was re-read at the `src-orca` submodule commit in this
+clone before writing the rule; the cited line numbers match the review.
+Tests: `python3 -m unittest android/scripts/test_check_3mf.py` — 29 tests,
+all passed, exit 0 (fixtures are minimal zips built in a temp dir: one
+passing file, one per FAIL case, plus the healing/WARN cases; two CLI tests
+pin the exit codes 0/1/2 and the line format). No Gradle involved, so
+nothing is UNCOMPILED; no app code to compile.
+Privacy self-scan: tree exit 0, range exit 0.
+UNVERIFIED: the checker has never been run on a real app-saved 3MF (Claude
+to run it on one pulled from a test device); whether the desktop's JSON
+loader accepts every scalar-vs-array shape this checker treats as a
+one-element vector is from reading `load_from_json`, not from running the
+desktop; sub-model files referenced only through `<component>` elements
+(the non-SplitModel layout) are not followed — geometry is counted over
+the start part and the sub-models named in the sub-rels, as the reader
+opens them.
+Open questions: none.
+
+### Task 11 - 2026-10-22 - muse/task-11-preview-colour-changes - this commit
+Stacked on `muse/task-10-check-3mf` (Task 10 not merged yet).
+Findings first (read on the base, before changing anything): after a slice the
+G-code path is in the result — `Engine.slice` (`core/Engine.kt:239`) writes
+`out/plate_<n>.gcode` under the cache dir and `parseSlice` puts the engine's
+`gcode` path into `SliceResult.gcodeFile` (`core/Models.kt:216`);
+`SliceController.slice` (`ui/SliceController.kt:25`) stores that result per
+plate in `UiState.results` and switches to Preview. There is no
+`PreviewStats` symbol; the per-plate stats are the `Summary` composable in
+`ui/preview/PreviewPanel.kt:117` (print time, total filament, cost, layers,
+per-filament use) — the new line goes there. The filament preset's density is
+not available in Kotlin state (`FilamentSlot`, `core/Models.kt:100`, carries
+the preset name and the user's overrides only), so the grams use the task's
+fallback 1.24 g/cm3, named in `ColourChangeLine`.
+Part 1: `SliceResult` gains a nullable `toolChanges` field. After a
+successful slice, `SliceController.parseToolChanges` streams the G-code off
+the main thread (`Dispatchers.IO`, `File.useLines`, never read whole) through
+`GcodeToolChanges.parse` (Task 5) via the new pure `ui/preview/ColourChangeLine`
+and attaches the result to that plate's `SliceResult`. An in-flight parse is
+cancelled when a re-slice starts or the preview plate switches; a re-slice
+replaces the result, discarding the old count; a parse failure leaves the
+field null and the line hidden. `Summary` shows
+`Colour changes: N · prime tower ~X g` (an i18n label plus
+`ColourChangeLine.value`) only when the count is > 0.
+Part 2 (Task 7 follow-up): `brushShape`, `fillShape` and the `fillKeep`
+snapshot (edgeAngle / overColours / guardOn) move from
+`rememberSaveable` / `remember` in `ColorPaintOptions` onto `Tool.Paint`
+itself, and the mode-switch logic moves verbatim into a pure
+`PaintMode.entered(tool, from, to)`; the composable now only calls it and the
+shape chips write the shape fields on the tool. Same-Preview-round-trip
+behaviour as Task 7's Object-mode fix, for the same reason.
+Tests: new `ui/preview/ColourChangeLineTest.kt` (4 tests: mm3 -> g at the
+fallback and a custom density, hide for null / 0 changes, the value wording,
+and a streamed `Sequence` parse of a fixture with a prime tower) and 4 new
+tests in `ui/prepare/PaintModeTest.kt` (per-mode shape restore, Object
+save/restore of the fill settings, survival across a Prepare <-> Preview
+round-trip, erase -> Object selecting filament 1). No existing tests changed.
+Build: UNCOMPILED (Gradle cannot run in Muse's VM — Task 9; `pr-check.yml`
+is the compile check). Tests not run for the same reason.
+Privacy self-scan: tree exit 0, range exit 0.
+UNVERIFIED: device behaviour is UNVERIFIED — not compiled, tests not run, no
+device check. Device check for Vincent/Claude: slice a multi-colour plate
+with a prime tower, open Preview: the Summary card should gain a
+"Colour changes" line with the change count and a prime-tower gram figure
+(single-colour plates show no line); re-slice the plate and switch plates
+mid-parse on a large file — no stale count should appear. Paint check: in
+Colour painting pick Brush > Circle and Fill > Regions, switch to Preview
+and back: both modes should still show their shapes; enter Object mode,
+leave it, round-trip Preview in between — the fill settings from before
+Object (smart-fill angle, over-colours, guard) should be the ones restored.
+Open questions: none.
