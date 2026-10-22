@@ -1,13 +1,27 @@
 package app.orcaandroid
 
 import app.orcaandroid.ai.LogMask
+import app.orcaandroid.ai.LogTail
 import app.orcaandroid.render.FrameStats
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** The pure parts of the MCP debug tools: log_tail's masking and perf's frame statistics. */
+/** The pure parts of the MCP debug tools: log_tail's masking and line-count clamping, and perf's frame statistics. */
 class McpDebugToolsTest {
+    @Test fun logTailLineCountClamps() {
+        // The tool schema promises 1..500 lines with a default of 100 (McpTools' log_tail entry);
+        // the constants are what the tool reads its default from, and every count is clamped.
+        assertEquals(100, LogTail.DEFAULT_LINES)
+        assertEquals(500, LogTail.MAX_LINES)
+        assertEquals(100, LogTail.lineCount(100))
+        assertEquals(1, LogTail.lineCount(1))
+        assertEquals(500, LogTail.lineCount(500))
+        assertEquals(1, LogTail.lineCount(0))
+        assertEquals(1, LogTail.lineCount(-5))
+        assertEquals(500, LogTail.lineCount(501))
+        assertEquals(500, LogTail.lineCount(100_000))
+    }
     @Test fun masksSecretValues() {
         assertEquals("I/Obn: pin_code=*** host ok", LogMask.mask("I/Obn: pin_code=xy host ok"))
         assertEquals("{\"token\": \"***\", \"user\": \"x\"}", LogMask.mask("{\"token\": \"abc.def\", \"user\": \"x\"}"))

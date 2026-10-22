@@ -172,3 +172,23 @@ local run are the first execution. The GL-matrix paths (`viewProjection`, `ray`,
 are deliberately untested here: they need `android.opengl.Matrix`, which a plain JVM unit
 test cannot run.
 Open questions: JDK/Android SDK install in Muse's VM (see Status, Vincent's call).
+
+### Task 4 - 2026-10-22 - muse/task-4-mcp-log-tail - this commit
+`log_tail` already exists and was not rebuilt: it was added 2026-10-19 (commit 6fa7eaa,
+with `LogMask` masking and tests in 6513dd1), before this task file was written. As found
+on `muse/work` it is registered in `ai/McpTools.kt` with `lines` (1..500, default 100),
+`filter` and `level` arguments, reads its own process's logcat
+(`logcat -d -v time --pid=<own pid> *:<level>`, then takes the last N lines rather than
+the `-t N` the task text suggested), and masks secret-looking values. The one piece the
+task asked for that was missing is a test of the argument clamping, which was inline in
+the private `logTail` and so untestable. This PR makes the smallest change that fixes
+that: the clamp moves verbatim into a pure `ai/LogTail.kt` (`DEFAULT_LINES` 100,
+`MAX_LINES` 500, `lineCount(requested)` = coerceIn(1, 500)), `logTail` reads it, and
+`McpDebugToolsTest` gains `logTailLineCountClamps`. Behaviour is unchanged.
+Build: UNCOMPILED (no toolchain in Muse's VM; Vincent's JDK/SDK call still open).
+Privacy self-scan: tree exit 0, range exit 0.
+UNVERIFIED: not compiled and tests not run (no toolchain); `pr-check.yml` and Vincent's
+local run are the first execution. The equivalence claim (clamp behaviour unchanged)
+rests on reading the two one-line expressions, not on a run.
+Open questions: JDK/Android SDK install in Muse's VM (see Status, Vincent's call);
+Task 4's premise in this file is stale — Claude may want to strike it or mark it done.
