@@ -233,4 +233,10 @@ data class SliceResult(
     val extrusionCount: Int = 0,
     /** True for an opened external G-code file (no plate/scene behind it). */
     val external: Boolean = false,
+    /**
+     * Tool changes counted in [gcodeFile] after the slice (Task 11), parsed off the main
+     * thread and attached to this result; null until the parse finishes (or if it fails).
+     * Re-slicing replaces the whole result, which discards the old count with it.
+     */
+    val toolChanges: GcodeToolChanges.Result? = null,
 )

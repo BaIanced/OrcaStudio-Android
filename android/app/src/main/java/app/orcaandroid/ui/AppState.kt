@@ -51,7 +51,15 @@ sealed interface Tool {
                      /** Colour painting's Object task mode (its shape is plain "fill", so the mode needs its own flag;
                       *  it used to be a composable-local in ColorPaintOptions and was lost when the paint shop left
                       *  composition, landing the user on Fill). Session-only: [UiState] is never persisted. */
-                     val objectMode: Boolean = false) : Tool
+                     val objectMode: Boolean = false,
+                     /** The brush / fill shapes each paint mode used last (Task 11, the Task 7 follow-up: these
+                      *  were `rememberSaveable` in ColorPaintOptions and died with its composition, like Object
+                      *  mode did). Session-only, like [objectMode]. */
+                     val brushShape: String = "sphere", val fillShape: String = "fill",
+                     /** The fill settings Object mode overrides, saved on entering it and restored on leaving
+                      *  (was a plain `remember` snapshot in ColorPaintOptions, lost the same way). */
+                     val fillKeepEdgeAngle: Float = 0f, val fillKeepOverColours: Boolean = false,
+                     val fillKeepGuardOn: Boolean = false) : Tool
     data object LayOnFace : Tool
     data object Measure : Tool
     /** The cut plane passes through the object's middle at height [z], turned by [rot] (Euler degrees) from the horizontal. */
