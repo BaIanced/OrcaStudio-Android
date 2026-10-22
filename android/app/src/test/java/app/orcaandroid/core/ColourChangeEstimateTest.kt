@@ -133,4 +133,19 @@ class ColourChangeEstimateTest {
         val e = ColourChangeEstimate.estimate(listOf(listOf(0, 7, -1), listOf(9), listOf(1)), matrix2, 1.0, densities2, null)
         assertEstimate(e, 1, 100.0, 0.20, doubleArrayOf(0.0, 0.20))
     }
+
+    @Test fun towerFloorAndGrab() {
+        // The real A1 case (r371 plate on WSA): matrix 97 x multiplier 0.3 = 29.1, minus grab 17.4 x 2.4 = 41.76 < 0,
+        // yet every switch purged 100 mm3: the floor wins (0.20 g at density 2.0).
+        val a1 = arrayOf(doubleArrayOf(0.0, 97.0), doubleArrayOf(97.0, 0.0))
+        val grab = 17.4 * ColourChangeEstimate.GRAB_MM3_PER_MM
+        val floored = ColourChangeEstimate.estimate(listOf(listOf(0), listOf(1)), a1, 0.3, densities2, null, grab, ColourChangeEstimate.TOWER_MIN_PURGE_MM3)
+        assertEstimate(floored, 1, 100.0, 0.20, doubleArrayOf(0.0, 0.20))
+        // Without a tower floor the grab can cancel the purge entirely.
+        val none = ColourChangeEstimate.estimate(listOf(listOf(0), listOf(1)), a1, 0.3, densities2, null, grab)
+        assertEstimate(none, 1, 0.0, 0.0, doubleArrayOf(0.0, 0.0))
+        // Above the floor it stays: 1 -> 0 at 200 mm3 minus grab 41.76 = 158.24 mm3 (0.15824 g at density 1.0).
+        val above = ColourChangeEstimate.estimate(listOf(listOf(1), listOf(0)), matrix2, 1.0, densities2, null, grab, ColourChangeEstimate.TOWER_MIN_PURGE_MM3)
+        assertEstimate(above, 1, 158.24, 0.15824, doubleArrayOf(0.15824, 0.0))
+    }
 }
