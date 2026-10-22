@@ -47,4 +47,16 @@ class PaintLayersTest {
         val spans = PaintLayers.spans(FloatBuffer.wrap(floats.toFloatArray())) { obj, _ -> obj == 1 }
         assertEquals(listOf(span(1, 0.5f, 2.5f)), spans)
     }
+
+    @Test fun forPlateAddsBaseFilamentOfCopiesOnThePlate() {
+        // Object 0 (filament 2) on plate 0, 1 mm high, painted filament 0 at z 0.6..1; object 1 sits on plate 1 only.
+        val v = Vec3(0f, 0f, 0f)
+        fun inst(i: Int, plate: Int, h: Float) = Instance(i, plate, v, v, v, v, Vec3(10f, 10f, h), v)
+        fun obj(i: Int, ext: String?, vararg inst: Instance) =
+            SceneObject(i, "o$i", 12, ext?.let { mapOf("extruder" to it) } ?: emptyMap(), emptyList(), inst.toList(), emptyList(), false)
+        val objects = listOf(obj(0, "2", inst(0, 0, 1f)), obj(1, null, inst(0, 1, 2f)))
+        val paint = listOf(0.6f, 1f, 1f).flatMap { listOf(0f, 0f, it, 0f, 0f, 1f, 0f, 10f) }
+        val layers = PaintLayers.forPlate(FloatBuffer.wrap(paint.toFloatArray()), objects, 0, 0.2f, 0.2f)
+        assertEquals(listOf(listOf(1), listOf(1), listOf(1), listOf(0, 1), listOf(0, 1)), layers)
+    }
 }

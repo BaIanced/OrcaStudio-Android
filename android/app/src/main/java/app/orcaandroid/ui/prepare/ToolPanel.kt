@@ -77,7 +77,14 @@ import kotlin.math.roundToInt
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.orcaandroid.R
+import app.orcaandroid.core.ColourChangeEstimate
+import app.orcaandroid.core.PaintLayers
+import app.orcaandroid.core.PresetType
 import app.orcaandroid.render.CutPlane
+import app.orcaandroid.render.FloatData
+import app.orcaandroid.ui.preview.ColourChangeLine
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import app.orcaandroid.ui.AppViewModel
 import app.orcaandroid.ui.Tool
 import app.orcaandroid.ui.UiState
@@ -325,6 +332,14 @@ internal fun ColorPaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Pain
         delay(300)
         coverage = runCatching { vm.scene.paintCoverage() }.getOrNull()
     }
+    // What the plate's paint costs in colour changes and chute flush, before slicing (paint plan step 3).
+    var changes by remember { mutableStateOf<ColourChangeEstimate.Estimate?>(null) }
+    val flushKeys = listOf("flush_volumes_matrix", "flush_multiplier", "enable_prime_tower", "layer_height", "initial_layer_print_height")
+        .map { state.value(PresetType.PRINT, it) }
+    LaunchedEffect(state.scene, state.activePlate, state.filaments.size, flushKeys) {
+        delay(300)
+        changes = runCatching { withContext(Dispatchers.IO) { paintChangeEstimate(state) } }.getOrNull()
+    }
     val total = coverage?.sum()?.takeIf { it > 0f }
     fun percent(i: Int) = total?.let { t -> ((coverage?.getOrNull(i) ?: 0f) / t * 100f).roundToInt() }
     fun turnInto(i: Int, j: Int) = vm.scene.paintRemap(List(state.filaments.size) { if (it == i) j else it }, base = true)
@@ -354,6 +369,9 @@ internal fun ColorPaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Pain
         Swatch(tool.shape == "pick", stringResource(R.string.paint_pick), {
             vm.scene.setTool(if (tool.shape == "pick") tool.copy(shape = tool.back) else tool.copy(shape = "pick", back = tool.shape))
         }) { Icon(Icons.Default.Colorize, null, Modifier.size(24.dp)) }
+    }
+    changes?.takeIf { it.changes > 0 }?.let {
+        Text(stringResource(R.string.paint_change_estimate, it.changes, it.flushGrams), style = MaterialTheme.typography.bodySmall)
     }
     when (mode) {
         "brush" -> {
@@ -411,6 +429,28 @@ private fun Swatch(selected: Boolean, label: String, onClick: () -> Unit, onLong
             contentAlignment = Alignment.Center) { content() }
         Text(label, style = MaterialTheme.typography.labelSmall)
     }
+}
+
+/**
+ * The active plate's colour changes and chute flush from its paint, before slicing ([PaintLayers.forPlate] into
+ * [ColourChangeEstimate.estimate]). Without a stored flushing matrix the switches still count and each purges only the
+ * floor; the density is the first filament's for all; `flush_multiplier` falls back to its default 0.3
+ * (`PrintConfig.cpp:7710`). Null below two filaments or without a paint mesh.
+ */
+private fun paintChangeEstimate(state: UiState): ColourChangeEstimate.Estimate? {
+    val n = state.filaments.size
+    if (n < 2 || state.scene.paintFile.isEmpty()) return null
+    fun nums(type: PresetType, key: String) = state.value(type, key)?.split(',', ';')?.mapNotNull { it.trim().toDoubleOrNull() }.orEmpty()
+    fun num(type: PresetType, key: String, default: Double) = nums(type, key).firstOrNull() ?: default
+    val matrix = ColourChangeEstimate.parseFlushMatrix(nums(PresetType.PRINT, "flush_volumes_matrix"), n) ?: Array(n) { DoubleArray(n) }
+    val paint = FloatData.load(state.scene.paintFile, 8)?.data ?: return null
+    val layers = PaintLayers.forPlate(paint, state.scene.objects, state.activePlate,
+        num(PresetType.PRINT, "initial_layer_print_height", 0.2).toFloat(), num(PresetType.PRINT, "layer_height", 0.2).toFloat())
+    val tower = state.value(PresetType.PRINT, "enable_prime_tower") == "1"
+    return ColourChangeEstimate.estimate(layers, matrix, num(PresetType.PRINT, "flush_multiplier", 0.3),
+        List(n) { num(PresetType.FILAMENT, "filament_density", ColourChangeLine.DENSITY_G_PER_CM3) }, null,
+        grabMm3 = num(PresetType.PRINTER, "grab_length", 0.0) * ColourChangeEstimate.GRAB_MM3_PER_MM,
+        minPurgeMm3 = if (tower) ColourChangeEstimate.TOWER_MIN_PURGE_MM3 else 0.0)
 }
 
 /** A filament's name without the printer suffix ("Bambu PLA Basic @BBL A1" -> "Bambu PLA Basic"). */

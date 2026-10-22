@@ -309,6 +309,7 @@
     <string name="paint_color">Color painting</string>
     <string name="paint_shop">Paint shop</string>
     <string name="paint_layers">Filaments</string>
+    <string name="paint_change_estimate">Plate estimate: %1$d colour changes · flush ~%2$.1f g</string>
     <string name="paint_layer_menu">Filament actions</string>
     <string name="paint_layer_hide">Hide</string>
     <string name="paint_layer_show">Show</string>

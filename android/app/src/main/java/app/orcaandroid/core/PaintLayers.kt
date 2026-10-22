@@ -67,6 +67,20 @@ object PaintLayers {
         return sets.map { it.toList() }
     }
 
+    /**
+     * Per-layer filament ids of [plate]: the colour paint of its copies plus, per copy, the object's base filament
+     * (`extruder`, 1-based in the settings, 1 when unset) over the copy's whole height. [SceneObject.instances]'s
+     * `min` / `size` are the world bounding box (`OrcaScene.cpp:494`). Parts with their own filament count as the base.
+     */
+    fun forPlate(paint: FloatBuffer, objects: List<SceneObject>, plate: Int, firstLayer: Float, layerHeight: Float): List<List<Int>> {
+        val spans = spans(paint) { o, i -> objects.getOrNull(o)?.instances?.getOrNull(i)?.plate == plate }.toMutableList()
+        for (o in objects) {
+            val base = ((o.settings["extruder"]?.toIntOrNull() ?: 1) - 1).coerceAtLeast(0)
+            for (inst in o.instances) if (inst.plate == plate) spans += Span(base, inst.min.z, inst.min.z + inst.size.z)
+        }
+        return layers(spans, firstLayer, layerHeight)
+    }
+
     /** Mirrors `INSTANCE_ID_STRIDE` (`OrcaEngine.hpp:48`, `PlateRenderer.kt:12`); kept here so the JVM tests need no render class. */
     private const val INSTANCE_STRIDE = 4096
 }
