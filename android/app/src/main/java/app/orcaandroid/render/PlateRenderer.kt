@@ -68,6 +68,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var selectedIds = FloatArray(0)
     /** Paint shop: only the selected copies are drawn (objects, paint, shadows); the plates stay. */
     var solo = false
+    /** A box to fit the camera to (current angles) once the surface has its size: the paint shop's entry framing. */
+    var fitPending: Pair<app.orcaandroid.core.Vec3, app.orcaandroid.core.Vec3>? = null
     /** Live offset of the selected copies while they are dragged. */
     var dragOffset = floatArrayOf(0f, 0f, 0f)
         set(v) {
@@ -347,6 +349,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     }
 
     private fun drawFrame() {
+        if (viewW > 1) fitPending?.let { (lo, hi) -> camera.fit(lo, hi, keepAngles = true); fitPending = null }
         upload()
         camera.viewProjection(mvp)
         val now = System.nanoTime()

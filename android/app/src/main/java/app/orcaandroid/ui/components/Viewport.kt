@@ -314,6 +314,20 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     }
     val solo = state.inPaintShop
     LaunchedEffect(v, solo) { v.onGl { this.solo = solo } }
+    // The paint shop's view is smaller than the plate view: it frames the painted copy on entry (same view angles) and
+    // Done puts the plate camera back. Runs after the old view's onDispose, so savedCamera is the plate camera here.
+    LaunchedEffect(v, solo) {
+        val plate = shopCamera
+        if (solo && plate == null) {
+            val i = state.selectedObject?.instances?.getOrNull(state.selection?.instance ?: 0) ?: return@LaunchedEffect
+            shopCamera = savedCamera ?: v.camera.state()
+            shopCamera?.let(v.camera::restore)
+            v.onGl { fitPending = i.min to (i.min + i.size) }
+        } else if (!solo && plate != null) {
+            v.camera.restore(plate)
+            shopCamera = null
+        }
+    }
     LaunchedEffect(v, state.selectionStyle) {
         v.onGl { selectionStyle = state.selectionStyle }
     }
@@ -509,6 +523,9 @@ fun schemeKey(scheme: Int) = when (scheme) {
  * next view looks the same instead of framing plate 1 again.
  */
 private var savedCamera: FloatArray? = null
+
+/** The plate camera from before the paint shop, restored when it closes. */
+private var shopCamera: FloatArray? = null
 
 /**
  * For a copy turned [rotation] (degrees, applied X then Y then Z as the engine's Geometry::rotation_transform) only in
