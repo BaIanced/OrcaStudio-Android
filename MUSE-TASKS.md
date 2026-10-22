@@ -20,7 +20,7 @@ PUBLIC: every push is publication, and a later commit does not remove anything f
   `muse/task-*` branches. Never push to `muse/work`, `main`, `claude/*` or any other branch. Never force-push.
 - One **draft** PR per task, base `muse/work`. Never base `main` or `claude/*`.
 - Every connector write needs Vincent's approval: batch each task into one multi-file push and one PR creation.
-- Vincent merges a PR into `muse/work` only after the local check (compile, unit tests, diff read).
+- Muse never merges, not even its own PRs. Claude merges a PR into `muse/work` after checking it (pr-check compile + tests, diff read). Muse leaves the PR as draft.
 - Promotion: verified code commits are cherry-picked by Claude onto the active `claude/*` work branch and reach `main`
   through the normal merge there. `muse/work` itself is never merged into `main`: it carries this file and
   `.github/workflows/pr-check.yml`, which stay off `main`.
