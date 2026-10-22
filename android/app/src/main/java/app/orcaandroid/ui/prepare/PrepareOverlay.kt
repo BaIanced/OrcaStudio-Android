@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.FileOpen
+import androidx.compose.material.icons.filled.Rotate90DegreesCcw
 import androidx.compose.material.icons.filled.Architecture
 import androidx.compose.material.icons.filled.Interests
 import androidx.compose.material.icons.filled.TextFields
@@ -44,6 +45,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.filled.SelectAll
@@ -266,7 +268,35 @@ private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
     val at = state.contextMenu
     // The overlay is inset by 8 dp from the view whose pixels [at] are in.
     val inset = with(LocalDensity.current) { 8.dp.roundToPx() }
-    if (at != null) {
+    // Lab "pie menu": wedges for the common actions; the last wedge ("More") opens the list.
+    var more by remember(at) { mutableStateOf(false) }
+    if (at != null && state.lab.pieMenu && !more) {
+        val close = vm.scene::closeContextMenu
+        val sel = state.selection
+        val moreItem = PieItem(Icons.Default.MoreHoriz, stringResource(R.string.more)) { more = true }
+        val items = if (state.multiSelection.size >= 2) listOf(
+            PieItem(Icons.Default.CallMerge, stringResource(R.string.assemble)) { vm.scene.assemble() },
+            PieItem(Icons.Default.ContentCopy, stringResource(R.string.duplicate)) { vm.scene.duplicate(1) },
+            PieItem(Icons.Default.Delete, stringResource(R.string.delete)) { vm.scene.deleteSelected() },
+            moreItem,
+        ) else if (sel != null) listOf(
+            PieItem(Icons.Default.Rotate90DegreesCcw, stringResource(R.string.rotate), state.multiSelection.isEmpty()) { vm.scene.toggleRotate() },
+            PieItem(Icons.Default.OpenInFull, stringResource(R.string.resize), state.multiSelection.isEmpty()) { vm.scene.toggleResize() },
+            PieItem(Icons.Default.VerticalAlignBottom, stringResource(R.string.lay_on_face)) { vm.scene.setTool(Tool.LayOnFace) },
+            PieItem(Icons.Default.ContentCopy, stringResource(R.string.duplicate)) { vm.scene.duplicate(1) },
+            moreItem,
+            PieItem(Icons.Default.Delete, stringResource(R.string.delete)) { vm.scene.deleteSelected() },
+            PieItem(Icons.Default.ContentCut, stringResource(R.string.cut)) { vm.scene.startCut() },
+        ) else listOf(
+            PieItem(Icons.Default.FileOpen, stringResource(R.string.import_model)) { importModels.launch(arrayOf("*/*")) },
+            PieItem(Icons.Default.Interests, stringResource(R.string.add_shape)) { dialog = "primitive" },
+            PieItem(Icons.Default.TextFields, stringResource(R.string.add_text)) { dialog = "text" },
+            PieItem(Icons.Default.AutoAwesomeMosaic, stringResource(R.string.arrange), !state.scene.isEmpty) { vm.scene.arrange(false) },
+            PieItem(AutoOrientIcon, stringResource(R.string.auto_orient), !state.scene.isEmpty) { vm.scene.autoOrient() },
+            moreItem,
+        )
+        PieMenu(at, inset, items, vm.pieTouch, close)
+    } else if (at != null) {
         val close = vm.scene::closeContextMenu
         Box(Modifier.offset { IntOffset(at.first.toInt() - inset, at.second.toInt() - inset) }) {
             DropdownMenu(expanded = true, onDismissRequest = close) {
@@ -291,6 +321,9 @@ private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
                     if (state.multiSelection.isEmpty())
                         DropdownMenuItem(text = { Text(stringResource(if (state.resizing) R.string.resize_done else R.string.resize)) },
                             leadingIcon = { Icon(Icons.Default.OpenInFull, null) }, onClick = { close(); vm.scene.toggleResize() })
+                    if (state.multiSelection.isEmpty())
+                        DropdownMenuItem(text = { Text(stringResource(if (state.rotating) R.string.rotate_done else R.string.rotate)) },
+                            leadingIcon = { Icon(Icons.Default.Rotate90DegreesCcw, null) }, onClick = { close(); vm.scene.toggleRotate() })
                     DropdownMenuItem(text = { Text(stringResource(R.string.add_modifier)) },
                         onClick = { close(); vm.scene.addVolume(VolumeType.MODIFIER, "box") })
                     if ((state.scene.objects.getOrNull(sel.obj)?.volumes?.count { it.type == VolumeType.PART } ?: 0) >= 2)
@@ -547,6 +580,7 @@ private fun ToolButtons(
                     HorizontalDivider()
                     DropdownMenuItem(text = { Text(stringResource(R.string.simplify)) }, onClick = { moreMenu = false; dialog = "simplify" })
                     DropdownMenuItem(text = { Text(stringResource(R.string.repair)) }, onClick = { moreMenu = false; vm.scene.repair() })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.check_mesh)) }, onClick = { moreMenu = false; dialog = "check" })
                     DropdownMenuItem(text = { Text(stringResource(R.string.measure)) }, onClick = { moreMenu = false; vm.scene.setTool(Tool.Measure) },
                         leadingIcon = { Icon(Icons.Default.Straighten, null) })
                 }

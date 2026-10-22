@@ -2442,3 +2442,38 @@ User: "you just tested something we already confirmed worked". Cross-checked eac
 ### 2026-10-20 r341 user check
 - (2026-10-20, user, phone r341) "I've checked and everything looks perfect": tops from above (6b465f8 flip) + lit undersides verified. User asked about camera light: Preview toolpaths use fixed studio lights only (`shade()`), lab light sliders affect the Prepare mesh only; camera-light slider offered (easy), no GO yet.
 - (2026-10-20, user, phone r341) on the r339 rim arrows + cylinder end-cap shards: "I've zoomed around and tried finding what that means and I can't notice anything defective in our current implementation" -> closed (not visible in r341).
+
+### 2026-10-20 paint gap fill, support kind (WSA, local debug build)
+- (Claude, WSA) Support painting, Enforce, cylinder: 3 mm strokes (about 20 mm2) stay at the max gap area 5.0 mm2; 1.4 mm taps vanish on "Fill gaps". Tapping a shape chip (e.g. Sphere) leaves Gap fill mode, so re-select the "Gap fill" chip before "Fill gaps". "Clear painting" worked. Odd: two green dots on the neighbouring plate stayed after Clear painting (probably painted earlier on another object; not chased).
+- (Claude, WSA, 2026-10-20, local debug build) Support painting shapes: Circle strokes paint a capsule; Triangle paints one triangle (thin strip on the cylinder); Fill on the cylinder wall fills the whole smooth wall (small separate features stay). Height is colour-only (not offered for Support). Note: "Clear painting" then force-stop (no onStop save) brings the old paint back at the next start.
+- (Claude, WSA, 2026-10-20, CI run 39521072810) Filament remap (Colour painting, chip "Remap filaments"): cone painted with filament 2 (grey) over filament 1 (yellow); target of 2 set to 1, "Remap": grey strokes turned yellow, Remap button disabled until a target differs. The card's Remap row sits low: drag the card up on a 1080p WSA screen. Reverse map (1->2) and more than 2 filaments not tried.
+
+### 2026-10-20 first print fixed
+- (user, 2026-10-20) First print failed (blobs, strings), cause was the printer, not the G-code: "printer fixed ran full printer motor calibration and bed level it's currently printing and it's printing fine". Both G-codes (app and PC-sliced) were sane; plate was a Supertack cool plate, bed 45 C is right. Their PC slice error: "forget the error".
+
+### 2026-10-21 view cube verified
+- (user, 2026-10-21, run 39563849841) View cube: "View cube works great, could it be drag and drop?" Follow-up: make the cube movable on screen (backlog).
+- (user, 2026-10-21, r352 run 39568391863) Movable view cube: "Haptics works, cube moves around, can we put the cube inside the lab section and disable it? It's causing me motion sickness, not sure why". Follow-up: lab toggle, off by default.
+
+### 2026-10-21 Z rail verified on WSA (Claude)
+- r356 (run 39650160035, ad82885), Shape builder, 2 boxes: drag purple dot up 64 px = lift 6 mm (bbox 20 -> 26); double-tap dot (two clicks 120 ms apart via `mclick.ps1 -Double`) = drop to floor (26 -> 20); Undo/Redo toggle 26/20; boxes overlapping in XY: drag to ~19.4 mm snaps to the other box top (height 40), 18 mm does not snap. Shift 0.1 step and haptic untested. User feel pending.
+
+## 2026-10-21 Check mesh (5a bb57009, 5b)
+- Claude verified on WSA debug build (local native): test STL with two overlapping cubes (one top face missing) + 0.3 mm slab: report "34 faces, 3 shells, 4 open edges, 12 face pairs self-intersecting, 4 thin faces"; Show in 3D view drew red/magenta/orange markers. Native: OrcaTools.cpp check_mesh (CGAL self_intersections, open edge midpoints, thin-wall rays); markers = PlateRenderer.drawMeshMarkers + point shader kinds 5-7; SceneController.meshMarkers. User feel pending. Test STL recipe: edits/make_bad_stl.py in orca-android-tools, push to /data/local/tmp, run-as cp into files/, VIEW intent with file:///data/data/<pkg>/files/bad.stl.
+
+## 2026-10-21 Rotate gizmo + haptics: USER VERIFIED (r358)
+- User: "Rotate gizmo is perfect, haptics are a nice touch as well, feel good." Covers rings (fd83086), ticks + snap (45dc651), tick haptics. Backlog line 151 closed.
+- Same message, pie menu: user wants it as a stylus/S Pen button-activated, customizable tool picker (low priority; backlog). Bugs reported (backlog): prime tower selectable through objects; Check mesh 3D markers static when object moves; lab slider value vs fade-out label differ ~5%; Cut "place upper part on cut face" fails (auto drop to plate; per-object auto-drop off).
+
+## 2026-10-21 Bug batch verdicts (run 39671546192)
+- User: "Prime tower fixed. Mesh dots fixed. Lab slider fixed." (all three USER VERIFIED). Cut: upper part stays floating (OK) but the parts are auto-arranged after the operation; "flip" upper part makes the paint on the object disappear (open bug). Cut UI redesign requested: show where the cut meets the surface (red box walls visible through the object), touch-friendly height adjust with the tool window open, rotate gizmo for angular cuts (backlog).
+
+## 2026-10-21 User verdicts on the cut batch (run 39678582217)
+- Cut redesign: "The cut function is much better." USER VERIFIED (feel). Follow-ups (backlog): no auto orient/arrange when "Place upper part on cut face" is on; otherwise floaters make no sense, so make auto orient a nested option in the cut window. User asks what "Flip upper part upside down" is for.
+- Z rail: "Z rail feels fine", but "it doesn't draw object as I drag along it into a position" (no live preview while dragging; backlog).
+- Pie menu: "I do not like the pie menu"; low-priority S Pen/stylus feature, fully customizable (users add/remove tools), any S Pen button(s) mappable to open it. Not today.
+- Asked: shape builder in the main canvas (mesh menu on the main view, interconnected), for/against assessment; paint menu UI evaluation with 2-3 alternative layouts (hard to find tools, unclear what each does).
+- User decisions (same day): paint panel = **option C** (task modes Brush / Fill / Bands / Whole object). Shape builder: share the main view's look, build shapes on its own plate (at least for now, less render load), in an isolated focus mode with the CAD/shape-builder tools, "slightly similar to how Orca does assembly"; user floats an assembly-style free-floating space and a separate "paint shop" mode, asked for a deep assessment (given in chat 2026-10-21: workspaces = gesture grammar + rules; two poses, design (Orca assemble_transformation, Model.hpp:1397, saved in 3MF bbs_3mf.cpp:296) vs print).
+- User (same day): assembly in the Build workspace: "If you recommend having it in there and it is going to be intuitive then I'm all for it" (never used Orca's assembly view). Paint shop layout: Claude recommended adaptive option 2 (bottom dock, portrait) + 3 (filament layers side panel with hide/lock/%/drag-remap, landscape); user asked for a visual mockup.
+- User (same day): paint depth problem was TOP depth (beeper plate: yellow through the whole height = deeper colour; reducing top shell layers shows infill and weakens the part). Filament waste on colour changes matters; uses paint-by-height for that.
+- User (same day): beeper plate is done (example only). ACCEPTED Claude's paint plan, in order: (1) paint shop workspace + adaptive layout (option C modes, bottom dock / layers panel), (2) Top depth setting decoupled from shell layers (same as shells / N layers / all the way through), (3) colour change + waste counter.

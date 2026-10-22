@@ -14,6 +14,7 @@
 #include <deque>
 #include <map>
 #include <functional>
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -119,8 +120,8 @@ public:
     json split(int object, bool to_parts);
     json assemble(const Items &items);
     json mesh_boolean(int object, int src, int tool, const std::string &op, bool keep_tool);
-    // Horizontal cut at world height z.
-    json cut(int object, int instance, double z, bool keep_upper, bool keep_lower, bool flip_upper);
+    // Horizontal cut at world height z. float_upper: the upper part keeps its height (its copies get auto_drop off).
+    json cut(int object, int instance, double z, bool keep_upper, bool keep_lower, bool flip_upper, bool float_upper = false, double rot_x = 0., double rot_y = 0., double rot_z = 0.);
     // Reduces the triangle count to `ratio` (0..1) of the original.
     json simplify(int object, double ratio);
     // Merges duplicate vertices and removes degenerate faces.
@@ -173,10 +174,30 @@ public:
     };
     // [edge_angle] > 0 (degrees) = edge detection, as the desktop's smart fill angle: a stroke paints only the
     // surface it started on, up to edges sharper than that angle between neighbouring faces.
+    // [shape], as the desktop's painting tools: "sphere" / "circle" brush; "triangle" paints the hit triangle; "fill"
+    // paints the hit's same-state region (bucket fill, bounded by [edge_angle] when > 0) at a line's first hit;
+    // "height" paints every part of the object in [hit z, hit z + height] (height range).
+    // [overhang] > 0 (degrees): a brush paints only faces that overhang by more than that (support painting's "on overhangs only").
     json paint(const std::vector<PaintHit> &hits, const std::array<double, 3> &camera, double radius, const std::string &kind,
-               int state, bool new_stroke, const std::vector<double> &section = {}, double edge_angle = 0.);
+               int state, bool new_stroke, const std::vector<double> &section = {}, double edge_angle = 0.,
+               const std::string &shape = "sphere", double height = 2., double overhang = 0.,
+               double guard = std::numeric_limits<double>::quiet_NaN(), bool over_colours = false);
     // Clears one kind of painting (or all for an empty kind) of an object.
     json paint_clear(int object, const std::string &kind);
+    // Ends a fill preview by restoring the annotation from before the stroke (the finger slid off the model).
+    json paint_fill_cancel();
+    // Eyedropper: {"state": the paint state under the hit (0 = unpainted), "base": the part's extruder}.
+    json paint_state_at(int object, int volume, int facet, const std::array<double, 3> &local, const std::string &kind);
+    // Colour painting: each separate shell of the object gets its own filament, largest first.
+    json paint_by_part(int object);
+    // Regions view: {"lines": [x0,y0,z0, x1,y1,z1, ...]} world segments of one copy's crease edges (faces meeting at more
+    // than [angle] degrees) and open edges.
+    json crease_lines(int object, int instance, double angle);
+    // Read-only mesh report of one copy, per model part: faces, open edges, shells, volume, zero-area faces and (when
+    // [thickness] > 0) faces whose wall is thinner than that many mm; plus up to 400 of the thin spots as world x,y,z.
+    json check_mesh(int object, int instance, double thickness);
+    json paint_gap_fill(int object, const std::string &kind, double area);
+    json paint_remap(int object, const std::vector<int> &dest);
 
     // Variable layer height. All return { "profile": [z, h, ...], "min", "max", "height" } plus the
     // scene. `quality` 0..1 (adaptive), `radius` layers (smooth), `delta` mm over `band` mm.
@@ -389,6 +410,12 @@ private:
         std::vector<bool>                           faces;
     };
     PaintRegion                           m_paint_region;
+    // Hold-to-preview fill: the stroke's target annotation as it was before the stroke; each fill hit repaints from it, so
+    // the fill follows the finger, and paint_fill_cancel puts it back (OrcaTools.cpp).
+    struct FillPreview;
+    std::shared_ptr<FillPreview>          m_fill_preview;
+    // Guard plane: the stroke keeps below (true) or above the plane, the side where it started.
+    bool                                  m_guard_below = true;
     // Painted triangles per (mesh, annotation timestamp, state): write_paint_mesh re-extracts only what changed.
     using PaintKey = std::tuple<const void *, uint64_t, int>;
     std::map<PaintKey, std::shared_ptr<indexed_triangle_set>> m_paint_facets;

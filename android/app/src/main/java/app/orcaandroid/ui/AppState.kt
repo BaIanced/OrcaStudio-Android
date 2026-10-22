@@ -33,10 +33,23 @@ data class Selection(val obj: Int, val instance: Int = 0, val volume: Int = -1)
 sealed interface Tool {
     data object None : Tool
     // edgeAngle > 0: edge detection (degrees, the desktop's smart fill angle): a stroke stays on the surface it started on.
-    data class Paint(val kind: String, val state: Int, val radius: Float, val edgeAngle: Float = 0f) : Tool
+    /** [shape]: "sphere" / "circle" brush, "triangle", "fill" (bucket fill, bounded by [edgeAngle]), "height" (band of [height] mm). [overhang] > 0: support brushes paint only faces overhanging by more than that many degrees. */
+    data class Paint(val kind: String, val state: Int, val radius: Float, val edgeAngle: Float = 0f, val shape: String = "sphere",
+                     val height: Float = 0.2f, val overhang: Float = 0f,
+                     /** > 0: support painting tints the selection's faces overhanging by more than this many degrees (the desktop's "Highlight overhangs"). */
+                     val highlight: Float = 0f,
+                     /** Brush stroke locked to a screen axis through its first point: "v" (straight up/down), "h" (sideways) or "". */
+                     val lock: String = "",
+                     /** The shape the eyedropper ("pick") goes back to after a pick. */
+                     val back: String = "sphere",
+                     /** Guard plane: painting stops at the horizontal plane at [guardZ] mm (world) while [guardOn]. */
+                     val guardOn: Boolean = false, val guardZ: Float = 10f,
+                     /** Fill over colours: the fill ignores existing colours and stops only at edges / the guard plane. */
+                     val overColours: Boolean = false) : Tool
     data object LayOnFace : Tool
     data object Measure : Tool
-    data class Cut(val z: Float) : Tool
+    /** The cut plane passes through the object's middle at height [z], turned by [rot] (Euler degrees) from the horizontal. */
+    data class Cut(val z: Float, val rot: Vec3 = Vec3(0f, 0f, 0f)) : Tool
     data object LayerHeight : Tool
 }
 
@@ -104,6 +117,8 @@ data class UiState(
      * selection changes, so a drag can't resize by accident (user, 2026-10-19).
      */
     val resizeFor: Selection? = null,
+    /** The copy the rotate gizmo is on (Rotate in the context menu or R), as [resizeFor]. */
+    val rotateFor: Selection? = null,
     /** An add dialog asked for by a shortcut ("text" for T), shown by the 3D view's context menu host. */
     val addDialog: String? = null,
     val screen: Screen = Screen.PREPARE,
@@ -258,6 +273,9 @@ data class UiState(
 
     /** Corner resizing is on for the lone selected copy. */
     val resizing: Boolean get() = resizeFor != null && selectedItems.singleOrNull() == resizeFor
+
+    /** The rotate gizmo is on for the lone selected copy. */
+    val rotating: Boolean get() = rotateFor != null && selectedItems.singleOrNull() == rotateFor
 
     /** Selects the copies [items]: one becomes the single selection, more a multi-selection. */
     fun withSelected(items: List<Selection>) = copy(

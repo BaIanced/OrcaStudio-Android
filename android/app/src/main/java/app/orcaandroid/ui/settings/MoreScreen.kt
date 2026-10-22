@@ -301,6 +301,8 @@ private fun LayoutLabSection(state: UiState, vm: AppViewModel) {
         SwitchRow(stringResource(R.string.lab_tools_left), lab.toolsLeft, onChange = { vm.setLab(lab.copy(toolsLeft = it)) })
         SwitchRow(stringResource(R.string.lab_plates_on_handle), lab.platesOnHandle, onChange = { vm.setLab(lab.copy(platesOnHandle = it)) })
         SwitchRow(stringResource(R.string.lab_fullscreen_portrait), lab.fullscreenPortrait, onChange = { vm.setLab(lab.copy(fullscreenPortrait = it)) })
+        SwitchRow(stringResource(R.string.lab_view_cube), lab.viewCube, onChange = { vm.setLab(lab.copy(viewCube = it)) })
+        SwitchRow(stringResource(R.string.lab_pie_menu), lab.pieMenu, onChange = { vm.setLab(lab.copy(pieMenu = it)) })
         val alphaContext = LocalContext.current
         val alphaText = stringResource(R.string.lab_overlay_alpha, (lab.overlayAlpha * 100).toInt())
         Text(alphaText, style = MaterialTheme.typography.bodyMedium)
@@ -329,19 +331,23 @@ private fun LayoutLabSection(state: UiState, vm: AppViewModel) {
 /** A shadow look slider (strength in %, penumbra and bias in mm): live on the plate behind, like the size sliders. */
 @Composable
 private fun ShadowSlider(label: Int, value: Float, factor: Float, unit: String, range: ClosedFloatingPointRange<Float>, lab: app.orcaandroid.core.LayoutLab, peek: Boolean = true, onSet: (Float) -> Unit) {
-    val text = stringResource(label, if (factor == 1f) "%.1f".format(value) + unit else kotlin.math.round(value * factor).toInt().toString() + unit)
-    Text(text, style = MaterialTheme.typography.bodyMedium)
+    val context = LocalContext.current
+    // The readout is formatted from the value being set, not the one composed before this drag step (it lagged one step behind).
+    fun format(v: Float) = context.getString(label, if (factor == 1f) "%.1f".format(v) + unit else kotlin.math.round(v * factor).toInt().toString() + unit)
+    Text(format(value), style = MaterialTheme.typography.bodyMedium)
     if (!peek) androidx.compose.material3.Slider(value, onSet, valueRange = range) // nothing to see behind: More stays lit
-    else LabSlider(value, { LabPeek.readout = text to (it - range.start) / (range.endInclusive - range.start); onSet(it) }, range, lab)
+    else LabSlider(value, { LabPeek.readout = format(it) to (it - range.start) / (range.endInclusive - range.start); onSet(it) }, range, lab)
 }
 
 /** A size slider in 5 % steps, applied live (More is frozen at its touch-time size while dragging, so it doesn't move under the finger). */
 @Composable
 private fun ScaleSlider(label: Int, value: Float, range: ClosedFloatingPointRange<Float>, lab: app.orcaandroid.core.LayoutLab, onSet: (Float) -> Unit) {
-    val text = stringResource(label, kotlin.math.round(value * 100).toInt())
-    Text(text, style = MaterialTheme.typography.bodyMedium)
+    val context = LocalContext.current
+    fun format(v: Float) = context.getString(label, kotlin.math.round(v * 100).toInt())
+    Text(format(value), style = MaterialTheme.typography.bodyMedium)
     // While a finger is down on a slider the whole of More is faded; the scaffold shows this readout so the value stays in view.
-    LabSlider(value, { LabPeek.readout = text to (it - range.start) / (range.endInclusive - range.start); onSet(kotlin.math.round(it * 20) / 20f) }, range, lab,
+    // It shows the value being set (snapped to 5 %), not the one composed before this drag step (it lagged one step behind).
+    LabSlider(value, { val v = kotlin.math.round(it * 20) / 20f; LabPeek.readout = format(v) to (it - range.start) / (range.endInclusive - range.start); onSet(v) }, range, lab,
         steps = kotlin.math.round((range.endInclusive - range.start) * 20).toInt() - 1)
 }
 

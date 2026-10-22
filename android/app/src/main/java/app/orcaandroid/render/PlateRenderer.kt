@@ -82,6 +82,18 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var gizmoGrab: ScaleGizmo.Handle? = null
     /** Half the side of a handle square, px. */
     var handlePx = 14f
+    /** Rotate mode: the rotate gizmo's rings ([RotateGizmo]) round the selection box. */
+    var rotateGizmo = false
+    /** The ring being dragged (0 X, 1 Y, 2 Z) or -1: only it shows meanwhile, with spokes from [rotateFrom] to its turn. */
+    var rotateAxis = -1
+    var rotateFrom: app.orcaandroid.core.Vec3? = null
+    /** Live rotate: the selection is drawn turned by this row-major 3x3 about [rotatePivot] (its box's centre); null = none. */
+    var rotateMatrix: FloatArray? = null
+    var rotatePivot = floatArrayOf(0f, 0f, 0f)
+    /** The snap step in force on the dragged ring (0 free, [RotateGizmo.FINE_STEP] or [RotateGizmo.COARSE_STEP]): its marks show bolder. */
+    var rotateStep = 0f
+    /** Screen density (px per dp), for the rotate gizmo's tick lengths. */
+    var density = 1f
     /** Plate whose prime tower (selection id -2 - plate) is being dragged, or -1: it takes the highlight and [dragOffset]. */
     var dragTower = -1
     var showPreview = false
@@ -92,6 +104,19 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var measurePoints: List<FloatArray> = emptyList()
     /** Height of the cut plane preview for the selected object's bounds (x0,y0,x1,y1,z), or null. */
     var cutPlane: FloatArray? = null
+    /** Regions view: crease line segments (x, y, z per end, world), drawn over the model with depth test. */
+    var creaseLines: FloatArray? = null
+    /** Check mesh problem spots: x, y, z, kind (5 thin wall, 6 open edge, 7 self-intersection) per marker. */
+    var meshMarkers: FloatArray? = null
+    /** How far the checked copy has moved since [meshMarkers] were found. */
+    var meshMarkerShift = floatArrayOf(0f, 0f, 0f)
+    /** Cut tool: the plane as a disc (centre xyz, in-plane radius vectors u xyz and v xyz), drawn depth-tested; null = none. */
+    var cutDisc: FloatArray? = null
+    /** Cut tool: the plane (nx, ny, nz, d) the selected object shows as a red line on its surface; null = off. */
+    var cutBand: FloatArray? = null
+    /** Cut tool: tilt rings (X and Y only) round this centre xyz, radius of the plane disc; null = none. */
+    var cutRings: FloatArray? = null
+
     /** Section view plane (nx, ny, nz, d): world points with n . p > d are cut away; null = off. */
     var section: FloatArray? = null
     var filamentColors: List<FloatArray> = emptyList()
@@ -109,6 +134,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var keyAzimuth = -57.5f
     var keyElevation = 49f
     var keyStrength = 1f
+    /** Support painting's "Highlight overhangs": > 0 tints the selected parts' faces overhanging by more than this many degrees. */
+    var overhangHighlight = 0f
     private val keyDir get() = Math.toRadians(keyElevation.toDouble()).let { el ->
         Math.toRadians(keyAzimuth.toDouble()).let { az ->
             floatArrayOf((Math.cos(el) * Math.cos(az)).toFloat(), (Math.cos(el) * Math.sin(az)).toFloat(), Math.sin(el).toFloat())
@@ -379,7 +406,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
 
     /** Everything the Preview frame depends on (data classes compare by value, arrays by identity unless listed). */
     private fun superKey(): List<Any?> = listOf(mvp.toList(), viewW, viewH, previewVersion, previewStyle, previewRange,
-        previewOrigin.toList(), section?.toList(), filamentColors, colors, measurePoints.map { it.toList() }, cutPlane?.toList(),
+        previewOrigin.toList(), section?.toList(), filamentColors, colors, measurePoints.map { it.toList() }, cutPlane?.toList(), cutDisc?.toList(),
         bedCount, plateOrigins, activePlate, badgeCount, atlas, gridRect?.toList())
 
     private fun drawScene() {
@@ -393,7 +420,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         useRealShadow = false
         if (shadow) {
             effects.lightDir = keyDir
-            val key = listOf(meshVersion, dragOffset.toList(), resizeScale.toList(), selectedIds.toList(), dragTower, section?.toList(), keyAzimuth, keyElevation)
+            val key = listOf(meshVersion, dragOffset.toList(), resizeScale.toList(), rotateMatrix?.toList(), selectedIds.toList(), dragTower, section?.toList(), keyAzimuth, keyElevation)
             // A dragged copy may leave the footprint: widen it by the drag.
             // A fixed widening for the whole drag: any change of the map area mid-drag rescales the texels and
             // shows as a step ("strobe") in the shadow.
@@ -426,6 +453,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
                 drawMesh(paintVbo, paintCount, pass = 2)
                 glDisable(GL_POLYGON_OFFSET_FILL)
             }
+            if (models) { drawCreases(); drawMeshMarkers() }
             // Modifiers and support blockers/enforcers are drawn translucent on top.
             glEnable(GL_BLEND)
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
@@ -674,11 +702,24 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glUniform1i(loc(meshProgram, "uSelStyle"), activeSelectionStyle)
         keyDir.let { glUniform3f(loc(meshProgram, "uKeyDir"), it[0], it[1], it[2]) }
         glUniform1f(loc(meshProgram, "uKeyStrength"), keyStrength)
+        // TriangleSelector::select_patch's test: world normal z below -cos(angle); -2 = off.
+        glUniform1f(loc(meshProgram, "uOverhangZ"), if (overhangHighlight > 0f) -Math.cos(Math.toRadians(overhangHighlight.toDouble())).toFloat() else -2f)
+        cutBand.let { b ->
+            glUniform1i(loc(meshProgram, "uCutBandOn"), if (b != null) 1 else 0)
+            if (b != null) glUniform4f(loc(meshProgram, "uCutBand"), b[0], b[1], b[2], b[3])
+        }
         glUniform1fv(loc(meshProgram, "uSelected"), Shaders.MAX_SELECTED, ids.copyOf(Shaders.MAX_SELECTED), 0)
         glUniform1i(loc(meshProgram, "uSelectedCount"), minOf(ids.size, Shaders.MAX_SELECTED))
         glUniform3fv(loc(meshProgram, "uDrag"), 1, dragOffset, 0)
         glUniform3fv(loc(meshProgram, "uScaleAnchor"), 1, resizeAnchor, 0)
         glUniform3fv(loc(meshProgram, "uScale"), 1, resizeScale, 0)
+        val rot = rotateMatrix
+        glUniform1i(loc(meshProgram, "uRotOn"), if (rot != null) 1 else 0)
+        if (rot != null) {
+            // Column major for GL.
+            glUniformMatrix3fv(loc(meshProgram, "uRot"), 1, false, floatArrayOf(rot[0], rot[3], rot[6], rot[1], rot[4], rot[7], rot[2], rot[5], rot[8]), 0)
+            glUniform3fv(loc(meshProgram, "uRotPivot"), 1, rotatePivot, 0)
+        }
         glUniform3fv(loc(meshProgram, "uPartColor"), 1, colors.part, 0)
         glUniform3fv(loc(meshProgram, "uSelectedColor"), 1, colors.selected, 0)
         camera.eye().let { glUniform3f(loc(meshProgram, "uEye"), it.x, it.y, it.z) }
@@ -698,8 +739,9 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     /** Selection ids shown as selected: the dragged prime tower, else the selected copies. */
     private val highlighted get() = if (dragTower >= 0) floatArrayOf(-2f - dragTower) else selectedIds
 
+    // The cut tool shows the object plain: its own red line and disc mark the cut, not the selection look.
     /** The prime tower is always shown x-ray outlined while touched, whatever the selection style setting (user r325). */
-    private val activeSelectionStyle get() = if (dragTower >= 0) SelectionStyle.OUTLINE or SelectionStyle.XRAY else selectionStyle
+    private val activeSelectionStyle get() = if (cutBand != null) 0 else if (dragTower >= 0) SelectionStyle.OUTLINE or SelectionStyle.XRAY else selectionStyle
 
     /** Outline / x-ray and the bounding box of the selection (Prepare). */
     private fun drawSelection() {
@@ -711,6 +753,116 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         val box = selectionBox(ids) ?: return
         if (style and SelectionStyle.BOX != 0 || gizmo) drawSelectionBox(box.copyOf())
         if (gizmo) drawGizmo(box)
+        if (rotateGizmo) drawRings(box)
+    }
+
+    /** The cut tool's tilt rings (X red, Y green) round the plane disc's centre. */
+    private fun drawCutRings() {
+        val g = cutRings ?: return
+        val k = g[3] / Math.sqrt(3.0).toFloat()
+        drawRings(floatArrayOf(g[0] - k, g[1] - k, g[2] - k, g[0] + k, g[1] + k, g[2] + k), 2)
+    }
+
+    /** The cut plane: a translucent disc and its rim, depth-tested so the object hides the part inside it. */
+    private fun drawCutDisc() {
+        val d = cutDisc ?: return
+        val n = 64
+        val pts = FloatArray((n + 2) * 3)
+        pts[0] = d[0]; pts[1] = d[1]; pts[2] = d[2]
+        for (i in 0..n) {
+            val a = i * 2.0 * Math.PI / n
+            val c = Math.cos(a).toFloat(); val s = Math.sin(a).toFloat()
+            for (k in 0..2) pts[(i + 1) * 3 + k] = d[k] + d[3 + k] * c + d[6 + k] * s
+        }
+        glUseProgram(lineProgram)
+        glUniformMatrix4fv(loc(lineProgram, "uMvp"), 1, false, mvp, 0)
+        glUniform3f(loc(lineProgram, "uOffset"), 0f, 0f, 0f)
+        setSection(lineProgram, on = false)
+        glBindBuffer(GL_ARRAY_BUFFER, scratchVbo)
+        glBufferData(GL_ARRAY_BUFFER, pts.size * 4, floats(pts), GL_STREAM_DRAW)
+        glEnableVertexAttribArray(0)
+        glVertexAttribPointer(0, 3, GL_FLOAT, false, 12, 0)
+        glEnable(GL_DEPTH_TEST)
+        glDepthMask(false)
+        glEnable(GL_BLEND)
+        glBlendColor(0f, 0f, 0f, 0.2f)
+        glBlendFunc(GL_CONSTANT_ALPHA, GL_ONE_MINUS_CONSTANT_ALPHA)
+        glUniform3f(loc(lineProgram, "uColor"), 1f, 0.25f, 0.25f)
+        glDrawArrays(GL_TRIANGLE_FAN, 0, n + 2)
+        glDisable(GL_BLEND)
+        glLineWidth(3f * pxScale)
+        glUniform3f(loc(lineProgram, "uColor"), 1f, 0.3f, 0.3f)
+        glDrawArrays(GL_LINE_STRIP, 1, n + 1)
+        glLineWidth(1f)
+        glDepthMask(true)
+        glDisableVertexAttribArray(0)
+    }
+
+    /**
+     * The rotate gizmo's rings ([RotateGizmo]) round [box]'s centre, on top of the scene as the desktop draws them. While one
+     * is dragged only it shows, thicker, with spokes from where the drag started to where it has turned.
+     */
+    private fun drawRings(box: FloatArray, axisCount: Int = 3) {
+        val lo = app.orcaandroid.core.Vec3(box[0], box[1], box[2])
+        val hi = app.orcaandroid.core.Vec3(box[3], box[4], box[5])
+        val c = RotateGizmo.center(lo, hi)
+        val r = RotateGizmo.radius(lo, hi, camera)
+        val grab = rotateAxis
+        glUseProgram(lineProgram)
+        glUniformMatrix4fv(loc(lineProgram, "uMvp"), 1, false, mvp, 0)
+        glUniform3fv(loc(lineProgram, "uOffset"), 1, floatArrayOf(0f, 0f, 0f), 0)
+        setSection(lineProgram, on = false)
+        glDisable(GL_DEPTH_TEST)
+        glBindBuffer(GL_ARRAY_BUFFER, scratchVbo)
+        glEnableVertexAttribArray(0)
+        fun draw(points: List<app.orcaandroid.core.Vec3>, mode: Int, color: FloatArray, width: Float) {
+            val data = FloatArray(points.size * 3).also { d -> points.forEachIndexed { i, p -> d[i * 3] = p.x; d[i * 3 + 1] = p.y; d[i * 3 + 2] = p.z } }
+            glUniform3fv(loc(lineProgram, "uColor"), 1, color, 0)
+            glLineWidth(width * pxScale)
+            glBufferData(GL_ARRAY_BUFFER, data.size * 4, floats(data), GL_STREAM_DRAW)
+            glVertexAttribPointer(0, 3, GL_FLOAT, false, 12, 0)
+            glDrawArrays(mode, 0, points.size)
+        }
+        val dark = floatArrayOf(0.1f, 0.1f, 0.1f)
+        for (axis in 0 until axisCount) {
+            if (grab >= 0 && axis != grab) continue
+            val ring = RotateGizmo.ring(axis, c, r)
+            val w = if (grab >= 0) 4f else 3f
+            // A dark rim under the colour, as the handles have.
+            draw(ring, GL_LINE_STRIP, dark, w + 2f)
+            draw(ring, GL_LINE_STRIP, RotateGizmo.color(axis), w)
+        }
+        val from = rotateFrom
+        val m = rotateMatrix
+        if (grab >= 0) {
+            // The desktop's scale (a tick every 5 degrees, long every 10, just outside the ring) and its 45 degree snap
+            // radii (r/3 to 2r/3), counted from where the drag started: a snapped spoke lands on a mark.
+            val a0 = from?.takeIf { it.length() > 1e-6f }?.let { it * (1f / it.length()) } ?: RotateGizmo.basis(grab).first
+            val px = camera.pxSize(c) * density
+            val color = RotateGizmo.color(grab)
+            val ticks = ArrayList<app.orcaandroid.core.Vec3>()
+            for (k in 0 until (360f / RotateGizmo.FINE_STEP).toInt()) {
+                val dir = RotateGizmo.apply(RotateGizmo.matrix(grab, k * RotateGizmo.FINE_STEP), a0)
+                ticks += c + dir * r
+                ticks += c + dir * (r + px * (if (k % 2 == 0) 10f else 5f))
+            }
+            draw(ticks, GL_LINES, color, if (rotateStep == RotateGizmo.FINE_STEP) 2.5f else 1.5f)
+            val spokes = ArrayList<app.orcaandroid.core.Vec3>()
+            for (k in 0 until (360f / RotateGizmo.COARSE_STEP).toInt()) {
+                val dir = RotateGizmo.apply(RotateGizmo.matrix(grab, k * RotateGizmo.COARSE_STEP), a0)
+                spokes += c + dir * (r / 3f)
+                spokes += c + dir * (r * 2f / 3f)
+            }
+            draw(spokes, GL_LINES, color, if (rotateStep == RotateGizmo.COARSE_STEP) 3f else 1.5f)
+        }
+        if (grab >= 0 && from != null && from.length() > 1e-6f) {
+            val a = from * (r / from.length())
+            val b = if (m != null) RotateGizmo.apply(m, a) else a
+            draw(listOf(c, c + a, c, c + b), GL_LINES, floatArrayOf(0.85f, 0.85f, 0.85f), 2f)
+        }
+        glDisableVertexAttribArray(0)
+        glLineWidth(1f)
+        glEnable(GL_DEPTH_TEST)
     }
 
     /** The bounding box (x0, y0, z0, x1, y1, z1) of the selection ids [ids], with the live resize. */
@@ -953,8 +1105,54 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glDisable(GL_BLEND)
     }
 
+    /** Regions view outlines: depth-tested, pulled a hair toward the eye so they win over the faces they lie on. */
+    private fun drawCreases() {
+        val data = creaseLines?.takeIf { it.isNotEmpty() } ?: return
+        glEnable(GL_DEPTH_TEST)
+        glDepthRangef(0f, 0.9998f)
+        glUseProgram(lineProgram)
+        glUniformMatrix4fv(loc(lineProgram, "uMvp"), 1, false, mvp, 0)
+        glUniform3f(loc(lineProgram, "uOffset"), 0f, 0f, 0f)
+        glUniform3f(loc(lineProgram, "uColor"), 0.08f, 0.08f, 0.1f)
+        setSection(lineProgram)
+        glLineWidth(2f * pxScale)
+        glBindBuffer(GL_ARRAY_BUFFER, scratchVbo)
+        glBufferData(GL_ARRAY_BUFFER, data.size * 4, floats(data), GL_STREAM_DRAW)
+        glEnableVertexAttribArray(0)
+        glVertexAttribPointer(0, 3, GL_FLOAT, false, 12, 0)
+        glDrawArrays(GL_LINES, 0, data.size / 3)
+        glDisableVertexAttribArray(0)
+        glLineWidth(1f)
+        glDepthRangef(0f, 1f)
+    }
+
     /** Measurement line and cut plane outline, drawn without depth test so they stay visible. */
+    private fun drawMeshMarkers() {
+        val data = meshMarkers?.takeIf { it.isNotEmpty() } ?: return
+        // A live turn or resize moves the copy's surface but not the spots: hide them until it is applied.
+        if (rotateMatrix != null || resizeScale.any { it != 1f }) return
+        glEnable(GL_DEPTH_TEST)
+        glUseProgram(pointProgram)
+        glUniformMatrix4fv(loc(pointProgram, "uMvp"), 1, false, mvp, 0)
+        glUniform3f(loc(pointProgram, "uOffset"), dragOffset[0] + meshMarkerShift[0], dragOffset[1] + meshMarkerShift[1], dragOffset[2] + meshMarkerShift[2])
+        camera.eye().let { glUniform3f(loc(pointProgram, "uEye"), it.x, it.y, it.z) }
+        glUniform1i(loc(pointProgram, "uKinds"), 0b11100000)
+        glUniform1f(loc(pointProgram, "uPxScale"), pxScale)
+        setSection(pointProgram)
+        glBindBuffer(GL_ARRAY_BUFFER, scratchVbo)
+        glBufferData(GL_ARRAY_BUFFER, data.size * 4, floats(data), GL_STREAM_DRAW)
+        glEnableVertexAttribArray(0)
+        glVertexAttribPointer(0, 3, GL_FLOAT, false, 16, 0)
+        glEnableVertexAttribArray(1)
+        glVertexAttribPointer(1, 1, GL_FLOAT, false, 16, 12)
+        glDrawArrays(GL_POINTS, 0, data.size / 4)
+        glDisableVertexAttribArray(0)
+        glDisableVertexAttribArray(1)
+    }
+
     private fun drawOverlays() {
+        drawCutDisc()
+        if (cutRings != null) drawCutRings()
         val lines = ArrayList<Float>()
         if (measurePoints.size >= 2) measurePoints.take(2).forEach { lines += it.toList() }
         cutPlane?.let { c ->

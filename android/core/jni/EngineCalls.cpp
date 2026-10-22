@@ -89,7 +89,8 @@ const std::unordered_map<std::string, Handler> &handlers()
              return e.mesh_boolean(a.at("object"), a.at("src"), a.at("tool"), a.at("op").get<std::string>(), a.value("keepTool", false)); }},
         {"cut", [](OrcaEngine &e, const json &a) {
              return e.cut(a.at("object"), a.value("instance", 0), a.at("z"), a.value("keepUpper", true), a.value("keepLower", true),
-                          a.value("flipUpper", false));
+                          a.value("flipUpper", false), a.value("floatUpper", false),
+                          a.value("rotX", 0.0), a.value("rotY", 0.0), a.value("rotZ", 0.0));
          }},
         {"simplify", [](OrcaEngine &e, const json &a) { return e.simplify(a.at("object"), a.at("ratio")); }},
         {"repair", [](OrcaEngine &e, const json &a) { return e.repair(a.at("object")); }},
@@ -132,9 +133,20 @@ const std::unordered_map<std::string, Handler> &handlers()
              return e.paint(hits, vec3(a.at("camera")), a.value("radius", 2.0), a.value("kind", "fuzzy"), a.value("state", 1),
                             a.value("newStroke", false),
                             a.contains("section") && a["section"].is_array() ? a["section"].get<std::vector<double>>() : std::vector<double>{},
-                            a.value("edgeAngle", 0.0));
+                            a.value("edgeAngle", 0.0), a.value("shape", std::string("sphere")), a.value("height", 2.0), a.value("overhang", 0.0),
+                            a.contains("guard") && a["guard"].is_number() ? a["guard"].get<double>() : std::numeric_limits<double>::quiet_NaN(),
+                            a.value("overColours", false));
          }},
         {"paintClear", [](OrcaEngine &e, const json &a) { return e.paint_clear(a.at("object"), a.value("kind", "")); }},
+        {"paintFillCancel", [](OrcaEngine &e, const json &) { return e.paint_fill_cancel(); }},
+        {"paintStateAt", [](OrcaEngine &e, const json &a) {
+             return e.paint_state_at(a.at("object"), a.at("volume"), a.at("facet"), vec3(a.at("local")), a.at("kind"));
+         }},
+        {"paintByPart", [](OrcaEngine &e, const json &a) { return e.paint_by_part(a.at("object")); }},
+        {"checkMesh", [](OrcaEngine &e, const json &a) { return e.check_mesh(a.at("object"), a.value("instance", 0), a.value("thickness", 0.4)); }},
+        {"creaseLines", [](OrcaEngine &e, const json &a) { return e.crease_lines(a.at("object"), a.value("instance", 0), a.value("angle", 30.0)); }},
+        {"paintRemap", [](OrcaEngine &e, const json &a) { return e.paint_remap(a.at("object"), a.at("dest").get<std::vector<int>>()); }},
+        {"paintGapFill", [](OrcaEngine &e, const json &a) { return e.paint_gap_fill(a.at("object"), a.at("kind"), a.at("area")); }},
         {"layerProfile", [](OrcaEngine &e, const json &a) { return e.layer_profile(a.at("object")); }},
         {"layerAdaptive", [](OrcaEngine &e, const json &a) { return e.layer_adaptive(a.at("object"), a.value("quality", 0.5)); }},
         {"layerSmooth", [](OrcaEngine &e, const json &a) { return e.layer_smooth(a.at("object"), a.value("radius", 5), a.value("keepMin", false)); }},

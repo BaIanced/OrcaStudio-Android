@@ -48,6 +48,9 @@ internal object Shaders {
         uniform vec3 uDrag;
         uniform vec3 uScaleAnchor;
         uniform vec3 uScale;
+        uniform int uRotOn;
+        uniform mat3 uRot;
+        uniform vec3 uRotPivot;
         layout(location = 0) in vec3 aPos;
         layout(location = 1) in vec3 aNormal;
         layout(location = 2) in vec2 aInfo;
@@ -68,7 +71,10 @@ internal object Shaders {
             vType = aInfo.y;
             vSelected = selected;
             // A resize drag shows the new size live: the selection scales about its box's bottom centre.
-            vWorld = uScaleAnchor + (aPos - uScaleAnchor) * mix(vec3(1.0), uScale, selected) + selected * uDrag;
+            vec3 p = uScaleAnchor + (aPos - uScaleAnchor) * mix(vec3(1.0), uScale, selected);
+            // A rotate drag turns it live about its box's centre (uRotOn is 0 unless set).
+            if (uRotOn == 1 && selected > 0.5) { p = uRotPivot + uRot * (p - uRotPivot); vNormal = uRot * aNormal; }
+            vWorld = p + selected * uDrag;
             // Normal offset (0.4 mm): the receiver is looked up a little outside its own surface, against acne.
             vShadowCoord = uLightMvp * vec4(vWorld + aNormal * 0.4, 1.0);
             gl_Position = uMvp * vec4(vWorld, 1.0);
@@ -97,6 +103,9 @@ internal object Shaders {
         uniform vec3 uKeyDir;
         uniform float uKeyStrength;
         uniform int uSelStyle;
+        uniform float uOverhangZ;
+        uniform highp vec4 uCutBand;
+        uniform int uCutBandOn;
         in vec3 vBary;
         in vec3 vNormal;
         in highp vec3 vWorld;
@@ -186,6 +195,9 @@ internal object Shaders {
                 float spec = pow(max(dot(n, normalize(lk + v)), 0.0), 36.0) * 0.16 * uKeyStrength;
                 float rim = pow(1.0 - max(dot(n, v), 0.0), 3.0) * 0.14;
                 vec3 shaded = (base * diff + vec3(spec)) * lit + vec3(0.55, 0.7, 1.0) * rim * (0.4 + 0.6 * sky);
+                // Highlight overhangs (support painting): the selection's faces steeper than the angle, by their own normal.
+                if (vSelected > 0.5 && uPass == 0 && normalize(vNormal).z < uOverhangZ)
+                    shaded = mix(shaded, vec3(1.0, 0.35, 0.2) * (0.45 + 0.55 * diff), 0.6);
                 if (vSelected > 0.5 && uPass == 0) {
                     // Rim glow: the selection colour on faces turning away from the eye.
                     if ((uSelStyle & 4) != 0)
@@ -198,6 +210,14 @@ internal object Shaders {
                         float dense = 1.0 - smoothstep(0.06, 0.12, max(max(w.x, w.y), w.z));
                         shaded = mix(shaded, uSelectedColor, (1.0 - min(min(e.x, e.y), e.z)) * 0.8 * dense);
                     }
+                }
+                // Cut tool: a red line where the cut plane meets the selected object's surface (about 3 px wide, at least 0.3 mm),
+                // and a light red wash on the part that goes above the plane.
+                if (uCutBandOn == 1 && vSelected > 0.5 && uPass == 0) {
+                    highp float s = dot(uCutBand.xyz, vWorld) - uCutBand.w;
+                    float hw = max(fwidth(s) * 1.5, 0.3);
+                    shaded = mix(shaded, vec3(1.0, 0.15, 0.15), 0.9 * (1.0 - smoothstep(hw * 0.6, hw, abs(s))));
+                    shaded = mix(shaded, vec3(1.0, 0.3, 0.3), s > 0.0 ? 0.12 : 0.0);
                 }
                 color = vec4(shaded, alpha);
                 return;
@@ -289,7 +309,7 @@ internal object Shaders {
             color = vec4(vColor, 1.0);
         }"""
 
-    /** Markers: position + kind (0 retract, 1 unretract, 2 seam, 3 wipe, 4 measurement). */
+    /** Markers: position + kind (0 retract, 1 unretract, 2 seam, 3 wipe, 4 measurement, 5 thin wall, 6 open edge, 7 self-intersection). */
     const val POINT_VS = """#version 300 es
         uniform mat4 uMvp;
         uniform vec3 uOffset;
@@ -314,9 +334,10 @@ internal object Shaders {
                 gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return;
             }
             vColor = kind == 0 ? vec3(0.9, 0.1, 0.9) : kind == 1 ? vec3(0.1, 0.8, 0.9) : kind == 2 ? vec3(0.95, 0.95, 0.95)
-                   : kind == 3 ? vec3(1.0, 0.9, 0.0) : vec3(1.0, 0.3, 0.3);
+                   : kind == 3 ? vec3(1.0, 0.9, 0.0) : kind == 5 ? vec3(1.0, 0.55, 0.0) : kind == 6 ? vec3(0.9, 0.1, 0.1)
+                   : kind == 7 ? vec3(0.9, 0.2, 1.0) : vec3(1.0, 0.3, 0.3);
             gl_Position = uMvp * vec4(world + pull, 1.0);
-            gl_PointSize = (kind == 4 ? 16.0 : 7.0) * uPxScale;
+            gl_PointSize = (kind == 4 ? 16.0 : kind >= 5 ? 13.0 : 7.0) * uPxScale;
         }"""
 
     /**

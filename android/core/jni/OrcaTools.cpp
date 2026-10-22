@@ -9,11 +9,18 @@
 #include <cmath>
 #include <cstdio>
 #include <fstream>
+#include <functional>
+#include <limits>
+#include <map>
 #include <memory>
+#include <set>
 #include <stdexcept>
 #include <utility>
 
 #include <boost/log/trivial.hpp>
+#include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
+#include <CGAL/Polygon_mesh_processing/self_intersections.h>
+#include <CGAL/Surface_mesh/Surface_mesh.h>
 
 #include "libslic3r/AABBMesh.hpp"
 #include "libslic3r/CustomGCode.hpp"
@@ -264,7 +271,9 @@ private:
 
 // Faces reachable from [seed] over edges between faces whose normals differ by at most [angle] degrees: the desktop's
 // smart fill test (TriangleSelector::seed_fill_select_triangles, neighbour against neighbour).
-std::vector<bool> flood_surface(const indexed_triangle_set &its, const std::vector<int> &neighbors, int seed, double angle)
+// [allowed]: faces the flood may enter (all when empty).
+std::vector<bool> flood_surface(const indexed_triangle_set &its, const std::vector<int> &neighbors, int seed, double angle,
+                                const std::function<bool(int)> &allowed = {})
 {
     std::vector<bool> faces(its.indices.size(), false);
     if (seed < 0 || seed >= int(faces.size()))
@@ -278,7 +287,7 @@ std::vector<bool> flood_surface(const indexed_triangle_set &its, const std::vect
         const Vec3f n = its_face_normal(its, f).normalized();
         for (int k = 0; k < 3; ++k) {
             const int g = neighbors[3 * f + k];
-            if (g >= 0 && !faces[g] && std::clamp(n.dot(its_face_normal(its, g).normalized()), 0.f, 1.f) >= limit) {
+            if (g >= 0 && !faces[g] && std::clamp(n.dot(its_face_normal(its, g).normalized()), 0.f, 1.f) >= limit && (!allowed || allowed(g))) {
                 faces[g] = true;
                 queue.push_back(g);
             }
@@ -287,10 +296,249 @@ std::vector<bool> flood_surface(const indexed_triangle_set &its, const std::vect
     return faces;
 }
 
+// The desktop's gap fill (TriangleSelectorPatch::update_triangles_per_patch / update_selector_triangles): a patch is a
+// connected run of leaf triangles in one state; a patch under [max_area] mm2 takes the state that borders it most.
+class GapFiller : public TriangleSelector
+{
+public:
+    using TriangleSelector::TriangleSelector;
+
+    bool fill(float max_area)
+    {
+        auto [neighbors, neighbors_propagated] = precompute_all_neighbors();
+        std::vector<bool> visited(m_triangles.size(), false);
+        struct Patch
+        {
+            std::vector<int> facets;
+            std::map<EnforcerBlockerType, int> neighbor_types; // state -> touching triangles
+            double area = 0.;
+        };
+        std::vector<Patch> patches;
+        for (size_t start = 0; start < m_triangles.size(); ++start) {
+            if (visited[start] || !m_triangles[start].valid() || m_triangles[start].is_split())
+                continue;
+            const EnforcerBlockerType state = m_triangles[start].get_state();
+            Patch patch;
+            std::vector<int> queue{int(start)};
+            visited[start] = true;
+            while (!queue.empty()) {
+                const int f = queue.back();
+                queue.pop_back();
+                const Triangle &t = m_triangles[f];
+                patch.facets.push_back(f);
+                const stl_vertex &v0 = m_vertices[t.verts_idxs[0]].v;
+                patch.area += double((v0 - m_vertices[t.verts_idxs[1]].v).cross(v0 - m_vertices[t.verts_idxs[2]].v).norm()) / 2.;
+                std::vector<int> touching;
+                const Vec3i32 &nb = neighbors[f];
+                append_touching_subtriangles(nb(0), t.verts_idxs[1], t.verts_idxs[0], touching);
+                append_touching_subtriangles(nb(1), t.verts_idxs[2], t.verts_idxs[1], touching);
+                append_touching_subtriangles(nb(2), t.verts_idxs[0], t.verts_idxs[2], touching);
+                for (int k = 0; k < 3; ++k) {
+                    const int n = neighbors_propagated[f](k);
+                    if (n != -1 && !m_triangles[n].is_split())
+                        touching.push_back(n);
+                }
+                for (int g : touching) {
+                    if (g < 0)
+                        continue;
+                    if (m_triangles[g].get_state() != state)
+                        ++patch.neighbor_types[m_triangles[g].get_state()];
+                    else if (!visited[g]) {
+                        visited[g] = true;
+                        queue.push_back(g);
+                    }
+                }
+            }
+            patches.push_back(std::move(patch));
+        }
+        bool changed = false;
+        for (const Patch &patch : patches) {
+            if (patch.area >= max_area || patch.neighbor_types.empty())
+                continue;
+            // The surrounding state: the one touching the patch most (a speck on a border joins the longer side).
+            const auto most = std::max_element(patch.neighbor_types.begin(), patch.neighbor_types.end(),
+                                               [](const auto &a, const auto &b) { return a.second < b.second; });
+            for (int f : patch.facets)
+                m_triangles[f].set_state(most->first);
+            changed = true;
+        }
+        return changed;
+    }
+};
+
+// The state under a point of one original facet: walks down the facet's splits to the leaf triangle nearest the point.
+class StateProbe : public TriangleSelector
+{
+public:
+    using TriangleSelector::TriangleSelector;
+
+    EnforcerBlockerType state_at(int facet, const Vec3f &p) const
+    {
+        int t = facet;
+        while (m_triangles[t].is_split()) {
+            const Triangle &tri = m_triangles[t];
+            int best = tri.children[0];
+            float best_d = FLT_MAX;
+            for (int c = 0; c <= tri.number_of_split_sides(); ++c) {
+                const float d = distance(m_triangles[tri.children[c]], p);
+                if (d < best_d) {
+                    best_d = d;
+                    best = tri.children[c];
+                }
+            }
+            t = best;
+        }
+        return m_triangles[t].get_state();
+    }
+
+private:
+    // How far p lies outside the triangle (0 inside; children share the facet's plane, so in-plane distance decides).
+    float distance(const Triangle &t, const Vec3f &p) const
+    {
+        const Vec3f &a = m_vertices[t.verts_idxs[0]].v, &b = m_vertices[t.verts_idxs[1]].v, &c = m_vertices[t.verts_idxs[2]].v;
+        const Vec3f n = (b - a).cross(c - a);
+        float d = 0.f;
+        const Vec3f *corners[4] = {&a, &b, &c, &a};
+        for (int k = 0; k < 3; ++k) {
+            const Vec3f &u = *corners[k], &v = *corners[k + 1];
+            const float side = (v - u).cross(p - u).dot(n);
+            if (side < 0.f)
+                d = std::max(d, -side / std::max(n.norm() * (v - u).norm(), 1e-12f));
+        }
+        return d;
+    }
+};
+
+// A guarded fill's selector: puts back the states a spare state stood in for, from the selector before the stroke.
+class FillSelector : public TriangleSelector
+{
+public:
+    using TriangleSelector::TriangleSelector;
+
+    void restore(EnforcerBlockerType spare, const StateProbe &before)
+    {
+        for (Triangle &t : m_triangles)
+            if (t.valid() && !t.is_split() && t.get_state() == spare) {
+                const Vec3f c = (m_vertices[t.verts_idxs[0]].v + m_vertices[t.verts_idxs[1]].v + m_vertices[t.verts_idxs[2]].v) / 3.f;
+                t.set_state(before.state_at(t.source_triangle, c));
+            }
+    }
+};
+
 } // namespace
 
+json OrcaEngine::paint_state_at(int object, int volume, int facet, const std::array<double, 3> &local, const std::string &kind)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    ModelObject &obj = object_at(object);
+    if (volume < 0 || volume >= int(obj.volumes.size()))
+        throw std::runtime_error("Invalid volume");
+    ModelVolume &vol = *obj.volumes[volume];
+    const FacetsAnnotation &facets = facets_of(vol, kind);
+    int state = 0;
+    if (!facets.empty() && facet >= 0 && facet < int(vol.mesh().its.indices.size())) {
+        StateProbe probe(vol.mesh());
+        probe.deserialize(facets.get_data(), false);
+        state = int(probe.state_at(facet, to_vec(local).cast<float>()));
+    }
+    return {{"state", state}, {"base", vol.extruder_id()}};
+}
+
+json OrcaEngine::crease_lines(int object, int instance, double angle)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    const ModelObject &obj = object_at(object);
+    if (instance < 0 || instance >= int(obj.instances.size()))
+        throw std::runtime_error("Invalid instance");
+    const double limit = std::cos(angle * M_PI / 180.);
+    std::vector<float> lines;
+    for (const ModelVolume *vol : obj.volumes) {
+        if (!vol->is_model_part())
+            continue;
+        const Transform3d trafo = obj.instances[instance]->get_matrix() * vol->get_matrix();
+        const indexed_triangle_set &its = vol->mesh().its;
+        const std::vector<Vec3i32> neighbors = its_face_neighbors(its);
+        for (int f = 0; f < int(its.indices.size()); ++f)
+            for (int k = 0; k < 3; ++k) {
+                const int g = neighbors[f][k];
+                // Each shared edge once (from its lower face); open edges always.
+                if (g >= 0 && (g < f || its_face_normal(its, f).normalized().dot(its_face_normal(its, g).normalized()) >= limit))
+                    continue;
+                const Vec2i32 e = its_triangle_edge(its.indices[f], k);
+                for (int v : {e[0], e[1]}) {
+                    const Vec3d p = trafo * its.vertices[v].cast<double>();
+                    lines.insert(lines.end(), {float(p.x()), float(p.y()), float(p.z())});
+                }
+            }
+    }
+    return {{"lines", lines}};
+}
+
+json OrcaEngine::paint_by_part(int object)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    ModelObject &obj = object_at(object);
+    // Every separate shell of every part, largest surface first: filament 1, 2, ... (round again past the last).
+    struct Shell { ModelVolume *vol; std::vector<int> faces; double area = 0.; };
+    std::vector<Shell> shells;
+    for (ModelVolume *vol : obj.volumes) {
+        if (!vol->is_model_part())
+            continue;
+        const indexed_triangle_set &its = vol->mesh().its;
+        const std::vector<Vec3i32> neighbors = its_face_neighbors(its);
+        std::vector<bool> seen(its.indices.size(), false);
+        for (size_t start = 0; start < its.indices.size(); ++start) {
+            if (seen[start])
+                continue;
+            Shell shell{vol};
+            std::vector<int> queue{int(start)};
+            seen[start] = true;
+            while (!queue.empty()) {
+                const int f = queue.back();
+                queue.pop_back();
+                shell.faces.push_back(f);
+                const Vec3f &a = its.vertices[its.indices[f][0]];
+                shell.area += double((its.vertices[its.indices[f][1]] - a).cross(its.vertices[its.indices[f][2]] - a).norm()) / 2.;
+                for (int k = 0; k < 3; ++k)
+                    if (const int n = neighbors[f][k]; n >= 0 && !seen[n]) {
+                        seen[n] = true;
+                        queue.push_back(n);
+                    }
+            }
+            shells.push_back(std::move(shell));
+        }
+    }
+    if (shells.size() < 2)
+        return scene_json();
+    std::stable_sort(shells.begin(), shells.end(), [](const Shell &a, const Shell &b) { return a.area > b.area; });
+    push_undo();
+    const int filaments = std::max<int>(1, int(m_sel_filaments.size()));
+    std::map<ModelVolume *, std::unique_ptr<TriangleSelector>> selectors;
+    for (size_t k = 0; k < shells.size(); ++k) {
+        std::unique_ptr<TriangleSelector> &sel = selectors[shells[k].vol];
+        if (!sel)
+            sel = std::make_unique<TriangleSelector>(shells[k].vol->mesh());
+        const auto state = EnforcerBlockerType(int(k % size_t(filaments)) + 1);
+        for (int f : shells[k].faces)
+            sel->set_facet(f, state);
+    }
+    for (auto &[vol, sel] : selectors)
+        vol->mmu_segmentation_facets.set(*sel);
+    write_mesh();
+    write_paint_mesh();
+    return scene_json();
+}
+
+struct OrcaEngine::FillPreview
+{
+    ModelVolume                                    *volume = nullptr;
+    std::string                                     kind;
+    TriangleSelector::TriangleSplittingData before;
+};
+
 json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<double, 3> &camera, double radius, const std::string &kind,
-                       int state, bool new_stroke, const std::vector<double> &section, double edge_angle)
+                       int state, bool new_stroke, const std::vector<double> &section, double edge_angle,
+                       const std::string &shape, double height, double overhang, double guard, bool over_colours)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
     for (const PaintHit &h : hits) {
@@ -305,13 +553,204 @@ json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<doubl
     if (new_stroke) {
         m_paint_prev.reset();
         m_paint_region.object = -1;
+        m_fill_preview.reset();
     }
 
+    // Guard plane: a horizontal plane at [guard] mm the paint doesn't cross. A stroke keeps to the side it started on, a
+    // fill to the side under the finger. It takes the section plane's place (a selector clips by one plane).
+    std::vector<double> clip_plane = section;
+    if (std::isfinite(guard) && !hits.empty()) {
+        if (new_stroke || shape == "fill") {
+            const PaintHit &h = shape == "fill" ? hits.back() : hits.front();
+            const ModelObject &obj = object_at(h.object);
+            m_guard_below = (obj.instances[h.instance]->get_matrix() * obj.volumes[h.volume]->get_matrix() * to_vec(h.local)).z() < guard;
+        }
+        clip_plane = m_guard_below ? std::vector<double>{0., 0., 1., guard} : std::vector<double>{0., 0., -1., -guard};
+    }
+    const EnforcerBlockerType new_state = EnforcerBlockerType(std::clamp(state, 0, int(EnforcerBlockerType::ExtruderMax)));
     // Colour painting that starts or ends a volume's painting changes whether its plate gets a prime tower,
     // which is part of the scene mesh (write_mesh): the tower showed only after the next move (WSA r324).
     bool tower_changed = false;
+    // The live selector of a volume's annotation, loaded again when the annotation changed elsewhere.
+    auto live_selector = [&](ModelVolume &vol, FacetsAnnotation &facets) -> TriangleSelector & {
+        LivePaint &live = m_live_paint;
+        if (!live.selector || live.annotation != &facets || live.timestamp != facets.timestamp() || live.mesh.get() != &vol.mesh()) {
+            live = {&facets, vol.mesh_ptr(), 0, std::make_shared<TriangleSelector>(vol.mesh())};
+            live.selector->deserialize(facets.get_data(), false);
+            ++loads;
+        }
+        return *live.selector;
+    };
+    // Saves the live selector into its annotation.
+    auto save_live = [&](FacetsAnnotation &facets, bool was_empty) {
+        LivePaint &live = m_live_paint;
+        live.previous = facets.timestamp();
+        live.state = int(new_state);
+        facets.set(*live.selector);
+        live.timestamp = facets.timestamp();
+        if (kind == "color" && was_empty != facets.empty())
+            tower_changed = true;
+    };
+    // The section plane in volume coordinates, as the desktop's get_clipping_plane_in_volume_coordinates:
+    // n.(T q) <= d  <=>  (L^T n).q <= d - n.t.
+    auto clip_of = [&](const Transform3d &trafo) {
+        TriangleSelector::ClippingPlane clip;
+        if (clip_plane.size() == 4) {
+            const Vec3d n(clip_plane[0], clip_plane[1], clip_plane[2]);
+            const Vec3d n_local = trafo.linear().transpose() * n;
+            clip = TriangleSelector::ClippingPlane({float(n_local.x()), float(n_local.y()), float(n_local.z()),
+                                                    float(clip_plane[3] - n.dot(trafo.translation()))});
+        }
+        return clip;
+    };
+    auto hit_z = [&](const PaintHit &h) {
+        const ModelObject &obj = object_at(h.object);
+        return float((obj.instances[h.instance]->get_matrix() * obj.volumes[h.volume]->get_matrix() * to_vec(h.local)).z());
+    };
+
+    // Fill: only the stroke's latest hit counts. It fills from the target's state before the stroke, so moving the finger
+    // moves the fill (a preview: lifting keeps it, paint_fill_cancel drops it). Unchanged result = nothing rewritten.
+    bool fill_changed = false;
+    if (shape == "fill" && !hits.empty() && hits.back().facet >= 0) {
+        const PaintHit &h = hits.back();
+        ModelObject &obj = object_at(h.object);
+        ModelVolume *vol = obj.volumes[h.volume];
+        FacetsAnnotation &facets = facets_of(*vol, kind);
+        if (m_fill_preview && (m_fill_preview->volume != vol || m_fill_preview->kind != kind)) {
+            // Another part: it goes back to how it was, the fill moves here.
+            FacetsAnnotation &old = facets_of(*m_fill_preview->volume, m_fill_preview->kind);
+            if (old.get_data() != m_fill_preview->before) {
+                const bool was_empty = old.empty();
+                old.set_data(TriangleSelector::TriangleSplittingData(m_fill_preview->before));
+                tower_changed |= m_fill_preview->kind == "color" && was_empty != old.empty();
+                fill_changed = true;
+            }
+            m_fill_preview.reset();
+        }
+        if (!m_fill_preview)
+            m_fill_preview = std::make_shared<FillPreview>(FillPreview{vol, kind, facets.get_data()});
+        const Transform3d trafo = obj.instances[h.instance]->get_matrix() * vol->get_matrix();
+        FillSelector selector(vol->mesh());
+        selector.deserialize(m_fill_preview->before, false);
+        ++loads;
+        Transform3d trafo_no_translate = trafo;
+        trafo_no_translate.translation() = Vec3d::Zero();
+        const Vec3f camera_local = (trafo.inverse() * to_vec(camera)).cast<float>();
+        const indexed_triangle_set &its = vol->mesh().its;
+        PaintRegion &region = m_paint_region;
+        if (region.mesh.get() != &vol->mesh()) {
+            region.mesh = vol->mesh_ptr();
+            region.neighbors.clear();
+            for (const Vec3i32 &n : its_face_neighbors(its))
+                region.neighbors.insert(region.neighbors.end(), {n.x(), n.y(), n.z()});
+            region.object = -1;
+        }
+        // Faces with a corner on the kept side of the guard / section plane, and with one beyond it.
+        auto reaches = [&](int f, bool kept_side) {
+            const Vec3d n(clip_plane[0], clip_plane[1], clip_plane[2]);
+            for (int k = 0; k < 3; ++k)
+                if ((n.dot(trafo * its.vertices[its.indices[f][k]].cast<double>()) <= clip_plane[3]) == kept_side)
+                    return true;
+            return false;
+        };
+        std::function<bool(int)> kept;
+        if (clip_plane.size() == 4)
+            kept = [&](int f) { return reaches(f, true); };
+        const bool guarded = std::isfinite(guard);
+        // The guard's two sides as height bands: HeightRange splits the triangles at the band's ends, at the plane.
+        constexpr float FAR = 1e5f;
+        const float kept_z = m_guard_below ? float(guard) - FAR : float(guard), beyond_z = m_guard_below ? float(guard) : float(guard) - FAR;
+        if (over_colours) {
+            // Fill over colours: the faces up to the edge angle (else the whole shell) whatever their colour; with a guard,
+            // only their part on its side.
+            const std::vector<bool> faces = flood_surface(its, region.neighbors, h.facet, edge_angle > 0. ? edge_angle : 180., kept);
+            if (guarded)
+                selector.select_patch(h.facet, std::make_unique<EdgeLimited<TriangleSelector::HeightRange>>(faces, kept_z, camera_local, FAR, trafo,
+                                                                                                            TriangleSelector::ClippingPlane()),
+                                      new_state, trafo_no_translate, true);
+            else
+                for (int f = 0; f < int(faces.size()); ++f)
+                    if (faces[f])
+                        selector.set_facet(f, new_state);
+        } else if (guarded) {
+            // The desktop's fill (same colour only) cut at the guard: the far side takes a spare state first, which splits
+            // the triangles at the plane and stops the fill there; then the far side gets its own states back.
+            const auto spare = EnforcerBlockerType::ExtruderMax;
+            std::vector<bool> done(its.indices.size(), false);
+            for (int f = 0; f < int(its.indices.size()); ++f) {
+                if (done[f] || !reaches(f, false))
+                    continue;
+                // One seed per connected run of faces reaching beyond (select_patch floods from its seed).
+                const std::vector<bool> run = flood_surface(its, region.neighbors, f, 180., [&](int g) { return reaches(g, false); });
+                for (size_t g = 0; g < run.size(); ++g)
+                    done[g] = done[g] || run[g];
+                selector.select_patch(f, std::make_unique<TriangleSelector::HeightRange>(beyond_z, camera_local, FAR, trafo, TriangleSelector::ClippingPlane()),
+                                      spare, trafo_no_translate, true);
+            }
+            selector.bucket_fill_select_triangles(to_vec(h.local).cast<float>(), h.facet, TriangleSelector::ClippingPlane(),
+                                                  edge_angle > 0. ? float(edge_angle) : -1.f, true, true);
+            selector.seed_fill_apply_on_triangles(new_state);
+            StateProbe before(vol->mesh());
+            before.deserialize(m_fill_preview->before, false);
+            selector.restore(spare, before);
+        } else {
+            selector.bucket_fill_select_triangles(to_vec(h.local).cast<float>(), h.facet, clip_of(trafo), edge_angle > 0. ? float(edge_angle) : -1.f,
+                                                  true, true);
+            selector.seed_fill_apply_on_triangles(new_state);
+        }
+        TriangleSelector::TriangleSplittingData data = selector.serialize();
+        if (data != facets.get_data()) {
+            const bool was_empty = facets.empty();
+            facets.set_data(std::move(data));
+            tower_changed |= kind == "color" && was_empty != facets.empty();
+            fill_changed = true;
+        }
+        m_paint_prev = h;
+    }
+    if (shape == "height") {
+        // Height range (GLGizmoPainterBase::get_projected_height_range): the band from the hit up, on every part of the object.
+        for (const PaintHit &h : hits) {
+            const float z = hit_z(h);
+            if (h.join && m_paint_prev && std::abs(hit_z(*m_paint_prev) - z) < 1e-3f)
+                continue;
+            ModelObject &obj = object_at(h.object);
+            for (size_t vi = 0; vi < obj.volumes.size(); ++vi) {
+                ModelVolume *vol = obj.volumes[vi];
+                if (!vol->is_model_part())
+                    continue;
+                const Transform3d trafo = obj.instances[h.instance]->get_matrix() * vol->get_matrix();
+                // Seed: the hit facet on the hit part, else the first facet reaching into the band.
+                const indexed_triangle_set &its = vol->mesh().its;
+                int seed = int(vi) == h.volume ? h.facet : -1;
+                for (int f = 0; seed < 0 && f < int(its.indices.size()); ++f) {
+                    float lo = FLT_MAX, hi = -FLT_MAX;
+                    for (int k = 0; k < 3; ++k) {
+                        const float vz = float((trafo * its.vertices[its.indices[f][k]].cast<double>()).z());
+                        lo = std::min(lo, vz);
+                        hi = std::max(hi, vz);
+                    }
+                    if (hi >= z && lo <= z + float(height))
+                        seed = f;
+                }
+                if (seed < 0)
+                    continue;
+                FacetsAnnotation &facets = facets_of(*vol, kind);
+                const bool was_empty = facets.empty();
+                Transform3d trafo_no_translate = trafo;
+                trafo_no_translate.translation() = Vec3d::Zero();
+                const Vec3f camera_local = (trafo.inverse() * to_vec(camera)).cast<float>();
+                live_selector(*vol, facets).select_patch(seed, TriangleSelector::SinglePointCursor::cursor_factory(z, camera_local, float(height), trafo,
+                                                                                                                     clip_of(trafo)),
+                                                         new_state, trafo_no_translate, true);
+                save_live(facets, was_empty);
+            }
+            m_paint_prev = h;
+        }
+    }
+    const bool brush = shape != "height" && shape != "triangle" && shape != "fill";
+    const TriangleSelector::CursorType cursor_type = shape == "circle" ? TriangleSelector::CursorType::CIRCLE : TriangleSelector::CursorType::SPHERE;
     // Runs of hits on the same volume copy share one selector: deserialized once, saved once.
-    for (size_t i = 0; i < hits.size();) {
+    for (size_t i = shape == "height" || shape == "fill" ? hits.size() : 0; i < hits.size();) {
         const PaintHit &first = hits[i];
         ModelObject &obj = object_at(first.object);
         ModelVolume *vol = obj.volumes[first.volume];
@@ -322,26 +761,11 @@ json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<doubl
         Transform3d trafo_no_translate = trafo;
         trafo_no_translate.translation() = Vec3d::Zero();
         const Vec3f camera_local = (trafo.inverse() * to_vec(camera)).cast<float>();
-        // The section plane in volume coordinates, as the desktop's get_clipping_plane_in_volume_coordinates:
-        // n.(T q) <= d  <=>  (L^T n).q <= d - n.t.
-        TriangleSelector::ClippingPlane clip;
-        if (section.size() == 4) {
-            const Vec3d n(section[0], section[1], section[2]);
-            const Vec3d n_local = trafo.linear().transpose() * n;
-            clip = TriangleSelector::ClippingPlane({float(n_local.x()), float(n_local.y()), float(n_local.z()),
-                                                    float(section[3] - n.dot(trafo.translation()))});
-        }
-
-        LivePaint &live = m_live_paint;
-        if (!live.selector || live.annotation != &facets || live.timestamp != facets.timestamp() || live.mesh.get() != &vol->mesh()) {
-            live = {&facets, vol->mesh_ptr(), 0, std::make_shared<TriangleSelector>(vol->mesh())};
-            live.selector->deserialize(facets.get_data(), false);
-            ++loads;
-        }
-        TriangleSelector &selector = *live.selector;
+        const TriangleSelector::ClippingPlane clip = clip_of(trafo);
+        TriangleSelector &selector = live_selector(*vol, facets);
         // Edge detection: the stroke's surface on this volume, from its first hit there.
         PaintRegion &region = m_paint_region;
-        const bool limited = edge_angle > 0.;
+        const bool limited = brush && edge_angle > 0.;
         if (limited && (region.object != first.object || region.volume != first.volume || region.mesh.get() != &vol->mesh())) {
             if (region.mesh.get() != &vol->mesh()) {
                 region.mesh = vol->mesh_ptr();
@@ -355,6 +779,18 @@ json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<doubl
         }
         for (; i < hits.size() && hits[i].object == first.object && hits[i].instance == first.instance && hits[i].volume == first.volume; ++i) {
             const PaintHit &h = hits[i];
+            const Vec3f center = to_vec(h.local).cast<float>();
+            if (!brush) {
+                // As GLGizmoPainterBase::gizmo_event: select the hit triangle / its same-state region, then paint it. A fill
+                // paints once per line: dragging on over the filled region would only repaint it.
+                if (h.facet < 0 || (shape == "fill" && h.join))
+                    continue;
+                selector.bucket_fill_select_triangles(center, h.facet, clip, shape == "fill" && edge_angle > 0. ? float(edge_angle) : -1.f,
+                                                      shape == "fill", true);
+                selector.seed_fill_apply_on_triangles(new_state);
+                m_paint_prev = h;
+                continue;
+            }
             // Off the stroke's surface: nothing to paint; the line goes on from the last hit on it.
             if (limited && (h.facet < 0 || h.facet >= int(region.faces.size()) || !region.faces[h.facet]))
                 continue;
@@ -362,34 +798,32 @@ json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<doubl
             // has no gaps; a hit after a miss or on another part starts a new line.
             const PaintHit *prev = h.join && m_paint_prev && m_paint_prev->object == h.object && m_paint_prev->instance == h.instance &&
                                    m_paint_prev->volume == h.volume ? &*m_paint_prev : nullptr;
-            const Vec3f center = to_vec(h.local).cast<float>();
             std::unique_ptr<TriangleSelector::Cursor> cursor;
-            if (limited && prev)
+            if (limited && prev && cursor_type == TriangleSelector::CursorType::CIRCLE)
+                cursor = std::make_unique<EdgeLimited<TriangleSelector::Capsule2D>>(region.faces, to_vec(prev->local).cast<float>(), center, camera_local,
+                                                                                    float(radius), trafo, clip);
+            else if (limited && prev)
                 cursor = std::make_unique<EdgeLimited<TriangleSelector::Capsule3D>>(region.faces, to_vec(prev->local).cast<float>(), center, camera_local,
                                                                                     float(radius), trafo, clip);
+            else if (limited && cursor_type == TriangleSelector::CursorType::CIRCLE)
+                cursor = std::make_unique<EdgeLimited<TriangleSelector::Circle>>(region.faces, center, camera_local, float(radius), trafo, clip);
             else if (limited)
                 cursor = std::make_unique<EdgeLimited<TriangleSelector::Sphere>>(region.faces, center, camera_local, float(radius), trafo, clip);
             else if (prev)
                 cursor = TriangleSelector::DoublePointCursor::cursor_factory(to_vec(prev->local).cast<float>(), center, camera_local, float(radius),
-                                                                             TriangleSelector::CursorType::SPHERE, trafo, clip);
+                                                                             cursor_type, trafo, clip);
             else
-                cursor = TriangleSelector::SinglePointCursor::cursor_factory(center, camera_local, float(radius), TriangleSelector::CursorType::SPHERE,
-                                                                             trafo, clip);
-            selector.select_patch(prev ? prev->facet : h.facet, std::move(cursor),
-                                  EnforcerBlockerType(std::clamp(state, 0, int(EnforcerBlockerType::ExtruderMax))), trafo_no_translate, true);
+                cursor = TriangleSelector::SinglePointCursor::cursor_factory(center, camera_local, float(radius), cursor_type, trafo, clip);
+            selector.select_patch(prev ? prev->facet : h.facet, std::move(cursor), new_state, trafo_no_translate, true, float(overhang));
             m_paint_prev = h;
         }
-        live.previous = facets.timestamp();
-        live.state = std::clamp(state, 0, int(EnforcerBlockerType::ExtruderMax));
-        facets.set(selector);
-        live.timestamp = facets.timestamp();
-        if (kind == "color" && was_empty != facets.empty())
-            tower_changed = true;
+        save_live(facets, was_empty);
     }
     if (tower_changed)
         write_mesh();
     const auto t1 = std::chrono::steady_clock::now();
-    write_paint_mesh();
+    if (shape != "fill" || fill_changed)
+        write_paint_mesh();
     const auto t2 = std::chrono::steady_clock::now();
     json out = scene_json();
     const auto t3 = std::chrono::steady_clock::now();
@@ -399,6 +833,25 @@ json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<doubl
                                 << " ms, paint mesh " << ms(t1, t2) << " ms (extract " << m_paint_extract_ms << ", bytes "
                                 << m_paint_bytes_ms << ", " << m_paint_triangles << " triangles), scene " << ms(t2, t3) << " ms";
     return out;
+}
+
+json OrcaEngine::paint_fill_cancel()
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (m_fill_preview) {
+        FacetsAnnotation &facets = facets_of(*m_fill_preview->volume, m_fill_preview->kind);
+        const bool was_empty = facets.empty();
+        facets.set_data(std::move(m_fill_preview->before));
+        // The stroke's undo step would undo nothing now.
+        if (!m_undo.empty())
+            m_undo.pop_back();
+        if (m_fill_preview->kind == "color" && was_empty != facets.empty())
+            write_mesh();
+        m_fill_preview.reset();
+        m_paint_prev.reset();
+        write_paint_mesh();
+    }
+    return scene_json();
 }
 
 json OrcaEngine::paint_clear(int object, const std::string &kind)
@@ -420,6 +873,69 @@ json OrcaEngine::paint_clear(int object, const std::string &kind)
     if (tower_changed)
         write_mesh();
     write_paint_mesh();
+    return scene_json();
+}
+
+json OrcaEngine::paint_gap_fill(int object, const std::string &kind, double area)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    ModelObject &obj = object_at(object);
+    bool pushed = false, tower_changed = false;
+    for (ModelVolume *vol : obj.volumes) {
+        FacetsAnnotation &facets = facets_of(*vol, kind);
+        if (facets.empty())
+            continue;
+        GapFiller filler(vol->mesh());
+        filler.deserialize(facets.get_data(), false);
+        if (!filler.fill(float(area)))
+            continue;
+        if (!pushed)
+            push_undo();
+        pushed = true;
+        facets.set(filler);
+        if (kind == "color" && facets.empty())
+            tower_changed = true;
+    }
+    if (tower_changed)
+        write_mesh();
+    write_paint_mesh();
+    return scene_json();
+}
+
+// The desktop's "Remap filaments" (GLGizmoMmuSegmentation::remap_filament_assignments): [dest][i] is the 0-based filament
+// that painted filament i becomes. Colour painting only; the object's base extruder is left alone.
+json OrcaEngine::paint_remap(int object, const std::vector<int> &dest)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    ModelObject &obj = object_at(object);
+    constexpr int max_state = int(EnforcerBlockerType::ExtruderMax);
+    EnforcerBlockerStateMap state_map;
+    for (int i = 0; i <= max_state; ++i)
+        state_map[i] = EnforcerBlockerType(i);
+    const int first = int(EnforcerBlockerType::Extruder1);
+    bool any = false;
+    for (int src = 0; src < int(dest.size()) && src + first <= max_state; ++src) {
+        const int dst = dest[src];
+        if (dst == src || dst < 0 || dst + first > max_state)
+            continue;
+        state_map[src + first] = EnforcerBlockerType(dst + first);
+        any = true;
+    }
+    if (!any)
+        return scene_json();
+    bool pushed = false;
+    for (ModelVolume *vol : obj.volumes) {
+        if (vol->mmu_segmentation_facets.empty())
+            continue;
+        if (!pushed)
+            push_undo();
+        pushed = true;
+        vol->mmu_segmentation_facets.remap_states(*vol, state_map);
+    }
+    if (pushed) {
+        write_mesh();
+        write_paint_mesh();
+    }
     return scene_json();
 }
 
@@ -611,6 +1127,108 @@ json OrcaEngine::option_states(const json &object)
         for (const char *key : bbl_only)
             hidden.push_back(key);
     return {{"disabled", disabled}, {"hidden", hidden}};
+}
+
+
+json OrcaEngine::check_mesh(int object, int instance, double thickness)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    const ModelObject &obj = object_at(object);
+    if (instance < 0 || instance >= int(obj.instances.size()))
+        throw std::runtime_error("Invalid instance");
+    constexpr size_t max_points = 400;
+    json parts = json::array();
+    std::vector<float> thin_points, open_points, cross_points;
+    size_t thin_total = 0;
+    for (int v = 0; v < int(obj.volumes.size()); ++v) {
+        const ModelVolume *vol = obj.volumes[v];
+        if (!vol->is_model_part())
+            continue;
+        // World frame, so the thickness is in millimetres however the copy is scaled.
+        const Transform3d trafo = obj.instances[instance]->get_matrix() * vol->get_matrix();
+        indexed_triangle_set its = vol->mesh().its;
+        const double side = trafo.linear().determinant() < 0 ? -1. : 1.;
+        for (stl_vertex &p : its.vertices)
+            p = (trafo * p.cast<double>()).cast<float>();
+        json part = {{"volume", v}, {"name", vol->name}, {"faces", its.indices.size()}};
+        part["openEdges"] = its_num_open_edges(its);
+        part["shells"] = its_number_of_patches(its);
+        part["volumeMm3"] = its_volume(its);
+        size_t degenerate = 0, thin = 0;
+        std::vector<char> skip(its.indices.size(), 0);
+        for (size_t f = 0; f < its.indices.size(); ++f) {
+            const auto &t = its.indices[f];
+            const Vec3f n = (its.vertices[t[1]] - its.vertices[t[0]]).cross(its.vertices[t[2]] - its.vertices[t[0]]);
+            if (n.norm() < 1e-9f) { ++degenerate; skip[f] = 1; }
+        }
+        part["degenerate"] = degenerate;
+        // Open edges: an edge used by one face only; its midpoint marks the hole in the view.
+        {
+            std::map<std::pair<int, int>, int> uses;
+            for (const auto &t : its.indices)
+                for (int k = 0; k < 3; ++k)
+                    ++uses[{std::min(t[k], t[(k + 1) % 3]), std::max(t[k], t[(k + 1) % 3])}];
+            for (const auto &[edge, n] : uses)
+                if (n == 1 && open_points.size() < max_points * 3) {
+                    const Vec3f m = (its.vertices[edge.first] + its.vertices[edge.second]) / 2.f;
+                    open_points.insert(open_points.end(), {m.x(), m.y(), m.z()});
+                }
+        }
+        // Self-intersections: pairs of faces that cut through each other (CGAL); the first face of a pair marks it.
+        size_t crossings = 0;
+        try {
+            using Kernel = CGAL::Exact_predicates_inexact_constructions_kernel;
+            CGAL::Surface_mesh<Kernel::Point_3> sm;
+            std::vector<CGAL::SM_Vertex_index> vi;
+            for (const stl_vertex &p : its.vertices)
+                vi.push_back(sm.add_vertex({p.x(), p.y(), p.z()}));
+            std::vector<size_t> face_of; // surface-mesh face index -> its face
+            for (size_t f = 0; f < its.indices.size(); ++f) {
+                if (skip[f])
+                    continue;
+                const auto &t = its.indices[f];
+                if (sm.add_face(vi[t[0]], vi[t[1]], vi[t[2]]) != CGAL::Surface_mesh<Kernel::Point_3>::null_face())
+                    face_of.push_back(f);
+            }
+            std::vector<std::pair<CGAL::SM_Face_index, CGAL::SM_Face_index>> pairs;
+            CGAL::Polygon_mesh_processing::self_intersections(sm, std::back_inserter(pairs));
+            crossings = pairs.size();
+            for (const auto &pr : pairs) {
+                if (cross_points.size() >= max_points * 3)
+                    break;
+                const auto &t = its.indices[face_of[size_t(pr.first)]];
+                const Vec3f c = (its.vertices[t[0]] + its.vertices[t[1]] + its.vertices[t[2]]) / 3.f;
+                cross_points.insert(cross_points.end(), {c.x(), c.y(), c.z()});
+            }
+        } catch (const std::exception &e) {
+            BOOST_LOG_TRIVIAL(warning) << "check_mesh self-intersections: " << e.what();
+        }
+        part["intersections"] = crossings;
+        // Thin walls: from each face's centre a ray goes just inside; hitting a face of the same mesh within
+        // [thickness] means the wall is thinner than that.
+        if (thickness > 0. && !its.indices.empty()) {
+            const AABBMesh tree(its);
+            for (size_t f = 0; f < its.indices.size(); ++f) {
+                if (skip[f])
+                    continue;
+                const auto &t = its.indices[f];
+                const Vec3d a = its.vertices[t[0]].cast<double>(), b = its.vertices[t[1]].cast<double>(), c = its.vertices[t[2]].cast<double>();
+                const Vec3d n = (b - a).cross(c - a).normalized() * side;
+                const Vec3d centre = (a + b + c) / 3.;
+                const auto hit = tree.query_ray_hit(centre - n * 1e-3, -n);
+                if (hit.is_hit() && hit.distance() < thickness) {
+                    ++thin;
+                    if (thin_points.size() < max_points * 3)
+                        thin_points.insert(thin_points.end(), {float(centre.x()), float(centre.y()), float(centre.z())});
+                }
+            }
+        }
+        part["thinFaces"] = thin;
+        thin_total += thin;
+        parts.push_back(std::move(part));
+    }
+    return {{"parts", parts}, {"thickness", thickness}, {"thinFaces", thin_total}, {"thinPoints", thin_points},
+            {"openPoints", open_points}, {"crossPoints", cross_points}};
 }
 
 } // namespace orca

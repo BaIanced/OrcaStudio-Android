@@ -989,7 +989,7 @@ json OrcaEngine::mesh_boolean(int object, int src, int tool, const std::string &
     return commit();
 }
 
-json OrcaEngine::cut(int object, int instance, double z, bool keep_upper, bool keep_lower, bool flip_upper)
+json OrcaEngine::cut(int object, int instance, double z, bool keep_upper, bool keep_lower, bool flip_upper, bool float_upper, double rot_x, double rot_y, double rot_z)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
     ModelObject &obj = object_at(object);
@@ -998,27 +998,46 @@ json OrcaEngine::cut(int object, int instance, double z, bool keep_upper, bool k
     if (!keep_upper && !keep_lower)
         throw std::runtime_error("Keep at least one part");
     const BoundingBoxf3 bb = obj.instance_bounding_box(size_t(instance));
-    if (z <= bb.min.z() || z >= bb.max.z())
-        throw std::runtime_error("The cut height must lie within the object");
+    // The plane goes through the box's middle (x, y) at height z, turned by rot_deg (Euler, as an instance rotation).
+    const Vec3d center = bb.center();
+    const Vec3d plane_point(center.x(), center.y(), z);
+    const Transform3d plane_rotation = Geometry::rotation_transform(Vec3d(Geometry::deg2rad(rot_x), Geometry::deg2rad(rot_y), Geometry::deg2rad(rot_z)));
+    const Vec3d plane_normal = plane_rotation.linear() * Vec3d::UnitZ();
+    bool above = false, below = false;
+    for (int i = 0; i < 8; ++i) {
+        const Vec3d corner((i & 1) ? bb.max.x() : bb.min.x(), (i & 2) ? bb.max.y() : bb.min.y(), (i & 4) ? bb.max.z() : bb.min.z());
+        const double side = plane_normal.dot(corner - plane_point);
+        above = above || side > 1e-4;
+        below = below || side < -1e-4;
+    }
+    if (!above || !below)
+        throw std::runtime_error("The cut plane must pass through the object");
     push_undo();
 
     // enum_bitmask's operator|= does not compile (unused upstream), so combine with operator|.
-    ModelObjectCutAttributes attributes = flip_upper ? ModelObjectCutAttribute::FlipUpper : ModelObjectCutAttribute::PlaceOnCutUpper;
+    // KeepPaint: without it the cut discards colour / support / seam painting (desktop app_config keep_painting, default on).
+    ModelObjectCutAttributes attributes = (flip_upper ? ModelObjectCutAttribute::FlipUpper : ModelObjectCutAttribute::PlaceOnCutUpper) | ModelObjectCutAttribute::KeepPaint;
     if (keep_upper)
         attributes = attributes | ModelObjectCutAttribute::KeepUpper;
     if (keep_lower)
         attributes = attributes | ModelObjectCutAttribute::KeepLower;
 
     // Like GLGizmoCut::get_cut_matrix: the plane is given relative to the instance offset.
-    const Vec3d center = bb.center();
     const Vec3d offset = obj.instances[size_t(instance)]->get_offset();
-    Cut cutter(&obj, instance, Geometry::translation_transform(Vec3d(center.x(), center.y(), z) - offset), attributes);
+    Cut cutter(&obj, instance, Geometry::translation_transform(plane_point - offset) * plane_rotation, attributes);
     const ModelObjectPtrs &parts = cutter.perform_with_plane();
     const int plate = std::max(0, plate_of(obj, size_t(instance)));
 
     std::vector<std::pair<ModelObject *, size_t>> added;
+    // The upper part comes first in the result (Cut::post_process).
+    bool first = true;
     for (const ModelObject *part : parts) {
         ModelObject *copy = m_model->add_object(*part);
+        // Like the desktop's per-object auto drop: ensure_on_bed() leaves instances without it where they are.
+        if (first && keep_upper && float_upper)
+            for (ModelInstance *inst : copy->instances)
+                inst->auto_drop = false;
+        first = false;
         drop_to_bed(*copy);
         for (size_t i = 0; i < copy->instances.size(); ++i)
             added.emplace_back(copy, i);

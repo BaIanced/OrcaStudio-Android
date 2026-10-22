@@ -50,9 +50,10 @@ class Store(val app: Application, val scope: CoroutineScope) {
 
     val value: UiState get() = state.value
 
-    // Corner resizing ends with any selection change, so selecting the copy again later doesn't bring it back.
+    // Corner resizing and rotating end with any selection change, so selecting the copy again later doesn't bring them back.
     fun update(transform: (UiState) -> UiState) = state.update { s ->
         transform(s).let { if (it.resizeFor != null && !it.resizing) it.copy(resizeFor = null) else it }
+            .let { if (it.rotateFor != null && !it.rotating) it.copy(rotateFor = null) else it }
     }
 
     fun str(@StringRes id: Int, vararg args: Any): String = app.getString(id, *args)

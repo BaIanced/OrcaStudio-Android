@@ -52,6 +52,13 @@ data class LayoutLab(
     val wheelSpeed: Float = 1f,
     /** Size of the Slice button on the portrait panel's grip; only the main UI size scales it too (user, 2026-10-17). */
     val sliceScale: Float = 1f,
+    /** View cube shown in the 3D view (user 2026-10-21: off by default, it made them motion sick). */
+    val viewCube: Boolean = false,
+    /** View cube spot, as a fraction (0-1) of the room left and right / above and below it in the 3D view (-1 = default top right). */
+    val viewCubeX: Float = -1f,
+    val viewCubeY: Float = -1f,
+    /** Long press on the 3D view opens a pie menu (slide to a wedge and release, or tap one) instead of the list menu (user 2026-10-21). */
+    val pieMenu: Boolean = false,
 ) {
     fun toJson(): String = JSONObject()
         .put("plates", plates.name).put("plateLabel", plateLabel).put("overlayAlpha", overlayAlpha.toDouble())
@@ -62,7 +69,8 @@ data class LayoutLab(
         .put("fullscreenPortrait", fullscreenPortrait).put("platesOnHandle", platesOnHandle).put("plateScale", plateScale.toDouble())
         .put("shadowStrength", shadowStrength.toDouble()).put("shadowSoft", shadowSoft.toDouble()).put("shadowBias", shadowBias.toDouble())
         .put("lightAzimuth", lightAzimuth.toDouble()).put("lightElevation", lightElevation.toDouble()).put("lightStrength", lightStrength.toDouble())
-        .put("pinchSpeed", pinchSpeed.toDouble()).put("wheelSpeed", wheelSpeed.toDouble()).put("sliceScale", sliceScale.toDouble()).toString()
+        .put("pinchSpeed", pinchSpeed.toDouble()).put("wheelSpeed", wheelSpeed.toDouble()).put("sliceScale", sliceScale.toDouble())
+        .put("viewCube", viewCube).put("viewCubeX", viewCubeX.toDouble()).put("viewCubeY", viewCubeY.toDouble()).put("pieMenu", pieMenu).toString()
 
     companion object {
         val TEXT_SCALES = 0.7f..1.3f
@@ -107,6 +115,10 @@ data class LayoutLab(
                 sliceScale = o.optDouble("sliceScale", 1.0).toFloat().coerceIn(SLICE_SCALES.start, SLICE_SCALES.endInclusive),
                 pinchSpeed = o.optDouble("pinchSpeed", d.pinchSpeed.toDouble()).toFloat().coerceIn(PINCH_SPEEDS.start, PINCH_SPEEDS.endInclusive),
                 wheelSpeed = o.optDouble("wheelSpeed", d.wheelSpeed.toDouble()).toFloat().coerceIn(WHEEL_SPEEDS.start, WHEEL_SPEEDS.endInclusive),
+                viewCube = o.optBoolean("viewCube", d.viewCube),
+                viewCubeX = o.optDouble("viewCubeX", -1.0).toFloat().coerceAtMost(1f),
+                viewCubeY = o.optDouble("viewCubeY", -1.0).toFloat().coerceAtMost(1f),
+                pieMenu = o.optBoolean("pieMenu", d.pieMenu),
             )
         }
     }

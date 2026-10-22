@@ -18,10 +18,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 ## State
 - One repo: OrcaStudio-Android (code + these docs, `docs/handoff/`), branch `claude/handoff-continuation-rseql3`. Autonomy (user, 2026-10-11): decide branches and next steps
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
-- Android main = b98e6ad (PR #33, r335, merged 2026-10-20). Untested in main: pen 7d3a263, fan hold 298ee9f, Extrude F150 e13bebb,
-  Quest stick zoom (r324); paint card fix r336 + layer-line fix r338 verified, unmerged.
-- Installed: r341 (run 39482253748, tops-from-above fix) on all devices 2026-10-20, user-verified.
-- **Test device = WSA** (user 2026-10-20: `/target` skill removed for good). `target.sh` stays only as the serial helper (`target.sh serial|phone|chromebook`); shot.sh/mcpao.sh use it.
+- Android main = f1c4a17 (PR #34, r341, merged 2026-10-20). Untested in main: pen 7d3a263, fan hold 298ee9f, Extrude F150 e13bebb,
+  Quest stick zoom (r324). Nothing unmerged on the branch.
+- Installed: cut batch run 39678582217 (includes all earlier steps) on all 5 adb devices 2026-10-21. Tablet (unrooted): debug app only (user's request).
+- **Test device = WSA** (user 2026-10-20). **Note** (added 2026-10-21) = S Pen test device only, not the main target (user; it locks: user says when it is awake, 2026-10-21); Quest = pseudo-pen device (user, untested). Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
   WSA `127.0.0.1:58526`; **USB serial = the user's SHIELD TV** (rooted; installs only).
 - User away from the printer: no printer tests. SHIELD installs only. **User 2026-10-19 (later): keep using WSA, not the phone;
@@ -29,17 +29,21 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - User sessions backed up: phone `/data/local/tmp/phone-session-backup.{3mf,json}` (8 plates), WSA `/data/local/tmp/session-backup.{3mf,json}`.
   Test zip `scadzip-test.zip` stays in `/sdcard/Download` on phone + Chromebook. LAN access code was given in chat: never write it anywhere.
 ## Next task
-- Fix next:
-  (1) preview layer lines: Moire fix user-verified r338, underside cc0af56 user-verified r339 (archive). Now fixing 2 user defects (r339 shot, plate 1 layer 232):
-  table top skin edges (arrows) + light shards on the lying cylinder end cap near the bed. Then offer `/next-merge`.
-  Repro: plate 1 layer 232 on WSA (pinned 1366x768/density 200): `abshot.sh <name> [build]` from below (baseline `shots/base2.png`),
-  `abtop.sh` from above. Underside 6b465f8 + r341 flip **user-verified r341** (archive). Idea offered: Preview camera-light slider (no GO yet).
-  Rim arrows + end-cap shards: user saw nothing in r341, closed. Next: offer `/next-merge`. C: tight; old build dirs move to `D:\orca-builds-archive`.
-- WSA shader loop: `wsa-cycle.sh` / `wsa-preview2.sh`, black shots = display asleep (reference "Build and tools").
-- Need the printer (backlog): fan slider jumps (r295 hold), Retract/Extrude F150 (e13bebb), extrude/jog, speed chips.
-- User-only checks pending (backlog): bead look, part shadows, light sliders, r276 tool row, r283/r284 top bar, r280 pinch lock,
-  r316 double tap, r305 resize gating.
-- Pen input (super low priority): backlog. Waiting on the user: plate switcher pick.
+- **User 2026-10-21: one small step per session.** Cue `/clear` + `/next` after EACH step. USER VERIFIED 2026-10-21: rotate gizmo + haptics,
+  cut redesign ("much better"), Z rail feel (archive). Pie menu: user dislikes it -> LOW S Pen customizable picker, not now (backlog).
+- **NEXT (user ACCEPTED 2026-10-21, this order, one step per session):** (1) **paint shop workspace**: full-screen focus mode (purple
+  frame, others hidden, Done/back), option C modes Brush/Fill/Bands/Object; portrait bottom dock (options+desc / swatches+Pick /
+  modes), landscape side panel = filament layer rows (hide/lock/% come later as their own step); mockup source
+  `%TEMP%/paintshop-mockup/mockup.html`; today's panel ToolPanel.kt:152. (2) **Top depth** setting decoupled from top shell layers
+  (same as shells / N layers / all the way through), native MultiMaterialSegmentation.cpp:1254/:1410, Object mode; sides = existing
+  mmu_segmented_region_max_width. (3) **Colour change + waste counter** (estimate; flush volumes from the profile). Details: backlog "Paint".
+- Later (awaiting go): cut radio Lay on cut face / Flip / Leave + nested "Arrange after cut" (arrange_plate always runs, OrcaScene.cpp:1046;
+  with the design pose, Leave goes away); Z rail live drag (MeshPreviewView.kt:342); Build workspace (shapes as Orca parts, design pose).
+  Feel pending: view cube, Check mesh, paint batches.
+- C: tight; old build dirs move to `D:\orca-builds-archive`.
+- **Open issue: app 3MF export fails in desktop Orca** (fix `match_filament_indices` in run 39529670166, installed on all devices; untested on a 4-filament export: the user exports from the phone and opens it in desktop Orca).
+- Need the printer, and user-only checks (bead look, shadows, light sliders, r276/r283/r284/r280/r316/r305): backlog.
+- Pen input (super low priority; test on the Note / Quest) + plate switcher pick: backlog.
 
 ## User decisions (2026-10-13)
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).

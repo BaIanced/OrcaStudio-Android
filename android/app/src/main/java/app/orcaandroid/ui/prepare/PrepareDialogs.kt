@@ -145,6 +145,7 @@ internal fun AddDialogs(state: UiState, vm: AppViewModel, dialog: String?, onDis
         "samples" -> SamplesDialog(vm, onDismiss)
         "calib" -> CalibrationDialog(vm, onDismiss)
         "simplify" -> SimplifyDialog(state, vm, onDismiss)
+        "check" -> CheckMeshDialog(vm, onDismiss)
         "boolean" -> MeshBooleanDialog(state, vm, onDismiss)
     }
 }
@@ -428,5 +429,34 @@ internal fun LayerGcodeDialog(state: UiState, vm: AppViewModel, plate: Int, init
         },
         confirmButton = { TextButton(onClick = { onDismiss(); vm.scene.setLayerGcodes(plate, items.toList()) }) { Text(stringResource(R.string.apply)) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
+}
+
+/** Mesh problems of the selected copy: open edges, zero-area faces, thin walls (the print3d_toolbox checks). */
+@Composable
+private fun CheckMeshDialog(vm: AppViewModel, onDismiss: () -> Unit) {
+    var thickness by remember { mutableFloatStateOf(0.4f) }
+    var report by remember { mutableStateOf<String?>(null) }
+    var hasMarkers by remember { mutableStateOf(false) }
+    androidx.compose.runtime.LaunchedEffect(thickness) {
+        kotlinx.coroutines.delay(300)
+        report = runCatching { vm.scene.meshReport(thickness) }.getOrElse { it.message ?: it.toString() } ?: ""
+        hasMarkers = vm.scene.hasMeshMarkers
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.check_mesh)) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(stringResource(R.string.check_mesh_thin, "%.2f".format(thickness)))
+                Slider(thickness, { thickness = Math.round(it * 20f) / 20f }, valueRange = 0.1f..2f)
+                Text(report ?: stringResource(R.string.checking))
+            }
+        },
+        confirmButton = {
+            if (hasMarkers) TextButton(onClick = { vm.scene.showMeshMarkers(); onDismiss() }) { Text(stringResource(R.string.check_mesh_show)) }
+            else TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) }
+        },
+        dismissButton = { if (hasMarkers) TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) } },
     )
 }

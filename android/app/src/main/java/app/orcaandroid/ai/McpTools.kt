@@ -145,6 +145,9 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         Tool("object_auto_orient", "Plate edit: turns every copy of an object (or of all objects, object omitted) the way " +
             "OrcaSlicer's auto orient finds best for printing (less support, flat on the bed). $PLATE_EDIT",
             obj(emptyList(), "object" to p("integer", "Object number from plate_describe; omitted = all"))) { autoOrient(it) },
+        Tool("object_check_mesh", "Read-only mesh report of one copy, per part: faces, shells, volume, open edges, zero-area faces and faces " +
+            "whose wall is thinner than thickness mm (default 0.4). Nothing changes.",
+            obj(listOf("object"), *COPY, "thickness" to p("number", "Thin-wall limit in mm, 0..5; 0 skips the check; default 0.4"))) { checkMesh(it) },
         Tool("object_duplicate", "Plate edit: adds copies of one copy of an object; they are arranged on its plate. $PLATE_EDIT",
             obj(listOf("object"), *COPY, "copies" to p("integer", "How many, 1..100; default 1"))) { duplicate(it) },
         Tool("plate_arrange", "Plate edit: arranges the objects on a plate (default the active one), or with all true " +
@@ -518,10 +521,10 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             append("Mode ${view.mode.name.lowercase()}; tool ")
             append(when (val tool = s.tool) {
                 app.orcaandroid.ui.Tool.None -> "none"
-                is app.orcaandroid.ui.Tool.Paint -> "paint ${tool.kind} (state ${tool.state}, radius ${n(tool.radius.toDouble())} mm)"
+                is app.orcaandroid.ui.Tool.Paint -> "paint ${tool.kind} ${tool.shape} (state ${tool.state}, radius ${n(tool.radius.toDouble())} mm)"
                 app.orcaandroid.ui.Tool.LayOnFace -> "lay on face"
                 app.orcaandroid.ui.Tool.Measure -> "measure, ${s.measure.size} point(s)"
-                is app.orcaandroid.ui.Tool.Cut -> "cut at Z ${n(tool.z.toDouble())} mm"
+                is app.orcaandroid.ui.Tool.Cut -> "cut at Z ${n(tool.z.toDouble())} mm, tilt ${n(app.orcaandroid.render.CutPlane.tilt(tool.rot).toDouble())} deg"
                 app.orcaandroid.ui.Tool.LayerHeight -> "variable layer height"
             })
             if (s.selectMode) append("; select mode on")
@@ -713,6 +716,13 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
     private suspend fun autoOrient(args: JSONObject): String {
         val o = if (args.has("object")) copyOf(args).first else -1
         return plateEdit(if (o < 0) "oriented all objects" else "oriented object ${o + 1}", R.string.orienting) { store.engine.autoOrient(o) }
+    }
+
+    private suspend fun checkMesh(args: JSONObject): String {
+        val (o, inst) = copyOf(args)
+        val thickness = args.optDouble("thickness", 0.4)
+        if (thickness !in 0.0..5.0) throw ToolError("thickness must be 0..5 mm")
+        return "Object ${o + 1} copy ${inst.index + 1}\n" + app.orcaandroid.core.MeshReport.text(store.engine.checkMesh(o, inst.index, thickness.toFloat()))
     }
 
     private suspend fun duplicate(args: JSONObject): String {

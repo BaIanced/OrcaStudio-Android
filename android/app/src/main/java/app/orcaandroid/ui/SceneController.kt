@@ -88,7 +88,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
 
     /** Ctrl+wheel while painting: scales the brush within the panel slider's range. */
     fun scaleBrush(factor: Float) {
-        val tool = store.value.tool as? Tool.Paint ?: return
+        val tool = (store.value.tool as? Tool.Paint)?.takeIf { it.shape != "gap" } ?: return
         store.update { it.copy(tool = tool.copy(radius = (tool.radius * factor).coerceIn(0.5f, 15f))) }
     }
 
@@ -192,10 +192,33 @@ class SceneController(private val store: Store, private val presets: PresetContr
     fun simplify(ratio: Float) = selection?.let { sel -> store.sceneOp(store.str(R.string.simplifying)) { engine.simplify(sel.obj, ratio) } }
     fun repair() = selection?.let { sel -> store.sceneOp { engine.repair(sel.obj) } }
 
-    fun cut(z: Float, keepUpper: Boolean, keepLower: Boolean, flip: Boolean) {
+    /** Report of the selected copy's mesh problems (null without a selection); [thickness] is the thin-wall limit in mm. */
+    suspend fun meshReport(thickness: Float): String? = selection?.let { sel ->
+        val r = store.engine.checkMesh(sel.obj, sel.instance, thickness)
+        lastCheck = sel to app.orcaandroid.core.MeshReport.markers(r)
+        checkBase = store.value.scene.objects.getOrNull(sel.obj)?.instances?.getOrNull(sel.instance)
+        app.orcaandroid.core.MeshReport.text(r)
+    }
+
+    private var lastCheck: Pair<Selection, FloatArray>? = null
+
+    /** The checked copy as it was when the spots were found: the spots follow its moves, and go when it turns or scales. */
+    var checkBase: app.orcaandroid.core.Instance? = null
+        private set
+
+    /** Problem spots (x, y, z, kind quadruples) of the copy they were found on, drawn in the 3D view until the selection changes. */
+    val meshMarkers = kotlinx.coroutines.flow.MutableStateFlow<Pair<Selection, FloatArray>?>(null)
+
+    /** True when the last report found spots to show. */
+    val hasMeshMarkers get() = lastCheck?.second?.isNotEmpty() == true
+
+    fun showMeshMarkers() { meshMarkers.value = lastCheck }
+    fun clearMeshMarkers() { meshMarkers.value = null }
+
+    fun cut(z: Float, rot: Vec3, keepUpper: Boolean, keepLower: Boolean, flip: Boolean, floatUpper: Boolean) {
         val sel = selection ?: return
         store.update { it.copy(selection = null, tool = Tool.None) }
-        store.sceneOp(store.str(R.string.cutting)) { engine.cut(sel.obj, sel.instance, z, keepUpper, keepLower, flip) }
+        store.sceneOp(store.str(R.string.cutting)) { engine.cut(sel.obj, sel.instance, z, keepUpper, keepLower, flip, floatUpper, rot) }
     }
 
     /** Adds a modifier, blocker, enforcer or negative volume sized to the selected object. */
@@ -323,6 +346,14 @@ class SceneController(private val store: Store, private val presets: PresetContr
         }
     }
 
+    /** A drag began on a prime tower's box at [entry]: [result] gets false when an object is hit nearer than the box. */
+    fun checkTowerStart(origin: Vec3, dir: Vec3, entry: Vec3, section: FloatArray?, result: (Boolean) -> Unit) {
+        store.launch {
+            val hit = pick(origin, dir, section)
+            result(hit == null || (hit.point - origin).length() >= (entry - origin).length() - 0.5f)
+        }
+    }
+
     /** The copy under the ray, as (object, copy, box min, box max), or null; [result] runs on the engine's coroutine. */
     fun copyAt(origin: Vec3, dir: Vec3, section: FloatArray?, result: (Pair<Int, Int>?, Vec3, Vec3) -> Unit) {
         store.launch {
@@ -349,7 +380,13 @@ class SceneController(private val store: Store, private val presets: PresetContr
     /** Turns corner resizing of the lone selected copy on, or off when it is already on. */
     fun toggleResize() = store.update {
         val one = it.selectedItems.singleOrNull()
-        it.copy(resizeFor = if (it.resizeFor != null && it.resizeFor == one) null else one)
+        it.copy(resizeFor = if (it.resizeFor != null && it.resizeFor == one) null else one, rotateFor = null)
+    }
+
+    /** Turns the rotate gizmo on the lone selected copy on, or off when it is already on (resizing goes off). */
+    fun toggleRotate() = store.update {
+        val one = it.selectedItems.singleOrNull()
+        it.copy(rotateFor = if (it.rotateFor != null && it.rotateFor == one) null else one, resizeFor = null)
     }
 
     fun openAddDialog(name: String?) = store.update { it.copy(addDialog = name) }
@@ -368,6 +405,8 @@ class SceneController(private val store: Store, private val presets: PresetContr
     private var strokePending = false
     /** The stroke's last sample hit the model: the next hit joins it (a miss breaks the line, as on the desktop). */
     private var paintLastHit = false
+    /** Hold-to-preview fill: this stroke's fill is on the model (native FillPreview). Guarded by [paintLock]. */
+    private var fillShown = false
 
     /**
      * Paint sample from the 3D view; samples are queued and applied in order on the engine thread. Every sample that
@@ -376,7 +415,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
      * (user r314).
      */
     fun paintAt(origin: Vec3, dir: Vec3, camera: Vec3, newStroke: Boolean, section: FloatArray? = null) {
-        val tool = store.value.tool as? Tool.Paint ?: return
+        val tool = (store.value.tool as? Tool.Paint)?.takeIf { it.shape != "gap" } ?: return
         synchronized(pendingPaint) { pendingPaint.addLast(PaintSample(origin, dir, camera, newStroke, section)) }
         if (paintLock.isLocked) return
         store.launch {
@@ -388,7 +427,36 @@ class SceneController(private val store: Store, private val presets: PresetContr
                         out
                     }
                     if (batch.isEmpty()) break
-                    if (batch.first().newStroke) strokePending = true
+                    if (batch.first().newStroke) { strokePending = true; fillShown = false }
+                    if (tool.shape == "pick") {
+                        // Eyedropper: the state under the finger becomes the brush's, then the previous shape is back.
+                        // Unpainted colour = the part's own filament.
+                        val last = batch.last()
+                        val hit = pick(last.origin, last.dir, last.section) ?: continue
+                        val (picked, base) = engine.paintStateAt(hit, tool.kind)
+                        val s = if (picked == 0 && tool.kind == "color") base.coerceAtLeast(1) else picked
+                        (store.value.tool as? Tool.Paint)?.let { t -> store.update { it.copy(tool = t.copy(state = s, shape = t.back)) } }
+                        synchronized(pendingPaint) { pendingPaint.clear() }
+                        strokePending = false
+                        continue
+                    }
+                    if (tool.shape == "fill" || tool.shape == "regions") {
+                        // Hold-to-preview fill: the fill follows the finger (only its latest position counts) and stays
+                        // when it lifts; sliding off the model drops it. Back on the model = a new fill.
+                        val last = batch.last()
+                        val hit = pick(last.origin, last.dir, last.section)
+                        if (hit == null) {
+                            if (fillShown) store.applyScene(engine.paintFillCancel())
+                            fillShown = false
+                        } else {
+                            store.applyScene(engine.paint(listOf(hit), last.camera, tool.radius, tool.kind, tool.state, !fillShown, last.section,
+                                listOf(false), tool.edgeAngle, "fill", tool.height, tool.overhang, tool.guardZ.takeIf { tool.guardOn },
+                                tool.overColours || tool.shape == "regions"))
+                            fillShown = true
+                        }
+                        strokePending = false
+                        continue
+                    }
                     val hits = mutableListOf<PickHit>()
                     val joins = mutableListOf<Boolean>()
                     for (s in batch) {
@@ -399,7 +467,8 @@ class SceneController(private val store: Store, private val presets: PresetContr
                     }
                     if (hits.isEmpty()) continue
                     val last = batch.last()
-                    store.applyScene(engine.paint(hits, last.camera, tool.radius, tool.kind, tool.state, strokePending, last.section, joins, tool.edgeAngle))
+                    store.applyScene(engine.paint(hits, last.camera, tool.radius, tool.kind, tool.state, strokePending, last.section, joins, tool.edgeAngle,
+                        tool.shape, tool.height, tool.overhang, tool.guardZ.takeIf { tool.guardOn }))
                     strokePending = false
                 }
             }
@@ -407,6 +476,11 @@ class SceneController(private val store: Store, private val presets: PresetContr
     }
 
     fun paintClear(kind: String) = selection?.let { sel -> store.sceneOp { engine.paintClear(sel.obj, kind) } }
+    fun paintRemap(dest: List<Int>) = selection?.let { sel -> store.sceneOp { engine.paintRemap(sel.obj, dest) } }
+    /** Regions view: the selected copy's crease lines, or null without a selection. */
+    suspend fun creaseLines(angle: Float): FloatArray? = selection?.let { engine.creaseLines(it.obj, it.instance, angle) }
+    fun paintByPart() = selection?.let { sel -> store.sceneOp { engine.paintByPart(sel.obj) } }
+    fun paintGapFill(kind: String, area: Float) = selection?.let { sel -> store.sceneOp { engine.paintGapFill(sel.obj, kind, area) } }
 
     // --- Variable layer height ------------------------------------------------------------------------
 

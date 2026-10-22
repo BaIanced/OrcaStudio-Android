@@ -121,10 +121,13 @@ class Engine(private val cacheDir: File) {
     suspend fun assemble(items: List<Pair<Int, Int>>) = parseScene(call("assemble", args("items" to items.map { listOf(it.first, it.second) })))
     suspend fun meshBoolean(obj: Int, src: Int, tool: Int, op: String, keepTool: Boolean) =
         parseScene(call("meshBoolean", args("object" to obj, "src" to src, "tool" to tool, "op" to op, "keepTool" to keepTool)))
-    suspend fun cut(obj: Int, instance: Int, z: Float, keepUpper: Boolean, keepLower: Boolean, flipUpper: Boolean) =
-        parseScene(call("cut", args("object" to obj, "instance" to instance, "z" to z, "keepUpper" to keepUpper, "keepLower" to keepLower, "flipUpper" to flipUpper)))
+    suspend fun cut(obj: Int, instance: Int, z: Float, keepUpper: Boolean, keepLower: Boolean, flipUpper: Boolean, floatUpper: Boolean = false, rot: Vec3 = Vec3(0f, 0f, 0f)) =
+        parseScene(call("cut", args("object" to obj, "instance" to instance, "z" to z, "keepUpper" to keepUpper, "keepLower" to keepLower, "flipUpper" to flipUpper, "floatUpper" to floatUpper, "rotX" to rot.x, "rotY" to rot.y, "rotZ" to rot.z)))
     suspend fun simplify(obj: Int, ratio: Float) = parseScene(call("simplify", args("object" to obj, "ratio" to ratio)))
     suspend fun repair(obj: Int) = parseScene(call("repair", args("object" to obj)))
+    /** Read-only mesh report of one copy; see [MeshReport.text]. Faces whose wall is thinner than [thickness] mm are counted. */
+    suspend fun checkMesh(obj: Int, instance: Int = 0, thickness: Float = 0.4f): JSONObject =
+        call("checkMesh", args("object" to obj, "instance" to instance, "thickness" to thickness))
     suspend fun replaceMesh(obj: Int, path: String, module: String = "") =
         parseScene(call("replaceMesh", args("object" to obj, "path" to path, "module" to module)))
     suspend fun setObjectModule(obj: Int, module: String) =
@@ -163,11 +166,23 @@ class Engine(private val cacheDir: File) {
     /** Paints [hits] (one stroke's brush positions, in order) in one engine pass. */
     /** [joins]: per hit, whether it continues the line from the stroke's previous hit (painted as a capsule, no gaps). */
     suspend fun paint(hits: List<PickHit>, camera: Vec3, radius: Float, kind: String, state: Int, newStroke: Boolean, section: FloatArray? = null,
-                      joins: List<Boolean> = emptyList(), edgeAngle: Float = 0f) = parseScene(call("paint", args(
+                      joins: List<Boolean> = emptyList(), edgeAngle: Float = 0f, shape: String = "sphere", height: Float = 0.2f, overhang: Float = 0f,
+                      guard: Float? = null, overColours: Boolean = false) = parseScene(call("paint", args(
         "hits" to hits.mapIndexed { i, it -> mapOf("object" to it.obj, "instance" to it.instance, "volume" to it.volume, "facet" to it.facet, "local" to it.local,
             "join" to joins.getOrElse(i) { false }) },
-        "camera" to camera, "radius" to radius, "kind" to kind, "state" to state, "newStroke" to newStroke, "section" to section, "edgeAngle" to edgeAngle)))
+        "camera" to camera, "radius" to radius, "kind" to kind, "state" to state, "newStroke" to newStroke, "section" to section, "edgeAngle" to edgeAngle,
+        "shape" to shape, "height" to height, "overhang" to overhang, "guard" to guard, "overColours" to overColours)))
     suspend fun paintClear(obj: Int, kind: String) = parseScene(call("paintClear", args("object" to obj, "kind" to kind)))
+    suspend fun paintFillCancel() = parseScene(call("paintFillCancel", args()))
+    /** Eyedropper: the paint state under [hit] (0 = unpainted) and the part's own extruder (1-based, 0 = the object's). */
+    suspend fun paintStateAt(hit: PickHit, kind: String) = call("paintStateAt", args("object" to hit.obj, "volume" to hit.volume,
+        "facet" to hit.facet, "local" to hit.local, "kind" to kind)).let { it.getInt("state") to it.optInt("base", 0) }
+    suspend fun paintByPart(obj: Int) = parseScene(call("paintByPart", args("object" to obj)))
+    /** Regions view: world line segments (x, y, z per end) of a copy's crease edges sharper than [angle] degrees and open edges. */
+    suspend fun creaseLines(obj: Int, instance: Int, angle: Float): FloatArray =
+        call("creaseLines", args("object" to obj, "instance" to instance, "angle" to angle)).getJSONArray("lines").floats()
+    suspend fun paintRemap(obj: Int, dest: List<Int>) = parseScene(call("paintRemap", args("object" to obj, "dest" to dest)))
+    suspend fun paintGapFill(obj: Int, kind: String, area: Float) = parseScene(call("paintGapFill", args("object" to obj, "kind" to kind, "area" to area)))
 
     private fun parseProfile(o: JSONObject) = parseScene(o) to LayerProfile(
         o.getJSONArray("profile").floats(), o.getDouble("min").toFloat(), o.getDouble("max").toFloat(), o.getDouble("height").toFloat())

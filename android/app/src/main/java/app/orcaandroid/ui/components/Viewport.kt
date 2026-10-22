@@ -21,6 +21,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import app.orcaandroid.core.SliceResult
 import app.orcaandroid.core.Vec3
+import app.orcaandroid.render.CutPlane
 import app.orcaandroid.render.FloatData
 import app.orcaandroid.render.INSTANCE_ID_STRIDE
 import app.orcaandroid.render.InteractionMode
@@ -41,6 +43,7 @@ import app.orcaandroid.render.PlateView
 import app.orcaandroid.render.PreviewData
 import app.orcaandroid.render.PreviewRange
 import app.orcaandroid.render.PreviewStyle
+import app.orcaandroid.render.RotateGizmo
 import app.orcaandroid.render.TowerBox
 import app.orcaandroid.render.ViewColors
 import app.orcaandroid.ui.AppViewModel
@@ -125,6 +128,10 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                         val (o, d) = v.camera.ray(x, y)
                         vm.scene.checkDragStart(o, d, v.section.current) { hit -> v.post { result(hit) } }
                     }
+                    override fun onTowerCheck(x: Float, y: Float, entry: Vec3, result: (Boolean) -> Unit) {
+                        val (o, d) = v.camera.ray(x, y)
+                        vm.scene.checkTowerStart(o, d, entry, v.section.current) { clear -> v.post { result(clear) } }
+                    }
                     override fun onRectangle(x0: Float, y0: Float, x1: Float, y1: Float, remove: Boolean, done: Boolean) {
                         rectangle = if (done) null else floatArrayOf(x0, y0, x1, y1)
                         if (!done) return
@@ -159,6 +166,36 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                         val off = Vec3(pivot.x + (inst.offset.x - pivot.x) * scale.x, pivot.y + (inst.offset.y - pivot.y) * scale.y, inst.offset.z)
                         vm.scene.setTransform(offset = off, scale = Vec3(inst.scale.x * own.x, inst.scale.y * own.y, inst.scale.z * own.z))
                     }
+                    override fun onRotate(axis: Int, degrees: Float?, pivot: Vec3, x: Float, y: Float, done: Boolean) {
+                        val sel = vm.state.value.selectedItems.singleOrNull()
+                        val inst = sel?.let { vm.state.value.scene.objects.getOrNull(it.obj)?.instances?.getOrNull(it.instance) }
+                        if (!done && degrees != null) {
+                            resizeLabel = Triple("%s %.1f°".format("XYZ"[axis], degrees), x, y)
+                            return
+                        }
+                        resizeLabel = null
+                        if (degrees == null || inst == null || kotlin.math.abs(degrees) < 0.05f) { v.onGl { rotateMatrix = null }; return }
+                        // The live turn stays until the turned mesh is uploaded (cleared there), or after a timeout.
+                        dragPending[0] = true
+                        v.postDelayed({ if (dragPending[0]) { dragPending[0] = false; v.onGl { rotateMatrix = null } } }, 1500)
+                        // A world turn about the box centre: the rotation is composed in front of the copy's own
+                        // (Rz * Ry * Rx) and the offset turns round the centre; the engine drops the copy onto the bed.
+                        val m = RotateGizmo.matrix(axis, degrees)
+                        val rotation = RotateGizmo.toEuler(RotateGizmo.mul(m, RotateGizmo.fromEuler(inst.rotation)))
+                        vm.scene.setTransform(offset = pivot + RotateGizmo.apply(m, inst.offset - pivot), rotation = rotation)
+                    }
+                    override fun onCutMove(dz: Float) {
+                        val t = vm.state.value.tool as? Tool.Cut ?: return
+                        val i = vm.state.value.selectedObject?.instances?.getOrNull(vm.state.value.selection?.instance ?: 0) ?: return
+                        vm.scene.setTool(Tool.Cut((t.z + dz).coerceIn(i.min.z, i.min.z + i.size.z), t.rot))
+                    }
+                    override fun onCutTilt(axis: Int, degrees: Float?, base: Vec3, x: Float, y: Float, done: Boolean) {
+                        val t = vm.state.value.tool as? Tool.Cut ?: return
+                        if (degrees == null) { resizeLabel = null; vm.scene.setTool(Tool.Cut(t.z, base)); return }
+                        val rot = RotateGizmo.toEuler(RotateGizmo.mul(RotateGizmo.matrix(axis, degrees), RotateGizmo.fromEuler(base)))
+                        vm.scene.setTool(Tool.Cut(t.z, rot))
+                        resizeLabel = if (done) null else Triple("%.1f°".format(CutPlane.tilt(rot)), x, y)
+                    }
                     override fun onBrushScroll(steps: Int) = vm.scene.scaleBrush(if (steps > 0) 1.15f else 1 / 1.15f)
                     override fun onMoved(dx: Float, dy: Float) {
                         // The drag offset stays until the moved mesh is uploaded (below); the timer covers a move
@@ -176,8 +213,11 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                             v.postDelayed({ if (dragPending[0]) { dragPending[0] = false; v.onGl { dragOffset = floatArrayOf(0f, 0f, 0f) } } }, 500)
                         }
                     }
+                    private var strokeStart = 0f to 0f
                     override fun onPaint(x: Float, y: Float, newStroke: Boolean) {
-                        val (o, d) = v.camera.ray(x, y)
+                        if (newStroke) strokeStart = x to y
+                        val lock = (vm.state.value.tool as? Tool.Paint)?.lock
+                        val (o, d) = v.camera.ray(if (lock == "v") strokeStart.first else x, if (lock == "h") strokeStart.second else y)
                         vm.scene.paintAt(o, d, v.camera.eye(), newStroke, v.section.current)
                     }
                     override fun onPlateDoubleTap(index: Int) = vm.scene.selectPlate(index)
@@ -201,9 +241,12 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                     }
 
                     override fun onContextMenu(x: Float, y: Float) {
+                        vm.pieTouch.reset()
                         val (o, d) = v.camera.ray(x, y)
                         vm.scene.openContextMenu(o, d, x, y, v.section.current)
                     }
+
+                    override fun onLongPressTouch(x: Float, y: Float, held: Boolean) = vm.pieTouch.update(x, y, held)
                 }
                 view = v
                 onView(v)
@@ -230,6 +273,15 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
             androidx.compose.foundation.layout.Row(Modifier.padding(start = 8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                 androidx.compose.material3.Text(androidx.compose.ui.res.stringResource(app.orcaandroid.R.string.resize_hint), style = MaterialTheme.typography.labelLarge)
                 androidx.compose.material3.TextButton(onClick = vm.scene::toggleResize) {
+                    androidx.compose.material3.Text(androidx.compose.ui.res.stringResource(app.orcaandroid.R.string.done))
+                }
+            }
+        }
+    } else if (state.rotating && !showPreview) {
+        androidx.compose.material3.Surface(Modifier.align(androidx.compose.ui.Alignment.TopCenter).padding(top = 72.dp), shape = MaterialTheme.shapes.small, tonalElevation = 4.dp) {
+            androidx.compose.foundation.layout.Row(Modifier.padding(start = 8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                androidx.compose.material3.Text(androidx.compose.ui.res.stringResource(app.orcaandroid.R.string.rotate_hint), style = MaterialTheme.typography.labelLarge)
+                androidx.compose.material3.TextButton(onClick = vm.scene::toggleRotate) {
                     androidx.compose.material3.Text(androidx.compose.ui.res.stringResource(app.orcaandroid.R.string.done))
                 }
             }
@@ -273,6 +325,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     LaunchedEffect(v, state.perspective) { v.camera.perspective = state.perspective }
     LaunchedEffect(v, state.pen) { v.pen = state.pen }
     LaunchedEffect(v, state.resizing, showPreview) { v.resizeMode = state.resizing && !showPreview }
+    LaunchedEffect(v, state.rotating, showPreview) { v.rotateMode = state.rotating && !showPreview }
     // Plate numbers always; the plate icons only while arranging (Prepare).
     val atlas = rememberBadgeAtlas(scene.plates.size)
     val badges = if (showPreview) emptyList()
@@ -293,7 +346,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         val mesh = withContext(Dispatchers.IO) { FloatData.load(scene.meshFile, 8) }
         v.onGl { setMesh(mesh) }
         // A finished drag: the moved mesh is queued first, so the old offset goes away without a jump back.
-        if (dragPending[0]) { dragPending[0] = false; v.onGl { dragOffset = floatArrayOf(0f, 0f, 0f); resizeScale = floatArrayOf(1f, 1f, 1f) } }
+        if (dragPending[0]) { dragPending[0] = false; v.onGl { dragOffset = floatArrayOf(0f, 0f, 0f); resizeScale = floatArrayOf(1f, 1f, 1f); rotateMatrix = null } }
     }
     // Eye toggle: the OpenSCAD design shown see-through, standing in the middle of the active plate (other objects hidden).
     val ghost = state.scad?.preview?.takeIf { state.scadOnPlate && !state.scadHidden && state.screen == app.orcaandroid.ui.Screen.PREPARE }
@@ -351,18 +404,54 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         v.mode = when {
             showPreview -> InteractionMode.VIEW
             else -> when (state.tool) {
-            is Tool.Paint -> InteractionMode.PAINT
+            is Tool.Paint -> if (state.tool.shape == "gap") InteractionMode.VIEW else InteractionMode.PAINT
             Tool.LayOnFace -> InteractionMode.LAY_ON_FACE
             Tool.Measure -> InteractionMode.MEASURE
             else -> InteractionMode.NAVIGATE
             }
         }
-        val cut = (state.tool as? Tool.Cut)?.let { t ->
+        // The cut tool's plane: a disc round the object's middle, at the cut height, turned by the tilt.
+        val cutGeom = (state.tool as? Tool.Cut)?.takeIf { !showPreview }?.let { t ->
             state.selectedObject?.instances?.getOrNull(state.selection?.instance ?: 0)?.let { i ->
-                floatArrayOf(i.min.x - 5, i.min.y - 5, i.min.x + i.size.x + 5, i.min.y + i.size.y + 5, t.z)
+                PlateView.CutGeom(Vec3(i.min.x + i.size.x / 2, i.min.y + i.size.y / 2, t.z), i.size.length() / 2 * 1.1f, t.rot)
             }
         }
-        v.onGl { cutPlane = cut }
+        v.cutGeom = cutGeom
+        v.onGl {
+            cutDisc = cutGeom?.let { CutPlane.disc(it.c, it.r, it.rot) }
+            cutBand = cutGeom?.let { CutPlane.band(it.c, it.rot) }
+            cutRings = cutGeom?.let { floatArrayOf(it.c.x, it.c.y, it.c.z, it.r) }
+        }
+        val cut = (state.tool as? Tool.Paint)?.takeIf { it.guardOn && !showPreview }?.let { t ->
+            // The paint guard plane, drawn as the cut plane.
+            state.selectedObject?.instances?.getOrNull(state.selection?.instance ?: 0)?.let { i ->
+                floatArrayOf(i.min.x - 5, i.min.y - 5, i.min.x + i.size.x + 5, i.min.y + i.size.y + 5, t.guardZ)
+            }
+        }
+        val highlight = (state.tool as? Tool.Paint)?.takeIf { !showPreview && it.kind == "support" }?.highlight ?: 0f
+        v.onGl { cutPlane = cut; overhangHighlight = highlight }
+    }
+    // Check mesh: the problem spots stay up until another copy is selected.
+    val marks by vm.scene.meshMarkers.collectAsState()
+    LaunchedEffect(v, marks, state.selection, state.scene) {
+        // The spots follow the copy's moves; a turn, scale or mirror makes them wrong, so they go.
+        val base = vm.scene.checkBase
+        val now = state.selection?.let { s -> state.scene.objects.getOrNull(s.obj)?.instances?.getOrNull(s.instance) }
+        fun near(a: Vec3, b: Vec3) = (a - b).length() < 1e-3f
+        val unchanged = base != null && now != null && near(now.rotation, base.rotation) && near(now.scale, base.scale) &&
+            near(now.mirror, base.mirror) && near(now.size, base.size)
+        if (marks != null && (marks?.first != state.selection || !unchanged)) vm.scene.clearMeshMarkers()
+        val data = marks?.takeIf { it.first == state.selection && unchanged }?.second
+        val shift = if (data != null && base != null && now != null) now.min - base.min else Vec3.ZERO
+        v.onGl { meshMarkers = data; meshMarkerShift = floatArrayOf(shift.x, shift.y, shift.z) }
+    }
+    // Regions view: the selected copy's crease lines, again after the model or the angle changes (a paint stroke changes
+    // the scene too, but the lines only depend on the geometry; recomputing them is cheap next to a stroke).
+    val regions = (state.tool as? Tool.Paint)?.takeIf { it.shape == "regions" && !showPreview }
+    val regionAngle = regions?.edgeAngle?.takeIf { it > 0f } ?: 30f
+    LaunchedEffect(v, regions != null, regionAngle, state.selection, scene.objects) {
+        val lines = if (regions != null) runCatching { vm.scene.creaseLines(regionAngle) }.getOrNull() else null
+        v.onGl { creaseLines = lines }
     }
     // Section view: the plane sweeps the bounding box of the active plate's objects, else of all objects
     // (GLCanvas3D::_get_section_view_plane, volumes_bounding_box(true)).

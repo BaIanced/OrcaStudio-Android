@@ -43,14 +43,31 @@ interface PlateListener {
      * cancelled; [done] once let go.
      */
     fun onResize(scale: Vec3?, pivot: Vec3, x: Float, y: Float, done: Boolean) {}
+    /**
+     * A ring of the rotate gizmo on the single selected copy is being dragged ([RotateGizmo]): the copy turns by [degrees]
+     * about world [axis] (0 X, 1 Y, 2 Z) through [pivot], its box's centre; (x, y) is the finger. [degrees] is null when the
+     * drag was cancelled; [done] once let go.
+     */
+    fun onRotate(axis: Int, degrees: Float?, pivot: Vec3, x: Float, y: Float, done: Boolean) {}
+    /** Cut tool: the plane was dragged up / down by [dz] mm (world Z). */
+    fun onCutMove(dz: Float) {}
+    /**
+     * Cut tool: a tilt ring is dragged ([RotateGizmo] about world [axis] 0 X or 1 Y through the plane's centre): the plane turns
+     * by [degrees] from its orientation [base] (Euler degrees) at the drag's start; (x, y) is the finger. [degrees] null = cancelled.
+     */
+    fun onCutTilt(axis: Int, degrees: Float?, base: Vec3, x: Float, y: Float, done: Boolean) {}
     /** The prime tower of [plate] was dragged by (dx, dy) mm on the bed. */
     fun onTowerMoved(plate: Int, dx: Float, dy: Float) {}
     /** Paint stroke sample at screen (x, y); [newStroke] for the first sample of a stroke. */
     fun onPaint(x: Float, y: Float, newStroke: Boolean)
     /** A drag began inside the selection's bounding box: [result] gets whether the mesh itself lies under (x, y). */
     fun onDragCheck(x: Float, y: Float, result: (Boolean) -> Unit) = result(true)
+    /** A drag began inside a prime tower's box at [entry]: [result] gets false when an object lies in front of it (the touch is the camera's). */
+    fun onTowerCheck(x: Float, y: Float, entry: Vec3, result: (Boolean) -> Unit) = result(true)
     /** A right click or a long press that did not drag: the host shows a context menu at (x, y). */
     fun onContextMenu(x: Float, y: Float)
+    /** After a long press opened the menu the finger is still down: it moved to (x, y) ([held] false = it lifted there). */
+    fun onLongPressTouch(x: Float, y: Float, held: Boolean) {}
     /** The copy under view point (x, y) for a double tap: [result] gets its (object, copy) and box, or null (on the UI thread). */
     fun onCopyAt(x: Float, y: Float, result: (Pair<Int, Int>?, Vec3, Vec3) -> Unit) = result(null, Vec3.ZERO, Vec3.ZERO)
     /** A double tap on plate [index] that isn't the active one: the host makes it active (the view frames it). */
@@ -80,6 +97,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
         it.deviceLandscape = context.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
         it.outlinePx = 2.5f * context.resources.displayMetrics.density
         it.handlePx = 7f * context.resources.displayMetrics.density
+        it.density = context.resources.displayMetrics.density
     }
     val section = SectionView(camera)
     var listener: PlateListener? = null
@@ -180,6 +198,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
             cancelDrag()
             longPressed = true
             listener?.onContextMenu(e.x, e.y)
+            listener?.onLongPressTouch(e.x, e.y, true)
         }
     })
 
@@ -326,6 +345,10 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                         dragAnchor = rayBoxEntry(event.x, event.y, listOf(t.lo to t.hi))
                         dragStart = dragAt(event.x, event.y)
                         queueEvent { renderer.dragTower = t.plate }
+                        val id = ++dragCheckId
+                        dragAnchor?.let { entry ->
+                            listener?.onTowerCheck(event.x, event.y, entry) { clear -> if (!clear && id == dragCheckId && dragging) cancelDrag() }
+                        }
                     }
                 }
             }
@@ -352,7 +375,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                 if (moved && !resizeTried) {
                     resizeTried = true
                     if (!multiTouch && event.pointerCount == 1 && mode == InteractionMode.NAVIGATE && !rightButton && !middleButton && !rectangle &&
-                        !penOrbit && penInstant == null && startResize(downX, downY)) {
+                        !penOrbit && penInstant == null && (startCut(downX, downY, event.x, event.y) || startResize(downX, downY) || startRotate(downX, downY, event.x, event.y))) {
                         dragCheckId++
                         dragging = false; dragStart = null
                         queueEvent { renderer.dragOffset = floatArrayOf(0f, 0f, 0f) }
@@ -360,6 +383,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                 }
                 if (longPressed) {
                     if (event.pointerCount >= 2) inputLog { "2f blocked: long press" }
+                    else listener?.onLongPressTouch(event.x, event.y, true)
                     return true
                 }
                 if (event.pointerCount >= 2) {
@@ -385,6 +409,27 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                             val steps = (kotlin.math.hypot(dx, dy) / PAINT_STEP_PX).toInt().coerceIn(1, 32)
                             for (i in 1..steps) listener?.onPaint(lastX + dx * i / steps, lastY + dy * i / steps, false)
                         }
+                        rotateDrag != null -> {
+                            val d = rotateDrag!!
+                            val before = d.degrees
+                            val deg = d.update(event.x, event.y)
+                            // A click per snap step, as the view cube's press.
+                            if (d.step > 0f && deg != before) performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+                            val m = RotateGizmo.matrix(d.axis, deg)
+                            val c = d.c
+                            val step = d.step
+                            if (cutBase != null) {
+                                queueEvent { renderer.rotateStep = step }
+                                listener?.onCutTilt(d.axis, deg, cutBase!!, event.x, event.y, false)
+                            } else {
+                                queueEvent { renderer.rotatePivot = floatArrayOf(c.x, c.y, c.z); renderer.rotateMatrix = m; renderer.rotateStep = step }
+                                listener?.onRotate(d.axis, deg, c, event.x, event.y, false)
+                            }
+                        }
+                        cutMoving -> {
+                            val dz = cutDz(lastX, lastY, event.x, event.y)
+                            if (dz != 0f) listener?.onCutMove(dz)
+                        }
                         resizeHandle != null -> {
                             val h = resizeHandle!!
                             val (lo, hi) = resizeBox!!
@@ -406,7 +451,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                         }
                         // In resize mode the view holds still until the touch slop decides between resize and orbit
                         // (a corner resize also turned the camera ~1.5 degrees, WSA r305).
-                        resizeMode && !resizeTried -> Unit
+                        (resizeMode || rotateMode) && !resizeTried -> Unit
                         else -> camera.orbit((event.x - lastX) * 0.3f, (event.y - lastY) * 0.3f)
                     }
                     lastX = event.x; lastY = event.y
@@ -422,8 +467,13 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                     if (action != null && !moved && android.os.SystemClock.uptimeMillis() - lastInstantTime > INSTANT_REPEAT_MS) fireInstant(action)
                 } else if (longPressed || middleButton) {
                     // Handled: the menu is open, or the middle button only pans.
+                    if (longPressed) listener?.onLongPressTouch(event.x, event.y, false)
                 } else if (rightButton) {
                     if (!moved && mode == InteractionMode.NAVIGATE) listener?.onContextMenu(event.x, event.y)
+                } else if (cutMoving) {
+                    cutMoving = false
+                } else if (rotateDrag != null) {
+                    endRotate(if (moved) rotateDrag!!.degrees else null, event.x, event.y)
                 } else if (resizeHandle != null) {
                     endResize(if (moved) resizeScale else null, event.x, event.y)
                 } else if (dragging) {
@@ -452,6 +502,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                 }
             }
             MotionEvent.ACTION_CANCEL -> {
+                if (longPressed) listener?.onLongPressTouch(-1f, -1f, false)
                 if (rectangle && moved) listener?.onRectangle(downX, downY, downX, downY, rectangleRemove, true)
                 rectangle = false
                 cancelDrag()
@@ -538,7 +589,97 @@ class PlateView(context: Context) : GLSurfaceView(context) {
         listener?.onResize(scale, ScaleGizmo.pivot(box.first, box.second), x, y, true)
     }
 
-    private fun cancelResize() = endResize(null)
+    private fun cancelResize() { endResize(null); endRotate(null); cutMoving = false }
+
+    private var rotateDrag: RotateGizmo.Drag? = null
+
+    /** Rotating is on (Rotate in the context menu or R): the rotate gizmo's rings show on the lone selection. */
+    @Volatile var rotateMode = false
+        set(value) { field = value; queueEvent { renderer.rotateGizmo = value } }
+
+    /**
+     * In [rotateMode], a touch on a ring of the lone selected box starts a turn ([RotateGizmo]) from where the finger landed
+     * ([x0], [y0]); ([x], [y]) is where it is now, past the touch slop, so the turn so far isn't lost.
+     */
+    private fun startRotate(x0: Float, y0: Float, x: Float, y: Float): Boolean {
+        if (!rotateMode) return false
+        val box = selectedBounds.singleOrNull() ?: return false
+        val reach = 24f * resources.displayMetrics.density
+        val axis = RotateGizmo.pick(box.first, box.second, camera, x0, y0, reach)
+        if (axis < 0) return false
+        val c = RotateGizmo.center(box.first, box.second)
+        val d = RotateGizmo.Drag(axis, c, RotateGizmo.radius(box.first, box.second, camera), camera, x0, y0,
+            RotateGizmo.FREE_BAND_DP * resources.displayMetrics.density)
+        rotateDrag = d
+        val from = d.start
+        queueEvent { renderer.rotateAxis = axis; renderer.rotateFrom = from }
+        d.update(x, y)
+        return true
+    }
+
+    /** Ends a turn: applies [degrees], or cancels with null. */
+    private fun endRotate(degrees: Float?, x: Float = 0f, y: Float = 0f) {
+        val d = rotateDrag ?: return
+        rotateDrag = null
+        queueEvent { renderer.rotateAxis = -1; renderer.rotateFrom = null; renderer.rotateStep = 0f }
+        val base = cutBase
+        cutBase = null
+        if (base != null) listener?.onCutTilt(d.axis, degrees, base, x, y, true)
+        else listener?.onRotate(d.axis, degrees, d.c, x, y, true)
+    }
+
+    /** The cut plane while the cut tool is open (centre, disc radius, orientation as Euler degrees); null = no cut tool. */
+    class CutGeom(val c: Vec3, val r: Float, val rot: Vec3)
+    @Volatile var cutGeom: CutGeom? = null
+    private var cutBase: Vec3? = null
+    private var cutMoving = false
+
+    private fun cutBox(g: CutGeom): Pair<Vec3, Vec3> {
+        val k = g.r / Math.sqrt(3.0).toFloat()
+        return Vec3(g.c.x - k, g.c.y - k, g.c.z - k) to Vec3(g.c.x + k, g.c.y + k, g.c.z + k)
+    }
+
+    /**
+     * With the cut tool open, a drag that starts on a tilt ring turns the plane about that axis; one that starts on the plane
+     * moves it up or down (a thumb can do both with the tool window open); anything else is the camera's.
+     */
+    private fun startCut(x0: Float, y0: Float, x: Float, y: Float): Boolean {
+        val g = cutGeom ?: return false
+        val (lo, hi) = cutBox(g)
+        val reach = 28f * resources.displayMetrics.density
+        val axis = RotateGizmo.pick(lo, hi, camera, x0, y0, reach, 2)
+        if (axis >= 0) {
+            val d = RotateGizmo.Drag(axis, g.c, RotateGizmo.radius(lo, hi, camera), camera, x0, y0, RotateGizmo.FREE_BAND_DP * resources.displayMetrics.density)
+            rotateDrag = d
+            cutBase = g.rot
+            val from = d.start
+            queueEvent { renderer.rotateAxis = axis; renderer.rotateFrom = from }
+            d.update(x, y)
+            return true
+        }
+        val n = CutPlane.normal(g.rot)
+        val (u, v) = CutPlane.axes(g.rot)
+        val rim = (0 until 48).mapNotNull { i ->
+            val a = i * 2.0 * Math.PI / 48
+            camera.project(g.c + u * (g.r * Math.cos(a).toFloat()) + v * (g.r * Math.sin(a).toFloat()))
+        }
+        if (rim.size < 24 || !RotateGizmo.inside(rim, x0, y0)) return false
+        cutMoving = true
+        lastX = x0; lastY = y0
+        return true
+    }
+
+    /** Height change for a finger move: its part along the world Z axis' direction on screen, over that axis' length there. */
+    private fun cutDz(x0: Float, y0: Float, x1: Float, y1: Float): Float {
+        val g = cutGeom ?: return 0f
+        val a = camera.project(g.c) ?: return 0f
+        val b = camera.project(Vec3(g.c.x, g.c.y, g.c.z + 10f)) ?: return 0f
+        val vx = (b.first - a.first) / 10f
+        val vy = (b.second - a.second) / 10f
+        val l2 = vx * vx + vy * vy
+        if (l2 < 0.05f) return 0f
+        return ((x1 - x0) * vx + (y1 - y0) * vy) / l2
+    }
 
     private fun cancelDrag() {
         cancelResize()

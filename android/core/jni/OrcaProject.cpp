@@ -130,6 +130,26 @@ std::array<double, 4> rect_of(const DynamicPrintConfig &config, const std::array
     return {bb.min.x(), bb.min.y(), bb.max.x(), bb.max.y()};
 }
 
+// The desktop refuses a project ("Invalid configuration file", then "no geometry data") when filament_self_index or
+// filament_extruder_variant is not as long as the filament list (PresetBundle::load_config_file_config). The selection
+// config can carry a one-entry filament_self_index next to four filaments, so size both to the filament count.
+void match_filament_indices(DynamicPrintConfig &config)
+{
+    const auto *colours = config.option<ConfigOptionStrings>("filament_colour");
+    if (colours == nullptr || colours->values.empty())
+        return;
+    const size_t n = colours->values.size();
+    std::vector<int> &self_index = config.option<ConfigOptionInts>("filament_self_index", true)->values;
+    if (self_index.size() != n) {
+        self_index.resize(n);
+        for (size_t i = 0; i < n; ++i)
+            self_index[i] = int(i) + 1;
+    }
+    std::vector<std::string> &variants = config.option<ConfigOptionStrings>("filament_extruder_variant", true)->values;
+    if (variants.size() != n)
+        variants.resize(n, variants.empty() ? std::string("Direct Drive Standard") : variants.front());
+}
+
 } // namespace
 
 json OrcaEngine::save_project(const std::string &path)
@@ -137,6 +157,7 @@ json OrcaEngine::save_project(const std::string &path)
     std::lock_guard<std::mutex> lock(m_mutex);
     require_printer();
     DynamicPrintConfig config = selection_config();
+    match_filament_indices(config);
 
     std::vector<std::array<float, 3>> colors;
     if (const auto *opt = config.option<ConfigOptionStrings>("filament_colour"))
@@ -245,6 +266,7 @@ json OrcaEngine::export_gcode_3mf(int plate, const std::string &gcode, const std
     if (plate < 0 || plate >= int(m_plates.size()))
         throw std::runtime_error("Invalid plate");
     DynamicPrintConfig config = selection_config();
+    match_filament_indices(config);
     std::unique_ptr<Model> model = plate_model(plate);
 
     std::vector<std::array<float, 3>> colors;
