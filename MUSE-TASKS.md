@@ -18,10 +18,11 @@ GitHub is the mailbox; Vincent no longer relays.
 
 ## Status
 - Tasks 1-11 done and merged (PRs #37-#50). Task 11 needed a test fix from Claude (pr-check caught it).
-- **Next: Task 13 first (loopback diagnosis, short), then Task 12.** One PR each, cut from the latest `muse/work`.
+- Task 13 done (PR #52): IPv4 loopback is blocked for Java, IPv6 works; the build now stops at plugin resolution.
+- **Next: Task 14 (trust store, short), then Task 12.** One PR each, cut from the latest `muse/work`.
   **No more stacking**: stacked PRs conflict after a squash merge. If the previous PR isn't merged yet, wait for it.
 - Toolchain: JDK 21 + Android SDK are installed in Muse's VM, but Gradle's client-daemon loopback TCP fails there, so
-  PRs are `UNCOMPILED` (Task 9, `MUSE-TOOLCHAIN.md`). Task 13 tests why.
+  PRs are `UNCOMPILED` (Task 9, `MUSE-TOOLCHAIN.md`). Task 14 tries the last known blocker.
 
 ## Branches, PRs, promotion
 - Clone: `git clone --recurse-submodules --shallow-submodules https://github.com/BaIanced/OrcaStudio-Android.git`
@@ -303,6 +304,30 @@ public class Loop {
   }
 }
 ```
+
+## Task 14: Java TLS through the egress proxy (toolchain only; time-box ~30 min; do before Task 12)
+Task 13 fixed the daemon link (`JAVA_TOOL_OPTIONS="-Djava.net.preferIPv6Addresses=true"`); the build now fails at
+`com.android.application:9.4.1` plugin resolution, and a plain Java HTTPS GET through the proxy fails with
+`PKIX path validation failed: signature check failed` while `curl` gets HTTP 200. Test that link without Gradle first.
+
+1. Find the CA bundle `curl` trusts (`curl -v` output line `CAfile:`, or `SSL_CERT_FILE` / `CURL_CA_BUNDLE` /
+   `REQUESTS_CA_BUNDLE`, else `/etc/ssl/certs/ca-certificates.crt`). Print the subject + issuer of every cert the proxy
+   presents (`openssl s_client -proxy <proxy> -connect dl.google.com:443 -showcerts </dev/null`, then
+   `openssl x509 -noout -subject -issuer` per cert). Redact proxy host/user as `<proxy>`.
+2. Build a fresh JKS/PKCS12 trust store **outside the repo** (e.g. `/tmp/trust.p12`): import every cert from that bundle
+   with `keytool -importcert -noprompt` (one alias each; a short loop is fine). Record the count imported.
+3. Re-run Task 13's Java HTTPS probe against the marker POM with `-Djavax.net.ssl.trustStore=/tmp/trust.p12`
+   (+ `trustStoreType` / password if needed) instead of the install-time store. Record the status line or exception.
+   If it still fails `signature check failed`: try once with `-Djdk.tls.client.protocols=TLSv1.2`, then stop.
+4. If the probe gets HTTP 200: point every JVM at the new store via `JAVA_TOOL_OPTIONS` (keep the IPv6 flag) and also
+   override the daemon's `-Djavax.net.ssl.trustStore=...` from `daemonOpts` (`-Dorg.gradle.jvmargs=...` on the command
+   line). Then from `android/`, 900 s timeout, `--refresh-dependencies` once:
+   `./gradlew --console=plain :app:compileReleaseKotlin :app:testDebugUnitTest`
+   Record exit code, test count, and the first failing line if any. Up to 3 configurations, then stop.
+
+Result into `MUSE-TOOLCHAIN.md` (Task 14 section): the full copy-paste recipe if it compiles + tests, else the probe
+table. Every claim backed by an output line. No repo files other than `MUSE-TOOLCHAIN.md` and this log change. If the
+build works, the "Before every push" compile + test steps apply from Task 12 on.
 
 ## Log
 Append-only, one entry per PR (also for PRs that get closed unmerged), newest last. Never edit earlier entries.
