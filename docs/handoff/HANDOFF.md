@@ -20,7 +20,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = f1c4a17 (PR #34, r341, merged 2026-10-20). Untested in main: pen 7d3a263, fan hold 298ee9f, Extrude F150 e13bebb,
   Quest stick zoom (r324). Nothing unmerged on the branch.
-- Installed: run 39707542869 (paint shop 1b) on WSA/phone/Quest/SHIELD 2026-10-21 (Chromebook, Note not connected). Tablet: debug app only.
+- Installed: run 39709156358 (paint shop 1c) on WSA/phone/Quest/SHIELD 2026-10-21 (Chromebook, Note not connected). Tablet: debug app only.
 - **Test device = WSA** (user 2026-10-20). **Note** (added 2026-10-21) = S Pen test device only, not the main target (user; it locks: user says when it is awake, 2026-10-21); Quest = pseudo-pen device (user, untested). Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
   WSA `127.0.0.1:58526`; **USB serial = the user's SHIELD TV** (rooted; installs only).
@@ -31,8 +31,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 ## Next task
 - **User 2026-10-21: one small step per session.** Cue `/clear` + `/next` after EACH step. Pie menu disliked -> backlog.
 - **User 2026-10-21: design deviations pre-approved** ("deviate if you find a more logical, intuitive way; I trust your judgement"); say what changed.
-- Steps 1a (modes) + 1b (paint shop shell, PaintShop.kt, run 39707542869) built; Claude WSA-checked 1b 2026-10-21 (landscape side
-  panel, nav/tools/Slice hidden, Back + Done leave, selection kept); user feel untested. Next: 1c = hide other objects in the 3D view.
+- Steps 1a (modes), 1b (shell, PaintShop.kt) and 1c (solo view: only the selected copy + its paint/shadow drawn, `uSolo` in
+  Shaders.kt MESH_VS; commit 3e17ac2, run 39709156358) built; Claude WSA-checked 1b+1c 2026-10-21; user feel untested.
+  Next: 1d = frame the painted object on entry, then palette as layers.
 - **NEXT (user ACCEPTED 2026-10-21, this order, one step per session):** (1) **paint shop workspace** (1a done; 1b = full-screen focus
   shell: purple frame, others hidden, Done/back, portrait bottom dock / landscape side panel; mockup `%TEMP%/paintshop-mockup/`). (2) **Top depth** setting decoupled from top shell layers
   (same as shells / N layers / all the way through), native MultiMaterialSegmentation.cpp:1254/:1410, Object mode; sides = existing
