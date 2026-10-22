@@ -147,3 +147,5 @@ headless display below instead (no takeover needed). Don't drive WSA's own windo
 | `ClusterM/open-bamboo-networking` | obn pinned v2.2.0 + local patches 0001 (cloud callbacks), 0002 (start_print try LAN first), 0003 (MQTT CA from `SSL_CERT_FILE`). |
 
 - Handoff docs moved here from `OrcaStudio/arm-build` 2026-10-19; that repo is Flatpak-only now, untouched unless asked.
+
+- Disk: C: is tight; move old build dirs to `D:\orca-builds-archive`.

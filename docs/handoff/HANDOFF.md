@@ -31,7 +31,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **User 2026-10-21: design deviations pre-approved** ("deviate if you find a more logical, intuitive way; I trust your judgement"); say what changed.
 - Paint plan (user ACCEPTED 2026-10-21): steps (1)-(2) done, user feel untested (backlog "Paint panel UI", "Paint penetration").
   **Next: step (3) Colour change + waste counter**: post-slice half done (Muse Task 11 1740dcf + chute flush 82f2d7a, both
-  unbuilt/untested on device). Flush rule done (2026-10-22, JVM-tested): `ColourChangeEstimate.estimate(..., grabMm3,
+  unbuilt). Flush rule done (2026-10-22, JVM-tested): `ColourChangeEstimate.estimate(..., grabMm3,
   minPurgeMm3)`; tower path floors chute purge at 100 mm3 (`GCode.cpp:153`/`:1267`; WSA plate_1: 6 x L41.5752 = 100).
   Open: why purge was > 0 before flooring (97 x 0.3 - grab 41.76 < 0; `Print.cpp:4700-4718`): code floors every switch.
   **Next small step:** native per-layer filament ids from the painted mesh (plan: JNI returns [filament, zmin, zmax] per
@@ -42,7 +42,6 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   muse/work, then comment `TASK <n> READY` on issue #46; Muse replies via PR + log entry, pings #46 (`PR #<n> UPDATED`).
   **Every session start: check open `muse/*` PRs and #46** (Task 13 loopback sent 2026-10-22, no reply yet). Self-merge: the
   command STARTS with `gh pr merge`. Muse role verdict waits on Task 13 (compiles -> Kotlin OK; else audits/pure logic). No stacking.
-- C: tight; old build dirs -> `D:\orca-builds-archive`.
 - Open (backlog): app 3MF fails in desktop Orca (fix untested), printer/user-only checks, pen input, plate switcher pick.
 
 ## User decisions (2026-10-13)
