@@ -2498,3 +2498,11 @@ User: "you just tested something we already confirmed worked". Cross-checked eac
 - Task 10 (PR #49 -> 3ceb676; work branch a797c20): `android/scripts/check_3mf.py`, 29/29 tests, all OK on a WSA 3MF
   (swatch2; not app-saved: WSA blocked the session-backup pull). Task 11 (PR #50 -> 6e44dcd; work branch 1740dcf): pr-check
   failed on a test cast; Claude fixed it plus per-plate parse jobs (plate switch lost the count) and slice-average density.
+
+### 2026-10-22 r372 colour-change lines on WSA (Claude)
+- r372 (run 39869256888) installed on WSA, SHIELD, Chromebook. WSA plate 2 (20 mm cube, top face filament 2, depth
+  "Top 8 layers", 5 top shells, prime tower): Preview line "Colour changes 7 · flush ~0.9 g · prime tower ~3.3 g" = OK
+  (slice_result lists the prime tower at 3.155 g; the line's ~3.3 g differs a little, see backlog). Paint-shop line read
+  "Plate estimate: 1 colour changes · flush ~0.1 g": PaintLayers ignored paint depth (flat top -> last layer only).
+  Fixed f7b3c77 (depth carried in from mmu_top/bottom_paint_layers, 0 = shells, -1 = through; 7/7 JVM tests); wording
+  now "colour changes N". Expected on this cube after the fix: 8 (slicer 7: its top layer is filament 2 only).
