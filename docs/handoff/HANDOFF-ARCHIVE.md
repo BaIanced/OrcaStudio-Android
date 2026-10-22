@@ -2489,3 +2489,9 @@ User: "you just tested something we already confirmed worked". Cross-checked eac
 
 ### 2026-10-22 Muse tasks 2-8 promoted
 - Claude: PRs #42-#45 merged into muse/work (user gave standing OK for muse/work merges); android/ code from tasks 2-8 committed a4b63c7 on the work branch: compile 0, 79/79 unit tests. WSA debug build: Colour painting > Object, Tab to Preview (tool stays Paint), Prepare -> Object still selected. Tasks 9-12 written (PR #47, merged).
+
+## 2026-10-22 Muse Tasks 7 + 9
+- Task 7 (paint mode kept over Preview, a4b63c7): Claude WSA-checked OK.
+- Task 9 (PR #48 -> muse/work ed7f000): no Gradle in Muse's VM. gradlew's hard-coded `-Xms64m` + instrumentation-agent
+  mismatch always forks a single-use daemon, and Java loopback TCP is blocked there. Details in `MUSE-TOOLCHAIN.md`.
+  Untried: `-Dorg.gradle.jvmargs=...` on the command line (beats both gradle.properties) or a direct distribution launch.
