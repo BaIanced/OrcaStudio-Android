@@ -274,3 +274,34 @@ reader. Whether a current app save actually opens on the desktop is still untest
 Open questions: JDK/Android SDK install in Muse's VM (see Status, Vincent's call);
 can Vincent save a multi-filament project in the app and open that exact file in
 desktop Orca, so finding 2 can move from OK-by-reading to observed?
+
+### Task 7 - 2026-10-22 - muse/task-7-paint-mode-session - this commit
+Bug: the colour-paint mode reset to Fill after switching to Preview and back. Two
+causes, both in where the mode was held. (1) Object mode existed only as a
+`rememberSaveable` flag inside `ColorPaintOptions` (`ui/prepare/ToolPanel.kt`) while
+its shape is plain "fill", so when the paint shop left composition the flag was gone
+and the surviving shape read back as Fill. (2) `AppViewModel.setScreen` cleared the
+whole tool on leaving Prepare, so the shop itself (and every mode's shape) was lost
+on the same round-trip. Fix, smallest that keeps the mode for the session and not
+across restarts (`UiState` is never persisted): `Tool.Paint` gains an `objectMode`
+flag (session state in the store, like its shape); the mode derivation moves verbatim
+into a pure `PaintMode` object (`ui/prepare/PaintMode.kt`); and `setScreen` now goes
+through a pure `toolAfterScreenChange` (`ui/AppState.kt`) that keeps the tool across
+Prepare <-> Preview (the preview viewport already ignores the tool) and still clears
+it when leaving the workspace for another tab. 5 unit tests in
+`ui/prepare/PaintModeTest.kt` cover the mode mapping (including that a stale
+objectMode flag without the fill shape does not resurrect Object) and the
+screen-change rule. Known remaining gap, deliberately not fixed here: `fillKeep`
+(the fill settings Object mode overrides) is still a plain `remember` in
+`ColorPaintOptions`, so leaving Object after a composition recreation restores the
+overridden values rather than the pre-Object ones.
+Stacked on `muse/task-6-3mf-export-review` (Tasks 5-6 not merged yet).
+Build: UNCOMPILED (no toolchain in Muse's VM; Vincent's JDK/SDK call still open).
+Privacy self-scan: tree exit 0, range exit 0.
+UNVERIFIED: device behaviour is UNVERIFIED — not compiled, tests not run, no device
+check. Device check for Vincent/Claude: open a model, Paint > Colour painting, pick
+Object mode, switch to Preview, switch back to Prepare: the paint shop should still
+be open in Object mode; repeat with Brush (circle) and Bands — both should also
+survive; then open Device and return to Prepare: the tool should be cleared, as
+before. Also confirm painting strokes still do nothing while Preview is showing.
+Open questions: JDK/Android SDK install in Muse's VM (see Status, Vincent's call).

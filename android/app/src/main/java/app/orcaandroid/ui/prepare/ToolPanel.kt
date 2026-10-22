@@ -280,19 +280,14 @@ private fun RemapSection(state: UiState, vm: AppViewModel) {
     }
 }
 
-private fun paintModeOf(shape: String) = when (shape) {
-    "fill", "regions" -> "fill"; "height" -> "bands"; else -> "brush"
-}
-
 /** Colour painting as task modes (user picked "option C", 2026-10-21): Brush / Fill / Bands / Object, each with a one-line
  *  description and only its own options; the swatch row (filaments, Erase, Pick) is shared by all. Object mode = a fill over
  *  colours with no edge limit (a tap colours the whole part) plus the whole-object actions. */
 @Composable
 internal fun ColorPaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Paint, layers: Boolean = false) {
     val shape = if (tool.shape == "pick") tool.back else tool.shape
-    var objectMode by rememberSaveable { mutableStateOf(false) }
-    // The mode follows the tool: Object only while its fill is still the active shape.
-    val mode = if (objectMode && shape == "fill") "object" else paintModeOf(shape)
+    // The mode follows the tool (PaintMode): Object only while its fill is still the active shape.
+    val mode = PaintMode.of(shape, tool.objectMode)
     // The shape each mode used last, and the fill settings Object mode overrides (back when leaving it).
     var brushShape by rememberSaveable { mutableStateOf(if (mode == "brush") shape else "sphere") }
     var fillShape by rememberSaveable { mutableStateOf(if (shape == "regions") "regions" else "fill") }
@@ -301,7 +296,6 @@ internal fun ColorPaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Pain
         if (m == mode) return
         val base = if (mode == "object") tool.copy(edgeAngle = fillKeep[0].edgeAngle, overColours = fillKeep[0].overColours, guardOn = fillKeep[0].guardOn) else tool
         if (m == "object") fillKeep[0] = tool
-        objectMode = m == "object"
         val next = when (m) {
             "brush" -> base.copy(shape = brushShape)
             "fill" -> base.copy(shape = fillShape, edgeAngle = if (fillShape == "regions" && base.edgeAngle <= 0f) 30f else base.edgeAngle)
@@ -309,7 +303,8 @@ internal fun ColorPaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Pain
             else -> base.copy(shape = "fill", edgeAngle = 0f, overColours = true, guardOn = false)
         }
         // Erase has no meaning for a whole part; coming from the eyedropper it goes back to the mode's shape.
-        vm.scene.setTool(next.copy(back = next.shape, state = if (m == "object" && next.state == 0) 1 else next.state))
+        vm.scene.setTool(next.copy(back = next.shape, objectMode = m == PaintMode.OBJECT,
+            state = if (m == "object" && next.state == 0) 1 else next.state))
     }
     Row(Modifier.fillMaxWidth()) {
         listOf(

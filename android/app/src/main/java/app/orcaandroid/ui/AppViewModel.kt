@@ -108,7 +108,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     // --- App-wide UI state ---------------------------------------------------------------------------
 
-    fun setScreen(screen: Screen) = store.update { it.copy(screen = screen, tool = if (screen == Screen.PREPARE) it.tool else Tool.None) }
+    fun setScreen(screen: Screen) = store.update { it.copy(screen = screen, tool = toolAfterScreenChange(it.screen, screen, it.tool)) }
 
     /** Shows [url] in the Models tab's browser. */
     fun openInModels(url: String) = store.update { it.copy(modelsUrl = url, screen = Screen.MODELS, tool = Tool.None) }
