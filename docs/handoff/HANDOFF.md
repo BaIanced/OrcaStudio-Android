@@ -7,13 +7,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   up front; grep them when a question needs them (e.g. `grep -n "AMS mapping" HANDOFF-ARCHIVE.md`).
 
 ## Rolling handoff rules (user, 2026-10-12; full text in the /next skill)
-- **Under ~8 KB** (`wc -c` at every update; prune before stopping): state, 1-3 tasks in progress, gotchas, rules. How-to ->
-  `HANDOFF-REFERENCE.md`; verified details -> end of `HANDOFF-ARCHIVE.md` (dated), one line here.
-- Pending/untested items live in `HANDOFF-BACKLOG.md` (one line each, never deleted; archived once verified).
-- Task boundary cue: "`/clear` then `/next`" ONLY if context is above ~50-80k tokens (below that clearing costs more; just continue), or "`/clear` then `/next-merge`" when verified work awaits a merge (say what
-  merges, what stays unverified). Never mid-task. Merge only on "merge" / `/next-merge`, never untested commits.
-- **Log user verdicts first** (archive line with date/build/their words, backlog line, one-liner here) before anything else.
-- **User-only items** (feel, look, prints): grep the archive; if the last verdict predates the latest build, ask one line first.
+- Under ~8 KB (`wc -c`); verified -> end of `HANDOFF-ARCHIVE.md` (dated) + one line here; pending -> `HANDOFF-BACKLOG.md`.
+- Cue "`/clear` then `/next`" only above ~50-80k tokens; "`/next-merge`" when verified work awaits (main merges only on "merge").
+- Log user verdicts first. User-only items: grep the archive; if the verdict predates the latest build, ask one line first.
 
 ## State
 - One repo: OrcaStudio-Android (code + these docs, `docs/handoff/`), branch `claude/handoff-continuation-rseql3`. Autonomy (user, 2026-10-11): decide branches and next steps
