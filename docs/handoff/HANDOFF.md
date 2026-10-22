@@ -31,11 +31,15 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 ## Next task
 - **User 2026-10-21: one small step per session.** Cue `/clear` + `/next` after EACH step. USER VERIFIED 2026-10-21: rotate gizmo + haptics,
   cut redesign ("much better"), Z rail feel (archive). Pie menu: user dislikes it -> LOW S Pen customizable picker, not now (backlog).
-- **Waiting on the user's pick (asked 2026-10-21):** (1) cut follow-up: upper part = radio Lay on cut face / Flip / Leave in place +
-  nested "Arrange parts after cut" (off for Leave in place; today `arrange_plate` always runs, OrcaScene.cpp:1046);
-  (2) Z rail live drag (only a wireframe ghost moves, the one CSG mesh re-renders on release, MeshPreviewView.kt:342);
-  (3) shape builder: user wants same look, own plate, isolated focus mode; workspaces + design/print pose plan given in chat, awaiting go;
-  (4) paint panel: USER PICKED C; paint shop mockup sent (bottom dock + layers panel), awaiting OK, ToolPanel.kt:152. Feel pending: view cube, Check mesh, paint batches.
+- **NEXT (user ACCEPTED 2026-10-21, this order, one step per session):** (1) **paint shop workspace**: full-screen focus mode (purple
+  frame, others hidden, Done/back), option C modes Brush/Fill/Bands/Object; portrait bottom dock (options+desc / swatches+Pick /
+  modes), landscape side panel = filament layer rows (hide/lock/% come later as their own step); mockup source
+  `%TEMP%/paintshop-mockup/mockup.html`; today's panel ToolPanel.kt:152. (2) **Top depth** setting decoupled from top shell layers
+  (same as shells / N layers / all the way through), native MultiMaterialSegmentation.cpp:1254/:1410, Object mode; sides = existing
+  mmu_segmented_region_max_width. (3) **Colour change + waste counter** (estimate; flush volumes from the profile). Details: backlog "Paint".
+- Later (awaiting go): cut radio Lay on cut face / Flip / Leave + nested "Arrange after cut" (arrange_plate always runs, OrcaScene.cpp:1046;
+  with the design pose, Leave goes away); Z rail live drag (MeshPreviewView.kt:342); Build workspace (shapes as Orca parts, design pose).
+  Feel pending: view cube, Check mesh, paint batches.
 - C: tight; old build dirs move to `D:\orca-builds-archive`.
 - **Open issue: app 3MF export fails in desktop Orca** (fix `match_filament_indices` in run 39529670166, installed on all devices; untested on a 4-filament export: the user exports from the phone and opens it in desktop Orca).
 - Need the printer, and user-only checks (bead look, shadows, light sliders, r276/r283/r284/r280/r316/r305): backlog.
