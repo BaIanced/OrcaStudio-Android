@@ -451,7 +451,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
                         } else {
                             store.applyScene(engine.paint(listOf(hit), last.camera, tool.radius, tool.kind, tool.state, !fillShown, last.section,
                                 listOf(false), tool.edgeAngle, "fill", tool.height, tool.overhang, tool.guardZ.takeIf { tool.guardOn },
-                                tool.overColours || tool.shape == "regions"))
+                                tool.overColours || tool.shape == "regions", tool.locked))
                             fillShown = true
                         }
                         strokePending = false
@@ -468,7 +468,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
                     if (hits.isEmpty()) continue
                     val last = batch.last()
                     store.applyScene(engine.paint(hits, last.camera, tool.radius, tool.kind, tool.state, strokePending, last.section, joins, tool.edgeAngle,
-                        tool.shape, tool.height, tool.overhang, tool.guardZ.takeIf { tool.guardOn }))
+                        tool.shape, tool.height, tool.overhang, tool.guardZ.takeIf { tool.guardOn }, locked = tool.locked))
                     strokePending = false
                 }
             }
@@ -481,7 +481,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
     /** Regions view: the selected copy's crease lines, or null without a selection. */
     suspend fun creaseLines(angle: Float): FloatArray? = selection?.let { engine.creaseLines(it.obj, it.instance, angle) }
     fun paintByPart() = selection?.let { sel -> store.sceneOp { engine.paintByPart(sel.obj) } }
-    fun paintGapFill(kind: String, area: Float) = selection?.let { sel -> store.sceneOp { engine.paintGapFill(sel.obj, kind, area) } }
+    fun paintGapFill(kind: String, area: Float, locked: Int = 0) = selection?.let { sel -> store.sceneOp { engine.paintGapFill(sel.obj, kind, area, locked) } }
 
     // --- Variable layer height ------------------------------------------------------------------------
 

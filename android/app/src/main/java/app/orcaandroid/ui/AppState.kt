@@ -45,7 +45,9 @@ sealed interface Tool {
                      /** Guard plane: painting stops at the horizontal plane at [guardZ] mm (world) while [guardOn]. */
                      val guardOn: Boolean = false, val guardZ: Float = 10f,
                      /** Fill over colours: the fill ignores existing colours and stops only at edges / the guard plane. */
-                     val overColours: Boolean = false) : Tool
+                     val overColours: Boolean = false,
+                     /** Paint shop layers (bit i = filament i + 1): [hidden] ones are drawn grey, [locked] ones no paint covers. */
+                     val hidden: Int = 0, val locked: Int = 0) : Tool
     data object LayOnFace : Tool
     data object Measure : Tool
     /** The cut plane passes through the object's middle at height [z], turned by [rot] (Euler degrees) from the horizontal. */

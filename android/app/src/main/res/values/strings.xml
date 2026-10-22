@@ -299,6 +299,10 @@
     <string name="paint_shop">Paint shop</string>
     <string name="paint_layers">Filaments</string>
     <string name="paint_layer_menu">Filament actions</string>
+    <string name="paint_layer_hide">Hide</string>
+    <string name="paint_layer_show">Show</string>
+    <string name="paint_layer_lock">Lock (no paint covers it)</string>
+    <string name="paint_layer_unlock">Unlock</string>
     <string name="paint_layer_share">%1$s · %2$d %% of the surface</string>
     <string name="paint_turn_into">Turn into filament %1$d</string>
     <string name="paint_fuzzy">Fuzzy skin</string>

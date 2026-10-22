@@ -5,6 +5,7 @@
 #include "OrcaEngine.hpp"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -15,6 +16,7 @@
 #include <memory>
 #include <set>
 #include <stdexcept>
+#include <type_traits>
 #include <utility>
 
 #include <boost/log/trivial.hpp>
@@ -254,21 +256,6 @@ void OrcaEngine::write_paint_mesh()
 
 namespace {
 
-// A brush cursor whose flood over the mesh (TriangleSelector::select_patch) stays on the faces in [faces].
-template<class Base> class EdgeLimited : public Base
-{
-public:
-    template<class... Args>
-    explicit EdgeLimited(const std::vector<bool> &faces, Args &&...args) : Base(std::forward<Args>(args)...), m_faces(faces) {}
-    bool is_facet_visible(int facet_idx, const std::vector<Vec3f> &face_normals) const override
-    {
-        return m_faces[facet_idx] && Base::is_facet_visible(facet_idx, face_normals);
-    }
-
-private:
-    const std::vector<bool> &m_faces;
-};
-
 // Faces reachable from [seed] over edges between faces whose normals differ by at most [angle] degrees: the desktop's
 // smart fill test (TriangleSelector::seed_fill_select_triangles, neighbour against neighbour).
 // [allowed]: faces the flood may enter (all when empty).
@@ -296,6 +283,18 @@ std::vector<bool> flood_surface(const indexed_triangle_set &its, const std::vect
     return faces;
 }
 
+// The paint shop's layer lock by paint state (bit i of [locked] = filament i + 1); NONE = unpainted, locked with the part's
+// own filament.
+using FilamentLocks = std::array<bool, size_t(EnforcerBlockerType::ExtruderMax) + 1>;
+FilamentLocks filament_locks(uint32_t locked, const ModelVolume &vol)
+{
+    FilamentLocks locks{};
+    for (size_t s = 1; s < locks.size(); ++s)
+        locks[s] = s <= 32 && (locked >> (s - 1) & 1u);
+    locks[0] = locks[std::min<size_t>(std::max(1, vol.extruder_id()), locks.size() - 1)];
+    return locks;
+}
+
 // The desktop's gap fill (TriangleSelectorPatch::update_triangles_per_patch / update_selector_triangles): a patch is a
 // connected run of leaf triangles in one state; a patch under [max_area] mm2 takes the state that borders it most.
 class GapFiller : public TriangleSelector
@@ -303,7 +302,8 @@ class GapFiller : public TriangleSelector
 public:
     using TriangleSelector::TriangleSelector;
 
-    bool fill(float max_area)
+    // [locked] (by state, may be null): patches in those states stay.
+    bool fill(float max_area, const FilamentLocks *locked = nullptr)
     {
         auto [neighbors, neighbors_propagated] = precompute_all_neighbors();
         std::vector<bool> visited(m_triangles.size(), false);
@@ -353,7 +353,8 @@ public:
         }
         bool changed = false;
         for (const Patch &patch : patches) {
-            if (patch.area >= max_area || patch.neighbor_types.empty())
+            if (patch.area >= max_area || patch.neighbor_types.empty() ||
+                (locked && (*locked)[size_t(m_triangles[patch.facets.front()].get_state())]))
                 continue;
             // The surrounding state: the one touching the patch most (a speck on a border joins the longer side).
             const auto most = std::max_element(patch.neighbor_types.begin(), patch.neighbor_types.end(),
@@ -409,11 +410,72 @@ private:
     }
 };
 
-// A guarded fill's selector: puts back the states a spare state stood in for, from the selector before the stroke.
-class FillSelector : public TriangleSelector
+// The paint selector, with cursors kept off some triangles (Guarded).
+class PaintSelector : public StateProbe
 {
 public:
-    using TriangleSelector::TriangleSelector;
+    using StateProbe::StateProbe;
+    using Locks = FilamentLocks;
+
+    // A cursor that stays on the original facets in [faces] (edge detection; the flood and, since a height range seeds on
+    // every facet in its band, each triangle) and off the triangles in [locks] states (the paint shop's layer lock: the
+    // paint stops exactly at their borders; a whole locked facet stops the flood like an edge). Either may be null.
+    template<class Base> class Guarded : public Base
+    {
+    public:
+        template<class... Args>
+        Guarded(const PaintSelector &selector, const std::vector<bool> *faces, const Locks *locks, Args &&...args)
+            : Base(std::forward<Args>(args)...), m_selector(selector), m_faces(faces), m_locks(locks) {}
+        bool is_facet_visible(int facet_idx, const std::vector<Vec3f> &face_normals) const override
+        {
+            return (!m_faces || (*m_faces)[facet_idx]) && Base::is_facet_visible(facet_idx, face_normals);
+        }
+        // Called first for every triangle the selection visits (select_triangle_recursive): a kept-off triangle is outside the
+        // cursor; a split triangle holding a locked one isn't wholly inside, so the selection goes down to its children.
+        int vertices_inside(const Triangle &tr, const std::vector<Vertex> &vertices) const override
+        {
+            m_skip = off(tr);
+            if (m_skip)
+                return 0;
+            const int inside = Base::vertices_inside(tr, vertices);
+            return inside == 3 && m_locks && tr.is_split() && m_selector.holds_locked(tr, *m_locks) ? 2 : inside;
+        }
+        bool is_pointer_in_triangle(const Vec3f &p1, const Vec3f &p2, const Vec3f &p3) const override
+        {
+            return !m_skip && Base::is_pointer_in_triangle(p1, p2, p3);
+        }
+        bool is_edge_inside_cursor(const Triangle &tr, const std::vector<Vertex> &vertices) const override
+        {
+            return !off(tr) && Base::is_edge_inside_cursor(tr, vertices);
+        }
+
+    private:
+        bool off(const Triangle &tr) const
+        {
+            return (m_faces && !(*m_faces)[tr.source_triangle]) || (m_locks && !tr.is_split() && (*m_locks)[size_t(tr.get_state())]);
+        }
+        const PaintSelector     &m_selector;
+        const std::vector<bool> *m_faces;
+        const Locks             *m_locks;
+        mutable bool             m_skip = false;
+    };
+
+    bool holds_locked(const Triangle &tr, const Locks &locks) const
+    {
+        if (!tr.is_split())
+            return locks[size_t(tr.get_state())];
+        for (int c = 0; c <= tr.number_of_split_sides(); ++c)
+            if (holds_locked(m_triangles[tr.children[c]], locks))
+                return true;
+        return false;
+    }
+};
+
+// A guarded fill's selector: puts back the states a spare state stood in for, from the selector before the stroke.
+class FillSelector : public PaintSelector
+{
+public:
+    using PaintSelector::PaintSelector;
 
     void restore(EnforcerBlockerType spare, const StateProbe &before)
     {
@@ -538,7 +600,7 @@ struct OrcaEngine::FillPreview
 
 json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<double, 3> &camera, double radius, const std::string &kind,
                        int state, bool new_stroke, const std::vector<double> &section, double edge_angle,
-                       const std::string &shape, double height, double overhang, double guard, bool over_colours)
+                       const std::string &shape, double height, double overhang, double guard, bool over_colours, uint32_t locked)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
     for (const PaintHit &h : hits) {
@@ -568,18 +630,23 @@ json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<doubl
         clip_plane = m_guard_below ? std::vector<double>{0., 0., 1., guard} : std::vector<double>{0., 0., -1., -guard};
     }
     const EnforcerBlockerType new_state = EnforcerBlockerType(std::clamp(state, 0, int(EnforcerBlockerType::ExtruderMax)));
+    // Layer lock (colour only): the volume's locked states, kept here while its cursor paints.
+    const bool locking = kind == "color" && locked != 0;
+    FilamentLocks locks{};
+    auto locks_of = [&](const ModelVolume &vol) -> const FilamentLocks & { return locks = filament_locks(locked, vol); };
     // Colour painting that starts or ends a volume's painting changes whether its plate gets a prime tower,
     // which is part of the scene mesh (write_mesh): the tower showed only after the next move (WSA r324).
     bool tower_changed = false;
     // The live selector of a volume's annotation, loaded again when the annotation changed elsewhere.
-    auto live_selector = [&](ModelVolume &vol, FacetsAnnotation &facets) -> TriangleSelector & {
+    auto live_selector = [&](ModelVolume &vol, FacetsAnnotation &facets) -> PaintSelector & {
         LivePaint &live = m_live_paint;
         if (!live.selector || live.annotation != &facets || live.timestamp != facets.timestamp() || live.mesh.get() != &vol.mesh()) {
-            live = {&facets, vol.mesh_ptr(), 0, std::make_shared<TriangleSelector>(vol.mesh())};
+            live = {&facets, vol.mesh_ptr(), 0, std::make_shared<PaintSelector>(vol.mesh())};
             live.selector->deserialize(facets.get_data(), false);
             ++loads;
         }
-        return *live.selector;
+        // Always made here (the only place that sets it).
+        return static_cast<PaintSelector &>(*live.selector);
     };
     // Saves the live selector into its annotation.
     auto save_live = [&](FacetsAnnotation &facets, bool was_empty) {
@@ -660,13 +727,17 @@ json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<doubl
         // The guard's two sides as height bands: HeightRange splits the triangles at the band's ends, at the plane.
         constexpr float FAR = 1e5f;
         const float kept_z = m_guard_below ? float(guard) - FAR : float(guard), beyond_z = m_guard_below ? float(guard) : float(guard) - FAR;
-        if (over_colours) {
+        const PaintSelector::Locks *fill_locks = locking ? &locks_of(*vol) : nullptr;
+        if (fill_locks && !over_colours && (*fill_locks)[size_t(selector.state_at(h.facet, to_vec(h.local).cast<float>()))]) {
+            // A fill of a locked colour: nothing (the target goes back to how it was before the stroke).
+        } else if (over_colours) {
             // Fill over colours: the faces up to the edge angle (else the whole shell) whatever their colour; with a guard,
-            // only their part on its side.
+            // only their part on its side. Locked colours stay (the height range seeds on every facet, so the fill goes round them).
             const std::vector<bool> faces = flood_surface(its, region.neighbors, h.facet, edge_angle > 0. ? edge_angle : 180., kept);
-            if (guarded)
-                selector.select_patch(h.facet, std::make_unique<EdgeLimited<TriangleSelector::HeightRange>>(faces, kept_z, camera_local, FAR, trafo,
-                                                                                                            TriangleSelector::ClippingPlane()),
+            if (guarded || fill_locks)
+                selector.select_patch(h.facet, std::make_unique<PaintSelector::Guarded<TriangleSelector::HeightRange>>(
+                                                   selector, &faces, fill_locks, guarded ? kept_z : -FAR, camera_local, guarded ? FAR : 2.f * FAR, trafo,
+                                                   TriangleSelector::ClippingPlane()),
                                       new_state, trafo_no_translate, true);
             else
                 for (int f = 0; f < int(faces.size()); ++f)
@@ -739,9 +810,11 @@ json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<doubl
                 Transform3d trafo_no_translate = trafo;
                 trafo_no_translate.translation() = Vec3d::Zero();
                 const Vec3f camera_local = (trafo.inverse() * to_vec(camera)).cast<float>();
-                live_selector(*vol, facets).select_patch(seed, TriangleSelector::SinglePointCursor::cursor_factory(z, camera_local, float(height), trafo,
-                                                                                                                     clip_of(trafo)),
-                                                         new_state, trafo_no_translate, true);
+                PaintSelector &selector = live_selector(*vol, facets);
+                selector.select_patch(seed, locking ? std::unique_ptr<TriangleSelector::Cursor>(std::make_unique<PaintSelector::Guarded<TriangleSelector::HeightRange>>(
+                                                          selector, nullptr, &locks_of(*vol), z, camera_local, float(height), trafo, clip_of(trafo)))
+                                                    : TriangleSelector::SinglePointCursor::cursor_factory(z, camera_local, float(height), trafo, clip_of(trafo)),
+                                      new_state, trafo_no_translate, true);
                 save_live(facets, was_empty);
             }
             m_paint_prev = h;
@@ -762,7 +835,8 @@ json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<doubl
         trafo_no_translate.translation() = Vec3d::Zero();
         const Vec3f camera_local = (trafo.inverse() * to_vec(camera)).cast<float>();
         const TriangleSelector::ClippingPlane clip = clip_of(trafo);
-        TriangleSelector &selector = live_selector(*vol, facets);
+        PaintSelector &selector = live_selector(*vol, facets);
+        const PaintSelector::Locks *vol_locks = locking ? &locks_of(*vol) : nullptr;
         // Edge detection: the stroke's surface on this volume, from its first hit there.
         PaintRegion &region = m_paint_region;
         const bool limited = brush && edge_angle > 0.;
@@ -783,7 +857,7 @@ json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<doubl
             if (!brush) {
                 // As GLGizmoPainterBase::gizmo_event: select the hit triangle / its same-state region, then paint it. A fill
                 // paints once per line: dragging on over the filled region would only repaint it.
-                if (h.facet < 0 || (shape == "fill" && h.join))
+                if (h.facet < 0 || (shape == "fill" && h.join) || (vol_locks && (*vol_locks)[size_t(selector.state_at(h.facet, center))]))
                     continue;
                 selector.bucket_fill_select_triangles(center, h.facet, clip, shape == "fill" && edge_angle > 0. ? float(edge_angle) : -1.f,
                                                       shape == "fill", true);
@@ -799,16 +873,20 @@ json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<doubl
             const PaintHit *prev = h.join && m_paint_prev && m_paint_prev->object == h.object && m_paint_prev->instance == h.instance &&
                                    m_paint_prev->volume == h.volume ? &*m_paint_prev : nullptr;
             std::unique_ptr<TriangleSelector::Cursor> cursor;
-            if (limited && prev && cursor_type == TriangleSelector::CursorType::CIRCLE)
-                cursor = std::make_unique<EdgeLimited<TriangleSelector::Capsule2D>>(region.faces, to_vec(prev->local).cast<float>(), center, camera_local,
-                                                                                    float(radius), trafo, clip);
-            else if (limited && prev)
-                cursor = std::make_unique<EdgeLimited<TriangleSelector::Capsule3D>>(region.faces, to_vec(prev->local).cast<float>(), center, camera_local,
-                                                                                    float(radius), trafo, clip);
-            else if (limited && cursor_type == TriangleSelector::CursorType::CIRCLE)
-                cursor = std::make_unique<EdgeLimited<TriangleSelector::Circle>>(region.faces, center, camera_local, float(radius), trafo, clip);
-            else if (limited)
-                cursor = std::make_unique<EdgeLimited<TriangleSelector::Sphere>>(region.faces, center, camera_local, float(radius), trafo, clip);
+            // The factories' cursor types, kept to the stroke's surface / off locked colours.
+            auto guarded = [&](auto *type, auto &&...args) -> std::unique_ptr<TriangleSelector::Cursor> {
+                return std::make_unique<PaintSelector::Guarded<std::remove_pointer_t<decltype(type)>>>(selector, limited ? &region.faces : nullptr,
+                                                                                                       vol_locks, args...);
+            };
+            const bool circle = cursor_type == TriangleSelector::CursorType::CIRCLE;
+            if ((limited || vol_locks) && prev && circle)
+                cursor = guarded((TriangleSelector::Capsule2D *) nullptr, to_vec(prev->local).cast<float>(), center, camera_local, float(radius), trafo, clip);
+            else if ((limited || vol_locks) && prev)
+                cursor = guarded((TriangleSelector::Capsule3D *) nullptr, to_vec(prev->local).cast<float>(), center, camera_local, float(radius), trafo, clip);
+            else if ((limited || vol_locks) && circle)
+                cursor = guarded((TriangleSelector::Circle *) nullptr, center, camera_local, float(radius), trafo, clip);
+            else if (limited || vol_locks)
+                cursor = guarded((TriangleSelector::Sphere *) nullptr, center, camera_local, float(radius), trafo, clip);
             else if (prev)
                 cursor = TriangleSelector::DoublePointCursor::cursor_factory(to_vec(prev->local).cast<float>(), center, camera_local, float(radius),
                                                                              cursor_type, trafo, clip);
@@ -876,7 +954,7 @@ json OrcaEngine::paint_clear(int object, const std::string &kind)
     return scene_json();
 }
 
-json OrcaEngine::paint_gap_fill(int object, const std::string &kind, double area)
+json OrcaEngine::paint_gap_fill(int object, const std::string &kind, double area, uint32_t locked)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
     ModelObject &obj = object_at(object);
@@ -887,7 +965,8 @@ json OrcaEngine::paint_gap_fill(int object, const std::string &kind, double area
             continue;
         GapFiller filler(vol->mesh());
         filler.deserialize(facets.get_data(), false);
-        if (!filler.fill(float(area)))
+        const FilamentLocks locks = filament_locks(locked, *vol);
+        if (!filler.fill(float(area), kind == "color" && locked != 0 ? &locks : nullptr))
             continue;
         if (!pushed)
             push_undo();

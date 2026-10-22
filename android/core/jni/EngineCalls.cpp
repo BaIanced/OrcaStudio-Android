@@ -135,7 +135,7 @@ const std::unordered_map<std::string, Handler> &handlers()
                             a.contains("section") && a["section"].is_array() ? a["section"].get<std::vector<double>>() : std::vector<double>{},
                             a.value("edgeAngle", 0.0), a.value("shape", std::string("sphere")), a.value("height", 2.0), a.value("overhang", 0.0),
                             a.contains("guard") && a["guard"].is_number() ? a["guard"].get<double>() : std::numeric_limits<double>::quiet_NaN(),
-                            a.value("overColours", false));
+                            a.value("overColours", false), a.value("locked", uint32_t(0)));
          }},
         {"paintClear", [](OrcaEngine &e, const json &a) { return e.paint_clear(a.at("object"), a.value("kind", "")); }},
         {"paintFillCancel", [](OrcaEngine &e, const json &) { return e.paint_fill_cancel(); }},
@@ -147,7 +147,7 @@ const std::unordered_map<std::string, Handler> &handlers()
         {"creaseLines", [](OrcaEngine &e, const json &a) { return e.crease_lines(a.at("object"), a.value("instance", 0), a.value("angle", 30.0)); }},
         {"paintRemap", [](OrcaEngine &e, const json &a) { return e.paint_remap(a.at("object"), a.at("dest").get<std::vector<int>>(), a.value("base", false)); }},
         {"paintCoverage", [](OrcaEngine &e, const json &a) { return e.paint_coverage(a.at("object")); }},
-        {"paintGapFill", [](OrcaEngine &e, const json &a) { return e.paint_gap_fill(a.at("object"), a.at("kind"), a.at("area")); }},
+        {"paintGapFill", [](OrcaEngine &e, const json &a) { return e.paint_gap_fill(a.at("object"), a.at("kind"), a.at("area"), a.value("locked", uint32_t(0))); }},
         {"layerProfile", [](OrcaEngine &e, const json &a) { return e.layer_profile(a.at("object")); }},
         {"layerAdaptive", [](OrcaEngine &e, const json &a) { return e.layer_adaptive(a.at("object"), a.value("quality", 0.5)); }},
         {"layerSmooth", [](OrcaEngine &e, const json &a) { return e.layer_smooth(a.at("object"), a.value("radius", 5), a.value("keepMin", false)); }},

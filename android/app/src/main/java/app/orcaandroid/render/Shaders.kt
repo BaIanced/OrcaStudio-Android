@@ -97,6 +97,7 @@ internal object Shaders {
         uniform vec3 uPartColor;
         uniform vec3 uSelectedColor;
         uniform vec3 uFilamentColors[16];
+        uniform int uHidden;
         uniform highp vec4 uSection;
         uniform int uSectionOn;
         uniform highp vec3 uEye;
@@ -173,6 +174,9 @@ internal object Shaders {
             else if (type == 99) { base = vec3(0.70, 0.89, 0.67); alpha = 0.5; }
             else if (type == 98) { base = vec3(0.96, 0.58, 0.2); alpha = 0.45; }
             else base = uFilamentColors[clamp(type - 10, 0, 15)];
+            // Paint shop: hidden filament layers (bit = 0-based filament) are a plain grey, parts and paint alike.
+            int filament = type >= 100 ? type - 100 : (type >= 10 && type < 98 ? type - 10 : -1);
+            if (filament >= 0 && filament < 16 && ((uHidden >> filament) & 1) != 0) base = vec3(0.62);
             if (part) {
                 // Soft studio look for the model: sky/ground ambient (z is up), a key and a fill light, a
                 // faint plastic highlight and a cool rim on silhouettes. The slice preview keeps its flat colours.

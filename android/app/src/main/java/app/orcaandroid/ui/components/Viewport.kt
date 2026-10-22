@@ -314,6 +314,8 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     }
     val solo = state.inPaintShop
     LaunchedEffect(v, solo) { v.onGl { this.solo = solo } }
+    val hidden = (state.tool as? Tool.Paint)?.takeIf { solo && it.kind == "color" }?.hidden ?: 0
+    LaunchedEffect(v, hidden) { v.onGl { hiddenFilaments = hidden } }
     // The paint shop's view is smaller than the plate view: it frames the painted copy on entry (same view angles) and
     // Done puts the plate camera back. Runs after the old view's onDispose, so savedCamera is the plate camera here.
     LaunchedEffect(v, solo) {

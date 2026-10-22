@@ -181,7 +181,7 @@ public:
     json paint(const std::vector<PaintHit> &hits, const std::array<double, 3> &camera, double radius, const std::string &kind,
                int state, bool new_stroke, const std::vector<double> &section = {}, double edge_angle = 0.,
                const std::string &shape = "sphere", double height = 2., double overhang = 0.,
-               double guard = std::numeric_limits<double>::quiet_NaN(), bool over_colours = false);
+               double guard = std::numeric_limits<double>::quiet_NaN(), bool over_colours = false, uint32_t locked = 0);
     // Clears one kind of painting (or all for an empty kind) of an object.
     json paint_clear(int object, const std::string &kind);
     // Ends a fill preview by restoring the annotation from before the stroke (the finger slid off the model).
@@ -196,7 +196,7 @@ public:
     // Read-only mesh report of one copy, per model part: faces, open edges, shells, volume, zero-area faces and (when
     // [thickness] > 0) faces whose wall is thinner than that many mm; plus up to 400 of the thin spots as world x,y,z.
     json check_mesh(int object, int instance, double thickness);
-    json paint_gap_fill(int object, const std::string &kind, double area);
+    json paint_gap_fill(int object, const std::string &kind, double area, uint32_t locked = 0);
     json paint_remap(int object, const std::vector<int> &dest, bool base = false);
     json paint_coverage(int object);
 

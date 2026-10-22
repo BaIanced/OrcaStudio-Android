@@ -5,6 +5,10 @@ import kotlinx.coroutines.delay
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.LockOpen
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -42,6 +46,8 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.ui.draw.alpha
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -337,10 +343,13 @@ internal fun ColorPaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Pain
     val total = coverage?.sum()?.takeIf { it > 0f }
     fun percent(i: Int) = total?.let { t -> ((coverage?.getOrNull(i) ?: 0f) / t * 100f).roundToInt() }
     fun turnInto(i: Int, j: Int) = vm.scene.paintRemap(List(state.filaments.size) { if (it == i) j else it }, base = true)
+    // Hide = drawn grey (see the other filaments' areas); lock = no paint, fill, erase or speck clean covers it.
+    val layer = { i: Int -> LayerFlags(tool.hidden shr i and 1 != 0, tool.locked shr i and 1 != 0,
+        { vm.scene.setTool(tool.copy(hidden = tool.hidden xor (1 shl i))) }, { vm.scene.setTool(tool.copy(locked = tool.locked xor (1 shl i))) }) }
     if (layers) {
         Text(stringResource(R.string.paint_layers), style = MaterialTheme.typography.labelMedium)
         state.filaments.indices.forEach { i ->
-            PaintLayerRow(state, i, tool.state == i + 1 && tool.shape != "pick", percent(i), { vm.scene.setTool(tool.copy(state = i + 1, shape = shape)) }) { j -> turnInto(i, j) }
+            PaintLayerRow(state, i, tool.state == i + 1 && tool.shape != "pick", percent(i), layer(i), { vm.scene.setTool(tool.copy(state = i + 1, shape = shape)) }) { j -> turnInto(i, j) }
         }
     }
     // Swatches: tap = paint with it. Erase and the eyedropper sit at the end of the same row.
@@ -349,8 +358,8 @@ internal fun ColorPaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Pain
             var menu by remember { mutableStateOf(false) }
             Box {
                 Swatch(tool.state == i + 1 && tool.shape != "pick", "${i + 1}", { vm.scene.setTool(tool.copy(state = i + 1, shape = shape)) },
-                    onLongClick = { menu = true }) { ColorDot(f.color, 28) }
-                LayerMenu(state, i, menu, percent(i), { menu = false }) { j -> turnInto(i, j) }
+                    onLongClick = { menu = true }) { LayerDot(f.color, 28, layer(i)) }
+                LayerMenu(state, i, menu, percent(i), layer(i), { menu = false }) { j -> turnInto(i, j) }
             }
         }
         if (mode != "object")
@@ -422,9 +431,22 @@ private fun Swatch(selected: Boolean, label: String, onClick: () -> Unit, onLong
 /** A filament's name without the printer suffix ("Bambu PLA Basic @BBL A1" -> "Bambu PLA Basic"). */
 private fun filamentLabel(state: UiState, i: Int) = "${i + 1} " + state.filaments[i].preset.substringBefore(" @")
 
-/** One filament layer in the paint shop's side panel: tap = paint with it; the share bar; the menu turns it into another. */
+/** A filament layer's hide / lock state and their toggles. */
+private class LayerFlags(val hidden: Boolean, val locked: Boolean, val toggleHidden: () -> Unit, val toggleLocked: () -> Unit)
+
+/** A dock swatch: the colour, faded while hidden, with a lock badge while locked. */
 @Composable
-private fun PaintLayerRow(state: UiState, i: Int, selected: Boolean, percent: Int?, onClick: () -> Unit, onTurnInto: (Int) -> Unit) {
+private fun LayerDot(color: String?, size: Int, flags: LayerFlags) {
+    Box(contentAlignment = Alignment.BottomEnd) {
+        Box(Modifier.alpha(if (flags.hidden) 0.35f else 1f)) { ColorDot(color, size) }
+        if (flags.locked) Icon(Icons.Default.Lock, null, Modifier.size(14.dp).background(MaterialTheme.colorScheme.surface, CircleShape).padding(1.dp))
+    }
+}
+
+/** One filament layer in the paint shop's side panel: tap = paint with it; the share bar; eye = hide, lock; the menu turns
+ *  it into another. */
+@Composable
+private fun PaintLayerRow(state: UiState, i: Int, selected: Boolean, percent: Int?, flags: LayerFlags, onClick: () -> Unit, onTurnInto: (Int) -> Unit) {
     var menu by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(12.dp)
     Row(Modifier.fillMaxWidth().clip(shape)
@@ -432,8 +454,8 @@ private fun PaintLayerRow(state: UiState, i: Int, selected: Boolean, percent: In
         .then(if (selected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, shape) else Modifier)
         .clickable(onClick = onClick).padding(start = 10.dp, top = 2.dp, bottom = 2.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        ColorDot(state.filaments[i].color, 24)
-        Column(Modifier.weight(1f)) {
+        Box(Modifier.alpha(if (flags.hidden) 0.35f else 1f)) { ColorDot(state.filaments[i].color, 24) }
+        Column(Modifier.weight(1f).alpha(if (flags.hidden) 0.6f else 1f)) {
             Text(filamentLabel(state, i), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.weight(1f).height(4.dp).clip(RoundedCornerShape(2.dp)).background(MaterialTheme.colorScheme.outlineVariant)) {
@@ -442,19 +464,34 @@ private fun PaintLayerRow(state: UiState, i: Int, selected: Boolean, percent: In
                 Text(percent?.let { "$it %" } ?: "", Modifier.widthIn(min = 40.dp).padding(start = 6.dp), style = MaterialTheme.typography.labelSmall)
             }
         }
+        Row {
+            IconButton(flags.toggleHidden, Modifier.size(36.dp)) {
+                Icon(if (flags.hidden) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                    stringResource(if (flags.hidden) R.string.paint_layer_show else R.string.paint_layer_hide), Modifier.size(20.dp))
+            }
+            IconButton(flags.toggleLocked, Modifier.size(36.dp)) {
+                Icon(if (flags.locked) Icons.Default.Lock else Icons.Default.LockOpen,
+                    stringResource(if (flags.locked) R.string.paint_layer_unlock else R.string.paint_layer_lock), Modifier.size(20.dp),
+                    tint = if (flags.locked) MaterialTheme.colorScheme.primary else LocalContentColor.current)
+            }
+        }
         Box {
             IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, stringResource(R.string.paint_layer_menu)) }
-            LayerMenu(state, i, menu, percent, { menu = false }, onTurnInto)
+            LayerMenu(state, i, menu, percent, flags, { menu = false }, onTurnInto)
         }
     }
 }
 
-/** Layer actions (side panel menu button, dock swatch long-press): the share, then "Turn into" each other filament. */
+/** Layer actions (side panel menu button, dock swatch long-press): the share, hide / lock, then "Turn into" each other filament. */
 @Composable
-private fun LayerMenu(state: UiState, i: Int, open: Boolean, percent: Int?, onDismiss: () -> Unit, onTurnInto: (Int) -> Unit) {
+private fun LayerMenu(state: UiState, i: Int, open: Boolean, percent: Int?, flags: LayerFlags, onDismiss: () -> Unit, onTurnInto: (Int) -> Unit) {
     DropdownMenu(open, onDismiss) {
         Text(stringResource(R.string.paint_layer_share, filamentLabel(state, i), percent ?: 0), Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
             style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        DropdownMenuItem(text = { Text(stringResource(if (flags.hidden) R.string.paint_layer_show else R.string.paint_layer_hide)) },
+            leadingIcon = { Icon(if (flags.hidden) Icons.Default.Visibility else Icons.Default.VisibilityOff, null) }, onClick = { onDismiss(); flags.toggleHidden() })
+        DropdownMenuItem(text = { Text(stringResource(if (flags.locked) R.string.paint_layer_unlock else R.string.paint_layer_lock)) },
+            leadingIcon = { Icon(if (flags.locked) Icons.Default.LockOpen else Icons.Default.Lock, null) }, onClick = { onDismiss(); flags.toggleLocked() })
         state.filaments.forEachIndexed { j, g ->
             if (j != i) DropdownMenuItem(text = { Text(stringResource(R.string.paint_turn_into, j + 1)) }, leadingIcon = { ColorDot(g.color) },
                 onClick = { onDismiss(); onTurnInto(j) })
@@ -467,7 +504,7 @@ private fun LayerMenu(state: UiState, i: Int, open: Boolean, percent: Int?, onDi
 private fun CleanSpecks(vm: AppViewModel, tool: Tool.Paint) {
     var gapArea by rememberSaveable { mutableFloatStateOf(1f) }
     Row(verticalAlignment = Alignment.CenterVertically) {
-        FilledTonalButton(onClick = { vm.scene.paintGapFill(tool.kind, gapArea) }) { Text(stringResource(R.string.paint_clean_specks)) }
+        FilledTonalButton(onClick = { vm.scene.paintGapFill(tool.kind, gapArea, tool.locked) }) { Text(stringResource(R.string.paint_clean_specks)) }
         Text(stringResource(R.string.paint_gap_area, gapArea), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 8.dp))
         Slider(gapArea, { gapArea = it }, valueRange = 0.1f..5f, modifier = Modifier.weight(1f).padding(start = 8.dp))
     }

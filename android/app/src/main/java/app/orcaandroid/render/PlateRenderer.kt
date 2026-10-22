@@ -68,6 +68,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var selectedIds = FloatArray(0)
     /** Paint shop: only the selected copies are drawn (objects, paint, shadows); the plates stay. */
     var solo = false
+    /** Paint shop: filaments drawn grey (bit i = 0-based filament i). */
+    var hiddenFilaments = 0
     /** A box to fit the camera to (current angles) once the surface has its size: the paint shop's entry framing. */
     var fitPending: Pair<app.orcaandroid.core.Vec3, app.orcaandroid.core.Vec3>? = null
     /** Live offset of the selected copies while they are dragged. */
@@ -716,6 +718,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glUniform1fv(loc(meshProgram, "uSelected"), Shaders.MAX_SELECTED, ids.copyOf(Shaders.MAX_SELECTED), 0)
         glUniform1i(loc(meshProgram, "uSelectedCount"), minOf(ids.size, Shaders.MAX_SELECTED))
         glUniform1i(loc(meshProgram, "uSolo"), if (solo && ids.isNotEmpty()) 1 else 0)
+        glUniform1i(loc(meshProgram, "uHidden"), if (solo) hiddenFilaments else 0)
         glUniform3fv(loc(meshProgram, "uDrag"), 1, dragOffset, 0)
         glUniform3fv(loc(meshProgram, "uScaleAnchor"), 1, resizeAnchor, 0)
         glUniform3fv(loc(meshProgram, "uScale"), 1, resizeScale, 0)
