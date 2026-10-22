@@ -445,7 +445,8 @@ private fun paintChangeEstimate(state: UiState): ColourChangeEstimate.Estimate? 
     val matrix = ColourChangeEstimate.parseFlushMatrix(nums(PresetType.PRINT, "flush_volumes_matrix"), n) ?: Array(n) { DoubleArray(n) }
     val paint = FloatData.load(state.scene.paintFile, 8)?.data ?: return null
     val layers = PaintLayers.forPlate(paint, state.scene.objects, state.activePlate,
-        num(PresetType.PRINT, "initial_layer_print_height", 0.2).toFloat(), num(PresetType.PRINT, "layer_height", 0.2).toFloat())
+        num(PresetType.PRINT, "initial_layer_print_height", 0.2).toFloat(), num(PresetType.PRINT, "layer_height", 0.2).toFloat(),
+        num(PresetType.PRINT, "top_shell_layers", 0.0).toInt(), num(PresetType.PRINT, "bottom_shell_layers", 0.0).toInt())
     val tower = state.value(PresetType.PRINT, "enable_prime_tower") == "1"
     return ColourChangeEstimate.estimate(layers, matrix, num(PresetType.PRINT, "flush_multiplier", 0.3),
         List(n) { num(PresetType.FILAMENT, "filament_density", ColourChangeLine.DENSITY_G_PER_CM3) }, null,

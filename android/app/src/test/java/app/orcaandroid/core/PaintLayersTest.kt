@@ -59,4 +59,26 @@ class PaintLayersTest {
         val layers = PaintLayers.forPlate(FloatBuffer.wrap(paint.toFloatArray()), objects, 0, 0.2f, 0.2f)
         assertEquals(listOf(listOf(1), listOf(1), listOf(1), listOf(0, 1), listOf(0, 1)), layers)
     }
+
+    @Test fun paintDepthCarriesFlatFacesIn() {
+        // A 2 mm cube (0.2 mm layers = 10): top face filament 1, bottom face filament 2, base filament 0.
+        val v = Vec3(0f, 0f, 0f)
+        fun cube(settings: Map<String, String>) =
+            listOf(SceneObject(0, "c", 12, settings, emptyList(), listOf(Instance(0, 0, v, v, v, v, Vec3(2f, 2f, 2f), v)), emptyList(), false))
+        fun face(z: Float, nz: Float, type: Int) = List(3) { listOf(0f, 0f, z, 0f, 0f, nz, 0f, type.toFloat()) }.flatten()
+        val paint = FloatBuffer.wrap((face(2f, 1f, 11) + face(0f, -1f, 12)).toFloatArray())
+        /** Layers holding [filament]. */
+        fun with(filament: Int, settings: Map<String, String>, top: Int = 3, bottom: Int = 2): List<Int> {
+            val layers = PaintLayers.forPlate(paint.duplicate(), cube(settings), 0, 0.2f, 0.2f, top, bottom)
+            return layers.indices.filter { filament in layers[it] }
+        }
+        // Like shells: process shells (3 top, 2 bottom), then the object's own shell count.
+        assertEquals(listOf(7, 8, 9), with(1, emptyMap()))
+        assertEquals(listOf(0, 1), with(2, emptyMap()))
+        assertEquals(listOf(5, 6, 7, 8, 9), with(1, mapOf("top_shell_layers" to "5")))
+        // N layers, all the way through, and no depth from the process.
+        assertEquals(listOf(8, 9), with(1, mapOf("mmu_top_paint_layers" to "2")))
+        assertEquals((0..9).toList(), with(2, mapOf("mmu_bottom_paint_layers" to "-1")))
+        assertEquals(listOf(9), with(1, emptyMap(), top = 0))
+    }
 }

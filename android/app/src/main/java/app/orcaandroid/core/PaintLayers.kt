@@ -22,11 +22,21 @@ object PaintLayers {
     const val FLOATS_PER_TRIANGLE = 24
     const val COLOR_CODE = 10
 
+    /** |normal z| above this = a top / bottom face that gets the paint depth; below = a side wall. */
+    const val FLAT_NZ = 0.05f
+
     /** One filament (0-based) printed somewhere between [zMin] and [zMax] (world mm). */
     data class Span(val filament: Int, val zMin: Float, val zMax: Float)
 
-    /** Colour-painted triangles as spans, for the copies [keep] accepts (object index, instance index). */
-    fun spans(paint: FloatBuffer, keep: (obj: Int, instance: Int) -> Boolean): List<Span> {
+    /**
+     * Colour-painted triangles as spans, for the copies [keep] accepts (object index, instance index). [adjust] may
+     * reshape each span from its copy and the first vertex's normal z ([forPlate] adds the paint depth with it).
+     */
+    fun spans(
+        paint: FloatBuffer,
+        adjust: ((obj: Int, instance: Int, nz: Float, span: Span) -> Span)? = null,
+        keep: (obj: Int, instance: Int) -> Boolean,
+    ): List<Span> {
         val out = ArrayList<Span>()
         val triangles = paint.limit() / FLOATS_PER_TRIANGLE
         for (t in 0 until triangles) {
@@ -34,13 +44,31 @@ object PaintLayers {
             val filament = paint.get(base + 7).toInt() - COLOR_CODE
             if (filament < 0) continue
             val code = paint.get(base + 6).toInt()
-            if (!keep(code / INSTANCE_STRIDE, code % INSTANCE_STRIDE)) continue
+            val obj = code / INSTANCE_STRIDE
+            val instance = code % INSTANCE_STRIDE
+            if (!keep(obj, instance)) continue
             val z0 = paint.get(base + 2)
             val z1 = paint.get(base + 10)
             val z2 = paint.get(base + 18)
-            out += Span(filament, minOf(z0, z1, z2), maxOf(z0, z1, z2))
+            val span = Span(filament, minOf(z0, z1, z2), maxOf(z0, z1, z2))
+            out += adjust?.invoke(obj, instance, paint.get(base + 5), span) ?: span
         }
         return out
+    }
+
+    /**
+     * Layers the colour of an up-facing ([top]) or down-facing face reaches into the object: its `mmu_top_paint_layers` /
+     * `mmu_bottom_paint_layers` (Object mode "Paint depth"), where 0 = the shell layers ([shells], the object's own
+     * `top_shell_layers` / `bottom_shell_layers` first) and -1 = all the way through ([Int.MAX_VALUE]).
+     */
+    fun depthLayers(settings: Map<String, String>, top: Boolean, shells: Int): Int {
+        val side = if (top) "top" else "bottom"
+        val depth = settings["mmu_${side}_paint_layers"]?.toIntOrNull() ?: 0
+        return when {
+            depth < 0 -> Int.MAX_VALUE
+            depth > 0 -> depth
+            else -> settings["${side}_shell_layers"]?.toIntOrNull() ?: shells
+        }
     }
 
     /**
@@ -71,9 +99,29 @@ object PaintLayers {
      * Per-layer filament ids of [plate]: the colour paint of its copies plus, per copy, the object's base filament
      * (`extruder`, 1-based in the settings, 1 when unset) over the copy's whole height. [SceneObject.instances]'s
      * `min` / `size` are the world bounding box (`OrcaScene.cpp:494`). Parts with their own filament count as the base.
+     *
+     * Paint depth: a face pointing up (normal z > [FLAT_NZ]) carries its colour [depthLayers] layers down, one pointing
+     * down that many up, within the copy's height, as the slicer's segmentation does (r367 WSA G-code: "Top 8 layers"
+     * on a cube's top face put the colour on its top 8 layers). [topShells] / [bottomShells] are the process's shell
+     * layers; 0 adds no depth. Side faces keep their own height.
      */
-    fun forPlate(paint: FloatBuffer, objects: List<SceneObject>, plate: Int, firstLayer: Float, layerHeight: Float): List<List<Int>> {
-        val spans = spans(paint) { o, i -> objects.getOrNull(o)?.instances?.getOrNull(i)?.plate == plate }.toMutableList()
+    fun forPlate(
+        paint: FloatBuffer, objects: List<SceneObject>, plate: Int, firstLayer: Float, layerHeight: Float,
+        topShells: Int = 0, bottomShells: Int = 0,
+    ): List<List<Int>> {
+        val deepen = { o: Int, i: Int, nz: Float, s: Span ->
+            val obj = objects[o]
+            val inst = obj.instances[i]
+            val bottom = inst.min.z
+            val top = bottom + inst.size.z
+            fun reach(layers: Int) = if (layers == Int.MAX_VALUE) top - bottom else layers * layerHeight
+            when {
+                nz > FLAT_NZ -> s.copy(zMin = maxOf(bottom, s.zMin - reach(depthLayers(obj.settings, true, topShells))))
+                nz < -FLAT_NZ -> s.copy(zMax = minOf(top, s.zMax + reach(depthLayers(obj.settings, false, bottomShells))))
+                else -> s
+            }
+        }
+        val spans = spans(paint, deepen) { o, i -> objects.getOrNull(o)?.instances?.getOrNull(i)?.plate == plate }.toMutableList()
         for (o in objects) {
             val base = ((o.settings["extruder"]?.toIntOrNull() ?: 1) - 1).coerceAtLeast(0)
             for (inst in o.instances) if (inst.plate == plate) spans += Span(base, inst.min.z, inst.min.z + inst.size.z)
