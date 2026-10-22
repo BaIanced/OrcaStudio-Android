@@ -35,10 +35,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **User 2026-10-21: one small step per session.** Cue `/clear` + `/next` after EACH step. Pie menu disliked -> backlog.
 - **User 2026-10-21: design deviations pre-approved** ("deviate if you find a more logical, intuitive way; I trust your judgement"); say what changed.
 - Paint plan (user ACCEPTED 2026-10-21): steps (1)-(2) done, user feel untested (backlog "Paint panel UI", "Paint penetration").
-  **Next: step (3) Colour change + waste counter**: post-slice half done (Muse Task 11, 1740dcf, untested on device; counts
-  prime tower only, NOT the A1's flush-to-chute waste: add flush volumes). Claude's half = the pre-slice estimate in the
-  paint shop (`core/ColourChangeEstimate.kt` needs per-layer filament ids from the painted mesh, native side; flush volumes
-  from the profile).
+  **Next: step (3) Colour change + waste counter**: post-slice half done (Muse Task 11 1740dcf + chute flush 82f2d7a, both
+  unbuilt/untested on device). Next small step = the pre-slice estimate in the paint shop (`core/ColourChangeEstimate.kt`
+  needs per-layer filament ids from the painted mesh, native side). **Gotcha:** a real A1 plate flushed 100 mm3/change
+  while its G-code says matrix 97 x multiplier 0.3 (= 29, minus grab, `GCode.cpp:9752-9769`): find the real source first.
 - Muse replaces Grok (2026-10-22): `MUSE-TASKS.md` on branch `muse/work`, one draft PR per task into muse/work; Claude
   verifies, merges, cherry-picks code (not MUSE-TASKS.md) onto the work branch. Muse never merges. Tasks 1-11 done (Task 1
   finding 4: fix the patch comment when regenerating 0001). **Comms (user-approved 2026-10-22): GitHub is the mailbox, no relaying.** Tasks in MUSE-TASKS.md on
