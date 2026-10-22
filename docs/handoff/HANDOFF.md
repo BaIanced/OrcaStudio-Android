@@ -26,9 +26,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **Test device = WSA** (user 2026-10-20). **Note** (added 2026-10-21) = S Pen test device only, not the main target (user; it locks: user says when it is awake, 2026-10-21); Quest = pseudo-pen device (user, untested). Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
-  WSA `127.0.0.1:58526`; **USB serial = the user's SHIELD TV** (rooted; installs only).
-- User away from the printer: no printer tests. SHIELD installs only. **User 2026-10-19 (later): keep using WSA, not the phone;
-  cheapest interface first** (MCP `mcpao.sh` ~150 tok > `phone-ui.py layout` cut by regex > cropped shot only for GL looks).
+  WSA `127.0.0.1:58526`; **USB serial = the user's SHIELD TV** (rooted; installs only). No printer tests (user away).
+- **Cheapest interface first** (MCP `mcpao.sh` ~150 tok > `phone-ui.py layout` cut by regex > cropped shot only for GL looks).
 - User sessions backed up: phone `/data/local/tmp/phone-session-backup.{3mf,json}` (8 plates), WSA `/data/local/tmp/session-backup.{3mf,json}`.
   Test zip `scadzip-test.zip` stays in `/sdcard/Download` on phone + Chromebook. LAN access code was given in chat: never write it anywhere.
 ## Next task
@@ -45,15 +44,14 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   Preview). Tasks 9-12 written (PR #47, user merges first): no-daemon Gradle, `check_3mf.py`, Preview colour-change line
   (= paint step 3's post-slice half), JNI audit. Muse can't run Gradle yet (Java loopback TCP blocked in its VM).
 - Later + feel-pending items: backlog "Later". C: tight; old build dirs -> `D:\orca-builds-archive`.
-- **Open: app 3MF export fails in desktop Orca** (fix run 39529670166, untested by the user; backlog).
-- Printer-needed + user-only checks, pen input, plate switcher pick: backlog.
+- Open (backlog): app 3MF fails in desktop Orca (fix untested), printer/user-only checks, pen input, plate switcher pick.
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
 - Plate activation must not move the camera when zoomed out (sometimes moving is fine).
 - Plate switcher: **keep the lab until the user says otherwise; don't ask again** (mockups https://claude.ai/artifact/E3MtY8rQ1dMGHhibY2oNCX).
-  Once picked: delete the losers and the lab (keep the wide panel tuck/width).
+  Once picked: delete the losers and the lab.
 
 ## Safety gotchas
 - **Any test print needs the user's OK.** User's AMS lite: A1 yellow, A2 matte black, A3 white, A4 PETG.
