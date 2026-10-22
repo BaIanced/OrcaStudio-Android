@@ -52,6 +52,7 @@ import app.orcaandroid.ui.Selection
 import app.orcaandroid.ui.Tool
 import app.orcaandroid.ui.UiState
 import app.orcaandroid.ui.prepare.PlateMenu
+import app.orcaandroid.ui.prepare.inPaintShop
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -311,6 +312,8 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     LaunchedEffect(v, state.supersample) {
         v.onGl { supersample = state.supersample }
     }
+    val solo = state.inPaintShop
+    LaunchedEffect(v, solo) { v.onGl { this.solo = solo } }
     LaunchedEffect(v, state.selectionStyle) {
         v.onGl { selectionStyle = state.selectionStyle }
     }

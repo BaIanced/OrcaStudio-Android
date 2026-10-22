@@ -45,6 +45,7 @@ internal object Shaders {
         uniform mat4 uLightMvp;
         uniform float uSelected[64];
         uniform int uSelectedCount;
+        uniform int uSolo;
         uniform vec3 uDrag;
         uniform vec3 uScaleAnchor;
         uniform vec3 uScale;
@@ -67,6 +68,8 @@ internal object Shaders {
             float selected = 0.0;
             for (int i = 0; i < uSelectedCount; ++i)
                 if (abs(aInfo.x - uSelected[i]) < 0.5) selected = 1.0;
+            // Solo (paint shop): only the selection is drawn; everything else goes outside the clip volume.
+            if (uSolo == 1 && selected < 0.5) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
             vNormal = aNormal;
             vType = aInfo.y;
             vSelected = selected;

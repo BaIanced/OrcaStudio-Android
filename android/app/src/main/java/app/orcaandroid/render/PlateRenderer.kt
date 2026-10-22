@@ -66,6 +66,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var activePlate = 0
     /** Selection ids (object * INSTANCE_ID_STRIDE + instance) of the selected copies. */
     var selectedIds = FloatArray(0)
+    /** Paint shop: only the selected copies are drawn (objects, paint, shadows); the plates stay. */
+    var solo = false
     /** Live offset of the selected copies while they are dragged. */
     var dragOffset = floatArrayOf(0f, 0f, 0f)
         set(v) {
@@ -420,7 +422,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         useRealShadow = false
         if (shadow) {
             effects.lightDir = keyDir
-            val key = listOf(meshVersion, dragOffset.toList(), resizeScale.toList(), rotateMatrix?.toList(), selectedIds.toList(), dragTower, section?.toList(), keyAzimuth, keyElevation)
+            val key = listOf(meshVersion, dragOffset.toList(), resizeScale.toList(), rotateMatrix?.toList(), selectedIds.toList(), dragTower, section?.toList(), keyAzimuth, keyElevation, solo)
             // A dragged copy may leave the footprint: widen it by the drag.
             // A fixed widening for the whole drag: any change of the map area mid-drag rescales the texels and
             // shows as a step ("strobe") in the shadow.
@@ -710,6 +712,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         }
         glUniform1fv(loc(meshProgram, "uSelected"), Shaders.MAX_SELECTED, ids.copyOf(Shaders.MAX_SELECTED), 0)
         glUniform1i(loc(meshProgram, "uSelectedCount"), minOf(ids.size, Shaders.MAX_SELECTED))
+        glUniform1i(loc(meshProgram, "uSolo"), if (solo && ids.isNotEmpty()) 1 else 0)
         glUniform3fv(loc(meshProgram, "uDrag"), 1, dragOffset, 0)
         glUniform3fv(loc(meshProgram, "uScaleAnchor"), 1, resizeAnchor, 0)
         glUniform3fv(loc(meshProgram, "uScale"), 1, resizeScale, 0)
