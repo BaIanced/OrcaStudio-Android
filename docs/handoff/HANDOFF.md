@@ -34,17 +34,14 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 ## Next task
 - **User 2026-10-21: one small step per session.** Cue `/clear` + `/next` after EACH step. Pie menu disliked -> backlog.
 - **User 2026-10-21: design deviations pre-approved** ("deviate if you find a more logical, intuitive way; I trust your judgement"); say what changed.
-- Paint plan (user ACCEPTED 2026-10-21, one step per session): (1) paint shop steps 1a-1e-ii and (2) Top depth (patch 0001 +
-  PaintDepth.kt, r367) built + Claude WSA-checked (archive), user feel untested (backlog "Paint panel UI", "Paint penetration").
+- Paint plan (user ACCEPTED 2026-10-21): steps (1)-(2) done, user feel untested (backlog "Paint panel UI", "Paint penetration").
   **Next: step (3) Colour change + waste counter**: post-slice half done (Muse Task 11, 1740dcf, untested on device; counts
   prime tower only, NOT the A1's flush-to-chute waste: add flush volumes). Claude's half = the pre-slice estimate in the
   paint shop (`core/ColourChangeEstimate.kt` needs per-layer filament ids from the painted mesh, native side; flush volumes
   from the profile).
 - Muse replaces Grok (2026-10-22): `MUSE-TASKS.md` on branch `muse/work`, one draft PR per task into muse/work; Claude
-  verifies (pr-check, review, fixes pushed to the task branch), merges, then cherry-picks code (not MUSE-TASKS.md) onto the
-  work branch. **Muse never merges; main still needs the user.** Tasks 1-11 done (9 = no Gradle in Muse's VM, see
-  `MUSE-TOOLCHAIN.md`; 10 = `android/scripts/check_3mf.py`, a797c20; Task 1 finding 4: fix the patch comment when
-  regenerating 0001). **Comms (user-approved 2026-10-22): GitHub is the mailbox, no relaying.** Tasks in MUSE-TASKS.md on
+  verifies, merges, cherry-picks code (not MUSE-TASKS.md) onto the work branch. Muse never merges. Tasks 1-11 done (Task 1
+  finding 4: fix the patch comment when regenerating 0001). **Comms (user-approved 2026-10-22): GitHub is the mailbox, no relaying.** Tasks in MUSE-TASKS.md on
   muse/work, then comment `TASK <n> READY` on issue #46; Muse replies via PR + log entry, pings #46 (`PR #<n> UPDATED`).
   **Every session start: check open `muse/*` PRs and #46.** Review on the PR. PR #51 (protocol + Task 13 loopback test,
   before Task 12) awaits merge: self-merge needs the user's `Bash(gh pr merge:*)` allow rule; after it merges, comment
