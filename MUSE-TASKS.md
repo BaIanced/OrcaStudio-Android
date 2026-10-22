@@ -252,3 +252,25 @@ UNVERIFIED: not compiled and tests not run (no toolchain); `pr-check.yml` and Vi
 local run are the first execution. No real printer G-code was parsed (fixtures only, by
 design); arc moves (`G2`/`G3`) with E are not tracked.
 Open questions: JDK/Android SDK install in Muse's VM (see Status, Vincent's call).
+
+### Task 6 - 2026-10-22 - muse/task-6-3mf-export-review - this commit
+Investigation only, no code changed. Findings in `MUSE-REVIEW-0006.md`: 12 checks the
+desktop applies on load, each with file:line and CONFIRMED / SUSPECTED / OK against the
+app's export. Headline: "Invalid configuration file" is thrown in exactly two places
+(both in `PresetBundle::load_config_file_config` — empty `filament_colour`, and the
+`filament_self_index` / `filament_extruder_variant` length mismatch), and "no geometry
+data" is the downstream symptom when that throw aborts the GUI load, not evidence of
+missing geometry. The c9d7fd9 fix targets the second throw and, by reading, makes the
+two vectors agree on both export paths; it stays UNVERIFIED (no app 3MF has been opened
+in desktop Orca). One new SUSPECTED correctness item: the fix rewrites any mismatched
+`filament_self_index` to the identity, which would silently replace a legitimate
+multi-nozzle variant mapping. No further cause is certain, so no fix is included.
+Stacked on `muse/task-5-gcode-tool-changes` (PR # for Task 5 not merged yet).
+Build: UNCOMPILED (no toolchain in Muse's VM; review-only task, nothing to compile).
+Privacy self-scan: tree exit 0, range exit 0.
+UNVERIFIED: no app or desktop build was run and no real 3MF file was exercised;
+every verdict rests on reading the exporter, the JNI export path and the desktop
+reader. Whether a current app save actually opens on the desktop is still untested.
+Open questions: JDK/Android SDK install in Muse's VM (see Status, Vincent's call);
+can Vincent save a multi-filament project in the app and open that exact file in
+desktop Orca, so finding 2 can move from OK-by-reading to observed?
