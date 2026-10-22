@@ -20,7 +20,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = f1c4a17 (PR #34, r341, merged 2026-10-20). Untested in main: pen 7d3a263, fan hold 298ee9f, Extrude F150 e13bebb,
   Quest stick zoom (r324). Nothing unmerged on the branch.
-- Installed: r366 (paint shop 1e-ii) on WSA/Note/Chromebook/SHIELD 2026-10-21 (phone, Quest not connected). Tablet: debug app only.
+- Installed: r367 (paint depth) on WSA/Note/Chromebook/SHIELD 2026-10-21 (phone, Quest not connected). Tablet: debug app only.
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **Test device = WSA** (user 2026-10-20). **Note** (added 2026-10-21) = S Pen test device only, not the main target (user; it locks: user says when it is awake, 2026-10-21); Quest = pseudo-pen device (user, untested). Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
@@ -32,16 +32,13 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 ## Next task
 - **User 2026-10-21: one small step per session.** Cue `/clear` + `/next` after EACH step. Pie menu disliked -> backlog.
 - **User 2026-10-21: design deviations pre-approved** ("deviate if you find a more logical, intuitive way; I trust your judgement"); say what changed.
-- Paint shop steps 1a-1e-ii built + Claude WSA-checked, user feel untested (backlog "Paint panel UI"; 1e-ii hide/lock = run 39716845272).
-  **Step (2) Top depth BUILT 2026-10-21 (run 39718807086, untested): native patch 0001 (keys `mmu_top_paint_layers` /
-  `mmu_bottom_paint_layers`: 0 = like shells, N layers, -1 = all the way; below the shells the inset stays constant instead of
-  growing) + "Paint depth" rows in Object mode (PaintDepth.kt; Sides = mmu_segmented_region_max_width). Run is GREEN. Next: the run is
-  green, install on all devices, WSA-check (paint top face, set depth, slice, look at layer view), then step (3).**
-- **NEXT (user ACCEPTED 2026-10-21, this order, one step per session):** (1) **paint shop workspace** (steps above; mockup `%TEMP%/paintshop-mockup/`). (2) **Top depth** setting decoupled from top shell layers
-  (same as shells / N layers / all the way through), native MultiMaterialSegmentation.cpp:1254/:1410, Object mode; sides = existing
-  mmu_segmented_region_max_width. (3) **Colour change + waste counter** (estimate; flush volumes from the profile). Details: backlog "Paint".
+- Paint plan (user ACCEPTED 2026-10-21, one step per session): (1) paint shop steps 1a-1e-ii and (2) Top depth (patch 0001 +
+  PaintDepth.kt, r367) built + Claude WSA-checked (archive), user feel untested (backlog "Paint panel UI", "Paint penetration").
+  **Next: step (3) Colour change + waste counter** (estimate; flush volumes from the profile; G-code tool-change counting in
+  `~/orca-android-tools/gcode-tools.py` can cross-check it). Small fix to batch with it: paint mode resets to Fill after Preview.
+- Grok (`../../../GROK-TASKS.md`, local branch `grok/overnight`) hit its free usage limit on the first run 2026-10-21 with no
+  output (no `GROK-LOG.md`, no commits); its tasks (patch review, colour-change estimate groundwork) are still open there.
 - Later + feel-pending items: backlog "Later". C: tight; old build dirs -> `D:\orca-builds-archive`.
-- **Grok overnight (2026-10-21):** branch `grok/overnight` (local only), tasks `../../../GROK-TASKS.md` (outside repo: patch 0001 review, colour-change estimate + tests = groundwork for step 3, extra unit tests, MCP log_tail). Next session: read `GROK-LOG.md` + `GROK-REVIEW-0001.md`, verify, cherry-pick.
 - **Open: app 3MF export fails in desktop Orca** (fix run 39529670166, untested by the user; backlog).
 - Printer-needed + user-only checks, pen input, plate switcher pick: backlog.
 

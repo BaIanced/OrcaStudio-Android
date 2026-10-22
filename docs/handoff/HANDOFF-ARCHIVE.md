@@ -2478,3 +2478,11 @@ User: "you just tested something we already confirmed worked". Cross-checked eac
 - User (same day): paint depth problem was TOP depth (beeper plate: yellow through the whole height = deeper colour; reducing top shell layers shows infill and weakens the part). Filament waste on colour changes matters; uses paint-by-height for that.
 - User (same day): beeper plate is done (example only). ACCEPTED Claude's paint plan, in order: (1) paint shop workspace + adaptive layout (option C modes, bottom dock / layers panel), (2) Top depth setting decoupled from shell layers (same as shells / N layers / all the way through), (3) colour change + waste counter.
 - 2026-10-21: user pre-approved design deviations during runs ("Deviate design if you find a more logical intuitive way to do something in any moment during this run. I trust your judgement and pre approve").
+
+## 2026-10-21: paint depth (step 2) checked on WSA, r367 (run 39718807086)
+- (Claude, WSA, r367) 20 mm cube, top face painted with filament 2 (Fill, Stop at edges 30 deg = 17 %), 0.20 Standard (5 top
+  shells). G-code per tool (`~/orca-android-tools/pd-slice.sh` + `gcode-tools.py` / `gcode-features.py`): Like shells: T1 on
+  layers 96-100; Top 8 layers: T1 on 93-100 (walls + infill there); All the way: T1 on 2-100. Below the shells T1 is a core
+  inset ~4 mm with T0 walls around it (the taper over the shell layers, then a constant inset, as the patch intends).
+  Total weight moves with the prime tower (upstream flush logic). Small bug: back from Preview the paint mode resets to Fill.
+- Grok's first overnight run (2026-10-21): free usage limit hit; no commits, no log, no `grok-work/out` files.
