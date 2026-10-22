@@ -22,6 +22,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   main: Check mesh feel, cut Flip paint fix, 3MF export in desktop Orca, pie menu (lab), pen 7d3a263, fan hold 298ee9f, Extrude
   F150 e13bebb, Quest stick zoom (r324). Unmerged on the branch: paint shop 1a-1e-ii + paint depth r367 (user feel untested).
 - Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
+- Branch build of a4b63c7 (paint shop + Muse 2-8) = run 39851460805 (2026-10-22), for the user's phone test.
 - Installed: r367 (paint depth) on WSA/Note/Chromebook/SHIELD 2026-10-21 (phone, Quest not connected). Tablet: debug app only.
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
@@ -41,8 +42,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Muse replaces Grok (2026-10-22): `MUSE-TASKS.md` on branch `muse/work`, one draft PR per task into muse/work; Claude
   verifies, then cherry-picks code onto the work branch. Tasks 1-4 merged (PRs #37-#40; Task 1 finding 4: fix the patch
   comment when regenerating 0001). Tasks 2-8 merged + on the work branch (a4b63c7; 79/79 tests). **Claude merges checked
-  Muse PRs into muse/work itself (user 2026-10-22); main still needs the user.** Tasks 9-12 live (PR #47): no-daemon
-  Gradle, `check_3mf.py` (run it on a WSA-saved 3MF), Preview colour-change line, JNI audit. Muse = only read-heavy or
+  Muse PRs into muse/work itself (user 2026-10-22); main still needs the user.** Task 9 merged (PR #48, ed7f000): no Gradle
+  in Muse's VM (gradlew client `-Xms64m` + agent mismatch forks a daemon; Java loopback blocked) -> Muse PRs stay
+  UNCOMPILED, pr-check compiles. Untried idea: `-Dorg.gradle.jvmargs=` on the command line. Tasks 10-12 next: `check_3mf.py` (run it on a WSA-saved 3MF), Preview colour-change line, JNI audit. Muse = only read-heavy or
   mechanically checkable work (no small fixes: spec+check costs as much as doing it).
 - C: tight; old build dirs -> `D:\orca-builds-archive`.
 - Open (backlog): app 3MF fails in desktop Orca (fix untested), printer/user-only checks, pen input, plate switcher pick.
