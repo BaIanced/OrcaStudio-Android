@@ -101,6 +101,7 @@ import app.orcaandroid.ui.components.Viewport
 import app.orcaandroid.ui.device.DeviceScreen
 import app.orcaandroid.ui.prepare.PlateSwitcherBar
 import app.orcaandroid.ui.prepare.PrepareOverlay
+import app.orcaandroid.ui.prepare.inPaintShop
 import app.orcaandroid.ui.prepare.ProblemFocus
 import app.orcaandroid.ui.prepare.PreparePanel
 import app.orcaandroid.ui.preview.PreviewOverlay
@@ -166,6 +167,7 @@ private fun MainLayout(state: UiState, vm: AppViewModel) {
         when {
             state.scad != null && state.screen == Screen.PREPARE -> if (state.scadOnPlate) vm.setScadOnPlate(false) else vm.scad.close()
             state.screen != Screen.PREPARE -> vm.setScreen(Screen.PREPARE)
+            state.inPaintShop -> vm.scene.setTool(Tool.None)
             clearable -> { vm.scene.setTool(Tool.None); vm.scene.select(null); vm.scene.setSelectMode(false) }
             !state.doubleBackToQuit -> askQuit = true
             android.os.SystemClock.uptimeMillis() - lastBack < 2000 -> (context as? android.app.Activity)?.finish()
@@ -222,10 +224,12 @@ private fun MainLayout(state: UiState, vm: AppViewModel) {
                 }
             }
         }
+        // The paint shop takes the whole screen: no tab bar or rail.
+        val shop = state.inPaintShop
         if (wide) {
             Row(Modifier.fillMaxSize()) {
                 // No insets of its own: MainActivity pads the bars, and in landscape the rail may use the cutout strip.
-                NavigationRail(windowInsets = WindowInsets(0),
+                if (!shop) NavigationRail(windowInsets = WindowInsets(0),
                     containerColor = if (colors.isCustom(Region.NAV, NAV_BAR)) navBar else androidx.compose.material3.NavigationRailDefaults.ContainerColor) {
                     CutoutAwareColumn {
                         DESTINATIONS.forEach { d ->
@@ -246,7 +250,7 @@ private fun MainLayout(state: UiState, vm: AppViewModel) {
         } else {
             Column(Modifier.fillMaxSize()) {
                 content(Modifier.weight(1f).fillMaxWidth().windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal)))
-                NavigationBar(containerColor = navBar) {
+                if (!shop) NavigationBar(containerColor = navBar) {
                     DESTINATIONS.forEach { d ->
                         NavigationBarItem(
                             selected = state.screen == d.screen,
@@ -324,6 +328,7 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
             app.orcaandroid.ui.components.Notices(state, vm, Modifier.align(Alignment.TopCenter).padding(top = 64.dp))
         }
     }
+    if (state.inPaintShop) return app.orcaandroid.ui.prepare.PaintShop(state, vm, viewport)
     val panelRegion = if (state.screen == Screen.PREPARE) Region.PREPARE_PANEL else Region.PREVIEW_PANEL
     val panel: @Composable () -> Unit = {
         if (state.screen == Screen.PREPARE) PreparePanel(state, vm, wide) else PreviewPanel(state, vm, wide)

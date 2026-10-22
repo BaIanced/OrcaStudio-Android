@@ -296,6 +296,7 @@
     <string name="orienting">Orienting…</string>
     <string name="paint">Paint</string>
     <string name="paint_color">Color painting</string>
+    <string name="paint_shop">Paint shop</string>
     <string name="paint_fuzzy">Fuzzy skin</string>
     <string name="paint_hint">Drag over the model to paint; drag from outside it or use two fingers to move the view.</string>
     <string name="paint_seam">Seam painting</string>

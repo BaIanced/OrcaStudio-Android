@@ -276,7 +276,7 @@ private fun paintModeOf(shape: String) = when (shape) {
  *  description and only its own options; the swatch row (filaments, Erase, Pick) is shared by all. Object mode = a fill over
  *  colours with no edge limit (a tap colours the whole part) plus the whole-object actions. */
 @Composable
-private fun ColorPaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Paint) {
+internal fun ColorPaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Paint) {
     val shape = if (tool.shape == "pick") tool.back else tool.shape
     var objectMode by rememberSaveable { mutableStateOf(false) }
     // The mode follows the tool: Object only while its fill is still the active shape.
