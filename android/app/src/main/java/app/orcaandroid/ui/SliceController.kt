@@ -15,8 +15,8 @@ class SliceController(private val store: Store, private val presets: PresetContr
     private val engine = store.engine
     private val progress = store.container.sliceProgress
 
-    /** The in-flight G-code tool-change parse for the last slice (Task 11); cancelled on re-slice or plate switch. */
-    private var parseJob: Job? = null
+    /** In-flight G-code tool-change parses per plate (Task 11); a plate's parse is cancelled when it is re-sliced. */
+    private val parseJobs = mutableMapOf<Int, Job>()
 
     fun slice(plate: Int = store.value.activePlate) = store.launch {
         if (store.value.isSlicing) return@launch
@@ -25,7 +25,7 @@ class SliceController(private val store: Store, private val presets: PresetContr
             return@launch
         }
         presets.syncSelection()
-        parseJob?.cancel()
+        parseJobs.remove(plate)?.cancel()
         val preparing = store.str(R.string.preparing)
         store.update { it.copy(slice = SliceStatus.Running(plate, 0, preparing), sliceError = null) }
         progress.value = SliceProgress(0, preparing)
@@ -80,12 +80,13 @@ class SliceController(private val store: Store, private val presets: PresetContr
      * Counts [result]'s tool changes off the main thread (Task 11): the G-code is streamed
      * line by line (`useLines`), never read whole — the files can be 50+ MB. The count is
      * attached to that plate's result; a re-slice replaces the result (discarding the old
-     * count), and starting a re-slice or switching plates cancels an in-flight parse.
+     * count), and re-slicing the plate cancels its in-flight parse. Other plates' parses and
+     * plate switches leave it running (each plate has its own G-code file).
      * A parse failure just leaves the result without a count (the Preview line stays hidden).
      */
     private fun parseToolChanges(plate: Int, result: SliceResult) {
-        parseJob?.cancel()
-        parseJob = store.launch {
+        parseJobs.remove(plate)?.cancel()
+        parseJobs[plate] = store.launch {
             val parsed = try {
                 withContext(Dispatchers.IO) {
                     File(result.gcodeFile).bufferedReader().useLines { lines -> ColourChangeLine.parse(lines) }
@@ -103,11 +104,8 @@ class SliceController(private val store: Store, private val presets: PresetContr
         }
     }
 
-    fun setPreviewPlate(plate: Int) {
-        parseJob?.cancel()
-        store.update { s ->
-            s.copy(previewPlate = plate, external = null, preview = s.preview.showingAll(s.results[plate]?.layers?.lastIndex ?: 0))
-        }
+    fun setPreviewPlate(plate: Int) = store.update { s ->
+        s.copy(previewPlate = plate, external = null, preview = s.preview.showingAll(s.results[plate]?.layers?.lastIndex ?: 0))
     }
 
     fun updatePreview(transform: (PreviewUi) -> PreviewUi) = store.update { it.copy(preview = transform(it.preview)) }

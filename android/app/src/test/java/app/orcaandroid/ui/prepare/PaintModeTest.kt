@@ -102,7 +102,7 @@ class PaintModeTest {
         val inPrepare = toolAfterScreenChange(Screen.PREVIEW, Screen.PREPARE,
             toolAfterScreenChange(Screen.PREPARE, Screen.PREVIEW, paint))
         assertSame(paint, inPrepare)
-        val back = PaintMode.entered(inPrepare, PaintMode.OBJECT, PaintMode.FILL)
+        val back = PaintMode.entered(inPrepare as Tool.Paint, PaintMode.OBJECT, PaintMode.FILL)
         assertEquals("regions", back.shape)
         assertEquals(45f, back.edgeAngle)
         assertEquals("triangle", PaintMode.entered(back, PaintMode.FILL, PaintMode.BRUSH).shape)
