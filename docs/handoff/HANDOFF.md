@@ -41,9 +41,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   with the design pose, Leave goes away); Z rail live drag (MeshPreviewView.kt:342); Build workspace (shapes as Orca parts, design pose).
   Feel pending: view cube, Check mesh, paint batches.
 - C: tight; old build dirs move to `D:\orca-builds-archive`.
-- **Open issue: app 3MF export fails in desktop Orca** (fix `match_filament_indices` in run 39529670166, installed on all devices; untested on a 4-filament export: the user exports from the phone and opens it in desktop Orca).
-- Need the printer, and user-only checks (bead look, shadows, light sliders, r276/r283/r284/r280/r316/r305): backlog.
-- Pen input (super low priority; test on the Note / Quest) + plate switcher pick: backlog.
+- **Open issue: app 3MF export fails in desktop Orca** (fix `match_filament_indices`, run 39529670166; untested: user exports a 4-filament 3MF from the phone, opens it in desktop Orca).
+- Printer-needed + user-only checks, pen input, plate switcher pick: backlog.
 
 ## User decisions (2026-10-13)
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
@@ -55,7 +54,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 ## Safety gotchas
 - **Any test print needs the user's OK.** User's AMS lite: A1 yellow, A2 matte black, A3 white, A4 PETG.
 - 3D Filament Profiles (3dfilamentprofiles.com) is built in (Models tab site + "Log print"): **never press Subtract** in tests.
-- **User 2026-10-15: all build plates/objects on the devices are currently throwaway test objects with no real-life significance (until the user says otherwise). Standing permission to move, reassign, delete or rearrange anything; no need to avoid or restore them.** Still verify the selection before deleting by list position. (Prints still need the user's OK.)
+- **User 2026-10-15: all plates/objects on the devices are throwaway tests: move, reassign, delete freely.** Verify the selection before deleting by list position. (Prints still need the user's OK.)
 - **Never `cat missing > target`** (the redirect empties the target first).
 - **Never `adb forward tcp:X tcp:Y` on WSA** (wedges adb); use `localabstract:orcastudio_mcp` (reference "WSA").
 
