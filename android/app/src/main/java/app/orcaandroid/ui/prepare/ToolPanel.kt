@@ -1,6 +1,12 @@
 package app.orcaandroid.ui.prepare
 
 import androidx.compose.foundation.Canvas
+import kotlinx.coroutines.delay
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -276,7 +282,7 @@ private fun paintModeOf(shape: String) = when (shape) {
  *  description and only its own options; the swatch row (filaments, Erase, Pick) is shared by all. Object mode = a fill over
  *  colours with no edge limit (a tap colours the whole part) plus the whole-object actions. */
 @Composable
-internal fun ColorPaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Paint) {
+internal fun ColorPaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Paint, layers: Boolean = false) {
     val shape = if (tool.shape == "pick") tool.back else tool.shape
     var objectMode by rememberSaveable { mutableStateOf(false) }
     // The mode follows the tool: Object only while its fill is still the active shape.
@@ -321,10 +327,31 @@ internal fun ColorPaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Pain
         mode == "bands" -> R.string.paint_mode_bands_desc
         else -> R.string.paint_mode_object_desc
     }), style = MaterialTheme.typography.bodySmall)
+    // Filament layers: the surface share of each filament, again shortly after the paint stops changing (a stroke changes
+    // it every batch). Side panel = one row per filament; the dock keeps swatches and long-press opens the same actions.
+    var coverage by remember { mutableStateOf<FloatArray?>(null) }
+    LaunchedEffect(state.selection, state.scene.paintVersion, state.scene.meshVersion, state.filaments.size) {
+        delay(300)
+        coverage = runCatching { vm.scene.paintCoverage() }.getOrNull()
+    }
+    val total = coverage?.sum()?.takeIf { it > 0f }
+    fun percent(i: Int) = total?.let { t -> ((coverage?.getOrNull(i) ?: 0f) / t * 100f).roundToInt() }
+    fun turnInto(i: Int, j: Int) = vm.scene.paintRemap(List(state.filaments.size) { if (it == i) j else it }, base = true)
+    if (layers) {
+        Text(stringResource(R.string.paint_layers), style = MaterialTheme.typography.labelMedium)
+        state.filaments.indices.forEach { i ->
+            PaintLayerRow(state, i, tool.state == i + 1 && tool.shape != "pick", percent(i), { vm.scene.setTool(tool.copy(state = i + 1, shape = shape)) }) { j -> turnInto(i, j) }
+        }
+    }
     // Swatches: tap = paint with it. Erase and the eyedropper sit at the end of the same row.
     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-        state.filaments.forEachIndexed { i, f ->
-            Swatch(tool.state == i + 1 && tool.shape != "pick", "${i + 1}", { vm.scene.setTool(tool.copy(state = i + 1, shape = shape)) }) { ColorDot(f.color, 28) }
+        if (!layers) state.filaments.forEachIndexed { i, f ->
+            var menu by remember { mutableStateOf(false) }
+            Box {
+                Swatch(tool.state == i + 1 && tool.shape != "pick", "${i + 1}", { vm.scene.setTool(tool.copy(state = i + 1, shape = shape)) },
+                    onLongClick = { menu = true }) { ColorDot(f.color, 28) }
+                LayerMenu(state, i, menu, percent(i), { menu = false }) { j -> turnInto(i, j) }
+            }
         }
         if (mode != "object")
             Swatch(tool.state == 0 && tool.shape != "pick", stringResource(R.string.erase), { vm.scene.setTool(tool.copy(state = 0, shape = shape)) }) {
@@ -381,12 +408,57 @@ internal fun ColorPaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Pain
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun Swatch(selected: Boolean, label: String, onClick: () -> Unit, content: @Composable () -> Unit) {
-    Column(Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onClick).padding(4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+private fun Swatch(selected: Boolean, label: String, onClick: () -> Unit, onLongClick: (() -> Unit)? = null, content: @Composable () -> Unit) {
+    Column(Modifier.clip(RoundedCornerShape(8.dp)).combinedClickable(onLongClick = onLongClick, onClick = onClick).padding(4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally) {
         Box(Modifier.size(36.dp).then(if (selected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, CircleShape) else Modifier),
             contentAlignment = Alignment.Center) { content() }
         Text(label, style = MaterialTheme.typography.labelSmall)
+    }
+}
+
+/** A filament's name without the printer suffix ("Bambu PLA Basic @BBL A1" -> "Bambu PLA Basic"). */
+private fun filamentLabel(state: UiState, i: Int) = "${i + 1} " + state.filaments[i].preset.substringBefore(" @")
+
+/** One filament layer in the paint shop's side panel: tap = paint with it; the share bar; the menu turns it into another. */
+@Composable
+private fun PaintLayerRow(state: UiState, i: Int, selected: Boolean, percent: Int?, onClick: () -> Unit, onTurnInto: (Int) -> Unit) {
+    var menu by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(12.dp)
+    Row(Modifier.fillMaxWidth().clip(shape)
+        .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh)
+        .then(if (selected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, shape) else Modifier)
+        .clickable(onClick = onClick).padding(start = 10.dp, top = 2.dp, bottom = 2.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        ColorDot(state.filaments[i].color, 24)
+        Column(Modifier.weight(1f)) {
+            Text(filamentLabel(state, i), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.weight(1f).height(4.dp).clip(RoundedCornerShape(2.dp)).background(MaterialTheme.colorScheme.outlineVariant)) {
+                    Box(Modifier.fillMaxWidth((percent ?: 0) / 100f).height(4.dp).background(MaterialTheme.colorScheme.outline))
+                }
+                Text(percent?.let { "$it %" } ?: "", Modifier.widthIn(min = 40.dp).padding(start = 6.dp), style = MaterialTheme.typography.labelSmall)
+            }
+        }
+        Box {
+            IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, stringResource(R.string.paint_layer_menu)) }
+            LayerMenu(state, i, menu, percent, { menu = false }, onTurnInto)
+        }
+    }
+}
+
+/** Layer actions (side panel menu button, dock swatch long-press): the share, then "Turn into" each other filament. */
+@Composable
+private fun LayerMenu(state: UiState, i: Int, open: Boolean, percent: Int?, onDismiss: () -> Unit, onTurnInto: (Int) -> Unit) {
+    DropdownMenu(open, onDismiss) {
+        Text(stringResource(R.string.paint_layer_share, filamentLabel(state, i), percent ?: 0), Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        state.filaments.forEachIndexed { j, g ->
+            if (j != i) DropdownMenuItem(text = { Text(stringResource(R.string.paint_turn_into, j + 1)) }, leadingIcon = { ColorDot(g.color) },
+                onClick = { onDismiss(); onTurnInto(j) })
+        }
     }
 }
 

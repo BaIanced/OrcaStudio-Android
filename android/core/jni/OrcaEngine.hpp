@@ -197,7 +197,8 @@ public:
     // [thickness] > 0) faces whose wall is thinner than that many mm; plus up to 400 of the thin spots as world x,y,z.
     json check_mesh(int object, int instance, double thickness);
     json paint_gap_fill(int object, const std::string &kind, double area);
-    json paint_remap(int object, const std::vector<int> &dest);
+    json paint_remap(int object, const std::vector<int> &dest, bool base = false);
+    json paint_coverage(int object);
 
     // Variable layer height. All return { "profile": [z, h, ...], "min", "max", "height" } plus the
     // scene. `quality` 0..1 (adaptive), `radius` layers (smooth), `delta` mm over `band` mm.

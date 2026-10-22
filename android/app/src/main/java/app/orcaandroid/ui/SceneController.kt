@@ -476,7 +476,8 @@ class SceneController(private val store: Store, private val presets: PresetContr
     }
 
     fun paintClear(kind: String) = selection?.let { sel -> store.sceneOp { engine.paintClear(sel.obj, kind) } }
-    fun paintRemap(dest: List<Int>) = selection?.let { sel -> store.sceneOp { engine.paintRemap(sel.obj, dest) } }
+    fun paintRemap(dest: List<Int>, base: Boolean = false) = selection?.let { sel -> store.sceneOp { engine.paintRemap(sel.obj, dest, base) } }
+    suspend fun paintCoverage(): FloatArray? = selection?.let { engine.paintCoverage(it.obj) }
     /** Regions view: the selected copy's crease lines, or null without a selection. */
     suspend fun creaseLines(angle: Float): FloatArray? = selection?.let { engine.creaseLines(it.obj, it.instance, angle) }
     fun paintByPart() = selection?.let { sel -> store.sceneOp { engine.paintByPart(sel.obj) } }

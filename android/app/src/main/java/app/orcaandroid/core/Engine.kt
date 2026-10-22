@@ -181,7 +181,11 @@ class Engine(private val cacheDir: File) {
     /** Regions view: world line segments (x, y, z per end) of a copy's crease edges sharper than [angle] degrees and open edges. */
     suspend fun creaseLines(obj: Int, instance: Int, angle: Float): FloatArray =
         call("creaseLines", args("object" to obj, "instance" to instance, "angle" to angle)).getJSONArray("lines").floats()
-    suspend fun paintRemap(obj: Int, dest: List<Int>) = parseScene(call("paintRemap", args("object" to obj, "dest" to dest)))
+    /** [base]: also moves unpainted faces (parts whose own filament is remapped get the new one). */
+    suspend fun paintRemap(obj: Int, dest: List<Int>, base: Boolean = false) =
+        parseScene(call("paintRemap", args("object" to obj, "dest" to dest, "base" to base)))
+    /** Paint shop layer bars: printed surface in mm2 per filament (index 0 = filament 1), unpainted faces as their part's. */
+    suspend fun paintCoverage(obj: Int): FloatArray = call("paintCoverage", args("object" to obj)).getJSONArray("area").floats()
     suspend fun paintGapFill(obj: Int, kind: String, area: Float) = parseScene(call("paintGapFill", args("object" to obj, "kind" to kind, "area" to area)))
 
     private fun parseProfile(o: JSONObject) = parseScene(o) to LayerProfile(

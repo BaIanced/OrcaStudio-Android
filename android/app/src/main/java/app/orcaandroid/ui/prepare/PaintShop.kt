@@ -59,7 +59,7 @@ internal fun PaintShop(state: UiState, vm: AppViewModel, viewport: @Composable (
         val options: @Composable (Modifier) -> Unit = { m ->
             Surface(m, tonalElevation = 2.dp) {
                 Column(Modifier.verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    ColorPaintOptions(state, vm, tool)
+                    ColorPaintOptions(state, vm, tool, layers = side)
                 }
             }
         }

@@ -903,8 +903,9 @@ json OrcaEngine::paint_gap_fill(int object, const std::string &kind, double area
 }
 
 // The desktop's "Remap filaments" (GLGizmoMmuSegmentation::remap_filament_assignments): [dest][i] is the 0-based filament
-// that painted filament i becomes. Colour painting only; the object's base extruder is left alone.
-json OrcaEngine::paint_remap(int object, const std::vector<int> &dest)
+// that painted filament i becomes. Colour painting only; [base] (the paint shop's "Turn into") also moves the unpainted
+// faces: parts whose own filament is remapped get the new one.
+json OrcaEngine::paint_remap(int object, const std::vector<int> &dest, bool base)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
     ModelObject &obj = object_at(object);
@@ -925,18 +926,60 @@ json OrcaEngine::paint_remap(int object, const std::vector<int> &dest)
         return scene_json();
     bool pushed = false;
     for (ModelVolume *vol : obj.volumes) {
-        if (vol->mmu_segmentation_facets.empty())
+        const int own = std::max(1, vol->extruder_id()) - 1;
+        const bool move_base = base && vol->is_model_part() && own < int(dest.size()) && dest[own] != own && dest[own] >= 0;
+        if (vol->mmu_segmentation_facets.empty() && !move_base)
             continue;
         if (!pushed)
             push_undo();
         pushed = true;
-        vol->mmu_segmentation_facets.remap_states(*vol, state_map);
+        if (!vol->mmu_segmentation_facets.empty())
+            vol->mmu_segmentation_facets.remap_states(*vol, state_map);
+        if (move_base)
+            vol->config.set_key_value("extruder", new ConfigOptionInt(dest[own] + 1));
     }
     if (pushed) {
         write_mesh();
         write_paint_mesh();
     }
     return scene_json();
+}
+
+// The paint shop's layer bars: printed surface (mm2, first instance's scale) per filament, unpainted faces counted as
+// their part's filament. area[i] = filament i + 1.
+json OrcaEngine::paint_coverage(int object)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    const ModelObject &obj = object_at(object);
+    const int filaments = std::max<int>(1, int(m_sel_filaments.size()));
+    std::vector<double> area(filaments, 0.);
+    const Transform3d inst = obj.instances.empty() ? Transform3d::Identity() : obj.instances.front()->get_matrix();
+    for (const ModelVolume *vol : obj.volumes) {
+        if (!vol->is_model_part())
+            continue;
+        const Transform3d trafo = inst * vol->get_matrix();
+        auto add = [&](const indexed_triangle_set &its, int filament) {
+            if (filament < 1 || filament > filaments)
+                return;
+            double sum = 0.;
+            for (const stl_triangle_vertex_indices &f : its.indices) {
+                const Vec3d a = trafo * its.vertices[f[0]].cast<double>();
+                sum += (trafo * its.vertices[f[1]].cast<double>() - a).cross(trafo * its.vertices[f[2]].cast<double>() - a).norm() / 2.;
+            }
+            area[filament - 1] += sum;
+        };
+        const int base = std::max(1, vol->extruder_id());
+        if (vol->mmu_segmentation_facets.empty()) {
+            add(vol->mesh().its, base);
+            continue;
+        }
+        TriangleSelector selector(vol->mesh());
+        selector.deserialize(vol->mmu_segmentation_facets.get_data(), false);
+        add(selector.get_facets(EnforcerBlockerType::NONE), base);
+        for (int i = 1; i <= filaments; ++i)
+            add(selector.get_facets(EnforcerBlockerType(int(EnforcerBlockerType::Extruder1) + i - 1)), i);
+    }
+    return {{"area", area}};
 }
 
 // --- Variable layer height -----------------------------------------------------------------------
