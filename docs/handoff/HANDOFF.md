@@ -22,7 +22,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   main: Check mesh feel, cut Flip paint fix, 3MF export in desktop Orca, pie menu (lab), pen 7d3a263, fan hold 298ee9f, Extrude
   F150 e13bebb, Quest stick zoom (r324). Unmerged on the branch: paint shop 1a-1e-ii + paint depth r367 (user feel untested).
 - Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
-- Branch build of a4b63c7 (paint shop + Muse 2-8) = r370 (run 39857241266), on WSA/Note/Chromebook/SHIELD; user tests it on the phone.
+- r370 (a4b63c7, paint shop + Muse 2-8): user downloads it to the phone. Build of a797c20 (+ Muse 10-11) = run 39861630541.
 - Installed: r367 (paint depth) on WSA/Note/Chromebook/SHIELD 2026-10-21 (phone, Quest not connected). Tablet: debug app only.
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
@@ -36,15 +36,15 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **User 2026-10-21: design deviations pre-approved** ("deviate if you find a more logical, intuitive way; I trust your judgement"); say what changed.
 - Paint plan (user ACCEPTED 2026-10-21, one step per session): (1) paint shop steps 1a-1e-ii and (2) Top depth (patch 0001 +
   PaintDepth.kt, r367) built + Claude WSA-checked (archive), user feel untested (backlog "Paint panel UI", "Paint penetration").
-  **Next: step (3) Colour change + waste counter**: post-slice half = Muse Task 11 (wait for it); Claude's half = the
-  pre-slice estimate in the paint shop (`core/ColourChangeEstimate.kt` needs per-layer filament ids from the painted mesh,
-  native side; flush volumes from the profile).
+  **Next: step (3) Colour change + waste counter**: post-slice half done (Muse Task 11, 1740dcf, untested on device; counts
+  prime tower only, NOT the A1's flush-to-chute waste: add flush volumes). Claude's half = the pre-slice estimate in the
+  paint shop (`core/ColourChangeEstimate.kt` needs per-layer filament ids from the painted mesh, native side; flush volumes
+  from the profile).
 - Muse replaces Grok (2026-10-22): `MUSE-TASKS.md` on branch `muse/work`, one draft PR per task into muse/work; Claude
-  verifies, then cherry-picks code onto the work branch. Tasks 1-8 on the work branch (a4b63c7; 79/79 tests; Task 1
-  finding 4: fix the patch comment when regenerating 0001). **Claude merges checked
-  Muse PRs into muse/work itself (user 2026-10-22); main still needs the user.** Task 9 merged (PR #48, ed7f000): no Gradle
-  in Muse's VM (gradlew client `-Xms64m` + agent mismatch forks a daemon; Java loopback blocked) -> Muse PRs stay
-  UNCOMPILED, pr-check compiles. Untried idea: `-Dorg.gradle.jvmargs=` on the command line. Tasks 10-12 next: `check_3mf.py` (run it on a WSA-saved 3MF), Preview colour-change line, JNI audit. Muse = only read-heavy or
+  verifies (pr-check, review, fixes pushed to the task branch), merges, then cherry-picks code (not MUSE-TASKS.md) onto the
+  work branch. **Muse never merges; main still needs the user.** Tasks 1-11 done (9 = no Gradle in Muse's VM, see
+  `MUSE-TOOLCHAIN.md`; 10 = `android/scripts/check_3mf.py`, a797c20; Task 1 finding 4: fix the patch comment when
+  regenerating 0001). Task 12 (JNI audit) next. Stacked PRs conflict after a squash merge: merge muse/work into the next.
   mechanically checkable work (no small fixes: spec+check costs as much as doing it).
 - C: tight; old build dirs -> `D:\orca-builds-archive`.
 - Open (backlog): app 3MF fails in desktop Orca (fix untested), printer/user-only checks, pen input, plate switcher pick.

@@ -2495,3 +2495,6 @@ User: "you just tested something we already confirmed worked". Cross-checked eac
 - Task 9 (PR #48 -> muse/work ed7f000): no Gradle in Muse's VM. gradlew's hard-coded `-Xms64m` + instrumentation-agent
   mismatch always forks a single-use daemon, and Java loopback TCP is blocked there. Details in `MUSE-TOOLCHAIN.md`.
   Untried: `-Dorg.gradle.jvmargs=...` on the command line (beats both gradle.properties) or a direct distribution launch.
+- Task 10 (PR #49 -> 3ceb676; work branch a797c20): `android/scripts/check_3mf.py`, 29/29 tests, all OK on a WSA 3MF
+  (swatch2; not app-saved: WSA blocked the session-backup pull). Task 11 (PR #50 -> 6e44dcd; work branch 1740dcf): pr-check
+  failed on a test cast; Claude fixed it plus per-plate parse jobs (plate switch lost the count) and slice-average density.
