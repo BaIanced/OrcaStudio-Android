@@ -43,9 +43,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   verifies, merges, cherry-picks code (not MUSE-TASKS.md) onto the work branch. Muse never merges. Tasks 1-11 done (Task 1
   finding 4: fix the patch comment when regenerating 0001). **Comms (user-approved 2026-10-22): GitHub is the mailbox, no relaying.** Tasks in MUSE-TASKS.md on
   muse/work, then comment `TASK <n> READY` on issue #46; Muse replies via PR + log entry, pings #46 (`PR #<n> UPDATED`).
-  **Every session start: check open `muse/*` PRs and #46.** Review on the PR. PR #51 (protocol + Task 13 loopback test,
-  before Task 12) awaits merge: self-merge needs the user's `Bash(gh pr merge:*)` allow rule; after it merges, comment
-  `PROTOCOL LIVE` + `TASK 13 READY` on #46. Muse role verdict waits on Task 13 (compiles -> Kotlin tasks OK again; else
+  **Every session start: check open `muse/*` PRs and #46.** Review on the PR. LIVE 2026-10-22 (PR #51, 8e0430b; `TASK 13 READY` on #46:
+  loopback test, before Task 12). Self-merge works when the command STARTS with `gh pr merge` (no `cd &&` prefix). Muse role verdict waits on Task 13 (compiles -> Kotlin tasks OK again; else
   audits/research/pure tested logic only). No stacking.
 - C: tight; old build dirs -> `D:\orca-builds-archive`.
 - Open (backlog): app 3MF fails in desktop Orca (fix untested), printer/user-only checks, pen input, plate switcher pick.
