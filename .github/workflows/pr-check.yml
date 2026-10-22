@@ -1,0 +1,65 @@
+# Kotlin compile + JVM unit tests for PRs into muse/work (Muse's task PRs, see MUSE-TASKS.md). No secrets, read-only
+# token, no native build, no APK. Lives on muse/work only, never on main.
+#
+# A PR that edits this file runs its own edited copy, so the .github/ guard below is a tripwire, not a barrier. The
+# barrier is that the release keystore secrets sit in the "release" environment, deployable from main only.
+name: PR check (muse)
+
+on:
+  pull_request:
+    branches: [muse/work]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-check-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out (with the OrcaSlicer submodule)
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Reject changes to protected paths
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          changed=$(git diff --name-only "$BASE_SHA" HEAD)
+          printf '%s\n' "$changed"
+          bad=$(printf '%s\n' "$changed" | grep -E '^(\.github/|src-orca|android/patches/|docs/handoff/|\.claude/)' || true)
+          if [ -n "$bad" ]; then
+            printf '::error::protected path changed: %s\n' $bad
+            exit 1
+          fi
+
+      - name: Java 21
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Kotlin compile
+        working-directory: android
+        run: ./gradlew --console=plain -q :app:compileReleaseKotlin
+
+      - name: Unit tests
+        working-directory: android
+        run: ./gradlew --console=plain :app:testDebugUnitTest
+
+      - name: Test reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: unit-test-results
+          path: ~/build/orca-android/gradle/app/test-results/
+          if-no-files-found: ignore
