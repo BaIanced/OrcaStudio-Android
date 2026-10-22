@@ -600,3 +600,33 @@ and back: both modes should still show their shapes; enter Object mode,
 leave it, round-trip Preview in between — the fill settings from before
 Object (smart-fill angle, over-colours, guard) should be the ones restored.
 Open questions: none.
+
+### Task 13 - 2026-10-22 - muse/task-13-loopback-diagnosis - this commit
+Toolchain only, no app code. Full evidence in `MUSE-TOOLCHAIN.md` (Task 13
+section). The loopback question is settled: IPv4 loopback from Java is
+blackholed (classic sockets read-timeout, NIO gets EOF `n=-1` — the
+accept-then-close shape behind "the first result from the daemon was
+empty"), while python3 on `127.0.0.1` passes and Java on IPv6 loopback
+passes both halves (`A read=42`, `B read n=1 value=42`). The
+`*_JAVA_OPTIONS` vars are unset and the proxy props change nothing
+(`socksProxyHost=null` throughout). Working daemon recipe:
+`JAVA_TOOL_OPTIONS="-Djava.net.preferIPv6Addresses=true"` on the `gradlew`
+line — the daemon log shows the Build arriving over a
+`/0:0:0:0:0:0:0:1` -> `/0:0:0:0:0:0:0:1` socket. Config A (env as-is) exit 1
+at daemon connect (DaemonInfo: daemon on `/127.0.0.1`, no preferIPv6 in
+daemonOpts — the flag never reached the daemon before); Configs B and C
+exit 1 later, at plugin resolution (`com.android.application:9.4.1` marker
+"could not resolve").
+Build: UNCOMPILED — the prescribed command still exits 1, now at dependency
+resolution instead of the daemon link; unit tests not run, no test count.
+Privacy self-scan: tree exit 0, range exit 0.
+UNVERIFIED: that the plugin failure is the TLS failure a plain Java probe
+shows against the egress proxy with the install-time trust store
+(`PKIX path validation failed: signature check failed` after a successful
+CONNECT; curl through the same proxy gets the marker POM with HTTP 200) —
+no PKIX line in the daemon log and no Google/Portal request at `--info`,
+so the daemon's own cause is not captured. Test-worker and Kotlin-daemon
+loopback under the recipe are inferred, not observed.
+Open questions: trust-store rebuild from the proxy's current CA bundle and
+a Config B re-run — the suggested next step, outside this task's
+3-configuration budget; Claude's call whether that becomes a task.
