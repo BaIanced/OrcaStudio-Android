@@ -39,9 +39,11 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   **Next: step (3) Colour change + waste counter** (estimate; flush volumes from the profile; G-code tool-change counting in
   `~/orca-android-tools/gcode-tools.py` can cross-check it). Small fix to batch with it: paint mode resets to Fill after Preview.
 - Muse replaces Grok (2026-10-22): `MUSE-TASKS.md` on branch `muse/work`, one draft PR per task into muse/work; Claude
-  verifies, then cherry-picks code onto the work branch. Pilot Task 1 (patch review) merged into muse/work 2026-10-22 (PR #37,
-  `MUSE-REVIEW-0001.md`): patch sound; finding 4 confirmed = inset freezes one step below the shells, keep behaviour, fix the
-  patch comment when regenerating it. Tasks 2-4 wait for the user's go; JDK/SDK install in Muse's VM: user undecided.
+  verifies, then cherry-picks code onto the work branch. Tasks 1-4 merged (PRs #37-#40; Task 1 finding 4: fix the patch
+  comment when regenerating 0001). Tasks 5-8 = stacked PRs #42-#45: Claude-checked 2026-10-22 (compile 0, 79/79 tests);
+  user merges them; then Claude cherry-picks tasks 2-8 code onto the work branch + WSA-checks Task 7 (paint mode kept over
+  Preview). Tasks 9-12 written (PR #47, user merges first): no-daemon Gradle, `check_3mf.py`, Preview colour-change line
+  (= paint step 3's post-slice half), JNI audit. Muse can't run Gradle yet (Java loopback TCP blocked in its VM).
 - Later + feel-pending items: backlog "Later". C: tight; old build dirs -> `D:\orca-builds-archive`.
 - **Open: app 3MF export fails in desktop Orca** (fix run 39529670166, untested by the user; backlog).
 - Printer-needed + user-only checks, pen input, plate switcher pick: backlog.
