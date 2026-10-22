@@ -45,6 +45,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Printer-needed + user-only checks, pen input, plate switcher pick: backlog.
 
 ## User decisions (2026-10-13)
+- Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
 - Plate activation must not move the camera when zoomed out (sometimes moving is fine).
 - Plate switcher: **keep the lab until the user says otherwise; don't ask again** (mockups https://claude.ai/artifact/E3MtY8rQ1dMGHhibY2oNCX).
