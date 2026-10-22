@@ -174,6 +174,28 @@ class GcodeToolChangesTest {
         assertEquals(24.0528, r.primeTowerMm3, 1e-3)
     }
 
+    @Test fun flushBlocksSummedApartFromPrimeTower() {
+        // The A1 change_filament_gcode shape: relative E, a 6 mm + 4 mm flush, then the
+        // retract/re-prime outside the block, then 2 mm on the tower. Flush 10 mm =
+        // 24.0528 mm3; tower 2 mm = 4.8106 mm3.
+        val r = parse("""
+            M83
+            M620 S1A
+            T1
+            ; FLUSH_START
+            G1 E6 F300
+            G1 E4 F50
+            ; FLUSH_END
+            G1 E-0.8 F1800
+            G1 E0.8 F300
+            M621 S1A
+            ; FEATURE: Prime tower
+            G1 X1 Y1 E2
+        """)
+        assertEquals(24.0528, r.flushMm3, 1e-3)
+        assertEquals(4.8106, r.primeTowerMm3, 1e-3)
+    }
+
     @Test fun perLayerFeedsColourChangeEstimate() {
         // The parser's perLayer is the shape ColourChangeEstimate.estimate takes, and on
         // this fixture both count the same switches. Matrix [[0, 100], [200, 0]]:

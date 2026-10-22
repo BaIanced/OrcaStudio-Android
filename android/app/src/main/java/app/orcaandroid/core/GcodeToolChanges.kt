@@ -17,6 +17,9 @@ import kotlin.math.PI
  *   non-Bambu flavour writes `; TYPE: <name>` instead (the compatible tag list in the same
  *   file), so both spellings are recognised. `; WIPE_TOWER_START` / `; WIPE_TOWER_END`
  *   (same tag list, `:115-116`) also delimit prime-tower extrusion.
+ * - Flush to the chute: `; FLUSH_START` / `; FLUSH_END` (`GCodeProcessor.cpp:154-155`), which
+ *   the Bambu A1 / A1 mini `change_filament_gcode` writes around each purge (same profile
+ *   file); the purge between them never reaches the prime tower.
  * - Tool selection: `GCodeWriter::toolchange` (`src/libslic3r/GCodeWriter.cpp:719-744`)
  *   writes `M1020 S<n>` on Bambu printers or the toolchange prefix plus the id
  *   (`toolchange_prefix`, `:709-717`: plain `T<n>`, `M135 T<n>` / `M108 T<n>` on other
@@ -42,6 +45,7 @@ import kotlin.math.PI
  *   subtract, as the same filament is re-primed) and converts filament length to volume
  *   assuming 1.75 mm filament. Absolute E (`M82`, the default assumed here) and relative
  *   E (`M83`) are both tracked, and `G92 E<x>` resets the absolute reference.
+ * - [Result.flushMm3] sums the E deltas inside flush blocks the same way.
  */
 object GcodeToolChanges {
 
@@ -49,6 +53,7 @@ object GcodeToolChanges {
         val changes: Int,
         val perLayer: List<List<Int>>,
         val primeTowerMm3: Double,
+        val flushMm3: Double = 0.0,
     )
 
     /** Filament cross-section for the assumed 1.75 mm diameter, in mm2. */
@@ -72,6 +77,8 @@ object GcodeToolChanges {
         var relativeE = false
         var lastE: Double? = null
         var primeTowerMm = 0.0
+        var inFlush = false
+        var flushMm = 0.0
 
         fun select(id: Int) {
             if (id >= NO_OP_ID) return
@@ -98,6 +105,8 @@ object GcodeToolChanges {
                         inPrimeTower = comment.substringAfter(':').trim() == "Prime tower"
                     comment == "WIPE_TOWER_START" -> inPrimeTower = true
                     comment == "WIPE_TOWER_END" -> inPrimeTower = false
+                    comment == "FLUSH_START" -> inFlush = true
+                    comment == "FLUSH_END" -> inFlush = false
                     else -> manualChange.find(comment)?.let { select(it.groupValues[1].toInt()) }
                 }
                 continue
@@ -119,11 +128,12 @@ object GcodeToolChanges {
                         if (prev == null) 0.0 else e - prev
                     }
                     if (inPrimeTower) primeTowerMm += delta
+                    if (inFlush) flushMm += delta
                 }
                 else -> toolWord.matchEntire(word)?.let { select(it.groupValues[1].toInt()) }
             }
         }
         val perLayer = if (layers.isEmpty() && selectionOrder.isNotEmpty()) listOf(selectionOrder) else layers
-        return Result(changes, perLayer, primeTowerMm * FILAMENT_AREA_MM2)
+        return Result(changes, perLayer, primeTowerMm * FILAMENT_AREA_MM2, flushMm * FILAMENT_AREA_MM2)
     }
 }

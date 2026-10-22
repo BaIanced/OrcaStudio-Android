@@ -33,6 +33,11 @@ class ColourChangeLineTest {
         // 8500 mm3 at 1.24 g/cm3 = 10.54 g, shown to one decimal.
         assertEquals("3 · prime tower ~10.5 g", ColourChangeLine.value(result(changes = 3, mm3 = 8500.0)))
         assertEquals("1 · prime tower ~0.0 g", ColourChangeLine.value(result(changes = 1, mm3 = 0.0)))
+        // With chute flush: 3400 mm3 at 1.24 g/cm3 = 4.22 g, shown before the tower.
+        assertEquals(
+            "3 · flush ~4.2 g · prime tower ~10.5 g",
+            ColourChangeLine.value(GcodeToolChanges.Result(3, emptyList(), 8500.0, flushMm3 = 3400.0)),
+        )
     }
 
     @Test fun streamParseOfFixture() {
