@@ -1,5 +1,7 @@
 package app.orcaandroid.ui.prepare
 
+import app.orcaandroid.ui.Tool
+
 /**
  * The colour-paint task modes (Brush / Fill / Bands / Object in [ColorPaintOptions]),
  * derived from the paint tool's shape. Pure JVM, so the mapping the UI shows can be
@@ -24,4 +26,38 @@ object PaintMode {
     /** The mode to show: Object only while the tool says so *and* its fill shape is still active. */
     fun of(shape: String, objectMode: Boolean): String =
         if (objectMode && shape == "fill") OBJECT else ofShape(shape)
+
+    /**
+     * The tool after switching from mode [from] to mode [to] (Task 11, the Task 7
+     * follow-up). The per-mode shapes and the fill settings Object mode overrides live
+     * on the tool itself ([Tool.Paint.brushShape], [Tool.Paint.fillShape] and the
+     * `fillKeep*` snapshot), not in composable state, so they survive the paint shop
+     * leaving composition — a Preview round-trip used to reset them the same way it
+     * lost Object mode. Entering Object saves the current fill settings into the
+     * snapshot and applies Object's overrides; leaving Object restores the snapshot.
+     * Erase has no meaning for a whole part, so entering Object from erase selects
+     * filament 1, as before.
+     */
+    fun entered(tool: Tool.Paint, from: String, to: String): Tool.Paint {
+        if (to == from) return tool
+        val base = if (from == OBJECT) tool.copy(
+            edgeAngle = tool.fillKeepEdgeAngle, overColours = tool.fillKeepOverColours, guardOn = tool.fillKeepGuardOn,
+        ) else tool
+        val saved = if (to == OBJECT) base.copy(
+            fillKeepEdgeAngle = tool.edgeAngle, fillKeepOverColours = tool.overColours, fillKeepGuardOn = tool.guardOn,
+        ) else base
+        val next = when (to) {
+            BRUSH -> saved.copy(shape = saved.brushShape)
+            FILL -> saved.copy(
+                shape = saved.fillShape,
+                edgeAngle = if (saved.fillShape == "regions" && saved.edgeAngle <= 0f) 30f else saved.edgeAngle,
+            )
+            BANDS -> saved.copy(shape = "height")
+            else -> saved.copy(shape = "fill", edgeAngle = 0f, overColours = true, guardOn = false)
+        }
+        return next.copy(
+            back = next.shape, objectMode = to == OBJECT,
+            state = if (to == OBJECT && next.state == 0) 1 else next.state,
+        )
+    }
 }

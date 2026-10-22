@@ -122,6 +122,9 @@ private fun Summary(state: UiState, vm: AppViewModel, r: SliceResult) {
             LabeledValue(stringResource(R.string.filament), "%.2f m · %.1f g".format(Locale.ROOT, r.filamentMm / 1000, r.filamentGrams))
             if (r.cost > 0) LabeledValue(stringResource(R.string.cost), "%.2f".format(Locale.ROOT, r.cost))
             LabeledValue(stringResource(R.string.layers), r.layers.size.toString())
+            // Task 11: the sliced plate's colour changes and prime-tower waste, once the
+            // off-main-thread parse of the G-code attached them; hidden when there are none.
+            if (ColourChangeLine.visible(r.toolChanges)) LabeledValue(stringResource(R.string.colour_changes), ColourChangeLine.value(r.toolChanges!!, ColourChangeLine.densityOf(r)))
             if (r.filamentUse.size > 1) {
                 r.filamentUse.forEachIndexed { i, (m, g) ->
                     if (m > 0f) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
