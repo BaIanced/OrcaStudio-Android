@@ -47,12 +47,28 @@ sealed interface Tool {
                      /** Fill over colours: the fill ignores existing colours and stops only at edges / the guard plane. */
                      val overColours: Boolean = false,
                      /** Paint shop layers (bit i = filament i + 1): [hidden] ones are drawn grey, [locked] ones no paint covers. */
-                     val hidden: Int = 0, val locked: Int = 0) : Tool
+                     val hidden: Int = 0, val locked: Int = 0,
+                     /** Colour painting's Object task mode (its shape is plain "fill", so the mode needs its own flag;
+                      *  it used to be a composable-local in ColorPaintOptions and was lost when the paint shop left
+                      *  composition, landing the user on Fill). Session-only: [UiState] is never persisted. */
+                     val objectMode: Boolean = false) : Tool
     data object LayOnFace : Tool
     data object Measure : Tool
     /** The cut plane passes through the object's middle at height [z], turned by [rot] (Euler degrees) from the horizontal. */
     data class Cut(val z: Float, val rot: Vec3 = Vec3(0f, 0f, 0f)) : Tool
     data object LayerHeight : Tool
+}
+
+/**
+ * The tool in force after switching from screen [from] to screen [to]. Prepare and
+ * Preview are two views of the same workspace (the preview viewport already ignores
+ * the tool), so the tool — the paint mode included — survives switching between
+ * them; leaving the workspace for another tab clears it, as before.
+ */
+fun toolAfterScreenChange(from: Screen, to: Screen, tool: Tool): Tool = when {
+    to == Screen.PREPARE -> tool
+    from == Screen.PREPARE && to == Screen.PREVIEW -> tool
+    else -> Tool.None
 }
 
 /** What the settings editor currently edits. */
