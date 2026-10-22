@@ -32,7 +32,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Paint plan (user ACCEPTED 2026-10-21): steps (1)-(2) done, user feel untested (backlog "Paint panel UI", "Paint penetration").
   **Step (3) Colour change + waste counter: code complete, untested on device.** Post-slice line (Muse Task 11 1740dcf +
   chute flush 82f2d7a) and paint-shop line (152abaf: `PaintLayers.forPlate` -> `ColourChangeEstimate`, ToolPanel under
-  the swatches) are all in **r372 = run 39869256888** (building at handoff). **Next small step:** install r372 on all adb
+  the swatches) are all in **r372 = run 39869256888** (built OK, not installed). **Next small step:** install r372 on all adb
   devices, then WSA check both lines on a painted multi-colour plate (backlog "Paint-shop plate estimate line", "Preview
   colour-change line"): paint-shop N vs the Preview count after slicing.
 - Muse (2026-10-22): tasks in `MUSE-TASKS.md` on `muse/work` (edit via a `claude/*` PR, self-merge), then `TASK <n> READY`
