@@ -406,3 +406,35 @@ Privacy self-scan: tree exit 0, range exit 0.
 UNVERIFIED: not compiled and tests not run (no toolchain); `pr-check.yml` and
 Vincent's local run are the first execution.
 Open questions: JDK/Android SDK install in Muse's VM (see Status, Vincent's call).
+
+### Task 9 - 2026-10-22 - muse/task-9-gradle-no-daemon - this commit
+Toolchain only, no repo code changed. Result in `MUSE-TOOLCHAIN.md`: no working
+no-daemon recipe — honest failure under Task 9's step 3. Attempt 1 (in-process:
+`GRADLE_OPTS` merged so the in-process args `-Xmx4g -Dfile.encoding=UTF-8` were
+prepended to the toolchain's existing proxy/trust-store flags, then
+`./gradlew --no-daemon -Pkotlin.compiler.execution.strategy=in-process
+-Pkotlin.daemon.enabled=false --console=plain -q :app:compileReleaseKotlin` from
+`android/`, no `--offline`): exit 1, first error `The first result from the daemon
+was empty.` — it still forked (a daemon log shows the forked daemon listening on
+localhost, never contacted, expiring on its idle timeout). Attempt 2 (matching
+`org.gradle.jvmargs` added to the Gradle user home only, retry with `--info`):
+exit 1, same first error; `--info` prints `Starting process 'Gradle build daemon'`
+and the compatibility verdict — the client carries an extra `-Xms64m` (hard-coded
+in `gradlew`'s `DEFAULT_JVM_OPTS`, `android/gradlew:203`, forbidden to edit) and
+`applyInstrumentationAgent=false` where the daemon spec wants `true`, so a
+single-use daemon is forked every time and its loopback connection is blocked for
+Java processes in this VM. The user-home `org.gradle.jvmargs` also had no effect:
+the project's `android/gradle.properties` takes precedence for that property; the
+added line was removed afterwards.
+Build: UNCOMPILED — compile exit 1 on both attempts, before any compilation;
+unit tests not run, no test count. `pr-check.yml` remains the compile check.
+Privacy self-scan: tree exit 0, range exit 0.
+UNVERIFIED: a non-`gradlew` direct launch of the Gradle distribution with exactly
+the wanted JVM opts plus the instrumentation agent was not tried (outside the
+task's steps, not the repo's build entry point); whether the Kotlin compile
+daemon's RMI loopback would block an otherwise in-process build is likewise
+unverified — no attempt got that far. The two fork mismatches are reported by
+`--info` as one combined verdict, so either alone might suffice to fork.
+Open questions: none for the task itself; compiling in Muse's VM stays blocked
+until the Java-initiated loopback TCP block is lifted, which is Vincent's /
+the platform's call, not a repo change.
