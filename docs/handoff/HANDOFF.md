@@ -18,7 +18,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   main: Check mesh feel, cut Flip paint fix, 3MF export in desktop Orca, pie menu (lab), pen 7d3a263, fan hold 298ee9f, Extrude
   F150 e13bebb, Quest stick zoom (r324). Unmerged on the branch: paint shop 1a-1e-ii + paint depth r367 (user feel untested).
 - Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
-- r370 (a4b63c7, paint shop + Muse 2-8): user downloads it to the phone. r372 (run 39869256888) installed on WSA/Chromebook/SHIELD (2026-10-22).
+- r370 (a4b63c7, paint shop + Muse 2-8): user downloads it to the phone. r373 (run 39873051816, f7b3c77) installed on WSA/Chromebook/SHIELD (2026-10-22).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
@@ -30,9 +30,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **User 2026-10-21: one small step per session.** Cue `/clear` + `/next` after EACH step. Pie menu disliked -> backlog.
 - **User 2026-10-21: design deviations pre-approved** ("deviate if you find a more logical, intuitive way; I trust your judgement"); say what changed.
 - Paint plan (user ACCEPTED 2026-10-21): steps (1)-(2) done, user feel untested (backlog "Paint panel UI", "Paint penetration").
-  **Step (3) Colour change + waste counter:** Preview line OK on WSA r372 (7 changes on plate 2). Paint-shop line was 1
-  (paint depth ignored): fixed f7b3c77, **run 39873051816** (r373, building). **Next small step:** install r373 on all adb
-  devices, WSA plate 2 > Cube > Paint > Color painting: expect "colour changes 8" (backlog "Paint-shop plate estimate").
+  **Step (3) Colour change + waste counter: done** (WSA r373: paint shop 8 vs Preview 7; user feel untested, backlog).
+  **Next small step:** step (4) of the paint plan (grep `HANDOFF-ARCHIVE.md` for "Paint plan"), or backlog "Preview colour-change
+  line" prime-tower grams (3.3 vs 3.155 g).
 - Muse (2026-10-22): tasks in `MUSE-TASKS.md` on `muse/work` (edit via a `claude/*` PR, self-merge), then `TASK <n> READY`
   on #46; Muse answers with one draft PR per task. Claude verifies, merges into muse/work, cherry-picks code onto the work
   branch. Task 1 finding 4: fix the patch comment when regenerating 0001. **Each session start: check open `muse/*` PRs + #46.**

@@ -2506,3 +2506,5 @@ User: "you just tested something we already confirmed worked". Cross-checked eac
   "Plate estimate: 1 colour changes · flush ~0.1 g": PaintLayers ignored paint depth (flat top -> last layer only).
   Fixed f7b3c77 (depth carried in from mmu_top/bottom_paint_layers, 0 = shells, -1 = through; 7/7 JVM tests); wording
   now "colour changes N". Expected on this cube after the fix: 8 (slicer 7: its top layer is filament 2 only).
+- r373 (run 39873051816, f7b3c77) installed on WSA/SHIELD/Chromebook. WSA plate 2 Cube > Color painting: "Plate estimate:
+  colour changes 8 · flush ~1.0 g" as predicted (Preview 7 / ~0.9 g). Paint-shop line verified by Claude; user feel untested.
