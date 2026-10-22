@@ -125,3 +125,17 @@ describe the plan in the log instead of half-building it.
 Append-only, one entry per PR (also for PRs that get closed unmerged), newest last. Never edit earlier entries.
 Format: `### Task <n> - <date> - <branch> - <commit>` then build/test result or UNCOMPILED, privacy scan exit codes,
 UNVERIFIED items, open questions.
+
+### Task 1 - 2026-10-22 - muse/task-1-paint-depth-review - this commit
+Review-only, no code changed. Findings in `MUSE-REVIEW-0001.md`: 12 items, 10 CONFIRMED, 2 SUSPECTED.
+Headline: the zero-shell gate fix, depth counting, serialization and invalidation all check out;
+one SUSPECTED item — the offset freeze sits one step deeper than the patch's own comment says
+(finding 4, low, symmetric top/bottom, author to confirm intent).
+Build: UNCOMPILED (no toolchain in Muse's VM; review-only task, nothing to compile).
+Privacy self-scan: tree exit 0, range exit 0.
+UNVERIFIED: no slicing run (no toolchain), so no finding rests on observed output; the
+object-settings bridge between the Kotlin UI and the native config was not inspected (Kotlin
+call site and native key registration only). `git apply --check` passed with the verbatim
+command from this file in the full local clone (exit 0).
+Open questions: JDK/Android SDK install in Muse's VM (see Status, Vincent's call); finding 4 —
+is the comment or the freeze condition the one that is off by one step?
