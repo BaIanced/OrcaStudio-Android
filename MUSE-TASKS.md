@@ -655,3 +655,35 @@ loopback under the recipe are inferred, not observed.
 Open questions: trust-store rebuild from the proxy's current CA bundle and
 a Config B re-run — the suggested next step, outside this task's
 3-configuration budget; Claude's call whether that becomes a task.
+
+### Task 12 - 2026-10-22 - muse/task-12-jni-audit - this commit
+Review only, no code changed: adds `MUSE-REVIEW-0012.md`, a static audit of
+all of `android/core/jni/` (13 files, ~6,500 lines, read in full) plus the
+Kotlin `external fun` side. 13 findings, ranked crash > wrong output > leak,
+each with file:line, a one-line failure scenario and CONFIRMED / SUSPECTED.
+Headlines: ObnBridge.cpp has no exception guard on any of its 19 exports
+(contrast the `guarded()` wrappers in orca_jni/OrcaPlugins) and its
+`installCert` trusts one session-global flag for every printer; OrcaPlugins'
+`pageClose` is the one unguarded PluginNative export; `GetStringUTFChars`
+results are unchecked in two of the three string helpers;
+`OrcaTools::paint()` never upper-bounds the hit facet on most paths (stale
+facet after a mesh change = out-of-bounds in TriangleSelector);
+`preset_bundle()` hands the raw bundle pointer to the plugin runtime without
+the engine lock while `load_presets()` can replace it. Signature drift:
+none — all 39 external fun declarations match their C++ implementations,
+including the listener method IDs. Not covered: libslic3r internals, the
+obn library (not in this tree), and the plugin runtime's threading.
+Sequencing note: Vincent directed Task 12 ahead of the queue while PR #52
+(Task 13) was still open; #52 merged during the audit, so this branch was
+rebased onto `muse/work` @ 1e4a9be before pushing (both Log appends
+preserved, in merge order). Task 14 (trust store) is noted and left
+untouched for its turn. The JNI sources are unchanged between 8e0430b and
+1e4a9be, so the review's line references hold against the new tip.
+Build: nothing to compile (documentation-only change); no tests apply.
+Privacy self-scan: tree exit 0, range exit 0.
+UNVERIFIED: the audit is static reading only — no finding was reproduced on
+a device or in a test; SUSPECTED findings 8/9/11 depend on caller behaviour
+outside the traced code, as the review states.
+Open questions: whether Claude wants fixes for the CONFIRMED items as one
+follow-up task or split by file (ObnBridge guard + installCert flag are
+the highest-value pair).
