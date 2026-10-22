@@ -33,9 +33,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   **Next: step (3) Colour change + waste counter**: post-slice half done (Muse Task 11 1740dcf + chute flush 82f2d7a, both
   unbuilt). Flush rule done (2026-10-22, JVM-tested): `ColourChangeEstimate.estimate(..., grabMm3,
   minPurgeMm3)`; tower path floors chute purge at 100 mm3 (`GCode.cpp:153`/`:1267`; WSA plate_1: 6 x L41.5752 = 100).
-  Open: why purge was > 0 before flooring (97 x 0.3 - grab 41.76 < 0; `Print.cpp:4700-4718`): code floors every switch.
-  **Next small step:** native per-layer filament ids from the painted mesh (plan: JNI returns [filament, zmin, zmax] per
-  painted triangle range + base extruder per object Z range; Kotlin bins into layers), then the paint-shop line.
+  Per-layer filament ids done without JNI (2026-10-22, 5 JVM tests): `PaintLayers.spans(paintBuffer, keep)` reads the
+  viewport paint mesh (typeCode 10+f), `PaintLayers.layers(spans, first, h)` bins by layer mid. **Next small step:** the
+  paint-shop line: in ToolPanel, load `scene.paintFile`, keep active-plate copies, add a base span per instance (object
+  `extruder` - 1, `min.z..min.z+size.z`; check `Instance.min` is world), feed `ColourChangeEstimate`; show changes + g.
 - Muse replaces Grok (2026-10-22): `MUSE-TASKS.md` on branch `muse/work`, one draft PR per task into muse/work; Claude
   verifies, merges, cherry-picks code (not MUSE-TASKS.md) onto the work branch. Muse never merges. Tasks 1-11 done (Task 1
   finding 4: fix the patch comment when regenerating 0001). **Comms (user-approved 2026-10-22): GitHub is the mailbox, no relaying.** Tasks in MUSE-TASKS.md on
