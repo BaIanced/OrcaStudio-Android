@@ -230,3 +230,25 @@ local run are the first execution. The equivalence claim (clamp behaviour unchan
 rests on reading the two one-line expressions, not on a run.
 Open questions: JDK/Android SDK install in Muse's VM (see Status, Vincent's call);
 Task 4's premise in this file is stale — Claude may want to strike it or mark it done.
+
+### Task 5 - 2026-10-22 - muse/task-5-gcode-tool-changes - this commit
+New pure-Kotlin `GcodeToolChanges` (`core/GcodeToolChanges.kt`): parses G-code lines into
+tool changes, per-layer filament lists (the shape `ColourChangeEstimate.estimate` takes)
+and prime-tower extrusion volume. Markers were read from the sources first and are cited
+in the KDoc with file:line: `; CHANGE_LAYER` and `; FEATURE: Prime tower` reserved tags,
+`GCodeWriter::toolchange` (`T<n>`, BBL `M1020 S<n>`, manual-change comment), and the BBL
+profiles' `change_filament_gcode` (`M620 S<n>A` / `T<n>`, `T255` unload). Bambu triple
+selections count once, ids >= 255 are ignored, comments never select, absolute and
+relative E are both tracked with `G92 E0` resets, and the volume assumes 1.75 mm
+filament (stated in the KDoc). 13 unit tests in `core/GcodeToolChangesTest.kt`, all
+fixtures hand-written strings; every expected value was cross-checked against a
+line-by-line mirror of the parser before pushing, which caught one wrong fixture
+(absolute-E reference after a pre-tower move). One test feeds `perLayer` into
+`ColourChangeEstimate.estimate` and checks both count the same switches.
+Stacked on `muse/work` (Tasks 6-8 branch from this branch in turn).
+Build: UNCOMPILED (no toolchain in Muse's VM; Vincent's JDK/SDK call still open).
+Privacy self-scan: tree exit 0, range exit 0.
+UNVERIFIED: not compiled and tests not run (no toolchain); `pr-check.yml` and Vincent's
+local run are the first execution. No real printer G-code was parsed (fixtures only, by
+design); arc moves (`G2`/`G3`) with E are not tracked.
+Open questions: JDK/Android SDK install in Muse's VM (see Status, Vincent's call).
