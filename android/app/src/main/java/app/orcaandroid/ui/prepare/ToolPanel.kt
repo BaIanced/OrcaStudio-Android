@@ -3,6 +3,7 @@ package app.orcaandroid.ui.prepare
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
@@ -19,7 +20,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Brush
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Colorize
+import androidx.compose.material.icons.filled.FormatColorFill
+import androidx.compose.material.icons.filled.FormatColorReset
+import androidx.compose.material.icons.filled.Reorder
+import androidx.compose.material.icons.filled.ViewInAr
 import androidx.compose.material.icons.filled.DragIndicator
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
@@ -45,6 +52,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -150,6 +158,7 @@ private fun toolTitle(tool: Tool) = stringResource(
 
 @Composable
 private fun PaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Paint) {
+    if (tool.kind == "color") return ColorPaintOptions(state, vm, tool)
     Text(stringResource(R.string.paint_hint), style = MaterialTheme.typography.bodySmall)
     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         if (tool.kind == "color") {
@@ -197,49 +206,11 @@ private fun PaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Paint) {
     }
     // One-tap actions on the whole object. Clean specks = the desktop's gap fill: painted patches under the area take the
     // state that borders them most. Colour each part: every separate shell gets its own filament, largest first.
-    var gapArea by rememberSaveable { mutableFloatStateOf(1f) }
-    if (tool.kind == "color" || tool.kind == "support") {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            FilledTonalButton(onClick = { vm.scene.paintGapFill(tool.kind, gapArea) }) { Text(stringResource(R.string.paint_clean_specks)) }
-            Text(stringResource(R.string.paint_gap_area, gapArea), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 8.dp))
-            Slider(gapArea, { gapArea = it }, valueRange = 0.1f..5f, modifier = Modifier.weight(1f).padding(start = 8.dp))
-        }
-        if (tool.kind == "color" && state.filaments.size > 1)
-            FilledTonalButton(onClick = { vm.scene.paintByPart() }) { Text(stringResource(R.string.paint_by_part)) }
-    }
-    // Edge detection (brush) / smart fill angle (fill): the angle stays remembered while it is off.
-    var edgeAngle by rememberSaveable { mutableFloatStateOf(30f) }
-    if (brush || tool.shape == "fill") Row(verticalAlignment = Alignment.CenterVertically) {
-        FilterChip(tool.edgeAngle > 0f, { vm.scene.setTool(tool.copy(edgeAngle = if (tool.edgeAngle > 0f) 0f else edgeAngle)) },
-            label = { Text(stringResource(R.string.paint_stop_at_edges)) })
-        if (tool.edgeAngle > 0f) {
-            Text(stringResource(R.string.paint_edge_angle, tool.edgeAngle.roundToInt()), style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(start = 8.dp))
-            Slider(tool.edgeAngle, { edgeAngle = it; vm.scene.setTool(tool.copy(edgeAngle = it)) }, valueRange = 5f..89f,
-                modifier = Modifier.weight(1f).padding(start = 8.dp))
-        }
-    }
-    // Fill over colours: the fill ignores existing colours (the desktop's stops at them) and stops only at edges / the guard plane.
-    if (tool.shape == "fill") FilterChip(tool.overColours, { vm.scene.setTool(tool.copy(overColours = !tool.overColours)) },
-        label = { Text(stringResource(R.string.paint_over_colours)) })
-    // Guard plane: painting stops at a horizontal plane (drawn like the cut plane); a stroke keeps to the side it starts on.
-    val inst = state.selectedObject?.instances?.getOrNull(state.selection?.instance ?: 0)
-    if (tool.shape != "pick" && inst != null) Row(verticalAlignment = Alignment.CenterVertically) {
-        val range = inst.min.z..(inst.min.z + inst.size.z)
-        FilterChip(tool.guardOn, {
-            vm.scene.setTool(tool.copy(guardOn = !tool.guardOn, guardZ = if (tool.guardZ in range) tool.guardZ else inst.min.z + inst.size.z / 2))
-        }, label = { Text(stringResource(R.string.paint_guard)) })
-        if (tool.guardOn) {
-            Text(stringResource(R.string.paint_guard_z, tool.guardZ), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 8.dp))
-            Slider(tool.guardZ.coerceIn(range), { vm.scene.setTool(tool.copy(guardZ = it)) }, valueRange = range,
-                modifier = Modifier.weight(1f).padding(start = 8.dp))
-        }
-    }
-    // Stroke lock (brush): the stroke keeps to a screen axis through its first point (straight lines).
-    if (brush) Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        FilterChip(tool.lock == "v", { vm.scene.setTool(tool.copy(lock = if (tool.lock == "v") "" else "v")) }, label = { Text(stringResource(R.string.paint_lock_vertical)) })
-        FilterChip(tool.lock == "h", { vm.scene.setTool(tool.copy(lock = if (tool.lock == "h") "" else "h")) }, label = { Text(stringResource(R.string.paint_lock_horizontal)) })
-    }
+    if (tool.kind == "color" || tool.kind == "support") CleanSpecks(vm, tool)
+    if (brush || tool.shape == "fill") EdgeRow(vm, tool)
+    if (tool.shape == "fill") OverColours(vm, tool)
+    if (tool.shape != "pick") GuardRow(state, vm, tool)
+    if (brush) StrokeLock(vm, tool)
     // Support painting's overhang angle (the desktop's): "Highlight overhangs" tints the faces overhanging by more than it,
     // "On overhangs only" (brush) paints only those. One shared angle, remembered while both are off.
     var overhang by rememberSaveable { mutableFloatStateOf(40f) }
@@ -258,9 +229,14 @@ private fun PaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Paint) {
             }, valueRange = 1f..90f, modifier = Modifier.weight(1f).padding(start = 8.dp))
         }
     }
-    // Remap filaments (the desktop's tool): painted filament i becomes filament remap[i] on the whole object.
+    TextButton(onClick = { vm.scene.paintClear(tool.kind) }) { Text(stringResource(R.string.clear_painting)) }
+}
+
+/** Remap filaments (the desktop's tool): painted filament i becomes filament remap[i] on the whole object. */
+@Composable
+private fun RemapSection(state: UiState, vm: AppViewModel) {
     var remapOpen by rememberSaveable { mutableStateOf(false) }
-    if (tool.kind == "color" && state.filaments.size > 1) {
+    if (state.filaments.size > 1) {
         val n = state.filaments.size
         var remap by remember(n) { mutableStateOf(List(n) { it }) }
         FilterChip(remapOpen, { remapOpen = !remapOpen }, label = { Text(stringResource(R.string.paint_remap)) })
@@ -290,7 +266,184 @@ private fun PaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Paint) {
             }
         }
     }
-    TextButton(onClick = { vm.scene.paintClear(tool.kind) }) { Text(stringResource(R.string.clear_painting)) }
+}
+
+private fun paintModeOf(shape: String) = when (shape) {
+    "fill", "regions" -> "fill"; "height" -> "bands"; else -> "brush"
+}
+
+/** Colour painting as task modes (user picked "option C", 2026-10-21): Brush / Fill / Bands / Object, each with a one-line
+ *  description and only its own options; the swatch row (filaments, Erase, Pick) is shared by all. Object mode = a fill over
+ *  colours with no edge limit (a tap colours the whole part) plus the whole-object actions. */
+@Composable
+private fun ColorPaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Paint) {
+    val shape = if (tool.shape == "pick") tool.back else tool.shape
+    var objectMode by rememberSaveable { mutableStateOf(false) }
+    // The mode follows the tool: Object only while its fill is still the active shape.
+    val mode = if (objectMode && shape == "fill") "object" else paintModeOf(shape)
+    // The shape each mode used last, and the fill settings Object mode overrides (back when leaving it).
+    var brushShape by rememberSaveable { mutableStateOf(if (mode == "brush") shape else "sphere") }
+    var fillShape by rememberSaveable { mutableStateOf(if (shape == "regions") "regions" else "fill") }
+    val fillKeep = remember { arrayOf(tool) }
+    fun enter(m: String) {
+        if (m == mode) return
+        val base = if (mode == "object") tool.copy(edgeAngle = fillKeep[0].edgeAngle, overColours = fillKeep[0].overColours, guardOn = fillKeep[0].guardOn) else tool
+        if (m == "object") fillKeep[0] = tool
+        objectMode = m == "object"
+        val next = when (m) {
+            "brush" -> base.copy(shape = brushShape)
+            "fill" -> base.copy(shape = fillShape, edgeAngle = if (fillShape == "regions" && base.edgeAngle <= 0f) 30f else base.edgeAngle)
+            "bands" -> base.copy(shape = "height")
+            else -> base.copy(shape = "fill", edgeAngle = 0f, overColours = true, guardOn = false)
+        }
+        // Erase has no meaning for a whole part; coming from the eyedropper it goes back to the mode's shape.
+        vm.scene.setTool(next.copy(back = next.shape, state = if (m == "object" && next.state == 0) 1 else next.state))
+    }
+    Row(Modifier.fillMaxWidth()) {
+        listOf(
+            Triple("brush", Icons.Default.Brush, R.string.paint_mode_brush), Triple("fill", Icons.Default.FormatColorFill, R.string.paint_mode_fill),
+            Triple("bands", Icons.Default.Reorder, R.string.paint_mode_bands), Triple("object", Icons.Default.ViewInAr, R.string.paint_mode_object),
+        ).forEach { (m, icon, label) ->
+            val on = m == mode
+            Column(Modifier.weight(1f).clip(RoundedCornerShape(12.dp))
+                .background(if (on) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
+                .clickable { enter(m) }.padding(vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(icon, null, Modifier.size(20.dp))
+                Text(stringResource(label), style = MaterialTheme.typography.labelMedium)
+            }
+        }
+    }
+    Text(stringResource(when {
+        tool.shape == "pick" -> R.string.paint_pick_hint
+        mode == "brush" -> R.string.paint_mode_brush_desc
+        mode == "fill" && shape == "regions" -> R.string.paint_mode_regions_desc
+        mode == "fill" -> R.string.paint_mode_fill_desc
+        mode == "bands" -> R.string.paint_mode_bands_desc
+        else -> R.string.paint_mode_object_desc
+    }), style = MaterialTheme.typography.bodySmall)
+    // Swatches: tap = paint with it. Erase and the eyedropper sit at the end of the same row.
+    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+        state.filaments.forEachIndexed { i, f ->
+            Swatch(tool.state == i + 1 && tool.shape != "pick", "${i + 1}", { vm.scene.setTool(tool.copy(state = i + 1, shape = shape)) }) { ColorDot(f.color, 28) }
+        }
+        if (mode != "object")
+            Swatch(tool.state == 0 && tool.shape != "pick", stringResource(R.string.erase), { vm.scene.setTool(tool.copy(state = 0, shape = shape)) }) {
+                Icon(Icons.Default.FormatColorReset, null, Modifier.size(24.dp))
+            }
+        Swatch(tool.shape == "pick", stringResource(R.string.paint_pick), {
+            vm.scene.setTool(if (tool.shape == "pick") tool.copy(shape = tool.back) else tool.copy(shape = "pick", back = tool.shape))
+        }) { Icon(Icons.Default.Colorize, null, Modifier.size(24.dp)) }
+    }
+    when (mode) {
+        "brush" -> {
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf("sphere", "circle", "triangle").forEach { s ->
+                    FilterChip(shape == s, { brushShape = s; vm.scene.setTool(tool.copy(shape = s, back = s)) }, label = { Text(stringResource(paintShapeLabel(s))) })
+                }
+            }
+            if (shape != "triangle") Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.brush_size, tool.radius), style = MaterialTheme.typography.bodySmall)
+                Slider(tool.radius, { vm.scene.setTool(tool.copy(radius = it)) }, valueRange = 0.5f..15f, modifier = Modifier.weight(1f).padding(start = 8.dp))
+            }
+            if (shape != "triangle") { EdgeRow(vm, tool); StrokeLock(vm, tool) }
+            GuardRow(state, vm, tool)
+        }
+        "fill" -> {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                FilterChip(shape == "fill", { fillShape = "fill"; vm.scene.setTool(tool.copy(shape = "fill", back = "fill")) },
+                    label = { Text(stringResource(R.string.paint_smart_fill)) })
+                FilterChip(shape == "regions", {
+                    fillShape = "regions"
+                    vm.scene.setTool(tool.copy(shape = "regions", back = "regions", edgeAngle = if (tool.edgeAngle <= 0f) 30f else tool.edgeAngle))
+                }, label = { Text(stringResource(R.string.paint_shape_regions)) })
+            }
+            if (shape == "regions") Row(verticalAlignment = Alignment.CenterVertically) {
+                val angle = tool.edgeAngle.takeIf { it > 0f } ?: 30f
+                Text(stringResource(R.string.paint_crease_angle, angle.roundToInt()), style = MaterialTheme.typography.bodySmall)
+                Slider(angle, { vm.scene.setTool(tool.copy(edgeAngle = it)) }, valueRange = 5f..89f, modifier = Modifier.weight(1f).padding(start = 8.dp))
+            } else { EdgeRow(vm, tool); OverColours(vm, tool) }
+            GuardRow(state, vm, tool)
+        }
+        "bands" -> {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.paint_height_range, tool.height), style = MaterialTheme.typography.bodySmall)
+                Slider(tool.height, { vm.scene.setTool(tool.copy(height = it)) }, valueRange = 0.1f..8f, modifier = Modifier.weight(1f).padding(start = 8.dp))
+            }
+            GuardRow(state, vm, tool)
+        }
+        else -> {
+            if (state.filaments.size > 1)
+                FilledTonalButton(onClick = { vm.scene.paintByPart() }) { Text(stringResource(R.string.paint_by_part)) }
+            CleanSpecks(vm, tool)
+            RemapSection(state, vm)
+            TextButton(onClick = { vm.scene.paintClear(tool.kind) }) { Text(stringResource(R.string.clear_painting)) }
+        }
+    }
+}
+
+@Composable
+private fun Swatch(selected: Boolean, label: String, onClick: () -> Unit, content: @Composable () -> Unit) {
+    Column(Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onClick).padding(4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(Modifier.size(36.dp).then(if (selected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, CircleShape) else Modifier),
+            contentAlignment = Alignment.Center) { content() }
+        Text(label, style = MaterialTheme.typography.labelSmall)
+    }
+}
+
+/** Clean specks = the desktop's gap fill: painted patches under the area take the state that borders them most. */
+@Composable
+private fun CleanSpecks(vm: AppViewModel, tool: Tool.Paint) {
+    var gapArea by rememberSaveable { mutableFloatStateOf(1f) }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        FilledTonalButton(onClick = { vm.scene.paintGapFill(tool.kind, gapArea) }) { Text(stringResource(R.string.paint_clean_specks)) }
+        Text(stringResource(R.string.paint_gap_area, gapArea), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 8.dp))
+        Slider(gapArea, { gapArea = it }, valueRange = 0.1f..5f, modifier = Modifier.weight(1f).padding(start = 8.dp))
+    }
+}
+
+/** Edge detection (brush) / smart fill angle (fill): the angle stays remembered while it is off. */
+@Composable
+private fun EdgeRow(vm: AppViewModel, tool: Tool.Paint) {
+    var edgeAngle by rememberSaveable { mutableFloatStateOf(30f) }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        FilterChip(tool.edgeAngle > 0f, { vm.scene.setTool(tool.copy(edgeAngle = if (tool.edgeAngle > 0f) 0f else edgeAngle)) },
+            label = { Text(stringResource(R.string.paint_stop_at_edges)) })
+        if (tool.edgeAngle > 0f) {
+            Text(stringResource(R.string.paint_edge_angle, tool.edgeAngle.roundToInt()), style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(start = 8.dp))
+            Slider(tool.edgeAngle, { edgeAngle = it; vm.scene.setTool(tool.copy(edgeAngle = it)) }, valueRange = 5f..89f,
+                modifier = Modifier.weight(1f).padding(start = 8.dp))
+        }
+    }
+}
+
+/** Fill over colours: the fill ignores existing colours (the desktop's stops at them) and stops only at edges / the guard plane. */
+@Composable
+private fun OverColours(vm: AppViewModel, tool: Tool.Paint) =
+    FilterChip(tool.overColours, { vm.scene.setTool(tool.copy(overColours = !tool.overColours)) }, label = { Text(stringResource(R.string.paint_over_colours)) })
+
+/** Guard plane: painting stops at a horizontal plane (drawn like the cut plane); a stroke keeps to the side it starts on. */
+@Composable
+private fun GuardRow(state: UiState, vm: AppViewModel, tool: Tool.Paint) {
+    val inst = state.selectedObject?.instances?.getOrNull(state.selection?.instance ?: 0) ?: return
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        val range = inst.min.z..(inst.min.z + inst.size.z)
+        FilterChip(tool.guardOn, {
+            vm.scene.setTool(tool.copy(guardOn = !tool.guardOn, guardZ = if (tool.guardZ in range) tool.guardZ else inst.min.z + inst.size.z / 2))
+        }, label = { Text(stringResource(R.string.paint_guard)) })
+        if (tool.guardOn) {
+            Text(stringResource(R.string.paint_guard_z, tool.guardZ), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 8.dp))
+            Slider(tool.guardZ.coerceIn(range), { vm.scene.setTool(tool.copy(guardZ = it)) }, valueRange = range,
+                modifier = Modifier.weight(1f).padding(start = 8.dp))
+        }
+    }
+}
+
+/** Stroke lock (brush): the stroke keeps to a screen axis through its first point (straight lines). */
+@Composable
+private fun StrokeLock(vm: AppViewModel, tool: Tool.Paint) = Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+    FilterChip(tool.lock == "v", { vm.scene.setTool(tool.copy(lock = if (tool.lock == "v") "" else "v")) }, label = { Text(stringResource(R.string.paint_lock_vertical)) })
+    FilterChip(tool.lock == "h", { vm.scene.setTool(tool.copy(lock = if (tool.lock == "h") "" else "h")) }, label = { Text(stringResource(R.string.paint_lock_horizontal)) })
 }
 
 private fun paintShapeLabel(shape: String) = when (shape) {
