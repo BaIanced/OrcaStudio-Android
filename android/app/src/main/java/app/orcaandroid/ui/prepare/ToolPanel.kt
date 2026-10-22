@@ -412,6 +412,7 @@ internal fun ColorPaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Pain
                 FilledTonalButton(onClick = { vm.scene.paintByPart() }) { Text(stringResource(R.string.paint_by_part)) }
             CleanSpecks(vm, tool)
             RemapSection(state, vm)
+            PaintDepth(state, vm)
             TextButton(onClick = { vm.scene.paintClear(tool.kind) }) { Text(stringResource(R.string.clear_painting)) }
         }
     }

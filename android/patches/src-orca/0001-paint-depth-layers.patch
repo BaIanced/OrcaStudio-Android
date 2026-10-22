@@ -1,0 +1,138 @@
+diff --git a/src/libslic3r/MultiMaterialSegmentation.cpp b/src/libslic3r/MultiMaterialSegmentation.cpp
+index b7dfd6a160..9af3ce68de 100644
+--- a/src/libslic3r/MultiMaterialSegmentation.cpp
++++ b/src/libslic3r/MultiMaterialSegmentation.cpp
+@@ -1254,6 +1254,11 @@ static inline std::vector<std::vector<ExPolygons>> segmentation_top_and_bottom_l
+         max_top_layers    = std::max(max_top_layers, config.top_shell_layers.value);
+         max_bottom_layers = std::max(max_bottom_layers, config.bottom_shell_layers.value);
+     }
++    // A paint depth set on the object works even where the shells are zero layers.
++    if (print_object.config().mmu_top_paint_layers.value != 0)
++        max_top_layers = std::max(max_top_layers, 1);
++    if (print_object.config().mmu_bottom_paint_layers.value != 0)
++        max_bottom_layers = std::max(max_bottom_layers, 1);
+ 
+     // Project upwards pointing painted triangles over top surfaces,
+     // project downards pointing painted triangles over bottom surfaces.
+@@ -1393,6 +1398,9 @@ static inline std::vector<std::vector<ExPolygons>> segmentation_top_and_bottom_l
+         int     top_shell_layers        { 0 };
+         // Maximum number of bottom layers for a queried color.
+         int     bottom_shell_layers     { 0 };
++        // Layers the colour painted on top / bottom surfaces goes down / up: the object's paint depth, or the shell layers.
++        int     top_paint_layers        { 0 };
++        int     bottom_paint_layers     { 0 };
+         //BBS: spacing according to width and layer height
+         float   extrusion_spacing{ 0.f };
+     };
+@@ -1419,6 +1427,11 @@ static inline std::vector<std::vector<ExPolygons>> segmentation_top_and_bottom_l
+                 ++ out.num_regions;
+             }
+         assert(out.num_regions > 0);
++        const auto paint_depth = [num_layers = layers.size()](int setting, int shell_layers) {
++            return setting == 0 ? shell_layers : setting < 0 ? int(num_layers) : setting;
++        };
++        out.top_paint_layers    = paint_depth(print_object.config().mmu_top_paint_layers.value, out.top_shell_layers);
++        out.bottom_paint_layers = paint_depth(print_object.config().mmu_bottom_paint_layers.value, out.bottom_shell_layers);
+         out.extrusion_width = scaled<float>(out.extrusion_width);
+         out.extrusion_spacing = scaled<float>(out.extrusion_spacing);
+         return out;
+@@ -1439,10 +1452,12 @@ static inline std::vector<std::vector<ExPolygons>> segmentation_top_and_bottom_l
+                             append(triangles_by_color_top[color_idx][layer_idx], top_ex);
+                             float offset = 0.f;
+                             ExPolygons layer_slices_trimmed = input_expolygons[layer_idx];
+-                            for (int last_idx = int(layer_idx) - 1; last_idx > std::max(int(layer_idx - stat.top_shell_layers), int(0)); --last_idx) {
++                            for (int last_idx = int(layer_idx) - 1; last_idx > std::max(int(layer_idx) - stat.top_paint_layers, int(0)); --last_idx) {
+                                 //BBS: offset width should be 2*spacing to avoid too narrow area which has overlap of wall line
+                                 //offset -= stat.extrusion_width ;
+-                                offset -= (stat.extrusion_spacing + stat.extrusion_width);
++                                // Below the shells (a deeper paint depth) the inset stays where the shells left it.
++                                if (int(layer_idx) - last_idx <= std::max(stat.top_shell_layers, 1))
++                                    offset -= (stat.extrusion_spacing + stat.extrusion_width);
+                                 layer_slices_trimmed = intersection_ex(layer_slices_trimmed, input_expolygons[last_idx]);
+                                 ExPolygons last = opening_ex(intersection_ex(top_ex, offset_ex(layer_slices_trimmed, offset)), stat.small_region_threshold);
+                                 if (last.empty())
+@@ -1459,10 +1474,11 @@ static inline std::vector<std::vector<ExPolygons>> segmentation_top_and_bottom_l
+                             append(triangles_by_color_bottom[color_idx][layer_idx], bottom_ex);
+                             float offset = 0.f;
+                             ExPolygons layer_slices_trimmed = input_expolygons[layer_idx];
+-                            for (size_t last_idx = layer_idx + 1; last_idx < std::min(layer_idx + stat.bottom_shell_layers, num_layers); ++last_idx) {
++                            for (size_t last_idx = layer_idx + 1; last_idx < std::min(layer_idx + stat.bottom_paint_layers, num_layers); ++last_idx) {
+                                 //BBS: offset width should be 2*spacing to avoid too narrow area which has overlap of wall line
+                                 //offset -= stat.extrusion_width;
+-                                offset -= (stat.extrusion_spacing + stat.extrusion_width);
++                                if (int(last_idx - layer_idx) <= std::max(stat.bottom_shell_layers, 1))
++                                    offset -= (stat.extrusion_spacing + stat.extrusion_width);
+                                 layer_slices_trimmed = intersection_ex(layer_slices_trimmed, input_expolygons[last_idx]);
+                                 ExPolygons last = opening_ex(intersection_ex(bottom_ex, offset_ex(layer_slices_trimmed, offset)), stat.small_region_threshold);
+                                 if (last.empty())
+diff --git a/src/libslic3r/Preset.cpp b/src/libslic3r/Preset.cpp
+index a6936d70a9..70b8e2cc39 100644
+--- a/src/libslic3r/Preset.cpp
++++ b/src/libslic3r/Preset.cpp
+@@ -1446,6 +1446,8 @@ static std::vector<std::string> s_Preset_print_options{
+     "hole_to_polyhole_max_edges",
+     "mmu_segmented_region_max_width",
+     "mmu_segmented_region_interlocking_depth",
++    "mmu_top_paint_layers",
++    "mmu_bottom_paint_layers",
+     "small_area_infill_flow_compensation",
+     "small_area_infill_flow_compensation_model",
+     "enable_wrapping_detection",
+diff --git a/src/libslic3r/PrintConfig.cpp b/src/libslic3r/PrintConfig.cpp
+index 832ff9b3b4..a4c2dc6372 100644
+--- a/src/libslic3r/PrintConfig.cpp
++++ b/src/libslic3r/PrintConfig.cpp
+@@ -4825,6 +4825,27 @@ void PrintConfigDef::init_fff_params()
+     def->mode     = comAdvanced;
+     def->set_default_value(new ConfigOptionFloat(0.));
+ 
++    def           = this->add("mmu_top_paint_layers", coInt);
++    def->label    = L("Paint depth below top surfaces");
++    def->tooltip  = L("How many layers deep the colour painted on top-facing surfaces goes. 0 follows the top shell layers, "
++                      "-1 goes all the way through the part. The colour tapers inwards over the first top shell layers "
++                      "and keeps that inset below them.");
++    def->sidetext = L("layers");
++    def->min      = -1;
++    def->category = L("Advanced");
++    def->mode     = comAdvanced;
++    def->set_default_value(new ConfigOptionInt(0));
++
++    def           = this->add("mmu_bottom_paint_layers", coInt);
++    def->label    = L("Paint depth above bottom surfaces");
++    def->tooltip  = L("How many layers deep the colour painted on bottom-facing surfaces goes. 0 follows the bottom shell layers, "
++                      "-1 goes all the way through the part.");
++    def->sidetext = L("layers");
++    def->min      = -1;
++    def->category = L("Advanced");
++    def->mode     = comAdvanced;
++    def->set_default_value(new ConfigOptionInt(0));
++
+     def           = this->add("interlocking_beam", coBool);
+     def->label    = L("Use beam interlocking");
+     def->tooltip  = L("Generate interlocking beam structure at the locations where different filaments touch. This improves the adhesion between filaments, especially models printed in different materials.");
+diff --git a/src/libslic3r/PrintConfig.hpp b/src/libslic3r/PrintConfig.hpp
+index acf6bd5335..39ad7e00f8 100644
+--- a/src/libslic3r/PrintConfig.hpp
++++ b/src/libslic3r/PrintConfig.hpp
+@@ -1192,6 +1192,8 @@ PRINT_CONFIG_CLASS_DEFINE(
+     ((ConfigOptionFloat,               layer_height))
+     ((ConfigOptionFloat,               mmu_segmented_region_max_width))
+     ((ConfigOptionFloat,               mmu_segmented_region_interlocking_depth))
++    ((ConfigOptionInt,                 mmu_top_paint_layers))
++    ((ConfigOptionInt,                 mmu_bottom_paint_layers))
+     ((ConfigOptionFloat,               raft_contact_distance))
+     ((ConfigOptionFloat,               raft_expansion))
+     ((ConfigOptionPercent,             raft_first_layer_density))
+diff --git a/src/libslic3r/PrintObject.cpp b/src/libslic3r/PrintObject.cpp
+index 4229ceca73..7992a43210 100644
+--- a/src/libslic3r/PrintObject.cpp
++++ b/src/libslic3r/PrintObject.cpp
+@@ -1313,6 +1313,8 @@ bool PrintObject::invalidate_state_by_config_options(
+                opt_key == "layer_height"
+             || opt_key == "mmu_segmented_region_max_width"
+             || opt_key == "mmu_segmented_region_interlocking_depth"
++            || opt_key == "mmu_top_paint_layers"
++            || opt_key == "mmu_bottom_paint_layers"
+             || opt_key == "raft_layers"
+             || opt_key == "raft_contact_distance"
+             || opt_key == "slice_closing_radius"

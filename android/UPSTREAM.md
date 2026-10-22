@@ -2,7 +2,8 @@
 
 Background on how the port uses these sources: [docs/porting-notes.md](../docs/porting-notes.md).
 
-This Android port builds the unmodified OrcaSlicer sources in `../src-orca`.
+This Android port builds the OrcaSlicer sources in `../src-orca` (the submodule itself stays unmodified; the CI applies
+`patches/src-orca/*.patch` before the build, and a patch that no longer applies after an upstream bump fails it).
 
 | | |
 |---|---|

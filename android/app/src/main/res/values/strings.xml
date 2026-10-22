@@ -68,6 +68,16 @@
     <string name="paint_mode_regions_desc">Regions: the model is split at its creases (outlined); tap one to fill it, over any colour.</string>
     <string name="paint_mode_bands_desc">Bands: tap the model to paint a band all the way round, from that point up by the height below; drag to paint a taller band.</string>
     <string name="paint_mode_object_desc">Object: tap a part to give the whole part this colour, or use the actions below on the whole object.</string>
+    <string name="paint_depth">Paint depth</string>
+    <string name="paint_depth_top">Top</string>
+    <string name="paint_depth_bottom">Bottom</string>
+    <string name="paint_depth_sides">Sides</string>
+    <string name="paint_depth_shells">Like shells</string>
+    <string name="paint_depth_layers">Layers</string>
+    <string name="paint_depth_layers_n">%1$d layers</string>
+    <string name="paint_depth_through">All the way</string>
+    <string name="paint_depth_limit">Limit width</string>
+    <string name="paint_depth_width">%1$.1f mm</string>
     <string name="paint_smart_fill">Smart fill</string>
     <string name="paint_pick">Pick</string>
     <string name="calib_cornering">Cornering (jerk / junction deviation)</string>
