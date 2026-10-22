@@ -4,7 +4,9 @@ Repo: `BaIanced/OrcaStudio-Android` (Android port of OrcaSlicer, Kotlin + Compos
 PUBLIC: every push is publication, and a later commit does not remove anything from history.
 
 ## Status
-- **Pilot: Task 1 only.** Tasks 2-4 start after Vincent has reviewed the pilot PR and said so.
+- Tasks 1-4 done and merged (PRs #37-#40). Task 4's premise was stale (`log_tail` existed); done as the clamp extraction.
+- **Tasks 5-8 approved by Vincent 2026-10-22.** Work in order, one PR each. Branch each task from the latest `muse/work`
+  after the previous PR is merged; if it isn't merged yet, branch from the previous task branch (stacked) and say so.
 - **Open question for Vincent (undecided):** install JDK 21 + Android SDK (platform + build-tools, no NDK) once in
   Muse's VM, so Muse compiles and runs the unit tests before pushing? Cost: setup time/quota, reinstall if the VM is
   replaced. Until Vincent decides, PRs are `UNCOMPILED` and `pr-check.yml` plus Vincent's local run are the first test.
@@ -120,6 +122,42 @@ Look at how existing debug tools are registered and tested (`McpDebugToolsTest.k
 Add `log_tail` returning the last N lines (default 100, max 500) of the app's own logcat (`logcat -d -t N --pid <own pid>`)
 following the same structure, with a test of the argument clamping. If the structure makes this non-trivial, stop and
 describe the plan in the log instead of half-building it.
+
+## Task 5: G-code tool-change counter (pure Kotlin + unit tests, no UI)
+Cross-check source for Task 2's estimate. New `android/app/src/main/java/app/orcaandroid/core/GcodeToolChanges.kt`, tests in
+`android/app/src/test/java/app/orcaandroid/core/GcodeToolChangesTest.kt`, plain JVM. Read how OrcaSlicer writes tool changes
+first (grep `toolchange_gcode`, `; CHANGE_LAYER`, `; FEATURE: Prime tower`, `M620 S` in `src-orca/src/libslic3r/GCode*.cpp` and
+the Bambu profiles' `change_filament_gcode` under `src-orca/resources/profiles/BBL/machine/`), and write the markers you rely on
+into the KDoc with file:line. API (adjust to the codebase style): `parse(lines: Sequence<String>): Result` with
+`changes: Int`, `perLayer: List<List<Int>>` (filament ids in print order per layer, same shape Task 2's `estimate` takes) and
+`primeTowerMm3: Double` (extrusion inside prime-tower feature blocks, from E deltas, absolute and relative E; assume 1.75 mm
+filament, say so). Must handle: Bambu-style `M620 S<n>A` / `T<n>` changes, plain `T<n>`, `T255`/`T1000`-style no-op ids
+(ignore), comments, `G92 E0` resets. Tests use small hand-written G-code fixtures as strings (no files from printers, no
+real user G-code). One test feeds `perLayer` into `ColourChangeEstimate.estimate` to show the shapes fit.
+
+## Task 6: 3MF export that desktop Orca rejects (investigation, read-only unless trivial)
+Open bug: a 3MF saved by the app fails in desktop OrcaSlicer with "Invalid configuration file: <name>.3mf" and
+"no geometry data". An earlier fix (commit c9d7fd9, sizes `filament_self_index` / `filament_extruder_variant` to the filament
+count) is untested. Read the app's export path (`android/core/jni/OrcaProject.cpp`, grep `store_bbs_3mf` / `store_3mf`; Kotlin
+side: grep the JNI call in `core/Engine.kt`) and the desktop's reader (`src-orca/src/libslic3r/Format/bbs_3mf.cpp`: where it
+raises "Invalid configuration file" and where "no geometry data" comes from; `PresetBundle` / config validation it runs on load).
+List every check the desktop applies on load that the app's export could fail (config keys whose vector length must match the
+filament/extruder count, required metadata, version fields, plate/model files), each with file:line and whether the app's
+export satisfies it: CONFIRMED / SUSPECTED / OK. Write `MUSE-REVIEW-0006.md`. If one cause is certain and the fix is a few lines
+outside `src-orca/`, you may include it in the same PR with a test if one is possible; otherwise review only.
+
+## Task 7: paint mode resets to Fill after Preview (small bug fix)
+In the paint shop (colour painting), switching to Preview and back resets the chosen mode (Brush / Fill / Bands / Object) to
+Fill. Find where the mode is held (grep the paint panel / paint shop composables under `android/app/src/main/java/app/orcaandroid/ui/`)
+and why it resets (state created inside a composable that leaves composition, `remember` vs `rememberSaveable` / view-model,
+or an explicit reset on workspace change). Fix it with the smallest change that keeps the mode for the session (not across app
+restarts). If the logic can be pulled into something pure, add a unit test; otherwise say in the PR exactly how Claude should
+check it on a device (steps). Mark device behaviour UNVERIFIED.
+
+## Task 8: unit tests for more pure logic (tests only, no main-code changes)
+Same rules as Task 3. Look in `core/`, `net/AmsMapping.kt` and `ui/prepare/` for pure, already-public/internal functions with
+no tests (grep the test folder first to avoid duplicates). 2-4 functions; assert actual behaviour; suspected bugs become
+`@Ignore("suspected bug: ...")` tests plus a log line.
 
 ## Log
 Append-only, one entry per PR (also for PRs that get closed unmerged), newest last. Never edit earlier entries.
