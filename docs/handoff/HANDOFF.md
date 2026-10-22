@@ -18,8 +18,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 ## State
 - One repo: OrcaStudio-Android (code + these docs, `docs/handoff/`), branch `claude/handoff-continuation-rseql3`. Autonomy (user, 2026-10-11): decide branches and next steps
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
-- Android main = f1c4a17 (PR #34, r341, merged 2026-10-20). Untested in main: pen 7d3a263, fan hold 298ee9f, Extrude F150 e13bebb,
-  Quest stick zoom (r324). Nothing unmerged on the branch.
+- Android main = cb11452 (PR #36, branch up to c026d15 = cut batch, merged 2026-10-22; main APK run 39735501711). Untested in
+  main: Check mesh feel, cut Flip paint fix, 3MF export in desktop Orca, pie menu (lab), pen 7d3a263, fan hold 298ee9f, Extrude
+  F150 e13bebb, Quest stick zoom (r324). Unmerged on the branch: paint shop 1a-1e-ii + paint depth r367 (user feel untested).
+- Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
 - Installed: r367 (paint depth) on WSA/Note/Chromebook/SHIELD 2026-10-21 (phone, Quest not connected). Tablet: debug app only.
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **Test device = WSA** (user 2026-10-20). **Note** (added 2026-10-21) = S Pen test device only, not the main target (user; it locks: user says when it is awake, 2026-10-21); Quest = pseudo-pen device (user, untested). Reference "Note".
@@ -36,8 +38,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   PaintDepth.kt, r367) built + Claude WSA-checked (archive), user feel untested (backlog "Paint panel UI", "Paint penetration").
   **Next: step (3) Colour change + waste counter** (estimate; flush volumes from the profile; G-code tool-change counting in
   `~/orca-android-tools/gcode-tools.py` can cross-check it). Small fix to batch with it: paint mode resets to Fill after Preview.
-- Grok (`../../../GROK-TASKS.md`, local branch `grok/overnight`) hit its free usage limit on the first run 2026-10-21 with no
-  output (no `GROK-LOG.md`, no commits); its tasks (patch review, colour-change estimate groundwork) are still open there.
+- Muse replaces Grok (2026-10-22): `MUSE-TASKS.md` on branch `muse/work`, one draft PR per task into muse/work; Claude
+  verifies, then cherry-picks code onto the work branch. Pilot = Task 1 (patch review). Grok's run had no output.
 - Later + feel-pending items: backlog "Later". C: tight; old build dirs -> `D:\orca-builds-archive`.
 - **Open: app 3MF export fails in desktop Orca** (fix run 39529670166, untested by the user; backlog).
 - Printer-needed + user-only checks, pen input, plate switcher pick: backlog.
