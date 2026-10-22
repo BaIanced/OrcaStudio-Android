@@ -24,7 +24,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
 - Installed: r367 (paint depth) on WSA/Note/Chromebook/SHIELD 2026-10-21 (phone, Quest not connected). Tablet: debug app only.
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
-- **Test device = WSA** (user 2026-10-20). **Note** (added 2026-10-21) = S Pen test device only, not the main target (user; it locks: user says when it is awake, 2026-10-21); Quest = pseudo-pen device (user, untested). Reference "Note".
+- **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
   WSA `127.0.0.1:58526`; **USB serial = the user's SHIELD TV** (rooted; installs only). No printer tests (user away).
 - **Cheapest interface first** (MCP `mcpao.sh` ~150 tok > `phone-ui.py layout` cut by regex > cropped shot only for GL looks).
@@ -35,15 +35,16 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **User 2026-10-21: design deviations pre-approved** ("deviate if you find a more logical, intuitive way; I trust your judgement"); say what changed.
 - Paint plan (user ACCEPTED 2026-10-21, one step per session): (1) paint shop steps 1a-1e-ii and (2) Top depth (patch 0001 +
   PaintDepth.kt, r367) built + Claude WSA-checked (archive), user feel untested (backlog "Paint panel UI", "Paint penetration").
-  **Next: step (3) Colour change + waste counter** (estimate; flush volumes from the profile; G-code tool-change counting in
-  `~/orca-android-tools/gcode-tools.py` can cross-check it). Small fix to batch with it: paint mode resets to Fill after Preview.
+  **Next: step (3) Colour change + waste counter**: post-slice half = Muse Task 11 (wait for it); Claude's half = the
+  pre-slice estimate in the paint shop (`core/ColourChangeEstimate.kt` needs per-layer filament ids from the painted mesh,
+  native side; flush volumes from the profile). Paint mode kept over Preview: done (Muse Task 7, a4b63c7, WSA OK).
 - Muse replaces Grok (2026-10-22): `MUSE-TASKS.md` on branch `muse/work`, one draft PR per task into muse/work; Claude
   verifies, then cherry-picks code onto the work branch. Tasks 1-4 merged (PRs #37-#40; Task 1 finding 4: fix the patch
-  comment when regenerating 0001). Tasks 5-8 = stacked PRs #42-#45: Claude-checked 2026-10-22 (compile 0, 79/79 tests);
-  user merges them; then Claude cherry-picks tasks 2-8 code onto the work branch + WSA-checks Task 7 (paint mode kept over
-  Preview). Tasks 9-12 written (PR #47, user merges first): no-daemon Gradle, `check_3mf.py`, Preview colour-change line
-  (= paint step 3's post-slice half), JNI audit. Muse can't run Gradle yet (Java loopback TCP blocked in its VM).
-- Later + feel-pending items: backlog "Later". C: tight; old build dirs -> `D:\orca-builds-archive`.
+  comment when regenerating 0001). Tasks 2-8 merged + on the work branch (a4b63c7; 79/79 tests). **Claude merges checked
+  Muse PRs into muse/work itself (user 2026-10-22); main still needs the user.** Tasks 9-12 live (PR #47): no-daemon
+  Gradle, `check_3mf.py` (run it on a WSA-saved 3MF), Preview colour-change line, JNI audit. Muse = only read-heavy or
+  mechanically checkable work (no small fixes: spec+check costs as much as doing it).
+- C: tight; old build dirs -> `D:\orca-builds-archive`.
 - Open (backlog): app 3MF fails in desktop Orca (fix untested), printer/user-only checks, pen input, plate switcher pick.
 
 ## User decisions (2026-10-13)

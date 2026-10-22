@@ -2486,3 +2486,6 @@ User: "you just tested something we already confirmed worked". Cross-checked eac
   inset ~4 mm with T0 walls around it (the taper over the shell layers, then a constant inset, as the patch intends).
   Total weight moves with the prime tower (upstream flush logic). Small bug: back from Preview the paint mode resets to Fill.
 - Grok's first overnight run (2026-10-21): free usage limit hit; no commits, no log, no `grok-work/out` files.
+
+### 2026-10-22 Muse tasks 2-8 promoted
+- Claude: PRs #42-#45 merged into muse/work (user gave standing OK for muse/work merges); android/ code from tasks 2-8 committed a4b63c7 on the work branch: compile 0, 79/79 unit tests. WSA debug build: Colour painting > Object, Tab to Preview (tool stays Paint), Prepare -> Object still selected. Tasks 9-12 written (PR #47, merged).
