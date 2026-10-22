@@ -5,11 +5,13 @@ PUBLIC: every push is publication, and a later commit does not remove anything f
 
 ## Status
 - Tasks 1-4 done and merged (PRs #37-#40). Task 4's premise was stale (`log_tail` existed); done as the clamp extraction.
-- **Tasks 5-8 approved by Vincent 2026-10-22.** Work in order, one PR each. Branch each task from the latest `muse/work`
-  after the previous PR is merged; if it isn't merged yet, branch from the previous task branch (stacked) and say so.
-- **Open question for Vincent (undecided):** install JDK 21 + Android SDK (platform + build-tools, no NDK) once in
-  Muse's VM, so Muse compiles and runs the unit tests before pushing? Cost: setup time/quota, reinstall if the VM is
-  replaced. Until Vincent decides, PRs are `UNCOMPILED` and `pr-check.yml` plus Vincent's local run are the first test.
+- Tasks 5-8 (PRs #42-#45, stacked): Claude-checked 2026-10-22 on the top of the stack: compile exit 0, unit tests exit 0,
+  79/79 passed, nothing under the forbidden paths. Device behaviour of Task 7 not yet checked.
+- **Tasks 9-12 requested by Vincent 2026-10-22 (bigger tasks).** Work in order, one PR each, same branching rule
+  (latest `muse/work`, or stacked on the previous task branch if it isn't merged yet; say so). Each is meant to take a
+  while: read first, write down what you found, then change code. Partial but honest beats complete but guessed.
+- Toolchain: JDK 21 + Android SDK are installed in Muse's VM, but Gradle's client-daemon loopback TCP is blocked there,
+  so PRs have been `UNCOMPILED`. Task 9 tries to run Gradle without a daemon.
 
 ## Branches, PRs, promotion
 - Clone: `git clone --recurse-submodules --shallow-submodules https://github.com/BaIanced/OrcaStudio-Android.git`
@@ -158,6 +160,80 @@ check it on a device (steps). Mark device behaviour UNVERIFIED.
 Same rules as Task 3. Look in `core/`, `net/AmsMapping.kt` and `ui/prepare/` for pure, already-public/internal functions with
 no tests (grep the test folder first to avoid duplicates). 2-4 functions; assert actual behaviour; suspected bugs become
 `@Ignore("suspected bug: ...")` tests plus a log line.
+
+## Task 9: run Gradle in Muse's VM without the daemon (toolchain, no repo code change; time-box ~1 hour)
+Goal: Muse compiles and runs the unit tests itself, so later PRs are `COMPILED`. The blocker is Java-initiated loopback
+TCP (Gradle client -> daemon, Kotlin compile daemon RMI). Try, in order, and record each command + its exit code + the
+first error line:
+1. Gradle in-process: the client JVM can run the build itself only when its JVM args match `org.gradle.jvmargs`
+   (`android/gradle.properties:1`: `-Xmx4g -Dfile.encoding=UTF-8`), otherwise it forks a single-use daemon over TCP. So:
+   `GRADLE_OPTS="-Xmx4g -Dfile.encoding=UTF-8" ./gradlew --no-daemon --offline -Pkotlin.compiler.execution.strategy=in-process
+   -Pkotlin.daemon.enabled=false --console=plain -q :app:compileReleaseKotlin` (drop `--offline` for the first run, which
+   downloads Gradle + dependencies; that download is ordinary outbound HTTPS, not loopback).
+2. If (1) still forks: put those properties in `~/.gradle/gradle.properties` (user home, NOT the repo) and retry; check
+   `--info` output for "Starting process 'Gradle build daemon'" / "single-use daemon" to see whether it forked.
+3. If Gradle can't avoid sockets at all: say so plainly with the evidence and stop. Don't touch Muse's network settings
+   beyond what Vincent already approved, and never edit `android/gradle.properties`, `gradlew` or anything under `.github/`.
+Deliverable: a short `MUSE-TOOLCHAIN.md` (repo root of `muse/work`) with the exact working recipe (or the failed tries),
+plus the log entry. If it works, run the full check on `muse/work` and report the test count; from then on, every PR uses
+the `COMPILED` build line. No PR needed if nothing is committed except the doc; one PR with the doc is fine.
+
+## Task 10: `check_3mf.py`, a desktop-compat checker for app-saved 3MF files (Python + tests, no app code)
+Turns Task 6's review into a tool Claude can run on a 3MF pulled from a test device, so the open "desktop rejects the app's
+3MF" bug no longer needs desktop Orca to test. New `android/scripts/check_3mf.py` (match the style of the other scripts
+there; standard library only: `zipfile`, `json`, `xml.etree`), tests in `android/scripts/test_check_3mf.py` (`unittest`,
+run with `python3 -m unittest android/scripts/test_check_3mf.py`).
+- Usage: `python3 android/scripts/check_3mf.py <file.3mf>`; prints one line per check: `OK|FAIL|WARN <check id> <detail>`,
+  exit 0 if no FAIL, 1 otherwise.
+- Implement every check from `MUSE-REVIEW-0006.md` that can be decided from the file alone, each with a comment citing the
+  desktop source it mirrors (`src-orca/...:line`). At least: `Metadata/project_settings.config` parses as JSON;
+  `filament_colour` non-empty; `filament_self_index` and `filament_extruder_variant` lengths consistent with the filament
+  count exactly as `PresetBundle::load_config_file_config` requires (copy the rule, don't paraphrase it); every other
+  per-filament vector key the desktop resizes or rejects; the model files the reader opens exist and contain at least one
+  object with vertices and triangles (the "no geometry data" path); plate/model-settings files referenced exist.
+- Before writing the per-filament rule, re-read the desktop code and state the rule in the KDoc-style module docstring
+  with file:line. If a check depends on the desktop's installed presets (not decidable from the file), print WARN with why.
+- Fixtures: build minimal 3MF zips in the tests (in memory or `tempfile`), one passing and one per FAIL case. No real
+  user files, no files from printers.
+- `UNVERIFIED` until Claude runs it on a real app-saved 3MF (Claude will, from a test device).
+- Also include the Task 6 suspected item as a WARN check if it's decidable from the file: `filament_self_index` that is
+  not the identity on a single-nozzle printer.
+
+## Task 11: Preview "colour changes" line from the sliced G-code + Task 7 follow-up (Kotlin UI wiring)
+Step (3) of the paint plan: show the user how many colour changes the sliced plate has and roughly how much it wastes.
+1. Read first, write findings into the PR: where the app gets the sliced G-code or its path after a slice (grep
+   `slice_result`, `gcodePath`, `exportGcode`, `PreviewStats` / the Preview summary composables under `ui/preview/`), and
+   where Preview shows per-plate stats (time, weight, filament per slot). Cite file:line.
+2. After a successful slice, run `GcodeToolChanges.parse` (Task 5) over the G-code off the main thread (stream lines; the
+   files can be 50+ MB, never read them whole into a String), store the result in the plate's preview state, and show one
+   line in the Preview stats: `Colour changes: N · prime tower ~X g` (X from `primeTowerMm3`, density from the filament
+   preset if it is already available in Kotlin, else 1.24 g/cm3 and say so in a comment). Hide the line when N = 0.
+   Cancel/discard the parse when the plate is re-sliced or switched.
+3. Unit-test the pure part (the mm3 -> g conversion, the "hide when 0" rule, and a stream parse of a fixture via
+   `Sequence`), not the composable.
+4. Task 7 follow-up (same PR, separate commit is fine): `ColorPaintOptions` (`ui/prepare/ToolPanel.kt`) still keeps
+   `brushShape`, `fillShape` and `fillKeep` in `rememberSaveable`, which dies the same way Object mode did when the paint
+   shop leaves composition (Preview and back): leaving Object mode after a Preview round trip restores default fill
+   settings instead of the user's. Move what is needed into `Tool.Paint` (like `objectMode`), smallest change, test via
+   `PaintMode`-style pure helpers if possible.
+Device behaviour is UNVERIFIED; in the PR give Claude exact device steps (which plate setup, which taps, what to expect).
+
+## Task 12: native JNI audit (review only, no code change)
+`android/core/jni/` (~6k lines: `orca_jni.cpp`, `OrcaEngine.cpp`, `OrcaScene.cpp`, `OrcaProject.cpp`, `Preview.cpp`,
+`EngineCalls.cpp`, `ObnBridge.cpp`, `OrcaTools.cpp`, `OrcaExtras.cpp`, `OrcaPlugins.cpp`, `Thumbnails.cpp`) is compiled only
+in CI and has no tests, so bugs there show up as device crashes. Read all of it (and the Kotlin `external fun` side it pairs
+with: grep `external fun` under `android/app/src/main/java`) and write `MUSE-REVIEW-0012.md` with findings, each with
+file:line, a one-line failure scenario and CONFIRMED (you traced it) / SUSPECTED:
+- C++ exceptions escaping a `JNIEXPORT` function (any path without a catch that reaches Java = abort);
+- JNI misuse: local refs created in loops without `DeleteLocalRef`, `GetStringUTFChars` / `Get*ArrayElements` without the
+  matching release on every path (early returns!), using a `JNIEnv*` on another thread, calls after a pending exception;
+- threading: shared engine/scene state touched from the slicing thread and the UI/GL thread without a lock; static
+  mutable state;
+- lifetime: raw pointers handed to Java as `jlong` and used after free / double free; Kotlin side calling after release;
+- signature drift between `external fun` declarations and the C++ `Java_...` names/types (a mismatch = UnsatisfiedLinkError
+  at the first call).
+Rank by likely user impact (crash > wrong output > leak). Max 25 findings; say what you didn't get to. No fixes in this PR
+(Claude decides and ships fixes, native changes go through CI).
 
 ## Log
 Append-only, one entry per PR (also for PRs that get closed unmerged), newest last. Never edit earlier entries.
