@@ -477,7 +477,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
     }
 
     private suspend fun logTail(args: JSONObject): String = withContext(Dispatchers.IO) {
-        val lines = args.optInt("lines", 100).coerceIn(1, 500)
+        val lines = LogTail.lineCount(args.optInt("lines", LogTail.DEFAULT_LINES))
         val level = args.optString("level", "V").uppercase().takeIf { it in listOf("V", "D", "I", "W", "E") }
             ?: throw ToolError("level must be V, D, I, W or E")
         val filter = args.optString("filter").takeIf { it.isNotEmpty() }
