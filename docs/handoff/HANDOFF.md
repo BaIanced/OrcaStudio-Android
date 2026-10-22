@@ -35,12 +35,13 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Paint shop steps 1a-1e-ii built + Claude WSA-checked, user feel untested (backlog "Paint panel UI"; 1e-ii hide/lock = run 39716845272).
   **Step (2) Top depth BUILT 2026-10-21 (run 39718807086, untested): native patch 0001 (keys `mmu_top_paint_layers` /
   `mmu_bottom_paint_layers`: 0 = like shells, N layers, -1 = all the way; below the shells the inset stays constant instead of
-  growing) + "Paint depth" rows in Object mode (PaintDepth.kt; Sides = mmu_segmented_region_max_width). Next: when the run is
+  growing) + "Paint depth" rows in Object mode (PaintDepth.kt; Sides = mmu_segmented_region_max_width). Run is GREEN. Next: the run is
   green, install on all devices, WSA-check (paint top face, set depth, slice, look at layer view), then step (3).**
 - **NEXT (user ACCEPTED 2026-10-21, this order, one step per session):** (1) **paint shop workspace** (steps above; mockup `%TEMP%/paintshop-mockup/`). (2) **Top depth** setting decoupled from top shell layers
   (same as shells / N layers / all the way through), native MultiMaterialSegmentation.cpp:1254/:1410, Object mode; sides = existing
   mmu_segmented_region_max_width. (3) **Colour change + waste counter** (estimate; flush volumes from the profile). Details: backlog "Paint".
 - Later + feel-pending items: backlog "Later". C: tight; old build dirs -> `D:\orca-builds-archive`.
+- **Grok overnight (2026-10-21):** branch `grok/overnight` (local only), tasks `../../../GROK-TASKS.md` (outside repo: patch 0001 review, colour-change estimate + tests = groundwork for step 3, extra unit tests, MCP log_tail). Next session: read `GROK-LOG.md` + `GROK-REVIEW-0001.md`, verify, cherry-pick.
 - **Open: app 3MF export fails in desktop Orca** (fix run 39529670166, untested by the user; backlog).
 - Printer-needed + user-only checks, pen input, plate switcher pick: backlog.
 
