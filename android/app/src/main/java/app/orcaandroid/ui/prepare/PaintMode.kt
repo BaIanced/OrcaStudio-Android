@@ -60,4 +60,16 @@ object PaintMode {
             state = if (to == OBJECT && next.state == 0) 1 else next.state,
         )
     }
+
+    /**
+     * The tool to open paint [kind] with (menu or shortcut, filament / state [state]): the one
+     * it was last left with ([last], session-only), so Done -> Preview -> paint again keeps the
+     * mode, the per-mode shapes, the sizes and the fill settings (WSA r373: it reopened on
+     * Brush / Sphere). Dropped as belonging to that visit: an armed eyedropper, the guard plane
+     * (its height is per object) and hidden / locked layers.
+     */
+    fun reopened(last: Tool.Paint?, kind: String, state: Int): Tool.Paint =
+        last?.takeIf { it.kind == kind }?.let {
+            it.copy(state = state, shape = if (it.shape == "pick") it.back else it.shape, guardOn = false, hidden = 0, locked = 0)
+        } ?: Tool.Paint(kind, state, 3f)
 }

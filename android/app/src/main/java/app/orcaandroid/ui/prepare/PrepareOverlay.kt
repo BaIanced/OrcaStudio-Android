@@ -554,7 +554,7 @@ private fun ToolButtons(
                         Triple(R.string.paint_fuzzy, "fuzzy", 1),
                         Triple(R.string.paint_color, "color", 2),
                     ).forEach { (label, kind, state0) ->
-                        DropdownMenuItem(text = { Text(stringResource(label)) }, onClick = { paintMenu = false; vm.scene.setTool(Tool.Paint(kind, state0, 3f)) })
+                        DropdownMenuItem(text = { Text(stringResource(label)) }, onClick = { paintMenu = false; vm.scene.openPaint(kind, state0) })
                     }
                 }
             }

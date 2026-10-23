@@ -17,6 +17,7 @@
 #include <functional>
 #include <map>
 #include <mutex>
+#include <set>
 #include <string>
 #include <thread>
 #include <vector>
@@ -79,14 +80,16 @@ std::condition_variable g_cv;
 void *g_agent = nullptr;
 std::string g_dir;
 std::deque<Event> g_events;
-bool g_cert_installed = false;
+// Printers whose cert exchange completed since the last LAN connect (obn names the device in
+// its "device_cert_installed" message).
+std::set<std::string> g_cert_devs;
 bool g_cancel = false;
 constexpr size_t kMaxEvents = 512;
 
 void push_event(Event e)
 {
     std::lock_guard<std::mutex> lk(g_mu);
-    if (e.kind == "message" && e.text.find("device_cert_installed") != std::string::npos) g_cert_installed = true;
+    if (e.kind == "message" && e.text.find("device_cert_installed") != std::string::npos) g_cert_devs.insert(e.dev_id);
     if (g_events.size() >= kMaxEvents) g_events.pop_front();
     g_events.push_back(std::move(e));
     g_cv.notify_all();
@@ -139,6 +142,38 @@ jstring http_result(JNIEnv *env, int rc, unsigned int http, const std::string &b
     return env->NewStringUTF(out.c_str());
 }
 
+// Every export runs its body through guard(): a C++ exception (bad_alloc, an obn throw) must not
+// leave a JNIEXPORT function, where it aborts the process. The fallback is what Kotlin gets instead.
+constexpr jint kNativeError = -1;
+
+template<class R, class Fn> R guard(R fallback, Fn &&fn)
+{
+    try {
+        return fn();
+    } catch (...) {
+        return fallback;
+    }
+}
+
+template<class Fn> void guard_void(Fn &&fn)
+{
+    try {
+        fn();
+    } catch (...) {
+    }
+}
+
+template<class Fn> jstring guard_str(JNIEnv *env, const char *fallback, Fn &&fn)
+{
+    try {
+        return fn();
+    } catch (...) {
+        return env->NewStringUTF(fallback);
+    }
+}
+
+constexpr const char *kHttpError = "{\"rc\":-1,\"http\":0,\"body\":\"native error\"}";
+
 } // namespace
 
 extern "C" {
@@ -147,142 +182,160 @@ extern "C" {
 // certificates obn caches and obn.log. Returns the obn version, or "" on failure.
 JNIEXPORT jstring JNICALL Java_app_orcaandroid_net_ObnNative_init(JNIEnv *env, jobject, jstring dir)
 {
-    std::lock_guard<std::mutex> lk(g_mu);
-    if (!g_agent) {
-        const std::string d = jstr(env, dir);
-        void *agent = bambu_network_create_agent(d);
-        if (!agent) return env->NewStringUTF("");
-        bambu_network_set_config_dir(agent, d);
-        // obn reads Bambu's printer CA as <folder>/printer.cer (ObnCredentials.installPrinterCa puts
-        // it in d); without it LAN MQTT fails while TLS verification is on. No file name: with one,
-        // obn would also use <folder>/<name> as the cloud MQTT CA, which stays as it was.
-        bambu_network_set_cert_file(agent, d, "");
-        bambu_network_set_on_local_connect_fn(agent, [](int status, std::string dev_id, std::string msg) {
-            push_event({"connect", std::move(dev_id), status, std::move(msg)});
-        });
-        auto on_msg = [](std::string dev_id, std::string msg) {
-            push_event({"message", std::move(dev_id), 0, std::move(msg)});
-        };
-        bambu_network_set_on_local_message_fn(agent, on_msg);
-        bambu_network_set_on_message_fn(agent, on_msg);
-        bambu_network_start(agent);
-        g_agent = agent;
-        g_dir   = d;
-    }
-    return env->NewStringUTF(bambu_network_get_version().c_str());
+    return guard_str(env, "", [&]() -> jstring {
+        std::lock_guard<std::mutex> lk(g_mu);
+        if (!g_agent) {
+            const std::string d = jstr(env, dir);
+            void *agent = bambu_network_create_agent(d);
+            if (!agent) return env->NewStringUTF("");
+            bambu_network_set_config_dir(agent, d);
+            // obn reads Bambu's printer CA as <folder>/printer.cer (ObnCredentials.installPrinterCa puts
+            // it in d); without it LAN MQTT fails while TLS verification is on. No file name: with one,
+            // obn would also use <folder>/<name> as the cloud MQTT CA, which stays as it was.
+            bambu_network_set_cert_file(agent, d, "");
+            bambu_network_set_on_local_connect_fn(agent, [](int status, std::string dev_id, std::string msg) {
+                push_event({"connect", std::move(dev_id), status, std::move(msg)});
+            });
+            auto on_msg = [](std::string dev_id, std::string msg) {
+                push_event({"message", std::move(dev_id), 0, std::move(msg)});
+            };
+            bambu_network_set_on_local_message_fn(agent, on_msg);
+            bambu_network_set_on_message_fn(agent, on_msg);
+            bambu_network_start(agent);
+            g_agent = agent;
+            g_dir   = d;
+        }
+        return env->NewStringUTF(bambu_network_get_version().c_str());
+    });
 }
 
 JNIEXPORT jint JNICALL Java_app_orcaandroid_net_ObnNative_connect(JNIEnv *env, jobject, jstring dev_id, jstring ip,
                                                                  jstring access_code)
 {
-    void *agent;
-    {
-        std::lock_guard<std::mutex> lk(g_mu);
-        agent = g_agent;
-        g_cert_installed = false;
-    }
-    if (!agent) return BAMBU_NETWORK_ERR_INVALID_HANDLE;
-    return bambu_network_connect_printer(agent, jstr(env, dev_id), jstr(env, ip), "bblp", jstr(env, access_code),
-                                         true);
+    return guard<jint>(kNativeError, [&]() -> jint {
+        void *agent;
+        {
+            std::lock_guard<std::mutex> lk(g_mu);
+            agent = g_agent;
+            g_cert_devs.clear();
+        }
+        if (!agent) return BAMBU_NETWORK_ERR_INVALID_HANDLE;
+        return bambu_network_connect_printer(agent, jstr(env, dev_id), jstr(env, ip), "bblp", jstr(env, access_code),
+                                             true);
+    });
 }
 
 JNIEXPORT void JNICALL Java_app_orcaandroid_net_ObnNative_disconnect(JNIEnv *, jobject)
 {
-    void *agent;
-    {
-        std::lock_guard<std::mutex> lk(g_mu);
-        agent = g_agent;
-    }
-    if (agent) bambu_network_disconnect_printer(agent);
+    guard_void([&] {
+        void *agent;
+        {
+            std::lock_guard<std::mutex> lk(g_mu);
+            agent = g_agent;
+        }
+        if (agent) bambu_network_disconnect_printer(agent);
+    });
 }
 
 JNIEXPORT jint JNICALL Java_app_orcaandroid_net_ObnNative_send(JNIEnv *env, jobject, jstring dev_id, jstring json)
 {
-    void *agent;
-    {
-        std::lock_guard<std::mutex> lk(g_mu);
-        agent = g_agent;
-    }
-    if (!agent) return BAMBU_NETWORK_ERR_INVALID_HANDLE;
-    // obn's send_message: the LAN session when it is connected to this printer, else the cloud
-    // channel (refused while block_cloud is on). Print commands are signed on both.
-    return bambu_network_send_message(agent, jstr(env, dev_id), jstr(env, json), 0, 0);
+    return guard<jint>(kNativeError, [&]() -> jint {
+        void *agent;
+        {
+            std::lock_guard<std::mutex> lk(g_mu);
+            agent = g_agent;
+        }
+        if (!agent) return BAMBU_NETWORK_ERR_INVALID_HANDLE;
+        // obn's send_message: the LAN session when it is connected to this printer, else the cloud
+        // channel (refused while block_cloud is on). Print commands are signed on both.
+        return bambu_network_send_message(agent, jstr(env, dev_id), jstr(env, json), 0, 0);
+    });
 }
 
 // Re-reads obn.conf (block_cloud, cloud_print, ...): obn reloads it whenever the config dir is set
 // again (Agent::set_config_dir, written to be repeatable).
 JNIEXPORT jint JNICALL Java_app_orcaandroid_net_ObnNative_reloadConfig(JNIEnv *, jobject)
 {
-    void       *agent;
-    std::string dir;
-    {
-        std::lock_guard<std::mutex> lk(g_mu);
-        agent = g_agent;
-        dir   = g_dir;
-    }
-    return agent ? bambu_network_set_config_dir(agent, dir) : 0;
+    return guard<jint>(kNativeError, [&]() -> jint {
+        void       *agent;
+        std::string dir;
+        {
+            std::lock_guard<std::mutex> lk(g_mu);
+            agent = g_agent;
+            dir   = g_dir;
+        }
+        return agent ? bambu_network_set_config_dir(agent, dir) : 0;
+    });
 }
 
 // Connects the cloud channel (if not yet) and subscribes to the printer's reports; waits up to
 // timeoutMs for the connection. Returns 0 when connected.
 JNIEXPORT jint JNICALL Java_app_orcaandroid_net_ObnNative_cloudConnect(JNIEnv *env, jobject, jstring dev_id, jint timeout_ms)
 {
-    void *agent = current_agent();
-    if (!agent) return BAMBU_NETWORK_ERR_INVALID_HANDLE;
-    if (!bambu_network_is_server_connected(agent)) {
-        const int rc = bambu_network_connect_server(agent);
-        if (rc != 0) return rc;
-    }
-    // obn keeps the subscription and applies it once the connection is up (CloudSession::add_subscribe).
-    bambu_network_add_subscribe(agent, {jstr(env, dev_id)});
-    for (int waited = 0; !bambu_network_is_server_connected(agent) && waited < timeout_ms; waited += 100)
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    return bambu_network_is_server_connected(agent) ? 0 : BAMBU_NETWORK_ERR_CONNECT_FAILED;
+    return guard<jint>(kNativeError, [&]() -> jint {
+        void *agent = current_agent();
+        if (!agent) return BAMBU_NETWORK_ERR_INVALID_HANDLE;
+        if (!bambu_network_is_server_connected(agent)) {
+            const int rc = bambu_network_connect_server(agent);
+            if (rc != 0) return rc;
+        }
+        // obn keeps the subscription and applies it once the connection is up (CloudSession::add_subscribe).
+        bambu_network_add_subscribe(agent, {jstr(env, dev_id)});
+        for (int waited = 0; !bambu_network_is_server_connected(agent) && waited < timeout_ms; waited += 100)
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        return bambu_network_is_server_connected(agent) ? 0 : BAMBU_NETWORK_ERR_CONNECT_FAILED;
+    });
 }
 
 // Asks the printer to trust the user's slicer certificate and waits up to timeoutMs for the
 // printer's own certificate in reply (obn needs it to encrypt the print URL). Returns true once
-// the exchange has completed in this session.
+// the exchange has completed for this printer since the last connect.
 JNIEXPORT jboolean JNICALL Java_app_orcaandroid_net_ObnNative_installCert(JNIEnv *env, jobject, jstring dev_id,
                                                                          jint timeout_ms)
 {
-    void *agent;
-    {
-        std::lock_guard<std::mutex> lk(g_mu);
-        agent = g_agent;
-        if (g_cert_installed) return JNI_TRUE;
-    }
-    if (!agent) return JNI_FALSE;
-    const std::string dev = jstr(env, dev_id);
-    bambu_network_install_device_cert(agent, dev, false);
-    std::unique_lock<std::mutex> lk(g_mu);
-    g_cv.wait_for(lk, std::chrono::milliseconds(timeout_ms), [] { return g_cert_installed; });
-    return g_cert_installed ? JNI_TRUE : JNI_FALSE;
+    return guard<jboolean>(JNI_FALSE, [&]() -> jboolean {
+        const std::string dev = jstr(env, dev_id);
+        void *agent;
+        {
+            std::lock_guard<std::mutex> lk(g_mu);
+            agent = g_agent;
+            if (g_cert_devs.count(dev)) return JNI_TRUE;
+        }
+        if (!agent) return JNI_FALSE;
+        bambu_network_install_device_cert(agent, dev, false);
+        std::unique_lock<std::mutex> lk(g_mu);
+        g_cv.wait_for(lk, std::chrono::milliseconds(timeout_ms), [&] { return g_cert_devs.count(dev) > 0; });
+        return g_cert_devs.count(dev) ? JNI_TRUE : JNI_FALSE;
+    });
 }
 
 // Drains queued events as a JSON array: [{"kind":..,"dev":..,"status":..,"text":..}, ...].
 JNIEXPORT jstring JNICALL Java_app_orcaandroid_net_ObnNative_poll(JNIEnv *env, jobject)
 {
-    std::deque<Event> evs;
-    {
-        std::lock_guard<std::mutex> lk(g_mu);
-        evs.swap(g_events);
-    }
-    std::string out = "[";
-    for (size_t i = 0; i < evs.size(); ++i) {
-        const auto &e = evs[i];
-        if (i) out += ',';
-        out += "{\"kind\":\"" + esc(e.kind) + "\",\"dev\":\"" + esc(e.dev_id) +
-               "\",\"status\":" + std::to_string(e.status) + ",\"text\":\"" + esc(e.text) + "\"}";
-    }
-    out += "]";
-    return env->NewStringUTF(out.c_str());
+    return guard_str(env, "[]", [&]() -> jstring {
+        std::deque<Event> evs;
+        {
+            std::lock_guard<std::mutex> lk(g_mu);
+            evs.swap(g_events);
+        }
+        std::string out = "[";
+        for (size_t i = 0; i < evs.size(); ++i) {
+            const auto &e = evs[i];
+            if (i) out += ',';
+            out += "{\"kind\":\"" + esc(e.kind) + "\",\"dev\":\"" + esc(e.dev_id) +
+                   "\",\"status\":" + std::to_string(e.status) + ",\"text\":\"" + esc(e.text) + "\"}";
+        }
+        out += "]";
+        return env->NewStringUTF(out.c_str());
+    });
 }
 
 JNIEXPORT void JNICALL Java_app_orcaandroid_net_ObnNative_cancelPrint(JNIEnv *, jobject)
 {
-    std::lock_guard<std::mutex> lk(g_mu);
-    g_cancel = true;
+    guard_void([&] {
+        std::lock_guard<std::mutex> lk(g_mu);
+        g_cancel = true;
+    });
 }
 
 // Uploads file (a .gcode.3mf) and starts it on the printer. Blocks until obn has sent the print
@@ -295,52 +348,54 @@ JNIEXPORT jint JNICALL Java_app_orcaandroid_net_ObnNative_print(JNIEnv *env, job
                                                                jstring ams_mapping2, jboolean cloud,
                                                                jobject listener)
 {
-    void *agent;
-    {
-        std::lock_guard<std::mutex> lk(g_mu);
-        agent = g_agent;
-        g_cancel = false;
-    }
-    if (!agent) return BAMBU_NETWORK_ERR_INVALID_HANDLE;
+    return guard<jint>(kNativeError, [&]() -> jint {
+        void *agent;
+        {
+            std::lock_guard<std::mutex> lk(g_mu);
+            agent = g_agent;
+            g_cancel = false;
+        }
+        if (!agent) return BAMBU_NETWORK_ERR_INVALID_HANDLE;
 
-    BBL::PrintParams p{};
-    p.dev_id = jstr(env, dev_id);
-    p.dev_ip = jstr(env, ip);
-    p.username = "bblp";
-    p.password = jstr(env, access_code);
-    p.use_ssl_for_ftp = true;
-    p.use_ssl_for_mqtt = true;
-    p.filename = jstr(env, file);
-    p.project_name = jstr(env, project_name);
-    p.task_name = p.project_name;
-    p.plate_index = plate_index;
-    p.connection_type = "lan";
-    p.task_bed_leveling = true;
-    p.task_use_ams = use_ams == JNI_TRUE;
-    p.ams_mapping = jstr(env, ams_mapping);   // tray index per filament, as SelectMachineDialog
-    p.ams_mapping2 = jstr(env, ams_mapping2); // {ams_id, slot_id} per filament
-    p.try_emmc_print = false; // FTPS :990 upload, the path Orca-Android already uses for Bambu
+        BBL::PrintParams p{};
+        p.dev_id = jstr(env, dev_id);
+        p.dev_ip = jstr(env, ip);
+        p.username = "bblp";
+        p.password = jstr(env, access_code);
+        p.use_ssl_for_ftp = true;
+        p.use_ssl_for_mqtt = true;
+        p.filename = jstr(env, file);
+        p.project_name = jstr(env, project_name);
+        p.task_name = p.project_name;
+        p.plate_index = plate_index;
+        p.connection_type = "lan";
+        p.task_bed_leveling = true;
+        p.task_use_ams = use_ams == JNI_TRUE;
+        p.ams_mapping = jstr(env, ams_mapping);   // tray index per filament, as SelectMachineDialog
+        p.ams_mapping2 = jstr(env, ams_mapping2); // {ams_id, slot_id} per filament
+        p.try_emmc_print = false; // FTPS :990 upload, the path Orca-Android already uses for Bambu
 
-    jclass cls = listener ? env->GetObjectClass(listener) : nullptr;
-    jmethodID on_progress = cls ? env->GetMethodID(cls, "onProgress", "(IILjava/lang/String;)V") : nullptr;
-    auto update = [&](int stage, int code, std::string msg) {
-        if (!on_progress) return;
-        jstring jmsg = env->NewStringUTF(msg.c_str());
-        env->CallVoidMethod(listener, on_progress, jint(stage), jint(code), jmsg);
-        env->DeleteLocalRef(jmsg);
-        if (env->ExceptionCheck()) env->ExceptionClear();
-    };
-    auto cancelled = [] {
-        std::lock_guard<std::mutex> lk(g_mu);
-        return g_cancel;
-    };
-    if (cloud == JNI_TRUE) {
-        // start_print: with cloud_print = try_lan_first (patch 0002) a LAN upload when the printer is
-        // reachable, else Bambu's cloud print (upload, POST /my/task).
-        p.connection_type = "cloud";
-        return bambu_network_start_print(agent, p, update, cancelled, BBL::OnWaitFn());
-    }
-    return bambu_network_start_local_print(agent, p, update, cancelled);
+        jclass cls = listener ? env->GetObjectClass(listener) : nullptr;
+        jmethodID on_progress = cls ? env->GetMethodID(cls, "onProgress", "(IILjava/lang/String;)V") : nullptr;
+        auto update = [&](int stage, int code, std::string msg) {
+            if (!on_progress) return;
+            jstring jmsg = env->NewStringUTF(msg.c_str());
+            env->CallVoidMethod(listener, on_progress, jint(stage), jint(code), jmsg);
+            env->DeleteLocalRef(jmsg);
+            if (env->ExceptionCheck()) env->ExceptionClear();
+        };
+        auto cancelled = [] {
+            std::lock_guard<std::mutex> lk(g_mu);
+            return g_cancel;
+        };
+        if (cloud == JNI_TRUE) {
+            // start_print: with cloud_print = try_lan_first (patch 0002) a LAN upload when the printer is
+            // reachable, else Bambu's cloud print (upload, POST /my/task).
+            p.connection_type = "cloud";
+            return bambu_network_start_print(agent, p, update, cancelled, BBL::OnWaitFn());
+        }
+        return bambu_network_start_local_print(agent, p, update, cancelled);
+    });
 }
 
 // --- Bambu account ------------------------------------------------------------------------------
@@ -351,64 +406,80 @@ JNIEXPORT jint JNICALL Java_app_orcaandroid_net_ObnNative_print(JNIEnv *env, job
 
 JNIEXPORT jstring JNICALL Java_app_orcaandroid_net_ObnNative_loginHost(JNIEnv *env, jobject)
 {
-    void *agent = current_agent();
-    return env->NewStringUTF(agent ? bambu_network_get_bambulab_host(agent).c_str() : "");
+    return guard_str(env, "", [&]() -> jstring {
+        void *agent = current_agent();
+        return env->NewStringUTF(agent ? bambu_network_get_bambulab_host(agent).c_str() : "");
+    });
 }
 
 JNIEXPORT jstring JNICALL Java_app_orcaandroid_net_ObnNative_getMyToken(JNIEnv *env, jobject, jstring ticket)
 {
-    void *agent = current_agent();
-    unsigned int http = 0;
-    std::string body;
-    const int rc = agent ? bambu_network_get_my_token(agent, jstr(env, ticket), &http, &body) : BAMBU_NETWORK_ERR_INVALID_HANDLE;
-    return http_result(env, rc, http, body);
+    return guard_str(env, kHttpError, [&]() -> jstring {
+        void *agent = current_agent();
+        unsigned int http = 0;
+        std::string body;
+        const int rc = agent ? bambu_network_get_my_token(agent, jstr(env, ticket), &http, &body) : BAMBU_NETWORK_ERR_INVALID_HANDLE;
+        return http_result(env, rc, http, body);
+    });
 }
 
 JNIEXPORT jstring JNICALL Java_app_orcaandroid_net_ObnNative_getMyProfile(JNIEnv *env, jobject, jstring token)
 {
-    void *agent = current_agent();
-    unsigned int http = 0;
-    std::string body;
-    const int rc = agent ? bambu_network_get_my_profile(agent, jstr(env, token), &http, &body) : BAMBU_NETWORK_ERR_INVALID_HANDLE;
-    return http_result(env, rc, http, body);
+    return guard_str(env, kHttpError, [&]() -> jstring {
+        void *agent = current_agent();
+        unsigned int http = 0;
+        std::string body;
+        const int rc = agent ? bambu_network_get_my_profile(agent, jstr(env, token), &http, &body) : BAMBU_NETWORK_ERR_INVALID_HANDLE;
+        return http_result(env, rc, http, body);
+    });
 }
 
 JNIEXPORT jint JNICALL Java_app_orcaandroid_net_ObnNative_changeUser(JNIEnv *env, jobject, jstring user_info)
 {
-    void *agent = current_agent();
-    return agent ? bambu_network_change_user(agent, jstr(env, user_info)) : BAMBU_NETWORK_ERR_INVALID_HANDLE;
+    return guard<jint>(kNativeError, [&]() -> jint {
+        void *agent = current_agent();
+        return agent ? bambu_network_change_user(agent, jstr(env, user_info)) : BAMBU_NETWORK_ERR_INVALID_HANDLE;
+    });
 }
 
 JNIEXPORT jstring JNICALL Java_app_orcaandroid_net_ObnNative_userName(JNIEnv *env, jobject)
 {
-    void *agent = current_agent();
-    const std::string name = agent && bambu_network_is_user_login(agent) ? bambu_network_get_user_name(agent) : std::string();
-    return env->NewStringUTF(name.c_str());
+    return guard_str(env, "", [&]() -> jstring {
+        void *agent = current_agent();
+        const std::string name = agent && bambu_network_is_user_login(agent) ? bambu_network_get_user_name(agent) : std::string();
+        return env->NewStringUTF(name.c_str());
+    });
 }
 
 JNIEXPORT void JNICALL Java_app_orcaandroid_net_ObnNative_logout(JNIEnv *, jobject)
 {
-    void *agent = current_agent();
-    if (agent) bambu_network_user_logout(agent, true);
+    guard_void([&] {
+        void *agent = current_agent();
+        if (agent) bambu_network_user_logout(agent, true);
+    });
 }
 
 JNIEXPORT jstring JNICALL Java_app_orcaandroid_net_ObnNative_userPrintInfo(JNIEnv *env, jobject)
 {
-    void *agent = current_agent();
-    unsigned int http = 0;
-    std::string body;
-    const int rc = agent ? bambu_network_get_user_print_info(agent, &http, &body) : BAMBU_NETWORK_ERR_INVALID_HANDLE;
-    return http_result(env, rc, http, body);
+    return guard_str(env, kHttpError, [&]() -> jstring {
+        void *agent = current_agent();
+        unsigned int http = 0;
+        std::string body;
+        const int rc = agent ? bambu_network_get_user_print_info(agent, &http, &body) : BAMBU_NETWORK_ERR_INVALID_HANDLE;
+        return http_result(env, rc, http, body);
+    });
 }
 
 // One-time web sign-in ticket for the signed-in account (obn request_bind_ticket), exchanged by
 // MakerWorld at <host>api/sign-in/ticket like the desktop's MakerWorld tab does. "" on failure.
 JNIEXPORT jstring JNICALL Java_app_orcaandroid_net_ObnNative_webTicket(JNIEnv *env, jobject)
 {
-    void *agent = current_agent();
-    std::string ticket;
-    if (!agent || bambu_network_request_bind_ticket(agent, &ticket) != 0) ticket.clear();
-    return env->NewStringUTF(ticket.c_str());
+    return guard_str(env, "", [&]() -> jstring {
+        void *agent = current_agent();
+        std::string ticket;
+        if (!agent || bambu_network_request_bind_ticket(agent, &ticket) != 0) ticket.clear();
+        return env->NewStringUTF(ticket.c_str());
+    });
 }
 
 // Downloads the account's cloud presets for profile bundle `version` (get_setting_list, then
@@ -416,23 +487,25 @@ JNIEXPORT jstring JNICALL Java_app_orcaandroid_net_ObnNative_webTicket(JNIEnv *e
 // with option values serialized as libslic3r writes them.
 JNIEXPORT jstring JNICALL Java_app_orcaandroid_net_ObnNative_cloudPresets(JNIEnv *env, jobject, jstring version)
 {
-    void *agent = current_agent();
-    const int rc = agent ? bambu_network_get_setting_list(agent, jstr(env, version), BBL::ProgressFn(), BBL::WasCancelledFn())
-                         : BAMBU_NETWORK_ERR_INVALID_HANDLE;
-    std::map<std::string, std::map<std::string, std::string>> presets;
-    if (rc == 0) bambu_network_get_user_presets(agent, &presets);
-    std::string out = "{\"rc\":" + std::to_string(rc) + ",\"presets\":{";
-    for (auto p = presets.begin(); p != presets.end(); ++p) {
-        if (p != presets.begin()) out += ',';
-        out += "\"" + esc(p->first) + "\":{";
-        for (auto v = p->second.begin(); v != p->second.end(); ++v) {
-            if (v != p->second.begin()) out += ',';
-            out += "\"" + esc(v->first) + "\":\"" + esc(v->second) + "\"";
+    return guard_str(env, "{\"rc\":-1,\"presets\":{}}", [&]() -> jstring {
+        void *agent = current_agent();
+        const int rc = agent ? bambu_network_get_setting_list(agent, jstr(env, version), BBL::ProgressFn(), BBL::WasCancelledFn())
+                             : BAMBU_NETWORK_ERR_INVALID_HANDLE;
+        std::map<std::string, std::map<std::string, std::string>> presets;
+        if (rc == 0) bambu_network_get_user_presets(agent, &presets);
+        std::string out = "{\"rc\":" + std::to_string(rc) + ",\"presets\":{";
+        for (auto p = presets.begin(); p != presets.end(); ++p) {
+            if (p != presets.begin()) out += ',';
+            out += "\"" + esc(p->first) + "\":{";
+            for (auto v = p->second.begin(); v != p->second.end(); ++v) {
+                if (v != p->second.begin()) out += ',';
+                out += "\"" + esc(v->first) + "\":\"" + esc(v->second) + "\"";
+            }
+            out += '}';
         }
-        out += '}';
-    }
-    out += "}}";
-    return env->NewStringUTF(out.c_str());
+        out += "}}";
+        return env->NewStringUTF(out.c_str());
+    });
 }
 
 } // extern "C"

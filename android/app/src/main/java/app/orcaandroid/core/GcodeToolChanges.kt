@@ -23,7 +23,12 @@ import kotlin.math.PI
  *   `:115-116`) do NOT delimit the volume: in the processor they only set the `m_wipe_tower`
  *   flag (`GCodeProcessor.cpp:4279-4286`), which feeds no role statistic — the toolchange
  *   block they wrap (ram / load / wipe, `src/libslic3r/GCode/WipeTower2.cpp:1378` and
- *   `WipeTower.cpp:2334`) is parsed under whatever role the last FEATURE tag set.
+ *   `WipeTower.cpp:2334`) is parsed under whatever role the last FEATURE tag set; the tower
+ *   writer emits its own `; FEATURE: Prime tower` when it starts (`WipeTower.cpp:746`,
+ *   `WipeTower2.cpp:362`), so the tower's own moves still count.
+ * - Flush to the chute: `; FLUSH_START` / `; FLUSH_END` (`GCodeProcessor.cpp:154-155`), which
+ *   the Bambu A1 / A1 mini `change_filament_gcode` writes around each purge (same profile
+ *   file); the purge between them never reaches the prime tower.
  * - Tool selection: `GCodeWriter::toolchange` (`src/libslic3r/GCodeWriter.cpp:719-744`)
  *   writes `M1020 S<n>` on Bambu printers or the toolchange prefix plus the id
  *   (`toolchange_prefix`, `:709-717`: plain `T<n>`, `M135 T<n>` / `M108 T<n>` on other
@@ -58,6 +63,7 @@ import kotlin.math.PI
  *   segments (`:5897`). Filament length converts to volume assuming 1.75 mm filament.
  *   Absolute E (`M82`, the default assumed here) and relative E (`M83`) are both tracked,
  *   and `G92 E<x>` resets the absolute reference.
+ * - [Result.flushMm3] sums the E deltas inside flush blocks the same way.
  */
 object GcodeToolChanges {
 
@@ -65,6 +71,7 @@ object GcodeToolChanges {
         val changes: Int,
         val perLayer: List<List<Int>>,
         val primeTowerMm3: Double,
+        val flushMm3: Double = 0.0,
     )
 
     /** Filament cross-section for the assumed 1.75 mm diameter, in mm2. */
@@ -90,6 +97,8 @@ object GcodeToolChanges {
         var relativeE = false
         var lastE: Double? = null
         var primeTowerMm = 0.0
+        var inFlush = false
+        var flushMm = 0.0
 
         fun select(id: Int) {
             if (id >= NO_OP_ID) return
@@ -116,6 +125,8 @@ object GcodeToolChanges {
                         inPrimeTower = comment.substringAfter(':').trim() in setOf("Prime tower", "PRIME-TOWER")
                     comment == "WIPE_START" -> wiping = true
                     comment == "WIPE_END" -> wiping = false
+                    comment == "FLUSH_START" -> inFlush = true
+                    comment == "FLUSH_END" -> inFlush = false
                     else -> manualChange.find(comment)?.let { select(it.groupValues[1].toInt()) }
                 }
                 continue
@@ -139,11 +150,12 @@ object GcodeToolChanges {
                     // The processor's Extrude type only: gross positive E with X/Y motion,
                     // inside a prime-tower block and not on a wipe move.
                     if (inPrimeTower && !wiping && delta > 0.0 && xyParam.containsMatchIn(code)) primeTowerMm += delta
+                    if (inFlush) flushMm += delta
                 }
                 else -> toolWord.matchEntire(word)?.let { select(it.groupValues[1].toInt()) }
             }
         }
         val perLayer = if (layers.isEmpty() && selectionOrder.isNotEmpty()) listOf(selectionOrder) else layers
-        return Result(changes, perLayer, primeTowerMm * FILAMENT_AREA_MM2)
+        return Result(changes, perLayer, primeTowerMm * FILAMENT_AREA_MM2, flushMm * FILAMENT_AREA_MM2)
     }
 }
