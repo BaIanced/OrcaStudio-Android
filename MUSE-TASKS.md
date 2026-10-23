@@ -738,3 +738,117 @@ and the documented recipe keeps the JDK cacerts base regardless.
 Open questions: none. (Sequencing note: Task 12 was directed ahead of
 this task by Vincent and is already merged, so the "do before Task 12"
 order in the task text is moot; nothing else in the queue was touched.)
+
+### Task 15 - 2026-10-22 - muse/task-15-prime-tower-grams - this commit
+Verdict: the slicer's 3.155 g is the right number for the quantity both UI elements
+claim to show, and the Kotlin line was measuring a different, wider quantity. The line
+now mirrors the processor's per-role rules exactly (fixtures below agree to the mm3);
+the one remaining difference is density, which cannot be fixed in Kotlin (below).
+
+Trace (slicer side). The per-feature grams are `GCodeProcessor`'s per-role statistic:
+`Print::export_gcode`'s processor fills `filaments_per_role` (`UsedFilaments::process_role_cache`,
+`src/libslic3r/GCode/GCodeProcessor.cpp:2594-2613`: length = role_cache / filament area,
+grams = role_cache x `filament_densities[active filament]` x 0.001 — per-filament density
+from config at `:3099`, default 1.245 at `:92`), copied into
+`print_statistics.used_filaments_per_role` at `:7653`. The app reads exactly that map:
+`android/core/jni/OrcaEngine.cpp:660-664` puts `it->second.second` into each role's
+`filament_g`, `android/app/src/main/java/app/orcaandroid/core/Engine.kt:374` builds
+`RoleStat`, and the list is surfaced e.g. in `ai/McpTools.kt:609-610` ("Prime tower" is
+`ROLE_NAMES[17]`, `ui/preview/PreviewPanel.kt:84-88`). `role_cache` for the tower is fed
+only by `increase_wipe_tower_caches` (`:2515-2520`), called from `process_G1` at
+`:5056-5057` when the move type is Extrude AND the current role is `erWipeTower`.
+Move type (`:4986-5000`): Wipe if `m_wiping` (between `; WIPE_START` / `; WIPE_END`,
+`:4268-4276`); Retract/Travel if E delta < 0; Unretract if E delta > 0 with no X/Y;
+Extrude only if E delta > 0 with X/Y motion. Role is set by the `; FEATURE: ` tag in
+`process_tags` (`:4240-4242`, `ExtrusionEntity::string_to_role`,
+`src/libslic3r/ExtrusionEntity.cpp:735-736`; the writer emits the tag from
+`GCode::extrude`, `src/libslic3r/GCode.cpp:8588`, name from `role_to_string` at
+`ExtrusionEntity.cpp:693`), by `; TYPE:PRIME-TOWER` for the Cura producer (`:4525`),
+`; prime pillar` (`:4661`, Simplify3D) and `Pillar` (`:4754`, KissSlicer).
+`; WIPE_TOWER_START` / `; WIPE_TOWER_END` only set/clear `m_wipe_tower` (`:4279-4286`,
+plus a `process_wipe_tower_cache` call on END) — that flag feeds no role statistic, and
+the cache it drains (`wipe_tower_volumes_per_filament`, `:2555-2565`) is a separate
+statistic the per-feature list does not show. Unretract moves while flushing go to
+`flush_per_filament` (`:5101-5111`; `m_flushing` from `; FLUSH_START` / `; FLUSH_END`
+at `:4314-4324`), never to a role. Arcs count: `process_G2_G3` (`:5736`) discretises
+into `process_G1` segments (`:5897`).
+
+Difference table (Kotlin as shipped vs the processor; sizes computed on hand-built
+fixtures, each computed three ways — old parser, a line-by-line mirror of the
+processor rules above, and the fixed parser; filament area 2.40528 mm2):
+- WIPE_TOWER_START/END delimiters (Kotlin only): the block wraps the on-tower
+  toolchange ram / load / wipe (`src/libslic3r/GCode/WipeTower2.cpp:1378`,
+  `WipeTower.cpp:2334`), is emitted as toolchange G-code (the `GCode::append_tcr` /
+  `set_extruder` path in `src/libslic3r/GCode.cpp`), not by `GCode::extrude`, so the
+  block carries no FEATURE tag of its own and is parsed under the previous role.
+  Fixture (inner-wall block, then START..END with E-only load +12, X/Y wipe +8,
+  retract -6, then a FEATURE tower block +5): Kotlin 19 mm, processor 5 mm —
+  Kotlin +14 mm / +33.6739 mm3 on that input. Sign: Kotlin high; the dominant term.
+- Net vs gross E inside FEATURE blocks: Kotlin netted every G0/G1 E delta; the
+  processor counts gross positive X/Y extrusion only. E-only prime/load moves
+  (+, Kotlin high), X/Y retractions (-, Kotlin low) and balanced retract/re-prime
+  pairs (0) all folded into the net. Fixture (tower block: X/Y +10, E-only pair
+  -0.8/+0.8, X/Y +5, X/Y -0.5, E-only +2, wipe +1, arc +2): Kotlin net 17.5 mm vs
+  processor 17 mm — Kotlin +0.5 mm / +1.2026 mm3 net, from +2 E-only, -0.5 X/Y
+  retract, +1 wipe, -2 arc (next row).
+- Wipe moves (WIPE_START/END): processor types them Wipe, never Extrude; Kotlin
+  counted them. +1 mm of the fixture above.
+- Arc moves G2/G3: Kotlin ignored them entirely (noted UNVERIFIED in Task 5);
+  the processor counts their E. Kotlin low: -2 mm in the fixture above; a pure
+  arc fixture (G2 +5, G3 +4 under FEATURE, then a `TYPE: PRIME-TOWER` block +5)
+  gives Kotlin 0 mm vs processor 14 mm / 33.6739 mm3.
+- `TYPE: PRIME-TOWER` spelling: Kotlin recognised only "Prime tower"; the Cura
+  path in the processor maps PRIME-TOWER to `erWipeTower`. Same arc fixture.
+- Tool-change flush on the Bambu chute (FLUSH_START/END, E-only `G1 E...` from the
+  BBL profiles' `change_filament_gcode`): excluded by BOTH sides as long as it sits
+  outside tower delimiters (fixture: 0 vs 0) — the processor routes it to
+  `flush_per_filament`. It only leaked into the Kotlin number when such E-only
+  moves fell inside a WIPE_TOWER block (first row).
+- M83 / G92 handling: both sides track relative E and `G92 E<x>` resets; a
+  balanced relative-E fixture (X/Y +2.5, E-only pair, X/Y +2.5) agrees exactly
+  (5 mm / 12.0264 mm3 both). No difference found.
+- Density: the processor's per-role grams use the density of the filament active
+  for each segment (`:2601`); `ColourChangeLine.densityOf` uses ONE plate average
+  (total slice grams / total volume; fallback 1.24). Sign depends on the tower
+  filament vs the plate average. Computed on a 1000 mm3 tower: density 1.05 vs
+  average 1.24 -> Kotlin 1.24 g vs slicer 1.05 g (+0.19 g); density 1.45 ->
+  Kotlin 1.24 g vs slicer 1.45 g (-0.21 g). NOT fixed: per-filament densities are
+  not in Kotlin state (the task anticipated this cause). A test now pins the
+  averaging behaviour (`densityOfIsThePlateAverage`).
+
+Fix (`core/GcodeToolChanges.kt` only; `ColourChangeLine.kt` unchanged):
+`primeTowerMm3` now counts a move only inside a FEATURE/TYPE prime-tower block
+("Prime tower" or "PRIME-TOWER"), only when it is a G0/G1/G2/G3 with X/Y motion
+and a positive E delta, and never between WIPE_START / WIPE_END; the
+WIPE_TOWER_START/END delimiters are removed. Tool-change counting and per-layer
+lists are untouched. On every fixture above the fixed parser equals the processor
+mirror to the mm3. The observed plate gap (+4.6%: 3.3 vs 3.155 g, ~48.6 mm of
+filament at the plate-average density) is consistent with the WIPE_TOWER-block
+inclusion across a few tool changes plus a possible density contribution; the
+split between the two on that plate is UNVERIFIED (next item).
+
+Tests: `GcodeToolChangesTest` 13 -> 16 — new `primeTowerGrossXyExtrusionOnly`,
+`primeTowerWipeTowerTagsDoNotDelimit`, `primeTowerArcMovesAndCuraSpelling`;
+`primeTowerRelativeEAndRetraction` rewritten (its fixture was all E-only moves,
+which pin the old rule; same 5 mm expectation from X/Y moves now) and
+`primeTowerWipeTowerTagsAndTypeSpelling` replaced by `primeTowerTypeSpelling`
+(TYPE spelling only). `ColourChangeLineTest` 4 -> 5 — new
+`densityOfIsThePlateAverage`. All expected values hand-computed in comments and
+cross-checked against the processor-rule mirror before running.
+Build: COMPILED (compile exit 0, tests exit 0; 91/91 tests passed, 0
+failures/errors/skipped, 12 classes — Task 14 recipe, no trust-store rebuild
+needed this run).
+Privacy self-scan: tree exit 0, range exit 0.
+UNVERIFIED: no real sliced G-code file was parsed (fixtures only, by design), so
+the apportioning of the observed 3.3 vs 3.155 g gap between the WIPE_TOWER-block
+inclusion and density is not measured; whether in a real Bambu file any X/Y
+extrusion inside WIPE_TOWER_START/END ever follows a `; FEATURE: Prime tower`
+tag (which would make the processor count the wipe part of the block, up to the
++8 mm X/Y part of the fixture, under the tower role) was not observed on a real
+file. The Simplify3D / KissSlicer tower spellings (`; prime pillar`, `Pillar`)
+are comment forms the parser does not recognise — unchanged, Bambu output uses
+FEATURE. Device behaviour of the updated Preview line is unchecked.
+Open questions: none for the fix itself. If Claude wants the line to instead
+report the wider "tower + on-tower toolchange purge" quantity the old code
+approximated, that is a product decision for him/Vincent — this PR makes the
+line agree with the per-feature list it sits next to.
