@@ -2707,3 +2707,30 @@ User-verified items that were still in HANDOFF-BACKLOG.md, moved verbatim:
 
 ### 2026-10-23 Z rail live drag dropped (user)
 - Wireframe ghost only (merged STL, no per-shape mesh); user: throw it out, shapes move live in the Build workspace instead.
+
+### 2026-10-23 Build workspace plan (Claude; user GO 2026-10-23)
+Today the builder renders the whole design through OpenSCAD into ONE object (replace_mesh) and shows it in its own
+MeshPreviewView (wireframe box while dragging). Target: the design object IS a multi-part Orca object on its own plate,
+edited in the main view. Found in source: per-volume transforms (OrcaScene.cpp:691 set_transform volume >= 0), negative
+volumes (:70), add/delete volume (:1172/:1218), mesh_boolean (:962), pick() returns the volume (OrcaTools.cpp:70),
+write_mesh draws every volume (OrcaScene.cpp:470), and the mesh shader already moves/scales/turns "selected" ids live
+(Shaders.kt:68-80, uDrag/uScale/uRot), so per-shape live drags need only per-volume selection ids.
+1. DONE (this commit): `ShapeDesign.pieces()` (ShapeModel.kt): one Piece per top-level shape = OpenSCAD code in the
+   shape's own frame (dims resolved to numbers) + row-major 4x4 placement; a group is one piece (holes inside a group cut
+   only it, as now), a repeat gives one piece per copy (same code = shared mesh), a top-level hole = negative volume (Orca
+   cuts it from every part, same as the outermost group). Move/turn/mirror change only the matrix. 6 JVM tests
+   (ShapePiecesTest: matrices x own-frame boxes = ShapeDesign.bounds for turned/mirrored/grouped/repeated/bound shapes).
+   toScad output unchanged (prelude() extracted verbatim).
+2. [Opus] Native (core/jni, CI build): `set_volumes(object, [{stl, type, matrix, name}])` replaces the object's volumes in
+   one undo step, keeps the instance pose and the mesh frame (add_volume centres: compose the offset back), skips empty
+   meshes; a "build object" flag makes write_mesh emit selection id -1000 - volume for its volumes (tower uses -2 - plate).
+3. Kotlin: per-piece OpenSCAD renders cached by code hash (`files/openscad/pieces/<hash>.stl`); a change re-renders only
+   changed pieces, a move sends only matrices. Shape designs stop using the whole-design STL push.
+4. UI: Build = isolated focus on the design object in the main view (paint shop's solo pass, uSolo), builder panel docked
+   like the paint shop (bottom portrait / side landscape); tap -> pick volume -> shape id; main-view gizmos on the
+   selected volume ids; release writes pos/rot/size into the ShapeDesign -> step 3. ScadPreview stays for code designs only.
+5. Design pose vs print pose: volumes in the object frame = design pose; instance transform = print pose (Prepare's lay
+   flat / rotate touch only the instance); Build shows the instance unrotated.
+6. Later: per-shape filament (volume extruder = multi-colour modeling), "Merge" bake (mesh_boolean), groups editable inside.
+Risks: holes show translucent until sliced (Tinkercad-like); resizing re-meshes the piece and drops its paint; per-piece
+render time on release untested; empty pieces (blank text) must be skipped natively.
