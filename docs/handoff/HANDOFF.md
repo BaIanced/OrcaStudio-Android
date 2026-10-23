@@ -30,7 +30,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **User 2026-10-21: one small step per session.** Cue `/clear` + `/next` after EACH step. Pie menu disliked -> backlog.
 - **User 2026-10-21: design deviations pre-approved** ("deviate if you find a more logical, intuitive way; I trust your judgement"); say what changed.
 - Paint plan (user ACCEPTED 2026-10-21): steps (1)-(2) done, user feel untested (backlog "Paint panel UI", "Paint penetration").
-  Step (3) waste counter done (r373), plan complete; reopen fix WSA r374 OK (archive). User feel untested.
+  Step (3) waste counter done (r373), plan complete. User feel untested.
   Task 12 findings 1-4 fixed: r375 (21b7f9f, run 39879903340) on WSA/SHIELD/phone; WSA starts clean (2026-10-22).
   Finding 6 (per-printer cert set) committed e02b10f, NOT built (batching native fixes).
   **Next small step:** Task 12 finding 7 (load_models wipes before validating; backlog "Muse Task 12"), then dispatch one build for 6+7.
