@@ -42,7 +42,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   Claude compiles each PR locally before merging). No native/patch work (all Task 12 fixes are native). **Muse KEPT (user, 2026-10-23)**
   for audits + larger JVM-testable Kotlin only, no small fixes. Log Claude's effort per task in the archive; if a task costs more
   than doing it directly, tell the user plainly and stop sending such tasks. Merge commands START with `gh pr merge`. No stacking.
-- Next step: Z rail live drag (backlog "Z rail") -> Sonnet 5.5 (medium) (cue format: /next skill "Model cue").
+- Next step: Build workspace (shape builder into the main view; backlog + archive "Build workspace"): write the plan/phase 1 first -> Opus 5.5 (high). Bugs after.
 - Open (backlog): app 3MF fails in desktop Orca (fix untested), printer/user-only checks, pen input, plate switcher pick.
 
 ## User decisions (2026-10-13)

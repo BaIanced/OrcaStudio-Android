@@ -10,7 +10,6 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 
 ## Open bugs
 - [Opus] 3MF saved by the app fails in desktop Orca GUI ("no geometry data", filament_self_index count): fix match_filament_indices, GUI load of a new export untested (Claude 2026-10-20).
-- Z rail (CAD shape builder): object not drawn live while dragging, lands at the end (user, run 39678582217, 2026-10-21); hook MeshPreviewView.kt:342; Shift 0.1 mm untested.
 - Paint shop: slice -> Preview -> back to Prepare resets the paint mode to Fill (Claude r367 2026-10-21).
 - [Opus] Prime tower weight: Preview line ~3.3 g vs slice_result 3.155 g; Task 15 fix b27d4f1 untested on device: re-slice WSA plate 2 and compare (Claude 2026-10-22).
 - [Opus] Muse Task 12 JNI audit: open 5 (preset_bundle() unlocked plugin read), 8 (obn init lock, suspected), 9 (fill cancel undo pop, suspected), 10-13 (MUSE-REVIEW-0012.md); 6 built r376, needs 2+ printers; 1-4 error paths untested (Claude 2026-10-22).
@@ -40,7 +39,7 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 ## Waiting on the user
 - Plate switcher pick (lab stays; don't ask again). Launcher icon colour ("decide later"). REA MCP enable (installed, not enabled).
 - Edge outline in Prepare (crease lines, View toggle; regions view already has crease_lines()): waiting on GO (2026-10-20).
-- [Opus] Shape builder on the main canvas / Build workspace (shapes as Orca volumes, design pose vs print pose): waiting on the plan GO (2026-10-21).
+- [Opus] Shape builder on the main canvas / Build workspace (shapes as Orca volumes, design pose vs print pose): USER GO 2026-10-23 ("moving forward on the main view transition"); NEXT, before bug fixes. Z rail live drag dropped (moot there). Plan in archive 2026-10-21 (grep "Build workspace").
 
 ## Ideas (not started)
 - Floating Theme | Layout designer (~half a day; ask first). Study Bambu Handy's MakerWorld integration.
