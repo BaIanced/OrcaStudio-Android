@@ -115,6 +115,13 @@ enum class VolumeType(val code: Int) {
     }
 }
 
+/**
+ * One volume for [Engine.setVolumes]: mesh from [stl] or kept from volume [keep]; [matrix] is row-major 4x4
+ * (null only with [keep]: the volume keeps its own placement).
+ */
+data class VolumeSpec(val type: VolumeType, val matrix: List<Double>?, val stl: String? = null, val keep: Int = -1, val name: String = "",
+                      val anchor: Int = -1)
+
 data class LayerGcode(val z: Float, val type: String, val extra: String = "", val color: String = "", val extruder: Int = 1)
 
 data class Plate(
@@ -138,7 +145,12 @@ data class Instance(
     val mirror: Vec3,
     val size: Vec3,
     val min: Vec3,
-)
+    /** The Build workspace's object: this copy as the Build view draws it (design pose: no turn, scale or mirror). */
+    val design: Instance? = null,
+) {
+    /** The copy as the main view draws and picks it. */
+    val shown: Instance get() = design ?: this
+}
 
 data class Volume(
     val index: Int, val name: String, val type: VolumeType, val settings: Map<String, String>, val offset: Vec3, val size: Vec3,

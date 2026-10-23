@@ -67,18 +67,26 @@ SlicingParameters slicing_params(const DynamicPrintConfig &config, const ModelOb
 
 // --- Picking and painting ----------------------------------------------------------------------
 
-json OrcaEngine::pick(const std::array<double, 3> &origin, const std::array<double, 3> &dir)
+// The copy's matrix as drawn and picked: [design] = OrcaEngine::design_offset() (the Build workspace's object).
+static Transform3d shown_matrix(const ModelInstance &inst, const std::optional<std::array<double, 3>> &design)
+{
+    return design ? Transform3d(Eigen::Translation3d((*design)[0], (*design)[1], (*design)[2])) : inst.get_matrix();
+}
+
+json OrcaEngine::pick(const std::array<double, 3> &origin, const std::array<double, 3> &dir, int only)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
     const Vec3d s = to_vec(origin), d = to_vec(dir).normalized();
     json best = {{"hit", false}};
     double best_dist = std::numeric_limits<double>::max();
     for (size_t oi = 0; oi < m_model->objects.size(); ++oi) {
+        if (only >= 0 && int(oi) != only)
+            continue;
         const ModelObject *obj = m_model->objects[oi];
         for (size_t ii = 0; ii < obj->instances.size(); ++ii)
             for (size_t vi = 0; vi < obj->volumes.size(); ++vi) {
                 const ModelVolume *vol = obj->volumes[vi];
-                const Transform3d trafo = obj->instances[ii]->get_matrix() * vol->get_matrix();
+                const Transform3d trafo = shown_matrix(*obj->instances[ii], design_offset(oi, ii)) * vol->get_matrix();
                 const Transform3d inv   = trafo.inverse();
                 // Ray in volume coordinates; the hit distance is measured back in world space.
                 const Vec3d ls = inv * s;
@@ -202,7 +210,8 @@ void OrcaEngine::write_paint_mesh()
     };
     for (size_t oi = 0; oi < m_model->objects.size(); ++oi) {
         const ModelObject *obj = m_model->objects[oi];
-        for (const ModelVolume *vol : obj->volumes) {
+        for (size_t vi = 0; vi < obj->volumes.size(); ++vi) {
+            const ModelVolume *vol = obj->volumes[vi];
             // (annotation, state, overlay type code)
             std::vector<std::tuple<const FacetsAnnotation *, EnforcerBlockerType, float>> layers;
             if (!vol->fuzzy_skin_facets.empty())
@@ -229,8 +238,10 @@ void OrcaEngine::write_paint_mesh()
                 const indexed_triangle_set &painted = facets_for(key, *vol, *annotation, state);
                 if (painted.indices.empty())
                     continue;
+                // The Build workspace's object: the scene mesh's per-volume ids (write_mesh), so its paint shows in the solo view.
                 for (size_t ii = 0; ii < obj->instances.size(); ++ii)
-                    emit(key, painted, obj->instances[ii]->get_matrix() * vol->get_matrix(), float(oi * INSTANCE_ID_STRIDE + ii), code);
+                    emit(key, painted, shown_matrix(*obj->instances[ii], design_offset(oi, ii)) * vol->get_matrix(),
+                         int(oi) == m_build_object ? -1000.f - float(vi) : float(oi * INSTANCE_ID_STRIDE + ii), code);
             }
         }
     }

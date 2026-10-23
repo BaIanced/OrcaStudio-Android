@@ -390,6 +390,30 @@ Plain JVM unit tests have no real `org.json` (see the note in `AmsMappingTest.kt
 Write-up: PR body + log entry (per-file edge-case table, defects found or "none", test count before -> after).
 Compile + tests per "Before every push"; record the test count. Time-box ~45 min.
 
+## Task 18: audit + JVM tests for the Build workspace Kotlin (`BuildTransform`, `ShapeDesign.pieces`, piece matching)
+`muse/work` carries the work branch's `android/` (synced for Task 18). The Build workspace: a
+shape design placed on the plate is ONE Orca object whose volumes are the design's top-level shapes ("pieces").
+`ShapeDesign.pieces()` (`scad/ShapeModel.kt`) turns the design into pieces (own-frame OpenSCAD code + row-major 4x4
+placement; a group = one piece, a repeat = one piece per copy, a top-level hole = negative volume). `scad/BuildTransform.kt`
+maps the main view's gizmo moves / turns / scales (plate frame, through the object's copy pose) back into the design.
+`ScadController.matched` / `kept` / `anchors` (`ui/ScadController.kt` ~709-743) decide which existing volumes are kept
+when the design is re-placed (unchanged code = keep the mesh; unchanged code AND matrix = anchor that pins the design in
+place). Existing tests: `scad/ShapePiecesTest.kt`, `scad/BuildTransformTest.kt` (read them first; don't duplicate).
+1. Audit `pieces()`, `BuildTransform` and the three matching functions. List every input that is not the happy path:
+   mirrored and non-uniformly scaled copies, a turned circular repeat, nested groups, a hole inside a group vs top level,
+   blank text (empty piece), two shapes with identical code, repeat count changes, shape reorder, pieces whose matrices
+   differ only by float noise (`Piece.matrix` is `List<Double>` compared with `==` in `anchors`), `designScale` returning
+   null, `axesFree` at exactly 90 / 180 degrees. Only list a defect you reproduced with a test.
+2. The matching logic needs files and controller state today. Extract its pure core into `scad/PieceMatch.kt`
+   (inputs: the old pieces, which old/new pieces rendered empty, the object's part/negative volumes as (index, isHole);
+   output: piece index -> (old piece, volume index)), make `ScadController.matched` call it with the SAME behaviour, and
+   test it in `scad/PieceMatchTest.kt`. This is the only change allowed in `ScadController.kt`.
+3. Add tests to `ShapePiecesTest` / `BuildTransformTest` for the gaps from step 1. Pin right behaviour; pin odd but
+   harmless behaviour in a test named `...Today` and leave the code. Fix a real defect only in its own file, minimal,
+   and name the test that pinned it. No Compose, no native code, no other files.
+Write-up: PR body + log entry (edge-case table per function, defects found or "none", test count before -> after).
+Compile + tests per "Before every push"; record the test count. Time-box ~60 min.
+
 ## Log
 Append-only, one entry per PR (also for PRs that get closed unmerged), newest last. Never edit earlier entries.
 Format: `### Task <n> - <date> - <branch> - <commit>` then build/test result or UNCOMPILED, privacy scan exit codes,
