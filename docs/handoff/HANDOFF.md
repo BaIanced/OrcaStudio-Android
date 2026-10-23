@@ -30,8 +30,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **User 2026-10-21: design deviations pre-approved** ("deviate if you find a more logical, intuitive way; I trust your judgement"); say what changed.
 - Paint plan (user ACCEPTED 2026-10-21): steps (1)-(2) done, user feel untested (backlog "Paint panel UI", "Paint penetration").
   Step (3) waste counter done (r373), plan complete. User feel untested.
-  **Next small step:** Muse keep/drop told 2026-10-23 (keep for audits + larger JVM-testable Kotlin only); log the user's answer, then pick the next backlog item.
-  Backlog pruned 2026-10-23 (35 verified lines archived, 1226908).
+  **Next small step:** pick the next backlog item (backlog trimmed to one line per item 2026-10-23, 98088cd).
 - Muse (2026-10-22): tasks in `MUSE-TASKS.md` on `muse/work` (edit via a `claude/*` PR, self-merge), then `TASK <n> READY`
   on #46; Muse answers with one draft PR per task. Claude verifies, merges into muse/work, cherry-picks code onto the work
   branch. Task 1 finding 4: fix the patch comment when regenerating 0001. **Each session start, run exactly:**
@@ -40,9 +39,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   Tasks 1-16 merged (#54 = Task 12 JNI audit, fixes in backlog; Task 16 = #59, dec87f6, verified r376). Sync muse/work
   android/ before each Kotlin task (#58). Task 17 = #61, eb787de, merged.
   **Muse role verdict (Claude, 2026-10-22): Kotlin tasks OK** (Task 14: compile + 87/87 JVM tests in its VM, self-reported;
-  Claude compiles each PR locally before merging). No native/patch work (all Task 12 fixes are native). **Muse trial (user asked, 2026-10-22):**
-  only audits + JVM-testable pure Kotlin; for Tasks 15-17 log in the archive Claude's effort per task (write, review, fixes,
-  merge) vs doing it directly; after Task 17 TELL THE USER keep/drop, unprompted. Merge commands START with `gh pr merge`. No stacking.
+  Claude compiles each PR locally before merging). No native/patch work (all Task 12 fixes are native). **Muse KEPT (user, 2026-10-23)**
+  for audits + larger JVM-testable Kotlin only, no small fixes. Log Claude's effort per task in the archive; if a task costs more
+  than doing it directly, tell the user plainly and stop sending such tasks. Merge commands START with `gh pr merge`. No stacking.
 - Next step: Sonnet 5.5 (medium) (cue format: /next skill "Model cue", user 2026-10-22).
 - Open (backlog): app 3MF fails in desktop Orca (fix untested), printer/user-only checks, pen input, plate switcher pick.
 
