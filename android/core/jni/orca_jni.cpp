@@ -21,6 +21,8 @@ std::string to_string(JNIEnv *env, jstring s)
     if (s == nullptr)
         return {};
     const char *chars = env->GetStringUTFChars(s, nullptr);
+    if (chars == nullptr) // out of memory (an OutOfMemoryError is pending)
+        return {};
     std::string out(chars);
     env->ReleaseStringUTFChars(s, chars);
     return out;
