@@ -32,11 +32,15 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Paint plan (user ACCEPTED 2026-10-21): steps (1)-(2) done, user feel untested (backlog "Paint panel UI", "Paint penetration").
   Step (3) waste counter done (r373), plan complete. User feel untested.
   Task 12 findings 1-4 fixed: r375 (21b7f9f, run 39879903340) on WSA/SHIELD/phone; WSA starts clean (2026-10-22).
-  Finding 6 (per-printer cert set) committed e02b10f, NOT built (batching native fixes).
-  **Next small step:** Task 12 finding 7 (load_models wipes before validating; backlog "Muse Task 12"), then dispatch one build for 6+7+Task 16 (check WSA estimate 8 -> 7).
+  Finding 6 (per-printer cert set) e02b10f; finding 7 (load_models/calib_start roll back on a throw) c892692.
+  Build for 6+7+Task 16 dispatched: run 39899625810 (c892692), result pending.
+  **Next small step:** when green, install on WSA/SHIELD/phone (+Chromebook if up); on WSA check the paint estimate 8 -> 7
+  (Task 16) and that importing an empty/corrupt file keeps the plate (finding 7). Then write Muse Task 17.
 - Muse (2026-10-22): tasks in `MUSE-TASKS.md` on `muse/work` (edit via a `claude/*` PR, self-merge), then `TASK <n> READY`
   on #46; Muse answers with one draft PR per task. Claude verifies, merges into muse/work, cherry-picks code onto the work
-  branch. Task 1 finding 4: fix the patch comment when regenerating 0001. **Each session start: check open `muse/*` PRs + #46.**
+  branch. Task 1 finding 4: fix the patch comment when regenerating 0001. **Each session start, run exactly:**
+  `gh pr list --state open --json number,title,headRefName; gh issue view 46 --json comments --jq '.comments[-2:][]|.createdAt+" "+(.body|.[0:300])'`
+  (`--comments` + `--json` together errors).
   Tasks 1-16 merged (#54 = Task 12 JNI audit, fixes in backlog; Task 16 = #59, dec87f6, not built). Sync muse/work
   android/ before each Kotlin task (#58). Task 17 next (write it after finding 7).
   **Muse role verdict (Claude, 2026-10-22): Kotlin tasks OK** (Task 14: compile + 87/87 JVM tests in its VM, self-reported;
