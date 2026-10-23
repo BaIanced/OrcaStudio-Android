@@ -70,6 +70,8 @@ internal object Shaders {
                 if (abs(aInfo.x - uSelected[i]) < 0.5) selected = 1.0;
             // Solo (paint shop): only the selection is drawn; everything else goes outside the clip volume.
             if (uSolo == 1 && selected < 0.5) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+            // Build workspace: only the build object, whose volumes have ids -1000 - volume.
+            if (uSolo == 2 && aInfo.x > -999.5) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
             vNormal = aNormal;
             vType = aInfo.y;
             vSelected = selected;

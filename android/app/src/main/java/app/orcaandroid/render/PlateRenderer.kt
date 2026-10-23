@@ -65,9 +65,11 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     private var plateOrigins = listOf(0f to 0f)
     var activePlate = 0
     /** Selection ids (object * INSTANCE_ID_STRIDE + instance) of the selected copies. */
-    var selectedIds = FloatArray(0)
+    @Volatile var selectedIds = FloatArray(0)
     /** Paint shop: only the selected copies are drawn (objects, paint, shadows); the plates stay. */
     var solo = false
+    /** Build workspace: only the build object is drawn (selection ids -1000 - volume, see Engine.setBuildObject). */
+    var buildSolo = false
     /** Paint shop: filaments drawn grey (bit i = 0-based filament i). */
     var hiddenFilaments = 0
     /** A box to fit the camera to (current angles) once the surface has its size: the paint shop's entry framing. */
@@ -152,7 +154,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var selectionStyle = SelectionStyle.DEFAULT
     var outlinePx = 6f
     /** Bounds (x0, y0, z0, x1, y1, z1) of each selection id's parts in the scene mesh, for the bounding box. */
-    private var copyBounds: Map<Int, FloatArray> = emptyMap()
+    @Volatile private var copyBounds: Map<Int, FloatArray> = emptyMap()
 
     /** Preview supersampling ([Supersample]). */
     var supersample = Supersample.STILL
@@ -427,7 +429,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         useRealShadow = false
         if (shadow) {
             effects.lightDir = keyDir
-            val key = listOf(meshVersion, dragOffset.toList(), resizeScale.toList(), rotateMatrix?.toList(), selectedIds.toList(), dragTower, section?.toList(), keyAzimuth, keyElevation, solo)
+            val key = listOf(meshVersion, dragOffset.toList(), resizeScale.toList(), rotateMatrix?.toList(), selectedIds.toList(), dragTower, section?.toList(), keyAzimuth, keyElevation, solo, buildSolo)
             // A dragged copy may leave the footprint: widen it by the drag.
             // A fixed widening for the whole drag: any change of the map area mid-drag rescales the texels and
             // shows as a step ("strobe") in the shadow.
@@ -717,7 +719,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         }
         glUniform1fv(loc(meshProgram, "uSelected"), Shaders.MAX_SELECTED, ids.copyOf(Shaders.MAX_SELECTED), 0)
         glUniform1i(loc(meshProgram, "uSelectedCount"), minOf(ids.size, Shaders.MAX_SELECTED))
-        glUniform1i(loc(meshProgram, "uSolo"), if (solo && ids.isNotEmpty()) 1 else 0)
+        glUniform1i(loc(meshProgram, "uSolo"), if (buildSolo) 2 else if (solo && ids.isNotEmpty()) 1 else 0)
         glUniform1i(loc(meshProgram, "uHidden"), if (solo) hiddenFilaments else 0)
         glUniform3fv(loc(meshProgram, "uDrag"), 1, dragOffset, 0)
         glUniform3fv(loc(meshProgram, "uScaleAnchor"), 1, resizeAnchor, 0)
@@ -874,16 +876,27 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glEnable(GL_DEPTH_TEST)
     }
 
-    /** The bounding box (x0, y0, z0, x1, y1, z1) of the selection ids [ids], with the live resize. */
-    private fun selectionBox(ids: FloatArray): FloatArray? {
+    /** The mesh bounding box (x0, y0, z0, x1, y1, z1) of the selection ids [ids], without the live resize; any thread. */
+    private fun meshBox(ids: FloatArray): FloatArray? {
+        val bounds = copyBounds
         val b = floatArrayOf(Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE)
         var any = false
         for (id in ids) {
-            val c = copyBounds[Math.round(id)] ?: continue
+            val c = bounds[Math.round(id)] ?: continue
             any = true
             for (k in 0..2) { b[k] = minOf(b[k], c[k]); b[k + 3] = maxOf(b[k + 3], c[k + 3]) }
         }
-        if (!any) return null
+        return b.takeIf { any }
+    }
+
+    /** The box the gizmos sit on: the selection's mesh box (the Build workspace's shapes have no box of their own); any thread. */
+    fun selectionBounds(): Pair<app.orcaandroid.core.Vec3, app.orcaandroid.core.Vec3>? = meshBox(selectedIds)?.let { b ->
+        app.orcaandroid.core.Vec3(b[0], b[1], b[2]) to app.orcaandroid.core.Vec3(b[3], b[4], b[5])
+    }
+
+    /** The bounding box (x0, y0, z0, x1, y1, z1) of the selection ids [ids], with the live resize. */
+    private fun selectionBox(ids: FloatArray): FloatArray? {
+        val b = meshBox(ids) ?: return null
         for (k in 0..2) {
             val s = resizeScale[k]
             if (s != 1f) { b[k] = resizeAnchor[k] + (b[k] - resizeAnchor[k]) * s; b[k + 3] = resizeAnchor[k] + (b[k + 3] - resizeAnchor[k]) * s }

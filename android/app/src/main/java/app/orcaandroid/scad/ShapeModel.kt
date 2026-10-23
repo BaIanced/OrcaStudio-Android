@@ -288,6 +288,13 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
             dims.forEach { d -> appendLine("${d.name} = ${n(d.value)}; // [${n(d.min)}:${n(d.step)}:${n(d.max)}]") }
         }
         appendLine()
+        prelude(this, shapes)
+        appendLine()
+        group(this, shapes, "")
+    }
+
+    /** The hidden settings and helpers the code starts with (the rounded box module only when [shapes] use it). */
+    private fun prelude(out: StringBuilder, shapes: List<Shape>) = with(out) {
         appendLine("/* [Hidden] */")
         appendLine("\$fs = 0.4;")
         appendLine("\$fa = 4;")
@@ -302,8 +309,62 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
             appendLine("        translate([x * (s[0] / 2 - q), y * (s[1] / 2 - q), q + z * (s[2] - 2 * q)]) sphere(r = q);")
             appendLine("}")
         }
-        appendLine()
-        group(this, shapes, "")
+    }
+
+    // --- Build workspace: one Orca volume per shape ------------------------------------------------
+
+    /**
+     * One Orca volume of the design: a top-level shape (a group as one mesh) or one copy of a repeated one.
+     * [scad] draws it in its own frame (centred on x / y, standing on z = 0; a group's children where they sit in
+     * the group), [matrix] (row-major 4 x 4) puts that frame where the design has it. Moving, turning or mirroring a
+     * shape only changes [matrix], so equal [scad] means the same mesh. A hole is a negative volume: Orca cuts it
+     * from every part of the object when slicing, as the design's outermost group does in [toScad].
+     */
+    data class Piece(val shapeId: Int, val copy: Int, val hole: Boolean, val scad: String, val matrix: List<Double>)
+
+    /** The design as Orca volumes, top-level shapes in order, a repeated shape's copies one after another. */
+    fun pieces(): List<Piece> = shapes.flatMap { top ->
+        val s = resolved(top)
+        val scad = buildString {
+            prelude(this, listOf(s))
+            appendLine()
+            if (s.isGroup) group(this, s.children, "") else appendLine(body(s))
+        }
+        val own = placement(s)
+        copies(s).mapIndexed { i, c -> Piece(top.id, i, s.hole, scad, mul(c, own).toList()) }
+    }
+
+    /** [s] with the fields bound to a dimension set to its value and no bindings left (children too). */
+    private fun resolved(s: Shape): Shape = s.copy(
+        size = size(s), pos = pos(s), rot = rot(s),
+        extra = s.extra + s.bind.filter { (field, d) -> '.' !in field && dim(d) != null }.mapValues { dim(it.value)!!.value },
+        bind = emptyMap(), children = s.children.map(::resolved),
+    )
+
+    /** Where [shape] (resolved) puts its own frame in its parent's, as [shape] writes it: turned and flipped about its middle. */
+    private fun placement(s: Shape): DoubleArray {
+        val h = height(s)
+        val p = s.pos
+        val m = matrix(s.rot)
+        val f = D3(if (s.mirror.x != 0.0) -1.0 else 1.0, if (s.mirror.y != 0.0) -1.0 else 1.0, if (s.mirror.z != 0.0) -1.0 else 1.0)
+        val turn = DoubleArray(16).also { r ->
+            for (i in 0..2) for (j in 0..2) r[i * 4 + j] = m[i][j] * f[j]
+            r[15] = 1.0
+        }
+        return mul(mul(translation(D3(p.x, p.y, p.z + h / 2)), turn), translation(D3(0.0, 0.0, -h / 2)))
+    }
+
+    /** The transforms of [s]'s copies (just the identity without a repeat), as [shape] writes them. */
+    private fun copies(s: Shape): List<DoubleArray> {
+        val r = s.repeat?.takeIf { it.count > 1 } ?: return listOf(translation(D3()))
+        return (0 until r.count).map { i ->
+            if (!r.circular) translation(D3(r.step.x * i, r.step.y * i, r.step.z * i))
+            else {
+                val m = matrix(D3(0.0, 0.0, r.angleStep * i))
+                val turn = DoubleArray(16).also { t -> for (a in 0..2) for (b in 0..2) t[a * 4 + b] = m[a][b]; t[15] = 1.0 }
+                mul(mul(translation(D3(r.center.x, r.center.y, 0.0)), turn), translation(D3(-r.center.x, -r.center.y, 0.0)))
+            }
+        }
     }
 
     private fun group(out: StringBuilder, kids: List<Shape>, indent: String) {
@@ -506,6 +567,16 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
         }
 
         /** [p] through OpenSCAD's mirror() of the axes set in [m]. */
+        /** A row-major 4 x 4 translation by [d]. */
+        fun translation(d: D3) = DoubleArray(16).also { t -> t[0] = 1.0; t[5] = 1.0; t[10] = 1.0; t[15] = 1.0; t[3] = d.x; t[7] = d.y; t[11] = d.z }
+
+        /** [a] x [b], both row-major 4 x 4. */
+        fun mul(a: DoubleArray, b: DoubleArray) = DoubleArray(16) { k ->
+            val i = k / 4
+            val j = k % 4
+            (0..3).sumOf { a[i * 4 + it] * b[it * 4 + j] }
+        }
+
         fun flip(p: D3, m: D3) = D3(if (m.x != 0.0) -p.x else p.x, if (m.y != 0.0) -p.y else p.y, if (m.z != 0.0) -p.z else p.z)
 
         /** rotate([a, b, c]) as a row-major matrix (Rz * Ry * Rx). */

@@ -138,6 +138,21 @@ public:
     json add_volume(int object, int type, const std::string &shape, const std::array<double, 3> &size,
                     const std::array<double, 3> &position);
     json delete_volume(int object, int volume);
+    // One entry of set_volumes: the mesh comes from `stl` (piece-local frame, not centred) or is an
+    // existing volume `keep` (its mesh, settings and painting stay); `matrix` maps it into the object.
+    // `keep` assumes a mesh set_volumes made this session (a 3MF reload may re-centre volume meshes).
+    struct VolumeSpec { std::string stl; int keep = -1; int type = 0; std::array<double, 16> matrix{}; bool own_matrix = false; std::string name; int anchor = -1; };
+    // Replaces all the object's volumes with `specs` in one undo step (Build workspace: one volume per
+    // shape). Instances keep their pose; with `keep_center`, they shift so the parts stay centred where
+    // they were, or, when some specs name an `anchor` (the old volume the same unchanged piece was), so
+    // the anchors stay where they were. Empty meshes are skipped; at least one part must remain.
+    json set_volumes(int object, const std::vector<VolumeSpec> &specs, bool keep_center);
+    // The object the Build workspace edits, or -1: write_mesh gives its volumes the selection id
+    // -1000 - volume (instead of object * stride + instance), so the renderer can drag one shape.
+    // Its copies are drawn and picked in the design pose: the volumes in the object frame (the copy's
+    // turn, scale and mirror = the print pose, left out), standing on the bed at the copy's X/Y;
+    // scene_json gives each copy "design": { "offset", "min", "size" } for it.
+    json set_build_object(int object);
     // Per-object (volume < 0) or per-volume setting; a null value removes the override. With
     // several objects, the setting goes to each of them (volume must be < 0).
     json set_object_setting(const std::vector<int> &objects, int volume, const std::string &key, const json &value);
@@ -156,7 +171,8 @@ public:
 
     // Nearest hit of a world-space ray with any object: { "hit": false } or { "hit": true,
     // "object", "instance", "volume", "facet", "point" [world], "normal" [world], "local" [volume] }.
-    json pick(const std::array<double, 3> &origin, const std::array<double, 3> &dir);
+    // [only] >= 0: that object alone (the Build workspace, where the others are hidden).
+    json pick(const std::array<double, 3> &origin, const std::array<double, 3> &dir, int only = -1);
 
     // Paints with a sphere brush of `radius` mm around a pick() result. kind: "fuzzy" (state 1 =
     // fuzzy skin), "support" / "seam" (1 enforce, 2 block), "color" (state = 1-based filament);
@@ -352,6 +368,11 @@ private:
     Items                 checked_items(Items items) const; // validated, sorted, without duplicates
     void                  push_undo();
     void                  trim_undo();
+    // Runs an edit that replaces the scene; if it throws, the scene, history and calibration
+    // state are put back as they were (Muse Task 12 finding 7).
+    json                  rollback_on_error(const std::function<json()> &edit);
+    json                  load_models_locked(const std::vector<std::string> &paths, bool append, int plate);
+    json                  calib_start_locked(const std::string &type, const json &params);
     json                  scene_json();
     json                  commit(); // writes the mesh and returns scene_json()
     void                  write_mesh();
@@ -386,6 +407,10 @@ private:
     // Ray-cast acceleration per volume mesh, dropped whenever the scene changes (commit()).
     std::map<const void *, std::shared_ptr<Slic3r::AABBMesh>> m_aabb;
     int                                   m_mesh_version = 0;
+    int                                   m_build_object = -1; // see set_build_object()
+    // The Build workspace's object is drawn and picked in its design pose (see set_build_object()): a plain
+    // translation, given here per copy; nullopt = any other object (its copy's own matrix).
+    std::optional<std::array<double, 3>>  design_offset(size_t object, size_t instance) const;
     int                                   m_paint_version = 0;
     // The selector of the volume being painted stays live between paint calls while its annotation is unchanged:
     // deserializing it on every call grew slower with every painted triangle (user r316). Holds the mesh it points to.
