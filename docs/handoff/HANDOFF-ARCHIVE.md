@@ -2520,3 +2520,6 @@ User: "you just tested something we already confirmed worked". Cross-checked eac
   finding 6 (installCert flag) is already mitigated by ObnHost.ensureConnected reconnecting on a serial change (native
   connect() resets the flag). Task 15 = prime-tower grams 3.3 vs 3.155 g (GcodeToolChanges/ColourChangeLine), PR #56.
 - Trial effort log, Task 15 write: ~6 tool calls / ~15k tokens to scope + write the task (review/fixes/merge pending).
+
+## 2026-10-22: user on obn
+- User (on r375 era): "obn was stable prior". Task 12 finding 6 (e02b10f) only matters with 2+ printers in one session.
