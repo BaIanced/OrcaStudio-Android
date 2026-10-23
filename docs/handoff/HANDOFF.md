@@ -18,7 +18,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   main: Check mesh feel, cut Flip paint fix, 3MF export in desktop Orca, pie menu (lab), pen 7d3a263, fan hold 298ee9f, Extrude
   F150 e13bebb, Quest stick zoom (r324). Unmerged on the branch: paint shop 1a-1e-ii + paint depth r367 (user feel untested).
 - Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
-- r370 (a4b63c7): user downloads it to the phone. r374 (run 39877632598, 79a2e14) installed on WSA/Chromebook/SHIELD (2026-10-22).
+- Latest build r375 (run 39879903340, 21b7f9f): WSA, SHIELD, phone (2026-10-22). Chromebook still r374.
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
@@ -31,9 +31,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **User 2026-10-21: design deviations pre-approved** ("deviate if you find a more logical, intuitive way; I trust your judgement"); say what changed.
 - Paint plan (user ACCEPTED 2026-10-21): steps (1)-(2) done, user feel untested (backlog "Paint panel UI", "Paint penetration").
   Step (3) waste counter done (r373), plan complete; reopen fix WSA r374 OK (archive). User feel untested.
-  Task 12 findings 1-4 fixed in 21b7f9f (JNI guards, paint facet bound; CI run 39879903340: check it compiled).
-  **Next small step:** if 39879903340 failed, fix the compile; else Task 12 finding 6 (installCert per-printer flag,
-  ObnBridge.cpp installCert/push_event; backlog "Muse Task 12"). Prime-tower grams = Muse Task 15.
+  Task 12 findings 1-4 fixed: r375 (21b7f9f, run 39879903340) on WSA/SHIELD/phone; WSA starts clean (2026-10-22).
+  **Next small step:** Task 12 finding 6 (installCert per-printer flag, ObnBridge.cpp; backlog "Muse Task 12").
 - Muse (2026-10-22): tasks in `MUSE-TASKS.md` on `muse/work` (edit via a `claude/*` PR, self-merge), then `TASK <n> READY`
   on #46; Muse answers with one draft PR per task. Claude verifies, merges into muse/work, cherry-picks code onto the work
   branch. Task 1 finding 4: fix the patch comment when regenerating 0001. **Each session start: check open `muse/*` PRs + #46.**
