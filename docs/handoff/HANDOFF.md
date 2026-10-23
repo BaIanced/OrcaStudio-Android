@@ -18,7 +18,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   main: Check mesh feel, cut Flip paint fix, 3MF export in desktop Orca, pie menu (lab), pen 7d3a263, fan hold 298ee9f, Extrude
   F150 e13bebb, Quest stick zoom (r324). Unmerged on the branch: paint shop 1a-1e-ii + paint depth r367 (user feel untested).
 - Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
-- Latest build r375 (run 39879903340, 21b7f9f): WSA, SHIELD, phone (2026-10-22). Chromebook still r374.
+- Latest build r376 (run 39899625810, c892692): WSA, SHIELD, phone (2026-10-22). Chromebook still r374 (offline).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
@@ -31,22 +31,20 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **User 2026-10-21: design deviations pre-approved** ("deviate if you find a more logical, intuitive way; I trust your judgement"); say what changed.
 - Paint plan (user ACCEPTED 2026-10-21): steps (1)-(2) done, user feel untested (backlog "Paint panel UI", "Paint penetration").
   Step (3) waste counter done (r373), plan complete. User feel untested.
-  Task 12 findings 1-4 fixed in r375 (WSA starts clean, 2026-10-22).
-  Finding 6 (per-printer cert set) e02b10f; finding 7 (load_models/calib_start roll back on a throw) c892692.
-  Build for 6+7+Task 16 dispatched: run 39899625810 (c892692), result pending.
-  **Next small step:** when green, install on WSA/SHIELD/phone (+Chromebook if up); on WSA check the paint estimate 8 -> 7
-  (Task 16) and that importing an empty/corrupt file keeps the plate (finding 7). Then write Muse Task 17.
+  Task 12 findings 1-4 fixed in r375; finding 7 + Task 16 VERIFIED r376 on WSA (archive); finding 6 needs 2+ printers.
+  **Next small step:** write Muse Task 17 (pick an audit or JVM-testable pure-Kotlin item; sync muse/work android/ first).
 - Muse (2026-10-22): tasks in `MUSE-TASKS.md` on `muse/work` (edit via a `claude/*` PR, self-merge), then `TASK <n> READY`
   on #46; Muse answers with one draft PR per task. Claude verifies, merges into muse/work, cherry-picks code onto the work
   branch. Task 1 finding 4: fix the patch comment when regenerating 0001. **Each session start, run exactly:**
   `gh pr list --state open --json number,title,headRefName; gh issue view 46 --json comments --jq '.comments[-2:][]|.createdAt+" "+(.body|.[0:300])'`
   (`--comments` + `--json` together errors).
-  Tasks 1-16 merged (#54 = Task 12 JNI audit, fixes in backlog; Task 16 = #59, dec87f6, not built). Sync muse/work
-  android/ before each Kotlin task (#58). Task 17 next (write it after finding 7).
+  Tasks 1-16 merged (#54 = Task 12 JNI audit, fixes in backlog; Task 16 = #59, dec87f6, verified r376). Sync muse/work
+  android/ before each Kotlin task (#58). Task 17 next.
   **Muse role verdict (Claude, 2026-10-22): Kotlin tasks OK** (Task 14: compile + 87/87 JVM tests in its VM, self-reported;
   Claude compiles each PR locally before merging). No native/patch work (all Task 12 fixes are native). **Muse trial (user asked, 2026-10-22):**
   only audits + JVM-testable pure Kotlin; for Tasks 15-17 log in the archive Claude's effort per task (write, review, fixes,
   merge) vs doing it directly; after Task 17 TELL THE USER keep/drop, unprompted. Merge commands START with `gh pr merge`. No stacking.
+- Next step: Sonnet 5.5 (medium) (cue format: /next skill "Model cue", user 2026-10-22).
 - Open (backlog): app 3MF fails in desktop Orca (fix untested), printer/user-only checks, pen input, plate switcher pick.
 
 ## User decisions (2026-10-13)
