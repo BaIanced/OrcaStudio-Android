@@ -32,7 +32,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Paint plan (user ACCEPTED 2026-10-21): steps (1)-(2) done, user feel untested (backlog "Paint panel UI", "Paint penetration").
   Step (3) waste counter done (r373), plan complete; reopen fix WSA r374 OK (archive). User feel untested.
   Task 12 findings 1-4 fixed: r375 (21b7f9f, run 39879903340) on WSA/SHIELD/phone; WSA starts clean (2026-10-22).
-  **Next small step:** Task 12 finding 6 (installCert per-printer flag, ObnBridge.cpp; backlog "Muse Task 12").
+  Finding 6 (per-printer cert set) committed e02b10f, NOT built (batching native fixes).
+  **Next small step:** Task 12 finding 7 (load_models wipes before validating; backlog "Muse Task 12"), then dispatch one build for 6+7.
 - Muse (2026-10-22): tasks in `MUSE-TASKS.md` on `muse/work` (edit via a `claude/*` PR, self-merge), then `TASK <n> READY`
   on #46; Muse answers with one draft PR per task. Claude verifies, merges into muse/work, cherry-picks code onto the work
   branch. Task 1 finding 4: fix the patch comment when regenerating 0001. **Each session start: check open `muse/*` PRs + #46.**
