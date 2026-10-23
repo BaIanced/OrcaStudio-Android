@@ -67,13 +67,15 @@ SlicingParameters slicing_params(const DynamicPrintConfig &config, const ModelOb
 
 // --- Picking and painting ----------------------------------------------------------------------
 
-json OrcaEngine::pick(const std::array<double, 3> &origin, const std::array<double, 3> &dir)
+json OrcaEngine::pick(const std::array<double, 3> &origin, const std::array<double, 3> &dir, int only)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
     const Vec3d s = to_vec(origin), d = to_vec(dir).normalized();
     json best = {{"hit", false}};
     double best_dist = std::numeric_limits<double>::max();
     for (size_t oi = 0; oi < m_model->objects.size(); ++oi) {
+        if (only >= 0 && int(oi) != only)
+            continue;
         const ModelObject *obj = m_model->objects[oi];
         for (size_t ii = 0; ii < obj->instances.size(); ++ii)
             for (size_t vi = 0; vi < obj->volumes.size(); ++vi) {
@@ -202,7 +204,8 @@ void OrcaEngine::write_paint_mesh()
     };
     for (size_t oi = 0; oi < m_model->objects.size(); ++oi) {
         const ModelObject *obj = m_model->objects[oi];
-        for (const ModelVolume *vol : obj->volumes) {
+        for (size_t vi = 0; vi < obj->volumes.size(); ++vi) {
+            const ModelVolume *vol = obj->volumes[vi];
             // (annotation, state, overlay type code)
             std::vector<std::tuple<const FacetsAnnotation *, EnforcerBlockerType, float>> layers;
             if (!vol->fuzzy_skin_facets.empty())
@@ -229,8 +232,10 @@ void OrcaEngine::write_paint_mesh()
                 const indexed_triangle_set &painted = facets_for(key, *vol, *annotation, state);
                 if (painted.indices.empty())
                     continue;
+                // The Build workspace's object: the scene mesh's per-volume ids (write_mesh), so its paint shows in the solo view.
                 for (size_t ii = 0; ii < obj->instances.size(); ++ii)
-                    emit(key, painted, obj->instances[ii]->get_matrix() * vol->get_matrix(), float(oi * INSTANCE_ID_STRIDE + ii), code);
+                    emit(key, painted, obj->instances[ii]->get_matrix() * vol->get_matrix(),
+                         int(oi) == m_build_object ? -1000.f - float(vi) : float(oi * INSTANCE_ID_STRIDE + ii), code);
             }
         }
     }

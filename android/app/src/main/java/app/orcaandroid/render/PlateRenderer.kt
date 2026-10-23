@@ -68,6 +68,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var selectedIds = FloatArray(0)
     /** Paint shop: only the selected copies are drawn (objects, paint, shadows); the plates stay. */
     var solo = false
+    /** Build workspace: only the build object is drawn (selection ids -1000 - volume, see Engine.setBuildObject). */
+    var buildSolo = false
     /** Paint shop: filaments drawn grey (bit i = 0-based filament i). */
     var hiddenFilaments = 0
     /** A box to fit the camera to (current angles) once the surface has its size: the paint shop's entry framing. */
@@ -427,7 +429,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         useRealShadow = false
         if (shadow) {
             effects.lightDir = keyDir
-            val key = listOf(meshVersion, dragOffset.toList(), resizeScale.toList(), rotateMatrix?.toList(), selectedIds.toList(), dragTower, section?.toList(), keyAzimuth, keyElevation, solo)
+            val key = listOf(meshVersion, dragOffset.toList(), resizeScale.toList(), rotateMatrix?.toList(), selectedIds.toList(), dragTower, section?.toList(), keyAzimuth, keyElevation, solo, buildSolo)
             // A dragged copy may leave the footprint: widen it by the drag.
             // A fixed widening for the whole drag: any change of the map area mid-drag rescales the texels and
             // shows as a step ("strobe") in the shadow.
@@ -717,7 +719,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         }
         glUniform1fv(loc(meshProgram, "uSelected"), Shaders.MAX_SELECTED, ids.copyOf(Shaders.MAX_SELECTED), 0)
         glUniform1i(loc(meshProgram, "uSelectedCount"), minOf(ids.size, Shaders.MAX_SELECTED))
-        glUniform1i(loc(meshProgram, "uSolo"), if (solo && ids.isNotEmpty()) 1 else 0)
+        glUniform1i(loc(meshProgram, "uSolo"), if (buildSolo) 2 else if (solo && ids.isNotEmpty()) 1 else 0)
         glUniform1i(loc(meshProgram, "uHidden"), if (solo) hiddenFilaments else 0)
         glUniform3fv(loc(meshProgram, "uDrag"), 1, dragOffset, 0)
         glUniform3fv(loc(meshProgram, "uScaleAnchor"), 1, resizeAnchor, 0)

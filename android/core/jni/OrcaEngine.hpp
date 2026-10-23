@@ -167,7 +167,8 @@ public:
 
     // Nearest hit of a world-space ray with any object: { "hit": false } or { "hit": true,
     // "object", "instance", "volume", "facet", "point" [world], "normal" [world], "local" [volume] }.
-    json pick(const std::array<double, 3> &origin, const std::array<double, 3> &dir);
+    // [only] >= 0: that object alone (the Build workspace, where the others are hidden).
+    json pick(const std::array<double, 3> &origin, const std::array<double, 3> &dir, int only = -1);
 
     // Paints with a sphere brush of `radius` mm around a pick() result. kind: "fuzzy" (state 1 =
     // fuzzy skin), "support" / "seam" (1 enforce, 2 block), "color" (state = 1-based filament);

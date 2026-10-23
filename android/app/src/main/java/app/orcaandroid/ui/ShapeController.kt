@@ -1,6 +1,8 @@
 package app.orcaandroid.ui
 
 import app.orcaandroid.R
+import app.orcaandroid.core.Vec3
+import app.orcaandroid.render.RotateGizmo
 import app.orcaandroid.scad.Bounds
 import app.orcaandroid.scad.D3
 import app.orcaandroid.scad.Dim
@@ -73,6 +75,35 @@ class ShapeController(private val store: Store, private val scad: ScadController
     }
 
     fun selectAll() = design?.let { d -> select(d.shapes.map { it.id }) }
+
+    /** Build workspace: a tap in the main view picks the shape under it (as [tap]). */
+    fun tapAt(origin: Vec3, dir: Vec3, add: Boolean) {
+        val obj = store.value.buildObject ?: return
+        store.launch { tap(scad.shapeAt(obj, origin, dir)?.second, add) }
+    }
+
+    /** The copy of the build object a main-view drag grabbed: its turn, scale and mirror map the drag into the design. */
+    private var grabbed = 0
+
+    /** Build workspace: [result] gets whether a drag starting on the ray grabs a selected shape. */
+    fun grabAt(origin: Vec3, dir: Vec3, result: (Boolean) -> Unit) {
+        val obj = store.value.buildObject ?: return result(false)
+        store.launch {
+            val hit = scad.shapeAt(obj, origin, dir)
+            val d = design
+            if (hit != null) grabbed = hit.first
+            result(hit != null && d != null && selected.any { d.topOf(it)?.id == hit.second })
+        }
+    }
+
+    /** Build workspace: a main-view drag moved the selection [dx], [dy] mm on the plate. */
+    fun moveOnPlate(dx: Float, dy: Float) {
+        val inst = store.value.buildObject?.let { store.value.scene.objects.getOrNull(it) }?.instances?.let { it.getOrNull(grabbed) ?: it.firstOrNull() } ?: return
+        // Plate -> design frame: the copy's matrix is translation * rotation * scale * mirror (mirror = +-1 per axis).
+        val r = RotateGizmo.fromEuler(inst.rotation)
+        fun local(i: Int, scale: Float, mirror: Float) = (r[i] * dx + r[3 + i] * dy) / scale.toDouble() * (if (mirror < 0f) -1.0 else 1.0)
+        move(D3(local(0, inst.scale.x, inst.mirror.x), local(1, inst.scale.y, inst.mirror.y), local(2, inst.scale.z, inst.mirror.z)))
+    }
 
     // --- Adding ------------------------------------------------------------------------------------
 

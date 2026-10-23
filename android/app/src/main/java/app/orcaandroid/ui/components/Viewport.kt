@@ -48,6 +48,7 @@ import app.orcaandroid.render.TowerBox
 import app.orcaandroid.render.ViewColors
 import app.orcaandroid.ui.AppViewModel
 import app.orcaandroid.ui.Screen
+import app.orcaandroid.ui.buildObject
 import app.orcaandroid.ui.Selection
 import app.orcaandroid.ui.Tool
 import app.orcaandroid.ui.UiState
@@ -119,7 +120,9 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                 v.listener = object : PlateListener {
                     override fun onTap(x: Float, y: Float, additive: Boolean, part: Boolean, emptyPlate: Int?) {
                         val (o, d) = v.camera.ray(x, y)
-                        vm.scene.onViewTap(o, d, additive, part, v.section.current, emptyPlate)
+                        // The Build workspace: a tap picks a shape of the design.
+                        if (vm.state.value.buildObject != null) vm.shapes.tapAt(o, d, additive || part || vm.state.value.selectMode)
+                        else vm.scene.onViewTap(o, d, additive, part, v.section.current, emptyPlate)
                     }
                     override fun onCopyAt(x: Float, y: Float, result: (Pair<Int, Int>?, Vec3, Vec3) -> Unit) {
                         val (o, d) = v.camera.ray(x, y)
@@ -127,7 +130,8 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                     }
                     override fun onDragCheck(x: Float, y: Float, result: (Boolean) -> Unit) {
                         val (o, d) = v.camera.ray(x, y)
-                        vm.scene.checkDragStart(o, d, v.section.current) { hit -> v.post { result(hit) } }
+                        if (vm.state.value.buildObject != null) vm.shapes.grabAt(o, d) { hit -> v.post { result(hit) } }
+                        else vm.scene.checkDragStart(o, d, v.section.current) { hit -> v.post { result(hit) } }
                     }
                     override fun onTowerCheck(x: Float, y: Float, entry: Vec3, result: (Boolean) -> Unit) {
                         val (o, d) = v.camera.ray(x, y)
@@ -202,6 +206,12 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                         // The drag offset stays until the moved mesh is uploaded (below); the timer covers a move
                         // that changes nothing or fails.
                         dragPending[0] = true
+                        if (vm.state.value.buildObject != null) {
+                            // The shapes move in the design; the pieces' new places arrive with the next scene mesh.
+                            vm.shapes.moveOnPlate(dx, dy)
+                            v.postDelayed({ if (dragPending[0]) { dragPending[0] = false; v.onGl { dragOffset = floatArrayOf(0f, 0f, 0f) } } }, 3000)
+                            return
+                        }
                         vm.scene.moveSelected(dx, dy)?.invokeOnCompletion {
                             v.postDelayed({ if (dragPending[0]) { dragPending[0] = false; v.onGl { dragOffset = floatArrayOf(0f, 0f, 0f) } } }, 500)
                         } ?: run { dragPending[0] = false; v.onGl { dragOffset = floatArrayOf(0f, 0f, 0f) } }
@@ -318,14 +328,21 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     LaunchedEffect(v, hidden) { v.onGl { hiddenFilaments = hidden } }
     // The paint shop's view is smaller than the plate view: it frames the painted copy on entry (same view angles) and
     // Done puts the plate camera back. Runs after the old view's onDispose, so savedCamera is the plate camera here.
-    LaunchedEffect(v, solo) {
+    // The Build workspace does the same with its object.
+    val focused = solo || state.buildObject != null
+    LaunchedEffect(v, focused) {
         val plate = shopCamera
-        if (solo && plate == null) {
-            val i = state.selectedObject?.instances?.getOrNull(state.selection?.instance ?: 0) ?: return@LaunchedEffect
+        if (focused && plate == null) {
+            val box = if (solo) state.selectedObject?.instances?.getOrNull(state.selection?.instance ?: 0)?.let { it.min to (it.min + it.size) }
+                else state.buildObject?.let { state.scene.objects.getOrNull(it) }?.instances?.takeIf { it.isNotEmpty() }?.let { insts ->
+                    Vec3(insts.minOf { it.min.x }, insts.minOf { it.min.y }, insts.minOf { it.min.z }) to
+                        Vec3(insts.maxOf { it.min.x + it.size.x }, insts.maxOf { it.min.y + it.size.y }, insts.maxOf { it.min.z + it.size.z })
+                }
+            box ?: return@LaunchedEffect
             shopCamera = savedCamera ?: v.camera.state()
             shopCamera?.let(v.camera::restore)
-            v.onGl { fitPending = i.min to (i.min + i.size) }
-        } else if (!solo && plate != null) {
+            v.onGl { fitPending = box }
+        } else if (!focused && plate != null) {
             v.camera.restore(plate)
             shopCamera = null
         }
@@ -343,8 +360,10 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     LaunchedEffect(v, state.lab.wheelSpeed) { v.wheelSpeed = state.lab.wheelSpeed }
     LaunchedEffect(v, state.perspective) { v.camera.perspective = state.perspective }
     LaunchedEffect(v, state.pen) { v.pen = state.pen }
-    LaunchedEffect(v, state.resizing, showPreview) { v.resizeMode = state.resizing && !showPreview }
-    LaunchedEffect(v, state.rotating, showPreview) { v.rotateMode = state.rotating && !showPreview }
+    // The Build workspace has no object gizmos (yet): its selection is shapes.
+    val building = state.buildObject != null
+    LaunchedEffect(v, state.resizing, showPreview, building) { v.resizeMode = state.resizing && !showPreview && !building }
+    LaunchedEffect(v, state.rotating, showPreview, building) { v.rotateMode = state.rotating && !showPreview && !building }
     // Plate numbers always; the plate icons only while arranging (Prepare).
     val atlas = rememberBadgeAtlas(scene.plates.size)
     val badges = if (showPreview) emptyList()
@@ -368,7 +387,8 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         if (dragPending[0]) { dragPending[0] = false; v.onGl { dragOffset = floatArrayOf(0f, 0f, 0f); resizeScale = floatArrayOf(1f, 1f, 1f); rotateMatrix = null } }
     }
     // Eye toggle: the OpenSCAD design shown see-through, standing in the middle of the active plate (other objects hidden).
-    val ghost = state.scad?.preview?.takeIf { state.scadOnPlate && !state.scadHidden && state.screen == app.orcaandroid.ui.Screen.PREPARE }
+    // A shape design placed as pieces shows its object instead (the Build workspace).
+    val ghost = state.scad?.preview?.takeIf { state.scadOnPlate && !state.scadHidden && state.screen == app.orcaandroid.ui.Screen.PREPARE && !building }
     val plate = scene.plates.getOrNull(state.activePlate)
     LaunchedEffect(v, ghost, plate?.originX, plate?.originY, setup?.bed) {
         val bed = setup?.bed
@@ -407,7 +427,19 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         val cols = state.filaments.map { hexToRgb(it.color ?: "#FF7F27") }
         v.onGl { filamentColors = cols }
     }
-    LaunchedEffect(v, state.selection, state.multiSelection, scene) {
+    val build = state.buildObject?.let { scene.objects.getOrNull(it) }
+    LaunchedEffect(v, build != null) { v.onGl { buildSolo = build != null } }
+    // Build workspace: the selected shapes' volumes are the selection; a drag starts on the object's box (the pick decides).
+    LaunchedEffect(v, build, state.scad?.selected, state.scad?.shapes) {
+        if (build == null) return@LaunchedEffect
+        val ids = vm.scad.buildSelectedIds(build)
+        v.onGl { selectedIds = ids }
+        v.selectedBounds = if (ids.isEmpty()) emptyList() else build.instances.map { it.min to (it.min + it.size) }
+        v.resizeAxes = true
+        v.towerBoxes = emptyList()
+    }
+    LaunchedEffect(v, state.selection, state.multiSelection, scene, build != null) {
+        if (build != null) return@LaunchedEffect
         val items = state.selectedItems
         val ids = FloatArray(items.size) { (items[it].obj * INSTANCE_ID_STRIDE + items[it].instance).toFloat() }
         v.onGl { selectedIds = ids }
@@ -526,7 +558,7 @@ fun schemeKey(scheme: Int) = when (scheme) {
  */
 private var savedCamera: FloatArray? = null
 
-/** The plate camera from before the paint shop, restored when it closes. */
+/** The plate camera from before the paint shop or the Build workspace, restored when it closes. */
 private var shopCamera: FloatArray? = null
 
 /**

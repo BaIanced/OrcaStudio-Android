@@ -112,6 +112,7 @@ import app.orcaandroid.ui.components.CutoutRow
 import app.orcaandroid.ui.components.PickerDialog
 import app.orcaandroid.ui.components.PickerItem
 import app.orcaandroid.ui.components.framePlate
+import app.orcaandroid.ui.buildObject
 import app.orcaandroid.ui.components.showPlate
 
 /** Controls over the 3D view on the Prepare screen. */
@@ -119,6 +120,8 @@ import app.orcaandroid.ui.components.showPlate
 fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boolean) {
     // The paint shop has its own bar and dock around the 3D view (PaintShop.kt): no plate tools over it.
     if (state.inPaintShop) return
+    // The Build workspace edits the design's shapes: the plate tools would act on the whole object.
+    if (state.buildObject != null) return
     val lab = state.lab
     val sliceOnGrip = sliceOnGrip(state, wide)
     // Tools in a column on the left: wide layouts always, portrait if chosen in the Layout lab.

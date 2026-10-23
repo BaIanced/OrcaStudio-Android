@@ -14,7 +14,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -61,6 +63,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 store.update { it.copy(printerStatus = s) }
                 s?.nozzleDiameter?.let(presets::recordNozzle)
             }
+        }
+        // The Build workspace's object, for the engine's per-volume selection ids.
+        viewModelScope.launch {
+            store.state.map { it.buildObject }.distinctUntilChanged().collect { scad.showBuild(it) }
         }
         viewModelScope.launch {
             val report = withContext(Dispatchers.IO) { runCatching { CrashReport.pending(store.app) }.getOrNull() }

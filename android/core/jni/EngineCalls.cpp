@@ -141,7 +141,7 @@ const std::unordered_map<std::string, Handler> &handlers()
          }},
         {"addSvg", [](OrcaEngine &e, const json &a) { return e.add_svg(a.at("path"), a.value("width", 50.0), a.value("depth", 2.0), a.value("plate", 0)); }},
         // Tools
-        {"pick", [](OrcaEngine &e, const json &a) { return e.pick(vec3(a.at("origin")), vec3(a.at("dir"))); }},
+        {"pick", [](OrcaEngine &e, const json &a) { return e.pick(vec3(a.at("origin")), vec3(a.at("dir")), a.value("object", -1)); }},
         {"paint", [](OrcaEngine &e, const json &a) {
              // "hits": [{object, instance, volume, facet, local}...] in stroke order, or one hit's fields at the top level.
              std::vector<OrcaEngine::PaintHit> hits;

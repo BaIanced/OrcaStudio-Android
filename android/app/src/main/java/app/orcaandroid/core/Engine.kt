@@ -171,7 +171,8 @@ class Engine(private val cacheDir: File) {
 
     // --- Tools -----------------------------------------------------------------------------------
 
-    suspend fun pick(origin: Vec3, dir: Vec3): PickHit? = call("pick", args("origin" to origin, "dir" to dir)).let { o ->
+    /** [only] >= 0: hits on that object alone (the Build workspace). */
+    suspend fun pick(origin: Vec3, dir: Vec3, only: Int = -1): PickHit? = call("pick", args("origin" to origin, "dir" to dir, "object" to only)).let { o ->
         if (!o.optBoolean("hit")) null
         else PickHit(o.getInt("object"), o.getInt("instance"), o.getInt("volume"), o.getInt("facet"), o.vec3("point"), o.vec3("normal"), o.vec3("local"))
     }
