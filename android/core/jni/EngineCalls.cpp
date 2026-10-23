@@ -109,10 +109,12 @@ const std::unordered_map<std::string, Handler> &handlers()
                  s.keep = v.value("keep", -1);
                  s.type = v.value("type", 0);
                  s.name = v.value("name", std::string());
-                 const json &m = v.at("matrix");
-                 if (m.size() != 16)
+                 // A kept volume without a matrix keeps its own placement (modifiers next to the shapes).
+                 const json &m = v.value("matrix", json::array());
+                 s.own_matrix = m.empty() && s.keep >= 0;
+                 if (!s.own_matrix && m.size() != 16)
                      throw std::runtime_error("matrix needs 16 numbers");
-                 for (size_t i = 0; i < 16; ++i)
+                 for (size_t i = 0; i < m.size() && i < 16; ++i)
                      s.matrix[i] = m.at(i).get<double>();
                  if (s.keep < 0 && s.stl.empty())
                      throw std::runtime_error("volume needs stl or keep");

@@ -3,7 +3,11 @@ package app.orcaandroid.ui
 import android.net.Uri
 import app.orcaandroid.R
 import app.orcaandroid.core.Scene
+import app.orcaandroid.core.SceneObject
 import app.orcaandroid.core.Vec3
+import app.orcaandroid.core.Volume
+import app.orcaandroid.core.VolumeSpec
+import app.orcaandroid.core.VolumeType
 import app.orcaandroid.render.PreviewMesh
 import app.orcaandroid.scad.ScadClient
 import app.orcaandroid.scad.ScadDeps
@@ -21,6 +25,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
+import java.security.MessageDigest
 
 /** The OpenSCAD editor beside the 3D view (null in [UiState.scad] while closed). */
 data class ScadEditorState(
@@ -71,6 +76,11 @@ private const val DRAG_DEBOUNCE = 40L
 
 /** Starts the last line of a saved shape-builder .scad file; the rest of the line is the design's JSON. */
 private const val SHAPES_MARK = "// OrcaStudio shapes: "
+
+/** Rendered shape pieces kept in files/openscad/pieces (least recently used go first). */
+private const val PIECE_CACHE = 500
+
+private val IDENTITY = listOf(1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0)
 
 class ScadController(private val store: Store) {
     private val engine = store.engine
@@ -448,6 +458,11 @@ class ScadController(private val store: Store) {
         renderJob = store.scope.launch {
             set { it.copy(rendering = true, status = store.str(R.string.scad_rendering), statusError = false) }
             try {
+                val shapes = s.shapes
+                if (shapes != null) {
+                    renderPieces(s, shapes, asNew)
+                    return@launch
+                }
                 // The preview already shows this exact design: place its mesh, no second render.
                 val cached = previewStl?.takeIf { previewKey == key(s) && it.isFile }
                 if (cached != null) {
@@ -528,14 +543,16 @@ class ScadController(private val store: Store) {
      * the object's name.
      */
     private suspend fun place(stl: File, replace: String?, design: ScadDesign): String {
-        val objects = store.value.scene.objects
-        val oldIndex = replace?.let { n ->
-            objects.indexOfLast { it.name == n && ScadDesign.of(it) != null }.takeIf { it >= 0 } ?: objects.indexOfLast { it.name == n }
-        }?.takeIf { it >= 0 }
+        val oldIndex = placed(replace)
         val index: Int
         var s: Scene
         if (oldIndex != null) {
-            s = engine.replaceMesh(oldIndex, stl.path, design.encode())
+            val old = store.value.scene.objects[oldIndex]
+            // A shape design built from pieces, now code: its one mesh (in the design's frame) replaces the pieces.
+            s = if (ScadDesign.of(old)?.pieces == true) {
+                engine.setVolumes(oldIndex, listOf(VolumeSpec(VolumeType.PART, IDENTITY, stl = stl.path)) + otherVolumes(old.volumes), keepCenter = true)
+                engine.setObjectModule(oldIndex, design.encode())
+            } else engine.replaceMesh(oldIndex, stl.path, design.encode())
             index = oldIndex
         } else {
             s = engine.loadModels(listOf(stl.path), append = true, plate = store.value.activePlate)
@@ -546,6 +563,141 @@ class ScadController(private val store: Store) {
         store.applyScene(s)
         store.update { it.copy(selection = Selection(index), multiSelection = emptyList()) }
         return s.objects[index].name
+    }
+
+    /** The object named [name] this editor placed (the one with a design first), or null when it is gone. */
+    private fun placed(name: String?): Int? {
+        val objects = store.value.scene.objects
+        return name?.let { n ->
+            objects.indexOfLast { it.name == n && ScadDesign.of(it) != null }.takeIf { it >= 0 } ?: objects.indexOfLast { it.name == n }
+        }?.takeIf { it >= 0 }
+    }
+
+    /** Modifiers and support blockers / enforcers of an object, kept where they are by [Engine.setVolumes]. */
+    private fun otherVolumes(volumes: List<Volume>) =
+        volumes.filter { it.type != VolumeType.PART && it.type != VolumeType.NEGATIVE }.map { VolumeSpec(it.type, null, keep = it.index) }
+
+    // --- Build workspace: a shape design as one volume per piece -----------------------------------
+
+    private val piecesDir get() = File(dir, "pieces").apply { mkdirs() }
+
+    /** Where piece [scad] is cached once rendered (an empty file = an empty piece, e.g. blank text). */
+    private fun pieceFile(scad: String, file: String): File {
+        val hash = MessageDigest.getInstance("SHA-1").digest((file + "\u0000" + scad).toByteArray())
+        return File(piecesDir, hash.joinToString("") { "%02x".format(it) } + ".stl")
+    }
+
+    /**
+     * Renders a shape design piece by piece ([ShapeDesign.pieces]; only pieces not rendered before) and puts it
+     * on the plate as one volume per piece.
+     */
+    private suspend fun renderPieces(s: ScadEditorState, shapes: ShapeDesign, asNew: Boolean) {
+        val pieces = shapes.pieces()
+        if (pieces.none { !it.hole }) { fail(R.string.scad_empty); return }
+        val stls = pieces.map { pieceFile(it.scad, s.file) }
+        var triangles = 0
+        var millis = 0L
+        var rendered = 0
+        for ((piece, stl) in pieces.zip(stls).distinctBy { it.second.path }) {
+            if (stl.isFile) { stl.setLastModified(System.currentTimeMillis()); continue }
+            val part = File(stl.path + ".part")
+            try {
+                val r = client.render(piece.scad, s.file, null, part)
+                triangles += r.triangles; millis += r.millis; rendered++
+                when {
+                    !r.ok -> { set { it.copy(log = r.log) }; fail(R.string.scad_failed); return }
+                    r.stl == null && r.dimension == 2 -> { set { it.copy(log = r.log) }; fail(R.string.scad_2d); return }
+                }
+                withContext(Dispatchers.IO) {
+                    if (r.stl == null) part.writeBytes(ByteArray(0))
+                    if (!part.renameTo(stl)) throw java.io.IOException("Unable to keep the rendered piece")
+                }
+            } finally {
+                part.delete()
+            }
+        }
+        if (stls.none { it.length() > 0 }) { fail(R.string.scad_empty); return }
+        val files = withContext(Dispatchers.IO) { ScadDeps.collect(s.source, s.file) }
+        val name = placePieces(shapes, pieces, stls, if (asNew) null else s.onPlate,
+            ScadDesign(s.name, s.source, s.values, files, shapes, pieces = true))
+        val status = if (rendered == 0) store.str(R.string.scad_placed)
+            else store.str(R.string.scad_rendered, "%,d".format(triangles), "%.1f".format(millis / 1000.0))
+        set { it.copy(onPlate = name, status = status, statusError = false) }
+        saveDraft()
+        prunePieces()
+    }
+
+    /**
+     * Replaces the volumes of the object named [replace] with [pieces] (rendered to [stls]), or adds a new object;
+     * returns its name. A piece whose code didn't change keeps its volume (mesh and paint) and only gets its new
+     * place; modifiers stay. The first time (a new object or one whole-design mesh), the object stays centred where
+     * it was; after that the object's frame is the design's, so moving one shape moves only that volume.
+     */
+    private suspend fun placePieces(shapes: ShapeDesign, pieces: List<ShapeDesign.Piece>, stls: List<File>, replace: String?,
+                                    design: ScadDesign): String {
+        val oldIndex = placed(replace)
+        val old = oldIndex?.let { store.value.scene.objects[it] }
+        val keep = old?.let { kept(it, pieces, stls) }.orEmpty()
+        val specs = pieces.mapIndexed { i, p ->
+            val shape = shapes.shapes.firstOrNull { it.id == p.shapeId }
+            val name = shape?.name.orEmpty() + if (shape?.repeat?.takeIf { it.count > 1 } != null) " ${p.copy + 1}" else ""
+            val k = keep[i]
+            VolumeSpec(if (p.hole) VolumeType.NEGATIVE else VolumeType.PART, p.matrix, stl = stls[i].path.takeIf { k == null },
+                keep = k ?: -1, name = name)
+        }
+        val index: Int
+        var s: Scene
+        if (old != null) {
+            index = oldIndex
+            s = engine.setVolumes(index, specs + otherVolumes(old.volumes), keepCenter = ScadDesign.of(old)?.pieces != true)
+            s = engine.setObjectModule(index, design.encode())
+        } else {
+            // A new object starts from its first solid piece (named after the design), then gets all of them.
+            val first = stls.indices.first { !pieces[it].hole && stls[it].length() > 0 }
+            val stem = design.name.substringBeforeLast('.').ifEmpty { "openscad" }
+            val named = File(store.app.cacheDir, "openscad/${System.nanoTime()}/$stem.stl")
+            try {
+                withContext(Dispatchers.IO) { stls[first].copyTo(named, overwrite = true) }
+                s = engine.loadModels(listOf(named.path), append = true, plate = store.value.activePlate)
+            } finally {
+                named.parentFile?.deleteRecursively()
+            }
+            index = s.objects.lastIndex
+            s = engine.setVolumes(index, specs, keepCenter = true)
+            s = engine.setObjectModule(index, design.encode())
+            s = placeFree(s, index)
+        }
+        store.applyScene(s)
+        store.update { it.copy(selection = Selection(index), multiSelection = emptyList()) }
+        return s.objects[index].name
+    }
+
+    /**
+     * Piece index -> volume of [obj] to keep for it: pieces whose code is unchanged since the object's design was
+     * placed. Empty when the object's parts don't line up with its design's pieces (no pieces yet, edited in
+     * Prepare, a piece's cached render gone).
+     */
+    private fun kept(obj: SceneObject, pieces: List<ShapeDesign.Piece>, stls: List<File>): Map<Int, Int> {
+        val old = ScadDesign.of(obj)?.takeIf { it.pieces } ?: return emptyMap()
+        val file = st?.file ?: return emptyMap()
+        val oldPieces = old.shapes?.pieces() ?: return emptyMap()
+        val oldFiles = oldPieces.map { pieceFile(it.scad, file) }
+        if (oldFiles.any { !it.isFile }) return emptyMap()
+        val placedPieces = oldPieces.filterIndexed { i, _ -> oldFiles[i].length() > 0 }
+        val parts = obj.volumes.filter { it.type == VolumeType.PART || it.type == VolumeType.NEGATIVE }
+        if (parts.size != placedPieces.size || parts.zip(placedPieces).any { (v, p) -> (v.type == VolumeType.NEGATIVE) != p.hole }) return emptyMap()
+        return pieces.indices.mapNotNull { i ->
+            val p = pieces[i]
+            if (stls[i].length() == 0L) return@mapNotNull null
+            val j = placedPieces.indexOfFirst { it.shapeId == p.shapeId && it.copy == p.copy && it.scad == p.scad }
+            if (j < 0) null else i to parts[j].index
+        }.toMap()
+    }
+
+    /** Keeps the piece cache at its [PIECE_CACHE] most recently used renders. */
+    private suspend fun prunePieces() = withContext(Dispatchers.IO) {
+        val files = piecesDir.listFiles { f -> f.name.endsWith(".stl") }.orEmpty()
+        if (files.size > PIECE_CACHE) files.sortedByDescending { it.lastModified() }.drop(PIECE_CACHE).forEach { it.delete() }
     }
 
     /**

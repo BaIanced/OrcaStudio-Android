@@ -1224,11 +1224,13 @@ json OrcaEngine::set_volumes(int object, const std::vector<VolumeSpec> &specs, b
             shared.emplace(s->stl, vol);
         }
         vol->set_new_unique_id();
-        Transform3d m = Transform3d::Identity();
-        for (int r = 0; r < 4; ++r)
-            for (int c = 0; c < 4; ++c)
-                m(r, c) = s->matrix[size_t(r * 4 + c)];
-        vol->set_transformation(Geometry::Transformation(m));
+        if (!s->own_matrix) {
+            Transform3d m = Transform3d::Identity();
+            for (int r = 0; r < 4; ++r)
+                for (int c = 0; c < 4; ++c)
+                    m(r, c) = s->matrix[size_t(r * 4 + c)];
+            vol->set_transformation(Geometry::Transformation(m));
+        }
         if (!s->name.empty())
             vol->name = s->name;
     }
