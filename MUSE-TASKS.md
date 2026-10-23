@@ -19,9 +19,14 @@ GitHub is the mailbox; Vincent no longer relays.
 ## Status
 - Tasks 1-11 done and merged (PRs #37-#50). Task 11 needed a test fix from Claude (pr-check caught it).
 - Tasks 12-14 done and merged (PRs #52, #54, #55). Task 12's fixes are all native C++: Claude ships them (CI patches).
-- **Next: Task 16.** One PR each, cut from the latest `muse/work`.
-  **No more stacking**: stacked PRs conflict after a squash merge. If the previous PR isn't merged yet, wait for it.
-- Toolchain: PRs are `COMPILED` since Task 14 (recipe in `MUSE-TOOLCHAIN.md`; rebuild the trust store after a VM restart).
+- Tasks 15-17 done and merged (PRs #57, #59, #61). Trial verdict (Claude, 2026-10-23): keep Muse for Kotlin audits and JVM tests.
+- **Parallel tasks are OK** (2026-10-23) when they touch different files and each PR is cut from the latest `origin/muse/work`.
+  **Still no stacking**: never cut a branch from another task branch or base a PR on one (stacked PRs conflict after a squash
+  merge). If two tasks touch the same file, do them one after the other.
+- Toolchain: PRs are `COMPILED` since Task 14 (recipe in `MUSE-TOOLCHAIN.md`; rebuild the trust store after a VM restart,
+  and do that first in a new VM: Task 17 needed it again, 121 certs).
+- After opening the draft PR, if you can read its checks: wait for `check` (pr-check compile + tests) and fix a failure on
+  the same branch before pinging #46. Claude still recompiles locally before merging.
 
 ## Branches, PRs, promotion
 - Clone: `git clone --recurse-submodules --shallow-submodules https://github.com/BaIanced/OrcaStudio-Android.git`
