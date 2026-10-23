@@ -2749,3 +2749,21 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 - Caveats for steps 3-4: `keep` assumes a mesh set_volumes made this session (a 3MF reload may re-centre volume meshes:
   re-send `stl` after a load); a single-volume object now keeps a non-identity volume matrix (Orca's GUI folds it, our
   renderer/pick/slicing use vol->get_matrix(), 3MF round trip of that untested). Nothing calls either function yet.
+
+### 2026-10-23 Build workspace step 3 done (Claude, ea39bfc + a978808, r379; session guard after it, built with the next batch)
+- Shape designs: `ScadController.renderPieces` renders each `ShapeDesign.pieces()` entry alone (cache
+  `files/openscad/pieces/<sha1(file + code)>.stl`, empty file = empty piece, 500 most recently used kept) and
+  `placePieces` sends them with `Engine.setVolumes` (hole = NEGATIVE, name = shape name + copy number for repeats), then
+  `setObjectModule` with `ScadDesign.pieces = true`. A piece with unchanged code keeps its volume (`keep`: mesh + paint,
+  new matrix); modifiers / support volumes are `keep` entries WITHOUT matrix (native: `own_matrix`, keeps its placement).
+  First conversion / new object / object not placed this session (`placedThisSession`, names): `keepCenter`. A new
+  object loads the first solid piece (named after the design), then setVolumes (2 undo steps). Code designs: replaceMesh
+  as before; a pieces object turned into code gets its one mesh via setVolumes (identity, keepCenter).
+- r378 crashed (SIGSEGV, orca-engine) on a repeated shape: `add_volume_with_shared_mesh` leaves the convex hull null
+  (Model.hpp:1196) and `drop_to_bed` reads it. Fix a978808: `calculate_convex_hull()` per shared copy (as bbs_3mf.cpp:5240).
+- VERIFIED r379 (Claude, WSA, MCP): Base 40x30x10 + top-level Hole cylinder + Peg x3 repeat placed as a new object
+  (40 x 30 x 18 mm, hole not in the size); moving the Pegs +10 mm in Y gave centre Y 128 -> 130.75 and depth 35.5 exactly
+  (Base stayed put = design frame kept); sliced preview shows the hole cut through and the 3 pegs moved.
+- Untested: paint kept on a moved piece, modifiers kept, the code-detach path, an object reloaded from 3MF, first edit
+  after a restart (keepCenter: when it moves a shape, the rest shifts by half the bbox change), per-piece render time on
+  big designs (the first render now runs the preview AND each piece).

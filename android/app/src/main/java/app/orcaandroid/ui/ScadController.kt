@@ -649,7 +649,7 @@ class ScadController(private val store: Store) {
         var s: Scene
         if (old != null) {
             index = oldIndex
-            s = engine.setVolumes(index, specs + otherVolumes(old.volumes), keepCenter = ScadDesign.of(old)?.pieces != true)
+            s = engine.setVolumes(index, specs + otherVolumes(old.volumes), keepCenter = old.name !in placedThisSession)
             s = engine.setObjectModule(index, design.encode())
         } else {
             // A new object starts from its first solid piece (named after the design), then gets all of them.
@@ -669,15 +669,23 @@ class ScadController(private val store: Store) {
         }
         store.applyScene(s)
         store.update { it.copy(selection = Selection(index), multiSelection = emptyList()) }
-        return s.objects[index].name
+        return s.objects[index].name.also { placedThisSession += it }
     }
 
     /**
+     * Objects [placePieces] set up since the app started: their frame is the design's and their volume meshes are the
+     * pieces as rendered. A project loaded from 3MF may have re-centred both, so such an object first gets fresh
+     * meshes and stays centred where it is.
+     */
+    private val placedThisSession = mutableSetOf<String>()
+
+    /**
      * Piece index -> volume of [obj] to keep for it: pieces whose code is unchanged since the object's design was
-     * placed. Empty when the object's parts don't line up with its design's pieces (no pieces yet, edited in
-     * Prepare, a piece's cached render gone).
+     * placed. Empty when the object's parts don't line up with its design's pieces (not placed this session, edited
+     * in Prepare, a piece's cached render gone).
      */
     private fun kept(obj: SceneObject, pieces: List<ShapeDesign.Piece>, stls: List<File>): Map<Int, Int> {
+        if (obj.name !in placedThisSession) return emptyMap()
         val old = ScadDesign.of(obj)?.takeIf { it.pieces } ?: return emptyMap()
         val file = st?.file ?: return emptyMap()
         val oldPieces = old.shapes?.pieces() ?: return emptyMap()

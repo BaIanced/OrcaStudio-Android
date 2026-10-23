@@ -39,7 +39,7 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 ## Waiting on the user
 - Plate switcher pick (lab stays; don't ask again). Launcher icon colour ("decide later"). REA MCP enable (installed, not enabled).
 - Edge outline in Prepare (crease lines, View toggle; regions view already has crease_lines()): waiting on GO (2026-10-20).
-- [Opus] Build workspace (shape builder in the main view; user GO 2026-10-23): steps 1-2 done 2026-10-23 (step 2 native setVolumes/setBuildObject, unused yet, r377 builds); NEXT step 3 Kotlin per-piece renders + setVolumes (archive "Build workspace plan", "step 2 done").
+- [Opus] Build workspace (shape builder in the main view; user GO 2026-10-23): steps 1-3 done 2026-10-23 (step 3 per-piece renders + setVolumes, Claude-verified r379 on WSA); NEXT step 4 UI (Build = isolated focus on the design object in the main view, docked panel, pick volume -> shape, gizmos on volume ids). Archive "Build workspace plan", "step 3 done" (untested list).
 
 ## Ideas (not started)
 - Floating Theme | Layout designer (~half a day; ask first). Study Bambu Handy's MakerWorld integration.
