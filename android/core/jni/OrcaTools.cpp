@@ -607,6 +607,10 @@ json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<doubl
         ModelObject &obj = object_at(h.object);
         if (h.instance < 0 || h.instance >= int(obj.instances.size()) || h.volume < 0 || h.volume >= int(obj.volumes.size()))
             throw std::runtime_error("Invalid paint target");
+        // A pick made before the mesh changed (simplify, repair, split) can name a facet it no longer has; the
+        // selectors index their triangles by facet.
+        if (h.facet >= int(obj.volumes[h.volume]->mesh().its.indices.size()))
+            throw std::runtime_error("Invalid paint target");
     }
     const auto t0 = std::chrono::steady_clock::now();
     int loads = 0;

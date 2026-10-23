@@ -10,6 +10,7 @@ import app.orcaandroid.core.PresetType
 import app.orcaandroid.core.Scene
 import app.orcaandroid.core.Vec3
 import app.orcaandroid.render.SectionView
+import app.orcaandroid.ui.prepare.PaintMode
 import app.orcaandroid.core.VolumeType
 import java.io.File
 import kotlinx.coroutines.Job
@@ -305,7 +306,14 @@ class SceneController(private val store: Store, private val presets: PresetContr
 
     // --- 3D tools ----------------------------------------------------------------------------------------
 
+    /** The paint tool each kind was last left with (session-only), for [openPaint]. */
+    private val lastPaint = HashMap<String, Tool.Paint>()
+
+    /** Opens paint [kind] as it was last left (PaintMode.reopened). */
+    fun openPaint(kind: String, state: Int) = setTool(PaintMode.reopened(lastPaint[kind], kind, state))
+
     fun setTool(tool: Tool) = store.launch {
+        (store.value.tool as? Tool.Paint)?.let { lastPaint[it.kind] = it }
         store.update { it.copy(tool = tool, measure = if (tool == Tool.Measure) emptyList() else it.measure) }
         if (tool == Tool.LayerHeight) loadLayerProfile { engine.layerProfile(it) }
     }

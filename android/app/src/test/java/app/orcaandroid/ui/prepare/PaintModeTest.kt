@@ -108,6 +108,25 @@ class PaintModeTest {
         assertEquals("triangle", PaintMode.entered(back, PaintMode.FILL, PaintMode.BRUSH).shape)
     }
 
+    @Test fun reopenedKeepsModeAndShapesButNotTheVisit() {
+        // Done -> Preview -> Paint > Color painting (WSA r373 reopened on Brush / Sphere).
+        val left = Tool.Paint("color", 0, 5f, shape = "pick", back = "height", brushShape = "triangle", height = 0.6f,
+            guardOn = true, hidden = 2, locked = 1)
+        val again = PaintMode.reopened(left, "color", 2)
+        assertEquals("height", again.shape)
+        assertEquals(PaintMode.BANDS, PaintMode.of(again.shape, again.objectMode))
+        assertEquals("triangle", PaintMode.entered(again, PaintMode.BANDS, PaintMode.BRUSH).shape)
+        assertEquals(5f, again.radius)
+        assertEquals(0.6f, again.height)
+        assertEquals(2, again.state)
+        assertEquals(false, again.guardOn)
+        assertEquals(0, again.hidden)
+        assertEquals(0, again.locked)
+        // Another kind, or nothing remembered: a fresh tool.
+        assertEquals(Tool.Paint("seam", 1, 3f), PaintMode.reopened(left, "seam", 1))
+        assertEquals(Tool.Paint("color", 2, 3f), PaintMode.reopened(null, "color", 2))
+    }
+
     @Test fun enteredObjectFromEraseSelectsAFilament() {
         val paint = Tool.Paint("color", 0, 3f, shape = "fill")
         assertEquals(1, PaintMode.entered(paint, PaintMode.FILL, PaintMode.OBJECT).state)

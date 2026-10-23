@@ -10,6 +10,15 @@ package app.orcaandroid.core
  */
 object ColourChangeEstimate {
 
+    /** mm3 per mm of `grab_length`, which the change G-code extrudes anyway and the purge subtracts (`Print.cpp:4716-4718`). */
+    const val GRAB_MM3_PER_MM = 2.4
+
+    /**
+     * Smallest chute purge with a prime tower: any non-zero purge is raised to this (`GCode.cpp:153`, used at `:1267`).
+     * Why a real A1 plate flushed 100 mm3 per change while its matrix said 97 x 0.3 (see [estimate]).
+     */
+    const val TOWER_MIN_PURGE_MM3 = 100.0
+
     /** One estimate: how many switches, how much was purged, and the purged grams per filament flushed *to*. */
     data class Estimate(
         val changes: Int,
@@ -42,9 +51,12 @@ object ColourChangeEstimate {
      * An empty layer (or one holding only out-of-range ids, which are ignored) changes nothing
      * and leaves the loaded filament in place.
      *
-     * Purge per switch: `matrix[from][to] * multiplier` mm3; the grams use the density of the
-     * filament being flushed *to* (`mm3 / 1000 * g/cm3`). A filament with no density entry
-     * contributes its mm3 but 0 g.
+     * Purge per switch: `matrix[from][to] * multiplier - grabMm3` mm3, at least [minPurgeMm3] (pass
+     * [TOWER_MIN_PURGE_MM3] with a prime tower) and never below 0. Source only floors a non-zero purge, but a real A1
+     * plate (matrix 97 x 0.3 - grab 41.76 < 0) still purged 100 mm3 on every switch (r371, WSA), so the floor
+     * applies to every switch here. The grams use the density of
+     * the filament being flushed *to* (`mm3 / 1000 * g/cm3`). A filament with no density entry
+     * contributes its mm3 but 0 g. Flushing into infill / objects is not modelled.
      */
     fun estimate(
         layers: List<List<Int>>,
@@ -52,6 +64,8 @@ object ColourChangeEstimate {
         multiplier: Double,
         densityGPerCm3: List<Double>,
         startFilament: Int?,
+        grabMm3: Double = 0.0,
+        minPurgeMm3: Double = 0.0,
     ): Estimate {
         val n = matrix.size
         val perFilament = DoubleArray(n)
@@ -73,7 +87,7 @@ object ColourChangeEstimate {
             while (remaining.isNotEmpty()) {
                 val from = current!!
                 val to = remaining.minWith(compareBy({ matrix[from][it] }, { it }))
-                val mm3 = matrix[from][to] * multiplier
+                val mm3 = maxOf(matrix[from][to] * multiplier - grabMm3, minPurgeMm3, 0.0)
                 val grams = mm3 / 1000.0 * (densityGPerCm3.getOrNull(to) ?: 0.0)
                 changes++
                 flushMm3 += mm3

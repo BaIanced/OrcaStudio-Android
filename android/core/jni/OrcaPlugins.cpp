@@ -27,6 +27,8 @@ std::string str(JNIEnv *env, jstring s)
     if (s == nullptr)
         return {};
     const char *chars = env->GetStringUTFChars(s, nullptr);
+    if (chars == nullptr) // out of memory (an OutOfMemoryError is pending)
+        return {};
     std::string out(chars);
     env->ReleaseStringUTFChars(s, chars);
     return out;
@@ -143,7 +145,11 @@ JNIEXPORT jstring JNICALL Java_app_orcaandroid_plugins_PluginNative_pageMessage(
 
 JNIEXPORT void JNICALL Java_app_orcaandroid_plugins_PluginNative_pageClose(JNIEnv *env, jobject, jstring key, jstring capability)
 {
-    orca::plugins::page_close(str(env, key), str(env, capability));
+    try {
+        orca::plugins::page_close(str(env, key), str(env, capability));
+    } catch (...) {
+        // A void export: nothing to report, but an exception must not leave the JNI call.
+    }
 }
 
 JNIEXPORT jstring JNICALL Java_app_orcaandroid_plugins_PluginNative_configOpen(JNIEnv *env, jobject, jstring key, jstring capability,
