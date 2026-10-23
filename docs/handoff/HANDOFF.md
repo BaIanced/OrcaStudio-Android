@@ -31,8 +31,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **User 2026-10-21: design deviations pre-approved** ("deviate if you find a more logical, intuitive way; I trust your judgement"); say what changed.
 - Paint plan (user ACCEPTED 2026-10-21): steps (1)-(2) done, user feel untested (backlog "Paint panel UI", "Paint penetration").
   Step (3) waste counter done (r373), plan complete; reopen fix WSA r374 OK (archive). User feel untested.
-  **Next small step:** Task 12 native fixes (Claude, CI patch): ObnBridge.cpp guard on all 19 exports, OrcaPlugins
-  pageClose guarded(), OrcaTools paint() facet upper bound (backlog "Muse Task 12"). Prime-tower grams = Muse Task 15.
+  Task 12 findings 1-4 fixed in 21b7f9f (JNI guards, paint facet bound; CI run 39879903340: check it compiled).
+  **Next small step:** if 39879903340 failed, fix the compile; else Task 12 finding 6 (installCert per-printer flag,
+  ObnBridge.cpp installCert/push_event; backlog "Muse Task 12"). Prime-tower grams = Muse Task 15.
 - Muse (2026-10-22): tasks in `MUSE-TASKS.md` on `muse/work` (edit via a `claude/*` PR, self-merge), then `TASK <n> READY`
   on #46; Muse answers with one draft PR per task. Claude verifies, merges into muse/work, cherry-picks code onto the work
   branch. Task 1 finding 4: fix the patch comment when regenerating 0001. **Each session start: check open `muse/*` PRs + #46.**
