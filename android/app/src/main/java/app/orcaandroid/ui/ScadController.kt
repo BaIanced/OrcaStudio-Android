@@ -148,7 +148,20 @@ class ScadController(private val store: Store) {
         val placed = st?.onPlate?.let { n -> store.value.scene.objects.any { it.name == n } } == true
         if (newDesign && !placed) useEmptyPlate()
         refreshParams(0)
-        preview()
+        if (!buildIfPlaced()) preview()
+    }
+
+    /**
+     * A shape design placed as pieces opens straight in the Build workspace (the eye toggle on), Tinkercad-like; the
+     * preview pane renders once it is left ([showBuild]). A draft with edits not on the object yet opens in the pane as
+     * before, so opening never changes the object. True when it did.
+     */
+    private fun buildIfPlaced(): Boolean {
+        val s = st?.takeIf { it.shapes != null } ?: return false
+        val name = s.onPlate ?: return false
+        if (store.value.scene.objects.none { it.name == name && ScadDesign.of(it)?.let { d -> d.pieces && d.shapes == s.shapes } == true }) return false
+        store.update { it.copy(scadOnPlate = true, scadHidden = false) }
+        return true
     }
 
     /** The plate [useEmptyPlate] added; it goes again when the editor closes while it is still empty. */
@@ -221,7 +234,7 @@ class ScadController(private val store: Store) {
         saveDraft()
         pushToPlate = false
         if (onPlate == null) store.launch { useEmptyPlate() }
-        preview()
+        if (!buildIfPlaced()) preview()
     }
 
     fun close() {
