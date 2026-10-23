@@ -875,3 +875,91 @@ Open questions: none for the fix itself. If Claude wants the line to instead
 report the wider "tower + on-tower toolchange purge" quantity the old code
 approximated, that is a product decision for him/Vincent — this PR makes the
 line agree with the per-feature list it sits next to.
+
+### Task 16 - 2026-10-22 - muse/task-16-paint-estimate-count - this commit
+Verdict: the estimate was right about every layer except the cube's top one. The slicer appends a
+flat top face's projection un-inset to its own layer, so on that layer the painted face covers the
+whole slice and the base filament extrudes nothing; `PaintLayers` counted the base filament on every
+layer of the copy's height, making the top layer mixed and adding exactly one change (and one floor
+purge, ~0.12 g — the reported 8 / ~1.0 g vs 7 / ~0.9 g). One smaller rounding defect in the same
+file's span binning is fixed alongside; its effect on this plate is 0 (computed below).
+
+Trace (slicer side). Per-layer regions: `segmentation_by_painting` projects each painted facet onto
+the layers whose `slice_z` lies in the facet's [min_z, max_z], endpoints included
+(`MultiMaterialSegmentation.cpp:2119-2123`, the `upper_bound`s over `slice_z`; the skip at `:2132`
+is `is_less(slice_z, facet min)` / `is_less(facet max, slice_z)`); `slice_z` is the layer mid
+(`Layer.hpp:358` `zs_from_layers`; `PrintObjectSlice.cpp:71` `compute_slice_z` = 0.5 * (lo + hi)).
+Flat facets are skipped by that projection (`:2112`, `is_equal(min_z, max_z)`) and handled by the
+top/bottom path: `triangles_by_color_top[color][layer_idx]` receives `top_ex` un-offset
+(`:1439-1440`), and the shell projections below it accumulate `offset -= (extrusion_spacing +
+extrusion_width)` per layer (`:1442-1445`) over `paint_layers - 1` further layers (patch
+`0001-paint-depth-layers.patch` loop bound `last_idx > layer_idx - top_paint_layers`), so a painted
+top face occupies D layers in total, the deepest D-1 of them inset — a base rim remains there, but
+not on its own layer. Bottom mirrors it (`:1459-1465`). `merge_segmented_layers` (`:1885`) diffs the
+side regions against the top/bottom ones and appends them. A layer's filament set is then what
+actually extrudes: `ToolOrdering::collect_extruders` (`ToolOrdering.cpp:767`) collects a filament
+only from a region with perimeters (`:843`) or fills (`:854-895`), and the emitted order starts a
+layer with the previous layer's last filament when it is present (the same rule the wipe-tower
+partition count states at `:1015-1023`), so a layer that adds no new filament costs no change.
+
+Difference table (every effect computed from hand-built spans through a line-by-line mirror of
+`PaintLayers.layers` + `ColourChangeEstimate.estimate`, and pinned by the new JVM tests):
+- Base filament on every layer / top layer counted as mixed — the culprit. Fixture (8 layers of
+  0.2 mm, base span [0, 1.6], side paint [0, 1.6], top paint deepened by D = 3 to [1.0, 1.6]): old
+  lists {0,1} x 8 -> 8 changes; slicer lists {0,1} x 7 + {1} -> 7 changes. Flush at the prime-tower
+  floor (100 mm3 x 1.24 g/cm3): 0.992 g vs 0.868 g, the reported ~1.0 vs ~0.9. The saving needs the
+  paint filament loaded entering the top layer (here layer 6 ends on it); the layer-list fix itself
+  is parity-independent. A half-painted top face (XY area 2 of 4 mm2) keeps the top layer mixed and
+  the count at 8 (pinned), because the base still prints the unpainted half.
+- Span-edge rounding at a mid (the `lo` / `hi` formulas beside `layerOf` at `PaintLayers.kt:82`):
+  `layerOf` carries a -1e-4-of-a-layer epsilon, `lo` / `hi` did not. Computed in Float (first =
+  layer = 0.2): a span ending at z = 1.3 (mid of layer 6) got hi = floor(5.999...) = 5, losing the
+  layer the slicer's endpoint-inclusive rule gives it; z = 1.5 (mid of layer 7) got hi = 6, not 7;
+  a computed (deepened) zMin of 1.5000001 got lo = 8, not 7. Effect on this plate: 0 (the cube's
+  span edges sit on layer tops, e.g. hi(1.6) = 7, correct before and after). Fixed with the same
+  epsilon in `lo` / `hi`; pinned by `spanEdgeExactlyOnAMidKeepsThatLayer`.
+- Paint-depth reach: no difference. Slicer total is D layers (own + D - 1 inset); the Kotlin reach
+  of D x layerHeight from the face contains exactly the top D mids. Fixture D = 3 on a 10-layer
+  cube: both give layers 7, 8, 9 (also pinned by the pre-existing `paintDepthCarriesFlatFacesIn`).
+- Per-layer order: `estimate` is loaded-first then greedy smallest flush; the slicer orders for
+  minimum flush volume (`ToolOrdering::reorder_extruders_for_minimum_flush_volume`,
+  `ToolOrdering.cpp:2790`). Computed count effect: 0 for uniform two-filament layers (any order
+  costs 1 per layer after entry). An end-of-layer choice can cost +1 in general (fixture layers
+  {0,1}, {0,1}, {1}: estimate 3, best order 2), but the slicer minimises flush, not count, so there
+  is no count rule to mirror; not this plate (uniform sets) and not fixed.
+- The first layer: no difference. Both sides treat the first load as free (the G-code counter in
+  `GcodeToolChanges` likewise), and a first layer of {0,1} costs exactly 1 change on both (computed).
+- Spans crossing no mid (the fallback in `layers`): the slicer's general projection gives a non-flat
+  facet that crosses no slice_z no layer at all; Kotlin places it on the layer holding its middle
+  (computed fixture: sliver [0.62, 0.68] between mids 0.5 / 0.7 lands on layer 3). Effect on this
+  plate: 0 (after deepening, every cube span crosses a mid, and the fallback is what places a flat
+  top when depth is 0). Not changed.
+
+Fix (`android/app/src/main/java/app/orcaandroid/core/PaintLayers.kt` only;
+`ColourChangeEstimate.kt` unchanged — its ordering, first-load and purge rules all check out above):
+`Span` gains `areaXY` (the source triangle's XY-projected area, filled by `spans`); `forPlate`
+records the painted area of flat faces sitting at a copy's very top / bottom, and when such a face
+is painted over at least 99 % of the copy's XY bounding-box area the base span loses that end layer
+(entirely, when it was the base's only layer). Mirrored for the bottom face. Plus the `lo` / `hi`
+epsilon above. Coverage against the bounding box is exact for a rectangular face and conservative
+for a round or rotated one (those keep the old behaviour instead of trimming on a guess).
+
+Tests: `PaintLayersTest` 7 -> 13, no existing test changed. New:
+`spanEdgeExactlyOnAMidKeepsThatLayer`, `fullyPaintedTopFaceTakesTheTopLayerAlone`,
+`fullyPaintedBottomFaceTakesTheBottomLayerAlone`,
+`partiallyPaintedTopFaceKeepsTheBaseOnTheTopLayer`,
+`singleLayerObjectWithFullyPaintedTopHasNoBaseLayer`,
+`paintedTopCubeEstimateMatchesTheSlicedCount` (the reported plate in miniature: full top -> 7
+changes, half top -> 8). The new tests were written and run before the fix: 13 tests, 5 failed —
+exactly the five pinning the two defects; the partial-face test passed, as it must before and after.
+After the fix: 13 / 13 pass.
+Build: COMPILED (compile exit 0, tests exit 0; 107/107 tests passed, 0 failures/errors/skipped,
+13 classes — Task 14 recipe, trust store still valid for this VM instance, no rebuild needed).
+Privacy self-scan: tree exit 0, range exit 0.
+UNVERIFIED: Claude's actual test plate (fixtures only, as with Task 15); the estimate line's
+device behaviour. A fully painted flat face that is not at the copy's bounding-box extremum (a
+step's top) does not trim — spans carry no slice-area coverage for it, and its layer genuinely
+mixes unless the face covers the whole slice. The depth = 0 case (no top/bottom projection in the
+slicer at all, while `layers` still places a flat top via the fallback) is a separate modelling
+gap, not this plate (its paint depth = shell layers > 0).
+Open questions: none.
