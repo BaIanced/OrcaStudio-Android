@@ -17,6 +17,7 @@
 #include <functional>
 #include <map>
 #include <mutex>
+#include <set>
 #include <string>
 #include <thread>
 #include <vector>
@@ -79,14 +80,16 @@ std::condition_variable g_cv;
 void *g_agent = nullptr;
 std::string g_dir;
 std::deque<Event> g_events;
-bool g_cert_installed = false;
+// Printers whose cert exchange completed since the last LAN connect (obn names the device in
+// its "device_cert_installed" message).
+std::set<std::string> g_cert_devs;
 bool g_cancel = false;
 constexpr size_t kMaxEvents = 512;
 
 void push_event(Event e)
 {
     std::lock_guard<std::mutex> lk(g_mu);
-    if (e.kind == "message" && e.text.find("device_cert_installed") != std::string::npos) g_cert_installed = true;
+    if (e.kind == "message" && e.text.find("device_cert_installed") != std::string::npos) g_cert_devs.insert(e.dev_id);
     if (g_events.size() >= kMaxEvents) g_events.pop_front();
     g_events.push_back(std::move(e));
     g_cv.notify_all();
@@ -214,7 +217,7 @@ JNIEXPORT jint JNICALL Java_app_orcaandroid_net_ObnNative_connect(JNIEnv *env, j
         {
             std::lock_guard<std::mutex> lk(g_mu);
             agent = g_agent;
-            g_cert_installed = false;
+            g_cert_devs.clear();
         }
         if (!agent) return BAMBU_NETWORK_ERR_INVALID_HANDLE;
         return bambu_network_connect_printer(agent, jstr(env, dev_id), jstr(env, ip), "bblp", jstr(env, access_code),
@@ -286,23 +289,23 @@ JNIEXPORT jint JNICALL Java_app_orcaandroid_net_ObnNative_cloudConnect(JNIEnv *e
 
 // Asks the printer to trust the user's slicer certificate and waits up to timeoutMs for the
 // printer's own certificate in reply (obn needs it to encrypt the print URL). Returns true once
-// the exchange has completed in this session.
+// the exchange has completed for this printer since the last connect.
 JNIEXPORT jboolean JNICALL Java_app_orcaandroid_net_ObnNative_installCert(JNIEnv *env, jobject, jstring dev_id,
                                                                          jint timeout_ms)
 {
     return guard<jboolean>(JNI_FALSE, [&]() -> jboolean {
+        const std::string dev = jstr(env, dev_id);
         void *agent;
         {
             std::lock_guard<std::mutex> lk(g_mu);
             agent = g_agent;
-            if (g_cert_installed) return JNI_TRUE;
+            if (g_cert_devs.count(dev)) return JNI_TRUE;
         }
         if (!agent) return JNI_FALSE;
-        const std::string dev = jstr(env, dev_id);
         bambu_network_install_device_cert(agent, dev, false);
         std::unique_lock<std::mutex> lk(g_mu);
-        g_cv.wait_for(lk, std::chrono::milliseconds(timeout_ms), [] { return g_cert_installed; });
-        return g_cert_installed ? JNI_TRUE : JNI_FALSE;
+        g_cv.wait_for(lk, std::chrono::milliseconds(timeout_ms), [&] { return g_cert_devs.count(dev) > 0; });
+        return g_cert_devs.count(dev) ? JNI_TRUE : JNI_FALSE;
     });
 }
 
