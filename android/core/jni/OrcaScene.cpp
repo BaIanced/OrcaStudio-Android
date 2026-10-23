@@ -1216,6 +1216,8 @@ json OrcaEngine::set_volumes(int object, const std::vector<VolumeSpec> &specs, b
             vol = obj.add_volume(*obj.volumes[s->keep], vtype);
         } else if (auto it = shared.find(s->stl); it != shared.end()) {
             vol = obj.add_volume_with_shared_mesh(*it->second, vtype);
+            // It comes without convex hull (null, get_convex_hull() would crash): as the 3MF loader does (bbs_3mf.cpp:5240).
+            vol->calculate_convex_hull();
             vol->config.apply(part_config);
         } else {
             // Not centred: the piece's own frame stays the mesh frame, so `matrix` applies as given.
