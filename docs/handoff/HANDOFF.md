@@ -33,12 +33,12 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   Step (3) waste counter done (r373), plan complete. User feel untested.
   Task 12 findings 1-4 fixed: r375 (21b7f9f, run 39879903340) on WSA/SHIELD/phone; WSA starts clean (2026-10-22).
   Finding 6 (per-printer cert set) committed e02b10f, NOT built (batching native fixes).
-  **Next small step:** Task 12 finding 7 (load_models wipes before validating; backlog "Muse Task 12"), then dispatch one build for 6+7.
+  **Next small step:** Task 12 finding 7 (load_models wipes before validating; backlog "Muse Task 12"), then dispatch one build for 6+7+Task 16 (check WSA estimate 8 -> 7).
 - Muse (2026-10-22): tasks in `MUSE-TASKS.md` on `muse/work` (edit via a `claude/*` PR, self-merge), then `TASK <n> READY`
   on #46; Muse answers with one draft PR per task. Claude verifies, merges into muse/work, cherry-picks code onto the work
   branch. Task 1 finding 4: fix the patch comment when regenerating 0001. **Each session start: check open `muse/*` PRs + #46.**
-  Tasks 1-14 merged (#54 = Task 12 JNI audit, fixes in backlog; #55 = Task 14 trust store, 2026-10-22).
-  Task 15 merged (#57, cherry-picked b27d4f1). #58: muse/work android/ synced. **Task 16 READY (2026-10-22): paint-shop estimate 8 vs sliced 7; awaiting PR.**
+  Tasks 1-16 merged (#54 = Task 12 JNI audit, fixes in backlog; Task 16 = #59, dec87f6, not built). Sync muse/work
+  android/ before each Kotlin task (#58). Task 17 next (write it after finding 7).
   **Muse role verdict (Claude, 2026-10-22): Kotlin tasks OK** (Task 14: compile + 87/87 JVM tests in its VM, self-reported;
   Claude compiles each PR locally before merging). No native/patch work (all Task 12 fixes are native). **Muse trial (user asked, 2026-10-22):**
   only audits + JVM-testable pure Kotlin; for Tasks 15-17 log in the archive Claude's effort per task (write, review, fixes,
