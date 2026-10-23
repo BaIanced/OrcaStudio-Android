@@ -1,6 +1,7 @@
 package app.orcaandroid.ui.preview
 
 import app.orcaandroid.core.GcodeToolChanges
+import app.orcaandroid.core.SliceResult
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -21,6 +22,22 @@ class ColourChangeLineTest {
         assertEquals(1.24, ColourChangeLine.primeTowerGrams(1000.0), 1e-9)
         assertEquals(0.0, ColourChangeLine.primeTowerGrams(0.0), 1e-9)
         assertEquals(2.40528, ColourChangeLine.primeTowerGrams(2405.28, densityGPerCm3 = 1.0), 1e-6)
+    }
+
+    @Test fun densityOfIsThePlateAverage() {
+        // Pins the documented limitation behind Task 15's remaining gap: the line uses
+        // ONE density for the whole tower — the plate average (total g over total
+        // volume) — while the slicer's per-feature grams use each filament's own
+        // density. 10000 mm of 1.75 mm filament is 24.0528 cm3; 29.8255 g over it
+        // averages 1.24 g/cm3. With no weight at all the fallback constant is used.
+        fun slice(mm: Double, g: Double) = SliceResult(
+            gcodeFile = "", previewDir = "", printTimeSeconds = 0.0, filamentMm = mm,
+            filamentGrams = g, cost = 0.0, warnings = emptyList(), originX = 0f,
+            originY = 0f, layers = emptyList(), roles = emptyList(), travelTime = 0f,
+            ranges = emptyMap(), filamentUse = emptyList(),
+        )
+        assertEquals(1.24, ColourChangeLine.densityOf(slice(10000.0, 29.8255)), 1e-3)
+        assertEquals(ColourChangeLine.DENSITY_G_PER_CM3, ColourChangeLine.densityOf(slice(10000.0, 0.0)), 1e-9)
     }
 
     @Test fun hiddenUntilParsedAndWhenNoChanges() {
