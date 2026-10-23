@@ -37,12 +37,15 @@ data class ThemeSpec(
         private fun modeJson(m: Map<String, Map<String, Int>>) =
             JSONObject(m.mapValues { (_, slots) -> JSONObject(slots.mapValues { "#%08X".format(it.value) }) })
 
-        private fun parseMode(o: JSONObject?): Map<String, Map<String, Int>> = o?.keys()?.asSequence()?.associateWith { region ->
-            val slots = o.getJSONObject(region)
-            slots.keys().asSequence().mapNotNull { k ->
+        private fun parseMode(o: JSONObject?): Map<String, Map<String, Int>> = o?.keys()?.asSequence()?.mapNotNull { region ->
+            // A region stored as anything but an object is skipped, not fatal:
+            // getJSONObject would throw and fromJson would drop the whole spec.
+            val slots = o.optJSONObject(region) ?: return@mapNotNull null
+            val parsed = slots.keys().asSequence().mapNotNull { k ->
                 slots.optString(k).removePrefix("#").toLongOrNull(16)?.let { k to it.toInt() }
             }.toMap()
-        }?.filterValues { it.isNotEmpty() }.orEmpty()
+            if (parsed.isEmpty()) null else region to parsed
+        }?.toMap().orEmpty()
 
         fun fromJson(json: String?): ThemeSpec = json?.let {
             runCatching {
