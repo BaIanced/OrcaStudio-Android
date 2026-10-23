@@ -31,13 +31,16 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **User 2026-10-21: design deviations pre-approved** ("deviate if you find a more logical, intuitive way; I trust your judgement"); say what changed.
 - Paint plan (user ACCEPTED 2026-10-21): steps (1)-(2) done, user feel untested (backlog "Paint panel UI", "Paint penetration").
   **Step (3) Colour change + waste counter: done** (WSA r373: paint shop 8 vs Preview 7; user feel untested, backlog).
-  **Next small step:** step (4) of the paint plan (grep `HANDOFF-ARCHIVE.md` for "Paint plan"), or backlog "Preview colour-change
-  line" prime-tower grams (3.3 vs 3.155 g).
+  The plan had only 3 steps: all done. 2026-10-22: paint shop reopen fix (backlog "Paint shop reopen", untested on device).
+  **Next small step:** check that fix on WSA when its build lands, then backlog "Preview colour-change line" prime-tower grams
+  (3.3 vs 3.155 g), or send Muse its first Kotlin task (below).
 - Muse (2026-10-22): tasks in `MUSE-TASKS.md` on `muse/work` (edit via a `claude/*` PR, self-merge), then `TASK <n> READY`
   on #46; Muse answers with one draft PR per task. Claude verifies, merges into muse/work, cherry-picks code onto the work
   branch. Task 1 finding 4: fix the patch comment when regenerating 0001. **Each session start: check open `muse/*` PRs + #46.**
-  Tasks 1-13 merged (#54 = Task 12 JNI audit, fixes in backlog). Task 14 (trust store) sent, no reply yet.
-  Merge commands START with `gh pr merge`. Muse role verdict waits on Task 14 (compiles -> Kotlin OK; else audits). No stacking.
+  Tasks 1-14 merged (#54 = Task 12 JNI audit, fixes in backlog; #55 = Task 14 trust store, 2026-10-22).
+  **Muse role verdict (Claude, 2026-10-22): Kotlin tasks OK** (Task 14: compile + 87/87 JVM tests in its VM, self-reported;
+  Claude compiles each PR locally before merging). No native/patch work. Next Muse task: Kotlin-side Task 12 fixes
+  (PluginNative pageClose guard etc.); ObnBridge.cpp guards stay with Claude. Merge commands START with `gh pr merge`. No stacking.
 - Open (backlog): app 3MF fails in desktop Orca (fix untested), printer/user-only checks, pen input, plate switcher pick.
 
 ## User decisions (2026-10-13)
