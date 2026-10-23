@@ -1,6 +1,7 @@
 package app.orcaandroid.core
 
 import java.nio.FloatBuffer
+import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.floor
 
@@ -15,7 +16,8 @@ import kotlin.math.floor
  *
  * Approximations (an estimate, not the slicer's segmentation): uniform layer height (no variable layer profile, no
  * per-range extruder), and an object's base filament counts on every layer of its height, since unpainted interior
- * prints with it even under a fully painted surface.
+ * prints with it even under a fully painted surface — except a copy's top / bottom layer when the flat face there
+ * is painted over its whole area (see [forPlate]).
  */
 object PaintLayers {
 
@@ -25,8 +27,12 @@ object PaintLayers {
     /** |normal z| above this = a top / bottom face that gets the paint depth; below = a side wall. */
     const val FLAT_NZ = 0.05f
 
-    /** One filament (0-based) printed somewhere between [zMin] and [zMax] (world mm). */
-    data class Span(val filament: Int, val zMin: Float, val zMax: Float)
+    /**
+     * One filament (0-based) printed somewhere between [zMin] and [zMax] (world mm). [areaXY] is the source
+     * triangle's XY-projected area (mm2), 0 for spans built by hand or synthesized in [forPlate]; [forPlate]
+     * uses it to tell a fully painted flat face from a partially painted one.
+     */
+    data class Span(val filament: Int, val zMin: Float, val zMax: Float, val areaXY: Double = 0.0)
 
     /**
      * Colour-painted triangles as spans, for the copies [keep] accepts (object index, instance index). [adjust] may
@@ -50,7 +56,11 @@ object PaintLayers {
             val z0 = paint.get(base + 2)
             val z1 = paint.get(base + 10)
             val z2 = paint.get(base + 18)
-            val span = Span(filament, minOf(z0, z1, z2), maxOf(z0, z1, z2))
+            val areaXY = abs(
+                (paint.get(base + 8) - paint.get(base + 0)) * (paint.get(base + 17) - paint.get(base + 1)) -
+                    (paint.get(base + 16) - paint.get(base + 0)) * (paint.get(base + 9) - paint.get(base + 1)),
+            ) / 2.0
+            val span = Span(filament, minOf(z0, z1, z2), maxOf(z0, z1, z2), areaXY)
             out += adjust?.invoke(obj, instance, paint.get(base + 5), span) ?: span
         }
         return out
@@ -74,8 +84,10 @@ object PaintLayers {
     /**
      * Bins [spans] into layers: `result[i]` = the distinct filaments on layer i, sorted. Layer 0 is [firstLayer] high,
      * every later layer [layerHeight]; the count reaches the highest span. A span is on every layer whose mid height
-     * (the slicer's cut plane) it contains; a span crossing no mid (a flat top, a sliver) goes on the layer holding
-     * its middle.
+     * (the slicer's cut plane) it contains, endpoints included, as in the slicer's facet projection
+     * (`MultiMaterialSegmentation.cpp:2119-2123`); a span crossing no mid (a flat top, a sliver) goes on the layer
+     * holding its middle. The edge formulas carry the same 1e-4-of-a-layer epsilon [layerOf] has: without it,
+     * Float rounding puts an edge that lands exactly on a mid (z = 1.3 or 1.5 at 0.2 mm layers) a layer off.
      */
     fun layers(spans: List<Span>, firstLayer: Float, layerHeight: Float): List<List<Int>> {
         if (spans.isEmpty() || firstLayer <= 0f || layerHeight <= 0f) return emptyList()
@@ -83,11 +95,11 @@ object PaintLayers {
         val count = layerOf(spans.maxOf { it.zMax }) + 1
         val sets = List(count) { sortedSetOf<Int>() }
         for (s in spans) {
-            val lo = if (s.zMin <= firstLayer / 2) 0 else maxOf(1, ceil((s.zMin - firstLayer) / layerHeight + 0.5f).toInt())
+            val lo = if (s.zMin <= firstLayer / 2) 0 else maxOf(1, ceil((s.zMin - firstLayer) / layerHeight + 0.5f - 1e-4f).toInt())
             val hi = when {
                 s.zMax < firstLayer / 2 -> -1
                 s.zMax < firstLayer + layerHeight / 2 -> 0
-                else -> floor((s.zMax - firstLayer) / layerHeight + 0.5f).toInt()
+                else -> floor((s.zMax - firstLayer) / layerHeight + 0.5f + 1e-4f).toInt()
             }.coerceAtMost(count - 1)
             if (lo <= hi) for (i in lo..hi) sets[i] += s.filament
             else sets[layerOf((s.zMin + s.zMax) / 2).coerceIn(0, count - 1)] += s.filament
@@ -104,16 +116,31 @@ object PaintLayers {
      * down that many up, within the copy's height, as the slicer's segmentation does (r367 WSA G-code: "Top 8 layers"
      * on a cube's top face put the colour on its top 8 layers). [topShells] / [bottomShells] are the process's shell
      * layers; 0 adds no depth. Side faces keep their own height.
+     *
+     * End layers: the slicer appends a flat top / bottom face's projection un-inset to its own layer and only
+     * insets the projections it sends to the layers below / above (`MultiMaterialSegmentation.cpp:1439-1445`,
+     * `:1459-1465`), so a face that is painted over its whole area takes its layer alone: the base filament has
+     * no region left there (a layer's filaments are collected from the regions that actually extrude,
+     * `ToolOrdering.cpp:767`). A copy whose flat face at its very top / bottom is painted over at least 99 % of
+     * its XY bounding-box area therefore loses the base filament on that one layer; a partially painted face
+     * keeps it. Coverage is the painted triangles' XY area ([Span.areaXY]) against the copy's bounding box,
+     * which is exact for a rectangular face and conservative (no trim) for a round or rotated one.
      */
     fun forPlate(
         paint: FloatBuffer, objects: List<SceneObject>, plate: Int, firstLayer: Float, layerHeight: Float,
         topShells: Int = 0, bottomShells: Int = 0,
     ): List<List<Int>> {
+        val topArea = HashMap<Pair<Int, Int>, Double>()
+        val bottomArea = HashMap<Pair<Int, Int>, Double>()
         val deepen = { o: Int, i: Int, nz: Float, s: Span ->
             val obj = objects[o]
             val inst = obj.instances[i]
             val bottom = inst.min.z
             val top = bottom + inst.size.z
+            if (abs(s.zMax - s.zMin) <= 0.01f) {
+                if (nz > FLAT_NZ && abs(s.zMax - top) <= 0.01f) topArea[o to i] = (topArea[o to i] ?: 0.0) + s.areaXY
+                if (nz < -FLAT_NZ && abs(s.zMin - bottom) <= 0.01f) bottomArea[o to i] = (bottomArea[o to i] ?: 0.0) + s.areaXY
+            }
             fun reach(layers: Int) = if (layers == Int.MAX_VALUE) top - bottom else layers * layerHeight
             when {
                 nz > FLAT_NZ -> s.copy(zMin = maxOf(bottom, s.zMin - reach(depthLayers(obj.settings, true, topShells))))
@@ -122,9 +149,37 @@ object PaintLayers {
             }
         }
         val spans = spans(paint, deepen) { o, i -> objects.getOrNull(o)?.instances?.getOrNull(i)?.plate == plate }.toMutableList()
-        for (o in objects) {
-            val base = ((o.settings["extruder"]?.toIntOrNull() ?: 1) - 1).coerceAtLeast(0)
-            for (inst in o.instances) if (inst.plate == plate) spans += Span(base, inst.min.z, inst.min.z + inst.size.z)
+        // The first / last layer whose mid a base span over [zMin, zMax] contains, and that layer's mid: the same
+        // binning `layers` applies, used here to trim a base span by whole layers.
+        fun firstContained(zMin: Float) = if (zMin <= firstLayer / 2) 0 else maxOf(1, ceil((zMin - firstLayer) / layerHeight + 0.5f - 1e-4f).toInt())
+        fun lastContained(zMax: Float) = when {
+            zMax < firstLayer / 2 -> -1
+            zMax < firstLayer + layerHeight / 2 -> 0
+            else -> floor((zMax - firstLayer) / layerHeight + 0.5f + 1e-4f).toInt()
+        }
+        fun mid(layer: Int) = if (layer == 0) firstLayer / 2 else firstLayer + (layer - 0.5f) * layerHeight
+        for (o in objects.indices) {
+            val obj = objects[o]
+            val base = ((obj.settings["extruder"]?.toIntOrNull() ?: 1) - 1).coerceAtLeast(0)
+            for ((i, inst) in obj.instances.withIndex()) {
+                if (inst.plate != plate) continue
+                val zMin = inst.min.z
+                val zMax = zMin + inst.size.z
+                val bboxArea = inst.size.x.toDouble() * inst.size.y.toDouble()
+                val topFull = bboxArea > 0 && (topArea[o to i] ?: 0.0) >= 0.99 * bboxArea
+                val bottomFull = bboxArea > 0 && (bottomArea[o to i] ?: 0.0) >= 0.99 * bboxArea
+                val lo0 = firstContained(zMin)
+                val hi0 = lastContained(zMax)
+                when {
+                    lo0 > hi0 -> spans += Span(base, zMin, zMax) // crosses no mid: leave the fallback in `layers` alone
+                    else -> {
+                        val lo = lo0 + if (bottomFull) 1 else 0
+                        val hi = hi0 - if (topFull) 1 else 0
+                        if (lo <= hi) spans += if (lo == lo0 && hi == hi0) Span(base, zMin, zMax) else Span(base, mid(lo), mid(hi))
+                        // lo > hi: the fully painted end face(s) take every layer the base had; no base span.
+                    }
+                }
+            }
         }
         return layers(spans, firstLayer, layerHeight)
     }
