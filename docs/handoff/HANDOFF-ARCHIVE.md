@@ -2767,3 +2767,19 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 - Untested: paint kept on a moved piece, modifiers kept, the code-detach path, an object reloaded from 3MF, first edit
   after a restart (keepCenter: when it moves a shape, the rest shifts by half the bbox change), per-piece render time on
   big designs (the first render now runs the preview AND each piece).
+
+### 2026-10-23 Build workspace step 4a done (Claude, ab3be2b, r380 = run 39999918817)
+- Eye toggle on a shape design placed as pieces = Build workspace in the main view (`UiState.buildObject`, ScadController.kt):
+  `ScadController.showBuild` (collected in AppViewModel) calls `Engine.setBuildObject`; renderer `buildSolo` -> shader uSolo 2
+  draws only ids <= -1000 (paint overlay emits the same per-volume ids, OrcaTools.cpp); tap -> `ShapeController.tapAt`
+  (native `pick` gained `object` = only that object); drag start -> `grabAt` (hit shape selected?), drop -> `moveOnPlate`
+  (plate delta through the grabbed copy's R^T, 1/scale, mirror); every builder edit -> `pushBuild` (render pieces, no
+  whole-design preview; queued via renderAgain); plate tools + object gizmos off; camera fits the object, plate camera
+  restored after (shared `shopCamera`); leaving runs `preview()` so the pane catches up.
+- VERIFIED r380 (Claude, WSA, MCP + adb taps): only the design object drawn (hole translucent, hint line); tap peg ->
+  selected #3, tap base -> #1; drag pegs moved them in the design and on the plate (depth 35.5 -> 30); second drag moved
+  only the pegs (object centre/size unchanged); eye-off -> preview pane shows the moved pegs; closing the editor restored
+  the plate camera (936 mm vs 111 mm in Build). No crash.
+- Seen: the FIRST edit after an app restart shifted the base 2.75 mm (keepCenter, object centre kept at Y 130.75 while
+  depth changed) - the step 3 caveat, now confirmed; backlog. Untested: painted pieces in Build, multi-copy objects,
+  turned/mirrored instance drags.

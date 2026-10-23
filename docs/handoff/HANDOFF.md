@@ -18,8 +18,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   main: Check mesh feel, cut Flip paint fix, 3MF export in desktop Orca, pie menu (lab), pen 7d3a263, fan hold 298ee9f, Extrude
   F150 e13bebb, Quest stick zoom (r324). Unmerged on the branch: paint shop 1a-1e-ii + paint depth r367 (user feel untested).
 - Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
-- Latest build r379 (run 39986511959, a978808, shape designs as pieces): WSA, SHIELD (2026-10-23). Phone r376, Chromebook r374 (offline).
-  Unbuilt on the branch: `placedThisSession` guard (ScadController, compiled locally).
+- Latest build r380 (run 39999918817, ab3be2b, Build view step 4a; includes the `placedThisSession` guard): WSA, SHIELD
+  (2026-10-23). Phone r376, Chromebook r374 (offline).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
@@ -29,8 +29,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 ## Next task
 - **User 2026-10-21: one small step per session.** Cue `/clear` + `/next` after EACH step.
 - **User 2026-10-21: design deviations pre-approved** ("deviate if you find a more logical, intuitive way; I trust your judgement"); say what changed.
-- Paint plan (user ACCEPTED 2026-10-21): steps (1)-(2) done, user feel untested (backlog "Paint panel UI", "Paint penetration").
-  Step (3) waste counter done (r373), plan complete. User feel untested.
+- Paint plan complete (r373); user feel untested (backlog "Paint panel UI", "Paint penetration").
 - Muse (2026-10-22): tasks in `MUSE-TASKS.md` on `muse/work` (edit via a `claude/*` PR, self-merge), then `TASK <n> READY`
   on #46; Muse answers with one draft PR per task. Claude verifies, merges into muse/work, cherry-picks code onto the work
   branch. Task 1 finding 4: fix the patch comment when regenerating 0001. **Each session start, run exactly:**
@@ -40,10 +39,11 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   **Muse KEPT (user, 2026-10-23)** for audits + larger JVM-testable Kotlin only (Claude compiles each PR locally before
   merging), no native/patch work, no small fixes. Log Claude's effort per task in the archive; if a task costs more than
   doing it directly, tell the user plainly and stop. Merge commands START with `gh pr merge`. No stacking.
-- Build workspace: steps 1-3 done 2026-10-23 (step 3 = shape designs as one volume per piece, verified r379 on WSA by
-  Claude; untested list in archive "step 3 done").
-- Next step: Build workspace step 4 UI (Build = isolated focus on the design object in the main view, docked builder panel, tap -> volume -> shape, gizmos on volume ids) -> Opus 5.5 (high). Bugs after.
+- Build workspace: steps 1-3 + 4a done 2026-10-23 (4a ab3be2b = eye toggle on a placed shape design opens the Build view
+  in the main view: solo, tap pick, drag move; verified r380 WSA; archive "step 4a done"). 4b = resize/turn gizmos on
+  the selected shapes (PlateView selectedBounds = object box today; needs their world boxes); 4c = Build as default.
 - Open (backlog): app 3MF fails in desktop Orca (fix untested), printer/user-only checks, pen input, plate switcher pick.
+- Next step: Build workspace step 4b (resize/turn gizmos on the selected shapes in the Build view) -> Opus 5.5 (high).
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
