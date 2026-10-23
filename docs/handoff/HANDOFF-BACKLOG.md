@@ -39,7 +39,7 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 ## Waiting on the user
 - Plate switcher pick (lab stays; don't ask again). Launcher icon colour ("decide later"). REA MCP enable (installed, not enabled).
 - Edge outline in Prepare (crease lines, View toggle; regions view already has crease_lines()): waiting on GO (2026-10-20).
-- [Opus] Build workspace (user GO 2026-10-23): steps 1-3 + 4a done (4a = Build view via eye toggle: solo, tap pick, drag move; Claude-verified r380 WSA 2026-10-23); NEXT 4b resize/turn gizmos on the selected volumes, 4c Build as default for shape designs. Open: first edit after a restart shifts the other shapes by half the bbox change (keepCenter, seen r380). Archive "step 4a done".
+- [Opus] Build workspace (user GO 2026-10-23): steps 1-3, 4a, 4b done (4b = resize handles + turn rings on the selected shapes, always on; Claude-verified r381 WSA 2026-10-23, user feel untested); NEXT 4c Build as default for shape designs. Open: first edit after a restart shifts the other shapes by half the bbox change (keepCenter, seen r380). Archive "step 4b done".
 
 ## Ideas (not started)
 - Floating Theme | Layout designer (~half a day; ask first). Study Bambu Handy's MakerWorld integration.

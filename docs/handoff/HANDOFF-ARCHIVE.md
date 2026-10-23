@@ -2783,3 +2783,20 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 - Seen: the FIRST edit after an app restart shifted the base 2.75 mm (keepCenter, object centre kept at Y 130.75 while
   depth changed) - the step 3 caveat, now confirmed; backlog. Untested: painted pieces in Build, multi-copy objects,
   turned/mirrored instance drags.
+
+### 2026-10-23 Build workspace step 4b done (Claude, 76c0199, r381 = run 40005487653)
+- Build view: the selected top-level shapes get the main view's scale handles and rotate rings, always on (no mode toggle,
+  Tinkercad-like; deviation from the object gizmos' Resize/Rotate modes), on the selected volumes' mesh box
+  (`PlateRenderer.selectionBounds`, `PlateView.gizmoOnMesh/gizmoBox`). Shown only while the object has one copy; groups get
+  rings only. X/Y/Z face handles when the copy and the shapes lie along the axes (`BuildTransform.axesFree`), corners only otherwise.
+- `scad/BuildTransform.kt`: plate pivot -> design frame (`toDesign`), plate turn -> design turn (mirror R^T M R mirror;
+  copy scale taken as even), plate factors -> design axes; `turned` (pos re-centred so the shape's middle turns about the
+  pivot, rot = angles(M R), repeat step / circular centre turned) and `scaled` (size along the shape's own axes, middle
+  scaled about the pivot, repeat step / centre scaled). `ShapeController.resizeOnPlate/turnOnPlate` commit one undo step,
+  setting only changed fields (bound dims follow). 7 JVM tests (plate corners after = gizmo transform of corners before;
+  turned/mirrored copies and shapes, repeats, groups); 164/164.
+- VERIFIED r381 (Claude, WSA, adb drags + draft.json): Peg x3 Z ring -82.9 deg -> step (12,0) -> (1.481,-11.908), row centre
+  (-2.916, 6.901) kept; Base X face handle 40 -> 52.396 mm about the box centre (pos 0 kept, = the object gizmo's centre
+  pivot; the old preview handle kept the min side); turned Pegs show corners only, corner drag x1.670 on size and step,
+  row centre and bottom z 10 kept. Untested: circular repeat turned about X/Y (copies still circle about Z), copy with uneven
+  scale (turn approximated), live-scale wait on slow piece renders (8 s cap), user feel (always-on rings + handles clutter?).
