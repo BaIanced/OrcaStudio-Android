@@ -7,18 +7,16 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   up front; grep them when a question needs them (e.g. `grep -n "AMS mapping" HANDOFF-ARCHIVE.md`).
 
 ## Rolling handoff rules (user, 2026-10-12; full text in the /next skill)
-- Under ~8 KB (`wc -c`); verified -> end of `HANDOFF-ARCHIVE.md` (dated) + one line here; pending -> `HANDOFF-BACKLOG.md`.
-- Cue "`/clear` then `/next`" only above ~50-80k tokens; "`/next-merge`" when verified work awaits (main merges only on "merge").
-- Log user verdicts first. User-only items: grep the archive; if the verdict predates the latest build, ask one line first.
+- Under ~8 KB; verified -> archive (dated) + one line here; pending -> backlog. Log user verdicts first; ask before user-only retests.
 
 ## State
 - One repo: OrcaStudio-Android (code + these docs, `docs/handoff/`), branch `claude/handoff-continuation-rseql3`. Autonomy (user, 2026-10-11): decide branches and next steps
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = cb11452 (PR #36, branch up to c026d15 = cut batch, merged 2026-10-22; main APK run 39735501711). Untested in
   main: Check mesh feel, cut Flip paint fix, 3MF export in desktop Orca, pie menu (lab), pen 7d3a263, fan hold 298ee9f, Extrude
-  F150 e13bebb, Quest stick zoom (r324). Unmerged on the branch: paint shop 1a-1e-ii + paint depth r367 (user feel untested).
+  F150 e13bebb, Quest stick zoom (r324). Unmerged on the branch: paint shop + paint depth r367, Build workspace 1-4c (user feel untested).
 - Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
-- Latest build r381 (run 40005487653, 76c0199, Build view step 4b): WSA, SHIELD (2026-10-23). Phone r376, Chromebook r374 (offline).
+- Latest build r382 (run 40014825223, 8b35eab, Build step 4c): WSA, SHIELD (2026-10-23). Phone r376, Chromebook r374 (offline).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
@@ -38,11 +36,11 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   **Muse KEPT (user, 2026-10-23)** for audits + larger JVM-testable Kotlin only (Claude compiles each PR locally before
   merging), no native/patch work, no small fixes. Log Claude's effort per task in the archive; if a task costs more than
   doing it directly, tell the user plainly and stop. Merge commands START with `gh pr merge`. No stacking.
-- Build workspace: steps 1-3, 4a, 4b done 2026-10-23 (4b 76c0199 = scale handles + turn rings always on the selected
-  shapes in the Build view, mapped into pos/rot/size via `scad/BuildTransform.kt`; verified r381 WSA; archive "step 4b
-  done"). 4c = Build as default for shape designs (opening a placed shape design goes straight to the Build view).
+- Build workspace: steps 1-3, 4a-4c done 2026-10-23 (4c 8b35eab = Edit design on a placed shape design opens straight
+  in the Build view; verified r382 WSA; archive "step 4c done"). Next: keepCenter shift on the first edit after a restart
+  (backlog "Build workspace"), then step 5 (design pose vs print pose, archive "Build workspace plan").
 - Open (backlog): app 3MF fails in desktop Orca (fix untested), printer/user-only checks, pen input, plate switcher pick.
-- Next step: Build workspace step 4c (Build view as the default for placed shape designs) -> Opus 5.5 (medium).
+- Next step: Build workspace keepCenter shift after a restart -> Opus 5.5 (medium).
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).

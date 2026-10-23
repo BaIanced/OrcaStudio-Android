@@ -2800,3 +2800,11 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
   pivot; the old preview handle kept the min side); turned Pegs show corners only, corner drag x1.670 on size and step,
   row centre and bottom z 10 kept. Untested: circular repeat turned about X/Y (copies still circle about Z), copy with uneven
   scale (turn approximated), live-scale wait on slow piece renders (8 s cap), user feel (always-on rings + handles clutter?).
+
+### 2026-10-23 Build workspace step 4c done (Claude, 8b35eab, r382 = run 40014825223)
+- `ScadController.buildIfPlaced` (called from `open` and `load` instead of `preview()`): a shape design whose `onPlate`
+  object is a pieces object with the SAME shapes opens with the eye toggle on (Build view; the pane renders on leaving).
+  A draft with edits not yet on the object opens in the pane as before, so opening never pushes to the object.
+- VERIFIED r382 (Claude, WSA, MCP + ui dump): long-press "Pieces test" > Edit OpenSCAD design -> Build view at once (camera
+  130 mm on the object, hint line, builder panel); tap picked Base; Back -> preview pane, plate camera back (936 mm).
+  Installed WSA + SHIELD. Untested: reopening the saved draft (open()) into Build, user feel.
