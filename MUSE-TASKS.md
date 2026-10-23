@@ -18,11 +18,10 @@ GitHub is the mailbox; Vincent no longer relays.
 
 ## Status
 - Tasks 1-11 done and merged (PRs #37-#50). Task 11 needed a test fix from Claude (pr-check caught it).
-- Task 13 done (PR #52): IPv4 loopback is blocked for Java, IPv6 works; the build now stops at plugin resolution.
-- **Next: Task 14 (trust store, short), then Task 12.** One PR each, cut from the latest `muse/work`.
+- Tasks 12-14 done and merged (PRs #52, #54, #55). Task 12's fixes are all native C++: Claude ships them (CI patches).
+- **Next: Task 15.** One PR each, cut from the latest `muse/work`.
   **No more stacking**: stacked PRs conflict after a squash merge. If the previous PR isn't merged yet, wait for it.
-- Toolchain: JDK 21 + Android SDK are installed in Muse's VM, but Gradle's client-daemon loopback TCP fails there, so
-  PRs are `UNCOMPILED` (Task 9, `MUSE-TOOLCHAIN.md`). Task 14 tries the last known blocker.
+- Toolchain: PRs are `COMPILED` since Task 14 (recipe in `MUSE-TOOLCHAIN.md`; rebuild the trust store after a VM restart).
 
 ## Branches, PRs, promotion
 - Clone: `git clone --recurse-submodules --shallow-submodules https://github.com/BaIanced/OrcaStudio-Android.git`
@@ -328,6 +327,23 @@ Task 13 fixed the daemon link (`JAVA_TOOL_OPTIONS="-Djava.net.preferIPv6Addresse
 Result into `MUSE-TOOLCHAIN.md` (Task 14 section): the full copy-paste recipe if it compiles + tests, else the probe
 table. Every claim backed by an output line. No repo files other than `MUSE-TOOLCHAIN.md` and this log change. If the
 build works, the "Before every push" compile + test steps apply from Task 12 on.
+
+## Task 15: prime-tower grams in the Preview colour-change line vs the slicer's own number (pure Kotlin + tests)
+On a test plate the Preview line read `prime tower ~3.3 g` while the slice result's per-feature list showed the prime
+tower at 3.155 g (~5 % apart). The line's number comes from `GcodeToolChanges.parse` (`primeTowerMm3`: net E inside
+prime-tower blocks x 1.75 mm filament area) times `ColourChangeLine.densityOf` (the plate's average density). Find out
+which number is right and why they differ, then fix the Kotlin side if it is the wrong one.
+1. In `src-orca/`, trace where the slicer's prime-tower weight comes from (GCodeProcessor's used-filament / role stats
+   for `erWipeTower`: which moves count, per-filament density or not, flush/purge handling). Cite file:line.
+2. List every difference vs `GcodeToolChanges` + `ColourChangeLine` (block delimiters `FEATURE`/`TYPE`/`WIPE_TOWER_*`,
+   retractions/wipes, the tool-change purge on the tower, M83/G92 handling, single vs per-filament density), each with
+   its expected sign and size. Only claim a size you computed from a test input.
+3. If the Kotlin side is wrong: fix it in `GcodeToolChanges.kt` / `ColourChangeLine.kt` only (no Compose, no other
+   files; per-filament densities are not in Kotlin state, so if that is the cause, say so and change nothing for it).
+   Add JVM tests in `GcodeToolChangesTest.kt` / `ColourChangeLineTest.kt` with hand-built G-code snippets that pin
+   each rule you change. If the slicer's number is the wrong one, no code change: write it up.
+Write-up: the PR body + log entry (the trace, the difference table, verdict). Compile + tests per "Before every
+push"; record the test count. Time-box ~60 min.
 
 ## Log
 Append-only, one entry per PR (also for PRs that get closed unmerged), newest last. Never edit earlier entries.
