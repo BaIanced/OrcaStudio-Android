@@ -101,6 +101,26 @@ const std::unordered_map<std::string, Handler> &handlers()
                                  a.contains("position") ? vec3(a["position"]) : vec3(json()));
          }},
         {"deleteVolume", [](OrcaEngine &e, const json &a) { return e.delete_volume(a.at("object"), a.at("volume")); }},
+        {"setVolumes", [](OrcaEngine &e, const json &a) {
+             std::vector<OrcaEngine::VolumeSpec> specs;
+             for (const json &v : a.at("volumes")) {
+                 OrcaEngine::VolumeSpec s;
+                 s.stl  = v.value("stl", std::string());
+                 s.keep = v.value("keep", -1);
+                 s.type = v.value("type", 0);
+                 s.name = v.value("name", std::string());
+                 const json &m = v.at("matrix");
+                 if (m.size() != 16)
+                     throw std::runtime_error("matrix needs 16 numbers");
+                 for (size_t i = 0; i < 16; ++i)
+                     s.matrix[i] = m.at(i).get<double>();
+                 if (s.keep < 0 && s.stl.empty())
+                     throw std::runtime_error("volume needs stl or keep");
+                 specs.push_back(std::move(s));
+             }
+             return e.set_volumes(a.at("object"), specs, a.value("keepCenter", false));
+         }},
+        {"setBuildObject", [](OrcaEngine &e, const json &a) { return e.set_build_object(a.at("object")); }},
         {"setObjectSetting", [](OrcaEngine &e, const json &a) {
              return e.set_object_setting(object_list(a), a.value("volume", -1), a.at("key"), a.contains("value") ? a["value"] : json());
          }},

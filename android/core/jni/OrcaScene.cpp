@@ -13,6 +13,7 @@
 #include <cmath>
 #include <cstdio>
 #include <fstream>
+#include <map>
 #include <set>
 #include <stdexcept>
 
@@ -470,13 +471,16 @@ void OrcaEngine::write_mesh()
     for (size_t oi = 0; oi < m_model->objects.size(); ++oi) {
         const ModelObject *obj = m_model->objects[oi];
         for (size_t ii = 0; ii < obj->instances.size(); ++ii)
-            for (const ModelVolume *vol : obj->volumes) {
+            for (size_t vi = 0; vi < obj->volumes.size(); ++vi) {
+                const ModelVolume *vol = obj->volumes[vi];
                 TriangleMesh mesh = vol->mesh();
                 // Mirrored copies keep their triangles facing out (the section view draws back faces as cut faces).
                 mesh.transform(obj->instances[ii]->get_matrix() * vol->get_matrix(), true);
                 // Parts are drawn in their filament's colour: type 100 + 0-based filament.
                 const int type = vol->is_model_part() ? 100 + filament_of(*obj, *vol) : volume_type_code(vol->type());
-                emit(mesh, float(oi * INSTANCE_ID_STRIDE + ii), float(type));
+                // The Build workspace's object: one id per volume (its copies share them), see set_build_object().
+                const float id = int(oi) == m_build_object ? -1000.f - float(vi) : float(oi * INSTANCE_ID_STRIDE + ii);
+                emit(mesh, id, float(type));
             }
     }
 
@@ -1159,6 +1163,98 @@ json OrcaEngine::replace_mesh(int object, const std::string &path, const std::st
     obj.invalidate_bounding_box();
     if (!sinking)
         drop_to_bed(obj);
+    return commit();
+}
+
+json OrcaEngine::set_volumes(int object, const std::vector<VolumeSpec> &specs, bool keep_center)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    ModelObject &obj = object_at(object);
+    // Everything is loaded and checked before the object changes, so a bad entry leaves it as it was.
+    std::map<std::string, TriangleMesh> loaded;
+    std::vector<const VolumeSpec *> used;
+    bool has_part = false;
+    for (const VolumeSpec &s : specs) {
+        const ModelVolumeType vtype = volume_type_from_code(s.type);
+        if (s.keep >= int(obj.volumes.size()))
+            throw std::runtime_error("Invalid volume");
+        if (s.keep < 0 && !loaded.count(s.stl)) {
+            TriangleMesh mesh;
+            // OpenSCAD writes no file (or an empty one) for an empty shape, e.g. blank text.
+            if (std::ifstream probe(s.stl, std::ios::binary | std::ios::ate); probe && probe.tellg() > 0) {
+                Model m = Model::read_from_file(s.stl, nullptr, nullptr, LoadStrategy::LoadModel);
+                // The loader centres the mesh into the volume offset: bake it back into the piece's own frame.
+                for (const ModelObject *o : m.objects)
+                    for (const ModelVolume *v : o->volumes) {
+                        TriangleMesh part = v->mesh();
+                        part.transform(v->get_matrix());
+                        mesh.merge(part);
+                    }
+            }
+            loaded.emplace(s.stl, std::move(mesh));
+        }
+        if ((s.keep >= 0 ? obj.volumes[s.keep]->mesh() : loaded.at(s.stl)).empty())
+            continue; // e.g. blank text
+        used.push_back(&s);
+        has_part |= vtype == ModelVolumeType::MODEL_PART;
+    }
+    if (!has_part)
+        throw std::runtime_error("The design has no solid shape");
+
+    push_undo();
+    const bool   sinking    = obj.min_z() < SINKING_Z_THRESHOLD;
+    const Vec3d  old_center = obj.instance_bounding_box(0).center();
+    const auto   first_part = std::find_if(obj.volumes.begin(), obj.volumes.end(), [](const ModelVolume *v) { return v->is_model_part(); });
+    // New pieces take the first part's settings (filament etc.), as replace_mesh does.
+    const DynamicPrintConfig part_config = first_part != obj.volumes.end() ? (*first_part)->config.get() : DynamicPrintConfig();
+    const size_t old_count = obj.volumes.size();
+    std::map<std::string, const ModelVolume *> shared; // repeats of one STL share its mesh
+    for (const VolumeSpec *s : used) {
+        const ModelVolumeType vtype = volume_type_from_code(s->type);
+        ModelVolume *vol;
+        if (s->keep >= 0) {
+            vol = obj.add_volume(*obj.volumes[s->keep], vtype);
+        } else if (auto it = shared.find(s->stl); it != shared.end()) {
+            vol = obj.add_volume_with_shared_mesh(*it->second, vtype);
+            vol->config.apply(part_config);
+        } else {
+            // Not centred: the piece's own frame stays the mesh frame, so `matrix` applies as given.
+            vol = obj.add_volume(TriangleMesh(loaded.at(s->stl)), vtype, false);
+            vol->config.apply(part_config);
+            shared.emplace(s->stl, vol);
+        }
+        vol->set_new_unique_id();
+        Transform3d m = Transform3d::Identity();
+        for (int r = 0; r < 4; ++r)
+            for (int c = 0; c < 4; ++c)
+                m(r, c) = s->matrix[size_t(r * 4 + c)];
+        vol->set_transformation(Geometry::Transformation(m));
+        if (!s->name.empty())
+            vol->name = s->name;
+    }
+    // Not ModelObject::delete_volume: with one volume left it folds the volume matrix into the instances, and
+    // the volume matrices must stay the design pose (the instance is the print pose).
+    for (size_t i = 0; i < old_count; ++i)
+        delete obj.volumes[i];
+    obj.volumes.erase(obj.volumes.begin(), obj.volumes.begin() + ptrdiff_t(old_count));
+    obj.invalidate_bounding_box();
+    if (keep_center) {
+        const Vec3d shift = old_center - obj.instance_bounding_box(0).center();
+        for (ModelInstance *inst : obj.instances)
+            inst->set_offset(inst->get_offset() + Vec3d(shift.x(), shift.y(), 0.));
+        obj.invalidate_bounding_box();
+    }
+    if (!sinking)
+        drop_to_bed(obj);
+    return commit();
+}
+
+json OrcaEngine::set_build_object(int object)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (object >= 0)
+        object_at(object);
+    m_build_object = object;
     return commit();
 }
 

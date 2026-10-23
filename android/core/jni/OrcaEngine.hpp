@@ -138,6 +138,17 @@ public:
     json add_volume(int object, int type, const std::string &shape, const std::array<double, 3> &size,
                     const std::array<double, 3> &position);
     json delete_volume(int object, int volume);
+    // One entry of set_volumes: the mesh comes from `stl` (piece-local frame, not centred) or is an
+    // existing volume `keep` (its mesh, settings and painting stay); `matrix` maps it into the object.
+    // `keep` assumes a mesh set_volumes made this session (a 3MF reload may re-centre volume meshes).
+    struct VolumeSpec { std::string stl; int keep = -1; int type = 0; std::array<double, 16> matrix{}; std::string name; };
+    // Replaces all the object's volumes with `specs` in one undo step (Build workspace: one volume per
+    // shape). Instances keep their pose; with `keep_center`, they shift so the parts stay centred where
+    // they were. Empty meshes are skipped; at least one part must remain.
+    json set_volumes(int object, const std::vector<VolumeSpec> &specs, bool keep_center);
+    // The object the Build workspace edits, or -1: write_mesh gives its volumes the selection id
+    // -1000 - volume (instead of object * stride + instance), so the renderer can drag one shape.
+    json set_build_object(int object);
     // Per-object (volume < 0) or per-volume setting; a null value removes the override. With
     // several objects, the setting goes to each of them (volume must be < 0).
     json set_object_setting(const std::vector<int> &objects, int volume, const std::string &key, const json &value);
@@ -391,6 +402,7 @@ private:
     // Ray-cast acceleration per volume mesh, dropped whenever the scene changes (commit()).
     std::map<const void *, std::shared_ptr<Slic3r::AABBMesh>> m_aabb;
     int                                   m_mesh_version = 0;
+    int                                   m_build_object = -1; // see set_build_object()
     int                                   m_paint_version = 0;
     // The selector of the volume being painted stays live between paint calls while its annotation is unchanged:
     // deserializing it on every call grew slower with every painted triangle (user r316). Holds the mesh it points to.

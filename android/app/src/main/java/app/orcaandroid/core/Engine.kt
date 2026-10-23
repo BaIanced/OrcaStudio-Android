@@ -135,6 +135,18 @@ class Engine(private val cacheDir: File) {
     suspend fun addVolume(obj: Int, type: VolumeType, shape: String, size: Vec3) =
         parseScene(call("addVolume", args("object" to obj, "type" to type.code, "shape" to shape, "size" to size)))
     suspend fun deleteVolume(obj: Int, volume: Int) = parseScene(call("deleteVolume", args("object" to obj, "volume" to volume)))
+    /**
+     * Replaces all volumes of [obj] in one undo step (Build workspace, one volume per shape piece). Each entry takes its
+     * mesh from `stl` (piece frame, missing/empty file = skipped) or keeps volume `keep` (mesh + paint), placed by
+     * `matrix` (row-major 4x4 into the object frame). [keepCenter] shifts the copies so the parts stay centred in place.
+     */
+    suspend fun setVolumes(obj: Int, volumes: List<VolumeSpec>, keepCenter: Boolean = false) =
+        parseScene(call("setVolumes", args("object" to obj, "keepCenter" to keepCenter, "volumes" to volumes.map {
+            // No null "stl": the native side reads it as a string.
+            mapOf("keep" to it.keep, "type" to it.type.code, "matrix" to it.matrix, "name" to it.name) + (it.stl?.let { s -> mapOf("stl" to s) } ?: emptyMap())
+        })))
+    /** The object the Build workspace edits (-1 = none): the scene mesh then gives its volumes selection id -1000 - volume. */
+    suspend fun setBuildObject(obj: Int) = parseScene(call("setBuildObject", args("object" to obj)))
     suspend fun setObjectSetting(obj: Int, volume: Int, key: String, value: String?) =
         parseScene(call("setObjectSetting", args("object" to obj, "volume" to volume, "key" to key, "value" to value)))
     /** The same object setting on several objects, as one undo step. */
