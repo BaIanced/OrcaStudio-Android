@@ -131,17 +131,83 @@ class GcodeToolChangesTest {
     }
 
     @Test fun primeTowerRelativeEAndRetraction() {
-        // Relative E (M83): +2.5, a -0.8 retraction and +0.8 re-prime net to 2.5 mm,
-        // then +2.5 more: 5 mm in total = 12.0264 mm3.
+        // Relative E (M83): the X/Y moves extrude +2.5 and +2.5; the -0.8 retraction and
+        // +0.8 re-prime in between are E-only moves, which the processor never counts for
+        // a role (Retract / Unretract types), so the gross total is 5 mm = 12.0264 mm3.
         val r = parse("""
             M83
             ; FEATURE: Prime tower
-            G1 E2.5
+            G1 X10 Y10 E2.5
             G1 E-0.8
             G1 E0.8
-            G1 E2.5
+            G1 X20 Y20 E2.5
         """)
         assertEquals(12.0264, r.primeTowerMm3, 1e-3)
+    }
+
+    @Test fun primeTowerGrossXyExtrusionOnly() {
+        // The processor's rules on one block (absolute E, hand-computed both ways):
+        // X/Y extrusions +10 and +5 count; the -0.8 / +0.8 E-only retract pair and the
+        // +2 E-only prime do not; a -0.5 X/Y move is a Travel, not an Extrude; the +1
+        // X/Y move between WIPE_START / WIPE_END is typed Wipe and does not; the +2 arc
+        // counts (arcs are discretised into G1 segments). Gross counted: 10 + 5 + 2 =
+        // 17 mm = 40.8898 mm3. The old net-E rule gave 17.5 mm on the same input.
+        val r = parse("""
+            G92 E0
+            ; FEATURE: Prime tower
+            G1 X10 Y10 E10
+            G1 E9.2
+            G1 E10
+            G1 X20 Y10 E15
+            G1 X22 Y10 E14.5
+            G1 E16.5
+            ; WIPE_START
+            G1 X25 Y10 E17.5
+            ; WIPE_END
+            G2 X30 Y15 I2 J2 E19.5
+            ; FEATURE: Inner wall
+            G1 X40 Y10 E29.5
+        """)
+        assertEquals(40.8898, r.primeTowerMm3, 1e-3)
+    }
+
+    @Test fun primeTowerWipeTowerTagsDoNotDelimit() {
+        // WIPE_TOWER_START / END wrap the toolchange ram / load / wipe, but in the
+        // processor they only set a flag that feeds no role statistic, and no FEATURE
+        // tag inside the block sets the tower role: the +12 E-only load, the +8 X/Y
+        // wipe and the -6 retract inside the block count 0 toward the tower. Only the
+        // FEATURE block after it counts: E19 -> E24 = 5 mm = 12.0264 mm3. The old rule,
+        // which treated the tags as delimiters and netted E, gave 19 mm here.
+        val r = parse("""
+            T0
+            G92 E0
+            ; FEATURE: Inner wall
+            G1 X5 Y5 E5
+            ; WIPE_TOWER_START
+            G1 E17
+            G1 X60 Y60 E25
+            G1 E19
+            ; WIPE_TOWER_END
+            ; FEATURE: Prime tower
+            G1 X10 Y10 E24
+        """)
+        assertEquals(12.0264, r.primeTowerMm3, 1e-3)
+    }
+
+    @Test fun primeTowerArcMovesAndCuraSpelling() {
+        // Arc moves carry E like G1 does in the processor: G2 +5 and G3 +4 = 9 mm.
+        // The Cura TYPE spelling for the tower is PRIME-TOWER: the X/Y move after it
+        // adds 5 mm. Total 14 mm = 33.6739 mm3. The old parser ignored arcs and the
+        // PRIME-TOWER spelling, so it counted 0 on this input.
+        val r = parse("""
+            G92 E0
+            ; FEATURE: Prime tower
+            G2 X10 Y10 I5 J0 E5
+            G3 X20 Y10 I5 J0 E9
+            ; TYPE: PRIME-TOWER
+            G1 X25 Y10 E14
+        """)
+        assertEquals(33.6739, r.primeTowerMm3, 1e-3)
     }
 
     @Test fun primeTowerG92Reset() {
@@ -158,14 +224,14 @@ class GcodeToolChangesTest {
         assertEquals(19.2423, r.primeTowerMm3, 1e-3)
     }
 
-    @Test fun primeTowerWipeTowerTagsAndTypeSpelling() {
-        // The WIPE_TOWER tags and the non-BBL "; TYPE:" spelling delimit the same blocks:
+    @Test fun primeTowerTypeSpelling() {
+        // The non-BBL "; TYPE:" spelling delimits the same blocks as FEATURE:
         // 4 mm + 6 mm = 10 mm = 24.0528 mm3; the E20 move in between is outside both.
         val r = parse("""
             G92 E0
-            ; WIPE_TOWER_START
+            ; TYPE: Prime tower
             G1 X1 Y1 E4
-            ; WIPE_TOWER_END
+            ; TYPE: Inner wall
             G1 X2 Y2 E20
             ; TYPE: Prime tower
             G1 X3 Y3 E26
