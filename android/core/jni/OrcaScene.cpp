@@ -446,6 +446,22 @@ void OrcaEngine::arrange_plate(int plate, const std::vector<std::pair<ModelObjec
     }
 }
 
+// The object's parts in its own frame (the design pose before it is set on the bed).
+static BoundingBoxf3 design_box(const ModelObject &obj)
+{
+    BoundingBoxf3 box;
+    for (const ModelVolume *vol : obj.volumes)
+        if (vol->is_model_part())
+            box.merge(vol->mesh().transformed_bounding_box(vol->get_matrix()));
+    return box;
+}
+
+// The copy's matrix as drawn and picked: [design] = OrcaEngine::design_offset() (the Build workspace's object).
+static Transform3d shown_matrix(const ModelInstance &inst, const std::optional<std::array<double, 3>> &design)
+{
+    return design ? Transform3d(Eigen::Translation3d((*design)[0], (*design)[1], (*design)[2])) : inst.get_matrix();
+}
+
 void OrcaEngine::write_mesh()
 {
     // Written next to the target and renamed over it, so the app never reads a half-written file.
@@ -475,7 +491,7 @@ void OrcaEngine::write_mesh()
                 const ModelVolume *vol = obj->volumes[vi];
                 TriangleMesh mesh = vol->mesh();
                 // Mirrored copies keep their triangles facing out (the section view draws back faces as cut faces).
-                mesh.transform(shown_matrix(oi, ii) * vol->get_matrix(), true);
+                mesh.transform(shown_matrix(*obj->instances[ii], design_offset(oi, ii)) * vol->get_matrix(), true);
                 // Parts are drawn in their filament's colour: type 100 + 0-based filament.
                 const int type = vol->is_model_part() ? 100 + filament_of(*obj, *vol) : volume_type_code(vol->type());
                 // The Build workspace's object: one id per volume (its copies share them), see set_build_object().
@@ -511,16 +527,6 @@ void OrcaEngine::write_mesh()
     ++m_mesh_version;
 }
 
-// The object's parts in its own frame (the design pose before it is set on the bed).
-static BoundingBoxf3 design_box(const ModelObject &obj)
-{
-    BoundingBoxf3 box;
-    for (const ModelVolume *vol : obj.volumes)
-        if (vol->is_model_part())
-            box.merge(vol->mesh().transformed_bounding_box(vol->get_matrix()));
-    return box;
-}
-
 json OrcaEngine::scene_json()
 {
     const std::array<double, 4> rect = bed_rect();
@@ -544,7 +550,7 @@ json OrcaEngine::scene_json()
                                  {"size", vec_json(bb.size())},
                                  {"min", vec_json(bb.min)}});
             if (m_build_object >= 0 && size_t(m_build_object) < m_model->objects.size() && obj == m_model->objects[m_build_object]) {
-                const Transform3d   shown = shown_matrix(size_t(m_build_object), i);
+                const Transform3d   shown = shown_matrix(*inst, design_offset(size_t(m_build_object), i));
                 const BoundingBoxf3 parts = design_box(*obj);
                 const BoundingBoxf3 box   = parts.defined ? parts.transformed(shown) : bb;
                 instances.back()["design"] = {{"offset", vec_json(Vec3d(shown.translation()))},
@@ -1294,18 +1300,15 @@ json OrcaEngine::set_build_object(int object)
     return commit();
 }
 
-Transform3d OrcaEngine::shown_matrix(size_t object, size_t instance) const
+std::optional<std::array<double, 3>> OrcaEngine::design_offset(size_t object, size_t instance) const
 {
-    const ModelObject &obj = *m_model->objects[object];
-    const Transform3d  print = obj.instances[instance]->get_matrix();
     if (int(object) != m_build_object)
-        return print;
+        return std::nullopt;
     // Design pose: the print pose's turn, scale and mirror left out, bottom on the bed, at the copy's X/Y.
+    const ModelObject  &obj = *m_model->objects[object];
     const BoundingBoxf3 box = design_box(obj);
     const Vec3d         off = obj.instances[instance]->get_offset();
-    Transform3d         t   = Transform3d::Identity();
-    t.translate(Vec3d(off.x(), off.y(), box.defined ? -box.min.z() : off.z()));
-    return t;
+    return std::array<double, 3>{off.x(), off.y(), box.defined ? -box.min.z() : off.z()};
 }
 
 json OrcaEngine::set_object_module(int object, const std::string &module)

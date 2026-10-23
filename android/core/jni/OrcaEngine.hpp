@@ -408,8 +408,9 @@ private:
     std::map<const void *, std::shared_ptr<Slic3r::AABBMesh>> m_aabb;
     int                                   m_mesh_version = 0;
     int                                   m_build_object = -1; // see set_build_object()
-    // The copy's matrix as drawn and picked: the Build workspace's object shows its design pose (see set_build_object()).
-    Slic3r::Transform3d                   shown_matrix(size_t object, size_t instance) const;
+    // The Build workspace's object is drawn and picked in its design pose (see set_build_object()): a plain
+    // translation, given here per copy; nullopt = any other object (its copy's own matrix).
+    std::optional<std::array<double, 3>>  design_offset(size_t object, size_t instance) const;
     int                                   m_paint_version = 0;
     // The selector of the volume being painted stays live between paint calls while its annotation is unchanged:
     // deserializing it on every call grew slower with every painted triangle (user r316). Holds the mesh it points to.
