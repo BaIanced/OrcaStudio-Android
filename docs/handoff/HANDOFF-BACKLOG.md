@@ -39,7 +39,7 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 ## Waiting on the user
 - Plate switcher pick (lab stays; don't ask again). Launcher icon colour ("decide later"). REA MCP enable (installed, not enabled).
 - Edge outline in Prepare (crease lines, View toggle; regions view already has crease_lines()): waiting on GO (2026-10-20).
-- [Opus] Build workspace (user GO 2026-10-23): steps 1-3, 4a-4c done (4c = a placed shape design opens straight in Build; Claude-verified r382 WSA 2026-10-23, user feel of 4b/4c untested). NEXT: fix the first edit after a restart shifting the other shapes by half the bbox change (keepCenter, seen r380); then step 5 design pose vs print pose. Archive "step 4c done".
+- [Opus] Build workspace (user GO 2026-10-23): steps 1-3, 4a-4c done + restart shift fixed (Claude-verified r383 WSA 2026-10-23; user feel of 4b/4c untested). NEXT: step 5 design pose vs print pose (archive "Build workspace plan").
 
 ## Ideas (not started)
 - Floating Theme | Layout designer (~half a day; ask first). Study Bambu Handy's MakerWorld integration.

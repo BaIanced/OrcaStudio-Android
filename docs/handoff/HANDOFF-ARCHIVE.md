@@ -2808,3 +2808,14 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 - VERIFIED r382 (Claude, WSA, MCP + ui dump): long-press "Pieces test" > Edit OpenSCAD design -> Build view at once (camera
   130 mm on the object, hint line, builder panel); tap picked Base; Back -> preview pane, plate camera back (936 mm).
   Installed WSA + SHIELD. Untested: reopening the saved draft (open()) into Build, user feel.
+
+### 2026-10-23 Build workspace: first edit after a restart fixed (Claude, ca8f672, r383 = run 40020244113)
+- Cause: an object not placed this session gets `keepCenter` (its 3MF-loaded frame may differ), which kept the whole
+  bbox centre, so moving one shape shifted the rest by half the box change (seen r380).
+- Fix: `VolumeSpec.anchor` / native `VolumeSpec::anchor` = the old volume of a piece with unchanged code AND matrix
+  (`ScadController.anchors`, built on `matched`, which `kept` now also uses; no session guard). With keepCenter,
+  `set_volumes` shifts the copies so the anchors' placed box (first copy) keeps its centre; no anchors = whole-object
+  centre as before.
+- VERIFIED r383 (Claude, WSA, MCP): after an app restart, Peg x3 moved -5 mm Y + design_to_plate: centre Y 130.75 ->
+  128.25 and depth 36.29 -> 31.29 (= Base stayed put, predicted 128.25); moved back in the same session -> 130.75 / 36.29.
+  Installed WSA + SHIELD. Untested: all pieces changed at once after a restart (falls back to centring), multi-copy objects.

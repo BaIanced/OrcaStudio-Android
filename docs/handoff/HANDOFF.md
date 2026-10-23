@@ -16,7 +16,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   main: Check mesh feel, cut Flip paint fix, 3MF export in desktop Orca, pie menu (lab), pen 7d3a263, fan hold 298ee9f, Extrude
   F150 e13bebb, Quest stick zoom (r324). Unmerged on the branch: paint shop + paint depth r367, Build workspace 1-4c (user feel untested).
 - Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
-- Latest build r382 (run 40014825223, 8b35eab, Build step 4c): WSA, SHIELD (2026-10-23). Phone r376, Chromebook r374 (offline).
+- Latest build r383 (run 40020244113, ca8f672, Build restart shift fix): WSA, SHIELD (2026-10-23). Phone r376, Chromebook r374 (offline).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
@@ -36,11 +36,11 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   **Muse KEPT (user, 2026-10-23)** for audits + larger JVM-testable Kotlin only (Claude compiles each PR locally before
   merging), no native/patch work, no small fixes. Log Claude's effort per task in the archive; if a task costs more than
   doing it directly, tell the user plainly and stop. Merge commands START with `gh pr merge`. No stacking.
-- Build workspace: steps 1-3, 4a-4c done 2026-10-23 (4c 8b35eab = Edit design on a placed shape design opens straight
-  in the Build view; verified r382 WSA; archive "step 4c done"). Next: keepCenter shift on the first edit after a restart
-  (backlog "Build workspace"), then step 5 (design pose vs print pose, archive "Build workspace plan").
+- Build workspace: steps 1-3, 4a-4c done 2026-10-23; restart shift fixed ca8f672 (unchanged pieces anchor the design;
+  verified r383 WSA; archive "first edit after a restart fixed"). Next: step 5 (design pose vs print pose, archive
+  "Build workspace plan").
 - Open (backlog): app 3MF fails in desktop Orca (fix untested), printer/user-only checks, pen input, plate switcher pick.
-- Next step: Build workspace keepCenter shift after a restart -> Opus 5.5 (medium).
+- Next step: Build workspace step 5 design pose vs print pose -> Opus 5.5 (high).
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
