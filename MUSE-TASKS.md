@@ -687,3 +687,38 @@ outside the traced code, as the review states.
 Open questions: whether Claude wants fixes for the CONFIRMED items as one
 follow-up task or split by file (ObnBridge guard + installCert flag are
 the highest-value pair).
+
+### Task 14 - 2026-10-22 - muse/task-14-java-tls-trust-store - this commit
+Toolchain only, no repo code changed: `MUSE-TOOLCHAIN.md` gains the Task 14
+section; the full working recipe is there. Root cause found, one level
+deeper than "stale store": the egress proxy's CA (`Hatch Sandbox Egress
+CA`, the last of 121 certs in the bundle `curl` trusts) is regenerated on
+every VM instance restart, so the install-time trust store — which holds a
+same-subject CA from an earlier instance, different serial and key — fails
+leaf verification with exactly the observed `signature check failed`. The
+rotation was observed live during this task (the runtime restarted once;
+the CA serial changed and the bundle was rewritten). Rebuilt the store
+from the current bundle (121 certs imported, 0 failed; in-place rebuild of
+the toolchain store: JDK cacerts + 121 = 239 entries, its Hatch CA serial
+matches the proxy's current CA). Java HTTPS probe A/B: old store + IPv6
+flag → `PKIX … signature check failed` (exit 1); new store → HTTP 200 for
+the marker POM, Maven Central and the Plugin Portal (exit 0).
+Build: COMPILED — Config 1 (task prescription: `JAVA_TOOL_OPTIONS` with
+the IPv6 flag + fresh store, user-home `systemProp.*` pointed at it,
+`-Dorg.gradle.jvmargs` trust-store override, `--refresh-dependencies`):
+`BUILD SUCCESSFUL in 11m 5s`, compile exit 0, tests exit 0, **87 tests
+passed, 0 failures/errors/skipped** (12 classes, single Gradle invocation
+running both tasks). Config 2 (consolidation: store rebuilt in place,
+original env/user-home pointers restored, Task 13 recipe verbatim +
+`cleanTestDebugUnitTest`): `BUILD SUCCESSFUL in 33s`, 87/87 again. The
+Kotlin compile daemon and test workers ran, closing Task 13's loopback
+UNVERIFIEDs. From this PR on, PRs are `COMPILED` and the "Before every
+push" compile + test steps apply.
+Privacy self-scan: tree exit 0, range exit 0.
+UNVERIFIED: CA rotation triggers beyond VM instance restart are not ruled
+out (observed on two restarts in one day); a bundle-only store's coverage
+beyond the three probed repositories is inferred from the Config 1 build,
+and the documented recipe keeps the JDK cacerts base regardless.
+Open questions: none. (Sequencing note: Task 12 was directed ahead of
+this task by Vincent and is already merged, so the "do before Task 12"
+order in the task text is moot; nothing else in the queue was touched.)

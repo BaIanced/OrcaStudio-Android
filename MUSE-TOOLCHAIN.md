@@ -204,3 +204,110 @@ re-run Config B.
   `JAVA_TOOL_OPTIONS`), not observed. Test count: none; no test ran.
 - Whether the Kotlin compile daemon (a separate JVM, RMI over loopback) works
   under the recipe: the build never reached compilation.
+
+## Task 14 update (2026-10-22): the trust store was stale because the proxy CA rotates per VM instance — rebuild it and the build compiles and tests pass
+
+Task 13's suggested next step worked, and the probe A/B now captures the
+daemon's missing cause as well. Root cause, with evidence:
+
+- The bundle `curl` trusts is `/run/hatch/egress-tls/ca-bundle.pem`
+  (`CAfile:` in `curl -v`; also `SSL_CERT_FILE` / `CURL_CA_BUNDLE` /
+  `REQUESTS_CA_BUNDLE`; byte-identical to
+  `/etc/ssl/certs/ca-certificates.crt`). It holds 121 certs; the last one is
+  the egress proxy's own CA, `CN = Hatch Sandbox Egress CA, O = Hatch`
+  (self-signed).
+- Through the proxy (`openssl s_client -proxy <proxy> -connect
+  dl.google.com:443 -showcerts`), the proxy presents exactly 2 certs: a leaf
+  `CN = dl.google.com` issued by that CA, and the CA itself. The presented
+  CA is byte-identical to the bundle's last cert (this instance: serial
+  `2C712373…`, SHA-256 fingerprint `62:F2:33:85:…`).
+- The install-time `truststore.jks` *does* contain a `Hatch Sandbox Egress
+  CA` cert — with the same subject but a **different serial**
+  (`6879bf7b…`) and key. A leaf signed by the current CA therefore fails
+  verification against the old CA's public key, which is exactly the
+  observed error: `PKIX path validation failed:
+  java.security.cert.CertPathValidatorException: signature check failed`
+  (not "issuer unknown").
+- The CA is regenerated when the VM instance restarts: during this task
+  the runtime restarted once and the bundle was rewritten with a new CA
+  (previous instance: serial `13ECAAF3…`, fingerprint `35:55:40:4F:…`;
+  current: `2C712373…` / `62:F2:33:85:…`). **Any trust store built from the
+  bundle dies with its VM instance and must be rebuilt after a restart.**
+  That, not gradual staleness, is what invalidated the install-time store.
+
+### Java HTTPS probe (marker POM on `dl.google.com`, proxy props set)
+
+| Store | Result |
+| --- | --- |
+| install-time `truststore.jks`, no IPv6 flag | `SocketTimeoutException: Read timed out` (proxy reached over IPv4 — Task 13's blackhole again) |
+| install-time `truststore.jks` + `-Djava.net.preferIPv6Addresses=true` | `SSLHandshakeException: (bad_certificate) PKIX path validation failed: signature check failed`, exit 1 |
+| fresh store from the current bundle (121 certs imported, 0 failed) + IPv6 flag | `GET dl.google.com -> HTTP 200`, exit 0 — also HTTP 200 for `repo.maven.apache.org` and `plugins.gradle.org` |
+| `truststore.jks` rebuilt in place (JDK `cacerts` + the 121 bundle certs = 239 entries; its Hatch CA serial matches the current proxy CA) + IPv6 flag | `GET dl.google.com -> HTTP 200`, exit 0 |
+
+The `TLSv1.2` fallback from the task was not needed.
+
+### Gradle runs (from `android/`, `:app:compileReleaseKotlin :app:testDebugUnitTest`)
+
+- **Config 1** (the task's prescription): `JAVA_TOOL_OPTIONS` carries the
+  IPv6 flag plus the fresh bundle store (`trust14.p12`, PKCS12, outside the
+  repo in the toolchain dir); the Gradle user home `systemProp.*` trust-store
+  lines pointed at the same store for the run; the daemon's store was also
+  overridden with `-Dorg.gradle.jvmargs="-Xmx4g -Dfile.encoding=UTF-8
+  -Djava.net.preferIPv6Addresses=true -Djavax.net.ssl.trustStore=…
+  -Djavax.net.ssl.trustStoreType=PKCS12"`; `--refresh-dependencies` once.
+  **Exit 0 — `BUILD SUCCESSFUL in 11m 5s`.** AGP `9.4.1` resolved, SDK
+  Build-Tools 36 auto-installed, the daemon log's `daemonOpts` show the new
+  store, and the test results total **87 tests, 0 failures, 0 errors,
+  0 skipped** (12 test classes). The Kotlin compile daemon and the test
+  workers ran — Task 13's two loopback UNVERIFIEDs are now observed
+  working under the IPv6 recipe.
+- **Config 2** (consolidation): `truststore.jks` rebuilt in place as in the
+  probe table, all user-home / env-file pointers restored to their original
+  values, then Task 13's recipe verbatim plus
+  `:app:cleanTestDebugUnitTest` to force the tests to re-run.
+  **Exit 0 — `BUILD SUCCESSFUL in 33s`, 87/87 tests again.** One earlier
+  Config 2 attempt failed before TLS with `Timeout waiting to lock journal
+  cache … Owner PID: <Config 1 daemon>` — the still-running Config 1
+  daemon held the Gradle user-home journal lock; `./gradlew --stop` fixed
+  it. Stop the daemon when switching trust-store options.
+
+### Working recipe (copy-paste; repeat step 1 after every VM restart)
+
+```
+# 1. Rebuild the toolchain trust store from THIS instance's CA bundle
+#    (toolchain env sourced first; counts for this instance: 121 imported,
+#    239 entries total — the bundle count may change between instances)
+source ~/workspace/toolchain/env.sh
+cp $JAVA_HOME/lib/security/cacerts /tmp/truststore.new
+mkdir -p /tmp/bundle-certs
+python3 -c "import re; [open(f'/tmp/bundle-certs/cert-{i:03d}.pem','w').write(c+'\n') for i,c in enumerate(re.findall(r'-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----', open('/run/hatch/egress-tls/ca-bundle.pem').read(), re.S))]"
+for f in /tmp/bundle-certs/cert-*.pem; do
+  $JAVA_HOME/bin/keytool -importcert -noprompt -keystore /tmp/truststore.new \
+    -storepass changeit -alias "bundle-$(basename $f .pem)" -file "$f"
+done
+cp /tmp/truststore.new ~/workspace/toolchain/truststore.jks
+
+# 2. Build + test (the env file and the Gradle user home already point at
+#    truststore.jks; JAVA_TOOL_OPTIONS forces every JVM onto IPv6 loopback)
+cd android
+JAVA_TOOL_OPTIONS="-Djava.net.preferIPv6Addresses=true" \
+  ./gradlew --console=plain :app:compileReleaseKotlin :app:testDebugUnitTest
+```
+
+With this, the "Before every push" compile + test steps apply to every PR
+from Task 14 on — this PR is the first `COMPILED` one. If a build again
+dies with `signature check failed`, the VM has restarted since step 1:
+redo step 1 (and `./gradlew --stop` if a daemon from before the restart is
+still holding the journal lock).
+
+## Task 14 UNVERIFIED
+
+- How often the CA rotates beyond "on VM instance restart": observed twice
+  in one day (install-time instance → the 15:26 instance → the 17:27
+  instance), each time alongside a runtime restart; rotation on any other
+  trigger is not ruled out.
+- Whether a store built only from the bundle (no JDK `cacerts` base, the
+  `trust14.p12` used in Config 1) stays sufficient for every repository the
+  build may ever contact: it covered Google, Maven Central and the Plugin
+  Portal in the probe and the full Config 1 build, but the documented
+  recipe keeps the `cacerts` base anyway.
