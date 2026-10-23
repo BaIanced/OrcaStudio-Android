@@ -2834,3 +2834,6 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
   plate copy stayed rot [90,0,0] and its X centre followed (128 -> 132.83); Back restored the plate camera. Pieces test
   left edited (tilted pegs, wider base), rot reset to 0. Installed WSA + SHIELD.
 - Untested: multi-copy objects in Build (each copy in its own design pose at its X/Y), mirrored/scaled copies, user feel.
+
+- User 2026-10-23 (r385): "yes" to Muse Task 18 = audit + JVM tests of the Build workspace Kotlin (BuildTransform, ShapeDesign.pieces, ScadController piece matching).
+- Task 18 sent 2026-10-23 (PR #63 sync + task text, merged into muse/work; READY on #46). Effort log, Task 18 write: ~10 tool calls / ~25k tokens.
