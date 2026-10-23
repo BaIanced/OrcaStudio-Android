@@ -2819,3 +2819,18 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 - VERIFIED r383 (Claude, WSA, MCP): after an app restart, Peg x3 moved -5 mm Y + design_to_plate: centre Y 130.75 ->
   128.25 and depth 36.29 -> 31.29 (= Base stayed put, predicted 128.25); moved back in the same session -> 130.75 / 36.29.
   Installed WSA + SHIELD. Untested: all pieces changed at once after a restart (falls back to centring), multi-copy objects.
+
+### 2026-10-23 Build workspace step 5 done: design pose vs print pose (Claude, 564ec0f + 3e13f40, r385 = run 40035616143)
+- Native: `OrcaEngine::design_offset(object, instance)` = the Build object's copy as a plain translation (copy X/Y, design
+  bottom on the bed; nullopt for other objects); `shown_matrix` (static in OrcaScene.cpp / OrcaTools.cpp) feeds write_mesh,
+  pick and the paint overlay, so the Build view draws and picks the volumes in the object frame (copy turn/scale/mirror =
+  print pose, left out). scene_json gives the Build object's copies `"design": {offset, min, size}`; Kotlin
+  `Instance.design` / `Instance.shown`, used by ShapeController (moveOnPlate, buildGizmoTarget -> BuildTransform) and the
+  Build camera fit (Viewport.kt). Prepare's lay flat / rotate already touch only the instance (lay_on_face OrcaScene.cpp).
+  First CI run failed: Transform3d in OrcaEngine.hpp (the header forward-declares Slic3r types only, no Eigen).
+- VERIFIED r385 (Claude, WSA, MCP + adb drags + crops): Pieces test turned rot [90,0,0] in Prepare -> Build view shows it
+  upright (camera target z 9 = half the 18 mm design height); X ring drag turned the pegs about X as drawn; X face handle
+  grew Base 52.4 -> 64.3 mm along X; body drag moved Base along the screen drag (design pos +4.83 / +2.79, pegs kept),
+  plate copy stayed rot [90,0,0] and its X centre followed (128 -> 132.83); Back restored the plate camera. Pieces test
+  left edited (tilted pegs, wider base), rot reset to 0. Installed WSA + SHIELD.
+- Untested: multi-copy objects in Build (each copy in its own design pose at its X/Y), mirrored/scaled copies, user feel.
