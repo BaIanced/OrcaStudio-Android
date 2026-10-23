@@ -165,9 +165,6 @@ Each line says who last checked it, on which build, when (e.g. "user r249 2026-1
 
 - (moved from handoff 2026-10-21, "Later") - Later (awaiting go): cut radio Lay on cut face / Flip / Leave + nested "Arrange after cut" (arrange_plate always runs, OrcaScene.cpp:1046;   with the design pose, Leave goes away); Z rail live drag (MeshPreviewView.kt:342); Build workspace (shapes as Orca parts, design pose).   Feel pending: view cube, Check mesh, paint batches.
 - Preview colour-change line: count/flush line OK on WSA r372 (Claude, 2026-10-22; archive). Open: its prime tower ~3.3 g vs slice_result 3.155 g on WSA plate 2 (check which number is right).
-- Paint shop reopen (Claude, WSA r373, 2026-10-22): the paint shop hides the tabs, so the real round trip is Done -> Preview
-  -> Paint > Color painting; it reopened on Brush / Sphere (left on Bands, Triangle). Fixed (SceneController.openPaint +
-  PaintMode.reopened: last tool per kind, minus eyedropper / guard plane / hidden+locked layers / filament; JVM-tested
-  10/10). Untested on device: recheck that Bands + Triangle + brush size survive the round trip.
+- Paint shop reopen: fixed + verified by Claude on WSA r374 (2026-10-22, archive). Open: user feel only.
 - Paint-shop plate estimate line: WSA r373 OK (Claude, 2026-10-22: 8 vs Preview 7, archive). Open: user look/feel; approximations (one density, top layer counted as mixed, part-level filaments ignored).
 - Muse Task 12 JNI audit (MUSE-REVIEW-0012.md on muse/work, PR #54 merged 2026-10-22; Claude spot-checked findings 1, 2, 4): fixes not scheduled. Highest value: ObnBridge.cpp exception guard on all 19 exports, PluginNative pageClose guarded(), paint() facet upper bound, installCert per-printer flag.

@@ -2508,3 +2508,9 @@ User: "you just tested something we already confirmed worked". Cross-checked eac
   now "colour changes N". Expected on this cube after the fix: 8 (slicer 7: its top layer is filament 2 only).
 - r373 (run 39873051816, f7b3c77) installed on WSA/SHIELD/Chromebook. WSA plate 2 Cube > Color painting: "Plate estimate:
   colour changes 8 · flush ~1.0 g" as predicted (Preview 7 / ~0.9 g). Paint-shop line verified by Claude; user feel untested.
+
+### 2026-10-22 paint shop reopen (Claude, WSA)
+- r373: Done -> Preview -> Paint > Color painting reopened on Brush / Sphere (left on Bands, Triangle); the paint shop hides
+  the tabs, so Task 11's tool-carried state never covered this path. Fix 79a2e14 (SceneController.openPaint +
+  PaintMode.reopened, JVM 10/10). r374 (run 39877632598) installed on WSA/SHIELD/Chromebook: same round trip reopened on
+  Bands, Brush on Triangle = OK (Claude). User feel untested.
