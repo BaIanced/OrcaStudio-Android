@@ -109,6 +109,7 @@ const std::unordered_map<std::string, Handler> &handlers()
                  s.keep = v.value("keep", -1);
                  s.type = v.value("type", 0);
                  s.name = v.value("name", std::string());
+                 s.anchor = v.value("anchor", -1);
                  // A kept volume without a matrix keeps its own placement (modifiers next to the shapes).
                  const json &m = v.value("matrix", json::array());
                  s.own_matrix = m.empty() && s.keep >= 0;

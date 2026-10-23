@@ -138,12 +138,13 @@ class Engine(private val cacheDir: File) {
     /**
      * Replaces all volumes of [obj] in one undo step (Build workspace, one volume per shape piece). Each entry takes its
      * mesh from `stl` (piece frame, missing/empty file = skipped) or keeps volume `keep` (mesh + paint), placed by
-     * `matrix` (row-major 4x4 into the object frame). [keepCenter] shifts the copies so the parts stay centred in place.
+     * `matrix` (row-major 4x4 into the object frame). [keepCenter] shifts the copies so the parts stay centred in place,
+     * or, when entries name an `anchor` (the old volume of the same unchanged piece), so the anchors stay in place.
      */
     suspend fun setVolumes(obj: Int, volumes: List<VolumeSpec>, keepCenter: Boolean = false) =
         parseScene(call("setVolumes", args("object" to obj, "keepCenter" to keepCenter, "volumes" to volumes.map {
             // No null "stl" / "matrix": the native side reads them as a string / an array.
-            mapOf("keep" to it.keep, "type" to it.type.code, "name" to it.name) + (it.stl?.let { s -> mapOf("stl" to s) } ?: emptyMap()) +
+            mapOf("keep" to it.keep, "type" to it.type.code, "name" to it.name, "anchor" to it.anchor) + (it.stl?.let { s -> mapOf("stl" to s) } ?: emptyMap()) +
                 (it.matrix?.let { m -> mapOf("matrix" to m) } ?: emptyMap())
         })))
     /** The object the Build workspace edits (-1 = none): the scene mesh then gives its volumes selection id -1000 - volume. */

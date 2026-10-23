@@ -1176,7 +1176,7 @@ json OrcaEngine::set_volumes(int object, const std::vector<VolumeSpec> &specs, b
     bool has_part = false;
     for (const VolumeSpec &s : specs) {
         const ModelVolumeType vtype = volume_type_from_code(s.type);
-        if (s.keep >= int(obj.volumes.size()))
+        if (s.keep >= int(obj.volumes.size()) || s.anchor >= int(obj.volumes.size()))
             throw std::runtime_error("Invalid volume");
         if (s.keep < 0 && !loaded.count(s.stl)) {
             TriangleMesh mesh;
@@ -1203,7 +1203,19 @@ json OrcaEngine::set_volumes(int object, const std::vector<VolumeSpec> &specs, b
 
     push_undo();
     const bool   sinking    = obj.min_z() < SINKING_Z_THRESHOLD;
-    const Vec3d  old_center = obj.instance_bounding_box(0).center();
+    // Box of some volumes as placed by the first copy.
+    auto placed_box = [&obj](const std::vector<const ModelVolume *> &vols) {
+        BoundingBoxf3 box;
+        for (const ModelVolume *v : vols)
+            box.merge(v->mesh().transformed_bounding_box(obj.instances.front()->get_matrix() * v->get_matrix()));
+        return box;
+    };
+    // Unchanged pieces pin the design in place (the old volumes' frame may differ, e.g. after a 3MF reload).
+    std::vector<const ModelVolume *> old_anchors, new_anchors;
+    for (const VolumeSpec *s : used)
+        if (s->anchor >= 0)
+            old_anchors.push_back(obj.volumes[s->anchor]);
+    const Vec3d  old_center = old_anchors.empty() ? obj.instance_bounding_box(0).center() : placed_box(old_anchors).center();
     const auto   first_part = std::find_if(obj.volumes.begin(), obj.volumes.end(), [](const ModelVolume *v) { return v->is_model_part(); });
     // New pieces take the first part's settings (filament etc.), as replace_mesh does.
     const DynamicPrintConfig part_config = first_part != obj.volumes.end() ? (*first_part)->config.get() : DynamicPrintConfig();
@@ -1235,6 +1247,8 @@ json OrcaEngine::set_volumes(int object, const std::vector<VolumeSpec> &specs, b
         }
         if (!s->name.empty())
             vol->name = s->name;
+        if (s->anchor >= 0)
+            new_anchors.push_back(vol);
     }
     // Not ModelObject::delete_volume: with one volume left it folds the volume matrix into the instances, and
     // the volume matrices must stay the design pose (the instance is the print pose).
@@ -1243,7 +1257,7 @@ json OrcaEngine::set_volumes(int object, const std::vector<VolumeSpec> &specs, b
     obj.volumes.erase(obj.volumes.begin(), obj.volumes.begin() + ptrdiff_t(old_count));
     obj.invalidate_bounding_box();
     if (keep_center) {
-        const Vec3d shift = old_center - obj.instance_bounding_box(0).center();
+        const Vec3d shift = old_center - (new_anchors.empty() ? obj.instance_bounding_box(0).center() : placed_box(new_anchors).center());
         for (ModelInstance *inst : obj.instances)
             inst->set_offset(inst->get_offset() + Vec3d(shift.x(), shift.y(), 0.));
         obj.invalidate_bounding_box();

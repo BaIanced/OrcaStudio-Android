@@ -119,7 +119,8 @@ enum class VolumeType(val code: Int) {
  * One volume for [Engine.setVolumes]: mesh from [stl] or kept from volume [keep]; [matrix] is row-major 4x4
  * (null only with [keep]: the volume keeps its own placement).
  */
-data class VolumeSpec(val type: VolumeType, val matrix: List<Double>?, val stl: String? = null, val keep: Int = -1, val name: String = "")
+data class VolumeSpec(val type: VolumeType, val matrix: List<Double>?, val stl: String? = null, val keep: Int = -1, val name: String = "",
+                      val anchor: Int = -1)
 
 data class LayerGcode(val z: Float, val type: String, val extra: String = "", val color: String = "", val extruder: Int = 1)
 

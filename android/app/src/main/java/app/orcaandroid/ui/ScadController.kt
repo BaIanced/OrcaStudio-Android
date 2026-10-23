@@ -662,19 +662,21 @@ class ScadController(private val store: Store) {
                                     design: ScadDesign): String {
         val oldIndex = placed(replace)
         val old = oldIndex?.let { store.value.scene.objects[it] }
+        val keepCenter = old != null && old.name !in placedThisSession
         val keep = old?.let { kept(it, pieces, stls) }.orEmpty()
+        val anchor = old?.takeIf { keepCenter }?.let { anchors(it, pieces, stls) }.orEmpty()
         val specs = pieces.mapIndexed { i, p ->
             val shape = shapes.shapes.firstOrNull { it.id == p.shapeId }
             val name = shape?.name.orEmpty() + if (shape?.repeat?.takeIf { it.count > 1 } != null) " ${p.copy + 1}" else ""
             val k = keep[i]
             VolumeSpec(if (p.hole) VolumeType.NEGATIVE else VolumeType.PART, p.matrix, stl = stls[i].path.takeIf { k == null },
-                keep = k ?: -1, name = name)
+                keep = k ?: -1, name = name, anchor = anchor[i] ?: -1)
         }
         val index: Int
         var s: Scene
         if (old != null) {
             index = oldIndex
-            s = engine.setVolumes(index, specs + otherVolumes(old.volumes), keepCenter = old.name !in placedThisSession)
+            s = engine.setVolumes(index, specs + otherVolumes(old.volumes), keepCenter = keepCenter)
             s = engine.setObjectModule(index, design.encode())
         } else {
             // A new object starts from its first solid piece (named after the design), then gets all of them.
@@ -700,17 +702,30 @@ class ScadController(private val store: Store) {
     /**
      * Objects [placePieces] set up since the app started: their frame is the design's and their volume meshes are the
      * pieces as rendered. A project loaded from 3MF may have re-centred both, so such an object first gets fresh
-     * meshes and stays centred where it is.
+     * meshes, its unchanged pieces staying where they are ([anchors]; none: the object stays centred).
      */
     private val placedThisSession = mutableSetOf<String>()
 
     /**
      * Piece index -> volume of [obj] to keep for it: pieces whose code is unchanged since the object's design was
-     * placed. Empty when the object's parts don't line up with its design's pieces (not placed this session, edited
-     * in Prepare, a piece's cached render gone).
+     * placed. Empty when not placed this session (see [matched]).
      */
-    private fun kept(obj: SceneObject, pieces: List<ShapeDesign.Piece>, stls: List<File>): Map<Int, Int> {
-        if (obj.name !in placedThisSession) return emptyMap()
+    private fun kept(obj: SceneObject, pieces: List<ShapeDesign.Piece>, stls: List<File>): Map<Int, Int> =
+        if (obj.name !in placedThisSession) emptyMap() else matched(obj, pieces, stls).mapValues { it.value.second }
+
+    /**
+     * Piece index -> volume of [obj] for pieces neither edited nor moved since the design was last placed: they pin
+     * the design in place when the object's frame may have changed (after a restart), so only the moved shapes move.
+     */
+    private fun anchors(obj: SceneObject, pieces: List<ShapeDesign.Piece>, stls: List<File>): Map<Int, Int> =
+        matched(obj, pieces, stls).filter { (i, m) -> m.first.matrix == pieces[i].matrix }.mapValues { it.value.second }
+
+    /**
+     * Piece index -> (piece as last placed, volume of [obj]) for pieces whose code is unchanged since the object's
+     * design was placed. Empty when the object's parts don't line up with its design's pieces (edited in Prepare, a
+     * piece's cached render gone).
+     */
+    private fun matched(obj: SceneObject, pieces: List<ShapeDesign.Piece>, stls: List<File>): Map<Int, Pair<ShapeDesign.Piece, Int>> {
         val old = ScadDesign.of(obj)?.takeIf { it.pieces } ?: return emptyMap()
         val file = st?.file ?: return emptyMap()
         val oldPieces = old.shapes?.pieces() ?: return emptyMap()
@@ -723,7 +738,7 @@ class ScadController(private val store: Store) {
             val p = pieces[i]
             if (stls[i].length() == 0L) return@mapNotNull null
             val j = placedPieces.indexOfFirst { it.shapeId == p.shapeId && it.copy == p.copy && it.scad == p.scad }
-            if (j < 0) null else i to parts[j].index
+            if (j < 0) null else i to (placedPieces[j] to parts[j].index)
         }.toMap()
     }
 

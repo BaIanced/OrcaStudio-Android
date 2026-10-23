@@ -141,10 +141,11 @@ public:
     // One entry of set_volumes: the mesh comes from `stl` (piece-local frame, not centred) or is an
     // existing volume `keep` (its mesh, settings and painting stay); `matrix` maps it into the object.
     // `keep` assumes a mesh set_volumes made this session (a 3MF reload may re-centre volume meshes).
-    struct VolumeSpec { std::string stl; int keep = -1; int type = 0; std::array<double, 16> matrix{}; bool own_matrix = false; std::string name; };
+    struct VolumeSpec { std::string stl; int keep = -1; int type = 0; std::array<double, 16> matrix{}; bool own_matrix = false; std::string name; int anchor = -1; };
     // Replaces all the object's volumes with `specs` in one undo step (Build workspace: one volume per
     // shape). Instances keep their pose; with `keep_center`, they shift so the parts stay centred where
-    // they were. Empty meshes are skipped; at least one part must remain.
+    // they were, or, when some specs name an `anchor` (the old volume the same unchanged piece was), so
+    // the anchors stay where they were. Empty meshes are skipped; at least one part must remain.
     json set_volumes(int object, const std::vector<VolumeSpec> &specs, bool keep_center);
     // The object the Build workspace edits, or -1: write_mesh gives its volumes the selection id
     // -1000 - volume (instead of object * stride + instance), so the renderer can drag one shape.
