@@ -149,6 +149,9 @@ public:
     json set_volumes(int object, const std::vector<VolumeSpec> &specs, bool keep_center);
     // The object the Build workspace edits, or -1: write_mesh gives its volumes the selection id
     // -1000 - volume (instead of object * stride + instance), so the renderer can drag one shape.
+    // Its copies are drawn and picked in the design pose: the volumes in the object frame (the copy's
+    // turn, scale and mirror = the print pose, left out), standing on the bed at the copy's X/Y;
+    // scene_json gives each copy "design": { "offset", "min", "size" } for it.
     json set_build_object(int object);
     // Per-object (volume < 0) or per-volume setting; a null value removes the override. With
     // several objects, the setting goes to each of them (volume must be < 0).
@@ -405,6 +408,8 @@ private:
     std::map<const void *, std::shared_ptr<Slic3r::AABBMesh>> m_aabb;
     int                                   m_mesh_version = 0;
     int                                   m_build_object = -1; // see set_build_object()
+    // The copy's matrix as drawn and picked: the Build workspace's object shows its design pose (see set_build_object()).
+    Slic3r::Transform3d                   shown_matrix(size_t object, size_t instance) const;
     int                                   m_paint_version = 0;
     // The selector of the volume being painted stays live between paint calls while its annotation is unchanged:
     // deserializing it on every call grew slower with every painted triangle (user r316). Holds the mesh it points to.

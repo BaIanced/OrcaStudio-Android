@@ -356,7 +356,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         val plate = shopCamera
         if (focused && plate == null) {
             val box = if (solo) state.selectedObject?.instances?.getOrNull(state.selection?.instance ?: 0)?.let { it.min to (it.min + it.size) }
-                else state.buildObject?.let { state.scene.objects.getOrNull(it) }?.instances?.takeIf { it.isNotEmpty() }?.let { insts ->
+                else state.buildObject?.let { state.scene.objects.getOrNull(it) }?.instances?.takeIf { it.isNotEmpty() }?.map { it.shown }?.let { insts ->
                     Vec3(insts.minOf { it.min.x }, insts.minOf { it.min.y }, insts.minOf { it.min.z }) to
                         Vec3(insts.maxOf { it.min.x + it.size.x }, insts.maxOf { it.min.y + it.size.y }, insts.maxOf { it.min.z + it.size.z })
                 }

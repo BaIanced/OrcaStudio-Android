@@ -354,7 +354,11 @@ class Engine(private val cacheDir: File) {
                     } },
                     instances = obj.getJSONArray("instances").let { ia -> List(ia.length()) { ii ->
                         val inst = ia.getJSONObject(ii)
-                        Instance(ii, inst.getInt("plate"), inst.vec3("offset"), inst.vec3("rotation"), inst.vec3("scale"), inst.vec3("mirror"), inst.vec3("size"), inst.vec3("min"))
+                        val plate = inst.getInt("plate")
+                        val design = inst.optJSONObject("design")?.let {
+                            Instance(ii, plate, it.vec3("offset"), Vec3(0f, 0f, 0f), Vec3(1f, 1f, 1f), Vec3(1f, 1f, 1f), it.vec3("size"), it.vec3("min"))
+                        }
+                        Instance(ii, plate, inst.vec3("offset"), inst.vec3("rotation"), inst.vec3("scale"), inst.vec3("mirror"), inst.vec3("size"), inst.vec3("min"), design)
                     } },
                     layerRanges = obj.optJSONArray("layer_ranges")?.map {
                         val r = it as JSONObject

@@ -475,7 +475,7 @@ void OrcaEngine::write_mesh()
                 const ModelVolume *vol = obj->volumes[vi];
                 TriangleMesh mesh = vol->mesh();
                 // Mirrored copies keep their triangles facing out (the section view draws back faces as cut faces).
-                mesh.transform(obj->instances[ii]->get_matrix() * vol->get_matrix(), true);
+                mesh.transform(shown_matrix(oi, ii) * vol->get_matrix(), true);
                 // Parts are drawn in their filament's colour: type 100 + 0-based filament.
                 const int type = vol->is_model_part() ? 100 + filament_of(*obj, *vol) : volume_type_code(vol->type());
                 // The Build workspace's object: one id per volume (its copies share them), see set_build_object().
@@ -511,6 +511,16 @@ void OrcaEngine::write_mesh()
     ++m_mesh_version;
 }
 
+// The object's parts in its own frame (the design pose before it is set on the bed).
+static BoundingBoxf3 design_box(const ModelObject &obj)
+{
+    BoundingBoxf3 box;
+    for (const ModelVolume *vol : obj.volumes)
+        if (vol->is_model_part())
+            box.merge(vol->mesh().transformed_bounding_box(vol->get_matrix()));
+    return box;
+}
+
 json OrcaEngine::scene_json()
 {
     const std::array<double, 4> rect = bed_rect();
@@ -533,6 +543,14 @@ json OrcaEngine::scene_json()
                                  {"mirror", vec_json(inst->get_transformation().get_mirror())},
                                  {"size", vec_json(bb.size())},
                                  {"min", vec_json(bb.min)}});
+            if (m_build_object >= 0 && size_t(m_build_object) < m_model->objects.size() && obj == m_model->objects[m_build_object]) {
+                const Transform3d   shown = shown_matrix(size_t(m_build_object), i);
+                const BoundingBoxf3 parts = design_box(*obj);
+                const BoundingBoxf3 box   = parts.defined ? parts.transformed(shown) : bb;
+                instances.back()["design"] = {{"offset", vec_json(Vec3d(shown.translation()))},
+                                              {"min", vec_json(box.min)},
+                                              {"size", vec_json(box.size())}};
+            }
         }
         json volumes = json::array();
         size_t triangles = 0;
@@ -1274,6 +1292,20 @@ json OrcaEngine::set_build_object(int object)
         object_at(object);
     m_build_object = object;
     return commit();
+}
+
+Transform3d OrcaEngine::shown_matrix(size_t object, size_t instance) const
+{
+    const ModelObject &obj = *m_model->objects[object];
+    const Transform3d  print = obj.instances[instance]->get_matrix();
+    if (int(object) != m_build_object)
+        return print;
+    // Design pose: the print pose's turn, scale and mirror left out, bottom on the bed, at the copy's X/Y.
+    const BoundingBoxf3 box = design_box(obj);
+    const Vec3d         off = obj.instances[instance]->get_offset();
+    Transform3d         t   = Transform3d::Identity();
+    t.translate(Vec3d(off.x(), off.y(), box.defined ? -box.min.z() : off.z()));
+    return t;
 }
 
 json OrcaEngine::set_object_module(int object, const std::string &module)

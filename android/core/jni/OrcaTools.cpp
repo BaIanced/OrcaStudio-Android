@@ -80,7 +80,7 @@ json OrcaEngine::pick(const std::array<double, 3> &origin, const std::array<doub
         for (size_t ii = 0; ii < obj->instances.size(); ++ii)
             for (size_t vi = 0; vi < obj->volumes.size(); ++vi) {
                 const ModelVolume *vol = obj->volumes[vi];
-                const Transform3d trafo = obj->instances[ii]->get_matrix() * vol->get_matrix();
+                const Transform3d trafo = shown_matrix(oi, ii) * vol->get_matrix();
                 const Transform3d inv   = trafo.inverse();
                 // Ray in volume coordinates; the hit distance is measured back in world space.
                 const Vec3d ls = inv * s;
@@ -234,7 +234,7 @@ void OrcaEngine::write_paint_mesh()
                     continue;
                 // The Build workspace's object: the scene mesh's per-volume ids (write_mesh), so its paint shows in the solo view.
                 for (size_t ii = 0; ii < obj->instances.size(); ++ii)
-                    emit(key, painted, obj->instances[ii]->get_matrix() * vol->get_matrix(),
+                    emit(key, painted, shown_matrix(oi, ii) * vol->get_matrix(),
                          int(oi) == m_build_object ? -1000.f - float(vi) : float(oi * INSTANCE_ID_STRIDE + ii), code);
             }
         }

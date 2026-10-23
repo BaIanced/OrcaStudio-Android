@@ -145,7 +145,12 @@ data class Instance(
     val mirror: Vec3,
     val size: Vec3,
     val min: Vec3,
-)
+    /** The Build workspace's object: this copy as the Build view draws it (design pose: no turn, scale or mirror). */
+    val design: Instance? = null,
+) {
+    /** The copy as the main view draws and picks it. */
+    val shown: Instance get() = design ?: this
+}
 
 data class Volume(
     val index: Int, val name: String, val type: VolumeType, val settings: Map<String, String>, val offset: Vec3, val size: Vec3,

@@ -100,7 +100,7 @@ class ShapeController(private val store: Store, private val scad: ScadController
 
     /** Build workspace: a main-view drag moved the selection [dx], [dy] mm on the plate. */
     fun moveOnPlate(dx: Float, dy: Float) {
-        val inst = store.value.buildObject?.let { store.value.scene.objects.getOrNull(it) }?.instances?.let { it.getOrNull(grabbed) ?: it.firstOrNull() } ?: return
+        val inst = store.value.buildObject?.let { store.value.scene.objects.getOrNull(it) }?.instances?.let { it.getOrNull(grabbed) ?: it.firstOrNull() }?.shown ?: return
         // Plate -> design frame: the copy's matrix is translation * rotation * scale * mirror (mirror = +-1 per axis).
         val r = RotateGizmo.fromEuler(inst.rotation)
         fun local(i: Int, scale: Float, mirror: Float) = (r[i] * dx + r[3 + i] * dy) / scale.toDouble() * (if (mirror < 0f) -1.0 else 1.0)
@@ -109,7 +109,7 @@ class ShapeController(private val store: Store, private val scad: ScadController
 
     /** Build workspace: the copy the gizmos sit on (they show only while the object has one) and the selected top-level shapes. */
     fun buildGizmoTarget(): Pair<Instance, List<Shape>>? {
-        val inst = store.value.buildObject?.let { store.value.scene.objects.getOrNull(it) }?.instances?.singleOrNull() ?: return null
+        val inst = store.value.buildObject?.let { store.value.scene.objects.getOrNull(it) }?.instances?.singleOrNull()?.shown ?: return null
         val d = design ?: return null
         return (inst to selected.mapNotNull { d.topOf(it) }.distinctBy { it.id }).takeIf { it.second.isNotEmpty() }
     }
