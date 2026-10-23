@@ -2524,3 +2524,4 @@ User: "you just tested something we already confirmed worked". Cross-checked eac
 ## 2026-10-22: user on obn
 - User (on r375 era): "obn was stable prior". Task 12 finding 6 (e02b10f) only matters with 2+ printers in one session.
 - Trial effort log, Task 15 review+merge (2026-10-22): ~12 tool calls / ~45k tokens. Muse's fix right; one claim wrong (said the tower toolchange block has no FEATURE tag; WipeTower.cpp:746 emits one; harmless for the code). Cherry-pick conflicted: muse/work lacks the work branch's flush counter (r373), cost ~4 calls; lost a doc paragraph in the resolve, restored. Direct would have been ~similar (the source trace is the bulk). Lesson: sync muse/work code to the work branch before Kotlin tasks.
+- Trial effort log, Task 16 write (2026-10-22): ~8 tool calls / ~20k tokens (sync PR #58 + scoping + task text).
