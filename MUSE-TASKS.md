@@ -368,6 +368,23 @@ as mixed"). Find which rule makes the estimate one change high, and fix it if it
 Write-up: PR body + log entry (trace, difference table, verdict). Compile + tests per "Before every push"; record the
 test count. Time-box ~60 min.
 
+## Task 17: audit + JVM tests for the untested pure-Kotlin helpers (`ThemeSpec`, `PenConfig`, `MeshReport`, `Json.kt`)
+`muse/work` carries the work branch's `android/` (sync is current as of Task 16). These four files in `core/` have no
+tests and no Android imports; they parse stored settings / engine JSON, so a bug there silently loses user data.
+Plain JVM unit tests have no real `org.json` (see the note in `AmsMappingTest.kt`): add
+`testImplementation("org.json:json:20240303")` to `android/app/build.gradle.kts` (the only build-file change allowed).
+1. Read the four files and write down, per file, every input the code can meet that is not the happy path (missing
+   keys, wrong types, unknown enum names, empty or `null` JSON, ARGB values with the sign bit set, a region that ends
+   up with no slots, `Float` -> `Double` -> `Float` round trips, `JSONObject.NULL` in `toJson`). Only list a defect you
+   reproduced with a test.
+2. Add `ThemeSpecTest`, `PenConfigTest`, `MeshReportTest`, `JsonHelpersTest` under `app/src/test/java/app/orcaandroid/core/`.
+   Pin the current behaviour that is right (round trips `fromJson(toJson(x)) == x`, `with`/`reset`/`customCount`,
+   plural wording and problem counting in `MeshReport.text`, `markers` kinds 5/6/7 and the x,y,z,kind layout).
+3. If a test shows a real defect, fix only that file, keep the fix minimal, and say which test pinned it. If the
+   behaviour is odd but harmless, pin it in a test named `...Today` and do not change it. No Compose, no other files.
+Write-up: PR body + log entry (per-file edge-case table, defects found or "none", test count before -> after).
+Compile + tests per "Before every push"; record the test count. Time-box ~45 min.
+
 ## Log
 Append-only, one entry per PR (also for PRs that get closed unmerged), newest last. Never edit earlier entries.
 Format: `### Task <n> - <date> - <branch> - <commit>` then build/test result or UNCOMPILED, privacy scan exit codes,
