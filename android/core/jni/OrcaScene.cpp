@@ -149,6 +149,32 @@ void OrcaEngine::trim_undo()
     }
 }
 
+json OrcaEngine::rollback_on_error(const std::function<json()> &edit)
+{
+    const Model *top = m_undo.empty() ? nullptr : m_undo.back().model.get();
+    auto redo = m_redo;
+    auto calib = m_calib;
+    auto calib_config = m_calib_config;
+    auto calib_name = m_calib_name;
+    const size_t calib_depth = m_calib_undo_depth;
+    try {
+        return edit();
+    } catch (...) {
+        // The edit's own snapshot is the scene from before it.
+        if (!m_undo.empty() && m_undo.back().model.get() != top) {
+            m_model  = std::make_unique<Model>(*m_undo.back().model);
+            m_plates = m_undo.back().plates;
+            m_undo.pop_back();
+        }
+        m_redo             = std::move(redo);
+        m_calib            = std::move(calib);
+        m_calib_config     = std::move(calib_config);
+        m_calib_name       = std::move(calib_name);
+        m_calib_undo_depth = calib_depth;
+        throw;
+    }
+}
+
 json OrcaEngine::set_undo_limit(size_t limit)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
@@ -585,6 +611,12 @@ json OrcaEngine::scene()
 json OrcaEngine::load_models(const std::vector<std::string> &paths, bool append, int plate)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
+    // A file without printable objects (or one that fails to read) must not leave the plate wiped.
+    return rollback_on_error([&] { return load_models_locked(paths, append, plate); });
+}
+
+json OrcaEngine::load_models_locked(const std::vector<std::string> &paths, bool append, int plate)
+{
     require_printer();
     push_undo();
     if (!append) {

@@ -275,6 +275,12 @@ json OrcaEngine::calib_stop()
 json OrcaEngine::calib_start(const std::string &type, const json &params)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
+    // A failing setup step keeps the previous scene and calibration instead of half a test.
+    return rollback_on_error([&] { return calib_start_locked(type, params); });
+}
+
+json OrcaEngine::calib_start_locked(const std::string &type, const json &params)
+{
     require_printer();
     // The test's own settings are derived from the plain selection.
     m_calib.reset();

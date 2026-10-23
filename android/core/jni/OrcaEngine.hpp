@@ -352,6 +352,11 @@ private:
     Items                 checked_items(Items items) const; // validated, sorted, without duplicates
     void                  push_undo();
     void                  trim_undo();
+    // Runs an edit that replaces the scene; if it throws, the scene, history and calibration
+    // state are put back as they were (Muse Task 12 finding 7).
+    json                  rollback_on_error(const std::function<json()> &edit);
+    json                  load_models_locked(const std::vector<std::string> &paths, bool append, int plate);
+    json                  calib_start_locked(const std::string &type, const json &params);
     json                  scene_json();
     json                  commit(); // writes the mesh and returns scene_json()
     void                  write_mesh();
