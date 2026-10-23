@@ -30,7 +30,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **User 2026-10-21: design deviations pre-approved** ("deviate if you find a more logical, intuitive way; I trust your judgement"); say what changed.
 - Paint plan (user ACCEPTED 2026-10-21): steps (1)-(2) done, user feel untested (backlog "Paint panel UI", "Paint penetration").
   Step (3) waste counter done (r373), plan complete. User feel untested.
-  **Next small step:** Muse trial over (Tasks 15-17 logged in the archive): TELL THE USER keep/drop, unprompted, if not yet done; then pick the next backlog item.
+  **Next small step:** Muse keep/drop told 2026-10-23 (keep for audits + larger JVM-testable Kotlin only); log the user's answer, then pick the next backlog item.
+  Backlog pruned 2026-10-23 (35 verified lines archived, 1226908).
 - Muse (2026-10-22): tasks in `MUSE-TASKS.md` on `muse/work` (edit via a `claude/*` PR, self-merge), then `TASK <n> READY`
   on #46; Muse answers with one draft PR per task. Claude verifies, merges into muse/work, cherry-picks code onto the work
   branch. Task 1 finding 4: fix the patch comment when regenerating 0001. **Each session start, run exactly:**
