@@ -151,6 +151,21 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                         vm.scene.changeSelection(inside, remove)
                     }
                     override fun onResize(scale: Vec3?, pivot: Vec3, x: Float, y: Float, done: Boolean) {
+                        if (vm.state.value.buildObject != null) {
+                            // The Build workspace: the selected shapes are resized; the re-rendered pieces end the live scale.
+                            val box = v.gizmoBox()
+                            if (!done && box != null && scale != null) {
+                                val s = box.second - box.first
+                                resizeLabel = Triple("%.1f x %.1f x %.1f mm".format(s.x * scale.x, s.y * scale.y, s.z * scale.z), x, y)
+                                return
+                            }
+                            resizeLabel = null
+                            if (!done || scale == null) { v.onGl { resizeScale = floatArrayOf(1f, 1f, 1f) }; return }
+                            dragPending[0] = true
+                            v.postDelayed({ if (dragPending[0]) { dragPending[0] = false; v.onGl { resizeScale = floatArrayOf(1f, 1f, 1f) } } }, BUILD_RENDER_WAIT)
+                            vm.shapes.resizeOnPlate(scale, pivot)
+                            return
+                        }
                         val sel = vm.state.value.selectedItems.singleOrNull()
                         val inst = sel?.let { vm.state.value.scene.objects.getOrNull(it.obj)?.instances?.getOrNull(it.instance) }
                         if (!done && inst != null && scale != null) {
@@ -179,6 +194,13 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                             return
                         }
                         resizeLabel = null
+                        if (vm.state.value.buildObject != null && degrees != null && kotlin.math.abs(degrees) >= 0.05f) {
+                            // The Build workspace: the selected shapes turn (new matrices only, no OpenSCAD run).
+                            dragPending[0] = true
+                            v.postDelayed({ if (dragPending[0]) { dragPending[0] = false; v.onGl { rotateMatrix = null } } }, BUILD_RENDER_WAIT)
+                            vm.shapes.turnOnPlate(axis, degrees, pivot)
+                            return
+                        }
                         if (degrees == null || inst == null || kotlin.math.abs(degrees) < 0.05f) { v.onGl { rotateMatrix = null }; return }
                         // The live turn stays until the turned mesh is uploaded (cleared there), or after a timeout.
                         dragPending[0] = true
@@ -360,10 +382,15 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     LaunchedEffect(v, state.lab.wheelSpeed) { v.wheelSpeed = state.lab.wheelSpeed }
     LaunchedEffect(v, state.perspective) { v.camera.perspective = state.perspective }
     LaunchedEffect(v, state.pen) { v.pen = state.pen }
-    // The Build workspace has no object gizmos (yet): its selection is shapes.
+    // The Build workspace's selection is shapes: their handles and rings always show (one copy of the object only; groups
+    // only turn), on the selected volumes' mesh box.
     val building = state.buildObject != null
-    LaunchedEffect(v, state.resizing, showPreview, building) { v.resizeMode = state.resizing && !showPreview && !building }
-    LaunchedEffect(v, state.rotating, showPreview, building) { v.rotateMode = state.rotating && !showPreview && !building }
+    val buildGizmo = if (!building) null else remember(state.scene, state.scad?.selected, state.scad?.shapes) { vm.shapes.buildGizmoTarget() }
+    LaunchedEffect(v, building) { v.gizmoOnMesh = building }
+    LaunchedEffect(v, state.resizing, showPreview, building, buildGizmo) {
+        v.resizeMode = if (building) buildGizmo?.second?.none { it.isGroup } == true else state.resizing && !showPreview
+    }
+    LaunchedEffect(v, state.rotating, showPreview, building, buildGizmo) { v.rotateMode = if (building) buildGizmo != null else state.rotating && !showPreview }
     // Plate numbers always; the plate icons only while arranging (Prepare).
     val atlas = rememberBadgeAtlas(scene.plates.size)
     val badges = if (showPreview) emptyList()
@@ -435,7 +462,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         val ids = vm.scad.buildSelectedIds(build)
         v.onGl { selectedIds = ids }
         v.selectedBounds = if (ids.isEmpty()) emptyList() else build.instances.map { it.min to (it.min + it.size) }
-        v.resizeAxes = true
+        v.resizeAxes = vm.shapes.buildGizmoTarget()?.let { (inst, tops) -> state.scad?.shapes?.let { app.orcaandroid.scad.BuildTransform.axesFree(it, inst, tops) } } ?: true
         v.towerBoxes = emptyList()
     }
     LaunchedEffect(v, state.selection, state.multiSelection, scene, build != null) {
@@ -560,6 +587,9 @@ private var savedCamera: FloatArray? = null
 
 /** The plate camera from before the paint shop or the Build workspace, restored when it closes. */
 private var shopCamera: FloatArray? = null
+
+/** Build workspace: how long a live resize / turn waits for the re-rendered pieces (a resize runs OpenSCAD) before it lets go. */
+private const val BUILD_RENDER_WAIT = 8000L
 
 /**
  * For a copy turned [rotation] (degrees, applied X then Y then Z as the engine's Geometry::rotation_transform) only in

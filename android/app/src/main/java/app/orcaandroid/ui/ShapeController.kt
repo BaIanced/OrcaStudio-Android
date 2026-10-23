@@ -1,9 +1,11 @@
 package app.orcaandroid.ui
 
 import app.orcaandroid.R
+import app.orcaandroid.core.Instance
 import app.orcaandroid.core.Vec3
 import app.orcaandroid.render.RotateGizmo
 import app.orcaandroid.scad.Bounds
+import app.orcaandroid.scad.BuildTransform
 import app.orcaandroid.scad.D3
 import app.orcaandroid.scad.Dim
 import app.orcaandroid.scad.Repeat
@@ -103,6 +105,41 @@ class ShapeController(private val store: Store, private val scad: ScadController
         val r = RotateGizmo.fromEuler(inst.rotation)
         fun local(i: Int, scale: Float, mirror: Float) = (r[i] * dx + r[3 + i] * dy) / scale.toDouble() * (if (mirror < 0f) -1.0 else 1.0)
         move(D3(local(0, inst.scale.x, inst.mirror.x), local(1, inst.scale.y, inst.mirror.y), local(2, inst.scale.z, inst.mirror.z)))
+    }
+
+    /** Build workspace: the copy the gizmos sit on (they show only while the object has one) and the selected top-level shapes. */
+    fun buildGizmoTarget(): Pair<Instance, List<Shape>>? {
+        val inst = store.value.buildObject?.let { store.value.scene.objects.getOrNull(it) }?.instances?.singleOrNull() ?: return null
+        val d = design ?: return null
+        return (inst to selected.mapNotNull { d.topOf(it) }.distinctBy { it.id }).takeIf { it.second.isNotEmpty() }
+    }
+
+    /** Build workspace: the main view's scale gizmo scaled the selection by [scale] (plate axes) about plate point [pivot]. */
+    fun resizeOnPlate(scale: Vec3, pivot: Vec3) {
+        val (inst, tops) = buildGizmoTarget() ?: return
+        val d = design ?: return
+        // Off the axes the gizmo has corners only: an even scale.
+        val f = BuildTransform.designScale(inst, scale) ?: D3(scale.x.toDouble(), scale.x.toDouble(), scale.x.toDouble())
+        val p = BuildTransform.toDesign(inst, pivot)
+        commit(tops.fold(d) { acc, s -> acc.find(s.id)?.let { BuildTransform.scaled(acc, it, f, p) }?.let { posed(acc, s.id, it) } ?: acc })
+    }
+
+    /** Build workspace: the main view's rotate gizmo turned the selection [degrees] about plate axis [axis] through plate point [pivot]. */
+    fun turnOnPlate(axis: Int, degrees: Float, pivot: Vec3) {
+        val (inst, tops) = buildGizmoTarget() ?: return
+        val d = design ?: return
+        val m = BuildTransform.designTurn(inst, RotateGizmo.matrix(axis, degrees))
+        val c = BuildTransform.toDesign(inst, pivot)
+        commit(tops.fold(d) { acc, s -> acc.find(s.id)?.let { posed(acc, s.id, BuildTransform.turned(acc, it, m, c)) } ?: acc })
+    }
+
+    /** [d] with shape [id] at [pose]; only changed fields are set, so a field bound to a dimension moves it only when it changes. */
+    private fun posed(d: ShapeDesign, id: Int, pose: BuildTransform.Pose): ShapeDesign {
+        val s = d.find(id) ?: return d
+        var next = d
+        for ((name, now, to) in listOf(Triple("pos", d.pos(s), pose.pos), Triple("rot", d.rot(s), pose.rot), Triple("size", d.size(s), pose.size)))
+            for (i in 0..2) if (kotlin.math.abs(now[i] - to[i]) > 1e-6) next = withField(next, id, "$name.${"xyz"[i]}", to[i]) ?: next
+        return if (pose.repeat != s.repeat) next.update(id) { it.copy(repeat = pose.repeat) } else next
     }
 
     // --- Adding ------------------------------------------------------------------------------------
