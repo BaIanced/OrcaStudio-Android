@@ -30,16 +30,14 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **User 2026-10-21: design deviations pre-approved** ("deviate if you find a more logical, intuitive way; I trust your judgement"); say what changed.
 - Paint plan (user ACCEPTED 2026-10-21): steps (1)-(2) done, user feel untested (backlog "Paint panel UI", "Paint penetration").
   Step (3) waste counter done (r373), plan complete. User feel untested.
-  **Next small step:** Task 17 is out (written 2026-10-23, PR #60, READY on #46: audit + JVM tests for ThemeSpec/PenConfig/MeshReport/Json.kt;
-  Muse adds `testImplementation(org.json)`). Wait for Muse's draft PR, review it, compile locally, merge into muse/work, cherry-pick onto the work branch.
-  Log Claude's effort for Task 17 in the archive (Task 17 writing = ~6 tool calls), then tell the user keep/drop.
+  **Next small step:** Muse trial over (Tasks 15-17 logged in the archive): TELL THE USER keep/drop, unprompted, if not yet done; then pick the next backlog item.
 - Muse (2026-10-22): tasks in `MUSE-TASKS.md` on `muse/work` (edit via a `claude/*` PR, self-merge), then `TASK <n> READY`
   on #46; Muse answers with one draft PR per task. Claude verifies, merges into muse/work, cherry-picks code onto the work
   branch. Task 1 finding 4: fix the patch comment when regenerating 0001. **Each session start, run exactly:**
   `gh pr list --state open --json number,title,headRefName; gh issue view 46 --json comments --jq '.comments[-2:][]|.createdAt+" "+(.body|.[0:300])'`
   (`--comments` + `--json` together errors).
   Tasks 1-16 merged (#54 = Task 12 JNI audit, fixes in backlog; Task 16 = #59, dec87f6, verified r376). Sync muse/work
-  android/ before each Kotlin task (#58). Task 17 written, awaiting Muse.
+  android/ before each Kotlin task (#58). Task 17 = #61, eb787de, merged.
   **Muse role verdict (Claude, 2026-10-22): Kotlin tasks OK** (Task 14: compile + 87/87 JVM tests in its VM, self-reported;
   Claude compiles each PR locally before merging). No native/patch work (all Task 12 fixes are native). **Muse trial (user asked, 2026-10-22):**
   only audits + JVM-testable pure Kotlin; for Tasks 15-17 log in the archive Claude's effort per task (write, review, fixes,
