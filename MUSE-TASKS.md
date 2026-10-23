@@ -980,3 +980,63 @@ mixes unless the face covers the whole slice. The depth = 0 case (no top/bottom 
 slicer at all, while `layers` still places a flat top via the fallback) is a separate modelling
 gap, not this plate (its paint depth = shell layers > 0).
 Open questions: none.
+
+### Task 17 - 2026-10-23 - muse/task-17-untested-core-helpers - this commit
+Audit + JVM tests for the four untested pure-Kotlin core helpers. Only build-file
+change: `testImplementation("org.json:json:20240303")` in `android/app/build.gradle.kts`
+(the sanctioned one), so the tests run against a real org.json. New tests:
+`ThemeSpecTest` 14, `PenConfigTest` 7, `MeshReportTest` 11, `JsonHelpersTest` 12
+(44 new; suite 107 -> 151). Written and run before the fixes: 44 tests, exactly the
+2 defect tests failed; after the fixes all pass.
+Per-file edge-case table (input -> behaviour):
+- `ThemeSpec`: null / empty / malformed / `[]` / `{}` JSON -> default spec; empty or
+  missing preset -> DEFAULT_PRESET; malformed slots (non-hex, nested object) dropped
+  one by one, a region left with no good slot disappears; hex parses with or without
+  `#`, any case; ARGB with the sign bit set round-trips exactly (`#FFFFFFFF` = -1,
+  `#80000000` = Int.MIN_VALUE); `with` set/overwrite/remove (removing the last slot
+  removes the region), `reset` one region or a whole mode, `customCount` sums slots.
+  DEFECT (fixed, pinned by `nonObjectRegionSkippedOthersKept`): a region stored as a
+  scalar or array made `parseMode`'s `getJSONObject` throw, and `fromJson`'s catch
+  then dropped the WHOLE spec - preset and the other mode's valid overrides included.
+  Fix in `ThemeSpec.kt` only: `optJSONObject`, the region is skipped instead.
+  Pinned odd-but-harmless (`...Today`): a numeric slot value is stringified by
+  optString and then parsed as hex (255 -> 0x255); a >8-digit hex value truncates
+  through `toInt()` instead of being dropped. Real files hold only `toJson` output,
+  so neither can occur in practice.
+- `PenConfig`: null / malformed / `{}` -> defaults; unknown, lowercase, wrong-type
+  and JSON-null action values fall back per key (the other keys keep their parsed
+  values); `ignoreFingers` accepts a Boolean or a "true"/"false" string, a number
+  keeps the default; every `PenAction` round-trips in every slot; `instant` is
+  exactly UNDO / REDO / FRAME. Defects: none.
+- `MeshReport`: empty `parts` -> "No model parts to check."; blank part name ->
+  "Part <volume+1>"; shell/problem wording singular vs plural; problems counted per
+  kind per part (open, degenerate, negative volume, crossing, thin - in that line
+  order) and summed across parts; `markers` emits thin (5), open (6), cross (7)
+  quadruples in that order regardless of JSON key order, drops a trailing
+  incomplete triple, converts through Float (0.1 -> 0.1f). DEFECT (fixed, pinned by
+  `missingPartsMessage`): a result with no `parts` key at all threw
+  `JSONException` out of `text()` (`getJSONArray`). Fix in `MeshReport.kt` only:
+  `optJSONArray` -> the same "No model parts" line. Pinned odd-but-harmless: a thin
+  line with no top-level `thickness` formats the missing value as "NaN mm" (the
+  engine always sends one).
+- `Json.kt`: `throwIfError` returns the same object when there is no `error` key
+  and throws `OrcaException` with the message when there is; `JSONArray.map`;
+  nullable `floats()` (numeric strings parse); `vec3` takes the first 3 numbers
+  and needs at least 3, else ZERO; `stringMap` / `strings()` coerce values with
+  `toString` (a JSON null becomes the literal string "null" - pinned); `Map.toJson`
+  turns a null value into the `JSONObject.NULL` sentinel (the key survives as
+  `"k":null`), recurses into nested maps and collections of maps, encodes `Vec3`
+  and `FloatArray` as number arrays; `args` duplicate keys: last wins. Pinned
+  odd-but-harmless: a stored Float widens Float -> Double (0.1f reads back as
+  0.10000000149011612); a non-string `error` value surfaces as `JSONException`,
+  not `OrcaException` (org.json's `getString` is strict; the engine always sends a
+  string). Defects: none.
+Build: COMPILED (compile exit 0, tests exit 0; 151/151 tests passed, 0
+failures/errors/skipped, 17 classes - baseline on this branch before the changes
+was 107/107 in 13 classes; trust store rebuilt per the Task 14 recipe for this VM
+instance first, 121 bundle certs imported).
+Privacy self-scan: tree exit 0, range exit 0.
+UNVERIFIED: Android's bundled org.json vs the 20240303 jar on the few coercions
+pinned here (they agree in the cases read, but only the jar was executed); device
+behaviour of the two fixes (both only widen what parses without throwing).
+Open questions: none.
