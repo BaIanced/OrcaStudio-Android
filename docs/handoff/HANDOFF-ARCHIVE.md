@@ -2514,3 +2514,9 @@ User: "you just tested something we already confirmed worked". Cross-checked eac
   the tabs, so Task 11's tool-carried state never covered this path. Fix 79a2e14 (SceneController.openPaint +
   PaintMode.reopened, JVM 10/10). r374 (run 39877632598) installed on WSA/SHIELD/Chromebook: same round trip reopened on
   Bands, Brush on Triangle = OK (Claude). User feel untested.
+
+### 2026-10-22 Muse Task 15 sent (Claude)
+- Planned "Kotlin-side Task 12 fixes" had no Kotlin work: findings 1-13 are all native C++ (pageClose is OrcaPlugins.cpp);
+  finding 6 (installCert flag) is already mitigated by ObnHost.ensureConnected reconnecting on a serial change (native
+  connect() resets the flag). Task 15 = prime-tower grams 3.3 vs 3.155 g (GcodeToolChanges/ColourChangeLine), PR #56.
+- Trial effort log, Task 15 write: ~6 tool calls / ~15k tokens to scope + write the task (review/fixes/merge pending).
