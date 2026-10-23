@@ -27,11 +27,11 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - User sessions backed up: phone `/data/local/tmp/phone-session-backup.{3mf,json}` (8 plates), WSA `/data/local/tmp/session-backup.{3mf,json}`.
   Test zip `scadzip-test.zip` stays in `/sdcard/Download` on phone + Chromebook. LAN access code was given in chat: never write it anywhere.
 ## Next task
-- **User 2026-10-21: one small step per session.** Cue `/clear` + `/next` after EACH step. Pie menu disliked -> backlog.
+- **User 2026-10-21: one small step per session.** Cue `/clear` + `/next` after EACH step.
 - **User 2026-10-21: design deviations pre-approved** ("deviate if you find a more logical, intuitive way; I trust your judgement"); say what changed.
 - Paint plan (user ACCEPTED 2026-10-21): steps (1)-(2) done, user feel untested (backlog "Paint panel UI", "Paint penetration").
   Step (3) waste counter done (r373), plan complete. User feel untested.
-  Task 12 findings 1-4 fixed: r375 (21b7f9f, run 39879903340) on WSA/SHIELD/phone; WSA starts clean (2026-10-22).
+  Task 12 findings 1-4 fixed in r375 (WSA starts clean, 2026-10-22).
   Finding 6 (per-printer cert set) e02b10f; finding 7 (load_models/calib_start roll back on a throw) c892692.
   Build for 6+7+Task 16 dispatched: run 39899625810 (c892692), result pending.
   **Next small step:** when green, install on WSA/SHIELD/phone (+Chromebook if up); on WSA check the paint estimate 8 -> 7
