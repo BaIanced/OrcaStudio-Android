@@ -19,7 +19,7 @@ GitHub is the mailbox; Vincent no longer relays.
 ## Status
 - Tasks 1-11 done and merged (PRs #37-#50). Task 11 needed a test fix from Claude (pr-check caught it).
 - Tasks 12-14 done and merged (PRs #52, #54, #55). Task 12's fixes are all native C++: Claude ships them (CI patches).
-- **Next: Task 15.** One PR each, cut from the latest `muse/work`.
+- **Next: Task 16.** One PR each, cut from the latest `muse/work`.
   **No more stacking**: stacked PRs conflict after a squash merge. If the previous PR isn't merged yet, wait for it.
 - Toolchain: PRs are `COMPILED` since Task 14 (recipe in `MUSE-TOOLCHAIN.md`; rebuild the trust store after a VM restart).
 
@@ -344,6 +344,29 @@ which number is right and why they differ, then fix the Kotlin side if it is the
    each rule you change. If the slicer's number is the wrong one, no code change: write it up.
 Write-up: the PR body + log entry (the trace, the difference table, verdict). Compile + tests per "Before every
 push"; record the test count. Time-box ~60 min.
+
+## Task 16: paint-shop colour-change estimate vs the sliced count (pure Kotlin + tests)
+`muse/work` now carries the work branch's current `android/` (paint shop, flush counter), so start from it.
+On a test plate (one cube, colour-painted on its top and sides, paint depth = shell layers) the paint shop's
+"Plate estimate" line said `colour changes 8 · flush ~1.0 g`; after slicing, the Preview line (from the G-code,
+`GcodeToolChanges`) said 7 / ~0.9 g. The estimate comes from `PaintLayers.forPlate` -> `PaintLayers.layers` (per-layer
+filament lists from the paint mesh) -> `ColourChangeEstimate.estimate`. Known approximations are listed in the
+`PaintLayers` KDoc (uniform layer height, base filament on every layer; the backlog also suspects "top layer counted
+as mixed"). Find which rule makes the estimate one change high, and fix it if it is a rule (not geometry we lack).
+1. In `src-orca/`, trace how the slicer turns colour paint into per-layer regions: `MultiMaterialSegmentation.cpp`
+   (top/bottom paint depth, how far side-wall paint reaches in Z, the layer a span's top edge lands on) and how
+   `ToolOrdering` orders filaments per layer (first filament of a layer = last of the layer below, so a layer
+   that only adds no new filament costs no change). Cite file:line.
+2. List every difference vs `PaintLayers.layers` / `forPlate` / `ColourChangeEstimate.estimate` (layer-index rounding
+   of span edges at `PaintLayers.kt:82`, the paint-depth reach, the per-layer order, the first layer), each with the
+   change-count effect you computed from a hand-built span list. Only claim an effect you computed.
+3. Fix only `PaintLayers.kt` / `ColourChangeEstimate.kt`; add JVM tests in `PaintLayersTest.kt` /
+   `ColourChangeEstimateTest.kt` with hand-built spans (a painted-top cube: N layers, paint depth D) that pin each
+   rule you change, and keep every existing test green (change one only if it pinned the wrong rule; say which).
+   If the difference is geometry the paint mesh cannot give (e.g. the slicer's region growing), change nothing for
+   it and say so.
+Write-up: PR body + log entry (trace, difference table, verdict). Compile + tests per "Before every push"; record the
+test count. Time-box ~60 min.
 
 ## Log
 Append-only, one entry per PR (also for PRs that get closed unmerged), newest last. Never edit earlier entries.
