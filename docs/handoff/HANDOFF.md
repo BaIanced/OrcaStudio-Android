@@ -24,22 +24,22 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
   WSA `127.0.0.1:58526`; **USB serial = the user's SHIELD TV** (rooted; installs only). No printer tests (user away).
 - **Cheapest interface first** (MCP `mcpao.sh` ~150 tok > `phone-ui.py layout` cut by regex > cropped shot only for GL looks).
-- User sessions backed up: phone `/data/local/tmp/phone-session-backup.{3mf,json}` (8 plates), WSA `/data/local/tmp/session-backup.{3mf,json}`.
-  Test zip `scadzip-test.zip` stays in `/sdcard/Download` on phone + Chromebook. LAN access code was given in chat: never write it anywhere.
+- Session backups: phone `/data/local/tmp/phone-session-backup.{3mf,json}`, WSA `/data/local/tmp/session-backup.{3mf,json}`. `scadzip-test.zip` stays in `/sdcard/Download` (phone, Chromebook). Never write the LAN access code anywhere.
 ## Next task
 - **User 2026-10-21: one small step per session.** Cue `/clear` + `/next` after EACH step.
 - **User 2026-10-21: design deviations pre-approved** ("deviate if you find a more logical, intuitive way; I trust your judgement"); say what changed.
 - Paint plan (user ACCEPTED 2026-10-21): steps (1)-(2) done, user feel untested (backlog "Paint panel UI", "Paint penetration").
   Step (3) waste counter done (r373), plan complete. User feel untested.
-  Task 12 findings 1-4 fixed in r375; finding 7 + Task 16 VERIFIED r376 on WSA (archive); finding 6 needs 2+ printers.
-  **Next small step:** write Muse Task 17 (pick an audit or JVM-testable pure-Kotlin item; sync muse/work android/ first).
+  **Next small step:** Task 17 is out (written 2026-10-23, PR #60, READY on #46: audit + JVM tests for ThemeSpec/PenConfig/MeshReport/Json.kt;
+  Muse adds `testImplementation(org.json)`). Wait for Muse's draft PR, review it, compile locally, merge into muse/work, cherry-pick onto the work branch.
+  Log Claude's effort for Task 17 in the archive (Task 17 writing = ~6 tool calls), then tell the user keep/drop.
 - Muse (2026-10-22): tasks in `MUSE-TASKS.md` on `muse/work` (edit via a `claude/*` PR, self-merge), then `TASK <n> READY`
   on #46; Muse answers with one draft PR per task. Claude verifies, merges into muse/work, cherry-picks code onto the work
   branch. Task 1 finding 4: fix the patch comment when regenerating 0001. **Each session start, run exactly:**
   `gh pr list --state open --json number,title,headRefName; gh issue view 46 --json comments --jq '.comments[-2:][]|.createdAt+" "+(.body|.[0:300])'`
   (`--comments` + `--json` together errors).
   Tasks 1-16 merged (#54 = Task 12 JNI audit, fixes in backlog; Task 16 = #59, dec87f6, verified r376). Sync muse/work
-  android/ before each Kotlin task (#58). Task 17 next.
+  android/ before each Kotlin task (#58). Task 17 written, awaiting Muse.
   **Muse role verdict (Claude, 2026-10-22): Kotlin tasks OK** (Task 14: compile + 87/87 JVM tests in its VM, self-reported;
   Claude compiles each PR locally before merging). No native/patch work (all Task 12 fixes are native). **Muse trial (user asked, 2026-10-22):**
   only audits + JVM-testable pure Kotlin; for Tasks 15-17 log in the archive Claude's effort per task (write, review, fixes,
