@@ -38,7 +38,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   on #46; Muse answers with one draft PR per task. Claude verifies, merges into muse/work, cherry-picks code onto the work
   branch. Task 1 finding 4: fix the patch comment when regenerating 0001. **Each session start: check open `muse/*` PRs + #46.**
   Tasks 1-14 merged (#54 = Task 12 JNI audit, fixes in backlog; #55 = Task 14 trust store, 2026-10-22).
-  **Task 15 READY (#56, 2026-10-22): prime-tower grams vs slicer (backlog "Preview colour-change line"); awaiting PR.**
+  Task 15 merged (#57, cherry-picked b27d4f1). **Next Muse step: sync muse/work code to the work branch, then write Task 16.**
   **Muse role verdict (Claude, 2026-10-22): Kotlin tasks OK** (Task 14: compile + 87/87 JVM tests in its VM, self-reported;
   Claude compiles each PR locally before merging). No native/patch work (all Task 12 fixes are native). **Muse trial (user asked, 2026-10-22):**
   only audits + JVM-testable pure Kotlin; for Tasks 15-17 log in the archive Claude's effort per task (write, review, fixes,
