@@ -2734,3 +2734,18 @@ write_mesh draws every volume (OrcaScene.cpp:470), and the mesh shader already m
 6. Later: per-shape filament (volume extruder = multi-colour modeling), "Merge" bake (mesh_boolean), groups editable inside.
 Risks: holes show translucent until sliced (Tinkercad-like); resizing re-meshes the piece and drops its paint; per-piece
 render time on release untested; empty pieces (blank text) must be skipped natively.
+
+### 2026-10-23 Build workspace step 2 done (Claude, f7c01e7)
+- `set_volumes` (OrcaScene.cpp, call `setVolumes`, Kotlin `Engine.setVolumes` + `VolumeSpec` in Models.kt): replaces ALL the
+  object's volumes in one undo step (modifiers too: pass them as `keep` entries to keep them). Entry = `stl` (loaded,
+  loader centring baked back, added with `modify_to_center_geometry = false` so the piece frame stays the mesh frame and
+  `matrix` applies as given) or `keep` (copy of an existing volume: mesh + settings + paint). Repeats of one STL share the
+  mesh (`add_volume_with_shared_mesh`). Missing/empty STL file = skipped; no part left -> throws before any change. New
+  pieces copy the first old part's config (filament). Instance pose kept; `keepCenter` shifts the copies in X/Y so the parts
+  stay centred (for the first conversion from the whole-design mesh). Old volumes are deleted directly, NOT via
+  `ModelObject::delete_volume` (it folds a lone volume's matrix into the instances, Model.cpp:1439).
+- `set_build_object(object|-1)` (call `setBuildObject`, Kotlin `Engine.setBuildObject`): write_mesh gives that object's
+  volumes selection id -1000 - volume (all its copies share them). Index-based, the Kotlin side owns it (clear on exit).
+- Caveats for steps 3-4: `keep` assumes a mesh set_volumes made this session (a 3MF reload may re-centre volume meshes:
+  re-send `stl` after a load); a single-volume object now keeps a non-identity volume matrix (Orca's GUI folds it, our
+  renderer/pick/slicing use vol->get_matrix(), 3MF round trip of that untested). Nothing calls either function yet.
