@@ -2929,3 +2929,13 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
   hidden filaments stay basic. No real transparency (parts draw opaque in pass 0); translucent = wrap + gloss.
 - Claude WSA debug check (temporary file override, reverted): all six compile/render; one tuning round (silk lobe 18 /
   0.6 / tint 0.85 / sky 0.45 / diffuse 0.72). Differences show mostly on curved faces. JVM test FilamentMaterialTest.
+- 2026-10-24 r389 WSA (Claude): Surface look matte vs glossy render differently (flat vs sharp highlight); user feel untested.
+
+## 2026-10-24 Realistic render mode build 1 (08f4a04)
+- User asked for a render mode mimicking Google Filament; approved shader-only look-alike (engine stays rejected). View menu
+  toggle `realistic_render` (default off) -> PlateRenderer.realistic -> MESH_FS uRealistic. `realisticShade`: GGX (Filament's
+  mediump-safe cross form, highp), height-correlated Smith, Schlick, Lambert, clear coat (Kelemen), key light x shadow `lit`,
+  procedural `studio()` env (floor, sky, horizon band, overhead softbox, side strip; roughness widens + keeps energy),
+  Karis envDfg, ACES, exposure 0.5 (first try 1.0 clipped whites), gamma 2.2. glslc OK; FilamentMaterialTest 3/3.
+- Claude debug WSA check: blue sphere, all six looks distinct (silk metallic with softbox reflections, glossy/translucent
+  coat reflections, matte soft). Faceting on low-poly spheres shows as in the plain look (flat normals). User untested.

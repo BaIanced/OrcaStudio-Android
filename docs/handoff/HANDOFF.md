@@ -16,7 +16,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   main: Check mesh feel, cut Flip paint fix, 3MF export in desktop Orca, pie menu (lab), pen 7d3a263, fan hold 298ee9f, Extrude
   F150 e13bebb, Quest stick zoom (r324). Unmerged on the branch: paint shop + paint depth r367, Build workspace 1-5 + 6a (user feel untested).
 - Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
-- Latest build r388 (run 40062367765, Filament materials tier 1): WSA, SHIELD (2026-10-24). Phone r376, Chromebook r374 (offline).
+- Latest build r389 (run 40068561199, Filament materials step 2): WSA, SHIELD, Note (2026-10-24). Phone r376, Chromebook r374 (offline).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
@@ -35,14 +35,15 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   **Muse KEPT (user, 2026-10-23)** for audits + larger JVM-testable Kotlin only (Claude compiles each PR locally before
   merging), no native/patch work, no small fixes. Log Claude's effort per task in the archive; if a task costs more than
   doing it directly, tell the user plainly and stop. Merge commands START with `gh pr merge`. No stacking.
-- Build workspace steps 1-6 done (6c-2 6df309d). Filament materials tier 1 done (b978e15, `render/FilamentMaterial.kt`); both in
-  run 40062367765 (r388, installed WSA + SHIELD). User feel untested.
+- Build workspace 1-6 (6df309d), Filament materials tier 1 (b978e15) + step 2 Surface look (r389, Claude WSA-checked): user feel untested.
 - User 2026-10-23: no Claude/Anthropic names in app code/strings. README, `claude mcp add`, trailers: asked, kept.
 - Local debug test on WSA: `stage-from-apk.sh` (after native CI builds), assembleDebug, `wsa-debug-setup.sh`,
   `wsa-start.ps1` (no PC `adb forward tcp:8765` while it starts), MCP with `MCP_DEV=127.0.0.1:58526 PKG=...debug`; uninstall the debug app when done.
 - Open (backlog): app 3MF fails in desktop Orca (fix untested), printer/user-only checks, pen input, plate switcher pick.
-- Filament materials step 2 done (per-slot "Surface look" dropdown, Texture icon on each slot row; `FilamentSlot.look`), compiled + unit tests OK, CI build pending, user feel untested. Translucent = shading only; true alpha pass is an idea (user asked 2026-10-24, not scheduled).
-- Next step: test step 2 on WSA with the window VISIBLE (user 2026-10-24: UI tests where he can watch) -> Sonnet 5.5 (medium)
+- Realistic render mode build 1 done (08f4a04, View > Realistic render, default off): Filament-style PBR + studio env in MESH_FS
+  (`realisticShade`), `FilamentMaterial.p` (rough, metal, coat, coat rough). Debug WSA check 2026-10-24: all six looks distinct,
+  exposure 0.5 tuned once. Not in a CI build yet. Build 2: AO (reuse r266 part shadows), true alpha for translucent, Quest/Chromebook GPU check.
+- Next step: Realistic render build 2 (AO + translucent alpha), then dispatch CI -> Opus 5.5 (high)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).

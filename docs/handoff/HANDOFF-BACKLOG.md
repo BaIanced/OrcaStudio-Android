@@ -53,7 +53,7 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - Colour icon set shortlist + mockup (low). Paint card fold direction by screen position (low). "Need phone" prompt (shelved).
 - [Opus] Filament materials: tier 1 done b978e15 (Claude WSA-checked debug 2026-10-23; user feel untested, r388 pending). Open: per-slot
   material override UI (auto from preset name now), tier 2 procedural layer lines (z / layer height, fwidth fade).
-  ~1 day for both, one build. Not wanted: full PBR/IBL, Google Filament engine (breaks Shaders.kt drags, ids, uSolo).
+  ~1 day for both, one build. Google Filament engine not wanted (breaks Shaders.kt drags, ids, uSolo); Realistic render mode build 1 08f4a04 (Claude debug WSA 2026-10-24; not in CI yet, user untested); build 2 open (AO, translucent alpha) [Opus].
 - MCP tools: app_state, log_tail, perf. Preview camera-light slider (no GO). Blender print3d_toolbox checks (pie menu: see stylus).
 
 ## Known limits (no action)
