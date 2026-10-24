@@ -86,6 +86,14 @@ void set_host(Host host)
 
 const Host &host() { return g_host; }
 
+BundleWriteGuard::BundleWriteGuard() : m_gil(std::make_unique<PythonGILState>())
+{
+    if (!*m_gil)
+        m_gil.reset();
+}
+
+BundleWriteGuard::~BundleWriteGuard() = default;
+
 json start(const std::string &cloud_user_id)
 {
     std::lock_guard<std::mutex> lock(g_start_mutex);

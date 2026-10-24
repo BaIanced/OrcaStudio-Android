@@ -324,7 +324,8 @@ public:
     void cancel();
 
     // For the plugin runtime: the preset bundle (read by plugins without the engine lock, as the
-    // desktop's plugins read the GUI's bundle), and the full config the last slice of `plate` used
+    // desktop's plugins read the GUI's bundle; every change to it is made under a
+    // plugins::BundleWriteGuard, and a bundle a plugin may hold is never freed), and the full config the last slice of `plate` used
     // (null before the first slice), which the G-code post-process plugins read.
     Slic3r::PresetBundle                             *preset_bundle() { return m_bundle.get(); }
     std::shared_ptr<const Slic3r::DynamicPrintConfig> slice_config(int plate);
@@ -395,6 +396,8 @@ private:
 
     std::mutex                            m_mutex;
     std::unique_ptr<Slic3r::PresetBundle> m_bundle;
+    // Bundles replaced by load_presets() while plugins ran: a plugin may still hold one.
+    std::vector<std::unique_ptr<Slic3r::PresetBundle>> m_retired_bundles;
     std::unique_ptr<Slic3r::Model>        m_model;
     std::vector<PlateInfo>                m_plates{1};
     std::array<double, 4>                 m_layout_rect{0., 0., 200., 200.}; // bed the objects are laid out for
