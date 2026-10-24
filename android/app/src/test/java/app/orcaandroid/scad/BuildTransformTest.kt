@@ -116,6 +116,50 @@ class BuildTransformTest {
         assertNull(BuildTransform.designScale(copy(Vec3(0f, 0f, 45f)), Vec3(2f, 1f, 1f)))
     }
 
+    @Test fun toDesignUndoesAnUnevenlyScaledMirroredCopy() {
+        val inst = Instance(0, 0, Vec3(100f, 50f, 3f), Vec3(0f, 0f, 90f), Vec3(2f, 0.5f, 1.5f), Vec3(-1f, 1f, 1f), Vec3(0f, 0f, 0f), Vec3(0f, 0f, 0f))
+        val p = D3(3.0, -7.0, 12.0)
+        val w = plate(inst, p)
+        assertNear(p, BuildTransform.toDesign(inst, Vec3(w.x.toFloat(), w.y.toFloat(), w.z.toFloat())))
+    }
+
+    @Test fun axesFreeAtExactRightAngles() {
+        val d = ShapeDesign()
+        assertEquals(true, BuildTransform.axesFree(d, copy(Vec3(0f, 0f, 90f)), emptyList()))
+        assertEquals(true, BuildTransform.axesFree(d, copy(Vec3(0f, 0f, 180f)), emptyList()))
+        assertEquals(true, BuildTransform.axesFree(d, copy(Vec3(180f, 0f, 0f)),
+            listOf(box(1, D3(1.0, 1.0, 1.0), rot = D3(90.0, 0.0, 0.0)))))
+        assertEquals(false, BuildTransform.axesFree(d, copy(Vec3(0f, 0f, 45f)), emptyList()))
+    }
+
+    @Test fun designScaleAtExactRightAngles() {
+        // A quarter-turned copy: plate X scales design Y, plate Y scales design X.
+        val f = BuildTransform.designScale(copy(Vec3(0f, 0f, 90f)), Vec3(2f, 3f, 4f))
+        assertNotNull(f)
+        assertNear(D3(3.0, 2.0, 4.0), f!!, 1e-9)
+        // A half-turned copy: the axes stay their own (factors are positive; flips are the mirror's job).
+        val g = BuildTransform.designScale(copy(Vec3(0f, 0f, 180f)), Vec3(2f, 3f, 4f))
+        assertNotNull(g)
+        assertNear(D3(2.0, 3.0, 4.0), g!!, 1e-9)
+    }
+
+    @Test fun scaleACircularRepeatAboutItsCentre() {
+        // An even scale: the ring's centre moves with the scale and every copy follows.
+        scaleCase(copy(Vec3(0f, 0f, 0f)), box(1, D3(4.0, 2.0, 3.0), D3(30.0, 0.0, 0.0),
+            repeat = Repeat(circular = true, count = 4, center = D3(20.0, 5.0, 0.0))), Vec3(1.5f, 1.5f, 1.5f))
+    }
+
+    @Test fun unevenScaleOfACircularRepeatIsRefused() {
+        // The copies are the shape turned about the centre, and a turn does not commute with an uneven
+        // scale (copy 1's corner landed 3 mm off in the plate check this test replaces).
+        val d = ShapeDesign()
+        val ring = box(1, D3(4.0, 2.0, 3.0), D3(30.0, 0.0, 0.0),
+            repeat = Repeat(circular = true, count = 4, center = D3(20.0, 5.0, 0.0)))
+        assertNull(BuildTransform.scaled(d, ring, D3(1.5, 2.0, 1.0), D3()))
+        // A single copy is never turned, so it scales like the plain shape.
+        assertNotNull(BuildTransform.scaled(d, ring.copy(repeat = ring.repeat!!.copy(count = 1)), D3(1.5, 2.0, 1.0), D3()))
+    }
+
     @Test fun noScaleForGroupsOrUnevenTurnedShapes() {
         val d = ShapeDesign()
         assertNull(BuildTransform.scaled(d, box(1, D3(1.0, 1.0, 1.0), rot = D3(0.0, 0.0, 30.0)), D3(2.0, 1.0, 1.0), D3()))

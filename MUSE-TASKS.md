@@ -1069,3 +1069,71 @@ UNVERIFIED: Android's bundled org.json vs the 20240303 jar on the few coercions
 pinned here (they agree in the cases read, but only the jar was executed); device
 behaviour of the two fixes (both only widen what parses without throwing).
 Open questions: none.
+
+### Task 18 - 2026-10-23 - muse/task-18-build-workspace-tests - this commit
+Audit + JVM tests for the Build workspace Kotlin, and the piece matching extracted
+to a pure core. New tests: `PieceMatchTest` 13, `ShapePiecesTest` +9, `BuildTransformTest`
++5 (27 new; suite 151 -> 178). Written and run before the fix: the scad classes ran
+41 tests with exactly 1 failure - the plate-exactness check behind
+`unevenScaleOfACircularRepeatIsRefused` (copy 1's corner expected x 40.0, was 43.0);
+after the fix all pass.
+Extraction (step 2): `scad/PieceMatch.kt` - `PieceMatch.match(oldPieces, oldEmpty,
+newPieces, newEmpty, volumes)` is the pure core of `ScadController.matched`: the
+controller still gathers the inputs (the object's stored design, render-file lengths
+as the empty flags, its PART / NEGATIVE volumes as (index, isHole)) and a missing
+cached render still returns no matches before the core runs; the core decides.
+`ScadController.kt` changed only there (plus the import). `kept` / `anchors` stay in
+the controller - they need `placedThisSession` and the matrix comparison.
+Per-function edge-case table (input -> behaviour):
+- `ShapeDesign.pieces()`: a group is one piece and a hole inside it cuts in the
+  piece's own `difference()` code, never a volume; a top-level hole is its own
+  negative piece; nested groups still one piece. A repeated shape gives one piece
+  per copy, all sharing the code; copies keep their order and matrices when the
+  count shrinks, and a count of 1 is exactly the plain shape. A circular repeat's
+  copies turn about the repeat centre (its z plays no part), code shared, matrices
+  distinct. Reordering the shapes reorders the pieces. Two identical shapes share
+  code and matrix but keep their own pieces (matching separates them by shape id).
+  Blank text (empty or whitespace) still yields a piece whose code is only the
+  `// (no text)` comment - it renders empty, which the matching reads as not placed.
+  Mirror changes only the matrix, never the code. Pinned odd-but-harmless
+  (`...Today`): the mirror is a flag, any non-zero value flips like a 1
+  (`mirrorMagnitudeIsIgnoredToday`); the matrix is bit-deterministic for an
+  unchanged design, but `anchors`' `==` is exact, so a 1e-9 move that the code's
+  0.001 rounding hides still un-anchors the piece (`tinyMoveChangesTheMatrixButNotTheCodeToday`).
+- `BuildTransform`: `toDesign` undoes the placement for an unevenly scaled,
+  mirrored, quarter-turned copy as well. `axesFree` is true at exactly 90 / 180
+  degrees (copy and shape) and false at 45. `designScale` at exactly 90 swaps the
+  X / Y factors; at 180 it keeps them (flips are the mirror's job); off the axes it
+  returns null (pinned before). `turned` / `scaled` on linear repeats and groups
+  as before. DEFECT (fixed, pinned by `unevenScaleOfACircularRepeatIsRefused`):
+  `scaled` with uneven factors and a circular repeat (count > 1) returned a Pose -
+  the centre moved right, but a copy is the shape turned about the centre and a
+  turn does not commute with an uneven scale, so each copy came out scaled along
+  the wrong axes. Fix in `BuildTransform.kt` only: `scaled` returns null there,
+  like for a group or an uneven-turned shape, so the caller leaves the shape
+  unscaled. An even scale of a ring stays plate-exact
+  (`scaleACircularRepeatAboutItsCentre`), and a count of 1 is never turned, so it
+  still scales.
+- `PieceMatch` (was `ScadController.matched`): unchanged pieces reuse their
+  volumes; an edited piece matches nothing but its neighbours still do; a moved
+  piece still matches (the code is unchanged - staying in place is `anchors`'
+  question). An empty old piece holds no volume and the rest shift up; an empty
+  new piece matches nothing. A volume count that differs from the placed old
+  pieces, or a part / negative line-up that differs in any position, matches
+  nothing at all. Holes match negative volumes. Identical code is separated by
+  shape id, copies by copy index; a repeat count change keeps the survivors'
+  volumes and a new copy matches nothing; reordered pieces match by shape, not
+  position. Nothing placed (no old pieces, or all empty) matches nothing. Pinned
+  odd-but-harmless (`...Today`): two identical old pieces (same shape, copy and
+  code - a design cannot make them, ids are unique) would both be claimed by the
+  first one's volume (`duplicatePiecesBothMatchTheFirstToday`).
+Build: COMPILED (compile exit 0, tests exit 0; 178/178 tests passed, 0
+failures/errors/skipped, 18 classes - baseline on this branch before the changes
+was 151/151 in 17 classes; trust store rebuilt per the Task 14 recipe for this VM
+instance first, 121 bundle certs imported).
+Privacy self-scan: tree exit 0, range exit 0.
+UNVERIFIED: device behaviour of the extraction and of the scale refusal (JVM
+tests only; the refusal's caller path - the shape is left unscaled - is by
+reading `ShapeController.resizeOnPlate`); `kept` / `anchors` themselves, which
+need controller state and are covered only through the extracted core.
+Open questions: none.
