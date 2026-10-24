@@ -199,6 +199,8 @@
     <string name="yes">Yes</string>
     <string name="no">No</string>
     <string name="edit">Edit</string>
+    <string name="filament_look">Surface look</string>
+    <string name="filament_look_auto">Automatic (%1$s)</string>
     <string name="empty">(empty)</string>
     <string name="end_calibration">End</string>
     <string name="enforce">Enforce</string>

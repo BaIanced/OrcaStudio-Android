@@ -2920,3 +2920,12 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 - Debug setup notes: the debug app's first start shows the printer picker (Apply, then re-run wsa-debug-setup.sh); the MCP
   server can't bind while the PC's `adb forward tcp:8765` exists (WSA shares Windows loopback): remove it before starting the app.
 - Untested: nested groups on device, repeated groups (gizmo on copy 0), user feel.
+
+## 2026-10-23 Filament materials tier 1 (b978e15)
+- `render/FilamentMaterial.kt`: enum BASIC/MATTE/SILK/GLOSSY/TRANSLUCENT/SATIN, `of(preset, filament_type override)` by
+  name words (silk/metal > translucent/clear > matte/CF/GF/TPU > PETG/PCTG/PC > ABS/ASA/PA > basic). Uniforms `uMatA/uMatB[16]`
+  (PlateRenderer.setFilamentMaterials, Viewport filament LaunchedEffect); MESH_FS part shading: wrap lighting, highlight
+  power/strength, metallic tint, fresnel sky reflection, grazing sheen. BASIC = old look exactly. Parts with type < 100 and
+  hidden filaments stay basic. No real transparency (parts draw opaque in pass 0); translucent = wrap + gloss.
+- Claude WSA debug check (temporary file override, reverted): all six compile/render; one tuning round (silk lobe 18 /
+  0.6 / tint 0.85 / sky 0.45 / diffuse 0.72). Differences show mostly on curved faces. JVM test FilamentMaterialTest.

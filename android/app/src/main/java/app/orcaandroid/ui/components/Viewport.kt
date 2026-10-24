@@ -453,7 +453,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     }
     LaunchedEffect(v, state.filaments) {
         val cols = state.filaments.map { hexToRgb(it.color ?: "#FF7F27") }
-        val mats = state.filaments.map { FilamentMaterial.of(it.preset, it.overrides["filament_type"]) }
+        val mats = state.filaments.map { FilamentMaterial.entries.firstOrNull { m -> m.name == it.look } ?: FilamentMaterial.of(it.preset, it.overrides["filament_type"]) }
         v.onGl { filamentColors = cols; filamentMaterials = mats }
     }
     val build = state.buildObject?.let { scene.objects.getOrNull(it) }

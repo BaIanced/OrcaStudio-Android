@@ -185,6 +185,7 @@ class PresetController(private val store: Store, private val device: DeviceContr
     fun addFilament() = updateFilaments { list -> list + FilamentSlot(list.last().preset, nextColor(list.size)) }
     fun removeFilament(slot: Int) = updateFilaments { list -> if (list.size <= 1) list else list.filterIndexed { i, _ -> i != slot } }
     fun setFilamentColor(slot: Int, color: String) = updateFilaments { list -> list.mapIndexed { i, f -> if (i == slot) f.copy(color = color) else f } }
+    fun setFilamentLook(slot: Int, look: String?) = updateFilaments { list -> list.mapIndexed { i, f -> if (i == slot) f.copy(look = look) else f } }
 
     fun setActiveFilament(slot: Int) = store.launch { setActiveFilamentNow(slot) }
 

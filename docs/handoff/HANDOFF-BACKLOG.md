@@ -51,9 +51,8 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - [Opus] OrcaMesh direct mesh editing (CGAL Surface_mesh + PMP, Blender bmesh ports; MVP 1-2 weeks; archive).
 - Public release check: built-in adblock + hard-coded Models tabs vs store policies / site terms (not researched).
 - Colour icon set shortlist + mockup (low). Paint card fold direction by screen position (low). "Need phone" prompt (shelved).
-- [Opus] Filament materials (user GO 2026-10-23, after Build step 6): tier 1 per-filament material table (matte/basic/silk/
-  PETG/translucent: spec power+strength, metallic tint, sky reflection, fresnel sheen, wrap/edge alpha; from filament
-  type/name + override) in the model shader (Shaders.kt:183-206); tier 2 procedural layer lines (z / layer height, fwidth fade).
+- [Opus] Filament materials: tier 1 done b978e15 (Claude WSA-checked debug 2026-10-23; user feel untested, r388 pending). Open: per-slot
+  material override UI (auto from preset name now), tier 2 procedural layer lines (z / layer height, fwidth fade).
   ~1 day for both, one build. Not wanted: full PBR/IBL, Google Filament engine (breaks Shaders.kt drags, ids, uSolo).
 - MCP tools: app_state, log_tail, perf. Preview camera-light slider (no GO). Blender print3d_toolbox checks (pie menu: see stylus).
 

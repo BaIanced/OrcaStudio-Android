@@ -96,8 +96,8 @@ data class SettingsPage(val title: String, val groups: List<SettingsGroup>)
 /** Which process options the desktop rules grey out / hide for the current values. */
 data class OptionStates(val disabled: Set<String> = emptySet(), val hidden: Set<String> = emptySet())
 
-/** One filament slot of the plate: preset, optional colour, per-slot edits and the AMS tray a sync filled it from. */
-data class FilamentSlot(val preset: String, val color: String? = null, val overrides: Map<String, String> = emptyMap(), val source: TraySource? = null)
+/** One filament slot of the plate: preset, optional colour, per-slot edits and the AMS tray a sync filled it from; [look] = the FilamentMaterial name picked for the Prepare view (null = from the preset name). */
+data class FilamentSlot(val preset: String, val color: String? = null, val overrides: Map<String, String> = emptyMap(), val source: TraySource? = null, val look: String? = null)
 
 /**
  * The tray an AMS sync filled a slot from: [key] = printer serial / AMS / slot, [loaded] = the filament id and
