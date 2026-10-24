@@ -37,9 +37,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - User feel untested (backlog): paint plan (r373), Build workspace 1-6, Filament materials tiers 1+2, Realistic render 1+2 (r390).
 - Local debug test on WSA: recipe in the reference ("Local APK").
 - Open (backlog): app 3MF in desktop Orca (fix applied; user must open a fresh export), printer/user-only checks, pen input, plate switcher pick.
-- Task 12: 5/8/9 in r392 (9 WSA-checked, archive). 1-4 closed (static re-check, not device-triggerable). 10/12/13 fixed 6303398, CI run 40141547033 (2026-10-24); 11 note only.
+- Task 12: 5/8/9 in r392 (9 WSA-checked, archive). 1-4 closed (static re-check, not device-triggerable). 10/12/13 fixed 6303398, r395 = run 40141547033 (built OK 2026-10-24, not installed); 11 note only.
 - Local debug app (older native libs, r391) is still on WSA with release data (removed from phone 2026-10-24); remove when done.
-- Next step: install run 40141547033 on all devices, WSA smoke Add text (>32 chars) + SVG import -> Sonnet 5.5 (medium)
+- Next step: install r395 (run 40141547033) on all devices, WSA smoke Add text (>32 chars) + SVG import -> Sonnet 5.5 (medium)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
