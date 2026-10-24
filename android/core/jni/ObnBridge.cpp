@@ -76,6 +76,9 @@ struct Event {
 };
 
 std::mutex g_mu;
+// Serializes init() only. g_mu must not be held across obn calls: obn's callbacks run push_event(),
+// which takes g_mu, and a callback fired on the calling thread would deadlock init.
+std::mutex g_init_mu;
 std::condition_variable g_cv;
 void *g_agent = nullptr;
 std::string g_dir;
@@ -183,8 +186,8 @@ extern "C" {
 JNIEXPORT jstring JNICALL Java_app_orcaandroid_net_ObnNative_init(JNIEnv *env, jobject, jstring dir)
 {
     return guard_str(env, "", [&]() -> jstring {
-        std::lock_guard<std::mutex> lk(g_mu);
-        if (!g_agent) {
+        std::lock_guard<std::mutex> init_lk(g_init_mu);
+        if (!current_agent()) {
             const std::string d = jstr(env, dir);
             void *agent = bambu_network_create_agent(d);
             if (!agent) return env->NewStringUTF("");
@@ -202,6 +205,7 @@ JNIEXPORT jstring JNICALL Java_app_orcaandroid_net_ObnNative_init(JNIEnv *env, j
             bambu_network_set_on_local_message_fn(agent, on_msg);
             bambu_network_set_on_message_fn(agent, on_msg);
             bambu_network_start(agent);
+            std::lock_guard<std::mutex> lk(g_mu);
             g_agent = agent;
             g_dir   = d;
         }
