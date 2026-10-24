@@ -37,12 +37,11 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   doing it directly, tell the user plainly and stop. Merge commands START with `gh pr merge`. No stacking.
 - Build workspace 1-6 (6df309d), Filament materials tier 1 (b978e15) + step 2 Surface look (r389) + tier 2 Layer lines (View menu,
   4b7d432, r391; Claude WSA-checked): user feel untested.
-- User 2026-10-23: no Claude/Anthropic names in app code/strings. README, `claude mcp add`, trailers: asked, kept.
 - Local debug test on WSA: recipe in the reference ("Local APK").
 - Open (backlog): app 3MF in desktop Orca (fix applied; user must open a fresh export), printer/user-only checks, pen input, plate switcher pick.
 - Realistic render (View menu, default off) builds 1+2 in r390: Claude WSA-checked, user feel untested (backlog).
-- Task 12 finding 5 fixed 9661c20 (WSL-compiled, no CI build yet; batch with 8/9, then WSA preset smoke test).
-- Next step: Muse Task 12 JNI audit finding 8 (obn init lock, suspected) -> Opus 5.5 (high)
+- Task 12 findings 5 (9661c20) + 8 (aecb380) fixed (WSL-compiled, no CI build yet; batch with 9, then WSA preset smoke test).
+- Next step: Muse Task 12 JNI audit finding 9 (paint fill cancel undo pop, suspected) -> Opus 5.5 (high)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).

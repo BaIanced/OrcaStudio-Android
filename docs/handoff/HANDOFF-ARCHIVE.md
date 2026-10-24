@@ -2980,3 +2980,6 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
   freeing it while Python runs (reload is rare: start, vendor install, cloud sync). Lock order engine -> GIL -> PluginManager;
   PM lock scopes hold no Python, plugin code under the GIL never takes the engine lock. WSL corebuild OK; no device test yet.
 - Claude effort: direct (no Muse), ~1 session step.
+
+## 2026-10-24 Muse Task 12 finding 8 fixed (aecb380, unbuilt)
+- `ObnBridge.cpp` init held `g_mu` across `bambu_network_start`; obn callbacks call `push_event` (takes `g_mu`), so a callback on the calling thread would deadlock. obn source isn't in the tree, so not traced; fixed defensively: init now serializes on `g_init_mu`, checks via `current_agent()`, takes `g_mu` only to publish `g_agent`/`g_dir`. WSL corebuild compiles (Claude, 2026-10-24). Untested: needs a printer connect (user away). Effort: ~1 short session step, direct (no Muse).

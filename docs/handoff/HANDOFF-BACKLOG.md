@@ -10,7 +10,7 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 
 ## Open bugs
 - 3MF export in desktop Orca GUI: fix applied (match_filament_indices, r273-era, archive); only the user can open a fresh export (ideally 4 filaments) in desktop Orca: "loads ok?" Claude check_3mf.py OK on WSA 3MF (2026-10-22).
-- [Opus] Muse Task 12 JNI audit: 5 fixed 9661c20 (unbuilt, no plugin race repro), open 8 (obn init lock, suspected), 9 (fill cancel undo pop, suspected), 10-13 (MUSE-REVIEW-0012.md); 6 built r376, needs 2+ printers; 1-4 error paths untested (Claude 2026-10-22).
+- [Opus] Muse Task 12 JNI audit: 5 fixed 9661c20, 8 fixed aecb380 (both WSL-compiled, no CI build; 8 needs a printer connect), open 9 (fill cancel undo pop, suspected), 10-13 (MUSE-REVIEW-0012.md); 6 built r376, needs 2+ printers; 1-4 error paths untested (Claude 2026-10-22).
 - r197 NPE: root cause fixed 6ad69ef (r273); no in-app repro (Claude 2026-10-16).
 
 ## Untested (needs the user or a special setup)
