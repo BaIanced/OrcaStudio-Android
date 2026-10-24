@@ -16,7 +16,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   main: Check mesh feel, cut Flip paint fix, 3MF export in desktop Orca, pie menu (lab), pen 7d3a263, fan hold 298ee9f, Extrude
   F150 e13bebb, Quest stick zoom (r324). Unmerged on the branch: paint shop + paint depth r367, Build workspace 1-5 + 6a (user feel untested).
 - Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
-- Latest build r390 (run 40073750246, Realistic render build 2): install pending; r389 on WSA, SHIELD, Note. Phone r376, Chromebook r374 (offline).
+- Latest build r390 (run 40073750246, Realistic render build 2): WSA, SHIELD (2026-10-24). Note r389 (offline). Phone r376, Chromebook r374 (offline).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
@@ -41,7 +41,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Open (backlog): app 3MF fails in desktop Orca (fix untested), printer/user-only checks, pen input, plate switcher pick.
 - Realistic render (View menu, default off) builds 1+2 in r390: PBR studio look, AO, clear filaments blended (pass 7);
   Claude WSA debug-checked, user feel untested. Open: Quest/Chromebook GPU check. Slot look restart bug fixed (r390).
-- Next step: install r390 on all devices, then Filament materials tier 2 (procedural layer lines) -> Opus 5.5 (high)
+- Next step: Filament materials tier 2 (procedural layer lines) -> Opus 5.5 (high)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
