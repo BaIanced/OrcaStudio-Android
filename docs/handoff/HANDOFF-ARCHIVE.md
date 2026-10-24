@@ -2939,3 +2939,17 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
   Karis envDfg, ACES, exposure 0.5 (first try 1.0 clipped whites), gamma 2.2. glslc OK; FilamentMaterialTest 3/3.
 - Claude debug WSA check: blue sphere, all six looks distinct (silk metallic with softbox reflections, glossy/translucent
   coat reflections, matte soft). Faceting on low-poly spheres shows as in the plain look (flat normals). User untested.
+
+## 2026-10-24 Realistic render mode build 2 (r390 run 40073750246)
+- AO: contact AO (faces < 6 mm above the bed, side faces most, x0.5 at contact) + softbox AO = the key light's shadow map
+  over a 24 mm disc (`AO_SOFT_MM`, `lightAt(..., soft)`), gated by n.l like the shadow; the studio's big softbox now sits at
+  the key light direction (was fixed overhead). Lagarde specular occlusion. WSA measure: shadowed wall ~8 % darker in the
+  last mm above the bed; no acne/banding from the wide disc. Subtle by design (not tuned further).
+- Clear filaments: FilamentMaterial b.w = transmission (TRANSLUCENT 0.7); realistic mode discards them in pass 0 and draws
+  new pass 7 after the opaque scene (cull front then back, depth write off, premultiplied blend). First try premultiplied
+  before gamma: blown-out white (gamma brightened the weighted colour, layers summed past 1). Fix: display-space blend,
+  rgb = opaque look x coverage + reflections x (1 - coverage). WSA: grid, inner faces and the negative cylinder show through.
+- Bug found + fixed: slot surface look (step 2) was lost on app restart: session restore (`PresetController` select printer)
+  and 3MF load (`FileController` slot rebuild) kept the AMS source but not `look`. Both keep it now; WSA restart check OK.
+- `wsa-debug-setup.sh` now also copies files/data/{system,user,orca_plugins} (a fresh debug app stopped at the printer
+  wizard; MCP waits for READY). User 2026-10-24: launch WSA hidden via `wsa-start.ps1` again (memory updated).
