@@ -40,8 +40,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Local debug test on WSA: recipe in the reference ("Local APK").
 - Open (backlog): app 3MF in desktop Orca (fix applied; user must open a fresh export), printer/user-only checks, pen input, plate switcher pick.
 - Realistic render (View menu, default off) builds 1+2 in r390: Claude WSA-checked, user feel untested (backlog).
-- Task 12 findings 5/8/9 fixed (9661c20, aecb380, 04bb9ad; WSL-compiled). CI run 40083179826 (2026-10-24): install on all devices, WSA smoke (presets, paint fill hold + cancel + undo).
-- Next step: install the 5/8/9 build + WSA smoke test -> Sonnet 5.5 (medium)
+- Task 12 findings 5/8/9 fixed (9661c20, aecb380, 04bb9ad) and in r392 (run 40083179826): installed on WSA, phone, SHIELD 2026-10-24 (Chromebook, Note offline). WSA smoke: app starts, presets load, no crash on fill-cancel drag; paint effect NOT verified (filament 1 = default colour, invisible: repeat with filament 2 painted).
+- Local debug app (older native libs, r391) is still on WSA + phone with release data; remove when done. Next step: finish paint fill hold/cancel/undo check with a visible colour -> Sonnet 5.5 (medium)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
