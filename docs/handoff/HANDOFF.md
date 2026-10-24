@@ -41,8 +41,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Open (backlog): app 3MF in desktop Orca (fix applied; user must open a fresh export), printer/user-only checks, pen input, plate switcher pick.
 - Realistic render (View menu, default off) builds 1+2 in r390: Claude WSA-checked, user feel untested (backlog).
 - Task 12 findings 5/8/9 fixed (9661c20, aecb380, 04bb9ad) in r392 (run 40083179826), installed on WSA, phone, SHIELD 2026-10-24 (Chromebook, Note offline). WSA-checked r392 (support-paint Fill): hold-fill stays, slide-off cancel keeps the earlier fill, one Undo removes it. Findings 5/8 not exercised.
+  Findings 1-4 closed (static re-check, not device-triggerable). 10/12/13 fixed 6303398, CI run 40141547033 (2026-10-24); 11 note only.
 - HD plate (Layout lab, off by default): user verified r394 2026-10-24 (archive). Open idea: 3D bed frame model, dual-nozzle decal layout.
-- Local debug app (older native libs, r391) is still on WSA with release data (removed from phone 2026-10-24); remove when done. Next step: Muse Task 12 findings 1-4 JNI error-path checks on WSA -> Opus 5.5 (high)
+- Local debug app (older native libs, r391) is still on WSA with release data (removed from phone 2026-10-24); remove when done.
+- Next step: install run 40141547033 on all devices, WSA smoke Add text (>32 chars) + SVG import -> Sonnet 5.5 (medium)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
