@@ -2995,3 +2995,6 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
   either checks facet >= 0 (fill 709, brush 889, limited 898) or treats -1 as "search for a seed" (height 824).
 - Error paths not device-testable: they need an OOM / obn throw / stale queued facet; a fault-injection native build is not worth a
   CI run for catch-all guards. Normal paths covered: r392 WSA support-paint Fill check (valid facets pass), clean app start (obn init).
+- Findings 10/12/13 fixed 6303398 (Claude, 2026-10-24, WSL-compiled): GetMethodID null -> ExceptionClear + throw at setup
+  (orca_jni progress_forwarder, PluginNative start, ObnBridge print); add_text name cut back to a UTF-8 lead byte; add_svg image in
+  a unique_ptr. Finding 11 (Kotlin callbacks under native locks) left as a contract note: Kotlin listeners post to the UI, no change.
