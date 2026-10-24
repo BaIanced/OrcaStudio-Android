@@ -444,6 +444,11 @@ private:
     // the fill follows the finger, and paint_fill_cancel puts it back (OrcaTools.cpp).
     struct FillPreview;
     std::shared_ptr<FillPreview>          m_fill_preview;
+    // The undo snapshot the current stroke pushed (nullptr: none), so a fill cancel pops only its own step.
+    // Held, not a raw pointer: a freed snapshot's address can come back for a new one.
+    std::shared_ptr<Slic3r::Model>        m_stroke_undo;
+    // Another edit since the preview was made (its undo top changed) leaves the preview stale: its volume may be gone.
+    void                                  drop_stale_fill_preview();
     // Guard plane: the stroke keeps below (true) or above the plane, the side where it started.
     bool                                  m_guard_below = true;
     // Painted triangles per (mesh, annotation timestamp, state): write_paint_mesh re-extracts only what changed.

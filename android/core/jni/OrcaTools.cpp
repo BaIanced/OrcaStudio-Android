@@ -607,7 +607,17 @@ struct OrcaEngine::FillPreview
     ModelVolume                                    *volume = nullptr;
     std::string                                     kind;
     TriangleSelector::TriangleSplittingData before;
+    // m_undo's top when the preview was made, and whether that top is the stroke's own step.
+    std::shared_ptr<Model>                          undo_top;
+    bool                                            own_step = false;
 };
+
+void OrcaEngine::drop_stale_fill_preview()
+{
+    const std::shared_ptr<Model> top = m_undo.empty() ? nullptr : m_undo.back().model;
+    if (m_fill_preview && m_fill_preview->undo_top != top)
+        m_fill_preview.reset();
+}
 
 json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<double, 3> &camera, double radius, const std::string &kind,
                        int state, bool new_stroke, const std::vector<double> &section, double edge_angle,
@@ -625,12 +635,14 @@ json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<doubl
     }
     const auto t0 = std::chrono::steady_clock::now();
     int loads = 0;
+    drop_stale_fill_preview();
     if (new_stroke && !hits.empty())
         push_undo();
     if (new_stroke) {
         m_paint_prev.reset();
         m_paint_region.object = -1;
         m_fill_preview.reset();
+        m_stroke_undo = hits.empty() ? nullptr : m_undo.back().model;
     }
 
     // Guard plane: a horizontal plane at [guard] mm the paint doesn't cross. A stroke keeps to the side it started on, a
@@ -709,8 +721,10 @@ json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<doubl
             }
             m_fill_preview.reset();
         }
-        if (!m_fill_preview)
-            m_fill_preview = std::make_shared<FillPreview>(FillPreview{vol, kind, facets.get_data()});
+        if (!m_fill_preview) {
+            const std::shared_ptr<Model> top = m_undo.empty() ? nullptr : m_undo.back().model;
+            m_fill_preview   = std::make_shared<FillPreview>(FillPreview{vol, kind, facets.get_data(), top, top && top == m_stroke_undo});
+        }
         const Transform3d trafo = obj.instances[h.instance]->get_matrix() * vol->get_matrix();
         FillSelector selector(vol->mesh());
         selector.deserialize(m_fill_preview->before, false);
@@ -931,12 +945,14 @@ json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<doubl
 json OrcaEngine::paint_fill_cancel()
 {
     std::lock_guard<std::mutex> lock(m_mutex);
+    // A preview another edit came after is kept as painted (its step stays in the history with that edit's on top).
+    drop_stale_fill_preview();
     if (m_fill_preview) {
         FacetsAnnotation &facets = facets_of(*m_fill_preview->volume, m_fill_preview->kind);
         const bool was_empty = facets.empty();
         facets.set_data(std::move(m_fill_preview->before));
-        // The stroke's undo step would undo nothing now.
-        if (!m_undo.empty())
+        // The stroke's undo step would undo nothing now. The top is still that step (drop_stale_fill_preview).
+        if (m_fill_preview->own_step)
             m_undo.pop_back();
         if (m_fill_preview->kind == "color" && was_empty != facets.empty())
             write_mesh();
