@@ -14,9 +14,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = cb11452 (PR #36, branch up to c026d15 = cut batch, merged 2026-10-22; main APK run 39735501711). Untested in
   main: Check mesh feel, cut Flip paint fix, 3MF export in desktop Orca, pie menu (lab), pen 7d3a263, fan hold 298ee9f, Extrude
-  F150 e13bebb, Quest stick zoom (r324). Unmerged on the branch: paint shop + paint depth r367, Build workspace 1-5 (user feel untested).
+  F150 e13bebb, Quest stick zoom (r324). Unmerged on the branch: paint shop + paint depth r367, Build workspace 1-5 + 6a (user feel untested).
 - Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
-- Latest build r385 (run 40035616143, 3e13f40, Build design pose): WSA, SHIELD (2026-10-23). Phone r376, Chromebook r374 (offline).
+- Latest build r386 (run 40055385531, 4a027d7, per-shape filament): WSA, SHIELD (2026-10-23). Phone r376, Chromebook r374 (offline).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
@@ -36,12 +36,12 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   **Muse KEPT (user, 2026-10-23)** for audits + larger JVM-testable Kotlin only (Claude compiles each PR locally before
   merging), no native/patch work, no small fixes. Log Claude's effort per task in the archive; if a task costs more than
   doing it directly, tell the user plainly and stop. Merge commands START with `gh pr merge`. No stacking.
-- Build workspace: steps 1-5 verified (r385 WSA); Muse Task 18 applied. Step 6a per-shape filament 4a027d7 (run
-  40055385531, untested): `Shape.filament` -> `Piece.filament` -> `VolumeSpec.extruder` -> set_volumes sets/erases the
-  volume `extruder`; picker under Solid/Hole (2+ filaments). WSA test: Peg -> filament 2: colour, no re-render, slice.
+- Build workspace: steps 1-5 + 6a per-shape filament verified (r386 WSA, archive); MCP `shape_update` filament 5458eb3
+  unbuilt. Next: 6b "Merge" bake (selected shapes -> one mesh via mesh_boolean; plan in archive "Build workspace plan"),
+  then 6c groups editable inside, then backlog "Filament materials".
 - src-orca worktree was EMPTY 2026-10-23 (restored: `git submodule update --init src-orca`, local); C: 96% full.
 - Open (backlog): app 3MF fails in desktop Orca (fix untested), printer/user-only checks, pen input, plate switcher pick.
-- Next step: WSA check of step 6a per-shape filament (install CI run 40055385531) -> Sonnet 5.5 (medium)
+- Next step: Build workspace step 6b Merge bake -> Opus 5.5 (high)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
