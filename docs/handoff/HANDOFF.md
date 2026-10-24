@@ -41,7 +41,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Open (backlog): app 3MF in desktop Orca (fix applied; user must open a fresh export), printer/user-only checks, pen input, plate switcher pick.
 - Realistic render (View menu, default off) builds 1+2 in r390: Claude WSA-checked, user feel untested (backlog).
 - Task 12 findings 5/8/9 fixed (9661c20, aecb380, 04bb9ad) in r392 (run 40083179826), installed on WSA, phone, SHIELD 2026-10-24 (Chromebook, Note offline). WSA-checked r392 (support-paint Fill): hold-fill stays, slide-off cancel keeps the earlier fill, one Undo removes it. Findings 5/8 not exercised.
-- HD plate (Layout lab switch, off by default; upstream decals, replaces the disliked r393 View-menu grain look): Claude WSA-checked (debug), CI build dispatched 2026-10-24; user look pending.
+- HD plate (Layout lab switch, off by default; upstream decals, replaces the disliked r393 View-menu grain look): Claude WSA-checked (debug), r394 (run 40129926213) installed on WSA, phone, SHIELD 2026-10-24 (Chromebook, Note offline); user look pending.
 - Local debug app (older native libs, r391) is still on WSA + phone with release data; remove when done. Next step: pick the next backlog item (grep "[Opus]" / user-only checks) -> Sonnet 5.5 (medium)
 
 ## User decisions (2026-10-13)
