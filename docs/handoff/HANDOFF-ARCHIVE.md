@@ -2964,3 +2964,19 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
   shows them (strong contrast under the softbox, left for the user). Lying cylinders show lines along their length (correct).
 - 2026-10-24 /next skill: model check now compares the model only (Claude can't see /effort; the internal reasoning number
   isn't it; Claude wrongly said "effort low" 3x while the user was on High).
+
+## 2026-10-24 Stale backlog item archived
+- "Paint shop: slice -> Preview -> back to Prepare resets paint mode to Fill" was already fixed by Muse Task 7 (a4b63c7, paint mode kept over Preview), Claude WSA-checked OK 2026-10-22. Backlog line removed.
+
+## 2026-10-24 Prime tower weight (Task 15 b27d4f1) verified on WSA r391
+- Claude: WSA plate 3 painted filament 2 (Pieces test, Paint shop > Object) and sliced: slice_result Prime tower 11.075 g, Preview line "prime tower ~11.1 g" (93 changes, flush ~12.4 g, total 33.6 g both). Match. Recipe: Print tab Filaments > add slot; Paint > Color painting > Object > pick filament 2 > tap part; MCP slice {"plate":N}.
+
+## 2026-10-24 Muse Task 12 finding 5 fixed (9661c20, unbuilt)
+- Confirmed: plugins load and run on their own threads (PluginManager::load_plugin spawns std::thread; Python threads post page
+  messages) and `orca.host.preset_bundle()` returns the raw bundle by reference, so load_presets() freed it under a plugin.
+- Fix: `orca::plugins::BundleWriteGuard` (AndroidPluginRuntime) holds the GIL while Python runs; every bundle write takes it
+  after the engine lock (load_presets swap, select_printer_locked, save/delete_preset, selection_config, import_presets,
+  load_cloud_presets, mark_uploaded, sync_filaments). load_presets() retires the old bundle (m_retired_bundles) instead of
+  freeing it while Python runs (reload is rare: start, vendor install, cloud sync). Lock order engine -> GIL -> PluginManager;
+  PM lock scopes hold no Python, plugin code under the GIL never takes the engine lock. WSL corebuild OK; no device test yet.
+- Claude effort: direct (no Muse), ~1 session step.

@@ -9,10 +9,8 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - Device tab printer controls (built r286): needs printer + user: extrude/jog/home motion, part fan reads 0 % after a set, target-0 tile stale, speed chip mid-print (Claude 2026-10-21).
 
 ## Open bugs
-- [Opus] 3MF saved by the app fails in desktop Orca GUI ("no geometry data", filament_self_index count): fix match_filament_indices, GUI load of a new export untested (Claude 2026-10-20).
-- Paint shop: slice -> Preview -> back to Prepare resets the paint mode to Fill (Claude r367 2026-10-21).
-- [Opus] Prime tower weight: Preview line ~3.3 g vs slice_result 3.155 g; Task 15 fix b27d4f1 untested on device: re-slice WSA plate 2 and compare (Claude 2026-10-22).
-- [Opus] Muse Task 12 JNI audit: open 5 (preset_bundle() unlocked plugin read), 8 (obn init lock, suspected), 9 (fill cancel undo pop, suspected), 10-13 (MUSE-REVIEW-0012.md); 6 built r376, needs 2+ printers; 1-4 error paths untested (Claude 2026-10-22).
+- 3MF export in desktop Orca GUI: fix applied (match_filament_indices, r273-era, archive); only the user can open a fresh export (ideally 4 filaments) in desktop Orca: "loads ok?" Claude check_3mf.py OK on WSA 3MF (2026-10-22).
+- [Opus] Muse Task 12 JNI audit: 5 fixed 9661c20 (unbuilt, no plugin race repro), open 8 (obn init lock, suspected), 9 (fill cancel undo pop, suspected), 10-13 (MUSE-REVIEW-0012.md); 6 built r376, needs 2+ printers; 1-4 error paths untested (Claude 2026-10-22).
 - r197 NPE: root cause fixed 6ad69ef (r273); no in-app repro (Claude 2026-10-16).
 
 ## Untested (needs the user or a special setup)

@@ -39,9 +39,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   4b7d432, r391; Claude WSA-checked): user feel untested.
 - User 2026-10-23: no Claude/Anthropic names in app code/strings. README, `claude mcp add`, trailers: asked, kept.
 - Local debug test on WSA: recipe in the reference ("Local APK").
-- Open (backlog): app 3MF fails in desktop Orca (fix untested), printer/user-only checks, pen input, plate switcher pick.
+- Open (backlog): app 3MF in desktop Orca (fix applied; user must open a fresh export), printer/user-only checks, pen input, plate switcher pick.
 - Realistic render (View menu, default off) builds 1+2 in r390: Claude WSA-checked, user feel untested (backlog).
-- Next step: Paint shop: slice -> Preview -> back to Prepare resets paint mode to Fill -> Sonnet 5.5 (medium)
+- Task 12 finding 5 fixed in 9661c20 (pushed, WSL-compiled, not in a CI build yet; batch with 8/9, then WSA smoke: select printer, save/delete preset, reload presets with plugins started).
+- Next step: Muse Task 12 JNI audit finding 8 (obn init lock, suspected) -> Opus 5.5 (high)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
