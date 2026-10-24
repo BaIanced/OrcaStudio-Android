@@ -1271,6 +1271,11 @@ json OrcaEngine::set_volumes(int object, const std::vector<VolumeSpec> &specs, b
         }
         if (!s->name.empty())
             vol->name = s->name;
+        // The shape's own filament (Build workspace), or none: the part then prints with the object's.
+        if (s->extruder > 0)
+            vol->config.set_key_value("extruder", new ConfigOptionInt(s->extruder));
+        else if (s->extruder == 0)
+            vol->config.erase("extruder");
         if (s->anchor >= 0)
             new_anchors.push_back(vol);
     }

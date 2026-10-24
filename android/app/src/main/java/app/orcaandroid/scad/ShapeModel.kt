@@ -84,6 +84,8 @@ data class Shape(
     /** Field ("size.x", "pos.z", "rot.y", "radius", ...) -> name of the [Dim] that drives it. */
     val bind: Map<String, String> = emptyMap(),
     val children: List<Shape> = emptyList(),
+    /** Filament (1-based) a top-level solid prints with in the Build workspace; 0 = the object's. */
+    val filament: Int = 0,
 ) {
     enum class Kind(val key: String) {
         BOX("box"), ROUNDED_BOX("rounded_box"), CYLINDER("cylinder"), PRISM("prism"), CONE("cone"), PYRAMID("pyramid"),
@@ -111,6 +113,7 @@ data class Shape(
             sketch?.let { put("sketch", it.json()) }
             if (bind.isNotEmpty()) put("bind", JSONObject(bind))
             if (children.isNotEmpty()) put("children", JSONArray().apply { children.forEach { put(it.json()) } })
+            if (filament > 0) put("filament", filament)
         }
 
     /** Every shape in this subtree, depth first. */
@@ -154,6 +157,7 @@ data class Shape(
             sketch = Sketch.of(o.optJSONObject("sketch")),
             bind = o.optJSONObject("bind")?.let { b -> b.keys().asSequence().associateWith { b.optString(it) } } ?: emptyMap(),
             children = o.optJSONArray("children")?.let { a -> (0 until a.length()).map { of(a.getJSONObject(it)) } } ?: emptyList(),
+            filament = o.optInt("filament").coerceAtLeast(0),
         )
     }
 }
@@ -318,9 +322,10 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
      * [scad] draws it in its own frame (centred on x / y, standing on z = 0; a group's children where they sit in
      * the group), [matrix] (row-major 4 x 4) puts that frame where the design has it. Moving, turning or mirroring a
      * shape only changes [matrix], so equal [scad] means the same mesh. A hole is a negative volume: Orca cuts it
-     * from every part of the object when slicing, as the design's outermost group does in [toScad].
+     * from every part of the object when slicing, as the design's outermost group does in [toScad]. [filament] is the
+     * top-level shape's (0 = the object's; a hole has none); it leaves [scad] alone, so a colour change keeps the mesh.
      */
-    data class Piece(val shapeId: Int, val copy: Int, val hole: Boolean, val scad: String, val matrix: List<Double>)
+    data class Piece(val shapeId: Int, val copy: Int, val hole: Boolean, val scad: String, val matrix: List<Double>, val filament: Int = 0)
 
     /** The design as Orca volumes, top-level shapes in order, a repeated shape's copies one after another. */
     fun pieces(): List<Piece> = shapes.flatMap { top ->
@@ -331,7 +336,7 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
             if (s.isGroup) group(this, s.children, "") else appendLine(body(s))
         }
         val own = placement(s)
-        copies(s).mapIndexed { i, c -> Piece(top.id, i, s.hole, scad, mul(c, own).toList()) }
+        copies(s).mapIndexed { i, c -> Piece(top.id, i, s.hole, scad, mul(c, own).toList(), if (s.hole) 0 else s.filament) }
     }
 
     /** [s] with the fields bound to a dimension set to its value and no bindings left (children too). */

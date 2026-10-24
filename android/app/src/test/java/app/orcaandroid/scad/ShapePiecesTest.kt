@@ -110,6 +110,15 @@ class ShapePiecesTest {
         assertEquals(listOf(false, true), pieces.map { it.hole })
     }
 
+    @Test fun piecesCarryTheirShapesFilamentWithoutChangingTheMesh() {
+        val red = box(1, D3(10.0, 10.0, 10.0)).copy(filament = 2, repeat = Repeat(count = 2))
+        val d = ShapeDesign(listOf(red, box(2, D3(3.0, 3.0, 12.0), hole = true).copy(filament = 3), box(3, D3(5.0, 5.0, 5.0))))
+        assertEquals(listOf(2, 2, 0, 0), d.pieces().map { it.filament })
+        assertEquals(d.pieces()[0].scad, ShapeDesign(listOf(red.copy(filament = 0))).pieces()[0].scad)
+        assertEquals(2, Shape.of(red.json()).filament)
+        assertEquals(0, Shape.of(box(3, D3(5.0, 5.0, 5.0)).json()).filament)
+    }
+
     @Test fun nestedGroupsAreOnePiece() {
         val inner = Shape(20, Shape.Kind.GROUP, "Inner", D3(), D3(1.0, 0.0, 0.0), children = listOf(
             box(21, D3(6.0, 6.0, 6.0)),

@@ -144,7 +144,7 @@ class Engine(private val cacheDir: File) {
     suspend fun setVolumes(obj: Int, volumes: List<VolumeSpec>, keepCenter: Boolean = false) =
         parseScene(call("setVolumes", args("object" to obj, "keepCenter" to keepCenter, "volumes" to volumes.map {
             // No null "stl" / "matrix": the native side reads them as a string / an array.
-            mapOf("keep" to it.keep, "type" to it.type.code, "name" to it.name, "anchor" to it.anchor) + (it.stl?.let { s -> mapOf("stl" to s) } ?: emptyMap()) +
+            mapOf("keep" to it.keep, "type" to it.type.code, "name" to it.name, "anchor" to it.anchor, "extruder" to it.extruder) + (it.stl?.let { s -> mapOf("stl" to s) } ?: emptyMap()) +
                 (it.matrix?.let { m -> mapOf("matrix" to m) } ?: emptyMap())
         })))
     /** The object the Build workspace edits (-1 = none): the scene mesh then gives its volumes selection id -1000 - volume. */

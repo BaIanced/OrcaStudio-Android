@@ -666,12 +666,15 @@ class ScadController(private val store: Store) {
         val keepCenter = old != null && old.name !in placedThisSession
         val keep = old?.let { kept(it, pieces, stls) }.orEmpty()
         val anchor = old?.takeIf { keepCenter }?.let { anchors(it, pieces, stls) }.orEmpty()
+        val filaments = store.value.filaments.size
         val specs = pieces.mapIndexed { i, p ->
             val shape = shapes.shapes.firstOrNull { it.id == p.shapeId }
             val name = shape?.name.orEmpty() + if (shape?.repeat?.takeIf { it.count > 1 } != null) " ${p.copy + 1}" else ""
             val k = keep[i]
+            // A part prints with its shape's filament, or the object's (also when that filament was removed).
             VolumeSpec(if (p.hole) VolumeType.NEGATIVE else VolumeType.PART, p.matrix, stl = stls[i].path.takeIf { k == null },
-                keep = k ?: -1, name = name, anchor = anchor[i] ?: -1)
+                keep = k ?: -1, name = name, anchor = anchor[i] ?: -1,
+                extruder = if (p.hole) -1 else p.filament.takeIf { it <= filaments } ?: 0)
         }
         val index: Int
         var s: Scene

@@ -872,6 +872,7 @@
     <string name="shape_name">Name</string>
     <string name="shape_solid">Solid</string>
     <string name="shape_hole">Hole</string>
+    <string name="shape_filament_object">Object\'s filament</string>
     <string name="shape_text_value">Text</string>
     <string name="shape_size">Size (mm)</string>
     <string name="shape_position">Position (mm)</string>

@@ -120,7 +120,7 @@ enum class VolumeType(val code: Int) {
  * (null only with [keep]: the volume keeps its own placement).
  */
 data class VolumeSpec(val type: VolumeType, val matrix: List<Double>?, val stl: String? = null, val keep: Int = -1, val name: String = "",
-                      val anchor: Int = -1)
+                      val anchor: Int = -1, val extruder: Int = -1)
 
 data class LayerGcode(val z: Float, val type: String, val extra: String = "", val color: String = "", val extruder: Int = 1)
 

@@ -51,6 +51,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -79,7 +80,11 @@ import app.orcaandroid.scad.Sketch
 import app.orcaandroid.ui.AppViewModel
 import app.orcaandroid.ui.ScadEditorState
 import app.orcaandroid.ui.ShapeController
+import app.orcaandroid.core.FilamentSlot
 import app.orcaandroid.ui.components.NumberField
+import app.orcaandroid.ui.components.PickerField
+import app.orcaandroid.ui.components.PickerItem
+import app.orcaandroid.ui.prepare.ColorDot
 
 /** Shapes the palette offers, in Tinkercad's order. */
 private val PALETTE = listOf(
@@ -147,11 +152,12 @@ fun ShapesTab(s: ScadEditorState, vm: AppViewModel) {
             Text(stringResource(R.string.shape_empty), style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp))
         }
-        d.shapes.forEach { ShapeRow(it, 0, s, vm) { runCatching { focus.requestFocus() } } }
+        val filaments = vm.state.collectAsState().value.filaments
+        d.shapes.forEach { ShapeRow(it, 0, s, vm, filaments) { runCatching { focus.requestFocus() } } }
         val one = s.selected.singleOrNull()?.let { d.find(it) }
         if (one != null) {
             HorizontalDivider(Modifier.padding(top = 8.dp))
-            Properties(one, d, vm) { sketching = one.id }
+            Properties(one, d, vm, filaments) { sketching = one.id }
         } else if (s.selected.size > 1) {
             Text(stringResource(R.string.shape_multi, s.selected.size), style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp))
@@ -203,7 +209,7 @@ private fun Toolbar(s: ScadEditorState, vm: AppViewModel) {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun ShapeRow(shape: Shape, depth: Int, s: ScadEditorState, vm: AppViewModel, onClicked: () -> Unit) {
+private fun ShapeRow(shape: Shape, depth: Int, s: ScadEditorState, vm: AppViewModel, filaments: List<FilamentSlot>, onClicked: () -> Unit) {
     val selected = shape.id in s.selected
     val scheme = MaterialTheme.colorScheme
     Row(
@@ -215,7 +221,10 @@ private fun ShapeRow(shape: Shape, depth: Int, s: ScadEditorState, vm: AppViewMo
             .padding(start = (16 + depth * 20).dp, end = 16.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(if (shape.hole) Icons.Outlined.Circle else Icons.Default.Circle, null, Modifier.size(12.dp),
+        // A solid with its own filament shows that filament's colour.
+        val own = filaments.getOrNull(shape.filament - 1)?.takeIf { !shape.hole && depth == 0 }
+        if (own != null) ColorDot(own.color, 12)
+        else Icon(if (shape.hole) Icons.Outlined.Circle else Icons.Default.Circle, null, Modifier.size(12.dp),
             tint = if (shape.hole) scheme.onSurfaceVariant else scheme.primary)
         Text(shape.name, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f).padding(start = 12.dp))
@@ -225,13 +234,13 @@ private fun ShapeRow(shape: Shape, depth: Int, s: ScadEditorState, vm: AppViewMo
         )
         if (tags.isNotEmpty()) Text(tags.joinToString(" · "), style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant)
     }
-    if (shape.isGroup) shape.children.forEach { ShapeRow(it, depth + 1, s, vm, onClicked) }
+    if (shape.isGroup) shape.children.forEach { ShapeRow(it, depth + 1, s, vm, filaments, onClicked) }
 }
 
 // --- Properties of the selected shape ------------------------------------------------------------
 
 @Composable
-private fun Properties(shape: Shape, d: ShapeDesign, vm: AppViewModel, onEditSketch: () -> Unit) {
+private fun Properties(shape: Shape, d: ShapeDesign, vm: AppViewModel, filaments: List<FilamentSlot>, onEditSketch: () -> Unit) {
     val sh = vm.shapes
     Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         var name by remember(shape.id) { mutableStateOf(shape.name) }
@@ -244,6 +253,13 @@ private fun Properties(shape: Shape, d: ShapeDesign, vm: AppViewModel, onEditSke
             SegmentedButton(shape.hole, { sh.update(shape.id) { it.copy(hole = true) } }, SegmentedButtonDefaults.itemShape(1, 2)) {
                 Text(stringResource(R.string.shape_hole))
             }
+        }
+        // Each top-level solid is its own part, so it can print in its own filament (a group as one).
+        if (!shape.hole && filaments.size > 1 && d.shapes.any { it.id == shape.id }) {
+            PickerField(stringResource(R.string.filament), shape.filament.takeIf { it in 1..filaments.size }?.toString() ?: "0",
+                listOf(PickerItem("0", stringResource(R.string.shape_filament_object))) +
+                    filaments.mapIndexed { i, f -> PickerItem((i + 1).toString(), "${i + 1}: ${f.preset}", color = f.color.orEmpty()) },
+                { v -> sh.update(shape.id) { it.copy(filament = v.toInt()) } })
         }
         if (shape.kind == Shape.Kind.TEXT) {
             var text by remember(shape.id) { mutableStateOf(shape.text) }
