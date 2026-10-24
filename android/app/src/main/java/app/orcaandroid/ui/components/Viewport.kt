@@ -41,6 +41,7 @@ import app.orcaandroid.render.INSTANCE_ID_STRIDE
 import app.orcaandroid.render.InteractionMode
 import app.orcaandroid.render.PlateBadge
 import app.orcaandroid.render.PlateListener
+import androidx.compose.ui.platform.LocalContext
 import app.orcaandroid.render.PlateLook
 import app.orcaandroid.render.PlateView
 import app.orcaandroid.render.PreviewData
@@ -346,8 +347,12 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     }
     LaunchedEffect(v, state.realistic) { v.onGl { realistic = state.realistic } }
     val plateTypes = scene.plates.indices.map { state.bedTypeOf(it) }
-    LaunchedEffect(v, state.plateSurface, plateTypes) {
-        v.onGl { plateSurface = state.plateSurface; plateLooks = plateTypes.map { PlateLook.of(it) } }
+    val appContext = LocalContext.current.applicationContext
+    LaunchedEffect(v, state.lab.plateHd, plateTypes) {
+        v.onGl {
+            plateSurface = state.lab.plateHd; plateLooks = plateTypes.map { PlateLook.of(it) }
+            decalLoader = { name -> runCatching { appContext.assets.open("plate_decals/$name.png").use { android.graphics.BitmapFactory.decodeStream(it) } }.getOrNull() }
+        }
     }
     // Layer lines: the print preset's first layer and layer heights (one value each; 0 = off).
     val layers = if (!state.layerLines) floatArrayOf(0f, 0f) else {

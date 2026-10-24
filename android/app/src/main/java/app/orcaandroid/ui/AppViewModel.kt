@@ -189,11 +189,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         store.update { it.copy(supersample = mode) }
     }
 
-    fun setPlateSurface(on: Boolean) {
-        store.settings.plateSurface = on
-        store.update { it.copy(plateSurface = on) }
-    }
-
     fun setRealistic(on: Boolean) {
         store.settings.realistic = on
         store.update { it.copy(realistic = on) }

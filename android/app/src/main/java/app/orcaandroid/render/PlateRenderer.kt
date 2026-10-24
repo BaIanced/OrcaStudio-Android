@@ -157,10 +157,13 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     /** Realistic render mode: physically based shading of the parts with a studio environment (MESH_FS uRealistic). */
     var realistic = false
 
-    /** View menu "Plate surface": each plate drawn with its bed type's colour and grain, solid from above, see-through from below. */
+    /** Layout lab "HD plate": a dark plate with upstream's bed-type decals, solid from above, see-through from below. */
     var plateSurface = false
     /** Per plate (index = plate), set with [plateSurface]. */
     var plateLooks: List<PlateLook> = emptyList()
+    /** Decal art by asset name (UI thread callback, called on the GL thread); null = not found. */
+    var decalLoader: ((String) -> android.graphics.Bitmap?)? = null
+    private val decalTex = HashMap<String, Int>()
     /** Layer lines on the models (MESH_FS uLayers): first layer height and layer height in mm; layer height 0 = off. */
     var layerLines = floatArrayOf(0f, 0f)
     /** Support painting's "Highlight overhangs": > 0 tints the selected parts' faces overhanging by more than this many degrees. */
@@ -251,6 +254,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     private var badgeProgram = 0
     private var gridProgram = 0
     private var plateProgram = 0
+    private var decalProgram = 0
     private val mvp = FloatArray(16)
 
     fun setBed(outline: FloatArray, origins: List<Pair<Float, Float>>) {
@@ -332,6 +336,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         badgeProgram = program(Shaders.BADGE_VS, Shaders.BADGE_FS)
         gridProgram = program(Shaders.GRID_VS, Shaders.GRID_FS)
         plateProgram = program(Shaders.GRID_VS, Shaders.PLATE_FS)
+        decalProgram = program(Shaders.DECAL_VS, Shaders.DECAL_FS)
+        decalTex.clear()
         val ids = IntArray(11)
         glGenBuffers(11, ids, 0)
         ghostVbo = ids[9]; ghostCount = 0
@@ -691,6 +697,21 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
 
     // --- Drawing -------------------------------------------------------------------------------
 
+    private fun decalTexture(name: String): Int = decalTex.getOrPut(name) {
+        val bmp = decalLoader?.invoke(name) ?: return@getOrPut 0
+        val t = IntArray(1)
+        glGenTextures(1, t, 0)
+        glBindTexture(GL_TEXTURE_2D, t[0])
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
+        GLUtils.texImage2D(GL_TEXTURE_2D, 0, bmp, 0)
+        glGenerateMipmap(GL_TEXTURE_2D)
+        bmp.recycle()
+        t[0]
+    }
+
     /** The plates' surface quads; [alpha] 1 = solid (top side). Blended, depth-tested, no depth writes. */
     private fun drawPlateSurfaces(alpha: Float) {
         val rect = gridRect ?: return
@@ -703,11 +724,41 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
         glDepthMask(false)
         plateOrigins.forEachIndexed { i, (ox, oy) ->
-            val look = plateLooks.getOrNull(i) ?: PlateLook.of(null)
-            glUniform3f(loc(plateProgram, "uBase"), look.r, look.g, look.b)
-            glUniform1i(loc(plateProgram, "uTex"), look.texture)
             glUniform3f(loc(plateProgram, "uOffset"), ox, oy, 0f)
             glDrawArrays(GL_TRIANGLE_STRIP, 0, 4)
+        }
+        // Decals: upstream lays them out for a 256 mm bed (PartPlate::init_bed_type_info) and scales by the bed size; the
+        // dual-nozzle layouts differ, so wide beds get a plain plate.
+        val bw = rect[2] - rect[0]
+        val bh = rect[3] - rect[1]
+        if (bw <= 300f) {
+            val xr = bw / 256f
+            val yr = bh / 256f
+            glUseProgram(decalProgram)
+            glUniformMatrix4fv(loc(decalProgram, "uMvp"), 1, false, mvp, 0)
+            glUniform1f(loc(decalProgram, "uAlpha"), alpha)
+            glUniform1i(loc(decalProgram, "uTex"), 0)
+            glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA) // bitmap texels are premultiplied
+            glActiveTexture(GL_TEXTURE0)
+            plateOrigins.forEachIndexed { i, (ox, oy) ->
+                val look = plateLooks.getOrNull(i) ?: return@forEachIndexed
+                fun decal(name: String?, x: Float, y: Float, w: Float, h: Float) {
+                    val tex = name?.let(::decalTexture) ?: 0
+                    if (tex == 0) return
+                    glBindTexture(GL_TEXTURE_2D, tex)
+                    glUniform4f(loc(decalProgram, "uQuad"), ox + rect[0] + x * xr, oy + rect[1] + y * yr, w * xr, h * yr)
+                    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4)
+                }
+                // Rects as upstream: x, y, w, h in mm from the bed's corner (the bottom strip lies just in front of the bed).
+                when (look.left) {
+                    "pc_left", "pct_left" -> decal(look.left, 10f, 130f, 10f, 110f)
+                    "ep_left" -> decal(look.left, 7.5f, 90f, 12.5f, 150f)
+                    "pei_left" -> decal(look.left, 7.5f, 50f, 12.5f, 190f)
+                    "pte_left" -> decal(look.left, 10f, 80f, 10f, 160f)
+                    "st_left" -> decal(look.left, 9f, 70f, 12.5f, 170f)
+                }
+                decal(look.bottom, 74f, -10f, 148f, 12f)
+            }
         }
         glDepthMask(true)
         glDisable(GL_BLEND)

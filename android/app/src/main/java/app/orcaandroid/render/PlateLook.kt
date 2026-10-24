@@ -1,22 +1,19 @@
 package app.orcaandroid.render
 
 /**
- * How a build plate looks in the 3D view (View menu "Plate surface"): base colour and surface texture per Orca bed type.
- * [texture]: 0 smooth (a faint satin sheen), 1 fine pebble grain (textured PEI), 2 powder grain (coarser, matte).
- * Colours are approximations of the real plates, not measured.
+ * Upstream's bed-type decals (Layout lab "HD plate"): the vector lettering strips laid on a plate's left and front edges,
+ * rasterised once to assets/plate_decals/<name>.png. [left]/[bottom] are asset names, null = none.
  */
-class PlateLook(val r: Float, val g: Float, val b: Float, val texture: Int) {
+class PlateLook(val left: String?, val bottom: String?) {
     companion object {
-        private val DEFAULT = PlateLook(0.55f, 0.56f, 0.58f, 0)
-
         fun of(bedType: String?): PlateLook = when (bedType) {
-            "Cool Plate" -> PlateLook(0.62f, 0.68f, 0.74f, 0)
-            "Textured Cool Plate" -> PlateLook(0.60f, 0.66f, 0.72f, 1)
-            "Engineering Plate" -> PlateLook(0.70f, 0.68f, 0.63f, 0)
-            "High Temp Plate" -> PlateLook(0.56f, 0.47f, 0.30f, 0)
-            "Textured PEI Plate" -> PlateLook(0.62f, 0.51f, 0.31f, 2)
-            "Supertack Plate" -> PlateLook(0.76f, 0.74f, 0.70f, 0)
-            else -> DEFAULT
+            "Cool Plate" -> PlateLook("pc_left", "pc_bottom")
+            "Textured Cool Plate" -> PlateLook("pct_left", "pc_bottom")
+            "Engineering Plate" -> PlateLook("ep_left", "ep_bottom")
+            "High Temp Plate" -> PlateLook("pei_left", "pei_bottom")
+            "Textured PEI Plate" -> PlateLook("pte_left", "pte_bottom")
+            "Supertack Plate" -> PlateLook("st_left", "st_bottom")
+            else -> PlateLook(null, null)
         }
     }
 }
