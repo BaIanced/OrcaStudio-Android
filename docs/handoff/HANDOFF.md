@@ -41,7 +41,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Local debug test on WSA: recipe in the reference ("Local APK").
 - Open (backlog): app 3MF in desktop Orca (fix applied; user must open a fresh export), printer/user-only checks, pen input, plate switcher pick.
 - Realistic render (View menu, default off) builds 1+2 in r390: Claude WSA-checked, user feel untested (backlog).
-- Task 12 finding 5 fixed in 9661c20 (pushed, WSL-compiled, not in a CI build yet; batch with 8/9, then WSA smoke: select printer, save/delete preset, reload presets with plugins started).
+- Task 12 finding 5 fixed 9661c20 (WSL-compiled, no CI build yet; batch with 8/9, then WSA preset smoke test).
 - Next step: Muse Task 12 JNI audit finding 8 (obn init lock, suspected) -> Opus 5.5 (high)
 
 ## User decisions (2026-10-13)
