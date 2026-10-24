@@ -22,4 +22,13 @@ class FilamentMaterialTest {
         assertEquals(FilamentMaterial.GLOSSY, FilamentMaterial.of("My filament", "PETG"))
         assertEquals(FilamentMaterial.BASIC, FilamentMaterial.of("My filament", "PLA"))
     }
+
+    @Test
+    fun realisticParamsInRange() {
+        // uMatP: roughness, metallic, clear coat, coat roughness, all 0..1 (the shader clamps roughness to 0.045).
+        for (m in FilamentMaterial.entries) {
+            assertEquals(4, m.p.size)
+            for (v in m.p) org.junit.Assert.assertTrue("$m $v", v in 0f..1f)
+        }
+    }
 }

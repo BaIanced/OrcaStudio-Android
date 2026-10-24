@@ -67,6 +67,11 @@ class AppSettings(context: Context) {
         get() = prefs.getBoolean("contact_shadows", true)
         set(value) = prefs.edit().putBoolean("contact_shadows", value).apply()
 
+    /** Realistic shading of the models in the 3D view (physically based, studio lighting); off = the plain look. */
+    var realistic: Boolean
+        get() = prefs.getBoolean("realistic_render", false)
+        set(value) = prefs.edit().putBoolean("realistic_render", value).apply()
+
     /** How the selection shows in the 3D view ([app.orcaandroid.render.SelectionStyle] bits). */
     var selectionStyle: Int
         get() = prefs.getInt("selection_style", app.orcaandroid.render.SelectionStyle.DEFAULT)

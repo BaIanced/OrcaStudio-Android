@@ -149,6 +149,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var keyAzimuth = -57.5f
     var keyElevation = 49f
     var keyStrength = 1f
+    /** Realistic render mode: physically based shading of the parts with a studio environment (MESH_FS uRealistic). */
+    var realistic = false
     /** Support painting's "Highlight overhangs": > 0 tints the selected parts' faces overhanging by more than this many degrees. */
     var overhangHighlight = 0f
     private val keyDir get() = Math.toRadians(keyElevation.toDouble()).let { el ->
@@ -718,6 +720,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glUniform1i(loc(meshProgram, "uSelStyle"), activeSelectionStyle)
         keyDir.let { glUniform3f(loc(meshProgram, "uKeyDir"), it[0], it[1], it[2]) }
         glUniform1f(loc(meshProgram, "uKeyStrength"), keyStrength)
+        glUniform1i(loc(meshProgram, "uRealistic"), if (realistic) 1 else 0)
         // TriangleSelector::select_patch's test: world normal z below -cos(angle); -2 = off.
         glUniform1f(loc(meshProgram, "uOverhangZ"), if (overhangHighlight > 0f) -Math.cos(Math.toRadians(overhangHighlight.toDouble())).toFloat() else -2f)
         cutBand.let { b ->
@@ -1021,12 +1024,14 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     private fun setFilamentMaterials(program: Int) {
         val a = FloatArray(16 * 4)
         val b = FloatArray(16 * 4)
+        val p = FloatArray(16 * 4)
         for (i in 0 until 16) {
             val m = filamentMaterials.getOrNull(i) ?: FilamentMaterial.BASIC
-            m.a.copyInto(a, i * 4); m.b.copyInto(b, i * 4)
+            m.a.copyInto(a, i * 4); m.b.copyInto(b, i * 4); m.p.copyInto(p, i * 4)
         }
         glUniform4fv(loc(program, "uMatA"), 16, a, 0)
         glUniform4fv(loc(program, "uMatB"), 16, b, 0)
+        glUniform4fv(loc(program, "uMatP"), 16, p, 0)
     }
 
     /** The section view's cut for [program]; [on] false draws it whole (beds, overlays). */

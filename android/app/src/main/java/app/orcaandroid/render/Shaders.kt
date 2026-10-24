@@ -103,6 +103,9 @@ internal object Shaders {
         // b = grazing sheen, wrap lighting, diffuse factor.
         uniform vec4 uMatA[16];
         uniform vec4 uMatB[16];
+        // Realistic mode (uRealistic 1): perceptual roughness, metallic, clear coat, clear coat roughness per filament.
+        uniform vec4 uMatP[16];
+        uniform int uRealistic;
         uniform int uHidden;
         uniform highp vec4 uSection;
         uniform int uSectionOn;
@@ -123,6 +126,84 @@ internal object Shaders {
         flat in float vType;
         flat in float vSelected;
         out vec4 color;
+
+        // Realistic mode, after Google Filament's standard material: GGX distribution, height-correlated Smith visibility,
+        // Schlick fresnel, Lambert diffuse and an optional clear coat, lit by the key light (with its shadow) and a
+        // procedural studio environment instead of an HDR image. Linear light, ACES tone mapping, gamma 2.2 out.
+        const float PI = 3.14159265;
+        // A softbox seen towards direction d: centre c, angular radius rad, blurred by roughness r (the blur keeps its energy).
+        float softbox(vec3 d, vec3 c, float rad, float r) {
+            float a2 = 2.0 * (1.0 - dot(d, c));
+            float b2 = rad * rad + 1.4 * r * r;
+            return rad * rad / b2 * (1.0 - smoothstep(0.55 * b2, 1.25 * b2, a2));
+        }
+        // Studio radiance towards d (z up) as seen by a surface of perceptual roughness r (1 = the diffuse average):
+        // a dark floor, a bright horizon band, a soft sky, a big softbox overhead and a strip light to the side.
+        vec3 studio(vec3 d, float r) {
+            float w = mix(0.03, 0.9, r);
+            vec3 sky = mix(vec3(0.50, 0.52, 0.56), vec3(0.30, 0.34, 0.42), clamp(d.z, 0.0, 1.0));
+            vec3 c = mix(vec3(0.07, 0.065, 0.06), sky, smoothstep(-w, w, d.z));
+            c += vec3(0.30, 0.29, 0.27) * exp(-abs(d.z) / (0.06 + 0.6 * r)) * (1.0 - 0.6 * r);
+            c += vec3(4.0, 3.9, 3.75) * softbox(d, vec3(-0.27, -0.42, 0.866), 0.38, r);
+            c += vec3(1.9, 2.0, 2.2) * softbox(d, vec3(0.86, 0.26, 0.44), 0.22, r);
+            return c;
+        }
+        highp float dGgx(highp float a, highp float noh, highp vec3 n, highp vec3 h) {
+            highp vec3 nxh = cross(n, h);
+            highp float x = noh * a;
+            highp float k = a / (dot(nxh, nxh) + x * x);
+            return min(k * k / PI, 65504.0);
+        }
+        highp float vSmith(highp float a, highp float nov, highp float nol) {
+            highp float a2 = a * a;
+            highp float gv = nol * sqrt((nov - a2 * nov) * nov + a2);
+            highp float gl = nov * sqrt((nol - a2 * nol) * nol + a2);
+            return min(0.5 / (gv + gl), 65504.0);
+        }
+        vec3 fSchlick(vec3 f0, float u) { float f = pow(1.0 - u, 5.0); return f0 + (vec3(1.0) - f0) * f; }
+        // Karis' analytic fit of the split-sum DFG term (mobile IBL): scale and bias for f0.
+        vec2 envDfg(float r, float nov) {
+            vec4 t = r * vec4(-1.0, -0.0275, -0.572, 0.022) + vec4(1.0, 0.0425, 1.04, -0.04);
+            float a004 = min(t.x * t.x, exp2(-9.28 * nov)) * t.x + t.y;
+            return vec2(-1.04, 1.04) * a004 + t.zw;
+        }
+        vec3 aces(vec3 x) { return clamp(x * (2.51 * x + 0.03) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0); }
+        // mp = uMatP (roughness, metallic, clear coat, coat roughness); mb.x sheen, mb.y wrap (translucent plastics).
+        vec3 realisticShade(vec3 srgb, vec3 n, vec3 v, vec3 lk, float lit, vec4 mp, vec4 mb) {
+            vec3 base = pow(srgb, vec3(2.2));
+            float pr = clamp(mp.x, 0.045, 1.0);
+            highp float a = pr * pr;
+            vec3 diffColor = base * (1.0 - mp.y);
+            vec3 f0 = mix(vec3(0.04), base, mp.y);
+            float nov = max(dot(n, v), 1e-4);
+            vec3 r = reflect(-v, n);
+            // Environment: diffuse from the blurred studio, specular from the studio blurred by the roughness.
+            vec2 dfg = envDfg(pr, nov);
+            vec3 col = diffColor * studio(n, 1.0) + studio(r, pr) * (f0 * dfg.x + dfg.y);
+            // Key light (E = illuminance / PI so the diffuse needs no 1/PI); wrap reaches round the terminator.
+            float e = 2.4 * uKeyStrength * lit;
+            highp vec3 h = normalize(lk + v);
+            float nol = max(dot(n, lk), 0.0);
+            float nolw = max((dot(n, lk) + mb.y) / (1.0 + mb.y), 0.0);
+            highp float noh = max(dot(n, h), 0.0);
+            float loh = max(dot(lk, h), 0.0);
+            vec3 fr = fSchlick(f0, loh) * float(dGgx(a, noh, n, h) * vSmith(a, nov, nol));
+            col += (diffColor * nolw + fr * PI * nol) * e;
+            // Sheen (matte): a soft lightening at grazing angles.
+            col += mix(vec3(1.0), base, 0.5) * mb.x * pow(1.0 - nov, 3.0) * 1.5 * studio(n, 1.0);
+            // Clear coat: a thin glossy layer over the base (glossy PETG, translucent); attenuates what lies under it.
+            if (mp.z > 0.0) {
+                float cr = clamp(mp.w, 0.045, 1.0);
+                highp float ca = cr * cr;
+                float fcv = fSchlick(vec3(0.04), nov).x * mp.z;
+                float fcl = fSchlick(vec3(0.04), loh).x * mp.z;
+                float coat = float(dGgx(ca, noh, n, h)) * 0.25 / max(loh * loh, 1e-3) * fcl;
+                col = col * (1.0 - fcv) + studio(r, cr) * fcv + vec3(coat * PI * nol * e);
+            }
+            // Exposure: a mid-grey part under the studio lands near the plain look's brightness.
+            return pow(aces(col * 0.5), vec3(1.0 / 2.2));
+        }
+
         void main() {
             int type = int(vType + 0.5);
             bool part = type == 0 || type >= 100;
@@ -212,19 +293,23 @@ internal object Shaders {
                 // Wrap lighting lets the key reach round the terminator (translucent plastics); 0 = plain Lambert.
                 float ndlw = max((dot(n, lk) + mb.y) / (1.0 + mb.y), 0.0);
                 float diff = (0.22 + 0.16 * sky + 0.50 * uKeyStrength * ndlw + 0.20 * max(dot(n, lf), 0.0)) * mb.z;
-                float spec = pow(max(dot(n, normalize(lk + v)), 0.0), ma.x) * ma.y * uKeyStrength;
-                float ndv = max(dot(n, v), 0.0);
-                float rim = pow(1.0 - ndv, 3.0) * 0.14;
-                // Metallic tint: silk's highlight and reflection take the filament's colour instead of white.
-                vec3 tint = mix(vec3(1.0), min(base * 1.6, vec3(1.0)), ma.z);
-                // Sky reflection, stronger at grazing angles (fresnel): ground below the horizon, sky above.
-                vec3 r = reflect(-v, n);
-                vec3 env = mix(vec3(0.32, 0.30, 0.28), vec3(0.75, 0.85, 1.0), smoothstep(-0.2, 0.4, r.z));
-                vec3 refl = env * tint * ma.w * (0.2 + 0.8 * pow(1.0 - ndv, 4.0));
-                // Grazing sheen: matte filaments go soft and light at the silhouette instead of a sharp highlight.
-                vec3 sheen = mix(vec3(1.0), base, 0.5) * mb.x * pow(1.0 - ndv, 2.0) * (0.5 + 0.5 * sky);
-                vec3 shaded = (base * diff + tint * spec) * lit + (refl + sheen) * mix(1.0, lit, 0.5)
-                    + vec3(0.55, 0.7, 1.0) * rim * (0.4 + 0.6 * sky);
+                vec3 shaded;
+                if (uRealistic == 1) shaded = realisticShade(base, n, v, lk, lit, mi >= 0 ? uMatP[mi] : vec4(0.45, 0.0, 0.0, 0.0), mb);
+                else {
+                    float spec = pow(max(dot(n, normalize(lk + v)), 0.0), ma.x) * ma.y * uKeyStrength;
+                    float ndv = max(dot(n, v), 0.0);
+                    float rim = pow(1.0 - ndv, 3.0) * 0.14;
+                    // Metallic tint: silk's highlight and reflection take the filament's colour instead of white.
+                    vec3 tint = mix(vec3(1.0), min(base * 1.6, vec3(1.0)), ma.z);
+                    // Sky reflection, stronger at grazing angles (fresnel): ground below the horizon, sky above.
+                    vec3 r = reflect(-v, n);
+                    vec3 env = mix(vec3(0.32, 0.30, 0.28), vec3(0.75, 0.85, 1.0), smoothstep(-0.2, 0.4, r.z));
+                    vec3 refl = env * tint * ma.w * (0.2 + 0.8 * pow(1.0 - ndv, 4.0));
+                    // Grazing sheen: matte filaments go soft and light at the silhouette instead of a sharp highlight.
+                    vec3 sheen = mix(vec3(1.0), base, 0.5) * mb.x * pow(1.0 - ndv, 2.0) * (0.5 + 0.5 * sky);
+                    shaded = (base * diff + tint * spec) * lit + (refl + sheen) * mix(1.0, lit, 0.5)
+                        + vec3(0.55, 0.7, 1.0) * rim * (0.4 + 0.6 * sky);
+                }
                 // Highlight overhangs (support painting): the selection's faces steeper than the angle, by their own normal.
                 if (vSelected > 0.5 && uPass == 0 && normalize(vNormal).z < uOverhangZ)
                     shaded = mix(shaded, vec3(1.0, 0.35, 0.2) * (0.45 + 0.55 * diff), 0.6);

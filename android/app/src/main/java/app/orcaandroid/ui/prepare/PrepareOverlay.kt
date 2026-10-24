@@ -17,6 +17,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.PriorityHigh
 import kotlinx.coroutines.launch
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -434,6 +435,11 @@ private fun ViewButtons(state: UiState, vm: AppViewModel, view: PlateView?, rail
                 onClick = { viewMenu = false; view?.section?.let { it.toggle(); it.panelOpen = it.active } },
                 leadingIcon = { Icon(Icons.Default.ContentCut, null) },
                 trailingIcon = { if (view?.section?.active == true) Icon(Icons.Default.Check, null) })
+            // Physically based shading with a studio environment (in the spirit of Google's Filament renderer); the plain look stays the default.
+            DropdownMenuItem(text = { Text(stringResource(R.string.view_realistic)) },
+                onClick = { viewMenu = false; vm.setRealistic(!state.realistic) },
+                leadingIcon = { Icon(Icons.Default.AutoAwesome, null) },
+                trailingIcon = { if (state.realistic) Icon(Icons.Default.Check, null) })
         }
     }
 }

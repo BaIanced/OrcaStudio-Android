@@ -189,6 +189,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         store.update { it.copy(supersample = mode) }
     }
 
+    fun setRealistic(on: Boolean) {
+        store.settings.realistic = on
+        store.update { it.copy(realistic = on) }
+    }
+
     fun setPerspective(on: Boolean) {
         store.settings.perspective = on
         store.update { it.copy(perspective = on) }

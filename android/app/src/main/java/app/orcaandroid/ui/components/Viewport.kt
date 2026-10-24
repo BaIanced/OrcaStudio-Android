@@ -342,6 +342,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     LaunchedEffect(v, state.contactShadows) {
         v.onGl { contactShadows = state.contactShadows }
     }
+    LaunchedEffect(v, state.realistic) { v.onGl { realistic = state.realistic } }
     LaunchedEffect(v, state.supersample) {
         v.onGl { supersample = state.supersample }
     }
