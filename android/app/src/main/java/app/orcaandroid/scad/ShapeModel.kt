@@ -339,6 +339,25 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
         copies(s).mapIndexed { i, c -> Piece(top.id, i, s.hole, scad, mul(c, own).toList(), if (s.hole) 0 else s.filament) }
     }
 
+    /**
+     * Merge bake: top-level group [id] replaced by a MESH shape of [file], the group's piece code rendered alone (holes
+     * in it cut); [b] = the file's bounds in the group's frame ([Shape.MESH_BOUNDS] order). The mesh lands where the
+     * group was and keeps its turn, mirror, repeat, hole and filament; bindings go (a mesh has no sliders).
+     */
+    fun merged(id: Int, file: String, b: List<Double>): ShapeDesign {
+        val g = shapes.firstOrNull { it.id == id && it.isGroup } ?: return this
+        val size = D3(max(0.01, b[3] - b[0]), max(0.01, b[4] - b[1]), max(0.01, b[5] - b[2]))
+        val h = height(g)
+        val r = rot(g)
+        // Group: x -> p + h/2 + R F (x - h/2). Mesh (its body moves x by -t, t = box centre x / y and bottom):
+        // x -> p' + h'/2 + R F (x - t - h'/2). Equal for every x when p' = p + h/2 - h'/2 + R F (t + h'/2 - h/2).
+        val t = D3((b[0] + b[3]) / 2, (b[1] + b[4]) / 2, b[2] + size.z / 2 - h / 2)
+        val pos = pos(g) + D3(0.0, 0.0, h / 2 - size.z / 2) + rotate(flip(t, g.mirror), r)
+        val mesh = Shape(id, Shape.Kind.MESH, g.name, size, pos, r, g.hole, g.mirror, extra = Shape.MESH_BOUNDS.zip(b).toMap(),
+            file = file, repeat = g.repeat, filament = g.filament)
+        return copy(shapes = shapes.map { if (it.id == id) mesh else it })
+    }
+
     /** [s] with the fields bound to a dimension set to its value and no bindings left (children too). */
     private fun resolved(s: Shape): Shape = s.copy(
         size = size(s), pos = pos(s), rot = rot(s),

@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Draw
 import androidx.compose.material.icons.filled.Flip
+import androidx.compose.material.icons.filled.Merge
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.VerticalAlignBottom
@@ -183,6 +184,9 @@ private fun Toolbar(s: ScadEditorState, vm: AppViewModel) {
         IconButton(onClick = sh::group, enabled = tops > 1) { Icon(Icons.Default.Workspaces, stringResource(R.string.shape_group_action)) }
         IconButton(onClick = sh::ungroup, enabled = s.selected.any { id -> d.shapes.any { it.id == id && it.isGroup } }) {
             Icon(Icons.Default.CallSplit, stringResource(R.string.shape_ungroup))
+        }
+        IconButton(onClick = { sh.merge() }, enabled = tops > 1 || (tops == 1 && s.selected.any { id -> d.shapes.any { it.id == id && it.isGroup } })) {
+            Icon(Icons.Default.Merge, stringResource(R.string.shape_merge))
         }
         IconButton(onClick = { mirror = true }, enabled = any) {
             Icon(Icons.Default.Flip, stringResource(R.string.shape_mirror))

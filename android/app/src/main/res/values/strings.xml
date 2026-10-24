@@ -862,6 +862,10 @@
     <string name="shape_delete">Delete (Del)</string>
     <string name="shape_group_action">Group (Ctrl+G): holes cut the solids</string>
     <string name="shape_ungroup">Ungroup (Ctrl+Shift+G)</string>
+    <string name="shape_merge">Merge into one solid (holes cut; parts no longer editable)</string>
+    <string name="shape_merged">Merged</string>
+    <string name="shape_merging">Merging…</string>
+    <string name="shape_merge_changed">The design changed while merging. Merge again.</string>
     <string name="shape_mirror">Mirror</string>
     <string name="shape_mirror_axis">Mirror along %1$s</string>
     <string name="shape_align">Align</string>

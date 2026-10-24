@@ -317,16 +317,43 @@ class ShapeController(private val store: Store, private val scad: ScadController
     /** Groups the selected top-level shapes: holes in the group cut its solids. */
     fun group() {
         val d = design ?: return
+        commit(grouped(d, R.string.shape_group) ?: return, listOf(d.nextId))
+    }
+
+    /** [d] with the selected top-level shapes (two or more) in a new group, id [ShapeDesign.nextId], named [name] + id. */
+    private fun grouped(d: ShapeDesign, name: Int): ShapeDesign? {
         val members = d.shapes.filter { it.id in selected }
-        if (members.size < 2) return
+        if (members.size < 2) return null
         val b = members.map { d.bounds(it) }.reduce { a, c -> a.union(c) }
         val origin = D3(snap(b.center.x), snap(b.center.y), b.min.z)
         val kids = members.map { placed(d, it, d.pos(it) - origin, d.rot(it)) }
-        val g = Shape(d.nextId, Shape.Kind.GROUP, store.str(R.string.shape_group) + " " + d.nextId, D3(), origin, children = kids)
+        val g = Shape(d.nextId, Shape.Kind.GROUP, store.str(name) + " " + d.nextId, D3(), origin, children = kids)
         val at = d.shapes.indexOfFirst { it.id in selected }
         val rest = d.shapes.filter { it.id !in selected }.toMutableList()
         rest.add(at.coerceAtMost(rest.size), g)
-        commit(d.copy(shapes = rest, nextId = d.nextId + 1), listOf(g.id))
+        return d.copy(shapes = rest, nextId = d.nextId + 1)
+    }
+
+    /**
+     * Merge: the selected top-level shapes (two or more, or one group) baked into one mesh shape, holes cut
+     * ([ShapeDesign.merged]). It moves, colours and renders as one solid; its parts are no longer editable (undo
+     * brings them back). The render runs first; an edit meanwhile drops the result.
+     */
+    fun merge(): kotlinx.coroutines.Job? {
+        val d = design ?: return null
+        val tops = d.shapes.filter { it.id in selected }
+        val (g, id) = when {
+            tops.size > 1 -> (grouped(d, R.string.shape_merged) ?: return null) to d.nextId
+            tops.singleOrNull()?.isGroup == true -> d to tops[0].id
+            else -> return null
+        }
+        return store.launch {
+            val file = scad.renderMesh(g.pieces().first { it.shapeId == id }.scad) ?: return@launch
+            val b = withContext(Dispatchers.IO) { Stl.bounds(file) }
+            if (b == null) { store.toast(store.str(R.string.shape_import_failed)); return@launch }
+            if (design != d) { store.toast(store.str(R.string.shape_merge_changed)); return@launch }
+            commit(g.merged(id, file.absolutePath, b), listOf(id))
+        }
     }
 
     /** Takes the selected groups apart, keeping where their shapes are (the group's turn and mirror go to each shape). */

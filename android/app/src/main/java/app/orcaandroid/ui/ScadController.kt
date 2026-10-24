@@ -608,9 +608,37 @@ class ScadController(private val store: Store) {
     private val piecesDir get() = File(dir, "pieces").apply { mkdirs() }
 
     /** Where piece [scad] is cached once rendered (an empty file = an empty piece, e.g. blank text). */
-    private fun pieceFile(scad: String, file: String): File {
-        val hash = MessageDigest.getInstance("SHA-1").digest((file + "\u0000" + scad).toByteArray())
-        return File(piecesDir, hash.joinToString("") { "%02x".format(it) } + ".stl")
+    private fun pieceFile(scad: String, file: String) = File(piecesDir, sha1(file + "\u0000" + scad) + ".stl")
+
+    private fun sha1(text: String) = MessageDigest.getInstance("SHA-1").digest(text.toByteArray()).joinToString("") { "%02x".format(it) }
+
+    /**
+     * Shape builder Merge: renders piece code [scad] once into files/openscad/meshes (kept like imported meshes, as a
+     * MESH shape's file); null after showing why not (failed, empty).
+     */
+    suspend fun renderMesh(scad: String): File? {
+        val s = st ?: return null
+        val out = File(File(dir, "meshes").apply { mkdirs() }, "merged-" + sha1(s.file + "\u0000" + scad).take(16) + ".stl")
+        if (out.length() > 0) return out
+        val part = File(out.path + ".part")
+        set { it.copy(status = store.str(R.string.shape_merging), statusError = false) }
+        try {
+            val r = client.render(scad, s.file, null, part)
+            when {
+                !r.ok -> { set { it.copy(log = r.log) }; fail(R.string.scad_failed); return null }
+                r.stl == null -> { fail(R.string.scad_empty); return null }
+            }
+            if (!withContext(Dispatchers.IO) { part.renameTo(out) }) { fail(R.string.scad_failed); return null }
+            set { it.copy(status = summary(r), statusError = false) }
+            return out
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            set { it.copy(status = message(e), statusError = true) }
+            return null
+        } finally {
+            part.delete()
+        }
     }
 
     /**

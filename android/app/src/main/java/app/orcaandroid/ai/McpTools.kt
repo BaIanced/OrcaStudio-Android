@@ -101,6 +101,21 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
                 shapes.select(ids); shapes.ungroup()
             }
         },
+        Tool("shape_merge", "Edit: bakes two or more top-level shapes, or one group, into one mesh shape (OpenSCAD renders " +
+            "it, holes cut). Its parts are no longer editable (undo brings them back). $EDIT", obj(listOf("ids"), "ids" to ids())) { args ->
+            val ids = args.ids()
+            withContext(Dispatchers.Main.immediate) {
+                val d = design()
+                d.need(ids, top = true)
+                if (ids.size == 1 && d.find(ids[0])?.isGroup != true) throw ToolError("Merge needs two or more shapes, or one group")
+                shapes.select(ids)
+                shapes.merge()
+            }?.join()
+            withContext(Dispatchers.Main.immediate) {
+                val st = editor()
+                (if (st.statusError) "Merge failed: ${st.status}\n" else "") + describe(st.name, st.shapes ?: design(), st.selected)
+            }
+        },
         Tool("shape_duplicate", "Edit: copies top-level shapes 10 mm right and back; the copies get new ids. $EDIT",
             obj(listOf("ids"), "ids" to ids())) { args ->
             val ids = args.ids()

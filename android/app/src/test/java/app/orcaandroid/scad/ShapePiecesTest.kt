@@ -234,4 +234,39 @@ class ShapePiecesTest {
         assertEquals(before.scad, moved.scad)
         assertNotEquals(before.matrix, moved.matrix)
     }
+
+    @Test fun aMergedGroupStaysWhereTheGroupWas() {
+        val group = Shape(10, Shape.Kind.GROUP, "G", D3(), D3(5.0, -3.0, 2.0), D3(20.0, 90.0, 35.0), mirror = D3(1.0, 0.0, 0.0),
+            children = listOf(
+                box(11, D3(10.0, 10.0, 10.0), D3(-5.0, 0.0, 0.0)),
+                box(12, D3(4.0, 6.0, 14.0), D3(6.0, 1.0, 1.0), D3(0.0, 0.0, 30.0)),
+                box(13, D3(3.0, 3.0, 30.0), D3(0.0, 0.0, -5.0), hole = true),
+            ), repeat = Repeat(count = 2, step = D3(30.0, 0.0, 0.0)), filament = 2)
+        val other = box(1, D3(8.0, 8.0, 8.0), D3(40.0, 0.0, 0.0))
+        val d = ShapeDesign(listOf(other, group))
+        // The rendered mesh's bounds in the group's frame: the solids' box (the hole cuts inside it), not centred on the frame.
+        val solids = group.children.filter { !it.hole }.map { d.bounds(it) }.reduce { a, b -> a.union(b) }
+        val b = listOf(solids.min.x, solids.min.y, solids.min.z, solids.max.x, solids.max.y, solids.max.z)
+        val m = d.merged(10, "/m/merged.stl", b)
+        val mesh = m.shapes[1]
+        assertEquals(other, m.shapes[0])
+        assertEquals(Shape.Kind.MESH, mesh.kind)
+        assertEquals(10, mesh.id)
+        assertEquals(2, mesh.filament)
+        assertEquals(group.repeat, mesh.repeat)
+        assertEquals("/m/merged.stl", mesh.file)
+        val before = d.pieces().filter { it.shapeId == 10 }
+        val after = m.pieces().filter { it.shapeId == 10 }
+        assertEquals(2, after.size)
+        // Every corner of the mesh, as the group draws it and as the mesh shape draws it (its body centres it first).
+        val shift = D3(solids.center.x, solids.center.y, solids.min.z)
+        for (k in before.indices) for (i in 0 until 8) {
+            val c = D3(if (i and 1 == 0) solids.min.x else solids.max.x, if (i and 2 == 0) solids.min.y else solids.max.y,
+                if (i and 4 == 0) solids.min.z else solids.max.z)
+            val want = apply(before[k].matrix, c)
+            val got = apply(after[k].matrix, c - shift)
+            for (a in 0..2) assertEquals(want[a], got[a], 1e-9)
+        }
+        assertEquals(d, d.merged(1, "/m/x.stl", b))
+    }
 }

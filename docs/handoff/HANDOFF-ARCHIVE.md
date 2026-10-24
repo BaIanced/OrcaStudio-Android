@@ -2860,3 +2860,21 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
   Effort: ~1 session step, no Muse. Untested: user feel of the picker; groups (one filament for the whole group).
 - Setup: the src-orca submodule worktree was empty 2026-10-23 (git data intact), restored with `git submodule update
   --init src-orca` (local). C: was 96% full.
+
+### 2026-10-23 Build workspace step 6b Merge bake (Claude, Kotlin only, unbuilt in CI)
+- Deviation from the plan (mesh_boolean): Merge bakes through OpenSCAD instead, into a MESH shape, so the design stays
+  the source of truth, undo works as one step, and no native change is needed. `ShapeController.merge` (toolbar Merge
+  icon after Ungroup: 2+ top-level shapes, or one group; MCP `shape_merge`) groups the selection (`grouped`, shared
+  with Group; name "Merged N"), renders that group's piece code once (`ScadController.renderMesh`,
+  `files/openscad/meshes/merged-<sha1>.stl`, kept like imported meshes), then `ShapeDesign.merged` swaps the group for a
+  MESH shape placed so the mesh lands where the group drew it (keeps turn, mirror, repeat, hole, filament; drops
+  bindings). An edit during the render drops the result (toast). JVM test aMergedGroupStaysWhereTheGroupWas (corner by
+  corner through both pieces' matrices, turned + mirrored + repeated group); 194/194.
+- VERIFIED (Claude, WSA, local debug APK on r386 natives + MCP): "Pieces test" Base + Hole + Peg x3 -> shape_merge ->
+  one mesh 64.314 x 30.275 x 19.63, X span = Base's exactly, bottom z 0 (group frame z0 = -5 from the hole handled,
+  mz0 = 5); design_to_plate: copy centre (132.828, 116.619) kept, Y size 20.801 -> 19.63 (the exact union instead of
+  the pieces' boxes); check mesh: no problems, volume 19249 mm3 (hole cut); slice OK. Debug app uninstalled.
+- Untested: the toolbar button (WSA parked, no dump), undo after a merge, merging a single turned group on device, user feel.
+- Tooling: the local debug build had stale natives ("Unknown engine call: setBuildObject"): re-run
+  `stage-from-apk.sh` after native CI builds. New `~/orca-android-tools/wsa-debug-setup.sh` = install the debug APK on
+  WSA + copy the release app's session/settings/openscad files (root).
