@@ -30,18 +30,17 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Muse (2026-10-22): tasks in `MUSE-TASKS.md` on `muse/work` (edit via a `claude/*` PR, self-merge), then `TASK <n> READY`
   on #46; Muse answers with one draft PR per task. Claude verifies, merges into muse/work, cherry-picks code onto the work
   branch. Task 1 finding 4: fix the patch comment when regenerating 0001. **Each session start, run exactly:**
-  `gh pr list --state open --json number,title,headRefName; gh issue view 46 --json comments --jq '.comments[-2:][]|.createdAt+" "+(.body|.[0:300])'`
-  (`--comments` + `--json` together errors).
+  `gh pr list --state open --json number,title,headRefName; gh issue view 46 --json comments --jq '.comments[-2:][]|.createdAt+" "+(.body|.[0:300])'` (no `--comments`).
   Tasks 1-18 merged (18 = PR #64, 2026-10-23) (Task 12 JNI audit fixes in backlog). Sync muse/work android/ before each Kotlin task (#58).
   **Muse KEPT (user, 2026-10-23)** for audits + larger JVM-testable Kotlin only (Claude compiles each PR locally before
   merging), no native/patch work, no small fixes. Log Claude's effort per task in the archive; if a task costs more than
   doing it directly, tell the user plainly and stop. Merge commands START with `gh pr merge`. No stacking.
-- Build workspace: steps 1-5 + 6a verified (r386 WSA); 6b Merge bake + 6c-1 tap/drag inside groups Claude-verified on
-  WSA debug APKs (archive). In r387 (installed WSA + SHIELD). Next: 6c-2 gizmos on shapes inside groups, then backlog "Filament materials".
+- Build workspace steps 1-6 done (6c-2 Claude-verified WSA debug, 6df309d, no CI build yet). Next: backlog "Filament materials".
+- User 2026-10-23: no Claude/Anthropic names in app code/strings. README, `claude mcp add`, trailers: asked, kept.
 - Local debug test on WSA: `stage-from-apk.sh` (after native CI builds), assembleDebug, `wsa-debug-setup.sh`,
-  `wsa-start.ps1`, MCP with `MCP_DEV=127.0.0.1:58526 PKG=...debug`; uninstall the debug app when done.
+  `wsa-start.ps1` (no PC `adb forward tcp:8765` while it starts), MCP with `MCP_DEV=127.0.0.1:58526 PKG=...debug`; uninstall the debug app when done.
 - Open (backlog): app 3MF fails in desktop Orca (fix untested), printer/user-only checks, pen input, plate switcher pick.
-- Next step: Build workspace step 6c-2 gizmos on shapes inside groups -> Opus 5.5 (high)
+- Next step: Filament materials tier 1 (per-filament material table in the model shader) -> Opus 5.5 (high)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).

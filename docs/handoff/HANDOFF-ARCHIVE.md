@@ -2901,3 +2901,22 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
   unchanged. Debug app uninstalled.
 - Untested: nested groups on device, repeated groups (drag moves copy 0's frame), holes inside groups (not pickable in
   the view: pick them in the list), highlight shows the whole group for a selected child, undo, user feel.
+
+### 2026-10-23 Build workspace step 6c-2: gizmos on shapes inside groups (Claude, 6df309d, unbuilt in CI)
+- Gizmos show when the selected shapes share one frame (top level, or the same group). The plate turn / scale and its pivot
+  go into the group's frame: `ShapeDesign.parentFrame` (the groups' placements, a repeated group = copy 0),
+  `BuildTransform.turnInFrame` (A^T m A), `scaleInFrame` (uneven only when the frame lies along the axes, else even),
+  `inFrame`; `axesFree` also checks the frame. Gizmo box = the shapes' design boxes in the group's first copy
+  (`ShapeController.buildGizmoBox` -> renderer `boxOverride`); with an override the live drag moves only the box and rings.
+- New: a turned group whose height changes (child edit) moves so its other children stay put (`ShapeDesign.groupShifts`,
+  p' = p + (RF - I)(0, 0, (h' - h) / 2)); applies to gizmos and drags.
+- JVM: GroupPickTest +3 (parentFrame = the piece matrix; a 45 deg design turn on a nested child: corners exact, siblings
+  put, only group 13 shifts; a design-X scale in the Z90 + mirrored group = group Y); suite 200/200.
+- VERIFIED (Claude, WSA, debug APK on r386 natives, user watching): Pieces test, Base + Peg grouped (#4). Group rot
+  [20,0,90]: tap group, tap Base -> #1, box fits the Base, corners only; ring drag turned Base (rot [-71.4,0,0]), group pos
+  shifted (height compensation), pegs stayed; corner drag = even 1.146. Group rot [0,0,90]: X/Y/Z handles; plate-X handle
+  -> Base size.y 30 -> 48.675, x unchanged, pegs unchanged; toolbar Undo restored in one step.
+- Also: About text no longer names the AI (user 2026-10-23).
+- Debug setup notes: the debug app's first start shows the printer picker (Apply, then re-run wsa-debug-setup.sh); the MCP
+  server can't bind while the PC's `adb forward tcp:8765` exists (WSA shares Windows loopback): remove it before starting the app.
+- Untested: nested groups on device, repeated groups (gizmo on copy 0), user feel.
