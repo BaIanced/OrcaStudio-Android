@@ -36,10 +36,12 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   **Muse KEPT (user, 2026-10-23)** for audits + larger JVM-testable Kotlin only (Claude compiles each PR locally before
   merging), no native/patch work, no small fixes. Log Claude's effort per task in the archive; if a task costs more than
   doing it directly, tell the user plainly and stop. Merge commands START with `gh pr merge`. No stacking.
-- Build workspace: steps 1-5 done 2026-10-23 (step 5 verified r385 WSA). Muse Task 18 merged + applied (PieceMatch.kt,
-  circular-repeat scale refusal narrowed to X != Y; unbuilt, rides the next build). Next: step 6.
+- Build workspace: steps 1-5 verified (r385 WSA); Muse Task 18 applied. Step 6a per-shape filament 4a027d7 (run
+  40055385531, untested): `Shape.filament` -> `Piece.filament` -> `VolumeSpec.extruder` -> set_volumes sets/erases the
+  volume `extruder`; picker under Solid/Hole (2+ filaments). WSA test: Peg -> filament 2: colour, no re-render, slice.
+- src-orca worktree was EMPTY 2026-10-23 (restored: `git submodule update --init src-orca`, local); C: 96% full.
 - Open (backlog): app 3MF fails in desktop Orca (fix untested), printer/user-only checks, pen input, plate switcher pick.
-- Next step: Build workspace step 6 per-shape filament -> Opus 5.5 (high)
+- Next step: WSA check of step 6a per-shape filament (install CI run 40055385531) -> Sonnet 5.5 (medium)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).

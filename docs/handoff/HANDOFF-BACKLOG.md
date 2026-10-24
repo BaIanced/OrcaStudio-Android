@@ -39,7 +39,7 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 ## Waiting on the user
 - Plate switcher pick (lab stays; don't ask again). Launcher icon colour ("decide later"). REA MCP enable (installed, not enabled).
 - Edge outline in Prepare (crease lines, View toggle; regions view already has crease_lines()): waiting on GO (2026-10-20).
-- [Opus] Build workspace (user GO 2026-10-23): steps 1-5 done + restart shift fixed (Claude-verified r385 WSA 2026-10-23; user feel of 4b/4c/5 untested; multi-copy/mirrored copies in Build untested). Open: step 6 "Later" (per-shape filament, Merge bake, groups editable; archive "Build workspace plan"); Muse Task 18 audit merged 2026-10-23 (PR #64; device check of the circular-repeat scale refusal untested).
+- [Opus] Build workspace (user GO 2026-10-23): steps 1-5 done + restart shift fixed; 6a per-shape filament 4a027d7 untested (Claude-verified r385 WSA 2026-10-23; user feel of 4b/4c/5 untested; multi-copy/mirrored copies in Build untested). Open: step 6 "Later" (Merge bake, groups editable; archive "Build workspace plan"); Muse Task 18 audit merged 2026-10-23 (PR #64; device check of the circular-repeat scale refusal untested).
 
 ## Ideas (not started)
 - Floating Theme | Layout designer (~half a day; ask first). Study Bambu Handy's MakerWorld integration.
@@ -51,6 +51,10 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - [Opus] OrcaMesh direct mesh editing (CGAL Surface_mesh + PMP, Blender bmesh ports; MVP 1-2 weeks; archive).
 - Public release check: built-in adblock + hard-coded Models tabs vs store policies / site terms (not researched).
 - Colour icon set shortlist + mockup (low). Paint card fold direction by screen position (low). "Need phone" prompt (shelved).
+- [Opus] Filament materials (user GO 2026-10-23, after Build step 6): tier 1 per-filament material table (matte/basic/silk/
+  PETG/translucent: spec power+strength, metallic tint, sky reflection, fresnel sheen, wrap/edge alpha; from filament
+  type/name + override) in the model shader (Shaders.kt:183-206); tier 2 procedural layer lines (z / layer height, fwidth fade).
+  ~1 day for both, one build. Not wanted: full PBR/IBL, Google Filament engine (breaks Shaders.kt drags, ids, uSolo).
 - MCP tools: app_state, log_tail, perf. Preview camera-light slider (no GO). Blender print3d_toolbox checks (pie menu: see stylus).
 
 ## Known limits (no action)
