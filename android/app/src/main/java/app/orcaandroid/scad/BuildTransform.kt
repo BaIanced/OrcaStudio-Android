@@ -63,16 +63,16 @@ object BuildTransform {
 
     /**
      * Top-level shape [s] scaled by [f] (design frame) about design point [p]; null for a group, or when [f] is uneven
-     * and the shape is turned off the axes — or has turned copies (a circular repeat), which an uneven scale
-     * cannot express either.
+     * and the shape is turned off the axes — or has turned copies (a circular repeat) and X and Y differ, which an
+     * uneven scale cannot express either.
      */
     fun scaled(d: ShapeDesign, s: Shape, f: D3, p: D3): Pose? {
         if (s.isGroup) return null
         // The factors along the shape's own axes: design axis j holds own axis k where its turn has a non-zero.
         val even = abs(f.x - f.y) < 1e-9 && abs(f.y - f.z) < 1e-9
-        // A circular repeat's copies are the shape turned about the centre, and a turn does not commute with an
-        // uneven scale: the centre would land right but each copy would come out scaled along the wrong axes.
-        if (!even && s.repeat?.let { it.circular && it.count > 1 } == true) return null
+        // A circular repeat's copies are the shape turned about the centre's Z axis, which commutes only with a
+        // scale even in X and Y: otherwise each copy would come out scaled along the wrong axes. Z alone is fine.
+        if (abs(f.x - f.y) >= 1e-9 && s.repeat?.let { it.circular && it.count > 1 } == true) return null
         val own = if (even) f else {
             val axes = axesOf(ShapeDesign.matrix(d.rot(s))) ?: return null
             D3(f[axes.indexOf(0)], f[axes.indexOf(1)], f[axes.indexOf(2)])

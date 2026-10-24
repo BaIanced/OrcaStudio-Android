@@ -147,6 +147,9 @@ class BuildTransformTest {
         // An even scale: the ring's centre moves with the scale and every copy follows.
         scaleCase(copy(Vec3(0f, 0f, 0f)), box(1, D3(4.0, 2.0, 3.0), D3(30.0, 0.0, 0.0),
             repeat = Repeat(circular = true, count = 4, center = D3(20.0, 5.0, 0.0))), Vec3(1.5f, 1.5f, 1.5f))
+        // Even in X and Y only: the copies turn about Z, so stretching the ring's height stays exact.
+        scaleCase(copy(Vec3(0f, 0f, 0f)), box(1, D3(4.0, 2.0, 3.0), D3(30.0, 0.0, 0.0),
+            repeat = Repeat(circular = true, count = 4, center = D3(20.0, 5.0, 0.0))), Vec3(1.5f, 1.5f, 2.5f))
     }
 
     @Test fun unevenScaleOfACircularRepeatIsRefused() {
