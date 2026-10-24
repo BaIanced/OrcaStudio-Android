@@ -2846,3 +2846,17 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
   turn about Z only (ShapeModel.kt:392), so only X != Y is refused; a taller ring (X = Y, Z differs) still scales, test added.
 - Untested on device: the refusal path (shape left unscaled) and the extraction in the app.
 - Effort log, Task 18 review: ~20 tool calls / ~30k tokens (Muse saved writing 27 tests + the audit; worth it).
+
+### 2026-10-23 Build workspace step 6a per-shape filament (Claude, 4a027d7, r386 = run 40055385531)
+- `Shape.filament` (top-level solids; 0 = the object's; JSON "filament", omitted at 0) -> `Piece.filament` (holes 0; not in
+  `scad`, so a colour change keeps mesh + paint) -> `VolumeSpec.extruder` (ScadController.placePieces; a slot above the
+  filament count -> 0) -> native set_volumes: > 0 sets the volume's `extruder`, 0 erases it, -1 (modifiers) leaves it.
+  UI: Filament picker under Solid/Hole in ShapeBuilder Properties (2+ filaments, top-level solids only; "Object's
+  filament" = 0); the shape row's dot shows the filament colour. JVM test piecesCarryTheirShapesFilament...; 193/193.
+- MCP (after r386, unbuilt): `shape_update` takes `filament` (0..count, top-level only), `design_describe` prints it.
+- VERIFIED r386 (Claude, WSA, MCP + adb Allow tap): "Pieces test", Peg x3 -> filament 2 (design_set) -> design_to_plate
+  said "Placed" (no re-render); Prepare view: Base yellow (F1), 3 pegs matte grey (F2); slice: prime tower 7 g (2
+  filaments used). Peg back to 0 -> pegs yellow, centre/size unchanged (132.828,117.204; 64.314 x 19.63 x 30.275).
+  Effort: ~1 session step, no Muse. Untested: user feel of the picker; groups (one filament for the whole group).
+- Setup: the src-orca submodule worktree was empty 2026-10-23 (git data intact), restored with `git submodule update
+  --init src-orca` (local). C: was 96% full.

@@ -255,6 +255,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         fun line(s: Shape, depth: Int) {
             append("  ".repeat(depth)).append("#${s.id} ${s.kind.key} \"${s.name}\"")
             if (s.hole) append(" HOLE")
+            if (s.filament > 0 && !s.hole && depth == 0) append(" filament ${s.filament}")
             if (!s.isGroup) append(" size ${v(d.size(s))}")
             append(" pos ${v(d.pos(s))}")
             d.rot(s).takeIf { it != D3() }?.let { append(" rot ${v(it)}") }
@@ -831,6 +832,12 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         }
         if (o.has("text")) d = d.update(id) { it.copy(text = o.optString("text").replace('\n', ' ')) }
         if (o.has("hole")) d = d.update(id) { it.copy(hole = o.optBoolean("hole")) }
+        if (o.has("filament")) {
+            val f = o.optInt("filament", -1)
+            if (f !in 0..store.value.filaments.size) throw ToolError("filament must be 0 (the object's) .. ${store.value.filaments.size}")
+            if (d.shapes.none { it.id == id }) throw ToolError("#$id is inside a group; only top-level shapes have a filament")
+            d = d.update(id) { it.copy(filament = f) }
+        }
         o.vec3("mirror")?.let { m -> d = d.update(id) { it.copy(mirror = D3(flag(m.x), flag(m.y), flag(m.z))) } }
         if (o.has("repeat")) {
             val r = if (o.isNull("repeat")) null else Repeat.of(o.optJSONObject("repeat") ?: throw ToolError("repeat must be an object or null"))
@@ -1025,6 +1032,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             "pos" to vec("Centre of the box's bottom in x / y, its bottom in z, mm, in the parent's frame"),
             "rot" to vec("Degrees about the box centre, X then Y then Z"),
             "hole" to p("boolean", "true = cuts the solids of its own group"),
+            "filament" to p("integer", "Top-level solids: the filament slot (1-based, see plate_describe) it prints with; 0 = the object's"),
             "mirror" to vec("1 = mirrored on that axis, 0 = not"),
             "extra" to p("object", "Kind specific numbers (null removes one): sides, top (cone top / bottom ratio), wall, tube, " +
                 "radius, edge (rounded edges mm), chamfer (1 = chamfer the edge), shell (hollow wall mm), open (1 = open top), angle, revolve (sketch: 1 = turn about Z)"),
