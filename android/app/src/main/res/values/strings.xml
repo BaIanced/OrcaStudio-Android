@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="about">About</string>
-    <string name="about_ai">This Android port was created with AI (Anthropic\'s Claude) and is an unofficial community project. It is not affiliated with or endorsed by the OrcaSlicer team.</string>
+    <string name="about_ai">This Android port was created with AI and is an unofficial community project. It is not affiliated with or endorsed by the OrcaSlicer team.</string>
     <string name="about_based_on">Slicing core: OrcaSlicer %1$s (%2$s)</string>
     <string name="about_credit">All the slicing power comes from OrcaSlicer by SoftFever and its community, built on Bambu Studio, PrusaSlicer and Slic3r. Thank you for this outstanding open-source work – please support the original project!</string>
     <string name="about_license">Licensed under the GNU AGPL-3.0. The complete source code is available at the link below.</string>

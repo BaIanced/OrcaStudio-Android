@@ -66,6 +66,11 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var activePlate = 0
     /** Selection ids (object * INSTANCE_ID_STRIDE + instance) of the selected copies. */
     @Volatile var selectedIds = FloatArray(0)
+    /**
+     * The gizmos' box (x0, y0, z0, x1, y1, z1) instead of the selected meshes' (Build: a shape inside a group, whose volume
+     * is the whole group's); the live resize and turn then move only the box and rings, not the group's mesh.
+     */
+    @Volatile var boxOverride: FloatArray? = null
     /** Paint shop: only the selected copies are drawn (objects, paint, shadows); the plates stay. */
     var solo = false
     /** Build workspace: only the build object is drawn (selection ids -1000 - volume, see Engine.setBuildObject). */
@@ -723,8 +728,9 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glUniform1i(loc(meshProgram, "uHidden"), if (solo) hiddenFilaments else 0)
         glUniform3fv(loc(meshProgram, "uDrag"), 1, dragOffset, 0)
         glUniform3fv(loc(meshProgram, "uScaleAnchor"), 1, resizeAnchor, 0)
-        glUniform3fv(loc(meshProgram, "uScale"), 1, resizeScale, 0)
-        val rot = rotateMatrix
+        val own = boxOverride == null
+        glUniform3fv(loc(meshProgram, "uScale"), 1, if (own) resizeScale else floatArrayOf(1f, 1f, 1f), 0)
+        val rot = rotateMatrix?.takeIf { own }
         glUniform1i(loc(meshProgram, "uRotOn"), if (rot != null) 1 else 0)
         if (rot != null) {
             // Column major for GL.
@@ -878,6 +884,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
 
     /** The mesh bounding box (x0, y0, z0, x1, y1, z1) of the selection ids [ids], without the live resize; any thread. */
     private fun meshBox(ids: FloatArray): FloatArray? {
+        boxOverride?.let { return it.copyOf() }
         val bounds = copyBounds
         val b = floatArrayOf(Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE)
         var any = false

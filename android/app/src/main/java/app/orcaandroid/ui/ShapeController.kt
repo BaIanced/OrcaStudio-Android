@@ -117,38 +117,71 @@ class ShapeController(private val store: Store, private val scad: ScadController
         val d = design ?: return
         if (selected.isEmpty() || v == D3()) return
         // A shape inside a group moves in the group's frame (its turn and flip).
-        commit(selected.fold(d) { acc, id -> acc.update(id) { s -> s.copy(pos = s.pos + d.toParent(id, v)) } })
+        commit(selected.fold(d) { acc, id -> held(acc, acc.update(id) { s -> s.copy(pos = s.pos + d.toParent(id, v)) }, id) })
     }
 
     /**
      * Build workspace: the copy the gizmos sit on (they show only while the object has one) and the selected shapes,
-     * all top level (none yet for shapes inside a group: the box would be the group's).
+     * all in one frame: top level, or inside the same group (the gizmos then act in that group's frame).
      */
     fun buildGizmoTarget(): Pair<Instance, List<Shape>>? {
         val inst = store.value.buildObject?.let { store.value.scene.objects.getOrNull(it) }?.instances?.singleOrNull()?.shown ?: return null
         val d = design ?: return null
-        val tops = selected.map { id -> d.shapes.firstOrNull { it.id == id } ?: return null }
-        return (inst to tops).takeIf { tops.isNotEmpty() }
+        val sel = selected.map { d.find(it) ?: return null }
+        if (sel.isEmpty() || sel.map { d.pathTo(it.id).dropLast(1).lastOrNull()?.id }.toSet().size != 1) return null
+        return inst to sel
+    }
+
+    /**
+     * Build workspace: the plate box the gizmos sit on when the selection is inside a group (its volume is the group's
+     * mesh, too big): the shapes' design boxes ([ShapeDesign.bounds], with their repeats) in the group's first copy.
+     * Null at the top level: the selected volumes' mesh box is exact there.
+     */
+    fun buildGizmoBox(): Pair<Vec3, Vec3>? {
+        val (inst, sel) = buildGizmoTarget() ?: return null
+        val d = design ?: return null
+        if (sel.first().id in d.shapes.map { it.id }) return null
+        val frame = d.parentFrame(sel.first().id)
+        val pts = sel.flatMap { s ->
+            val b = d.bounds(s)
+            (0 until 8).map { k ->
+                val c = D3(if (k and 1 == 0) b.min.x else b.max.x, if (k and 2 == 0) b.min.y else b.max.y, if (k and 4 == 0) b.min.z else b.max.z)
+                val q = D3((0..2).sumOf { frame[it] * c[it] } + frame[3], (0..2).sumOf { frame[4 + it] * c[it] } + frame[7],
+                    (0..2).sumOf { frame[8 + it] * c[it] } + frame[11])
+                BuildTransform.toPlate(inst, q)
+            }
+        }
+        return Vec3(pts.minOf { it.x }, pts.minOf { it.y }, pts.minOf { it.z }) to Vec3(pts.maxOf { it.x }, pts.maxOf { it.y }, pts.maxOf { it.z })
     }
 
     /** Build workspace: the main view's scale gizmo scaled the selection by [scale] (plate axes) about plate point [pivot]. */
     fun resizeOnPlate(scale: Vec3, pivot: Vec3) {
-        val (inst, tops) = buildGizmoTarget() ?: return
+        val (inst, sel) = buildGizmoTarget() ?: return
         val d = design ?: return
+        val frame = d.parentFrame(sel.first().id)
         // Off the axes the gizmo has corners only: an even scale.
-        val f = BuildTransform.designScale(inst, scale) ?: D3(scale.x.toDouble(), scale.x.toDouble(), scale.x.toDouble())
-        val p = BuildTransform.toDesign(inst, pivot)
-        commit(tops.fold(d) { acc, s -> acc.find(s.id)?.let { BuildTransform.scaled(acc, it, f, p) }?.let { posed(acc, s.id, it) } ?: acc })
+        val f = BuildTransform.designScale(inst, scale)?.let { BuildTransform.scaleInFrame(frame, it) }
+            ?: D3(scale.x.toDouble(), scale.x.toDouble(), scale.x.toDouble())
+        val p = BuildTransform.inFrame(frame, BuildTransform.toDesign(inst, pivot))
+        commit(sel.fold(d) { acc, s -> acc.find(s.id)?.let { BuildTransform.scaled(acc, it, f, p) }?.let { held(acc, posed(acc, s.id, it), s.id) } ?: acc })
     }
 
     /** Build workspace: the main view's rotate gizmo turned the selection [degrees] about plate axis [axis] through plate point [pivot]. */
     fun turnOnPlate(axis: Int, degrees: Float, pivot: Vec3) {
-        val (inst, tops) = buildGizmoTarget() ?: return
+        val (inst, sel) = buildGizmoTarget() ?: return
         val d = design ?: return
-        val m = BuildTransform.designTurn(inst, RotateGizmo.matrix(axis, degrees))
-        val c = BuildTransform.toDesign(inst, pivot)
-        commit(tops.fold(d) { acc, s -> acc.find(s.id)?.let { posed(acc, s.id, BuildTransform.turned(acc, it, m, c)) } ?: acc })
+        val frame = d.parentFrame(sel.first().id)
+        val m = BuildTransform.turnInFrame(frame, BuildTransform.designTurn(inst, RotateGizmo.matrix(axis, degrees)))
+        val c = BuildTransform.inFrame(frame, BuildTransform.toDesign(inst, pivot))
+        commit(sel.fold(d) { acc, s -> acc.find(s.id)?.let { held(acc, posed(acc, s.id, BuildTransform.turned(acc, it, m, c)), s.id) } ?: acc })
     }
+
+    /** [next] (shape [id] changed from [before]) with the groups holding it moved so their other children stay put ([ShapeDesign.groupShifts]). */
+    private fun held(before: ShapeDesign, next: ShapeDesign, id: Int): ShapeDesign =
+        next.groupShifts(before, id).fold(next) { acc, (g, pos) ->
+            val s = acc.find(g) ?: return@fold acc
+            (0..2).fold(acc) { a, i -> if (kotlin.math.abs(acc.pos(s)[i] - pos[i]) > 1e-6) withField(a, g, "pos.${"xyz"[i]}", pos[i]) ?: a else a }
+        }
 
     /** [d] with shape [id] at [pose]; only changed fields are set, so a field bound to a dimension moves it only when it changes. */
     private fun posed(d: ShapeDesign, id: Int, pose: BuildTransform.Pose): ShapeDesign {

@@ -458,9 +458,11 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     LaunchedEffect(v, build != null) { v.onGl { buildSolo = build != null } }
     // Build workspace: the selected shapes' volumes are the selection; a drag starts on the object's box (the pick decides).
     LaunchedEffect(v, build, state.scad?.selected, state.scad?.shapes) {
-        if (build == null) return@LaunchedEffect
+        if (build == null) { v.onGl { boxOverride = null }; return@LaunchedEffect }
         val ids = vm.scad.buildSelectedIds(build)
-        v.onGl { selectedIds = ids }
+        // Shapes inside a group: the gizmos sit on their own box, not the group's mesh.
+        val box = vm.shapes.buildGizmoBox()?.let { (lo, hi) -> floatArrayOf(lo.x, lo.y, lo.z, hi.x, hi.y, hi.z) }
+        v.onGl { selectedIds = ids; boxOverride = box }
         // The design pose's box: Build draws and picks the copies there, not where they lie on the plate.
         v.selectedBounds = if (ids.isEmpty()) emptyList() else build.instances.map { it.shown.let { s -> s.min to (s.min + s.size) } }
         v.resizeAxes = vm.shapes.buildGizmoTarget()?.let { (inst, tops) -> state.scad?.shapes?.let { app.orcaandroid.scad.BuildTransform.axesFree(it, inst, tops) } } ?: true

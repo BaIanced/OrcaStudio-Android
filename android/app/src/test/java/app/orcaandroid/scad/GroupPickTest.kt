@@ -65,4 +65,67 @@ class GroupPickTest {
         assertEquals(1, BuildTransform.pickLevel(listOf(10, 13, 14), listOf(10, 11)))
         assertEquals(0, BuildTransform.pickLevel(listOf(10, 11), listOf(10)))
     }
+
+    /** Design point of [local] (in shape [id]'s own frame, standing on z = 0) on the group's first copy. */
+    private fun at(d: ShapeDesign, id: Int, local: D3): D3 {
+        val s = d.find(id)!!
+        val pivot = D3(0.0, 0.0, d.height(s) / 2)
+        val q = ShapeDesign.rotate(ShapeDesign.flip(local - pivot, s.mirror), d.rot(s)) + pivot + d.pos(s)
+        return apply(d.parentFrame(id).toList(), q)
+    }
+
+    private fun corners(s: D3) = (0 until 8).map { k ->
+        D3(if (k and 1 == 0) -s.x / 2 else s.x / 2, if (k and 2 == 0) -s.y / 2 else s.y / 2, if (k and 4 == 0) 0.0 else s.z)
+    }
+
+    /** [next] with the groups holding [id] moved as [ShapeDesign.groupShifts] says (no bindings here). */
+    private fun held(before: ShapeDesign, next: ShapeDesign, id: Int) =
+        next.groupShifts(before, id).fold(next) { acc, (g, pos) -> acc.update(g) { it.copy(pos = pos) } }
+
+    // The gizmos round pos and size to 0.001 mm.
+    private fun close(a: D3, b: D3) { for (i in 0..2) assertEquals(b[i], a[i], 2e-3) }
+
+    @Test fun theParentFrameIsTheGroupsFirstCopy() {
+        assertEquals(piece(design, 10, 0).matrix, design.parentFrame(11).toList())
+        assertEquals(ShapeDesign.translation(D3()).toList(), design.parentFrame(1).toList())
+    }
+
+    @Test fun aGizmoTurnOnANestedShapeTurnsItInTheDesignAndLeavesItsNeighboursPut() {
+        // A design turn of 45 about Y (a level axis in group 13's frame, so its top changes), about a point off the shape.
+        val r = Math.sqrt(0.5)
+        val m = arrayOf(doubleArrayOf(r, 0.0, r), doubleArrayOf(0.0, 1.0, 0.0), doubleArrayOf(-r, 0.0, r))
+        val c = D3(5.0, 1.0, 2.0)
+        val frame = design.parentFrame(14)
+        val pose = BuildTransform.turned(design, design.find(14)!!, BuildTransform.turnInFrame(frame, m), BuildTransform.inFrame(frame, c))
+        val turned = design.update(14) { it.copy(pos = pose.pos, rot = pose.rot) }
+        // Group 13 (turned about X) moves; G turns about Z only, so its new height needs no shift.
+        assertEquals(listOf(13), turned.groupShifts(design, 14).map { it.first })
+        val next = held(design, turned, 14)
+        for (k in corners(D3(6.0, 6.0, 6.0))) {
+            val o = at(design, 14, k) - c
+            close(at(next, 14, k), c + D3(r * (o.x + o.z), o.y, r * (o.z - o.x)))
+        }
+        // Box 11 and the hole stay where they were, though group 13 (and so G) got taller.
+        for (k in corners(D3(10.0, 10.0, 10.0))) close(at(next, 11, k), at(design, 11, k))
+        for (k in corners(D3(4.0, 4.0, 20.0))) close(at(next, 12, k), at(design, 12, k))
+    }
+
+    @Test fun aGizmoScaleInsideATurnedGroupScalesAlongTheDesignAxes() {
+        // G is turned 90 about Z and mirrored: design X is the group's Y.
+        val f = D3(2.0, 1.0, 1.0)
+        val p = D3(3.0, -4.0, 0.0)
+        val frame = design.parentFrame(12)
+        val pose = BuildTransform.scaled(design, design.find(12)!!, BuildTransform.scaleInFrame(frame, f)!!, BuildTransform.inFrame(frame, p))!!
+        val next = held(design, design.update(12) { it.copy(pos = pose.pos, size = pose.size) }, 12)
+        for (k in corners(D3(4.0, 4.0, 20.0))) {
+            val o = at(design, 12, k)
+            val want = D3(p.x + (o.x - p.x) * f.x, p.y + (o.y - p.y) * f.y, p.z + (o.z - p.z) * f.z)
+            // The corner order flips with the scale's sign-free axes: compare the corner sets.
+            assert(corners(next.size(next.find(12)!!)).any { q -> (0..2).all { kotlin.math.abs(at(next, 12, q)[it] - want[it]) < 2e-3 } })
+        }
+        for (k in corners(D3(10.0, 10.0, 10.0))) close(at(next, 11, k), at(design, 11, k))
+        // Uneven in a group turned off the axes: no scale.
+        val tilted = design.update(10) { it.copy(rot = D3(0.0, 0.0, 30.0)) }
+        assertEquals(null, BuildTransform.scaleInFrame(tilted.parentFrame(12), f))
+    }
 }

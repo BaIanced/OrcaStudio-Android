@@ -44,14 +44,49 @@ object BuildTransform {
         return D3(out[0], out[1], out[2])
     }
 
-    /** Whether copy [inst] and every shape in [shapes] lie along the axes, so X, Y and Z can be scaled alone. */
+    /**
+     * Whether copy [inst], the groups holding [shapes] ([ShapeDesign.parentFrame]) and every shape in [shapes] lie along
+     * the axes, so X, Y and Z can be scaled alone.
+     */
     fun axesFree(d: ShapeDesign, inst: Instance, shapes: List<Shape>): Boolean {
         val r = RotateGizmo.fromEuler(inst.rotation)
         return axesOf(Array(3) { i -> DoubleArray(3) { j -> r[i * 3 + j].toDouble() } }) != null &&
-            shapes.all { axesOf(ShapeDesign.matrix(d.rot(it))) != null }
+            shapes.all { axesOf(linear(d.parentFrame(it.id))) != null && axesOf(ShapeDesign.matrix(d.rot(it))) != null }
     }
 
-    /** Top-level shape [s] turned by [m] (design frame) about design point [c]. */
+    /** Plate point [p] of design point [q] on copy [inst] (offset + R * scale * mirror * q): [toDesign]'s inverse. */
+    fun toPlate(inst: Instance, q: D3): Vec3 {
+        val r = RotateGizmo.fromEuler(inst.rotation)
+        val l = doubleArrayOf(q.x * inst.scale.x * sign(inst.mirror.x), q.y * inst.scale.y * sign(inst.mirror.y), q.z * inst.scale.z * sign(inst.mirror.z))
+        fun axis(i: Int) = (0..2).sumOf { r[i * 3 + it] * l[it] }.toFloat()
+        return Vec3(inst.offset.x + axis(0), inst.offset.y + axis(1), inst.offset.z + axis(2))
+    }
+
+    /** Design point [p] in [frame] (rigid row-major 4 x 4, [ShapeDesign.parentFrame]). */
+    fun inFrame(frame: DoubleArray, p: D3): D3 {
+        val q = D3(p.x - frame[3], p.y - frame[7], p.z - frame[11])
+        return D3((0..2).sumOf { frame[it * 4] * q[it] }, (0..2).sumOf { frame[it * 4 + 1] * q[it] }, (0..2).sumOf { frame[it * 4 + 2] * q[it] })
+    }
+
+    /** Design turn [m] in [frame]: A^T * m * A (A = the frame's turn and flip). */
+    fun turnInFrame(frame: DoubleArray, m: Array<DoubleArray>): Array<DoubleArray> {
+        val a = linear(frame)
+        val ma = mul(m, a)
+        return Array(3) { i -> DoubleArray(3) { j -> (0..2).sumOf { a[it][i] * ma[it][j] } } }
+    }
+
+    /** Design scale factors [f] along the axes of [frame]; null when they are uneven and the frame is turned off the axes. */
+    fun scaleInFrame(frame: DoubleArray, f: D3): D3? {
+        if (abs(f.x - f.y) < 1e-9 && abs(f.y - f.z) < 1e-9) return f
+        val axes = axesOf(linear(frame)) ?: return null
+        val out = DoubleArray(3)
+        for (i in 0..2) out[axes[i]] = f[i]
+        return D3(out[0], out[1], out[2])
+    }
+
+    private fun linear(m: DoubleArray) = Array(3) { i -> DoubleArray(3) { j -> m[i * 4 + j] } }
+
+    /** Shape [s] turned by [m] about point [c], both in its parent's frame (the design's at the top level: [turnInFrame]). */
     fun turned(d: ShapeDesign, s: Shape, m: Array<DoubleArray>, c: D3): Pose {
         // The shape turns about its middle (pos + pivot): move pos so its middle turns about c instead.
         val pivot = D3(0.0, 0.0, d.height(s) / 2)
@@ -62,7 +97,7 @@ object BuildTransform {
     }
 
     /**
-     * Top-level shape [s] scaled by [f] (design frame) about design point [p]; null for a group, or when [f] is uneven
+     * Shape [s] scaled by [f] about point [p], both in its parent's frame ([scaleInFrame]); null for a group, or when [f] is uneven
      * and the shape is turned off the axes — or has turned copies (a circular repeat) and X and Y differ, which an
      * uneven scale cannot express either.
      */

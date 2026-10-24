@@ -2,6 +2,7 @@ package app.orcaandroid.scad
 
 import org.json.JSONArray
 import org.json.JSONObject
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.min
@@ -413,6 +414,36 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
             // The turn and flip are orthonormal: the inverse is the transpose.
             D3((0..2).sumOf { m[it * 4] * acc[it] }, (0..2).sumOf { m[it * 4 + 1] * acc[it] }, (0..2).sumOf { m[it * 4 + 2] * acc[it] })
         }
+
+    /**
+     * Where the frame shape [id] lives in (its parent group's) lies in the design: row-major 4 x 4, rigid (turn, flip,
+     * move). The identity for a top-level shape; a repeated group counts as its first copy, as in [toParent].
+     */
+    fun parentFrame(id: Int): DoubleArray = pathTo(id).dropLast(1).fold(translation(D3())) { acc, g -> mul(acc, placement(resolved(g))) }
+
+    /**
+     * After shape [id] changed (from [before]): each group holding it, innermost first, whose height changed moved so
+     * its children stay where they were. A group turns and flips about its middle (half its height): a taller group
+     * would otherwise swing its turned children. Returns the new pos of each group that has to move.
+     */
+    fun groupShifts(before: ShapeDesign, id: Int): List<Pair<Int, D3>> {
+        var d = this
+        val out = ArrayList<Pair<Int, D3>>()
+        for (g in pathTo(id).dropLast(1).reversed()) {
+            val old = before.find(g.id) ?: continue
+            val now = d.find(g.id) ?: continue
+            val k = (d.height(now) - before.height(old)) / 2
+            if (abs(k) < 1e-9) continue
+            // x -> p + h/2 + R F (x - h/2) stays put when p' = p + (R F - I) (0, 0, (h' - h) / 2).
+            val m = matrix(rot(now))
+            val fz = if (now.mirror.z != 0.0) -1.0 else 1.0
+            val pos = pos(now) + D3(m[0][2] * fz * k, m[1][2] * fz * k, m[2][2] * fz * k - k)
+            if ((0..2).all { abs(pos[it] - pos(now)[it]) < 1e-9 }) continue
+            out += g.id to pos
+            d = d.update(g.id) { it.copy(pos = pos) }
+        }
+        return out
+    }
 
     /** Point [p] through the inverse of rigid row-major 4 x 4 [m] (turn, flip and move only). */
     private fun inverse(m: DoubleArray, p: D3): D3 {
