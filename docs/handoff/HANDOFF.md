@@ -41,7 +41,6 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   dispatch with 6c. Next: 6c groups editable inside (plan in archive "Build workspace plan"), then backlog "Filament materials".
 - Local debug test on WSA: `stage-from-apk.sh` (after native CI builds), assembleDebug, `wsa-debug-setup.sh`,
   `wsa-start.ps1`, MCP with `MCP_DEV=127.0.0.1:58526 PKG=...debug`; uninstall the debug app when done.
-- src-orca worktree was EMPTY 2026-10-23 (restored: `git submodule update --init src-orca`, local); C: 96% full.
 - Open (backlog): app 3MF fails in desktop Orca (fix untested), printer/user-only checks, pen input, plate switcher pick.
 - Next step: Build workspace step 6c groups editable inside -> Opus 5.5 (high)
 
