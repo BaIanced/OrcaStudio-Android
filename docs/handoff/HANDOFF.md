@@ -24,7 +24,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **Cheapest interface first** (MCP `mcpao.sh` ~150 tok > `phone-ui.py layout` cut by regex > cropped shot only for GL looks).
 - Session backups: phone `/data/local/tmp/phone-session-backup.{3mf,json}`, WSA `/data/local/tmp/session-backup.{3mf,json}`. `scadzip-test.zip` stays in `/sdcard/Download` (phone, Chromebook). Never write the LAN access code anywhere.
 ## Next task
-- **User 2026-10-21: one small step per session.** Cue `/clear` + `/next` after EACH step.
+- **One small step at a time** (user 2026-10-21). Auto-next (user 2026-10-24): if context is small and the next model = running model, start the next step without cueing; else cue `/clear` + `/next`.
 - **User 2026-10-21: design deviations pre-approved** ("deviate if you find a more logical, intuitive way; I trust your judgement"); say what changed.
 - Paint plan complete (r373); user feel untested (backlog "Paint panel UI", "Paint penetration").
 - Muse (2026-10-22): tasks in `MUSE-TASKS.md` on `muse/work` (edit via a `claude/*` PR, self-merge), then `TASK <n> READY`
@@ -40,8 +40,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Local debug test on WSA: recipe in the reference ("Local APK").
 - Open (backlog): app 3MF in desktop Orca (fix applied; user must open a fresh export), printer/user-only checks, pen input, plate switcher pick.
 - Realistic render (View menu, default off) builds 1+2 in r390: Claude WSA-checked, user feel untested (backlog).
-- Task 12 findings 5 (9661c20) + 8 (aecb380) fixed (WSL-compiled, no CI build yet; batch with 9, then WSA preset smoke test).
-- Next step: Muse Task 12 JNI audit finding 9 (paint fill cancel undo pop, suspected) -> Opus 5.5 (high)
+- Task 12 findings 5/8/9 fixed (9661c20, aecb380, 04bb9ad; WSL-compiled). CI build dispatched 2026-10-24: install on all devices, WSA smoke (presets, paint fill hold + cancel + undo).
+- Next step: install the 5/8/9 build + WSA smoke test -> Sonnet 5.5 (medium)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
