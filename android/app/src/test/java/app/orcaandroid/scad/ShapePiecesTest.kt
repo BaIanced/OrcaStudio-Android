@@ -109,4 +109,120 @@ class ShapePiecesTest {
         val pieces = ShapeDesign(listOf(box(1, D3(10.0, 10.0, 10.0)), box(2, D3(3.0, 3.0, 12.0), hole = true))).pieces()
         assertEquals(listOf(false, true), pieces.map { it.hole })
     }
+
+    @Test fun nestedGroupsAreOnePiece() {
+        val inner = Shape(20, Shape.Kind.GROUP, "Inner", D3(), D3(1.0, 0.0, 0.0), children = listOf(
+            box(21, D3(6.0, 6.0, 6.0)),
+            box(22, D3(2.0, 2.0, 9.0), D3(1.0, 0.0, 0.0), hole = true),
+        ))
+        val outer = Shape(10, Shape.Kind.GROUP, "Outer", D3(), D3(5.0, 5.0, 0.0), children = listOf(
+            inner, box(11, D3(4.0, 4.0, 4.0), D3(-6.0, 0.0, 0.0))))
+        val d = ShapeDesign(listOf(outer))
+        val pieces = d.pieces()
+        assertEquals(1, pieces.size)
+        assertFalse(pieces[0].hole)
+        // The grandchild hole cuts inside the piece's own code, not as a volume of its own.
+        assertTrue(pieces[0].scad.contains("difference()"))
+        assertMatches(d)
+    }
+
+    @Test fun aHoleInsideAGroupIsNotItsOwnPiece() {
+        val group = Shape(10, Shape.Kind.GROUP, "G", D3(), children = listOf(
+            box(11, D3(10.0, 10.0, 10.0)),
+            box(12, D3(3.0, 3.0, 12.0), hole = true),
+        ))
+        val d = ShapeDesign(listOf(group, box(2, D3(3.0, 3.0, 12.0), hole = true)))
+        val pieces = d.pieces()
+        assertEquals(2, pieces.size)
+        assertEquals(listOf(false, true), pieces.map { it.hole })
+        assertTrue(pieces[0].scad.contains("difference()"))
+        assertMatches(d)
+    }
+
+    @Test fun blankTextIsAPieceWithNoMesh() {
+        val pieces = ShapeDesign(listOf(
+            Shape(1, Shape.Kind.TEXT, "T", D3(40.0, 12.0, 3.0), text = ""),
+            Shape(2, Shape.Kind.TEXT, "U", D3(40.0, 12.0, 3.0), text = "   "),
+        )).pieces()
+        assertEquals(2, pieces.size)
+        // The code is only a comment: it renders an empty file, which the matching treats as not placed.
+        assertTrue(pieces.all { it.scad.contains("// (no text)") })
+        assertEquals(pieces[0].scad, pieces[1].scad)
+        assertNotEquals(pieces[0].shapeId, pieces[1].shapeId)
+    }
+
+    @Test fun identicalShapesShareCodeButNotPieces() {
+        val d = ShapeDesign(listOf(
+            box(1, D3(10.0, 10.0, 10.0), D3(3.0, 0.0, 0.0)),
+            box(2, D3(10.0, 10.0, 10.0), D3(3.0, 0.0, 0.0)),
+        ))
+        val pieces = d.pieces()
+        assertEquals(2, pieces.size)
+        assertEquals(pieces[0].scad, pieces[1].scad)
+        assertEquals(pieces[0].matrix, pieces[1].matrix)
+        assertEquals(listOf(1, 2), pieces.map { it.shapeId })
+    }
+
+    @Test fun repeatCountChangesKeepTheFirstCopies() {
+        val s = box(1, D3(5.0, 5.0, 5.0)).copy(repeat = Repeat(count = 4, step = D3(10.0, 0.0, 0.0)))
+        val four = ShapeDesign(listOf(s)).pieces()
+        val three = ShapeDesign(listOf(s.copy(repeat = s.repeat!!.copy(count = 3)))).pieces()
+        assertEquals(four.dropLast(1), three)
+        // A count of 1 is no repeat at all: one piece, placed like the plain shape.
+        val one = ShapeDesign(listOf(s.copy(repeat = s.repeat!!.copy(count = 1)))).pieces()
+        assertEquals(ShapeDesign(listOf(box(1, D3(5.0, 5.0, 5.0)))).pieces(), one)
+    }
+
+    @Test fun reorderedShapesReorderTheirPieces() {
+        val a = box(1, D3(10.0, 10.0, 10.0))
+        val b = box(2, D3(4.0, 4.0, 4.0))
+        assertEquals(listOf(1, 2), ShapeDesign(listOf(a, b)).pieces().map { it.shapeId })
+        assertEquals(listOf(2, 1), ShapeDesign(listOf(b, a)).pieces().map { it.shapeId })
+    }
+
+    @Test fun mirrorChangesOnlyTheMatrix() {
+        val plain = ShapeDesign(listOf(box(1, D3(10.0, 10.0, 10.0)))).pieces().single()
+        val mirrored = ShapeDesign(listOf(box(1, D3(10.0, 10.0, 10.0), mirror = D3(1.0, 0.0, 0.0)))).pieces().single()
+        assertEquals(plain.scad, mirrored.scad)
+        assertNotEquals(plain.matrix, mirrored.matrix)
+        assertEquals(-1.0, mirrored.matrix[0], 1e-9)
+        assertEquals(1.0, mirrored.matrix[5], 1e-9)
+    }
+
+    @Test fun mirrorMagnitudeIsIgnoredToday() {
+        // The mirror is read as a flag (any non-zero flips), so a 2 flips exactly like a 1. Pinned, not fixed.
+        val one = ShapeDesign(listOf(box(1, D3(10.0, 10.0, 10.0), mirror = D3(1.0, 0.0, 0.0)))).pieces().single()
+        val two = ShapeDesign(listOf(box(1, D3(10.0, 10.0, 10.0), mirror = D3(2.0, 0.0, 0.0)))).pieces().single()
+        assertEquals(one.matrix, two.matrix)
+        assertEquals(one.scad, two.scad)
+    }
+
+    @Test fun turnedCircularRepeatCopiesTurnAboutTheCentre() {
+        val ring = box(1, D3(4.0, 2.0, 3.0), D3(30.0, 0.0, 0.0), D3(0.0, 0.0, 30.0))
+            .copy(repeat = Repeat(circular = true, count = 4, center = D3(20.0, 5.0, 0.0)))
+        val pieces = ShapeDesign(listOf(ring)).pieces()
+        assertEquals(4, pieces.size)
+        assertEquals((0 until 4).toList(), pieces.map { it.copy })
+        assertEquals(1, pieces.map { it.scad }.distinct().size)
+        // Copy i is copy 0 turned by i quarter turns about the centre (whose z plays no part).
+        val c = D3(20.0, 5.0, 0.0)
+        val p0 = apply(pieces[0].matrix, D3())
+        for (i in 1 until 4) {
+            val expected = ShapeDesign.rotate(p0 - c, D3(0.0, 0.0, 90.0 * i)) + c
+            val actual = apply(pieces[i].matrix, D3())
+            for (k in 0..2) assertEquals("copy $i axis $k", expected[k], actual[k], 1e-9)
+        }
+    }
+
+    @Test fun tinyMoveChangesTheMatrixButNotTheCodeToday() {
+        val d = ShapeDesign(listOf(box(1, D3(10.0, 10.0, 10.0))))
+        val before = d.pieces().single()
+        // Deterministic: the same design makes bit-equal matrices, so an unmoved piece can anchor.
+        assertEquals(before.matrix, d.pieces().single().matrix)
+        // But the anchor comparison is exact (== on the matrix): a move under the code's 0.001 rounding
+        // changes the matrix, so such a piece no longer anchors. Pinned, not fixed.
+        val moved = d.update(1) { it.copy(pos = it.pos + D3(1e-9, 0.0, 0.0)) }.pieces().single()
+        assertEquals(before.scad, moved.scad)
+        assertNotEquals(before.matrix, moved.matrix)
+    }
 }

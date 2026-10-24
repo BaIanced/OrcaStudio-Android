@@ -9,6 +9,7 @@ import app.orcaandroid.core.Volume
 import app.orcaandroid.core.VolumeSpec
 import app.orcaandroid.core.VolumeType
 import app.orcaandroid.render.PreviewMesh
+import app.orcaandroid.scad.PieceMatch
 import app.orcaandroid.scad.ScadClient
 import app.orcaandroid.scad.ScadDeps
 import app.orcaandroid.scad.ScadDesign
@@ -731,15 +732,9 @@ class ScadController(private val store: Store) {
         val oldPieces = old.shapes?.pieces() ?: return emptyMap()
         val oldFiles = oldPieces.map { pieceFile(it.scad, file) }
         if (oldFiles.any { !it.isFile }) return emptyMap()
-        val placedPieces = oldPieces.filterIndexed { i, _ -> oldFiles[i].length() > 0 }
         val parts = obj.volumes.filter { it.type == VolumeType.PART || it.type == VolumeType.NEGATIVE }
-        if (parts.size != placedPieces.size || parts.zip(placedPieces).any { (v, p) -> (v.type == VolumeType.NEGATIVE) != p.hole }) return emptyMap()
-        return pieces.indices.mapNotNull { i ->
-            val p = pieces[i]
-            if (stls[i].length() == 0L) return@mapNotNull null
-            val j = placedPieces.indexOfFirst { it.shapeId == p.shapeId && it.copy == p.copy && it.scad == p.scad }
-            if (j < 0) null else i to (placedPieces[j] to parts[j].index)
-        }.toMap()
+            .map { it.index to (it.type == VolumeType.NEGATIVE) }
+        return PieceMatch.match(oldPieces, oldFiles.map { it.length() == 0L }, pieces, stls.map { it.length() == 0L }, parts)
     }
 
     /** Keeps the piece cache at its [PIECE_CACHE] most recently used renders. */
