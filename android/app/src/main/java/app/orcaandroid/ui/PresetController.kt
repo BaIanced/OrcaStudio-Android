@@ -118,9 +118,13 @@ class PresetController(private val store: Store, private val device: DeviceContr
             ?: (settings.lastPrint(name) ?: base.takeIf { it.isNotEmpty() }?.let(settings::lastPrint))?.takeIf { n -> setup.prints.any { it.name == n } }
             ?: setup.defaultPrint
         // A project (the restored session too) has no AMS tray sources: a slot that still holds the preset the
-        // last sync left in it keeps that tray, so picks made right after a restart stick to it.
+        // last sync left in it keeps that tray, so picks made right after a restart stick to it. Its surface look too
+        // (3MF files don't carry it).
         val saved = settings.lastFilaments(name)
-        val given = filaments?.mapIndexed { i, f -> f.copy(source = f.source ?: saved.getOrNull(i)?.takeIf { it.preset == f.preset }?.source) }
+        val given = filaments?.mapIndexed { i, f ->
+            val same = saved.getOrNull(i)?.takeIf { it.preset == f.preset }
+            f.copy(source = f.source ?: same?.source, look = f.look ?: same?.look)
+        }
         val fils = withColors((given ?: saved).filter { f -> setup.filaments.any { it.name == f.preset } }
             .ifEmpty { listOf(FilamentSlot(setup.defaultFilament)) })
         store.update {

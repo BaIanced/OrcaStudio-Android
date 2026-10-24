@@ -157,9 +157,10 @@ class FileController(
         store.update { st ->
             val slots = if (filaments.isEmpty()) st.filaments
             else filaments.mapIndexed { i, f ->
-                // Keep the AMS tray selectPrinterNow found for the slot.
-                val src = st.filaments.getOrNull(i)?.takeIf { it.preset == f.preset }?.source
-                if (st.setup?.filaments?.any { it.name == f.preset } == true) f.copy(source = src) else f.copy(preset = st.filaments.first().preset)
+                // Keep the AMS tray and surface look selectPrinterNow found for the slot.
+                val same = st.filaments.getOrNull(i)?.takeIf { it.preset == f.preset }
+                if (st.setup?.filaments?.any { it.name == f.preset } == true) f.copy(source = same?.source, look = same?.look)
+                else f.copy(preset = st.filaments.first().preset)
             }
             st.copy(filaments = slots, overrides = if (info.printOverrides.isEmpty()) st.overrides else st.overrides + (PresetType.PRINT to info.printOverrides))
         }

@@ -18,6 +18,8 @@ private const val BADGE_GAP = 0.02f
 /** Contact shadow: geometry up to this height above the bed casts it, mm; darkness right under a part. */
 private const val SHADOW_FADE_MM = 12f
 private const val SHADOW_STRENGTH = 0.8f
+/** Realistic mode's AO: the disc (mm) over which the key light's shadow map says how much of its softbox a point sees. */
+private const val AO_SOFT_MM = 24f
 /** Preview supersampling: samples per view pixel each way (4 a pixel), and how long the camera rests before it starts. */
 private const val SUPERSAMPLE = 2
 private const val STILL_NS = 200_000_000L
@@ -476,6 +478,17 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             glEnable(GL_BLEND)
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
             glDepthMask(false)
+            // Realistic mode's clear filaments (premultiplied): far faces first, then the near ones over them.
+            if (models && realistic && filamentMaterials.any { it.b[3] > 0f }) {
+                glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA)
+                glEnable(GL_CULL_FACE)
+                glCullFace(GL_FRONT)
+                drawMesh(meshVbo, meshCount, pass = 7)
+                glCullFace(GL_BACK)
+                drawMesh(meshVbo, meshCount, pass = 7)
+                glDisable(GL_CULL_FACE)
+                glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+            }
             if (models) drawMesh(meshVbo, meshCount, pass = 1)
             drawMesh(ghostVbo, ghostCount, pass = 1)
             glDepthMask(true)
@@ -704,13 +717,14 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glUniform1i(loc(meshProgram, "uPass"), pass)
         glUniform1f(loc(meshProgram, "uShadowFade"), SHADOW_FADE_MM)
         // The real shadow map is sampled by the lit pass only (not while it is being drawn, not in the occlusion pre-pass).
-        val real = useRealShadow && pass == 0
+        val real = useRealShadow && (pass == 0 || pass == 7)
         glUniform1i(loc(meshProgram, "uUseRealShadow"), if (real) 1 else 0)
         glUniform1i(loc(meshProgram, "uRealShadowMap"), 2)
         if (real) {
             glUniformMatrix4fv(loc(meshProgram, "uLightMvp"), 1, false, effects.lightMvp, 0)
             glUniform1f(loc(meshProgram, "uShadowStrength"), shadowStrength)
             glUniform1f(loc(meshProgram, "uSoft"), shadowSoftMm / effects.lightSpanMm)
+            glUniform1f(loc(meshProgram, "uAoSoft"), AO_SOFT_MM / effects.lightSpanMm)
             glUniform1f(loc(meshProgram, "uBiasMm"), shadowBiasMm)
             glActiveTexture(GL_TEXTURE2)
             glBindTexture(GL_TEXTURE_2D, effects.realShadowTex)
