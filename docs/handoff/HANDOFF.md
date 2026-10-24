@@ -40,7 +40,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Local debug test on WSA: recipe in the reference ("Local APK").
 - Open (backlog): app 3MF in desktop Orca (fix applied; user must open a fresh export), printer/user-only checks, pen input, plate switcher pick.
 - Realistic render (View menu, default off) builds 1+2 in r390: Claude WSA-checked, user feel untested (backlog).
-- Task 12 findings 5/8/9 fixed (9661c20, aecb380, 04bb9ad; WSL-compiled). CI build dispatched 2026-10-24: install on all devices, WSA smoke (presets, paint fill hold + cancel + undo).
+- Task 12 findings 5/8/9 fixed (9661c20, aecb380, 04bb9ad; WSL-compiled). CI run 40083179826 (2026-10-24): install on all devices, WSA smoke (presets, paint fill hold + cancel + undo).
 - Next step: install the 5/8/9 build + WSA smoke test -> Sonnet 5.5 (medium)
 
 ## User decisions (2026-10-13)
