@@ -26,23 +26,18 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 ## Next task
 - **One small step at a time** (user 2026-10-21). Auto-next (user 2026-10-24): if context is small and the next model = running model, start the next step without cueing; else cue `/clear` + `/next`.
 - **User 2026-10-21: design deviations pre-approved** ("deviate if you find a more logical, intuitive way; I trust your judgement"); say what changed.
-- Paint plan complete (r373); user feel untested (backlog "Paint panel UI", "Paint penetration").
 - Muse (2026-10-22): tasks in `MUSE-TASKS.md` on `muse/work` (edit via a `claude/*` PR, self-merge), then `TASK <n> READY`
   on #46; Muse answers with one draft PR per task. Claude verifies, merges into muse/work, cherry-picks code onto the work
   branch. Task 1 finding 4: fix the patch comment when regenerating 0001. **Each session start, run exactly:**
   `gh pr list --state open --json number,title,headRefName; gh issue view 46 --json comments --jq '.comments[-2:][]|.createdAt+" "+(.body|.[0:300])'` (no `--comments`).
-  Tasks 1-18 merged (18 = PR #64, 2026-10-23) (Task 12 JNI audit fixes in backlog). Sync muse/work android/ before each Kotlin task (#58).
+  Tasks 1-18 merged (18 = PR #64, 2026-10-23). Sync muse/work android/ before each Kotlin task (#58).
   **Muse KEPT (user, 2026-10-23)** for audits + larger JVM-testable Kotlin only (Claude compiles each PR locally before
   merging), no native/patch work, no small fixes. Log Claude's effort per task in the archive; if a task costs more than
   doing it directly, tell the user plainly and stop. Merge commands START with `gh pr merge`. No stacking.
-- Build workspace 1-6 (6df309d), Filament materials tier 1 (b978e15) + step 2 Surface look (r389) + tier 2 Layer lines (View menu,
-  4b7d432, r391; Claude WSA-checked): user feel untested.
+- User feel untested (backlog): paint plan (r373), Build workspace 1-6, Filament materials tiers 1+2, Realistic render 1+2 (r390).
 - Local debug test on WSA: recipe in the reference ("Local APK").
 - Open (backlog): app 3MF in desktop Orca (fix applied; user must open a fresh export), printer/user-only checks, pen input, plate switcher pick.
-- Realistic render (View menu, default off) builds 1+2 in r390: Claude WSA-checked, user feel untested (backlog).
-- Task 12 findings 5/8/9 fixed (9661c20, aecb380, 04bb9ad) in r392 (run 40083179826), installed on WSA, phone, SHIELD 2026-10-24 (Chromebook, Note offline). WSA-checked r392 (support-paint Fill): hold-fill stays, slide-off cancel keeps the earlier fill, one Undo removes it. Findings 5/8 not exercised.
-  Findings 1-4 closed (static re-check, not device-triggerable). 10/12/13 fixed 6303398, CI run 40141547033 (2026-10-24); 11 note only.
-- HD plate (Layout lab, off by default): user verified r394 2026-10-24 (archive). Open idea: 3D bed frame model, dual-nozzle decal layout.
+- Task 12: 5/8/9 in r392 (9 WSA-checked, archive). 1-4 closed (static re-check, not device-triggerable). 10/12/13 fixed 6303398, CI run 40141547033 (2026-10-24); 11 note only.
 - Local debug app (older native libs, r391) is still on WSA with release data (removed from phone 2026-10-24); remove when done.
 - Next step: install run 40141547033 on all devices, WSA smoke Add text (>32 chars) + SVG import -> Sonnet 5.5 (medium)
 
