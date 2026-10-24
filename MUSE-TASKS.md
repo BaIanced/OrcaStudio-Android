@@ -1073,7 +1073,7 @@ Open questions: none.
 ### Task 18 - 2026-10-23 - muse/task-18-build-workspace-tests - this commit
 Audit + JVM tests for the Build workspace Kotlin, and the piece matching extracted
 to a pure core. New tests: `PieceMatchTest` 13, `ShapePiecesTest` +9, `BuildTransformTest`
-+5 (27 new; suite 151 -> 178). Written and run before the fix: the scad classes ran
++5 (27 new; suite 165 -> 192). Written and run before the fix: the scad classes ran
 41 tests with exactly 1 failure - the plate-exactness check behind
 `unevenScaleOfACircularRepeatIsRefused` (copy 1's corner expected x 40.0, was 43.0);
 after the fix all pass.
@@ -1127,10 +1127,13 @@ Per-function edge-case table (input -> behaviour):
   odd-but-harmless (`...Today`): two identical old pieces (same shape, copy and
   code - a design cannot make them, ids are unique) would both be claimed by the
   first one's volume (`duplicatePiecesBothMatchTheFirstToday`).
-Build: COMPILED (compile exit 0, tests exit 0; 178/178 tests passed, 0
-failures/errors/skipped, 18 classes - baseline on this branch before the changes
-was 151/151 in 17 classes; trust store rebuilt per the Task 14 recipe for this VM
-instance first, 121 bundle certs imported).
+Build: COMPILED (compile exit 0, tests exit 0; 192/192 tests passed, 0
+failures/errors/skipped, 20 classes - baseline on this branch before the changes
+was 165/165 in 19 classes; PR #63's sync had brought the work branch's newer
+tests in since Task 17's 151. An earlier count of 178/151 was taken from a
+results directory two overlapping local runs had both written; the numbers
+here are from one clean solo run. Trust store rebuilt per the Task 14 recipe
+for this VM instance first, 121 bundle certs imported).
 Privacy self-scan: tree exit 0, range exit 0.
 UNVERIFIED: device behaviour of the extraction and of the scale refusal (JVM
 tests only; the refusal's caller path - the shape is left unscaled - is by
