@@ -436,6 +436,11 @@ private fun ViewButtons(state: UiState, vm: AppViewModel, view: PlateView?, rail
                 onClick = { viewMenu = false; view?.section?.let { it.toggle(); it.panelOpen = it.active } },
                 leadingIcon = { Icon(Icons.Default.ContentCut, null) },
                 trailingIcon = { if (view?.section?.active == true) Icon(Icons.Default.Check, null) })
+            // Plates drawn as their bed type (colour, grain); solid from above, a see-through window from below.
+            DropdownMenuItem(text = { Text(stringResource(R.string.view_plate_surface)) },
+                onClick = { viewMenu = false; vm.setPlateSurface(!state.plateSurface) },
+                leadingIcon = { Icon(Icons.Default.Layers, null) },
+                trailingIcon = { if (state.plateSurface) Icon(Icons.Default.Check, null) })
             // Physically based shading with a studio environment (in the spirit of Google's Filament renderer); the plain look stays the default.
             DropdownMenuItem(text = { Text(stringResource(R.string.view_realistic)) },
                 onClick = { viewMenu = false; vm.setRealistic(!state.realistic) },

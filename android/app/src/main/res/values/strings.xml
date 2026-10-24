@@ -484,6 +484,7 @@
     <string name="variable_layer_height">Variable layer height</string>
     <string name="view">View</string>
     <string name="view_fit">Fit plate</string>
+    <string name="view_plate_surface">Plate surface</string>
     <string name="view_realistic">Realistic render</string>
     <string name="view_layer_lines">Layer lines</string>
     <string name="orthographic_camera">Orthographic camera (K)</string>

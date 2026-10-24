@@ -15,6 +15,9 @@ const val INSTANCE_ID_STRIDE = 4096
 private const val BADGE_SIZE = 0.1f
 private const val BADGE_GAP = 0.02f
 
+/** Opacity of a plate seen from below (its see-through side). */
+private const val PLATE_UNDER_ALPHA = 0.45f
+
 /** Contact shadow: geometry up to this height above the bed casts it, mm; darkness right under a part. */
 private const val SHADOW_FADE_MM = 12f
 private const val SHADOW_STRENGTH = 0.8f
@@ -153,6 +156,11 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var keyStrength = 1f
     /** Realistic render mode: physically based shading of the parts with a studio environment (MESH_FS uRealistic). */
     var realistic = false
+
+    /** View menu "Plate surface": each plate drawn with its bed type's colour and grain, solid from above, see-through from below. */
+    var plateSurface = false
+    /** Per plate (index = plate), set with [plateSurface]. */
+    var plateLooks: List<PlateLook> = emptyList()
     /** Layer lines on the models (MESH_FS uLayers): first layer height and layer height in mm; layer height 0 = off. */
     var layerLines = floatArrayOf(0f, 0f)
     /** Support painting's "Highlight overhangs": > 0 tints the selected parts' faces overhanging by more than this many degrees. */
@@ -242,6 +250,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     private var pointProgram = 0
     private var badgeProgram = 0
     private var gridProgram = 0
+    private var plateProgram = 0
     private val mvp = FloatArray(16)
 
     fun setBed(outline: FloatArray, origins: List<Pair<Float, Float>>) {
@@ -322,6 +331,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         pointProgram = program(Shaders.POINT_VS, Shaders.POINT_FS)
         badgeProgram = program(Shaders.BADGE_VS, Shaders.BADGE_FS)
         gridProgram = program(Shaders.GRID_VS, Shaders.GRID_FS)
+        plateProgram = program(Shaders.GRID_VS, Shaders.PLATE_FS)
         val ids = IntArray(11)
         glGenBuffers(11, ids, 0)
         ghostVbo = ids[9]; ghostCount = 0
@@ -462,6 +472,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             glClearColor(bg[0], bg[1], bg[2], 1f)
         }
         if (shadow) effects.drawShadow(mvp, if (effects.isRealShadow) shadowStrength else SHADOW_STRENGTH, shadowSoftMm, shadowBiasMm, bedRects())
+        if (plateSurface && camera.eye().z >= 0f) drawPlateSurfaces(1f)
         drawBeds()
         drawBadges()
         if (showPreview) {
@@ -497,6 +508,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             glDisable(GL_BLEND)
             if (models) drawSelection()
         }
+        // Seen from below the plate is a window: drawn last, over the parts behind it.
+        if (plateSurface && camera.eye().z < 0f) drawPlateSurfaces(PLATE_UNDER_ALPHA)
         drawOverlays()
     }
 
@@ -677,6 +690,28 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     }
 
     // --- Drawing -------------------------------------------------------------------------------
+
+    /** The plates' surface quads; [alpha] 1 = solid (top side). Blended, depth-tested, no depth writes. */
+    private fun drawPlateSurfaces(alpha: Float) {
+        val rect = gridRect ?: return
+        glUseProgram(plateProgram)
+        glUniformMatrix4fv(loc(plateProgram, "uMvp"), 1, false, mvp, 0)
+        glUniform4fv(loc(plateProgram, "uRect"), 1, rect, 0)
+        glUniform1f(loc(plateProgram, "uPxScale"), pxScale)
+        glUniform1f(loc(plateProgram, "uAlpha"), alpha)
+        glEnable(GL_BLEND)
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+        glDepthMask(false)
+        plateOrigins.forEachIndexed { i, (ox, oy) ->
+            val look = plateLooks.getOrNull(i) ?: PlateLook.of(null)
+            glUniform3f(loc(plateProgram, "uBase"), look.r, look.g, look.b)
+            glUniform1i(loc(plateProgram, "uTex"), look.texture)
+            glUniform3f(loc(plateProgram, "uOffset"), ox, oy, 0f)
+            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4)
+        }
+        glDepthMask(true)
+        glDisable(GL_BLEND)
+    }
 
     private fun drawBeds() {
         if (bedCount == 0) return

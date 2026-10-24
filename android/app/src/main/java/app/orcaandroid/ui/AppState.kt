@@ -162,6 +162,8 @@ data class UiState(
     val projectOrImport: String? = null,
     /** 3D view contact shadows. */
     val contactShadows: Boolean = true,
+    /** 3D view plate surface (bed-type colour and grain, see-through from below). */
+    val plateSurface: Boolean = false,
     /** 3D view realistic render mode (physically based shading, studio lighting). */
     val realistic: Boolean = false,
     /** 3D view printed layer lines on the models. */

@@ -67,6 +67,11 @@ class AppSettings(context: Context) {
         get() = prefs.getBoolean("contact_shadows", true)
         set(value) = prefs.edit().putBoolean("contact_shadows", value).apply()
 
+    /** Build plates drawn with their bed type's colour and grain (solid from above, see-through from below); off = bare grid. */
+    var plateSurface: Boolean
+        get() = prefs.getBoolean("plate_surface", false)
+        set(value) = prefs.edit().putBoolean("plate_surface", value).apply()
+
     /** Realistic shading of the models in the 3D view (physically based, studio lighting); off = the plain look. */
     var realistic: Boolean
         get() = prefs.getBoolean("realistic_render", false)

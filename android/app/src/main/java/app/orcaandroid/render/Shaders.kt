@@ -460,6 +460,43 @@ internal object Shaders {
             color = vec4(uColor, a);
         }"""
 
+    /**
+     * The plate's surface (reuses GRID_VS): a base colour with a procedural grain that fades out once a grain is smaller
+     * than ~2 view pixels (no shimmer at a distance). uAlpha 1 = the solid top side, less = the see-through underside.
+     */
+    const val PLATE_FS = """#version 300 es
+        precision highp float;
+        uniform vec3 uBase;
+        uniform int uTex;
+        uniform float uAlpha;
+        uniform float uPxScale;
+        in vec2 vLocal;
+        out vec4 color;
+        float hash(vec2 p) {
+            vec3 q = fract(vec3(p.xyx) * 0.1031);
+            q += dot(q, q.yzx + 33.33);
+            return fract((q.x + q.y) * q.z);
+        }
+        float vnoise(vec2 p) {
+            vec2 i = floor(p), f = fract(p);
+            f = f * f * (3.0 - 2.0 * f);
+            return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y);
+        }
+        void main() {
+            float mmPerPx = length(fwidth(vLocal)) * uPxScale;
+            vec3 c = uBase;
+            if (uTex == 0) {
+                // Satin: a broad, faint sheen band across the plate.
+                c *= 0.97 + 0.05 * vnoise(vLocal * 0.02);
+            } else {
+                float cell = uTex == 1 ? 0.35 : 0.6;
+                float fade = 1.0 - smoothstep(cell * 0.35, cell * 0.9, mmPerPx);
+                float n = vnoise(vLocal / cell) * 0.6 + vnoise(vLocal / (cell * 0.37)) * 0.4;
+                c *= 1.0 + (n - 0.5) * (uTex == 1 ? 0.22 : 0.34) * fade;
+            }
+            color = vec4(c, uAlpha);
+        }"""
+
     /** Plate badges (numbers, icons): textured quads on the bed plane from a premultiplied atlas. */
     const val BADGE_VS = """#version 300 es
         uniform mat4 uMvp;

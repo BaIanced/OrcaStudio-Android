@@ -41,6 +41,7 @@ import app.orcaandroid.render.INSTANCE_ID_STRIDE
 import app.orcaandroid.render.InteractionMode
 import app.orcaandroid.render.PlateBadge
 import app.orcaandroid.render.PlateListener
+import app.orcaandroid.render.PlateLook
 import app.orcaandroid.render.PlateView
 import app.orcaandroid.render.PreviewData
 import app.orcaandroid.render.PreviewRange
@@ -344,6 +345,10 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         v.onGl { contactShadows = state.contactShadows }
     }
     LaunchedEffect(v, state.realistic) { v.onGl { realistic = state.realistic } }
+    val plateTypes = scene.plates.indices.map { state.bedTypeOf(it) }
+    LaunchedEffect(v, state.plateSurface, plateTypes) {
+        v.onGl { plateSurface = state.plateSurface; plateLooks = plateTypes.map { PlateLook.of(it) } }
+    }
     // Layer lines: the print preset's first layer and layer heights (one value each; 0 = off).
     val layers = if (!state.layerLines) floatArrayOf(0f, 0f) else {
         fun mm(key: String) = state.value(PresetType.PRINT, key)?.split(',', ';')?.firstOrNull()?.trim()?.toFloatOrNull()?.takeIf { it > 0f } ?: 0.2f
