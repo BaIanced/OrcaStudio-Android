@@ -2953,3 +2953,14 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
   and 3MF load (`FileController` slot rebuild) kept the AMS source but not `look`. Both keep it now; WSA restart check OK.
 - `wsa-debug-setup.sh` now also copies files/data/{system,user,orca_plugins} (a fresh debug app stopped at the printer
   wizard; MCP waits for READY). User 2026-10-24: launch WSA hidden via `wsa-start.ps1` again (memory updated).
+
+## 2026-10-24 Filament materials tier 2: layer lines (4b7d432, r391 run 40075524166)
+- MESH_FS `layerLines(n, gn)`: layer coordinate from vWorld.z (first layer 0..initial_layer_print_height, then layer_height);
+  bead = normal tilt along the surface's up direction (sine profile at 5-8 px a layer, round bead s/sqrt(1-s^2) from 16 px),
+  joint groove (x0.7, >= ~1 px wide, from 6 px); fades out 5 -> 2.5 px a layer and on faces with |n.z| > 0.92 (tops/bottoms).
+  Plain + realistic looks. Uniform uLayers (PlateRenderer.layerLines), View menu "Layer lines" (pref layer_lines, default off),
+  Viewport reads the print preset (first value; variable layer height ignored). glslc OK.
+- Claude WSA debug check: 90 mm fine lines, no moire at 1:1; 20 mm round beads + grooves; 260 mm faded clean; realistic mode
+  shows them (strong contrast under the softbox, left for the user). Lying cylinders show lines along their length (correct).
+- 2026-10-24 /next skill: model check now compares the model only (Claude can't see /effort; the internal reasoning number
+  isn't it; Claude wrongly said "effort low" 3x while the user was on High).
