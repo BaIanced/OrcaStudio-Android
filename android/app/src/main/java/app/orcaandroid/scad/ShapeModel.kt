@@ -202,6 +202,18 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
 
     fun find(id: Int): Shape? = shapes.asSequence().flatMap { it.all() }.firstOrNull { it.id == id }
 
+    /** The groups that hold [id], outermost first, then the shape itself; empty when there is none. */
+    fun pathTo(id: Int): List<Shape> {
+        fun path(list: List<Shape>): List<Shape>? {
+            for (s in list) {
+                if (s.id == id) return listOf(s)
+                path(s.children)?.let { return listOf(s) + it }
+            }
+            return null
+        }
+        return path(shapes).orEmpty()
+    }
+
     /** The top-level shape that holds [id] (itself when it is top level). */
     fun topOf(id: Int): Shape? = shapes.firstOrNull { top -> top.all().any { it.id == id } }
 
@@ -356,6 +368,56 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
         val mesh = Shape(id, Shape.Kind.MESH, g.name, size, pos, r, g.hole, g.mirror, extra = Shape.MESH_BOUNDS.zip(b).toMap(),
             file = file, repeat = g.repeat, filament = g.filament)
         return copy(shapes = shapes.map { if (it.id == id) mesh else it })
+    }
+
+    /**
+     * Build workspace pick inside a group: the shapes at design point [p] on [piece], outermost first (the piece's
+     * shape, then the child under [p], its child, ...). A point on a surface lies in several boxes: solids win over
+     * holes, then the smallest box. Empty when [piece]'s shape is gone.
+     */
+    fun pathAt(piece: Piece, p: D3): List<Int> {
+        val top = shapes.firstOrNull { it.id == piece.shapeId }?.let(::resolved) ?: return emptyList()
+        val out = arrayListOf(top.id)
+        var q = inverse(piece.matrix.toDoubleArray(), p)
+        var kids = if (top.isGroup) top.children else emptyList()
+        while (kids.isNotEmpty()) {
+            var best: Triple<Shape, D3, Double>? = null
+            for (c in kids) {
+                val box = if (c.isGroup) c.children.map { bounds(it) }.reduceOrNull { a, b -> a.union(b) } ?: continue
+                    else Bounds(D3(-c.size.x / 2, -c.size.y / 2, 0.0), D3(c.size.x / 2, c.size.y / 2, c.size.z))
+                val own = placement(c)
+                for (m in copies(c)) {
+                    val l = inverse(mul(m, own), q)
+                    val e = 0.01
+                    if ((0..2).any { l[it] < box.min[it] - e || l[it] > box.max[it] + e }) continue
+                    val vol = (0..2).fold(1.0) { acc, i -> acc * (box.max[i] - box.min[i]) }
+                    val b = best
+                    if (b == null || (b.first.hole && !c.hole) || (b.first.hole == c.hole && vol < b.third)) best = Triple(c, l, vol)
+                }
+            }
+            val (c, l) = best ?: break
+            out += c.id
+            q = l
+            kids = if (c.isGroup) c.children else emptyList()
+        }
+        return out
+    }
+
+    /**
+     * Design-frame direction [v] in the frame shape [id] moves in (its parent group's; groups turn and flip their
+     * children). A repeated group counts as its first copy.
+     */
+    fun toParent(id: Int, v: D3): D3 =
+        pathTo(id).dropLast(1).fold(v) { acc, g ->
+            val m = placement(resolved(g))
+            // The turn and flip are orthonormal: the inverse is the transpose.
+            D3((0..2).sumOf { m[it * 4] * acc[it] }, (0..2).sumOf { m[it * 4 + 1] * acc[it] }, (0..2).sumOf { m[it * 4 + 2] * acc[it] })
+        }
+
+    /** Point [p] through the inverse of rigid row-major 4 x 4 [m] (turn, flip and move only). */
+    private fun inverse(m: DoubleArray, p: D3): D3 {
+        val d = D3(p.x - m[3], p.y - m[7], p.z - m[11])
+        return D3((0..2).sumOf { m[it * 4] * d[it] }, (0..2).sumOf { m[it * 4 + 1] * d[it] }, (0..2).sumOf { m[it * 4 + 2] * d[it] })
     }
 
     /** [s] with the fields bound to a dimension set to its value and no bindings left (children too). */

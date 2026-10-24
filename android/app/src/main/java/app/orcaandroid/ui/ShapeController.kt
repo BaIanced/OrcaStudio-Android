@@ -78,10 +78,19 @@ class ShapeController(private val store: Store, private val scad: ScadController
 
     fun selectAll() = design?.let { d -> select(d.shapes.map { it.id }) }
 
-    /** Build workspace: a tap in the main view picks the shape under it (as [tap]). */
+    /**
+     * Build workspace: a tap in the main view picks the shape under it (as [tap]): its top-level shape, or one level
+     * into the group that holds the selection, so a second tap on a selected group picks the shape inside it under the
+     * tap, and a tap on its neighbour there picks the neighbour. A tap on nothing clears it, back to the top level.
+     */
     fun tapAt(origin: Vec3, dir: Vec3, add: Boolean) {
         val obj = store.value.buildObject ?: return
-        store.launch { tap(scad.shapeAt(obj, origin, dir)?.second, add) }
+        store.launch {
+            val path = scad.shapeAt(obj, origin, dir)?.second
+            val d = design
+            if (path == null || d == null) return@launch tap(null, add)
+            tap(path[BuildTransform.pickLevel(d.pathTo(selected.lastOrNull() ?: -1).map { it.id }, path)], add)
+        }
     }
 
     /** The copy of the build object a main-view drag grabbed: its turn, scale and mirror map the drag into the design. */
@@ -92,9 +101,9 @@ class ShapeController(private val store: Store, private val scad: ScadController
         val obj = store.value.buildObject ?: return result(false)
         store.launch {
             val hit = scad.shapeAt(obj, origin, dir)
-            val d = design
             if (hit != null) grabbed = hit.first
-            result(hit != null && d != null && selected.any { d.topOf(it)?.id == hit.second })
+            // A selected shape under the finger, or the group holding it.
+            result(hit != null && hit.second.any { it in selected })
         }
     }
 
@@ -104,14 +113,22 @@ class ShapeController(private val store: Store, private val scad: ScadController
         // Plate -> design frame: the copy's matrix is translation * rotation * scale * mirror (mirror = +-1 per axis).
         val r = RotateGizmo.fromEuler(inst.rotation)
         fun local(i: Int, scale: Float, mirror: Float) = (r[i] * dx + r[3 + i] * dy) / scale.toDouble() * (if (mirror < 0f) -1.0 else 1.0)
-        move(D3(local(0, inst.scale.x, inst.mirror.x), local(1, inst.scale.y, inst.mirror.y), local(2, inst.scale.z, inst.mirror.z)))
+        val v = D3(local(0, inst.scale.x, inst.mirror.x), local(1, inst.scale.y, inst.mirror.y), local(2, inst.scale.z, inst.mirror.z))
+        val d = design ?: return
+        if (selected.isEmpty() || v == D3()) return
+        // A shape inside a group moves in the group's frame (its turn and flip).
+        commit(selected.fold(d) { acc, id -> acc.update(id) { s -> s.copy(pos = s.pos + d.toParent(id, v)) } })
     }
 
-    /** Build workspace: the copy the gizmos sit on (they show only while the object has one) and the selected top-level shapes. */
+    /**
+     * Build workspace: the copy the gizmos sit on (they show only while the object has one) and the selected shapes,
+     * all top level (none yet for shapes inside a group: the box would be the group's).
+     */
     fun buildGizmoTarget(): Pair<Instance, List<Shape>>? {
         val inst = store.value.buildObject?.let { store.value.scene.objects.getOrNull(it) }?.instances?.singleOrNull()?.shown ?: return null
         val d = design ?: return null
-        return (inst to selected.mapNotNull { d.topOf(it) }.distinctBy { it.id }).takeIf { it.second.isNotEmpty() }
+        val tops = selected.map { id -> d.shapes.firstOrNull { it.id == id } ?: return null }
+        return (inst to tops).takeIf { tops.isNotEmpty() }
     }
 
     /** Build workspace: the main view's scale gizmo scaled the selection by [scale] (plate axes) about plate point [pivot]. */

@@ -87,6 +87,17 @@ object BuildTransform {
         return Pose(round(pos), d.rot(s), round(size), repeat)
     }
 
+    /**
+     * A tap: the index into [hit] (the shapes under it, outermost first: [ShapeDesign.pathAt]) to pick while [sel] (the
+     * selected shape's groups, outermost first, then it) is selected: one below the deepest shape the two share, so a tap
+     * on the selection or inside it goes one level deeper, a tap beside it stays on its level.
+     */
+    fun pickLevel(sel: List<Int>, hit: List<Int>): Int {
+        var k = 0
+        while (k < sel.size && k < hit.size && sel[k] == hit[k]) k++
+        return k.coerceAtMost(hit.lastIndex)
+    }
+
     /** For each row of [m] the column of its one non-zero, if [m] only swaps and flips axes; else null. */
     private fun axesOf(m: Array<DoubleArray>): IntArray? {
         val out = IntArray(3)

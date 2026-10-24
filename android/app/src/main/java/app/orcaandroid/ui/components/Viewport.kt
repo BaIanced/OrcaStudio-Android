@@ -461,7 +461,8 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         if (build == null) return@LaunchedEffect
         val ids = vm.scad.buildSelectedIds(build)
         v.onGl { selectedIds = ids }
-        v.selectedBounds = if (ids.isEmpty()) emptyList() else build.instances.map { it.min to (it.min + it.size) }
+        // The design pose's box: Build draws and picks the copies there, not where they lie on the plate.
+        v.selectedBounds = if (ids.isEmpty()) emptyList() else build.instances.map { it.shown.let { s -> s.min to (s.min + s.size) } }
         v.resizeAxes = vm.shapes.buildGizmoTarget()?.let { (inst, tops) -> state.scad?.shapes?.let { app.orcaandroid.scad.BuildTransform.axesFree(it, inst, tops) } } ?: true
         v.towerBoxes = emptyList()
     }

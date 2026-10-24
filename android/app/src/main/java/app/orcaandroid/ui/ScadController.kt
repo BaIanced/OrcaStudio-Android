@@ -802,17 +802,17 @@ class ScadController(private val store: Store) {
         }
     }
 
-    private var volumeShapesOf: Pair<SceneObject, Map<Int, Int>>? = null
+    private var volumeShapesOf: Pair<SceneObject, Map<Int, ShapeDesign.Piece>>? = null
 
-    /** Build workspace: volume index -> top-level shape id of [obj]'s parts and holes ([placePieces]' order, empty pieces left out). */
-    fun volumeShapes(obj: SceneObject): Map<Int, Int> {
+    /** Build workspace: volume index -> piece (top-level shape id, copy) of [obj]'s parts and holes ([placePieces]' order, empty pieces left out). */
+    fun volumeShapes(obj: SceneObject): Map<Int, ShapeDesign.Piece> {
         volumeShapesOf?.takeIf { it.first === obj }?.let { return it.second }
         val pieces = ScadDesign.of(obj)?.takeIf { it.pieces }?.shapes?.pieces() ?: return emptyMap()
         val file = st?.file ?: return emptyMap()
         // A piece whose render left the cache counts as placed (only blank text renders empty).
         val placed = pieces.filter { p -> pieceFile(p.scad, file).let { !it.isFile || it.length() > 0 } }
         val parts = obj.volumes.filter { it.type == VolumeType.PART || it.type == VolumeType.NEGATIVE }
-        val map = if (parts.size != placed.size) emptyMap() else parts.zip(placed).associate { (v, p) -> v.index to p.shapeId }
+        val map = if (parts.size != placed.size) emptyMap() else parts.zip(placed).associate { (v, p) -> v.index to p }
         volumeShapesOf = obj to map
         return map
     }
@@ -821,14 +821,21 @@ class ScadController(private val store: Store) {
     fun buildSelectedIds(obj: SceneObject): FloatArray {
         val d = st?.shapes ?: return FloatArray(0)
         val tops = st?.selected.orEmpty().mapNotNull { d.topOf(it)?.id }.toSet()
-        return volumeShapes(obj).filterValues { it in tops }.keys.map { -1000f - it }.toFloatArray()
+        return volumeShapes(obj).filterValues { it.shapeId in tops }.keys.map { -1000f - it }.toFloatArray()
     }
 
-    /** Build workspace: the copy of build object [obj] and its top-level shape under the ray, or null. */
-    suspend fun shapeAt(obj: Int, origin: Vec3, dir: Vec3): Pair<Int, Int>? {
+    /**
+     * Build workspace: the copy of build object [obj] under the ray and the shapes there, outermost first (its top-level
+     * shape, then inside groups the child under the hit: [ShapeDesign.pathAt]), or null.
+     */
+    suspend fun shapeAt(obj: Int, origin: Vec3, dir: Vec3): Pair<Int, List<Int>>? {
         val hit = engine.pick(origin, dir, only = obj) ?: return null
-        val shape = store.value.scene.objects.getOrNull(obj)?.let { volumeShapes(it)[hit.volume] } ?: return null
-        return hit.instance to shape
+        val o = store.value.scene.objects.getOrNull(obj) ?: return null
+        val piece = volumeShapes(o)[hit.volume] ?: return null
+        val inst = o.instances.getOrNull(hit.instance)?.shown ?: return null
+        // The object's own design: the pieces' matrices are its (an edit may still be rendering).
+        val path = ScadDesign.of(o)?.shapes?.pathAt(piece, app.orcaandroid.scad.BuildTransform.toDesign(inst, hit.point))
+        return hit.instance to path.orEmpty().ifEmpty { listOf(piece.shapeId) }
     }
 
     /**
