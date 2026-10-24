@@ -48,7 +48,6 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - Push/pull mesh (SketchUp style): tier 1 shape-builder faces (~1 day) first, tier 2 SCAD wrapper [Opus] (archive).
 - [Opus] OrcaMesh direct mesh editing (CGAL Surface_mesh + PMP, Blender bmesh ports; MVP 1-2 weeks; archive).
 - Public release check: built-in adblock + hard-coded Models tabs vs store policies / site terms (not researched).
-- HD plate (Layout lab, off by default; dark plate + upstream bed-type SVG decals rasterised in assets/plate_decals, 256 mm layout scaled, wide/dual beds plain): Claude WSA debug 2026-10-24 OK; user look pending; no 3D bed frame model yet; Quest/Chromebook GPU untested.
 - Colour icon set shortlist + mockup (low). Paint card fold direction by screen position (low). "Need phone" prompt (shelved).
 - [Opus] Filament materials tiers 1+2 (layer lines r391, View menu), per-slot look, Realistic render 1+2: Claude WSA debug 2026-10-24,
   user feel untested (layer line contrast in realistic mode); variable layer height ignored; open: Quest/Chromebook GPU check. Google Filament engine not wanted (breaks Shaders.kt drags, ids, uSolo).
