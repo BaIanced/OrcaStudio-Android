@@ -189,8 +189,12 @@ json OrcaEngine::add_text(const std::string &text, const std::string &font_path,
     TriangleMesh mesh(Emboss::polygons2model(shapes, projection));
     if (mesh.empty())
         throw std::runtime_error("Creating the text failed");
+    // Name: the first 32 bytes, cut back to a UTF-8 character start (the name is written into saved 3MF XML).
+    size_t cut = std::min<size_t>(text.size(), 32);
+    while (cut > 0 && cut < text.size() && (static_cast<unsigned char>(text[cut]) & 0xC0) == 0x80)
+        --cut;
     push_undo();
-    ModelObject *obj = m_model->add_object(text.substr(0, 32).c_str(), "", std::move(mesh));
+    ModelObject *obj = m_model->add_object(text.substr(0, cut).c_str(), "", std::move(mesh));
     return place_new_objects({obj}, plate);
 }
 
@@ -198,13 +202,14 @@ json OrcaEngine::add_svg(const std::string &path, double width, double depth, in
 {
     std::lock_guard<std::mutex> lock(m_mutex);
     require_printer();
-    NSVGimage *image = nsvgParseFromFile(path.c_str(), "mm", 96.0f);
+    std::unique_ptr<NSVGimage, void (*)(NSVGimage *)> image(nsvgParseFromFile(path.c_str(), "mm", 96.0f), nsvgDelete);
     if (image == nullptr)
         throw std::runtime_error("Cannot read the SVG file");
     // 0.1 mm curve tolerance, squared and in scaled units (GLGizmoSVG get_tesselation_tolerance()).
     NSVGLineParams params{(0.1 * 0.1) / SCALING_FACTOR / SCALING_FACTOR};
+    // Freed by the unique_ptr also when tessellation throws.
     ExPolygonsWithIds with_ids = create_shape_with_ids(*image, params);
-    nsvgDelete(image);
+    image.reset();
     ExPolygons shapes;
     for (ExPolygonsWithId &e : with_ids)
         append(shapes, std::move(e.expoly));

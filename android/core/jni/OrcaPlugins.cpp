@@ -4,6 +4,7 @@
 #include <jni.h>
 
 #include <mutex>
+#include <stdexcept>
 #include <vector>
 
 #include <libslic3r/AppConfig.hpp>
@@ -105,6 +106,12 @@ JNIEXPORT jstring JNICALL Java_app_orcaandroid_plugins_PluginNative_start(JNIEnv
             g_on_page_message = env->GetMethodID(cls, "onPageMessage", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V");
             g_on_open_url     = env->GetMethodID(cls, "onOpenUrl", "(Ljava/lang/String;)V");
             env->DeleteLocalRef(cls);
+            // A renamed Kotlin method fails the start (call_listener skips a null ID) instead of leaving
+            // a NoSuchMethodError pending under the JNI calls below.
+            if (g_on_page_message == nullptr || g_on_open_url == nullptr) {
+                env->ExceptionClear();
+                throw std::runtime_error("PluginNative.Listener methods not found");
+            }
         }
         orca::plugins::set_host({
             [] { return orca::OrcaEngine::instance().preset_bundle(); },

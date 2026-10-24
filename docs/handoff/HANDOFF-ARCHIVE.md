@@ -2987,3 +2987,11 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 - 2026-10-24 r393 Plate surface (bdb9cf4): user verdict "I don't like it"; upstream plates look "super high definition and real". Redo to match upstream (investigating).
 - 2026-10-24 Replaced the r393 grain look with upstream-style decals: PartPlate::init_bed_type_info rects (x,y,w,h mm from bed corner, scale bed/256), SVGs bbl_bed_*_left/bottom rasterised x4 by ~/orca-android-tools/raster_decals.py (resvg-py) to assets/plate_decals; shader DECAL_VS/FS; lab switch plateHd.
 - 2026-10-24 USER VERIFIED HD plate (Layout lab switch, r394 run 40129926213): "Looks good".
+
+## 2026-10-24 Muse Task 12 findings 1-4 closed (static re-check, r392 source)
+- Claude, 2026-10-24: all 20 ObnBridge exports start with guard/guard_void/guard_str (catch-all, fallback rc -1 / "" / kHttpError);
+  PluginNative pageClose catches (OrcaPlugins.cpp:146-153); to_string (orca_jni.cpp) and str (OrcaPlugins.cpp) return {} on a
+  null GetStringUTFChars; paint() rejects h.facet >= the volume's face count up front (OrcaTools.cpp:633), and every later use
+  either checks facet >= 0 (fill 709, brush 889, limited 898) or treats -1 as "search for a seed" (height 824).
+- Error paths not device-testable: they need an OOM / obn throw / stale queued facet; a fault-injection native build is not worth a
+  CI run for catch-all guards. Normal paths covered: r392 WSA support-paint Fill check (valid facets pass), clean app start (obn init).

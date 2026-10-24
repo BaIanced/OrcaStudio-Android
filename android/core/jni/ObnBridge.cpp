@@ -18,6 +18,7 @@
 #include <map>
 #include <mutex>
 #include <set>
+#include <stdexcept>
 #include <string>
 #include <thread>
 #include <vector>
@@ -381,6 +382,10 @@ JNIEXPORT jint JNICALL Java_app_orcaandroid_net_ObnNative_print(JNIEnv *env, job
 
         jclass cls = listener ? env->GetObjectClass(listener) : nullptr;
         jmethodID on_progress = cls ? env->GetMethodID(cls, "onProgress", "(IILjava/lang/String;)V") : nullptr;
+        if (cls != nullptr && on_progress == nullptr) { // renamed Kotlin method: fail before printing, not mid-print
+            env->ExceptionClear();
+            throw std::runtime_error("PrintListener.onProgress(Int, Int, String) not found");
+        }
         auto update = [&](int stage, int code, std::string msg) {
             if (!on_progress) return;
             jstring jmsg = env->NewStringUTF(msg.c_str());
