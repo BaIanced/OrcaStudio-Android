@@ -164,6 +164,8 @@ data class UiState(
     val contactShadows: Boolean = true,
     /** 3D view realistic render mode (physically based shading, studio lighting). */
     val realistic: Boolean = false,
+    /** 3D view printed layer lines on the models. */
+    val layerLines: Boolean = false,
     /** How the selection shows ([app.orcaandroid.render.SelectionStyle] bits). */
     val selectionStyle: Int = app.orcaandroid.render.SelectionStyle.DEFAULT,
     /** Preview supersampling ([app.orcaandroid.render.Supersample]). */

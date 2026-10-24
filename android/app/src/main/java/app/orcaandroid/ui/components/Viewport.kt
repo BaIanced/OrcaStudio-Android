@@ -1,5 +1,6 @@
 package app.orcaandroid.ui.components
 
+import app.orcaandroid.core.PresetType
 import app.orcaandroid.ui.theme.LocalAppColors
 import app.orcaandroid.ui.theme.Region
 import app.orcaandroid.ui.theme.Slot
@@ -343,6 +344,12 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         v.onGl { contactShadows = state.contactShadows }
     }
     LaunchedEffect(v, state.realistic) { v.onGl { realistic = state.realistic } }
+    // Layer lines: the print preset's first layer and layer heights (one value each; 0 = off).
+    val layers = if (!state.layerLines) floatArrayOf(0f, 0f) else {
+        fun mm(key: String) = state.value(PresetType.PRINT, key)?.split(',', ';')?.firstOrNull()?.trim()?.toFloatOrNull()?.takeIf { it > 0f } ?: 0.2f
+        floatArrayOf(mm("initial_layer_print_height"), mm("layer_height"))
+    }
+    LaunchedEffect(v, layers[0], layers[1]) { v.onGl { layerLines = layers } }
     LaunchedEffect(v, state.supersample) {
         v.onGl { supersample = state.supersample }
     }

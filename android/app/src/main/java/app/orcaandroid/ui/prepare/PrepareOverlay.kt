@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Reorder
 import androidx.compose.material.icons.filled.PriorityHigh
 import kotlinx.coroutines.launch
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -440,6 +441,11 @@ private fun ViewButtons(state: UiState, vm: AppViewModel, view: PlateView?, rail
                 onClick = { viewMenu = false; vm.setRealistic(!state.realistic) },
                 leadingIcon = { Icon(Icons.Default.AutoAwesome, null) },
                 trailingIcon = { if (state.realistic) Icon(Icons.Default.Check, null) })
+            // Printed layer lines on the models, from the print preset's layer heights.
+            DropdownMenuItem(text = { Text(stringResource(R.string.view_layer_lines)) },
+                onClick = { viewMenu = false; vm.setLayerLines(!state.layerLines) },
+                leadingIcon = { Icon(Icons.Default.Reorder, null) },
+                trailingIcon = { if (state.layerLines) Icon(Icons.Default.Check, null) })
         }
     }
 }

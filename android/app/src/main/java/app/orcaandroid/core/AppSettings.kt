@@ -72,6 +72,11 @@ class AppSettings(context: Context) {
         get() = prefs.getBoolean("realistic_render", false)
         set(value) = prefs.edit().putBoolean("realistic_render", value).apply()
 
+    /** Printed layer lines on the models in the 3D view (from the print preset's layer heights). */
+    var layerLines: Boolean
+        get() = prefs.getBoolean("layer_lines", false)
+        set(value) = prefs.edit().putBoolean("layer_lines", value).apply()
+
     /** How the selection shows in the 3D view ([app.orcaandroid.render.SelectionStyle] bits). */
     var selectionStyle: Int
         get() = prefs.getInt("selection_style", app.orcaandroid.render.SelectionStyle.DEFAULT)

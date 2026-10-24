@@ -485,6 +485,7 @@
     <string name="view">View</string>
     <string name="view_fit">Fit plate</string>
     <string name="view_realistic">Realistic render</string>
+    <string name="view_layer_lines">Layer lines</string>
     <string name="orthographic_camera">Orthographic camera (K)</string>
     <string name="section_view">Section view</string>
     <string name="section_view_align">Set viewing angle</string>

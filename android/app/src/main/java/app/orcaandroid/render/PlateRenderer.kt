@@ -153,6 +153,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var keyStrength = 1f
     /** Realistic render mode: physically based shading of the parts with a studio environment (MESH_FS uRealistic). */
     var realistic = false
+    /** Layer lines on the models (MESH_FS uLayers): first layer height and layer height in mm; layer height 0 = off. */
+    var layerLines = floatArrayOf(0f, 0f)
     /** Support painting's "Highlight overhangs": > 0 tints the selected parts' faces overhanging by more than this many degrees. */
     var overhangHighlight = 0f
     private val keyDir get() = Math.toRadians(keyElevation.toDouble()).let { el ->
@@ -735,6 +737,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         keyDir.let { glUniform3f(loc(meshProgram, "uKeyDir"), it[0], it[1], it[2]) }
         glUniform1f(loc(meshProgram, "uKeyStrength"), keyStrength)
         glUniform1i(loc(meshProgram, "uRealistic"), if (realistic) 1 else 0)
+        glUniform2f(loc(meshProgram, "uLayers"), layerLines[0], layerLines[1])
         // TriangleSelector::select_patch's test: world normal z below -cos(angle); -2 = off.
         glUniform1f(loc(meshProgram, "uOverhangZ"), if (overhangHighlight > 0f) -Math.cos(Math.toRadians(overhangHighlight.toDouble())).toFloat() else -2f)
         cutBand.let { b ->

@@ -194,6 +194,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         store.update { it.copy(realistic = on) }
     }
 
+    fun setLayerLines(on: Boolean) {
+        store.settings.layerLines = on
+        store.update { it.copy(layerLines = on) }
+    }
+
     fun setPerspective(on: Boolean) {
         store.settings.perspective = on
         store.update { it.copy(perspective = on) }

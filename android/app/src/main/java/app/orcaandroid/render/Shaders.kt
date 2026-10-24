@@ -121,6 +121,8 @@ internal object Shaders {
         uniform float uOverhangZ;
         uniform highp vec4 uCutBand;
         uniform int uCutBandOn;
+        // Layer lines: first layer height, layer height (mm; y 0 = off).
+        uniform highp vec2 uLayers;
         in vec3 vBary;
         in vec3 vNormal;
         in highp vec3 vWorld;
@@ -221,6 +223,29 @@ internal object Shaders {
             return vec4(c * al + pow(aces(spec * 0.5), vec3(1.0 / 2.2)) * (1.0 - al), al);
         }
 
+        // Printed layer lines from the height above the bed: each layer is a rounded bead, so the normal n tilts down
+        // at its bottom and up at its top (in place), and the joints get a dark groove (returned, 1 = none). gn = the
+        // face's own normal: flat faces get no lines. The lines fade out as a layer gets under ~5 px on screen (finer
+        // ones would alias into moire); a soft sine profile at a few px sharpens into the bead's round one close up.
+        float layerLines(inout vec3 n, vec3 gn) {
+            if (uLayers.y <= 0.0) return 1.0;
+            highp float z = vWorld.z;
+            highp float lz = z < uLayers.x ? z / uLayers.x - 1.0 : (z - uLayers.x) / uLayers.y;
+            float px = 1.0 / max(float(fwidth(lz)), 1e-4);
+            float vis = smoothstep(2.5, 5.0, px) * (1.0 - smoothstep(0.92, 0.985, abs(gn.z)));
+            if (vis <= 0.0) return 1.0;
+            float t = float(fract(lz));
+            float s = 2.0 * t - 1.0;
+            float tilt = mix(-sin(6.2831853 * t) * 0.45, s / sqrt(max(1.0 - s * s, 0.2)) * 0.35, smoothstep(8.0, 16.0, px));
+            vec3 up = vec3(0.0, 0.0, 1.0) - n * n.z;
+            float ul = length(up);
+            if (ul > 1e-3) n = normalize(n + up / ul * tilt * vis);
+            // Groove at least ~1 px wide; only once a layer is 6+ px.
+            float gw = max(0.08, 1.2 / px);
+            float g = 1.0 - smoothstep(0.0, gw, min(t, 1.0 - t));
+            return 1.0 - 0.3 * g * vis * smoothstep(5.0, 8.0, px);
+        }
+
         void main() {
             int type = int(vType + 0.5);
             bool part = type == 0 || type >= 100;
@@ -297,6 +322,7 @@ internal object Shaders {
                 // faint plastic highlight and a cool rim on silhouettes. The slice preview keeps its flat colours.
                 vec3 v = normalize(uEye - vWorld);
                 if (dot(n, v) < 0.0) n = -n;
+                float groove = layerLines(n, normalize(vNormal));
                 vec3 lk = normalize(uKeyDir);
                 vec3 lf = normalize(vec3(-0.6, 0.4, 0.35));
                 float sky = 0.5 + 0.5 * n.z;
@@ -344,6 +370,7 @@ internal object Shaders {
                     shaded = (base * diff + tint * spec) * lit + (refl + sheen) * mix(1.0, lit, 0.5)
                         + vec3(0.55, 0.7, 1.0) * rim * (0.4 + 0.6 * sky);
                 }
+                shaded *= groove;
                 // Highlight overhangs (support painting): the selection's faces steeper than the angle, by their own normal.
                 if (vSelected > 0.5 && lit0 && normalize(vNormal).z < uOverhangZ)
                     shaded = mix(shaded, vec3(1.0, 0.35, 0.2) * (0.45 + 0.55 * diff), 0.6);
