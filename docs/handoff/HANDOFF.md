@@ -36,13 +36,13 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   **Muse KEPT (user, 2026-10-23)** for audits + larger JVM-testable Kotlin only (Claude compiles each PR locally before
   merging), no native/patch work, no small fixes. Log Claude's effort per task in the archive; if a task costs more than
   doing it directly, tell the user plainly and stop. Merge commands START with `gh pr merge`. No stacking.
-- Build workspace: steps 1-5 + 6a per-shape filament verified (r386 WSA, archive); 6b Merge bake (OpenSCAD -> MESH
-  shape, not mesh_boolean) Claude-verified on a WSA local debug APK. Unbuilt in CI: 5458eb3 (MCP filament) + Merge;
-  dispatch with 6c. Next: 6c groups editable inside (plan in archive "Build workspace plan"), then backlog "Filament materials".
+- Build workspace: steps 1-5 + 6a verified (r386 WSA); 6b Merge bake + 6c-1 tap/drag inside groups Claude-verified on
+  WSA debug APKs (archive). CI run 40059608337 (7bafa7b) builds MCP filament + Merge + 6c-1: when green, install on all
+  devices. Next: 6c-2 gizmos on shapes inside groups, then backlog "Filament materials".
 - Local debug test on WSA: `stage-from-apk.sh` (after native CI builds), assembleDebug, `wsa-debug-setup.sh`,
   `wsa-start.ps1`, MCP with `MCP_DEV=127.0.0.1:58526 PKG=...debug`; uninstall the debug app when done.
 - Open (backlog): app 3MF fails in desktop Orca (fix untested), printer/user-only checks, pen input, plate switcher pick.
-- Next step: Build workspace step 6c groups editable inside -> Opus 5.5 (high)
+- Next step: Build workspace step 6c-2 gizmos on shapes inside groups -> Opus 5.5 (high)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).

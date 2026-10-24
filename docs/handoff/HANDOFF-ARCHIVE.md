@@ -2878,3 +2878,26 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 - Tooling: the local debug build had stale natives ("Unknown engine call: setBuildObject"): re-run
   `stage-from-apk.sh` after native CI builds. New `~/orca-android-tools/wsa-debug-setup.sh` = install the debug APK on
   WSA + copy the release app's session/settings/openscad files (root).
+
+### 2026-10-23 Build workspace step 6c-1: shapes inside groups editable in the main view (Claude, 7bafa7b, CI run 40059608337)
+- Tap levels (Tinkercad/Figma-like): a tap picks the top-level shape; a tap on the selection (or inside it) goes one
+  level deeper; a tap beside it stays on its level; a tap on nothing clears (back to the top). `BuildTransform.pickLevel`
+  (common prefix of the selection's path and the hit's path). `ScadController.shapeAt` now returns the hit's path:
+  `ShapeDesign.pathAt(piece, design point)` takes the pick point (BuildTransform.toDesign of the shown copy) through the
+  piece's inverse matrix, then each child's copies x placement into its box; solids win over holes (a hole's cut wall
+  lies in both boxes), then the smallest box. `volumeShapes` maps volume -> Piece now (copy + matrix).
+- Drag: `grabAt` grabs when the hit's path holds a selected shape; `moveOnPlate` moves each selected shape by
+  `ShapeDesign.toParent(id, v)` (the design delta through its groups' inverse turn + flip; a repeated group = copy 0).
+- Gizmos: only when every selected shape is top level (before, a selected child got its group's gizmo, which would have
+  scaled/turned the whole group). Child gizmos = 6c-2.
+- Fix (pre-existing): the Build drag-start box (Viewport.kt `selectedBounds`) used the plate pose; now `Instance.shown`
+  (design pose). The first child drag on the turned group fell back to a camera turn; after the fix the same tap + swipe
+  moved the shape.
+- JVM GroupPickTest (3): picks in a turned + mirrored + repeated group with a nested turned group (both copies), a child
+  move = the design delta in world, pickLevel cases; suite 197/197.
+- VERIFIED (Claude, WSA, local debug APK on r386 natives + MCP + adb taps/swipes): Pieces test, Base + Hole grouped (#4),
+  group rot Z 90. Taps on Base: #4 -> #1 -> #1; peg -> #3; empty -> none. Drag of #1: Base pos in the group (-0.172,
+  -0.213) -> (4.2, -7.786), group box shifted (7.573, 4.372) = the same plate direction as a whole-group drag; group pos
+  unchanged. Debug app uninstalled.
+- Untested: nested groups on device, repeated groups (drag moves copy 0's frame), holes inside groups (not pickable in
+  the view: pick them in the list), highlight shows the whole group for a selected child, undo, user feel.
