@@ -39,7 +39,7 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 ## Waiting on the user
 - Plate switcher pick (lab stays; don't ask again). Launcher icon colour ("decide later"). REA MCP enable (installed, not enabled).
 - Edge outline in Prepare (crease lines, View toggle; regions view already has crease_lines()): waiting on GO (2026-10-20).
-- [Opus] Build workspace (user GO 2026-10-23): steps 1-5 done + restart shift fixed; 6a per-shape filament Claude-verified r386 WSA 2026-10-23 (user feel untested) (Claude-verified r385 WSA 2026-10-23; user feel of 4b/4c/5 untested; multi-copy/mirrored copies in Build untested). 6b Merge bake + 6c-1 tap/drag inside groups Claude-verified WSA debug APK 2026-10-23 (CI run 40059608337; Merge button/undo, user feel untested). Open: 6c-2 gizmos on shapes inside groups (archive "6c-1"); Muse Task 18 audit merged 2026-10-23 (PR #64; device check of the circular-repeat scale refusal untested).
+- [Opus] Build workspace (user GO 2026-10-23): steps 1-5 done + restart shift fixed; 6a per-shape filament Claude-verified r386 WSA 2026-10-23 (user feel untested) (Claude-verified r385 WSA 2026-10-23; user feel of 4b/4c/5 untested; multi-copy/mirrored copies in Build untested). 6b Merge bake + 6c-1 tap/drag inside groups Claude-verified WSA debug APK 2026-10-23 (in r387; Merge button/undo, user feel untested). Open: 6c-2 gizmos on shapes inside groups (archive "6c-1"); Muse Task 18 audit merged 2026-10-23 (PR #64; device check of the circular-repeat scale refusal untested).
 
 ## Ideas (not started)
 - Floating Theme | Layout designer (~half a day; ask first). Study Bambu Handy's MakerWorld integration.
