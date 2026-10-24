@@ -32,14 +32,14 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   branch. Task 1 finding 4: fix the patch comment when regenerating 0001. **Each session start, run exactly:**
   `gh pr list --state open --json number,title,headRefName; gh issue view 46 --json comments --jq '.comments[-2:][]|.createdAt+" "+(.body|.[0:300])'`
   (`--comments` + `--json` together errors).
-  Tasks 1-17 merged, Task 18 sent 2026-10-23 (Task 12 JNI audit fixes in backlog). Sync muse/work android/ before each Kotlin task (#58).
+  Tasks 1-18 merged (18 = PR #64, 2026-10-23) (Task 12 JNI audit fixes in backlog). Sync muse/work android/ before each Kotlin task (#58).
   **Muse KEPT (user, 2026-10-23)** for audits + larger JVM-testable Kotlin only (Claude compiles each PR locally before
   merging), no native/patch work, no small fixes. Log Claude's effort per task in the archive; if a task costs more than
   doing it directly, tell the user plainly and stop. Merge commands START with `gh pr merge`. No stacking.
-- Build workspace: steps 1-5 done 2026-10-23 (step 5 design pose verified r385 WSA, archive "step 5 done"). Muse Task 18
-  (Build workspace Kotlin audit + JVM tests, user yes 2026-10-23) sent: review its PR when it lands. Then step 6.
+- Build workspace: steps 1-5 done 2026-10-23 (step 5 verified r385 WSA). Muse Task 18 merged + applied (PieceMatch.kt,
+  circular-repeat scale refusal narrowed to X != Y; unbuilt, rides the next build). Next: step 6.
 - Open (backlog): app 3MF fails in desktop Orca (fix untested), printer/user-only checks, pen input, plate switcher pick.
-- Next step: Build workspace step 6 per-shape filament -> Opus 5.5 (high) (review Muse Task 18 PR first if it is open).
+- Next step: Build workspace step 6 per-shape filament -> Opus 5.5 (high)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).

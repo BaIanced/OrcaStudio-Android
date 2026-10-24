@@ -2837,3 +2837,12 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 
 - User 2026-10-23 (r385): "yes" to Muse Task 18 = audit + JVM tests of the Build workspace Kotlin (BuildTransform, ShapeDesign.pieces, ScadController piece matching).
 - Task 18 sent 2026-10-23 (PR #63 sync + task text, merged into muse/work; READY on #46). Effort log, Task 18 write: ~10 tool calls / ~25k tokens.
+
+## 2026-10-23: Muse Task 18 (Build workspace audit + JVM tests) merged
+- PR #64 into muse/work (3f604a9); code applied to the work branch. PieceMatch.kt = pure core of ScadController.matched
+  (equivalent: same empty flags, hole order check, first-match by shapeId/copy/scad); 27 new tests, suite 192/192 (Claude
+  ran it locally twice: compile 0, tests 0).
+- Muse defect fix: BuildTransform.scaled refused any uneven scale of a circular repeat. Claude narrowed it (ae07b95): copies
+  turn about Z only (ShapeModel.kt:392), so only X != Y is refused; a taller ring (X = Y, Z differs) still scales, test added.
+- Untested on device: the refusal path (shape left unscaled) and the extraction in the app.
+- Effort log, Task 18 review: ~20 tool calls / ~30k tokens (Muse saved writing 27 tests + the audit; worth it).
