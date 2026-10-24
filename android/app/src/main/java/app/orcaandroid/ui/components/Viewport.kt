@@ -34,6 +34,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import app.orcaandroid.core.SliceResult
 import app.orcaandroid.core.Vec3
 import app.orcaandroid.render.CutPlane
+import app.orcaandroid.render.FilamentMaterial
 import app.orcaandroid.render.FloatData
 import app.orcaandroid.render.INSTANCE_ID_STRIDE
 import app.orcaandroid.render.InteractionMode
@@ -452,7 +453,8 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     }
     LaunchedEffect(v, state.filaments) {
         val cols = state.filaments.map { hexToRgb(it.color ?: "#FF7F27") }
-        v.onGl { filamentColors = cols }
+        val mats = state.filaments.map { FilamentMaterial.of(it.preset, it.overrides["filament_type"]) }
+        v.onGl { filamentColors = cols; filamentMaterials = mats }
     }
     val build = state.buildObject?.let { scene.objects.getOrNull(it) }
     LaunchedEffect(v, build != null) { v.onGl { buildSolo = build != null } }

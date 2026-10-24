@@ -133,6 +133,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     /** Section view plane (nx, ny, nz, d): world points with n . p > d are cut away; null = off. */
     var section: FloatArray? = null
     var filamentColors: List<FloatArray> = emptyList()
+    /** The surface look per filament slot (Prepare's model shader); missing slots are [FilamentMaterial.BASIC]. */
+    var filamentMaterials: List<FilamentMaterial> = emptyList()
     /** Plates known to the view; 0 until the first bed arrives (then the camera frames plate 1). */
     var plateOriginsCount = 0
     /** The shadow under objects (Prepare). */
@@ -741,6 +743,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glUniform3fv(loc(meshProgram, "uSelectedColor"), 1, colors.selected, 0)
         camera.eye().let { glUniform3f(loc(meshProgram, "uEye"), it.x, it.y, it.z) }
         setFilamentColors(meshProgram)
+        setFilamentMaterials(meshProgram)
         setSection(meshProgram)
         glBindBuffer(GL_ARRAY_BUFFER, vbo)
         for (a in 0..2) glEnableVertexAttribArray(a)
@@ -1013,6 +1016,17 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         val arr = FloatArray(16 * 3) { 0.8f }
         filamentColors.take(16).forEachIndexed { i, c -> arr[i * 3] = c[0]; arr[i * 3 + 1] = c[1]; arr[i * 3 + 2] = c[2] }
         glUniform3fv(loc(program, "uFilamentColors"), 16, arr, 0)
+    }
+
+    private fun setFilamentMaterials(program: Int) {
+        val a = FloatArray(16 * 4)
+        val b = FloatArray(16 * 4)
+        for (i in 0 until 16) {
+            val m = filamentMaterials.getOrNull(i) ?: FilamentMaterial.BASIC
+            m.a.copyInto(a, i * 4); m.b.copyInto(b, i * 4)
+        }
+        glUniform4fv(loc(program, "uMatA"), 16, a, 0)
+        glUniform4fv(loc(program, "uMatB"), 16, b, 0)
     }
 
     /** The section view's cut for [program]; [on] false draws it whole (beds, overlays). */

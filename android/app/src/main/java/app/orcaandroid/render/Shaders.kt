@@ -99,6 +99,10 @@ internal object Shaders {
         uniform vec3 uPartColor;
         uniform vec3 uSelectedColor;
         uniform vec3 uFilamentColors[16];
+        // Surface look per filament (FilamentMaterial): a = highlight power, strength, metallic tint, sky reflection;
+        // b = grazing sheen, wrap lighting, diffuse factor.
+        uniform vec4 uMatA[16];
+        uniform vec4 uMatB[16];
         uniform int uHidden;
         uniform highp vec4 uSection;
         uniform int uSectionOn;
@@ -178,8 +182,13 @@ internal object Shaders {
             else base = uFilamentColors[clamp(type - 10, 0, 15)];
             // Paint shop: hidden filament layers (bit = 0-based filament) are a plain grey, parts and paint alike.
             int filament = type >= 100 ? type - 100 : (type >= 10 && type < 98 ? type - 10 : -1);
-            if (filament >= 0 && filament < 16 && ((uHidden >> filament) & 1) != 0) base = vec3(0.62);
+            bool hidden = filament >= 0 && filament < 16 && ((uHidden >> filament) & 1) != 0;
+            if (hidden) base = vec3(0.62);
             if (part) {
+                // The filament's material; parts without one and hidden filaments keep the plain plastic look.
+                int mi = type >= 100 && !hidden ? clamp(type - 100, 0, 15) : -1;
+                vec4 ma = mi >= 0 ? uMatA[mi] : vec4(36.0, 0.16, 0.0, 0.0);
+                vec4 mb = mi >= 0 ? uMatB[mi] : vec4(0.0, 0.0, 1.0, 0.0);
                 // Soft studio look for the model: sky/ground ambient (z is up), a key and a fill light, a
                 // faint plastic highlight and a cool rim on silhouettes. The slice preview keeps its flat colours.
                 vec3 v = normalize(uEye - vWorld);
@@ -200,10 +209,22 @@ internal object Shaders {
                         lit = 1.0 - uShadowStrength * occ * smoothstep(0.0, 0.2, ndl);
                     }
                 }
-                float diff = 0.22 + 0.16 * sky + 0.50 * uKeyStrength * ndl + 0.20 * max(dot(n, lf), 0.0);
-                float spec = pow(max(dot(n, normalize(lk + v)), 0.0), 36.0) * 0.16 * uKeyStrength;
-                float rim = pow(1.0 - max(dot(n, v), 0.0), 3.0) * 0.14;
-                vec3 shaded = (base * diff + vec3(spec)) * lit + vec3(0.55, 0.7, 1.0) * rim * (0.4 + 0.6 * sky);
+                // Wrap lighting lets the key reach round the terminator (translucent plastics); 0 = plain Lambert.
+                float ndlw = max((dot(n, lk) + mb.y) / (1.0 + mb.y), 0.0);
+                float diff = (0.22 + 0.16 * sky + 0.50 * uKeyStrength * ndlw + 0.20 * max(dot(n, lf), 0.0)) * mb.z;
+                float spec = pow(max(dot(n, normalize(lk + v)), 0.0), ma.x) * ma.y * uKeyStrength;
+                float ndv = max(dot(n, v), 0.0);
+                float rim = pow(1.0 - ndv, 3.0) * 0.14;
+                // Metallic tint: silk's highlight and reflection take the filament's colour instead of white.
+                vec3 tint = mix(vec3(1.0), min(base * 1.6, vec3(1.0)), ma.z);
+                // Sky reflection, stronger at grazing angles (fresnel): ground below the horizon, sky above.
+                vec3 r = reflect(-v, n);
+                vec3 env = mix(vec3(0.32, 0.30, 0.28), vec3(0.75, 0.85, 1.0), smoothstep(-0.2, 0.4, r.z));
+                vec3 refl = env * tint * ma.w * (0.2 + 0.8 * pow(1.0 - ndv, 4.0));
+                // Grazing sheen: matte filaments go soft and light at the silhouette instead of a sharp highlight.
+                vec3 sheen = mix(vec3(1.0), base, 0.5) * mb.x * pow(1.0 - ndv, 2.0) * (0.5 + 0.5 * sky);
+                vec3 shaded = (base * diff + tint * spec) * lit + (refl + sheen) * mix(1.0, lit, 0.5)
+                    + vec3(0.55, 0.7, 1.0) * rim * (0.4 + 0.6 * sky);
                 // Highlight overhangs (support painting): the selection's faces steeper than the angle, by their own normal.
                 if (vSelected > 0.5 && uPass == 0 && normalize(vNormal).z < uOverhangZ)
                     shaded = mix(shaded, vec3(1.0, 0.35, 0.2) * (0.45 + 0.55 * diff), 0.6);
