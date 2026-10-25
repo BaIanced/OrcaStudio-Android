@@ -33,6 +33,10 @@ object Mix {
 
     fun isMixed(slot: FilamentSlot) = slot.overrides[IS_MIXED] == "1"
 
+    /** [f]'s overrides, plus the mix recipe [same] (the saved slot holding the same preset) has when [f] has none (a 3MF carries none). */
+    fun carry(f: FilamentSlot, same: FilamentSlot?): Map<String, String> =
+        if (isMixed(f) || same == null) f.overrides else f.overrides + same.overrides.filterKeys { it in KEYS }
+
     /** (1-based component slot, share 0..1) pairs of a mixed slot. */
     fun parts(slot: FilamentSlot): List<Pair<Int, Float>> {
         if (!isMixed(slot)) return emptyList()
