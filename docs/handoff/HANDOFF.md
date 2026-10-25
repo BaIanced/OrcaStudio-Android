@@ -12,9 +12,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 ## State
 - One repo: OrcaStudio-Android (code + these docs, `docs/handoff/`), branch `claude/handoff-continuation-rseql3`. Autonomy (user, 2026-10-11): decide branches and next steps
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
-- Android main = cb11452 (PR #36, branch up to c026d15 = cut batch, merged 2026-10-22; main APK run 39735501711). Untested in
-  main: Check mesh feel, cut Flip paint fix, 3MF export in desktop Orca, pie menu (lab), pen 7d3a263, fan hold 298ee9f, Extrude
-  F150 e13bebb, Quest stick zoom (r324). Unmerged on the branch: paint shop + paint depth r367, Build workspace 1-5 + 6a (user feel untested).
+- Android main = 0170950 (PR #65, branch at r398, merged 2026-10-25). Untested by the user in main: Build workspace, paint shop/depth, Filament materials, Realistic render, UX P1-P6, Check mesh feel, 3MF export in desktop Orca, pen, fan hold, Extrude F150.
 - Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
 - Latest build r397 (run 40168360935, UX P1-P5 + Task 12 fixes; installed on WSA/SHIELD/LAN phone); P1-P5 NOT yet looked at on a device. Chromebook/Note offline. Note r389, phone r376, Chromebook r374 (offline).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
@@ -41,8 +39,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Crawler + monkey done (no crash/ANR; archive); UX inventory + proposals P1-P7 in `docs/UX-INVENTORY.md` (user hasn't picked proposals).
   P1 (c486aed), P2 (friendly FileNotFound/Security text), P3 (raw key -> small "Setting:" line in help popups) are in r396; P4 (Changed-only chip count; search already existed) and P5 (picker shows "Flow Rate & Vol Calibrated" as small second line, Widgets.kt) are in r397. WSA r397 look: P3 (Setting: line) and P5 (second line) OK; P1/P2 error text not triggered (zip entry opened silently), P4 chip not seen (needs a changed setting). r397 is on all 3 attached devices.
 - P6 (paneTitle on tab content) + About text without AI line: build run 40170895834 dispatched (abed57b); not yet installed/looked at. P7 crawler fixed in ~/orca-android-tools/crawl.py (Quit->Yes = clean exit, no Back at root); Edit-button repro still untested.
-- r398 (run 40170895834, P6 + About text) on WSA/SHIELD/LAN phone. Phone VD look 2026-10-25: About now "unofficial community project" only (OK); pane titles are invisible semantics (no visual check possible; fine). WSA window still didn't draw.
-- Next step: UX-INVENTORY proposals are done (P1-P7); ask the user which backlog item to pull next (or merge batch) -> Sonnet 5.5 (medium)
+- r398 on WSA/SHIELD/LAN phone; About text OK (phone VD 2026-10-25). UX P1-P7 done.
+- **User GO 2026-10-25, in this order:** (1) design-mode hard-coded colours (OverlayParts.kt:253 delete popup #2B2C32, preview legend, Models page; dark 3D background under a light theme hides floating icons), (2) edge outline in Prepare (crease lines, View toggle; regions view has crease_lines()), (3) push/pull mesh tier 1 (shape-builder faces, ~1 day). Batch 2-4 per build.
+- Next step: hard-coded colour fix (item 1), then edge outline -> Sonnet 5.5 (medium); push/pull tier 1 -> Opus 5.5 (high)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
