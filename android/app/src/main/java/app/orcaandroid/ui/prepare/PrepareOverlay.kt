@@ -17,6 +17,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BorderOuter
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Reorder
 import androidx.compose.material.icons.filled.PriorityHigh
@@ -446,6 +447,11 @@ private fun ViewButtons(state: UiState, vm: AppViewModel, view: PlateView?, rail
                 onClick = { viewMenu = false; vm.setLayerLines(!state.layerLines) },
                 leadingIcon = { Icon(Icons.Default.Reorder, null) },
                 trailingIcon = { if (state.layerLines) Icon(Icons.Default.Check, null) })
+            // Dark lines along the sharp edges of every model (the Regions paint view draws the same lines for one copy).
+            DropdownMenuItem(text = { Text(stringResource(R.string.view_edge_outline)) },
+                onClick = { viewMenu = false; vm.setEdgeOutline(!state.edgeOutline) },
+                leadingIcon = { Icon(Icons.Default.BorderOuter, null) },
+                trailingIcon = { if (state.edgeOutline) Icon(Icons.Default.Check, null) })
         }
     }
 }

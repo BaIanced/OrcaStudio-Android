@@ -550,8 +550,11 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     // the scene too, but the lines only depend on the geometry; recomputing them is cheap next to a stroke).
     val regions = (state.tool as? Tool.Paint)?.takeIf { it.shape == "regions" && !showPreview }
     val regionAngle = regions?.edgeAngle?.takeIf { it > 0f } ?: 30f
-    LaunchedEffect(v, regions != null, regionAngle, state.selection, scene.objects) {
-        val lines = if (regions != null) runCatching { vm.scene.creaseLines(regionAngle) }.getOrNull() else null
+    // The View menu's edge outline: the same lines for every copy on the active plate (the Regions view wins on the selected copy).
+    val outline = state.edgeOutline && regions == null && !showPreview
+    LaunchedEffect(v, regions != null, outline, regionAngle, state.selection, scene.objects, state.activePlate) {
+        val lines = if (regions != null) runCatching { vm.scene.creaseLines(regionAngle) }.getOrNull()
+            else if (outline) runCatching { vm.scene.plateCreaseLines(regionAngle) }.getOrNull() else null
         v.onGl { creaseLines = lines }
     }
     // Section view: the plane sweeps the bounding box of the active plate's objects, else of all objects

@@ -488,6 +488,21 @@ class SceneController(private val store: Store, private val presets: PresetContr
     suspend fun paintCoverage(): FloatArray? = selection?.let { engine.paintCoverage(it.obj) }
     /** Regions view: the selected copy's crease lines, or null without a selection. */
     suspend fun creaseLines(angle: Float): FloatArray? = selection?.let { engine.creaseLines(it.obj, it.instance, angle) }
+    /** Edge outline: crease lines of every copy on the active plate (capped so a big plate stays cheap). */
+    suspend fun plateCreaseLines(angle: Float): FloatArray {
+        val s = store.value
+        val out = ArrayList<FloatArray>()
+        var total = 0
+        for ((o, obj) in s.scene.objects.withIndex()) for ((i, inst) in obj.instances.withIndex()) {
+            if (inst.plate != s.activePlate || total > 600_000) continue
+            val l = engine.creaseLines(o, i, angle)
+            total += l.size; out += l
+        }
+        val all = FloatArray(total)
+        var at = 0
+        for (l in out) { l.copyInto(all, at); at += l.size }
+        return all
+    }
     fun paintByPart() = selection?.let { sel -> store.sceneOp { engine.paintByPart(sel.obj) } }
     fun paintGapFill(kind: String, area: Float, locked: Int = 0) = selection?.let { sel -> store.sceneOp { engine.paintGapFill(sel.obj, kind, area, locked) } }
 

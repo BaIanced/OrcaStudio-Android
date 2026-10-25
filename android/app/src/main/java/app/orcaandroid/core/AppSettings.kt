@@ -76,6 +76,9 @@ class AppSettings(context: Context) {
     var layerLines: Boolean
         get() = prefs.getBoolean("layer_lines", false)
         set(value) = prefs.edit().putBoolean("layer_lines", value).apply()
+    var edgeOutline: Boolean
+        get() = prefs.getBoolean("edge_outline", false)
+        set(value) = prefs.edit().putBoolean("edge_outline", value).apply()
 
     /** How the selection shows in the 3D view ([app.orcaandroid.render.SelectionStyle] bits). */
     var selectionStyle: Int

@@ -166,6 +166,8 @@ data class UiState(
     val realistic: Boolean = false,
     /** 3D view printed layer lines on the models. */
     val layerLines: Boolean = false,
+    /** 3D view: dark outline along the models' crease edges (View menu). */
+    val edgeOutline: Boolean = false,
     /** How the selection shows ([app.orcaandroid.render.SelectionStyle] bits). */
     val selectionStyle: Int = app.orcaandroid.render.SelectionStyle.DEFAULT,
     /** Preview supersampling ([app.orcaandroid.render.Supersample]). */

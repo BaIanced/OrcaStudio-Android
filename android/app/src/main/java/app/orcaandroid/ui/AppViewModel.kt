@@ -194,6 +194,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         store.update { it.copy(realistic = on) }
     }
 
+    fun setEdgeOutline(on: Boolean) {
+        store.settings.edgeOutline = on
+        store.update { it.copy(edgeOutline = on) }
+    }
+
     fun setLayerLines(on: Boolean) {
         store.settings.layerLines = on
         store.update { it.copy(layerLines = on) }
