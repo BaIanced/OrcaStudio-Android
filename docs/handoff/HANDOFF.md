@@ -35,13 +35,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - User feel untested (backlog): paint plan (r373), Build workspace 1-6, Filament materials tiers 1+2, Realistic render 1+2 (r390).
 - Local debug test on WSA: recipe in the reference ("Local APK").
 - Open (backlog): app 3MF in desktop Orca (fix applied; user must open a fresh export), printer/user-only checks, pen input, plate switcher pick.
-- Task 12: 5/8/9 in r392 (9 WSA-checked, archive). 1-4 closed (static re-check, not device-triggerable). 10/12/13 fixed 6303398, r395 WSA smoke OK (add text 52 chars, SVG); 11 note only.
-- Crawler + monkey done (no crash/ANR; archive); UX inventory + proposals P1-P7 in `docs/UX-INVENTORY.md` (user hasn't picked proposals).
-  P1 (c486aed), P2 (friendly FileNotFound/Security text), P3 (raw key -> small "Setting:" line in help popups) are in r396; P4 (Changed-only chip count; search already existed) and P5 (picker shows "Flow Rate & Vol Calibrated" as small second line, Widgets.kt) are in r397. WSA r397 look: P3 (Setting: line) and P5 (second line) OK; P1/P2 error text not triggered (zip entry opened silently), P4 chip not seen (needs a changed setting). r397 is on all 3 attached devices.
-- P6 (paneTitle on tab content) + About text without AI line: build run 40170895834 dispatched (abed57b); not yet installed/looked at. P7 crawler fixed in ~/orca-android-tools/crawl.py (Quit->Yes = clean exit, no Back at root); Edit-button repro still untested.
-- r398 on WSA/SHIELD/LAN phone; About text OK (phone VD 2026-10-25). UX P1-P7 done.
-- **User GO 2026-10-25, in this order:** (1) design-mode hard-coded colours (OverlayParts.kt:253 delete popup #2B2C32, preview legend, Models page; dark 3D background under a light theme hides floating icons), (2) edge outline in Prepare (crease lines, View toggle; regions view has crease_lines()), (3) push/pull mesh tier 1 (shape-builder faces, ~1 day). Batch 2-4 per build.
-- Next step: hard-coded colour fix (item 1), then edge outline -> Sonnet 5.5 (medium); push/pull tier 1 -> Opus 5.5 (high)
+- Task 12, crawler/monkey and UX P1-P7 (r398 on WSA/SHIELD/LAN phone): done; details in archive (2026-10-25 prune). `docs/UX-INVENTORY.md` has the proposals.
+- **User GO 2026-10-25, in this order:** (1) hard-coded colours: audited, closed as no-change (archive 2026-10-25), (2) edge outline in Prepare (crease lines, View toggle; regions view has crease_lines()), (3) push/pull mesh tier 1 (shape-builder faces, ~1 day). Batch 2-4 per build.
+- Item 2 edge outline: View menu "Edge outline" toggle coded + compiled (all copies on the active plate, reuses crease_lines, 30 deg); build dispatched, NOT yet looked at on a device.
+- Next step: install the edge-outline build on WSA, look at it (toggle, performance on a big plate) -> Sonnet 5.5 (medium); then push/pull tier 1 -> Opus 5.5 (high)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
