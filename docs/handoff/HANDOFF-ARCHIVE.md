@@ -3076,3 +3076,12 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
   realistic mode discards clear-filament paint in pass 2 and draws it in pass 7 (`drawClearPaint`, same blend as clear parts). Untested on device;
   the part beneath the paint (its own filament) still draws opaque in pass 0.
 - User 2026-10-25 (phone, r403): shape builder still opens the old separate view (preview pane). User OK ("Yes") to: new designs open straight in the Build workspace (main view), first shape placed as pieces at once, old pane only for code. Opus.
+### 2026-10-25 Shape designs open in the Build workspace (Claude, r405 = run 40208840094)
+- ScadController `buildIfShapes` (was buildIfPlaced): any shape design opens on the plate (scadOnPlate); not placed as pieces
+  yet -> `placeShapes` (pushBuild once it has a solid); setShapes with no build object places it. A draft with edits not on
+  its object now pushes them on open (was: pane, object untouched). Code designs and "Edit as code" (detachShapes ->
+  scadOnPlate off + preview) keep the preview pane. AppScaffold: no eye toggle for shape designs, Back closes the editor,
+  empty-design hint `shape_start` in the main view. ScadEditor: Preview/Live preview bar hidden for shape designs.
+- Claude WSA debug OK: Add > Shape builder -> empty plate 6 + hint in the main view; Box -> placed as pieces, Build (gizmo,
+  Push/pull chip, hint); Cylinder added on the object; Back closed the editor, object kept. Untested: Edit design on a
+  placed object (long-press menu), old single-mesh shape objects converting to pieces on open, phone portrait layout.

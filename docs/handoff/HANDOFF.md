@@ -36,8 +36,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Local debug test: reference "Local APK"; phone too: `W=<phone serial> sh wsa-debug-setup.sh` + `PKG=...debug orca-vd.sh start` (WSA kept stopping the activity 2026-10-25).
 - Edge outline (r400) and push/pull tier 1 (r401): Claude WSA OK, await the user's feel check, then a merge.
 - Edge bands / realistic on paint fixed in r403 (archive 2026-10-25), installed on phone/WSA/SHIELD; awaits the user's check.
-- User r403: translucent works on a shape-builder shape, not on the (painted) cube. Fix r404 (run 40207908723): clear-filament paint drawn see-through in realistic mode; untested.
-- Next step: install r404 (phone/WSA/SHIELD), check painted cube translucent, then user check + merge -> Sonnet 5.5 (medium)
+- r404 (translucent paint) installed phone/WSA/SHIELD; user untested.
+- r405 (run 40208840094): shape designs open straight in the Build workspace, no old preview pane (archive 2026-10-25); Claude WSA OK, user untested.
+- Next step: install r405 on all devices, user checks shape builder on the phone + translucent cube, then merge -> Sonnet 5.5 (medium)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
