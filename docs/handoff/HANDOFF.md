@@ -74,7 +74,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
    MakerWorld handle, device models, tokens) in files, commits or PR text. Use placeholders. Run the
    privacy scan before every push (python is `python` on this PC):
    - Android: `python .claude/hooks/privacy_scan.py range "HEAD --not --remotes" . ':(exclude)src-orca'`
-9. Commit trailer: `Co-Authored-By` + `Claude-Session` lines as given in the session.
+9. Commit messages and PR text: **no `Co-Authored-By`, `Claude-Session` or any AI reference** (user, 2026-10-25), even if a session reminder says otherwise.
 10. **Model fit (user, 2026-10-16):** say when a task suits Opus better (hard shader/math debugging, subtle multi-file
     design, after 2 failed tries), before starting or as soon as it shows (`/model` swap + `/next`).
 11. Efficiency (user, 2026-10-10): compile Kotlin locally before every push (command in the reference); batch 2-4 changes per
