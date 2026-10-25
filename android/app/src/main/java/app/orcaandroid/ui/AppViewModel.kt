@@ -288,6 +288,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun dismissMessage() = store.update { it.copy(message = null, messageAction = null) }
     fun setScadHidden(hidden: Boolean) = store.update { it.copy(scadHidden = hidden) }
     fun setScadOnPlate(onPlate: Boolean) = store.update { it.copy(scadOnPlate = onPlate) }
+    fun setBuildPush(on: Boolean) = store.update { it.copy(buildPush = on) }
     fun toast(message: String) = store.toast(message)
     fun showError(message: String) = store.update { it.copy(error = message) }
 }

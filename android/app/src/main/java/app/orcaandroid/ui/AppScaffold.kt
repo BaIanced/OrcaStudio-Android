@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material.icons.outlined.Print
@@ -343,9 +344,15 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
             viewport(Modifier.fillMaxSize())
             ScadPlateToggle(onPlate = true, { vm.setScadOnPlate(false) }, Modifier.align(Alignment.TopEnd).then(belowHole).padding(top = 76.dp, end = 12.dp))
             // The Build workspace: the design's object alone, its shapes picked and dragged in this view.
-            if (state.buildObject != null) Text(stringResource(R.string.shape_preview_help), Modifier.align(Alignment.BottomCenter).fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 4.dp), style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            if (state.buildObject != null) Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+                horizontalAlignment = Alignment.CenterHorizontally) {
+                // Push / pull (SketchUp style): a drag on a flat face moves that face instead of the shape.
+                androidx.compose.material3.FilterChip(state.buildPush, { vm.setBuildPush(!state.buildPush) }, { Text(stringResource(R.string.shape_push)) },
+                    leadingIcon = { Icon(Icons.Default.OpenInFull, null, Modifier.size(18.dp)) })
+                Text(stringResource(if (state.buildPush) R.string.shape_push_help else R.string.shape_preview_help), Modifier.fillMaxWidth(),
+                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            }
         } else if (scad != null) Themed(Region.OPENSCAD) { Surface(m) { ScadPreviewPane(scad, vm, Modifier.fillMaxSize().then(belowHole)) } } else viewport(m)
     }
     if (wide) {

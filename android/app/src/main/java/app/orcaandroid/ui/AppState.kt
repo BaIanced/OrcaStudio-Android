@@ -270,6 +270,8 @@ data class UiState(
     val scadHidden: Boolean = false,
     /** The OpenSCAD design is shown on the active plate (eye toggle) instead of alone in the design view. */
     val scadOnPlate: Boolean = false,
+    /** Build workspace: push / pull is on (a drag on a flat face moves it instead of the shape). */
+    val buildPush: Boolean = false,
 ) {
     fun presetName(type: PresetType) = when (type) {
         PresetType.PRINT -> print

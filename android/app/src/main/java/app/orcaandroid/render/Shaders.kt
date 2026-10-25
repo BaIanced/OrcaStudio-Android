@@ -48,7 +48,7 @@ internal object Shaders {
         uniform int uSolo;
         uniform vec3 uDrag;
         uniform vec3 uScaleAnchor;
-        uniform vec3 uScale;
+        uniform mat3 uScale;
         uniform int uRotOn;
         uniform mat3 uRot;
         uniform vec3 uRotPivot;
@@ -75,8 +75,8 @@ internal object Shaders {
             vNormal = aNormal;
             vType = aInfo.y;
             vSelected = selected;
-            // A resize drag shows the new size live: the selection scales about its box's bottom centre.
-            vec3 p = uScaleAnchor + (aPos - uScaleAnchor) * mix(vec3(1.0), uScale, selected);
+            // A resize (or push / pull) drag shows the new size live: the selection scales about uScaleAnchor.
+            vec3 p = uScaleAnchor + mix(aPos - uScaleAnchor, uScale * (aPos - uScaleAnchor), selected);
             // A rotate drag turns it live about its box's centre (uRotOn is 0 unless set).
             if (uRotOn == 1 && selected > 0.5) { p = uRotPivot + uRot * (p - uRotPivot); vNormal = uRot * aNormal; }
             vWorld = p + selected * uDrag;
