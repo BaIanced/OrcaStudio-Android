@@ -40,8 +40,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Task 12: 5/8/9 in r392 (9 WSA-checked, archive). 1-4 closed (static re-check, not device-triggerable). 10/12/13 fixed 6303398, r395 WSA smoke OK (add text 52 chars, SVG); 11 note only.
 - Crawler + monkey done (no crash/ANR; archive); UX inventory + proposals P1-P7 in `docs/UX-INVENTORY.md` (user hasn't picked proposals).
   P1 (c486aed), P2 (friendly FileNotFound/Security text), P3 (raw key -> small "Setting:" line in help popups) are in r396; P4 (Changed-only chip count; search already existed) and P5 (picker shows "Flow Rate & Vol Calibrated" as small second line, Widgets.kt) are in r397. WSA r397 look: P3 (Setting: line) and P5 (second line) OK; P1/P2 error text not triggered (zip entry opened silently), P4 chip not seen (needs a changed setting). r397 is on all 3 attached devices.
-- P6 done in code (paneTitle on Print/Objects, SCAD tabs, settings page lists; compiles, NOT yet built/looked at). Batch with the next change before dispatching a build.
-- Next step: P7 crawler tooling (~/orca-android-tools; Quit->Yes clean exit, no Back at root, Edit-button repro), then dispatch a build with P6 -> Sonnet 5.5 (medium)
+- P6 (paneTitle on tab content) + About text without AI line: build run 40170895834 dispatched (abed57b); not yet installed/looked at. P7 crawler fixed in ~/orca-android-tools/crawl.py (Quit->Yes = clean exit, no Back at root); Edit-button repro still untested.
+- Next step: when the run finishes, install on all devices (WSA look: About text) -> Sonnet 5.5 (medium)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
