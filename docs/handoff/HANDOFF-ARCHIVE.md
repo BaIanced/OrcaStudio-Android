@@ -3068,3 +3068,11 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 - Side note (sim, not seen on device): the unpainted part shading can also dip at a rounded edge between a key-lit and a
   fill-lit face (two clamped lights; ~8 % of edge orientations, up to 36 % below the darker face). Untouched unless the user sees it.
 - CI run 40181852595 (r403), installed on phone/WSA/SHIELD 2026-10-25. User untested.
+
+## 2026-10-25 User verdict r403
+- User (r403): "Translucent broke" (clear/translucent filament rendering regressed; likely from 6f5c49c paint shading). Open.
+- Cause (Claude, code read; phone session has 412 paint_color triangles): "works on a shape-builder shape, not the cube" = painted objects.
+  Paint (pass 2) was always opaque, so a clear filament's paint covered the see-through look. Fix (commit after ddd31e3, CI run 40207908723, r404):
+  realistic mode discards clear-filament paint in pass 2 and draws it in pass 7 (`drawClearPaint`, same blend as clear parts). Untested on device;
+  the part beneath the paint (its own filament) still draws opaque in pass 0.
+- User 2026-10-25 (phone, r403): shape builder still opens the old separate view (preview pane). User OK ("Yes") to: new designs open straight in the Build workspace (main view), first shape placed as pieces at once, old pane only for code. Opus.

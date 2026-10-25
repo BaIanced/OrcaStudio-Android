@@ -157,7 +157,8 @@ fun ScadPanel(s: ScadEditorState, vm: AppViewModel, onHide: (() -> Unit)? = null
     ) {
         Header(s, vm, onHide, onOpen = { open.launch(arrayOf("*/*")) }, onSave = { save.launch(saveName) }, onNew = { templates = true })
         // Without the embedded preview (the design is on the main canvas or the plate) only the auto-render switch stays.
-        PreviewBar(s, vm, previewOpen, toggle = embeddedPreview) { previewOpen = !previewOpen }
+        // Shape designs on the plate have no preview: every edit goes to the object (Build workspace).
+        if (embeddedPreview || s.shapes == null) PreviewBar(s, vm, previewOpen, toggle = embeddedPreview) { previewOpen = !previewOpen }
         if (embeddedPreview && previewOpen) ScadPreviewPane(s, vm, Modifier.fillMaxWidth().height(previewHeight))
         PrimaryTabRow(selectedTabIndex = tabs.indexOf(current)) {
             tabs.forEachIndexed { i, t ->

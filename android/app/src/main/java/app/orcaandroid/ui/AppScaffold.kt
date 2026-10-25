@@ -166,7 +166,7 @@ private fun MainLayout(state: UiState, vm: AppViewModel) {
     var lastBack by remember { mutableStateOf(0L) }
     androidx.activity.compose.BackHandler {
         when {
-            state.scad != null && state.screen == Screen.PREPARE -> if (state.scadOnPlate) vm.setScadOnPlate(false) else vm.scad.close()
+            state.scad != null && state.screen == Screen.PREPARE -> if (state.scadOnPlate && state.scad.shapes == null) vm.setScadOnPlate(false) else vm.scad.close()
             state.screen != Screen.PREPARE -> vm.setScreen(Screen.PREPARE)
             state.inPaintShop -> vm.scene.setTool(Tool.None)
             clearable -> { vm.scene.setTool(Tool.None); vm.scene.select(null); vm.scene.setSelectMode(false) }
@@ -342,7 +342,12 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
     val scadView: @Composable (Modifier) -> Unit = { m ->
         if (scad != null && state.scadOnPlate) Box(m) {
             viewport(Modifier.fillMaxSize())
-            ScadPlateToggle(onPlate = true, { vm.setScadOnPlate(false) }, Modifier.align(Alignment.TopEnd).then(belowHole).padding(top = 76.dp, end = 12.dp))
+            // Code designs go back to their preview pane; shape designs have only this view.
+            if (scad.shapes == null) ScadPlateToggle(onPlate = true, { vm.setScadOnPlate(false) }, Modifier.align(Alignment.TopEnd).then(belowHole).padding(top = 76.dp, end = 12.dp))
+            // A shape design with no solid shape yet isn't on the plate: say how to start.
+            else if (state.buildObject == null && !scad.rendering) Text(stringResource(R.string.shape_start), Modifier.align(Alignment.Center).padding(24.dp),
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center)
             // The Build workspace: the design's object alone, its shapes picked and dragged in this view.
             if (state.buildObject != null) Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
                 horizontalAlignment = Alignment.CenterHorizontally) {

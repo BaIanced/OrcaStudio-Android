@@ -810,6 +810,7 @@
     <string name="shape_new_name">Shape design</string>
     <string name="shape_tab">Shapes</string>
     <string name="shape_add">Add a shape</string>
+    <string name="shape_start">Add a shape from the shape list to start building on the plate.</string>
     <string name="shape_empty">Add a shape from the list above to start.</string>
     <string name="shape_push">Push/pull</string>
     <string name="shape_push_help">Drag a flat face to push or pull it · tap a shape to pick it · drag empty space to turn</string>
