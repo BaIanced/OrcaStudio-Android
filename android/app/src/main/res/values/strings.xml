@@ -200,6 +200,10 @@
     <string name="no">No</string>
     <string name="edit">Edit</string>
     <string name="filament_look">Surface look</string>
+    <string name="mix_title">Mix for filament %1$d</string>
+    <string name="mix_need_two">Add at least two other filaments to mix.</string>
+    <string name="mix_sublayers">Blend inside each layer (sub-layers)</string>
+    <string name="mix_remove">Not a mix</string>
     <string name="filament_look_auto">Automatic (%1$s)</string>
     <string name="empty">(empty)</string>
     <string name="end_calibration">End</string>

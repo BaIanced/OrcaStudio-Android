@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PriorityHigh
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Sync
@@ -229,6 +230,12 @@ private fun FilamentSlots(state: UiState, vm: AppViewModel, userGroup: String, v
                     }
                 }
             }
+            var mixDialog by remember { mutableStateOf(false) }
+            IconButton(onClick = { mixDialog = true }) {
+                Icon(Icons.Default.Palette, stringResource(R.string.mix_title, i + 1), tint = if (Mix.isMixed(slot)) MaterialTheme.colorScheme.primary else LocalContentColor.current)
+            }
+            if (mixDialog) MixDialog(state.filaments, i, state.value(PresetType.PRINT, "enable_mixed_color_sublayer") == "1",
+                { parts, sub -> vm.presets.setMix(i, parts, sub) }) { mixDialog = false }
             IconButton(onClick = { vm.presets.setActiveFilament(i); vm.presets.openEditor(EditorTarget.Preset(PresetType.FILAMENT)) }) {
                 Icon(Icons.Default.Edit, stringResource(R.string.edit))
             }

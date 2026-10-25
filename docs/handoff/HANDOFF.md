@@ -36,9 +36,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Local debug test: reference "Local APK" + "WSA debug loop" (worked on WSA 2026-10-25; parked window: taps via `tapf.sh`).
 - Awaiting user: push/pull tier 1 (r401), edge bands on paint (r403), Bands paint feel (r406).
 - Phone offline (user at work); its session is copied to WSA (archive 2026-10-25). Test on WSA.
-- Bands paint slow/choppy: parts 1+2 committed (a82c8a4; WSA A/B 74+88 -> 48+24 ms per call, no edge trail; archive
-  2026-10-25). r406 on WSA + SHIELD; phone install when online, then user feel check.
-- Next step: install r406 on the phone when online + user Bands feel check -> Sonnet 5.5 (medium)
+- Bands paint perf: archive 2026-10-25; r406 on WSA + SHIELD; phone install when online, then user feel check.
+- Upstream 2.5.0 alpha overlaps our work (user 2026-10-25): `NOTES-upstream-2.5.md` = compare table; check src-orca before building a feature; keep ours where better.
+- Mix sheet DONE 2026-10-25 (persisted via AppSettings 'mix') (palette icon per slot row, `MixDialog.kt`, `PresetController.setMix`): WSA debug build: slot 4 = mix of 1+2 (5:5), colour blended #949086, cylinder on it slices (prime tower appears = swaps resolved; 100 layers). Untested: sub-layer switch on (layer count should grow), persistence after restart (overrides are not saved with last filaments), user feel.
+- Next step: test mix restart persistence + sub-layers on (CI build r407) on WSA -> Sonnet 5.5 (medium); phone r406 install + Bands feel check when it is online
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).

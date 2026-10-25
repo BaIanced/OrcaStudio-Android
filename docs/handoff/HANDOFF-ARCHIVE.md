@@ -3110,3 +3110,6 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
   part 2 = 43 calls, select 48 ms + paint mesh 24 ms avg, max 133k. App side: read < 20 ms, GL upload 11-17 ms.
 - Still open if the user finds it choppy: a shader z-range preview during the drag + one commit on lift (needs a stroke-end
   call from SceneController.paintAt; no lift signal today), or a coarser edge limit while dragging.
+
+### 2026-10-25 Task 18 refusal path on device (Claude, WSA r406, adb swipes on the Build view scale handles)
+- Sphere with a circular repeat (4x about the origin): dragging the X handle (uneven X != Y) left the shape unscaled (refused); control: dragging the Z handle scaled it 20 -> 25.98 mm tall (taller ring still scales). Matches ae07b95. User feel untested.

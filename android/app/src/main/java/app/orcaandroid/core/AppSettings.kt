@@ -1,5 +1,6 @@
 package app.orcaandroid.core
 
+import app.orcaandroid.ui.prepare.Mix
 import android.content.Context
 import app.orcaandroid.net.PrinterConnection
 import org.json.JSONArray
@@ -189,17 +190,22 @@ class AppSettings(context: Context) {
             JSONArray(json).map {
                 val o = it as JSONObject
                 FilamentSlot(o.getString("preset"), o.optString("color").ifEmpty { null },
+                    overrides = o.optJSONObject("mix")?.let { m -> m.keys().asSequence().associateWith { k -> m.getString(k) } }.orEmpty(),
                     source = o.optJSONObject("source")?.let { s -> TraySource(s.getString("key"), s.getString("loaded"), s.getString("synced")) },
                     look = o.optString("look").ifEmpty { null })
             }
         }.getOrNull()
     }.orEmpty()
 
+    private val MIX_KEYS = setOf(Mix.IS_MIXED, Mix.COMPONENTS, Mix.RATIOS)
+
     fun setLastFilaments(printer: String, slots: List<FilamentSlot>) = prefs.edit().putString(
         "filaments:${family(printer)}",
         JSONArray(slots.map { f ->
             JSONObject().put("preset", f.preset).put("color", f.color ?: "").apply {
                 f.look?.let { put("look", it) }
+                // Only the mix recipe outlives a restart; other per-slot edits are session-only.
+                if (f.overrides[Mix.IS_MIXED] == "1") put("mix", JSONObject(f.overrides.filterKeys { it in MIX_KEYS }))
                 f.source?.let { put("source", JSONObject().put("key", it.key).put("loaded", it.loaded).put("synced", it.synced)) }
             }
         }).toString(),
