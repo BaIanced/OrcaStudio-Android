@@ -810,84 +810,64 @@ json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<doubl
     }
     if (shape == "height") {
         // Height range (GLGizmoPainterBase::get_projected_height_range): the band from the hit up, on every part of the object.
-        // A stroke is one band: each hit extends the stroke's range and only the new strips get painted. A band per hit
-        // cost ~8 ms each, and every band refines its two edges to 0.1 mm, so a fast drag left gaps and its edges piled up
-        // splits (128k-438k paint triangles) that made each later update slower (user r405: "very slow and choppy").
-        std::vector<std::pair<float, float>> strips;
-        auto paint_strips = [&](int object, int instance) {
-            ModelObject &obj = object_at(object);
+        // A stroke is one band: each hit extends the stroke's range, and a call that grew it paints the whole range once. A
+        // band per hit cost ~8 ms each, and every band refines its two edges to 0.1 mm, so a fast drag left gaps and piled
+        // up splits (user r405: "very slow and choppy"). Painting only the new strips still left each old edge's splits
+        // behind (177k -> 462k paint triangles); a triangle wholly inside the range loses its splits (select_triangle).
+        auto paint_band = [&](const BandStroke &band) {
+            ModelObject &obj = object_at(band.object);
             for (size_t vi = 0; vi < obj.volumes.size(); ++vi) {
                 ModelVolume *vol = obj.volumes[vi];
                 if (!vol->is_model_part())
                     continue;
-                const Transform3d trafo = obj.instances[instance]->get_matrix() * vol->get_matrix();
+                const Transform3d trafo = obj.instances[band.instance]->get_matrix() * vol->get_matrix();
                 const indexed_triangle_set &its = vol->mesh().its;
-                // Parts with no facet reaching into a strip stay untouched. The range cursor floods from every facet in its
-                // range (TriangleSelector::select_patch), so the seed is only a valid index.
-                auto reaches = [&](float lo, float hi) {
-                    for (const stl_triangle_vertex_indices &t : its.indices) {
-                        float a = FLT_MAX, b = -FLT_MAX;
-                        for (int k = 0; k < 3; ++k) {
-                            const float vz = float((trafo * its.vertices[t[k]].cast<double>()).z());
-                            a = std::min(a, vz);
-                            b = std::max(b, vz);
-                        }
-                        if (b >= lo && a <= hi)
-                            return true;
+                // Parts with no facet reaching into the range stay untouched. The range cursor floods from every facet in
+                // its range (TriangleSelector::select_patch), so the seed is only a valid index.
+                const bool reaches = std::any_of(its.indices.begin(), its.indices.end(), [&](const stl_triangle_vertex_indices &t) {
+                    float a = FLT_MAX, b = -FLT_MAX;
+                    for (int k = 0; k < 3; ++k) {
+                        const float vz = float((trafo * its.vertices[t[k]].cast<double>()).z());
+                        a = std::min(a, vz);
+                        b = std::max(b, vz);
                     }
-                    return false;
-                };
+                    return b >= band.lo && a <= band.hi;
+                });
+                if (!reaches)
+                    continue;
                 FacetsAnnotation &facets = facets_of(*vol, kind);
                 const bool was_empty = facets.empty();
                 Transform3d trafo_no_translate = trafo;
                 trafo_no_translate.translation() = Vec3d::Zero();
                 const Vec3f camera_local = (trafo.inverse() * to_vec(camera)).cast<float>();
-                PaintSelector *selector = nullptr;
-                for (const auto &[lo, hi] : strips) {
-                    if (!reaches(lo, hi))
-                        continue;
-                    if (!selector)
-                        selector = &live_selector(*vol, facets);
-                    selector->select_patch(0, locking ? std::unique_ptr<TriangleSelector::Cursor>(std::make_unique<PaintSelector::Guarded<TriangleSelector::HeightRange>>(
-                                                            *selector, nullptr, &locks_of(*vol), lo, camera_local, hi - lo, trafo, clip_of(trafo)))
-                                                      : TriangleSelector::SinglePointCursor::cursor_factory(lo, camera_local, hi - lo, trafo, clip_of(trafo)),
-                                           new_state, trafo_no_translate, true);
-                }
-                if (selector)
-                    save_live(facets, was_empty);
+                PaintSelector &selector = live_selector(*vol, facets);
+                const float lo = band.lo, h = band.hi - band.lo;
+                selector.select_patch(0, locking ? std::unique_ptr<TriangleSelector::Cursor>(std::make_unique<PaintSelector::Guarded<TriangleSelector::HeightRange>>(
+                                                       selector, nullptr, &locks_of(*vol), lo, camera_local, h, trafo, clip_of(trafo)))
+                                                 : TriangleSelector::SinglePointCursor::cursor_factory(lo, camera_local, h, trafo, clip_of(trafo)),
+                                      new_state, trafo_no_translate, true);
+                save_live(facets, was_empty);
             }
-            strips.clear();
         };
+        bool grew = false;
         for (const PaintHit &h : hits) {
             const float z = hit_z(h), top = z + float(height);
             if (m_band && (m_band->object != h.object || m_band->instance != h.instance)) {
-                paint_strips(m_band->object, m_band->instance);
+                if (grew)
+                    paint_band(*m_band);
                 m_band.reset();
             }
             if (!m_band) {
                 m_band = BandStroke{h.object, h.instance, z, top};
-                strips.emplace_back(z, top);
-            } else {
-                if (z < m_band->lo)
-                    strips.emplace_back(z, m_band->lo);
-                if (top > m_band->hi)
-                    strips.emplace_back(m_band->hi, top);
+                grew   = true;
+            } else if (z < m_band->lo || top > m_band->hi) {
                 m_band->lo = std::min(m_band->lo, z);
                 m_band->hi = std::max(m_band->hi, top);
+                grew       = true;
             }
         }
-        if (m_band) {
-            // Strips of one call that touch merge, so a call paints at most one strip below and one above.
-            std::sort(strips.begin(), strips.end());
-            std::vector<std::pair<float, float>> merged;
-            for (const auto &s : strips)
-                if (!merged.empty() && s.first <= merged.back().second)
-                    merged.back().second = std::max(merged.back().second, s.second);
-                else
-                    merged.push_back(s);
-            strips = std::move(merged);
-            paint_strips(m_band->object, m_band->instance);
-        }
+        if (m_band && grew)
+            paint_band(*m_band);
         if (!hits.empty())
             m_paint_prev = hits.back();
     }
