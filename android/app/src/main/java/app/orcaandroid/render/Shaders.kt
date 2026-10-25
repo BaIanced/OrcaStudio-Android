@@ -133,8 +133,9 @@ internal object Shaders {
 
         // Realistic mode, after Google Filament's standard material: GGX distribution, height-correlated Smith visibility,
         // Schlick fresnel, Lambert diffuse and an optional clear coat, lit by the key light (with its shadow) and a
-        // procedural studio environment instead of an HDR image. Linear light, ACES tone mapping, gamma 2.2 out.
+        // procedural studio environment instead of an HDR image. Linear light, PBR Neutral tone mapping, gamma 2.2 out.
         const float PI = 3.14159265;
+        const float EXPOSURE = 0.42;
         // A softbox seen towards direction d: centre c, angular radius rad, blurred by roughness r (the blur keeps its energy).
         float softbox(vec3 d, vec3 c, float rad, float r) {
             float a2 = 2.0 * (1.0 - dot(d, c));
@@ -172,7 +173,18 @@ internal object Shaders {
             float a004 = min(t.x * t.x, exp2(-9.28 * nov)) * t.x + t.y;
             return vec2(-1.04, 1.04) * a004 + t.zw;
         }
-        vec3 aces(vec3 x) { return clamp(x * (2.51 * x + 0.03) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0); }
+        // Khronos PBR Neutral tone mapping: below ~0.76 the colour passes unchanged (a lit face shows the filament's own
+        // hue), only highlights are compressed and pale towards white. ACES (until 2026-10-25) shifted hues per channel
+        // (amber #FEC600 turned lemon) and washed the colours out.
+        vec3 neutral(vec3 c) {
+            float x = min(c.r, min(c.g, c.b));
+            c -= x < 0.08 ? x - 6.25 * x * x : 0.04;
+            float peak = max(c.r, max(c.g, c.b));
+            if (peak < 0.76) return c;
+            float np = 1.0 - 0.0576 / (peak - 0.52);
+            c *= np / peak;
+            return mix(c, vec3(np), 1.0 - 1.0 / (0.15 * (peak - np) + 1.0));
+        }
         // mp = uMatP (roughness, metallic, clear coat, coat roughness); mb.x sheen, mb.y wrap (translucent plastics), mb.w
         // transmission. box = the key softbox's visibility, ao = the contact occlusion near the bed (both 1 = open).
         // Returns premultiplied colour and coverage: a = 1 opaque; a clear part lets 1 - a of what lies behind through,
@@ -214,13 +226,13 @@ internal object Shaders {
                 dif *= 1.0 - fcv;
                 spec = spec * (1.0 - fcv) + studio(r, cr, lk, box) * fcv * so + vec3(coat * PI * nol * e);
             }
-            // Exposure: a mid-grey part under the studio lands near the plain look's brightness.
-            vec3 c = pow(aces((dif + spec) * 0.5), vec3(1.0 / 2.2));
+            // Exposure: a face in the key light lands near the filament colour itself (0.5 overexposed: user 2026-10-25).
+            vec3 c = pow(neutral((dif + spec) * EXPOSURE), vec3(1.0 / 2.2));
             if (mb.w <= 0.0) return vec4(c, 1.0);
             // Clear: coverage a of the opaque look, the reflections alone over what shows through (display space, so the
             // gamma curve doesn't brighten the premultiplied colour).
             float al = 1.0 - mb.w * (1.0 - fSchlick(vec3(0.04), nov).x);
-            return vec4(c * al + pow(aces(spec * 0.5), vec3(1.0 / 2.2)) * (1.0 - al), al);
+            return vec4(c * al + pow(neutral(spec * EXPOSURE), vec3(1.0 / 2.2)) * (1.0 - al), al);
         }
 
         // Printed layer lines from the height above the bed: each layer is a rounded bead, so the normal n tilts down
@@ -398,6 +410,8 @@ internal object Shaders {
                 color = vec4(shaded, alpha);
                 return;
             }
+            // Painted faces: very dark filaments keep some shading too (matte black #000000 was a flat silhouette).
+            if (type >= 10 && type < 98) base = max(base, vec3(0.13));
             color = vec4(base * light, alpha);
         }"""
 
