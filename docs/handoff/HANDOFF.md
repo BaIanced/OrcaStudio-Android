@@ -37,9 +37,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Awaiting user: push/pull tier 1 (r401), edge bands on paint (r403), 
 - Phone offline (user at work); its session is copied to WSA (archive 2026-10-25). Test on WSA.
 - Upstream 2.5.0 alpha overlaps our work (user 2026-10-25): `NOTES-upstream-2.5.md` = compare table; check src-orca before building a feature; keep ours where better.
-- Mix sheet DONE 2026-10-25 (persisted via AppSettings 'mix') (palette icon per slot row, `MixDialog.kt`, `PresetController.setMix`): WSA debug build: slot 4 = mix of 1+2 (5:5), colour blended #949086, cylinder on it slices (prime tower appears = swaps resolved; 100 layers). See below.
-- Bands perf VERIFIED by user (r406). New 2026-10-25: band edges snap outward to layer boundaries (OrcaTools.cpp `snap`, native compiled locally, untested on device/PC); mix persistence fix (restored session/project dropped the saved mix; FileController + PresetController `Mix.carry`), untested on device.
-- Next step: install the CI build after r408 on WSA: mix dialog shows 1+2 after restart; band edges land on layer boundaries (0.08 layer, 0.1 band) -> Sonnet 5.5 (medium); user checks the band edges in PC slicer; phone install when online
+- Bands perf VERIFIED by user (r406). Mix restart persistence VERIFIED on WSA r409 (archive). Open: band edges snap to layer boundaries (r409, OrcaTools.cpp `snap`): user checks in PC slicer (0.08 layer, 0.1 band); also SHIELD + phone install.
+- Next step: user checks band edges in PC slicer; then merge offer for the verified batch -> Sonnet 5.5 (medium)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).

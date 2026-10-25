@@ -3116,3 +3116,6 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 
 ### 2026-10-25 Bands paint feel (user, r406+)
 - User: "I confirmed the band tool fix worked." Perf item verified. New follow-up: band edges jagged on PC slicer when band height/start are not multiples of layer height (user: 0.08 layer, 0.1 band: bands 1-4 jagged, 5th clean). Wanted: snap band steps to layer-height increments.
+
+### 2026-10-25 Mix restart persistence (Claude, WSA r409)
+- Slot 3 mix of 1+2 (5:5) survives a restart (needed fixes in PresetController.selectPrinterNow and FileController: restored project/session slots dropped the saved mix). Sub-layer switch persists as a print setting, not rechecked.
