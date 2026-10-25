@@ -14,7 +14,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 0170950 (PR #65, branch at r398, merged 2026-10-25). Untested by the user in main: Build workspace, paint shop/depth, Filament materials, Realistic render, UX P1-P6, Check mesh feel, 3MF export in desktop Orca, pen, fan hold, Extrude F150.
 - Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
-- Latest installed build r405; r406 (Bands paint perf) building. Chromebook/Note offline. Note r389, Chromebook r374.
+- Latest build r406 (run 40214211857, Bands paint perf), installed WSA + SHIELD 2026-10-25; phone offline (install when back). Chromebook/Note offline. Note r389, Chromebook r374.
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
@@ -37,8 +37,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Awaiting user: push/pull tier 1 (r401), edge bands on paint (r403), Bands paint feel (r406).
 - Phone offline (user at work); its session is copied to WSA (archive 2026-10-25). Test on WSA.
 - Bands paint slow/choppy: parts 1+2 committed (a82c8a4; WSA A/B 74+88 -> 48+24 ms per call, no edge trail; archive
-  2026-10-25). CI r406 = run 40214211857 (in progress at handoff). Then: install on every adb device, user feel check.
-- Next step: install r406 on all devices + user Bands feel check -> Sonnet 5.5 (medium)
+  2026-10-25). r406 on WSA + SHIELD; phone install when online, then user feel check.
+- Next step: install r406 on the phone when online + user Bands feel check -> Sonnet 5.5 (medium)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
