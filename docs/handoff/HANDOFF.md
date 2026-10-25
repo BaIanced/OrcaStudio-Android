@@ -16,7 +16,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   main: Check mesh feel, cut Flip paint fix, 3MF export in desktop Orca, pie menu (lab), pen 7d3a263, fan hold 298ee9f, Extrude
   F150 e13bebb, Quest stick zoom (r324). Unmerged on the branch: paint shop + paint depth r367, Build workspace 1-5 + 6a (user feel untested).
 - Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
-- Latest build r395 (run 40141547033, Task 12 fixes): WSA, SHIELD (2026-10-24); phone/Chromebook/Note offline. Note r389, phone r376, Chromebook r374 (offline).
+- Latest build r396 (run 40165558156, UX P1-P3 + Task 12 fixes): WSA, SHIELD, one LAN device (2026-10-24); P1-P3 NOT yet looked at on a device. Chromebook/Note offline. Note r389, phone r376, Chromebook r374 (offline).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
@@ -39,8 +39,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Open (backlog): app 3MF in desktop Orca (fix applied; user must open a fresh export), printer/user-only checks, pen input, plate switcher pick.
 - Task 12: 5/8/9 in r392 (9 WSA-checked, archive). 1-4 closed (static re-check, not device-triggerable). 10/12/13 fixed 6303398, r395 WSA smoke OK (add text 52 chars, SVG); 11 note only.
 - Crawler + monkey done (no crash/ANR; archive); UX inventory + proposals P1-P7 in `docs/UX-INVENTORY.md` (user hasn't picked proposals).
-  P1 (c486aed) + P2 (friendly text for FileNotFound/Security errors in `Store.launch`, compiled locally 2026-10-24) are in the branch, NOT in a CI build yet.
-- Next step: P3 hide raw config keys in preset help popups, then dispatch one CI build with P1-P3 + WSA check -> Sonnet 5.5 (medium)
+  P1 (c486aed), P2 (friendly FileNotFound/Security text), P3 (raw key -> small "Setting:" line in help popups) are in r396; installed, device look pending.
+- Next step: WSA look at P1-P3 in r396 (preset help popup, error text), then P4 from `docs/UX-INVENTORY.md` -> Sonnet 5.5 (medium)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
