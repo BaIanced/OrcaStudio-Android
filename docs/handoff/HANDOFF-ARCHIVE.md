@@ -3054,3 +3054,17 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 - User 2026-10-25 on r402 (phone): "matte black looks normal now, so does yellow cube" -> matte black paint VERIFIED.
   "Realistic view no longer shows any difference on any type" (realistic look vs plain / per filament type): open.
 - User 2026-10-25: plate type changing the look "can't reproduce, close that" -> closed. Realistic colour (yellow cube) OK on r402.
+
+## 2026-10-25 Edge bands + realistic "no difference": painted faces were flat-shaded (r403)
+- User pic (r402, phone, Prepare, normal view): dark bands along the rounded edges of "TPU nee-doh 2 small.stl", darker than
+  both faces; earlier the same day "realistic view no longer shows any difference on any type".
+- Cause (Claude, phone VD): the object is fully painted (session 3MF: all 6732 triangles carry paint_color). Paint (pass 2,
+  types 10-97) was shaded `base * (0.35 + 0.65 * abs(n.l))`: abs() bottoms out where a rounded edge's normal turns
+  perpendicular to the light (a groove on every such edge); it also skipped the filament material, real shadow and realistic
+  mode, so realistic ON/OFF and filament types looked the same on painted objects. Shadows off: same bands (not the shadow map).
+- Fix 6f5c49c: paint goes through the part shading with its filament's
+  material (uMatA/B/P of type-10), samples the real shadow (renderer: pass 2 counts as lit); clear filaments stay opaque as paint.
+  glslc OK. Phone debug build (VD): bands gone (soft matte rim instead), realistic ON shows the softbox reflection on the paint.
+- Side note (sim, not seen on device): the unpainted part shading can also dip at a rounded edge between a key-lit and a
+  fill-lit face (two clamped lights; ~8 % of edge orientations, up to 36 % below the darker face). Untouched unless the user sees it.
+- CI run 40181852595 (r403). User untested.

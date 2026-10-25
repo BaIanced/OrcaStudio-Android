@@ -14,7 +14,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 0170950 (PR #65, branch at r398, merged 2026-10-25). Untested by the user in main: Build workspace, paint shop/depth, Filament materials, Realistic render, UX P1-P6, Check mesh feel, 3MF export in desktop Orca, pen, fan hold, Extrude F150.
 - Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
-- Latest build r402 (run 40179719937: realistic PBR Neutral tone + matte black paint floor, on r401 push/pull + edge outline; installed on WSA/SHIELD/LAN phone 2026-10-25). Chromebook/Note offline. Note r389, Chromebook r374.
+- Latest build r403 (run 40181852595: paint lit like its filament's part (edge bands, realistic on paint), on r402 tone + r401 push/pull + edge outline). Chromebook/Note offline. Note r389, Chromebook r374.
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
@@ -32,13 +32,11 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   **Muse KEPT (user, 2026-10-23)** for audits + larger JVM-testable Kotlin only (Claude compiles each PR locally before
   merging), no native/patch work, no small fixes. Log Claude's effort per task in the archive; if a task costs more than
   doing it directly, tell the user plainly and stop. Merge commands START with `gh pr merge`. No stacking.
-- User feel untested (backlog): paint plan (r373), Build workspace 1-6, Filament materials tiers 1+2, Realistic render 1+2 (r390).
-- Local debug test on WSA: recipe in the reference ("Local APK").
-- Open (backlog): app 3MF in desktop Orca (fix applied; user must open a fresh export), printer/user-only checks, pen input, plate switcher pick.
-- Task 12, crawler/monkey and UX P1-P7 (r398 on WSA/SHIELD/LAN phone): done; details in archive (2026-10-25 prune). `docs/UX-INVENTORY.md` has the proposals.
-- User GO 2026-10-25 list done: colours (no change), edge outline (r400, WSA OK), push/pull tier 1 (f701b0c, r401 run
-  40174622268; WSA debug OK, archive 2026-10-25). Both await the user's feel check, then a merge.
-- Next step: guard plane bug once the user describes it; else r402 push/pull + edge outline check, then merge -> Opus 5.5 (high)
+- Backlog, user feel/checks open: paint plan, Build workspace, Filament materials, Realistic render, 3MF in desktop Orca, pen, plate switcher pick.
+- Local debug test: reference "Local APK"; phone too: `W=<phone serial> sh wsa-debug-setup.sh` + `PKG=...debug orca-vd.sh start` (WSA kept stopping the activity 2026-10-25).
+- Edge outline (r400) and push/pull tier 1 (r401): Claude WSA OK, await the user's feel check, then a merge.
+- Edge bands / realistic on paint fixed in r403 (archive 2026-10-25): install r403 on all devices, then the user's check.
+- Next step: install r403 + user check (edge bands, realistic on paint, push/pull, edge outline), then merge -> Sonnet 5.5 (medium)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).

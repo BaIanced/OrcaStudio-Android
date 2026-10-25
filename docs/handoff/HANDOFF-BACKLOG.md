@@ -59,4 +59,4 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - Real keyboard Ctrl+1 = system hotkey. Inactive-plate double tap re-frames (user: fine). Badges ~23 dp at plate zoom (told the user).
 - HMS texts: HmsCatalog.kt fetches at runtime; Handy's copies stay local. Flatpak r9 MakerLab, upstream bump, obn follow-ups: archive.
 - Paint guard tool (guard plane) misbehaves, user can't describe yet (user report 2026-10-25, r401). Open: needs repro from user.
-- [Opus] Realistic view: colour fixed r402 (user OK 2026-10-25). Open: "edge shade" on the cube in normal view (user pic 2026-10-25, not described further); ask before tuning.
+- Edge bands on painted rounded edges + realistic ignoring paint: fixed r403 (6f5c49c, Claude phone debug OK 2026-10-25); user check open.
