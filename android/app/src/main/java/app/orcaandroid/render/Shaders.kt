@@ -321,14 +321,17 @@ internal object Shaders {
             int filament = type >= 100 ? type - 100 : (type >= 10 && type < 98 ? type - 10 : -1);
             bool hidden = filament >= 0 && filament < 16 && ((uHidden >> filament) & 1) != 0;
             if (hidden) base = vec3(0.62);
-            if (part) {
+            // Colour paint (pass 2, over the parts) is lit like a part of its filament: material, shadow, realistic mode.
+            bool paint = uPass == 2 && type >= 10 && type < 98;
+            if (paint) base = max(base, vec3(0.13));
+            if (part || paint) {
                 // The filament's material; parts without one and hidden filaments keep the plain plastic look.
-                int mi = type >= 100 && !hidden ? clamp(type - 100, 0, 15) : -1;
+                int mi = hidden ? -1 : (paint ? clamp(type - 10, 0, 15) : (type >= 100 ? clamp(type - 100, 0, 15) : -1));
                 vec4 ma = mi >= 0 ? uMatA[mi] : vec4(36.0, 0.16, 0.0, 0.0);
                 vec4 mb = mi >= 0 ? uMatB[mi] : vec4(0.0, 0.0, 1.0, 0.0);
-                // Clear filaments (transmission mb.w) leave pass 0 for pass 7 in realistic mode; elsewhere they are opaque.
-                bool clear = uRealistic == 1 && mb.w > 0.0;
-                if (clear != (uPass == 7)) discard;
+                // Clear filaments (transmission mb.w) leave pass 0 for pass 7 in realistic mode; elsewhere (and paint) opaque.
+                bool clear = part && uRealistic == 1 && mb.w > 0.0;
+                if (part && clear != (uPass == 7)) discard;
                 if (!clear) mb.w = 0.0;
                 // Soft studio look for the model: sky/ground ambient (z is up), a key and a fill light, a
                 // faint plastic highlight and a cool rim on silhouettes. The slice preview keeps its flat colours.
@@ -344,7 +347,7 @@ internal object Shaders {
                 float ndl = max(dot(n, lk), 0.0);
                 float lit = 1.0;
                 float box = 1.0;
-                if (uUseRealShadow == 1 && lit0) {
+                if (uUseRealShadow == 1 && (lit0 || paint)) {
                     highp vec3 sc = vShadowCoord.xyz / vShadowCoord.w * 0.5 + 0.5;
                     highp vec2 grad = planeGrad(sc);
                     if (sc.z < 1.0 && sc.x > 0.0 && sc.x < 1.0 && sc.y > 0.0 && sc.y < 1.0) {
@@ -410,8 +413,6 @@ internal object Shaders {
                 color = vec4(shaded, alpha);
                 return;
             }
-            // Painted faces: very dark filaments keep some shading too (matte black #000000 was a flat silhouette).
-            if (type >= 10 && type < 98) base = max(base, vec3(0.13));
             color = vec4(base * light, alpha);
         }"""
 

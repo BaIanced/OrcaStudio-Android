@@ -806,8 +806,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glUniformMatrix4fv(loc(meshProgram, "uMvp"), 1, false, mvp, 0)
         glUniform1i(loc(meshProgram, "uPass"), pass)
         glUniform1f(loc(meshProgram, "uShadowFade"), SHADOW_FADE_MM)
-        // The real shadow map is sampled by the lit pass only (not while it is being drawn, not in the occlusion pre-pass).
-        val real = useRealShadow && (pass == 0 || pass == 7)
+        // The real shadow map is sampled by the lit passes only (parts, paint; not while it is being drawn, not in the occlusion pre-pass).
+        val real = useRealShadow && (pass == 0 || pass == 2 || pass == 7)
         glUniform1i(loc(meshProgram, "uUseRealShadow"), if (real) 1 else 0)
         glUniform1i(loc(meshProgram, "uRealShadowMap"), 2)
         if (real) {
