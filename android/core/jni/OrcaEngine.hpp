@@ -431,6 +431,12 @@ private:
     LivePaint                             m_live_paint;
     // The stroke's last painted hit, start of the next joined capsule.
     std::optional<PaintHit>               m_paint_prev;
+    // Bands: the stroke's painted height range on one object copy (world z); a drag extends it.
+    struct BandStroke {
+        int   object, instance;
+        float lo, hi;
+    };
+    std::optional<BandStroke>             m_band;
     // Edge detection: the faces of the stroke's starting surface on one volume mesh (flood over edges up to the
     // angle), and that mesh's face neighbours, kept while the mesh is the same.
     struct PaintRegion {

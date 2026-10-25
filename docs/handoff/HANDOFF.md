@@ -34,11 +34,11 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   doing it directly, tell the user plainly and stop. Merge commands START with `gh pr merge`. No stacking.
 - Backlog, user feel/checks open: paint plan, Build workspace, Filament materials, Realistic render, 3MF in desktop Orca, pen, plate switcher pick.
 - Local debug test: reference "Local APK"; phone too: `W=<phone serial> sh wsa-debug-setup.sh` + `PKG=...debug orca-vd.sh start` (WSA kept stopping the activity 2026-10-25).
-- Edge outline (r400) and push/pull tier 1 (r401): Claude WSA OK, await the user's feel check, then a merge.
-- Edge bands / realistic on paint fixed in r403 (archive 2026-10-25), installed on phone/WSA/SHIELD; awaits the user's check.
-- r404 (translucent paint) installed phone/WSA/SHIELD; user untested.
-- r405 (run 40208840094): shape designs open straight in the Build workspace, no old preview pane (archive 2026-10-25); Claude WSA OK, user untested.
-- Next step: install r405 on all devices, user checks shape builder on the phone + translucent cube, then merge -> Sonnet 5.5 (medium)
+- User verified 2026-10-25: edge outline r400, translucent paint r404, shape designs in Build r405. Awaiting: push/pull tier 1 (r401), edge bands on paint (r403).
+- Phone offline (user at work); its session is copied to WSA (archive 2026-10-25). Test on WSA.
+- IN PROGRESS: Bands paint mode slow/choppy. Part 1 committed, not CI-built (one band per stroke, select ~30 ms, was 40-170).
+  Open: write_paint_mesh 50-115 ms per call during the drag + split trail on the moving edge (archive 2026-10-25 ideas).
+- Next step: Bands paint perf part 2 (paint-mesh write during drag), then a CI build -> Opus 5.5 (high)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).

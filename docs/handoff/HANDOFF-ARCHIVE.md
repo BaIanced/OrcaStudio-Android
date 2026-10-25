@@ -3085,3 +3085,18 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 - Claude WSA debug OK: Add > Shape builder -> empty plate 6 + hint in the main view; Box -> placed as pieces, Build (gizmo,
   Push/pull chip, hint); Cylinder added on the object; Back closed the editor, object kept. Untested: Edit design on a
   placed object (long-press menu), old single-mesh shape objects converting to pieces on open, phone portrait layout.
+- User 2026-10-25 (phone, r405): "Both confirmed" = shape designs open straight in the Build workspace (no old preview pane) and translucent paint (r404) on a cube both OK. Shape-designs item and translucent paint verified.
+- User 2026-10-25 (phone, r405): translucent paint confirmed; edge outline (r400) confirmed. "The band function in paint draws very slow and choppy" = the Bands paint mode (shape "height", tap/drag a band), perf open. r403 edge-band shading itself not yet user-checked.
+### 2026-10-25 Bands paint mode slow/choppy (user r405) - part 1 (Claude, local debug build, phone VD)
+- Measured (release r405, phone, user's object, 1.7 mm): every drag hit painted its own band on every part (~8 ms each);
+  batches of 6-20 hits = 40-170 ms per engine call. Upstream select_patch with a HeightRange cursor ignores the seed and floods
+  from every facet in range; its edge limit is 0.1 mm, so each band's two edges split finely: a fast drag left gaps
+  (0.2 mm height) and a pile of split triangles (box_with_lid reached 438k-1.2M paint triangles) = each update slower.
+- Fix (OrcaTools.cpp paint "height", OrcaEngine.hpp m_band): one band per stroke; each hit extends the stroke's [lo, hi] and
+  only the new strips get painted (merged per call); parts with no facet in a strip are skipped. Debug build on phone:
+  select ~30 ms per call (was 40-170), continuous band. Still open: write_paint_mesh 50-115 ms per call while the band grows
+  (extract+bytes only ~10 ms of it: the rest is likely the whole-file rewrite, ~400k tris) and the moving top edge leaves a
+  trail of splits (177k -> 462k). Ideas: rewrite only the changed volume's part / throttle paint-mesh writes during a drag;
+  or a shader z-range preview during the drag and one commit on lift.
+- User 2026-10-25: phone going offline (work); phone session (release app: session, openscad, data/user, app_settings)
+  copied to WSA (WSA's old data: /data/local/tmp/wsa-data-before-2026-10-25.tar on WSA; phone tar: tools backups/).
