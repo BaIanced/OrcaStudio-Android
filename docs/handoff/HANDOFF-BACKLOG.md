@@ -58,5 +58,5 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - Real keyboard Ctrl+1 = system hotkey. Inactive-plate double tap re-frames (user: fine). Badges ~23 dp at plate zoom (told the user).
 - HMS texts: HmsCatalog.kt fetches at runtime; Handy's copies stay local. Flatpak r9 MakerLab, upstream bump, obn follow-ups: archive.
 - Paint guard tool (guard plane) misbehaves, user can't describe yet (user report 2026-10-25, r401). Open: needs repro from user.
-- [Opus] Bands paint mode: part 1 (one band per stroke) committed 2026-10-25, paint-mesh write still 50-115 ms per drag call (Claude, phone debug); user check after the next build.
+- [Opus] Bands paint mode slow/choppy: parts 1+2 committed (WSA A/B 2026-10-25: 74+88 -> 48+24 ms per call, no edge trail); CI r406 pending; user feel check open.
 - Edge bands on painted rounded edges + realistic ignoring paint: fixed r403 (Claude phone debug OK 2026-10-25); user check open.

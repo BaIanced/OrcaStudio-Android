@@ -3100,3 +3100,13 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
   or a shader z-range preview during the drag and one commit on lift.
 - User 2026-10-25: phone going offline (work); phone session (release app: session, openscad, data/user, app_settings)
   copied to WSA (WSA's old data: /data/local/tmp/wsa-data-before-2026-10-25.tar on WSA; phone tar: tools backups/).
+### 2026-10-25 Bands paint mode part 2 (Claude, a82c8a4, local debug build on WSA, CI run 40214211857)
+- Cause of the slow paint-mesh write: painting only the new strips left each old top edge's 0.1 mm splits behind (a trail),
+  so the paint mesh grew through the drag and every write/extract grew with it.
+- Fix (OrcaTools.cpp paint "height"): a call that grew the band repaints the whole [lo, hi] once; triangles wholly inside
+  lose their splits (TriangleSelector::select_triangle_recursive undivides them), so only the current two edges stay split.
+- A/B on WSA, user's box_with_lid (session copy), same 4 s swipe up the wall, height 0.2 mm:
+  part 1 = 20 calls, select 74 ms + paint mesh 88 ms avg, up to 347k paint triangles;
+  part 2 = 43 calls, select 48 ms + paint mesh 24 ms avg, max 133k. App side: read < 20 ms, GL upload 11-17 ms.
+- Still open if the user finds it choppy: a shader z-range preview during the drag + one commit on lift (needs a stroke-end
+  call from SceneController.paintAt; no lift signal today), or a coarser edge limit while dragging.
