@@ -138,6 +138,22 @@ public:
     json add_volume(int object, int type, const std::string &shape, const std::array<double, 3> &size,
                     const std::array<double, 3> &position);
     json delete_volume(int object, int volume);
+    // One entry of set_volumes: the mesh comes from `stl` (piece-local frame, not centred) or is an
+    // existing volume `keep` (its mesh, settings and painting stay); `matrix` maps it into the object.
+    // `keep` assumes a mesh set_volumes made this session (a 3MF reload may re-centre volume meshes).
+    struct VolumeSpec { std::string stl; int keep = -1; int type = 0; std::array<double, 16> matrix{}; bool own_matrix = false; std::string name; int anchor = -1; int extruder = -1; };
+    // Replaces all the object's volumes with `specs` in one undo step (Build workspace: one volume per
+    // shape). Instances keep their pose; with `keep_center`, they shift so the parts stay centred where
+    // they were, or, when some specs name an `anchor` (the old volume the same unchanged piece was), so
+    // the anchors stay where they were. Empty meshes are skipped; at least one part must remain. A spec's
+    // `extruder` sets the volume's filament (1-based; 0 = the object's; -1 = copied as before).
+    json set_volumes(int object, const std::vector<VolumeSpec> &specs, bool keep_center);
+    // The object the Build workspace edits, or -1: write_mesh gives its volumes the selection id
+    // -1000 - volume (instead of object * stride + instance), so the renderer can drag one shape.
+    // Its copies are drawn and picked in the design pose: the volumes in the object frame (the copy's
+    // turn, scale and mirror = the print pose, left out), standing on the bed at the copy's X/Y;
+    // scene_json gives each copy "design": { "offset", "min", "size" } for it.
+    json set_build_object(int object);
     // Per-object (volume < 0) or per-volume setting; a null value removes the override. With
     // several objects, the setting goes to each of them (volume must be < 0).
     json set_object_setting(const std::vector<int> &objects, int volume, const std::string &key, const json &value);
@@ -156,7 +172,8 @@ public:
 
     // Nearest hit of a world-space ray with any object: { "hit": false } or { "hit": true,
     // "object", "instance", "volume", "facet", "point" [world], "normal" [world], "local" [volume] }.
-    json pick(const std::array<double, 3> &origin, const std::array<double, 3> &dir);
+    // [only] >= 0: that object alone (the Build workspace, where the others are hidden).
+    json pick(const std::array<double, 3> &origin, const std::array<double, 3> &dir, int only = -1);
 
     // Paints with a sphere brush of `radius` mm around a pick() result. kind: "fuzzy" (state 1 =
     // fuzzy skin), "support" / "seam" (1 enforce, 2 block), "color" (state = 1-based filament);
@@ -181,7 +198,7 @@ public:
     json paint(const std::vector<PaintHit> &hits, const std::array<double, 3> &camera, double radius, const std::string &kind,
                int state, bool new_stroke, const std::vector<double> &section = {}, double edge_angle = 0.,
                const std::string &shape = "sphere", double height = 2., double overhang = 0.,
-               double guard = std::numeric_limits<double>::quiet_NaN(), bool over_colours = false);
+               double guard = std::numeric_limits<double>::quiet_NaN(), bool over_colours = false, uint32_t locked = 0);
     // Clears one kind of painting (or all for an empty kind) of an object.
     json paint_clear(int object, const std::string &kind);
     // Ends a fill preview by restoring the annotation from before the stroke (the finger slid off the model).
@@ -196,8 +213,9 @@ public:
     // Read-only mesh report of one copy, per model part: faces, open edges, shells, volume, zero-area faces and (when
     // [thickness] > 0) faces whose wall is thinner than that many mm; plus up to 400 of the thin spots as world x,y,z.
     json check_mesh(int object, int instance, double thickness);
-    json paint_gap_fill(int object, const std::string &kind, double area);
-    json paint_remap(int object, const std::vector<int> &dest);
+    json paint_gap_fill(int object, const std::string &kind, double area, uint32_t locked = 0);
+    json paint_remap(int object, const std::vector<int> &dest, bool base = false);
+    json paint_coverage(int object);
 
     // Variable layer height. All return { "profile": [z, h, ...], "min", "max", "height" } plus the
     // scene. `quality` 0..1 (adaptive), `radius` layers (smooth), `delta` mm over `band` mm.
@@ -306,7 +324,8 @@ public:
     void cancel();
 
     // For the plugin runtime: the preset bundle (read by plugins without the engine lock, as the
-    // desktop's plugins read the GUI's bundle), and the full config the last slice of `plate` used
+    // desktop's plugins read the GUI's bundle; every change to it is made under a
+    // plugins::BundleWriteGuard, and a bundle a plugin may hold is never freed), and the full config the last slice of `plate` used
     // (null before the first slice), which the G-code post-process plugins read.
     Slic3r::PresetBundle                             *preset_bundle() { return m_bundle.get(); }
     std::shared_ptr<const Slic3r::DynamicPrintConfig> slice_config(int plate);
@@ -351,6 +370,11 @@ private:
     Items                 checked_items(Items items) const; // validated, sorted, without duplicates
     void                  push_undo();
     void                  trim_undo();
+    // Runs an edit that replaces the scene; if it throws, the scene, history and calibration
+    // state are put back as they were (Muse Task 12 finding 7).
+    json                  rollback_on_error(const std::function<json()> &edit);
+    json                  load_models_locked(const std::vector<std::string> &paths, bool append, int plate);
+    json                  calib_start_locked(const std::string &type, const json &params);
     json                  scene_json();
     json                  commit(); // writes the mesh and returns scene_json()
     void                  write_mesh();
@@ -372,6 +396,8 @@ private:
 
     std::mutex                            m_mutex;
     std::unique_ptr<Slic3r::PresetBundle> m_bundle;
+    // Bundles replaced by load_presets() while plugins ran: a plugin may still hold one.
+    std::vector<std::unique_ptr<Slic3r::PresetBundle>> m_retired_bundles;
     std::unique_ptr<Slic3r::Model>        m_model;
     std::vector<PlateInfo>                m_plates{1};
     std::array<double, 4>                 m_layout_rect{0., 0., 200., 200.}; // bed the objects are laid out for
@@ -385,6 +411,10 @@ private:
     // Ray-cast acceleration per volume mesh, dropped whenever the scene changes (commit()).
     std::map<const void *, std::shared_ptr<Slic3r::AABBMesh>> m_aabb;
     int                                   m_mesh_version = 0;
+    int                                   m_build_object = -1; // see set_build_object()
+    // The Build workspace's object is drawn and picked in its design pose (see set_build_object()): a plain
+    // translation, given here per copy; nullopt = any other object (its copy's own matrix).
+    std::optional<std::array<double, 3>>  design_offset(size_t object, size_t instance) const;
     int                                   m_paint_version = 0;
     // The selector of the volume being painted stays live between paint calls while its annotation is unchanged:
     // deserializing it on every call grew slower with every painted triangle (user r316). Holds the mesh it points to.
@@ -414,6 +444,11 @@ private:
     // the fill follows the finger, and paint_fill_cancel puts it back (OrcaTools.cpp).
     struct FillPreview;
     std::shared_ptr<FillPreview>          m_fill_preview;
+    // The undo snapshot the current stroke pushed (nullptr: none), so a fill cancel pops only its own step.
+    // Held, not a raw pointer: a freed snapshot's address can come back for a new one.
+    std::shared_ptr<Slic3r::Model>        m_stroke_undo;
+    // Another edit since the preview was made (its undo top changed) leaves the preview stale: its volume may be gone.
+    void                                  drop_stale_fill_preview();
     // Guard plane: the stroke keeps below (true) or above the plane, the side where it started.
     bool                                  m_guard_below = true;
     // Painted triangles per (mesh, annotation timestamp, state): write_paint_mesh re-extracts only what changed.

@@ -29,6 +29,7 @@
 #include "libslic3r/calib.hpp"
 #include "libslic3r/Format/bbs_3mf.hpp"
 
+#include "AndroidPluginRuntime.hpp"
 #include "Preview.hpp"
 #include "Thumbnails.hpp"
 
@@ -182,7 +183,12 @@ json OrcaEngine::load_presets()
     for (PresetCollection *collection : {static_cast<PresetCollection *>(&bundle->printers), &bundle->prints, &bundle->filaments})
         for (size_t i = 0; i < collection->size(); ++i)
             collection->preset(i, true).is_visible = true;
-    m_bundle = std::move(bundle);
+    {
+        plugins::BundleWriteGuard guard;
+        if (guard.python_running() && m_bundle)
+            m_retired_bundles.push_back(std::move(m_bundle));
+        m_bundle = std::move(bundle);
+    }
     m_printer.clear();
 
     return {{"printers", printer_list_locked()}, {"errors", errors}};
@@ -229,8 +235,11 @@ json OrcaEngine::select_printer_locked(const std::string &printer)
     if (find_preset(m_bundle->printers, printer) == nullptr)
         throw std::runtime_error("Unknown printer: " + printer);
 
-    m_bundle->printers.select_preset_by_name(printer, true);
-    m_bundle->update_compatible(PresetSelectCompatibleType::Always);
+    {
+        plugins::BundleWriteGuard guard;
+        m_bundle->printers.select_preset_by_name(printer, true);
+        m_bundle->update_compatible(PresetSelectCompatibleType::Always);
+    }
     m_printer = printer;
     // Keep objects on their plates when the bed size changes.
     if (m_model && !m_model->objects.empty() && bed_rect() != m_layout_rect)
@@ -401,6 +410,7 @@ json OrcaEngine::preset_values(const std::string &type, const std::string &name)
 json OrcaEngine::save_preset(const std::string &type, const std::string &base, const std::string &new_name, const json &overrides)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
+    plugins::BundleWriteGuard   guard;
     PresetCollection &presets = collection(type);
     const Preset     *existing = find_preset(presets, new_name);
     if (existing != nullptr && (existing->is_system || existing->is_default))
@@ -423,6 +433,7 @@ json OrcaEngine::save_preset(const std::string &type, const std::string &base, c
 json OrcaEngine::delete_preset(const std::string &type, const std::string &name)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
+    plugins::BundleWriteGuard   guard;
     PresetCollection &presets = collection(type);
     const Preset     *preset  = find_preset(presets, name);
     if (preset == nullptr || preset->is_system || preset->is_default)
@@ -458,12 +469,15 @@ DynamicPrintConfig OrcaEngine::selection_config()
     require_printer();
     if (m_sel_print.empty() || m_sel_filaments.empty())
         throw std::runtime_error("No process/filament selected");
-    m_bundle->prints.select_preset_by_name(m_sel_print, true);
     std::vector<std::string> names;
     for (const json &f : m_sel_filaments)
         names.push_back(f.at("name").get<std::string>());
-    m_bundle->filaments.select_preset_by_name(names.front(), true);
-    m_bundle->filament_presets = names;
+    {
+        plugins::BundleWriteGuard guard;
+        m_bundle->prints.select_preset_by_name(m_sel_print, true);
+        m_bundle->filaments.select_preset_by_name(names.front(), true);
+        m_bundle->filament_presets = names;
+    }
 
     DynamicPrintConfig config = m_bundle->full_config();
     auto set_option = [&config](const std::string &key, const json &value) {

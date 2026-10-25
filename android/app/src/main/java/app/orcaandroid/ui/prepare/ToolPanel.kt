@@ -1,8 +1,19 @@
 package app.orcaandroid.ui.prepare
 
 import androidx.compose.foundation.Canvas
+import kotlinx.coroutines.delay
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.LockOpen
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
@@ -19,7 +30,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Brush
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Colorize
+import androidx.compose.material.icons.filled.FormatColorFill
+import androidx.compose.material.icons.filled.FormatColorReset
+import androidx.compose.material.icons.filled.Reorder
+import androidx.compose.material.icons.filled.ViewInAr
 import androidx.compose.material.icons.filled.DragIndicator
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
@@ -29,6 +46,8 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.ui.draw.alpha
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -45,6 +64,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -57,7 +77,14 @@ import kotlin.math.roundToInt
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.orcaandroid.R
+import app.orcaandroid.core.ColourChangeEstimate
+import app.orcaandroid.core.PaintLayers
+import app.orcaandroid.core.PresetType
 import app.orcaandroid.render.CutPlane
+import app.orcaandroid.render.FloatData
+import app.orcaandroid.ui.preview.ColourChangeLine
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import app.orcaandroid.ui.AppViewModel
 import app.orcaandroid.ui.Tool
 import app.orcaandroid.ui.UiState
@@ -150,6 +177,7 @@ private fun toolTitle(tool: Tool) = stringResource(
 
 @Composable
 private fun PaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Paint) {
+    if (tool.kind == "color") return ColorPaintOptions(state, vm, tool)
     Text(stringResource(R.string.paint_hint), style = MaterialTheme.typography.bodySmall)
     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         if (tool.kind == "color") {
@@ -197,49 +225,11 @@ private fun PaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Paint) {
     }
     // One-tap actions on the whole object. Clean specks = the desktop's gap fill: painted patches under the area take the
     // state that borders them most. Colour each part: every separate shell gets its own filament, largest first.
-    var gapArea by rememberSaveable { mutableFloatStateOf(1f) }
-    if (tool.kind == "color" || tool.kind == "support") {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            FilledTonalButton(onClick = { vm.scene.paintGapFill(tool.kind, gapArea) }) { Text(stringResource(R.string.paint_clean_specks)) }
-            Text(stringResource(R.string.paint_gap_area, gapArea), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 8.dp))
-            Slider(gapArea, { gapArea = it }, valueRange = 0.1f..5f, modifier = Modifier.weight(1f).padding(start = 8.dp))
-        }
-        if (tool.kind == "color" && state.filaments.size > 1)
-            FilledTonalButton(onClick = { vm.scene.paintByPart() }) { Text(stringResource(R.string.paint_by_part)) }
-    }
-    // Edge detection (brush) / smart fill angle (fill): the angle stays remembered while it is off.
-    var edgeAngle by rememberSaveable { mutableFloatStateOf(30f) }
-    if (brush || tool.shape == "fill") Row(verticalAlignment = Alignment.CenterVertically) {
-        FilterChip(tool.edgeAngle > 0f, { vm.scene.setTool(tool.copy(edgeAngle = if (tool.edgeAngle > 0f) 0f else edgeAngle)) },
-            label = { Text(stringResource(R.string.paint_stop_at_edges)) })
-        if (tool.edgeAngle > 0f) {
-            Text(stringResource(R.string.paint_edge_angle, tool.edgeAngle.roundToInt()), style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(start = 8.dp))
-            Slider(tool.edgeAngle, { edgeAngle = it; vm.scene.setTool(tool.copy(edgeAngle = it)) }, valueRange = 5f..89f,
-                modifier = Modifier.weight(1f).padding(start = 8.dp))
-        }
-    }
-    // Fill over colours: the fill ignores existing colours (the desktop's stops at them) and stops only at edges / the guard plane.
-    if (tool.shape == "fill") FilterChip(tool.overColours, { vm.scene.setTool(tool.copy(overColours = !tool.overColours)) },
-        label = { Text(stringResource(R.string.paint_over_colours)) })
-    // Guard plane: painting stops at a horizontal plane (drawn like the cut plane); a stroke keeps to the side it starts on.
-    val inst = state.selectedObject?.instances?.getOrNull(state.selection?.instance ?: 0)
-    if (tool.shape != "pick" && inst != null) Row(verticalAlignment = Alignment.CenterVertically) {
-        val range = inst.min.z..(inst.min.z + inst.size.z)
-        FilterChip(tool.guardOn, {
-            vm.scene.setTool(tool.copy(guardOn = !tool.guardOn, guardZ = if (tool.guardZ in range) tool.guardZ else inst.min.z + inst.size.z / 2))
-        }, label = { Text(stringResource(R.string.paint_guard)) })
-        if (tool.guardOn) {
-            Text(stringResource(R.string.paint_guard_z, tool.guardZ), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 8.dp))
-            Slider(tool.guardZ.coerceIn(range), { vm.scene.setTool(tool.copy(guardZ = it)) }, valueRange = range,
-                modifier = Modifier.weight(1f).padding(start = 8.dp))
-        }
-    }
-    // Stroke lock (brush): the stroke keeps to a screen axis through its first point (straight lines).
-    if (brush) Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        FilterChip(tool.lock == "v", { vm.scene.setTool(tool.copy(lock = if (tool.lock == "v") "" else "v")) }, label = { Text(stringResource(R.string.paint_lock_vertical)) })
-        FilterChip(tool.lock == "h", { vm.scene.setTool(tool.copy(lock = if (tool.lock == "h") "" else "h")) }, label = { Text(stringResource(R.string.paint_lock_horizontal)) })
-    }
+    if (tool.kind == "color" || tool.kind == "support") CleanSpecks(vm, tool)
+    if (brush || tool.shape == "fill") EdgeRow(vm, tool)
+    if (tool.shape == "fill") OverColours(vm, tool)
+    if (tool.shape != "pick") GuardRow(state, vm, tool)
+    if (brush) StrokeLock(vm, tool)
     // Support painting's overhang angle (the desktop's): "Highlight overhangs" tints the faces overhanging by more than it,
     // "On overhangs only" (brush) paints only those. One shared angle, remembered while both are off.
     var overhang by rememberSaveable { mutableFloatStateOf(40f) }
@@ -258,9 +248,14 @@ private fun PaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Paint) {
             }, valueRange = 1f..90f, modifier = Modifier.weight(1f).padding(start = 8.dp))
         }
     }
-    // Remap filaments (the desktop's tool): painted filament i becomes filament remap[i] on the whole object.
+    TextButton(onClick = { vm.scene.paintClear(tool.kind) }) { Text(stringResource(R.string.clear_painting)) }
+}
+
+/** Remap filaments (the desktop's tool): painted filament i becomes filament remap[i] on the whole object. */
+@Composable
+private fun RemapSection(state: UiState, vm: AppViewModel) {
     var remapOpen by rememberSaveable { mutableStateOf(false) }
-    if (tool.kind == "color" && state.filaments.size > 1) {
+    if (state.filaments.size > 1) {
         val n = state.filaments.size
         var remap by remember(n) { mutableStateOf(List(n) { it }) }
         FilterChip(remapOpen, { remapOpen = !remapOpen }, label = { Text(stringResource(R.string.paint_remap)) })
@@ -290,7 +285,300 @@ private fun PaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Paint) {
             }
         }
     }
-    TextButton(onClick = { vm.scene.paintClear(tool.kind) }) { Text(stringResource(R.string.clear_painting)) }
+}
+
+/** Colour painting as task modes (user picked "option C", 2026-10-21): Brush / Fill / Bands / Object, each with a one-line
+ *  description and only its own options; the swatch row (filaments, Erase, Pick) is shared by all. Object mode = a fill over
+ *  colours with no edge limit (a tap colours the whole part) plus the whole-object actions. */
+@Composable
+internal fun ColorPaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Paint, layers: Boolean = false) {
+    val shape = if (tool.shape == "pick") tool.back else tool.shape
+    // The mode follows the tool (PaintMode): Object only while its fill is still the active shape.
+    val mode = PaintMode.of(shape, tool.objectMode)
+    // The shape each mode used last, and the fill settings Object mode overrides, live on
+    // the tool itself (PaintMode.entered / the Tool.Paint fields), so they survive the
+    // paint shop leaving composition — as rememberSaveable / remember state here, a
+    // Preview round-trip reset them (Task 11, the Task 7 follow-up).
+    fun enter(m: String) {
+        if (m == mode) return
+        vm.scene.setTool(PaintMode.entered(tool, mode, m))
+    }
+    Row(Modifier.fillMaxWidth()) {
+        listOf(
+            Triple("brush", Icons.Default.Brush, R.string.paint_mode_brush), Triple("fill", Icons.Default.FormatColorFill, R.string.paint_mode_fill),
+            Triple("bands", Icons.Default.Reorder, R.string.paint_mode_bands), Triple("object", Icons.Default.ViewInAr, R.string.paint_mode_object),
+        ).forEach { (m, icon, label) ->
+            val on = m == mode
+            Column(Modifier.weight(1f).clip(RoundedCornerShape(12.dp))
+                .background(if (on) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
+                .clickable { enter(m) }.padding(vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(icon, null, Modifier.size(20.dp))
+                Text(stringResource(label), style = MaterialTheme.typography.labelMedium)
+            }
+        }
+    }
+    Text(stringResource(when {
+        tool.shape == "pick" -> R.string.paint_pick_hint
+        mode == "brush" -> R.string.paint_mode_brush_desc
+        mode == "fill" && shape == "regions" -> R.string.paint_mode_regions_desc
+        mode == "fill" -> R.string.paint_mode_fill_desc
+        mode == "bands" -> R.string.paint_mode_bands_desc
+        else -> R.string.paint_mode_object_desc
+    }), style = MaterialTheme.typography.bodySmall)
+    // Filament layers: the surface share of each filament, again shortly after the paint stops changing (a stroke changes
+    // it every batch). Side panel = one row per filament; the dock keeps swatches and long-press opens the same actions.
+    var coverage by remember { mutableStateOf<FloatArray?>(null) }
+    LaunchedEffect(state.selection, state.scene.paintVersion, state.scene.meshVersion, state.filaments.size) {
+        delay(300)
+        coverage = runCatching { vm.scene.paintCoverage() }.getOrNull()
+    }
+    // What the plate's paint costs in colour changes and chute flush, before slicing (paint plan step 3).
+    var changes by remember { mutableStateOf<ColourChangeEstimate.Estimate?>(null) }
+    val flushKeys = listOf("flush_volumes_matrix", "flush_multiplier", "enable_prime_tower", "layer_height", "initial_layer_print_height")
+        .map { state.value(PresetType.PRINT, it) }
+    LaunchedEffect(state.scene, state.activePlate, state.filaments.size, flushKeys) {
+        delay(300)
+        changes = runCatching { withContext(Dispatchers.IO) { paintChangeEstimate(state) } }.getOrNull()
+    }
+    val total = coverage?.sum()?.takeIf { it > 0f }
+    fun percent(i: Int) = total?.let { t -> ((coverage?.getOrNull(i) ?: 0f) / t * 100f).roundToInt() }
+    fun turnInto(i: Int, j: Int) = vm.scene.paintRemap(List(state.filaments.size) { if (it == i) j else it }, base = true)
+    // Hide = drawn grey (see the other filaments' areas); lock = no paint, fill, erase or speck clean covers it.
+    val layer = { i: Int -> LayerFlags(tool.hidden shr i and 1 != 0, tool.locked shr i and 1 != 0,
+        { vm.scene.setTool(tool.copy(hidden = tool.hidden xor (1 shl i))) }, { vm.scene.setTool(tool.copy(locked = tool.locked xor (1 shl i))) }) }
+    if (layers) {
+        Text(stringResource(R.string.paint_layers), style = MaterialTheme.typography.labelMedium)
+        state.filaments.indices.forEach { i ->
+            PaintLayerRow(state, i, tool.state == i + 1 && tool.shape != "pick", percent(i), layer(i), { vm.scene.setTool(tool.copy(state = i + 1, shape = shape)) }) { j -> turnInto(i, j) }
+        }
+    }
+    // Swatches: tap = paint with it. Erase and the eyedropper sit at the end of the same row.
+    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+        if (!layers) state.filaments.forEachIndexed { i, f ->
+            var menu by remember { mutableStateOf(false) }
+            Box {
+                Swatch(tool.state == i + 1 && tool.shape != "pick", "${i + 1}", { vm.scene.setTool(tool.copy(state = i + 1, shape = shape)) },
+                    onLongClick = { menu = true }) { LayerDot(f.color, 28, layer(i)) }
+                LayerMenu(state, i, menu, percent(i), layer(i), { menu = false }) { j -> turnInto(i, j) }
+            }
+        }
+        if (mode != "object")
+            Swatch(tool.state == 0 && tool.shape != "pick", stringResource(R.string.erase), { vm.scene.setTool(tool.copy(state = 0, shape = shape)) }) {
+                Icon(Icons.Default.FormatColorReset, null, Modifier.size(24.dp))
+            }
+        Swatch(tool.shape == "pick", stringResource(R.string.paint_pick), {
+            vm.scene.setTool(if (tool.shape == "pick") tool.copy(shape = tool.back) else tool.copy(shape = "pick", back = tool.shape))
+        }) { Icon(Icons.Default.Colorize, null, Modifier.size(24.dp)) }
+    }
+    changes?.takeIf { it.changes > 0 }?.let {
+        Text(stringResource(R.string.paint_change_estimate, it.changes, it.flushGrams), style = MaterialTheme.typography.bodySmall)
+    }
+    when (mode) {
+        "brush" -> {
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf("sphere", "circle", "triangle").forEach { s ->
+                    FilterChip(shape == s, { vm.scene.setTool(tool.copy(shape = s, back = s, brushShape = s)) }, label = { Text(stringResource(paintShapeLabel(s))) })
+                }
+            }
+            if (shape != "triangle") Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.brush_size, tool.radius), style = MaterialTheme.typography.bodySmall)
+                Slider(tool.radius, { vm.scene.setTool(tool.copy(radius = it)) }, valueRange = 0.5f..15f, modifier = Modifier.weight(1f).padding(start = 8.dp))
+            }
+            if (shape != "triangle") { EdgeRow(vm, tool); StrokeLock(vm, tool) }
+            GuardRow(state, vm, tool)
+        }
+        "fill" -> {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                FilterChip(shape == "fill", { vm.scene.setTool(tool.copy(shape = "fill", back = "fill", fillShape = "fill")) },
+                    label = { Text(stringResource(R.string.paint_smart_fill)) })
+                FilterChip(shape == "regions", {
+                    vm.scene.setTool(tool.copy(shape = "regions", back = "regions", fillShape = "regions", edgeAngle = if (tool.edgeAngle <= 0f) 30f else tool.edgeAngle))
+                }, label = { Text(stringResource(R.string.paint_shape_regions)) })
+            }
+            if (shape == "regions") Row(verticalAlignment = Alignment.CenterVertically) {
+                val angle = tool.edgeAngle.takeIf { it > 0f } ?: 30f
+                Text(stringResource(R.string.paint_crease_angle, angle.roundToInt()), style = MaterialTheme.typography.bodySmall)
+                Slider(angle, { vm.scene.setTool(tool.copy(edgeAngle = it)) }, valueRange = 5f..89f, modifier = Modifier.weight(1f).padding(start = 8.dp))
+            } else { EdgeRow(vm, tool); OverColours(vm, tool) }
+            GuardRow(state, vm, tool)
+        }
+        "bands" -> {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.paint_height_range, tool.height), style = MaterialTheme.typography.bodySmall)
+                Slider(tool.height, { vm.scene.setTool(tool.copy(height = it)) }, valueRange = 0.1f..8f, modifier = Modifier.weight(1f).padding(start = 8.dp))
+            }
+            GuardRow(state, vm, tool)
+        }
+        else -> {
+            if (state.filaments.size > 1)
+                FilledTonalButton(onClick = { vm.scene.paintByPart() }) { Text(stringResource(R.string.paint_by_part)) }
+            CleanSpecks(vm, tool)
+            RemapSection(state, vm)
+            PaintDepth(state, vm)
+            TextButton(onClick = { vm.scene.paintClear(tool.kind) }) { Text(stringResource(R.string.clear_painting)) }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun Swatch(selected: Boolean, label: String, onClick: () -> Unit, onLongClick: (() -> Unit)? = null, content: @Composable () -> Unit) {
+    Column(Modifier.clip(RoundedCornerShape(8.dp)).combinedClickable(onLongClick = onLongClick, onClick = onClick).padding(4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(Modifier.size(36.dp).then(if (selected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, CircleShape) else Modifier),
+            contentAlignment = Alignment.Center) { content() }
+        Text(label, style = MaterialTheme.typography.labelSmall)
+    }
+}
+
+/**
+ * The active plate's colour changes and chute flush from its paint, before slicing ([PaintLayers.forPlate] into
+ * [ColourChangeEstimate.estimate]). Without a stored flushing matrix the switches still count and each purges only the
+ * floor; the density is the first filament's for all; `flush_multiplier` falls back to its default 0.3
+ * (`PrintConfig.cpp:7710`). Null below two filaments or without a paint mesh.
+ */
+private fun paintChangeEstimate(state: UiState): ColourChangeEstimate.Estimate? {
+    val n = state.filaments.size
+    if (n < 2 || state.scene.paintFile.isEmpty()) return null
+    fun nums(type: PresetType, key: String) = state.value(type, key)?.split(',', ';')?.mapNotNull { it.trim().toDoubleOrNull() }.orEmpty()
+    fun num(type: PresetType, key: String, default: Double) = nums(type, key).firstOrNull() ?: default
+    val matrix = ColourChangeEstimate.parseFlushMatrix(nums(PresetType.PRINT, "flush_volumes_matrix"), n) ?: Array(n) { DoubleArray(n) }
+    val paint = FloatData.load(state.scene.paintFile, 8)?.data ?: return null
+    val layers = PaintLayers.forPlate(paint, state.scene.objects, state.activePlate,
+        num(PresetType.PRINT, "initial_layer_print_height", 0.2).toFloat(), num(PresetType.PRINT, "layer_height", 0.2).toFloat(),
+        num(PresetType.PRINT, "top_shell_layers", 0.0).toInt(), num(PresetType.PRINT, "bottom_shell_layers", 0.0).toInt())
+    val tower = state.value(PresetType.PRINT, "enable_prime_tower") == "1"
+    return ColourChangeEstimate.estimate(layers, matrix, num(PresetType.PRINT, "flush_multiplier", 0.3),
+        List(n) { num(PresetType.FILAMENT, "filament_density", ColourChangeLine.DENSITY_G_PER_CM3) }, null,
+        grabMm3 = num(PresetType.PRINTER, "grab_length", 0.0) * ColourChangeEstimate.GRAB_MM3_PER_MM,
+        minPurgeMm3 = if (tower) ColourChangeEstimate.TOWER_MIN_PURGE_MM3 else 0.0)
+}
+
+/** A filament's name without the printer suffix ("Bambu PLA Basic @BBL A1" -> "Bambu PLA Basic"). */
+private fun filamentLabel(state: UiState, i: Int) = "${i + 1} " + state.filaments[i].preset.substringBefore(" @")
+
+/** A filament layer's hide / lock state and their toggles. */
+private class LayerFlags(val hidden: Boolean, val locked: Boolean, val toggleHidden: () -> Unit, val toggleLocked: () -> Unit)
+
+/** A dock swatch: the colour, faded while hidden, with a lock badge while locked. */
+@Composable
+private fun LayerDot(color: String?, size: Int, flags: LayerFlags) {
+    Box(contentAlignment = Alignment.BottomEnd) {
+        Box(Modifier.alpha(if (flags.hidden) 0.35f else 1f)) { ColorDot(color, size) }
+        if (flags.locked) Icon(Icons.Default.Lock, null, Modifier.size(14.dp).background(MaterialTheme.colorScheme.surface, CircleShape).padding(1.dp))
+    }
+}
+
+/** One filament layer in the paint shop's side panel: tap = paint with it; the share bar; eye = hide, lock; the menu turns
+ *  it into another. */
+@Composable
+private fun PaintLayerRow(state: UiState, i: Int, selected: Boolean, percent: Int?, flags: LayerFlags, onClick: () -> Unit, onTurnInto: (Int) -> Unit) {
+    var menu by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(12.dp)
+    Row(Modifier.fillMaxWidth().clip(shape)
+        .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh)
+        .then(if (selected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, shape) else Modifier)
+        .clickable(onClick = onClick).padding(start = 10.dp, top = 2.dp, bottom = 2.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Box(Modifier.alpha(if (flags.hidden) 0.35f else 1f)) { ColorDot(state.filaments[i].color, 24) }
+        Column(Modifier.weight(1f).alpha(if (flags.hidden) 0.6f else 1f)) {
+            Text(filamentLabel(state, i), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.weight(1f).height(4.dp).clip(RoundedCornerShape(2.dp)).background(MaterialTheme.colorScheme.outlineVariant)) {
+                    Box(Modifier.fillMaxWidth((percent ?: 0) / 100f).height(4.dp).background(MaterialTheme.colorScheme.outline))
+                }
+                Text(percent?.let { "$it %" } ?: "", Modifier.widthIn(min = 40.dp).padding(start = 6.dp), style = MaterialTheme.typography.labelSmall)
+            }
+        }
+        Row {
+            IconButton(flags.toggleHidden, Modifier.size(36.dp)) {
+                Icon(if (flags.hidden) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                    stringResource(if (flags.hidden) R.string.paint_layer_show else R.string.paint_layer_hide), Modifier.size(20.dp))
+            }
+            IconButton(flags.toggleLocked, Modifier.size(36.dp)) {
+                Icon(if (flags.locked) Icons.Default.Lock else Icons.Default.LockOpen,
+                    stringResource(if (flags.locked) R.string.paint_layer_unlock else R.string.paint_layer_lock), Modifier.size(20.dp),
+                    tint = if (flags.locked) MaterialTheme.colorScheme.primary else LocalContentColor.current)
+            }
+        }
+        Box {
+            IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, stringResource(R.string.paint_layer_menu)) }
+            LayerMenu(state, i, menu, percent, flags, { menu = false }, onTurnInto)
+        }
+    }
+}
+
+/** Layer actions (side panel menu button, dock swatch long-press): the share, hide / lock, then "Turn into" each other filament. */
+@Composable
+private fun LayerMenu(state: UiState, i: Int, open: Boolean, percent: Int?, flags: LayerFlags, onDismiss: () -> Unit, onTurnInto: (Int) -> Unit) {
+    DropdownMenu(open, onDismiss) {
+        Text(stringResource(R.string.paint_layer_share, filamentLabel(state, i), percent ?: 0), Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        DropdownMenuItem(text = { Text(stringResource(if (flags.hidden) R.string.paint_layer_show else R.string.paint_layer_hide)) },
+            leadingIcon = { Icon(if (flags.hidden) Icons.Default.Visibility else Icons.Default.VisibilityOff, null) }, onClick = { onDismiss(); flags.toggleHidden() })
+        DropdownMenuItem(text = { Text(stringResource(if (flags.locked) R.string.paint_layer_unlock else R.string.paint_layer_lock)) },
+            leadingIcon = { Icon(if (flags.locked) Icons.Default.LockOpen else Icons.Default.Lock, null) }, onClick = { onDismiss(); flags.toggleLocked() })
+        state.filaments.forEachIndexed { j, g ->
+            if (j != i) DropdownMenuItem(text = { Text(stringResource(R.string.paint_turn_into, j + 1)) }, leadingIcon = { ColorDot(g.color) },
+                onClick = { onDismiss(); onTurnInto(j) })
+        }
+    }
+}
+
+/** Clean specks = the desktop's gap fill: painted patches under the area take the state that borders them most. */
+@Composable
+private fun CleanSpecks(vm: AppViewModel, tool: Tool.Paint) {
+    var gapArea by rememberSaveable { mutableFloatStateOf(1f) }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        FilledTonalButton(onClick = { vm.scene.paintGapFill(tool.kind, gapArea, tool.locked) }) { Text(stringResource(R.string.paint_clean_specks)) }
+        Text(stringResource(R.string.paint_gap_area, gapArea), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 8.dp))
+        Slider(gapArea, { gapArea = it }, valueRange = 0.1f..5f, modifier = Modifier.weight(1f).padding(start = 8.dp))
+    }
+}
+
+/** Edge detection (brush) / smart fill angle (fill): the angle stays remembered while it is off. */
+@Composable
+private fun EdgeRow(vm: AppViewModel, tool: Tool.Paint) {
+    var edgeAngle by rememberSaveable { mutableFloatStateOf(30f) }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        FilterChip(tool.edgeAngle > 0f, { vm.scene.setTool(tool.copy(edgeAngle = if (tool.edgeAngle > 0f) 0f else edgeAngle)) },
+            label = { Text(stringResource(R.string.paint_stop_at_edges)) })
+        if (tool.edgeAngle > 0f) {
+            Text(stringResource(R.string.paint_edge_angle, tool.edgeAngle.roundToInt()), style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(start = 8.dp))
+            Slider(tool.edgeAngle, { edgeAngle = it; vm.scene.setTool(tool.copy(edgeAngle = it)) }, valueRange = 5f..89f,
+                modifier = Modifier.weight(1f).padding(start = 8.dp))
+        }
+    }
+}
+
+/** Fill over colours: the fill ignores existing colours (the desktop's stops at them) and stops only at edges / the guard plane. */
+@Composable
+private fun OverColours(vm: AppViewModel, tool: Tool.Paint) =
+    FilterChip(tool.overColours, { vm.scene.setTool(tool.copy(overColours = !tool.overColours)) }, label = { Text(stringResource(R.string.paint_over_colours)) })
+
+/** Guard plane: painting stops at a horizontal plane (drawn like the cut plane); a stroke keeps to the side it starts on. */
+@Composable
+private fun GuardRow(state: UiState, vm: AppViewModel, tool: Tool.Paint) {
+    val inst = state.selectedObject?.instances?.getOrNull(state.selection?.instance ?: 0) ?: return
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        val range = inst.min.z..(inst.min.z + inst.size.z)
+        FilterChip(tool.guardOn, {
+            vm.scene.setTool(tool.copy(guardOn = !tool.guardOn, guardZ = if (tool.guardZ in range) tool.guardZ else inst.min.z + inst.size.z / 2))
+        }, label = { Text(stringResource(R.string.paint_guard)) })
+        if (tool.guardOn) {
+            Text(stringResource(R.string.paint_guard_z, tool.guardZ), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 8.dp))
+            Slider(tool.guardZ.coerceIn(range), { vm.scene.setTool(tool.copy(guardZ = it)) }, valueRange = range,
+                modifier = Modifier.weight(1f).padding(start = 8.dp))
+        }
+    }
+}
+
+/** Stroke lock (brush): the stroke keeps to a screen axis through its first point (straight lines). */
+@Composable
+private fun StrokeLock(vm: AppViewModel, tool: Tool.Paint) = Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+    FilterChip(tool.lock == "v", { vm.scene.setTool(tool.copy(lock = if (tool.lock == "v") "" else "v")) }, label = { Text(stringResource(R.string.paint_lock_vertical)) })
+    FilterChip(tool.lock == "h", { vm.scene.setTool(tool.copy(lock = if (tool.lock == "h") "" else "h")) }, label = { Text(stringResource(R.string.paint_lock_horizontal)) })
 }
 
 private fun paintShapeLabel(shape: String) = when (shape) {

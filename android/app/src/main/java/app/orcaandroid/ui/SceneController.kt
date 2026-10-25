@@ -10,6 +10,7 @@ import app.orcaandroid.core.PresetType
 import app.orcaandroid.core.Scene
 import app.orcaandroid.core.Vec3
 import app.orcaandroid.render.SectionView
+import app.orcaandroid.ui.prepare.PaintMode
 import app.orcaandroid.core.VolumeType
 import java.io.File
 import kotlinx.coroutines.Job
@@ -305,7 +306,14 @@ class SceneController(private val store: Store, private val presets: PresetContr
 
     // --- 3D tools ----------------------------------------------------------------------------------------
 
+    /** The paint tool each kind was last left with (session-only), for [openPaint]. */
+    private val lastPaint = HashMap<String, Tool.Paint>()
+
+    /** Opens paint [kind] as it was last left (PaintMode.reopened). */
+    fun openPaint(kind: String, state: Int) = setTool(PaintMode.reopened(lastPaint[kind], kind, state))
+
     fun setTool(tool: Tool) = store.launch {
+        (store.value.tool as? Tool.Paint)?.let { lastPaint[it.kind] = it }
         store.update { it.copy(tool = tool, measure = if (tool == Tool.Measure) emptyList() else it.measure) }
         if (tool == Tool.LayerHeight) loadLayerProfile { engine.layerProfile(it) }
     }
@@ -451,7 +459,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
                         } else {
                             store.applyScene(engine.paint(listOf(hit), last.camera, tool.radius, tool.kind, tool.state, !fillShown, last.section,
                                 listOf(false), tool.edgeAngle, "fill", tool.height, tool.overhang, tool.guardZ.takeIf { tool.guardOn },
-                                tool.overColours || tool.shape == "regions"))
+                                tool.overColours || tool.shape == "regions", tool.locked))
                             fillShown = true
                         }
                         strokePending = false
@@ -468,7 +476,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
                     if (hits.isEmpty()) continue
                     val last = batch.last()
                     store.applyScene(engine.paint(hits, last.camera, tool.radius, tool.kind, tool.state, strokePending, last.section, joins, tool.edgeAngle,
-                        tool.shape, tool.height, tool.overhang, tool.guardZ.takeIf { tool.guardOn }))
+                        tool.shape, tool.height, tool.overhang, tool.guardZ.takeIf { tool.guardOn }, locked = tool.locked))
                     strokePending = false
                 }
             }
@@ -476,11 +484,12 @@ class SceneController(private val store: Store, private val presets: PresetContr
     }
 
     fun paintClear(kind: String) = selection?.let { sel -> store.sceneOp { engine.paintClear(sel.obj, kind) } }
-    fun paintRemap(dest: List<Int>) = selection?.let { sel -> store.sceneOp { engine.paintRemap(sel.obj, dest) } }
+    fun paintRemap(dest: List<Int>, base: Boolean = false) = selection?.let { sel -> store.sceneOp { engine.paintRemap(sel.obj, dest, base) } }
+    suspend fun paintCoverage(): FloatArray? = selection?.let { engine.paintCoverage(it.obj) }
     /** Regions view: the selected copy's crease lines, or null without a selection. */
     suspend fun creaseLines(angle: Float): FloatArray? = selection?.let { engine.creaseLines(it.obj, it.instance, angle) }
     fun paintByPart() = selection?.let { sel -> store.sceneOp { engine.paintByPart(sel.obj) } }
-    fun paintGapFill(kind: String, area: Float) = selection?.let { sel -> store.sceneOp { engine.paintGapFill(sel.obj, kind, area) } }
+    fun paintGapFill(kind: String, area: Float, locked: Int = 0) = selection?.let { sel -> store.sceneOp { engine.paintGapFill(sel.obj, kind, area, locked) } }
 
     // --- Variable layer height ------------------------------------------------------------------------
 

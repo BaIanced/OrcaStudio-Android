@@ -15,9 +15,14 @@ const val INSTANCE_ID_STRIDE = 4096
 private const val BADGE_SIZE = 0.1f
 private const val BADGE_GAP = 0.02f
 
+/** Opacity of a plate seen from below (its see-through side). */
+private const val PLATE_UNDER_ALPHA = 0.45f
+
 /** Contact shadow: geometry up to this height above the bed casts it, mm; darkness right under a part. */
 private const val SHADOW_FADE_MM = 12f
 private const val SHADOW_STRENGTH = 0.8f
+/** Realistic mode's AO: the disc (mm) over which the key light's shadow map says how much of its softbox a point sees. */
+private const val AO_SOFT_MM = 24f
 /** Preview supersampling: samples per view pixel each way (4 a pixel), and how long the camera rests before it starts. */
 private const val SUPERSAMPLE = 2
 private const val STILL_NS = 200_000_000L
@@ -65,7 +70,20 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     private var plateOrigins = listOf(0f to 0f)
     var activePlate = 0
     /** Selection ids (object * INSTANCE_ID_STRIDE + instance) of the selected copies. */
-    var selectedIds = FloatArray(0)
+    @Volatile var selectedIds = FloatArray(0)
+    /**
+     * The gizmos' box (x0, y0, z0, x1, y1, z1) instead of the selected meshes' (Build: a shape inside a group, whose volume
+     * is the whole group's); the live resize and turn then move only the box and rings, not the group's mesh.
+     */
+    @Volatile var boxOverride: FloatArray? = null
+    /** Paint shop: only the selected copies are drawn (objects, paint, shadows); the plates stay. */
+    var solo = false
+    /** Build workspace: only the build object is drawn (selection ids -1000 - volume, see Engine.setBuildObject). */
+    var buildSolo = false
+    /** Paint shop: filaments drawn grey (bit i = 0-based filament i). */
+    var hiddenFilaments = 0
+    /** A box to fit the camera to (current angles) once the surface has its size: the paint shop's entry framing. */
+    var fitPending: Pair<app.orcaandroid.core.Vec3, app.orcaandroid.core.Vec3>? = null
     /** Live offset of the selected copies while they are dragged. */
     var dragOffset = floatArrayOf(0f, 0f, 0f)
         set(v) {
@@ -120,6 +138,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     /** Section view plane (nx, ny, nz, d): world points with n . p > d are cut away; null = off. */
     var section: FloatArray? = null
     var filamentColors: List<FloatArray> = emptyList()
+    /** The surface look per filament slot (Prepare's model shader); missing slots are [FilamentMaterial.BASIC]. */
+    var filamentMaterials: List<FilamentMaterial> = emptyList()
     /** Plates known to the view; 0 until the first bed arrives (then the camera frames plate 1). */
     var plateOriginsCount = 0
     /** The shadow under objects (Prepare). */
@@ -134,6 +154,18 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var keyAzimuth = -57.5f
     var keyElevation = 49f
     var keyStrength = 1f
+    /** Realistic render mode: physically based shading of the parts with a studio environment (MESH_FS uRealistic). */
+    var realistic = false
+
+    /** Layout lab "HD plate": a dark plate with upstream's bed-type decals, solid from above, see-through from below. */
+    var plateSurface = false
+    /** Per plate (index = plate), set with [plateSurface]. */
+    var plateLooks: List<PlateLook> = emptyList()
+    /** Decal art by asset name (UI thread callback, called on the GL thread); null = not found. */
+    var decalLoader: ((String) -> android.graphics.Bitmap?)? = null
+    private val decalTex = HashMap<String, Int>()
+    /** Layer lines on the models (MESH_FS uLayers): first layer height and layer height in mm; layer height 0 = off. */
+    var layerLines = floatArrayOf(0f, 0f)
     /** Support painting's "Highlight overhangs": > 0 tints the selected parts' faces overhanging by more than this many degrees. */
     var overhangHighlight = 0f
     private val keyDir get() = Math.toRadians(keyElevation.toDouble()).let { el ->
@@ -146,7 +178,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var selectionStyle = SelectionStyle.DEFAULT
     var outlinePx = 6f
     /** Bounds (x0, y0, z0, x1, y1, z1) of each selection id's parts in the scene mesh, for the bounding box. */
-    private var copyBounds: Map<Int, FloatArray> = emptyMap()
+    @Volatile private var copyBounds: Map<Int, FloatArray> = emptyMap()
 
     /** Preview supersampling ([Supersample]). */
     var supersample = Supersample.STILL
@@ -221,6 +253,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     private var pointProgram = 0
     private var badgeProgram = 0
     private var gridProgram = 0
+    private var plateProgram = 0
+    private var decalProgram = 0
     private val mvp = FloatArray(16)
 
     fun setBed(outline: FloatArray, origins: List<Pair<Float, Float>>) {
@@ -301,6 +335,9 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         pointProgram = program(Shaders.POINT_VS, Shaders.POINT_FS)
         badgeProgram = program(Shaders.BADGE_VS, Shaders.BADGE_FS)
         gridProgram = program(Shaders.GRID_VS, Shaders.GRID_FS)
+        plateProgram = program(Shaders.GRID_VS, Shaders.PLATE_FS)
+        decalProgram = program(Shaders.DECAL_VS, Shaders.DECAL_FS)
+        decalTex.clear()
         val ids = IntArray(11)
         glGenBuffers(11, ids, 0)
         ghostVbo = ids[9]; ghostCount = 0
@@ -345,6 +382,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     }
 
     private fun drawFrame() {
+        if (viewW > 1) fitPending?.let { (lo, hi) -> camera.fit(lo, hi, keepAngles = true); fitPending = null }
         upload()
         camera.viewProjection(mvp)
         val now = System.nanoTime()
@@ -420,7 +458,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         useRealShadow = false
         if (shadow) {
             effects.lightDir = keyDir
-            val key = listOf(meshVersion, dragOffset.toList(), resizeScale.toList(), rotateMatrix?.toList(), selectedIds.toList(), dragTower, section?.toList(), keyAzimuth, keyElevation)
+            val key = listOf(meshVersion, dragOffset.toList(), resizeScale.toList(), rotateMatrix?.toList(), selectedIds.toList(), dragTower, section?.toList(), keyAzimuth, keyElevation, solo, buildSolo)
             // A dragged copy may leave the footprint: widen it by the drag.
             // A fixed widening for the whole drag: any change of the map area mid-drag rescales the texels and
             // shows as a step ("strobe") in the shadow.
@@ -440,6 +478,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             glClearColor(bg[0], bg[1], bg[2], 1f)
         }
         if (shadow) effects.drawShadow(mvp, if (effects.isRealShadow) shadowStrength else SHADOW_STRENGTH, shadowSoftMm, shadowBiasMm, bedRects())
+        if (plateSurface && camera.eye().z >= 0f) drawPlateSurfaces(1f)
         drawBeds()
         drawBadges()
         if (showPreview) {
@@ -458,12 +497,25 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             glEnable(GL_BLEND)
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
             glDepthMask(false)
+            // Realistic mode's clear filaments (premultiplied): far faces first, then the near ones over them.
+            if (models && realistic && filamentMaterials.any { it.b[3] > 0f }) {
+                glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA)
+                glEnable(GL_CULL_FACE)
+                glCullFace(GL_FRONT)
+                drawMesh(meshVbo, meshCount, pass = 7)
+                glCullFace(GL_BACK)
+                drawMesh(meshVbo, meshCount, pass = 7)
+                glDisable(GL_CULL_FACE)
+                glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+            }
             if (models) drawMesh(meshVbo, meshCount, pass = 1)
             drawMesh(ghostVbo, ghostCount, pass = 1)
             glDepthMask(true)
             glDisable(GL_BLEND)
             if (models) drawSelection()
         }
+        // Seen from below the plate is a window: drawn last, over the parts behind it.
+        if (plateSurface && camera.eye().z < 0f) drawPlateSurfaces(PLATE_UNDER_ALPHA)
         drawOverlays()
     }
 
@@ -645,6 +697,73 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
 
     // --- Drawing -------------------------------------------------------------------------------
 
+    private fun decalTexture(name: String): Int = decalTex.getOrPut(name) {
+        val bmp = decalLoader?.invoke(name) ?: return@getOrPut 0
+        val t = IntArray(1)
+        glGenTextures(1, t, 0)
+        glBindTexture(GL_TEXTURE_2D, t[0])
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
+        GLUtils.texImage2D(GL_TEXTURE_2D, 0, bmp, 0)
+        glGenerateMipmap(GL_TEXTURE_2D)
+        bmp.recycle()
+        t[0]
+    }
+
+    /** The plates' surface quads; [alpha] 1 = solid (top side). Blended, depth-tested, no depth writes. */
+    private fun drawPlateSurfaces(alpha: Float) {
+        val rect = gridRect ?: return
+        glUseProgram(plateProgram)
+        glUniformMatrix4fv(loc(plateProgram, "uMvp"), 1, false, mvp, 0)
+        glUniform4fv(loc(plateProgram, "uRect"), 1, rect, 0)
+        glUniform1f(loc(plateProgram, "uPxScale"), pxScale)
+        glUniform1f(loc(plateProgram, "uAlpha"), alpha)
+        glEnable(GL_BLEND)
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+        glDepthMask(false)
+        plateOrigins.forEachIndexed { i, (ox, oy) ->
+            glUniform3f(loc(plateProgram, "uOffset"), ox, oy, 0f)
+            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4)
+        }
+        // Decals: upstream lays them out for a 256 mm bed (PartPlate::init_bed_type_info) and scales by the bed size; the
+        // dual-nozzle layouts differ, so wide beds get a plain plate.
+        val bw = rect[2] - rect[0]
+        val bh = rect[3] - rect[1]
+        if (bw <= 300f) {
+            val xr = bw / 256f
+            val yr = bh / 256f
+            glUseProgram(decalProgram)
+            glUniformMatrix4fv(loc(decalProgram, "uMvp"), 1, false, mvp, 0)
+            glUniform1f(loc(decalProgram, "uAlpha"), alpha)
+            glUniform1i(loc(decalProgram, "uTex"), 0)
+            glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA) // bitmap texels are premultiplied
+            glActiveTexture(GL_TEXTURE0)
+            plateOrigins.forEachIndexed { i, (ox, oy) ->
+                val look = plateLooks.getOrNull(i) ?: return@forEachIndexed
+                fun decal(name: String?, x: Float, y: Float, w: Float, h: Float) {
+                    val tex = name?.let(::decalTexture) ?: 0
+                    if (tex == 0) return
+                    glBindTexture(GL_TEXTURE_2D, tex)
+                    glUniform4f(loc(decalProgram, "uQuad"), ox + rect[0] + x * xr, oy + rect[1] + y * yr, w * xr, h * yr)
+                    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4)
+                }
+                // Rects as upstream: x, y, w, h in mm from the bed's corner (the bottom strip lies just in front of the bed).
+                when (look.left) {
+                    "pc_left", "pct_left" -> decal(look.left, 10f, 130f, 10f, 110f)
+                    "ep_left" -> decal(look.left, 7.5f, 90f, 12.5f, 150f)
+                    "pei_left" -> decal(look.left, 7.5f, 50f, 12.5f, 190f)
+                    "pte_left" -> decal(look.left, 10f, 80f, 10f, 160f)
+                    "st_left" -> decal(look.left, 9f, 70f, 12.5f, 170f)
+                }
+                decal(look.bottom, 74f, -10f, 148f, 12f)
+            }
+        }
+        glDepthMask(true)
+        glDisable(GL_BLEND)
+    }
+
     private fun drawBeds() {
         if (bedCount == 0) return
         gridRect?.let { rect ->
@@ -686,13 +805,14 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glUniform1i(loc(meshProgram, "uPass"), pass)
         glUniform1f(loc(meshProgram, "uShadowFade"), SHADOW_FADE_MM)
         // The real shadow map is sampled by the lit pass only (not while it is being drawn, not in the occlusion pre-pass).
-        val real = useRealShadow && pass == 0
+        val real = useRealShadow && (pass == 0 || pass == 7)
         glUniform1i(loc(meshProgram, "uUseRealShadow"), if (real) 1 else 0)
         glUniform1i(loc(meshProgram, "uRealShadowMap"), 2)
         if (real) {
             glUniformMatrix4fv(loc(meshProgram, "uLightMvp"), 1, false, effects.lightMvp, 0)
             glUniform1f(loc(meshProgram, "uShadowStrength"), shadowStrength)
             glUniform1f(loc(meshProgram, "uSoft"), shadowSoftMm / effects.lightSpanMm)
+            glUniform1f(loc(meshProgram, "uAoSoft"), AO_SOFT_MM / effects.lightSpanMm)
             glUniform1f(loc(meshProgram, "uBiasMm"), shadowBiasMm)
             glActiveTexture(GL_TEXTURE2)
             glBindTexture(GL_TEXTURE_2D, effects.realShadowTex)
@@ -702,6 +822,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glUniform1i(loc(meshProgram, "uSelStyle"), activeSelectionStyle)
         keyDir.let { glUniform3f(loc(meshProgram, "uKeyDir"), it[0], it[1], it[2]) }
         glUniform1f(loc(meshProgram, "uKeyStrength"), keyStrength)
+        glUniform1i(loc(meshProgram, "uRealistic"), if (realistic) 1 else 0)
+        glUniform2f(loc(meshProgram, "uLayers"), layerLines[0], layerLines[1])
         // TriangleSelector::select_patch's test: world normal z below -cos(angle); -2 = off.
         glUniform1f(loc(meshProgram, "uOverhangZ"), if (overhangHighlight > 0f) -Math.cos(Math.toRadians(overhangHighlight.toDouble())).toFloat() else -2f)
         cutBand.let { b ->
@@ -710,10 +832,13 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         }
         glUniform1fv(loc(meshProgram, "uSelected"), Shaders.MAX_SELECTED, ids.copyOf(Shaders.MAX_SELECTED), 0)
         glUniform1i(loc(meshProgram, "uSelectedCount"), minOf(ids.size, Shaders.MAX_SELECTED))
+        glUniform1i(loc(meshProgram, "uSolo"), if (buildSolo) 2 else if (solo && ids.isNotEmpty()) 1 else 0)
+        glUniform1i(loc(meshProgram, "uHidden"), if (solo) hiddenFilaments else 0)
         glUniform3fv(loc(meshProgram, "uDrag"), 1, dragOffset, 0)
         glUniform3fv(loc(meshProgram, "uScaleAnchor"), 1, resizeAnchor, 0)
-        glUniform3fv(loc(meshProgram, "uScale"), 1, resizeScale, 0)
-        val rot = rotateMatrix
+        val own = boxOverride == null
+        glUniform3fv(loc(meshProgram, "uScale"), 1, if (own) resizeScale else floatArrayOf(1f, 1f, 1f), 0)
+        val rot = rotateMatrix?.takeIf { own }
         glUniform1i(loc(meshProgram, "uRotOn"), if (rot != null) 1 else 0)
         if (rot != null) {
             // Column major for GL.
@@ -724,6 +849,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glUniform3fv(loc(meshProgram, "uSelectedColor"), 1, colors.selected, 0)
         camera.eye().let { glUniform3f(loc(meshProgram, "uEye"), it.x, it.y, it.z) }
         setFilamentColors(meshProgram)
+        setFilamentMaterials(meshProgram)
         setSection(meshProgram)
         glBindBuffer(GL_ARRAY_BUFFER, vbo)
         for (a in 0..2) glEnableVertexAttribArray(a)
@@ -865,16 +991,28 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glEnable(GL_DEPTH_TEST)
     }
 
-    /** The bounding box (x0, y0, z0, x1, y1, z1) of the selection ids [ids], with the live resize. */
-    private fun selectionBox(ids: FloatArray): FloatArray? {
+    /** The mesh bounding box (x0, y0, z0, x1, y1, z1) of the selection ids [ids], without the live resize; any thread. */
+    private fun meshBox(ids: FloatArray): FloatArray? {
+        boxOverride?.let { return it.copyOf() }
+        val bounds = copyBounds
         val b = floatArrayOf(Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE)
         var any = false
         for (id in ids) {
-            val c = copyBounds[Math.round(id)] ?: continue
+            val c = bounds[Math.round(id)] ?: continue
             any = true
             for (k in 0..2) { b[k] = minOf(b[k], c[k]); b[k + 3] = maxOf(b[k + 3], c[k + 3]) }
         }
-        if (!any) return null
+        return b.takeIf { any }
+    }
+
+    /** The box the gizmos sit on: the selection's mesh box (the Build workspace's shapes have no box of their own); any thread. */
+    fun selectionBounds(): Pair<app.orcaandroid.core.Vec3, app.orcaandroid.core.Vec3>? = meshBox(selectedIds)?.let { b ->
+        app.orcaandroid.core.Vec3(b[0], b[1], b[2]) to app.orcaandroid.core.Vec3(b[3], b[4], b[5])
+    }
+
+    /** The bounding box (x0, y0, z0, x1, y1, z1) of the selection ids [ids], with the live resize. */
+    private fun selectionBox(ids: FloatArray): FloatArray? {
+        val b = meshBox(ids) ?: return null
         for (k in 0..2) {
             val s = resizeScale[k]
             if (s != 1f) { b[k] = resizeAnchor[k] + (b[k] - resizeAnchor[k]) * s; b[k + 3] = resizeAnchor[k] + (b[k + 3] - resizeAnchor[k]) * s }
@@ -984,6 +1122,19 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         val arr = FloatArray(16 * 3) { 0.8f }
         filamentColors.take(16).forEachIndexed { i, c -> arr[i * 3] = c[0]; arr[i * 3 + 1] = c[1]; arr[i * 3 + 2] = c[2] }
         glUniform3fv(loc(program, "uFilamentColors"), 16, arr, 0)
+    }
+
+    private fun setFilamentMaterials(program: Int) {
+        val a = FloatArray(16 * 4)
+        val b = FloatArray(16 * 4)
+        val p = FloatArray(16 * 4)
+        for (i in 0 until 16) {
+            val m = filamentMaterials.getOrNull(i) ?: FilamentMaterial.BASIC
+            m.a.copyInto(a, i * 4); m.b.copyInto(b, i * 4); m.p.copyInto(p, i * 4)
+        }
+        glUniform4fv(loc(program, "uMatA"), 16, a, 0)
+        glUniform4fv(loc(program, "uMatB"), 16, b, 0)
+        glUniform4fv(loc(program, "uMatP"), 16, p, 0)
     }
 
     /** The section view's cut for [program]; [on] false draws it whole (beds, overlays). */

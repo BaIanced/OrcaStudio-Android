@@ -101,6 +101,30 @@ const std::unordered_map<std::string, Handler> &handlers()
                                  a.contains("position") ? vec3(a["position"]) : vec3(json()));
          }},
         {"deleteVolume", [](OrcaEngine &e, const json &a) { return e.delete_volume(a.at("object"), a.at("volume")); }},
+        {"setVolumes", [](OrcaEngine &e, const json &a) {
+             std::vector<OrcaEngine::VolumeSpec> specs;
+             for (const json &v : a.at("volumes")) {
+                 OrcaEngine::VolumeSpec s;
+                 s.stl  = v.value("stl", std::string());
+                 s.keep = v.value("keep", -1);
+                 s.type = v.value("type", 0);
+                 s.name = v.value("name", std::string());
+                 s.anchor = v.value("anchor", -1);
+                 s.extruder = v.value("extruder", -1);
+                 // A kept volume without a matrix keeps its own placement (modifiers next to the shapes).
+                 const json &m = v.value("matrix", json::array());
+                 s.own_matrix = m.empty() && s.keep >= 0;
+                 if (!s.own_matrix && m.size() != 16)
+                     throw std::runtime_error("matrix needs 16 numbers");
+                 for (size_t i = 0; i < m.size() && i < 16; ++i)
+                     s.matrix[i] = m.at(i).get<double>();
+                 if (s.keep < 0 && s.stl.empty())
+                     throw std::runtime_error("volume needs stl or keep");
+                 specs.push_back(std::move(s));
+             }
+             return e.set_volumes(a.at("object"), specs, a.value("keepCenter", false));
+         }},
+        {"setBuildObject", [](OrcaEngine &e, const json &a) { return e.set_build_object(a.at("object")); }},
         {"setObjectSetting", [](OrcaEngine &e, const json &a) {
              return e.set_object_setting(object_list(a), a.value("volume", -1), a.at("key"), a.contains("value") ? a["value"] : json());
          }},
@@ -119,7 +143,7 @@ const std::unordered_map<std::string, Handler> &handlers()
          }},
         {"addSvg", [](OrcaEngine &e, const json &a) { return e.add_svg(a.at("path"), a.value("width", 50.0), a.value("depth", 2.0), a.value("plate", 0)); }},
         // Tools
-        {"pick", [](OrcaEngine &e, const json &a) { return e.pick(vec3(a.at("origin")), vec3(a.at("dir"))); }},
+        {"pick", [](OrcaEngine &e, const json &a) { return e.pick(vec3(a.at("origin")), vec3(a.at("dir")), a.value("object", -1)); }},
         {"paint", [](OrcaEngine &e, const json &a) {
              // "hits": [{object, instance, volume, facet, local}...] in stroke order, or one hit's fields at the top level.
              std::vector<OrcaEngine::PaintHit> hits;
@@ -135,7 +159,7 @@ const std::unordered_map<std::string, Handler> &handlers()
                             a.contains("section") && a["section"].is_array() ? a["section"].get<std::vector<double>>() : std::vector<double>{},
                             a.value("edgeAngle", 0.0), a.value("shape", std::string("sphere")), a.value("height", 2.0), a.value("overhang", 0.0),
                             a.contains("guard") && a["guard"].is_number() ? a["guard"].get<double>() : std::numeric_limits<double>::quiet_NaN(),
-                            a.value("overColours", false));
+                            a.value("overColours", false), a.value("locked", uint32_t(0)));
          }},
         {"paintClear", [](OrcaEngine &e, const json &a) { return e.paint_clear(a.at("object"), a.value("kind", "")); }},
         {"paintFillCancel", [](OrcaEngine &e, const json &) { return e.paint_fill_cancel(); }},
@@ -145,8 +169,9 @@ const std::unordered_map<std::string, Handler> &handlers()
         {"paintByPart", [](OrcaEngine &e, const json &a) { return e.paint_by_part(a.at("object")); }},
         {"checkMesh", [](OrcaEngine &e, const json &a) { return e.check_mesh(a.at("object"), a.value("instance", 0), a.value("thickness", 0.4)); }},
         {"creaseLines", [](OrcaEngine &e, const json &a) { return e.crease_lines(a.at("object"), a.value("instance", 0), a.value("angle", 30.0)); }},
-        {"paintRemap", [](OrcaEngine &e, const json &a) { return e.paint_remap(a.at("object"), a.at("dest").get<std::vector<int>>()); }},
-        {"paintGapFill", [](OrcaEngine &e, const json &a) { return e.paint_gap_fill(a.at("object"), a.at("kind"), a.at("area")); }},
+        {"paintRemap", [](OrcaEngine &e, const json &a) { return e.paint_remap(a.at("object"), a.at("dest").get<std::vector<int>>(), a.value("base", false)); }},
+        {"paintCoverage", [](OrcaEngine &e, const json &a) { return e.paint_coverage(a.at("object")); }},
+        {"paintGapFill", [](OrcaEngine &e, const json &a) { return e.paint_gap_fill(a.at("object"), a.at("kind"), a.at("area"), a.value("locked", uint32_t(0))); }},
         {"layerProfile", [](OrcaEngine &e, const json &a) { return e.layer_profile(a.at("object")); }},
         {"layerAdaptive", [](OrcaEngine &e, const json &a) { return e.layer_adaptive(a.at("object"), a.value("quality", 0.5)); }},
         {"layerSmooth", [](OrcaEngine &e, const json &a) { return e.layer_smooth(a.at("object"), a.value("radius", 5), a.value("keepMin", false)); }},

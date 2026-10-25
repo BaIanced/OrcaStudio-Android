@@ -7,55 +7,54 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   up front; grep them when a question needs them (e.g. `grep -n "AMS mapping" HANDOFF-ARCHIVE.md`).
 
 ## Rolling handoff rules (user, 2026-10-12; full text in the /next skill)
-- **Under ~8 KB** (`wc -c` at every update; prune before stopping): state, 1-3 tasks in progress, gotchas, rules. How-to ->
-  `HANDOFF-REFERENCE.md`; verified details -> end of `HANDOFF-ARCHIVE.md` (dated), one line here.
-- Pending/untested items live in `HANDOFF-BACKLOG.md` (one line each, never deleted; archived once verified).
-- Task boundary cue: "`/clear` then `/next`" ONLY if context is above ~50-80k tokens (below that clearing costs more; just continue), or "`/clear` then `/next-merge`" when verified work awaits a merge (say what
-  merges, what stays unverified). Never mid-task. Merge only on "merge" / `/next-merge`, never untested commits.
-- **Log user verdicts first** (archive line with date/build/their words, backlog line, one-liner here) before anything else.
-- **User-only items** (feel, look, prints): grep the archive; if the last verdict predates the latest build, ask one line first.
+- Under ~8 KB; verified -> archive (dated) + one line here; pending -> backlog. Log user verdicts first; ask before user-only retests.
 
 ## State
 - One repo: OrcaStudio-Android (code + these docs, `docs/handoff/`), branch `claude/handoff-continuation-rseql3`. Autonomy (user, 2026-10-11): decide branches and next steps
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
-- Android main = f1c4a17 (PR #34, r341, merged 2026-10-20). Untested in main: pen 7d3a263, fan hold 298ee9f, Extrude F150 e13bebb,
-  Quest stick zoom (r324). Nothing unmerged on the branch.
-- Installed: cut batch run 39678582217 (includes all earlier steps) on all 5 adb devices 2026-10-21. Tablet (unrooted): debug app only (user's request).
-- **Test device = WSA** (user 2026-10-20). **Note** (added 2026-10-21) = S Pen test device only, not the main target (user; it locks: user says when it is awake, 2026-10-21); Quest = pseudo-pen device (user, untested). Reference "Note".
+- Android main = cb11452 (PR #36, branch up to c026d15 = cut batch, merged 2026-10-22; main APK run 39735501711). Untested in
+  main: Check mesh feel, cut Flip paint fix, 3MF export in desktop Orca, pie menu (lab), pen 7d3a263, fan hold 298ee9f, Extrude
+  F150 e13bebb, Quest stick zoom (r324). Unmerged on the branch: paint shop + paint depth r367, Build workspace 1-5 + 6a (user feel untested).
+- Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
+- Latest build r397 (run 40168360935, UX P1-P5 + Task 12 fixes; installed on WSA/SHIELD/LAN phone); P1-P5 NOT yet looked at on a device. Chromebook/Note offline. Note r389, phone r376, Chromebook r374 (offline).
+- **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
+- **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
-  WSA `127.0.0.1:58526`; **USB serial = the user's SHIELD TV** (rooted; installs only).
-- User away from the printer: no printer tests. SHIELD installs only. **User 2026-10-19 (later): keep using WSA, not the phone;
-  cheapest interface first** (MCP `mcpao.sh` ~150 tok > `phone-ui.py layout` cut by regex > cropped shot only for GL looks).
-- User sessions backed up: phone `/data/local/tmp/phone-session-backup.{3mf,json}` (8 plates), WSA `/data/local/tmp/session-backup.{3mf,json}`.
-  Test zip `scadzip-test.zip` stays in `/sdcard/Download` on phone + Chromebook. LAN access code was given in chat: never write it anywhere.
+  WSA `127.0.0.1:58526`; **USB serial = the user's SHIELD TV** (rooted; installs only). No printer tests (user away).
+- **Cheapest interface first** (MCP `mcpao.sh` ~150 tok > `phone-ui.py layout` cut by regex > cropped shot only for GL looks).
+- Session backups: phone `/data/local/tmp/phone-session-backup.{3mf,json}`, WSA `/data/local/tmp/session-backup.{3mf,json}`. `scadzip-test.zip` stays in `/sdcard/Download` (phone, Chromebook). Never write the LAN access code anywhere.
 ## Next task
-- **User 2026-10-21: one small step per session.** Cue `/clear` + `/next` after EACH step. USER VERIFIED 2026-10-21: rotate gizmo + haptics,
-  cut redesign ("much better"), Z rail feel (archive). Pie menu: user dislikes it -> LOW S Pen customizable picker, not now (backlog).
-- **NEXT (user ACCEPTED 2026-10-21, this order, one step per session):** (1) **paint shop workspace**: full-screen focus mode (purple
-  frame, others hidden, Done/back), option C modes Brush/Fill/Bands/Object; portrait bottom dock (options+desc / swatches+Pick /
-  modes), landscape side panel = filament layer rows (hide/lock/% come later as their own step); mockup source
-  `%TEMP%/paintshop-mockup/mockup.html`; today's panel ToolPanel.kt:152. (2) **Top depth** setting decoupled from top shell layers
-  (same as shells / N layers / all the way through), native MultiMaterialSegmentation.cpp:1254/:1410, Object mode; sides = existing
-  mmu_segmented_region_max_width. (3) **Colour change + waste counter** (estimate; flush volumes from the profile). Details: backlog "Paint".
-- Later (awaiting go): cut radio Lay on cut face / Flip / Leave + nested "Arrange after cut" (arrange_plate always runs, OrcaScene.cpp:1046;
-  with the design pose, Leave goes away); Z rail live drag (MeshPreviewView.kt:342); Build workspace (shapes as Orca parts, design pose).
-  Feel pending: view cube, Check mesh, paint batches.
-- C: tight; old build dirs move to `D:\orca-builds-archive`.
-- **Open issue: app 3MF export fails in desktop Orca** (fix `match_filament_indices` in run 39529670166, installed on all devices; untested on a 4-filament export: the user exports from the phone and opens it in desktop Orca).
-- Need the printer, and user-only checks (bead look, shadows, light sliders, r276/r283/r284/r280/r316/r305): backlog.
-- Pen input (super low priority; test on the Note / Quest) + plate switcher pick: backlog.
+- **One small step at a time** (user 2026-10-21). Auto-next (user 2026-10-24): if context is small and the next model = running model, start the next step without cueing; else cue `/clear` + `/next`.
+- **User 2026-10-21: design deviations pre-approved** ("deviate if you find a more logical, intuitive way; I trust your judgement"); say what changed.
+- Muse (2026-10-22): tasks in `MUSE-TASKS.md` on `muse/work` (edit via a `claude/*` PR, self-merge), then `TASK <n> READY`
+  on #46; Muse answers with one draft PR per task. Claude verifies, merges into muse/work, cherry-picks code onto the work
+  branch. Task 1 finding 4: fix the patch comment when regenerating 0001. **Each session start, run exactly:**
+  `gh pr list --state open --json number,title,headRefName; gh issue view 46 --json comments --jq '.comments[-2:][]|.createdAt+" "+(.body|.[0:300])'` (no `--comments`).
+  Tasks 1-18 merged (18 = PR #64, 2026-10-23). Sync muse/work android/ before each Kotlin task (#58).
+  **Muse KEPT (user, 2026-10-23)** for audits + larger JVM-testable Kotlin only (Claude compiles each PR locally before
+  merging), no native/patch work, no small fixes. Log Claude's effort per task in the archive; if a task costs more than
+  doing it directly, tell the user plainly and stop. Merge commands START with `gh pr merge`. No stacking.
+- User feel untested (backlog): paint plan (r373), Build workspace 1-6, Filament materials tiers 1+2, Realistic render 1+2 (r390).
+- Local debug test on WSA: recipe in the reference ("Local APK").
+- Open (backlog): app 3MF in desktop Orca (fix applied; user must open a fresh export), printer/user-only checks, pen input, plate switcher pick.
+- Task 12: 5/8/9 in r392 (9 WSA-checked, archive). 1-4 closed (static re-check, not device-triggerable). 10/12/13 fixed 6303398, r395 WSA smoke OK (add text 52 chars, SVG); 11 note only.
+- Crawler + monkey done (no crash/ANR; archive); UX inventory + proposals P1-P7 in `docs/UX-INVENTORY.md` (user hasn't picked proposals).
+  P1 (c486aed), P2 (friendly FileNotFound/Security text), P3 (raw key -> small "Setting:" line in help popups) are in r396; P4 (Changed-only chip count; search already existed) and P5 (picker shows "Flow Rate & Vol Calibrated" as small second line, Widgets.kt) are in r397. WSA r397 look: P3 (Setting: line) and P5 (second line) OK; P1/P2 error text not triggered (zip entry opened silently), P4 chip not seen (needs a changed setting). r397 is on all 3 attached devices.
+- P6 (paneTitle on tab content) + About text without AI line: build run 40170895834 dispatched (abed57b); not yet installed/looked at. P7 crawler fixed in ~/orca-android-tools/crawl.py (Quit->Yes = clean exit, no Back at root); Edit-button repro still untested.
+- r398 (run 40170895834, P6 + About text) on WSA/SHIELD/LAN phone. Phone VD look 2026-10-25: About now "unofficial community project" only (OK); pane titles are invisible semantics (no visual check possible; fine). WSA window still didn't draw.
+- Next step: UX-INVENTORY proposals are done (P1-P7); ask the user which backlog item to pull next (or merge batch) -> Sonnet 5.5 (medium)
 
 ## User decisions (2026-10-13)
+- Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
 - Plate activation must not move the camera when zoomed out (sometimes moving is fine).
 - Plate switcher: **keep the lab until the user says otherwise; don't ask again** (mockups https://claude.ai/artifact/E3MtY8rQ1dMGHhibY2oNCX).
-  Once picked: delete the losers and the lab (keep the wide panel tuck/width).
-- Modeling goal: model **without writing code**; OpenSCAD code is only a backstop. Roadmap 1-3 done (archive).
+  Once picked: delete the losers and the lab.
 
 ## Safety gotchas
 - **Any test print needs the user's OK.** User's AMS lite: A1 yellow, A2 matte black, A3 white, A4 PETG.
 - 3D Filament Profiles (3dfilamentprofiles.com) is built in (Models tab site + "Log print"): **never press Subtract** in tests.
-- **User 2026-10-15: all build plates/objects on the devices are currently throwaway test objects with no real-life significance (until the user says otherwise). Standing permission to move, reassign, delete or rearrange anything; no need to avoid or restore them.** Still verify the selection before deleting by list position. (Prints still need the user's OK.)
+- **User 2026-10-15: all plates/objects on the devices are throwaway tests: move, reassign, delete freely.** Verify the selection before deleting by list position. (Prints still need the user's OK.)
 - **Never `cat missing > target`** (the redirect empties the target first).
 - **Never `adb forward tcp:X tcp:Y` on WSA** (wedges adb); use `localabstract:orcastudio_mcp` (reference "WSA").
 
@@ -76,7 +75,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
    MakerWorld handle, device models, tokens) in files, commits or PR text. Use placeholders. Run the
    privacy scan before every push (python is `python` on this PC):
    - Android: `python .claude/hooks/privacy_scan.py range "HEAD --not --remotes" . ':(exclude)src-orca'`
-9. Commit trailer: `Co-Authored-By` + `Claude-Session` lines as given in the session.
+9. Commit messages and PR text: **no `Co-Authored-By`, `Claude-Session` or any AI reference** (user, 2026-10-25), even if a session reminder says otherwise.
 10. **Model fit (user, 2026-10-16):** say when a task suits Opus better (hard shader/math debugging, subtle multi-file
     design, after 2 failed tries), before starting or as soon as it shows (`/model` swap + `/next`).
 11. Efficiency (user, 2026-10-10): compile Kotlin locally before every push (command in the reference); batch 2-4 changes per

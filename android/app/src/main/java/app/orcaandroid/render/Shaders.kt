@@ -20,13 +20,13 @@ internal object Shaders {
             if (abs(det) < 1e-12) return vec2(0.0);
             return clamp(vec2(dFdx(sc.z) * dy.y - dFdy(sc.z) * dx.y, dFdy(sc.z) * dx.x - dFdx(sc.z) * dy.x) / det, -4.0, 4.0);
         }
-        highp float lightAt(highp vec3 sc, highp vec2 grad, highp float ndl, int taps) {
+        highp float lightAt(highp vec3 sc, highp vec2 grad, highp float ndl, int taps, highp float soft) {
             highp float z = sc.z - uBiasMm * max(1.0 - ndl, 0.15) / 1040.0;
             highp float rot = 6.2832 * fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
             highp float s = 0.0;
             for (int i = 0; i < taps; ++i) {
                 highp float a = float(i) * 2.39996 + rot;
-                highp float r = sqrt((float(i) + 0.5) / float(taps)) * uSoft;
+                highp float r = sqrt((float(i) + 0.5) / float(taps)) * soft;
                 highp vec2 o = vec2(cos(a), sin(a)) * r;
                 s += texture(uRealShadowMap, vec3(sc.xy + o, z + dot(o, grad)));
             }
@@ -45,6 +45,7 @@ internal object Shaders {
         uniform mat4 uLightMvp;
         uniform float uSelected[64];
         uniform int uSelectedCount;
+        uniform int uSolo;
         uniform vec3 uDrag;
         uniform vec3 uScaleAnchor;
         uniform vec3 uScale;
@@ -67,6 +68,10 @@ internal object Shaders {
             float selected = 0.0;
             for (int i = 0; i < uSelectedCount; ++i)
                 if (abs(aInfo.x - uSelected[i]) < 0.5) selected = 1.0;
+            // Solo (paint shop): only the selection is drawn; everything else goes outside the clip volume.
+            if (uSolo == 1 && selected < 0.5) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+            // Build workspace: only the build object, whose volumes have ids -1000 - volume.
+            if (uSolo == 2 && aInfo.x > -999.5) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
             vNormal = aNormal;
             vType = aInfo.y;
             vSelected = selected;
@@ -85,7 +90,8 @@ internal object Shaders {
      * prime tower (type 99);
      * 2: paint overlay (types 5 fuzzy skin, 6/7 support enforce/block, 8/9 seam, 10+ filament);
      * 3: contact shadow map (parts seen from above; how close to the bed, max-blended);
-     * 4: depth-only pass of the real shadow map (parts seen from the key light).
+     * 4: depth-only pass of the real shadow map (parts seen from the key light); 5/6: selection masks;
+     * 7: realistic mode's clear filaments (transmission > 0), blended premultiplied after the opaque scene.
      */
     const val MESH_FS = """#version 300 es
         precision mediump float;
@@ -94,11 +100,20 @@ internal object Shaders {
         uniform vec3 uPartColor;
         uniform vec3 uSelectedColor;
         uniform vec3 uFilamentColors[16];
+        // Surface look per filament (FilamentMaterial): a = highlight power, strength, metallic tint, sky reflection;
+        // b = grazing sheen, wrap lighting, diffuse factor.
+        uniform vec4 uMatA[16];
+        uniform vec4 uMatB[16];
+        // Realistic mode (uRealistic 1): perceptual roughness, metallic, clear coat, clear coat roughness per filament.
+        uniform vec4 uMatP[16];
+        uniform int uRealistic;
+        uniform int uHidden;
         uniform highp vec4 uSection;
         uniform int uSectionOn;
         uniform highp vec3 uEye;
         """ + PCF + """
         uniform int uUseRealShadow;
+        uniform highp float uAoSoft;
         uniform float uShadowStrength;
         uniform vec3 uKeyDir;
         uniform float uKeyStrength;
@@ -106,6 +121,8 @@ internal object Shaders {
         uniform float uOverhangZ;
         uniform highp vec4 uCutBand;
         uniform int uCutBandOn;
+        // Layer lines: first layer height, layer height (mm; y 0 = off).
+        uniform highp vec2 uLayers;
         in vec3 vBary;
         in vec3 vNormal;
         in highp vec3 vWorld;
@@ -113,10 +130,126 @@ internal object Shaders {
         flat in float vType;
         flat in float vSelected;
         out vec4 color;
+
+        // Realistic mode, after Google Filament's standard material: GGX distribution, height-correlated Smith visibility,
+        // Schlick fresnel, Lambert diffuse and an optional clear coat, lit by the key light (with its shadow) and a
+        // procedural studio environment instead of an HDR image. Linear light, ACES tone mapping, gamma 2.2 out.
+        const float PI = 3.14159265;
+        // A softbox seen towards direction d: centre c, angular radius rad, blurred by roughness r (the blur keeps its energy).
+        float softbox(vec3 d, vec3 c, float rad, float r) {
+            float a2 = 2.0 * (1.0 - dot(d, c));
+            float b2 = rad * rad + 1.4 * r * r;
+            return rad * rad / b2 * (1.0 - smoothstep(0.55 * b2, 1.25 * b2, a2));
+        }
+        // Studio radiance towards d (z up) as seen by a surface of perceptual roughness r (1 = the diffuse average):
+        // a dark floor, a bright horizon band, a soft sky, a big softbox where the key light is (kc) and a strip light
+        // to the side. box = how much of the key softbox the point sees (the key light's wide shadow: AO).
+        vec3 studio(vec3 d, float r, vec3 kc, float box) {
+            float w = mix(0.03, 0.9, r);
+            vec3 sky = mix(vec3(0.50, 0.52, 0.56), vec3(0.30, 0.34, 0.42), clamp(d.z, 0.0, 1.0));
+            vec3 c = mix(vec3(0.07, 0.065, 0.06), sky, smoothstep(-w, w, d.z));
+            c += vec3(0.30, 0.29, 0.27) * exp(-abs(d.z) / (0.06 + 0.6 * r)) * (1.0 - 0.6 * r);
+            c += vec3(4.0, 3.9, 3.75) * softbox(d, kc, 0.38, r) * box;
+            c += vec3(1.9, 2.0, 2.2) * softbox(d, vec3(0.86, 0.26, 0.44), 0.22, r);
+            return c;
+        }
+        highp float dGgx(highp float a, highp float noh, highp vec3 n, highp vec3 h) {
+            highp vec3 nxh = cross(n, h);
+            highp float x = noh * a;
+            highp float k = a / (dot(nxh, nxh) + x * x);
+            return min(k * k / PI, 65504.0);
+        }
+        highp float vSmith(highp float a, highp float nov, highp float nol) {
+            highp float a2 = a * a;
+            highp float gv = nol * sqrt((nov - a2 * nov) * nov + a2);
+            highp float gl = nov * sqrt((nol - a2 * nol) * nol + a2);
+            return min(0.5 / (gv + gl), 65504.0);
+        }
+        vec3 fSchlick(vec3 f0, float u) { float f = pow(1.0 - u, 5.0); return f0 + (vec3(1.0) - f0) * f; }
+        // Karis' analytic fit of the split-sum DFG term (mobile IBL): scale and bias for f0.
+        vec2 envDfg(float r, float nov) {
+            vec4 t = r * vec4(-1.0, -0.0275, -0.572, 0.022) + vec4(1.0, 0.0425, 1.04, -0.04);
+            float a004 = min(t.x * t.x, exp2(-9.28 * nov)) * t.x + t.y;
+            return vec2(-1.04, 1.04) * a004 + t.zw;
+        }
+        vec3 aces(vec3 x) { return clamp(x * (2.51 * x + 0.03) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0); }
+        // mp = uMatP (roughness, metallic, clear coat, coat roughness); mb.x sheen, mb.y wrap (translucent plastics), mb.w
+        // transmission. box = the key softbox's visibility, ao = the contact occlusion near the bed (both 1 = open).
+        // Returns premultiplied colour and coverage: a = 1 opaque; a clear part lets 1 - a of what lies behind through,
+        // less at grazing angles (fresnel), while its reflections stay at full strength.
+        vec4 realisticShade(vec3 srgb, vec3 n, vec3 v, vec3 lk, float lit, float box, float ao, vec4 mp, vec4 mb) {
+            vec3 base = pow(srgb, vec3(2.2));
+            float pr = clamp(mp.x, 0.045, 1.0);
+            highp float a = pr * pr;
+            vec3 diffColor = base * (1.0 - mp.y);
+            vec3 f0 = mix(vec3(0.04), base, mp.y);
+            float nov = max(dot(n, v), 1e-4);
+            vec3 r = reflect(-v, n);
+            vec3 envD = studio(n, 1.0, lk, box) * ao;
+            // Specular occlusion from the AO (Lagarde): grazing and rough reflections are hidden less.
+            float so = clamp(pow(nov + ao, exp2(-16.0 * float(a) - 1.0)) - 1.0 + ao, 0.0, 1.0);
+            // Environment: diffuse from the blurred studio, specular from the studio blurred by the roughness.
+            vec2 dfg = envDfg(pr, nov);
+            vec3 dif = diffColor * envD;
+            vec3 spec = studio(r, pr, lk, box) * (f0 * dfg.x + dfg.y) * so;
+            // Key light (E = illuminance / PI so the diffuse needs no 1/PI); wrap reaches round the terminator.
+            float e = 2.4 * uKeyStrength * lit;
+            highp vec3 h = normalize(lk + v);
+            float nol = max(dot(n, lk), 0.0);
+            float nolw = max((dot(n, lk) + mb.y) / (1.0 + mb.y), 0.0);
+            highp float noh = max(dot(n, h), 0.0);
+            float loh = max(dot(lk, h), 0.0);
+            vec3 fr = fSchlick(f0, loh) * float(dGgx(a, noh, n, h) * vSmith(a, nov, nol));
+            dif += diffColor * nolw * e;
+            spec += fr * PI * nol * e;
+            // Sheen (matte): a soft lightening at grazing angles.
+            dif += mix(vec3(1.0), base, 0.5) * mb.x * pow(1.0 - nov, 3.0) * 1.5 * envD;
+            // Clear coat: a thin glossy layer over the base (glossy PETG, translucent); attenuates what lies under it.
+            if (mp.z > 0.0) {
+                float cr = clamp(mp.w, 0.045, 1.0);
+                highp float ca = cr * cr;
+                float fcv = fSchlick(vec3(0.04), nov).x * mp.z;
+                float fcl = fSchlick(vec3(0.04), loh).x * mp.z;
+                float coat = float(dGgx(ca, noh, n, h)) * 0.25 / max(loh * loh, 1e-3) * fcl;
+                dif *= 1.0 - fcv;
+                spec = spec * (1.0 - fcv) + studio(r, cr, lk, box) * fcv * so + vec3(coat * PI * nol * e);
+            }
+            // Exposure: a mid-grey part under the studio lands near the plain look's brightness.
+            vec3 c = pow(aces((dif + spec) * 0.5), vec3(1.0 / 2.2));
+            if (mb.w <= 0.0) return vec4(c, 1.0);
+            // Clear: coverage a of the opaque look, the reflections alone over what shows through (display space, so the
+            // gamma curve doesn't brighten the premultiplied colour).
+            float al = 1.0 - mb.w * (1.0 - fSchlick(vec3(0.04), nov).x);
+            return vec4(c * al + pow(aces(spec * 0.5), vec3(1.0 / 2.2)) * (1.0 - al), al);
+        }
+
+        // Printed layer lines from the height above the bed: each layer is a rounded bead, so the normal n tilts down
+        // at its bottom and up at its top (in place), and the joints get a dark groove (returned, 1 = none). gn = the
+        // face's own normal: flat faces get no lines. The lines fade out as a layer gets under ~5 px on screen (finer
+        // ones would alias into moire); a soft sine profile at a few px sharpens into the bead's round one close up.
+        float layerLines(inout vec3 n, vec3 gn) {
+            if (uLayers.y <= 0.0) return 1.0;
+            highp float z = vWorld.z;
+            highp float lz = z < uLayers.x ? z / uLayers.x - 1.0 : (z - uLayers.x) / uLayers.y;
+            float px = 1.0 / max(float(fwidth(lz)), 1e-4);
+            float vis = smoothstep(2.5, 5.0, px) * (1.0 - smoothstep(0.92, 0.985, abs(gn.z)));
+            if (vis <= 0.0) return 1.0;
+            float t = float(fract(lz));
+            float s = 2.0 * t - 1.0;
+            float tilt = mix(-sin(6.2831853 * t) * 0.45, s / sqrt(max(1.0 - s * s, 0.2)) * 0.35, smoothstep(8.0, 16.0, px));
+            vec3 up = vec3(0.0, 0.0, 1.0) - n * n.z;
+            float ul = length(up);
+            if (ul > 1e-3) n = normalize(n + up / ul * tilt * vis);
+            // Groove at least ~1 px wide; only once a layer is 6+ px.
+            float gw = max(0.08, 1.2 / px);
+            float g = 1.0 - smoothstep(0.0, gw, min(t, 1.0 - t));
+            return 1.0 - 0.3 * g * vis * smoothstep(5.0, 8.0, px);
+        }
+
         void main() {
             int type = int(vType + 0.5);
             bool part = type == 0 || type >= 100;
-            if (uPass >= 5) {
+            if (uPass == 5 || uPass == 6) {
                 // Selection mask: 5 the selected parts as seen (other parts hide them), 6 all of them (x-ray, no depth test).
                 if (!(part || type == 99) || (uSectionOn == 1 && dot(uSection.xyz, vWorld) > uSection.w)) discard;
                 if ((type == 99 || uPass == 6) && vSelected < 0.5) discard;
@@ -135,7 +268,9 @@ internal object Shaders {
                 color = vec4(k * k);
                 return;
             }
-            if (uPass == 0 && !part) discard;
+            if ((uPass == 0 || uPass == 7) && !part) discard;
+            // The lit part passes: 0 opaque, 7 clear filaments in realistic mode (blended after everything opaque).
+            bool lit0 = uPass == 0 || uPass == 7;
             // 99: the estimated prime tower (scene mesh, translucent pass).
             if (uPass == 1 && (part || (type >= 5 && type != 99 && type != 98))) discard;
             if (uSectionOn == 1) {
@@ -170,11 +305,24 @@ internal object Shaders {
             else if (type == 99) { base = vec3(0.70, 0.89, 0.67); alpha = 0.5; }
             else if (type == 98) { base = vec3(0.96, 0.58, 0.2); alpha = 0.45; }
             else base = uFilamentColors[clamp(type - 10, 0, 15)];
+            // Paint shop: hidden filament layers (bit = 0-based filament) are a plain grey, parts and paint alike.
+            int filament = type >= 100 ? type - 100 : (type >= 10 && type < 98 ? type - 10 : -1);
+            bool hidden = filament >= 0 && filament < 16 && ((uHidden >> filament) & 1) != 0;
+            if (hidden) base = vec3(0.62);
             if (part) {
+                // The filament's material; parts without one and hidden filaments keep the plain plastic look.
+                int mi = type >= 100 && !hidden ? clamp(type - 100, 0, 15) : -1;
+                vec4 ma = mi >= 0 ? uMatA[mi] : vec4(36.0, 0.16, 0.0, 0.0);
+                vec4 mb = mi >= 0 ? uMatB[mi] : vec4(0.0, 0.0, 1.0, 0.0);
+                // Clear filaments (transmission mb.w) leave pass 0 for pass 7 in realistic mode; elsewhere they are opaque.
+                bool clear = uRealistic == 1 && mb.w > 0.0;
+                if (clear != (uPass == 7)) discard;
+                if (!clear) mb.w = 0.0;
                 // Soft studio look for the model: sky/ground ambient (z is up), a key and a fill light, a
                 // faint plastic highlight and a cool rim on silhouettes. The slice preview keeps its flat colours.
                 vec3 v = normalize(uEye - vWorld);
                 if (dot(n, v) < 0.0) n = -n;
+                float groove = layerLines(n, normalize(vNormal));
                 vec3 lk = normalize(uKeyDir);
                 vec3 lf = normalize(vec3(-0.6, 0.4, 0.35));
                 float sky = 0.5 + 0.5 * n.z;
@@ -183,22 +331,50 @@ internal object Shaders {
                 // from the key light are left alone (already unlit; darkening them again would double the shade).
                 float ndl = max(dot(n, lk), 0.0);
                 float lit = 1.0;
-                if (uUseRealShadow == 1 && uPass == 0) {
+                float box = 1.0;
+                if (uUseRealShadow == 1 && lit0) {
                     highp vec3 sc = vShadowCoord.xyz / vShadowCoord.w * 0.5 + 0.5;
                     highp vec2 grad = planeGrad(sc);
                     if (sc.z < 1.0 && sc.x > 0.0 && sc.x < 1.0 && sc.y > 0.0 && sc.y < 1.0) {
-                        float occ = 1.0 - lightAt(sc, grad, dot(normalize(vNormal), lk), 8);
+                        float occ = 1.0 - lightAt(sc, grad, dot(normalize(vNormal), lk), 8, uSoft);
                         lit = 1.0 - uShadowStrength * occ * smoothstep(0.0, 0.2, ndl);
+                        // Realistic AO: the same map over a wide disc (uAoSoft) says how much of the key's softbox a
+                        // point sees: crevices and faces under overhangs lose it, open faces keep it.
+                        if (uRealistic == 1)
+                            box = mix(1.0, lightAt(sc, grad, dot(normalize(vNormal), lk), 6, uAoSoft), smoothstep(0.0, 0.2, ndl));
                     }
                 }
-                float diff = 0.22 + 0.16 * sky + 0.50 * uKeyStrength * ndl + 0.20 * max(dot(n, lf), 0.0);
-                float spec = pow(max(dot(n, normalize(lk + v)), 0.0), 36.0) * 0.16 * uKeyStrength;
-                float rim = pow(1.0 - max(dot(n, v), 0.0), 3.0) * 0.14;
-                vec3 shaded = (base * diff + vec3(spec)) * lit + vec3(0.55, 0.7, 1.0) * rim * (0.4 + 0.6 * sky);
+                // Contact AO: the bed hides part of the studio from faces just above it, side faces most.
+                float ao = 1.0 - 0.5 * (1.0 - smoothstep(0.0, 6.0, vWorld.z)) * (0.5 - 0.5 * n.z);
+                // Wrap lighting lets the key reach round the terminator (translucent plastics); 0 = plain Lambert.
+                float ndlw = max((dot(n, lk) + mb.y) / (1.0 + mb.y), 0.0);
+                float diff = (0.22 + 0.16 * sky + 0.50 * uKeyStrength * ndlw + 0.20 * max(dot(n, lf), 0.0)) * mb.z;
+                vec3 shaded;
+                if (uRealistic == 1) {
+                    vec4 rs = realisticShade(base, n, v, lk, lit, box, ao, mi >= 0 ? uMatP[mi] : vec4(0.45, 0.0, 0.0, 0.0), mb);
+                    shaded = rs.rgb;
+                    alpha = rs.a;
+                }
+                else {
+                    float spec = pow(max(dot(n, normalize(lk + v)), 0.0), ma.x) * ma.y * uKeyStrength;
+                    float ndv = max(dot(n, v), 0.0);
+                    float rim = pow(1.0 - ndv, 3.0) * 0.14;
+                    // Metallic tint: silk's highlight and reflection take the filament's colour instead of white.
+                    vec3 tint = mix(vec3(1.0), min(base * 1.6, vec3(1.0)), ma.z);
+                    // Sky reflection, stronger at grazing angles (fresnel): ground below the horizon, sky above.
+                    vec3 r = reflect(-v, n);
+                    vec3 env = mix(vec3(0.32, 0.30, 0.28), vec3(0.75, 0.85, 1.0), smoothstep(-0.2, 0.4, r.z));
+                    vec3 refl = env * tint * ma.w * (0.2 + 0.8 * pow(1.0 - ndv, 4.0));
+                    // Grazing sheen: matte filaments go soft and light at the silhouette instead of a sharp highlight.
+                    vec3 sheen = mix(vec3(1.0), base, 0.5) * mb.x * pow(1.0 - ndv, 2.0) * (0.5 + 0.5 * sky);
+                    shaded = (base * diff + tint * spec) * lit + (refl + sheen) * mix(1.0, lit, 0.5)
+                        + vec3(0.55, 0.7, 1.0) * rim * (0.4 + 0.6 * sky);
+                }
+                shaded *= groove;
                 // Highlight overhangs (support painting): the selection's faces steeper than the angle, by their own normal.
-                if (vSelected > 0.5 && uPass == 0 && normalize(vNormal).z < uOverhangZ)
+                if (vSelected > 0.5 && lit0 && normalize(vNormal).z < uOverhangZ)
                     shaded = mix(shaded, vec3(1.0, 0.35, 0.2) * (0.45 + 0.55 * diff), 0.6);
-                if (vSelected > 0.5 && uPass == 0) {
+                if (vSelected > 0.5 && lit0) {
                     // Rim glow: the selection colour on faces turning away from the eye.
                     if ((uSelStyle & 4) != 0)
                         shaded = mix(shaded, uSelectedColor * 1.2, smoothstep(0.3, 0.9, 1.0 - max(dot(n, v), 0.0)));
@@ -213,7 +389,7 @@ internal object Shaders {
                 }
                 // Cut tool: a red line where the cut plane meets the selected object's surface (about 3 px wide, at least 0.3 mm),
                 // and a light red wash on the part that goes above the plane.
-                if (uCutBandOn == 1 && vSelected > 0.5 && uPass == 0) {
+                if (uCutBandOn == 1 && vSelected > 0.5 && lit0) {
                     highp float s = dot(uCutBand.xyz, vWorld) - uCutBand.w;
                     float hw = max(fwidth(s) * 1.5, 0.3);
                     shaded = mix(shaded, vec3(1.0, 0.15, 0.15), 0.9 * (1.0 - smoothstep(hw * 0.6, hw, abs(s))));
@@ -283,6 +459,32 @@ internal object Shaders {
             if (a < 0.004) discard;
             color = vec4(uColor, a);
         }"""
+
+    /** Plate surface: a flat dark plate (the grid and bed-type decals go on top). uAlpha 1 = the solid top side, less = the see-through underside. */
+    const val PLATE_FS = """#version 300 es
+        precision highp float;
+        uniform float uAlpha;
+        out vec4 color;
+        void main() { color = vec4(0.17, 0.18, 0.19, uAlpha); }"""
+
+    /** Bed-type decals: a textured quad on the bed plane at uQuad = x, y, w, h (mm); the image's top edge is the high-y side. */
+    const val DECAL_VS = """#version 300 es
+        uniform mat4 uMvp;
+        uniform highp vec4 uQuad;
+        out vec2 vUv;
+        void main() {
+            vec2 c = vec2(float(gl_VertexID & 1), float((gl_VertexID >> 1) & 1));
+            vUv = vec2(c.x, 1.0 - c.y);
+            gl_Position = uMvp * vec4(uQuad.xy + c * uQuad.zw, 0.0, 1.0);
+        }"""
+
+    const val DECAL_FS = """#version 300 es
+        precision mediump float;
+        uniform sampler2D uTex;
+        uniform float uAlpha;
+        in vec2 vUv;
+        out vec4 color;
+        void main() { color = texture(uTex, vUv) * uAlpha; }"""
 
     /** Plate badges (numbers, icons): textured quads on the bed plane from a premultiplied atlas. */
     const val BADGE_VS = """#version 300 es
@@ -715,7 +917,7 @@ internal object Shaders {
             highp vec3 sc = vShadowCoord.xyz / vShadowCoord.w * 0.5 + 0.5;
             float lit = 1.0;
             highp vec2 grad = planeGrad(sc);
-            if (sc.z < 1.0 && sc.x > 0.0 && sc.x < 1.0 && sc.y > 0.0 && sc.y < 1.0) lit = lightAt(sc, grad, uBedNdl, 16);
+            if (sc.z < 1.0 && sc.x > 0.0 && sc.x < 1.0 && sc.y > 0.0 && sc.y < 1.0) lit = lightAt(sc, grad, uBedNdl, 16, uSoft);
             color = vec4(0.0, 0.0, 0.0, uStrength * (1.0 - lit));
         }"""
 

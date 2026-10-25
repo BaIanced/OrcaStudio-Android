@@ -17,6 +17,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Reorder
 import androidx.compose.material.icons.filled.PriorityHigh
 import kotlinx.coroutines.launch
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -112,11 +114,16 @@ import app.orcaandroid.ui.components.CutoutRow
 import app.orcaandroid.ui.components.PickerDialog
 import app.orcaandroid.ui.components.PickerItem
 import app.orcaandroid.ui.components.framePlate
+import app.orcaandroid.ui.buildObject
 import app.orcaandroid.ui.components.showPlate
 
 /** Controls over the 3D view on the Prepare screen. */
 @Composable
 fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boolean) {
+    // The paint shop has its own bar and dock around the 3D view (PaintShop.kt): no plate tools over it.
+    if (state.inPaintShop) return
+    // The Build workspace edits the design's shapes: the plate tools would act on the whole object.
+    if (state.buildObject != null) return
     val lab = state.lab
     val sliceOnGrip = sliceOnGrip(state, wide)
     // Tools in a column on the left: wide layouts always, portrait if chosen in the Layout lab.
@@ -429,6 +436,16 @@ private fun ViewButtons(state: UiState, vm: AppViewModel, view: PlateView?, rail
                 onClick = { viewMenu = false; view?.section?.let { it.toggle(); it.panelOpen = it.active } },
                 leadingIcon = { Icon(Icons.Default.ContentCut, null) },
                 trailingIcon = { if (view?.section?.active == true) Icon(Icons.Default.Check, null) })
+            // Physically based shading with a studio environment (in the spirit of Google's Filament renderer); the plain look stays the default.
+            DropdownMenuItem(text = { Text(stringResource(R.string.view_realistic)) },
+                onClick = { viewMenu = false; vm.setRealistic(!state.realistic) },
+                leadingIcon = { Icon(Icons.Default.AutoAwesome, null) },
+                trailingIcon = { if (state.realistic) Icon(Icons.Default.Check, null) })
+            // Printed layer lines on the models, from the print preset's layer heights.
+            DropdownMenuItem(text = { Text(stringResource(R.string.view_layer_lines)) },
+                onClick = { viewMenu = false; vm.setLayerLines(!state.layerLines) },
+                leadingIcon = { Icon(Icons.Default.Reorder, null) },
+                trailingIcon = { if (state.layerLines) Icon(Icons.Default.Check, null) })
         }
     }
 }
@@ -552,7 +569,7 @@ private fun ToolButtons(
                         Triple(R.string.paint_fuzzy, "fuzzy", 1),
                         Triple(R.string.paint_color, "color", 2),
                     ).forEach { (label, kind, state0) ->
-                        DropdownMenuItem(text = { Text(stringResource(label)) }, onClick = { paintMenu = false; vm.scene.setTool(Tool.Paint(kind, state0, 3f)) })
+                        DropdownMenuItem(text = { Text(stringResource(label)) }, onClick = { paintMenu = false; vm.scene.openPaint(kind, state0) })
                     }
                 }
             }

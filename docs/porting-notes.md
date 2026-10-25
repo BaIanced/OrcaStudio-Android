@@ -7,7 +7,7 @@ the file and function names refer to OrcaSlicer 2.5.0-dev, commit `2769b12`.
 ## Architecture
 
 ```
-src-orca/                     OrcaSlicer, unmodified (git submodule)
+src-orca/                     OrcaSlicer (git submodule; unmodified, CI applies android/patches/src-orca/*.patch)
 android/deps/                 CMake superbuild of Boost, TBB, CGAL, OCCT, OpenCV, OpenVDB, … for arm64
 android/core/                 Replaces OrcaSlicer's top-level CMakeLists: libslic3r + liborca_jni.so
   jni/orca_jni.cpp            JNI entry points: init, call(method, json), slice, viewGcode, cancel

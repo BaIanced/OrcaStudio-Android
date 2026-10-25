@@ -4,6 +4,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -24,10 +25,14 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.PriorityHigh
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.Texture
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -57,6 +62,7 @@ import androidx.compose.ui.unit.dp
 import app.orcaandroid.R
 import app.orcaandroid.core.LayerRange
 import app.orcaandroid.core.overrides
+import app.orcaandroid.render.FilamentMaterial
 import app.orcaandroid.core.PresetType
 import app.orcaandroid.core.Vec3
 import app.orcaandroid.core.Volume
@@ -73,6 +79,8 @@ import app.orcaandroid.ui.components.SectionTitle
 import app.orcaandroid.ui.components.Vec3Fields
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.paneTitle
+import androidx.compose.ui.semantics.semantics
 
 /** A setup problem that will make slicing fail: filament slot [slot] holds [have] where the printer's tray [synced] holds [tray]. */
 internal data class SetupProblem(val slot: Int, val have: String, val tray: String, val synced: String)
@@ -110,7 +118,8 @@ fun PreparePanel(state: UiState, vm: AppViewModel, wide: Boolean) {
             Tab(tab == 0, { tab = 0 }, text = { Text(stringResource(R.string.tab_print_settings)) })
             Tab(tab == 1, { tab = 1 }, text = { Text(stringResource(R.string.tab_objects) + if (state.scene.objects.isNotEmpty()) " (${state.scene.objects.size})" else "") })
         }
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        val paneName = stringResource(if (tab == 0) R.string.tab_print_settings else R.string.tab_objects)
+        Column(Modifier.fillMaxSize().semantics { paneTitle = paneName }.verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (tab == 0) PresetsTab(state, vm) else ObjectsTab(state, vm)
         }
     }
@@ -204,6 +213,20 @@ private fun FilamentSlots(state: UiState, vm: AppViewModel, userGroup: String, v
                 Icon(Icons.Default.PriorityHigh, null, tint = Color.Red, modifier = Modifier.size(16.dp))
                 IconButton(onClick = { vm.presets.setFilament(i, problem.synced) }, modifier = Modifier.size(36.dp)) {
                     Icon(Icons.Default.Refresh, stringResource(R.string.filament_reset_to_ams, problem.synced))
+                }
+            }
+            var lookMenu by remember { mutableStateOf(false) }
+            Box {
+                IconButton(onClick = { lookMenu = true }) {
+                    Icon(Icons.Default.Texture, stringResource(R.string.filament_look), tint = if (slot.look != null) MaterialTheme.colorScheme.primary else LocalContentColor.current)
+                }
+                DropdownMenu(lookMenu, { lookMenu = false }) {
+                    val auto = FilamentMaterial.of(slot.preset, slot.overrides["filament_type"])
+                    DropdownMenuItem(text = { Text(stringResource(R.string.filament_look_auto, auto.name.lowercase())) },
+                        onClick = { vm.presets.setFilamentLook(i, null); lookMenu = false })
+                    FilamentMaterial.entries.forEach { m ->
+                        DropdownMenuItem(text = { Text(m.name.lowercase()) }, onClick = { vm.presets.setFilamentLook(i, m.name); lookMenu = false })
+                    }
                 }
             }
             IconButton(onClick = { vm.presets.setActiveFilament(i); vm.presets.openEditor(EditorTarget.Preset(PresetType.FILAMENT)) }) {

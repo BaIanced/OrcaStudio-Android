@@ -14,7 +14,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -62,6 +64,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 s?.nozzleDiameter?.let(presets::recordNozzle)
             }
         }
+        // The Build workspace's object, for the engine's per-volume selection ids.
+        viewModelScope.launch {
+            store.state.map { it.buildObject }.distinctUntilChanged().collect { scad.showBuild(it) }
+        }
         viewModelScope.launch {
             val report = withContext(Dispatchers.IO) { runCatching { CrashReport.pending(store.app) }.getOrNull() }
             if (report != null) store.update { it.copy(crashReport = report) }
@@ -108,7 +114,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     // --- App-wide UI state ---------------------------------------------------------------------------
 
-    fun setScreen(screen: Screen) = store.update { it.copy(screen = screen, tool = if (screen == Screen.PREPARE) it.tool else Tool.None) }
+    fun setScreen(screen: Screen) = store.update { it.copy(screen = screen, tool = toolAfterScreenChange(it.screen, screen, it.tool)) }
 
     /** Shows [url] in the Models tab's browser. */
     fun openInModels(url: String) = store.update { it.copy(modelsUrl = url, screen = Screen.MODELS, tool = Tool.None) }
@@ -181,6 +187,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun setSupersample(mode: Int) {
         store.settings.supersample = mode
         store.update { it.copy(supersample = mode) }
+    }
+
+    fun setRealistic(on: Boolean) {
+        store.settings.realistic = on
+        store.update { it.copy(realistic = on) }
+    }
+
+    fun setLayerLines(on: Boolean) {
+        store.settings.layerLines = on
+        store.update { it.copy(layerLines = on) }
     }
 
     fun setPerspective(on: Boolean) {

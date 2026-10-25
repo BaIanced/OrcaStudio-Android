@@ -5,7 +5,7 @@ import org.json.JSONObject
 /** Plain-text report of the engine's `checkMesh` result (the Check mesh dialog and the object_check_mesh MCP tool). */
 object MeshReport {
     fun text(r: JSONObject): String {
-        val parts = r.getJSONArray("parts")
+        val parts = r.optJSONArray("parts") ?: return "No model parts to check."
         val thickness = r.optDouble("thickness")
         if (parts.length() == 0) return "No model parts to check."
         val out = StringBuilder()

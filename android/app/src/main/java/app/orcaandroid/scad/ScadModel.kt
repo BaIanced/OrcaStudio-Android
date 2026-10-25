@@ -112,6 +112,11 @@ data class ScadDesign(
     val files: Map<String, String> = emptyMap(),
     /** The shape-builder design the source was generated from (null for hand-written code). */
     val shapes: ShapeDesign? = null,
+    /**
+     * The object's parts and holes are [ShapeDesign.pieces] in that order (empty pieces left out), placed in the
+     * design's own frame; false = one mesh of the whole design, centred by the loader.
+     */
+    val pieces: Boolean = false,
 ) {
     fun encode(): String = PREFIX + JSONObject()
         .put("name", name)
@@ -119,6 +124,7 @@ data class ScadDesign(
         .put("values", ScadParam.encode(values))
         .apply { if (files.isNotEmpty()) put("files", JSONObject(files)) }
         .apply { shapes?.let { put("shapes", it.json()) } }
+        .apply { if (pieces) put("pieces", true) }
         .toString()
 
     /**
@@ -150,7 +156,8 @@ data class ScadDesign(
             val o = runCatching { JSONObject(module.substring(PREFIX.length)) }.getOrNull() ?: return null
             val files = o.optJSONObject("files")?.let { f -> f.keys().asSequence().associateWith { f.optString(it) } } ?: emptyMap()
             val shapes = o.optJSONObject("shapes")?.let { runCatching { ShapeDesign.of(it) }.getOrNull() }
-            return ScadDesign(o.optString("name").ifEmpty { obj.name }, o.optString("source"), ScadParam.decode(o.optString("values")), files, shapes)
+            return ScadDesign(o.optString("name").ifEmpty { obj.name }, o.optString("source"), ScadParam.decode(o.optString("values")), files, shapes,
+                o.optBoolean("pieces"))
         }
     }
 }

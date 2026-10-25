@@ -2477,3 +2477,532 @@ User: "you just tested something we already confirmed worked". Cross-checked eac
 - User (same day): assembly in the Build workspace: "If you recommend having it in there and it is going to be intuitive then I'm all for it" (never used Orca's assembly view). Paint shop layout: Claude recommended adaptive option 2 (bottom dock, portrait) + 3 (filament layers side panel with hide/lock/%/drag-remap, landscape); user asked for a visual mockup.
 - User (same day): paint depth problem was TOP depth (beeper plate: yellow through the whole height = deeper colour; reducing top shell layers shows infill and weakens the part). Filament waste on colour changes matters; uses paint-by-height for that.
 - User (same day): beeper plate is done (example only). ACCEPTED Claude's paint plan, in order: (1) paint shop workspace + adaptive layout (option C modes, bottom dock / layers panel), (2) Top depth setting decoupled from shell layers (same as shells / N layers / all the way through), (3) colour change + waste counter.
+- 2026-10-21: user pre-approved design deviations during runs ("Deviate design if you find a more logical intuitive way to do something in any moment during this run. I trust your judgement and pre approve").
+
+## 2026-10-21: paint depth (step 2) checked on WSA, r367 (run 39718807086)
+- (Claude, WSA, r367) 20 mm cube, top face painted with filament 2 (Fill, Stop at edges 30 deg = 17 %), 0.20 Standard (5 top
+  shells). G-code per tool (`~/orca-android-tools/pd-slice.sh` + `gcode-tools.py` / `gcode-features.py`): Like shells: T1 on
+  layers 96-100; Top 8 layers: T1 on 93-100 (walls + infill there); All the way: T1 on 2-100. Below the shells T1 is a core
+  inset ~4 mm with T0 walls around it (the taper over the shell layers, then a constant inset, as the patch intends).
+  Total weight moves with the prime tower (upstream flush logic). Small bug: back from Preview the paint mode resets to Fill.
+- Grok's first overnight run (2026-10-21): free usage limit hit; no commits, no log, no `grok-work/out` files.
+
+### 2026-10-22 Muse tasks 2-8 promoted
+- Claude: PRs #42-#45 merged into muse/work (user gave standing OK for muse/work merges); android/ code from tasks 2-8 committed a4b63c7 on the work branch: compile 0, 79/79 unit tests. WSA debug build: Colour painting > Object, Tab to Preview (tool stays Paint), Prepare -> Object still selected. Tasks 9-12 written (PR #47, merged).
+
+## 2026-10-22 Muse Tasks 7 + 9
+- Task 7 (paint mode kept over Preview, a4b63c7): Claude WSA-checked OK.
+- Task 9 (PR #48 -> muse/work ed7f000): no Gradle in Muse's VM. gradlew's hard-coded `-Xms64m` + instrumentation-agent
+  mismatch always forks a single-use daemon, and Java loopback TCP is blocked there. Details in `MUSE-TOOLCHAIN.md`.
+  Untried: `-Dorg.gradle.jvmargs=...` on the command line (beats both gradle.properties) or a direct distribution launch.
+- Task 10 (PR #49 -> 3ceb676; work branch a797c20): `android/scripts/check_3mf.py`, 29/29 tests, all OK on a WSA 3MF
+  (swatch2; not app-saved: WSA blocked the session-backup pull). Task 11 (PR #50 -> 6e44dcd; work branch 1740dcf): pr-check
+  failed on a test cast; Claude fixed it plus per-plate parse jobs (plate switch lost the count) and slice-average density.
+
+### 2026-10-22 r372 colour-change lines on WSA (Claude)
+- r372 (run 39869256888) installed on WSA, SHIELD, Chromebook. WSA plate 2 (20 mm cube, top face filament 2, depth
+  "Top 8 layers", 5 top shells, prime tower): Preview line "Colour changes 7 · flush ~0.9 g · prime tower ~3.3 g" = OK
+  (slice_result lists the prime tower at 3.155 g; the line's ~3.3 g differs a little, see backlog). Paint-shop line read
+  "Plate estimate: 1 colour changes · flush ~0.1 g": PaintLayers ignored paint depth (flat top -> last layer only).
+  Fixed f7b3c77 (depth carried in from mmu_top/bottom_paint_layers, 0 = shells, -1 = through; 7/7 JVM tests); wording
+  now "colour changes N". Expected on this cube after the fix: 8 (slicer 7: its top layer is filament 2 only).
+- r373 (run 39873051816, f7b3c77) installed on WSA/SHIELD/Chromebook. WSA plate 2 Cube > Color painting: "Plate estimate:
+  colour changes 8 · flush ~1.0 g" as predicted (Preview 7 / ~0.9 g). Paint-shop line verified by Claude; user feel untested.
+
+### 2026-10-22 paint shop reopen (Claude, WSA)
+- r373: Done -> Preview -> Paint > Color painting reopened on Brush / Sphere (left on Bands, Triangle); the paint shop hides
+  the tabs, so Task 11's tool-carried state never covered this path. Fix 79a2e14 (SceneController.openPaint +
+  PaintMode.reopened, JVM 10/10). r374 (run 39877632598) installed on WSA/SHIELD/Chromebook: same round trip reopened on
+  Bands, Brush on Triangle = OK (Claude). User feel untested.
+
+### 2026-10-22 Muse Task 15 sent (Claude)
+- Planned "Kotlin-side Task 12 fixes" had no Kotlin work: findings 1-13 are all native C++ (pageClose is OrcaPlugins.cpp);
+  finding 6 (installCert flag) is already mitigated by ObnHost.ensureConnected reconnecting on a serial change (native
+  connect() resets the flag). Task 15 = prime-tower grams 3.3 vs 3.155 g (GcodeToolChanges/ColourChangeLine), PR #56.
+- Trial effort log, Task 15 write: ~6 tool calls / ~15k tokens to scope + write the task (review/fixes/merge pending).
+
+## 2026-10-22: user on obn
+- User (on r375 era): "obn was stable prior". Task 12 finding 6 (e02b10f) only matters with 2+ printers in one session.
+- Trial effort log, Task 15 review+merge (2026-10-22): ~12 tool calls / ~45k tokens. Muse's fix right; one claim wrong (said the tower toolchange block has no FEATURE tag; WipeTower.cpp:746 emits one; harmless for the code). Cherry-pick conflicted: muse/work lacks the work branch's flush counter (r373), cost ~4 calls; lost a doc paragraph in the resolve, restored. Direct would have been ~similar (the source trace is the bulk). Lesson: sync muse/work code to the work branch before Kotlin tasks.
+- Trial effort log, Task 16 write (2026-10-22): ~8 tool calls / ~20k tokens (sync PR #58 + scoping + task text).
+- Trial effort log, Task 16 review+merge (2026-10-23): ~10 tool calls / ~30k tokens. PR #59: estimate counted the base filament on a fully painted top layer (slicer appends the flat face un-inset, MultiMaterialSegmentation.cpp:1439; Claude checked the cited lines). Clean file checkout onto the work branch (#58 sync paid off), 107/107 JVM tests, merged + dec87f6. Direct would have cost more (the segmentation trace is the bulk). Minor: binning edge formulas now duplicated in layers()/forPlate(). Device check (8 -> 7 on WSA) not run yet.
+
+### 2026-10-22 r376 checks (Claude, WSA)
+- r376 (run 39899625810, c892692) installed on WSA/SHIELD/phone; Chromebook offline (still r374).
+- Task 16 (dec87f6) VERIFIED: WSA plate 2 Cube > Color painting reads "Plate estimate: colour changes 7 · flush ~0.9 g" (r373: 8 / ~1.0 g; Preview 7 / ~0.9 g).
+- Task 12 finding 7 (c892692) VERIFIED: empty scene with 2 plates, VIEW intent with an empty ASCII STL -> "Loading of a model file failed." dialog; afterwards still "Plate 2 of 2", plate 2 active, and one Undo restores exactly the last deleted object (no stray undo step). Session backed up and restored around the test.
+- Trial effort log, Task 17 write (2026-10-23): ~6 tool calls / ~15k tokens. Review+merge: ~14 tool calls / ~35k tokens (PR #61, d42337b -> work branch eb787de, 151/151 JVM tests locally, CI check green, squash-merged into muse/work 2026-10-23). Muse's 2 defect fixes right (ThemeSpec non-object region, MeshReport missing parts); no fixes needed from Claude; only friction: draft PR needs gh pr ready before merge, cherry-pick -n conflicts on MUSE-TASKS.md (drop it). Fixes untested on device (both only widen what parses).
+
+## 2026-10-23 Backlog stale-item prune (user asked whether the backlog is pruned)
+User-verified items that were still in HANDOFF-BACKLOG.md, moved verbatim:
+- Settings audit, bed temp "First layer"/"Other layers" duplicates (user 2026-10-17, safety): fixed 1bfe89f, Claude-verified on WSA r293 2026-10-17 (archive "settings audit"). User to look on the phone (r293 installed). USER VERIFIED r294 2026-10-17 (archive "User verdicts on r294").
+- **Preview seams toggle shows nothing** (user r297 2026-10-18: "'seams' don't show in preview section when toggled"). Fixed r298, Claude-verified on WSA 2026-10-18 (archive "r298 preview seams"). VERIFIED by the user r316 2026-10-19 ("Look of seams ... confirmed good").
+- (user, 2026-10-17, TOP) Slice button in the drag handle's right side (where the plates are); own size slider, follows only main UI scale. Built r281; USER VERIFIED r294 2026-10-17 (archive), incl. size slider.
+- Object settings: support options stayed greyed after enabling support (user 2026-10-17, r291): fixed 44f68d9, Claude-verified on WSA r293 2026-10-17 (archive "settings audit"). User to confirm on the phone. USER VERIFIED r294 2026-10-17.
+- (user, 2026-10-19, r305, WSA) Two-finger CAMERA pan from low/under views: up/down slid the view along Y, then flipped to
+  Z near plate level. Cause: Camera.panGrab grabbed the bed plane (edge-on when low; fell back to screen pan on a miss). Fix
+  fa1754c (r306, run 39223408744): plane through the target tilting level (pitch>=45) -> camera-facing (<=10). Two-finger
+  pinch/pan fix (line above) also in fa1754c with 72dd138. USER VERIFIED r306 2026-10-19 (directions as expected).
+- (user, 2026-10-19, r308 phone) Two-finger up/down pan in Z: "when either object or plate hits the center view it stalls like it
+  wants to stay there for a split second". Cause: PAN -> PINCH near landing; fixed r310 (Claude-verified by script). USER VERIFIED r311 2026-10-19 ("pans feel fine"). Also seen in the same log: long pans flip PAN <-> PINCH (gap/shift measured from landing).
+- (user, 2026-10-21, BUG, fixed untested) Prime tower is selectable through objects (a tap on an object in front picks the tower behind it). Fix the pick order/depth test.
+ **Fixed 86371ee (a drag on the tower box with an object in front goes to the camera; checkTowerStart); compiled, untested on a device; CI run 39671546192.** **USER VERIFIED 2026-10-21 ("Prime tower fixed"; archive).**
+- (user, 2026-10-21, BUG, fixed untested) Check mesh > Show in 3D view: the problem dots stay static in space when the object is moved (markers not tied to the object's transform).
+ **Fixed (spots shift with the copy's translation, hidden during live turn/resize, dropped after a turn/scale/mirror; checkBase); compiled, untested; run 39671546192.** **USER VERIFIED 2026-10-21 ("Mesh dots fixed"; archive).**
+- (user, 2026-10-21, BUG, fixed untested) Lab slider: after a drag, the fade-out label number is ~5% off the value shown in the menu; unknown which is right. Find which one applies the real value.
+ **Cause: the readout text came from the previous composition (one 5 % step behind); the menu value was the real one. Fixed in Scale/ShadowSlider; untested; run 39671546192.** **USER VERIFIED 2026-10-21 ("Lab slider fixed"; archive).**
+- (user, 2026-10-17, r294) Preview z-fight: overlapping filament paths flicker fast in the overlap, only inside the object (layer scrubber) and only while the camera moves; r285 fix did not remove it. Open. Lead (Claude, 2026-10-18, not tried): order bias is role lift + segment parity only (Shaders.kt:392), so two overlapping paths of one role with the same parity still tie; near plane max(0.5, distance/200) (Camera.kt:161). Fix c1c9c1f (run 39113308619, Claude 2026-10-18): depth order adds the line direction in 3 bins of 60 degrees (Shaders.kt ~392), bottom push 1.6e-5. Claude-VERIFIED on the phone r297 (archive, before/after at a sparse X crossing). USER VERIFIED r304 2026-10-19 ("The z fight is fixed", archive).
+- (user, 2026-10-19, r306) Two-finger pan misses 20-30 % of two-finger touches (no pan). Cause unknown. Suspects (Claude): landing gap
+  jitter > slop locks PINCH (no way back to PAN); long press before finger 2 blocks it. r307 (408ef89, run 39224864574) logs
+  '2f ...' lines under OrcaInput (setprop log.tag.OrcaInput DEBUG; logcat -s OrcaInput | grep 2f) while the user only pans.
+  CAUSE CONFIRMED (r307 log): landing jitter locked PINCH. Fix e5b975c (r308, run 39226161149) PINCH -> PAN. Claude r308 phone 2026-10-19 (scripted
+  jittery landings, `~/orca-android-tools/pan2j.sh` + `pan2j-batch*.sh`): 3/3 forced PINCH locks -> PAN, 16/16 other two-finger cases PAN
+  (stagger, gap wobble, diagonal, 1->2 after orbit); dropped events in the first case per batch = sendevent artifact. 4192099 (r309,
+  run 39227996155): the deciding move grabs from the landing point (no lost 25-90 px). User r308 2026-10-19: "feels alot better but still misses sometimes". r310 (4f37eb9) windowed switches; r311 (2b9dee5) re-run by script 2026-10-19 (archive). USER VERIFIED r311 2026-10-19 ("pans feel fine").
+- (user, 2026-10-19, Quest apk r323) Resize: corner pick hits edges THROUGH the model (back-facing corners/edges). Wants resize overhauled to match desktop Orca/Bambu (scale gizmo, front-facing handles only). BUILT 0c35daf (r333, run 39372024774, installed all devices): ScaleGizmo.kt = desktop grabbers (grey corners uniform, red X / green Y bottom-edge midpoints, blue Z over the top), scale about the box bottom centre, desktop ray-plane ratio; handles the box hides are not drawn/picked; top views move the ring to the box top; axis handles only for copies turned in 90 deg steps. Claude-verified WSA debug 2026-10-19 (archive). User feel/look pending. **USER VERIFIED r335 2026-10-20 ("Works", interactive check; archive).**
+- (user, 2026-10-19, Quest apk r323) Upside-down cone slice -> error, but no message visible (suspect overhang w/o supports / floating). Slicer + printer errors must show front and center in the preview area; after closing with X, leave an obvious red "!" in a circle badge to reopen. Open. -> r324: Notices card on the 3D view + red ! badge (Claude-verified WSA with an off-bed error); cone case reproduced 2026-10-19: card said only "Errors"; fixed 64420c3 (r334, per-object message, Claude-verified WSA, archive). User check pending. **USER VERIFIED r335 2026-10-20 ("Works", interactive check; archive).**
+- (user, 2026-10-19, Quest apk r323) Selecting the prime tower: selection stuck on it, no way to deselect. Open. -> r324: dragTower reset was on the wrong setter, fixed; r325 tower shows on first colour stroke (Claude-verified WSA). USER VERIFIED r325 2026-10-19 ("prime tower fix works perfectly", archive).
+- (user, 2026-10-19, phone r325) Prime tower: should carry no bounding box or related settings; when touched/moved it is just drawn x-ray outlined (hard-coded). Open. -> r327 drag = x-ray outline, no box (Claude-verified WSA 2026-10-19). User check pending. **USER VERIFIED r335 2026-10-20 ("Works").**
+- (user, 2026-10-19, phone r325) Preview top surface layer: lines jiggle while the camera moves. Open (shimmer, probably depth/precision or the moire blend flipping per frame). Repro (Claude, 2026-10-19, phone debug): plate 1 cube top (target [210.4,66.3,200], pitch 50, d 30, yaw -60/-59.8/-59.6): comb-shaped z-fight in the overlap strip between neighbouring top-skin lines, different each 0.2 deg. Tried: parity XOR line direction (zigzag neighbours sit 2 segments apart) - combs moved, not gone. Next: the tie bit is 1 depth step (5e-7, ~4 ulps); test a 2-step tie (order = lift*12 + bin*4 + tie*2, push > max order) or a ridge on the top face. Fix (r329, Claude-verified phone hidden display 2026-10-19): depth steps x4 (5e-7 -> 2e-6, overlap push 1.6e-5 -> 6.4e-5) and near plane distance/50 (min 1 mm; Camera.clip) so the bias stays ~same in mm: combs gone at all 3 yaws; plate overview and sparse-infill section unchanged. User check pending. **USER VERIFIED r335 2026-10-20 (no jiggle, "Works").**
+- (user, 2026-10-19, phone r325) Z-fighting on the prime tower again. Open. -> Cause: the push that keeps a layer's bottom overlap behind the layer below (Shaders.kt PATH_VS) faded up the whole wall, so the lower layer's top face showed through above each joint as dotted rows / contour moire (worst on the wavy tower walls). Fix (r328, untested by the user): walls get a vertex ring at the layer bottom, only the overlap is pushed; wall feet take the top depth bin; thin joint groove keeps layer lines. Claude-verified on the phone (debug build, before/after shots) 2026-10-19. **USER VERIFIED r335 2026-10-20 ("Works").**
+- (user, 2026-10-19, phone r325) Paint with an object selected: only two-finger drag moves the camera; wants free one-finger orbit (paint only when the finger starts on the model? or a paint-lock toggle). Open. -> r326 touch starting off the selected object orbits (Claude-verified r326 Chromebook). User check pending. **USER VERIFIED r335 2026-10-20 ("Works").**
+- (user, 2026-10-19, phone r325) Paint edge detection toggle (limit the brush to faces within an angle, like Orca's "edge detection"/smart fill angle). -> d1355c9 (run 39369547613, r332): paint panel chip "Stop at edges" + angle slider (5-89, default 30): a stroke paints only the surface it started on (flood over edges up to the angle, Orca smart-fill test; OrcaTools.cpp EdgeLimited cursor). Claude-verified WSA debug app 2026-10-19 (local native build): cube corner, off = wraps the edge, on = stops at the edge from both sides. User check pending. **USER VERIFIED r335 2026-10-20 ("Works", interactive check; archive).**
+- (user, 2026-10-19, phone r329) Support z-fight: triangular notch where a red support line meets a diagonal one (plate 2 layer 221/301, close zoom, only while panning/zooming). Cause: depth order tied for same-class lines within one 60 deg bin and same parity (Shaders.kt PATH_VS). Fix c116b71 (run 39367658519): native greedy depth labels for touching beads (Preview.cpp label_layer; host test: touching lines distinct, 30x30 crosshatch 0 ties). Also may fix the r325 top jiggle (combs between neighbouring lines). r331 (run 39367658519) installed on all 5 devices 2026-10-19. Claude-checked WSA debug app r331 2026-10-19: plate 2 re-sliced (~17 s, tower dragged back on the bed), layer 221 sphere crosshatch at close zoom, 3 orbit steps: joints clean, no notch (static shots; live pan flicker not seen). User check pending (phone, plate 2 layer 221/301 while panning; needs a re-slice). **USER VERIFIED r335 2026-10-20 ("Works").**
+- (user, 2026-10-19, phone r333 screenshot) Slice: "Prime Tower is partially outside the printable area" on a painted plate (tower box near the front-right). Fixed d14af27 (r335: painted colours counted in the tower estimate; Claude-verified WSA plate 2, archive). User check pending. **USER VERIFIED r335 2026-10-20 ("Works", interactive check; archive).**
+- (user, 2026-10-21, idea) Rotate gizmo like desktop Orca/Bambu (X/Y/Z rings, degree tick marks, live angle label, snap while dragging near the tick ring); snap steps/grab widths need tuning for touch. Reuse the ScaleGizmo.kt pattern (front-facing handles only). Rings + drag + live angle label done 2026-10-21 fd83086 (RotateGizmo.kt; Rotate in the context menu or R; turn about the world axis through the box centre, live in the shader, bed drop on release; edge-on rings drag along the ring on screen): WSA OK (Claude, local debug build: Z 78/19.8 deg, X tilt drops onto the bed), CI run 39578686940; user feel untested. Ticks + snap done 2026-10-21 45dc651: while a ring is dragged, 5 deg ticks (long every 10) outside it and 45 deg spokes (r/3-2r/3) inside, counted from the drag start; finger outside the ring (> 14 dp) = 5 deg snap, inside 2r/3 = 45, band along the ring free; grazing/missed ring plane = zone from the ring's screen outline; zone's marks bolder; CLOCK_TICK haptic per step. WSA OK (Claude, debug build: X 55.0 outside, Z 90.0 inside, top view). CI run 39582935998 installed on WSA, phone, Chromebook, SHIELD 2026-10-21; user feel (snap widths, haptic) untested. **USER VERIFIED r358 2026-10-21 ("perfect", haptics "feel good"; archive).**
+- Muse trial verdict told to the user (Claude, 2026-10-23): ~50-60k tokens of Claude effort per small fix task (write ~15-20k + review/merge ~30-45k), about what doing it directly costs; all 3 fixes right. Recommendation: keep Muse for audits (Task 12 found real bugs) and larger JVM-testable Kotlin; drop it for small fixes. User answer pending.
+
+## 2026-10-23 Backlog detail (full text of every item before the one-line trim; grep here for causes, commits, runs)
+## Plan
+- **Plan (user, 2026-10-14):** camera LAN (done) -> off-LAN camera (cloud P2P path; REA on Handy is the tool; VPN-home the
+  fallback) -> print history (capture Handy's history call, own client, Device tab) -> REA on MakerWorld. Own printer/account,
+  personal use, own code only; rule 7 holds.
+- Printer controls on the Device tab (user 2026-10-17): BUILT r286, Claude-tested on an idle printer (archive "r286 printer controls"). Open, needs the printer + user: physical motion of extrude/jog/home, part fan reports 0 % after a set, nozzle/bed target 0 tile stays stale, speed chip mid-print (Claude 2026-10-21).
+
+## Open bugs
+- Preview: shading gone after slice? (user unsure of convention, r284, 2026-10-17). Inner z-fighting when the layer slider
+  is scrubbed down and the camera moves (user, r284, 2026-10-17): cracks + seam fights fixed r285 (Claude-verified
+  2026-10-17, archive); user's look pending.
+- Zoom too slow when zoomed out; user suggests zoom-dependent curve, hasn't tried the zoom speed slider (r284, 2026-10-17; lab opens again in r285). User 2026-10-19 (r312): "100% is fine, maybe just a tad too slow when zoomed out and a tad too fast zoomed really far in"; may be perspective vs ortho habit: orthographic camera added r314 (View menu / K); zoom curve waits for the user's verdict on ortho. CLOSED 2026-10-19 (user: "Zooming is fine", no curve).
+- r197 NPE root cause fixed in 6ad69ef, built in r273 (Claude 2026-10-16); no UI path sends NaN since 776f261, so no in-app repro.
+
+## Untested (needs the user or a special setup)
+- Pinch (r280, run 39011426374; user: too sensitive, fingers close also pan): two-finger gesture locks to PINCH (zoom only)
+  or PAN (pan+zoom) past the slop; gap ratio padded 40 dp; Layout lab "Pinch zoom speed" (default 60 %). Camera limits
+  unchanged. Feel = user-only; ask after install (Claude 2026-10-17, not yet asked).
+- User hasn't seen yet (Claude-verified by test): preview bead look (Chromebook, zoomed in), part shadows r266, light/shadow lab sliders (r263, via `labset.py`).
+- "Failed OpenSCAD run clears the old log": no repro.
+- Element blocker / ad-block rules in other WebViews: plugin pages, Device page (needs a printer with a web UI).
+- Nozzle match: newer-firmware `device.nozzle.info` path; stale status after switching printer models; spool change -> printer's
+  preset wins and the pick is dropped (only when the user swaps a spool). Phone plate: 1 slot "Bambu PLA Basic @BBL A1".
+- A true EGL context loss (no repro). Badges are ~23 dp at plate zoom on the phone (under 48 dp; told the user).
+- Model-mismatch guard (54b4ca6): built, can't be tested (user has one printer).
+- SHIELD TV: r210 settings/logins copied from the phone; sign-ins untested.
+
+## Waiting on the user
+- Plate switcher pick (lab stays until they say; don't ask again).
+- Launcher icon colour (still teal, "decide later").
+- REA MCP (github.com/morluto/rea): installed, not enabled (the user enables it); fits release APK / `liborca_jni.so` inspection and
+  HAR traces of the MakerWorld / Thingiverse flows only. Plan items need it.
+
+## Ideas (not started)
+- Floating Theme | Layout designer = ~half a day (+1-2 h for a collapsible icon); ask first.
+- Maybe study Bambu Handy's MakerWorld integration.
+- Headless display gaps (do only when a task needs them, Reference "Headless display"): pinch on the virtual display
+  (uinput device bound to the display, or scrcpy control protocol); `start` stress test (launch was flaky 2 of 5 early on,
+  3/3 OK since); WSA virtual-display screenshot (try reading the finished mkv after stop, or the app's MCP screenshot).
+- (2026-10-17, user, queued) Explore porting to Meta Quest (Quest runs Android/Horizon OS: check whether the existing APK installs and runs as a 2D panel app, what input (controllers/hands, no touch/stylus) and GL/Vulkan limits mean, and what a native VR view of the plate would take). **Desk research done 2026-10-17 (Claude, no Quest to test; web claims per Meta docs, unverified on device):** the APK should install as a 2D panel: Horizon OS is AOSP-based (min API 32 vs our minSdk 29), our manifest needs no GMS/camera/telephony (no play-services dep), GLES 3.0 only (`#version 300 es`, `GLSurfaceView` in PlateView/MeshPreviewView), arm64-only OK, v2 signing OK. Meta says taps/swipes map from controllers/hands to 2D apps; two-finger pinch/orbit likely does NOT (single pointer): the Layout lab pinch-speed slider and wheel zoom (mouse path exists in PlateView.onGenericMotionEvent) are the fallback, needs a zoom/orbit-mode button. Open unknowns: WebView version on Horizon OS (Models tab, Bambu login, plugin pages), min panel 384x500dp layout, long-press = right-click. Native VR view (Spatial SDK Kotlin/Compose panels + own GLES->OpenXR scene, or OpenXR NDK) is a big separate project: needs a headset to start. **User 2026-10-17: Quest is multi-pointer (so the pinch-risk above is probably moot); no single-pointer workarounds wanted; SKIPPED for now, resume only on request.** Next step: `adb install` + test panel input. User (2026-10-17) has a headset with dev mode on; wireless adb is unreliable and works when they trigger it manually; they will set it up later (ask them to connect it, don't poll). **2026-10-19 (Claude, run 39300569740): paired (wireless debugging pair code + connect port, both change; ask the user), `adb install` OK, launches as a 2D panel (API 34, WebView 152, Adreno GLES), no crash, first-run printer wizard renders. Panel input + plate GL + WebView tabs: user test pending. **User 2026-10-21: the 2D panel is CONFIRMED working (APK pushed every build since r323). Open part is only: input beyond touch (pseudo pen, controller/hand) and what a native VR view would need.****
+- 3D wishlist: preview colours stay flat on purpose. Filament colour mixing (upstream `FilamentMixer.cpp`). Not wanted: iOS port.
+- Orca plugin runtime: kept as a general capability (no plugin in use). Not done: audit prompts, create_window, per-preset config
+  overrides, printerAgent capability. **FilamentHub is dropped for good; never suggest, test with, or mention it.**
+- (user, 2026-10-21, wishlist) Push/pull mesh manipulation (SketchUp style: grab a flat face, drag along its normal), keeping the model code. Explored 2026-10-21, not started. Tier 1 (~1 day): shape-builder solids (scad/ShapeModel.kt Shape size/pos/rot): dragging a box/prism/cylinder cap face = size along that local axis + pos shifted by half, so it stays parametric (bound Dim updated via Shape.bind); SKETCH height likewise. Tier 2 (several days): any SCAD/MESH = wrapper that leaves the code untouched: union(){ original(); multmatrix(face frame) linear_extrude(d) polygon(face outline); } for push, difference() for pull; each op a list entry (edit distance / delete). Face pick = ray hit + coplanar flood fill (reuse the paint regions code). Limit: the outline is baked coordinates, so if the underlying parameters change the patch doesn't follow (topological naming); detect by re-checking the plane and warn. Curved faces: no (that is mesh sculpting, not CSG). Suggest tier 1 first.
+- (user, 2026-10-21, idea, discuss) "OrcaMesh": keep SCAD as the token-friendly MCP/AI path (McpTools already drives ScadController/ShapeDesign) with an optional viewer, and add Blender-style direct mesh editing in the app (select verts/edges/faces; extrude, inset, move/scale, loop cut, merge, bevel later). Claude's take 2026-10-21: needs a half-edge mesh core (C++ via JNI or Kotlin), undo, and a watertight check before slicing; Manifold is already in the OpenSCAD build (android/openscad/CMakeLists.txt:7) for booleans/repair. Mobile poly modellers exist (Valence 3D, Prisma3D) but none known inside a slicer. Edits bake to a mesh: SCAD params are lost on that object. MVP (face/vert select + extrude + move + undo) ~1-2 weeks of sessions. User 2026-10-21: reuse as much open source as possible. Reuse map: already in our native build (android/core/CMakeLists.txt:50,94; android/deps/CMakeLists.txt:155): CGAL (Surface_mesh half-edge + Euler ops for extrude/split, Polygon Mesh Processing: hole fill, remesh, smooth, self-intersection/repair, corefinement booleans), libigl, mcut, admesh, libslic3r MeshBoolean/TriangleMesh; Manifold in OpenSCAD (Apache-2). Port only the ops CGAL lacks (inset, loop cut, bevel) from Blender bmesh operators (GPL-2+, usable under AGPL-3 via GPLv3; algorithm ports, its runtime is too tied to Blender). App side reuses the existing GL view, picking, gizmos and paint-region flood fill.
+- (user, 2026-10-21, question for another day) Public release check: is a built-in adblock and prepopulated, hard-coded browser tabs to unaffiliated websites (Models tab sites) OK (store policies, site terms, licensing)? Not researched yet. Context: user plans to go public only once everything feels correct.
+
+## Known limits (no action)
+- Design mode: hard-coded colours (delete popup #2B2C32 + red bin = user's pick 2026-10-14, `OverlayParts.kt:253`; preview legend)
+  don't follow; the Models page keeps its own colours; a dark 3D background under a light theme hides the floating tool icons
+  ("Prepare: floating buttons" can be changed).
+- Real keyboard Ctrl+1 does nothing (system hotkey). Inactive-plate double tap re-frames (user: fine).
+- Flatpak r9 MakerLab tab, weekly upstream bump, obn follow-ups: archive (2026-10-12 trim).
+- (user, 2026-10-17, queued) Drag handles: a fast downward fling should collapse the panel (now it stops right where the finger lets go). DragHandle in AppScaffold (portrait sheet, OpenSCAD panel; wide PanelEdge flung sideways). r283 (user 2026-10-17): every fling crashed; fixed in r284 (Claude 2026-10-17, phone: portrait sheet flick up expands, down collapses, no crash). User r294 2026-10-17: portrait flick docks fine. Wide PanelEdge (Claude 2026-10-18, WSA r300, mouse drag): drag right collapses, drag left to widen works; fast adb-swipe flicks did nothing (inconclusive, WSA mouse only). OpenSCAD grips untested.
+- (user, 2026-10-17, queued, low priority "put makeup on it") Explore free open-source colour icon sets (licence must allow use in a public app, e.g. MIT/Apache/CC-BY) to give some icons colour, not all; the app is "beautiful as is". Deliver: shortlist + mockup of which icons get colour, user picks. Open, not started.
+- (user, 2026-10-17, queued; **2026-10-19: super low priority, later date**; **2026-10-21: test devices = the Note 10+ (adb-connected, S Pen) and the Quest as a pseudo pen** (user; whether Quest controllers report TOOL_TYPE_STYLUS / hover is unknown, probe first); r290 More > Pen untested by the user) Stylus support: Samsung S Pen (check whether one API covers old and new: plain Android MotionEvent
+  TOOL_TYPE_STYLUS / BUTTON_STYLUS_PRIMARY / pressure / hover vs Samsung's SDKs, e.g. Air actions only on newer pens).
+  User's devices: Note 10.1 2014 tablet, Note 10+, S24 Ultra (screen broken now), a newer 13" Galaxy Tab S. Also a head start
+  on the Chromebook USI stylus, which only the user could test. Open. **Desk research 2026-10-17 (Claude, r289, no
+  device; web per developer.android.com "advanced stylus features", unverified on hardware):** plain MotionEvent covers every
+  pen: `getToolType` STYLUS / ERASER, AXIS_PRESSURE / TILT / ORIENTATION, hover = ACTION_HOVER_* (pen near screen), barrel button =
+  `BUTTON_STYLUS_PRIMARY` (some devices report `BUTTON_SECONDARY`/`TERTIARY` instead, so test all three). Samsung SDKs (S Pen
+  Remote, Air actions) are only for the in-air remote/gestures of Bluetooth pens (newer than 2014/Note 10.1); not needed for
+  drawing/tapping. Not confirmed: whether the 2014 EMR pen sends hover/button on the Note 10.1, or ARC passes USI pressure/tilt.
+  **Code today (PlateView.kt:191-320):** touch only, no tool-type use except `SOURCE_MOUSE` for right/middle (l.204); a pen
+  already works as one finger (orbit / drag / paint / tap). Proposed (not built): pen barrel button or eraser end = pan (same
+  as the mouse's middle path, l.205-206 + 258), pen hover shows the paint-brush cursor, pressure scales PAINT brush size.
+  Palm rejection: OS cancels via ACTION_CANCEL (handled l.313). **BUILT 7d3a263 (run 39070383865, 2026-10-17), untested on a pen.**
+  **User decisions 2026-10-17:** keep two-finger pan/pinch (like Squid); palm rejection ON for pen/stylus (also ignore
+  TOOL_TYPE_FINGER while the pen is down or hovering); NO pressure/tilt use; eraser end + every pen button must be
+  user-mappable to an app action (Settings list: pan, undo, redo, select, paint, none...; reads BUTTON_STYLUS_PRIMARY/
+  SECONDARY/SECONDARY/TERTIARY + TOOL_TYPE_ERASER). Idea (user, open, not decided): **Sketch mode** = draw a rough object
+  with the pen and have MCP create it (open: who interprets the sketch? Claude through MCP in a session, e.g. a saved PNG
+  + `view_state`, vs. on-device; Claude can read the image and write OpenSCAD/primitives, no on-device model).
+- (2026-10-17, user, open) Portrait Undo/Redo used to sit in the top-left corner (status bar area, fullscreen); moved at some point; File belongs in the status bar area right of the camera cutout. r283 (Claude, phone, 2026-10-17): Undo/Redo at top left y 58, File at top right x 1141; the user hasn't judged the look yet.
+- (2026-10-17, user idea, open) Next MCP tool candidates: debug `app_state`, `log_tail`, `perf` (`slice` + `slice_result` done r289, archive). Last checked: Claude, r289.
+- (user, 2026-10-17, r294) Fan slider jumps (random value ~5 s after a set, then correct); plan: hold until the report matches, ignore stale reports. When decompiling Handy / Bambu Studio check how they sync. Studio answer (Claude 2026-10-18, FanControl.cpp:19/821/988): after a set it skips the next 6 status reports, then follows them (no sequence_id match). Handy side not recoverable from strings. r295 hold-until-within-4 % is stricter. r295 untested (needs the printer).
+- (user, 2026-10-17, r294) Extruder controls hard to find: r295 labels them Retract/Extrude (298ee9f). Claude 2026-10-18: e13bebb (+ comment fix) wraps E like the desktop's own jog (M211 save/on, push_ref_mode, M83, G1 E±10 F150, pop_ref_mode, M211 R; was Studio's legacy G0 F900 = ~36 mm3/s). Not in a build yet (next after r297). UNTESTED, needs the printer.
+- (Claude, 2026-10-18) HMS texts: already done our own way (HmsCatalog.kt fetches them at runtime from Bambu's server like HMS.cpp:92, cached on the device). Handy's bundled copies stay a local reference only, never in a repo. Nothing to do.
+- (user, 2026-10-18) Selection styles (outline, x-ray, rim, wireframe, box; tint optional, user dislikes tint): 2f43327 + 3c fix (run 39117345666, r300) installed phone, SHIELD, WSA. Claude-checked WSA: default outline+box, x-ray ring, rim OK; wireframe hides triangles under ~10 px (dense models show lines only on big/sliver tris when zoomed). X-ray behind another object untested. User look pending. Claude re-checked all styles on Chromebook r316 2026-10-19 (archive), x-ray behind a copy OK. Look VERIFIED by the user r316 2026-10-19 ("selection styles confirmed good").
+- (user, 2026-10-18, idea) Resize by grabbing a bounding-box corner and dragging; a small live label at the dragged end shows the exact dimension; the box frame shows X/Y/Z measurements on its edges. Follow-up to the selection box. BUILT r301 (run 39146274001, 3D box corners = handles, uniform scale about opposite corner, live mm label); Claude-checked WSA 2026-10-18: drag grew box 142x220 -> 191x290 px, opposite x edge stayed. Label look + feel untested, user look pending. Installed WSA only. r302 (bigger 48 dp grab, slow-orbit no long-press) + r303 (live scaled draw, label top-centre) built; r303 installed WSA+SHIELD, WSA render unchanged when idle; live drag untested by Claude (mdrag cannot screenshot mid-drag). User look pending. r304 (run 39156324047): resize starts only after one finger moves from the corner, to fix user-reported two-finger pan failing with a selection in side/front views (cause not found by reading; fix is a guess, untested). WSA+SHIELD installed. **User r304 2026-10-19: still finicky, touch target too wide; wants resize gated behind the long-press menu + Ctrl+T.**
+- (user, 2026-10-19, r304) Corner resize gated + drag plane: ed8b77e (run 39219555564, r305): resize only after long-press Resize /
+  Ctrl+T / S (off on selection change; hint + Done shown), grab 32 dp; T = Add text dialog. Drags now use the level plane through
+  the grabbed box point (was the bed, z=0: grabs high on tall objects outran the finger and side views (pitch 0) did nothing or
+  jumped); within 12 deg of level they go sideways on the camera-facing plane. Upstream (GLCanvas3D.cpp:4486-4514) switches only
+  at exactly level (|forward.z| < 1e-4, the preset side views) and uses the mesh hit point; ours uses the box entry point (sync,
+  no engine round-trip). r305 installed all 4 devices. Claude-VERIFIED WSA main window 2026-10-19 (archive). 72dd138 (pushed, not
+  built): no orbit before the slop decides in resize mode. User feel/look pending.
+- (user, 2026-10-19, r305) Two-finger pan sometimes turns into zoom / not fluid, intermittent. Causes (Claude, PlateView.kt):
+  onScale zoomed during PAN too (gap drift while dragging); start decision gap >= shift can lock a pan into PINCH (zoom only).
+  onScale now zooms only in PINCH + KDoc mentions PAN_TO_PINCH_SLOPS. PINCH needs gap >= 1.5x shift; PAN -> PINCH once gap > PAN_TO_PINCH_SLOPS (3) x
+  slop. DONE fa1754c (PINCH_LEAD 1.5, PAN_TO_PINCH_SLOPS 3), r306. User r305: "still broken". Untested on r306.
+- (user, 2026-10-19, r311 phone) Pinch zoom-out with the object in the middle between the fingers: "zooming out when one finger
+  intersects object, zoom out immediately stops". Cause: ScaleGestureDetector min span (~27 mm). Fixed r312 (Claude-verified by pinch.sh, archive), user feel pending.
+- (user, 2026-10-19, r314) Paint brush lags behind strokes, worse over a few seconds of painting. Cause: each sample = full selector deserialize + whole paint-mesh rewrite + scene JSON, one per sample, so the queue grew. Fix r315 (batched hits). Untested. Fixed r316 (batched hits): Claude-verified on Chromebook 2026-10-19 (1.5 s seam stroke fully drawn at stroke end); user feel pending. **User 2026-10-19 (after r316 install, device unstated; phone still r314): "Painting still slowing to a crawl. Fast and fluid at first then the longer I go it's like it's building cache and hitting a bottleneck."** Reopened. r318-r321: live selector, facet + byte caches, no rewrite when unchanged; Claude-measured Chromebook bunny 55-86 -> ~30 ms paint mesh (archive). User feel pending. **User 2026-10-19 (Quest, apk r323): slowdown over time FIXED; new: fast strokes leave scattered dots, not a line (needs stroke interpolation between samples).** -> r324 capsule joins, Claude-verified WSA (continuous bands). User feel pending.
+- (user, 2026-10-19, r314) Double tap on an object: frame it head-on at object height, zoomed in; double tap on it again returns to the view
+  before; double tap on empty plate space unchanged (re-frames the plate). Built r316 (yaw snapped to nearest 90, pitch 0, fit). Claude-verified on Chromebook 2026-10-19 (focus, return, empty = plate frame); user feel pending.
+- (user, 2026-10-19, r316, Chromebook screenshot) Preview moire: dashed curved bands across walls when zoomed out (fine up close). Cause: each layer's lit top strip is sub-pixel and aliases. Fix ec41f84 r317 (run 39292987004): PATH_FS blends top + side shade to their view-weighted mean when a layer period < ~2-5 px (uEye uniform). User r325: worked, not 100%, maybe too aggressive (see new line).
+- (user, 2026-10-19, Quest apk r323) Joystick zoom "VERY sensitive" (Quest thumbstick = scroll axis, PlateView.onGenericMotionEvent): move the zoom sensitivity slider into Settings (separate wheel/stick factor?). Open. -> r324: Settings > Controls (pinch + wheel/stick speed), wheel zoom scales with scroll amount. User check pending. User 2026-10-20: not tested yet, "don't want to hold up merge" (OK to merge untested).
+- (user, 2026-10-19, Quest apk r323) Paint options window: should collapse and be movable over the canvas (like the Design window with built-in collapse). Open. -> r324 fold + drag, r325 clamp to the 3D view (both Claude-verified WSA). User check pending (r325: collapse+drag works, expand from top-left goes off-screen, see new line).
+- (user, 2026-10-19, medium priority, big) Extended paint tools: at minimum all upstream Orca paint tools (user uses brush most); survey open-source color/paint tools for better/more intuitive ones. Open. -> Upstream set (GLGizmoMmuSegmentation): Circle, Sphere (+Vertical/Horizontal lock), Triangle, Height Range, Fill (+edge detection), Gap Fill, Remap, Erase all. Batch 1 (Circle, Triangle, Fill, Height range) 1858dc3 r343: colour mode OK on WSA (Claude 2026-10-20); support painting + support shapes circle/triangle/fill WSA OK (Claude 2026-10-20); user feel untested. Gap fill (Colour+Support) done in the local debug build 2026-10-20, WSA colour test OK (Claude); support kind WSA OK (Claude 2026-10-20); user feel untested. Filament remap written 2026-10-20 (Colour, whole object; WSA OK 2->1, Claude 2026-10-20 run 39521072810; user feel untested). Stroke lock (Lock ↕/↔ chips) done 2026-10-20, WSA OK (Claude, local debug build); user feel untested. Overhang highlight (support chip "Highlight overhangs", shared angle with "On overhangs only"; shader uOverhangZ, upstream test normal z < -cos(angle)) done 2026-10-21, WSA OK (Claude, local debug build: 45° tilted cylinder plain at 40°, underside tinted at 63°); CI run 39553342864 (with stroke lock); user feel untested. Survey done 2026-10-21 (Claude, from known tools; PrusaSlicer/Bambu = the same upstream set): candidates not in Orca: (1) mirror/symmetry painting across the object's X/Y centre (Blender, Meshmixer); (2) grow/shrink the painted region by N mm (Meshmixer selection expand/contract); (3) invert / swap two states (paint everything not painted); (4) paint a whole connected island / part with one tap (Meshmixer select-connected); (5) pressure = brush size (already in the pen item); (6) colour pick (eyedropper: tap a painted face to pick its filament). Waiting on the user's pick. **User 2026-10-21: "frankly I find orca painting atrocious and generally only use fill / paint by layer"; asked for a web survey of non-Orca/Bambu slicers with well-designed colour painting (Cura, Creality Print, etc.) before picking.** Web survey done 2026-10-21: `NOTES-paint-survey.md` (8 ranked ideas: live/tilted band, gradient stripes, hold-to-preview fill, regions view, quick actions, fill stops, decals, symmetry). **User pick 2026-10-21: hold-to-preview fill (press shows the fill, lift applies, slide off cancels).** Done 2026-10-21 (native FillPreview + paintFillCancel; SceneController fill branch), WSA OK (Claude, local native debug build: press fills, move retargets in ~0.7 s, slide off restores, lift keeps); user feel untested. **User pick 2026-10-21 (2nd): regions view (crease auto-partition drawn as outlines, tap a region to colour it; shares code with the edge outline item).** Done 2026-10-21, WSA OK (Claude, local native debug build): "Regions" shape (colour + support): crease_lines() outlines (dihedral > crease angle, default 30, + open edges) drawn depth-tested over the selected copy; a tap = fill over colours bounded by the crease angle (beeper plate: the embossed shape filled alone). CI run 39557578074. User feel untested. **User pick 2026-10-21 (3rd): one-tap actions: colour each separate part, clean specks < N mm2, eyedropper.** Done 2026-10-21, WSA OK (Claude, local native debug build): "Pick colour" shape chip (StateProbe; unpainted = part filament; returns to the previous shape), "Colour each part" (3-shell STL -> 1/2/3 by size), "Clean specks" one-tap row replaces the Gap fill chip (speck takes the most-bordering state; 0.8 mm dots gone at 4.5 mm2). In CI run 39557578074. User feel untested. **User pick 2026-10-21 (4th): fill stops: "stop at existing colour" and a draggable guard plane that fills/bands stop at.** Done 2026-10-21, WSA OK (Claude, local native debug build): upstream fill already stops at other colours (same-state flood), so the new switch is the reverse, "Fill over colours" (front face of a half-painted box -> whole face, stops at edges); "Guard plane" chip + Z slider, drawn as the cut plane; brush/height use it as the clip plane, fill splits at it (far side -> spare state, fill, restore; 20 mm box filled below 10 mm, clean cut). In CI run 39557578074 (39557107196 cancelled, superseded). User feel untested.
+- (user, 2026-10-19, wishlist) Phone <-> Quest companion link over wireless: explore what a link could enable (ideas not defined yet). Open.
+- (user, 2026-10-19, phone r325) Paint window: collapse, drag to top-left corner, expand -> goes off-screen (same bug the Design window had; fix the same way: re-clamp on size change). Open. -> r327 re-clamp (Claude-verified WSA 2026-10-19: unfolds fully inside the top-left corner). User check pending. **User r335 2026-10-20: STILL BROKEN (changed): "doesn't go off screen but it collapses to its bottom edge and there's a rubberband effect when expanded to the top left corner. same exact issue we dealt with on the design editor window." Open.** -> Fix 2d35887 (r336, run 39379527770): layout-pass clamp + title stays put on fold (Design 9fe3f66 approach). **User r336 2026-10-20: "rubberband fix works, collapses in top right correctly." Verified (archive).**
+- (user, 2026-10-19, phone r325) Moire fix worked but is not 100% and may be too aggressive (blend threshold r320 washes out layer lines?). Tune: ask for a screenshot pair. Open. User r329 (2026-10-19): too aggressive - layer lines must show at the double-tap framing zoom (beeper plate, spheres on plate 2); prefers some moire over losing layer lines. Fix r330 (run 39365242353, Claude-verified WSA sphere/table/beeper shots 2026-10-19): bead profile box-filtered at 8+ px, cosine wave below (fades 3->2 px), groove = 1 px tent; two-face mean blend kept at r320 range (lowering it brought back contour rings on the sphere at ~3 px a layer). Lines now at the framing zoom on walls and skins; sphere at mid zoom still mostly smooth (mean blend), faint rings close up. User check pending. New (user r329): z-fight still at support line joints (red support, layer 221, triangular notch where lines meet, shows while panning/zooming). **User r335 2026-10-20: layer lines at the framing zoom "Still broken" (no detail yet: washed out or moire back?). Open.** User r335 2026-10-20 screenshots: lines sharp, but a light band where lines fade (2-3 px) and moire under the table top. User GO 2026-10-20: band fix + supersample when still + optional supersample while moving (Settings). In progress (HANDOFF Next task). WIP 2026-10-20: band fix + 2x supersample when still (Settings Off/When still/Always), Claude WSA shots only; lying cylinder keeps faint arcs. 2026-10-20 (Claude, WSA debug): temporal accumulation 696c5a6 (32 jittered 1x frames into RGBA16F, 2x fallback, 4x MSAA via MsaaConfigChooser); cylinder arcs nearly gone at regime 1.0 (lower regimes 0.7/0.5/0.35 bring arcs back, so detail cannot go finer). r338 installed on all devices 2026-10-20. **User r338 2026-10-20: "Moire gone, layer lines visible" (verified, archive).** Left: table underside lines smoothed away on one side (fixed cc0af56, **user-verified r339 2026-10-20**). New (user r339 2026-10-20): defects at the table top skin edges (arrows) and light shards on the lying cylinder end cap near the bed. Open. **User r340: blocky lines (6b465f8 inverted facing test); fixed r341, user-verified 2026-10-20 ("everything looks perfect").** r339 rim arrows + cylinder end-cap shards: user found nothing defective in r341 (2026-10-20), closed.
+- (Claude, 2026-10-19) Paint edge detection needs native work (engine.paint has no angle/edge option; Orca's is the fill tool's "edge detection" + smart-fill angle); do it with the extended paint tools item above. Done as a brush option in d1355c9 (see above); fill tools still belong to the extended paint tools item.
+- (Claude, 2026-10-19, r327) Built for the r325 phone list (orbit Claude-verified r326 Chromebook; card clamp failed r326, fixed r327, Claude-verified WSA 2026-10-19 with the tower outline): paint card re-clamps after unfold, tower drag always x-ray outlined (no box), paint touch starting off the selected object (box, then mesh check) orbits. 
+- (user, 2026-10-20, r336, LOW PRIORITY) Paint card fold direction: reverse the fold depending on where the handle is on screen. The handle should naturally stay near a screen edge (top or bottom); folding must never leave it mid-screen (e.g. card near the bottom folds downward toward the bottom edge). Open, not started.
+- (idea, user 2026-10-20, low priority) "Need phone" prompt: adb broadcast wakes the app, heads-up notification OK / Cancel / Use WSA / Use Chromebook, answer read back over adb. Shelved: not worth the tokens while WSA is default and chat works.
+- (user, 2026-10-20, phone screenshot plate 2, open) Edge outline in Prepare: feature edges (sharp creases) drawn as lines so shallow features (embossed text/logo on a flat top) read from a top-down view. Upstream (Claude 2026-10-20): none; only the wireframe toggle (GLCanvas3D::_render_wireframe_overlay, all triangle edges). Proposal: crease lines (dihedral > ~30 deg + open edges) per mesh, thin dark, View menu toggle. Waiting on the user GO.
+- (user, 2026-10-20, first real print) RESOLVED: printer needed full motor calibration + bed leveling; prints fine now (archive 2026-10-20 first print fixed).
+- (user, 2026-10-20, OPEN ISSUE) 3MF saved by the app fails in the desktop Orca (GUI): "Invalid configuration file: Shape design.3mf" + "no geometry data". Cause (source, PresetBundle.cpp:5419-5429): 4 filaments but `filament_self_index` had 1 entry. Fix `match_filament_indices` in OrcaProject.cpp (project save + .gcode.3mf export), built in run 39529670166 (installed on all 4 devices 2026-10-20; WSA has 2 filaments, its session shows matching lengths, which doesn't prove the 4-filament case); desktop CLI can't reproduce it (`--export-settings` accepts both), so the GUI load of a new export is untested.
+- (user, 2026-10-21, idea) View cube: small 3D cube in a viewport corner, tap a face/edge/corner = snap the camera there (reuse `Camera.preset`, render/Camera.kt; MCP view set already uses it), drag the cube = orbit the main view live (Fusion/Onshape style). BUILT 2026-10-21 (ui/components/ViewCube.kt, AppScaffold viewport TopEnd, Prepare + Preview): Compose Canvas, ortho from Camera yaw/pitch, 3x3 cells per face (centre 0.5), tap = 300 ms swing, drag = orbit 0.5 deg/px. Claude-verified WSA debug: face (FRONT, RIGHT), edge (yaw -45 pitch 0), corner (3 equal faces), drag right 60 px = 30 deg; Prepare + Preview layout clear. Run 39563849841 installed on all 4 devices 2026-10-21. User 2026-10-21 (run 39563849841): "works great". Phone portrait layout untested. Not in the CAD design view (MeshPreviewView, own camera).
+- (user, 2026-10-21) View cube drag and drop + haptics on the press: BUILT 2026-10-21 (1184036 follow-up): long press (system long-press time) picks the cube up (LongPress haptic, primary ring), drag moves it, spot saved in LayoutLab viewCubeX/Y as fractions of the free room (-1 = top right); VIRTUAL_KEY click when a press lands on a face/edge/corner. Claude-verified WSA debug: moved to 0.53/0.71, camera untouched; tap there snaps (yaw -45), quick drag orbits, old spot inert, spot survives restart. CI r352 run 39568391863 installed on all 4 devices 2026-10-21. User 2026-10-21 (r352): haptics work, moving works, but the cube makes them motion sick (cause unknown): moved behind a Layout lab switch "View cube in the 3D view" (LayoutLab.viewCube), OFF by default; WSA: off = no cube. r353 run 39573618045 installed on all 4 devices 2026-10-21. Revisit only if the user asks (ideas: no live turning with the view, smaller, no 300 ms swing).
+- (user, 2026-10-21, low) Move in Z: NOT in the slicer view (user: ignore it there). Needed in the CAD shape section (ui/scad, ShapeBuilder): the user could not find a quick way; wants it intuitive, e.g. a Z up/down rail handle on the selected shape. Coded ad82885 (Z rail dot); WSA OK (Claude, r356, 2026-10-21). USER 2026-10-21 (run 39678582217): "Z rail feels fine" but the object is not drawn live while dragging, only lands at the end: OPEN. Shift 0.1 mm step untested.
+- (user, 2026-10-21, explore) Blender extensions: Python on bpy, can't run in the app; only ideas/algorithms port (GPL-3 like Orca, OK to port code). print3d_toolbox zip in the projects root (checks: non-manifold, intersections, thin walls, overhangs, sharp edges; cleanup; hollow; export). Pie menu (space_view3d_pie_menus) = the UI idea: radial menu on long-press / pen button to replace the always-on icon bar. Claude's take in chat 2026-10-21. Open.
+- (Claude, 2026-10-1x) Idea offered: Preview camera-light slider (no GO yet).
+- (Claude, 2026-10-21, untested by user) Check mesh feel: markers size/colour readable on a real model, self-intersection count on a real print file, thin-wall markers. Claude WSA OK on a test STL, CI run 39657856306.
+- (user, 2026-10-21, LOW priority) Pie menu direction: should be for S Pen / stylus, opened by the pen button, as a customizable tool picker (user picks the wedges). Current build: finger long-press, lab switch off, fixed wedges (PieMenu.kt, 55b328b); USER 2026-10-21: "I do not like the pie menu"; make it a LOW S Pen/stylus feature, fully customizable (add/remove tools), any S Pen button(s) mappable to open it; not today. Column collapse waits. Pen-button trigger untested (Note locks, ask first).
+- (user, 2026-10-21, BUG, fixed untested) Cut tool, "place upper part on cut face" does nothing (probably the drop-to-plate rule). Upstream has a per-object auto-drop off; the cut with this option should turn auto drop off for that part.
+ **Done: checkbox "Place upper part on cut face" = upper part stays at the cut height (native cut float_upper, instance auto_drop off); old flip is now its own checkbox "Flip upper part upside down". Native compiled in WSL, untested on a device; run 39671546192. Gap: no UI to turn auto drop back on for a floating part (Undo only). Interpretation of the user's words, confirm.** **User 2026-10-21 (run 39671546192): upper part stays floating (OK), but the sliced parts are auto-arranged after the cut (unclear if wanted; ask); new "Flip upper part" makes the object's PAINT disappear (BUG, open, below). Interpretation confirmed.**
+- (user, 2026-10-21, BUG, fixed untested) Cut tool, "Flip upper part upside down": FIXED: the native cut never passed KeepPaint (every cut dropped paint); now set. Claude WSA 2026-10-21: flip cut and tilted cut keep the yellow/black paint. Was: the painted colours on the object disappear after the flip (paint not carried through the flip transform/mesh). Check the native cut flip path keeps the paint (mmu/seam/support facets) like the plain cut does.
+- (user, 2026-10-21, redesign) USER VERIFIED 2026-10-21 "much better" (archive). OPEN follow-up: no auto orient/arrange when "Place upper part on cut face" is on; else make auto orient a nested cut-window option (floaters make no sense); user asks the point of "Flip upper part upside down". BUILT 2026-10-21 (render/CutPlane.kt, PlateView startCut, PlateRenderer drawCutDisc/cutBand, native cut rotX/Y/Z): translucent red disc (depth-tested, no see-through walls), red line + light wash on the object where the plane cuts (MESH_FS uCutBand), drag the disc = height (screen move along the world Z axis), X/Y rings = tilt (reuse RotateGizmo: snap 5/45, haptic, angle label), Level button, hint text; selection outline/x-ray/box are off while the cut tool is open (user: object should not look selected). Plane must pass through the object (native check). Upper part with a tilt is reoriented onto its cut face (Place on cut). Claude WSA OK: move 60 px = 9.8 mm, tilt 27.9 deg, tilted cut gives angled halves with paint. Open question: parts auto-arranged after the cut, wanted? Original ask: Cut tool UX: (1) the red box shows its walls through the object (hard to read) and nothing shows where the plane meets the object's surface -> draw the section outline (plane x mesh polyline) on the surface, depth-tested, and a translucent plane without see-through walls; (2) adjusting the height with the tool window open is awkward -> touch-friendly: drag the plane/handle in the viewport (big grab handle, snap haptics like RotateGizmo), window compact/movable; (3) angular cuts via a rotate gizmo on the plane (reuse RotateGizmo.kt rings + ticks + snap). Also confirm: parts auto-arranged after the cut, wanted?
+- (user, 2026-10-21, ask) Shape builder on the main canvas, mesh menu interconnected: Claude assessed for/against 2026-10-21 (chat; recommended path: shapes as Orca volumes on the plate + existing mcut booleans, OrcaScene.cpp:928; live moves free, CSG on release). USER 2026-10-21: same look as the main view, shapes built on their own plate in an isolated focus mode (like Orca's assembly); also proposes an assembly space + a "paint shop" mode. Claude's design answer in chat 2026-10-21 (workspaces, design pose vs print pose); assembly folded into Build: user OK ("if intuitive, I'm all for it"). Waiting on the user's go for the plan.
+- (user, 2026-10-21) Paint panel UI: hard to find tools, unclear what each does. Claude proposed 3 layouts 2026-10-21 (A icon rail + context strip, B tabbed card Paint/Options/Object, C task modes Brush/Fill/Bands/Whole object, recommended C; all add one-line tool descriptions). USER PICKED C 2026-10-21. Built 2026-10-21 (commit after 08d2b48, run 39703898053; Claude WSA check OK 2026-10-21, user feel untested). Then in a full-screen "paint shop" workspace: Claude proposed adaptive layout (portrait bottom dock: options / palette / modes; landscape side panel: filament layers with hide, lock, % and drag-to-remap; long-press swatch = same actions). Mockup PNG sent 2026-10-21 (source %TEMP%/paintshop-mockup/mockup.html); waiting on the user's OK. Code: ui/prepare/ToolPanel.kt:152. Step 1b shell built 2026-10-21 (ui/prepare/PaintShop.kt, run 39707542869, untested; deviation: no back arrow, Done + system Back leave; dock keeps 1a order modes-on-top, not the mockup's modes-at-bottom). Step 1c solo view built 2026-10-21 (commit 3e17ac2, run 39709156358; Claude WSA check OK on the debug build: cylinder + modifier hidden in the shop, back after Done; user untested). Open: palette as layers (hide/lock/%/remap), long-press swatch menu. Claude WSA check 2026-10-21 (run 39707542869): landscape side panel, chrome hidden, Back/Done leave; portrait dock untested. Step 1d entry framing built 2026-10-21 (run 39710599220; Claude WSA check OK on the debug build: small cylinder at distance 500 -> fills the shop view at 181 mm, yaw/pitch kept; Done -> back to 500; user untested). Step 1e-i filament layers built 2026-10-21 (d031c20, run 39712935294): side panel rows (tap = paint, share bar + %, menu "Turn into filament N"), dock swatch long-press = same menu; native paintCoverage + paintRemap base flag (unpainted faces follow). Claude WSA check OK on the debug build (beeper: whole part 2 -> 100 %, band 37/63, Turn into 3->4 and 1->2, undo restores, cleared part base 1 -> 3 = 100 %); portrait dock long-press untested; user untested. Deviation: "Turn into" menu instead of drag-to-remap (dragging rows is fiddly on touch). Step 1e-ii hide/lock built 2026-10-21 (commit after d222b6f, run 39716845272): row eye + padlock toggles, dock long-press menu items, faded swatch + lock badge; hide = filament drawn grey (uHidden, shop only); lock = native Guarded cursor skips locked leaf triangles (brush, triangle, bands, fills, Clean specks; unpainted = part filament). Claude WSA check OK on the debug build (cylinder: lock 2 -> Object fill 3 kept 2 at 66 %; locked brush no change vs unlocked 66->58 %; locked fine-split 1 kept 8 % under a 3 band; hidden 3 drew grey, yellow strokes intact). Untested: Clean specks with lock, guarded fill-over-colours edge-angle fix (same commit: it painted the whole kept side), portrait dock menu, user feel. Note: the stroke-axis chips are also called "Lock ↕/↔" (rename later?). Step (1) done apart from user checks.
+- (user, 2026-10-21, ask) Paint penetration/depth (USER 2026-10-21: it was TOP depth. Beeper plate: ~60 % solid yellow; yellow through the whole height gives a deeper colour (light transmission); lowering top shell layers to control depth shows infill + weakens the part. Wants depth decoupled from shells, incl. 'all the way through'. Also cares about filament waste: uses paint-by-height to cut colour changes). Source: depth is the engine's, not the paint UI's. Top/bottom paint goes top/bottom_shell_layers deep (src-orca MultiMaterialSegmentation.cpp:1254, 1442-1462; coupled to the shell setting); sides go all the way in unless "Maximum width of a segmented region" mmu_segmented_region_max_width (PrintConfig.cpp:4808, per object, used :2258). Plan: paint shop Object mode gets a Depth section: Sides = that setting (no native work), Top/bottom = new native key replacing shell layers at :1254/:1410 (small, untested). Per-colour depth = big. Step built 2026-10-21 as native patch (android/patches/src-orca/0001) + Object-mode "Paint depth" rows (run 39718807086 = r367). Claude WSA-checked r367 2026-10-21 via G-code (archive): Like shells / 8 layers / All the way all correct. User untested (feel, real print). Small bug: leaving Prepare (slice -> Preview) and coming back resets the paint mode to Fill.
+
+- (moved from handoff 2026-10-21, "Later") - Later (awaiting go): cut radio Lay on cut face / Flip / Leave + nested "Arrange after cut" (arrange_plate always runs, OrcaScene.cpp:1046;   with the design pose, Leave goes away); Z rail live drag (MeshPreviewView.kt:342); Build workspace (shapes as Orca parts, design pose).   Feel pending: view cube, Check mesh, paint batches.
+- Preview colour-change line: count/flush line OK on WSA r372 (Claude, 2026-10-22; archive). Open: its prime tower ~3.3 g vs slice_result 3.155 g on WSA plate 2 (check which number is right). Task 15 FIXED b27d4f1 (Muse PR #57; Claude, 2026-10-22: compiles, 101/101 JVM tests; parser now mirrors the processor's erWipeTower role stat; remaining gap = plate-average vs per-filament density, not in Kotlin state). Untested on device: re-slice WSA plate 2 and compare the line with slice_result.
+- Paint shop reopen: fixed + verified by Claude on WSA r374 (2026-10-22, archive). Open: user feel only.
+- Paint-shop plate estimate line: WSA r373 OK (Claude, 2026-10-22: 8 vs Preview 7, archive). Task 16 fix dec87f6 (PR #59: fully painted end face drops the base filament on that layer; VERIFIED r376 WSA 7 / ~0.9 g = Preview, Claude 2026-10-22, archive). Open: user look/feel; approximations (one density, part-level filaments ignored).
+- Muse Task 12 JNI audit (MUSE-REVIEW-0012.md on muse/work, PR #54 merged 2026-10-22; Claude spot-checked findings 1, 2, 4): findings 1-4 FIXED in r375 21b7f9f (Claude, 2026-10-22: compiles, WSA starts clean; error paths untested on device: guards only change behaviour on a throw). Finding 6 FIXED e02b10f (Claude, 2026-10-22: per-printer set, obn agent.cpp:1194 sends dev_id; not built yet, needs a printer to test). Finding 7 FIXED c892692, VERIFIED r376 (Claude, 2026-10-22, WSA: empty STL import keeps 2 empty plates + undo stack; archive). Finding 6 built in r376, still needs 2+ printers. Still open: 5 preset_bundle() unlocked plugin read, 8 obn init lock (suspected), 9 fill cancel undo pop (suspected), 10-13 in MUSE-REVIEW-0012.md.
+- User verdict 2026-10-23 on the Muse trial: "if it saves me tokens/usage on you and it can reliably do the task then yes keep ... if it ever starts costing more than it's worth you need to tell me your honest assessment and not let the token burn continue." Muse kept for audits + larger JVM-testable Kotlin; effort logged per task.
+
+### 2026-10-23 Z rail live drag dropped (user)
+- Wireframe ghost only (merged STL, no per-shape mesh); user: throw it out, shapes move live in the Build workspace instead.
+
+### 2026-10-23 Build workspace plan (Claude; user GO 2026-10-23)
+Today the builder renders the whole design through OpenSCAD into ONE object (replace_mesh) and shows it in its own
+MeshPreviewView (wireframe box while dragging). Target: the design object IS a multi-part Orca object on its own plate,
+edited in the main view. Found in source: per-volume transforms (OrcaScene.cpp:691 set_transform volume >= 0), negative
+volumes (:70), add/delete volume (:1172/:1218), mesh_boolean (:962), pick() returns the volume (OrcaTools.cpp:70),
+write_mesh draws every volume (OrcaScene.cpp:470), and the mesh shader already moves/scales/turns "selected" ids live
+(Shaders.kt:68-80, uDrag/uScale/uRot), so per-shape live drags need only per-volume selection ids.
+1. DONE (this commit): `ShapeDesign.pieces()` (ShapeModel.kt): one Piece per top-level shape = OpenSCAD code in the
+   shape's own frame (dims resolved to numbers) + row-major 4x4 placement; a group is one piece (holes inside a group cut
+   only it, as now), a repeat gives one piece per copy (same code = shared mesh), a top-level hole = negative volume (Orca
+   cuts it from every part, same as the outermost group). Move/turn/mirror change only the matrix. 6 JVM tests
+   (ShapePiecesTest: matrices x own-frame boxes = ShapeDesign.bounds for turned/mirrored/grouped/repeated/bound shapes).
+   toScad output unchanged (prelude() extracted verbatim).
+2. [Opus] Native (core/jni, CI build): `set_volumes(object, [{stl, type, matrix, name}])` replaces the object's volumes in
+   one undo step, keeps the instance pose and the mesh frame (add_volume centres: compose the offset back), skips empty
+   meshes; a "build object" flag makes write_mesh emit selection id -1000 - volume for its volumes (tower uses -2 - plate).
+3. Kotlin: per-piece OpenSCAD renders cached by code hash (`files/openscad/pieces/<hash>.stl`); a change re-renders only
+   changed pieces, a move sends only matrices. Shape designs stop using the whole-design STL push.
+4. UI: Build = isolated focus on the design object in the main view (paint shop's solo pass, uSolo), builder panel docked
+   like the paint shop (bottom portrait / side landscape); tap -> pick volume -> shape id; main-view gizmos on the
+   selected volume ids; release writes pos/rot/size into the ShapeDesign -> step 3. ScadPreview stays for code designs only.
+5. Design pose vs print pose: volumes in the object frame = design pose; instance transform = print pose (Prepare's lay
+   flat / rotate touch only the instance); Build shows the instance unrotated.
+6. Later: per-shape filament (volume extruder = multi-colour modeling), "Merge" bake (mesh_boolean), groups editable inside.
+Risks: holes show translucent until sliced (Tinkercad-like); resizing re-meshes the piece and drops its paint; per-piece
+render time on release untested; empty pieces (blank text) must be skipped natively.
+
+### 2026-10-23 Build workspace step 2 done (Claude, f7c01e7)
+- `set_volumes` (OrcaScene.cpp, call `setVolumes`, Kotlin `Engine.setVolumes` + `VolumeSpec` in Models.kt): replaces ALL the
+  object's volumes in one undo step (modifiers too: pass them as `keep` entries to keep them). Entry = `stl` (loaded,
+  loader centring baked back, added with `modify_to_center_geometry = false` so the piece frame stays the mesh frame and
+  `matrix` applies as given) or `keep` (copy of an existing volume: mesh + settings + paint). Repeats of one STL share the
+  mesh (`add_volume_with_shared_mesh`). Missing/empty STL file = skipped; no part left -> throws before any change. New
+  pieces copy the first old part's config (filament). Instance pose kept; `keepCenter` shifts the copies in X/Y so the parts
+  stay centred (for the first conversion from the whole-design mesh). Old volumes are deleted directly, NOT via
+  `ModelObject::delete_volume` (it folds a lone volume's matrix into the instances, Model.cpp:1439).
+- `set_build_object(object|-1)` (call `setBuildObject`, Kotlin `Engine.setBuildObject`): write_mesh gives that object's
+  volumes selection id -1000 - volume (all its copies share them). Index-based, the Kotlin side owns it (clear on exit).
+- Caveats for steps 3-4: `keep` assumes a mesh set_volumes made this session (a 3MF reload may re-centre volume meshes:
+  re-send `stl` after a load); a single-volume object now keeps a non-identity volume matrix (Orca's GUI folds it, our
+  renderer/pick/slicing use vol->get_matrix(), 3MF round trip of that untested). Nothing calls either function yet.
+
+### 2026-10-23 Build workspace step 3 done (Claude, ea39bfc + a978808, r379; session guard after it, built with the next batch)
+- Shape designs: `ScadController.renderPieces` renders each `ShapeDesign.pieces()` entry alone (cache
+  `files/openscad/pieces/<sha1(file + code)>.stl`, empty file = empty piece, 500 most recently used kept) and
+  `placePieces` sends them with `Engine.setVolumes` (hole = NEGATIVE, name = shape name + copy number for repeats), then
+  `setObjectModule` with `ScadDesign.pieces = true`. A piece with unchanged code keeps its volume (`keep`: mesh + paint,
+  new matrix); modifiers / support volumes are `keep` entries WITHOUT matrix (native: `own_matrix`, keeps its placement).
+  First conversion / new object / object not placed this session (`placedThisSession`, names): `keepCenter`. A new
+  object loads the first solid piece (named after the design), then setVolumes (2 undo steps). Code designs: replaceMesh
+  as before; a pieces object turned into code gets its one mesh via setVolumes (identity, keepCenter).
+- r378 crashed (SIGSEGV, orca-engine) on a repeated shape: `add_volume_with_shared_mesh` leaves the convex hull null
+  (Model.hpp:1196) and `drop_to_bed` reads it. Fix a978808: `calculate_convex_hull()` per shared copy (as bbs_3mf.cpp:5240).
+- VERIFIED r379 (Claude, WSA, MCP): Base 40x30x10 + top-level Hole cylinder + Peg x3 repeat placed as a new object
+  (40 x 30 x 18 mm, hole not in the size); moving the Pegs +10 mm in Y gave centre Y 128 -> 130.75 and depth 35.5 exactly
+  (Base stayed put = design frame kept); sliced preview shows the hole cut through and the 3 pegs moved.
+- Untested: paint kept on a moved piece, modifiers kept, the code-detach path, an object reloaded from 3MF, first edit
+  after a restart (keepCenter: when it moves a shape, the rest shifts by half the bbox change), per-piece render time on
+  big designs (the first render now runs the preview AND each piece).
+
+### 2026-10-23 Build workspace step 4a done (Claude, ab3be2b, r380 = run 39999918817)
+- Eye toggle on a shape design placed as pieces = Build workspace in the main view (`UiState.buildObject`, ScadController.kt):
+  `ScadController.showBuild` (collected in AppViewModel) calls `Engine.setBuildObject`; renderer `buildSolo` -> shader uSolo 2
+  draws only ids <= -1000 (paint overlay emits the same per-volume ids, OrcaTools.cpp); tap -> `ShapeController.tapAt`
+  (native `pick` gained `object` = only that object); drag start -> `grabAt` (hit shape selected?), drop -> `moveOnPlate`
+  (plate delta through the grabbed copy's R^T, 1/scale, mirror); every builder edit -> `pushBuild` (render pieces, no
+  whole-design preview; queued via renderAgain); plate tools + object gizmos off; camera fits the object, plate camera
+  restored after (shared `shopCamera`); leaving runs `preview()` so the pane catches up.
+- VERIFIED r380 (Claude, WSA, MCP + adb taps): only the design object drawn (hole translucent, hint line); tap peg ->
+  selected #3, tap base -> #1; drag pegs moved them in the design and on the plate (depth 35.5 -> 30); second drag moved
+  only the pegs (object centre/size unchanged); eye-off -> preview pane shows the moved pegs; closing the editor restored
+  the plate camera (936 mm vs 111 mm in Build). No crash.
+- Seen: the FIRST edit after an app restart shifted the base 2.75 mm (keepCenter, object centre kept at Y 130.75 while
+  depth changed) - the step 3 caveat, now confirmed; backlog. Untested: painted pieces in Build, multi-copy objects,
+  turned/mirrored instance drags.
+
+### 2026-10-23 Build workspace step 4b done (Claude, 76c0199, r381 = run 40005487653)
+- Build view: the selected top-level shapes get the main view's scale handles and rotate rings, always on (no mode toggle,
+  Tinkercad-like; deviation from the object gizmos' Resize/Rotate modes), on the selected volumes' mesh box
+  (`PlateRenderer.selectionBounds`, `PlateView.gizmoOnMesh/gizmoBox`). Shown only while the object has one copy; groups get
+  rings only. X/Y/Z face handles when the copy and the shapes lie along the axes (`BuildTransform.axesFree`), corners only otherwise.
+- `scad/BuildTransform.kt`: plate pivot -> design frame (`toDesign`), plate turn -> design turn (mirror R^T M R mirror;
+  copy scale taken as even), plate factors -> design axes; `turned` (pos re-centred so the shape's middle turns about the
+  pivot, rot = angles(M R), repeat step / circular centre turned) and `scaled` (size along the shape's own axes, middle
+  scaled about the pivot, repeat step / centre scaled). `ShapeController.resizeOnPlate/turnOnPlate` commit one undo step,
+  setting only changed fields (bound dims follow). 7 JVM tests (plate corners after = gizmo transform of corners before;
+  turned/mirrored copies and shapes, repeats, groups); 164/164.
+- VERIFIED r381 (Claude, WSA, adb drags + draft.json): Peg x3 Z ring -82.9 deg -> step (12,0) -> (1.481,-11.908), row centre
+  (-2.916, 6.901) kept; Base X face handle 40 -> 52.396 mm about the box centre (pos 0 kept, = the object gizmo's centre
+  pivot; the old preview handle kept the min side); turned Pegs show corners only, corner drag x1.670 on size and step,
+  row centre and bottom z 10 kept. Untested: circular repeat turned about X/Y (copies still circle about Z), copy with uneven
+  scale (turn approximated), live-scale wait on slow piece renders (8 s cap), user feel (always-on rings + handles clutter?).
+
+### 2026-10-23 Build workspace step 4c done (Claude, 8b35eab, r382 = run 40014825223)
+- `ScadController.buildIfPlaced` (called from `open` and `load` instead of `preview()`): a shape design whose `onPlate`
+  object is a pieces object with the SAME shapes opens with the eye toggle on (Build view; the pane renders on leaving).
+  A draft with edits not yet on the object opens in the pane as before, so opening never pushes to the object.
+- VERIFIED r382 (Claude, WSA, MCP + ui dump): long-press "Pieces test" > Edit OpenSCAD design -> Build view at once (camera
+  130 mm on the object, hint line, builder panel); tap picked Base; Back -> preview pane, plate camera back (936 mm).
+  Installed WSA + SHIELD. Untested: reopening the saved draft (open()) into Build, user feel.
+
+### 2026-10-23 Build workspace: first edit after a restart fixed (Claude, ca8f672, r383 = run 40020244113)
+- Cause: an object not placed this session gets `keepCenter` (its 3MF-loaded frame may differ), which kept the whole
+  bbox centre, so moving one shape shifted the rest by half the box change (seen r380).
+- Fix: `VolumeSpec.anchor` / native `VolumeSpec::anchor` = the old volume of a piece with unchanged code AND matrix
+  (`ScadController.anchors`, built on `matched`, which `kept` now also uses; no session guard). With keepCenter,
+  `set_volumes` shifts the copies so the anchors' placed box (first copy) keeps its centre; no anchors = whole-object
+  centre as before.
+- VERIFIED r383 (Claude, WSA, MCP): after an app restart, Peg x3 moved -5 mm Y + design_to_plate: centre Y 130.75 ->
+  128.25 and depth 36.29 -> 31.29 (= Base stayed put, predicted 128.25); moved back in the same session -> 130.75 / 36.29.
+  Installed WSA + SHIELD. Untested: all pieces changed at once after a restart (falls back to centring), multi-copy objects.
+
+### 2026-10-23 Build workspace step 5 done: design pose vs print pose (Claude, 564ec0f + 3e13f40, r385 = run 40035616143)
+- Native: `OrcaEngine::design_offset(object, instance)` = the Build object's copy as a plain translation (copy X/Y, design
+  bottom on the bed; nullopt for other objects); `shown_matrix` (static in OrcaScene.cpp / OrcaTools.cpp) feeds write_mesh,
+  pick and the paint overlay, so the Build view draws and picks the volumes in the object frame (copy turn/scale/mirror =
+  print pose, left out). scene_json gives the Build object's copies `"design": {offset, min, size}`; Kotlin
+  `Instance.design` / `Instance.shown`, used by ShapeController (moveOnPlate, buildGizmoTarget -> BuildTransform) and the
+  Build camera fit (Viewport.kt). Prepare's lay flat / rotate already touch only the instance (lay_on_face OrcaScene.cpp).
+  First CI run failed: Transform3d in OrcaEngine.hpp (the header forward-declares Slic3r types only, no Eigen).
+- VERIFIED r385 (Claude, WSA, MCP + adb drags + crops): Pieces test turned rot [90,0,0] in Prepare -> Build view shows it
+  upright (camera target z 9 = half the 18 mm design height); X ring drag turned the pegs about X as drawn; X face handle
+  grew Base 52.4 -> 64.3 mm along X; body drag moved Base along the screen drag (design pos +4.83 / +2.79, pegs kept),
+  plate copy stayed rot [90,0,0] and its X centre followed (128 -> 132.83); Back restored the plate camera. Pieces test
+  left edited (tilted pegs, wider base), rot reset to 0. Installed WSA + SHIELD.
+- Untested: multi-copy objects in Build (each copy in its own design pose at its X/Y), mirrored/scaled copies, user feel.
+
+- User 2026-10-23 (r385): "yes" to Muse Task 18 = audit + JVM tests of the Build workspace Kotlin (BuildTransform, ShapeDesign.pieces, ScadController piece matching).
+- Task 18 sent 2026-10-23 (PR #63 sync + task text, merged into muse/work; READY on #46). Effort log, Task 18 write: ~10 tool calls / ~25k tokens.
+
+## 2026-10-23: Muse Task 18 (Build workspace audit + JVM tests) merged
+- PR #64 into muse/work (3f604a9); code applied to the work branch. PieceMatch.kt = pure core of ScadController.matched
+  (equivalent: same empty flags, hole order check, first-match by shapeId/copy/scad); 27 new tests, suite 192/192 (Claude
+  ran it locally twice: compile 0, tests 0).
+- Muse defect fix: BuildTransform.scaled refused any uneven scale of a circular repeat. Claude narrowed it (ae07b95): copies
+  turn about Z only (ShapeModel.kt:392), so only X != Y is refused; a taller ring (X = Y, Z differs) still scales, test added.
+- Untested on device: the refusal path (shape left unscaled) and the extraction in the app.
+- Effort log, Task 18 review: ~20 tool calls / ~30k tokens (Muse saved writing 27 tests + the audit; worth it).
+
+### 2026-10-23 Build workspace step 6a per-shape filament (Claude, 4a027d7, r386 = run 40055385531)
+- `Shape.filament` (top-level solids; 0 = the object's; JSON "filament", omitted at 0) -> `Piece.filament` (holes 0; not in
+  `scad`, so a colour change keeps mesh + paint) -> `VolumeSpec.extruder` (ScadController.placePieces; a slot above the
+  filament count -> 0) -> native set_volumes: > 0 sets the volume's `extruder`, 0 erases it, -1 (modifiers) leaves it.
+  UI: Filament picker under Solid/Hole in ShapeBuilder Properties (2+ filaments, top-level solids only; "Object's
+  filament" = 0); the shape row's dot shows the filament colour. JVM test piecesCarryTheirShapesFilament...; 193/193.
+- MCP (after r386, unbuilt): `shape_update` takes `filament` (0..count, top-level only), `design_describe` prints it.
+- VERIFIED r386 (Claude, WSA, MCP + adb Allow tap): "Pieces test", Peg x3 -> filament 2 (design_set) -> design_to_plate
+  said "Placed" (no re-render); Prepare view: Base yellow (F1), 3 pegs matte grey (F2); slice: prime tower 7 g (2
+  filaments used). Peg back to 0 -> pegs yellow, centre/size unchanged (132.828,117.204; 64.314 x 19.63 x 30.275).
+  Effort: ~1 session step, no Muse. Untested: user feel of the picker; groups (one filament for the whole group).
+- Setup: the src-orca submodule worktree was empty 2026-10-23 (git data intact), restored with `git submodule update
+  --init src-orca` (local). C: was 96% full.
+
+### 2026-10-23 Build workspace step 6b Merge bake (Claude, Kotlin only, unbuilt in CI)
+- Deviation from the plan (mesh_boolean): Merge bakes through OpenSCAD instead, into a MESH shape, so the design stays
+  the source of truth, undo works as one step, and no native change is needed. `ShapeController.merge` (toolbar Merge
+  icon after Ungroup: 2+ top-level shapes, or one group; MCP `shape_merge`) groups the selection (`grouped`, shared
+  with Group; name "Merged N"), renders that group's piece code once (`ScadController.renderMesh`,
+  `files/openscad/meshes/merged-<sha1>.stl`, kept like imported meshes), then `ShapeDesign.merged` swaps the group for a
+  MESH shape placed so the mesh lands where the group drew it (keeps turn, mirror, repeat, hole, filament; drops
+  bindings). An edit during the render drops the result (toast). JVM test aMergedGroupStaysWhereTheGroupWas (corner by
+  corner through both pieces' matrices, turned + mirrored + repeated group); 194/194.
+- VERIFIED (Claude, WSA, local debug APK on r386 natives + MCP): "Pieces test" Base + Hole + Peg x3 -> shape_merge ->
+  one mesh 64.314 x 30.275 x 19.63, X span = Base's exactly, bottom z 0 (group frame z0 = -5 from the hole handled,
+  mz0 = 5); design_to_plate: copy centre (132.828, 116.619) kept, Y size 20.801 -> 19.63 (the exact union instead of
+  the pieces' boxes); check mesh: no problems, volume 19249 mm3 (hole cut); slice OK. Debug app uninstalled.
+- Untested: the toolbar button (WSA parked, no dump), undo after a merge, merging a single turned group on device, user feel.
+- Tooling: the local debug build had stale natives ("Unknown engine call: setBuildObject"): re-run
+  `stage-from-apk.sh` after native CI builds. New `~/orca-android-tools/wsa-debug-setup.sh` = install the debug APK on
+  WSA + copy the release app's session/settings/openscad files (root).
+
+### 2026-10-23 Build workspace step 6c-1: shapes inside groups editable in the main view (Claude, 7bafa7b, CI run 40059608337)
+- Tap levels (Tinkercad/Figma-like): a tap picks the top-level shape; a tap on the selection (or inside it) goes one
+  level deeper; a tap beside it stays on its level; a tap on nothing clears (back to the top). `BuildTransform.pickLevel`
+  (common prefix of the selection's path and the hit's path). `ScadController.shapeAt` now returns the hit's path:
+  `ShapeDesign.pathAt(piece, design point)` takes the pick point (BuildTransform.toDesign of the shown copy) through the
+  piece's inverse matrix, then each child's copies x placement into its box; solids win over holes (a hole's cut wall
+  lies in both boxes), then the smallest box. `volumeShapes` maps volume -> Piece now (copy + matrix).
+- Drag: `grabAt` grabs when the hit's path holds a selected shape; `moveOnPlate` moves each selected shape by
+  `ShapeDesign.toParent(id, v)` (the design delta through its groups' inverse turn + flip; a repeated group = copy 0).
+- Gizmos: only when every selected shape is top level (before, a selected child got its group's gizmo, which would have
+  scaled/turned the whole group). Child gizmos = 6c-2.
+- Fix (pre-existing): the Build drag-start box (Viewport.kt `selectedBounds`) used the plate pose; now `Instance.shown`
+  (design pose). The first child drag on the turned group fell back to a camera turn; after the fix the same tap + swipe
+  moved the shape.
+- JVM GroupPickTest (3): picks in a turned + mirrored + repeated group with a nested turned group (both copies), a child
+  move = the design delta in world, pickLevel cases; suite 197/197.
+- VERIFIED (Claude, WSA, local debug APK on r386 natives + MCP + adb taps/swipes): Pieces test, Base + Hole grouped (#4),
+  group rot Z 90. Taps on Base: #4 -> #1 -> #1; peg -> #3; empty -> none. Drag of #1: Base pos in the group (-0.172,
+  -0.213) -> (4.2, -7.786), group box shifted (7.573, 4.372) = the same plate direction as a whole-group drag; group pos
+  unchanged. Debug app uninstalled.
+- Untested: nested groups on device, repeated groups (drag moves copy 0's frame), holes inside groups (not pickable in
+  the view: pick them in the list), highlight shows the whole group for a selected child, undo, user feel.
+
+### 2026-10-23 Build workspace step 6c-2: gizmos on shapes inside groups (Claude, 6df309d, unbuilt in CI)
+- Gizmos show when the selected shapes share one frame (top level, or the same group). The plate turn / scale and its pivot
+  go into the group's frame: `ShapeDesign.parentFrame` (the groups' placements, a repeated group = copy 0),
+  `BuildTransform.turnInFrame` (A^T m A), `scaleInFrame` (uneven only when the frame lies along the axes, else even),
+  `inFrame`; `axesFree` also checks the frame. Gizmo box = the shapes' design boxes in the group's first copy
+  (`ShapeController.buildGizmoBox` -> renderer `boxOverride`); with an override the live drag moves only the box and rings.
+- New: a turned group whose height changes (child edit) moves so its other children stay put (`ShapeDesign.groupShifts`,
+  p' = p + (RF - I)(0, 0, (h' - h) / 2)); applies to gizmos and drags.
+- JVM: GroupPickTest +3 (parentFrame = the piece matrix; a 45 deg design turn on a nested child: corners exact, siblings
+  put, only group 13 shifts; a design-X scale in the Z90 + mirrored group = group Y); suite 200/200.
+- VERIFIED (Claude, WSA, debug APK on r386 natives, user watching): Pieces test, Base + Peg grouped (#4). Group rot
+  [20,0,90]: tap group, tap Base -> #1, box fits the Base, corners only; ring drag turned Base (rot [-71.4,0,0]), group pos
+  shifted (height compensation), pegs stayed; corner drag = even 1.146. Group rot [0,0,90]: X/Y/Z handles; plate-X handle
+  -> Base size.y 30 -> 48.675, x unchanged, pegs unchanged; toolbar Undo restored in one step.
+- Also: About text no longer names the AI (user 2026-10-23).
+- Debug setup notes: the debug app's first start shows the printer picker (Apply, then re-run wsa-debug-setup.sh); the MCP
+  server can't bind while the PC's `adb forward tcp:8765` exists (WSA shares Windows loopback): remove it before starting the app.
+- Untested: nested groups on device, repeated groups (gizmo on copy 0), user feel.
+
+## 2026-10-23 Filament materials tier 1 (b978e15)
+- `render/FilamentMaterial.kt`: enum BASIC/MATTE/SILK/GLOSSY/TRANSLUCENT/SATIN, `of(preset, filament_type override)` by
+  name words (silk/metal > translucent/clear > matte/CF/GF/TPU > PETG/PCTG/PC > ABS/ASA/PA > basic). Uniforms `uMatA/uMatB[16]`
+  (PlateRenderer.setFilamentMaterials, Viewport filament LaunchedEffect); MESH_FS part shading: wrap lighting, highlight
+  power/strength, metallic tint, fresnel sky reflection, grazing sheen. BASIC = old look exactly. Parts with type < 100 and
+  hidden filaments stay basic. No real transparency (parts draw opaque in pass 0); translucent = wrap + gloss.
+- Claude WSA debug check (temporary file override, reverted): all six compile/render; one tuning round (silk lobe 18 /
+  0.6 / tint 0.85 / sky 0.45 / diffuse 0.72). Differences show mostly on curved faces. JVM test FilamentMaterialTest.
+- 2026-10-24 r389 WSA (Claude): Surface look matte vs glossy render differently (flat vs sharp highlight); user feel untested.
+
+## 2026-10-24 Realistic render mode build 1 (08f4a04)
+- User asked for a render mode mimicking Google Filament; approved shader-only look-alike (engine stays rejected). View menu
+  toggle `realistic_render` (default off) -> PlateRenderer.realistic -> MESH_FS uRealistic. `realisticShade`: GGX (Filament's
+  mediump-safe cross form, highp), height-correlated Smith, Schlick, Lambert, clear coat (Kelemen), key light x shadow `lit`,
+  procedural `studio()` env (floor, sky, horizon band, overhead softbox, side strip; roughness widens + keeps energy),
+  Karis envDfg, ACES, exposure 0.5 (first try 1.0 clipped whites), gamma 2.2. glslc OK; FilamentMaterialTest 3/3.
+- Claude debug WSA check: blue sphere, all six looks distinct (silk metallic with softbox reflections, glossy/translucent
+  coat reflections, matte soft). Faceting on low-poly spheres shows as in the plain look (flat normals). User untested.
+
+## 2026-10-24 Realistic render mode build 2 (r390 run 40073750246)
+- AO: contact AO (faces < 6 mm above the bed, side faces most, x0.5 at contact) + softbox AO = the key light's shadow map
+  over a 24 mm disc (`AO_SOFT_MM`, `lightAt(..., soft)`), gated by n.l like the shadow; the studio's big softbox now sits at
+  the key light direction (was fixed overhead). Lagarde specular occlusion. WSA measure: shadowed wall ~8 % darker in the
+  last mm above the bed; no acne/banding from the wide disc. Subtle by design (not tuned further).
+- Clear filaments: FilamentMaterial b.w = transmission (TRANSLUCENT 0.7); realistic mode discards them in pass 0 and draws
+  new pass 7 after the opaque scene (cull front then back, depth write off, premultiplied blend). First try premultiplied
+  before gamma: blown-out white (gamma brightened the weighted colour, layers summed past 1). Fix: display-space blend,
+  rgb = opaque look x coverage + reflections x (1 - coverage). WSA: grid, inner faces and the negative cylinder show through.
+- Bug found + fixed: slot surface look (step 2) was lost on app restart: session restore (`PresetController` select printer)
+  and 3MF load (`FileController` slot rebuild) kept the AMS source but not `look`. Both keep it now; WSA restart check OK.
+- `wsa-debug-setup.sh` now also copies files/data/{system,user,orca_plugins} (a fresh debug app stopped at the printer
+  wizard; MCP waits for READY). User 2026-10-24: launch WSA hidden via `wsa-start.ps1` again (memory updated).
+
+## 2026-10-24 Filament materials tier 2: layer lines (4b7d432, r391 run 40075524166)
+- MESH_FS `layerLines(n, gn)`: layer coordinate from vWorld.z (first layer 0..initial_layer_print_height, then layer_height);
+  bead = normal tilt along the surface's up direction (sine profile at 5-8 px a layer, round bead s/sqrt(1-s^2) from 16 px),
+  joint groove (x0.7, >= ~1 px wide, from 6 px); fades out 5 -> 2.5 px a layer and on faces with |n.z| > 0.92 (tops/bottoms).
+  Plain + realistic looks. Uniform uLayers (PlateRenderer.layerLines), View menu "Layer lines" (pref layer_lines, default off),
+  Viewport reads the print preset (first value; variable layer height ignored). glslc OK.
+- Claude WSA debug check: 90 mm fine lines, no moire at 1:1; 20 mm round beads + grooves; 260 mm faded clean; realistic mode
+  shows them (strong contrast under the softbox, left for the user). Lying cylinders show lines along their length (correct).
+- 2026-10-24 /next skill: model check now compares the model only (Claude can't see /effort; the internal reasoning number
+  isn't it; Claude wrongly said "effort low" 3x while the user was on High).
+
+## 2026-10-24 Stale backlog item archived
+- "Paint shop: slice -> Preview -> back to Prepare resets paint mode to Fill" was already fixed by Muse Task 7 (a4b63c7, paint mode kept over Preview), Claude WSA-checked OK 2026-10-22. Backlog line removed.
+
+## 2026-10-24 Prime tower weight (Task 15 b27d4f1) verified on WSA r391
+- Claude: WSA plate 3 painted filament 2 (Pieces test, Paint shop > Object) and sliced: slice_result Prime tower 11.075 g, Preview line "prime tower ~11.1 g" (93 changes, flush ~12.4 g, total 33.6 g both). Match. Recipe: Print tab Filaments > add slot; Paint > Color painting > Object > pick filament 2 > tap part; MCP slice {"plate":N}.
+
+## 2026-10-24 Muse Task 12 finding 5 fixed (9661c20, unbuilt)
+- Confirmed: plugins load and run on their own threads (PluginManager::load_plugin spawns std::thread; Python threads post page
+  messages) and `orca.host.preset_bundle()` returns the raw bundle by reference, so load_presets() freed it under a plugin.
+- Fix: `orca::plugins::BundleWriteGuard` (AndroidPluginRuntime) holds the GIL while Python runs; every bundle write takes it
+  after the engine lock (load_presets swap, select_printer_locked, save/delete_preset, selection_config, import_presets,
+  load_cloud_presets, mark_uploaded, sync_filaments). load_presets() retires the old bundle (m_retired_bundles) instead of
+  freeing it while Python runs (reload is rare: start, vendor install, cloud sync). Lock order engine -> GIL -> PluginManager;
+  PM lock scopes hold no Python, plugin code under the GIL never takes the engine lock. WSL corebuild OK; no device test yet.
+- Claude effort: direct (no Muse), ~1 session step.
+
+## 2026-10-24 Muse Task 12 finding 8 fixed (aecb380, unbuilt)
+- `ObnBridge.cpp` init held `g_mu` across `bambu_network_start`; obn callbacks call `push_event` (takes `g_mu`), so a callback on the calling thread would deadlock. obn source isn't in the tree, so not traced; fixed defensively: init now serializes on `g_init_mu`, checks via `current_agent()`, takes `g_mu` only to publish `g_agent`/`g_dir`. WSL corebuild compiles (Claude, 2026-10-24). Untested: needs a printer connect (user away). Effort: ~1 short session step, direct (no Muse).
+- 2026-10-24 finding 9 fixed (04bb9ad, WSL-compiled, untested on device): `paint_fill_cancel` popped m_undo's top unconditionally. FillPreview now holds the undo top it was made under (shared_ptr, no address reuse) and `own_step` (top == the stroke's pushed snapshot, `m_stroke_undo`). `drop_stale_fill_preview()` (start of paint and cancel) drops a preview whose top changed: another edit came after it, so it stays painted and nothing is popped. This also fixes a use-after-free: after undo/delete, the stale preview's `volume` pointer could dangle. Also covers a stroke that pushed no snapshot (first event had no hits). Claude, direct (no Muse).
+- 2026-10-24 r393 Plate surface (bdb9cf4): user verdict "I don't like it"; upstream plates look "super high definition and real". Redo to match upstream (investigating).
+- 2026-10-24 Replaced the r393 grain look with upstream-style decals: PartPlate::init_bed_type_info rects (x,y,w,h mm from bed corner, scale bed/256), SVGs bbl_bed_*_left/bottom rasterised x4 by ~/orca-android-tools/raster_decals.py (resvg-py) to assets/plate_decals; shader DECAL_VS/FS; lab switch plateHd.
+- 2026-10-24 USER VERIFIED HD plate (Layout lab switch, r394 run 40129926213): "Looks good".
+
+## 2026-10-24 Muse Task 12 findings 1-4 closed (static re-check, r392 source)
+- Claude, 2026-10-24: all 20 ObnBridge exports start with guard/guard_void/guard_str (catch-all, fallback rc -1 / "" / kHttpError);
+  PluginNative pageClose catches (OrcaPlugins.cpp:146-153); to_string (orca_jni.cpp) and str (OrcaPlugins.cpp) return {} on a
+  null GetStringUTFChars; paint() rejects h.facet >= the volume's face count up front (OrcaTools.cpp:633), and every later use
+  either checks facet >= 0 (fill 709, brush 889, limited 898) or treats -1 as "search for a seed" (height 824).
+- Error paths not device-testable: they need an OOM / obn throw / stale queued facet; a fault-injection native build is not worth a
+  CI run for catch-all guards. Normal paths covered: r392 WSA support-paint Fill check (valid facets pass), clean app start (obn init).
+- Findings 10/12/13 fixed 6303398 (Claude, 2026-10-24, WSL-compiled): GetMethodID null -> ExceptionClear + throw at setup
+  (orca_jni progress_forwarder, PluginNative start, ObnBridge print); add_text name cut back to a UTF-8 lead byte; add_svg image in
+  a unique_ptr. Finding 11 (Kotlin callbacks under native locks) left as a contract note: Kotlin listeners post to the UI, no change.
+
+## 2026-10-24 Muse Task 12 findings 10/12/13 VERIFIED on r395 (WSA)
+- r395 (run 40141547033) installed on WSA + SHIELD. WSA (window brought to front, user at work): Add text with a 52-char string -> object added (Objects 4->5), no crash; Add SVG (evenodd square ring, 100x100 viewBox) -> object added (5->6), app still running. Both undone afterwards, test file removed, debug app uninstalled from WSA (release data kept). Claude, 2026-10-24.
+
+## 2026-10-24 UI crawler (~/orca-android-tools/crawl.py) first runs, WSA r395
+- `python crawl.py [steps] [seed]` (WSA window in front, session backed up first, restore from /data/local/tmp/session-backup.* after): taps unvisited clickables, Back to return, checks pidof + crash/ANR logcat; report in crawl-out/<ts>/report.txt. Blocklist skips print/sign-in/delete/Device/Models/Connect/Save etc. Run 1 (no Device block) wandered into Device jog/Extrude/Start + connection Save: nothing reached the printer ("Can't reach the printer", no LAN route on WSA), then Device tab blocked.
+- Run 2 (seed 7, 120 steps, 62 screens): no crash/ANR. Found: tapping a stale Recent files entry (cache/downloads zip deleted, or content:// access lost) shows a raw Error dialog ("open failed: ENOENT" / "has no access to content://..."). Fixed in FileController.openRecent: probe readability, else drop the entry + toast (compiled, uncommitted->committed next; untested on device). Claude 2026-10-24.
+- 2026-10-24 crawler seeds 11 and 23 (150 steps each, WSA r395): 84 / 83 screens, no crash/ANR (seed 7 "APP DIED after Yes" = Quit dialog, expected). `monkey` (3 runs, 3600 events, no sys keys, seeds 5/8/9): no crash/ANR, app alive. Pitfall: never run a second uiautomator dump while a crawl runs (UiAutomation "already registered" kills the dump; shows as a bogus crash-buffer finding); `&` inside run_in_background detaches, wait for the python pid instead. Session restored from backup. Claude.

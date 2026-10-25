@@ -13,6 +13,7 @@
 #include <cmath>
 #include <cstdio>
 #include <fstream>
+#include <map>
 #include <set>
 #include <stdexcept>
 
@@ -146,6 +147,32 @@ void OrcaEngine::trim_undo()
         m_undo.pop_front();
         if (m_calib_undo_depth > 0)
             --m_calib_undo_depth;
+    }
+}
+
+json OrcaEngine::rollback_on_error(const std::function<json()> &edit)
+{
+    const Model *top = m_undo.empty() ? nullptr : m_undo.back().model.get();
+    auto redo = m_redo;
+    auto calib = m_calib;
+    auto calib_config = m_calib_config;
+    auto calib_name = m_calib_name;
+    const size_t calib_depth = m_calib_undo_depth;
+    try {
+        return edit();
+    } catch (...) {
+        // The edit's own snapshot is the scene from before it.
+        if (!m_undo.empty() && m_undo.back().model.get() != top) {
+            m_model  = std::make_unique<Model>(*m_undo.back().model);
+            m_plates = m_undo.back().plates;
+            m_undo.pop_back();
+        }
+        m_redo             = std::move(redo);
+        m_calib            = std::move(calib);
+        m_calib_config     = std::move(calib_config);
+        m_calib_name       = std::move(calib_name);
+        m_calib_undo_depth = calib_depth;
+        throw;
     }
 }
 
@@ -419,6 +446,22 @@ void OrcaEngine::arrange_plate(int plate, const std::vector<std::pair<ModelObjec
     }
 }
 
+// The object's parts in its own frame (the design pose before it is set on the bed).
+static BoundingBoxf3 design_box(const ModelObject &obj)
+{
+    BoundingBoxf3 box;
+    for (const ModelVolume *vol : obj.volumes)
+        if (vol->is_model_part())
+            box.merge(vol->mesh().transformed_bounding_box(vol->get_matrix()));
+    return box;
+}
+
+// The copy's matrix as drawn and picked: [design] = OrcaEngine::design_offset() (the Build workspace's object).
+static Transform3d shown_matrix(const ModelInstance &inst, const std::optional<std::array<double, 3>> &design)
+{
+    return design ? Transform3d(Eigen::Translation3d((*design)[0], (*design)[1], (*design)[2])) : inst.get_matrix();
+}
+
 void OrcaEngine::write_mesh()
 {
     // Written next to the target and renamed over it, so the app never reads a half-written file.
@@ -444,13 +487,16 @@ void OrcaEngine::write_mesh()
     for (size_t oi = 0; oi < m_model->objects.size(); ++oi) {
         const ModelObject *obj = m_model->objects[oi];
         for (size_t ii = 0; ii < obj->instances.size(); ++ii)
-            for (const ModelVolume *vol : obj->volumes) {
+            for (size_t vi = 0; vi < obj->volumes.size(); ++vi) {
+                const ModelVolume *vol = obj->volumes[vi];
                 TriangleMesh mesh = vol->mesh();
                 // Mirrored copies keep their triangles facing out (the section view draws back faces as cut faces).
-                mesh.transform(obj->instances[ii]->get_matrix() * vol->get_matrix(), true);
+                mesh.transform(shown_matrix(*obj->instances[ii], design_offset(oi, ii)) * vol->get_matrix(), true);
                 // Parts are drawn in their filament's colour: type 100 + 0-based filament.
                 const int type = vol->is_model_part() ? 100 + filament_of(*obj, *vol) : volume_type_code(vol->type());
-                emit(mesh, float(oi * INSTANCE_ID_STRIDE + ii), float(type));
+                // The Build workspace's object: one id per volume (its copies share them), see set_build_object().
+                const float id = int(oi) == m_build_object ? -1000.f - float(vi) : float(oi * INSTANCE_ID_STRIDE + ii);
+                emit(mesh, id, float(type));
             }
     }
 
@@ -503,6 +549,14 @@ json OrcaEngine::scene_json()
                                  {"mirror", vec_json(inst->get_transformation().get_mirror())},
                                  {"size", vec_json(bb.size())},
                                  {"min", vec_json(bb.min)}});
+            if (m_build_object >= 0 && size_t(m_build_object) < m_model->objects.size() && obj == m_model->objects[m_build_object]) {
+                const Transform3d   shown = shown_matrix(*inst, design_offset(size_t(m_build_object), i));
+                const BoundingBoxf3 parts = design_box(*obj);
+                const BoundingBoxf3 box   = parts.defined ? parts.transformed(shown) : bb;
+                instances.back()["design"] = {{"offset", vec_json(Vec3d(shown.translation()))},
+                                              {"min", vec_json(box.min)},
+                                              {"size", vec_json(box.size())}};
+            }
         }
         json volumes = json::array();
         size_t triangles = 0;
@@ -585,6 +639,12 @@ json OrcaEngine::scene()
 json OrcaEngine::load_models(const std::vector<std::string> &paths, bool append, int plate)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
+    // A file without printable objects (or one that fails to read) must not leave the plate wiped.
+    return rollback_on_error([&] { return load_models_locked(paths, append, plate); });
+}
+
+json OrcaEngine::load_models_locked(const std::vector<std::string> &paths, bool append, int plate)
+{
     require_printer();
     push_undo();
     if (!append) {
@@ -1128,6 +1188,132 @@ json OrcaEngine::replace_mesh(int object, const std::string &path, const std::st
     if (!sinking)
         drop_to_bed(obj);
     return commit();
+}
+
+json OrcaEngine::set_volumes(int object, const std::vector<VolumeSpec> &specs, bool keep_center)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    ModelObject &obj = object_at(object);
+    // Everything is loaded and checked before the object changes, so a bad entry leaves it as it was.
+    std::map<std::string, TriangleMesh> loaded;
+    std::vector<const VolumeSpec *> used;
+    bool has_part = false;
+    for (const VolumeSpec &s : specs) {
+        const ModelVolumeType vtype = volume_type_from_code(s.type);
+        if (s.keep >= int(obj.volumes.size()) || s.anchor >= int(obj.volumes.size()))
+            throw std::runtime_error("Invalid volume");
+        if (s.keep < 0 && !loaded.count(s.stl)) {
+            TriangleMesh mesh;
+            // OpenSCAD writes no file (or an empty one) for an empty shape, e.g. blank text.
+            if (std::ifstream probe(s.stl, std::ios::binary | std::ios::ate); probe && probe.tellg() > 0) {
+                Model m = Model::read_from_file(s.stl, nullptr, nullptr, LoadStrategy::LoadModel);
+                // The loader centres the mesh into the volume offset: bake it back into the piece's own frame.
+                for (const ModelObject *o : m.objects)
+                    for (const ModelVolume *v : o->volumes) {
+                        TriangleMesh part = v->mesh();
+                        part.transform(v->get_matrix());
+                        mesh.merge(part);
+                    }
+            }
+            loaded.emplace(s.stl, std::move(mesh));
+        }
+        if ((s.keep >= 0 ? obj.volumes[s.keep]->mesh() : loaded.at(s.stl)).empty())
+            continue; // e.g. blank text
+        used.push_back(&s);
+        has_part |= vtype == ModelVolumeType::MODEL_PART;
+    }
+    if (!has_part)
+        throw std::runtime_error("The design has no solid shape");
+
+    push_undo();
+    const bool   sinking    = obj.min_z() < SINKING_Z_THRESHOLD;
+    // Box of some volumes as placed by the first copy.
+    auto placed_box = [&obj](const std::vector<const ModelVolume *> &vols) {
+        BoundingBoxf3 box;
+        for (const ModelVolume *v : vols)
+            box.merge(v->mesh().transformed_bounding_box(obj.instances.front()->get_matrix() * v->get_matrix()));
+        return box;
+    };
+    // Unchanged pieces pin the design in place (the old volumes' frame may differ, e.g. after a 3MF reload).
+    std::vector<const ModelVolume *> old_anchors, new_anchors;
+    for (const VolumeSpec *s : used)
+        if (s->anchor >= 0)
+            old_anchors.push_back(obj.volumes[s->anchor]);
+    const Vec3d  old_center = old_anchors.empty() ? obj.instance_bounding_box(0).center() : placed_box(old_anchors).center();
+    const auto   first_part = std::find_if(obj.volumes.begin(), obj.volumes.end(), [](const ModelVolume *v) { return v->is_model_part(); });
+    // New pieces take the first part's settings (filament etc.), as replace_mesh does.
+    const DynamicPrintConfig part_config = first_part != obj.volumes.end() ? (*first_part)->config.get() : DynamicPrintConfig();
+    const size_t old_count = obj.volumes.size();
+    std::map<std::string, const ModelVolume *> shared; // repeats of one STL share its mesh
+    for (const VolumeSpec *s : used) {
+        const ModelVolumeType vtype = volume_type_from_code(s->type);
+        ModelVolume *vol;
+        if (s->keep >= 0) {
+            vol = obj.add_volume(*obj.volumes[s->keep], vtype);
+        } else if (auto it = shared.find(s->stl); it != shared.end()) {
+            vol = obj.add_volume_with_shared_mesh(*it->second, vtype);
+            // It comes without convex hull (null, get_convex_hull() would crash): as the 3MF loader does (bbs_3mf.cpp:5240).
+            vol->calculate_convex_hull();
+            vol->config.apply(part_config);
+        } else {
+            // Not centred: the piece's own frame stays the mesh frame, so `matrix` applies as given.
+            vol = obj.add_volume(TriangleMesh(loaded.at(s->stl)), vtype, false);
+            vol->config.apply(part_config);
+            shared.emplace(s->stl, vol);
+        }
+        vol->set_new_unique_id();
+        if (!s->own_matrix) {
+            Transform3d m = Transform3d::Identity();
+            for (int r = 0; r < 4; ++r)
+                for (int c = 0; c < 4; ++c)
+                    m(r, c) = s->matrix[size_t(r * 4 + c)];
+            vol->set_transformation(Geometry::Transformation(m));
+        }
+        if (!s->name.empty())
+            vol->name = s->name;
+        // The shape's own filament (Build workspace), or none: the part then prints with the object's.
+        if (s->extruder > 0)
+            vol->config.set_key_value("extruder", new ConfigOptionInt(s->extruder));
+        else if (s->extruder == 0)
+            vol->config.erase("extruder");
+        if (s->anchor >= 0)
+            new_anchors.push_back(vol);
+    }
+    // Not ModelObject::delete_volume: with one volume left it folds the volume matrix into the instances, and
+    // the volume matrices must stay the design pose (the instance is the print pose).
+    for (size_t i = 0; i < old_count; ++i)
+        delete obj.volumes[i];
+    obj.volumes.erase(obj.volumes.begin(), obj.volumes.begin() + ptrdiff_t(old_count));
+    obj.invalidate_bounding_box();
+    if (keep_center) {
+        const Vec3d shift = old_center - (new_anchors.empty() ? obj.instance_bounding_box(0).center() : placed_box(new_anchors).center());
+        for (ModelInstance *inst : obj.instances)
+            inst->set_offset(inst->get_offset() + Vec3d(shift.x(), shift.y(), 0.));
+        obj.invalidate_bounding_box();
+    }
+    if (!sinking)
+        drop_to_bed(obj);
+    return commit();
+}
+
+json OrcaEngine::set_build_object(int object)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (object >= 0)
+        object_at(object);
+    m_build_object = object;
+    return commit();
+}
+
+std::optional<std::array<double, 3>> OrcaEngine::design_offset(size_t object, size_t instance) const
+{
+    if (int(object) != m_build_object)
+        return std::nullopt;
+    // Design pose: the print pose's turn, scale and mirror left out, bottom on the bed, at the copy's X/Y.
+    const ModelObject  &obj = *m_model->objects[object];
+    const BoundingBoxf3 box = design_box(obj);
+    const Vec3d         off = obj.instances[instance]->get_offset();
+    return std::array<double, 3>{off.x(), off.y(), box.defined ? -box.min.z() : off.z()};
 }
 
 json OrcaEngine::set_object_module(int object, const std::string &module)

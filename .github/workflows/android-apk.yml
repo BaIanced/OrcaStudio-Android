@@ -130,6 +130,15 @@ jobs:
         working-directory: android
         run: ./gradlew --console=plain -q :app:compileReleaseKotlin
 
+      # android/patches/src-orca/*.patch: the few changes to OrcaSlicer the port carries (src-orca stays the unmodified
+      # upstream commit). Fails the build when upstream moved under one of them.
+      - name: Patch OrcaSlicer
+        run: |
+          set -euo pipefail
+          for p in android/patches/src-orca/*.patch; do
+            git -C src-orca apply --ignore-space-change "$GITHUB_WORKSPACE/$p"
+          done
+
       - name: Deps cache key
         id: depskey
         run: |
@@ -180,7 +189,7 @@ jobs:
         id: corekey
         run: |
           set -euo pipefail
-          h=$( { git rev-parse HEAD:android/core HEAD:android/obn HEAD:android/scripts HEAD:android/android-toolchain.cmake
+          h=$( { git rev-parse HEAD:android/core HEAD:android/obn HEAD:android/patches HEAD:android/scripts HEAD:android/android-toolchain.cmake
                  git -C src-orca rev-parse HEAD
                  echo "${{ steps.depskey.outputs.key }}"; } | sha256sum | cut -c1-16)
           echo "key=android-core-${h}" >> "$GITHUB_OUTPUT"

@@ -6,6 +6,7 @@
 
 #include <jni.h>
 
+#include <stdexcept>
 #include <thread>
 
 #include "EngineCalls.hpp"
@@ -21,6 +22,8 @@ std::string to_string(JNIEnv *env, jstring s)
     if (s == nullptr)
         return {};
     const char *chars = env->GetStringUTFChars(s, nullptr);
+    if (chars == nullptr) // out of memory (an OutOfMemoryError is pending)
+        return {};
     std::string out(chars);
     env->ReleaseStringUTFChars(s, chars);
     return out;
@@ -51,6 +54,11 @@ orca::ProgressFn progress_forwarder(JNIEnv *env, jobject listener)
     jclass    cls         = env->GetObjectClass(listener);
     jmethodID on_progress = env->GetMethodID(cls, "onProgress", "(ILjava/lang/String;)V");
     env->DeleteLocalRef(cls);
+    // A renamed Kotlin method fails here, inside guarded(), not at the first progress update.
+    if (on_progress == nullptr) {
+        env->ExceptionClear();
+        throw std::runtime_error("ProgressListener.onProgress(Int, String) not found");
+    }
     const std::thread::id caller = std::this_thread::get_id();
     return [env, listener, on_progress, caller](int percent, const std::string &text) {
         if (std::this_thread::get_id() != caller)

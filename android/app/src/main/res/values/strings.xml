@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="about">About</string>
-    <string name="about_ai">This Android port was created with AI (Anthropic\'s Claude) and is an unofficial community project. It is not affiliated with or endorsed by the OrcaSlicer team.</string>
+    <string name="about_ai">This Android port is an unofficial community project. It is not affiliated with or endorsed by the OrcaSlicer team.</string>
     <string name="about_based_on">Slicing core: OrcaSlicer %1$s (%2$s)</string>
     <string name="about_credit">All the slicing power comes from OrcaSlicer by SoftFever and its community, built on Bambu Studio, PrusaSlicer and Slic3r. Thank you for this outstanding open-source work – please support the original project!</string>
     <string name="about_license">Licensed under the GNU AGPL-3.0. The complete source code is available at the link below.</string>
@@ -59,6 +59,27 @@
     <string name="paint_lock_horizontal">Lock ↔</string>
     <string name="paint_overhang_angle">Over %d°</string>
     <string name="paint_height_range">Height %.1f mm</string>
+    <string name="paint_mode_brush">Brush</string>
+    <string name="paint_mode_fill">Fill</string>
+    <string name="paint_mode_bands">Bands</string>
+    <string name="paint_mode_object">Object</string>
+    <string name="paint_mode_brush_desc">Brush: drag over the model to paint. Two fingers, or a drag that starts off the model, move the view.</string>
+    <string name="paint_mode_fill_desc">Fill: tap a surface; the colour spreads until it meets an edge sharper than the angle below. Hold and slide to preview.</string>
+    <string name="paint_mode_regions_desc">Regions: the model is split at its creases (outlined); tap one to fill it, over any colour.</string>
+    <string name="paint_mode_bands_desc">Bands: tap the model to paint a band all the way round, from that point up by the height below; drag to paint a taller band.</string>
+    <string name="paint_mode_object_desc">Object: tap a part to give the whole part this colour, or use the actions below on the whole object.</string>
+    <string name="paint_depth">Paint depth</string>
+    <string name="paint_depth_top">Top</string>
+    <string name="paint_depth_bottom">Bottom</string>
+    <string name="paint_depth_sides">Sides</string>
+    <string name="paint_depth_shells">Like shells</string>
+    <string name="paint_depth_layers">Layers</string>
+    <string name="paint_depth_layers_n">%1$d layers</string>
+    <string name="paint_depth_through">All the way</string>
+    <string name="paint_depth_limit">Limit width</string>
+    <string name="paint_depth_width">%1$.1f mm</string>
+    <string name="paint_smart_fill">Smart fill</string>
+    <string name="paint_pick">Pick</string>
     <string name="calib_cornering">Cornering (jerk / junction deviation)</string>
     <string name="calib_flow">Flow rate</string>
     <string name="calib_is_damp">Input shaping damping</string>
@@ -178,6 +199,8 @@
     <string name="yes">Yes</string>
     <string name="no">No</string>
     <string name="edit">Edit</string>
+    <string name="filament_look">Surface look</string>
+    <string name="filament_look_auto">Automatic (%1$s)</string>
     <string name="empty">(empty)</string>
     <string name="end_calibration">End</string>
     <string name="enforce">Enforce</string>
@@ -190,6 +213,7 @@
     <string name="export_preset">Export preset</string>
     <string name="export_stl">Export plate as STL</string>
     <string name="filament">Filament</string>
+    <string name="colour_changes">Colour changes</string>
     <string name="filament_vendors">Filament brands</string>
     <string name="filament_vendors_text">Choose which brands appear in the filament lists</string>
     <string name="plate_types">Plate types</string>
@@ -278,6 +302,7 @@
         <item quantity="other">%d objects outside the plates</item>
     </plurals>
     <string name="ok">OK</string>
+    <string name="setting_key_fmt">Setting: %1$s</string>
     <string name="only_changed">Changed only</string>
     <string name="open_project">Open…</string>
     <string name="opening_project">Opening project…</string>
@@ -285,6 +310,16 @@
     <string name="orienting">Orienting…</string>
     <string name="paint">Paint</string>
     <string name="paint_color">Color painting</string>
+    <string name="paint_shop">Paint shop</string>
+    <string name="paint_layers">Filaments</string>
+    <string name="paint_change_estimate">Plate estimate: colour changes %1$d · flush ~%2$.1f g</string>
+    <string name="paint_layer_menu">Filament actions</string>
+    <string name="paint_layer_hide">Hide</string>
+    <string name="paint_layer_show">Show</string>
+    <string name="paint_layer_lock">Lock (no paint covers it)</string>
+    <string name="paint_layer_unlock">Unlock</string>
+    <string name="paint_layer_share">%1$s · %2$d %% of the surface</string>
+    <string name="paint_turn_into">Turn into filament %1$d</string>
     <string name="paint_fuzzy">Fuzzy skin</string>
     <string name="paint_hint">Drag over the model to paint; drag from outside it or use two fingers to move the view.</string>
     <string name="paint_seam">Seam painting</string>
@@ -323,6 +358,8 @@
     <string name="range_settings_title">Height range settings</string>
     <string name="reading_gcode">Reading G-code…</string>
     <string name="recent">Recent files</string>
+    <string name="recent_missing">%1$s can no longer be opened and was removed from Recent files.</string>
+    <string name="file_unreadable">That file could not be opened. It may have been moved or deleted, or access to it was removed.</string>
     <string name="redo">Redo</string>
     <string name="refresh">Refresh</string>
     <string name="remaining_fmt">%s left</string>
@@ -450,6 +487,8 @@
     <string name="variable_layer_height">Variable layer height</string>
     <string name="view">View</string>
     <string name="view_fit">Fit plate</string>
+    <string name="view_realistic">Realistic render</string>
+    <string name="view_layer_lines">Layer lines</string>
     <string name="orthographic_camera">Orthographic camera (K)</string>
     <string name="section_view">Section view</string>
     <string name="section_view_align">Set viewing angle</string>
@@ -830,6 +869,10 @@
     <string name="shape_delete">Delete (Del)</string>
     <string name="shape_group_action">Group (Ctrl+G): holes cut the solids</string>
     <string name="shape_ungroup">Ungroup (Ctrl+Shift+G)</string>
+    <string name="shape_merge">Merge into one solid (holes cut; parts no longer editable)</string>
+    <string name="shape_merged">Merged</string>
+    <string name="shape_merging">Merging…</string>
+    <string name="shape_merge_changed">The design changed while merging. Merge again.</string>
     <string name="shape_mirror">Mirror</string>
     <string name="shape_mirror_axis">Mirror along %1$s</string>
     <string name="shape_align">Align</string>
@@ -840,6 +883,7 @@
     <string name="shape_name">Name</string>
     <string name="shape_solid">Solid</string>
     <string name="shape_hole">Hole</string>
+    <string name="shape_filament_object">Object\'s filament</string>
     <string name="shape_text_value">Text</string>
     <string name="shape_size">Size (mm)</string>
     <string name="shape_position">Position (mm)</string>
@@ -923,6 +967,7 @@
     <string name="lab_plate_scale">Plate switcher size: %d %%</string>
     <string name="lab_fullscreen_portrait">Fullscreen in portrait too</string>
     <string name="lab_pie_menu">Pie menu on long press in the 3D view (slide to a wedge and release)</string>
+    <string name="lab_plate_hd">HD plate: dark plate with the bed-type lettering as upstream (see-through from below)</string>
     <string name="lab_view_cube">View cube in the 3D view (long press to move it)</string>
     <string name="scad_draft_preview">Draft while dragging</string>
     <string name="scad_on_plate">Show the design on the plate</string>

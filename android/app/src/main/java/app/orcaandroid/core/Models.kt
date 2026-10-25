@@ -96,8 +96,8 @@ data class SettingsPage(val title: String, val groups: List<SettingsGroup>)
 /** Which process options the desktop rules grey out / hide for the current values. */
 data class OptionStates(val disabled: Set<String> = emptySet(), val hidden: Set<String> = emptySet())
 
-/** One filament slot of the plate: preset, optional colour, per-slot edits and the AMS tray a sync filled it from. */
-data class FilamentSlot(val preset: String, val color: String? = null, val overrides: Map<String, String> = emptyMap(), val source: TraySource? = null)
+/** One filament slot of the plate: preset, optional colour, per-slot edits and the AMS tray a sync filled it from; [look] = the FilamentMaterial name picked for the Prepare view (null = from the preset name). */
+data class FilamentSlot(val preset: String, val color: String? = null, val overrides: Map<String, String> = emptyMap(), val source: TraySource? = null, val look: String? = null)
 
 /**
  * The tray an AMS sync filled a slot from: [key] = printer serial / AMS / slot, [loaded] = the filament id and
@@ -114,6 +114,13 @@ enum class VolumeType(val code: Int) {
         fun of(code: Int) = entries.firstOrNull { it.code == code } ?: MODIFIER
     }
 }
+
+/**
+ * One volume for [Engine.setVolumes]: mesh from [stl] or kept from volume [keep]; [matrix] is row-major 4x4
+ * (null only with [keep]: the volume keeps its own placement).
+ */
+data class VolumeSpec(val type: VolumeType, val matrix: List<Double>?, val stl: String? = null, val keep: Int = -1, val name: String = "",
+                      val anchor: Int = -1, val extruder: Int = -1)
 
 data class LayerGcode(val z: Float, val type: String, val extra: String = "", val color: String = "", val extruder: Int = 1)
 
@@ -138,7 +145,12 @@ data class Instance(
     val mirror: Vec3,
     val size: Vec3,
     val min: Vec3,
-)
+    /** The Build workspace's object: this copy as the Build view draws it (design pose: no turn, scale or mirror). */
+    val design: Instance? = null,
+) {
+    /** The copy as the main view draws and picks it. */
+    val shown: Instance get() = design ?: this
+}
 
 data class Volume(
     val index: Int, val name: String, val type: VolumeType, val settings: Map<String, String>, val offset: Vec3, val size: Vec3,
@@ -233,4 +245,10 @@ data class SliceResult(
     val extrusionCount: Int = 0,
     /** True for an opened external G-code file (no plate/scene behind it). */
     val external: Boolean = false,
+    /**
+     * Tool changes counted in [gcodeFile] after the slice (Task 11), parsed off the main
+     * thread and attached to this result; null until the parse finishes (or if it fails).
+     * Re-slicing replaces the whole result, which discards the old count with it.
+     */
+    val toolChanges: GcodeToolChanges.Result? = null,
 )

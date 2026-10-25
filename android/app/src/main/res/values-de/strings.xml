@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="about">Über</string>
-    <string name="about_ai">Diese Android-Portierung wurde mit KI (Claude von Anthropic) erstellt und ist ein inoffizielles Community-Projekt, nicht verbunden mit dem OrcaSlicer-Team.</string>
+    <string name="about_ai">Diese Android-Portierung wurde mit KI erstellt und ist ein inoffizielles Community-Projekt, nicht verbunden mit dem OrcaSlicer-Team.</string>
     <string name="about_based_on">Slicing-Kern: OrcaSlicer %1$s (%2$s)</string>
     <string name="about_credit">Die gesamte Slicing-Leistung stammt von OrcaSlicer von SoftFever und der Community, aufbauend auf Bambu Studio, PrusaSlicer und Slic3r. Danke für diese großartige Open-Source-Arbeit – bitte unterstütze das Originalprojekt!</string>
     <string name="about_license">Lizenziert unter der GNU AGPL-3.0. Der vollständige Quellcode ist unter dem Link unten verfügbar.</string>

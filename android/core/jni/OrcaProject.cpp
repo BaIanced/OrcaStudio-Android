@@ -23,6 +23,7 @@
 #include "libslic3r/PrintConfig.hpp"
 #include "libslic3r/Utils.hpp"
 
+#include "AndroidPluginRuntime.hpp"
 #include "Thumbnails.hpp"
 
 namespace orca {
@@ -369,6 +370,7 @@ json OrcaEngine::snapshot(const std::string &path, int size)
 json OrcaEngine::import_presets(const std::vector<std::string> &paths)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
+    plugins::BundleWriteGuard   guard;
     require_printer();
     std::vector<std::string> files = paths;
     AppConfig app_config;
@@ -385,6 +387,7 @@ json OrcaEngine::import_presets(const std::vector<std::string> &paths)
 json OrcaEngine::load_cloud_presets(const json &presets)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
+    plugins::BundleWriteGuard   guard;
     require_printer();
     std::map<std::string, std::map<std::string, std::string>> my_presets;
     for (const auto &[name, values] : presets.items()) {
@@ -444,6 +447,7 @@ json OrcaEngine::mark_uploaded(const std::string &type, const std::string &name,
                                const std::string &sync_info, long long updated_time)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
+    plugins::BundleWriteGuard   guard;
     collection(type).set_sync_info_and_save(name, setting_id, sync_info, updated_time);
     return {{"ok", true}};
 }
@@ -460,6 +464,7 @@ json OrcaEngine::vendor_version(const std::string &vendor)
 json OrcaEngine::sync_filaments(const json &trays, const json &filaments)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
+    plugins::BundleWriteGuard   guard;
     require_printer();
     // sync_ams_list() works on the desktop's selection state: the filament presets, the per-filament
     // project options and flush matrix, the edited process preset. The engine keeps its own

@@ -254,7 +254,7 @@ class MainActivity : ComponentActivity() {
         val any = s.selectedItems.isNotEmpty()
         val single = s.selection != null
         val step = if (event.isShiftPressed) 1f else 10f
-        fun paint(kind: String, state: Int) = if (single) vm.scene.setTool(Tool.Paint(kind, state, 3f)) else null
+        fun paint(kind: String, state: Int) = if (single) vm.scene.openPaint(kind, state) else null
         when (keyCode) {
             KeyEvent.KEYCODE_FORWARD_DEL, KeyEvent.KEYCODE_DEL -> if (any) vm.scene.deleteSelected() else return false
             KeyEvent.KEYCODE_ESCAPE -> if (s.tool != Tool.None || any || s.selectMode) {

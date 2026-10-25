@@ -67,6 +67,16 @@ class AppSettings(context: Context) {
         get() = prefs.getBoolean("contact_shadows", true)
         set(value) = prefs.edit().putBoolean("contact_shadows", value).apply()
 
+    /** Realistic shading of the models in the 3D view (physically based, studio lighting); off = the plain look. */
+    var realistic: Boolean
+        get() = prefs.getBoolean("realistic_render", false)
+        set(value) = prefs.edit().putBoolean("realistic_render", value).apply()
+
+    /** Printed layer lines on the models in the 3D view (from the print preset's layer heights). */
+    var layerLines: Boolean
+        get() = prefs.getBoolean("layer_lines", false)
+        set(value) = prefs.edit().putBoolean("layer_lines", value).apply()
+
     /** How the selection shows in the 3D view ([app.orcaandroid.render.SelectionStyle] bits). */
     var selectionStyle: Int
         get() = prefs.getInt("selection_style", app.orcaandroid.render.SelectionStyle.DEFAULT)
@@ -176,7 +186,8 @@ class AppSettings(context: Context) {
             JSONArray(json).map {
                 val o = it as JSONObject
                 FilamentSlot(o.getString("preset"), o.optString("color").ifEmpty { null },
-                    source = o.optJSONObject("source")?.let { s -> TraySource(s.getString("key"), s.getString("loaded"), s.getString("synced")) })
+                    source = o.optJSONObject("source")?.let { s -> TraySource(s.getString("key"), s.getString("loaded"), s.getString("synced")) },
+                    look = o.optString("look").ifEmpty { null })
             }
         }.getOrNull()
     }.orEmpty()
@@ -185,6 +196,7 @@ class AppSettings(context: Context) {
         "filaments:${family(printer)}",
         JSONArray(slots.map { f ->
             JSONObject().put("preset", f.preset).put("color", f.color ?: "").apply {
+                f.look?.let { put("look", it) }
                 f.source?.let { put("source", JSONObject().put("key", it.key).put("loaded", it.loaded).put("synced", it.synced)) }
             }
         }).toString(),

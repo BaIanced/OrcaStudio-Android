@@ -566,10 +566,16 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     @Volatile var resizeAxes = true
         set(value) { field = value; queueEvent { renderer.gizmoAxes = value } }
 
+    /** The gizmos sit on the selection's mesh box (the Build workspace's shapes) instead of the lone [selectedBounds] box. */
+    @Volatile var gizmoOnMesh = false
+
+    /** The box the gizmos sit on, or null when they don't show. */
+    fun gizmoBox(): Pair<Vec3, Vec3>? = if (gizmoOnMesh) renderer.selectionBounds() else selectedBounds.singleOrNull()
+
     /** In [resizeMode], a touch on a visible handle of the lone selected box starts a resize ([ScaleGizmo]). */
     private fun startResize(x: Float, y: Float): Boolean {
         if (!resizeMode) return false
-        val box = selectedBounds.singleOrNull() ?: return false
+        val box = gizmoBox() ?: return false
         // 48 dp grabbed too much of a small box (user, r304).
         val reach = 32f * resources.displayMetrics.density
         val h = ScaleGizmo.visible(box.first, box.second, camera, resizeAxes).mapNotNull { h ->
@@ -603,7 +609,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
      */
     private fun startRotate(x0: Float, y0: Float, x: Float, y: Float): Boolean {
         if (!rotateMode) return false
-        val box = selectedBounds.singleOrNull() ?: return false
+        val box = gizmoBox() ?: return false
         val reach = 24f * resources.displayMetrics.density
         val axis = RotateGizmo.pick(box.first, box.second, camera, x0, y0, reach)
         if (axis < 0) return false

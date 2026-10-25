@@ -65,6 +65,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.paneTitle
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -268,7 +270,7 @@ private fun EditorFrame(
                 }
                 // Presets too: "N modified" in the title is otherwise hard to trace to its options.
                 if (objectMode || source.modifiedCount > 0 || onlyModified)
-                    FilterChip(onlyModified, { onlyModified = !onlyModified }, label = { Text(stringResource(R.string.only_changed)) })
+                    FilterChip(onlyModified, { onlyModified = !onlyModified }, label = { Text(stringResource(R.string.only_changed) + if (source.modifiedCount > 0) " (${source.modifiedCount})" else "") })
             }
             HorizontalDivider()
 
@@ -338,7 +340,8 @@ private fun EditorFrame(
                         }
                     }
                 }
-                LazyColumn(Modifier.weight(1f).fillMaxHeight().padding(horizontal = 12.dp)) {
+                val paneName = if (showPages) shown.getOrNull(current)?.let { tr.tr(it.title) }.orEmpty() else ""
+                LazyColumn(Modifier.weight(1f).fillMaxHeight().semantics { paneTitle = paneName }.padding(horizontal = 12.dp)) {
                     groups.forEach { group ->
                         val options = group.options.mapNotNull { defs[it] }.filter {
                             (query.isNotBlank() || onlyModified || visible(it)) && it.key !in hidden && source.value(it.key) != null
@@ -428,7 +431,17 @@ private fun OptionRow(
         AlertDialog(
             onDismissRequest = { showTooltip = false },
             title = { Text(if (row != null) text else tr.tr(def.fullLabel.ifEmpty { def.label })) },
-            text = { Text(tr.tr(def.tooltip) + "\n\n" + def.key, style = MaterialTheme.typography.bodyMedium) },
+            text = {
+                Column {
+                    Text(tr.tr(def.tooltip), style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        stringResource(R.string.setting_key_fmt, def.key),
+                        Modifier.padding(top = 12.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            },
             confirmButton = { TextButton(onClick = { showTooltip = false }) { Text(stringResource(R.string.ok)) } },
         )
     }

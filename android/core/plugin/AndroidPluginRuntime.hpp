@@ -4,6 +4,7 @@
 // call from any thread; Python work is serialized by the GIL.
 
 #include <functional>
+#include <memory>
 #include <string>
 
 #include <nlohmann/json.hpp>
@@ -11,6 +12,7 @@
 namespace Slic3r {
 class DynamicPrintConfig;
 class PresetBundle;
+class PythonGILState;
 } // namespace Slic3r
 
 namespace orca::plugins {
@@ -27,6 +29,26 @@ struct Host
 };
 void set_host(Host host);
 const Host &host();
+
+// Plugins read the preset bundle that Host::preset_bundle hands out without the engine lock, from
+// their own Python threads, and may keep the pointer. Python only touches it with the GIL held, so
+// the engine changes or replaces the bundle inside one of these: it holds the GIL while Python is
+// running and does nothing otherwise. Take it with the engine lock already held, never the other
+// way round (plugin code holding the GIL never waits for the engine lock). Nesting is fine.
+class BundleWriteGuard
+{
+public:
+    BundleWriteGuard();
+    ~BundleWriteGuard();
+    BundleWriteGuard(const BundleWriteGuard &)            = delete;
+    BundleWriteGuard &operator=(const BundleWriteGuard &) = delete;
+
+    // True while Python is running: a plugin may still hold a pointer to the current bundle.
+    bool python_running() const { return m_gil != nullptr; }
+
+private:
+    std::unique_ptr<Slic3r::PythonGILState> m_gil;
+};
 
 // Starts Python (home <data dir>/python, extracted by the app) and loads every installed plugin
 // of the signed-in Orca Cloud user. Returns {"plugins": [...]} or {"error": "..."}.

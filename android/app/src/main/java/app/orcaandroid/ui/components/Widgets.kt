@@ -47,6 +47,8 @@ import androidx.compose.ui.unit.dp
 import app.orcaandroid.R
 import java.util.Locale
 
+/** Filament names end in "Flow Rate & Vol Calibrated"-style tags; the picker shows them as a small second line. */
+private val CALIBRATED_SUFFIX = Regex("""^(.*?)\s+((?:Flow Rate\s*(?:&\s*Vol\w*\s*)?)?Calibrated)$""", RegexOption.IGNORE_CASE)
 /**
  * An entry in a [PickerField]; [group] is shown as a section header (e.g. "Vendor presets"),
  * [subgroup] and [detail] as nested sections (e.g. the brand, then the material). When any item
@@ -144,7 +146,11 @@ fun PickerDialog(
                                             verticalAlignment = Alignment.CenterVertically) {
                                             RadioButton(selected = item.id == selected, onClick = { onPick(item.id) })
                                             if (item.color.isNotEmpty()) androidx.compose.foundation.layout.Box(Modifier.padding(end = 8.dp)) { app.orcaandroid.ui.prepare.ColorDot(item.color, 16) }
-                                            Text(item.label, style = MaterialTheme.typography.bodyMedium)
+                                            val badge = CALIBRATED_SUFFIX.find(item.label)
+                                            androidx.compose.foundation.layout.Column {
+                                                Text(badge?.groupValues?.get(1) ?: item.label, style = MaterialTheme.typography.bodyMedium)
+                                                if (badge != null) Text(badge.groupValues[2], style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            }
                                         }
                                     }
                                 }

@@ -102,6 +102,7 @@ headless display below instead (no takeover needed). Don't drive WSA's own windo
   = build + install + slice + Preview + 3 sphere shots (`wsa-preview2.sh` alone skips the build). Black screencaps / MCP
   "No 3D view is on screen" = the PC display is asleep: `wake-display.ps1` (1 px mouse nudge; wsa-preview2.sh runs it).
   WSA 3D view crop (Preview, wide panel): 105,38,745,938.
+- WSA debug loop (2026-10-24): Local debug test on WSA: `stage-from-apk.sh` (after native CI builds), assembleDebug, `wsa-debug-setup.sh`, `wsa-start.ps1` (no PC `adb forward tcp:8765` while it starts), MCP with `MCP_DEV=127.0.0.1:58526 PKG=...debug`; uninstall the debug app when done. `wsa-debug-setup.sh` also copies the Orca data dir (profiles); it overwrites the debug prefs (slot looks, realistic): for rebuilds just `adb install -r -g` + `wsa-start.ps1`.
 - **Local APK (2026-10-19, ~7 s incremental, 3.5 min cold):** `sh ~/orca-android-tools/stage-from-apk.sh` (native libs + OpenSCAD/
   Python assets from the newest CI APK in `builds/`; redo after native changes), then the compile command below with
   `:app:assembleDebug` -> `~/build/orca-android/gradle/app/outputs/apk/debug/app-debug.apk` (`adb install -r "$(cygpath -w ...)"`).
@@ -147,3 +148,5 @@ headless display below instead (no takeover needed). Don't drive WSA's own windo
 | `ClusterM/open-bamboo-networking` | obn pinned v2.2.0 + local patches 0001 (cloud callbacks), 0002 (start_print try LAN first), 0003 (MQTT CA from `SSL_CERT_FILE`). |
 
 - Handoff docs moved here from `OrcaStudio/arm-build` 2026-10-19; that repo is Flatpak-only now, untouched unless asked.
+
+- Disk: C: is tight; move old build dirs to `D:\orca-builds-archive`.

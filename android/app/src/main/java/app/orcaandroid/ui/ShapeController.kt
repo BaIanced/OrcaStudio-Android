@@ -1,7 +1,11 @@
 package app.orcaandroid.ui
 
 import app.orcaandroid.R
+import app.orcaandroid.core.Instance
+import app.orcaandroid.core.Vec3
+import app.orcaandroid.render.RotateGizmo
 import app.orcaandroid.scad.Bounds
+import app.orcaandroid.scad.BuildTransform
 import app.orcaandroid.scad.D3
 import app.orcaandroid.scad.Dim
 import app.orcaandroid.scad.Repeat
@@ -73,6 +77,120 @@ class ShapeController(private val store: Store, private val scad: ScadController
     }
 
     fun selectAll() = design?.let { d -> select(d.shapes.map { it.id }) }
+
+    /**
+     * Build workspace: a tap in the main view picks the shape under it (as [tap]): its top-level shape, or one level
+     * into the group that holds the selection, so a second tap on a selected group picks the shape inside it under the
+     * tap, and a tap on its neighbour there picks the neighbour. A tap on nothing clears it, back to the top level.
+     */
+    fun tapAt(origin: Vec3, dir: Vec3, add: Boolean) {
+        val obj = store.value.buildObject ?: return
+        store.launch {
+            val path = scad.shapeAt(obj, origin, dir)?.second
+            val d = design
+            if (path == null || d == null) return@launch tap(null, add)
+            tap(path[BuildTransform.pickLevel(d.pathTo(selected.lastOrNull() ?: -1).map { it.id }, path)], add)
+        }
+    }
+
+    /** The copy of the build object a main-view drag grabbed: its turn, scale and mirror map the drag into the design. */
+    private var grabbed = 0
+
+    /** Build workspace: [result] gets whether a drag starting on the ray grabs a selected shape. */
+    fun grabAt(origin: Vec3, dir: Vec3, result: (Boolean) -> Unit) {
+        val obj = store.value.buildObject ?: return result(false)
+        store.launch {
+            val hit = scad.shapeAt(obj, origin, dir)
+            if (hit != null) grabbed = hit.first
+            // A selected shape under the finger, or the group holding it.
+            result(hit != null && hit.second.any { it in selected })
+        }
+    }
+
+    /** Build workspace: a main-view drag moved the selection [dx], [dy] mm on the plate. */
+    fun moveOnPlate(dx: Float, dy: Float) {
+        val inst = store.value.buildObject?.let { store.value.scene.objects.getOrNull(it) }?.instances?.let { it.getOrNull(grabbed) ?: it.firstOrNull() }?.shown ?: return
+        // Plate -> design frame: the copy's matrix is translation * rotation * scale * mirror (mirror = +-1 per axis).
+        val r = RotateGizmo.fromEuler(inst.rotation)
+        fun local(i: Int, scale: Float, mirror: Float) = (r[i] * dx + r[3 + i] * dy) / scale.toDouble() * (if (mirror < 0f) -1.0 else 1.0)
+        val v = D3(local(0, inst.scale.x, inst.mirror.x), local(1, inst.scale.y, inst.mirror.y), local(2, inst.scale.z, inst.mirror.z))
+        val d = design ?: return
+        if (selected.isEmpty() || v == D3()) return
+        // A shape inside a group moves in the group's frame (its turn and flip).
+        commit(selected.fold(d) { acc, id -> held(acc, acc.update(id) { s -> s.copy(pos = s.pos + d.toParent(id, v)) }, id) })
+    }
+
+    /**
+     * Build workspace: the copy the gizmos sit on (they show only while the object has one) and the selected shapes,
+     * all in one frame: top level, or inside the same group (the gizmos then act in that group's frame).
+     */
+    fun buildGizmoTarget(): Pair<Instance, List<Shape>>? {
+        val inst = store.value.buildObject?.let { store.value.scene.objects.getOrNull(it) }?.instances?.singleOrNull()?.shown ?: return null
+        val d = design ?: return null
+        val sel = selected.map { d.find(it) ?: return null }
+        if (sel.isEmpty() || sel.map { d.pathTo(it.id).dropLast(1).lastOrNull()?.id }.toSet().size != 1) return null
+        return inst to sel
+    }
+
+    /**
+     * Build workspace: the plate box the gizmos sit on when the selection is inside a group (its volume is the group's
+     * mesh, too big): the shapes' design boxes ([ShapeDesign.bounds], with their repeats) in the group's first copy.
+     * Null at the top level: the selected volumes' mesh box is exact there.
+     */
+    fun buildGizmoBox(): Pair<Vec3, Vec3>? {
+        val (inst, sel) = buildGizmoTarget() ?: return null
+        val d = design ?: return null
+        if (sel.first().id in d.shapes.map { it.id }) return null
+        val frame = d.parentFrame(sel.first().id)
+        val pts = sel.flatMap { s ->
+            val b = d.bounds(s)
+            (0 until 8).map { k ->
+                val c = D3(if (k and 1 == 0) b.min.x else b.max.x, if (k and 2 == 0) b.min.y else b.max.y, if (k and 4 == 0) b.min.z else b.max.z)
+                val q = D3((0..2).sumOf { frame[it] * c[it] } + frame[3], (0..2).sumOf { frame[4 + it] * c[it] } + frame[7],
+                    (0..2).sumOf { frame[8 + it] * c[it] } + frame[11])
+                BuildTransform.toPlate(inst, q)
+            }
+        }
+        return Vec3(pts.minOf { it.x }, pts.minOf { it.y }, pts.minOf { it.z }) to Vec3(pts.maxOf { it.x }, pts.maxOf { it.y }, pts.maxOf { it.z })
+    }
+
+    /** Build workspace: the main view's scale gizmo scaled the selection by [scale] (plate axes) about plate point [pivot]. */
+    fun resizeOnPlate(scale: Vec3, pivot: Vec3) {
+        val (inst, sel) = buildGizmoTarget() ?: return
+        val d = design ?: return
+        val frame = d.parentFrame(sel.first().id)
+        // Off the axes the gizmo has corners only: an even scale.
+        val f = BuildTransform.designScale(inst, scale)?.let { BuildTransform.scaleInFrame(frame, it) }
+            ?: D3(scale.x.toDouble(), scale.x.toDouble(), scale.x.toDouble())
+        val p = BuildTransform.inFrame(frame, BuildTransform.toDesign(inst, pivot))
+        commit(sel.fold(d) { acc, s -> acc.find(s.id)?.let { BuildTransform.scaled(acc, it, f, p) }?.let { held(acc, posed(acc, s.id, it), s.id) } ?: acc })
+    }
+
+    /** Build workspace: the main view's rotate gizmo turned the selection [degrees] about plate axis [axis] through plate point [pivot]. */
+    fun turnOnPlate(axis: Int, degrees: Float, pivot: Vec3) {
+        val (inst, sel) = buildGizmoTarget() ?: return
+        val d = design ?: return
+        val frame = d.parentFrame(sel.first().id)
+        val m = BuildTransform.turnInFrame(frame, BuildTransform.designTurn(inst, RotateGizmo.matrix(axis, degrees)))
+        val c = BuildTransform.inFrame(frame, BuildTransform.toDesign(inst, pivot))
+        commit(sel.fold(d) { acc, s -> acc.find(s.id)?.let { held(acc, posed(acc, s.id, BuildTransform.turned(acc, it, m, c)), s.id) } ?: acc })
+    }
+
+    /** [next] (shape [id] changed from [before]) with the groups holding it moved so their other children stay put ([ShapeDesign.groupShifts]). */
+    private fun held(before: ShapeDesign, next: ShapeDesign, id: Int): ShapeDesign =
+        next.groupShifts(before, id).fold(next) { acc, (g, pos) ->
+            val s = acc.find(g) ?: return@fold acc
+            (0..2).fold(acc) { a, i -> if (kotlin.math.abs(acc.pos(s)[i] - pos[i]) > 1e-6) withField(a, g, "pos.${"xyz"[i]}", pos[i]) ?: a else a }
+        }
+
+    /** [d] with shape [id] at [pose]; only changed fields are set, so a field bound to a dimension moves it only when it changes. */
+    private fun posed(d: ShapeDesign, id: Int, pose: BuildTransform.Pose): ShapeDesign {
+        val s = d.find(id) ?: return d
+        var next = d
+        for ((name, now, to) in listOf(Triple("pos", d.pos(s), pose.pos), Triple("rot", d.rot(s), pose.rot), Triple("size", d.size(s), pose.size)))
+            for (i in 0..2) if (kotlin.math.abs(now[i] - to[i]) > 1e-6) next = withField(next, id, "$name.${"xyz"[i]}", to[i]) ?: next
+        return if (pose.repeat != s.repeat) next.update(id) { it.copy(repeat = pose.repeat) } else next
+    }
 
     // --- Adding ------------------------------------------------------------------------------------
 
@@ -249,16 +367,43 @@ class ShapeController(private val store: Store, private val scad: ScadController
     /** Groups the selected top-level shapes: holes in the group cut its solids. */
     fun group() {
         val d = design ?: return
+        commit(grouped(d, R.string.shape_group) ?: return, listOf(d.nextId))
+    }
+
+    /** [d] with the selected top-level shapes (two or more) in a new group, id [ShapeDesign.nextId], named [name] + id. */
+    private fun grouped(d: ShapeDesign, name: Int): ShapeDesign? {
         val members = d.shapes.filter { it.id in selected }
-        if (members.size < 2) return
+        if (members.size < 2) return null
         val b = members.map { d.bounds(it) }.reduce { a, c -> a.union(c) }
         val origin = D3(snap(b.center.x), snap(b.center.y), b.min.z)
         val kids = members.map { placed(d, it, d.pos(it) - origin, d.rot(it)) }
-        val g = Shape(d.nextId, Shape.Kind.GROUP, store.str(R.string.shape_group) + " " + d.nextId, D3(), origin, children = kids)
+        val g = Shape(d.nextId, Shape.Kind.GROUP, store.str(name) + " " + d.nextId, D3(), origin, children = kids)
         val at = d.shapes.indexOfFirst { it.id in selected }
         val rest = d.shapes.filter { it.id !in selected }.toMutableList()
         rest.add(at.coerceAtMost(rest.size), g)
-        commit(d.copy(shapes = rest, nextId = d.nextId + 1), listOf(g.id))
+        return d.copy(shapes = rest, nextId = d.nextId + 1)
+    }
+
+    /**
+     * Merge: the selected top-level shapes (two or more, or one group) baked into one mesh shape, holes cut
+     * ([ShapeDesign.merged]). It moves, colours and renders as one solid; its parts are no longer editable (undo
+     * brings them back). The render runs first; an edit meanwhile drops the result.
+     */
+    fun merge(): kotlinx.coroutines.Job? {
+        val d = design ?: return null
+        val tops = d.shapes.filter { it.id in selected }
+        val (g, id) = when {
+            tops.size > 1 -> (grouped(d, R.string.shape_merged) ?: return null) to d.nextId
+            tops.singleOrNull()?.isGroup == true -> d to tops[0].id
+            else -> return null
+        }
+        return store.launch {
+            val file = scad.renderMesh(g.pieces().first { it.shapeId == id }.scad) ?: return@launch
+            val b = withContext(Dispatchers.IO) { Stl.bounds(file) }
+            if (b == null) { store.toast(store.str(R.string.shape_import_failed)); return@launch }
+            if (design != d) { store.toast(store.str(R.string.shape_merge_changed)); return@launch }
+            commit(g.merged(id, file.absolutePath, b), listOf(id))
+        }
     }
 
     /** Takes the selected groups apart, keeping where their shapes are (the group's turn and mirror go to each shape). */

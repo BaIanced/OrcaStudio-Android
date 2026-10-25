@@ -135,6 +135,20 @@ class Engine(private val cacheDir: File) {
     suspend fun addVolume(obj: Int, type: VolumeType, shape: String, size: Vec3) =
         parseScene(call("addVolume", args("object" to obj, "type" to type.code, "shape" to shape, "size" to size)))
     suspend fun deleteVolume(obj: Int, volume: Int) = parseScene(call("deleteVolume", args("object" to obj, "volume" to volume)))
+    /**
+     * Replaces all volumes of [obj] in one undo step (Build workspace, one volume per shape piece). Each entry takes its
+     * mesh from `stl` (piece frame, missing/empty file = skipped) or keeps volume `keep` (mesh + paint), placed by
+     * `matrix` (row-major 4x4 into the object frame). [keepCenter] shifts the copies so the parts stay centred in place,
+     * or, when entries name an `anchor` (the old volume of the same unchanged piece), so the anchors stay in place.
+     */
+    suspend fun setVolumes(obj: Int, volumes: List<VolumeSpec>, keepCenter: Boolean = false) =
+        parseScene(call("setVolumes", args("object" to obj, "keepCenter" to keepCenter, "volumes" to volumes.map {
+            // No null "stl" / "matrix": the native side reads them as a string / an array.
+            mapOf("keep" to it.keep, "type" to it.type.code, "name" to it.name, "anchor" to it.anchor, "extruder" to it.extruder) + (it.stl?.let { s -> mapOf("stl" to s) } ?: emptyMap()) +
+                (it.matrix?.let { m -> mapOf("matrix" to m) } ?: emptyMap())
+        })))
+    /** The object the Build workspace edits (-1 = none): the scene mesh then gives its volumes selection id -1000 - volume. */
+    suspend fun setBuildObject(obj: Int) = parseScene(call("setBuildObject", args("object" to obj)))
     suspend fun setObjectSetting(obj: Int, volume: Int, key: String, value: String?) =
         parseScene(call("setObjectSetting", args("object" to obj, "volume" to volume, "key" to key, "value" to value)))
     /** The same object setting on several objects, as one undo step. */
@@ -158,7 +172,8 @@ class Engine(private val cacheDir: File) {
 
     // --- Tools -----------------------------------------------------------------------------------
 
-    suspend fun pick(origin: Vec3, dir: Vec3): PickHit? = call("pick", args("origin" to origin, "dir" to dir)).let { o ->
+    /** [only] >= 0: hits on that object alone (the Build workspace). */
+    suspend fun pick(origin: Vec3, dir: Vec3, only: Int = -1): PickHit? = call("pick", args("origin" to origin, "dir" to dir, "object" to only)).let { o ->
         if (!o.optBoolean("hit")) null
         else PickHit(o.getInt("object"), o.getInt("instance"), o.getInt("volume"), o.getInt("facet"), o.vec3("point"), o.vec3("normal"), o.vec3("local"))
     }
@@ -167,11 +182,11 @@ class Engine(private val cacheDir: File) {
     /** [joins]: per hit, whether it continues the line from the stroke's previous hit (painted as a capsule, no gaps). */
     suspend fun paint(hits: List<PickHit>, camera: Vec3, radius: Float, kind: String, state: Int, newStroke: Boolean, section: FloatArray? = null,
                       joins: List<Boolean> = emptyList(), edgeAngle: Float = 0f, shape: String = "sphere", height: Float = 0.2f, overhang: Float = 0f,
-                      guard: Float? = null, overColours: Boolean = false) = parseScene(call("paint", args(
+                      guard: Float? = null, overColours: Boolean = false, locked: Int = 0) = parseScene(call("paint", args(
         "hits" to hits.mapIndexed { i, it -> mapOf("object" to it.obj, "instance" to it.instance, "volume" to it.volume, "facet" to it.facet, "local" to it.local,
             "join" to joins.getOrElse(i) { false }) },
         "camera" to camera, "radius" to radius, "kind" to kind, "state" to state, "newStroke" to newStroke, "section" to section, "edgeAngle" to edgeAngle,
-        "shape" to shape, "height" to height, "overhang" to overhang, "guard" to guard, "overColours" to overColours)))
+        "shape" to shape, "height" to height, "overhang" to overhang, "guard" to guard, "overColours" to overColours, "locked" to locked)))
     suspend fun paintClear(obj: Int, kind: String) = parseScene(call("paintClear", args("object" to obj, "kind" to kind)))
     suspend fun paintFillCancel() = parseScene(call("paintFillCancel", args()))
     /** Eyedropper: the paint state under [hit] (0 = unpainted) and the part's own extruder (1-based, 0 = the object's). */
@@ -181,8 +196,14 @@ class Engine(private val cacheDir: File) {
     /** Regions view: world line segments (x, y, z per end) of a copy's crease edges sharper than [angle] degrees and open edges. */
     suspend fun creaseLines(obj: Int, instance: Int, angle: Float): FloatArray =
         call("creaseLines", args("object" to obj, "instance" to instance, "angle" to angle)).getJSONArray("lines").floats()
-    suspend fun paintRemap(obj: Int, dest: List<Int>) = parseScene(call("paintRemap", args("object" to obj, "dest" to dest)))
-    suspend fun paintGapFill(obj: Int, kind: String, area: Float) = parseScene(call("paintGapFill", args("object" to obj, "kind" to kind, "area" to area)))
+    /** [base]: also moves unpainted faces (parts whose own filament is remapped get the new one). */
+    suspend fun paintRemap(obj: Int, dest: List<Int>, base: Boolean = false) =
+        parseScene(call("paintRemap", args("object" to obj, "dest" to dest, "base" to base)))
+    /** Paint shop layer bars: printed surface in mm2 per filament (index 0 = filament 1), unpainted faces as their part's. */
+    suspend fun paintCoverage(obj: Int): FloatArray = call("paintCoverage", args("object" to obj)).getJSONArray("area").floats()
+    /** [locked]: filaments whose specks stay (bit i = filament i + 1). */
+    suspend fun paintGapFill(obj: Int, kind: String, area: Float, locked: Int = 0) =
+        parseScene(call("paintGapFill", args("object" to obj, "kind" to kind, "area" to area, "locked" to locked)))
 
     private fun parseProfile(o: JSONObject) = parseScene(o) to LayerProfile(
         o.getJSONArray("profile").floats(), o.getDouble("min").toFloat(), o.getDouble("max").toFloat(), o.getDouble("height").toFloat())
@@ -333,7 +354,11 @@ class Engine(private val cacheDir: File) {
                     } },
                     instances = obj.getJSONArray("instances").let { ia -> List(ia.length()) { ii ->
                         val inst = ia.getJSONObject(ii)
-                        Instance(ii, inst.getInt("plate"), inst.vec3("offset"), inst.vec3("rotation"), inst.vec3("scale"), inst.vec3("mirror"), inst.vec3("size"), inst.vec3("min"))
+                        val plate = inst.getInt("plate")
+                        val design = inst.optJSONObject("design")?.let {
+                            Instance(ii, plate, it.vec3("offset"), Vec3(0f, 0f, 0f), Vec3(1f, 1f, 1f), Vec3(1f, 1f, 1f), it.vec3("size"), it.vec3("min"))
+                        }
+                        Instance(ii, plate, inst.vec3("offset"), inst.vec3("rotation"), inst.vec3("scale"), inst.vec3("mirror"), inst.vec3("size"), inst.vec3("min"), design)
                     } },
                     layerRanges = obj.optJSONArray("layer_ranges")?.map {
                         val r = it as JSONObject
