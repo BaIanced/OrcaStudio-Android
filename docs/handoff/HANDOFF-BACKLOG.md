@@ -58,3 +58,6 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 ## Known limits (no action)
 - Real keyboard Ctrl+1 = system hotkey. Inactive-plate double tap re-frames (user: fine). Badges ~23 dp at plate zoom (told the user).
 - HMS texts: HmsCatalog.kt fetches at runtime; Handy's copies stay local. Flatpak r9 MakerLab, upstream bump, obn follow-ups: archive.
+- [Opus] Matte black paint flat black: floor fix r402, Claude phone VD OK (faces visible), user feel untested 2026-10-25.
+- Paint guard tool (guard plane) misbehaves, user can't describe yet (user report 2026-10-25, r401). Open: needs repro from user.
+- [Opus] Realistic view tuning (medium-high): r402 PBR Neutral + exposure 0.42, Claude phone VD: hue matches #FEC600, user untested 2026-10-25. Open: plate type changing the look (which plates? not reproduced), edge shade on the cube in normal mode.

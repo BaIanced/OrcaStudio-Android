@@ -14,7 +14,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 0170950 (PR #65, branch at r398, merged 2026-10-25). Untested by the user in main: Build workspace, paint shop/depth, Filament materials, Realistic render, UX P1-P6, Check mesh feel, 3MF export in desktop Orca, pen, fan hold, Extrude F150.
 - Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
-- Latest build r401 (run 40174622268, push/pull + edge outline; installed on WSA/SHIELD/LAN phone 2026-10-25). Chromebook/Note offline. Note r389, Chromebook r374.
+- Latest build r402 (run 40179719937: realistic PBR Neutral tone + matte black paint floor, on r401 push/pull + edge outline; installed on WSA/SHIELD/LAN phone 2026-10-25). Chromebook/Note offline. Note r389, Chromebook r374.
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
@@ -38,7 +38,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Task 12, crawler/monkey and UX P1-P7 (r398 on WSA/SHIELD/LAN phone): done; details in archive (2026-10-25 prune). `docs/UX-INVENTORY.md` has the proposals.
 - User GO 2026-10-25 list done: colours (no change), edge outline (r400, WSA OK), push/pull tier 1 (f701b0c, r401 run
   40174622268; WSA debug OK, archive 2026-10-25). Both await the user's feel check, then a merge.
-- Next step: user checks r401 (push/pull chip in Build view, View > Edge outline), then merge -> Sonnet 5.5 (medium)
+- Next step: user checks r402 (realistic colour, matte black paint, push/pull, edge outline); then plate-type look + guard plane once described -> Opus 5.5 (high)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).

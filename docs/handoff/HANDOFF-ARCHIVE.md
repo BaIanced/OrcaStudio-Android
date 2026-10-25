@@ -3039,3 +3039,15 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
   `adb shell input swipe ... 5000 &` + `exec-out screencap` 3.5 s later. WSA once stopped drawing mid-test (empty ui dump):
   force-stop + wsa-start.ps1 fixed it.
 - Untested: user feel, holes inside groups (pocket walls), sketch sides, tier 2 (SCAD wrapper for any face) not started.
+
+## 2026-10-25 User verdicts on r401 (phone) + realistic tone fix
+- User: realistic ON = "completely incorrect visual": colour off (#FEC600 amber turned lemon), "whites and highlights way too high"
+  (Lightroom). Normal mode darker but "the color is spot on". Phone VD measure (cylinder, yaw -90 pitch 0): realistic ON
+  (235,218,38), OFF (159,124,21). Cause: per-channel ACES at exposure 0.5 pushed lit faces past 1 (hue shift + wash).
+  Fix: Khronos PBR Neutral tone map (hue kept below 0.76, only highlights compress), EXPOSURE 0.42 (key-lit face ~ albedo). glslc OK.
+- User: matte black (AMS) painted via paint shop Fill on the whole object = flat pure black; AMS PETG #161616 fine. Cause:
+  painted faces (types 10-97) = base * light with no dark floor (parts had max(own, 0.13)). Fix: same floor for paint.
+- Both in one commit, CI run 40179719937 (r402). User untested.
+- r402 installed on phone/WSA/SHIELD. Phone VD check: realistic cylinder (240,187,41) vs filament #FEC600 (254,198,0):
+  hue kept (G/R 0.78 both), lit face ~ albedo (r401: lemon (235,218,38)). Matte-black-painted cube shows faces and edges.
+  User pref realistic_render restored to false (their setting).
