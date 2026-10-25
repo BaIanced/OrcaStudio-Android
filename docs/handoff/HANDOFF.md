@@ -39,8 +39,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Open (backlog): app 3MF in desktop Orca (fix applied; user must open a fresh export), printer/user-only checks, pen input, plate switcher pick.
 - Task 12: 5/8/9 in r392 (9 WSA-checked, archive). 1-4 closed (static re-check, not device-triggerable). 10/12/13 fixed 6303398, r395 WSA smoke OK (add text 52 chars, SVG); 11 note only.
 - Crawler + monkey done (no crash/ANR; archive); UX inventory + proposals P1-P7 in `docs/UX-INVENTORY.md` (user hasn't picked proposals).
-  P1 (c486aed), P2 (friendly FileNotFound/Security text), P3 (raw key -> small "Setting:" line in help popups) are in r396; installed, device look pending.
-- Next step: WSA look at P1-P3 in r396 (preset help popup, error text), then P4 from `docs/UX-INVENTORY.md` -> Sonnet 5.5 (medium)
+  P1 (c486aed), P2 (friendly FileNotFound/Security text), P3 (raw key -> small "Setting:" line in help popups) are in r396; installed, device look pending. P4 (14286a4: Changed-only chip shows count; search already existed) is in the branch, not in a build.
+- Next step: P5 (filament picker long names, e.g. "Flow Rate & Vol Calibrated" as badge; find the picker first), then ONE CI build with P4+P5 and a WSA look at P1-P5 -> Sonnet 5.5 (medium)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
