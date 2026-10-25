@@ -14,7 +14,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 0170950 (PR #65, branch at r398, merged 2026-10-25). Untested by the user in main: Build workspace, paint shop/depth, Filament materials, Realistic render, UX P1-P6, Check mesh feel, 3MF export in desktop Orca, pen, fan hold, Extrude F150.
 - Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
-- Latest build r397 (run 40168360935, UX P1-P5 + Task 12 fixes; installed on WSA/SHIELD/LAN phone); P1-P5 NOT yet looked at on a device. Chromebook/Note offline. Note r389, phone r376, Chromebook r374 (offline).
+- Latest build r401 (run 40174622268, push/pull; builds while writing). Chromebook/Note offline. Note r389, Chromebook r374.
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
@@ -36,9 +36,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Local debug test on WSA: recipe in the reference ("Local APK").
 - Open (backlog): app 3MF in desktop Orca (fix applied; user must open a fresh export), printer/user-only checks, pen input, plate switcher pick.
 - Task 12, crawler/monkey and UX P1-P7 (r398 on WSA/SHIELD/LAN phone): done; details in archive (2026-10-25 prune). `docs/UX-INVENTORY.md` has the proposals.
-- **User GO 2026-10-25, in this order:** (1) hard-coded colours: audited, closed as no-change (archive 2026-10-25), (2) edge outline in Prepare (crease lines, View toggle; regions view has crease_lines()), (3) push/pull mesh tier 1 (shape-builder faces, ~1 day). Batch 2-4 per build.
-- Item 2 edge outline (r400, run 40172299266, on WSA/SHIELD/LAN phone): WSA look OK (dark lines on box + parts, toggle in View menu); user has not seen it; big-plate speed untested.
-- Next step: push/pull mesh tier 1 (item 3) -> Opus 5.5 (high)
+- User GO 2026-10-25 list done: colours (no change), edge outline (r400, WSA OK), push/pull tier 1 (f701b0c, r401 run
+  40174622268; WSA debug OK, archive 2026-10-25). Both await the user's feel check, then a merge.
+- Next step: user checks r401 (push/pull chip in Build view, View > Edge outline), then merge -> Sonnet 5.5 (medium)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).

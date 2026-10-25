@@ -79,6 +79,7 @@ headless display below instead (no takeover needed). Don't drive WSA's own windo
   into a variable, never print it. Run adb calls in PowerShell jobs with timeouts while testing sockets.
 - WSA -> LAN printer: run `wsa-lan.ps1 <printer-ip>` after each WSA start. Safe print-dialog test:
   `iptables -I OUTPUT -d <ip> -p tcp --dport 990 -j REJECT` (root), Print, Cancel, `iptables -D ...`.
+- Held drags on WSA: `input motionevent` and sendevent do nothing; for a mid-drag shot run `adb shell input swipe x0 y0 x1 y1 5000 &`, then `exec-out screencap` ~3.5 s later (2026-10-25).
 - Closing the WSA window (`CloseMainWindow()` on the "OrcaStudio-Android" window) runs onStop (saves the session).
 - WSA Preview close-ups: `view_set` (object/yaw/pitch/distance) then tap the Preview tab (52,165) keeps the camera; layer handle drag on y 833 (track x 450-1195); WSA `input` has no mouse scroll, and double tap doesn't frame in Preview.
 - Phone view on WSA (`phone-view.sh`): back-burnered (user, 2026-10-13: "didn't look right"); notes in the archive.

@@ -38,6 +38,7 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - HD plate ideas (user verified r394): 3D bed frame model, dual-nozzle decal layout (Claude 2026-10-24).
 - Plate switcher pick (lab stays; don't ask again). Launcher icon colour ("decide later"). REA MCP enable (installed, not enabled).
 - Edge outline in Prepare (View > Edge outline, r400): WSA look OK; user feel + big-plate speed untested.
+- Push/pull tier 1 (Build view chip, r401): Claude WSA debug OK 2026-10-25 (archive); user feel untested.
 - [Opus] Build workspace (user GO 2026-10-23): steps 1-5 done + restart shift fixed; 6a per-shape filament Claude-verified r386 WSA 2026-10-23 (user feel untested) (Claude-verified r385 WSA 2026-10-23; user feel of 4b/4c/5 untested; multi-copy/mirrored copies in Build untested). 6b Merge bake + 6c-1 tap/drag inside groups Claude-verified WSA debug APK 2026-10-23 (in r387; Merge button/undo, user feel untested). 6c-2 gizmos inside groups Claude-verified WSA debug APK 2026-10-23 (6df309d, unbuilt; nested/repeated groups + user feel untested); Muse Task 18 audit merged 2026-10-23 (PR #64; device check of the circular-repeat scale refusal untested).
 
 ## Ideas (not started)
@@ -46,7 +47,7 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - Quest: 2D panel confirmed (user 2026-10-21); open only input beyond touch + native VR view [Opus] (on request). Phone <-> Quest link (undefined).
 - Filament colour mixing (upstream FilamentMixer.cpp). Not wanted: iOS port.
 - Orca plugin runtime kept generic: not done: audit prompts, create_window, per-preset overrides, printerAgent. FilamentHub dropped for good.
-- Push/pull mesh (SketchUp style): tier 1 shape-builder faces (~1 day) first, tier 2 SCAD wrapper [Opus] (archive).
+- [Opus] Push/pull tier 2: SCAD wrapper for any face of SCAD/MESH shapes (archive 2026-10-21 plan).
 - [Opus] OrcaMesh direct mesh editing (CGAL Surface_mesh + PMP, Blender bmesh ports; MVP 1-2 weeks; archive).
 - Public release check: built-in adblock + hard-coded Models tabs vs store policies / site terms (not researched).
 - Colour icon set shortlist + mockup (low). Paint card fold direction by screen position (low). "Need phone" prompt (shelved).

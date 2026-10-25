@@ -3016,3 +3016,26 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
   P1 (c486aed), P2 (friendly FileNotFound/Security text), P3 (raw key -> small "Setting:" line in help popups) are in r396; P4 (Changed-only chip count; search already existed) and P5 (picker shows "Flow Rate & Vol Calibrated" as small second line, Widgets.kt) are in r397. WSA r397 look: P3 (Setting: line) and P5 (second line) OK; P1/P2 error text not triggered (zip entry opened silently), P4 chip not seen (needs a changed setting). r397 is on all 3 attached devices.
 - P6 (paneTitle on tab content) + About text without AI line: build run 40170895834 dispatched (abed57b); not yet installed/looked at. P7 crawler fixed in ~/orca-android-tools/crawl.py (Quit->Yes = clean exit, no Back at root); Edit-button repro still untested.
 - r398 on WSA/SHIELD/LAN phone; About text OK (phone VD 2026-10-25). UX P1-P7 done.
+
+### 2026-10-25 Push/pull tier 1 (Claude, f701b0c, CI r401 = run 40174622268)
+- Build view chip "Push/pull" (`UiState.buildPush`): on = a drag on a flat face moves that face along its normal, the opposite
+  side stays (size + pos via `posed`, so bound dims follow; `held` keeps groups put); gizmos hide meanwhile; tap still picks,
+  a drag off a face orbits. Round side of CYLINDER/TUBE/PRISM = wider in x and y (far side kept).
+- `ShapeDesign.faceAt(piece, p, ray)`: every leaf in the piece (groups, copies) whose box side the pick point lies on (0.05 mm),
+  solids must face the ray, holes either way; solids win, then closest. Slanted/curved faces (cone/pyramid/wedge slopes,
+  sphere, torus, mesh) grab nothing, without special cases. `ShapeDesign.pushed(face, mm)`: opposite side's middle fixed via
+  placement(); sizes >= 1 mm. `ScadController.faceAt` (engine.pick + toDesign), `ShapeController.pushAt/push`.
+- View: `PlateView.pushMode`, async face check (view holds until it answers), ray-to-normal-line closest point (screen-y
+  fallback when the normal points at the camera), 0.5 mm steps, label "+6.0 mm -> 70.3 mm". Live stretch for a whole volume
+  (top level, no repeat): mesh shader `uScale` is now a mat3 (`PlateRenderer.pushMatrix` = I + (k-1) sum a a^T about the far
+  side; selection box corners follow). Children / repeats: label only, mesh re-renders on release.
+- JVM PushPullTest (4: plain box faces + clamps, every face of a turned+mirrored box moves along its normal with the far face
+  fixed, cylinder side/cap + cone slope null, child in a turned mirrored repeated group); suite 207/207.
+- VERIFIED (Claude, WSA, local debug APK on r400 natives, MCP + adb swipes + crops): Pieces test Base top 10 -> 20 (bottom
+  kept), front face 30 -> 34.5 (back y 17.787 kept), end face 64.3 -> 72.8 (left x -27.329 kept), top 23 -> 10.5; live
+  stretch + label + box mid-drag; repeated turned Peg round side 5 -> 10 (centre moved 2.5 = far side kept), label only;
+  toolbar Undo = one step back; empty-space drag orbits. Debug app uninstalled.
+- WSA test notes: `input motionevent` and sendevent drags don't register on WSA; mid-drag shots = background
+  `adb shell input swipe ... 5000 &` + `exec-out screencap` 3.5 s later. WSA once stopped drawing mid-test (empty ui dump):
+  force-stop + wsa-start.ps1 fixed it.
+- Untested: user feel, holes inside groups (pocket walls), sketch sides, tier 2 (SCAD wrapper for any face) not started.
