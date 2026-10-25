@@ -338,8 +338,15 @@ class FileController(
         return File(outDir, "export.gcode.3mf").also { engine.exportGcode3mf(plate, gcode.path, it.path, sliced) }
     }
 
-    fun openRecent(recent: RecentFile) {
+    fun openRecent(recent: RecentFile) = store.launch {
         val uri = Uri.parse(recent.uri)
+        val readable = withContext(Dispatchers.IO) { runCatching { store.app.contentResolver.openInputStream(uri)?.use { true } ?: false }.getOrDefault(false) }
+        if (!readable) {  // moved, deleted, cache purged or access revoked: drop the entry instead of an error dialog
+            settings.recents = settings.recents.filter { it.uri != recent.uri }
+            store.update { it.copy(recents = settings.recents) }
+            store.toast(store.str(R.string.recent_missing, recent.name))
+            return@launch
+        }
         if (recent.isProject) openProject(uri) else openModels(listOf(uri))
     }
 

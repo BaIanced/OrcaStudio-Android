@@ -2998,3 +2998,10 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 - Findings 10/12/13 fixed 6303398 (Claude, 2026-10-24, WSL-compiled): GetMethodID null -> ExceptionClear + throw at setup
   (orca_jni progress_forwarder, PluginNative start, ObnBridge print); add_text name cut back to a UTF-8 lead byte; add_svg image in
   a unique_ptr. Finding 11 (Kotlin callbacks under native locks) left as a contract note: Kotlin listeners post to the UI, no change.
+
+## 2026-10-24 Muse Task 12 findings 10/12/13 VERIFIED on r395 (WSA)
+- r395 (run 40141547033) installed on WSA + SHIELD. WSA (window brought to front, user at work): Add text with a 52-char string -> object added (Objects 4->5), no crash; Add SVG (evenodd square ring, 100x100 viewBox) -> object added (5->6), app still running. Both undone afterwards, test file removed, debug app uninstalled from WSA (release data kept). Claude, 2026-10-24.
+
+## 2026-10-24 UI crawler (~/orca-android-tools/crawl.py) first runs, WSA r395
+- `python crawl.py [steps] [seed]` (WSA window in front, session backed up first, restore from /data/local/tmp/session-backup.* after): taps unvisited clickables, Back to return, checks pidof + crash/ANR logcat; report in crawl-out/<ts>/report.txt. Blocklist skips print/sign-in/delete/Device/Models/Connect/Save etc. Run 1 (no Device block) wandered into Device jog/Extrude/Start + connection Save: nothing reached the printer ("Can't reach the printer", no LAN route on WSA), then Device tab blocked.
+- Run 2 (seed 7, 120 steps, 62 screens): no crash/ANR. Found: tapping a stale Recent files entry (cache/downloads zip deleted, or content:// access lost) shows a raw Error dialog ("open failed: ENOENT" / "has no access to content://..."). Fixed in FileController.openRecent: probe readability, else drop the entry + toast (compiled, uncommitted->committed next; untested on device). Claude 2026-10-24.

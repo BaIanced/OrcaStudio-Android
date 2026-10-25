@@ -16,7 +16,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   main: Check mesh feel, cut Flip paint fix, 3MF export in desktop Orca, pie menu (lab), pen 7d3a263, fan hold 298ee9f, Extrude
   F150 e13bebb, Quest stick zoom (r324). Unmerged on the branch: paint shop + paint depth r367, Build workspace 1-5 + 6a (user feel untested).
 - Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
-- Latest build r391 (run 40075524166, Layer lines): WSA, SHIELD (2026-10-24). Note r389, phone r376, Chromebook r374 (offline).
+- Latest build r395 (run 40141547033, Task 12 fixes): WSA, SHIELD (2026-10-24); phone/Chromebook/Note offline. Note r389, phone r376, Chromebook r374 (offline).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
@@ -37,9 +37,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - User feel untested (backlog): paint plan (r373), Build workspace 1-6, Filament materials tiers 1+2, Realistic render 1+2 (r390).
 - Local debug test on WSA: recipe in the reference ("Local APK").
 - Open (backlog): app 3MF in desktop Orca (fix applied; user must open a fresh export), printer/user-only checks, pen input, plate switcher pick.
-- Task 12: 5/8/9 in r392 (9 WSA-checked, archive). 1-4 closed (static re-check, not device-triggerable). 10/12/13 fixed 6303398, r395 = run 40141547033 (built OK 2026-10-24, not installed); 11 note only.
-- Local debug app (older native libs, r391) is still on WSA with release data (removed from phone 2026-10-24); remove when done.
-- Next step: install r395 (run 40141547033) on all devices, WSA smoke Add text (>32 chars) + SVG import -> Sonnet 5.5 (medium)
+- Task 12: 5/8/9 in r392 (9 WSA-checked, archive). 1-4 closed (static re-check, not device-triggerable). 10/12/13 fixed 6303398, r395 WSA smoke OK (add text 52 chars, SVG); 11 note only.
+- Next step (user GO 2026-10-24): crawler stage done (crawl.py, archive); stale-Recent fix built locally, not in a CI build yet. Next: more seeds (different tabs: Preview, Prepare tools, File dialogs) + `monkey` run, then UX inventory/proposal doc from the screens list -> Sonnet 5.5 (medium)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
