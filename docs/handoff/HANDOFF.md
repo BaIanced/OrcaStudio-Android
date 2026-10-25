@@ -37,8 +37,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Open (backlog): app 3MF in desktop Orca (fix applied; user must open a fresh export), printer/user-only checks, pen input, plate switcher pick.
 - Task 12, crawler/monkey and UX P1-P7 (r398 on WSA/SHIELD/LAN phone): done; details in archive (2026-10-25 prune). `docs/UX-INVENTORY.md` has the proposals.
 - **User GO 2026-10-25, in this order:** (1) hard-coded colours: audited, closed as no-change (archive 2026-10-25), (2) edge outline in Prepare (crease lines, View toggle; regions view has crease_lines()), (3) push/pull mesh tier 1 (shape-builder faces, ~1 day). Batch 2-4 per build.
-- Item 2 edge outline: View menu "Edge outline" toggle coded + compiled (all copies on the active plate, reuses crease_lines, 30 deg); build dispatched, NOT yet looked at on a device.
-- Next step: install the edge-outline build on WSA, look at it (toggle, performance on a big plate) -> Sonnet 5.5 (medium); then push/pull tier 1 -> Opus 5.5 (high)
+- Item 2 edge outline (r400, run 40172299266, on WSA/SHIELD/LAN phone): WSA look OK (dark lines on box + parts, toggle in View menu); user has not seen it; big-plate speed untested.
+- Next step: push/pull mesh tier 1 (item 3) -> Opus 5.5 (high)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
