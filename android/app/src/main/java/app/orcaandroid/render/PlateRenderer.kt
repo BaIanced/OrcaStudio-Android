@@ -505,8 +505,10 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
                 glEnable(GL_CULL_FACE)
                 glCullFace(GL_FRONT)
                 drawMesh(meshVbo, meshCount, pass = 7)
+                drawClearPaint()
                 glCullFace(GL_BACK)
                 drawMesh(meshVbo, meshCount, pass = 7)
+                drawClearPaint()
                 glDisable(GL_CULL_FACE)
                 glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
             }
@@ -519,6 +521,15 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         // Seen from below the plate is a window: drawn last, over the parts behind it.
         if (plateSurface && camera.eye().z < 0f) drawPlateSurfaces(PLATE_UNDER_ALPHA)
         drawOverlays()
+    }
+
+    /** Paint of clear filaments (realistic mode), drawn like the clear parts. */
+    private fun drawClearPaint() {
+        if (paintCount == 0) return
+        glEnable(GL_POLYGON_OFFSET_FILL)
+        glPolygonOffset(-1f, -2f)
+        drawMesh(paintVbo, paintCount, pass = 7)
+        glDisable(GL_POLYGON_OFFSET_FILL)
     }
 
     // --- Upload --------------------------------------------------------------------------------

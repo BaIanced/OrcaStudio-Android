@@ -280,7 +280,7 @@ internal object Shaders {
                 color = vec4(k * k);
                 return;
             }
-            if ((uPass == 0 || uPass == 7) && !part) discard;
+            if ((uPass == 0 || uPass == 7) && !part && !(uPass == 7 && type >= 10 && type < 98)) discard;
             // The lit part passes: 0 opaque, 7 clear filaments in realistic mode (blended after everything opaque).
             bool lit0 = uPass == 0 || uPass == 7;
             // 99: the estimated prime tower (scene mesh, translucent pass).
@@ -322,16 +322,16 @@ internal object Shaders {
             bool hidden = filament >= 0 && filament < 16 && ((uHidden >> filament) & 1) != 0;
             if (hidden) base = vec3(0.62);
             // Colour paint (pass 2, over the parts) is lit like a part of its filament: material, shadow, realistic mode.
-            bool paint = uPass == 2 && type >= 10 && type < 98;
+            bool paint = (uPass == 2 || uPass == 7) && type >= 10 && type < 98;
             if (paint) base = max(base, vec3(0.13));
             if (part || paint) {
                 // The filament's material; parts without one and hidden filaments keep the plain plastic look.
                 int mi = hidden ? -1 : (paint ? clamp(type - 10, 0, 15) : (type >= 100 ? clamp(type - 100, 0, 15) : -1));
                 vec4 ma = mi >= 0 ? uMatA[mi] : vec4(36.0, 0.16, 0.0, 0.0);
                 vec4 mb = mi >= 0 ? uMatB[mi] : vec4(0.0, 0.0, 1.0, 0.0);
-                // Clear filaments (transmission mb.w) leave pass 0 for pass 7 in realistic mode; elsewhere (and paint) opaque.
-                bool clear = part && uRealistic == 1 && mb.w > 0.0;
-                if (part && clear != (uPass == 7)) discard;
+                // Clear filaments (transmission mb.w), parts and paint, leave pass 0/2 for pass 7 in realistic mode; elsewhere opaque.
+                bool clear = uRealistic == 1 && mb.w > 0.0;
+                if (clear != (uPass == 7)) discard;
                 if (!clear) mb.w = 0.0;
                 // Soft studio look for the model: sky/ground ambient (z is up), a key and a fill light, a
                 // faint plastic highlight and a cool rim on silhouettes. The slice preview keeps its flat colours.
