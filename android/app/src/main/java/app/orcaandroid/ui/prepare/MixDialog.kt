@@ -29,6 +29,7 @@ object Mix {
     const val IS_MIXED = "filament_is_mixed"
     const val COMPONENTS = "filament_mixed_components"
     const val RATIOS = "filament_mixed_sublayer_ratios"
+    val KEYS = setOf(IS_MIXED, COMPONENTS, RATIOS)
 
     fun isMixed(slot: FilamentSlot) = slot.overrides[IS_MIXED] == "1"
 

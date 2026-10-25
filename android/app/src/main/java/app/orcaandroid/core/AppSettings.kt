@@ -197,7 +197,6 @@ class AppSettings(context: Context) {
         }.getOrNull()
     }.orEmpty()
 
-    private val MIX_KEYS = setOf(Mix.IS_MIXED, Mix.COMPONENTS, Mix.RATIOS)
 
     fun setLastFilaments(printer: String, slots: List<FilamentSlot>) = prefs.edit().putString(
         "filaments:${family(printer)}",
@@ -205,7 +204,7 @@ class AppSettings(context: Context) {
             JSONObject().put("preset", f.preset).put("color", f.color ?: "").apply {
                 f.look?.let { put("look", it) }
                 // Only the mix recipe outlives a restart; other per-slot edits are session-only.
-                if (f.overrides[Mix.IS_MIXED] == "1") put("mix", JSONObject(f.overrides.filterKeys { it in MIX_KEYS }))
+                if (f.overrides[Mix.IS_MIXED] == "1") put("mix", JSONObject(f.overrides.filterKeys { it in Mix.KEYS }))
                 f.source?.let { put("source", JSONObject().put("key", it.key).put("loaded", it.loaded).put("synced", it.synced)) }
             }
         }).toString(),

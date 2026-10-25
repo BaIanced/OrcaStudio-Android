@@ -124,7 +124,8 @@ class PresetController(private val store: Store, private val device: DeviceContr
         val saved = settings.lastFilaments(name)
         val given = filaments?.mapIndexed { i, f ->
             val same = saved.getOrNull(i)?.takeIf { it.preset == f.preset }
-            f.copy(source = f.source ?: same?.source, look = f.look ?: same?.look)
+            f.copy(source = f.source ?: same?.source, look = f.look ?: same?.look,
+                overrides = if (Mix.isMixed(f) || same == null) f.overrides else f.overrides + same.overrides.filterKeys { k -> k in Mix.KEYS })
         }
         val fils = withColors((given ?: saved).filter { f -> setup.filaments.any { it.name == f.preset } }
             .ifEmpty { listOf(FilamentSlot(setup.defaultFilament)) })
