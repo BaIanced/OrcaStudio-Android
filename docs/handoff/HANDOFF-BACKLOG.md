@@ -58,6 +58,6 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - Real keyboard Ctrl+1 = system hotkey. Inactive-plate double tap re-frames (user: fine). Badges ~23 dp at plate zoom (told the user).
 - HMS texts: HmsCatalog.kt fetches at runtime; Handy's copies stay local. Flatpak r9 MakerLab, upstream bump, obn follow-ups: archive.
 - Paint guard tool (guard plane) misbehaves, user can't describe yet (user report 2026-10-25, r401). Open: needs repro from user.
-- [Opus] Bands paint mode slow/choppy: parts 1+2 committed (WSA A/B 2026-10-25: 74+88 -> 48+24 ms per call, no edge trail); r406 installed WSA + SHIELD; user feel check open.
+- [Opus] Bands paint edges jagged on PC when band start/height are not layer-height multiples (user 2026-10-25, r406): snap band to layer grid. Bands perf VERIFIED by user r406.
 - Edge bands on painted rounded edges + realistic ignoring paint: fixed r403 (Claude phone debug OK 2026-10-25); user check open.
 - Upstream 2.5.0 alpha overlaps our work: NOTES-upstream-2.5.md (compare table); check src-orca before building any feature, keep ours where better (user 2026-10-25). Open: side-by-side checks -> Sonnet 5.5 (medium); CAD/OCCT decision -> Opus.

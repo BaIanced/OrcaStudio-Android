@@ -3113,3 +3113,6 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 
 ### 2026-10-25 Task 18 refusal path on device (Claude, WSA r406, adb swipes on the Build view scale handles)
 - Sphere with a circular repeat (4x about the origin): dragging the X handle (uneven X != Y) left the shape unscaled (refused); control: dragging the Z handle scaled it 20 -> 25.98 mm tall (taller ring still scales). Matches ae07b95. User feel untested.
+
+### 2026-10-25 Bands paint feel (user, r406+)
+- User: "I confirmed the band tool fix worked." Perf item verified. New follow-up: band edges jagged on PC slicer when band height/start are not multiples of layer height (user: 0.08 layer, 0.1 band: bands 1-4 jagged, 5th clean). Wanted: snap band steps to layer-height increments.

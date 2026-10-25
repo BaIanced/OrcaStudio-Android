@@ -849,9 +849,30 @@ json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<doubl
                 save_live(facets, was_empty);
             }
         };
+        // Snap the band to the object's layer boundaries (outward): an edge between layers slices to a clean line, one inside
+        // a layer leaves jagged triangles on the slicer (user r406: 0.08 mm layers, 0.1 mm band).
+        auto snap = [&](const PaintHit &h, float z, float top) {
+            const ModelObject &obj = object_at(h.object);
+            const SlicingParameters params = slicing_params(selection_config(), obj);
+            std::vector<coordf_t> profile = obj.layer_height_profile.get();
+            if (profile.empty())
+                PrintObject::update_layer_height_profile(obj, params, profile);
+            const std::vector<coordf_t> tops = generate_object_layers(params, profile, false);
+            std::vector<float> edges{0.f};
+            for (size_t i = 1; i < tops.size(); i += 2)
+                edges.push_back(float(tops[i]));
+            const float eps = 1e-3f;
+            auto it_lo = std::upper_bound(edges.begin(), edges.end(), z + eps);
+            const float lo = it_lo == edges.begin() ? z : *(it_lo - 1);
+            auto it_hi = std::lower_bound(edges.begin(), edges.end(), top - eps);
+            float hi = it_hi == edges.end() ? top : *it_hi;
+            if (hi <= lo + eps)
+                hi = it_hi == edges.end() || it_hi + 1 == edges.end() ? top : *(it_hi + 1);
+            return std::make_pair(lo, hi);
+        };
         bool grew = false;
         for (const PaintHit &h : hits) {
-            const float z = hit_z(h), top = z + float(height);
+            const auto [z, top] = snap(h, hit_z(h), hit_z(h) + float(height));
             if (m_band && (m_band->object != h.object || m_band->instance != h.instance)) {
                 if (grew)
                     paint_band(*m_band);
