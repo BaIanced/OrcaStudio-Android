@@ -268,7 +268,7 @@ private fun EditorFrame(
                 }
                 // Presets too: "N modified" in the title is otherwise hard to trace to its options.
                 if (objectMode || source.modifiedCount > 0 || onlyModified)
-                    FilterChip(onlyModified, { onlyModified = !onlyModified }, label = { Text(stringResource(R.string.only_changed)) })
+                    FilterChip(onlyModified, { onlyModified = !onlyModified }, label = { Text(stringResource(R.string.only_changed) + if (source.modifiedCount > 0) " (${source.modifiedCount})" else "") })
             }
             HorizontalDivider()
 
