@@ -3051,3 +3051,6 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 - r402 installed on phone/WSA/SHIELD. Phone VD check: realistic cylinder (240,187,41) vs filament #FEC600 (254,198,0):
   hue kept (G/R 0.78 both), lit face ~ albedo (r401: lemon (235,218,38)). Matte-black-painted cube shows faces and edges.
   User pref realistic_render restored to false (their setting).
+- User 2026-10-25 on r402 (phone): "matte black looks normal now, so does yellow cube" -> matte black paint VERIFIED.
+  "Realistic view no longer shows any difference on any type" (realistic look vs plain / per filament type): open.
+- User 2026-10-25: plate type changing the look "can't reproduce, close that" -> closed. Realistic colour (yellow cube) OK on r402.

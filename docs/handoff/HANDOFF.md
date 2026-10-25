@@ -38,7 +38,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Task 12, crawler/monkey and UX P1-P7 (r398 on WSA/SHIELD/LAN phone): done; details in archive (2026-10-25 prune). `docs/UX-INVENTORY.md` has the proposals.
 - User GO 2026-10-25 list done: colours (no change), edge outline (r400, WSA OK), push/pull tier 1 (f701b0c, r401 run
   40174622268; WSA debug OK, archive 2026-10-25). Both await the user's feel check, then a merge.
-- Next step: user checks r402 (realistic colour, matte black paint, push/pull, edge outline); then plate-type look + guard plane once described -> Opus 5.5 (high)
+- Next step: guard plane bug once the user describes it; else r402 push/pull + edge outline check, then merge -> Opus 5.5 (high)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
