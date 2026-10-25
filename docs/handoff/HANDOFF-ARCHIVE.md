@@ -3067,4 +3067,4 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
   glslc OK. Phone debug build (VD): bands gone (soft matte rim instead), realistic ON shows the softbox reflection on the paint.
 - Side note (sim, not seen on device): the unpainted part shading can also dip at a rounded edge between a key-lit and a
   fill-lit face (two clamped lights; ~8 % of edge orientations, up to 36 % below the darker face). Untouched unless the user sees it.
-- CI run 40181852595 (r403). User untested.
+- CI run 40181852595 (r403), installed on phone/WSA/SHIELD 2026-10-25. User untested.

@@ -35,7 +35,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Backlog, user feel/checks open: paint plan, Build workspace, Filament materials, Realistic render, 3MF in desktop Orca, pen, plate switcher pick.
 - Local debug test: reference "Local APK"; phone too: `W=<phone serial> sh wsa-debug-setup.sh` + `PKG=...debug orca-vd.sh start` (WSA kept stopping the activity 2026-10-25).
 - Edge outline (r400) and push/pull tier 1 (r401): Claude WSA OK, await the user's feel check, then a merge.
-- Edge bands / realistic on paint fixed in r403 (archive 2026-10-25): install r403 on all devices, then the user's check.
+- Edge bands / realistic on paint fixed in r403 (archive 2026-10-25), installed on phone/WSA/SHIELD; awaits the user's check.
 - Next step: install r403 + user check (edge bands, realistic on paint, push/pull, edge outline), then merge -> Sonnet 5.5 (medium)
 
 ## User decisions (2026-10-13)
