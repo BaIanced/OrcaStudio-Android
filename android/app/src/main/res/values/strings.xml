@@ -302,6 +302,7 @@
         <item quantity="other">%d objects outside the plates</item>
     </plurals>
     <string name="ok">OK</string>
+    <string name="setting_key_fmt">Setting: %1$s</string>
     <string name="only_changed">Changed only</string>
     <string name="open_project">Open…</string>
     <string name="opening_project">Opening project…</string>

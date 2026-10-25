@@ -428,7 +428,17 @@ private fun OptionRow(
         AlertDialog(
             onDismissRequest = { showTooltip = false },
             title = { Text(if (row != null) text else tr.tr(def.fullLabel.ifEmpty { def.label })) },
-            text = { Text(tr.tr(def.tooltip) + "\n\n" + def.key, style = MaterialTheme.typography.bodyMedium) },
+            text = {
+                Column {
+                    Text(tr.tr(def.tooltip), style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        stringResource(R.string.setting_key_fmt, def.key),
+                        Modifier.padding(top = 12.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            },
             confirmButton = { TextButton(onClick = { showTooltip = false }) { Text(stringResource(R.string.ok)) } },
         )
     }
