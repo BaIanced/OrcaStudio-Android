@@ -41,8 +41,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Crawler + monkey done (no crash/ANR; archive); UX inventory + proposals P1-P7 in `docs/UX-INVENTORY.md` (user hasn't picked proposals).
   P1 (c486aed), P2 (friendly FileNotFound/Security text), P3 (raw key -> small "Setting:" line in help popups) are in r396; P4 (Changed-only chip count; search already existed) and P5 (picker shows "Flow Rate & Vol Calibrated" as small second line, Widgets.kt) are in r397. WSA r397 look: P3 (Setting: line) and P5 (second line) OK; P1/P2 error text not triggered (zip entry opened silently), P4 chip not seen (needs a changed setting). r397 is on all 3 attached devices.
 - P6 (paneTitle on tab content) + About text without AI line: build run 40170895834 dispatched (abed57b); not yet installed/looked at. P7 crawler fixed in ~/orca-android-tools/crawl.py (Quit->Yes = clean exit, no Back at root); Edit-button repro still untested.
-- r398 (run 40170895834) installed on WSA/SHIELD/LAN phone; WSA window did not draw (no UI dump), so About text and pane titles are not yet looked at.
-- Next step: look at About text + a tab screen on a device (phone VD or WSA retry) -> Sonnet 5.5 (medium)
+- r398 (run 40170895834, P6 + About text) on WSA/SHIELD/LAN phone. Phone VD look 2026-10-25: About now "unofficial community project" only (OK); pane titles are invisible semantics (no visual check possible; fine). WSA window still didn't draw.
+- Next step: UX-INVENTORY proposals are done (P1-P7); ask the user which backlog item to pull next (or merge batch) -> Sonnet 5.5 (medium)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
