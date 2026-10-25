@@ -38,7 +38,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Local debug test on WSA: recipe in the reference ("Local APK").
 - Open (backlog): app 3MF in desktop Orca (fix applied; user must open a fresh export), printer/user-only checks, pen input, plate switcher pick.
 - Task 12: 5/8/9 in r392 (9 WSA-checked, archive). 1-4 closed (static re-check, not device-triggerable). 10/12/13 fixed 6303398, r395 WSA smoke OK (add text 52 chars, SVG); 11 note only.
-- Next step (user GO 2026-10-24): crawler stage done (crawl.py, archive); stale-Recent fix built locally, not in a CI build yet. Next: more seeds (different tabs: Preview, Prepare tools, File dialogs) + `monkey` run, then UX inventory/proposal doc from the screens list -> Sonnet 5.5 (medium)
+- Crawler + monkey done (no crash/ANR; archive); UX inventory + proposals P1-P7 written to `docs/UX-INVENTORY.md` (2026-10-24, uncommitted; user hasn't picked proposals). Stale-Recent fix (P1) built locally, not in a CI build yet.
+- Next step: P1+P2 Recent files dead entries / friendly open errors (batch with the stale-Recent fix, then CI build + WSA check) -> Sonnet 5.5 (medium)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
