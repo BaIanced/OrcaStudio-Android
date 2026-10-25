@@ -65,6 +65,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.paneTitle
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -338,7 +340,8 @@ private fun EditorFrame(
                         }
                     }
                 }
-                LazyColumn(Modifier.weight(1f).fillMaxHeight().padding(horizontal = 12.dp)) {
+                val paneName = if (showPages) shown.getOrNull(current)?.let { tr.tr(it.title) }.orEmpty() else ""
+                LazyColumn(Modifier.weight(1f).fillMaxHeight().semantics { paneTitle = paneName }.padding(horizontal = 12.dp)) {
                     groups.forEach { group ->
                         val options = group.options.mapNotNull { defs[it] }.filter {
                             (query.isNotBlank() || onlyModified || visible(it)) && it.key !in hidden && source.value(it.key) != null

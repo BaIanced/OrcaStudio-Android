@@ -79,6 +79,8 @@ import app.orcaandroid.ui.components.SectionTitle
 import app.orcaandroid.ui.components.Vec3Fields
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.paneTitle
+import androidx.compose.ui.semantics.semantics
 
 /** A setup problem that will make slicing fail: filament slot [slot] holds [have] where the printer's tray [synced] holds [tray]. */
 internal data class SetupProblem(val slot: Int, val have: String, val tray: String, val synced: String)
@@ -116,7 +118,8 @@ fun PreparePanel(state: UiState, vm: AppViewModel, wide: Boolean) {
             Tab(tab == 0, { tab = 0 }, text = { Text(stringResource(R.string.tab_print_settings)) })
             Tab(tab == 1, { tab = 1 }, text = { Text(stringResource(R.string.tab_objects) + if (state.scene.objects.isNotEmpty()) " (${state.scene.objects.size})" else "") })
         }
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        val paneName = stringResource(if (tab == 0) R.string.tab_print_settings else R.string.tab_objects)
+        Column(Modifier.fillMaxSize().semantics { paneTitle = paneName }.verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (tab == 0) PresetsTab(state, vm) else ObjectsTab(state, vm)
         }
     }

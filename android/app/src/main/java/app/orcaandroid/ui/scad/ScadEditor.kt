@@ -64,6 +64,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.paneTitle
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -168,7 +170,12 @@ fun ScadPanel(s: ScadEditorState, vm: AppViewModel, onHide: (() -> Unit)? = null
                 })
             }
         }
-        Column(Modifier.weight(1f).fillMaxWidth()) {
+        val paneName = stringResource(when (current) {
+            "shapes" -> R.string.shape_tab
+            "code" -> R.string.scad_code
+            else -> R.string.scad_customizer
+        })
+        Column(Modifier.weight(1f).fillMaxWidth().semantics { paneTitle = paneName }) {
             if (current == "shapes") ShapesTab(s, vm)
             else if (current == "code" && builder) {
                 GeneratedNotice(onDetach = vm.scad::detachShapes)
