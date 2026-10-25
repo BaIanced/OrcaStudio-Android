@@ -3,6 +3,7 @@ package app.orcaandroid.ui
 import android.app.Application
 import androidx.annotation.PluralsRes
 import androidx.annotation.StringRes
+import app.orcaandroid.R
 import app.orcaandroid.container
 import app.orcaandroid.core.Scene
 import kotlinx.coroutines.CancellationException
@@ -73,7 +74,8 @@ class Store(val app: Application, val scope: CoroutineScope) {
             throw e
         } catch (e: Exception) {
             android.util.Log.w("OrcaStore", "operation failed", e)
-            update { it.copy(error = e.message ?: e.toString()) }
+            val unreadable = e is java.io.FileNotFoundException || e is SecurityException
+            update { it.copy(error = if (unreadable) str(R.string.file_unreadable) else e.message ?: e.toString()) }
         } finally {
             if (busy != null) update { it.copy(busy = null) }
         }
