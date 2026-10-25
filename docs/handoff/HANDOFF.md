@@ -34,12 +34,12 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   doing it directly, tell the user plainly and stop. Merge commands START with `gh pr merge`. No stacking.
 - Backlog, user feel/checks open: paint plan, Build workspace, Filament materials, Realistic render, 3MF in desktop Orca, pen, plate switcher pick.
 - Local debug test: reference "Local APK" + "WSA debug loop" (worked on WSA 2026-10-25; parked window: taps via `tapf.sh`).
-- Awaiting user: push/pull tier 1 (r401), edge bands on paint (r403), Bands paint feel (r406).
+- Awaiting user: push/pull tier 1 (r401), edge bands on paint (r403), 
 - Phone offline (user at work); its session is copied to WSA (archive 2026-10-25). Test on WSA.
-- Bands paint perf: archive 2026-10-25; r406 on WSA + SHIELD; phone install when online, then user feel check.
 - Upstream 2.5.0 alpha overlaps our work (user 2026-10-25): `NOTES-upstream-2.5.md` = compare table; check src-orca before building a feature; keep ours where better.
-- Mix sheet DONE 2026-10-25 (persisted via AppSettings 'mix') (palette icon per slot row, `MixDialog.kt`, `PresetController.setMix`): WSA debug build: slot 4 = mix of 1+2 (5:5), colour blended #949086, cylinder on it slices (prime tower appears = swaps resolved; 100 layers). Untested: sub-layer switch on (layer count should grow), persistence after restart (overrides are not saved with last filaments), user feel.
-- Next step: test mix restart persistence + sub-layers on (CI build r407) on WSA -> Sonnet 5.5 (medium); phone r406 install + Bands feel check when it is online
+- Mix sheet DONE 2026-10-25 (persisted via AppSettings 'mix') (palette icon per slot row, `MixDialog.kt`, `PresetController.setMix`): WSA debug build: slot 4 = mix of 1+2 (5:5), colour blended #949086, cylinder on it slices (prime tower appears = swaps resolved; 100 layers). See below.
+- Bands perf VERIFIED by user (r406). New 2026-10-25: band edges snap outward to layer boundaries (OrcaTools.cpp `snap`, native compiled locally, untested on device/PC); mix persistence fix (restored session/project dropped the saved mix; FileController + PresetController `Mix.carry`), untested on device.
+- Next step: install the CI build after r408 on WSA: mix dialog shows 1+2 after restart; band edges land on layer boundaries (0.08 layer, 0.1 band) -> Sonnet 5.5 (medium); user checks the band edges in PC slicer; phone install when online
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
