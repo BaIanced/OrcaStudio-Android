@@ -35,7 +35,7 @@ set(IS_CROSS_COMPILE TRUE)
 set(IS_CLANG_CL FALSE)
 set(SLIC3R_STATIC ON)
 set(SLIC3R_GUI OFF)
-set(SLIC3R_CAD OFF)
+set(SLIC3R_CAD ON)
 set(SLIC3R_ENC_CHECK OFF CACHE BOOL "" FORCE)
 
 add_compile_options(-fsigned-char -w)

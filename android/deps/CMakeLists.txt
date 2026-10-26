@@ -32,7 +32,7 @@ set(UPSTREAM_DEPS "${ORCA_SRC}/deps")
 
 set(DEP_DOWNLOAD_DIR ${CMAKE_BINARY_DIR}/../dl CACHE PATH "Download cache")
 set(DESTDIR "${CMAKE_BINARY_DIR}/OrcaSlicer_dep/usr/local" CACHE PATH "Install prefix of the deps")
-set(SLIC3R_CAD OFF)
+set(SLIC3R_CAD ON)
 set(IN_GIT_REPO FALSE)          # the build dir is outside git, so patches apply in place
 set(IS_CROSS_COMPILE TRUE)
 set(DEP_CMAKE_OPTS "-DCMAKE_POSITION_INDEPENDENT_CODE=ON")
@@ -158,6 +158,7 @@ include(${UPSTREAM_DEPS}/libnoise/libnoise.cmake)
 include(${UPSTREAM_DEPS}/Draco/Draco.cmake)
 include(${UPSTREAM_DEPS}/Assimp/Assimp.cmake)
 include(${UPSTREAM_DEPS}/OCCT/OCCT.cmake)
+include(${UPSTREAM_DEPS}/SLVS/SLVS.cmake)
 # OpenCV builds its Android sample apps and Java bindings by default; the recipe cannot be told
 # otherwise, so the extra switches ride along in DEP_CMAKE_OPTS for this one call.
 set(_dep_cmake_opts_saved "${DEP_CMAKE_OPTS}")
@@ -174,5 +175,5 @@ add_dependencies(dep_OpenEXR dep_ZLIB)
 add_custom_target(deps ALL DEPENDS
     dep_ZLIB dep_PNG dep_EXPAT dep_JPEG dep_FREETYPE dep_OpenSSL
     dep_Boost dep_Cereal dep_Qhull dep_TBB dep_GMP dep_MPFR dep_Eigen dep_CGAL
-    dep_NLopt dep_libnoise dep_Draco dep_Assimp dep_OCCT dep_OpenCV dep_Blosc dep_OpenEXR dep_OpenVDB
+    dep_NLopt dep_libnoise dep_Draco dep_Assimp dep_OCCT dep_SLVS dep_OpenCV dep_Blosc dep_OpenEXR dep_OpenVDB
 )
