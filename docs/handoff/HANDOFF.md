@@ -31,12 +31,13 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Local debug test: reference "Local APK" + "WSA debug loop" (worked on WSA 2026-10-25; parked window: taps via `tapf.sh`).
 - Phone offline (user at work); its session is copied to WSA (archive 2026-10-25). Test on WSA.
 - Upstream 2.5.0 alpha overlaps our work (user 2026-10-25): `NOTES-upstream-2.5.md` = compare table; check src-orca before building a feature; keep ours where better.
-- Built, untested: 3MF writes effective bed type per plate + project (plate 4 / printer "unknown"), label "Cool Plate (SuperTack)". Awaiting user: push/pull tier 1 (r401), edge bands on paint (r403).
-- r416 on WSA + SHIELD: band fix + measure step 1 await a check. User decisions open: push/pull fold vs remove, CAD roadmap + reuse plan (`NOTES-cad-reuse.md`).
-- CAD plan accepted (user 2026-10-25): steps tagged in `NOTES-cad-reuse.md`. Step 0 GO (r418, archive 2026-10-26).
-- CAD step 1a Blend joins Claude-verified WSA r419 (archive 2026-10-26); r419 on WSA + SHIELD. User feel untested (group panel
-  "Blend joins (mm)"). MCP `shape_update` blend key fixed after r419 (unbuilt). Step 1b (tap one edge to round) parked: low value on touch.
-- Next step: CAD step 2 sweep / loft / revolve / helix from CadDocument (touch profile + path) -> Opus 5.5 (medium)
+- Untested / user checks open (3MF bed type, band fix, measure step 1, push/pull fold decision): see backlog.
+- CAD plan accepted (user 2026-10-25), steps in `NOTES-cad-reuse.md`. Steps 0 + 1a verified by Claude on WSA r419 (archive 2026-10-26);
+  1a user feel untested (group "Blend joins (mm)"); MCP blend key fix unbuilt until 2a's build. 1b (tap an edge) parked.
+- CAD step 2a (2026-10-26, run 40270243289, unverified): sketch Extrude gets "Twist (°)", Revolve gets "Rise per turn" (coil,
+  angle up to 3600; turns kept apart by the profile height; no corner rounding on a coil). Winding checked by a signed-volume script; JVM tests pass.
+  Check on WSA: coil + twist render, then 2b loft (second outline) per `NOTES-cad-reuse.md`.
+- Next step: CAD step 2a WSA check, then 2b loft -> Opus 5.5 (medium)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
