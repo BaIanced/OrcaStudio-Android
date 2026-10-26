@@ -3,7 +3,7 @@
 // app copies into its GL buffer) instead of the whole scene mesh. The part's mesh is written back at the stroke's end
 // (or before any other engine call, see dispatch()). Works in the volume's own coordinates; rays and the brush radius
 // come in world mm. The mesh is refined at a stroke's start when it is too coarse for the brush (a dynamic-topology
-// start); after that only vertices move, so facet indices (and painting) stay valid.
+// start); during a stroke only vertices move. At its end, edges it stretched far (a grab) are split again.
 
 #include "OrcaEngine.hpp"
 #include "MeshSculpt.hpp"
@@ -185,6 +185,60 @@ bool OrcaEngine::sculpt_flush_locked()
     return true;
 }
 
+// A stroke's end: the session's mesh goes into the part like sculpt_flush_locked(), but first the edges its strokes
+// stretched past twice the refine length (a grab pulls them long) are split, so the next stroke has vertices there
+// (dynamic topology between strokes; splitting mid-stroke would rebuild the topology every dab). Facet indices change
+// then, so the part's painting is dropped and the session is rebuilt on the new mesh. True when the part's mesh changed.
+bool OrcaEngine::sculpt_finish_locked()
+{
+    if (!m_sculpt || !m_sculpt->dirty)
+        return false;
+    SculptSession &s = *m_sculpt;
+    bool split = false;
+    if (!s.touched_list.empty() && s.refined_to < std::numeric_limits<double>::max()) {
+        const double limit2 = 4. * s.refined_to * s.refined_to;
+        auto len2 = [&s](int a, int b) {
+            const auto &p = s.mesh.vertices[size_t(a)], &q = s.mesh.vertices[size_t(b)];
+            return (p.x - q.x) * (p.x - q.x) + (p.y - q.y) * (p.y - q.y) + (p.z - q.z) * (p.z - q.z);
+        };
+        // Only the sculpted region: a part refined within the face budget may have long edges elsewhere.
+        std::vector<char> near(s.mesh.vertices.size(), 0);
+        bool stretched = false;
+        for (int f : s.touched_list) {
+            const auto &tri = s.mesh.faces[size_t(f)];
+            for (int k = 0; k < 3; ++k) {
+                near[size_t(tri[k])] = 1;
+                stretched = stretched || len2(tri[k], tri[(k + 1) % 3]) > limit2;
+            }
+        }
+        if (stretched) {
+            const auto t0 = std::chrono::steady_clock::now();
+            const size_t before = s.mesh.faces.size();
+            // New midpoints (past the mask) lie on split edges, so they count as sculpted.
+            auto in = [&near](int v) { return size_t(v) >= near.size() || near[size_t(v)]; };
+            meshdeform::detail::refine_with_predicate(s.mesh, std::max<size_t>(600000, before),
+                                                      [&](int a, int b) { return in(a) && in(b) && len2(a, b) > limit2; });
+            split = s.mesh.faces.size() != before;
+            BOOST_LOG_TRIVIAL(warning) << "sculpt: stroke end split " << before << " -> " << s.mesh.faces.size() << " faces in "
+                                       << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count() << " ms";
+        }
+    }
+    const int oi = s.object, ii = s.instance, vi = s.volume;
+    const double refined = s.refined_to;
+    if (!sculpt_flush_locked())
+        return false;
+    if (split) {
+        ModelVolume *vol = m_model->objects[oi]->volumes[vi];
+        vol->supported_facets.reset();
+        vol->seam_facets.reset();
+        vol->mmu_segmentation_facets.reset();
+        vol->fuzzy_skin_facets.reset();
+        sculpt_build(oi, ii, vi);
+        m_sculpt->refined_to = refined;
+    }
+    return true;
+}
+
 bool OrcaEngine::sculpt_flush()
 {
     std::lock_guard<std::mutex> lock(m_mutex);
@@ -196,7 +250,7 @@ json OrcaEngine::sculpt_end()
     std::lock_guard<std::mutex> lock(m_mutex);
     if (m_sculpt)
         m_sculpt->grabbing = false;
-    if (!sculpt_flush_locked())
+    if (!sculpt_finish_locked())
         return scene_json();
     drop_to_bed(*m_model->objects[m_sculpt->object]);
     return commit();
@@ -498,7 +552,7 @@ json OrcaEngine::sculpt(const std::array<int, 3> &target, const std::vector<std:
 
     if (end) {
         ss.grabbing = false;
-        sculpt_flush_locked();
+        sculpt_finish_locked();
         drop_to_bed(obj);
         return commit();
     }

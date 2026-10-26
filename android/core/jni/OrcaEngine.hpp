@@ -459,6 +459,7 @@ private:
     void                                  sculpt_build(int object, int instance, int volume);
     void                                  sculpt_copies();
     bool                                  sculpt_flush_locked();
+    bool                                  sculpt_finish_locked();
     // Bands: the stroke's painted height range on one object copy (world z); a drag extends it.
     struct BandStroke {
         int   object, instance;
