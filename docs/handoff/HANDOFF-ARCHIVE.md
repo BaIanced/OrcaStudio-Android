@@ -3227,3 +3227,18 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
   246870 -> 248752 faces in 80 ms + session ~180 ms at lift; draw strokes don't split. Stroke start ~200 ms on this 248k scene (start path unchanged).
 - Hover test tool: `~/orca-android-tools/wsa-pen-hover.sh HOLD X Y [X Y ...]` (uinput virtual pen, root; `input` can't hover).
 - Still open: paint overlay follows only at stroke end; no symmetry; slow first stroke; mid-stroke grab stays coarse (split only at lift).
+
+## 2026-10-26 Smooth blend stall fixed (Claude, WSA debug build; CI run 40397057477)
+- Host repro (WSL, Ubuntu OpenVDB 8.1 debs extracted without root, `C:\Users\Vince\build\vdbrepro\blend.cpp`): cost follows the band
+  (r / voxel), not faces: flat gear at diag/300, r 40 = 91M active voxels, 31 s on 16 PC cores.
+- WSA cause: the 176k-face gear (plate 2 object 5) at r 40 sat >10 min inside meshToVolume's band expansion at 1500 % CPU
+  (layers 1-12 took ~130 ms each, then one never ended). 1 thread: 47 s, 4 threads: 18 s, 16: livelock. Host replays the same mesh fine,
+  so it is the Houdini ARM translation (debuggerd shows only libhoudini frames). Fix: TBB arena of 4 threads when
+  `ro.dalvik.vm.native.bridge` is set and not "0" (phone: "0", 8 cores, untested on ARM).
+- Also: voxel = max(diag/300, cbrt(grown bbox / 8M)); outer band r+3 only for the grow, inner r+3 only for the shrink (identical
+  mesh on host, half the time); interrupter on meshToVolume/levelSetRebuild + busy-dialog Cancel (`Store.launch(cancel=)`,
+  `Engine.cancel()` renamed from cancelSlicing); a cancelled blend shows no error.
+- Bugs found: bca0584 dropped the `voxel_scale` metadata (result scaled by 1/voxel); volumeToMesh winds inward since step 4
+  (signed volume -10492 vs +10172): flipped now, and inside-out shells are no longer skipped ("could not be voxelized" on a 2nd blend).
+- WSA results: gear r 40 18 s, r 3 at voxel 0.405 (the old stall) 7.4 s; box_with_lid r 40 size kept (124.3x44.6x75.8 -> 123.7x44.6x75.3);
+  UI Cancel mid-grow: dialog gone in ~1 s, no error, object unchanged; re-blend r 20: 1 shell, +10843 mm3. User feel untested.

@@ -35,11 +35,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - CAD plan accepted (user 2026-10-25), steps in `NOTES-cad-reuse.md`. Steps 0 + 1a Claude-verified WSA r419 (archive);
   1a user feel untested ("Blend joins (mm)"). 1b (tap an edge) parked.
 - CAD 2a-2c (r421), 3 deformers (r423), 4 Smooth blend, 5a sculpt core: Claude-verified WSA (archive); user feel open.
-  Smooth blend open bug: 176k-face gear stalled in OpenVDB closing at voxel 0.4 mm (now diag/200); no cancel.
-- **CAD 5b live sculpt (More > Sculpt) Claude-verified WSA debug 2026-10-26 (archive):** native session + triangle patches into the GL
-  buffer, surface-flood brush, layered draw, camera-plane grab. In r427; user feel untested.
-- 5b brush ring (hover + stroke) + stroke-end split of grab-stretched edges: Claude-verified WSA debug 2026-10-26 (archive), r428; user feel untested.
-- Next step: Smooth blend stall on dense meshes (cancel, voxel bound) -> Opus 5.5 (high)
+- Smooth blend stall fixed 2026-10-26 (archive): WSA-only TBB livelock under Houdini (4-thread cap there), voxel budget, Cancel,
+  size + inside-out fixes. Claude-verified WSA debug; CI run 40397057477 (r429); untested on a real ARM device (phone).
+- CAD 5b live sculpt (More > Sculpt, r427) + brush ring / stroke-end split (r428): Claude-verified WSA debug (archive); user feel untested.
+- Next step: Bands paint edges jagged when band start/height aren't layer multiples (backlog [Opus]) -> Opus 5.5 (high)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
