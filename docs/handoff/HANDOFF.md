@@ -34,7 +34,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - CAD plan accepted (user 2026-10-25), steps in `NOTES-cad-reuse.md`. Steps 0 + 1a Claude-verified WSA r419 (archive);
   1a user feel untested ("Blend joins (mm)"). 1b (tap an edge) parked.
 - CAD 2a-2c (r421) + step 3 deformers (r423, twist refinement fix by DeepSeek) Claude-verified WSA 2026-10-26 (archive); user feel open.
-  Latest build r423 (run 40286374371) on WSA + SHIELD; phone offline. Big Pickle ran deform2 too: log its verdict/diff in `trust-profile.md`.
+  Latest build r423 (run 40286374371) on WSA + SHIELD; phone offline. Big Pickle deform2: same result as DeepSeek, 1.5x slower (ledger).
 - Step 4 (smooth blend for meshes, OpenVDB closing, `NOTES-cad-reuse.md` step 4): next; check src-orca OpenVDBUtils first.
 - Next step: CAD step 4 smooth mesh blend -> Sonnet 5.5 (medium)
 
