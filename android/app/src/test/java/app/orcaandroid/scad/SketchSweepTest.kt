@@ -88,6 +88,19 @@ class SketchSweepTest {
         assertTrue(code.contains(", true);"))
     }
 
+    @Test fun repeatedPointsAHoleBelowAndARingDrawnOpenAreCleanedUp() {
+        val profile = Sketch(listOf(Loop(listOf(P2(0.0, 0.0), P2(0.0, 0.0), P2(2.0, 0.0), P2(2.0, 2.0), P2(0.0, 0.0))),
+            Loop.rect(P2(0.5, -5.0), P2(1.5, -4.0)).copy(hole = true)))
+        val ring = Sketch(listOf(Loop(listOf(P2(0.0, 0.0), P2(10.0, 0.0), P2(10.0, 10.0), P2(0.0, 0.0)), open = true)))
+        val sw = Sweep.of(profile, ring)!!
+        assertEquals(listOf(3), sw.solids.map { it.size })
+        assertEquals(0.0, sw.solids.flatten().minOf { it.y }, 1e-9)
+        assertEquals(listOf(true), sw.paths.map { it.second })
+        assertEquals(3, sw.paths[0].first.size)
+        // A closed path with no area sweeps nothing.
+        assertEquals(null, Sweep.of(profile, Sketch(listOf(Loop(listOf(P2(0.0, 0.0), P2(10.0, 0.0), P2(20.0, 0.0)))))))
+    }
+
     @Test fun twistGoesToTheExtrusion() {
         assertTrue(sketch(mapOf(Shape.TWIST to 90.0)).toScad().contains("linear_extrude(2, twist = 90)"))
         assertFalse(sketch(emptyMap()).toScad().contains("twist"))

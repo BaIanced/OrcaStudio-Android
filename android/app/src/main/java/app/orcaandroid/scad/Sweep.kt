@@ -1,5 +1,6 @@
 package app.orcaandroid.scad
 
+import kotlin.math.abs
 import kotlin.math.hypot
 import kotlin.math.max
 
@@ -72,16 +73,30 @@ class Sweep private constructor(
 
         /** [profile] swept along every outline of [path] (open or closed), or null when either has nothing to use. */
         fun of(profile: Sketch, path: Sketch): Sweep? {
-            val lo = profile.bounds()?.first ?: return null
-            fun outline(l: Loop) = l.polygon().map { P2(it.x, it.y - lo.y) }.let { if (Sketch.area(it) < 0) it.reversed() else it }
-            val solids = profile.loops.filter { !it.hole && it.pts.size >= 2 }.map(::outline).filter { it.size >= 3 }
-            val holes = profile.loops.filter { it.hole && it.pts.size >= 2 }.map(::outline).filter { it.size >= 3 }
+            // Repeated corners (and a repeated first one at the end) dropped, so no side or cap face is degenerate.
+            fun clean(l: Loop): List<P2> {
+                val p = l.polygon().fold(emptyList<P2>()) { acc, q -> if (acc.isNotEmpty() && acc.last().dist(q) < 1e-6) acc else acc + q }
+                return if (p.size > 1 && p.first().dist(p.last()) < 1e-6) p.dropLast(1) else p
+            }
+            fun ccw(l: Loop) = clean(l).let { if (Sketch.area(it) < 0) it.reversed() else it }.takeIf { abs(Sketch.area(it)) > 1e-9 }
+            val solid0 = profile.loops.filter { !it.hole }.mapNotNull(::ccw)
+            val hole0 = profile.loops.filter { it.hole }.mapNotNull(::ccw)
+            // Lifted so the lowest solid point is at 0 (holes move with them).
+            val low = solid0.flatten().minOfOrNull { it.y } ?: return null
+            fun lift(p: List<P2>) = p.map { P2(it.x, it.y - low) }
+            val solids = solid0.map(::lift)
+            val holes = hole0.map(::lift)
             val paths = path.loops.mapNotNull { l ->
                 var p = l.polygon().fold(emptyList<P2>()) { acc, q -> if (acc.isNotEmpty() && acc.last().dist(q) < 1e-6) acc else acc + q }
-                if (!l.open && p.size > 1 && p.first().dist(p.last()) < 1e-6) p = p.dropLast(1)
+                // An open path that ends where it starts is a closed one.
+                val closed = !l.open || (p.size >= 4 && p.first().dist(p.last()) < 1e-6)
+                if (closed && p.size > 1 && p.first().dist(p.last()) < 1e-6) p = p.dropLast(1)
                 // Clockwise, so the profile's +x (left of the way it goes) points out of a closed path.
-                if (!l.open && Sketch.area(p) > 0) p = p.reversed()
-                if (p.size < (if (l.open) 2 else 3)) null else p to !l.open
+                if (closed && Sketch.area(p) > 0) p = p.reversed()
+                when {
+                    p.size < 2 || closed && (p.size < 3 || abs(Sketch.area(p)) < 1e-9) -> null
+                    else -> p to closed
+                }
             }
             if (solids.isEmpty() || paths.isEmpty()) return null
             return Sweep(solids, holes, paths)

@@ -29,8 +29,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   Tasks 1-18 merged. **Session start, run exactly:** `gh pr list --state open --json number,title,headRefName; gh issue view 46 --json comments --jq '.comments[-2:][]|.createdAt+" "+(.body|.[0:300])'`
 - Backlog, user feel/checks open: paint plan, Build workspace, Filament materials, Realistic render, 3MF in desktop Orca, pen, plate switcher pick.
 - Local debug test: reference "Local APK" + "WSA debug loop" (worked on WSA 2026-10-25; parked window: taps via `tapf.sh`).
-- **Offload (user 2026-10-25): max token use onto free opencode models** (checkable work; Claude verifies). DeepSeek passed;
-  Beam/Nemotron Ultra/GLM test in another chat -> `D:\oct-backup\results.md`. Memory `offload-to-free-models`.
+- **Offload (user 2026-10-25): max token use onto free opencode models** (checkable work; Claude verifies). Tested 2026-10-26
+  (`D:\oct-backup\results.md`): DeepSeek V4.1 Flash max = default, beam-free max = fast fallback; skip GLM (slow) and Nemotron (unavailable). Memory `offload-to-free-models`.
 - Upstream 2.5.0 overlap: `NOTES-upstream-2.5.md`; check src-orca first, keep ours where better.
 - Untested / user checks open (3MF bed type, band fix, measure step 1, push/pull fold decision): see backlog.
 - CAD plan accepted (user 2026-10-25), steps in `NOTES-cad-reuse.md`. Steps 0 + 1a Claude-verified WSA r419 (archive);
