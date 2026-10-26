@@ -3135,3 +3135,6 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 ### 2026-10-25 CAD reuse investigation (Claude, Opus)
 - User asked for open-source CAD code to jumpstart detail modeling. Found upstream libslic3r/CAD (OCCT feature tree incl. fillet/sweep/loft) already in src-orca, OCCT already built for Android minus ModelingAlgorithms; Manifold, OpenVDB, libigl, CGAL already linked. Plan in NOTES-cad-reuse.md; awaiting user go.
 - User 2026-10-25: accepted the plan ("okay tag each step with model/effort"); effort for step 0 = medium (user: "medium seems to do the job").
+
+## 2026-10-26 CAD step 0 (OCCT spike) GO
+- r417 (run 40258983602): SLIC3R_CAD ON + SLVS; deps 43 min cache miss, core 4.5 min, APK 112.39 -> 112.41 MB (linker dropped unused CAD). r418 (run 40263505255): JNI add_primitive round arg uses GeometryEngine make_primitive/apply_fillet/tessellate, APK 120.68 MB (+8.3 MB). WSA: Cube (rounded) r3 created, 11404 tris. Claude-tested only; user has not seen it.

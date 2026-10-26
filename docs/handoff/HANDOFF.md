@@ -39,8 +39,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Built, untested: 3MF writes effective bed type per plate + project (plate 4 / printer "unknown"), label "Cool Plate (SuperTack)". Awaiting user: push/pull tier 1 (r401), edge bands on paint (r403).
 - r416 on WSA + SHIELD: band fix + measure step 1 await a check. User decisions open: push/pull fold vs remove, CAD roadmap + reuse plan (`NOTES-cad-reuse.md`).
 - CAD plan accepted (user 2026-10-25, "okay tag each step"): steps tagged in `NOTES-cad-reuse.md`; start step 0 (SLIC3R_CAD ON + SLVS dep, deps CI rebuild, APK size, box fillet JNI test). r416 bands/measure check stays open.
-- CAD step 0 in progress: SLIC3R_CAD ON + dep_SLVS pushed (481ace3), CI run 40258983602 (deps rebuild, cache miss). Next: read deps/APK size + time, fix build errors; then the JNI box-fillet call.
-- Next step: CAD step 0 finish (CI result, JNI box fillet test) -> Sonnet 5.5 (medium); Opus after 2 failed CI tries
+- CAD step 0 DONE, GO (2026-10-26, r418, run 40263505255, WSA-tested by Claude): SLIC3R_CAD ON + dep_SLVS build fine. Deps rebuild 43 min (cache miss, once), core+APK 4.5 min. APK 112.41 -> 120.68 MB (+8.3 MB). Add shape dialog "Round edges (mm)" (OCCT make_primitive + apply_fillet all + tessellate): 20 mm cube r3 -> 11404 tris (default deflection 0.003 is dense; coarsen in step 1). r418 on WSA + SHIELD. Phone/Chromebook/Note still offline.
+- Next step: CAD step 1 rounded edges + shell in the shape builder (item 5 part 1) -> Opus 5.5 (high)
+- Muse: user gave full discretion 2026-10-25 (memory muse-autonomy); not used for step 0.
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
