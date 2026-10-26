@@ -37,7 +37,7 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 ## Waiting on the user
 - HD plate ideas (user verified r394): 3D bed frame model, dual-nozzle decal layout (Claude 2026-10-24).
 - Plate switcher pick (lab stays; don't ask again). Launcher icon colour ("decide later"). REA MCP enable (installed, not enabled).
-- Push/pull tier 1 (Build view chip, r401): Claude WSA debug OK 2026-10-25 (archive); user feel untested.
+- [Opus] Push/pull tier 1 BROKEN for user (r414, 2026-10-25): face drag moved the object, gizmo showed, drags often turned the view; user wants playdough-style sculpting instead (archive). Repro on WSA + decide sculpt plan.
 - [Opus] Build workspace (user GO 2026-10-23): steps 1-5 done + restart shift fixed; 6a per-shape filament Claude-verified r386 WSA 2026-10-23 (user feel untested) (Claude-verified r385 WSA 2026-10-23; user feel of 4b/4c/5 untested; multi-copy/mirrored copies in Build untested). 6b Merge bake + 6c-1 tap/drag inside groups Claude-verified WSA debug APK 2026-10-23 (in r387; Merge button/undo, user feel untested). 6c-2 gizmos inside groups Claude-verified WSA debug APK 2026-10-23 (6df309d, unbuilt; nested/repeated groups + user feel untested); Muse Task 18 audit merged 2026-10-23 (PR #64; circular-repeat scale refusal Claude-verified WSA r406 2026-10-25).
 
 ## Ideas (not started)
@@ -61,3 +61,6 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - [Opus] Bands paint edges jagged on PC when band start/height are not layer-height multiples (user 2026-10-25, r406): snap band to layer grid. Bands perf VERIFIED by user r406. User 2026-10-25 (run 40252124536): taps in the upper half of a gap under a band do nothing, lower half fills the whole gap black; teeth on the edge (see archive).
 - Edge bands on painted rounded edges + realistic ignoring paint: fixed r403 (Claude phone debug OK 2026-10-25); user check open.
 - Upstream 2.5.0 alpha overlaps our work: NOTES-upstream-2.5.md (compare table); check src-orca before building any feature, keep ours where better (user 2026-10-25). Open: side-by-side checks -> Sonnet 5.5 (medium); CAD/OCCT decision -> Opus.
+- DECISION (user, asked 2026-10-25): push/pull -> fold into resize as face drag (drop chip) or remove; and whether to plan the CAD roadmap below. Claude's rec: fold + roadmap in order.
+- CAD roadmap (Claude rec 2026-10-25, not started, needs user go): 1 hull/blend of selected shapes in the builder (small, scad hull exists), 2 snap-to-surface placement (small-med), 3 [Opus] deformers bend/twist/taper/lattice (med), 4 [Opus] sweep + loft (med), 5 [Opus] fillets between shapes (med-big), 6 [Opus] sculpt mode grab/smooth/inflate/crease on subdivided mesh, result = plain mesh (big; user's "playdough" wish), 7 asset library (figures, wheels). Skip Blender-style mesh edit mode on touch.
+- Truck demo people visibility: check through the windows with the builder closed (WSA plate 6, r416); user or Claude.

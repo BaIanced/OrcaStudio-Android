@@ -3122,3 +3122,12 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 
 ### 2026-10-25 Band edge teeth + alternate click (user, build of run 40252124536, edge limit 0.04)
 - User (screenshot: black bands, yellow sawtooth edge on top of the lower-left band, user drew a red line in the grey gap below it): "clicking below the defect, does not fill in the area until i reach the red line which i drew. under the red line fills in the entire portion above and below with black." So: taps in the gap just under a band do nothing until about mid-gap; below that one tap paints the whole gap black (merging with bands above and below). Teeth still visible in-app. User offered: "autopilot my computer if you want to test it".
+
+### 2026-10-25 Push/pull tier 1 feel (user, WSA r414)
+- User: "i don't think this works how it should, dragging a face seems to just move the object, since the gizmo also pops up (why?) there's a pretty high chance of just rotating the object. i was thinking this would be like photoshop warping, where i could smoosh stuff around like playdough". So on r414 a face drag moved the object, a gizmo showed (push mode should hide them) and drags often turned the view. Wanted instead: sculpt-style free deformation (liquify / grab brush).
+
+### 2026-10-25 Push/pull demo + ice cream truck demo (Claude, WSA r416 = run 40254161976)
+- r416 (band claims_leaf patch 0003, band start = tapped layer, measure build fix) installed WSA + SHIELD; bands not yet rechecked.
+- Push/pull demo live on WSA: chip on, right face drag -> Box W 20 -> 35.5, X 0 -> 7.75, no gizmo. User: "it just resizes the box, that's what the 'resize' command does?" Claude: mostly yes; proposed folding it into resize (face drag) and dropping the chip, or removing it. The user's earlier gizmo/turning = chip off (starts off, on/off hard to tell apart).
+- Truck demo via MCP (`~/orca-android-tools/truck.sh`, `truck2.sh`): 65 shapes, hollow body/cab (shell 2) with hole windows, chef + driver figures, awning stripes (repeat), lights, bumpers, menu board, hubcaps, sprinkles. Updated on plate 6. Shape-builder text: local size [len, letter height, thickness], rot [90,0,0] to stand it up. Holes show as grey ghosts while the builder is open; people inside not yet seen by Claude (user was orbiting).
+- User asked what would take the CAD "to the next level like blender"; Claude ranked a roadmap (backlog "CAD roadmap"). User wants it saved; decisions open.
