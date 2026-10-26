@@ -235,8 +235,21 @@ private class SketchState(initial: Sketch, initialDims: List<Dim>) {
         }
         val p = toMm(o)
         // Topmost first: later outlines are drawn over earlier ones.
-        for (li in loops.indices.reversed()) if (!loops[li].open && inside(loops[li].polygon(), p)) return Pick(li, Pick.What.LOOP)
+        for (li in loops.indices.reversed()) {
+            val poly = loops[li].polygon()
+            // An open path has no inside: tap its line.
+            if (if (loops[li].open) poly.zipWithNext().any { (a, b) -> near(o, toScreen(a), toScreen(b), slopPx) } else inside(poly, p))
+                return Pick(li, Pick.What.LOOP)
+        }
         return null
+    }
+
+    /** Whether screen point [o] is within [slopPx] of the segment [a] - [b]. */
+    private fun near(o: Offset, a: Offset, b: Offset, slopPx: Float): Boolean {
+        val ab = b - a
+        val l2 = ab.getDistanceSquared()
+        val t = if (l2 == 0f) 0f else (((o - a).x * ab.x + (o - a).y * ab.y) / l2).coerceIn(0f, 1f)
+        return (a + ab * t - o).getDistance() <= slopPx
     }
 
     private fun inside(poly: List<P2>, p: P2): Boolean {
@@ -636,7 +649,7 @@ private fun PickBar(st: SketchState, name: String, path: Boolean) {
                     }
                     TextButton(onClick = st::split) { Text(stringResource(R.string.sketch_split)) }
                 }
-                Pick.What.LOOP -> {
+                Pick.What.LOOP -> if (!path) {
                     Text(stringResource(R.string.shape_hole))
                     Switch(l.hole, { h -> st.setLoop(p.loop, { it.copy(hole = h) }) })
                 }
