@@ -254,3 +254,42 @@ data class SliceResult(
      */
     val toolChanges: GcodeToolChanges.Result? = null,
 )
+
+/**
+ * Scene triangles a live sculpt call changed, read from the engine's patch file (OrcaSculpt.cpp): run i replaces
+ * [counts] i triangles from scene triangle [firsts] i; [data] holds all runs' vertices back to back (8 floats each, as
+ * the scene mesh). Applies to scene mesh [version] only.
+ */
+class MeshPatch(val version: Int, val firsts: IntArray, val counts: IntArray, val data: java.nio.FloatBuffer) {
+    companion object {
+        fun load(path: String, version: Int): MeshPatch {
+            val bytes = java.io.File(path).readBytes()
+            val b = java.nio.ByteBuffer.wrap(bytes).order(java.nio.ByteOrder.nativeOrder())
+            val runs = b.int
+            val firsts = IntArray(runs)
+            val counts = IntArray(runs)
+            var floats = 0
+            for (i in 0 until runs) {
+                firsts[i] = b.int
+                counts[i] = b.int
+                b.position(b.position() + counts[i] * 96)
+                floats += counts[i] * 24
+            }
+            val out = java.nio.ByteBuffer.allocateDirect(maxOf(floats, 1) * 4).order(java.nio.ByteOrder.nativeOrder()).asFloatBuffer()
+            b.position(4)
+            for (i in 0 until runs) {
+                b.position(b.position() + 8)
+                val n = counts[i] * 24
+                val slice = b.slice().order(java.nio.ByteOrder.nativeOrder()).asFloatBuffer()
+                slice.limit(n)
+                out.put(slice)
+                b.position(b.position() + n * 4)
+            }
+            out.position(0)
+            return MeshPatch(version, firsts, counts, out)
+        }
+    }
+}
+
+/** One live sculpt call: [scene] when the whole scene mesh was rewritten (refined at the stroke's start), [patch] the changed triangles. */
+class SculptStep(val scene: Scene?, val patch: MeshPatch?, val hit: Boolean)

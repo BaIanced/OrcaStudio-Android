@@ -439,6 +439,17 @@
     <string name="deform_taper_hint">Scales toward the far end; the low end keeps its size.</string>
     <string name="deform_note">Its painting is removed; Undo goes back.</string>
     <string name="blend">Smooth blend</string>
+    <string name="sculpt">Sculpt</string>
+    <string name="sculpt_hint">Drag over the model to sculpt; drag from outside it or use two fingers to move the view.</string>
+    <string name="sculpt_draw">Draw</string>
+    <string name="sculpt_inflate">Inflate</string>
+    <string name="sculpt_smooth">Smooth</string>
+    <string name="sculpt_flatten">Flatten</string>
+    <string name="sculpt_pinch">Pinch</string>
+    <string name="sculpt_crease">Crease</string>
+    <string name="sculpt_grab">Grab</string>
+    <string name="sculpt_strength">Strength %d%%</string>
+    <string name="sculpt_invert">Invert</string>
     <string name="blending">Blending…</string>
     <string name="blend_radius">Radius %1$d mm</string>
     <string name="blend_hint">Fuses all parts of the object into one mesh and rounds the joins and crevices. Convex edges stay sharp.</string>

@@ -38,7 +38,7 @@ bend/twist, playdough sculpting) without writing code. Roadmap items 3-6 in HAND
    voxel size bounded by the object size so phones stay fast.
 5. **Sculpt mode** `Opus 5.5 (high)` (item 6, the "playdough" wish): SculptGL brush ports in C++ on an indexed mesh with the libslic3r
    AABB tree for hits, CGAL remesh before sculpting, libigl laplacian for smooth; result is a plain mesh, repaired before slicing.
-   Reuses the GL view and paint-brush touch handling. Biggest item.
+   Reuses the GL view and paint-brush touch handling. Biggest item. (2026-10-26: 5a brush core, 5b live UI done, see archive; CGAL remesh / libigl not used: own edge refine + flood brush.)
 
 Risks: APK size (OCCT toolkits), OCCT fillet failures on complex unions (show the error, keep the unfilleted shape),
 B-rep params are lost once an object is baked to a mesh (deformers, sculpt).

@@ -221,6 +221,10 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     private var previewVersion = 0
 
     private var pendingMesh: FloatData? = null
+    private var pendingEngineMesh = -1
+    /** The engine's scene mesh version in [meshVbo]. */
+    private var engineMesh = -1
+    private val pendingPatches = ArrayList<app.orcaandroid.core.MeshPatch>()
     private var pendingPaint: FloatData? = null
     private var pendingPreview: PreviewData? = null
     private var bedDirty = true
@@ -279,7 +283,10 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         return badgeRects.firstOrNull { p.x in it.x0..it.x1 && p.y in it.y0..it.y1 }?.let { it.plate to it.badge }
     }
 
-    fun setMesh(data: FloatData?) { pendingMesh = data ?: FloatData(FloatData.directFloats(0), 8) }
+    /** [version]: the engine's scene mesh version of [data] (live sculpt patches apply to that one only). */
+    fun setMesh(data: FloatData?, version: Int = -1) { pendingMesh = data ?: FloatData(FloatData.directFloats(0), 8); pendingEngineMesh = version }
+    /** Live sculpt: changed triangles, copied into the scene buffer once the mesh they belong to is in it. */
+    fun applyPatch(patch: app.orcaandroid.core.MeshPatch) { if (pendingPatches.size < 256) pendingPatches += patch }
     fun setGhost(data: FloatData?) { pendingGhost = data ?: FloatData(FloatData.directFloats(0), 8) }
     fun setPaint(data: FloatData?) { pendingPaint = data ?: FloatData(FloatData.directFloats(0), 8) }
     fun setPreview(data: PreviewData?) {
@@ -541,6 +548,14 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             copyBounds = copyBounds(it)
             meshVersion++
             pendingMesh = null
+            engineMesh = pendingEngineMesh
+        }
+        if (pendingPatches.isNotEmpty()) {
+            // Older patches are in the new mesh already; newer ones wait for theirs.
+            val later = pendingPatches.filter { it.version > engineMesh }
+            for (p in pendingPatches) if (p.version == engineMesh) uploadPatch(p)
+            pendingPatches.clear()
+            pendingPatches += later
         }
         pendingPaint?.let {
             val start = android.os.SystemClock.elapsedRealtime()
@@ -626,6 +641,20 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             if (x > r[2]) r[2] = x; if (y > r[3]) r[3] = y
         }
         return r
+    }
+
+    private fun uploadPatch(p: app.orcaandroid.core.MeshPatch) {
+        glBindBuffer(GL_ARRAY_BUFFER, meshVbo)
+        var at = 0
+        for (i in p.firsts.indices) {
+            val n = p.counts[i] * 24
+            if ((p.firsts[i] + p.counts[i]) * 3 > meshCount) break
+            p.data.position(at)
+            glBufferSubData(GL_ARRAY_BUFFER, p.firsts[i] * 96, n * 4, p.data)
+            at += n
+        }
+        p.data.position(0)
+        meshVersion++
     }
 
     private fun uploadFloats(vbo: Int, data: FloatData): Int {

@@ -126,11 +126,21 @@ class Engine(private val cacheDir: File) {
     suspend fun simplify(obj: Int, ratio: Float) = parseScene(call("simplify", args("object" to obj, "ratio" to ratio)))
     suspend fun repair(obj: Int) = parseScene(call("repair", args("object" to obj)))
     /** Bends, twists or tapers ([kind] "bend" / "twist" / "taper") one object along plate [axis] 0..2, in this copy's frame: [amount] in degrees, or the far end's scale for a taper. */
-    /** Sculpt dabs at [hits] (brush positions in stroke order): draw, inflate, smooth, flatten, pinch, crease or grab. */
-    suspend fun sculpt(hits: List<PickHit>, brush: String, radius: Float, strength: Float, invert: Boolean, newStroke: Boolean, joins: List<Boolean> = emptyList()) =
-        parseScene(call("sculpt", args("hits" to hits.mapIndexed { i, it -> mapOf("object" to it.obj, "instance" to it.instance, "volume" to it.volume, "facet" to it.facet,
-            "local" to it.local, "join" to joins.getOrElse(i) { false }) }, "brush" to brush, "radius" to radius, "strength" to strength, "invert" to invert,
-            "newStroke" to newStroke)))
+    /**
+     * Live sculpt of [target]'s part: one dab per ray (world origin, direction) that hits it, in stroke order; brushes draw,
+     * inflate, smooth, flatten, pinch, crease, grab. Only the changed scene triangles come back ([SculptStep.patch]);
+     * [sculptEnd] writes the part's mesh and the scene. [end] does that in the same call (MCP).
+     */
+    suspend fun sculpt(target: PickHit, rays: List<Pair<Vec3, Vec3>>, brush: String, radius: Float, strength: Float, invert: Boolean,
+                       newStroke: Boolean, end: Boolean = false): SculptStep {
+        val o = call("sculpt", args("object" to target.obj, "instance" to target.instance, "volume" to target.volume,
+            "rays" to rays.map { (a, d) -> listOf(a.x, a.y, a.z, d.x, d.y, d.z).map { it.toDouble() } },
+            "brush" to brush, "radius" to radius, "strength" to strength, "invert" to invert, "newStroke" to newStroke, "end" to end))
+        val scene = if (o.has("objects")) parseScene(o) else null
+        val patch = o.optString("patch").takeIf { it.isNotEmpty() }?.let { MeshPatch.load(it, o.getInt("mesh_version")) }
+        return SculptStep(scene, patch, o.optBoolean("hit"))
+    }
+    suspend fun sculptEnd() = parseScene(call("sculptEnd"))
     suspend fun smoothBlend(obj: Int, instance: Int, radius: Float) =
         parseScene(call("smoothBlend", args("object" to obj, "instance" to instance, "radius" to radius)))
     suspend fun deform(obj: Int, instance: Int, kind: String, axis: Int, amount: Float) =

@@ -5,6 +5,7 @@ import app.orcaandroid.R
 import app.orcaandroid.core.LayerGcode
 import app.orcaandroid.core.LayerProfile
 import app.orcaandroid.core.LayerRange
+import app.orcaandroid.core.MeshPatch
 import app.orcaandroid.core.PickHit
 import app.orcaandroid.core.PresetType
 import app.orcaandroid.core.Scene
@@ -20,6 +21,8 @@ import kotlinx.coroutines.sync.withLock
 /** Plates, objects and their parts, the 3D tools, custom G-code and calibration. */
 /** Measure tool: how far (screen pixels) a point reaches to snap to a corner or sharp edge. */
 private const val SNAP_PX = 14f
+const val SCULPT_MIN_MM = 0.5f
+const val SCULPT_MAX_MM = 30f
 
 class SceneController(private val store: Store, private val presets: PresetController) {
     private val engine = store.engine
@@ -92,6 +95,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
 
     /** Ctrl+wheel while painting: scales the brush within the panel slider's range. */
     fun scaleBrush(factor: Float) {
+        (store.value.tool as? Tool.Sculpt)?.let { t -> store.update { it.copy(tool = t.copy(radius = (t.radius * factor).coerceIn(SCULPT_MIN_MM, SCULPT_MAX_MM))) }; return }
         val tool = (store.value.tool as? Tool.Paint)?.takeIf { it.shape != "gap" } ?: return
         store.update { it.copy(tool = tool.copy(radius = (tool.radius * factor).coerceIn(0.5f, 15f))) }
     }
@@ -516,6 +520,65 @@ class SceneController(private val store: Store, private val presets: PresetContr
                     strokePending = false
                 }
             }
+        }
+    }
+
+    /** The live sculpt's changed triangles, for the 3D view to copy into its scene buffer. */
+    val meshPatches = kotlinx.coroutines.flow.MutableSharedFlow<MeshPatch>(extraBufferCapacity = 64)
+    private class SculptSample(val origin: Vec3, val dir: Vec3, val newStroke: Boolean, val end: Boolean)
+    private val pendingSculpt = ArrayDeque<SculptSample>()
+    /** The part this stroke sculpts (picked at its first sample), or null before / without a hit. Guarded by [paintLock]. */
+    private var sculptTarget: PickHit? = null
+
+    /**
+     * Sculpt sample from the 3D view, queued like [paintAt]: every sample that waited while the engine worked goes into
+     * the next call. The engine hits the rays on the part as sculpted so far and sends back only the changed triangles.
+     */
+    fun sculptAt(origin: Vec3, dir: Vec3, newStroke: Boolean) = queueSculpt(SculptSample(origin, dir, newStroke, false))
+
+    /** The finger lifted: the stroke's mesh goes into the part (and the scene, its outline and slicing). */
+    fun sculptEnd() = queueSculpt(SculptSample(Vec3.ZERO, Vec3.ZERO, false, true))
+
+    private fun queueSculpt(sample: SculptSample) {
+        if (store.value.tool !is Tool.Sculpt) return
+        synchronized(pendingSculpt) { pendingSculpt.addLast(sample) }
+        drainSculpt()
+    }
+
+    private fun drainSculpt() {
+        if (paintLock.isLocked) return
+        store.launch {
+            paintLock.withLock {
+                while (true) {
+                    val batch = synchronized(pendingSculpt) {
+                        val out = mutableListOf<SculptSample>()
+                        while (pendingSculpt.isNotEmpty() && (out.isEmpty() || !pendingSculpt.first().newStroke && !out.last().end)) out += pendingSculpt.removeFirst()
+                        out
+                    }
+                    if (batch.isEmpty()) break
+                    val tool = store.value.tool as? Tool.Sculpt
+                    val first = batch.first()
+                    if (first.newStroke) {
+                        val sel = selection
+                        sculptTarget = if (tool == null || sel == null) null else engine.pick(first.origin, first.dir, only = sel.obj)
+                    }
+                    val target = sculptTarget
+                    val rays = batch.filter { !it.end }.map { it.origin to it.dir }
+                    if (target != null && tool != null && rays.isNotEmpty()) {
+                        val t0 = android.os.SystemClock.elapsedRealtime()
+                        val step = engine.sculpt(target, rays, tool.brush, tool.radius, tool.strength, tool.invert, first.newStroke)
+                        android.util.Log.d("OrcaSculpt", "${rays.size} ray(s) ${android.os.SystemClock.elapsedRealtime() - t0} ms, patch ${step.patch?.counts?.sum() ?: 0} tris")
+                        step.scene?.let { store.applyScene(it) }
+                        step.patch?.let { meshPatches.tryEmit(it) }
+                    }
+                    if (batch.last().end && target != null) {
+                        sculptTarget = null
+                        store.applyScene(engine.sculptEnd())
+                    }
+                }
+            }
+            // A sample (the finger's lift above all) queued after the loop's last look but before the lock was free.
+            if (synchronized(pendingSculpt) { pendingSculpt.isNotEmpty() }) drainSculpt()
         }
     }
 

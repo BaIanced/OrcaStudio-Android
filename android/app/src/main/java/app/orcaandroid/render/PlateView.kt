@@ -67,6 +67,8 @@ interface PlateListener {
     fun onTowerMoved(plate: Int, dx: Float, dy: Float) {}
     /** Paint stroke sample at screen (x, y); [newStroke] for the first sample of a stroke. */
     fun onPaint(x: Float, y: Float, newStroke: Boolean)
+    /** The paint (or sculpt) finger lifted. */
+    fun onPaintEnd() {}
     /** Push / pull mode ([PlateView.pushMode]): [result] gets the flat face under (x, y), or null (the drag turns the camera). */
     fun onPushCheck(x: Float, y: Float, result: (PushGrab?) -> Unit) = result(null)
     /** Push / pull: [grab]'s face moved [mm] (design mm, snapped; null = cancelled); (x, y) is the finger, [done] once let go. */
@@ -517,6 +519,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                 }
             }
             MotionEvent.ACTION_UP -> {
+                if (mode == InteractionMode.PAINT) listener?.onPaintEnd()
                 val additive = event.metaState and (KeyEvent.META_CTRL_ON or KeyEvent.META_SHIFT_ON) != 0
                 val part = event.metaState and KeyEvent.META_ALT_ON != 0
                 if (rectangle && moved) {
@@ -569,6 +572,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                 }
             }
             MotionEvent.ACTION_CANCEL -> {
+                if (mode == InteractionMode.PAINT) listener?.onPaintEnd()
                 if (loupeOn) listener?.onMeasureLoupe(-1f, -1f, 3)
                 else if (longPressed) listener?.onLongPressTouch(-1f, -1f, false)
                 if (rectangle && moved) listener?.onRectangle(downX, downY, downX, downY, rectangleRemove, true)

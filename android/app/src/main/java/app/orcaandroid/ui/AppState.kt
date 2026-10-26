@@ -60,6 +60,8 @@ sealed interface Tool {
                       *  (was a plain `remember` snapshot in ColorPaintOptions, lost the same way). */
                      val fillKeepEdgeAngle: Float = 0f, val fillKeepOverColours: Boolean = false,
                      val fillKeepGuardOn: Boolean = false) : Tool
+    /** Sculpt mode: a drag on the selected object dabs [brush] (draw, inflate, smooth, flatten, pinch, crease, grab) of [radius] mm. */
+    data class Sculpt(val brush: String = "draw", val radius: Float = 5f, val strength: Float = 0.5f, val invert: Boolean = false) : Tool
     data object LayOnFace : Tool
     data object Measure : Tool
     /** The cut plane passes through the object's middle at height [z], turned by [rot] (Euler degrees) from the horizontal. */

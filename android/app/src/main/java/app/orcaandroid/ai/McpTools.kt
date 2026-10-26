@@ -177,7 +177,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             "painting is removed on the first refine). Repeat dabs with `dabs`. $PLATE_EDIT",
             obj(listOf("origin", "dir", "brush"), "origin" to vec("Ray origin in plate coordinates"), "dir" to vec("Ray direction"),
                 "brush" to p("string", "draw, inflate, smooth, flatten, pinch, crease or grab"), "radius" to p("number", "Brush radius in mm; default 5"),
-                "strength" to p("number", "0..1; default 0.5"), "invert" to p("boolean", "Dent instead of bulge"), "dabs" to p("integer", "Repeat count 1..50; default 1"))) { sculpt(it) },
+                "strength" to p("number", "0..1; default 0.5"), "invert" to p("boolean", "Dent instead of bulge"), "dabs" to p("integer", "Repeat count 1..50; default 1 (one stroke: draw, inflate and crease do not build up within it)"))) { sculpt(it) },
         Tool("object_duplicate", "Plate edit: adds copies of one copy of an object; they are arranged on its plate. $PLATE_EDIT",
             obj(listOf("object"), *COPY, "copies" to p("integer", "How many, 1..100; default 1"))) { duplicate(it) },
         Tool("plate_arrange", "Plate edit: arranges the objects on a plate (default the active one), or with all true " +
@@ -553,6 +553,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             append(when (val tool = s.tool) {
                 app.orcaandroid.ui.Tool.None -> "none"
                 is app.orcaandroid.ui.Tool.Paint -> "paint ${tool.kind} ${tool.shape} (state ${tool.state}, radius ${n(tool.radius.toDouble())} mm)"
+                is app.orcaandroid.ui.Tool.Sculpt -> "sculpt ${tool.brush} (radius ${n(tool.radius.toDouble())} mm, strength ${n(tool.strength.toDouble())}${if (tool.invert) ", inverted" else ""})"
                 app.orcaandroid.ui.Tool.LayOnFace -> "lay on face"
                 app.orcaandroid.ui.Tool.Measure -> "measure, ${s.measure.size} point(s)"
                 is app.orcaandroid.ui.Tool.Cut -> "cut at Z ${n(tool.z.toDouble())} mm, tilt ${n(app.orcaandroid.render.CutPlane.tilt(tool.rot).toDouble())} deg"
@@ -779,8 +780,8 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         val hit = store.engine.pick(origin.f(), dir.f()) ?: throw ToolError("the ray misses every object")
         val dabs = args.optInt("dabs", 1).coerceIn(1, 50)
         return plateEdit("sculpted object ${hit.obj + 1}", R.string.deforming) {
-            store.engine.sculpt(List(dabs) { hit }, brush, radius.toFloat(), args.optDouble("strength", 0.5).toFloat(), args.optBoolean("invert", false), true,
-                List(dabs) { it > 0 })
+            store.engine.sculpt(hit, List(dabs) { origin.f() to dir.f() }, brush, radius.toFloat(), args.optDouble("strength", 0.5).toFloat(),
+                args.optBoolean("invert", false), newStroke = true, end = true).scene ?: throw ToolError("sculpt returned no scene")
         }
     }
 

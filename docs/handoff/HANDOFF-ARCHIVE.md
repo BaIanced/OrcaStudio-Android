@@ -3192,3 +3192,26 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 - WSA test (box_with_lid, 40778 faces): inflate r8 x10 -> 73530 faces (refined); inflate r30 x50 -> size Y 44.6 -> 56.8 mm, Z 75.3 -> 77.4 mm.
 - Known limits: topology rebuilt per call (O(n)), `write_mesh` rewrites the whole plate each commit (too slow for live strokes above ~50k faces);
   grab uses hit-to-hit deltas, not a captured vertex set; no symmetry; no UI yet.
+
+## 2026-10-26 CAD step 5b: live sculpt UI (Claude-verified on WSA debug build, user feel untested)
+- More menu > Sculpt = `Tool.Sculpt` (brush, radius 0.5-30 mm, strength, invert), panel `SculptOptions` in ToolPanel (wrapped chips:
+  Draw, Inflate, Smooth, Flatten, Pinch, Crease, Grab; Ctrl+wheel sizes the brush). Uses paint mode's touch handling (touch off the object
+  or two fingers = view); finger lift -> `PlateView.Listener.onPaintEnd` -> `SceneController.sculptEnd`.
+- Native session (`OrcaSculpt.cpp`, `OrcaEngine::SculptSession`): the part's mesh + topology (CSR, vertex->face too) + AABB tree over the
+  mesh at session start; moved faces are hit-tested one by one, so the brush lands on the sculpted surface. Kotlin sends rays, not hits.
+  Each call writes only the changed triangles (`scene.bin.patch`: runs of whole-scene triangle indices, gaps <= 16 sent along, all copies)
+  tagged with the mesh version; `PlateRenderer.applyPatch` glBufferSubData's them once that mesh is loaded. The part's mesh is written at
+  stroke end (`sculptEnd`: flush + drop to bed + commit) or by `dispatch()` before any other engine call (`sculpt_flush`).
+  Session reused across strokes while the part's mesh pointer matches (undo / other edits rebuild it); tree rebuilt when > max(20k, F/10) faces moved.
+- Refine once per brush size (`refined_to`): checking the longest edge every stroke re-refined stretched sculpt edges, grew the mesh
+  (188k -> 199k) and rebuilt the session each stroke (~1.2 s).
+- Brush vertices = flood along edges from the hit's nearest vertex within the radius (`Stroke::seed`): a 5 mm brush on box_with_lid's
+  2 mm wall also moved the inner wall, the averaged normal tilted and left 13 mm fins.
+- Layered draw / inflate / crease (`StrokeState`, Blender's accumulate off): a vertex rises to the highest any dab of the stroke asked
+  (strength * radius / 2) along its first direction; stacked dabs climbed their own bump into beads with forward tips.
+- Grab: vertices under the first hit (flooded) follow the finger on the plane through the hit facing the view.
+- WSA (box_with_lid ~200k faces): later calls 1-7 ms per ray, batches of 45-78 rays 26-59 ms; stroke start 55 ms when the session is
+  reused, ~0.7-1.3 s for a part's first stroke (refine + full scene write + session build: topology ~40 ms, tree ~120 ms).
+  Mid-stroke screenshot shows the ridge growing before the lift; layered ridge even; grab pulls a horn; Ctrl+Z restores (208220 -> 208120).
+- Desktop test `%TEMP%/sculpt_test/sculpt_test.cpp` (WSL g++, not in the repo): face incidence, normal update, seeded thin wall, layered draw.
+- Open: no brush cursor; no dynamic topology (grab-stretched faces stay coarse); paint overlay follows only at stroke end; no symmetry; slow first stroke.

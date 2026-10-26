@@ -1,5 +1,7 @@
 package app.orcaandroid.ui.prepare
 
+import app.orcaandroid.ui.SCULPT_MAX_MM
+import app.orcaandroid.ui.SCULPT_MIN_MM
 import androidx.compose.foundation.Canvas
 import kotlinx.coroutines.delay
 import androidx.compose.ui.text.style.TextOverflow
@@ -20,6 +22,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -151,6 +154,7 @@ internal fun ToolPanel(state: UiState, vm: AppViewModel) {
             }
             if (!folded) when (tool) {
                 is Tool.Paint -> PaintOptions(state, vm, tool)
+                is Tool.Sculpt -> SculptOptions(vm, tool)
                 is Tool.Cut -> CutOptions(state, vm, tool)
                 Tool.Measure -> MeasureOptions(state, vm)
                 Tool.LayOnFace -> Text(stringResource(R.string.lay_on_face_hint), style = MaterialTheme.typography.bodySmall)
@@ -167,6 +171,7 @@ private fun toolTitle(tool: Tool) = stringResource(
         is Tool.Paint -> when (tool.kind) {
             "support" -> R.string.paint_supports; "seam" -> R.string.paint_seam; "fuzzy" -> R.string.paint_fuzzy; else -> R.string.paint_color
         }
+        is Tool.Sculpt -> R.string.sculpt
         is Tool.Cut -> R.string.cut
         Tool.Measure -> R.string.measure
         Tool.LayOnFace -> R.string.lay_on_face
@@ -174,6 +179,33 @@ private fun toolTitle(tool: Tool) = stringResource(
         Tool.None -> R.string.close
     }
 )
+
+private val SCULPT_BRUSHES = listOf(
+    "draw" to R.string.sculpt_draw, "inflate" to R.string.sculpt_inflate, "smooth" to R.string.sculpt_smooth,
+    "flatten" to R.string.sculpt_flatten, "pinch" to R.string.sculpt_pinch, "crease" to R.string.sculpt_crease, "grab" to R.string.sculpt_grab)
+
+@Composable
+private fun SculptOptions(vm: AppViewModel, tool: Tool.Sculpt) {
+    Text(stringResource(R.string.sculpt_hint), style = MaterialTheme.typography.bodySmall)
+    // Wrapped, not scrolled: all seven brushes stay in sight (Grab was off the edge of a scrolling row).
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        SCULPT_BRUSHES.forEach { (brush, label) ->
+            FilterChip(tool.brush == brush, { vm.scene.setTool(tool.copy(brush = brush)) }, label = { Text(stringResource(label)) })
+        }
+    }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(stringResource(R.string.brush_size, tool.radius), style = MaterialTheme.typography.bodySmall)
+        Slider(tool.radius, { vm.scene.setTool(tool.copy(radius = it)) }, valueRange = SCULPT_MIN_MM..SCULPT_MAX_MM, modifier = Modifier.weight(1f).padding(start = 8.dp))
+    }
+    // Grab moves what is under the finger by the drag, so it has no strength or direction.
+    if (tool.brush != "grab") Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(stringResource(R.string.sculpt_strength, (tool.strength * 100).roundToInt()), style = MaterialTheme.typography.bodySmall)
+        Slider(tool.strength, { vm.scene.setTool(tool.copy(strength = it)) }, valueRange = 0.05f..1f, modifier = Modifier.weight(1f).padding(start = 8.dp))
+        if (tool.brush != "smooth")
+            FilterChip(tool.invert, { vm.scene.setTool(tool.copy(invert = !tool.invert)) }, label = { Text(stringResource(R.string.sculpt_invert)) },
+                modifier = Modifier.padding(start = 6.dp))
+    }
+}
 
 @Composable
 private fun PaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Paint) {

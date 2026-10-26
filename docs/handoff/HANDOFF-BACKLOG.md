@@ -37,7 +37,7 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 ## Waiting on the user
 - HD plate ideas (user verified r394): 3D bed frame model, dual-nozzle decal layout (Claude 2026-10-24).
 - Plate switcher pick (lab stays; don't ask again). Launcher icon colour ("decide later"). REA MCP enable (installed, not enabled).
-- [Opus] Push/pull tier 1 BROKEN for user (r414, 2026-10-25): face drag moved the object, gizmo showed, drags often turned the view; user wants playdough-style sculpting instead (archive). Repro on WSA + decide sculpt plan.
+- [Opus] Sculpt mode (CAD 5b, More > Sculpt; the user's playdough wish from push/pull r414): Claude-verified WSA debug 2026-10-26 (archive), user feel untested. Follow-ups: brush cursor, dynamic topology (grab-stretched faces stay coarse), ~1 s first stroke at 200k faces.
 - [Opus] Build workspace (user GO 2026-10-23): steps 1-5 done + restart shift fixed; 6a per-shape filament Claude-verified r386 WSA 2026-10-23 (user feel untested) (Claude-verified r385 WSA 2026-10-23; user feel of 4b/4c/5 untested; multi-copy/mirrored copies in Build untested). 6b Merge bake + 6c-1 tap/drag inside groups Claude-verified WSA debug APK 2026-10-23 (in r387; Merge button/undo, user feel untested). 6c-2 gizmos inside groups Claude-verified WSA debug APK 2026-10-23 (6df309d, unbuilt; nested/repeated groups + user feel untested); Muse Task 18 audit merged 2026-10-23 (PR #64; circular-repeat scale refusal Claude-verified WSA r406 2026-10-25).
 
 ## Ideas (not started)

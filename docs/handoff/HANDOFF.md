@@ -34,11 +34,11 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   DeepSeek V4.1 Flash = default; self-checking runner `octauto.sh` (`D:\oct-backup\jobs\README.md`), ledger `trust-profile.md`.
 - CAD plan accepted (user 2026-10-25), steps in `NOTES-cad-reuse.md`. Steps 0 + 1a Claude-verified WSA r419 (archive);
   1a user feel untested ("Blend joins (mm)"). 1b (tap an edge) parked.
-- CAD 2a-2c (r421) + step 3 deformers (r423, twist refinement fix by DeepSeek) Claude-verified WSA 2026-10-26 (archive); user feel open.
-  Latest build r423 (run 40286374371) on WSA + SHIELD; phone offline. Big Pickle deform2: same result as DeepSeek, 1.5x slower (ledger).
-- CAD step 4 Smooth blend (`OrcaVdbBlend.cpp`, More menu, MCP `object_smooth_blend`): WSA-tested 2026-10-26 (L shape 360 -> 27k faces, bbox kept; lid box 52k, 6 s; 147k mesh 5 s). **Open bug: the 176k-face gear stalled forever at voxel 0.4 mm (diag/300) in OpenVDB closing, fine at 0.74-0.81 mm; cause unknown (geometry-dependent), so voxel = diag/200 now. No cancel.** Stage logs "smooth blend:" in logcat. User feel untested.
-- CAD step 5a sculpt brush core (`MeshSculpt.hpp`, `OrcaSculpt.cpp`, MCP `object_sculpt`) built locally, WSA-verified 2026-10-26 (archive); debug app, no CI build yet. No UI.
-- Next step: CAD step 5b sculpt UI (brush strip, drag = dab with camera locked, fast partial mesh update so 100k+ faces stay live) -> Opus 5.5 (high)
+- CAD 2a-2c (r421), 3 deformers (r423), 4 Smooth blend, 5a sculpt core: Claude-verified WSA (archive); user feel open.
+  Smooth blend open bug: 176k-face gear stalled in OpenVDB closing at voxel 0.4 mm (now diag/200); no cancel.
+- **CAD 5b live sculpt (More > Sculpt) Claude-verified WSA debug 2026-10-26 (archive):** native session + triangle patches into the GL
+  buffer, surface-flood brush, layered draw, camera-plane grab. Needs a CI build for the user's devices; user feel untested.
+- Next step: CI build of 5b, install everywhere, then 5b follow-ups (brush cursor, dynamic topology) -> Opus 5.5 (high)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).

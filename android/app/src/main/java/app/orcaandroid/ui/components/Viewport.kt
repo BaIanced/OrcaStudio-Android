@@ -274,10 +274,16 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                     private var strokeStart = 0f to 0f
                     override fun onPaint(x: Float, y: Float, newStroke: Boolean) {
                         if (newStroke) strokeStart = x to y
+                        if (vm.state.value.tool is Tool.Sculpt) {
+                            val (o, d) = v.camera.ray(x, y)
+                            vm.scene.sculptAt(o, d, newStroke)
+                            return
+                        }
                         val lock = (vm.state.value.tool as? Tool.Paint)?.lock
                         val (o, d) = v.camera.ray(if (lock == "v") strokeStart.first else x, if (lock == "h") strokeStart.second else y)
                         vm.scene.paintAt(o, d, v.camera.eye(), newStroke, v.section.current)
                     }
+                    override fun onPaintEnd() = vm.scene.sculptEnd()
                     override fun onPlateDoubleTap(index: Int) = vm.scene.selectPlate(index)
                     // Icons act on their plate, which becomes the active one (except delete), as on the desktop.
                     override fun onPlateBadge(plate: Int, badge: PlateBadge, x: Float, y: Float) {
@@ -476,10 +482,13 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
             if (first && !restored) frame(state.activePlate)
         }
     }
+    // Live sculpt: the stroke's changed triangles go straight into the scene buffer.
+    LaunchedEffect(v) { vm.scene.meshPatches.collect { p -> v.onGl { applyPatch(p) } } }
     LaunchedEffect(v, scene.meshVersion, scene.meshFile) {
         if (scene.meshFile.isEmpty()) return@LaunchedEffect
         val mesh = withContext(Dispatchers.IO) { FloatData.load(scene.meshFile, 8) }
-        v.onGl { setMesh(mesh) }
+        val version = scene.meshVersion
+        v.onGl { setMesh(mesh, version) }
         // A finished drag: the moved mesh is queued first, so the old offset goes away without a jump back.
         if (dragPending[0]) { dragPending[0] = false; v.onGl { dragOffset = floatArrayOf(0f, 0f, 0f); resizeScale = floatArrayOf(1f, 1f, 1f); pushMatrix = null; rotateMatrix = null } }
     }
@@ -557,6 +566,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
             showPreview -> InteractionMode.VIEW
             else -> when (state.tool) {
             is Tool.Paint -> if (state.tool.shape == "gap") InteractionMode.VIEW else InteractionMode.PAINT
+            is Tool.Sculpt -> InteractionMode.PAINT
             Tool.LayOnFace -> InteractionMode.LAY_ON_FACE
             Tool.Measure -> InteractionMode.MEASURE
             else -> InteractionMode.NAVIGATE
