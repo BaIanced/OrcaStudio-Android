@@ -33,12 +33,13 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   Beam/Nemotron Ultra/GLM test in another chat -> `D:\oct-backup\results.md`. Memory `offload-to-free-models`.
 - Upstream 2.5.0 overlap: `NOTES-upstream-2.5.md`; check src-orca first, keep ours where better.
 - Untested / user checks open (3MF bed type, band fix, measure step 1, push/pull fold decision): see backlog.
-- CAD plan accepted (user 2026-10-25), steps in `NOTES-cad-reuse.md`. Steps 0 + 1a verified by Claude on WSA r419 (archive 2026-10-26);
-  1a user feel untested (group "Blend joins (mm)"); MCP blend key fix unbuilt until 2a's build. 1b (tap an edge) parked.
-- CAD 2a (Twist, Rise per turn coil) on r420 + 2b (loft to a top outline, MCP `sketch_set` top; unbuilt on CI, local debug only)
-  Claude-verified on WSA 2026-10-26 (archive). User feel untested: sketch shape fields "Twist", "Rise per turn", "Loft to a top outline".
-  r420 installed on WSA + SHIELD. Known: a coil's box (size z) is the profile height, the coil rises above it; coils/lofts skip corner rounding.
-- Next step: CAD step 2c sweep along a drawn path (polyhedron, like coil/loft; path editor = open sketch polyline) -> Opus 5.5 (medium)
+- CAD plan accepted (user 2026-10-25), steps in `NOTES-cad-reuse.md`. Steps 0 + 1a Claude-verified WSA r419 (archive);
+  1a user feel untested ("Blend joins (mm)"). 1b (tap an edge) parked.
+- CAD 2a (Twist, Rise per turn coil) on r420; 2b (loft to a top outline) + 2c (sweep along a path, `scad/Sweep.kt`, MCP `sketch_set`
+  path) local debug only, Claude-verified on WSA 2026-10-26 (archive). User feel untested: "Twist", "Rise per turn", "Loft to a top
+  outline", "Sweep along a path". r420 on WSA + SHIELD. Known: coil box z = profile height; coils/lofts/sweeps skip corner rounding.
+- Next: CI build (2b + 2c + MCP blend key), install WSA + SHIELD; then step 3 deformers (`NOTES-cad-reuse.md`).
+- Next step: CAD step 3 deformers bend/twist/taper (mesh side, slider + axis) -> Opus 5.5 (medium)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).

@@ -3157,3 +3157,16 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 - 2a (commit "CAD step 2a", r420 run 40270243289): Extrude "Twist (°)" (linear_extrude twist), Revolve "Rise per turn" (coil; angle up to 3600; rise clamped to profile height + 0.01 past one turn). 2b: `Shape.top` outline, extrusion lofts to it (`Sketch.resample`, aligned at the +x ray from the centre), twist + top scale apply; MCP `sketch_set` `top`.
 - Face winding checked by signed-volume scripts before building. WSA debug app (r420 libs + 2b): coil 3 turns z 0..14, vol 451 (expected 452); twist 20 mm cube 90°, vol 8000; loft square->circle 20x20x15, vol 3628; all closed (0 non-manifold edges), OpenSCAD no warnings.
 - design_to_plate needs an in-app confirm (not usable hidden); design_snapshot shows the stale GL preview when parked; pulling `cache/openscad/preview/*.stl` + a bounds/volume script works.
+
+## 2026-10-26 CAD step 2c sweep along a drawn path (Claude, WSA debug app on r420 libs; not on CI yet)
+- `scad/Sweep.kt`: profile (the sketch; x sideways = left of travel / outwards on a closed path, y up, path through the origin)
+  swept along every loop of `Shape.path` (seen from above). Mitred frames (1/cos half-turn, capped at 4x), closed paths made
+  clockwise, holes subtracted and pushed 0.1 mm past open ends. Prelude module `sweep` (winding like `loft`). Box = swept bounds
+  1:1 (`fitSketch`), code scales + centres. `Loop.open` (+ `Loop.sides`) for open paths; sketch editor `path = true` mode (Done/Enter
+  keeps open lines, no fill, tap the line to pick, no Hole switch); profile editor title changes when swept. Loft/twist/top fields
+  hide while a path is set. MCP `sketch_set path`.
+- Checks: JVM `SketchSweepTest` 9/9 (mitre frames, bounds, box fit, json round trip, closed path outward, holes). Desktop OpenSCAD:
+  pipe (circle + hole) on a line + arc path -> manifold, genus 1, 4704 facets; closed rim on a circle r 15 -> manifold, box 34 (outward).
+  WSA: MCP sketch_set -> "swept along a path", preview 4704 tris, looks right; Edit path editor shows the open path; drew a 3-point open
+  line by taps, Done -> 2nd open loop saved, preview 5184 tris; line tap picks the path.
+- Known: a profile wider than a path bend's radius folds into itself (no check); sweeps skip corner rounding / shell.
