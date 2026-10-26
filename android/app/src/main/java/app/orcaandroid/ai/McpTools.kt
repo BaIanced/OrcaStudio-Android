@@ -124,7 +124,8 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         Tool("sketch_set", "Edit: the drawing a sketch shape extrudes (or, revolve true, turns about Z); its box takes " +
             "the drawing's size. $SKETCH $EDIT",
             obj(listOf("id", "sketch"), "id" to p("integer", "Id of a sketch shape"), "sketch" to p("object", "{loops, cons}"),
-                "revolve" to p("boolean", "true = revolve about Z, false = extrude; omitted = unchanged"))) { sketch(it) },
+                "revolve" to p("boolean", "true = revolve about Z, false = extrude; omitted = unchanged"),
+                "top" to p("object", "Extrude only: a second drawing {loops} (same frame) the sides loft up to, e.g. square to circle; null removes it, omitted = unchanged"))) { sketch(it) },
         Tool("dim_set", "Edit: creates or changes a dim (a named number shown as a slider; shapes follow it through " +
             "bind). $EDIT", obj(listOf("name"), "name" to p("string", "Identifier (letters, digits, _)"),
                 "value" to p("number", "Required for a new dim"), "min" to p("number", "Slider minimum"),
@@ -874,7 +875,11 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             sk.cons.mapNotNull { it.dim }.firstOrNull { d.dim(it) == null }?.let { throw ToolError("Unknown dim '$it'") }
             val solved = sk.solve({ d.dim(it)?.value })
             val revolve = if (args.has("revolve")) args.optBoolean("revolve") else null
-            shapes.replace(d.update(id) { s ->
+            // top: the outline an extrusion lofts to; JSON null removes it, absent leaves it.
+            val top = if (!args.has("top")) null else args.optJSONObject("top")?.let { t ->
+                Sketch.of(t)?.takeIf { it.loops.isNotEmpty() } ?: throw ToolError("top needs loops like sketch") }
+            shapes.replace(d.update(id) { s0 ->
+                val s = if (args.has("top")) s0.copy(top = top) else s0
                 ShapeDesign.fitSketch(if (revolve == null) s else s.copy(extra = s.extra + (Shape.REVOLVE to if (revolve) 1.0 else 0.0)), solved)
             })
         }
