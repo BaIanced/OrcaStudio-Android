@@ -3170,3 +3170,4 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
   WSA: MCP sketch_set -> "swept along a path", preview 4704 tris, looks right; Edit path editor shows the open path; drew a 3-point open
   line by taps, Done -> 2nd open loop saved, preview 5184 tris; line tap picks the path.
 - Known: a profile wider than a path bend's radius folds into itself (no check); sweeps skip corner rounding / shell.
+- 2c review fixes by DeepSeek V4.1 Flash (max, 27 min): 3 real edge cases (repeated profile points, lift from discarded/hole loops, open path ending at its start), winding confirmed; fixed + test, 218/218 JVM.
