@@ -165,6 +165,9 @@ class Engine(private val cacheDir: File) {
     suspend fun redo() = parseScene(call("redo"))
     suspend fun setUndoLimit(limit: Int) = parseScene(call("setUndoLimit", args("limit" to limit)))
     suspend fun addPrimitive(shape: String, size: Vec3, plate: Int, round: Float = 0f) = parseScene(call("addPrimitive", args("shape" to shape, "size" to size, "plate" to plate, "round" to round)))
+    /** Shape builder Blend joins: [spec] = {radius, parts} (ShapeDesign.blendCode) fused in OCCT into the STL [out]; its triangle count. */
+    suspend fun blendSolids(spec: JSONObject, out: File): Int =
+        call("blendSolids", args("parts" to spec.getJSONArray("parts"), "radius" to spec.getDouble("radius"), "out" to out.path)).optInt("triangles")
     suspend fun addText(text: String, font: String, height: Float, depth: Float, plate: Int) =
         parseScene(call("addText", args("text" to text, "font" to font, "height" to height, "depth" to depth, "plate" to plate)))
     suspend fun addSvg(path: String, width: Float, depth: Float, plate: Int) =

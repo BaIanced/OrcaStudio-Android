@@ -166,7 +166,7 @@ json OrcaEngine::add_primitive(const std::string &shape, const std::array<double
     if (round > 0.) {
         // OCCT path: same shape as a B-rep, every edge filleted, then tessellated.
         PrimitiveParams pp;
-        pp.box_w = s.x(); pp.box_h = s.y(); pp.box_d = s.z();
+        pp.box_w = s.x(); pp.box_d = s.y(); pp.box_h = s.z();
         pp.cyl_radius = pp.sph_radius = pp.cone_r1 = s.x() / 2.;
         pp.cone_r2 = 0.; pp.cyl_height = pp.cone_height = s.z();
         pp.type = shape == "cylinder" ? PrimitiveType::Cylinder : shape == "sphere" ? PrimitiveType::Sphere

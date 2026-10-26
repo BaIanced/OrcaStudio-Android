@@ -269,4 +269,22 @@ class ShapePiecesTest {
         }
         assertEquals(d, d.merged(1, "/m/x.stl", b))
     }
+    @Test
+    fun blendedGroupSendsItsShapesToOccNotOpenScad() {
+        val kids = listOf(box(2, D3(20.0, 20.0, 10.0)), box(3, D3(8.0, 8.0, 15.0), pos = D3(0.0, 0.0, 10.0), kind = Shape.Kind.CYLINDER),
+            box(4, D3(4.0, 4.0, 30.0), hole = true, kind = Shape.Kind.CYLINDER))
+        val g = Shape(1, Shape.Kind.GROUP, "G", D3(), extra = mapOf(Shape.BLEND to 2.0), children = kids)
+        val code = ShapeDesign(listOf(g)).pieces().single().scad
+        assertTrue(code.startsWith(ShapeDesign.BLEND_TAG))
+        val spec = org.json.JSONObject(code.removePrefix(ShapeDesign.BLEND_TAG))
+        assertEquals(2.0, spec.getDouble("radius"), 0.0)
+        val parts = spec.getJSONArray("parts")
+        assertEquals(listOf("box", "cylinder", "cylinder"), (0 until parts.length()).map { parts.getJSONObject(it).getString("kind") })
+        assertTrue(parts.getJSONObject(2).getBoolean("hole"))
+        assertEquals(10.0, parts.getJSONObject(1).getJSONArray("m").getDouble(11), 1e-9)
+        // Without the blend the same group is OpenSCAD code again; a torus can't be blended yet.
+        assertFalse(ShapeDesign(listOf(g.copy(extra = emptyMap()))).pieces().single().scad.startsWith(ShapeDesign.BLEND_TAG))
+        val torus = g.copy(children = kids + box(5, D3(20.0, 20.0, 5.0), kind = Shape.Kind.TORUS))
+        assertEquals(ShapeDesign.BLEND_TAG + "!S5", ShapeDesign(listOf(torus)).pieces().single().scad)
+    }
 }

@@ -243,6 +243,9 @@ public:
 
     // Adds a primitive ("cube", "cylinder", "sphere", "cone") of `size` [x,y,z] mm to `plate`.
     json add_primitive(const std::string &shape, const std::array<double, 3> &size, int plate, double round = 0.);
+    // Shape builder "Blend joins": `parts` [{kind box/cylinder/cone/sphere, size, top, round, chamfer, hole, m (4x4
+    // row-major)}] fused as OCCT solids, joins and hole rims rounded by `radius`, written to the STL `out`. No model change.
+    json blend_solids(const json &parts, double radius, const std::string &out);
     // Adds extruded text (font file, height and depth in mm) to `plate`.
     json add_text(const std::string &text, const std::string &font_path, double height, double depth, int plate);
     // Adds an extruded SVG drawing scaled to `width` mm, `depth` mm thick, to `plate`.

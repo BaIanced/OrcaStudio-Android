@@ -128,6 +128,7 @@ add_library(orca_jni SHARED
     jni/OrcaScene.cpp
     jni/OrcaTools.cpp
     jni/OrcaExtras.cpp
+    jni/OrcaBlend.cpp
     jni/OrcaProject.cpp
     jni/Preview.cpp jni/Preview.hpp
     jni/Thumbnails.cpp jni/Thumbnails.hpp

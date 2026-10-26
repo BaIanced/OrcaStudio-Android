@@ -2,6 +2,7 @@ package app.orcaandroid.ui
 
 import android.net.Uri
 import app.orcaandroid.R
+import app.orcaandroid.core.OrcaException
 import app.orcaandroid.core.Scene
 import app.orcaandroid.core.SceneObject
 import app.orcaandroid.core.Vec3
@@ -563,6 +564,22 @@ class ScadController(private val store: Store) {
 
     private fun fail(res: Int) = set { it.copy(status = store.str(res), statusError = true) }
 
+    /** A Blend joins piece ([ShapeDesign.BLEND_TAG]) fused by the engine into [out]; its triangles, or null after showing why not. */
+    private suspend fun blend(code: String, out: File): Int? {
+        val spec = code.removePrefix(ShapeDesign.BLEND_TAG)
+        if (spec.startsWith("!")) {
+            set { it.copy(status = store.str(R.string.shape_blend_unsupported, spec.drop(1)), statusError = true) }
+            return null
+        }
+        set { it.copy(status = store.str(R.string.shape_blending), statusError = false) }
+        return try {
+            engine.blendSolids(JSONObject(spec), out)
+        } catch (e: OrcaException) {
+            set { it.copy(status = message(e), statusError = true) }
+            null
+        }
+    }
+
     private fun summary(r: ScadRender) =
         store.str(R.string.scad_rendered, "%,d".format(r.triangles), "%.1f".format(r.millis / 1000.0))
 
@@ -631,6 +648,11 @@ class ScadController(private val store: Store) {
         val part = File(out.path + ".part")
         set { it.copy(status = store.str(R.string.shape_merging), statusError = false) }
         try {
+            if (scad.startsWith(ShapeDesign.BLEND_TAG)) {
+                blend(scad, part) ?: return null
+                if (!withContext(Dispatchers.IO) { part.renameTo(out) }) { fail(R.string.scad_failed); return null }
+                return out
+            }
             val r = client.render(scad, s.file, null, part)
             when {
                 !r.ok -> { set { it.copy(log = r.log) }; fail(R.string.scad_failed); return null }
@@ -664,6 +686,13 @@ class ScadController(private val store: Store) {
             if (stl.isFile) { stl.setLastModified(System.currentTimeMillis()); continue }
             val part = File(stl.path + ".part")
             try {
+                if (piece.scad.startsWith(ShapeDesign.BLEND_TAG)) {
+                    val t0 = System.currentTimeMillis()
+                    triangles += blend(piece.scad, part) ?: return
+                    millis += System.currentTimeMillis() - t0; rendered++
+                    withContext(Dispatchers.IO) { if (!part.renameTo(stl)) throw java.io.IOException("Unable to keep the rendered piece") }
+                    continue
+                }
                 val r = client.render(piece.scad, s.file, null, part)
                 triangles += r.triangles; millis += r.millis; rendered++
                 when {

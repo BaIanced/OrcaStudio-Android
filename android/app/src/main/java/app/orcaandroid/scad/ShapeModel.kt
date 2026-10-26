@@ -134,6 +134,8 @@ data class Shape(
         /** Hollow with this wall (mm); OPEN = 1 leaves the top open. */
         const val SHELL = "shell"
         const val OPEN = "open"
+        /** A group's Blend joins radius (mm): where its shapes meet (and hole rims) is rounded, in the Build workspace. */
+        const val BLEND = "blend"
         /** A MESH shape's own bounds (mm) as read from its file: min x / y / z, max x / y / z. */
         val MESH_BOUNDS = listOf("mx0", "my0", "mz0", "mx1", "my1", "mz1")
 
@@ -343,13 +345,60 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
     /** The design as Orca volumes, top-level shapes in order, a repeated shape's copies one after another. */
     fun pieces(): List<Piece> = shapes.flatMap { top ->
         val s = resolved(top)
-        val scad = buildString {
+        val scad = if (s.isGroup && s.x(Shape.BLEND, 0.0) > 0) blendCode(s) else buildString {
             prelude(this, listOf(s))
             appendLine()
             if (s.isGroup) group(this, s.children, "") else appendLine(body(s))
         }
         val own = placement(s)
         copies(s).mapIndexed { i, c -> Piece(top.id, i, s.hole, scad, mul(c, own).toList(), if (s.hole) 0 else s.filament) }
+    }
+
+    /**
+     * A blended group's piece "code": [BLEND_TAG], then {radius, parts} for the engine's blendSolids (OCCT), or "!" and
+     * the name of the first shape it can't take. Still a string, so piece caching and reuse work as for OpenSCAD code.
+     */
+    private fun blendCode(g: Shape): String {
+        val parts = JSONArray()
+        val bad = blendParts(g.children, translation(D3()), false, parts)
+        return BLEND_TAG + (if (bad != null) "!$bad" else JSONObject().put("radius", g.x(Shape.BLEND, 0.0)).put("parts", parts).toString())
+    }
+
+    /**
+     * Adds every copy of [kids]' shapes (resolved), placed by [frame] in the blended group's frame, to [out]; returns the
+     * name of the first one OCCT can't take: other kinds, many-sided cylinders / cones, hollow shapes, or a group with
+     * holes of its own (they cut only that group, which a flat list can't say).
+     */
+    private fun blendParts(kids: List<Shape>, frame: DoubleArray, hole: Boolean, out: JSONArray): String? {
+        for (c in kids) {
+            val own = placement(c)
+            for (copy in copies(c)) {
+                val m = mul(frame, mul(copy, own))
+                if (c.isGroup) {
+                    if (c.children.any { it.hole }) return c.name
+                    blendParts(c.children, m, hole || c.hole, out)?.let { return it }
+                    continue
+                }
+                val kind = when (c.kind) {
+                    Shape.Kind.BOX, Shape.Kind.ROUNDED_BOX -> "box"
+                    Shape.Kind.CYLINDER, Shape.Kind.CONE -> c.kind.key.takeIf { c.x(Shape.SIDES, 0.0) < 3 }
+                    Shape.Kind.SPHERE -> "sphere"
+                    else -> null
+                }
+                if (kind == null || (c.kind in Shape.SHELLED && c.x(Shape.SHELL, 0.0) > 0)) return c.name
+                val edge = when (c.kind) {
+                    Shape.Kind.ROUNDED_BOX -> min(c.x(Shape.RADIUS, 2.0), min(c.size.x, min(c.size.y, c.size.z)) / 2 - 0.01)
+                    in Shape.EDGED -> c.x(Shape.EDGE, 0.0)
+                    else -> 0.0
+                }
+                out.put(JSONObject().put("kind", kind).put("size", c.size.json()).put("hole", hole || c.hole)
+                    .put("m", JSONArray(m.toList())).apply {
+                        if (c.kind == Shape.Kind.CONE) put("top", c.x(Shape.TOP, 0.0))
+                        if (edge > 0) put("round", edge).put("chamfer", c.kind != Shape.Kind.ROUNDED_BOX && c.x(Shape.CHAMFER, 0.0) != 0.0)
+                    })
+            }
+        }
+        return null
     }
 
     /**
@@ -758,6 +807,9 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
     private fun quote(t: String) = "\"" + t.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", " ") + "\""
 
     companion object {
+        /** Starts a Blend joins piece's code ([blendCode]) instead of OpenSCAD. */
+        const val BLEND_TAG = "// blend joins\n"
+
         /** Kinds without flat faces to push ([faceAt]), and those whose side is round (pushing it widens x and y). */
         private val NO_FACES = setOf(Shape.Kind.GROUP, Shape.Kind.MESH, Shape.Kind.SPHERE, Shape.Kind.TORUS)
         private val ROUND_SIDES = setOf(Shape.Kind.CYLINDER, Shape.Kind.TUBE, Shape.Kind.PRISM)

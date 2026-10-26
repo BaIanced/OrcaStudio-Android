@@ -277,6 +277,8 @@ private fun Properties(shape: Shape, d: ShapeDesign, vm: AppViewModel, filaments
             val b = d.bounds(shape.copy(pos = D3(), rot = D3(), repeat = null)).size
             Text(stringResource(R.string.scad_size, ShapeDesign.n(b.x), ShapeDesign.n(b.y), ShapeDesign.n(b.z)),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            ExtraField(stringResource(R.string.shape_blend), shape, d, vm, Shape.BLEND, 0.0)
+            Text(stringResource(R.string.shape_blend_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         FieldRow(stringResource(R.string.shape_position), shape, d, vm, "pos", listOf("X", "Y", "Z"), shape.pos, listOf("x", "y", "z"))
         FieldRow(stringResource(R.string.shape_rotation), shape, d, vm, "rot", listOf("X°", "Y°", "Z°"), shape.rot, listOf("turn_x", "turn_y", "turn_z"))
