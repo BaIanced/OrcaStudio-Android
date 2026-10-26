@@ -3151,3 +3151,9 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
   Blend 9 -> "rounding the hole rims failed (try a smaller radius)", nothing placed. Torus -> "can't take "Ring"". Rounded box + sphere +
   tilted mirrored elliptic cone, blend 1.5 -> 9480 tris, 1 shell, looks right. shape_merge of the blended group -> mesh shape OK.
 - Found: MCP shape_update rejected extra.blend (EXTRA_KEYS) -> fixed after r419. Native compiled first try on CI.
+
+## 2026-10-26 CAD step 2a/2b verified by Claude (WSA)
+- Deviation from the plan: no CadDocument; sweeps are OpenSCAD polyhedra generated from the sketch (prelude modules `coil`, `loft` in `ShapeModel.kt`), JVM-testable (`SketchSweepTest`), no native build.
+- 2a (commit "CAD step 2a", r420 run 40270243289): Extrude "Twist (°)" (linear_extrude twist), Revolve "Rise per turn" (coil; angle up to 3600; rise clamped to profile height + 0.01 past one turn). 2b: `Shape.top` outline, extrusion lofts to it (`Sketch.resample`, aligned at the +x ray from the centre), twist + top scale apply; MCP `sketch_set` `top`.
+- Face winding checked by signed-volume scripts before building. WSA debug app (r420 libs + 2b): coil 3 turns z 0..14, vol 451 (expected 452); twist 20 mm cube 90°, vol 8000; loft square->circle 20x20x15, vol 3628; all closed (0 non-manifold edges), OpenSCAD no warnings.
+- design_to_plate needs an in-app confirm (not usable hidden); design_snapshot shows the stale GL preview when parked; pulling `cache/openscad/preview/*.stl` + a bounds/volume script works.

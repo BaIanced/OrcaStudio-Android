@@ -34,10 +34,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Untested / user checks open (3MF bed type, band fix, measure step 1, push/pull fold decision): see backlog.
 - CAD plan accepted (user 2026-10-25), steps in `NOTES-cad-reuse.md`. Steps 0 + 1a verified by Claude on WSA r419 (archive 2026-10-26);
   1a user feel untested (group "Blend joins (mm)"); MCP blend key fix unbuilt until 2a's build. 1b (tap an edge) parked.
-- CAD step 2a (2026-10-26, run 40270243289, unverified): sketch Extrude gets "Twist (°)", Revolve gets "Rise per turn" (coil,
-  angle up to 3600; turns kept apart by the profile height; no corner rounding on a coil). Winding checked by a signed-volume script; JVM tests pass.
-  Check on WSA: coil + twist render, then 2b loft (second outline) per `NOTES-cad-reuse.md`.
-- Next step: CAD step 2a WSA check, then 2b loft -> Opus 5.5 (medium)
+- CAD 2a (Twist, Rise per turn coil) on r420 + 2b (loft to a top outline, MCP `sketch_set` top; unbuilt on CI, local debug only)
+  Claude-verified on WSA 2026-10-26 (archive). User feel untested: sketch shape fields "Twist", "Rise per turn", "Loft to a top outline".
+  r420 installed on WSA + SHIELD. Known: a coil's box (size z) is the profile height, the coil rises above it; coils/lofts skip corner rounding.
+- Next step: CAD step 2c sweep along a drawn path (polyhedron, like coil/loft; path editor = open sketch polyline) -> Opus 5.5 (medium)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
