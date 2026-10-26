@@ -66,3 +66,4 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - Truck demo people visibility: check through the windows with the builder closed (WSA plate 6, r416); user or Claude.
 - 3MF writes effective bed type per plate + project (plate 4 / printer "unknown"), label "Cool Plate (SuperTack)": built, untested (moved from handoff 2026-10-26).
 - r416 band fix + measure step 1: on WSA + SHIELD, await a Claude/user check (moved from handoff 2026-10-26).
+- CAD 2a/2b sketch Twist / Rise per turn / Loft to a top outline: Claude-verified WSA 2026-10-26; user feel open (r420 has 2a; 2b in the next CI build).
