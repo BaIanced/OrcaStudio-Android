@@ -29,8 +29,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   Tasks 1-18 merged. **Session start, run exactly:** `gh pr list --state open --json number,title,headRefName; gh issue view 46 --json comments --jq '.comments[-2:][]|.createdAt+" "+(.body|.[0:300])'`
 - Backlog, user feel/checks open: paint plan, Build workspace, Filament materials, Realistic render, 3MF in desktop Orca, pen, plate switcher pick.
 - Local debug test: reference "Local APK" + "WSA debug loop" (worked on WSA 2026-10-25; parked window: taps via `tapf.sh`).
-- Phone offline (user at work); its session is copied to WSA (archive 2026-10-25). Test on WSA.
-- Upstream 2.5.0 alpha overlaps our work (user 2026-10-25): `NOTES-upstream-2.5.md` = compare table; check src-orca before building a feature; keep ours where better.
+- **Offload (user 2026-10-25): max token use onto free opencode models** (checkable work; Claude verifies). DeepSeek passed;
+  Beam/Nemotron Ultra/GLM test in another chat -> `D:\oct-backup\results.md`. Memory `offload-to-free-models`.
+- Upstream 2.5.0 overlap: `NOTES-upstream-2.5.md`; check src-orca first, keep ours where better.
 - Untested / user checks open (3MF bed type, band fix, measure step 1, push/pull fold decision): see backlog.
 - CAD plan accepted (user 2026-10-25), steps in `NOTES-cad-reuse.md`. Steps 0 + 1a verified by Claude on WSA r419 (archive 2026-10-26);
   1a user feel untested (group "Blend joins (mm)"); MCP blend key fix unbuilt until 2a's build. 1b (tap an edge) parked.
