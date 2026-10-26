@@ -103,6 +103,7 @@ headless display below instead (no takeover needed). Don't drive WSA's own windo
   = build + install + slice + Preview + 3 sphere shots (`wsa-preview2.sh` alone skips the build). Black screencaps / MCP
   "No 3D view is on screen" = the PC display is asleep: `wake-display.ps1` (1 px mouse nudge; wsa-preview2.sh runs it).
   WSA 3D view crop (Preview, wide panel): 105,38,745,938.
+- WSA hover (2026-10-26): `wsa-pen-hover.sh HOLD X Y [X Y ...]` = uinput virtual pen (root) hovering at screen points (`input` has no hover).
 - WSA debug loop (2026-10-24): Local debug test on WSA: `stage-from-apk.sh` (after native CI builds), assembleDebug, `wsa-debug-setup.sh`, `wsa-start.ps1` (no PC `adb forward tcp:8765` while it starts), MCP with `MCP_DEV=127.0.0.1:58526 PKG=...debug`; uninstall the debug app when done. `wsa-debug-setup.sh` also copies the Orca data dir (profiles); it overwrites the debug prefs (slot looks, realistic): for rebuilds just `adb install -r -g` + `wsa-start.ps1`.
 - **Local APK (2026-10-19, ~7 s incremental, 3.5 min cold):** `sh ~/orca-android-tools/stage-from-apk.sh` (native libs + OpenSCAD/
   Python assets from the newest CI APK in `builds/`; redo after native changes), then the compile command below with

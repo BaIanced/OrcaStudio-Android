@@ -3215,3 +3215,15 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
   Mid-stroke screenshot shows the ridge growing before the lift; layered ridge even; grab pulls a horn; Ctrl+Z restores (208220 -> 208120).
 - Desktop test `%TEMP%/sculpt_test/sculpt_test.cpp` (WSL g++, not in the repo): face incidence, normal update, seeded thin wall, layered draw.
 - Open: no brush cursor; no dynamic topology (grab-stretched faces stay coarse); paint overlay follows only at stroke end; no symmetry; slow first stroke.
+
+## 2026-10-26 CAD 5b follow-ups: brush ring + stroke-end split (Claude-verified on WSA debug build, user feel untested; CI r428)
+- Brush ring (8918179): native `sculpt` returns the last dab's world `point` + `normal` (hit face after the dab; grab: drag point,
+  view normal); `probe` = hit test only. `SceneController.sculptCursor` (StateFlow) -> Viewport -> `PlateRenderer.brushCursor`
+  (48-segment ring on the tangent plane, dark rim under white, depth test off). Hover: `PlateView.onPaintHover` (mouse / pen,
+  no button) -> `sculptHover` -> only the newest ray, probed after queued strokes, on the last part (else a scene pick).
+  Cleared at finger lift and hover exit. WSA: hover ring sits on the wall at the pen point; follows a draw stroke; gone after lift and exit.
+- Stroke-end split (`sculpt_finish_locked`): edges in the session's touched region longer than 2x `refined_to` are split
+  (`refine_with_predicate`, budget max(600k, F)); paint dropped, session rebuilt keeping `refined_to`. WSA box_with_lid grab horn:
+  246870 -> 248752 faces in 80 ms + session ~180 ms at lift; draw strokes don't split. Stroke start ~200 ms on this 248k scene (start path unchanged).
+- Hover test tool: `~/orca-android-tools/wsa-pen-hover.sh HOLD X Y [X Y ...]` (uinput virtual pen, root; `input` can't hover).
+- Still open: paint overlay follows only at stroke end; no symmetry; slow first stroke; mid-stroke grab stays coarse (split only at lift).

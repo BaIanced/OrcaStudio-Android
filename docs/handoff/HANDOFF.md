@@ -14,7 +14,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 0170950 (PR #65, branch at r398, merged 2026-10-25). Untested by the user in main: Build workspace, paint shop/depth, Filament materials, Realistic render, UX P1-P6, Check mesh feel, 3MF export in desktop Orca, pen, fan hold, Extrude F150.
 - Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
-- Latest CI build r427 (run 40381113231, CAD 5b sculpt) on WSA + SHIELD (release app); debug app uninstalled from WSA. Phone offline.
+- Latest CI build r428 (run 40386301058, sculpt ring + split) on WSA + SHIELD + Quest; debug app uninstalled from WSA. Phone + Note offline.
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
@@ -28,7 +28,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   Claude compiles, merges, cherry-picks. Audits + JVM-testable Kotlin only.
   Tasks 1-18 merged. **Session start, run exactly:** `gh pr list --state open --json number,title,headRefName; gh issue view 46 --json comments --jq '.comments[-2:][]|.createdAt+" "+(.body|.[0:300])'`
 - User feel/checks open (backlog): paint plan, Build workspace, Filament materials, Realistic render, 3MF in desktop Orca (+ bed type), pen, plate switcher pick, band fix, measure step 1, push/pull fold.
-- Local native build works (2026-10-26; deps refresh + patches steps in reference "Native change on the debug app").
+- Local native build: reference "Native change on the debug app" (+ deps/patches prerequisites).
 - Local debug test: reference "Local APK" + "WSA debug loop" (parked window: taps via `tapf.sh`).
 - **Offload (user 2026-10-25/26): max token use onto free opencode models, growing leeway by track record** (Claude specs + verifies).
   DeepSeek V4.1 Flash = default; self-checking runner `octauto.sh` (`D:\oct-backup\jobs\README.md`), ledger `trust-profile.md`.
@@ -38,7 +38,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   Smooth blend open bug: 176k-face gear stalled in OpenVDB closing at voxel 0.4 mm (now diag/200); no cancel.
 - **CAD 5b live sculpt (More > Sculpt) Claude-verified WSA debug 2026-10-26 (archive):** native session + triangle patches into the GL
   buffer, surface-flood brush, layered draw, camera-plane grab. In r427; user feel untested.
-- Next step: 5b follow-ups (brush cursor, dynamic topology) -> Opus 5.5 (high)
+- 5b brush ring (hover + stroke) + stroke-end split of grab-stretched edges: Claude-verified WSA debug 2026-10-26 (archive), r428; user feel untested.
+- Next step: Smooth blend stall on dense meshes (cancel, voxel bound) -> Opus 5.5 (high)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
