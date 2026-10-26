@@ -30,17 +30,19 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - User feel/checks open (backlog): paint plan, Build workspace, Filament materials, Realistic render, 3MF in desktop Orca (+ bed type), pen, plate switcher pick, band fix, measure step 1, push/pull fold.
 - Local debug test: reference "Local APK" + "WSA debug loop" (parked window: taps via `tapf.sh`).
 - **Offload (user 2026-10-25/26): max token use onto free opencode models, growing leeway by track record** (Claude specs + verifies).
-  DeepSeek V4.1 Flash = default (`D:\oct-backup
+  DeepSeek V4.1 Flash = default; self-checking runner `octauto.sh` (`D:\oct-backup\jobs\README.md`), ledger `trust-profile.md`.
 esults.md`, `trust-profile.md`). Memory `offload-to-free-models`.
 - Upstream 2.5.0 overlap: `NOTES-upstream-2.5.md`; check src-orca first, keep ours where better.
 - CAD plan accepted (user 2026-10-25), steps in `NOTES-cad-reuse.md`. Steps 0 + 1a Claude-verified WSA r419 (archive);
   1a user feel untested ("Blend joins (mm)"). 1b (tap an edge) parked.
 - CAD 2a/2b/2c (Twist, coil, loft, sweep) on r421 (run 40280748704; WSA + SHIELD 2026-10-26, phone offline), Claude-verified; user feel open (backlog). Coils/lofts/sweeps skip corner rounding.
-- Step 3 deformers WIP (uncommitted): `core/jni/OrcaDeform.cpp` (refine + warp per volume in the copy's plate frame, paint reset),
-  More menu "Bend / twist / taper" dialog (deviation: no axis gizmo), MCP `object_deform`; Kotlin compiles. `core/jni/MeshDeform.hpp` is
-  offloaded to DeepSeek (`D:\oct-backup\jobs\deform\`: `octjob.sh` run, `octfix.sh` feedback, Claude's `mytest.cpp`); the glue also needs
-  `meshdeform::warp(Mesh&, const Params&, Vec3 lo, Vec3 hi)`. Trust ledger `D:\oct-backup	rust-profile.md`.
-- Next step: CAD step 3 integrate MeshDeform.hpp, CI, WSA check -> Opus 5.5 (medium)
+- Step 3 deformers on r422 (WSA + SHIELD): More menu "Bend / twist / taper", MCP `object_deform`. WSA MCP 2026-10-26: bend/taper
+  clean, bad axis rejected. **Bug:** 2 mm gear twisted 30 deg then -30 -> self-intersections (refine ignores the warp). Fix = DeepSeek job
+  `D:\oct-backup\jobs\deform2` (`refine_for_warp`, started before /clear). Resume: `cat D:\oct-backup\jobs\deform2erdict-deepseek-v4.1-flash-free.txt`;
+  if missing and `wsl -d Ubuntu -- pgrep -af opencode` is empty, rerun `octauto.sh deform2 deepseek-v4.1-flash-free high 3` in background
+  (`jobs/README.md`). On PASS: read its diff vs `jobs/deform2/in/MeshDeform.hpp` (L0), copy to `core/jni/`, use `refine_for_warp(m, p, lo, hi,
+  diag/60, diag/4000, share)` in `OrcaDeform.cpp` instead of refine_to_length, CI, recheck gear (WSA plate 2 object 5 is mangled: re-add a gear sample). Log in `trust-profile.md`.
+- Next step: CAD step 3 deform2 integrate + gear recheck -> Opus 5.5 (medium)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
