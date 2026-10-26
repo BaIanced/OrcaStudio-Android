@@ -10,6 +10,8 @@
 #include <stdexcept>
 
 #include <boost/log/trivial.hpp>
+#include <sys/system_properties.h>
+#include <tbb/task_arena.h>
 
 #include "libslic3r/Model.hpp"
 #include <openvdb/tools/Composite.h>
@@ -73,44 +75,83 @@ json OrcaEngine::smooth_blend(int object, int instance, double radius)
     auto ms = [&](clock::time_point a) { return std::chrono::duration<double, std::milli>(clock::now() - a).count(); };
     const BoundingBoxf3 box = bounding_box(all);
     const double diag = box.size().norm();
-    // About 300 voxels along the diagonal (a few million at most); the radius is at least 2 voxels so the
-    // closing has something to grip. Capped at a third of the diagonal.
-    const double voxel = diag / 200.;
+    // The closing's cost grows with the narrow band (r / voxel voxels wide): a 40 mm radius at diag/300 touched
+    // 91M voxels on a flat gear and never finished on WSA. 300 voxels along the diagonal, coarser when the box
+    // of the grown object would hold more than kVoxelBudget voxels (a bound on the band, ~4 s / 230 MB for the
+    // gear on a desktop). The radius is at least 2 voxels so the closing has something to grip, at most a third
+    // of the diagonal.
+    constexpr double kVoxelBudget = 8e6;
+    const double grow = std::clamp(radius, 0., diag / 3.);
+    const Vec3d size = box.size();
+    const double grown = (size.x() + 2. * grow) * (size.y() + 2. * grow) * (size.z() + 2. * grow);
+    const double voxel = std::max(diag / 300., std::cbrt(grown / kVoxelBudget));
     const double r = std::clamp(radius, 2. * voxel, diag / 3.);
     const float scale = float(1. / voxel);
+    // Bands in voxels: the grow needs r + 3 outside the surface, the shrink r + 3 inside the grown one; the rest
+    // only 3 (half the work of r + 3 on both sides, same surface).
     const float band = float(r * scale) + 3.f;
+    const float thin = 3.f;
 
-    BOOST_LOG_TRIVIAL(warning) << "smooth blend: start, " << all.indices.size() << " faces, " << its_split(all).size() << " shells, diag " << diag << " mm, split in " << ms(t0) << " ms";
-    // As Slic3r::mesh_to_grid (one level set per shell, so overlapping shells union cleanly), with timing.
+    m_interrupt = false;
+    struct Interrupter {
+        const std::atomic<bool> &flag;
+        void start(const char * = nullptr) {}
+        void end() {}
+        bool wasInterrupted(int = -1) const { return flag.load(std::memory_order_relaxed); }
+    } interrupter{m_interrupt};
+    auto check = [&] {
+        if (m_interrupt)
+            throw std::runtime_error("Cancelled");
+    };
+
+    const std::vector<indexed_triangle_set> shells = its_split(all);
+    BOOST_LOG_TRIVIAL(warning) << "smooth blend: start, " << all.indices.size() << " faces, " << shells.size() << " shells, diag " << diag << " mm, voxel " << voxel << " mm, r " << r << " mm, split in " << ms(t0) << " ms";
+    // As Slic3r::mesh_to_grid (one level set per shell, so overlapping shells union cleanly), interruptible.
     openvdb::initialize();
+    // Under an ARM translator (WSA's Houdini: ro.dalvik.vm.native.bridge set) meshToVolume's band expansion
+    // livelocked with 16 threads (2026-10-26, 176k-face gear, r 40: stuck >10 min mid-layer, all cores busy);
+    // 4 threads finished in 18 s, 1 in 47 s. Native ARM devices keep every core.
+    char bridge[PROP_VALUE_MAX] = {};
+    const bool translated = __system_property_get("ro.dalvik.vm.native.bridge", bridge) > 0 && std::string(bridge) != "0";
+    tbb::task_arena arena(translated ? 4 : tbb::task_arena::automatic);
+    indexed_triangle_set out = arena.execute([&] {
     openvdb::FloatGrid::Ptr grid;
-    for (const indexed_triangle_set &shell : its_split(all)) {
-        if (its_volume(shell) < EPSILON)
+    for (const indexed_triangle_set &shell : shells) {
+        // OpenVDB signs by flood fill, not winding: inside-out shells (old blends, some STLs) voxelize fine.
+        if (std::abs(its_volume(shell)) < EPSILON)
             continue;
-        auto sub = openvdb::tools::meshToVolume<openvdb::FloatGrid>(MeshAdapter{shell, scale}, {}, band, band, 0);
-        BOOST_LOG_TRIVIAL(warning) << "smooth blend: shell of " << shell.indices.size() << " faces voxelized at " << ms(t0) << " ms";
+        auto sub = openvdb::tools::meshToVolume<openvdb::FloatGrid>(interrupter, MeshAdapter{shell, scale}, openvdb::math::Transform(), band, thin, 0);
+        check();
         if (grid && sub)
             openvdb::tools::csgUnion(*grid, *sub);
         else if (sub)
             grid = std::move(sub);
     }
-    if (grid)
-        grid = openvdb::tools::levelSetRebuild(*grid, 0., band, band);
-    BOOST_LOG_TRIVIAL(warning) << "smooth blend: " << all.indices.size() << " faces, voxel " << voxel << " mm, r " << r << " mm, voxelized in " << ms(t0) << " ms";
     if (!grid)
         throw std::runtime_error("The object could not be voxelized");
+    grid = openvdb::tools::levelSetRebuild(*grid, 0.f, band, thin, nullptr, &interrupter);
+    check();
+    BOOST_LOG_TRIVIAL(warning) << "smooth blend: voxelized " << grid->activeVoxelCount() << " voxels in " << ms(t0) << " ms";
     auto t1 = clock::now();
-    grid = redistance_grid(*grid, r * scale, band, band);
+    grid = openvdb::tools::levelSetRebuild(*grid, float(r * scale), thin, band, nullptr, &interrupter);
+    check();
     BOOST_LOG_TRIVIAL(warning) << "smooth blend: grown in " << ms(t1) << " ms";
     t1 = clock::now();
-    grid = redistance_grid(*grid, -r * scale, band, band);
+    grid = openvdb::tools::levelSetRebuild(*grid, float(-r * scale), thin, thin, nullptr, &interrupter);
+    check();
     BOOST_LOG_TRIVIAL(warning) << "smooth blend: shrunk in " << ms(t1) << " ms";
     t1 = clock::now();
-    indexed_triangle_set out = grid_to_mesh(*grid, 0., 0.05);
-    BOOST_LOG_TRIVIAL(warning) << "smooth blend: meshed " << out.indices.size() << " faces in " << ms(t1) << " ms";
+    // grid_to_mesh divides by this to get back to mm.
+    grid->insertMeta("voxel_scale", openvdb::FloatMetadata(scale));
+    return grid_to_mesh(*grid, 0., 0.05);
+    });
+    BOOST_LOG_TRIVIAL(warning) << "smooth blend: meshed " << out.indices.size() << " faces";
     if (out.indices.empty())
         throw std::runtime_error("The blend produced no surface");
     its_merge_vertices(out);
+    // volumeToMesh winds the faces inward (signed volume < 0); a second blend then skipped the shell as empty.
+    if (its_volume(out) < 0.)
+        its_flip_triangles(out);
 
     push_undo();
     ModelVolume *keep = obj.volumes[first];

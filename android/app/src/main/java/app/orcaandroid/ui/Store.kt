@@ -66,19 +66,25 @@ class Store(val app: Application, val scope: CoroutineScope) {
 
     fun toast(message: String, action: MessageAction? = null) = update { it.copy(message = message, messageAction = action) }
 
-    /** Runs [block], showing [busy] (if any) and turning exceptions into an error dialog. */
-    fun launch(busy: String? = null, block: suspend () -> Unit): Job = scope.launch {
-        if (busy != null) update { it.copy(busy = busy) }
+    /**
+     * Runs [block], showing [busy] (if any) and turning exceptions into an error dialog. With [cancel] the busy
+     * dialog gets a Cancel button; the failure the cancelled operation throws then shows no error.
+     */
+    fun launch(busy: String? = null, cancel: (() -> Unit)? = null, block: suspend () -> Unit): Job = scope.launch {
+        var cancelled = false
+        val onCancel = cancel?.let { { cancelled = true; it() } }
+        if (busy != null) update { it.copy(busy = busy, busyCancel = onCancel) }
         try {
             block()
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
+            if (cancelled) return@launch
             android.util.Log.w("OrcaStore", "operation failed", e)
             val unreadable = e is java.io.FileNotFoundException || e is SecurityException
             update { it.copy(error = if (unreadable) str(R.string.file_unreadable) else e.message ?: e.toString()) }
         } finally {
-            if (busy != null) update { it.copy(busy = null) }
+            if (busy != null) update { it.copy(busy = null, busyCancel = null) }
         }
     }
 
@@ -96,5 +102,5 @@ class Store(val app: Application, val scope: CoroutineScope) {
     }
 
     /** Runs an engine operation that returns the new scene. */
-    fun sceneOp(busy: String? = null, block: suspend () -> Scene) = launch(busy) { applyScene(block()) }
+    fun sceneOp(busy: String? = null, cancel: (() -> Unit)? = null, block: suspend () -> Scene) = launch(busy, cancel) { applyScene(block()) }
 }

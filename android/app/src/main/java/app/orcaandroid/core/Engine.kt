@@ -9,7 +9,7 @@ import org.json.JSONObject
 
 /**
  * Typed Kotlin API over the native engine. The core is not re-entrant, so every call runs on one
- * dedicated thread; only [cancelSlicing] may be called concurrently.
+ * dedicated thread; only [cancel] may be called concurrently.
  */
 class Engine(private val cacheDir: File) {
 
@@ -289,8 +289,8 @@ class Engine(private val cacheDir: File) {
         parseSlice(JSONObject(OrcaNative.viewGcode(path, out.path) { p, t -> onProgress(p, t) }).throwIfError(), out.path, true)
     }
 
-    /** Safe to call from any thread while slicing runs. */
-    fun cancelSlicing() = OrcaNative.cancel()
+    /** Cancels a running slice or smooth blend; safe to call from any thread. */
+    fun cancel() = OrcaNative.cancel()
 
     // --- Parsing ---------------------------------------------------------------------------------
 

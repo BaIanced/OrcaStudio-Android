@@ -34,7 +34,7 @@ class SliceService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_CANCEL) {
-            application.container.engine.cancelSlicing()
+            application.container.engine.cancel()
             return START_NOT_STICKY
         }
         ServiceCompat.startForeground(this, NOTIFICATION_ID, notification(SliceProgress(0, "")),

@@ -5,9 +5,10 @@
 // Owns one PresetBundle (system + user presets of the installed vendors) and the scene: a Model
 // with all objects, spread over one or more plates laid out like the desktop app's plate grid.
 // Every public method is serialized by a mutex, except cancel(), which may be called from any
-// thread while slice() is running.
+// thread while slice() or smooth_blend() is running.
 
 #include <array>
+#include <atomic>
 #include <cstdint>
 #include <tuple>
 #include <optional>
@@ -340,7 +341,7 @@ public:
     // Previews an external G-code file (same outputs as slice(), without G-code export).
     json view_gcode(const std::string &gcode, const std::string &preview_dir, const ProgressFn &progress);
 
-    // Requests cancellation of a running slice(); a no-op otherwise.
+    // Requests cancellation of a running slice() or smooth_blend(); a no-op otherwise.
     void cancel();
 
     // For the plugin runtime: the preset bundle (read by plugins without the engine lock, as the
@@ -514,6 +515,8 @@ private:
     // Guards m_running_print so cancel() never touches a Print that slice() is destroying.
     std::mutex                            m_cancel_mutex;
     Slic3r::Print                        *m_running_print{nullptr};
+    // Set by cancel(), polled by long scene edits (smooth_blend), which clear it when they start.
+    std::atomic<bool>                     m_interrupt{false};
     // Slice statistics per G-code file (time, weight, filaments) for the .gcode.3mf's
     // slice_info.config, which printers and Bambu Handy read. Filled by slice().
     std::map<std::string, std::shared_ptr<Slic3r::PlateData>> m_slice_info;

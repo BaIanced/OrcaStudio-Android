@@ -133,6 +133,8 @@ data class PreviewUi(
 data class UiState(
     val phase: Phase = Phase.LOADING,
     val busy: String? = null,
+    /** Cancels the [busy] operation (Cancel button on the busy dialog); null = not cancellable. */
+    val busyCancel: (() -> Unit)? = null,
     val error: String? = null,
     val message: String? = null,
     val messageAction: MessageAction? = null,

@@ -61,7 +61,7 @@ class SliceController(private val store: Store, private val presets: PresetContr
         }
     }
 
-    fun cancelSlice() = engine.cancelSlicing()
+    fun cancelSlice() = engine.cancel()
 
     /** Shows an existing G-code file in the preview. */
     suspend fun viewGcodeFile(file: File) {
