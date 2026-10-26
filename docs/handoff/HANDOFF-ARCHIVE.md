@@ -3134,3 +3134,4 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 
 ### 2026-10-25 CAD reuse investigation (Claude, Opus)
 - User asked for open-source CAD code to jumpstart detail modeling. Found upstream libslic3r/CAD (OCCT feature tree incl. fillet/sweep/loft) already in src-orca, OCCT already built for Android minus ModelingAlgorithms; Manifold, OpenVDB, libigl, CGAL already linked. Plan in NOTES-cad-reuse.md; awaiting user go.
+- User 2026-10-25: accepted the plan ("okay tag each step with model/effort"); effort for step 0 = medium (user: "medium seems to do the job").
