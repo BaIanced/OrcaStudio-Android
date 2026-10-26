@@ -27,7 +27,7 @@ bend/twist, playdough sculpting) without writing code. Roadmap items 3-6 in HAND
 0. **OCCT spike** `Sonnet 5.5 (medium; Opus after 2 failed CI tries)` (1-2 sessions). Set `SLIC3R_CAD ON` in `android/deps/CMakeLists.txt:35` + `android/core/CMakeLists.txt:38`,
    add the SLVS dep (not in the Android deps list yet), rebuild deps on CI. Measure APK growth (guess +10-25 MB, unmeasured)
    and CI time. One JNI call: box -> `apply_fillet` all edges -> `tessellate` -> new object. **Go/no-go: size and build OK.**
-1. **Rounded edges + shell in the shape builder** `Opus 5.5 (high)`: B-rep edge picking, fillet failures (item 5, part 1). Shape builder shapes map to `make_primitive` +
+1. **Rounded edges + shell in the shape builder** `Opus 5.5 (high)`: (2026-10-26: per-shape round/chamfer/hollow already existed via OpenSCAD; step 1a = group "Blend joins" in OCCT, `OrcaBlend.cpp`; edge tap picking = 1b, later) B-rep edge picking, fillet failures (item 5, part 1). Shape builder shapes map to `make_primitive` +
    Boolean; add per-shape "Round edges" / "Chamfer" slider (all edges, or tap an edge via `edges_of`/`edge_index_of`).
    Fillets between shapes = union in B-rep, then fillet the new intersection edges. Keep OpenSCAD for code / AI paths.
 2. **Sweep, loft, revolve, helix/thread** `Opus 5.5 (medium)` (item 4) from CadDocument. Touch UI: draw a profile on the existing sketch

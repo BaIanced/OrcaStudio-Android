@@ -1050,7 +1050,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             "filament" to p("integer", "Top-level solids: the filament slot (1-based, see plate_describe) it prints with; 0 = the object's"),
             "mirror" to vec("1 = mirrored on that axis, 0 = not"),
             "extra" to p("object", "Kind specific numbers (null removes one): sides, top (cone top / bottom ratio), wall, tube, " +
-                "radius, edge (rounded edges mm), chamfer (1 = chamfer the edge), shell (hollow wall mm), open (1 = open top), angle, revolve (sketch: 1 = turn about Z)"),
+                "radius, edge (rounded edges mm), chamfer (1 = chamfer the edge), shell (hollow wall mm), open (1 = open top), angle, revolve (sketch: 1 = turn about Z), blend (group: round where its shapes meet, mm; boxes / cylinders / cones / spheres)"),
             "text" to p("string", "The text of a text shape"),
             "repeat" to JSONObject().put("type", JSONArray().put("object").put("null"))
                 .put("description", "Copies: {circular, count, step [x,y,z], angle, center [x,y,z]}, or null for none"),

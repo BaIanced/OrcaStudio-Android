@@ -22,26 +22,24 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **Cheapest interface first** (MCP `mcpao.sh` ~150 tok > `phone-ui.py layout` cut by regex > cropped shot only for GL looks).
 - Session backups: phone `/data/local/tmp/phone-session-backup.{3mf,json}`, WSA `/data/local/tmp/session-backup.{3mf,json}`. `scadzip-test.zip` stays in `/sdcard/Download` (phone, Chromebook). Never write the LAN access code anywhere.
 ## Next task
-- **One small step at a time** (user 2026-10-21). Auto-next (user 2026-10-24): if context is small and the next model = running model, start the next step without cueing; else cue `/clear` + `/next`.
+- Auto-next (user 2026-10-25): keep going while context is small and the model fits; one small step each.
 - **User 2026-10-21: design deviations pre-approved** ("deviate if you find a more logical, intuitive way; I trust your judgement"); say what changed.
-- Muse (2026-10-22): tasks in `MUSE-TASKS.md` on `muse/work` (edit via a `claude/*` PR, self-merge), then `TASK <n> READY`
-  on #46; Muse answers with one draft PR per task. Claude verifies, merges into muse/work, cherry-picks code onto the work
-  branch. Task 1 finding 4: fix the patch comment when regenerating 0001. **Each session start, run exactly:**
-  `gh pr list --state open --json number,title,headRefName; gh issue view 46 --json comments --jq '.comments[-2:][]|.createdAt+" "+(.body|.[0:300])'` (no `--comments`).
-  Tasks 1-18 merged (18 = PR #64, 2026-10-23). Sync muse/work android/ before each Kotlin task (#58).
-  **Muse KEPT (user, 2026-10-23)** for audits + larger JVM-testable Kotlin only (Claude compiles each PR locally before
-  merging), no native/patch work, no small fixes. Log Claude's effort per task in the archive; if a task costs more than
-  doing it directly, tell the user plainly and stop. Merge commands START with `gh pr merge`. No stacking.
+- Muse (full discretion, user 2026-10-25): tasks in `MUSE-TASKS.md` on `muse/work` (edit via `claude/*` PR, self-merge), `TASK <n> READY` on #46;
+  one draft PR per task; Claude compiles, merges into muse/work, cherry-picks. Audits + larger JVM-testable Kotlin only; stop if costlier than direct.
+  Tasks 1-18 merged. **Session start, run exactly:** `gh pr list --state open --json number,title,headRefName; gh issue view 46 --json comments --jq '.comments[-2:][]|.createdAt+" "+(.body|.[0:300])'`
 - Backlog, user feel/checks open: paint plan, Build workspace, Filament materials, Realistic render, 3MF in desktop Orca, pen, plate switcher pick.
 - Local debug test: reference "Local APK" + "WSA debug loop" (worked on WSA 2026-10-25; parked window: taps via `tapf.sh`).
 - Phone offline (user at work); its session is copied to WSA (archive 2026-10-25). Test on WSA.
 - Upstream 2.5.0 alpha overlaps our work (user 2026-10-25): `NOTES-upstream-2.5.md` = compare table; check src-orca before building a feature; keep ours where better.
 - Built, untested: 3MF writes effective bed type per plate + project (plate 4 / printer "unknown"), label "Cool Plate (SuperTack)". Awaiting user: push/pull tier 1 (r401), edge bands on paint (r403).
 - r416 on WSA + SHIELD: band fix + measure step 1 await a check. User decisions open: push/pull fold vs remove, CAD roadmap + reuse plan (`NOTES-cad-reuse.md`).
-- CAD plan accepted (user 2026-10-25, "okay tag each step"): steps tagged in `NOTES-cad-reuse.md`; start step 0 (SLIC3R_CAD ON + SLVS dep, deps CI rebuild, APK size, box fillet JNI test). r416 bands/measure check stays open.
-- CAD step 0 DONE, GO (2026-10-26, r418, run 40263505255, WSA-tested by Claude): SLIC3R_CAD ON + dep_SLVS build fine. Deps rebuild 43 min (cache miss, once), core+APK 4.5 min. APK 112.41 -> 120.68 MB (+8.3 MB). Add shape dialog "Round edges (mm)" (OCCT make_primitive + apply_fillet all + tessellate): 20 mm cube r3 -> 11404 tris (default deflection 0.003 is dense; coarsen in step 1). r418 on WSA + SHIELD. Phone/Chromebook/Note still offline.
-- Next step: CAD step 1 rounded edges + shell in the shape builder (item 5 part 1) -> Opus 5.5 (high)
-- Muse: user gave full discretion 2026-10-25 (memory muse-autonomy); not used for step 0.
+- CAD plan accepted (user 2026-10-25): steps tagged in `NOTES-cad-reuse.md`. Step 0 GO (r418, archive 2026-10-26).
+- CAD step 1a (2026-10-26, run 40266715932, CI running): per-shape round/chamfer/hollow ALREADY existed (OpenSCAD minkowski, 45ac19d),
+  so step 1 became **Blend joins** on groups (deviation): group field "Blend joins (mm)" -> piece code `BLEND_TAG`+JSON
+  (`ShapeDesign.blendCode`) -> `Engine.blendSolids` -> `android/core/jni/OrcaBlend.cpp` (exact OCCT box/cyl/cone/sphere, own
+  round/chamfer, fuse, UnifySameDomain, fillet SectionEdges, cut holes + fillet rims, tessellate 0.02 mm). Others -> error naming the shape.
+  JVM test added (19/19). Next: WSA check (box + cylinder group, blend 2; hole rim; too-large radius error; Merge bake of a blended group).
+- Next step: CAD step 1a WSA check of Blend joins -> Opus 5.5 (high)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).

@@ -3138,3 +3138,6 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 
 ## 2026-10-26 CAD step 0 (OCCT spike) GO
 - r417 (run 40258983602): SLIC3R_CAD ON + SLVS; deps 43 min cache miss, core 4.5 min, APK 112.39 -> 112.41 MB (linker dropped unused CAD). r418 (run 40263505255): JNI add_primitive round arg uses GeometryEngine make_primitive/apply_fillet/tessellate, APK 120.68 MB (+8.3 MB). WSA: Cube (rounded) r3 created, 11404 tris. Claude-tested only; user has not seen it.
+
+## 2026-10-26 CAD step 0 verified (Claude, WSA r418)
+- SLIC3R_CAD ON + dep_SLVS build OK; deps rebuild 43 min once; APK 112.41 -> 120.68 MB; Add shape "Round edges" 20 mm cube r3 -> 11404 tris. Box depth/height were swapped in add_primitive (fixed in step 1a commit).
