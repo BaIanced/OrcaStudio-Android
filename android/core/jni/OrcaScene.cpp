@@ -623,6 +623,7 @@ json OrcaEngine::scene_json()
 json OrcaEngine::commit()
 {
     m_aabb.clear();
+    m_neighbors.clear();
     write_mesh();
     write_paint_mesh();
     return scene_json();

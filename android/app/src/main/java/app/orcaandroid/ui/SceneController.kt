@@ -18,6 +18,9 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /** Plates, objects and their parts, the 3D tools, custom G-code and calibration. */
+/** Measure tool: how far (screen pixels) a point reaches to snap to a corner or sharp edge. */
+private const val SNAP_PX = 14f
+
 class SceneController(private val store: Store, private val presets: PresetController) {
     private val engine = store.engine
     private val resources = store.resources
@@ -323,8 +326,9 @@ class SceneController(private val store: Store, private val presets: PresetContr
      * select mode adds the tapped copy to the selection or removes it. [section] = the section view's
      * plane: what it cuts away can't be picked.
      */
-    fun onViewTap(origin: Vec3, dir: Vec3, additive: Boolean = false, part: Boolean = false, section: FloatArray? = null, emptyPlate: Int? = null) = store.launch {
-        val hit = pick(origin, dir, section)
+    fun onViewTap(origin: Vec3, dir: Vec3, additive: Boolean = false, part: Boolean = false, section: FloatArray? = null, emptyPlate: Int? = null,
+                  pxSize: ((Vec3) -> Float)? = null) = store.launch {
+        val hit = if (store.value.tool == Tool.Measure && pxSize != null) measurePick(origin, dir, section, pxSize) else pick(origin, dir, section)
         if (hit == null && emptyPlate != null && store.value.tool == Tool.None) {
             selectPlate(emptyPlate)
             return@launch
@@ -400,10 +404,38 @@ class SceneController(private val store: Store, private val presets: PresetContr
     fun openAddDialog(name: String?) = store.update { it.copy(addDialog = name) }
 
     /** The first hit along the ray that the section view [section] leaves visible. */
-    private suspend fun pick(origin: Vec3, dir: Vec3, section: FloatArray?): PickHit? {
-        if (section == null) return engine.pick(origin, dir)
+    private suspend fun pick(origin: Vec3, dir: Vec3, section: FloatArray?, snap: Double = 0.0): PickHit? {
+        if (section == null) return engine.pick(origin, dir, snap = snap)
         val start = SectionView.rayStart(section, origin, dir) ?: return null
-        return engine.pick(start, dir)?.takeIf { SectionView.kept(section, it.point) }
+        return engine.pick(start, dir, snap = snap)?.takeIf { SectionView.kept(section, it.point) }
+    }
+
+    /** The measure tool's point: the hit, moved to a corner or sharp edge within [SNAP_PX] screen pixels of it. */
+    private suspend fun measurePick(origin: Vec3, dir: Vec3, section: FloatArray?, pxSize: (Vec3) -> Float): PickHit? {
+        val hit = pick(origin, dir, section) ?: return null
+        return pick(origin, dir, section, snap = (pxSize(hit.point) * SNAP_PX).toDouble()) ?: hit
+    }
+
+    @Volatile private var loupeActive = false
+
+    /**
+     * Measure tool, touch and hold: the red dot follows the finger and snaps to corners and sharp edges; lifting places it.
+     * [phase] 0 = down, 1 = move, 2 = up (places), 3 = cancel. [grab] (down only): the placed point under the finger,
+     * picked up to be placed again.
+     */
+    fun measureLoupe(origin: Vec3, dir: Vec3, x: Float, y: Float, phase: Int, section: FloatArray?, pxSize: (Vec3) -> Float, grab: Int? = null) {
+        if (phase == 0) loupeActive = true
+        else if (phase >= 2) loupeActive = false
+        store.launch {
+            if (phase == 0 && grab != null) store.update { st -> st.copy(measure = st.measure.filterIndexed { i, _ -> i != grab }) }
+            if (phase == 3) { store.update { it.copy(loupe = null) }; return@launch }
+            val hit = measurePick(origin, dir, section, pxSize)
+            if (phase == 2) {
+                store.update { st -> st.copy(loupe = null, measure = if (hit != null) (st.measure + hit.point).takeLast(2) else st.measure) }
+            } else if (loupeActive) {
+                store.update { it.copy(loupe = Loupe(x, y, hit?.point, hit?.snap)) }
+            }
+        }
     }
 
     private val paintLock = Mutex()

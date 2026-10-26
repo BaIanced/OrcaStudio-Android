@@ -90,6 +90,10 @@ fun previewRange(result: SliceResult, low: Int, high: Int, moveEnd: Int?, counts
  * The shared 3D view of the Prepare and Preview screens. Pushes scene, selection, tool and
  * preview state to the GL thread and turns touches into view-model actions.
  */
+/** Measure loupe: the dot sits this far above the finger; a placed point within the grab radius is picked up. */
+private const val LOUPE_LIFT_DP = 56f
+private const val LOUPE_GRAB_DP = 40f
+
 @Composable
 fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modifier: Modifier = Modifier) {
     var view by remember { mutableStateOf<PlateView?>(null) }
@@ -127,7 +131,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                         val (o, d) = v.camera.ray(x, y)
                         // The Build workspace: a tap picks a shape of the design.
                         if (vm.state.value.buildObject != null) vm.shapes.tapAt(o, d, additive || part || vm.state.value.selectMode)
-                        else vm.scene.onViewTap(o, d, additive, part, v.section.current, emptyPlate)
+                        else vm.scene.onViewTap(o, d, additive, part, v.section.current, emptyPlate, v.camera::pxSize)
                     }
                     override fun onCopyAt(x: Float, y: Float, result: (Pair<Int, Int>?, Vec3, Vec3) -> Unit) {
                         val (o, d) = v.camera.ray(x, y)
@@ -301,6 +305,17 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                     }
 
                     override fun onLongPressTouch(x: Float, y: Float, held: Boolean) = vm.pieTouch.update(x, y, held)
+
+                    override fun onMeasureLoupe(x: Float, y: Float, phase: Int) {
+                        // The dot sits above the finger so the finger doesn't hide it.
+                        val density = v.resources.displayMetrics.density
+                        val (o, d) = v.camera.ray(x, y - LOUPE_LIFT_DP * density)
+                        val placed = vm.state.value.measure
+                        val grab = if (phase != 0) null else placed.withIndex().minByOrNull { (_, p) ->
+                            v.camera.project(p)?.let { (px, py) -> kotlin.math.hypot(px - x, py - y) } ?: Float.MAX_VALUE
+                        }?.takeIf { (_, p) -> v.camera.project(p)?.let { (px, py) -> kotlin.math.hypot(px - x, py - y) <= LOUPE_GRAB_DP * density } == true }?.index
+                        vm.scene.measureLoupe(o, d, x, y, phase, v.section.current, v.camera::pxSize, grab)
+                    }
                 }
                 view = v
                 onView(v)
@@ -314,6 +329,20 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
             val size = androidx.compose.ui.geometry.Size(kotlin.math.abs(r[2] - r[0]), kotlin.math.abs(r[3] - r[1]))
             drawRect(rectangleColor.copy(alpha = 0.15f), topLeft, size)
             drawRect(rectangleColor, topLeft, size, style = androidx.compose.ui.graphics.drawscope.Stroke(2f))
+        }
+    }
+    state.loupe?.let { l ->
+        Canvas(Modifier.fillMaxSize()) {
+            // Crosshair ring on the dot's spot (above the finger); green when it snapped to a corner or edge.
+            val c = androidx.compose.ui.geometry.Offset(l.x, l.y - LOUPE_LIFT_DP * density)
+            val color = if (l.snap != null) Color(0xFF4CAF50) else Color.White
+            val r = 22.dp.toPx()
+            drawCircle(Color.Black.copy(alpha = 0.35f), r, c, style = androidx.compose.ui.graphics.drawscope.Stroke(5f))
+            drawCircle(color, r, c, style = androidx.compose.ui.graphics.drawscope.Stroke(2.5f))
+            drawLine(color, c.copy(x = c.x - r * 1.5f), c.copy(x = c.x - r * 0.4f), 2.5f)
+            drawLine(color, c.copy(x = c.x + r * 0.4f), c.copy(x = c.x + r * 1.5f), 2.5f)
+            drawLine(color, c.copy(y = c.y - r * 1.5f), c.copy(y = c.y - r * 0.4f), 2.5f)
+            drawLine(color, c.copy(y = c.y + r * 0.4f), c.copy(y = c.y + r * 1.5f), 2.5f)
         }
     }
     val label = resizeLabel
@@ -594,8 +623,8 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         section.current = plane
         v.onGl { this.section = plane }
     }
-    LaunchedEffect(v, state.measure) {
-        val pts = state.measure.map { floatArrayOf(it.x, it.y, it.z) }
+    LaunchedEffect(v, state.measure, state.loupe?.point) {
+        val pts = (state.measure + listOfNotNull(state.loupe?.point)).takeLast(2).map { floatArrayOf(it.x, it.y, it.z) }
         v.onGl { measurePoints = pts }
     }
     LaunchedEffect(v, showPreview, result, state.preview, preview) {

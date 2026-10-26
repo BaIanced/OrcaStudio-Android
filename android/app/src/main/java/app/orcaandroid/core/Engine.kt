@@ -173,9 +173,11 @@ class Engine(private val cacheDir: File) {
     // --- Tools -----------------------------------------------------------------------------------
 
     /** [only] >= 0: hits on that object alone (the Build workspace). */
-    suspend fun pick(origin: Vec3, dir: Vec3, only: Int = -1): PickHit? = call("pick", args("origin" to origin, "dir" to dir, "object" to only)).let { o ->
+    /** [snap] > 0 (world mm): the point moves to the nearest corner or sharp edge of its facet within that distance. */
+    suspend fun pick(origin: Vec3, dir: Vec3, only: Int = -1, snap: Double = 0.0): PickHit? = call("pick", args("origin" to origin, "dir" to dir, "object" to only, "snap" to snap)).let { o ->
         if (!o.optBoolean("hit")) null
-        else PickHit(o.getInt("object"), o.getInt("instance"), o.getInt("volume"), o.getInt("facet"), o.vec3("point"), o.vec3("normal"), o.vec3("local"))
+        else PickHit(o.getInt("object"), o.getInt("instance"), o.getInt("volume"), o.getInt("facet"), o.vec3("point"), o.vec3("normal"), o.vec3("local"),
+            if (o.has("snap")) o.getString("snap") else null)
     }
 
     /** Paints [hits] (one stroke's brush positions, in order) in one engine pass. */

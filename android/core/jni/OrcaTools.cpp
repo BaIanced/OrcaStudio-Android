@@ -73,12 +73,16 @@ static Transform3d shown_matrix(const ModelInstance &inst, const std::optional<s
     return design ? Transform3d(Eigen::Translation3d((*design)[0], (*design)[1], (*design)[2])) : inst.get_matrix();
 }
 
-json OrcaEngine::pick(const std::array<double, 3> &origin, const std::array<double, 3> &dir, int only)
+json OrcaEngine::pick(const std::array<double, 3> &origin, const std::array<double, 3> &dir, int only, double snap)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
     const Vec3d s = to_vec(origin), d = to_vec(dir).normalized();
     json best = {{"hit", false}};
     double best_dist = std::numeric_limits<double>::max();
+    const ModelVolume *best_vol = nullptr;
+    Transform3d        best_trafo;
+    int                best_face = -1;
+    Vec3d              best_world = Vec3d::Zero();
     for (size_t oi = 0; oi < m_model->objects.size(); ++oi) {
         if (only >= 0 && int(oi) != only)
             continue;
@@ -101,7 +105,11 @@ json OrcaEngine::pick(const std::array<double, 3> &origin, const std::array<doub
                 const double dist = (world - s).norm();
                 if (dist >= best_dist)
                     continue;
-                best_dist = dist;
+                best_dist  = dist;
+                best_vol   = vol;
+                best_trafo = trafo;
+                best_face  = int(hit.face());
+                best_world = world;
                 const Vec3d n = (trafo.linear().inverse().transpose() * hit.normal()).normalized();
                 best = {{"hit", true},
                         {"object", oi},
@@ -112,6 +120,53 @@ json OrcaEngine::pick(const std::array<double, 3> &origin, const std::array<doub
                         {"normal", vec_json(n)},
                         {"local", vec_json(hit.position())}};
             }
+    }
+    if (snap > 0. && best_vol) {
+        // Corners and sharp edges (> 25 deg between the facets, or open) of the hit facet; its own edges cover every edge the
+        // hit is near, since a shared edge belongs to both facets.
+        const indexed_triangle_set &its = best_vol->mesh().its;
+        std::shared_ptr<std::vector<Vec3i32>> &nb = m_neighbors[&best_vol->mesh()];
+        if (!nb)
+            nb = std::make_shared<std::vector<Vec3i32>>(its_face_neighbors(its));
+        const Vec3i32 &idx = its.indices[best_face];
+        const Vec3i32 &adj = (*nb)[best_face];
+        Vec3d          w[3];
+        for (int k = 0; k < 3; ++k)
+            w[k] = best_trafo * its.vertices[idx[k]].cast<double>();
+        const Vec3d p = best_world;
+        const Vec3d fn = (w[1] - w[0]).cross(w[2] - w[0]).normalized();
+        bool sharp[3];
+        for (int k = 0; k < 3; ++k) {
+            sharp[k] = adj[k] < 0;
+            if (!sharp[k]) {
+                const Vec3i32 &o = its.indices[adj[k]];
+                const Vec3d    a = best_trafo * its.vertices[o[0]].cast<double>(), b = best_trafo * its.vertices[o[1]].cast<double>(),
+                               c = best_trafo * its.vertices[o[2]].cast<double>();
+                sharp[k] = fn.dot((b - a).cross(c - a).normalized()) < std::cos(25. * M_PI / 180.);
+            }
+        }
+        // Edge k runs from vertex k to k + 1.
+        Vec3d  snapped = p;
+        double best_d  = snap;
+        const char *kind = nullptr;
+        for (int k = 0; k < 3; ++k)
+            if (sharp[k] || sharp[(k + 2) % 3]) {
+                const double d = (w[k] - p).norm();
+                if (d < best_d) { best_d = d; snapped = w[k]; kind = "vertex"; }
+            }
+        if (!kind)
+            for (int k = 0; k < 3; ++k)
+                if (sharp[k]) {
+                    const Vec3d e = w[(k + 1) % 3] - w[k];
+                    const double t = std::clamp((p - w[k]).dot(e) / e.squaredNorm(), 0., 1.);
+                    const Vec3d q = w[k] + t * e;
+                    const double d = (q - p).norm();
+                    if (d < best_d) { best_d = d; snapped = q; kind = "edge"; }
+                }
+        if (kind) {
+            best["point"] = vec_json(snapped);
+            best["snap"]  = kind;
+        }
     }
     return best;
 }

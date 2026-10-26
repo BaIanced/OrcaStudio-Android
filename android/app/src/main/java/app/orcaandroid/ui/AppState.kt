@@ -227,6 +227,8 @@ data class UiState(
     val selectMode: Boolean = false,
     val tool: Tool = Tool.None,
     val measure: List<Vec3> = emptyList(),
+    /** Measure tool, finger down on the loupe: the finger, and the point (snapped, with how) the red dot sits on. */
+    val loupe: Loupe? = null,
     val layerProfile: LayerProfile? = null,
     val calibration: Calibration? = null,
     val projectName: String? = null,
@@ -346,3 +348,5 @@ data class UiState(
 
 /** A project came with filaments that differ from the app's: the user picks which slots to keep. */
 data class FilamentChoice(val current: List<app.orcaandroid.core.FilamentSlot>, val project: List<app.orcaandroid.core.FilamentSlot>)
+
+data class Loupe(val x: Float, val y: Float, val point: Vec3?, val snap: String?)

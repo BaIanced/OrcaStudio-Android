@@ -203,6 +203,8 @@ data class PickHit(
     val point: Vec3,
     val normal: Vec3,
     val local: Vec3,
+    /** "vertex" / "edge" when the point snapped to a corner / sharp edge of its facet (measure tool). */
+    val snap: String? = null,
 )
 
 data class LayerProfile(val profile: FloatArray, val min: Float, val max: Float, val height: Float)

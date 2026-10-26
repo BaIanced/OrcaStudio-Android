@@ -173,7 +173,8 @@ public:
     // Nearest hit of a world-space ray with any object: { "hit": false } or { "hit": true,
     // "object", "instance", "volume", "facet", "point" [world], "normal" [world], "local" [volume] }.
     // [only] >= 0: that object alone (the Build workspace, where the others are hidden).
-    json pick(const std::array<double, 3> &origin, const std::array<double, 3> &dir, int only = -1);
+    /** [snap] > 0 (world mm): the hit moves to the nearest corner / sharp edge of its facet within that distance ("snap": "vertex" | "edge"). */
+    json pick(const std::array<double, 3> &origin, const std::array<double, 3> &dir, int only = -1, double snap = 0.);
 
     // Paints with a sphere brush of `radius` mm around a pick() result. kind: "fuzzy" (state 1 =
     // fuzzy skin), "support" / "seam" (1 enforce, 2 block), "color" (state = 1-based filament);
@@ -410,6 +411,8 @@ private:
     std::string                           m_paint_path;
     // Ray-cast acceleration per volume mesh, dropped whenever the scene changes (commit()).
     std::map<const void *, std::shared_ptr<Slic3r::AABBMesh>> m_aabb;
+    // Facet neighbours per volume mesh (edge snapping in pick()), dropped with m_aabb.
+    std::map<const void *, std::shared_ptr<std::vector<Slic3r::Vec3i32>>> m_neighbors;
     int                                   m_mesh_version = 0;
     int                                   m_build_object = -1; // see set_build_object()
     // The Build workspace's object is drawn and picked in its design pose (see set_build_object()): a plain

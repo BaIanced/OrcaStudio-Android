@@ -79,6 +79,8 @@ interface PlateListener {
     fun onContextMenu(x: Float, y: Float)
     /** After a long press opened the menu the finger is still down: it moved to (x, y) ([held] false = it lifted there). */
     fun onLongPressTouch(x: Float, y: Float, held: Boolean) {}
+    /** Measure mode, touch and hold: the finger is at (x, y). [phase] 0 = down, 1 = move, 2 = up, 3 = cancel. */
+    fun onMeasureLoupe(x: Float, y: Float, phase: Int) {}
     /** The copy under view point (x, y) for a double tap: [result] gets its (object, copy) and box, or null (on the UI thread). */
     fun onCopyAt(x: Float, y: Float, result: (Pair<Int, Int>?, Vec3, Vec3) -> Unit) = result(null, Vec3.ZERO, Vec3.ZERO)
     /** A double tap on plate [index] that isn't the active one: the host makes it active (the view frames it). */
@@ -158,6 +160,8 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     private var hoverPanning = false
     /** A long press opened the context menu; the rest of the gesture is ignored. */
     private var longPressed = false
+    /** The long press is the measure loupe (not the pie menu). */
+    private var loupeOn = false
     /** Farthest the finger got from the touch-down point: a slow orbit stays inside the touch slop but is no long press. */
     private var maxTravel = 0f
     /** Shift / Alt held when the gesture began: a drag draws a selection rectangle. */
@@ -205,6 +209,13 @@ class PlateView(context: Context) : GLSurfaceView(context) {
         }
 
         override fun onLongPress(e: MotionEvent) {
+            if (mode == InteractionMode.MEASURE && !multiTouch && !moved && maxTravel <= touchSlop / 3 && !rightButton && !middleButton) {
+                cancelDrag()
+                longPressed = true
+                loupeOn = true
+                listener?.onMeasureLoupe(e.x, e.y, 0)
+                return
+            }
             if (mode != InteractionMode.NAVIGATE || multiTouch || moved || maxTravel > touchSlop / 3 || rightButton || middleButton || rectangle || penOrbit || penInstant != null) return
             cancelDrag()
             longPressed = true
@@ -310,7 +321,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
             MotionEvent.ACTION_DOWN -> {
                 if (!hasFocus()) requestFocus()
                 lastX = event.x; lastY = event.y; downX = event.x; downY = event.y
-                multiTouch = false; moved = false; dragging = false; longPressed = false; maxTravel = 0f; resizeTried = false
+                multiTouch = false; moved = false; dragging = false; longPressed = false; loupeOn = false; maxTravel = 0f; resizeTried = false
                 pushPending = false; pushGrab = null
                 // The button state is only known on DOWN; on UP it is already released.
                 val mouse = event.isFromSource(android.view.InputDevice.SOURCE_MOUSE)
@@ -412,6 +423,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                 }
                 if (longPressed) {
                     if (event.pointerCount >= 2) inputLog { "2f blocked: long press" }
+                    else if (loupeOn) listener?.onMeasureLoupe(event.x, event.y, 1)
                     else listener?.onLongPressTouch(event.x, event.y, true)
                     return true
                 }
@@ -514,7 +526,8 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                     if (action != null && !moved && android.os.SystemClock.uptimeMillis() - lastInstantTime > INSTANT_REPEAT_MS) fireInstant(action)
                 } else if (longPressed || middleButton) {
                     // Handled: the menu is open, or the middle button only pans.
-                    if (longPressed) listener?.onLongPressTouch(event.x, event.y, false)
+                    if (loupeOn) listener?.onMeasureLoupe(event.x, event.y, 2)
+                    else if (longPressed) listener?.onLongPressTouch(event.x, event.y, false)
                 } else if (rightButton) {
                     if (!moved && mode == InteractionMode.NAVIGATE) listener?.onContextMenu(event.x, event.y)
                 } else if (cutMoving) {
@@ -556,7 +569,8 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                 }
             }
             MotionEvent.ACTION_CANCEL -> {
-                if (longPressed) listener?.onLongPressTouch(-1f, -1f, false)
+                if (loupeOn) listener?.onMeasureLoupe(-1f, -1f, 3)
+                else if (longPressed) listener?.onLongPressTouch(-1f, -1f, false)
                 if (rectangle && moved) listener?.onRectangle(downX, downY, downX, downY, rectangleRemove, true)
                 rectangle = false
                 cancelDrag()
