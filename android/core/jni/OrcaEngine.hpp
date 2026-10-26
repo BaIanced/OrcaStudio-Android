@@ -412,7 +412,7 @@ private:
     // Ray-cast acceleration per volume mesh, dropped whenever the scene changes (commit()).
     std::map<const void *, std::shared_ptr<Slic3r::AABBMesh>> m_aabb;
     // Facet neighbours per volume mesh (edge snapping in pick()), dropped with m_aabb.
-    std::map<const void *, std::shared_ptr<std::vector<Slic3r::Vec3i32>>> m_neighbors;
+    std::map<const void *, std::shared_ptr<std::vector<std::array<int32_t, 3>>>> m_neighbors;
     int                                   m_mesh_version = 0;
     int                                   m_build_object = -1; // see set_build_object()
     // The Build workspace's object is drawn and picked in its design pose (see set_build_object()): a plain

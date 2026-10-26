@@ -1,0 +1,54 @@
+diff --git a/src/libslic3r/TriangleSelector.cpp b/src/libslic3r/TriangleSelector.cpp
+index a55febcaff..22c498ec39 100644
+--- a/src/libslic3r/TriangleSelector.cpp
++++ b/src/libslic3r/TriangleSelector.cpp
+@@ -1007,6 +1007,12 @@ bool TriangleSelector::select_triangle_recursive(int facet_idx, const Vec3i32 &n
+             return true;
+         }
+         tr = &m_triangles[facet_idx]; // might have been invalidated by split_triangle().
++        if (!tr->is_split()) {
++            // Too small to split: the cursor may still claim it (a height band's edge leaves).
++            if (m_cursor->claims_leaf(*tr, m_vertices))
++                tr->set_state(type);
++            return true;
++        }
+ 
+         int num_of_children = tr->number_of_split_sides() + 1;
+         if (num_of_children != 1) {
+@@ -1196,6 +1202,13 @@ bool TriangleSelector::HeightRange::is_edge_inside_cursor(const Triangle& tr, co
+              (pts[0].z() > top_z && pts[1].z() > top_z && pts[2].z() > top_z));
+ }
+ 
++bool TriangleSelector::HeightRange::claims_leaf(const Triangle& tr, const std::vector<Vertex>& vertices) const
++{
++    const Vec3f c = (vertices[tr.verts_idxs[0]].v + vertices[tr.verts_idxs[1]].v + vertices[tr.verts_idxs[2]].v) / 3.f;
++    const float z = (this->trafo * c).z();
++    return z >= m_z_world && z < m_z_world + m_height;
++}
++
+ // Recursively remove all subtriangles.
+ void TriangleSelector::undivide_triangle(int facet_idx)
+ {
+diff --git a/src/libslic3r/TriangleSelector.hpp b/src/libslic3r/TriangleSelector.hpp
+index 3dd2efdaf0..756fb7f229 100644
+--- a/src/libslic3r/TriangleSelector.hpp
++++ b/src/libslic3r/TriangleSelector.hpp
+@@ -112,6 +112,8 @@ public:
+         virtual int  vertices_inside(const Triangle &tr, const std::vector<Vertex> &vertices) const;
+         virtual bool is_edge_inside_cursor(const Triangle &tr, const std::vector<Vertex> &vertices) const = 0;
+         virtual bool is_facet_visible(int facet_idx, const std::vector<Vec3f> &face_normals) const = 0;
++        // A leaf that is partly inside and too small to split further: true = it takes the new state anyway.
++        virtual bool claims_leaf(const Triangle &tr, const std::vector<Vertex> &vertices) const { return false; }
+ 
+         static bool is_facet_visible(const Cursor &cursor, int facet_idx, const std::vector<Vec3f> &face_normals);
+ 
+@@ -230,6 +232,9 @@ public:
+         {
+             return true;
+         }
++        // A leaf straddling the band's edge goes to the side holding its centroid, [bottom, top): two bands sharing an edge
++        // split its leaves between them instead of both leaving them unpainted (teeth of the old colour along the edge).
++        bool claims_leaf(const Triangle& tr, const std::vector<Vertex>& vertices) const override;
+     private:
+         float m_z_world;
+         float m_height;

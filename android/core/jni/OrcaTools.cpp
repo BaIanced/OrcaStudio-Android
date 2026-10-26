@@ -125,11 +125,15 @@ json OrcaEngine::pick(const std::array<double, 3> &origin, const std::array<doub
         // Corners and sharp edges (> 25 deg between the facets, or open) of the hit facet; its own edges cover every edge the
         // hit is near, since a shared edge belongs to both facets.
         const indexed_triangle_set &its = best_vol->mesh().its;
-        std::shared_ptr<std::vector<Vec3i32>> &nb = m_neighbors[&best_vol->mesh()];
-        if (!nb)
-            nb = std::make_shared<std::vector<Vec3i32>>(its_face_neighbors(its));
-        const Vec3i32 &idx = its.indices[best_face];
-        const Vec3i32 &adj = (*nb)[best_face];
+        std::shared_ptr<std::vector<std::array<int32_t, 3>>> &nb = m_neighbors[&best_vol->mesh()];
+        if (!nb) {
+            const std::vector<Vec3i32> fn = its_face_neighbors(its);
+            nb = std::make_shared<std::vector<std::array<int32_t, 3>>>(fn.size());
+            for (size_t f = 0; f < fn.size(); ++f)
+                (*nb)[f] = {fn[f][0], fn[f][1], fn[f][2]};
+        }
+        const Vec3i32                 &idx = its.indices[best_face];
+        const std::array<int32_t, 3> &adj = (*nb)[best_face];
         Vec3d          w[3];
         for (int k = 0; k < 3; ++k)
             w[k] = best_trafo * its.vertices[idx[k]].cast<double>();
@@ -513,6 +517,10 @@ public:
         bool is_edge_inside_cursor(const Triangle &tr, const std::vector<Vertex> &vertices) const override
         {
             return !off(tr) && Base::is_edge_inside_cursor(tr, vertices);
+        }
+        bool claims_leaf(const Triangle &tr, const std::vector<Vertex> &vertices) const override
+        {
+            return !off(tr) && Base::claims_leaf(tr, vertices);
         }
 
     private:
@@ -917,17 +925,12 @@ json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<doubl
             for (size_t i = 1; i < tops.size(); i += 2)
                 edges.push_back(float(tops[i]));
             const float eps = 1e-3f;
-            // The start rounds to the NEAREST edge, not down: a click in the sliver just above a painted band must start at
-            // that band's top, not a layer below it (user r409: the alternate colour filled up and down). The end snaps
-            // outward from the band's own height above the start.
-            auto it_n = std::lower_bound(edges.begin(), edges.end(), z);
-            float lo = z;
-            if (it_n == edges.end())
-                lo = edges.back();
-            else if (it_n == edges.begin())
-                lo = *it_n;
-            else
-                lo = (z - *(it_n - 1) <= *it_n - z) ? *(it_n - 1) : *it_n;
+            // The start is the bottom of the layer clicked. Rounding to the nearest edge (r409, against clicks in the old-colour
+            // teeth along a band's edge, now claimed by the bands) made the upper half of a one-band gap repaint the band
+            // above (user r414: "does not fill in the area until i reach the red line"). The end snaps outward from the
+            // band's own height above the start.
+            auto it_n = std::upper_bound(edges.begin(), edges.end(), z + eps);
+            const float lo = it_n == edges.begin() ? edges.front() : *(it_n - 1);
             auto it_hi = std::lower_bound(edges.begin(), edges.end(), lo + (top - z) - eps);
             float hi = it_hi == edges.end() ? lo + (top - z) : *it_hi;
             if (hi <= lo + eps)

@@ -82,7 +82,7 @@ const std::unordered_map<std::string, Handler> &handlers()
         {"moveItems", [](OrcaEngine &e, const json &a) { return e.move_items(item_list(a.at("items")), a.at("dx"), a.at("dy")); }},
         {"arrange", [](OrcaEngine &e, const json &a) { return e.arrange(a.value("plate", -1)); }},
         {"layOnFace", [](OrcaEngine &e, const json &a) { return e.lay_on_face(a.at("object"), a.at("instance"), vec3(a.at("normal"))); }},
-        {"autoOrient", [](OrcaEngine &e, const json &a) { return e.auto_orient(a.value("object", -1), a.value("snap", 0.)); }},
+        {"autoOrient", [](OrcaEngine &e, const json &a) { return e.auto_orient(a.value("object", -1)); }},
         {"split", [](OrcaEngine &e, const json &a) { return e.split(a.at("object"), a.value("toParts", false)); }},
         {"assemble", [](OrcaEngine &e, const json &a) { return e.assemble(item_list(a.at("items"))); }},
         {"meshBoolean", [](OrcaEngine &e, const json &a) {
@@ -143,7 +143,7 @@ const std::unordered_map<std::string, Handler> &handlers()
          }},
         {"addSvg", [](OrcaEngine &e, const json &a) { return e.add_svg(a.at("path"), a.value("width", 50.0), a.value("depth", 2.0), a.value("plate", 0)); }},
         // Tools
-        {"pick", [](OrcaEngine &e, const json &a) { return e.pick(vec3(a.at("origin")), vec3(a.at("dir")), a.value("object", -1)); }},
+        {"pick", [](OrcaEngine &e, const json &a) { return e.pick(vec3(a.at("origin")), vec3(a.at("dir")), a.value("object", -1), a.value("snap", 0.)); }},
         {"paint", [](OrcaEngine &e, const json &a) {
              // "hits": [{object, instance, volume, facet, local}...] in stroke order, or one hit's fields at the top level.
              std::vector<OrcaEngine::PaintHit> hits;

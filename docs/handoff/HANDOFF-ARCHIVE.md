@@ -3119,3 +3119,6 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 
 ### 2026-10-25 Mix restart persistence (Claude, WSA r409)
 - Slot 3 mix of 1+2 (5:5) survives a restart (needed fixes in PresetController.selectPrinterNow and FileController: restored project/session slots dropped the saved mix). Sub-layer switch persists as a print setting, not rechecked.
+
+### 2026-10-25 Band edge teeth + alternate click (user, build of run 40252124536, edge limit 0.04)
+- User (screenshot: black bands, yellow sawtooth edge on top of the lower-left band, user drew a red line in the grey gap below it): "clicking below the defect, does not fill in the area until i reach the red line which i drew. under the red line fills in the entire portion above and below with black." So: taps in the gap just under a band do nothing until about mid-gap; below that one tap paints the whole gap black (merging with bands above and below). Teeth still visible in-app. User offered: "autopilot my computer if you want to test it".
