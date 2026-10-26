@@ -67,7 +67,9 @@ json OrcaEngine::deform(int object, int instance, const std::string &kind, int a
     for (size_t i = 0; i < obj.volumes.size(); ++i) {
         meshdeform::Mesh &m = meshes[i];
         const size_t share = std::max<size_t>(m.faces.size() * 2, size_t(double(budget) * m.faces.size() / std::max<size_t>(1, faces)));
-        meshdeform::refine_to_length(m, diag / 60., share);
+        // Also split edges whose warped chord would stray more than diag / 4000 from the warped surface (a
+        // flat 2 mm gear twisted 30 deg kept one-triangle walls whose chords cut the neighbouring teeth).
+        meshdeform::refine_for_warp(m, p, lo, hi, diag / 60., diag / 4000., share);
         meshdeform::warp(m, p, lo, hi);
 
         const Transform3d back = frames[i].inverse();

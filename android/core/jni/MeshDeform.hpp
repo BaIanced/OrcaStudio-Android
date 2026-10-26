@@ -110,31 +110,14 @@ inline void split_triangle(std::array<int, 3> tri, int a, int b, int mid,
     out[out_count++] = tri;
 }
 
-} // namespace detail
-
-inline double signed_volume(const Mesh &m) {
-    double six_v = 0.0;
-    for (const auto &f : m.faces) {
-        const Vec3 &a = m.vertices[f[0]];
-        const Vec3 &b = m.vertices[f[1]];
-        const Vec3 &c = m.vertices[f[2]];
-        six_v += detail::dot(a, detail::cross(b, c));
-    }
-    return six_v / 6.0;
-}
-
-inline size_t refine_to_length(Mesh &m, double max_edge, size_t max_faces) {
+// Refines m by repeatedly splitting every edge for which marked(a, b) returns
+// true.  Faces using a marked edge are all split with the same new midpoint
+// vertex, so the result stays free of T-junctions and keeps its winding.
+template <typename EdgeMarked>
+inline size_t refine_with_predicate(Mesh &m, size_t max_faces,
+                                    EdgeMarked marked) {
     size_t face_count = m.faces.size();
-    if (face_count == 0 || m.vertices.empty()) return face_count;
     if (max_faces == 0) max_faces = 2000000;
-
-    if (max_edge <= 0.0) {
-        const double diag = detail::bbox_diagonal(m);
-        max_edge = diag / 60.0;
-        if (max_edge <= 0.0) return face_count;
-    }
-
-    const double max_edge_sq = max_edge * max_edge;
 
     while (true) {
         std::unordered_map<uint64_t, int> midpoints;
@@ -142,22 +125,19 @@ inline size_t refine_to_length(Mesh &m, double max_edge, size_t max_faces) {
         size_t needed = face_count; // sum of (1 + marked_edges) per face
         bool over_budget = false;
 
-        // Mark all long edges and, at the same time, verify the budget for
+        // Mark all split edges and, at the same time, verify the budget for
         // the whole pass before creating any new vertex or face.
         for (const auto &f : m.faces) {
-            int marked = 0;
+            int marked_count = 0;
             for (int e = 0; e < 3; ++e) {
                 const int a = f[e];
                 const int b = f[(e + 1) % 3];
-                const Vec3 &va = m.vertices[a];
-                const Vec3 &vb = m.vertices[b];
-                const Vec3 d = detail::sub(vb, va);
-                if (detail::dot(d, d) > max_edge_sq) {
-                    midpoints.emplace(detail::edge_key(a, b), -1);
-                    ++marked;
+                if (marked(a, b)) {
+                    midpoints.emplace(edge_key(a, b), -1);
+                    ++marked_count;
                 }
             }
-            needed += static_cast<size_t>(marked);
+            needed += static_cast<size_t>(marked_count);
             if (needed > max_faces) {
                 over_budget = true;
                 break;
@@ -168,8 +148,8 @@ inline size_t refine_to_length(Mesh &m, double max_edge, size_t max_faces) {
 
         // Each edge has exactly one midpoint, shared by every incident face.
         for (auto &kv : midpoints) {
-            const int a = detail::key_a(kv.first);
-            const int b = detail::key_b(kv.first);
+            const int a = key_a(kv.first);
+            const int b = key_b(kv.first);
             const Vec3 &va = m.vertices[a];
             const Vec3 &vb = m.vertices[b];
             kv.second = static_cast<int>(m.vertices.size());
@@ -183,18 +163,18 @@ inline size_t refine_to_length(Mesh &m, double max_edge, size_t max_faces) {
 
         for (const auto &f : m.faces) {
             int ids[3] = {-1, -1, -1};
-            int marked = 0;
+            int marked_count = 0;
             for (int e = 0; e < 3; ++e) {
                 const int a = f[e];
                 const int b = f[(e + 1) % 3];
-                auto it = midpoints.find(detail::edge_key(a, b));
+                auto it = midpoints.find(edge_key(a, b));
                 if (it != midpoints.end()) {
                     ids[e] = it->second;
-                    ++marked;
+                    ++marked_count;
                 }
             }
 
-            if (marked == 0) {
+            if (marked_count == 0) {
                 new_faces.push_back(f);
                 continue;
             }
@@ -205,9 +185,8 @@ inline size_t refine_to_length(Mesh &m, double max_edge, size_t max_faces) {
             for (int e = 0; e < 3; ++e) {
                 if (ids[e] >= 0) {
                     const Vec3 d =
-                        detail::sub(m.vertices[f[(e + 1) % 3]],
-                                    m.vertices[f[e]]);
-                    len[e] = detail::dot(d, d);
+                        sub(m.vertices[f[(e + 1) % 3]], m.vertices[f[e]]);
+                    len[e] = dot(d, d);
                 }
             }
             int order[3] = {0, 1, 2};
@@ -242,7 +221,7 @@ inline size_t refine_to_length(Mesh &m, double max_edge, size_t max_faces) {
                         }
                     }
                     if (has_edge) {
-                        detail::split_triangle(cur[t], a, b, mid, next, next_count);
+                        split_triangle(cur[t], a, b, mid, next, next_count);
                     } else {
                         next[next_count++] = cur[t];
                     }
@@ -261,6 +240,37 @@ inline size_t refine_to_length(Mesh &m, double max_edge, size_t max_faces) {
     return m.faces.size();
 }
 
+} // namespace detail
+
+inline double signed_volume(const Mesh &m) {
+    double six_v = 0.0;
+    for (const auto &f : m.faces) {
+        const Vec3 &a = m.vertices[f[0]];
+        const Vec3 &b = m.vertices[f[1]];
+        const Vec3 &c = m.vertices[f[2]];
+        six_v += detail::dot(a, detail::cross(b, c));
+    }
+    return six_v / 6.0;
+}
+
+inline size_t refine_to_length(Mesh &m, double max_edge, size_t max_faces) {
+    size_t face_count = m.faces.size();
+    if (face_count == 0 || m.vertices.empty()) return face_count;
+
+    if (max_edge <= 0.0) {
+        const double diag = detail::bbox_diagonal(m);
+        max_edge = diag / 60.0;
+        if (max_edge <= 0.0) return face_count;
+    }
+
+    const double max_edge_sq = max_edge * max_edge;
+    return detail::refine_with_predicate(
+        m, max_faces, [&m, max_edge_sq](int a, int b) {
+            const Vec3 d = detail::sub(m.vertices[b], m.vertices[a]);
+            return detail::dot(d, d) > max_edge_sq;
+        });
+}
+
 namespace detail {
 
 // Throws std::invalid_argument for a bad axis, taper amount or a box with no length along the axis.
@@ -275,15 +285,11 @@ inline double checked_length(const Params &p, const Vec3 &lo, const Vec3 &hi) {
     return L;
 }
 
-} // namespace detail
-
-// Moves every vertex for the box [lo, hi], which may be larger than the mesh (several parts warped as one); no
-// refinement. p.max_edge / p.max_faces are not used.
-inline void warp(Mesh &m, const Params &p, const Vec3 &lo, const Vec3 &hi) {
-    const double L = detail::checked_length(p, lo, hi);
+// The warp applied to a single point; warp() maps every vertex through this so
+// refinement and warping cannot disagree.
+inline Vec3 warp_point(const Vec3 &v, const Params &p, const Vec3 &lo,
+                       const Vec3 & /*hi*/, double L, const Vec3 &c) {
     const int axis = p.axis;
-    const Vec3 c{0.5 * (lo.x + hi.x), 0.5 * (lo.y + hi.y),
-                 0.5 * (lo.z + hi.z)};
 
     if (p.kind == Kind::Twist) {
         int p1, p2;
@@ -291,56 +297,109 @@ inline void warp(Mesh &m, const Params &p, const Vec3 &lo, const Vec3 &hi) {
         else if (axis == 1) { p1 = 2; p2 = 0; }
         else { p1 = 0; p2 = 1; }
 
-        const double total = p.amount * (detail::kPi / 180.0);
-        for (Vec3 &v : m.vertices) {
-            const double t = (detail::comp(v, axis) - detail::comp(lo, axis)) / L;
-            const double a = total * t;
-            const double ca = std::cos(a);
-            const double sa = std::sin(a);
-            const double x = detail::comp(v, p1) - detail::comp(c, p1);
-            const double y = detail::comp(v, p2) - detail::comp(c, p2);
-            detail::set_comp(v, p1, detail::comp(c, p1) + x * ca - y * sa);
-            detail::set_comp(v, p2, detail::comp(c, p2) + x * sa + y * ca);
-        }
-    } else if (p.kind == Kind::Taper) {
+        const double total = p.amount * (kPi / 180.0);
+        const double t = (comp(v, axis) - comp(lo, axis)) / L;
+        const double a = total * t;
+        const double ca = std::cos(a);
+        const double sa = std::sin(a);
+        const double x = comp(v, p1) - comp(c, p1);
+        const double y = comp(v, p2) - comp(c, p2);
+
+        Vec3 out = v;
+        set_comp(out, p1, comp(c, p1) + x * ca - y * sa);
+        set_comp(out, p2, comp(c, p2) + x * sa + y * ca);
+        return out;
+    }
+
+    if (p.kind == Kind::Taper) {
         int p1, p2;
         if (axis == 0) { p1 = 1; p2 = 2; }
         else if (axis == 1) { p1 = 2; p2 = 0; }
         else { p1 = 0; p2 = 1; }
 
-        for (Vec3 &v : m.vertices) {
-            const double t = (detail::comp(v, axis) - detail::comp(lo, axis)) / L;
-            const double s = 1.0 + (p.amount - 1.0) * t;
-            detail::set_comp(v, p1,
-                             detail::comp(c, p1) +
-                                 (detail::comp(v, p1) - detail::comp(c, p1)) * s);
-            detail::set_comp(v, p2,
-                             detail::comp(c, p2) +
-                                 (detail::comp(v, p2) - detail::comp(c, p2)) * s);
-        }
-    } else { // Bend
-        const double theta = p.amount * (detail::kPi / 180.0);
-        if (std::abs(theta) < 1e-9) return;
+        const double t = (comp(v, axis) - comp(lo, axis)) / L;
+        const double s = 1.0 + (p.amount - 1.0) * t;
 
-        const int d = (axis == 2) ? 0 : 2;
-        const double R = L / theta; // signed bend radius
-        const double lo_a = detail::comp(lo, axis);
-        const double c_d = detail::comp(c, d);
-        // The third axis is the one that is neither the bend axis nor d.
-        const int third = 3 - axis - d;
-
-        for (Vec3 &v : m.vertices) {
-            const double u = detail::comp(v, axis) - lo_a;
-            const double w = detail::comp(v, d) - c_d;
-            const double phi = u / R;
-            const double sp = std::sin(phi);
-            const double cp = std::cos(phi);
-            const double old_third = detail::comp(v, third);
-            detail::set_comp(v, axis, lo_a + (R - w) * sp);
-            detail::set_comp(v, d, c_d + R - (R - w) * cp);
-            detail::set_comp(v, third, old_third);
-        }
+        Vec3 out = v;
+        set_comp(out, p1, comp(c, p1) + (comp(v, p1) - comp(c, p1)) * s);
+        set_comp(out, p2, comp(c, p2) + (comp(v, p2) - comp(c, p2)) * s);
+        return out;
     }
+
+    // Bend
+    const double theta = p.amount * (kPi / 180.0);
+    if (std::abs(theta) < 1e-9) return v;
+
+    const int d = (axis == 2) ? 0 : 2;
+    const double R = L / theta; // signed bend radius
+    const double lo_a = comp(lo, axis);
+    const double c_d = comp(c, d);
+    // The third axis is the one that is neither the bend axis nor d.
+    const int third = 3 - axis - d;
+
+    const double u = comp(v, axis) - lo_a;
+    const double w = comp(v, d) - c_d;
+    const double phi = u / R;
+    const double sp = std::sin(phi);
+    const double cp = std::cos(phi);
+    const double old_third = comp(v, third);
+
+    Vec3 out = v;
+    set_comp(out, axis, lo_a + (R - w) * sp);
+    set_comp(out, d, c_d + R - (R - w) * cp);
+    set_comp(out, third, old_third);
+    return out;
+}
+
+} // namespace detail
+
+// Moves every vertex for the box [lo, hi], which may be larger than the mesh (several parts warped as one); no
+// refinement. p.max_edge / p.max_faces are not used.
+inline void warp(Mesh &m, const Params &p, const Vec3 &lo, const Vec3 &hi) {
+    const double L = detail::checked_length(p, lo, hi);
+    const Vec3 c{0.5 * (lo.x + hi.x), 0.5 * (lo.y + hi.y),
+                 0.5 * (lo.z + hi.z)};
+    for (Vec3 &v : m.vertices) v = detail::warp_point(v, p, lo, hi, L, c);
+}
+
+// Refines m so that after warp(m, p, lo, hi) every edge is no longer than max_edge, measured BEFORE the warp,
+// and no edge's warped midpoint is farther than tol from the midpoint of its two warped end points.  Does not
+// warp.  Returns the face count.
+inline size_t refine_for_warp(Mesh &m, const Params &p, const Vec3 &lo,
+                              const Vec3 &hi, double max_edge, double tol,
+                              size_t max_faces) {
+    const double L = detail::checked_length(p, lo, hi); // throws before touching m
+    const size_t original_faces = m.faces.size();
+    if (original_faces == 0 || m.vertices.empty()) return original_faces;
+
+    if (max_edge <= 0.0) {
+        const double diag = detail::bbox_diagonal(m);
+        max_edge = diag / 60.0;
+        if (max_edge <= 0.0) return original_faces;
+    }
+
+    const Vec3 c{0.5 * (lo.x + hi.x), 0.5 * (lo.y + hi.y),
+                 0.5 * (lo.z + hi.z)};
+    const double max_edge_sq = max_edge * max_edge;
+    const double tol_sq = tol * tol;
+
+    return detail::refine_with_predicate(
+        m, max_faces, [&](int a, int b) {
+            const Vec3 &va = m.vertices[a];
+            const Vec3 &vb = m.vertices[b];
+            const Vec3 d = detail::sub(vb, va);
+            if (detail::dot(d, d) > max_edge_sq) return true;
+
+            const Vec3 mid{0.5 * (va.x + vb.x), 0.5 * (va.y + vb.y),
+                           0.5 * (va.z + vb.z)};
+            const Vec3 wm = detail::warp_point(mid, p, lo, hi, L, c);
+            const Vec3 wa = detail::warp_point(va, p, lo, hi, L, c);
+            const Vec3 wb = detail::warp_point(vb, p, lo, hi, L, c);
+            const Vec3 chord{0.5 * (wa.x + wb.x), 0.5 * (wa.y + wb.y),
+                             0.5 * (wa.z + wb.z)};
+            const Vec3 err = detail::sub(wm, chord);
+            return detail::dot(err, err) > tol_sq;
+        });
 }
 
 inline size_t deform(Mesh &m, const Params &p) {
@@ -350,13 +409,13 @@ inline size_t deform(Mesh &m, const Params &p) {
     detail::bounding_box(m, lo, hi);
     detail::checked_length(p, lo, hi); // before refining, so a bad call leaves m alone
 
+    const double diag = detail::bbox_diagonal(m);
     double max_edge = p.max_edge;
-    if (max_edge <= 0.0) {
-        const double diag = detail::bbox_diagonal(m);
-        max_edge = diag / 60.0;
-    }
+    if (max_edge <= 0.0) max_edge = diag / 60.0;
+    const double tol = diag / 4000.0;
     const size_t budget = p.max_faces == 0 ? 2000000 : p.max_faces;
-    const size_t result_faces = refine_to_length(m, max_edge, budget);
+    const size_t result_faces =
+        refine_for_warp(m, p, lo, hi, max_edge, tol, budget);
     warp(m, p, lo, hi);
     return result_faces;
 }
