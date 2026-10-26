@@ -3242,3 +3242,6 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
   (signed volume -10492 vs +10172): flipped now, and inside-out shells are no longer skipped ("could not be voxelized" on a 2nd blend).
 - WSA results: gear r 40 18 s, r 3 at voxel 0.405 (the old stall) 7.4 s; box_with_lid r 40 size kept (124.3x44.6x75.8 -> 123.7x44.6x75.3);
   UI Cancel mid-grow: dialog gone in ~1 s, no error, object unchanged; re-blend r 20: 1 shell, +10843 mm3. User feel untested.
+- Phone r429 (run 40397057477, user watching, 2026-10-26): same 176k gear, r 20, 8 cores uncapped: voxel 0.437, voxelize 2.1 s,
+  grow 2.3 s, shrink 0.2 s (4.6 s total), 20514 faces; no livelock on real ARM. Cancel 1.5 s after Apply: stopped in voxelize,
+  no error, gear unchanged. Test gear + file removed afterwards. r429 installed on phone, WSA, SHIELD, Quest.

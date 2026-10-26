@@ -66,4 +66,4 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - Truck demo people visibility: check through the windows with the builder closed (WSA plate 6, r416); user or Claude.
 - 3MF writes effective bed type per plate + project (plate 4 / printer "unknown"), label "Cool Plate (SuperTack)": built, untested (moved from handoff 2026-10-26).
 - r416 band fix + measure step 1: on WSA + SHIELD, await a Claude/user check (moved from handoff 2026-10-26).
-- CAD user feel open: 2a-2c sketch Twist / Rise per turn / Loft / Sweep (r421), 3 Bend / twist / taper (More menu, r423); Claude-verified WSA 2026-10-26. Smooth blend (More, r429: stall/cancel/size/inside-out fixed, Claude WSA 2026-10-26): user feel + real ARM (phone) run untested.
+- CAD user feel open: 2a-2c sketch Twist / Rise per turn / Loft / Sweep (r421), 3 Bend / twist / taper (More menu, r423); Claude-verified WSA 2026-10-26. Smooth blend (More, r429: stall/cancel/size/inside-out fixed, Claude WSA 2026-10-26): phone run Claude-verified r429; user feel untested.

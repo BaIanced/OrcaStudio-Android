@@ -14,7 +14,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 0170950 (PR #65, branch at r398, merged 2026-10-25). Untested by the user in main: Build workspace, paint shop/depth, Filament materials, Realistic render, UX P1-P6, Check mesh feel, 3MF export in desktop Orca, pen, fan hold, Extrude F150.
 - Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
-- Latest CI build r428 (run 40386301058, sculpt ring + split) on WSA + SHIELD + Quest + phone (`IP:5555`); debug app uninstalled from WSA. Note offline.
+- Latest CI build r429 (run 40397057477, smooth blend fixes) on WSA + SHIELD + Quest + phone (`IP:5555`). Note offline.
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
@@ -36,7 +36,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   1a user feel untested ("Blend joins (mm)"). 1b (tap an edge) parked.
 - CAD 2a-2c (r421), 3 deformers (r423), 4 Smooth blend, 5a sculpt core: Claude-verified WSA (archive); user feel open.
 - Smooth blend stall fixed 2026-10-26 (archive): WSA-only TBB livelock under Houdini (4-thread cap there), voxel budget, Cancel,
-  size + inside-out fixes. Claude-verified WSA debug; CI run 40397057477 (r429); untested on a real ARM device (phone).
+  size + inside-out fixes. r429 (run 40397057477): Claude-verified WSA + phone (4.6 s, Cancel OK); user feel untested.
 - CAD 5b live sculpt (More > Sculpt, r427) + brush ring / stroke-end split (r428): Claude-verified WSA debug (archive); user feel untested.
 - Next step: Bands paint edges jagged when band start/height aren't layer multiples (backlog [Opus]) -> Opus 5.5 (high)
 
