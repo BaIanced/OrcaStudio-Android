@@ -28,7 +28,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   Claude compiles, merges, cherry-picks. Audits + JVM-testable Kotlin only.
   Tasks 1-18 merged. **Session start, run exactly:** `gh pr list --state open --json number,title,headRefName; gh issue view 46 --json comments --jq '.comments[-2:][]|.createdAt+" "+(.body|.[0:300])'`
 - User feel/checks open (backlog): paint plan, Build workspace, Filament materials, Realistic render, 3MF in desktop Orca (+ bed type), pen, plate switcher pick, band fix, measure step 1, push/pull fold.
-- **Local native build works again (2026-10-26)**: WSL deps prefix refreshed from CI (`gh workflow run android-apk.yml -f deps_artifact=true`, download, copy into `~/orca-build/deps/OrcaSlicer_dep/usr/local`), and `android/patches/src-orca/*.patch` applied to `~/src/OrcaStudio-Android/src-orca` (`patch -p1`). Then `corebuild.sh`, llvm-strip from `~/Android/Sdk/ndk/28.2.13676358/...`, assembleDebug, install (reference "Native change on the debug app").
+- Local native build works (2026-10-26; deps refresh + patches steps in reference "Native change on the debug app").
 - Local debug test: reference "Local APK" + "WSA debug loop" (parked window: taps via `tapf.sh`).
 - **Offload (user 2026-10-25/26): max token use onto free opencode models, growing leeway by track record** (Claude specs + verifies).
   DeepSeek V4.1 Flash = default; self-checking runner `octauto.sh` (`D:\oct-backup\jobs\README.md`), ledger `trust-profile.md`.
@@ -37,7 +37,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - CAD 2a-2c (r421) + step 3 deformers (r423, twist refinement fix by DeepSeek) Claude-verified WSA 2026-10-26 (archive); user feel open.
   Latest build r423 (run 40286374371) on WSA + SHIELD; phone offline. Big Pickle deform2: same result as DeepSeek, 1.5x slower (ledger).
 - CAD step 4 Smooth blend (`OrcaVdbBlend.cpp`, More menu, MCP `object_smooth_blend`): WSA-tested 2026-10-26 (L shape 360 -> 27k faces, bbox kept; lid box 52k, 6 s; 147k mesh 5 s). **Open bug: the 176k-face gear stalled forever at voxel 0.4 mm (diag/300) in OpenVDB closing, fine at 0.74-0.81 mm; cause unknown (geometry-dependent), so voxel = diag/200 now. No cancel.** Stage logs "smooth blend:" in logcat. User feel untested.
-- Next step: CAD step 5 sculpt mode -> Opus 5.5 (high)
+- CAD step 5a sculpt brush core (`MeshSculpt.hpp`, `OrcaSculpt.cpp`, MCP `object_sculpt`) built locally, WSA-verified 2026-10-26 (archive); debug app, no CI build yet. No UI.
+- Next step: CAD step 5b sculpt UI (brush strip, drag = dab with camera locked, fast partial mesh update so 100k+ faces stay live) -> Opus 5.5 (high)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).

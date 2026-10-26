@@ -3181,3 +3181,14 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 - WSA MCP r423: new 40-tooth gear (sketch, 86 x 86 x 2, plate 6 object 7, 636 faces): twist +30 -> 89056 faces, -30 -> 107296;
   `object_check_mesh` (CGAL self-intersections) "No problems found" both times, volume 10835 / 10829 / 10831 mm3.
 - Harness note: the job's FAIL was a `mesh_check` false positive (27 coplanar disjoint pairs on flat walls, max 1.4e-5 off-plane).
+
+## 2026-10-26 CAD step 5a: sculpt brush core (Claude-verified on WSA debug build, user feel untested)
+- `android/core/jni/MeshSculpt.hpp` (pure C++, SculptGL-style falloff `(1-(d/r)^2)^2`): brushes draw, inflate, smooth, flatten, pinch, crease, grab;
+  `build_topology` (CSR neighbours + area-weighted normals) per call; `dab` reads from a snapshot. Desktop test (WSL g++, `~/sculpt_test/sculpt_test.cpp`,
+  not in the repo): draw raises the top by 0.04, smooth pulls a 0.3 spike back to 0.01, grab moves exactly by delta, flatten lowers the cap.
+- `OrcaSculpt.cpp`: `OrcaEngine::sculpt(hits, brush, radius, strength, invert, new_stroke)` in volume coordinates (radius / cbrt(det) of the copy's matrix);
+  first call of a stroke: push_undo + `refine_to_length(radius/5)` when the longest edge exceeds it (budget max(400k, faces); refining drops painting,
+  otherwise facet indices and painting stay). Call-table name `sculpt`; Kotlin `Engine.sculpt`; MCP `object_sculpt` (ray origin/dir, brush, radius, strength, invert, dabs).
+- WSA test (box_with_lid, 40778 faces): inflate r8 x10 -> 73530 faces (refined); inflate r30 x50 -> size Y 44.6 -> 56.8 mm, Z 75.3 -> 77.4 mm.
+- Known limits: topology rebuilt per call (O(n)), `write_mesh` rewrites the whole plate each commit (too slow for live strokes above ~50k faces);
+  grab uses hit-to-hit deltas, not a captured vertex set; no symmetry; no UI yet.

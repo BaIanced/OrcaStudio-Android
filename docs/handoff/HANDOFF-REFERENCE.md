@@ -151,3 +151,4 @@ headless display below instead (no takeover needed). Don't drive WSA's own windo
 - Handoff docs moved here from `OrcaStudio/arm-build` 2026-10-19; that repo is Flatpak-only now, untouched unless asked.
 
 - Disk: C: is tight; move old build dirs to `D:\orca-builds-archive`.
+- Local native build prerequisites (2026-10-26): refresh the WSL deps prefix from CI (`gh workflow run android-apk.yml -f deps_artifact=true`, download, copy into `~/orca-build/deps/OrcaSlicer_dep/usr/local`) and apply `android/patches/src-orca/*.patch` to `~/src/OrcaStudio-Android/src-orca` (`patch -p1`). llvm-strip path: `/home/vanzalon/Android/Sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip` (use the full path; a `~` glob inside `bash -c` failed). Stripped lib goes to `C:\Users\Vince\build\orca-android\jniLibs\arm64-v8a\`; debug APK lands in `C:\Users\Vince\build\orca-android\gradle\app\outputs\apk\debug\app-debug.apk`.
