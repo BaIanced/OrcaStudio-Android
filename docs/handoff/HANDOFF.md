@@ -34,12 +34,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Built, untested: 3MF writes effective bed type per plate + project (plate 4 / printer "unknown"), label "Cool Plate (SuperTack)". Awaiting user: push/pull tier 1 (r401), edge bands on paint (r403).
 - r416 on WSA + SHIELD: band fix + measure step 1 await a check. User decisions open: push/pull fold vs remove, CAD roadmap + reuse plan (`NOTES-cad-reuse.md`).
 - CAD plan accepted (user 2026-10-25): steps tagged in `NOTES-cad-reuse.md`. Step 0 GO (r418, archive 2026-10-26).
-- CAD step 1a (2026-10-26, run 40266715932, CI running): per-shape round/chamfer/hollow ALREADY existed (OpenSCAD minkowski, 45ac19d),
-  so step 1 became **Blend joins** on groups (deviation): group field "Blend joins (mm)" -> piece code `BLEND_TAG`+JSON
-  (`ShapeDesign.blendCode`) -> `Engine.blendSolids` -> `android/core/jni/OrcaBlend.cpp` (exact OCCT box/cyl/cone/sphere, own
-  round/chamfer, fuse, UnifySameDomain, fillet SectionEdges, cut holes + fillet rims, tessellate 0.02 mm). Others -> error naming the shape.
-  JVM test added (19/19). Next: WSA check (box + cylinder group, blend 2; hole rim; too-large radius error; Merge bake of a blended group).
-- Next step: CAD step 1a WSA check of Blend joins -> Opus 5.5 (high)
+- CAD step 1a Blend joins Claude-verified WSA r419 (archive 2026-10-26); r419 on WSA + SHIELD. User feel untested (group panel
+  "Blend joins (mm)"). MCP `shape_update` blend key fixed after r419 (unbuilt). Step 1b (tap one edge to round) parked: low value on touch.
+- Next step: CAD step 2 sweep / loft / revolve / helix from CadDocument (touch profile + path) -> Opus 5.5 (medium)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).

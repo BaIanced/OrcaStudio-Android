@@ -3141,3 +3141,13 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 
 ## 2026-10-26 CAD step 0 verified (Claude, WSA r418)
 - SLIC3R_CAD ON + dep_SLVS build OK; deps rebuild 43 min once; APK 112.41 -> 120.68 MB; Add shape "Round edges" 20 mm cube r3 -> 11404 tris. Box depth/height were swapped in add_primitive (fixed in step 1a commit).
+
+## 2026-10-26 CAD step 1a Blend joins (Claude, WSA r419, run 40266715932)
+- Per-shape round/chamfer/hollow already existed (OpenSCAD minkowski, 45ac19d), so step 1 = group "Blend joins (mm)" (deviation).
+  Kotlin: `ShapeDesign.blendCode` turns a blended group's piece into `BLEND_TAG` + {radius, parts} (box/rounded box/round cyl/cone/sphere,
+  own round/chamfer, 4x4 matrix, hole); `ScadController.blend` -> `Engine.blendSolids` -> `android/core/jni/OrcaBlend.cpp` (OCCT 8:
+  exact primitives, GTransform for elliptic, fuse, UnifySameDomain + history, fillet SectionEdges, cut holes + fillet rims, tessellate 0.02 mm/0.3 rad).
+- WSA via MCP design_set + design_to_plate: box + cylinder + bore, blend 2 -> 3566 tris, 1 shell, 7450 mm3, fillet + rims visible.
+  Blend 9 -> "rounding the hole rims failed (try a smaller radius)", nothing placed. Torus -> "can't take "Ring"". Rounded box + sphere +
+  tilted mirrored elliptic cone, blend 1.5 -> 9480 tris, 1 shell, looks right. shape_merge of the blended group -> mesh shape OK.
+- Found: MCP shape_update rejected extra.blend (EXTRA_KEYS) -> fixed after r419. Native compiled first try on CI.
