@@ -313,6 +313,12 @@ class ShapeController(private val store: Store, private val scad: ScadController
         commit((if (dims != null) d.withDims(dims) else d).update(id) { ShapeDesign.fitSketch(it, sketch) })
     }
 
+    /** Sketch shape [id]'s top outline its sides loft to (null = straight extrusion). */
+    fun setTop(id: Int, top: Sketch?, dims: List<Dim>? = null) {
+        val d = design ?: return
+        commit((if (dims != null) d.withDims(dims) else d).update(id) { it.copy(top = top) })
+    }
+
     /** Sketch shape [id]: extrude ([revolve] false) or revolve about Z. */
     fun setRevolve(id: Int, revolve: Boolean) {
         val d = design ?: return

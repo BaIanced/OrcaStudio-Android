@@ -278,7 +278,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             s.extra.forEach { (k, x) -> append(" $k=${n(x)}") }
             if (s.text.isNotEmpty()) append(" text \"${s.text}\"")
             s.repeat?.let { r -> append(if (r.circular) " repeat ${r.count}x around ${v(r.center)} over ${n(r.angle)}°" else " repeat ${r.count}x step ${v(r.step)}") }
-            s.sketch?.let { sk -> append(" sketch ${sk.loops.size} loop(s)") }
+            s.sketch?.let { sk -> append(" sketch ${sk.loops.size} loop(s)") }; s.top?.let { append(" lofted to a top outline") }
             s.bind.forEach { (f, dim) -> append(" $f<-$dim") }
             val b = d.bounds(s)
             append(" bounds ${v(b.min)}..${v(b.max)}")

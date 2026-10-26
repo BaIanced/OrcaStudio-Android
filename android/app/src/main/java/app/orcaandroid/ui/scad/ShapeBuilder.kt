@@ -50,6 +50,7 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -105,12 +106,19 @@ fun ShapesTab(s: ScadEditorState, vm: AppViewModel) {
     val sh = vm.shapes
     val focus = remember { FocusRequester() }
     var sketching by remember { mutableStateOf<Int?>(null) }
+    var topOf by remember { mutableStateOf<Int?>(null) }
     val stl = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { it?.let(sh::importMesh) }
     sketching?.let { id ->
         val shape = d.find(id)
         if (shape == null) sketching = null
         else SketchEditor(shape.sketch ?: Sketch.START, shape.x(Shape.REVOLVE, 0.0) != 0.0, d.dims, shape.name,
             onDone = { s, dims -> sh.setSketch(id, s, dims); sketching = null }, onCancel = { sketching = null })
+    }
+    topOf?.let { id ->
+        val shape = d.find(id)
+        if (shape == null) topOf = null
+        else SketchEditor(shape.top ?: shape.sketch ?: Sketch.START, false, d.dims, shape.name,
+            onDone = { s, dims -> sh.setTop(id, s, dims); topOf = null }, onCancel = { topOf = null })
     }
     Column(
         Modifier.fillMaxSize().focusRequester(focus).focusable().onKeyEvent { e ->
@@ -158,7 +166,7 @@ fun ShapesTab(s: ScadEditorState, vm: AppViewModel) {
         val one = s.selected.singleOrNull()?.let { d.find(it) }
         if (one != null) {
             HorizontalDivider(Modifier.padding(top = 8.dp))
-            Properties(one, d, vm, filaments) { sketching = one.id }
+            Properties(one, d, vm, filaments) { top -> if (top) topOf = one.id else sketching = one.id }
         } else if (s.selected.size > 1) {
             Text(stringResource(R.string.shape_multi, s.selected.size), style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp))
@@ -244,7 +252,7 @@ private fun ShapeRow(shape: Shape, depth: Int, s: ScadEditorState, vm: AppViewMo
 // --- Properties of the selected shape ------------------------------------------------------------
 
 @Composable
-private fun Properties(shape: Shape, d: ShapeDesign, vm: AppViewModel, filaments: List<FilamentSlot>, onEditSketch: () -> Unit) {
+private fun Properties(shape: Shape, d: ShapeDesign, vm: AppViewModel, filaments: List<FilamentSlot>, onEditSketch: (top: Boolean) -> Unit) {
     val sh = vm.shapes
     Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         var name by remember(shape.id) { mutableStateOf(shape.name) }
@@ -329,10 +337,10 @@ private fun ShellEditor(shape: Shape, d: ShapeDesign, vm: AppViewModel) {
 
 /** A sketch shape: open the drawing, extrude or revolve it. */
 @Composable
-private fun SketchSettings(shape: Shape, d: ShapeDesign, vm: AppViewModel, onEditSketch: () -> Unit) {
+private fun SketchSettings(shape: Shape, d: ShapeDesign, vm: AppViewModel, onEditSketch: (top: Boolean) -> Unit) {
     val revolve = shape.x(Shape.REVOLVE, 0.0) != 0.0
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        FilledTonalButton(onClick = onEditSketch) {
+        FilledTonalButton(onClick = { onEditSketch(false) }) {
             Icon(Icons.Default.Draw, null, Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
             Text(stringResource(R.string.sketch_edit))
@@ -352,6 +360,13 @@ private fun SketchSettings(shape: Shape, d: ShapeDesign, vm: AppViewModel, onEdi
     } else {
         ExtraField(stringResource(R.string.sketch_top_scale), shape, d, vm, Shape.TOP, 1.0, slider = false)
         ExtraField(stringResource(R.string.sketch_twist), shape, d, vm, Shape.TWIST, 0.0)
+        // A second outline the sides loft up to (square to circle and the like).
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = { onEditSketch(true) }) {
+                Text(stringResource(if (shape.top == null) R.string.sketch_top_add else R.string.sketch_top_edit))
+            }
+            if (shape.top != null) TextButton(onClick = { vm.shapes.setTop(shape.id, null) }) { Text(stringResource(R.string.sketch_top_remove)) }
+        }
     }
 }
 

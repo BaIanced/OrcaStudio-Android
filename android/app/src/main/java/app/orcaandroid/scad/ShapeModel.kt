@@ -82,6 +82,8 @@ data class Shape(
     val repeat: Repeat? = null,
     /** The drawing a SKETCH shape extrudes (or revolves, extra REVOLVE = 1). */
     val sketch: Sketch? = null,
+    /** An extruded sketch's top outline (same frame as [sketch]): the sides loft from one to the other. */
+    val top: Sketch? = null,
     /** Field ("size.x", "pos.z", "rot.y", "radius", ...) -> name of the [Dim] that drives it. */
     val bind: Map<String, String> = emptyMap(),
     val children: List<Shape> = emptyList(),
@@ -112,6 +114,7 @@ data class Shape(
             if (file.isNotEmpty()) put("file", file)
             repeat?.let { put("repeat", it.json()) }
             sketch?.let { put("sketch", it.json()) }
+            top?.let { put("top", it.json()) }
             if (bind.isNotEmpty()) put("bind", JSONObject(bind))
             if (children.isNotEmpty()) put("children", JSONArray().apply { children.forEach { put(it.json()) } })
             if (filament > 0) put("filament", filament)
@@ -162,6 +165,7 @@ data class Shape(
             file = o.optString("file"),
             repeat = Repeat.of(o.optJSONObject("repeat")),
             sketch = Sketch.of(o.optJSONObject("sketch")),
+            top = Sketch.of(o.optJSONObject("top")),
             bind = o.optJSONObject("bind")?.let { b -> b.keys().asSequence().associateWith { b.optString(it) } } ?: emptyMap(),
             children = o.optJSONArray("children")?.let { a -> (0 until a.length()).map { of(a.getJSONObject(it)) } } ?: emptyList(),
             filament = o.optInt("filament").coerceAtLeast(0),
@@ -347,6 +351,37 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
             appendLine("        convexity = 10);")
             appendLine("}")
         }
+        if (shapes.any { sh -> sh.all().any { lofted(it) != null } }) {
+            appendLine()
+            appendLine("// Outline a lofted to b (same point count, counter-clockwise) scaled by sx / sy over height h, the top")
+            appendLine("// turned twist degrees (clockwise, like linear_extrude) and scaled by top.")
+            appendLine("module loft(a, b, sx, sy, h, twist, top) {")
+            appendLine("    n = len(a);")
+            appendLine("    m = max(1, ceil(abs(twist) / 5));")
+            appendLine("    pts = [for (i = [0:m]) let(t = i / m, k = 1 + (top - 1) * t, c = cos(-twist * t), s = sin(-twist * t))")
+            appendLine("        for (j = [0:n - 1]) let(x = (a[j][0] + (b[j][0] - a[j][0]) * t) * k * sx, y = (a[j][1] + (b[j][1] - a[j][1]) * t) * k * sy)")
+            appendLine("            [x * c - y * s, x * s + y * c, h * t]];")
+            appendLine("    polyhedron(pts, concat([[for (j = [0:n - 1]) j]], [[for (j = [n - 1:-1:0]) m * n + j]],")
+            appendLine("        [for (i = [0:m - 1], j = [0:n - 1]) [i * n + j, (i + 1) * n + j, (i + 1) * n + (j + 1) % n, i * n + (j + 1) % n]]),")
+            appendLine("        convexity = 10);")
+            appendLine("}")
+        }
+    }
+
+    /**
+     * An extruded sketch with a top outline: its solid outlines and the top's, paired in order, each pair resampled to
+     * the same number of points (counter-clockwise, starting nearest the +x side of its centre) so the sides join point
+     * to point. Null when nothing lofts.
+     */
+    private fun lofted(s: Shape): Pair<List<List<P2>>, List<List<P2>>>? {
+        if (s.kind != Shape.Kind.SKETCH || s.x(Shape.REVOLVE, 0.0) != 0.0) return null
+        fun solids(sk: Sketch?) = sk?.loops?.filter { !it.hole && it.pts.size >= 2 }?.map { l ->
+            l.polygon().let { if (Sketch.area(it) < 0) it.reversed() else it } }?.filter { it.size >= 3 } ?: emptyList()
+        val a = solids(s.sketch)
+        val b = solids(s.top)
+        if (a.isEmpty() || b.isEmpty()) return null
+        val pairs = a.zip(b) { p, q -> max(48, max(p.size, q.size)).coerceAtMost(360).let { k -> Sketch.resample(p, k) to Sketch.resample(q, k) } }
+        return pairs.map { it.first } to pairs.map { it.second }
     }
 
     /** A revolved sketch that rises as it turns (a coil, spring or thread), drawn by the prelude's coil module. */
@@ -834,6 +869,14 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
         val top = s.x(Shape.TOP, 1.0).coerceAtLeast(0.0)
         val twist = if (value(s, Shape.TWIST, s.x(Shape.TWIST, 0.0)) != 0.0) ", twist = ${f(s, Shape.TWIST, s.x(Shape.TWIST, 0.0))}" else ""
         val c = (lo + hi) * 0.5
+        lofted(s)?.let { (bottom, upper) ->
+            // Each solid outline lofts to the top one at its position (no 2D offset reaches it: no rounded corners or inset).
+            val tw = f(s, Shape.TWIST, s.x(Shape.TWIST, 0.0))
+            fun pts(p: List<P2>) = p.joinToString(", ", "[", "]") { "[${n(it.x - c.x)}, ${n(it.y - c.y)}]" }
+            val parts = bottom.zip(upper) { a, b -> "loft(${pts(a)}, ${pts(b)}, $w / ${n(max(0.01, hi.x - lo.x))}, " +
+                "$d / ${n(max(0.01, hi.y - lo.y))}, $h, $tw, ${n(top)});" }
+            return if (parts.size == 1) parts[0] else "union() { ${parts.joinToString(" ")} }"
+        }
         return "linear_extrude($h${if (top != 1.0) ", scale = ${n(top)}" else ""}$twist) " +
             mods("scale([$w / ${n(max(0.01, hi.x - lo.x))}, $d / ${n(max(0.01, hi.y - lo.y))}]) ${sk.toScad(P2(-c.x, -c.y))}")
     }

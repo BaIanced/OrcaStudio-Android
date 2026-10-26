@@ -1,5 +1,6 @@
 package app.orcaandroid.scad
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -29,6 +30,26 @@ class SketchSweepTest {
         val code = sketch(mapOf(Shape.REVOLVE to 1.0, Shape.ANGLE to 180.0)).toScad()
         assertTrue(code.contains("rotate_extrude(angle = 180"))
         assertFalse(code.contains("module coil("))
+    }
+
+    @Test fun resamplingStartsOnThePlusXSideAndKeepsTheDirection() {
+        val sq = listOf(P2(-1.0, -1.0), P2(1.0, -1.0), P2(1.0, 1.0), P2(-1.0, 1.0))
+        val r = Sketch.resample(sq, 8)
+        assertEquals(8, r.size)
+        val want = listOf(P2(1.0, 0.0), P2(1.0, 1.0), P2(0.0, 1.0), P2(-1.0, 1.0), P2(-1.0, 0.0), P2(-1.0, -1.0), P2(0.0, -1.0), P2(1.0, -1.0))
+        r.zip(want).forEach { (a, b) -> assertEquals(0.0, a.dist(b), 1e-9) }
+    }
+
+    @Test fun aTopOutlineLoftsTheExtrusion() {
+        val circle = Sketch().plus(Loop.circle(P2(0.0, 0.0), 5.0))
+        val sq = Sketch.START
+        val code = ShapeDesign(listOf(Shape(1, Shape.Kind.SKETCH, "S", D3(20.0, 20.0, 10.0), sketch = sq, top = circle))).toScad()
+        assertTrue(code.contains("module loft("))
+        assertTrue(code.contains("loft([[10, 0], "))
+        assertTrue(code.contains("20 / 20, 20 / 20, 10, 0, 1);"))
+        assertFalse(code.contains("linear_extrude("))
+        // Saved and read back with the design.
+        assertEquals(circle.loops, Shape.of(Shape(1, Shape.Kind.SKETCH, "S", D3(), sketch = sq, top = circle).json()).top?.loops)
     }
 
     @Test fun twistGoesToTheExtrusion() {
