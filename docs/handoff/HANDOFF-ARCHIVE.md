@@ -3171,3 +3171,13 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
   line by taps, Done -> 2nd open loop saved, preview 5184 tris; line tap picks the path.
 - Known: a profile wider than a path bend's radius folds into itself (no check); sweeps skip corner rounding / shell.
 - 2c review fixes by DeepSeek V4.1 Flash (max, 27 min): 3 real edge cases (repeated profile points, lift from discarded/hole loops, open path ending at its start), winding confirmed; fixed + test, 218/218 JVM.
+
+## 2026-10-26 CAD step 3 deformers: twist refinement fix (r423, Claude-verified WSA)
+- Bug (r422): a flat part twisted kept one-triangle walls (refine only by edge length before the warp), chords cut the next teeth:
+  2 mm gear +30/-30 deg -> 9805 self-intersecting face pairs, volume 10835 -> 10171 mm3.
+- Fix: `MeshDeform.hpp` `refine_for_warp` (also splits edges whose warped midpoint strays > tol from the warped chord; shared
+  `detail::warp_point` + `refine_with_predicate`), written by DeepSeek V4.1 Flash (job `deform2`, 20 min); `OrcaDeform.cpp` uses
+  tol = diag/4000. Commit "Deform: refine edges whose warped chord strays", r423 run 40286374371, installed WSA + SHIELD.
+- WSA MCP r423: new 40-tooth gear (sketch, 86 x 86 x 2, plate 6 object 7, 636 faces): twist +30 -> 89056 faces, -30 -> 107296;
+  `object_check_mesh` (CGAL self-intersections) "No problems found" both times, volume 10835 / 10829 / 10831 mm3.
+- Harness note: the job's FAIL was a `mesh_check` false positive (27 coplanar disjoint pairs on flat walls, max 1.4e-5 off-plane).

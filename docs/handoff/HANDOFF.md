@@ -14,7 +14,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 0170950 (PR #65, branch at r398, merged 2026-10-25). Untested by the user in main: Build workspace, paint shop/depth, Filament materials, Realistic render, UX P1-P6, Check mesh feel, 3MF export in desktop Orca, pen, fan hold, Extrude F150.
 - Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
-- Latest build r406 (run 40214211857, Bands paint perf), installed WSA + SHIELD 2026-10-25; phone offline (install when back). Chromebook/Note offline. Note r389, Chromebook r374.
+- Latest build r423 (see Next task); phone offline (install when back). Chromebook/Note offline. Note r389, Chromebook r374.
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
@@ -33,12 +33,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   DeepSeek V4.1 Flash = default; self-checking runner `octauto.sh` (`D:\oct-backup\jobs\README.md`), ledger `trust-profile.md`.
 - CAD plan accepted (user 2026-10-25), steps in `NOTES-cad-reuse.md`. Steps 0 + 1a Claude-verified WSA r419 (archive);
   1a user feel untested ("Blend joins (mm)"). 1b (tap an edge) parked.
-- CAD 2a/2b/2c (Twist, coil, loft, sweep) on r421 (run 40280748704; WSA + SHIELD 2026-10-26, phone offline), Claude-verified; user feel open (backlog). Coils/lofts/sweeps skip corner rounding.
-- Step 3 deformers (More menu "Bend / twist / taper", MCP `object_deform`): bend/taper clean on WSA r422. Twist fix (DeepSeek
-  `refine_for_warp`, chord error <= diag/4000) in r423 (run 40286374371, building). Its harness FAIL was a `mesh_check` false positive
-  (coplanar disjoint pairs; ledger). Next: install r423 on WSA + SHIELD, MCP: re-add a gear sample (plate 2 object 5 is mangled),
-  twist 30 then -30, check facet count + looks; Big Pickle ran the same job for comparison (`jobs/deform2/verdict-big-pickle.txt`, log it).
-- Next step: CAD step 3 r423 gear recheck on WSA -> Sonnet 5.5 (medium)
+- CAD 2a-2c (r421) + step 3 deformers (r423, twist refinement fix by DeepSeek) Claude-verified WSA 2026-10-26 (archive); user feel open.
+  Latest build r423 (run 40286374371) on WSA + SHIELD; phone offline. Big Pickle ran deform2 too: log its verdict/diff in `trust-profile.md`.
+- Step 4 (smooth blend for meshes, OpenVDB closing, `NOTES-cad-reuse.md` step 4): next; check src-orca OpenVDBUtils first.
+- Next step: CAD step 4 smooth mesh blend -> Sonnet 5.5 (medium)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
