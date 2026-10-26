@@ -24,19 +24,19 @@ bend/twist, playdough sculpting) without writing code. Roadmap items 3-6 in HAND
 - Skip: Fornjot / Truck (Rust, immature), FreeCAD (LGPL, too big, Qt).
 
 ## Plan (each phase ends on a WSA check; one small step per session)
-0. **[Opus] OCCT spike** (1-2 sessions). Set `SLIC3R_CAD ON` in `android/deps/CMakeLists.txt:35` + `android/core/CMakeLists.txt:38`,
+0. **OCCT spike** `Opus 5.5 (medium; high after 2 failed CI tries)` (1-2 sessions). Set `SLIC3R_CAD ON` in `android/deps/CMakeLists.txt:35` + `android/core/CMakeLists.txt:38`,
    add the SLVS dep (not in the Android deps list yet), rebuild deps on CI. Measure APK growth (guess +10-25 MB, unmeasured)
    and CI time. One JNI call: box -> `apply_fillet` all edges -> `tessellate` -> new object. **Go/no-go: size and build OK.**
-1. **[Opus] Rounded edges + shell in the shape builder** (item 5, part 1). Shape builder shapes map to `make_primitive` +
+1. **Rounded edges + shell in the shape builder** `Opus 5.5 (high)`: B-rep edge picking, fillet failures (item 5, part 1). Shape builder shapes map to `make_primitive` +
    Boolean; add per-shape "Round edges" / "Chamfer" slider (all edges, or tap an edge via `edges_of`/`edge_index_of`).
    Fillets between shapes = union in B-rep, then fillet the new intersection edges. Keep OpenSCAD for code / AI paths.
-2. **[Opus] Sweep, loft, revolve, helix/thread** (item 4) from CadDocument. Touch UI: draw a profile on the existing sketch
+2. **Sweep, loft, revolve, helix/thread** `Opus 5.5 (medium)` (item 4) from CadDocument. Touch UI: draw a profile on the existing sketch
    plane, pick a path or a second profile. Write `cad_recipe` into the 3MF; check it in desktop Orca 2.5.
-3. **[Opus] Deformers bend/twist/taper** (item 3): mesh side, so they also work on STLs. Refine to edge length, then warp
+3. **Deformers bend/twist/taper** `Opus 5.5 (medium)` (item 3): mesh side, so they also work on STLs. Refine to edge length, then warp
    vertices in core (same math as Manifold `Warp`; libigl `upsample` for density). Slider + axis gizmo.
-4. **Smooth blend for meshes** (item 5, part 2): OpenVDB closing on a union of mesh shapes / imported STLs (radius slider);
+4. **Smooth blend for meshes** `Sonnet 5.5 (medium)`: OpenVDBUtils does the work (item 5, part 2): OpenVDB closing on a union of mesh shapes / imported STLs (radius slider);
    voxel size bounded by the object size so phones stay fast.
-5. **[Opus] Sculpt mode** (item 6, the "playdough" wish): SculptGL brush ports in C++ on an indexed mesh with the libslic3r
+5. **Sculpt mode** `Opus 5.5 (high)` (item 6, the "playdough" wish): SculptGL brush ports in C++ on an indexed mesh with the libslic3r
    AABB tree for hits, CGAL remesh before sculpting, libigl laplacian for smooth; result is a plain mesh, repaired before slicing.
    Reuses the GL view and paint-brush touch handling. Biggest item.
 
