@@ -164,7 +164,7 @@ class Engine(private val cacheDir: File) {
     suspend fun undo() = parseScene(call("undo"))
     suspend fun redo() = parseScene(call("redo"))
     suspend fun setUndoLimit(limit: Int) = parseScene(call("setUndoLimit", args("limit" to limit)))
-    suspend fun addPrimitive(shape: String, size: Vec3, plate: Int) = parseScene(call("addPrimitive", args("shape" to shape, "size" to size, "plate" to plate)))
+    suspend fun addPrimitive(shape: String, size: Vec3, plate: Int, round: Float = 0f) = parseScene(call("addPrimitive", args("shape" to shape, "size" to size, "plate" to plate, "round" to round)))
     suspend fun addText(text: String, font: String, height: Float, depth: Float, plate: Int) =
         parseScene(call("addText", args("text" to text, "font" to font, "height" to height, "depth" to depth, "plate" to plate)))
     suspend fun addSvg(path: String, width: Float, depth: Float, plate: Int) =

@@ -102,7 +102,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
 
     fun addSample(file: File) = store.sceneOp(store.str(R.string.loading_model)) { engine.loadModels(listOf(file.path), true, activePlate) }
 
-    fun addPrimitive(shape: String, size: Vec3) = store.sceneOp { engine.addPrimitive(shape, size, activePlate) }
+    fun addPrimitive(shape: String, size: Vec3, round: Float = 0f) = store.sceneOp { engine.addPrimitive(shape, size, activePlate, round) }
 
     fun addText(text: String, height: Float, depth: Float) = store.sceneOp(store.str(R.string.creating_text)) {
         engine.addText(text, resources.defaultFont(), height, depth, activePlate)

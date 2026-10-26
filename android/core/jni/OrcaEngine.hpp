@@ -242,7 +242,7 @@ public:
     // --- Adding things ------------------------------------------------------------------------
 
     // Adds a primitive ("cube", "cylinder", "sphere", "cone") of `size` [x,y,z] mm to `plate`.
-    json add_primitive(const std::string &shape, const std::array<double, 3> &size, int plate);
+    json add_primitive(const std::string &shape, const std::array<double, 3> &size, int plate, double round = 0.);
     // Adds extruded text (font file, height and depth in mm) to `plate`.
     json add_text(const std::string &text, const std::string &font_path, double height, double depth, int plate);
     // Adds an extruded SVG drawing scaled to `width` mm, `depth` mm thick, to `plate`.
