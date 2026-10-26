@@ -37,8 +37,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Phone offline (user at work); its session is copied to WSA (archive 2026-10-25). Test on WSA.
 - Upstream 2.5.0 alpha overlaps our work (user 2026-10-25): `NOTES-upstream-2.5.md` = compare table; check src-orca before building a feature; keep ours where better.
 - Built, untested: 3MF writes effective bed type per plate + project (plate 4 / printer "unknown"), label "Cool Plate (SuperTack)". Awaiting user: push/pull tier 1 (r401), edge bands on paint (r403).
-- r416 (run 40254161976) on WSA + SHIELD: band fix awaits a check (repaint bands: no yellow teeth, upper-half tap fills the gap) + measure step 1. User decisions open: push/pull fold vs remove, CAD roadmap (backlog). Truck demo on WSA plate 6 (archive).
-- Next step: WSA check of r416 bands + measure, then ask the user the push/pull + roadmap decisions -> Sonnet 5.5 (medium); roadmap items 3-6 -> Opus 5.5 (high)
+- r416 on WSA + SHIELD: band fix + measure step 1 await a check. User decisions open: push/pull fold vs remove, CAD roadmap + reuse plan (`NOTES-cad-reuse.md`).
+- Next step: if the user OKs the CAD plan, phase 0 OCCT spike -> Opus 5.5 (high); else WSA check of r416 bands + measure -> Sonnet 5.5 (medium)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
