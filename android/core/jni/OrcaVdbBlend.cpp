@@ -5,14 +5,39 @@
 #include "OrcaEngine.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <stdexcept>
 
+#include <boost/log/trivial.hpp>
+
 #include "libslic3r/Model.hpp"
+#include <openvdb/tools/Composite.h>
+#include <openvdb/tools/LevelSetRebuild.h>
+#include <openvdb/tools/MeshToVolume.h>
+
 #include "libslic3r/OpenVDBUtils.hpp"
 #include "libslic3r/TriangleMesh.hpp"
 
 namespace orca {
+
+namespace {
+
+// openvdb::tools::meshToVolume input over an indexed triangle set, scaled so a voxel is one unit.
+struct MeshAdapter {
+    const indexed_triangle_set &its;
+    float scale;
+    size_t polygonCount() const { return its.indices.size(); }
+    size_t pointCount() const { return its.vertices.size(); }
+    size_t vertexCount(size_t) const { return 3; }
+    void getIndexSpacePoint(size_t n, size_t v, openvdb::Vec3d &pos) const
+    {
+        const Slic3r::Vec3f &p = its.vertices[size_t(its.indices[n](Eigen::Index(v)))];
+        pos = {double(p.x()) * scale, double(p.y()) * scale, double(p.z()) * scale};
+    }
+};
+
+} // namespace
 
 using namespace Slic3r;
 
@@ -43,21 +68,46 @@ json OrcaEngine::smooth_blend(int object, int instance, double radius)
     if (first < 0 || all.indices.empty())
         throw std::runtime_error("The object has no model part");
 
+    using clock = std::chrono::steady_clock;
+    const auto t0 = clock::now();
+    auto ms = [&](clock::time_point a) { return std::chrono::duration<double, std::milli>(clock::now() - a).count(); };
     const BoundingBoxf3 box = bounding_box(all);
     const double diag = box.size().norm();
     // About 300 voxels along the diagonal (a few million at most); the radius is at least 2 voxels so the
     // closing has something to grip. Capped at a third of the diagonal.
-    const double voxel = diag / 300.;
+    const double voxel = diag / 200.;
     const double r = std::clamp(radius, 2. * voxel, diag / 3.);
     const float scale = float(1. / voxel);
     const float band = float(r * scale) + 3.f;
 
-    openvdb::FloatGrid::Ptr grid = mesh_to_grid(all, {}, scale, band, band);
+    BOOST_LOG_TRIVIAL(warning) << "smooth blend: start, " << all.indices.size() << " faces, " << its_split(all).size() << " shells, diag " << diag << " mm, split in " << ms(t0) << " ms";
+    // As Slic3r::mesh_to_grid (one level set per shell, so overlapping shells union cleanly), with timing.
+    openvdb::initialize();
+    openvdb::FloatGrid::Ptr grid;
+    for (const indexed_triangle_set &shell : its_split(all)) {
+        if (its_volume(shell) < EPSILON)
+            continue;
+        auto sub = openvdb::tools::meshToVolume<openvdb::FloatGrid>(MeshAdapter{shell, scale}, {}, band, band, 0);
+        BOOST_LOG_TRIVIAL(warning) << "smooth blend: shell of " << shell.indices.size() << " faces voxelized at " << ms(t0) << " ms";
+        if (grid && sub)
+            openvdb::tools::csgUnion(*grid, *sub);
+        else if (sub)
+            grid = std::move(sub);
+    }
+    if (grid)
+        grid = openvdb::tools::levelSetRebuild(*grid, 0., band, band);
+    BOOST_LOG_TRIVIAL(warning) << "smooth blend: " << all.indices.size() << " faces, voxel " << voxel << " mm, r " << r << " mm, voxelized in " << ms(t0) << " ms";
     if (!grid)
         throw std::runtime_error("The object could not be voxelized");
+    auto t1 = clock::now();
     grid = redistance_grid(*grid, r * scale, band, band);
+    BOOST_LOG_TRIVIAL(warning) << "smooth blend: grown in " << ms(t1) << " ms";
+    t1 = clock::now();
     grid = redistance_grid(*grid, -r * scale, band, band);
+    BOOST_LOG_TRIVIAL(warning) << "smooth blend: shrunk in " << ms(t1) << " ms";
+    t1 = clock::now();
     indexed_triangle_set out = grid_to_mesh(*grid, 0., 0.05);
+    BOOST_LOG_TRIVIAL(warning) << "smooth blend: meshed " << out.indices.size() << " faces in " << ms(t1) << " ms";
     if (out.indices.empty())
         throw std::runtime_error("The blend produced no surface");
     its_merge_vertices(out);

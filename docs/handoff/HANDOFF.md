@@ -14,7 +14,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 0170950 (PR #65, branch at r398, merged 2026-10-25). Untested by the user in main: Build workspace, paint shop/depth, Filament materials, Realistic render, UX P1-P6, Check mesh feel, 3MF export in desktop Orca, pen, fan hold, Extrude F150.
 - Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
-- Latest build r423 (see Next task); phone offline (install when back). Chromebook/Note offline. Note r389, Chromebook r374.
+- Latest CI build r425 (run 40290219929) on WSA + SHIELD (release app); WSA also has the local debug app (newer blend voxel). Phone offline.
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
@@ -28,6 +28,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   Claude compiles, merges, cherry-picks. Audits + JVM-testable Kotlin only.
   Tasks 1-18 merged. **Session start, run exactly:** `gh pr list --state open --json number,title,headRefName; gh issue view 46 --json comments --jq '.comments[-2:][]|.createdAt+" "+(.body|.[0:300])'`
 - User feel/checks open (backlog): paint plan, Build workspace, Filament materials, Realistic render, 3MF in desktop Orca (+ bed type), pen, plate switcher pick, band fix, measure step 1, push/pull fold.
+- **Local native build works again (2026-10-26)**: WSL deps prefix refreshed from CI (`gh workflow run android-apk.yml -f deps_artifact=true`, download, copy into `~/orca-build/deps/OrcaSlicer_dep/usr/local`), and `android/patches/src-orca/*.patch` applied to `~/src/OrcaStudio-Android/src-orca` (`patch -p1`). Then `corebuild.sh`, llvm-strip from `~/Android/Sdk/ndk/28.2.13676358/...`, assembleDebug, install (reference "Native change on the debug app").
 - Local debug test: reference "Local APK" + "WSA debug loop" (parked window: taps via `tapf.sh`).
 - **Offload (user 2026-10-25/26): max token use onto free opencode models, growing leeway by track record** (Claude specs + verifies).
   DeepSeek V4.1 Flash = default; self-checking runner `octauto.sh` (`D:\oct-backup\jobs\README.md`), ledger `trust-profile.md`.
@@ -35,8 +36,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   1a user feel untested ("Blend joins (mm)"). 1b (tap an edge) parked.
 - CAD 2a-2c (r421) + step 3 deformers (r423, twist refinement fix by DeepSeek) Claude-verified WSA 2026-10-26 (archive); user feel open.
   Latest build r423 (run 40286374371) on WSA + SHIELD; phone offline. Big Pickle deform2: same result as DeepSeek, 1.5x slower (ledger).
-- CAD step 4 (Smooth blend, `OrcaVdbBlend.cpp`, More menu "Smooth blend", MCP `object_smooth_blend`) pushed 310a42c, CI run 40289040677 (native untested: first CI compile). Next: install on WSA + SHIELD, test (two overlapping shapes, radius 3), then step 5 sculpt (Opus).
-- Next step: verify CAD step 4 on WSA after the build -> Sonnet 5.5 (medium)
+- CAD step 4 Smooth blend (`OrcaVdbBlend.cpp`, More menu, MCP `object_smooth_blend`): WSA-tested 2026-10-26 (L shape 360 -> 27k faces, bbox kept; lid box 52k, 6 s; 147k mesh 5 s). **Open bug: the 176k-face gear stalled forever at voxel 0.4 mm (diag/300) in OpenVDB closing, fine at 0.74-0.81 mm; cause unknown (geometry-dependent), so voxel = diag/200 now. No cancel.** Stage logs "smooth blend:" in logcat. User feel untested.
+- Next step: CAD step 5 sculpt mode -> Opus 5.5 (high)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
