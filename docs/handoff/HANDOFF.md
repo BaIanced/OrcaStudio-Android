@@ -39,7 +39,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Built, untested: 3MF writes effective bed type per plate + project (plate 4 / printer "unknown"), label "Cool Plate (SuperTack)". Awaiting user: push/pull tier 1 (r401), edge bands on paint (r403).
 - r416 on WSA + SHIELD: band fix + measure step 1 await a check. User decisions open: push/pull fold vs remove, CAD roadmap + reuse plan (`NOTES-cad-reuse.md`).
 - CAD plan accepted (user 2026-10-25, "okay tag each step"): steps tagged in `NOTES-cad-reuse.md`; start step 0 (SLIC3R_CAD ON + SLVS dep, deps CI rebuild, APK size, box fillet JNI test). r416 bands/measure check stays open.
-- Next step: CAD step 0 OCCT spike -> Sonnet 5.5 (medium); Opus after 2 failed CI tries
+- CAD step 0 in progress: SLIC3R_CAD ON + dep_SLVS pushed (481ace3), CI run 40258983602 (deps rebuild, cache miss). Next: read deps/APK size + time, fix build errors; then the JNI box-fillet call.
+- Next step: CAD step 0 finish (CI result, JNI box fillet test) -> Sonnet 5.5 (medium); Opus after 2 failed CI tries
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
