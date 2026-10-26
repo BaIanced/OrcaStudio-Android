@@ -38,7 +38,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - CAD 2a (Twist, Rise per turn coil) on r420; 2b (loft to a top outline) + 2c (sweep along a path, `scad/Sweep.kt`, MCP `sketch_set`
   path) local debug only, Claude-verified on WSA 2026-10-26 (archive). User feel untested: "Twist", "Rise per turn", "Loft to a top
   outline", "Sweep along a path". r420 on WSA + SHIELD. Known: coil box z = profile height; coils/lofts/sweeps skip corner rounding.
-- Next: CI build (2b + 2c + MCP blend key), install WSA + SHIELD; then step 3 deformers (`NOTES-cad-reuse.md`).
+- Next: CI run 40280748704 (2b + 2c + MCP blend key, dispatched 2026-10-26) -> install WSA + SHIELD (+ phone if back); then step 3 deformers (`NOTES-cad-reuse.md`).
 - Next step: CAD step 3 deformers bend/twist/taper (mesh side, slider + axis) -> Opus 5.5 (medium)
 
 ## User decisions (2026-10-13)
