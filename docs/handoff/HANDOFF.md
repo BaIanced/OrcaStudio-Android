@@ -38,8 +38,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Phone offline (user at work); its session is copied to WSA (archive 2026-10-25). Test on WSA.
 - Upstream 2.5.0 alpha overlaps our work (user 2026-10-25): `NOTES-upstream-2.5.md` = compare table; check src-orca before building a feature; keep ours where better.
 - Bands perf VERIFIED by user (r406). Mix restart persistence VERIFIED on WSA r409 (archive). Open: band edges snap to layer boundaries (r409, OrcaTools.cpp `snap`): user checks in PC slicer (0.08 layer, 0.1 band); also SHIELD + phone install.
-- User test pending (2026-10-25): bands on r409 exported to desktop Orca, edges vs layer boundaries; user asked whether the snap is worth the risk (revert = one commit "Bands paint: band edges snap outward"). Phone still not in adb (r409 not installed there).
-- Next step: user reports band-edge result; keep or revert the snap commit, then merge offer -> Sonnet 5.5 (medium)
+- Band layer snap VERIFIED by user (2026-10-25, export in desktop Orca: edges clean); keep the commit. Built, untested: band start rounds to nearest edge (fix for "alternate colour fills up and down"), 3MF writes effective bed type per plate + project (plate 4 / printer "unknown"), label "Cool Plate (SuperTack)" (commit after run 40249512256). Needs one more build + WSA check.
+- Next step: dispatch build, install WSA, check alternate-band click above a band + re-export 3MF plate types; then merge offer -> Sonnet 5.5 (medium)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
