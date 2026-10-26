@@ -862,12 +862,21 @@ json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<doubl
             for (size_t i = 1; i < tops.size(); i += 2)
                 edges.push_back(float(tops[i]));
             const float eps = 1e-3f;
-            auto it_lo = std::upper_bound(edges.begin(), edges.end(), z + eps);
-            const float lo = it_lo == edges.begin() ? z : *(it_lo - 1);
-            auto it_hi = std::lower_bound(edges.begin(), edges.end(), top - eps);
-            float hi = it_hi == edges.end() ? top : *it_hi;
+            // The start rounds to the NEAREST edge, not down: a click in the sliver just above a painted band must start at
+            // that band's top, not a layer below it (user r409: the alternate colour filled up and down). The end snaps
+            // outward from the band's own height above the start.
+            auto it_n = std::lower_bound(edges.begin(), edges.end(), z);
+            float lo = z;
+            if (it_n == edges.end())
+                lo = edges.back();
+            else if (it_n == edges.begin())
+                lo = *it_n;
+            else
+                lo = (z - *(it_n - 1) <= *it_n - z) ? *(it_n - 1) : *it_n;
+            auto it_hi = std::lower_bound(edges.begin(), edges.end(), lo + (top - z) - eps);
+            float hi = it_hi == edges.end() ? lo + (top - z) : *it_hi;
             if (hi <= lo + eps)
-                hi = it_hi == edges.end() || it_hi + 1 == edges.end() ? top : *(it_hi + 1);
+                hi = it_hi == edges.end() || it_hi + 1 == edges.end() ? lo + (top - z) : *(it_hi + 1);
             return std::make_pair(lo, hi);
         };
         bool grew = false;
