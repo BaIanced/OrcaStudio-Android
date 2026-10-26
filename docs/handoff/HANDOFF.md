@@ -35,8 +35,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   1a user feel untested ("Blend joins (mm)"). 1b (tap an edge) parked.
 - CAD 2a-2c (r421) + step 3 deformers (r423, twist refinement fix by DeepSeek) Claude-verified WSA 2026-10-26 (archive); user feel open.
   Latest build r423 (run 40286374371) on WSA + SHIELD; phone offline. Big Pickle deform2: same result as DeepSeek, 1.5x slower (ledger).
-- Step 4 (smooth blend for meshes, OpenVDB closing, `NOTES-cad-reuse.md` step 4): next; check src-orca OpenVDBUtils first.
-- Next step: CAD step 4 smooth mesh blend -> Sonnet 5.5 (medium)
+- CAD step 4 (Smooth blend, `OrcaVdbBlend.cpp`, More menu "Smooth blend", MCP `object_smooth_blend`) pushed 310a42c, CI run 40289040677 (native untested: first CI compile). Next: install on WSA + SHIELD, test (two overlapping shapes, radius 3), then step 5 sculpt (Opus).
+- Next step: verify CAD step 4 on WSA after the build -> Sonnet 5.5 (medium)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
