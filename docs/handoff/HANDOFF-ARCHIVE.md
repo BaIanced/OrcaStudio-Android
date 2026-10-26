@@ -3245,3 +3245,10 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 - Phone r429 (run 40397057477, user watching, 2026-10-26): same 176k gear, r 20, 8 cores uncapped: voxel 0.437, voxelize 2.1 s,
   grow 2.3 s, shrink 0.2 s (4.6 s total), 20514 faces; no livelock on real ARM. Cancel 1.5 s after Apply: stopped in voxelize,
   no error, gear unchanged. Test gear + file removed afterwards. r429 installed on phone, WSA, SHIELD, Quest.
+
+### 2026-10-26 Bands paint recheck (Claude, WSA r429, release app)
+- 20 mm cube (12 triangles) added to plate 5 (slab "Shape design.stl" deleted there: empty first layer blocked slicing), process 0.20mm Standard, Bands height 0.1 mm, front close-up ~55 px/mm.
+- Taps at z ~0.57 and ~1.14: each painted exactly one 0.2 mm layer ([0.4,0.6], [1.0,1.2]); every scanline across the face fully painted or not at all (no teeth).
+- Gap taps (the user's r414 complaint): a tap in the upper half of the gap layer under the top band filled only that layer; the last gap layer likewise; nothing spilled.
+- Slice: T1 on layers 3-6 exactly (z 0.4-1.2), layers 2 and 7 pure T0. Layer 3 also has T0 walls/solid infill = the slicer's yellow core in the last bottom-shell layer, not an edge effect.
+- Open: user check in the PC slicer at 0.08 mm (edges follow the app's selected process; a different PC layer height won't line up).
