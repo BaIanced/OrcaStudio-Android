@@ -128,6 +128,10 @@ data class Shape(
         const val RADIUS = "radius"
         const val REVOLVE = "revolve"
         const val ANGLE = "angle"
+        /** A revolved sketch's rise per turn (mm; > 0 makes a coil, ANGLE then up to [MAX_COIL]), an extruded one's twist (°). */
+        const val PITCH = "pitch"
+        const val TWIST = "twist"
+        const val MAX_COIL = 3600.0
         /** Rounded (or with CHAMFER = 1 chamfered) edges, mm; a sketch rounds its outline's corners. */
         const val EDGE = "edge"
         const val CHAMFER = "chamfer"
@@ -328,7 +332,25 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
             appendLine("        translate([x * (s[0] / 2 - q), y * (s[1] / 2 - q), q + z * (s[2] - 2 * q)]) sphere(r = q);")
             appendLine("}")
         }
+        if (shapes.any { s -> s.all().any(::coiled) }) {
+            appendLine()
+            appendLine("// Profile p ([radius, height] points, counter-clockwise) scaled by sx / sz, swept angle degrees round Z")
+            appendLine("// while rising pitch mm a turn (at least the profile's height h past one turn, so turns don't overlap).")
+            appendLine("module coil(p, sx, sz, h, angle, pitch, fn) {")
+            appendLine("    n = len(p);")
+            appendLine("    s = max(3, ceil(fn * angle / 360));")
+            appendLine("    rise = angle > 360 ? max(pitch, h + 0.01) : pitch;")
+            appendLine("    pts = [for (i = [0:s]) let(a = angle * i / s) for (q = p)")
+            appendLine("        [max(0.01, q[0] * sx) * cos(a), max(0.01, q[0] * sx) * sin(a), q[1] * sz + rise * a / 360]];")
+            appendLine("    polyhedron(pts, concat([[for (j = [n - 1:-1:0]) j]], [[for (j = [0:n - 1]) s * n + j]],")
+            appendLine("        [for (i = [0:s - 1], j = [0:n - 1]) [i * n + j, i * n + (j + 1) % n, (i + 1) * n + (j + 1) % n, (i + 1) * n + j]]),")
+            appendLine("        convexity = 10);")
+            appendLine("}")
+        }
     }
+
+    /** A revolved sketch that rises as it turns (a coil, spring or thread), drawn by the prelude's coil module. */
+    private fun coiled(s: Shape) = s.kind == Shape.Kind.SKETCH && s.x(Shape.REVOLVE, 0.0) != 0.0 && value(s, Shape.PITCH, s.x(Shape.PITCH, 0.0)) > 0
 
     // --- Build workspace: one Orca volume per shape ------------------------------------------------
 
@@ -790,14 +812,29 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
         if (s.x(Shape.REVOLVE, 0.0) != 0.0) {
             val r = max(0.01, hi.x)
             val nh = max(0.01, hi.y - lo.y)
+            if (coiled(s)) {
+                // A polyhedron per outline (no 2D offset reaches it, so no rounded corners or inset here), holes cut.
+                val angle = value(s, Shape.ANGLE, s.x(Shape.ANGLE, 360.0)).coerceIn(1.0, Shape.MAX_COIL)
+                fun coil(l: Loop): String {
+                    val p = l.polygon().map { P2(it.x, it.y - lo.y) }.let { if (Sketch.area(it) < 0) it.reversed() else it }
+                    return "coil(${p.joinToString(", ", "[", "]") { "[${n(it.x)}, ${n(it.y)}]" }}, $w / ${n(2 * r)}, $h / ${n(nh)}, $h, " +
+                        "${n(angle)}, ${f(s, Shape.PITCH, s.x(Shape.PITCH, 0.0))}, sides(max($w, $d)));"
+                }
+                val solids = sk.loops.filter { !it.hole && it.pts.size >= 2 }.map(::coil)
+                val holes = sk.loops.filter { it.hole && it.pts.size >= 2 }.map(::coil)
+                if (solids.isEmpty()) return "cube(0.01);"
+                val joined = if (solids.size == 1) solids[0] else "union() { ${solids.joinToString(" ")} }"
+                return "scale([1, $d / $w, 1]) " + if (holes.isEmpty()) joined else "difference() { $joined ${holes.joinToString(" ")} }"
+            }
             val angle = s.x(Shape.ANGLE, 360.0).coerceIn(1.0, 360.0)
             // The profile is scaled to the box before rounding, so the edge stays in mm; depth follows by a y scale.
             return "scale([1, $d / $w, 1]) rotate_extrude(${if (angle < 360.0) "angle = ${n(angle)}, " else ""}\$fn = sides(max($w, $d))) " +
                 "intersection() { square([$w / 2 + 1, $h + 1]); ${mods("scale([$w / ${n(2 * r)}, $h / ${n(nh)}]) ${sk.toScad(P2(0.0, -lo.y))}")} }"
         }
         val top = s.x(Shape.TOP, 1.0).coerceAtLeast(0.0)
+        val twist = if (value(s, Shape.TWIST, s.x(Shape.TWIST, 0.0)) != 0.0) ", twist = ${f(s, Shape.TWIST, s.x(Shape.TWIST, 0.0))}" else ""
         val c = (lo + hi) * 0.5
-        return "linear_extrude($h${if (top != 1.0) ", scale = ${n(top)}" else ""}) " +
+        return "linear_extrude($h${if (top != 1.0) ", scale = ${n(top)}" else ""}$twist) " +
             mods("scale([$w / ${n(max(0.01, hi.x - lo.x))}, $d / ${n(max(0.01, hi.y - lo.y))}]) ${sk.toScad(P2(-c.x, -c.y))}")
     }
 

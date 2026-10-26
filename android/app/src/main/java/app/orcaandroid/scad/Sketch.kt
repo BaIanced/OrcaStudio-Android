@@ -315,6 +315,9 @@ data class Sketch(val loops: List<Loop> = emptyList(), val cons: List<Con> = emp
         fun rectCons(li: Int) = listOf(Con(Con.Kind.LEVEL, Side(li, 0)), Con(Con.Kind.PLUMB, Side(li, 1)),
             Con(Con.Kind.LEVEL, Side(li, 2)), Con(Con.Kind.PLUMB, Side(li, 3)))
 
+        /** The signed area of closed outline [p] (positive when counter-clockwise). */
+        fun area(p: List<P2>): Double = p.indices.sumOf { i -> val a = p[i]; val b = p[(i + 1) % p.size]; a.x * b.y - b.x * a.y } / 2
+
         fun of(o: JSONObject?): Sketch? = o?.optJSONArray("loops")?.let { a ->
             val c = o.optJSONArray("cons")
             Sketch((0 until a.length()).mapNotNull { a.optJSONObject(it)?.let(Loop::of) },

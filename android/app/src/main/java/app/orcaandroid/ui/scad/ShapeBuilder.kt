@@ -346,8 +346,13 @@ private fun SketchSettings(shape: Shape, d: ShapeDesign, vm: AppViewModel, onEdi
             }
         }
     }
-    if (revolve) ExtraField(stringResource(R.string.sketch_angle), shape, d, vm, Shape.ANGLE, 360.0)
-    else ExtraField(stringResource(R.string.sketch_top_scale), shape, d, vm, Shape.TOP, 1.0, slider = false)
+    if (revolve) {
+        ExtraField(stringResource(R.string.sketch_angle), shape, d, vm, Shape.ANGLE, 360.0)
+        ExtraField(stringResource(R.string.sketch_pitch), shape, d, vm, Shape.PITCH, 0.0)
+    } else {
+        ExtraField(stringResource(R.string.sketch_top_scale), shape, d, vm, Shape.TOP, 1.0, slider = false)
+        ExtraField(stringResource(R.string.sketch_twist), shape, d, vm, Shape.TWIST, 0.0)
+    }
 }
 
 /** Three numbers (size / position / rotation); the menu turns one into a slider or links it to one. */

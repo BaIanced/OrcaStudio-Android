@@ -835,7 +835,9 @@
     <string name="sketch_edit">Edit sketch</string>
     <string name="sketch_extrude">Extrude</string>
     <string name="sketch_revolve">Revolve</string>
-    <string name="sketch_angle">Turn angle (°)</string>
+    <string name="sketch_angle">Turn angle (°; up to 3600 with a rise)</string>
+    <string name="sketch_pitch">Rise per turn (mm; 0 = flat, more makes a coil)</string>
+    <string name="sketch_twist">Twist (°)</string>
     <string name="sketch_top_scale">Top scale (1 = straight sides)</string>
     <string name="sketch_title">Sketch (extruded upwards)</string>
     <string name="sketch_title_revolve">Profile (turned about the dashed axis)</string>
