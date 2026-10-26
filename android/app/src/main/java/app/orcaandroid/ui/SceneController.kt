@@ -195,6 +195,8 @@ class SceneController(private val store: Store, private val presets: PresetContr
 
     fun simplify(ratio: Float) = selection?.let { sel -> store.sceneOp(store.str(R.string.simplifying)) { engine.simplify(sel.obj, ratio) } }
     fun repair() = selection?.let { sel -> store.sceneOp { engine.repair(sel.obj) } }
+    fun deform(kind: String, axis: Int, amount: Float) =
+        selection?.let { sel -> store.sceneOp(store.str(R.string.deforming)) { engine.deform(sel.obj, sel.instance, kind, axis, amount) } }
 
     /** Report of the selected copy's mesh problems (null without a selection); [thickness] is the thin-wall limit in mm. */
     suspend fun meshReport(thickness: Float): String? = selection?.let { sel ->

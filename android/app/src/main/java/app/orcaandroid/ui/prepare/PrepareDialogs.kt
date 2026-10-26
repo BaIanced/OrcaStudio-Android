@@ -51,6 +51,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import kotlin.math.roundToInt
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -145,6 +146,7 @@ internal fun AddDialogs(state: UiState, vm: AppViewModel, dialog: String?, onDis
         "samples" -> SamplesDialog(vm, onDismiss)
         "calib" -> CalibrationDialog(vm, onDismiss)
         "simplify" -> SimplifyDialog(state, vm, onDismiss)
+        "deform" -> DeformDialog(vm, onDismiss)
         "check" -> CheckMeshDialog(vm, onDismiss)
         "boolean" -> MeshBooleanDialog(state, vm, onDismiss)
     }
@@ -269,6 +271,36 @@ private fun SimplifyDialog(state: UiState, vm: AppViewModel, onDismiss: () -> Un
     DialogFrame(stringResource(R.string.simplify), stringResource(R.string.apply), onConfirm = { vm.scene.simplify(ratio) }, onDismiss = onDismiss) {
         Text(stringResource(R.string.simplify_result, tris, (tris * ratio).toInt()))
         Slider(ratio, { ratio = it }, valueRange = 0.05f..0.95f)
+    }
+}
+
+/** Bend, twist or taper the selected object along one plate axis (the mesh is refined first, so it also works on STLs). */
+@Composable
+private fun DeformDialog(vm: AppViewModel, onDismiss: () -> Unit) {
+    val kinds = listOf("bend" to R.string.deform_bend, "twist" to R.string.deform_twist, "taper" to R.string.deform_taper)
+    var kind by remember { mutableStateOf("bend") }
+    var axis by remember { mutableIntStateOf(2) }
+    // Per kind: range and start value; bend and twist in degrees, taper as the far end's scale.
+    val range = when (kind) { "bend" -> -180f..180f; "twist" -> -360f..360f; else -> 0.1f..3f }
+    var amount by remember(kind) { mutableFloatStateOf(when (kind) { "bend" -> 45f; "twist" -> 90f; else -> 0.5f }) }
+    val axes = listOf("X", "Y", "Z")
+    DialogFrame(stringResource(R.string.deform), stringResource(R.string.apply), onConfirm = { vm.scene.deform(kind, axis, amount) }, onDismiss = onDismiss) {
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            kinds.forEach { (id, label) -> FilterChip(selected = kind == id, onClick = { kind = id }, label = { Text(stringResource(label)) }) }
+        }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(stringResource(R.string.deform_axis))
+            axes.forEachIndexed { i, a -> FilterChip(selected = axis == i, onClick = { axis = i }, label = { Text(a) }) }
+        }
+        Text(if (kind == "taper") stringResource(R.string.deform_taper_value, amount) else stringResource(R.string.deform_degrees, amount.roundToInt()))
+        Slider(amount, { amount = if (kind == "taper") (it * 20).roundToInt() / 20f else it.roundToInt().toFloat() }, valueRange = range)
+        Text(stringResource(when (kind) {
+            // The bend side follows the native table: along X or Y it bends up (+Z), along Z toward +X.
+            "bend" -> if (axis == 2) R.string.deform_bend_hint_x else R.string.deform_bend_hint_z
+            "twist" -> R.string.deform_twist_hint
+            else -> R.string.deform_taper_hint
+        }), style = MaterialTheme.typography.bodySmall)
+        Text(stringResource(R.string.deform_note), style = MaterialTheme.typography.bodySmall)
     }
 }
 

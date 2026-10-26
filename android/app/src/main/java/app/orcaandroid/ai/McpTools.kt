@@ -165,6 +165,11 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         Tool("object_check_mesh", "Read-only mesh report of one copy, per part: faces, shells, volume, open edges, zero-area faces and faces " +
             "whose wall is thinner than thickness mm (default 0.4). Nothing changes.",
             obj(listOf("object"), *COPY, "thickness" to p("number", "Thin-wall limit in mm, 0..5; 0 skips the check; default 0.4"))) { checkMesh(it) },
+        Tool("object_deform", "Plate edit: bends, twists or tapers an object along plate axis 0 = X, 1 = Y, 2 = Z, in this copy's frame " +
+            "(the mesh is refined first; painting is removed). bend: amount = degrees, + toward +Z along X/Y, toward +X along Z; " +
+            "twist: degrees about the axis; taper: the far end's scale (> 0). The low end stays put. $PLATE_EDIT",
+            obj(listOf("object", "kind", "axis", "amount"), *COPY, "kind" to p("string", "bend, twist or taper"),
+                "axis" to p("integer", "0..2"), "amount" to p("number", "Degrees, or taper scale"))) { deform(it) },
         Tool("object_duplicate", "Plate edit: adds copies of one copy of an object; they are arranged on its plate. $PLATE_EDIT",
             obj(listOf("object"), *COPY, "copies" to p("integer", "How many, 1..100; default 1"))) { duplicate(it) },
         Tool("plate_arrange", "Plate edit: arranges the objects on a plate (default the active one), or with all true " +
@@ -741,6 +746,19 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         val thickness = args.optDouble("thickness", 0.4)
         if (thickness !in 0.0..5.0) throw ToolError("thickness must be 0..5 mm")
         return "Object ${o + 1} copy ${inst.index + 1}\n" + app.orcaandroid.core.MeshReport.text(store.engine.checkMesh(o, inst.index, thickness.toFloat()))
+    }
+
+    private suspend fun deform(args: JSONObject): String {
+        val (o, inst) = copyOf(args)
+        val kind = args.optString("kind")
+        if (kind !in listOf("bend", "twist", "taper")) throw ToolError("kind must be bend, twist or taper")
+        val axis = args.optInt("axis", -1)
+        if (axis !in 0..2) throw ToolError("axis must be 0..2")
+        val amount = args.optDouble("amount", Double.NaN)
+        if (amount.isNaN() || (kind == "taper" && amount <= 0)) throw ToolError("amount must be a number (taper: > 0)")
+        return plateEdit("${mapOf("bend" to "bent", "twist" to "twisted", "taper" to "tapered").getValue(kind)} object ${o + 1}", R.string.deforming) {
+            store.engine.deform(o, inst.index, kind, axis, amount.toFloat())
+        }
     }
 
     private suspend fun duplicate(args: JSONObject): String {

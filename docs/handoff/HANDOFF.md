@@ -24,22 +24,23 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 ## Next task
 - Auto-next (user 2026-10-25): keep going while context is small and the model fits; one small step each.
 - **User 2026-10-21: design deviations pre-approved** ("deviate if you find a more logical, intuitive way; I trust your judgement"); say what changed.
-- Muse (full discretion, user 2026-10-25): tasks in `MUSE-TASKS.md` on `muse/work` (edit via `claude/*` PR, self-merge), `TASK <n> READY` on #46;
-  one draft PR per task; Claude compiles, merges into muse/work, cherry-picks. Audits + larger JVM-testable Kotlin only; stop if costlier than direct.
+- Muse (full discretion, user 2026-10-25; memories muse-*): tasks in `MUSE-TASKS.md` on `muse/work`, `TASK <n> READY` on #46, one draft PR each;
+  Claude compiles, merges, cherry-picks. Audits + JVM-testable Kotlin only.
   Tasks 1-18 merged. **Session start, run exactly:** `gh pr list --state open --json number,title,headRefName; gh issue view 46 --json comments --jq '.comments[-2:][]|.createdAt+" "+(.body|.[0:300])'`
-- Backlog, user feel/checks open: paint plan, Build workspace, Filament materials, Realistic render, 3MF in desktop Orca, pen, plate switcher pick.
-- Local debug test: reference "Local APK" + "WSA debug loop" (worked on WSA 2026-10-25; parked window: taps via `tapf.sh`).
-- **Offload (user 2026-10-25): max token use onto free opencode models** (checkable work; Claude verifies). Tested 2026-10-26
-  (`D:\oct-backup\results.md`): DeepSeek V4.1 Flash max = default, beam-free max = fast fallback; skip GLM (slow) and Nemotron (unavailable). Memory `offload-to-free-models`.
+- User feel/checks open (backlog): paint plan, Build workspace, Filament materials, Realistic render, 3MF in desktop Orca (+ bed type), pen, plate switcher pick, band fix, measure step 1, push/pull fold.
+- Local debug test: reference "Local APK" + "WSA debug loop" (parked window: taps via `tapf.sh`).
+- **Offload (user 2026-10-25/26): max token use onto free opencode models, growing leeway by track record** (Claude specs + verifies).
+  DeepSeek V4.1 Flash = default (`D:\oct-backup
+esults.md`, `trust-profile.md`). Memory `offload-to-free-models`.
 - Upstream 2.5.0 overlap: `NOTES-upstream-2.5.md`; check src-orca first, keep ours where better.
-- Untested / user checks open (3MF bed type, band fix, measure step 1, push/pull fold decision): see backlog.
 - CAD plan accepted (user 2026-10-25), steps in `NOTES-cad-reuse.md`. Steps 0 + 1a Claude-verified WSA r419 (archive);
   1a user feel untested ("Blend joins (mm)"). 1b (tap an edge) parked.
-- CAD 2a (Twist, Rise per turn coil) on r420; 2b (loft to a top outline) + 2c (sweep along a path, `scad/Sweep.kt`, MCP `sketch_set`
-  path) local debug only, Claude-verified on WSA 2026-10-26 (archive). User feel untested: "Twist", "Rise per turn", "Loft to a top
-  outline", "Sweep along a path". r420 on WSA + SHIELD. Known: coil box z = profile height; coils/lofts/sweeps skip corner rounding.
-- Next: CI run 40280748704 (2b + 2c + MCP blend key, dispatched 2026-10-26) -> install WSA + SHIELD (+ phone if back); then step 3 deformers (`NOTES-cad-reuse.md`).
-- Next step: CAD step 3 deformers bend/twist/taper (mesh side, slider + axis) -> Opus 5.5 (medium)
+- CAD 2a/2b/2c (Twist, coil, loft, sweep) on r421 (run 40280748704; WSA + SHIELD 2026-10-26, phone offline), Claude-verified; user feel open (backlog). Coils/lofts/sweeps skip corner rounding.
+- Step 3 deformers WIP (uncommitted): `core/jni/OrcaDeform.cpp` (refine + warp per volume in the copy's plate frame, paint reset),
+  More menu "Bend / twist / taper" dialog (deviation: no axis gizmo), MCP `object_deform`; Kotlin compiles. `core/jni/MeshDeform.hpp` is
+  offloaded to DeepSeek (`D:\oct-backup\jobs\deform\`: `octjob.sh` run, `octfix.sh` feedback, Claude's `mytest.cpp`); the glue also needs
+  `meshdeform::warp(Mesh&, const Params&, Vec3 lo, Vec3 hi)`. Trust ledger `D:\oct-backup	rust-profile.md`.
+- Next step: CAD step 3 integrate MeshDeform.hpp, CI, WSA check -> Opus 5.5 (medium)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
