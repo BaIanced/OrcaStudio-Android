@@ -284,6 +284,8 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                         vm.scene.paintAt(o, d, v.camera.eye(), newStroke, v.section.current)
                     }
                     override fun onPaintEnd() = vm.scene.sculptEnd()
+                    override fun onPaintHover(x: Float, y: Float, inside: Boolean) =
+                        vm.scene.sculptHover(if (inside) v.camera.ray(x, y) else null)
                     override fun onPlateDoubleTap(index: Int) = vm.scene.selectPlate(index)
                     // Icons act on their plate, which becomes the active one (except delete), as on the desktop.
                     override fun onPlateBadge(plate: Int, badge: PlateBadge, x: Float, y: Float) {
@@ -484,6 +486,14 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     }
     // Live sculpt: the stroke's changed triangles go straight into the scene buffer.
     LaunchedEffect(v) { vm.scene.meshPatches.collect { p -> v.onGl { applyPatch(p) } } }
+    // The brush ring, at the brush's size (Ctrl+wheel resizes it in place).
+    val sculptCursor by vm.scene.sculptCursor.collectAsState()
+    val sculptRadius = (state.tool as? Tool.Sculpt)?.radius
+    LaunchedEffect(v, sculptCursor, sculptRadius) {
+        val c = sculptCursor?.takeIf { sculptRadius != null }
+        val ring = c?.let { (p, n) -> floatArrayOf(p.x, p.y, p.z, n.x, n.y, n.z, sculptRadius!!) }
+        v.onGl { brushCursor = ring }
+    }
     LaunchedEffect(v, scene.meshVersion, scene.meshFile) {
         if (scene.meshFile.isEmpty()) return@LaunchedEffect
         val mesh = withContext(Dispatchers.IO) { FloatData.load(scene.meshFile, 8) }

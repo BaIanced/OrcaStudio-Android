@@ -529,6 +529,12 @@ class SceneController(private val store: Store, private val presets: PresetContr
     private val pendingSculpt = ArrayDeque<SculptSample>()
     /** The part this stroke sculpts (picked at its first sample), or null before / without a hit. Guarded by [paintLock]. */
     private var sculptTarget: PickHit? = null
+    /** The brush ring: world point and surface normal under the finger, mouse or pen, or null (lifted, off the part). */
+    val sculptCursor = kotlinx.coroutines.flow.MutableStateFlow<Pair<Vec3, Vec3>?>(null)
+    /** The latest hover ray not yet probed (only the newest counts). Guarded by [pendingSculpt]. */
+    private var hoverRay: Pair<Vec3, Vec3>? = null
+    /** The part the last hover or stroke was on, probed first. Guarded by [paintLock]. */
+    private var hoverTarget: PickHit? = null
 
     /**
      * Sculpt sample from the 3D view, queued like [paintAt]: every sample that waited while the engine worked goes into
@@ -538,6 +544,27 @@ class SceneController(private val store: Store, private val presets: PresetContr
 
     /** The finger lifted: the stroke's mesh goes into the part (and the scene, its outline and slicing). */
     fun sculptEnd() = queueSculpt(SculptSample(Vec3.ZERO, Vec3.ZERO, false, true))
+
+    /** A mouse or pen hovers along this ray (null: it left the view): the brush ring follows the surface under it. */
+    fun sculptHover(ray: Pair<Vec3, Vec3>?) {
+        if (store.value.tool !is Tool.Sculpt) return
+        synchronized(pendingSculpt) { hoverRay = ray }
+        if (ray == null) sculptCursor.value = null else drainSculpt()
+    }
+
+    /** The surface under [ray] on the selected object: a hit test on the sculpt session's part, else a scene pick. */
+    private suspend fun probeHover(ray: Pair<Vec3, Vec3>) {
+        val tool = store.value.tool as? Tool.Sculpt
+        val sel = selection
+        if (tool == null || sel == null) { sculptCursor.value = null; return }
+        val step = hoverTarget?.takeIf { it.obj == sel.obj }?.let {
+            runCatching { engine.sculpt(it, listOf(ray), tool.brush, tool.radius, tool.strength, tool.invert, newStroke = false, probe = true) }.getOrNull()
+        }
+        if (step?.cursor != null) { sculptCursor.value = step.cursor; return }
+        val hit = runCatching { engine.pick(ray.first, ray.second, only = sel.obj) }.getOrNull()
+        hoverTarget = hit
+        sculptCursor.value = hit?.let { it.point to it.normal }
+    }
 
     private fun queueSculpt(sample: SculptSample) {
         if (store.value.tool !is Tool.Sculpt) return
@@ -555,7 +582,12 @@ class SceneController(private val store: Store, private val presets: PresetContr
                         while (pendingSculpt.isNotEmpty() && (out.isEmpty() || !pendingSculpt.first().newStroke && !out.last().end)) out += pendingSculpt.removeFirst()
                         out
                     }
-                    if (batch.isEmpty()) break
+                    if (batch.isEmpty()) {
+                        // Strokes first; a hover waits for them, then only its newest ray is probed.
+                        val ray = synchronized(pendingSculpt) { hoverRay.also { hoverRay = null } } ?: break
+                        probeHover(ray)
+                        continue
+                    }
                     val tool = store.value.tool as? Tool.Sculpt
                     val first = batch.first()
                     if (first.newStroke) {
@@ -570,7 +602,10 @@ class SceneController(private val store: Store, private val presets: PresetContr
                         android.util.Log.d("OrcaSculpt", "${rays.size} ray(s) ${android.os.SystemClock.elapsedRealtime() - t0} ms, patch ${step.patch?.counts?.sum() ?: 0} tris")
                         step.scene?.let { store.applyScene(it) }
                         step.patch?.let { meshPatches.tryEmit(it) }
+                        step.cursor?.let { sculptCursor.value = it }
+                        hoverTarget = target
                     }
+                    if (batch.last().end) sculptCursor.value = null
                     if (batch.last().end && target != null) {
                         sculptTarget = null
                         store.applyScene(engine.sculptEnd())
@@ -578,7 +613,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
                 }
             }
             // A sample (the finger's lift above all) queued after the loop's last look but before the lock was free.
-            if (synchronized(pendingSculpt) { pendingSculpt.isNotEmpty() }) drainSculpt()
+            if (synchronized(pendingSculpt) { pendingSculpt.isNotEmpty() || hoverRay != null }) drainSculpt()
         }
     }
 

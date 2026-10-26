@@ -69,6 +69,8 @@ interface PlateListener {
     fun onPaint(x: Float, y: Float, newStroke: Boolean)
     /** The paint (or sculpt) finger lifted. */
     fun onPaintEnd() {}
+    /** Paint mode: a mouse or pen hovers at (x, y) with no button held; [inside] false once it left the view. */
+    fun onPaintHover(x: Float, y: Float, inside: Boolean) {}
     /** Push / pull mode ([PlateView.pushMode]): [result] gets the flat face under (x, y), or null (the drag turns the camera). */
     fun onPushCheck(x: Float, y: Float, result: (PushGrab?) -> Unit) = result(null)
     /** Push / pull: [grab]'s face moved [mm] (design mm, snapped; null = cancelled); (x, y) is the finger, [done] once let go. */
@@ -587,6 +589,11 @@ class PlateView(context: Context) : GLSurfaceView(context) {
         if (android.util.Log.isLoggable(INPUT_TAG, android.util.Log.DEBUG))
             android.util.Log.d(INPUT_TAG, "generic ${MotionEvent.actionToString(event.action)} buttons=${event.buttonState} meta=${event.metaState} " +
                 "v=${event.getAxisValue(MotionEvent.AXIS_VSCROLL)} h=${event.getAxisValue(MotionEvent.AXIS_HSCROLL)} source=${event.source}")
+        if (mode == InteractionMode.PAINT) when (event.actionMasked) {
+            MotionEvent.ACTION_HOVER_ENTER, MotionEvent.ACTION_HOVER_MOVE ->
+                if (event.buttonState == 0) listener?.onPaintHover(event.x, event.y, true)
+            MotionEvent.ACTION_HOVER_EXIT -> listener?.onPaintHover(event.x, event.y, false)
+        }
         // A pen near the screen (palm rejection) and a button pressed in the air fire an instant action (undo, redo, frame).
         if (isPenTool(event.getToolType(0))) {
             when (event.actionMasked) {

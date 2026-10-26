@@ -100,7 +100,8 @@ const std::unordered_map<std::string, Handler> &handlers()
              for (const json &r : a.at("rays"))
                  rays.push_back(r.get<std::array<double, 6>>());
              return e.sculpt({a.at("object"), a.value("instance", 0), a.value("volume", 0)}, rays, a.at("brush"), a.value("radius", 5.0),
-                             a.value("strength", 0.5), a.value("invert", false), a.value("newStroke", false), a.value("end", false));
+                             a.value("strength", 0.5), a.value("invert", false), a.value("newStroke", false), a.value("end", false),
+                             a.value("probe", false));
          }},
         {"sculptEnd", [](OrcaEngine &e, const json &) { return e.sculpt_end(); }},
         {"smoothBlend", [](OrcaEngine &e, const json &a) { return e.smooth_blend(a.at("object"), a.value("instance", 0), a.at("radius")); }},

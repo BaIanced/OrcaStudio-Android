@@ -122,6 +122,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var previewRange = PreviewRange()
     /** Measurement points (world), drawn as markers and a connecting line. */
     var measurePoints: List<FloatArray> = emptyList()
+    /** Sculpt brush ring: centre x, y, z, surface normal x, y, z, radius (world mm), or null. */
+    var brushCursor: FloatArray? = null
     /** Height of the cut plane preview for the selected object's bounds (x0,y0,x1,y1,z), or null. */
     var cutPlane: FloatArray? = null
     /** Regions view: crease line segments (x, y, z per end, world), drawn over the model with depth test. */
@@ -935,6 +937,48 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         drawRings(floatArrayOf(g[0] - k, g[1] - k, g[2] - k, g[0] + k, g[1] + k, g[2] + k), 2)
     }
 
+    /** The sculpt brush: a ring of its radius on the surface's tangent plane, on top of the scene (dark rim under white). */
+    private fun drawBrushCursor() {
+        val c = brushCursor ?: return
+        var nx = c[3]; var ny = c[4]; var nz = c[5]
+        val nl = kotlin.math.sqrt(nx * nx + ny * ny + nz * nz)
+        if (nl < 1e-6f) { nx = 0f; ny = 0f; nz = 1f } else { nx /= nl; ny /= nl; nz /= nl }
+        // Two axes across the normal: the one least like it crossed with it, then normal x first.
+        val (ax, ay, az) = if (kotlin.math.abs(nx) < 0.9f) Triple(1f, 0f, 0f) else Triple(0f, 1f, 0f)
+        var ux = ny * az - nz * ay; var uy = nz * ax - nx * az; var uz = nx * ay - ny * ax
+        val ul = kotlin.math.sqrt(ux * ux + uy * uy + uz * uz)
+        ux /= ul; uy /= ul; uz /= ul
+        val vx = ny * uz - nz * uy; val vy = nz * ux - nx * uz; val vz = nx * uy - ny * ux
+        val r = c[6]
+        val n = 48
+        val pts = FloatArray((n + 1) * 3)
+        for (i in 0..n) {
+            val a = i * 2.0 * Math.PI / n
+            val co = Math.cos(a).toFloat() * r; val si = Math.sin(a).toFloat() * r
+            pts[i * 3] = c[0] + ux * co + vx * si
+            pts[i * 3 + 1] = c[1] + uy * co + vy * si
+            pts[i * 3 + 2] = c[2] + uz * co + vz * si
+        }
+        glUseProgram(lineProgram)
+        glUniformMatrix4fv(loc(lineProgram, "uMvp"), 1, false, mvp, 0)
+        glUniform3f(loc(lineProgram, "uOffset"), 0f, 0f, 0f)
+        setSection(lineProgram, on = false)
+        glDisable(GL_DEPTH_TEST)
+        glBindBuffer(GL_ARRAY_BUFFER, scratchVbo)
+        glBufferData(GL_ARRAY_BUFFER, pts.size * 4, floats(pts), GL_STREAM_DRAW)
+        glEnableVertexAttribArray(0)
+        glVertexAttribPointer(0, 3, GL_FLOAT, false, 12, 0)
+        glLineWidth(4f * pxScale)
+        glUniform3f(loc(lineProgram, "uColor"), 0.1f, 0.1f, 0.1f)
+        glDrawArrays(GL_LINE_STRIP, 0, n + 1)
+        glLineWidth(2f * pxScale)
+        glUniform3f(loc(lineProgram, "uColor"), 1f, 1f, 1f)
+        glDrawArrays(GL_LINE_STRIP, 0, n + 1)
+        glLineWidth(1f)
+        glDisableVertexAttribArray(0)
+        glEnable(GL_DEPTH_TEST)
+    }
+
     /** The cut plane: a translucent disc and its rim, depth-tested so the object hides the part inside it. */
     private fun drawCutDisc() {
         val d = cutDisc ?: return
@@ -1361,6 +1405,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     }
 
     private fun drawOverlays() {
+        drawBrushCursor()
         drawCutDisc()
         if (cutRings != null) drawCutRings()
         val lines = ArrayList<Float>()

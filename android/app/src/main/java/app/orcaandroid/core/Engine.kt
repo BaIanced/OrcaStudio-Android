@@ -129,16 +129,18 @@ class Engine(private val cacheDir: File) {
     /**
      * Live sculpt of [target]'s part: one dab per ray (world origin, direction) that hits it, in stroke order; brushes draw,
      * inflate, smooth, flatten, pinch, crease, grab. Only the changed scene triangles come back ([SculptStep.patch]);
-     * [sculptEnd] writes the part's mesh and the scene. [end] does that in the same call (MCP).
+     * [sculptEnd] writes the part's mesh and the scene. [end] does that in the same call (MCP). [probe] only hit-tests
+     * the rays, for the brush cursor ([SculptStep.cursor]).
      */
     suspend fun sculpt(target: PickHit, rays: List<Pair<Vec3, Vec3>>, brush: String, radius: Float, strength: Float, invert: Boolean,
-                       newStroke: Boolean, end: Boolean = false): SculptStep {
+                       newStroke: Boolean, end: Boolean = false, probe: Boolean = false): SculptStep {
         val o = call("sculpt", args("object" to target.obj, "instance" to target.instance, "volume" to target.volume,
             "rays" to rays.map { (a, d) -> listOf(a.x, a.y, a.z, d.x, d.y, d.z).map { it.toDouble() } },
-            "brush" to brush, "radius" to radius, "strength" to strength, "invert" to invert, "newStroke" to newStroke, "end" to end))
+            "brush" to brush, "radius" to radius, "strength" to strength, "invert" to invert, "newStroke" to newStroke, "end" to end, "probe" to probe))
         val scene = if (o.has("objects")) parseScene(o) else null
         val patch = o.optString("patch").takeIf { it.isNotEmpty() }?.let { MeshPatch.load(it, o.getInt("mesh_version")) }
-        return SculptStep(scene, patch, o.optBoolean("hit"))
+        val cursor = if (o.has("point")) o.vec3("point") to o.vec3("normal") else null
+        return SculptStep(scene, patch, o.optBoolean("hit"), cursor)
     }
     suspend fun sculptEnd() = parseScene(call("sculptEnd"))
     suspend fun smoothBlend(obj: Int, instance: Int, radius: Float) =

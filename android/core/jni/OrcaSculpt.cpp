@@ -203,8 +203,10 @@ json OrcaEngine::sculpt_end()
 }
 
 json OrcaEngine::sculpt(const std::array<int, 3> &target, const std::vector<std::array<double, 6>> &rays, const std::string &brush,
-                        double radius, double strength, bool invert, bool new_stroke, bool end)
+                        double radius, double strength, bool invert, bool new_stroke, bool end, bool probe)
 {
+    if (probe)
+        new_stroke = end = false;
     std::lock_guard<std::mutex> lock(m_mutex);
     if (!(radius > 0.) || !std::isfinite(radius))
         throw std::runtime_error("Invalid brush radius");
@@ -218,6 +220,9 @@ json OrcaEngine::sculpt(const std::array<int, 3> &target, const std::vector<std:
         throw std::runtime_error("Only model parts can be sculpted");
 
     bool committed = false;
+    // A probe on another part (hover) keeps that part's sculpt too.
+    if (probe && m_sculpt && (m_sculpt->object != oi || m_sculpt->volume != vi))
+        sculpt_flush_locked();
     if (new_stroke) {
         // Another part's unfinished stroke goes into its mesh first.
         if (m_sculpt && (m_sculpt->object != oi || m_sculpt->volume != vi))
@@ -291,6 +296,7 @@ json OrcaEngine::sculpt(const std::array<int, 3> &target, const std::vector<std:
     struct Hit {
         Vec3d point;
         int seed;
+        int face;
     };
     auto hit_of = [&](const Vec3d &o, const Vec3d &d) -> std::optional<Hit> {
         double best = std::numeric_limits<double>::max();
@@ -324,7 +330,7 @@ json OrcaEngine::sculpt(const std::array<int, 3> &target, const std::vector<std:
                 seed = v;
             }
         }
-        return Hit{p, seed};
+        return Hit{p, seed, face};
     };
 
     ss.vstamp.resize(ss.mesh.vertices.size(), 0);
@@ -336,10 +342,21 @@ json OrcaEngine::sculpt(const std::array<int, 3> &target, const std::vector<std:
     }
     std::vector<int> moved, dab_moved;
     bool any_hit = false;
+    // The brush cursor: the last dab's centre and surface normal (volume coordinates).
+    Vec3d cursor_point = Vec3d::Zero(), cursor_normal = Vec3d::UnitZ();
+    int cursor_face = -1;
     for (const auto &r : rays) {
         const Vec3d o = to_local * Vec3d(r[0], r[1], r[2]);
         const Vec3d d = (to_local.linear() * Vec3d(r[3], r[4], r[5])).normalized();
         dab_moved.clear();
+        if (probe) {
+            if (const auto p = hit_of(o, d)) {
+                any_hit = true;
+                cursor_point = p->point;
+                cursor_face = p->face;
+            }
+            continue;
+        }
         if (kind == meshsculpt::Brush::Grab) {
             // Grab: the vertices under the first hit follow the finger on the plane through that hit facing the view.
             if (!ss.grabbing) {
@@ -350,6 +367,9 @@ json OrcaEngine::sculpt(const std::array<int, 3> &target, const std::vector<std:
                 ss.grabbing = true;
                 ss.grab_anchor = p->point;
                 ss.grab_normal = -d;
+                cursor_point = p->point;
+                cursor_normal = -d;
+                cursor_face = -1;
                 ss.grab_verts.clear();
                 ss.grab_w.clear();
                 ss.grab_orig.clear();
@@ -375,6 +395,9 @@ json OrcaEngine::sculpt(const std::array<int, 3> &target, const std::vector<std:
             if (!(t > 0.))
                 continue;
             any_hit = true;
+            cursor_point = o + d * t;
+            cursor_normal = ss.grab_normal;
+            cursor_face = -1;
             const Vec3d delta = o + d * t - ss.grab_anchor;
             for (size_t k = 0; k < ss.grab_verts.size(); ++k) {
                 const auto &v0 = ss.grab_orig[k];
@@ -387,6 +410,8 @@ json OrcaEngine::sculpt(const std::array<int, 3> &target, const std::vector<std:
             if (!p)
                 continue;
             any_hit = true;
+            cursor_point = p->point;
+            cursor_face = p->face;
             meshsculpt::Stroke st;
             st.brush = kind;
             st.center = {p->point.x(), p->point.y(), p->point.z()};
@@ -481,6 +506,21 @@ json OrcaEngine::sculpt(const std::array<int, 3> &target, const std::vector<std:
     out["patch"] = patch;
     out["mesh_version"] = m_mesh_version;
     out["hit"] = any_hit;
+    if (any_hit) {
+        // The hit face as the dab left it; normals go to the world by the inverse transpose.
+        if (cursor_face >= 0) {
+            const auto &tri = ss.mesh.faces[size_t(cursor_face)];
+            const auto &a = ss.mesh.vertices[size_t(tri[0])], &b = ss.mesh.vertices[size_t(tri[1])], &c = ss.mesh.vertices[size_t(tri[2])];
+            const Vec3d n = Vec3d(b.x - a.x, b.y - a.y, b.z - a.z).cross(Vec3d(c.x - a.x, c.y - a.y, c.z - a.z));
+            if (n.squaredNorm() > 0.)
+                cursor_normal = n;
+        }
+        const Vec3d wp = ss.frame * cursor_point;
+        Vec3d wn = ss.frame.linear().inverse().transpose() * cursor_normal;
+        wn = wn.squaredNorm() > 0. ? Vec3d(wn.normalized()) : Vec3d(Vec3d::UnitZ());
+        out["point"] = {wp.x(), wp.y(), wp.z()};
+        out["normal"] = {wn.x(), wn.y(), wn.z()};
+    }
     return out;
 }
 

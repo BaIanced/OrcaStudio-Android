@@ -291,5 +291,8 @@ class MeshPatch(val version: Int, val firsts: IntArray, val counts: IntArray, va
     }
 }
 
-/** One live sculpt call: [scene] when the whole scene mesh was rewritten (refined at the stroke's start), [patch] the changed triangles. */
-class SculptStep(val scene: Scene?, val patch: MeshPatch?, val hit: Boolean)
+/**
+ * One live sculpt call: [scene] when the whole scene mesh was rewritten (refined at the stroke's start), [patch] the changed
+ * triangles, [cursor] the last dab's world point and surface normal (the brush ring).
+ */
+class SculptStep(val scene: Scene?, val patch: MeshPatch?, val hit: Boolean, val cursor: Pair<Vec3, Vec3>? = null)
