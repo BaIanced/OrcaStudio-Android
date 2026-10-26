@@ -438,6 +438,11 @@
     <string name="deform_twist_hint">Turns more toward the far end; the low end stays put.</string>
     <string name="deform_taper_hint">Scales toward the far end; the low end keeps its size.</string>
     <string name="deform_note">Its painting is removed; Undo goes back.</string>
+    <string name="blend">Smooth blend</string>
+    <string name="blending">Blending…</string>
+    <string name="blend_radius">Radius %1$d mm</string>
+    <string name="blend_hint">Fuses all parts of the object into one mesh and rounds the joins and crevices. Convex edges stay sharp.</string>
+    <string name="blend_note">The parts become one; painting is removed. Undo goes back.</string>
     <string name="size">Size</string>
     <string name="round_edges">Round edges</string>
     <string name="slice">Slice</string>

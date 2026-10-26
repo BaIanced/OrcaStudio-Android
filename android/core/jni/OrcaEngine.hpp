@@ -127,6 +127,8 @@ public:
     // Merges duplicate vertices and removes degenerate faces.
     json repair(int object);
     json deform(int object, int instance, const std::string &kind, int axis, double amount);
+    // Fuses the object's model parts into one mesh with smooth joins (OpenVDB closing by `radius` mm).
+    json smooth_blend(int object, int instance, double radius);
     // Replaces the object's first model part with the single mesh in `path` (desktop "Replace with
     // STL"): settings, modifiers and instances stay, painting is remapped. Sets `module` when not empty.
     json replace_mesh(int object, const std::string &path, const std::string &module);

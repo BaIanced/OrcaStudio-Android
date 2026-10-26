@@ -170,6 +170,9 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             "twist: degrees about the axis; taper: the far end's scale (> 0). The low end stays put. $PLATE_EDIT",
             obj(listOf("object", "kind", "axis", "amount"), *COPY, "kind" to p("string", "bend, twist or taper"),
                 "axis" to p("integer", "0..2"), "amount" to p("number", "Degrees, or taper scale"))) { deform(it) },
+        Tool("object_smooth_blend", "Plate edit: fuses all model parts of one copy into a single mesh and rounds the joins and crevices " +
+            "(OpenVDB closing by radius mm; convex edges stay; works on STLs; painting is removed). $PLATE_EDIT",
+            obj(listOf("object", "radius"), *COPY, "radius" to p("number", "Blend radius in mm, 0.5..50"))) { smoothBlend(it) },
         Tool("object_duplicate", "Plate edit: adds copies of one copy of an object; they are arranged on its plate. $PLATE_EDIT",
             obj(listOf("object"), *COPY, "copies" to p("integer", "How many, 1..100; default 1"))) { duplicate(it) },
         Tool("plate_arrange", "Plate edit: arranges the objects on a plate (default the active one), or with all true " +
@@ -759,6 +762,13 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         return plateEdit("${mapOf("bend" to "bent", "twist" to "twisted", "taper" to "tapered").getValue(kind)} object ${o + 1}", R.string.deforming) {
             store.engine.deform(o, inst.index, kind, axis, amount.toFloat())
         }
+    }
+
+    private suspend fun smoothBlend(args: JSONObject): String {
+        val (o, inst) = copyOf(args)
+        val radius = args.optDouble("radius", Double.NaN)
+        if (radius.isNaN() || radius < 0.5 || radius > 50) throw ToolError("radius must be 0.5..50 mm")
+        return plateEdit("blended object ${o + 1}", R.string.blending) { store.engine.smoothBlend(o, inst.index, radius.toFloat()) }
     }
 
     private suspend fun duplicate(args: JSONObject): String {

@@ -147,6 +147,7 @@ internal fun AddDialogs(state: UiState, vm: AppViewModel, dialog: String?, onDis
         "calib" -> CalibrationDialog(vm, onDismiss)
         "simplify" -> SimplifyDialog(state, vm, onDismiss)
         "deform" -> DeformDialog(vm, onDismiss)
+        "blend" -> BlendDialog(vm, onDismiss)
         "check" -> CheckMeshDialog(vm, onDismiss)
         "boolean" -> MeshBooleanDialog(state, vm, onDismiss)
     }
@@ -493,4 +494,16 @@ private fun CheckMeshDialog(vm: AppViewModel, onDismiss: () -> Unit) {
         },
         dismissButton = { if (hasMarkers) TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) } },
     )
+}
+
+/** Fuses the selected object's parts into one mesh with smooth joins (OpenVDB closing, so it also works on STLs). */
+@Composable
+private fun BlendDialog(vm: AppViewModel, onDismiss: () -> Unit) {
+    var radius by remember { mutableFloatStateOf(3f) }
+    DialogFrame(stringResource(R.string.blend), stringResource(R.string.apply), onConfirm = { vm.scene.smoothBlend(radius) }, onDismiss = onDismiss) {
+        Text(stringResource(R.string.blend_radius, radius.roundToInt()))
+        Slider(radius, { radius = it.roundToInt().toFloat() }, valueRange = 1f..20f)
+        Text(stringResource(R.string.blend_hint), style = MaterialTheme.typography.bodySmall)
+        Text(stringResource(R.string.blend_note), style = MaterialTheme.typography.bodySmall)
+    }
 }

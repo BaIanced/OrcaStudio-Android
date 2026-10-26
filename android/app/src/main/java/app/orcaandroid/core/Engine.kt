@@ -126,6 +126,8 @@ class Engine(private val cacheDir: File) {
     suspend fun simplify(obj: Int, ratio: Float) = parseScene(call("simplify", args("object" to obj, "ratio" to ratio)))
     suspend fun repair(obj: Int) = parseScene(call("repair", args("object" to obj)))
     /** Bends, twists or tapers ([kind] "bend" / "twist" / "taper") one object along plate [axis] 0..2, in this copy's frame: [amount] in degrees, or the far end's scale for a taper. */
+    suspend fun smoothBlend(obj: Int, instance: Int, radius: Float) =
+        parseScene(call("smoothBlend", args("object" to obj, "instance" to instance, "radius" to radius)))
     suspend fun deform(obj: Int, instance: Int, kind: String, axis: Int, amount: Float) =
         parseScene(call("deform", args("object" to obj, "instance" to instance, "kind" to kind, "axis" to axis, "amount" to amount)))
     /** Read-only mesh report of one copy; see [MeshReport.text]. Faces whose wall is thinner than [thickness] mm are counted. */

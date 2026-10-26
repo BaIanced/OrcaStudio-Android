@@ -195,6 +195,8 @@ class SceneController(private val store: Store, private val presets: PresetContr
 
     fun simplify(ratio: Float) = selection?.let { sel -> store.sceneOp(store.str(R.string.simplifying)) { engine.simplify(sel.obj, ratio) } }
     fun repair() = selection?.let { sel -> store.sceneOp { engine.repair(sel.obj) } }
+    fun smoothBlend(radius: Float) =
+        selection?.let { sel -> store.sceneOp(store.str(R.string.blending)) { engine.smoothBlend(sel.obj, sel.instance, radius) } }
     fun deform(kind: String, axis: Int, amount: Float) =
         selection?.let { sel -> store.sceneOp(store.str(R.string.deforming)) { engine.deform(sel.obj, sel.instance, kind, axis, amount) } }
 
