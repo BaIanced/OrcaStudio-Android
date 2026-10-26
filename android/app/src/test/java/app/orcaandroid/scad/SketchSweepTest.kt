@@ -52,6 +52,42 @@ class SketchSweepTest {
         assertEquals(circle.loops, Shape.of(Shape(1, Shape.Kind.SKETCH, "S", D3(), sketch = sq, top = circle).json()).top?.loops)
     }
 
+    @Test fun pathFramesAreMitredAtCorners() {
+        val f = Sweep.frames(listOf(P2(0.0, 0.0), P2(10.0, 0.0), P2(10.0, 10.0)), closed = false)
+        listOf(P2(0.0, 1.0), P2(-1.0, 1.0), P2(-1.0, 0.0)).zip(f) { want, got -> assertEquals(0.0, want.dist(got.side), 1e-9) }
+        val e = Sweep.frames(listOf(P2(0.0, 0.0), P2(10.0, 0.0)), closed = false, extend = 0.1)
+        assertEquals(0.0, e[0].p.dist(P2(-0.1, 0.0)), 1e-9)
+        assertEquals(0.0, e[1].p.dist(P2(10.1, 0.0)), 1e-9)
+    }
+
+    @Test fun anOpenPathSweepsTheProfileAndFitsTheBox() {
+        val profile = Sketch().plus(Loop.rect(P2(-1.0, 3.0), P2(1.0, 5.0)), rect = true)
+        val line = Sketch(listOf(Loop(listOf(P2(0.0, 0.0), P2(10.0, 0.0)), open = true)))
+        val sw = Sweep.of(profile, line)!!
+        assertEquals(D3(0.0, -1.0, 0.0), sw.bounds.first)
+        assertEquals(D3(10.0, 1.0, 2.0), sw.bounds.second)
+        val s = ShapeDesign.fitSketch(Shape(1, Shape.Kind.SKETCH, "S", D3(2.0, 2.0, 5.0), sketch = profile, path = line), profile)
+        assertEquals(D3(10.0, 2.0, 2.0), s.size)
+        val code = ShapeDesign(listOf(s)).toScad()
+        assertTrue(code.contains("module sweep("))
+        assertTrue(code.contains("scale([10 / 10, 2 / 2, 2 / 2]) translate([-5, 0, 0]) sweep([[-1, 0], [1, 0], [1, 2], [-1, 2]], [[0, 0, 0, 1], [10, 0, 0, 1]], false);"))
+        assertFalse(code.contains("linear_extrude("))
+        assertFalse(code.contains("module loft("))
+        // The open path is saved and read back.
+        assertEquals(line.loops, Shape.of(s.json()).path?.loops)
+    }
+
+    @Test fun aClosedPathPutsThePlusXSideOutsideAndHolesAreCut() {
+        val profile = Sketch(listOf(Loop.rect(P2(0.0, 0.0), P2(2.0, 2.0)), Loop.rect(P2(0.5, 0.5), P2(1.5, 1.5)).copy(hole = true)))
+        val square = Sketch(listOf(Loop.rect(P2(0.0, 0.0), P2(10.0, 10.0))))
+        val sw = Sweep.of(profile, square)!!
+        assertEquals(D3(-2.0, -2.0, 0.0), sw.bounds.first)
+        assertEquals(D3(12.0, 12.0, 2.0), sw.bounds.second)
+        val code = sw.toScad("14", "14", "2")
+        assertTrue(code.contains("difference() { sweep("))
+        assertTrue(code.contains(", true);"))
+    }
+
     @Test fun twistGoesToTheExtrusion() {
         assertTrue(sketch(mapOf(Shape.TWIST to 90.0)).toScad().contains("linear_extrude(2, twist = 90)"))
         assertFalse(sketch(emptyMap()).toScad().contains("twist"))

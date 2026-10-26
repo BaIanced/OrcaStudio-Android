@@ -84,6 +84,8 @@ data class Shape(
     val sketch: Sketch? = null,
     /** An extruded sketch's top outline (same frame as [sketch]): the sides loft from one to the other. */
     val top: Sketch? = null,
+    /** An extruded sketch's path seen from above: the drawing is swept along it as a profile instead (see [Sweep]). */
+    val path: Sketch? = null,
     /** Field ("size.x", "pos.z", "rot.y", "radius", ...) -> name of the [Dim] that drives it. */
     val bind: Map<String, String> = emptyMap(),
     val children: List<Shape> = emptyList(),
@@ -115,6 +117,7 @@ data class Shape(
             repeat?.let { put("repeat", it.json()) }
             sketch?.let { put("sketch", it.json()) }
             top?.let { put("top", it.json()) }
+            path?.let { put("path", it.json()) }
             if (bind.isNotEmpty()) put("bind", JSONObject(bind))
             if (children.isNotEmpty()) put("children", JSONArray().apply { children.forEach { put(it.json()) } })
             if (filament > 0) put("filament", filament)
@@ -166,6 +169,7 @@ data class Shape(
             repeat = Repeat.of(o.optJSONObject("repeat")),
             sketch = Sketch.of(o.optJSONObject("sketch")),
             top = Sketch.of(o.optJSONObject("top")),
+            path = Sketch.of(o.optJSONObject("path")),
             bind = o.optJSONObject("bind")?.let { b -> b.keys().asSequence().associateWith { b.optString(it) } } ?: emptyMap(),
             children = o.optJSONArray("children")?.let { a -> (0 until a.length()).map { of(a.getJSONObject(it)) } } ?: emptyList(),
             filament = o.optInt("filament").coerceAtLeast(0),
@@ -351,6 +355,10 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
             appendLine("        convexity = 10);")
             appendLine("}")
         }
+        if (shapes.any { sh -> sh.all().any { swept(it) != null } }) {
+            appendLine()
+            Sweep.MODULE.forEach(::appendLine)
+        }
         if (shapes.any { sh -> sh.all().any { lofted(it) != null } }) {
             appendLine()
             appendLine("// Outline a lofted to b (same point count, counter-clockwise) scaled by sx / sy over height h, the top")
@@ -374,7 +382,7 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
      * to point. Null when nothing lofts.
      */
     private fun lofted(s: Shape): Pair<List<List<P2>>, List<List<P2>>>? {
-        if (s.kind != Shape.Kind.SKETCH || s.x(Shape.REVOLVE, 0.0) != 0.0) return null
+        if (s.kind != Shape.Kind.SKETCH || s.x(Shape.REVOLVE, 0.0) != 0.0 || s.path != null) return null
         fun solids(sk: Sketch?) = sk?.loops?.filter { !it.hole && it.pts.size >= 2 }?.map { l ->
             l.polygon().let { if (Sketch.area(it) < 0) it.reversed() else it } }?.filter { it.size >= 3 } ?: emptyList()
         val a = solids(s.sketch)
@@ -383,6 +391,10 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
         val pairs = a.zip(b) { p, q -> max(48, max(p.size, q.size)).coerceAtMost(360).let { k -> Sketch.resample(p, k) to Sketch.resample(q, k) } }
         return pairs.map { it.first } to pairs.map { it.second }
     }
+
+    /** An extruded sketch swept along its path, or null. */
+    private fun swept(s: Shape): Sweep? = if (s.kind != Shape.Kind.SKETCH || s.x(Shape.REVOLVE, 0.0) != 0.0) null
+        else s.path?.let { p -> s.sketch?.let { Sweep.of(it, p) } }
 
     /** A revolved sketch that rises as it turns (a coil, spring or thread), drawn by the prelude's coil module. */
     private fun coiled(s: Shape) = s.kind == Shape.Kind.SKETCH && s.x(Shape.REVOLVE, 0.0) != 0.0 && value(s, Shape.PITCH, s.x(Shape.PITCH, 0.0)) > 0
@@ -869,6 +881,8 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
         val top = s.x(Shape.TOP, 1.0).coerceAtLeast(0.0)
         val twist = if (value(s, Shape.TWIST, s.x(Shape.TWIST, 0.0)) != 0.0) ", twist = ${f(s, Shape.TWIST, s.x(Shape.TWIST, 0.0))}" else ""
         val c = (lo + hi) * 0.5
+        // The drawing as a profile along the path (a polyhedron like the loft: no rounded corners or inset).
+        swept(s)?.let { return it.toScad(w, d, h) }
         lofted(s)?.let { (bottom, upper) ->
             // Each solid outline lofts to the top one at its position (no 2D offset reaches it: no rounded corners or inset).
             val tw = f(s, Shape.TWIST, s.x(Shape.TWIST, 0.0))
@@ -958,6 +972,8 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
             val (lo, hi) = sketch.bounds() ?: return s.copy(sketch = sketch)
             val old = s.sketch?.bounds()
             val revolve = s.x(Shape.REVOLVE, 0.0) != 0.0
+            // A sweep's box is the swept solid's, 1:1.
+            if (!revolve) s.path?.let { Sweep.of(sketch, it) }?.let { return s.copy(sketch = sketch, size = it.size) }
             fun box(lo: P2, hi: P2) = if (revolve) D3(2 * max(0.5, hi.x), 2 * max(0.5, hi.x), max(0.5, hi.y - lo.y))
                 else D3(max(0.5, hi.x - lo.x), max(0.5, hi.y - lo.y), s.size.z)
             val now = box(lo, hi)

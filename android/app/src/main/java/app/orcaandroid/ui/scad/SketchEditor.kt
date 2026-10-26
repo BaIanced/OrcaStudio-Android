@@ -231,11 +231,11 @@ private class SketchState(initial: Sketch, initialDims: List<Dim>) {
         for (li in order) loops[li].pts.forEachIndexed { pi, q -> if ((toScreen(q) - o).getDistance() <= slopPx) return Pick(li, Pick.What.POINT, pi) }
         pick?.loop?.takeIf { it in loops.indices }?.let { li ->
             val l = loops[li]
-            for (i in l.pts.indices) if ((toScreen(l.sideMid(i)) - o).getDistance() <= slopPx) return Pick(li, Pick.What.SIDE, i)
+            for (i in l.sides) if ((toScreen(l.sideMid(i)) - o).getDistance() <= slopPx) return Pick(li, Pick.What.SIDE, i)
         }
         val p = toMm(o)
         // Topmost first: later outlines are drawn over earlier ones.
-        for (li in loops.indices.reversed()) if (inside(loops[li].polygon(), p)) return Pick(li, Pick.What.LOOP)
+        for (li in loops.indices.reversed()) if (!loops[li].open && inside(loops[li].polygon(), p)) return Pick(li, Pick.What.LOOP)
         return null
     }
 
@@ -262,6 +262,15 @@ private class SketchState(initial: Sketch, initialDims: List<Dim>) {
         draft = emptyList()
     }
 
+    /** A path's lines left open (two corners or more), else as [closeDraft]. */
+    fun finishDraft(open: Boolean) {
+        if (open && draft.size >= 2) {
+            edit(sketch.copy(loops = sketch.loops + Loop(draft, open = true)))
+            pick = Pick(sketch.loops.size - 1, Pick.What.LOOP)
+            draft = emptyList()
+        } else closeDraft()
+    }
+
     fun setLoop(li: Int, f: (Loop) -> Loop, record: Boolean = true) {
         val next = sketch.copy(loops = sketch.loops.mapIndexed { i, l -> if (i == li) f(l) else l })
         if (record) edit(next) else sketch = next
@@ -270,7 +279,7 @@ private class SketchState(initial: Sketch, initialDims: List<Dim>) {
     fun deletePicked() {
         val p = pick ?: return
         val l = sketch.loops.getOrNull(p.loop) ?: return
-        if (p.what == Pick.What.POINT && l.pts.size > 3) {
+        if (p.what == Pick.What.POINT && l.pts.size > if (l.open) 2 else 3) {
             edit(solved(sketch.withoutPoint(p.loop, p.index)))
             pick = Pick(p.loop, Pick.What.LOOP)
         } else {
@@ -289,7 +298,7 @@ private class SketchState(initial: Sketch, initialDims: List<Dim>) {
         var best: Side? = null
         var bestD = slopPx
         sketch.loops.forEachIndexed { li, l ->
-            for (i in l.pts.indices) {
+            for (i in l.sides) {
                 val a = toScreen(l.pts[i])
                 val b = toScreen(l.pts[(i + 1) % l.pts.size])
                 val d = if (l.bulgeAt(i) != 0.0) (toScreen(l.sideMid(i)) - o).getDistance() else {
@@ -318,10 +327,12 @@ private class SketchState(initial: Sketch, initialDims: List<Dim>) {
 /**
  * Full-screen 2D sketch editor: draw outlines (lines, rectangles, circles), drag corners, bend sides
  * into arcs, mark outlines as holes. Snaps to corners, the grid, and level / plumb lines. [revolve]
- * shows the turning axis (x = 0): the profile on its right is turned about it.
+ * shows the turning axis (x = 0): the profile on its right is turned about it. [path] draws a sweep path: lines
+ * may stay open. [title] replaces the heading.
  */
 @Composable
-fun SketchEditor(initial: Sketch, revolve: Boolean, dims: List<Dim>, name: String, onDone: (Sketch, List<Dim>) -> Unit, onCancel: () -> Unit) {
+fun SketchEditor(initial: Sketch, revolve: Boolean, dims: List<Dim>, name: String, path: Boolean = false, title: String? = null,
+                 onDone: (Sketch, List<Dim>) -> Unit, onCancel: () -> Unit) {
     val st = remember { SketchState(initial, dims) }
     val focus = remember { FocusRequester() }
     Dialog(onDismissRequest = onCancel, properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = false)) {
@@ -331,7 +342,7 @@ fun SketchEditor(initial: Sketch, revolve: Boolean, dims: List<Dim>, name: Strin
                 when {
                     e.isCtrlPressed && e.key == Key.Z -> { st.undo(); true }
                     e.key == Key.Delete || e.key == Key.Backspace -> { st.deletePicked(); true }
-                    e.key == Key.Enter -> { st.closeDraft(); true }
+                    e.key == Key.Enter -> { st.finishDraft(path); true }
                     e.key == Key.Escape && st.pairing != null -> { st.pairing = null; true }
                     e.key == Key.Escape && (st.draft.isNotEmpty() || st.pick != null) -> { st.draft = emptyList(); st.pick = null; true }
                     else -> false
@@ -339,21 +350,21 @@ fun SketchEditor(initial: Sketch, revolve: Boolean, dims: List<Dim>, name: Strin
             }) {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     TextButton(onClick = onCancel) { Text(stringResource(android.R.string.cancel)) }
-                    Text(stringResource(if (revolve) R.string.sketch_title_revolve else R.string.sketch_title),
+                    Text(title ?: stringResource(if (path) R.string.sketch_title_path else if (revolve) R.string.sketch_title_revolve else R.string.sketch_title),
                         style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f).padding(start = 8.dp))
                     IconButton(onClick = st::undo, enabled = st.undoCount > 0 || st.draft.isNotEmpty()) {
                         Icon(Icons.AutoMirrored.Filled.Undo, stringResource(R.string.shape_undo))
                     }
                     IconButton(onClick = st::fit) { Icon(Icons.Default.FitScreen, stringResource(R.string.sketch_fit)) }
-                    TextButton(onClick = { st.closeDraft(); onDone(st.sketch, st.dims) }) { Text(stringResource(R.string.sketch_done)) }
+                    TextButton(onClick = { st.finishDraft(path); onDone(st.sketch, st.dims) }) { Text(stringResource(R.string.sketch_done)) }
                 }
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Tool.entries.forEach { t ->
-                        FilterChip(st.tool == t, { st.closeDraft(); st.tool = t }, label = { Text(stringResource(t.label)) })
+                        FilterChip(st.tool == t, { st.finishDraft(path); st.tool = t }, label = { Text(stringResource(t.label)) })
                     }
                 }
                 SketchCanvas(st, revolve, focus, Modifier.weight(1f).fillMaxWidth())
-                PickBar(st, name)
+                PickBar(st, name, path)
             }
         }
     }
@@ -531,16 +542,16 @@ private fun SketchCanvas(st: SketchState, revolve: Boolean, focus: FocusRequeste
             }
             val picked = st.pick
             st.sketch.loops.forEachIndexed { li, l ->
-                val poly = path(l.polygon(), true)
+                val poly = path(l.polygon(), !l.open)
                 val sel = picked?.loop == li
                 val c = if (l.hole) scheme.error else scheme.primary
-                drawPath(poly, c.copy(alpha = if (l.hole) 0.12f else 0.22f))
+                if (!l.open) drawPath(poly, c.copy(alpha = if (l.hole) 0.12f else 0.22f))
                 drawPath(poly, c, style = Stroke(if (sel) 5f else 3f, pathEffect = if (l.hole) PathEffect.dashPathEffect(floatArrayOf(14f, 8f)) else null))
                 l.pts.forEachIndexed { pi, q ->
                     val on = sel && picked.what == Pick.What.POINT && picked.index == pi
                     drawCircle(if (on) scheme.tertiary else c, if (on) 11f else 7f, st.toScreen(q))
                 }
-                if (sel) l.pts.indices.forEach { i ->
+                if (sel) l.sides.forEach { i ->
                     val m = st.toScreen(l.sideMid(i))
                     val on = picked.what == Pick.What.SIDE && picked.index == i
                     val r = if (on) 10f else 7f
@@ -579,7 +590,7 @@ private fun SketchCanvas(st: SketchState, revolve: Boolean, focus: FocusRequeste
 
 /** Below the drawing: what the tool does, or the picked corner / side / outline's settings. */
 @Composable
-private fun PickBar(st: SketchState, name: String) {
+private fun PickBar(st: SketchState, name: String, path: Boolean) {
     fun n(v: Double) = ShapeDesign.n(v)
     val p = st.pick
     val l = p?.let { st.sketch.loops.getOrNull(it.loop) }
@@ -601,7 +612,8 @@ private fun PickBar(st: SketchState, name: String) {
             else -> null
         }
         val pos = st.hover?.let { "x ${n(it.x)}, y ${n(it.y)}" }
-        Text(listOfNotNull(stringResource(st.tool.hint), info, pos).joinToString("  ·  "),
+        val hint = stringResource(if (path && st.tool == Tool.LINE) R.string.sketch_path_hint else st.tool.hint)
+        Text(listOfNotNull(hint, info, pos).joinToString("  ·  "),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (st.tool == Tool.LINE && st.draft.size >= 3) {
             TextButton(onClick = st::closeDraft) { Text(stringResource(R.string.sketch_close)) }

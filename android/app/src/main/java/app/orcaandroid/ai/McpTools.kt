@@ -125,7 +125,8 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             "the drawing's size. $SKETCH $EDIT",
             obj(listOf("id", "sketch"), "id" to p("integer", "Id of a sketch shape"), "sketch" to p("object", "{loops, cons}"),
                 "revolve" to p("boolean", "true = revolve about Z, false = extrude; omitted = unchanged"),
-                "top" to p("object", "Extrude only: a second drawing {loops} (same frame) the sides loft up to, e.g. square to circle; null removes it, omitted = unchanged"))) { sketch(it) },
+                "top" to p("object", "Extrude only: a second drawing {loops} (same frame) the sides loft up to, e.g. square to circle; null removes it, omitted = unchanged"),
+                "path" to p("object", "Extrude only: a path seen from above {loops} (a loop with open true is an open path) the drawing is swept along as a profile (profile x = sideways, left of the path / outwards on a closed one; y = up); the box fits the result; null removes it, omitted = unchanged"))) { sketch(it) },
         Tool("dim_set", "Edit: creates or changes a dim (a named number shown as a slider; shapes follow it through " +
             "bind). $EDIT", obj(listOf("name"), "name" to p("string", "Identifier (letters, digits, _)"),
                 "value" to p("number", "Required for a new dim"), "min" to p("number", "Slider minimum"),
@@ -279,7 +280,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             s.extra.forEach { (k, x) -> append(" $k=${n(x)}") }
             if (s.text.isNotEmpty()) append(" text \"${s.text}\"")
             s.repeat?.let { r -> append(if (r.circular) " repeat ${r.count}x around ${v(r.center)} over ${n(r.angle)}°" else " repeat ${r.count}x step ${v(r.step)}") }
-            s.sketch?.let { sk -> append(" sketch ${sk.loops.size} loop(s)") }; s.top?.let { append(" lofted to a top outline") }
+            s.sketch?.let { sk -> append(" sketch ${sk.loops.size} loop(s)") }; s.top?.let { append(" lofted to a top outline") }; s.path?.let { append(" swept along a path") }
             s.bind.forEach { (f, dim) -> append(" $f<-$dim") }
             val b = d.bounds(s)
             append(" bounds ${v(b.min)}..${v(b.max)}")
@@ -878,8 +879,10 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             // top: the outline an extrusion lofts to; JSON null removes it, absent leaves it.
             val top = if (!args.has("top")) null else args.optJSONObject("top")?.let { t ->
                 Sketch.of(t)?.takeIf { it.loops.isNotEmpty() } ?: throw ToolError("top needs loops like sketch") }
+            val path = if (!args.has("path")) null else args.optJSONObject("path")?.let { t ->
+                Sketch.of(t)?.takeIf { it.loops.isNotEmpty() } ?: throw ToolError("path needs loops like sketch") }
             shapes.replace(d.update(id) { s0 ->
-                val s = if (args.has("top")) s0.copy(top = top) else s0
+                val s = s0.let { if (args.has("top")) it.copy(top = top) else it }.let { if (args.has("path")) it.copy(path = path) else it }
                 ShapeDesign.fitSketch(if (revolve == null) s else s.copy(extra = s.extra + (Shape.REVOLVE to if (revolve) 1.0 else 0.0)), solved)
             })
         }

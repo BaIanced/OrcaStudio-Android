@@ -319,6 +319,15 @@ class ShapeController(private val store: Store, private val scad: ScadController
         commit((if (dims != null) d.withDims(dims) else d).update(id) { it.copy(top = top) })
     }
 
+    /** Sketch shape [id]'s path its drawing is swept along (null = extruded straight up); the box fits the result. */
+    fun setPath(id: Int, path: Sketch?, dims: List<Dim>? = null) {
+        val d = design ?: return
+        commit((if (dims != null) d.withDims(dims) else d).update(id) { s ->
+            val p = path?.takeIf { it.loops.isNotEmpty() }
+            s.sketch?.let { ShapeDesign.fitSketch(s.copy(path = p), it) } ?: s.copy(path = p)
+        })
+    }
+
     /** Sketch shape [id]: extrude ([revolve] false) or revolve about Z. */
     fun setRevolve(id: Int, revolve: Boolean) {
         val d = design ?: return

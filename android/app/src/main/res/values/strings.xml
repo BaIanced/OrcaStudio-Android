@@ -841,6 +841,12 @@
     <string name="sketch_top_add">Loft to a top outline</string>
     <string name="sketch_top_edit">Edit top outline</string>
     <string name="sketch_top_remove">Remove top</string>
+    <string name="sketch_path_add">Sweep along a path</string>
+    <string name="sketch_path_edit">Edit path</string>
+    <string name="sketch_path_remove">Remove path</string>
+    <string name="sketch_title_path">Path from above (the drawing follows it as a profile)</string>
+    <string name="sketch_title_profile">Profile (the path runs up the green axis; +x is its left, or outside)</string>
+    <string name="sketch_path_hint">Lines: tap points, Done ends an open path; tap the first point to close it</string>
     <string name="sketch_top_scale">Top scale (1 = straight sides)</string>
     <string name="sketch_title">Sketch (extruded upwards)</string>
     <string name="sketch_title_revolve">Profile (turned about the dashed axis)</string>

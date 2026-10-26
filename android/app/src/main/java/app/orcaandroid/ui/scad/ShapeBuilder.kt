@@ -107,11 +107,13 @@ fun ShapesTab(s: ScadEditorState, vm: AppViewModel) {
     val focus = remember { FocusRequester() }
     var sketching by remember { mutableStateOf<Int?>(null) }
     var topOf by remember { mutableStateOf<Int?>(null) }
+    var pathOf by remember { mutableStateOf<Int?>(null) }
     val stl = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { it?.let(sh::importMesh) }
     sketching?.let { id ->
         val shape = d.find(id)
         if (shape == null) sketching = null
         else SketchEditor(shape.sketch ?: Sketch.START, shape.x(Shape.REVOLVE, 0.0) != 0.0, d.dims, shape.name,
+            title = if (shape.path != null && shape.x(Shape.REVOLVE, 0.0) == 0.0) stringResource(R.string.sketch_title_profile) else null,
             onDone = { s, dims -> sh.setSketch(id, s, dims); sketching = null }, onCancel = { sketching = null })
     }
     topOf?.let { id ->
@@ -119,6 +121,12 @@ fun ShapesTab(s: ScadEditorState, vm: AppViewModel) {
         if (shape == null) topOf = null
         else SketchEditor(shape.top ?: shape.sketch ?: Sketch.START, false, d.dims, shape.name,
             onDone = { s, dims -> sh.setTop(id, s, dims); topOf = null }, onCancel = { topOf = null })
+    }
+    pathOf?.let { id ->
+        val shape = d.find(id)
+        if (shape == null) pathOf = null
+        else SketchEditor(shape.path ?: Sketch(), false, d.dims, shape.name, path = true,
+            onDone = { s, dims -> sh.setPath(id, s, dims); pathOf = null }, onCancel = { pathOf = null })
     }
     Column(
         Modifier.fillMaxSize().focusRequester(focus).focusable().onKeyEvent { e ->
@@ -166,7 +174,9 @@ fun ShapesTab(s: ScadEditorState, vm: AppViewModel) {
         val one = s.selected.singleOrNull()?.let { d.find(it) }
         if (one != null) {
             HorizontalDivider(Modifier.padding(top = 8.dp))
-            Properties(one, d, vm, filaments) { top -> if (top) topOf = one.id else sketching = one.id }
+            Properties(one, d, vm, filaments) { what ->
+                when (what) { SketchPart.TOP -> topOf = one.id; SketchPart.PATH -> pathOf = one.id; else -> sketching = one.id }
+            }
         } else if (s.selected.size > 1) {
             Text(stringResource(R.string.shape_multi, s.selected.size), style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp))
@@ -252,7 +262,7 @@ private fun ShapeRow(shape: Shape, depth: Int, s: ScadEditorState, vm: AppViewMo
 // --- Properties of the selected shape ------------------------------------------------------------
 
 @Composable
-private fun Properties(shape: Shape, d: ShapeDesign, vm: AppViewModel, filaments: List<FilamentSlot>, onEditSketch: (top: Boolean) -> Unit) {
+private fun Properties(shape: Shape, d: ShapeDesign, vm: AppViewModel, filaments: List<FilamentSlot>, onEditSketch: (SketchPart) -> Unit) {
     val sh = vm.shapes
     Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         var name by remember(shape.id) { mutableStateOf(shape.name) }
@@ -335,12 +345,15 @@ private fun ShellEditor(shape: Shape, d: ShapeDesign, vm: AppViewModel) {
     }
 }
 
+/** Which drawing of a sketch shape to edit: its outline (or profile), the loft's top outline or the sweep path. */
+private enum class SketchPart { SKETCH, TOP, PATH }
+
 /** A sketch shape: open the drawing, extrude or revolve it. */
 @Composable
-private fun SketchSettings(shape: Shape, d: ShapeDesign, vm: AppViewModel, onEditSketch: (top: Boolean) -> Unit) {
+private fun SketchSettings(shape: Shape, d: ShapeDesign, vm: AppViewModel, onEditSketch: (SketchPart) -> Unit) {
     val revolve = shape.x(Shape.REVOLVE, 0.0) != 0.0
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        FilledTonalButton(onClick = { onEditSketch(false) }) {
+        FilledTonalButton(onClick = { onEditSketch(SketchPart.SKETCH) }) {
             Icon(Icons.Default.Draw, null, Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
             Text(stringResource(R.string.sketch_edit))
@@ -358,14 +371,23 @@ private fun SketchSettings(shape: Shape, d: ShapeDesign, vm: AppViewModel, onEdi
         ExtraField(stringResource(R.string.sketch_angle), shape, d, vm, Shape.ANGLE, 360.0)
         ExtraField(stringResource(R.string.sketch_pitch), shape, d, vm, Shape.PITCH, 0.0)
     } else {
-        ExtraField(stringResource(R.string.sketch_top_scale), shape, d, vm, Shape.TOP, 1.0, slider = false)
-        ExtraField(stringResource(R.string.sketch_twist), shape, d, vm, Shape.TWIST, 0.0)
-        // A second outline the sides loft up to (square to circle and the like).
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = { onEditSketch(true) }) {
-                Text(stringResource(if (shape.top == null) R.string.sketch_top_add else R.string.sketch_top_edit))
+        if (shape.path == null) {
+            ExtraField(stringResource(R.string.sketch_top_scale), shape, d, vm, Shape.TOP, 1.0, slider = false)
+            ExtraField(stringResource(R.string.sketch_twist), shape, d, vm, Shape.TWIST, 0.0)
+            // A second outline the sides loft up to (square to circle and the like).
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { onEditSketch(SketchPart.TOP) }) {
+                    Text(stringResource(if (shape.top == null) R.string.sketch_top_add else R.string.sketch_top_edit))
+                }
+                if (shape.top != null) TextButton(onClick = { vm.shapes.setTop(shape.id, null) }) { Text(stringResource(R.string.sketch_top_remove)) }
             }
-            if (shape.top != null) TextButton(onClick = { vm.shapes.setTop(shape.id, null) }) { Text(stringResource(R.string.sketch_top_remove)) }
+        }
+        // Or a path (seen from above) the drawing follows as a profile: a rail, rim, handle or pipe.
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = { onEditSketch(SketchPart.PATH) }) {
+                Text(stringResource(if (shape.path == null) R.string.sketch_path_add else R.string.sketch_path_edit))
+            }
+            if (shape.path != null) TextButton(onClick = { vm.shapes.setPath(shape.id, null) }) { Text(stringResource(R.string.sketch_path_remove)) }
         }
     }
 }
