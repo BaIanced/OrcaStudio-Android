@@ -95,6 +95,12 @@ const std::unordered_map<std::string, Handler> &handlers()
         {"simplify", [](OrcaEngine &e, const json &a) { return e.simplify(a.at("object"), a.at("ratio")); }},
         {"repair", [](OrcaEngine &e, const json &a) { return e.repair(a.at("object")); }},
         {"deform", [](OrcaEngine &e, const json &a) { return e.deform(a.at("object"), a.value("instance", 0), a.at("kind"), a.at("axis"), a.at("amount")); }},
+        {"sculpt", [](OrcaEngine &e, const json &a) {
+             std::vector<OrcaEngine::PaintHit> hits;
+             for (const json &h : a.at("hits"))
+                 hits.push_back({h.at("object"), h.at("instance"), h.at("volume"), h.at("facet"), vec3(h.at("local")), h.value("join", false)});
+             return e.sculpt(hits, a.at("brush"), a.value("radius", 5.0), a.value("strength", 0.5), a.value("invert", false), a.value("newStroke", false));
+         }},
         {"smoothBlend", [](OrcaEngine &e, const json &a) { return e.smooth_blend(a.at("object"), a.value("instance", 0), a.at("radius")); }},
         {"replaceMesh", [](OrcaEngine &e, const json &a) { return e.replace_mesh(a.at("object"), a.at("path"), a.value("module", std::string())); }},
         {"setObjectModule", [](OrcaEngine &e, const json &a) { return e.set_object_module(a.at("object"), a.at("module")); }},

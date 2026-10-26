@@ -173,6 +173,11 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         Tool("object_smooth_blend", "Plate edit: fuses all model parts of one copy into a single mesh and rounds the joins and crevices " +
             "(OpenVDB closing by radius mm; convex edges stay; works on STLs; painting is removed). $PLATE_EDIT",
             obj(listOf("object", "radius"), *COPY, "radius" to p("number", "Blend radius in mm, 0.5..50"))) { smoothBlend(it) },
+        Tool("object_sculpt", "Plate edit: sculpts the surface hit by a ray (brush dabs on the mesh; refined first when too coarse for the brush; " +
+            "painting is removed on the first refine). Repeat dabs with `dabs`. $PLATE_EDIT",
+            obj(listOf("origin", "dir", "brush"), "origin" to vec("Ray origin in plate coordinates"), "dir" to vec("Ray direction"),
+                "brush" to p("string", "draw, inflate, smooth, flatten, pinch, crease or grab"), "radius" to p("number", "Brush radius in mm; default 5"),
+                "strength" to p("number", "0..1; default 0.5"), "invert" to p("boolean", "Dent instead of bulge"), "dabs" to p("integer", "Repeat count 1..50; default 1"))) { sculpt(it) },
         Tool("object_duplicate", "Plate edit: adds copies of one copy of an object; they are arranged on its plate. $PLATE_EDIT",
             obj(listOf("object"), *COPY, "copies" to p("integer", "How many, 1..100; default 1"))) { duplicate(it) },
         Tool("plate_arrange", "Plate edit: arranges the objects on a plate (default the active one), or with all true " +
@@ -761,6 +766,21 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         if (amount.isNaN() || (kind == "taper" && amount <= 0)) throw ToolError("amount must be a number (taper: > 0)")
         return plateEdit("${mapOf("bend" to "bent", "twist" to "twisted", "taper" to "tapered").getValue(kind)} object ${o + 1}", R.string.deforming) {
             store.engine.deform(o, inst.index, kind, axis, amount.toFloat())
+        }
+    }
+
+    private suspend fun sculpt(args: JSONObject): String {
+        val origin = args.vec3("origin") ?: throw ToolError("origin must be [x, y, z]")
+        val dir = args.vec3("dir") ?: throw ToolError("dir must be [x, y, z]")
+        val brush = args.optString("brush")
+        if (brush !in listOf("draw", "inflate", "smooth", "flatten", "pinch", "crease", "grab")) throw ToolError("unknown brush")
+        val radius = args.optDouble("radius", 5.0)
+        if (radius.isNaN() || radius <= 0) throw ToolError("radius must be > 0")
+        val hit = store.engine.pick(origin.f(), dir.f()) ?: throw ToolError("the ray misses every object")
+        val dabs = args.optInt("dabs", 1).coerceIn(1, 50)
+        return plateEdit("sculpted object ${hit.obj + 1}", R.string.deforming) {
+            store.engine.sculpt(List(dabs) { hit }, brush, radius.toFloat(), args.optDouble("strength", 0.5).toFloat(), args.optBoolean("invert", false), true,
+                List(dabs) { it > 0 })
         }
     }
 

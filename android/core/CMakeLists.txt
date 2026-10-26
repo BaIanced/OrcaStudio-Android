@@ -131,6 +131,7 @@ add_library(orca_jni SHARED
     jni/OrcaBlend.cpp
     jni/OrcaDeform.cpp jni/MeshDeform.hpp
     jni/OrcaVdbBlend.cpp
+    jni/OrcaSculpt.cpp jni/MeshSculpt.hpp
     jni/OrcaProject.cpp
     jni/Preview.cpp jni/Preview.hpp
     jni/Thumbnails.cpp jni/Thumbnails.hpp

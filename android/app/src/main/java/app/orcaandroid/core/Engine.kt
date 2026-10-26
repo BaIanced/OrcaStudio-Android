@@ -126,6 +126,11 @@ class Engine(private val cacheDir: File) {
     suspend fun simplify(obj: Int, ratio: Float) = parseScene(call("simplify", args("object" to obj, "ratio" to ratio)))
     suspend fun repair(obj: Int) = parseScene(call("repair", args("object" to obj)))
     /** Bends, twists or tapers ([kind] "bend" / "twist" / "taper") one object along plate [axis] 0..2, in this copy's frame: [amount] in degrees, or the far end's scale for a taper. */
+    /** Sculpt dabs at [hits] (brush positions in stroke order): draw, inflate, smooth, flatten, pinch, crease or grab. */
+    suspend fun sculpt(hits: List<PickHit>, brush: String, radius: Float, strength: Float, invert: Boolean, newStroke: Boolean, joins: List<Boolean> = emptyList()) =
+        parseScene(call("sculpt", args("hits" to hits.mapIndexed { i, it -> mapOf("object" to it.obj, "instance" to it.instance, "volume" to it.volume, "facet" to it.facet,
+            "local" to it.local, "join" to joins.getOrElse(i) { false }) }, "brush" to brush, "radius" to radius, "strength" to strength, "invert" to invert,
+            "newStroke" to newStroke)))
     suspend fun smoothBlend(obj: Int, instance: Int, radius: Float) =
         parseScene(call("smoothBlend", args("object" to obj, "instance" to instance, "radius" to radius)))
     suspend fun deform(obj: Int, instance: Int, kind: String, axis: Int, amount: Float) =

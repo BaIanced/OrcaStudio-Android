@@ -205,6 +205,10 @@ public:
                double guard = std::numeric_limits<double>::quiet_NaN(), bool over_colours = false, uint32_t locked = 0);
     // Clears one kind of painting (or all for an empty kind) of an object.
     json paint_clear(int object, const std::string &kind);
+    // Sculpt dabs (MeshSculpt.hpp) at the hits' surface points, in stroke order. [brush]: draw, inflate, smooth, flatten,
+    // pinch, crease, grab. [radius] mm in the world, [strength] 0..1. A stroke's first call ([new_stroke]) takes an undo
+    // snapshot and refines the part when its edges are longer than a fifth of the radius (painting on it is dropped then).
+    json sculpt(const std::vector<PaintHit> &hits, const std::string &brush, double radius, double strength, bool invert, bool new_stroke);
     // Ends a fill preview by restoring the annotation from before the stroke (the finger slid off the model).
     json paint_fill_cancel();
     // Eyedropper: {"state": the paint state under the hit (0 = unpainted), "base": the part's extruder}.
@@ -440,6 +444,8 @@ private:
     LivePaint                             m_live_paint;
     // The stroke's last painted hit, start of the next joined capsule.
     std::optional<PaintHit>               m_paint_prev;
+    // The sculpt stroke's last centre (volume coordinates), for the grab brush's drag.
+    std::optional<std::array<double, 3>>  m_sculpt_prev;
     // Bands: the stroke's painted height range on one object copy (world z); a drag extends it.
     struct BandStroke {
         int   object, instance;
