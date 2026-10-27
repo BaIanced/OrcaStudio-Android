@@ -40,7 +40,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   (More > Tuning, MCP `tuning_get` / `tuning_set`): Claude-verified WSA debug; user feel open (phone).
 - r440 installed everywhere; waiting on the user's feel verdict (log it first when given). WSA debug re-test 2026-10-27 (tap box beside "Steer camera", not the label; `input keyevent 49` = measure): hold 563 -> 8.2 mm, slow steer swings, fast slide zooms out, lift restores 563 mm, tap-select snapped a vertex + loupe/Corner label OK.
 - Fixes 2026-10-27 (WSA debug verified, not yet in a CI build): corner snap framed 62 mm not 8 mm (new knob steer.corner, 15 mm); measure points/line/snap lines no longer stay after leaving the tool. User still tunes sluggish feel in More > Tuning.
-- r444 (run 40575791454) installed 2026-10-27 on all 4 adb devices; includes corner-snap 15 mm, tool-gated measure points, sphere snaps >= 15 mm, model.detail slider, long press starts under finger, 15° checkbox removed. Waiting on the user's feel verdict (log it first). Next step: user re-checks measure/steer on phone -> Sonnet 5.5 (medium)
+- r444 (run 40575791454) installed on all 4 adb devices 2026-10-27. User: steer framing feels good, they tune the knobs themselves (archive). Still open (user feel): long press under finger, model.detail slider, ring tool-gating, loupe, tap-select. Next step: wait for further user verdicts; otherwise pick Muse/backlog item -> Sonnet 5.5 (medium)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
