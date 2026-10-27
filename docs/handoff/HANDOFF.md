@@ -38,7 +38,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   (More > Tuning, MCP `tuning_get` / `tuning_set`): Claude-verified WSA debug; user feel open (phone).
 - Interaction plan steps 1-9 + Measure (loupe, steer, tap-select, Tuning): Claude-verified WSA debug 2026-10-27, user feel open (details: archive "Handoff trim 2026-10-27").
 - r444 (run 40575791454) installed on all 4 adb devices 2026-10-27. User: steer framing feels good, they tune the knobs themselves (archive). Still open (user feel): long press under finger, model.detail slider, ring tool-gating, loupe, tap-select. Next step: wait for further user verdicts; otherwise pick Muse/backlog item -> Sonnet 5.5 (medium)
-- CAD item 1 (user GO 2026-10-27): group "Hull" switch (Shape.HULL, ShapeModel.group, ShapeBuilder), compiled + JVM test OK; next: CI build, WSA check (group two boxes + hole, Hull on, Build workspace piece), then roadmap 2 (snap-to-surface).
+- CAD item 1 (user GO 2026-10-27): group "Hull" switch (Shape.HULL, ShapeModel.group, ShapeBuilder), compiled + JVM test OK; CI run 40587789039 (d62404e) building; next: WSA check (group two boxes + hole, Hull on, Build workspace piece), then roadmap 2 (snap-to-surface).
 - Next step: CAD hull WSA check after CI build -> Sonnet 5.5 (medium)
 
 ## User decisions (2026-10-13)
