@@ -90,6 +90,8 @@ interface PlateListener {
     fun onMeasureLoupe(x: Float, y: Float, phase: Int, exact: Boolean = false) {}
     /** Measure mode: a placed point lies right under the mouse or pen at (x, y); the press picks it up at once. */
     fun onMeasureGrab(x: Float, y: Float): Boolean = false
+    /** Measure loupe held: a second finger came down ([frozen]) or lifted again (the steered camera holds still meanwhile). */
+    fun onMeasureFreeze(frozen: Boolean) {}
     /** The copy under view point (x, y) for a double tap: [result] gets its (object, copy) and box, or null (on the UI thread). */
     fun onCopyAt(x: Float, y: Float, result: (Pair<Int, Int>?, Vec3, Vec3) -> Unit) = result(null, Vec3.ZERO, Vec3.ZERO)
     /** A double tap on plate [index] that isn't the active one: the host makes it active (the view frames it). */
@@ -177,6 +179,10 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     private var loupeOn = false
     /** The gesture is a mouse's or pen's: the measure point sits right under it, no lift. */
     private var loupeExact = false
+    /** The finger the loupe follows (a second one only freezes the steered camera) and its last spot. */
+    private var loupePointer = -1
+    private var loupeX = 0f
+    private var loupeY = 0f
     /** Measure mode: the mouse or pen hovers and the loupe previews what a click would place. */
     private var hoverLoupe = false
     /** The pointer left the view: the preview goes, unless a press follows at once (a mouse press ends the hover first). */
@@ -347,6 +353,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                 if (!hasFocus()) requestFocus()
                 lastX = event.x; lastY = event.y; downX = event.x; downY = event.y
                 multiTouch = false; moved = false; dragging = false; longPressed = false; loupeOn = false; maxTravel = 0f; resizeTried = false
+                loupePointer = event.getPointerId(0); loupeX = event.x; loupeY = event.y
                 pushPending = false; pushGrab = null
                 removeCallbacks(hoverGone)
                 // The button state is only known on DOWN; on UP it is already released.
@@ -428,6 +435,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
             MotionEvent.ACTION_POINTER_DOWN -> {
                 multiTouch = true
                 cancelDrag()
+                if (loupeOn && event.pointerCount == 2) listener?.onMeasureFreeze(true)
                 lastFocusX = focusX(event); lastFocusY = focusY(event)
                 lastSpan = 0f
                 if (event.pointerCount == 2) twoFinger.down((event.eventTime - event.downTime).toFloat(), span(event), lastFocusX, lastFocusY)
@@ -436,6 +444,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
             MotionEvent.ACTION_POINTER_UP -> {
                 inputLog { "2f up n=${event.pointerCount} ${twoFinger.mode} gap=${twoFinger.gap(span(event)).toInt()} shift=${twoFinger.shift(focusX(event), focusY(event)).toInt()} longPressed=$longPressed" }
                 lastSpan = 0f
+                if (loupeOn && event.pointerCount == 2) listener?.onMeasureFreeze(false)
                 val remaining = if (event.actionIndex == 0) 1 else 0
                 lastX = event.getX(remaining); lastY = event.getY(remaining)
                 lastFocusX = focusX(event); lastFocusY = focusY(event)
@@ -457,8 +466,10 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                     }
                 }
                 if (longPressed) {
-                    if (event.pointerCount >= 2) inputLog { "2f blocked: long press" }
-                    else if (loupeOn) listener?.onMeasureLoupe(event.x, event.y, 1, loupeExact)
+                    if (loupeOn) {
+                        val i = event.findPointerIndex(loupePointer)
+                        if (i >= 0) { loupeX = event.getX(i); loupeY = event.getY(i); listener?.onMeasureLoupe(loupeX, loupeY, 1, loupeExact) }
+                    } else if (event.pointerCount >= 2) inputLog { "2f blocked: long press" }
                     else listener?.onLongPressTouch(event.x, event.y, true)
                     return true
                 }
@@ -562,7 +573,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                     if (action != null && !moved && android.os.SystemClock.uptimeMillis() - lastInstantTime > INSTANT_REPEAT_MS) fireInstant(action)
                 } else if (longPressed || middleButton) {
                     // Handled: the menu is open, or the middle button only pans.
-                    if (loupeOn) listener?.onMeasureLoupe(event.x, event.y, 2, loupeExact)
+                    if (loupeOn) listener?.onMeasureLoupe(loupeX, loupeY, 2, loupeExact)
                     else if (longPressed) listener?.onLongPressTouch(event.x, event.y, false)
                 } else if (rightButton) {
                     if (!moved && mode == InteractionMode.NAVIGATE) listener?.onContextMenu(event.x, event.y)

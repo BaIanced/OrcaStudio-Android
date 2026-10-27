@@ -700,6 +700,9 @@ private fun MeasureOptions(state: UiState, vm: AppViewModel) {
         Checkbox(state.measureAxes, { vm.scene.setMeasureAxes(it) }); Text(stringResource(R.string.measure_axes_toggle))
         Checkbox(state.measureSteps || state.measureShift, { vm.scene.setMeasureSteps(it) }); Text(stringResource(R.string.measure_steps_toggle))
     }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Checkbox(state.measureSteer, { vm.scene.setMeasureSteer(it) }); Text(stringResource(R.string.measure_steer_toggle))
+    }
 }
 
 /** What a measure point sits on, as the loupe names it. */

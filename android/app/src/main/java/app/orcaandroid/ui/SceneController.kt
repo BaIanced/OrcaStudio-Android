@@ -406,6 +406,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
     fun setMeasureSnap(on: Boolean) = store.update { it.copy(measureSnap = on) }
     fun setMeasureAxes(on: Boolean) = store.update { it.copy(measureAxes = on) }
     fun setMeasureSteps(on: Boolean) = store.update { it.copy(measureSteps = on) }
+    fun setMeasureSteer(on: Boolean) = store.update { it.copy(measureSteer = on) }
     fun setMeasureShift(held: Boolean) { if (store.value.measureShift != held) store.update { it.copy(measureShift = held) } }
 
     /** Turns corner resizing of the lone selected copy on, or off when it is already on. */

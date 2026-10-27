@@ -238,6 +238,8 @@ data class UiState(
     val measureAxes: Boolean = true,
     /** Measure tool: the line locks to 15° steps (the touch toggle; Shift held does the same). */
     val measureSteps: Boolean = false,
+    /** Measure tool: a held finger steers the dot and the camera follows it (hold = zoom in, fast slide = out; interaction plan step 6). */
+    val measureSteer: Boolean = false,
     /** Measure tool: Shift held now, and whether it was held when the second point went down (that pair keeps its steps). */
     val measureShift: Boolean = false,
     val measureShiftPlaced: Boolean = false,

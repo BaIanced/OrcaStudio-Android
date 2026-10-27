@@ -348,6 +348,17 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                     override fun onMeasureGrab(x: Float, y: Float) =
                         placedNear(x, y, LOUPE_GRAB_EXACT_DP * v.resources.displayMetrics.density, 0f) != null
 
+                    /** The steered-point camera (Steer camera toggle, a finger's loupe only): each frame it moved, the dot is picked again. */
+                    private val steer = app.orcaandroid.render.MeasureSteer(v, v.camera) { ax, ay -> loupeAt(ax, ay, 1, null) }
+
+                    private fun loupeAt(ax: Float, ay: Float, phase: Int, grab: Int?) {
+                        val (o, d) = v.camera.ray(ax, ay)
+                        vm.scene.measureLoupe(o, d, ax, ay, phase, v.section.current, v.camera::pxSize, if (phase == 3) emptyList() else snapRing(v, ax, ay),
+                            grab, bedAt(v, ax, ay))
+                    }
+
+                    override fun onMeasureFreeze(frozen: Boolean) = steer.freeze(frozen)
+
                     override fun onMeasureLoupe(x: Float, y: Float, phase: Int, exact: Boolean) {
                         val density = v.resources.displayMetrics.density
                         val lift = if (exact) 0f else LOUPE_LIFT_DP * density
@@ -356,11 +367,17 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                         // A picked-up point keeps its spot and follows the pointer 1:1 (it used to jump to the aim).
                         if (phase == 0 || phase == 4)
                             aimOffset = near?.let { floatArrayOf(it.second.first - x, it.second.second - y) } ?: floatArrayOf(0f, -lift)
-                        val ax = x + aimOffset[0]
-                        val ay = y + aimOffset[1]
-                        val (o, d) = v.camera.ray(ax, ay)
-                        vm.scene.measureLoupe(o, d, ax, ay, phase, v.section.current, v.camera::pxSize, if (phase == 3) emptyList() else snapRing(v, ax, ay),
-                            near?.first, bedAt(v, ax, ay))
+                        if (phase == 0 && !exact && vm.state.value.measureSteer) steer.begin(x, y, x + aimOffset[0], y + aimOffset[1])
+                        if (steer.active) {
+                            // Steered: the finger's moves steer the dot, the frames pick it; the lift places it before the camera goes back.
+                            when (phase) {
+                                0 -> loupeAt(steer.aimX, steer.aimY, 0, near?.first)
+                                1 -> steer.move(x, y)
+                                else -> { loupeAt(steer.aimX, steer.aimY, phase, null); steer.end() }
+                            }
+                            return
+                        }
+                        loupeAt(x + aimOffset[0], y + aimOffset[1], phase, near?.first)
                     }
                 }
                 view = v
