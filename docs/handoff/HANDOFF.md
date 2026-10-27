@@ -40,7 +40,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - CAD 5b live sculpt (More > Sculpt, r427) + brush ring / stroke-end split (r428): Claude-verified WSA debug (archive); user feel untested.
 - Bands + 3MF export in desktop Orca: user-verified 2026-10-26 (archive).
 - **Interaction plan (user GO 2026-10-26): `NOTES-interaction-plan.md`, 9 steps. Step 1 Measure snap highlight built + Claude-verified
-  WSA debug (archive); needs a CI build for the user's devices; user feel untested. Step 2 open items listed in the notes.**
+  WSA debug (archive); CI run 40435344234 dispatched (install on all devices when green); user feel untested. Step 2 open items listed in the notes.**
 - **No WSA focus loops (user 2026-10-26: "your testing keeps stealing my window focus"):** no `focus.ps1`/`tapf.sh`/`keys.ps1` in loops;
   touch/hold tests on the phone's hidden display. New helpers: `wsa-debug-rebuild.sh [native]`, `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
 - Next step: CI build of step 1 + install everywhere, then Interaction plan step 2 (snapping rules) -> Opus 5.5 (high)
