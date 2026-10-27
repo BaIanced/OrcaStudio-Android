@@ -355,6 +355,9 @@
     <string name="region_support">Support</string>
     <string name="region_no_support">No support</string>
     <string name="region_seam">Seam</string>
+    <string name="region_smooth">Smooth</string>
+    <string name="region_modifier">Modifier</string>
+    <string name="region_working">Editing the region…</string>
     <string name="paint_supports">Support painting</string>
     <string name="parts_and_modifiers">Parts &amp; modifiers</string>
     <string name="pass_n">Pass %d</string>

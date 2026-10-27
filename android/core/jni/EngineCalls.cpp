@@ -95,6 +95,10 @@ const std::unordered_map<std::string, Handler> &handlers()
         {"simplify", [](OrcaEngine &e, const json &a) { return e.simplify(a.at("object"), a.at("ratio")); }},
         {"repair", [](OrcaEngine &e, const json &a) { return e.repair(a.at("object")); }},
         {"deform", [](OrcaEngine &e, const json &a) { return e.deform(a.at("object"), a.value("instance", 0), a.at("kind"), a.at("axis"), a.at("amount")); }},
+        {"regionEdit", [](OrcaEngine &e, const json &a) {
+             return e.region_edit(a.at("object"), a.value("instance", 0), a.at("volume"), a.at("facet"), a.value("edgeAngle", 0.0), a.at("op"),
+                                  a.at("amount"));
+         }},
         {"sculpt", [](OrcaEngine &e, const json &a) {
              std::vector<std::array<double, 6>> rays;
              for (const json &r : a.at("rays"))

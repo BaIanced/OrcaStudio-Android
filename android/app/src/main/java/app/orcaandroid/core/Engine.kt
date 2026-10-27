@@ -147,6 +147,10 @@ class Engine(private val cacheDir: File) {
         parseScene(call("smoothBlend", args("object" to obj, "instance" to instance, "radius" to radius)))
     suspend fun deform(obj: Int, instance: Int, kind: String, axis: Int, amount: Float) =
         parseScene(call("deform", args("object" to obj, "instance" to instance, "kind" to kind, "axis" to axis, "amount" to amount)))
+    /** Per-region edit on the faces a Regions tap on [facet] picks: op "smooth" ([amount] iterations) or "modifier" ([amount] mm deep). */
+    suspend fun regionEdit(obj: Int, instance: Int, volume: Int, facet: Int, edgeAngle: Float, op: String, amount: Float) =
+        parseScene(call("regionEdit", args("object" to obj, "instance" to instance, "volume" to volume, "facet" to facet,
+            "edgeAngle" to edgeAngle, "op" to op, "amount" to amount)))
     /** Read-only mesh report of one copy; see [MeshReport.text]. Faces whose wall is thinner than [thickness] mm are counted. */
     suspend fun checkMesh(obj: Int, instance: Int = 0, thickness: Float = 0.4f): JSONObject =
         call("checkMesh", args("object" to obj, "instance" to instance, "thickness" to thickness))

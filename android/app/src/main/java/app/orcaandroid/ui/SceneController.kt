@@ -629,6 +629,19 @@ class SceneController(private val store: Store, private val presets: PresetContr
         }
     }
 
+    /**
+     * Per-region geometry edits (step 8b slice 2): "smooth" = [amount] Taubin iterations on the picked region, border pinned (same faces,
+     * so the pick and its painting stay); "modifier" = a modifier volume [amount] mm into the part under the region. One undo step each.
+     */
+    fun editRegion(op: String, amount: Float) = store.launch(busy = store.str(R.string.region_working)) {
+        paintLock.withLock {
+            val r = regionPick.value ?: return@withLock
+            store.applyScene(engine.regionEdit(r.hit.obj, r.hit.instance, r.hit.volume, r.hit.facet, r.edgeAngle, op, amount))
+            // A crease change must not redo the fill over the edited mesh.
+            lastFill = null
+        }
+    }
+
     /** The paint brush ring (in [sculptCursor]): a finger or button is down painting, so the stroke's hits move it, not the hover. */
     @Volatile private var paintDown = false
     /** The latest paint hover ray (and section) not yet probed; only the newest counts. Guarded by [pendingPaint]. */

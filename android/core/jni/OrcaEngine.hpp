@@ -48,6 +48,11 @@ using ProgressFn = std::function<void(int percent, const std::string &text)>;
 // a float up to 4096 objects). The app highlights and drags instances by it.
 inline constexpr size_t INSTANCE_ID_STRIDE = 4096;
 
+// Faces reachable from [seed] over edges between faces whose normals differ by at most [angle] degrees (the desktop's smart
+// fill test); [neighbors] = its_face_neighbors flattened (3 per face); [allowed]: faces the flood may enter (all when empty).
+std::vector<bool> flood_surface(const indexed_triangle_set &its, const std::vector<int> &neighbors, int seed, double angle,
+                                const std::function<bool(int)> &allowed = {});
+
 class OrcaEngine
 {
 public:
@@ -128,6 +133,10 @@ public:
     // Merges duplicate vertices and removes degenerate faces.
     json repair(int object);
     json deform(int object, int instance, const std::string &kind, int axis, double amount);
+    // Per-region edit (OrcaRegion.cpp) on the faces a Regions tap on [facet] of part [volume] picks (crease [edge_angle], 0 = the
+    // whole shell): "smooth" = Taubin smoothing, [amount] iterations, the region's border pinned (painting stays); "modifier" = a
+    // modifier volume hugging the region, [amount] mm deep into the part (0.05 mm out), in the frame of copy [instance].
+    json region_edit(int object, int instance, int volume, int facet, double edge_angle, const std::string &op, double amount);
     // Fuses the object's model parts into one mesh with smooth joins (OpenVDB closing by `radius` mm).
     json smooth_blend(int object, int instance, double radius);
     // Replaces the object's first model part with the single mesh in `path` (desktop "Replace with

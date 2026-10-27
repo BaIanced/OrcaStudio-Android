@@ -46,6 +46,7 @@ import androidx.compose.material.icons.filled.ViewInAr
 import androidx.compose.material.icons.filled.DragIndicator
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -591,6 +592,9 @@ private fun RegionEdits(state: UiState, vm: AppViewModel) {
             label = { Text(stringResource(R.string.paint_fuzzy)) })
         FilterChip(on("seam") == 1, { vm.scene.paintRegion("seam", if (on("seam") == 1) 0 else 1) },
             label = { Text(stringResource(R.string.region_seam)) })
+        // Geometry: each Smooth tap is 5 more Taubin iterations (undo steps back); Modifier adds a 1 mm deep modifier volume to set up.
+        AssistChip({ vm.scene.editRegion("smooth", 5f) }, label = { Text(stringResource(R.string.region_smooth)) })
+        AssistChip({ vm.scene.editRegion("modifier", 1f) }, label = { Text(stringResource(R.string.region_modifier)) })
     }
 }
 

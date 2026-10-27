@@ -572,13 +572,11 @@ void OrcaEngine::write_paint_mesh()
     ++m_paint_version;
 }
 
-namespace {
-
 // Faces reachable from [seed] over edges between faces whose normals differ by at most [angle] degrees: the desktop's
 // smart fill test (TriangleSelector::seed_fill_select_triangles, neighbour against neighbour).
 // [allowed]: faces the flood may enter (all when empty).
 std::vector<bool> flood_surface(const indexed_triangle_set &its, const std::vector<int> &neighbors, int seed, double angle,
-                                const std::function<bool(int)> &allowed = {})
+                                const std::function<bool(int)> &allowed)
 {
     std::vector<bool> faces(its.indices.size(), false);
     if (seed < 0 || seed >= int(faces.size()))
@@ -600,6 +598,8 @@ std::vector<bool> flood_surface(const indexed_triangle_set &its, const std::vect
     }
     return faces;
 }
+
+namespace {
 
 // The paint shop's layer lock by paint state (bit i of [locked] = filament i + 1); NONE = unpainted, locked with the part's
 // own filament.
