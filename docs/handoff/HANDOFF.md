@@ -30,11 +30,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Local tests: `wsa-debug-rebuild.sh [native]` (reference "WSA debug loop"); fresh debug app: `wsa-debug-setup.sh` first.
 - **Offload (user 2026-10-25/26): max token use onto free opencode models, growing leeway by track record** (Claude specs + verifies).
   DeepSeek V4.1 Flash = default; self-checking runner `octauto.sh` (`D:\oct-backup\jobs\README.md`), ledger `trust-profile.md`.
-- CAD plan (`NOTES-cad-reuse.md`, accepted 2026-10-25): steps 0, 1a, 2a-2c, 3 deformers, 4 Smooth blend (stall fixed r429), 5a/5b
-  sculpt: Claude-verified (archive); user feel untested for all. 1b (tap an edge) parked. Bands + 3MF export: user-verified 2026-10-26.
-- **Interaction plan (user GO 2026-10-26): `NOTES-interaction-plan.md`, 9 steps. Steps 1-5 (r430-r434: snap highlight, rules,
-  results, input types, axis lock), 6 steered camera (015b132, "Steer camera" toggle) Claude-verified WSA debug (archive); user feel
-  untested. Tests: `wsa-pen-hover.sh`, `wsa-steer-test.sh`, `input mouse tap`, measure = `input keyevent 49`, MCP `view_state` (`MAX=3000`).**
+- CAD plan (`NOTES-cad-reuse.md`): steps 0-5b Claude-verified (archive), user feel untested; 1b parked. Bands + 3MF export: user-verified 2026-10-26.
+- **Interaction plan (user GO 2026-10-26): `NOTES-interaction-plan.md`, 9 steps; 1-6 Claude-verified WSA debug (archive), user feel untested.
+  Tests: `wsa-pen-hover.sh`, `wsa-steer-test.sh`, `input mouse tap`, measure = `input keyevent 49`, MCP `view_state` (`MAX=3000`).**
 - **No WSA focus loops (user 2026-10-26: "your testing keeps stealing my window focus"):** no `focus.ps1`/`tapf.sh`/`keys.ps1` in loops;
   touch/hold tests on the phone's hidden display. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
 - Step 7 (a2b67f7, pushed, no CI build yet: native change): Show overhangs Claude-verified WSA debug; paint brush ring + fill re-grows
