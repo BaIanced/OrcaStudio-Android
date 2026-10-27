@@ -2,6 +2,10 @@ package app.orcaandroid.ui
 
 import android.net.Uri
 import app.orcaandroid.R
+import app.orcaandroid.core.AlignKind
+import app.orcaandroid.core.AlignMath
+import app.orcaandroid.core.Footprint
+import app.orcaandroid.core.Instance
 import app.orcaandroid.core.LayerGcode
 import app.orcaandroid.core.LayerProfile
 import app.orcaandroid.core.LayerRange
@@ -124,6 +128,41 @@ class SceneController(private val store: Store, private val presets: PresetContr
     fun moveSelected(dx: Float, dy: Float): Job? {
         val items = selectedItems.ifEmpty { return null }
         return store.sceneOp { engine.moveItems(items, dx, dy) }
+    }
+
+    /** The selected copies as footprints on the plate (one per copy, volumes folded into their copy). */
+    private fun selectedFootprints(): List<Triple<Int, Int, Instance>> {
+        val scene = store.value.scene
+        val out = ArrayList<Triple<Int, Int, Instance>>()
+        for ((o, i) in selectedItems.distinct()) {
+            val inst = scene.objects.getOrNull(o)?.instances?.getOrNull(i) ?: continue
+            out.add(Triple(o, i, inst.shown))
+        }
+        return out
+    }
+
+    /** Prepare "Center": the selection as one group, on the middle of its plate (objects may overlap afterwards). */
+    fun centerSelected() {
+        val items = selectedFootprints().ifEmpty { return }
+        val scene = store.value.scene
+        val plate = scene.plates.getOrNull(items.first().third.plate.takeIf { it >= 0 } ?: activePlate) ?: return
+        val (dx, dy) = AlignMath.center(items.map { Footprint.of(it.third) },
+            plate.originX + scene.plateWidth / 2, plate.originY + scene.plateDepth / 2)
+        if (dx != 0f || dy != 0f) store.sceneOp { engine.moveItems(items.map { it.first to it.second }, dx, dy) }
+    }
+
+    /** Prepare "Align": each selected copy moves to the group's left / centre / right / front / middle / back edge. */
+    fun alignSelected(kind: AlignKind) {
+        val items = selectedFootprints()
+        if (items.size < 2) return
+        val shifts = AlignMath.align(items.map { Footprint.of(it.third) }, kind)
+        store.sceneOp {
+            var scene = store.value.scene
+            items.zip(shifts).forEach { (item, d) ->
+                if (d.first != 0f || d.second != 0f) scene = engine.moveItems(listOf(item.first to item.second), d.first, d.second)
+            }
+            scene
+        }
     }
 
     /** A typed 0 or negative scale would flatten or flip the part, a huge one hang the viewer: keep 0.1 % to 100x. */

@@ -500,6 +500,13 @@
     <string name="split_parts">To parts</string>
     <string name="part_position">Position in object</string>
     <string name="assemble">Assemble</string>
+    <string name="center_on_plate">Center on plate</string>
+    <string name="align_left">Align left</string>
+    <string name="align_center_x">Align centres left to right</string>
+    <string name="align_right">Align right</string>
+    <string name="align_back">Align to back</string>
+    <string name="align_center_y">Align centres front to back</string>
+    <string name="align_front">Align to front</string>
     <string name="add_part">Add part</string>
     <string name="mesh_boolean">Mesh boolean</string>
     <string name="boolean_union">Union</string>

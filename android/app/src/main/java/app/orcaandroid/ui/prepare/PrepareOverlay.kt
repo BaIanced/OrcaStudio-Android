@@ -101,7 +101,13 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 import app.orcaandroid.R
+import app.orcaandroid.core.AlignKind
 import app.orcaandroid.core.PlateSwitcher
+import androidx.compose.material.icons.filled.AlignHorizontalCenter
+import androidx.compose.material.icons.filled.AlignHorizontalLeft
+import androidx.compose.material.icons.filled.AlignHorizontalRight
+import androidx.compose.material.icons.filled.VerticalAlignCenter
+import androidx.compose.material.icons.filled.VerticalAlignTop
 import app.orcaandroid.scad.ScadDesign
 import app.orcaandroid.core.VolumeType
 import app.orcaandroid.render.PlateView
@@ -284,6 +290,7 @@ private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
         val moreItem = PieItem(Icons.Default.MoreHoriz, stringResource(R.string.more)) { more = true }
         val items = if (state.multiSelection.size >= 2) listOf(
             PieItem(Icons.Default.CallMerge, stringResource(R.string.assemble)) { vm.scene.assemble() },
+            PieItem(Icons.Default.CenterFocusStrong, stringResource(R.string.center_on_plate)) { vm.scene.centerSelected() },
             PieItem(Icons.Default.ContentCopy, stringResource(R.string.duplicate)) { vm.scene.duplicate(1) },
             PieItem(Icons.Default.Delete, stringResource(R.string.delete)) { vm.scene.deleteSelected() },
             moreItem,
@@ -315,9 +322,26 @@ private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
                     DropdownMenuItem(text = { Text(stringResource(R.string.delete)) }, leadingIcon = { Icon(Icons.Default.Delete, null) },
                         onClick = { close(); vm.scene.deleteSelected() })
                 }
-                if (state.multiSelection.size >= 2)
+                if (state.selectedItems.isNotEmpty())
+                    DropdownMenuItem(text = { Text(stringResource(R.string.center_on_plate)) }, leadingIcon = { Icon(Icons.Default.CenterFocusStrong, null) },
+                        onClick = { close(); vm.scene.centerSelected() })
+                if (state.multiSelection.size >= 2) {
+                    // Left to right, then front to back (top view: back is up).
+                    Row(Modifier.padding(horizontal = 8.dp)) {
+                        listOf(
+                            Triple(AlignKind.LEFT, Icons.Default.AlignHorizontalLeft, R.string.align_left),
+                            Triple(AlignKind.CENTER_X, Icons.Default.AlignHorizontalCenter, R.string.align_center_x),
+                            Triple(AlignKind.RIGHT, Icons.Default.AlignHorizontalRight, R.string.align_right),
+                            Triple(AlignKind.BACK, Icons.Default.VerticalAlignTop, R.string.align_back),
+                            Triple(AlignKind.CENTER_Y, Icons.Default.VerticalAlignCenter, R.string.align_center_y),
+                            Triple(AlignKind.FRONT, Icons.Default.VerticalAlignBottom, R.string.align_front),
+                        ).forEach { (kind, icon, label) ->
+                            IconButton(onClick = { close(); vm.scene.alignSelected(kind) }) { Icon(icon, stringResource(label)) }
+                        }
+                    }
                     DropdownMenuItem(text = { Text(stringResource(R.string.assemble)) }, leadingIcon = { Icon(Icons.Default.CallMerge, null) },
                         onClick = { close(); vm.scene.assemble() })
+                }
                 if (sel != null) {
                     if (ScadDesign.of(state.scene.objects.getOrNull(sel.obj)) != null)
                         DropdownMenuItem(text = { Text(stringResource(R.string.scad_edit_design)) }, leadingIcon = { Icon(Icons.Default.Code, null) },
