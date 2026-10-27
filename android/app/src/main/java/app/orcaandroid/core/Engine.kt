@@ -202,7 +202,9 @@ class Engine(private val cacheDir: File) {
     suspend fun pick(origin: Vec3, dir: Vec3, only: Int = -1, snap: Double = 0.0): PickHit? = call("pick", args("origin" to origin, "dir" to dir, "object" to only, "snap" to snap)).let { o ->
         if (!o.optBoolean("hit")) null
         else PickHit(o.getInt("object"), o.getInt("instance"), o.getInt("volume"), o.getInt("facet"), o.vec3("point"), o.vec3("normal"), o.vec3("local"),
-            if (o.has("snap")) o.getString("snap") else null)
+            if (o.has("snap")) o.getString("snap") else null,
+            o.optJSONObject("feature")?.let { f -> SnapFeature(f.getString("kind"), f.optJSONArray("lines").floats(),
+                if (f.has("diameter")) f.getDouble("diameter").toFloat() else null) })
     }
 
     /** Paints [hits] (one stroke's brush positions, in order) in one engine pass. */

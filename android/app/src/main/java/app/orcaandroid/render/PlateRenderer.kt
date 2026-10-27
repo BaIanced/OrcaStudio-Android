@@ -128,6 +128,9 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var cutPlane: FloatArray? = null
     /** Regions view: crease line segments (x, y, z per end, world), drawn over the model with depth test. */
     var creaseLines: FloatArray? = null
+    /** Measure tool, while aiming: what the snap caught (x, y, z per end, world) and its colour (r, g, b). */
+    var snapLines: FloatArray? = null
+    var snapColor = floatArrayOf(0.3f, 0.85f, 0.35f)
     /** Check mesh problem spots: x, y, z, kind (5 thin wall, 6 open edge, 7 self-intersection) per marker. */
     var meshMarkers: FloatArray? = null
     /** How far the checked copy has moved since [meshMarkers] were found. */
@@ -257,6 +260,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
 
     private var meshProgram = 0
     private var lineProgram = 0
+    private var wideLineProgram = 0
     private var pathProgram = 0
     private var pointProgram = 0
     private var badgeProgram = 0
@@ -342,6 +346,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glEnable(GL_DEPTH_TEST)
         meshProgram = program(Shaders.MESH_VS, Shaders.MESH_FS)
         lineProgram = program(Shaders.LINE_VS, Shaders.LINE_FS)
+        wideLineProgram = program(Shaders.WIDE_LINE_VS, Shaders.LINE_FS)
         pathProgram = program(Shaders.PATH_VS, Shaders.PATH_FS)
         pointProgram = program(Shaders.POINT_VS, Shaders.POINT_FS)
         badgeProgram = program(Shaders.BADGE_VS, Shaders.BADGE_FS)
@@ -503,7 +508,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
                 drawMesh(paintVbo, paintCount, pass = 2)
                 glDisable(GL_POLYGON_OFFSET_FILL)
             }
-            if (models) { drawCreases(); drawMeshMarkers() }
+            if (models) { drawCreases(); drawSnapLines(); drawMeshMarkers() }
             // Modifiers and support blockers/enforcers are drawn translucent on top.
             glEnable(GL_BLEND)
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
@@ -1378,6 +1383,57 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glDisableVertexAttribArray(0)
         glLineWidth(1f)
         glDepthRangef(0f, 1f)
+    }
+
+    /** The measure snap's feature: in [snapColor] over a dark border (readable on any filament colour), depth-tested like the creases. */
+    private fun drawSnapLines() {
+        val data = snapLines?.takeIf { it.isNotEmpty() } ?: return
+        glEnable(GL_DEPTH_TEST)
+        glDepthRangef(0f, 0.9996f)
+        glDepthFunc(GL_LEQUAL)
+        drawWideLines(data, 6f * density, floatArrayOf(0.05f, 0.05f, 0.06f))
+        drawWideLines(data, 2.5f * density, snapColor)
+        glDepthFunc(GL_LESS)
+        glDepthRangef(0f, 1f)
+    }
+
+    /** [data]: segments (x, y, z per end, world) drawn [width] px wide in [color] with WIDE_LINE_VS, in the current depth state. */
+    private fun drawWideLines(data: FloatArray, width: Float, color: FloatArray) {
+        val segs = data.size / 6
+        val v = FloatArray(segs * 6 * 7)
+        var o = 0
+        fun put(i: Int, j: Int, side: Float) {
+            for (k in 0 until 3) v[o + k] = data[i + k]
+            for (k in 0 until 3) v[o + 3 + k] = data[j + k]
+            v[o + 6] = side
+            o += 7
+        }
+        for (s in 0 until segs) {
+            val a = s * 6
+            val b = a + 3
+            // The far end's sideways direction is flipped (its other end is behind it): -side there is the same side.
+            put(a, b, 1f); put(a, b, -1f); put(b, a, -1f)
+            put(a, b, -1f); put(b, a, 1f); put(b, a, -1f)
+        }
+        glUseProgram(wideLineProgram)
+        glUniformMatrix4fv(loc(wideLineProgram, "uMvp"), 1, false, mvp, 0)
+        glUniform3f(loc(wideLineProgram, "uOffset"), 0f, 0f, 0f)
+        glUniform2f(loc(wideLineProgram, "uViewport"), viewW * pxScale, viewH * pxScale)
+        glUniform1f(loc(wideLineProgram, "uWidth"), width * pxScale)
+        glUniform3f(loc(wideLineProgram, "uColor"), color[0], color[1], color[2])
+        setSection(wideLineProgram)
+        glBindBuffer(GL_ARRAY_BUFFER, scratchVbo)
+        glBufferData(GL_ARRAY_BUFFER, v.size * 4, floats(v), GL_STREAM_DRAW)
+        glEnableVertexAttribArray(0)
+        glEnableVertexAttribArray(1)
+        glEnableVertexAttribArray(2)
+        glVertexAttribPointer(0, 3, GL_FLOAT, false, 28, 0)
+        glVertexAttribPointer(1, 3, GL_FLOAT, false, 28, 12)
+        glVertexAttribPointer(2, 1, GL_FLOAT, false, 28, 24)
+        glDrawArrays(GL_TRIANGLES, 0, segs * 6)
+        glDisableVertexAttribArray(2)
+        glDisableVertexAttribArray(1)
+        glDisableVertexAttribArray(0)
     }
 
     /** Measurement line and cut plane outline, drawn without depth test so they stay visible. */

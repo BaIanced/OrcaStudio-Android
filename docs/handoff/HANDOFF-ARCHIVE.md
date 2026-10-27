@@ -3252,3 +3252,21 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 - Gap taps (the user's r414 complaint): a tap in the upper half of the gap layer under the top band filled only that layer; the last gap layer likewise; nothing spilled.
 - Slice: T1 on layers 3-6 exactly (z 0.4-1.2), layers 2 and 7 pure T0. Layer 3 also has T0 walls/solid infill = the slicer's yellow core in the last bottom-shell layer, not an edge effect.
 - Open: user check in the PC slicer at 0.08 mm (edges follow the app's selected process; a different PC layer height won't line up).
+
+## 2026-10-26 Measure snap check (WSA r429, Claude)
+- Gear on plate 5, Measure via key U. Hold = loupe, lift places; the dot sits ~70 px above the finger (offset), so aim the finger below the target. Plain tap places the exact tapped point, no snap. `adb input swipe x y x y 2000` after `focus.ps1` works; without focus the hold is lost.
+- Dot ~26 px from a tooth tip: stays on the face (no snap). Dot ~8-12 px from the tip: lands on the silhouette edge (snapped, SNAP_PX 14). Not read: second point + distance on the model.
+
+## 2026-10-26 User verdicts (r429)
+- User: 3MF export verified in desktop Orca (loads ok). Bands verified in the PC slicer. (Bed-type label line stays open in the backlog until they confirm it.)
+
+## 2026-10-26 Interaction plan step 1: Measure snap highlight (Claude-verified, WSA debug build)
+- Native (OrcaTools.cpp `OrcaEngine::SnapFeatures`, replaces the per-mesh neighbour cache `m_neighbors`): sharp edges (>25 deg or
+  open), smooth patches (flood across non-sharp edges = CAD face), per-vertex sharp-edge lists. `pick(snap>0)` returns `feature`:
+  vertex / edge (straight run) / ring (closed, round within 10 %: centre + diameter) / curve / face (patch outline, <= 20k segments).
+- Snap changes: vertex counts only at real corners (not 2 sharp edges turning < 50 deg, so hole rims snap as lines); candidates from
+  all facets within reach (BFS); distances from the pick ray, ignoring anything more than the snap distance behind the hit.
+- App: `SnapFeature` on `PickHit`/`Loupe`; PlateRenderer `drawSnapLines` via new `WIDE_LINE_VS` quads (WSA caps glLineWidth at 1 px);
+  loupe ring/dot/label in the kind colour (green snap, amber ring, blue face). Strings measure_snap_*.
+- WSA debug checks: gear top face outline (teeth + rim), gear hole "Circle 9.50 mm" with amber ring, cube vertical edge "Edge"
+  (1 segment), cube top 4-segment outline, gear tooth tip "Corner". Not seen: curve kind. Voxel Assembly: everything "Corner" (step 2).

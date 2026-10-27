@@ -277,6 +277,11 @@
     <string name="measure">Measure</string>
     <string name="measure_hint_first">Tap the first point.</string>
     <string name="measure_hint_second">Tap the second point.</string>
+    <string name="measure_snap_corner">Corner</string>
+    <string name="measure_snap_edge">Edge</string>
+    <string name="measure_snap_ring">Circle Ø %1$s mm</string>
+    <string name="measure_snap_curve">Edge line</string>
+    <string name="measure_snap_face">Face</string>
     <string name="message">Message</string>
     <string name="mirror">Mirror</string>
     <string name="mode_advanced">Advanced</string>

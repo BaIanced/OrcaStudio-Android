@@ -73,6 +73,179 @@ static Transform3d shown_matrix(const ModelInstance &inst, const std::optional<s
     return design ? Transform3d(Eigen::Translation3d((*design)[0], (*design)[1], (*design)[2])) : inst.get_matrix();
 }
 
+// The measure tool's snap targets on one mesh: which facet edges are sharp (> 25 deg between the facets, or open), the smooth
+// patches between them (a CAD face: a flat side, a hole's wall) and, per vertex, its sharp edges (to follow an edge line).
+struct OrcaEngine::SnapFeatures
+{
+    std::vector<Vec3i32> nb;             // per facet, k: the facet across edge k (vertex k to k + 1), -1 = open
+    std::vector<uint8_t> sharp;          // per facet, bit k: edge k is sharp
+    std::vector<int32_t> patch;          // per facet: its smooth patch
+    std::vector<int32_t> vstart, vnext;  // per vertex v: vnext[vstart[v] .. vstart[v + 1]) = the far ends of its sharp edges
+    std::map<int32_t, std::vector<float>> outlines; // per patch, as first asked for: its sharp edges (x, y, z per end, mesh coordinates)
+
+    explicit SnapFeatures(const indexed_triangle_set &its)
+    {
+        const int nf = int(its.indices.size());
+        nb = its_face_neighbors(its);
+        std::vector<Vec3f> n(nf);
+        for (int f = 0; f < nf; ++f)
+            n[f] = its_face_normal(its, f).normalized();
+        const float limit = std::cos(25.f * float(M_PI) / 180.f);
+        sharp.assign(nf, 0);
+        for (int f = 0; f < nf; ++f)
+            for (int k = 0; k < 3; ++k)
+                if (nb[f][k] < 0 || n[f].dot(n[nb[f][k]]) < limit)
+                    sharp[f] |= uint8_t(1 << k);
+        patch.assign(nf, -1);
+        std::vector<int32_t> stack;
+        for (int f = 0, next = 0; f < nf; ++f) {
+            if (patch[f] >= 0)
+                continue;
+            patch[f] = next;
+            stack.push_back(f);
+            while (!stack.empty()) {
+                const int c = stack.back();
+                stack.pop_back();
+                for (int k = 0; k < 3; ++k)
+                    if (!((sharp[c] >> k) & 1) && nb[c][k] >= 0 && patch[nb[c][k]] < 0) {
+                        patch[nb[c][k]] = next;
+                        stack.push_back(nb[c][k]);
+                    }
+            }
+            ++next;
+        }
+        // Each sharp edge once (from its lower facet; open edges always).
+        const auto each_edge = [&](auto &&fn) {
+            for (int f = 0; f < nf; ++f)
+                for (int k = 0; k < 3; ++k)
+                    if (((sharp[f] >> k) & 1) && (nb[f][k] < 0 || f < nb[f][k]))
+                        fn(its.indices[f][k], its.indices[f][(k + 1) % 3]);
+        };
+        const size_t nv = its.vertices.size();
+        vstart.assign(nv + 1, 0);
+        each_edge([&](int a, int b) { ++vstart[a + 1]; ++vstart[b + 1]; });
+        for (size_t v = 0; v < nv; ++v)
+            vstart[v + 1] += vstart[v];
+        vnext.resize(vstart[nv]);
+        std::vector<int32_t> fill(vstart.begin(), vstart.end() - 1);
+        each_edge([&](int a, int b) { vnext[fill[a]++] = b; vnext[fill[b]++] = a; });
+    }
+
+    // Whether vertex v ends edge lines: other than two sharp edges meet there, or they turn 50 deg or more (a box corner).
+    // A vertex along a hole's rim or a curve is not one: the snap takes the line there, not the facet corner.
+    bool corner(const indexed_triangle_set &its, int32_t v) const
+    {
+        if (vstart[v + 1] - vstart[v] != 2)
+            return true;
+        const Vec3f d0 = (its.vertices[v] - its.vertices[vnext[vstart[v]]]).normalized(),
+                    d1 = (its.vertices[vnext[vstart[v] + 1]] - its.vertices[v]).normalized();
+        return d0.dot(d1) < std::cos(50.f * float(M_PI) / 180.f);
+    }
+
+    // The edge line through the sharp edge a -> b: followed both ways up to corners (see corner()).
+    // [closed]: it came back round to a (a hole's rim).
+    std::vector<int32_t> line(const indexed_triangle_set &its, int32_t a, int32_t b, bool &closed) const
+    {
+        const auto walk = [&](std::vector<int32_t> &run) {
+            while (run.size() < 4096) {
+                const int32_t v = run.back(), prev = run[run.size() - 2];
+                if (corner(its, v))
+                    return false;
+                const int32_t next = vnext[vstart[v]] == prev ? vnext[vstart[v] + 1] : vnext[vstart[v]];
+                if (next == prev)
+                    return false;
+                if (next == run.front())
+                    return true;
+                run.push_back(next);
+            }
+            return false;
+        };
+        std::vector<int32_t> ahead{a, b};
+        closed = walk(ahead);
+        if (closed)
+            return ahead;
+        std::vector<int32_t> behind{b, a};
+        walk(behind);
+        std::vector<int32_t> out(behind.rbegin(), behind.rend() - 2);
+        out.insert(out.end(), ahead.begin(), ahead.end());
+        return out;
+    }
+
+    // What the snap caught (the hit on facet [face]; an edge snap: on the sharp edge ea -> eb), for the measure tool to show (world line segments, x, y, z per end):
+    // "vertex" (no lines), "edge" (a straight line), "ring" (a round closed line: a hole's rim, with its centre and diameter),
+    // "curve" (any other edge line) or "face" (no snap: the outline of the smooth patch the point lies on).
+    json feature(const indexed_triangle_set &its, const Transform3d &trafo, int face, const char *kind, int32_t ea, int32_t eb)
+    {
+        std::vector<float> lines;
+        const auto add = [&](const Vec3f &local) {
+            const Vec3d p = trafo * local.cast<double>();
+            lines.insert(lines.end(), {float(p.x()), float(p.y()), float(p.z())});
+        };
+        json out;
+        if (kind && std::string(kind) == "vertex") {
+            out["kind"] = "vertex";
+        } else if (kind) {
+            bool closed = false;
+            const std::vector<int32_t> run = line(its, ea, eb, closed);
+            std::vector<Vec3d> pts;
+            for (int32_t v : run)
+                pts.push_back(trafo * its.vertices[v].cast<double>());
+            for (size_t i = 0; i + 1 < run.size() + (closed ? 1 : 0); ++i) {
+                add(its.vertices[run[i]]);
+                add(its.vertices[run[(i + 1) % run.size()]]);
+            }
+            out["kind"] = "curve";
+            if (closed && pts.size() >= 6) {
+                Vec3d c = Vec3d::Zero();
+                for (const Vec3d &q : pts)
+                    c += q;
+                c /= double(pts.size());
+                double lo = std::numeric_limits<double>::max(), hi = 0., sum = 0.;
+                for (const Vec3d &q : pts) {
+                    const double r = (q - c).norm();
+                    lo = std::min(lo, r); hi = std::max(hi, r); sum += r;
+                }
+                const double mean = sum / double(pts.size());
+                if (hi - lo <= 0.1 * mean) {
+                    out["kind"]     = "ring";
+                    out["center"]   = vec_json(c);
+                    out["diameter"] = 2. * mean;
+                }
+            } else if (!closed) {
+                // Straight: every point within 1 % of the length (at least 0.02 mm) of the line between the ends.
+                const Vec3d  a = pts.front(), e = pts.back() - a;
+                const double len = e.norm(), tol = std::max(0.02, 0.01 * len);
+                bool straight = len > 0.;
+                for (const Vec3d &q : pts)
+                    straight = straight && ((q - a) - (q - a).dot(e) / (len * len) * e).norm() <= tol;
+                if (straight)
+                    out["kind"] = "edge";
+            }
+        } else {
+            out["kind"] = "face";
+            const int32_t id = patch[face];
+            auto it = outlines.find(id);
+            if (it == outlines.end()) {
+                std::vector<float> &o = outlines[id];
+                for (size_t f = 0; f < patch.size(); ++f)
+                    if (patch[f] == id)
+                        for (int k = 0; k < 3; ++k)
+                            if ((sharp[f] >> k) & 1)
+                                for (int v : {its.indices[f][k], its.indices[f][(k + 1) % 3]})
+                                    o.insert(o.end(), {its.vertices[v].x(), its.vertices[v].y(), its.vertices[v].z()});
+                // Too busy to read (a scan's whole skin): no outline.
+                if (o.size() > 6 * 20000)
+                    o.clear();
+                it = outlines.find(id);
+            }
+            for (size_t i = 0; i + 2 < it->second.size(); i += 3)
+                add(Vec3f(it->second[i], it->second[i + 1], it->second[i + 2]));
+        }
+        out["lines"] = lines;
+        return out;
+    }
+};
+
 json OrcaEngine::pick(const std::array<double, 3> &origin, const std::array<double, 3> &dir, int only, double snap)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
@@ -122,58 +295,71 @@ json OrcaEngine::pick(const std::array<double, 3> &origin, const std::array<doub
             }
     }
     if (snap > 0. && best_vol) {
-        // Corners and sharp edges (> 25 deg between the facets, or open) of the hit facet; its own edges cover every edge the
-        // hit is near, since a shared edge belongs to both facets.
+        // Corners within the snap distance, else the nearest sharp edge: looked for at the vertices of the facets within
+        // reach (from the hit facet out), as a fine mesh's rim can be a few facets away. Distances are taken from the
+        // pick ray, as on screen (a face seen edge-on is a few pixels but many mm wide); nothing hidden behind the hit.
         const indexed_triangle_set &its = best_vol->mesh().its;
-        std::shared_ptr<std::vector<std::array<int32_t, 3>>> &nb = m_neighbors[&best_vol->mesh()];
-        if (!nb) {
-            const std::vector<Vec3i32> fn = its_face_neighbors(its);
-            nb = std::make_shared<std::vector<std::array<int32_t, 3>>>(fn.size());
-            for (size_t f = 0; f < fn.size(); ++f)
-                (*nb)[f] = {fn[f][0], fn[f][1], fn[f][2]};
-        }
-        const Vec3i32                 &idx = its.indices[best_face];
-        const std::array<int32_t, 3> &adj = (*nb)[best_face];
-        Vec3d          w[3];
-        for (int k = 0; k < 3; ++k)
-            w[k] = best_trafo * its.vertices[idx[k]].cast<double>();
-        const Vec3d p = best_world;
-        const Vec3d fn = (w[1] - w[0]).cross(w[2] - w[0]).normalized();
-        bool sharp[3];
-        for (int k = 0; k < 3; ++k) {
-            sharp[k] = adj[k] < 0;
-            if (!sharp[k]) {
-                const Vec3i32 &o = its.indices[adj[k]];
-                const Vec3d    a = best_trafo * its.vertices[o[0]].cast<double>(), b = best_trafo * its.vertices[o[1]].cast<double>(),
-                               c = best_trafo * its.vertices[o[2]].cast<double>();
-                sharp[k] = fn.dot((b - a).cross(c - a).normalized()) < std::cos(25. * M_PI / 180.);
+        std::shared_ptr<SnapFeatures> &sf = m_neighbors[&best_vol->mesh()];
+        if (!sf)
+            sf = std::make_shared<SnapFeatures>(its);
+        const Vec3d  p     = best_world;
+        const double depth = (p - s).dot(d) + snap;
+        const auto at = [&](int32_t v) -> Vec3d { return best_trafo * its.vertices[v].cast<double>(); };
+        const auto off_ray = [&](const Vec3d &q) {
+            const Vec3d v = q - s;
+            return v.dot(d) > depth ? std::numeric_limits<double>::max() : (v - v.dot(d) * d).norm();
+        };
+        // The point of segment a-b nearest the ray, and its distance from it.
+        const auto seg_near = [&](const Vec3d &a, const Vec3d &b) {
+            const Vec3d  e = b - a, w0 = a - s;
+            const double ed = e.dot(d), den = e.squaredNorm() - ed * ed;
+            const double t  = den > 1e-12 ? std::clamp((ed * w0.dot(d) - w0.dot(e)) / den, 0., 1.) : 0.;
+            const Vec3d  q  = a + t * e;
+            return std::make_pair(off_ray(q), q);
+        };
+        std::vector<int32_t> verts;
+        {
+            std::vector<int32_t> stack{best_face};
+            std::set<int32_t>    seen{best_face};
+            while (!stack.empty() && seen.size() < 4096) {
+                const int32_t f = stack.back();
+                stack.pop_back();
+                for (int k = 0; k < 3; ++k) {
+                    verts.push_back(its.indices[f][k]);
+                    const int32_t g = sf->nb[f][k];
+                    if (g >= 0 && !seen.count(g) && seg_near(at(its.indices[f][k]), at(its.indices[f][(k + 1) % 3])).first <= snap) {
+                        seen.insert(g);
+                        stack.push_back(g);
+                    }
+                }
             }
+            std::sort(verts.begin(), verts.end());
+            verts.erase(std::unique(verts.begin(), verts.end()), verts.end());
         }
-        // Edge k runs from vertex k to k + 1.
         Vec3d  snapped = p;
         double best_d  = snap;
         const char *kind = nullptr;
-        for (int k = 0; k < 3; ++k)
-            if (sharp[k] || sharp[(k + 2) % 3]) {
-                const double d = (w[k] - p).norm();
-                if (d < best_d) { best_d = d; snapped = w[k]; kind = "vertex"; }
+        int32_t     ea = -1, eb = -1;
+        for (int32_t v : verts)
+            if (sf->vstart[v + 1] > sf->vstart[v] && sf->corner(its, v)) {
+                const double dist = off_ray(at(v));
+                if (dist < best_d) { best_d = dist; snapped = at(v); kind = "vertex"; }
             }
         if (!kind)
-            for (int k = 0; k < 3; ++k)
-                if (sharp[k]) {
-                    const Vec3d e = w[(k + 1) % 3] - w[k];
-                    const double t = std::clamp((p - w[k]).dot(e) / e.squaredNorm(), 0., 1.);
-                    const Vec3d q = w[k] + t * e;
-                    const double d = (q - p).norm();
-                    if (d < best_d) { best_d = d; snapped = q; kind = "edge"; }
+            for (int32_t v : verts)
+                for (int32_t i = sf->vstart[v]; i < sf->vstart[v + 1]; ++i) {
+                    const auto [dist, q] = seg_near(at(v), at(sf->vnext[i]));
+                    if (dist < best_d) { best_d = dist; snapped = q; kind = "edge"; ea = v; eb = sf->vnext[i]; }
                 }
         if (kind) {
             best["point"] = vec_json(snapped);
             best["snap"]  = kind;
         }
+        best["feature"] = sf->feature(its, best_trafo, best_face, kind, ea, eb);
     }
     return best;
 }
+
 
 namespace {
 

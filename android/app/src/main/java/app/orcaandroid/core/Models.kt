@@ -205,7 +205,15 @@ data class PickHit(
     val local: Vec3,
     /** "vertex" / "edge" when the point snapped to a corner / sharp edge of its facet (measure tool). */
     val snap: String? = null,
+    /** Measure tool: what the snap caught, shown while aiming. */
+    val feature: SnapFeature? = null,
 )
+
+/**
+ * [kind]: "vertex", "edge" (straight line), "ring" (round closed line, a hole's rim: [diameter] mm), "curve" (other edge line)
+ * or "face" (no snap: the smooth patch the point lies on, outlined). [lines]: world segments, x, y, z per end.
+ */
+class SnapFeature(val kind: String, val lines: FloatArray, val diameter: Float?)
 
 data class LayerProfile(val profile: FloatArray, val min: Float, val max: Float, val height: Float)
 

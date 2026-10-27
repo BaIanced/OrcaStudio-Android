@@ -441,7 +441,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
             if (phase == 2) {
                 store.update { st -> st.copy(loupe = null, measure = if (hit != null) (st.measure + hit.point).takeLast(2) else st.measure) }
             } else if (loupeActive) {
-                store.update { it.copy(loupe = Loupe(x, y, hit?.point, hit?.snap)) }
+                store.update { it.copy(loupe = Loupe(x, y, hit?.point, hit?.snap, hit?.feature)) }
             }
         }
     }

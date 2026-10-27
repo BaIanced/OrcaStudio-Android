@@ -423,6 +423,29 @@ internal object Shaders {
         out highp vec3 vWorld;
         void main() { vWorld = aPos + uOffset; gl_Position = uMvp * vec4(vWorld, 1.0); }"""
 
+    /**
+     * Lines of any width (GL line width is 1 px on many GPUs, WSA's included): each segment is a quad, its corners pushed
+     * sideways on screen by half of uWidth px. aOther = the segment's other end, aSide = +1 / -1 (flipped at that end). Uses LINE_FS.
+     */
+    const val WIDE_LINE_VS = """#version 300 es
+        uniform mat4 uMvp;
+        uniform vec3 uOffset;
+        uniform vec2 uViewport;
+        uniform float uWidth;
+        layout(location = 0) in vec3 aPos;
+        layout(location = 1) in vec3 aOther;
+        layout(location = 2) in float aSide;
+        out highp vec3 vWorld;
+        void main() {
+            vWorld = aPos + uOffset;
+            vec4 p = uMvp * vec4(vWorld, 1.0);
+            vec4 q = uMvp * vec4(aOther + uOffset, 1.0);
+            vec2 d = (q.xy / q.w - p.xy / p.w) * uViewport;
+            vec2 n = length(d) > 1e-6 ? normalize(vec2(-d.y, d.x)) : vec2(0.0, 1.0);
+            p.xy += n * aSide * uWidth / uViewport * p.w;
+            gl_Position = p;
+        }"""
+
     /** Beds, travels and overlays; travels are cut by the section view like the toolpaths. */
     const val LINE_FS = """#version 300 es
         precision mediump float;

@@ -353,4 +353,4 @@ data class UiState(
 /** A project came with filaments that differ from the app's: the user picks which slots to keep. */
 data class FilamentChoice(val current: List<app.orcaandroid.core.FilamentSlot>, val project: List<app.orcaandroid.core.FilamentSlot>)
 
-data class Loupe(val x: Float, val y: Float, val point: Vec3?, val snap: String?)
+data class Loupe(val x: Float, val y: Float, val point: Vec3?, val snap: String?, val feature: app.orcaandroid.core.SnapFeature? = null)

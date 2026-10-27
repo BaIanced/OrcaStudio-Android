@@ -27,7 +27,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Muse (full discretion, user 2026-10-25; memories muse-*): tasks in `MUSE-TASKS.md` on `muse/work`, `TASK <n> READY` on #46, one draft PR each;
   Claude compiles, merges, cherry-picks. Audits + JVM-testable Kotlin only.
   Tasks 1-18 merged. **Session start, run exactly:** `gh pr list --state open --json number,title,headRefName; gh issue view 46 --json comments --jq '.comments[-2:][]|.createdAt+" "+(.body|.[0:300])'`
-- User feel/checks open (backlog): paint plan, Build workspace, Filament materials, Realistic render, 3MF in desktop Orca (+ bed type), pen, plate switcher pick, bands on PC at 0.08 mm, measure step 1, push/pull fold.
+- User feel/checks open (backlog): paint plan, Build workspace, Filament materials, Realistic render, 3MF bed-type label, pen, plate switcher pick, measure step 1, push/pull fold.
 - Local native build: reference "Native change on the debug app" (+ deps/patches prerequisites).
 - Local debug test: reference "Local APK" + "WSA debug loop" (parked window: taps via `tapf.sh`).
 - **Offload (user 2026-10-25/26): max token use onto free opencode models, growing leeway by track record** (Claude specs + verifies).
@@ -38,8 +38,12 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Smooth blend stall fixed 2026-10-26 (archive): WSA-only TBB livelock under Houdini (4-thread cap there), voxel budget, Cancel,
   size + inside-out fixes. r429 (run 40397057477): Claude-verified WSA + phone (4.6 s, Cancel OK); user feel untested.
 - CAD 5b live sculpt (More > Sculpt, r427) + brush ring / stroke-end split (r428): Claude-verified WSA debug (archive); user feel untested.
-- Bands recheck 2026-10-26: Claude-verified WSA r429 (layer snap, no teeth, gap taps, slice layers 3-6 exact; archive). User PC check open.
-- Next step: Measure step 1 Claude check on WSA (hold to place, snaps) -> Sonnet 5.5 (medium)
+- Bands + 3MF export in desktop Orca: user-verified 2026-10-26 (archive).
+- **Interaction plan (user GO 2026-10-26): `NOTES-interaction-plan.md`, 9 steps. Step 1 Measure snap highlight built + Claude-verified
+  WSA debug (archive); needs a CI build for the user's devices; user feel untested. Step 2 open items listed in the notes.**
+- **No WSA focus loops (user 2026-10-26: "your testing keeps stealing my window focus"):** no `focus.ps1`/`tapf.sh`/`keys.ps1` in loops;
+  touch/hold tests on the phone's hidden display. New helpers: `wsa-debug-rebuild.sh [native]`, `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
+- Next step: CI build of step 1 + install everywhere, then Interaction plan step 2 (snapping rules) -> Opus 5.5 (high)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).

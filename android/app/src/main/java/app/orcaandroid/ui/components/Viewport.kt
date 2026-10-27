@@ -29,6 +29,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -92,6 +93,14 @@ fun previewRange(result: SliceResult, low: Int, high: Int, moveEnd: Int?, counts
  */
 /** Measure loupe: the dot sits this far above the finger; a placed point within the grab radius is picked up. */
 private const val LOUPE_LIFT_DP = 56f
+
+/** The measure loupe's colour for what the snap caught (SnapFeature.kind): snaps green, a hole's rim amber, a face blue. */
+private fun snapColor(kind: String?) = when (kind) {
+    "vertex", "edge", "curve" -> Color(0xFF4CAF50)
+    "ring" -> Color(0xFFFFB300)
+    "face" -> Color(0xFF4FC3F7)
+    else -> Color.White
+}
 private const val LOUPE_GRAB_DP = 40f
 
 @Composable
@@ -340,10 +349,22 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         }
     }
     state.loupe?.let { l ->
+        // What the snap caught, named under the ring; the view outlines it in the same colour (snapLines).
+        val kind = l.feature?.kind
+        val label = when (kind) {
+            "vertex" -> androidx.compose.ui.res.stringResource(app.orcaandroid.R.string.measure_snap_corner)
+            "edge" -> androidx.compose.ui.res.stringResource(app.orcaandroid.R.string.measure_snap_edge)
+            "ring" -> androidx.compose.ui.res.stringResource(app.orcaandroid.R.string.measure_snap_ring, "%.2f".format(l.feature?.diameter ?: 0f))
+            "curve" -> androidx.compose.ui.res.stringResource(app.orcaandroid.R.string.measure_snap_curve)
+            "face" -> androidx.compose.ui.res.stringResource(app.orcaandroid.R.string.measure_snap_face)
+            else -> null
+        }
+        val measurer = androidx.compose.ui.text.rememberTextMeasurer()
+        val labelStyle = MaterialTheme.typography.labelLarge.copy(color = Color.White)
         Canvas(Modifier.fillMaxSize()) {
-            // Crosshair ring on the dot's spot (above the finger); green when it snapped to a corner or edge.
+            // Crosshair ring on the aim spot (above the finger), in the snap kind's colour; white when nothing was hit.
             val c = androidx.compose.ui.geometry.Offset(l.x, l.y - LOUPE_LIFT_DP * density)
-            val color = if (l.snap != null) Color(0xFF4CAF50) else Color.White
+            val color = snapColor(kind)
             val r = 22.dp.toPx()
             drawCircle(Color.Black.copy(alpha = 0.35f), r, c, style = androidx.compose.ui.graphics.drawscope.Stroke(5f))
             drawCircle(color, r, c, style = androidx.compose.ui.graphics.drawscope.Stroke(2.5f))
@@ -351,6 +372,24 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
             drawLine(color, c.copy(x = c.x + r * 0.4f), c.copy(x = c.x + r * 1.5f), 2.5f)
             drawLine(color, c.copy(y = c.y - r * 1.5f), c.copy(y = c.y - r * 0.4f), 2.5f)
             drawLine(color, c.copy(y = c.y + r * 0.4f), c.copy(y = c.y + r * 1.5f), 2.5f)
+            // The snapped point itself, tied to the aim spot when the snap pulled it away.
+            l.point?.let { p -> view?.camera?.project(p) }?.let { (px, py) ->
+                val d = androidx.compose.ui.geometry.Offset(px, py)
+                if ((d - c).getDistance() > 3f) drawLine(color.copy(alpha = 0.8f), c, d, 2f)
+                drawCircle(Color.Black.copy(alpha = 0.5f), 6.dp.toPx(), d)
+                drawCircle(color, 4.5f.dp.toPx(), d)
+            }
+            if (label != null) {
+                val t = measurer.measure(label, labelStyle)
+                val tl = androidx.compose.ui.geometry.Offset(c.x - t.size.width / 2f, c.y + r * 1.7f)
+                val pad = 4.dp.toPx()
+                drawRoundRect(Color.Black.copy(alpha = 0.6f), tl - androidx.compose.ui.geometry.Offset(pad, pad / 2),
+                    androidx.compose.ui.geometry.Size(t.size.width + 2 * pad, t.size.height + pad), androidx.compose.ui.geometry.CornerRadius(pad))
+                drawText(t, topLeft = tl)
+                drawRoundRect(color, tl - androidx.compose.ui.geometry.Offset(pad, pad / 2),
+                    androidx.compose.ui.geometry.Size(t.size.width + 2 * pad, t.size.height + pad), androidx.compose.ui.geometry.CornerRadius(pad),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(1.5f))
+            }
         }
     }
     val label = resizeLabel
@@ -642,6 +681,11 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         val plane = bounds?.let { (min, max) -> section.plane(min, max) }
         section.current = plane
         v.onGl { this.section = plane }
+    }
+    LaunchedEffect(v, state.loupe?.feature) {
+        val f = state.loupe?.feature
+        val c = snapColor(f?.kind)
+        v.onGl { snapLines = f?.lines; snapColor = floatArrayOf(c.red, c.green, c.blue) }
     }
     LaunchedEffect(v, state.measure, state.loupe?.point) {
         val pts = (state.measure + listOfNotNull(state.loupe?.point)).takeLast(2).map { floatArrayOf(it.x, it.y, it.z) }
