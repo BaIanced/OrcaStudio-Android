@@ -91,7 +91,7 @@ fun previewRange(result: SliceResult, low: Int, high: Int, moveEnd: Int?, counts
  * The shared 3D view of the Prepare and Preview screens. Pushes scene, selection, tool and
  * preview state to the GL thread and turns touches into view-model actions.
  */
-/** Measure loupe: the dot sits this far above the finger; a placed point within the grab radius is picked up. */
+/** Measure loupe: a finger's dot sits this far above it; a placed point within the grab radius (a mouse's or pen's: the small one) is picked up. */
 private const val LOUPE_LIFT_DP = 56f
 
 /** Rays on a ring round (x, y) as wide as a held snap reaches: aimed just off the model, they find the face whose edge to catch. */
@@ -112,6 +112,7 @@ private fun snapColor(kind: String?) = when (kind) {
     else -> Color.White
 }
 private const val LOUPE_GRAB_DP = 40f
+private const val LOUPE_GRAB_EXACT_DP = 12f
 
 @Composable
 fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modifier: Modifier = Modifier) {
@@ -335,17 +336,30 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
 
                     override fun onLongPressTouch(x: Float, y: Float, held: Boolean) = vm.pieTouch.update(x, y, held)
 
-                    override fun onMeasureLoupe(x: Float, y: Float, phase: Int) {
-                        // The dot sits above the finger so the finger doesn't hide it.
+                    /** This gesture's aim, as an offset from the pointer: a finger's dot sits above it; a picked-up point stays put and moves 1:1. */
+                    private var aimOffset = floatArrayOf(0f, 0f)
+
+                    /** The placed point within [radius] px of (x, y), or of the aim [lift] px above it: its index and screen spot. */
+                    private fun placedNear(x: Float, y: Float, radius: Float, lift: Float) = vm.state.value.measure.withIndex().mapNotNull { (i, m) ->
+                        v.camera.project(m.point)?.let { s -> Triple(i, s, minOf(kotlin.math.hypot(s.first - x, s.second - y), kotlin.math.hypot(s.first - x, s.second - y + lift))) }
+                    }.filter { it.third <= radius }.minByOrNull { it.third }
+
+                    override fun onMeasureGrab(x: Float, y: Float) =
+                        placedNear(x, y, LOUPE_GRAB_EXACT_DP * v.resources.displayMetrics.density, 0f) != null
+
+                    override fun onMeasureLoupe(x: Float, y: Float, phase: Int, exact: Boolean) {
                         val density = v.resources.displayMetrics.density
-                        val aimY = y - LOUPE_LIFT_DP * density
-                        val (o, d) = v.camera.ray(x, aimY)
-                        val placed = vm.state.value.measure
-                        val grab = if (phase != 0) null else placed.map { it.point }.withIndex().minByOrNull { (_, p) ->
-                            v.camera.project(p)?.let { (px, py) -> kotlin.math.hypot(px - x, py - y) } ?: Float.MAX_VALUE
-                        }?.takeIf { (_, p) -> v.camera.project(p)?.let { (px, py) -> kotlin.math.hypot(px - x, py - y) <= LOUPE_GRAB_DP * density } == true }?.index
-                        vm.scene.measureLoupe(o, d, x, y, phase, v.section.current, v.camera::pxSize, if (phase == 3) emptyList() else snapRing(v, x, aimY), grab,
-                            bedAt(v, x, aimY))
+                        val lift = if (exact) 0f else LOUPE_LIFT_DP * density
+                        val near = if (phase != 0) null else placedNear(x, y, (if (exact) LOUPE_GRAB_EXACT_DP else LOUPE_GRAB_DP) * density, lift)
+                        // A mouse or pen aims right under itself; a finger's dot sits above it so the finger doesn't hide it.
+                        // A picked-up point keeps its spot and follows the pointer 1:1 (it used to jump to the aim).
+                        if (phase == 0 || phase == 4)
+                            aimOffset = near?.let { floatArrayOf(it.second.first - x, it.second.second - y) } ?: floatArrayOf(0f, -lift)
+                        val ax = x + aimOffset[0]
+                        val ay = y + aimOffset[1]
+                        val (o, d) = v.camera.ray(ax, ay)
+                        vm.scene.measureLoupe(o, d, ax, ay, phase, v.section.current, v.camera::pxSize, if (phase == 3) emptyList() else snapRing(v, ax, ay),
+                            near?.first, bedAt(v, ax, ay))
                     }
                 }
                 view = v
@@ -377,8 +391,8 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         val measurer = androidx.compose.ui.text.rememberTextMeasurer()
         val labelStyle = MaterialTheme.typography.labelLarge.copy(color = Color.White)
         Canvas(Modifier.fillMaxSize()) {
-            // Crosshair ring on the aim spot (above the finger), in the snap kind's colour; white when nothing was hit.
-            val c = androidx.compose.ui.geometry.Offset(l.x, l.y - LOUPE_LIFT_DP * density)
+            // Crosshair ring on the aim spot (above a finger, under a mouse or pen), in the snap kind's colour; white when nothing was hit.
+            val c = androidx.compose.ui.geometry.Offset(l.x, l.y)
             val color = snapColor(kind)
             val r = 22.dp.toPx()
             drawCircle(Color.Black.copy(alpha = 0.35f), r, c, style = androidx.compose.ui.graphics.drawscope.Stroke(5f))

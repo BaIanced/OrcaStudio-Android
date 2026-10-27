@@ -453,14 +453,17 @@ class SceneController(private val store: Store, private val presets: PresetContr
     @Volatile private var loupeActive = false
 
     /**
-     * Measure tool, touch and hold: the red dot follows the finger and snaps to corners and sharp edges; lifting places it.
-     * [phase] 0 = down, 1 = move, 2 = up (places), 3 = cancel. [grab] (down only): the placed point under the finger,
-     * picked up to be placed again. [bed]: where the aim meets a plate's bed (used when no part is hit).
+     * Measure tool, touch and hold (or a mouse / pen hovering): the dot follows the aim (x, y) and snaps to corners and sharp
+     * edges; lifting (a click) places it. [phase] 0 = down, 1 = move, 2 = up (places), 3 = cancel, 4 = hover (shows only).
+     * [grab] (down only): the placed point under the pointer, picked up to be placed again. [bed]: where the aim meets a
+     * plate's bed (used when no part is hit).
      */
     fun measureLoupe(origin: Vec3, dir: Vec3, x: Float, y: Float, phase: Int, section: FloatArray?, pxSize: (Vec3) -> Float,
                      around: List<Pair<Vec3, Vec3>>, grab: Int? = null, bed: Vec3? = null) {
-        if (phase == 0) { loupeActive = true; measureStick = null }
-        else if (phase >= 2) loupeActive = false
+        // A hover's first move, or a click with no hover before it (a pen without hover), starts fresh.
+        if (phase == 0 || (phase == 4 || phase == 2) && !loupeActive) measureStick = null
+        if (phase == 0 || phase == 4) loupeActive = true
+        else if (phase == 2 || phase == 3) loupeActive = false
         store.launch {
             if (phase == 0 && grab != null) store.update { st -> st.copy(measure = st.measure.filterIndexed { i, _ -> i != grab }) }
             if (phase == 3) { store.update { it.copy(loupe = null) }; return@launch }

@@ -3297,3 +3297,17 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 - Fix in `measurePick`: aimed off the model, a seeded pick counts only if it snapped (the bed through the gear hole came back as the top face).
 - WSA debug (MCP readout): cube top -> bed gap 20; bed -> front face 90 deg; front -> right 90 deg; top edge -> bed square 20 (straight
   30.42); gear hole ring D 9.5 centre on the gear axis; ring -> bed through the hole 2.00 (gear thickness); loupe over the hole "Bed".
+
+## 2026-10-26: Interaction plan step 4, measure input types (Claude-verified WSA debug; CI r433)
+- PlateView: `exactPointer` (mouse source/tool or pen) = no lift. Measure hover (HOVER_ENTER/MOVE, no button) sends loupe phase 4 (preview
+  only); HOVER_EXIT clears it after 120 ms unless a press follows (a mouse press ends the hover first); the preview goes when the camera
+  turns and when the mode leaves Measure. Click without move (mouse/pen) = phase 2 at the pointer instead of the tap pick (places what
+  the hover showed: same sticky catch). Press on a placed point within 12 dp (`onMeasureGrab`) starts the loupe at once (drag moves the
+  point, not the camera). Mouse/pen long press = exact loupe.
+- Viewport: per-gesture `aimOffset`: exact 0, finger -56 dp, a grabbed point = its screen spot minus the pointer (stays put, 1:1);
+  grab radius from the finger or its lifted aim. Loupe x/y = the aim spot. SceneController: phase 4 (re)starts the loupe; a click with no
+  hover before it resets the stick. MCP view_state shows `(loupe at x,y: kind)`.
+- WSA debug (virtual pen `wsa-pen-hover.sh`, `input mouse`, `input touchscreen motionevent`): pen hover on the gear = phase 4 vertex,
+  loupe at view 734,456 = screen 824,495 (exact), gone after the pen left; mouse tap placed the vertex under the cursor; mouse swipe from
+  it moved the point to the bed, camera unchanged; finger long press 5 px from the bed point grabbed it in place and moved it 1:1 onto
+  the top corner. Untested: real S Pen, Quest, touchpad; user feel.

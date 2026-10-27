@@ -19,7 +19,9 @@ tuning rounds = rethink; compile locally; Claude-verify on WSA, user feel open a
 3. **Measure results** BUILT 2026-10-26 (archive, r432): points keep their kind (`ui/Measure.kt` MeasurePoint: ring = centre + axis, face flat only if
    its outline is planar, bed); panel headline = face gap / square to face or bed / centre to centre, else distance; angle between
    faces; dX/dY/dZ always. Open: ring-to-ring on two holes; a bed aim doesn't snap to a hole's bottom rim; user feel.
-4. **Input types**: mouse = exact cursor + hover preview, no offset; S Pen hover = highlight/loupe; finger = loupe/offset, select then drag relative 1:1.
+4. **Input types** BUILT 2026-10-26 (archive, r433): mouse / pen = exact (no lift), hover previews the snap (loupe + highlight), click places what the
+   hover showed, press on a placed point (12 dp) drags it (no camera); finger keeps the 56 dp lift, a long press on a placed point (40 dp of the finger
+   or its aim) keeps the point's spot and moves it 1:1. Open: sharp magnified loupe (E3, 2nd view) not built; real S Pen tap; Quest pointer; user feel.
 5. **Axis inference**: line locks near an axis with colour; Shift = 15 deg steps; touch = toggle.
 6. **Steered-point camera (user vision, E3 + E4)**: finger steers the point, camera follows, drag speed = zoom (zoom-in slower than out), 2nd finger = freeze;
    prototype behind a toggle beside the plain loupe; compare on phone.

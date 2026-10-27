@@ -234,7 +234,7 @@ data class UiState(
     val measure: List<MeasurePoint> = emptyList(),
     /** Measure tool: points snap to corners and edges (off: the bare hit; Alt held does the same for one click). */
     val measureSnap: Boolean = true,
-    /** Measure tool, finger down on the loupe: the finger, and the point (snapped, with how) the red dot sits on. */
+    /** Measure tool, loupe up (finger held, or a mouse / pen hovering): the aim spot, and the point (snapped, with how) the dot sits on. */
     val loupe: Loupe? = null,
     val layerProfile: LayerProfile? = null,
     val calibration: Calibration? = null,

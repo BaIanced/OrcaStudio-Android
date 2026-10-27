@@ -555,7 +555,8 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
                 is app.orcaandroid.ui.Tool.Paint -> "paint ${tool.kind} ${tool.shape} (state ${tool.state}, radius ${n(tool.radius.toDouble())} mm)"
                 is app.orcaandroid.ui.Tool.Sculpt -> "sculpt ${tool.brush} (radius ${n(tool.radius.toDouble())} mm, strength ${n(tool.strength.toDouble())}${if (tool.invert) ", inverted" else ""})"
                 app.orcaandroid.ui.Tool.LayOnFace -> "lay on face"
-                app.orcaandroid.ui.Tool.Measure -> "measure, ${s.measure.size} point(s)" + s.measure.joinToString("") { m ->
+                app.orcaandroid.ui.Tool.Measure -> "measure, ${s.measure.size} point(s)" +
+                    (s.loupe?.let { l -> " (loupe at ${l.x.toInt()},${l.y.toInt()}: ${l.feature?.kind ?: "nothing"})" } ?: "") + s.measure.joinToString("") { m ->
                     " [${m.kind}${m.diameter?.let { d -> " D ${n(d.toDouble())}" } ?: ""} at ${n(m.point.x.toDouble())}, ${n(m.point.y.toDouble())}, ${n(m.point.z.toDouble())}]"
                 } + if (s.measure.size == 2) app.orcaandroid.ui.measureResult(s.measure[0], s.measure[1]).let { r ->
                     ": distance ${n(r.distance.toDouble())} mm" + (r.gap?.let { ", gap ${n(it.toDouble())} mm" } ?: "") +

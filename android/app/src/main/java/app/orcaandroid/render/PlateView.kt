@@ -83,8 +83,13 @@ interface PlateListener {
     fun onContextMenu(x: Float, y: Float)
     /** After a long press opened the menu the finger is still down: it moved to (x, y) ([held] false = it lifted there). */
     fun onLongPressTouch(x: Float, y: Float, held: Boolean) {}
-    /** Measure mode, touch and hold: the finger is at (x, y). [phase] 0 = down, 1 = move, 2 = up, 3 = cancel. */
-    fun onMeasureLoupe(x: Float, y: Float, phase: Int) {}
+    /**
+     * Measure mode: the pointer is at (x, y). [phase] 0 = down, 1 = move, 2 = up (places), 3 = cancel, 4 = hover (shows only).
+     * [exact]: a mouse or pen, whose point sits right under the pointer (a finger's sits above it).
+     */
+    fun onMeasureLoupe(x: Float, y: Float, phase: Int, exact: Boolean = false) {}
+    /** Measure mode: a placed point lies right under the mouse or pen at (x, y); the press picks it up at once. */
+    fun onMeasureGrab(x: Float, y: Float): Boolean = false
     /** The copy under view point (x, y) for a double tap: [result] gets its (object, copy) and box, or null (on the UI thread). */
     fun onCopyAt(x: Float, y: Float, result: (Pair<Int, Int>?, Vec3, Vec3) -> Unit) = result(null, Vec3.ZERO, Vec3.ZERO)
     /** A double tap on plate [index] that isn't the active one: the host makes it active (the view frames it). */
@@ -119,6 +124,10 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     val section = SectionView(camera)
     var listener: PlateListener? = null
     var mode = InteractionMode.NAVIGATE
+        set(value) {
+            if (value != InteractionMode.MEASURE && hoverLoupe) { hoverLoupe = false; listener?.onMeasureLoupe(-1f, -1f, 3, true) }
+            field = value
+        }
     /** World bounding boxes (min, max) of the selected copies; a drag starting on them moves them. */
     var selectedBounds: List<Pair<Vec3, Vec3>> = emptyList()
     /** The prime towers (world mm); a drag starting on one moves it. */
@@ -166,6 +175,12 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     private var longPressed = false
     /** The long press is the measure loupe (not the pie menu). */
     private var loupeOn = false
+    /** The gesture is a mouse's or pen's: the measure point sits right under it, no lift. */
+    private var loupeExact = false
+    /** Measure mode: the mouse or pen hovers and the loupe previews what a click would place. */
+    private var hoverLoupe = false
+    /** The pointer left the view: the preview goes, unless a press follows at once (a mouse press ends the hover first). */
+    private val hoverGone = Runnable { if (hoverLoupe && !loupeOn) listener?.onMeasureLoupe(-1f, -1f, 3, true); hoverLoupe = false }
     /** Farthest the finger got from the touch-down point: a slow orbit stays inside the touch slop but is no long press. */
     private var maxTravel = 0f
     /** Shift / Alt held when the gesture began: a drag draws a selection rectangle. */
@@ -213,11 +228,12 @@ class PlateView(context: Context) : GLSurfaceView(context) {
         }
 
         override fun onLongPress(e: MotionEvent) {
+            if (loupeOn) return
             if (mode == InteractionMode.MEASURE && !multiTouch && !moved && maxTravel <= touchSlop / 3 && !rightButton && !middleButton) {
                 cancelDrag()
                 longPressed = true
                 loupeOn = true
-                listener?.onMeasureLoupe(e.x, e.y, 0)
+                listener?.onMeasureLoupe(e.x, e.y, 0, loupeExact)
                 return
             }
             if (mode != InteractionMode.NAVIGATE || multiTouch || moved || maxTravel > touchSlop / 3 || rightButton || middleButton || rectangle || penOrbit || penInstant != null) return
@@ -276,8 +292,13 @@ class PlateView(context: Context) : GLSurfaceView(context) {
         private const val PEN_NEAR_MS = 1000L
         /** A button press already fired its instant action; the tap that follows within this time does not fire it again. */
         private const val INSTANT_REPEAT_MS = 1500L
+        /** A mouse press ends the hover just before it lands: the preview waits this long before it goes. */
+        private const val HOVER_GONE_MS = 120L
     }
 
+    /** A mouse or pen: it points exactly, so the measure point sits right under it. */
+    private fun exactPointer(e: MotionEvent) = e.isFromSource(android.view.InputDevice.SOURCE_MOUSE) ||
+        e.getToolType(0) == MotionEvent.TOOL_TYPE_MOUSE || isPenTool(e.getToolType(0))
     private fun isPenTool(tool: Int) = tool == MotionEvent.TOOL_TYPE_STYLUS || tool == MotionEvent.TOOL_TYPE_ERASER
 
     /** Some pens report their button as the mouse's secondary / tertiary button instead of the stylus buttons. */
@@ -327,6 +348,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                 lastX = event.x; lastY = event.y; downX = event.x; downY = event.y
                 multiTouch = false; moved = false; dragging = false; longPressed = false; loupeOn = false; maxTravel = 0f; resizeTried = false
                 pushPending = false; pushGrab = null
+                removeCallbacks(hoverGone)
                 // The button state is only known on DOWN; on UP it is already released.
                 val mouse = event.isFromSource(android.view.InputDevice.SOURCE_MOUSE)
                 rightButton = mouse && event.buttonState and MotionEvent.BUTTON_SECONDARY != 0
@@ -346,6 +368,13 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                     }
                     PenAction.UNDO, PenAction.REDO, PenAction.FRAME -> penInstant = penAction
                     PenAction.TIP -> Unit
+                }
+                loupeExact = exactPointer(event)
+                if (mode == InteractionMode.MEASURE && loupeExact && !rightButton && !middleButton && !penOrbit && penInstant == null &&
+                    listener?.onMeasureGrab(event.x, event.y) == true) {
+                    // A mouse or pen picks a placed point up at once: the drag moves it, not the camera.
+                    longPressed = true; loupeOn = true; hoverLoupe = false
+                    listener?.onMeasureLoupe(event.x, event.y, 0, true)
                 }
                 if (rightButton || middleButton || rectangle || penOrbit || penInstant != null) Unit
                 else if (mode == InteractionMode.PAINT) {
@@ -414,6 +443,8 @@ class PlateView(context: Context) : GLSurfaceView(context) {
             MotionEvent.ACTION_MOVE -> {
                 maxTravel = max(maxTravel, abs(event.x - downX) + abs(event.y - downY))
                 if (maxTravel > touchSlop) moved = true
+                // The camera turns: the hover preview would point at the wrong spot (it comes back with the next hover).
+                if (moved && hoverLoupe && !loupeOn) { hoverLoupe = false; listener?.onMeasureLoupe(-1f, -1f, 3, true) }
                 // A corner drag only starts once a single finger has really moved from the corner, so a two-finger gesture
                 // landing on the selection never starts (or leaves behind) a resize.
                 if (moved && !resizeTried) {
@@ -427,7 +458,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                 }
                 if (longPressed) {
                     if (event.pointerCount >= 2) inputLog { "2f blocked: long press" }
-                    else if (loupeOn) listener?.onMeasureLoupe(event.x, event.y, 1)
+                    else if (loupeOn) listener?.onMeasureLoupe(event.x, event.y, 1, loupeExact)
                     else listener?.onLongPressTouch(event.x, event.y, true)
                     return true
                 }
@@ -531,7 +562,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                     if (action != null && !moved && android.os.SystemClock.uptimeMillis() - lastInstantTime > INSTANT_REPEAT_MS) fireInstant(action)
                 } else if (longPressed || middleButton) {
                     // Handled: the menu is open, or the middle button only pans.
-                    if (loupeOn) listener?.onMeasureLoupe(event.x, event.y, 2)
+                    if (loupeOn) listener?.onMeasureLoupe(event.x, event.y, 2, loupeExact)
                     else if (longPressed) listener?.onLongPressTouch(event.x, event.y, false)
                 } else if (rightButton) {
                     if (!moved && mode == InteractionMode.NAVIGATE) listener?.onContextMenu(event.x, event.y)
@@ -564,6 +595,10 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                         cancelDrag()
                         if (!moved) tap(event.x, event.y, additive, part)
                     }
+                } else if (!moved && !multiTouch && mode == InteractionMode.MEASURE && loupeExact) {
+                    // A mouse or pen click places the point the hover showed, right under the pointer.
+                    hoverLoupe = false
+                    listener?.onMeasureLoupe(event.x, event.y, 2, true)
                 } else if (!moved && !multiTouch && mode != InteractionMode.PAINT && mode != InteractionMode.VIEW) {
                     val badge = if (mode == InteractionMode.NAVIGATE && !additive && !part) renderer.badgeAt(event.x, event.y) else null
                     if (badge == null) tap(event.x, event.y, additive, part)
@@ -575,7 +610,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
             }
             MotionEvent.ACTION_CANCEL -> {
                 if (mode == InteractionMode.PAINT) listener?.onPaintEnd()
-                if (loupeOn) listener?.onMeasureLoupe(-1f, -1f, 3)
+                if (loupeOn) listener?.onMeasureLoupe(-1f, -1f, 3, loupeExact)
                 else if (longPressed) listener?.onLongPressTouch(-1f, -1f, false)
                 if (rectangle && moved) listener?.onRectangle(downX, downY, downX, downY, rectangleRemove, true)
                 rectangle = false
@@ -593,6 +628,15 @@ class PlateView(context: Context) : GLSurfaceView(context) {
             MotionEvent.ACTION_HOVER_ENTER, MotionEvent.ACTION_HOVER_MOVE ->
                 if (event.buttonState == 0) listener?.onPaintHover(event.x, event.y, true)
             MotionEvent.ACTION_HOVER_EXIT -> listener?.onPaintHover(event.x, event.y, false)
+        }
+        // Measure: a mouse or pen in the air previews what a click would place (user: the point jumped away from the mouse).
+        if (mode == InteractionMode.MEASURE) when (event.actionMasked) {
+            MotionEvent.ACTION_HOVER_ENTER, MotionEvent.ACTION_HOVER_MOVE -> if (event.buttonState == 0 && !loupeOn) {
+                removeCallbacks(hoverGone)
+                hoverLoupe = true
+                listener?.onMeasureLoupe(event.x, event.y, 4, true)
+            }
+            MotionEvent.ACTION_HOVER_EXIT -> postDelayed(hoverGone, HOVER_GONE_MS)
         }
         // A pen near the screen (palm rejection) and a button pressed in the air fire an instant action (undo, redo, frame).
         if (isPenTool(event.getToolType(0))) {
