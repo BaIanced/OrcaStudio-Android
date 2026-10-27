@@ -36,7 +36,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **No WSA focus loops (user 2026-10-26: "your testing keeps stealing my window focus"):** no `focus.ps1`/`tapf.sh`/`keys.ps1` in loops;
   touch/hold tests on the phone's hidden display. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
 - Interaction plan done: steps 1-9 Claude-verified (step 9 Cut, WSA debug 2026-10-27, CI r439, run 40519306091); user feel untested on all.
-- Next step: Measure step 4 open item, sharp magnified loupe (E3: 2nd render of the aim, not framebuffer zoom) -> Opus 5.5 (high)
+- Magnified loupe (E3, 2nd render 3x, `PlateRenderer.drawLoupe`, `loupeInset`) Claude-verified WSA debug 2026-10-27 (c4d6784), not in CI yet.
+- User 2026-10-27 (archive): steer hold zooms on and on (wants a cap from the measured feature); tap placed point = select, drag = move, tap away = set. Proposal sent, awaiting GO.
+- Next step: Measure feature-capped steer zoom + tap-select point -> Opus 5.5 (high)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
