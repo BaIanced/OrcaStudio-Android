@@ -1094,7 +1094,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
     companion object {
         private val IDENT = Regex("[A-Za-z_][A-Za-z0-9_]*")
         private val EXTRA_KEYS = listOf(Shape.SIDES, Shape.TOP, Shape.WALL, Shape.TUBE, Shape.RADIUS, Shape.EDGE, Shape.CHAMFER,
-            Shape.SHELL, Shape.OPEN, Shape.ANGLE, Shape.BLEND, Shape.PITCH, Shape.TWIST)
+            Shape.SHELL, Shape.OPEN, Shape.ANGLE, Shape.BLEND, Shape.HULL, Shape.PITCH, Shape.TWIST)
         private val BIND_FIELDS = listOf("size", "pos", "rot").flatMap { f -> "xyz".map { "$f.$it" } }
         private val NOTE_WORDS = listOf("ERROR", "WARNING")
         private const val RENDER_TIMEOUT = 180_000L

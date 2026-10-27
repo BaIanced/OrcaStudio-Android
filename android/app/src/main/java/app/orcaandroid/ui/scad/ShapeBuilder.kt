@@ -295,6 +295,11 @@ private fun Properties(shape: Shape, d: ShapeDesign, vm: AppViewModel, filaments
             val b = d.bounds(shape.copy(pos = D3(), rot = D3(), repeat = null)).size
             Text(stringResource(R.string.scad_size, ShapeDesign.n(b.x), ShapeDesign.n(b.y), ShapeDesign.n(b.z)),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.shape_hull), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                Switch(shape.x(Shape.HULL, 0.0) != 0.0, { on -> vm.shapes.update(shape.id) { it.copy(extra = it.extra + (Shape.HULL to if (on) 1.0 else 0.0)) } })
+            }
+            Text(stringResource(R.string.shape_hull_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             ExtraField(stringResource(R.string.shape_blend), shape, d, vm, Shape.BLEND, 0.0)
             Text(stringResource(R.string.shape_blend_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }

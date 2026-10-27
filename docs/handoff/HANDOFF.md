@@ -35,12 +35,11 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   Tests: `wsa-pen-hover.sh`, `wsa-steer-test.sh`, `input mouse tap`, measure = `input keyevent 49`, MCP `view_state` (`MAX=3000`).**
 - **No WSA focus loops (user 2026-10-26: "your testing keeps stealing my window focus"):** no `focus.ps1`/`tapf.sh`/`keys.ps1` in loops;
   touch/hold tests on the phone's hidden display. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
-- Interaction plan done: steps 1-9 Claude-verified (step 9 Cut, WSA debug 2026-10-27, CI r439, run 40519306091); user feel untested on all.
-- Measure 2026-10-27 (archive): magnified loupe, steer framing (feature-capped zoom + swing/tilt), tap-select point, Tuning
   (More > Tuning, MCP `tuning_get` / `tuning_set`): Claude-verified WSA debug; user feel open (phone).
-- r440 installed everywhere; waiting on the user's feel verdict (log it first when given). WSA debug re-test 2026-10-27 (tap box beside "Steer camera", not the label; `input keyevent 49` = measure): hold 563 -> 8.2 mm, slow steer swings, fast slide zooms out, lift restores 563 mm, tap-select snapped a vertex + loupe/Corner label OK.
-- Fixes 2026-10-27 (WSA debug verified, not yet in a CI build): corner snap framed 62 mm not 8 mm (new knob steer.corner, 15 mm); measure points/line/snap lines no longer stay after leaving the tool. User still tunes sluggish feel in More > Tuning.
+- Interaction plan steps 1-9 + Measure (loupe, steer, tap-select, Tuning): Claude-verified WSA debug 2026-10-27, user feel open (details: archive "Handoff trim 2026-10-27").
 - r444 (run 40575791454) installed on all 4 adb devices 2026-10-27. User: steer framing feels good, they tune the knobs themselves (archive). Still open (user feel): long press under finger, model.detail slider, ring tool-gating, loupe, tap-select. Next step: wait for further user verdicts; otherwise pick Muse/backlog item -> Sonnet 5.5 (medium)
+- CAD item 1 (user GO 2026-10-27): group "Hull" switch (Shape.HULL, ShapeModel.group, ShapeBuilder), compiled + JVM test OK; next: CI build, WSA check (group two boxes + hole, Hull on, Build workspace piece), then roadmap 2 (snap-to-surface).
+- Next step: CAD hull WSA check after CI build -> Sonnet 5.5 (medium)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).

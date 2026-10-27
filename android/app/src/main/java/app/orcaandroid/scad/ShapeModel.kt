@@ -146,6 +146,8 @@ data class Shape(
         const val OPEN = "open"
         /** A group's Blend joins radius (mm): where its shapes meet (and hole rims) is rounded, in the Build workspace. */
         const val BLEND = "blend"
+        /** A group with HULL = 1 is the convex hull of its solids (holes still cut it); it takes the place of Blend joins. */
+        const val HULL = "hull"
         /** A MESH shape's own bounds (mm) as read from its file: min x / y / z, max x / y / z. */
         val MESH_BOUNDS = listOf("mx0", "my0", "mz0", "mx1", "my1", "mz1")
 
@@ -415,10 +417,10 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
     /** The design as Orca volumes, top-level shapes in order, a repeated shape's copies one after another. */
     fun pieces(): List<Piece> = shapes.flatMap { top ->
         val s = resolved(top)
-        val scad = if (s.isGroup && s.x(Shape.BLEND, 0.0) > 0) blendCode(s) else buildString {
+        val scad = if (s.isGroup && s.x(Shape.BLEND, 0.0) > 0 && s.x(Shape.HULL, 0.0) == 0.0) blendCode(s) else buildString {
             prelude(this, listOf(s))
             appendLine()
-            if (s.isGroup) group(this, s.children, "") else appendLine(body(s))
+            if (s.isGroup) group(this, s.children, "", s.x(Shape.HULL, 0.0) != 0.0) else appendLine(body(s))
         }
         val own = placement(s)
         copies(s).mapIndexed { i, c -> Piece(top.id, i, s.hole, scad, mul(c, own).toList(), if (s.hole) 0 else s.filament) }
@@ -702,20 +704,21 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
         }
     }
 
-    private fun group(out: StringBuilder, kids: List<Shape>, indent: String) {
+    /** [hull]: the solids are wrapped in one hull() (a group's Hull option); its holes still cut the hull. */
+    private fun group(out: StringBuilder, kids: List<Shape>, indent: String, hull: Boolean = false) {
         val solids = kids.filter { !it.hole }
         val holes = kids.filter { it.hole }
-        if (holes.isEmpty()) { solids.forEach { shape(out, it, indent) }; return }
-        out.appendLine("${indent}difference() {")
-        val inner = "$indent    "
-        if (solids.size == 1) shape(out, solids[0], inner)
+        if (holes.isEmpty() && !hull) { solids.forEach { shape(out, it, indent) }; return }
+        val inner = if (holes.isEmpty()) indent else "$indent    "
+        if (holes.isNotEmpty()) out.appendLine("${indent}difference() {")
+        if (solids.size == 1 && !hull) shape(out, solids[0], inner)
         else {
-            out.appendLine("${inner}union() {")
+            out.appendLine("$inner${if (hull) "hull" else "union"}() {")
             solids.forEach { shape(out, it, "$inner    ") }
             out.appendLine("$inner}")
         }
         holes.forEach { shape(out, it, inner) }
-        out.appendLine("$indent}")
+        if (holes.isNotEmpty()) out.appendLine("$indent}")
     }
 
     private fun shape(out: StringBuilder, s: Shape, indent: String) {
@@ -741,7 +744,7 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
         if (pivot) out.append(" translate([0, 0, -$h / 2])")
         if (s.isGroup) {
             out.appendLine(" {")
-            group(out, s.children, "$ind    ")
+            group(out, s.children, "$ind    ", s.x(Shape.HULL, 0.0) != 0.0)
             out.appendLine("$ind}")
         } else {
             out.appendLine()

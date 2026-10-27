@@ -980,6 +980,8 @@
     <string name="shape_edge_chamfer">Chamfer</string>
     <string name="shape_edge_size">Edge size (mm, 0 = sharp)</string>
     <string name="shape_hollow">Hollow</string>
+    <string name="shape_hull">Hull (wrap the group\'s shapes in one skin)</string>
+    <string name="shape_hull_hint">Fills in everything between the solids, like shrink wrap; holes still cut it. Replaces Blend joins while on.</string>
     <string name="shape_blend">Blend joins (mm, 0 = sharp)</string>
     <string name="shape_blend_hint">Rounds the edges where the group\'s shapes meet, and hole rims (Build workspace). Works with boxes, rounded boxes, round cylinders and cones, and spheres.</string>
     <string name="shape_blend_unsupported">Blend joins can\'t take \"%1$s\" yet: only boxes, rounded boxes, round cylinders and cones, and spheres, not hollow; holes only directly in the blended group.</string>

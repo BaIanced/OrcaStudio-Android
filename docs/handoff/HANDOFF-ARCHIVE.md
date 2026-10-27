@@ -3410,3 +3410,10 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 - 2026-10-27 user: measure snap on a sphere super-zooms (cause, by reading, untested: a sphere's tiny facet is a 'face' snap, framed at steer.min_feature 2 mm). Fix: face/curve snaps frame at least steer.corner (15 mm) like corners. No sphere-specific logic yet (centre / radius snap = idea).
 - 2026-10-27 user: wants a resolution slider (spheres blocky zoomed in). Added Tuning knob model.detail (0.5-4x, More > Tuning) scaling the Build workspace's sides() in ShapeModel.prelude (cap 180 -> up to 720). Applies when the shape code is regenerated; native its_make_sphere (OrcaScene/OrcaExtras, fixed 90 steps) and imported meshes unchanged. Untested on device.
 - 2026-10-27 user on r444 (phone): "steer framing feels good, needs tuning by me" -> steer framing user-verified as a feature; knob values (More > Tuning) are the user's to tune. Other r444 items (long press, model.detail, ring tool-gating) not yet commented on.
+
+
+## Handoff trim 2026-10-27
+- Interaction plan done: steps 1-9 Claude-verified (step 9 Cut, WSA debug 2026-10-27, CI r439, run 40519306091); user feel untested on all.
+- Measure 2026-10-27 (archive): magnified loupe, steer framing (feature-capped zoom + swing/tilt), tap-select point, Tuning
+- r440 installed everywhere; waiting on the user's feel verdict (log it first when given). WSA debug re-test 2026-10-27 (tap box beside "Steer camera", not the label; `input keyevent 49` = measure): hold 563 -> 8.2 mm, slow steer swings, fast slide zooms out, lift restores 563 mm, tap-select snapped a vertex + loupe/Corner label OK.
+- Fixes 2026-10-27 (WSA debug verified, not yet in a CI build): corner snap framed 62 mm not 8 mm (new knob steer.corner, 15 mm); measure points/line/snap lines no longer stay after leaving the tool. User still tunes sluggish feel in More > Tuning.

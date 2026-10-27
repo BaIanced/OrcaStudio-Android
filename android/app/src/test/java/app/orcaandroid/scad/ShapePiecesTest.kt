@@ -287,4 +287,17 @@ class ShapePiecesTest {
         val torus = g.copy(children = kids + box(5, D3(20.0, 20.0, 5.0), kind = Shape.Kind.TORUS))
         assertEquals(ShapeDesign.BLEND_TAG + "!S5", ShapeDesign(listOf(torus)).pieces().single().scad)
     }
+
+    @Test fun hullGroupWrapsSolidsAndStillCutsHoles() {
+        val kids = listOf(box(2, D3(10.0, 10.0, 10.0)), box(3, D3(10.0, 10.0, 10.0), pos = D3(30.0, 0.0, 0.0)),
+            box(4, D3(4.0, 4.0, 40.0), hole = true))
+        val g = Shape(1, Shape.Kind.GROUP, "G", D3(), extra = mapOf(Shape.HULL to 1.0, Shape.BLEND to 2.0), children = kids)
+        val code = ShapeDesign(listOf(g)).pieces().single().scad
+        // Hull takes the place of Blend joins: still OpenSCAD, the solids inside hull(), the hole after it.
+        assertFalse(code.startsWith(ShapeDesign.BLEND_TAG))
+        assertTrue(code.indexOf("difference()") in 0 until code.indexOf("hull()"))
+        assertTrue(code.indexOf("hull()") < code.indexOf("// S3"))
+        assertTrue(code.indexOf("// S3") < code.indexOf("// S4 (hole)"))
+        assertFalse(ShapeDesign(listOf(g.copy(extra = emptyMap()))).pieces().single().scad.contains("hull()"))
+    }
 }
