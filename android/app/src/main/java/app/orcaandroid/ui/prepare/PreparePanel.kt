@@ -42,6 +42,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
@@ -60,6 +62,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
 import app.orcaandroid.R
 import app.orcaandroid.core.LayerRange
 import app.orcaandroid.core.overrides
@@ -275,6 +278,22 @@ private fun QuickSettings(state: UiState, vm: AppViewModel) {
         }
     }
     SwitchRow(vm.translator.tr("Enable support"), state.value(t, "enable_support") == "1") { vm.presets.setOption(t, "enable_support", if (it) "1" else "0") }
+    // What the threshold angle means: the faces it would support go red in the view, live while the slider moves.
+    if (state.value(t, "enable_support") == "1" || state.overhangView) num("support_threshold_angle")?.let { saved ->
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            FilterChip(state.overhangView, { vm.scene.setOverhangView(!state.overhangView) }, label = { Text(stringResource(R.string.show_overhangs)) })
+            if (state.overhangView) {
+                val angle = state.overhangDrag ?: saved
+                Text(if (angle.roundToInt() == 0) stringResource(R.string.overhang_angle_auto) else stringResource(R.string.overhang_angle, angle.roundToInt()),
+                    Modifier.padding(start = 8.dp), style = MaterialTheme.typography.bodySmall)
+                Slider(angle, { vm.scene.setOverhangView(true, it.roundToInt().toFloat()) }, valueRange = 0f..90f,
+                    onValueChangeFinished = {
+                        vm.state.value.overhangDrag?.let { vm.presets.setOption(t, "support_threshold_angle", it.roundToInt().toString()) }
+                        vm.scene.setOverhangView(true)
+                    }, modifier = Modifier.weight(1f).padding(start = 8.dp))
+            }
+        }
+    }
     state.value(t, "brim_type")?.let { brim ->
         SwitchRow(vm.translator.tr("Brim"), brim != "no_brim") { vm.presets.setOption(t, "brim_type", if (it) "auto_brim" else "no_brim") }
     }

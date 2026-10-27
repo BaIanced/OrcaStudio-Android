@@ -298,6 +298,9 @@
     <string name="measure_axes_toggle">Lock to X / Y / Z</string>
     <string name="measure_steps_toggle">15° steps (Shift)</string>
     <string name="measure_steer_toggle">Steer camera (hold: zoom in, fast slide: out)</string>
+    <string name="show_overhangs">Show overhangs</string>
+    <string name="overhang_angle">Under %d°</string>
+    <string name="overhang_angle_auto">0 = auto (tree: 30°)</string>
     <string name="message">Message</string>
     <string name="mirror">Mirror</string>
     <string name="mode_advanced">Advanced</string>

@@ -119,6 +119,7 @@ internal object Shaders {
         uniform float uKeyStrength;
         uniform int uSelStyle;
         uniform float uOverhangZ;
+        uniform int uOverhangAll;
         uniform highp vec4 uCutBand;
         uniform int uCutBandOn;
         // Layer lines: first layer height, layer height (mm; y 0 = off).
@@ -387,8 +388,10 @@ internal object Shaders {
                 }
                 shaded *= groove;
                 // Highlight overhangs (support painting): the selection's faces steeper than the angle, by their own normal.
-                if (vSelected > 0.5 && lit0 && normalize(vNormal).z < uOverhangZ)
-                    shaded = mix(shaded, vec3(1.0, 0.35, 0.2) * (0.45 + 0.55 * diff), 0.6);
+                // "Show overhangs": every part's, but not the faces standing on the bed (they need no support).
+                // Undersides are in shadow: the red leans little on the light, so it stays readable there.
+                if ((vSelected > 0.5 || (uOverhangAll == 1 && vWorld.z > 0.05)) && lit0 && normalize(vNormal).z < uOverhangZ)
+                    shaded = mix(shaded, vec3(1.0, 0.3, 0.2) * (0.7 + 0.3 * diff), 0.75);
                 if (vSelected > 0.5 && lit0) {
                     // Rim glow: the selection colour on faces turning away from the eye.
                     if ((uSelStyle & 4) != 0)

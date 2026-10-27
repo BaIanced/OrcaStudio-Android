@@ -306,9 +306,11 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                         val (o, d) = v.camera.ray(if (lock == "v") strokeStart.first else x, if (lock == "h") strokeStart.second else y)
                         vm.scene.paintAt(o, d, v.camera.eye(), newStroke, v.section.current)
                     }
-                    override fun onPaintEnd() = vm.scene.sculptEnd()
-                    override fun onPaintHover(x: Float, y: Float, inside: Boolean) =
-                        vm.scene.sculptHover(if (inside) v.camera.ray(x, y) else null)
+                    override fun onPaintEnd() { vm.scene.sculptEnd(); vm.scene.paintEnd() }
+                    override fun onPaintHover(x: Float, y: Float, inside: Boolean) {
+                        val ray = if (inside) v.camera.ray(x, y) else null
+                        if (vm.state.value.tool is Tool.Paint) vm.scene.paintHover(ray, v.section.current) else vm.scene.sculptHover(ray)
+                    }
                     override fun onPlateDoubleTap(index: Int) = vm.scene.selectPlate(index)
                     // Icons act on their plate, which becomes the active one (except delete), as on the desktop.
                     override fun onPlateBadge(plate: Int, badge: PlateBadge, x: Float, y: Float) {
@@ -572,9 +574,10 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     }
     // Live sculpt: the stroke's changed triangles go straight into the scene buffer.
     LaunchedEffect(v) { vm.scene.meshPatches.collect { p -> v.onGl { applyPatch(p) } } }
-    // The brush ring, at the brush's size (Ctrl+wheel resizes it in place).
+    // The brush ring, at the brush's size (Ctrl+wheel resizes it in place): sculpt brushes and the paint brushes with a size.
     val sculptCursor by vm.scene.sculptCursor.collectAsState()
     val sculptRadius = (state.tool as? Tool.Sculpt)?.radius
+        ?: (state.tool as? Tool.Paint)?.takeIf { it.shape == "sphere" || it.shape == "circle" }?.radius
     LaunchedEffect(v, sculptCursor, sculptRadius) {
         val c = sculptCursor?.takeIf { sculptRadius != null }
         val ring = c?.let { (p, n) -> floatArrayOf(p.x, p.y, p.z, n.x, n.y, n.z, sculptRadius!!) }
@@ -657,7 +660,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         v.selectedBounds = insts.map { it.min to (it.min + it.size) }
         v.resizeAxes = insts.singleOrNull()?.let { ownAxes(it.rotation) != null } ?: true
     }
-    LaunchedEffect(v, state.tool, showPreview) {
+    LaunchedEffect(v, state.tool, showPreview, state.overhangView, state.overhangDrag, state.value(PresetType.PRINT, "support_threshold_angle")) {
         v.mode = when {
             showPreview -> InteractionMode.VIEW
             else -> when (state.tool) {
@@ -687,7 +690,10 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
             }
         }
         val highlight = (state.tool as? Tool.Paint)?.takeIf { !showPreview && it.kind == "support" }?.highlight ?: 0f
-        v.onGl { cutPlane = cut; overhangHighlight = highlight }
+        // "Show overhangs": every part, at the support threshold angle (0 = auto: tree supports' 30).
+        val viewAngle = if (!state.overhangView || showPreview) 0f
+            else (state.overhangDrag ?: state.value(PresetType.PRINT, "support_threshold_angle")?.toFloatOrNull() ?: 30f).let { if (it < 0.5f) 30f else it }
+        v.onGl { cutPlane = cut; overhangHighlight = if (highlight > 0f) highlight else viewAngle; overhangAll = highlight <= 0f && viewAngle > 0f }
     }
     // Check mesh: the problem spots stay up until another copy is selected.
     val marks by vm.scene.meshMarkers.collectAsState()

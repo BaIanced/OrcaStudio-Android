@@ -223,6 +223,8 @@ public:
     bool sculpt_flush();
     // Ends a fill preview by restoring the annotation from before the stroke (the finger slid off the model).
     json paint_fill_cancel();
+    // Whether the last fill is still a preview a "refill" (same seed, new crease angle) may redo: no other edit came after it.
+    bool paint_fill_live();
     // Eyedropper: {"state": the paint state under the hit (0 = unpainted), "base": the part's extruder}.
     json paint_state_at(int object, int volume, int facet, const std::array<double, 3> &local, const std::string &kind);
     // Colour painting: each separate shell of the object gets its own filament, largest first.

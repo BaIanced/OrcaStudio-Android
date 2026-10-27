@@ -326,8 +326,11 @@ class SceneController(private val store: Store, private val presets: PresetContr
     fun openPaint(kind: String, state: Int) = setTool(PaintMode.reopened(lastPaint[kind], kind, state))
 
     fun setTool(tool: Tool) = store.launch {
-        (store.value.tool as? Tool.Paint)?.let { lastPaint[it.kind] = it }
+        val old = store.value.tool as? Tool.Paint
+        old?.let { lastPaint[it.kind] = it }
         store.update { it.copy(tool = tool, measure = if (tool == Tool.Measure) emptyList() else it.measure) }
+        if (tool is Tool.Paint && old != null && tool.kind == old.kind && tool.shape == old.shape && (tool.shape == "fill" || tool.shape == "regions")
+            && (tool.edgeAngle != old.edgeAngle || tool.overColours != old.overColours)) refillLast()
         if (tool == Tool.LayerHeight) loadLayerProfile { engine.layerProfile(it) }
     }
 
@@ -407,6 +410,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
     fun setMeasureAxes(on: Boolean) = store.update { it.copy(measureAxes = on) }
     fun setMeasureSteps(on: Boolean) = store.update { it.copy(measureSteps = on) }
     fun setMeasureSteer(on: Boolean) = store.update { it.copy(measureSteer = on) }
+    fun setOverhangView(on: Boolean, drag: Float? = null) = store.update { it.copy(overhangView = on, overhangDrag = drag) }
     fun setMeasureShift(held: Boolean) { if (store.value.measureShift != held) store.update { it.copy(measureShift = held) } }
 
     /** Turns corner resizing of the lone selected copy on, or off when it is already on. */
@@ -504,6 +508,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
      */
     fun paintAt(origin: Vec3, dir: Vec3, camera: Vec3, newStroke: Boolean, section: FloatArray? = null) {
         val tool = (store.value.tool as? Tool.Paint)?.takeIf { it.shape != "gap" } ?: return
+        if (newStroke) paintDown = true
         synchronized(pendingPaint) { pendingPaint.addLast(PaintSample(origin, dir, camera, newStroke, section)) }
         if (paintLock.isLocked) return
         store.launch {
@@ -537,9 +542,8 @@ class SceneController(private val store: Store, private val presets: PresetContr
                             if (fillShown) store.applyScene(engine.paintFillCancel())
                             fillShown = false
                         } else {
-                            store.applyScene(engine.paint(listOf(hit), last.camera, tool.radius, tool.kind, tool.state, !fillShown, last.section,
-                                listOf(false), tool.edgeAngle, "fill", tool.height, tool.overhang, tool.guardZ.takeIf { tool.guardOn },
-                                tool.overColours || tool.shape == "regions", tool.locked))
+                            store.applyScene(fill(tool, hit, last.camera, last.section, !fillShown))
+                            lastFill = Triple(hit, last.camera, last.section)
                             fillShown = true
                         }
                         strokePending = false
@@ -554,10 +558,76 @@ class SceneController(private val store: Store, private val presets: PresetContr
                         paintLastHit = hit != null
                     }
                     if (hits.isEmpty()) continue
+                    if (paintDown && brushRing(tool)) sculptCursor.value = hits.last().let { it.point to it.normal }
                     val last = batch.last()
                     store.applyScene(engine.paint(hits, last.camera, tool.radius, tool.kind, tool.state, strokePending, last.section, joins, tool.edgeAngle,
                         tool.shape, tool.height, tool.overhang, tool.guardZ.takeIf { tool.guardOn }, locked = tool.locked))
                     strokePending = false
+                }
+            }
+        }
+    }
+
+    /** The last fill's seed (hit, camera, section): a crease angle change redoes that fill from it while it is the live preview. */
+    private var lastFill: Triple<PickHit, Vec3, FloatArray?>? = null
+    private var refillJob: Job? = null
+    private var refillWanted = false
+
+    private suspend fun fill(tool: Tool.Paint, hit: PickHit, camera: Vec3, section: FloatArray?, newStroke: Boolean, refill: Boolean = false) =
+        engine.paint(listOf(hit), camera, tool.radius, tool.kind, tool.state, newStroke, section, listOf(false), tool.edgeAngle, "fill", tool.height,
+            tool.overhang, tool.guardZ.takeIf { tool.guardOn }, tool.overColours || tool.shape == "regions", tool.locked, refill)
+
+    /**
+     * Mask as explanation (interaction plan step 7): the crease angle (or "Fill over colours") changed, so the last fill grows or shrinks
+     * live from the same seed. The engine skips it once another edit came after the fill. Slider moves are conflated: only the newest runs.
+     */
+    private fun refillLast() {
+        synchronized(pendingPaint) {
+            refillWanted = true
+            if (refillJob != null) return
+            refillJob = store.launch {
+                while (true) {
+                    val go = synchronized(pendingPaint) { refillWanted.also { refillWanted = false; if (!it) refillJob = null } }
+                    if (!go) break
+                    paintLock.withLock {
+                        val f = lastFill ?: return@withLock
+                        val tool = (store.value.tool as? Tool.Paint)?.takeIf { it.shape == "fill" || it.shape == "regions" } ?: return@withLock
+                        runCatching { fill(tool, f.first, f.second, f.third, newStroke = false, refill = true) }.getOrNull()?.let { store.applyScene(it) }
+                    }
+                }
+            }
+        }
+    }
+
+    /** The paint brush ring (in [sculptCursor]): a finger or button is down painting, so the stroke's hits move it, not the hover. */
+    @Volatile private var paintDown = false
+    /** The latest paint hover ray (and section) not yet probed; only the newest counts. Guarded by [pendingPaint]. */
+    private var paintHoverRay: Pair<Pair<Vec3, Vec3>, FloatArray?>? = null
+    private var paintHoverJob: Job? = null
+
+    /** Brushes with a size show their ring on the surface (interaction plan step 7). */
+    private fun brushRing(tool: Tool?) = tool is Tool.Paint && (tool.shape == "sphere" || tool.shape == "circle")
+
+    /** A paint stroke ended: the ring goes until the next hover or stroke. */
+    fun paintEnd() {
+        if (store.value.tool !is Tool.Paint) return
+        paintDown = false
+        sculptCursor.value = null
+    }
+
+    /** A mouse or pen hovers along this ray (null: it left the view): the paint brush ring follows the surface under it. */
+    fun paintHover(ray: Pair<Vec3, Vec3>?, section: FloatArray?) {
+        if (!brushRing(store.value.tool)) return
+        synchronized(pendingPaint) {
+            paintHoverRay = ray?.let { it to section }
+            if (ray == null) { sculptCursor.value = null; return }
+            if (paintHoverJob != null) return
+            paintHoverJob = store.launch {
+                while (true) {
+                    // The job ends (and a new ray starts the next) inside the lock, so no ray waits unprobed.
+                    val (r, sec) = synchronized(pendingPaint) { paintHoverRay.also { paintHoverRay = null; if (it == null) paintHoverJob = null } } ?: break
+                    val hit = runCatching { pick(r.first, r.second, sec) }.getOrNull()
+                    if (!paintDown && brushRing(store.value.tool)) sculptCursor.value = hit?.let { it.point to it.normal }
                 }
             }
         }

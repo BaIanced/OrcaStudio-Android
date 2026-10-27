@@ -177,6 +177,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var layerLines = floatArrayOf(0f, 0f)
     /** Support painting's "Highlight overhangs": > 0 tints the selected parts' faces overhanging by more than this many degrees. */
     var overhangHighlight = 0f
+    /** The quick settings' "Show overhangs": [overhangHighlight] tints every part, not only the selection, and skips faces on the bed. */
+    var overhangAll = false
     private val keyDir get() = Math.toRadians(keyElevation.toDouble()).let { el ->
         Math.toRadians(keyAzimuth.toDouble()).let { az ->
             floatArrayOf((Math.cos(el) * Math.cos(az)).toFloat(), (Math.cos(el) * Math.sin(az)).toFloat(), Math.sin(el).toFloat())
@@ -877,6 +879,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glUniform2f(loc(meshProgram, "uLayers"), layerLines[0], layerLines[1])
         // TriangleSelector::select_patch's test: world normal z below -cos(angle); -2 = off.
         glUniform1f(loc(meshProgram, "uOverhangZ"), if (overhangHighlight > 0f) -Math.cos(Math.toRadians(overhangHighlight.toDouble())).toFloat() else -2f)
+        glUniform1i(loc(meshProgram, "uOverhangAll"), if (overhangAll) 1 else 0)
         cutBand.let { b ->
             glUniform1i(loc(meshProgram, "uCutBandOn"), if (b != null) 1 else 0)
             if (b != null) glUniform4f(loc(meshProgram, "uCutBand"), b[0], b[1], b[2], b[3])
@@ -958,31 +961,19 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         val vx = ny * uz - nz * uy; val vy = nz * ux - nx * uz; val vz = nx * uy - ny * ux
         val r = c[6]
         val n = 48
-        val pts = FloatArray((n + 1) * 3)
-        for (i in 0..n) {
-            val a = i * 2.0 * Math.PI / n
+        // Segments for the wide-line shader (GL line width is 1 px on some GPUs, WSA among them).
+        val pts = FloatArray(n * 6)
+        for (i in 0 until n) for (e in 0..1) {
+            val a = (i + e) * 2.0 * Math.PI / n
             val co = Math.cos(a).toFloat() * r; val si = Math.sin(a).toFloat() * r
-            pts[i * 3] = c[0] + ux * co + vx * si
-            pts[i * 3 + 1] = c[1] + uy * co + vy * si
-            pts[i * 3 + 2] = c[2] + uz * co + vz * si
+            val o = i * 6 + e * 3
+            pts[o] = c[0] + ux * co + vx * si
+            pts[o + 1] = c[1] + uy * co + vy * si
+            pts[o + 2] = c[2] + uz * co + vz * si
         }
-        glUseProgram(lineProgram)
-        glUniformMatrix4fv(loc(lineProgram, "uMvp"), 1, false, mvp, 0)
-        glUniform3f(loc(lineProgram, "uOffset"), 0f, 0f, 0f)
-        setSection(lineProgram, on = false)
         glDisable(GL_DEPTH_TEST)
-        glBindBuffer(GL_ARRAY_BUFFER, scratchVbo)
-        glBufferData(GL_ARRAY_BUFFER, pts.size * 4, floats(pts), GL_STREAM_DRAW)
-        glEnableVertexAttribArray(0)
-        glVertexAttribPointer(0, 3, GL_FLOAT, false, 12, 0)
-        glLineWidth(4f * pxScale)
-        glUniform3f(loc(lineProgram, "uColor"), 0.1f, 0.1f, 0.1f)
-        glDrawArrays(GL_LINE_STRIP, 0, n + 1)
-        glLineWidth(2f * pxScale)
-        glUniform3f(loc(lineProgram, "uColor"), 1f, 1f, 1f)
-        glDrawArrays(GL_LINE_STRIP, 0, n + 1)
-        glLineWidth(1f)
-        glDisableVertexAttribArray(0)
+        drawWideLines(pts, 4f * density, floatArrayOf(0.1f, 0.1f, 0.1f), section = false)
+        drawWideLines(pts, 2f * density, floatArrayOf(1f, 1f, 1f), section = false)
         glEnable(GL_DEPTH_TEST)
     }
 

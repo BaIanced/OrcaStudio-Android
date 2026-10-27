@@ -1321,6 +1321,13 @@ json OrcaEngine::paint_fill_cancel()
     return scene_json();
 }
 
+bool OrcaEngine::paint_fill_live()
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    drop_stale_fill_preview();
+    return m_fill_preview != nullptr;
+}
+
 json OrcaEngine::paint_clear(int object, const std::string &kind)
 {
     std::lock_guard<std::mutex> lock(m_mutex);

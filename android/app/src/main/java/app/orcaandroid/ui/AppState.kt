@@ -240,6 +240,10 @@ data class UiState(
     val measureSteps: Boolean = false,
     /** Measure tool: a held finger steers the dot and the camera follows it (hold = zoom in, fast slide = out; interaction plan step 6). */
     val measureSteer: Boolean = false,
+    /** "Show overhangs" (quick settings): every part's faces the support threshold angle would support are tinted red; [overhangDrag] = the
+     *  angle slider while it moves (degrees), before it is written to the print settings. Interaction plan step 7. */
+    val overhangView: Boolean = false,
+    val overhangDrag: Float? = null,
     /** Measure tool: Shift held now, and whether it was held when the second point went down (that pair keeps its steps). */
     val measureShift: Boolean = false,
     val measureShiftPlaced: Boolean = false,

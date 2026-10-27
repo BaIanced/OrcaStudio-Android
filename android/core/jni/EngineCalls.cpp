@@ -166,6 +166,10 @@ const std::unordered_map<std::string, Handler> &handlers()
              auto hit = [](const json &h) {
                  return OrcaEngine::PaintHit{h.at("object"), h.at("instance"), h.at("volume"), h.at("facet"), vec3(h.at("local")), h.value("join", false)};
              };
+             // "refill": redo the last fill from its seed (its crease angle changed), only while it is still the live preview;
+             // otherwise nothing changes (a fill without its own undo step must not happen).
+             if (a.value("refill", false) && !e.paint_fill_live())
+                 return e.paint_fill_cancel();
              if (a.contains("hits"))
                  for (const json &h : a.at("hits")) hits.push_back(hit(h));
              else
