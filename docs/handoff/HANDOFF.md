@@ -14,7 +14,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 0170950 (PR #65, branch at r398, merged 2026-10-25). Untested by the user in main: Build workspace, paint shop/depth, Filament materials, Realistic render, UX P1-P6, Check mesh feel, 3MF export in desktop Orca, pen, fan hold, Extrude F150.
 - Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
-- Latest CI build r436 (run 40454196356, step 7 mask previews): on 4 devices (2 were offline: .45 and the Note). Install new builds on all adb devices (skip the .23 tablet: 32-bit, Android 6).
+- Latest CI build r437 (run 40477704169, 8a + 8b-1): on phone, WSA, SHIELD, Note (Chromebook offline). Install new builds on all adb devices (skip the .23 tablet: 32-bit, Android 6).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
@@ -35,13 +35,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   Tests: `wsa-pen-hover.sh`, `wsa-steer-test.sh`, `input mouse tap`, measure = `input keyevent 49`, MCP `view_state` (`MAX=3000`).**
 - **No WSA focus loops (user 2026-10-26: "your testing keeps stealing my window focus"):** no `focus.ps1`/`tapf.sh`/`keys.ps1` in loops;
   touch/hold tests on the phone's hidden display. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
-- 8a gesture scrubber (`ui/components/Scrubber.kt`): Claude-verified phone VD debug 2026-10-27; ships in the same CI build as 8b-1.
-- 8b slice 1 BUILT 2026-10-27, compiled, **untested on a device**: Regions tap -> "This region" row (ToolPanel `RegionEdits`, `SceneController.regionPick`
-  / `paintRegion`): filament chips recolour it; Support / No support / Fuzzy skin / Seam fill the same seed in that kind (on chip = clear).
+- 8a scrubber + 8b slice 1 (Regions tap -> "This region" chips) Claude-verified on CI r437 phone VD 2026-10-27 (archive); user feel untested.
 - 8b slice 2 (native, offload to DeepSeek when the opencode free quota resets; it was out 2026-10-27): region smoothing (Taubin, border pinned)
   and region -> modifier volume (extract faces, close into a solid), standalone C++ kernels + Claude's tests.
-- CI run 40477704169 (8a + 8b-1) dispatched 2026-10-27; install on all adb devices when green.
-- Next step: verify 8a + 8b-1 on the CI build (phone VD, Regions tap + Support chip) -> Opus 5.5 (medium)
+- Next step: 8b slice 2 native kernels (DeepSeek offload if quota is back, else Claude) -> Opus 5.5 (high)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).

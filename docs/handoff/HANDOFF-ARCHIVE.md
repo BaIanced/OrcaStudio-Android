@@ -3358,3 +3358,11 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
   paint panel on a handle part): drag right from "Brush 3.0 mm" -> HUD "Brush 10.8 mm" mid-drag; held drag down then right picked
   "Gap area" (chip highlighted) and moved 1.0 -> 1.2 mm2. Phone was asleep at first: injected taps dropped until WAKEUP (user OK'd waking).
   WSA debug skipped: it takes taps only when focused. Debug apps uninstalled from WSA and the phone.
+
+### 2026-10-27: 8a scrubber + 8b slice 1 on CI build r437 (run 40477704169)
+- r437 installed on phone, WSA, SHIELD, Note (Chromebook offline). Claude-verified on the phone hidden display (release app, box
+  from MCP shape_add, Paint shop > Fill > Regions): tap cube top -> filled with the active filament and "This region" row shown;
+  chip 1 recoloured it yellow; Support chip on (green overlay), tapped again -> cleared, yellow back. Held drag on "Crease 30°" ->
+  HUD "Crease 53°" over the 3D view. User feel untested.
+- Tool note: uiautomator `--display` dumps the focused display, so a touch on the phone's main screen makes VD dumps return the main
+  screen; `~/orca-android-tools/vdlayout.sh` retries, VD shots (`orca-vd.sh shot`) always work. MCP on the phone needs `MCP_DEV=<phone>` (target is WSA).
