@@ -26,6 +26,8 @@ tuning rounds = rethink; compile locally; Claude-verify on WSA, user feel open a
    Shift or the 15° toggle = 15 deg steps (magenta); "Lock to X / Y / Z" toggle. Open: real Shift, Y / Z on a part, user feel.
 6. **Steered-point camera (user vision, E3 + E4)**: finger steers the point, camera follows, drag speed = zoom (zoom-in slower than out), 2nd finger = freeze;
    prototype behind a toggle beside the plain loupe; compare on phone.
+   BUILT 2026-10-26 (archive, 015b132): "Steer camera" toggle, `render/MeasureSteer.kt`; finger only; lift restores the camera.
+   Open: 2nd-finger freeze untested (no WSA multi-touch); rates (in 0.4/s under 60 dp/s, out 1.3/s over 500 dp/s) need the user's feel.
 7. **Mask as explanation (E2)**: live red overhang-angle preview (per-face normal in shader), smart-fill crease angle from a seed (E1), brush-size circle.
 8. **Gesture scrubber (E5)** + **per-region edits** (colour / material / smoothing via E1 + E5): tool-mode only, 2 fingers = camera.
 9. **Cut** (low priority): drag in view moves the plane, tap feature to cut, long-press face aligns plane, x-ray while placing.

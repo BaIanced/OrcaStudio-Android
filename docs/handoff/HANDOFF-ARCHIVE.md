@@ -3327,3 +3327,17 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
   magenta, "Along 0° up, 210° round from X 42.64 mm" (217 deg line); pen hover over the X tooth: the live preview line locks red.
   Untested: Shift held with a real keyboard; Y / Z lock on a part (logic + tests only); user feel. Note: the measure panel's
   toggle rows move as the result lines change (pre-existing layout).
+
+### 2026-10-26 Interaction plan step 6: steered-point camera prototype (Claude, 015b132, CI run 40450213519)
+- Toggle "Steer camera (hold: zoom in, fast slide: out)" in the Measure card (UiState `measureSteer`, off). Finger loupes only
+  (mouse / pen stay exact). `render/MeasureSteer.kt`: the dot starts 56 dp above the finger (or on a grabbed point), the finger's
+  moves steer it 1:1 in screen px (finer the closer the camera), each frame (postOnAnimation) the camera pans so the dot eases back
+  to its start spot (FOLLOW_S 0.35 s) and zooms at the dot by smoothed finger speed: < 60 dp/s in at e^0.4/s (to 12x closer max),
+  > 500 dp/s out at e^1.3/s (to the start distance). Second finger = camera freeze (PlateView `onMeasureFreeze`; the loupe now
+  follows its own pointer id, other fingers no longer move it). Lift / cancel: placed (pick before the camera moves), then the
+  camera eases back to the pre-press view (0.3 s, distance geometric). Plain loupe code path unchanged.
+- WSA debug (gear, `wsa-steer-test.sh x y`): start 350 mm; held 3.5 s -> 75.7 mm, slow steer +50 px -> 29.2 mm, fast 60 px
+  slides -> 58.5 mm, lift -> 350 mm exactly, face point placed; shots show the dot fixed at its spot, gear zoomed under it, hole
+  and teeth outlined. Toggle off: hold 2.5 s keeps 350 mm, 2nd point placed (33.7 mm). Untested: 2nd-finger freeze (WSA input
+  has no multi-touch), real finger feel, phone comparison vs the plain loupe (user). Camera target can dip below the bed while
+  zoomed (zoomAt on the view plane); harmless since the lift restores it.
