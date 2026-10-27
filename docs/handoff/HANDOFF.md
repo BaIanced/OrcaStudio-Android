@@ -35,13 +35,12 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   Tests: `wsa-pen-hover.sh`, `wsa-steer-test.sh`, `input mouse tap`, measure = `input keyevent 49`, MCP `view_state` (`MAX=3000`).**
 - **No WSA focus loops (user 2026-10-26: "your testing keeps stealing my window focus"):** no `focus.ps1`/`tapf.sh`/`keys.ps1` in loops;
   touch/hold tests on the phone's hidden display. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
-- Step 8a gesture scrubber (hold a setting chip, drag: left/right value, up/down row; `ui/components/Scrubber.kt`) built +
-  Claude-verified phone VD debug 2026-10-27, **pushed, no CI build yet** (batch with 8b). User answers 2026-10-27 in NOTES step 8.
+- 8a gesture scrubber (`ui/components/Scrubber.kt`): Claude-verified phone VD debug 2026-10-27; ships in the same CI build as 8b-1.
 - 8b slice 1 BUILT 2026-10-27, compiled, **untested on a device**: Regions tap -> "This region" row (ToolPanel `RegionEdits`, `SceneController.regionPick`
-  / `paintRegion`): filament chips recolour it, Support / No support / Fuzzy skin / Seam chips fill the same seed in that kind (on chip = clear).
-  Kotlin only (Regions fill = geometric, ignores paint). Clears on undo, kind/shape change, crease change after an apply.
+  / `paintRegion`): filament chips recolour it; Support / No support / Fuzzy skin / Seam fill the same seed in that kind (on chip = clear).
 - 8b slice 2 (native, offload to DeepSeek when the opencode free quota resets; it was out 2026-10-27): region smoothing (Taubin, border pinned)
   and region -> modifier volume (extract faces, close into a solid), standalone C++ kernels + Claude's tests.
+- CI run 40477704169 (8a + 8b-1) dispatched 2026-10-27; install on all adb devices when green.
 - Next step: verify 8a + 8b-1 on the CI build (phone VD, Regions tap + Support chip) -> Opus 5.5 (medium)
 
 ## User decisions (2026-10-13)
