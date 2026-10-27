@@ -38,6 +38,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Interaction plan done: steps 1-9 Claude-verified (step 9 Cut, WSA debug 2026-10-27, CI r439, run 40519306091); user feel untested on all.
 - Measure 2026-10-27 (archive): magnified loupe, steer framing (feature-capped zoom + swing/tilt), tap-select point, Tuning
   (More > Tuning, MCP `tuning_get` / `tuning_set`): Claude-verified WSA debug; user feel open (phone).
+- **First: CI run 40567409451 (steer framing, tap-select, Tuning, loupe) pending: `gh run watch` it, then install on all adb devices.**
 - Next step: user tries steer framing + tap-select + loupe on the phone, tunes in More > Tuning -> Sonnet 5.5 (medium)
 
 ## User decisions (2026-10-13)
