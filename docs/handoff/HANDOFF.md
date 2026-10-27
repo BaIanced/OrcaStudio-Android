@@ -14,7 +14,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 0170950 (PR #65, branch at r398, merged 2026-10-25). Untested by the user in main: Build workspace, paint shop/depth, Filament materials, Realistic render, UX P1-P6, Check mesh feel, 3MF export in desktop Orca, pen, fan hold, Extrude F150.
 - Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
-- Latest CI build r429 (run 40397057477, smooth blend fixes) on WSA + SHIELD + Quest + phone (`IP:5555`). Note offline.
+- Latest CI build r431 (run 40437656469, measure snapping rules) on WSA + SHIELD + phone + Note10+. Note 10.1 tablet (user 2026-10-26) not reachable yet.
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
@@ -28,22 +28,17 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   Claude compiles, merges, cherry-picks. Audits + JVM-testable Kotlin only.
   Tasks 1-18 merged. **Session start, run exactly:** `gh pr list --state open --json number,title,headRefName; gh issue view 46 --json comments --jq '.comments[-2:][]|.createdAt+" "+(.body|.[0:300])'`
 - User feel/checks open (backlog): paint plan, Build workspace, Filament materials, Realistic render, 3MF bed-type label, pen, plate switcher pick, measure step 1, push/pull fold.
-- Local native build: reference "Native change on the debug app" (+ deps/patches prerequisites).
-- Local debug test: reference "Local APK" + "WSA debug loop" (parked window: taps via `tapf.sh`).
+- Local tests: `wsa-debug-rebuild.sh [native]` (reference "Native change on the debug app", "Local APK", "WSA debug loop"); fresh debug app: `wsa-debug-setup.sh` first.
 - **Offload (user 2026-10-25/26): max token use onto free opencode models, growing leeway by track record** (Claude specs + verifies).
   DeepSeek V4.1 Flash = default; self-checking runner `octauto.sh` (`D:\oct-backup\jobs\README.md`), ledger `trust-profile.md`.
-- CAD plan accepted (user 2026-10-25), steps in `NOTES-cad-reuse.md`. Steps 0 + 1a Claude-verified WSA r419 (archive);
-  1a user feel untested ("Blend joins (mm)"). 1b (tap an edge) parked.
-- CAD 2a-2c (r421), 3 deformers (r423), 4 Smooth blend, 5a sculpt core: Claude-verified WSA (archive); user feel open.
-- Smooth blend stall fixed 2026-10-26 (archive): WSA-only TBB livelock under Houdini (4-thread cap there), voxel budget, Cancel,
-  size + inside-out fixes. r429 (run 40397057477): Claude-verified WSA + phone (4.6 s, Cancel OK); user feel untested.
-- CAD 5b live sculpt (More > Sculpt, r427) + brush ring / stroke-end split (r428): Claude-verified WSA debug (archive); user feel untested.
-- Bands + 3MF export in desktop Orca: user-verified 2026-10-26 (archive).
-- **Interaction plan (user GO 2026-10-26): `NOTES-interaction-plan.md`, 9 steps. Step 1 Measure snap highlight built + Claude-verified
-  WSA debug (archive); CI run 40435344234 dispatched (install on all devices when green); user feel untested. Step 2 open items listed in the notes.**
+- CAD plan (`NOTES-cad-reuse.md`, accepted 2026-10-25): steps 0, 1a, 2a-2c, 3 deformers, 4 Smooth blend (stall fixed r429), 5a/5b
+  sculpt: Claude-verified (archive); user feel untested for all. 1b (tap an edge) parked. Bands + 3MF export: user-verified 2026-10-26.
+- **Interaction plan (user GO 2026-10-26): `NOTES-interaction-plan.md`, 9 steps. Steps 1 (snap highlight, r430) + 2 (snapping rules:
+  sticky, off-silhouette, noise-proof corners, Snap toggle, dashed hidden lines) Claude-verified WSA debug (archive); user feel untested.
+  Measure mode on WSA: `adb shell input keyevent 49`.**
 - **No WSA focus loops (user 2026-10-26: "your testing keeps stealing my window focus"):** no `focus.ps1`/`tapf.sh`/`keys.ps1` in loops;
-  touch/hold tests on the phone's hidden display. New helpers: `wsa-debug-rebuild.sh [native]`, `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
-- Next step: CI build of step 1 + install everywhere, then Interaction plan step 2 (snapping rules) -> Opus 5.5 (high)
+  touch/hold tests on the phone's hidden display. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
+- Next step: Interaction plan step 3 (measure results: dX/dY/dZ, parallel faces, hole centres) -> Opus 5.5 (high)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).

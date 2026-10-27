@@ -52,7 +52,7 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - [Opus] Filament materials tiers 1+2 (layer lines r391, View menu), per-slot look, Realistic render 1+2: Claude WSA debug 2026-10-24,
   user feel untested (layer line contrast in realistic mode); variable layer height ignored; open: Quest/Chromebook GPU check. Google Filament engine not wanted (breaks Shaders.kt drags, ids, uSolo).
 - MCP tools: app_state, log_tail, perf. Preview camera-light slider (no GO). Blender print3d_toolbox checks (pie menu: see stylus).
-- [Opus] Snapseed-inspired interaction ideas: PLAN in NOTES-interaction-plan.md (user GO 2026-10-26; step 1 Measure snap highlight built, Claude-verified WSA debug 2026-10-26, user feel untested; step 2 next). Original brain dump below:
+- [Opus] Snapseed-inspired interaction ideas: PLAN in NOTES-interaction-plan.md (user GO 2026-10-26; steps 1 snap highlight (r430) + 2 snapping rules (r431) Claude-verified WSA debug 2026-10-26, user feel untested; step 3 next). Original brain dump below:
   only a remembered example of friendly UI; keep every idea open, prefer shared engines so no early choice blocks a later one. Not started.
   - Engines (features = combinations): (E1) surface picker / region grow over faces, pluggable stop rules (crease angle, coplanar,
     cylinder fit, geodesic radius); welded adjacency, off UI thread on huge meshes; desktop Orca smart fill may already cover the core

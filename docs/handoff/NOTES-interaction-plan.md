@@ -13,10 +13,9 @@ tuning rounds = rethink; compile locally; Claude-verify on WSA, user feel open a
    D mm / Edge line / Face). Also pulled in from step 2: snap distance measured from the pick ray (screen-like; nothing behind
    the hit), candidates from all facets within reach (BFS), ring vertices are not corners.
    Claude-verified WSA debug: gear face outline, hole ring 9.50 mm, cube vertical edge, cube top outline, tooth corner.
-2. **Snapping rules**: priority vertex > edge > face, release distance > capture (no flicker), radii in screen px, magnet/Alt = snap off.
-   Open from step 1 tests: (a) noisy voxel meshes (Smooth blend 'Assembly') snap to 'Corner' everywhere (sharp-edge graph is
-   noise; try a normal-rank corner test, deg-1 ends); (b) aim just off the silhouette = no hit = no snap (should still catch the
-   edge); (c) curve/edge-line kind on gear tooth flanks not yet seen; (d) dashed outline where depth hides parts of thin lines.
+2. **Snapping rules** BUILT 2026-10-26 (archive): sticky catch (release 1.6x capture), off-silhouette seed rays, corners/edges only on
+   lines longer than the snap distance (voxel noise fixed), Snap checkbox + Alt, hidden outline dashed. Open: curve kind not yet seen
+   on a real part; Alt+click untested; user feel.
 3. **Measure results**: always dX/dY/dZ; parallel faces = separation; point-face; hole diameter / centre distance; bed pickable as a face.
 4. **Input types**: mouse = exact cursor + hover preview, no offset; S Pen hover = highlight/loupe; finger = loupe/offset, select then drag relative 1:1.
 5. **Axis inference**: line locks near an axis with colour; Shift = 15 deg steps; touch = toggle.

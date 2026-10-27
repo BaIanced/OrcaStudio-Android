@@ -3270,3 +3270,18 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
   loupe ring/dot/label in the kind colour (green snap, amber ring, blue face). Strings measure_snap_*.
 - WSA debug checks: gear top face outline (teeth + rim), gear hole "Circle 9.50 mm" with amber ring, cube vertical edge "Edge"
   (1 segment), cube top 4-segment outline, gear tooth tip "Corner". Not seen: curve kind. Voxel Assembly: everything "Corner" (step 2).
+
+## 2026-10-26 Interaction plan step 2: Snapping rules (Claude-verified, WSA debug build; CI r431)
+- r430 (run 40435344234, step 1 snap highlight) installed on WSA, SHIELD, phone, Note.
+- Native `pick(snap, release, stick, seedOrigin, seedDir)` (OrcaTools.cpp): `SnapFeatures::next()` carries an edge line on through
+  junctions (straightest sharp edge under 50 deg turn; replaces `corner()`); corners = vertices with >= 3 "long" arms, or 2 turning
+  >= 50 deg; arms / edge lines count only when longer than the snap distance (14 px on screen), so voxel noise creases don't snap.
+  `stick` (last caught point) holds its corner/edge out to `release`; `seed` (a ray that hits) looks round when the aim misses, and
+  returns no hit unless an edge/corner is caught.
+- App: `measurePick` sticky for the loupe (reset on finger down), 8 seed rays on a SNAP_PX x SNAP_RELEASE (1.6) ring (Viewport
+  `snapRing`); `UiState.measureSnap` + "Snap to corners and edges" checkbox; Alt+click = bare hit (untested, adb can't hold Alt);
+  hidden parts of snap lines dashed (WIDE_LINE_FS `uDash`, GL_GREATER pass). Debug-only `SNAPDBG` log per loupe event.
+- WSA debug checks: voxel Assembly sphere "Face" (was Corner), wedge silhouette "Edge"; cube 8 px off silhouette = Edge, 20 px off
+  = nothing; slide edge -> 18 px off holds Edge, fresh hold at 18 px = nothing, slide to 27 px lets go; cube corner = vertex;
+  gear hole ring 9.50 mm; Snap off = bare hit (446.35 vs edge 446.50); hole's bottom rim: visible part solid, hidden part dashed.
+- Measure mode on WSA without focus stealing: `adb shell input keyevent 49` (U).
