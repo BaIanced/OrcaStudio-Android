@@ -439,10 +439,10 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     }
     // Redraws the selected point's ring every frame while there is one (the camera moves under it).
     val activeFrame = androidx.compose.runtime.remember { androidx.compose.runtime.mutableLongStateOf(0L) }
-    LaunchedEffect(state.measureActive != null) {
-        if (state.measureActive != null) while (true) androidx.compose.runtime.withFrameNanos { activeFrame.longValue = it }
+    LaunchedEffect(state.measureActive != null && state.tool == Tool.Measure) {
+        if (state.measureActive != null && state.tool == Tool.Measure) while (true) androidx.compose.runtime.withFrameNanos { activeFrame.longValue = it }
     }
-    state.measureActive?.let { state.measure.getOrNull(it) }?.takeIf { state.loupe == null }?.let { m ->
+    state.measureActive?.let { state.measure.getOrNull(it) }?.takeIf { state.loupe == null && state.tool == Tool.Measure }?.let { m ->
         // The selected point: a ring round it (drag from it to move it, tap elsewhere to set it).
         Canvas(Modifier.fillMaxSize()) {
             activeFrame.longValue

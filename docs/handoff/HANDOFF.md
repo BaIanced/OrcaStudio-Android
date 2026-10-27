@@ -40,7 +40,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   (More > Tuning, MCP `tuning_get` / `tuning_set`): Claude-verified WSA debug; user feel open (phone).
 - r440 installed everywhere; waiting on the user's feel verdict (log it first when given). WSA debug re-test 2026-10-27 (tap box beside "Steer camera", not the label; `input keyevent 49` = measure): hold 563 -> 8.2 mm, slow steer swings, fast slide zooms out, lift restores 563 mm, tap-select snapped a vertex + loupe/Corner label OK.
 - Fixes 2026-10-27 (WSA debug verified, not yet in a CI build): corner snap framed 62 mm not 8 mm (new knob steer.corner, 15 mm); measure points/line/snap lines no longer stay after leaving the tool. User still tunes sluggish feel in More > Tuning.
-- Next step: user re-checks corner zoom + stuck points on the phone (build from run 40571559088, installed) -> Sonnet 5.5 (medium)
+- Fix pending build: selected-point ring stayed after closing Measure (now tool-gated). Next step: dispatch CI with it, install on all, user re-checks corner zoom + stuck points + ring -> Sonnet 5.5 (medium)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).

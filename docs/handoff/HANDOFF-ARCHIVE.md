@@ -3405,3 +3405,4 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 
 ## 2026-10-27 user verdict, r440 (phone)
 - Steer framing + tap-select + loupe: "identical to what I had in my minds eye". Open: a corner snap zooms really far in (fix: corner size floor, steer.corner knob); movement feels slightly sluggish (user tunes later in More > Tuning).
+- 2026-10-27 user report (after r440 fixes): place 2 measure points, select one, close Measure -> the selected point's ring stayed. Cause: ring in Viewport.kt drawn on measureActive alone. Fixed: gated on tool == Measure (compiles; not yet in a CI build, untested on device).
