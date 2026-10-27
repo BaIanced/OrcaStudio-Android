@@ -19,6 +19,7 @@ object Tuning {
         Knob("loupe.lift", "Finger offset (dot above the finger)", 56f, 0f, 120f, " dp", 4f),
         Knob("steer.fill", "Steer: feature fills the view", 0.4f, 0.1f, 0.9f, "", 0.05f),
         Knob("steer.min_feature", "Steer: smallest feature size (zoom limit)", 2f, 0.5f, 20f, " mm", 0.5f),
+        Knob("steer.corner", "Steer: size framed at a corner snap", 15f, 2f, 100f, " mm", 1f),
         Knob("steer.max_swing", "Steer: most swing / tilt from the start view", 35f, 0f, 90f, "°", 5f),
         Knob("steer.face_square", "Steer: faces turned square-on", 0.5f, 0f, 1f, "", 0.05f),
         Knob("steer.frame_s", "Steer: framing smoothness", 0.6f, 0.1f, 3f, " s", 0.1f),

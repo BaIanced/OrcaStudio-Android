@@ -161,6 +161,8 @@ class MeasureSteer(private val view: View, private val camera: Camera, private v
         /** Framing: the feature fills this share of the view's short side; features count as at least [MIN_FEATURE_MM]. */
         val FILL get() = app.orcaandroid.core.Tuning["steer.fill"]
         val MIN_FEATURE_MM get() = app.orcaandroid.core.Tuning["steer.min_feature"]
+        /** A corner snap has no segments: frame this size instead of the minimum feature. */
+        val CORNER_MM get() = app.orcaandroid.core.Tuning["steer.corner"]
         /** Framing: farthest the view swings / tilts from the starting view, and the pitch it keeps above the bed. */
         val MAX_SWING_DEG get() = app.orcaandroid.core.Tuning["steer.max_swing"]
         const val MIN_PITCH = 5f
@@ -209,7 +211,7 @@ class MeasureSteer(private val view: View, private val camera: Camera, private v
             val ends = (0 until lines.size / 3).map { Vec3(lines[3 * it], lines[3 * it + 1], lines[3 * it + 2]) }
             val span = if (ends.size >= 2) maxOf(ends.maxOf { it.x } - ends.minOf { it.x }, ends.maxOf { it.y } - ends.minOf { it.y },
                 ends.maxOf { it.z } - ends.minOf { it.z }) else 0f
-            val size = if (kind == "ring" && diameter != null) diameter else span
+            val size = if (kind == "ring" && diameter != null) diameter else if (kind == "vertex") maxOf(span, CORNER_MM) else span
             // A loop's normal (Newell's method over its segments); faces may come without one.
             fun loopNormal(): Vec3? {
                 var n = Vec3.ZERO

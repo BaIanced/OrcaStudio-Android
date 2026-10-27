@@ -820,17 +820,18 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         val r = l?.let { loupeInset(it.x, it.y, v.width.toFloat(), v.height.toFloat(), loupeDensity) }
         v.onGl { loupe = if (l == null || r == null) null else floatArrayOf(l.x, l.y, r[0], r[1], r[2]) }
     }
-    LaunchedEffect(v, state.loupe?.feature) {
-        val f = state.loupe?.feature
+    val measuring = state.tool == Tool.Measure
+    LaunchedEffect(v, state.loupe?.feature, measuring) {
+        val f = state.loupe?.feature?.takeIf { measuring }
         val c = snapColor(f?.kind)
         v.onGl { snapLines = f?.lines; snapColor = floatArrayOf(c.red, c.green, c.blue) }
     }
     val measureLine = state.measureLine
-    LaunchedEffect(v, state.measure, state.loupe?.point, measureLine) {
+    LaunchedEffect(v, state.measure, state.loupe?.point, measureLine, measuring) {
         // The line ends where a click would place B (a ring: its centre).
-        val pts = (state.measure.map { it.point } + listOfNotNull(state.loupe?.let { it.preview?.point ?: it.point })).takeLast(2)
+        val pts = if (!measuring) emptyList() else (state.measure.map { it.point } + listOfNotNull(state.loupe?.let { it.preview?.point ?: it.point })).takeLast(2)
             .map { floatArrayOf(it.x, it.y, it.z) }
-        val lock = measureLine?.third?.let { l -> val c = measureLockColor(l.axis); floatArrayOf(l.foot.x, l.foot.y, l.foot.z, c.red, c.green, c.blue) }
+        val lock = measureLine?.takeIf { measuring }?.third?.let { l -> val c = measureLockColor(l.axis); floatArrayOf(l.foot.x, l.foot.y, l.foot.z, c.red, c.green, c.blue) }
         v.onGl { measurePoints = pts; measureLock = lock }
     }
     LaunchedEffect(v, showPreview, result, state.preview, preview) {

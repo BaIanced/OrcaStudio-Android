@@ -3402,3 +3402,6 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
     (PlateView grab at down), tap elsewhere deselects without placing. WSA: select, drag (stays selected; re-placed = last in the list), tap away.
   - Tuning registry (`core/Tuning.kt`): 15 knobs (loupe zoom/size/gap/lift, steer fill/min feature/swing/face square/smoothing/speeds),
     More > Tuning sliders + reset, MCP `tuning_get` / `tuning_set` ({"key": v} or {"reset": true}); WSA: set loupe.zoom 4, unknown key reported.
+
+## 2026-10-27 user verdict, r440 (phone)
+- Steer framing + tap-select + loupe: "identical to what I had in my minds eye". Open: a corner snap zooms really far in (fix: corner size floor, steer.corner knob); movement feels slightly sluggish (user tunes later in More > Tuning).

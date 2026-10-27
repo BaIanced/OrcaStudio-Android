@@ -14,7 +14,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 0170950 (PR #65, branch at r398, merged 2026-10-25). Untested by the user in main: Build workspace, paint shop/depth, Filament materials, Realistic render, UX P1-P6, Check mesh feel, 3MF export in desktop Orca, pen, fan hold, Extrude F150.
 - Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
-- Latest CI build r439 (run 40519306091, + step 9 Cut): on phone, WSA, SHIELD, Note (Chromebook offline). Install new builds on all adb devices (skip the .23 tablet: 32-bit, Android 6).
+- Latest CI build r440 (run 40567409451, steer framing/tap-select/Tuning/loupe): installed 2026-10-27 on all 4 adb devices (WSA, SHIELD, two others). Install new builds on all adb devices (skip the .23 tablet: 32-bit, Android 6).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
@@ -38,8 +38,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Interaction plan done: steps 1-9 Claude-verified (step 9 Cut, WSA debug 2026-10-27, CI r439, run 40519306091); user feel untested on all.
 - Measure 2026-10-27 (archive): magnified loupe, steer framing (feature-capped zoom + swing/tilt), tap-select point, Tuning
   (More > Tuning, MCP `tuning_get` / `tuning_set`): Claude-verified WSA debug; user feel open (phone).
-- **First: CI run 40567409451 (steer framing, tap-select, Tuning, loupe) pending: `gh run watch` it, then install on all adb devices.**
-- Next step: user tries steer framing + tap-select + loupe on the phone, tunes in More > Tuning -> Sonnet 5.5 (medium)
+- r440 installed everywhere; waiting on the user's feel verdict (log it first when given). WSA debug re-test 2026-10-27 (tap box beside "Steer camera", not the label; `input keyevent 49` = measure): hold 563 -> 8.2 mm, slow steer swings, fast slide zooms out, lift restores 563 mm, tap-select snapped a vertex + loupe/Corner label OK.
+- Fixes 2026-10-27 (WSA debug verified, not yet in a CI build): corner snap framed 62 mm not 8 mm (new knob steer.corner, 15 mm); measure points/line/snap lines no longer stay after leaving the tool. User still tunes sluggish feel in More > Tuning.
+- Next step: dispatch CI for these fixes, install on all adb devices, user re-checks corner zoom + stuck points on the phone -> Sonnet 5.5 (medium)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
