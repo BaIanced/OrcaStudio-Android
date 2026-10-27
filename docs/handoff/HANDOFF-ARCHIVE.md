@@ -3366,3 +3366,8 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
   HUD "Crease 53°" over the 3D view. User feel untested.
 - Tool note: uiautomator `--display` dumps the focused display, so a touch on the phone's main screen makes VD dumps return the main
   screen; `~/orca-android-tools/vdlayout.sh` retries, VD shots (`orca-vd.sh shot`) always work. MCP on the phone needs `MCP_DEV=<phone>` (target is WSA).
+
+## 2026-10-27 8b slice 2 (region Smooth / Modifier) Claude-verified on r438 (WSA, CI run 40513068886)
+- `MeshRegion.hpp` (Taubin smooth, border pinned; region -> closed shell, mitred offset) + `OrcaRegion.cpp` (`regionEdit`) + "This region" chips Smooth (5 it.) / Modifier (1 mm) in `ToolPanel.kt` RegionEdits (row scrolls sideways; Smooth/Modifier are the last chips).
+- Test: Paint > Fill > Regions, tap a sphere (it takes filament 2), Smooth: no error, tri count unchanged, paint kept; Modifier: Shape design 25270 -> 37918 tris and "Modifier · Region modifier" appears under Parts & modifiers. Open: user feel; Smooth on a visibly curved/noisy mesh not seen (spheres already smooth).
+- WSA window was parked off-screen by wsa-start.ps1 (black screencap, MCP "no 3D view"): `focus.ps1` brought it back (user said WSA fully available).

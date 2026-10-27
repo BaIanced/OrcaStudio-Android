@@ -52,7 +52,7 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - [Opus] Filament materials tiers 1+2 (layer lines r391, View menu), per-slot look, Realistic render 1+2: Claude WSA debug 2026-10-24,
   user feel untested (layer line contrast in realistic mode); variable layer height ignored; open: Quest/Chromebook GPU check. Google Filament engine not wanted (breaks Shaders.kt drags, ids, uSolo).
 - MCP tools: app_state, log_tail, perf. Preview camera-light slider (no GO). Blender print3d_toolbox checks (pie menu: see stylus).
-- [Opus] Snapseed interaction plan (NOTES-interaction-plan.md): steps 1-7, 8a scrubber, 8b slice 1 (region edits) Claude-verified (8a+8b-1 on CI r437, 2026-10-27), user feel untested on all; 8b slice 2 (region Smooth / Modifier) built c4191c5, device test open (Claude, 2026-10-27).
+- [Opus] Snapseed interaction plan (NOTES-interaction-plan.md): steps 1-7, 8a scrubber, 8b slices 1-2 (region edits, Smooth, Modifier) Claude-verified (8a+8b-1 on CI r437, 8b-2 on r438, 2026-10-27), user feel untested on all; 8b slice 2 (region Smooth / Modifier) built c4191c5, device test open (Claude, 2026-10-27).
 ## Known limits (no action)
 - Real keyboard Ctrl+1 = system hotkey. Inactive-plate double tap re-frames (user: fine). Badges ~23 dp at plate zoom (told the user).
 - HMS texts: HmsCatalog.kt fetches at runtime; Handy's copies stay local. Flatpak r9 MakerLab, upstream bump, obn follow-ups: archive.

@@ -14,7 +14,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 0170950 (PR #65, branch at r398, merged 2026-10-25). Untested by the user in main: Build workspace, paint shop/depth, Filament materials, Realistic render, UX P1-P6, Check mesh feel, 3MF export in desktop Orca, pen, fan hold, Extrude F150.
 - Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
-- Latest CI build r437 (run 40477704169, 8a + 8b-1): on phone, WSA, SHIELD, Note (Chromebook offline). Install new builds on all adb devices (skip the .23 tablet: 32-bit, Android 6).
+- Latest CI build r438 (run 40513068886, 8a + 8b-1 + 8b-2): on phone, WSA, SHIELD, Note (Chromebook offline). Install new builds on all adb devices (skip the .23 tablet: 32-bit, Android 6).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
@@ -35,12 +35,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   Tests: `wsa-pen-hover.sh`, `wsa-steer-test.sh`, `input mouse tap`, measure = `input keyevent 49`, MCP `view_state` (`MAX=3000`).**
 - **No WSA focus loops (user 2026-10-26: "your testing keeps stealing my window focus"):** no `focus.ps1`/`tapf.sh`/`keys.ps1` in loops;
   touch/hold tests on the phone's hidden display. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
-- 8b slice 2 BUILT 2026-10-27 (c4191c5, CI run 40513068886): `MeshRegion.hpp` (Taubin smooth, border pinned; region -> closed
-  shell, mitred offset) + `OrcaRegion.cpp` (`regionEdit`: smooth / modifier) + "This region" chips Smooth (5 it.) / Modifier (1 mm).
-  Kernels pass Claude's checks (`D:\oct-backup\jobs
-egion\mycheck.cpp`, WSL g++); written by Claude (opencode free quota out, Colab dropped).
-  Open: install + device test (Regions tap -> Smooth on a curved face; Modifier -> new volume in the list), user feel.
-- Next step: 8b slice 2 device test on CI build (phone VD) -> Sonnet 5.5 (medium)
+- 8b slice 2 (region Smooth / Modifier) Claude-verified WSA r438 2026-10-27 (archive); user feel untested.
+- Next step: Interaction plan step 9 (Cut: drag plane in view, tap feature to cut; low priority) -> Opus 5.5 (high)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
