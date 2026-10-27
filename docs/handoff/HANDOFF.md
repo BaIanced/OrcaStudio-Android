@@ -29,16 +29,18 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - User feel/checks open: see backlog.
 - Local tests: `wsa-debug-rebuild.sh [native]` (reference "WSA debug loop"); fresh debug app: `wsa-debug-setup.sh` first.
 - **Offload (user 2026-10-25/26): max token use onto free opencode models, growing leeway by track record** (Claude specs + verifies).
-  DeepSeek V4.1 Flash = default; self-checking runner `octauto.sh` (`D:\oct-backup\jobs\README.md`), ledger `trust-profile.md`.
+  DeepSeek V4.1 Flash = default; runner `octauto.sh` (`D:\oct-backup\jobs\README.md`; opencode v2: `model#variant`), ledger `trust-profile.md`.
 - CAD plan (`NOTES-cad-reuse.md`): 0-5b Claude-verified, user feel untested; 1b parked.
 - **Interaction plan (user GO 2026-10-26): `NOTES-interaction-plan.md`, 9 steps; 1-6 Claude-verified WSA debug (archive), user feel untested.
   Tests: `wsa-pen-hover.sh`, `wsa-steer-test.sh`, `input mouse tap`, measure = `input keyevent 49`, MCP `view_state` (`MAX=3000`).**
 - **No WSA focus loops (user 2026-10-26: "your testing keeps stealing my window focus"):** no `focus.ps1`/`tapf.sh`/`keys.ps1` in loops;
   touch/hold tests on the phone's hidden display. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
-- 8a scrubber + 8b slice 1 (Regions tap -> "This region" chips) Claude-verified on CI r437 phone VD 2026-10-27 (archive); user feel untested.
-- 8b slice 2 (native, offload to DeepSeek when the opencode free quota resets; it was out 2026-10-27): region smoothing (Taubin, border pinned)
-  and region -> modifier volume (extract faces, close into a solid), standalone C++ kernels + Claude's tests.
-- Next step: 8b slice 2 native kernels (DeepSeek offload if quota is back, else Claude) -> Opus 5.5 (high)
+- 8b slice 2 BUILT 2026-10-27 (c4191c5, CI run 40513068886): `MeshRegion.hpp` (Taubin smooth, border pinned; region -> closed
+  shell, mitred offset) + `OrcaRegion.cpp` (`regionEdit`: smooth / modifier) + "This region" chips Smooth (5 it.) / Modifier (1 mm).
+  Kernels pass Claude's checks (`D:\oct-backup\jobs
+egion\mycheck.cpp`, WSL g++); written by Claude (opencode free quota out, Colab dropped).
+  Open: install + device test (Regions tap -> Smooth on a curved face; Modifier -> new volume in the list), user feel.
+- Next step: 8b slice 2 device test on CI build (phone VD) -> Sonnet 5.5 (medium)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
