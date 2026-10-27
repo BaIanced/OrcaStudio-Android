@@ -14,7 +14,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 0170950 (PR #65, branch at r398, merged 2026-10-25). Untested by the user in main: Build workspace, paint shop/depth, Filament materials, Realistic render, UX P1-P6, Check mesh feel, 3MF export in desktop Orca, pen, fan hold, Extrude F150.
 - Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
-- Latest CI build: r444 (run 40575791454), installed 2026-10-27 on all 4 adb devices. Install new builds on all adb devices (skip the .23 tablet: 32-bit, Android 6).
+- Latest CI build: run 40597512718 (8f83f9b, XY edge snap), installed 2026-10-27 on all 4 adb devices. Install new builds on all adb devices (skip the .23 tablet: 32-bit, Android 6).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
@@ -35,11 +35,12 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   Tests: `wsa-pen-hover.sh`, `wsa-steer-test.sh`, `input mouse tap`, measure = `input keyevent 49`, MCP `view_state` (`MAX=3000`).**
 - **No WSA focus loops (user 2026-10-26: "your testing keeps stealing my window focus"):** no `focus.ps1`/`tapf.sh`/`keys.ps1` in loops;
   touch/hold tests on the phone's hidden display. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
-  (More > Tuning, MCP `tuning_get` / `tuning_set`): Claude-verified WSA debug; user feel open (phone).
 - Interaction plan steps 1-9 + Measure (loupe, steer, tap-select, Tuning): Claude-verified WSA debug 2026-10-27, user feel open (details: archive "Handoff trim 2026-10-27").
-- r444 (run 40575791454) installed on all 4 adb devices 2026-10-27. User: steer framing feels good, they tune the knobs themselves (archive). Still open (user feel): long press under finger, model.detail slider, ring tool-gating, loupe, tap-select. Next step: wait for further user verdicts; otherwise pick Muse/backlog item -> Sonnet 5.5 (medium)
-- CAD item 1 (user GO 2026-10-27): group "Hull" switch (Shape.HULL, ShapeModel.group, ShapeBuilder), compiled + JVM test OK; CI run 40587789039 (d62404e) building; next: WSA check (group two boxes + hole, Hull on, Build workspace piece), then roadmap 2 (snap-to-surface).
-- Next step: CAD hull WSA check after CI build -> Sonnet 5.5 (medium)
+- User: steer framing feels good, they tune the knobs themselves (archive). Still open (user feel): long press under finger, model.detail slider, ring tool-gating, loupe, tap-select.
+- CAD item 1 Hull switch: Claude-verified WSA r445 2026-10-27, user feel untested.
+- CAD roadmap 2 (user GO 2026-10-27): shape-builder body drag now sticks edges (flush/aligned) to other boxes' edges, amber guide + tick, Shift = 0.1 mm (8f83f9b, `MeshPreviewView.moveMm`, reuses `ZRail.lift`); compiled + CI built + installed, **NOT yet tested on a device**.
+- User ideas 2026-10-27 (leanings, backlog): Prepare long-press "Center" (group on plate, overlap allowed), Align row for multi-select, smart-guide snapping (plate + object edges/centres).
+- Next step: WSA test of the XY edge snap (shape builder: 2 boxes, drag one near the other; hidden-display/no focus loops), then handoff; then the Center/Align idea if the user wants it -> Sonnet 5.5 (medium)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
