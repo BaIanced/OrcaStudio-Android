@@ -282,6 +282,15 @@
     <string name="measure_snap_ring">Circle Ø %1$s mm</string>
     <string name="measure_snap_curve">Edge line</string>
     <string name="measure_snap_face">Face</string>
+    <string name="measure_snap_bed">Bed</string>
+    <string name="measure_kind_point">Point</string>
+    <string name="measure_points">%1$s to %2$s</string>
+    <string name="measure_gap">Gap between the parallel faces</string>
+    <string name="measure_to_face">Square to the face</string>
+    <string name="measure_to_bed">Height above the bed</string>
+    <string name="measure_centres">Centre to centre</string>
+    <string name="measure_straight">Straight line %1$s mm</string>
+    <string name="measure_angle">Angle between the faces %1$s°</string>
     <string name="measure_snap_toggle">Snap to corners and edges</string>
     <string name="message">Message</string>
     <string name="mirror">Mirror</string>

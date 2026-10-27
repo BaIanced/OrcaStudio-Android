@@ -334,10 +334,10 @@ class SceneController(private val store: Store, private val presets: PresetContr
     /**
      * Handles a tap on the 3D view according to the current tool. [additive] (Ctrl/Shift held) or
      * select mode adds the tapped copy to the selection or removes it. [section] = the section view's
-     * plane: what it cuts away can't be picked.
+     * plane: what it cuts away can't be picked. [bed]: where the ray meets a plate's bed (measure: placed there when no part is hit).
      */
     fun onViewTap(origin: Vec3, dir: Vec3, additive: Boolean = false, part: Boolean = false, section: FloatArray? = null, emptyPlate: Int? = null,
-                  pxSize: ((Vec3) -> Float)? = null, around: List<Pair<Vec3, Vec3>> = emptyList()) = store.launch {
+                  pxSize: ((Vec3) -> Float)? = null, around: List<Pair<Vec3, Vec3>> = emptyList(), bed: Vec3? = null) = store.launch {
         // Measure: Alt held (or Snap off) takes the bare hit.
         val hit = if (store.value.tool == Tool.Measure && pxSize != null) measurePick(origin, dir, section, pxSize, around, store.value.measureSnap && !part)
             else pick(origin, dir, section)
@@ -350,7 +350,9 @@ class SceneController(private val store: Store, private val presets: PresetContr
                 store.applyScene(engine.layOnFace(hit.obj, hit.instance, hit.normal))
                 store.update { it.withSelected(listOf(Selection(hit.obj, hit.instance))).copy(tool = Tool.None) }
             }
-            Tool.Measure -> if (hit != null) store.update { st -> st.copy(measure = (st.measure + hit.point).takeLast(2)) }
+            Tool.Measure -> (hit?.let { MeasurePoint.of(it) } ?: bed?.let { MeasurePoint.bed(it) })?.let { m ->
+                store.update { st -> st.copy(measure = (st.measure + m).takeLast(2)) }
+            }
             else -> store.update { st ->
                 when {
                     // Alt+click: the part under the pointer, as on the desktop.
@@ -441,6 +443,8 @@ class SceneController(private val store: Store, private val presets: PresetContr
         val stick = if (sticky) measureStick else null
         val snapped = pick(origin, dir, section, snap = mm.toDouble(), release = (mm * SNAP_RELEASE).toDouble(), stick = stick, seed = seed?.first)
         if (sticky) measureStick = snapped?.takeIf { it.snap != null }?.point
+        // Aimed off the model, only a caught corner or edge counts: the face the seed found is not under the aim (the bed is).
+        if (hit == null && snapped?.snap == null) return null
         return snapped ?: hit
     }
 
@@ -451,10 +455,10 @@ class SceneController(private val store: Store, private val presets: PresetContr
     /**
      * Measure tool, touch and hold: the red dot follows the finger and snaps to corners and sharp edges; lifting places it.
      * [phase] 0 = down, 1 = move, 2 = up (places), 3 = cancel. [grab] (down only): the placed point under the finger,
-     * picked up to be placed again.
+     * picked up to be placed again. [bed]: where the aim meets a plate's bed (used when no part is hit).
      */
     fun measureLoupe(origin: Vec3, dir: Vec3, x: Float, y: Float, phase: Int, section: FloatArray?, pxSize: (Vec3) -> Float,
-                     around: List<Pair<Vec3, Vec3>>, grab: Int? = null) {
+                     around: List<Pair<Vec3, Vec3>>, grab: Int? = null, bed: Vec3? = null) {
         if (phase == 0) { loupeActive = true; measureStick = null }
         else if (phase >= 2) loupeActive = false
         store.launch {
@@ -464,9 +468,12 @@ class SceneController(private val store: Store, private val presets: PresetContr
             if (app.orcaandroid.BuildConfig.DEBUG)
                 android.util.Log.d("SNAPDBG", "phase $phase snap ${hit?.snap} feature ${hit?.feature?.kind} d ${hit?.feature?.diameter} at ${hit?.point}")
             if (phase == 2) {
-                store.update { st -> st.copy(loupe = null, measure = if (hit != null) (st.measure + hit.point).takeLast(2) else st.measure) }
+                val m = hit?.let { MeasurePoint.of(it) } ?: bed?.let { MeasurePoint.bed(it) }
+                store.update { st -> st.copy(loupe = null, measure = if (m != null) (st.measure + m).takeLast(2) else st.measure) }
             } else if (loupeActive) {
-                store.update { it.copy(loupe = Loupe(x, y, hit?.point, hit?.snap, hit?.feature)) }
+                val l = if (hit == null && bed != null) Loupe(x, y, bed, null, app.orcaandroid.core.SnapFeature("bed", FloatArray(0), null))
+                    else Loupe(x, y, hit?.point, hit?.snap, hit?.feature)
+                store.update { it.copy(loupe = l) }
             }
         }
     }

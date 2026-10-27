@@ -92,6 +92,8 @@ import kotlinx.coroutines.withContext
 import app.orcaandroid.ui.AppViewModel
 import app.orcaandroid.ui.Tool
 import app.orcaandroid.ui.UiState
+import app.orcaandroid.ui.MeasurePoint
+import app.orcaandroid.ui.measureResult
 import app.orcaandroid.ui.components.hexToRgb
 import java.util.Locale
 
@@ -661,12 +663,26 @@ private fun MeasureOptions(state: UiState, vm: AppViewModel) {
     val pts = state.measure
     when (pts.size) {
         0 -> Text(stringResource(R.string.measure_hint_first), style = MaterialTheme.typography.bodySmall)
-        1 -> Text(stringResource(R.string.measure_hint_second), style = MaterialTheme.typography.bodySmall)
+        1 -> {
+            Text(measureKindLabel(pts[0]), style = MaterialTheme.typography.titleSmall)
+            Text(stringResource(R.string.measure_hint_second), style = MaterialTheme.typography.bodySmall)
+        }
         else -> {
-            val d = pts[1] - pts[0]
-            Text("%.2f mm".format(Locale.ROOT, d.length()), style = MaterialTheme.typography.headlineSmall)
-            Text("ΔX %.2f  ΔY %.2f  ΔZ %.2f".format(Locale.ROOT, kotlin.math.abs(d.x), kotlin.math.abs(d.y), kotlin.math.abs(d.z)),
-                style = MaterialTheme.typography.bodySmall)
+            // The headline is what the two picks mean together: a face gap, a distance square to a face, else point to point.
+            val r = measureResult(pts[0], pts[1])
+            val onBed = pts.any { it.kind == "bed" }
+            val (head, caption) = when {
+                r.gap != null -> r.gap to stringResource(if (onBed) R.string.measure_to_bed else R.string.measure_gap)
+                r.toPlane != null -> r.toPlane to stringResource(if (onBed) R.string.measure_to_bed else R.string.measure_to_face)
+                pts.all { it.kind == "ring" } -> r.distance to stringResource(R.string.measure_centres)
+                else -> r.distance to null
+            }
+            Text(stringResource(R.string.measure_points, measureKindLabel(pts[0]), measureKindLabel(pts[1])), style = MaterialTheme.typography.bodySmall)
+            Text("%.2f mm".format(Locale.ROOT, head), style = MaterialTheme.typography.headlineSmall)
+            caption?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+            if (head != r.distance) Text(stringResource(R.string.measure_straight, "%.2f".format(Locale.ROOT, r.distance)), style = MaterialTheme.typography.bodySmall)
+            r.angle?.let { Text(stringResource(R.string.measure_angle, "%.1f".format(Locale.ROOT, it)), style = MaterialTheme.typography.bodySmall) }
+            Text("ΔX %.2f  ΔY %.2f  ΔZ %.2f".format(Locale.ROOT, r.delta.x, r.delta.y, r.delta.z), style = MaterialTheme.typography.bodySmall)
         }
     }
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -674,6 +690,18 @@ private fun MeasureOptions(state: UiState, vm: AppViewModel) {
         Spacer(Modifier.weight(1f))
         if (pts.isNotEmpty()) TextButton(onClick = { vm.scene.setTool(Tool.Measure) }) { Text(stringResource(R.string.reset)) }
     }
+}
+
+/** What a measure point sits on, as the loupe names it. */
+@Composable
+private fun measureKindLabel(m: MeasurePoint) = when (m.kind) {
+    "vertex" -> stringResource(R.string.measure_snap_corner)
+    "edge" -> stringResource(R.string.measure_snap_edge)
+    "ring" -> stringResource(R.string.measure_snap_ring, "%.2f".format(Locale.ROOT, m.diameter ?: 0f))
+    "curve" -> stringResource(R.string.measure_snap_curve)
+    "face" -> stringResource(R.string.measure_snap_face)
+    "bed" -> stringResource(R.string.measure_snap_bed)
+    else -> stringResource(R.string.measure_kind_point)
 }
 
 /**

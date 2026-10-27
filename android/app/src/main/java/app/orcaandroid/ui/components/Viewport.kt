@@ -101,6 +101,9 @@ private fun snapRing(v: PlateView, x: Float, y: Float) = List(8) { i ->
     v.camera.ray(x + r * kotlin.math.cos(a).toFloat(), y + r * kotlin.math.sin(a).toFloat())
 }
 
+/** Where the ray through (x, y) meets the bed of a plate, or null (off every plate): the measure tool's bed pick. */
+private fun bedAt(v: PlateView, x: Float, y: Float) = if (v.renderer.plateAt(x, y) != null) v.camera.rayOnPlane(x, y) else null
+
 /** The measure loupe's colour for what the snap caught (SnapFeature.kind): snaps green, a hole's rim amber, a face blue. */
 private fun snapColor(kind: String?) = when (kind) {
     "vertex", "edge", "curve" -> Color(0xFF4CAF50)
@@ -148,7 +151,8 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                         // The Build workspace: a tap picks a shape of the design.
                         if (vm.state.value.buildObject != null) vm.shapes.tapAt(o, d, additive || part || vm.state.value.selectMode)
                         else vm.scene.onViewTap(o, d, additive, part, v.section.current, emptyPlate, v.camera::pxSize,
-                            if (vm.state.value.tool == app.orcaandroid.ui.Tool.Measure) snapRing(v, x, y) else emptyList())
+                            if (vm.state.value.tool == app.orcaandroid.ui.Tool.Measure) snapRing(v, x, y) else emptyList(),
+                            if (vm.state.value.tool == app.orcaandroid.ui.Tool.Measure) bedAt(v, x, y) else null)
                     }
                     override fun onCopyAt(x: Float, y: Float, result: (Pair<Int, Int>?, Vec3, Vec3) -> Unit) {
                         val (o, d) = v.camera.ray(x, y)
@@ -337,10 +341,11 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                         val aimY = y - LOUPE_LIFT_DP * density
                         val (o, d) = v.camera.ray(x, aimY)
                         val placed = vm.state.value.measure
-                        val grab = if (phase != 0) null else placed.withIndex().minByOrNull { (_, p) ->
+                        val grab = if (phase != 0) null else placed.map { it.point }.withIndex().minByOrNull { (_, p) ->
                             v.camera.project(p)?.let { (px, py) -> kotlin.math.hypot(px - x, py - y) } ?: Float.MAX_VALUE
                         }?.takeIf { (_, p) -> v.camera.project(p)?.let { (px, py) -> kotlin.math.hypot(px - x, py - y) <= LOUPE_GRAB_DP * density } == true }?.index
-                        vm.scene.measureLoupe(o, d, x, y, phase, v.section.current, v.camera::pxSize, if (phase == 3) emptyList() else snapRing(v, x, aimY), grab)
+                        vm.scene.measureLoupe(o, d, x, y, phase, v.section.current, v.camera::pxSize, if (phase == 3) emptyList() else snapRing(v, x, aimY), grab,
+                            bedAt(v, x, aimY))
                     }
                 }
                 view = v
@@ -366,6 +371,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
             "ring" -> androidx.compose.ui.res.stringResource(app.orcaandroid.R.string.measure_snap_ring, "%.2f".format(l.feature?.diameter ?: 0f))
             "curve" -> androidx.compose.ui.res.stringResource(app.orcaandroid.R.string.measure_snap_curve)
             "face" -> androidx.compose.ui.res.stringResource(app.orcaandroid.R.string.measure_snap_face)
+            "bed" -> androidx.compose.ui.res.stringResource(app.orcaandroid.R.string.measure_snap_bed)
             else -> null
         }
         val measurer = androidx.compose.ui.text.rememberTextMeasurer()
@@ -697,7 +703,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         v.onGl { snapLines = f?.lines; snapColor = floatArrayOf(c.red, c.green, c.blue) }
     }
     LaunchedEffect(v, state.measure, state.loupe?.point) {
-        val pts = (state.measure + listOfNotNull(state.loupe?.point)).takeLast(2).map { floatArrayOf(it.x, it.y, it.z) }
+        val pts = (state.measure.map { it.point } + listOfNotNull(state.loupe?.point)).takeLast(2).map { floatArrayOf(it.x, it.y, it.z) }
         v.onGl { measurePoints = pts }
     }
     LaunchedEffect(v, showPreview, result, state.preview, preview) {

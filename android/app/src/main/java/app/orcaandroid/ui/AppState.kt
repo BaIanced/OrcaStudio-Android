@@ -230,7 +230,8 @@ data class UiState(
     /** Taps on the 3D view and the object list add or remove objects instead of replacing the selection. */
     val selectMode: Boolean = false,
     val tool: Tool = Tool.None,
-    val measure: List<Vec3> = emptyList(),
+    /** Measure tool: the placed points (at most 2). */
+    val measure: List<MeasurePoint> = emptyList(),
     /** Measure tool: points snap to corners and edges (off: the bare hit; Alt held does the same for one click). */
     val measureSnap: Boolean = true,
     /** Measure tool, finger down on the loupe: the finger, and the point (snapped, with how) the red dot sits on. */
