@@ -26,20 +26,20 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Muse (full discretion, user 2026-10-25; memories muse-*): tasks in `MUSE-TASKS.md` on `muse/work`, `TASK <n> READY` on #46, one draft PR each;
   Claude compiles, merges, cherry-picks. Audits + JVM-testable Kotlin only.
   Tasks 1-18 merged. **Session start, run exactly:** `gh pr list --state open --json number,title,headRefName; gh issue view 46 --json comments --jq '.comments[-2:][]|.createdAt+" "+(.body|.[0:300])'`
-- User feel/checks open (backlog): paint plan, Build workspace, Filament materials, Realistic render, 3MF bed-type label, pen, plate switcher pick, measure step 1, push/pull fold.
+- User feel/checks open: see backlog.
 - Local tests: `wsa-debug-rebuild.sh [native]` (reference "WSA debug loop"); fresh debug app: `wsa-debug-setup.sh` first.
 - **Offload (user 2026-10-25/26): max token use onto free opencode models, growing leeway by track record** (Claude specs + verifies).
   DeepSeek V4.1 Flash = default; self-checking runner `octauto.sh` (`D:\oct-backup\jobs\README.md`), ledger `trust-profile.md`.
-- CAD plan (`NOTES-cad-reuse.md`): steps 0-5b Claude-verified (archive), user feel untested; 1b parked. Bands + 3MF export: user-verified 2026-10-26.
+- CAD plan (`NOTES-cad-reuse.md`): 0-5b Claude-verified, user feel untested; 1b parked.
 - **Interaction plan (user GO 2026-10-26): `NOTES-interaction-plan.md`, 9 steps; 1-6 Claude-verified WSA debug (archive), user feel untested.
   Tests: `wsa-pen-hover.sh`, `wsa-steer-test.sh`, `input mouse tap`, measure = `input keyevent 49`, MCP `view_state` (`MAX=3000`).**
 - **No WSA focus loops (user 2026-10-26: "your testing keeps stealing my window focus"):** no `focus.ps1`/`tapf.sh`/`keys.ps1` in loops;
   touch/hold tests on the phone's hidden display. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
-- Step 7 (a2b67f7, pushed, no CI build yet: native change): Show overhangs Claude-verified WSA debug; paint brush ring + fill re-grows
-  live on crease-angle change NOT yet tested. Test: gear (obj 5, tilted 50 deg) selected, Paint > Color painting, pen hover
-  (`wsa-pen-hover.sh`) for the ring; Fill tap then move the edge-angle slider. Popup menus: `phone-ui.py <D> tap "Color painting"`.
-  Then dispatch CI, install on all devices, step 8.
-- Next step: Step 7 device check (brush ring, live re-fill), then CI + step 8 gesture scrubber -> Opus 5.5 (high)
+- Step 7 (a2b67f7) Claude-verified WSA debug 2026-10-26 (overhangs, brush ring, live re-fill; archive). CI run 40454196356 dispatched
+  (42d9e27): when green, install on all adb devices and update "Latest CI build" above.
+- Step 8 (gesture scrubber E5 + per-region edits) open questions asked in chat 2026-10-26: where a free one-finger drag lives in tool
+  modes (Paint drags off the object orbit, user r325) and what "material / smoothing" per region means. Use the user's answer if logged.
+- Next step: install CI run 40454196356, then step 8 gesture scrubber design + build -> Opus 5.5 (high)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).

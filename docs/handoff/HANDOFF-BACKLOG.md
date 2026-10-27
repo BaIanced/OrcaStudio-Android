@@ -52,7 +52,7 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - [Opus] Filament materials tiers 1+2 (layer lines r391, View menu), per-slot look, Realistic render 1+2: Claude WSA debug 2026-10-24,
   user feel untested (layer line contrast in realistic mode); variable layer height ignored; open: Quest/Chromebook GPU check. Google Filament engine not wanted (breaks Shaders.kt drags, ids, uSolo).
 - MCP tools: app_state, log_tail, perf. Preview camera-light slider (no GO). Blender print3d_toolbox checks (pie menu: see stylus).
-- [Opus] Snapseed-inspired interaction plan: NOTES-interaction-plan.md (user GO 2026-10-26; brain dump moved there 2026-10-26). Steps 1-6 (r430-r434, step 6 steered camera 015b132) Claude-verified WSA debug 2026-10-26; user feel untested; step 7 a2b67f7: Show overhangs Claude-verified WSA debug 2026-10-26; paint brush ring + live crease-angle re-fill built, untested on device (next); user feel untested.
+- [Opus] Snapseed-inspired interaction plan: NOTES-interaction-plan.md (user GO 2026-10-26; brain dump moved there 2026-10-26). Steps 1-6 (r430-r434, step 6 steered camera 015b132) Claude-verified WSA debug 2026-10-26; user feel untested; step 7 a2b67f7 (overhangs, brush ring, live re-fill) Claude-verified WSA debug 2026-10-26; user feel untested. Step 8 next.
 ## Known limits (no action)
 - Real keyboard Ctrl+1 = system hotkey. Inactive-plate double tap re-frames (user: fine). Badges ~23 dp at plate zoom (told the user).
 - HMS texts: HmsCatalog.kt fetches at runtime; Handy's copies stay local. Flatpak r9 MakerLab, upstream bump, obn follow-ups: archive.

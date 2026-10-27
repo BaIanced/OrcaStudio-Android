@@ -34,7 +34,7 @@ tuning rounds = rethink; compile locally; Claude-verify on WSA, user feel open a
    are shadowed). Paint sphere/circle brushes show the sculpt ring (hover via pen/mouse, stroke hits; wide-line shader now, was 1 px on WSA).
    Fill / Regions: changing the crease angle or Fill over colours redoes the last fill from its seed (native "refill" only while
    paint_fill_live(), i.e. no edit after it). Verified WSA debug: overhang tint (gear tilted 50 deg: red at 70, gone mid-drag below 50).
-   Open: ring + refill untested on device; user feel.
+   Ring + live refill verified WSA debug 2026-10-26 (bore: 11 deg one facet, 30 deg whole bore, back shrinks). Open: user feel.
 8. **Gesture scrubber (E5)** + **per-region edits** (colour / material / smoothing via E1 + E5): tool-mode only, 2 fingers = camera.
 9. **Cut** (low priority): drag in view moves the plane, tap feature to cut, long-press face aligns plane, x-ray while placing.
 

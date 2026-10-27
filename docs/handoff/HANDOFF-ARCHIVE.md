@@ -3346,3 +3346,7 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 - Show overhangs (quick settings, support threshold angle slider): Claude-verified WSA debug (gear rotated 50 deg about X: underside red at 70,
   no tint at 30 and mid-drag below 50; label "Under N", value written on release). First try didn't tint: the Viewport LaunchedEffect lacked
   the overhang keys. Paint brush ring and live crease-angle re-fill: built, untested on device.
+- (2026-10-26, later) Ring + live re-fill Claude-verified WSA debug (same build): virtual pen hover on the gear top in Paint > Color painting
+  (sphere 3 mm) drew the white ring with a dark border at the pen spot, gone after the pen left. Fill + Stop at edges on the gear bore
+  (~16 facets): 11 deg filled one facet, slider to 30 deg re-grew it over the whole bore live, back to 11 deg shrank it to the one facet.
+  Notes: on WSA a touch/mouse tap on the gear in Navigate didn't select it (Objects list row did); not chased. CI run 40454196356.
