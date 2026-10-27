@@ -46,6 +46,11 @@ tuning rounds = rethink; compile locally; Claude-verify on WSA, user feel open a
    Next (8b): per-region edits on a picked region (E1 fill seed): one region, then colour / paint kinds / modifier / smoothing via scrub.
    Ideas: show the brush ring at the view centre while scrubbing size; cut Z (step 9) as a scrub row.
 9. **Cut** (low priority): drag in view moves the plane, tap feature to cut, long-press face aligns plane, x-ray while placing.
+   BUILT 2026-10-27 (archive): drag on the disc already moved it (since r3xx); new: tap the cut copy = plane through the snapped spot
+   (measure snap; hole = ring centre), long press a face = plane parallel to it through the spot (normal flipped up), x-ray (pass 8,
+   depth GREATER: faint ghost + hidden red cut line, disc seen through) while a view drag / tilt / the slider is held. Deviation:
+   upright planes (|n.z| < 0.05) move sideways (Tool.Cut dx/dy, native cut shiftX/shiftY) since a height can't move them.
+   Open: user feel; Bambu-style two-colour halves (the wash above is light red only).
 
 ## Original brain dump (moved from HANDOFF-BACKLOG.md 2026-10-26; keep every idea open)
   only a remembered example of friendly UI; keep every idea open, prefer shared engines so no early choice blocks a later one. Not started.

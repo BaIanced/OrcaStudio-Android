@@ -23,7 +23,7 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - Paint depth (r367, Claude WSA G-code OK 2026-10-21): user feel + real print untested.
 - Paint shop reopen fix (Claude WSA r374) + plate estimate line (Claude WSA r376 = Preview; one density, part-level filaments ignored): user look/feel.
 - Check mesh: marker readability, self-intersection count on a real file, thin walls (Claude WSA test STL, run 39657856306).
-- Cut tool: flip keeps paint (Claude WSA 2026-10-21), user untested. Awaiting go: radio Lay on cut face / Flip / Leave + nested "Arrange after cut" (arrange_plate always runs, OrcaScene.cpp:1046); user asked the point of "Flip upper part upside down".
+- Cut tool: flip keeps paint (Claude WSA 2026-10-21), user untested. Step 9 tap/long-press align/x-ray/upright shift Claude-verified WSA debug 2026-10-27 (archive), user feel untested. Awaiting go: radio Lay on cut face / Flip / Leave + nested "Arrange after cut" (arrange_plate always runs, OrcaScene.cpp:1046); user asked the point of "Flip upper part upside down".
 - Fan slider hold-until-within-4 % (r295) + Extrude F150 e13bebb: need the printer.
 - Preview bead look (Chromebook), part shadows r266, light/shadow lab sliders r263: Claude-verified, user hasn't seen.
 - Portrait Undo/Redo top left, File top right (Claude phone r283 2026-10-17): user look pending.
@@ -37,7 +37,7 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - HD plate ideas (user verified r394): 3D bed frame model, dual-nozzle decal layout (Claude 2026-10-24).
 - Plate switcher pick (lab stays; don't ask again). Launcher icon colour ("decide later"). REA MCP enable (installed, not enabled).
 - [Opus] Sculpt mode (CAD 5b, More > Sculpt; the user's playdough wish from push/pull r414): Claude-verified WSA debug 2026-10-26 (archive), user feel untested. Brush ring + stroke-end split Claude-verified WSA debug 2026-10-26 (r428, archive), user feel untested. Open: symmetry, ~1 s first stroke at 200k faces, paint overlay only at stroke end.
-- [Opus] Build workspace (user GO 2026-10-23): steps 1-5 done + restart shift fixed; 6a per-shape filament Claude-verified r386 WSA 2026-10-23 (user feel untested) (Claude-verified r385 WSA 2026-10-23; user feel of 4b/4c/5 untested; multi-copy/mirrored copies in Build untested). 6b Merge bake + 6c-1 tap/drag inside groups Claude-verified WSA debug APK 2026-10-23 (in r387; Merge button/undo, user feel untested). 6c-2 gizmos inside groups Claude-verified WSA debug APK 2026-10-23 (6df309d, unbuilt; nested/repeated groups + user feel untested); Muse Task 18 audit merged 2026-10-23 (PR #64; circular-repeat scale refusal Claude-verified WSA r406 2026-10-25).
+- [Opus] Build workspace (user GO 2026-10-23): steps 1-6c-2 Claude-verified WSA (r385-r406, archive); open: user feel of all, multi-copy / mirrored copies in Build, nested/repeated groups with gizmos.
 
 ## Ideas (not started)
 - Floating Theme | Layout designer (~half a day; ask first). Study Bambu Handy's MakerWorld integration.
@@ -52,7 +52,7 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - [Opus] Filament materials tiers 1+2 (layer lines r391, View menu), per-slot look, Realistic render 1+2: Claude WSA debug 2026-10-24,
   user feel untested (layer line contrast in realistic mode); variable layer height ignored; open: Quest/Chromebook GPU check. Google Filament engine not wanted (breaks Shaders.kt drags, ids, uSolo).
 - MCP tools: app_state, log_tail, perf. Preview camera-light slider (no GO). Blender print3d_toolbox checks (pie menu: see stylus).
-- [Opus] Snapseed interaction plan (NOTES-interaction-plan.md): steps 1-7, 8a scrubber, 8b slices 1-2 (region edits, Smooth, Modifier) Claude-verified (8a+8b-1 on CI r437, 8b-2 on r438, 2026-10-27), user feel untested on all; 8b slice 2 (region Smooth / Modifier) built c4191c5, device test open (Claude, 2026-10-27).
+- [Opus] Snapseed interaction plan (NOTES-interaction-plan.md): steps 1-7, 8a scrubber, 8b slices 1-2 (region edits, Smooth, Modifier) Claude-verified (8a+8b-1 on CI r437, 8b-2 on r438, 2026-10-27), user feel untested on all; step 9 Cut Claude-verified WSA debug 2026-10-27 (CI after r438).
 ## Known limits (no action)
 - Real keyboard Ctrl+1 = system hotkey. Inactive-plate double tap re-frames (user: fine). Badges ~23 dp at plate zoom (told the user).
 - HMS texts: HmsCatalog.kt fetches at runtime; Handy's copies stay local. Flatpak r9 MakerLab, upstream bump, obn follow-ups: archive.

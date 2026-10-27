@@ -35,8 +35,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   Tests: `wsa-pen-hover.sh`, `wsa-steer-test.sh`, `input mouse tap`, measure = `input keyevent 49`, MCP `view_state` (`MAX=3000`).**
 - **No WSA focus loops (user 2026-10-26: "your testing keeps stealing my window focus"):** no `focus.ps1`/`tapf.sh`/`keys.ps1` in loops;
   touch/hold tests on the phone's hidden display. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
-- 8b slice 2 (region Smooth / Modifier) Claude-verified WSA r438 2026-10-27 (archive); user feel untested.
-- Next step: Interaction plan step 9 (Cut: drag plane in view, tap feature to cut; low priority) -> Opus 5.5 (high)
+- Interaction plan done: steps 1-9 Claude-verified (step 9 Cut, WSA debug 2026-10-27, CI run 40519306091 = r439?); user feel untested on all.
+- Next step: Measure step 4 open item, sharp magnified loupe (E3: 2nd render of the aim, not framebuffer zoom) -> Opus 5.5 (high)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).

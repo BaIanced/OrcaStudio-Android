@@ -3371,3 +3371,12 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 - `MeshRegion.hpp` (Taubin smooth, border pinned; region -> closed shell, mitred offset) + `OrcaRegion.cpp` (`regionEdit`) + "This region" chips Smooth (5 it.) / Modifier (1 mm) in `ToolPanel.kt` RegionEdits (row scrolls sideways; Smooth/Modifier are the last chips).
 - Test: Paint > Fill > Regions, tap a sphere (it takes filament 2), Smooth: no error, tri count unchanged, paint kept; Modifier: Shape design 25270 -> 37918 tris and "Modifier · Region modifier" appears under Parts & modifiers. Open: user feel; Smooth on a visibly curved/noisy mesh not seen (spheres already smooth).
 - WSA window was parked off-screen by wsa-start.ps1 (black screencap, MCP "no 3D view"): `focus.ps1` brought it back (user said WSA fully available).
+
+## 2026-10-27 Interaction plan step 9 (Cut) Claude-verified on WSA debug (local native build)
+- `render/CutPlane.kt` heightThrough / shiftThrough / rotFacing / upright / slideAxis (+ `CutPlaneTest`, 5 tests); `SceneController.cutThrough`
+  (tap: `onViewTap` `is Tool.Cut`, measure snap) and `cutAlignAt` (long press via `Viewport.onContextMenu`; off the cut copy = context menu).
+- X-ray: mesh pass 8 (`Shaders.kt`), `PlateRenderer.drawCutXray` + disc drawn again at 0.12 with depth GREATER; on while `PlateView` cut drag/tilt
+  (`renderer.cutXray`) or the slider is held (`Tool.Cut.placing`, `cutXrayPanel`).
+- Upright planes: `Tool.Cut.dx/dy`, `OrcaEngine::cut` shift_x/shift_y (plane point = box middle + shift); view drag slides along the level normal.
+- Test (box_with_lid, plate 1): taps on walls -> Z 25.43 / 73.95 / 23.63; long press on a side wall -> 90 deg plane lying on that wall; drag ->
+  slides sideways, mid-drag shot shows ghost + hidden red line, gone on release; tap lid floor + Cut -> pieces 14.1 + 30.5 mm (sum 44.6 = depth).
