@@ -3285,3 +3285,15 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
   = nothing; slide edge -> 18 px off holds Edge, fresh hold at 18 px = nothing, slide to 27 px lets go; cube corner = vertex;
   gear hole ring 9.50 mm; Snap off = bare hit (446.35 vs edge 446.50); hole's bottom rim: visible part solid, hidden part dashed.
 - Measure mode on WSA without focus stealing: `adb shell input keyevent 49` (U).
+
+## 2026-10-26: Interaction plan step 3, measure results (Claude-verified WSA debug; CI r432 run 40440420017)
+- `ui/Measure.kt`: `MeasurePoint(point, kind, normal, diameter)` replaces `UiState.measure: List<Vec3>`. `MeasurePoint.of(hit)`: ring ->
+  centre (length-weighted segment midpoints) + axis (cross products, sign-aligned); "face" -> flat only when every outline end lies
+  within max(0.05 mm, 0.5% of extent) of the hit plane, else "point" (curved patch, closed smooth surface, bare hit). `bed(p)` from
+  Viewport `bedAt` (plateAt + rayOnPlane) when nothing is hit; loupe shows "Bed". `measureResult`: parallel planes (1 deg) = gap,
+  else angle (0-90); point + plane = square distance; dX/dY/dZ always. ToolPanel: "A to B" kinds line, headline, caption
+  (Gap between the parallel faces / Square to the face / Height above the bed / Centre to centre), straight line, angle, deltas.
+  MCP view_state lists points + results. JVM MeasureTest 7/7.
+- Fix in `measurePick`: aimed off the model, a seeded pick counts only if it snapped (the bed through the gear hole came back as the top face).
+- WSA debug (MCP readout): cube top -> bed gap 20; bed -> front face 90 deg; front -> right 90 deg; top edge -> bed square 20 (straight
+  30.42); gear hole ring D 9.5 centre on the gear axis; ring -> bed through the hole 2.00 (gear thickness); loupe over the hole "Bed".

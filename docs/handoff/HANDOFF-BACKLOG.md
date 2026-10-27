@@ -52,30 +52,7 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - [Opus] Filament materials tiers 1+2 (layer lines r391, View menu), per-slot look, Realistic render 1+2: Claude WSA debug 2026-10-24,
   user feel untested (layer line contrast in realistic mode); variable layer height ignored; open: Quest/Chromebook GPU check. Google Filament engine not wanted (breaks Shaders.kt drags, ids, uSolo).
 - MCP tools: app_state, log_tail, perf. Preview camera-light slider (no GO). Blender print3d_toolbox checks (pie menu: see stylus).
-- [Opus] Snapseed-inspired interaction ideas: PLAN in NOTES-interaction-plan.md (user GO 2026-10-26; steps 1 snap highlight (r430) + 2 snapping rules (r431) Claude-verified WSA debug 2026-10-26, user feel untested; step 3 next). Original brain dump below:
-  only a remembered example of friendly UI; keep every idea open, prefer shared engines so no early choice blocks a later one. Not started.
-  - Engines (features = combinations): (E1) surface picker / region grow over faces, pluggable stop rules (crease angle, coplanar,
-    cylinder fit, geodesic radius); welded adjacency, off UI thread on huge meshes; desktop Orca smart fill may already cover the core
-    (check src-orca). (E2) overlay renderer: per-face mask, feature highlight, x-ray/ghost, two-tone. (E3) precision pointer: sharp 2nd-view
-    loupe (not framebuffer zoom), offset or steered cursor, per tool type. (E4) camera director: framing, easing, speed rules, freeze.
-    (E5) gesture scrubber: vertical drag picks a setting, horizontal changes it; clashes with one-finger orbit, so tool-mode only, 2 fingers = camera.
-  - Measure (user tried WSA, gear edge bottom-to-top was hard): biggest gap = no snap highlight (can't see what it caught). Highlight the
-    whole feature (face, edge line, hole ring) + dot at the snap point, in view and loupe (E1+E2). Feature-to-feature results: parallel
-    faces = separation (no slant error), point-face, hole diameter / centre distance; bed pickable as a face; always show dX/dY/dZ.
-    Input type: mouse = exact cursor, hover preview, no offset (today the point jumps away from the mouse as if it were a finger);
-    S Pen = hover shows highlight/loupe; finger = loupe/offset. Snapseed-style select point, then drag anywhere (relative, 1:1).
-    Snapping: magnetic, priority vertex > edge > face, release distance > capture (no flicker), radii in screen px (zooming in = finer
-    reach); Alt / magnet toggle = snap off. Axis inference: near vertical/bed axis the line locks + axis colour; Shift = 15 deg steps;
-    touch = toggle (2nd finger reserved for camera). Lock = measure along the direction (B never stuck); "force B onto the line" maybe later.
-  - Camera (user's own vision, keep): live camera during the drag, camera as the loupe. Viable form = steered point: finger steers the
-    point on the surface, camera follows it, drag speed sets zoom (slow = in, fast = out); zoom-in slower than zoom-out so a wide slide
-    aborts; 2nd finger = freeze/zoom out; framing anywhere, double-tap framing. Risk: feedback loop / seasick if the finger IS the point.
-    Prototype behind a toggle next to the plain loupe, compare on phone; 2-3 non-converging tuning rounds = rethink.
-  - Mask as explanation: live red preview of what an angle means: support overhang angle (global, per-face normal in shader, cheap) and
-    smart-fill crease angle from a seed (E1); brush-size circle on the surface. User rarely paints, values it for understanding regions.
-  - Cut: user likes Bambu's gizmo + two-colour halves; wants x-ray of the model while placing; current slider can't be dragged in the view.
-    Ideas: drag in view moves the plane (E5), tap a feature to cut there (E3), long-press face = align plane. User rarely cuts (low priority).
-  - Open: per-region edits (colour/material/smoothing) via E1+E5; which engine to start with (feature highlight for Measure looks first).
+- [Opus] Snapseed-inspired interaction plan: NOTES-interaction-plan.md (user GO 2026-10-26; brain dump moved there 2026-10-26). Steps 1 snap highlight (r430), 2 snapping rules (r431), 3 measure results (r432) Claude-verified WSA debug 2026-10-26; user feel untested; step 4 next.
 ## Known limits (no action)
 - Real keyboard Ctrl+1 = system hotkey. Inactive-plate double tap re-frames (user: fine). Badges ~23 dp at plate zoom (told the user).
 - HMS texts: HmsCatalog.kt fetches at runtime; Handy's copies stay local. Flatpak r9 MakerLab, upstream bump, obn follow-ups: archive.
@@ -86,5 +63,5 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - CAD roadmap (Claude rec 2026-10-25, not started, needs user go): 1 hull/blend of selected shapes in the builder (small, scad hull exists), 2 snap-to-surface placement (small-med), 3 [Opus] deformers bend/twist/taper/lattice (med), 4 [Opus] sweep + loft (med), 5 [Opus] fillets between shapes (med-big; part 1 "Blend joins" Claude-verified WSA r419 2026-10-26, user feel untested), 6 [Opus] sculpt mode grab/smooth/inflate/crease on subdivided mesh, result = plain mesh (big; user's "playdough" wish), 7 asset library (figures, wheels). Skip Blender-style mesh edit mode on touch. Reuse plan 2026-10-25: NOTES-cad-reuse.md (upstream libslic3r/CAD + OCCT already in tree, SLIC3R_CAD off; phase 0 = [Opus] OCCT spike). User accepted 2026-10-25; steps tagged model/effort; step 0 next.
 - Truck demo people visibility: check through the windows with the builder closed (WSA plate 6, r416); user or Claude.
 - 3MF writes effective bed type per plate + project (plate 4 / printer "unknown"), label "Cool Plate (SuperTack)": built, untested (moved from handoff 2026-10-26).
-- Measure step 1 (458e888; r416+): snap checked by Claude on WSA r429 2026-10-26 (archive); open = user feel (mouse/finger/pen), 2nd point + distance on a model edge not read yet.
+- Measure steps 1-3 (snap highlight r430, snapping rules r431, results r432): Claude-verified WSA debug 2026-10-26 (archive); open = user feel (mouse/finger/pen); Alt+click, ring-to-ring between two holes, hole bottom rim from a bed aim untested.
 - CAD user feel open: 2a-2c sketch Twist / Rise per turn / Loft / Sweep (r421), 3 Bend / twist / taper (More menu, r423); Claude-verified WSA 2026-10-26. Smooth blend (More, r429: stall/cancel/size/inside-out fixed, Claude WSA 2026-10-26): phone run Claude-verified r429; user feel untested.
