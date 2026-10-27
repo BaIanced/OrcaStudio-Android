@@ -14,7 +14,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 0170950 (PR #65, branch at r398, merged 2026-10-25). Untested by the user in main: Build workspace, paint shop/depth, Filament materials, Realistic render, UX P1-P6, Check mesh feel, 3MF export in desktop Orca, pen, fan hold, Extrude F150.
 - Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
-- Latest CI build r438 (run 40513068886, 8a + 8b-1 + 8b-2): on phone, WSA, SHIELD, Note (Chromebook offline). Install new builds on all adb devices (skip the .23 tablet: 32-bit, Android 6).
+- Latest CI build r439 (run 40519306091, + step 9 Cut): on phone, WSA, SHIELD, Note (Chromebook offline). Install new builds on all adb devices (skip the .23 tablet: 32-bit, Android 6).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
@@ -35,7 +35,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   Tests: `wsa-pen-hover.sh`, `wsa-steer-test.sh`, `input mouse tap`, measure = `input keyevent 49`, MCP `view_state` (`MAX=3000`).**
 - **No WSA focus loops (user 2026-10-26: "your testing keeps stealing my window focus"):** no `focus.ps1`/`tapf.sh`/`keys.ps1` in loops;
   touch/hold tests on the phone's hidden display. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
-- Interaction plan done: steps 1-9 Claude-verified (step 9 Cut, WSA debug 2026-10-27, CI run 40519306091 = r439?); user feel untested on all.
+- Interaction plan done: steps 1-9 Claude-verified (step 9 Cut, WSA debug 2026-10-27, CI r439, run 40519306091); user feel untested on all.
 - Next step: Measure step 4 open item, sharp magnified loupe (E3: 2nd render of the aim, not framebuffer zoom) -> Opus 5.5 (high)
 
 ## User decisions (2026-10-13)
