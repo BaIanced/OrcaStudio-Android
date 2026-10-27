@@ -29,6 +29,12 @@ tuning rounds = rethink; compile locally; Claude-verify on WSA, user feel open a
    BUILT 2026-10-26 (archive, 015b132): "Steer camera" toggle, `render/MeasureSteer.kt`; finger only; lift restores the camera.
    Open: 2nd-finger freeze untested (no WSA multi-touch); rates (in 0.4/s under 60 dp/s, out 1.3/s over 500 dp/s) need the user's feel.
 7. **Mask as explanation (E2)**: live red overhang-angle preview (per-face normal in shader), smart-fill crease angle from a seed (E1), brush-size circle.
+   BUILT 2026-10-26 (a2b67f7): quick settings "Show overhangs" chip under Enable support + slider bound to support_threshold_angle (live tint
+   while dragging, written on release; 0 = auto, shown at 30); tints every part (uOverhangAll), skips faces on the bed; brighter red (undersides
+   are shadowed). Paint sphere/circle brushes show the sculpt ring (hover via pen/mouse, stroke hits; wide-line shader now, was 1 px on WSA).
+   Fill / Regions: changing the crease angle or Fill over colours redoes the last fill from its seed (native "refill" only while
+   paint_fill_live(), i.e. no edit after it). Verified WSA debug: overhang tint (gear tilted 50 deg: red at 70, gone mid-drag below 50).
+   Open: ring + refill untested on device; user feel.
 8. **Gesture scrubber (E5)** + **per-region edits** (colour / material / smoothing via E1 + E5): tool-mode only, 2 fingers = camera.
 9. **Cut** (low priority): drag in view moves the plane, tap feature to cut, long-press face aligns plane, x-ray while placing.
 

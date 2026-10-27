@@ -3341,3 +3341,8 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
   and teeth outlined. Toggle off: hold 2.5 s keeps 350 mm, 2nd point placed (33.7 mm). Untested: 2nd-finger freeze (WSA input
   has no multi-touch), real finger feel, phone comparison vs the plain loupe (user). Camera target can dip below the bed while
   zoomed (zoomAt on the view plane); harmless since the lift restores it.
+
+## 2026-10-26 Interaction plan step 7 (mask as explanation), a2b67f7
+- Show overhangs (quick settings, support threshold angle slider): Claude-verified WSA debug (gear rotated 50 deg about X: underside red at 70,
+  no tint at 30 and mid-drag below 50; label "Under N", value written on release). First try didn't tint: the Viewport LaunchedEffect lacked
+  the overhang keys. Paint brush ring and live crease-angle re-fill: built, untested on device.
