@@ -14,7 +14,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 0170950 (PR #65, branch at r398, merged 2026-10-25). Untested by the user in main: Build workspace, paint shop/depth, Filament materials, Realistic render, UX P1-P6, Check mesh feel, 3MF export in desktop Orca, pen, fan hold, Extrude F150.
 - Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
-- Latest CI build: run 40597512718 (8f83f9b, XY edge snap), installed 2026-10-27 on all 4 adb devices. Install new builds on all adb devices (skip the .23 tablet: 32-bit, Android 6).
+- Latest CI build: run 40603089282 (r447, 657e897), installed 2026-10-27 on WSA, phone, SHIELD, Note. Install new builds on all adb devices (skip the .23 tablet: 32-bit, Android 6).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
@@ -35,13 +35,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   Tests: `wsa-pen-hover.sh`, `wsa-steer-test.sh`, `input mouse tap`, measure = `input keyevent 49`, MCP `view_state` (`MAX=3000`).**
 - **No WSA focus loops (user 2026-10-26: "your testing keeps stealing my window focus"):** no `focus.ps1`/`tapf.sh`/`keys.ps1` in loops;
   touch/hold tests on the phone's hidden display. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
-- Interaction plan 1-9 + Measure: Claude-verified WSA 2026-10-27; user feel open: long press, model.detail, ring gating, loupe, tap-select (archive).
-- CAD item 1 Hull switch: Claude-verified WSA r445 2026-10-27, user feel untested.
-- CAD roadmap 2 (user GO 2026-10-27): XY edge snap (8f83f9b, legacy pane) ported to the Build workspace in 657e897: `PlateView.dragOffsetAt`
-  (already cumulative from `dragStart`) + `DragSnap` from `ShapeController.buildSnapBoxes` (Viewport build effect), amber `PlateRenderer.dragGuides`, tick.
-  Snap only with one copy of the object (else free drag, unchanged). Compiled locally; CI run 40603089282; **untested on device**.
-- User ideas 2026-10-27 (leanings, backlog): Prepare long-press "Center" (group on plate, overlap allowed), Align row for multi-select, smart-guide snapping (plate + object edges/centres).
-- Next step: install run 40603089282 on all adb devices, WSA test the Build workspace edge snap (two shapes, drag one near the other's edge: guide shows, lands flush; Prepare drag still free) -> Sonnet 5.5 (medium); then the Center/Align idea if the user wants it
+- Claude-verified WSA 2026-10-27, user feel open (details in archive): interaction plan 1-9 + Measure, CAD item 1 Hull switch, CAD roadmap 2 XY edge snap (r447, 657e897).
+- Center / Align (f073445, run 40605694736, building; JVM-tested AlignMath, compiled): long-press menu "Center on plate" (selection as group, overlap OK; also in multi-select pie) + Align icon row L/C/R/Back/Mid/Front on multi-select. Not driven on a device, user feel untested. Smart guides still idea only (backlog).
+- Next step: install run 40605694736 on all adb devices, drive Center/Align on WSA debug (phone hidden display, no focus loops), then smart guides or a backlog pick -> Sonnet 5.5 (medium)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
