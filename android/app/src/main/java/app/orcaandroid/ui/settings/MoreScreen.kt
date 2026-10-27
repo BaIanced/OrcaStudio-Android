@@ -146,6 +146,9 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
                 ShadowSlider(R.string.wheel_zoom_speed, lab.wheelSpeed, 100f, "%", app.orcaandroid.core.LayoutLab.WHEEL_SPEEDS, lab, peek = false) { vm.setLab(state.lab.copy(wheelSpeed = it)) }
             }
 
+            // Feel knobs (user 2026-10-27), also over MCP: tuning_get / tuning_set.
+            Section(stringResource(R.string.tuning), summary = stringResource(R.string.tuning_summary)) { TuningSection() }
+
             Section(stringResource(R.string.appearance)) {
                 SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                     listOf(ThemeMode.SYSTEM to R.string.theme_system, ThemeMode.LIGHT to R.string.theme_light, ThemeMode.DARK to R.string.theme_dark)
@@ -327,6 +330,21 @@ private fun LayoutLabSection(state: UiState, vm: AppViewModel) {
         TextButton(onClick = { vm.setLab(app.orcaandroid.core.LayoutLab()) }) { Text(stringResource(R.string.reset)) }
       }
     }
+}
+
+/** One slider per [app.orcaandroid.core.Tuning] knob, applied live, and a reset. */
+@Composable
+private fun TuningSection() {
+    val t = app.orcaandroid.core.Tuning
+    t.version.intValue
+    for (k in t.knobs) {
+        val v = t[k.key]
+        Text("${k.label}: ${t.fmt(v)}${k.unit}" + if (kotlin.math.abs(v - k.default) > 1e-4f) "  (${t.fmt(k.default)})" else "", style = MaterialTheme.typography.bodyMedium)
+        val steps = if (k.step > 0f) ((k.max - k.min) / k.step).toInt() - 1 else 0
+        androidx.compose.material3.Slider(v, { t.set(k.key, if (k.step > 0f) k.min + kotlin.math.round((it - k.min) / k.step) * k.step else it) },
+            valueRange = k.min..k.max, steps = steps.coerceIn(0, 200))
+    }
+    TextButton(onClick = { t.reset() }) { Text(stringResource(R.string.reset)) }
 }
 
 /** A shadow look slider (strength in %, penumbra and bias in mm): live on the plate behind, like the size sliders. */

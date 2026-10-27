@@ -3388,3 +3388,17 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 - User: "Tapping the red point after setting it should activate it and be freely movable if dragging it, clicking off or away
   from the dot should set/deselect it." Today: finger needs a long press within 40 dp to move a placed point.
 - The "zoom cap per region" wording is not in the repo: the dump was condensed before it was saved (NOTES-interaction-plan.md).
+- (2026-10-27, user) GO on the proposal (feature-capped zoom, tap-select point, notes). Plus: "I also want the camera to dynamically
+  adjust so we have a good framing of where the snap is happening, this is why it can't zoom too much, but this includes pan tilt swing."
+- (2026-10-27, user) "all the settings for the movement zoom speed magnification should be in settings nested in a tab for tuning,
+  each should be tuneable by me and you. If mcp is best token friendly way then we need that setup too."
+- BUILT + Claude-verified WSA debug 2026-10-27:
+  - Steer framing (MeasureSteer `focusOf` / `aim`, Camera `zoomAbout` / `orbitAbout`): a slow or still finger zooms until the snapped
+    feature fills 0.4 of the short side (ring = diameter, else the feature lines' span, min 2 mm) and stops; turns towards a good look
+    (hole along its axis, face half-way to square-on, edge seen square) at most 35 deg from the start view, pitch 5-85; nothing over
+    the bed. WSA: hold over the gear hole (= bed) no zoom; steered onto the rim -> distance 40.9 (expected for D 9.5), pitch 74 (cap 75);
+    fast slide backs out; lift restores; ring D 9.5 placed. JVM `MeasureSteerTest` 5/5.
+  - Tap-select point (`measureActive`): tap on a placed point selects it (white ring), finger drag from the selected one moves it 1:1
+    (PlateView grab at down), tap elsewhere deselects without placing. WSA: select, drag (stays selected; re-placed = last in the list), tap away.
+  - Tuning registry (`core/Tuning.kt`): 15 knobs (loupe zoom/size/gap/lift, steer fill/min feature/swing/face square/smoothing/speeds),
+    More > Tuning sliders + reset, MCP `tuning_get` / `tuning_set` ({"key": v} or {"reset": true}); WSA: set loupe.zoom 4, unknown key reported.

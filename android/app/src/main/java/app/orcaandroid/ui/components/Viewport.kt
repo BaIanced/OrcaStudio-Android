@@ -93,7 +93,7 @@ fun previewRange(result: SliceResult, low: Int, high: Int, moveEnd: Int?, counts
  * preview state to the GL thread and turns touches into view-model actions.
  */
 /** Measure loupe: a finger's dot sits this far above it; a placed point within the grab radius (a mouse's or pen's: the small one) is picked up. */
-private const val LOUPE_LIFT_DP = 56f
+private val LOUPE_LIFT_DP get() = app.orcaandroid.core.Tuning["loupe.lift"]
 
 /** Rays on a ring round (x, y) as wide as a held snap reaches: aimed just off the model, they find the face whose edge to catch. */
 private fun snapRing(v: PlateView, x: Float, y: Float) = List(8) { i ->
@@ -114,8 +114,8 @@ private fun snapColor(kind: String?) = when (kind) {
 }
 private const val LOUPE_GRAB_DP = 40f
 /** The magnified loupe: its side, and its gap to the aim ring (dp). */
-private const val LOUPE_INSET_DP = 128f
-private const val LOUPE_INSET_GAP_DP = 40f
+private val LOUPE_INSET_DP get() = app.orcaandroid.core.Tuning["loupe.size"]
+private val LOUPE_INSET_GAP_DP get() = app.orcaandroid.core.Tuning["loupe.gap"]
 
 /**
  * Where the magnified loupe sits for an aim spot at ([x], [y]) in a [w] x [h] view: left, top, size (px). Above the aim ring
@@ -168,6 +168,13 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                 PlateView.active = java.lang.ref.WeakReference(v)
                 v.listener = object : PlateListener {
                     override fun onTap(x: Float, y: Float, additive: Boolean, part: Boolean, emptyPlate: Int?) {
+                        // Measure: a tap on a placed point selects it (a drag from it then moves it); with one selected, a tap
+                        // elsewhere sets it (deselects) instead of placing a new point (user 2026-10-27).
+                        if (vm.state.value.tool == app.orcaandroid.ui.Tool.Measure) {
+                            val near = placedNear(x, y, LOUPE_GRAB_DP * v.resources.displayMetrics.density, LOUPE_LIFT_DP * v.resources.displayMetrics.density)
+                            if (near != null) { vm.scene.measureSelect(near.first); return }
+                            if (vm.state.value.measureActive != null) { vm.scene.measureSelect(null); return }
+                        }
                         val (o, d) = v.camera.ray(x, y)
                         // The Build workspace: a tap picks a shape of the design.
                         if (vm.state.value.buildObject != null) vm.shapes.tapAt(o, d, additive || part || vm.state.value.selectMode)
@@ -372,11 +379,20 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                         v.camera.project(m.point)?.let { s -> Triple(i, s, minOf(kotlin.math.hypot(s.first - x, s.second - y), kotlin.math.hypot(s.first - x, s.second - y + lift))) }
                     }.filter { it.third <= radius }.minByOrNull { it.third }
 
-                    override fun onMeasureGrab(x: Float, y: Float) =
-                        placedNear(x, y, LOUPE_GRAB_EXACT_DP * v.resources.displayMetrics.density, 0f) != null
+                    override fun onMeasureGrab(x: Float, y: Float, exact: Boolean): Boolean {
+                        val density = v.resources.displayMetrics.density
+                        if (exact) return placedNear(x, y, LOUPE_GRAB_EXACT_DP * density, 0f) != null
+                        val active = vm.state.value.measureActive ?: return false
+                        return placedNear(x, y, LOUPE_GRAB_DP * density, LOUPE_LIFT_DP * density)?.first == active
+                    }
 
                     /** The steered-point camera (Steer camera toggle, a finger's loupe only): each frame it moved, the dot is picked again. */
-                    private val steer = app.orcaandroid.render.MeasureSteer(v, v.camera) { ax, ay -> loupeAt(ax, ay, 1, null) }
+                    private val steer = app.orcaandroid.render.MeasureSteer(v, v.camera, {
+                        vm.state.value.loupe?.let { l ->
+                            l.point?.let { p -> app.orcaandroid.render.MeasureSteer.focusOf(p, l.feature?.kind, l.feature?.lines ?: FloatArray(0),
+                                l.feature?.diameter, l.preview?.normal, v.camera.towardsEye()) }
+                        }
+                    }) { ax, ay -> loupeAt(ax, ay, 1, null) }
 
                     private fun loupeAt(ax: Float, ay: Float, phase: Int, grab: Int?) {
                         val (o, d) = v.camera.ray(ax, ay)
@@ -419,6 +435,22 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
             val size = androidx.compose.ui.geometry.Size(kotlin.math.abs(r[2] - r[0]), kotlin.math.abs(r[3] - r[1]))
             drawRect(rectangleColor.copy(alpha = 0.15f), topLeft, size)
             drawRect(rectangleColor, topLeft, size, style = androidx.compose.ui.graphics.drawscope.Stroke(2f))
+        }
+    }
+    // Redraws the selected point's ring every frame while there is one (the camera moves under it).
+    val activeFrame = androidx.compose.runtime.remember { androidx.compose.runtime.mutableLongStateOf(0L) }
+    LaunchedEffect(state.measureActive != null) {
+        if (state.measureActive != null) while (true) androidx.compose.runtime.withFrameNanos { activeFrame.longValue = it }
+    }
+    state.measureActive?.let { state.measure.getOrNull(it) }?.takeIf { state.loupe == null }?.let { m ->
+        // The selected point: a ring round it (drag from it to move it, tap elsewhere to set it).
+        Canvas(Modifier.fillMaxSize()) {
+            activeFrame.longValue
+            view?.camera?.project(m.point)?.let { (px, py) ->
+                val c = androidx.compose.ui.geometry.Offset(px, py)
+                drawCircle(Color.Black.copy(alpha = 0.5f), 14.dp.toPx(), c, style = androidx.compose.ui.graphics.drawscope.Stroke(5f))
+                drawCircle(Color.White, 14.dp.toPx(), c, style = androidx.compose.ui.graphics.drawscope.Stroke(2.5f))
+            }
         }
     }
     state.loupe?.let { l ->

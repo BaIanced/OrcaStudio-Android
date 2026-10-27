@@ -504,16 +504,23 @@ class SceneController(private val store: Store, private val presets: PresetContr
         if (phase == 0 || (phase == 4 || phase == 2) && !loupeActive) measureStick = null
         if (phase == 0 || phase == 4) loupeActive = true
         else if (phase == 2 || phase == 3) loupeActive = false
+        // A picked-up point is selected again where it lands; a new point or a cancel leaves nothing selected.
+        if (phase == 0) measureGrabbed = grab != null
+        val reselect = phase == 2 && measureGrabbed
+        if (phase == 2 || phase == 3) measureGrabbed = false
         store.launch {
             if (phase == 0 && grab != null) store.update { st -> st.copy(measure = st.measure.filterIndexed { i, _ -> i != grab }) }
-            if (phase == 3) { store.update { it.copy(loupe = null) }; return@launch }
+            if (phase == 3) { store.update { it.copy(loupe = null, measureActive = null) }; return@launch }
             val hit = measurePick(origin, dir, section, pxSize, around, store.value.measureSnap, sticky = true)
             if (app.orcaandroid.BuildConfig.DEBUG)
                 android.util.Log.d("SNAPDBG", "phase $phase snap ${hit?.snap} feature ${hit?.feature?.kind} d ${hit?.feature?.diameter} at ${hit?.point}")
             if (phase == 2) {
                 val m = hit?.let { MeasurePoint.of(it) } ?: bed?.let { MeasurePoint.bed(it) }
-                store.update { st -> st.copy(loupe = null, measure = if (m != null) (st.measure + m).takeLast(2) else st.measure,
-                    measureShiftPlaced = if (m != null) st.measureShift else st.measureShiftPlaced) }
+                store.update { st ->
+                    val placed = if (m != null) (st.measure + m).takeLast(2) else st.measure
+                    st.copy(loupe = null, measure = placed, measureActive = if (reselect && m != null) placed.lastIndex else null,
+                        measureShiftPlaced = if (m != null) st.measureShift else st.measureShiftPlaced)
+                }
             } else if (loupeActive) {
                 val l = if (hit == null && bed != null) Loupe(x, y, bed, null, app.orcaandroid.core.SnapFeature("bed", FloatArray(0), null), MeasurePoint.bed(bed))
                     else Loupe(x, y, hit?.point, hit?.snap, hit?.feature, hit?.let { MeasurePoint.of(it) })
@@ -521,6 +528,12 @@ class SceneController(private val store: Store, private val presets: PresetContr
             }
         }
     }
+
+    /** Measure: the loupe began on a placed point (picked up). */
+    private var measureGrabbed = false
+
+    /** Measure: selects placed point [index] (null = none; the point stays where it is). */
+    fun measureSelect(index: Int?) = store.update { it.copy(measureActive = index?.takeIf { i -> i in it.measure.indices }) }
 
     private val paintLock = Mutex()
     private class PaintSample(val origin: Vec3, val dir: Vec3, val camera: Vec3, val newStroke: Boolean, val section: FloatArray?)

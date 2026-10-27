@@ -297,7 +297,7 @@
     <string name="measure_along_step">Along %1$s° up, %2$s° round from X</string>
     <string name="measure_axes_toggle">Lock to X / Y / Z</string>
     <string name="measure_steps_toggle">15° steps (Shift)</string>
-    <string name="measure_steer_toggle">Steer camera (hold: zoom in, fast slide: out)</string>
+    <string name="measure_steer_toggle">Steer camera (hold: frames the snap, fast slide: out)</string>
     <string name="show_overhangs">Show overhangs</string>
     <string name="overhang_angle">Under %d°</string>
     <string name="overhang_angle_auto">0 = auto (tree: 30°)</string>
@@ -1038,6 +1038,8 @@
     <string name="lab_light_azimuth">Light direction around the plate: %s</string>
     <string name="lab_light_elevation">Light height above the bed: %s</string>
     <string name="controls">Controls</string>
+    <string name="tuning">Tuning</string>
+    <string name="tuning_summary">Measure loupe and camera feel</string>
     <string name="wheel_zoom_speed">Mouse wheel / thumbstick zoom speed: %s</string>
     <string name="lab_pinch_speed">Pinch zoom speed (100 %% = as fast as the fingers): %s</string>
     <string name="lab_light_strength">Light strength (the shadow follows the direction): %s</string>

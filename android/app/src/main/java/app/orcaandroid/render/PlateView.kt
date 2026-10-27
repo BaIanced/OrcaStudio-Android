@@ -88,8 +88,8 @@ interface PlateListener {
      * [exact]: a mouse or pen, whose point sits right under the pointer (a finger's sits above it).
      */
     fun onMeasureLoupe(x: Float, y: Float, phase: Int, exact: Boolean = false) {}
-    /** Measure mode: a placed point lies right under the mouse or pen at (x, y); the press picks it up at once. */
-    fun onMeasureGrab(x: Float, y: Float): Boolean = false
+    /** Measure mode: the press at (x, y) picks a placed point up at once (under a mouse or pen, or a finger on the selected one). */
+    fun onMeasureGrab(x: Float, y: Float, exact: Boolean): Boolean = false
     /** Measure loupe held: a second finger came down ([frozen]) or lifted again (the steered camera holds still meanwhile). */
     fun onMeasureFreeze(frozen: Boolean) {}
     /** The copy under view point (x, y) for a double tap: [result] gets its (object, copy) and box, or null (on the UI thread). */
@@ -377,11 +377,11 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                     PenAction.TIP -> Unit
                 }
                 loupeExact = exactPointer(event)
-                if (mode == InteractionMode.MEASURE && loupeExact && !rightButton && !middleButton && !penOrbit && penInstant == null &&
-                    listener?.onMeasureGrab(event.x, event.y) == true) {
-                    // A mouse or pen picks a placed point up at once: the drag moves it, not the camera.
+                if (mode == InteractionMode.MEASURE && !rightButton && !middleButton && !penOrbit && penInstant == null &&
+                    listener?.onMeasureGrab(event.x, event.y, loupeExact) == true) {
+                    // A placed point picked up at once (a mouse or pen on any, a finger on the selected one): the drag moves it, not the camera.
                     longPressed = true; loupeOn = true; hoverLoupe = false
-                    listener?.onMeasureLoupe(event.x, event.y, 0, true)
+                    listener?.onMeasureLoupe(event.x, event.y, 0, loupeExact)
                 }
                 if (rightButton || middleButton || rectangle || penOrbit || penInstant != null) Unit
                 else if (mode == InteractionMode.PAINT) {

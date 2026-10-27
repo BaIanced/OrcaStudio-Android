@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import app.orcaandroid.core.AppSettings
 import app.orcaandroid.core.Engine
+import app.orcaandroid.core.Tuning
 import app.orcaandroid.core.ResourceStore
 import app.orcaandroid.net.PrinterStatus
 import kotlinx.coroutines.CoroutineScope
@@ -17,7 +18,7 @@ data class SliceProgress(val percent: Int, val text: String)
 
 /** App-wide singletons (manual dependency injection). */
 class AppContainer(app: Application) {
-    val settings = AppSettings(app)
+    val settings = AppSettings(app).also { Tuning.init(app) }
     val resources = ResourceStore(app)
     val engine = Engine(app.cacheDir)
     /** Non-null while slicing; observed by SliceService. */

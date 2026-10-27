@@ -28,7 +28,7 @@ private const val SUPERSAMPLE = 2
 private const val STILL_NS = 200_000_000L
 private const val SUPER_REFRESH_NS = 1_000_000_000L
 /** Measure loupe: how much the 2nd render magnifies the screen around the aim spot. */
-const val LOUPE_ZOOM = 3f
+val LOUPE_ZOOM: Float get() = app.orcaandroid.core.Tuning["loupe.zoom"]
 /**
  * Temporal supersampling: jittered frames per still view, and the path shader's regime scale meanwhile. Below 1 the
  * lying cylinder's layer lines (1-2 px apart) came back as arcs (WSA 2026-10-20: 0.7 faint, 0.5 clear, 0.35 strong).

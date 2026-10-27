@@ -105,6 +105,37 @@ class Camera {
         target[2] = p.z + (t.z - p.z) / f
     }
 
+    /** Zooms by [factor] (> 1 = closer) about world point [p]: eye and target scale towards it, so it keeps its screen spot. */
+    @Synchronized fun zoomAbout(p: Vec3, factor: Float) {
+        val old = distance
+        zoom(factor)
+        val f = old / distance
+        for (i in 0..2) target[i] = p.at(i) + (target[i] - p.at(i)) / f
+    }
+
+    /**
+     * Turns the view to [toYaw] / [toPitch] about world point [p] instead of the target: the target keeps its place in the
+     * view's own axes around [p], so [p] keeps its screen spot.
+     */
+    @Synchronized fun orbitAbout(p: Vec3, toYaw: Float, toPitch: Float) {
+        val (r0, u0) = axes()
+        val f0 = towardsEye()
+        val rel = Vec3(target[0] - p.x, target[1] - p.y, target[2] - p.z)
+        val a = rel.dot(f0)
+        val b = rel.x * r0[0] + rel.y * r0[1] + rel.z * r0[2]
+        val c = rel.x * u0[0] + rel.y * u0[1] + rel.z * u0[2]
+        yaw = toYaw
+        pitch = toPitch.coerceIn(-89f, 89f)
+        val (r, u) = axes()
+        val f = towardsEye()
+        for (i in 0..2) target[i] = p.at(i) + a * f.at(i) + b * r[i] + c * u[i]
+    }
+
+    private fun Vec3.at(i: Int) = when (i) { 0 -> x; 1 -> y; else -> z }
+
+    /** Yaw and pitch, degrees. */
+    @Synchronized fun angles() = yaw to pitch
+
     /** Pans in the view plane; dx/dy in screen pixels. */
     @Synchronized fun pan(dx: Float, dy: Float) {
         val scale = 2f * distance * kotlin.math.tan(Math.toRadians(FOV / 2.0)).toFloat() / height

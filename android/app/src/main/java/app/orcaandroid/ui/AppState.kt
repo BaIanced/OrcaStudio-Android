@@ -253,6 +253,8 @@ data class UiState(
     val measureShiftPlaced: Boolean = false,
     /** Measure tool, loupe up (finger held, or a mouse / pen hovering): the aim spot, and the point (snapped, with how) the dot sits on. */
     val loupe: Loupe? = null,
+    /** Measure: the placed point a tap selected (index in [measure]): a drag from it moves it, a tap elsewhere sets it. */
+    val measureActive: Int? = null,
     val layerProfile: LayerProfile? = null,
     val calibration: Calibration? = null,
     val projectName: String? = null,

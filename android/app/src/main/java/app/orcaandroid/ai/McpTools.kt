@@ -211,6 +211,17 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             "for the last view change. Costs far more than text: use view_state, plate_describe or view_set's reply when " +
             "they answer it. Shows the Prepare tab's 3D view first.",
             obj(emptyList(), "size" to p("integer", "Longer side in px, 256..1280; default 720"))) { viewShot(it) },
+        Tool("tuning_get", "Read: the feel knobs (measure loupe, steered camera: zoom, speeds, smoothing), one line each: " +
+            "key = value unit [min..max], with the default when changed. Same values as More > Tuning.", obj()) {
+            app.orcaandroid.core.Tuning.describe()
+        },
+        Tool("tuning_set", "Edit: sets feel knobs live and saves them: {\"key\": value, ...} with keys from tuning_get " +
+            "(clamped to the range), or {\"reset\": true} for all defaults. Returns the knobs after.", obj()) { args ->
+            val bad = mutableListOf<String>()
+            if (args.optBoolean("reset")) app.orcaandroid.core.Tuning.reset()
+            for (k in args.keys()) if (k != "reset" && !app.orcaandroid.core.Tuning.set(k, args.optDouble(k).toFloat())) bad += k
+            (if (bad.isEmpty()) "" else "Unknown: ${bad.joinToString()}\n") + app.orcaandroid.core.Tuning.describe()
+        },
         Tool("view_state", "Read: what the plate's 3D view shows now, as text: camera, interaction mode and tool, the " +
             "selection, and where each plate, object copy and prime tower is on screen (screen px: left,top width x height; " +
             "tapping a box's centre hits it unless something covers it), marked when off or partly off the view. Far " +
@@ -556,7 +567,8 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
                 is app.orcaandroid.ui.Tool.Sculpt -> "sculpt ${tool.brush} (radius ${n(tool.radius.toDouble())} mm, strength ${n(tool.strength.toDouble())}${if (tool.invert) ", inverted" else ""})"
                 app.orcaandroid.ui.Tool.LayOnFace -> "lay on face"
                 app.orcaandroid.ui.Tool.Measure -> "measure, ${s.measure.size} point(s)" +
-                    (s.loupe?.let { l -> " (loupe at ${l.x.toInt()},${l.y.toInt()}: ${l.feature?.kind ?: "nothing"})" } ?: "") + s.measure.joinToString("") { m ->
+                    (s.loupe?.let { l -> " (loupe at ${l.x.toInt()},${l.y.toInt()}: ${l.feature?.kind ?: "nothing"})" } ?: "") +
+                    (s.measureActive?.let { " (point ${it + 1} selected)" } ?: "") + s.measure.joinToString("") { m ->
                     " [${m.kind}${m.diameter?.let { d -> " D ${n(d.toDouble())}" } ?: ""} at ${n(m.point.x.toDouble())}, ${n(m.point.y.toDouble())}, ${n(m.point.z.toDouble())}]"
                 } + (if (s.measure.size == 2) app.orcaandroid.ui.measureResult(s.measure[0], s.measure[1]).let { r ->
                     ": distance ${n(r.distance.toDouble())} mm" + (r.gap?.let { ", gap ${n(it.toDouble())} mm" } ?: "") +

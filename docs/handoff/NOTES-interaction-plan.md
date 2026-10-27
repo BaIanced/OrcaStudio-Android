@@ -76,3 +76,8 @@ tuning rounds = rethink; compile locally; Claude-verify on WSA, user feel open a
   - Cut: user likes Bambu's gizmo + two-colour halves; wants x-ray of the model while placing; current slider can't be dragged in the view.
     Ideas: drag in view moves the plane (E5), tap a feature to cut there (E3), long-press face = align plane. User rarely cuts (low priority).
   - Open: per-region edits (colour/material/smoothing) via E1+E5; which engine to start with (feature highlight for Measure looks first).
+
+## User words 2026-10-27 (verbatim, after trying the steer toggle on r439)
+- "Holding the point shouldn't continuously zoom in. ... it should have a maximum zoom ratio dependent on the object/region being measured."
+- "Tapping the red point after setting it should activate it and be freely movable if dragging it, clicking off or away from the dot should set/deselect it."
+- "I also want the camera to dynamically adjust so we have a good framing of where the snap is happening, this is why it can't zoom too much, but this includes pan tilt swing."
