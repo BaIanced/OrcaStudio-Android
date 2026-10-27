@@ -14,7 +14,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 0170950 (PR #65, branch at r398, merged 2026-10-25). Untested by the user in main: Build workspace, paint shop/depth, Filament materials, Realistic render, UX P1-P6, Check mesh feel, 3MF export in desktop Orca, pen, fan hold, Extrude F150.
 - Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
-- Latest CI build (run 40571559088, r440 + corner zoom + stuck-points fixes): installed 2026-10-27 on all 4 adb devices. Install new builds on all adb devices (skip the .23 tablet: 32-bit, Android 6).
+- Latest CI build: r444 (run 40575791454), installed 2026-10-27 on all 4 adb devices. Install new builds on all adb devices (skip the .23 tablet: 32-bit, Android 6).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
@@ -40,7 +40,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   (More > Tuning, MCP `tuning_get` / `tuning_set`): Claude-verified WSA debug; user feel open (phone).
 - r440 installed everywhere; waiting on the user's feel verdict (log it first when given). WSA debug re-test 2026-10-27 (tap box beside "Steer camera", not the label; `input keyevent 49` = measure): hold 563 -> 8.2 mm, slow steer swings, fast slide zooms out, lift restores 563 mm, tap-select snapped a vertex + loupe/Corner label OK.
 - Fixes 2026-10-27 (WSA debug verified, not yet in a CI build): corner snap framed 62 mm not 8 mm (new knob steer.corner, 15 mm); measure points/line/snap lines no longer stay after leaving the tool. User still tunes sluggish feel in More > Tuning.
-- Fixes pending build (+ sphere face snaps frame >= 15 mm; Tuning model.detail slider for round-shape resolution): selected-point ring tool-gated; long press starts the dot under the finger (eases to lift on move); 15° checkbox removed (Shift still works). Next step: install the build on all devices, user re-checks -> Sonnet 5.5 (medium)
+- r444 (run 40575791454) installed 2026-10-27 on all 4 adb devices; includes corner-snap 15 mm, tool-gated measure points, sphere snaps >= 15 mm, model.detail slider, long press starts under finger, 15° checkbox removed. Waiting on the user's feel verdict (log it first). Next step: user re-checks measure/steer on phone -> Sonnet 5.5 (medium)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
