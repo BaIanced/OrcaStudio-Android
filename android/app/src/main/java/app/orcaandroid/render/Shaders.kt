@@ -91,7 +91,8 @@ internal object Shaders {
      * 2: paint overlay (types 5 fuzzy skin, 6/7 support enforce/block, 8/9 seam, 10+ filament);
      * 3: contact shadow map (parts seen from above; how close to the bed, max-blended);
      * 4: depth-only pass of the real shadow map (parts seen from the key light); 5/6: selection masks;
-     * 7: realistic mode's clear filaments (transmission > 0), blended premultiplied after the opaque scene.
+     * 7: realistic mode's clear filaments (transmission > 0), blended premultiplied after the opaque scene;
+     * 8: cut x-ray (the cut copy where the scene hides it: a faint ghost and the cut line).
      */
     const val MESH_FS = """#version 300 es
         precision mediump float;
@@ -279,6 +280,15 @@ internal object Shaders {
                 if (!part || (uSectionOn == 1 && dot(uSection.xyz, vWorld) > uSection.w)) discard;
                 float k = 1.0 - clamp(vWorld.z / uShadowFade, 0.0, 1.0);
                 color = vec4(k * k);
+                return;
+            }
+            if (uPass == 8) {
+                // Cut x-ray, drawn depth GL_GREATER: the hidden faces of the cut copy faintly, the plane's line on them in red.
+                if (!part || vSelected < 0.5 || uCutBandOn == 0 || (uSectionOn == 1 && dot(uSection.xyz, vWorld) > uSection.w)) discard;
+                highp float s = dot(uCutBand.xyz, vWorld) - uCutBand.w;
+                float hw = max(fwidth(s) * 1.5, 0.3);
+                float line = 1.0 - smoothstep(hw * 0.6, hw, abs(s));
+                color = vec4(mix(vec3(1.0, 0.75, 0.75), vec3(1.0, 0.15, 0.15), line), 0.07 + 0.75 * line);
                 return;
             }
             if ((uPass == 0 || uPass == 7) && !part && !(uPass == 7 && type >= 10 && type < 98)) discard;

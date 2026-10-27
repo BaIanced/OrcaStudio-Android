@@ -143,6 +143,10 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var cutBand: FloatArray? = null
     /** Cut tool: tilt rings (X and Y only) round this centre xyz, radius of the plane disc; null = none. */
     var cutRings: FloatArray? = null
+    /** Cut tool: the plane is being placed (a drag in the view, or the panel's slider): the copy shows x-ray. */
+    var cutXray = false
+    /** Cut tool: the panel's slider is held (x-ray as [cutXray]). */
+    var cutXrayPanel = false
 
     /** Section view plane (nx, ny, nz, d): world points with n . p > d are cut away; null = off. */
     var section: FloatArray? = null
@@ -535,6 +539,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             glDepthMask(true)
             glDisable(GL_BLEND)
             if (models) drawSelection()
+            if (models && (cutXray || cutXrayPanel) && cutBand != null) drawCutXray()
         }
         // Seen from below the plate is a window: drawn last, over the parts behind it.
         if (plateSurface && camera.eye().z < 0f) drawPlateSurfaces(PLATE_UNDER_ALPHA)
@@ -977,7 +982,20 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glEnable(GL_DEPTH_TEST)
     }
 
-    /** The cut plane: a translucent disc and its rim, depth-tested so the object hides the part inside it. */
+    /** Cut x-ray: the cut copy's hidden faces and cut line, drawn only where the scene is in front of them. */
+    private fun drawCutXray() {
+        glEnable(GL_DEPTH_TEST)
+        glDepthFunc(GL_GREATER)
+        glDepthMask(false)
+        glEnable(GL_BLEND)
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+        drawMesh(meshVbo, meshCount, pass = 8)
+        glDisable(GL_BLEND)
+        glDepthMask(true)
+        glDepthFunc(GL_LESS)
+    }
+
+    /** The cut plane: a translucent disc and its rim, depth-tested so the object hides the part inside it (x-ray: faintly seen through). */
     private fun drawCutDisc() {
         val d = cutDisc ?: return
         val n = 64
@@ -1003,6 +1021,12 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glBlendFunc(GL_CONSTANT_ALPHA, GL_ONE_MINUS_CONSTANT_ALPHA)
         glUniform3f(loc(lineProgram, "uColor"), 1f, 0.25f, 0.25f)
         glDrawArrays(GL_TRIANGLE_FAN, 0, n + 2)
+        if (cutXray || cutXrayPanel) {
+            glDepthFunc(GL_GREATER)
+            glBlendColor(0f, 0f, 0f, 0.12f)
+            glDrawArrays(GL_TRIANGLE_FAN, 0, n + 2)
+            glDepthFunc(GL_LESS)
+        }
         glDisable(GL_BLEND)
         glLineWidth(3f * pxScale)
         glUniform3f(loc(lineProgram, "uColor"), 1f, 0.3f, 0.3f)

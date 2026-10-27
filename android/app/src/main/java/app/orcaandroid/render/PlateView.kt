@@ -56,8 +56,8 @@ interface PlateListener {
      * drag was cancelled; [done] once let go.
      */
     fun onRotate(axis: Int, degrees: Float?, pivot: Vec3, x: Float, y: Float, done: Boolean) {}
-    /** Cut tool: the plane was dragged up / down by [dz] mm (world Z). */
-    fun onCutMove(dz: Float) {}
+    /** Cut tool: the plane was dragged by [d] mm along [CutPlane.slideAxis] (up, or sideways for an upright plane). */
+    fun onCutMove(d: Float) {}
     /**
      * Cut tool: a tilt ring is dragged ([RotateGizmo] about world [axis] 0 X or 1 Y through the plane's centre): the plane turns
      * by [degrees] from its orientation [base] (Euler degrees) at the drag's start; (x, y) is the finger. [degrees] null = cancelled.
@@ -579,6 +579,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                     if (!moved && mode == InteractionMode.NAVIGATE) listener?.onContextMenu(event.x, event.y)
                 } else if (cutMoving) {
                     cutMoving = false
+                    queueEvent { renderer.cutXray = false }
                 } else if (rotateDrag != null) {
                     endRotate(if (moved) rotateDrag!!.degrees else null, event.x, event.y)
                 } else if (resizeHandle != null) {
@@ -763,7 +764,10 @@ class PlateView(context: Context) : GLSurfaceView(context) {
         listener?.onResize(scale, ScaleGizmo.pivot(box.first, box.second), x, y, true)
     }
 
-    private fun cancelResize() { endResize(null); endRotate(null); cutMoving = false }
+    private fun cancelResize() {
+        endResize(null); endRotate(null)
+        if (cutMoving) { cutMoving = false; queueEvent { renderer.cutXray = false } }
+    }
 
     private var rotateDrag: RotateGizmo.Drag? = null
 
@@ -798,6 +802,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
         queueEvent { renderer.rotateAxis = -1; renderer.rotateFrom = null; renderer.rotateStep = 0f }
         val base = cutBase
         cutBase = null
+        if (base != null) queueEvent { renderer.cutXray = false }
         if (base != null) listener?.onCutTilt(d.axis, degrees, base, x, y, true)
         else listener?.onRotate(d.axis, degrees, d.c, x, y, true)
     }
@@ -827,7 +832,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
             rotateDrag = d
             cutBase = g.rot
             val from = d.start
-            queueEvent { renderer.rotateAxis = axis; renderer.rotateFrom = from }
+            queueEvent { renderer.rotateAxis = axis; renderer.rotateFrom = from; renderer.cutXray = true }
             d.update(x, y)
             return true
         }
@@ -840,14 +845,15 @@ class PlateView(context: Context) : GLSurfaceView(context) {
         if (rim.size < 24 || !RotateGizmo.inside(rim, x0, y0)) return false
         cutMoving = true
         lastX = x0; lastY = y0
+        queueEvent { renderer.cutXray = true }
         return true
     }
 
-    /** Height change for a finger move: its part along the world Z axis' direction on screen, over that axis' length there. */
+    /** Plane move for a finger move: its part along the slide axis' direction on screen (world Z, or level for an upright plane), over that axis' length there. */
     private fun cutDz(x0: Float, y0: Float, x1: Float, y1: Float): Float {
         val g = cutGeom ?: return 0f
         val a = camera.project(g.c) ?: return 0f
-        val b = camera.project(Vec3(g.c.x, g.c.y, g.c.z + 10f)) ?: return 0f
+        val b = camera.project(g.c + CutPlane.slideAxis(g.rot) * 10f) ?: return 0f
         val vx = (b.first - a.first) / 10f
         val vy = (b.second - a.second) / 10f
         val l2 = vx * vx + vy * vy

@@ -126,8 +126,9 @@ public:
     json split(int object, bool to_parts);
     json assemble(const Items &items);
     json mesh_boolean(int object, int src, int tool, const std::string &op, bool keep_tool);
-    // Horizontal cut at world height z. float_upper: the upper part keeps its height (its copies get auto_drop off).
-    json cut(int object, int instance, double z, bool keep_upper, bool keep_lower, bool flip_upper, bool float_upper = false, double rot_x = 0., double rot_y = 0., double rot_z = 0.);
+    // Cut by the plane through the box middle (x, y) + shift at world height z, turned by rot. float_upper: the upper part keeps its height (its copies get auto_drop off).
+    json cut(int object, int instance, double z, bool keep_upper, bool keep_lower, bool flip_upper, bool float_upper = false, double rot_x = 0., double rot_y = 0., double rot_z = 0.,
+             double shift_x = 0., double shift_y = 0.);
     // Reduces the triangle count to `ratio` (0..1) of the original.
     json simplify(int object, double ratio);
     // Merges duplicate vertices and removes degenerate faces.

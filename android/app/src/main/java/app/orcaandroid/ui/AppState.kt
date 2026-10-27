@@ -64,8 +64,12 @@ sealed interface Tool {
     data class Sculpt(val brush: String = "draw", val radius: Float = 5f, val strength: Float = 0.5f, val invert: Boolean = false) : Tool
     data object LayOnFace : Tool
     data object Measure : Tool
-    /** The cut plane passes through the object's middle at height [z], turned by [rot] (Euler degrees) from the horizontal. */
-    data class Cut(val z: Float, val rot: Vec3 = Vec3(0f, 0f, 0f)) : Tool
+    /**
+     * The cut plane passes through the object's middle moved by ([dx], [dy]) at height [z], turned by [rot] (Euler degrees) from the
+     * horizontal (an upright plane moves by the shift, any other by [z]); [placing]: the panel's height slider is held (the view
+     * shows the copy x-ray).
+     */
+    data class Cut(val z: Float, val rot: Vec3 = Vec3(0f, 0f, 0f), val placing: Boolean = false, val dx: Float = 0f, val dy: Float = 0f) : Tool
     data object LayerHeight : Tool
 }
 

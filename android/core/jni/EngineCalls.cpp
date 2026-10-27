@@ -90,7 +90,7 @@ const std::unordered_map<std::string, Handler> &handlers()
         {"cut", [](OrcaEngine &e, const json &a) {
              return e.cut(a.at("object"), a.value("instance", 0), a.at("z"), a.value("keepUpper", true), a.value("keepLower", true),
                           a.value("flipUpper", false), a.value("floatUpper", false),
-                          a.value("rotX", 0.0), a.value("rotY", 0.0), a.value("rotZ", 0.0));
+                          a.value("rotX", 0.0), a.value("rotY", 0.0), a.value("rotZ", 0.0), a.value("shiftX", 0.0), a.value("shiftY", 0.0));
          }},
         {"simplify", [](OrcaEngine &e, const json &a) { return e.simplify(a.at("object"), a.at("ratio")); }},
         {"repair", [](OrcaEngine &e, const json &a) { return e.repair(a.at("object")); }},

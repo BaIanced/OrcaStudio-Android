@@ -10,6 +10,7 @@ import app.orcaandroid.core.PickHit
 import app.orcaandroid.core.PresetType
 import app.orcaandroid.core.Scene
 import app.orcaandroid.core.Vec3
+import app.orcaandroid.render.CutPlane
 import app.orcaandroid.render.SectionView
 import app.orcaandroid.ui.prepare.PaintMode
 import app.orcaandroid.core.VolumeType
@@ -229,10 +230,10 @@ class SceneController(private val store: Store, private val presets: PresetContr
     fun showMeshMarkers() { meshMarkers.value = lastCheck }
     fun clearMeshMarkers() { meshMarkers.value = null }
 
-    fun cut(z: Float, rot: Vec3, keepUpper: Boolean, keepLower: Boolean, flip: Boolean, floatUpper: Boolean) {
+    fun cut(t: Tool.Cut, keepUpper: Boolean, keepLower: Boolean, flip: Boolean, floatUpper: Boolean) {
         val sel = selection ?: return
         store.update { it.copy(selection = null, tool = Tool.None) }
-        store.sceneOp(store.str(R.string.cutting)) { engine.cut(sel.obj, sel.instance, z, keepUpper, keepLower, flip, floatUpper, rot) }
+        store.sceneOp(store.str(R.string.cutting)) { engine.cut(sel.obj, sel.instance, t.z, keepUpper, keepLower, flip, floatUpper, t.rot, t.dx, t.dy) }
     }
 
     /** Adds a modifier, blocker, enforcer or negative volume sized to the selected object. */
@@ -345,7 +346,8 @@ class SceneController(private val store: Store, private val presets: PresetContr
     fun onViewTap(origin: Vec3, dir: Vec3, additive: Boolean = false, part: Boolean = false, section: FloatArray? = null, emptyPlate: Int? = null,
                   pxSize: ((Vec3) -> Float)? = null, around: List<Pair<Vec3, Vec3>> = emptyList(), bed: Vec3? = null) = store.launch {
         // Measure: Alt held (or Snap off) takes the bare hit.
-        val hit = if (store.value.tool == Tool.Measure && pxSize != null) measurePick(origin, dir, section, pxSize, around, store.value.measureSnap && !part)
+        val hit = if ((store.value.tool == Tool.Measure || store.value.tool is Tool.Cut) && pxSize != null)
+            measurePick(origin, dir, section, pxSize, around, store.value.measureSnap && !part)
             else pick(origin, dir, section)
         if (hit == null && emptyPlate != null && store.value.tool == Tool.None) {
             selectPlate(emptyPlate)
@@ -359,6 +361,9 @@ class SceneController(private val store: Store, private val presets: PresetContr
             Tool.Measure -> (hit?.let { MeasurePoint.of(it) } ?: bed?.let { MeasurePoint.bed(it) })?.let { m ->
                 store.update { st -> st.copy(measure = (st.measure + m).takeLast(2), measureShiftPlaced = st.measureShift) }
             }
+            // Cut: a tap on the cut copy moves the plane through the snapped spot (a hole's rim: its centre), keeping its tilt.
+            is Tool.Cut -> if (hit != null && !additive && !part && hit.obj == selection?.obj && hit.instance == selection?.instance) cutThrough(hit, false)
+                else store.update { st -> if (hit == null) st else st.withSelected(listOf(Selection(hit.obj, hit.instance))) }
             else -> store.update { st ->
                 when {
                     // Alt+click: the part under the pointer, as on the desktop.
@@ -405,6 +410,30 @@ class SceneController(private val store: Store, private val presets: PresetContr
             val inMulti = hit != null && st.multiSelection.any { it.obj == hit.obj && it.instance == hit.instance }
             (if (inMulti) st else st.withSelected(listOfNotNull(hit?.let { Selection(it.obj, it.instance) }))).copy(contextMenu = x to y)
         }
+    }
+
+    /**
+     * Cut tool, long press: on the cut copy the plane turns parallel to the pressed face (facing up) and goes through the spot;
+     * anywhere else the context menu opens as usual.
+     */
+    fun cutAlignAt(origin: Vec3, dir: Vec3, x: Float, y: Float, section: FloatArray?) = store.launch {
+        val hit = pick(origin, dir, section)
+        if (hit != null && hit.obj == selection?.obj && hit.instance == selection?.instance) cutThrough(hit, true)
+        else openContextMenu(origin, dir, x, y, section)
+    }
+
+    /** Puts the cut plane through [hit] ([align]: parallel to its face first): by its height, or an upright plane by its sideways shift. */
+    private fun cutThrough(hit: PickHit, align: Boolean) {
+        val t = store.value.tool as? Tool.Cut ?: return
+        val inst = store.value.scene.objects.getOrNull(hit.obj)?.instances?.getOrNull(hit.instance) ?: return
+        val rot = if (align) CutPlane.rotFacing(hit.normal) else t.rot
+        val p = if (align) hit.point else MeasurePoint.of(hit).point
+        val cx = inst.min.x + inst.size.x / 2
+        val cy = inst.min.y + inst.size.y / 2
+        val z = CutPlane.heightThrough(cx + t.dx, cy + t.dy, rot, p)
+        val next = if (z != null) t.copy(z = z, rot = rot, placing = false)
+            else CutPlane.shiftThrough(cx, cy, rot, p).let { (dx, dy) -> t.copy(z = inst.min.z + inst.size.z / 2, rot = rot, placing = false, dx = dx, dy = dy) }
+        store.update { it.copy(tool = next) }
     }
 
     fun closeContextMenu() = store.update { it.copy(contextMenu = null) }

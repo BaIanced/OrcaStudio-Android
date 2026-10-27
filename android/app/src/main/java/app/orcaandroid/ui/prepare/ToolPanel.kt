@@ -670,7 +670,8 @@ private fun CutOptions(state: UiState, vm: AppViewModel, tool: Tool.Cut) {
         Text("Z = %.2f mm,  %.1f°".format(Locale.ROOT, tool.z, tilt), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
         if (tilt > 0.05f) TextButton(onClick = { vm.scene.setTool(Tool.Cut(tool.z)) }) { Text(stringResource(R.string.cut_level)) }
     }
-    Slider(tool.z.coerceIn(lo, hi), { vm.scene.setTool(Tool.Cut(it, tool.rot)) }, valueRange = lo..hi)
+    Slider(tool.z.coerceIn(lo, hi), { vm.scene.setTool(tool.copy(z = it, placing = true)) }, valueRange = lo..hi,
+        onValueChangeFinished = { (vm.state.value.tool as? Tool.Cut)?.let { vm.scene.setTool(it.copy(placing = false)) } })
     Row(verticalAlignment = Alignment.CenterVertically) {
         Checkbox(keepUpper, { keepUpper = it }); Text(stringResource(R.string.keep_upper))
         Checkbox(keepLower, { keepLower = it }); Text(stringResource(R.string.keep_lower))
@@ -681,7 +682,7 @@ private fun CutOptions(state: UiState, vm: AppViewModel, tool: Tool.Cut) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Checkbox(flip, { flip = it }, enabled = keepUpper); Text(stringResource(R.string.flip_upper_down))
     }
-    FilledTonalButton(onClick = { vm.scene.cut(tool.z, tool.rot, keepUpper, keepLower, flip, onCut) }, enabled = keepUpper || keepLower, modifier = Modifier.fillMaxWidth()) {
+    FilledTonalButton(onClick = { vm.scene.cut(tool, keepUpper, keepLower, flip, onCut) }, enabled = keepUpper || keepLower, modifier = Modifier.fillMaxWidth()) {
         Text(stringResource(R.string.perform_cut))
     }
 }

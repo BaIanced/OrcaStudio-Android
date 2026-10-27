@@ -121,8 +121,9 @@ class Engine(private val cacheDir: File) {
     suspend fun assemble(items: List<Pair<Int, Int>>) = parseScene(call("assemble", args("items" to items.map { listOf(it.first, it.second) })))
     suspend fun meshBoolean(obj: Int, src: Int, tool: Int, op: String, keepTool: Boolean) =
         parseScene(call("meshBoolean", args("object" to obj, "src" to src, "tool" to tool, "op" to op, "keepTool" to keepTool)))
-    suspend fun cut(obj: Int, instance: Int, z: Float, keepUpper: Boolean, keepLower: Boolean, flipUpper: Boolean, floatUpper: Boolean = false, rot: Vec3 = Vec3(0f, 0f, 0f)) =
-        parseScene(call("cut", args("object" to obj, "instance" to instance, "z" to z, "keepUpper" to keepUpper, "keepLower" to keepLower, "flipUpper" to flipUpper, "floatUpper" to floatUpper, "rotX" to rot.x, "rotY" to rot.y, "rotZ" to rot.z)))
+    suspend fun cut(obj: Int, instance: Int, z: Float, keepUpper: Boolean, keepLower: Boolean, flipUpper: Boolean, floatUpper: Boolean = false, rot: Vec3 = Vec3(0f, 0f, 0f),
+                    shiftX: Float = 0f, shiftY: Float = 0f) =
+        parseScene(call("cut", args("object" to obj, "instance" to instance, "z" to z, "keepUpper" to keepUpper, "keepLower" to keepLower, "flipUpper" to flipUpper, "floatUpper" to floatUpper, "rotX" to rot.x, "rotY" to rot.y, "rotZ" to rot.z, "shiftX" to shiftX, "shiftY" to shiftY)))
     suspend fun simplify(obj: Int, ratio: Float) = parseScene(call("simplify", args("object" to obj, "ratio" to ratio)))
     suspend fun repair(obj: Int) = parseScene(call("repair", args("object" to obj)))
     /** Bends, twists or tapers ([kind] "bend" / "twist" / "taper") one object along plate [axis] 0..2, in this copy's frame: [amount] in degrees, or the far end's scale for a taper. */

@@ -153,7 +153,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                         // The Build workspace: a tap picks a shape of the design.
                         if (vm.state.value.buildObject != null) vm.shapes.tapAt(o, d, additive || part || vm.state.value.selectMode)
                         else vm.scene.onViewTap(o, d, additive, part, v.section.current, emptyPlate, v.camera::pxSize,
-                            if (vm.state.value.tool == app.orcaandroid.ui.Tool.Measure) snapRing(v, x, y) else emptyList(),
+                            vm.state.value.tool.let { t -> if (t == app.orcaandroid.ui.Tool.Measure || t is Tool.Cut) snapRing(v, x, y) else emptyList() },
                             if (vm.state.value.tool == app.orcaandroid.ui.Tool.Measure) bedAt(v, x, y) else null)
                     }
                     override fun onCopyAt(x: Float, y: Float, result: (Pair<Int, Int>?, Vec3, Vec3) -> Unit) {
@@ -259,16 +259,21 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                         val rotation = RotateGizmo.toEuler(RotateGizmo.mul(m, RotateGizmo.fromEuler(inst.rotation)))
                         vm.scene.setTransform(offset = pivot + RotateGizmo.apply(m, inst.offset - pivot), rotation = rotation)
                     }
-                    override fun onCutMove(dz: Float) {
+                    override fun onCutMove(d: Float) {
                         val t = vm.state.value.tool as? Tool.Cut ?: return
                         val i = vm.state.value.selectedObject?.instances?.getOrNull(vm.state.value.selection?.instance ?: 0) ?: return
-                        vm.scene.setTool(Tool.Cut((t.z + dz).coerceIn(i.min.z, i.min.z + i.size.z), t.rot))
+                        if (!CutPlane.upright(t.rot)) { vm.scene.setTool(t.copy(z = (t.z + d).coerceIn(i.min.z, i.min.z + i.size.z))); return }
+                        // An upright plane slides sideways, within the copy's box.
+                        val a = CutPlane.slideAxis(t.rot)
+                        val reach = (kotlin.math.abs(a.x) * i.size.x + kotlin.math.abs(a.y) * i.size.y) / 2
+                        val s = (a.x * t.dx + a.y * t.dy + d).coerceIn(-reach, reach)
+                        vm.scene.setTool(t.copy(dx = a.x * s, dy = a.y * s))
                     }
                     override fun onCutTilt(axis: Int, degrees: Float?, base: Vec3, x: Float, y: Float, done: Boolean) {
                         val t = vm.state.value.tool as? Tool.Cut ?: return
-                        if (degrees == null) { resizeLabel = null; vm.scene.setTool(Tool.Cut(t.z, base)); return }
+                        if (degrees == null) { resizeLabel = null; vm.scene.setTool(t.copy(rot = base)); return }
                         val rot = RotateGizmo.toEuler(RotateGizmo.mul(RotateGizmo.matrix(axis, degrees), RotateGizmo.fromEuler(base)))
-                        vm.scene.setTool(Tool.Cut(t.z, rot))
+                        vm.scene.setTool(t.copy(rot = rot))
                         resizeLabel = if (done) null else Triple("%.1f°".format(CutPlane.tilt(rot)), x, y)
                     }
                     override fun onBrushScroll(steps: Int) = vm.scene.scaleBrush(if (steps > 0) 1.15f else 1 / 1.15f)
@@ -334,7 +339,8 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                     override fun onContextMenu(x: Float, y: Float) {
                         vm.pieTouch.reset()
                         val (o, d) = v.camera.ray(x, y)
-                        vm.scene.openContextMenu(o, d, x, y, v.section.current)
+                        if (vm.state.value.tool is Tool.Cut) vm.scene.cutAlignAt(o, d, x, y, v.section.current)
+                        else vm.scene.openContextMenu(o, d, x, y, v.section.current)
                     }
 
                     override fun onLongPressTouch(x: Float, y: Float, held: Boolean) = vm.pieTouch.update(x, y, held)
@@ -674,7 +680,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         // The cut tool's plane: a disc round the object's middle, at the cut height, turned by the tilt.
         val cutGeom = (state.tool as? Tool.Cut)?.takeIf { !showPreview }?.let { t ->
             state.selectedObject?.instances?.getOrNull(state.selection?.instance ?: 0)?.let { i ->
-                PlateView.CutGeom(Vec3(i.min.x + i.size.x / 2, i.min.y + i.size.y / 2, t.z), i.size.length() / 2 * 1.1f, t.rot)
+                PlateView.CutGeom(Vec3(i.min.x + i.size.x / 2 + t.dx, i.min.y + i.size.y / 2 + t.dy, t.z), i.size.length() / 2 * 1.1f, t.rot)
             }
         }
         v.cutGeom = cutGeom
@@ -682,6 +688,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
             cutDisc = cutGeom?.let { CutPlane.disc(it.c, it.r, it.rot) }
             cutBand = cutGeom?.let { CutPlane.band(it.c, it.rot) }
             cutRings = cutGeom?.let { floatArrayOf(it.c.x, it.c.y, it.c.z, it.r) }
+            cutXrayPanel = cutGeom != null && (state.tool as? Tool.Cut)?.placing == true
         }
         val cut = (state.tool as? Tool.Paint)?.takeIf { it.guardOn && !showPreview }?.let { t ->
             // The paint guard plane, drawn as the cut plane.
