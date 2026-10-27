@@ -38,9 +38,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Interaction plan steps 1-9 + Measure (loupe, steer, tap-select, Tuning): Claude-verified WSA debug 2026-10-27, user feel open (details: archive "Handoff trim 2026-10-27").
 - User: steer framing feels good, they tune the knobs themselves (archive). Still open (user feel): long press under finger, model.detail slider, ring tool-gating, loupe, tap-select.
 - CAD item 1 Hull switch: Claude-verified WSA r445 2026-10-27, user feel untested.
-- CAD roadmap 2 (user GO 2026-10-27): shape-builder body drag now sticks edges (flush/aligned) to other boxes' edges, amber guide + tick, Shift = 0.1 mm (8f83f9b, `MeshPreviewView.moveMm`, reuses `ZRail.lift`); compiled + CI built + installed, **NOT yet tested on a device**.
+- CAD roadmap 2 (user GO 2026-10-27): XY edge snap built 8f83f9b but **in the wrong view**: it is in `MeshPreviewView.moveMm` (legacy pane, code-only designs; `ScadPreviewPane`). The Build workspace body drag (`Viewport.kt:~305 onMoved` -> `ShapeController.moveOnPlate`, per-event dx/dy, no gesture start) has no snap. Found 2026-10-27 on WSA r446 (grep, no device test needed).
 - User ideas 2026-10-27 (leanings, backlog): Prepare long-press "Center" (group on plate, overlap allowed), Align row for multi-select, smart-guide snapping (plate + object edges/centres).
-- Next step: WSA test of the XY edge snap (shape builder: 2 boxes, drag one near the other; hidden-display/no focus loops), then handoff; then the Center/Align idea if the user wants it -> Sonnet 5.5 (medium)
+- Next step: port the XY edge snap + amber guide into the Build workspace drag (needs a gesture-start hook so the snap works on the cumulative offset; reuse `ZRail.lift` and the 8f83f9b logic in `MeshPreviewView.moveMm`), compile, CI, WSA test -> Opus 5.5 (medium); then the Center/Align idea if the user wants it
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
