@@ -36,6 +36,15 @@ tuning rounds = rethink; compile locally; Claude-verify on WSA, user feel open a
    paint_fill_live(), i.e. no edit after it). Verified WSA debug: overhang tint (gear tilted 50 deg: red at 70, gone mid-drag below 50).
    Ring + live refill verified WSA debug 2026-10-26 (bore: 11 deg one facet, 30 deg whole bore, back shrinks). Open: user feel.
 8. **Gesture scrubber (E5)** + **per-region edits** (colour / material / smoothing via E1 + E5): tool-mode only, 2 fingers = camera.
+   User 2026-10-27: the scrub starts on a held setting chip (not a view drag; Paint's off-object orbit stays). Region edits: user picked
+   all four meanings ("I have no clue?"): colour = filament slot, fuzzy skin / seam / support, modifier settings, mesh smoothing.
+   8a BUILT 2026-10-27: `ui/components/Scrubber.kt` (ScrubLabel / ScrubSlider / ScrubHud, pure ScrubGesture + JVM test): drag from a
+   setting label, left/right = value (whole range over 300 dp, step-snapped), up/down = previous/next scrubbable row of the panel
+   (first row after 40 dp, then every 48 dp; axis switches when the other axis builds up 40 dp); HUD lists the rows high over the
+   view. Wired: paint brush size / band height / crease / edge angle / guard Z / gap area / overhang angle, sculpt size + strength.
+   Claude-verified phone hidden display (debug): brush 3.0 -> 10.8 mm live, down-drag picked Gap area, right 1.0 -> 1.2. Open: user feel.
+   Next (8b): per-region edits on a picked region (E1 fill seed): one region, then colour / paint kinds / modifier / smoothing via scrub.
+   Ideas: show the brush ring at the view centre while scrubbing size; cut Z (step 9) as a scrub row.
 9. **Cut** (low priority): drag in view moves the plane, tap feature to cut, long-press face aligns plane, x-ray while placing.
 
 ## Original brain dump (moved from HANDOFF-BACKLOG.md 2026-10-26; keep every idea open)

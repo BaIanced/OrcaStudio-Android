@@ -3350,3 +3350,11 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
   (sphere 3 mm) drew the white ring with a dark border at the pen spot, gone after the pen left. Fill + Stop at edges on the gear bore
   (~16 facets): 11 deg filled one facet, slider to 30 deg re-grew it over the whole bore live, back to 11 deg shrank it to the one facet.
   Notes: on WSA a touch/mouse tap on the gear in Navigate didn't select it (Objects list row did); not chased. CI run 40454196356.
+
+## 2026-10-27 Step 8a gesture scrubber
+- User answers (chat 2026-10-27): scrub starts by holding a setting chip; region edits = all four (colour slot, fuzzy/seam/support,
+  modifier settings, mesh smoothing; "I have no clue?", leanings only).
+- Built `ui/components/Scrubber.kt` + ScrubGestureTest (4/4). Claude-verified on the phone hidden display (local debug build, support
+  paint panel on a handle part): drag right from "Brush 3.0 mm" -> HUD "Brush 10.8 mm" mid-drag; held drag down then right picked
+  "Gap area" (chip highlighted) and moved 1.0 -> 1.2 mm2. Phone was asleep at first: injected taps dropped until WAKEUP (user OK'd waking).
+  WSA debug skipped: it takes taps only when focused. Debug apps uninstalled from WSA and the phone.

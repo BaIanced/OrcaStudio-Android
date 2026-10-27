@@ -35,10 +35,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   Tests: `wsa-pen-hover.sh`, `wsa-steer-test.sh`, `input mouse tap`, measure = `input keyevent 49`, MCP `view_state` (`MAX=3000`).**
 - **No WSA focus loops (user 2026-10-26: "your testing keeps stealing my window focus"):** no `focus.ps1`/`tapf.sh`/`keys.ps1` in loops;
   touch/hold tests on the phone's hidden display. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
-- Step 7 (a2b67f7) Claude-verified WSA debug 2026-10-26 (overhangs, brush ring, live re-fill; archive). CI r436 installed.
-- Step 8 (gesture scrubber E5 + per-region edits) open questions asked in chat 2026-10-26: where a free one-finger drag lives in tool
-  modes (Paint drags off the object orbit, user r325) and what "material / smoothing" per region means. Use the user's answer if logged.
-- Next step: step 8 gesture scrubber design + build -> Opus 5.5 (high)
+- Step 8a gesture scrubber (hold a setting chip, drag: left/right value, up/down row; `ui/components/Scrubber.kt`) built +
+  Claude-verified phone VD debug 2026-10-27, **pushed, no CI build yet** (batch with 8b). User answers 2026-10-27 in NOTES step 8.
+- 8b per-region edits: pick one region (E1 fill seed), then colour / fuzzy-seam-support / modifier / smoothing on it (user picked all 4).
+- Next step: step 8b per-region edits design + build -> Opus 5.5 (high)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).

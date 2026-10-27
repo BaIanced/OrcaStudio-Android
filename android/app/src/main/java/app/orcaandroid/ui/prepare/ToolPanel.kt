@@ -2,6 +2,8 @@ package app.orcaandroid.ui.prepare
 
 import app.orcaandroid.ui.SCULPT_MAX_MM
 import app.orcaandroid.ui.SCULPT_MIN_MM
+import app.orcaandroid.ui.components.ScrubLabel
+import app.orcaandroid.ui.components.ScrubSlider
 import androidx.compose.foundation.Canvas
 import kotlinx.coroutines.delay
 import androidx.compose.ui.text.style.TextOverflow
@@ -198,13 +200,14 @@ private fun SculptOptions(vm: AppViewModel, tool: Tool.Sculpt) {
             FilterChip(tool.brush == brush, { vm.scene.setTool(tool.copy(brush = brush)) }, label = { Text(stringResource(label)) })
         }
     }
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(stringResource(R.string.brush_size, tool.radius), style = MaterialTheme.typography.bodySmall)
-        Slider(tool.radius, { vm.scene.setTool(tool.copy(radius = it)) }, valueRange = SCULPT_MIN_MM..SCULPT_MAX_MM, modifier = Modifier.weight(1f).padding(start = 8.dp))
+    ScrubSlider("sculpt_size", { stringResource(R.string.brush_size, it) }, tool.radius, SCULPT_MIN_MM..SCULPT_MAX_MM, 0.1f) {
+        vm.scene.setTool(tool.copy(radius = it))
     }
     // Grab moves what is under the finger by the drag, so it has no strength or direction.
     if (tool.brush != "grab") Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(stringResource(R.string.sculpt_strength, (tool.strength * 100).roundToInt()), style = MaterialTheme.typography.bodySmall)
+        ScrubLabel("sculpt_strength", { stringResource(R.string.sculpt_strength, (it * 100).roundToInt()) }, tool.strength, 0.05f..1f, 0.01f) {
+            vm.scene.setTool(tool.copy(strength = it))
+        }
         Slider(tool.strength, { vm.scene.setTool(tool.copy(strength = it)) }, valueRange = 0.05f..1f, modifier = Modifier.weight(1f).padding(start = 8.dp))
         if (tool.brush != "smooth")
             FilterChip(tool.invert, { vm.scene.setTool(tool.copy(invert = !tool.invert)) }, label = { Text(stringResource(R.string.sculpt_invert)) },
@@ -245,21 +248,11 @@ private fun PaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Paint) {
         }
     }
     val brush = tool.shape == "sphere" || tool.shape == "circle"
-    if (brush) Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(stringResource(R.string.brush_size, tool.radius), style = MaterialTheme.typography.bodySmall)
-        Slider(tool.radius, { vm.scene.setTool(tool.copy(radius = it)) }, valueRange = 0.5f..15f, modifier = Modifier.weight(1f).padding(start = 8.dp))
-    }
-    if (tool.shape == "height") Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(stringResource(R.string.paint_height_range, tool.height), style = MaterialTheme.typography.bodySmall)
-        Slider(tool.height, { vm.scene.setTool(tool.copy(height = it)) }, valueRange = 0.1f..8f, modifier = Modifier.weight(1f).padding(start = 8.dp))
-    }
+    if (brush) BrushSize(vm, tool)
+    if (tool.shape == "height") BandHeight(vm, tool)
     if (tool.shape == "pick") Text(stringResource(R.string.paint_pick_hint), style = MaterialTheme.typography.bodySmall)
     // Regions view: the model split at its creases (outlined); a tap fills one region over any colour.
-    if (tool.shape == "regions") Row(verticalAlignment = Alignment.CenterVertically) {
-        val angle = tool.edgeAngle.takeIf { it > 0f } ?: 30f
-        Text(stringResource(R.string.paint_crease_angle, angle.roundToInt()), style = MaterialTheme.typography.bodySmall)
-        Slider(angle, { vm.scene.setTool(tool.copy(edgeAngle = it)) }, valueRange = 5f..89f, modifier = Modifier.weight(1f).padding(start = 8.dp))
-    }
+    if (tool.shape == "regions") CreaseAngle(vm, tool)
     // One-tap actions on the whole object. Clean specks = the desktop's gap fill: painted patches under the area take the
     // state that borders them most. Colour each part: every separate shell gets its own filament, largest first.
     if (tool.kind == "color" || tool.kind == "support") CleanSpecks(vm, tool)
@@ -277,13 +270,11 @@ private fun PaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Paint) {
             if (brush) FilterChip(tool.overhang > 0f, { vm.scene.setTool(tool.copy(overhang = if (tool.overhang > 0f) 0f else overhang)) },
                 label = { Text(stringResource(R.string.paint_overhangs_only)) })
         }
-        if (tool.highlight > 0f || (brush && tool.overhang > 0f)) Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.paint_overhang_angle, overhang.roundToInt()), style = MaterialTheme.typography.bodySmall)
-            Slider(overhang, {
+        if (tool.highlight > 0f || (brush && tool.overhang > 0f))
+            ScrubSlider("paint_overhang", { stringResource(R.string.paint_overhang_angle, it.roundToInt()) }, overhang, 1f..90f, 1f) {
                 overhang = it
                 vm.scene.setTool(tool.copy(overhang = if (tool.overhang > 0f) it else 0f, highlight = if (tool.highlight > 0f) it else 0f))
-            }, valueRange = 1f..90f, modifier = Modifier.weight(1f).padding(start = 8.dp))
-        }
+            }
     }
     TextButton(onClick = { vm.scene.paintClear(tool.kind) }) { Text(stringResource(R.string.clear_painting)) }
 }
@@ -417,10 +408,7 @@ internal fun ColorPaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Pain
                     FilterChip(shape == s, { vm.scene.setTool(tool.copy(shape = s, back = s, brushShape = s)) }, label = { Text(stringResource(paintShapeLabel(s))) })
                 }
             }
-            if (shape != "triangle") Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.brush_size, tool.radius), style = MaterialTheme.typography.bodySmall)
-                Slider(tool.radius, { vm.scene.setTool(tool.copy(radius = it)) }, valueRange = 0.5f..15f, modifier = Modifier.weight(1f).padding(start = 8.dp))
-            }
+            if (shape != "triangle") BrushSize(vm, tool)
             if (shape != "triangle") { EdgeRow(vm, tool); StrokeLock(vm, tool) }
             GuardRow(state, vm, tool)
         }
@@ -432,18 +420,11 @@ internal fun ColorPaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Pain
                     vm.scene.setTool(tool.copy(shape = "regions", back = "regions", fillShape = "regions", edgeAngle = if (tool.edgeAngle <= 0f) 30f else tool.edgeAngle))
                 }, label = { Text(stringResource(R.string.paint_shape_regions)) })
             }
-            if (shape == "regions") Row(verticalAlignment = Alignment.CenterVertically) {
-                val angle = tool.edgeAngle.takeIf { it > 0f } ?: 30f
-                Text(stringResource(R.string.paint_crease_angle, angle.roundToInt()), style = MaterialTheme.typography.bodySmall)
-                Slider(angle, { vm.scene.setTool(tool.copy(edgeAngle = it)) }, valueRange = 5f..89f, modifier = Modifier.weight(1f).padding(start = 8.dp))
-            } else { EdgeRow(vm, tool); OverColours(vm, tool) }
+            if (shape == "regions") CreaseAngle(vm, tool) else { EdgeRow(vm, tool); OverColours(vm, tool) }
             GuardRow(state, vm, tool)
         }
         "bands" -> {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.paint_height_range, tool.height), style = MaterialTheme.typography.bodySmall)
-                Slider(tool.height, { vm.scene.setTool(tool.copy(height = it)) }, valueRange = 0.1f..8f, modifier = Modifier.weight(1f).padding(start = 8.dp))
-            }
+            BandHeight(vm, tool)
             GuardRow(state, vm, tool)
         }
         else -> {
@@ -568,10 +549,25 @@ private fun CleanSpecks(vm: AppViewModel, tool: Tool.Paint) {
     var gapArea by rememberSaveable { mutableFloatStateOf(1f) }
     Row(verticalAlignment = Alignment.CenterVertically) {
         FilledTonalButton(onClick = { vm.scene.paintGapFill(tool.kind, gapArea, tool.locked) }) { Text(stringResource(R.string.paint_clean_specks)) }
-        Text(stringResource(R.string.paint_gap_area, gapArea), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 8.dp))
+        ScrubLabel("paint_gap_area", { stringResource(R.string.paint_gap_area, it) }, gapArea, 0.1f..5f, 0.1f, Modifier.padding(start = 8.dp)) { gapArea = it }
         Slider(gapArea, { gapArea = it }, valueRange = 0.1f..5f, modifier = Modifier.weight(1f).padding(start = 8.dp))
     }
 }
+
+/** The paint brush's size; with the crease angle and band height also scrubbable from the label (step 8, E5). */
+@Composable
+private fun BrushSize(vm: AppViewModel, tool: Tool.Paint) =
+    ScrubSlider("paint_size", { stringResource(R.string.brush_size, it) }, tool.radius, 0.5f..15f, 0.1f) { vm.scene.setTool(tool.copy(radius = it)) }
+
+@Composable
+private fun BandHeight(vm: AppViewModel, tool: Tool.Paint) =
+    ScrubSlider("paint_height", { stringResource(R.string.paint_height_range, it) }, tool.height, 0.1f..8f, 0.1f) { vm.scene.setTool(tool.copy(height = it)) }
+
+@Composable
+private fun CreaseAngle(vm: AppViewModel, tool: Tool.Paint) =
+    ScrubSlider("paint_crease", { stringResource(R.string.paint_crease_angle, it.roundToInt()) }, tool.edgeAngle.takeIf { it > 0f } ?: 30f, 5f..89f, 1f) {
+        vm.scene.setTool(tool.copy(edgeAngle = it))
+    }
 
 /** Edge detection (brush) / smart fill angle (fill): the angle stays remembered while it is off. */
 @Composable
@@ -581,8 +577,8 @@ private fun EdgeRow(vm: AppViewModel, tool: Tool.Paint) {
         FilterChip(tool.edgeAngle > 0f, { vm.scene.setTool(tool.copy(edgeAngle = if (tool.edgeAngle > 0f) 0f else edgeAngle)) },
             label = { Text(stringResource(R.string.paint_stop_at_edges)) })
         if (tool.edgeAngle > 0f) {
-            Text(stringResource(R.string.paint_edge_angle, tool.edgeAngle.roundToInt()), style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(start = 8.dp))
+            ScrubLabel("paint_edge", { stringResource(R.string.paint_edge_angle, it.roundToInt()) }, tool.edgeAngle, 5f..89f, 1f,
+                Modifier.padding(start = 8.dp)) { edgeAngle = it; vm.scene.setTool(tool.copy(edgeAngle = it)) }
             Slider(tool.edgeAngle, { edgeAngle = it; vm.scene.setTool(tool.copy(edgeAngle = it)) }, valueRange = 5f..89f,
                 modifier = Modifier.weight(1f).padding(start = 8.dp))
         }
@@ -604,7 +600,8 @@ private fun GuardRow(state: UiState, vm: AppViewModel, tool: Tool.Paint) {
             vm.scene.setTool(tool.copy(guardOn = !tool.guardOn, guardZ = if (tool.guardZ in range) tool.guardZ else inst.min.z + inst.size.z / 2))
         }, label = { Text(stringResource(R.string.paint_guard)) })
         if (tool.guardOn) {
-            Text(stringResource(R.string.paint_guard_z, tool.guardZ), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 8.dp))
+            ScrubLabel("paint_guard", { stringResource(R.string.paint_guard_z, it) }, tool.guardZ.coerceIn(range), range, 0.1f,
+                Modifier.padding(start = 8.dp)) { vm.scene.setTool(tool.copy(guardZ = it)) }
             Slider(tool.guardZ.coerceIn(range), { vm.scene.setTool(tool.copy(guardZ = it)) }, valueRange = range,
                 modifier = Modifier.weight(1f).padding(start = 8.dp))
         }

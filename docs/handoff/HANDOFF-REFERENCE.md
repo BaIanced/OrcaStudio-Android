@@ -10,6 +10,7 @@ Nothing pending lives here: open / untested items stay in `HANDOFF.md`.
 headless display below instead (no takeover needed). Don't drive WSA's own window while the user uses the PC.
 
 ### Headless display (`~/orca-android-tools/orca-vd.sh`, verified 2026-10-19 on the old phone)
+- **Phone asleep (Dozing) = injected taps/swipes are dropped** (2026-10-27; the app also pauses on wake): ask, then `input keyevent WAKEUP`, `orca-vd.sh stop` + `start` again; `keyevent SLEEP` after. Multi-segment held drags on the phone VD: `su -c 'input touchscreen -d $LOGICAL motionevent DOWN|MOVE|UP x y'` (works there, unlike WSA).
 - 2026-10-19 current phone: first `start` failed (scrcpy "Device disconnected"), the retry worked (with `PKG=...debug`); retry once before falling back to the main screen. Pass `PKG` for the debug app.
 - `sh orca-vd.sh start|stop|status|shot <out.png> [w] [crop]|tap X Y|swipe x0 y0 x1 y1 [ms]|ui [out.xml]`. `start` opens a
   scrcpy `--new-display` (1080x2340/420, hidden, no PC window), launches the app there, retries until resumed, and saves
