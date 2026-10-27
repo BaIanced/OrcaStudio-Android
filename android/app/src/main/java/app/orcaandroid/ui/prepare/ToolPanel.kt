@@ -93,6 +93,8 @@ import app.orcaandroid.ui.AppViewModel
 import app.orcaandroid.ui.Tool
 import app.orcaandroid.ui.UiState
 import app.orcaandroid.ui.MeasurePoint
+import app.orcaandroid.ui.measureLock
+import app.orcaandroid.ui.measureLockColor
 import app.orcaandroid.ui.measureResult
 import app.orcaandroid.ui.components.hexToRgb
 import java.util.Locale
@@ -670,15 +672,19 @@ private fun MeasureOptions(state: UiState, vm: AppViewModel) {
         else -> {
             // The headline is what the two picks mean together: a face gap, a distance square to a face, else point to point.
             val r = measureResult(pts[0], pts[1])
+            val lock = measureLock(pts[0], pts[1], state.measureAxes, state.measureSteps || state.measureShift || state.measureShiftPlaced)
             val onBed = pts.any { it.kind == "bed" }
+            val rings = pts.all { it.kind == "ring" }
             val (head, caption) = when {
                 r.gap != null -> r.gap to stringResource(if (onBed) R.string.measure_to_bed else R.string.measure_gap)
                 r.toPlane != null -> r.toPlane to stringResource(if (onBed) R.string.measure_to_bed else R.string.measure_to_face)
-                pts.all { it.kind == "ring" } -> r.distance to stringResource(R.string.measure_centres)
+                lock != null && lock.axis >= 0 -> lock.along to stringResource(if (rings) R.string.measure_along_centres else R.string.measure_along_axis, "XYZ"[lock.axis].toString())
+                lock != null -> lock.along to stringResource(R.string.measure_along_step, "%.0f".format(Locale.ROOT, lock.elevation), "%.0f".format(Locale.ROOT, lock.azimuth))
+                rings -> r.distance to stringResource(R.string.measure_centres)
                 else -> r.distance to null
             }
             Text(stringResource(R.string.measure_points, measureKindLabel(pts[0]), measureKindLabel(pts[1])), style = MaterialTheme.typography.bodySmall)
-            Text("%.2f mm".format(Locale.ROOT, head), style = MaterialTheme.typography.headlineSmall)
+            Text("%.2f mm".format(Locale.ROOT, head), style = MaterialTheme.typography.headlineSmall, color = lock?.let { measureLockColor(it.axis) } ?: Color.Unspecified)
             caption?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
             if (head != r.distance) Text(stringResource(R.string.measure_straight, "%.2f".format(Locale.ROOT, r.distance)), style = MaterialTheme.typography.bodySmall)
             r.angle?.let { Text(stringResource(R.string.measure_angle, "%.1f".format(Locale.ROOT, it)), style = MaterialTheme.typography.bodySmall) }
@@ -689,6 +695,10 @@ private fun MeasureOptions(state: UiState, vm: AppViewModel) {
         Checkbox(state.measureSnap, { vm.scene.setMeasureSnap(it) }); Text(stringResource(R.string.measure_snap_toggle))
         Spacer(Modifier.weight(1f))
         if (pts.isNotEmpty()) TextButton(onClick = { vm.scene.setTool(Tool.Measure) }) { Text(stringResource(R.string.reset)) }
+    }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Checkbox(state.measureAxes, { vm.scene.setMeasureAxes(it) }); Text(stringResource(R.string.measure_axes_toggle))
+        Checkbox(state.measureSteps || state.measureShift, { vm.scene.setMeasureSteps(it) }); Text(stringResource(R.string.measure_steps_toggle))
     }
 }
 

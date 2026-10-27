@@ -207,6 +207,9 @@ class MainActivity : ComponentActivity() {
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (event.keyCode == KeyEvent.KEYCODE_BACK && event.isFromSource(android.view.InputDevice.SOURCE_MOUSE) &&
             !onBackPressedDispatcher.hasEnabledCallbacks()) return true
+        // Measure: Shift held = 15° steps for the line (watched here, so it counts whatever has focus).
+        if (event.keyCode == KeyEvent.KEYCODE_SHIFT_LEFT || event.keyCode == KeyEvent.KEYCODE_SHIFT_RIGHT)
+            vm.scene.setMeasureShift(event.action == KeyEvent.ACTION_DOWN && vm.state.value.tool == Tool.Measure)
         if (event.isCtrlPressed && android.util.Log.isLoggable("OrcaInput", android.util.Log.DEBUG))
             android.util.Log.d("OrcaInput", "key ${event.action} ${event.keyCode} meta=${event.metaState} viewFocused=$viewFocused")
         // Android offers Ctrl keys as shortcuts only when normal dispatch leaves them unused, and

@@ -122,6 +122,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var previewRange = PreviewRange()
     /** Measurement points (world), drawn as markers and a connecting line. */
     var measurePoints: List<FloatArray> = emptyList()
+    /** The measure line's lock: B's foot on the locked line through A (x, y, z) and the lock colour (r, g, b), or null (no lock). */
+    var measureLock: FloatArray? = null
     /** Sculpt brush ring: centre x, y, z, surface normal x, y, z, radius (world mm), or null. */
     var brushCursor: FloatArray? = null
     /** Height of the cut plane preview for the selected object's bounds (x0,y0,x1,y1,z), or null. */
@@ -460,7 +462,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
 
     /** Everything the Preview frame depends on (data classes compare by value, arrays by identity unless listed). */
     private fun superKey(): List<Any?> = listOf(mvp.toList(), viewW, viewH, previewVersion, previewStyle, previewRange,
-        previewOrigin.toList(), section?.toList(), filamentColors, colors, measurePoints.map { it.toList() }, cutPlane?.toList(), cutDisc?.toList(),
+        previewOrigin.toList(), section?.toList(), filamentColors, colors, measurePoints.map { it.toList() }, measureLock?.toList(), cutPlane?.toList(), cutDisc?.toList(),
         bedCount, plateOrigins, activePlate, badgeCount, atlas, gridRect?.toList())
 
     private fun drawScene() {
@@ -1405,8 +1407,34 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glDepthRangef(0f, 1f)
     }
 
+    /**
+     * The measure line over everything, wide over a dark border (GL line width is 1 px on some GPUs): white from A to B, or
+     * locked: A to B's foot on the locked line in the lock colour, and a thin dashed offset from the foot to B.
+     */
+    private fun drawMeasureLine() {
+        if (measurePoints.size < 2) return
+        val a = measurePoints[0]
+        val b = measurePoints[1]
+        val dark = floatArrayOf(0.05f, 0.05f, 0.06f)
+        glDisable(GL_DEPTH_TEST)
+        val lock = measureLock
+        if (lock == null) {
+            val seg = a + b
+            drawWideLines(seg, 5f * density, dark, section = false)
+            drawWideLines(seg, 2f * density, floatArrayOf(0.95f, 0.95f, 0.95f), section = false)
+        } else {
+            val foot = lock.copyOfRange(0, 3)
+            val main = a + foot
+            val offset = foot + b
+            drawWideLines(offset, 1.5f * density, floatArrayOf(0.8f, 0.8f, 0.8f), dash = 5f * density, section = false)
+            drawWideLines(main, 6f * density, dark, section = false)
+            drawWideLines(main, 3f * density, lock.copyOfRange(3, 6), section = false)
+        }
+        glEnable(GL_DEPTH_TEST)
+    }
+
     /** [data]: segments (x, y, z per end, world) drawn [width] px wide in [color] with WIDE_LINE_VS, in the current depth state; [dash] > 0: dashes and gaps that long (px). */
-    private fun drawWideLines(data: FloatArray, width: Float, color: FloatArray, dash: Float = 0f) {
+    private fun drawWideLines(data: FloatArray, width: Float, color: FloatArray, dash: Float = 0f, section: Boolean = true) {
         val segs = data.size / 6
         val v = FloatArray(segs * 6 * 7)
         var o = 0
@@ -1430,7 +1458,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glUniform1f(loc(wideLineProgram, "uWidth"), width * pxScale)
         glUniform3f(loc(wideLineProgram, "uColor"), color[0], color[1], color[2])
         glUniform1f(loc(wideLineProgram, "uDash"), dash * pxScale)
-        setSection(wideLineProgram)
+        setSection(wideLineProgram, on = section)
         glBindBuffer(GL_ARRAY_BUFFER, scratchVbo)
         glBufferData(GL_ARRAY_BUFFER, v.size * 4, floats(v), GL_STREAM_DRAW)
         glEnableVertexAttribArray(0)
@@ -1473,8 +1501,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         drawBrushCursor()
         drawCutDisc()
         if (cutRings != null) drawCutRings()
+        drawMeasureLine()
         val lines = ArrayList<Float>()
-        if (measurePoints.size >= 2) measurePoints.take(2).forEach { lines += it.toList() }
         cutPlane?.let { c ->
             val x0 = c[0]; val y0 = c[1]; val x1 = c[2]; val y1 = c[3]; val z = c[4]
             listOf(x0 to y0, x1 to y0, x1 to y0, x1 to y1, x1 to y1, x0 to y1, x0 to y1, x0 to y0).forEach { (x, y) -> lines += listOf(x, y, z) }

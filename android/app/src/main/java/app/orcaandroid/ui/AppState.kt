@@ -234,6 +234,13 @@ data class UiState(
     val measure: List<MeasurePoint> = emptyList(),
     /** Measure tool: points snap to corners and edges (off: the bare hit; Alt held does the same for one click). */
     val measureSnap: Boolean = true,
+    /** Measure tool: a line near the X, Y or Z axis locks to it (measured along it, in the axis colour). */
+    val measureAxes: Boolean = true,
+    /** Measure tool: the line locks to 15° steps (the touch toggle; Shift held does the same). */
+    val measureSteps: Boolean = false,
+    /** Measure tool: Shift held now, and whether it was held when the second point went down (that pair keeps its steps). */
+    val measureShift: Boolean = false,
+    val measureShiftPlaced: Boolean = false,
     /** Measure tool, loupe up (finger held, or a mouse / pen hovering): the aim spot, and the point (snapped, with how) the dot sits on. */
     val loupe: Loupe? = null,
     val layerProfile: LayerProfile? = null,
@@ -311,6 +318,16 @@ data class UiState(
 
     val selectedObject get() = selection?.let { scene.objects.getOrNull(it.obj) }
 
+    /**
+     * The measure line's two ends as drawn (the last placed point and the loupe's preview, else the two placed points)
+     * and the direction it locks to, if any.
+     */
+    val measureLine: Triple<MeasurePoint, MeasurePoint, MeasureLock?>? get() {
+        val (a, b) = (measure + listOfNotNull(loupe?.preview)).takeLast(2).takeIf { it.size == 2 } ?: return null
+        val steps = measureSteps || measureShift || (loupe?.preview == null && measureShiftPlaced)
+        return Triple(a, b, measureLock(a, b, measureAxes, steps))
+    }
+
     /** Every selected copy: the multi-selection, else the single selection. */
     val selectedItems: List<Selection> get() = multiSelection.ifEmpty { listOfNotNull(selection) }
 
@@ -356,4 +373,6 @@ data class UiState(
 /** A project came with filaments that differ from the app's: the user picks which slots to keep. */
 data class FilamentChoice(val current: List<app.orcaandroid.core.FilamentSlot>, val project: List<app.orcaandroid.core.FilamentSlot>)
 
-data class Loupe(val x: Float, val y: Float, val point: Vec3?, val snap: String?, val feature: app.orcaandroid.core.SnapFeature? = null)
+data class Loupe(val x: Float, val y: Float, val point: Vec3?, val snap: String?, val feature: app.orcaandroid.core.SnapFeature? = null,
+                 /** What a click here would place (a ring: its centre). */
+                 val preview: MeasurePoint? = null)

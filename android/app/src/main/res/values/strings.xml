@@ -292,6 +292,11 @@
     <string name="measure_straight">Straight line %1$s mm</string>
     <string name="measure_angle">Angle between the faces %1$s°</string>
     <string name="measure_snap_toggle">Snap to corners and edges</string>
+    <string name="measure_along_axis">Along %1$s</string>
+    <string name="measure_along_centres">Centre to centre, along %1$s</string>
+    <string name="measure_along_step">Along %1$s° up, %2$s° round from X</string>
+    <string name="measure_axes_toggle">Lock to X / Y / Z</string>
+    <string name="measure_steps_toggle">15° steps (Shift)</string>
     <string name="message">Message</string>
     <string name="mirror">Mirror</string>
     <string name="mode_advanced">Advanced</string>

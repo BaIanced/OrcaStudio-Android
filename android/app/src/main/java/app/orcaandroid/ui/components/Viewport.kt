@@ -55,6 +55,7 @@ import app.orcaandroid.render.ViewColors
 import app.orcaandroid.ui.AppViewModel
 import app.orcaandroid.ui.Screen
 import app.orcaandroid.ui.buildObject
+import app.orcaandroid.ui.measureLockColor
 import app.orcaandroid.ui.Selection
 import app.orcaandroid.ui.Tool
 import app.orcaandroid.ui.UiState
@@ -716,9 +717,13 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         val c = snapColor(f?.kind)
         v.onGl { snapLines = f?.lines; snapColor = floatArrayOf(c.red, c.green, c.blue) }
     }
-    LaunchedEffect(v, state.measure, state.loupe?.point) {
-        val pts = (state.measure.map { it.point } + listOfNotNull(state.loupe?.point)).takeLast(2).map { floatArrayOf(it.x, it.y, it.z) }
-        v.onGl { measurePoints = pts }
+    val measureLine = state.measureLine
+    LaunchedEffect(v, state.measure, state.loupe?.point, measureLine) {
+        // The line ends where a click would place B (a ring: its centre).
+        val pts = (state.measure.map { it.point } + listOfNotNull(state.loupe?.let { it.preview?.point ?: it.point })).takeLast(2)
+            .map { floatArrayOf(it.x, it.y, it.z) }
+        val lock = measureLine?.third?.let { l -> val c = measureLockColor(l.axis); floatArrayOf(l.foot.x, l.foot.y, l.foot.z, c.red, c.green, c.blue) }
+        v.onGl { measurePoints = pts; measureLock = lock }
     }
     LaunchedEffect(v, showPreview, result, state.preview, preview) {
         val p = state.preview

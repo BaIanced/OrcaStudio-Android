@@ -558,10 +558,13 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
                 app.orcaandroid.ui.Tool.Measure -> "measure, ${s.measure.size} point(s)" +
                     (s.loupe?.let { l -> " (loupe at ${l.x.toInt()},${l.y.toInt()}: ${l.feature?.kind ?: "nothing"})" } ?: "") + s.measure.joinToString("") { m ->
                     " [${m.kind}${m.diameter?.let { d -> " D ${n(d.toDouble())}" } ?: ""} at ${n(m.point.x.toDouble())}, ${n(m.point.y.toDouble())}, ${n(m.point.z.toDouble())}]"
-                } + if (s.measure.size == 2) app.orcaandroid.ui.measureResult(s.measure[0], s.measure[1]).let { r ->
+                } + (if (s.measure.size == 2) app.orcaandroid.ui.measureResult(s.measure[0], s.measure[1]).let { r ->
                     ": distance ${n(r.distance.toDouble())} mm" + (r.gap?.let { ", gap ${n(it.toDouble())} mm" } ?: "") +
                         (r.toPlane?.let { ", to plane ${n(it.toDouble())} mm" } ?: "") + (r.angle?.let { ", angle ${n(it.toDouble())} deg" } ?: "")
-                } else ""
+                } else "") + (s.measureLine?.third?.let { l ->
+                    "; line locks to " + (if (l.axis >= 0) "XYZ"[l.axis].toString() else "${n(l.elevation.toDouble())} deg up, ${n(l.azimuth.toDouble())} deg round") +
+                        ", along ${n(l.along.toDouble())} mm"
+                } ?: "")
                 is app.orcaandroid.ui.Tool.Cut -> "cut at Z ${n(tool.z.toDouble())} mm, tilt ${n(app.orcaandroid.render.CutPlane.tilt(tool.rot).toDouble())} deg"
                 app.orcaandroid.ui.Tool.LayerHeight -> "variable layer height"
             })

@@ -84,4 +84,54 @@ class MeasureTest {
         assertNull(MeasurePoint.ringOf(FloatArray(0)))
         assertNotNull(MeasurePoint.ringOf(ring(Vec3.ZERO, 1f, 8)))
     }
+
+    @Test fun axisLockNearAnAxis() {
+        val a = Vec3(1f, 2f, 3f)
+        // 5 degrees off vertical: locks to Z, measured along it, B's foot straight above A.
+        val t = Math.toRadians(5.0)
+        val b = a + Vec3((10 * sin(t)).toFloat(), 0f, (10 * cos(t)).toFloat())
+        val lock = measureLock(a, b, axes = true, steps = false)!!
+        assertEquals(2, lock.axis)
+        assertEquals((10 * cos(t)).toFloat(), lock.along, 1e-4f)
+        assertEquals(a.x, lock.foot.x, 1e-5f); assertEquals(b.z, lock.foot.z, 1e-5f)
+        // Downwards along -Y: still Y, a positive length.
+        val y = measureLock(a, a + Vec3(0.5f, -20f, 0f), axes = true, steps = false)!!
+        assertEquals(1, y.axis); assertEquals(20f, y.along, 1e-4f)
+        // 12 degrees off: no lock; the toggle off: none either.
+        val u = Math.toRadians(12.0)
+        assertNull(measureLock(a, a + Vec3((10 * cos(u)).toFloat(), (10 * sin(u)).toFloat(), 0f), axes = true, steps = false))
+        assertNull(measureLock(a, b, axes = false, steps = false))
+        assertNull(measureLock(a, a, axes = true, steps = true))
+    }
+
+    @Test fun angleStepsLockToFifteenDegrees() {
+        val a = Vec3.ZERO
+        // Flat, 47 degrees round: 45 degree step (no axis), measured along it.
+        val t = Math.toRadians(47.0)
+        val lock = measureLock(a, Vec3((10 * cos(t)).toFloat(), (10 * sin(t)).toFloat(), 0f), axes = true, steps = true)!!
+        assertEquals(-1, lock.axis)
+        assertEquals(45f, lock.azimuth, 1e-3f); assertEquals(0f, lock.elevation, 1e-3f)
+        assertEquals((10 * cos(Math.toRadians(2.0))).toFloat(), lock.along, 1e-4f)
+        // 31 degrees up: the 30 degree elevation step.
+        val e = Math.toRadians(31.0)
+        assertEquals(30f, measureLock(a, Vec3((10 * cos(e)).toFloat(), 0f, (10 * sin(e)).toFloat()), axes = false, steps = true)!!.elevation, 1e-3f)
+        // A step that lands on an axis takes its colour: -X (azimuth 180) and straight down.
+        assertEquals(0, measureLock(a, Vec3(-10f, 0.5f, 0f), axes = false, steps = true)!!.axis)
+        assertEquals(2, measureLock(a, Vec3(0.3f, 0f, -10f), axes = false, steps = true)!!.axis)
+    }
+
+    @Test fun planesDontLock() {
+        val a = MeasurePoint(Vec3.ZERO, "vertex")
+        val b = MeasurePoint(Vec3(0f, 0f, 10f), "vertex")
+        assertNotNull(measureLock(a, b, axes = true, steps = false))
+        assertNull(measureLock(a, face(Vec3(0f, 0f, 10f), up), axes = true, steps = false))
+        assertNull(measureLock(MeasurePoint.bed(Vec3.ZERO), b, axes = true, steps = true))
+        // Two bed spots (one plane): no gap of 0, point to point, and the line locks (here along X).
+        val beds = MeasurePoint.bed(Vec3.ZERO) to MeasurePoint.bed(Vec3(30f, 1f, 0f))
+        val r = measureResult(beds.first, beds.second)
+        assertNull(r.gap); assertNull(r.toPlane)
+        assertEquals(0, measureLock(beds.first, beds.second, axes = true, steps = false)!!.axis)
+        // A corner on the face it bounds: no square distance of 0 either.
+        assertNull(measureResult(face(Vec3.ZERO, up), MeasurePoint(Vec3(5f, 0f, 0f), "vertex")).toPlane)
+    }
 }

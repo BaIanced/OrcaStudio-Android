@@ -351,7 +351,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
                 store.update { it.withSelected(listOf(Selection(hit.obj, hit.instance))).copy(tool = Tool.None) }
             }
             Tool.Measure -> (hit?.let { MeasurePoint.of(it) } ?: bed?.let { MeasurePoint.bed(it) })?.let { m ->
-                store.update { st -> st.copy(measure = (st.measure + m).takeLast(2)) }
+                store.update { st -> st.copy(measure = (st.measure + m).takeLast(2), measureShiftPlaced = st.measureShift) }
             }
             else -> store.update { st ->
                 when {
@@ -404,6 +404,9 @@ class SceneController(private val store: Store, private val presets: PresetContr
     fun closeContextMenu() = store.update { it.copy(contextMenu = null) }
 
     fun setMeasureSnap(on: Boolean) = store.update { it.copy(measureSnap = on) }
+    fun setMeasureAxes(on: Boolean) = store.update { it.copy(measureAxes = on) }
+    fun setMeasureSteps(on: Boolean) = store.update { it.copy(measureSteps = on) }
+    fun setMeasureShift(held: Boolean) { if (store.value.measureShift != held) store.update { it.copy(measureShift = held) } }
 
     /** Turns corner resizing of the lone selected copy on, or off when it is already on. */
     fun toggleResize() = store.update {
@@ -472,10 +475,11 @@ class SceneController(private val store: Store, private val presets: PresetContr
                 android.util.Log.d("SNAPDBG", "phase $phase snap ${hit?.snap} feature ${hit?.feature?.kind} d ${hit?.feature?.diameter} at ${hit?.point}")
             if (phase == 2) {
                 val m = hit?.let { MeasurePoint.of(it) } ?: bed?.let { MeasurePoint.bed(it) }
-                store.update { st -> st.copy(loupe = null, measure = if (m != null) (st.measure + m).takeLast(2) else st.measure) }
+                store.update { st -> st.copy(loupe = null, measure = if (m != null) (st.measure + m).takeLast(2) else st.measure,
+                    measureShiftPlaced = if (m != null) st.measureShift else st.measureShiftPlaced) }
             } else if (loupeActive) {
-                val l = if (hit == null && bed != null) Loupe(x, y, bed, null, app.orcaandroid.core.SnapFeature("bed", FloatArray(0), null))
-                    else Loupe(x, y, hit?.point, hit?.snap, hit?.feature)
+                val l = if (hit == null && bed != null) Loupe(x, y, bed, null, app.orcaandroid.core.SnapFeature("bed", FloatArray(0), null), MeasurePoint.bed(bed))
+                    else Loupe(x, y, hit?.point, hit?.snap, hit?.feature, hit?.let { MeasurePoint.of(it) })
                 store.update { it.copy(loupe = l) }
             }
         }
