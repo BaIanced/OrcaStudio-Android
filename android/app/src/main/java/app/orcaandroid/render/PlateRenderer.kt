@@ -135,6 +135,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     /** Measure tool, while aiming: what the snap caught (x, y, z per end, world) and its colour (r, g, b). */
     var snapLines: FloatArray? = null
     var snapColor = floatArrayOf(0.3f, 0.85f, 0.35f)
+    /** Build workspace body drag: the edges the moved shapes stick to (x, y, z per end, world), amber over everything. */
+    var dragGuides: FloatArray? = null
     /**
      * Measure loupe (E3): aim x, y and the inset square (left, top, size; view px) that a 2nd render of the scene fills,
      * the same camera magnified [LOUPE_ZOOM] times around the aim, so it stays sharp at any zoom. Null = off.
@@ -558,7 +560,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
                 drawMesh(paintVbo, paintCount, pass = 2)
                 glDisable(GL_POLYGON_OFFSET_FILL)
             }
-            if (models) { drawCreases(); drawSnapLines(); drawMeshMarkers() }
+            if (models) { drawCreases(); drawSnapLines(); drawDragGuides(); drawMeshMarkers() }
             // Modifiers and support blockers/enforcers are drawn translucent on top.
             glEnable(GL_BLEND)
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
@@ -1462,6 +1464,15 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         drawWideLines(data, 2.5f * density, snapColor)
         glDepthFunc(GL_LESS)
         glDepthRangef(0f, 1f)
+    }
+
+    /** The body drag's snap guides ([dragGuides]): amber over a dark border, over everything (they lie on the plate under the shapes). */
+    private fun drawDragGuides() {
+        val data = dragGuides?.takeIf { it.isNotEmpty() } ?: return
+        glDisable(GL_DEPTH_TEST)
+        drawWideLines(data, 5f * density, floatArrayOf(0.05f, 0.05f, 0.06f), section = false)
+        drawWideLines(data, 2f * density, floatArrayOf(1f, 0.72f, 0.1f), section = false)
+        glEnable(GL_DEPTH_TEST)
     }
 
     /**

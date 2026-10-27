@@ -113,6 +113,9 @@ interface PlateListener {
 /** A plate's prime tower: its world bounding box. */
 class TowerBox(val plate: Int, val lo: Vec3, val hi: Vec3)
 
+/** A body drag's edge snap: the moved box ([lo], [hi]) and the boxes its edges stick to (plate mm). */
+class DragSnap(val lo: Vec3, val hi: Vec3, val others: List<Pair<Vec3, Vec3>>)
+
 @SuppressLint("ViewConstructor")
 class PlateView(context: Context) : GLSurfaceView(context) {
 
@@ -144,6 +147,11 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     private var moved = false
     private var dragging = false
     private var dragStart: Vec3? = null
+    /** Build workspace: body drags stick edges to the other shapes' (null = a free drag). */
+    var dragSnap: DragSnap? = null
+    /** World x / y the live body drag sticks to (null = none), to tick once per new snap. */
+    private var dragSnapX: Float? = null
+    private var dragSnapY: Float? = null
     /** Where the drag grabbed the selection's box (or tower): the drag plane goes through it. */
     private var dragAnchor: Vec3? = null
     private var lastFocusX = 0f
@@ -546,13 +554,9 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                             }
                         }
                         pushPending -> Unit
-                        dragging -> {
-                            val start = dragStart
-                            val now = dragAt(event.x, event.y)
-                            if (start != null && now != null) {
-                                val d = floatArrayOf(now.x - start.x, now.y - start.y, 0f)
-                                queueEvent { renderer.dragOffset = d }
-                            }
+                        dragging -> dragOffsetAt(event.x, event.y, event.metaState and KeyEvent.META_SHIFT_ON != 0)?.let { o ->
+                            val d = floatArrayOf(o.x, o.y, 0f)
+                            queueEvent { renderer.dragOffset = d }
                         }
                         // In resize mode the view holds still until the touch slop decides between resize and orbit
                         // (a corner resize also turned the camera ~1.5 degrees, WSA r305).
@@ -592,17 +596,17 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                     if (g != null) listener?.onPush(g, if (moved) pushMm else null, event.x, event.y, true)
                     if (!moved) tap(event.x, event.y, additive, part)
                 } else if (dragging) {
-                    val start = dragStart
-                    val end = dragAt(event.x, event.y)
-                    if (moved && start != null && end != null) {
+                    val o = dragOffsetAt(event.x, event.y, event.metaState and KeyEvent.META_SHIFT_ON != 0)
+                    clearDragGuides()
+                    if (moved && o != null) {
                         // The listener clears the drag offset once the moved scene is drawn; clearing it here
                         // made the object jump back to its old spot until the engine answered.
                         dragging = false
                         dragStart = null
                         val plate = towerPlate
                         towerPlate = -1
-                        if (plate >= 0) listener?.onTowerMoved(plate, end.x - start.x, end.y - start.y)
-                        else listener?.onMoved(end.x - start.x, end.y - start.y)
+                        if (plate >= 0) listener?.onTowerMoved(plate, o.x, o.y)
+                        else listener?.onMoved(o.x, o.y)
                     } else {
                         cancelDrag()
                         if (!moved) tap(event.x, event.y, additive, part)
@@ -867,9 +871,59 @@ class PlateView(context: Context) : GLSurfaceView(context) {
         pushPending = false
         dragCheckId++
         if (dragging) queueEvent { renderer.dragOffset = floatArrayOf(0f, 0f, 0f) }
+        clearDragGuides()
         dragging = false
         dragStart = null
         towerPlate = -1
+    }
+
+    /**
+     * The body drag's offset (mm) for the finger at (x, y): with [dragSnap], the moved box's edges stick (flush or aligned)
+     * to the other boxes' edges within about 10 dp, else whole mm (tenths with Shift), and amber guides show what lines up.
+     * Null when the ray misses the drag plane.
+     */
+    private fun dragOffsetAt(x: Float, y: Float, fine: Boolean): Vec3? {
+        val start = dragStart ?: return null
+        val now = dragAt(x, y) ?: return null
+        val s = dragSnap?.takeIf { towerPlate < 0 } ?: return Vec3(now.x - start.x, now.y - start.y, 0f)
+        val a = camera.project(start)
+        fun px(d: Vec3) = camera.project(start + d)?.let { e -> if (a == null) 0f else kotlin.math.hypot(e.first - a.first, e.second - a.second) }
+        val pxPerMm = max(px(Vec3(10f, 0f, 0f)) ?: 0f, px(Vec3(0f, 10f, 0f)) ?: 0f) / 10f
+        val reach = if (pxPerMm < 0.01f) 0f else 10 * resources.displayMetrics.density / pxPerMm
+        val step = if (fine) 0.1f else 1f
+        val (dx, sx) = ZRail.lift(now.x - start.x, s.lo.x, s.hi.x, s.others.flatMap { listOf(it.first.x, it.second.x) }, reach, step)
+        val (dy, sy) = ZRail.lift(now.y - start.y, s.lo.y, s.hi.y, s.others.flatMap { listOf(it.first.y, it.second.y) }, reach, step)
+        if ((sx != null || sy != null) && (sx != dragSnapX || sy != dragSnapY)) performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+        dragSnapX = sx; dragSnapY = sy
+        val g = snapGuides(s, dx, dy, sx, sy)
+        queueEvent { renderer.dragGuides = g }
+        return Vec3(dx, dy, 0f)
+    }
+
+    /** Amber lines along the edges the drag sticks to, from the moved box to the boxes it lines up with (null = none). */
+    private fun snapGuides(s: DragSnap, dx: Float, dy: Float, sx: Float?, sy: Float?): FloatArray? {
+        if (sx == null && sy == null) return null
+        val z = s.lo.z
+        val guide = ArrayList<Float>()
+        sx?.let { t ->
+            val hit = s.others.filter { abs(it.first.x - t) < 1e-3f || abs(it.second.x - t) < 1e-3f }
+            val y0 = minOf(s.lo.y + dy, hit.minOfOrNull { it.first.y } ?: Float.MAX_VALUE)
+            val y1 = maxOf(s.hi.y + dy, hit.maxOfOrNull { it.second.y } ?: -Float.MAX_VALUE)
+            guide += listOf(t, y0, z, t, y1, z)
+        }
+        sy?.let { t ->
+            val hit = s.others.filter { abs(it.first.y - t) < 1e-3f || abs(it.second.y - t) < 1e-3f }
+            val x0 = minOf(s.lo.x + dx, hit.minOfOrNull { it.first.x } ?: Float.MAX_VALUE)
+            val x1 = maxOf(s.hi.x + dx, hit.maxOfOrNull { it.second.x } ?: -Float.MAX_VALUE)
+            guide += listOf(x0, t, z, x1, t, z)
+        }
+        return guide.toFloatArray()
+    }
+
+    private fun clearDragGuides() {
+        if (dragSnapX == null && dragSnapY == null) return
+        dragSnapX = null; dragSnapY = null
+        queueEvent { renderer.dragGuides = null }
     }
 
     /** The drag's point under (x, y) on its plane (Camera.dragPoint), or on the bed without an anchor. */

@@ -3,6 +3,7 @@ package app.orcaandroid.ui
 import app.orcaandroid.R
 import app.orcaandroid.core.Instance
 import app.orcaandroid.core.Vec3
+import app.orcaandroid.render.DragSnap
 import app.orcaandroid.render.PushGrab
 import app.orcaandroid.render.RotateGizmo
 import app.orcaandroid.scad.Bounds
@@ -142,8 +143,28 @@ class ShapeController(private val store: Store, private val scad: ScadController
         val (inst, sel) = buildGizmoTarget() ?: return null
         val d = design ?: return null
         if (sel.first().id in d.shapes.map { it.id }) return null
-        val frame = d.parentFrame(sel.first().id)
-        val pts = sel.flatMap { s ->
+        return plateBox(d, inst, sel)
+    }
+
+    /**
+     * Build workspace: the selected shapes' plate box and the boxes of the shapes around them (the other top-level shapes and
+     * the selection's siblings in its group), for the main view's body-drag edge snap. Null without a lone copy or a selection.
+     */
+    fun buildSnapBoxes(): DragSnap? {
+        val (inst, sel) = buildGizmoTarget() ?: return null
+        val d = design ?: return null
+        // The selection and the groups that hold it move together: none of them is a target.
+        val moving = sel.flatMap { s -> d.pathTo(s.id).map { it.id } }.toSet()
+        val siblings = d.pathTo(sel.first().id).dropLast(1).lastOrNull()?.children.orEmpty()
+        val others = (d.shapes + siblings).filter { it.id !in moving }.distinctBy { it.id }
+        val (lo, hi) = plateBox(d, inst, sel)
+        return DragSnap(lo, hi, others.map { plateBox(d, inst, listOf(it)) })
+    }
+
+    /** The plate box of [shapes]' design boxes ([ShapeDesign.bounds], with their repeats), each in its group's frame, in copy [inst]. */
+    private fun plateBox(d: ShapeDesign, inst: Instance, shapes: List<Shape>): Pair<Vec3, Vec3> {
+        val pts = shapes.flatMap { s ->
+            val frame = d.parentFrame(s.id)
             val b = d.bounds(s)
             (0 until 8).map { k ->
                 val c = D3(if (k and 1 == 0) b.min.x else b.max.x, if (k and 2 == 0) b.min.y else b.max.y, if (k and 4 == 0) b.min.z else b.max.z)
