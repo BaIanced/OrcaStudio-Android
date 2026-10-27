@@ -14,7 +14,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 0170950 (PR #65, branch at r398, merged 2026-10-25). Untested by the user in main: Build workspace, paint shop/depth, Filament materials, Realistic render, UX P1-P6, Check mesh feel, 3MF export in desktop Orca, pen, fan hold, Extrude F150.
 - Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
-- Latest CI build r433 (run 40441746303, measure input types): building; r432 on WSA + SHIELD + phone + Chromebook. Install r433 on all adb devices (skip the .23 tablet: 32-bit, Android 6).
+- Latest CI build r434 (run 40445618859, measure axis lock): building; r433 on all 6 adb devices. Install r434 on all adb devices (skip the .23 tablet: 32-bit, Android 6).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
@@ -33,12 +33,13 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - CAD plan (`NOTES-cad-reuse.md`, accepted 2026-10-25): steps 0, 1a, 2a-2c, 3 deformers, 4 Smooth blend (stall fixed r429), 5a/5b
   sculpt: Claude-verified (archive); user feel untested for all. 1b (tap an edge) parked. Bands + 3MF export: user-verified 2026-10-26.
 - **Interaction plan (user GO 2026-10-26): `NOTES-interaction-plan.md`, 9 steps. Steps 1 snap highlight (r430), 2 snapping rules (r431),
-  3 measure results (r432), 4 input types (r433: mouse/pen exact + hover preview, click places, press drags a point; finger grab 1:1)
-  Claude-verified WSA debug (archive); user feel untested. Hover tests: `wsa-pen-hover.sh`, `input mouse tap|swipe`, `input touchscreen motionevent`.
-  Measure on WSA: `adb shell input keyevent 49`; points, results, loupe via MCP `view_state` (`MAX=3000`).**
+  3 measure results (r432), 4 input types (r433: mouse/pen exact + hover preview, click places, press drags a point; finger grab 1:1),
+  5 axis lock (r434: 8 deg to X/Y/Z, axis colour, along-axis headline; Shift / toggle = 15 deg steps)
+  Claude-verified WSA debug (archive); user feel untested. Tests: `wsa-pen-hover.sh`, `input mouse tap`, measure = `input keyevent 49`,
+  results via MCP `view_state` (`MAX=3000`).**
 - **No WSA focus loops (user 2026-10-26: "your testing keeps stealing my window focus"):** no `focus.ps1`/`tapf.sh`/`keys.ps1` in loops;
   touch/hold tests on the phone's hidden display. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
-- Next step: Interaction plan step 5 (axis inference: line locks near an axis with colour, Shift = 15 deg, touch toggle) -> Opus 5.5 (high)
+- Next step: Interaction plan step 6 (steered-point camera prototype behind a toggle, user vision; plan notes) -> Opus 5.5 (high)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).

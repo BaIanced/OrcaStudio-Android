@@ -3311,3 +3311,19 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
   loupe at view 734,456 = screen 824,495 (exact), gone after the pen left; mouse tap placed the vertex under the cursor; mouse swipe from
   it moved the point to the bed, camera unchanged; finger long press 5 px from the bed point grabbed it in place and moved it 1:1 onto
   the top corner. Untested: real S Pen, Quest, touchpad; user feel.
+
+## 2026-10-26: Interaction plan step 5, measure axis lock (Claude-verified WSA debug; CI r434)
+- `ui/Measure.kt` `measureLock`: a line within 8 deg (`AXIS_LOCK_DEG`) of X / Y / Z locks to it; 15 deg steps (`ANGLE_STEP_DEG`, azimuth
+  and elevation) with Shift held or the "15° steps" toggle. B is never moved: the headline is how far B lies along the locked direction
+  (after face gap / square-to-face, which keep priority; no lock then). Colours X red, Y green, Z blue, step magenta (`measureLockColor`).
+- UiState `measureAxes` (toggle "Lock to X / Y / Z", on), `measureSteps`, `measureShift` (MainActivity.dispatchKeyEvent watches Shift in
+  Measure), `measureShiftPlaced` (Shift held at placement keeps the steps for that pair), `measureLine` (last point + the loupe's
+  `preview` MeasurePoint, else the placed pair). Loupe gained `preview` (what a click places; a ring = its centre, the line ends there).
+- Renderer `drawMeasureLine`: wide line over a dark border (was a 1 px red GL line): white, or locked: A to B's foot in the lock colour +
+  thin dashed offset foot to B. MCP view_state adds `; line locks to X, along N mm`.
+- Fix found on the way: two bed spots (or a point on its own face) showed "Height above the bed 0.00 mm"; square distances under 0.01 mm
+  (`MEASURE_IN_PLANE_MM`) now fall back to point to point (and can lock). MeasureTest 10/10 (3 new).
+- WSA debug (gear): ring centre to a tooth 3.2 deg off X: red line, "Along X 39.32 mm" (= dX); tooth at 37 deg: no lock; toggle on:
+  magenta, "Along 0° up, 210° round from X 42.64 mm" (217 deg line); pen hover over the X tooth: the live preview line locks red.
+  Untested: Shift held with a real keyboard; Y / Z lock on a part (logic + tests only); user feel. Note: the measure panel's
+  toggle rows move as the result lines change (pre-existing layout).

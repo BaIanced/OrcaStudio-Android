@@ -22,7 +22,8 @@ tuning rounds = rethink; compile locally; Claude-verify on WSA, user feel open a
 4. **Input types** BUILT 2026-10-26 (archive, r433): mouse / pen = exact (no lift), hover previews the snap (loupe + highlight), click places what the
    hover showed, press on a placed point (12 dp) drags it (no camera); finger keeps the 56 dp lift, a long press on a placed point (40 dp of the finger
    or its aim) keeps the point's spot and moves it 1:1. Open: sharp magnified loupe (E3, 2nd view) not built; real S Pen tap; Quest pointer; user feel.
-5. **Axis inference**: line locks near an axis with colour; Shift = 15 deg steps; touch = toggle.
+5. **Axis inference** BUILT 2026-10-26 (archive, r434): within 8 deg of X / Y / Z the line locks (axis colour, headline = along it, B not moved);
+   Shift or the 15° toggle = 15 deg steps (magenta); "Lock to X / Y / Z" toggle. Open: real Shift, Y / Z on a part, user feel.
 6. **Steered-point camera (user vision, E3 + E4)**: finger steers the point, camera follows, drag speed = zoom (zoom-in slower than out), 2nd finger = freeze;
    prototype behind a toggle beside the plain loupe; compare on phone.
 7. **Mask as explanation (E2)**: live red overhang-angle preview (per-face normal in shader), smart-fill crease angle from a seed (E1), brush-size circle.
