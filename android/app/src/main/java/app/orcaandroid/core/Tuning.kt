@@ -29,6 +29,7 @@ object Tuning {
         Knob("steer.fast", "Steer: finger speed that backs out (above)", 500f, 150f, 2000f, " dp/s", 50f),
         Knob("steer.out_rate", "Steer: back-out speed", 1.3f, 0.2f, 5f, "/s", 0.1f),
         Knob("steer.speed_s", "Steer: finger speed smoothing", 0.12f, 0.02f, 1f, " s", 0.02f),
+        Knob("model.detail", "Round shapes: detail (spheres, cylinders; applies when a shape is next rebuilt)", 1f, 0.5f, 4f, "x", 0.25f),
     )
     private val byKey = knobs.associateBy { it.key }
     private val values = ConcurrentHashMap<String, Float>()

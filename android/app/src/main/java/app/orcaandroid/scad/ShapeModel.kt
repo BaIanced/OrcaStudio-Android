@@ -326,11 +326,12 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
 
     /** The hidden settings and helpers the code starts with (the rounded box module only when [shapes] use it). */
     private fun prelude(out: StringBuilder, shapes: List<Shape>) = with(out) {
+        val detail = app.orcaandroid.core.Tuning["model.detail"]
         appendLine("/* [Hidden] */")
         appendLine("\$fs = 0.4;")
         appendLine("\$fa = 4;")
         appendLine("// Sides for a round shape of diameter d: the shapes scale a 1 mm primitive, so \$fs alone would give too few.")
-        appendLine("function sides(d) = max(12, min(180, ceil(PI * d / 0.8)));")
+        appendLine("function sides(d) = max(12, min(${(180 * detail).toInt().coerceAtMost(720)}, ceil(PI * d / ${"%.4f".format(java.util.Locale.ROOT, 0.8f / detail)})));")
         if (shapes.any { s -> s.all().any { it.kind == Shape.Kind.ROUNDED_BOX } }) {
             appendLine()
             appendLine("// A box with all edges rounded by r (hull of eight balls).")
