@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -668,7 +669,11 @@ private fun MeasureOptions(state: UiState, vm: AppViewModel) {
                 style = MaterialTheme.typography.bodySmall)
         }
     }
-    if (pts.isNotEmpty()) TextButton(onClick = { vm.scene.setTool(Tool.Measure) }) { Text(stringResource(R.string.reset)) }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Checkbox(state.measureSnap, { vm.scene.setMeasureSnap(it) }); Text(stringResource(R.string.measure_snap_toggle))
+        Spacer(Modifier.weight(1f))
+        if (pts.isNotEmpty()) TextButton(onClick = { vm.scene.setTool(Tool.Measure) }) { Text(stringResource(R.string.reset)) }
+    }
 }
 
 /**

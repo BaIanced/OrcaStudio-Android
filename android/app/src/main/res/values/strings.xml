@@ -282,6 +282,7 @@
     <string name="measure_snap_ring">Circle Ø %1$s mm</string>
     <string name="measure_snap_curve">Edge line</string>
     <string name="measure_snap_face">Face</string>
+    <string name="measure_snap_toggle">Snap to corners and edges</string>
     <string name="message">Message</string>
     <string name="mirror">Mirror</string>
     <string name="mode_advanced">Advanced</string>

@@ -231,6 +231,8 @@ data class UiState(
     val selectMode: Boolean = false,
     val tool: Tool = Tool.None,
     val measure: List<Vec3> = emptyList(),
+    /** Measure tool: points snap to corners and edges (off: the bare hit; Alt held does the same for one click). */
+    val measureSnap: Boolean = true,
     /** Measure tool, finger down on the loupe: the finger, and the point (snapped, with how) the red dot sits on. */
     val loupe: Loupe? = null,
     val layerProfile: LayerProfile? = null,

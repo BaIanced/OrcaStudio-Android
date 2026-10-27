@@ -155,7 +155,11 @@ const std::unordered_map<std::string, Handler> &handlers()
          }},
         {"addSvg", [](OrcaEngine &e, const json &a) { return e.add_svg(a.at("path"), a.value("width", 50.0), a.value("depth", 2.0), a.value("plate", 0)); }},
         // Tools
-        {"pick", [](OrcaEngine &e, const json &a) { return e.pick(vec3(a.at("origin")), vec3(a.at("dir")), a.value("object", -1), a.value("snap", 0.)); }},
+        {"pick", [](OrcaEngine &e, const json &a) {
+             const json none;
+             return e.pick(vec3(a.at("origin")), vec3(a.at("dir")), a.value("object", -1), a.value("snap", 0.), a.value("release", 0.),
+                           vec3(a.value("stick", none)), vec3(a.value("seedOrigin", none)), vec3(a.value("seedDir", none)));
+         }},
         {"paint", [](OrcaEngine &e, const json &a) {
              // "hits": [{object, instance, volume, facet, local}...] in stroke order, or one hit's fields at the top level.
              std::vector<OrcaEngine::PaintHit> hits;

@@ -20,7 +20,9 @@ import kotlinx.coroutines.sync.withLock
 
 /** Plates, objects and their parts, the 3D tools, custom G-code and calibration. */
 /** Measure tool: how far (screen pixels) a point reaches to snap to a corner or sharp edge. */
-private const val SNAP_PX = 14f
+const val SNAP_PX = 14f
+/** A caught corner or edge lets go only past this many times the capture distance (no flicker at the rim). */
+const val SNAP_RELEASE = 1.6f
 const val SCULPT_MIN_MM = 0.5f
 const val SCULPT_MAX_MM = 30f
 
@@ -335,8 +337,10 @@ class SceneController(private val store: Store, private val presets: PresetContr
      * plane: what it cuts away can't be picked.
      */
     fun onViewTap(origin: Vec3, dir: Vec3, additive: Boolean = false, part: Boolean = false, section: FloatArray? = null, emptyPlate: Int? = null,
-                  pxSize: ((Vec3) -> Float)? = null) = store.launch {
-        val hit = if (store.value.tool == Tool.Measure && pxSize != null) measurePick(origin, dir, section, pxSize) else pick(origin, dir, section)
+                  pxSize: ((Vec3) -> Float)? = null, around: List<Pair<Vec3, Vec3>> = emptyList()) = store.launch {
+        // Measure: Alt held (or Snap off) takes the bare hit.
+        val hit = if (store.value.tool == Tool.Measure && pxSize != null) measurePick(origin, dir, section, pxSize, around, store.value.measureSnap && !part)
+            else pick(origin, dir, section)
         if (hit == null && emptyPlate != null && store.value.tool == Tool.None) {
             selectPlate(emptyPlate)
             return@launch
@@ -397,6 +401,8 @@ class SceneController(private val store: Store, private val presets: PresetContr
 
     fun closeContextMenu() = store.update { it.copy(contextMenu = null) }
 
+    fun setMeasureSnap(on: Boolean) = store.update { it.copy(measureSnap = on) }
+
     /** Turns corner resizing of the lone selected copy on, or off when it is already on. */
     fun toggleResize() = store.update {
         val one = it.selectedItems.singleOrNull()
@@ -412,18 +418,34 @@ class SceneController(private val store: Store, private val presets: PresetContr
     fun openAddDialog(name: String?) = store.update { it.copy(addDialog = name) }
 
     /** The first hit along the ray that the section view [section] leaves visible. */
-    private suspend fun pick(origin: Vec3, dir: Vec3, section: FloatArray?, snap: Double = 0.0): PickHit? {
-        if (section == null) return engine.pick(origin, dir, snap = snap)
+    private suspend fun pick(origin: Vec3, dir: Vec3, section: FloatArray?, snap: Double = 0.0, release: Double = 0.0, stick: Vec3? = null,
+                             seed: Pair<Vec3, Vec3>? = null): PickHit? {
+        if (section == null) return engine.pick(origin, dir, snap = snap, release = release, stick = stick, seed = seed)
         val start = SectionView.rayStart(section, origin, dir) ?: return null
-        return engine.pick(start, dir, snap = snap)?.takeIf { SectionView.kept(section, it.point) }
+        val seedStart = seed?.let { (o, d) -> SectionView.rayStart(section, o, d)?.let { it to d } }
+        return engine.pick(start, dir, snap = snap, release = release, stick = stick, seed = seedStart)?.takeIf { SectionView.kept(section, it.point) }
     }
 
-    /** The measure tool's point: the hit, moved to a corner or sharp edge within [SNAP_PX] screen pixels of it. */
-    private suspend fun measurePick(origin: Vec3, dir: Vec3, section: FloatArray?, pxSize: (Vec3) -> Float): PickHit? {
-        val hit = pick(origin, dir, section) ?: return null
-        return pick(origin, dir, section, snap = (pxSize(hit.point) * SNAP_PX).toDouble()) ?: hit
+    /**
+     * The measure tool's point: the hit, moved to a corner or sharp edge within [SNAP_PX] screen pixels of it ([snapOn] false: the bare hit).
+     * Aimed just off the model, [around] (rays on a ring round the aim, [SNAP_RELEASE] x [SNAP_PX] wide) still find the edge. [sticky] (the loupe moving):
+     * the last catch holds out to [SNAP_RELEASE] times that distance.
+     */
+    private suspend fun measurePick(origin: Vec3, dir: Vec3, section: FloatArray?, pxSize: (Vec3) -> Float, around: List<Pair<Vec3, Vec3>>,
+                                    snapOn: Boolean = true, sticky: Boolean = false): PickHit? {
+        if (!snapOn) return pick(origin, dir, section)
+        val hit = pick(origin, dir, section)
+        val seed = if (hit != null) null else around.mapNotNull { r -> pick(r.first, r.second, section)?.let { r to it.point } }
+            .minByOrNull { (_, p) -> (p - origin).let { v -> (v - dir * v.dot(dir)).length() } }
+        val mm = pxSize(hit?.point ?: seed?.second ?: return null) * SNAP_PX
+        val stick = if (sticky) measureStick else null
+        val snapped = pick(origin, dir, section, snap = mm.toDouble(), release = (mm * SNAP_RELEASE).toDouble(), stick = stick, seed = seed?.first)
+        if (sticky) measureStick = snapped?.takeIf { it.snap != null }?.point
+        return snapped ?: hit
     }
 
+    /** The loupe's last snap (corner or edge point), which holds while the aim stays near it. */
+    @Volatile private var measureStick: Vec3? = null
     @Volatile private var loupeActive = false
 
     /**
@@ -431,13 +453,16 @@ class SceneController(private val store: Store, private val presets: PresetContr
      * [phase] 0 = down, 1 = move, 2 = up (places), 3 = cancel. [grab] (down only): the placed point under the finger,
      * picked up to be placed again.
      */
-    fun measureLoupe(origin: Vec3, dir: Vec3, x: Float, y: Float, phase: Int, section: FloatArray?, pxSize: (Vec3) -> Float, grab: Int? = null) {
-        if (phase == 0) loupeActive = true
+    fun measureLoupe(origin: Vec3, dir: Vec3, x: Float, y: Float, phase: Int, section: FloatArray?, pxSize: (Vec3) -> Float,
+                     around: List<Pair<Vec3, Vec3>>, grab: Int? = null) {
+        if (phase == 0) { loupeActive = true; measureStick = null }
         else if (phase >= 2) loupeActive = false
         store.launch {
             if (phase == 0 && grab != null) store.update { st -> st.copy(measure = st.measure.filterIndexed { i, _ -> i != grab }) }
             if (phase == 3) { store.update { it.copy(loupe = null) }; return@launch }
-            val hit = measurePick(origin, dir, section, pxSize)
+            val hit = measurePick(origin, dir, section, pxSize, around, store.value.measureSnap, sticky = true)
+            if (app.orcaandroid.BuildConfig.DEBUG)
+                android.util.Log.d("SNAPDBG", "phase $phase snap ${hit?.snap} feature ${hit?.feature?.kind} d ${hit?.feature?.diameter} at ${hit?.point}")
             if (phase == 2) {
                 store.update { st -> st.copy(loupe = null, measure = if (hit != null) (st.measure + hit.point).takeLast(2) else st.measure) }
             } else if (loupeActive) {

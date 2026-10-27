@@ -131,32 +131,38 @@ struct OrcaEngine::SnapFeatures
         each_edge([&](int a, int b) { vnext[fill[a]++] = b; vnext[fill[b]++] = a; });
     }
 
-    // Whether vertex v ends edge lines: other than two sharp edges meet there, or they turn 50 deg or more (a box corner).
-    // A vertex along a hole's rim or a curve is not one: the snap takes the line there, not the facet corner.
-    bool corner(const indexed_triangle_set &its, int32_t v) const
+    // Where the edge line coming from prev goes on after v: its straightest sharp edge there, if it turns under 50 deg
+    // (-1: the line ends, as at a box corner). It carries on through a junction (a crease meeting the line, a noisy mesh's spur).
+    int32_t next(const indexed_triangle_set &its, int32_t prev, int32_t v) const
     {
-        if (vstart[v + 1] - vstart[v] != 2)
-            return true;
-        const Vec3f d0 = (its.vertices[v] - its.vertices[vnext[vstart[v]]]).normalized(),
-                    d1 = (its.vertices[vnext[vstart[v] + 1]] - its.vertices[v]).normalized();
-        return d0.dot(d1) < std::cos(50.f * float(M_PI) / 180.f);
+        const Vec3f d0 = (its.vertices[v] - its.vertices[prev]).normalized();
+        int32_t best = -1;
+        float   best_dot = std::cos(50.f * float(M_PI) / 180.f);
+        for (int32_t i = vstart[v]; i < vstart[v + 1]; ++i) {
+            const int32_t w = vnext[i];
+            if (w == prev)
+                continue;
+            const float c = d0.dot((its.vertices[w] - its.vertices[v]).normalized());
+            if (c >= best_dot) { best_dot = c; best = w; }
+        }
+        return best;
     }
 
-    // The edge line through the sharp edge a -> b: followed both ways up to corners (see corner()).
+    // The edge line through the sharp edge a -> b: followed both ways (see next()).
     // [closed]: it came back round to a (a hole's rim).
     std::vector<int32_t> line(const indexed_triangle_set &its, int32_t a, int32_t b, bool &closed) const
     {
+        std::set<int32_t> seen{a, b};
         const auto walk = [&](std::vector<int32_t> &run) {
             while (run.size() < 4096) {
-                const int32_t v = run.back(), prev = run[run.size() - 2];
-                if (corner(its, v))
+                const int32_t nx = next(its, run[run.size() - 2], run.back());
+                if (nx < 0)
                     return false;
-                const int32_t next = vnext[vstart[v]] == prev ? vnext[vstart[v] + 1] : vnext[vstart[v]];
-                if (next == prev)
-                    return false;
-                if (next == run.front())
+                if (nx == run.front())
                     return true;
-                run.push_back(next);
+                if (!seen.insert(nx).second)
+                    return false;
+                run.push_back(nx);
             }
             return false;
         };
@@ -246,7 +252,8 @@ struct OrcaEngine::SnapFeatures
     }
 };
 
-json OrcaEngine::pick(const std::array<double, 3> &origin, const std::array<double, 3> &dir, int only, double snap)
+json OrcaEngine::pick(const std::array<double, 3> &origin, const std::array<double, 3> &dir, int only, double snap, double release,
+                      const std::array<double, 3> &stick, const std::array<double, 3> &seed_origin, const std::array<double, 3> &seed_dir)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
     const Vec3d s = to_vec(origin), d = to_vec(dir).normalized();
@@ -256,54 +263,67 @@ json OrcaEngine::pick(const std::array<double, 3> &origin, const std::array<doub
     Transform3d        best_trafo;
     int                best_face = -1;
     Vec3d              best_world = Vec3d::Zero();
-    for (size_t oi = 0; oi < m_model->objects.size(); ++oi) {
-        if (only >= 0 && int(oi) != only)
-            continue;
-        const ModelObject *obj = m_model->objects[oi];
-        for (size_t ii = 0; ii < obj->instances.size(); ++ii)
-            for (size_t vi = 0; vi < obj->volumes.size(); ++vi) {
-                const ModelVolume *vol = obj->volumes[vi];
-                const Transform3d trafo = shown_matrix(*obj->instances[ii], design_offset(oi, ii)) * vol->get_matrix();
-                const Transform3d inv   = trafo.inverse();
-                // Ray in volume coordinates; the hit distance is measured back in world space.
-                const Vec3d ls = inv * s;
-                const Vec3d ld = (inv.linear() * d).normalized();
-                std::shared_ptr<AABBMesh> &mesh = m_aabb[&vol->mesh()];
-                if (!mesh)
-                    mesh = std::make_shared<AABBMesh>(vol->mesh());
-                const auto hit = mesh->query_ray_hit(ls, ld);
-                if (!hit.is_hit())
-                    continue;
-                const Vec3d world = trafo * hit.position();
-                const double dist = (world - s).norm();
-                if (dist >= best_dist)
-                    continue;
-                best_dist  = dist;
-                best_vol   = vol;
-                best_trafo = trafo;
-                best_face  = int(hit.face());
-                best_world = world;
-                const Vec3d n = (trafo.linear().inverse().transpose() * hit.normal()).normalized();
-                best = {{"hit", true},
-                        {"object", oi},
-                        {"instance", ii},
-                        {"volume", vi},
-                        {"facet", hit.face()},
-                        {"point", vec_json(world)},
-                        {"normal", vec_json(n)},
-                        {"local", vec_json(hit.position())}};
-            }
-    }
+    const auto cast = [&](const Vec3d &rs, const Vec3d &rd) {
+        for (size_t oi = 0; oi < m_model->objects.size(); ++oi) {
+            if (only >= 0 && int(oi) != only)
+                continue;
+            const ModelObject *obj = m_model->objects[oi];
+            for (size_t ii = 0; ii < obj->instances.size(); ++ii)
+                for (size_t vi = 0; vi < obj->volumes.size(); ++vi) {
+                    const ModelVolume *vol = obj->volumes[vi];
+                    const Transform3d trafo = shown_matrix(*obj->instances[ii], design_offset(oi, ii)) * vol->get_matrix();
+                    const Transform3d inv   = trafo.inverse();
+                    // Ray in volume coordinates; the hit distance is measured back in world space.
+                    const Vec3d ls = inv * rs;
+                    const Vec3d ld = (inv.linear() * rd).normalized();
+                    std::shared_ptr<AABBMesh> &mesh = m_aabb[&vol->mesh()];
+                    if (!mesh)
+                        mesh = std::make_shared<AABBMesh>(vol->mesh());
+                    const auto hit = mesh->query_ray_hit(ls, ld);
+                    if (!hit.is_hit())
+                        continue;
+                    const Vec3d world = trafo * hit.position();
+                    const double dist = (world - rs).norm();
+                    if (dist >= best_dist)
+                        continue;
+                    best_dist  = dist;
+                    best_vol   = vol;
+                    best_trafo = trafo;
+                    best_face  = int(hit.face());
+                    best_world = world;
+                    const Vec3d n = (trafo.linear().inverse().transpose() * hit.normal()).normalized();
+                    best = {{"hit", true},
+                            {"object", oi},
+                            {"instance", ii},
+                            {"volume", vi},
+                            {"facet", hit.face()},
+                            {"point", vec_json(world)},
+                            {"normal", vec_json(n)},
+                            {"local", vec_json(hit.position())}};
+                }
+        }
+    };
+    cast(s, d);
+    // Aimed just off the model: the seed ray (one that hits, within the capture ring) gives the facet to look round, as
+    // long as the snap catches an edge or corner of it; no point on that face otherwise.
+    const Vec3d seed_s = to_vec(seed_origin), seed_d = to_vec(seed_dir);
+    const bool  seeded = !best_vol && snap > 0. && !std::isnan(seed_s.x()) && !std::isnan(seed_d.x());
+    if (seeded)
+        cast(seed_s, seed_d.normalized());
     if (snap > 0. && best_vol) {
         // Corners within the snap distance, else the nearest sharp edge: looked for at the vertices of the facets within
         // reach (from the hit facet out), as a fine mesh's rim can be a few facets away. Distances are taken from the
         // pick ray, as on screen (a face seen edge-on is a few pixels but many mm wide); nothing hidden behind the hit.
+        // [stick]: the point the last snap caught (a moving aim): that corner or edge holds out to [release] (no flicker).
         const indexed_triangle_set &its = best_vol->mesh().its;
         std::shared_ptr<SnapFeatures> &sf = m_neighbors[&best_vol->mesh()];
         if (!sf)
             sf = std::make_shared<SnapFeatures>(its);
         const Vec3d  p     = best_world;
-        const double depth = (p - s).dot(d) + snap;
+        const Vec3d  held  = to_vec(stick);
+        const bool   holds = !std::isnan(held.x()) && release > snap;
+        const double reach = holds ? release : snap;
+        const double depth = (p - s).dot(d) + reach;
         const auto at = [&](int32_t v) -> Vec3d { return best_trafo * its.vertices[v].cast<double>(); };
         const auto off_ray = [&](const Vec3d &q) {
             const Vec3d v = q - s;
@@ -317,6 +337,43 @@ json OrcaEngine::pick(const std::array<double, 3> &origin, const std::array<doub
             const Vec3d  q  = a + t * e;
             return std::make_pair(off_ray(q), q);
         };
+        // Whether [held] lies on segment a-b (the last catch was this corner or a point of this edge).
+        const auto on_seg = [&](const Vec3d &a, const Vec3d &b) {
+            if (!holds)
+                return false;
+            const Vec3d  e = b - a;
+            const double t = e.squaredNorm() > 1e-12 ? std::clamp((held - a).dot(e) / e.squaredNorm(), 0., 1.) : 0.;
+            return (a + t * e - held).norm() < 1e-3;
+        };
+        // How far (world mm, up to [lim]) the edge line runs from v through w; [end]: where it got to.
+        const auto run = [&](int32_t v, int32_t w, double lim, Vec3d &end) {
+            double len = 0.;
+            for (int32_t prev = v, n = 0;; ++n) {
+                len += (at(w) - at(prev)).norm();
+                const int32_t nx = len < lim && n < 512 ? sf->next(its, prev, w) : -1;
+                if (nx < 0 || nx == v)
+                    break;
+                prev = w;
+                w    = nx;
+            }
+            end = at(w);
+            return len;
+        };
+        // Lines shorter than the snap distance (a few pixels on screen: a noisy mesh's creases) are no snap targets.
+        const auto long_line = [&](int32_t a, int32_t b) {
+            Vec3d e;
+            return run(a, b, snap, e) + run(b, a, snap, e) - (at(b) - at(a)).norm() >= snap;
+        };
+        // A corner ends long lines: three or more, or two that turn 50 deg or more (not a hole's rim or a curve).
+        const auto corner = [&](int32_t v) {
+            std::vector<Vec3d> arms;
+            for (int32_t i = sf->vstart[v]; i < sf->vstart[v + 1]; ++i) {
+                Vec3d e;
+                if (run(v, sf->vnext[i], snap, e) >= snap)
+                    arms.push_back((e - at(v)).normalized());
+            }
+            return arms.size() >= 3 || (arms.size() == 2 && arms[0].dot(arms[1]) > -std::cos(50. * M_PI / 180.));
+        };
         std::vector<int32_t> verts;
         {
             std::vector<int32_t> stack{best_face};
@@ -327,7 +384,7 @@ json OrcaEngine::pick(const std::array<double, 3> &origin, const std::array<doub
                 for (int k = 0; k < 3; ++k) {
                     verts.push_back(its.indices[f][k]);
                     const int32_t g = sf->nb[f][k];
-                    if (g >= 0 && !seen.count(g) && seg_near(at(its.indices[f][k]), at(its.indices[f][(k + 1) % 3])).first <= snap) {
+                    if (g >= 0 && !seen.count(g) && seg_near(at(its.indices[f][k]), at(its.indices[f][(k + 1) % 3])).first <= reach) {
                         seen.insert(g);
                         stack.push_back(g);
                     }
@@ -337,20 +394,25 @@ json OrcaEngine::pick(const std::array<double, 3> &origin, const std::array<doub
             verts.erase(std::unique(verts.begin(), verts.end()), verts.end());
         }
         Vec3d  snapped = p;
-        double best_d  = snap;
+        double best_d  = std::numeric_limits<double>::max();
         const char *kind = nullptr;
         int32_t     ea = -1, eb = -1;
         for (int32_t v : verts)
-            if (sf->vstart[v + 1] > sf->vstart[v] && sf->corner(its, v)) {
+            if (sf->vstart[v + 1] > sf->vstart[v]) {
                 const double dist = off_ray(at(v));
-                if (dist < best_d) { best_d = dist; snapped = at(v); kind = "vertex"; }
+                if (dist < best_d && dist < (on_seg(at(v), at(v)) ? release : snap) && corner(v)) { best_d = dist; snapped = at(v); kind = "vertex"; }
             }
         if (!kind)
             for (int32_t v : verts)
                 for (int32_t i = sf->vstart[v]; i < sf->vstart[v + 1]; ++i) {
-                    const auto [dist, q] = seg_near(at(v), at(sf->vnext[i]));
-                    if (dist < best_d) { best_d = dist; snapped = q; kind = "edge"; ea = v; eb = sf->vnext[i]; }
+                    const int32_t w = sf->vnext[i];
+                    const auto [dist, q] = seg_near(at(v), at(w));
+                    if (dist < best_d && dist < (on_seg(at(v), at(w)) ? release : snap) && long_line(v, w)) {
+                        best_d = dist; snapped = q; kind = "edge"; ea = v; eb = w;
+                    }
                 }
+        if (seeded && !kind)
+            return {{"hit", false}};
         if (kind) {
             best["point"] = vec_json(snapped);
             best["snap"]  = kind;

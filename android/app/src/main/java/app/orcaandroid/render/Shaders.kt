@@ -436,14 +436,34 @@ internal object Shaders {
         layout(location = 1) in vec3 aOther;
         layout(location = 2) in float aSide;
         out highp vec3 vWorld;
+        out highp float vAlong;
         void main() {
             vWorld = aPos + uOffset;
             vec4 p = uMvp * vec4(vWorld, 1.0);
             vec4 q = uMvp * vec4(aOther + uOffset, 1.0);
             vec2 d = (q.xy / q.w - p.xy / p.w) * uViewport;
             vec2 n = length(d) > 1e-6 ? normalize(vec2(-d.y, d.x)) : vec2(0.0, 1.0);
+            // Screen pixels along the line, the same way from both ends (for dashes).
+            vec2 t = n.y > 0.0 || (n.y == 0.0 && n.x < 0.0) ? vec2(n.y, -n.x) : vec2(-n.y, n.x);
+            vAlong = dot(p.xy / p.w * uViewport * 0.5, t);
             p.xy += n * aSide * uWidth / uViewport * p.w;
             gl_Position = p;
+        }"""
+
+    /** LINE_FS for WIDE_LINE_VS: [uDash] > 0 draws dashes that long (screen pixels) with gaps as long. */
+    const val WIDE_LINE_FS = """#version 300 es
+        precision mediump float;
+        uniform vec3 uColor;
+        uniform highp vec4 uSection;
+        uniform int uSectionOn;
+        uniform float uDash;
+        in highp vec3 vWorld;
+        in highp float vAlong;
+        out vec4 color;
+        void main() {
+            if (uSectionOn == 1 && dot(uSection.xyz, vWorld) > uSection.w) discard;
+            if (uDash > 0.0 && mod(vAlong, 2.0 * uDash) > uDash) discard;
+            color = vec4(uColor, 1.0);
         }"""
 
     /** Beds, travels and overlays; travels are cut by the section view like the toolpaths. */

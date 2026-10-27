@@ -178,7 +178,9 @@ public:
     // "object", "instance", "volume", "facet", "point" [world], "normal" [world], "local" [volume] }.
     // [only] >= 0: that object alone (the Build workspace, where the others are hidden).
     /** [snap] > 0 (world mm): the hit moves to the nearest corner / sharp edge of its facet within that distance ("snap": "vertex" | "edge"). */
-    json pick(const std::array<double, 3> &origin, const std::array<double, 3> &dir, int only = -1, double snap = 0.);
+    /** [stick]: the last snap's point (NaN: none); its corner or edge holds out to [release] mm. [seed_*]: a ray to look round from when this one misses (NaN: none). */
+    json pick(const std::array<double, 3> &origin, const std::array<double, 3> &dir, int only, double snap, double release,
+              const std::array<double, 3> &stick, const std::array<double, 3> &seed_origin, const std::array<double, 3> &seed_dir);
 
     // Paints with a sphere brush of `radius` mm around a pick() result. kind: "fuzzy" (state 1 =
     // fuzzy skin), "support" / "seam" (1 enforce, 2 block), "color" (state = 1-based filament);

@@ -199,7 +199,10 @@ class Engine(private val cacheDir: File) {
 
     /** [only] >= 0: hits on that object alone (the Build workspace). */
     /** [snap] > 0 (world mm): the point moves to the nearest corner or sharp edge of its facet within that distance. */
-    suspend fun pick(origin: Vec3, dir: Vec3, only: Int = -1, snap: Double = 0.0): PickHit? = call("pick", args("origin" to origin, "dir" to dir, "object" to only, "snap" to snap)).let { o ->
+    /** [stick]: the last snap's point, whose corner or edge holds out to [release] mm. [seed]: a ray to look round from if this one misses (only a snap counts then). */
+    suspend fun pick(origin: Vec3, dir: Vec3, only: Int = -1, snap: Double = 0.0, release: Double = 0.0, stick: Vec3? = null, seed: Pair<Vec3, Vec3>? = null): PickHit? =
+        call("pick", args("origin" to origin, "dir" to dir, "object" to only, "snap" to snap, "release" to release, "stick" to stick,
+            "seedOrigin" to seed?.first, "seedDir" to seed?.second)).let { o ->
         if (!o.optBoolean("hit")) null
         else PickHit(o.getInt("object"), o.getInt("instance"), o.getInt("volume"), o.getInt("facet"), o.vec3("point"), o.vec3("normal"), o.vec3("local"),
             if (o.has("snap")) o.getString("snap") else null,

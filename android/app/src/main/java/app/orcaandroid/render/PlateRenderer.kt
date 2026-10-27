@@ -346,7 +346,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glEnable(GL_DEPTH_TEST)
         meshProgram = program(Shaders.MESH_VS, Shaders.MESH_FS)
         lineProgram = program(Shaders.LINE_VS, Shaders.LINE_FS)
-        wideLineProgram = program(Shaders.WIDE_LINE_VS, Shaders.LINE_FS)
+        wideLineProgram = program(Shaders.WIDE_LINE_VS, Shaders.WIDE_LINE_FS)
         pathProgram = program(Shaders.PATH_VS, Shaders.PATH_FS)
         pointProgram = program(Shaders.POINT_VS, Shaders.POINT_FS)
         badgeProgram = program(Shaders.BADGE_VS, Shaders.BADGE_FS)
@@ -1385,11 +1385,19 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glDepthRangef(0f, 1f)
     }
 
-    /** The measure snap's feature: in [snapColor] over a dark border (readable on any filament colour), depth-tested like the creases. */
+    /**
+     * The measure snap's feature: in [snapColor] over a dark border (readable on any filament colour), depth-tested like the creases;
+     * the parts the model hides dashed and thinner (a CAD hidden line: a hole's far rim, the back of an outline).
+     */
     private fun drawSnapLines() {
         val data = snapLines?.takeIf { it.isNotEmpty() } ?: return
         glEnable(GL_DEPTH_TEST)
         glDepthRangef(0f, 0.9996f)
+        glDepthMask(false)
+        glDepthFunc(GL_GREATER)
+        drawWideLines(data, 4f * density, floatArrayOf(0.05f, 0.05f, 0.06f), dash = 6f * density)
+        drawWideLines(data, 1.5f * density, snapColor, dash = 6f * density)
+        glDepthMask(true)
         glDepthFunc(GL_LEQUAL)
         drawWideLines(data, 6f * density, floatArrayOf(0.05f, 0.05f, 0.06f))
         drawWideLines(data, 2.5f * density, snapColor)
@@ -1397,8 +1405,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glDepthRangef(0f, 1f)
     }
 
-    /** [data]: segments (x, y, z per end, world) drawn [width] px wide in [color] with WIDE_LINE_VS, in the current depth state. */
-    private fun drawWideLines(data: FloatArray, width: Float, color: FloatArray) {
+    /** [data]: segments (x, y, z per end, world) drawn [width] px wide in [color] with WIDE_LINE_VS, in the current depth state; [dash] > 0: dashes and gaps that long (px). */
+    private fun drawWideLines(data: FloatArray, width: Float, color: FloatArray, dash: Float = 0f) {
         val segs = data.size / 6
         val v = FloatArray(segs * 6 * 7)
         var o = 0
@@ -1421,6 +1429,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glUniform2f(loc(wideLineProgram, "uViewport"), viewW * pxScale, viewH * pxScale)
         glUniform1f(loc(wideLineProgram, "uWidth"), width * pxScale)
         glUniform3f(loc(wideLineProgram, "uColor"), color[0], color[1], color[2])
+        glUniform1f(loc(wideLineProgram, "uDash"), dash * pxScale)
         setSection(wideLineProgram)
         glBindBuffer(GL_ARRAY_BUFFER, scratchVbo)
         glBufferData(GL_ARRAY_BUFFER, v.size * 4, floats(v), GL_STREAM_DRAW)

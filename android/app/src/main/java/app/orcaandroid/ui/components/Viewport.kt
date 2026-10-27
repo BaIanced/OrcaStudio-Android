@@ -94,6 +94,13 @@ fun previewRange(result: SliceResult, low: Int, high: Int, moveEnd: Int?, counts
 /** Measure loupe: the dot sits this far above the finger; a placed point within the grab radius is picked up. */
 private const val LOUPE_LIFT_DP = 56f
 
+/** Rays on a ring round (x, y) as wide as a held snap reaches: aimed just off the model, they find the face whose edge to catch. */
+private fun snapRing(v: PlateView, x: Float, y: Float) = List(8) { i ->
+    val a = i * Math.PI / 4
+    val r = app.orcaandroid.ui.SNAP_PX * app.orcaandroid.ui.SNAP_RELEASE
+    v.camera.ray(x + r * kotlin.math.cos(a).toFloat(), y + r * kotlin.math.sin(a).toFloat())
+}
+
 /** The measure loupe's colour for what the snap caught (SnapFeature.kind): snaps green, a hole's rim amber, a face blue. */
 private fun snapColor(kind: String?) = when (kind) {
     "vertex", "edge", "curve" -> Color(0xFF4CAF50)
@@ -140,7 +147,8 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                         val (o, d) = v.camera.ray(x, y)
                         // The Build workspace: a tap picks a shape of the design.
                         if (vm.state.value.buildObject != null) vm.shapes.tapAt(o, d, additive || part || vm.state.value.selectMode)
-                        else vm.scene.onViewTap(o, d, additive, part, v.section.current, emptyPlate, v.camera::pxSize)
+                        else vm.scene.onViewTap(o, d, additive, part, v.section.current, emptyPlate, v.camera::pxSize,
+                            if (vm.state.value.tool == app.orcaandroid.ui.Tool.Measure) snapRing(v, x, y) else emptyList())
                     }
                     override fun onCopyAt(x: Float, y: Float, result: (Pair<Int, Int>?, Vec3, Vec3) -> Unit) {
                         val (o, d) = v.camera.ray(x, y)
@@ -326,12 +334,13 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                     override fun onMeasureLoupe(x: Float, y: Float, phase: Int) {
                         // The dot sits above the finger so the finger doesn't hide it.
                         val density = v.resources.displayMetrics.density
-                        val (o, d) = v.camera.ray(x, y - LOUPE_LIFT_DP * density)
+                        val aimY = y - LOUPE_LIFT_DP * density
+                        val (o, d) = v.camera.ray(x, aimY)
                         val placed = vm.state.value.measure
                         val grab = if (phase != 0) null else placed.withIndex().minByOrNull { (_, p) ->
                             v.camera.project(p)?.let { (px, py) -> kotlin.math.hypot(px - x, py - y) } ?: Float.MAX_VALUE
                         }?.takeIf { (_, p) -> v.camera.project(p)?.let { (px, py) -> kotlin.math.hypot(px - x, py - y) <= LOUPE_GRAB_DP * density } == true }?.index
-                        vm.scene.measureLoupe(o, d, x, y, phase, v.section.current, v.camera::pxSize, grab)
+                        vm.scene.measureLoupe(o, d, x, y, phase, v.section.current, v.camera::pxSize, if (phase == 3) emptyList() else snapRing(v, x, aimY), grab)
                     }
                 }
                 view = v
