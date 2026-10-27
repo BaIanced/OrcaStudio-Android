@@ -3380,3 +3380,11 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 - Upright planes: `Tool.Cut.dx/dy`, `OrcaEngine::cut` shift_x/shift_y (plane point = box middle + shift); view drag slides along the level normal.
 - Test (box_with_lid, plate 1): taps on walls -> Z 25.43 / 73.95 / 23.63; long press on a side wall -> 90 deg plane lying on that wall; drag ->
   slides sideways, mid-drag shot shows ghost + hidden red line, gone on release; tap lid floor + Cut -> pieces 14.1 + 30.5 mm (sum 44.6 = depth).
+
+## 2026-10-27 user verdict: Measure steer zoom + point grab (build r439)
+- User: "Holding the point shouldn't continuously zoom in ... it should have a maximum zoom ratio dependent on the object/region
+  being measured. As it is now I hold the point and it just keeps zooming." Today: MeasureSteer MAX_ZOOM = 12x the start view
+  (~6 s of holding at 0.4/s), not tied to the feature.
+- User: "Tapping the red point after setting it should activate it and be freely movable if dragging it, clicking off or away
+  from the dot should set/deselect it." Today: finger needs a long press within 40 dp to move a placed point.
+- The "zoom cap per region" wording is not in the repo: the dump was condensed before it was saved (NOTES-interaction-plan.md).

@@ -27,6 +27,8 @@ private const val AO_SOFT_MM = 24f
 private const val SUPERSAMPLE = 2
 private const val STILL_NS = 200_000_000L
 private const val SUPER_REFRESH_NS = 1_000_000_000L
+/** Measure loupe: how much the 2nd render magnifies the screen around the aim spot. */
+const val LOUPE_ZOOM = 3f
 /**
  * Temporal supersampling: jittered frames per still view, and the path shader's regime scale meanwhile. Below 1 the
  * lying cylinder's layer lines (1-2 px apart) came back as arcs (WSA 2026-10-20: 0.7 faint, 0.5 clear, 0.35 strong).
@@ -133,6 +135,13 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     /** Measure tool, while aiming: what the snap caught (x, y, z per end, world) and its colour (r, g, b). */
     var snapLines: FloatArray? = null
     var snapColor = floatArrayOf(0.3f, 0.85f, 0.35f)
+    /**
+     * Measure loupe (E3): aim x, y and the inset square (left, top, size; view px) that a 2nd render of the scene fills,
+     * the same camera magnified [LOUPE_ZOOM] times around the aim, so it stays sharp at any zoom. Null = off.
+     */
+    var loupe: FloatArray? = null
+    /** Drawing the loupe: passes that use the whole view (shadow map, selection outline) are left out. */
+    private var loupePass = false
     /** Check mesh problem spots: x, y, z, kind (5 thin wall, 6 open edge, 7 self-intersection) per marker. */
     var meshMarkers: FloatArray? = null
     /** How far the checked copy has moved since [meshMarkers] were found. */
@@ -402,6 +411,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     override fun onDrawFrame(gl: GL10?) {
         val start = System.nanoTime()
         drawFrame()
+        drawLoupe()
         frameStats.record(start, System.nanoTime())
     }
 
@@ -433,6 +443,38 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         drawScene()
         if (supered) { supersampler.end(viewW, viewH); superShown = key; superAt = now } else superShown = null
         pxScale = 1f
+    }
+
+    /**
+     * The measure loupe over the finished frame: the projection scaled about the aim spot (clip x' = s x + t w, as the
+     * jitter in [accumulate]) and drawn into the inset only (viewport + scissor, so its clear stays inside).
+     */
+    private fun drawLoupe() {
+        val l = loupe ?: return
+        if (viewW <= 1 || l[4] < 8f) return
+        val (ax, ay, size) = Triple(l[0], l[1], l[4])
+        val frame = mvp.copyOf()
+        val sx = viewW * LOUPE_ZOOM / size
+        val sy = viewH * LOUPE_ZOOM / size
+        val tx = (viewW / 2f - ax) * 2f * LOUPE_ZOOM / size
+        val ty = (ay - viewH / 2f) * 2f * LOUPE_ZOOM / size
+        for (c in 0 until 4) {
+            val w = mvp[4 * c + 3]
+            mvp[4 * c] = mvp[4 * c] * sx + tx * w
+            mvp[4 * c + 1] = mvp[4 * c + 1] * sy + ty * w
+        }
+        val x = l[2].toInt()
+        val y = (viewH - l[3] - size).toInt()
+        val s = size.toInt()
+        glViewport(x, y, s, s)
+        glEnable(GL_SCISSOR_TEST)
+        glScissor(x, y, s, s)
+        loupePass = true
+        drawScene()
+        loupePass = false
+        glDisable(GL_SCISSOR_TEST)
+        glViewport(0, 0, viewW, viewH)
+        frame.copyInto(mvp)
     }
 
     /**
@@ -479,8 +521,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         val models = ghostCount == 0
         val bounds = meshBounds
         val shadow = contactShadows && !showPreview && models && meshCount > 0 && bounds != null
-        useRealShadow = false
-        if (shadow) {
+        if (!loupePass) useRealShadow = false
+        if (shadow && !loupePass) {
             effects.lightDir = keyDir
             val key = listOf(meshVersion, dragOffset.toList(), resizeScale.toList(), pushMatrix?.toList(), rotateMatrix?.toList(), selectedIds.toList(), dragTower, section?.toList(), keyAzimuth, keyElevation, solo, buildSolo)
             // A dragged copy may leave the footprint: widen it by the drag.
@@ -538,7 +580,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             drawMesh(ghostVbo, ghostCount, pass = 1)
             glDepthMask(true)
             glDisable(GL_BLEND)
-            if (models) drawSelection()
+            if (models && !loupePass) drawSelection()
             if (models && (cutXray || cutXrayPanel) && cutBand != null) drawCutXray()
         }
         // Seen from below the plate is a window: drawn last, over the parts behind it.
@@ -1469,7 +1511,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glUseProgram(wideLineProgram)
         glUniformMatrix4fv(loc(wideLineProgram, "uMvp"), 1, false, mvp, 0)
         glUniform3f(loc(wideLineProgram, "uOffset"), 0f, 0f, 0f)
-        glUniform2f(loc(wideLineProgram, "uViewport"), viewW * pxScale, viewH * pxScale)
+        if (loupePass) loupe?.let { glUniform2f(loc(wideLineProgram, "uViewport"), it[4], it[4]) }
+        else glUniform2f(loc(wideLineProgram, "uViewport"), viewW * pxScale, viewH * pxScale)
         glUniform1f(loc(wideLineProgram, "uWidth"), width * pxScale)
         glUniform3f(loc(wideLineProgram, "uColor"), color[0], color[1], color[2])
         glUniform1f(loc(wideLineProgram, "uDash"), dash * pxScale)

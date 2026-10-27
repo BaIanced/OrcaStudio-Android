@@ -113,6 +113,25 @@ private fun snapColor(kind: String?) = when (kind) {
     else -> Color.White
 }
 private const val LOUPE_GRAB_DP = 40f
+/** The magnified loupe: its side, and its gap to the aim ring (dp). */
+private const val LOUPE_INSET_DP = 128f
+private const val LOUPE_INSET_GAP_DP = 40f
+
+/**
+ * Where the magnified loupe sits for an aim spot at ([x], [y]) in a [w] x [h] view: left, top, size (px). Above the aim ring
+ * (a finger is below it); near the top edge beside it instead, on the side with room.
+ */
+private fun loupeInset(x: Float, y: Float, w: Float, h: Float, density: Float): FloatArray {
+    val size = minOf(LOUPE_INSET_DP * density, minOf(w, h) * 0.45f)
+    val gap = LOUPE_INSET_GAP_DP * density
+    var left = x - size / 2
+    var top = y - gap - size
+    if (top < 0f) {
+        left = if (x + gap + size <= w) x + gap else x - gap - size
+        top = y - size / 2
+    }
+    return floatArrayOf(left.coerceIn(0f, maxOf(0f, w - size)), top.coerceIn(0f, maxOf(0f, h - size)), size)
+}
 private const val LOUPE_GRAB_EXACT_DP = 12f
 
 @Composable
@@ -416,7 +435,27 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         }
         val measurer = androidx.compose.ui.text.rememberTextMeasurer()
         val labelStyle = MaterialTheme.typography.labelLarge.copy(color = Color.White)
+        val density = androidx.compose.ui.platform.LocalDensity.current.density
         Canvas(Modifier.fillMaxSize()) {
+            // The magnified loupe (the renderer draws the scene into it): a frame, a small crosshair on the aim and the snapped point.
+            view?.let { vw ->
+                val (il, itop, isz) = loupeInset(l.x, l.y, vw.width.toFloat(), vw.height.toFloat(), density).let { Triple(it[0], it[1], it[2]) }
+                val tl = androidx.compose.ui.geometry.Offset(il, itop)
+                val box = androidx.compose.ui.geometry.Size(isz, isz)
+                drawRect(Color.Black.copy(alpha = 0.5f), tl, box, style = androidx.compose.ui.graphics.drawscope.Stroke(5f))
+                drawRect(snapColor(kind), tl, box, style = androidx.compose.ui.graphics.drawscope.Stroke(2.5f))
+                val m = tl + androidx.compose.ui.geometry.Offset(isz / 2, isz / 2)
+                val arm = 8.dp.toPx()
+                drawLine(Color.White.copy(alpha = 0.7f), m.copy(x = m.x - arm), m.copy(x = m.x + arm), 1.5f)
+                drawLine(Color.White.copy(alpha = 0.7f), m.copy(y = m.y - arm), m.copy(y = m.y + arm), 1.5f)
+                l.point?.let { p -> vw.camera.project(p) }?.let { (px, py) ->
+                    val d = m + androidx.compose.ui.geometry.Offset((px - l.x) * app.orcaandroid.render.LOUPE_ZOOM, (py - l.y) * app.orcaandroid.render.LOUPE_ZOOM)
+                    if (d.x in il..il + isz && d.y in itop..itop + isz) {
+                        drawCircle(Color.Black.copy(alpha = 0.5f), 5.dp.toPx(), d)
+                        drawCircle(snapColor(kind), 3.5f.dp.toPx(), d)
+                    }
+                }
+            }
             // Crosshair ring on the aim spot (above a finger, under a mouse or pen), in the snap kind's colour; white when nothing was hit.
             val c = androidx.compose.ui.geometry.Offset(l.x, l.y)
             val color = snapColor(kind)
@@ -741,6 +780,13 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         val plane = bounds?.let { (min, max) -> section.plane(min, max) }
         section.current = plane
         v.onGl { this.section = plane }
+    }
+    // Compose's density (the UI scale), as the overlay's frame uses.
+    val loupeDensity = androidx.compose.ui.platform.LocalDensity.current.density
+    LaunchedEffect(v, state.loupe?.x, state.loupe?.y) {
+        val l = state.loupe
+        val r = l?.let { loupeInset(it.x, it.y, v.width.toFloat(), v.height.toFloat(), loupeDensity) }
+        v.onGl { loupe = if (l == null || r == null) null else floatArrayOf(l.x, l.y, r[0], r[1], r[2]) }
     }
     LaunchedEffect(v, state.loupe?.feature) {
         val f = state.loupe?.feature
