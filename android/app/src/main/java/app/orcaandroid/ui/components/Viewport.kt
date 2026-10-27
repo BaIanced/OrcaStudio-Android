@@ -402,6 +402,9 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
 
                     override fun onMeasureFreeze(frozen: Boolean) = steer.freeze(frozen)
 
+                    private var press = floatArrayOf(0f, 0f)
+                    private var easeLift = 0f
+
                     override fun onMeasureLoupe(x: Float, y: Float, phase: Int, exact: Boolean) {
                         val density = v.resources.displayMetrics.density
                         val lift = if (exact) 0f else LOUPE_LIFT_DP * density
@@ -409,7 +412,15 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                         // A mouse or pen aims right under itself; a finger's dot sits above it so the finger doesn't hide it.
                         // A picked-up point keeps its spot and follows the pointer 1:1 (it used to jump to the aim).
                         if (phase == 0 || phase == 4)
-                            aimOffset = near?.let { floatArrayOf(it.second.first - x, it.second.second - y) } ?: floatArrayOf(0f, -lift)
+                            {
+                                press = floatArrayOf(x, y)
+                                aimOffset = near?.let { floatArrayOf(it.second.first - x, it.second.second - y) } ?: floatArrayOf(0f, 0f)
+                                easeLift = if (near == null) lift else 0f
+                            }
+                        else if (easeLift > 0f && phase == 1) {
+                            // A long press starts the dot under the finger (where a tap would set it); moving eases it up to the lift.
+                            aimOffset = floatArrayOf(0f, -easeLift * minOf(1f, kotlin.math.hypot(x - press[0], y - press[1]) / easeLift))
+                        }
                         if (phase == 0 && !exact && vm.state.value.measureSteer) steer.begin(x, y, x + aimOffset[0], y + aimOffset[1])
                         if (steer.active) {
                             // Steered: the finger's moves steer the dot, the frames pick it; the lift places it before the camera goes back.

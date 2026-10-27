@@ -725,7 +725,6 @@ private fun MeasureOptions(state: UiState, vm: AppViewModel) {
     }
     Row(verticalAlignment = Alignment.CenterVertically) {
         Checkbox(state.measureAxes, { vm.scene.setMeasureAxes(it) }); Text(stringResource(R.string.measure_axes_toggle))
-        Checkbox(state.measureSteps || state.measureShift, { vm.scene.setMeasureSteps(it) }); Text(stringResource(R.string.measure_steps_toggle))
     }
     Row(verticalAlignment = Alignment.CenterVertically) {
         Checkbox(state.measureSteer, { vm.scene.setMeasureSteer(it) }); Text(stringResource(R.string.measure_steer_toggle))
