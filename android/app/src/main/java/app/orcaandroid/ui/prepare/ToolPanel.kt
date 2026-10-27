@@ -62,6 +62,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -252,7 +253,7 @@ private fun PaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Paint) {
     if (tool.shape == "height") BandHeight(vm, tool)
     if (tool.shape == "pick") Text(stringResource(R.string.paint_pick_hint), style = MaterialTheme.typography.bodySmall)
     // Regions view: the model split at its creases (outlined); a tap fills one region over any colour.
-    if (tool.shape == "regions") CreaseAngle(vm, tool)
+    if (tool.shape == "regions") { CreaseAngle(vm, tool); RegionEdits(state, vm) }
     // One-tap actions on the whole object. Clean specks = the desktop's gap fill: painted patches under the area take the
     // state that borders them most. Colour each part: every separate shell gets its own filament, largest first.
     if (tool.kind == "color" || tool.kind == "support") CleanSpecks(vm, tool)
@@ -420,7 +421,7 @@ internal fun ColorPaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Pain
                     vm.scene.setTool(tool.copy(shape = "regions", back = "regions", fillShape = "regions", edgeAngle = if (tool.edgeAngle <= 0f) 30f else tool.edgeAngle))
                 }, label = { Text(stringResource(R.string.paint_shape_regions)) })
             }
-            if (shape == "regions") CreaseAngle(vm, tool) else { EdgeRow(vm, tool); OverColours(vm, tool) }
+            if (shape == "regions") { CreaseAngle(vm, tool); RegionEdits(state, vm) } else { EdgeRow(vm, tool); OverColours(vm, tool) }
             GuardRow(state, vm, tool)
         }
         "bands" -> {
@@ -568,6 +569,30 @@ private fun CreaseAngle(vm: AppViewModel, tool: Tool.Paint) =
     ScrubSlider("paint_crease", { stringResource(R.string.paint_crease_angle, it.roundToInt()) }, tool.edgeAngle.takeIf { it > 0f } ?: 30f, 5f..89f, 1f) {
         vm.scene.setTool(tool.copy(edgeAngle = it))
     }
+
+/**
+ * Per-region edits (interaction plan step 8b): after a Regions tap, the same region takes another colour, supports, fuzzy skin or a seam.
+ * A chip that is on clears that kind from the region again.
+ */
+@Composable
+private fun RegionEdits(state: UiState, vm: AppViewModel) {
+    val region = vm.scene.regionPick.collectAsState().value ?: return
+    val on = { kind: String -> region.applied[kind] ?: 0 }
+    Text(stringResource(R.string.region_edits), style = MaterialTheme.typography.labelMedium)
+    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        if (state.filaments.size > 1) state.filaments.forEachIndexed { i, f ->
+            FilterChip(on("color") == i + 1, { vm.scene.paintRegion("color", i + 1) }, label = { Text("${i + 1}") }, leadingIcon = { ColorDot(f.color) })
+        }
+        FilterChip(on("support") == 1, { vm.scene.paintRegion("support", if (on("support") == 1) 0 else 1) },
+            label = { Text(stringResource(R.string.region_support)) })
+        FilterChip(on("support") == 2, { vm.scene.paintRegion("support", if (on("support") == 2) 0 else 2) },
+            label = { Text(stringResource(R.string.region_no_support)) })
+        FilterChip(on("fuzzy") == 1, { vm.scene.paintRegion("fuzzy", if (on("fuzzy") == 1) 0 else 1) },
+            label = { Text(stringResource(R.string.paint_fuzzy)) })
+        FilterChip(on("seam") == 1, { vm.scene.paintRegion("seam", if (on("seam") == 1) 0 else 1) },
+            label = { Text(stringResource(R.string.region_seam)) })
+    }
+}
 
 /** Edge detection (brush) / smart fill angle (fill): the angle stays remembered while it is off. */
 @Composable

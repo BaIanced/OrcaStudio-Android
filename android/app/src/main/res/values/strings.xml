@@ -351,6 +351,10 @@
     <string name="paint_fuzzy">Fuzzy skin</string>
     <string name="paint_hint">Drag over the model to paint; drag from outside it or use two fingers to move the view.</string>
     <string name="paint_seam">Seam painting</string>
+    <string name="region_edits">This region</string>
+    <string name="region_support">Support</string>
+    <string name="region_no_support">No support</string>
+    <string name="region_seam">Seam</string>
     <string name="paint_supports">Support painting</string>
     <string name="parts_and_modifiers">Parts &amp; modifiers</string>
     <string name="pass_n">Pass %d</string>

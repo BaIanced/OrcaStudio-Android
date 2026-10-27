@@ -296,6 +296,8 @@ class SceneController(private val store: Store, private val presets: PresetContr
     fun setWipeTower(plate: Int, pos: Pair<Float, Float>?) = store.sceneOp { engine.setWipeTower(plate, pos) }
 
     fun undo() = store.launch {
+        // The picked region's applied marks would no longer match the model.
+        regionPick.value = null
         val before = store.value.scene.plates.size
         val scene = engine.undo()
         store.applyScene(scene)
@@ -329,6 +331,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
         val old = store.value.tool as? Tool.Paint
         old?.let { lastPaint[it.kind] = it }
         store.update { it.copy(tool = tool, measure = if (tool == Tool.Measure) emptyList() else it.measure) }
+        if (tool !is Tool.Paint || tool.shape != "regions" || tool.kind != old?.kind) regionPick.value = null
         if (tool is Tool.Paint && old != null && tool.kind == old.kind && tool.shape == old.shape && (tool.shape == "fill" || tool.shape == "regions")
             && (tool.edgeAngle != old.edgeAngle || tool.overColours != old.overColours)) refillLast()
         if (tool == Tool.LayerHeight) loadLayerProfile { engine.layerProfile(it) }
@@ -541,10 +544,13 @@ class SceneController(private val store: Store, private val presets: PresetContr
                         if (hit == null) {
                             if (fillShown) store.applyScene(engine.paintFillCancel())
                             fillShown = false
+                            regionPick.value = null
                         } else {
                             store.applyScene(fill(tool, hit, last.camera, last.section, !fillShown))
                             lastFill = Triple(hit, last.camera, last.section)
                             fillShown = true
+                            regionPick.value = if (tool.shape == "regions")
+                                RegionPick(hit, last.camera, last.section, tool.edgeAngle, mapOf(tool.kind to tool.state)) else null
                         }
                         strokePending = false
                         continue
@@ -590,12 +596,36 @@ class SceneController(private val store: Store, private val presets: PresetContr
                     val go = synchronized(pendingPaint) { refillWanted.also { refillWanted = false; if (!it) refillJob = null } }
                     if (!go) break
                     paintLock.withLock {
-                        val f = lastFill ?: return@withLock
+                        // Not live (another region edit came after it): the region it showed no longer matches the angle.
+                        val f = lastFill ?: run { regionPick.value = null; return@withLock }
                         val tool = (store.value.tool as? Tool.Paint)?.takeIf { it.shape == "fill" || it.shape == "regions" } ?: return@withLock
                         runCatching { fill(tool, f.first, f.second, f.third, newStroke = false, refill = true) }.getOrNull()?.let { store.applyScene(it) }
+                        regionPick.value = regionPick.value?.let { RegionPick(it.hit, it.camera, it.section, tool.edgeAngle, it.applied) }
                     }
                 }
             }
+        }
+    }
+
+    /**
+     * Per-region edits (interaction plan step 8b): the last Regions tap's seed, its crease angle and what was put on it (kind -> state).
+     * A Regions fill ignores existing paint, so a fill from the same seed covers the same faces in any paint kind.
+     */
+    class RegionPick(val hit: PickHit, val camera: Vec3, val section: FloatArray?, val edgeAngle: Float, val applied: Map<String, Int>)
+    val regionPick = kotlinx.coroutines.flow.MutableStateFlow<RegionPick?>(null)
+
+    /** Paints the picked region with [kind] / [state] (0 = clears that kind there); one undo step each. */
+    fun paintRegion(kind: String, state: Int) = store.launch {
+        paintLock.withLock {
+            val r = regionPick.value ?: return@withLock
+            val tool = store.value.tool as? Tool.Paint ?: return@withLock
+            runCatching {
+                engine.paint(listOf(r.hit), r.camera, tool.radius, kind, state, true, r.section, listOf(false), r.edgeAngle, "fill", tool.height, 0f,
+                    tool.guardZ.takeIf { tool.guardOn }, true, if (kind == "color") tool.locked else 0)
+            }.getOrNull()?.let { store.applyScene(it) } ?: return@withLock
+            // The live fill is now this one: a crease change would redo it with the tool's kind and state, so it no longer refills.
+            lastFill = null
+            regionPick.value = RegionPick(r.hit, r.camera, r.section, r.edgeAngle, r.applied + (kind to state))
         }
     }
 
