@@ -14,7 +14,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 0170950 (PR #65, branch at r398, merged 2026-10-25). Untested by the user in main: Build workspace, paint shop/depth, Filament materials, Realistic render, UX P1-P6, Check mesh feel, 3MF export in desktop Orca, pen, fan hold, Extrude F150.
 - Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
-- Latest CI build r434 (run 40445618859, measure axis lock): on all 6 adb devices. Install new builds on all adb devices (skip the .23 tablet: 32-bit, Android 6).
+- Latest CI build r436 (run 40454196356, step 7 mask previews): on 4 devices (2 were offline: .45 and the Note). Install new builds on all adb devices (skip the .23 tablet: 32-bit, Android 6).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
@@ -35,11 +35,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   Tests: `wsa-pen-hover.sh`, `wsa-steer-test.sh`, `input mouse tap`, measure = `input keyevent 49`, MCP `view_state` (`MAX=3000`).**
 - **No WSA focus loops (user 2026-10-26: "your testing keeps stealing my window focus"):** no `focus.ps1`/`tapf.sh`/`keys.ps1` in loops;
   touch/hold tests on the phone's hidden display. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
-- Step 7 (a2b67f7) Claude-verified WSA debug 2026-10-26 (overhangs, brush ring, live re-fill; archive). CI run 40454196356 dispatched
-  (42d9e27): when green, install on all adb devices and update "Latest CI build" above.
+- Step 7 (a2b67f7) Claude-verified WSA debug 2026-10-26 (overhangs, brush ring, live re-fill; archive). CI r436 installed.
 - Step 8 (gesture scrubber E5 + per-region edits) open questions asked in chat 2026-10-26: where a free one-finger drag lives in tool
   modes (Paint drags off the object orbit, user r325) and what "material / smoothing" per region means. Use the user's answer if logged.
-- Next step: install CI run 40454196356, then step 8 gesture scrubber design + build -> Opus 5.5 (high)
+- Next step: step 8 gesture scrubber design + build -> Opus 5.5 (high)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
