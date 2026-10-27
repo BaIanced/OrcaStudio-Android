@@ -35,12 +35,13 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   Tests: `wsa-pen-hover.sh`, `wsa-steer-test.sh`, `input mouse tap`, measure = `input keyevent 49`, MCP `view_state` (`MAX=3000`).**
 - **No WSA focus loops (user 2026-10-26: "your testing keeps stealing my window focus"):** no `focus.ps1`/`tapf.sh`/`keys.ps1` in loops;
   touch/hold tests on the phone's hidden display. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
-- Interaction plan steps 1-9 + Measure (loupe, steer, tap-select, Tuning): Claude-verified WSA debug 2026-10-27, user feel open (details: archive "Handoff trim 2026-10-27").
-- User: steer framing feels good, they tune the knobs themselves (archive). Still open (user feel): long press under finger, model.detail slider, ring tool-gating, loupe, tap-select.
+- Interaction plan 1-9 + Measure: Claude-verified WSA 2026-10-27; user feel open: long press, model.detail, ring gating, loupe, tap-select (archive).
 - CAD item 1 Hull switch: Claude-verified WSA r445 2026-10-27, user feel untested.
-- CAD roadmap 2 (user GO 2026-10-27): XY edge snap built 8f83f9b but **in the wrong view**: it is in `MeshPreviewView.moveMm` (legacy pane, code-only designs; `ScadPreviewPane`). The Build workspace body drag (`Viewport.kt:~305 onMoved` -> `ShapeController.moveOnPlate`, per-event dx/dy, no gesture start) has no snap. Found 2026-10-27 on WSA r446 (grep, no device test needed).
+- CAD roadmap 2 (user GO 2026-10-27): XY edge snap (8f83f9b, legacy pane) ported to the Build workspace in 657e897: `PlateView.dragOffsetAt`
+  (already cumulative from `dragStart`) + `DragSnap` from `ShapeController.buildSnapBoxes` (Viewport build effect), amber `PlateRenderer.dragGuides`, tick.
+  Snap only with one copy of the object (else free drag, unchanged). Compiled locally; CI run 40603089282; **untested on device**.
 - User ideas 2026-10-27 (leanings, backlog): Prepare long-press "Center" (group on plate, overlap allowed), Align row for multi-select, smart-guide snapping (plate + object edges/centres).
-- Next step: port the XY edge snap + amber guide into the Build workspace drag (needs a gesture-start hook so the snap works on the cumulative offset; reuse `ZRail.lift` and the 8f83f9b logic in `MeshPreviewView.moveMm`), compile, CI, WSA test -> Opus 5.5 (medium); then the Center/Align idea if the user wants it
+- Next step: install run 40603089282 on all adb devices, WSA test the Build workspace edge snap (two shapes, drag one near the other's edge: guide shows, lands flush; Prepare drag still free) -> Sonnet 5.5 (medium); then the Center/Align idea if the user wants it
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
