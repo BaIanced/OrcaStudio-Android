@@ -3437,3 +3437,10 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 
 ## 2026-10-27: backlog trim (user asked)
 - Removed: r197 NPE (fixed 6ad69ef r273, no repro). Done and no longer wishlist: MCP app_state/log_tail/perf (McpTools.kt:229-237), Show overhangs (a2b67f7), OrcaMesh sculpt half (CAD 5a/5b), CAD roadmap 0-6. Earlier today: 3MF bed type verified, colour mixing already built.
+
+
+## 2026-10-27: Check mesh sharp edges (moved from handoff)
+- Check mesh sharp edges (run 40632310176, r450, installed on all 4 devices): Claude-verified WSA debug 2026-10-27 on a 10-degree wedge STL (object 11 on plate 7, throwaway): 1 sharp edge found, rest clean; green marker look + user feel untested. Native sharpEdges/sharpPoints, kind 8.
+
+## 2026-10-27: Smart guides (moved from handoff)
+- **Smart guides 005f14d, Claude-verified WSA debug 2026-10-27 (user feel open):** Prepare body drag snaps the selection's edges + middle to plate/object edges + middles (`Viewport.kt` dragSnap, `DragSnap.mid`); multi-select = union box, tower drag skips it. 3MF bed type verified 2026-10-27 (archive).

@@ -19,7 +19,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
   WSA `127.0.0.1:58526`; **USB serial = the user's SHIELD TV** (rooted; installs only). No printer tests (user away).
-- **Cheapest interface first** (MCP `mcpao.sh` ~150 tok > `phone-ui.py layout` cut by regex > cropped shot only for GL looks).
+- **Cheapest per finished step, quality kept (user 2026-10-27):** weigh cost per call x chance it falls short (a retry or second tool costs more). Not "MCP always": MCP `mcpao.sh` (~150 tok) for app state, adb for installs/taps/pm/am/files, `phone-ui.py layout` cut by regex for UI, cropped shot only for GL looks. If the cheap tool can't finish the step, start with the one that can.
 - Session backups: phone `/data/local/tmp/phone-session-backup.{3mf,json}`, WSA `/data/local/tmp/session-backup.{3mf,json}`. `scadzip-test.zip` stays in `/sdcard/Download` (phone, Chromebook). Never write the LAN access code anywhere.
 ## Next task
 - **User 2026-10-21: design deviations pre-approved** ("deviate if you find a more logical, intuitive way; I trust your judgement"); say what changed.
@@ -36,10 +36,11 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **No WSA focus loops (user 2026-10-26: "your testing keeps stealing my window focus"):** no `focus.ps1`/`tapf.sh`/`keys.ps1` in loops;
   touch/hold tests on the phone's hidden display. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
 - Claude-verified WSA 2026-10-27, user feel open (archive): interaction plan 1-9 + Measure, CAD 1 Hull, CAD 2 XY edge snap, Center + Align row.
-- **Smart guides 005f14d, Claude-verified WSA debug 2026-10-27 (user feel open):** Prepare body drag snaps the selection's edges + middle to plate/object edges + middles (`Viewport.kt` dragSnap, `DragSnap.mid`); multi-select = union box, tower drag skips it. 3MF bed type verified 2026-10-27 (archive).
-- Check mesh sharp edges (run 40632310176, r450, installed on all 4 devices): Claude-verified WSA debug 2026-10-27 on a 10-degree wedge STL (object 11 on plate 7, throwaway): 1 sharp edge found, rest clean; green marker look + user feel untested. Native sharpEdges/sharpPoints, kind 8.
+- Smart guides 005f14d: Claude-verified WSA debug 2026-10-27, user feel open (archive).
+- Check mesh sharp edges: Claude-verified WSA debug 2026-10-27 (details in archive); green marker look + user feel untested.
 - Hollow (More menu + MCP `object_hollow`, native `OrcaHollow.cpp` = sla::hollow_mesh per model part, wall 0.8-10 mm, sealed): coded 2026-10-27, Kotlin compiles, native + CI untested. Cleanup already exists (More > Repair).
-- Next step: install the Hollow CI build, test on WSA debug (hollow a cube STL: faces up, slice, volume drops) -> Sonnet 5.5 (medium); camera-light slider needs the user's GO; user feel-checks wait
+- **Queue (user 2026-10-27, MCP token efficiency):** (1) Opus reviews the proposed MCP build rule(s) (backlog 'MCP token efficiency') and suggests edits or rejects; (2) Opus analyzes the tools (McpTools.kt + PresetTools.kt, 48 tools; plate edits return the full `plateDescribe`, McpTools.kt:735); (3) Hollow device test.
+- Next step: MCP build-rule review, then tool analysis -> Opus 5.5 (high); then install the Hollow CI build and test on WSA debug (cube STL: faces up, slice, volume drops) -> Sonnet 5.5 (medium); camera-light slider needs the user's GO; user feel-checks wait
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
