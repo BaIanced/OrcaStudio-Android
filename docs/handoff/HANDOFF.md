@@ -34,10 +34,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **No WSA focus loops (user 2026-10-26: "your testing keeps stealing my window focus"):** no `focus.ps1`/`tapf.sh`/`keys.ps1` in loops;
   touch/hold tests on the phone's hidden display. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
 - Claude-verified WSA 2026-10-27, user feel open (archive): interaction plan, CAD 1-2, Center/Align, smart guides, Check mesh.
-- Hollow (More menu + MCP `object_hollow`): r452 Claude-verified on WSA 2026-10-28; open: user feel (archive).
 - MCP token efficiency (`NOTES-mcp-token-efficiency.md`): A-C verified (archive), D dropped; proposed build rule waits for the user's OK; size tools `~/orca-android-tools/mcp_*_sizes.py`.
-- Preview camera light (user GO 2026-10-28): lab slider "Preview camera light" (`LayoutLab.cameraLight`, 0 = studio default) -> `PATH_FS` `uCamLight`. Claude-verified on WSA debug 2026-10-28: shader compiles, 0% vs 100% crop-shots differ (even top+side light at 100%). Shipped in r453; open: user feel (More > lab slider).
-- Next step: install CI build 40646124848 on all adb devices, then pick the next backlog item -> Sonnet 5.5 (medium)
+- Hollow + Preview camera light (More > lab slider): Claude-verified WSA 2026-10-28, shipped r453; open: user feel (archive).
+- Claude-closes list done 2026-10-28 (merge batch notes). r453 is on all devices.
+- Next step: user session A (phone portrait flow, NOTES-merge-batch.md; needs the user) -> Sonnet 5.5 (medium)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).

@@ -14,7 +14,7 @@ Paint depth real print + G-code, fan hold-until-within-4 %, Extrude F150, 3MF ex
 (jog/home, part fan read, speed chip).
 
 ## Claude closes (no user time)
-Truck demo people visibility (WSA plate 6), upstream 2.5 side-by-side on WSA, Check mesh sharp-edge markers on the current build.
+DONE 2026-10-28: truck demo people visibility dropped (demo session gone from WSA, Hollow already verified; rebuild with truck.sh + truck2.sh only if the user wants it); upstream 2.5 compare rows all closed at source level (NOTES-upstream-2.5.md; upstream is desktop-only, no WSA side-by-side possible); Check mesh sharp-edge markers Claude-verified r450 (archive).
 
 ## User sessions (about 10 min each, one device + one flow)
 - A. Phone portrait: Undo/Redo top left + File top right; paint shop panel layout C, dock + long-press menu; paint brush fast strokes;
@@ -29,4 +29,4 @@ Truck demo people visibility (WSA plate 6), upstream 2.5 side-by-side on WSA, Ch
 Cut tool: point of "Flip upper part upside down" / Lay on cut face. Push/pull: fold into resize (Claude rec) or remove.
 
 ## Status
-Triage done 2026-10-28. Next: Claude closes first, then sessions A-D (order: A, B, C, D).
+Triage done 2026-10-28. Claude closes done. Next: sessions A-D with the user (order: A, B, C, D).
