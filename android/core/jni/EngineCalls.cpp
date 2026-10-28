@@ -3,6 +3,8 @@
 
 #include "EngineCalls.hpp"
 
+#include <boost/log/trivial.hpp>
+#include <chrono>
 #include <cmath>
 #include <functional>
 #include <stdexcept>
@@ -227,8 +229,13 @@ json dispatch(OrcaEngine &engine, const std::string &method, const json &args)
     if (it == handlers().end())
         throw std::runtime_error("Unknown engine call: " + method);
     // A live sculpt's mesh is written back before any other call reads or changes the model.
-    if (method != "sculpt" && method != "sculptEnd")
+    if (method != "sculpt" && method != "sculptEnd") {
+        const auto t0 = std::chrono::steady_clock::now();
         engine.sculpt_flush();
+        const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
+        if (ms >= 20)
+            BOOST_LOG_TRIVIAL(warning) << "sculpt: " << method << " waited " << ms << " ms for the flush";
+    }
     return it->second(engine, args);
 }
 
