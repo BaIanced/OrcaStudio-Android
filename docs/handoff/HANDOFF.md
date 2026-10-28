@@ -34,8 +34,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - CAD plan (`NOTES-cad-reuse.md`): 0-5b Claude-verified, user feel untested; 1b parked.
 - **No WSA focus loops** (memory no-popups-on-user-screens). Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
 - MCP token efficiency (`NOTES-mcp-token-efficiency.md`): A-C verified, D dropped; build rule waits for the user's OK.
-- Snapping toggle 846a663: Claude-verified on WSA 2026-10-28 (archive), in build r456, user feel untested.
-- Clean specks with lock: Claude-verified WSA r456 2026-10-28 (archive), user feel untested.
+- Snapping toggle, clean specks with lock: Claude-verified WSA r456 2026-10-28 (archive), user feel untested.
 - Sculpt symmetry 51ad144 (+ "Straight ↕/↔" chip rename): CI run 40738227951 dispatched 2026-10-28, untested. Panel row
   "Symmetry X Y Z" (Tool.Sculpt.mirror bits 1/2/4); native mirrors each ray through the part's bbox middle (kept per part
   across rebuilds/undo), grab weights per axis; MCP `object_sculpt` `mirror:"x"`. Test: install all devices; WSA MCP draw with
