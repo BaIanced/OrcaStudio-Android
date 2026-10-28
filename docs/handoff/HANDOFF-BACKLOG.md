@@ -49,7 +49,7 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - Colour icon set shortlist + mockup (low). Paint card fold direction by screen position (low). "Need phone" prompt (shelved).
 - [Opus] Filament materials tiers 1+2, per-slot look, Realistic render 1+2 (Claude WSA debug 2026-10-24): user feel untested (layer line contrast in realistic mode); variable layer height ignored; open: Quest/Chromebook GPU check. Google Filament engine not wanted.
   user feel untested (layer line contrast in realistic mode); variable layer height ignored; open: Quest/Chromebook GPU check. Google Filament engine not wanted (breaks Shaders.kt drags, ids, uSolo).
-- Preview camera-light slider (no GO). Check mesh sharp-edge markers (green, kind 8) coded 2026-10-27, native, CI untested; not yet in Check mesh: cleanup, hollow (overhangs done: Show overhangs mask; MCP app_state/log_tail/perf done).
+- Preview camera-light slider (no GO). Check mesh sharp-edge markers (green, kind 8) coded 2026-10-27, native, CI untested; Hollow coded 2026-10-27 (More menu, native, CI untested); cleanup = More > Repair (exists) (overhangs done: Show overhangs mask; MCP app_state/log_tail/perf done).
 - [Opus] Snapseed interaction plan (NOTES-interaction-plan.md): steps 1-9 Claude-verified WSA (r437/r438, 2026-10-27); user feel untested on all.
 ## Known limits (no action)
 - Real keyboard Ctrl+1 = system hotkey. Inactive-plate double tap re-frames (user: fine). Badges ~23 dp at plate zoom (told the user).

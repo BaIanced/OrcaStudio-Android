@@ -173,6 +173,9 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         Tool("object_smooth_blend", "Plate edit: fuses all model parts of one copy into a single mesh and rounds the joins and crevices " +
             "(OpenVDB closing by radius mm; convex edges stay; works on STLs; painting is removed). $PLATE_EDIT",
             obj(listOf("object", "radius"), *COPY, "radius" to p("number", "Blend radius in mm, 0.5..50"))) { smoothBlend(it) },
+        Tool("object_hollow", "Plate edit: carves a closed cavity wall mm inside each model part of one copy (saves filament; sealed, no drain hole; " +
+            "painting is removed). $PLATE_EDIT",
+            obj(listOf("object", "wall"), *COPY, "wall" to p("number", "Wall thickness in mm, 0.8..10"))) { hollow(it) },
         Tool("object_sculpt", "Plate edit: sculpts the surface hit by a ray (brush dabs on the mesh; refined first when too coarse for the brush; " +
             "painting is removed on the first refine). Repeat dabs with `dabs`. $PLATE_EDIT",
             obj(listOf("origin", "dir", "brush"), "origin" to vec("Ray origin in plate coordinates"), "dir" to vec("Ray direction"),
@@ -804,6 +807,13 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             store.engine.sculpt(hit, List(dabs) { origin.f() to dir.f() }, brush, radius.toFloat(), args.optDouble("strength", 0.5).toFloat(),
                 args.optBoolean("invert", false), newStroke = true, end = true).scene ?: throw ToolError("sculpt returned no scene")
         }
+    }
+
+    private suspend fun hollow(args: JSONObject): String {
+        val (o, inst) = copyOf(args)
+        val wall = args.optDouble("wall", Double.NaN)
+        if (wall.isNaN() || wall < 0.8 || wall > 10) throw ToolError("wall must be 0.8..10 mm")
+        return plateEdit("hollowed object ${o + 1}", R.string.hollowing) { store.engine.hollowObject(o, inst.index, wall.toFloat()) }
     }
 
     private suspend fun smoothBlend(args: JSONObject): String {

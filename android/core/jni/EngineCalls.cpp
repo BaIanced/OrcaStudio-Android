@@ -108,6 +108,7 @@ const std::unordered_map<std::string, Handler> &handlers()
                              a.value("probe", false));
          }},
         {"sculptEnd", [](OrcaEngine &e, const json &) { return e.sculpt_end(); }},
+        {"hollowObject", [](OrcaEngine &e, const json &a) { return e.hollow_object(a.at("object"), a.value("instance", 0), a.at("wall")); }},
         {"smoothBlend", [](OrcaEngine &e, const json &a) { return e.smooth_blend(a.at("object"), a.value("instance", 0), a.at("radius")); }},
         {"replaceMesh", [](OrcaEngine &e, const json &a) { return e.replace_mesh(a.at("object"), a.at("path"), a.value("module", std::string())); }},
         {"setObjectModule", [](OrcaEngine &e, const json &a) { return e.set_object_module(a.at("object"), a.at("module")); }},

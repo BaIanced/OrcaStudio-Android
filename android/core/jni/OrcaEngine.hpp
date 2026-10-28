@@ -140,6 +140,8 @@ public:
     json region_edit(int object, int instance, int volume, int facet, double edge_angle, const std::string &op, double amount);
     // Fuses the object's model parts into one mesh with smooth joins (OpenVDB closing by `radius` mm).
     json smooth_blend(int object, int instance, double radius);
+    // Carves a closed cavity `wall` mm inside each model part of the copy (SLA hollowing, OpenVDB offset).
+    json hollow_object(int object, int instance, double wall);
     // Replaces the object's first model part with the single mesh in `path` (desktop "Replace with
     // STL"): settings, modifiers and instances stay, painting is remapped. Sets `module` when not empty.
     json replace_mesh(int object, const std::string &path, const std::string &module);

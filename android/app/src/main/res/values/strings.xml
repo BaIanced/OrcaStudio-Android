@@ -482,6 +482,11 @@
     <string name="sculpt_strength">Strength %d%%</string>
     <string name="sculpt_invert">Invert</string>
     <string name="blending">Blending…</string>
+    <string name="hollow">Hollow</string>
+    <string name="hollowing">Hollowing…</string>
+    <string name="hollow_wall">Wall %1$s mm</string>
+    <string name="hollow_hint">Carves a closed cavity inside each part and leaves a wall of this thickness, to save filament.</string>
+    <string name="hollow_note">The cavity is sealed (no drain hole); painting is removed. Undo goes back.</string>
     <string name="blend_radius">Radius %1$d mm</string>
     <string name="blend_hint">Fuses all parts of the object into one mesh and rounds the joins and crevices. Convex edges stay sharp.</string>
     <string name="blend_note">The parts become one; painting is removed. Undo goes back.</string>

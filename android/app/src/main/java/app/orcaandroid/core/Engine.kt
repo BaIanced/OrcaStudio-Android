@@ -144,6 +144,8 @@ class Engine(private val cacheDir: File) {
         return SculptStep(scene, patch, o.optBoolean("hit"), cursor)
     }
     suspend fun sculptEnd() = parseScene(call("sculptEnd"))
+    suspend fun hollowObject(obj: Int, instance: Int, wall: Float) =
+        parseScene(call("hollowObject", args("object" to obj, "instance" to instance, "wall" to wall)))
     suspend fun smoothBlend(obj: Int, instance: Int, radius: Float) =
         parseScene(call("smoothBlend", args("object" to obj, "instance" to instance, "radius" to radius)))
     suspend fun deform(obj: Int, instance: Int, kind: String, axis: Int, amount: Float) =

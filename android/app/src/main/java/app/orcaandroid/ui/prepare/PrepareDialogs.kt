@@ -148,6 +148,7 @@ internal fun AddDialogs(state: UiState, vm: AppViewModel, dialog: String?, onDis
         "simplify" -> SimplifyDialog(state, vm, onDismiss)
         "deform" -> DeformDialog(vm, onDismiss)
         "blend" -> BlendDialog(vm, onDismiss)
+        "hollow" -> HollowDialog(vm, onDismiss)
         "check" -> CheckMeshDialog(vm, onDismiss)
         "boolean" -> MeshBooleanDialog(state, vm, onDismiss)
     }
@@ -494,6 +495,18 @@ private fun CheckMeshDialog(vm: AppViewModel, onDismiss: () -> Unit) {
         },
         dismissButton = { if (hasMarkers) TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) } },
     )
+}
+
+/** Carves a closed cavity inside each part (SLA hollowing), leaving a wall of the chosen thickness. */
+@Composable
+private fun HollowDialog(vm: AppViewModel, onDismiss: () -> Unit) {
+    var wall by remember { mutableFloatStateOf(2f) }
+    DialogFrame(stringResource(R.string.hollow), stringResource(R.string.apply), onConfirm = { vm.scene.hollow(wall) }, onDismiss = onDismiss) {
+        Text(stringResource(R.string.hollow_wall, "%.1f".format(wall)))
+        Slider(wall, { wall = Math.round(it * 10f) / 10f }, valueRange = 0.8f..10f)
+        Text(stringResource(R.string.hollow_hint), style = MaterialTheme.typography.bodySmall)
+        Text(stringResource(R.string.hollow_note), style = MaterialTheme.typography.bodySmall)
+    }
 }
 
 /** Fuses the selected object's parts into one mesh with smooth joins (OpenVDB closing, so it also works on STLs). */

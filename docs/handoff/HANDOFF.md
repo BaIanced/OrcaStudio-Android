@@ -38,7 +38,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Claude-verified WSA 2026-10-27, user feel open (archive): interaction plan 1-9 + Measure, CAD 1 Hull, CAD 2 XY edge snap, Center + Align row.
 - **Smart guides 005f14d, Claude-verified WSA debug 2026-10-27 (user feel open):** Prepare body drag snaps the selection's edges + middle to plate/object edges + middles (`Viewport.kt` dragSnap, `DragSnap.mid`); multi-select = union box, tower drag skips it. 3MF bed type verified 2026-10-27 (archive).
 - Check mesh sharp edges (run 40632310176, r450, installed on all 4 devices): Claude-verified WSA debug 2026-10-27 on a 10-degree wedge STL (object 11 on plate 7, throwaway): 1 sharp edge found, rest clean; green marker look + user feel untested. Native sharpEdges/sharpPoints, kind 8.
-- Next step: Check mesh cleanup/hollow (print3d_toolbox) -> Sonnet 5.5 (medium); camera-light slider needs the user's GO; user feel-checks wait
+- Hollow (More menu + MCP `object_hollow`, native `OrcaHollow.cpp` = sla::hollow_mesh per model part, wall 0.8-10 mm, sealed): coded 2026-10-27, Kotlin compiles, native + CI untested. Cleanup already exists (More > Repair).
+- Next step: install the Hollow CI build, test on WSA debug (hollow a cube STL: faces up, slice, volume drops) -> Sonnet 5.5 (medium); camera-light slider needs the user's GO; user feel-checks wait
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
