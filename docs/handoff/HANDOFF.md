@@ -14,7 +14,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 0170950 (PR #65, branch at r398, merged 2026-10-25). Untested by the user in main: Build workspace, paint shop/depth, Filament materials, Realistic render, UX P1-P6, Check mesh feel, 3MF export in desktop Orca, pen, fan hold, Extrude F150.
 - Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
-- Latest CI build: run 40603089282 (r447, 657e897), installed 2026-10-27 on WSA, phone, SHIELD, Note. Install new builds on all adb devices (skip the .23 tablet: 32-bit, Android 6).
+- Latest CI build: run 40614288414 (77be353, smart guides), installed 2026-10-27 on WSA, phone, SHIELD, Note. Install new builds on all adb devices (skip the .23 tablet: 32-bit, Android 6).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
@@ -36,8 +36,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **No WSA focus loops (user 2026-10-26: "your testing keeps stealing my window focus"):** no `focus.ps1`/`tapf.sh`/`keys.ps1` in loops;
   touch/hold tests on the phone's hidden display. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
 - Claude-verified WSA 2026-10-27, user feel open (details in archive): interaction plan 1-9 + Measure, CAD item 1 Hull switch, CAD roadmap 2 XY edge snap (r447, 657e897), Center + Align row (f073445).
-- **Smart guides 005f14d, Claude-verified WSA debug 2026-10-27 (user feel open):** Prepare body drag sticks the selection's edges + middle to the plate's and other objects' edges + middles (`Viewport.kt` dragSnap in the selection effect, `DragSnap.mid`, `ZRail.lift(mid=)`); amber guide + tick reuse the Build edge snap. WSA drag of object 10 landed on plate middle Y 128.0 and object 9's centre X (plate_describe). Untested: multi-select, rotated objects, tower drag (should stay free).
-- CI build for smart guides dispatched 2026-10-27: run 40614288414 (77be353). Next step: when green, `install-build.ps1 -Run 40614288414` on all adb devices (WSA, phone, SHIELD, Note; not .23) -> Sonnet 5.5 (low)
+- **Smart guides 005f14d, Claude-verified WSA debug 2026-10-27 (user feel open):** Prepare body drag sticks the selection's edges + middle to the plate's and other objects' edges + middles (`Viewport.kt` dragSnap, `DragSnap.mid`); amber guide reuses the Build edge snap. WSA drag landed on plate middle Y and object 9's centre X. Untested: multi-select, rotated objects, tower drag (should stay free).
+- Next step: user feel-check of smart guides + earlier open items; Claude: pick a backlog item (grep `[Opus]`/untested) -> Sonnet 5.5 (medium)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
