@@ -14,7 +14,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 0170950 (PR #65, branch at r398, merged 2026-10-25). Untested by the user in main: Build workspace, paint shop/depth, Filament materials, Realistic render, UX P1-P6, Check mesh feel, 3MF export in desktop Orca, pen, fan hold, Extrude F150.
 - Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
-- Latest CI build: run 40646124848 = r453 (a3dbc7b: Hollow, MCP diff replies A-C, Preview camera light), CI green, installed 2026-10-28 on WSA, phone, SHIELD, Note; Claude-verified on WSA debug (archive), user feel untested. Install new builds on all adb devices (skip the .23 tablet: 32-bit, Android 6).
+- Latest CI build: run 40729403081 (82bfd05: slice-cancel + gizmo fixes, Hollow, MCP diff replies), CI green, installed 2026-10-28 on WSA, phone, SHIELD (Note not connected); Claude-verified on WSA debug (archive), user feel untested. Install new builds on all adb devices (skip the .23 tablet: 32-bit, Android 6).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **User 2026-10-28: no more user testing for now; Claude builds and tests everything itself (memory no-user-testing-now); don't ask for feel/UI checks.**
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
@@ -34,9 +34,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - CAD plan (`NOTES-cad-reuse.md`): 0-5b Claude-verified, user feel untested; 1b parked.
 - **No WSA focus loops** (memory no-popups-on-user-screens). Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
 - MCP token efficiency (`NOTES-mcp-token-efficiency.md`): A-C verified, D dropped; build rule waits for the user's OK.
-- CI run 40729403081 (82bfd05: slice-cancel + gizmo fixes, both Claude-verified) was running at the 2026-10-28 cue: if green, install on all adb devices, update "Latest CI build".
-- Snapping toggle 846a663 BUILT, untested (backlog "Snapping (user"): magnet button Prepare + Build toolbars, Shift+Tab (MainActivity.viewKey), Ctrl flips per drag, plate default off, 1.25 dp magenta guide. Test on WSA debug: button state, Shift+Tab in Build (Screen.PREPARE?), cropped guide shot; Ctrl-flip by code only.
-- Next step: WSA debug test of the snap toggle (wsa-debug-rebuild.sh), then the CI install -> Sonnet 5.5 (medium)
+- Snapping toggle 846a663: Claude-verified on WSA 2026-10-28 (archive), user feel untested; its CI build is not yet made (latest build 40729403081 = 82bfd05 predates it).
+- Next step: dispatch CI build of the branch head (snap toggle), install on all adb devices, then pick the next backlog item -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
