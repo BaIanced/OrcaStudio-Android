@@ -444,9 +444,9 @@ private fun FieldRow(title: String, shape: Shape, d: ShapeDesign, vm: AppViewMod
                     Modifier.weight(1f), label = if (bound != null) "$label = $bound" else label, decimals = 2)
             }
             Column {
-                IconButton(onClick = { menu = true }, modifier = Modifier.size(32.dp)) {
+                Tip(stringResource(R.string.shape_slider_menu)) { IconButton(onClick = { menu = true }, modifier = Modifier.size(32.dp)) {
                     Icon(Icons.Default.MoreVert, stringResource(R.string.shape_slider_menu))
-                }
+                } }
                 SliderMenu(menu, { menu = false }, shape, d, vm, labels.mapIndexed { i, l -> Triple("$prefix.${"xyz"[i]}", "$title $l", names[i]) })
             }
         }
@@ -462,9 +462,9 @@ private fun ExtraField(title: String, shape: Shape, d: ShapeDesign, vm: AppViewM
         NumberField(d.value(shape, key, shape.x(key, def)).toFloat(), { vm.shapes.setField(shape.id, key, it.toDouble()) },
             Modifier.weight(1f), label = if (bound != null) "$title = $bound" else title, decimals = decimals)
         if (slider) Column {
-            IconButton(onClick = { menu = true }, modifier = Modifier.size(32.dp)) {
+            Tip(stringResource(R.string.shape_slider_menu)) { IconButton(onClick = { menu = true }, modifier = Modifier.size(32.dp)) {
                 Icon(Icons.Default.MoreVert, stringResource(R.string.shape_slider_menu))
-            }
+            } }
             SliderMenu(menu, { menu = false }, shape, d, vm, listOf(Triple(key, title, key)))
         }
     }

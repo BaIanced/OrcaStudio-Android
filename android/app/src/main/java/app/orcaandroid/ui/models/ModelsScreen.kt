@@ -94,6 +94,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONObject
+import app.orcaandroid.ui.prepare.Tip
 
 /** A model site in the Models tab. [hosts] may post page messages (MakerWorld's slicer commands). */
 enum class ModelSite(val label: String, val home: String, val hosts: List<String> = emptyList()) {
@@ -517,10 +518,10 @@ fun ModelsScreen(browser: ModelBrowser) {
         // Fullscreen portrait: the buttons and the site chips share the strip beside the camera hole.
         SplitAroundCutout(Modifier.padding(horizontal = 4.dp), left = {
             val small = Modifier.size(40.dp)
-            IconButton(onClick = browser::back, small, enabled = browser.canGoBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back)) }
-            IconButton(onClick = browser::forward, small, enabled = browser.canGoForward) { Icon(Icons.AutoMirrored.Filled.ArrowForward, stringResource(R.string.forward)) }
-            IconButton(onClick = browser::reload, small) { Icon(Icons.Default.Refresh, stringResource(R.string.reload)) }
-            IconButton(onClick = { browser.open(browser.site) }, small) { Icon(Icons.Default.Home, stringResource(R.string.home)) }
+            Tip(stringResource(R.string.back)) { IconButton(onClick = browser::back, small, enabled = browser.canGoBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back)) } }
+            Tip(stringResource(R.string.forward)) { IconButton(onClick = browser::forward, small, enabled = browser.canGoForward) { Icon(Icons.AutoMirrored.Filled.ArrowForward, stringResource(R.string.forward)) } }
+            Tip(stringResource(R.string.reload)) { IconButton(onClick = browser::reload, small) { Icon(Icons.Default.Refresh, stringResource(R.string.reload)) } }
+            Tip(stringResource(R.string.home)) { IconButton(onClick = { browser.open(browser.site) }, small) { Icon(Icons.Default.Home, stringResource(R.string.home)) } }
         }, right = {
             // Beside the camera hole: just the menu.
             Row(Modifier.weight(1f), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
@@ -562,7 +563,7 @@ private fun AdBlockMenu(browser: ModelBrowser) {
     var menu by remember { mutableStateOf(false) }
     var list by remember { mutableStateOf(false) }
     Box {
-        IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, stringResource(R.string.more)) }
+        Tip(stringResource(R.string.more)) { IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, stringResource(R.string.more)) } }
         DropdownMenu(menu, { menu = false }) {
             DropdownMenuItem(text = { Text(stringResource(R.string.adblock_toggle)) }, leadingIcon = { Icon(Icons.Default.Shield, null) },
                 trailingIcon = { Checkbox(checked = browser.adBlockOn, onCheckedChange = null) },
@@ -589,7 +590,7 @@ private fun AdBlockMenu(browser: ModelBrowser) {
                     blocked.forEach { selector ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(selector, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace)
-                            IconButton(onClick = { browser.unblock(selector) }) { Icon(Icons.Default.Close, stringResource(R.string.adblock_unblock)) }
+                            Tip(stringResource(R.string.adblock_unblock)) { IconButton(onClick = { browser.unblock(selector) }) { Icon(Icons.Default.Close, stringResource(R.string.adblock_unblock)) } }
                         }
                     }
                 }

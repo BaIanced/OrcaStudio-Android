@@ -68,8 +68,8 @@ internal fun PaintShop(state: UiState, vm: AppViewModel, viewport: @Composable (
                 Row(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Top)).padding(start = 16.dp, end = 8.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.paint_shop), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, color = SHOP_FRAME)
-                    IconButton(onClick = vm.scene::undo, enabled = state.scene.canUndo) { Icon(Icons.AutoMirrored.Filled.Undo, stringResource(R.string.undo)) }
-                    IconButton(onClick = vm.scene::redo, enabled = state.scene.canRedo) { Icon(Icons.AutoMirrored.Filled.Redo, stringResource(R.string.redo)) }
+                    Tip(stringResource(R.string.undo)) { IconButton(onClick = vm.scene::undo, enabled = state.scene.canUndo) { Icon(Icons.AutoMirrored.Filled.Undo, stringResource(R.string.undo)) } }
+                    Tip(stringResource(R.string.redo)) { IconButton(onClick = vm.scene::redo, enabled = state.scene.canRedo) { Icon(Icons.AutoMirrored.Filled.Redo, stringResource(R.string.redo)) } }
                     TextButton(onClick = { vm.scene.setTool(Tool.None) }) { Text(stringResource(R.string.done)) }
                 }
             }

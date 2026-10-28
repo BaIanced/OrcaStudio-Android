@@ -39,6 +39,7 @@ import app.orcaandroid.ui.AppViewModel
 import app.orcaandroid.ui.Screen
 import app.orcaandroid.ui.UiState
 import app.orcaandroid.ui.settings.engineErrorText
+import app.orcaandroid.ui.prepare.Tip
 
 /** One message group on the 3D view: [key] changes when its content does, so new messages show again after a close. */
 private data class Notice(val key: String, val title: String, val lines: List<Pair<String, Boolean>>)
@@ -93,10 +94,10 @@ fun Notices(state: UiState, vm: AppViewModel, modifier: Modifier = Modifier) {
                 }
             }
             // X closes the card; a slice error is then gone for good (nothing left to re-open), the other notices stay as the "!" badge.
-            IconButton(onClick = {
+            Tip(stringResource(R.string.close)) { IconButton(onClick = {
                 closed = closed + open.map { it.key }
                 if (open.any { it.key.startsWith("slice:") }) vm.dismissSliceError()
-            }) { Icon(Icons.Default.Close, stringResource(R.string.close)) }
+            }) { Icon(Icons.Default.Close, stringResource(R.string.close)) } }
         }
     }
 }

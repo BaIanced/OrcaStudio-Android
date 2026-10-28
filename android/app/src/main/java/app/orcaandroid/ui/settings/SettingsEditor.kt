@@ -95,6 +95,7 @@ import app.orcaandroid.ui.components.TextInputDialog
 import app.orcaandroid.ui.components.inactiveTabLine
 import app.orcaandroid.ui.prepare.ColorDot
 import app.orcaandroid.ui.prepare.presetItems
+import app.orcaandroid.ui.prepare.Tip
 
 /** Where the edited values come from and go to: a preset, an object/part, or a height range. */
 private class EditSource(
@@ -181,7 +182,7 @@ private fun PresetEditor(state: UiState, vm: AppViewModel, type: PresetType, pic
         actions = {
             TextButton(onClick = { saveDialog = true }) { Text(stringResource(R.string.save_as)) }
             Box {
-                IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, stringResource(R.string.more)) }
+                Tip(stringResource(R.string.more)) { IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, stringResource(R.string.more)) } }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     if (source.modifiedCount > 0) DropdownMenuItem(text = { Text(stringResource(R.string.reset_all)) }, onClick = { menu = false; vm.presets.resetAll(type) })
                     DropdownMenuItem(text = { Text(stringResource(R.string.compare_with)) }, onClick = { menu = false; comparePick = true })
@@ -245,13 +246,13 @@ private fun EditorFrame(
         val wide = maxWidth >= WIDE_LAYOUT
         Column(Modifier.fillMaxSize()) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = vm.presets::closeEditor) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back)) }
+                Tip(stringResource(R.string.back)) { IconButton(onClick = vm.presets::closeEditor) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back)) } }
                 Column(Modifier.weight(1f)) {
                     Text(title, style = MaterialTheme.typography.titleMedium)
                     Text(subtitle + if (source.modifiedCount > 0) "  ·  " + stringResource(R.string.n_modified, source.modifiedCount) else "",
                         style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                IconButton(onClick = { searching = !searching; if (!searching) query = "" }) { Icon(Icons.Default.Search, stringResource(R.string.search)) }
+                Tip(stringResource(R.string.search)) { IconButton(onClick = { searching = !searching; if (!searching) query = "" }) { Icon(Icons.Default.Search, stringResource(R.string.search)) } }
                 actions()
             }
             tabs()
@@ -409,8 +410,8 @@ private fun OptionRow(
         }
     }
     val trailing: @Composable () -> Unit = {
-        if (wide) IconButton(onClick = { showTooltip = true }, enabled = def.tooltip.isNotEmpty()) { Icon(Icons.Default.Info, stringResource(R.string.info)) }
-        IconButton(onClick = onReset, enabled = modified) { Icon(Icons.Default.Refresh, stringResource(R.string.reset)) }
+        if (wide) Tip(stringResource(R.string.info)) { IconButton(onClick = { showTooltip = true }, enabled = def.tooltip.isNotEmpty()) { Icon(Icons.Default.Info, stringResource(R.string.info)) } }
+        Tip(stringResource(R.string.reset)) { IconButton(onClick = onReset, enabled = modified) { Icon(Icons.Default.Refresh, stringResource(R.string.reset)) } }
     }
     if (wide) {
         Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -658,7 +659,7 @@ private fun CompareView(vm: AppViewModel, target: EditorTarget.Compare) {
     }
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = vm.presets::closeEditor) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back)) }
+            Tip(stringResource(R.string.back)) { IconButton(onClick = vm.presets::closeEditor) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back)) } }
             Text(stringResource(R.string.compare_presets) + " · " + stringResource(R.string.n_differences, diff.size), style = MaterialTheme.typography.titleMedium)
         }
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {

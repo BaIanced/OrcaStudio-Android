@@ -79,6 +79,7 @@ import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import app.orcaandroid.ui.prepare.Tip
 
 /** Extrusion role names as the desktop shows them, by ExtrusionRole value. */
 internal val ROLE_NAMES = listOf(
@@ -180,7 +181,7 @@ private fun Actions(state: UiState, vm: AppViewModel, r: SliceResult) {
     }
     Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
         OutlinedButton(onClick = { saveGcode.launch(vm.files.gcodeFileName()) }) { Icon(Icons.Default.Save, null); Text(" G-code") }
-        IconButton(onClick = {
+        Tip(stringResource(R.string.share)) { IconButton(onClick = {
             val name = vm.files.gcodeFileName()
             shareScope.launch {
                 // Receivers show the file's own name, so share a copy named like "Save G-code" would.
@@ -197,12 +198,12 @@ private fun Actions(state: UiState, vm: AppViewModel, r: SliceResult) {
                     .putExtra(Intent.EXTRA_TITLE, name).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 context.startActivity(Intent.createChooser(send, null))
             }
-        }) { Icon(Icons.Default.Share, stringResource(R.string.share)) }
-        IconButton(onClick = { vm.slicing.updatePreview { it.copy(showGcode = !it.showGcode) } }) {
+        }) { Icon(Icons.Default.Share, stringResource(R.string.share)) } }
+        Tip(stringResource(R.string.show_gcode)) { IconButton(onClick = { vm.slicing.updatePreview { it.copy(showGcode = !it.showGcode) } }) {
             Icon(Icons.Default.Code, stringResource(R.string.show_gcode), tint = if (state.preview.showGcode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
-        }
+        } }
         Box {
-            IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, stringResource(R.string.more)) }
+            Tip(stringResource(R.string.more)) { IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, stringResource(R.string.more)) } }
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                 if (!r.external) DropdownMenuItem(text = { Text(stringResource(R.string.save_gcode_3mf)) },
                     onClick = { menu = false; save3mf.launch(vm.files.gcodeFileName().removeSuffix(".gcode") + ".gcode.3mf") })

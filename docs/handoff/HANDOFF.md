@@ -36,7 +36,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - MCP token efficiency (`NOTES-mcp-token-efficiency.md`): A-C verified, D dropped; build rule waits for the user's OK.
 - Snapping toggle, clean specks with lock: Claude-verified WSA r456 2026-10-28 (archive), user feel untested.
 - Sculpt symmetry 51ad144 (r457, panel row "Symmetry X Y Z", MCP `mirror`): Claude-verified WSA 2026-10-28 by volume (mirror dab = 2x a single dab; archive); user feel untested; bump positions / grab on plane / Y,Z not checked.
-- Next step: pick the next backlog item (grep HANDOFF-BACKLOG.md for [Opus]/open) -> Sonnet 5.5 (medium)
+- Mirror button retest + tooltip sweep done 2026-10-28 (archive); both in the next CI build (not dispatched yet; batch with the next change).
+- Next step: Shape builder W/D/H scrub + shared proportional lock (backlog; spec in archive 2026-10-28 trim) -> Opus 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).

@@ -156,10 +156,10 @@ internal fun ToolPanel(state: UiState, vm: AppViewModel) {
             }, verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.DragIndicator, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(toolTitle(tool), Modifier.weight(1f).padding(start = 4.dp), style = MaterialTheme.typography.titleSmall)
-                IconButton(onClick = { folded = !folded }, modifier = Modifier.size(32.dp)) {
+                Tip(stringResource(if (folded) R.string.design_unfold else R.string.design_minimize)) { IconButton(onClick = { folded = !folded }, modifier = Modifier.size(32.dp)) {
                     Icon(if (folded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, stringResource(if (folded) R.string.design_unfold else R.string.design_minimize))
-                }
-                IconButton(onClick = { vm.scene.setTool(Tool.None) }, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.Close, stringResource(R.string.close)) }
+                } }
+                Tip(stringResource(R.string.close)) { IconButton(onClick = { vm.scene.setTool(Tool.None) }, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.Close, stringResource(R.string.close)) } }
             }
             if (!folded) when (tool) {
                 is Tool.Paint -> PaintOptions(state, vm, tool)
@@ -519,18 +519,18 @@ private fun PaintLayerRow(state: UiState, i: Int, selected: Boolean, percent: In
             }
         }
         Row {
-            IconButton(flags.toggleHidden, Modifier.size(36.dp)) {
+            Tip(stringResource(if (flags.hidden) R.string.paint_layer_show else R.string.paint_layer_hide)) { IconButton(flags.toggleHidden, Modifier.size(36.dp)) {
                 Icon(if (flags.hidden) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                     stringResource(if (flags.hidden) R.string.paint_layer_show else R.string.paint_layer_hide), Modifier.size(20.dp))
-            }
-            IconButton(flags.toggleLocked, Modifier.size(36.dp)) {
+            } }
+            Tip(stringResource(if (flags.locked) R.string.paint_layer_unlock else R.string.paint_layer_lock)) { IconButton(flags.toggleLocked, Modifier.size(36.dp)) {
                 Icon(if (flags.locked) Icons.Default.Lock else Icons.Default.LockOpen,
                     stringResource(if (flags.locked) R.string.paint_layer_unlock else R.string.paint_layer_lock), Modifier.size(20.dp),
                     tint = if (flags.locked) MaterialTheme.colorScheme.primary else LocalContentColor.current)
-            }
+            } }
         }
         Box {
-            IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, stringResource(R.string.paint_layer_menu)) }
+            Tip(stringResource(R.string.paint_layer_menu)) { IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, stringResource(R.string.paint_layer_menu)) } }
             LayerMenu(state, i, menu, percent, flags, { menu = false }, onTurnInto)
         }
     }

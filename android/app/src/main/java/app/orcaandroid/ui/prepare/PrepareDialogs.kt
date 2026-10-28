@@ -434,7 +434,7 @@ internal fun LayerGcodeDialog(state: UiState, vm: AppViewModel, plate: Int, init
                         Text("%.2f mm · %s".format(Locale.ROOT, g.z, stringResource(types.first { it.first == g.type }.second)) +
                             if (g.type == "color") " → ${g.extruder}" else if (g.extra.isNotBlank()) " · ${g.extra.take(20)}" else "",
                             Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-                        IconButton(onClick = { items.remove(g) }) { Icon(Icons.Default.Delete, stringResource(R.string.delete)) }
+                        Tip(stringResource(R.string.delete)) { IconButton(onClick = { items.remove(g) }) { Icon(Icons.Default.Delete, stringResource(R.string.delete)) } }
                     }
                 }
                 if (adding) {

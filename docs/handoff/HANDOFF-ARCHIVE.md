@@ -3499,3 +3499,9 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 ## 2026-10-28 Sculpt symmetry (51ad144, CI run 40738227951, r457): Claude-verified on WSA, user feel untested
 - Installed r457 on WSA, phone, SHIELD. WSA MCP `object_sculpt` inflate r3 x5 on a 15 mm box part: single dab +14/+15 mm3, same dab with `mirror:"x"` +29 mm3 (two bumps) and the mesh refined. Not checked: bump positions on both sides (volume only); grab on the symmetry plane; Y/Z bits; panel row UI.
 - Test gotchas: `design_to_plate` needs an Allow tap in the app (WSA: uiautomator dump, tap the "Allow" text) and a stale 60 s request blocks the next; it left a 10-box object on plate 1 (objects 1 and 2, throwaway); a ray hits the top object, so move others away first; `plate_describe` output cuts off at filament 12.
+
+## 2026-10-28 Mirror button retest (Claude, WSA debug of r457 source)
+- MCP design_set wedge 30x20x15, shape_update mirror [1,0,0] (same update+commit path as ShapeController.mirror, ShapeController.kt:392): design_snapshot before/after shows the wedge flipped. The user's r453 "no update" was a symmetric box. Done; user feel not needed.
+
+## 2026-10-28 Tooltip sweep
+- Script ~/orca-android-tools/wrap_tips.py wrapped every bare IconButton whose Icon has a content description in Tip(desc) (81 sites, 19 files); skipped: PreparePanel colour dots (210, 344), PrepareOverlay:703 (no label). compileDebugKotlin clean; WSA debug launch, no crash. Hover/long-press tooltips untested on device.

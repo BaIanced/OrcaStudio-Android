@@ -234,9 +234,9 @@ internal fun PlateRow(state: UiState, vm: AppViewModel, modifier: Modifier, spac
         Box(contentAlignment = Alignment.Center) {
             Box(if (picks.active) Modifier.alpha(0f).clearAndSetSemantics {} else Modifier) { add() }
             if (picks.active) {
-                IconButton(onClick = { picks.picked = emptySet() }, Modifier.matchParentSize()) {
+                Tip(stringResource(R.string.cancel)) { IconButton(onClick = { picks.picked = emptySet() }, Modifier.matchParentSize()) {
                     Icon(Icons.Default.Close, stringResource(R.string.cancel))
-                }
+                } }
                 PickDelete(vm, picks, above = align == Alignment.Bottom)
             }
         }

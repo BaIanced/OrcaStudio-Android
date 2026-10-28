@@ -83,6 +83,7 @@ import app.orcaandroid.R
 import app.orcaandroid.ui.AppViewModel
 import app.orcaandroid.ui.UiState
 import kotlin.math.roundToInt
+import app.orcaandroid.ui.prepare.Tip
 
 /**
  * Design mode (user, 2026-10-14): a floating, draggable panel over the real app for picking a preset and
@@ -157,10 +158,10 @@ fun ThemeDesignPanel(state: UiState, vm: AppViewModel) {
                             Text(stringResource(if (dark) R.string.design_editing_dark else R.string.design_editing_light),
                                 style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        IconButton({ toggled = true; minimized = !minimized }) {
+                        Tip(stringResource(if (minimized) R.string.design_unfold else R.string.design_minimize)) { IconButton({ toggled = true; minimized = !minimized }) {
                             Icon(if (minimized) Icons.Default.ExpandLess else Icons.Default.ExpandMore, stringResource(if (minimized) R.string.design_unfold else R.string.design_minimize))
-                        }
-                        IconButton({ vm.setDesignMode(false) }) { Icon(Icons.Default.Close, stringResource(R.string.close)) }
+                        } }
+                        Tip(stringResource(R.string.close)) { IconButton({ vm.setDesignMode(false) }) { Icon(Icons.Default.Close, stringResource(R.string.close)) } }
                     }
                     if (!minimized) Column(Modifier.heightIn(max = listHeight).verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -330,7 +331,7 @@ private fun ColorEditor(key: String, color: Color, custom: Boolean, onChange: (C
                 textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
             )
-            IconButton(onReset, enabled = custom) { Icon(Icons.Default.Restore, stringResource(R.string.design_reset_color)) }
+            Tip(stringResource(R.string.design_reset_color)) { IconButton(onReset, enabled = custom) { Icon(Icons.Default.Restore, stringResource(R.string.design_reset_color)) } }
         }
         val hues = remember { (0..6).map { Color(android.graphics.Color.HSVToColor(floatArrayOf(it * 60f, 1f, 1f))) } }
         GradientSlider(stringResource(R.string.design_hue), h / 360f, Brush.horizontalGradient(hues),

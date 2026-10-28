@@ -62,11 +62,10 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - Smart guides (BUILT 005f14d + Center/Align f073445, Claude-verified WSA 2026-10-27, user feel open). Open idea: plate + object centres in the shape-builder edge snap.
 
 - MCP token efficiency (Opus review + analysis done 2026-10-27, `NOTES-mcp-token-efficiency.md`): proposed build rule waits for the user's OK; plan A-C (diff replies) r452 Claude-verified WSA 2026-10-28; D dropped.
-- Hover tooltips (Build toolbar done, archive): open: other Build panel icons / screens with bare IconButtons (~86 in app) still lack Tip(); Claude to sweep.
-- Mirror button (user 2026-10-28, r453: 'no update'): likely a symmetric box (archive); check marks in 26be567. Open: Claude retest on an asymmetric shape (wedge/L) on WSA debug.
+- Hover tooltips: all 81 icon buttons with a content description now wrapped in Tip() (Claude 2026-10-28, compiles, WSA debug launch OK; hover/long-press not adb-testable); 3 colour-dot buttons have no label. User feel untested.
 - [Opus] Build continuity (user brain dump 2026-10-28, exploration; archive): show the other objects ghosted in Build, one builder entry + CAD badge; user agreed with the leanings; open: mockup first, keep their vision as a toggle.
 - Shape builder W/D/H scrub + one shared proportional lock (user 2026-10-28, design agreed; full spec in archive 2026-10-28 trim): not built. Open: badge clutter, live speed on groups.
 - Shape builder bugs (user 2026-10-28, session B): drag lag, rings through the object, end copy drag scaling spacing: fixed 1a94899, Claude-verified WSA debug 2026-10-28 (archive); open: user feel (on hold, no user testing now).
 - Snapping (user 2026-10-28: toggle/hotkey, not forced on the plate, thin Adobe-style guide): 846a663 Claude-verified WSA 2026-10-28; user feel untested.
-- Session B checks skipped by user 2026-10-28 ("don't want to do right now"): Sculpt, Hollow, Center/Align, Check mesh, badge fix, mirror asymmetric feel.
+- Session B checks skipped by user 2026-10-28 ("don't want to do right now"): Sculpt, Hollow, Center/Align, Check mesh, badge fix.
 - UI prefs (user 2026-10-28, untriaged; archive 2026-10-28 trim): plate tabs / filmstrip / chips each an Appearance option; slice button floating bottom right (or user-movable), not in the drag handle.

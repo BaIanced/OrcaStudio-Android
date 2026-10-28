@@ -108,6 +108,7 @@ import app.orcaandroid.ui.components.PickerField
 import app.orcaandroid.ui.components.PickerItem
 import app.orcaandroid.ui.components.appIsDark
 import kotlin.math.roundToInt
+import app.orcaandroid.ui.prepare.Tip
 
 private val CODE_STYLE = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 13.sp, lineHeight = 19.sp)
 private val LINE_REF = Regex("""line (\d+)""")
@@ -243,11 +244,11 @@ private fun Header(s: ScadEditorState, vm: AppViewModel, onHide: (() -> Unit)?, 
             Text(if (s.shapes != null) stringResource(R.string.shape_builder) else "OpenSCAD", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
             Text(s.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        IconButton(onClick = onNew) { Icon(Icons.Default.Add, stringResource(R.string.scad_new)) }
-        IconButton(onClick = onOpen) { Icon(Icons.Default.FolderOpen, stringResource(R.string.scad_open)) }
-        IconButton(onClick = onSave) { Icon(Icons.Default.Save, stringResource(R.string.scad_save)) }
-        if (onHide != null) IconButton(onClick = onHide) { Icon(Icons.Default.VerticalAlignBottom, stringResource(R.string.scad_hide_editor)) }
-        IconButton(onClick = vm.scad::close) { Icon(Icons.Default.Close, stringResource(R.string.scad_close)) }
+        Tip(stringResource(R.string.scad_new)) { IconButton(onClick = onNew) { Icon(Icons.Default.Add, stringResource(R.string.scad_new)) } }
+        Tip(stringResource(R.string.scad_open)) { IconButton(onClick = onOpen) { Icon(Icons.Default.FolderOpen, stringResource(R.string.scad_open)) } }
+        Tip(stringResource(R.string.scad_save)) { IconButton(onClick = onSave) { Icon(Icons.Default.Save, stringResource(R.string.scad_save)) } }
+        if (onHide != null) Tip(stringResource(R.string.scad_hide_editor)) { IconButton(onClick = onHide) { Icon(Icons.Default.VerticalAlignBottom, stringResource(R.string.scad_hide_editor)) } }
+        Tip(stringResource(R.string.scad_close)) { IconButton(onClick = vm.scad::close) { Icon(Icons.Default.Close, stringResource(R.string.scad_close)) } }
     }
 }
 

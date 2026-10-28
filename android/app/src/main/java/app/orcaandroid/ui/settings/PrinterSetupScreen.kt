@@ -44,6 +44,7 @@ import app.orcaandroid.ui.AppViewModel
 import app.orcaandroid.ui.Phase
 import app.orcaandroid.ui.UiState
 import app.orcaandroid.ui.WIDE_LAYOUT
+import app.orcaandroid.ui.prepare.Tip
 
 /**
  * Printer selection in the spirit of the desktop setup wizard: vendor → model → nozzle sizes.
@@ -71,7 +72,7 @@ fun PrinterSetupScreen(state: UiState, vm: AppViewModel) {
         val wide = maxWidth >= WIDE_LAYOUT
         Column(Modifier.fillMaxSize().padding(if (wide) 24.dp else 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                if (!wide && current != null) IconButton(onClick = { current = null }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back)) }
+                if (!wide && current != null) Tip(stringResource(R.string.back)) { IconButton(onClick = { current = null }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back)) } }
                 Text(if (!wide && vendor != null) vendor.name else stringResource(R.string.select_printers),
                     style = if (wide) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.titleLarge)
             }

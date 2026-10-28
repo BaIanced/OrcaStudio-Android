@@ -77,6 +77,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import app.orcaandroid.ui.prepare.Tip
 
 /** Device tab: printer status and job control, plus the printer's own web UI (Mainsail, Fluidd, ...). */
 @Composable
@@ -145,14 +146,14 @@ private fun StatusBar(state: UiState, vm: AppViewModel, connection: PrinterConne
                 }
                 if (status?.isActive == true) {
                     if (status.state == PrinterStatus.State.PAUSED)
-                        IconButton(onClick = { vm.device.controlJob(PrintHost.JobAction.RESUME) }) { Icon(Icons.Default.PlayArrow, stringResource(R.string.resume)) }
+                        Tip(stringResource(R.string.resume)) { IconButton(onClick = { vm.device.controlJob(PrintHost.JobAction.RESUME) }) { Icon(Icons.Default.PlayArrow, stringResource(R.string.resume)) } }
                     else
-                        IconButton(onClick = { vm.device.controlJob(PrintHost.JobAction.PAUSE) }) { Icon(Icons.Default.Pause, stringResource(R.string.pause)) }
-                    IconButton(onClick = { confirmCancel = true }) { Icon(Icons.Default.Cancel, stringResource(R.string.cancel_print)) }
-                    IconButton(onClick = vm.device::monitorPrinter) { Icon(Icons.Default.Notifications, stringResource(R.string.notify_progress)) }
+                        Tip(stringResource(R.string.pause)) { IconButton(onClick = { vm.device.controlJob(PrintHost.JobAction.PAUSE) }) { Icon(Icons.Default.Pause, stringResource(R.string.pause)) } }
+                    Tip(stringResource(R.string.cancel_print)) { IconButton(onClick = { confirmCancel = true }) { Icon(Icons.Default.Cancel, stringResource(R.string.cancel_print)) } }
+                    Tip(stringResource(R.string.notify_progress)) { IconButton(onClick = vm.device::monitorPrinter) { Icon(Icons.Default.Notifications, stringResource(R.string.notify_progress)) } }
                 }
-                IconButton(onClick = vm.device::refreshStatus) { Icon(Icons.Default.Refresh, stringResource(R.string.refresh)) }
-                IconButton(onClick = onEdit) { Icon(Icons.Default.Settings, stringResource(R.string.connection)) }
+                Tip(stringResource(R.string.refresh)) { IconButton(onClick = vm.device::refreshStatus) { Icon(Icons.Default.Refresh, stringResource(R.string.refresh)) } }
+                Tip(stringResource(R.string.connection)) { IconButton(onClick = onEdit) { Icon(Icons.Default.Settings, stringResource(R.string.connection)) } }
             }
             status?.progress?.takeIf { status.isActive }?.let { p -> LinearProgressIndicator(progress = { p }, modifier = Modifier.fillMaxWidth()) }
             status?.alerts?.firstOrNull()?.let { first ->

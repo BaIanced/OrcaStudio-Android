@@ -336,7 +336,7 @@ private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
                             Triple(AlignKind.CENTER_Y, Icons.Default.VerticalAlignCenter, R.string.align_center_y),
                             Triple(AlignKind.FRONT, Icons.Default.VerticalAlignBottom, R.string.align_front),
                         ).forEach { (kind, icon, label) ->
-                            IconButton(onClick = { close(); vm.scene.alignSelected(kind) }) { Icon(icon, stringResource(label)) }
+                            Tip(stringResource(label)) { IconButton(onClick = { close(); vm.scene.alignSelected(kind) }) { Icon(icon, stringResource(label)) } }
                         }
                     }
                     DropdownMenuItem(text = { Text(stringResource(R.string.assemble)) }, leadingIcon = { Icon(Icons.Default.CallMerge, null) },

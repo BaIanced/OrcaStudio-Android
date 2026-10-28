@@ -87,6 +87,7 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.round
 import kotlin.math.tan
+import app.orcaandroid.ui.prepare.Tip
 
 private enum class Tool(val label: Int, val hint: Int) {
     SELECT(R.string.sketch_select, R.string.sketch_hint_select),
@@ -365,10 +366,10 @@ fun SketchEditor(initial: Sketch, revolve: Boolean, dims: List<Dim>, name: Strin
                     TextButton(onClick = onCancel) { Text(stringResource(android.R.string.cancel)) }
                     Text(title ?: stringResource(if (path) R.string.sketch_title_path else if (revolve) R.string.sketch_title_revolve else R.string.sketch_title),
                         style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f).padding(start = 8.dp))
-                    IconButton(onClick = st::undo, enabled = st.undoCount > 0 || st.draft.isNotEmpty()) {
+                    Tip(stringResource(R.string.shape_undo)) { IconButton(onClick = st::undo, enabled = st.undoCount > 0 || st.draft.isNotEmpty()) {
                         Icon(Icons.AutoMirrored.Filled.Undo, stringResource(R.string.shape_undo))
-                    }
-                    IconButton(onClick = st::fit) { Icon(Icons.Default.FitScreen, stringResource(R.string.sketch_fit)) }
+                    } }
+                    Tip(stringResource(R.string.sketch_fit)) { IconButton(onClick = st::fit) { Icon(Icons.Default.FitScreen, stringResource(R.string.sketch_fit)) } }
                     TextButton(onClick = { st.finishDraft(path); onDone(st.sketch, st.dims) }) { Text(stringResource(R.string.sketch_done)) }
                 }
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -654,7 +655,7 @@ private fun PickBar(st: SketchState, name: String, path: Boolean) {
                     Switch(l.hole, { h -> st.setLoop(p.loop, { it.copy(hole = h) }) })
                 }
             }
-            IconButton(onClick = st::deletePicked) { Icon(Icons.Default.Delete, stringResource(R.string.shape_delete)) }
+            Tip(stringResource(R.string.shape_delete)) { IconButton(onClick = st::deletePicked) { Icon(Icons.Default.Delete, stringResource(R.string.shape_delete)) } }
         }
         if (p.what == Pick.What.SIDE) SideConstraints(st, Side(p.loop, p.index), l, name)
     }
@@ -677,7 +678,7 @@ private fun SideConstraints(st: SketchState, side: Side, l: Loop, name: String) 
             else -> title
         })
         Box {
-            IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, stringResource(R.string.shape_slider_menu)) }
+            Tip(stringResource(R.string.shape_slider_menu)) { IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, stringResource(R.string.shape_slider_menu)) } }
             DropdownMenu(menu, { menu = false }) {
                 if (len != null) DropdownMenuItem(text = { Text(stringResource(R.string.sketch_free_length)) }, leadingIcon = { Icon(Icons.Default.LockOpen, null) },
                     onClick = { menu = false; st.unconstrain(len) })
