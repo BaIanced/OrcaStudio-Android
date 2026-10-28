@@ -3448,3 +3448,6 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 ## 2026-10-28: Hollow + MCP diff replies A-C (moved from handoff)
 - r452 (run 40642755687, 76228bf, CI green incl. native Hollow), Claude-verified on WSA debug app 2026-10-28 (user feel untested): `object_hollow` on a 20 mm cube (12 tris -> 1444 tris, 2 shells, volume 8000 -> 3925 mm3, expected ~3904 for wall 2); a second hollow on it errors "walls too thin", wall 0.1 errors "0.8..10". Sliced plate 5 (100 layers, 4.54 g incl. prime tower, no warnings, cavity respected). Not done: UI menu path.
 - Diff replies: `object_transform` (pos+rot), `object_duplicate` (only the new copies listed), `plate_arrange` (all moved copies), `shape_add/update/group` (changed/removed shapes only), `dim_set` on a bound dim (lists the followers) all returned short diffs. Plan D not done. Debug app on WSA stays installed (r452 code), app force-stopped.
+
+### 2026-10-28 Truck demo verdict (user, r453-era)
+- User: the 2 figures were visible only with Realistic mode on and the filaments set transparent; sliced preview showed the people clearly. Wants Realistic mode on all the time and asks whether negative (hole) parts could default to translucent. Not yet investigated by Claude (open: why figures are hidden in the normal view; Realistic default; translucent hole look).
