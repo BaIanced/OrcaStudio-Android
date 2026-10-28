@@ -20,7 +20,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
   WSA `127.0.0.1:58526`; **USB serial = the user's SHIELD TV** (rooted; installs only). No printer tests (user away).
-- **Cheapest per finished step, quality kept (user 2026-10-27):** weigh cost per call x chance it falls short (a retry or second tool costs more). Not "MCP always": MCP `mcpao.sh` (~150 tok) for app state, adb for installs/taps/pm/am/files, `phone-ui.py layout` cut by regex for UI, cropped shot only for GL looks. If the cheap tool can't finish the step, start with the one that can.
+- **Cheapest per finished step, quality kept** (memory cheapest-per-finished-step): mcpao.sh for app state, adb for installs/taps, `phone-ui.py layout` for UI, cropped shots only for GL looks.
 - Session backups: phone `/data/local/tmp/phone-session-backup.{3mf,json}`, WSA `/data/local/tmp/session-backup.{3mf,json}`. `scadzip-test.zip` stays in `/sdcard/Download` (phone, Chromebook). Never write the LAN access code anywhere.
 ## Next task
 - **User 2026-10-21: design deviations pre-approved** ("deviate if you find a more logical, intuitive way; I trust your judgement"); say what changed.
@@ -32,18 +32,16 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **Offload (user 2026-10-25/26): max token use onto free opencode models, growing leeway by track record** (Claude specs + verifies).
   DeepSeek V4.1 Flash = default; runner `octauto.sh` (`D:\oct-backup\jobs\README.md`; opencode v2: `model#variant`), ledger `trust-profile.md`.
 - CAD plan (`NOTES-cad-reuse.md`): 0-5b Claude-verified, user feel untested; 1b parked.
-- **No WSA focus loops (user 2026-10-26: "your testing keeps stealing my window focus"):** no `focus.ps1`/`tapf.sh`/`keys.ps1` in loops;
-  touch/hold tests on the phone's hidden display. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
+- **No WSA focus loops** (memory no-popups-on-user-screens); touch/hold tests on the phone's hidden display. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
 - MCP token efficiency (`NOTES-mcp-token-efficiency.md`): A-C verified (archive), D dropped; proposed build rule waits for the user's OK; size tools `~/orca-android-tools/mcp_*_sizes.py`.
-- Session B findings are in the backlog (grep "Shape builder bugs", "Snapping (user"). Unpushed-to-CI: tooltips, mirror marks (archive); slice-cancel badge d3ee419 pushed, Claude-verified on WSA (archive).
-- Next step: shape builder drag/gizmo/mirror-spacing bugs (backlog "Shape builder bugs") -> Opus 5.5 (high); then one CI build with the badge fix
+- Session B findings: backlog "Shape builder bugs" (fixed 1a94899, WSA test pending; plan in archive 2026-10-28), "Snapping (user". Unpushed to CI: tooltips, mirror marks, slice-cancel badge d3ee419, 1a94899.
+- Next step: WSA-test the 1a94899 gizmo fixes (archive test plan), then one CI build with them + the badge fix -> Sonnet 5.5 (medium)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
 - Plate activation must not move the camera when zoomed out (sometimes moving is fine).
-- Plate switcher: **keep the lab until the user says otherwise; don't ask again** (mockups https://claude.ai/artifact/E3MtY8rQ1dMGHhibY2oNCX).
-  Once picked: delete the losers and the lab.
+- Plate switcher: **keep the lab until the user says otherwise; don't ask again** (mockups: archive "Plate switcher"). Once picked: delete losers + lab.
 
 ## Safety gotchas
 - **Any test print needs the user's OK.** User's AMS lite: A1 yellow, A2 matte black, A3 white, A4 PETG.

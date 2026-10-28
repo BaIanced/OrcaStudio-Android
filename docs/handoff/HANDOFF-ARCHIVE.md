@@ -3471,3 +3471,12 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 
 ## 2026-10-28 slice-cancel badge (Claude-verified, WSA debug build of d3ee419)
 - User cancel of a slice raises no error badge (`SliceController.userCancelled`; Slice all stops), card X on a slice error also removes it (`Notices.kt`). WSA: sliced via MCP, tapped Cancel: OrcaSlice logged the cancel exception, app_state shows no slice error. X-removal on a real error untested (code path only). Pushed, not in a CI build yet.
+
+## 2026-10-28 Shape builder gizmo fixes (1a94899, untested on device)
+- (1) Gizmo stayed behind during a move: drawGizmo/drawRings drew without dragOffset (PlateRenderer drawSelection); now the box passed to them is shifted by dragOffset.
+- (2) Too touch-sensitive: rotate rings drew and picked the whole circle, back parts behind the object grabbed touches. RotateGizmo.hidden (eye-to-segment-midpoint hits the box, as ScaleGizmo.visible) now leaves them out of drawing (selection rings only, not cut rings, not while dragged) and of pick (occluded = true in PlateView.startRotate).
+- (3) Repeat spacing: no dedicated spacing drag exists; BuildTransform.scaled scales repeat.step, and the X handle (32 dp reach) caught drags on a row's end copy. PlateView.onBox: a touch inside the box's on-screen faces uses 12 dp (handles) / 10 dp (rings); 32 / 24 dp outside.
+- Test plan: Build workspace, shape with a row repeat, drag the end copy near the X handle -> moves; drag -> handles/rings move along live; orbit so a ring passes behind the object -> that part not drawn, touch there moves the object.
+
+## 2026-10-28 Plate switcher mockups (moved from the handoff)
+- https://claude.ai/artifact/E3MtY8rQ1dMGHhibY2oNCX
