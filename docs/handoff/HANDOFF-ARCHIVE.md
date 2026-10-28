@@ -3515,3 +3515,13 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 
 ## 2026-10-28 W/D/H scrub + lock: WSA debug test passed (9e24ef7)
 - Build workspace box, WSA debug (adb swipes, 200 dpi): drag right 100 px = +10 (20 -> 30); diagonal up-right = 0.1 steps (-> 38.8); lock on + drag: 38.8->48, D/H 20->24.74 (proportional); one Undo restored all three; vertical swipe on cells scrolls the panel (values unchanged); tap opens the keyboard. CI dispatched run 40749680026 (1f659e3 = r458: snapping toggle, clean specks, sculpt symmetry, scrub + lock). User feel untested.
+
+## 2026-10-28 Sculpt first-stroke latency (Claude, WSA debug build; not in CI yet)
+- Test part: generated UV sphere R40, 39.6k faces (`~/orca-android-tools/gen-sphere-stl.py OUT 40 100 200`), imported via the
+  VIEW intent recipe; MCP `object_sculpt` rays are world coords (plate 2 = x + 307.2).
+- Before: first stroke = build session, refine, set mesh + hull, commit, build again. Measured: refine 39.6k -> 135k 68 ms,
+  set mesh + hull 866 ms, commit 204 ms, session 53 ms; MCP wall 2.7 s.
+- Changes (OrcaSculpt.cpp): refine check runs before the session build (one build per first stroke); hit tree built on a
+  `std::async` beside mesh copy + topology (old: topology ~40 + tree ~120 ms; now 54 ms total at 135k); refine path skips
+  `calculate_convex_hull` (midpoints only, hull unchanged). Timing logs: `sculpt: refine/session/flush` (logcat OrcaCore).
+- Split in `sculpt_flush_locked` (every stroke end): set_mesh 18 ms, hull 735 ms -> the hull is the remaining big cost.

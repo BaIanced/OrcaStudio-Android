@@ -12,6 +12,7 @@
 #include <cmath>
 #include <cstdio>
 #include <fstream>
+#include <future>
 #include <limits>
 #include <optional>
 #include <stdexcept>
@@ -127,13 +128,15 @@ void OrcaEngine::sculpt_build(int object, int instance, int volume)
     const indexed_triangle_set &its = s->base->its;
     const auto t0 = std::chrono::steady_clock::now();
     auto ms = [&t0] { return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count(); };
+    // The hit tree (the slowest part) is built beside the mesh copy and its topology.
+    auto tree = std::async(std::launch::async, [&its] { return AABBTreeIndirect::build_aabb_tree_over_indexed_triangle_set(its.vertices, its.indices); });
     s->mesh = to_mesh(its);
     const auto t_mesh = ms();
     s->topo = meshsculpt::build_topology(s->mesh);
     const auto t_topo = ms();
-    s->tree = AABBTreeIndirect::build_aabb_tree_over_indexed_triangle_set(its.vertices, its.indices);
+    s->tree = tree.get();
     BOOST_LOG_TRIVIAL(warning) << "sculpt: session on " << its.indices.size() << " faces: mesh " << t_mesh << " ms, topology " << t_topo
-                               << " ms, tree " << ms() << " ms";
+                               << " ms, tree done " << ms() << " ms";
     const double l = its_average_edge_length(its);
     if (l > 0)
         s->eps = 1e-6 * l * l;
@@ -179,10 +182,15 @@ bool OrcaEngine::sculpt_flush_locked()
     }
     ModelObject &obj = *m_model->objects[s.object];
     ModelVolume *vol = obj.volumes[s.volume];
+    const auto t0 = std::chrono::steady_clock::now();
     vol->set_mesh(to_its(s.mesh));
+    const auto t_mesh = std::chrono::steady_clock::now();
     vol->calculate_convex_hull();
     vol->invalidate_convex_hull_2d();
     obj.invalidate_bounding_box();
+    auto ms = [](auto a, auto b) { return std::chrono::duration_cast<std::chrono::milliseconds>(b - a).count(); };
+    BOOST_LOG_TRIVIAL(warning) << "sculpt: flush " << s.mesh.faces.size() << " faces: set mesh " << ms(t0, t_mesh) << " ms, hull "
+                               << ms(t_mesh, std::chrono::steady_clock::now()) << " ms";
     s.current = vol->mesh_ptr();
     s.dirty = false;
     m_aabb.clear();
@@ -297,12 +305,60 @@ json OrcaEngine::sculpt(const std::array<int, 3> &target, const std::vector<std:
         sculpt_flush_locked();
         fresh = false;
     }
+    // Same part, same mesh (the stale-tree rebuild): it is still refined for the last brush.
+    const bool same_part = m_sculpt && m_sculpt->object == oi && m_sculpt->volume == vi;
+    double refined = same_part && m_sculpt->current == vol->mesh_ptr() ? m_sculpt->refined_to : std::numeric_limits<double>::max();
+    // Same part (also after an undo): the symmetry planes stay.
+    const auto center = same_part ? m_sculpt->mirror_center : std::nullopt;
+
+    // Volume units per world mm: the copy's and the part's scale together (cube root of the volume factor). The copy's
+    // frame as sculpt_copies() finds it.
+    const auto design = design_offset(oi, ii);
+    const Transform3d shown = design ? Transform3d(Eigen::Translation3d((*design)[0], (*design)[1], (*design)[2])) : obj.instances[ii]->get_matrix();
+    const double scale = std::cbrt(std::abs((shown * vol->get_matrix()).linear().determinant()));
+    const double local_radius = radius / std::max(scale, 1e-9);
+
+    // Too coarse for this brush: split edges to a fifth of the radius, within a face budget (the budget wins on huge
+    // parts). The refined mesh goes into the part and the scene at once. Checked before the session is (re)built, so a
+    // part's first stroke builds it once, on the refined mesh.
+    const double edge = local_radius / 5.;
+    if (new_stroke && edge < refined * 0.9) {
+        refined = edge;
+        if (fresh)
+            m_sculpt->refined_to = edge;
+        // An unflushed session's mesh is newer than the part's.
+        const auto t0 = std::chrono::steady_clock::now();
+        meshdeform::Mesh m = fresh ? std::move(m_sculpt->mesh) : to_mesh(vol->mesh().its);
+        const size_t budget = std::max<size_t>(400000, m.faces.size());
+        double longest = 0.;
+        for (const auto &f : m.faces)
+            for (int k = 0; k < 3; ++k) {
+                const auto &a = m.vertices[f[k]], &b = m.vertices[f[(k + 1) % 3]];
+                longest = std::max(longest, (a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) + (a.z - b.z) * (a.z - b.z));
+            }
+        if (std::sqrt(longest) > edge && m.faces.size() < budget) {
+            const size_t before = m.faces.size();
+            meshdeform::refine_to_length(m, edge, budget);
+            const auto t_refine = std::chrono::steady_clock::now();
+            vol->set_mesh(to_its(m));
+            vol->supported_facets.reset();
+            vol->seam_facets.reset();
+            vol->mmu_segmentation_facets.reset();
+            vol->fuzzy_skin_facets.reset();
+            // Edge midpoints only: the convex hull stays the same (qhull on the refined mesh took hundreds of ms).
+            obj.invalidate_bounding_box();
+            const auto t_hull = std::chrono::steady_clock::now();
+            commit();
+            committed = true;
+            fresh = false;
+            auto ms = [](auto a, auto b) { return std::chrono::duration_cast<std::chrono::milliseconds>(b - a).count(); };
+            BOOST_LOG_TRIVIAL(warning) << "sculpt: refine " << before << " -> " << m.faces.size() << " faces " << ms(t0, t_refine)
+                                       << " ms, set mesh " << ms(t_refine, t_hull) << " ms, commit "
+                                       << ms(t_hull, std::chrono::steady_clock::now()) << " ms";
+        } else if (fresh)
+            m_sculpt->mesh = std::move(m);
+    }
     if (!fresh) {
-        // Same part, same mesh (the stale-tree rebuild): it is still refined for the last brush.
-        const double refined = m_sculpt && m_sculpt->object == oi && m_sculpt->volume == vi && m_sculpt->current == vol->mesh_ptr()
-            ? m_sculpt->refined_to : std::numeric_limits<double>::max();
-        // Same part (also after an undo): the symmetry planes stay.
-        const auto center = m_sculpt && m_sculpt->object == oi && m_sculpt->volume == vi ? m_sculpt->mirror_center : std::nullopt;
         sculpt_build(oi, ii, vi);
         m_sculpt->refined_to = refined;
         m_sculpt->mirror_center = center;
@@ -311,47 +367,9 @@ json OrcaEngine::sculpt(const std::array<int, 3> &target, const std::vector<std:
         m_sculpt->instance = ii;
         sculpt_copies();
     }
-    SculptSession &s = *m_sculpt;
-    if (new_stroke)
-        s.grabbing = false;
-
-    // Volume units per world mm: the copy's and the part's scale together (cube root of the volume factor).
-    const double scale = std::cbrt(std::abs(s.frame.linear().determinant()));
-    const double local_radius = radius / std::max(scale, 1e-9);
-
-    // Too coarse for this brush: split edges to a fifth of the radius, within a face budget (the budget wins on huge
-    // parts). The refined mesh goes into the part and the scene at once, then the session starts over on it.
-    const double edge = local_radius / 5.;
-    if (new_stroke && edge < s.refined_to * 0.9) {
-        s.refined_to = edge;
-        const size_t budget = std::max<size_t>(400000, s.mesh.faces.size());
-        double longest = 0.;
-        for (const auto &f : s.mesh.faces)
-            for (int k = 0; k < 3; ++k) {
-                const auto &a = s.mesh.vertices[f[k]], &b = s.mesh.vertices[f[(k + 1) % 3]];
-                longest = std::max(longest, (a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) + (a.z - b.z) * (a.z - b.z));
-            }
-        if (std::sqrt(longest) > edge && s.mesh.faces.size() < budget) {
-            meshdeform::Mesh m = std::move(s.mesh);
-            meshdeform::refine_to_length(m, edge, budget);
-            vol->set_mesh(to_its(m));
-            vol->supported_facets.reset();
-            vol->seam_facets.reset();
-            vol->mmu_segmentation_facets.reset();
-            vol->fuzzy_skin_facets.reset();
-            vol->calculate_convex_hull();
-            vol->invalidate_convex_hull_2d();
-            obj.invalidate_bounding_box();
-            commit();
-            committed = true;
-            const auto center = s.mirror_center;
-            sculpt_build(oi, ii, vi);
-            m_sculpt->refined_to = edge;
-            m_sculpt->mirror_center = center;
-            sculpt_copies();
-        }
-    }
     SculptSession &ss = *m_sculpt;
+    if (new_stroke)
+        ss.grabbing = false;
     // A new stroke (or a rebuilt session) starts its heights from zero.
     if (new_stroke || ss.layer.stamp.size() != ss.mesh.vertices.size())
         ss.layer.begin(ss.mesh.vertices.size());

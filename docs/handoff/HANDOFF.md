@@ -37,7 +37,11 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Snapping toggle, clean specks, sculpt symmetry (r457): Claude-verified WSA 2026-10-28 (archive), user feel untested.
 - Mirror button retest + tooltip sweep done 2026-10-28 (archive); W/D/H scrub + size lock built 9e24ef7 (archive, untested on device). All three are in CI run 40749680026 (r458).
 - W/D/H scrub + lock WSA-tested 2026-10-28 (archive). r458 (run 40749680026, 1f659e3) installed 2026-10-28 on WSA, phone, SHIELD and Note; WSA smoke OK (app_state r458, no crash). Muse: no open PRs, nothing new on #46.
-- Next step: no Claude-only Sonnet item is queued (backlog Ideas are Opus-tagged or need the user); pick with the user, e.g. sculpt first-stroke latency at 200k faces -> Opus 5.5 (high)
+- Sculpt latency (2026-10-28, archive): session built once, tree beside topology (160 -> 54 ms at 135k), no hull after refine.
+  Uncommitted-to-CI native change, WSA debug only. **Open: every stroke end (`sculpt_flush_locked`) spends ~735 ms in
+  `calculate_convex_hull` (qhull, 135k faces; set_mesh only 18 ms)** -> defer it (lazy / background thread / hull of old hull + moved
+  vertices only); then time a fresh-part first stroke (plate-3 sphere ray missed: find the plate offset via view_state) and dispatch CI.
+- Next step: sculpt stroke-end hull cost -> Opus 5.5 (high)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
