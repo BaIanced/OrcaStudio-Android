@@ -1656,7 +1656,7 @@ json OrcaEngine::check_mesh(int object, int instance, double thickness)
         throw std::runtime_error("Invalid instance");
     constexpr size_t max_points = 400;
     json parts = json::array();
-    std::vector<float> thin_points, open_points, cross_points;
+    std::vector<float> thin_points, open_points, cross_points, sharp_points;
     size_t thin_total = 0;
     for (int v = 0; v < int(obj.volumes.size()); ++v) {
         const ModelVolume *vol = obj.volumes[v];
@@ -1681,17 +1681,32 @@ json OrcaEngine::check_mesh(int object, int instance, double thickness)
         }
         part["degenerate"] = degenerate;
         // Open edges: an edge used by one face only; its midpoint marks the hole in the view.
+        // Sharp edges (print3d_toolbox): two faces folded back on each other (normals more than 160 degrees apart), a knife edge.
+        size_t sharp = 0;
         {
-            std::map<std::pair<int, int>, int> uses;
-            for (const auto &t : its.indices)
+            std::map<std::pair<int, int>, std::vector<size_t>> uses;
+            for (size_t f = 0; f < its.indices.size(); ++f) {
+                const auto &t = its.indices[f];
                 for (int k = 0; k < 3; ++k)
-                    ++uses[{std::min(t[k], t[(k + 1) % 3]), std::max(t[k], t[(k + 1) % 3])}];
-            for (const auto &[edge, n] : uses)
-                if (n == 1 && open_points.size() < max_points * 3) {
-                    const Vec3f m = (its.vertices[edge.first] + its.vertices[edge.second]) / 2.f;
+                    uses[{std::min(t[k], t[(k + 1) % 3]), std::max(t[k], t[(k + 1) % 3])}].push_back(f);
+            }
+            auto normal = [&](size_t f) {
+                const auto &t = its.indices[f];
+                return Vec3f((its.vertices[t[1]] - its.vertices[t[0]]).cross(its.vertices[t[2]] - its.vertices[t[0]])).normalized();
+            };
+            constexpr float fold_cos = -0.9396926f; // cos(160 degrees)
+            for (const auto &[edge, faces] : uses) {
+                const Vec3f m = (its.vertices[edge.first] + its.vertices[edge.second]) / 2.f;
+                if (faces.size() == 1 && open_points.size() < max_points * 3)
                     open_points.insert(open_points.end(), {m.x(), m.y(), m.z()});
+                else if (faces.size() == 2 && !skip[faces[0]] && !skip[faces[1]] && normal(faces[0]).dot(normal(faces[1])) < fold_cos) {
+                    ++sharp;
+                    if (sharp_points.size() < max_points * 3)
+                        sharp_points.insert(sharp_points.end(), {m.x(), m.y(), m.z()});
                 }
+            }
         }
+        part["sharpEdges"] = sharp;
         // Self-intersections: pairs of faces that cut through each other (CGAL); the first face of a pair marks it.
         size_t crossings = 0;
         try {
@@ -1746,7 +1761,7 @@ json OrcaEngine::check_mesh(int object, int instance, double thickness)
         parts.push_back(std::move(part));
     }
     return {{"parts", parts}, {"thickness", thickness}, {"thinFaces", thin_total}, {"thinPoints", thin_points},
-            {"openPoints", open_points}, {"crossPoints", cross_points}};
+            {"openPoints", open_points}, {"crossPoints", cross_points}, {"sharpPoints", sharp_points}};
 }
 
 } // namespace orca

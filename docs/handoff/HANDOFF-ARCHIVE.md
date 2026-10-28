@@ -3428,3 +3428,12 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 ## 2026-10-27: Center on plate + Align row (f073445, run 40605694736), Claude-verified on WSA
 - Installed on WSA, phone, SHIELD, Note. Long-press menu "Center on plate": object at [139,125] -> [128,128]. Multi-select (long-press > Select multiple, tap 2nd copy): Align row in the long-press menu; Left made copy x equal (135.6 -> 128), Back moved both to the larger Y (+Y = back, matches the code comment). User feel untested.
 - Test quirk: the menu stays open after `input motionevent CANCEL`; then `input tap` on an item works. Drag-and-release (MOVE+UP) works for plain menu items but NOT for the icon row buttons.
+
+## 2026-10-27: 3MF effective bed type (83ddc35) Claude-verified
+- WSA debug app session.3mf (saved 19:19, build newer than r409): model_settings.config has per-plate bed_type (Supertack Plate x5, Textured PEI Plate, Engineering Plate); project_settings.config curr_bed_type = "Supertack Plate". Backlog line removed. Desktop Orca opening the 3MF stays with the "3MF export in desktop Orca" user check.
+
+## 2026-10-27: stale backlog line removed (filament colour mixing)
+- Already built: MixDialog.kt (Mix sheet), 9a612aa, restart restore 2050280/0547f05, "mix restart verified on r409" (599082b). Backlog "Ideas: Filament colour mixing ... Untested" was stale.
+
+## 2026-10-27: backlog trim (user asked)
+- Removed: r197 NPE (fixed 6ad69ef r273, no repro). Done and no longer wishlist: MCP app_state/log_tail/perf (McpTools.kt:229-237), Show overhangs (a2b67f7), OrcaMesh sculpt half (CAD 5a/5b), CAD roadmap 0-6. Earlier today: 3MF bed type verified, colour mixing already built.

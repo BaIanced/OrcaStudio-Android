@@ -144,7 +144,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var loupe: FloatArray? = null
     /** Drawing the loupe: passes that use the whole view (shadow map, selection outline) are left out. */
     private var loupePass = false
-    /** Check mesh problem spots: x, y, z, kind (5 thin wall, 6 open edge, 7 self-intersection) per marker. */
+    /** Check mesh problem spots: x, y, z, kind (5 thin wall, 6 open edge, 7 self-intersection, 8 sharp edge) per marker. */
     var meshMarkers: FloatArray? = null
     /** How far the checked copy has moved since [meshMarkers] were found. */
     var meshMarkerShift = floatArrayOf(0f, 0f, 0f)
@@ -1552,7 +1552,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glUniformMatrix4fv(loc(pointProgram, "uMvp"), 1, false, mvp, 0)
         glUniform3f(loc(pointProgram, "uOffset"), dragOffset[0] + meshMarkerShift[0], dragOffset[1] + meshMarkerShift[1], dragOffset[2] + meshMarkerShift[2])
         camera.eye().let { glUniform3f(loc(pointProgram, "uEye"), it.x, it.y, it.z) }
-        glUniform1i(loc(pointProgram, "uKinds"), 0b11100000)
+        glUniform1i(loc(pointProgram, "uKinds"), 0b111100000)
         glUniform1f(loc(pointProgram, "uPxScale"), pxScale)
         setSection(pointProgram)
         glBindBuffer(GL_ARRAY_BUFFER, scratchVbo)

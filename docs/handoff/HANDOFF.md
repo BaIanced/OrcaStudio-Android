@@ -36,8 +36,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **No WSA focus loops (user 2026-10-26: "your testing keeps stealing my window focus"):** no `focus.ps1`/`tapf.sh`/`keys.ps1` in loops;
   touch/hold tests on the phone's hidden display. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
 - Claude-verified WSA 2026-10-27, user feel open (archive): interaction plan 1-9 + Measure, CAD 1 Hull, CAD 2 XY edge snap, Center + Align row.
-- **Smart guides 005f14d, Claude-verified WSA debug 2026-10-27 (user feel open):** Prepare body drag sticks the selection's edges + middle to the plate's and other objects' edges + middles (`Viewport.kt` dragSnap, `DragSnap.mid`); amber guide reuses the Build edge snap. WSA drag landed on plate middle Y and object 9's centre X. Code-read 2026-10-27 (no device run): multi-select snaps the union box, rotated objects use the world AABB, tower drag skips the snap (`towerPlate < 0`, PlateView.kt dragOffsetAt); mid snap has a JVM test (ZRailTest).
-- Next step: user feel-check of smart guides + earlier open items; Claude: pick a backlog item (grep `[Opus]`/untested) -> Sonnet 5.5 (medium)
+- **Smart guides 005f14d, Claude-verified WSA debug 2026-10-27 (user feel open):** Prepare body drag snaps the selection's edges + middle to plate/object edges + middles (`Viewport.kt` dragSnap, `DragSnap.mid`); multi-select = union box, tower drag skips it. 3MF bed type verified 2026-10-27 (archive).
+- Check mesh sharp-edge markers coded (OrcaTools.cpp check_mesh `sharpEdges`/`sharpPoints`, kind 8 green, normals >160 deg apart); Kotlin tests pass, native needs CI + WSA check on a knife-edge STL.
+- Next step: CI build of sharp edges, WSA verify (Check mesh on a folded-face STL), then Check mesh cleanup/hollow -> Sonnet 5.5 (medium); camera-light slider needs the user's GO; user feel-checks wait
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).

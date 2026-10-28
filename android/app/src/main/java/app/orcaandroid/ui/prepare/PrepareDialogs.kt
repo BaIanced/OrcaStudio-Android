@@ -467,7 +467,7 @@ internal fun LayerGcodeDialog(state: UiState, vm: AppViewModel, plate: Int, init
     )
 }
 
-/** Mesh problems of the selected copy: open edges, zero-area faces, thin walls (the print3d_toolbox checks). */
+/** Mesh problems of the selected copy: open edges, zero-area faces, sharp edges, thin walls (the print3d_toolbox checks). */
 @Composable
 private fun CheckMeshDialog(vm: AppViewModel, onDismiss: () -> Unit) {
     var thickness by remember { mutableFloatStateOf(0.4f) }
