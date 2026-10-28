@@ -27,17 +27,17 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   Claude compiles, merges, cherry-picks. Audits + JVM-testable Kotlin only.
   Tasks 1-18 merged. **Session start, run exactly:** `gh pr list --state open --json number,title,headRefName; gh issue view 46 --json comments --jq '.comments[-2:][]|.createdAt+" "+(.body|.[0:300])'`
 - User feel/checks open: see backlog.
-- Local tests: `wsa-debug-rebuild.sh [native]` (reference "WSA debug loop"); fresh debug app: `wsa-debug-setup.sh` first.
+- Local tests: `wsa-debug-rebuild.sh [native]` (reference "WSA debug loop"); fresh app: `wsa-debug-setup.sh` first. Lab prefs: edit `layout_lab` JSON in debug `shared_prefs/app_settings.xml` with run-as sed (app stopped).
 - **Offload (user 2026-10-25/26): max token use onto free opencode models, growing leeway by track record** (Claude specs + verifies).
   DeepSeek V4.1 Flash = default; runner `octauto.sh` (`D:\oct-backup\jobs\README.md`; opencode v2: `model#variant`), ledger `trust-profile.md`.
 - CAD plan (`NOTES-cad-reuse.md`): 0-5b Claude-verified, user feel untested; 1b parked.
 - **No WSA focus loops (user 2026-10-26: "your testing keeps stealing my window focus"):** no `focus.ps1`/`tapf.sh`/`keys.ps1` in loops;
   touch/hold tests on the phone's hidden display. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
-- Claude-verified WSA 2026-10-27, user feel open (archive): interaction plan 1-9, CAD 1-2, Center/Align, smart guides, Check mesh.
-- Hollow (More menu + MCP `object_hollow`): r452 Claude-verified on WSA via MCP 2026-10-28 (volume 8000 -> 3925); sliced OK (4.54 g, no warnings); open: user feel (archive).
+- Claude-verified WSA 2026-10-27, user feel open (archive): interaction plan, CAD 1-2, Center/Align, smart guides, Check mesh.
+- Hollow (More menu + MCP `object_hollow`): r452 Claude-verified on WSA 2026-10-28; open: user feel (archive).
 - MCP token efficiency (`NOTES-mcp-token-efficiency.md`): A-C verified (archive), D dropped; proposed build rule waits for the user's OK; size tools `~/orca-android-tools/mcp_*_sizes.py`.
-- Preview camera light (user GO 2026-10-28): coded, compiles (Kotlin only; GLSL untested): lab slider "Preview camera light" (`LayoutLab.cameraLight`, 0 = studio default) -> `PATH_FS` `uCamLight` swaps key+fill for an eye light (`camL`). Open: run on WSA debug (`wsa-debug-rebuild.sh`), set slider in More > lab, crop-shot a Preview at 0/50/100%; check shader compiles, then CI build + install on all devices.
-- Next step: Preview camera light WSA shader test + build -> Sonnet 5.5 (medium)
+- Preview camera light (user GO 2026-10-28): lab slider "Preview camera light" (`LayoutLab.cameraLight`, 0 = studio default) -> `PATH_FS` `uCamLight`. Claude-verified on WSA debug 2026-10-28: shader compiles, 0% vs 100% crop-shots differ (even top+side light at 100%). CI run 40646124848 (a3dbc7b) building; open: install on all devices when green, user feel (More > lab slider).
+- Next step: install CI build 40646124848 on all adb devices, then pick the next backlog item -> Sonnet 5.5 (medium)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
