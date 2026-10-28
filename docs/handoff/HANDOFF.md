@@ -35,13 +35,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **No WSA focus loops** (memory no-popups-on-user-screens). Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
 - MCP token efficiency (`NOTES-mcp-token-efficiency.md`): A-C verified, D dropped; build rule waits for the user's OK.
 - r457-r458 items (snapping, specks, symmetry, mirror, tooltips, W/D/H scrub + lock): Claude-verified WSA 2026-10-28 (archive), user feel untested. r458 on all devices.
-- Sculpt latency (2026-10-28, archive): session built once, tree beside topology (160 -> 54 ms at 135k), no hull after refine.
-  Not in CI yet. **Stroke-end hull now deferred (built + installed WSA debug 2026-10-28, UNTESTED):** flush gives the part a
-  bbox placeholder hull + `std::async` qhull job (`HullJob`, OrcaSculpt.cpp); `sculpt()` installs finished jobs, `sculpt_flush()`
-  (dispatch, any non-sculpt call) waits for all. Install fills the placeholder in place (const_cast; shared by undo copies of that mesh).
-  Test: sphere stroke via MCP, logcat `sculpt: flush ... box hull N ms` + `sculpt: hull in, waited N ms`; then a non-sculpt call
-  (scene/arrange) right after -> correct footprint; undo after 2 strokes -> no crash, sane arrange. Then fresh-part first stroke timing
-  (plate-3 sphere ray missed: plate offset via view_state) and dispatch CI.
+- Sculpt latency (archive 2026-10-28; 914816d + 68e8f7a, not in CI): stroke-end qhull (735 ms) now a `HullJob` (bbox placeholder,
+  filled in place when done; `sculpt_flush()` waits). Built + on WSA debug, **UNTESTED**. Test: MCP sphere stroke, logcat
+  `box hull` / `hull in, waited`; arrange right after = right footprint; undo after 2 strokes OK. Then fresh-part first stroke, CI.
 - Next step: test deferred sculpt hull on WSA -> Opus 5.5 (high)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).

@@ -3525,3 +3525,8 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
   `std::async` beside mesh copy + topology (old: topology ~40 + tree ~120 ms; now 54 ms total at 135k); refine path skips
   `calculate_convex_hull` (midpoints only, hull unchanged). Timing logs: `sculpt: refine/session/flush` (logcat OrcaCore).
 - Split in `sculpt_flush_locked` (every stroke end): set_mesh 18 ms, hull 735 ms -> the hull is the remaining big cost.
+- 2026-10-28 (68e8f7a, WSA debug only, untested): stroke-end hull deferred. `sculpt_flush_locked` sets a bbox placeholder hull
+  (set_mesh(cube) + calculate_convex_hull + set_mesh back) and starts `std::async(mesh->convex_hull_3d())` (`HullJob`). `sculpt()`
+  installs finished jobs without waiting; `sculpt_flush()` (dispatch before every non-sculpt call) waits for all. Install
+  const_casts into the placeholder (a make_shared<TriangleMesh>, not a const object), so undo copies of that mesh get it too.
+  Safe because `ModelObject::min_z()` reads mesh vertices (update_min_max_z, Model.cpp:1620), so drop_to_bed stays exact.
