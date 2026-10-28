@@ -37,7 +37,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Snapping toggle 846a663: Claude-verified on WSA 2026-10-28 (archive), in build r456, user feel untested.
 - Clean specks with lock: Claude-verified WSA r456 2026-10-28 (archive), user feel untested.
 - Stroke-axis chips renamed "Straight ↕/↔" (committed, not built). Batch with the next change before dispatching CI.
-- Next step: pick next backlog item (grep BACKLOG for [Opus]/open), batch, then build -> Sonnet 5.5 (medium)
+- Next step: Sculpt symmetry (backlog Sculpt mode), batch with the chip rename, then build -> Opus 5.5 (high)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
