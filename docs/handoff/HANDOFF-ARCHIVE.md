@@ -3530,3 +3530,12 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
   installs finished jobs without waiting; `sculpt_flush()` (dispatch before every non-sculpt call) waits for all. Install
   const_casts into the placeholder (a make_shared<TriangleMesh>, not a const object), so undo copies of that mesh get it too.
   Safe because `ModelObject::min_z()` reads mesh vertices (update_min_max_z, Model.cpp:1620), so drop_to_bed stays exact.
+
+## 2026-10-28 Deferred sculpt hull: WSA debug test passed (68e8f7a + 4be7551)
+- Refined sphere (135k): stroke-end flush = set mesh 17 ms + box hull 1 ms (was hull 735 ms); MCP wall 1.2 s for 5 dabs.
+- Arrange right after a stroke: `hull in, waited 341 ms` (flush waits, so arrange sees the real hull). With 4 s idle after a
+  stroke the app made no non-sculpt engine call (no wait in the UI path); a later arrange found the hull ready (0 ms).
+- Fresh part first stroke (39.6k): refine 17 ms, set mesh 6 ms (no hull), commit 276 ms, session 21 ms, flush 6 ms.
+- Two strokes then Ctrl+Z twice (`input keycombination KEYCODE_CTRL_LEFT KEYCODE_Z`; no MCP undo tool): 86.4 -> 83.2 -> 80 mm,
+  56.4k -> 39.6k faces, no crash. 4be7551 adds a dispatch log `sculpt: <method> waited N ms for the flush` (>= 20 ms only).
+- CI run 40758193900 (4be7551 = r459) dispatched. User feel untested.

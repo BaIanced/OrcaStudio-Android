@@ -14,7 +14,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 0170950 (PR #65, branch at r398, merged 2026-10-25). Untested by the user in main: Build workspace, paint shop/depth, Filament materials, Realistic render, UX P1-P6, Check mesh feel, 3MF export in desktop Orca, pen, fan hold, Extrude F150.
 - Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
-- Latest CI build: run 40738227951 (r457, 51ad144: r456 + sculpt symmetry), CI green, installed 2026-10-28 on WSA, phone, SHIELD; Claude-verified on WSA, user feel untested. Install new builds on all adb devices (skip the .23 tablet: 32-bit, Android 6).
+- Latest CI build: r458 (run 40749680026) on all devices; r459 (run 40758193900, 4be7551: deferred sculpt hull) building. User feel untested. Install new builds on all adb devices (skip the .23 tablet: 32-bit, Android 6).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **User 2026-10-28: no more user testing for now; Claude builds and tests everything itself (memory no-user-testing-now); don't ask for feel/UI checks.**
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
@@ -35,10 +35,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **No WSA focus loops** (memory no-popups-on-user-screens). Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
 - MCP token efficiency (`NOTES-mcp-token-efficiency.md`): A-C verified, D dropped; build rule waits for the user's OK.
 - r457-r458 items (snapping, specks, symmetry, mirror, tooltips, W/D/H scrub + lock): Claude-verified WSA 2026-10-28 (archive), user feel untested. r458 on all devices.
-- Sculpt latency (archive 2026-10-28; 914816d + 68e8f7a, not in CI): stroke-end qhull (735 ms) now a `HullJob` (bbox placeholder,
-  filled in place when done; `sculpt_flush()` waits). Built + on WSA debug, **UNTESTED**. Test: MCP sphere stroke, logcat
-  `box hull` / `hull in, waited`; arrange right after = right footprint; undo after 2 strokes OK. Then fresh-part first stroke, CI.
-- Next step: test deferred sculpt hull on WSA -> Opus 5.5 (high)
+- Sculpt latency (914816d + 68e8f7a + 4be7551): deferred stroke-end hull Claude-verified on WSA debug 2026-10-28 (archive);
+  CI run 40758193900 = r459 dispatched. Next: when green, install r459 on WSA, phone, Chromebook, SHIELD (`install-build.ps1`),
+  smoke one sphere stroke on the release app (logcat `box hull`), log it; then pick the next backlog item.
+- Next step: install r459 on all devices + smoke -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
