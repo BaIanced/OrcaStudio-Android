@@ -36,8 +36,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **No WSA focus loops (user 2026-10-26: "your testing keeps stealing my window focus"):** no `focus.ps1`/`tapf.sh`/`keys.ps1` in loops;
   touch/hold tests on the phone's hidden display. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
 - Claude-verified WSA 2026-10-27, user feel open (details in archive): interaction plan 1-9 + Measure, CAD item 1 Hull switch, CAD roadmap 2 XY edge snap (r447, 657e897), Center + Align row (f073445).
-- **Smart guides built 005f14d (pushed, compiled, ZRailTest ok; NOT yet run on WSA, no CI build yet):** Prepare body drag sticks the selection's edges + middle to the plate's and other objects' edges + middles (`Viewport.kt` dragSnap in the selection effect, `DragSnap.mid`, `ZRail.lift(mid=)`); amber guide + tick reuse the Build edge snap. Untested: multi-select, rotated objects, tower drag (should stay free).
-- Next step: WSA-test smart guides (`wsa-debug-rebuild.sh`, phone hidden display for drags; then CI dispatch + install on all) -> Sonnet 5.5 (medium)
+- **Smart guides 005f14d, Claude-verified WSA debug 2026-10-27 (user feel open):** Prepare body drag sticks the selection's edges + middle to the plate's and other objects' edges + middles (`Viewport.kt` dragSnap in the selection effect, `DragSnap.mid`, `ZRail.lift(mid=)`); amber guide + tick reuse the Build edge snap. WSA drag of object 10 landed on plate middle Y 128.0 and object 9's centre X (plate_describe). Untested: multi-select, rotated objects, tower drag (should stay free).
+- CI build for smart guides dispatched 2026-10-27: run 40614288414 (77be353). Next step: when green, `install-build.ps1 -Run 40614288414` on all adb devices (WSA, phone, SHIELD, Note; not .23) -> Sonnet 5.5 (low)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
