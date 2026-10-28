@@ -34,7 +34,6 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - CAD plan (`NOTES-cad-reuse.md`): 0-5b Claude-verified, user feel untested; 1b parked.
 - **No WSA focus loops** (memory no-popups-on-user-screens). Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
 - MCP token efficiency (`NOTES-mcp-token-efficiency.md`): A-C verified, D dropped; build rule waits for the user's OK.
-- r457-r458 items (snapping, specks, symmetry, mirror, tooltips, W/D/H scrub + lock): Claude-verified WSA 2026-10-28 (archive), user feel untested. r458 on all devices.
 - Sculpt latency (914816d + 68e8f7a + 4be7551): deferred stroke-end hull Claude-verified on WSA debug 2026-10-28 (archive);
   CI run 40758193900 = r459 dispatched. Next: when green, install r459 on WSA, phone, Chromebook, SHIELD (`install-build.ps1`),
   smoke one sphere stroke on the release app (logcat `box hull`), log it; then pick the next backlog item.
