@@ -31,14 +31,11 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **Offload (user 2026-10-25/26): max token use onto free opencode models, growing leeway by track record** (Claude specs + verifies).
   DeepSeek V4.1 Flash = default; runner `octauto.sh` (`D:\oct-backup\jobs\README.md`; opencode v2: `model#variant`), ledger `trust-profile.md`.
 - CAD plan (`NOTES-cad-reuse.md`): 0-5b Claude-verified, user feel untested; 1b parked.
-- Interaction plan (`NOTES-interaction-plan.md`) tests: `wsa-pen-hover.sh`, `wsa-steer-test.sh`, `input mouse tap`, measure = `input keyevent 49`, MCP `view_state` (`MAX=3000`).
 - **No WSA focus loops (user 2026-10-26: "your testing keeps stealing my window focus"):** no `focus.ps1`/`tapf.sh`/`keys.ps1` in loops;
   touch/hold tests on the phone's hidden display. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
-- Claude-verified WSA 2026-10-27, user feel open (archive): interaction plan 1-9 + Measure, CAD 1 Hull, CAD 2 XY edge snap, Center + Align row, smart guides, Check mesh sharp edges (green marker look too).
+- Claude-verified WSA 2026-10-27, user feel open (archive): interaction plan 1-9, CAD 1-2, Center/Align, smart guides, Check mesh.
 - Hollow (More menu + MCP `object_hollow`, native `OrcaHollow.cpp` = sla::hollow_mesh per model part, wall 0.8-10 mm, sealed): coded 2026-10-27, Kotlin compiles, native + CI untested. Cleanup already exists (More > Repair).
-- **MCP token efficiency:** rule review + measured analysis done 2026-10-27 (`NOTES-mcp-token-efficiency.md`; tools/list 28.7 KB, edit replies
-  re-send the whole scene each call). Proposed rule waits for the user's OK; plan A-C = diff replies for plate/shape edits.
-  Size tools: `~/orca-android-tools/mcp_list_sizes.py`, `mcp_reply_sizes.py` (token file arg, forwarded port 8765).
+- MCP token efficiency (`NOTES-mcp-token-efficiency.md`): proposed build rule waits for the user's OK; size tools `~/orca-android-tools/mcp_list_sizes.py`, `mcp_reply_sizes.py` (token file arg, port 8765).
 - MCP plan A-C coded + compiled 2026-10-28 (76228bf: `plateEdit`/`edit` reply diffs, `plateState`/`render`/`diff` in McpTools.kt; D not done); untested on device.
 - Next step: check run 40642755687 (CI green + native Hollow built), install on WSA, test diff replies (transform rot+pos, arrange, duplicate, hollow, shape_add/update/group, dim_set on a bound dim; compare bytes) + Hollow (cube STL, faces up, slice, volume drops) -> Sonnet 5.5 (high); camera-light slider needs the user's GO; user feel-checks wait
 
