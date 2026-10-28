@@ -3451,3 +3451,4 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 
 ### 2026-10-28 Truck demo verdict (user, r453-era)
 - User: the 2 figures were visible only with Realistic mode on and the filaments set transparent; sliced preview showed the people clearly. Wants Realistic mode on all the time and asks whether negative (hole) parts could default to translucent. Not yet investigated by Claude (open: why figures are hidden in the normal view; Realistic default; translucent hole look).
+- User explanation (2026-10-28): windows are made by placing a "hole" (negative shape) in a solid, and that anti-solid is displayed as a colour of its own. Likely why the figures behind the windows look hidden in the normal view: the hole ghost covers them. Fix idea: draw hole shapes translucent by default (and consider Realistic by default as a toggle). Claude has not verified this.
