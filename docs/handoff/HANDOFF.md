@@ -14,7 +14,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 0170950 (PR #65, branch at r398, merged 2026-10-25). Untested by the user in main: Build workspace, paint shop/depth, Filament materials, Realistic render, UX P1-P6, Check mesh feel, 3MF export in desktop Orca, pen, fan hold, Extrude F150.
 - Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
-- Latest CI build: run 40614288414 (77be353, smart guides), installed 2026-10-27 on WSA, phone, SHIELD, Note. Install new builds on all adb devices (skip the .23 tablet: 32-bit, Android 6).
+- Latest CI build: run 40642755687 (76228bf: Hollow + MCP diff replies A-C; dispatched 2026-10-28, not installed/tested). Last installed: run 40614288414 (77be353, smart guides) on WSA, phone, SHIELD, Note. Install new builds on all adb devices (skip the .23 tablet: 32-bit, Android 6).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
@@ -39,7 +39,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **MCP token efficiency:** rule review + measured analysis done 2026-10-27 (`NOTES-mcp-token-efficiency.md`; tools/list 28.7 KB, edit replies
   re-send the whole scene each call). Proposed rule waits for the user's OK; plan A-C = diff replies for plate/shape edits.
   Size tools: `~/orca-android-tools/mcp_list_sizes.py`, `mcp_reply_sizes.py` (token file arg, forwarded port 8765).
-- Next step: MCP plan A-C (diff replies, NOTES file) + one CI build with Hollow, then WSA debug test of both (Hollow: cube STL, faces up, slice, volume drops) -> Sonnet 5.5 (high); camera-light slider needs the user's GO; user feel-checks wait
+- MCP plan A-C coded + compiled 2026-10-28 (76228bf: `plateEdit`/`edit` reply diffs, `plateState`/`render`/`diff` in McpTools.kt; D not done); untested on device.
+- Next step: check run 40642755687 (CI green + native Hollow built), install on WSA, test diff replies (transform rot+pos, arrange, duplicate, hollow, shape_add/update/group, dim_set on a bound dim; compare bytes) + Hollow (cube STL, faces up, slice, volume drops) -> Sonnet 5.5 (high); camera-light slider needs the user's GO; user feel-checks wait
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).

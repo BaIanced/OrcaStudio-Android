@@ -65,4 +65,4 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - Dimensions overview idea (user asked 2026-10-27; leaning only): per-object list of bbox, hole diameters/depths, thinnest wall; tap entry places measure points. CAD tools auto-dimension from parametric features; meshes need detection. Not started.
 - Smart guides (BUILT 005f14d + Center/Align f073445, Claude-verified WSA 2026-10-27, user feel open). Open idea: plate + object centres in the shape-builder edge snap.
 
-- MCP token efficiency (Opus review + analysis done 2026-10-27, `NOTES-mcp-token-efficiency.md`): proposed build rule waits for the user's OK; plan A-C (diff replies for plate + shape edits) not started, untested.
+- MCP token efficiency (Opus review + analysis done 2026-10-27, `NOTES-mcp-token-efficiency.md`): proposed build rule waits for the user's OK; plan A-C (diff replies) coded 2026-10-28 in 76228bf, untested on device.
