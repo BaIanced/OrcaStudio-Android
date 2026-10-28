@@ -1013,6 +1013,7 @@
     <string name="shape_repeat_center">Centre</string>
     <string name="shape_repeat_step">Step</string>
     <string name="shape_slider_menu">Sliders for these fields</string>
+    <string name="shape_size_lock">Keep proportions (W, D, H change together)</string>
     <string name="shape_make_slider">Make a slider</string>
     <string name="shape_link">Follow “%1$s”</string>
     <string name="shape_unlink">Stop following “%1$s”</string>

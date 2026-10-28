@@ -99,6 +99,67 @@ class ScrubGesture(private val dp: Float, private val count: Int, var index: Int
     }
 }
 
+/**
+ * A number cell's drag (pure, for JVM tests; px): sideways = one whole unit per [STEP_DP]; with the finger [FINE_DP]
+ * above where it started, 0.1 steps. The value never goes below [min].
+ */
+class NumberScrub(start: Double, private val density: Float, private val min: Double = -1e6) {
+    private var raw = start
+    var fine = false
+        private set
+
+    /** The finger moved [dx] sideways and is [dyFromStart] below its start (negative: above); returns the value. */
+    fun move(dx: Float, dyFromStart: Float): Double {
+        fine = dyFromStart < -FINE_DP * density
+        val step = if (fine) 0.1 else 1.0
+        raw = (raw + dx / (STEP_DP * density) * step).coerceAtLeast(min)
+        return (Math.round(raw / step) * step).let { Math.round(it * 10) / 10.0 }.coerceAtLeast(min)
+    }
+
+    companion object {
+        const val STEP_DP = 8f
+        const val FINE_DP = 40f
+    }
+}
+
+/**
+ * Wraps a number field: a sideways drag scrubs it ([NumberScrub]; [onDrag] true at the start, false at the end), a tap
+ * still edits it and an up / down drag still scrolls the panel. [content] gets whether a drag is in fine steps (null: none).
+ */
+@Composable
+fun ScrubCell(value: Double, onValue: (Double) -> Unit, onDrag: (Boolean) -> Unit, modifier: Modifier = Modifier, min: Double = -1e6,
+              content: @Composable (Boolean?) -> Unit) {
+    val cur by androidx.compose.runtime.rememberUpdatedState(value)
+    val set by androidx.compose.runtime.rememberUpdatedState(onValue)
+    val drag by androidx.compose.runtime.rememberUpdatedState(onDrag)
+    var fine by androidx.compose.runtime.remember { mutableStateOf<Boolean?>(null) }
+    Box(modifier.pointerInput(min) {
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false, pass = androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+            var tx = 0f
+            var ty = 0f
+            var scrub: NumberScrub? = null
+            var last = cur
+            try { while (true) {
+                val c = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial).changes.firstOrNull { it.id == down.id } ?: break
+                if (!c.pressed) { if (scrub != null) c.consume(); break }
+                val dx = c.position.x - c.previousPosition.x
+                tx += dx
+                ty += c.position.y - c.previousPosition.y
+                if (scrub == null) {
+                    if (abs(tx) > viewConfiguration.touchSlop && abs(tx) > abs(ty) * 1.5f) { scrub = NumberScrub(cur, density, min); drag(true) }
+                    else if (abs(ty) > viewConfiguration.touchSlop) break
+                    else continue
+                }
+                c.consume()
+                val v = scrub.move(dx, c.position.y - down.position.y)
+                fine = scrub.fine
+                if (v != last) { last = v; set(v) }
+            } } finally { if (scrub != null) { fine = null; drag(false) } }
+        }
+    }) { content(fine) }
+}
+
 /** Quantises a raw scrub value to its step inside the range. */
 fun scrubSnap(raw: Float, range: ClosedFloatingPointRange<Float>, step: Float): Float {
     val v = raw.coerceIn(range.start, range.endInclusive)

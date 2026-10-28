@@ -1,5 +1,7 @@
 package app.orcaandroid.ui
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import app.orcaandroid.R
 import app.orcaandroid.core.Instance
 import app.orcaandroid.core.Vec3
@@ -35,12 +37,22 @@ class ShapeController(private val store: Store, private val scad: ScadController
     val canUndo get() = undo.isNotEmpty() && undoOwner === design
     val canRedo get() = redo.isNotEmpty() && undoOwner === design
 
+    /** A number drag runs ([live]): its first change is the undo step, the rest join it. */
+    private var liveDrag = false
+    private var liveStepped = false
+
+    fun live(on: Boolean) { liveDrag = on; liveStepped = false }
+
+    /** The size row's one proportional lock (W / D / H follow each other); kept for the session, like a tool setting. */
+    var sizeLock by androidx.compose.runtime.mutableStateOf(false)
+
     private fun commit(next: ShapeDesign, sel: List<Int> = selected) {
         val cur = design ?: return
         if (next == cur && sel == selected) return
         // A design loaded from elsewhere starts a fresh history.
-        if (undoOwner !== cur) { undo.clear(); redo.clear() }
-        if (next != cur) {
+        if (undoOwner !== cur) { undo.clear(); redo.clear(); liveStepped = false }
+        if (next != cur && !(liveDrag && liveStepped)) {
+            liveStepped = liveDrag
             undo.addLast(cur to selected)
             if (undo.size > 200) undo.removeFirst()
             redo.clear()
@@ -292,6 +304,16 @@ class ShapeController(private val store: Store, private val scad: ScadController
     fun setField(id: Int, field: String, value: Double) {
         val d = design ?: return
         commit(withField(d, id, field, value) ?: return)
+    }
+
+    /** Size [axis] of shape [id] set to [mm]; with [sizeLock] the other two scale by the same factor (one undo step). */
+    fun setSize(id: Int, axis: Int, mm: Double) {
+        val d = design ?: return
+        val s = d.find(id) ?: return
+        val cur = d.size(s)
+        if (!sizeLock || cur[axis] <= 0.0) return setField(id, "size.${"xyz"[axis]}", mm)
+        val f = mm / cur[axis]
+        commit((0..2).fold(d) { acc, i -> withField(acc, id, "size.${"xyz"[i]}", if (i == axis) mm else cur[i] * f) ?: acc })
     }
 
     /** [d] with [field] of shape [id] set to [value]; a field bound to a dimension changes the dimension instead. */

@@ -31,6 +31,8 @@ import androidx.compose.material.icons.filled.Draw
 import androidx.compose.material.icons.filled.Flip
 import androidx.compose.material.icons.filled.Merge
 import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.VerticalAlignBottom
 import androidx.compose.material.icons.filled.Workspaces
@@ -62,6 +64,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.Key
@@ -75,6 +78,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.orcaandroid.R
+import app.orcaandroid.ui.components.ScrubCell
 import app.orcaandroid.scad.D3
 import app.orcaandroid.scad.Dim
 import app.orcaandroid.scad.Repeat
@@ -431,17 +435,33 @@ private fun SketchSettings(shape: Shape, d: ShapeDesign, vm: AppViewModel, onEdi
 private fun FieldRow(title: String, shape: Shape, d: ShapeDesign, vm: AppViewModel, prefix: String, labels: List<String>, raw: D3,
                      names: List<String>) {
     var menu by remember { mutableStateOf(false) }
+    val size = prefix == "size"
+    val lock = size && vm.shapes.sizeLock
+    // The cell being dragged; with the lock on, the other two grey out as its followers.
+    var dragged by remember { mutableStateOf(-1) }
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(title, style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
+            // One lock for the row (a badge in each narrow cell crowded the numbers).
+            if (size) Tip(stringResource(R.string.shape_size_lock)) {
+                IconToggleButton(lock, { vm.shapes.sizeLock = it }, Modifier.size(32.dp)) {
+                    Icon(if (lock) Icons.Default.Lock else Icons.Default.LockOpen, stringResource(R.string.shape_size_lock), Modifier.size(18.dp),
+                        tint = if (lock) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
             Spacer(Modifier.width(4.dp))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
             labels.forEachIndexed { i, label ->
                 val field = "$prefix.${"xyz"[i]}"
                 val bound = shape.bind[field]?.takeIf { d.dim(it) != null }
-                NumberField(d.value(shape, field, raw[i]).toFloat(), { vm.shapes.setField(shape.id, field, it.toDouble()) },
-                    Modifier.weight(1f), label = if (bound != null) "$label = $bound" else label, decimals = 2)
+                val set = { v: Double -> if (size) vm.shapes.setSize(shape.id, i, v) else vm.shapes.setField(shape.id, field, v) }
+                val value = d.value(shape, field, raw[i])
+                ScrubCell(value, set, { on -> dragged = if (on) i else -1; vm.shapes.live(on) },
+                    Modifier.weight(1f).alpha(if (lock && dragged >= 0 && dragged != i) 0.45f else 1f), min = if (size) 0.1 else -1e6) { fine ->
+                    NumberField(value.toFloat(), { set(it.toDouble()) }, Modifier.fillMaxWidth(),
+                        label = (if (bound != null) "$label = $bound" else label) + if (fine == true) " ·0.1" else "", decimals = 2)
+                }
             }
             Column {
                 Tip(stringResource(R.string.shape_slider_menu)) { IconButton(onClick = { menu = true }, modifier = Modifier.size(32.dp)) {
