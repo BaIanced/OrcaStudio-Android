@@ -92,7 +92,11 @@ fun Notices(state: UiState, vm: AppViewModel, modifier: Modifier = Modifier) {
                     }
                 }
             }
-            IconButton(onClick = { closed = closed + open.map { it.key } }) { Icon(Icons.Default.Close, stringResource(R.string.close)) }
+            // X closes the card; a slice error is then gone for good (nothing left to re-open), the other notices stay as the "!" badge.
+            IconButton(onClick = {
+                closed = closed + open.map { it.key }
+                if (open.any { it.key.startsWith("slice:") }) vm.dismissSliceError()
+            }) { Icon(Icons.Default.Close, stringResource(R.string.close)) }
         }
     }
 }

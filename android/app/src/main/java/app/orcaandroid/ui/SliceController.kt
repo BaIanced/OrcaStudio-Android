@@ -26,6 +26,7 @@ class SliceController(private val store: Store, private val presets: PresetContr
         }
         presets.syncSelection()
         parseJobs.remove(plate)?.cancel()
+        userCancelled = false
         val preparing = store.str(R.string.preparing)
         store.update { it.copy(slice = SliceStatus.Running(plate, 0, preparing), sliceError = null) }
         progress.value = SliceProgress(0, preparing)
@@ -44,8 +45,9 @@ class SliceController(private val store: Store, private val presets: PresetContr
             throw e
         } catch (e: Exception) {
             // On the 3D view (Notices), not in a dialog: a dialog window could open out of sight (Quest panel, user 2026-10-19).
+            // The failure a user cancel makes is not an error (user 2026-10-28): no badge.
             android.util.Log.w("OrcaSlice", "slice failed", e)
-            store.update { it.copy(sliceError = plate to (e.message ?: e.toString())) }
+            if (!userCancelled) store.update { it.copy(sliceError = plate to (e.message ?: e.toString())) }
         } finally {
             progress.value = null
             store.update { it.copy(slice = SliceStatus.Idle) }
@@ -57,11 +59,17 @@ class SliceController(private val store: Store, private val presets: PresetContr
         for (p in store.value.scene.plates.indices) {
             if (store.value.scene.objectsOn(p).isEmpty()) continue
             slice(p).join()
-            if (store.value.error != null || store.value.sliceError != null) break
+            if (store.value.error != null || store.value.sliceError != null || userCancelled) break
         }
     }
 
-    fun cancelSlice() = engine.cancel()
+    /** Set by [cancelSlice] while a slice runs (cleared when the next one starts), so the failure the cancel causes raises no error badge and Slice all stops. */
+    @Volatile private var userCancelled = false
+
+    fun cancelSlice() {
+        if (store.value.isSlicing) userCancelled = true
+        engine.cancel()
+    }
 
     /** Shows an existing G-code file in the preview. */
     suspend fun viewGcodeFile(file: File) {

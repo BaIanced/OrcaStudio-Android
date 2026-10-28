@@ -36,8 +36,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Claude-verified WSA 2026-10-27, user feel open (archive): interaction plan, CAD 1-2, Center/Align, smart guides, Check mesh.
 - MCP token efficiency (`NOTES-mcp-token-efficiency.md`): A-C verified (archive), D dropped; proposed build rule waits for the user's OK; size tools `~/orca-android-tools/mcp_*_sizes.py`.
 - Hollow + Preview camera light (More > lab slider): Claude-verified WSA 2026-10-28, shipped r453; open: user feel (archive).
-- Session B (WSA r453 debug) ended 2026-10-28: tooltips + mirror check marks verified (archive); other checks skipped by the user. Their new findings are in the backlog (grep "Shape builder bugs", "Snapping (user", "Slice cancel badge"). Unpushed-to-CI: tooltips, mirror marks, badge fix (archive).
-- Next step: slice-cancel badge (X closes + removes it; cancel is not an error) -> Sonnet 5.5 (medium); then shape builder drag/gizmo/mirror-spacing bugs -> Opus 5.5 (high)
+- Session B (WSA r453 debug) ended 2026-10-28: tooltips + mirror check marks verified (archive); other checks skipped by the user. Their new findings are in the backlog (grep "Shape builder bugs", "Snapping (user", "Slice cancel badge"). Unpushed-to-CI: tooltips, mirror marks, badge fix (archive), slice-cancel badge (commit local, compiled, untested).
+- Next step: shape builder drag/gizmo/mirror-spacing bugs (backlog "Shape builder bugs") -> Opus 5.5 (high); then push + WSA check of the slice-cancel badge with them in one build
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
