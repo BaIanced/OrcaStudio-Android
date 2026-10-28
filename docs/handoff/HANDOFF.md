@@ -24,9 +24,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Session backups: phone `/data/local/tmp/phone-session-backup.{3mf,json}`, WSA `/data/local/tmp/session-backup.{3mf,json}`. `scadzip-test.zip` stays in `/sdcard/Download` (phone, Chromebook). Never write the LAN access code anywhere.
 ## Next task
 - **User 2026-10-21: design deviations pre-approved** ("deviate if you find a more logical, intuitive way; I trust your judgement"); say what changed.
-- Muse (full discretion, user 2026-10-25; memories muse-*): tasks in `MUSE-TASKS.md` on `muse/work`, `TASK <n> READY` on #46, one draft PR each;
-  Claude compiles, merges, cherry-picks. Audits + JVM-testable Kotlin only.
-  Tasks 1-18 merged. **Session start, run exactly:** `gh pr list --state open --json number,title,headRefName; gh issue view 46 --json comments --jq '.comments[-2:][]|.createdAt+" "+(.body|.[0:300])'`
+- Muse (full discretion; tasks 1-18 merged): no per-session check. Instructions, permissions and the check command are in `NOTES-muse.md`; read it only when you want to send Muse work or a Muse PR/comment shows up.
 - **Merge batch (user 2026-10-28: main = user-tested): `NOTES-merge-batch.md`** (cuts agreed, printer set release-gated, sessions A-D).
 - Local tests: `wsa-debug-rebuild.sh [native]` (reference "WSA debug loop"); fresh app: `wsa-debug-setup.sh` first. Lab prefs: edit `layout_lab` JSON in debug `shared_prefs/app_settings.xml` with run-as sed (app stopped).
 - **Offload (user 2026-10-25/26): max token use onto free opencode models, growing leeway by track record** (Claude specs + verifies).
@@ -36,8 +34,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - MCP token efficiency (`NOTES-mcp-token-efficiency.md`): A-C verified, D dropped; build rule waits for the user's OK.
 - Sculpt latency (914816d + 68e8f7a + 4be7551): deferred stroke-end hull verified on WSA debug and r459 release 2026-10-28 (archive). Done.
 - Remaining gate work is user sessions B, C, D (`NOTES-merge-batch.md`); user paused testing 2026-10-28. Sculpt symmetry x done. Ask the user whether to resume sessions or merge Session-A items.
-- **Debug notes (verified WSA + Note 2026-10-28, archive):** Ctrl+Shift+N / S Pen button in the debug build. **At /next, read** `adb shell cat /sdcard/Android/data/<debug pkg>/files/notes/notes.jsonl` on the Note/WSA (view only ambiguous PNGs); never commit them.
-- Next step: ask user: resume sessions B-D or merge Session A -> Sonnet 5.5 (medium)
+- **Debug notes (verified WSA + Note 2026-10-28, archive):** Ctrl+Shift+N / S Pen button in the debug build. **Read only when the user says "notes"** (not at /next): `adb shell cat /sdcard/Android/data/<debug pkg>/files/notes/notes.jsonl` on the Note/WSA (view only ambiguous PNGs). Once each note is logged in handoff/backlog, delete `notes.jsonl` + the PNGs on that device (no re-reads, no duplicates); never commit them.
+- Floating Slice button (drag to move, saved) + "show plate switcher" toggle: coded + compiled 2026-10-28 (lab toggles in Layout lab); next: push, CI build, WSA test (backlog "UI prefs").
+- Next step: WSA-test floating Slice + plate-switcher toggle on the new build, then ask user: resume sessions B-D or merge Session A -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).

@@ -68,4 +68,4 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - Shape builder bugs (user 2026-10-28, session B): drag lag, rings through the object, end copy drag scaling spacing: fixed 1a94899, Claude-verified WSA debug 2026-10-28 (archive); open: user feel (on hold, no user testing now).
 - Snapping (user 2026-10-28: toggle/hotkey, not forced on the plate, thin Adobe-style guide): 846a663 Claude-verified WSA 2026-10-28; user feel untested.
 - Session B checks skipped by user 2026-10-28 ("don't want to do right now"): Sculpt, Hollow, Center/Align, Check mesh, badge fix.
-- UI prefs (user 2026-10-28, untriaged; archive 2026-10-28 trim): plate tabs / filmstrip / chips each an Appearance option; slice button floating bottom right (or user-movable), not in the drag handle.
+- UI prefs (user 2026-10-28): Layout-lab toggles "show plate switcher" + "Slice floats (drag to move)" coded and compiled 2026-10-28; open: Claude WSA test on the CI build, then archive.

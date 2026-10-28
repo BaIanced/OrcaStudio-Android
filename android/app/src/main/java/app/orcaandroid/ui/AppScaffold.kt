@@ -436,9 +436,10 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
                 viewport(Modifier.weight(1f).fillMaxWidth())
                 val onHandle = state.lab.platesOnHandle && state.screen == Screen.PREPARE
                 val slice = state.screen == Screen.PREPARE && app.orcaandroid.ui.prepare.sliceOnGrip(state, wide)
-                val header: (@Composable () -> Unit)? = if (onHandle || slice) ({
+                val handlePlates = onHandle && state.lab.showPlates
+                val header: (@Composable () -> Unit)? = if (handlePlates || slice) ({
                     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        if (onHandle) PlateSwitcherBar(state, vm, plateView, Modifier.weight(1f)) else Box(Modifier.weight(1f))
+                        if (handlePlates) PlateSwitcherBar(state, vm, plateView, Modifier.weight(1f)) else Box(Modifier.weight(1f))
                         if (slice) app.orcaandroid.ui.prepare.GripSliceButton(state, vm, Modifier.padding(start = 8.dp))
                     }
                 }) else null

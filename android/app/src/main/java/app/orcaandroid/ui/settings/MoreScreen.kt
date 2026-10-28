@@ -301,6 +301,8 @@ private fun LayoutLabSection(state: UiState, vm: AppViewModel) {
                 }
         }
         SwitchRow(stringResource(R.string.lab_plate_label), lab.plateLabel, onChange = { vm.setLab(lab.copy(plateLabel = it)) })
+        SwitchRow(stringResource(R.string.lab_show_plates), lab.showPlates, onChange = { vm.setLab(lab.copy(showPlates = it)) })
+        SwitchRow(stringResource(R.string.lab_slice_floating), lab.sliceFloating, onChange = { vm.setLab(lab.copy(sliceFloating = it)) })
         SwitchRow(stringResource(R.string.lab_tools_left), lab.toolsLeft, onChange = { vm.setLab(lab.copy(toolsLeft = it)) })
         SwitchRow(stringResource(R.string.lab_plates_on_handle), lab.platesOnHandle, onChange = { vm.setLab(lab.copy(platesOnHandle = it)) })
         SwitchRow(stringResource(R.string.lab_fullscreen_portrait), lab.fullscreenPortrait, onChange = { vm.setLab(lab.copy(fullscreenPortrait = it)) })

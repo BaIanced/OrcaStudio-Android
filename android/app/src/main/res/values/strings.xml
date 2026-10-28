@@ -1067,7 +1067,9 @@
     <string name="scroll_up">Scroll up</string>
     <string name="scroll_down">Scroll down</string>
     <string name="lab_plates_on_handle">Portrait: plate switcher on the panel grip</string>
-    <string name="lab_slice_scale">Slice button size (portrait, on the panel grip): %d %%</string>
+    <string name="lab_slice_scale">Slice button size: %d %%</string>
+    <string name="lab_show_plates">Show the plate switcher (tabs, filmstrip or chips) over the 3D view</string>
+    <string name="lab_slice_floating">Slice button floats over the 3D view (drag it to move it); off = on the panel grip</string>
     <string name="lab_plate_scale">Plate switcher size: %d %%</string>
     <string name="lab_fullscreen_portrait">Fullscreen in portrait too</string>
     <string name="lab_pie_menu">Pie menu on long press in the 3D view (slide to a wedge and release)</string>

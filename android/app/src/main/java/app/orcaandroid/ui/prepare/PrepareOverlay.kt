@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -137,7 +139,7 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
     val column = wide || lab.toolsLeft
     // Portrait with the switcher on the panel grip (AppScaffold): nothing of it over the 3D view.
     val onHandle = lab.platesOnHandle && !wide
-    val filmstrip = lab.plates == PlateSwitcher.FILMSTRIP && state.tool == Tool.None && !onHandle
+    val filmstrip = lab.plates == PlateSwitcher.FILMSTRIP && state.tool == Tool.None && !onHandle && lab.showPlates
     CompositionLocalProvider(LocalOverlayAlpha provides lab.overlayAlpha) {
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
     var rowSize by remember { mutableStateOf(IntSize.Zero) }
@@ -223,10 +225,10 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
         if (stripWithSlice) androidx.compose.foundation.layout.BoxWithConstraints(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(start = 60.dp)) {
             if (maxWidth >= 360.dp) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
                 PlateScale(lab.plateScale) { Filmstrip(state, vm, view, Modifier.weight(1f)) }
-                if (!sliceOnGrip) SliceButton(state, vm, Modifier)
+                if (!sliceOnGrip && !lab.sliceFloating) SliceButton(state, vm, Modifier)
             } else Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 PlateScale(lab.plateScale) { Filmstrip(state, vm, view, Modifier.fillMaxWidth()) }
-                if (!sliceOnGrip) SliceButton(state, vm, Modifier)
+                if (!sliceOnGrip && !lab.sliceFloating) SliceButton(state, vm, Modifier)
             }
         } else if (filmstrip) PlateScale(lab.plateScale) { Filmstrip(state, vm, view, Modifier.align(Alignment.BottomStart).padding(bottom = 120.dp)) }
         // The layer height graph is tall: on wide layouts it sits at the right edge (like the desktop's)
@@ -237,7 +239,8 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
                    bottom = if (wide) 0.dp else if (column) 72.dp else 116.dp)) {
             ToolPanel(state, vm)
         }
-        if (!stripWithSlice && !sliceOnGrip) SliceButton(state, vm, Modifier.align(Alignment.BottomEnd))
+        if (lab.sliceFloating) FloatingSlice(state, vm, containerSize)
+        else if (!stripWithSlice && !sliceOnGrip) SliceButton(state, vm, Modifier.align(Alignment.BottomEnd))
         // Setup problems (first case: a filament slot of the wrong type): tap opens the panel at the offending setting.
         val problems = state.setupProblems()
         if (problems.isNotEmpty() && !rightPanel) {
@@ -396,7 +399,7 @@ private fun TopBar(state: UiState, vm: AppViewModel, view: PlateView?, viewButto
     // view buttons take the free start, left of the hole, and File stays right of it (together they didn't fit past it).
     CutoutRow(minStart = 96.dp, start = {
         if (onHandle) { if (viewButtons) views() }
-        else PlateScale(state.lab.plateScale) {
+        else if (state.lab.showPlates) PlateScale(state.lab.plateScale) {
             when (state.lab.plates) {
                 PlateSwitcher.TABS -> Surface(shape = RoundedCornerShape(20.dp), color = bar) { PlateTabs(state, vm, view, Modifier.padding(start = 4.dp)) }
                 PlateSwitcher.FILMSTRIP -> if (state.lab.plateLabel) Surface(shape = RoundedCornerShape(20.dp), color = bar) { PlateLabel(state, vm) }
@@ -665,7 +668,7 @@ private fun ToolButton(icon: ImageVector, label: String, active: Boolean = false
 }
 
 /** Portrait Prepare without the OpenSCAD editor: the Slice button sits at the right end of the panel's grip (user, 2026-10-17). */
-fun sliceOnGrip(state: UiState, wide: Boolean) = !wide && state.scad == null
+fun sliceOnGrip(state: UiState, wide: Boolean) = !wide && state.scad == null && !state.lab.sliceFloating
 
 /** The Slice button on the panel grip, sized by the Layout lab's own slider (on top of the main UI size only). */
 @Composable
@@ -674,6 +677,46 @@ fun GripSliceButton(state: UiState, vm: AppViewModel, modifier: Modifier = Modif
     androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides
         androidx.compose.ui.unit.Density(base.density * state.lab.sliceScale, base.fontScale)) {
         SliceButton(state, vm, modifier.padding(vertical = 4.dp))
+    }
+}
+
+/**
+ * The Slice button floating over the 3D view (user 2026-10-28): a tap slices, dragging it anywhere moves it. The spot is saved as
+ * fractions of the free room (like the view cube), so it stays put across rotation; default bottom right. Sized by the slice slider.
+ */
+@Composable
+private fun BoxScope.FloatingSlice(state: UiState, vm: AppViewModel, area: IntSize) {
+    val lab = state.lab
+    var size by remember { mutableStateOf(IntSize.Zero) }
+    var live by remember { mutableStateOf<Offset?>(null) }
+    val roomX = (area.width - size.width).coerceAtLeast(0).toFloat()
+    val roomY = (area.height - size.height).coerceAtLeast(0).toFloat()
+    val saved = if (lab.sliceX < 0f || lab.sliceY < 0f) Offset(roomX, roomY) else Offset(lab.sliceX * roomX, lab.sliceY * roomY)
+    val at = (live ?: saved).let { Offset(it.x.coerceIn(0f, roomX), it.y.coerceIn(0f, roomY)) }
+    val base = androidx.compose.ui.platform.LocalDensity.current
+    androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides
+        androidx.compose.ui.unit.Density(base.density * lab.sliceScale, base.fontScale)) {
+        SliceButton(state, vm, Modifier
+            .align(Alignment.TopStart)
+            .offset { IntOffset(at.x.roundToInt(), at.y.roundToInt()) }
+            .onSizeChanged { size = it }
+            .pointerInput(roomX, roomY) {
+                detectDragGestures(
+                    onDrag = { change, d ->
+                        change.consume()
+                        val cur = live ?: at
+                        live = Offset((cur.x + d.x).coerceIn(0f, roomX), (cur.y + d.y).coerceIn(0f, roomY))
+                    },
+                    onDragEnd = {
+                        live?.let { p ->
+                            vm.setLab(lab.copy(sliceX = if (roomX > 0f) (p.x / roomX).coerceIn(0f, 1f) else 0f,
+                                               sliceY = if (roomY > 0f) (p.y / roomY).coerceIn(0f, 1f) else 0f))
+                        }
+                        live = null
+                    },
+                    onDragCancel = { live = null },
+                )
+            })
     }
 }
 

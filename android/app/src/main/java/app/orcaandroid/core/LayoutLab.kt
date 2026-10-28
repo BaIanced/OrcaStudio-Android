@@ -54,6 +54,12 @@ data class LayoutLab(
     val wheelSpeed: Float = 1f,
     /** Size of the Slice button on the portrait panel's grip; only the main UI size scales it too (user, 2026-10-17). */
     val sliceScale: Float = 1f,
+    /** Slice button floats over the 3D view (drag it to move it; spot as fractions of the free room, -1 = bottom right) instead of sitting on the panel grip (user 2026-10-28). */
+    val sliceFloating: Boolean = true,
+    val sliceX: Float = -1f,
+    val sliceY: Float = -1f,
+    /** Show the plate switcher (tabs, filmstrip or chips) over the 3D view (user 2026-10-28: optional). */
+    val showPlates: Boolean = true,
     /** View cube shown in the 3D view (user 2026-10-21: off by default, it made them motion sick). */
     val viewCube: Boolean = false,
     /** View cube spot, as a fraction (0-1) of the room left and right / above and below it in the 3D view (-1 = default top right). */
@@ -75,6 +81,7 @@ data class LayoutLab(
         .put("lightAzimuth", lightAzimuth.toDouble()).put("lightElevation", lightElevation.toDouble()).put("lightStrength", lightStrength.toDouble())
         .put("cameraLight", cameraLight.toDouble())
         .put("pinchSpeed", pinchSpeed.toDouble()).put("wheelSpeed", wheelSpeed.toDouble()).put("sliceScale", sliceScale.toDouble())
+        .put("sliceFloating", sliceFloating).put("sliceX", sliceX.toDouble()).put("sliceY", sliceY.toDouble()).put("showPlates", showPlates)
         .put("viewCube", viewCube).put("viewCubeX", viewCubeX.toDouble()).put("viewCubeY", viewCubeY.toDouble()).put("pieMenu", pieMenu).put("plateHd", plateHd).toString()
 
     companion object {
@@ -120,6 +127,10 @@ data class LayoutLab(
                 lightStrength = o.optDouble("lightStrength", d.lightStrength.toDouble()).toFloat().coerceIn(LIGHT_STRENGTHS.start, LIGHT_STRENGTHS.endInclusive),
                 cameraLight = o.optDouble("cameraLight", d.cameraLight.toDouble()).toFloat().coerceIn(CAMERA_LIGHTS.start, CAMERA_LIGHTS.endInclusive),
                 sliceScale = o.optDouble("sliceScale", 1.0).toFloat().coerceIn(SLICE_SCALES.start, SLICE_SCALES.endInclusive),
+                sliceFloating = o.optBoolean("sliceFloating", d.sliceFloating),
+                sliceX = o.optDouble("sliceX", -1.0).toFloat().coerceAtMost(1f),
+                sliceY = o.optDouble("sliceY", -1.0).toFloat().coerceAtMost(1f),
+                showPlates = o.optBoolean("showPlates", d.showPlates),
                 pinchSpeed = o.optDouble("pinchSpeed", d.pinchSpeed.toDouble()).toFloat().coerceIn(PINCH_SPEEDS.start, PINCH_SPEEDS.endInclusive),
                 wheelSpeed = o.optDouble("wheelSpeed", d.wheelSpeed.toDouble()).toFloat().coerceIn(WHEEL_SPEEDS.start, WHEEL_SPEEDS.endInclusive),
                 viewCube = o.optBoolean("viewCube", d.viewCube),
