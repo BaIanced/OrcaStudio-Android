@@ -31,13 +31,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **Offload (user 2026-10-25/26): max token use onto free opencode models, growing leeway by track record** (Claude specs + verifies).
   DeepSeek V4.1 Flash = default; runner `octauto.sh` (`D:\oct-backup\jobs\README.md`; opencode v2: `model#variant`), ledger `trust-profile.md`.
 - CAD plan (`NOTES-cad-reuse.md`): 0-5b Claude-verified, user feel untested; 1b parked.
-- **Interaction plan (user GO 2026-10-26): `NOTES-interaction-plan.md`, 9 steps; 1-6 Claude-verified WSA debug (archive), user feel untested.
-  Tests: `wsa-pen-hover.sh`, `wsa-steer-test.sh`, `input mouse tap`, measure = `input keyevent 49`, MCP `view_state` (`MAX=3000`).**
+- Interaction plan (`NOTES-interaction-plan.md`) tests: `wsa-pen-hover.sh`, `wsa-steer-test.sh`, `input mouse tap`, measure = `input keyevent 49`, MCP `view_state` (`MAX=3000`).
 - **No WSA focus loops (user 2026-10-26: "your testing keeps stealing my window focus"):** no `focus.ps1`/`tapf.sh`/`keys.ps1` in loops;
   touch/hold tests on the phone's hidden display. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
-- Claude-verified WSA 2026-10-27, user feel open (archive): interaction plan 1-9 + Measure, CAD 1 Hull, CAD 2 XY edge snap, Center + Align row.
-- Smart guides 005f14d: Claude-verified WSA debug 2026-10-27, user feel open (archive).
-- Check mesh sharp edges: Claude-verified WSA debug 2026-10-27 (details in archive); green marker look + user feel untested.
+- Claude-verified WSA 2026-10-27, user feel open (archive): interaction plan 1-9 + Measure, CAD 1 Hull, CAD 2 XY edge snap, Center + Align row, smart guides, Check mesh sharp edges (green marker look too).
 - Hollow (More menu + MCP `object_hollow`, native `OrcaHollow.cpp` = sla::hollow_mesh per model part, wall 0.8-10 mm, sealed): coded 2026-10-27, Kotlin compiles, native + CI untested. Cleanup already exists (More > Repair).
 - **MCP token efficiency:** rule review + measured analysis done 2026-10-27 (`NOTES-mcp-token-efficiency.md`; tools/list 28.7 KB, edit replies
   re-send the whole scene each call). Proposed rule waits for the user's OK; plan A-C = diff replies for plate/shape edits.
