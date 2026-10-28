@@ -3458,3 +3458,6 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 - Not asked/open: paint dock + long-press menu, extended paint tools, edge bands on painted rounded edges (r403), Cut tool flip keeps paint.
 - USER VERIFIED r453 (same session, 2026-10-28): edge bands on painted rounded edges look right (r403 fix); Cut tool flip keeps paint. Paint dock: bottom toolbar Brush/Fill/Bands/Object works; user says the only long-press available is on the filament colour dots (no long-press on the mode buttons; unclear whether that is intended).
 - Claude source check 2026-10-28 (ToolPanel.kt:359,391,531): the dock long-press menu IS the filament dot long-press (LayerMenu: share, hide/lock, Turn into). Mode buttons have none by design. Matches what the user saw; paint dock closed.
+
+### 2026-10-28 Session B, Claude drove WSA debug (build of 26be567+)
+- Build mirror menu check marks: Claude-verified (X on/off, Y on; shots). Toolbar tooltips are hover-only: not testable by adb, content descriptions present ("Undo (Ctrl+Z)" etc.). User feel untested.
