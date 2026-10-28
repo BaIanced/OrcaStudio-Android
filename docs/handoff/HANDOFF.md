@@ -34,9 +34,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - CAD plan (`NOTES-cad-reuse.md`): 0-5b Claude-verified, user feel untested; 1b parked.
 - **No WSA focus loops** (memory no-popups-on-user-screens); touch/hold tests on the phone's hidden display. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
 - MCP token efficiency (`NOTES-mcp-token-efficiency.md`): A-C verified (archive), D dropped; proposed build rule waits for the user's OK; size tools `~/orca-android-tools/mcp_*_sizes.py`.
-- Session B findings: gizmo fixes 1a94899 Claude-verified on WSA debug (archive 2026-10-28); backlog "Snapping (user" open. CI build with d3ee419 + 1a94899 dispatched 2026-10-28 (see State when green).
-- Next step: when the CI build is green, install it on all adb devices, update "Latest CI build", then backlog "Snapping (user" -> Sonnet 5.5 (medium)
-
+- Session B findings: gizmo fixes 1a94899 Claude-verified on WSA debug (archive 2026-10-28). CI run 40729403081 (82bfd05: d3ee419 + 1a94899) was in progress at the 2026-10-28 cue: if green, install on all adb devices and update "Latest CI build".
+- Snapping toggle 846a663 BUILT (compiles, untested): magnet button in the Prepare toolbar (after Select multiple) and the Build toolbar (before Mirror); Shift+Tab toggles the current workspace (MainActivity.viewKey); Ctrl held flips it for one drag (PlateView.dragOffsetAt); prefs snap_prepare (default OFF, per "not on the main plate view") / snap_build (on); guide = one 1.25 dp magenta line (PlateRenderer.drawDragGuides). WSA debug test: button state, Shift+Tab (check that Build is Screen.PREPARE), guide look in a cropped shot, Ctrl-flip (adb can't hold Ctrl: by code only).
+- Next step: WSA debug test of the snap toggle (wsa-debug-rebuild.sh), then the CI install -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
