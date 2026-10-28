@@ -162,7 +162,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         Tool("object_auto_orient", "Plate edit: turns every copy of an object (or of all objects, object omitted) the way " +
             "OrcaSlicer's auto orient finds best for printing (less support, flat on the bed). $PLATE_EDIT",
             obj(emptyList(), "object" to p("integer", "Object number from plate_describe; omitted = all"))) { autoOrient(it) },
-        Tool("object_check_mesh", "Read-only mesh report of one copy, per part: faces, shells, volume, open edges, zero-area faces and faces " +
+        Tool("object_check_mesh", "Read-only mesh report of one copy, per part: faces, shells, volume, open edges, zero-area faces, sharp edges (folded back over 160 degrees) and faces " +
             "whose wall is thinner than thickness mm (default 0.4). Nothing changes.",
             obj(listOf("object"), *COPY, "thickness" to p("number", "Thin-wall limit in mm, 0..5; 0 skips the check; default 0.4"))) { checkMesh(it) },
         Tool("object_deform", "Plate edit: bends, twists or tapers an object along plate axis 0 = X, 1 = Y, 2 = Z, in this copy's frame " +
