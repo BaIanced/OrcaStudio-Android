@@ -258,7 +258,7 @@ class FileController(
         // Like the desktop, a new project starts with one plate.
         val extra = (1 until store.value.scene.plates.size).toList()
         if (extra.isNotEmpty()) store.applyScene(engine.deletePlates(extra))
-        store.update { it.copy(projectName = null, projectDirty = false, calibration = null, results = emptyMap(), external = null, activePlate = 0) }
+        store.update { it.copy(projectName = null, projectDirty = false, calibration = null, results = emptyMap(), external = null, activePlate = 0, sliceError = null) }
     }
 
     fun saveProject(target: Uri) = store.launch(store.str(R.string.saving_project)) {
