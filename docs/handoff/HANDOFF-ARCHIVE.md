@@ -3467,3 +3467,7 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 - Slice stall at 5% in debug app: not reproducible (MCP `slice` ~2 s, all stages in logcat). Note it only if it recurs.
 - Session B checks (Sculpt, Hollow, Center/Align, Check mesh, slice-badge fix, mirror asymmetric feel) skipped by the user; the user's new findings are in HANDOFF-BACKLOG.md (shape builder bugs, snapping toggle + guide style, slice-cancel badge).
 - Local commits since r453: 26be567 tooltips + mirror check marks, eb7e242 New project clears slice error + long-press dismisses badge (all pushed to the work branch, not yet in a CI build).
+
+
+## 2026-10-28 slice-cancel badge (Claude-verified, WSA debug build of d3ee419)
+- User cancel of a slice raises no error badge (`SliceController.userCancelled`; Slice all stops), card X on a slice error also removes it (`Notices.kt`). WSA: sliced via MCP, tapped Cancel: OrcaSlice logged the cancel exception, app_state shows no slice error. X-removal on a real error untested (code path only). Pushed, not in a CI build yet.

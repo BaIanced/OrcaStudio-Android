@@ -16,6 +16,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
 - Latest CI build: run 40646124848 = r453 (a3dbc7b: Hollow, MCP diff replies A-C, Preview camera light), CI green, installed 2026-10-28 on WSA, phone, SHIELD, Note; Claude-verified on WSA debug (archive), user feel untested. Install new builds on all adb devices (skip the .23 tablet: 32-bit, Android 6).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
+- **User 2026-10-28: no more user testing for now; Claude builds and tests everything itself (memory no-user-testing-now); don't ask for feel/UI checks.**
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
   WSA `127.0.0.1:58526`; **USB serial = the user's SHIELD TV** (rooted; installs only). No printer tests (user away).
@@ -33,11 +34,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - CAD plan (`NOTES-cad-reuse.md`): 0-5b Claude-verified, user feel untested; 1b parked.
 - **No WSA focus loops (user 2026-10-26: "your testing keeps stealing my window focus"):** no `focus.ps1`/`tapf.sh`/`keys.ps1` in loops;
   touch/hold tests on the phone's hidden display. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
-- Claude-verified WSA 2026-10-27, user feel open (archive): interaction plan, CAD 1-2, Center/Align, smart guides, Check mesh.
 - MCP token efficiency (`NOTES-mcp-token-efficiency.md`): A-C verified (archive), D dropped; proposed build rule waits for the user's OK; size tools `~/orca-android-tools/mcp_*_sizes.py`.
-- Hollow + Preview camera light (More > lab slider): Claude-verified WSA 2026-10-28, shipped r453; open: user feel (archive).
-- Session B (WSA r453 debug) ended 2026-10-28: tooltips + mirror check marks verified (archive); other checks skipped by the user. Their new findings are in the backlog (grep "Shape builder bugs", "Snapping (user", "Slice cancel badge"). Unpushed-to-CI: tooltips, mirror marks, badge fix (archive), slice-cancel badge (commit local, compiled, untested).
-- Next step: shape builder drag/gizmo/mirror-spacing bugs (backlog "Shape builder bugs") -> Opus 5.5 (high); then push + WSA check of the slice-cancel badge with them in one build
+- Session B findings are in the backlog (grep "Shape builder bugs", "Snapping (user"). Unpushed-to-CI: tooltips, mirror marks (archive); slice-cancel badge d3ee419 pushed, Claude-verified on WSA (archive).
+- Next step: shape builder drag/gizmo/mirror-spacing bugs (backlog "Shape builder bugs") -> Opus 5.5 (high); then one CI build with the badge fix
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
