@@ -34,8 +34,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - CAD plan (`NOTES-cad-reuse.md`): 0-5b Claude-verified, user feel untested; 1b parked.
 - **No WSA focus loops** (memory no-popups-on-user-screens); touch/hold tests on the phone's hidden display. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
 - MCP token efficiency (`NOTES-mcp-token-efficiency.md`): A-C verified (archive), D dropped; proposed build rule waits for the user's OK; size tools `~/orca-android-tools/mcp_*_sizes.py`.
-- Session B findings: backlog "Shape builder bugs" (fixed 1a94899, WSA test pending; plan in archive 2026-10-28), "Snapping (user". Unpushed to CI: tooltips, mirror marks, slice-cancel badge d3ee419, 1a94899.
-- Next step: WSA-test the 1a94899 gizmo fixes (archive test plan), then one CI build with them + the badge fix -> Sonnet 5.5 (medium)
+- Session B findings: gizmo fixes 1a94899 Claude-verified on WSA debug (archive 2026-10-28); backlog "Snapping (user" open. CI build with d3ee419 + 1a94899 dispatched 2026-10-28 (see State when green).
+- Next step: when the CI build is green, install it on all adb devices, update "Latest CI build", then backlog "Snapping (user" -> Sonnet 5.5 (medium)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).

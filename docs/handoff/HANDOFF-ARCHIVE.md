@@ -3480,3 +3480,6 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 
 ## 2026-10-28 Plate switcher mockups (moved from the handoff)
 - https://claude.ai/artifact/E3MtY8rQ1dMGHhibY2oNCX
+
+## 2026-10-28 Shape builder gizmo fixes verified (1a94899, Claude, WSA debug)
+- Test design "Gizmo test" (box, 4x row repeat, step 30). (3) end copy dragged 23 dp from the X handle: shape moved, step stays 30. (1) mid-drag shot: handles + rings move with the cubes. (2) red ring's back arc behind cube 3 not drawn; drag in the middle of that gap moved the shape (no rotation); control drag 4 px off the visible arc off the object rotated (rot reset after). First try used mid-drag-shot coordinates (shape ended 20 px lower) and hit the visible arc end: a test error, not a bug.
