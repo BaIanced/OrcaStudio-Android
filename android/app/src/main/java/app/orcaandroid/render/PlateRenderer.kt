@@ -178,6 +178,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var keyAzimuth = -57.5f
     var keyElevation = 49f
     var keyStrength = 1f
+    /** Preview toolpaths' camera light share (PATH_FS uCamLight, 0-1); 0 = the fixed studio light. */
+    var cameraLight = 0f
     /** Realistic render mode: physically based shading of the parts with a studio environment (MESH_FS uRealistic). */
     var realistic = false
 
@@ -513,7 +515,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     /** Everything the Preview frame depends on (data classes compare by value, arrays by identity unless listed). */
     private fun superKey(): List<Any?> = listOf(mvp.toList(), viewW, viewH, previewVersion, previewStyle, previewRange,
         previewOrigin.toList(), section?.toList(), filamentColors, colors, measurePoints.map { it.toList() }, measureLock?.toList(), cutPlane?.toList(), cutDisc?.toList(),
-        bedCount, plateOrigins, activePlate, badgeCount, atlas, gridRect?.toList())
+        bedCount, plateOrigins, activePlate, badgeCount, atlas, gridRect?.toList(), cameraLight)
 
     private fun drawScene() {
         val bg = colors.background
@@ -1329,6 +1331,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             glUniform1i(loc(pathProgram, "uFirst"), first)
             glUniform1f(loc(pathProgram, "uPxScale"), pxScale * regimeScale)
             camera.eye().let { glUniform3f(loc(pathProgram, "uEye"), it.x, it.y, it.z) }
+            glUniform1f(loc(pathProgram, "uCamLight"), cameraLight)
             glUniform3fv(loc(pathProgram, "uRoleColors"), 20, Shaders.ROLE_COLORS, 0)
             setFilamentColors(pathProgram)
             setSection(pathProgram)

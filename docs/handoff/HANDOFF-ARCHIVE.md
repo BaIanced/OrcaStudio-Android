@@ -3444,3 +3444,7 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 
 ## 2026-10-27: Smart guides (moved from handoff)
 - **Smart guides 005f14d, Claude-verified WSA debug 2026-10-27 (user feel open):** Prepare body drag snaps the selection's edges + middle to plate/object edges + middles (`Viewport.kt` dragSnap, `DragSnap.mid`); multi-select = union box, tower drag skips it. 3MF bed type verified 2026-10-27 (archive).
+
+## 2026-10-28: Hollow + MCP diff replies A-C (moved from handoff)
+- r452 (run 40642755687, 76228bf, CI green incl. native Hollow), Claude-verified on WSA debug app 2026-10-28 (user feel untested): `object_hollow` on a 20 mm cube (12 tris -> 1444 tris, 2 shells, volume 8000 -> 3925 mm3, expected ~3904 for wall 2); a second hollow on it errors "walls too thin", wall 0.1 errors "0.8..10". Sliced plate 5 (100 layers, 4.54 g incl. prime tower, no warnings, cavity respected). Not done: UI menu path.
+- Diff replies: `object_transform` (pos+rot), `object_duplicate` (only the new copies listed), `plate_arrange` (all moved copies), `shape_add/update/group` (changed/removed shapes only), `dim_set` on a bound dim (lists the followers) all returned short diffs. Plan D not done. Debug app on WSA stays installed (r452 code), app force-stopped.

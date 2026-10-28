@@ -776,10 +776,15 @@ internal object Shaders {
         out vec4 color;
         // Same soft key/fill/sky light as the model (no highlight: it would shimmer on layer lines),
         // so faces turned from the key light keep their shape instead of dropping to one dark tone.
+        // uCamLight (0-1, the lab slider) swaps that light for one at the eye (camL, set per fragment in main): the ambient
+        // stays, the key and fill (0.66 together) become one light along the view, two-sided like the undersides above.
+        uniform float uCamLight;
+        vec3 camL = vec3(0.0, 0.0, 1.0);
         float shade(vec3 n) {
             float sky = 0.5 + 0.5 * n.z;
-            return 0.30 + 0.12 * sky + 0.42 * max(dot(n, normalize(vec3(0.35, -0.55, 0.75))), 0.0)
+            float studio = 0.42 * max(dot(n, normalize(vec3(0.35, -0.55, 0.75))), 0.0)
                 + 0.24 * max(dot(n, normalize(vec3(-0.6, 0.4, 0.35))), 0.0);
+            return 0.30 + 0.12 * sky + mix(studio, 0.66 * abs(dot(n, camL)), uCamLight);
         }
         // A bead's shade at u (-1..1 across a skin line or up a wall's layer; past the ends it wraps onto the next bead):
         // the normal rolls off along axis towards the bead's edges, which darken by edge.
@@ -797,6 +802,7 @@ internal object Shaders {
         }
         void main() {
             if (uSectionOn == 1 && dot(uSection.xyz, vWorld) > uSection.w) discard;
+            camL = normalize(uEye - vWorld);
             // A top or bottom face seen from inside the bead is never the one to show: from below, the bead's own top
             // won over its bottom wherever the overlap's depth push outgrew a layer (zoomed out: dark stepped patches,
             // user r339). Sides stay two-sided (they fill the cracks between layers). The box winds every face clockwise

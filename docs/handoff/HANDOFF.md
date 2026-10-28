@@ -14,7 +14,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 0170950 (PR #65, branch at r398, merged 2026-10-25). Untested by the user in main: Build workspace, paint shop/depth, Filament materials, Realistic render, UX P1-P6, Check mesh feel, 3MF export in desktop Orca, pen, fan hold, Extrude F150.
 - Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
-- Latest CI build: run 40642755687 = r452 (76228bf: Hollow + MCP diff replies A-C), CI green, installed 2026-10-28 on WSA, phone, SHIELD, Note; untested. Install new builds on all adb devices (skip the .23 tablet: 32-bit, Android 6).
+- Latest CI build: run 40642755687 = r452 (76228bf: Hollow + MCP diff replies A-C), CI green, installed 2026-10-28 on WSA, phone, SHIELD, Note; Claude-verified on WSA debug (archive), user feel untested. Install new builds on all adb devices (skip the .23 tablet: 32-bit, Android 6).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
@@ -34,10 +34,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **No WSA focus loops (user 2026-10-26: "your testing keeps stealing my window focus"):** no `focus.ps1`/`tapf.sh`/`keys.ps1` in loops;
   touch/hold tests on the phone's hidden display. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
 - Claude-verified WSA 2026-10-27, user feel open (archive): interaction plan 1-9, CAD 1-2, Center/Align, smart guides, Check mesh.
-- Hollow (More menu + MCP `object_hollow`, native `OrcaHollow.cpp` = sla::hollow_mesh per model part, wall 0.8-10 mm, sealed): coded 2026-10-27, Kotlin compiles, native + CI untested. Cleanup already exists (More > Repair).
-- MCP token efficiency (`NOTES-mcp-token-efficiency.md`): proposed build rule waits for the user's OK; size tools `~/orca-android-tools/mcp_list_sizes.py`, `mcp_reply_sizes.py` (token file arg, port 8765).
-- MCP plan A-C coded + compiled 2026-10-28 (76228bf: `plateEdit`/`edit` reply diffs, `plateState`/`render`/`diff` in McpTools.kt; D not done); untested on device.
-- Next step: check run 40642755687 (CI green + native Hollow built), install on WSA, test diff replies (transform rot+pos, arrange, duplicate, hollow, shape_add/update/group, dim_set on a bound dim; compare bytes) + Hollow (cube STL, faces up, slice, volume drops) -> Sonnet 5.5 (high); camera-light slider needs the user's GO; user feel-checks wait
+- Hollow (More menu + MCP `object_hollow`): r452 Claude-verified on WSA via MCP 2026-10-28 (volume 8000 -> 3925); sliced OK (4.54 g, no warnings); open: user feel (archive).
+- MCP token efficiency (`NOTES-mcp-token-efficiency.md`): A-C verified (archive), D dropped; proposed build rule waits for the user's OK; size tools `~/orca-android-tools/mcp_*_sizes.py`.
+- Preview camera light (user GO 2026-10-28): coded, compiles (Kotlin only; GLSL untested): lab slider "Preview camera light" (`LayoutLab.cameraLight`, 0 = studio default) -> `PATH_FS` `uCamLight` swaps key+fill for an eye light (`camL`). Open: run on WSA debug (`wsa-debug-rebuild.sh`), set slider in More > lab, crop-shot a Preview at 0/50/100%; check shader compiles, then CI build + install on all devices.
+- Next step: Preview camera light WSA shader test + build -> Sonnet 5.5 (medium)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).

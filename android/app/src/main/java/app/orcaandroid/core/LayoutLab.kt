@@ -46,6 +46,8 @@ data class LayoutLab(
     val lightAzimuth: Float = -57.5f,
     val lightElevation: Float = 49f,
     val lightStrength: Float = 1f,
+    /** Preview toolpaths: how much of the fixed studio light is replaced by a light at the camera (0 = studio only, 1 = camera only; user 2026-10-28 GO). */
+    val cameraLight: Float = 0f,
     /** Pinch zoom speed: exponent on the fingers' gap ratio (1 = the old 1:1 pinch, user 2026-10-17: too sensitive). */
     val pinchSpeed: Float = 0.6f,
     /** Mouse wheel / touchpad / Quest thumbstick zoom speed: exponent on the 15 % per wheel notch (user 2026-10-19: stick too fast). */
@@ -71,6 +73,7 @@ data class LayoutLab(
         .put("fullscreenPortrait", fullscreenPortrait).put("platesOnHandle", platesOnHandle).put("plateScale", plateScale.toDouble())
         .put("shadowStrength", shadowStrength.toDouble()).put("shadowSoft", shadowSoft.toDouble()).put("shadowBias", shadowBias.toDouble())
         .put("lightAzimuth", lightAzimuth.toDouble()).put("lightElevation", lightElevation.toDouble()).put("lightStrength", lightStrength.toDouble())
+        .put("cameraLight", cameraLight.toDouble())
         .put("pinchSpeed", pinchSpeed.toDouble()).put("wheelSpeed", wheelSpeed.toDouble()).put("sliceScale", sliceScale.toDouble())
         .put("viewCube", viewCube).put("viewCubeX", viewCubeX.toDouble()).put("viewCubeY", viewCubeY.toDouble()).put("pieMenu", pieMenu).put("plateHd", plateHd).toString()
 
@@ -86,6 +89,7 @@ data class LayoutLab(
         val LIGHT_AZIMUTHS = -180f..180f
         val LIGHT_ELEVATIONS = 20f..85f
         val LIGHT_STRENGTHS = 0.2f..2f
+        val CAMERA_LIGHTS = 0f..1f
         val PINCH_SPEEDS = 0.2f..1f
         val WHEEL_SPEEDS = 0.1f..2f
 
@@ -114,6 +118,7 @@ data class LayoutLab(
                 lightAzimuth = o.optDouble("lightAzimuth", d.lightAzimuth.toDouble()).toFloat().coerceIn(LIGHT_AZIMUTHS.start, LIGHT_AZIMUTHS.endInclusive),
                 lightElevation = o.optDouble("lightElevation", d.lightElevation.toDouble()).toFloat().coerceIn(LIGHT_ELEVATIONS.start, LIGHT_ELEVATIONS.endInclusive),
                 lightStrength = o.optDouble("lightStrength", d.lightStrength.toDouble()).toFloat().coerceIn(LIGHT_STRENGTHS.start, LIGHT_STRENGTHS.endInclusive),
+                cameraLight = o.optDouble("cameraLight", d.cameraLight.toDouble()).toFloat().coerceIn(CAMERA_LIGHTS.start, CAMERA_LIGHTS.endInclusive),
                 sliceScale = o.optDouble("sliceScale", 1.0).toFloat().coerceIn(SLICE_SCALES.start, SLICE_SCALES.endInclusive),
                 pinchSpeed = o.optDouble("pinchSpeed", d.pinchSpeed.toDouble()).toFloat().coerceIn(PINCH_SPEEDS.start, PINCH_SPEEDS.endInclusive),
                 wheelSpeed = o.optDouble("wheelSpeed", d.wheelSpeed.toDouble()).toFloat().coerceIn(WHEEL_SPEEDS.start, WHEEL_SPEEDS.endInclusive),
