@@ -34,8 +34,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - CAD plan (`NOTES-cad-reuse.md`): 0-5b Claude-verified, user feel untested; 1b parked.
 - **No WSA focus loops** (memory no-popups-on-user-screens). Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
 - MCP token efficiency (`NOTES-mcp-token-efficiency.md`): A-C verified, D dropped; build rule waits for the user's OK.
-- Snapping toggle, clean specks with lock: Claude-verified WSA r456 2026-10-28 (archive), user feel untested.
-- Sculpt symmetry 51ad144 (r457, panel row "Symmetry X Y Z", MCP `mirror`): Claude-verified WSA 2026-10-28 by volume (mirror dab = 2x a single dab; archive); user feel untested; bump positions / grab on plane / Y,Z not checked.
+- Snapping toggle, clean specks, sculpt symmetry (r457): Claude-verified WSA 2026-10-28 (archive), user feel untested.
 - Mirror button retest + tooltip sweep done 2026-10-28 (archive); both in the next CI build (not dispatched yet; batch with the next change).
 - Next step: Shape builder W/D/H scrub + shared proportional lock (backlog; spec in archive 2026-10-28 trim) -> Opus 5.5 (medium)
 ## User decisions (2026-10-13)
