@@ -34,9 +34,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - CAD plan (`NOTES-cad-reuse.md`): 0-5b Claude-verified, user feel untested; 1b parked.
 - **No WSA focus loops** (memory no-popups-on-user-screens). Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
 - MCP token efficiency (`NOTES-mcp-token-efficiency.md`): A-C verified, D dropped; build rule waits for the user's OK.
-- Snapping toggle, clean specks, sculpt symmetry (r457): Claude-verified WSA 2026-10-28 (archive), user feel untested.
-- Mirror button retest + tooltip sweep done 2026-10-28 (archive); W/D/H scrub + size lock built 9e24ef7 (archive, untested on device). All three are in CI run 40749680026 (r458).
-- W/D/H scrub + lock WSA-tested 2026-10-28 (archive). r458 (run 40749680026, 1f659e3) installed 2026-10-28 on WSA, phone, SHIELD and Note; WSA smoke OK (app_state r458, no crash). Muse: no open PRs, nothing new on #46.
+- r457-r458 items (snapping, specks, symmetry, mirror, tooltips, W/D/H scrub + lock): Claude-verified WSA 2026-10-28 (archive), user feel untested. r458 on all devices.
 - Sculpt latency (2026-10-28, archive): session built once, tree beside topology (160 -> 54 ms at 135k), no hull after refine.
   Uncommitted-to-CI native change, WSA debug only. **Open: every stroke end (`sculpt_flush_locked`) spends ~735 ms in
   `calculate_convex_hull` (qhull, 135k faces; set_mesh only 18 ms)** -> defer it (lazy / background thread / hull of old hull + moved
