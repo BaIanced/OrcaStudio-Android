@@ -3461,3 +3461,4 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 
 ### 2026-10-28 Session B, Claude drove WSA debug (build of 26be567+)
 - Build mirror menu check marks: Claude-verified (X on/off, Y on; shots). Toolbar tooltips are hover-only: not testable by adb, content descriptions present ("Undo (Ctrl+Z)" etc.). User feel untested.
+- USER VERIFIED (2026-10-28, debug build of 26be567+): Build toolbar hover tooltips appear. Mirror check marks Claude-verified, user feel open.
