@@ -29,4 +29,4 @@ DONE 2026-10-28: truck demo people visibility dropped (demo session gone from WS
 Cut tool: point of "Flip upper part upside down" / Lay on cut face. Push/pull: fold into resize (Claude rec) or remove.
 
 ## Status
-Triage done 2026-10-28. Claude closes done. Next: sessions A-D with the user (order: A, B, C, D).
+Triage done 2026-10-28. Claude closes done. Session A done 2026-10-28 (extended paint tools feel left). Next: B, C, D.

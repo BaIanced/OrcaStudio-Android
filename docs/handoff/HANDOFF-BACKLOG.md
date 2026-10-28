@@ -15,17 +15,14 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - Preview: shading after slice? + inner z-fight on layer scrub (fixed r285, Claude 2026-10-17): user look pending.
 - [Opus if reopened] Two-finger gestures: pan->zoom fix fa1754c (user r305 "still broken"; r311 "pans feel fine" may cover it), pinch zoom-out r312, pinch lock + speeds (r280/r324), Quest stick zoom (r324): user feel pending.
 - Corner resize gated behind long-press Resize / Ctrl+T (r305, 72dd138): probably superseded by the scale gizmo (user-verified r335, archive); ask before testing.
-- Paint brush: fast strokes leave dots -> r324 capsule joins (Claude WSA 2026-10-19): user feel pending.
-- Double tap object = frame head-on, again = return (r316, Claude Chromebook 2026-10-19): user feel pending.
 - Extended paint tools (upstream set, stroke lock, overhang highlight, hold-to-preview fill, regions view, one-tap actions, fill stops + guard plane; Claude WSA 2026-10-20/21): user feel untested. Unpicked survey ideas: NOTES-paint-survey.md.
-- Paint panel layout C + paint shop 1a-1e-ii (Claude WSA 2026-10-21): user feel untested; portrait dock + long-press menu, Clean specks with lock untested; rename stroke-axis "Lock ↕/↔" chips?
+- Paint panel layout C: modes verified by user r453 2026-10-28. Open: Clean specks with lock (untested); rename stroke-axis "Lock ↕/↔" chips?
 - Paint depth (r367, Claude WSA G-code OK 2026-10-21): user feel + real print untested.
 - Paint shop reopen fix (Claude WSA r374) + plate estimate line (Claude WSA r376 = Preview; one density, part-level filaments ignored): user look/feel.
 - Check mesh: marker readability, self-intersection count on a real file, thin walls (Claude WSA test STL, run 39657856306).
-- Cut tool: flip keeps paint (Claude WSA 2026-10-21), user untested. Step 9 tap/long-press align/x-ray/upright shift Claude-verified WSA debug 2026-10-27 (archive), user feel untested. Awaiting go: radio Lay on cut face / Flip / Leave + nested "Arrange after cut" (arrange_plate always runs, OrcaScene.cpp:1046); user asked the point of "Flip upper part upside down".
+- Step 9 tap/long-press align/x-ray/upright shift Claude-verified WSA debug 2026-10-27 (archive), user feel untested. Awaiting go: radio Lay on cut face / Flip / Leave + nested "Arrange after cut" (arrange_plate always runs, OrcaScene.cpp:1046); user asked the point of "Flip upper part upside down".
 - Fan slider hold-until-within-4 % (r295) + Extrude F150 e13bebb: need the printer.
 - Preview bead look (Chromebook), part shadows r266, light/shadow lab sliders r263: Claude-verified, user hasn't seen.
-- Portrait Undo/Redo top left, File top right (Claude phone r283 2026-10-17): user look pending.
 - Drag-handle fling: wide PanelEdge (WSA mouse inconclusive, r300) and OpenSCAD grips untested; portrait flick user-verified r294.
 - Stylus 7d3a263 (palm rejection, mappable pen buttons/eraser, no pressure/tilt): untested on a pen (Note 10+ S Pen / Quest pseudo pen; super low priority, user 2026-10-21). Pie menu (user dislikes it): LOW, pen-button customizable tool picker, trigger untested. Sketch-mode idea undecided.
 - Nozzle match: newer-firmware `device.nozzle.info`, stale status after a printer-model switch, spool swap drops the pick.
@@ -55,7 +52,6 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - Real keyboard Ctrl+1 = system hotkey. Inactive-plate double tap re-frames (user: fine). Badges ~23 dp at plate zoom (told the user).
 - HMS texts: HmsCatalog.kt fetches at runtime; Handy's copies stay local. Flatpak r9 MakerLab, upstream bump, obn follow-ups: archive.
 - Paint guard tool (guard plane) misbehaves, user can't describe yet (user report 2026-10-25, r401). Open: needs repro from user.
-- Edge bands on painted rounded edges + realistic paint: fixed r403 (Claude phone debug 2026-10-25); user check open.
 - Upstream 2.5.0 alpha overlap: NOTES-upstream-2.5.md (source checks done 2026-10-25); keep ours where better. All compare rows closed at source level (2026-10-28); nothing open.
 - DECISION open: push/pull -> fold into resize as face drag (drop chip) or remove. Claude rec: fold.
 - CAD roadmap (user accepted 2026-10-25; NOTES-cad-reuse.md): steps 0-6 built and Claude-verified on WSA (Hull r445, XY edge snap r447, Blend joins r419, sweep/loft r421, bend/twist/taper r423, sculpt r428), user feel untested; 7 asset library (figures, wheels) not started.
@@ -66,3 +62,6 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - Smart guides (BUILT 005f14d + Center/Align f073445, Claude-verified WSA 2026-10-27, user feel open). Open idea: plate + object centres in the shape-builder edge snap.
 
 - MCP token efficiency (Opus review + analysis done 2026-10-27, `NOTES-mcp-token-efficiency.md`): proposed build rule waits for the user's OK; plan A-C (diff replies) r452 Claude-verified WSA 2026-10-28; D dropped.
+- Hover tooltips (user 2026-10-28, session B, r453): Build toolbar icons gave no hover text. Fixed locally (uncommitted, compiles): Tip() on all 10 ShapeBuilder Toolbar buttons. Open: other Build panel icons / other screens with bare IconButtons (86 in app); needs a build + user recheck.
+- Mirror button (user 2026-10-28, session B, r453): 'doesn't work, no update'. Claude: design had mirror [1,1,1] on a BOX (symmetric, flip in place is invisible); flag path reads fine (ShapeController.mirror -> placement matrix -> set_volumes). Added check marks to the mirror menu (uncommitted, compiles). Open: user retest on an asymmetric shape (wedge/L) after next build; if still no change, reproduce on WSA debug.
+- [Opus] Build continuity (user brain dump 2026-10-28, session B, r453; exploration, nothing locked): (1) 'Add as new' looks like the object moved because Build shows only the design object (solo) until exit; user wants all objects shown (10 adds = 10 visible). Leaning: show the others dimmed/ghosted, not hidden. (2) Mesh object in Prepare reaches the shape builder only via an 'open SCAD model'-type entry; unclear. (3) Idea: tiny yellow 'CAD' badge (black text) on every entry leading to the builder, or a CAD | Mesh submenu; user: too many paths to the builder. Leaning: one entry point + badge; mockup first, keep user's vision as a toggle. USER AGREED with the leanings 2026-10-28 (still design-open: mockup first).

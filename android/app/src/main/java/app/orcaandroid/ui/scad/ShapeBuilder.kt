@@ -23,6 +23,7 @@ import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AlignHorizontalCenter
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CallSplit
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
@@ -87,6 +88,7 @@ import app.orcaandroid.ui.components.NumberField
 import app.orcaandroid.ui.components.PickerField
 import app.orcaandroid.ui.components.PickerItem
 import app.orcaandroid.ui.prepare.ColorDot
+import app.orcaandroid.ui.prepare.Tip
 
 /** Shapes the palette offers, in Tinkercad's order. */
 private val PALETTE = listOf(
@@ -195,37 +197,59 @@ private fun Toolbar(s: ScadEditorState, vm: AppViewModel) {
     var mirror by remember { mutableStateOf(false) }
     var align by remember { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = sh::undo, enabled = sh.canUndo) { Icon(Icons.AutoMirrored.Filled.Undo, stringResource(R.string.shape_undo)) }
-        IconButton(onClick = sh::redo, enabled = sh.canRedo) { Icon(Icons.AutoMirrored.Filled.Redo, stringResource(R.string.shape_redo)) }
-        IconButton(onClick = sh::duplicate, enabled = tops > 0) { Icon(Icons.Default.ContentCopy, stringResource(R.string.shape_duplicate)) }
-        IconButton(onClick = sh::delete, enabled = any) { Icon(Icons.Default.Delete, stringResource(R.string.shape_delete)) }
-        IconButton(onClick = sh::group, enabled = tops > 1) { Icon(Icons.Default.Workspaces, stringResource(R.string.shape_group_action)) }
-        IconButton(onClick = sh::ungroup, enabled = s.selected.any { id -> d.shapes.any { it.id == id && it.isGroup } }) {
-            Icon(Icons.Default.CallSplit, stringResource(R.string.shape_ungroup))
+        Tip(stringResource(R.string.shape_undo)) {
+            IconButton(onClick = sh::undo, enabled = sh.canUndo) { Icon(Icons.AutoMirrored.Filled.Undo, stringResource(R.string.shape_undo)) }
         }
-        IconButton(onClick = { sh.merge() }, enabled = tops > 1 || (tops == 1 && s.selected.any { id -> d.shapes.any { it.id == id && it.isGroup } })) {
-            Icon(Icons.Default.Merge, stringResource(R.string.shape_merge))
+        Tip(stringResource(R.string.shape_redo)) {
+            IconButton(onClick = sh::redo, enabled = sh.canRedo) { Icon(Icons.AutoMirrored.Filled.Redo, stringResource(R.string.shape_redo)) }
         }
-        IconButton(onClick = { mirror = true }, enabled = any) {
-            Icon(Icons.Default.Flip, stringResource(R.string.shape_mirror))
-            DropdownMenu(mirror, { mirror = false }) {
-                listOf("X", "Y", "Z").forEachIndexed { i, a ->
-                    DropdownMenuItem(text = { Text(stringResource(R.string.shape_mirror_axis, a)) }, onClick = { mirror = false; sh.mirror(i) })
-                }
+        Tip(stringResource(R.string.shape_duplicate)) {
+            IconButton(onClick = sh::duplicate, enabled = tops > 0) { Icon(Icons.Default.ContentCopy, stringResource(R.string.shape_duplicate)) }
+        }
+        Tip(stringResource(R.string.shape_delete)) {
+            IconButton(onClick = sh::delete, enabled = any) { Icon(Icons.Default.Delete, stringResource(R.string.shape_delete)) }
+        }
+        Tip(stringResource(R.string.shape_group_action)) {
+            IconButton(onClick = sh::group, enabled = tops > 1) { Icon(Icons.Default.Workspaces, stringResource(R.string.shape_group_action)) }
+        }
+        Tip(stringResource(R.string.shape_ungroup)) {
+            IconButton(onClick = sh::ungroup, enabled = s.selected.any { id -> d.shapes.any { it.id == id && it.isGroup } }) {
+                Icon(Icons.Default.CallSplit, stringResource(R.string.shape_ungroup))
             }
         }
-        IconButton(onClick = { align = true }, enabled = tops > 1) {
-            Icon(Icons.Default.AlignHorizontalCenter, stringResource(R.string.shape_align))
-            DropdownMenu(align, { align = false }) {
-                val names = listOf(R.string.shape_align_min, R.string.shape_align_center, R.string.shape_align_max)
-                listOf("X", "Y", "Z").forEachIndexed { axis, a ->
-                    listOf(-1, 0, 1).forEach { mode ->
-                        DropdownMenuItem(text = { Text("$a: " + stringResource(names[mode + 1])) }, onClick = { align = false; sh.align(axis, mode) })
+        Tip(stringResource(R.string.shape_merge)) {
+            IconButton(onClick = { sh.merge() }, enabled = tops > 1 || (tops == 1 && s.selected.any { id -> d.shapes.any { it.id == id && it.isGroup } })) {
+                Icon(Icons.Default.Merge, stringResource(R.string.shape_merge))
+            }
+        }
+        Tip(stringResource(R.string.shape_mirror)) {
+            IconButton(onClick = { mirror = true }, enabled = any) {
+                Icon(Icons.Default.Flip, stringResource(R.string.shape_mirror))
+                DropdownMenu(mirror, { mirror = false }) {
+                    listOf("X", "Y", "Z").forEachIndexed { i, a ->
+                        val on = s.selected.isNotEmpty() && s.selected.all { id -> d.find(id)?.let { it.mirror[i] != 0.0 } == true }
+                    DropdownMenuItem(text = { Text(stringResource(R.string.shape_mirror_axis, a)) }, onClick = { mirror = false; sh.mirror(i) },
+                        trailingIcon = if (on) ({ Icon(Icons.Default.Check, null) }) else null)
                     }
                 }
             }
         }
-        IconButton(onClick = sh::drop, enabled = tops > 0) { Icon(Icons.Default.VerticalAlignBottom, stringResource(R.string.shape_drop)) }
+        Tip(stringResource(R.string.shape_align)) {
+            IconButton(onClick = { align = true }, enabled = tops > 1) {
+                Icon(Icons.Default.AlignHorizontalCenter, stringResource(R.string.shape_align))
+                DropdownMenu(align, { align = false }) {
+                    val names = listOf(R.string.shape_align_min, R.string.shape_align_center, R.string.shape_align_max)
+                    listOf("X", "Y", "Z").forEachIndexed { axis, a ->
+                        listOf(-1, 0, 1).forEach { mode ->
+                            DropdownMenuItem(text = { Text("$a: " + stringResource(names[mode + 1])) }, onClick = { align = false; sh.align(axis, mode) })
+                        }
+                    }
+                }
+            }
+        }
+        Tip(stringResource(R.string.shape_drop)) {
+            IconButton(onClick = sh::drop, enabled = tops > 0) { Icon(Icons.Default.VerticalAlignBottom, stringResource(R.string.shape_drop)) }
+        }
     }
 }
 

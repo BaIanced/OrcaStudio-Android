@@ -3452,3 +3452,9 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 ### 2026-10-28 Truck demo verdict (user, r453-era)
 - User: the 2 figures were visible only with Realistic mode on and the filaments set transparent; sliced preview showed the people clearly. Wants Realistic mode on all the time and asks whether negative (hole) parts could default to translucent. Not yet investigated by Claude (open: why figures are hidden in the normal view; Realistic default; translucent hole look).
 - User explanation (2026-10-28): windows are made by placing a "hole" (negative shape) in a solid, and that anti-solid is displayed as a colour of its own. Likely why the figures behind the windows look hidden in the normal view: the hole ghost covers them. Fix idea: draw hole shapes translucent by default (and consider Realistic by default as a toggle). Claude has not verified this.
+
+### 2026-10-28 user session A, phone portrait, r453 (user answers via question dialog)
+- USER VERIFIED r453: Undo/Redo top left + File top right (portrait); paint panel layout C modes Brush/Fill/Bands/Whole object switch their tools; paint brush fast strokes smooth (no gaps/lag, r324 capsule joins); double tap object frames, double tap again returns.
+- Not asked/open: paint dock + long-press menu, extended paint tools, edge bands on painted rounded edges (r403), Cut tool flip keeps paint.
+- USER VERIFIED r453 (same session, 2026-10-28): edge bands on painted rounded edges look right (r403 fix); Cut tool flip keeps paint. Paint dock: bottom toolbar Brush/Fill/Bands/Object works; user says the only long-press available is on the filament colour dots (no long-press on the mode buttons; unclear whether that is intended).
+- Claude source check 2026-10-28 (ToolPanel.kt:359,391,531): the dock long-press menu IS the filament dot long-press (LayerMenu: share, hide/lock, Turn into). Mode buttons have none by design. Matches what the user saw; paint dock closed.

@@ -36,8 +36,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Claude-verified WSA 2026-10-27, user feel open (archive): interaction plan, CAD 1-2, Center/Align, smart guides, Check mesh.
 - MCP token efficiency (`NOTES-mcp-token-efficiency.md`): A-C verified (archive), D dropped; proposed build rule waits for the user's OK; size tools `~/orca-android-tools/mcp_*_sizes.py`.
 - Hollow + Preview camera light (More > lab slider): Claude-verified WSA 2026-10-28, shipped r453; open: user feel (archive).
-- Claude-closes list done 2026-10-28 (merge batch notes). r453 is on all devices.
-- Next step: user session A (phone portrait flow, NOTES-merge-batch.md; needs the user) -> Sonnet 5.5 (medium)
+- Session B started 2026-10-28 (WSA r453): Build toolbar tooltips + mirror-menu check marks coded (committed locally, no build yet); mirror untested by user on an asymmetric shape; Sculpt/Hollow/Center-Align/Check mesh still to do. Build continuity (solo view, entry points, CAD badge) agreed as leanings, backlog.
+- Next step: finish session B (Sculpt, Hollow, Center/Align, Check mesh; user drives WSA), dispatch a build with the tooltip/mirror changes -> Sonnet 5.5 (medium)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
