@@ -35,8 +35,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **No WSA focus loops** (memory no-popups-on-user-screens). Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
 - MCP token efficiency (`NOTES-mcp-token-efficiency.md`): A-C verified, D dropped; build rule waits for the user's OK.
 - Snapping toggle, clean specks, sculpt symmetry (r457): Claude-verified WSA 2026-10-28 (archive), user feel untested.
-- Mirror button retest + tooltip sweep done 2026-10-28 (archive); W/D/H scrub + size lock built 9e24ef7 (archive, untested on device). All three go in the next CI build after the WSA test (not dispatched yet).
-- Next step: WSA debug test of W/D/H scrub + size lock (test plan in archive 2026-10-28), then dispatch CI + install on all devices -> Sonnet 5.5 (medium)
+- Mirror button retest + tooltip sweep done 2026-10-28 (archive); W/D/H scrub + size lock built 9e24ef7 (archive, untested on device). All three are in CI run 40749680026 (r458).
+- W/D/H scrub + lock WSA-tested 2026-10-28 (archive). CI run 40749680026 (r458, 1f659e3) dispatched; install on WSA, phone, SHIELD when green (skip .23 tablet).
+- Next step: install r458 on all adb devices + smoke test on WSA, then pick the next backlog item (grep HANDOFF-BACKLOG.md) -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
