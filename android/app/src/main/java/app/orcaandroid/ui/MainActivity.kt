@@ -94,8 +94,14 @@ class MainActivity : ComponentActivity() {
         return super.dispatchTouchEvent(ev)
     }
 
+    /** Small state line for debug notes (no account or printer details). */
+    private fun noteSnapshot(): String = vm.state.value.let {
+        "screen=${it.screen} tool=${it.tool} plate=${it.activePlate} selection=${it.selection} objects=${it.scene.objects.size}"
+    }
+
     override fun dispatchGenericMotionEvent(ev: MotionEvent): Boolean {
         boostRefresh()
+        if (DebugNotes.onMotion(this, ev, ::noteSnapshot)) return true
         return super.dispatchGenericMotionEvent(ev)
     }
 
@@ -205,6 +211,7 @@ class MainActivity : ComponentActivity() {
      * would put the app in the background, which a desktop user doesn't expect from a mouse click.
      */
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (DebugNotes.onKey(this, event, ::noteSnapshot)) return true
         if (event.keyCode == KeyEvent.KEYCODE_BACK && event.isFromSource(android.view.InputDevice.SOURCE_MOUSE) &&
             !onBackPressedDispatcher.hasEnabledCallbacks()) return true
         // Measure: Shift held = 15° steps for the line (watched here, so it counts whatever has focus).
