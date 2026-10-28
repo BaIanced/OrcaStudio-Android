@@ -36,10 +36,13 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - MCP token efficiency (`NOTES-mcp-token-efficiency.md`): A-C verified, D dropped; build rule waits for the user's OK.
 - r457-r458 items (snapping, specks, symmetry, mirror, tooltips, W/D/H scrub + lock): Claude-verified WSA 2026-10-28 (archive), user feel untested. r458 on all devices.
 - Sculpt latency (2026-10-28, archive): session built once, tree beside topology (160 -> 54 ms at 135k), no hull after refine.
-  Uncommitted-to-CI native change, WSA debug only. **Open: every stroke end (`sculpt_flush_locked`) spends ~735 ms in
-  `calculate_convex_hull` (qhull, 135k faces; set_mesh only 18 ms)** -> defer it (lazy / background thread / hull of old hull + moved
-  vertices only); then time a fresh-part first stroke (plate-3 sphere ray missed: find the plate offset via view_state) and dispatch CI.
-- Next step: sculpt stroke-end hull cost -> Opus 5.5 (high)
+  Not in CI yet. **Stroke-end hull now deferred (built + installed WSA debug 2026-10-28, UNTESTED):** flush gives the part a
+  bbox placeholder hull + `std::async` qhull job (`HullJob`, OrcaSculpt.cpp); `sculpt()` installs finished jobs, `sculpt_flush()`
+  (dispatch, any non-sculpt call) waits for all. Install fills the placeholder in place (const_cast; shared by undo copies of that mesh).
+  Test: sphere stroke via MCP, logcat `sculpt: flush ... box hull N ms` + `sculpt: hull in, waited N ms`; then a non-sculpt call
+  (scene/arrange) right after -> correct footprint; undo after 2 strokes -> no crash, sane arrange. Then fresh-part first stroke timing
+  (plate-3 sphere ray missed: plate offset via view_state) and dispatch CI.
+- Next step: test deferred sculpt hull on WSA -> Opus 5.5 (high)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).

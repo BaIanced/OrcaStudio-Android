@@ -479,6 +479,11 @@ private:
     void                                  sculpt_copies();
     bool                                  sculpt_flush_locked();
     bool                                  sculpt_finish_locked();
+    // Convex hulls of flushed sculpt meshes, computed off the lock (qhull took ~0.7 s at 135k faces); installed when ready,
+    // and before any non-sculpt call (sculpt_flush()).
+    struct HullJob;
+    std::vector<std::shared_ptr<HullJob>> m_hull_jobs;
+    void                                  sculpt_hulls_locked(bool wait);
     // Bands: the stroke's painted height range on one object copy (world z); a drag extends it.
     struct BandStroke {
         int   object, instance;

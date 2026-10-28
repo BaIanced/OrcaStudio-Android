@@ -71,6 +71,11 @@ struct OrcaEngine::SculptSession {
     uint32_t stamp = 0;
 };
 
+struct OrcaEngine::HullJob {
+    std::shared_ptr<const TriangleMesh> hull; // the placeholder the result goes into
+    std::future<TriangleMesh> result;
+};
+
 static meshdeform::Mesh to_mesh(const indexed_triangle_set &src)
 {
     meshdeform::Mesh m;
@@ -185,11 +190,25 @@ bool OrcaEngine::sculpt_flush_locked()
     const auto t0 = std::chrono::steady_clock::now();
     vol->set_mesh(to_its(s.mesh));
     const auto t_mesh = std::chrono::steady_clock::now();
+    // The hull is computed in the background. Until it is in, the part's hull is its bounding box (a fresh hull object of
+    // this mesh only, which the job then fills; min_z() reads the mesh, so dropping to the bed stays exact).
+    std::shared_ptr<const TriangleMesh> mesh = vol->mesh_ptr();
+    const BoundingBoxf3 bb = mesh->bounding_box();
+    const Vec3d size = bb.size().cwiseMax(Vec3d::Constant(1e-3));
+    indexed_triangle_set box = its_make_cube(size.x(), size.y(), size.z());
+    for (stl_vertex &v : box.vertices)
+        v += bb.min.cast<float>();
+    vol->set_mesh(std::move(box));
     vol->calculate_convex_hull();
+    vol->set_mesh(mesh);
+    auto job = std::make_shared<HullJob>();
+    job->hull = vol->get_convex_hull_shared_ptr();
+    job->result = std::async(std::launch::async, [mesh] { return mesh->convex_hull_3d(); });
+    m_hull_jobs.push_back(std::move(job));
     vol->invalidate_convex_hull_2d();
     obj.invalidate_bounding_box();
     auto ms = [](auto a, auto b) { return std::chrono::duration_cast<std::chrono::milliseconds>(b - a).count(); };
-    BOOST_LOG_TRIVIAL(warning) << "sculpt: flush " << s.mesh.faces.size() << " faces: set mesh " << ms(t0, t_mesh) << " ms, hull "
+    BOOST_LOG_TRIVIAL(warning) << "sculpt: flush " << s.mesh.faces.size() << " faces: set mesh " << ms(t0, t_mesh) << " ms, box hull "
                                << ms(t_mesh, std::chrono::steady_clock::now()) << " ms";
     s.current = vol->mesh_ptr();
     s.dirty = false;
@@ -257,7 +276,38 @@ bool OrcaEngine::sculpt_finish_locked()
 bool OrcaEngine::sculpt_flush()
 {
     std::lock_guard<std::mutex> lock(m_mutex);
-    return sculpt_flush_locked();
+    const bool flushed = sculpt_flush_locked();
+    sculpt_hulls_locked(true);
+    return flushed;
+}
+
+// Finished hull jobs (all of them, waiting, with [wait]) go into their placeholder hulls. A placeholder is shared only by
+// the volumes (the part, undo copies) that hold the mesh it was made for, so filling it in place fixes them all. Writing
+// through const is fine: calculate_convex_hull() made it with make_shared<TriangleMesh> (not a const object), and only
+// sculpt calls run while a job is open (sculpt_flush() closes them), so no slice copy reads it meanwhile.
+void OrcaEngine::sculpt_hulls_locked(bool wait)
+{
+    for (auto it = m_hull_jobs.begin(); it != m_hull_jobs.end();) {
+        HullJob &job = **it;
+        if (!wait && job.result.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
+            ++it;
+            continue;
+        }
+        const auto t0 = std::chrono::steady_clock::now();
+        TriangleMesh hull = job.result.get();
+        if (job.hull.use_count() > 1) {
+            const_cast<TriangleMesh &>(*job.hull) = std::move(hull);
+            for (ModelObject *obj : m_model->objects)
+                for (ModelVolume *vol : obj->volumes)
+                    if (vol->get_convex_hull_shared_ptr() == job.hull) {
+                        vol->invalidate_convex_hull_2d();
+                        obj->invalidate_bounding_box();
+                    }
+        }
+        BOOST_LOG_TRIVIAL(warning) << "sculpt: hull in, waited "
+                                   << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count() << " ms";
+        it = m_hull_jobs.erase(it);
+    }
 }
 
 json OrcaEngine::sculpt_end()
@@ -277,6 +327,7 @@ json OrcaEngine::sculpt(const std::array<int, 3> &target, const std::vector<std:
     if (probe)
         new_stroke = end = false;
     std::lock_guard<std::mutex> lock(m_mutex);
+    sculpt_hulls_locked(false);
     if (!(radius > 0.) || !std::isfinite(radius))
         throw std::runtime_error("Invalid brush radius");
     const meshsculpt::Brush kind = meshsculpt::brush_of(brush);
