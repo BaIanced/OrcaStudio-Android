@@ -14,7 +14,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 0170950 (PR #65, branch at r398, merged 2026-10-25). Untested by the user in main: Build workspace, paint shop/depth, Filament materials, Realistic render, UX P1-P6, Check mesh feel, 3MF export in desktop Orca, pen, fan hold, Extrude F150.
 - Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
-- Latest CI build: run 40731110724 (r456, c90a052: snap toggle + slice-cancel/gizmo fixes, Hollow, MCP diff replies), CI green, installed 2026-10-28 on WSA, phone, SHIELD (Note not connected); Claude-verified on WSA, user feel untested. Install new builds on all adb devices (skip the .23 tablet: 32-bit, Android 6).
+- Latest CI build: run 40738227951 (r457, 51ad144: r456 + sculpt symmetry), CI green, installed 2026-10-28 on WSA, phone, SHIELD (Note not connected); Claude-verified on WSA, user feel untested. Install new builds on all adb devices (skip the .23 tablet: 32-bit, Android 6).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **User 2026-10-28: no more user testing for now; Claude builds and tests everything itself (memory no-user-testing-now); don't ask for feel/UI checks.**
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
@@ -35,11 +35,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **No WSA focus loops** (memory no-popups-on-user-screens). Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
 - MCP token efficiency (`NOTES-mcp-token-efficiency.md`): A-C verified, D dropped; build rule waits for the user's OK.
 - Snapping toggle, clean specks with lock: Claude-verified WSA r456 2026-10-28 (archive), user feel untested.
-- Sculpt symmetry 51ad144 (+ "Straight ↕/↔" chip rename): CI run 40738227951 dispatched 2026-10-28, untested. Panel row
-  "Symmetry X Y Z" (Tool.Sculpt.mirror bits 1/2/4); native mirrors each ray through the part's bbox middle (kept per part
-  across rebuilds/undo), grab weights per axis; MCP `object_sculpt` `mirror:"x"`. Test: install all devices; WSA MCP draw with
-  mirror x off-centre on a symmetric part -> bump on both sides, size X grows evenly; grab on the plane stays on it.
-- Next step: Sculpt symmetry CI check + install + WSA test -> Sonnet 5.5 (medium)
+- Sculpt symmetry 51ad144 (r457, panel row "Symmetry X Y Z", MCP `mirror`): Claude-verified WSA 2026-10-28 by volume (mirror dab = 2x a single dab; archive); user feel untested; bump positions / grab on plane / Y,Z not checked.
+- Next step: pick the next backlog item (grep HANDOFF-BACKLOG.md for [Opus]/open) -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).

@@ -3495,3 +3495,7 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 
 ## 2026-10-28 Clean specks with lock
 - Clean specks with a locked filament Claude-verified on WSA r456 (release app, brush 0.5 mm, area 4.7 mm2): with filament 2 locked, the tiny 2-specks stayed and an unlocked filament-3 speck was cleaned; with 2 unlocked, the 2-specks were cleaned too (patches bigger than the area stay). User feel untested.
+
+## 2026-10-28 Sculpt symmetry (51ad144, CI run 40738227951, r457): Claude-verified on WSA, user feel untested
+- Installed r457 on WSA, phone, SHIELD. WSA MCP `object_sculpt` inflate r3 x5 on a 15 mm box part: single dab +14/+15 mm3, same dab with `mirror:"x"` +29 mm3 (two bumps) and the mesh refined. Not checked: bump positions on both sides (volume only); grab on the symmetry plane; Y/Z bits; panel row UI.
+- Test gotchas: `design_to_plate` needs an Allow tap in the app (WSA: uiautomator dump, tap the "Allow" text) and a stale 60 s request blocks the next; it left a 10-box object on plate 1 (objects 1 and 2, throwaway); a ray hits the top object, so move others away first; `plate_describe` output cuts off at filament 12.
