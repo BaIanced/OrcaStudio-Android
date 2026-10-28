@@ -32,10 +32,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **Offload (user 2026-10-25/26): max token use onto free opencode models, growing leeway by track record** (Claude specs + verifies).
   DeepSeek V4.1 Flash = default; runner `octauto.sh` (`D:\oct-backup\jobs\README.md`; opencode v2: `model#variant`), ledger `trust-profile.md`.
 - CAD plan (`NOTES-cad-reuse.md`): 0-5b Claude-verified, user feel untested; 1b parked.
-- **No WSA focus loops** (memory no-popups-on-user-screens); touch/hold tests on the phone's hidden display. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
-- MCP token efficiency (`NOTES-mcp-token-efficiency.md`): A-C verified (archive), D dropped; proposed build rule waits for the user's OK; size tools `~/orca-android-tools/mcp_*_sizes.py`.
-- Session B findings: gizmo fixes 1a94899 Claude-verified on WSA debug (archive 2026-10-28). CI run 40729403081 (82bfd05: d3ee419 + 1a94899) was in progress at the 2026-10-28 cue: if green, install on all adb devices and update "Latest CI build".
-- Snapping toggle 846a663 BUILT (compiles, untested): magnet button in the Prepare toolbar (after Select multiple) and the Build toolbar (before Mirror); Shift+Tab toggles the current workspace (MainActivity.viewKey); Ctrl held flips it for one drag (PlateView.dragOffsetAt); prefs snap_prepare (default OFF, per "not on the main plate view") / snap_build (on); guide = one 1.25 dp magenta line (PlateRenderer.drawDragGuides). WSA debug test: button state, Shift+Tab (check that Build is Screen.PREPARE), guide look in a cropped shot, Ctrl-flip (adb can't hold Ctrl: by code only).
+- **No WSA focus loops** (memory no-popups-on-user-screens). Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
+- MCP token efficiency (`NOTES-mcp-token-efficiency.md`): A-C verified, D dropped; build rule waits for the user's OK.
+- CI run 40729403081 (82bfd05: slice-cancel + gizmo fixes, both Claude-verified) was running at the 2026-10-28 cue: if green, install on all adb devices, update "Latest CI build".
+- Snapping toggle 846a663 BUILT, untested (backlog "Snapping (user"): magnet button Prepare + Build toolbars, Shift+Tab (MainActivity.viewKey), Ctrl flips per drag, plate default off, 1.25 dp magenta guide. Test on WSA debug: button state, Shift+Tab in Build (Screen.PREPARE?), cropped guide shot; Ctrl-flip by code only.
 - Next step: WSA debug test of the snap toggle (wsa-debug-rebuild.sh), then the CI install -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
