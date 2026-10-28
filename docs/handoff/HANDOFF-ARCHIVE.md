@@ -3424,3 +3424,7 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 - Interaction plan 1-9 + Measure: Claude-verified WSA 2026-10-27; user feel open: long press, model.detail, ring gating, loupe, tap-select (archive).
 - CAD item 1 Hull switch: Claude-verified WSA r445 2026-10-27, user feel untested.
 - CAD roadmap 2 XY edge snap in the Build workspace (657e897, r447, run 40603089282): Claude-verified WSA 2026-10-27 (drag lands flush within ~1.5 mm; archive), installed on WSA/phone/SHIELD/Note; amber guide not seen, Prepare drag not driven, user feel untested.
+
+## 2026-10-27: Center on plate + Align row (f073445, run 40605694736), Claude-verified on WSA
+- Installed on WSA, phone, SHIELD, Note. Long-press menu "Center on plate": object at [139,125] -> [128,128]. Multi-select (long-press > Select multiple, tap 2nd copy): Align row in the long-press menu; Left made copy x equal (135.6 -> 128), Back moved both to the larger Y (+Y = back, matches the code comment). User feel untested.
+- Test quirk: the menu stays open after `input motionevent CANCEL`; then `input tap` on an item works. Drag-and-release (MOVE+UP) works for plain menu items but NOT for the icon row buttons.

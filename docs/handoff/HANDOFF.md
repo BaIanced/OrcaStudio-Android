@@ -36,8 +36,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **No WSA focus loops (user 2026-10-26: "your testing keeps stealing my window focus"):** no `focus.ps1`/`tapf.sh`/`keys.ps1` in loops;
   touch/hold tests on the phone's hidden display. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
 - Claude-verified WSA 2026-10-27, user feel open (details in archive): interaction plan 1-9 + Measure, CAD item 1 Hull switch, CAD roadmap 2 XY edge snap (r447, 657e897).
-- Center / Align (f073445, run 40605694736, building; JVM-tested AlignMath, compiled): long-press menu "Center on plate" (selection as group, overlap OK; also in multi-select pie) + Align icon row L/C/R/Back/Mid/Front on multi-select. Not driven on a device, user feel untested. Smart guides still idea only (backlog).
-- Next step: install run 40605694736 on all adb devices, drive Center/Align on WSA debug (phone hidden display, no focus loops), then smart guides or a backlog pick -> Sonnet 5.5 (medium)
+- Center on plate + Align row (f073445, run 40605694736): Claude-verified WSA 2026-10-27 (archive), installed on WSA/phone/SHIELD/Note; user feel untested. Smart guides still idea only (backlog).
+- Next step: smart guides (backlog, design leaning only) or another backlog pick -> Sonnet 5.5 (medium)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
