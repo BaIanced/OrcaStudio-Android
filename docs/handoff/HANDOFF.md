@@ -14,7 +14,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 0170950 (PR #65, branch at r398, merged 2026-10-25). Untested by the user in main: Build workspace, paint shop/depth, Filament materials, Realistic render, UX P1-P6, Check mesh feel, 3MF export in desktop Orca, pen, fan hold, Extrude F150.
 - Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
-- Latest CI build: run 40738227951 (r457, 51ad144: r456 + sculpt symmetry), CI green, installed 2026-10-28 on WSA, phone, SHIELD (Note not connected); Claude-verified on WSA, user feel untested. Install new builds on all adb devices (skip the .23 tablet: 32-bit, Android 6).
+- Latest CI build: run 40738227951 (r457, 51ad144: r456 + sculpt symmetry), CI green, installed 2026-10-28 on WSA, phone, SHIELD; Claude-verified on WSA, user feel untested. Install new builds on all adb devices (skip the .23 tablet: 32-bit, Android 6).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **User 2026-10-28: no more user testing for now; Claude builds and tests everything itself (memory no-user-testing-now); don't ask for feel/UI checks.**
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
@@ -36,8 +36,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - MCP token efficiency (`NOTES-mcp-token-efficiency.md`): A-C verified, D dropped; build rule waits for the user's OK.
 - Snapping toggle, clean specks, sculpt symmetry (r457): Claude-verified WSA 2026-10-28 (archive), user feel untested.
 - Mirror button retest + tooltip sweep done 2026-10-28 (archive); W/D/H scrub + size lock built 9e24ef7 (archive, untested on device). All three are in CI run 40749680026 (r458).
-- W/D/H scrub + lock WSA-tested 2026-10-28 (archive). CI run 40749680026 (r458, 1f659e3) dispatched; install on WSA, phone, SHIELD when green (skip .23 tablet).
-- Next step: install r458 on all adb devices + smoke test on WSA, then pick the next backlog item (grep HANDOFF-BACKLOG.md) -> Sonnet 5.5 (medium)
+- W/D/H scrub + lock WSA-tested 2026-10-28 (archive). r458 (run 40749680026, 1f659e3) installed 2026-10-28 on WSA, phone, SHIELD and Note; WSA smoke OK (app_state r458, no crash). Muse: no open PRs, nothing new on #46.
+- Next step: no Claude-only Sonnet item is queued (backlog Ideas are Opus-tagged or need the user); pick with the user, e.g. sculpt first-stroke latency at 200k faces -> Opus 5.5 (high)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
