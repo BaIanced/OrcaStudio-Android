@@ -35,8 +35,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   Tests: `wsa-pen-hover.sh`, `wsa-steer-test.sh`, `input mouse tap`, measure = `input keyevent 49`, MCP `view_state` (`MAX=3000`).**
 - **No WSA focus loops (user 2026-10-26: "your testing keeps stealing my window focus"):** no `focus.ps1`/`tapf.sh`/`keys.ps1` in loops;
   touch/hold tests on the phone's hidden display. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
-- Claude-verified WSA 2026-10-27, user feel open (details in archive): interaction plan 1-9 + Measure, CAD item 1 Hull switch, CAD roadmap 2 XY edge snap (r447, 657e897), Center + Align row (f073445).
-- **Smart guides 005f14d, Claude-verified WSA debug 2026-10-27 (user feel open):** Prepare body drag sticks the selection's edges + middle to the plate's and other objects' edges + middles (`Viewport.kt` dragSnap, `DragSnap.mid`); amber guide reuses the Build edge snap. WSA drag landed on plate middle Y and object 9's centre X. Untested: multi-select, rotated objects, tower drag (should stay free).
+- Claude-verified WSA 2026-10-27, user feel open (archive): interaction plan 1-9 + Measure, CAD 1 Hull, CAD 2 XY edge snap, Center + Align row.
+- **Smart guides 005f14d, Claude-verified WSA debug 2026-10-27 (user feel open):** Prepare body drag sticks the selection's edges + middle to the plate's and other objects' edges + middles (`Viewport.kt` dragSnap, `DragSnap.mid`); amber guide reuses the Build edge snap. WSA drag landed on plate middle Y and object 9's centre X. Code-read 2026-10-27 (no device run): multi-select snaps the union box, rotated objects use the world AABB, tower drag skips the snap (`towerPlate < 0`, PlateView.kt dragOffsetAt); mid snap has a JVM test (ZRailTest).
 - Next step: user feel-check of smart guides + earlier open items; Claude: pick a backlog item (grep `[Opus]`/untested) -> Sonnet 5.5 (medium)
 
 ## User decisions (2026-10-13)
