@@ -14,7 +14,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 0170950 (PR #65, branch at r398, merged 2026-10-25). Untested by the user in main: Build workspace, paint shop/depth, Filament materials, Realistic render, UX P1-P6, Check mesh feel, 3MF export in desktop Orca, pen, fan hold, Extrude F150.
 - Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
-- Latest CI build: run 40642755687 = r452 (76228bf: Hollow + MCP diff replies A-C), CI green, installed 2026-10-28 on WSA, phone, SHIELD, Note; Claude-verified on WSA debug (archive), user feel untested. Install new builds on all adb devices (skip the .23 tablet: 32-bit, Android 6).
+- Latest CI build: run 40646124848 = r453 (a3dbc7b: Hollow, MCP diff replies A-C, Preview camera light), CI green, installed 2026-10-28 on WSA, phone, SHIELD, Note; Claude-verified on WSA debug (archive), user feel untested. Install new builds on all adb devices (skip the .23 tablet: 32-bit, Android 6).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
@@ -36,7 +36,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Claude-verified WSA 2026-10-27, user feel open (archive): interaction plan, CAD 1-2, Center/Align, smart guides, Check mesh.
 - Hollow (More menu + MCP `object_hollow`): r452 Claude-verified on WSA 2026-10-28; open: user feel (archive).
 - MCP token efficiency (`NOTES-mcp-token-efficiency.md`): A-C verified (archive), D dropped; proposed build rule waits for the user's OK; size tools `~/orca-android-tools/mcp_*_sizes.py`.
-- Preview camera light (user GO 2026-10-28): lab slider "Preview camera light" (`LayoutLab.cameraLight`, 0 = studio default) -> `PATH_FS` `uCamLight`. Claude-verified on WSA debug 2026-10-28: shader compiles, 0% vs 100% crop-shots differ (even top+side light at 100%). CI run 40646124848 (a3dbc7b) building; open: install on all devices when green, user feel (More > lab slider).
+- Preview camera light (user GO 2026-10-28): lab slider "Preview camera light" (`LayoutLab.cameraLight`, 0 = studio default) -> `PATH_FS` `uCamLight`. Claude-verified on WSA debug 2026-10-28: shader compiles, 0% vs 100% crop-shots differ (even top+side light at 100%). Shipped in r453; open: user feel (More > lab slider).
 - Next step: install CI build 40646124848 on all adb devices, then pick the next backlog item -> Sonnet 5.5 (medium)
 
 ## User decisions (2026-10-13)
