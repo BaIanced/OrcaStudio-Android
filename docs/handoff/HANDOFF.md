@@ -36,8 +36,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **No WSA focus loops (user 2026-10-26: "your testing keeps stealing my window focus"):** no `focus.ps1`/`tapf.sh`/`keys.ps1` in loops;
   touch/hold tests on the phone's hidden display. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
 - Claude-verified WSA 2026-10-27, user feel open (details in archive): interaction plan 1-9 + Measure, CAD item 1 Hull switch, CAD roadmap 2 XY edge snap (r447, 657e897).
-- Center on plate + Align row (f073445, run 40605694736): Claude-verified WSA 2026-10-27 (archive), installed on WSA/phone/SHIELD/Note; user feel untested. Smart guides still idea only (backlog).
-- Next step: smart guides (backlog, design leaning only) or another backlog pick -> Sonnet 5.5 (medium)
+- Center on plate + Align row (f073445) Claude-verified WSA 2026-10-27; user feel untested.
+- **Smart guides built 005f14d (pushed, compiled, ZRailTest ok; NOT yet run on WSA, no CI build yet):** Prepare body drag sticks the selection's edges + middle to the plate's and other objects' edges + middles (`Viewport.kt` dragSnap in the selection effect, `DragSnap.mid`, `ZRail.lift(mid=)`); amber guide + tick reuse the Build edge snap. Untested: multi-select, rotated objects, tower drag (should stay free).
+- Next step: WSA-test smart guides (`wsa-debug-rebuild.sh`, phone hidden display for drags; then CI dispatch + install on all) -> Sonnet 5.5 (medium)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
