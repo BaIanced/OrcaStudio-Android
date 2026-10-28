@@ -39,8 +39,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Smart guides 005f14d: Claude-verified WSA debug 2026-10-27, user feel open (archive).
 - Check mesh sharp edges: Claude-verified WSA debug 2026-10-27 (details in archive); green marker look + user feel untested.
 - Hollow (More menu + MCP `object_hollow`, native `OrcaHollow.cpp` = sla::hollow_mesh per model part, wall 0.8-10 mm, sealed): coded 2026-10-27, Kotlin compiles, native + CI untested. Cleanup already exists (More > Repair).
-- **Queue (user 2026-10-27, MCP token efficiency):** (1) Opus reviews the proposed MCP build rule(s) (backlog 'MCP token efficiency') and suggests edits or rejects; (2) Opus analyzes the tools (McpTools.kt + PresetTools.kt, 48 tools; plate edits return the full `plateDescribe`, McpTools.kt:735); (3) Hollow device test.
-- Next step: MCP build-rule review, then tool analysis -> Opus 5.5 (high); then install the Hollow CI build and test on WSA debug (cube STL: faces up, slice, volume drops) -> Sonnet 5.5 (medium); camera-light slider needs the user's GO; user feel-checks wait
+- **MCP token efficiency:** rule review + measured analysis done 2026-10-27 (`NOTES-mcp-token-efficiency.md`; tools/list 28.7 KB, edit replies
+  re-send the whole scene each call). Proposed rule waits for the user's OK; plan A-C = diff replies for plate/shape edits.
+  Size tools: `~/orca-android-tools/mcp_list_sizes.py`, `mcp_reply_sizes.py` (token file arg, forwarded port 8765).
+- Next step: MCP plan A-C (diff replies, NOTES file) + one CI build with Hollow, then WSA debug test of both (Hollow: cube STL, faces up, slice, volume drops) -> Sonnet 5.5 (high); camera-light slider needs the user's GO; user feel-checks wait
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
