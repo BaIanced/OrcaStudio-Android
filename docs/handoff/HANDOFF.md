@@ -36,7 +36,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - MCP token efficiency (`NOTES-mcp-token-efficiency.md`): A-C verified, D dropped; build rule waits for the user's OK.
 - Snapping toggle 846a663: Claude-verified on WSA 2026-10-28 (archive), in build r456, user feel untested.
 - Clean specks with lock: Claude-verified WSA r456 2026-10-28 (archive), user feel untested.
-- Next step: decide + do the stroke-axis "Lock ↕/↔" chip rename in the paint panel (backlog "Paint panel layout C"), then build -> Sonnet 5.5 (medium)
+- Stroke-axis chips renamed "Straight ↕/↔" (committed, not built). Batch with the next change before dispatching CI.
+- Next step: pick next backlog item (grep BACKLOG for [Opus]/open), batch, then build -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
