@@ -3462,3 +3462,8 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 ### 2026-10-28 Session B, Claude drove WSA debug (build of 26be567+)
 - Build mirror menu check marks: Claude-verified (X on/off, Y on; shots). Toolbar tooltips are hover-only: not testable by adb, content descriptions present ("Undo (Ctrl+Z)" etc.). User feel untested.
 - USER VERIFIED (2026-10-28, debug build of 26be567+): Build toolbar hover tooltips appear. Mirror check marks Claude-verified, user feel open.
+
+## 2026-10-28 session B (WSA r453 debug)
+- Slice stall at 5% in debug app: not reproducible (MCP `slice` ~2 s, all stages in logcat). Note it only if it recurs.
+- Session B checks (Sculpt, Hollow, Center/Align, Check mesh, slice-badge fix, mirror asymmetric feel) skipped by the user; the user's new findings are in HANDOFF-BACKLOG.md (shape builder bugs, snapping toggle + guide style, slice-cancel badge).
+- Local commits since r453: 26be567 tooltips + mirror check marks, eb7e242 New project clears slice error + long-press dismisses badge (all pushed to the work branch, not yet in a CI build).

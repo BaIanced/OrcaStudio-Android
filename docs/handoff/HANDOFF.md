@@ -36,9 +36,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Claude-verified WSA 2026-10-27, user feel open (archive): interaction plan, CAD 1-2, Center/Align, smart guides, Check mesh.
 - MCP token efficiency (`NOTES-mcp-token-efficiency.md`): A-C verified (archive), D dropped; proposed build rule waits for the user's OK; size tools `~/orca-android-tools/mcp_*_sizes.py`.
 - Hollow + Preview camera light (More > lab slider): Claude-verified WSA 2026-10-28, shipped r453; open: user feel (archive).
-- Session B started 2026-10-28 (WSA r453): Build toolbar tooltips + mirror-menu check marks committed (26be567, unpushed), compile + privacy scan clean, debug build installed on WSA 2026-10-28 and app open for the user; mirror check marks Claude-verified on WSA (archive), user feel on an asymmetric shape open, tooltips USER VERIFIED 2026-10-28 (archive); Sculpt/Hollow/Center-Align/Check mesh still to do. Build continuity (solo view, entry points, CAD badge) agreed as leanings, backlog.
-- User found (session B, 2026-10-28): red slice-error badge stayed after X (minimize is by design) and after New project; fixed locally (New project clears it, long-press badge dismisses; committed, debug build on WSA, untested by the user). Also: slicing stalls at 5% in the WSA debug app (cause not looked into; maybe debug data dir).
-- Next step: user drives session B on WSA debug (Build tooltips/mirror, Sculpt, Hollow, Center/Align, Check mesh); log verdicts, fix, then push + one CI build -> Sonnet 5.5 (medium)
+- Session B (WSA r453 debug) ended 2026-10-28: tooltips + mirror check marks verified (archive); other checks skipped by the user. Their new findings are in the backlog (grep "Shape builder bugs", "Snapping (user", "Slice cancel badge"). Unpushed-to-CI: tooltips, mirror marks, badge fix (archive).
+- Next step: slice-cancel badge (X closes + removes it; cancel is not an error) -> Sonnet 5.5 (medium); then shape builder drag/gizmo/mirror-spacing bugs -> Opus 5.5 (high)
 
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
