@@ -579,6 +579,7 @@ private fun ToolButtons(
         ToolButton(Icons.Default.SelectAll, stringResource(R.string.select_multiple), active = state.selectMode, enabled = !state.scene.isEmpty) {
             vm.scene.setSelectMode(!state.selectMode)
         }
+        ToolButton(SnapIcon, stringResource(R.string.snap_toggle), active = state.snapPrepare, enabled = !state.scene.isEmpty) { vm.toggleSnap() }
         if (state.multiSelection.isNotEmpty()) {
             ToolButton(Icons.Default.ContentCopy, stringResource(R.string.duplicate)) { vm.scene.duplicate(1) }
             ToolButton(Icons.Default.CallMerge, stringResource(R.string.assemble), enabled = state.multiSelection.size >= 2) { vm.scene.assemble() }

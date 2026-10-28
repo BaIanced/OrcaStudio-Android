@@ -55,6 +55,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.material3.IconToggleButton
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -221,6 +222,10 @@ private fun Toolbar(s: ScadEditorState, vm: AppViewModel) {
             IconButton(onClick = { sh.merge() }, enabled = tops > 1 || (tops == 1 && s.selected.any { id -> d.shapes.any { it.id == id && it.isGroup } })) {
                 Icon(Icons.Default.Merge, stringResource(R.string.shape_merge))
             }
+        }
+        Tip(stringResource(R.string.snap_toggle)) {
+            val on = vm.state.collectAsState().value.snapBuild
+            IconToggleButton(on, { vm.toggleSnap() }) { Icon(app.orcaandroid.ui.prepare.SnapIcon, stringResource(R.string.snap_toggle)) }
         }
         Tip(stringResource(R.string.shape_mirror)) {
             IconButton(onClick = { mirror = true }, enabled = any) {

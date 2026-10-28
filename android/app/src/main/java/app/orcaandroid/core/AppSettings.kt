@@ -91,6 +91,14 @@ class AppSettings(context: Context) {
         get() = prefs.getInt("preview_supersample", app.orcaandroid.render.Supersample.STILL)
         set(value) = prefs.edit().putInt("preview_supersample", value).apply()
 
+    /** Body drags snap to edges and middles: on the plate (Prepare, off by default) and in the Build workspace (on). */
+    var snapPrepare: Boolean
+        get() = prefs.getBoolean("snap_prepare", false)
+        set(value) = prefs.edit().putBoolean("snap_prepare", value).apply()
+    var snapBuild: Boolean
+        get() = prefs.getBoolean("snap_build", true)
+        set(value) = prefs.edit().putBoolean("snap_build", value).apply()
+
     /** 3D view projection: perspective (default) or orthographic, the desktop's use_perspective_camera. */
     var perspective: Boolean
         get() = prefs.getBoolean("perspective_camera", true)

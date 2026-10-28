@@ -38,6 +38,8 @@ class Store(val app: Application, val scope: CoroutineScope) {
             edgeOutline = settings.edgeOutline,
             selectionStyle = settings.selectionStyle,
             perspective = settings.perspective,
+            snapPrepare = settings.snapPrepare,
+            snapBuild = settings.snapBuild,
             supersample = settings.supersample,
             lab = settings.layoutLab,
             undoLimit = settings.undoLimit,

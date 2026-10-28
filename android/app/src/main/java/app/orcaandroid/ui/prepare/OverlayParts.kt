@@ -124,6 +124,19 @@ val AutoOrientIcon: ImageVector by lazy {
     }.build()
 }
 
+/** Snap toggle: a horseshoe magnet (Material has none). */
+val SnapIcon: ImageVector by lazy {
+    fun ImageVector.Builder.stroke(d: String) = addPath(
+        addPathNodes(d), fill = null, stroke = SolidColor(Color.Black), strokeLineWidth = 1.9f,
+        strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round,
+    )
+    ImageVector.Builder("Snap", 24.dp, 24.dp, 24f, 24f).apply {
+        stroke("M6 15L2 11L8.75 4.23a7.79 7.79 0 0 1 11 11L13 22L9 18L15.39 11.64a2.14 2.14 0 0 0-3-3L6 15")
+        stroke("M5 8l4 4")
+        stroke("M12 15l4 4")
+    }.build()
+}
+
 /**
  * Plates picked for deleting together (user, 2026-10-13): long press an inactive plate in the tabs or
  * filmstrip, then tap more; the active plate can't be picked. Empty = not picking.

@@ -152,6 +152,8 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     private var dragStart: Vec3? = null
     /** Build workspace: body drags stick edges to the other shapes' (null = a free drag). */
     var dragSnap: DragSnap? = null
+    /** The snap toggle (Shift+Tab or the magnet button); Ctrl held during a drag flips it, as in Blender and Figma. */
+    var snapOn = true
     /** World x / y the live body drag sticks to (null = none), to tick once per new snap. */
     private var dragSnapX: Float? = null
     private var dragSnapY: Float? = null
@@ -557,7 +559,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                             }
                         }
                         pushPending -> Unit
-                        dragging -> dragOffsetAt(event.x, event.y, event.metaState and KeyEvent.META_SHIFT_ON != 0)?.let { o ->
+                        dragging -> dragOffsetAt(event.x, event.y, event.metaState and KeyEvent.META_SHIFT_ON != 0, event.metaState and KeyEvent.META_CTRL_ON != 0)?.let { o ->
                             val d = floatArrayOf(o.x, o.y, 0f)
                             queueEvent { renderer.dragOffset = d }
                         }
@@ -599,7 +601,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                     if (g != null) listener?.onPush(g, if (moved) pushMm else null, event.x, event.y, true)
                     if (!moved) tap(event.x, event.y, additive, part)
                 } else if (dragging) {
-                    val o = dragOffsetAt(event.x, event.y, event.metaState and KeyEvent.META_SHIFT_ON != 0)
+                    val o = dragOffsetAt(event.x, event.y, event.metaState and KeyEvent.META_SHIFT_ON != 0, event.metaState and KeyEvent.META_CTRL_ON != 0)
                     clearDragGuides()
                     if (moved && o != null) {
                         // The listener clears the drag offset once the moved scene is drawn; clearing it here
@@ -893,13 +895,13 @@ class PlateView(context: Context) : GLSurfaceView(context) {
 
     /**
      * The body drag's offset (mm) for the finger at (x, y): with [dragSnap], the moved box's edges stick (flush or aligned)
-     * to the other boxes' edges within about 10 dp, else whole mm (tenths with Shift), and amber guides show what lines up.
+     * to the other boxes' edges within about 10 dp, else whole mm (tenths with Shift), and thin guides show what lines up.
      * Null when the ray misses the drag plane.
      */
-    private fun dragOffsetAt(x: Float, y: Float, fine: Boolean): Vec3? {
+    private fun dragOffsetAt(x: Float, y: Float, fine: Boolean, flip: Boolean = false): Vec3? {
         val start = dragStart ?: return null
         val now = dragAt(x, y) ?: return null
-        val s = dragSnap?.takeIf { towerPlate < 0 } ?: return Vec3(now.x - start.x, now.y - start.y, 0f)
+        val s = dragSnap?.takeIf { towerPlate < 0 && snapOn != flip } ?: return Vec3(now.x - start.x, now.y - start.y, 0f).also { clearDragGuides() }
         val a = camera.project(start)
         fun px(d: Vec3) = camera.project(start + d)?.let { e -> if (a == null) 0f else kotlin.math.hypot(e.first - a.first, e.second - a.second) }
         val pxPerMm = max(px(Vec3(10f, 0f, 0f)) ?: 0f, px(Vec3(0f, 10f, 0f)) ?: 0f) / 10f

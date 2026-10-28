@@ -226,6 +226,8 @@ class MainActivity : ComponentActivity() {
     private fun viewKey(keyCode: Int, event: KeyEvent): Boolean {
         val s = vm.state.value
         if (s.editor != null || event.isCtrlPressed) return false
+        // Shift+Tab: snap on / off, as in Blender.
+        if (keyCode == KeyEvent.KEYCODE_TAB && event.isShiftPressed && s.screen == Screen.PREPARE) { vm.toggleSnap(); return true }
         if (keyCode == KeyEvent.KEYCODE_TAB && (s.screen == Screen.PREPARE || s.screen == Screen.PREVIEW)) {
             vm.setScreen(if (s.screen == Screen.PREPARE) Screen.PREVIEW else Screen.PREPARE)
             return true

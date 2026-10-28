@@ -204,6 +204,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         store.update { it.copy(layerLines = on) }
     }
 
+    /** Snap on or off where the user is: the Build workspace when it is open, else the plate. */
+    fun toggleSnap() {
+        val s = state.value
+        if (s.buildObject != null) { store.settings.snapBuild = !s.snapBuild; store.update { it.copy(snapBuild = !s.snapBuild) } }
+        else { store.settings.snapPrepare = !s.snapPrepare; store.update { it.copy(snapPrepare = !s.snapPrepare) } }
+    }
+
     fun setPerspective(on: Boolean) {
         store.settings.perspective = on
         store.update { it.copy(perspective = on) }

@@ -180,6 +180,9 @@ data class UiState(
     val selectionStyle: Int = app.orcaandroid.render.SelectionStyle.DEFAULT,
     /** Preview supersampling ([app.orcaandroid.render.Supersample]). */
     val supersample: Int = app.orcaandroid.render.Supersample.STILL,
+    /** Body drags snap (smart guides) on the plate / in the Build workspace; Ctrl held flips it for one drag. */
+    val snapPrepare: Boolean = false,
+    val snapBuild: Boolean = true,
     /** 3D view projection: perspective, or orthographic when false. */
     val perspective: Boolean = true,
     val lab: app.orcaandroid.core.LayoutLab = app.orcaandroid.core.LayoutLab(),

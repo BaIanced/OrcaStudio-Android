@@ -1478,12 +1478,11 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glDepthRangef(0f, 1f)
     }
 
-    /** The body drag's snap guides ([dragGuides]): amber over a dark border, over everything (they lie on the plate under the shapes). */
+    /** The body drag's snap guides ([dragGuides]): one thin magenta line as in Illustrator / Figma, over everything (they lie on the plate under the shapes). */
     private fun drawDragGuides() {
         val data = dragGuides?.takeIf { it.isNotEmpty() } ?: return
         glDisable(GL_DEPTH_TEST)
-        drawWideLines(data, 5f * density, floatArrayOf(0.05f, 0.05f, 0.06f), section = false)
-        drawWideLines(data, 2f * density, floatArrayOf(1f, 0.72f, 0.1f), section = false)
+        drawWideLines(data, 1.25f * density, floatArrayOf(1f, 0.15f, 0.65f), section = false)
         glEnable(GL_DEPTH_TEST)
     }
 
