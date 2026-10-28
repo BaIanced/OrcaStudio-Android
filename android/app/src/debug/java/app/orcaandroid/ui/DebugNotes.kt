@@ -8,6 +8,7 @@ import android.view.SurfaceView
 import android.view.View
 import android.view.ViewGroup
 import android.os.Handler
+import android.util.Log
 import android.os.Looper
 import android.view.KeyEvent
 import android.view.MotionEvent
@@ -30,16 +31,32 @@ object DebugNotes {
     private var showing = false
 
     fun onKey(activity: Activity, event: KeyEvent, snapshot: () -> String): Boolean {
+        logKey(event)
         if (event.action != KeyEvent.ACTION_DOWN || event.repeatCount != 0 || event.keyCode != KeyEvent.KEYCODE_N ||
             !event.isCtrlPressed || !event.isShiftPressed) return false
         capture(activity, snapshot)
         return true
     }
 
+    private var lastButtons = 0
+
+    /** Pen button: Samsung reports it as a changed buttonState (primary or secondary) on hover moves, not always as BUTTON_PRESS. */
     fun onMotion(activity: Activity, event: MotionEvent, snapshot: () -> String): Boolean {
-        if (event.actionMasked != MotionEvent.ACTION_BUTTON_PRESS || event.actionButton != MotionEvent.BUTTON_STYLUS_PRIMARY) return false
+        val stylus = event.getToolType(0) == MotionEvent.TOOL_TYPE_STYLUS
+        if (stylus && (event.buttonState != 0 || event.actionMasked == MotionEvent.ACTION_BUTTON_PRESS))
+            Log.d("DebugNotes", "motion action=${event.actionMasked} buttons=${event.buttonState} actionButton=${event.actionButton}")
+        if (!stylus) return false
+        val down = event.buttonState and (MotionEvent.BUTTON_STYLUS_PRIMARY or MotionEvent.BUTTON_SECONDARY)
+        val pressed = down != 0 && lastButtons == 0
+        lastButtons = down
+        if (!pressed) return false
         capture(activity, snapshot)
         return true
+    }
+
+    /** Logs pen keys so an unknown button mapping can be found with logcat (tag DebugNotes). */
+    fun logKey(event: KeyEvent) {
+        if (event.action == KeyEvent.ACTION_DOWN && !event.isCtrlPressed) Log.d("DebugNotes", "key ${event.keyCode} src=${event.source}")
     }
 
     private fun capture(activity: Activity, snapshot: () -> String) {

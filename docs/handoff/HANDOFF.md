@@ -36,7 +36,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - MCP token efficiency (`NOTES-mcp-token-efficiency.md`): A-C verified, D dropped; build rule waits for the user's OK.
 - Sculpt latency (914816d + 68e8f7a + 4be7551): deferred stroke-end hull verified on WSA debug and r459 release 2026-10-28 (archive). Done.
 - Remaining gate work is user sessions B, C, D (`NOTES-merge-batch.md`); user paused testing 2026-10-28. Sculpt symmetry x done. Ask the user whether to resume sessions or merge Session-A items.
-- **Debug notes (996638e, 2026-10-28, WSA-verified; pen button untested):** debug build only; Ctrl+Shift+N or S Pen button -> screenshot + note. **At /next, read** `adb shell cat /sdcard/Android/data/<debug pkg>/files/notes/notes.jsonl` (PNGs beside it; view only ambiguous ones); never commit them.
+- **Debug notes (verified WSA + Note 2026-10-28, archive):** Ctrl+Shift+N / S Pen button in the debug build. **At /next, read** `adb shell cat /sdcard/Android/data/<debug pkg>/files/notes/notes.jsonl` on the Note/WSA (view only ambiguous PNGs); never commit them.
 - Next step: ask user: resume sessions B-D or merge Session A -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
