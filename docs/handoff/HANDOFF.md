@@ -36,8 +36,11 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - MCP token efficiency (`NOTES-mcp-token-efficiency.md`): A-C verified, D dropped; build rule waits for the user's OK.
 - Snapping toggle 846a663: Claude-verified on WSA 2026-10-28 (archive), in build r456, user feel untested.
 - Clean specks with lock: Claude-verified WSA r456 2026-10-28 (archive), user feel untested.
-- Stroke-axis chips renamed "Straight ↕/↔" (committed, not built). Batch with the next change before dispatching CI.
-- Next step: Sculpt symmetry (backlog Sculpt mode), batch with the chip rename, then build -> Opus 5.5 (high)
+- Sculpt symmetry 51ad144 (+ "Straight ↕/↔" chip rename): CI run 40738227951 dispatched 2026-10-28, untested. Panel row
+  "Symmetry X Y Z" (Tool.Sculpt.mirror bits 1/2/4); native mirrors each ray through the part's bbox middle (kept per part
+  across rebuilds/undo), grab weights per axis; MCP `object_sculpt` `mirror:"x"`. Test: install all devices; WSA MCP draw with
+  mirror x off-centre on a symmetric part -> bump on both sides, size X grows evenly; grab on the plane stays on it.
+- Next step: Sculpt symmetry CI check + install + WSA test -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
