@@ -106,7 +106,7 @@ object ScaleGizmo {
     const val MAX_RATIO = 10f
 
     /** Whether the segment [a]-[b] passes through the box ([lo], [hi]) (slab test). */
-    private fun segmentHitsBox(a: Vec3, b: Vec3, lo: Vec3, hi: Vec3): Boolean {
+    internal fun segmentHitsBox(a: Vec3, b: Vec3, lo: Vec3, hi: Vec3): Boolean {
         val o = floatArrayOf(a.x, a.y, a.z)
         val d = floatArrayOf(b.x - a.x, b.y - a.y, b.z - a.z)
         val l = floatArrayOf(lo.x, lo.y, lo.z)

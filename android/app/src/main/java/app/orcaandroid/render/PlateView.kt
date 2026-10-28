@@ -752,14 +752,24 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     private fun startResize(x: Float, y: Float): Boolean {
         if (!resizeMode) return false
         val box = gizmoBox() ?: return false
-        // 48 dp grabbed too much of a small box (user, r304).
-        val reach = 32f * resources.displayMetrics.density
+        // 48 dp grabbed too much of a small box (user, r304). On the object only a touch right on a handle grabs it, so a
+        // drag of the object near a handle moves it (user 2026-10-28: a repeat's end copy dragged changed its spacing).
+        val reach = (if (onBox(box, x, y)) 12f else 32f) * resources.displayMetrics.density
         val h = ScaleGizmo.visible(box.first, box.second, camera, resizeAxes).mapNotNull { h ->
             camera.project(h.pos)?.let { (px, py) -> h to kotlin.math.hypot(px - x, py - y) }
         }.filter { it.second < reach }.minByOrNull { it.second }?.first ?: return false
         resizeHandle = h; resizeBox = box; resizeScale = Vec3(1f, 1f, 1f)
         queueEvent { renderer.gizmoGrab = h }
         return true
+    }
+
+    /** Whether screen (x, y) falls on the box ([lo], [hi]) as drawn: inside one of its faces' outlines. */
+    private fun onBox(box: Pair<Vec3, Vec3>, x: Float, y: Float): Boolean {
+        val (lo, hi) = box
+        val c = (0 until 8).map { k -> camera.project(Vec3(if (k and 1 == 0) lo.x else hi.x, if (k and 2 == 0) lo.y else hi.y, if (k and 4 == 0) lo.z else hi.z)) ?: return false }
+        // The six faces by corner index (bit 0 x, bit 1 y, bit 2 z), each as an outline in order round the face.
+        val faces = listOf(intArrayOf(0, 2, 6, 4), intArrayOf(1, 3, 7, 5), intArrayOf(0, 1, 5, 4), intArrayOf(2, 3, 7, 6), intArrayOf(0, 1, 3, 2), intArrayOf(4, 5, 7, 6))
+        return faces.any { f -> RotateGizmo.inside(f.map { c[it] }, x, y) }
     }
 
     /** Ends a resize: applies [scale], or cancels with null. */
@@ -789,8 +799,9 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     private fun startRotate(x0: Float, y0: Float, x: Float, y: Float): Boolean {
         if (!rotateMode) return false
         val box = gizmoBox() ?: return false
-        val reach = 24f * resources.displayMetrics.density
-        val axis = RotateGizmo.pick(box.first, box.second, camera, x0, y0, reach)
+        // On the object only a touch right on a ring grabs it; the parts of the rings the box hides can't be grabbed at all.
+        val reach = (if (onBox(box, x0, y0)) 10f else 24f) * resources.displayMetrics.density
+        val axis = RotateGizmo.pick(box.first, box.second, camera, x0, y0, reach, occluded = true)
         if (axis < 0) return false
         val c = RotateGizmo.center(box.first, box.second)
         val d = RotateGizmo.Drag(axis, c, RotateGizmo.radius(box.first, box.second, camera), camera, x0, y0,

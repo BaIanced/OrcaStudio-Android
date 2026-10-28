@@ -987,8 +987,10 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             selection.draw(viewW, viewH, style, colors.selected, outlinePx) { pass -> drawMesh(meshVbo, meshCount, pass) }
         val box = selectionBox(ids) ?: return
         if (style and SelectionStyle.BOX != 0 || gizmo) drawSelectionBox(box.copyOf())
-        if (gizmo) drawGizmo(box)
-        if (rotateGizmo) drawRings(box)
+        // The gizmos ride along with a move drag, as the box does (user 2026-10-28: they stayed behind until release).
+        val moved = FloatArray(6) { box[it] + dragOffset[it % 3] }
+        if (gizmo) drawGizmo(moved)
+        if (rotateGizmo) drawRings(moved, occlude = true)
     }
 
     /** The cut tool's tilt rings (X red, Y green) round the plane disc's centre. */
@@ -1086,7 +1088,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
      * The rotate gizmo's rings ([RotateGizmo]) round [box]'s centre, on top of the scene as the desktop draws them. While one
      * is dragged only it shows, thicker, with spokes from where the drag started to where it has turned.
      */
-    private fun drawRings(box: FloatArray, axisCount: Int = 3) {
+    private fun drawRings(box: FloatArray, axisCount: Int = 3, occlude: Boolean = false) {
         val lo = app.orcaandroid.core.Vec3(box[0], box[1], box[2])
         val hi = app.orcaandroid.core.Vec3(box[3], box[4], box[5])
         val c = RotateGizmo.center(lo, hi)
@@ -1110,11 +1112,18 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         val dark = floatArrayOf(0.1f, 0.1f, 0.1f)
         for (axis in 0 until axisCount) {
             if (grab >= 0 && axis != grab) continue
-            val ring = RotateGizmo.ring(axis, c, r)
+            var ring = RotateGizmo.ring(axis, c, r)
+            var mode = GL_LINE_STRIP
+            // The selection's rings leave out what the box hides (they can't be grabbed there); a dragged ring shows whole.
+            if (occlude && grab < 0) {
+                val behind = RotateGizmo.hidden(ring, lo, hi, camera)
+                ring = ring.indices.toList().dropLast(1).filter { !behind[it] }.flatMap { listOf(ring[it], ring[it + 1]) }
+                mode = GL_LINES
+            }
             val w = if (grab >= 0) 4f else 3f
             // A dark rim under the colour, as the handles have.
-            draw(ring, GL_LINE_STRIP, dark, w + 2f)
-            draw(ring, GL_LINE_STRIP, RotateGizmo.color(axis), w)
+            draw(ring, mode, dark, w + 2f)
+            draw(ring, mode, RotateGizmo.color(axis), w)
         }
         val from = rotateFrom
         val m = rotateMatrix

@@ -50,15 +50,33 @@ object RotateGizmo {
         }
     }
 
-    /** The ring (0 X, 1 Y, 2 Z) whose drawn line passes within [reach] pixels of (x, y), nearest first, or -1. */
-    fun pick(lo: Vec3, hi: Vec3, camera: Camera, x: Float, y: Float, reach: Float, axisCount: Int = 3): Int {
+    /**
+     * Per segment of [ring] (point i to i + 1): whether the box ([lo], [hi]) hides it from [camera] (its midpoint lies
+     * behind the box), as [ScaleGizmo.visible] hides the handles behind it (user 2026-10-28: back parts grabbed touches).
+     */
+    fun hidden(ring: List<Vec3>, lo: Vec3, hi: Vec3, camera: Camera): BooleanArray {
+        val eye = camera.eye()
+        val e = maxOf(hi.x - lo.x, hi.y - lo.y, hi.z - lo.z) * 1e-3f
+        val inLo = Vec3(lo.x + e, lo.y + e, lo.z + e)
+        val inHi = Vec3(hi.x - e, hi.y - e, hi.z - e)
+        return BooleanArray(ring.size - 1) { i -> ScaleGizmo.segmentHitsBox(eye, (ring[i] + ring[i + 1]) * 0.5f, inLo, inHi) }
+    }
+
+    /**
+     * The ring (0 X, 1 Y, 2 Z) whose drawn line passes within [reach] pixels of (x, y), nearest first, or -1; with
+     * [occluded], the parts the box hides ([hidden]) don't count.
+     */
+    fun pick(lo: Vec3, hi: Vec3, camera: Camera, x: Float, y: Float, reach: Float, axisCount: Int = 3, occluded: Boolean = false): Int {
         val c = center(lo, hi)
         val r = radius(lo, hi, camera)
         var best = -1
         var bestD = reach
         for (axis in 0 until axisCount) {
-            val pts = ring(axis, c, r).map { camera.project(it) }
+            val world = ring(axis, c, r)
+            val behind = if (occluded) hidden(world, lo, hi, camera) else null
+            val pts = world.map { camera.project(it) }
             for (i in 0 until pts.size - 1) {
+                if (behind?.get(i) == true) continue
                 val a = pts[i] ?: continue
                 val b = pts[i + 1] ?: continue
                 val d = segmentDistance(x, y, a.first, a.second, b.first, b.second)
