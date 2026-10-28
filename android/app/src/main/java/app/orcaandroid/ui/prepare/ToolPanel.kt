@@ -202,6 +202,14 @@ private fun SculptOptions(vm: AppViewModel, tool: Tool.Sculpt) {
             FilterChip(tool.brush == brush, { vm.scene.setTool(tool.copy(brush = brush)) }, label = { Text(stringResource(label)) })
         }
     }
+    // Symmetry: each axis chip mirrors the strokes across the part's own plane through its middle (bits 1/2/4).
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.Center) {
+        Text(stringResource(R.string.sculpt_mirror), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.align(Alignment.CenterVertically))
+        listOf("X", "Y", "Z").forEachIndexed { i, axis ->
+            val bit = 1 shl i
+            FilterChip(tool.mirror and bit != 0, { vm.scene.setTool(tool.copy(mirror = tool.mirror xor bit)) }, label = { Text(axis) })
+        }
+    }
     ScrubSlider("sculpt_size", { stringResource(R.string.brush_size, it) }, tool.radius, SCULPT_MIN_MM..SCULPT_MAX_MM, 0.1f) {
         vm.scene.setTool(tool.copy(radius = it))
     }

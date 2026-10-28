@@ -15,6 +15,7 @@
 #include <limits>
 #include <optional>
 #include <stdexcept>
+#include <unordered_map>
 
 #include "libslic3r/AABBTreeIndirect.hpp"
 #include "libslic3r/Model.hpp"
@@ -53,13 +54,17 @@ struct OrcaEngine::SculptSession {
     std::vector<Copy> copies;
     int copies_version = -1;
     Transform3d frame = Transform3d::Identity(); // volume -> world of the sculpted copy
-    // Grab: the vertices under the brush at the stroke's first hit, their weights and start places; the drag plane (local).
+    // Grab: the vertices under the brush at the stroke's first hit (and its mirror images), their start places and per-axis
+    // weights (falloff times the mirror's signs, summed where images overlap); the drag plane (local).
     bool grabbing = false;
     std::vector<int> grab_verts;
-    std::vector<double> grab_w;
+    std::vector<Vec3d> grab_w;
     std::vector<meshdeform::Vec3> grab_orig;
     Vec3d grab_anchor = Vec3d::Zero(), grab_normal = Vec3d::UnitZ();
     meshsculpt::StrokeState layer;
+    // Symmetry planes' crossing (local): the part's middle when it was first sculpted with symmetry, kept across rebuilds of
+    // the same part, so an uneven stroke doesn't shift the planes.
+    std::optional<Vec3d> mirror_center;
     // Per-call dedupe of moved vertices / changed faces.
     std::vector<uint32_t> vstamp, fstamp;
     uint32_t stamp = 0;
@@ -225,6 +230,7 @@ bool OrcaEngine::sculpt_finish_locked()
     }
     const int oi = s.object, ii = s.instance, vi = s.volume;
     const double refined = s.refined_to;
+    const auto center = s.mirror_center;
     if (!sculpt_flush_locked())
         return false;
     if (split) {
@@ -235,6 +241,7 @@ bool OrcaEngine::sculpt_finish_locked()
         vol->fuzzy_skin_facets.reset();
         sculpt_build(oi, ii, vi);
         m_sculpt->refined_to = refined;
+        m_sculpt->mirror_center = center;
     }
     return true;
 }
@@ -257,7 +264,7 @@ json OrcaEngine::sculpt_end()
 }
 
 json OrcaEngine::sculpt(const std::array<int, 3> &target, const std::vector<std::array<double, 6>> &rays, const std::string &brush,
-                        double radius, double strength, bool invert, bool new_stroke, bool end, bool probe)
+                        double radius, double strength, bool invert, bool new_stroke, bool end, bool probe, int mirror)
 {
     if (probe)
         new_stroke = end = false;
@@ -294,8 +301,11 @@ json OrcaEngine::sculpt(const std::array<int, 3> &target, const std::vector<std:
         // Same part, same mesh (the stale-tree rebuild): it is still refined for the last brush.
         const double refined = m_sculpt && m_sculpt->object == oi && m_sculpt->volume == vi && m_sculpt->current == vol->mesh_ptr()
             ? m_sculpt->refined_to : std::numeric_limits<double>::max();
+        // Same part (also after an undo): the symmetry planes stay.
+        const auto center = m_sculpt && m_sculpt->object == oi && m_sculpt->volume == vi ? m_sculpt->mirror_center : std::nullopt;
         sculpt_build(oi, ii, vi);
         m_sculpt->refined_to = refined;
+        m_sculpt->mirror_center = center;
     }
     if (m_sculpt->copies_version != m_mesh_version || m_sculpt->instance != ii) {
         m_sculpt->instance = ii;
@@ -334,8 +344,10 @@ json OrcaEngine::sculpt(const std::array<int, 3> &target, const std::vector<std:
             obj.invalidate_bounding_box();
             commit();
             committed = true;
+            const auto center = s.mirror_center;
             sculpt_build(oi, ii, vi);
             m_sculpt->refined_to = edge;
+            m_sculpt->mirror_center = center;
             sculpt_copies();
         }
     }
@@ -344,6 +356,23 @@ json OrcaEngine::sculpt(const std::array<int, 3> &target, const std::vector<std:
     if (new_stroke || ss.layer.stamp.size() != ss.mesh.vertices.size())
         ss.layer.begin(ss.mesh.vertices.size());
     const Transform3d to_local = ss.frame.inverse();
+    // Symmetry: the sign flips of every mirror image the mask asks for, the stroke itself first.
+    std::vector<Vec3d> images{Vec3d::Ones()};
+    mirror &= 7;
+    if (mirror && !probe) {
+        if (!ss.mirror_center) {
+            Vec3d lo = Vec3d::Constant(std::numeric_limits<double>::max()), hi = -lo;
+            for (const auto &v : ss.mesh.vertices) {
+                lo = lo.cwiseMin(Vec3d(v.x, v.y, v.z));
+                hi = hi.cwiseMax(Vec3d(v.x, v.y, v.z));
+            }
+            ss.mirror_center = (lo + hi) * 0.5;
+        }
+        for (int m = 1; m < 8; ++m)
+            if ((m & ~mirror) == 0)
+                images.emplace_back(m & 1 ? -1. : 1., m & 2 ? -1. : 1., m & 4 ? -1. : 1.);
+    }
+    const Vec3d mc = ss.mirror_center.value_or(Vec3d::Zero());
 
     // The surface under a ray now: tree hits on faces that haven't moved, moved faces one by one.
     // The hit point and its face's vertex nearest to it (the brush's seed).
@@ -395,6 +424,24 @@ json OrcaEngine::sculpt(const std::array<int, 3> &target, const std::vector<std:
         ss.stamp = 1;
     }
     std::vector<int> moved, dab_moved;
+    // After each dab: the next dab's normals and hits follow the surface just made.
+    auto settle = [&] {
+        meshsculpt::update_normals(ss.mesh, ss.topo, dab_moved);
+        for (int v : dab_moved) {
+            if (ss.vstamp[size_t(v)] != ss.stamp) {
+                ss.vstamp[size_t(v)] = ss.stamp;
+                moved.push_back(v);
+            }
+            for (int j = ss.topo.fstart[v]; j < ss.topo.fstart[v + 1]; ++j) {
+                const int f = ss.topo.faces[size_t(j)];
+                if (!ss.touched[size_t(f)]) {
+                    ss.touched[size_t(f)] = 1;
+                    ss.touched_list.push_back(f);
+                }
+            }
+        }
+        dab_moved.clear();
+    };
     bool any_hit = false;
     // The brush cursor: the last dab's centre and surface normal (volume coordinates).
     Vec3d cursor_point = Vec3d::Zero(), cursor_normal = Vec3d::UnitZ();
@@ -427,18 +474,30 @@ json OrcaEngine::sculpt(const std::array<int, 3> &target, const std::vector<std:
                 ss.grab_verts.clear();
                 ss.grab_w.clear();
                 ss.grab_orig.clear();
-                // The vertices a zero-strength dab would take (joined to the hit), with its falloff.
-                meshsculpt::Stroke probe;
-                probe.brush = meshsculpt::Brush::Grab;
-                probe.center = {p->point.x(), p->point.y(), p->point.z()};
-                probe.radius = local_radius;
-                probe.seed = p->seed;
-                meshsculpt::dab(ss.mesh, ss.topo, probe, &ss.grab_verts);
-                for (int v : ss.grab_verts) {
-                    const auto &q = ss.mesh.vertices[size_t(v)];
-                    const double t = 1. - (Vec3d(q.x, q.y, q.z) - p->point).squaredNorm() / (local_radius * local_radius);
-                    ss.grab_w.push_back(t * t);
-                    ss.grab_orig.push_back(q);
+                // The vertices a zero-strength dab would take (joined to the hit), with its falloff; per mirror image.
+                std::unordered_map<int, size_t> slot;
+                for (const Vec3d &sg : images) {
+                    const auto h = &sg == &images.front() ? p : hit_of(mc + sg.cwiseProduct(o - mc), sg.cwiseProduct(d));
+                    if (!h)
+                        continue;
+                    std::vector<int> verts;
+                    meshsculpt::Stroke probe;
+                    probe.brush = meshsculpt::Brush::Grab;
+                    probe.center = {h->point.x(), h->point.y(), h->point.z()};
+                    probe.radius = local_radius;
+                    probe.seed = h->seed;
+                    meshsculpt::dab(ss.mesh, ss.topo, probe, &verts);
+                    for (int v : verts) {
+                        const auto &q = ss.mesh.vertices[size_t(v)];
+                        const double t = 1. - (Vec3d(q.x, q.y, q.z) - h->point).squaredNorm() / (local_radius * local_radius);
+                        const auto [it, added] = slot.try_emplace(v, ss.grab_verts.size());
+                        if (added) {
+                            ss.grab_verts.push_back(v);
+                            ss.grab_w.push_back(Vec3d::Zero());
+                            ss.grab_orig.push_back(q);
+                        }
+                        ss.grab_w[it->second] += t * t * sg;
+                    }
                 }
                 continue;
             }
@@ -455,40 +514,32 @@ json OrcaEngine::sculpt(const std::array<int, 3> &target, const std::vector<std:
             const Vec3d delta = o + d * t - ss.grab_anchor;
             for (size_t k = 0; k < ss.grab_verts.size(); ++k) {
                 const auto &v0 = ss.grab_orig[k];
-                const double w = ss.grab_w[k];
-                ss.mesh.vertices[size_t(ss.grab_verts[k])] = {v0.x + delta.x() * w, v0.y + delta.y() * w, v0.z + delta.z() * w};
+                const Vec3d w = ss.grab_w[k].cwiseProduct(delta);
+                ss.mesh.vertices[size_t(ss.grab_verts[k])] = {v0.x + w.x(), v0.y + w.y(), v0.z + w.z()};
             }
             dab_moved = ss.grab_verts;
+            settle();
         } else {
-            const auto p = hit_of(o, d);
-            if (!p)
-                continue;
-            any_hit = true;
-            cursor_point = p->point;
-            cursor_face = p->face;
-            meshsculpt::Stroke st;
-            st.brush = kind;
-            st.center = {p->point.x(), p->point.y(), p->point.z()};
-            st.seed = p->seed;
-            st.layer = &ss.layer;
-            st.radius = local_radius;
-            st.strength = std::clamp(strength, 0., 1.);
-            st.invert = invert;
-            meshsculpt::dab(ss.mesh, ss.topo, st, &dab_moved);
-        }
-        // The next dab's normals and hits follow the surface just made.
-        meshsculpt::update_normals(ss.mesh, ss.topo, dab_moved);
-        for (int v : dab_moved) {
-            if (ss.vstamp[size_t(v)] != ss.stamp) {
-                ss.vstamp[size_t(v)] = ss.stamp;
-                moved.push_back(v);
-            }
-            for (int j = ss.topo.fstart[v]; j < ss.topo.fstart[v + 1]; ++j) {
-                const int f = ss.topo.faces[size_t(j)];
-                if (!ss.touched[size_t(f)]) {
-                    ss.touched[size_t(f)] = 1;
-                    ss.touched_list.push_back(f);
+            // The stroke's dab, then its mirror images (the mirrored ray from the mirrored eye).
+            for (const Vec3d &sg : images) {
+                const auto p = hit_of(mc + sg.cwiseProduct(o - mc), sg.cwiseProduct(d));
+                if (!p)
+                    continue;
+                if (&sg == &images.front()) {
+                    any_hit = true;
+                    cursor_point = p->point;
+                    cursor_face = p->face;
                 }
+                meshsculpt::Stroke st;
+                st.brush = kind;
+                st.center = {p->point.x(), p->point.y(), p->point.z()};
+                st.seed = p->seed;
+                st.layer = &ss.layer;
+                st.radius = local_radius;
+                st.strength = std::clamp(strength, 0., 1.);
+                st.invert = invert;
+                meshsculpt::dab(ss.mesh, ss.topo, st, &dab_moved);
+                settle();
             }
         }
     }

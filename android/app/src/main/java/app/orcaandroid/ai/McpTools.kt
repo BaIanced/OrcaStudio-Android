@@ -180,7 +180,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             "painting is removed on the first refine). Repeat dabs with `dabs`. $PLATE_EDIT",
             obj(listOf("origin", "dir", "brush"), "origin" to vec("Ray origin in plate coordinates"), "dir" to vec("Ray direction"),
                 "brush" to p("string", "draw, inflate, smooth, flatten, pinch, crease or grab"), "radius" to p("number", "Brush radius in mm; default 5"),
-                "strength" to p("number", "0..1; default 0.5"), "invert" to p("boolean", "Dent instead of bulge"), "dabs" to p("integer", "Repeat count 1..50; default 1 (one stroke: draw, inflate and crease do not build up within it)"))) { sculpt(it) },
+                "strength" to p("number", "0..1; default 0.5"), "invert" to p("boolean", "Dent instead of bulge"), "mirror" to p("string", "Symmetry: also dab across the part's own middle planes, e.g. x or xz"), "dabs" to p("integer", "Repeat count 1..50; default 1 (one stroke: draw, inflate and crease do not build up within it)"))) { sculpt(it) },
         Tool("object_duplicate", "Plate edit: adds copies of one copy of an object; they are arranged on its plate. $PLATE_EDIT",
             obj(listOf("object"), *COPY, "copies" to p("integer", "How many, 1..100; default 1"))) { duplicate(it) },
         Tool("plate_arrange", "Plate edit: arranges the objects on a plate (default the active one), or with all true " +
@@ -862,9 +862,10 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         if (radius.isNaN() || radius <= 0) throw ToolError("radius must be > 0")
         val hit = store.engine.pick(origin.f(), dir.f()) ?: throw ToolError("the ray misses every object")
         val dabs = args.optInt("dabs", 1).coerceIn(1, 50)
+        val mirror = args.optString("mirror").lowercase().fold(0) { m, c -> m or when (c) { 'x' -> 1; 'y' -> 2; 'z' -> 4; else -> throw ToolError("mirror takes x, y and z") } }
         return plateEdit("sculpted object ${hit.obj + 1}", R.string.deforming) {
             store.engine.sculpt(hit, List(dabs) { origin.f() to dir.f() }, brush, radius.toFloat(), args.optDouble("strength", 0.5).toFloat(),
-                args.optBoolean("invert", false), newStroke = true, end = true).scene ?: throw ToolError("sculpt returned no scene")
+                args.optBoolean("invert", false), newStroke = true, end = true, mirror = mirror).scene ?: throw ToolError("sculpt returned no scene")
         }
     }
 

@@ -228,8 +228,9 @@ public:
     // "mesh_version": the scene mesh it applies to, "hit"}, plus the scene when the whole mesh was written. [end] (or
     // sculpt_end()) writes the part's mesh back, drops it onto the bed and returns the scene. With a hit, "point" and
     // "normal" (world) place the brush cursor. [probe] only hit-tests the rays (the cursor of a hovering mouse or pen).
+    // [mirror] bits 1/2/4: every dab is repeated across the part's own X/Y/Z planes through its middle (symmetry).
     json sculpt(const std::array<int, 3> &target, const std::vector<std::array<double, 6>> &rays, const std::string &brush,
-                double radius, double strength, bool invert, bool new_stroke, bool end = false, bool probe = false);
+                double radius, double strength, bool invert, bool new_stroke, bool end = false, bool probe = false, int mirror = 0);
     json sculpt_end();
     // A live sculpt's moved vertices go into its part's mesh (dispatch() calls this before any other call). True when it did.
     bool sculpt_flush();

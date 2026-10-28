@@ -834,7 +834,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
                     val rays = batch.filter { !it.end }.map { it.origin to it.dir }
                     if (target != null && tool != null && rays.isNotEmpty()) {
                         val t0 = android.os.SystemClock.elapsedRealtime()
-                        val step = engine.sculpt(target, rays, tool.brush, tool.radius, tool.strength, tool.invert, first.newStroke)
+                        val step = engine.sculpt(target, rays, tool.brush, tool.radius, tool.strength, tool.invert, first.newStroke, mirror = tool.mirror)
                         android.util.Log.d("OrcaSculpt", "${rays.size} ray(s) ${android.os.SystemClock.elapsedRealtime() - t0} ms, patch ${step.patch?.counts?.sum() ?: 0} tris")
                         step.scene?.let { store.applyScene(it) }
                         step.patch?.let { meshPatches.tryEmit(it) }

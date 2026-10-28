@@ -482,6 +482,7 @@
     <string name="sculpt_grab">Grab</string>
     <string name="sculpt_strength">Strength %d%%</string>
     <string name="sculpt_invert">Invert</string>
+    <string name="sculpt_mirror">Symmetry</string>
     <string name="blending">Blending…</string>
     <string name="hollow">Hollow</string>
     <string name="hollowing">Hollowing…</string>
