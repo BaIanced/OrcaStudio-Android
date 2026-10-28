@@ -55,8 +55,8 @@
     <string name="paint_crease_angle">Crease %d°</string>
     <string name="paint_guard">Guard plane</string>
     <string name="paint_guard_z">%.1f mm</string>
-    <string name="paint_lock_vertical">Lock ↕</string>
-    <string name="paint_lock_horizontal">Lock ↔</string>
+    <string name="paint_lock_vertical">Straight ↕</string>
+    <string name="paint_lock_horizontal">Straight ↔</string>
     <string name="paint_overhang_angle">Over %d°</string>
     <string name="paint_height_range">Height %.1f mm</string>
     <string name="paint_mode_brush">Brush</string>

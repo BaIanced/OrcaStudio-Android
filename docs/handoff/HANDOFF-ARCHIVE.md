@@ -3492,3 +3492,6 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 
 ## 2026-10-28 snap toggle + CI 40729403081
 - Snap toggle 846a663 Claude-verified on WSA debug: magnet button toggles (orange on / dark off), Shift+Tab toggles, drag snaps to the row edge with a thin magenta guide. Ctrl flip by code only. User feel untested. CI run 40729403081 (82bfd05: slice-cancel + gizmo fixes) green, installed on WSA, phone, SHIELD (Note not connected).
+
+## 2026-10-28 Clean specks with lock
+- Clean specks with a locked filament Claude-verified on WSA r456 (release app, brush 0.5 mm, area 4.7 mm2): with filament 2 locked, the tiny 2-specks stayed and an unlocked filament-3 speck was cleaned; with 2 unlocked, the 2-specks were cleaned too (patches bigger than the area stay). User feel untested.

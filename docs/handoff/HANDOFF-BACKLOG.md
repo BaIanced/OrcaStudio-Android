@@ -16,7 +16,7 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - [Opus if reopened] Two-finger gestures: pan->zoom fix fa1754c (user r305 "still broken"; r311 "pans feel fine" may cover it), pinch zoom-out r312, pinch lock + speeds (r280/r324), Quest stick zoom (r324): user feel pending.
 - Corner resize gated behind long-press Resize / Ctrl+T (r305, 72dd138): probably superseded by the scale gizmo (user-verified r335, archive); ask before testing.
 - Extended paint tools (upstream set, stroke lock, overhang highlight, hold-to-preview fill, regions view, one-tap actions, fill stops + guard plane; Claude WSA 2026-10-20/21): user feel untested. Unpicked survey ideas: NOTES-paint-survey.md.
-- Paint panel layout C: modes verified by user r453 2026-10-28. Open: Clean specks with lock (untested); rename stroke-axis "Lock ↕/↔" chips?
+- Paint panel layout C: modes verified by user r453 2026-10-28. Clean specks with lock Claude-verified WSA r456 2026-10-28 (archive). Open: rename stroke-axis "Lock ↕/↔" chips?
 - Paint depth (r367, Claude WSA G-code OK 2026-10-21): user feel + real print untested.
 - Paint shop reopen fix (Claude WSA r374) + plate estimate line (Claude WSA r376 = Preview; one density, part-level filaments ignored): user look/feel.
 - Check mesh: marker readability, self-intersection count on a real file, thin walls (Claude WSA test STL, run 39657856306).
