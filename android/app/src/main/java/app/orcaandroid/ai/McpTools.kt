@@ -290,33 +290,62 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         describe(st.name, d, st.selected)
     }
 
-    private fun describe(name: String, d: ShapeDesign, selected: List<Int>) = buildString {
-        val count = d.shapes.sumOf { it.all().count() }
-        append("Design \"$name\": $count shape(s)")
-        if (selected.isNotEmpty()) append(", selected ${ref(selected)}")
-        appendLine()
-        d.dims.forEach { appendLine("dim ${it.name} = ${n(it.value)} (${n(it.min)}..${n(it.max)} step ${n(it.step)})") }
-        fun line(s: Shape, depth: Int) {
-            append("  ".repeat(depth)).append("#${s.id} ${s.kind.key} \"${s.name}\"")
-            if (s.hole) append(" HOLE")
-            if (s.filament > 0 && !s.hole && depth == 0) append(" filament ${s.filament}")
-            if (!s.isGroup) append(" size ${v(d.size(s))}")
-            append(" pos ${v(d.pos(s))}")
-            d.rot(s).takeIf { it != D3() }?.let { append(" rot ${v(it)}") }
-            s.mirror.takeIf { it != D3() }?.let { append(" mirror ${v(it)}") }
-            s.extra.forEach { (k, x) -> append(" $k=${n(x)}") }
-            if (s.text.isNotEmpty()) append(" text \"${s.text}\"")
-            s.repeat?.let { r -> append(if (r.circular) " repeat ${r.count}x around ${v(r.center)} over ${n(r.angle)}°" else " repeat ${r.count}x step ${v(r.step)}") }
-            s.sketch?.let { sk -> append(" sketch ${sk.loops.size} loop(s)") }; s.top?.let { append(" lofted to a top outline") }; s.path?.let { append(" swept along a path") }
-            s.bind.forEach { (f, dim) -> append(" $f<-$dim") }
-            val b = d.bounds(s)
-            append(" bounds ${v(b.min)}..${v(b.max)}")
-            appendLine()
-            s.children.forEach { line(it, depth + 1) }
+    /** The design text in pieces, so an edit can reply with only the pieces it changed. */
+    private class Rendered(val header: String, val dims: Map<String, String>, val blocks: Map<Int, String>, val fit: String)
+
+    private fun describe(name: String, d: ShapeDesign, selected: List<Int>): String {
+        val r = render(name, d, selected)
+        return buildString {
+            appendLine(r.header)
+            r.dims.values.forEach { appendLine(it) }
+            r.blocks.values.forEach { append(it) }
+            if (d.shapes.isEmpty()) appendLine("(empty)")
+            appendLine(r.fit)
         }
-        d.shapes.forEach { line(it, 0) }
-        if (d.shapes.isEmpty()) appendLine("(empty)")
-        appendLine(fitNotes(d))
+    }
+
+    /** What changed from [before] to [after]: header, changed / new dims and top-level shape trees, removed ones, the fit check. */
+    private fun diff(before: Rendered, after: Rendered, empty: Boolean) = buildString {
+        appendLine(after.header)
+        after.dims.forEach { (k, l) -> if (before.dims[k] != l) appendLine(l) }
+        before.dims.keys.filter { it !in after.dims }.forEach { appendLine("dim $it: removed") }
+        after.blocks.forEach { (id, t) -> if (before.blocks[id] != t) append(t) }
+        before.blocks.keys.filter { it !in after.blocks }.forEach { appendLine("#$it: removed") }
+        val kept = after.blocks.keys.filter { it in before.blocks }
+        if (kept != before.blocks.keys.filter { it in after.blocks }) appendLine("order: ${after.blocks.keys.joinToString(", ") { "#$it" }}")
+        if (empty) appendLine("(empty)")
+        appendLine(after.fit)
+    }
+
+    private fun render(name: String, d: ShapeDesign, selected: List<Int>): Rendered {
+        val count = d.shapes.sumOf { it.all().count() }
+        val header = buildString {
+            append("Design \"$name\": $count shape(s)")
+            if (selected.isNotEmpty()) append(", selected ${ref(selected)}")
+        }
+        val dims = d.dims.associate { it.name to "dim ${it.name} = ${n(it.value)} (${n(it.min)}..${n(it.max)} step ${n(it.step)})" }
+        fun block(top: Shape) = buildString {
+            fun line(s: Shape, depth: Int) {
+                append("  ".repeat(depth)).append("#${s.id} ${s.kind.key} \"${s.name}\"")
+                if (s.hole) append(" HOLE")
+                if (s.filament > 0 && !s.hole && depth == 0) append(" filament ${s.filament}")
+                if (!s.isGroup) append(" size ${v(d.size(s))}")
+                append(" pos ${v(d.pos(s))}")
+                d.rot(s).takeIf { it != D3() }?.let { append(" rot ${v(it)}") }
+                s.mirror.takeIf { it != D3() }?.let { append(" mirror ${v(it)}") }
+                s.extra.forEach { (k, x) -> append(" $k=${n(x)}") }
+                if (s.text.isNotEmpty()) append(" text \"${s.text}\"")
+                s.repeat?.let { r -> append(if (r.circular) " repeat ${r.count}x around ${v(r.center)} over ${n(r.angle)}°" else " repeat ${r.count}x step ${v(r.step)}") }
+                s.sketch?.let { sk -> append(" sketch ${sk.loops.size} loop(s)") }; s.top?.let { append(" lofted to a top outline") }; s.path?.let { append(" swept along a path") }
+                s.bind.forEach { (f, dim) -> append(" $f<-$dim") }
+                val b = d.bounds(s)
+                append(" bounds ${v(b.min)}..${v(b.max)}")
+                appendLine()
+                s.children.forEach { line(it, depth + 1) }
+            }
+            line(top, 0)
+        }
+        return Rendered(header, dims, d.shapes.associate { it.id to block(it) }, fitNotes(d))
     }
 
     /**
@@ -683,14 +712,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
                 val here = o.instances.filter { it.plate == plate }
                 if (here.isEmpty()) return@forEach
                 appendLine("  object ${o.index + 1} \"${o.name}\", ${o.triangles} triangles")
-                here.forEach { i ->
-                    append("    copy ${i.index + 1}: ")
-                    if (plate >= 0) append("centre ${v2(footprint(scene, i))}, ")
-                    append("size ${n(i.size.x.toDouble())} x ${n(i.size.y.toDouble())} x ${n(i.size.z.toDouble())} mm")
-                    i.rotation.takeIf { r -> r.x != 0f || r.y != 0f || r.z != 0f }?.let { append(", rot ${v(it.d3())}") }
-                    i.scale.takeIf { c -> c.x != 1f || c.y != 1f || c.z != 1f }?.let { append(", scale ${v((it * 100f).d3())} %") }
-                    appendLine()
-                }
+                here.forEach { i -> appendLine("    copy ${i.index + 1}: " + copyText(scene, i)) }
             }
             for (plate in scene.plates) {
                 append("Plate ${plate.index + 1}")
@@ -704,6 +726,30 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             }
             if (scene.outsideCount > 0) { appendLine("Off the plates:"); copies(-1) }
         }
+    }
+
+    /** One copy's centre (on a plate), size, turn and scale: the part of a plate_describe line that an edit can change. */
+    private fun copyText(scene: Scene, i: Instance) = buildString {
+        if (i.plate >= 0) append("centre ${v2(footprint(scene, i))}, ")
+        append("size ${n(i.size.x.toDouble())} x ${n(i.size.y.toDouble())} x ${n(i.size.z.toDouble())} mm")
+        i.rotation.takeIf { r -> r.x != 0f || r.y != 0f || r.z != 0f }?.let { append(", rot ${v(it.d3())}") }
+        i.scale.takeIf { c -> c.x != 1f || c.y != 1f || c.z != 1f }?.let { append(", scale ${v((it * 100f).d3())} %") }
+    }
+
+    /** The plates as lines keyed "Plate N" / "object N copy C", to tell what a plate edit changed. */
+    private fun plateState(): Map<String, String> {
+        val s = store.value
+        val scene = s.scene
+        val out = LinkedHashMap<String, String>()
+        for (p in scene.plates) {
+            out["Plate ${p.index + 1}"] = "Plate ${p.index + 1}${if (p.index == s.activePlate) " (active)" else ""}: ${scene.objectsOn(p.index).size} object(s)" +
+                (s.results[p.index]?.let { r -> ", sliced: ${duration(r.printTimeSeconds)}, ${n(r.filamentGrams)} g" } ?: "")
+        }
+        for (o in scene.objects) for (i in o.instances) {
+            val where = if (i.plate >= 0) "plate ${i.plate + 1}" else "off the plates"
+            out["object ${o.index + 1} copy ${i.index + 1}"] = "object ${o.index + 1} \"${o.name}\" copy ${i.index + 1} ($where, ${o.triangles} triangles): " + copyText(scene, i)
+        }
+        return out
     }
 
     // --- Plate edits ----------------------------------------------------------------------------------
@@ -722,8 +768,8 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         return o to (obj.instances.getOrNull(c) ?: throw ToolError("Object ${o + 1} has no copy ${c + 1}"))
     }
 
-    /** Runs engine operation [op], adopts its scene (one undo step in the app) and returns the new plate description. */
-    private suspend fun plateEdit(summary: String, busy: Int? = null, op: suspend () -> Scene): String {
+    /** Runs engine operation [op] and adopts its scene (one undo step in the app). */
+    private suspend fun plateOp(summary: String, busy: Int? = null, op: suspend () -> Scene) {
         if (busy != null) store.update { it.copy(busy = store.str(busy)) }
         try {
             val scene = op()
@@ -732,7 +778,20 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             if (busy != null) store.update { it.copy(busy = null) }
         }
         store.toast(store.str(R.string.ai_edit, summary))
-        return plateDescribe()
+    }
+
+    /** The reply to a plate edit: what changed since [before] (a [plateState]), side effects included; plate_describe has the rest. */
+    private fun plateDiff(summary: String, before: Map<String, String>): String {
+        val after = plateState()
+        val lines = after.filter { (k, l) -> before[k] != l }.values + before.keys.filter { it !in after }.map { "$it: removed" }
+        return "Done: $summary.\n" + if (lines.isEmpty()) "Nothing changed on the plates." else lines.joinToString("\n")
+    }
+
+    /** Runs engine operation [op], adopts its scene (one undo step in the app) and returns what it changed. */
+    private suspend fun plateEdit(summary: String, busy: Int? = null, op: suspend () -> Scene): String {
+        val before = plateState()
+        plateOp(summary, busy, op)
+        return plateDiff(summary, before)
     }
 
     private suspend fun transform(args: JSONObject): String {
@@ -748,18 +807,18 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         if (plate != null && pos == null) throw ToolError("plate needs pos")
         if (pos == null && rot == null && scale == null) throw ToolError("Give pos, rot or scale")
         val ref = "object ${o + 1} copy ${inst.index + 1}"
-        var out = ""
-        if (rot != null || scale != null) out = plateEdit("turned / scaled $ref") {
+        val before = plateState() // one snapshot for both steps, or the turn is missing from the reply
+        if (rot != null || scale != null) plateOp("turned / scaled $ref") {
             store.engine.setTransform(o, inst.index, rotation = rot?.f(), scale = scale?.let { (it.f() * 0.01f) })
         }
-        if (pos != null) out = plateEdit("moved $ref") {
+        if (pos != null) plateOp("moved $ref") {
             // After a turn / scale the footprint has moved: measure it in the current scene.
             val scene = store.value.scene
             val now = scene.objects[o].instances[inst.index]
             val (x, y) = footprint(scene, now, plate ?: now.plate.coerceAtLeast(0))
             store.engine.setTransform(o, inst.index, offset = now.offset + Vec3((pos.first - x).toFloat(), (pos.second - y).toFloat(), 0f))
         }
-        return out
+        return plateDiff(if (pos != null && (rot != null || scale != null)) "turned / scaled and moved $ref" else if (pos != null) "moved $ref" else "turned / scaled $ref", before)
     }
 
     private suspend fun layOnFace(args: JSONObject): String {
@@ -860,9 +919,10 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         change(before)
         val st = store.value.scad ?: throw ToolError("The design editor was closed")
         val after = st.shapes ?: before
-        if (after == before) return@withContext "Nothing changed.\n" + describe(st.name, after, st.selected)
+        val now = render(st.name, after, st.selected)
+        if (after == before) return@withContext "Nothing changed.\n" + now.header
         store.toast(store.str(R.string.ai_edit, summary))
-        describe(st.name, after, st.selected)
+        diff(render(st.name, before, st.selected), now, after.shapes.isEmpty())
     }
 
     private suspend fun set(args: JSONObject): String {
@@ -1113,7 +1173,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
 
         private const val EDIT = "One undo step in the app (the user can press Undo)."
         private const val OPENS = " Opens the design editor on the saved draft when it is closed."
-        private const val PLATE_EDIT = "Changes the user's plate (not the design); one undo step in the app. Returns plate_describe."
+        private const val PLATE_EDIT = "Changes the user's plate (not the design); one undo step in the app. Returns what changed; plate_describe has the rest."
 
         /** Which copy a plate tool works on. */
         private val COPY = arrayOf("object" to p("integer", "Object number from plate_describe"),
@@ -1164,7 +1224,8 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         const val INSTRUCTIONS = "OrcaStudio-Android (3D printing slicer). These tools edit the shape-builder design open in the " +
             "app's design editor (OpenSCAD is generated from it). Read with design_describe first (cheapest), design_get for " +
             "the JSON, design_snapshot for a picture when shape matters. Change it with the shape_* / dim_* / sketch_set tools " +
-            "(or design_set for a whole new design), check with design_preview, and ask design_to_plate to put it on the plate " +
+            "(or design_set for a whole new design); an edit replies with the dims and top-level shape trees it changed (side effects " +
+            "included), removed ids and the fit check, so design_describe has the full tree. Check with design_preview, and ask design_to_plate to put it on the plate " +
             "(the user confirms on screen). plate_describe shows the print set-up and the plate itself (separate from the design); " +
             "the object_* / plate_arrange tools move, turn, scale, copy and arrange the objects on it. Print settings: preset_list / " +
             "preset_get / setting_find read the printer, process and filament presets, settings_edit changes settings as unsaved " +
