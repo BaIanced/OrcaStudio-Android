@@ -36,6 +36,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import app.orcaandroid.core.SliceResult
 import app.orcaandroid.core.Vec3
 import app.orcaandroid.render.CutPlane
+import app.orcaandroid.render.DragSnap
 import app.orcaandroid.render.FilamentMaterial
 import app.orcaandroid.render.FloatData
 import app.orcaandroid.render.PushGrab
@@ -749,6 +750,21 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         val insts = items.mapNotNull { s -> scene.objects.getOrNull(s.obj)?.instances?.getOrNull(s.instance) }
         v.selectedBounds = insts.map { it.min to (it.min + it.size) }
         v.resizeAxes = insts.singleOrNull()?.let { ownAxes(it.rotation) != null } ?: true
+        // Smart guides: a body drag sticks the selection's edges and middle to the plate's edges and middle and to the other objects' edges and middles.
+        v.dragSnap = insts.firstOrNull()?.let { first ->
+            val plate = scene.plates.getOrNull(first.plate.takeIf { it >= 0 } ?: state.activePlate)
+            if (plate == null) null else {
+                val lo = Vec3(insts.minOf { it.min.x }, insts.minOf { it.min.y }, insts.minOf { it.min.z })
+                val hi = Vec3(insts.maxOf { it.min.x + it.size.x }, insts.maxOf { it.min.y + it.size.y }, insts.maxOf { it.min.z + it.size.z })
+                val bed = Vec3(plate.originX, plate.originY, 0f) to Vec3(plate.originX + scene.plateWidth, plate.originY + scene.plateDepth, 0f)
+                val sel = items.map { it.obj to it.instance }.toSet()
+                val others = arrayListOf(bed)
+                scene.objects.forEachIndexed { o, obj -> obj.instances.forEachIndexed { i, inst ->
+                    if ((o to i) !in sel && inst.plate == first.plate) others.add(inst.min to (inst.min + inst.size))
+                } }
+                DragSnap(lo, hi, others, mid = true)
+            }
+        }
     }
     LaunchedEffect(v, state.tool, showPreview, state.overhangView, state.overhangDrag, state.value(PresetType.PRINT, "support_threshold_angle")) {
         v.mode = when {

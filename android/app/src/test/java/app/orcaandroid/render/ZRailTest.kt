@@ -25,6 +25,12 @@ class ZRailTest {
         assertNull(ZRail.lift(1.5f, 0f, 10f, listOf(0f, 3f), 1f, 1f).second)
     }
 
+    @Test fun middleSnapsOnlyWhenAsked() {
+        // A 0..10 box dragged 94.6 mm: its middle (5) meets the plate middle at 100 -> lift 95.
+        assertEquals(95f to 100f, ZRail.lift(94.6f, 0f, 10f, listOf(100f), 1f, 1f, mid = true))
+        assertEquals(95f to null, ZRail.lift(94.6f, 0f, 10f, listOf(100f), 1f, 1f))
+    }
+
     @Test fun gapGrowsWithTheBox() {
         assertEquals(4f, ZRail.gap(Vec3(0f, 0f, 0f), Vec3(5f, 5f, 5f)), 0f)
         assertEquals(25f, ZRail.gap(Vec3(0f, 0f, 0f), Vec3(100f, 20f, 10f)), 0f)

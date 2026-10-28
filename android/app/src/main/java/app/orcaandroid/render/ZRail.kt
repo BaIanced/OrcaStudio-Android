@@ -14,13 +14,13 @@ object ZRail {
 
     /**
      * The lift for a raw drag of [raw] mm: the nearest snap within [reach] mm (the bottom [lo] or the top [hi]
-     * landing on one of the [targets] heights), else [raw] rounded to [step]. Second is the snapped height, or null.
+     * landing on one of the [targets] heights, or with [mid] its middle), else [raw] rounded to [step]. Second is the snapped height, or null.
      */
-    fun lift(raw: Float, lo: Float, hi: Float, targets: List<Float>, reach: Float, step: Float): Pair<Float, Float?> {
+    fun lift(raw: Float, lo: Float, hi: Float, targets: List<Float>, reach: Float, step: Float, mid: Boolean = false): Pair<Float, Float?> {
         var best: Float? = null
         var at: Float? = null
         var dist = reach
-        for (t in targets) for (dz in floatArrayOf(t - lo, t - hi)) {
+        for (t in targets) for (dz in if (mid) floatArrayOf(t - lo, t - hi, t - (lo + hi) / 2) else floatArrayOf(t - lo, t - hi)) {
             val e = abs(raw - dz)
             if (e <= dist) { dist = e; best = dz; at = t }
         }

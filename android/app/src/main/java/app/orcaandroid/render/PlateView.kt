@@ -114,7 +114,10 @@ interface PlateListener {
 class TowerBox(val plate: Int, val lo: Vec3, val hi: Vec3)
 
 /** A body drag's edge snap: the moved box ([lo], [hi]) and the boxes its edges stick to (plate mm). */
-class DragSnap(val lo: Vec3, val hi: Vec3, val others: List<Pair<Vec3, Vec3>>)
+class DragSnap(val lo: Vec3, val hi: Vec3, val others: List<Pair<Vec3, Vec3>>, val mid: Boolean = false) {
+    /** The lines one other box offers along an axis: its two edges, plus its middle when [mid] (Prepare's smart guides). */
+    fun targets(a: Float, b: Float) = if (mid) listOf(a, b, (a + b) / 2) else listOf(a, b)
+}
 
 @SuppressLint("ViewConstructor")
 class PlateView(context: Context) : GLSurfaceView(context) {
@@ -891,8 +894,8 @@ class PlateView(context: Context) : GLSurfaceView(context) {
         val pxPerMm = max(px(Vec3(10f, 0f, 0f)) ?: 0f, px(Vec3(0f, 10f, 0f)) ?: 0f) / 10f
         val reach = if (pxPerMm < 0.01f) 0f else 10 * resources.displayMetrics.density / pxPerMm
         val step = if (fine) 0.1f else 1f
-        val (dx, sx) = ZRail.lift(now.x - start.x, s.lo.x, s.hi.x, s.others.flatMap { listOf(it.first.x, it.second.x) }, reach, step)
-        val (dy, sy) = ZRail.lift(now.y - start.y, s.lo.y, s.hi.y, s.others.flatMap { listOf(it.first.y, it.second.y) }, reach, step)
+        val (dx, sx) = ZRail.lift(now.x - start.x, s.lo.x, s.hi.x, s.others.flatMap { s.targets(it.first.x, it.second.x) }, reach, step, s.mid)
+        val (dy, sy) = ZRail.lift(now.y - start.y, s.lo.y, s.hi.y, s.others.flatMap { s.targets(it.first.y, it.second.y) }, reach, step, s.mid)
         if ((sx != null || sy != null) && (sx != dragSnapX || sy != dragSnapY)) performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
         dragSnapX = sx; dragSnapY = sy
         val g = snapGuides(s, dx, dy, sx, sy)
@@ -906,13 +909,13 @@ class PlateView(context: Context) : GLSurfaceView(context) {
         val z = s.lo.z
         val guide = ArrayList<Float>()
         sx?.let { t ->
-            val hit = s.others.filter { abs(it.first.x - t) < 1e-3f || abs(it.second.x - t) < 1e-3f }
+            val hit = s.others.filter { s.targets(it.first.x, it.second.x).any { v -> abs(v - t) < 1e-3f } }
             val y0 = minOf(s.lo.y + dy, hit.minOfOrNull { it.first.y } ?: Float.MAX_VALUE)
             val y1 = maxOf(s.hi.y + dy, hit.maxOfOrNull { it.second.y } ?: -Float.MAX_VALUE)
             guide += listOf(t, y0, z, t, y1, z)
         }
         sy?.let { t ->
-            val hit = s.others.filter { abs(it.first.y - t) < 1e-3f || abs(it.second.y - t) < 1e-3f }
+            val hit = s.others.filter { s.targets(it.first.y, it.second.y).any { v -> abs(v - t) < 1e-3f } }
             val x0 = minOf(s.lo.x + dx, hit.minOfOrNull { it.first.x } ?: Float.MAX_VALUE)
             val x1 = maxOf(s.hi.x + dx, hit.maxOfOrNull { it.second.x } ?: -Float.MAX_VALUE)
             guide += listOf(x0, t, z, x1, t, z)
