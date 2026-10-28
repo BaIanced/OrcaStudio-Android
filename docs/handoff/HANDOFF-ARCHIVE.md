@@ -3505,3 +3505,10 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 
 ## 2026-10-28 Tooltip sweep
 - Script ~/orca-android-tools/wrap_tips.py wrapped every bare IconButton whose Icon has a content description in Tip(desc) (81 sites, 19 files); skipped: PreparePanel colour dots (210, 344), PrepareOverlay:703 (no label). compileDebugKotlin clean; WSA debug launch, no crash. Hover/long-press tooltips untested on device.
+
+## 2026-10-28 Shape builder W/D/H scrub + proportional lock (9e24ef7, compiled, JVM 7/7, untested on device)
+- `NumberScrub` + `ScrubCell` (ui/components/Scrubber.kt): sideways drag on a number cell = 1 unit per 8 dp; finger 40 dp above its start = 0.1 steps (label shows "·0.1"); tap still edits, up/down drag still scrolls (claims only past touch slop with |dx| > 1.5|dy|, Initial pass). Size min 0.1.
+- Applied to all three rows (size, position, rotation), not only W/D/H (deviation: same gesture everywhere).
+- Lock: ONE toggle in the Size header (deviation = the agreed fallback: badges in the narrow cells would crowd the numbers). `ShapeController.sizeLock` (session-wide) + `setSize` scales the other two by the same factor (typed or dragged); followers grey (alpha 0.45) while a cell is dragged.
+- One undo step per drag: `ShapeController.live(on)` merges the drag's commits. Render speed: existing pushBuild debounce (150 ms + renderAgain) and value changes only at step boundaries; no extra throttle.
+- Not built: "slider mode shows one proportional slider" (spec unclear: the Sliders menu makes one slider per field). Test plan: WSA debug, Build workspace box: drag W right ~10 units, raise finger -> 0.1 steps, lock on -> D/H follow + grey, one undo restores all three; vertical drag on the cells scrolls the panel; tap opens the keyboard.

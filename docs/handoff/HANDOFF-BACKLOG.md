@@ -64,7 +64,7 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - MCP token efficiency (Opus review + analysis done 2026-10-27, `NOTES-mcp-token-efficiency.md`): proposed build rule waits for the user's OK; plan A-C (diff replies) r452 Claude-verified WSA 2026-10-28; D dropped.
 - Hover tooltips: all 81 icon buttons with a content description now wrapped in Tip() (Claude 2026-10-28, compiles, WSA debug launch OK; hover/long-press not adb-testable); 3 colour-dot buttons have no label. User feel untested.
 - [Opus] Build continuity (user brain dump 2026-10-28, exploration; archive): show the other objects ghosted in Build, one builder entry + CAD badge; user agreed with the leanings; open: mockup first, keep their vision as a toggle.
-- Shape builder W/D/H scrub + one shared proportional lock (user 2026-10-28, design agreed; full spec in archive 2026-10-28 trim): not built. Open: badge clutter, live speed on groups.
+- Shape builder W/D/H scrub + proportional lock: built 9e24ef7 (archive 2026-10-28), compiled + JVM 7/7; open: WSA debug test (plan in archive), then CI; proportional slider-mode unbuilt (spec unclear). Claude 2026-10-28.
 - Shape builder bugs (user 2026-10-28, session B): drag lag, rings through the object, end copy drag scaling spacing: fixed 1a94899, Claude-verified WSA debug 2026-10-28 (archive); open: user feel (on hold, no user testing now).
 - Snapping (user 2026-10-28: toggle/hotkey, not forced on the plate, thin Adobe-style guide): 846a663 Claude-verified WSA 2026-10-28; user feel untested.
 - Session B checks skipped by user 2026-10-28 ("don't want to do right now"): Sculpt, Hollow, Center/Align, Check mesh, badge fix.
