@@ -14,7 +14,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 0170950 (PR #65, branch at r398, merged 2026-10-25). Untested by the user in main: Build workspace, paint shop/depth, Filament materials, Realistic render, UX P1-P6, Check mesh feel, 3MF export in desktop Orca, pen, fan hold, Extrude F150.
 - Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
-- Latest CI build: r458 (run 40749680026) on all devices; r459 (run 40758193900, 4be7551: deferred sculpt hull) building. User feel untested. Install new builds on all adb devices (skip the .23 tablet: 32-bit, Android 6).
+- Latest CI build: r459 (run 40758193900, 4be7551) on WSA, phone, Note, SHIELD. User feel untested. Install new builds on all adb devices (skip the .23 tablet: 32-bit, Android 6).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **User 2026-10-28: no more user testing for now; Claude builds and tests everything itself (memory no-user-testing-now); don't ask for feel/UI checks.**
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
@@ -34,10 +34,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - CAD plan (`NOTES-cad-reuse.md`): 0-5b Claude-verified, user feel untested; 1b parked.
 - **No WSA focus loops** (memory no-popups-on-user-screens). Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
 - MCP token efficiency (`NOTES-mcp-token-efficiency.md`): A-C verified, D dropped; build rule waits for the user's OK.
-- Sculpt latency (914816d + 68e8f7a + 4be7551): deferred stroke-end hull Claude-verified on WSA debug 2026-10-28 (archive);
-  CI run 40758193900 = r459 dispatched. Next: when green, install r459 on WSA, phone, Chromebook, SHIELD (`install-build.ps1`),
-  smoke one sphere stroke on the release app (logcat `box hull`), log it; then pick the next backlog item.
-- Next step: install r459 on all devices + smoke -> Sonnet 5.5 (medium)
+- Sculpt latency (914816d + 68e8f7a + 4be7551): deferred stroke-end hull verified on WSA debug and r459 release 2026-10-28 (archive). Done.
+- Remaining gate work is user sessions B, C, D (`NOTES-merge-batch.md`); user paused testing 2026-10-28. Sculpt symmetry x done. Ask the user whether to resume sessions or merge Session-A items.
+- **Debug notes (996638e, 2026-10-28, WSA-verified; pen button untested):** debug build only; Ctrl+Shift+N or S Pen button -> screenshot + note. **At /next, read** `adb shell cat /sdcard/Android/data/<debug pkg>/files/notes/notes.jsonl` (PNGs beside it; view only ambiguous ones); never commit them.
+- Next step: ask user: resume sessions B-D or merge Session A -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).

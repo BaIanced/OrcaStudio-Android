@@ -3539,3 +3539,10 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 - Two strokes then Ctrl+Z twice (`input keycombination KEYCODE_CTRL_LEFT KEYCODE_Z`; no MCP undo tool): 86.4 -> 83.2 -> 80 mm,
   56.4k -> 39.6k faces, no crash. 4be7551 adds a dispatch log `sculpt: <method> waited N ms for the flush` (>= 20 ms only).
 - CI run 40758193900 (4be7551 = r459) dispatched. User feel untested.
+
+## 2026-10-28 r459 release smoke (Claude, WSA)
+- r459 (run 40758193900, 4be7551) installed on WSA, phone, Note, SHIELD (Chromebook offline). WSA release: MCP `object_sculpt` inflate r8 x5 on a 6.3k-face part: refine to 14.3k faces, flush set mesh 1 ms + box hull 1 ms; arrange right after: `hull in, waited 0 ms`; no crash. Ray origin is absolute plate mm (object centre from plate_describe), not bed-centred.
+
+## 2026-10-28 Sculpt symmetry x check (Claude, WSA r459 release)
+- Clean 40x40x20 box (12 tris) on the plate; inflate r6 x3 with `mirror:"x"` from the +x side at y+5: size 40 -> 44.79 in x, centre unchanged = both x faces bumped equally (+2.4 each). Earlier test on a non-symmetric box+sphere union grew one side only (no surface at the mirror spot, expected). Not checked: y/z positions of the mirrored bump, xz mirror, grab on the symmetry plane (bbox cannot show them; would need a screenshot).
+- Same day, z mirror (Claude, WSA r459): inflate r5 x6 from the top with `mirror:"z"` on the box: z size 20 -> 24.95 (about 2.5 each side, so the bottom was bumped too); xz mirror dab on the +x face: x size 40 -> 44.98 (both x faces bumped). Screenshots show nothing: black filament + flat faces hide a 2.5 mm bump even with shadows/AO off. Still unchecked: exact y/z position of mirrored bumps on a face, grab on the symmetry plane (would need a light filament + oblique light, low value).

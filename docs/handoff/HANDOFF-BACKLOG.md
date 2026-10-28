@@ -32,7 +32,7 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 ## Waiting on the user
 - HD plate ideas (user verified r394): 3D bed frame model, dual-nozzle decal layout (Claude 2026-10-24).
 - Plate switcher pick (lab stays; don't ask again). Launcher icon colour ("decide later"). REA MCP enable (installed, not enabled).
-- [Opus] Sculpt mode (More > Sculpt, r428; Claude-verified WSA debug 2026-10-26, user feel untested). Symmetry built 51ad144 (CI 40738227951, untested). Open: stroke-end hull ~735 ms at 135k (first-stroke build/refine sped up 2026-10-28, WSA debug, not in CI yet), paint overlay only at stroke end.
+- [Opus] Sculpt mode (More > Sculpt, r428; Claude-verified WSA debug 2026-10-26, user feel untested). Symmetry built 51ad144 (CI 40738227951, untested). Stroke-end hull deferred + first-stroke speedup in r459 (Claude WSA release 2026-10-28, archive). Open: paint overlay only at stroke end; symmetry x/z/xz verified by bbox on r459 (archive); open (low value): exact bump positions on a face, grab on the plane.
 - [Opus] Build workspace (user GO 2026-10-23): steps 1-6c-2 Claude-verified WSA (r385-r406, archive); open: user feel of all, multi-copy / mirrored copies in Build, nested/repeated groups with gizmos.
 
 ## Ideas (not started)
