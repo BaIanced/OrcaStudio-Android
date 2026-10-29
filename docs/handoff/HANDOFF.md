@@ -36,7 +36,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Truck holes cut preview: Claude-verified on WSA 2026-10-29 (archive); sculpt on a cut part OK (no crash, 414k tris; sculpted part draws uncut by design). Hole ghost alpha 0.45 -> ~0.25 (Shaders.kt:320) only if figures look tinted (untested).
 - Backlog is 10.5 KB (limit ~10): trim verified/stale lines at the next update. 2026-10-29 /next check: every open backlog item is user-feel, printer-gated or [Opus] design; no Sonnet item left.
 - Push/pull folded into resize (user 2026-10-29), d1b11e9 pushed: Claude-verified on WSA debug build (handle grab from a big face edge, body drag still moves; archive). Resize scales about the bottom centre, not a parametric push. Ships in the next CI build.
-- Next step: Build continuity mockup (ghost other objects in Build, one builder entry + CAD badge, vision as toggle) -> Opus 5.5 (high)
+- Build ghosts 2c289a7 pushed (other objects faint in Build; toolbar cycles ghosted/shown/hidden): Claude-verified WSA debug (archive). Not in a CI build yet.
+- Next step: Build continuity part 2 mockup (one builder entry + CAD badge, mesh -> builder path) -> Opus 5.5 (high)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).

@@ -3615,3 +3615,6 @@ Object More menu now: Add volume (5 items) and Mesh tools (7 items) collapsible,
 ### 2026-10-29 Push/pull removed (Claude, d1b11e9)
 - Folded into resize per user decision: chip + push code deleted (see HANDOFF). Tier 1 history above stays as record.
 - WSA debug check (Claude, d1b11e9 local debug build): selected Box 60 mm, drag started 25 px inside the face edge next to the X handle grabbed it (X 60 -> 82.6); drag in the body centre still moved it (pos 0,0 -> 4,10). Verified; ships in the next CI build.
+
+## 2026-10-29 Build continuity part 1: other objects ghosted in Build
+- 2c289a7: Build shows the plate's other objects as faint grey ghosts (front faces, alpha 0.22; no shadow, selection or picks) instead of hiding them. Shape builder toolbar button "Other objects" cycles ghosted (default, Opacity icon) -> shown solid -> hidden (pref `build_others`). Shaders: uSolo 4 ghost / 3 solid / 2 hide, flat vOther, MESH_FS pass 9. Claude-verified on WSA debug: 4 truck copies + "Add as new" -> new object solid, old ones ghosted; hidden mode hides them; pref persists. Solid mode not screenshotted (same path as no culling). Ghosts of multi-piece objects look busy (inner pieces stack); fix would be a depth pre-pass if it bothers. User feel untested. Still open from the brain dump: (2) mesh object -> builder entry, (3) one builder entry + CAD badge (mockup first).
