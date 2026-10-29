@@ -32,11 +32,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - CAD plan (`NOTES-cad-reuse.md`): 0-5b Claude-verified, 1b parked. MCP efficiency (`NOTES-mcp-token-efficiency.md`): build rule waits for user OK.
 - **No WSA focus loops**. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
 - Gate work left: user sessions B-D (`NOTES-merge-batch.md`), paused 2026-10-28; no merge pending (branch == main). Release still gated on the printer set.
-- Debug build/notes details: archive "2026-10-28 Handoff overflow".
 - r463 has everything built so far (Wireframe, inertia, Light direction, two-finger tap, Bounding box, More groups); all Claude-verified on WSA except paint shop Sync swatch (needs a printer). User feel untested.
-- Two-finger WSA gestures: `wsa-twotap.sh X Y [gap] [hold_s]` (sendevent, root).
-- Next: Truck demo backlog line (hole shapes drawn opaque cover the figures -> translucent holes by default); rebuild the session with truck.sh + truck2.sh.
-- Next step: Truck demo translucent holes -> Opus 5.5 (high)
+- Next: Truck holes cut preview. Code written 2026-10-29, uncommitted (plan: archive "2026-10-29 Truck holes diagnosis"): `CutPreview` cache + `run_cut` (mcut A_NOT_B) in OrcaScene.cpp write_mesh; `m_mesh_first` per-copy triangle offsets read by sculpt_copies; sculpted part drawn uncut (`sculpting()`, re-write_mesh on sculpt_build). Native + debug APK build OK, installed on WSA (debug pkg; `wsa-debug-rebuild.sh` SDK path fixed to D:, now refuses to reinstall a stale APK). MCP on the debug app gave an empty reply right after start (check: MCP enabled/token in debug prefs, `wsa-debug-setup.sh` if fresh). Left: WSA test (truck.sh + truck2.sh in Shape builder, shoot the windows; also a sculpt stroke on a cut part), then commit + push.
+- Backlog is 11.7 KB (limit ~10): trim verified/stale lines at the next update.
+- Next step: Truck holes cut preview (native mcut in write_mesh) -> Opus 5.5 (high)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).

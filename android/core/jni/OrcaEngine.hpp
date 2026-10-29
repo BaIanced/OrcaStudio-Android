@@ -48,6 +48,8 @@ using ProgressFn = std::function<void(int percent, const std::string &text)>;
 // a float up to 4096 objects). The app highlights and drags instances by it.
 inline constexpr size_t INSTANCE_ID_STRIDE = 4096;
 
+struct CutPreview; // a part drawn minus its holes, see OrcaEngine::write_mesh()
+
 // Faces reachable from [seed] over edges between faces whose normals differ by at most [angle] degrees (the desktop's smart
 // fill test); [neighbors] = its_face_neighbors flattened (3 per face); [allowed]: faces the flood may enter (all when empty).
 std::vector<bool> flood_surface(const indexed_triangle_set &its, const std::vector<int> &neighbors, int seed, double angle,
@@ -452,6 +454,10 @@ private:
     struct SnapFeatures;
     std::map<const void *, std::shared_ptr<SnapFeatures>> m_neighbors;
     int                                   m_mesh_version = 0;
+    // First scene triangle of each part copy as write_mesh() wrote them (cut parts change the counts); sculpt_copies() reads it.
+    std::vector<size_t>                   m_mesh_first;
+    // Parts drawn minus their object's negative volumes (write_mesh()), per part volume; reused while the meshes and matrices hold.
+    std::map<const void *, std::shared_ptr<CutPreview>> m_cut_previews; // CutPreview: OrcaScene.cpp
     int                                   m_build_object = -1; // see set_build_object()
     // The Build workspace's object is drawn and picked in its design pose (see set_build_object()): a plain
     // translation, given here per copy; nullopt = any other object (its copy's own matrix).
@@ -477,6 +483,7 @@ private:
     std::shared_ptr<SculptSession>        m_sculpt;
     void                                  sculpt_build(int object, int instance, int volume);
     void                                  sculpt_copies();
+    bool                                  sculpting(size_t object, size_t volume) const; // a live session sculpts this part
     bool                                  sculpt_flush_locked();
     bool                                  sculpt_finish_locked();
     // Convex hulls of flushed sculpt meshes, computed off the lock (qhull took ~0.7 s at 135k faces); installed when ready,

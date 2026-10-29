@@ -3594,3 +3594,11 @@ Object More menu now: Add volume (5 items) and Mesh tools (7 items) collapsible,
 - Two-finger tap (557dc5a) via new `orca-android-tools/wsa-twotap.sh` (sendevent on WSA virtual_touchscreen, slots): quick tap on an object opens the object menu (Duplicate, Delete, ...), on empty plate the add menu (Import, Shape, Text, SVG, OpenSCAD); a 0.6 s two-finger hold opens nothing.
 - Godot leftovers backlog line was stale ("nothing built"): Z lift dot + axis lock are in r461+, trimmed. Wireframe, orbit inertia, Light direction, Floating Slice fix, Recent files, paint shop entry fix + Sync swatch are all in CI r463 (handoff said "not in CI yet").
 
+
+### 2026-10-29 Truck holes diagnosis (Claude, source only, nothing built)
+- Holes (negative volumes) are already drawn translucent: write_mesh emits them as type 1 (OrcaScene.cpp:496), Shaders.kt:320 draws type 1 grey at alpha 0.45 in pass 1. The user's "holes drawn opaque" guess is not the cause.
+- Real cause: write_mesh (OrcaScene.cpp:465-501) emits every part's full mesh; the hole is only subtracted at slice time. The window area of the wall stays opaque in pass 0 and depth-hides the figures. Matches the user's report: visible only with transparent filaments, and in the slice preview.
+- Plan (Claude's call, design deviation pre-approved): cut preview in write_mesh. For a model part whose object has negative volumes, emit part minus the negatives whose boxes overlap it (object frame, `MeshBoolean::mcut::make_boolean` "A_NOT_B", already used at OrcaScene.cpp:989-1012), per part so filament colours stay. Cache results keyed by part + negatives' mesh shared_ptrs and matrices (hold the shared_ptrs so addresses can't be reused); on throw or empty result emit the uncut mesh. Keep the ghost but consider alpha 0.45 -> ~0.25 (it tints the figures) and watch z-fighting on the coplanar cut faces. Open: paint overlay on a cut part still covers the hole area (rare; accept or skip). Native change -> `wsa-debug-rebuild.sh native` or CI; test by rebuilding the truck with truck.sh + truck2.sh on WSA and shooting the window.
+
+### 2026-10-29 Handoff trim
+- Debug build/notes details: archive "2026-10-28 Handoff overflow". Two-finger WSA gestures: `wsa-twotap.sh X Y [gap] [hold_s]` (sendevent, root).

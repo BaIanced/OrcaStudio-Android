@@ -154,12 +154,16 @@ void OrcaEngine::sculpt_copies()
 {
     SculptSession &s = *m_sculpt;
     s.copies.clear();
-    size_t first = 0;
+    size_t first = 0, k = 0;
     for (size_t oi = 0; oi < m_model->objects.size(); ++oi) {
         const ModelObject *obj = m_model->objects[oi];
         for (size_t ii = 0; ii < obj->instances.size(); ++ii)
             for (size_t vi = 0; vi < obj->volumes.size(); ++vi) {
                 const ModelVolume *vol = obj->volumes[vi];
+                // write_mesh()'s own offsets: parts cut by negative volumes have other triangle counts.
+                if (k < m_mesh_first.size())
+                    first = m_mesh_first[k];
+                ++k;
                 if (int(oi) == s.object && int(vi) == s.volume) {
                     const auto design = design_offset(oi, ii);
                     const Transform3d shown = design ? Transform3d(Eigen::Translation3d((*design)[0], (*design)[1], (*design)[2])) : obj->instances[ii]->get_matrix();
@@ -173,6 +177,11 @@ void OrcaEngine::sculpt_copies()
             }
     }
     s.copies_version = m_mesh_version;
+}
+
+bool OrcaEngine::sculpting(size_t object, size_t volume) const
+{
+    return m_sculpt && m_sculpt->object == int(object) && m_sculpt->volume == int(volume);
 }
 
 bool OrcaEngine::sculpt_flush_locked()
@@ -413,6 +422,11 @@ json OrcaEngine::sculpt(const std::array<int, 3> &target, const std::vector<std:
         sculpt_build(oi, ii, vi);
         m_sculpt->refined_to = refined;
         m_sculpt->mirror_center = center;
+        // The scene shows this part cut by a negative volume: redraw it whole, the patches index its own triangles.
+        if (m_cut_previews.count(obj.volumes[vi])) {
+            write_mesh();
+            committed = true;
+        }
     }
     if (m_sculpt->copies_version != m_mesh_version || m_sculpt->instance != ii) {
         m_sculpt->instance = ii;

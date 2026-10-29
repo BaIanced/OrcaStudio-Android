@@ -462,6 +462,59 @@ static Transform3d shown_matrix(const ModelInstance &inst, const std::optional<s
     return design ? Transform3d(Eigen::Translation3d((*design)[0], (*design)[1], (*design)[2])) : inst.get_matrix();
 }
 
+// A part minus the negative volumes that overlap it, in the object's frame. The holes are only subtracted when slicing, so the
+// whole part hid what shows through them (user: the truck's windows). Holds the meshes it was made from so their addresses
+// can't be reused while it is cached.
+struct CutPreview {
+    std::shared_ptr<const TriangleMesh> part;
+    Transform3d part_matrix;
+    std::vector<std::pair<std::shared_ptr<const TriangleMesh>, Transform3d>> holes;
+    std::shared_ptr<const TriangleMesh> result; // null: nothing changed or the cut failed, draw the part whole
+};
+
+static std::shared_ptr<CutPreview> make_cut_preview(const ModelObject &obj, const ModelVolume &part)
+{
+    auto cut = std::make_shared<CutPreview>();
+    cut->part = part.get_mesh_shared_ptr();
+    cut->part_matrix = part.get_matrix();
+    const BoundingBoxf3 box = part.mesh().transformed_bounding_box(cut->part_matrix);
+    for (const ModelVolume *v : obj.volumes)
+        if (v->is_negative_volume() && box.intersects(v->mesh().transformed_bounding_box(v->get_matrix())))
+            cut->holes.emplace_back(v->get_mesh_shared_ptr(), v->get_matrix());
+    return cut;
+}
+
+static bool same_cut(const CutPreview &a, const CutPreview &b)
+{
+    if (a.part != b.part || a.part_matrix.matrix() != b.part_matrix.matrix() || a.holes.size() != b.holes.size())
+        return false;
+    for (size_t i = 0; i < a.holes.size(); ++i)
+        if (a.holes[i].first != b.holes[i].first || a.holes[i].second.matrix() != b.holes[i].second.matrix())
+            return false;
+    return true;
+}
+
+static void run_cut(CutPreview &cut)
+{
+    TriangleMesh mesh = *cut.part;
+    mesh.transform(cut.part_matrix, true);
+    try {
+        for (const auto &[hole, matrix] : cut.holes) {
+            TriangleMesh tool = *hole;
+            tool.transform(matrix, true);
+            std::vector<TriangleMesh> out;
+            MeshBoolean::mcut::make_boolean(mesh, tool, out, "A_NOT_B");
+            if (out.empty() || out.front().empty())
+                return; // a hole that swallows the part, or mcut gave up: draw it whole
+            mesh = std::move(out.front());
+        }
+    } catch (const std::exception &e) {
+        BOOST_LOG_TRIVIAL(warning) << "cut preview failed: " << e.what();
+        return;
+    }
+    cut.result = std::make_shared<const TriangleMesh>(std::move(mesh));
+}
+
 void OrcaEngine::write_mesh()
 {
     // Written next to the target and renamed over it, so the app never reads a half-written file.
@@ -484,14 +537,38 @@ void OrcaEngine::write_mesh()
             }
         }
     };
+    std::map<const void *, std::shared_ptr<CutPreview>> cuts;
+    m_mesh_first.clear();
+    size_t first = 0;
     for (size_t oi = 0; oi < m_model->objects.size(); ++oi) {
         const ModelObject *obj = m_model->objects[oi];
+        // Parts with holes in them, cut once for all copies (the part being sculpted stays whole, see sculpt_copies()).
+        std::vector<std::shared_ptr<const TriangleMesh>> cut_of(obj->volumes.size());
+        if (std::any_of(obj->volumes.begin(), obj->volumes.end(), [](const ModelVolume *v) { return v->is_negative_volume(); }))
+            for (size_t vi = 0; vi < obj->volumes.size(); ++vi) {
+                const ModelVolume *vol = obj->volumes[vi];
+                if (!vol->is_model_part() || sculpting(oi, vi))
+                    continue;
+                auto cut = make_cut_preview(*obj, *vol);
+                if (cut->holes.empty())
+                    continue;
+                const auto old = m_cut_previews.find(vol);
+                if (old != m_cut_previews.end() && same_cut(*old->second, *cut))
+                    cut = old->second;
+                else
+                    run_cut(*cut);
+                cuts[vol] = cut;
+                cut_of[vi] = cut->result;
+            }
         for (size_t ii = 0; ii < obj->instances.size(); ++ii)
             for (size_t vi = 0; vi < obj->volumes.size(); ++vi) {
                 const ModelVolume *vol = obj->volumes[vi];
-                TriangleMesh mesh = vol->mesh();
+                const Transform3d shown = shown_matrix(*obj->instances[ii], design_offset(oi, ii));
+                TriangleMesh mesh = cut_of[vi] ? *cut_of[vi] : vol->mesh();
                 // Mirrored copies keep their triangles facing out (the section view draws back faces as cut faces).
-                mesh.transform(shown_matrix(*obj->instances[ii], design_offset(oi, ii)) * vol->get_matrix(), true);
+                mesh.transform(cut_of[vi] ? shown : Transform3d(shown * vol->get_matrix()), true);
+                m_mesh_first.push_back(first);
+                first += mesh.its.indices.size();
                 // Parts are drawn in their filament's colour: type 100 + 0-based filament.
                 const int type = vol->is_model_part() ? 100 + filament_of(*obj, *vol) : volume_type_code(vol->type());
                 // The Build workspace's object: one id per volume (its copies share them), see set_build_object().
@@ -499,6 +576,7 @@ void OrcaEngine::write_mesh()
                 emit(mesh, id, float(type));
             }
     }
+    m_cut_previews = std::move(cuts);
 
     // The prime tower as the desktop shows it before slicing: on a plate that uses more than one
     // filament, a translucent box at the tower position, prime_tower_width square and as tall as
