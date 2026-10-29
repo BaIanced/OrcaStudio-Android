@@ -294,6 +294,7 @@ private fun LayoutLabSection(state: UiState, vm: AppViewModel) {
       }
       Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(stringResource(R.string.layout_lab_text), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Section(stringResource(R.string.lab_group_plates)) {
         Text(stringResource(R.string.lab_plate_switcher), style = MaterialTheme.typography.bodyMedium)
         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
             listOf(PlateSwitcher.TABS to R.string.lab_tabs, PlateSwitcher.FILMSTRIP to R.string.lab_filmstrip, PlateSwitcher.CHIPS to R.string.lab_chips)
@@ -303,13 +304,17 @@ private fun LayoutLabSection(state: UiState, vm: AppViewModel) {
         }
         SwitchRow(stringResource(R.string.lab_plate_label), lab.plateLabel, onChange = { vm.setLab(lab.copy(plateLabel = it)) })
         SwitchRow(stringResource(R.string.lab_show_plates), lab.showPlates, onChange = { vm.setLab(lab.copy(showPlates = it)) })
+        SwitchRow(stringResource(R.string.lab_plates_on_handle), lab.platesOnHandle, onChange = { vm.setLab(lab.copy(platesOnHandle = it)) })
+        SwitchRow(stringResource(R.string.lab_plate_hd), lab.plateHd, onChange = { vm.setLab(lab.copy(plateHd = it)) })
+        }
+        Section(stringResource(R.string.lab_group_layout)) {
         SwitchRow(stringResource(R.string.lab_slice_floating), lab.sliceFloating, onChange = { vm.setLab(lab.copy(sliceFloating = it)) })
         SwitchRow(stringResource(R.string.lab_tools_left), lab.toolsLeft, onChange = { vm.setLab(lab.copy(toolsLeft = it)) })
-        SwitchRow(stringResource(R.string.lab_plates_on_handle), lab.platesOnHandle, onChange = { vm.setLab(lab.copy(platesOnHandle = it)) })
         SwitchRow(stringResource(R.string.lab_fullscreen_portrait), lab.fullscreenPortrait, onChange = { vm.setLab(lab.copy(fullscreenPortrait = it)) })
         SwitchRow(stringResource(R.string.lab_view_cube), lab.viewCube, onChange = { vm.setLab(lab.copy(viewCube = it)) })
-        SwitchRow(stringResource(R.string.lab_plate_hd), lab.plateHd, onChange = { vm.setLab(lab.copy(plateHd = it)) })
         SwitchRow(stringResource(R.string.lab_pie_menu), lab.pieMenu, onChange = { vm.setLab(lab.copy(pieMenu = it)) })
+        }
+        Section(stringResource(R.string.lab_group_scales)) {
         val alphaContext = LocalContext.current
         val alphaText = stringResource(R.string.lab_overlay_alpha, (lab.overlayAlpha * 100).toInt())
         Text(alphaText, style = MaterialTheme.typography.bodyMedium)
@@ -324,14 +329,19 @@ private fun LayoutLabSection(state: UiState, vm: AppViewModel) {
         ScaleSlider(R.string.lab_plate_scale, lab.plateScale, app.orcaandroid.core.LayoutLab.PLATE_SCALES, current) { vm.setLab(state.lab.copy(plateScale = it)) }
         ScaleSlider(R.string.lab_slice_scale, lab.sliceScale, app.orcaandroid.core.LayoutLab.SLICE_SCALES, current) { vm.setLab(state.lab.copy(sliceScale = it)) }
         ScaleSlider(R.string.lab_overlay_scale, lab.overlayScale, app.orcaandroid.core.LayoutLab.OVERLAY_SCALES, current) { vm.setLab(state.lab.copy(overlayScale = it)) }
+        }
+        Section(stringResource(R.string.lab_group_shadows)) {
         ShadowSlider(R.string.lab_shadow_strength, lab.shadowStrength, 100f, "%", app.orcaandroid.core.LayoutLab.SHADOW_STRENGTHS, current) { vm.setLab(state.lab.copy(shadowStrength = it)) }
         ShadowSlider(R.string.lab_shadow_soft, lab.shadowSoft, 1f, " mm", app.orcaandroid.core.LayoutLab.SHADOW_SOFTS, current) { vm.setLab(state.lab.copy(shadowSoft = it)) }
         ShadowSlider(R.string.lab_shadow_bias, lab.shadowBias, 1f, " mm", app.orcaandroid.core.LayoutLab.SHADOW_BIASES, current) { vm.setLab(state.lab.copy(shadowBias = it)) }
+        }
+        Section(stringResource(R.string.lab_group_light)) {
         ShadowSlider(R.string.lab_light_azimuth, lab.lightAzimuth, 1f, "°", app.orcaandroid.core.LayoutLab.LIGHT_AZIMUTHS, current) { vm.setLab(state.lab.copy(lightAzimuth = it)) }
         ShadowSlider(R.string.lab_light_elevation, lab.lightElevation, 1f, "°", app.orcaandroid.core.LayoutLab.LIGHT_ELEVATIONS, current) { vm.setLab(state.lab.copy(lightElevation = it)) }
         ShadowSlider(R.string.lab_light_strength, lab.lightStrength, 100f, "%", app.orcaandroid.core.LayoutLab.LIGHT_STRENGTHS, current) { vm.setLab(state.lab.copy(lightStrength = it)) }
         ShadowSlider(R.string.lab_camera_light, lab.cameraLight, 100f, "%", app.orcaandroid.core.LayoutLab.CAMERA_LIGHTS, current) { vm.setLab(state.lab.copy(cameraLight = it)) }
         ShadowSlider(R.string.lab_orbit_inertia, lab.orbitInertia, 100f, "%", app.orcaandroid.core.LayoutLab.ORBIT_INERTIAS, current) { vm.setLab(state.lab.copy(orbitInertia = it)) }
+        }
         TextButton(onClick = { vm.setLab(app.orcaandroid.core.LayoutLab()) }) { Text(stringResource(R.string.reset)) }
       }
     }

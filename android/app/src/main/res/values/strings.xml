@@ -1046,6 +1046,11 @@
     <string name="layout_lab">Layout lab (temporary)</string>
     <string name="layout_lab_summary">Try layouts</string>
     <string name="layout_lab_text">Layout variants to try out. Once you have picked, the others are removed and this section goes away.</string>
+    <string name="lab_group_plates">Plates</string>
+    <string name="lab_group_layout">Layout</string>
+    <string name="lab_group_scales">Sizes and overlay</string>
+    <string name="lab_group_shadows">Shadows</string>
+    <string name="lab_group_light">Light and orbit</string>
     <string name="lab_plate_switcher">Plate switcher</string>
     <string name="lab_tabs">Tabs</string>
     <string name="lab_filmstrip">Filmstrip</string>
