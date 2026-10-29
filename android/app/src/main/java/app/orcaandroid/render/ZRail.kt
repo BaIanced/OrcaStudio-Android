@@ -12,6 +12,9 @@ object ZRail {
     /** Height of the lift handle above the box's top, mm. */
     fun gap(min: Vec3, max: Vec3): Float = maxOf(4f, 0.25f * maxOf(max.x - min.x, max.y - min.y, max.z - min.z))
 
+    /** The lift handle: [gap] above the centre of the box's top. */
+    fun handle(min: Vec3, max: Vec3) = Vec3((min.x + max.x) / 2, (min.y + max.y) / 2, max.z + gap(min, max))
+
     /**
      * The lift for a raw drag of [raw] mm: the nearest snap within [reach] mm (the bottom [lo] or the top [hi]
      * landing on one of the [targets] heights, or with [mid] its middle), else [raw] rounded to [step]. Second is the snapped height, or null.

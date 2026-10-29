@@ -104,6 +104,9 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var gizmoGrab: ScaleGizmo.Handle? = null
     /** Half the side of a handle square, px. */
     var handlePx = 14f
+    /** The lift dot ([ZRail.handle]) shows above the selection box; [liftGrab] while it is dragged (drawn bigger). */
+    var liftHandle = false
+    var liftGrab = false
     /** Rotate mode: the rotate gizmo's rings ([RotateGizmo]) round the selection box. */
     var rotateGizmo = false
     /** The ring being dragged (0 X, 1 Y, 2 Z) or -1: only it shows meanwhile, with spokes from [rotateFrom] to its turn. */
@@ -532,7 +535,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             // A dragged copy may leave the footprint: widen it by the drag.
             // A fixed widening for the whole drag: any change of the map area mid-drag rescales the texels and
             // shows as a step ("strobe") in the shadow.
-            val dragging = dragOffset[0] != 0f || dragOffset[1] != 0f
+            val dragging = dragOffset[0] != 0f || dragOffset[1] != 0f || dragOffset[2] != 0f
             val dx = if (dragging) 150f else 0f
             val dy = dx
             val area = floatArrayOf(bounds!![0] - dx, bounds[1] - dy, bounds[2] + dx, bounds[3] + dy)
@@ -991,6 +994,11 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         val moved = FloatArray(6) { box[it] + dragOffset[it % 3] }
         if (gizmo) drawGizmo(moved)
         if (rotateGizmo) drawRings(moved, occlude = true)
+        // The lift dot hides while another handle or ring is dragged.
+        if (liftHandle && gizmoGrab == null && rotateMatrix == null && pushMatrix == null) {
+            val p = ZRail.handle(app.orcaandroid.core.Vec3(moved[0], moved[1], moved[2]), app.orcaandroid.core.Vec3(moved[3], moved[4], moved[5]))
+            drawDots(listOf(p to ScaleGizmo.color(2)), if (liftGrab) handlePx * 1.25f else handlePx)
+        }
     }
 
     /** The cut tool's tilt rings (X red, Y green) round the plane disc's centre. */
@@ -1214,7 +1222,13 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             listOf(ScaleGizmo.Handle(grab.index, app.orcaandroid.core.Vec3(
                 p[0] + (q.x - p[0]) * resizeScale[0], p[1] + (q.y - p[1]) * resizeScale[1], p[2] + (q.z - p[2]) * resizeScale[2]), grab.axis))
         }
-        if (handles.isEmpty()) return
+        // The dragged handle a little bigger.
+        drawDots(handles.map { it.pos to ScaleGizmo.color(it.axis) }, if (grab != null) handlePx * 1.25f else handlePx)
+    }
+
+    /** Screen squares of half side [size] px at world [dots] (position, colour), on top of the scene with a dark rim. */
+    private fun drawDots(dots: List<Pair<app.orcaandroid.core.Vec3, FloatArray>>, size: Float) {
+        if (dots.isEmpty()) return
         val identity = FloatArray(16).also { android.opengl.Matrix.setIdentityM(it, 0) }
         glUseProgram(lineProgram)
         glUniformMatrix4fv(loc(lineProgram, "uMvp"), 1, false, identity, 0)
@@ -1224,14 +1238,13 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glBindBuffer(GL_ARRAY_BUFFER, scratchVbo)
         glEnableVertexAttribArray(0)
         val clip = FloatArray(4)
-        for (h in handles) {
-            android.opengl.Matrix.multiplyMV(clip, 0, mvp, 0, floatArrayOf(h.pos.x, h.pos.y, h.pos.z, 1f), 0)
+        for ((pos, dotColor) in dots) {
+            android.opengl.Matrix.multiplyMV(clip, 0, mvp, 0, floatArrayOf(pos.x, pos.y, pos.z, 1f), 0)
             if (clip[3] <= 0f) continue
             val x = clip[0] / clip[3]
             val y = clip[1] / clip[3]
-            // A dark rim, then the colour; the dragged handle a little bigger.
-            val size = if (grab != null) handlePx * 1.25f else handlePx
-            for ((px, color) in listOf(size + outlinePx * 0.6f to floatArrayOf(0.1f, 0.1f, 0.1f), size to ScaleGizmo.color(h.axis))) {
+            // A dark rim, then the colour.
+            for ((px, color) in listOf(size + outlinePx * 0.6f to floatArrayOf(0.1f, 0.1f, 0.1f), size to dotColor)) {
                 val hx = px * 2f / viewW
                 val hy = px * 2f / viewH
                 val quad = floatArrayOf(x - hx, y - hy, 0f, x + hx, y - hy, 0f, x + hx, y + hy, 0f, x - hx, y - hy, 0f, x + hx, y + hy, 0f, x - hx, y + hy, 0f)

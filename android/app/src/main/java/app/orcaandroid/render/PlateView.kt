@@ -44,6 +44,8 @@ interface PlateListener {
     fun onBrushScroll(steps: Int)
     /** The selected copies were dragged by (dx, dy) mm on the bed. */
     fun onMoved(dx: Float, dy: Float)
+    /** The lift dot ([PlateView.liftMode]) was dragged: the selection moves [dz] mm up (down when negative). */
+    fun onLifted(dz: Float) {}
     /**
      * A handle of the scale gizmo on the single selected copy is being dragged ([ScaleGizmo]): the copy scales by [scale]
      * (world x, y, z) about [pivot], its box's bottom centre; (x, y) is the finger. [scale] is null when the drag was
@@ -159,6 +161,10 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     private var dragSnapY: Float? = null
     /** Where the drag grabbed the selection's box (or tower): the drag plane goes through it. */
     private var dragAnchor: Vec3? = null
+    /** The lift drag's box (the gizmo box at its start), null = no lift drag; [liftMm] / [liftSnap] its live lift and snap height. */
+    private var liftBox: Pair<Vec3, Vec3>? = null
+    private var liftMm = 0f
+    private var liftSnap: Float? = null
     private var lastFocusX = 0f
     private var lastFocusY = 0f
     /** The two fingers' gap at the last move, 0 = not yet known (a finger came or went). */
@@ -433,6 +439,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                         }
                     }
                 }
+                else if (mode == InteractionMode.NAVIGATE && startLift(event.x, event.y)) Unit
                 else if (mode == InteractionMode.NAVIGATE && rayBoxEntry(event.x, event.y, selectedBounds)?.also { dragAnchor = it } != null) {
                     dragging = true
                     dragStart = dragAt(event.x, event.y)
@@ -484,7 +491,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                 // landing on the selection never starts (or leaves behind) a resize.
                 if (moved && !resizeTried) {
                     resizeTried = true
-                    if (!multiTouch && event.pointerCount == 1 && mode == InteractionMode.NAVIGATE && !rightButton && !middleButton && !rectangle &&
+                    if (!multiTouch && liftBox == null && event.pointerCount == 1 && mode == InteractionMode.NAVIGATE && !rightButton && !middleButton && !rectangle &&
                         !penOrbit && penInstant == null && (startCut(downX, downY, event.x, event.y) || startResize(downX, downY) || startRotate(downX, downY, event.x, event.y))) {
                         dragCheckId++
                         dragging = false; dragStart = null
@@ -572,6 +579,13 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                             }
                         }
                         pushPending -> Unit
+                        liftBox != null -> if (moved) {
+                            val before = liftSnap
+                            val (dz, s) = liftAt(event.x, event.y, event.metaState and KeyEvent.META_SHIFT_ON != 0, event.metaState and KeyEvent.META_CTRL_ON != 0)
+                            if (s != null && s != before) performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+                            liftMm = dz; liftSnap = s
+                            queueEvent { renderer.dragOffset = floatArrayOf(0f, 0f, dz) }
+                        }
                         dragging -> dragOffsetAt(event.x, event.y, event.metaState and KeyEvent.META_SHIFT_ON != 0, event.metaState and KeyEvent.META_CTRL_ON != 0)?.let { o ->
                             val d = floatArrayOf(o.x, o.y, 0f)
                             queueEvent { renderer.dragOffset = d }
@@ -614,6 +628,12 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                     // The live stretch stays until the pushed shape's mesh arrives (the listener clears it).
                     if (g != null) listener?.onPush(g, if (moved) pushMm else null, event.x, event.y, true)
                     if (!moved) tap(event.x, event.y, additive, part)
+                } else if (liftBox != null) {
+                    val dz = liftMm
+                    liftBox = null
+                    queueEvent { renderer.liftGrab = false }
+                    // As for a move, the listener clears the live offset once the lifted mesh is drawn.
+                    if (moved && dz != 0f) listener?.onLifted(dz) else queueEvent { renderer.dragOffset = floatArrayOf(0f, 0f, 0f) }
                 } else if (dragging) {
                     val o = dragOffsetAt(event.x, event.y, event.metaState and KeyEvent.META_SHIFT_ON != 0, event.metaState and KeyEvent.META_CTRL_ON != 0)
                     clearDragGuides()
@@ -765,6 +785,47 @@ class PlateView(context: Context) : GLSurfaceView(context) {
 
     /** The box the gizmos sit on, or null when they don't show. */
     fun gizmoBox(): Pair<Vec3, Vec3>? = if (gizmoOnMesh) renderer.selectionBounds() else selectedBounds.singleOrNull()
+
+    /** The lift dot shows above the gizmo box (Build workspace): dragging it moves the selection up or down. */
+    @Volatile var liftMode = false
+        set(value) { field = value; queueEvent { renderer.liftHandle = value } }
+
+    /** In [liftMode], a touch within 24 dp of the lift dot ([ZRail.handle]) starts a lift drag. */
+    private fun startLift(x: Float, y: Float): Boolean {
+        if (!liftMode) return false
+        val box = gizmoBox() ?: return false
+        val (px, py) = camera.project(ZRail.handle(box.first, box.second)) ?: return false
+        if (kotlin.math.hypot(px - x, py - y) > 24 * resources.displayMetrics.density) return false
+        liftBox = box; liftMm = 0f; liftSnap = null
+        queueEvent { renderer.liftGrab = true }
+        return true
+    }
+
+    /**
+     * The lift (mm) for the finger at (x, y) and the height it sticks to: the finger's travel along the Z axis as drawn, snapped
+     * to the floor and the tops and bottoms of the other shapes overlapping the box in XY (the snap toggle and Ctrl as for a move;
+     * whole mm, tenths with Shift). The live values while the axis points at the camera.
+     */
+    private fun liftAt(x: Float, y: Float, fine: Boolean, flip: Boolean): Pair<Float, Float?> {
+        val (lo, hi) = liftBox ?: return 0f to null
+        val keep = liftMm to liftSnap
+        val at = ZRail.handle(lo, hi)
+        val a = camera.project(at) ?: return keep
+        val e = camera.project(at + Vec3(0f, 0f, 10f)) ?: return keep
+        val sx = e.first - a.first
+        val sy = e.second - a.second
+        val len2 = sx * sx + sy * sy
+        if (len2 < 16f) return keep
+        val raw = ((x - downX) * sx + (y - downY) * sy) / len2 * 10f
+        val pxPerMm = kotlin.math.sqrt(len2) / 10f
+        val s = dragSnap?.takeIf { snapOn != flip }
+        val targets = ArrayList<Float>()
+        if (s != null) {
+            targets += 0f
+            for ((olo, ohi) in s.others) if (olo.x < hi.x && ohi.x > lo.x && olo.y < hi.y && ohi.y > lo.y) { targets += olo.z; targets += ohi.z }
+        }
+        return ZRail.lift(raw, lo.z, hi.z, targets, 10 * resources.displayMetrics.density / pxPerMm, if (fine) 0.1f else 1f)
+    }
 
     /** In [resizeMode], a touch on a visible handle of the lone selected box starts a resize ([ScaleGizmo]). */
     private fun startResize(x: Float, y: Float): Boolean {
@@ -919,7 +980,8 @@ class PlateView(context: Context) : GLSurfaceView(context) {
         pushGrab?.let { g -> pushGrab = null; listener?.onPush(g, null, 0f, 0f, true) }
         pushPending = false
         dragCheckId++
-        if (dragging) queueEvent { renderer.dragOffset = floatArrayOf(0f, 0f, 0f) }
+        if (dragging || liftBox != null) queueEvent { renderer.dragOffset = floatArrayOf(0f, 0f, 0f); renderer.liftGrab = false }
+        liftBox = null
         clearDragGuides()
         dragging = false
         dragStart = null

@@ -122,11 +122,11 @@ class ShapeController(private val store: Store, private val scad: ScadController
     }
 
     /** Build workspace: a main-view drag moved the selection [dx], [dy] mm on the plate. */
-    fun moveOnPlate(dx: Float, dy: Float) {
+    fun moveOnPlate(dx: Float, dy: Float, dz: Float = 0f) {
         val inst = store.value.buildObject?.let { store.value.scene.objects.getOrNull(it) }?.instances?.let { it.getOrNull(grabbed) ?: it.firstOrNull() }?.shown ?: return
         // Plate -> design frame: the copy's matrix is translation * rotation * scale * mirror (mirror = +-1 per axis).
         val r = RotateGizmo.fromEuler(inst.rotation)
-        fun local(i: Int, scale: Float, mirror: Float) = (r[i] * dx + r[3 + i] * dy) / scale.toDouble() * (if (mirror < 0f) -1.0 else 1.0)
+        fun local(i: Int, scale: Float, mirror: Float) = (r[i] * dx + r[3 + i] * dy + r[6 + i] * dz) / scale.toDouble() * (if (mirror < 0f) -1.0 else 1.0)
         val v = D3(local(0, inst.scale.x, inst.mirror.x), local(1, inst.scale.y, inst.mirror.y), local(2, inst.scale.z, inst.mirror.z))
         val d = design ?: return
         if (selected.isEmpty() || v == D3()) return

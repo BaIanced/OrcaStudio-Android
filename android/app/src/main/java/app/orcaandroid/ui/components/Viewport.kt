@@ -318,6 +318,13 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                             v.postDelayed({ if (dragPending[0]) { dragPending[0] = false; v.onGl { dragOffset = floatArrayOf(0f, 0f, 0f) } } }, 500)
                         } ?: run { dragPending[0] = false; v.onGl { dragOffset = floatArrayOf(0f, 0f, 0f) } }
                     }
+                    override fun onLifted(dz: Float) {
+                        // Only the Build workspace shows the lift dot; the offset stays until the lifted mesh arrives.
+                        if (vm.state.value.buildObject == null) { v.onGl { dragOffset = floatArrayOf(0f, 0f, 0f) }; return }
+                        dragPending[0] = true
+                        vm.shapes.moveOnPlate(0f, 0f, dz)
+                        v.postDelayed({ if (dragPending[0]) { dragPending[0] = false; v.onGl { dragOffset = floatArrayOf(0f, 0f, 0f) } } }, 3000)
+                    }
                     override fun onTowerMoved(plate: Int, dx: Float, dy: Float) {
                         val t = vm.state.value.scene.plates.getOrNull(plate)?.tower ?: return
                         dragPending[0] = true
@@ -644,6 +651,8 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     LaunchedEffect(v, state.resizing, showPreview, building, buildGizmo, pushing) {
         v.resizeMode = if (building) !pushing && buildGizmo?.second?.none { it.isGroup } == true else state.resizing && !showPreview
     }
+    // Build: the lift dot above the selection moves the shapes up or down.
+    LaunchedEffect(v, building, buildGizmo, pushing) { v.liftMode = building && !pushing && buildGizmo != null }
     LaunchedEffect(v, state.rotating, showPreview, building, buildGizmo, pushing) {
         v.rotateMode = if (building) !pushing && buildGizmo != null else state.rotating && !showPreview
     }
