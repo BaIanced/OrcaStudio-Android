@@ -60,6 +60,13 @@ Step 2 code map (read 2026-10-28, don't re-read): PlateView MOVE `dragging ->` :
 UP `dragging` :637-652 (`onMoved(o.x, o.y)`); `cancelDrag` :978; `dragOffsetAt` :996-1012 (snap via `ZRail.lift` per axis
 with `DragSnap.targets`, `dragSnapX/Y`, guides `snapGuides` :1015); keys: `onKeyDown` :310 forwards to `onKey` (host).
 Lock = zero dx or dy after the snap in `dragOffsetAt` (and drop that axis' guide); Z lock = switch the drag to `liftAt`.
+**Step 2 DONE (da7505c, compiled, ZRailTest green, untested on device):** `PlateView.axisLock` (button: -1/0/1, from
+`UiState.moveLock` via `vm.cycleMoveLock`; buttons next to snap in ShapeBuilder + PrepareOverlay, face `MoveLockFace`) and
+`keyLock` (X/Y/Z keys in `lockKey`, before host `onKey`; ignored with Ctrl/Alt). Z converts the body drag to a lift (`liftFromDrag`,
+Build + not tower only); X/Y take it back (`dragStart = dragAt(downX, downY)`). MOVE now calls `dragTo()`. Lock zeroes the other
+axis + its snap/guide in `dragOffsetAt` (`ZRail.locked`). Guide = `renderer.axisGuide` (2000 mm line through the grab point /
+lift box middle, `ScaleGizmo.color`), drawn in `drawDragGuides`. Step 3 WSA test: lock button X then drag (y stays), key X/Y/Z
+mid-drag with a mouse (Z = lift, snaps; X back), guide line colours, Prepare view drag with lock, tower drag ignores Z.
 1. Z handle: draw a dot above the selection box top (`ZRail.gap`), hit-test it before the body drag at DOWN :436; drag = `liftMm` math
    -> `renderer.dragOffset = (0, 0, dz)`; UP -> new `PlateListener.onLifted(dz)` (default no-op) -> Build: moveOnPlate with dz; slicer: per above.
 2. Axis lock: `axisLock: Int` (-1 free, 0 X, 1 Y, 2 Z); in `dragOffsetAt` zero the other axis; Z switches to the lift math.

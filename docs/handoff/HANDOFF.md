@@ -36,8 +36,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Not in a CI build yet: two-finger tap menu + paint shop Sync swatch (untested), Floating Slice drag fix, Recent files collapsed, `lateButton` fallback, paint shop entry fix + View menu (WSA-verified).
 - Open (backlog): paint shop bbox toggle + landscape GL view, More menu reorg.
 - Godot (a)+(b): `NOTES-godot-z-axis.md` Plan. Step 1 (Build Z lift dot, af81ab3) WSA-verified 2026-10-28 (snaps, preview); not in a CI build.
-  Next: step 2 (axis lock; code map in the notes), JVM test, WSA debug test, then CI.
-- Next step: Godot axis lock, step 2 (`NOTES-godot-z-axis.md` Plan) -> Opus 5.5 (high)
+  Step 2 (axis lock: X/Y/Z keys, lock button, guide line; da7505c) compiled + JVM-tested, untested on device.
+  Next: step 3 WSA debug test (checklist in the notes, "Step 2 DONE"), then CI.
+- Next step: Godot axis lock WSA debug test, step 3 (`NOTES-godot-z-axis.md`) -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
