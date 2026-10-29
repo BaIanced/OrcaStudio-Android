@@ -33,10 +33,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **No WSA focus loops**. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
 - Gate work left: user sessions B-D (`NOTES-merge-batch.md`), paused 2026-10-28; no merge pending (branch == main). Release still gated on the printer set.
 - **Debug notes** (Ctrl+Shift+N / S Pen button, debug build): read only when the user says "notes": `cat /sdcard/Android/data/<debug pkg>/files/notes/notes.jsonl` (Note/WSA); log each, then delete jsonl + PNGs there; never commit.
-- Not in a CI build yet: two-finger tap menu + paint shop Sync swatch (untested), Floating Slice drag fix, Recent files collapsed, `lateButton` fallback, paint shop entry fix + View menu (WSA-verified).
+- Not in a CI build yet: View > Light direction (light ball panel, drag = key light az/el live; WSA debug-verified 2026-10-28, user feel untested), two-finger tap menu + paint shop Sync swatch (untested), Floating Slice drag fix, Recent files collapsed, `lateButton` fallback, paint shop entry fix + View menu (WSA-verified).
 - Open (backlog): More menu reorg. Paint shop landscape GL OK on phone + Chromebook r461. View > Bounding box (compiled only, untested on WSA, not in CI).
 - Godot (a)+(b) (`NOTES-godot-z-axis.md`), in CI r461: Z lift dot + axis lock (da7505c) WSA-verified in Prepare (X/Y/Free/Y key mid-drag, archive 2026-10-28). Z key lift in Build WSA-verified (archive 2026-10-28). Untested: tower ignores Z (low risk, code-gated).
-- Next step: pick next backlog item (grep HANDOFF-BACKLOG.md for [Opus]/open), or resume sessions B-D when the user is back -> Sonnet 5.5 (medium)
+- Next step: Godot review leftovers (normal-view shading mode, orbit inertia; light ball done) -> Sonnet 5.5 (medium); or resume sessions B-D when the user is back
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).

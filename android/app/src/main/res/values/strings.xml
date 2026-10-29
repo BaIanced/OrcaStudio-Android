@@ -570,6 +570,7 @@
     <string name="view_realistic">Realistic render</string>
     <string name="view_layer_lines">Layer lines</string>
     <string name="view_edge_outline">Edge outline</string>
+    <string name="light_direction">Light direction</string>
     <string name="view_bounding_box">Bounding box</string>
     <string name="orthographic_camera">Orthographic camera (K)</string>
     <string name="section_view">Section view</string>

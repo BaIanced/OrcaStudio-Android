@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.widthIn
@@ -564,6 +565,10 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     }
     plateMenu?.let { (plate, x, y) ->
         Box(Modifier.offset { IntOffset(x.toInt(), y.toInt()) }) { PlateMenu(state, vm, plate) { plateMenu = null } }
+    }
+    if (state.lightPanel) {
+        LightPanel(state.lab, vm::setLab, { vm.setLightPanel(false) }, Modifier.align(androidx.compose.ui.Alignment.BottomEnd)
+            .windowInsetsPadding(androidx.compose.foundation.layout.WindowInsets.navigationBars).padding(end = 8.dp, bottom = 96.dp))
     }
     view?.section?.takeIf { it.panelOpen }?.let {
         // Below the top bar (and a camera hole in fullscreen portrait) and clear of the tool buttons down the left edge.

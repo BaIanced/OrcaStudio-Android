@@ -192,6 +192,8 @@ data class UiState(
     /** 3D view projection: perspective, or orthographic when false. */
     val perspective: Boolean = true,
     val lab: app.orcaandroid.core.LayoutLab = app.orcaandroid.core.LayoutLab(),
+    /** View > Light direction: the light ball panel is open (session only). */
+    val lightPanel: Boolean = false,
     val undoLimit: Int = app.orcaandroid.core.DEFAULT_UNDO_LIMIT,
     /** Auto-save interval in seconds; 0 or less = off (-seconds keeps the interval it had). */
     val autoSaveSeconds: Int = app.orcaandroid.core.DEFAULT_AUTO_SAVE_SECONDS,
