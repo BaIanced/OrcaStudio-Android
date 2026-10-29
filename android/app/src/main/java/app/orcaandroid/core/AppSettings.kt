@@ -99,6 +99,11 @@ class AppSettings(context: Context) {
         get() = prefs.getBoolean("snap_build", true)
         set(value) = prefs.edit().putBoolean("snap_build", value).apply()
 
+    /** The plate's other objects in the Build workspace: 0 ghosted (default), 1 shown solid, 2 hidden. */
+    var buildOthers: Int
+        get() = prefs.getInt("build_others", 0)
+        set(value) = prefs.edit().putInt("build_others", value).apply()
+
     /** 3D view projection: perspective (default) or orthographic, the desktop's use_perspective_camera. */
     var perspective: Boolean
         get() = prefs.getBoolean("perspective_camera", true)

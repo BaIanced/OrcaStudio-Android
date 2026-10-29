@@ -189,6 +189,8 @@ data class UiState(
     /** Body drags snap (smart guides) on the plate / in the Build workspace; Ctrl held flips it for one drag. */
     val snapPrepare: Boolean = false,
     val snapBuild: Boolean = true,
+    /** The plate's other objects in the Build workspace: 0 ghosted, 1 solid, 2 hidden. */
+    val buildOthers: Int = 0,
     /** The move lock button: -1 free, 0 drags move along X only, 1 along Y only (session only). */
     val moveLock: Int = -1,
     /** 3D view projection: perspective, or orthographic when false. */

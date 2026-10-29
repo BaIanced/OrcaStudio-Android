@@ -293,6 +293,7 @@
     <string name="measure_angle">Angle between the faces %1$s°</string>
     <string name="measure_snap_toggle">Snap to corners and edges</string>
     <string name="snap_toggle">Snap to edges and middles (Shift+Tab; hold Ctrl to flip while dragging)</string>
+    <string name="build_others">Other objects: ghosted, shown, hidden</string>
     <string name="move_lock">Move along one axis: free, X, Y (keys X / Y / Z while dragging)</string>
     <string name="measure_along_axis">Along %1$s</string>
     <string name="measure_along_centres">Centre to centre, along %1$s</string>

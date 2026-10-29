@@ -215,6 +215,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         else { store.settings.snapPrepare = !s.snapPrepare; store.update { it.copy(snapPrepare = !s.snapPrepare) } }
     }
 
+    /** Build workspace: the plate's other objects cycle ghosted -> solid -> hidden. */
+    fun cycleBuildOthers() {
+        val next = (state.value.buildOthers + 1) % 3
+        store.settings.buildOthers = next
+        store.update { it.copy(buildOthers = next) }
+    }
+
     /** The move lock button: free -> X -> Y -> free. */
     fun cycleMoveLock() = store.update { it.copy(moveLock = if (it.moveLock >= 1) -1 else it.moveLock + 1) }
 

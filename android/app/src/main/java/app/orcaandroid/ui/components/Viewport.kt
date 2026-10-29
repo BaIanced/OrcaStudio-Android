@@ -721,6 +721,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     }
     val build = state.buildObject?.let { scene.objects.getOrNull(it) }
     LaunchedEffect(v, build != null) { v.onGl { buildSolo = build != null } }
+    LaunchedEffect(v, state.buildOthers) { v.onGl { buildOthers = state.buildOthers } }
     LaunchedEffect(v, build != null, state.snapBuild, state.snapPrepare) { v.snapOn = if (build != null) state.snapBuild else state.snapPrepare }
     LaunchedEffect(v, state.moveLock) { v.axisLock = state.moveLock }
     // Build workspace: the selected shapes' volumes are the selection; a drag starts on the object's box (the pick decides).

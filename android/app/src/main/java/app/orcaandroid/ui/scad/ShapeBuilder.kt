@@ -24,6 +24,9 @@ import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AlignHorizontalCenter
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Opacity
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.CallSplit
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
@@ -230,6 +233,13 @@ private fun Toolbar(s: ScadEditorState, vm: AppViewModel) {
         Tip(stringResource(R.string.snap_toggle)) {
             val on = vm.state.collectAsState().value.snapBuild
             IconToggleButton(on, { vm.toggleSnap() }) { Icon(app.orcaandroid.ui.prepare.SnapIcon, stringResource(R.string.snap_toggle)) }
+        }
+        Tip(stringResource(R.string.build_others)) {
+            val others = vm.state.collectAsState().value.buildOthers
+            IconButton(onClick = vm::cycleBuildOthers) {
+                Icon(when (others) { 0 -> Icons.Default.Opacity; 1 -> Icons.Default.Visibility; else -> Icons.Default.VisibilityOff },
+                    stringResource(R.string.build_others))
+            }
         }
         Tip(stringResource(R.string.move_lock)) {
             val lock = vm.state.collectAsState().value.moveLock

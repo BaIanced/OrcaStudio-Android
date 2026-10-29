@@ -80,8 +80,10 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     @Volatile var boxOverride: FloatArray? = null
     /** Paint shop: only the selected copies are drawn (objects, paint, shadows); the plates stay. */
     var solo = false
-    /** Build workspace: only the build object is drawn (selection ids -1000 - volume, see Engine.setBuildObject). */
+    /** Build workspace: the build object (selection ids -1000 - volume, see Engine.setBuildObject) and the others per [buildOthers]. */
     var buildSolo = false
+    /** Build workspace: the plate's other objects 0 ghosted (no shadows, picks or selection), 1 solid, 2 hidden. */
+    var buildOthers = 0
     /** Paint shop: filaments drawn grey (bit i = 0-based filament i). */
     var hiddenFilaments = 0
     /** A box to fit the camera to (current angles) once the surface has its size: the paint shop's entry framing. */
@@ -586,6 +588,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
                 glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
             }
             if (models) drawMesh(meshVbo, meshCount, pass = 1)
+            if (models && buildSolo && buildOthers == 0) drawMesh(meshVbo, meshCount, pass = 9)
             drawMesh(ghostVbo, ghostCount, pass = 1)
             glDepthMask(true)
             glDisable(GL_BLEND)
@@ -943,7 +946,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         }
         glUniform1fv(loc(meshProgram, "uSelected"), Shaders.MAX_SELECTED, ids.copyOf(Shaders.MAX_SELECTED), 0)
         glUniform1i(loc(meshProgram, "uSelectedCount"), minOf(ids.size, Shaders.MAX_SELECTED))
-        glUniform1i(loc(meshProgram, "uSolo"), if (buildSolo) 2 else if (solo && ids.isNotEmpty()) 1 else 0)
+        val buildSoloMode = when (buildOthers) { 0 -> 4; 1 -> 3; else -> 2 }
+        glUniform1i(loc(meshProgram, "uSolo"), if (buildSolo) buildSoloMode else if (solo && ids.isNotEmpty()) 1 else 0)
         glUniform1i(loc(meshProgram, "uHidden"), if (solo) hiddenFilaments else 0)
         glUniform3fv(loc(meshProgram, "uDrag"), 1, dragOffset, 0)
         glUniform3fv(loc(meshProgram, "uScaleAnchor"), 1, resizeAnchor, 0)
