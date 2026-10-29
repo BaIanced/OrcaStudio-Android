@@ -21,6 +21,22 @@ IS the Build workspace on the main view (`vm.state.value.buildObject != null`), 
 - Old shape-builder Z rail (MeshPreviewView.kt:223/249/279-296/392) has the handle geometry + `liftMm()` projection math
   (screen drag projected on the projected +Z axis, snaps to floor 0 and boxes overlapping in XY). Port that into PlateView.
 
+## Read 2026-10-28 (session 2, nothing edited; don't re-read these)
+- PlateView: DOWN branch order :407-454 (paint, push, body drag :436, towers :443): put the Z-dot hit test right before :436
+  (24 dp reach like MeshPreviewView.handleAt :254). Gizmo starts (cut/resize/rotate) fire on first MOVE :485-492 and cancel the
+  body drag: the Z dot must win over them too (set a `liftDrag` flag at DOWN, skip `startResize` etc. when set).
+- MOVE body drag :575 sends `floatArrayOf(o.x, o.y, 0f)`; UP :617-632; `cancelDrag` :917; `dragOffsetAt` :934 (snap via
+  `ZRail.lift` per axis, px/mm from `camera.project`); `dragAt` :979.
+- `liftMm` (MeshPreviewView.kt:279-296) to port: project handle and handle+10 mm Z, dot the finger delta onto that, `len2 < 16` =
+  edge-on (keep last value); targets = floor 0 + min/max z of boxes overlapping in XY; reach 10 dp.
+- Handle position: `MeshPreviewView.handles` :249 = box top centre + `ZRail.gap(min, max)`; draw it with the renderer's handle
+  dots (`handlePx`, grep how ScaleGizmo handles are drawn in PlateRenderer).
+- Host: Viewport.kt:307 `onMoved` (Build -> `vm.shapes.moveOnPlate`, ShapeController.kt:125; slicer -> `vm.scene.moveSelected`
+  -> `engine.moveItems` dx/dy only, SceneController.kt:128 / Engine.kt:115). Drag offset cleared on next mesh (Viewport.kt:682).
+- Build selection boxes: Viewport.kt:730-742 (`selectedBounds` = design-pose boxes, `dragSnap = vm.shapes.buildSnapBoxes()`);
+  slicer: :743-769 (whole instances; Orca keeps objects on the bed, so the slicer Z handle needs an engine check first:
+  grep OrcaScene.cpp set_transform / ensure_on_bed. Start with Build only, slicer second).
+
 ## Plan
 1. Z handle: draw a dot above the selection box top (`ZRail.gap`), hit-test it before the body drag at DOWN :436; drag = `liftMm` math
    -> `renderer.dragOffset = (0, 0, dz)`; UP -> new `PlateListener.onLifted(dz)` (default no-op) -> Build: moveOnPlate with dz; slicer: per above.

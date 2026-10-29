@@ -36,7 +36,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **Debug notes** (Ctrl+Shift+N / S Pen button, debug build): read only when the user says "notes": `cat /sdcard/Android/data/<debug pkg>/files/notes/notes.jsonl` (Note/WSA); log each, then delete jsonl + PNGs there; never commit.
 - Not yet in a CI build: two-finger tap = context menu (compiled, untested), paint shop Sync swatch (compiled, untested), Floating Slice drag fix, Recent files collapsed, right-click `lateButton` fallback (0a5a8a1), paint shop entry fix + View menu in its bar (WSA-verified).
 - Open (backlog): paint shop bbox toggle + landscape GL view; then Godot review (Z drag handle, axis lock), More menu reorg.
-- Godot (a)+(b): source map + plan in `NOTES-godot-z-axis.md` (2026-10-28); start at its Plan step 1.
+- Godot (a)+(b): source map + plan in `NOTES-godot-z-axis.md` (2026-10-28; session 2 added exact lines, nothing coded); start at its Plan step 1, Build workspace first.
 - Next step: Godot review: Z drag handle + axis lock (`NOTES-godot-z-axis.md`) -> Opus 5.5 (high)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
