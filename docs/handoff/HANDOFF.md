@@ -33,7 +33,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **No WSA focus loops**. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
 - Gate work left: user sessions B-D (`NOTES-merge-batch.md`), paused 2026-10-28; ask whether to resume or merge Session-A items.
 - **Debug notes** (Ctrl+Shift+N / S Pen button, debug build): read only when the user says "notes": `cat /sdcard/Android/data/<debug pkg>/files/notes/notes.jsonl` (Note/WSA); log each, then delete jsonl + PNGs there; never commit.
-- Not yet in a CI build: two-finger tap = context menu (compiled, untested), paint shop Sync swatch (compiled, untested), Floating Slice drag fix, Recent files collapsed, right-click `lateButton` fallback (0a5a8a1), paint shop entry fix + View menu in its bar (WSA-verified).
+- Not in a CI build yet: two-finger tap menu + paint shop Sync swatch (untested), Floating Slice drag fix, Recent files collapsed, `lateButton` fallback, paint shop entry fix + View menu (WSA-verified).
 - Open (backlog): paint shop bbox toggle + landscape GL view, More menu reorg.
 - Godot (a)+(b): `NOTES-godot-z-axis.md` Plan. Step 1 (Build Z lift dot) coded + compiled + pushed (af81ab3), untested; not in a CI build.
   Next: WSA debug test of the lift dot (`wsa-debug-rebuild.sh`), then step 2 (axis lock), then CI.
