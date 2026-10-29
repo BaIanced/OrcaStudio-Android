@@ -184,6 +184,8 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     private var lastInstantTime = 0L
     /** The gesture began with the right / middle mouse button (pans; a right click opens the menu). */
     private var rightButton = false
+    /** A mouse button is down (DOWN came from a mouse; cleared on UP / CANCEL). */
+    private var mouseDown = false
     private var middleButton = false
     private var hoverPanning = false
     /** A long press opened the context menu; the rest of the gesture is ignored. */
@@ -359,6 +361,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
             if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) ignoreGesture = false
             return true
         }
+        if (event.actionMasked == MotionEvent.ACTION_MOVE && mouseDown) lateButton(event.buttonState)
         scaleDetector.onTouchEvent(event)
         gestureDetector.onTouchEvent(event)
         when (event.actionMasked) {
@@ -369,8 +372,10 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                 loupePointer = event.getPointerId(0); loupeX = event.x; loupeY = event.y
                 pushPending = false; pushGrab = null
                 removeCallbacks(hoverGone)
-                // The button state is only known on DOWN; on UP it is already released.
-                val mouse = event.isFromSource(android.view.InputDevice.SOURCE_MOUSE)
+                // The button state is only known on DOWN; on UP it is already released. Some devices send it only
+                // with the BUTTON_PRESS or MOVE that follows ([lateButton]).
+                val mouse = isMouse(event)
+                mouseDown = mouse
                 rightButton = mouse && event.buttonState and MotionEvent.BUTTON_SECONDARY != 0
                 middleButton = mouse && event.buttonState and MotionEvent.BUTTON_TERTIARY != 0
                 rectangleRemove = event.metaState and KeyEvent.META_ALT_ON != 0
@@ -572,6 +577,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                 }
             }
             MotionEvent.ACTION_UP -> {
+                mouseDown = false
                 if (mode == InteractionMode.PAINT) listener?.onPaintEnd()
                 val additive = event.metaState and (KeyEvent.META_CTRL_ON or KeyEvent.META_SHIFT_ON) != 0
                 val part = event.metaState and KeyEvent.META_ALT_ON != 0
@@ -630,6 +636,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                 }
             }
             MotionEvent.ACTION_CANCEL -> {
+                mouseDown = false
                 if (mode == InteractionMode.PAINT) listener?.onPaintEnd()
                 if (loupeOn) listener?.onMeasureLoupe(-1f, -1f, 3, loupeExact)
                 else if (longPressed) listener?.onLongPressTouch(-1f, -1f, false)
@@ -668,6 +675,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
             }
             return true
         }
+        if (event.actionMasked == MotionEvent.ACTION_BUTTON_PRESS && mouseDown) lateButton(event.actionButton)
         // WSA delivers a right / middle drag as hover moves with the button held, not as touch moves.
         if (event.actionMasked == MotionEvent.ACTION_HOVER_MOVE &&
             event.buttonState and (MotionEvent.BUTTON_SECONDARY or MotionEvent.BUTTON_TERTIARY) != 0) {
@@ -879,6 +887,23 @@ class PlateView(context: Context) : GLSurfaceView(context) {
         val l2 = vx * vx + vy * vy
         if (l2 < 0.05f) return 0f
         return ((x1 - x0) * vx + (y1 - y0) * vy) / l2
+    }
+
+    private fun isMouse(event: MotionEvent) = event.isFromSource(android.view.InputDevice.SOURCE_MOUSE) ||
+        event.getToolType(0) == MotionEvent.TOOL_TYPE_MOUSE
+
+    /**
+     * A mouse press whose DOWN came without the button (WSA sends it on DOWN; user r459: a right click only opened the
+     * menu when held, as a finger's long press): the right / middle button seen afterwards takes the gesture over.
+     */
+    private fun lateButton(buttons: Int) {
+        if (rightButton || middleButton) return
+        val right = buttons and MotionEvent.BUTTON_SECONDARY != 0
+        if (!right && buttons and MotionEvent.BUTTON_TERTIARY == 0) return
+        inputLog { "late button $buttons" }
+        cancelDrag()
+        rectangle = false
+        if (right) rightButton = true else middleButton = true
     }
 
     private fun cancelDrag() {
