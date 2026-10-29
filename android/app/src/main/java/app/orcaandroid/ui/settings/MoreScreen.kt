@@ -97,7 +97,8 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
         Column(Modifier.widthIn(max = 720.dp).fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             LayoutLabSection(state, vm)
 
-            if (state.recents.isNotEmpty()) Section(stringResource(R.string.recent), initiallyOpen = true) {
+            // Collapsed by default (user 2026-10-28): File on the Prepare top bar has the same list; this stays as a fallback.
+            if (state.recents.isNotEmpty()) Section(stringResource(R.string.recent), summary = state.recents.size.coerceAtMost(10).toString()) {
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(vertical = 4.dp)) { state.recents.take(10).forEach { r -> RecentRow(r) { vm.files.openRecent(r) } } }
                 }

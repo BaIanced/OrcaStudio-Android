@@ -32,11 +32,11 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - CAD plan (`NOTES-cad-reuse.md`): 0-5b Claude-verified, user feel untested; 1b parked.
 - **No WSA focus loops** (memory no-popups-on-user-screens). Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
 - MCP token efficiency (`NOTES-mcp-token-efficiency.md`): A-C verified, D dropped; build rule waits for the user's OK.
-- Sculpt latency (914816d + 68e8f7a + 4be7551): deferred stroke-end hull verified on WSA debug and r459 release 2026-10-28 (archive). Done.
 - Remaining gate work is user sessions B, C, D (`NOTES-merge-batch.md`); user paused testing 2026-10-28. Sculpt symmetry x done. Ask the user whether to resume sessions or merge Session-A items.
 - **Debug notes (verified WSA + Note 2026-10-28, archive):** Ctrl+Shift+N / S Pen button in the debug build. **Read only when the user says "notes"** (not at /next): `adb shell cat /sdcard/Android/data/<debug pkg>/files/notes/notes.jsonl` on the Note/WSA (view only ambiguous PNGs). Once each note is logged in handoff/backlog, delete `notes.jsonl` + the PNGs on that device (no re-reads, no duplicates); never commit them.
-- Floating Slice button (drag to move, saved) + "show plate switcher" toggle: coded + compiled 2026-10-28 (lab toggles in Layout lab); next: push, CI build, WSA test (backlog "UI prefs").
-- Next step: WSA-test floating Slice + plate-switcher toggle on the new build, then ask user: resume sessions B-D or merge Session A -> Sonnet 5.5 (medium)
+- Floating Slice + plate-switcher toggle: Claude-verified WSA debug 2026-10-28 (archive; drag-capture fix + Recent files collapsed, not yet in a CI build). Queued: More menu reorg (backlog).
+- Godot review (backlog "Godot review"): Z drag handle (live, slicer + shape builder), axis-lock drag, normal view, light-direction drag (in the design section), orbit inertia. No Godot UI mimicry.
+- Next step: Z drag handle + axis lock design -> Opus 5.5 (high)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).

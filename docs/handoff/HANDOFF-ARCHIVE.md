@@ -3549,3 +3549,8 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 
 ## 2026-10-28 Debug quick notes (verified)
 - Debug-only `DebugNotes` (src/debug + release no-op stub): Ctrl+Shift+N or S Pen button -> dialog with screenshot + note -> `notes.jsonl` + PNG in `/sdcard/Android/data/<debug pkg>/files/notes/`. 3D view needs its own PixelCopy (window copy leaves it blank). Samsung pen button = changed buttonState (primary or secondary) on hover moves, not BUTTON_PRESS. Verified on WSA (key) and the Note (pen button, user: "confirmed working", debug build of 2026-10-28).
+
+## 2026-10-28 Floating Slice + plate switcher toggle (Claude-verified, WSA debug)
+- Layout lab toggles "Show the plate switcher" + "Slice button floats" (b707195). Fix before testing: the drag handler (`pointerInput(roomX, roomY)`) captured `at` and `lab` once, so a 2nd drag started from the first spot and drag end wrote back an old lab; now `rememberUpdatedState` (PrepareOverlay `FloatingSlice`).
+- WSA debug (1920x1080, landscape): default bottom right; 3 drags each land where dropped (no jump), saved as sliceX/sliceY fractions; overshoot clamps to the corner; tap still slices (went to Preview). Plates off = no plate tabs/Add plate in Prepare (Preview keeps its plate tabs: needed to see other plates' slices). Floating off = old fixed bottom-right button. Not checked: portrait (grip) layout, phone. User feel untested (no user testing now).
+- Same day: More > Recent files collapsed by default (count as summary; File on the top bar has the list), user 2026-10-28: "nested by default ... I'll let you decide".

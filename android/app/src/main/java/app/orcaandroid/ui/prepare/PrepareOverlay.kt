@@ -693,6 +693,9 @@ private fun BoxScope.FloatingSlice(state: UiState, vm: AppViewModel, area: IntSi
     val roomY = (area.height - size.height).coerceAtLeast(0).toFloat()
     val saved = if (lab.sliceX < 0f || lab.sliceY < 0f) Offset(roomX, roomY) else Offset(lab.sliceX * roomX, lab.sliceY * roomY)
     val at = (live ?: saved).let { Offset(it.x.coerceIn(0f, roomX), it.y.coerceIn(0f, roomY)) }
+    // The drag handler outlives recompositions (keyed on the room only): read the current spot and lab, not the first ones.
+    val curAt by rememberUpdatedState(at)
+    val curLab by rememberUpdatedState(lab)
     val base = androidx.compose.ui.platform.LocalDensity.current
     androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides
         androidx.compose.ui.unit.Density(base.density * lab.sliceScale, base.fontScale)) {
@@ -704,12 +707,12 @@ private fun BoxScope.FloatingSlice(state: UiState, vm: AppViewModel, area: IntSi
                 detectDragGestures(
                     onDrag = { change, d ->
                         change.consume()
-                        val cur = live ?: at
+                        val cur = live ?: curAt
                         live = Offset((cur.x + d.x).coerceIn(0f, roomX), (cur.y + d.y).coerceIn(0f, roomY))
                     },
                     onDragEnd = {
                         live?.let { p ->
-                            vm.setLab(lab.copy(sliceX = if (roomX > 0f) (p.x / roomX).coerceIn(0f, 1f) else 0f,
+                            vm.setLab(curLab.copy(sliceX = if (roomX > 0f) (p.x / roomX).coerceIn(0f, 1f) else 0f,
                                                sliceY = if (roomY > 0f) (p.y / roomY).coerceIn(0f, 1f) else 0f))
                         }
                         live = null
