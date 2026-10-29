@@ -3611,3 +3611,6 @@ Object More menu now: Add volume (5 items) and Mesh tools (7 items) collapsible,
 ### 2026-10-29 Backlog trim (history moved from two lines)
 - Mouse right-click (user 2026-10-28, r459): menu only opened when held. WSA quick 40 ms click opens fine (DOWN carries buttons=2). Fallback `lateButton` (BUTTON_PRESS / MOVE take over) built, WSA no-regression only. Helper `mouse-uinput.sh X Y right HOLD_MS`.
 - Paint shop friction (user 2026-10-28, r459): purple flash + slow entry fixed (GL view kept), View menu in the shop bar, bounding box toggle in the shared View menu, landscape phone/Chromebook single SurfaceView fine on r461 (Claude, closed). All in CI r463+.
+
+### 2026-10-29 Push/pull removed (Claude, d1b11e9)
+- Folded into resize per user decision: chip + push code deleted (see HANDOFF). Tier 1 history above stays as record.
