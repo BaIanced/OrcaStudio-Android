@@ -55,7 +55,6 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - HMS texts: HmsCatalog.kt fetches at runtime; Handy's copies stay local. Flatpak r9 MakerLab, upstream bump, obn follow-ups: archive.
 - Paint guard tool (guard plane) misbehaves, user can't describe yet (user report 2026-10-25, r401). Open: needs repro from user.
 - Upstream 2.5.0 alpha overlap: NOTES-upstream-2.5.md (source checks done 2026-10-25); keep ours where better. All compare rows closed at source level (2026-10-28); nothing open.
-- DECISION open: push/pull -> fold into resize as face drag (drop chip) or remove. Claude rec: fold.
 - CAD roadmap (user accepted 2026-10-25; NOTES-cad-reuse.md): steps 0-6 built and Claude-verified on WSA (Hull r445, XY edge snap r447, Blend joins r419, sweep/loft r421, bend/twist/taper r423, sculpt r428), user feel untested; 7 asset library (figures, wheels) not started.
 - Truck holes cut preview: Claude WSA-verified on the debug build 2026-10-29 (chef visible through the serving window). Sculpt on a cut part OK (r464, Claude 2026-10-29). Open: hole ghost alpha 0.45 tints the figures (try ~0.25), needs a CI build.
 - Measure steps 1-6 + steer/tap-select/loupe/Tuning (Claude-verified WSA debug 2026-10-26/27); open = user feel on the phone (steer vs plain loupe, 2nd-finger freeze, axis lock, mouse hover, S Pen on the Note); Alt+click, ring-to-ring, hole bottom rim untested.

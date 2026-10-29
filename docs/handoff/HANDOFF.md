@@ -35,8 +35,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - r464 has everything built so far (Wireframe, inertia, Light direction, two-finger tap, Bounding box, More groups); all Claude-verified on WSA except paint shop Sync swatch (needs a printer). User feel untested.
 - Truck holes cut preview: Claude-verified on WSA 2026-10-29 (archive); sculpt on a cut part OK (no crash, 414k tris; sculpted part draws uncut by design). Hole ghost alpha 0.45 -> ~0.25 (Shaders.kt:320) only if figures look tinted (untested).
 - Backlog is 11.6 KB (limit ~10): trim verified/stale lines at the next update.
-- Next: backlog trimmed to 10.9 KB (2026-10-29). Everything left in it needs the user, a printer or a pen; wait for the user's direction or Ideas / Muse work.
-- Next step: wait for user direction (merge batch, sessions B-D, or Ideas) -> Sonnet 5.5 (medium)
+- **DECIDED (user 2026-10-29): fold Push/pull into resize as a face drag, drop the chip.** Plan (Claude, not started): Build resize already has face-centre handles (`ScaleGizmo.visible`, `PlateView.startResize`, far side fixed). Make a touch on the selected single shape's flat face grab the resize handle of that face (reach = a fraction of the face's screen size, not 12 dp) so a body drag elsewhere still moves; then delete the chip (`AppScaffold.kt:369`, `buildPush`, `setBuildPush`, `shape_push*` strings), `PlateView.pushMode` branch + `onPushCheck`/`pushGrab`, `Viewport.kt:655-664` pushing flags, `ScadController.faceAt`, `ShapeController.pushAt/push`, `PushPullTest` (keep `ShapeDesign.pushed` only if resize uses it). Check on WSA debug (MCP + swipes). Update archive "Push/pull tier 1" with a pointer, backlog DECISION line removed.
+- Next step: Push/pull -> resize face drag -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
