@@ -37,6 +37,18 @@ IS the Build workspace on the main view (`vm.state.value.buildObject != null`), 
   slicer: :743-769 (whole instances; Orca keeps objects on the bed, so the slicer Z handle needs an engine check first:
   grep OrcaScene.cpp set_transform / ensure_on_bed. Start with Build only, slicer second).
 
+## Read 2026-10-28 session 3 (nothing edited; don't re-read these, go straight to coding)
+- PlateRenderer: `dragOffset` setter :91-94 resets `dragTower` when x,y == 0 (fine for z-only, tower drags are xy). Shadow
+  `dragging` :535 -> add `|| dragOffset[2] != 0f`. Handle dots: copy `drawGizmo` :1207-1246 (identity mvp on lineProgram,
+  clip = mvp * pos, dark rim quad then colour quad, size `handlePx`); add `var liftHandle: FloatArray?` (world xyz, null = hidden)
+  drawn after `drawSelection()` :587 (models && !loupePass), offset by dragOffset[2] while lifting. Colour = ScaleGizmo.color(2).
+- PlateView fields :140-161 (`selectedBounds`, `dragSnap` (DragSnap :117 lo/hi/others), `dragAnchor`), density via
+  `resources.displayMetrics.density`. DOWN body-drag branch :436; gizmo-start guard :485-493; MOVE `dragging ->` :575;
+  UP `dragging` :617-632; `cancelDrag` :917-927; `dragOffsetAt` :934-950 (returns Vec3, z = 0). Listener `onMoved` :46.
+- Lift box in Build = `gizmoBox()` :767 (mesh box when `gizmoOnMesh`) / `dragSnap.lo/hi`; targets = floor 0 + `dragSnap.others`
+  min/max z overlapping in XY. MeshPreviewView liftMm :279-296 uses `handleValue`/`liftSnap` as "keep" values -> PlateView
+  needs `liftMm`/`liftAt` fields.
+
 ## Plan
 1. Z handle: draw a dot above the selection box top (`ZRail.gap`), hit-test it before the body drag at DOWN :436; drag = `liftMm` math
    -> `renderer.dragOffset = (0, 0, dz)`; UP -> new `PlateListener.onLifted(dz)` (default no-op) -> Build: moveOnPlate with dz; slicer: per above.
