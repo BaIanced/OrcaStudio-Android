@@ -33,10 +33,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **No WSA focus loops** (memory no-popups-on-user-screens). Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
 - MCP token efficiency (`NOTES-mcp-token-efficiency.md`): A-C verified, D dropped; build rule waits for the user's OK.
 - Remaining gate work is user sessions B, C, D (`NOTES-merge-batch.md`); user paused testing 2026-10-28. Sculpt symmetry x done. Ask the user whether to resume sessions or merge Session-A items.
-- **Debug notes (verified WSA + Note 2026-10-28, archive):** Ctrl+Shift+N / S Pen button in the debug build. **Read only when the user says "notes"** (not at /next): `adb shell cat /sdcard/Android/data/<debug pkg>/files/notes/notes.jsonl` on the Note/WSA (view only ambiguous PNGs). Once each note is logged in handoff/backlog, delete `notes.jsonl` + the PNGs on that device (no re-reads, no duplicates); never commit them.
-- Floating Slice + plate-switcher toggle: Claude-verified WSA debug 2026-10-28 (archive; drag-capture fix + Recent files collapsed, not yet in a CI build). Queued: More menu reorg (backlog).
-- Godot review (backlog "Godot review"): Z drag handle (live, slicer + shape builder), axis-lock drag, normal view, light-direction drag (in the design section), orbit inertia. No Godot UI mimicry.
-- Next step: Z drag handle + axis lock design -> Opus 5.5 (high)
+- **Debug notes** (Ctrl+Shift+N / S Pen button, debug build): read only when the user says "notes": `cat /sdcard/Android/data/<debug pkg>/files/notes/notes.jsonl` (Note/WSA); log each, then delete jsonl + PNGs there; never commit.
+- Not yet in a CI build: Floating Slice drag fix, Recent files collapsed, right-click `lateButton` fallback (0a5a8a1; ask the user which device the mouse was on).
+- User reports 2026-10-28 (backlog "Open bugs"): paint shop friction (purple flash on open, no view-mode/edge/bbox toggles or filament sync inside), two-finger tap = context menu. Then Godot review (Z drag handle, axis lock), More menu reorg.
+- Next step: Paint shop friction (purple flash, in-paint view + filament sync) -> Opus 5.5 (high)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
