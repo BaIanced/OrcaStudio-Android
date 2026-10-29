@@ -36,7 +36,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Not in a CI build yet: View > Wireframe (all parts' triangle edges, session-only; WSA debug 2026-10-28: sparse meshes show lines, dense ones fade by design), orbit inertia, View > Light direction (light ball panel, drag = key light az/el live; WSA debug-verified 2026-10-28, user feel untested), two-finger tap menu + paint shop Sync swatch (untested), Floating Slice drag fix, Recent files collapsed, `lateButton` fallback, paint shop entry fix + View menu (WSA-verified).
 - Open (backlog): More menu reorg (lab groups compiled, not yet on a device; rest of More still open). Paint shop landscape GL OK on phone + Chromebook r461. View > Bounding box (compiled only, untested on WSA, not in CI).
 - Godot review (a) Z lift + axis lock, light ball, orbit inertia, wireframe: all WSA-verified; details in archive "2026-10-28 Godot review leftovers".
-- Next step: install a debug build on WSA, check lab groups via phone-ui layout, then finish More menu reorg -> Sonnet 5.5 (medium); or resume sessions B-D when the user is back
+- Next step: Android CLI trial (NOTES-android-cli-trial.md), then finish More menu reorg -> Sonnet 5.5 (medium); or resume sessions B-D when the user is back
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
