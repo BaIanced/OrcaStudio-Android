@@ -569,6 +569,7 @@ private fun ToolButtons(
 ) {
     var addMenu by remember { mutableStateOf(false) }
     var moreMenu by remember { mutableStateOf(false) }
+    var moreGroup by remember { mutableStateOf<String?>(null) }
     var paintMenu by remember { mutableStateOf(false) }
     var splitMenu by remember { mutableStateOf(false) }
     var dialog by remember { mutableStateOf<String?>(null) }
@@ -643,21 +644,34 @@ private fun ToolButtons(
             }
             Box {
                 ToolButton(Icons.Default.MoreVert, stringResource(R.string.more)) { moreMenu = true }
-                DropdownMenu(expanded = moreMenu, onDismissRequest = { moreMenu = false }) {
-                    DropdownMenuItem(text = { Text(stringResource(R.string.add_part)) }, onClick = { moreMenu = false; vm.scene.addVolume(VolumeType.PART, "box") })
-                    DropdownMenuItem(text = { Text(stringResource(R.string.mesh_boolean)) }, onClick = { moreMenu = false; dialog = "boolean" })
-                    DropdownMenuItem(text = { Text(stringResource(R.string.add_modifier)) }, onClick = { moreMenu = false; vm.scene.addVolume(VolumeType.MODIFIER, "box") })
-                    DropdownMenuItem(text = { Text(stringResource(R.string.add_support_blocker)) }, onClick = { moreMenu = false; vm.scene.addVolume(VolumeType.SUPPORT_BLOCKER, "box") })
-                    DropdownMenuItem(text = { Text(stringResource(R.string.add_support_enforcer)) }, onClick = { moreMenu = false; vm.scene.addVolume(VolumeType.SUPPORT_ENFORCER, "box") })
-                    DropdownMenuItem(text = { Text(stringResource(R.string.add_negative_volume)) }, onClick = { moreMenu = false; vm.scene.addVolume(VolumeType.NEGATIVE, "box") })
+                // Two collapsible groups (one open at a time) keep the menu short: 4 rows closed instead of 14.
+                DropdownMenu(expanded = moreMenu, onDismissRequest = { moreMenu = false; moreGroup = null }) {
+                    @Composable fun item(label: Int, action: () -> Unit) {
+                        DropdownMenuItem(text = { Text(stringResource(label)) }, onClick = { moreMenu = false; moreGroup = null; action() })
+                    }
+                    @Composable fun groupHeader(id: String, label: Int) {
+                        val open = moreGroup == id
+                        DropdownMenuItem(text = { Text(stringResource(label)) }, onClick = { moreGroup = if (open) null else id },
+                            trailingIcon = { Icon(if (open) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, null) })
+                    }
+                    groupHeader("volume", R.string.more_add_volume)
+                    if (moreGroup == "volume") listOf(
+                        R.string.add_part to VolumeType.PART, R.string.add_modifier to VolumeType.MODIFIER,
+                        R.string.add_support_blocker to VolumeType.SUPPORT_BLOCKER, R.string.add_support_enforcer to VolumeType.SUPPORT_ENFORCER,
+                        R.string.add_negative_volume to VolumeType.NEGATIVE,
+                    ).forEach { (label, type) -> item(label) { vm.scene.addVolume(type, "box") } }
+                    groupHeader("mesh", R.string.more_mesh_tools)
+                    if (moreGroup == "mesh") {
+                        item(R.string.mesh_boolean) { dialog = "boolean" }
+                        item(R.string.simplify) { dialog = "simplify" }
+                        item(R.string.deform) { dialog = "deform" }
+                        item(R.string.blend) { dialog = "blend" }
+                        item(R.string.hollow) { dialog = "hollow" }
+                        item(R.string.repair) { vm.scene.repair() }
+                        item(R.string.check_mesh) { dialog = "check" }
+                    }
                     HorizontalDivider()
-                    DropdownMenuItem(text = { Text(stringResource(R.string.simplify)) }, onClick = { moreMenu = false; dialog = "simplify" })
-                    DropdownMenuItem(text = { Text(stringResource(R.string.deform)) }, onClick = { moreMenu = false; dialog = "deform" })
-                    DropdownMenuItem(text = { Text(stringResource(R.string.blend)) }, onClick = { moreMenu = false; dialog = "blend" })
-                    DropdownMenuItem(text = { Text(stringResource(R.string.hollow)) }, onClick = { moreMenu = false; dialog = "hollow" })
                     DropdownMenuItem(text = { Text(stringResource(R.string.sculpt)) }, onClick = { moreMenu = false; vm.scene.setTool(Tool.Sculpt()) })
-                    DropdownMenuItem(text = { Text(stringResource(R.string.repair)) }, onClick = { moreMenu = false; vm.scene.repair() })
-                    DropdownMenuItem(text = { Text(stringResource(R.string.check_mesh)) }, onClick = { moreMenu = false; dialog = "check" })
                     DropdownMenuItem(text = { Text(stringResource(R.string.measure)) }, onClick = { moreMenu = false; vm.scene.setTool(Tool.Measure) },
                         leadingIcon = { Icon(Icons.Default.Straighten, null) })
                 }

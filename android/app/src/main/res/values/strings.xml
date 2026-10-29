@@ -312,6 +312,8 @@
     <string name="model_ringing">Ringing tower</string>
     <string name="modified">modified</string>
     <string name="more">More</string>
+    <string name="more_add_volume">Add volume</string>
+    <string name="more_mesh_tools">Mesh tools</string>
     <string name="n_differences">%d differences</string>
     <string name="n_modified">%d modified</string>
     <string name="n_printers_selected">%d selected</string>

@@ -3582,3 +3582,6 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 
 ## 2026-10-29 Android CLI trial (closed)
 Google Android CLI (winget Google.AndroidCLI 1.1.16717390) trialled: preview render works for stateless composables (wrapper `orca-android-tools/preview-render.sh`); `android layout` is bulkier than `phone-ui.py layout` and installs an on-device server, so not adopted. Details, timings, disk cost: `NOTES-android-cli-trial.md`.
+
+## 2026-10-29 More menu groups
+Object More menu now: Add volume (5 items) and Mesh tools (7 items) collapsible, plus Sculpt, Measure. WSA debug: 4 rows closed, groups expand one at a time, Check mesh dialog opens. Compiled + installed locally, not CI.
