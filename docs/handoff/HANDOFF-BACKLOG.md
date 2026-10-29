@@ -11,7 +11,7 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 ## Open bugs
 - Mouse right-click (user 2026-10-28, r459): menu only opened when held (long-press path). WSA r459 + debug: quick 40 ms click opens it fine (DOWN carries buttons=2). Likely cause: the user's device sends DOWN without the button; fallback `lateButton` (BUTTON_PRESS / MOVE take over) built, WSA no-regression only (Claude 2026-10-28, not in a CI build). Open: which device the user used; check there. Helper: `mouse-uinput.sh X Y right HOLD_MS`.
 - Two-finger tap = right-click / context menu (user 2026-10-28): review where it fits (trackpad style). Not started.
-- Paint shop friction (user 2026-10-28, r459): purple flash + slow entry fixed (GL view kept, Claude WSA debug 2026-10-28) and View menu (Realistic, layer lines, edges, camera) in the shop bar; still open: bounding box toggle (no such setting exists yet), filament sync inside the shop, landscape phone still makes a new GL view. Not in a CI build.
+- Paint shop friction (user 2026-10-28, r459): purple flash + slow entry fixed (GL view kept, Claude WSA debug 2026-10-28) and View menu (Realistic, layer lines, edges, camera) in the shop bar; Sync swatch (Bambu connected) in the swatch row (compiled only, untested); still open: bounding box toggle (no such setting exists yet), landscape phone still makes a new GL view. Not in a CI build.
 - [Opus] Muse Task 12 JNI audit: 5/8/9 in r392 (9 WSA-checked; 8 needs a printer connect; 5 not exercised); 10/12/13 fixed 6303398, WSA r395 add text (52 chars)/SVG smoke OK (Claude 2026-10-24); 11 contract note, no change; 6 built r376, needs 2+ printers (Claude 2026-10-24).
 
 ## Untested (needs the user or a special setup)

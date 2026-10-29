@@ -42,6 +42,7 @@ import androidx.compose.material.icons.filled.Colorize
 import androidx.compose.material.icons.filled.FormatColorFill
 import androidx.compose.material.icons.filled.FormatColorReset
 import androidx.compose.material.icons.filled.Reorder
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.ViewInAr
 import androidx.compose.material.icons.filled.DragIndicator
 import androidx.compose.material.icons.filled.ExpandLess
@@ -85,6 +86,7 @@ import kotlin.math.roundToInt
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.orcaandroid.R
+import app.orcaandroid.net.HostType
 import app.orcaandroid.core.ColourChangeEstimate
 import app.orcaandroid.core.PaintLayers
 import app.orcaandroid.core.PresetType
@@ -407,6 +409,9 @@ internal fun ColorPaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Pain
         Swatch(tool.shape == "pick", stringResource(R.string.paint_pick), {
             vm.scene.setTool(if (tool.shape == "pick") tool.copy(shape = tool.back) else tool.copy(shape = "pick", back = tool.shape))
         }) { Icon(Icons.Default.Colorize, null, Modifier.size(24.dp)) }
+        // The plate's filaments from the connected Bambu printer, without leaving the shop.
+        if (state.connection?.type == HostType.BAMBU || state.connection?.type == HostType.BAMBU_SIGNED)
+            Swatch(false, stringResource(R.string.sync_short), vm.presets::syncFilamentsFromPrinter) { Icon(Icons.Default.Sync, null, Modifier.size(24.dp)) }
     }
     changes?.takeIf { it.changes > 0 }?.let {
         Text(stringResource(R.string.paint_change_estimate, it.changes, it.flushGrams), style = MaterialTheme.typography.bodySmall)

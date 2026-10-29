@@ -633,6 +633,7 @@
     <string name="allow_mixed_temps_text">Slice filaments whose nozzle temperatures are far apart in one print. Risk: clogging or printer damage.</string>
     <string name="mixed_temps_hint">If you still want to print, turn on %1$s.</string>
     <string name="sync_filaments">Sync filaments from printer</string>
+    <string name="sync_short">Sync</string>
     <string name="device_job">Job</string>
     <string name="device_temperatures">Temperatures</string>
     <string name="device_nozzle">Nozzle</string>
