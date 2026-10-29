@@ -164,6 +164,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     /** The two fingers' gap at the last move, 0 = not yet known (a finger came or went). */
     private var lastSpan = 0f
     /** Pan or pinch ([TwoFingerGesture]); lazy because [touchSlop] is declared further down. */
+    private var twoFingerDownAt = 0L
     private val twoFinger by lazy { TwoFingerGesture(touchSlop.toFloat()) }
     /** Pinch zoom speed (Layout lab): the exponent on the fingers' gap ratio, 1 = the gap ratio itself. */
     var pinchSpeed = 0.6f
@@ -313,6 +314,8 @@ class PlateView(context: Context) : GLSurfaceView(context) {
         private const val PEN_NEAR_MS = 1000L
         /** A button press already fired its instant action; the tap that follows within this time does not fire it again. */
         private const val INSTANT_REPEAT_MS = 1500L
+        /** A two-finger touch shorter than this, without pan or pinch, is a tap (context menu). */
+        private const val TWO_FINGER_TAP_MS = 300L
         /** A mouse press ends the hover just before it lands: the preview waits this long before it goes. */
         private const val HOVER_GONE_MS = 120L
     }
@@ -456,11 +459,16 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                 if (loupeOn && event.pointerCount == 2) listener?.onMeasureFreeze(true)
                 lastFocusX = focusX(event); lastFocusY = focusY(event)
                 lastSpan = 0f
+                if (event.pointerCount == 2) twoFingerDownAt = event.eventTime
                 if (event.pointerCount == 2) twoFinger.down((event.eventTime - event.downTime).toFloat(), span(event), lastFocusX, lastFocusY)
                 inputLog { "2f down n=${event.pointerCount} span=${span(event).toInt()} slop=$touchSlop after=${event.eventTime - event.downTime}ms longPressed=$longPressed moved=$moved mode=$mode" }
             }
             MotionEvent.ACTION_POINTER_UP -> {
                 inputLog { "2f up n=${event.pointerCount} ${twoFinger.mode} gap=${twoFinger.gap(span(event)).toInt()} shift=${twoFinger.shift(focusX(event), focusY(event)).toInt()} longPressed=$longPressed" }
+                // A quick two-finger tap that neither pans nor pinches = right-click (trackpad style).
+                if (event.pointerCount == 2 && !longPressed && mode == InteractionMode.NAVIGATE && twoFinger.mode == TwoFingerGesture.Mode.UNDECIDED &&
+                    event.eventTime - twoFingerDownAt < TWO_FINGER_TAP_MS && twoFinger.gap(span(event)) < touchSlop && twoFinger.shift(focusX(event), focusY(event)) < touchSlop)
+                    listener?.onContextMenu(focusX(event), focusY(event))
                 lastSpan = 0f
                 if (loupeOn && event.pointerCount == 2) listener?.onMeasureFreeze(false)
                 val remaining = if (event.actionIndex == 0) 1 else 0
