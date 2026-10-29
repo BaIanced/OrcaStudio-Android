@@ -14,7 +14,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 3defffa (PR #66, branch at r461/89944b9, merged 2026-10-28 on the user's go-ahead, before sessions B-D; user overrode the user-tested-only rule for this merge). Older: 0170950 (PR #65, r398). Untested by the user in main (plus all of sessions B-D, Sculpt, snap toggle, Z lift/axis lock): Build workspace, paint shop/depth, Filament materials, Realistic render, UX P1-P6, Check mesh feel, 3MF export in desktop Orca, pen, fan hold, Extrude F150.
 - Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
-- Latest CI build: r464 (run 40855492671, 66b7072, adds Truck cut preview) on all 6 adb devices (r463 had More menu groups); earlier on WSA, phone, Note, SHIELD, Chromebook. User feel untested. Install new builds on all adb devices (skip the .23 tablet: 32-bit, Android 6).
+- Latest CI build: r466 (run 40933636132, adds push/pull fold into resize, Truck cut preview, More groups) on all 5 adb devices incl. WSA, 2026-10-29. User feel untested. Install new builds on all adb devices (skip the .23 tablet: 32-bit, Android 6).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **User 2026-10-28: no more user testing for now; Claude builds and tests everything itself (memory no-user-testing-now); don't ask for feel/UI checks.**
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
@@ -36,7 +36,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Truck holes cut preview: Claude-verified on WSA 2026-10-29 (archive); sculpt on a cut part OK (no crash, 414k tris; sculpted part draws uncut by design). Hole ghost alpha 0.45 -> ~0.25 (Shaders.kt:320) only if figures look tinted (untested).
 - Backlog is 11.6 KB (limit ~10): trim verified/stale lines at the next update.
 - Push/pull folded into resize (user 2026-10-29), d1b11e9 pushed: Claude-verified on WSA debug build (handle grab from a big face edge, body drag still moves; archive). Resize scales about the bottom centre, not a parametric push. Ships in the next CI build.
-- Next step: trim HANDOFF-BACKLOG.md to ~10 KB, then CI build + install on all adb devices -> Sonnet 5.5 (medium)
+- Next step: no open Claude item; pick from HANDOFF-BACKLOG.md (grep [Opus]/untested) -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
