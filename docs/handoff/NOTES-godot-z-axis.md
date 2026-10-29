@@ -50,6 +50,10 @@ IS the Build workspace on the main view (`vm.state.value.buildObject != null`), 
   needs `liftMm`/`liftAt` fields.
 
 ## Plan
+**Step 1 DONE (af81ab3, compiled, untested on device, Build only):** `ZRail.handle`, PlateView `liftMode`/`startLift`/`liftAt`
+(lift branch before `dragging ->` in MOVE and UP; `liftBox` blocks gizmo starts), renderer `liftHandle`/`liftGrab` + `drawDots`
+(shared with `drawGizmo`), `PlateListener.onLifted` -> Viewport `moveOnPlate(0, 0, dz)` (dz via r[6+i]). Slicer view: not wired.
+Next: WSA debug test (Build: select a shape, drag the blue dot up onto another shape's top), then step 2.
 1. Z handle: draw a dot above the selection box top (`ZRail.gap`), hit-test it before the body drag at DOWN :436; drag = `liftMm` math
    -> `renderer.dragOffset = (0, 0, dz)`; UP -> new `PlateListener.onLifted(dz)` (default no-op) -> Build: moveOnPlate with dz; slicer: per above.
 2. Axis lock: `axisLock: Int` (-1 free, 0 X, 1 Y, 2 Z); in `dragOffsetAt` zero the other axis; Z switches to the lift math.
