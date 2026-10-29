@@ -180,6 +180,42 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     private val twoFinger by lazy { TwoFingerGesture(touchSlop.toFloat()) }
     /** Pinch zoom speed (Layout lab): the exponent on the fingers' gap ratio, 1 = the gap ratio itself. */
     var pinchSpeed = 0.6f
+    /** Finger orbit coasting after a fast flick (LayoutLab.orbitInertia): 0 = off. Only a plain one-finger orbit coasts; any touch stops it. */
+    var orbitInertia = 0.5f
+    private var orbitVx = 0f
+    private var orbitVy = 0f
+    private var orbitLastT = 0L
+    private var orbitedLast = false
+    private var flingT = 0L
+    private val flingStep = object : Runnable {
+        override fun run() {
+            val now = android.os.SystemClock.uptimeMillis()
+            val dt = (now - flingT).coerceIn(1L, 50L).toFloat()
+            flingT = now
+            camera.orbit(orbitVx * dt, orbitVy * dt)
+            // Frame-rate independent decay: the half-life grows with the setting (about 0.04 s to 0.24 s).
+            val decay = 0.5f.pow(dt / (40f + 200f * orbitInertia))
+            orbitVx *= decay; orbitVy *= decay
+            if (orbitVx * orbitVx + orbitVy * orbitVy > FLING_STOP * FLING_STOP) postOnAnimation(this) else stopFling()
+        }
+    }
+    private fun stopFling() { removeCallbacks(flingStep); orbitVx = 0f; orbitVy = 0f }
+    /** Orbit by a finger move and remember its speed (degrees per ms, smoothed) for [startFling]. */
+    private fun orbitFinger(dx: Float, dy: Float, t: Long) {
+        val ddx = dx * 0.3f; val ddy = dy * 0.3f
+        camera.orbit(ddx, ddy)
+        val dt = (t - orbitLastT).toFloat()
+        if (orbitedLast && dt in 1f..100f) { orbitVx = orbitVx * 0.5f + ddx / dt * 0.5f; orbitVy = orbitVy * 0.5f + ddy / dt * 0.5f }
+        else { orbitVx = 0f; orbitVy = 0f }
+        orbitLastT = t; orbitedLast = true
+    }
+    private fun startFling(t: Long, mouse: Boolean) {
+        val fast = orbitVx * orbitVx + orbitVy * orbitVy > FLING_START * FLING_START
+        // A finger that rested before lifting (> 60 ms since the last move) is a deliberate stop, not a flick.
+        if (orbitedLast && !mouse && orbitInertia > 0f && t - orbitLastT < 60 && fast) { flingT = android.os.SystemClock.uptimeMillis(); postOnAnimation(flingStep) }
+        else stopFling()
+        orbitedLast = false
+    }
     /** Wheel zoom speed (LayoutLab.wheelSpeed): 15 % per notch raised to this power. */
     var wheelSpeed = 1f
     /** Pen buttons and eraser mapping, and palm rejection (More > Pen). */
@@ -385,6 +421,9 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     }
 
     companion object {
+        /** Orbit coasting: the flick speed that starts it and the speed that ends it (degrees per ms). */
+        private const val FLING_START = 0.15f
+        private const val FLING_STOP = 0.01f
         /** The app's 3D view, for keyboard shortcuts that move the camera. */
         var active: java.lang.ref.WeakReference<PlateView>? = null
         /** Single-key shortcuts while the view has focus (set by the activity); true when handled. */
@@ -451,6 +490,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 if (!hasFocus()) requestFocus()
+                stopFling(); orbitedLast = false
                 lastX = event.x; lastY = event.y; downX = event.x; downY = event.y
                 multiTouch = false; moved = false; dragging = false; longPressed = false; loupeOn = false; maxTravel = 0f; resizeTried = false
                 loupePointer = event.getPointerId(0); loupeX = event.x; loupeY = event.y
@@ -539,6 +579,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                 }
             }
             MotionEvent.ACTION_POINTER_DOWN -> {
+                stopFling(); orbitedLast = false
                 multiTouch = true
                 paintHeld = false
                 cancelDrag()
@@ -665,12 +706,13 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                         // In resize mode the view holds still until the touch slop decides between resize and orbit
                         // (a corner resize also turned the camera ~1.5 degrees, WSA r305).
                         (resizeMode || rotateMode) && !resizeTried -> Unit
-                        else -> camera.orbit((event.x - lastX) * 0.3f, (event.y - lastY) * 0.3f)
+                        else -> orbitFinger(event.x - lastX, event.y - lastY, event.eventTime)
                     }
                     lastX = event.x; lastY = event.y
                 }
             }
             MotionEvent.ACTION_UP -> {
+                startFling(event.eventTime, mouseDown)
                 mouseDown = false
                 if (mode == InteractionMode.PAINT) { flushPaintHold(); listener?.onPaintEnd() }
                 val additive = event.metaState and (KeyEvent.META_CTRL_ON or KeyEvent.META_SHIFT_ON) != 0
@@ -737,6 +779,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                 }
             }
             MotionEvent.ACTION_CANCEL -> {
+                stopFling(); orbitedLast = false
                 mouseDown = false
                 if (mode == InteractionMode.PAINT) { listener?.onPaintEnd() }
                 if (loupeOn) listener?.onMeasureLoupe(-1f, -1f, 3, loupeExact)

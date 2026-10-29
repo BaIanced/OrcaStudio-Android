@@ -3566,3 +3566,10 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 
 ## 2026-10-28 Godot Z key lift in Build WSA debug test (da7505c, Claude test, not user)
 - Shape builder, box 20^3 at z 0: held body drag (3 moves), keyevent Z, more moves up: z 0 -> 16, XY stayed, blue 2000 mm axis guide drawn, lift dot followed; UP committed (design_describe pos z 16); reset to 0 with shape_move. No snap hit (nothing within range of 16). NOT run: prime tower drag ignoring Z (code gates Z to Build + not tower; low risk).
+
+## 2026-10-28 Orbit inertia (WSA debug, not in CI)
+- PlateView: one-finger flick (>0.15 deg/ms, lifted within 60 ms of last move, not mouse) keeps orbiting with exponential decay (half-life 40+200*setting ms); touch/2nd finger/cancel stops it. LayoutLab.orbitInertia (default 0.5, 0 = off), slider in More. WSA: fast swipe 300px/120ms: yaw -60 -> -301; 900 ms swipe: exactly -90, no coast.
+
+## 2026-10-28 Handoff overflow
+- **Debug notes** (Ctrl+Shift+N / S Pen button, debug build): read only when the user says "notes": `cat /sdcard/Android/data/<debug pkg>/files/notes/notes.jsonl` (Note/WSA); log each, then delete jsonl + PNGs there; never commit.
+- Debug build (local, CI makes release only, so it is not auto-updated; rebuild + `adb install -r -g`): dev notes also fire on volume-down x2 (OnePlus, 2026-10-28). Paint: finger first dab held until move/100 ms/lift, 2nd finger drops it (fix for pinch/pan painting; untested on device).

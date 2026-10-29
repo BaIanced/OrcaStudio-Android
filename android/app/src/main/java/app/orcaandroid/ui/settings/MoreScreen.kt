@@ -331,6 +331,7 @@ private fun LayoutLabSection(state: UiState, vm: AppViewModel) {
         ShadowSlider(R.string.lab_light_elevation, lab.lightElevation, 1f, "°", app.orcaandroid.core.LayoutLab.LIGHT_ELEVATIONS, current) { vm.setLab(state.lab.copy(lightElevation = it)) }
         ShadowSlider(R.string.lab_light_strength, lab.lightStrength, 100f, "%", app.orcaandroid.core.LayoutLab.LIGHT_STRENGTHS, current) { vm.setLab(state.lab.copy(lightStrength = it)) }
         ShadowSlider(R.string.lab_camera_light, lab.cameraLight, 100f, "%", app.orcaandroid.core.LayoutLab.CAMERA_LIGHTS, current) { vm.setLab(state.lab.copy(cameraLight = it)) }
+        ShadowSlider(R.string.lab_orbit_inertia, lab.orbitInertia, 100f, "%", app.orcaandroid.core.LayoutLab.ORBIT_INERTIAS, current) { vm.setLab(state.lab.copy(orbitInertia = it)) }
         TextButton(onClick = { vm.setLab(app.orcaandroid.core.LayoutLab()) }) { Text(stringResource(R.string.reset)) }
       }
     }

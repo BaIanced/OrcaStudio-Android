@@ -1064,6 +1064,7 @@
     <string name="wheel_zoom_speed">Mouse wheel / thumbstick zoom speed: %s</string>
     <string name="lab_pinch_speed">Pinch zoom speed (100 %% = as fast as the fingers): %s</string>
     <string name="lab_camera_light">Preview camera light (toolpaths; 0 = studio light): %s</string>
+    <string name="lab_orbit_inertia">Orbit coasting after a flick (0 = off): %s</string>
     <string name="lab_light_strength">Light strength (the shadow follows the direction): %s</string>
     <string name="lab_shadow_bias">Shadow bias (raise if striped, lower if light leaks under parts): %s</string>
     <string name="lab_overlay_scale">Floating controls over the 3D view: %d %%</string>
