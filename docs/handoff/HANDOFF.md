@@ -14,7 +14,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 3defffa (PR #66, branch at r461/89944b9, merged 2026-10-28 on the user's go-ahead, before sessions B-D; user overrode the user-tested-only rule for this merge). Older: 0170950 (PR #65, r398). Untested by the user in main (plus all of sessions B-D, Sculpt, snap toggle, Z lift/axis lock): Build workspace, paint shop/depth, Filament materials, Realistic render, UX P1-P6, Check mesh feel, 3MF export in desktop Orca, pen, fan hold, Extrude F150.
 - Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
-- Latest CI build: r461 (run 40807285022, 9f9c5c2, has Z lift dot + axis lock) on WSA, phone, Note, SHIELD. User feel untested. Install new builds on all adb devices (skip the .23 tablet: 32-bit, Android 6).
+- Latest CI build: r463 (run 40844632441, f788606, has More menu groups) on WSA, phone, Note, SHIELD, Chromebook. User feel untested. Install new builds on all adb devices (skip the .23 tablet: 32-bit, Android 6).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **User 2026-10-28: no more user testing for now; Claude builds and tests everything itself (memory no-user-testing-now); don't ask for feel/UI checks.**
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
@@ -36,8 +36,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Not in a CI build yet: View > Wireframe (all parts' triangle edges, session-only; WSA debug 2026-10-28: sparse meshes show lines, dense ones fade by design), orbit inertia, View > Light direction (light ball panel, drag = key light az/el live; WSA debug-verified 2026-10-28, user feel untested), two-finger tap menu + paint shop Sync swatch (untested), Floating Slice drag fix, Recent files collapsed, `lateButton` fallback, paint shop entry fix + View menu (WSA-verified).
 - Open (backlog): Paint shop landscape GL OK on phone + Chromebook r461. View > Bounding box (compiled only, untested on WSA, not in CI).
 - Android CLI trial closed 2026-10-29 (archive; `preview-render.sh` kept, rest dropped).
-- Not in a CI build yet: More menu object groups (Add volume / Mesh tools; WSA debug-verified 2026-10-29).
-- Next step: dispatch a CI build (batch is ready) and install on all adb devices -> Sonnet 5.5 (medium); or resume sessions B-D when the user is back
+- Next step: remaining unverified UI items from the backlog (grep `[Sonnet]`) -> Sonnet 5.5 (medium); or resume sessions B-D when the user is back
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
