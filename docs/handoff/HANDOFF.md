@@ -33,10 +33,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **No WSA focus loops**. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
 - Gate: user sessions B-D paused 2026-10-28; release gated on the printer set.
 - r464+: all Claude-verified on WSA except paint shop Sync swatch (needs a printer). User feel untested.
-- Backlog 10.6 KB (limit ~10): trim at the next update. Open items are user-feel, printer-gated or [Opus] design (2026-10-29).
-- Build ghosts 2c289a7: Claude-verified on WSA debug (archive), not in a CI build yet.
-- Build continuity part 2: design written (archive 2026-10-29, file:line map + plan); implement Kotlin (entry + badge + toggle) and native `exportVolumes` together, one CI build.
-- Next step: Build continuity part 2 implement (CAD-badged entry, mesh Edit in builder + native exportVolumes) -> Opus 5.5 (high)
+- Open backlog items are user-feel, printer-gated or [Opus] design (2026-10-29).
+- Build continuity part 2 committed (archive 2026-10-29), CI run 40961249403 (also first CI build with ghosts 2c289a7). Test on WSA once built:
+  Add menu "Design" + CAD badge; More > "Separate code and shape builder entries" switch; plain mesh (multi-part + negative volume) -> "Edit in builder": parts as MESH shapes in place, filaments kept, no render until the first edit, then object stays put.
+- Next step: Build continuity part 2 CI install + WSA test -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
