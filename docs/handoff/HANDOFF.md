@@ -32,10 +32,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - CAD plan (`NOTES-cad-reuse.md`): 0-5b Claude-verified, user feel untested; 1b parked.
 - **No WSA focus loops** (memory no-popups-on-user-screens). Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
 - MCP token efficiency (`NOTES-mcp-token-efficiency.md`): A-C verified, D dropped; build rule waits for the user's OK.
-- Remaining gate work is user sessions B, C, D (`NOTES-merge-batch.md`); user paused testing 2026-10-28. Sculpt symmetry x done. Ask the user whether to resume sessions or merge Session-A items.
+- Gate work left: user sessions B-D (`NOTES-merge-batch.md`), paused 2026-10-28; ask whether to resume or merge Session-A items.
 - **Debug notes** (Ctrl+Shift+N / S Pen button, debug build): read only when the user says "notes": `cat /sdcard/Android/data/<debug pkg>/files/notes/notes.jsonl` (Note/WSA); log each, then delete jsonl + PNGs there; never commit.
 - Not yet in a CI build: two-finger tap = context menu (compiled, untested), paint shop Sync swatch (compiled, untested), Floating Slice drag fix, Recent files collapsed, right-click `lateButton` fallback (0a5a8a1), paint shop entry fix + View menu in its bar (WSA-verified).
-- Open (backlog): paint shop bbox toggle + landscape GL view; then Godot review (Z drag handle, axis lock), More menu reorg.
+- Open (backlog): paint shop bbox toggle + landscape GL view, More menu reorg.
 - Godot (a)+(b): source map + plan in `NOTES-godot-z-axis.md` (2026-10-28; session 2 added exact lines, nothing coded); start at its Plan step 1, Build workspace first.
 - Next step: Godot review: Z drag handle + axis lock (`NOTES-godot-z-axis.md`) -> Opus 5.5 (high)
 ## User decisions (2026-10-13)
