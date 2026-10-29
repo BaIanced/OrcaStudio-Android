@@ -193,6 +193,8 @@ data class UiState(
     val buildOthers: Int = 0,
     /** The move lock button: -1 free, 0 drags move along X only, 1 along Y only (session only). */
     val moveLock: Int = -1,
+    /** Add menu: separate code and shape builder rows (else one "Design" row). */
+    val builderSplit: Boolean = false,
     /** 3D view projection: perspective, or orthographic when false. */
     val perspective: Boolean = true,
     val lab: app.orcaandroid.core.LayoutLab = app.orcaandroid.core.LayoutLab(),

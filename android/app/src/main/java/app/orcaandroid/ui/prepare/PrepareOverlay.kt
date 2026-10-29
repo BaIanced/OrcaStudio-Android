@@ -350,9 +350,9 @@ private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
                         onClick = { close(); vm.scene.assemble() })
                 }
                 if (sel != null) {
-                    if (ScadDesign.of(state.scene.objects.getOrNull(sel.obj)) != null)
-                        DropdownMenuItem(text = { Text(stringResource(R.string.scad_edit_design)) }, leadingIcon = { Icon(Icons.Default.Code, null) },
-                            onClick = { close(); vm.scad.editObject(sel.obj) })
+                    // Every object opens in the builder: a design as itself, a plain mesh as one MESH shape per part.
+                    DropdownMenuItem(text = { Text(stringResource(R.string.edit_in_builder)) }, leadingIcon = { Icon(Icons.Default.Architecture, null) },
+                        trailingIcon = { CadBadge() }, onClick = { close(); vm.scad.editMesh(sel.obj) })
                     DropdownMenuItem(text = { Text(stringResource(R.string.select_multiple)) }, leadingIcon = { Icon(Icons.Default.SelectAll, null) },
                         onClick = { close(); vm.scene.setSelectMode(true) })
                     DropdownMenuItem(text = { Text(stringResource(R.string.lay_on_face)) }, leadingIcon = { Icon(Icons.Default.VerticalAlignBottom, null) },
@@ -379,10 +379,7 @@ private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
                         onClick = { close(); dialog = "text" })
                     DropdownMenuItem(text = { Text(stringResource(R.string.add_svg)) }, leadingIcon = { Icon(Icons.Default.Category, null) },
                         onClick = { close(); dialog = "svg" })
-                    DropdownMenuItem(text = { Text(stringResource(R.string.add_openscad)) }, leadingIcon = { Icon(Icons.Default.Code, null) },
-                        onClick = { close(); vm.scad.open() })
-                    DropdownMenuItem(text = { Text(stringResource(R.string.shape_builder)) }, leadingIcon = { Icon(Icons.Default.Architecture, null) },
-                        onClick = { close(); vm.scad.newShapes() })
+                    DesignEntries(vm, state.builderSplit, close)
                     if (!state.scene.isEmpty)
                         DropdownMenuItem(text = { Text(stringResource(R.string.arrange)) }, leadingIcon = { Icon(Icons.Default.AutoAwesomeMosaic, null) },
                             onClick = { close(); vm.scene.arrange(false) })

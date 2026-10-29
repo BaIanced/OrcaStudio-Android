@@ -353,6 +353,29 @@ json OrcaEngine::export_stl(const std::string &path, int plate)
     return {{"path", path}, {"triangles", mesh.facets_count()}};
 }
 
+json OrcaEngine::export_volumes(int object, const std::string &dir)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    const ModelObject &obj = object_at(object);
+    json out = json::array();
+    for (size_t vi = 0; vi < obj.volumes.size(); ++vi) {
+        const ModelVolume *vol = obj.volumes[vi];
+        if (!vol->is_model_part() && !vol->is_negative_volume())
+            continue;
+        TriangleMesh mesh = vol->mesh();
+        if (mesh.empty())
+            continue;
+        mesh.transform(vol->get_matrix(), true);
+        const std::string path = dir + "/volume-" + std::to_string(vi) + ".stl";
+        if (!store_stl(path.c_str(), &mesh, true))
+            throw std::runtime_error("Writing the STL failed");
+        const BoundingBoxf3 b = mesh.bounding_box();
+        out.push_back({{"volume", int(vi)}, {"path", path},
+                       {"bounds", {b.min.x(), b.min.y(), b.min.z(), b.max.x(), b.max.y(), b.max.z()}}});
+    }
+    return {{"volumes", out}};
+}
+
 json OrcaEngine::snapshot(const std::string &path, int size)
 {
     // Standalone: renders the given mesh file, not the scene, so no engine lock is needed.

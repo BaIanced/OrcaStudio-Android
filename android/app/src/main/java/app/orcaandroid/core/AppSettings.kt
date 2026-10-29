@@ -104,6 +104,11 @@ class AppSettings(context: Context) {
         get() = prefs.getInt("build_others", 0)
         set(value) = prefs.edit().putInt("build_others", value).apply()
 
+    /** Add menu: separate "OpenSCAD" and "Shape builder" rows instead of the one "Design" row. */
+    var builderSplit: Boolean
+        get() = prefs.getBoolean("builder_entries_split", false)
+        set(value) = prefs.edit().putBoolean("builder_entries_split", value).apply()
+
     /** 3D view projection: perspective (default) or orthographic, the desktop's use_perspective_camera. */
     var perspective: Boolean
         get() = prefs.getBoolean("perspective_camera", true)

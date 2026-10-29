@@ -893,6 +893,9 @@
     <string name="scad_hint_empty">The result is empty: a cut-away removed everything, or a size is 0.</string>
     <string name="scad_hint_2d">This is a flat 2D drawing. Give it a height with linear_extrude(5) in front of it.</string>
     <string name="shape_builder">Shape builder</string>
+    <string name="add_design">Design</string>
+    <string name="edit_in_builder">Edit in builder</string>
+    <string name="builder_split">Separate code and shape builder entries in the Add menu</string>
     <string name="shape_builder_desc">No code: drop shapes, size and move them, cut holes, group</string>
     <string name="shape_new_name">Shape design</string>
     <string name="shape_tab">Shapes</string>

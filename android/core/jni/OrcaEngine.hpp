@@ -312,6 +312,10 @@ public:
     json export_gcode_3mf(int plate, const std::string &gcode, const std::string &path, const std::string &sliced);
     // Writes the objects of `plate` (or all for plate < 0) as one binary STL.
     json export_stl(const std::string &path, int plate);
+    // Writes each part / negative volume of `object` as its own binary STL in `dir`, its volume matrix baked in
+    // (object frame, no instance transform). Returns { "volumes": [{ "volume", "path", "bounds" [x0,y0,z0,x1,y1,z1] }] },
+    // empty volumes left out. Used to open a plain mesh object in the shape builder.
+    json export_volumes(int object, const std::string &dir);
     // Renders a mesh file (e.g. the OpenSCAD preview STL) to a square PNG with the CPU thumbnailer
     // (no scene state needed). `size` px is clamped to 128..1024. Returns { "png" (base64), "width",
     // "height" }. Used by the AI tool layer's design_snapshot.

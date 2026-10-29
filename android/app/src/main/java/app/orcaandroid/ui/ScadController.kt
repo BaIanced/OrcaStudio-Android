@@ -18,6 +18,8 @@ import app.orcaandroid.scad.ScadExamples
 import app.orcaandroid.scad.ScadParam
 import app.orcaandroid.scad.ScadRender
 import app.orcaandroid.scad.ScadUnavailable
+import app.orcaandroid.scad.D3
+import app.orcaandroid.scad.Shape
 import app.orcaandroid.scad.ShapeDesign
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -218,6 +220,46 @@ class ScadController(private val store: Store) {
             design.unpack(File(dir, "designs/" + Integer.toHexString(design.encode().hashCode()))).path
         }
         load(design.name, file, design.shapes?.toScad() ?: design.source, design.values, onPlate = obj.name, shapes = design.shapes)
+    }
+
+    /**
+     * Opens any object in the shape builder: a design as [editObject]; a plain mesh object becomes a design of one
+     * MESH shape per part (a hole per negative volume), where the volume sits in the object, filament kept. The object
+     * is tagged with it as already placed, so nothing is rendered until the first edit (which then keeps it centred).
+     */
+    fun editMesh(index: Int) = store.launch {
+        val obj = store.value.scene.objects.getOrNull(index) ?: return@launch
+        if (ScadDesign.of(obj) != null) { editObject(index).join(); return@launch }
+        if (st == null) open(newDesign = false).join()
+        val tmp = File(store.app.cacheDir, "openscad/volumes-${System.nanoTime()}").apply { mkdirs() }
+        val shapes = try {
+            val volumes = engine.exportVolumes(index, tmp.path)
+            withContext(Dispatchers.IO) {
+                val meshes = File(dir, "meshes").apply { mkdirs() }
+                volumes.mapIndexed { i, (vi, path, b) ->
+                    val src = File(path)
+                    val file = File(meshes, "mesh-" + MessageDigest.getInstance("SHA-1").digest(src.readBytes())
+                        .joinToString("") { "%02x".format(it) }.take(16) + ".stl")
+                    if (!file.isFile) src.copyTo(file)
+                    val vol = obj.volumes.firstOrNull { it.index == vi }
+                    val hole = vol?.type == VolumeType.NEGATIVE
+                    Shape(i + 1, Shape.Kind.MESH, vol?.name?.ifEmpty { null } ?: obj.name,
+                        D3(maxOf(0.01, b[3] - b[0]), maxOf(0.01, b[4] - b[1]), maxOf(0.01, b[5] - b[2])),
+                        pos = D3((b[0] + b[3]) / 2, (b[1] + b[4]) / 2, b[2]), hole = hole, file = file.absolutePath,
+                        extra = Shape.MESH_BOUNDS.zip(b).toMap(),
+                        filament = if (hole) 0 else vol?.settings?.get("extruder")?.toIntOrNull() ?: 0)
+                }
+            }
+        } catch (e: OrcaException) {
+            store.toast(e.message ?: store.str(R.string.shape_import_failed)); return@launch
+        } finally {
+            withContext(Dispatchers.IO) { tmp.deleteRecursively() }
+        }
+        if (shapes.none { !it.hole }) { store.toast(store.str(R.string.shape_import_failed)); return@launch }
+        val d = ShapeDesign(shapes, nextId = shapes.size + 1)
+        val name = obj.name.substringBeforeLast('.') + ".scad"
+        store.applyScene(engine.setObjectModule(index, ScadDesign(name, d.toScad(), emptyMap(), shapes = d, pieces = true).encode()))
+        load(name, draftFile.path, d.toScad(), onPlate = obj.name, shapes = d)
     }
 
     fun loadExample(example: ScadExamples.Example) = load(example.file, draftFile.path, example.source)

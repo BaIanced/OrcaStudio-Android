@@ -225,6 +225,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** The move lock button: free -> X -> Y -> free. */
     fun cycleMoveLock() = store.update { it.copy(moveLock = if (it.moveLock >= 1) -1 else it.moveLock + 1) }
 
+    fun setBuilderSplit(on: Boolean) {
+        store.settings.builderSplit = on
+        store.update { it.copy(builderSplit = on) }
+    }
+
     fun setPerspective(on: Boolean) {
         store.settings.perspective = on
         store.update { it.copy(perspective = on) }

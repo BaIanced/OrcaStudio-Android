@@ -162,6 +162,7 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
                 SwitchRow(stringResource(R.string.contact_shadows), state.contactShadows, onChange = vm::setContactShadows)
                 // The desktop's View > Use Orthogonal View; a setting here since perspective is the usual look (user 2026-10-19). K toggles.
                 SwitchRow(stringResource(R.string.orthographic_camera), !state.perspective, onChange = { vm.setPerspective(!it) })
+                SwitchRow(stringResource(R.string.builder_split), state.builderSplit, onChange = vm::setBuilderSplit)
                 // Sharp layer lines without moire in Preview (user 2026-10-20); while moving costs GPU, so off by default.
                 Text(stringResource(R.string.preview_supersample), style = MaterialTheme.typography.bodyLarge)
                 SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
