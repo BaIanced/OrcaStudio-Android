@@ -34,9 +34,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Gate: user sessions B-D paused 2026-10-28; release gated on the printer set.
 - r464+: all Claude-verified on WSA except paint shop Sync swatch (needs a printer). User feel untested.
 - Open backlog items are user-feel, printer-gated or [Opus] design (2026-10-29).
-- Build continuity part 2 committed (archive 2026-10-29), CI run 40961249403 (also first CI build with ghosts 2c289a7). Test on WSA once built:
-  Add menu "Design" + CAD badge; More > "Separate code and shape builder entries" switch; plain mesh (multi-part + negative volume) -> "Edit in builder": parts as MESH shapes in place, filaments kept, no render until the first edit, then object stays put.
-- Next step: Build continuity part 2 CI install + WSA test -> Sonnet 5.5 (medium)
+- Build continuity part 2 (r467): Claude-verified on WSA (archive 2026-10-29: multi-part + negative mesh, split switch). Open: first edit of a multi-part mesh, paint kept on open. WSA debug app has r467 libs; WSA sleeps: `svc power stayon true` while testing. `stage-from-apk.sh` needs the APK path as argument.
+- Next step: Build workspace multi-copy / mirrored copies in Build -> Opus 5.5 (high)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).

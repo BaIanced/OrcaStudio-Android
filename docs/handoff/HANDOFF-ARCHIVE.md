@@ -3629,3 +3629,13 @@ Object More menu now: Add volume (5 items) and Mesh tools (7 items) collapsible,
 - `ScadController.editMesh(index)`: a design -> `editObject`; a plain mesh -> MESH shapes (pos = bounds centre x/y + bottom z, size = extents, hole for NEGATIVE, filament from the volume's `extruder`), STLs copied to `files/openscad/meshes/mesh-<sha1>.stl`. Deviation from the design: the object is tagged with the design (`pieces = true`) right away instead of re-rendered, so opening it costs nothing and keeps paint until the first edit; `volumeShapes` counts uncached pieces as placed, so the volume->piece map lines up. First edit: `placePieces` keepCenter (not placedThisSession).
 - UI: `DesignEntries.kt` (`CadBadge` yellow/black, one "Design" row -> newShapes; split pref `builder_entries_split`, More screen switch, brings back both rows badged). Selected object: "Edit in builder" + badge for every object (replaces "Edit OpenSCAD design"; string `scad_edit_design` left in values since values-de has it).
 - Kotlin compiled locally; CI run 40961249403 dispatched. Untested on device.
+
+## 2026-10-29 Build continuity part 2: WSA test (Claude, r467 / CI run 40961249403)
+- r467 installed on all 5 adb devices. Add menu shows one "Design" row + CAD badge. Long-press menu: "Edit in builder" + badge. Design object (truck) opens via editObject. Plain Cube -> editMesh: one MESH shape (size 20^3), first edit (30 wide) re-renders in place (centre kept, size 30x20x20, Z 10 = on bed).
+- NOT yet tested: plain mesh with several parts + NEGATIVE volume (needs a fixture: truck object is design-tagged), More > split-entries switch.
+- Gotcha: `stage-from-apk.sh` default looks in `~/orca-android-tools/builds/`, not `~/OrcaProjectsGithub/builds/`; pass the APK path, else native libs are stale ("Unknown engine call: exportVolumes").
+
+## 2026-10-29 Build continuity part 2: WSA test complete (Claude, r467)
+- Fixture made in the UI: fresh Cube > More > Add volume > Add part + Add negative volume > long-press > Edit in builder. Builder lists 3 shapes (Cube, Part 2, Negative volume = Hole); render shows the hole cut into the cube. (A Cube already design-tagged by an earlier test goes through editObject, so use a fresh one.)
+- More > Appearance > "Separate code and shape builder entries": on = Add menu shows "OpenSCAD model" + "Shape builder", both with CAD badge; off = single "Design" + badge. Untested: first edit of the multi-part mesh (placePieces keepCenter) and paint kept on open. User feel untested.
+- Gotcha: WSA display sleeps within minutes and UI dumps come back empty/swipes die: `adb shell "svc power stayon true"` + KEYCODE_WAKEUP (set back to false when done).
