@@ -35,8 +35,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - r464 has everything built so far (Wireframe, inertia, Light direction, two-finger tap, Bounding box, More groups); all Claude-verified on WSA except paint shop Sync swatch (needs a printer). User feel untested.
 - Truck holes cut preview: Claude-verified on WSA 2026-10-29 (archive); sculpt on a cut part OK (no crash, 414k tris; sculpted part draws uncut by design). Hole ghost alpha 0.45 -> ~0.25 (Shaders.kt:320) only if figures look tinted (untested).
 - Backlog is 11.6 KB (limit ~10): trim verified/stale lines at the next update.
-- Push/pull folded into resize (user 2026-10-29), d1b11e9 pushed, compiles, NOT yet device-tested: chip, pushMode/PushGrab, pushMatrix, faceAt/pushed, PushPullTest deleted; on a selected Build shape the resize handle reach is now 0.25 x its distance from the box centre (12-40 dp, `PlateView.startResize`). Note: resize scales about the bottom centre (not far-side fixed), so this is not a parametric push. Todo: CI build, WSA debug check (handle grab on a big face edge, body drag still moves), archive "Push/pull tier 1" pointer.
-- Next step: Push/pull fold -> WSA check + archive pointer -> Sonnet 5.5 (medium)
+- Push/pull folded into resize (user 2026-10-29), d1b11e9 pushed: Claude-verified on WSA debug build (handle grab from a big face edge, body drag still moves; archive). Resize scales about the bottom centre, not a parametric push. Ships in the next CI build.
+- Next step: trim HANDOFF-BACKLOG.md to ~10 KB, then CI build + install on all adb devices -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).

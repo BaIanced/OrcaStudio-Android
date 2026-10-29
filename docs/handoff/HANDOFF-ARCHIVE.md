@@ -3614,3 +3614,4 @@ Object More menu now: Add volume (5 items) and Mesh tools (7 items) collapsible,
 
 ### 2026-10-29 Push/pull removed (Claude, d1b11e9)
 - Folded into resize per user decision: chip + push code deleted (see HANDOFF). Tier 1 history above stays as record.
+- WSA debug check (Claude, d1b11e9 local debug build): selected Box 60 mm, drag started 25 px inside the face edge next to the X handle grabbed it (X 60 -> 82.6); drag in the body centre still moved it (pos 0,0 -> 4,10). Verified; ships in the next CI build.
