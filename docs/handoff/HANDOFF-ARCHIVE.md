@@ -3560,3 +3560,6 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 
 ## 2026-10-28 Godot Z lift dot (step 1) WSA-verified
 - Debug build of f4b2e04 on WSA, Build workspace: lift dot drag snapped a cylinder onto an overlapping box top (z 0 -> 10) and back to the floor; live preview and gizmo follow mid-drag. Below-floor lift allowed by design (same ZRail.lift as MeshPreviewView). Claude test, not user.
+
+## 2026-10-28 Godot axis lock (step 2) WSA debug test (da7505c, Claude test, not user)
+- Prepare view top-down, object 6 centre via plate_describe: lock X drag moved only one axis, lock Y kept x exactly (203.744) and moved y, Free moved both, Y key mid-drag (3 s swipe + keyevent) froze x. Lock button cycles Free/X/Y. NOT tested: Z key lift in Build (needs held drag + key in Shape builder; adb swipe+keyevent can do it), guide line colours, tower-drag ignores Z.

@@ -35,9 +35,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **Debug notes** (Ctrl+Shift+N / S Pen button, debug build): read only when the user says "notes": `cat /sdcard/Android/data/<debug pkg>/files/notes/notes.jsonl` (Note/WSA); log each, then delete jsonl + PNGs there; never commit.
 - Not in a CI build yet: two-finger tap menu + paint shop Sync swatch (untested), Floating Slice drag fix, Recent files collapsed, `lateButton` fallback, paint shop entry fix + View menu (WSA-verified).
 - Open (backlog): paint shop bbox toggle + landscape GL view, More menu reorg.
-- Godot (a)+(b) (`NOTES-godot-z-axis.md` Plan), not in CI: step 1 Z lift dot WSA-verified; step 2 axis lock (da7505c)
-  JVM-tested only. Next: step 3 WSA test (notes checklist), then CI.
-- Next step: Godot axis lock WSA debug test, step 3 (`NOTES-godot-z-axis.md`) -> Sonnet 5.5 (medium)
+- Godot (a)+(b) (`NOTES-godot-z-axis.md`), not in CI: Z lift dot + axis lock (da7505c) WSA-verified in Prepare (X/Y/Free/Y key mid-drag, archive 2026-10-28). Untested: Z key lift in Build, guide line look, tower ignores Z (low risk).
+- Next step: dispatch a CI build with the Godot items + other not-in-CI items (batch), install on all devices -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
