@@ -35,9 +35,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **Debug notes** (Ctrl+Shift+N / S Pen button, debug build): read only when the user says "notes": `cat /sdcard/Android/data/<debug pkg>/files/notes/notes.jsonl` (Note/WSA); log each, then delete jsonl + PNGs there; never commit.
 - Not in a CI build yet: two-finger tap menu + paint shop Sync swatch (untested), Floating Slice drag fix, Recent files collapsed, `lateButton` fallback, paint shop entry fix + View menu (WSA-verified).
 - Open (backlog): paint shop bbox toggle + landscape GL view, More menu reorg.
-- Godot (a)+(b): `NOTES-godot-z-axis.md` Plan. Step 1 (Build Z lift dot, af81ab3) WSA-verified 2026-10-28 (snaps, preview); not in a CI build.
-  Step 2 (axis lock: X/Y/Z keys, lock button, guide line; da7505c) compiled + JVM-tested, untested on device.
-  Next: step 3 WSA debug test (checklist in the notes, "Step 2 DONE"), then CI.
+- Godot (a)+(b) (`NOTES-godot-z-axis.md` Plan), not in CI: step 1 Z lift dot WSA-verified; step 2 axis lock (da7505c)
+  JVM-tested only. Next: step 3 WSA test (notes checklist), then CI.
 - Next step: Godot axis lock WSA debug test, step 3 (`NOTES-godot-z-axis.md`) -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
