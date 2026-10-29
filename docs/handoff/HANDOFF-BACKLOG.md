@@ -9,8 +9,8 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - Device tab printer controls (built r286): needs printer + user: extrude/jog/home motion, part fan reads 0 % after a set, target-0 tile stale, speed chip mid-print (Claude 2026-10-21).
 
 ## Open bugs
-- Mouse right-click (user 2026-10-28, r459): menu only opened when held (long-press path). WSA r459 + debug: quick 40 ms click opens it fine (DOWN carries buttons=2). Likely cause: the user's device sends DOWN without the button; fallback `lateButton` (BUTTON_PRESS / MOVE take over) built, WSA no-regression only (Claude 2026-10-28, not in a CI build). Open: which device the user used; check there. Helper: `mouse-uinput.sh X Y right HOLD_MS`.
-- Paint shop friction (user 2026-10-28, r459): purple flash + slow entry fixed (GL view kept, Claude WSA debug 2026-10-28) and View menu (Realistic, layer lines, edges, camera) in the shop bar; Sync swatch (Bambu connected) in the swatch row (compiled only, untested); bounding box toggle added to the shared View menu (selection-style BOX bit; compiled only, Claude 2026-10-28); landscape phone: one SurfaceView in and out of the shop, render + layout fine on r461 (Claude phone + Chromebook 2026-10-28, closed). Not in a CI build.
+- Mouse right-click (user 2026-10-28): `lateButton` fallback in r463+ (WSA no-regression only). Open: which device the user used; check there when they say.
+- Paint shop friction (user 2026-10-28): fixed in r463+ (archive). Open: Sync swatch needs a Bambu connection (untested, Claude).
 - [Opus] Muse Task 12 JNI audit: 5/8/9 in r392 (9 WSA-checked; 8 needs a printer connect; 5 not exercised); 10/12/13 fixed 6303398, WSA r395 add text (52 chars)/SVG smoke OK (Claude 2026-10-24); 11 contract note, no change; 6 built r376, needs 2+ printers (Claude 2026-10-24).
 
 ## Untested (needs the user or a special setup)
@@ -57,7 +57,7 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - Upstream 2.5.0 alpha overlap: NOTES-upstream-2.5.md (source checks done 2026-10-25); keep ours where better. All compare rows closed at source level (2026-10-28); nothing open.
 - DECISION open: push/pull -> fold into resize as face drag (drop chip) or remove. Claude rec: fold.
 - CAD roadmap (user accepted 2026-10-25; NOTES-cad-reuse.md): steps 0-6 built and Claude-verified on WSA (Hull r445, XY edge snap r447, Blend joins r419, sweep/loft r421, bend/twist/taper r423, sculpt r428), user feel untested; 7 asset library (figures, wheels) not started.
-- Truck holes cut preview: Claude WSA-verified on the debug build 2026-10-29 (chef visible through the serving window). Open: a sculpt stroke on a cut part (untested), hole ghost alpha 0.45 tints the figures (try ~0.25), needs a CI build.
+- Truck holes cut preview: Claude WSA-verified on the debug build 2026-10-29 (chef visible through the serving window). Sculpt on a cut part OK (r464, Claude 2026-10-29). Open: hole ghost alpha 0.45 tints the figures (try ~0.25), needs a CI build.
 - Measure steps 1-6 + steer/tap-select/loupe/Tuning (Claude-verified WSA debug 2026-10-26/27); open = user feel on the phone (steer vs plain loupe, 2nd-finger freeze, axis lock, mouse hover, S Pen on the Note); Alt+click, ring-to-ring, hole bottom rim untested.
 - CAD user feel open: sketch Twist / Rise per turn / Loft / Sweep (r421), Bend / twist / taper (r423), Smooth blend (r429); all Claude-verified WSA/phone 2026-10-26.
 - Dimensions overview idea (user asked 2026-10-27; leaning only): per-object list of bbox, hole diameters/depths, thinnest wall; tap entry places measure points. CAD tools auto-dimension from parametric features; meshes need detection. Not started.

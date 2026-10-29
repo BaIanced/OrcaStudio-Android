@@ -14,7 +14,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 3defffa (PR #66, branch at r461/89944b9, merged 2026-10-28 on the user's go-ahead, before sessions B-D; user overrode the user-tested-only rule for this merge). Older: 0170950 (PR #65, r398). Untested by the user in main (plus all of sessions B-D, Sculpt, snap toggle, Z lift/axis lock): Build workspace, paint shop/depth, Filament materials, Realistic render, UX P1-P6, Check mesh feel, 3MF export in desktop Orca, pen, fan hold, Extrude F150.
 - Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
-- Latest CI build: r463 (run 40844632441, f788606, has More menu groups) on WSA, phone, Note, SHIELD, Chromebook. User feel untested. Install new builds on all adb devices (skip the .23 tablet: 32-bit, Android 6).
+- Latest CI build: r464 (run 40855492671, 66b7072, adds Truck cut preview) on all 6 adb devices (r463 had More menu groups); earlier on WSA, phone, Note, SHIELD, Chromebook. User feel untested. Install new builds on all adb devices (skip the .23 tablet: 32-bit, Android 6).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **User 2026-10-28: no more user testing for now; Claude builds and tests everything itself (memory no-user-testing-now); don't ask for feel/UI checks.**
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
@@ -32,11 +32,11 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - CAD plan (`NOTES-cad-reuse.md`): 0-5b Claude-verified, 1b parked. MCP efficiency (`NOTES-mcp-token-efficiency.md`): build rule waits for user OK.
 - **No WSA focus loops**. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
 - Gate work left: user sessions B-D (`NOTES-merge-batch.md`), paused 2026-10-28; no merge pending (branch == main). Release still gated on the printer set.
-- r463 has everything built so far (Wireframe, inertia, Light direction, two-finger tap, Bounding box, More groups); all Claude-verified on WSA except paint shop Sync swatch (needs a printer). User feel untested.
-- Truck holes cut preview: Claude WSA-verified 2026-10-29 on the local debug build (CGAL minus; archive "Truck holes cut preview"), pushed, no CI build yet.
-- Next: dispatch CI, install on all devices; on WSA debug do a sculpt stroke on a cut part (sculpted part is drawn uncut, `sculpting()`); try hole ghost alpha 0.45 -> ~0.25 (Shaders.kt:320) if the figures look tinted.
+- r464 has everything built so far (Wireframe, inertia, Light direction, two-finger tap, Bounding box, More groups); all Claude-verified on WSA except paint shop Sync swatch (needs a printer). User feel untested.
+- Truck holes cut preview: Claude-verified on WSA 2026-10-29 (archive); sculpt on a cut part OK (no crash, 414k tris; sculpted part draws uncut by design). Hole ghost alpha 0.45 -> ~0.25 (Shaders.kt:320) only if figures look tinted (untested).
 - Backlog is 11.6 KB (limit ~10): trim verified/stale lines at the next update.
-- Next step: Truck cut preview push + sculpt-on-cut check -> Sonnet 5.5 (medium)
+- Next: backlog trimmed to 10.9 KB (2026-10-29). Everything left in it needs the user, a printer or a pen; wait for the user's direction or Ideas / Muse work.
+- Next step: wait for user direction (merge batch, sessions B-D, or Ideas) -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
