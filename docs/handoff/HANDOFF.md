@@ -33,11 +33,11 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **No WSA focus loops**. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
 - Gate work left: user sessions B-D (`NOTES-merge-batch.md`), paused 2026-10-28; no merge pending (branch == main). Release still gated on the printer set.
 - Debug build/notes details: archive "2026-10-28 Handoff overflow".
-- Not in a CI build yet: orbit inertia, View > Light direction (light ball panel, drag = key light az/el live; WSA debug-verified 2026-10-28, user feel untested), two-finger tap menu + paint shop Sync swatch (untested), Floating Slice drag fix, Recent files collapsed, `lateButton` fallback, paint shop entry fix + View menu (WSA-verified).
+- Not in a CI build yet: View > Wireframe (all parts' triangle edges, session-only; WSA debug 2026-10-28: sparse meshes show lines, dense ones fade by design), orbit inertia, View > Light direction (light ball panel, drag = key light az/el live; WSA debug-verified 2026-10-28, user feel untested), two-finger tap menu + paint shop Sync swatch (untested), Floating Slice drag fix, Recent files collapsed, `lateButton` fallback, paint shop entry fix + View menu (WSA-verified).
 - Open (backlog): More menu reorg. Paint shop landscape GL OK on phone + Chromebook r461. View > Bounding box (compiled only, untested on WSA, not in CI).
 - Godot (a)+(b) (`NOTES-godot-z-axis.md`), in CI r461: Z lift dot + axis lock (da7505c) WSA-verified in Prepare (X/Y/Free/Y key mid-drag, archive 2026-10-28). Z key lift in Build WSA-verified (archive 2026-10-28). Untested: tower ignores Z (low risk, code-gated).
 - Orbit inertia (More > Layout lab slider, default 50 %; plain one-finger flick only, touch stops it): WSA debug-verified 2026-10-28 (fast flick coasts ~150 deg, slow drag exactly 90 deg), not in CI.
-- Next step: Godot review leftovers (normal-view shading mode; light ball + orbit inertia done) -> Sonnet 5.5 (medium); or resume sessions B-D when the user is back
+- Next step: Godot review is done (light ball, orbit inertia, wireframe); next: More menu reorg (backlog) -> Sonnet 5.5 (medium); or resume sessions B-D when the user is back
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).

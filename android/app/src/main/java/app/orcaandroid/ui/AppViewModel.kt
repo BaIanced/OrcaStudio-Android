@@ -196,6 +196,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setLightPanel(on: Boolean) = store.update { it.copy(lightPanel = on) }
 
+    fun setWireframe(on: Boolean) = store.update { it.copy(wireframe = on) }
+
     fun setEdgeOutline(on: Boolean) {
         store.settings.edgeOutline = on
         store.update { it.copy(edgeOutline = on) }

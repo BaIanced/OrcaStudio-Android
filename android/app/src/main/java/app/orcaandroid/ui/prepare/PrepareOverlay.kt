@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Crop
+import androidx.compose.material.icons.filled.GridOn
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material.icons.filled.BorderOuter
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -482,6 +483,11 @@ internal fun ViewButtons(state: UiState, vm: AppViewModel, view: PlateView?, rai
                 onClick = { viewMenu = false; vm.setEdgeOutline(!state.edgeOutline) },
                 leadingIcon = { Icon(Icons.Default.BorderOuter, null) },
                 trailingIcon = { if (state.edgeOutline) Icon(Icons.Default.Check, null) })
+            // Godot's wireframe shading: the triangle edges of every model.
+            DropdownMenuItem(text = { Text(stringResource(R.string.view_wireframe)) },
+                onClick = { viewMenu = false; vm.setWireframe(!state.wireframe) },
+                leadingIcon = { Icon(Icons.Default.GridOn, null) },
+                trailingIcon = { if (state.wireframe) Icon(Icons.Default.Check, null) })
             // Drag the key light on a ball (the lab's light angles, live).
             DropdownMenuItem(text = { Text(stringResource(R.string.light_direction)) },
                 onClick = { viewMenu = false; vm.setLightPanel(!state.lightPanel) },

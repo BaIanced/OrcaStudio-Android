@@ -201,6 +201,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var overhangHighlight = 0f
     /** The quick settings' "Show overhangs": [overhangHighlight] tints every part, not only the selection, and skips faces on the bed. */
     var overhangAll = false
+    /** View > Wireframe: the triangle edges of every part. */
+    var wireAll = false
     private val keyDir get() = Math.toRadians(keyElevation.toDouble()).let { el ->
         Math.toRadians(keyAzimuth.toDouble()).let { az ->
             floatArrayOf((Math.cos(el) * Math.cos(az)).toFloat(), (Math.cos(el) * Math.sin(az)).toFloat(), Math.sin(el).toFloat())
@@ -936,6 +938,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         // TriangleSelector::select_patch's test: world normal z below -cos(angle); -2 = off.
         glUniform1f(loc(meshProgram, "uOverhangZ"), if (overhangHighlight > 0f) -Math.cos(Math.toRadians(overhangHighlight.toDouble())).toFloat() else -2f)
         glUniform1i(loc(meshProgram, "uOverhangAll"), if (overhangAll) 1 else 0)
+        glUniform1i(loc(meshProgram, "uWireAll"), if (wireAll) 1 else 0)
         cutBand.let { b ->
             glUniform1i(loc(meshProgram, "uCutBandOn"), if (b != null) 1 else 0)
             if (b != null) glUniform4f(loc(meshProgram, "uCutBand"), b[0], b[1], b[2], b[3])

@@ -121,6 +121,7 @@ internal object Shaders {
         uniform int uSelStyle;
         uniform float uOverhangZ;
         uniform int uOverhangAll;
+        uniform int uWireAll;
         uniform highp vec4 uCutBand;
         uniform int uCutBandOn;
         // Layer lines: first layer height, layer height (mm; y 0 = off).
@@ -414,6 +415,15 @@ internal object Shaders {
                         float dense = 1.0 - smoothstep(0.06, 0.12, max(max(w.x, w.y), w.z));
                         shaded = mix(shaded, uSelectedColor, (1.0 - min(min(e.x, e.y), e.z)) * 0.8 * dense);
                     }
+                }
+                // View > Wireframe: every part's triangle edges, same fade as the selection's.
+                if (uWireAll == 1 && lit0) {
+                    vec3 w = fwidth(vBary);
+                    vec3 e = smoothstep(vec3(0.0), w, vBary);
+                    float dense = 1.0 - smoothstep(0.06, 0.12, max(max(w.x, w.y), w.z));
+                    // Dark lines on light parts, light lines on dark ones.
+                    vec3 lineCol = dot(shaded, vec3(0.333)) > 0.3 ? vec3(0.08, 0.1, 0.12) : vec3(0.85, 0.9, 0.95);
+                    shaded = mix(shaded, lineCol, (1.0 - min(min(e.x, e.y), e.z)) * 0.7 * dense);
                 }
                 // Cut tool: a red line where the cut plane meets the selected object's surface (about 3 px wide, at least 0.3 mm),
                 // and a light red wash on the part that goes above the plane.

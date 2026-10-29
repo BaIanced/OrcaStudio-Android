@@ -589,6 +589,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         v.onGl { contactShadows = state.contactShadows }
     }
     LaunchedEffect(v, state.realistic) { v.onGl { realistic = state.realistic } }
+    LaunchedEffect(v, state.wireframe) { v.onGl { wireAll = state.wireframe } }
     val plateTypes = scene.plates.indices.map { state.bedTypeOf(it) }
     val appContext = LocalContext.current.applicationContext
     LaunchedEffect(v, state.lab.plateHd, plateTypes) {

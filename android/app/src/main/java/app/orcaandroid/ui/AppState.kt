@@ -180,6 +180,8 @@ data class UiState(
     val layerLines: Boolean = false,
     /** 3D view: dark outline along the models' crease edges (View menu). */
     val edgeOutline: Boolean = false,
+    /** 3D view: the triangle edges of every model (View menu; this session only). */
+    val wireframe: Boolean = false,
     /** How the selection shows ([app.orcaandroid.render.SelectionStyle] bits). */
     val selectionStyle: Int = app.orcaandroid.render.SelectionStyle.DEFAULT,
     /** Preview supersampling ([app.orcaandroid.render.Supersample]). */
