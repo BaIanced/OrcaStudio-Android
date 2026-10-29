@@ -3585,3 +3585,6 @@ Google Android CLI (winget Google.AndroidCLI 1.1.16717390) trialled: preview ren
 
 ## 2026-10-29 More menu groups
 Object More menu now: Add volume (5 items) and Mesh tools (7 items) collapsible, plus Sculpt, Measure. WSA debug: 4 rows closed, groups expand one at a time, Check mesh dialog opens. Compiled + installed locally, not CI.
+
+## 2026-10-29 Layout lab groups (WSA r463, Claude)
+- More > Layout lab shows 5 collapsible groups (Plates, Layout, Sizes and overlay, Shadows, Light and orbit); Shadows and Light and orbit expanded together with their sliders (shadow darkness/softness/bias; light direction/height/strength, camera light, orbit coasting). Lab group look closed; More menu reorg fully WSA-verified.

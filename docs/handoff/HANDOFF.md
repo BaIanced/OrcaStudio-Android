@@ -35,8 +35,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Debug build/notes details: archive "2026-10-28 Handoff overflow".
 - Not in a CI build yet: View > Wireframe (all parts' triangle edges, session-only; WSA debug 2026-10-28: sparse meshes show lines, dense ones fade by design), orbit inertia, View > Light direction (light ball panel, drag = key light az/el live; WSA debug-verified 2026-10-28, user feel untested), two-finger tap menu + paint shop Sync swatch (untested), Floating Slice drag fix, Recent files collapsed, `lateButton` fallback, paint shop entry fix + View menu (WSA-verified).
 - Open (backlog): Paint shop landscape GL OK on phone + Chromebook r461. View > Bounding box (compiled only, untested on WSA, not in CI).
-- Android CLI trial closed 2026-10-29 (archive; `preview-render.sh` kept, rest dropped).
-- Next step: remaining unverified UI items from the backlog (grep `[Sonnet]`) -> Sonnet 5.5 (medium); or resume sessions B-D when the user is back
+- More menu reorg + Layout lab groups WSA-verified 2026-10-29; no `[Sonnet]` backlog items left.
+- Next step: resume sessions B-D (needs the user) or pick an `[Opus]` backlog item -> Opus 5.5 (high)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
