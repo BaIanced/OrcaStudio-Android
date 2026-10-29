@@ -165,6 +165,12 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     private var liftBox: Pair<Vec3, Vec3>? = null
     private var liftMm = 0f
     private var liftSnap: Float? = null
+    /** The move lock button: -1 free, 0 along X only, 1 along Y only. The X / Y / Z keys during a drag override it ([keyLock]). */
+    @Volatile var axisLock = -1
+    /** This drag's lock from the X / Y / Z keys (-1 none, cleared at each touch); Z turns a body drag into a lift ([liftFromDrag]). */
+    private var keyLock = -1
+    private var liftFromDrag = false
+    private val lock get() = if (keyLock >= 0) keyLock else axisLock
     private var lastFocusX = 0f
     private var lastFocusY = 0f
     /** The two fingers' gap at the last move, 0 = not yet known (a finger came or went). */
@@ -307,7 +313,66 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     fun onGl(block: PlateRenderer.() -> Unit) = queueEvent { renderer.block() }
 
     // Compose would otherwise use arrow keys and Tab to move its focus before the activity sees them.
-    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean = onKey?.invoke(keyCode, event) == true || super.onKeyDown(keyCode, event)
+    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean =
+        lockKey(keyCode, event) || onKey?.invoke(keyCode, event) == true || super.onKeyDown(keyCode, event)
+
+    /**
+     * X / Y / Z during a body drag lock it to that axis (Blender style; the same key again frees it). Z hands the drag to the
+     * lift (Build workspace only), X / Y take it back. Shift stays precision, so the lock is on letters, not modifiers.
+     */
+    private fun lockKey(keyCode: Int, event: KeyEvent): Boolean {
+        val axis = when (keyCode) { KeyEvent.KEYCODE_X -> 0; KeyEvent.KEYCODE_Y -> 1; KeyEvent.KEYCODE_Z -> 2; else -> return false }
+        if (event.isCtrlPressed || event.isAltPressed || event.repeatCount > 0 || (!dragging && !liftFromDrag)) return false
+        val next = ZRail.toggleLock(keyLock, axis, liftMode && towerPlate < 0)
+        if (next == keyLock) return true
+        keyLock = next
+        if (next == 2) {
+            val box = gizmoBox() ?: return true.also { keyLock = -1 }
+            clearDragGuides()
+            dragging = false; liftFromDrag = true
+            liftBox = box; liftMm = 0f; liftSnap = null
+            queueEvent { renderer.liftGrab = true }
+        } else if (liftFromDrag) {
+            liftBox = null; liftFromDrag = false
+            dragging = true; dragStart = dragAt(downX, downY)
+            queueEvent { renderer.liftGrab = false }
+        }
+        dragTo(lastX, lastY, event.metaState)
+        return true
+    }
+
+    /** The live body drag or lift for the pointer at (x, y): Shift = fine, Ctrl flips the snap. */
+    private fun dragTo(x: Float, y: Float, meta: Int) {
+        val fine = meta and KeyEvent.META_SHIFT_ON != 0
+        val flip = meta and KeyEvent.META_CTRL_ON != 0
+        if (liftBox != null) {
+            val before = liftSnap
+            val (dz, s) = liftAt(x, y, fine, flip)
+            if (s != null && s != before) performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+            liftMm = dz; liftSnap = s
+            val g = axisGuide()
+            queueEvent { renderer.dragOffset = floatArrayOf(0f, 0f, dz); renderer.axisGuide = g }
+        } else if (dragging) dragOffsetAt(x, y, fine, flip)?.let { o ->
+            val d = floatArrayOf(o.x, o.y, 0f)
+            val g = axisGuide()
+            queueEvent { renderer.dragOffset = d; renderer.axisGuide = g }
+        }
+    }
+
+    /** The locked axis as a long line through the grab point (the lift box's middle for Z) and the axis' index, or null when free. */
+    private fun axisGuide(): Pair<FloatArray, Int>? {
+        val a = lock
+        val (c, run) = when {
+            a == 2 && liftFromDrag -> liftBox?.let { (lo, hi) -> (lo + hi) * 0.5f } to Vec3(0f, 0f, 1000f)
+            a == 0 && dragging -> dragStart to Vec3(1000f, 0f, 0f)
+            a == 1 && dragging -> dragStart to Vec3(0f, 1000f, 0f)
+            else -> return null
+        }
+        c ?: return null
+        val p = c - run
+        val q = c + run
+        return floatArrayOf(p.x, p.y, p.z, q.x, q.y, q.z) to a
+    }
 
     companion object {
         /** The app's 3D view, for keyboard shortcuts that move the camera. */
@@ -380,6 +445,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                 multiTouch = false; moved = false; dragging = false; longPressed = false; loupeOn = false; maxTravel = 0f; resizeTried = false
                 loupePointer = event.getPointerId(0); loupeX = event.x; loupeY = event.y
                 pushPending = false; pushGrab = null
+                keyLock = -1; liftFromDrag = false
                 removeCallbacks(hoverGone)
                 // The button state is only known on DOWN; on UP it is already released. Some devices send it only
                 // with the BUTTON_PRESS or MOVE that follows ([lateButton]).
@@ -579,17 +645,8 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                             }
                         }
                         pushPending -> Unit
-                        liftBox != null -> if (moved) {
-                            val before = liftSnap
-                            val (dz, s) = liftAt(event.x, event.y, event.metaState and KeyEvent.META_SHIFT_ON != 0, event.metaState and KeyEvent.META_CTRL_ON != 0)
-                            if (s != null && s != before) performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
-                            liftMm = dz; liftSnap = s
-                            queueEvent { renderer.dragOffset = floatArrayOf(0f, 0f, dz) }
-                        }
-                        dragging -> dragOffsetAt(event.x, event.y, event.metaState and KeyEvent.META_SHIFT_ON != 0, event.metaState and KeyEvent.META_CTRL_ON != 0)?.let { o ->
-                            val d = floatArrayOf(o.x, o.y, 0f)
-                            queueEvent { renderer.dragOffset = d }
-                        }
+                        liftBox != null -> if (moved) dragTo(event.x, event.y, event.metaState)
+                        dragging -> dragTo(event.x, event.y, event.metaState)
                         // In resize mode the view holds still until the touch slop decides between resize and orbit
                         // (a corner resize also turned the camera ~1.5 degrees, WSA r305).
                         (resizeMode || rotateMode) && !resizeTried -> Unit
@@ -630,13 +687,14 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                     if (!moved) tap(event.x, event.y, additive, part)
                 } else if (liftBox != null) {
                     val dz = liftMm
-                    liftBox = null
-                    queueEvent { renderer.liftGrab = false }
+                    liftBox = null; liftFromDrag = false
+                    queueEvent { renderer.liftGrab = false; renderer.axisGuide = null }
                     // As for a move, the listener clears the live offset once the lifted mesh is drawn.
                     if (moved && dz != 0f) listener?.onLifted(dz) else queueEvent { renderer.dragOffset = floatArrayOf(0f, 0f, 0f) }
                 } else if (dragging) {
                     val o = dragOffsetAt(event.x, event.y, event.metaState and KeyEvent.META_SHIFT_ON != 0, event.metaState and KeyEvent.META_CTRL_ON != 0)
                     clearDragGuides()
+                    queueEvent { renderer.axisGuide = null }
                     if (moved && o != null) {
                         // The listener clears the drag offset once the moved scene is drawn; clearing it here
                         // made the object jump back to its old spot until the engine answered.
@@ -980,8 +1038,8 @@ class PlateView(context: Context) : GLSurfaceView(context) {
         pushGrab?.let { g -> pushGrab = null; listener?.onPush(g, null, 0f, 0f, true) }
         pushPending = false
         dragCheckId++
-        if (dragging || liftBox != null) queueEvent { renderer.dragOffset = floatArrayOf(0f, 0f, 0f); renderer.liftGrab = false }
-        liftBox = null
+        if (dragging || liftBox != null) queueEvent { renderer.dragOffset = floatArrayOf(0f, 0f, 0f); renderer.liftGrab = false; renderer.axisGuide = null }
+        liftBox = null; liftFromDrag = false
         clearDragGuides()
         dragging = false
         dragStart = null
@@ -996,14 +1054,18 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     private fun dragOffsetAt(x: Float, y: Float, fine: Boolean, flip: Boolean = false): Vec3? {
         val start = dragStart ?: return null
         val now = dragAt(x, y) ?: return null
-        val s = dragSnap?.takeIf { towerPlate < 0 && snapOn != flip } ?: return Vec3(now.x - start.x, now.y - start.y, 0f).also { clearDragGuides() }
+        val s = dragSnap?.takeIf { towerPlate < 0 && snapOn != flip }
+            ?: return ZRail.locked(lock, now.x - start.x, now.y - start.y).let { (dx, dy) -> Vec3(dx, dy, 0f) }.also { clearDragGuides() }
         val a = camera.project(start)
         fun px(d: Vec3) = camera.project(start + d)?.let { e -> if (a == null) 0f else kotlin.math.hypot(e.first - a.first, e.second - a.second) }
         val pxPerMm = max(px(Vec3(10f, 0f, 0f)) ?: 0f, px(Vec3(0f, 10f, 0f)) ?: 0f) / 10f
         val reach = if (pxPerMm < 0.01f) 0f else 10 * resources.displayMetrics.density / pxPerMm
         val step = if (fine) 0.1f else 1f
-        val (dx, sx) = ZRail.lift(now.x - start.x, s.lo.x, s.hi.x, s.others.flatMap { s.targets(it.first.x, it.second.x) }, reach, step, s.mid)
-        val (dy, sy) = ZRail.lift(now.y - start.y, s.lo.y, s.hi.y, s.others.flatMap { s.targets(it.first.y, it.second.y) }, reach, step, s.mid)
+        var (dx, sx) = ZRail.lift(now.x - start.x, s.lo.x, s.hi.x, s.others.flatMap { s.targets(it.first.x, it.second.x) }, reach, step, s.mid)
+        var (dy, sy) = ZRail.lift(now.y - start.y, s.lo.y, s.hi.y, s.others.flatMap { s.targets(it.first.y, it.second.y) }, reach, step, s.mid)
+        // A locked axis drops the other one's move and its guide.
+        if (lock == 0) { dy = 0f; sy = null }
+        if (lock == 1) { dx = 0f; sx = null }
         if ((sx != null || sy != null) && (sx != dragSnapX || sy != dragSnapY)) performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
         dragSnapX = sx; dragSnapY = sy
         val g = snapGuides(s, dx, dy, sx, sy)

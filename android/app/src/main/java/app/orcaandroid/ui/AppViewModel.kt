@@ -211,6 +211,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         else { store.settings.snapPrepare = !s.snapPrepare; store.update { it.copy(snapPrepare = !s.snapPrepare) } }
     }
 
+    /** The move lock button: free -> X -> Y -> free. */
+    fun cycleMoveLock() = store.update { it.copy(moveLock = if (it.moveLock >= 1) -1 else it.moveLock + 1) }
+
     fun setPerspective(on: Boolean) {
         store.settings.perspective = on
         store.update { it.copy(perspective = on) }

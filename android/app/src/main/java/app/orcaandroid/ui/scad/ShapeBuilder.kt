@@ -231,6 +231,10 @@ private fun Toolbar(s: ScadEditorState, vm: AppViewModel) {
             val on = vm.state.collectAsState().value.snapBuild
             IconToggleButton(on, { vm.toggleSnap() }) { Icon(app.orcaandroid.ui.prepare.SnapIcon, stringResource(R.string.snap_toggle)) }
         }
+        Tip(stringResource(R.string.move_lock)) {
+            val lock = vm.state.collectAsState().value.moveLock
+            IconButton(onClick = vm::cycleMoveLock) { app.orcaandroid.ui.prepare.MoveLockFace(lock) }
+        }
         Tip(stringResource(R.string.shape_mirror)) {
             IconButton(onClick = { mirror = true }, enabled = any) {
                 Icon(Icons.Default.Flip, stringResource(R.string.shape_mirror))

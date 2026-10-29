@@ -140,6 +140,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var snapColor = floatArrayOf(0.3f, 0.85f, 0.35f)
     /** Build workspace body drag: the edges the moved shapes stick to (x, y, z per end, world), amber over everything. */
     var dragGuides: FloatArray? = null
+    /** A locked move's axis line (one segment) and the axis (0 X, 1 Y, 2 Z) for its colour; null = a free move. */
+    var axisGuide: Pair<FloatArray, Int>? = null
     /**
      * Measure loupe (E3): aim x, y and the inset square (left, top, size; view px) that a 2nd render of the scene fills,
      * the same camera magnified [LOUPE_ZOOM] times around the aim, so it stays sharp at any zoom. Null = off.
@@ -1493,9 +1495,12 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
 
     /** The body drag's snap guides ([dragGuides]): one thin magenta line as in Illustrator / Figma, over everything (they lie on the plate under the shapes). */
     private fun drawDragGuides() {
-        val data = dragGuides?.takeIf { it.isNotEmpty() } ?: return
+        val data = dragGuides?.takeIf { it.isNotEmpty() }
+        val axis = axisGuide
+        if (data == null && axis == null) return
         glDisable(GL_DEPTH_TEST)
-        drawWideLines(data, 1.25f * density, floatArrayOf(1f, 0.15f, 0.65f), section = false)
+        axis?.let { (seg, a) -> drawWideLines(seg, 1.25f * density, ScaleGizmo.color(a), section = false) }
+        data?.let { drawWideLines(it, 1.25f * density, floatArrayOf(1f, 0.15f, 0.65f), section = false) }
         glEnable(GL_DEPTH_TEST)
     }
 

@@ -30,4 +30,18 @@ object ZRail {
         if (best != null) return best to at
         return Math.round(raw / step) * step to null
     }
+
+    /** The drag's lock after the X (0) / Y (1) / Z (2) key: the same axis again frees it (-1); Z only where a lift can run ([zOk]). */
+    fun toggleLock(current: Int, axis: Int, zOk: Boolean): Int = when {
+        current == axis -> -1
+        axis == 2 && !zOk -> current
+        else -> axis
+    }
+
+    /** The move (dx, dy) kept along the locked [axis] (0 X, 1 Y; anything else leaves both). */
+    fun locked(axis: Int, dx: Float, dy: Float): Pair<Float, Float> = when (axis) {
+        0 -> dx to 0f
+        1 -> 0f to dy
+        else -> dx to dy
+    }
 }

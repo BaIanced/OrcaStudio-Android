@@ -83,6 +83,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.material.icons.filled.OpenWith
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -583,6 +584,8 @@ private fun ToolButtons(
             vm.scene.setSelectMode(!state.selectMode)
         }
         ToolButton(SnapIcon, stringResource(R.string.snap_toggle), active = state.snapPrepare, enabled = !state.scene.isEmpty) { vm.toggleSnap() }
+        ToolButton(Icons.Default.OpenWith, stringResource(R.string.move_lock), enabled = !state.scene.isEmpty,
+            face = { MoveLockFace(state.moveLock) }) { vm.cycleMoveLock() }
         if (state.multiSelection.isNotEmpty()) {
             ToolButton(Icons.Default.ContentCopy, stringResource(R.string.duplicate)) { vm.scene.duplicate(1) }
             ToolButton(Icons.Default.CallMerge, stringResource(R.string.assemble), enabled = state.multiSelection.size >= 2) { vm.scene.assemble() }
@@ -650,7 +653,8 @@ private fun ToolButtons(
 }
 
 @Composable
-private fun ToolButton(icon: ImageVector, label: String, active: Boolean = false, enabled: Boolean = true, tip: Boolean = true, onClick: () -> Unit) {
+private fun ToolButton(icon: ImageVector, label: String, active: Boolean = false, enabled: Boolean = true, tip: Boolean = true,
+                       face: (@Composable () -> Unit)? = null, onClick: () -> Unit) {
     val alpha = LocalOverlayAlpha.current
     // No tooltip where long press means something else (the movable row's + collapses the row).
     val wrap: @Composable (@Composable () -> Unit) -> Unit = if (tip) { c -> Tip(label, c) } else { c -> c() }
@@ -663,7 +667,7 @@ private fun ToolButton(icon: ImageVector, label: String, active: Boolean = false
                 androidx.compose.material3.IconButtonDefaults.filledTonalIconButtonColors(
                     containerColor = MaterialTheme.colorScheme.surface.copy(alpha = alpha)),
             modifier = Modifier.size(48.dp),
-        ) { Icon(icon, label) }
+        ) { if (face != null) face() else Icon(icon, label) }
     }
 }
 

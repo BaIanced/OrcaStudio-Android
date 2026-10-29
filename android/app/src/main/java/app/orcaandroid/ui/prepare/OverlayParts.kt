@@ -54,6 +54,7 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.material.icons.filled.OpenWith
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -122,6 +123,15 @@ val AutoOrientIcon: ImageVector by lazy {
         stroke("M21 3v5h-5")
         stroke("M13.45 15.99L8.01 13.45L10.55 8.01L15.99 10.55Z")
     }.build()
+}
+
+/** The move lock button's face: the move arrows when free, else the locked axis' letter in its handle colour (X red, Y green). */
+@androidx.compose.runtime.Composable
+fun MoveLockFace(lock: Int) {
+    if (lock < 0) { androidx.compose.material3.Icon(Icons.Default.OpenWith, stringResource(R.string.move_lock)); return }
+    val c = app.orcaandroid.render.ScaleGizmo.color(lock)
+    androidx.compose.material3.Text(if (lock == 0) "X" else "Y", color = androidx.compose.ui.graphics.Color(c[0], c[1], c[2]),
+        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
 }
 
 /** Snap toggle: a horseshoe magnet (Material has none). */
