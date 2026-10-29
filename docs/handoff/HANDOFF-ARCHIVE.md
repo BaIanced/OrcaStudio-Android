@@ -3602,3 +3602,8 @@ Object More menu now: Add volume (5 items) and Mesh tools (7 items) collapsible,
 
 ### 2026-10-29 Handoff trim
 - Debug build/notes details: archive "2026-10-28 Handoff overflow". Two-finger WSA gestures: `wsa-twotap.sh X Y [gap] [hold_s]` (sendevent, root).
+
+### 2026-10-29 Truck holes cut preview, WSA-verified (Claude, debug build, native local)
+- write_mesh now draws each part minus overlapping negative volumes (commits 8a642ea + next). First try with `mcut::make_boolean` left the windows shut: Orca's mcut wrapper (MeshBoolean.cpp:1031 do_boolean) cuts every connected surface as its own solid, so a shelled part's inward-facing inner wall came back sealed with the hole's outer face (2 triangles per window, seen in `cache/tmp/scene_mesh.bin`). Fix: `cgal::minus` first, mcut only if CGAL throws; hole tools grown 0.02 mm per side against coplanar faces.
+- Check: `~/orca-android-tools/scene_mesh_stats.py` / `scene_mesh_holes.py` on the pulled scene mesh (types: 1 = hole, 100+ = filament part); WSA shot of the serving window shows the chef. The design on the debug app was already the full truck (copied from the release session), no truck.sh rerun needed.
+- Debug app was fresh (no prefs = no MCP token): `wsa-debug-setup.sh` fixed it.

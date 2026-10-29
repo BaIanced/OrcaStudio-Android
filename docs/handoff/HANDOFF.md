@@ -33,9 +33,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **No WSA focus loops**. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
 - Gate work left: user sessions B-D (`NOTES-merge-batch.md`), paused 2026-10-28; no merge pending (branch == main). Release still gated on the printer set.
 - r463 has everything built so far (Wireframe, inertia, Light direction, two-finger tap, Bounding box, More groups); all Claude-verified on WSA except paint shop Sync swatch (needs a printer). User feel untested.
-- Next: Truck holes cut preview. Code written 2026-10-29, uncommitted (plan: archive "2026-10-29 Truck holes diagnosis"): `CutPreview` cache + `run_cut` (mcut A_NOT_B) in OrcaScene.cpp write_mesh; `m_mesh_first` per-copy triangle offsets read by sculpt_copies; sculpted part drawn uncut (`sculpting()`, re-write_mesh on sculpt_build). Native + debug APK build OK, installed on WSA (debug pkg; `wsa-debug-rebuild.sh` SDK path fixed to D:, now refuses to reinstall a stale APK). MCP on the debug app gave an empty reply right after start (check: MCP enabled/token in debug prefs, `wsa-debug-setup.sh` if fresh). Left: WSA test (truck.sh + truck2.sh in Shape builder, shoot the windows; also a sculpt stroke on a cut part), then commit + push.
-- Backlog is 11.7 KB (limit ~10): trim verified/stale lines at the next update.
-- Next step: Truck holes cut preview (native mcut in write_mesh) -> Opus 5.5 (high)
+- Truck holes cut preview: Claude WSA-verified 2026-10-29 on the local debug build (CGAL minus; archive "Truck holes cut preview"), committed, not pushed / no CI build yet.
+- Next: push + dispatch CI, install on all devices; on WSA debug do a sculpt stroke on a cut part (sculpted part is drawn uncut, `sculpting()`); try hole ghost alpha 0.45 -> ~0.25 (Shaders.kt:320) if the figures look tinted.
+- Backlog is 11.6 KB (limit ~10): trim verified/stale lines at the next update.
+- Next step: Truck cut preview push + sculpt-on-cut check -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
