@@ -34,9 +34,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - MCP token efficiency (`NOTES-mcp-token-efficiency.md`): A-C verified, D dropped; build rule waits for the user's OK.
 - Remaining gate work is user sessions B, C, D (`NOTES-merge-batch.md`); user paused testing 2026-10-28. Sculpt symmetry x done. Ask the user whether to resume sessions or merge Session-A items.
 - **Debug notes** (Ctrl+Shift+N / S Pen button, debug build): read only when the user says "notes": `cat /sdcard/Android/data/<debug pkg>/files/notes/notes.jsonl` (Note/WSA); log each, then delete jsonl + PNGs there; never commit.
-- Not yet in a CI build: Floating Slice drag fix, Recent files collapsed, right-click `lateButton` fallback (0a5a8a1; ask the user which device the mouse was on).
-- User reports 2026-10-28 (backlog "Open bugs"): paint shop friction (purple flash on open, no view-mode/edge/bbox toggles or filament sync inside), two-finger tap = context menu. Then Godot review (Z drag handle, axis lock), More menu reorg.
-- Next step: Paint shop friction (purple flash, in-paint view + filament sync) -> Opus 5.5 (high)
+- Not yet in a CI build: Floating Slice drag fix, Recent files collapsed, right-click `lateButton` fallback (0a5a8a1), paint shop entry fix + View menu in its bar (WSA-verified).
+- Open (backlog): paint shop filament sync + bbox toggle, two-finger tap = context menu; then Godot review (Z drag handle, axis lock), More menu reorg.
+- Next step: Paint shop filament sync inside the shop (grep backlog "Paint shop friction") -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).

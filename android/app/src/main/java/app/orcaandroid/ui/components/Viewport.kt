@@ -599,7 +599,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     val hidden = (state.tool as? Tool.Paint)?.takeIf { solo && it.kind == "color" }?.hidden ?: 0
     LaunchedEffect(v, hidden) { v.onGl { hiddenFilaments = hidden } }
     // The paint shop's view is smaller than the plate view: it frames the painted copy on entry (same view angles) and
-    // Done puts the plate camera back. Runs after the old view's onDispose, so savedCamera is the plate camera here.
+    // Done puts the plate camera back.
     // The Build workspace does the same with its object.
     val focused = solo || state.buildObject != null
     LaunchedEffect(v, focused) {
@@ -611,8 +611,9 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                         Vec3(insts.maxOf { it.min.x + it.size.x }, insts.maxOf { it.min.y + it.size.y }, insts.maxOf { it.min.z + it.size.z })
                 }
             box ?: return@LaunchedEffect
-            shopCamera = savedCamera ?: v.camera.state()
-            shopCamera?.let(v.camera::restore)
+            // The live camera: the paint shop keeps this view (savedCamera may be from an older tab switch); a new view
+            // (Build workspace) has savedCamera restored already (above).
+            shopCamera = v.camera.state()
             v.onGl { fitPending = box }
         } else if (!focused && plate != null) {
             v.camera.restore(plate)

@@ -60,6 +60,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.offset
@@ -331,14 +332,25 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
             app.orcaandroid.ui.components.ScrubHud(Modifier.align(Alignment.TopCenter).padding(top = 96.dp))
         }
     }
-    if (state.inPaintShop) return app.orcaandroid.ui.prepare.PaintShop(state, vm, viewport)
+    // The paint shop keeps the 3D view where the plate view has it: moving it in the tree made a new GL view (a slow
+    // entry, the shop's frame colour filling the screen until the first frame, user r459). Bar, frame and dock wrap it.
+    val shop = state.inPaintShop
+    Column(Modifier.fillMaxSize()) {
+        if (shop) app.orcaandroid.ui.prepare.PaintShopBar(state, vm, plateView)
+        Box(Modifier.weight(1f).fillMaxWidth()) { WorkspaceBody(state, vm, wide, shop, viewport, plateView) }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun WorkspaceBody(state: UiState, vm: AppViewModel, wide: Boolean, shop: Boolean, viewport: @Composable (Modifier) -> Unit, plateView: PlateView?) {
     val panelRegion = if (state.screen == Screen.PREPARE) Region.PREPARE_PANEL else Region.PREVIEW_PANEL
     val panel: @Composable () -> Unit = {
         if (state.screen == Screen.PREPARE) PreparePanel(state, vm, wide) else PreviewPanel(state, vm, wide)
     }
     // The OpenSCAD editor takes the panel's place on Prepare. The design shows alone in the design view,
     // or (eye toggle, user 2026-10-13) as a ghost on the plate; the editor can be resized with the handle.
-    val scad = state.scad?.takeIf { state.screen == Screen.PREPARE }
+    val scad = state.scad?.takeIf { state.screen == Screen.PREPARE && !shop }
     // Fullscreen portrait: the 3D view uses the camera strip at the top, everything else keeps below it.
     val belowHole = Modifier.windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Top))
     val scadView: @Composable (Modifier) -> Unit = { m ->
@@ -377,7 +389,8 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
                     if (scad != null) Box(Modifier.weight(1f).fillMaxHeight()) {
                         viewport(Modifier.fillMaxSize())
                         ScadReopenButton({ vm.setScadHidden(false) }, Modifier.align(Alignment.BottomEnd).padding(end = 8.dp, bottom = 76.dp))
-                    } else viewport(Modifier.weight(1f).fillMaxHeight())
+                    } else viewport(Modifier.weight(1f).fillMaxHeight().then(app.orcaandroid.ui.prepare.shopFrame(shop)))
+                    if (shop) { app.orcaandroid.ui.prepare.PaintShopDock(state, vm, side = true, Modifier.width(360.dp).fillMaxHeight()); return@Row }
                     // The edge drags to resize the panel (like the OpenSCAD editor's); let go below the snap
                     // width and it tucks away. A tap tucks it away or brings it back.
                     val lab = state.lab
@@ -432,8 +445,13 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val total = maxHeight
             val height = (if (PanelSize.height > 0f) PanelSize.height.dp else 132.dp).coerceIn(56.dp, (total * 0.85f).coerceAtLeast(56.dp))
-            Column(Modifier.fillMaxSize()) {
-                viewport(Modifier.weight(1f).fillMaxWidth())
+            // A landscape phone docks the shop's options beside the view (a new GL view on entry there, as before).
+            if (shop && maxWidth > maxHeight && maxWidth >= 600.dp) Row(Modifier.fillMaxSize()) {
+                viewport(Modifier.weight(1f).fillMaxHeight().then(app.orcaandroid.ui.prepare.shopFrame(true)))
+                app.orcaandroid.ui.prepare.PaintShopDock(state, vm, side = true, Modifier.width(360.dp).fillMaxHeight())
+            } else Column(Modifier.fillMaxSize()) {
+                viewport(Modifier.weight(1f).fillMaxWidth().then(app.orcaandroid.ui.prepare.shopFrame(shop)))
+                if (shop) { app.orcaandroid.ui.prepare.PaintShopDock(state, vm, side = false, Modifier.fillMaxWidth().heightIn(max = total * 0.45f)); return@Column }
                 val onHandle = state.lab.platesOnHandle && state.screen == Screen.PREPARE
                 val slice = state.screen == Screen.PREPARE && app.orcaandroid.ui.prepare.sliceOnGrip(state, wide)
                 val handlePlates = onHandle && state.lab.showPlates

@@ -443,7 +443,7 @@ private fun PlateChips(state: UiState, vm: AppViewModel, view: PlateView?) {
 
 /** Undo, redo and the view menu: tool-column buttons ([rail]) or plain icons in the top bar. */
 @Composable
-private fun ViewButtons(state: UiState, vm: AppViewModel, view: PlateView?, rail: Boolean) {
+internal fun ViewButtons(state: UiState, vm: AppViewModel, view: PlateView?, rail: Boolean) {
     var viewMenu by remember { mutableStateOf(false) }
     val button: @Composable (ImageVector, String, Boolean, () -> Unit) -> Unit = { icon, label, enabled, onClick ->
         if (rail) ToolButton(icon, label, enabled = enabled, onClick = onClick)
