@@ -502,11 +502,27 @@ static void run_cut(CutPreview &cut)
         for (const auto &[hole, matrix] : cut.holes) {
             TriangleMesh tool = *hole;
             tool.transform(matrix, true);
-            std::vector<TriangleMesh> out;
-            MeshBoolean::mcut::make_boolean(mesh, tool, out, "A_NOT_B");
-            if (out.empty() || out.front().empty())
-                return; // a hole that swallows the part, or mcut gave up: draw it whole
-            mesh = std::move(out.front());
+            // 0.02 mm bigger on every side: a hole flush with the wall's face (the truck's windows) left that face whole,
+            // since the boolean keeps coplanar faces; slicing cuts it in 2D and opens it.
+            const BoundingBoxf3 tb = tool.bounding_box();
+            const Vec3d size = tb.size(), c = tb.center();
+            Vec3d grow;
+            for (int k = 0; k < 3; ++k)
+                grow[k] = size[k] > 0. ? (size[k] + 0.04) / size[k] : 1.;
+            tool.transform(Transform3d(Eigen::Translation3d(c) * Eigen::Scaling(grow) * Eigen::Translation3d(-c)), true);
+            // CGAL first: mcut cuts each connected surface as its own solid, so a hollow part's inner wall (facing in)
+            // came back sealed with the hole's outer face. mcut only when CGAL refuses the meshes.
+            try {
+                MeshBoolean::cgal::minus(mesh, tool);
+            } catch (const std::exception &) {
+                std::vector<TriangleMesh> out;
+                MeshBoolean::mcut::make_boolean(mesh, tool, out, "A_NOT_B");
+                if (out.empty())
+                    return; // mcut gave up too: draw the part whole
+                mesh = std::move(out.front());
+            }
+            if (mesh.empty())
+                return; // a hole that swallows the part: draw it whole
         }
     } catch (const std::exception &e) {
         BOOST_LOG_TRIVIAL(warning) << "cut preview failed: " << e.what();
