@@ -19,6 +19,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material.icons.filled.BorderOuter
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Reorder
@@ -480,6 +481,12 @@ internal fun ViewButtons(state: UiState, vm: AppViewModel, view: PlateView?, rai
                 onClick = { viewMenu = false; vm.setEdgeOutline(!state.edgeOutline) },
                 leadingIcon = { Icon(Icons.Default.BorderOuter, null) },
                 trailingIcon = { if (state.edgeOutline) Icon(Icons.Default.Check, null) })
+            // The selection's bounding box (corner brackets): the same bit as More > Selection style > Box.
+            val boxOn = state.selectionStyle and app.orcaandroid.render.SelectionStyle.BOX != 0
+            DropdownMenuItem(text = { Text(stringResource(R.string.view_bounding_box)) },
+                onClick = { viewMenu = false; vm.setSelectionStyle(state.selectionStyle xor app.orcaandroid.render.SelectionStyle.BOX) },
+                leadingIcon = { Icon(Icons.Default.Crop, null) },
+                trailingIcon = { if (boxOn) Icon(Icons.Default.Check, null) })
         }
     }
 }
