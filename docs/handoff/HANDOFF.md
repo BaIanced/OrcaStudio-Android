@@ -24,20 +24,19 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Session backups: phone `/data/local/tmp/phone-session-backup.{3mf,json}`, WSA `/data/local/tmp/session-backup.{3mf,json}`. `scadzip-test.zip` stays in `/sdcard/Download` (phone, Chromebook). Never write the LAN access code anywhere.
 ## Next task
 - **User 2026-10-21: design deviations pre-approved** ("deviate if you find a more logical, intuitive way; I trust your judgement"); say what changed.
-- Muse (full discretion; tasks 1-18 merged): no per-session check. Instructions, permissions and the check command are in `NOTES-muse.md`; read it only when you want to send Muse work or a Muse PR/comment shows up.
+- Muse (full discretion; tasks 1-18 merged): `NOTES-muse.md`, read only when sending Muse work or a Muse PR shows up.
 - **Merge batch (user 2026-10-28: main = user-tested): `NOTES-merge-batch.md`** (cuts agreed, printer set release-gated, sessions A-D).
 - Local tests: `wsa-debug-rebuild.sh [native]` (reference "WSA debug loop"); fresh app: `wsa-debug-setup.sh` first. Lab prefs: edit `layout_lab` JSON in debug `shared_prefs/app_settings.xml` with run-as sed (app stopped).
 - **Offload (user 2026-10-25/26): max token use onto free opencode models, growing leeway by track record** (Claude specs + verifies).
   DeepSeek V4.1 Flash = default; runner `octauto.sh` (`D:\oct-backup\jobs\README.md`; opencode v2: `model#variant`), ledger `trust-profile.md`.
 - CAD plan (`NOTES-cad-reuse.md`): 0-5b Claude-verified, 1b parked. MCP efficiency (`NOTES-mcp-token-efficiency.md`): build rule waits for user OK.
 - **No WSA focus loops**. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
-- Gate work left: user sessions B-D (`NOTES-merge-batch.md`), paused 2026-10-28; no merge pending (branch == main). Release still gated on the printer set.
-- r464 has everything built so far (Wireframe, inertia, Light direction, two-finger tap, Bounding box, More groups); all Claude-verified on WSA except paint shop Sync swatch (needs a printer). User feel untested.
-- Truck holes cut preview: Claude-verified on WSA 2026-10-29 (archive); sculpt on a cut part OK (no crash, 414k tris; sculpted part draws uncut by design). Hole ghost alpha 0.45 -> ~0.25 (Shaders.kt:320) only if figures look tinted (untested).
-- Backlog is 10.5 KB (limit ~10): trim verified/stale lines at the next update. 2026-10-29 /next check: every open backlog item is user-feel, printer-gated or [Opus] design; no Sonnet item left.
-- Push/pull folded into resize (user 2026-10-29), d1b11e9 pushed: Claude-verified on WSA debug build (handle grab from a big face edge, body drag still moves; archive). Resize scales about the bottom centre, not a parametric push. Ships in the next CI build.
-- Build ghosts 2c289a7 pushed (other objects faint in Build; toolbar cycles ghosted/shown/hidden): Claude-verified WSA debug (archive). Not in a CI build yet.
-- Next step: Build continuity part 2 mockup (one builder entry + CAD badge, mesh -> builder path) -> Opus 5.5 (high)
+- Gate: user sessions B-D paused 2026-10-28; release gated on the printer set.
+- r464+: all Claude-verified on WSA except paint shop Sync swatch (needs a printer). User feel untested.
+- Backlog 10.6 KB (limit ~10): trim at the next update. Open items are user-feel, printer-gated or [Opus] design (2026-10-29).
+- Build ghosts 2c289a7: Claude-verified on WSA debug (archive), not in a CI build yet.
+- Build continuity part 2: design written (archive 2026-10-29, file:line map + plan); implement Kotlin (entry + badge + toggle) and native `exportVolumes` together, one CI build.
+- Next step: Build continuity part 2 implement (CAD-badged entry, mesh Edit in builder + native exportVolumes) -> Opus 5.5 (high)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
