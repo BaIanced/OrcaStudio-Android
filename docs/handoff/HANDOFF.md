@@ -35,9 +35,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **Debug notes** (Ctrl+Shift+N / S Pen button, debug build): read only when the user says "notes": `cat /sdcard/Android/data/<debug pkg>/files/notes/notes.jsonl` (Note/WSA); log each, then delete jsonl + PNGs there; never commit.
 - Not in a CI build yet: two-finger tap menu + paint shop Sync swatch (untested), Floating Slice drag fix, Recent files collapsed, `lateButton` fallback, paint shop entry fix + View menu (WSA-verified).
 - Open (backlog): paint shop bbox toggle + landscape GL view, More menu reorg.
-- Godot (a)+(b): `NOTES-godot-z-axis.md` Plan. Step 1 (Build Z lift dot) coded + compiled + pushed (af81ab3), untested; not in a CI build.
-  Next: WSA debug test of the lift dot (`wsa-debug-rebuild.sh`), then step 2 (axis lock), then CI.
-- Next step: Godot Z lift dot WSA test, then axis lock (`NOTES-godot-z-axis.md` Plan) -> Opus 5.5 (high)
+- Godot (a)+(b): `NOTES-godot-z-axis.md` Plan. Step 1 (Build Z lift dot, af81ab3) WSA-verified 2026-10-28 (snaps, preview); not in a CI build.
+  Next: step 2 (axis lock; code map in the notes), JVM test, WSA debug test, then CI.
+- Next step: Godot axis lock, step 2 (`NOTES-godot-z-axis.md` Plan) -> Opus 5.5 (high)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).

@@ -53,7 +53,13 @@ IS the Build workspace on the main view (`vm.state.value.buildObject != null`), 
 **Step 1 DONE (af81ab3, compiled, untested on device, Build only):** `ZRail.handle`, PlateView `liftMode`/`startLift`/`liftAt`
 (lift branch before `dragging ->` in MOVE and UP; `liftBox` blocks gizmo starts), renderer `liftHandle`/`liftGrab` + `drawDots`
 (shared with `drawGizmo`), `PlateListener.onLifted` -> Viewport `moveOnPlate(0, 0, dz)` (dz via r[6+i]). Slicer view: not wired.
-Next: WSA debug test (Build: select a shape, drag the blue dot up onto another shape's top), then step 2.
+**WSA-verified 2026-10-28 (debug build of f4b2e04):** box 40x40x10 + cylinder overlapping 2 mm in XY: lift dot (upper blue
+dot, the scale Z handle sits just below it) dragged up snapped z 0 -> 10 (box top), down 10 -> 0 (floor); live preview + gizmo
+follow mid-drag. Below the floor is allowed (no clamp, same as MeshPreviewView; Build allows negative z). Test scene stays on WSA.
+Step 2 code map (read 2026-10-28, don't re-read): PlateView MOVE `dragging ->` :589 (`dragOffsetAt` -> d = (o.x, o.y, 0));
+UP `dragging` :637-652 (`onMoved(o.x, o.y)`); `cancelDrag` :978; `dragOffsetAt` :996-1012 (snap via `ZRail.lift` per axis
+with `DragSnap.targets`, `dragSnapX/Y`, guides `snapGuides` :1015); keys: `onKeyDown` :310 forwards to `onKey` (host).
+Lock = zero dx or dy after the snap in `dragOffsetAt` (and drop that axis' guide); Z lock = switch the drag to `liftAt`.
 1. Z handle: draw a dot above the selection box top (`ZRail.gap`), hit-test it before the body drag at DOWN :436; drag = `liftMm` math
    -> `renderer.dragOffset = (0, 0, dz)`; UP -> new `PlateListener.onLifted(dz)` (default no-op) -> Build: moveOnPlate with dz; slicer: per above.
 2. Axis lock: `axisLock: Int` (-1 free, 0 X, 1 Y, 2 Z); in `dragOffsetAt` zero the other axis; Z switches to the lift math.

@@ -3557,3 +3557,6 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 
 ## 2026-10-28 Paint shop entry (Claude, WSA debug)
 - Cause of the purple screen and slow entry: `Workspace` returned `PaintShop`, which called the viewport at a new call site, so Compose built a new PlateView (new GL context, all meshes re-uploaded) behind a purple `background` fill. Fix: the viewport keeps its slot (`WorkspaceBody`), the shop adds `PaintShopBar` above, `shopFrame` (border, no fill) and `PaintShopDock`; shop entry camera uses the live camera (savedCamera could be stale). Bar now has `ViewButtons` (undo, redo, view menu). Checked on WSA: SurfaceFlinger layer #5778 same before/after entry and Done; no purple cells 250 ms after the tap; camera framed (563 -> 248 mm) and restored on Done. Landscape phones (< 840 dp wide) still move the view (Row branch).
+
+## 2026-10-28 Godot Z lift dot (step 1) WSA-verified
+- Debug build of f4b2e04 on WSA, Build workspace: lift dot drag snapped a cylinder onto an overlapping box top (z 0 -> 10) and back to the floor; live preview and gizmo follow mid-drag. Below-floor lift allowed by design (same ZRail.lift as MeshPreviewView). Claude test, not user.
