@@ -33,8 +33,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **No WSA focus loops**. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
 - Gate work left: user sessions B-D (`NOTES-merge-batch.md`), paused 2026-10-28; no merge pending (branch == main). Release still gated on the printer set.
 - r463 has everything built so far (Wireframe, inertia, Light direction, two-finger tap, Bounding box, More groups); all Claude-verified on WSA except paint shop Sync swatch (needs a printer). User feel untested.
-- Truck holes cut preview: Claude WSA-verified 2026-10-29 on the local debug build (CGAL minus; archive "Truck holes cut preview"), committed, not pushed / no CI build yet.
-- Next: push + dispatch CI, install on all devices; on WSA debug do a sculpt stroke on a cut part (sculpted part is drawn uncut, `sculpting()`); try hole ghost alpha 0.45 -> ~0.25 (Shaders.kt:320) if the figures look tinted.
+- Truck holes cut preview: Claude WSA-verified 2026-10-29 on the local debug build (CGAL minus; archive "Truck holes cut preview"), pushed, no CI build yet.
+- Next: dispatch CI, install on all devices; on WSA debug do a sculpt stroke on a cut part (sculpted part is drawn uncut, `sculpting()`); try hole ghost alpha 0.45 -> ~0.25 (Shaders.kt:320) if the figures look tinted.
 - Backlog is 11.6 KB (limit ~10): trim verified/stale lines at the next update.
 - Next step: Truck cut preview push + sculpt-on-cut check -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
