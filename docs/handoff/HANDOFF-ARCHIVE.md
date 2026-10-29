@@ -3588,3 +3588,9 @@ Object More menu now: Add volume (5 items) and Mesh tools (7 items) collapsible,
 
 ## 2026-10-29 Layout lab groups (WSA r463, Claude)
 - More > Layout lab shows 5 collapsible groups (Plates, Layout, Sizes and overlay, Shadows, Light and orbit); Shadows and Light and orbit expanded together with their sliders (shadow darkness/softness/bias; light direction/height/strength, camera light, orbit coasting). Lab group look closed; More menu reorg fully WSA-verified.
+
+## 2026-10-29 View > Bounding box + two-finger tap (WSA r463, Claude)
+- View > Bounding box toggles the Box bit of selection_style (17 -> 1 -> 17 in prefs); corner brackets render on the selected cube.
+- Two-finger tap (557dc5a) via new `orca-android-tools/wsa-twotap.sh` (sendevent on WSA virtual_touchscreen, slots): quick tap on an object opens the object menu (Duplicate, Delete, ...), on empty plate the add menu (Import, Shape, Text, SVG, OpenSCAD); a 0.6 s two-finger hold opens nothing.
+- Godot leftovers backlog line was stale ("nothing built"): Z lift dot + axis lock are in r461+, trimmed. Wireframe, orbit inertia, Light direction, Floating Slice fix, Recent files, paint shop entry fix + Sync swatch are all in CI r463 (handoff said "not in CI yet").
+

@@ -33,10 +33,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **No WSA focus loops**. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
 - Gate work left: user sessions B-D (`NOTES-merge-batch.md`), paused 2026-10-28; no merge pending (branch == main). Release still gated on the printer set.
 - Debug build/notes details: archive "2026-10-28 Handoff overflow".
-- Not in a CI build yet: View > Wireframe (all parts' triangle edges, session-only; WSA debug 2026-10-28: sparse meshes show lines, dense ones fade by design), orbit inertia, View > Light direction (light ball panel, drag = key light az/el live; WSA debug-verified 2026-10-28, user feel untested), two-finger tap menu + paint shop Sync swatch (untested), Floating Slice drag fix, Recent files collapsed, `lateButton` fallback, paint shop entry fix + View menu (WSA-verified).
-- Open (backlog): Paint shop landscape GL OK on phone + Chromebook r461. View > Bounding box (compiled only, untested on WSA, not in CI).
-- More menu reorg + Layout lab groups WSA-verified 2026-10-29; no `[Sonnet]` backlog items left.
-- Next step: resume sessions B-D (needs the user) or pick an `[Opus]` backlog item -> Opus 5.5 (high)
+- r463 has everything built so far (Wireframe, inertia, Light direction, two-finger tap, Bounding box, More groups); all Claude-verified on WSA except paint shop Sync swatch (needs a printer). User feel untested.
+- Two-finger WSA gestures: `wsa-twotap.sh X Y [gap] [hold_s]` (sendevent, root).
+- Next: Truck demo backlog line (hole shapes drawn opaque cover the figures -> translucent holes by default); rebuild the session with truck.sh + truck2.sh.
+- Next step: Truck demo translucent holes -> Opus 5.5 (high)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
