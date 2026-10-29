@@ -193,6 +193,16 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     private var penOrbit = false
     /** Paint mode: this touch started off the selected object, so it orbits the camera instead of painting. */
     private var paintOrbit = false
+    /** Paint mode, finger: the stroke's first dab, held back until the finger moves, waits 100 ms or lifts ([flushPaintHold]). */
+    private var paintHeld = false
+    private var paintHoldX = 0f
+    private var paintHoldY = 0f
+    private var paintHoldAt = 0L
+    private fun flushPaintHold() {
+        if (!paintHeld) return
+        paintHeld = false
+        if (!paintOrbit && !multiTouch) listener?.onPaint(paintHoldX, paintHoldY, true)
+    }
     private var penInstant: PenAction? = null
     private var lastInstantTime = 0L
     /** The gesture began with the right / middle mouse button (pans; a right click opens the menu). */
@@ -456,7 +466,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                 rectangleRemove = event.metaState and KeyEvent.META_ALT_ON != 0
                 rectangle = mode == InteractionMode.NAVIGATE && !rightButton && !middleButton &&
                     (rectangleRemove || event.metaState and KeyEvent.META_SHIFT_ON != 0)
-                penOrbit = false; penInstant = null; paintOrbit = false
+                penOrbit = false; penInstant = null; paintOrbit = false; paintHeld = false
                 val penAction = penActionOf(event.getToolType(0), event.buttonState)
                 when (penAction) {
                     PenAction.PAN -> middleButton = true
@@ -481,7 +491,9 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                     // A touch that starts off the selected object orbits the camera instead of painting (user r325).
                     if (selectedBounds.isNotEmpty() && rayBoxEntry(event.x, event.y, selectedBounds) == null) paintOrbit = true
                     else {
-                        listener?.onPaint(event.x, event.y, true)
+                        // A finger's first dab waits for movement or lift: a second finger landing (pinch / pan) drops it instead of painting.
+                        if (event.getToolType(0) == MotionEvent.TOOL_TYPE_FINGER) { paintHoldX = event.x; paintHoldY = event.y; paintHoldAt = event.eventTime; paintHeld = true }
+                        else listener?.onPaint(event.x, event.y, true)
                         if (selectedBounds.isNotEmpty()) {
                             val id = ++dragCheckId
                             listener?.onDragCheck(event.x, event.y) { hit -> if (!hit && id == dragCheckId) paintOrbit = true }
@@ -528,6 +540,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
             }
             MotionEvent.ACTION_POINTER_DOWN -> {
                 multiTouch = true
+                paintHeld = false
                 cancelDrag()
                 if (loupeOn && event.pointerCount == 2) listener?.onMeasureFreeze(true)
                 lastFocusX = focusX(event); lastFocusY = focusY(event)
@@ -588,7 +601,9 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                         penOrbit -> camera.orbit((event.x - lastX) * 0.3f, (event.y - lastY) * 0.3f)
                         penInstant != null -> Unit
                         mode == InteractionMode.PAINT && paintOrbit -> camera.orbit((event.x - lastX) * 0.3f, (event.y - lastY) * 0.3f)
+                        mode == InteractionMode.PAINT && paintHeld && !moved && event.eventTime - paintHoldAt < 100 -> Unit
                         mode == InteractionMode.PAINT -> {
+                            flushPaintHold()
                             // Fill gaps of fast strokes so the painted trail stays continuous.
                             val dx = event.x - lastX
                             val dy = event.y - lastY
@@ -657,7 +672,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
             }
             MotionEvent.ACTION_UP -> {
                 mouseDown = false
-                if (mode == InteractionMode.PAINT) listener?.onPaintEnd()
+                if (mode == InteractionMode.PAINT) { flushPaintHold(); listener?.onPaintEnd() }
                 val additive = event.metaState and (KeyEvent.META_CTRL_ON or KeyEvent.META_SHIFT_ON) != 0
                 val part = event.metaState and KeyEvent.META_ALT_ON != 0
                 if (rectangle && moved) {
@@ -723,7 +738,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
             }
             MotionEvent.ACTION_CANCEL -> {
                 mouseDown = false
-                if (mode == InteractionMode.PAINT) listener?.onPaintEnd()
+                if (mode == InteractionMode.PAINT) { listener?.onPaintEnd() }
                 if (loupeOn) listener?.onMeasureLoupe(-1f, -1f, 3, loupeExact)
                 else if (longPressed) listener?.onLongPressTouch(-1f, -1f, false)
                 if (rectangle && moved) listener?.onRectangle(downX, downY, downX, downY, rectangleRemove, true)

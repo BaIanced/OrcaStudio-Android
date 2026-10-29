@@ -22,16 +22,24 @@ import java.io.File
 import org.json.JSONObject
 
 /**
- * Debug-only quick notes (Ctrl+Shift+N, or the S Pen button while hovering): freezes the current
+ * Debug-only quick notes (Ctrl+Shift+N, the S Pen button while hovering, or volume-down twice): freezes the current
  * window, asks for a note (type or dictate) and appends it to `notes.jsonl` with a downscaled
  * screenshot and a small state snapshot. Pull: `adb pull /sdcard/Android/data/<pkg>/files/notes`.
  * Stays on the device; never commit the files (they can show account details).
  */
 object DebugNotes {
     private var showing = false
+    private var lastVolDown = 0L
 
     fun onKey(activity: Activity, event: KeyEvent, snapshot: () -> String): Boolean {
         logKey(event)
+        // No keyboard or pen (phone): press volume-down twice within 0.5 s. The first press still changes the volume.
+        if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0 && event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
+            val double = event.eventTime - lastVolDown < 500
+            lastVolDown = if (double) 0L else event.eventTime
+            if (double) { capture(activity, snapshot); return true }
+            return false
+        }
         if (event.action != KeyEvent.ACTION_DOWN || event.repeatCount != 0 || event.keyCode != KeyEvent.KEYCODE_N ||
             !event.isCtrlPressed || !event.isShiftPressed) return false
         capture(activity, snapshot)
