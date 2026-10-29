@@ -3573,3 +3573,9 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 ## 2026-10-28 Handoff overflow
 - **Debug notes** (Ctrl+Shift+N / S Pen button, debug build): read only when the user says "notes": `cat /sdcard/Android/data/<debug pkg>/files/notes/notes.jsonl` (Note/WSA); log each, then delete jsonl + PNGs there; never commit.
 - Debug build (local, CI makes release only, so it is not auto-updated; rebuild + `adb install -r -g`): dev notes also fire on volume-down x2 (OnePlus, 2026-10-28). Paint: finger first dab held until move/100 ms/lift, 2nd finger drops it (fix for pinch/pan painting; untested on device).
+
+
+## 2026-10-28 Godot review leftovers (moved from the handoff)
+- Godot (a)+(b) (`NOTES-godot-z-axis.md`), in CI r461: Z lift dot + axis lock (da7505c) WSA-verified in Prepare (X/Y/Free/Y key mid-drag, archive 2026-10-28). Z key lift in Build WSA-verified (archive 2026-10-28). Untested: tower ignores Z (low risk, code-gated).
+- Orbit inertia (More > Layout lab slider, default 50 %; plain one-finger flick only, touch stops it): WSA debug-verified 2026-10-28 (fast flick coasts ~150 deg, slow drag exactly 90 deg), not in CI.
+- View > Wireframe (6b86abb): shader uWireAll, line colour dark on light parts / light on dark; dense meshes fade (same rule as the selection wireframe). WSA debug verified on sparse cubes.
