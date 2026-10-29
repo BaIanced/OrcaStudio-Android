@@ -11,7 +11,7 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 ## Open bugs
 - Mouse right-click (user 2026-10-28): `lateButton` fallback in r463+ (WSA no-regression only). Open: which device the user used; check there when they say.
 - Paint shop friction (user 2026-10-28): fixed in r463+ (archive). Open: Sync swatch needs a Bambu connection (untested, Claude).
-- [Opus] Muse Task 12 JNI audit: 5/8/9 in r392 (9 WSA-checked; 8 needs a printer connect; 5 not exercised); 10/12/13 fixed 6303398, WSA r395 add text (52 chars)/SVG smoke OK (Claude 2026-10-24); 11 contract note, no change; 6 built r376, needs 2+ printers (Claude 2026-10-24).
+- [Opus] Muse Task 12 JNI audit: 8 needs a printer connect, 5 not exercised, 6 needs 2+ printers (Claude, r392-r395, 2026-10-24); rest fixed or no change.
 
 ## Untested (needs the user or a special setup)
 - Preview: shading after slice? + inner z-fight on layer scrub (fixed r285, Claude 2026-10-17): user look pending.
@@ -22,7 +22,7 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - Paint depth (r367, Claude WSA G-code OK 2026-10-21): user feel + real print untested.
 - Paint shop reopen fix (Claude WSA r374) + plate estimate line (Claude WSA r376 = Preview; one density, part-level filaments ignored): user look/feel.
 - Check mesh: marker readability, self-intersection count on a real file, thin walls (Claude WSA test STL, run 39657856306).
-- Step 9 tap/long-press align/x-ray/upright shift Claude-verified WSA debug 2026-10-27 (archive), user feel untested. Awaiting go: radio Lay on cut face / Flip / Leave + nested "Arrange after cut" (arrange_plate always runs, OrcaScene.cpp:1046); user asked the point of "Flip upper part upside down".
+- Step 9 (tap/long-press align, x-ray, upright shift) Claude-verified WSA 2026-10-27 (archive), user feel untested. Awaiting go: Lay on cut face / Flip / Leave radio + nested "Arrange after cut" (OrcaScene.cpp:1046); user asked the point of "Flip upper part upside down".
 - Fan slider hold-until-within-4 % (r295) + Extrude F150 e13bebb: need the printer.
 - Preview bead look (Chromebook), part shadows r266, light/shadow lab sliders r263: Claude-verified, user hasn't seen.
 - Drag-handle fling: wide PanelEdge (WSA mouse inconclusive, r300) and OpenSCAD grips untested; portrait flick user-verified r294.
@@ -34,7 +34,7 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 ## Waiting on the user
 - HD plate ideas (user verified r394): 3D bed frame model, dual-nozzle decal layout (Claude 2026-10-24).
 - Plate switcher pick (lab stays; don't ask again). Launcher icon colour ("decide later"). REA MCP enable (installed, not enabled).
-- [Opus] Sculpt mode (More > Sculpt, r428; Claude-verified WSA debug 2026-10-26, user feel untested). Symmetry built 51ad144 (CI 40738227951, untested). Stroke-end hull deferred + first-stroke speedup in r459 (Claude WSA release 2026-10-28, archive). Open: paint overlay only at stroke end; symmetry x/z/xz verified by bbox on r459 (archive); open (low value): exact bump positions on a face, grab on the plane.
+- [Opus] Sculpt mode (More > Sculpt, r428+; Claude-verified WSA 2026-10-26..28, archive; user feel untested). Symmetry 51ad144 untested on device by user. Open (low value): paint overlay only at stroke end, exact bump positions on a face, grab on the plane.
 - [Opus] Build workspace (user GO 2026-10-23): steps 1-6c-2 Claude-verified WSA (r385-r406, archive); open: user feel of all, multi-copy / mirrored copies in Build, nested/repeated groups with gizmos.
 
 ## Ideas (not started)
