@@ -73,48 +73,355 @@ static Transform3d shown_matrix(const ModelInstance &inst, const std::optional<s
     return design ? Transform3d(Eigen::Translation3d((*design)[0], (*design)[1], (*design)[2])) : inst.get_matrix();
 }
 
-json OrcaEngine::pick(const std::array<double, 3> &origin, const std::array<double, 3> &dir, int only)
+// The measure tool's snap targets on one mesh: which facet edges are sharp (> 25 deg between the facets, or open), the smooth
+// patches between them (a CAD face: a flat side, a hole's wall) and, per vertex, its sharp edges (to follow an edge line).
+struct OrcaEngine::SnapFeatures
+{
+    std::vector<Vec3i32> nb;             // per facet, k: the facet across edge k (vertex k to k + 1), -1 = open
+    std::vector<uint8_t> sharp;          // per facet, bit k: edge k is sharp
+    std::vector<int32_t> patch;          // per facet: its smooth patch
+    std::vector<int32_t> vstart, vnext;  // per vertex v: vnext[vstart[v] .. vstart[v + 1]) = the far ends of its sharp edges
+    std::map<int32_t, std::vector<float>> outlines; // per patch, as first asked for: its sharp edges (x, y, z per end, mesh coordinates)
+
+    explicit SnapFeatures(const indexed_triangle_set &its)
+    {
+        const int nf = int(its.indices.size());
+        nb = its_face_neighbors(its);
+        std::vector<Vec3f> n(nf);
+        for (int f = 0; f < nf; ++f)
+            n[f] = its_face_normal(its, f).normalized();
+        const float limit = std::cos(25.f * float(M_PI) / 180.f);
+        sharp.assign(nf, 0);
+        for (int f = 0; f < nf; ++f)
+            for (int k = 0; k < 3; ++k)
+                if (nb[f][k] < 0 || n[f].dot(n[nb[f][k]]) < limit)
+                    sharp[f] |= uint8_t(1 << k);
+        patch.assign(nf, -1);
+        std::vector<int32_t> stack;
+        for (int f = 0, next = 0; f < nf; ++f) {
+            if (patch[f] >= 0)
+                continue;
+            patch[f] = next;
+            stack.push_back(f);
+            while (!stack.empty()) {
+                const int c = stack.back();
+                stack.pop_back();
+                for (int k = 0; k < 3; ++k)
+                    if (!((sharp[c] >> k) & 1) && nb[c][k] >= 0 && patch[nb[c][k]] < 0) {
+                        patch[nb[c][k]] = next;
+                        stack.push_back(nb[c][k]);
+                    }
+            }
+            ++next;
+        }
+        // Each sharp edge once (from its lower facet; open edges always).
+        const auto each_edge = [&](auto &&fn) {
+            for (int f = 0; f < nf; ++f)
+                for (int k = 0; k < 3; ++k)
+                    if (((sharp[f] >> k) & 1) && (nb[f][k] < 0 || f < nb[f][k]))
+                        fn(its.indices[f][k], its.indices[f][(k + 1) % 3]);
+        };
+        const size_t nv = its.vertices.size();
+        vstart.assign(nv + 1, 0);
+        each_edge([&](int a, int b) { ++vstart[a + 1]; ++vstart[b + 1]; });
+        for (size_t v = 0; v < nv; ++v)
+            vstart[v + 1] += vstart[v];
+        vnext.resize(vstart[nv]);
+        std::vector<int32_t> fill(vstart.begin(), vstart.end() - 1);
+        each_edge([&](int a, int b) { vnext[fill[a]++] = b; vnext[fill[b]++] = a; });
+    }
+
+    // Where the edge line coming from prev goes on after v: its straightest sharp edge there, if it turns under 50 deg
+    // (-1: the line ends, as at a box corner). It carries on through a junction (a crease meeting the line, a noisy mesh's spur).
+    int32_t next(const indexed_triangle_set &its, int32_t prev, int32_t v) const
+    {
+        const Vec3f d0 = (its.vertices[v] - its.vertices[prev]).normalized();
+        int32_t best = -1;
+        float   best_dot = std::cos(50.f * float(M_PI) / 180.f);
+        for (int32_t i = vstart[v]; i < vstart[v + 1]; ++i) {
+            const int32_t w = vnext[i];
+            if (w == prev)
+                continue;
+            const float c = d0.dot((its.vertices[w] - its.vertices[v]).normalized());
+            if (c >= best_dot) { best_dot = c; best = w; }
+        }
+        return best;
+    }
+
+    // The edge line through the sharp edge a -> b: followed both ways (see next()).
+    // [closed]: it came back round to a (a hole's rim).
+    std::vector<int32_t> line(const indexed_triangle_set &its, int32_t a, int32_t b, bool &closed) const
+    {
+        std::set<int32_t> seen{a, b};
+        const auto walk = [&](std::vector<int32_t> &run) {
+            while (run.size() < 4096) {
+                const int32_t nx = next(its, run[run.size() - 2], run.back());
+                if (nx < 0)
+                    return false;
+                if (nx == run.front())
+                    return true;
+                if (!seen.insert(nx).second)
+                    return false;
+                run.push_back(nx);
+            }
+            return false;
+        };
+        std::vector<int32_t> ahead{a, b};
+        closed = walk(ahead);
+        if (closed)
+            return ahead;
+        std::vector<int32_t> behind{b, a};
+        walk(behind);
+        std::vector<int32_t> out(behind.rbegin(), behind.rend() - 2);
+        out.insert(out.end(), ahead.begin(), ahead.end());
+        return out;
+    }
+
+    // What the snap caught (the hit on facet [face]; an edge snap: on the sharp edge ea -> eb), for the measure tool to show (world line segments, x, y, z per end):
+    // "vertex" (no lines), "edge" (a straight line), "ring" (a round closed line: a hole's rim, with its centre and diameter),
+    // "curve" (any other edge line) or "face" (no snap: the outline of the smooth patch the point lies on).
+    json feature(const indexed_triangle_set &its, const Transform3d &trafo, int face, const char *kind, int32_t ea, int32_t eb)
+    {
+        std::vector<float> lines;
+        const auto add = [&](const Vec3f &local) {
+            const Vec3d p = trafo * local.cast<double>();
+            lines.insert(lines.end(), {float(p.x()), float(p.y()), float(p.z())});
+        };
+        json out;
+        if (kind && std::string(kind) == "vertex") {
+            out["kind"] = "vertex";
+        } else if (kind) {
+            bool closed = false;
+            const std::vector<int32_t> run = line(its, ea, eb, closed);
+            std::vector<Vec3d> pts;
+            for (int32_t v : run)
+                pts.push_back(trafo * its.vertices[v].cast<double>());
+            for (size_t i = 0; i + 1 < run.size() + (closed ? 1 : 0); ++i) {
+                add(its.vertices[run[i]]);
+                add(its.vertices[run[(i + 1) % run.size()]]);
+            }
+            out["kind"] = "curve";
+            if (closed && pts.size() >= 6) {
+                Vec3d c = Vec3d::Zero();
+                for (const Vec3d &q : pts)
+                    c += q;
+                c /= double(pts.size());
+                double lo = std::numeric_limits<double>::max(), hi = 0., sum = 0.;
+                for (const Vec3d &q : pts) {
+                    const double r = (q - c).norm();
+                    lo = std::min(lo, r); hi = std::max(hi, r); sum += r;
+                }
+                const double mean = sum / double(pts.size());
+                if (hi - lo <= 0.1 * mean) {
+                    out["kind"]     = "ring";
+                    out["center"]   = vec_json(c);
+                    out["diameter"] = 2. * mean;
+                }
+            } else if (!closed) {
+                // Straight: every point within 1 % of the length (at least 0.02 mm) of the line between the ends.
+                const Vec3d  a = pts.front(), e = pts.back() - a;
+                const double len = e.norm(), tol = std::max(0.02, 0.01 * len);
+                bool straight = len > 0.;
+                for (const Vec3d &q : pts)
+                    straight = straight && ((q - a) - (q - a).dot(e) / (len * len) * e).norm() <= tol;
+                if (straight)
+                    out["kind"] = "edge";
+            }
+        } else {
+            out["kind"] = "face";
+            const int32_t id = patch[face];
+            auto it = outlines.find(id);
+            if (it == outlines.end()) {
+                std::vector<float> &o = outlines[id];
+                for (size_t f = 0; f < patch.size(); ++f)
+                    if (patch[f] == id)
+                        for (int k = 0; k < 3; ++k)
+                            if ((sharp[f] >> k) & 1)
+                                for (int v : {its.indices[f][k], its.indices[f][(k + 1) % 3]})
+                                    o.insert(o.end(), {its.vertices[v].x(), its.vertices[v].y(), its.vertices[v].z()});
+                // Too busy to read (a scan's whole skin): no outline.
+                if (o.size() > 6 * 20000)
+                    o.clear();
+                it = outlines.find(id);
+            }
+            for (size_t i = 0; i + 2 < it->second.size(); i += 3)
+                add(Vec3f(it->second[i], it->second[i + 1], it->second[i + 2]));
+        }
+        out["lines"] = lines;
+        return out;
+    }
+};
+
+json OrcaEngine::pick(const std::array<double, 3> &origin, const std::array<double, 3> &dir, int only, double snap, double release,
+                      const std::array<double, 3> &stick, const std::array<double, 3> &seed_origin, const std::array<double, 3> &seed_dir)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
     const Vec3d s = to_vec(origin), d = to_vec(dir).normalized();
     json best = {{"hit", false}};
     double best_dist = std::numeric_limits<double>::max();
-    for (size_t oi = 0; oi < m_model->objects.size(); ++oi) {
-        if (only >= 0 && int(oi) != only)
-            continue;
-        const ModelObject *obj = m_model->objects[oi];
-        for (size_t ii = 0; ii < obj->instances.size(); ++ii)
-            for (size_t vi = 0; vi < obj->volumes.size(); ++vi) {
-                const ModelVolume *vol = obj->volumes[vi];
-                const Transform3d trafo = shown_matrix(*obj->instances[ii], design_offset(oi, ii)) * vol->get_matrix();
-                const Transform3d inv   = trafo.inverse();
-                // Ray in volume coordinates; the hit distance is measured back in world space.
-                const Vec3d ls = inv * s;
-                const Vec3d ld = (inv.linear() * d).normalized();
-                std::shared_ptr<AABBMesh> &mesh = m_aabb[&vol->mesh()];
-                if (!mesh)
-                    mesh = std::make_shared<AABBMesh>(vol->mesh());
-                const auto hit = mesh->query_ray_hit(ls, ld);
-                if (!hit.is_hit())
-                    continue;
-                const Vec3d world = trafo * hit.position();
-                const double dist = (world - s).norm();
-                if (dist >= best_dist)
-                    continue;
-                best_dist = dist;
-                const Vec3d n = (trafo.linear().inverse().transpose() * hit.normal()).normalized();
-                best = {{"hit", true},
-                        {"object", oi},
-                        {"instance", ii},
-                        {"volume", vi},
-                        {"facet", hit.face()},
-                        {"point", vec_json(world)},
-                        {"normal", vec_json(n)},
-                        {"local", vec_json(hit.position())}};
+    const ModelVolume *best_vol = nullptr;
+    Transform3d        best_trafo;
+    int                best_face = -1;
+    Vec3d              best_world = Vec3d::Zero();
+    const auto cast = [&](const Vec3d &rs, const Vec3d &rd) {
+        for (size_t oi = 0; oi < m_model->objects.size(); ++oi) {
+            if (only >= 0 && int(oi) != only)
+                continue;
+            const ModelObject *obj = m_model->objects[oi];
+            for (size_t ii = 0; ii < obj->instances.size(); ++ii)
+                for (size_t vi = 0; vi < obj->volumes.size(); ++vi) {
+                    const ModelVolume *vol = obj->volumes[vi];
+                    const Transform3d trafo = shown_matrix(*obj->instances[ii], design_offset(oi, ii)) * vol->get_matrix();
+                    const Transform3d inv   = trafo.inverse();
+                    // Ray in volume coordinates; the hit distance is measured back in world space.
+                    const Vec3d ls = inv * rs;
+                    const Vec3d ld = (inv.linear() * rd).normalized();
+                    std::shared_ptr<AABBMesh> &mesh = m_aabb[&vol->mesh()];
+                    if (!mesh)
+                        mesh = std::make_shared<AABBMesh>(vol->mesh());
+                    const auto hit = mesh->query_ray_hit(ls, ld);
+                    if (!hit.is_hit())
+                        continue;
+                    const Vec3d world = trafo * hit.position();
+                    const double dist = (world - rs).norm();
+                    if (dist >= best_dist)
+                        continue;
+                    best_dist  = dist;
+                    best_vol   = vol;
+                    best_trafo = trafo;
+                    best_face  = int(hit.face());
+                    best_world = world;
+                    const Vec3d n = (trafo.linear().inverse().transpose() * hit.normal()).normalized();
+                    best = {{"hit", true},
+                            {"object", oi},
+                            {"instance", ii},
+                            {"volume", vi},
+                            {"facet", hit.face()},
+                            {"point", vec_json(world)},
+                            {"normal", vec_json(n)},
+                            {"local", vec_json(hit.position())}};
+                }
+        }
+    };
+    cast(s, d);
+    // Aimed just off the model: the seed ray (one that hits, within the capture ring) gives the facet to look round, as
+    // long as the snap catches an edge or corner of it; no point on that face otherwise.
+    const Vec3d seed_s = to_vec(seed_origin), seed_d = to_vec(seed_dir);
+    const bool  seeded = !best_vol && snap > 0. && !std::isnan(seed_s.x()) && !std::isnan(seed_d.x());
+    if (seeded)
+        cast(seed_s, seed_d.normalized());
+    if (snap > 0. && best_vol) {
+        // Corners within the snap distance, else the nearest sharp edge: looked for at the vertices of the facets within
+        // reach (from the hit facet out), as a fine mesh's rim can be a few facets away. Distances are taken from the
+        // pick ray, as on screen (a face seen edge-on is a few pixels but many mm wide); nothing hidden behind the hit.
+        // [stick]: the point the last snap caught (a moving aim): that corner or edge holds out to [release] (no flicker).
+        const indexed_triangle_set &its = best_vol->mesh().its;
+        std::shared_ptr<SnapFeatures> &sf = m_neighbors[&best_vol->mesh()];
+        if (!sf)
+            sf = std::make_shared<SnapFeatures>(its);
+        const Vec3d  p     = best_world;
+        const Vec3d  held  = to_vec(stick);
+        const bool   holds = !std::isnan(held.x()) && release > snap;
+        const double reach = holds ? release : snap;
+        const double depth = (p - s).dot(d) + reach;
+        const auto at = [&](int32_t v) -> Vec3d { return best_trafo * its.vertices[v].cast<double>(); };
+        const auto off_ray = [&](const Vec3d &q) {
+            const Vec3d v = q - s;
+            return v.dot(d) > depth ? std::numeric_limits<double>::max() : (v - v.dot(d) * d).norm();
+        };
+        // The point of segment a-b nearest the ray, and its distance from it.
+        const auto seg_near = [&](const Vec3d &a, const Vec3d &b) {
+            const Vec3d  e = b - a, w0 = a - s;
+            const double ed = e.dot(d), den = e.squaredNorm() - ed * ed;
+            const double t  = den > 1e-12 ? std::clamp((ed * w0.dot(d) - w0.dot(e)) / den, 0., 1.) : 0.;
+            const Vec3d  q  = a + t * e;
+            return std::make_pair(off_ray(q), q);
+        };
+        // Whether [held] lies on segment a-b (the last catch was this corner or a point of this edge).
+        const auto on_seg = [&](const Vec3d &a, const Vec3d &b) {
+            if (!holds)
+                return false;
+            const Vec3d  e = b - a;
+            const double t = e.squaredNorm() > 1e-12 ? std::clamp((held - a).dot(e) / e.squaredNorm(), 0., 1.) : 0.;
+            return (a + t * e - held).norm() < 1e-3;
+        };
+        // How far (world mm, up to [lim]) the edge line runs from v through w; [end]: where it got to.
+        const auto run = [&](int32_t v, int32_t w, double lim, Vec3d &end) {
+            double len = 0.;
+            for (int32_t prev = v, n = 0;; ++n) {
+                len += (at(w) - at(prev)).norm();
+                const int32_t nx = len < lim && n < 512 ? sf->next(its, prev, w) : -1;
+                if (nx < 0 || nx == v)
+                    break;
+                prev = w;
+                w    = nx;
             }
+            end = at(w);
+            return len;
+        };
+        // Lines shorter than the snap distance (a few pixels on screen: a noisy mesh's creases) are no snap targets.
+        const auto long_line = [&](int32_t a, int32_t b) {
+            Vec3d e;
+            return run(a, b, snap, e) + run(b, a, snap, e) - (at(b) - at(a)).norm() >= snap;
+        };
+        // A corner ends long lines: three or more, or two that turn 50 deg or more (not a hole's rim or a curve).
+        const auto corner = [&](int32_t v) {
+            std::vector<Vec3d> arms;
+            for (int32_t i = sf->vstart[v]; i < sf->vstart[v + 1]; ++i) {
+                Vec3d e;
+                if (run(v, sf->vnext[i], snap, e) >= snap)
+                    arms.push_back((e - at(v)).normalized());
+            }
+            return arms.size() >= 3 || (arms.size() == 2 && arms[0].dot(arms[1]) > -std::cos(50. * M_PI / 180.));
+        };
+        std::vector<int32_t> verts;
+        {
+            std::vector<int32_t> stack{best_face};
+            std::set<int32_t>    seen{best_face};
+            while (!stack.empty() && seen.size() < 4096) {
+                const int32_t f = stack.back();
+                stack.pop_back();
+                for (int k = 0; k < 3; ++k) {
+                    verts.push_back(its.indices[f][k]);
+                    const int32_t g = sf->nb[f][k];
+                    if (g >= 0 && !seen.count(g) && seg_near(at(its.indices[f][k]), at(its.indices[f][(k + 1) % 3])).first <= reach) {
+                        seen.insert(g);
+                        stack.push_back(g);
+                    }
+                }
+            }
+            std::sort(verts.begin(), verts.end());
+            verts.erase(std::unique(verts.begin(), verts.end()), verts.end());
+        }
+        Vec3d  snapped = p;
+        double best_d  = std::numeric_limits<double>::max();
+        const char *kind = nullptr;
+        int32_t     ea = -1, eb = -1;
+        for (int32_t v : verts)
+            if (sf->vstart[v + 1] > sf->vstart[v]) {
+                const double dist = off_ray(at(v));
+                if (dist < best_d && dist < (on_seg(at(v), at(v)) ? release : snap) && corner(v)) { best_d = dist; snapped = at(v); kind = "vertex"; }
+            }
+        if (!kind)
+            for (int32_t v : verts)
+                for (int32_t i = sf->vstart[v]; i < sf->vstart[v + 1]; ++i) {
+                    const int32_t w = sf->vnext[i];
+                    const auto [dist, q] = seg_near(at(v), at(w));
+                    if (dist < best_d && dist < (on_seg(at(v), at(w)) ? release : snap) && long_line(v, w)) {
+                        best_d = dist; snapped = q; kind = "edge"; ea = v; eb = w;
+                    }
+                }
+        if (seeded && !kind)
+            return {{"hit", false}};
+        if (kind) {
+            best["point"] = vec_json(snapped);
+            best["snap"]  = kind;
+        }
+        best["feature"] = sf->feature(its, best_trafo, best_face, kind, ea, eb);
     }
     return best;
 }
+
 
 namespace {
 
@@ -265,13 +572,11 @@ void OrcaEngine::write_paint_mesh()
     ++m_paint_version;
 }
 
-namespace {
-
 // Faces reachable from [seed] over edges between faces whose normals differ by at most [angle] degrees: the desktop's
 // smart fill test (TriangleSelector::seed_fill_select_triangles, neighbour against neighbour).
 // [allowed]: faces the flood may enter (all when empty).
 std::vector<bool> flood_surface(const indexed_triangle_set &its, const std::vector<int> &neighbors, int seed, double angle,
-                                const std::function<bool(int)> &allowed = {})
+                                const std::function<bool(int)> &allowed)
 {
     std::vector<bool> faces(its.indices.size(), false);
     if (seed < 0 || seed >= int(faces.size()))
@@ -293,6 +598,8 @@ std::vector<bool> flood_surface(const indexed_triangle_set &its, const std::vect
     }
     return faces;
 }
+
+namespace {
 
 // The paint shop's layer lock by paint state (bit i of [locked] = filament i + 1); NONE = unpainted, locked with the part's
 // own filament.
@@ -458,6 +765,10 @@ public:
         bool is_edge_inside_cursor(const Triangle &tr, const std::vector<Vertex> &vertices) const override
         {
             return !off(tr) && Base::is_edge_inside_cursor(tr, vertices);
+        }
+        bool claims_leaf(const Triangle &tr, const std::vector<Vertex> &vertices) const override
+        {
+            return !off(tr) && Base::claims_leaf(tr, vertices);
         }
 
     private:
@@ -640,6 +951,7 @@ json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<doubl
         push_undo();
     if (new_stroke) {
         m_paint_prev.reset();
+        m_band.reset();
         m_paint_region.object = -1;
         m_fill_preview.reset();
         m_stroke_undo = hits.empty() ? nullptr : m_undo.back().model;
@@ -809,30 +1121,30 @@ json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<doubl
     }
     if (shape == "height") {
         // Height range (GLGizmoPainterBase::get_projected_height_range): the band from the hit up, on every part of the object.
-        for (const PaintHit &h : hits) {
-            const float z = hit_z(h);
-            if (h.join && m_paint_prev && std::abs(hit_z(*m_paint_prev) - z) < 1e-3f)
-                continue;
-            ModelObject &obj = object_at(h.object);
+        // A stroke is one band: each hit extends the stroke's range, and a call that grew it paints the whole range once. A
+        // band per hit cost ~8 ms each, and every band refines its two edges to 0.1 mm, so a fast drag left gaps and piled
+        // up splits (user r405: "very slow and choppy"). Painting only the new strips still left each old edge's splits
+        // behind (177k -> 462k paint triangles); a triangle wholly inside the range loses its splits (select_triangle).
+        auto paint_band = [&](const BandStroke &band) {
+            ModelObject &obj = object_at(band.object);
             for (size_t vi = 0; vi < obj.volumes.size(); ++vi) {
                 ModelVolume *vol = obj.volumes[vi];
                 if (!vol->is_model_part())
                     continue;
-                const Transform3d trafo = obj.instances[h.instance]->get_matrix() * vol->get_matrix();
-                // Seed: the hit facet on the hit part, else the first facet reaching into the band.
+                const Transform3d trafo = obj.instances[band.instance]->get_matrix() * vol->get_matrix();
                 const indexed_triangle_set &its = vol->mesh().its;
-                int seed = int(vi) == h.volume ? h.facet : -1;
-                for (int f = 0; seed < 0 && f < int(its.indices.size()); ++f) {
-                    float lo = FLT_MAX, hi = -FLT_MAX;
+                // Parts with no facet reaching into the range stay untouched. The range cursor floods from every facet in
+                // its range (TriangleSelector::select_patch), so the seed is only a valid index.
+                const bool reaches = std::any_of(its.indices.begin(), its.indices.end(), [&](const stl_triangle_vertex_indices &t) {
+                    float a = FLT_MAX, b = -FLT_MAX;
                     for (int k = 0; k < 3; ++k) {
-                        const float vz = float((trafo * its.vertices[its.indices[f][k]].cast<double>()).z());
-                        lo = std::min(lo, vz);
-                        hi = std::max(hi, vz);
+                        const float vz = float((trafo * its.vertices[t[k]].cast<double>()).z());
+                        a = std::min(a, vz);
+                        b = std::max(b, vz);
                     }
-                    if (hi >= z && lo <= z + float(height))
-                        seed = f;
-                }
-                if (seed < 0)
+                    return b >= band.lo && a <= band.hi;
+                });
+                if (!reaches)
                     continue;
                 FacetsAnnotation &facets = facets_of(*vol, kind);
                 const bool was_empty = facets.empty();
@@ -840,14 +1152,60 @@ json OrcaEngine::paint(const std::vector<PaintHit> &hits, const std::array<doubl
                 trafo_no_translate.translation() = Vec3d::Zero();
                 const Vec3f camera_local = (trafo.inverse() * to_vec(camera)).cast<float>();
                 PaintSelector &selector = live_selector(*vol, facets);
-                selector.select_patch(seed, locking ? std::unique_ptr<TriangleSelector::Cursor>(std::make_unique<PaintSelector::Guarded<TriangleSelector::HeightRange>>(
-                                                          selector, nullptr, &locks_of(*vol), z, camera_local, float(height), trafo, clip_of(trafo)))
-                                                    : TriangleSelector::SinglePointCursor::cursor_factory(z, camera_local, float(height), trafo, clip_of(trafo)),
+                const float lo = band.lo, h = band.hi - band.lo;
+                selector.select_patch(0, locking ? std::unique_ptr<TriangleSelector::Cursor>(std::make_unique<PaintSelector::Guarded<TriangleSelector::HeightRange>>(
+                                                       selector, nullptr, &locks_of(*vol), lo, camera_local, h, trafo, clip_of(trafo)))
+                                                 : TriangleSelector::SinglePointCursor::cursor_factory(lo, camera_local, h, trafo, clip_of(trafo)),
                                       new_state, trafo_no_translate, true);
                 save_live(facets, was_empty);
             }
-            m_paint_prev = h;
+        };
+        // Snap the band to the object's layer boundaries (outward): an edge between layers slices to a clean line, one inside
+        // a layer leaves jagged triangles on the slicer (user r406: 0.08 mm layers, 0.1 mm band).
+        auto snap = [&](const PaintHit &h, float z, float top) {
+            const ModelObject &obj = object_at(h.object);
+            const SlicingParameters params = slicing_params(selection_config(), obj);
+            std::vector<coordf_t> profile = obj.layer_height_profile.get();
+            if (profile.empty())
+                PrintObject::update_layer_height_profile(obj, params, profile);
+            const std::vector<coordf_t> tops = generate_object_layers(params, profile, false);
+            std::vector<float> edges{0.f};
+            for (size_t i = 1; i < tops.size(); i += 2)
+                edges.push_back(float(tops[i]));
+            const float eps = 1e-3f;
+            // The start is the bottom of the layer clicked. Rounding to the nearest edge (r409, against clicks in the old-colour
+            // teeth along a band's edge, now claimed by the bands) made the upper half of a one-band gap repaint the band
+            // above (user r414: "does not fill in the area until i reach the red line"). The end snaps outward from the
+            // band's own height above the start.
+            auto it_n = std::upper_bound(edges.begin(), edges.end(), z + eps);
+            const float lo = it_n == edges.begin() ? edges.front() : *(it_n - 1);
+            auto it_hi = std::lower_bound(edges.begin(), edges.end(), lo + (top - z) - eps);
+            float hi = it_hi == edges.end() ? lo + (top - z) : *it_hi;
+            if (hi <= lo + eps)
+                hi = it_hi == edges.end() || it_hi + 1 == edges.end() ? lo + (top - z) : *(it_hi + 1);
+            return std::make_pair(lo, hi);
+        };
+        bool grew = false;
+        for (const PaintHit &h : hits) {
+            const auto [z, top] = snap(h, hit_z(h), hit_z(h) + float(height));
+            if (m_band && (m_band->object != h.object || m_band->instance != h.instance)) {
+                if (grew)
+                    paint_band(*m_band);
+                m_band.reset();
+            }
+            if (!m_band) {
+                m_band = BandStroke{h.object, h.instance, z, top};
+                grew   = true;
+            } else if (z < m_band->lo || top > m_band->hi) {
+                m_band->lo = std::min(m_band->lo, z);
+                m_band->hi = std::max(m_band->hi, top);
+                grew       = true;
+            }
         }
+        if (m_band && grew)
+            paint_band(*m_band);
+        if (!hits.empty())
+            m_paint_prev = hits.back();
     }
     const bool brush = shape != "height" && shape != "triangle" && shape != "fill";
     const TriangleSelector::CursorType cursor_type = shape == "circle" ? TriangleSelector::CursorType::CIRCLE : TriangleSelector::CursorType::SPHERE;
@@ -961,6 +1319,13 @@ json OrcaEngine::paint_fill_cancel()
         write_paint_mesh();
     }
     return scene_json();
+}
+
+bool OrcaEngine::paint_fill_live()
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    drop_stale_fill_preview();
+    return m_fill_preview != nullptr;
 }
 
 json OrcaEngine::paint_clear(int object, const std::string &kind)
@@ -1291,7 +1656,7 @@ json OrcaEngine::check_mesh(int object, int instance, double thickness)
         throw std::runtime_error("Invalid instance");
     constexpr size_t max_points = 400;
     json parts = json::array();
-    std::vector<float> thin_points, open_points, cross_points;
+    std::vector<float> thin_points, open_points, cross_points, sharp_points;
     size_t thin_total = 0;
     for (int v = 0; v < int(obj.volumes.size()); ++v) {
         const ModelVolume *vol = obj.volumes[v];
@@ -1316,17 +1681,32 @@ json OrcaEngine::check_mesh(int object, int instance, double thickness)
         }
         part["degenerate"] = degenerate;
         // Open edges: an edge used by one face only; its midpoint marks the hole in the view.
+        // Sharp edges (print3d_toolbox): two faces folded back on each other (normals more than 160 degrees apart), a knife edge.
+        size_t sharp = 0;
         {
-            std::map<std::pair<int, int>, int> uses;
-            for (const auto &t : its.indices)
+            std::map<std::pair<int, int>, std::vector<size_t>> uses;
+            for (size_t f = 0; f < its.indices.size(); ++f) {
+                const auto &t = its.indices[f];
                 for (int k = 0; k < 3; ++k)
-                    ++uses[{std::min(t[k], t[(k + 1) % 3]), std::max(t[k], t[(k + 1) % 3])}];
-            for (const auto &[edge, n] : uses)
-                if (n == 1 && open_points.size() < max_points * 3) {
-                    const Vec3f m = (its.vertices[edge.first] + its.vertices[edge.second]) / 2.f;
+                    uses[{std::min(t[k], t[(k + 1) % 3]), std::max(t[k], t[(k + 1) % 3])}].push_back(f);
+            }
+            auto normal = [&](size_t f) {
+                const auto &t = its.indices[f];
+                return Vec3f((its.vertices[t[1]] - its.vertices[t[0]]).cross(its.vertices[t[2]] - its.vertices[t[0]])).normalized();
+            };
+            constexpr float fold_cos = -0.9396926f; // cos(160 degrees)
+            for (const auto &[edge, faces] : uses) {
+                const Vec3f m = (its.vertices[edge.first] + its.vertices[edge.second]) / 2.f;
+                if (faces.size() == 1 && open_points.size() < max_points * 3)
                     open_points.insert(open_points.end(), {m.x(), m.y(), m.z()});
+                else if (faces.size() == 2 && !skip[faces[0]] && !skip[faces[1]] && normal(faces[0]).dot(normal(faces[1])) < fold_cos) {
+                    ++sharp;
+                    if (sharp_points.size() < max_points * 3)
+                        sharp_points.insert(sharp_points.end(), {m.x(), m.y(), m.z()});
                 }
+            }
         }
+        part["sharpEdges"] = sharp;
         // Self-intersections: pairs of faces that cut through each other (CGAL); the first face of a pair marks it.
         size_t crossings = 0;
         try {
@@ -1381,7 +1761,7 @@ json OrcaEngine::check_mesh(int object, int instance, double thickness)
         parts.push_back(std::move(part));
     }
     return {{"parts", parts}, {"thickness", thickness}, {"thinFaces", thin_total}, {"thinPoints", thin_points},
-            {"openPoints", open_points}, {"crossPoints", cross_points}};
+            {"openPoints", open_points}, {"crossPoints", cross_points}, {"sharpPoints", sharp_points}};
 }
 
 } // namespace orca

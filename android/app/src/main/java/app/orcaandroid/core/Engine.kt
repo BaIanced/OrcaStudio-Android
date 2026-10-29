@@ -9,7 +9,7 @@ import org.json.JSONObject
 
 /**
  * Typed Kotlin API over the native engine. The core is not re-entrant, so every call runs on one
- * dedicated thread; only [cancelSlicing] may be called concurrently.
+ * dedicated thread; only [cancel] may be called concurrently.
  */
 class Engine(private val cacheDir: File) {
 
@@ -121,10 +121,40 @@ class Engine(private val cacheDir: File) {
     suspend fun assemble(items: List<Pair<Int, Int>>) = parseScene(call("assemble", args("items" to items.map { listOf(it.first, it.second) })))
     suspend fun meshBoolean(obj: Int, src: Int, tool: Int, op: String, keepTool: Boolean) =
         parseScene(call("meshBoolean", args("object" to obj, "src" to src, "tool" to tool, "op" to op, "keepTool" to keepTool)))
-    suspend fun cut(obj: Int, instance: Int, z: Float, keepUpper: Boolean, keepLower: Boolean, flipUpper: Boolean, floatUpper: Boolean = false, rot: Vec3 = Vec3(0f, 0f, 0f)) =
-        parseScene(call("cut", args("object" to obj, "instance" to instance, "z" to z, "keepUpper" to keepUpper, "keepLower" to keepLower, "flipUpper" to flipUpper, "floatUpper" to floatUpper, "rotX" to rot.x, "rotY" to rot.y, "rotZ" to rot.z)))
+    suspend fun cut(obj: Int, instance: Int, z: Float, keepUpper: Boolean, keepLower: Boolean, flipUpper: Boolean, floatUpper: Boolean = false, rot: Vec3 = Vec3(0f, 0f, 0f),
+                    shiftX: Float = 0f, shiftY: Float = 0f) =
+        parseScene(call("cut", args("object" to obj, "instance" to instance, "z" to z, "keepUpper" to keepUpper, "keepLower" to keepLower, "flipUpper" to flipUpper, "floatUpper" to floatUpper, "rotX" to rot.x, "rotY" to rot.y, "rotZ" to rot.z, "shiftX" to shiftX, "shiftY" to shiftY)))
     suspend fun simplify(obj: Int, ratio: Float) = parseScene(call("simplify", args("object" to obj, "ratio" to ratio)))
     suspend fun repair(obj: Int) = parseScene(call("repair", args("object" to obj)))
+    /** Bends, twists or tapers ([kind] "bend" / "twist" / "taper") one object along plate [axis] 0..2, in this copy's frame: [amount] in degrees, or the far end's scale for a taper. */
+    /**
+     * Live sculpt of [target]'s part: one dab per ray (world origin, direction) that hits it, in stroke order; brushes draw,
+     * inflate, smooth, flatten, pinch, crease, grab. Only the changed scene triangles come back ([SculptStep.patch]);
+     * [sculptEnd] writes the part's mesh and the scene. [end] does that in the same call (MCP). [probe] only hit-tests
+     * the rays, for the brush cursor ([SculptStep.cursor]). [mirror] bits 1/2/4 repeat each dab across the part's X/Y/Z middle plane.
+     */
+    suspend fun sculpt(target: PickHit, rays: List<Pair<Vec3, Vec3>>, brush: String, radius: Float, strength: Float, invert: Boolean,
+                       newStroke: Boolean, end: Boolean = false, probe: Boolean = false, mirror: Int = 0): SculptStep {
+        val o = call("sculpt", args("object" to target.obj, "instance" to target.instance, "volume" to target.volume,
+            "rays" to rays.map { (a, d) -> listOf(a.x, a.y, a.z, d.x, d.y, d.z).map { it.toDouble() } },
+            "brush" to brush, "radius" to radius, "strength" to strength, "invert" to invert, "newStroke" to newStroke, "end" to end, "probe" to probe,
+            "mirror" to mirror))
+        val scene = if (o.has("objects")) parseScene(o) else null
+        val patch = o.optString("patch").takeIf { it.isNotEmpty() }?.let { MeshPatch.load(it, o.getInt("mesh_version")) }
+        val cursor = if (o.has("point")) o.vec3("point") to o.vec3("normal") else null
+        return SculptStep(scene, patch, o.optBoolean("hit"), cursor)
+    }
+    suspend fun sculptEnd() = parseScene(call("sculptEnd"))
+    suspend fun hollowObject(obj: Int, instance: Int, wall: Float) =
+        parseScene(call("hollowObject", args("object" to obj, "instance" to instance, "wall" to wall)))
+    suspend fun smoothBlend(obj: Int, instance: Int, radius: Float) =
+        parseScene(call("smoothBlend", args("object" to obj, "instance" to instance, "radius" to radius)))
+    suspend fun deform(obj: Int, instance: Int, kind: String, axis: Int, amount: Float) =
+        parseScene(call("deform", args("object" to obj, "instance" to instance, "kind" to kind, "axis" to axis, "amount" to amount)))
+    /** Per-region edit on the faces a Regions tap on [facet] picks: op "smooth" ([amount] iterations) or "modifier" ([amount] mm deep). */
+    suspend fun regionEdit(obj: Int, instance: Int, volume: Int, facet: Int, edgeAngle: Float, op: String, amount: Float) =
+        parseScene(call("regionEdit", args("object" to obj, "instance" to instance, "volume" to volume, "facet" to facet,
+            "edgeAngle" to edgeAngle, "op" to op, "amount" to amount)))
     /** Read-only mesh report of one copy; see [MeshReport.text]. Faces whose wall is thinner than [thickness] mm are counted. */
     suspend fun checkMesh(obj: Int, instance: Int = 0, thickness: Float = 0.4f): JSONObject =
         call("checkMesh", args("object" to obj, "instance" to instance, "thickness" to thickness))
@@ -164,7 +194,10 @@ class Engine(private val cacheDir: File) {
     suspend fun undo() = parseScene(call("undo"))
     suspend fun redo() = parseScene(call("redo"))
     suspend fun setUndoLimit(limit: Int) = parseScene(call("setUndoLimit", args("limit" to limit)))
-    suspend fun addPrimitive(shape: String, size: Vec3, plate: Int) = parseScene(call("addPrimitive", args("shape" to shape, "size" to size, "plate" to plate)))
+    suspend fun addPrimitive(shape: String, size: Vec3, plate: Int, round: Float = 0f) = parseScene(call("addPrimitive", args("shape" to shape, "size" to size, "plate" to plate, "round" to round)))
+    /** Shape builder Blend joins: [spec] = {radius, parts} (ShapeDesign.blendCode) fused in OCCT into the STL [out]; its triangle count. */
+    suspend fun blendSolids(spec: JSONObject, out: File): Int =
+        call("blendSolids", args("parts" to spec.getJSONArray("parts"), "radius" to spec.getDouble("radius"), "out" to out.path)).optInt("triangles")
     suspend fun addText(text: String, font: String, height: Float, depth: Float, plate: Int) =
         parseScene(call("addText", args("text" to text, "font" to font, "height" to height, "depth" to depth, "plate" to plate)))
     suspend fun addSvg(path: String, width: Float, depth: Float, plate: Int) =
@@ -173,20 +206,27 @@ class Engine(private val cacheDir: File) {
     // --- Tools -----------------------------------------------------------------------------------
 
     /** [only] >= 0: hits on that object alone (the Build workspace). */
-    suspend fun pick(origin: Vec3, dir: Vec3, only: Int = -1): PickHit? = call("pick", args("origin" to origin, "dir" to dir, "object" to only)).let { o ->
+    /** [snap] > 0 (world mm): the point moves to the nearest corner or sharp edge of its facet within that distance. */
+    /** [stick]: the last snap's point, whose corner or edge holds out to [release] mm. [seed]: a ray to look round from if this one misses (only a snap counts then). */
+    suspend fun pick(origin: Vec3, dir: Vec3, only: Int = -1, snap: Double = 0.0, release: Double = 0.0, stick: Vec3? = null, seed: Pair<Vec3, Vec3>? = null): PickHit? =
+        call("pick", args("origin" to origin, "dir" to dir, "object" to only, "snap" to snap, "release" to release, "stick" to stick,
+            "seedOrigin" to seed?.first, "seedDir" to seed?.second)).let { o ->
         if (!o.optBoolean("hit")) null
-        else PickHit(o.getInt("object"), o.getInt("instance"), o.getInt("volume"), o.getInt("facet"), o.vec3("point"), o.vec3("normal"), o.vec3("local"))
+        else PickHit(o.getInt("object"), o.getInt("instance"), o.getInt("volume"), o.getInt("facet"), o.vec3("point"), o.vec3("normal"), o.vec3("local"),
+            if (o.has("snap")) o.getString("snap") else null,
+            o.optJSONObject("feature")?.let { f -> SnapFeature(f.getString("kind"), f.optJSONArray("lines").floats(),
+                if (f.has("diameter")) f.getDouble("diameter").toFloat() else null) })
     }
 
     /** Paints [hits] (one stroke's brush positions, in order) in one engine pass. */
     /** [joins]: per hit, whether it continues the line from the stroke's previous hit (painted as a capsule, no gaps). */
     suspend fun paint(hits: List<PickHit>, camera: Vec3, radius: Float, kind: String, state: Int, newStroke: Boolean, section: FloatArray? = null,
                       joins: List<Boolean> = emptyList(), edgeAngle: Float = 0f, shape: String = "sphere", height: Float = 0.2f, overhang: Float = 0f,
-                      guard: Float? = null, overColours: Boolean = false, locked: Int = 0) = parseScene(call("paint", args(
+                      guard: Float? = null, overColours: Boolean = false, locked: Int = 0, refill: Boolean = false) = parseScene(call("paint", args(
         "hits" to hits.mapIndexed { i, it -> mapOf("object" to it.obj, "instance" to it.instance, "volume" to it.volume, "facet" to it.facet, "local" to it.local,
             "join" to joins.getOrElse(i) { false }) },
         "camera" to camera, "radius" to radius, "kind" to kind, "state" to state, "newStroke" to newStroke, "section" to section, "edgeAngle" to edgeAngle,
-        "shape" to shape, "height" to height, "overhang" to overhang, "guard" to guard, "overColours" to overColours, "locked" to locked)))
+        "shape" to shape, "height" to height, "overhang" to overhang, "guard" to guard, "overColours" to overColours, "locked" to locked, "refill" to refill)))
     suspend fun paintClear(obj: Int, kind: String) = parseScene(call("paintClear", args("object" to obj, "kind" to kind)))
     suspend fun paintFillCancel() = parseScene(call("paintFillCancel", args()))
     /** Eyedropper: the paint state under [hit] (0 = unpainted) and the part's own extruder (1-based, 0 = the object's). */
@@ -262,8 +302,8 @@ class Engine(private val cacheDir: File) {
         parseSlice(JSONObject(OrcaNative.viewGcode(path, out.path) { p, t -> onProgress(p, t) }).throwIfError(), out.path, true)
     }
 
-    /** Safe to call from any thread while slicing runs. */
-    fun cancelSlicing() = OrcaNative.cancel()
+    /** Cancels a running slice or smooth blend; safe to call from any thread. */
+    fun cancel() = OrcaNative.cancel()
 
     // --- Parsing ---------------------------------------------------------------------------------
 

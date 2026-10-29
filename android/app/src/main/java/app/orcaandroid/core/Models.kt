@@ -203,7 +203,17 @@ data class PickHit(
     val point: Vec3,
     val normal: Vec3,
     val local: Vec3,
+    /** "vertex" / "edge" when the point snapped to a corner / sharp edge of its facet (measure tool). */
+    val snap: String? = null,
+    /** Measure tool: what the snap caught, shown while aiming. */
+    val feature: SnapFeature? = null,
 )
+
+/**
+ * [kind]: "vertex", "edge" (straight line), "ring" (round closed line, a hole's rim: [diameter] mm), "curve" (other edge line)
+ * or "face" (no snap: the smooth patch the point lies on, outlined). [lines]: world segments, x, y, z per end.
+ */
+class SnapFeature(val kind: String, val lines: FloatArray, val diameter: Float?)
 
 data class LayerProfile(val profile: FloatArray, val min: Float, val max: Float, val height: Float)
 
@@ -252,3 +262,45 @@ data class SliceResult(
      */
     val toolChanges: GcodeToolChanges.Result? = null,
 )
+
+/**
+ * Scene triangles a live sculpt call changed, read from the engine's patch file (OrcaSculpt.cpp): run i replaces
+ * [counts] i triangles from scene triangle [firsts] i; [data] holds all runs' vertices back to back (8 floats each, as
+ * the scene mesh). Applies to scene mesh [version] only.
+ */
+class MeshPatch(val version: Int, val firsts: IntArray, val counts: IntArray, val data: java.nio.FloatBuffer) {
+    companion object {
+        fun load(path: String, version: Int): MeshPatch {
+            val bytes = java.io.File(path).readBytes()
+            val b = java.nio.ByteBuffer.wrap(bytes).order(java.nio.ByteOrder.nativeOrder())
+            val runs = b.int
+            val firsts = IntArray(runs)
+            val counts = IntArray(runs)
+            var floats = 0
+            for (i in 0 until runs) {
+                firsts[i] = b.int
+                counts[i] = b.int
+                b.position(b.position() + counts[i] * 96)
+                floats += counts[i] * 24
+            }
+            val out = java.nio.ByteBuffer.allocateDirect(maxOf(floats, 1) * 4).order(java.nio.ByteOrder.nativeOrder()).asFloatBuffer()
+            b.position(4)
+            for (i in 0 until runs) {
+                b.position(b.position() + 8)
+                val n = counts[i] * 24
+                val slice = b.slice().order(java.nio.ByteOrder.nativeOrder()).asFloatBuffer()
+                slice.limit(n)
+                out.put(slice)
+                b.position(b.position() + n * 4)
+            }
+            out.position(0)
+            return MeshPatch(version, firsts, counts, out)
+        }
+    }
+}
+
+/**
+ * One live sculpt call: [scene] when the whole scene mesh was rewritten (refined at the stroke's start), [patch] the changed
+ * triangles, [cursor] the last dab's world point and surface normal (the brush ring).
+ */
+class SculptStep(val scene: Scene?, val patch: MeshPatch?, val hit: Boolean, val cursor: Pair<Vec3, Vec3>? = null)

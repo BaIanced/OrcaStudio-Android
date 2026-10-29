@@ -45,6 +45,7 @@ import app.orcaandroid.ui.components.CutoutRow
 import app.orcaandroid.ui.components.showPlate
 import java.io.File
 import java.util.Locale
+import app.orcaandroid.ui.prepare.Tip
 
 /** Colour schemes of the preview, in PreviewStyle.scheme order. */
 internal val SCHEMES = listOf(
@@ -88,7 +89,7 @@ private fun SchemeButton(state: UiState, vm: AppViewModel) {
     Box {
         Surface(onClick = { open = true }, shape = RoundedCornerShape(20.dp), tonalElevation = 3.dp) {
             Row(Modifier.padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { open = true }) { Icon(Icons.Default.Palette, stringResource(R.string.color_scheme)) }
+                Tip(stringResource(R.string.color_scheme)) { IconButton(onClick = { open = true }) { Icon(Icons.Default.Palette, stringResource(R.string.color_scheme)) } }
                 Text(stringResource(SCHEMES[state.preview.scheme]), Modifier.padding(end = 12.dp), style = MaterialTheme.typography.labelLarge)
             }
         }
@@ -117,12 +118,12 @@ private fun LayerSliders(state: UiState, vm: AppViewModel, modifier: Modifier) {
                     stringResource(R.string.layer_of, hi + 1, layers.size) + "  ·  %.2f mm".format(Locale.ROOT, layers[hi].z),
                     Modifier.weight(1f), style = MaterialTheme.typography.labelLarge,
                 )
-                IconButton(onClick = { vm.slicing.updatePreview { it.copy(layerHigh = (hi - 1).coerceAtLeast(lo), moveEnd = null) } }, Modifier.size(36.dp)) {
+                Tip(stringResource(R.string.layer_down)) { IconButton(onClick = { vm.slicing.updatePreview { it.copy(layerHigh = (hi - 1).coerceAtLeast(lo), moveEnd = null) } }, Modifier.size(36.dp)) {
                     Icon(Icons.Default.KeyboardArrowDown, stringResource(R.string.layer_down))
-                }
-                IconButton(onClick = { vm.slicing.updatePreview { it.copy(layerHigh = (hi + 1).coerceAtMost(last), moveEnd = null) } }, Modifier.size(36.dp)) {
+                } }
+                Tip(stringResource(R.string.layer_up)) { IconButton(onClick = { vm.slicing.updatePreview { it.copy(layerHigh = (hi + 1).coerceAtMost(last), moveEnd = null) } }, Modifier.size(36.dp)) {
                     Icon(Icons.Default.KeyboardArrowUp, stringResource(R.string.layer_up))
-                }
+                } }
             }
             if (last > 0) {
                 RangeSlider(

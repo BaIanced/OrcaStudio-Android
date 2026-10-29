@@ -13,7 +13,12 @@ class Translator private constructor(private val entries: Map<String, String>) {
     fun tr(text: String): String = if (text.isEmpty()) text else entries[text] ?: text
 
     /** A plate type's name: OrcaSlicer's "High Temp Plate" is the smooth PEI plate (the Engineering Plate is another one). */
-    fun plate(type: String): String = if (type == "High Temp Plate" && entries.isEmpty()) "Smooth PEI Plate" else tr(type)
+    fun plate(type: String): String = when {
+        type == "High Temp Plate" && entries.isEmpty() -> "Smooth PEI Plate"
+        // The desktop plate selector calls the SuperTack plate "Cool Plate (SuperTack)"; "Supertack Plate" next to a separate Cool Plate confused.
+        type == "Supertack Plate" -> tr("Cool Plate (SuperTack)")
+        else -> tr(type)
+    }
 
     companion object {
         val NONE = Translator(emptyMap())

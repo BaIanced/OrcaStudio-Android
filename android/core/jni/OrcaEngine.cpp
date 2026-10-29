@@ -719,6 +719,7 @@ json OrcaEngine::slice(int plate, const std::string &gcode_out, const std::strin
 
 void OrcaEngine::cancel()
 {
+    m_interrupt = true;
     std::lock_guard<std::mutex> cancel_lock(m_cancel_mutex);
     if (m_running_print)
         m_running_print->cancel();

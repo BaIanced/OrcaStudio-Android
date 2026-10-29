@@ -1,0 +1,15 @@
+diff --git a/src/libslic3r/TriangleSelector.cpp b/src/libslic3r/TriangleSelector.cpp
+index df23e3db85..a55febcaff 100644
+--- a/src/libslic3r/TriangleSelector.cpp
++++ b/src/libslic3r/TriangleSelector.cpp
+@@ -317,7 +317,9 @@ void TriangleSelector::select_patch(int facet_start, std::unique_ptr<Cursor> &&c
+             m_old_cursor_radius_sqr = m_cursor->radius_sqr;
+         }
+         else {
+-            set_edge_limit(0.1);
++            // A height band's edges sit on layer boundaries (down to 0.08 mm layers); leaves of up to 0.1 mm straddled them
++            // and stayed unpainted, so a one-layer band could come out with no paint at all.
++            set_edge_limit(0.04);
+             m_old_cursor_radius_sqr = 0.1;
+         }
+     }

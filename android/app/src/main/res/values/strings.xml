@@ -55,8 +55,8 @@
     <string name="paint_crease_angle">Crease %d°</string>
     <string name="paint_guard">Guard plane</string>
     <string name="paint_guard_z">%.1f mm</string>
-    <string name="paint_lock_vertical">Lock ↕</string>
-    <string name="paint_lock_horizontal">Lock ↔</string>
+    <string name="paint_lock_vertical">Straight ↕</string>
+    <string name="paint_lock_horizontal">Straight ↔</string>
     <string name="paint_overhang_angle">Over %d°</string>
     <string name="paint_height_range">Height %.1f mm</string>
     <string name="paint_mode_brush">Brush</string>
@@ -200,6 +200,10 @@
     <string name="no">No</string>
     <string name="edit">Edit</string>
     <string name="filament_look">Surface look</string>
+    <string name="mix_title">Mix for filament %1$d</string>
+    <string name="mix_need_two">Add at least two other filaments to mix.</string>
+    <string name="mix_sublayers">Blend inside each layer (sub-layers)</string>
+    <string name="mix_remove">Not a mix</string>
     <string name="filament_look_auto">Automatic (%1$s)</string>
     <string name="empty">(empty)</string>
     <string name="end_calibration">End</string>
@@ -273,6 +277,32 @@
     <string name="measure">Measure</string>
     <string name="measure_hint_first">Tap the first point.</string>
     <string name="measure_hint_second">Tap the second point.</string>
+    <string name="measure_snap_corner">Corner</string>
+    <string name="measure_snap_edge">Edge</string>
+    <string name="measure_snap_ring">Circle Ø %1$s mm</string>
+    <string name="measure_snap_curve">Edge line</string>
+    <string name="measure_snap_face">Face</string>
+    <string name="measure_snap_bed">Bed</string>
+    <string name="measure_kind_point">Point</string>
+    <string name="measure_points">%1$s to %2$s</string>
+    <string name="measure_gap">Gap between the parallel faces</string>
+    <string name="measure_to_face">Square to the face</string>
+    <string name="measure_to_bed">Height above the bed</string>
+    <string name="measure_centres">Centre to centre</string>
+    <string name="measure_straight">Straight line %1$s mm</string>
+    <string name="measure_angle">Angle between the faces %1$s°</string>
+    <string name="measure_snap_toggle">Snap to corners and edges</string>
+    <string name="snap_toggle">Snap to edges and middles (Shift+Tab; hold Ctrl to flip while dragging)</string>
+    <string name="move_lock">Move along one axis: free, X, Y (keys X / Y / Z while dragging)</string>
+    <string name="measure_along_axis">Along %1$s</string>
+    <string name="measure_along_centres">Centre to centre, along %1$s</string>
+    <string name="measure_along_step">Along %1$s° up, %2$s° round from X</string>
+    <string name="measure_axes_toggle">Lock to X / Y / Z</string>
+    <string name="measure_steps_toggle">15° steps (Shift)</string>
+    <string name="measure_steer_toggle">Steer camera (hold: frames the snap, fast slide: out)</string>
+    <string name="show_overhangs">Show overhangs</string>
+    <string name="overhang_angle">Under %d°</string>
+    <string name="overhang_angle_auto">0 = auto (tree: 30°)</string>
     <string name="message">Message</string>
     <string name="mirror">Mirror</string>
     <string name="mode_advanced">Advanced</string>
@@ -323,12 +353,19 @@
     <string name="paint_fuzzy">Fuzzy skin</string>
     <string name="paint_hint">Drag over the model to paint; drag from outside it or use two fingers to move the view.</string>
     <string name="paint_seam">Seam painting</string>
+    <string name="region_edits">This region</string>
+    <string name="region_support">Support</string>
+    <string name="region_no_support">No support</string>
+    <string name="region_seam">Seam</string>
+    <string name="region_smooth">Smooth</string>
+    <string name="region_modifier">Modifier</string>
+    <string name="region_working">Editing the region…</string>
     <string name="paint_supports">Support painting</string>
     <string name="parts_and_modifiers">Parts &amp; modifiers</string>
     <string name="pass_n">Pass %d</string>
     <string name="pause">Pause</string>
     <string name="perform_cut">Cut</string>
-    <string name="cut_hint">Drag the red disc up or down to set the height; drag a ring to tilt it (snaps every 5°, 45° near the centre). The red line on the object is where it cuts.</string>
+    <string name="cut_hint">Drag the red disc up or down to set the height; drag a ring to tilt it (snaps every 5°, 45° near the centre). Tap the object to cut there (a hole: its centre); long-press a face to cut parallel to it. The red line on the object is where it cuts.</string>
     <string name="cut_level">Level</string>
     <string name="plate_n">Plate %d</string>
     <string name="plate_type">Plate type</string>
@@ -421,7 +458,43 @@
     <string name="simplify">Simplify mesh</string>
     <string name="simplify_result">%1$d → about %2$d triangles</string>
     <string name="simplifying">Simplifying…</string>
+    <string name="deform">Bend / twist / taper</string>
+    <string name="deforming">Deforming…</string>
+    <string name="deform_bend">Bend</string>
+    <string name="deform_twist">Twist</string>
+    <string name="deform_taper">Taper</string>
+    <string name="deform_axis">Along</string>
+    <string name="deform_degrees">%1$d°</string>
+    <string name="deform_taper_value">Far end ×%1$.2f</string>
+    <string name="deform_bend_hint_x">Bends toward +X (minus: −X). The bottom stays put.</string>
+    <string name="deform_bend_hint_z">Bends up (minus: down). The low end stays put.</string>
+    <string name="deform_twist_hint">Turns more toward the far end; the low end stays put.</string>
+    <string name="deform_taper_hint">Scales toward the far end; the low end keeps its size.</string>
+    <string name="deform_note">Its painting is removed; Undo goes back.</string>
+    <string name="blend">Smooth blend</string>
+    <string name="sculpt">Sculpt</string>
+    <string name="sculpt_hint">Drag over the model to sculpt; drag from outside it or use two fingers to move the view.</string>
+    <string name="sculpt_draw">Draw</string>
+    <string name="sculpt_inflate">Inflate</string>
+    <string name="sculpt_smooth">Smooth</string>
+    <string name="sculpt_flatten">Flatten</string>
+    <string name="sculpt_pinch">Pinch</string>
+    <string name="sculpt_crease">Crease</string>
+    <string name="sculpt_grab">Grab</string>
+    <string name="sculpt_strength">Strength %d%%</string>
+    <string name="sculpt_invert">Invert</string>
+    <string name="sculpt_mirror">Symmetry</string>
+    <string name="blending">Blending…</string>
+    <string name="hollow">Hollow</string>
+    <string name="hollowing">Hollowing…</string>
+    <string name="hollow_wall">Wall %1$s mm</string>
+    <string name="hollow_hint">Carves a closed cavity inside each part and leaves a wall of this thickness, to save filament.</string>
+    <string name="hollow_note">The cavity is sealed (no drain hole); painting is removed. Undo goes back.</string>
+    <string name="blend_radius">Radius %1$d mm</string>
+    <string name="blend_hint">Fuses all parts of the object into one mesh and rounds the joins and crevices. Convex edges stay sharp.</string>
+    <string name="blend_note">The parts become one; painting is removed. Undo goes back.</string>
     <string name="size">Size</string>
+    <string name="round_edges">Round edges</string>
     <string name="slice">Slice</string>
     <string name="slice_all">Slice all plates</string>
     <string name="slice_plate">Slice plate</string>
@@ -435,6 +508,13 @@
     <string name="split_parts">To parts</string>
     <string name="part_position">Position in object</string>
     <string name="assemble">Assemble</string>
+    <string name="center_on_plate">Center on plate</string>
+    <string name="align_left">Align left</string>
+    <string name="align_center_x">Align centres left to right</string>
+    <string name="align_right">Align right</string>
+    <string name="align_back">Align to back</string>
+    <string name="align_center_y">Align centres front to back</string>
+    <string name="align_front">Align to front</string>
     <string name="add_part">Add part</string>
     <string name="mesh_boolean">Mesh boolean</string>
     <string name="boolean_union">Union</string>
@@ -489,6 +569,7 @@
     <string name="view_fit">Fit plate</string>
     <string name="view_realistic">Realistic render</string>
     <string name="view_layer_lines">Layer lines</string>
+    <string name="view_edge_outline">Edge outline</string>
     <string name="orthographic_camera">Orthographic camera (K)</string>
     <string name="section_view">Section view</string>
     <string name="section_view_align">Set viewing angle</string>
@@ -553,6 +634,7 @@
     <string name="allow_mixed_temps_text">Slice filaments whose nozzle temperatures are far apart in one print. Risk: clogging or printer damage.</string>
     <string name="mixed_temps_hint">If you still want to print, turn on %1$s.</string>
     <string name="sync_filaments">Sync filaments from printer</string>
+    <string name="sync_short">Sync</string>
     <string name="device_job">Job</string>
     <string name="device_temperatures">Temperatures</string>
     <string name="device_nozzle">Nozzle</string>
@@ -809,7 +891,10 @@
     <string name="shape_new_name">Shape design</string>
     <string name="shape_tab">Shapes</string>
     <string name="shape_add">Add a shape</string>
+    <string name="shape_start">Add a shape from the shape list to start building on the plate.</string>
     <string name="shape_empty">Add a shape from the list above to start.</string>
+    <string name="shape_push">Push/pull</string>
+    <string name="shape_push_help">Drag a flat face to push or pull it · tap a shape to pick it · drag empty space to turn</string>
     <string name="shape_preview_help">Tap a shape to pick it · drag it to move · drag empty space to turn</string>
     <string name="shape_multi">%1$d shapes selected: move them with the arrow keys, group or align them.</string>
     <string name="shape_box">Box</string>
@@ -826,7 +911,18 @@
     <string name="sketch_edit">Edit sketch</string>
     <string name="sketch_extrude">Extrude</string>
     <string name="sketch_revolve">Revolve</string>
-    <string name="sketch_angle">Turn angle (°)</string>
+    <string name="sketch_angle">Turn angle (°; up to 3600 with a rise)</string>
+    <string name="sketch_pitch">Rise per turn (mm; 0 = flat, more makes a coil)</string>
+    <string name="sketch_twist">Twist (°)</string>
+    <string name="sketch_top_add">Loft to a top outline</string>
+    <string name="sketch_top_edit">Edit top outline</string>
+    <string name="sketch_top_remove">Remove top</string>
+    <string name="sketch_path_add">Sweep along a path</string>
+    <string name="sketch_path_edit">Edit path</string>
+    <string name="sketch_path_remove">Remove path</string>
+    <string name="sketch_title_path">Path from above (the drawing follows it as a profile)</string>
+    <string name="sketch_title_profile">Profile (the path runs up the green axis; +x is its left, or outside)</string>
+    <string name="sketch_path_hint">Lines: tap points, Done ends an open path; tap the first point to close it</string>
     <string name="sketch_top_scale">Top scale (1 = straight sides)</string>
     <string name="sketch_title">Sketch (extruded upwards)</string>
     <string name="sketch_title_revolve">Profile (turned about the dashed axis)</string>
@@ -900,6 +996,12 @@
     <string name="shape_edge_chamfer">Chamfer</string>
     <string name="shape_edge_size">Edge size (mm, 0 = sharp)</string>
     <string name="shape_hollow">Hollow</string>
+    <string name="shape_hull">Hull (wrap the group\'s shapes in one skin)</string>
+    <string name="shape_hull_hint">Fills in everything between the solids, like shrink wrap; holes still cut it. Replaces Blend joins while on.</string>
+    <string name="shape_blend">Blend joins (mm, 0 = sharp)</string>
+    <string name="shape_blend_hint">Rounds the edges where the group\'s shapes meet, and hole rims (Build workspace). Works with boxes, rounded boxes, round cylinders and cones, and spheres.</string>
+    <string name="shape_blend_unsupported">Blend joins can\'t take \"%1$s\" yet: only boxes, rounded boxes, round cylinders and cones, and spheres, not hollow; holes only directly in the blended group.</string>
+    <string name="shape_blending">Blending joins…</string>
     <string name="shape_shell_wall">Wall (mm, 0 = solid)</string>
     <string name="shape_open_top">Open top</string>
     <string name="shape_mesh_file">From %1$s</string>
@@ -913,6 +1015,7 @@
     <string name="shape_repeat_center">Centre</string>
     <string name="shape_repeat_step">Step</string>
     <string name="shape_slider_menu">Sliders for these fields</string>
+    <string name="shape_size_lock">Keep proportions (W, D, H change together)</string>
     <string name="shape_make_slider">Make a slider</string>
     <string name="shape_link">Follow “%1$s”</string>
     <string name="shape_unlink">Stop following “%1$s”</string>
@@ -954,8 +1057,11 @@
     <string name="lab_light_azimuth">Light direction around the plate: %s</string>
     <string name="lab_light_elevation">Light height above the bed: %s</string>
     <string name="controls">Controls</string>
+    <string name="tuning">Tuning</string>
+    <string name="tuning_summary">Measure loupe and camera feel</string>
     <string name="wheel_zoom_speed">Mouse wheel / thumbstick zoom speed: %s</string>
     <string name="lab_pinch_speed">Pinch zoom speed (100 %% = as fast as the fingers): %s</string>
+    <string name="lab_camera_light">Preview camera light (toolpaths; 0 = studio light): %s</string>
     <string name="lab_light_strength">Light strength (the shadow follows the direction): %s</string>
     <string name="lab_shadow_bias">Shadow bias (raise if striped, lower if light leaks under parts): %s</string>
     <string name="lab_overlay_scale">Floating controls over the 3D view: %d %%</string>
@@ -963,7 +1069,9 @@
     <string name="scroll_up">Scroll up</string>
     <string name="scroll_down">Scroll down</string>
     <string name="lab_plates_on_handle">Portrait: plate switcher on the panel grip</string>
-    <string name="lab_slice_scale">Slice button size (portrait, on the panel grip): %d %%</string>
+    <string name="lab_slice_scale">Slice button size: %d %%</string>
+    <string name="lab_show_plates">Show the plate switcher (tabs, filmstrip or chips) over the 3D view</string>
+    <string name="lab_slice_floating">Slice button floats over the 3D view (drag it to move it); off = on the panel grip</string>
     <string name="lab_plate_scale">Plate switcher size: %d %%</string>
     <string name="lab_fullscreen_portrait">Fullscreen in portrait too</string>
     <string name="lab_pie_menu">Pie menu on long press in the 3D view (slide to a wedge and release)</string>

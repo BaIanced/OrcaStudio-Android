@@ -1,6 +1,9 @@
 package app.orcaandroid.ui.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -36,6 +39,7 @@ import app.orcaandroid.ui.AppViewModel
 import app.orcaandroid.ui.Screen
 import app.orcaandroid.ui.UiState
 import app.orcaandroid.ui.settings.engineErrorText
+import app.orcaandroid.ui.prepare.Tip
 
 /** One message group on the 3D view: [key] changes when its content does, so new messages show again after a close. */
 private data class Notice(val key: String, val title: String, val lines: List<Pair<String, Boolean>>)
@@ -67,7 +71,9 @@ fun Notices(state: UiState, vm: AppViewModel, modifier: Modifier = Modifier) {
     var closed by remember { mutableStateOf(emptySet<String>()) }
     val open = notices.filter { it.key !in closed }
     if (open.isEmpty()) {
-        Surface(onClick = { closed = emptySet() }, modifier = modifier.size(40.dp), shape = CircleShape, color = Color(0xFFD32F2F),
+        // Tap re-opens; long-press clears the slice error for good (the other notices follow their own source).
+        Surface(modifier = modifier.size(40.dp).clip(CircleShape).combinedClickable(onLongClick = { vm.dismissSliceError() }) { closed = emptySet() },
+            shape = CircleShape, color = Color(0xFFD32F2F),
             contentColor = Color.White, border = BorderStroke(2.dp, Color.White), shadowElevation = 6.dp) {
             Icon(Icons.Default.PriorityHigh, stringResource(R.string.notice_show), Modifier.padding(6.dp))
         }
@@ -87,7 +93,11 @@ fun Notices(state: UiState, vm: AppViewModel, modifier: Modifier = Modifier) {
                     }
                 }
             }
-            IconButton(onClick = { closed = closed + open.map { it.key } }) { Icon(Icons.Default.Close, stringResource(R.string.close)) }
+            // X closes the card; a slice error is then gone for good (nothing left to re-open), the other notices stay as the "!" badge.
+            Tip(stringResource(R.string.close)) { IconButton(onClick = {
+                closed = closed + open.map { it.key }
+                if (open.any { it.key.startsWith("slice:") }) vm.dismissSliceError()
+            }) { Icon(Icons.Default.Close, stringResource(R.string.close)) } }
         }
     }
 }

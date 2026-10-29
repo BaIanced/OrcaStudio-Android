@@ -3,6 +3,8 @@
 
 #include "EngineCalls.hpp"
 
+#include <boost/log/trivial.hpp>
+#include <chrono>
 #include <cmath>
 #include <functional>
 #include <stdexcept>
@@ -90,10 +92,26 @@ const std::unordered_map<std::string, Handler> &handlers()
         {"cut", [](OrcaEngine &e, const json &a) {
              return e.cut(a.at("object"), a.value("instance", 0), a.at("z"), a.value("keepUpper", true), a.value("keepLower", true),
                           a.value("flipUpper", false), a.value("floatUpper", false),
-                          a.value("rotX", 0.0), a.value("rotY", 0.0), a.value("rotZ", 0.0));
+                          a.value("rotX", 0.0), a.value("rotY", 0.0), a.value("rotZ", 0.0), a.value("shiftX", 0.0), a.value("shiftY", 0.0));
          }},
         {"simplify", [](OrcaEngine &e, const json &a) { return e.simplify(a.at("object"), a.at("ratio")); }},
         {"repair", [](OrcaEngine &e, const json &a) { return e.repair(a.at("object")); }},
+        {"deform", [](OrcaEngine &e, const json &a) { return e.deform(a.at("object"), a.value("instance", 0), a.at("kind"), a.at("axis"), a.at("amount")); }},
+        {"regionEdit", [](OrcaEngine &e, const json &a) {
+             return e.region_edit(a.at("object"), a.value("instance", 0), a.at("volume"), a.at("facet"), a.value("edgeAngle", 0.0), a.at("op"),
+                                  a.at("amount"));
+         }},
+        {"sculpt", [](OrcaEngine &e, const json &a) {
+             std::vector<std::array<double, 6>> rays;
+             for (const json &r : a.at("rays"))
+                 rays.push_back(r.get<std::array<double, 6>>());
+             return e.sculpt({a.at("object"), a.value("instance", 0), a.value("volume", 0)}, rays, a.at("brush"), a.value("radius", 5.0),
+                             a.value("strength", 0.5), a.value("invert", false), a.value("newStroke", false), a.value("end", false),
+                             a.value("probe", false), a.value("mirror", 0));
+         }},
+        {"sculptEnd", [](OrcaEngine &e, const json &) { return e.sculpt_end(); }},
+        {"hollowObject", [](OrcaEngine &e, const json &a) { return e.hollow_object(a.at("object"), a.value("instance", 0), a.at("wall")); }},
+        {"smoothBlend", [](OrcaEngine &e, const json &a) { return e.smooth_blend(a.at("object"), a.value("instance", 0), a.at("radius")); }},
         {"replaceMesh", [](OrcaEngine &e, const json &a) { return e.replace_mesh(a.at("object"), a.at("path"), a.value("module", std::string())); }},
         {"setObjectModule", [](OrcaEngine &e, const json &a) { return e.set_object_module(a.at("object"), a.at("module")); }},
         {"addVolume", [](OrcaEngine &e, const json &a) {
@@ -137,19 +155,28 @@ const std::unordered_map<std::string, Handler> &handlers()
         {"undo", [](OrcaEngine &e, const json &) { return e.undo(); }},
         {"redo", [](OrcaEngine &e, const json &) { return e.redo(); }},
         {"setUndoLimit", [](OrcaEngine &e, const json &a) { return e.set_undo_limit(a.at("limit").get<size_t>()); }},
-        {"addPrimitive", [](OrcaEngine &e, const json &a) { return e.add_primitive(a.at("shape"), vec3(a.at("size")), a.value("plate", 0)); }},
+        {"addPrimitive", [](OrcaEngine &e, const json &a) { return e.add_primitive(a.at("shape"), vec3(a.at("size")), a.value("plate", 0), a.value("round", 0.)); }},
+        {"blendSolids", [](OrcaEngine &e, const json &a) { return e.blend_solids(a.at("parts"), a.at("radius"), a.at("out")); }},
         {"addText", [](OrcaEngine &e, const json &a) {
              return e.add_text(a.at("text"), a.at("font"), a.value("height", 10.0), a.value("depth", 2.0), a.value("plate", 0));
          }},
         {"addSvg", [](OrcaEngine &e, const json &a) { return e.add_svg(a.at("path"), a.value("width", 50.0), a.value("depth", 2.0), a.value("plate", 0)); }},
         // Tools
-        {"pick", [](OrcaEngine &e, const json &a) { return e.pick(vec3(a.at("origin")), vec3(a.at("dir")), a.value("object", -1)); }},
+        {"pick", [](OrcaEngine &e, const json &a) {
+             const json none;
+             return e.pick(vec3(a.at("origin")), vec3(a.at("dir")), a.value("object", -1), a.value("snap", 0.), a.value("release", 0.),
+                           vec3(a.value("stick", none)), vec3(a.value("seedOrigin", none)), vec3(a.value("seedDir", none)));
+         }},
         {"paint", [](OrcaEngine &e, const json &a) {
              // "hits": [{object, instance, volume, facet, local}...] in stroke order, or one hit's fields at the top level.
              std::vector<OrcaEngine::PaintHit> hits;
              auto hit = [](const json &h) {
                  return OrcaEngine::PaintHit{h.at("object"), h.at("instance"), h.at("volume"), h.at("facet"), vec3(h.at("local")), h.value("join", false)};
              };
+             // "refill": redo the last fill from its seed (its crease angle changed), only while it is still the live preview;
+             // otherwise nothing changes (a fill without its own undo step must not happen).
+             if (a.value("refill", false) && !e.paint_fill_live())
+                 return e.paint_fill_cancel();
              if (a.contains("hits"))
                  for (const json &h : a.at("hits")) hits.push_back(hit(h));
              else
@@ -201,6 +228,14 @@ json dispatch(OrcaEngine &engine, const std::string &method, const json &args)
     const auto it = handlers().find(method);
     if (it == handlers().end())
         throw std::runtime_error("Unknown engine call: " + method);
+    // A live sculpt's mesh is written back before any other call reads or changes the model.
+    if (method != "sculpt" && method != "sculptEnd") {
+        const auto t0 = std::chrono::steady_clock::now();
+        engine.sculpt_flush();
+        const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
+        if (ms >= 20)
+            BOOST_LOG_TRIVIAL(warning) << "sculpt: " << method << " waited " << ms << " ms for the flush";
+    }
     return it->second(engine, args);
 }
 

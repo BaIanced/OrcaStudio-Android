@@ -35,7 +35,7 @@ set(IS_CROSS_COMPILE TRUE)
 set(IS_CLANG_CL FALSE)
 set(SLIC3R_STATIC ON)
 set(SLIC3R_GUI OFF)
-set(SLIC3R_CAD OFF)
+set(SLIC3R_CAD ON)
 set(SLIC3R_ENC_CHECK OFF CACHE BOOL "" FORCE)
 
 add_compile_options(-fsigned-char -w)
@@ -128,6 +128,11 @@ add_library(orca_jni SHARED
     jni/OrcaScene.cpp
     jni/OrcaTools.cpp
     jni/OrcaExtras.cpp
+    jni/OrcaBlend.cpp
+    jni/OrcaDeform.cpp jni/MeshDeform.hpp jni/OrcaRegion.cpp jni/MeshRegion.hpp
+    jni/OrcaVdbBlend.cpp
+    jni/OrcaHollow.cpp
+    jni/OrcaSculpt.cpp jni/MeshSculpt.hpp
     jni/OrcaProject.cpp
     jni/Preview.cpp jni/Preview.hpp
     jni/Thumbnails.cpp jni/Thumbnails.hpp

@@ -94,8 +94,14 @@ class MainActivity : ComponentActivity() {
         return super.dispatchTouchEvent(ev)
     }
 
+    /** Small state line for debug notes (no account or printer details). */
+    private fun noteSnapshot(): String = vm.state.value.let {
+        "screen=${it.screen} tool=${it.tool} plate=${it.activePlate} selection=${it.selection} objects=${it.scene.objects.size}"
+    }
+
     override fun dispatchGenericMotionEvent(ev: MotionEvent): Boolean {
         boostRefresh()
+        if (DebugNotes.onMotion(this, ev, ::noteSnapshot)) return true
         return super.dispatchGenericMotionEvent(ev)
     }
 
@@ -205,8 +211,12 @@ class MainActivity : ComponentActivity() {
      * would put the app in the background, which a desktop user doesn't expect from a mouse click.
      */
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (DebugNotes.onKey(this, event, ::noteSnapshot)) return true
         if (event.keyCode == KeyEvent.KEYCODE_BACK && event.isFromSource(android.view.InputDevice.SOURCE_MOUSE) &&
             !onBackPressedDispatcher.hasEnabledCallbacks()) return true
+        // Measure: Shift held = 15° steps for the line (watched here, so it counts whatever has focus).
+        if (event.keyCode == KeyEvent.KEYCODE_SHIFT_LEFT || event.keyCode == KeyEvent.KEYCODE_SHIFT_RIGHT)
+            vm.scene.setMeasureShift(event.action == KeyEvent.ACTION_DOWN && vm.state.value.tool == Tool.Measure)
         if (event.isCtrlPressed && android.util.Log.isLoggable("OrcaInput", android.util.Log.DEBUG))
             android.util.Log.d("OrcaInput", "key ${event.action} ${event.keyCode} meta=${event.metaState} viewFocused=$viewFocused")
         // Android offers Ctrl keys as shortcuts only when normal dispatch leaves them unused, and
@@ -223,6 +233,8 @@ class MainActivity : ComponentActivity() {
     private fun viewKey(keyCode: Int, event: KeyEvent): Boolean {
         val s = vm.state.value
         if (s.editor != null || event.isCtrlPressed) return false
+        // Shift+Tab: snap on / off, as in Blender.
+        if (keyCode == KeyEvent.KEYCODE_TAB && event.isShiftPressed && s.screen == Screen.PREPARE) { vm.toggleSnap(); return true }
         if (keyCode == KeyEvent.KEYCODE_TAB && (s.screen == Screen.PREPARE || s.screen == Screen.PREVIEW)) {
             vm.setScreen(if (s.screen == Screen.PREPARE) Screen.PREVIEW else Screen.PREPARE)
             return true

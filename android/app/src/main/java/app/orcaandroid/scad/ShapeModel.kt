@@ -82,6 +82,10 @@ data class Shape(
     val repeat: Repeat? = null,
     /** The drawing a SKETCH shape extrudes (or revolves, extra REVOLVE = 1). */
     val sketch: Sketch? = null,
+    /** An extruded sketch's top outline (same frame as [sketch]): the sides loft from one to the other. */
+    val top: Sketch? = null,
+    /** An extruded sketch's path seen from above: the drawing is swept along it as a profile instead (see [Sweep]). */
+    val path: Sketch? = null,
     /** Field ("size.x", "pos.z", "rot.y", "radius", ...) -> name of the [Dim] that drives it. */
     val bind: Map<String, String> = emptyMap(),
     val children: List<Shape> = emptyList(),
@@ -112,6 +116,8 @@ data class Shape(
             if (file.isNotEmpty()) put("file", file)
             repeat?.let { put("repeat", it.json()) }
             sketch?.let { put("sketch", it.json()) }
+            top?.let { put("top", it.json()) }
+            path?.let { put("path", it.json()) }
             if (bind.isNotEmpty()) put("bind", JSONObject(bind))
             if (children.isNotEmpty()) put("children", JSONArray().apply { children.forEach { put(it.json()) } })
             if (filament > 0) put("filament", filament)
@@ -128,12 +134,20 @@ data class Shape(
         const val RADIUS = "radius"
         const val REVOLVE = "revolve"
         const val ANGLE = "angle"
+        /** A revolved sketch's rise per turn (mm; > 0 makes a coil, ANGLE then up to [MAX_COIL]), an extruded one's twist (°). */
+        const val PITCH = "pitch"
+        const val TWIST = "twist"
+        const val MAX_COIL = 3600.0
         /** Rounded (or with CHAMFER = 1 chamfered) edges, mm; a sketch rounds its outline's corners. */
         const val EDGE = "edge"
         const val CHAMFER = "chamfer"
         /** Hollow with this wall (mm); OPEN = 1 leaves the top open. */
         const val SHELL = "shell"
         const val OPEN = "open"
+        /** A group's Blend joins radius (mm): where its shapes meet (and hole rims) is rounded, in the Build workspace. */
+        const val BLEND = "blend"
+        /** A group with HULL = 1 is the convex hull of its solids (holes still cut it); it takes the place of Blend joins. */
+        const val HULL = "hull"
         /** A MESH shape's own bounds (mm) as read from its file: min x / y / z, max x / y / z. */
         val MESH_BOUNDS = listOf("mx0", "my0", "mz0", "mx1", "my1", "mz1")
 
@@ -156,6 +170,8 @@ data class Shape(
             file = o.optString("file"),
             repeat = Repeat.of(o.optJSONObject("repeat")),
             sketch = Sketch.of(o.optJSONObject("sketch")),
+            top = Sketch.of(o.optJSONObject("top")),
+            path = Sketch.of(o.optJSONObject("path")),
             bind = o.optJSONObject("bind")?.let { b -> b.keys().asSequence().associateWith { b.optString(it) } } ?: emptyMap(),
             children = o.optJSONArray("children")?.let { a -> (0 until a.length()).map { of(a.getJSONObject(it)) } } ?: emptyList(),
             filament = o.optInt("filament").coerceAtLeast(0),
@@ -312,11 +328,12 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
 
     /** The hidden settings and helpers the code starts with (the rounded box module only when [shapes] use it). */
     private fun prelude(out: StringBuilder, shapes: List<Shape>) = with(out) {
+        val detail = app.orcaandroid.core.Tuning["model.detail"]
         appendLine("/* [Hidden] */")
         appendLine("\$fs = 0.4;")
         appendLine("\$fa = 4;")
         appendLine("// Sides for a round shape of diameter d: the shapes scale a 1 mm primitive, so \$fs alone would give too few.")
-        appendLine("function sides(d) = max(12, min(180, ceil(PI * d / 0.8)));")
+        appendLine("function sides(d) = max(12, min(${(180 * detail).toInt().coerceAtMost(720)}, ceil(PI * d / ${"%.4f".format(java.util.Locale.ROOT, 0.8f / detail)})));")
         if (shapes.any { s -> s.all().any { it.kind == Shape.Kind.ROUNDED_BOX } }) {
             appendLine()
             appendLine("// A box with all edges rounded by r (hull of eight balls).")
@@ -326,7 +343,64 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
             appendLine("        translate([x * (s[0] / 2 - q), y * (s[1] / 2 - q), q + z * (s[2] - 2 * q)]) sphere(r = q);")
             appendLine("}")
         }
+        if (shapes.any { s -> s.all().any(::coiled) }) {
+            appendLine()
+            appendLine("// Profile p ([radius, height] points, counter-clockwise) scaled by sx / sz, swept angle degrees round Z")
+            appendLine("// while rising pitch mm a turn (at least the profile's height h past one turn, so turns don't overlap).")
+            appendLine("module coil(p, sx, sz, h, angle, pitch, fn) {")
+            appendLine("    n = len(p);")
+            appendLine("    s = max(3, ceil(fn * angle / 360));")
+            appendLine("    rise = angle > 360 ? max(pitch, h + 0.01) : pitch;")
+            appendLine("    pts = [for (i = [0:s]) let(a = angle * i / s) for (q = p)")
+            appendLine("        [max(0.01, q[0] * sx) * cos(a), max(0.01, q[0] * sx) * sin(a), q[1] * sz + rise * a / 360]];")
+            appendLine("    polyhedron(pts, concat([[for (j = [n - 1:-1:0]) j]], [[for (j = [0:n - 1]) s * n + j]],")
+            appendLine("        [for (i = [0:s - 1], j = [0:n - 1]) [i * n + j, i * n + (j + 1) % n, (i + 1) * n + (j + 1) % n, (i + 1) * n + j]]),")
+            appendLine("        convexity = 10);")
+            appendLine("}")
+        }
+        if (shapes.any { sh -> sh.all().any { swept(it) != null } }) {
+            appendLine()
+            Sweep.MODULE.forEach(::appendLine)
+        }
+        if (shapes.any { sh -> sh.all().any { lofted(it) != null } }) {
+            appendLine()
+            appendLine("// Outline a lofted to b (same point count, counter-clockwise) scaled by sx / sy over height h, the top")
+            appendLine("// turned twist degrees (clockwise, like linear_extrude) and scaled by top.")
+            appendLine("module loft(a, b, sx, sy, h, twist, top) {")
+            appendLine("    n = len(a);")
+            appendLine("    m = max(1, ceil(abs(twist) / 5));")
+            appendLine("    pts = [for (i = [0:m]) let(t = i / m, k = 1 + (top - 1) * t, c = cos(-twist * t), s = sin(-twist * t))")
+            appendLine("        for (j = [0:n - 1]) let(x = (a[j][0] + (b[j][0] - a[j][0]) * t) * k * sx, y = (a[j][1] + (b[j][1] - a[j][1]) * t) * k * sy)")
+            appendLine("            [x * c - y * s, x * s + y * c, h * t]];")
+            appendLine("    polyhedron(pts, concat([[for (j = [0:n - 1]) j]], [[for (j = [n - 1:-1:0]) m * n + j]],")
+            appendLine("        [for (i = [0:m - 1], j = [0:n - 1]) [i * n + j, (i + 1) * n + j, (i + 1) * n + (j + 1) % n, i * n + (j + 1) % n]]),")
+            appendLine("        convexity = 10);")
+            appendLine("}")
+        }
     }
+
+    /**
+     * An extruded sketch with a top outline: its solid outlines and the top's, paired in order, each pair resampled to
+     * the same number of points (counter-clockwise, starting nearest the +x side of its centre) so the sides join point
+     * to point. Null when nothing lofts.
+     */
+    private fun lofted(s: Shape): Pair<List<List<P2>>, List<List<P2>>>? {
+        if (s.kind != Shape.Kind.SKETCH || s.x(Shape.REVOLVE, 0.0) != 0.0 || s.path != null) return null
+        fun solids(sk: Sketch?) = sk?.loops?.filter { !it.hole && it.pts.size >= 2 }?.map { l ->
+            l.polygon().let { if (Sketch.area(it) < 0) it.reversed() else it } }?.filter { it.size >= 3 } ?: emptyList()
+        val a = solids(s.sketch)
+        val b = solids(s.top)
+        if (a.isEmpty() || b.isEmpty()) return null
+        val pairs = a.zip(b) { p, q -> max(48, max(p.size, q.size)).coerceAtMost(360).let { k -> Sketch.resample(p, k) to Sketch.resample(q, k) } }
+        return pairs.map { it.first } to pairs.map { it.second }
+    }
+
+    /** An extruded sketch swept along its path, or null. */
+    private fun swept(s: Shape): Sweep? = if (s.kind != Shape.Kind.SKETCH || s.x(Shape.REVOLVE, 0.0) != 0.0) null
+        else s.path?.let { p -> s.sketch?.let { Sweep.of(it, p) } }
+
+    /** A revolved sketch that rises as it turns (a coil, spring or thread), drawn by the prelude's coil module. */
+    private fun coiled(s: Shape) = s.kind == Shape.Kind.SKETCH && s.x(Shape.REVOLVE, 0.0) != 0.0 && value(s, Shape.PITCH, s.x(Shape.PITCH, 0.0)) > 0
 
     // --- Build workspace: one Orca volume per shape ------------------------------------------------
 
@@ -343,13 +417,60 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
     /** The design as Orca volumes, top-level shapes in order, a repeated shape's copies one after another. */
     fun pieces(): List<Piece> = shapes.flatMap { top ->
         val s = resolved(top)
-        val scad = buildString {
+        val scad = if (s.isGroup && s.x(Shape.BLEND, 0.0) > 0 && s.x(Shape.HULL, 0.0) == 0.0) blendCode(s) else buildString {
             prelude(this, listOf(s))
             appendLine()
-            if (s.isGroup) group(this, s.children, "") else appendLine(body(s))
+            if (s.isGroup) group(this, s.children, "", s.x(Shape.HULL, 0.0) != 0.0) else appendLine(body(s))
         }
         val own = placement(s)
         copies(s).mapIndexed { i, c -> Piece(top.id, i, s.hole, scad, mul(c, own).toList(), if (s.hole) 0 else s.filament) }
+    }
+
+    /**
+     * A blended group's piece "code": [BLEND_TAG], then {radius, parts} for the engine's blendSolids (OCCT), or "!" and
+     * the name of the first shape it can't take. Still a string, so piece caching and reuse work as for OpenSCAD code.
+     */
+    private fun blendCode(g: Shape): String {
+        val parts = JSONArray()
+        val bad = blendParts(g.children, translation(D3()), false, parts)
+        return BLEND_TAG + (if (bad != null) "!$bad" else JSONObject().put("radius", g.x(Shape.BLEND, 0.0)).put("parts", parts).toString())
+    }
+
+    /**
+     * Adds every copy of [kids]' shapes (resolved), placed by [frame] in the blended group's frame, to [out]; returns the
+     * name of the first one OCCT can't take: other kinds, many-sided cylinders / cones, hollow shapes, or a group with
+     * holes of its own (they cut only that group, which a flat list can't say).
+     */
+    private fun blendParts(kids: List<Shape>, frame: DoubleArray, hole: Boolean, out: JSONArray): String? {
+        for (c in kids) {
+            val own = placement(c)
+            for (copy in copies(c)) {
+                val m = mul(frame, mul(copy, own))
+                if (c.isGroup) {
+                    if (c.children.any { it.hole }) return c.name
+                    blendParts(c.children, m, hole || c.hole, out)?.let { return it }
+                    continue
+                }
+                val kind = when (c.kind) {
+                    Shape.Kind.BOX, Shape.Kind.ROUNDED_BOX -> "box"
+                    Shape.Kind.CYLINDER, Shape.Kind.CONE -> c.kind.key.takeIf { c.x(Shape.SIDES, 0.0) < 3 }
+                    Shape.Kind.SPHERE -> "sphere"
+                    else -> null
+                }
+                if (kind == null || (c.kind in Shape.SHELLED && c.x(Shape.SHELL, 0.0) > 0)) return c.name
+                val edge = when (c.kind) {
+                    Shape.Kind.ROUNDED_BOX -> min(c.x(Shape.RADIUS, 2.0), min(c.size.x, min(c.size.y, c.size.z)) / 2 - 0.01)
+                    in Shape.EDGED -> c.x(Shape.EDGE, 0.0)
+                    else -> 0.0
+                }
+                out.put(JSONObject().put("kind", kind).put("size", c.size.json()).put("hole", hole || c.hole)
+                    .put("m", JSONArray(m.toList())).apply {
+                        if (c.kind == Shape.Kind.CONE) put("top", c.x(Shape.TOP, 0.0))
+                        if (edge > 0) put("round", edge).put("chamfer", c.kind != Shape.Kind.ROUNDED_BOX && c.x(Shape.CHAMFER, 0.0) != 0.0)
+                    })
+            }
+        }
+        return null
     }
 
     /**
@@ -445,6 +566,105 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
         return out
     }
 
+    // --- Push / pull ------------------------------------------------------------------------------------
+
+    /**
+     * A flat face push / pull grabs ([pushed]): a side of a shape's box ([axis] 0 x, 1 y, 2 z; [sign] +-1 the end) or,
+     * with [axis] -1, the round side of a cylinder, tube or prism ([dir]: outward in the shape's x / y, on its unit
+     * circle). [point], [normal] (out of the shape, unit) and [stretch] (the unit directions its size changes along) are
+     * in the design frame, on the copy that was hit; [length] is the size the push changes (mm, along [normal]).
+     */
+    data class Face(val shapeId: Int, val axis: Int, val sign: Int, val dir: D3, val point: D3, val normal: D3,
+                    val stretch: List<D3>, val length: Double, val hole: Boolean)
+
+    /**
+     * The face at design point [p] of [piece], hit by a ray along design direction [ray]: of every solid and hole in the
+     * piece (through its groups and copies), the box side (or round side) [p] lies on; a solid's must face the ray (a
+     * hole's wall may face either way: seen from outside, or cut into a group's solid). Solids win, then the closest.
+     * Null on curved or slanted surfaces, meshes, spheres and tori.
+     */
+    fun faceAt(piece: Piece, p: D3, ray: D3): Face? {
+        val top = shapes.firstOrNull { it.id == piece.shapeId }?.let(::resolved) ?: return null
+        var best: Pair<Face, Double>? = null
+        // m: s's own frame -> design.
+        fun visit(s: Shape, m: DoubleArray, hole: Boolean) {
+            if (s.isGroup) {
+                for (c in s.children) {
+                    val own = placement(c)
+                    for (k in copies(c)) visit(c, mul(m, mul(k, own)), hole || c.hole)
+                }
+                return
+            }
+            val f = face(s, m, p, ray, hole) ?: return
+            val b = best
+            if (b == null || (b.first.hole && !f.first.hole) || (b.first.hole == f.first.hole && f.second < b.second)) best = f
+        }
+        visit(top, piece.matrix.toDoubleArray(), top.hole)
+        return best?.first
+    }
+
+    /** [faceAt] for one solid [s] (resolved; [m] its frame -> design): the face and how far [p] lies off it (mm). */
+    private fun face(s: Shape, m: DoubleArray, p: D3, ray: D3, hole: Boolean): Pair<Face, Double>? {
+        if (s.kind in NO_FACES) return null
+        val l = inverse(m, p)
+        val half = D3(s.size.x / 2, s.size.y / 2, s.size.z / 2)
+        // From the box centre.
+        val c = D3(l.x, l.y, l.z - half.z)
+        val e = 0.05
+        if ((0..2).any { abs(c[it]) > half[it] + e }) return null
+        val round = s.kind in ROUND_SIDES
+        var axis = -2
+        var gap = Double.MAX_VALUE
+        for (i in 0..2) {
+            if (round && i < 2) continue
+            val g = abs(half[i] - abs(c[i]))
+            if (g <= e && g < gap) { axis = i; gap = g }
+        }
+        var dir = D3()
+        if (axis == -2 && round) {
+            // On the n-gon of the unit circle (a scaled cylinder): its sides lie between cos(pi / n) and 1.
+            val u = D3(c.x / half.x, c.y / half.y, 0.0)
+            val r = sqrt(u.x * u.x + u.y * u.y)
+            val n = s.x(Shape.SIDES, 0.0).toInt().takeIf { it >= 3 }
+                ?: max(12, min(180, kotlin.math.ceil(Math.PI * max(s.size.x, s.size.y) / 0.8).toInt()))
+            if (r < 1e-9 || r < cos(Math.PI / n) - e / min(half.x, half.y) || r > 1 + e / min(half.x, half.y)) return null
+            axis = -1
+            dir = D3(u.x / r, u.y / r, 0.0)
+            gap = (1 - r) * min(half.x, half.y)
+        }
+        if (axis == -2) return null
+        val sign = if (axis >= 0 && c[axis] < 0) -1 else 1
+        fun turn(v: D3) = D3((0..2).sumOf { m[it] * v[it] }, (0..2).sumOf { m[4 + it] * v[it] }, (0..2).sumOf { m[8 + it] * v[it] })
+        fun unit(v: D3) = sqrt(v.x * v.x + v.y * v.y + v.z * v.z).let { k -> D3(v.x / k, v.y / k, v.z / k) }
+        val normal = unit(turn(if (axis < 0) dir else D3().with(axis, sign.toDouble())))
+        if (!hole && normal.x * ray.x + normal.y * ray.y + normal.z * ray.z >= 0) return null
+        val stretch = if (axis < 0) listOf(unit(turn(D3(1.0, 0.0, 0.0))), unit(turn(D3(0.0, 1.0, 0.0)))) else listOf(normal)
+        val length = if (axis >= 0) s.size[axis] else if (abs(dir.x) >= abs(dir.y)) s.size.x else s.size.y
+        return Face(s.id, axis, sign, dir, p, normal, stretch, length, hole) to gap
+    }
+
+    /**
+     * Shape [f]'s pose (in its parent's frame) after its face [f] moved [mm] out (in when negative), the opposite side
+     * staying put; a round side widens the shape by [mm] in x and y. Sizes stay at least 1 mm. Null when the shape is gone.
+     */
+    fun pushed(f: Face, mm: Double): BuildTransform.Pose? {
+        val s = find(f.shapeId)?.let(::resolved) ?: return null
+        val sz = s.size
+        val d = max(mm, 1.0 - if (f.axis < 0) min(sz.x, sz.y) else sz[f.axis])
+        val size = if (f.axis < 0) D3(sz.x + d, sz.y + d, sz.z) else sz.with(f.axis, sz[f.axis] + d)
+        // The opposite side's middle, in the old and the new own frame.
+        fun far(b: D3) = when (f.axis) {
+            -1 -> D3(-f.dir.x * b.x / 2, -f.dir.y * b.y / 2, 0.0)
+            2 -> if (f.sign > 0) D3() else D3(0.0, 0.0, b.z)
+            else -> D3().with(f.axis, -f.sign * b[f.axis] / 2)
+        }
+        fun at(m: DoubleArray, q: D3) = D3((0..2).sumOf { m[it] * q[it] } + m[3], (0..2).sumOf { m[4 + it] * q[it] } + m[7],
+            (0..2).sumOf { m[8 + it] * q[it] } + m[11])
+        val pos = s.pos + at(placement(s), far(sz)) - at(placement(s.copy(size = size)), far(size))
+        fun round(v: D3) = D3(Math.round(v.x * 1000.0) / 1000.0 + 0.0, Math.round(v.y * 1000.0) / 1000.0 + 0.0, Math.round(v.z * 1000.0) / 1000.0 + 0.0)
+        return BuildTransform.Pose(round(pos), s.rot, round(size), s.repeat)
+    }
+
     /** Point [p] through the inverse of rigid row-major 4 x 4 [m] (turn, flip and move only). */
     private fun inverse(m: DoubleArray, p: D3): D3 {
         val d = D3(p.x - m[3], p.y - m[7], p.z - m[11])
@@ -484,20 +704,21 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
         }
     }
 
-    private fun group(out: StringBuilder, kids: List<Shape>, indent: String) {
+    /** [hull]: the solids are wrapped in one hull() (a group's Hull option); its holes still cut the hull. */
+    private fun group(out: StringBuilder, kids: List<Shape>, indent: String, hull: Boolean = false) {
         val solids = kids.filter { !it.hole }
         val holes = kids.filter { it.hole }
-        if (holes.isEmpty()) { solids.forEach { shape(out, it, indent) }; return }
-        out.appendLine("${indent}difference() {")
-        val inner = "$indent    "
-        if (solids.size == 1) shape(out, solids[0], inner)
+        if (holes.isEmpty() && !hull) { solids.forEach { shape(out, it, indent) }; return }
+        val inner = if (holes.isEmpty()) indent else "$indent    "
+        if (holes.isNotEmpty()) out.appendLine("${indent}difference() {")
+        if (solids.size == 1 && !hull) shape(out, solids[0], inner)
         else {
-            out.appendLine("${inner}union() {")
+            out.appendLine("$inner${if (hull) "hull" else "union"}() {")
             solids.forEach { shape(out, it, "$inner    ") }
             out.appendLine("$inner}")
         }
         holes.forEach { shape(out, it, inner) }
-        out.appendLine("$indent}")
+        if (holes.isNotEmpty()) out.appendLine("$indent}")
     }
 
     private fun shape(out: StringBuilder, s: Shape, indent: String) {
@@ -523,7 +744,7 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
         if (pivot) out.append(" translate([0, 0, -$h / 2])")
         if (s.isGroup) {
             out.appendLine(" {")
-            group(out, s.children, "$ind    ")
+            group(out, s.children, "$ind    ", s.x(Shape.HULL, 0.0) != 0.0)
             out.appendLine("$ind}")
         } else {
             out.appendLine()
@@ -642,14 +863,39 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
         if (s.x(Shape.REVOLVE, 0.0) != 0.0) {
             val r = max(0.01, hi.x)
             val nh = max(0.01, hi.y - lo.y)
+            if (coiled(s)) {
+                // A polyhedron per outline (no 2D offset reaches it, so no rounded corners or inset here), holes cut.
+                val angle = value(s, Shape.ANGLE, s.x(Shape.ANGLE, 360.0)).coerceIn(1.0, Shape.MAX_COIL)
+                fun coil(l: Loop): String {
+                    val p = l.polygon().map { P2(it.x, it.y - lo.y) }.let { if (Sketch.area(it) < 0) it.reversed() else it }
+                    return "coil(${p.joinToString(", ", "[", "]") { "[${n(it.x)}, ${n(it.y)}]" }}, $w / ${n(2 * r)}, $h / ${n(nh)}, $h, " +
+                        "${n(angle)}, ${f(s, Shape.PITCH, s.x(Shape.PITCH, 0.0))}, sides(max($w, $d)));"
+                }
+                val solids = sk.loops.filter { !it.hole && it.pts.size >= 2 }.map(::coil)
+                val holes = sk.loops.filter { it.hole && it.pts.size >= 2 }.map(::coil)
+                if (solids.isEmpty()) return "cube(0.01);"
+                val joined = if (solids.size == 1) solids[0] else "union() { ${solids.joinToString(" ")} }"
+                return "scale([1, $d / $w, 1]) " + if (holes.isEmpty()) joined else "difference() { $joined ${holes.joinToString(" ")} }"
+            }
             val angle = s.x(Shape.ANGLE, 360.0).coerceIn(1.0, 360.0)
             // The profile is scaled to the box before rounding, so the edge stays in mm; depth follows by a y scale.
             return "scale([1, $d / $w, 1]) rotate_extrude(${if (angle < 360.0) "angle = ${n(angle)}, " else ""}\$fn = sides(max($w, $d))) " +
                 "intersection() { square([$w / 2 + 1, $h + 1]); ${mods("scale([$w / ${n(2 * r)}, $h / ${n(nh)}]) ${sk.toScad(P2(0.0, -lo.y))}")} }"
         }
         val top = s.x(Shape.TOP, 1.0).coerceAtLeast(0.0)
+        val twist = if (value(s, Shape.TWIST, s.x(Shape.TWIST, 0.0)) != 0.0) ", twist = ${f(s, Shape.TWIST, s.x(Shape.TWIST, 0.0))}" else ""
         val c = (lo + hi) * 0.5
-        return "linear_extrude($h${if (top != 1.0) ", scale = ${n(top)}" else ""}) " +
+        // The drawing as a profile along the path (a polyhedron like the loft: no rounded corners or inset).
+        swept(s)?.let { return it.toScad(w, d, h) }
+        lofted(s)?.let { (bottom, upper) ->
+            // Each solid outline lofts to the top one at its position (no 2D offset reaches it: no rounded corners or inset).
+            val tw = f(s, Shape.TWIST, s.x(Shape.TWIST, 0.0))
+            fun pts(p: List<P2>) = p.joinToString(", ", "[", "]") { "[${n(it.x - c.x)}, ${n(it.y - c.y)}]" }
+            val parts = bottom.zip(upper) { a, b -> "loft(${pts(a)}, ${pts(b)}, $w / ${n(max(0.01, hi.x - lo.x))}, " +
+                "$d / ${n(max(0.01, hi.y - lo.y))}, $h, $tw, ${n(top)});" }
+            return if (parts.size == 1) parts[0] else "union() { ${parts.joinToString(" ")} }"
+        }
+        return "linear_extrude($h${if (top != 1.0) ", scale = ${n(top)}" else ""}$twist) " +
             mods("scale([$w / ${n(max(0.01, hi.x - lo.x))}, $d / ${n(max(0.01, hi.y - lo.y))}]) ${sk.toScad(P2(-c.x, -c.y))}")
     }
 
@@ -659,6 +905,13 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
     private fun quote(t: String) = "\"" + t.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", " ") + "\""
 
     companion object {
+        /** Starts a Blend joins piece's code ([blendCode]) instead of OpenSCAD. */
+        const val BLEND_TAG = "// blend joins\n"
+
+        /** Kinds without flat faces to push ([faceAt]), and those whose side is round (pushing it widens x and y). */
+        private val NO_FACES = setOf(Shape.Kind.GROUP, Shape.Kind.MESH, Shape.Kind.SPHERE, Shape.Kind.TORUS)
+        private val ROUND_SIDES = setOf(Shape.Kind.CYLINDER, Shape.Kind.TUBE, Shape.Kind.PRISM)
+
         fun decode(json: String?): ShapeDesign? = runCatching { of(JSONObject(json ?: return null)) }.getOrNull()
 
         fun of(o: JSONObject) = ShapeDesign(
@@ -723,6 +976,8 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
             val (lo, hi) = sketch.bounds() ?: return s.copy(sketch = sketch)
             val old = s.sketch?.bounds()
             val revolve = s.x(Shape.REVOLVE, 0.0) != 0.0
+            // A sweep's box is the swept solid's, 1:1.
+            if (!revolve) s.path?.let { Sweep.of(sketch, it) }?.let { return s.copy(sketch = sketch, size = it.size) }
             fun box(lo: P2, hi: P2) = if (revolve) D3(2 * max(0.5, hi.x), 2 * max(0.5, hi.x), max(0.5, hi.y - lo.y))
                 else D3(max(0.5, hi.x - lo.x), max(0.5, hi.y - lo.y), s.size.z)
             val now = box(lo, hi)

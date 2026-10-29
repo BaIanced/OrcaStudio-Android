@@ -12,44 +12,36 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 ## State
 - One repo: OrcaStudio-Android (code + these docs, `docs/handoff/`), branch `claude/handoff-continuation-rseql3`. Autonomy (user, 2026-10-11): decide branches and next steps
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
-- Android main = cb11452 (PR #36, branch up to c026d15 = cut batch, merged 2026-10-22; main APK run 39735501711). Untested in
-  main: Check mesh feel, cut Flip paint fix, 3MF export in desktop Orca, pie menu (lab), pen 7d3a263, fan hold 298ee9f, Extrude
-  F150 e13bebb, Quest stick zoom (r324). Unmerged on the branch: paint shop + paint depth r367, Build workspace 1-5 + 6a (user feel untested).
+- Android main = 0170950 (PR #65, branch at r398, merged 2026-10-25). Untested by the user in main: Build workspace, paint shop/depth, Filament materials, Realistic render, UX P1-P6, Check mesh feel, 3MF export in desktop Orca, pen, fan hold, Extrude F150.
 - Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
-- Latest build r397 (run 40168360935, UX P1-P5 + Task 12 fixes; installed on WSA/SHIELD/LAN phone); P1-P5 NOT yet looked at on a device. Chromebook/Note offline. Note r389, phone r376, Chromebook r374 (offline).
+- Latest CI build: r461 (run 40807285022, 9f9c5c2, has Z lift dot + axis lock) on WSA, phone, Note, SHIELD. User feel untested. Install new builds on all adb devices (skip the .23 tablet: 32-bit, Android 6).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
+- **User 2026-10-28: no more user testing for now; Claude builds and tests everything itself (memory no-user-testing-now); don't ask for feel/UI checks.**
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
   WSA `127.0.0.1:58526`; **USB serial = the user's SHIELD TV** (rooted; installs only). No printer tests (user away).
-- **Cheapest interface first** (MCP `mcpao.sh` ~150 tok > `phone-ui.py layout` cut by regex > cropped shot only for GL looks).
+- **Cheapest per finished step, quality kept** (memory cheapest-per-finished-step): mcpao.sh for app state, adb for installs/taps, `phone-ui.py layout` for UI, cropped shots only for GL looks.
 - Session backups: phone `/data/local/tmp/phone-session-backup.{3mf,json}`, WSA `/data/local/tmp/session-backup.{3mf,json}`. `scadzip-test.zip` stays in `/sdcard/Download` (phone, Chromebook). Never write the LAN access code anywhere.
 ## Next task
-- **One small step at a time** (user 2026-10-21). Auto-next (user 2026-10-24): if context is small and the next model = running model, start the next step without cueing; else cue `/clear` + `/next`.
 - **User 2026-10-21: design deviations pre-approved** ("deviate if you find a more logical, intuitive way; I trust your judgement"); say what changed.
-- Muse (2026-10-22): tasks in `MUSE-TASKS.md` on `muse/work` (edit via a `claude/*` PR, self-merge), then `TASK <n> READY`
-  on #46; Muse answers with one draft PR per task. Claude verifies, merges into muse/work, cherry-picks code onto the work
-  branch. Task 1 finding 4: fix the patch comment when regenerating 0001. **Each session start, run exactly:**
-  `gh pr list --state open --json number,title,headRefName; gh issue view 46 --json comments --jq '.comments[-2:][]|.createdAt+" "+(.body|.[0:300])'` (no `--comments`).
-  Tasks 1-18 merged (18 = PR #64, 2026-10-23). Sync muse/work android/ before each Kotlin task (#58).
-  **Muse KEPT (user, 2026-10-23)** for audits + larger JVM-testable Kotlin only (Claude compiles each PR locally before
-  merging), no native/patch work, no small fixes. Log Claude's effort per task in the archive; if a task costs more than
-  doing it directly, tell the user plainly and stop. Merge commands START with `gh pr merge`. No stacking.
-- User feel untested (backlog): paint plan (r373), Build workspace 1-6, Filament materials tiers 1+2, Realistic render 1+2 (r390).
-- Local debug test on WSA: recipe in the reference ("Local APK").
-- Open (backlog): app 3MF in desktop Orca (fix applied; user must open a fresh export), printer/user-only checks, pen input, plate switcher pick.
-- Task 12: 5/8/9 in r392 (9 WSA-checked, archive). 1-4 closed (static re-check, not device-triggerable). 10/12/13 fixed 6303398, r395 WSA smoke OK (add text 52 chars, SVG); 11 note only.
-- Crawler + monkey done (no crash/ANR; archive); UX inventory + proposals P1-P7 in `docs/UX-INVENTORY.md` (user hasn't picked proposals).
-  P1 (c486aed), P2 (friendly FileNotFound/Security text), P3 (raw key -> small "Setting:" line in help popups) are in r396; P4 (Changed-only chip count; search already existed) and P5 (picker shows "Flow Rate & Vol Calibrated" as small second line, Widgets.kt) are in r397. WSA r397 look: P3 (Setting: line) and P5 (second line) OK; P1/P2 error text not triggered (zip entry opened silently), P4 chip not seen (needs a changed setting). r397 is on all 3 attached devices.
-- P6 (paneTitle on tab content) + About text without AI line: build run 40170895834 dispatched (abed57b); not yet installed/looked at. P7 crawler fixed in ~/orca-android-tools/crawl.py (Quit->Yes = clean exit, no Back at root); Edit-button repro still untested.
-- r398 (run 40170895834, P6 + About text) on WSA/SHIELD/LAN phone. Phone VD look 2026-10-25: About now "unofficial community project" only (OK); pane titles are invisible semantics (no visual check possible; fine). WSA window still didn't draw.
-- Next step: UX-INVENTORY proposals are done (P1-P7); ask the user which backlog item to pull next (or merge batch) -> Sonnet 5.5 (medium)
-
+- Muse (full discretion; tasks 1-18 merged): no per-session check. Instructions, permissions and the check command are in `NOTES-muse.md`; read it only when you want to send Muse work or a Muse PR/comment shows up.
+- **Merge batch (user 2026-10-28: main = user-tested): `NOTES-merge-batch.md`** (cuts agreed, printer set release-gated, sessions A-D).
+- Local tests: `wsa-debug-rebuild.sh [native]` (reference "WSA debug loop"); fresh app: `wsa-debug-setup.sh` first. Lab prefs: edit `layout_lab` JSON in debug `shared_prefs/app_settings.xml` with run-as sed (app stopped).
+- **Offload (user 2026-10-25/26): max token use onto free opencode models, growing leeway by track record** (Claude specs + verifies).
+  DeepSeek V4.1 Flash = default; runner `octauto.sh` (`D:\oct-backup\jobs\README.md`; opencode v2: `model#variant`), ledger `trust-profile.md`.
+- CAD plan (`NOTES-cad-reuse.md`): 0-5b Claude-verified, 1b parked. MCP efficiency (`NOTES-mcp-token-efficiency.md`): build rule waits for user OK.
+- **No WSA focus loops**. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
+- Gate work left: user sessions B-D (`NOTES-merge-batch.md`), paused 2026-10-28.
+- **Debug notes** (Ctrl+Shift+N / S Pen button, debug build): read only when the user says "notes": `cat /sdcard/Android/data/<debug pkg>/files/notes/notes.jsonl` (Note/WSA); log each, then delete jsonl + PNGs there; never commit.
+- Not in a CI build yet: two-finger tap menu + paint shop Sync swatch (untested), Floating Slice drag fix, Recent files collapsed, `lateButton` fallback, paint shop entry fix + View menu (WSA-verified).
+- Open (backlog): paint shop bbox toggle + landscape GL view, More menu reorg.
+- Godot (a)+(b) (`NOTES-godot-z-axis.md`), in CI r461: Z lift dot + axis lock (da7505c) WSA-verified in Prepare (X/Y/Free/Y key mid-drag, archive 2026-10-28). Z key lift in Build WSA-verified (archive 2026-10-28). Untested: tower ignores Z (low risk, code-gated).
+- Next step: Godot done; ask user whether to resume merge batch Session A or merge (no user tests per 2026-10-28) -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
 - Plate activation must not move the camera when zoomed out (sometimes moving is fine).
-- Plate switcher: **keep the lab until the user says otherwise; don't ask again** (mockups https://claude.ai/artifact/E3MtY8rQ1dMGHhibY2oNCX).
-  Once picked: delete the losers and the lab.
+- Plate switcher: **keep the lab until the user says otherwise; don't ask again** (mockups: archive "Plate switcher"). Once picked: delete losers + lab.
 
 ## Safety gotchas
 - **Any test print needs the user's OK.** User's AMS lite: A1 yellow, A2 matte black, A3 white, A4 PETG.

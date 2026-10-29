@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import app.orcaandroid.R
 import app.orcaandroid.core.FilamentSlot
+import app.orcaandroid.ui.prepare.Mix
 import app.orcaandroid.core.PresetType
 import app.orcaandroid.ui.FilamentChoice
 import app.orcaandroid.core.Scene
@@ -157,9 +158,9 @@ class FileController(
         store.update { st ->
             val slots = if (filaments.isEmpty()) st.filaments
             else filaments.mapIndexed { i, f ->
-                // Keep the AMS tray and surface look selectPrinterNow found for the slot.
+                // Keep the AMS tray, surface look and mix selectPrinterNow found for the slot.
                 val same = st.filaments.getOrNull(i)?.takeIf { it.preset == f.preset }
-                if (st.setup?.filaments?.any { it.name == f.preset } == true) f.copy(source = same?.source, look = same?.look)
+                if (st.setup?.filaments?.any { it.name == f.preset } == true) f.copy(source = same?.source, look = same?.look, overrides = Mix.carry(f, same))
                 else f.copy(preset = st.filaments.first().preset)
             }
             st.copy(filaments = slots, overrides = if (info.printOverrides.isEmpty()) st.overrides else st.overrides + (PresetType.PRINT to info.printOverrides))
@@ -257,7 +258,7 @@ class FileController(
         // Like the desktop, a new project starts with one plate.
         val extra = (1 until store.value.scene.plates.size).toList()
         if (extra.isNotEmpty()) store.applyScene(engine.deletePlates(extra))
-        store.update { it.copy(projectName = null, projectDirty = false, calibration = null, results = emptyMap(), external = null, activePlate = 0) }
+        store.update { it.copy(projectName = null, projectDirty = false, calibration = null, results = emptyMap(), external = null, activePlate = 0, sliceError = null) }
     }
 
     fun saveProject(target: Uri) = store.launch(store.str(R.string.saving_project)) {

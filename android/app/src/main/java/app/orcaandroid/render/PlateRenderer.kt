@@ -27,6 +27,8 @@ private const val AO_SOFT_MM = 24f
 private const val SUPERSAMPLE = 2
 private const val STILL_NS = 200_000_000L
 private const val SUPER_REFRESH_NS = 1_000_000_000L
+/** Measure loupe: how much the 2nd render magnifies the screen around the aim spot. */
+val LOUPE_ZOOM: Float get() = app.orcaandroid.core.Tuning["loupe.zoom"]
 /**
  * Temporal supersampling: jittered frames per still view, and the path shader's regime scale meanwhile. Below 1 the
  * lying cylinder's layer lines (1-2 px apart) came back as arcs (WSA 2026-10-20: 0.7 faint, 0.5 clear, 0.35 strong).
@@ -93,6 +95,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     /** Live resize: the selection is drawn scaled by this (x, y, z) about [resizeAnchor] (its box's bottom centre). */
     var resizeScale = floatArrayOf(1f, 1f, 1f)
     var resizeAnchor = floatArrayOf(0f, 0f, 0f)
+    /** Live push / pull: the selection is drawn through this (row-major 3 x 3) about [resizeAnchor]; null = [resizeScale]. */
+    var pushMatrix: FloatArray? = null
     /** Resize mode: the scale gizmo's handles ([ScaleGizmo]) on the selection box; [gizmoAxes] false shows only the corners. */
     var gizmo = false
     var gizmoAxes = true
@@ -100,6 +104,9 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var gizmoGrab: ScaleGizmo.Handle? = null
     /** Half the side of a handle square, px. */
     var handlePx = 14f
+    /** The lift dot ([ZRail.handle]) shows above the selection box; [liftGrab] while it is dragged (drawn bigger). */
+    var liftHandle = false
+    var liftGrab = false
     /** Rotate mode: the rotate gizmo's rings ([RotateGizmo]) round the selection box. */
     var rotateGizmo = false
     /** The ring being dragged (0 X, 1 Y, 2 Z) or -1: only it shows meanwhile, with spokes from [rotateFrom] to its turn. */
@@ -120,11 +127,29 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var previewRange = PreviewRange()
     /** Measurement points (world), drawn as markers and a connecting line. */
     var measurePoints: List<FloatArray> = emptyList()
+    /** The measure line's lock: B's foot on the locked line through A (x, y, z) and the lock colour (r, g, b), or null (no lock). */
+    var measureLock: FloatArray? = null
+    /** Sculpt brush ring: centre x, y, z, surface normal x, y, z, radius (world mm), or null. */
+    var brushCursor: FloatArray? = null
     /** Height of the cut plane preview for the selected object's bounds (x0,y0,x1,y1,z), or null. */
     var cutPlane: FloatArray? = null
     /** Regions view: crease line segments (x, y, z per end, world), drawn over the model with depth test. */
     var creaseLines: FloatArray? = null
-    /** Check mesh problem spots: x, y, z, kind (5 thin wall, 6 open edge, 7 self-intersection) per marker. */
+    /** Measure tool, while aiming: what the snap caught (x, y, z per end, world) and its colour (r, g, b). */
+    var snapLines: FloatArray? = null
+    var snapColor = floatArrayOf(0.3f, 0.85f, 0.35f)
+    /** Build workspace body drag: the edges the moved shapes stick to (x, y, z per end, world), amber over everything. */
+    var dragGuides: FloatArray? = null
+    /** A locked move's axis line (one segment) and the axis (0 X, 1 Y, 2 Z) for its colour; null = a free move. */
+    var axisGuide: Pair<FloatArray, Int>? = null
+    /**
+     * Measure loupe (E3): aim x, y and the inset square (left, top, size; view px) that a 2nd render of the scene fills,
+     * the same camera magnified [LOUPE_ZOOM] times around the aim, so it stays sharp at any zoom. Null = off.
+     */
+    var loupe: FloatArray? = null
+    /** Drawing the loupe: passes that use the whole view (shadow map, selection outline) are left out. */
+    private var loupePass = false
+    /** Check mesh problem spots: x, y, z, kind (5 thin wall, 6 open edge, 7 self-intersection, 8 sharp edge) per marker. */
     var meshMarkers: FloatArray? = null
     /** How far the checked copy has moved since [meshMarkers] were found. */
     var meshMarkerShift = floatArrayOf(0f, 0f, 0f)
@@ -134,6 +159,10 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var cutBand: FloatArray? = null
     /** Cut tool: tilt rings (X and Y only) round this centre xyz, radius of the plane disc; null = none. */
     var cutRings: FloatArray? = null
+    /** Cut tool: the plane is being placed (a drag in the view, or the panel's slider): the copy shows x-ray. */
+    var cutXray = false
+    /** Cut tool: the panel's slider is held (x-ray as [cutXray]). */
+    var cutXrayPanel = false
 
     /** Section view plane (nx, ny, nz, d): world points with n . p > d are cut away; null = off. */
     var section: FloatArray? = null
@@ -154,6 +183,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var keyAzimuth = -57.5f
     var keyElevation = 49f
     var keyStrength = 1f
+    /** Preview toolpaths' camera light share (PATH_FS uCamLight, 0-1); 0 = the fixed studio light. */
+    var cameraLight = 0f
     /** Realistic render mode: physically based shading of the parts with a studio environment (MESH_FS uRealistic). */
     var realistic = false
 
@@ -168,6 +199,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var layerLines = floatArrayOf(0f, 0f)
     /** Support painting's "Highlight overhangs": > 0 tints the selected parts' faces overhanging by more than this many degrees. */
     var overhangHighlight = 0f
+    /** The quick settings' "Show overhangs": [overhangHighlight] tints every part, not only the selection, and skips faces on the bed. */
+    var overhangAll = false
     private val keyDir get() = Math.toRadians(keyElevation.toDouble()).let { el ->
         Math.toRadians(keyAzimuth.toDouble()).let { az ->
             floatArrayOf((Math.cos(el) * Math.cos(az)).toFloat(), (Math.cos(el) * Math.sin(az)).toFloat(), Math.sin(el).toFloat())
@@ -219,6 +252,10 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     private var previewVersion = 0
 
     private var pendingMesh: FloatData? = null
+    private var pendingEngineMesh = -1
+    /** The engine's scene mesh version in [meshVbo]. */
+    private var engineMesh = -1
+    private val pendingPatches = ArrayList<app.orcaandroid.core.MeshPatch>()
     private var pendingPaint: FloatData? = null
     private var pendingPreview: PreviewData? = null
     private var bedDirty = true
@@ -249,6 +286,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
 
     private var meshProgram = 0
     private var lineProgram = 0
+    private var wideLineProgram = 0
     private var pathProgram = 0
     private var pointProgram = 0
     private var badgeProgram = 0
@@ -277,7 +315,10 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         return badgeRects.firstOrNull { p.x in it.x0..it.x1 && p.y in it.y0..it.y1 }?.let { it.plate to it.badge }
     }
 
-    fun setMesh(data: FloatData?) { pendingMesh = data ?: FloatData(FloatData.directFloats(0), 8) }
+    /** [version]: the engine's scene mesh version of [data] (live sculpt patches apply to that one only). */
+    fun setMesh(data: FloatData?, version: Int = -1) { pendingMesh = data ?: FloatData(FloatData.directFloats(0), 8); pendingEngineMesh = version }
+    /** Live sculpt: changed triangles, copied into the scene buffer once the mesh they belong to is in it. */
+    fun applyPatch(patch: app.orcaandroid.core.MeshPatch) { if (pendingPatches.size < 256) pendingPatches += patch }
     fun setGhost(data: FloatData?) { pendingGhost = data ?: FloatData(FloatData.directFloats(0), 8) }
     fun setPaint(data: FloatData?) { pendingPaint = data ?: FloatData(FloatData.directFloats(0), 8) }
     fun setPreview(data: PreviewData?) {
@@ -331,6 +372,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glEnable(GL_DEPTH_TEST)
         meshProgram = program(Shaders.MESH_VS, Shaders.MESH_FS)
         lineProgram = program(Shaders.LINE_VS, Shaders.LINE_FS)
+        wideLineProgram = program(Shaders.WIDE_LINE_VS, Shaders.WIDE_LINE_FS)
         pathProgram = program(Shaders.PATH_VS, Shaders.PATH_FS)
         pointProgram = program(Shaders.POINT_VS, Shaders.POINT_FS)
         badgeProgram = program(Shaders.BADGE_VS, Shaders.BADGE_FS)
@@ -378,6 +420,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     override fun onDrawFrame(gl: GL10?) {
         val start = System.nanoTime()
         drawFrame()
+        drawLoupe()
         frameStats.record(start, System.nanoTime())
     }
 
@@ -409,6 +452,38 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         drawScene()
         if (supered) { supersampler.end(viewW, viewH); superShown = key; superAt = now } else superShown = null
         pxScale = 1f
+    }
+
+    /**
+     * The measure loupe over the finished frame: the projection scaled about the aim spot (clip x' = s x + t w, as the
+     * jitter in [accumulate]) and drawn into the inset only (viewport + scissor, so its clear stays inside).
+     */
+    private fun drawLoupe() {
+        val l = loupe ?: return
+        if (viewW <= 1 || l[4] < 8f) return
+        val (ax, ay, size) = Triple(l[0], l[1], l[4])
+        val frame = mvp.copyOf()
+        val sx = viewW * LOUPE_ZOOM / size
+        val sy = viewH * LOUPE_ZOOM / size
+        val tx = (viewW / 2f - ax) * 2f * LOUPE_ZOOM / size
+        val ty = (ay - viewH / 2f) * 2f * LOUPE_ZOOM / size
+        for (c in 0 until 4) {
+            val w = mvp[4 * c + 3]
+            mvp[4 * c] = mvp[4 * c] * sx + tx * w
+            mvp[4 * c + 1] = mvp[4 * c + 1] * sy + ty * w
+        }
+        val x = l[2].toInt()
+        val y = (viewH - l[3] - size).toInt()
+        val s = size.toInt()
+        glViewport(x, y, s, s)
+        glEnable(GL_SCISSOR_TEST)
+        glScissor(x, y, s, s)
+        loupePass = true
+        drawScene()
+        loupePass = false
+        glDisable(GL_SCISSOR_TEST)
+        glViewport(0, 0, viewW, viewH)
+        frame.copyInto(mvp)
     }
 
     /**
@@ -444,8 +519,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
 
     /** Everything the Preview frame depends on (data classes compare by value, arrays by identity unless listed). */
     private fun superKey(): List<Any?> = listOf(mvp.toList(), viewW, viewH, previewVersion, previewStyle, previewRange,
-        previewOrigin.toList(), section?.toList(), filamentColors, colors, measurePoints.map { it.toList() }, cutPlane?.toList(), cutDisc?.toList(),
-        bedCount, plateOrigins, activePlate, badgeCount, atlas, gridRect?.toList())
+        previewOrigin.toList(), section?.toList(), filamentColors, colors, measurePoints.map { it.toList() }, measureLock?.toList(), cutPlane?.toList(), cutDisc?.toList(),
+        bedCount, plateOrigins, activePlate, badgeCount, atlas, gridRect?.toList(), cameraLight)
 
     private fun drawScene() {
         val bg = colors.background
@@ -455,14 +530,14 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         val models = ghostCount == 0
         val bounds = meshBounds
         val shadow = contactShadows && !showPreview && models && meshCount > 0 && bounds != null
-        useRealShadow = false
-        if (shadow) {
+        if (!loupePass) useRealShadow = false
+        if (shadow && !loupePass) {
             effects.lightDir = keyDir
-            val key = listOf(meshVersion, dragOffset.toList(), resizeScale.toList(), rotateMatrix?.toList(), selectedIds.toList(), dragTower, section?.toList(), keyAzimuth, keyElevation, solo, buildSolo)
+            val key = listOf(meshVersion, dragOffset.toList(), resizeScale.toList(), pushMatrix?.toList(), rotateMatrix?.toList(), selectedIds.toList(), dragTower, section?.toList(), keyAzimuth, keyElevation, solo, buildSolo)
             // A dragged copy may leave the footprint: widen it by the drag.
             // A fixed widening for the whole drag: any change of the map area mid-drag rescales the texels and
             // shows as a step ("strobe") in the shadow.
-            val dragging = dragOffset[0] != 0f || dragOffset[1] != 0f
+            val dragging = dragOffset[0] != 0f || dragOffset[1] != 0f || dragOffset[2] != 0f
             val dx = if (dragging) 150f else 0f
             val dy = dx
             val area = floatArrayOf(bounds!![0] - dx, bounds[1] - dy, bounds[2] + dx, bounds[3] + dy)
@@ -492,7 +567,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
                 drawMesh(paintVbo, paintCount, pass = 2)
                 glDisable(GL_POLYGON_OFFSET_FILL)
             }
-            if (models) { drawCreases(); drawMeshMarkers() }
+            if (models) { drawCreases(); drawSnapLines(); drawDragGuides(); drawMeshMarkers() }
             // Modifiers and support blockers/enforcers are drawn translucent on top.
             glEnable(GL_BLEND)
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
@@ -503,8 +578,10 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
                 glEnable(GL_CULL_FACE)
                 glCullFace(GL_FRONT)
                 drawMesh(meshVbo, meshCount, pass = 7)
+                drawClearPaint()
                 glCullFace(GL_BACK)
                 drawMesh(meshVbo, meshCount, pass = 7)
+                drawClearPaint()
                 glDisable(GL_CULL_FACE)
                 glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
             }
@@ -512,11 +589,21 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             drawMesh(ghostVbo, ghostCount, pass = 1)
             glDepthMask(true)
             glDisable(GL_BLEND)
-            if (models) drawSelection()
+            if (models && !loupePass) drawSelection()
+            if (models && (cutXray || cutXrayPanel) && cutBand != null) drawCutXray()
         }
         // Seen from below the plate is a window: drawn last, over the parts behind it.
         if (plateSurface && camera.eye().z < 0f) drawPlateSurfaces(PLATE_UNDER_ALPHA)
         drawOverlays()
+    }
+
+    /** Paint of clear filaments (realistic mode), drawn like the clear parts. */
+    private fun drawClearPaint() {
+        if (paintCount == 0) return
+        glEnable(GL_POLYGON_OFFSET_FILL)
+        glPolygonOffset(-1f, -2f)
+        drawMesh(paintVbo, paintCount, pass = 7)
+        glDisable(GL_POLYGON_OFFSET_FILL)
     }
 
     // --- Upload --------------------------------------------------------------------------------
@@ -528,6 +615,14 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             copyBounds = copyBounds(it)
             meshVersion++
             pendingMesh = null
+            engineMesh = pendingEngineMesh
+        }
+        if (pendingPatches.isNotEmpty()) {
+            // Older patches are in the new mesh already; newer ones wait for theirs.
+            val later = pendingPatches.filter { it.version > engineMesh }
+            for (p in pendingPatches) if (p.version == engineMesh) uploadPatch(p)
+            pendingPatches.clear()
+            pendingPatches += later
         }
         pendingPaint?.let {
             val start = android.os.SystemClock.elapsedRealtime()
@@ -613,6 +708,20 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             if (x > r[2]) r[2] = x; if (y > r[3]) r[3] = y
         }
         return r
+    }
+
+    private fun uploadPatch(p: app.orcaandroid.core.MeshPatch) {
+        glBindBuffer(GL_ARRAY_BUFFER, meshVbo)
+        var at = 0
+        for (i in p.firsts.indices) {
+            val n = p.counts[i] * 24
+            if ((p.firsts[i] + p.counts[i]) * 3 > meshCount) break
+            p.data.position(at)
+            glBufferSubData(GL_ARRAY_BUFFER, p.firsts[i] * 96, n * 4, p.data)
+            at += n
+        }
+        p.data.position(0)
+        meshVersion++
     }
 
     private fun uploadFloats(vbo: Int, data: FloatData): Int {
@@ -804,8 +913,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glUniformMatrix4fv(loc(meshProgram, "uMvp"), 1, false, mvp, 0)
         glUniform1i(loc(meshProgram, "uPass"), pass)
         glUniform1f(loc(meshProgram, "uShadowFade"), SHADOW_FADE_MM)
-        // The real shadow map is sampled by the lit pass only (not while it is being drawn, not in the occlusion pre-pass).
-        val real = useRealShadow && (pass == 0 || pass == 7)
+        // The real shadow map is sampled by the lit passes only (parts, paint; not while it is being drawn, not in the occlusion pre-pass).
+        val real = useRealShadow && (pass == 0 || pass == 2 || pass == 7)
         glUniform1i(loc(meshProgram, "uUseRealShadow"), if (real) 1 else 0)
         glUniform1i(loc(meshProgram, "uRealShadowMap"), 2)
         if (real) {
@@ -826,6 +935,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glUniform2f(loc(meshProgram, "uLayers"), layerLines[0], layerLines[1])
         // TriangleSelector::select_patch's test: world normal z below -cos(angle); -2 = off.
         glUniform1f(loc(meshProgram, "uOverhangZ"), if (overhangHighlight > 0f) -Math.cos(Math.toRadians(overhangHighlight.toDouble())).toFloat() else -2f)
+        glUniform1i(loc(meshProgram, "uOverhangAll"), if (overhangAll) 1 else 0)
         cutBand.let { b ->
             glUniform1i(loc(meshProgram, "uCutBandOn"), if (b != null) 1 else 0)
             if (b != null) glUniform4f(loc(meshProgram, "uCutBand"), b[0], b[1], b[2], b[3])
@@ -837,7 +947,11 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glUniform3fv(loc(meshProgram, "uDrag"), 1, dragOffset, 0)
         glUniform3fv(loc(meshProgram, "uScaleAnchor"), 1, resizeAnchor, 0)
         val own = boxOverride == null
-        glUniform3fv(loc(meshProgram, "uScale"), 1, if (own) resizeScale else floatArrayOf(1f, 1f, 1f), 0)
+        val sc = if (own) resizeScale else floatArrayOf(1f, 1f, 1f)
+        // Column major for GL.
+        val sm = pushMatrix?.let { m -> floatArrayOf(m[0], m[3], m[6], m[1], m[4], m[7], m[2], m[5], m[8]) }
+            ?: floatArrayOf(sc[0], 0f, 0f, 0f, sc[1], 0f, 0f, 0f, sc[2])
+        glUniformMatrix3fv(loc(meshProgram, "uScale"), 1, false, sm, 0)
         val rot = rotateMatrix?.takeIf { own }
         glUniform1i(loc(meshProgram, "uRotOn"), if (rot != null) 1 else 0)
         if (rot != null) {
@@ -878,8 +992,15 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             selection.draw(viewW, viewH, style, colors.selected, outlinePx) { pass -> drawMesh(meshVbo, meshCount, pass) }
         val box = selectionBox(ids) ?: return
         if (style and SelectionStyle.BOX != 0 || gizmo) drawSelectionBox(box.copyOf())
-        if (gizmo) drawGizmo(box)
-        if (rotateGizmo) drawRings(box)
+        // The gizmos ride along with a move drag, as the box does (user 2026-10-28: they stayed behind until release).
+        val moved = FloatArray(6) { box[it] + dragOffset[it % 3] }
+        if (gizmo) drawGizmo(moved)
+        if (rotateGizmo) drawRings(moved, occlude = true)
+        // The lift dot hides while another handle or ring is dragged.
+        if (liftHandle && gizmoGrab == null && rotateMatrix == null && pushMatrix == null) {
+            val p = ZRail.handle(app.orcaandroid.core.Vec3(moved[0], moved[1], moved[2]), app.orcaandroid.core.Vec3(moved[3], moved[4], moved[5]))
+            drawDots(listOf(p to ScaleGizmo.color(2)), if (liftGrab) handlePx * 1.25f else handlePx)
+        }
     }
 
     /** The cut tool's tilt rings (X red, Y green) round the plane disc's centre. */
@@ -889,7 +1010,50 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         drawRings(floatArrayOf(g[0] - k, g[1] - k, g[2] - k, g[0] + k, g[1] + k, g[2] + k), 2)
     }
 
-    /** The cut plane: a translucent disc and its rim, depth-tested so the object hides the part inside it. */
+    /** The sculpt brush: a ring of its radius on the surface's tangent plane, on top of the scene (dark rim under white). */
+    private fun drawBrushCursor() {
+        val c = brushCursor ?: return
+        var nx = c[3]; var ny = c[4]; var nz = c[5]
+        val nl = kotlin.math.sqrt(nx * nx + ny * ny + nz * nz)
+        if (nl < 1e-6f) { nx = 0f; ny = 0f; nz = 1f } else { nx /= nl; ny /= nl; nz /= nl }
+        // Two axes across the normal: the one least like it crossed with it, then normal x first.
+        val (ax, ay, az) = if (kotlin.math.abs(nx) < 0.9f) Triple(1f, 0f, 0f) else Triple(0f, 1f, 0f)
+        var ux = ny * az - nz * ay; var uy = nz * ax - nx * az; var uz = nx * ay - ny * ax
+        val ul = kotlin.math.sqrt(ux * ux + uy * uy + uz * uz)
+        ux /= ul; uy /= ul; uz /= ul
+        val vx = ny * uz - nz * uy; val vy = nz * ux - nx * uz; val vz = nx * uy - ny * ux
+        val r = c[6]
+        val n = 48
+        // Segments for the wide-line shader (GL line width is 1 px on some GPUs, WSA among them).
+        val pts = FloatArray(n * 6)
+        for (i in 0 until n) for (e in 0..1) {
+            val a = (i + e) * 2.0 * Math.PI / n
+            val co = Math.cos(a).toFloat() * r; val si = Math.sin(a).toFloat() * r
+            val o = i * 6 + e * 3
+            pts[o] = c[0] + ux * co + vx * si
+            pts[o + 1] = c[1] + uy * co + vy * si
+            pts[o + 2] = c[2] + uz * co + vz * si
+        }
+        glDisable(GL_DEPTH_TEST)
+        drawWideLines(pts, 4f * density, floatArrayOf(0.1f, 0.1f, 0.1f), section = false)
+        drawWideLines(pts, 2f * density, floatArrayOf(1f, 1f, 1f), section = false)
+        glEnable(GL_DEPTH_TEST)
+    }
+
+    /** Cut x-ray: the cut copy's hidden faces and cut line, drawn only where the scene is in front of them. */
+    private fun drawCutXray() {
+        glEnable(GL_DEPTH_TEST)
+        glDepthFunc(GL_GREATER)
+        glDepthMask(false)
+        glEnable(GL_BLEND)
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+        drawMesh(meshVbo, meshCount, pass = 8)
+        glDisable(GL_BLEND)
+        glDepthMask(true)
+        glDepthFunc(GL_LESS)
+    }
+
+    /** The cut plane: a translucent disc and its rim, depth-tested so the object hides the part inside it (x-ray: faintly seen through). */
     private fun drawCutDisc() {
         val d = cutDisc ?: return
         val n = 64
@@ -915,6 +1079,12 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glBlendFunc(GL_CONSTANT_ALPHA, GL_ONE_MINUS_CONSTANT_ALPHA)
         glUniform3f(loc(lineProgram, "uColor"), 1f, 0.25f, 0.25f)
         glDrawArrays(GL_TRIANGLE_FAN, 0, n + 2)
+        if (cutXray || cutXrayPanel) {
+            glDepthFunc(GL_GREATER)
+            glBlendColor(0f, 0f, 0f, 0.12f)
+            glDrawArrays(GL_TRIANGLE_FAN, 0, n + 2)
+            glDepthFunc(GL_LESS)
+        }
         glDisable(GL_BLEND)
         glLineWidth(3f * pxScale)
         glUniform3f(loc(lineProgram, "uColor"), 1f, 0.3f, 0.3f)
@@ -928,7 +1098,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
      * The rotate gizmo's rings ([RotateGizmo]) round [box]'s centre, on top of the scene as the desktop draws them. While one
      * is dragged only it shows, thicker, with spokes from where the drag started to where it has turned.
      */
-    private fun drawRings(box: FloatArray, axisCount: Int = 3) {
+    private fun drawRings(box: FloatArray, axisCount: Int = 3, occlude: Boolean = false) {
         val lo = app.orcaandroid.core.Vec3(box[0], box[1], box[2])
         val hi = app.orcaandroid.core.Vec3(box[3], box[4], box[5])
         val c = RotateGizmo.center(lo, hi)
@@ -952,11 +1122,18 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         val dark = floatArrayOf(0.1f, 0.1f, 0.1f)
         for (axis in 0 until axisCount) {
             if (grab >= 0 && axis != grab) continue
-            val ring = RotateGizmo.ring(axis, c, r)
+            var ring = RotateGizmo.ring(axis, c, r)
+            var mode = GL_LINE_STRIP
+            // The selection's rings leave out what the box hides (they can't be grabbed there); a dragged ring shows whole.
+            if (occlude && grab < 0) {
+                val behind = RotateGizmo.hidden(ring, lo, hi, camera)
+                ring = ring.indices.toList().dropLast(1).filter { !behind[it] }.flatMap { listOf(ring[it], ring[it + 1]) }
+                mode = GL_LINES
+            }
             val w = if (grab >= 0) 4f else 3f
             // A dark rim under the colour, as the handles have.
-            draw(ring, GL_LINE_STRIP, dark, w + 2f)
-            draw(ring, GL_LINE_STRIP, RotateGizmo.color(axis), w)
+            draw(ring, mode, dark, w + 2f)
+            draw(ring, mode, RotateGizmo.color(axis), w)
         }
         val from = rotateFrom
         val m = rotateMatrix
@@ -1010,9 +1187,22 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         app.orcaandroid.core.Vec3(b[0], b[1], b[2]) to app.orcaandroid.core.Vec3(b[3], b[4], b[5])
     }
 
-    /** The bounding box (x0, y0, z0, x1, y1, z1) of the selection ids [ids], with the live resize. */
+    /** The bounding box (x0, y0, z0, x1, y1, z1) of the selection ids [ids], with the live resize (or push / pull). */
     private fun selectionBox(ids: FloatArray): FloatArray? {
         val b = meshBox(ids) ?: return null
+        pushMatrix?.let { m ->
+            // The box's corners through the stretch: a turned face stretches it off the axes.
+            val a = resizeAnchor
+            val out = floatArrayOf(Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE)
+            for (c in 0 until 8) {
+                val p = FloatArray(3) { k -> (if (c shr k and 1 == 0) b[k] else b[k + 3]) - a[k] }
+                for (i in 0..2) {
+                    val v = a[i] + m[i * 3] * p[0] + m[i * 3 + 1] * p[1] + m[i * 3 + 2] * p[2]
+                    out[i] = minOf(out[i], v); out[i + 3] = maxOf(out[i + 3], v)
+                }
+            }
+            return out
+        }
         for (k in 0..2) {
             val s = resizeScale[k]
             if (s != 1f) { b[k] = resizeAnchor[k] + (b[k] - resizeAnchor[k]) * s; b[k + 3] = resizeAnchor[k] + (b[k + 3] - resizeAnchor[k]) * s }
@@ -1034,7 +1224,13 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             listOf(ScaleGizmo.Handle(grab.index, app.orcaandroid.core.Vec3(
                 p[0] + (q.x - p[0]) * resizeScale[0], p[1] + (q.y - p[1]) * resizeScale[1], p[2] + (q.z - p[2]) * resizeScale[2]), grab.axis))
         }
-        if (handles.isEmpty()) return
+        // The dragged handle a little bigger.
+        drawDots(handles.map { it.pos to ScaleGizmo.color(it.axis) }, if (grab != null) handlePx * 1.25f else handlePx)
+    }
+
+    /** Screen squares of half side [size] px at world [dots] (position, colour), on top of the scene with a dark rim. */
+    private fun drawDots(dots: List<Pair<app.orcaandroid.core.Vec3, FloatArray>>, size: Float) {
+        if (dots.isEmpty()) return
         val identity = FloatArray(16).also { android.opengl.Matrix.setIdentityM(it, 0) }
         glUseProgram(lineProgram)
         glUniformMatrix4fv(loc(lineProgram, "uMvp"), 1, false, identity, 0)
@@ -1044,14 +1240,13 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glBindBuffer(GL_ARRAY_BUFFER, scratchVbo)
         glEnableVertexAttribArray(0)
         val clip = FloatArray(4)
-        for (h in handles) {
-            android.opengl.Matrix.multiplyMV(clip, 0, mvp, 0, floatArrayOf(h.pos.x, h.pos.y, h.pos.z, 1f), 0)
+        for ((pos, dotColor) in dots) {
+            android.opengl.Matrix.multiplyMV(clip, 0, mvp, 0, floatArrayOf(pos.x, pos.y, pos.z, 1f), 0)
             if (clip[3] <= 0f) continue
             val x = clip[0] / clip[3]
             val y = clip[1] / clip[3]
-            // A dark rim, then the colour; the dragged handle a little bigger.
-            val size = if (grab != null) handlePx * 1.25f else handlePx
-            for ((px, color) in listOf(size + outlinePx * 0.6f to floatArrayOf(0.1f, 0.1f, 0.1f), size to ScaleGizmo.color(h.axis))) {
+            // A dark rim, then the colour.
+            for ((px, color) in listOf(size + outlinePx * 0.6f to floatArrayOf(0.1f, 0.1f, 0.1f), size to dotColor)) {
                 val hx = px * 2f / viewW
                 val hy = px * 2f / viewH
                 val quad = floatArrayOf(x - hx, y - hy, 0f, x + hx, y - hy, 0f, x + hx, y + hy, 0f, x - hx, y - hy, 0f, x + hx, y + hy, 0f, x - hx, y + hy, 0f)
@@ -1160,6 +1355,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             glUniform1i(loc(pathProgram, "uFirst"), first)
             glUniform1f(loc(pathProgram, "uPxScale"), pxScale * regimeScale)
             camera.eye().let { glUniform3f(loc(pathProgram, "uEye"), it.x, it.y, it.z) }
+            glUniform1f(loc(pathProgram, "uCamLight"), cameraLight)
             glUniform3fv(loc(pathProgram, "uRoleColors"), 20, Shaders.ROLE_COLORS, 0)
             setFilamentColors(pathProgram)
             setSection(pathProgram)
@@ -1277,17 +1473,115 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glDepthRangef(0f, 1f)
     }
 
+    /**
+     * The measure snap's feature: in [snapColor] over a dark border (readable on any filament colour), depth-tested like the creases;
+     * the parts the model hides dashed and thinner (a CAD hidden line: a hole's far rim, the back of an outline).
+     */
+    private fun drawSnapLines() {
+        val data = snapLines?.takeIf { it.isNotEmpty() } ?: return
+        glEnable(GL_DEPTH_TEST)
+        glDepthRangef(0f, 0.9996f)
+        glDepthMask(false)
+        glDepthFunc(GL_GREATER)
+        drawWideLines(data, 4f * density, floatArrayOf(0.05f, 0.05f, 0.06f), dash = 6f * density)
+        drawWideLines(data, 1.5f * density, snapColor, dash = 6f * density)
+        glDepthMask(true)
+        glDepthFunc(GL_LEQUAL)
+        drawWideLines(data, 6f * density, floatArrayOf(0.05f, 0.05f, 0.06f))
+        drawWideLines(data, 2.5f * density, snapColor)
+        glDepthFunc(GL_LESS)
+        glDepthRangef(0f, 1f)
+    }
+
+    /** The body drag's snap guides ([dragGuides]): one thin magenta line as in Illustrator / Figma, over everything (they lie on the plate under the shapes). */
+    private fun drawDragGuides() {
+        val data = dragGuides?.takeIf { it.isNotEmpty() }
+        val axis = axisGuide
+        if (data == null && axis == null) return
+        glDisable(GL_DEPTH_TEST)
+        axis?.let { (seg, a) -> drawWideLines(seg, 1.25f * density, ScaleGizmo.color(a), section = false) }
+        data?.let { drawWideLines(it, 1.25f * density, floatArrayOf(1f, 0.15f, 0.65f), section = false) }
+        glEnable(GL_DEPTH_TEST)
+    }
+
+    /**
+     * The measure line over everything, wide over a dark border (GL line width is 1 px on some GPUs): white from A to B, or
+     * locked: A to B's foot on the locked line in the lock colour, and a thin dashed offset from the foot to B.
+     */
+    private fun drawMeasureLine() {
+        if (measurePoints.size < 2) return
+        val a = measurePoints[0]
+        val b = measurePoints[1]
+        val dark = floatArrayOf(0.05f, 0.05f, 0.06f)
+        glDisable(GL_DEPTH_TEST)
+        val lock = measureLock
+        if (lock == null) {
+            val seg = a + b
+            drawWideLines(seg, 5f * density, dark, section = false)
+            drawWideLines(seg, 2f * density, floatArrayOf(0.95f, 0.95f, 0.95f), section = false)
+        } else {
+            val foot = lock.copyOfRange(0, 3)
+            val main = a + foot
+            val offset = foot + b
+            drawWideLines(offset, 1.5f * density, floatArrayOf(0.8f, 0.8f, 0.8f), dash = 5f * density, section = false)
+            drawWideLines(main, 6f * density, dark, section = false)
+            drawWideLines(main, 3f * density, lock.copyOfRange(3, 6), section = false)
+        }
+        glEnable(GL_DEPTH_TEST)
+    }
+
+    /** [data]: segments (x, y, z per end, world) drawn [width] px wide in [color] with WIDE_LINE_VS, in the current depth state; [dash] > 0: dashes and gaps that long (px). */
+    private fun drawWideLines(data: FloatArray, width: Float, color: FloatArray, dash: Float = 0f, section: Boolean = true) {
+        val segs = data.size / 6
+        val v = FloatArray(segs * 6 * 7)
+        var o = 0
+        fun put(i: Int, j: Int, side: Float) {
+            for (k in 0 until 3) v[o + k] = data[i + k]
+            for (k in 0 until 3) v[o + 3 + k] = data[j + k]
+            v[o + 6] = side
+            o += 7
+        }
+        for (s in 0 until segs) {
+            val a = s * 6
+            val b = a + 3
+            // The far end's sideways direction is flipped (its other end is behind it): -side there is the same side.
+            put(a, b, 1f); put(a, b, -1f); put(b, a, -1f)
+            put(a, b, -1f); put(b, a, 1f); put(b, a, -1f)
+        }
+        glUseProgram(wideLineProgram)
+        glUniformMatrix4fv(loc(wideLineProgram, "uMvp"), 1, false, mvp, 0)
+        glUniform3f(loc(wideLineProgram, "uOffset"), 0f, 0f, 0f)
+        if (loupePass) loupe?.let { glUniform2f(loc(wideLineProgram, "uViewport"), it[4], it[4]) }
+        else glUniform2f(loc(wideLineProgram, "uViewport"), viewW * pxScale, viewH * pxScale)
+        glUniform1f(loc(wideLineProgram, "uWidth"), width * pxScale)
+        glUniform3f(loc(wideLineProgram, "uColor"), color[0], color[1], color[2])
+        glUniform1f(loc(wideLineProgram, "uDash"), dash * pxScale)
+        setSection(wideLineProgram, on = section)
+        glBindBuffer(GL_ARRAY_BUFFER, scratchVbo)
+        glBufferData(GL_ARRAY_BUFFER, v.size * 4, floats(v), GL_STREAM_DRAW)
+        glEnableVertexAttribArray(0)
+        glEnableVertexAttribArray(1)
+        glEnableVertexAttribArray(2)
+        glVertexAttribPointer(0, 3, GL_FLOAT, false, 28, 0)
+        glVertexAttribPointer(1, 3, GL_FLOAT, false, 28, 12)
+        glVertexAttribPointer(2, 1, GL_FLOAT, false, 28, 24)
+        glDrawArrays(GL_TRIANGLES, 0, segs * 6)
+        glDisableVertexAttribArray(2)
+        glDisableVertexAttribArray(1)
+        glDisableVertexAttribArray(0)
+    }
+
     /** Measurement line and cut plane outline, drawn without depth test so they stay visible. */
     private fun drawMeshMarkers() {
         val data = meshMarkers?.takeIf { it.isNotEmpty() } ?: return
         // A live turn or resize moves the copy's surface but not the spots: hide them until it is applied.
-        if (rotateMatrix != null || resizeScale.any { it != 1f }) return
+        if (rotateMatrix != null || pushMatrix != null || resizeScale.any { it != 1f }) return
         glEnable(GL_DEPTH_TEST)
         glUseProgram(pointProgram)
         glUniformMatrix4fv(loc(pointProgram, "uMvp"), 1, false, mvp, 0)
         glUniform3f(loc(pointProgram, "uOffset"), dragOffset[0] + meshMarkerShift[0], dragOffset[1] + meshMarkerShift[1], dragOffset[2] + meshMarkerShift[2])
         camera.eye().let { glUniform3f(loc(pointProgram, "uEye"), it.x, it.y, it.z) }
-        glUniform1i(loc(pointProgram, "uKinds"), 0b11100000)
+        glUniform1i(loc(pointProgram, "uKinds"), 0b111100000)
         glUniform1f(loc(pointProgram, "uPxScale"), pxScale)
         setSection(pointProgram)
         glBindBuffer(GL_ARRAY_BUFFER, scratchVbo)
@@ -1302,10 +1596,11 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     }
 
     private fun drawOverlays() {
+        drawBrushCursor()
         drawCutDisc()
         if (cutRings != null) drawCutRings()
+        drawMeasureLine()
         val lines = ArrayList<Float>()
-        if (measurePoints.size >= 2) measurePoints.take(2).forEach { lines += it.toList() }
         cutPlane?.let { c ->
             val x0 = c[0]; val y0 = c[1]; val x1 = c[2]; val y1 = c[3]; val z = c[4]
             listOf(x0 to y0, x1 to y0, x1 to y0, x1 to y1, x1 to y1, x0 to y1, x0 to y1, x0 to y0).forEach { (x, y) -> lines += listOf(x, y, z) }

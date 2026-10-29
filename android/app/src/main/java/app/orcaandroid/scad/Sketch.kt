@@ -25,11 +25,15 @@ data class P2(val x: Double, val y: Double) {
  * A closed outline: corners in order, and per side (corner i to i + 1) a bulge that bends it into an
  * arc. The bulge is tan(arc angle / 4): 0 = straight, 1 = half circle; positive bends to the right
  * of the side's direction, i.e. outwards on an outline drawn counter-clockwise. A circle is two
- * corners with bulge 1 on both sides. A hole outline is cut from the outlines it overlaps.
+ * corners with bulge 1 on both sides. A hole outline is cut from the outlines it overlaps. An [open] loop (a sweep
+ * path) has no side from its last corner back to the first.
  */
-data class Loop(val pts: List<P2>, val bulge: List<Double> = List(pts.size) { 0.0 }, val hole: Boolean = false) {
+data class Loop(val pts: List<P2>, val bulge: List<Double> = List(pts.size) { 0.0 }, val hole: Boolean = false, val open: Boolean = false) {
 
     fun bulgeAt(i: Int) = bulge.getOrElse(i) { 0.0 }
+
+    /** Its sides' indices (side i runs from corner i to i + 1). */
+    val sides: IntRange get() = 0 until if (open) pts.size - 1 else pts.size
 
     /** The point halfway along side [i] (on the arc when bent). */
     fun sideMid(i: Int): P2 {
@@ -44,7 +48,7 @@ data class Loop(val pts: List<P2>, val bulge: List<Double> = List(pts.size) { 0.
     /** The outline as straight segments, arcs split so a side is at most [fs] mm or [fa] degrees. */
     fun polygon(fs: Double = 0.4, fa: Double = 4.0): List<P2> {
         val out = ArrayList<P2>()
-        for (i in pts.indices) {
+        for (i in sides) {
             val a = pts[i]
             val b = pts[(i + 1) % pts.size]
             out += a
@@ -62,6 +66,7 @@ data class Loop(val pts: List<P2>, val bulge: List<Double> = List(pts.size) { 0.
                 out += P2(c.x + abs(r) * cos(t), c.y + abs(r) * sin(t))
             }
         }
+        if (open && pts.isNotEmpty()) out += pts.last()
         return out
     }
 
@@ -70,6 +75,7 @@ data class Loop(val pts: List<P2>, val bulge: List<Double> = List(pts.size) { 0.
         .apply {
             if (bulge.any { it != 0.0 }) put("bulge", JSONArray().apply { pts.indices.forEach { put(bulgeAt(it)) } })
             if (hole) put("hole", true)
+            if (open) put("open", true)
         }
 
     companion object {
@@ -89,7 +95,7 @@ data class Loop(val pts: List<P2>, val bulge: List<Double> = List(pts.size) { 0.
             val pts = (0 until a.length()).mapNotNull { a.optJSONArray(it)?.let { p -> P2(p.optDouble(0), p.optDouble(1)) } }
             if (pts.size < 2) return null
             val b = o.optJSONArray("bulge")
-            return Loop(pts, pts.indices.map { b?.optDouble(it, 0.0)?.takeIf { v -> v.isFinite() } ?: 0.0 }, o.optBoolean("hole"))
+            return Loop(pts, pts.indices.map { b?.optDouble(it, 0.0)?.takeIf { v -> v.isFinite() } ?: 0.0 }, o.optBoolean("hole"), o.optBoolean("open"))
         }
     }
 }
@@ -314,6 +320,45 @@ data class Sketch(val loops: List<Loop> = emptyList(), val cons: List<Con> = emp
         /** [Loop.rect]'s sides: bottom and top level, right and left plumb. */
         fun rectCons(li: Int) = listOf(Con(Con.Kind.LEVEL, Side(li, 0)), Con(Con.Kind.PLUMB, Side(li, 1)),
             Con(Con.Kind.LEVEL, Side(li, 2)), Con(Con.Kind.PLUMB, Side(li, 3)))
+
+        /** The signed area of closed outline [p] (positive when counter-clockwise). */
+        fun area(p: List<P2>): Double = p.indices.sumOf { i -> val a = p[i]; val b = p[(i + 1) % p.size]; a.x * b.y - b.x * a.y } / 2
+
+        /**
+         * Closed outline [p] as [n] points evenly spaced along it, in its own direction, starting where the ray from its
+         * centre (vertex average) towards +x leaves it, so two outlines resampled alike line up for a loft.
+         */
+        fun resample(p: List<P2>, n: Int): List<P2> {
+            val c = P2(p.sumOf { it.x } / p.size, p.sumOf { it.y } / p.size)
+            // Start on the side the +x ray crosses, at the crossing (the farthest one if it crosses more than once).
+            var start = 0
+            var startT = 0.0
+            var best = Double.NEGATIVE_INFINITY
+            for (i in p.indices) {
+                val a = p[i] - c
+                val b = p[(i + 1) % p.size] - c
+                if ((a.y < 0) == (b.y < 0) || a.y == b.y) continue
+                val t = -a.y / (b.y - a.y)
+                val x = a.x + (b.x - a.x) * t
+                if (x > best) { best = x; start = i; startT = t }
+            }
+            val ring = List(p.size + 1) { p[(start + it) % p.size] }
+            val first = ring[0] + (ring[1] - ring[0]) * startT
+            val path = listOf(first) + ring.subList(1, ring.size) + listOf(first)
+            val len = path.zipWithNext { a, b -> a.dist(b) }
+            val total = len.sum()
+            if (total == 0.0) return List(n) { first }
+            val out = ArrayList<P2>(n)
+            var seg = 0
+            var done = 0.0
+            for (k in 0 until n) {
+                val at = total * k / n
+                while (seg < len.size - 1 && done + len[seg] < at) { done += len[seg]; seg++ }
+                val u = if (len[seg] == 0.0) 0.0 else (at - done) / len[seg]
+                out += path[seg] + (path[seg + 1] - path[seg]) * u
+            }
+            return out
+        }
 
         fun of(o: JSONObject?): Sketch? = o?.optJSONArray("loops")?.let { a ->
             val c = o.optJSONArray("cons")

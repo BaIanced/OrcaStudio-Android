@@ -10,6 +10,7 @@ Nothing pending lives here: open / untested items stay in `HANDOFF.md`.
 headless display below instead (no takeover needed). Don't drive WSA's own window while the user uses the PC.
 
 ### Headless display (`~/orca-android-tools/orca-vd.sh`, verified 2026-10-19 on the old phone)
+- **Phone asleep (Dozing) = injected taps/swipes are dropped** (2026-10-27; the app also pauses on wake): ask, then `input keyevent WAKEUP`, `orca-vd.sh stop` + `start` again; `keyevent SLEEP` after. Multi-segment held drags on the phone VD: `su -c 'input touchscreen -d $LOGICAL motionevent DOWN|MOVE|UP x y'` (works there, unlike WSA).
 - 2026-10-19 current phone: first `start` failed (scrcpy "Device disconnected"), the retry worked (with `PKG=...debug`); retry once before falling back to the main screen. Pass `PKG` for the debug app.
 - `sh orca-vd.sh start|stop|status|shot <out.png> [w] [crop]|tap X Y|swipe x0 y0 x1 y1 [ms]|ui [out.xml]`. `start` opens a
   scrcpy `--new-display` (1080x2340/420, hidden, no PC window), launches the app there, retries until resumed, and saves
@@ -79,6 +80,7 @@ headless display below instead (no takeover needed). Don't drive WSA's own windo
   into a variable, never print it. Run adb calls in PowerShell jobs with timeouts while testing sockets.
 - WSA -> LAN printer: run `wsa-lan.ps1 <printer-ip>` after each WSA start. Safe print-dialog test:
   `iptables -I OUTPUT -d <ip> -p tcp --dport 990 -j REJECT` (root), Print, Cancel, `iptables -D ...`.
+- Held drags on WSA: `input motionevent` and sendevent do nothing; for a mid-drag shot run `adb shell input swipe x0 y0 x1 y1 5000 &`, then `exec-out screencap` ~3.5 s later (2026-10-25).
 - Closing the WSA window (`CloseMainWindow()` on the "OrcaStudio-Android" window) runs onStop (saves the session).
 - WSA Preview close-ups: `view_set` (object/yaw/pitch/distance) then tap the Preview tab (52,165) keeps the camera; layer handle drag on y 833 (track x 450-1195); WSA `input` has no mouse scroll, and double tap doesn't frame in Preview.
 - Phone view on WSA (`phone-view.sh`): back-burnered (user, 2026-10-13: "didn't look right"); notes in the archive.
@@ -102,6 +104,7 @@ headless display below instead (no takeover needed). Don't drive WSA's own windo
   = build + install + slice + Preview + 3 sphere shots (`wsa-preview2.sh` alone skips the build). Black screencaps / MCP
   "No 3D view is on screen" = the PC display is asleep: `wake-display.ps1` (1 px mouse nudge; wsa-preview2.sh runs it).
   WSA 3D view crop (Preview, wide panel): 105,38,745,938.
+- WSA hover (2026-10-26): `wsa-pen-hover.sh HOLD X Y [X Y ...]` = uinput virtual pen (root) hovering at screen points (`input` has no hover).
 - WSA debug loop (2026-10-24): Local debug test on WSA: `stage-from-apk.sh` (after native CI builds), assembleDebug, `wsa-debug-setup.sh`, `wsa-start.ps1` (no PC `adb forward tcp:8765` while it starts), MCP with `MCP_DEV=127.0.0.1:58526 PKG=...debug`; uninstall the debug app when done. `wsa-debug-setup.sh` also copies the Orca data dir (profiles); it overwrites the debug prefs (slot looks, realistic): for rebuilds just `adb install -r -g` + `wsa-start.ps1`.
 - **Local APK (2026-10-19, ~7 s incremental, 3.5 min cold):** `sh ~/orca-android-tools/stage-from-apk.sh` (native libs + OpenSCAD/
   Python assets from the newest CI APK in `builds/`; redo after native changes), then the compile command below with
@@ -150,3 +153,5 @@ headless display below instead (no takeover needed). Don't drive WSA's own windo
 - Handoff docs moved here from `OrcaStudio/arm-build` 2026-10-19; that repo is Flatpak-only now, untouched unless asked.
 
 - Disk: C: is tight; move old build dirs to `D:\orca-builds-archive`.
+- Local native build prerequisites (2026-10-26): refresh the WSL deps prefix from CI (`gh workflow run android-apk.yml -f deps_artifact=true`, download, copy into `~/orca-build/deps/OrcaSlicer_dep/usr/local`) and apply `android/patches/src-orca/*.patch` to `~/src/OrcaStudio-Android/src-orca` (`patch -p1`). llvm-strip path: `/home/vanzalon/Android/Sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip` (use the full path; a `~` glob inside `bash -c` failed). Stripped lib goes to `C:\Users\Vince\build\orca-android\jniLibs\arm64-v8a\`; debug APK lands in `C:\Users\Vince\build\orca-android\gradle\app\outputs\apk\debug\app-debug.apk`.
+- WSA STL import without a picker (2026-10-27): `su` copy the file to `/data/data/<pkg>/files/x.stl`, chown to the app uid, then `am start -a android.intent.action.VIEW -d file:///data/data/<pkg>/files/x.stl -t model/stl -n <pkg>/app.orcaandroid.ui.MainActivity` (content:// and /sdcard copies fail: no read access). The release app has no MCP socket on WSA: test with the debug app (`PKG=...debug`); `mcpao.sh` re-creates a PC forward each call, run `adb -s <wsa> forward --remove-all` afterwards.

@@ -14,6 +14,7 @@
 
 #include "libslic3r/ClipperUtils.hpp"
 #include "libslic3r/CutUtils.hpp"
+#include "libslic3r/CAD/GeometryEngine.hpp"
 #include "libslic3r/Emboss.hpp"
 #include "libslic3r/Flow.hpp"
 #include "libslic3r/GCode/GCodeProcessor.hpp"
@@ -142,7 +143,7 @@ json OrcaEngine::place_new_objects(const std::vector<ModelObject *> &objects, in
     return commit();
 }
 
-json OrcaEngine::add_primitive(const std::string &shape, const std::array<double, 3> &size, int plate)
+json OrcaEngine::add_primitive(const std::string &shape, const std::array<double, 3> &size, int plate, double round)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
     require_printer();
@@ -161,6 +162,21 @@ json OrcaEngine::add_primitive(const std::string &shape, const std::array<double
     } else {
         mesh = make_cube(s.x(), s.y(), s.z());
         name = "Cube";
+    }
+    if (round > 0.) {
+        // OCCT path: same shape as a B-rep, every edge filleted, then tessellated.
+        PrimitiveParams pp;
+        pp.box_w = s.x(); pp.box_d = s.y(); pp.box_h = s.z();
+        pp.cyl_radius = pp.sph_radius = pp.cone_r1 = s.x() / 2.;
+        pp.cone_r2 = 0.; pp.cyl_height = pp.cone_height = s.z();
+        pp.type = shape == "cylinder" ? PrimitiveType::Cylinder : shape == "sphere" ? PrimitiveType::Sphere
+                : shape == "cone" ? PrimitiveType::Cone : PrimitiveType::Box;
+        TopoDS_Shape solid = GeometryEngine::make_primitive(pp);
+        TopoDS_Shape filleted = GeometryEngine::apply_fillet(solid, round);
+        if (filleted.IsNull() || filleted.IsSame(solid))
+            throw std::runtime_error("Rounding failed: radius too large for this shape");
+        mesh = GeometryEngine::tessellate(filleted);
+        name += " (rounded)";
     }
     push_undo();
     ModelObject *obj = m_model->add_object(name.c_str(), "", std::move(mesh));

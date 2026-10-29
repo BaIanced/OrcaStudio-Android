@@ -2,6 +2,7 @@ package app.orcaandroid.ui
 
 import android.net.Uri
 import app.orcaandroid.R
+import app.orcaandroid.core.OrcaException
 import app.orcaandroid.core.Scene
 import app.orcaandroid.core.SceneObject
 import app.orcaandroid.core.Vec3
@@ -149,20 +150,24 @@ class ScadController(private val store: Store) {
         val placed = st?.onPlate?.let { n -> store.value.scene.objects.any { it.name == n } } == true
         if (newDesign && !placed) useEmptyPlate()
         refreshParams(0)
-        if (!buildIfPlaced()) preview()
+        if (!buildIfShapes()) preview()
     }
 
     /**
-     * A shape design placed as pieces opens straight in the Build workspace (the eye toggle on), Tinkercad-like; the
-     * preview pane renders once it is left ([showBuild]). A draft with edits not on the object yet opens in the pane as
-     * before, so opening never changes the object. True when it did.
+     * A shape design is edited in the main view, the Build workspace (Tinkercad-like; user 2026-10-25: the separate
+     * preview pane is the old view): it goes on the plate as pieces once it has a solid shape ([placeShapes]), and an
+     * object placed before gets the draft's edits ([showBuild]). Code designs keep the preview pane. True for a shape design.
      */
-    private fun buildIfPlaced(): Boolean {
-        val s = st?.takeIf { it.shapes != null } ?: return false
-        val name = s.onPlate ?: return false
-        if (store.value.scene.objects.none { it.name == name && ScadDesign.of(it)?.let { d -> d.pieces && d.shapes == s.shapes } == true }) return false
+    private fun buildIfShapes(): Boolean {
+        if (st?.shapes == null) return false
         store.update { it.copy(scadOnPlate = true, scadHidden = false) }
+        if (store.value.buildObject == null) placeShapes()
         return true
+    }
+
+    /** Puts the shape design on the plate as pieces (a new design, or one placed as a single mesh); empty: nothing yet. */
+    private fun placeShapes() {
+        if (st?.shapes?.pieces()?.any { !it.hole } == true) pushBuild()
     }
 
     /** The plate [useEmptyPlate] added; it goes again when the editor closes while it is still empty. */
@@ -235,7 +240,7 @@ class ScadController(private val store: Store) {
         saveDraft()
         pushToPlate = false
         if (onPlate == null) store.launch { useEmptyPlate() }
-        if (!buildIfPlaced()) preview()
+        if (!buildIfShapes()) preview()
     }
 
     fun close() {
@@ -276,15 +281,19 @@ class ScadController(private val store: Store) {
         pushToPlate = s.shapes?.let { it.dims != design.dims && it.withDims(design.dims) == design } == true
         // The Build workspace shows the object itself: every edit goes there.
         if (store.value.buildObject != null) { pushBuild(); return }
+        // Not on the plate yet (or removed from it): the first solid shape puts it there.
+        if (store.value.scadOnPlate) { placeShapes(); return }
         if (st?.autoRender == true) preview(if (dragging) DRAG_DEBOUNCE else 500)
     }
 
     fun select(ids: List<Int>) = set { it.copy(selected = ids) }
 
-    /** Turns a shape design into plain code (the shapes are dropped, the code is kept). */
+    /** Turns a shape design into plain code (the shapes are dropped, the code is kept); code is edited with the preview pane. */
     fun detachShapes() {
         set { it.copy(shapes = null, selected = emptyList(), loadId = it.loadId + 1) }
+        store.update { it.copy(scadOnPlate = false) }
         saveDraft()
+        preview()
     }
 
     /** The editor's text changed. */
@@ -555,6 +564,22 @@ class ScadController(private val store: Store) {
 
     private fun fail(res: Int) = set { it.copy(status = store.str(res), statusError = true) }
 
+    /** A Blend joins piece ([ShapeDesign.BLEND_TAG]) fused by the engine into [out]; its triangles, or null after showing why not. */
+    private suspend fun blend(code: String, out: File): Int? {
+        val spec = code.removePrefix(ShapeDesign.BLEND_TAG)
+        if (spec.startsWith("!")) {
+            set { it.copy(status = store.str(R.string.shape_blend_unsupported, spec.drop(1)), statusError = true) }
+            return null
+        }
+        set { it.copy(status = store.str(R.string.shape_blending), statusError = false) }
+        return try {
+            engine.blendSolids(JSONObject(spec), out)
+        } catch (e: OrcaException) {
+            set { it.copy(status = message(e), statusError = true) }
+            null
+        }
+    }
+
     private fun summary(r: ScadRender) =
         store.str(R.string.scad_rendered, "%,d".format(r.triangles), "%.1f".format(r.millis / 1000.0))
 
@@ -623,6 +648,11 @@ class ScadController(private val store: Store) {
         val part = File(out.path + ".part")
         set { it.copy(status = store.str(R.string.shape_merging), statusError = false) }
         try {
+            if (scad.startsWith(ShapeDesign.BLEND_TAG)) {
+                blend(scad, part) ?: return null
+                if (!withContext(Dispatchers.IO) { part.renameTo(out) }) { fail(R.string.scad_failed); return null }
+                return out
+            }
             val r = client.render(scad, s.file, null, part)
             when {
                 !r.ok -> { set { it.copy(log = r.log) }; fail(R.string.scad_failed); return null }
@@ -656,6 +686,13 @@ class ScadController(private val store: Store) {
             if (stl.isFile) { stl.setLastModified(System.currentTimeMillis()); continue }
             val part = File(stl.path + ".part")
             try {
+                if (piece.scad.startsWith(ShapeDesign.BLEND_TAG)) {
+                    val t0 = System.currentTimeMillis()
+                    triangles += blend(piece.scad, part) ?: return
+                    millis += System.currentTimeMillis() - t0; rendered++
+                    withContext(Dispatchers.IO) { if (!part.renameTo(stl)) throw java.io.IOException("Unable to keep the rendered piece") }
+                    continue
+                }
                 val r = client.render(piece.scad, s.file, null, part)
                 triangles += r.triangles; millis += r.millis; rendered++
                 when {
@@ -789,7 +826,7 @@ class ScadController(private val store: Store) {
         buildShown = o
         store.launch { store.applyScene(engine.setBuildObject(o), dirty = false) }
         if (o >= 0 && opened && ScadDesign.of(store.value.scene.objects.getOrNull(o))?.shapes != st?.shapes) pushBuild()
-        if (o < 0 && st?.shapes != null) preview()
+        if (o < 0 && st?.shapes != null && !store.value.scadOnPlate) preview()
     }
 
     /** Build workspace: an edit goes straight to the object's pieces (no whole-design preview); one during a render queues the next. */
@@ -836,6 +873,24 @@ class ScadController(private val store: Store) {
         // The object's own design: the pieces' matrices are its (an edit may still be rendering).
         val path = ScadDesign.of(o)?.shapes?.pathAt(piece, app.orcaandroid.scad.BuildTransform.toDesign(inst, hit.point))
         return hit.instance to path.orEmpty().ifEmpty { listOf(piece.shapeId) }
+    }
+
+    /**
+     * Build workspace push / pull: the copy of build object [obj] under the ray, the flat face hit there
+     * ([ShapeDesign.faceAt]) and whether the shape is a whole volume of its own (top level, one copy: it can be stretched
+     * live), or null.
+     */
+    suspend fun faceAt(obj: Int, origin: Vec3, dir: Vec3): Triple<app.orcaandroid.core.Instance, ShapeDesign.Face, Boolean>? {
+        val hit = engine.pick(origin, dir, only = obj) ?: return null
+        val o = store.value.scene.objects.getOrNull(obj) ?: return null
+        val piece = volumeShapes(o)[hit.volume] ?: return null
+        val inst = o.instances.getOrNull(hit.instance)?.shown ?: return null
+        val d = ScadDesign.of(o)?.shapes ?: return null
+        val p = app.orcaandroid.scad.BuildTransform.toDesign(inst, hit.point)
+        val ray = app.orcaandroid.scad.BuildTransform.toDesign(inst, hit.point + dir) - p
+        val face = d.faceAt(piece, p, ray) ?: return null
+        val whole = face.shapeId == piece.shapeId && (d.find(face.shapeId)?.repeat?.count ?: 1) <= 1
+        return Triple(inst, face, whole)
     }
 
     /**

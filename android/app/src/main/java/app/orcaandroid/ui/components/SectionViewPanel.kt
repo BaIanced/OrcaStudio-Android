@@ -20,6 +20,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.orcaandroid.R
 import app.orcaandroid.render.SectionView
+import app.orcaandroid.ui.prepare.Tip
 
 /** The desktop's section view panel (GLCanvas3D::_render_section_view_panel): ratio slider, aim, reset. */
 @Composable
@@ -30,9 +31,9 @@ fun SectionViewPanel(section: SectionView, modifier: Modifier = Modifier) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.section_view), Modifier.weight(1f))
                 Text("%.2f".format(section.ratio))
-                IconButton(onClick = section::alignToCamera) { Icon(Icons.Default.Videocam, stringResource(R.string.section_view_align)) }
-                IconButton(onClick = { section.set(0f) }, enabled = section.active) { Icon(Icons.Default.Restore, stringResource(R.string.reset)) }
-                IconButton(onClick = { section.panelOpen = false }) { Icon(Icons.Default.Close, stringResource(R.string.close)) }
+                Tip(stringResource(R.string.section_view_align)) { IconButton(onClick = section::alignToCamera) { Icon(Icons.Default.Videocam, stringResource(R.string.section_view_align)) } }
+                Tip(stringResource(R.string.reset)) { IconButton(onClick = { section.set(0f) }, enabled = section.active) { Icon(Icons.Default.Restore, stringResource(R.string.reset)) } }
+                Tip(stringResource(R.string.close)) { IconButton(onClick = { section.panelOpen = false }) { Icon(Icons.Default.Close, stringResource(R.string.close)) } }
             }
             Slider(section.ratio, section::set, Modifier.padding(end = 12.dp))
         }

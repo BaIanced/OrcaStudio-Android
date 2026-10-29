@@ -3006,3 +3006,563 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 - `python crawl.py [steps] [seed]` (WSA window in front, session backed up first, restore from /data/local/tmp/session-backup.* after): taps unvisited clickables, Back to return, checks pidof + crash/ANR logcat; report in crawl-out/<ts>/report.txt. Blocklist skips print/sign-in/delete/Device/Models/Connect/Save etc. Run 1 (no Device block) wandered into Device jog/Extrude/Start + connection Save: nothing reached the printer ("Can't reach the printer", no LAN route on WSA), then Device tab blocked.
 - Run 2 (seed 7, 120 steps, 62 screens): no crash/ANR. Found: tapping a stale Recent files entry (cache/downloads zip deleted, or content:// access lost) shows a raw Error dialog ("open failed: ENOENT" / "has no access to content://..."). Fixed in FileController.openRecent: probe readability, else drop the entry + toast (compiled, uncommitted->committed next; untested on device). Claude 2026-10-24.
 - 2026-10-24 crawler seeds 11 and 23 (150 steps each, WSA r395): 84 / 83 screens, no crash/ANR (seed 7 "APP DIED after Yes" = Quit dialog, expected). `monkey` (3 runs, 3600 events, no sys keys, seeds 5/8/9): no crash/ANR, app alive. Pitfall: never run a second uiautomator dump while a crawl runs (UiAutomation "already registered" kills the dump; shows as a bogus crash-buffer finding); `&` inside run_in_background detaches, wait for the python pid instead. Session restored from backup. Claude.
+
+## 2026-10-25 hard-coded colours audit (user GO item 1)
+- Closed as no-change (static check, no device): 3D background is already theme-driven (`Viewport.kt:103` slots, default `surfaceContainerHighest` AppColors.kt:161; ScadPreview.kt:56 same), so the old 'dark 3D background under a light theme' limit is stale. Delete popup #2B2C32 + red bin is the user's pick (2026-10-14). Remaining literals are semantic (heat legend gradient PreviewPanel.kt:245, error badge Notices.kt:70, sketch axes, colour swatches). Models page is a WebView (not themable). Not looked at on a device in a light theme.
+
+## 2026-10-25 handoff prune (moved from HANDOFF.md)
+- Task 12: 5/8/9 in r392 (9 WSA-checked, archive). 1-4 closed (static re-check, not device-triggerable). 10/12/13 fixed 6303398, r395 WSA smoke OK (add text 52 chars, SVG); 11 note only.
+- Crawler + monkey done (no crash/ANR; archive); UX inventory + proposals P1-P7 in `docs/UX-INVENTORY.md` (user hasn't picked proposals).
+  P1 (c486aed), P2 (friendly FileNotFound/Security text), P3 (raw key -> small "Setting:" line in help popups) are in r396; P4 (Changed-only chip count; search already existed) and P5 (picker shows "Flow Rate & Vol Calibrated" as small second line, Widgets.kt) are in r397. WSA r397 look: P3 (Setting: line) and P5 (second line) OK; P1/P2 error text not triggered (zip entry opened silently), P4 chip not seen (needs a changed setting). r397 is on all 3 attached devices.
+- P6 (paneTitle on tab content) + About text without AI line: build run 40170895834 dispatched (abed57b); not yet installed/looked at. P7 crawler fixed in ~/orca-android-tools/crawl.py (Quit->Yes = clean exit, no Back at root); Edit-button repro still untested.
+- r398 on WSA/SHIELD/LAN phone; About text OK (phone VD 2026-10-25). UX P1-P7 done.
+
+### 2026-10-25 Push/pull tier 1 (Claude, f701b0c, CI r401 = run 40174622268)
+- Build view chip "Push/pull" (`UiState.buildPush`): on = a drag on a flat face moves that face along its normal, the opposite
+  side stays (size + pos via `posed`, so bound dims follow; `held` keeps groups put); gizmos hide meanwhile; tap still picks,
+  a drag off a face orbits. Round side of CYLINDER/TUBE/PRISM = wider in x and y (far side kept).
+- `ShapeDesign.faceAt(piece, p, ray)`: every leaf in the piece (groups, copies) whose box side the pick point lies on (0.05 mm),
+  solids must face the ray, holes either way; solids win, then closest. Slanted/curved faces (cone/pyramid/wedge slopes,
+  sphere, torus, mesh) grab nothing, without special cases. `ShapeDesign.pushed(face, mm)`: opposite side's middle fixed via
+  placement(); sizes >= 1 mm. `ScadController.faceAt` (engine.pick + toDesign), `ShapeController.pushAt/push`.
+- View: `PlateView.pushMode`, async face check (view holds until it answers), ray-to-normal-line closest point (screen-y
+  fallback when the normal points at the camera), 0.5 mm steps, label "+6.0 mm -> 70.3 mm". Live stretch for a whole volume
+  (top level, no repeat): mesh shader `uScale` is now a mat3 (`PlateRenderer.pushMatrix` = I + (k-1) sum a a^T about the far
+  side; selection box corners follow). Children / repeats: label only, mesh re-renders on release.
+- JVM PushPullTest (4: plain box faces + clamps, every face of a turned+mirrored box moves along its normal with the far face
+  fixed, cylinder side/cap + cone slope null, child in a turned mirrored repeated group); suite 207/207.
+- VERIFIED (Claude, WSA, local debug APK on r400 natives, MCP + adb swipes + crops): Pieces test Base top 10 -> 20 (bottom
+  kept), front face 30 -> 34.5 (back y 17.787 kept), end face 64.3 -> 72.8 (left x -27.329 kept), top 23 -> 10.5; live
+  stretch + label + box mid-drag; repeated turned Peg round side 5 -> 10 (centre moved 2.5 = far side kept), label only;
+  toolbar Undo = one step back; empty-space drag orbits. Debug app uninstalled.
+- WSA test notes: `input motionevent` and sendevent drags don't register on WSA; mid-drag shots = background
+  `adb shell input swipe ... 5000 &` + `exec-out screencap` 3.5 s later. WSA once stopped drawing mid-test (empty ui dump):
+  force-stop + wsa-start.ps1 fixed it.
+- Untested: user feel, holes inside groups (pocket walls), sketch sides, tier 2 (SCAD wrapper for any face) not started.
+
+## 2026-10-25 User verdicts on r401 (phone) + realistic tone fix
+- User: realistic ON = "completely incorrect visual": colour off (#FEC600 amber turned lemon), "whites and highlights way too high"
+  (Lightroom). Normal mode darker but "the color is spot on". Phone VD measure (cylinder, yaw -90 pitch 0): realistic ON
+  (235,218,38), OFF (159,124,21). Cause: per-channel ACES at exposure 0.5 pushed lit faces past 1 (hue shift + wash).
+  Fix: Khronos PBR Neutral tone map (hue kept below 0.76, only highlights compress), EXPOSURE 0.42 (key-lit face ~ albedo). glslc OK.
+- User: matte black (AMS) painted via paint shop Fill on the whole object = flat pure black; AMS PETG #161616 fine. Cause:
+  painted faces (types 10-97) = base * light with no dark floor (parts had max(own, 0.13)). Fix: same floor for paint.
+- Both in one commit, CI run 40179719937 (r402). User untested.
+- r402 installed on phone/WSA/SHIELD. Phone VD check: realistic cylinder (240,187,41) vs filament #FEC600 (254,198,0):
+  hue kept (G/R 0.78 both), lit face ~ albedo (r401: lemon (235,218,38)). Matte-black-painted cube shows faces and edges.
+  User pref realistic_render restored to false (their setting).
+- User 2026-10-25 on r402 (phone): "matte black looks normal now, so does yellow cube" -> matte black paint VERIFIED.
+  "Realistic view no longer shows any difference on any type" (realistic look vs plain / per filament type): open.
+- User 2026-10-25: plate type changing the look "can't reproduce, close that" -> closed. Realistic colour (yellow cube) OK on r402.
+
+## 2026-10-25 Edge bands + realistic "no difference": painted faces were flat-shaded (r403)
+- User pic (r402, phone, Prepare, normal view): dark bands along the rounded edges of "TPU nee-doh 2 small.stl", darker than
+  both faces; earlier the same day "realistic view no longer shows any difference on any type".
+- Cause (Claude, phone VD): the object is fully painted (session 3MF: all 6732 triangles carry paint_color). Paint (pass 2,
+  types 10-97) was shaded `base * (0.35 + 0.65 * abs(n.l))`: abs() bottoms out where a rounded edge's normal turns
+  perpendicular to the light (a groove on every such edge); it also skipped the filament material, real shadow and realistic
+  mode, so realistic ON/OFF and filament types looked the same on painted objects. Shadows off: same bands (not the shadow map).
+- Fix 6f5c49c: paint goes through the part shading with its filament's
+  material (uMatA/B/P of type-10), samples the real shadow (renderer: pass 2 counts as lit); clear filaments stay opaque as paint.
+  glslc OK. Phone debug build (VD): bands gone (soft matte rim instead), realistic ON shows the softbox reflection on the paint.
+- Side note (sim, not seen on device): the unpainted part shading can also dip at a rounded edge between a key-lit and a
+  fill-lit face (two clamped lights; ~8 % of edge orientations, up to 36 % below the darker face). Untouched unless the user sees it.
+- CI run 40181852595 (r403), installed on phone/WSA/SHIELD 2026-10-25. User untested.
+
+## 2026-10-25 User verdict r403
+- User (r403): "Translucent broke" (clear/translucent filament rendering regressed; likely from 6f5c49c paint shading). Open.
+- Cause (Claude, code read; phone session has 412 paint_color triangles): "works on a shape-builder shape, not the cube" = painted objects.
+  Paint (pass 2) was always opaque, so a clear filament's paint covered the see-through look. Fix (commit after ddd31e3, CI run 40207908723, r404):
+  realistic mode discards clear-filament paint in pass 2 and draws it in pass 7 (`drawClearPaint`, same blend as clear parts). Untested on device;
+  the part beneath the paint (its own filament) still draws opaque in pass 0.
+- User 2026-10-25 (phone, r403): shape builder still opens the old separate view (preview pane). User OK ("Yes") to: new designs open straight in the Build workspace (main view), first shape placed as pieces at once, old pane only for code. Opus.
+### 2026-10-25 Shape designs open in the Build workspace (Claude, r405 = run 40208840094)
+- ScadController `buildIfShapes` (was buildIfPlaced): any shape design opens on the plate (scadOnPlate); not placed as pieces
+  yet -> `placeShapes` (pushBuild once it has a solid); setShapes with no build object places it. A draft with edits not on
+  its object now pushes them on open (was: pane, object untouched). Code designs and "Edit as code" (detachShapes ->
+  scadOnPlate off + preview) keep the preview pane. AppScaffold: no eye toggle for shape designs, Back closes the editor,
+  empty-design hint `shape_start` in the main view. ScadEditor: Preview/Live preview bar hidden for shape designs.
+- Claude WSA debug OK: Add > Shape builder -> empty plate 6 + hint in the main view; Box -> placed as pieces, Build (gizmo,
+  Push/pull chip, hint); Cylinder added on the object; Back closed the editor, object kept. Untested: Edit design on a
+  placed object (long-press menu), old single-mesh shape objects converting to pieces on open, phone portrait layout.
+- User 2026-10-25 (phone, r405): "Both confirmed" = shape designs open straight in the Build workspace (no old preview pane) and translucent paint (r404) on a cube both OK. Shape-designs item and translucent paint verified.
+- User 2026-10-25 (phone, r405): translucent paint confirmed; edge outline (r400) confirmed. "The band function in paint draws very slow and choppy" = the Bands paint mode (shape "height", tap/drag a band), perf open. r403 edge-band shading itself not yet user-checked.
+### 2026-10-25 Bands paint mode slow/choppy (user r405) - part 1 (Claude, local debug build, phone VD)
+- Measured (release r405, phone, user's object, 1.7 mm): every drag hit painted its own band on every part (~8 ms each);
+  batches of 6-20 hits = 40-170 ms per engine call. Upstream select_patch with a HeightRange cursor ignores the seed and floods
+  from every facet in range; its edge limit is 0.1 mm, so each band's two edges split finely: a fast drag left gaps
+  (0.2 mm height) and a pile of split triangles (box_with_lid reached 438k-1.2M paint triangles) = each update slower.
+- Fix (OrcaTools.cpp paint "height", OrcaEngine.hpp m_band): one band per stroke; each hit extends the stroke's [lo, hi] and
+  only the new strips get painted (merged per call); parts with no facet in a strip are skipped. Debug build on phone:
+  select ~30 ms per call (was 40-170), continuous band. Still open: write_paint_mesh 50-115 ms per call while the band grows
+  (extract+bytes only ~10 ms of it: the rest is likely the whole-file rewrite, ~400k tris) and the moving top edge leaves a
+  trail of splits (177k -> 462k). Ideas: rewrite only the changed volume's part / throttle paint-mesh writes during a drag;
+  or a shader z-range preview during the drag and one commit on lift.
+- User 2026-10-25: phone going offline (work); phone session (release app: session, openscad, data/user, app_settings)
+  copied to WSA (WSA's old data: /data/local/tmp/wsa-data-before-2026-10-25.tar on WSA; phone tar: tools backups/).
+### 2026-10-25 Bands paint mode part 2 (Claude, a82c8a4, local debug build on WSA, CI run 40214211857)
+- Cause of the slow paint-mesh write: painting only the new strips left each old top edge's 0.1 mm splits behind (a trail),
+  so the paint mesh grew through the drag and every write/extract grew with it.
+- Fix (OrcaTools.cpp paint "height"): a call that grew the band repaints the whole [lo, hi] once; triangles wholly inside
+  lose their splits (TriangleSelector::select_triangle_recursive undivides them), so only the current two edges stay split.
+- A/B on WSA, user's box_with_lid (session copy), same 4 s swipe up the wall, height 0.2 mm:
+  part 1 = 20 calls, select 74 ms + paint mesh 88 ms avg, up to 347k paint triangles;
+  part 2 = 43 calls, select 48 ms + paint mesh 24 ms avg, max 133k. App side: read < 20 ms, GL upload 11-17 ms.
+- Still open if the user finds it choppy: a shader z-range preview during the drag + one commit on lift (needs a stroke-end
+  call from SceneController.paintAt; no lift signal today), or a coarser edge limit while dragging.
+
+### 2026-10-25 Task 18 refusal path on device (Claude, WSA r406, adb swipes on the Build view scale handles)
+- Sphere with a circular repeat (4x about the origin): dragging the X handle (uneven X != Y) left the shape unscaled (refused); control: dragging the Z handle scaled it 20 -> 25.98 mm tall (taller ring still scales). Matches ae07b95. User feel untested.
+
+### 2026-10-25 Bands paint feel (user, r406+)
+- User: "I confirmed the band tool fix worked." Perf item verified. New follow-up: band edges jagged on PC slicer when band height/start are not multiples of layer height (user: 0.08 layer, 0.1 band: bands 1-4 jagged, 5th clean). Wanted: snap band steps to layer-height increments.
+
+### 2026-10-25 Mix restart persistence (Claude, WSA r409)
+- Slot 3 mix of 1+2 (5:5) survives a restart (needed fixes in PresetController.selectPrinterNow and FileController: restored project/session slots dropped the saved mix). Sub-layer switch persists as a print setting, not rechecked.
+
+### 2026-10-25 Band edge teeth + alternate click (user, build of run 40252124536, edge limit 0.04)
+- User (screenshot: black bands, yellow sawtooth edge on top of the lower-left band, user drew a red line in the grey gap below it): "clicking below the defect, does not fill in the area until i reach the red line which i drew. under the red line fills in the entire portion above and below with black." So: taps in the gap just under a band do nothing until about mid-gap; below that one tap paints the whole gap black (merging with bands above and below). Teeth still visible in-app. User offered: "autopilot my computer if you want to test it".
+
+### 2026-10-25 Push/pull tier 1 feel (user, WSA r414)
+- User: "i don't think this works how it should, dragging a face seems to just move the object, since the gizmo also pops up (why?) there's a pretty high chance of just rotating the object. i was thinking this would be like photoshop warping, where i could smoosh stuff around like playdough". So on r414 a face drag moved the object, a gizmo showed (push mode should hide them) and drags often turned the view. Wanted instead: sculpt-style free deformation (liquify / grab brush).
+
+### 2026-10-25 Push/pull demo + ice cream truck demo (Claude, WSA r416 = run 40254161976)
+- r416 (band claims_leaf patch 0003, band start = tapped layer, measure build fix) installed WSA + SHIELD; bands not yet rechecked.
+- Push/pull demo live on WSA: chip on, right face drag -> Box W 20 -> 35.5, X 0 -> 7.75, no gizmo. User: "it just resizes the box, that's what the 'resize' command does?" Claude: mostly yes; proposed folding it into resize (face drag) and dropping the chip, or removing it. The user's earlier gizmo/turning = chip off (starts off, on/off hard to tell apart).
+- Truck demo via MCP (`~/orca-android-tools/truck.sh`, `truck2.sh`): 65 shapes, hollow body/cab (shell 2) with hole windows, chef + driver figures, awning stripes (repeat), lights, bumpers, menu board, hubcaps, sprinkles. Updated on plate 6. Shape-builder text: local size [len, letter height, thickness], rot [90,0,0] to stand it up. Holes show as grey ghosts while the builder is open; people inside not yet seen by Claude (user was orbiting).
+- User asked what would take the CAD "to the next level like blender"; Claude ranked a roadmap (backlog "CAD roadmap"). User wants it saved; decisions open.
+
+### 2026-10-25 CAD reuse investigation (Claude, Opus)
+- User asked for open-source CAD code to jumpstart detail modeling. Found upstream libslic3r/CAD (OCCT feature tree incl. fillet/sweep/loft) already in src-orca, OCCT already built for Android minus ModelingAlgorithms; Manifold, OpenVDB, libigl, CGAL already linked. Plan in NOTES-cad-reuse.md; awaiting user go.
+- User 2026-10-25: accepted the plan ("okay tag each step with model/effort"); effort for step 0 = medium (user: "medium seems to do the job").
+
+## 2026-10-26 CAD step 0 (OCCT spike) GO
+- r417 (run 40258983602): SLIC3R_CAD ON + SLVS; deps 43 min cache miss, core 4.5 min, APK 112.39 -> 112.41 MB (linker dropped unused CAD). r418 (run 40263505255): JNI add_primitive round arg uses GeometryEngine make_primitive/apply_fillet/tessellate, APK 120.68 MB (+8.3 MB). WSA: Cube (rounded) r3 created, 11404 tris. Claude-tested only; user has not seen it.
+
+## 2026-10-26 CAD step 0 verified (Claude, WSA r418)
+- SLIC3R_CAD ON + dep_SLVS build OK; deps rebuild 43 min once; APK 112.41 -> 120.68 MB; Add shape "Round edges" 20 mm cube r3 -> 11404 tris. Box depth/height were swapped in add_primitive (fixed in step 1a commit).
+
+## 2026-10-26 CAD step 1a Blend joins (Claude, WSA r419, run 40266715932)
+- Per-shape round/chamfer/hollow already existed (OpenSCAD minkowski, 45ac19d), so step 1 = group "Blend joins (mm)" (deviation).
+  Kotlin: `ShapeDesign.blendCode` turns a blended group's piece into `BLEND_TAG` + {radius, parts} (box/rounded box/round cyl/cone/sphere,
+  own round/chamfer, 4x4 matrix, hole); `ScadController.blend` -> `Engine.blendSolids` -> `android/core/jni/OrcaBlend.cpp` (OCCT 8:
+  exact primitives, GTransform for elliptic, fuse, UnifySameDomain + history, fillet SectionEdges, cut holes + fillet rims, tessellate 0.02 mm/0.3 rad).
+- WSA via MCP design_set + design_to_plate: box + cylinder + bore, blend 2 -> 3566 tris, 1 shell, 7450 mm3, fillet + rims visible.
+  Blend 9 -> "rounding the hole rims failed (try a smaller radius)", nothing placed. Torus -> "can't take "Ring"". Rounded box + sphere +
+  tilted mirrored elliptic cone, blend 1.5 -> 9480 tris, 1 shell, looks right. shape_merge of the blended group -> mesh shape OK.
+- Found: MCP shape_update rejected extra.blend (EXTRA_KEYS) -> fixed after r419. Native compiled first try on CI.
+
+## 2026-10-26 CAD step 2a/2b verified by Claude (WSA)
+- Deviation from the plan: no CadDocument; sweeps are OpenSCAD polyhedra generated from the sketch (prelude modules `coil`, `loft` in `ShapeModel.kt`), JVM-testable (`SketchSweepTest`), no native build.
+- 2a (commit "CAD step 2a", r420 run 40270243289): Extrude "Twist (°)" (linear_extrude twist), Revolve "Rise per turn" (coil; angle up to 3600; rise clamped to profile height + 0.01 past one turn). 2b: `Shape.top` outline, extrusion lofts to it (`Sketch.resample`, aligned at the +x ray from the centre), twist + top scale apply; MCP `sketch_set` `top`.
+- Face winding checked by signed-volume scripts before building. WSA debug app (r420 libs + 2b): coil 3 turns z 0..14, vol 451 (expected 452); twist 20 mm cube 90°, vol 8000; loft square->circle 20x20x15, vol 3628; all closed (0 non-manifold edges), OpenSCAD no warnings.
+- design_to_plate needs an in-app confirm (not usable hidden); design_snapshot shows the stale GL preview when parked; pulling `cache/openscad/preview/*.stl` + a bounds/volume script works.
+
+## 2026-10-26 CAD step 2c sweep along a drawn path (Claude, WSA debug app on r420 libs; not on CI yet)
+- `scad/Sweep.kt`: profile (the sketch; x sideways = left of travel / outwards on a closed path, y up, path through the origin)
+  swept along every loop of `Shape.path` (seen from above). Mitred frames (1/cos half-turn, capped at 4x), closed paths made
+  clockwise, holes subtracted and pushed 0.1 mm past open ends. Prelude module `sweep` (winding like `loft`). Box = swept bounds
+  1:1 (`fitSketch`), code scales + centres. `Loop.open` (+ `Loop.sides`) for open paths; sketch editor `path = true` mode (Done/Enter
+  keeps open lines, no fill, tap the line to pick, no Hole switch); profile editor title changes when swept. Loft/twist/top fields
+  hide while a path is set. MCP `sketch_set path`.
+- Checks: JVM `SketchSweepTest` 9/9 (mitre frames, bounds, box fit, json round trip, closed path outward, holes). Desktop OpenSCAD:
+  pipe (circle + hole) on a line + arc path -> manifold, genus 1, 4704 facets; closed rim on a circle r 15 -> manifold, box 34 (outward).
+  WSA: MCP sketch_set -> "swept along a path", preview 4704 tris, looks right; Edit path editor shows the open path; drew a 3-point open
+  line by taps, Done -> 2nd open loop saved, preview 5184 tris; line tap picks the path.
+- Known: a profile wider than a path bend's radius folds into itself (no check); sweeps skip corner rounding / shell.
+- 2c review fixes by DeepSeek V4.1 Flash (max, 27 min): 3 real edge cases (repeated profile points, lift from discarded/hole loops, open path ending at its start), winding confirmed; fixed + test, 218/218 JVM.
+
+## 2026-10-26 CAD step 3 deformers: twist refinement fix (r423, Claude-verified WSA)
+- Bug (r422): a flat part twisted kept one-triangle walls (refine only by edge length before the warp), chords cut the next teeth:
+  2 mm gear +30/-30 deg -> 9805 self-intersecting face pairs, volume 10835 -> 10171 mm3.
+- Fix: `MeshDeform.hpp` `refine_for_warp` (also splits edges whose warped midpoint strays > tol from the warped chord; shared
+  `detail::warp_point` + `refine_with_predicate`), written by DeepSeek V4.1 Flash (job `deform2`, 20 min); `OrcaDeform.cpp` uses
+  tol = diag/4000. Commit "Deform: refine edges whose warped chord strays", r423 run 40286374371, installed WSA + SHIELD.
+- WSA MCP r423: new 40-tooth gear (sketch, 86 x 86 x 2, plate 6 object 7, 636 faces): twist +30 -> 89056 faces, -30 -> 107296;
+  `object_check_mesh` (CGAL self-intersections) "No problems found" both times, volume 10835 / 10829 / 10831 mm3.
+- Harness note: the job's FAIL was a `mesh_check` false positive (27 coplanar disjoint pairs on flat walls, max 1.4e-5 off-plane).
+
+## 2026-10-26 CAD step 5a: sculpt brush core (Claude-verified on WSA debug build, user feel untested)
+- `android/core/jni/MeshSculpt.hpp` (pure C++, SculptGL-style falloff `(1-(d/r)^2)^2`): brushes draw, inflate, smooth, flatten, pinch, crease, grab;
+  `build_topology` (CSR neighbours + area-weighted normals) per call; `dab` reads from a snapshot. Desktop test (WSL g++, `~/sculpt_test/sculpt_test.cpp`,
+  not in the repo): draw raises the top by 0.04, smooth pulls a 0.3 spike back to 0.01, grab moves exactly by delta, flatten lowers the cap.
+- `OrcaSculpt.cpp`: `OrcaEngine::sculpt(hits, brush, radius, strength, invert, new_stroke)` in volume coordinates (radius / cbrt(det) of the copy's matrix);
+  first call of a stroke: push_undo + `refine_to_length(radius/5)` when the longest edge exceeds it (budget max(400k, faces); refining drops painting,
+  otherwise facet indices and painting stay). Call-table name `sculpt`; Kotlin `Engine.sculpt`; MCP `object_sculpt` (ray origin/dir, brush, radius, strength, invert, dabs).
+- WSA test (box_with_lid, 40778 faces): inflate r8 x10 -> 73530 faces (refined); inflate r30 x50 -> size Y 44.6 -> 56.8 mm, Z 75.3 -> 77.4 mm.
+- Known limits: topology rebuilt per call (O(n)), `write_mesh` rewrites the whole plate each commit (too slow for live strokes above ~50k faces);
+  grab uses hit-to-hit deltas, not a captured vertex set; no symmetry; no UI yet.
+
+## 2026-10-26 CAD step 5b: live sculpt UI (Claude-verified on WSA debug build, user feel untested)
+- More menu > Sculpt = `Tool.Sculpt` (brush, radius 0.5-30 mm, strength, invert), panel `SculptOptions` in ToolPanel (wrapped chips:
+  Draw, Inflate, Smooth, Flatten, Pinch, Crease, Grab; Ctrl+wheel sizes the brush). Uses paint mode's touch handling (touch off the object
+  or two fingers = view); finger lift -> `PlateView.Listener.onPaintEnd` -> `SceneController.sculptEnd`.
+- Native session (`OrcaSculpt.cpp`, `OrcaEngine::SculptSession`): the part's mesh + topology (CSR, vertex->face too) + AABB tree over the
+  mesh at session start; moved faces are hit-tested one by one, so the brush lands on the sculpted surface. Kotlin sends rays, not hits.
+  Each call writes only the changed triangles (`scene.bin.patch`: runs of whole-scene triangle indices, gaps <= 16 sent along, all copies)
+  tagged with the mesh version; `PlateRenderer.applyPatch` glBufferSubData's them once that mesh is loaded. The part's mesh is written at
+  stroke end (`sculptEnd`: flush + drop to bed + commit) or by `dispatch()` before any other engine call (`sculpt_flush`).
+  Session reused across strokes while the part's mesh pointer matches (undo / other edits rebuild it); tree rebuilt when > max(20k, F/10) faces moved.
+- Refine once per brush size (`refined_to`): checking the longest edge every stroke re-refined stretched sculpt edges, grew the mesh
+  (188k -> 199k) and rebuilt the session each stroke (~1.2 s).
+- Brush vertices = flood along edges from the hit's nearest vertex within the radius (`Stroke::seed`): a 5 mm brush on box_with_lid's
+  2 mm wall also moved the inner wall, the averaged normal tilted and left 13 mm fins.
+- Layered draw / inflate / crease (`StrokeState`, Blender's accumulate off): a vertex rises to the highest any dab of the stroke asked
+  (strength * radius / 2) along its first direction; stacked dabs climbed their own bump into beads with forward tips.
+- Grab: vertices under the first hit (flooded) follow the finger on the plane through the hit facing the view.
+- WSA (box_with_lid ~200k faces): later calls 1-7 ms per ray, batches of 45-78 rays 26-59 ms; stroke start 55 ms when the session is
+  reused, ~0.7-1.3 s for a part's first stroke (refine + full scene write + session build: topology ~40 ms, tree ~120 ms).
+  Mid-stroke screenshot shows the ridge growing before the lift; layered ridge even; grab pulls a horn; Ctrl+Z restores (208220 -> 208120).
+- Desktop test `%TEMP%/sculpt_test/sculpt_test.cpp` (WSL g++, not in the repo): face incidence, normal update, seeded thin wall, layered draw.
+- Open: no brush cursor; no dynamic topology (grab-stretched faces stay coarse); paint overlay follows only at stroke end; no symmetry; slow first stroke.
+
+## 2026-10-26 CAD 5b follow-ups: brush ring + stroke-end split (Claude-verified on WSA debug build, user feel untested; CI r428)
+- Brush ring (8918179): native `sculpt` returns the last dab's world `point` + `normal` (hit face after the dab; grab: drag point,
+  view normal); `probe` = hit test only. `SceneController.sculptCursor` (StateFlow) -> Viewport -> `PlateRenderer.brushCursor`
+  (48-segment ring on the tangent plane, dark rim under white, depth test off). Hover: `PlateView.onPaintHover` (mouse / pen,
+  no button) -> `sculptHover` -> only the newest ray, probed after queued strokes, on the last part (else a scene pick).
+  Cleared at finger lift and hover exit. WSA: hover ring sits on the wall at the pen point; follows a draw stroke; gone after lift and exit.
+- Stroke-end split (`sculpt_finish_locked`): edges in the session's touched region longer than 2x `refined_to` are split
+  (`refine_with_predicate`, budget max(600k, F)); paint dropped, session rebuilt keeping `refined_to`. WSA box_with_lid grab horn:
+  246870 -> 248752 faces in 80 ms + session ~180 ms at lift; draw strokes don't split. Stroke start ~200 ms on this 248k scene (start path unchanged).
+- Hover test tool: `~/orca-android-tools/wsa-pen-hover.sh HOLD X Y [X Y ...]` (uinput virtual pen, root; `input` can't hover).
+- Still open: paint overlay follows only at stroke end; no symmetry; slow first stroke; mid-stroke grab stays coarse (split only at lift).
+
+## 2026-10-26 Smooth blend stall fixed (Claude, WSA debug build; CI run 40397057477)
+- Host repro (WSL, Ubuntu OpenVDB 8.1 debs extracted without root, `C:\Users\Vince\build\vdbrepro\blend.cpp`): cost follows the band
+  (r / voxel), not faces: flat gear at diag/300, r 40 = 91M active voxels, 31 s on 16 PC cores.
+- WSA cause: the 176k-face gear (plate 2 object 5) at r 40 sat >10 min inside meshToVolume's band expansion at 1500 % CPU
+  (layers 1-12 took ~130 ms each, then one never ended). 1 thread: 47 s, 4 threads: 18 s, 16: livelock. Host replays the same mesh fine,
+  so it is the Houdini ARM translation (debuggerd shows only libhoudini frames). Fix: TBB arena of 4 threads when
+  `ro.dalvik.vm.native.bridge` is set and not "0" (phone: "0", 8 cores, untested on ARM).
+- Also: voxel = max(diag/300, cbrt(grown bbox / 8M)); outer band r+3 only for the grow, inner r+3 only for the shrink (identical
+  mesh on host, half the time); interrupter on meshToVolume/levelSetRebuild + busy-dialog Cancel (`Store.launch(cancel=)`,
+  `Engine.cancel()` renamed from cancelSlicing); a cancelled blend shows no error.
+- Bugs found: bca0584 dropped the `voxel_scale` metadata (result scaled by 1/voxel); volumeToMesh winds inward since step 4
+  (signed volume -10492 vs +10172): flipped now, and inside-out shells are no longer skipped ("could not be voxelized" on a 2nd blend).
+- WSA results: gear r 40 18 s, r 3 at voxel 0.405 (the old stall) 7.4 s; box_with_lid r 40 size kept (124.3x44.6x75.8 -> 123.7x44.6x75.3);
+  UI Cancel mid-grow: dialog gone in ~1 s, no error, object unchanged; re-blend r 20: 1 shell, +10843 mm3. User feel untested.
+- Phone r429 (run 40397057477, user watching, 2026-10-26): same 176k gear, r 20, 8 cores uncapped: voxel 0.437, voxelize 2.1 s,
+  grow 2.3 s, shrink 0.2 s (4.6 s total), 20514 faces; no livelock on real ARM. Cancel 1.5 s after Apply: stopped in voxelize,
+  no error, gear unchanged. Test gear + file removed afterwards. r429 installed on phone, WSA, SHIELD, Quest.
+
+### 2026-10-26 Bands paint recheck (Claude, WSA r429, release app)
+- 20 mm cube (12 triangles) added to plate 5 (slab "Shape design.stl" deleted there: empty first layer blocked slicing), process 0.20mm Standard, Bands height 0.1 mm, front close-up ~55 px/mm.
+- Taps at z ~0.57 and ~1.14: each painted exactly one 0.2 mm layer ([0.4,0.6], [1.0,1.2]); every scanline across the face fully painted or not at all (no teeth).
+- Gap taps (the user's r414 complaint): a tap in the upper half of the gap layer under the top band filled only that layer; the last gap layer likewise; nothing spilled.
+- Slice: T1 on layers 3-6 exactly (z 0.4-1.2), layers 2 and 7 pure T0. Layer 3 also has T0 walls/solid infill = the slicer's yellow core in the last bottom-shell layer, not an edge effect.
+- Open: user check in the PC slicer at 0.08 mm (edges follow the app's selected process; a different PC layer height won't line up).
+
+## 2026-10-26 Measure snap check (WSA r429, Claude)
+- Gear on plate 5, Measure via key U. Hold = loupe, lift places; the dot sits ~70 px above the finger (offset), so aim the finger below the target. Plain tap places the exact tapped point, no snap. `adb input swipe x y x y 2000` after `focus.ps1` works; without focus the hold is lost.
+- Dot ~26 px from a tooth tip: stays on the face (no snap). Dot ~8-12 px from the tip: lands on the silhouette edge (snapped, SNAP_PX 14). Not read: second point + distance on the model.
+
+## 2026-10-26 User verdicts (r429)
+- User: 3MF export verified in desktop Orca (loads ok). Bands verified in the PC slicer. (Bed-type label line stays open in the backlog until they confirm it.)
+
+## 2026-10-26 Interaction plan step 1: Measure snap highlight (Claude-verified, WSA debug build)
+- Native (OrcaTools.cpp `OrcaEngine::SnapFeatures`, replaces the per-mesh neighbour cache `m_neighbors`): sharp edges (>25 deg or
+  open), smooth patches (flood across non-sharp edges = CAD face), per-vertex sharp-edge lists. `pick(snap>0)` returns `feature`:
+  vertex / edge (straight run) / ring (closed, round within 10 %: centre + diameter) / curve / face (patch outline, <= 20k segments).
+- Snap changes: vertex counts only at real corners (not 2 sharp edges turning < 50 deg, so hole rims snap as lines); candidates from
+  all facets within reach (BFS); distances from the pick ray, ignoring anything more than the snap distance behind the hit.
+- App: `SnapFeature` on `PickHit`/`Loupe`; PlateRenderer `drawSnapLines` via new `WIDE_LINE_VS` quads (WSA caps glLineWidth at 1 px);
+  loupe ring/dot/label in the kind colour (green snap, amber ring, blue face). Strings measure_snap_*.
+- WSA debug checks: gear top face outline (teeth + rim), gear hole "Circle 9.50 mm" with amber ring, cube vertical edge "Edge"
+  (1 segment), cube top 4-segment outline, gear tooth tip "Corner". Not seen: curve kind. Voxel Assembly: everything "Corner" (step 2).
+
+## 2026-10-26 Interaction plan step 2: Snapping rules (Claude-verified, WSA debug build; CI r431)
+- r430 (run 40435344234, step 1 snap highlight) installed on WSA, SHIELD, phone, Note.
+- Native `pick(snap, release, stick, seedOrigin, seedDir)` (OrcaTools.cpp): `SnapFeatures::next()` carries an edge line on through
+  junctions (straightest sharp edge under 50 deg turn; replaces `corner()`); corners = vertices with >= 3 "long" arms, or 2 turning
+  >= 50 deg; arms / edge lines count only when longer than the snap distance (14 px on screen), so voxel noise creases don't snap.
+  `stick` (last caught point) holds its corner/edge out to `release`; `seed` (a ray that hits) looks round when the aim misses, and
+  returns no hit unless an edge/corner is caught.
+- App: `measurePick` sticky for the loupe (reset on finger down), 8 seed rays on a SNAP_PX x SNAP_RELEASE (1.6) ring (Viewport
+  `snapRing`); `UiState.measureSnap` + "Snap to corners and edges" checkbox; Alt+click = bare hit (untested, adb can't hold Alt);
+  hidden parts of snap lines dashed (WIDE_LINE_FS `uDash`, GL_GREATER pass). Debug-only `SNAPDBG` log per loupe event.
+- WSA debug checks: voxel Assembly sphere "Face" (was Corner), wedge silhouette "Edge"; cube 8 px off silhouette = Edge, 20 px off
+  = nothing; slide edge -> 18 px off holds Edge, fresh hold at 18 px = nothing, slide to 27 px lets go; cube corner = vertex;
+  gear hole ring 9.50 mm; Snap off = bare hit (446.35 vs edge 446.50); hole's bottom rim: visible part solid, hidden part dashed.
+- Measure mode on WSA without focus stealing: `adb shell input keyevent 49` (U).
+
+## 2026-10-26: Interaction plan step 3, measure results (Claude-verified WSA debug; CI r432 run 40440420017)
+- `ui/Measure.kt`: `MeasurePoint(point, kind, normal, diameter)` replaces `UiState.measure: List<Vec3>`. `MeasurePoint.of(hit)`: ring ->
+  centre (length-weighted segment midpoints) + axis (cross products, sign-aligned); "face" -> flat only when every outline end lies
+  within max(0.05 mm, 0.5% of extent) of the hit plane, else "point" (curved patch, closed smooth surface, bare hit). `bed(p)` from
+  Viewport `bedAt` (plateAt + rayOnPlane) when nothing is hit; loupe shows "Bed". `measureResult`: parallel planes (1 deg) = gap,
+  else angle (0-90); point + plane = square distance; dX/dY/dZ always. ToolPanel: "A to B" kinds line, headline, caption
+  (Gap between the parallel faces / Square to the face / Height above the bed / Centre to centre), straight line, angle, deltas.
+  MCP view_state lists points + results. JVM MeasureTest 7/7.
+- Fix in `measurePick`: aimed off the model, a seeded pick counts only if it snapped (the bed through the gear hole came back as the top face).
+- WSA debug (MCP readout): cube top -> bed gap 20; bed -> front face 90 deg; front -> right 90 deg; top edge -> bed square 20 (straight
+  30.42); gear hole ring D 9.5 centre on the gear axis; ring -> bed through the hole 2.00 (gear thickness); loupe over the hole "Bed".
+
+## 2026-10-26: Interaction plan step 4, measure input types (Claude-verified WSA debug; CI r433)
+- PlateView: `exactPointer` (mouse source/tool or pen) = no lift. Measure hover (HOVER_ENTER/MOVE, no button) sends loupe phase 4 (preview
+  only); HOVER_EXIT clears it after 120 ms unless a press follows (a mouse press ends the hover first); the preview goes when the camera
+  turns and when the mode leaves Measure. Click without move (mouse/pen) = phase 2 at the pointer instead of the tap pick (places what
+  the hover showed: same sticky catch). Press on a placed point within 12 dp (`onMeasureGrab`) starts the loupe at once (drag moves the
+  point, not the camera). Mouse/pen long press = exact loupe.
+- Viewport: per-gesture `aimOffset`: exact 0, finger -56 dp, a grabbed point = its screen spot minus the pointer (stays put, 1:1);
+  grab radius from the finger or its lifted aim. Loupe x/y = the aim spot. SceneController: phase 4 (re)starts the loupe; a click with no
+  hover before it resets the stick. MCP view_state shows `(loupe at x,y: kind)`.
+- WSA debug (virtual pen `wsa-pen-hover.sh`, `input mouse`, `input touchscreen motionevent`): pen hover on the gear = phase 4 vertex,
+  loupe at view 734,456 = screen 824,495 (exact), gone after the pen left; mouse tap placed the vertex under the cursor; mouse swipe from
+  it moved the point to the bed, camera unchanged; finger long press 5 px from the bed point grabbed it in place and moved it 1:1 onto
+  the top corner. Untested: real S Pen, Quest, touchpad; user feel.
+
+## 2026-10-26: Interaction plan step 5, measure axis lock (Claude-verified WSA debug; CI r434)
+- `ui/Measure.kt` `measureLock`: a line within 8 deg (`AXIS_LOCK_DEG`) of X / Y / Z locks to it; 15 deg steps (`ANGLE_STEP_DEG`, azimuth
+  and elevation) with Shift held or the "15° steps" toggle. B is never moved: the headline is how far B lies along the locked direction
+  (after face gap / square-to-face, which keep priority; no lock then). Colours X red, Y green, Z blue, step magenta (`measureLockColor`).
+- UiState `measureAxes` (toggle "Lock to X / Y / Z", on), `measureSteps`, `measureShift` (MainActivity.dispatchKeyEvent watches Shift in
+  Measure), `measureShiftPlaced` (Shift held at placement keeps the steps for that pair), `measureLine` (last point + the loupe's
+  `preview` MeasurePoint, else the placed pair). Loupe gained `preview` (what a click places; a ring = its centre, the line ends there).
+- Renderer `drawMeasureLine`: wide line over a dark border (was a 1 px red GL line): white, or locked: A to B's foot in the lock colour +
+  thin dashed offset foot to B. MCP view_state adds `; line locks to X, along N mm`.
+- Fix found on the way: two bed spots (or a point on its own face) showed "Height above the bed 0.00 mm"; square distances under 0.01 mm
+  (`MEASURE_IN_PLANE_MM`) now fall back to point to point (and can lock). MeasureTest 10/10 (3 new).
+- WSA debug (gear): ring centre to a tooth 3.2 deg off X: red line, "Along X 39.32 mm" (= dX); tooth at 37 deg: no lock; toggle on:
+  magenta, "Along 0° up, 210° round from X 42.64 mm" (217 deg line); pen hover over the X tooth: the live preview line locks red.
+  Untested: Shift held with a real keyboard; Y / Z lock on a part (logic + tests only); user feel. Note: the measure panel's
+  toggle rows move as the result lines change (pre-existing layout).
+
+### 2026-10-26 Interaction plan step 6: steered-point camera prototype (Claude, 015b132, CI run 40450213519)
+- Toggle "Steer camera (hold: zoom in, fast slide: out)" in the Measure card (UiState `measureSteer`, off). Finger loupes only
+  (mouse / pen stay exact). `render/MeasureSteer.kt`: the dot starts 56 dp above the finger (or on a grabbed point), the finger's
+  moves steer it 1:1 in screen px (finer the closer the camera), each frame (postOnAnimation) the camera pans so the dot eases back
+  to its start spot (FOLLOW_S 0.35 s) and zooms at the dot by smoothed finger speed: < 60 dp/s in at e^0.4/s (to 12x closer max),
+  > 500 dp/s out at e^1.3/s (to the start distance). Second finger = camera freeze (PlateView `onMeasureFreeze`; the loupe now
+  follows its own pointer id, other fingers no longer move it). Lift / cancel: placed (pick before the camera moves), then the
+  camera eases back to the pre-press view (0.3 s, distance geometric). Plain loupe code path unchanged.
+- WSA debug (gear, `wsa-steer-test.sh x y`): start 350 mm; held 3.5 s -> 75.7 mm, slow steer +50 px -> 29.2 mm, fast 60 px
+  slides -> 58.5 mm, lift -> 350 mm exactly, face point placed; shots show the dot fixed at its spot, gear zoomed under it, hole
+  and teeth outlined. Toggle off: hold 2.5 s keeps 350 mm, 2nd point placed (33.7 mm). Untested: 2nd-finger freeze (WSA input
+  has no multi-touch), real finger feel, phone comparison vs the plain loupe (user). Camera target can dip below the bed while
+  zoomed (zoomAt on the view plane); harmless since the lift restores it.
+
+## 2026-10-26 Interaction plan step 7 (mask as explanation), a2b67f7
+- Show overhangs (quick settings, support threshold angle slider): Claude-verified WSA debug (gear rotated 50 deg about X: underside red at 70,
+  no tint at 30 and mid-drag below 50; label "Under N", value written on release). First try didn't tint: the Viewport LaunchedEffect lacked
+  the overhang keys. Paint brush ring and live crease-angle re-fill: built, untested on device.
+- (2026-10-26, later) Ring + live re-fill Claude-verified WSA debug (same build): virtual pen hover on the gear top in Paint > Color painting
+  (sphere 3 mm) drew the white ring with a dark border at the pen spot, gone after the pen left. Fill + Stop at edges on the gear bore
+  (~16 facets): 11 deg filled one facet, slider to 30 deg re-grew it over the whole bore live, back to 11 deg shrank it to the one facet.
+  Notes: on WSA a touch/mouse tap on the gear in Navigate didn't select it (Objects list row did); not chased. CI run 40454196356.
+
+## 2026-10-27 Step 8a gesture scrubber
+- User answers (chat 2026-10-27): scrub starts by holding a setting chip; region edits = all four (colour slot, fuzzy/seam/support,
+  modifier settings, mesh smoothing; "I have no clue?", leanings only).
+- Built `ui/components/Scrubber.kt` + ScrubGestureTest (4/4). Claude-verified on the phone hidden display (local debug build, support
+  paint panel on a handle part): drag right from "Brush 3.0 mm" -> HUD "Brush 10.8 mm" mid-drag; held drag down then right picked
+  "Gap area" (chip highlighted) and moved 1.0 -> 1.2 mm2. Phone was asleep at first: injected taps dropped until WAKEUP (user OK'd waking).
+  WSA debug skipped: it takes taps only when focused. Debug apps uninstalled from WSA and the phone.
+
+### 2026-10-27: 8a scrubber + 8b slice 1 on CI build r437 (run 40477704169)
+- r437 installed on phone, WSA, SHIELD, Note (Chromebook offline). Claude-verified on the phone hidden display (release app, box
+  from MCP shape_add, Paint shop > Fill > Regions): tap cube top -> filled with the active filament and "This region" row shown;
+  chip 1 recoloured it yellow; Support chip on (green overlay), tapped again -> cleared, yellow back. Held drag on "Crease 30°" ->
+  HUD "Crease 53°" over the 3D view. User feel untested.
+- Tool note: uiautomator `--display` dumps the focused display, so a touch on the phone's main screen makes VD dumps return the main
+  screen; `~/orca-android-tools/vdlayout.sh` retries, VD shots (`orca-vd.sh shot`) always work. MCP on the phone needs `MCP_DEV=<phone>` (target is WSA).
+
+## 2026-10-27 8b slice 2 (region Smooth / Modifier) Claude-verified on r438 (WSA, CI run 40513068886)
+- `MeshRegion.hpp` (Taubin smooth, border pinned; region -> closed shell, mitred offset) + `OrcaRegion.cpp` (`regionEdit`) + "This region" chips Smooth (5 it.) / Modifier (1 mm) in `ToolPanel.kt` RegionEdits (row scrolls sideways; Smooth/Modifier are the last chips).
+- Test: Paint > Fill > Regions, tap a sphere (it takes filament 2), Smooth: no error, tri count unchanged, paint kept; Modifier: Shape design 25270 -> 37918 tris and "Modifier · Region modifier" appears under Parts & modifiers. Open: user feel; Smooth on a visibly curved/noisy mesh not seen (spheres already smooth).
+- WSA window was parked off-screen by wsa-start.ps1 (black screencap, MCP "no 3D view"): `focus.ps1` brought it back (user said WSA fully available).
+
+## 2026-10-27 Interaction plan step 9 (Cut) Claude-verified on WSA debug (local native build)
+- `render/CutPlane.kt` heightThrough / shiftThrough / rotFacing / upright / slideAxis (+ `CutPlaneTest`, 5 tests); `SceneController.cutThrough`
+  (tap: `onViewTap` `is Tool.Cut`, measure snap) and `cutAlignAt` (long press via `Viewport.onContextMenu`; off the cut copy = context menu).
+- X-ray: mesh pass 8 (`Shaders.kt`), `PlateRenderer.drawCutXray` + disc drawn again at 0.12 with depth GREATER; on while `PlateView` cut drag/tilt
+  (`renderer.cutXray`) or the slider is held (`Tool.Cut.placing`, `cutXrayPanel`).
+- Upright planes: `Tool.Cut.dx/dy`, `OrcaEngine::cut` shift_x/shift_y (plane point = box middle + shift); view drag slides along the level normal.
+- Test (box_with_lid, plate 1): taps on walls -> Z 25.43 / 73.95 / 23.63; long press on a side wall -> 90 deg plane lying on that wall; drag ->
+  slides sideways, mid-drag shot shows ghost + hidden red line, gone on release; tap lid floor + Cut -> pieces 14.1 + 30.5 mm (sum 44.6 = depth).
+
+## 2026-10-27 user verdict: Measure steer zoom + point grab (build r439)
+- User: "Holding the point shouldn't continuously zoom in ... it should have a maximum zoom ratio dependent on the object/region
+  being measured. As it is now I hold the point and it just keeps zooming." Today: MeasureSteer MAX_ZOOM = 12x the start view
+  (~6 s of holding at 0.4/s), not tied to the feature.
+- User: "Tapping the red point after setting it should activate it and be freely movable if dragging it, clicking off or away
+  from the dot should set/deselect it." Today: finger needs a long press within 40 dp to move a placed point.
+- The "zoom cap per region" wording is not in the repo: the dump was condensed before it was saved (NOTES-interaction-plan.md).
+- (2026-10-27, user) GO on the proposal (feature-capped zoom, tap-select point, notes). Plus: "I also want the camera to dynamically
+  adjust so we have a good framing of where the snap is happening, this is why it can't zoom too much, but this includes pan tilt swing."
+- (2026-10-27, user) "all the settings for the movement zoom speed magnification should be in settings nested in a tab for tuning,
+  each should be tuneable by me and you. If mcp is best token friendly way then we need that setup too."
+- BUILT + Claude-verified WSA debug 2026-10-27:
+  - Steer framing (MeasureSteer `focusOf` / `aim`, Camera `zoomAbout` / `orbitAbout`): a slow or still finger zooms until the snapped
+    feature fills 0.4 of the short side (ring = diameter, else the feature lines' span, min 2 mm) and stops; turns towards a good look
+    (hole along its axis, face half-way to square-on, edge seen square) at most 35 deg from the start view, pitch 5-85; nothing over
+    the bed. WSA: hold over the gear hole (= bed) no zoom; steered onto the rim -> distance 40.9 (expected for D 9.5), pitch 74 (cap 75);
+    fast slide backs out; lift restores; ring D 9.5 placed. JVM `MeasureSteerTest` 5/5.
+  - Tap-select point (`measureActive`): tap on a placed point selects it (white ring), finger drag from the selected one moves it 1:1
+    (PlateView grab at down), tap elsewhere deselects without placing. WSA: select, drag (stays selected; re-placed = last in the list), tap away.
+  - Tuning registry (`core/Tuning.kt`): 15 knobs (loupe zoom/size/gap/lift, steer fill/min feature/swing/face square/smoothing/speeds),
+    More > Tuning sliders + reset, MCP `tuning_get` / `tuning_set` ({"key": v} or {"reset": true}); WSA: set loupe.zoom 4, unknown key reported.
+
+## 2026-10-27 user verdict, r440 (phone)
+- Steer framing + tap-select + loupe: "identical to what I had in my minds eye". Open: a corner snap zooms really far in (fix: corner size floor, steer.corner knob); movement feels slightly sluggish (user tunes later in More > Tuning).
+- 2026-10-27 user report (after r440 fixes): place 2 measure points, select one, close Measure -> the selected point's ring stayed. Cause: ring in Viewport.kt drawn on measureActive alone. Fixed: gated on tool == Measure (compiles; not yet in a CI build, untested on device).
+- 2026-10-27 user: long press started the point above the finger (should be where a tap lands); 15° toggle redundant. Fixed in Viewport.kt (ease from 0 to loupe.lift with finger travel) + checkbox removed. Untested on device.
+- 2026-10-27 user: measure snap on a sphere super-zooms (cause, by reading, untested: a sphere's tiny facet is a 'face' snap, framed at steer.min_feature 2 mm). Fix: face/curve snaps frame at least steer.corner (15 mm) like corners. No sphere-specific logic yet (centre / radius snap = idea).
+- 2026-10-27 user: wants a resolution slider (spheres blocky zoomed in). Added Tuning knob model.detail (0.5-4x, More > Tuning) scaling the Build workspace's sides() in ShapeModel.prelude (cap 180 -> up to 720). Applies when the shape code is regenerated; native its_make_sphere (OrcaScene/OrcaExtras, fixed 90 steps) and imported meshes unchanged. Untested on device.
+- 2026-10-27 user on r444 (phone): "steer framing feels good, needs tuning by me" -> steer framing user-verified as a feature; knob values (More > Tuning) are the user's to tune. Other r444 items (long press, model.detail, ring tool-gating) not yet commented on.
+
+
+## Handoff trim 2026-10-27
+- Interaction plan done: steps 1-9 Claude-verified (step 9 Cut, WSA debug 2026-10-27, CI r439, run 40519306091); user feel untested on all.
+- Measure 2026-10-27 (archive): magnified loupe, steer framing (feature-capped zoom + swing/tilt), tap-select point, Tuning
+- r440 installed everywhere; waiting on the user's feel verdict (log it first when given). WSA debug re-test 2026-10-27 (tap box beside "Steer camera", not the label; `input keyevent 49` = measure): hold 563 -> 8.2 mm, slow steer swings, fast slide zooms out, lift restores 563 mm, tap-select snapped a vertex + loupe/Corner label OK.
+- Fixes 2026-10-27 (WSA debug verified, not yet in a CI build): corner snap framed 62 mm not 8 mm (new knob steer.corner, 15 mm); measure points/line/snap lines no longer stay after leaving the tool. User still tunes sluggish feel in More > Tuning.
+- CAD item 1 Hull 2026-10-27 (r445, run 40587789039): WSA MCP check OK: group of 2 boxes + cylinder hole, extra.hull=1 -> hull of the solids (156 tris vs 24), hole still cuts, snapshot looks right. User feel and Build workspace piece untested.
+- Build workspace XY edge snap 2026-10-27 (r447, run 40603089282, WSA release app, MCP + adb swipes): body drag of box B (centre 60) toward box A (right edge 15) in the Build workspace: raw offset ~-34.2 mm landed flush (left edge 15, not 16 = snap pulled 1 mm); raw ~-33 (2 mm off) stayed free at 17 (reach ~1.5 mm at WSA density 200, 10 dp / px-per-mm). Amber guide not seen in the shot (flush case: line hides under the faces; an aligned-not-flush case would show it). Prepare drag stays free by code (dragSnap null outside Build), not driven. Scripted-drag traps: drag starting on a gizmo ring/handle rotates/resizes (H +0.14, rot Z/X) instead of moving; an unselected shape drag only orbits; after view_set + shape_update wait 3 s and re-tap the list row before the swipe; swipe ~0.2 mm/px at yaw 25 / pitch 18 / 169 mm. User feel untested.
+
+## 2026-10-27 handoff lines moved (Claude-verified, user feel open)
+- Interaction plan 1-9 + Measure: Claude-verified WSA 2026-10-27; user feel open: long press, model.detail, ring gating, loupe, tap-select (archive).
+- CAD item 1 Hull switch: Claude-verified WSA r445 2026-10-27, user feel untested.
+- CAD roadmap 2 XY edge snap in the Build workspace (657e897, r447, run 40603089282): Claude-verified WSA 2026-10-27 (drag lands flush within ~1.5 mm; archive), installed on WSA/phone/SHIELD/Note; amber guide not seen, Prepare drag not driven, user feel untested.
+
+## 2026-10-27: Center on plate + Align row (f073445, run 40605694736), Claude-verified on WSA
+- Installed on WSA, phone, SHIELD, Note. Long-press menu "Center on plate": object at [139,125] -> [128,128]. Multi-select (long-press > Select multiple, tap 2nd copy): Align row in the long-press menu; Left made copy x equal (135.6 -> 128), Back moved both to the larger Y (+Y = back, matches the code comment). User feel untested.
+- Test quirk: the menu stays open after `input motionevent CANCEL`; then `input tap` on an item works. Drag-and-release (MOVE+UP) works for plain menu items but NOT for the icon row buttons.
+
+## 2026-10-27: 3MF effective bed type (83ddc35) Claude-verified
+- WSA debug app session.3mf (saved 19:19, build newer than r409): model_settings.config has per-plate bed_type (Supertack Plate x5, Textured PEI Plate, Engineering Plate); project_settings.config curr_bed_type = "Supertack Plate". Backlog line removed. Desktop Orca opening the 3MF stays with the "3MF export in desktop Orca" user check.
+
+## 2026-10-27: stale backlog line removed (filament colour mixing)
+- Already built: MixDialog.kt (Mix sheet), 9a612aa, restart restore 2050280/0547f05, "mix restart verified on r409" (599082b). Backlog "Ideas: Filament colour mixing ... Untested" was stale.
+
+## 2026-10-27: backlog trim (user asked)
+- Removed: r197 NPE (fixed 6ad69ef r273, no repro). Done and no longer wishlist: MCP app_state/log_tail/perf (McpTools.kt:229-237), Show overhangs (a2b67f7), OrcaMesh sculpt half (CAD 5a/5b), CAD roadmap 0-6. Earlier today: 3MF bed type verified, colour mixing already built.
+
+
+## 2026-10-27: Check mesh sharp edges (moved from handoff)
+- Check mesh sharp edges (run 40632310176, r450, installed on all 4 devices): Claude-verified WSA debug 2026-10-27 on a 10-degree wedge STL (object 11 on plate 7, throwaway): 1 sharp edge found, rest clean; green marker look + user feel untested. Native sharpEdges/sharpPoints, kind 8.
+
+## 2026-10-27: Smart guides (moved from handoff)
+- **Smart guides 005f14d, Claude-verified WSA debug 2026-10-27 (user feel open):** Prepare body drag snaps the selection's edges + middle to plate/object edges + middles (`Viewport.kt` dragSnap, `DragSnap.mid`); multi-select = union box, tower drag skips it. 3MF bed type verified 2026-10-27 (archive).
+
+## 2026-10-28: Hollow + MCP diff replies A-C (moved from handoff)
+- r452 (run 40642755687, 76228bf, CI green incl. native Hollow), Claude-verified on WSA debug app 2026-10-28 (user feel untested): `object_hollow` on a 20 mm cube (12 tris -> 1444 tris, 2 shells, volume 8000 -> 3925 mm3, expected ~3904 for wall 2); a second hollow on it errors "walls too thin", wall 0.1 errors "0.8..10". Sliced plate 5 (100 layers, 4.54 g incl. prime tower, no warnings, cavity respected). Not done: UI menu path.
+- Diff replies: `object_transform` (pos+rot), `object_duplicate` (only the new copies listed), `plate_arrange` (all moved copies), `shape_add/update/group` (changed/removed shapes only), `dim_set` on a bound dim (lists the followers) all returned short diffs. Plan D not done. Debug app on WSA stays installed (r452 code), app force-stopped.
+
+### 2026-10-28 Truck demo verdict (user, r453-era)
+- User: the 2 figures were visible only with Realistic mode on and the filaments set transparent; sliced preview showed the people clearly. Wants Realistic mode on all the time and asks whether negative (hole) parts could default to translucent. Not yet investigated by Claude (open: why figures are hidden in the normal view; Realistic default; translucent hole look).
+- User explanation (2026-10-28): windows are made by placing a "hole" (negative shape) in a solid, and that anti-solid is displayed as a colour of its own. Likely why the figures behind the windows look hidden in the normal view: the hole ghost covers them. Fix idea: draw hole shapes translucent by default (and consider Realistic by default as a toggle). Claude has not verified this.
+
+### 2026-10-28 user session A, phone portrait, r453 (user answers via question dialog)
+- USER VERIFIED r453: Undo/Redo top left + File top right (portrait); paint panel layout C modes Brush/Fill/Bands/Whole object switch their tools; paint brush fast strokes smooth (no gaps/lag, r324 capsule joins); double tap object frames, double tap again returns.
+- Not asked/open: paint dock + long-press menu, extended paint tools, edge bands on painted rounded edges (r403), Cut tool flip keeps paint.
+- USER VERIFIED r453 (same session, 2026-10-28): edge bands on painted rounded edges look right (r403 fix); Cut tool flip keeps paint. Paint dock: bottom toolbar Brush/Fill/Bands/Object works; user says the only long-press available is on the filament colour dots (no long-press on the mode buttons; unclear whether that is intended).
+- Claude source check 2026-10-28 (ToolPanel.kt:359,391,531): the dock long-press menu IS the filament dot long-press (LayerMenu: share, hide/lock, Turn into). Mode buttons have none by design. Matches what the user saw; paint dock closed.
+
+### 2026-10-28 Session B, Claude drove WSA debug (build of 26be567+)
+- Build mirror menu check marks: Claude-verified (X on/off, Y on; shots). Toolbar tooltips are hover-only: not testable by adb, content descriptions present ("Undo (Ctrl+Z)" etc.). User feel untested.
+- USER VERIFIED (2026-10-28, debug build of 26be567+): Build toolbar hover tooltips appear. Mirror check marks Claude-verified, user feel open.
+
+## 2026-10-28 session B (WSA r453 debug)
+- Slice stall at 5% in debug app: not reproducible (MCP `slice` ~2 s, all stages in logcat). Note it only if it recurs.
+- Session B checks (Sculpt, Hollow, Center/Align, Check mesh, slice-badge fix, mirror asymmetric feel) skipped by the user; the user's new findings are in HANDOFF-BACKLOG.md (shape builder bugs, snapping toggle + guide style, slice-cancel badge).
+- Local commits since r453: 26be567 tooltips + mirror check marks, eb7e242 New project clears slice error + long-press dismisses badge (all pushed to the work branch, not yet in a CI build).
+
+
+## 2026-10-28 slice-cancel badge (Claude-verified, WSA debug build of d3ee419)
+- User cancel of a slice raises no error badge (`SliceController.userCancelled`; Slice all stops), card X on a slice error also removes it (`Notices.kt`). WSA: sliced via MCP, tapped Cancel: OrcaSlice logged the cancel exception, app_state shows no slice error. X-removal on a real error untested (code path only). Pushed, not in a CI build yet.
+
+## 2026-10-28 Shape builder gizmo fixes (1a94899, untested on device)
+- (1) Gizmo stayed behind during a move: drawGizmo/drawRings drew without dragOffset (PlateRenderer drawSelection); now the box passed to them is shifted by dragOffset.
+- (2) Too touch-sensitive: rotate rings drew and picked the whole circle, back parts behind the object grabbed touches. RotateGizmo.hidden (eye-to-segment-midpoint hits the box, as ScaleGizmo.visible) now leaves them out of drawing (selection rings only, not cut rings, not while dragged) and of pick (occluded = true in PlateView.startRotate).
+- (3) Repeat spacing: no dedicated spacing drag exists; BuildTransform.scaled scales repeat.step, and the X handle (32 dp reach) caught drags on a row's end copy. PlateView.onBox: a touch inside the box's on-screen faces uses 12 dp (handles) / 10 dp (rings); 32 / 24 dp outside.
+- Test plan: Build workspace, shape with a row repeat, drag the end copy near the X handle -> moves; drag -> handles/rings move along live; orbit so a ring passes behind the object -> that part not drawn, touch there moves the object.
+
+## 2026-10-28 Plate switcher mockups (moved from the handoff)
+- https://claude.ai/artifact/E3MtY8rQ1dMGHhibY2oNCX
+
+## 2026-10-28 Shape builder gizmo fixes verified (1a94899, Claude, WSA debug)
+- Test design "Gizmo test" (box, 4x row repeat, step 30). (3) end copy dragged 23 dp from the X handle: shape moved, step stays 30. (1) mid-drag shot: handles + rings move with the cubes. (2) red ring's back arc behind cube 3 not drawn; drag in the middle of that gap moved the shape (no rotation); control drag 4 px off the visible arc off the object rotated (rot reset after). First try used mid-drag-shot coordinates (shape ended 20 px lower) and hit the visible arc end: a test error, not a bug.
+
+## 2026-10-28 Backlog trim (details moved from HANDOFF-BACKLOG.md)
+- Mirror button (user 2026-10-28, session B, r453): 'doesn't work, no update'. Claude: design had mirror [1,1,1] on a BOX (symmetric, flip in place is invisible); flag path reads fine (ShapeController.mirror -> placement matrix -> set_volumes). Added check marks to the mirror menu (uncommitted, compiles). Open: user retest on an asymmetric shape (wedge/L) after next build; if still no change, reproduce on WSA debug.
+- [Opus] Build continuity (user brain dump 2026-10-28, session B, r453; exploration, nothing locked): (1) 'Add as new' looks like the object moved because Build shows only the design object (solo) until exit; user wants all objects shown (10 adds = 10 visible). Leaning: show the others dimmed/ghosted, not hidden. (2) Mesh object in Prepare reaches the shape builder only via an 'open SCAD model'-type entry; unclear. (3) Idea: tiny yellow 'CAD' badge (black text) on every entry leading to the builder, or a CAD | Mesh submenu; user: too many paths to the builder. Leaning: one entry point + badge; mockup first, keep user's vision as a toggle. USER AGREED with the leanings 2026-10-28 (still design-open: mockup first).
+- Shape builder W/D/H scrub + lock (user 2026-10-28, session B; design agreed in chat, build after the tooltip sweep): drag a number left/right = whole units, finger moving up while scrubbing = 0.1 fine steps, tap = edit; small lock badge inside each cell toggles ONE shared proportional lock; locked: other two cells grey out as followers, update live, decimals allowed; slider mode shows one proportional slider. Open: badge clutter (fallback one lock outside the cells), live speed on groups/SCAD shapes (throttle).
+- UI prefs (user 2026-10-28, session B, untriaged): build plate tabs, filmstrip and chips are not useful to them: make each an option in Settings > Appearance (user preference; default open, ask). Slice button: float it bottom right (or similar), not inside the drag handle (user: "my mistake", they asked for the handle earlier). Alternative they offered: the slice button is a click-or-drag floating button (user can move it).
+
+## 2026-10-28 snap toggle + CI 40729403081
+- Snap toggle 846a663 Claude-verified on WSA debug: magnet button toggles (orange on / dark off), Shift+Tab toggles, drag snaps to the row edge with a thin magenta guide. Ctrl flip by code only. User feel untested. CI run 40729403081 (82bfd05: slice-cancel + gizmo fixes) green, installed on WSA, phone, SHIELD (Note not connected).
+
+## 2026-10-28 Clean specks with lock
+- Clean specks with a locked filament Claude-verified on WSA r456 (release app, brush 0.5 mm, area 4.7 mm2): with filament 2 locked, the tiny 2-specks stayed and an unlocked filament-3 speck was cleaned; with 2 unlocked, the 2-specks were cleaned too (patches bigger than the area stay). User feel untested.
+
+## 2026-10-28 Sculpt symmetry (51ad144, CI run 40738227951, r457): Claude-verified on WSA, user feel untested
+- Installed r457 on WSA, phone, SHIELD. WSA MCP `object_sculpt` inflate r3 x5 on a 15 mm box part: single dab +14/+15 mm3, same dab with `mirror:"x"` +29 mm3 (two bumps) and the mesh refined. Not checked: bump positions on both sides (volume only); grab on the symmetry plane; Y/Z bits; panel row UI.
+- Test gotchas: `design_to_plate` needs an Allow tap in the app (WSA: uiautomator dump, tap the "Allow" text) and a stale 60 s request blocks the next; it left a 10-box object on plate 1 (objects 1 and 2, throwaway); a ray hits the top object, so move others away first; `plate_describe` output cuts off at filament 12.
+
+## 2026-10-28 Mirror button retest (Claude, WSA debug of r457 source)
+- MCP design_set wedge 30x20x15, shape_update mirror [1,0,0] (same update+commit path as ShapeController.mirror, ShapeController.kt:392): design_snapshot before/after shows the wedge flipped. The user's r453 "no update" was a symmetric box. Done; user feel not needed.
+
+## 2026-10-28 Tooltip sweep
+- Script ~/orca-android-tools/wrap_tips.py wrapped every bare IconButton whose Icon has a content description in Tip(desc) (81 sites, 19 files); skipped: PreparePanel colour dots (210, 344), PrepareOverlay:703 (no label). compileDebugKotlin clean; WSA debug launch, no crash. Hover/long-press tooltips untested on device.
+
+## 2026-10-28 Shape builder W/D/H scrub + proportional lock (9e24ef7, compiled, JVM 7/7, untested on device)
+- `NumberScrub` + `ScrubCell` (ui/components/Scrubber.kt): sideways drag on a number cell = 1 unit per 8 dp; finger 40 dp above its start = 0.1 steps (label shows "·0.1"); tap still edits, up/down drag still scrolls (claims only past touch slop with |dx| > 1.5|dy|, Initial pass). Size min 0.1.
+- Applied to all three rows (size, position, rotation), not only W/D/H (deviation: same gesture everywhere).
+- Lock: ONE toggle in the Size header (deviation = the agreed fallback: badges in the narrow cells would crowd the numbers). `ShapeController.sizeLock` (session-wide) + `setSize` scales the other two by the same factor (typed or dragged); followers grey (alpha 0.45) while a cell is dragged.
+- One undo step per drag: `ShapeController.live(on)` merges the drag's commits. Render speed: existing pushBuild debounce (150 ms + renderAgain) and value changes only at step boundaries; no extra throttle.
+- Not built: "slider mode shows one proportional slider" (spec unclear: the Sliders menu makes one slider per field). Test plan: WSA debug, Build workspace box: drag W right ~10 units, raise finger -> 0.1 steps, lock on -> D/H follow + grey, one undo restores all three; vertical drag on the cells scrolls the panel; tap opens the keyboard.
+
+## 2026-10-28 W/D/H scrub + lock: WSA debug test passed (9e24ef7)
+- Build workspace box, WSA debug (adb swipes, 200 dpi): drag right 100 px = +10 (20 -> 30); diagonal up-right = 0.1 steps (-> 38.8); lock on + drag: 38.8->48, D/H 20->24.74 (proportional); one Undo restored all three; vertical swipe on cells scrolls the panel (values unchanged); tap opens the keyboard. CI dispatched run 40749680026 (1f659e3 = r458: snapping toggle, clean specks, sculpt symmetry, scrub + lock). User feel untested.
+
+## 2026-10-28 Sculpt first-stroke latency (Claude, WSA debug build; not in CI yet)
+- Test part: generated UV sphere R40, 39.6k faces (`~/orca-android-tools/gen-sphere-stl.py OUT 40 100 200`), imported via the
+  VIEW intent recipe; MCP `object_sculpt` rays are world coords (plate 2 = x + 307.2).
+- Before: first stroke = build session, refine, set mesh + hull, commit, build again. Measured: refine 39.6k -> 135k 68 ms,
+  set mesh + hull 866 ms, commit 204 ms, session 53 ms; MCP wall 2.7 s.
+- Changes (OrcaSculpt.cpp): refine check runs before the session build (one build per first stroke); hit tree built on a
+  `std::async` beside mesh copy + topology (old: topology ~40 + tree ~120 ms; now 54 ms total at 135k); refine path skips
+  `calculate_convex_hull` (midpoints only, hull unchanged). Timing logs: `sculpt: refine/session/flush` (logcat OrcaCore).
+- Split in `sculpt_flush_locked` (every stroke end): set_mesh 18 ms, hull 735 ms -> the hull is the remaining big cost.
+- 2026-10-28 (68e8f7a, WSA debug only, untested): stroke-end hull deferred. `sculpt_flush_locked` sets a bbox placeholder hull
+  (set_mesh(cube) + calculate_convex_hull + set_mesh back) and starts `std::async(mesh->convex_hull_3d())` (`HullJob`). `sculpt()`
+  installs finished jobs without waiting; `sculpt_flush()` (dispatch before every non-sculpt call) waits for all. Install
+  const_casts into the placeholder (a make_shared<TriangleMesh>, not a const object), so undo copies of that mesh get it too.
+  Safe because `ModelObject::min_z()` reads mesh vertices (update_min_max_z, Model.cpp:1620), so drop_to_bed stays exact.
+
+## 2026-10-28 Deferred sculpt hull: WSA debug test passed (68e8f7a + 4be7551)
+- Refined sphere (135k): stroke-end flush = set mesh 17 ms + box hull 1 ms (was hull 735 ms); MCP wall 1.2 s for 5 dabs.
+- Arrange right after a stroke: `hull in, waited 341 ms` (flush waits, so arrange sees the real hull). With 4 s idle after a
+  stroke the app made no non-sculpt engine call (no wait in the UI path); a later arrange found the hull ready (0 ms).
+- Fresh part first stroke (39.6k): refine 17 ms, set mesh 6 ms (no hull), commit 276 ms, session 21 ms, flush 6 ms.
+- Two strokes then Ctrl+Z twice (`input keycombination KEYCODE_CTRL_LEFT KEYCODE_Z`; no MCP undo tool): 86.4 -> 83.2 -> 80 mm,
+  56.4k -> 39.6k faces, no crash. 4be7551 adds a dispatch log `sculpt: <method> waited N ms for the flush` (>= 20 ms only).
+- CI run 40758193900 (4be7551 = r459) dispatched. User feel untested.
+
+## 2026-10-28 r459 release smoke (Claude, WSA)
+- r459 (run 40758193900, 4be7551) installed on WSA, phone, Note, SHIELD (Chromebook offline). WSA release: MCP `object_sculpt` inflate r8 x5 on a 6.3k-face part: refine to 14.3k faces, flush set mesh 1 ms + box hull 1 ms; arrange right after: `hull in, waited 0 ms`; no crash. Ray origin is absolute plate mm (object centre from plate_describe), not bed-centred.
+
+## 2026-10-28 Sculpt symmetry x check (Claude, WSA r459 release)
+- Clean 40x40x20 box (12 tris) on the plate; inflate r6 x3 with `mirror:"x"` from the +x side at y+5: size 40 -> 44.79 in x, centre unchanged = both x faces bumped equally (+2.4 each). Earlier test on a non-symmetric box+sphere union grew one side only (no surface at the mirror spot, expected). Not checked: y/z positions of the mirrored bump, xz mirror, grab on the symmetry plane (bbox cannot show them; would need a screenshot).
+- Same day, z mirror (Claude, WSA r459): inflate r5 x6 from the top with `mirror:"z"` on the box: z size 20 -> 24.95 (about 2.5 each side, so the bottom was bumped too); xz mirror dab on the +x face: x size 40 -> 44.98 (both x faces bumped). Screenshots show nothing: black filament + flat faces hide a 2.5 mm bump even with shadows/AO off. Still unchecked: exact y/z position of mirrored bumps on a face, grab on the symmetry plane (would need a light filament + oblique light, low value).
+
+## 2026-10-28 Debug quick notes (verified)
+- Debug-only `DebugNotes` (src/debug + release no-op stub): Ctrl+Shift+N or S Pen button -> dialog with screenshot + note -> `notes.jsonl` + PNG in `/sdcard/Android/data/<debug pkg>/files/notes/`. 3D view needs its own PixelCopy (window copy leaves it blank). Samsung pen button = changed buttonState (primary or secondary) on hover moves, not BUTTON_PRESS. Verified on WSA (key) and the Note (pen button, user: "confirmed working", debug build of 2026-10-28).
+
+## 2026-10-28 Floating Slice + plate switcher toggle (Claude-verified, WSA debug)
+- Layout lab toggles "Show the plate switcher" + "Slice button floats" (b707195). Fix before testing: the drag handler (`pointerInput(roomX, roomY)`) captured `at` and `lab` once, so a 2nd drag started from the first spot and drag end wrote back an old lab; now `rememberUpdatedState` (PrepareOverlay `FloatingSlice`).
+- WSA debug (1920x1080, landscape): default bottom right; 3 drags each land where dropped (no jump), saved as sliceX/sliceY fractions; overshoot clamps to the corner; tap still slices (went to Preview). Plates off = no plate tabs/Add plate in Prepare (Preview keeps its plate tabs: needed to see other plates' slices). Floating off = old fixed bottom-right button. Not checked: portrait (grip) layout, phone. User feel untested (no user testing now).
+- Same day: More > Recent files collapsed by default (count as summary; File on the top bar has the list), user 2026-10-28: "nested by default ... I'll let you decide".
+
+## 2026-10-28 Paint shop entry (Claude, WSA debug)
+- Cause of the purple screen and slow entry: `Workspace` returned `PaintShop`, which called the viewport at a new call site, so Compose built a new PlateView (new GL context, all meshes re-uploaded) behind a purple `background` fill. Fix: the viewport keeps its slot (`WorkspaceBody`), the shop adds `PaintShopBar` above, `shopFrame` (border, no fill) and `PaintShopDock`; shop entry camera uses the live camera (savedCamera could be stale). Bar now has `ViewButtons` (undo, redo, view menu). Checked on WSA: SurfaceFlinger layer #5778 same before/after entry and Done; no purple cells 250 ms after the tap; camera framed (563 -> 248 mm) and restored on Done. Landscape phones (< 840 dp wide) still move the view (Row branch).
+
+## 2026-10-28 Godot Z lift dot (step 1) WSA-verified
+- Debug build of f4b2e04 on WSA, Build workspace: lift dot drag snapped a cylinder onto an overlapping box top (z 0 -> 10) and back to the floor; live preview and gizmo follow mid-drag. Below-floor lift allowed by design (same ZRail.lift as MeshPreviewView). Claude test, not user.
+
+## 2026-10-28 Godot axis lock (step 2) WSA debug test (da7505c, Claude test, not user)
+- Prepare view top-down, object 6 centre via plate_describe: lock X drag moved only one axis, lock Y kept x exactly (203.744) and moved y, Free moved both, Y key mid-drag (3 s swipe + keyevent) froze x. Lock button cycles Free/X/Y. NOT tested: Z key lift in Build (needs held drag + key in Shape builder; adb swipe+keyevent can do it), guide line colours, tower-drag ignores Z.
+
+## 2026-10-28 Godot Z key lift in Build WSA debug test (da7505c, Claude test, not user)
+- Shape builder, box 20^3 at z 0: held body drag (3 moves), keyevent Z, more moves up: z 0 -> 16, XY stayed, blue 2000 mm axis guide drawn, lift dot followed; UP committed (design_describe pos z 16); reset to 0 with shape_move. No snap hit (nothing within range of 16). NOT run: prime tower drag ignoring Z (code gates Z to Build + not tower; low risk).

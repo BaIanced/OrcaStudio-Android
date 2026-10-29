@@ -97,7 +97,8 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
         Column(Modifier.widthIn(max = 720.dp).fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             LayoutLabSection(state, vm)
 
-            if (state.recents.isNotEmpty()) Section(stringResource(R.string.recent), initiallyOpen = true) {
+            // Collapsed by default (user 2026-10-28): File on the Prepare top bar has the same list; this stays as a fallback.
+            if (state.recents.isNotEmpty()) Section(stringResource(R.string.recent), summary = state.recents.size.coerceAtMost(10).toString()) {
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(vertical = 4.dp)) { state.recents.take(10).forEach { r -> RecentRow(r) { vm.files.openRecent(r) } } }
                 }
@@ -145,6 +146,9 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
                 ShadowSlider(R.string.lab_pinch_speed, lab.pinchSpeed, 100f, "%", app.orcaandroid.core.LayoutLab.PINCH_SPEEDS, lab, peek = false) { vm.setLab(state.lab.copy(pinchSpeed = it)) }
                 ShadowSlider(R.string.wheel_zoom_speed, lab.wheelSpeed, 100f, "%", app.orcaandroid.core.LayoutLab.WHEEL_SPEEDS, lab, peek = false) { vm.setLab(state.lab.copy(wheelSpeed = it)) }
             }
+
+            // Feel knobs (user 2026-10-27), also over MCP: tuning_get / tuning_set.
+            Section(stringResource(R.string.tuning), summary = stringResource(R.string.tuning_summary)) { TuningSection() }
 
             Section(stringResource(R.string.appearance)) {
                 SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
@@ -298,6 +302,8 @@ private fun LayoutLabSection(state: UiState, vm: AppViewModel) {
                 }
         }
         SwitchRow(stringResource(R.string.lab_plate_label), lab.plateLabel, onChange = { vm.setLab(lab.copy(plateLabel = it)) })
+        SwitchRow(stringResource(R.string.lab_show_plates), lab.showPlates, onChange = { vm.setLab(lab.copy(showPlates = it)) })
+        SwitchRow(stringResource(R.string.lab_slice_floating), lab.sliceFloating, onChange = { vm.setLab(lab.copy(sliceFloating = it)) })
         SwitchRow(stringResource(R.string.lab_tools_left), lab.toolsLeft, onChange = { vm.setLab(lab.copy(toolsLeft = it)) })
         SwitchRow(stringResource(R.string.lab_plates_on_handle), lab.platesOnHandle, onChange = { vm.setLab(lab.copy(platesOnHandle = it)) })
         SwitchRow(stringResource(R.string.lab_fullscreen_portrait), lab.fullscreenPortrait, onChange = { vm.setLab(lab.copy(fullscreenPortrait = it)) })
@@ -324,9 +330,25 @@ private fun LayoutLabSection(state: UiState, vm: AppViewModel) {
         ShadowSlider(R.string.lab_light_azimuth, lab.lightAzimuth, 1f, "°", app.orcaandroid.core.LayoutLab.LIGHT_AZIMUTHS, current) { vm.setLab(state.lab.copy(lightAzimuth = it)) }
         ShadowSlider(R.string.lab_light_elevation, lab.lightElevation, 1f, "°", app.orcaandroid.core.LayoutLab.LIGHT_ELEVATIONS, current) { vm.setLab(state.lab.copy(lightElevation = it)) }
         ShadowSlider(R.string.lab_light_strength, lab.lightStrength, 100f, "%", app.orcaandroid.core.LayoutLab.LIGHT_STRENGTHS, current) { vm.setLab(state.lab.copy(lightStrength = it)) }
+        ShadowSlider(R.string.lab_camera_light, lab.cameraLight, 100f, "%", app.orcaandroid.core.LayoutLab.CAMERA_LIGHTS, current) { vm.setLab(state.lab.copy(cameraLight = it)) }
         TextButton(onClick = { vm.setLab(app.orcaandroid.core.LayoutLab()) }) { Text(stringResource(R.string.reset)) }
       }
     }
+}
+
+/** One slider per [app.orcaandroid.core.Tuning] knob, applied live, and a reset. */
+@Composable
+private fun TuningSection() {
+    val t = app.orcaandroid.core.Tuning
+    t.version.intValue
+    for (k in t.knobs) {
+        val v = t[k.key]
+        Text("${k.label}: ${t.fmt(v)}${k.unit}" + if (kotlin.math.abs(v - k.default) > 1e-4f) "  (${t.fmt(k.default)})" else "", style = MaterialTheme.typography.bodyMedium)
+        val steps = if (k.step > 0f) ((k.max - k.min) / k.step).toInt() - 1 else 0
+        androidx.compose.material3.Slider(v, { t.set(k.key, if (k.step > 0f) k.min + kotlin.math.round((it - k.min) / k.step) * k.step else it) },
+            valueRange = k.min..k.max, steps = steps.coerceIn(0, 200))
+    }
+    TextButton(onClick = { t.reset() }) { Text(stringResource(R.string.reset)) }
 }
 
 /** A shadow look slider (strength in %, penumbra and bias in mm): live on the plate behind, like the size sliders. */

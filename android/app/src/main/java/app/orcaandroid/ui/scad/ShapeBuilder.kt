@@ -23,6 +23,7 @@ import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AlignHorizontalCenter
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CallSplit
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
@@ -30,6 +31,8 @@ import androidx.compose.material.icons.filled.Draw
 import androidx.compose.material.icons.filled.Flip
 import androidx.compose.material.icons.filled.Merge
 import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.VerticalAlignBottom
 import androidx.compose.material.icons.filled.Workspaces
@@ -50,15 +53,18 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.material3.IconToggleButton
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.Key
@@ -72,6 +78,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.orcaandroid.R
+import app.orcaandroid.ui.components.ScrubCell
 import app.orcaandroid.scad.D3
 import app.orcaandroid.scad.Dim
 import app.orcaandroid.scad.Repeat
@@ -86,6 +93,7 @@ import app.orcaandroid.ui.components.NumberField
 import app.orcaandroid.ui.components.PickerField
 import app.orcaandroid.ui.components.PickerItem
 import app.orcaandroid.ui.prepare.ColorDot
+import app.orcaandroid.ui.prepare.Tip
 
 /** Shapes the palette offers, in Tinkercad's order. */
 private val PALETTE = listOf(
@@ -105,12 +113,27 @@ fun ShapesTab(s: ScadEditorState, vm: AppViewModel) {
     val sh = vm.shapes
     val focus = remember { FocusRequester() }
     var sketching by remember { mutableStateOf<Int?>(null) }
+    var topOf by remember { mutableStateOf<Int?>(null) }
+    var pathOf by remember { mutableStateOf<Int?>(null) }
     val stl = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { it?.let(sh::importMesh) }
     sketching?.let { id ->
         val shape = d.find(id)
         if (shape == null) sketching = null
         else SketchEditor(shape.sketch ?: Sketch.START, shape.x(Shape.REVOLVE, 0.0) != 0.0, d.dims, shape.name,
+            title = if (shape.path != null && shape.x(Shape.REVOLVE, 0.0) == 0.0) stringResource(R.string.sketch_title_profile) else null,
             onDone = { s, dims -> sh.setSketch(id, s, dims); sketching = null }, onCancel = { sketching = null })
+    }
+    topOf?.let { id ->
+        val shape = d.find(id)
+        if (shape == null) topOf = null
+        else SketchEditor(shape.top ?: shape.sketch ?: Sketch.START, false, d.dims, shape.name,
+            onDone = { s, dims -> sh.setTop(id, s, dims); topOf = null }, onCancel = { topOf = null })
+    }
+    pathOf?.let { id ->
+        val shape = d.find(id)
+        if (shape == null) pathOf = null
+        else SketchEditor(shape.path ?: Sketch(), false, d.dims, shape.name, path = true,
+            onDone = { s, dims -> sh.setPath(id, s, dims); pathOf = null }, onCancel = { pathOf = null })
     }
     Column(
         Modifier.fillMaxSize().focusRequester(focus).focusable().onKeyEvent { e ->
@@ -158,7 +181,9 @@ fun ShapesTab(s: ScadEditorState, vm: AppViewModel) {
         val one = s.selected.singleOrNull()?.let { d.find(it) }
         if (one != null) {
             HorizontalDivider(Modifier.padding(top = 8.dp))
-            Properties(one, d, vm, filaments) { sketching = one.id }
+            Properties(one, d, vm, filaments) { what ->
+                when (what) { SketchPart.TOP -> topOf = one.id; SketchPart.PATH -> pathOf = one.id; else -> sketching = one.id }
+            }
         } else if (s.selected.size > 1) {
             Text(stringResource(R.string.shape_multi, s.selected.size), style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp))
@@ -177,37 +202,67 @@ private fun Toolbar(s: ScadEditorState, vm: AppViewModel) {
     var mirror by remember { mutableStateOf(false) }
     var align by remember { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = sh::undo, enabled = sh.canUndo) { Icon(Icons.AutoMirrored.Filled.Undo, stringResource(R.string.shape_undo)) }
-        IconButton(onClick = sh::redo, enabled = sh.canRedo) { Icon(Icons.AutoMirrored.Filled.Redo, stringResource(R.string.shape_redo)) }
-        IconButton(onClick = sh::duplicate, enabled = tops > 0) { Icon(Icons.Default.ContentCopy, stringResource(R.string.shape_duplicate)) }
-        IconButton(onClick = sh::delete, enabled = any) { Icon(Icons.Default.Delete, stringResource(R.string.shape_delete)) }
-        IconButton(onClick = sh::group, enabled = tops > 1) { Icon(Icons.Default.Workspaces, stringResource(R.string.shape_group_action)) }
-        IconButton(onClick = sh::ungroup, enabled = s.selected.any { id -> d.shapes.any { it.id == id && it.isGroup } }) {
-            Icon(Icons.Default.CallSplit, stringResource(R.string.shape_ungroup))
+        Tip(stringResource(R.string.shape_undo)) {
+            IconButton(onClick = sh::undo, enabled = sh.canUndo) { Icon(Icons.AutoMirrored.Filled.Undo, stringResource(R.string.shape_undo)) }
         }
-        IconButton(onClick = { sh.merge() }, enabled = tops > 1 || (tops == 1 && s.selected.any { id -> d.shapes.any { it.id == id && it.isGroup } })) {
-            Icon(Icons.Default.Merge, stringResource(R.string.shape_merge))
+        Tip(stringResource(R.string.shape_redo)) {
+            IconButton(onClick = sh::redo, enabled = sh.canRedo) { Icon(Icons.AutoMirrored.Filled.Redo, stringResource(R.string.shape_redo)) }
         }
-        IconButton(onClick = { mirror = true }, enabled = any) {
-            Icon(Icons.Default.Flip, stringResource(R.string.shape_mirror))
-            DropdownMenu(mirror, { mirror = false }) {
-                listOf("X", "Y", "Z").forEachIndexed { i, a ->
-                    DropdownMenuItem(text = { Text(stringResource(R.string.shape_mirror_axis, a)) }, onClick = { mirror = false; sh.mirror(i) })
-                }
+        Tip(stringResource(R.string.shape_duplicate)) {
+            IconButton(onClick = sh::duplicate, enabled = tops > 0) { Icon(Icons.Default.ContentCopy, stringResource(R.string.shape_duplicate)) }
+        }
+        Tip(stringResource(R.string.shape_delete)) {
+            IconButton(onClick = sh::delete, enabled = any) { Icon(Icons.Default.Delete, stringResource(R.string.shape_delete)) }
+        }
+        Tip(stringResource(R.string.shape_group_action)) {
+            IconButton(onClick = sh::group, enabled = tops > 1) { Icon(Icons.Default.Workspaces, stringResource(R.string.shape_group_action)) }
+        }
+        Tip(stringResource(R.string.shape_ungroup)) {
+            IconButton(onClick = sh::ungroup, enabled = s.selected.any { id -> d.shapes.any { it.id == id && it.isGroup } }) {
+                Icon(Icons.Default.CallSplit, stringResource(R.string.shape_ungroup))
             }
         }
-        IconButton(onClick = { align = true }, enabled = tops > 1) {
-            Icon(Icons.Default.AlignHorizontalCenter, stringResource(R.string.shape_align))
-            DropdownMenu(align, { align = false }) {
-                val names = listOf(R.string.shape_align_min, R.string.shape_align_center, R.string.shape_align_max)
-                listOf("X", "Y", "Z").forEachIndexed { axis, a ->
-                    listOf(-1, 0, 1).forEach { mode ->
-                        DropdownMenuItem(text = { Text("$a: " + stringResource(names[mode + 1])) }, onClick = { align = false; sh.align(axis, mode) })
+        Tip(stringResource(R.string.shape_merge)) {
+            IconButton(onClick = { sh.merge() }, enabled = tops > 1 || (tops == 1 && s.selected.any { id -> d.shapes.any { it.id == id && it.isGroup } })) {
+                Icon(Icons.Default.Merge, stringResource(R.string.shape_merge))
+            }
+        }
+        Tip(stringResource(R.string.snap_toggle)) {
+            val on = vm.state.collectAsState().value.snapBuild
+            IconToggleButton(on, { vm.toggleSnap() }) { Icon(app.orcaandroid.ui.prepare.SnapIcon, stringResource(R.string.snap_toggle)) }
+        }
+        Tip(stringResource(R.string.move_lock)) {
+            val lock = vm.state.collectAsState().value.moveLock
+            IconButton(onClick = vm::cycleMoveLock) { app.orcaandroid.ui.prepare.MoveLockFace(lock) }
+        }
+        Tip(stringResource(R.string.shape_mirror)) {
+            IconButton(onClick = { mirror = true }, enabled = any) {
+                Icon(Icons.Default.Flip, stringResource(R.string.shape_mirror))
+                DropdownMenu(mirror, { mirror = false }) {
+                    listOf("X", "Y", "Z").forEachIndexed { i, a ->
+                        val on = s.selected.isNotEmpty() && s.selected.all { id -> d.find(id)?.let { it.mirror[i] != 0.0 } == true }
+                    DropdownMenuItem(text = { Text(stringResource(R.string.shape_mirror_axis, a)) }, onClick = { mirror = false; sh.mirror(i) },
+                        trailingIcon = if (on) ({ Icon(Icons.Default.Check, null) }) else null)
                     }
                 }
             }
         }
-        IconButton(onClick = sh::drop, enabled = tops > 0) { Icon(Icons.Default.VerticalAlignBottom, stringResource(R.string.shape_drop)) }
+        Tip(stringResource(R.string.shape_align)) {
+            IconButton(onClick = { align = true }, enabled = tops > 1) {
+                Icon(Icons.Default.AlignHorizontalCenter, stringResource(R.string.shape_align))
+                DropdownMenu(align, { align = false }) {
+                    val names = listOf(R.string.shape_align_min, R.string.shape_align_center, R.string.shape_align_max)
+                    listOf("X", "Y", "Z").forEachIndexed { axis, a ->
+                        listOf(-1, 0, 1).forEach { mode ->
+                            DropdownMenuItem(text = { Text("$a: " + stringResource(names[mode + 1])) }, onClick = { align = false; sh.align(axis, mode) })
+                        }
+                    }
+                }
+            }
+        }
+        Tip(stringResource(R.string.shape_drop)) {
+            IconButton(onClick = sh::drop, enabled = tops > 0) { Icon(Icons.Default.VerticalAlignBottom, stringResource(R.string.shape_drop)) }
+        }
     }
 }
 
@@ -244,7 +299,7 @@ private fun ShapeRow(shape: Shape, depth: Int, s: ScadEditorState, vm: AppViewMo
 // --- Properties of the selected shape ------------------------------------------------------------
 
 @Composable
-private fun Properties(shape: Shape, d: ShapeDesign, vm: AppViewModel, filaments: List<FilamentSlot>, onEditSketch: () -> Unit) {
+private fun Properties(shape: Shape, d: ShapeDesign, vm: AppViewModel, filaments: List<FilamentSlot>, onEditSketch: (SketchPart) -> Unit) {
     val sh = vm.shapes
     Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         var name by remember(shape.id) { mutableStateOf(shape.name) }
@@ -277,6 +332,13 @@ private fun Properties(shape: Shape, d: ShapeDesign, vm: AppViewModel, filaments
             val b = d.bounds(shape.copy(pos = D3(), rot = D3(), repeat = null)).size
             Text(stringResource(R.string.scad_size, ShapeDesign.n(b.x), ShapeDesign.n(b.y), ShapeDesign.n(b.z)),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.shape_hull), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                Switch(shape.x(Shape.HULL, 0.0) != 0.0, { on -> vm.shapes.update(shape.id) { it.copy(extra = it.extra + (Shape.HULL to if (on) 1.0 else 0.0)) } })
+            }
+            Text(stringResource(R.string.shape_hull_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            ExtraField(stringResource(R.string.shape_blend), shape, d, vm, Shape.BLEND, 0.0)
+            Text(stringResource(R.string.shape_blend_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         FieldRow(stringResource(R.string.shape_position), shape, d, vm, "pos", listOf("X", "Y", "Z"), shape.pos, listOf("x", "y", "z"))
         FieldRow(stringResource(R.string.shape_rotation), shape, d, vm, "rot", listOf("X°", "Y°", "Z°"), shape.rot, listOf("turn_x", "turn_y", "turn_z"))
@@ -325,12 +387,15 @@ private fun ShellEditor(shape: Shape, d: ShapeDesign, vm: AppViewModel) {
     }
 }
 
+/** Which drawing of a sketch shape to edit: its outline (or profile), the loft's top outline or the sweep path. */
+private enum class SketchPart { SKETCH, TOP, PATH }
+
 /** A sketch shape: open the drawing, extrude or revolve it. */
 @Composable
-private fun SketchSettings(shape: Shape, d: ShapeDesign, vm: AppViewModel, onEditSketch: () -> Unit) {
+private fun SketchSettings(shape: Shape, d: ShapeDesign, vm: AppViewModel, onEditSketch: (SketchPart) -> Unit) {
     val revolve = shape.x(Shape.REVOLVE, 0.0) != 0.0
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        FilledTonalButton(onClick = onEditSketch) {
+        FilledTonalButton(onClick = { onEditSketch(SketchPart.SKETCH) }) {
             Icon(Icons.Default.Draw, null, Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
             Text(stringResource(R.string.sketch_edit))
@@ -344,8 +409,29 @@ private fun SketchSettings(shape: Shape, d: ShapeDesign, vm: AppViewModel, onEdi
             }
         }
     }
-    if (revolve) ExtraField(stringResource(R.string.sketch_angle), shape, d, vm, Shape.ANGLE, 360.0)
-    else ExtraField(stringResource(R.string.sketch_top_scale), shape, d, vm, Shape.TOP, 1.0, slider = false)
+    if (revolve) {
+        ExtraField(stringResource(R.string.sketch_angle), shape, d, vm, Shape.ANGLE, 360.0)
+        ExtraField(stringResource(R.string.sketch_pitch), shape, d, vm, Shape.PITCH, 0.0)
+    } else {
+        if (shape.path == null) {
+            ExtraField(stringResource(R.string.sketch_top_scale), shape, d, vm, Shape.TOP, 1.0, slider = false)
+            ExtraField(stringResource(R.string.sketch_twist), shape, d, vm, Shape.TWIST, 0.0)
+            // A second outline the sides loft up to (square to circle and the like).
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { onEditSketch(SketchPart.TOP) }) {
+                    Text(stringResource(if (shape.top == null) R.string.sketch_top_add else R.string.sketch_top_edit))
+                }
+                if (shape.top != null) TextButton(onClick = { vm.shapes.setTop(shape.id, null) }) { Text(stringResource(R.string.sketch_top_remove)) }
+            }
+        }
+        // Or a path (seen from above) the drawing follows as a profile: a rail, rim, handle or pipe.
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = { onEditSketch(SketchPart.PATH) }) {
+                Text(stringResource(if (shape.path == null) R.string.sketch_path_add else R.string.sketch_path_edit))
+            }
+            if (shape.path != null) TextButton(onClick = { vm.shapes.setPath(shape.id, null) }) { Text(stringResource(R.string.sketch_path_remove)) }
+        }
+    }
 }
 
 /** Three numbers (size / position / rotation); the menu turns one into a slider or links it to one. */
@@ -353,22 +439,38 @@ private fun SketchSettings(shape: Shape, d: ShapeDesign, vm: AppViewModel, onEdi
 private fun FieldRow(title: String, shape: Shape, d: ShapeDesign, vm: AppViewModel, prefix: String, labels: List<String>, raw: D3,
                      names: List<String>) {
     var menu by remember { mutableStateOf(false) }
+    val size = prefix == "size"
+    val lock = size && vm.shapes.sizeLock
+    // The cell being dragged; with the lock on, the other two grey out as its followers.
+    var dragged by remember { mutableStateOf(-1) }
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(title, style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
+            // One lock for the row (a badge in each narrow cell crowded the numbers).
+            if (size) Tip(stringResource(R.string.shape_size_lock)) {
+                IconToggleButton(lock, { vm.shapes.sizeLock = it }, Modifier.size(32.dp)) {
+                    Icon(if (lock) Icons.Default.Lock else Icons.Default.LockOpen, stringResource(R.string.shape_size_lock), Modifier.size(18.dp),
+                        tint = if (lock) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
             Spacer(Modifier.width(4.dp))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
             labels.forEachIndexed { i, label ->
                 val field = "$prefix.${"xyz"[i]}"
                 val bound = shape.bind[field]?.takeIf { d.dim(it) != null }
-                NumberField(d.value(shape, field, raw[i]).toFloat(), { vm.shapes.setField(shape.id, field, it.toDouble()) },
-                    Modifier.weight(1f), label = if (bound != null) "$label = $bound" else label, decimals = 2)
+                val set = { v: Double -> if (size) vm.shapes.setSize(shape.id, i, v) else vm.shapes.setField(shape.id, field, v) }
+                val value = d.value(shape, field, raw[i])
+                ScrubCell(value, set, { on -> dragged = if (on) i else -1; vm.shapes.live(on) },
+                    Modifier.weight(1f).alpha(if (lock && dragged >= 0 && dragged != i) 0.45f else 1f), min = if (size) 0.1 else -1e6) { fine ->
+                    NumberField(value.toFloat(), { set(it.toDouble()) }, Modifier.fillMaxWidth(),
+                        label = (if (bound != null) "$label = $bound" else label) + if (fine == true) " ·0.1" else "", decimals = 2)
+                }
             }
             Column {
-                IconButton(onClick = { menu = true }, modifier = Modifier.size(32.dp)) {
+                Tip(stringResource(R.string.shape_slider_menu)) { IconButton(onClick = { menu = true }, modifier = Modifier.size(32.dp)) {
                     Icon(Icons.Default.MoreVert, stringResource(R.string.shape_slider_menu))
-                }
+                } }
                 SliderMenu(menu, { menu = false }, shape, d, vm, labels.mapIndexed { i, l -> Triple("$prefix.${"xyz"[i]}", "$title $l", names[i]) })
             }
         }
@@ -384,9 +486,9 @@ private fun ExtraField(title: String, shape: Shape, d: ShapeDesign, vm: AppViewM
         NumberField(d.value(shape, key, shape.x(key, def)).toFloat(), { vm.shapes.setField(shape.id, key, it.toDouble()) },
             Modifier.weight(1f), label = if (bound != null) "$title = $bound" else title, decimals = decimals)
         if (slider) Column {
-            IconButton(onClick = { menu = true }, modifier = Modifier.size(32.dp)) {
+            Tip(stringResource(R.string.shape_slider_menu)) { IconButton(onClick = { menu = true }, modifier = Modifier.size(32.dp)) {
                 Icon(Icons.Default.MoreVert, stringResource(R.string.shape_slider_menu))
-            }
+            } }
             SliderMenu(menu, { menu = false }, shape, d, vm, listOf(Triple(key, title, key)))
         }
     }

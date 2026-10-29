@@ -60,10 +60,20 @@ sealed interface Tool {
                       *  (was a plain `remember` snapshot in ColorPaintOptions, lost the same way). */
                      val fillKeepEdgeAngle: Float = 0f, val fillKeepOverColours: Boolean = false,
                      val fillKeepGuardOn: Boolean = false) : Tool
+    /**
+     * Sculpt mode: a drag on the selected object dabs [brush] (draw, inflate, smooth, flatten, pinch, crease, grab) of [radius] mm.
+     * [mirror] bits 1/2/4 repeat every dab across the part's X/Y/Z middle plane.
+     */
+    data class Sculpt(val brush: String = "draw", val radius: Float = 5f, val strength: Float = 0.5f, val invert: Boolean = false,
+                      val mirror: Int = 0) : Tool
     data object LayOnFace : Tool
     data object Measure : Tool
-    /** The cut plane passes through the object's middle at height [z], turned by [rot] (Euler degrees) from the horizontal. */
-    data class Cut(val z: Float, val rot: Vec3 = Vec3(0f, 0f, 0f)) : Tool
+    /**
+     * The cut plane passes through the object's middle moved by ([dx], [dy]) at height [z], turned by [rot] (Euler degrees) from the
+     * horizontal (an upright plane moves by the shift, any other by [z]); [placing]: the panel's height slider is held (the view
+     * shows the copy x-ray).
+     */
+    data class Cut(val z: Float, val rot: Vec3 = Vec3(0f, 0f, 0f), val placing: Boolean = false, val dx: Float = 0f, val dy: Float = 0f) : Tool
     data object LayerHeight : Tool
 }
 
@@ -131,6 +141,8 @@ data class PreviewUi(
 data class UiState(
     val phase: Phase = Phase.LOADING,
     val busy: String? = null,
+    /** Cancels the [busy] operation (Cancel button on the busy dialog); null = not cancellable. */
+    val busyCancel: (() -> Unit)? = null,
     val error: String? = null,
     val message: String? = null,
     val messageAction: MessageAction? = null,
@@ -166,10 +178,17 @@ data class UiState(
     val realistic: Boolean = false,
     /** 3D view printed layer lines on the models. */
     val layerLines: Boolean = false,
+    /** 3D view: dark outline along the models' crease edges (View menu). */
+    val edgeOutline: Boolean = false,
     /** How the selection shows ([app.orcaandroid.render.SelectionStyle] bits). */
     val selectionStyle: Int = app.orcaandroid.render.SelectionStyle.DEFAULT,
     /** Preview supersampling ([app.orcaandroid.render.Supersample]). */
     val supersample: Int = app.orcaandroid.render.Supersample.STILL,
+    /** Body drags snap (smart guides) on the plate / in the Build workspace; Ctrl held flips it for one drag. */
+    val snapPrepare: Boolean = false,
+    val snapBuild: Boolean = true,
+    /** The move lock button: -1 free, 0 drags move along X only, 1 along Y only (session only). */
+    val moveLock: Int = -1,
     /** 3D view projection: perspective, or orthographic when false. */
     val perspective: Boolean = true,
     val lab: app.orcaandroid.core.LayoutLab = app.orcaandroid.core.LayoutLab(),
@@ -224,7 +243,27 @@ data class UiState(
     /** Taps on the 3D view and the object list add or remove objects instead of replacing the selection. */
     val selectMode: Boolean = false,
     val tool: Tool = Tool.None,
-    val measure: List<Vec3> = emptyList(),
+    /** Measure tool: the placed points (at most 2). */
+    val measure: List<MeasurePoint> = emptyList(),
+    /** Measure tool: points snap to corners and edges (off: the bare hit; Alt held does the same for one click). */
+    val measureSnap: Boolean = true,
+    /** Measure tool: a line near the X, Y or Z axis locks to it (measured along it, in the axis colour). */
+    val measureAxes: Boolean = true,
+    /** Measure tool: the line locks to 15° steps (the touch toggle; Shift held does the same). */
+    val measureSteps: Boolean = false,
+    /** Measure tool: a held finger steers the dot and the camera follows it (hold = zoom in, fast slide = out; interaction plan step 6). */
+    val measureSteer: Boolean = false,
+    /** "Show overhangs" (quick settings): every part's faces the support threshold angle would support are tinted red; [overhangDrag] = the
+     *  angle slider while it moves (degrees), before it is written to the print settings. Interaction plan step 7. */
+    val overhangView: Boolean = false,
+    val overhangDrag: Float? = null,
+    /** Measure tool: Shift held now, and whether it was held when the second point went down (that pair keeps its steps). */
+    val measureShift: Boolean = false,
+    val measureShiftPlaced: Boolean = false,
+    /** Measure tool, loupe up (finger held, or a mouse / pen hovering): the aim spot, and the point (snapped, with how) the dot sits on. */
+    val loupe: Loupe? = null,
+    /** Measure: the placed point a tap selected (index in [measure]): a drag from it moves it, a tap elsewhere sets it. */
+    val measureActive: Int? = null,
     val layerProfile: LayerProfile? = null,
     val calibration: Calibration? = null,
     val projectName: String? = null,
@@ -268,6 +307,8 @@ data class UiState(
     val scadHidden: Boolean = false,
     /** The OpenSCAD design is shown on the active plate (eye toggle) instead of alone in the design view. */
     val scadOnPlate: Boolean = false,
+    /** Build workspace: push / pull is on (a drag on a flat face moves it instead of the shape). */
+    val buildPush: Boolean = false,
 ) {
     fun presetName(type: PresetType) = when (type) {
         PresetType.PRINT -> print
@@ -297,6 +338,16 @@ data class UiState(
     val nozzleMismatch: Float? get() = printerInfo?.takeIf { !nozzleFits(it) }?.let { installedNozzles[it.model] }
 
     val selectedObject get() = selection?.let { scene.objects.getOrNull(it.obj) }
+
+    /**
+     * The measure line's two ends as drawn (the last placed point and the loupe's preview, else the two placed points)
+     * and the direction it locks to, if any.
+     */
+    val measureLine: Triple<MeasurePoint, MeasurePoint, MeasureLock?>? get() {
+        val (a, b) = (measure + listOfNotNull(loupe?.preview)).takeLast(2).takeIf { it.size == 2 } ?: return null
+        val steps = measureSteps || measureShift || (loupe?.preview == null && measureShiftPlaced)
+        return Triple(a, b, measureLock(a, b, measureAxes, steps))
+    }
 
     /** Every selected copy: the multi-selection, else the single selection. */
     val selectedItems: List<Selection> get() = multiSelection.ifEmpty { listOfNotNull(selection) }
@@ -342,3 +393,7 @@ data class UiState(
 
 /** A project came with filaments that differ from the app's: the user picks which slots to keep. */
 data class FilamentChoice(val current: List<app.orcaandroid.core.FilamentSlot>, val project: List<app.orcaandroid.core.FilamentSlot>)
+
+data class Loupe(val x: Float, val y: Float, val point: Vec3?, val snap: String?, val feature: app.orcaandroid.core.SnapFeature? = null,
+                 /** What a click here would place (a ring: its centre). */
+                 val preview: MeasurePoint? = null)

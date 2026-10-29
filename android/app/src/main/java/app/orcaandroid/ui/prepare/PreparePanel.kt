@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PriorityHigh
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Sync
@@ -41,6 +42,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
@@ -59,6 +62,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
 import app.orcaandroid.R
 import app.orcaandroid.core.LayerRange
 import app.orcaandroid.core.overrides
@@ -153,7 +157,7 @@ private fun PresetsTab(state: UiState, vm: AppViewModel) {
             presetItems(state.visiblePrinters, userGroup, vendorGroup, { it.name }, { it.system }) { listOf(it.vendor) },
             vm.presets::selectPrinter, Modifier.weight(1f), modified = state.overrides[PresetType.PRINTER].orEmpty().isNotEmpty(),
             openGroups = setOf(userGroup))
-        IconButton(onClick = { vm.presets.openEditor(EditorTarget.Preset(PresetType.PRINTER)) }) { Icon(Icons.Default.Edit, stringResource(R.string.edit)) }
+        Tip(stringResource(R.string.edit)) { IconButton(onClick = { vm.presets.openEditor(EditorTarget.Preset(PresetType.PRINTER)) }) { Icon(Icons.Default.Edit, stringResource(R.string.edit)) } }
     }
     TextButton(onClick = vm.presets::openPrinterSetup) { Text(stringResource(R.string.manage_printers)) }
     // Like the desktop's nozzle check: the connected printer reported another nozzle than this preset's.
@@ -184,7 +188,7 @@ private fun PresetsTab(state: UiState, vm: AppViewModel) {
             presetItems(setup?.prints.orEmpty(), userGroup, vendorGroup, { it.name }, { it.system }) { listOf(it.vendor.ifEmpty { "System" }) },
             vm.presets::selectPrint, Modifier.weight(1f), modified = state.overrides[PresetType.PRINT].orEmpty().isNotEmpty(),
             openGroups = setOf(userGroup))
-        IconButton(onClick = { vm.presets.openEditor(EditorTarget.Preset(PresetType.PRINT)) }) { Icon(Icons.Default.Tune, stringResource(R.string.edit)) }
+        Tip(stringResource(R.string.edit)) { IconButton(onClick = { vm.presets.openEditor(EditorTarget.Preset(PresetType.PRINT)) }) { Icon(Icons.Default.Tune, stringResource(R.string.edit)) } }
     }
     QuickSettings(state, vm)
 }
@@ -211,15 +215,15 @@ private fun FilamentSlots(state: UiState, vm: AppViewModel, userGroup: String, v
             // A type mismatch with the AMS sync (see setupProblems): slicing is going to fail, so offer the way back.
             if (problem != null) {
                 Icon(Icons.Default.PriorityHigh, null, tint = Color.Red, modifier = Modifier.size(16.dp))
-                IconButton(onClick = { vm.presets.setFilament(i, problem.synced) }, modifier = Modifier.size(36.dp)) {
+                Tip(stringResource(R.string.filament_reset_to_ams, problem.synced)) { IconButton(onClick = { vm.presets.setFilament(i, problem.synced) }, modifier = Modifier.size(36.dp)) {
                     Icon(Icons.Default.Refresh, stringResource(R.string.filament_reset_to_ams, problem.synced))
-                }
+                } }
             }
             var lookMenu by remember { mutableStateOf(false) }
             Box {
-                IconButton(onClick = { lookMenu = true }) {
+                Tip(stringResource(R.string.filament_look)) { IconButton(onClick = { lookMenu = true }) {
                     Icon(Icons.Default.Texture, stringResource(R.string.filament_look), tint = if (slot.look != null) MaterialTheme.colorScheme.primary else LocalContentColor.current)
-                }
+                } }
                 DropdownMenu(lookMenu, { lookMenu = false }) {
                     val auto = FilamentMaterial.of(slot.preset, slot.overrides["filament_type"])
                     DropdownMenuItem(text = { Text(stringResource(R.string.filament_look_auto, auto.name.lowercase())) },
@@ -229,10 +233,16 @@ private fun FilamentSlots(state: UiState, vm: AppViewModel, userGroup: String, v
                     }
                 }
             }
-            IconButton(onClick = { vm.presets.setActiveFilament(i); vm.presets.openEditor(EditorTarget.Preset(PresetType.FILAMENT)) }) {
+            var mixDialog by remember { mutableStateOf(false) }
+            Tip(stringResource(R.string.mix_title, i + 1)) { IconButton(onClick = { mixDialog = true }) {
+                Icon(Icons.Default.Palette, stringResource(R.string.mix_title, i + 1), tint = if (Mix.isMixed(slot)) MaterialTheme.colorScheme.primary else LocalContentColor.current)
+            } }
+            if (mixDialog) MixDialog(state.filaments, i, state.value(PresetType.PRINT, "enable_mixed_color_sublayer") == "1",
+                { parts, sub -> vm.presets.setMix(i, parts, sub) }) { mixDialog = false }
+            Tip(stringResource(R.string.edit)) { IconButton(onClick = { vm.presets.setActiveFilament(i); vm.presets.openEditor(EditorTarget.Preset(PresetType.FILAMENT)) }) {
                 Icon(Icons.Default.Edit, stringResource(R.string.edit))
-            }
-            if (state.filaments.size > 1) IconButton(onClick = { vm.presets.removeFilament(i) }) { Icon(Icons.Default.Delete, stringResource(R.string.delete)) }
+            } }
+            if (state.filaments.size > 1) Tip(stringResource(R.string.delete)) { IconButton(onClick = { vm.presets.removeFilament(i) }) { Icon(Icons.Default.Delete, stringResource(R.string.delete)) } }
         }
         if (problem != null) Text(stringResource(R.string.filament_type_mismatch, problem.have, problem.tray),
             style = MaterialTheme.typography.bodySmall, color = Color.Red)
@@ -268,6 +278,22 @@ private fun QuickSettings(state: UiState, vm: AppViewModel) {
         }
     }
     SwitchRow(vm.translator.tr("Enable support"), state.value(t, "enable_support") == "1") { vm.presets.setOption(t, "enable_support", if (it) "1" else "0") }
+    // What the threshold angle means: the faces it would support go red in the view, live while the slider moves.
+    if (state.value(t, "enable_support") == "1" || state.overhangView) num("support_threshold_angle")?.let { saved ->
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            FilterChip(state.overhangView, { vm.scene.setOverhangView(!state.overhangView) }, label = { Text(stringResource(R.string.show_overhangs)) })
+            if (state.overhangView) {
+                val angle = state.overhangDrag ?: saved
+                Text(if (angle.roundToInt() == 0) stringResource(R.string.overhang_angle_auto) else stringResource(R.string.overhang_angle, angle.roundToInt()),
+                    Modifier.padding(start = 8.dp), style = MaterialTheme.typography.bodySmall)
+                Slider(angle, { vm.scene.setOverhangView(true, it.roundToInt().toFloat()) }, valueRange = 0f..90f,
+                    onValueChangeFinished = {
+                        vm.state.value.overhangDrag?.let { vm.presets.setOption(t, "support_threshold_angle", it.roundToInt().toString()) }
+                        vm.scene.setOverhangView(true)
+                    }, modifier = Modifier.weight(1f).padding(start = 8.dp))
+            }
+        }
+    }
     state.value(t, "brim_type")?.let { brim ->
         SwitchRow(vm.translator.tr("Brim"), brim != "no_brim") { vm.presets.setOption(t, "brim_type", if (it) "auto_brim" else "no_brim") }
     }
@@ -291,7 +317,7 @@ private fun WipeTowerRow(state: UiState, vm: AppViewModel) {
         if (pos != null) {
             NumberField(pos.first, { vm.scene.setWipeTower(plate.index, it to pos.second) }, Modifier.weight(1f), "X", "mm", 1)
             NumberField(pos.second, { vm.scene.setWipeTower(plate.index, pos.first to it) }, Modifier.weight(1f), "Y", "mm", 1)
-            IconButton(onClick = { vm.scene.setWipeTower(plate.index, null) }) { Icon(Icons.Default.Delete, stringResource(R.string.reset)) }
+            Tip(stringResource(R.string.reset)) { IconButton(onClick = { vm.scene.setWipeTower(plate.index, null) }) { Icon(Icons.Default.Delete, stringResource(R.string.reset)) } }
         } else {
             TextButton(onClick = { vm.scene.setWipeTower(plate.index, 15f to 150f) }) { Text(stringResource(R.string.set_position)) }
         }
@@ -439,9 +465,9 @@ private fun ObjectDetails(state: UiState, vm: AppViewModel, objIndex: Int) {
                     Text(volumeLabel(v.type) + " · " + v.name, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis,
                         style = MaterialTheme.typography.bodyMedium, color = if (vSel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
                     if (v.type == VolumeType.PART || v.type == VolumeType.MODIFIER) {
-                        IconButton(onClick = { vm.presets.openEditor(EditorTarget.Object(objIndex, v.index)) }) { Icon(Icons.Default.Tune, stringResource(R.string.settings)) }
+                        Tip(stringResource(R.string.settings)) { IconButton(onClick = { vm.presets.openEditor(EditorTarget.Object(objIndex, v.index)) }) { Icon(Icons.Default.Tune, stringResource(R.string.settings)) } }
                     }
-                    IconButton(onClick = { vm.scene.select(sel.copy(volume = v.index)); vm.scene.deleteSelected() }) { Icon(Icons.Default.Delete, stringResource(R.string.delete)) }
+                    Tip(stringResource(R.string.delete)) { IconButton(onClick = { vm.scene.select(sel.copy(volume = v.index)); vm.scene.deleteSelected() }) { Icon(Icons.Default.Delete, stringResource(R.string.delete)) } }
                 }
                 if (vSel) VolumeTransform(vm, v)
             }
@@ -481,17 +507,17 @@ private fun volumeLabel(t: VolumeType) = stringResource(
 private fun LayerRanges(vm: AppViewModel, obj: Int, ranges: List<LayerRange>, height: Float) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(R.string.height_ranges), Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
-        IconButton(onClick = {
+        Tip(stringResource(R.string.add)) { IconButton(onClick = {
             val from = ranges.maxOfOrNull { it.to } ?: 0f
             vm.scene.setLayerRanges(obj, ranges + LayerRange(from, (from + 2f).coerceAtMost(height.coerceAtLeast(from + 0.2f)), emptyMap()))
-        }) { Icon(Icons.Default.Add, stringResource(R.string.add)) }
+        }) { Icon(Icons.Default.Add, stringResource(R.string.add)) } }
     }
     ranges.forEachIndexed { i, r ->
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             NumberField(r.from, { v -> vm.scene.setLayerRanges(obj, ranges.mapIndexed { j, x -> if (j == i) x.copy(from = v) else x }) }, Modifier.weight(1f), stringResource(R.string.from), "mm")
             NumberField(r.to, { v -> vm.scene.setLayerRanges(obj, ranges.mapIndexed { j, x -> if (j == i) x.copy(to = v) else x }) }, Modifier.weight(1f), stringResource(R.string.to), "mm")
-            IconButton(onClick = { vm.presets.openEditor(EditorTarget.Range(obj, i)) }) { Icon(Icons.Default.Tune, stringResource(R.string.settings)) }
-            IconButton(onClick = { vm.scene.setLayerRanges(obj, ranges.filterIndexed { j, _ -> j != i }) }) { Icon(Icons.Default.Delete, stringResource(R.string.delete)) }
+            Tip(stringResource(R.string.settings)) { IconButton(onClick = { vm.presets.openEditor(EditorTarget.Range(obj, i)) }) { Icon(Icons.Default.Tune, stringResource(R.string.settings)) } }
+            Tip(stringResource(R.string.delete)) { IconButton(onClick = { vm.scene.setLayerRanges(obj, ranges.filterIndexed { j, _ -> j != i }) }) { Icon(Icons.Default.Delete, stringResource(R.string.delete)) } }
         }
     }
 }

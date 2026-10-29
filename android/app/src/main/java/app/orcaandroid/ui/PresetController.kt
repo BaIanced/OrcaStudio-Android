@@ -15,6 +15,7 @@ import app.orcaandroid.core.map
 import app.orcaandroid.core.printerKey
 import app.orcaandroid.net.BambuAccount
 import app.orcaandroid.net.HostType
+import app.orcaandroid.ui.prepare.Mix
 import java.io.File
 import kotlin.math.abs
 import kotlinx.coroutines.Dispatchers
@@ -123,7 +124,7 @@ class PresetController(private val store: Store, private val device: DeviceContr
         val saved = settings.lastFilaments(name)
         val given = filaments?.mapIndexed { i, f ->
             val same = saved.getOrNull(i)?.takeIf { it.preset == f.preset }
-            f.copy(source = f.source ?: same?.source, look = f.look ?: same?.look)
+            f.copy(source = f.source ?: same?.source, look = f.look ?: same?.look, overrides = Mix.carry(f, same))
         }
         val fils = withColors((given ?: saved).filter { f -> setup.filaments.any { it.name == f.preset } }
             .ifEmpty { listOf(FilamentSlot(setup.defaultFilament)) })
@@ -191,12 +192,31 @@ class PresetController(private val store: Store, private val device: DeviceContr
     fun setFilamentColor(slot: Int, color: String) = updateFilaments { list -> list.mapIndexed { i, f -> if (i == slot) f.copy(color = color) else f } }
     fun setFilamentLook(slot: Int, look: String?) = updateFilaments { list -> list.mapIndexed { i, f -> if (i == slot) f.copy(look = look) else f } }
 
+    /** Makes [slot] a mix of the given (1-based slot, share) parts, or a plain filament again when [parts] is null. */
+    fun setMix(slot: Int, parts: List<Pair<Int, Float>>?, sublayers: Boolean) = store.launch {
+        val keys = setOf(Mix.IS_MIXED, Mix.COMPONENTS, Mix.RATIOS)
+        if (parts != null) {
+            val colors = parts.map { (c, _) -> store.value.filaments.getOrNull(c - 1)?.color }
+            updateFilamentsNow { list -> list.mapIndexed { i, f -> if (i == slot) f.copy(color = Mix.blend(colors, parts.map { it.second })) else f } }
+        }
+        editOverridesNow(PresetType.FILAMENT, slot) { cur ->
+            if (parts == null) cur - keys else cur + mapOf(
+                Mix.IS_MIXED to "1",
+                Mix.COMPONENTS to parts.joinToString(",") { it.first.toString() },
+                Mix.RATIOS to parts.joinToString(",") { "%.3f".format(java.util.Locale.ROOT, it.second) })
+        }
+        store.value.printer?.let { settings.setLastFilaments(it, store.value.filaments) }
+        if (parts != null) editOverridesNow(PresetType.PRINT, slot) { it + ("enable_mixed_color_sublayer" to if (sublayers) "1" else "0") }
+    }
+
     fun setActiveFilament(slot: Int) = store.launch { setActiveFilamentNow(slot) }
 
-    private fun updateFilaments(transform: (List<FilamentSlot>) -> List<FilamentSlot>) = store.launch {
+    private fun updateFilaments(transform: (List<FilamentSlot>) -> List<FilamentSlot>) = store.launch { updateFilamentsNow(transform) }
+
+    private suspend fun updateFilamentsNow(transform: (List<FilamentSlot>) -> List<FilamentSlot>) {
         val s = store.value
         val list = transform(s.filaments)
-        settings.setLastFilaments(s.printer ?: return@launch, list)
+        settings.setLastFilaments(s.printer ?: return, list)
         store.update { it.copy(filaments = list, activeFilament = it.activeFilament.coerceIn(0, list.size - 1), results = emptyMap()) }
         refreshPresetValues(listOf(PresetType.FILAMENT))
     }

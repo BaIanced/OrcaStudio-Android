@@ -1,5 +1,9 @@
 package app.orcaandroid.ui.prepare
 
+import app.orcaandroid.ui.SCULPT_MAX_MM
+import app.orcaandroid.ui.SCULPT_MIN_MM
+import app.orcaandroid.ui.components.ScrubLabel
+import app.orcaandroid.ui.components.ScrubSlider
 import androidx.compose.foundation.Canvas
 import kotlinx.coroutines.delay
 import androidx.compose.ui.text.style.TextOverflow
@@ -20,7 +24,9 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -36,10 +42,12 @@ import androidx.compose.material.icons.filled.Colorize
 import androidx.compose.material.icons.filled.FormatColorFill
 import androidx.compose.material.icons.filled.FormatColorReset
 import androidx.compose.material.icons.filled.Reorder
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.ViewInAr
 import androidx.compose.material.icons.filled.DragIndicator
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -56,6 +64,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -77,6 +86,7 @@ import kotlin.math.roundToInt
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.orcaandroid.R
+import app.orcaandroid.net.HostType
 import app.orcaandroid.core.ColourChangeEstimate
 import app.orcaandroid.core.PaintLayers
 import app.orcaandroid.core.PresetType
@@ -88,6 +98,10 @@ import kotlinx.coroutines.withContext
 import app.orcaandroid.ui.AppViewModel
 import app.orcaandroid.ui.Tool
 import app.orcaandroid.ui.UiState
+import app.orcaandroid.ui.MeasurePoint
+import app.orcaandroid.ui.measureLock
+import app.orcaandroid.ui.measureLockColor
+import app.orcaandroid.ui.measureResult
 import app.orcaandroid.ui.components.hexToRgb
 import java.util.Locale
 
@@ -144,13 +158,14 @@ internal fun ToolPanel(state: UiState, vm: AppViewModel) {
             }, verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.DragIndicator, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(toolTitle(tool), Modifier.weight(1f).padding(start = 4.dp), style = MaterialTheme.typography.titleSmall)
-                IconButton(onClick = { folded = !folded }, modifier = Modifier.size(32.dp)) {
+                Tip(stringResource(if (folded) R.string.design_unfold else R.string.design_minimize)) { IconButton(onClick = { folded = !folded }, modifier = Modifier.size(32.dp)) {
                     Icon(if (folded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, stringResource(if (folded) R.string.design_unfold else R.string.design_minimize))
-                }
-                IconButton(onClick = { vm.scene.setTool(Tool.None) }, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.Close, stringResource(R.string.close)) }
+                } }
+                Tip(stringResource(R.string.close)) { IconButton(onClick = { vm.scene.setTool(Tool.None) }, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.Close, stringResource(R.string.close)) } }
             }
             if (!folded) when (tool) {
                 is Tool.Paint -> PaintOptions(state, vm, tool)
+                is Tool.Sculpt -> SculptOptions(vm, tool)
                 is Tool.Cut -> CutOptions(state, vm, tool)
                 Tool.Measure -> MeasureOptions(state, vm)
                 Tool.LayOnFace -> Text(stringResource(R.string.lay_on_face_hint), style = MaterialTheme.typography.bodySmall)
@@ -167,6 +182,7 @@ private fun toolTitle(tool: Tool) = stringResource(
         is Tool.Paint -> when (tool.kind) {
             "support" -> R.string.paint_supports; "seam" -> R.string.paint_seam; "fuzzy" -> R.string.paint_fuzzy; else -> R.string.paint_color
         }
+        is Tool.Sculpt -> R.string.sculpt
         is Tool.Cut -> R.string.cut
         Tool.Measure -> R.string.measure
         Tool.LayOnFace -> R.string.lay_on_face
@@ -174,6 +190,42 @@ private fun toolTitle(tool: Tool) = stringResource(
         Tool.None -> R.string.close
     }
 )
+
+private val SCULPT_BRUSHES = listOf(
+    "draw" to R.string.sculpt_draw, "inflate" to R.string.sculpt_inflate, "smooth" to R.string.sculpt_smooth,
+    "flatten" to R.string.sculpt_flatten, "pinch" to R.string.sculpt_pinch, "crease" to R.string.sculpt_crease, "grab" to R.string.sculpt_grab)
+
+@Composable
+private fun SculptOptions(vm: AppViewModel, tool: Tool.Sculpt) {
+    Text(stringResource(R.string.sculpt_hint), style = MaterialTheme.typography.bodySmall)
+    // Wrapped, not scrolled: all seven brushes stay in sight (Grab was off the edge of a scrolling row).
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        SCULPT_BRUSHES.forEach { (brush, label) ->
+            FilterChip(tool.brush == brush, { vm.scene.setTool(tool.copy(brush = brush)) }, label = { Text(stringResource(label)) })
+        }
+    }
+    // Symmetry: each axis chip mirrors the strokes across the part's own plane through its middle (bits 1/2/4).
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.Center) {
+        Text(stringResource(R.string.sculpt_mirror), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.align(Alignment.CenterVertically))
+        listOf("X", "Y", "Z").forEachIndexed { i, axis ->
+            val bit = 1 shl i
+            FilterChip(tool.mirror and bit != 0, { vm.scene.setTool(tool.copy(mirror = tool.mirror xor bit)) }, label = { Text(axis) })
+        }
+    }
+    ScrubSlider("sculpt_size", { stringResource(R.string.brush_size, it) }, tool.radius, SCULPT_MIN_MM..SCULPT_MAX_MM, 0.1f) {
+        vm.scene.setTool(tool.copy(radius = it))
+    }
+    // Grab moves what is under the finger by the drag, so it has no strength or direction.
+    if (tool.brush != "grab") Row(verticalAlignment = Alignment.CenterVertically) {
+        ScrubLabel("sculpt_strength", { stringResource(R.string.sculpt_strength, (it * 100).roundToInt()) }, tool.strength, 0.05f..1f, 0.01f) {
+            vm.scene.setTool(tool.copy(strength = it))
+        }
+        Slider(tool.strength, { vm.scene.setTool(tool.copy(strength = it)) }, valueRange = 0.05f..1f, modifier = Modifier.weight(1f).padding(start = 8.dp))
+        if (tool.brush != "smooth")
+            FilterChip(tool.invert, { vm.scene.setTool(tool.copy(invert = !tool.invert)) }, label = { Text(stringResource(R.string.sculpt_invert)) },
+                modifier = Modifier.padding(start = 6.dp))
+    }
+}
 
 @Composable
 private fun PaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Paint) {
@@ -208,21 +260,11 @@ private fun PaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Paint) {
         }
     }
     val brush = tool.shape == "sphere" || tool.shape == "circle"
-    if (brush) Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(stringResource(R.string.brush_size, tool.radius), style = MaterialTheme.typography.bodySmall)
-        Slider(tool.radius, { vm.scene.setTool(tool.copy(radius = it)) }, valueRange = 0.5f..15f, modifier = Modifier.weight(1f).padding(start = 8.dp))
-    }
-    if (tool.shape == "height") Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(stringResource(R.string.paint_height_range, tool.height), style = MaterialTheme.typography.bodySmall)
-        Slider(tool.height, { vm.scene.setTool(tool.copy(height = it)) }, valueRange = 0.1f..8f, modifier = Modifier.weight(1f).padding(start = 8.dp))
-    }
+    if (brush) BrushSize(vm, tool)
+    if (tool.shape == "height") BandHeight(vm, tool)
     if (tool.shape == "pick") Text(stringResource(R.string.paint_pick_hint), style = MaterialTheme.typography.bodySmall)
     // Regions view: the model split at its creases (outlined); a tap fills one region over any colour.
-    if (tool.shape == "regions") Row(verticalAlignment = Alignment.CenterVertically) {
-        val angle = tool.edgeAngle.takeIf { it > 0f } ?: 30f
-        Text(stringResource(R.string.paint_crease_angle, angle.roundToInt()), style = MaterialTheme.typography.bodySmall)
-        Slider(angle, { vm.scene.setTool(tool.copy(edgeAngle = it)) }, valueRange = 5f..89f, modifier = Modifier.weight(1f).padding(start = 8.dp))
-    }
+    if (tool.shape == "regions") { CreaseAngle(vm, tool); RegionEdits(state, vm) }
     // One-tap actions on the whole object. Clean specks = the desktop's gap fill: painted patches under the area take the
     // state that borders them most. Colour each part: every separate shell gets its own filament, largest first.
     if (tool.kind == "color" || tool.kind == "support") CleanSpecks(vm, tool)
@@ -240,13 +282,11 @@ private fun PaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Paint) {
             if (brush) FilterChip(tool.overhang > 0f, { vm.scene.setTool(tool.copy(overhang = if (tool.overhang > 0f) 0f else overhang)) },
                 label = { Text(stringResource(R.string.paint_overhangs_only)) })
         }
-        if (tool.highlight > 0f || (brush && tool.overhang > 0f)) Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.paint_overhang_angle, overhang.roundToInt()), style = MaterialTheme.typography.bodySmall)
-            Slider(overhang, {
+        if (tool.highlight > 0f || (brush && tool.overhang > 0f))
+            ScrubSlider("paint_overhang", { stringResource(R.string.paint_overhang_angle, it.roundToInt()) }, overhang, 1f..90f, 1f) {
                 overhang = it
                 vm.scene.setTool(tool.copy(overhang = if (tool.overhang > 0f) it else 0f, highlight = if (tool.highlight > 0f) it else 0f))
-            }, valueRange = 1f..90f, modifier = Modifier.weight(1f).padding(start = 8.dp))
-        }
+            }
     }
     TextButton(onClick = { vm.scene.paintClear(tool.kind) }) { Text(stringResource(R.string.clear_painting)) }
 }
@@ -369,6 +409,9 @@ internal fun ColorPaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Pain
         Swatch(tool.shape == "pick", stringResource(R.string.paint_pick), {
             vm.scene.setTool(if (tool.shape == "pick") tool.copy(shape = tool.back) else tool.copy(shape = "pick", back = tool.shape))
         }) { Icon(Icons.Default.Colorize, null, Modifier.size(24.dp)) }
+        // The plate's filaments from the connected Bambu printer, without leaving the shop.
+        if (state.connection?.type == HostType.BAMBU || state.connection?.type == HostType.BAMBU_SIGNED)
+            Swatch(false, stringResource(R.string.sync_short), vm.presets::syncFilamentsFromPrinter) { Icon(Icons.Default.Sync, null, Modifier.size(24.dp)) }
     }
     changes?.takeIf { it.changes > 0 }?.let {
         Text(stringResource(R.string.paint_change_estimate, it.changes, it.flushGrams), style = MaterialTheme.typography.bodySmall)
@@ -380,10 +423,7 @@ internal fun ColorPaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Pain
                     FilterChip(shape == s, { vm.scene.setTool(tool.copy(shape = s, back = s, brushShape = s)) }, label = { Text(stringResource(paintShapeLabel(s))) })
                 }
             }
-            if (shape != "triangle") Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.brush_size, tool.radius), style = MaterialTheme.typography.bodySmall)
-                Slider(tool.radius, { vm.scene.setTool(tool.copy(radius = it)) }, valueRange = 0.5f..15f, modifier = Modifier.weight(1f).padding(start = 8.dp))
-            }
+            if (shape != "triangle") BrushSize(vm, tool)
             if (shape != "triangle") { EdgeRow(vm, tool); StrokeLock(vm, tool) }
             GuardRow(state, vm, tool)
         }
@@ -395,18 +435,11 @@ internal fun ColorPaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Pain
                     vm.scene.setTool(tool.copy(shape = "regions", back = "regions", fillShape = "regions", edgeAngle = if (tool.edgeAngle <= 0f) 30f else tool.edgeAngle))
                 }, label = { Text(stringResource(R.string.paint_shape_regions)) })
             }
-            if (shape == "regions") Row(verticalAlignment = Alignment.CenterVertically) {
-                val angle = tool.edgeAngle.takeIf { it > 0f } ?: 30f
-                Text(stringResource(R.string.paint_crease_angle, angle.roundToInt()), style = MaterialTheme.typography.bodySmall)
-                Slider(angle, { vm.scene.setTool(tool.copy(edgeAngle = it)) }, valueRange = 5f..89f, modifier = Modifier.weight(1f).padding(start = 8.dp))
-            } else { EdgeRow(vm, tool); OverColours(vm, tool) }
+            if (shape == "regions") { CreaseAngle(vm, tool); RegionEdits(state, vm) } else { EdgeRow(vm, tool); OverColours(vm, tool) }
             GuardRow(state, vm, tool)
         }
         "bands" -> {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.paint_height_range, tool.height), style = MaterialTheme.typography.bodySmall)
-                Slider(tool.height, { vm.scene.setTool(tool.copy(height = it)) }, valueRange = 0.1f..8f, modifier = Modifier.weight(1f).padding(start = 8.dp))
-            }
+            BandHeight(vm, tool)
             GuardRow(state, vm, tool)
         }
         else -> {
@@ -491,18 +524,18 @@ private fun PaintLayerRow(state: UiState, i: Int, selected: Boolean, percent: In
             }
         }
         Row {
-            IconButton(flags.toggleHidden, Modifier.size(36.dp)) {
+            Tip(stringResource(if (flags.hidden) R.string.paint_layer_show else R.string.paint_layer_hide)) { IconButton(flags.toggleHidden, Modifier.size(36.dp)) {
                 Icon(if (flags.hidden) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                     stringResource(if (flags.hidden) R.string.paint_layer_show else R.string.paint_layer_hide), Modifier.size(20.dp))
-            }
-            IconButton(flags.toggleLocked, Modifier.size(36.dp)) {
+            } }
+            Tip(stringResource(if (flags.locked) R.string.paint_layer_unlock else R.string.paint_layer_lock)) { IconButton(flags.toggleLocked, Modifier.size(36.dp)) {
                 Icon(if (flags.locked) Icons.Default.Lock else Icons.Default.LockOpen,
                     stringResource(if (flags.locked) R.string.paint_layer_unlock else R.string.paint_layer_lock), Modifier.size(20.dp),
                     tint = if (flags.locked) MaterialTheme.colorScheme.primary else LocalContentColor.current)
-            }
+            } }
         }
         Box {
-            IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, stringResource(R.string.paint_layer_menu)) }
+            Tip(stringResource(R.string.paint_layer_menu)) { IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, stringResource(R.string.paint_layer_menu)) } }
             LayerMenu(state, i, menu, percent, flags, { menu = false }, onTurnInto)
         }
     }
@@ -531,8 +564,50 @@ private fun CleanSpecks(vm: AppViewModel, tool: Tool.Paint) {
     var gapArea by rememberSaveable { mutableFloatStateOf(1f) }
     Row(verticalAlignment = Alignment.CenterVertically) {
         FilledTonalButton(onClick = { vm.scene.paintGapFill(tool.kind, gapArea, tool.locked) }) { Text(stringResource(R.string.paint_clean_specks)) }
-        Text(stringResource(R.string.paint_gap_area, gapArea), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 8.dp))
+        ScrubLabel("paint_gap_area", { stringResource(R.string.paint_gap_area, it) }, gapArea, 0.1f..5f, 0.1f, Modifier.padding(start = 8.dp)) { gapArea = it }
         Slider(gapArea, { gapArea = it }, valueRange = 0.1f..5f, modifier = Modifier.weight(1f).padding(start = 8.dp))
+    }
+}
+
+/** The paint brush's size; with the crease angle and band height also scrubbable from the label (step 8, E5). */
+@Composable
+private fun BrushSize(vm: AppViewModel, tool: Tool.Paint) =
+    ScrubSlider("paint_size", { stringResource(R.string.brush_size, it) }, tool.radius, 0.5f..15f, 0.1f) { vm.scene.setTool(tool.copy(radius = it)) }
+
+@Composable
+private fun BandHeight(vm: AppViewModel, tool: Tool.Paint) =
+    ScrubSlider("paint_height", { stringResource(R.string.paint_height_range, it) }, tool.height, 0.1f..8f, 0.1f) { vm.scene.setTool(tool.copy(height = it)) }
+
+@Composable
+private fun CreaseAngle(vm: AppViewModel, tool: Tool.Paint) =
+    ScrubSlider("paint_crease", { stringResource(R.string.paint_crease_angle, it.roundToInt()) }, tool.edgeAngle.takeIf { it > 0f } ?: 30f, 5f..89f, 1f) {
+        vm.scene.setTool(tool.copy(edgeAngle = it))
+    }
+
+/**
+ * Per-region edits (interaction plan step 8b): after a Regions tap, the same region takes another colour, supports, fuzzy skin or a seam.
+ * A chip that is on clears that kind from the region again.
+ */
+@Composable
+private fun RegionEdits(state: UiState, vm: AppViewModel) {
+    val region = vm.scene.regionPick.collectAsState().value ?: return
+    val on = { kind: String -> region.applied[kind] ?: 0 }
+    Text(stringResource(R.string.region_edits), style = MaterialTheme.typography.labelMedium)
+    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        if (state.filaments.size > 1) state.filaments.forEachIndexed { i, f ->
+            FilterChip(on("color") == i + 1, { vm.scene.paintRegion("color", i + 1) }, label = { Text("${i + 1}") }, leadingIcon = { ColorDot(f.color) })
+        }
+        FilterChip(on("support") == 1, { vm.scene.paintRegion("support", if (on("support") == 1) 0 else 1) },
+            label = { Text(stringResource(R.string.region_support)) })
+        FilterChip(on("support") == 2, { vm.scene.paintRegion("support", if (on("support") == 2) 0 else 2) },
+            label = { Text(stringResource(R.string.region_no_support)) })
+        FilterChip(on("fuzzy") == 1, { vm.scene.paintRegion("fuzzy", if (on("fuzzy") == 1) 0 else 1) },
+            label = { Text(stringResource(R.string.paint_fuzzy)) })
+        FilterChip(on("seam") == 1, { vm.scene.paintRegion("seam", if (on("seam") == 1) 0 else 1) },
+            label = { Text(stringResource(R.string.region_seam)) })
+        // Geometry: each Smooth tap is 5 more Taubin iterations (undo steps back); Modifier adds a 1 mm deep modifier volume to set up.
+        AssistChip({ vm.scene.editRegion("smooth", 5f) }, label = { Text(stringResource(R.string.region_smooth)) })
+        AssistChip({ vm.scene.editRegion("modifier", 1f) }, label = { Text(stringResource(R.string.region_modifier)) })
     }
 }
 
@@ -544,8 +619,8 @@ private fun EdgeRow(vm: AppViewModel, tool: Tool.Paint) {
         FilterChip(tool.edgeAngle > 0f, { vm.scene.setTool(tool.copy(edgeAngle = if (tool.edgeAngle > 0f) 0f else edgeAngle)) },
             label = { Text(stringResource(R.string.paint_stop_at_edges)) })
         if (tool.edgeAngle > 0f) {
-            Text(stringResource(R.string.paint_edge_angle, tool.edgeAngle.roundToInt()), style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(start = 8.dp))
+            ScrubLabel("paint_edge", { stringResource(R.string.paint_edge_angle, it.roundToInt()) }, tool.edgeAngle, 5f..89f, 1f,
+                Modifier.padding(start = 8.dp)) { edgeAngle = it; vm.scene.setTool(tool.copy(edgeAngle = it)) }
             Slider(tool.edgeAngle, { edgeAngle = it; vm.scene.setTool(tool.copy(edgeAngle = it)) }, valueRange = 5f..89f,
                 modifier = Modifier.weight(1f).padding(start = 8.dp))
         }
@@ -567,7 +642,8 @@ private fun GuardRow(state: UiState, vm: AppViewModel, tool: Tool.Paint) {
             vm.scene.setTool(tool.copy(guardOn = !tool.guardOn, guardZ = if (tool.guardZ in range) tool.guardZ else inst.min.z + inst.size.z / 2))
         }, label = { Text(stringResource(R.string.paint_guard)) })
         if (tool.guardOn) {
-            Text(stringResource(R.string.paint_guard_z, tool.guardZ), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 8.dp))
+            ScrubLabel("paint_guard", { stringResource(R.string.paint_guard_z, it) }, tool.guardZ.coerceIn(range), range, 0.1f,
+                Modifier.padding(start = 8.dp)) { vm.scene.setTool(tool.copy(guardZ = it)) }
             Slider(tool.guardZ.coerceIn(range), { vm.scene.setTool(tool.copy(guardZ = it)) }, valueRange = range,
                 modifier = Modifier.weight(1f).padding(start = 8.dp))
         }
@@ -607,7 +683,8 @@ private fun CutOptions(state: UiState, vm: AppViewModel, tool: Tool.Cut) {
         Text("Z = %.2f mm,  %.1f°".format(Locale.ROOT, tool.z, tilt), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
         if (tilt > 0.05f) TextButton(onClick = { vm.scene.setTool(Tool.Cut(tool.z)) }) { Text(stringResource(R.string.cut_level)) }
     }
-    Slider(tool.z.coerceIn(lo, hi), { vm.scene.setTool(Tool.Cut(it, tool.rot)) }, valueRange = lo..hi)
+    Slider(tool.z.coerceIn(lo, hi), { vm.scene.setTool(tool.copy(z = it, placing = true)) }, valueRange = lo..hi,
+        onValueChangeFinished = { (vm.state.value.tool as? Tool.Cut)?.let { vm.scene.setTool(it.copy(placing = false)) } })
     Row(verticalAlignment = Alignment.CenterVertically) {
         Checkbox(keepUpper, { keepUpper = it }); Text(stringResource(R.string.keep_upper))
         Checkbox(keepLower, { keepLower = it }); Text(stringResource(R.string.keep_lower))
@@ -618,7 +695,7 @@ private fun CutOptions(state: UiState, vm: AppViewModel, tool: Tool.Cut) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Checkbox(flip, { flip = it }, enabled = keepUpper); Text(stringResource(R.string.flip_upper_down))
     }
-    FilledTonalButton(onClick = { vm.scene.cut(tool.z, tool.rot, keepUpper, keepLower, flip, onCut) }, enabled = keepUpper || keepLower, modifier = Modifier.fillMaxWidth()) {
+    FilledTonalButton(onClick = { vm.scene.cut(tool, keepUpper, keepLower, flip, onCut) }, enabled = keepUpper || keepLower, modifier = Modifier.fillMaxWidth()) {
         Text(stringResource(R.string.perform_cut))
     }
 }
@@ -628,15 +705,55 @@ private fun MeasureOptions(state: UiState, vm: AppViewModel) {
     val pts = state.measure
     when (pts.size) {
         0 -> Text(stringResource(R.string.measure_hint_first), style = MaterialTheme.typography.bodySmall)
-        1 -> Text(stringResource(R.string.measure_hint_second), style = MaterialTheme.typography.bodySmall)
+        1 -> {
+            Text(measureKindLabel(pts[0]), style = MaterialTheme.typography.titleSmall)
+            Text(stringResource(R.string.measure_hint_second), style = MaterialTheme.typography.bodySmall)
+        }
         else -> {
-            val d = pts[1] - pts[0]
-            Text("%.2f mm".format(Locale.ROOT, d.length()), style = MaterialTheme.typography.headlineSmall)
-            Text("ΔX %.2f  ΔY %.2f  ΔZ %.2f".format(Locale.ROOT, kotlin.math.abs(d.x), kotlin.math.abs(d.y), kotlin.math.abs(d.z)),
-                style = MaterialTheme.typography.bodySmall)
+            // The headline is what the two picks mean together: a face gap, a distance square to a face, else point to point.
+            val r = measureResult(pts[0], pts[1])
+            val lock = measureLock(pts[0], pts[1], state.measureAxes, state.measureSteps || state.measureShift || state.measureShiftPlaced)
+            val onBed = pts.any { it.kind == "bed" }
+            val rings = pts.all { it.kind == "ring" }
+            val (head, caption) = when {
+                r.gap != null -> r.gap to stringResource(if (onBed) R.string.measure_to_bed else R.string.measure_gap)
+                r.toPlane != null -> r.toPlane to stringResource(if (onBed) R.string.measure_to_bed else R.string.measure_to_face)
+                lock != null && lock.axis >= 0 -> lock.along to stringResource(if (rings) R.string.measure_along_centres else R.string.measure_along_axis, "XYZ"[lock.axis].toString())
+                lock != null -> lock.along to stringResource(R.string.measure_along_step, "%.0f".format(Locale.ROOT, lock.elevation), "%.0f".format(Locale.ROOT, lock.azimuth))
+                rings -> r.distance to stringResource(R.string.measure_centres)
+                else -> r.distance to null
+            }
+            Text(stringResource(R.string.measure_points, measureKindLabel(pts[0]), measureKindLabel(pts[1])), style = MaterialTheme.typography.bodySmall)
+            Text("%.2f mm".format(Locale.ROOT, head), style = MaterialTheme.typography.headlineSmall, color = lock?.let { measureLockColor(it.axis) } ?: Color.Unspecified)
+            caption?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+            if (head != r.distance) Text(stringResource(R.string.measure_straight, "%.2f".format(Locale.ROOT, r.distance)), style = MaterialTheme.typography.bodySmall)
+            r.angle?.let { Text(stringResource(R.string.measure_angle, "%.1f".format(Locale.ROOT, it)), style = MaterialTheme.typography.bodySmall) }
+            Text("ΔX %.2f  ΔY %.2f  ΔZ %.2f".format(Locale.ROOT, r.delta.x, r.delta.y, r.delta.z), style = MaterialTheme.typography.bodySmall)
         }
     }
-    if (pts.isNotEmpty()) TextButton(onClick = { vm.scene.setTool(Tool.Measure) }) { Text(stringResource(R.string.reset)) }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Checkbox(state.measureSnap, { vm.scene.setMeasureSnap(it) }); Text(stringResource(R.string.measure_snap_toggle))
+        Spacer(Modifier.weight(1f))
+        if (pts.isNotEmpty()) TextButton(onClick = { vm.scene.setTool(Tool.Measure) }) { Text(stringResource(R.string.reset)) }
+    }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Checkbox(state.measureAxes, { vm.scene.setMeasureAxes(it) }); Text(stringResource(R.string.measure_axes_toggle))
+    }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Checkbox(state.measureSteer, { vm.scene.setMeasureSteer(it) }); Text(stringResource(R.string.measure_steer_toggle))
+    }
+}
+
+/** What a measure point sits on, as the loupe names it. */
+@Composable
+private fun measureKindLabel(m: MeasurePoint) = when (m.kind) {
+    "vertex" -> stringResource(R.string.measure_snap_corner)
+    "edge" -> stringResource(R.string.measure_snap_edge)
+    "ring" -> stringResource(R.string.measure_snap_ring, "%.2f".format(Locale.ROOT, m.diameter ?: 0f))
+    "curve" -> stringResource(R.string.measure_snap_curve)
+    "face" -> stringResource(R.string.measure_snap_face)
+    "bed" -> stringResource(R.string.measure_snap_bed)
+    else -> stringResource(R.string.measure_kind_point)
 }
 
 /**

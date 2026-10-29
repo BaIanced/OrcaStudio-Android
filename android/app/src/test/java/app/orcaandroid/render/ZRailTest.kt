@@ -25,8 +25,31 @@ class ZRailTest {
         assertNull(ZRail.lift(1.5f, 0f, 10f, listOf(0f, 3f), 1f, 1f).second)
     }
 
+    @Test fun middleSnapsOnlyWhenAsked() {
+        // A 0..10 box dragged 94.6 mm: its middle (5) meets the plate middle at 100 -> lift 95.
+        assertEquals(95f to 100f, ZRail.lift(94.6f, 0f, 10f, listOf(100f), 1f, 1f, mid = true))
+        assertEquals(95f to null, ZRail.lift(94.6f, 0f, 10f, listOf(100f), 1f, 1f))
+    }
+
     @Test fun gapGrowsWithTheBox() {
         assertEquals(4f, ZRail.gap(Vec3(0f, 0f, 0f), Vec3(5f, 5f, 5f)), 0f)
         assertEquals(25f, ZRail.gap(Vec3(0f, 0f, 0f), Vec3(100f, 20f, 10f)), 0f)
+    }
+
+    @Test fun lockKeysToggle() {
+        // X locks, X again frees, Y switches straight over; Z only where a lift can run.
+        assertEquals(0, ZRail.toggleLock(-1, 0, true))
+        assertEquals(-1, ZRail.toggleLock(0, 0, true))
+        assertEquals(1, ZRail.toggleLock(0, 1, true))
+        assertEquals(2, ZRail.toggleLock(1, 2, true))
+        assertEquals(1, ZRail.toggleLock(1, 2, false))
+        assertEquals(-1, ZRail.toggleLock(2, 2, true))
+    }
+
+    @Test fun lockKeepsOneAxis() {
+        assertEquals(3f to 0f, ZRail.locked(0, 3f, 4f))
+        assertEquals(0f to 4f, ZRail.locked(1, 3f, 4f))
+        assertEquals(3f to 4f, ZRail.locked(-1, 3f, 4f))
+        assertEquals(3f to 4f, ZRail.locked(2, 3f, 4f))
     }
 }

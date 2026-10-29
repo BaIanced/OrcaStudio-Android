@@ -48,7 +48,7 @@ internal object Shaders {
         uniform int uSolo;
         uniform vec3 uDrag;
         uniform vec3 uScaleAnchor;
-        uniform vec3 uScale;
+        uniform mat3 uScale;
         uniform int uRotOn;
         uniform mat3 uRot;
         uniform vec3 uRotPivot;
@@ -75,8 +75,8 @@ internal object Shaders {
             vNormal = aNormal;
             vType = aInfo.y;
             vSelected = selected;
-            // A resize drag shows the new size live: the selection scales about its box's bottom centre.
-            vec3 p = uScaleAnchor + (aPos - uScaleAnchor) * mix(vec3(1.0), uScale, selected);
+            // A resize (or push / pull) drag shows the new size live: the selection scales about uScaleAnchor.
+            vec3 p = uScaleAnchor + mix(aPos - uScaleAnchor, uScale * (aPos - uScaleAnchor), selected);
             // A rotate drag turns it live about its box's centre (uRotOn is 0 unless set).
             if (uRotOn == 1 && selected > 0.5) { p = uRotPivot + uRot * (p - uRotPivot); vNormal = uRot * aNormal; }
             vWorld = p + selected * uDrag;
@@ -91,7 +91,8 @@ internal object Shaders {
      * 2: paint overlay (types 5 fuzzy skin, 6/7 support enforce/block, 8/9 seam, 10+ filament);
      * 3: contact shadow map (parts seen from above; how close to the bed, max-blended);
      * 4: depth-only pass of the real shadow map (parts seen from the key light); 5/6: selection masks;
-     * 7: realistic mode's clear filaments (transmission > 0), blended premultiplied after the opaque scene.
+     * 7: realistic mode's clear filaments (transmission > 0), blended premultiplied after the opaque scene;
+     * 8: cut x-ray (the cut copy where the scene hides it: a faint ghost and the cut line).
      */
     const val MESH_FS = """#version 300 es
         precision mediump float;
@@ -119,6 +120,7 @@ internal object Shaders {
         uniform float uKeyStrength;
         uniform int uSelStyle;
         uniform float uOverhangZ;
+        uniform int uOverhangAll;
         uniform highp vec4 uCutBand;
         uniform int uCutBandOn;
         // Layer lines: first layer height, layer height (mm; y 0 = off).
@@ -133,8 +135,9 @@ internal object Shaders {
 
         // Realistic mode, after Google Filament's standard material: GGX distribution, height-correlated Smith visibility,
         // Schlick fresnel, Lambert diffuse and an optional clear coat, lit by the key light (with its shadow) and a
-        // procedural studio environment instead of an HDR image. Linear light, ACES tone mapping, gamma 2.2 out.
+        // procedural studio environment instead of an HDR image. Linear light, PBR Neutral tone mapping, gamma 2.2 out.
         const float PI = 3.14159265;
+        const float EXPOSURE = 0.42;
         // A softbox seen towards direction d: centre c, angular radius rad, blurred by roughness r (the blur keeps its energy).
         float softbox(vec3 d, vec3 c, float rad, float r) {
             float a2 = 2.0 * (1.0 - dot(d, c));
@@ -172,7 +175,18 @@ internal object Shaders {
             float a004 = min(t.x * t.x, exp2(-9.28 * nov)) * t.x + t.y;
             return vec2(-1.04, 1.04) * a004 + t.zw;
         }
-        vec3 aces(vec3 x) { return clamp(x * (2.51 * x + 0.03) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0); }
+        // Khronos PBR Neutral tone mapping: below ~0.76 the colour passes unchanged (a lit face shows the filament's own
+        // hue), only highlights are compressed and pale towards white. ACES (until 2026-10-25) shifted hues per channel
+        // (amber #FEC600 turned lemon) and washed the colours out.
+        vec3 neutral(vec3 c) {
+            float x = min(c.r, min(c.g, c.b));
+            c -= x < 0.08 ? x - 6.25 * x * x : 0.04;
+            float peak = max(c.r, max(c.g, c.b));
+            if (peak < 0.76) return c;
+            float np = 1.0 - 0.0576 / (peak - 0.52);
+            c *= np / peak;
+            return mix(c, vec3(np), 1.0 - 1.0 / (0.15 * (peak - np) + 1.0));
+        }
         // mp = uMatP (roughness, metallic, clear coat, coat roughness); mb.x sheen, mb.y wrap (translucent plastics), mb.w
         // transmission. box = the key softbox's visibility, ao = the contact occlusion near the bed (both 1 = open).
         // Returns premultiplied colour and coverage: a = 1 opaque; a clear part lets 1 - a of what lies behind through,
@@ -214,13 +228,13 @@ internal object Shaders {
                 dif *= 1.0 - fcv;
                 spec = spec * (1.0 - fcv) + studio(r, cr, lk, box) * fcv * so + vec3(coat * PI * nol * e);
             }
-            // Exposure: a mid-grey part under the studio lands near the plain look's brightness.
-            vec3 c = pow(aces((dif + spec) * 0.5), vec3(1.0 / 2.2));
+            // Exposure: a face in the key light lands near the filament colour itself (0.5 overexposed: user 2026-10-25).
+            vec3 c = pow(neutral((dif + spec) * EXPOSURE), vec3(1.0 / 2.2));
             if (mb.w <= 0.0) return vec4(c, 1.0);
             // Clear: coverage a of the opaque look, the reflections alone over what shows through (display space, so the
             // gamma curve doesn't brighten the premultiplied colour).
             float al = 1.0 - mb.w * (1.0 - fSchlick(vec3(0.04), nov).x);
-            return vec4(c * al + pow(aces(spec * 0.5), vec3(1.0 / 2.2)) * (1.0 - al), al);
+            return vec4(c * al + pow(neutral(spec * EXPOSURE), vec3(1.0 / 2.2)) * (1.0 - al), al);
         }
 
         // Printed layer lines from the height above the bed: each layer is a rounded bead, so the normal n tilts down
@@ -268,7 +282,16 @@ internal object Shaders {
                 color = vec4(k * k);
                 return;
             }
-            if ((uPass == 0 || uPass == 7) && !part) discard;
+            if (uPass == 8) {
+                // Cut x-ray, drawn depth GL_GREATER: the hidden faces of the cut copy faintly, the plane's line on them in red.
+                if (!part || vSelected < 0.5 || uCutBandOn == 0 || (uSectionOn == 1 && dot(uSection.xyz, vWorld) > uSection.w)) discard;
+                highp float s = dot(uCutBand.xyz, vWorld) - uCutBand.w;
+                float hw = max(fwidth(s) * 1.5, 0.3);
+                float line = 1.0 - smoothstep(hw * 0.6, hw, abs(s));
+                color = vec4(mix(vec3(1.0, 0.75, 0.75), vec3(1.0, 0.15, 0.15), line), 0.07 + 0.75 * line);
+                return;
+            }
+            if ((uPass == 0 || uPass == 7) && !part && !(uPass == 7 && type >= 10 && type < 98)) discard;
             // The lit part passes: 0 opaque, 7 clear filaments in realistic mode (blended after everything opaque).
             bool lit0 = uPass == 0 || uPass == 7;
             // 99: the estimated prime tower (scene mesh, translucent pass).
@@ -309,12 +332,15 @@ internal object Shaders {
             int filament = type >= 100 ? type - 100 : (type >= 10 && type < 98 ? type - 10 : -1);
             bool hidden = filament >= 0 && filament < 16 && ((uHidden >> filament) & 1) != 0;
             if (hidden) base = vec3(0.62);
-            if (part) {
+            // Colour paint (pass 2, over the parts) is lit like a part of its filament: material, shadow, realistic mode.
+            bool paint = (uPass == 2 || uPass == 7) && type >= 10 && type < 98;
+            if (paint) base = max(base, vec3(0.13));
+            if (part || paint) {
                 // The filament's material; parts without one and hidden filaments keep the plain plastic look.
-                int mi = type >= 100 && !hidden ? clamp(type - 100, 0, 15) : -1;
+                int mi = hidden ? -1 : (paint ? clamp(type - 10, 0, 15) : (type >= 100 ? clamp(type - 100, 0, 15) : -1));
                 vec4 ma = mi >= 0 ? uMatA[mi] : vec4(36.0, 0.16, 0.0, 0.0);
                 vec4 mb = mi >= 0 ? uMatB[mi] : vec4(0.0, 0.0, 1.0, 0.0);
-                // Clear filaments (transmission mb.w) leave pass 0 for pass 7 in realistic mode; elsewhere they are opaque.
+                // Clear filaments (transmission mb.w), parts and paint, leave pass 0/2 for pass 7 in realistic mode; elsewhere opaque.
                 bool clear = uRealistic == 1 && mb.w > 0.0;
                 if (clear != (uPass == 7)) discard;
                 if (!clear) mb.w = 0.0;
@@ -332,7 +358,7 @@ internal object Shaders {
                 float ndl = max(dot(n, lk), 0.0);
                 float lit = 1.0;
                 float box = 1.0;
-                if (uUseRealShadow == 1 && lit0) {
+                if (uUseRealShadow == 1 && (lit0 || paint)) {
                     highp vec3 sc = vShadowCoord.xyz / vShadowCoord.w * 0.5 + 0.5;
                     highp vec2 grad = planeGrad(sc);
                     if (sc.z < 1.0 && sc.x > 0.0 && sc.x < 1.0 && sc.y > 0.0 && sc.y < 1.0) {
@@ -372,8 +398,10 @@ internal object Shaders {
                 }
                 shaded *= groove;
                 // Highlight overhangs (support painting): the selection's faces steeper than the angle, by their own normal.
-                if (vSelected > 0.5 && lit0 && normalize(vNormal).z < uOverhangZ)
-                    shaded = mix(shaded, vec3(1.0, 0.35, 0.2) * (0.45 + 0.55 * diff), 0.6);
+                // "Show overhangs": every part's, but not the faces standing on the bed (they need no support).
+                // Undersides are in shadow: the red leans little on the light, so it stays readable there.
+                if ((vSelected > 0.5 || (uOverhangAll == 1 && vWorld.z > 0.05)) && lit0 && normalize(vNormal).z < uOverhangZ)
+                    shaded = mix(shaded, vec3(1.0, 0.3, 0.2) * (0.7 + 0.3 * diff), 0.75);
                 if (vSelected > 0.5 && lit0) {
                     // Rim glow: the selection colour on faces turning away from the eye.
                     if ((uSelStyle & 4) != 0)
@@ -407,6 +435,49 @@ internal object Shaders {
         layout(location = 0) in vec3 aPos;
         out highp vec3 vWorld;
         void main() { vWorld = aPos + uOffset; gl_Position = uMvp * vec4(vWorld, 1.0); }"""
+
+    /**
+     * Lines of any width (GL line width is 1 px on many GPUs, WSA's included): each segment is a quad, its corners pushed
+     * sideways on screen by half of uWidth px. aOther = the segment's other end, aSide = +1 / -1 (flipped at that end). Uses LINE_FS.
+     */
+    const val WIDE_LINE_VS = """#version 300 es
+        uniform mat4 uMvp;
+        uniform vec3 uOffset;
+        uniform vec2 uViewport;
+        uniform float uWidth;
+        layout(location = 0) in vec3 aPos;
+        layout(location = 1) in vec3 aOther;
+        layout(location = 2) in float aSide;
+        out highp vec3 vWorld;
+        out highp float vAlong;
+        void main() {
+            vWorld = aPos + uOffset;
+            vec4 p = uMvp * vec4(vWorld, 1.0);
+            vec4 q = uMvp * vec4(aOther + uOffset, 1.0);
+            vec2 d = (q.xy / q.w - p.xy / p.w) * uViewport;
+            vec2 n = length(d) > 1e-6 ? normalize(vec2(-d.y, d.x)) : vec2(0.0, 1.0);
+            // Screen pixels along the line, the same way from both ends (for dashes).
+            vec2 t = n.y > 0.0 || (n.y == 0.0 && n.x < 0.0) ? vec2(n.y, -n.x) : vec2(-n.y, n.x);
+            vAlong = dot(p.xy / p.w * uViewport * 0.5, t);
+            p.xy += n * aSide * uWidth / uViewport * p.w;
+            gl_Position = p;
+        }"""
+
+    /** LINE_FS for WIDE_LINE_VS: [uDash] > 0 draws dashes that long (screen pixels) with gaps as long. */
+    const val WIDE_LINE_FS = """#version 300 es
+        precision mediump float;
+        uniform vec3 uColor;
+        uniform highp vec4 uSection;
+        uniform int uSectionOn;
+        uniform float uDash;
+        in highp vec3 vWorld;
+        in highp float vAlong;
+        out vec4 color;
+        void main() {
+            if (uSectionOn == 1 && dot(uSection.xyz, vWorld) > uSection.w) discard;
+            if (uDash > 0.0 && mod(vAlong, 2.0 * uDash) > uDash) discard;
+            color = vec4(uColor, 1.0);
+        }"""
 
     /** Beds, travels and overlays; travels are cut by the section view like the toolpaths. */
     const val LINE_FS = """#version 300 es
@@ -511,7 +582,7 @@ internal object Shaders {
             color = vec4(vColor, 1.0);
         }"""
 
-    /** Markers: position + kind (0 retract, 1 unretract, 2 seam, 3 wipe, 4 measurement, 5 thin wall, 6 open edge, 7 self-intersection). */
+    /** Markers: position + kind (0 retract, 1 unretract, 2 seam, 3 wipe, 4 measurement, 5 thin wall, 6 open edge, 7 self-intersection, 8 sharp edge). */
     const val POINT_VS = """#version 300 es
         uniform mat4 uMvp;
         uniform vec3 uOffset;
@@ -537,7 +608,7 @@ internal object Shaders {
             }
             vColor = kind == 0 ? vec3(0.9, 0.1, 0.9) : kind == 1 ? vec3(0.1, 0.8, 0.9) : kind == 2 ? vec3(0.95, 0.95, 0.95)
                    : kind == 3 ? vec3(1.0, 0.9, 0.0) : kind == 5 ? vec3(1.0, 0.55, 0.0) : kind == 6 ? vec3(0.9, 0.1, 0.1)
-                   : kind == 7 ? vec3(0.9, 0.2, 1.0) : vec3(1.0, 0.3, 0.3);
+                   : kind == 7 ? vec3(0.9, 0.2, 1.0) : kind == 8 ? vec3(0.2, 0.9, 0.3) : vec3(1.0, 0.3, 0.3);
             gl_Position = uMvp * vec4(world + pull, 1.0);
             gl_PointSize = (kind == 4 ? 16.0 : kind >= 5 ? 13.0 : 7.0) * uPxScale;
         }"""
@@ -705,10 +776,15 @@ internal object Shaders {
         out vec4 color;
         // Same soft key/fill/sky light as the model (no highlight: it would shimmer on layer lines),
         // so faces turned from the key light keep their shape instead of dropping to one dark tone.
+        // uCamLight (0-1, the lab slider) swaps that light for one at the eye (camL, set per fragment in main): the ambient
+        // stays, the key and fill (0.66 together) become one light along the view, two-sided like the undersides above.
+        uniform float uCamLight;
+        vec3 camL = vec3(0.0, 0.0, 1.0);
         float shade(vec3 n) {
             float sky = 0.5 + 0.5 * n.z;
-            return 0.30 + 0.12 * sky + 0.42 * max(dot(n, normalize(vec3(0.35, -0.55, 0.75))), 0.0)
+            float studio = 0.42 * max(dot(n, normalize(vec3(0.35, -0.55, 0.75))), 0.0)
                 + 0.24 * max(dot(n, normalize(vec3(-0.6, 0.4, 0.35))), 0.0);
+            return 0.30 + 0.12 * sky + mix(studio, 0.66 * abs(dot(n, camL)), uCamLight);
         }
         // A bead's shade at u (-1..1 across a skin line or up a wall's layer; past the ends it wraps onto the next bead):
         // the normal rolls off along axis towards the bead's edges, which darken by edge.
@@ -726,6 +802,7 @@ internal object Shaders {
         }
         void main() {
             if (uSectionOn == 1 && dot(uSection.xyz, vWorld) > uSection.w) discard;
+            camL = normalize(uEye - vWorld);
             // A top or bottom face seen from inside the bead is never the one to show: from below, the bead's own top
             // won over its bottom wherever the overlap's depth push outgrew a layer (zoomed out: dark stepped patches,
             // user r339). Sides stay two-sided (they fill the cracks between layers). The box winds every face clockwise

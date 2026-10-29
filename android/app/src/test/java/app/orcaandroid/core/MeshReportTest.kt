@@ -9,8 +9,8 @@ import org.junit.Test
 /**
  * Pins [MeshReport]'s wording against hand-built `checkMesh` results. Problems are
  * counted per problem *kind* per part (5 open edges are one problem, not five).
- * Marker quadruples are x, y, z, kind with kinds 5 = thin, 6 = open, 7 = crossing,
- * always emitted in thin / open / cross order whatever the JSON key order is.
+ * Marker quadruples are x, y, z, kind with kinds 5 = thin, 6 = open, 7 = crossing, 8 = sharp,
+ * always emitted in thin / open / cross / sharp order whatever the JSON key order is.
  */
 class MeshReportTest {
 
@@ -43,7 +43,7 @@ class MeshReportTest {
         val r = report(
             part(
                 "name" to "Bad", "faces" to 10, "shells" to 1, "volumeMm3" to -5.0,
-                "openEdges" to 3, "degenerate" to 2, "intersections" to 4, "thinFaces" to 6,
+                "openEdges" to 3, "degenerate" to 2, "intersections" to 4, "sharpEdges" to 7, "thinFaces" to 6,
             ),
         ) { put("thickness", 0.4) }
         val expected = """
@@ -52,8 +52,9 @@ class MeshReportTest {
               - 2 zero-area faces (Repair removes them)
               - negative volume (faces point inward)
               - 4 pairs of faces cut through each other (self-intersections)
+              - 7 sharp edges (faces folded back on each other, over 160 degrees)
               - 6 faces with a wall thinner than 0.40 mm
-            5 problems found.
+            6 problems found.
         """.trimIndent()
         assertEquals(expected, MeshReport.text(r))
     }
@@ -89,6 +90,13 @@ class MeshReportTest {
         assertEquals(listOf(1f, 2f, 3f, 5f), m.slice(0..3))
         assertEquals(listOf(4f, 5f, 6f, 6f, 10f, 11f, 12f, 6f), m.slice(4..11))
         assertEquals(listOf(7f, 8f, 9f, 7f), m.slice(12..15))
+    }
+
+    @Test fun sharpMarkersComeLastWithKind8() {
+        val r = JSONObject()
+            .put("sharpPoints", JSONArray(listOf(1.0, 2.0, 3.0)))
+            .put("openPoints", JSONArray(listOf(4.0, 5.0, 6.0)))
+        assertEquals(listOf(4f, 5f, 6f, 6f, 1f, 2f, 3f, 8f), MeshReport.markers(r).toList())
     }
 
     @Test fun markersIncompleteTripleDroppedAndMissingKeysEmpty() {

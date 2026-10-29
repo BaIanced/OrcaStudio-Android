@@ -159,6 +159,9 @@ json OrcaEngine::save_project(const std::string &path)
     require_printer();
     DynamicPrintConfig config = selection_config();
     match_filament_indices(config);
+    // The project's own bed type (the printer's plate selector on desktop) is the default; it showed as unknown without one.
+    if (const std::string def = default_bed_type(); !def.empty())
+        config.set_deserialize_strict("curr_bed_type", def);
 
     std::vector<std::array<float, 3>> colors;
     if (const auto *opt = config.option<ConfigOptionStrings>("filament_colour"))
@@ -175,8 +178,10 @@ json OrcaEngine::save_project(const std::string &path)
             for (size_t ii = 0; ii < m_model->objects[oi]->instances.size(); ++ii)
                 if (plate_of(*m_model->objects[oi], ii) == int(p))
                     pd->objects_and_instances.emplace_back(int(oi), int(ii));
-        if (!m_plates[p].bed_type.empty())
-            pd->config.set_deserialize_strict("curr_bed_type", m_plates[p].bed_type);
+        // A plate without its own type shows the default in the UI, so the file gets that, not nothing (desktop then
+        // fell back to its own default: plate 4 came out as High Temp, user r409).
+        if (const std::string bt = m_plates[p].bed_type.empty() ? default_bed_type() : m_plates[p].bed_type; !bt.empty())
+            pd->config.set_deserialize_strict("curr_bed_type", bt);
         plates.push_back(pd);
         thumbs[p] = render_thumbnail(*plate_model(int(p)), 512, 512, colors);
         thumb_ptrs.push_back(&thumbs[p]);
@@ -284,8 +289,8 @@ json OrcaEngine::export_gcode_3mf(int plate, const std::string &gcode, const std
     for (size_t oi = 0; oi < model->objects.size(); ++oi)
         for (size_t ii = 0; ii < model->objects[oi]->instances.size(); ++ii)
             pd->objects_and_instances.emplace_back(int(oi), int(ii));
-    if (!m_plates[plate].bed_type.empty())
-        pd->config.set_deserialize_strict("curr_bed_type", m_plates[plate].bed_type);
+    if (const std::string bt = m_plates[plate].bed_type.empty() ? default_bed_type() : m_plates[plate].bed_type; !bt.empty())
+        pd->config.set_deserialize_strict("curr_bed_type", bt);
     if (auto it = m_slice_info.find(sliced.empty() ? gcode : sliced); it != m_slice_info.end()) {
         const PlateData &s = *it->second;
         pd->gcode_prediction        = s.gcode_prediction;

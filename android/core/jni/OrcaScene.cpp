@@ -623,6 +623,7 @@ json OrcaEngine::scene_json()
 json OrcaEngine::commit()
 {
     m_aabb.clear();
+    m_neighbors.clear();
     write_mesh();
     write_paint_mesh();
     return scene_json();
@@ -1049,7 +1050,8 @@ json OrcaEngine::mesh_boolean(int object, int src, int tool, const std::string &
     return commit();
 }
 
-json OrcaEngine::cut(int object, int instance, double z, bool keep_upper, bool keep_lower, bool flip_upper, bool float_upper, double rot_x, double rot_y, double rot_z)
+json OrcaEngine::cut(int object, int instance, double z, bool keep_upper, bool keep_lower, bool flip_upper, bool float_upper, double rot_x, double rot_y, double rot_z,
+                      double shift_x, double shift_y)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
     ModelObject &obj = object_at(object);
@@ -1058,9 +1060,10 @@ json OrcaEngine::cut(int object, int instance, double z, bool keep_upper, bool k
     if (!keep_upper && !keep_lower)
         throw std::runtime_error("Keep at least one part");
     const BoundingBoxf3 bb = obj.instance_bounding_box(size_t(instance));
-    // The plane goes through the box's middle (x, y) at height z, turned by rot_deg (Euler, as an instance rotation).
+    // The plane goes through the box's middle (x, y) moved by (shift_x, shift_y) at height z, turned by rot_deg (Euler, as an
+    // instance rotation); the shift is how an upright plane moves.
     const Vec3d center = bb.center();
-    const Vec3d plane_point(center.x(), center.y(), z);
+    const Vec3d plane_point(center.x() + shift_x, center.y() + shift_y, z);
     const Transform3d plane_rotation = Geometry::rotation_transform(Vec3d(Geometry::deg2rad(rot_x), Geometry::deg2rad(rot_y), Geometry::deg2rad(rot_z)));
     const Vec3d plane_normal = plane_rotation.linear() * Vec3d::UnitZ();
     bool above = false, below = false;

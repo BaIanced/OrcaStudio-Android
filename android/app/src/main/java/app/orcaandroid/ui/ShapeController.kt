@@ -1,8 +1,12 @@
 package app.orcaandroid.ui
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import app.orcaandroid.R
 import app.orcaandroid.core.Instance
 import app.orcaandroid.core.Vec3
+import app.orcaandroid.render.DragSnap
+import app.orcaandroid.render.PushGrab
 import app.orcaandroid.render.RotateGizmo
 import app.orcaandroid.scad.Bounds
 import app.orcaandroid.scad.BuildTransform
@@ -33,12 +37,22 @@ class ShapeController(private val store: Store, private val scad: ScadController
     val canUndo get() = undo.isNotEmpty() && undoOwner === design
     val canRedo get() = redo.isNotEmpty() && undoOwner === design
 
+    /** A number drag runs ([live]): its first change is the undo step, the rest join it. */
+    private var liveDrag = false
+    private var liveStepped = false
+
+    fun live(on: Boolean) { liveDrag = on; liveStepped = false }
+
+    /** The size row's one proportional lock (W / D / H follow each other); kept for the session, like a tool setting. */
+    var sizeLock by androidx.compose.runtime.mutableStateOf(false)
+
     private fun commit(next: ShapeDesign, sel: List<Int> = selected) {
         val cur = design ?: return
         if (next == cur && sel == selected) return
         // A design loaded from elsewhere starts a fresh history.
-        if (undoOwner !== cur) { undo.clear(); redo.clear() }
-        if (next != cur) {
+        if (undoOwner !== cur) { undo.clear(); redo.clear(); liveStepped = false }
+        if (next != cur && !(liveDrag && liveStepped)) {
+            liveStepped = liveDrag
             undo.addLast(cur to selected)
             if (undo.size > 200) undo.removeFirst()
             redo.clear()
@@ -108,11 +122,11 @@ class ShapeController(private val store: Store, private val scad: ScadController
     }
 
     /** Build workspace: a main-view drag moved the selection [dx], [dy] mm on the plate. */
-    fun moveOnPlate(dx: Float, dy: Float) {
+    fun moveOnPlate(dx: Float, dy: Float, dz: Float = 0f) {
         val inst = store.value.buildObject?.let { store.value.scene.objects.getOrNull(it) }?.instances?.let { it.getOrNull(grabbed) ?: it.firstOrNull() }?.shown ?: return
         // Plate -> design frame: the copy's matrix is translation * rotation * scale * mirror (mirror = +-1 per axis).
         val r = RotateGizmo.fromEuler(inst.rotation)
-        fun local(i: Int, scale: Float, mirror: Float) = (r[i] * dx + r[3 + i] * dy) / scale.toDouble() * (if (mirror < 0f) -1.0 else 1.0)
+        fun local(i: Int, scale: Float, mirror: Float) = (r[i] * dx + r[3 + i] * dy + r[6 + i] * dz) / scale.toDouble() * (if (mirror < 0f) -1.0 else 1.0)
         val v = D3(local(0, inst.scale.x, inst.mirror.x), local(1, inst.scale.y, inst.mirror.y), local(2, inst.scale.z, inst.mirror.z))
         val d = design ?: return
         if (selected.isEmpty() || v == D3()) return
@@ -141,8 +155,28 @@ class ShapeController(private val store: Store, private val scad: ScadController
         val (inst, sel) = buildGizmoTarget() ?: return null
         val d = design ?: return null
         if (sel.first().id in d.shapes.map { it.id }) return null
-        val frame = d.parentFrame(sel.first().id)
-        val pts = sel.flatMap { s ->
+        return plateBox(d, inst, sel)
+    }
+
+    /**
+     * Build workspace: the selected shapes' plate box and the boxes of the shapes around them (the other top-level shapes and
+     * the selection's siblings in its group), for the main view's body-drag edge snap. Null without a lone copy or a selection.
+     */
+    fun buildSnapBoxes(): DragSnap? {
+        val (inst, sel) = buildGizmoTarget() ?: return null
+        val d = design ?: return null
+        // The selection and the groups that hold it move together: none of them is a target.
+        val moving = sel.flatMap { s -> d.pathTo(s.id).map { it.id } }.toSet()
+        val siblings = d.pathTo(sel.first().id).dropLast(1).lastOrNull()?.children.orEmpty()
+        val others = (d.shapes + siblings).filter { it.id !in moving }.distinctBy { it.id }
+        val (lo, hi) = plateBox(d, inst, sel)
+        return DragSnap(lo, hi, others.map { plateBox(d, inst, listOf(it)) })
+    }
+
+    /** The plate box of [shapes]' design boxes ([ShapeDesign.bounds], with their repeats), each in its group's frame, in copy [inst]. */
+    private fun plateBox(d: ShapeDesign, inst: Instance, shapes: List<Shape>): Pair<Vec3, Vec3> {
+        val pts = shapes.flatMap { s ->
+            val frame = d.parentFrame(s.id)
             val b = d.bounds(s)
             (0 until 8).map { k ->
                 val c = D3(if (k and 1 == 0) b.min.x else b.max.x, if (k and 2 == 0) b.min.y else b.max.y, if (k and 4 == 0) b.min.z else b.max.z)
@@ -174,6 +208,35 @@ class ShapeController(private val store: Store, private val scad: ScadController
         val m = BuildTransform.turnInFrame(frame, BuildTransform.designTurn(inst, RotateGizmo.matrix(axis, degrees)))
         val c = BuildTransform.inFrame(frame, BuildTransform.toDesign(inst, pivot))
         commit(sel.fold(d) { acc, s -> acc.find(s.id)?.let { held(acc, posed(acc, s.id, BuildTransform.turned(acc, it, m, c)), s.id) } ?: acc })
+    }
+
+    /** The face a push / pull drag holds ([pushAt]); [push] moves it. */
+    private var pushFace: ShapeDesign.Face? = null
+
+    /**
+     * Build workspace push / pull: [result] gets the flat face under the ray in plate terms (null: none there, the drag
+     * turns the camera). Its shape becomes the selection, so a whole volume shows the stretch live.
+     */
+    fun pushAt(origin: Vec3, dir: Vec3, result: (PushGrab?) -> Unit) {
+        val obj = store.value.buildObject ?: return result(null)
+        store.launch {
+            val (inst, f, whole) = scad.faceAt(obj, origin, dir) ?: run { pushFace = null; return@launch result(null) }
+            pushFace = f
+            if (selected != listOf(f.shapeId)) select(listOf(f.shapeId))
+            val at = BuildTransform.toPlate(inst, f.point)
+            fun along(v: D3) = BuildTransform.toPlate(inst, f.point + v) - at
+            fun unit(v: Vec3) = v * (1f / v.length())
+            val far = f.point - D3(f.normal.x * f.length, f.normal.y * f.length, f.normal.z * f.length)
+            result(PushGrab(at, along(f.normal), f.length.toFloat(), BuildTransform.toPlate(inst, far), f.stretch.map { unit(along(it)) }, whole))
+        }
+    }
+
+    /** Build workspace push / pull: the grabbed face moved [mm] out (in when negative), its opposite side kept (one undo step). */
+    fun push(mm: Double) {
+        val f = pushFace ?: return
+        val d = design ?: return
+        val pose = d.pushed(f, mm) ?: return
+        commit(held(d, posed(d, f.shapeId, pose), f.shapeId))
     }
 
     /** [next] (shape [id] changed from [before]) with the groups holding it moved so their other children stay put ([ShapeDesign.groupShifts]). */
@@ -243,6 +306,16 @@ class ShapeController(private val store: Store, private val scad: ScadController
         commit(withField(d, id, field, value) ?: return)
     }
 
+    /** Size [axis] of shape [id] set to [mm]; with [sizeLock] the other two scale by the same factor (one undo step). */
+    fun setSize(id: Int, axis: Int, mm: Double) {
+        val d = design ?: return
+        val s = d.find(id) ?: return
+        val cur = d.size(s)
+        if (!sizeLock || cur[axis] <= 0.0) return setField(id, "size.${"xyz"[axis]}", mm)
+        val f = mm / cur[axis]
+        commit((0..2).fold(d) { acc, i -> withField(acc, id, "size.${"xyz"[i]}", if (i == axis) mm else cur[i] * f) ?: acc })
+    }
+
     /** [d] with [field] of shape [id] set to [value]; a field bound to a dimension changes the dimension instead. */
     fun withField(d: ShapeDesign, id: Int, field: String, value: Double): ShapeDesign? {
         val s = d.find(id) ?: return null
@@ -281,6 +354,21 @@ class ShapeController(private val store: Store, private val scad: ScadController
     fun setSketch(id: Int, sketch: Sketch, dims: List<Dim>? = null) {
         val d = design ?: return
         commit((if (dims != null) d.withDims(dims) else d).update(id) { ShapeDesign.fitSketch(it, sketch) })
+    }
+
+    /** Sketch shape [id]'s top outline its sides loft to (null = straight extrusion). */
+    fun setTop(id: Int, top: Sketch?, dims: List<Dim>? = null) {
+        val d = design ?: return
+        commit((if (dims != null) d.withDims(dims) else d).update(id) { it.copy(top = top) })
+    }
+
+    /** Sketch shape [id]'s path its drawing is swept along (null = extruded straight up); the box fits the result. */
+    fun setPath(id: Int, path: Sketch?, dims: List<Dim>? = null) {
+        val d = design ?: return
+        commit((if (dims != null) d.withDims(dims) else d).update(id) { s ->
+            val p = path?.takeIf { it.loops.isNotEmpty() }
+            s.sketch?.let { ShapeDesign.fitSketch(s.copy(path = p), it) } ?: s.copy(path = p)
+        })
     }
 
     /** Sketch shape [id]: extrude ([revolve] false) or revolve about Z. */
@@ -459,7 +547,7 @@ class ShapeController(private val store: Store, private val scad: ScadController
         val s = d.find(id) ?: return
         val ident = identifier(name, d)
         val dim = Dim.forLength(ident, current(d, s, field), signed = field.startsWith("pos.") || field.startsWith("rot."),
-            angle = field.startsWith("rot.") || field == Shape.ANGLE, small = field in setOf(Shape.EDGE, Shape.SHELL, Shape.WALL))
+            angle = field.startsWith("rot.") || field == Shape.ANGLE, small = field in setOf(Shape.EDGE, Shape.SHELL, Shape.WALL, Shape.BLEND))
         commit(d.copy(dims = d.dims + dim).update(id) { it.copy(bind = it.bind + (field to ident)) })
     }
 

@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material.icons.outlined.Print
@@ -59,6 +60,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.offset
@@ -165,7 +167,7 @@ private fun MainLayout(state: UiState, vm: AppViewModel) {
     var lastBack by remember { mutableStateOf(0L) }
     androidx.activity.compose.BackHandler {
         when {
-            state.scad != null && state.screen == Screen.PREPARE -> if (state.scadOnPlate) vm.setScadOnPlate(false) else vm.scad.close()
+            state.scad != null && state.screen == Screen.PREPARE -> if (state.scadOnPlate && state.scad.shapes == null) vm.setScadOnPlate(false) else vm.scad.close()
             state.screen != Screen.PREPARE -> vm.setScreen(Screen.PREPARE)
             state.inPaintShop -> vm.scene.setTool(Tool.None)
             clearable -> { vm.scene.setTool(Tool.None); vm.scene.select(null); vm.scene.setSelectMode(false) }
@@ -326,26 +328,50 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
             if (state.lab.viewCube) plateView?.let { ViewCubeSpot(it.camera, state.lab, vm, viewportSize) }
             // Below the top tool row, centered.
             app.orcaandroid.ui.components.Notices(state, vm, Modifier.align(Alignment.TopCenter).padding(top = 64.dp))
+            // Gesture scrubber (held setting label): its list sits high, above the finger.
+            app.orcaandroid.ui.components.ScrubHud(Modifier.align(Alignment.TopCenter).padding(top = 96.dp))
         }
     }
-    if (state.inPaintShop) return app.orcaandroid.ui.prepare.PaintShop(state, vm, viewport)
+    // The paint shop keeps the 3D view where the plate view has it: moving it in the tree made a new GL view (a slow
+    // entry, the shop's frame colour filling the screen until the first frame, user r459). Bar, frame and dock wrap it.
+    val shop = state.inPaintShop
+    Column(Modifier.fillMaxSize()) {
+        if (shop) app.orcaandroid.ui.prepare.PaintShopBar(state, vm, plateView)
+        Box(Modifier.weight(1f).fillMaxWidth()) { WorkspaceBody(state, vm, wide, shop, viewport, plateView) }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun WorkspaceBody(state: UiState, vm: AppViewModel, wide: Boolean, shop: Boolean, viewport: @Composable (Modifier) -> Unit, plateView: PlateView?) {
     val panelRegion = if (state.screen == Screen.PREPARE) Region.PREPARE_PANEL else Region.PREVIEW_PANEL
     val panel: @Composable () -> Unit = {
         if (state.screen == Screen.PREPARE) PreparePanel(state, vm, wide) else PreviewPanel(state, vm, wide)
     }
     // The OpenSCAD editor takes the panel's place on Prepare. The design shows alone in the design view,
     // or (eye toggle, user 2026-10-13) as a ghost on the plate; the editor can be resized with the handle.
-    val scad = state.scad?.takeIf { state.screen == Screen.PREPARE }
+    val scad = state.scad?.takeIf { state.screen == Screen.PREPARE && !shop }
     // Fullscreen portrait: the 3D view uses the camera strip at the top, everything else keeps below it.
     val belowHole = Modifier.windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Top))
     val scadView: @Composable (Modifier) -> Unit = { m ->
         if (scad != null && state.scadOnPlate) Box(m) {
             viewport(Modifier.fillMaxSize())
-            ScadPlateToggle(onPlate = true, { vm.setScadOnPlate(false) }, Modifier.align(Alignment.TopEnd).then(belowHole).padding(top = 76.dp, end = 12.dp))
+            // Code designs go back to their preview pane; shape designs have only this view.
+            if (scad.shapes == null) ScadPlateToggle(onPlate = true, { vm.setScadOnPlate(false) }, Modifier.align(Alignment.TopEnd).then(belowHole).padding(top = 76.dp, end = 12.dp))
+            // A shape design with no solid shape yet isn't on the plate: say how to start.
+            else if (state.buildObject == null && !scad.rendering) Text(stringResource(R.string.shape_start), Modifier.align(Alignment.Center).padding(24.dp),
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center)
             // The Build workspace: the design's object alone, its shapes picked and dragged in this view.
-            if (state.buildObject != null) Text(stringResource(R.string.shape_preview_help), Modifier.align(Alignment.BottomCenter).fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 4.dp), style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            if (state.buildObject != null) Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+                horizontalAlignment = Alignment.CenterHorizontally) {
+                // Push / pull (SketchUp style): a drag on a flat face moves that face instead of the shape.
+                androidx.compose.material3.FilterChip(state.buildPush, { vm.setBuildPush(!state.buildPush) }, { Text(stringResource(R.string.shape_push)) },
+                    leadingIcon = { Icon(Icons.Default.OpenInFull, null, Modifier.size(18.dp)) })
+                Text(stringResource(if (state.buildPush) R.string.shape_push_help else R.string.shape_preview_help), Modifier.fillMaxWidth(),
+                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            }
         } else if (scad != null) Themed(Region.OPENSCAD) { Surface(m) { ScadPreviewPane(scad, vm, Modifier.fillMaxSize().then(belowHole)) } } else viewport(m)
     }
     if (wide) {
@@ -363,7 +389,8 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
                     if (scad != null) Box(Modifier.weight(1f).fillMaxHeight()) {
                         viewport(Modifier.fillMaxSize())
                         ScadReopenButton({ vm.setScadHidden(false) }, Modifier.align(Alignment.BottomEnd).padding(end = 8.dp, bottom = 76.dp))
-                    } else viewport(Modifier.weight(1f).fillMaxHeight())
+                    } else viewport(Modifier.weight(1f).fillMaxHeight().then(app.orcaandroid.ui.prepare.shopFrame(shop)))
+                    if (shop) { app.orcaandroid.ui.prepare.PaintShopDock(state, vm, side = true, Modifier.width(360.dp).fillMaxHeight()); return@Row }
                     // The edge drags to resize the panel (like the OpenSCAD editor's); let go below the snap
                     // width and it tucks away. A tap tucks it away or brings it back.
                     val lab = state.lab
@@ -418,13 +445,19 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val total = maxHeight
             val height = (if (PanelSize.height > 0f) PanelSize.height.dp else 132.dp).coerceIn(56.dp, (total * 0.85f).coerceAtLeast(56.dp))
-            Column(Modifier.fillMaxSize()) {
-                viewport(Modifier.weight(1f).fillMaxWidth())
+            // A landscape phone docks the shop's options beside the view (a new GL view on entry there, as before).
+            if (shop && maxWidth > maxHeight && maxWidth >= 600.dp) Row(Modifier.fillMaxSize()) {
+                viewport(Modifier.weight(1f).fillMaxHeight().then(app.orcaandroid.ui.prepare.shopFrame(true)))
+                app.orcaandroid.ui.prepare.PaintShopDock(state, vm, side = true, Modifier.width(360.dp).fillMaxHeight())
+            } else Column(Modifier.fillMaxSize()) {
+                viewport(Modifier.weight(1f).fillMaxWidth().then(app.orcaandroid.ui.prepare.shopFrame(shop)))
+                if (shop) { app.orcaandroid.ui.prepare.PaintShopDock(state, vm, side = false, Modifier.fillMaxWidth().heightIn(max = total * 0.45f)); return@Column }
                 val onHandle = state.lab.platesOnHandle && state.screen == Screen.PREPARE
                 val slice = state.screen == Screen.PREPARE && app.orcaandroid.ui.prepare.sliceOnGrip(state, wide)
-                val header: (@Composable () -> Unit)? = if (onHandle || slice) ({
+                val handlePlates = onHandle && state.lab.showPlates
+                val header: (@Composable () -> Unit)? = if (handlePlates || slice) ({
                     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        if (onHandle) PlateSwitcherBar(state, vm, plateView, Modifier.weight(1f)) else Box(Modifier.weight(1f))
+                        if (handlePlates) PlateSwitcherBar(state, vm, plateView, Modifier.weight(1f)) else Box(Modifier.weight(1f))
                         if (slice) app.orcaandroid.ui.prepare.GripSliceButton(state, vm, Modifier.padding(start = 8.dp))
                     }
                 }) else null
@@ -595,7 +628,7 @@ private fun GlobalDialogs(state: UiState, vm: AppViewModel) {
     if (state.busy != null && state.phase != Phase.LOADING && state.filamentChoice == null && state.projectOrImport == null) {
         AlertDialog(
             onDismissRequest = {},
-            confirmButton = {},
+            confirmButton = { state.busyCancel?.let { TextButton(onClick = it) { Text(stringResource(R.string.cancel)) } } },
             text = {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     CircularProgressIndicator()

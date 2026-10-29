@@ -16,6 +16,7 @@ import java.nio.FloatBuffer
 import java.nio.channels.FileChannel
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
+import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.sqrt
@@ -132,6 +133,9 @@ class MeshPreviewView(context: Context) : GLSurfaceView(context) {
     private var startAngle = 0f
     /** Height the live lift sticks to (null = none), and when the lift dot was last tapped (double tap = drop to floor). */
     private var liftSnap: Float? = null
+    /** World x / y the live body drag sticks to (null = none), to tick once per new snap. */
+    private var moveSnapX: Float? = null
+    private var moveSnapY: Float? = null
     private var dotTapAt = 0L
     private val density = resources.displayMetrics.density
 
@@ -291,6 +295,54 @@ class MeshPreviewView(context: Context) : GLSurfaceView(context) {
         return ZRail.lift(raw, b.min.z, b.max.z, targets, 10 * density / pxPerMm, if (fine) 0.1f else 1f)
     }
 
+    /** A body drag's offset in mm and the x / y (world) its edges stick to, null = no snap on that axis. */
+    private class MoveSnap(val dx: Float, val dy: Float, val sx: Float?, val sy: Float?)
+
+    /** Boxes a drag of box [id] moves: the selection when [id] is in it, else just [id]. */
+    private fun movingBoxes(id: Int) = if (boxes.any { it.id == id && it.selected }) boxes.filter { it.selected } else boxes.filter { it.id == id }
+
+    /**
+     * Offset for a body drag to (x, y): the edges of the moved boxes stick (flush or aligned) to edges of the
+     * other boxes within about 10 dp, else whole mm (tenths with Shift). Null when the ray misses the plane.
+     */
+    private fun moveMm(id: Int, x: Float, y: Float, fine: Boolean): MoveSnap? {
+        val start = dragStart ?: return null
+        val p = camera.rayOnPlane(x, y, dragZ) ?: return null
+        val moving = movingBoxes(id)
+        if (moving.isEmpty()) return null
+        val others = boxes.filter { o -> moving.none { it.id == o.id } }
+        val a = camera.project(start)
+        val e = camera.project(start + Vec3(10f, 0f, 0f))
+        val pxPerMm = if (a == null || e == null) 0f else kotlin.math.hypot(e.first - a.first, e.second - a.second) / 10f
+        val reach = if (pxPerMm < 0.01f) 0f else 10 * density / pxPerMm
+        val step = if (fine) 0.1f else 1f
+        val (dx, sx) = ZRail.lift(p.x - start.x, moving.minOf { it.min.x }, moving.maxOf { it.max.x }, others.flatMap { listOf(it.min.x, it.max.x) }, reach, step)
+        val (dy, sy) = ZRail.lift(p.y - start.y, moving.minOf { it.min.y }, moving.maxOf { it.max.y }, others.flatMap { listOf(it.min.y, it.max.y) }, reach, step)
+        return MoveSnap(dx, dy, sx, sy)
+    }
+
+    /** Amber guide lines along the edges a body drag sticks to, from the moved boxes to the boxes they line up with. */
+    private fun snapGuides(id: Int, m: MoveSnap): PreviewOverlay {
+        if (m.sx == null && m.sy == null) return PreviewOverlay.EMPTY
+        val moving = movingBoxes(id)
+        val others = boxes.filter { o -> moving.none { it.id == o.id } }
+        val z = moving.minOf { it.min.z }
+        val guide = ArrayList<Float>()
+        val loX = moving.minOf { it.min.x } + m.dx; val hiX = moving.maxOf { it.max.x } + m.dx
+        val loY = moving.minOf { it.min.y } + m.dy; val hiY = moving.maxOf { it.max.y } + m.dy
+        m.sx?.let { t ->
+            val hit = others.filter { abs(it.min.x - t) < 1e-3f || abs(it.max.x - t) < 1e-3f }
+            val y0 = minOf(loY, hit.minOfOrNull { it.min.y } ?: loY); val y1 = maxOf(hiY, hit.maxOfOrNull { it.max.y } ?: hiY)
+            guide += listOf(t, y0, z, t, y1, z)
+        }
+        m.sy?.let { t ->
+            val hit = others.filter { abs(it.min.y - t) < 1e-3f || abs(it.max.y - t) < 1e-3f }
+            val x0 = minOf(loX, hit.minOfOrNull { it.min.x } ?: loX); val x1 = maxOf(hiX, hit.maxOfOrNull { it.max.x } ?: hiX)
+            guide += listOf(x0, t, z, x1, t, z)
+        }
+        return PreviewOverlay(FloatArray(0), guide.toFloatArray(), FloatArray(0))
+    }
+
     private fun angleAt(b: PreviewBox, x: Float, y: Float): Float? {
         val p = b.pivot ?: return null
         val q = camera.rayOnPlane(x, y, b.min.z) ?: return null
@@ -444,10 +496,12 @@ class MeshPreviewView(context: Context) : GLSurfaceView(context) {
                     if (boxes.none { it.id == id && it.selected }) l.onPick(id, false)
                 }
                 if (dragging) {
-                    val start = dragStart ?: return true
-                    val p = camera.rayOnPlane(event.x, event.y, dragZ) ?: return true
-                    val off = Vec3(Math.round(p.x - start.x).toFloat(), Math.round(p.y - start.y).toFloat(), 0f)
-                    queueEvent { renderer.dragOffset = off }
+                    val m = moveMm(id, event.x, event.y, event.metaState and android.view.KeyEvent.META_SHIFT_ON != 0) ?: return true
+                    if ((m.sx != null || m.sy != null) && (m.sx != moveSnapX || m.sy != moveSnapY)) performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+                    moveSnapX = m.sx; moveSnapY = m.sy
+                    val off = Vec3(m.dx, m.dy, 0f)
+                    val o = snapGuides(id, m)
+                    queueEvent { renderer.dragOffset = off; renderer.overlay = o }
                     requestRender()
                 }
                 return true
@@ -479,11 +533,11 @@ class MeshPreviewView(context: Context) : GLSurfaceView(context) {
                 downBox = null
                 if (dragging) {
                     dragging = false
-                    val start = dragStart
-                    val p = camera.rayOnPlane(event.x, event.y, dragZ)
-                    if (start != null && p != null) l.onMove(Math.round(p.x - start.x).toFloat(), Math.round(p.y - start.y).toFloat())
+                    val m = id?.let { moveMm(it, event.x, event.y, event.metaState and android.view.KeyEvent.META_SHIFT_ON != 0) }
+                    if (m != null) l.onMove(m.dx, m.dy)
+                    moveSnapX = null; moveSnapY = null
                     queueEvent { renderer.dragOffset = Vec3.ZERO }
-                    requestRender()
+                    pushOverlay()
                     return true
                 }
                 // A tap: picks the shape, or clears the selection on empty space.
@@ -491,7 +545,7 @@ class MeshPreviewView(context: Context) : GLSurfaceView(context) {
                 return id != null
             }
             MotionEvent.ACTION_CANCEL -> {
-                if (dragging) { queueEvent { renderer.dragOffset = Vec3.ZERO }; requestRender() }
+                if (dragging) { moveSnapX = null; moveSnapY = null; queueEvent { renderer.dragOffset = Vec3.ZERO }; pushOverlay() }
                 if (handleKind >= 0) { handleKind = -1; handleValue = 0f; liftSnap = null; pushOverlay() }
                 downBox = null; dragging = false
             }

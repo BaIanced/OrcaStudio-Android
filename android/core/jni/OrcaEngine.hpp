@@ -5,9 +5,10 @@
 // Owns one PresetBundle (system + user presets of the installed vendors) and the scene: a Model
 // with all objects, spread over one or more plates laid out like the desktop app's plate grid.
 // Every public method is serialized by a mutex, except cancel(), which may be called from any
-// thread while slice() is running.
+// thread while slice() or smooth_blend() is running.
 
 #include <array>
+#include <atomic>
 #include <cstdint>
 #include <tuple>
 #include <optional>
@@ -46,6 +47,11 @@ using ProgressFn = std::function<void(int percent, const std::string &text)>;
 // Selection id of an instance in the scene and paint meshes: object * stride + instance (exact in
 // a float up to 4096 objects). The app highlights and drags instances by it.
 inline constexpr size_t INSTANCE_ID_STRIDE = 4096;
+
+// Faces reachable from [seed] over edges between faces whose normals differ by at most [angle] degrees (the desktop's smart
+// fill test); [neighbors] = its_face_neighbors flattened (3 per face); [allowed]: faces the flood may enter (all when empty).
+std::vector<bool> flood_surface(const indexed_triangle_set &its, const std::vector<int> &neighbors, int seed, double angle,
+                                const std::function<bool(int)> &allowed = {});
 
 class OrcaEngine
 {
@@ -120,12 +126,22 @@ public:
     json split(int object, bool to_parts);
     json assemble(const Items &items);
     json mesh_boolean(int object, int src, int tool, const std::string &op, bool keep_tool);
-    // Horizontal cut at world height z. float_upper: the upper part keeps its height (its copies get auto_drop off).
-    json cut(int object, int instance, double z, bool keep_upper, bool keep_lower, bool flip_upper, bool float_upper = false, double rot_x = 0., double rot_y = 0., double rot_z = 0.);
+    // Cut by the plane through the box middle (x, y) + shift at world height z, turned by rot. float_upper: the upper part keeps its height (its copies get auto_drop off).
+    json cut(int object, int instance, double z, bool keep_upper, bool keep_lower, bool flip_upper, bool float_upper = false, double rot_x = 0., double rot_y = 0., double rot_z = 0.,
+             double shift_x = 0., double shift_y = 0.);
     // Reduces the triangle count to `ratio` (0..1) of the original.
     json simplify(int object, double ratio);
     // Merges duplicate vertices and removes degenerate faces.
     json repair(int object);
+    json deform(int object, int instance, const std::string &kind, int axis, double amount);
+    // Per-region edit (OrcaRegion.cpp) on the faces a Regions tap on [facet] of part [volume] picks (crease [edge_angle], 0 = the
+    // whole shell): "smooth" = Taubin smoothing, [amount] iterations, the region's border pinned (painting stays); "modifier" = a
+    // modifier volume hugging the region, [amount] mm deep into the part (0.05 mm out), in the frame of copy [instance].
+    json region_edit(int object, int instance, int volume, int facet, double edge_angle, const std::string &op, double amount);
+    // Fuses the object's model parts into one mesh with smooth joins (OpenVDB closing by `radius` mm).
+    json smooth_blend(int object, int instance, double radius);
+    // Carves a closed cavity `wall` mm inside each model part of the copy (SLA hollowing, OpenVDB offset).
+    json hollow_object(int object, int instance, double wall);
     // Replaces the object's first model part with the single mesh in `path` (desktop "Replace with
     // STL"): settings, modifiers and instances stay, painting is remapped. Sets `module` when not empty.
     json replace_mesh(int object, const std::string &path, const std::string &module);
@@ -173,7 +189,10 @@ public:
     // Nearest hit of a world-space ray with any object: { "hit": false } or { "hit": true,
     // "object", "instance", "volume", "facet", "point" [world], "normal" [world], "local" [volume] }.
     // [only] >= 0: that object alone (the Build workspace, where the others are hidden).
-    json pick(const std::array<double, 3> &origin, const std::array<double, 3> &dir, int only = -1);
+    /** [snap] > 0 (world mm): the hit moves to the nearest corner / sharp edge of its facet within that distance ("snap": "vertex" | "edge"). */
+    /** [stick]: the last snap's point (NaN: none); its corner or edge holds out to [release] mm. [seed_*]: a ray to look round from when this one misses (NaN: none). */
+    json pick(const std::array<double, 3> &origin, const std::array<double, 3> &dir, int only, double snap, double release,
+              const std::array<double, 3> &stick, const std::array<double, 3> &seed_origin, const std::array<double, 3> &seed_dir);
 
     // Paints with a sphere brush of `radius` mm around a pick() result. kind: "fuzzy" (state 1 =
     // fuzzy skin), "support" / "seam" (1 enforce, 2 block), "color" (state = 1-based filament);
@@ -201,8 +220,24 @@ public:
                double guard = std::numeric_limits<double>::quiet_NaN(), bool over_colours = false, uint32_t locked = 0);
     // Clears one kind of painting (or all for an empty kind) of an object.
     json paint_clear(int object, const std::string &kind);
+    // Live sculpting (OrcaSculpt.cpp) of part [target] = {object, instance, volume}: one dab per ray that hits it
+    // ([rays] = world origin + direction, in stroke order). [brush]: draw, inflate, smooth, flatten, pinch, crease, grab
+    // (grab drags what was under the first hit). [radius] mm in the world, [strength] 0..1. A stroke's first call
+    // ([new_stroke]) takes an undo snapshot and refines the part when its edges are longer than a fifth of the radius
+    // (painting on it is dropped then). Returns {"patch": file of the changed scene triangles (see OrcaSculpt.cpp) or "",
+    // "mesh_version": the scene mesh it applies to, "hit"}, plus the scene when the whole mesh was written. [end] (or
+    // sculpt_end()) writes the part's mesh back, drops it onto the bed and returns the scene. With a hit, "point" and
+    // "normal" (world) place the brush cursor. [probe] only hit-tests the rays (the cursor of a hovering mouse or pen).
+    // [mirror] bits 1/2/4: every dab is repeated across the part's own X/Y/Z planes through its middle (symmetry).
+    json sculpt(const std::array<int, 3> &target, const std::vector<std::array<double, 6>> &rays, const std::string &brush,
+                double radius, double strength, bool invert, bool new_stroke, bool end = false, bool probe = false, int mirror = 0);
+    json sculpt_end();
+    // A live sculpt's moved vertices go into its part's mesh (dispatch() calls this before any other call). True when it did.
+    bool sculpt_flush();
     // Ends a fill preview by restoring the annotation from before the stroke (the finger slid off the model).
     json paint_fill_cancel();
+    // Whether the last fill is still a preview a "refill" (same seed, new crease angle) may redo: no other edit came after it.
+    bool paint_fill_live();
     // Eyedropper: {"state": the paint state under the hit (0 = unpainted), "base": the part's extruder}.
     json paint_state_at(int object, int volume, int facet, const std::array<double, 3> &local, const std::string &kind);
     // Colour painting: each separate shell of the object gets its own filament, largest first.
@@ -241,7 +276,10 @@ public:
     // --- Adding things ------------------------------------------------------------------------
 
     // Adds a primitive ("cube", "cylinder", "sphere", "cone") of `size` [x,y,z] mm to `plate`.
-    json add_primitive(const std::string &shape, const std::array<double, 3> &size, int plate);
+    json add_primitive(const std::string &shape, const std::array<double, 3> &size, int plate, double round = 0.);
+    // Shape builder "Blend joins": `parts` [{kind box/cylinder/cone/sphere, size, top, round, chamfer, hole, m (4x4
+    // row-major)}] fused as OCCT solids, joins and hole rims rounded by `radius`, written to the STL `out`. No model change.
+    json blend_solids(const json &parts, double radius, const std::string &out);
     // Adds extruded text (font file, height and depth in mm) to `plate`.
     json add_text(const std::string &text, const std::string &font_path, double height, double depth, int plate);
     // Adds an extruded SVG drawing scaled to `width` mm, `depth` mm thick, to `plate`.
@@ -320,7 +358,7 @@ public:
     // Previews an external G-code file (same outputs as slice(), without G-code export).
     json view_gcode(const std::string &gcode, const std::string &preview_dir, const ProgressFn &progress);
 
-    // Requests cancellation of a running slice(); a no-op otherwise.
+    // Requests cancellation of a running slice() or smooth_blend(); a no-op otherwise.
     void cancel();
 
     // For the plugin runtime: the preset bundle (read by plugins without the engine lock, as the
@@ -410,6 +448,9 @@ private:
     std::string                           m_paint_path;
     // Ray-cast acceleration per volume mesh, dropped whenever the scene changes (commit()).
     std::map<const void *, std::shared_ptr<Slic3r::AABBMesh>> m_aabb;
+    // Sharp edges, smooth patches and their outlines per volume mesh (the measure tool's snapping in pick()), dropped with m_aabb.
+    struct SnapFeatures;
+    std::map<const void *, std::shared_ptr<SnapFeatures>> m_neighbors;
     int                                   m_mesh_version = 0;
     int                                   m_build_object = -1; // see set_build_object()
     // The Build workspace's object is drawn and picked in its design pose (see set_build_object()): a plain
@@ -431,6 +472,24 @@ private:
     LivePaint                             m_live_paint;
     // The stroke's last painted hit, start of the next joined capsule.
     std::optional<PaintHit>               m_paint_prev;
+    // Live sculpt session (OrcaSculpt.cpp): the part's mesh, topology and hit tree between calls.
+    struct SculptSession;
+    std::shared_ptr<SculptSession>        m_sculpt;
+    void                                  sculpt_build(int object, int instance, int volume);
+    void                                  sculpt_copies();
+    bool                                  sculpt_flush_locked();
+    bool                                  sculpt_finish_locked();
+    // Convex hulls of flushed sculpt meshes, computed off the lock (qhull took ~0.7 s at 135k faces); installed when ready,
+    // and before any non-sculpt call (sculpt_flush()).
+    struct HullJob;
+    std::vector<std::shared_ptr<HullJob>> m_hull_jobs;
+    void                                  sculpt_hulls_locked(bool wait);
+    // Bands: the stroke's painted height range on one object copy (world z); a drag extends it.
+    struct BandStroke {
+        int   object, instance;
+        float lo, hi;
+    };
+    std::optional<BandStroke>             m_band;
     // Edge detection: the faces of the stroke's starting surface on one volume mesh (flood over edges up to the
     // angle), and that mesh's face neighbours, kept while the mesh is the same.
     struct PaintRegion {
@@ -479,6 +538,8 @@ private:
     // Guards m_running_print so cancel() never touches a Print that slice() is destroying.
     std::mutex                            m_cancel_mutex;
     Slic3r::Print                        *m_running_print{nullptr};
+    // Set by cancel(), polled by long scene edits (smooth_blend), which clear it when they start.
+    std::atomic<bool>                     m_interrupt{false};
     // Slice statistics per G-code file (time, weight, filaments) for the .gcode.3mf's
     // slice_info.config, which printers and Bambu Handy read. Filled by slice().
     std::map<std::string, std::shared_ptr<Slic3r::PlateData>> m_slice_info;
