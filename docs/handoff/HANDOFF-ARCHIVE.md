@@ -3579,3 +3579,6 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 - Godot (a)+(b) (`NOTES-godot-z-axis.md`), in CI r461: Z lift dot + axis lock (da7505c) WSA-verified in Prepare (X/Y/Free/Y key mid-drag, archive 2026-10-28). Z key lift in Build WSA-verified (archive 2026-10-28). Untested: tower ignores Z (low risk, code-gated).
 - Orbit inertia (More > Layout lab slider, default 50 %; plain one-finger flick only, touch stops it): WSA debug-verified 2026-10-28 (fast flick coasts ~150 deg, slow drag exactly 90 deg), not in CI.
 - View > Wireframe (6b86abb): shader uWireAll, line colour dark on light parts / light on dark; dense meshes fade (same rule as the selection wireframe). WSA debug verified on sparse cubes.
+
+## 2026-10-29 Android CLI trial (closed)
+Google Android CLI (winget Google.AndroidCLI 1.1.16717390) trialled: preview render works for stateless composables (wrapper `orca-android-tools/preview-render.sh`); `android layout` is bulkier than `phone-ui.py layout` and installs an on-device server, so not adopted. Details, timings, disk cost: `NOTES-android-cli-trial.md`.
