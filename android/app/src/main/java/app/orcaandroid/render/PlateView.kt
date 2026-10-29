@@ -19,13 +19,6 @@ import kotlin.math.pow
 /** VIEW: camera only (the Preview tab: nothing to pick, select or move, as on the desktop). */
 enum class InteractionMode { NAVIGATE, PAINT, LAY_ON_FACE, MEASURE, VIEW }
 
-/**
- * A face grabbed by push / pull, in plate coordinates: [point] on it, [dir] its outward normal per design millimetre,
- * [length] the size the push changes (design mm). [live]: the shape is a volume of its own, drawn stretched by [axes]
- * (unit) about [anchor] (the opposite side) while dragged.
- */
-class PushGrab(val point: Vec3, val dir: Vec3, val length: Float, val anchor: Vec3, val axes: List<Vec3>, val live: Boolean)
-
 /** What the 3D view reports back to the app. Called on the UI thread. */
 interface PlateListener {
     /**
@@ -73,10 +66,6 @@ interface PlateListener {
     fun onPaintEnd() {}
     /** Paint mode: a mouse or pen hovers at (x, y) with no button held; [inside] false once it left the view. */
     fun onPaintHover(x: Float, y: Float, inside: Boolean) {}
-    /** Push / pull mode ([PlateView.pushMode]): [result] gets the flat face under (x, y), or null (the drag turns the camera). */
-    fun onPushCheck(x: Float, y: Float, result: (PushGrab?) -> Unit) = result(null)
-    /** Push / pull: [grab]'s face moved [mm] (design mm, snapped; null = cancelled); (x, y) is the finger, [done] once let go. */
-    fun onPush(grab: PushGrab, mm: Float?, x: Float, y: Float, done: Boolean) {}
     /** A drag began inside the selection's bounding box: [result] gets whether the mesh itself lies under (x, y). */
     fun onDragCheck(x: Float, y: Float, result: (Boolean) -> Unit) = result(true)
     /** A drag began inside a prime tower's box at [entry]: [result] gets false when an object lies in front of it (the touch is the camera's). */
@@ -494,7 +483,6 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                 lastX = event.x; lastY = event.y; downX = event.x; downY = event.y
                 multiTouch = false; moved = false; dragging = false; longPressed = false; loupeOn = false; maxTravel = 0f; resizeTried = false
                 loupePointer = event.getPointerId(0); loupeX = event.x; loupeY = event.y
-                pushPending = false; pushGrab = null
                 keyLock = -1; liftFromDrag = false
                 removeCallbacks(hoverGone)
                 // The button state is only known on DOWN; on UP it is already released. Some devices send it only
@@ -537,23 +525,6 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                         if (selectedBounds.isNotEmpty()) {
                             val id = ++dragCheckId
                             listener?.onDragCheck(event.x, event.y) { hit -> if (!hit && id == dragCheckId) paintOrbit = true }
-                        }
-                    }
-                }
-                else if (mode == InteractionMode.NAVIGATE && pushMode) {
-                    // Push / pull: the view holds still until the face check answers; no face = the camera's drag.
-                    pushPending = true
-                    val id = ++dragCheckId
-                    val x = event.x
-                    val y = event.y
-                    listener?.onPushCheck(x, y) { g ->
-                        if (id != dragCheckId || !pushPending) return@onPushCheck
-                        pushPending = false
-                        pushGrab = g
-                        pushMm = 0f
-                        if (g != null) {
-                            pushScreen = pushAlong(g, x, y) == null
-                            pushFrom = if (pushScreen) y else pushAlong(g, x, y)!!
                         }
                     }
                 }
@@ -683,24 +654,6 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                                 listener?.onResize(s, p, event.x, event.y, false)
                             }
                         }
-                        pushGrab != null -> if (moved) {
-                            val g = pushGrab!!
-                            val t = if (pushScreen) (pushFrom - event.y) * camera.pxSize(g.point) / g.dir.length()
-                                else pushAlong(g, event.x, event.y)?.let { it - pushFrom }
-                            if (t != null) {
-                                // Half-millimetre steps; at least 1 mm stays.
-                                val mm = maxOf(Math.round(t / PUSH_STEP) * PUSH_STEP, 1f - g.length)
-                                if (mm != pushMm) {
-                                    pushMm = mm
-                                    if (g.live) {
-                                        val m = pushMatrix(g, mm)
-                                        queueEvent { renderer.resizeAnchor = floatArrayOf(g.anchor.x, g.anchor.y, g.anchor.z); renderer.pushMatrix = m }
-                                    }
-                                }
-                                listener?.onPush(g, mm, event.x, event.y, false)
-                            }
-                        }
-                        pushPending -> Unit
                         liftBox != null -> if (moved) dragTo(event.x, event.y, event.metaState)
                         dragging -> dragTo(event.x, event.y, event.metaState)
                         // In resize mode the view holds still until the touch slop decides between resize and orbit
@@ -735,13 +688,6 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                     endRotate(if (moved) rotateDrag!!.degrees else null, event.x, event.y)
                 } else if (resizeHandle != null) {
                     endResize(if (moved) resizeScale else null, event.x, event.y)
-                } else if (pushGrab != null || pushPending) {
-                    val g = pushGrab
-                    pushPending = false; pushGrab = null
-                    dragCheckId++
-                    // The live stretch stays until the pushed shape's mesh arrives (the listener clears it).
-                    if (g != null) listener?.onPush(g, if (moved) pushMm else null, event.x, event.y, true)
-                    if (!moved) tap(event.x, event.y, additive, part)
                 } else if (liftBox != null) {
                     val dz = liftMm
                     liftBox = null; liftFromDrag = false
@@ -854,39 +800,6 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     private var resizeScale = Vec3(1f, 1f, 1f)
     private var resizeTried = false
 
-    /** Build workspace push / pull ([PushGrab]): a drag on a flat face moves the face; elsewhere it turns the camera. */
-    @Volatile var pushMode = false
-    private var pushPending = false
-    private var pushGrab: PushGrab? = null
-    /** Measured on screen (the face's normal points at the camera): [pushFrom] is the finger's y at the start. */
-    private var pushScreen = false
-    private var pushFrom = 0f
-    private var pushMm = 0f
-
-    /**
-     * Where along [g]'s normal line (design mm from its point) the finger's ray at (x, y) passes closest; null when the
-     * line runs nearly along the view (within ~10 degrees), where the ray can't tell.
-     */
-    private fun pushAlong(g: PushGrab, x: Float, y: Float): Float? {
-        val (o, d) = camera.ray(x, y)
-        val v = g.dir
-        val w = g.point - o
-        val a = v.dot(v); val b = v.dot(d); val c = d.dot(d)
-        val den = a * c - b * b
-        if (den < 0.03f * a * c) return null
-        return (b * d.dot(w) - c * v.dot(w)) / den
-    }
-
-    /** The live stretch of a push by [mm]: I + (k - 1) * sum of a a^T over [g]'s stretch axes, row-major. */
-    private fun pushMatrix(g: PushGrab, mm: Float): FloatArray {
-        val k = (g.length + mm) / g.length - 1f
-        val m = floatArrayOf(1f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f)
-        for (a in g.axes) {
-            val u = floatArrayOf(a.x, a.y, a.z)
-            for (i in 0..2) for (j in 0..2) m[i * 3 + j] += k * u[i] * u[j]
-        }
-        return m
-    }
 
     /** Resizing is on (Resize in the context menu, Ctrl+T or S): the scale gizmo's handles show on the lone selection. */
     @Volatile var resizeMode = false
@@ -949,10 +862,19 @@ class PlateView(context: Context) : GLSurfaceView(context) {
         val box = gizmoBox() ?: return false
         // 48 dp grabbed too much of a small box (user, r304). On the object only a touch right on a handle grabs it, so a
         // drag of the object near a handle moves it (user 2026-10-28: a repeat's end copy dragged changed its spacing).
-        val reach = (if (onBox(box, x, y)) 12f else 32f) * resources.displayMetrics.density
+        // Folded in from push/pull (user 2026-10-29): on the object the reach grows with the box on screen (a quarter of the
+        // handle's distance from the box centre, 12-40 dp), so a touch on a big face edge grabs its handle.
+        val dp = resources.displayMetrics.density
+        val on = onBox(box, x, y)
+        val centre = camera.project(Vec3((box.first.x + box.second.x) / 2, (box.first.y + box.second.y) / 2, (box.first.z + box.second.z) / 2))
         val h = ScaleGizmo.visible(box.first, box.second, camera, resizeAxes).mapNotNull { h ->
-            camera.project(h.pos)?.let { (px, py) -> h to kotlin.math.hypot(px - x, py - y) }
-        }.filter { it.second < reach }.minByOrNull { it.second }?.first ?: return false
+            camera.project(h.pos)?.let { (px, py) ->
+                val reach = if (!on) 32f * dp else if (centre == null) 12f * dp
+                    else (0.25f * kotlin.math.hypot(px - centre.first, py - centre.second)).coerceIn(12f * dp, 40f * dp)
+                val dist = kotlin.math.hypot(px - x, py - y)
+                if (dist < reach) h to dist else null
+            }
+        }.minByOrNull { it.second }?.first ?: return false
         resizeHandle = h; resizeBox = box; resizeScale = Vec3(1f, 1f, 1f)
         queueEvent { renderer.gizmoGrab = h }
         return true
@@ -1093,8 +1015,6 @@ class PlateView(context: Context) : GLSurfaceView(context) {
 
     private fun cancelDrag() {
         cancelResize()
-        pushGrab?.let { g -> pushGrab = null; listener?.onPush(g, null, 0f, 0f, true) }
-        pushPending = false
         dragCheckId++
         if (dragging || liftBox != null) queueEvent { renderer.dragOffset = floatArrayOf(0f, 0f, 0f); renderer.liftGrab = false; renderer.axisGuide = null }
         liftBox = null; liftFromDrag = false
@@ -1212,5 +1132,3 @@ private const val INPUT_TAG = "OrcaInput"
 
 /** Spacing of interpolated paint samples, in pixels. */
 private const val PAINT_STEP_PX = 12f
-/** Push / pull moves a face in these steps (mm). */
-private const val PUSH_STEP = 0.5f

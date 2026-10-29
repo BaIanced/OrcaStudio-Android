@@ -876,24 +876,6 @@ class ScadController(private val store: Store) {
     }
 
     /**
-     * Build workspace push / pull: the copy of build object [obj] under the ray, the flat face hit there
-     * ([ShapeDesign.faceAt]) and whether the shape is a whole volume of its own (top level, one copy: it can be stretched
-     * live), or null.
-     */
-    suspend fun faceAt(obj: Int, origin: Vec3, dir: Vec3): Triple<app.orcaandroid.core.Instance, ShapeDesign.Face, Boolean>? {
-        val hit = engine.pick(origin, dir, only = obj) ?: return null
-        val o = store.value.scene.objects.getOrNull(obj) ?: return null
-        val piece = volumeShapes(o)[hit.volume] ?: return null
-        val inst = o.instances.getOrNull(hit.instance)?.shown ?: return null
-        val d = ScadDesign.of(o)?.shapes ?: return null
-        val p = app.orcaandroid.scad.BuildTransform.toDesign(inst, hit.point)
-        val ray = app.orcaandroid.scad.BuildTransform.toDesign(inst, hit.point + dir) - p
-        val face = d.faceAt(piece, p, ray) ?: return null
-        val whole = face.shapeId == piece.shapeId && (d.find(face.shapeId)?.repeat?.count ?: 1) <= 1
-        return Triple(inst, face, whole)
-    }
-
-    /**
      * Moves the new object [idx] to the free spot of its plate nearest the plate centre (5 mm grid,
      * 5 mm gap), so it doesn't land inside another; the other objects stay where they are.
      */

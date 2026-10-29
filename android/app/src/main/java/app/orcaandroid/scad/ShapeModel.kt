@@ -568,103 +568,6 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
 
     // --- Push / pull ------------------------------------------------------------------------------------
 
-    /**
-     * A flat face push / pull grabs ([pushed]): a side of a shape's box ([axis] 0 x, 1 y, 2 z; [sign] +-1 the end) or,
-     * with [axis] -1, the round side of a cylinder, tube or prism ([dir]: outward in the shape's x / y, on its unit
-     * circle). [point], [normal] (out of the shape, unit) and [stretch] (the unit directions its size changes along) are
-     * in the design frame, on the copy that was hit; [length] is the size the push changes (mm, along [normal]).
-     */
-    data class Face(val shapeId: Int, val axis: Int, val sign: Int, val dir: D3, val point: D3, val normal: D3,
-                    val stretch: List<D3>, val length: Double, val hole: Boolean)
-
-    /**
-     * The face at design point [p] of [piece], hit by a ray along design direction [ray]: of every solid and hole in the
-     * piece (through its groups and copies), the box side (or round side) [p] lies on; a solid's must face the ray (a
-     * hole's wall may face either way: seen from outside, or cut into a group's solid). Solids win, then the closest.
-     * Null on curved or slanted surfaces, meshes, spheres and tori.
-     */
-    fun faceAt(piece: Piece, p: D3, ray: D3): Face? {
-        val top = shapes.firstOrNull { it.id == piece.shapeId }?.let(::resolved) ?: return null
-        var best: Pair<Face, Double>? = null
-        // m: s's own frame -> design.
-        fun visit(s: Shape, m: DoubleArray, hole: Boolean) {
-            if (s.isGroup) {
-                for (c in s.children) {
-                    val own = placement(c)
-                    for (k in copies(c)) visit(c, mul(m, mul(k, own)), hole || c.hole)
-                }
-                return
-            }
-            val f = face(s, m, p, ray, hole) ?: return
-            val b = best
-            if (b == null || (b.first.hole && !f.first.hole) || (b.first.hole == f.first.hole && f.second < b.second)) best = f
-        }
-        visit(top, piece.matrix.toDoubleArray(), top.hole)
-        return best?.first
-    }
-
-    /** [faceAt] for one solid [s] (resolved; [m] its frame -> design): the face and how far [p] lies off it (mm). */
-    private fun face(s: Shape, m: DoubleArray, p: D3, ray: D3, hole: Boolean): Pair<Face, Double>? {
-        if (s.kind in NO_FACES) return null
-        val l = inverse(m, p)
-        val half = D3(s.size.x / 2, s.size.y / 2, s.size.z / 2)
-        // From the box centre.
-        val c = D3(l.x, l.y, l.z - half.z)
-        val e = 0.05
-        if ((0..2).any { abs(c[it]) > half[it] + e }) return null
-        val round = s.kind in ROUND_SIDES
-        var axis = -2
-        var gap = Double.MAX_VALUE
-        for (i in 0..2) {
-            if (round && i < 2) continue
-            val g = abs(half[i] - abs(c[i]))
-            if (g <= e && g < gap) { axis = i; gap = g }
-        }
-        var dir = D3()
-        if (axis == -2 && round) {
-            // On the n-gon of the unit circle (a scaled cylinder): its sides lie between cos(pi / n) and 1.
-            val u = D3(c.x / half.x, c.y / half.y, 0.0)
-            val r = sqrt(u.x * u.x + u.y * u.y)
-            val n = s.x(Shape.SIDES, 0.0).toInt().takeIf { it >= 3 }
-                ?: max(12, min(180, kotlin.math.ceil(Math.PI * max(s.size.x, s.size.y) / 0.8).toInt()))
-            if (r < 1e-9 || r < cos(Math.PI / n) - e / min(half.x, half.y) || r > 1 + e / min(half.x, half.y)) return null
-            axis = -1
-            dir = D3(u.x / r, u.y / r, 0.0)
-            gap = (1 - r) * min(half.x, half.y)
-        }
-        if (axis == -2) return null
-        val sign = if (axis >= 0 && c[axis] < 0) -1 else 1
-        fun turn(v: D3) = D3((0..2).sumOf { m[it] * v[it] }, (0..2).sumOf { m[4 + it] * v[it] }, (0..2).sumOf { m[8 + it] * v[it] })
-        fun unit(v: D3) = sqrt(v.x * v.x + v.y * v.y + v.z * v.z).let { k -> D3(v.x / k, v.y / k, v.z / k) }
-        val normal = unit(turn(if (axis < 0) dir else D3().with(axis, sign.toDouble())))
-        if (!hole && normal.x * ray.x + normal.y * ray.y + normal.z * ray.z >= 0) return null
-        val stretch = if (axis < 0) listOf(unit(turn(D3(1.0, 0.0, 0.0))), unit(turn(D3(0.0, 1.0, 0.0)))) else listOf(normal)
-        val length = if (axis >= 0) s.size[axis] else if (abs(dir.x) >= abs(dir.y)) s.size.x else s.size.y
-        return Face(s.id, axis, sign, dir, p, normal, stretch, length, hole) to gap
-    }
-
-    /**
-     * Shape [f]'s pose (in its parent's frame) after its face [f] moved [mm] out (in when negative), the opposite side
-     * staying put; a round side widens the shape by [mm] in x and y. Sizes stay at least 1 mm. Null when the shape is gone.
-     */
-    fun pushed(f: Face, mm: Double): BuildTransform.Pose? {
-        val s = find(f.shapeId)?.let(::resolved) ?: return null
-        val sz = s.size
-        val d = max(mm, 1.0 - if (f.axis < 0) min(sz.x, sz.y) else sz[f.axis])
-        val size = if (f.axis < 0) D3(sz.x + d, sz.y + d, sz.z) else sz.with(f.axis, sz[f.axis] + d)
-        // The opposite side's middle, in the old and the new own frame.
-        fun far(b: D3) = when (f.axis) {
-            -1 -> D3(-f.dir.x * b.x / 2, -f.dir.y * b.y / 2, 0.0)
-            2 -> if (f.sign > 0) D3() else D3(0.0, 0.0, b.z)
-            else -> D3().with(f.axis, -f.sign * b[f.axis] / 2)
-        }
-        fun at(m: DoubleArray, q: D3) = D3((0..2).sumOf { m[it] * q[it] } + m[3], (0..2).sumOf { m[4 + it] * q[it] } + m[7],
-            (0..2).sumOf { m[8 + it] * q[it] } + m[11])
-        val pos = s.pos + at(placement(s), far(sz)) - at(placement(s.copy(size = size)), far(size))
-        fun round(v: D3) = D3(Math.round(v.x * 1000.0) / 1000.0 + 0.0, Math.round(v.y * 1000.0) / 1000.0 + 0.0, Math.round(v.z * 1000.0) / 1000.0 + 0.0)
-        return BuildTransform.Pose(round(pos), s.rot, round(size), s.repeat)
-    }
-
     /** Point [p] through the inverse of rigid row-major 4 x 4 [m] (turn, flip and move only). */
     private fun inverse(m: DoubleArray, p: D3): D3 {
         val d = D3(p.x - m[3], p.y - m[7], p.z - m[11])
@@ -907,10 +810,6 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
     companion object {
         /** Starts a Blend joins piece's code ([blendCode]) instead of OpenSCAD. */
         const val BLEND_TAG = "// blend joins\n"
-
-        /** Kinds without flat faces to push ([faceAt]), and those whose side is round (pushing it widens x and y). */
-        private val NO_FACES = setOf(Shape.Kind.GROUP, Shape.Kind.MESH, Shape.Kind.SPHERE, Shape.Kind.TORUS)
-        private val ROUND_SIDES = setOf(Shape.Kind.CYLINDER, Shape.Kind.TUBE, Shape.Kind.PRISM)
 
         fun decode(json: String?): ShapeDesign? = runCatching { of(JSONObject(json ?: return null)) }.getOrNull()
 

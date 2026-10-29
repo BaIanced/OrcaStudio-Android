@@ -40,7 +40,6 @@ import app.orcaandroid.render.CutPlane
 import app.orcaandroid.render.DragSnap
 import app.orcaandroid.render.FilamentMaterial
 import app.orcaandroid.render.FloatData
-import app.orcaandroid.render.PushGrab
 import app.orcaandroid.render.INSTANCE_ID_STRIDE
 import app.orcaandroid.render.InteractionMode
 import app.orcaandroid.render.PlateBadge
@@ -192,22 +191,6 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                         val (o, d) = v.camera.ray(x, y)
                         if (vm.state.value.buildObject != null) vm.shapes.grabAt(o, d) { hit -> v.post { result(hit) } }
                         else vm.scene.checkDragStart(o, d, v.section.current) { hit -> v.post { result(hit) } }
-                    }
-                    override fun onPushCheck(x: Float, y: Float, result: (PushGrab?) -> Unit) {
-                        val (o, d) = v.camera.ray(x, y)
-                        vm.shapes.pushAt(o, d) { g -> v.post { result(g) } }
-                    }
-                    override fun onPush(grab: PushGrab, mm: Float?, x: Float, y: Float, done: Boolean) {
-                        if (!done && mm != null) {
-                            resizeLabel = Triple("%+.1f mm → %.1f mm".format(mm, grab.length + mm), x, y)
-                            return
-                        }
-                        resizeLabel = null
-                        if (mm == null || kotlin.math.abs(mm) < 0.05f) { v.onGl { pushMatrix = null }; return }
-                        // The live stretch stays until the re-rendered piece is drawn (below), or the timeout.
-                        dragPending[0] = true
-                        v.postDelayed({ if (dragPending[0]) { dragPending[0] = false; v.onGl { pushMatrix = null } } }, BUILD_RENDER_WAIT)
-                        vm.shapes.push(mm.toDouble())
                     }
                     override fun onTowerCheck(x: Float, y: Float, entry: Vec3, result: (Boolean) -> Unit) {
                         val (o, d) = v.camera.ray(x, y)
@@ -651,17 +634,14 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     // only turn), on the selected volumes' mesh box.
     val building = state.buildObject != null
     val buildGizmo = if (!building) null else remember(state.scene, state.scad?.selected, state.scad?.shapes) { vm.shapes.buildGizmoTarget() }
-    // Push / pull: a drag on a face moves it; the gizmos go meanwhile.
-    val pushing = building && state.buildPush
     LaunchedEffect(v, building) { v.gizmoOnMesh = building }
-    LaunchedEffect(v, pushing) { v.pushMode = pushing }
-    LaunchedEffect(v, state.resizing, showPreview, building, buildGizmo, pushing) {
-        v.resizeMode = if (building) !pushing && buildGizmo?.second?.none { it.isGroup } == true else state.resizing && !showPreview
+    LaunchedEffect(v, state.resizing, showPreview, building, buildGizmo) {
+        v.resizeMode = if (building) buildGizmo?.second?.none { it.isGroup } == true else state.resizing && !showPreview
     }
     // Build: the lift dot above the selection moves the shapes up or down.
-    LaunchedEffect(v, building, buildGizmo, pushing) { v.liftMode = building && !pushing && buildGizmo != null }
-    LaunchedEffect(v, state.rotating, showPreview, building, buildGizmo, pushing) {
-        v.rotateMode = if (building) !pushing && buildGizmo != null else state.rotating && !showPreview
+    LaunchedEffect(v, building, buildGizmo) { v.liftMode = building && buildGizmo != null }
+    LaunchedEffect(v, state.rotating, showPreview, building, buildGizmo) {
+        v.rotateMode = if (building) buildGizmo != null else state.rotating && !showPreview
     }
     // Plate numbers always; the plate icons only while arranging (Prepare).
     val atlas = rememberBadgeAtlas(scene.plates.size)
@@ -695,7 +675,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         val version = scene.meshVersion
         v.onGl { setMesh(mesh, version) }
         // A finished drag: the moved mesh is queued first, so the old offset goes away without a jump back.
-        if (dragPending[0]) { dragPending[0] = false; v.onGl { dragOffset = floatArrayOf(0f, 0f, 0f); resizeScale = floatArrayOf(1f, 1f, 1f); pushMatrix = null; rotateMatrix = null } }
+        if (dragPending[0]) { dragPending[0] = false; v.onGl { dragOffset = floatArrayOf(0f, 0f, 0f); resizeScale = floatArrayOf(1f, 1f, 1f); rotateMatrix = null } }
     }
     // Eye toggle: the OpenSCAD design shown see-through, standing in the middle of the active plate (other objects hidden).
     // A shape design placed as pieces shows its object instead (the Build workspace).

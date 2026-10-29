@@ -365,10 +365,7 @@ private fun WorkspaceBody(state: UiState, vm: AppViewModel, wide: Boolean, shop:
             // The Build workspace: the design's object alone, its shapes picked and dragged in this view.
             if (state.buildObject != null) Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
                 horizontalAlignment = Alignment.CenterHorizontally) {
-                // Push / pull (SketchUp style): a drag on a flat face moves that face instead of the shape.
-                androidx.compose.material3.FilterChip(state.buildPush, { vm.setBuildPush(!state.buildPush) }, { Text(stringResource(R.string.shape_push)) },
-                    leadingIcon = { Icon(Icons.Default.OpenInFull, null, Modifier.size(18.dp)) })
-                Text(stringResource(if (state.buildPush) R.string.shape_push_help else R.string.shape_preview_help), Modifier.fillMaxWidth(),
+                Text(stringResource(R.string.shape_preview_help), Modifier.fillMaxWidth(),
                     style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center)
             }

@@ -6,7 +6,6 @@ import app.orcaandroid.R
 import app.orcaandroid.core.Instance
 import app.orcaandroid.core.Vec3
 import app.orcaandroid.render.DragSnap
-import app.orcaandroid.render.PushGrab
 import app.orcaandroid.render.RotateGizmo
 import app.orcaandroid.scad.Bounds
 import app.orcaandroid.scad.BuildTransform
@@ -208,35 +207,6 @@ class ShapeController(private val store: Store, private val scad: ScadController
         val m = BuildTransform.turnInFrame(frame, BuildTransform.designTurn(inst, RotateGizmo.matrix(axis, degrees)))
         val c = BuildTransform.inFrame(frame, BuildTransform.toDesign(inst, pivot))
         commit(sel.fold(d) { acc, s -> acc.find(s.id)?.let { held(acc, posed(acc, s.id, BuildTransform.turned(acc, it, m, c)), s.id) } ?: acc })
-    }
-
-    /** The face a push / pull drag holds ([pushAt]); [push] moves it. */
-    private var pushFace: ShapeDesign.Face? = null
-
-    /**
-     * Build workspace push / pull: [result] gets the flat face under the ray in plate terms (null: none there, the drag
-     * turns the camera). Its shape becomes the selection, so a whole volume shows the stretch live.
-     */
-    fun pushAt(origin: Vec3, dir: Vec3, result: (PushGrab?) -> Unit) {
-        val obj = store.value.buildObject ?: return result(null)
-        store.launch {
-            val (inst, f, whole) = scad.faceAt(obj, origin, dir) ?: run { pushFace = null; return@launch result(null) }
-            pushFace = f
-            if (selected != listOf(f.shapeId)) select(listOf(f.shapeId))
-            val at = BuildTransform.toPlate(inst, f.point)
-            fun along(v: D3) = BuildTransform.toPlate(inst, f.point + v) - at
-            fun unit(v: Vec3) = v * (1f / v.length())
-            val far = f.point - D3(f.normal.x * f.length, f.normal.y * f.length, f.normal.z * f.length)
-            result(PushGrab(at, along(f.normal), f.length.toFloat(), BuildTransform.toPlate(inst, far), f.stretch.map { unit(along(it)) }, whole))
-        }
-    }
-
-    /** Build workspace push / pull: the grabbed face moved [mm] out (in when negative), its opposite side kept (one undo step). */
-    fun push(mm: Double) {
-        val f = pushFace ?: return
-        val d = design ?: return
-        val pose = d.pushed(f, mm) ?: return
-        commit(held(d, posed(d, f.shapeId, pose), f.shapeId))
     }
 
     /** [next] (shape [id] changed from [before]) with the groups holding it moved so their other children stay put ([ShapeDesign.groupShifts]). */
