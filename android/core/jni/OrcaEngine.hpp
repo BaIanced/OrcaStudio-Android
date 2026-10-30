@@ -244,7 +244,7 @@ public:
     // verts (world xyz, up to 500)}.
     json mesh_edit(const std::array<int, 3> &target, const std::string &op, const std::optional<std::array<double, 6>> &ray,
                    const std::string &kind, double angle, bool toggle, const std::optional<std::array<double, 16>> &matrix, double reach,
-                   double amount = 0.);
+                   double amount = 0., const std::array<double, 3> &axis = {0., 0., 1.});
     // A live sculpt's moved vertices go into its part's mesh (dispatch() calls this before any other call). True when it did.
     bool sculpt_flush();
     // Ends a fill preview by restoring the annotation from before the stroke (the finger slid off the model).

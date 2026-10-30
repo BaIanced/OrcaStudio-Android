@@ -362,4 +362,100 @@ inline CapSplit split_cap(Mesh &m, const std::vector<int> &selection, Vec3 slide
     return out;
 }
 
+// Cut ring (M3, Blender's loop cut on triangles): the plane through [point] with [normal] crosses a band of faces; the
+// band is the crossing faces joined through shared vertices, starting at [start] (or a crossing face round it when the
+// plane runs along [start]). Its crossing edges are split (one new vertex per edge, shared by both faces), the faces
+// retriangulated, so the part stays closed. Returns the ring: the new vertices plus band vertices already on the plane,
+// sorted; empty when the plane crosses nothing there. Vertices within [eps] of the plane count as on it (no slivers).
+inline std::vector<int> cut_ring(Mesh &m, int start, Vec3 point, Vec3 normal, double eps)
+{
+    using namespace meshsculpt::detail;
+    const Vec3 n = unit(normal);
+    std::vector<double> d(m.vertices.size());
+    for (size_t v = 0; v < d.size(); ++v) {
+        d[v] = dot(sub(m.vertices[v], point), n);
+        if (std::abs(d[v]) <= eps)
+            d[v] = 0.;
+    }
+    auto crosses = [&](int f) {
+        double lo = 0., hi = 0.;
+        for (int v : m.faces[size_t(f)]) {
+            lo = std::min(lo, d[size_t(v)]);
+            hi = std::max(hi, d[size_t(v)]);
+        }
+        return lo < 0. && hi > 0.;
+    };
+    std::vector<std::vector<int>> vf(m.vertices.size());
+    for (size_t f = 0; f < m.faces.size(); ++f)
+        for (int v : m.faces[f])
+            vf[size_t(v)].push_back(int(f));
+    // The band: flood through shared vertices over crossing faces.
+    std::vector<char> band(m.faces.size(), 0);
+    std::vector<int> stack;
+    if (start >= 0 && size_t(start) < m.faces.size()) {
+        if (crosses(start))
+            stack.push_back(start);
+        else
+            for (int v : m.faces[size_t(start)])
+                for (int g : vf[size_t(v)])
+                    if (stack.empty() && crosses(g))
+                        stack.push_back(g);
+    }
+    for (int f : stack)
+        band[size_t(f)] = 1;
+    std::vector<int> faces;
+    while (!stack.empty()) {
+        const int f = stack.back();
+        stack.pop_back();
+        faces.push_back(f);
+        for (int v : m.faces[size_t(f)])
+            for (int g : vf[size_t(v)])
+                if (!band[size_t(g)] && crosses(g)) {
+                    band[size_t(g)] = 1;
+                    stack.push_back(g);
+                }
+    }
+    std::vector<int> ring;
+    std::map<std::pair<int, int>, int> split;
+    auto cut = [&](int a, int b) {
+        const auto key = std::minmax(a, b);
+        const auto it = split.find(key);
+        if (it != split.end())
+            return it->second;
+        const double t = d[size_t(a)] / (d[size_t(a)] - d[size_t(b)]);
+        const Vec3 &pa = m.vertices[size_t(a)], &pb = m.vertices[size_t(b)];
+        m.vertices.push_back(add(pa, mul(sub(pb, pa), t)));
+        const int v = int(m.vertices.size()) - 1;
+        split.emplace(key, v);
+        ring.push_back(v);
+        return v;
+    };
+    for (int f : faces) {
+        auto t = m.faces[size_t(f)];
+        // Rotate so t[0] is the vertex alone on its side (two crossing edges) or on the plane (one crossing edge).
+        int r = 0;
+        for (int k = 0; k < 3; ++k) {
+            const double a = d[size_t(t[k])], b = d[size_t(t[(k + 1) % 3])], c = d[size_t(t[(k + 2) % 3])];
+            if (a == 0. || (a * b < 0. && a * c < 0.))
+                r = k;
+        }
+        std::rotate(t.begin(), t.begin() + r, t.end());
+        const int a = t[0], b = t[1], c = t[2];
+        if (d[size_t(a)] == 0.) {
+            ring.push_back(a);
+            const int p = cut(b, c);
+            m.faces[size_t(f)] = {a, b, p};
+            m.faces.push_back({a, p, c});
+        } else {
+            const int p = cut(a, b), q = cut(c, a);
+            m.faces[size_t(f)] = {a, p, q};
+            m.faces.push_back({p, b, c});
+            m.faces.push_back({p, c, q});
+        }
+    }
+    std::sort(ring.begin(), ring.end());
+    ring.erase(std::unique(ring.begin(), ring.end()), ring.end());
+    return ring;
+}
+
 } // namespace meshedit

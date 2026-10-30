@@ -190,7 +190,9 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             obj(emptyList(), "origin" to vec("Ray origin in plate coordinates (select)"), "dir" to vec("Ray direction (select)"),
                 "op" to p("string", "select (default with a ray), clear, all (every vertex of the part), grow (adds the neighbouring vertices), " +
                     "extrude (the selected faces pulled out by amount mm along the selection normal with walls; < 0 = pocket) or inset " +
-                    "(the selected faces' border pulled amount mm in, new ring of faces)"),
+                    "(the selected faces' border pulled amount mm in, new ring of faces) or cut (needs a ray: the plane through its hit across " +
+                    "axis splits the band of faces there into a vertex ring, which becomes the selection; add scale for a waist / bulge)"),
+                "axis" to vec("Cut plane normal (cut); default [0, 0, 1]"),
                 "amount" to p("number", "mm for extrude / inset"),
                 "kind" to p("string", "face (default), edge or vertex"), "angle" to p("number", "Crease angle in degrees; default 30, 0 = single triangles"),
                 "toggle" to p("boolean", "Add to / remove from the selection instead of replacing it"),
@@ -894,7 +896,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         val dir = args.vec3("dir")
         if ((origin == null) != (dir == null)) throw ToolError("Give both origin and dir")
         val op = args.optString("op").ifEmpty { if (origin != null) "select" else "" }
-        if (op !in listOf("", "select", "clear", "all", "grow", "extrude", "inset")) throw ToolError("op must be select, clear, all, grow, extrude or inset")
+        if (op !in listOf("", "select", "clear", "all", "grow", "extrude", "inset", "cut")) throw ToolError("op must be select, clear, all, grow, extrude, inset or cut")
         val kind = args.optString("kind", "face")
         if (kind !in listOf("face", "edge", "vertex")) throw ToolError("kind must be face, edge or vertex")
         val angle = args.optDouble("angle", 30.0).takeIf { it.isFinite() && it >= 0 } ?: throw ToolError("angle must be >= 0")
@@ -903,8 +905,8 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         val rotate = args.vec3("rotate")
         if (op.isEmpty() && move == null && scale == null && rotate == null) throw ToolError("Give a ray, an op or a transform")
         val ray = if (origin != null && dir != null) origin.f() to dir.f() else null
-        if (op == "select" && ray == null) throw ToolError("select needs origin and dir")
-        if (ray != null && op in listOf("select", "extrude", "inset")) {
+        if ((op == "select" || op == "cut") && ray == null) throw ToolError("$op needs origin and dir")
+        if (ray != null && op in listOf("select", "extrude", "inset", "cut")) {
             meshEditTarget = store.engine.pick(ray.first, ray.second) ?: throw ToolError("the ray misses every object")
             meshEditVersion = store.value.scene.meshVersion
         } else if (meshEditVersion != store.value.scene.meshVersion) meshEditTarget = null
@@ -922,6 +924,23 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
                     val n = start.selection.getJSONArray("normal")
                     store.engine.meshEdit(target, "move", matrix = meshEditMatrix(D3(n.getDouble(0) * amount, n.getDouble(1) * amount, n.getDouble(2) * amount), null, null))
                     store.engine.meshEdit(target, "end", kind = kind, angle = angle.toFloat())
+                }
+                sel = step.selection
+                step.scene ?: throw ToolError("mesh_edit returned no scene")
+            }
+            meshEditVersion = store.value.scene.meshVersion
+            return reply + "\n" + selectionText(sel!!)
+        }
+        if (op == "cut") {
+            val axis = args.vec3("axis") ?: D3(0.0, 0.0, 1.0)
+            if (axis.x == 0.0 && axis.y == 0.0 && axis.z == 0.0) throw ToolError("axis must not be zero")
+            var sel: JSONObject? = null
+            val reply = plateEdit("cut a ring into object ${target.obj + 1}", R.string.deforming) {
+                val cut = store.engine.meshEdit(target, "cut", ray, kind, angle.toFloat(), axis = listOf(axis.x, axis.y, axis.z))
+                var step = cut
+                if (move != null || scale != null || rotate != null) {
+                    store.engine.meshEdit(target, "move", matrix = meshEditMatrix(move, scale, rotate))
+                    step = store.engine.meshEdit(target, "end")
                 }
                 sel = step.selection
                 step.scene ?: throw ToolError("mesh_edit returned no scene")

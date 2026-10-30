@@ -110,3 +110,11 @@ STLs from CAD have flat faces split into many triangles and no quads, so raw Ble
   **WSA VD verified (debug, local native lib):** MCP top -3 -> 17 mm 12 faces; side -2 -> 18 wide; inset 3 + extrude -5 -> 5280
   (exact); pocket wall -2 / +4 -> 5140 / 5420 (exact); all "No problems found". Panel: typed Extrude 3 / Inset 4 / Extrude -5
   Apply exact (11800 / 11800 / 11080); arrow drag down on a fresh cube top 20 -> 17 clean, one Undo -> 20.
+- **M3 written 2026-10-30 (Claude; kernel unit-tested, Kotlin compiles, native compile + device UNTESTED):** `MeshEdit.hpp`
+  `cut_ring(m, start, point, normal, eps)` (band = crossing faces flooded through shared vertices from the hit face, or a
+  crossing face round it; crossing edges split once, faces retriangulated; near-plane vertices snap onto it). Tests: cube cut
+  z 0.3 -> ring 12, 48 faces, closed, vol 1; waist scale closed; start on top found; z 0.5 through side middles -> ring 8;
+  miss -> empty. Native op `cut` (ray + world `axis`, default Z; new `axis` arg through EngineCalls / `Engine.meshEdit`; one
+  undo step, ring selected) and MCP `op:"cut"` + `axis` (+ optional scale/move/rotate on the ring in the same call).
+  **Next:** local `corebuild.sh` (rerun: started before the EngineCalls edit), WSA VD check (cube cut z mid + scale 50,50,100
+  -> waist, "No problems found", one Undo), then panel: "Cut ring" chip + X | Y | Z axis chips, a tap cuts.

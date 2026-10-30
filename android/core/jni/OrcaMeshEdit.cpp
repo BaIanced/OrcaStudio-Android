@@ -2,6 +2,7 @@
 // sculpting. Runs on the sculpt session (SculptSession.hpp): the same mesh copy, topology, hit tree and patch path, so a
 // drag only sends the triangles round the selection. Picking is feature level by default (MeshEdit.hpp). M1: select and
 // move / scale / rotate the selection (vertices only move). M2: extrude / inset faces (new topology, session rebuilt).
+// M3: cut ring (a plane splits the band under a tap; the ring is selected).
 
 #include "SculptSession.hpp"
 #include "MeshEdit.hpp"
@@ -19,7 +20,7 @@ using namespace Slic3r;
 
 json OrcaEngine::mesh_edit(const std::array<int, 3> &target, const std::string &op, const std::optional<std::array<double, 6>> &ray,
                            const std::string &kind_name, double angle, bool toggle, const std::optional<std::array<double, 16>> &matrix,
-                           double reach, double amount)
+                           double reach, double amount, const std::array<double, 3> &axis)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
     sculpt_hulls_locked(false);
@@ -189,6 +190,43 @@ json OrcaEngine::mesh_edit(const std::array<int, 3> &target, const std::string &
             start_drag(ns);
             patch = move(ns);
         }
+    } else if (op == "cut") {
+        // Cut ring (MeshEdit.hpp cut_ring): the plane through the ray's hit, across the world [axis]; the band under the
+        // hit gets a vertex ring, which becomes the selection (scale it for a waist / bulge). One undo step, ends here.
+        if (!ray)
+            throw std::runtime_error("cut needs a ray");
+        const Transform3d to_local = ss.frame.inverse();
+        const Vec3d o = to_local * Vec3d((*ray)[0], (*ray)[1], (*ray)[2]);
+        const Vec3d d = (to_local.linear() * Vec3d((*ray)[3], (*ray)[4], (*ray)[5])).normalized();
+        const auto h = ss.hit(o, d);
+        if (!h)
+            throw std::runtime_error("The ray misses this part");
+        // A plane normal goes to the part's frame by the transpose of its linear part.
+        const Vec3d n = ss.frame.linear().transpose() * Vec3d(axis[0], axis[1], axis[2]);
+        if (n.squaredNorm() < 1e-18)
+            throw std::runtime_error("cut needs an axis");
+        BoundingBoxf3 bb;
+        for (const auto &v : ss.mesh.vertices)
+            bb.merge(Vec3d(v.x, v.y, v.z));
+        meshdeform::Mesh m = ss.mesh;
+        const std::vector<int> ring = meshedit::cut_ring(m, h->face, {h->point.x(), h->point.y(), h->point.z()},
+                                                         {n.x(), n.y(), n.z()}, 1e-5 * bb.size().norm());
+        if (ring.empty())
+            throw std::runtime_error("The cut plane crosses nothing here: try another axis");
+        ss.edit_moving = false;
+        sculpt_flush_locked();
+        push_undo();
+        ss.mesh = std::move(m);
+        ss.dirty = true;
+        sculpt_flush_locked();
+        vol->supported_facets.reset();
+        vol->seam_facets.reset();
+        vol->mmu_segmentation_facets.reset();
+        vol->fuzzy_skin_facets.reset();
+        scene = commit();
+        sculpt_build(oi, ii, vi);
+        sculpt_copies();
+        m_sculpt->edit_sel = ring;
     } else if (op == "end") {
         ss.edit_moving = false;
         // An extrude let go at zero height: flat walls, so it is taken back (the undo step it pushed too).

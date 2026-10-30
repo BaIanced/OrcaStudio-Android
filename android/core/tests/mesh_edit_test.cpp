@@ -135,6 +135,30 @@ int main()
     // No face fully selected: nothing to split.
     Mesh none = cube();
     assert(split_cap(none, {4, 5}).cap.empty() && none.faces.size() == 24);
+    // Cut ring at z = 0.3 from a side face (face 8 = side 2's first triangle): 4 vertical edges + 8 corner-to-middle edges
+    // split, three crossing triangles per side each become three; closed, same volume, the ring all at z = 0.3.
+    Mesh cr = cube();
+    std::vector<int> ring = cut_ring(cr, 8, {0.5, 0, 0.3}, {0, 0, 1}, 1e-9);
+    assert(ring.size() == 12 && cr.faces.size() == 48 && closed(cr) && std::abs(volume(cr) - 1.) < 1e-9);
+    for (int v : ring)
+        assert(std::abs(cr.vertices[size_t(v)].z - 0.3) < 1e-12);
+    // Waist: the ring scaled to half about the axis leaves a closed, smaller part.
+    for (int v : ring) {
+        Vec3 &p = cr.vertices[size_t(v)];
+        p.x = 0.5 + (p.x - 0.5) * 0.5;
+        p.y = 0.5 + (p.y - 0.5) * 0.5;
+    }
+    assert(closed(cr) && volume(cr) < 1.);
+    // Starting on the top (the plane misses it): the band is found through a shared corner.
+    Mesh ct = cube();
+    assert(cut_ring(ct, 4, {0.5, 0.5, 0.3}, {0, 0, 1}, 1e-9).size() == 12);
+    // Through the side middles (z = 0.5): those vertices are on the plane, only the vertical edges split.
+    Mesh cm = cube();
+    ring = cut_ring(cm, 8, {0.5, 0, 0.5}, {0, 0, 1}, 1e-9);
+    assert(ring.size() == 8 && cm.faces.size() == 32 && closed(cm) && std::abs(volume(cm) - 1.) < 1e-9);
+    // A plane past the part crosses nothing.
+    Mesh co = cube();
+    assert(cut_ring(co, 8, {0.5, 0, 2}, {0, 0, 1}, 1e-9).empty() && co.faces.size() == 24);
     std::puts("mesh_edit_test: ok");
     return 0;
 }
