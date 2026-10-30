@@ -3,6 +3,7 @@ package app.orcaandroid.ai
 import app.orcaandroid.R
 import app.orcaandroid.core.Instance
 import app.orcaandroid.core.PickHit
+import app.orcaandroid.core.meshEditMatrix
 import app.orcaandroid.core.Scene
 import app.orcaandroid.core.Vec3
 import app.orcaandroid.scad.Bounds
@@ -18,8 +19,6 @@ import app.orcaandroid.ui.ShapeController
 import app.orcaandroid.ui.SliceController
 import app.orcaandroid.ui.preview.ROLE_NAMES
 import app.orcaandroid.ui.Store
-import kotlin.math.cos
-import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -189,7 +188,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             "selected vertices about their centroid (neighbouring triangles stretch; painting is removed). Replies with the selection " +
             "(count, centroid, normal); a transform also with what changed. $PLATE_EDIT",
             obj(emptyList(), "origin" to vec("Ray origin in plate coordinates (select)"), "dir" to vec("Ray direction (select)"),
-                "op" to p("string", "select (default with a ray), clear or grow (adds the neighbouring vertices)"),
+                "op" to p("string", "select (default with a ray), clear, all (every vertex of the part) or grow (adds the neighbouring vertices)"),
                 "kind" to p("string", "face (default), edge or vertex"), "angle" to p("number", "Crease angle in degrees; default 30, 0 = single triangles"),
                 "toggle" to p("boolean", "Add to / remove from the selection instead of replacing it"),
                 "move" to vec("Move by [dx, dy, dz] mm"), "scale" to vec("Scale by [x, y, z] percent"), "rotate" to vec("Turn by [x, y, z] degrees"))) { meshEdit(it) },
@@ -892,7 +891,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         val dir = args.vec3("dir")
         if ((origin == null) != (dir == null)) throw ToolError("Give both origin and dir")
         val op = args.optString("op").ifEmpty { if (origin != null) "select" else "" }
-        if (op !in listOf("", "select", "clear", "grow")) throw ToolError("op must be select, clear or grow")
+        if (op !in listOf("", "select", "clear", "all", "grow")) throw ToolError("op must be select, clear, all or grow")
         val kind = args.optString("kind", "face")
         if (kind !in listOf("face", "edge", "vertex")) throw ToolError("kind must be face, edge or vertex")
         val angle = args.optDouble("angle", 30.0).takeIf { it.isFinite() && it >= 0 } ?: throw ToolError("angle must be >= 0")
@@ -910,28 +909,13 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         var sel = if (op.isEmpty()) null else store.engine.meshEdit(target, op, ray, kind, angle.toFloat(), args.optBoolean("toggle")).selection
         if (move == null && scale == null && rotate == null) return selectionText(sel!!)
         val reply = plateEdit("edited the mesh of object ${target.obj + 1}", R.string.deforming) {
-            store.engine.meshEdit(target, "move", matrix = editMatrix(move, scale, rotate))
+            store.engine.meshEdit(target, "move", matrix = meshEditMatrix(move, scale, rotate))
             val end = store.engine.meshEdit(target, "end")
             sel = end.selection
             end.scene ?: throw ToolError("mesh_edit returned no scene")
         }
         meshEditVersion = store.value.scene.meshVersion
         return reply + "\n" + selectionText(sel!!)
-    }
-
-    /** Row-major world 4x4: translate [move] after rotating Z * Y * X ([rotate] degrees) after scaling ([scale] percent). */
-    private fun editMatrix(move: D3?, scale: D3?, rotate: D3?): List<Double> {
-        val s = scale ?: D3(100.0, 100.0, 100.0)
-        val (ax, ay, az) = (rotate ?: D3(0.0, 0.0, 0.0)).let { listOf(it.x, it.y, it.z).map { d -> Math.toRadians(d) } }
-        val (cx, sx) = cos(ax) to sin(ax); val (cy, sy) = cos(ay) to sin(ay); val (cz, sz) = cos(az) to sin(az)
-        val r = arrayOf( // Rz * Ry * Rx
-            doubleArrayOf(cz * cy, cz * sy * sx - sz * cx, cz * sy * cx + sz * sx),
-            doubleArrayOf(sz * cy, sz * sy * sx + cz * cx, sz * sy * cx - cz * sx),
-            doubleArrayOf(-sy, cy * sx, cy * cx))
-        val k = doubleArrayOf(s.x / 100, s.y / 100, s.z / 100)
-        val t = move ?: D3(0.0, 0.0, 0.0)
-        val tv = doubleArrayOf(t.x, t.y, t.z)
-        return (0..2).flatMap { i -> (0..2).map { j -> r[i][j] * k[j] } + tv[i] } + listOf(0.0, 0.0, 0.0, 1.0)
     }
 
     private fun selectionText(sel: JSONObject): String {

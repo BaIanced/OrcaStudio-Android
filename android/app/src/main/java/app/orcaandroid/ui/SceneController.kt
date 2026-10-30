@@ -802,10 +802,19 @@ class SceneController(private val store: Store, private val presets: PresetContr
         meshEditSel.value = meshEditSelOf(hit, step.selection)
     }
 
-    /** Mesh edit "clear" or "grow" on the current selection. */
+    /** Mesh edit "clear", "all" or "grow" on the current selection. */
     fun meshEditOp(op: String) = store.launch {
         val sel = liveMeshEditSel() ?: return@launch
         val step = engine.meshEdit(sel.target, op, kind = (store.value.tool as? Tool.MeshEdit)?.kind ?: "face", angle = meshEditAngle())
+        meshEditSel.value = meshEditSelOf(sel.target, step.selection)
+    }
+
+    /** Mesh edit typed transform: [matrix] ([meshEditMatrix]) about the selection's centroid, one undo step. */
+    fun meshEditTransform(matrix: List<Double>) = store.launch {
+        val sel = liveMeshEditSel() ?: return@launch
+        engine.meshEdit(sel.target, "move", matrix = matrix)
+        val step = engine.meshEdit(sel.target, "end", kind = (store.value.tool as? Tool.MeshEdit)?.kind ?: "face", angle = meshEditAngle())
+        step.scene?.let { store.applyScene(it) }
         meshEditSel.value = meshEditSelOf(sel.target, step.selection)
     }
 

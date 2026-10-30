@@ -4,6 +4,9 @@ import app.orcaandroid.ui.SCULPT_MAX_MM
 import app.orcaandroid.ui.SCULPT_MIN_MM
 import app.orcaandroid.ui.components.ScrubLabel
 import app.orcaandroid.ui.components.ScrubSlider
+import app.orcaandroid.ui.components.Vec3Fields
+import app.orcaandroid.core.meshEditMatrix
+import app.orcaandroid.scad.D3
 import androidx.compose.foundation.Canvas
 import kotlinx.coroutines.delay
 import androidx.compose.ui.text.style.TextOverflow
@@ -208,13 +211,32 @@ private fun MeshEditOptions(state: UiState, vm: AppViewModel, tool: Tool.MeshEdi
         // Raw triangles instead of crease-bounded features (low-poly meshes).
         FilterChip(tool.triangles, { vm.scene.setTool(tool.copy(triangles = !tool.triangles)) }, label = { Text(stringResource(R.string.mesh_edit_triangles)) })
     }
+    // Stale after undo or another edit (the engine dropped it; the overlay hides it too).
+    val count = sel?.takeIf { it.version == state.scene.meshVersion.toLong() }?.count ?: 0
     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        // Stale after undo or another edit (the engine dropped it; the overlay hides it too).
-        val count = sel?.takeIf { it.version == state.scene.meshVersion.toLong() }?.count ?: 0
         Text(stringResource(R.string.mesh_edit_count, count), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.align(Alignment.CenterVertically))
+        // All needs a part: the one the last tap selected on.
+        TextButton({ vm.scene.meshEditOp("all") }, enabled = count > 0) { Text(stringResource(R.string.mesh_edit_all)) }
         TextButton({ vm.scene.meshEditOp("clear") }, enabled = count > 0) { Text(stringResource(R.string.mesh_edit_none)) }
         TextButton({ vm.scene.meshEditOp("grow") }, enabled = count > 0) { Text(stringResource(R.string.mesh_edit_grow)) }
     }
+    if (count == 0) return
+    // Typed transform of the selection about its centroid: relative amounts, reset after each Apply (one undo step each).
+    var move by remember { mutableStateOf(D3()) }
+    var rotate by remember { mutableStateOf(D3()) }
+    var scale by remember { mutableStateOf(D3(100.0, 100.0, 100.0)) }
+    Vec3Fields(stringResource(R.string.mesh_edit_move), move.x.toFloat(), move.y.toFloat(), move.z.toFloat(), "mm",
+        { x, y, z -> move = D3(x.toDouble(), y.toDouble(), z.toDouble()) }, live = true)
+    Vec3Fields(stringResource(R.string.rotation), rotate.x.toFloat(), rotate.y.toFloat(), rotate.z.toFloat(), "°",
+        { x, y, z -> rotate = D3(x.toDouble(), y.toDouble(), z.toDouble()) }, 1, live = true)
+    Vec3Fields(stringResource(R.string.scale), scale.x.toFloat(), scale.y.toFloat(), scale.z.toFloat(), "%",
+        { x, y, z -> scale = D3(x.toDouble(), y.toDouble(), z.toDouble()) }, 1, live = true)
+    val valid = scale.x > 0 && scale.y > 0 && scale.z > 0
+    val changed = move != D3() || rotate != D3() || scale != D3(100.0, 100.0, 100.0)
+    FilledTonalButton({
+        vm.scene.meshEditTransform(meshEditMatrix(move, scale, rotate))
+        move = D3(); rotate = D3(); scale = D3(100.0, 100.0, 100.0)
+    }, enabled = valid && changed) { Text(stringResource(R.string.apply)) }
 }
 
 @Composable

@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <numeric>
 #include <stdexcept>
 
 #include "libslic3r/Model.hpp"
@@ -68,10 +69,14 @@ json OrcaEngine::mesh_edit(const std::array<int, 3> &target, const std::string &
 
     std::string patch;
     std::optional<json> scene; // a commit's scene
-    if (op == "select" || op == "clear" || op == "grow") {
+    if (op == "select" || op == "clear" || op == "grow" || op == "all") {
         ss.edit_moving = false;
         if (op == "clear")
             ss.edit_sel.clear();
+        else if (op == "all") {
+            ss.edit_sel.resize(ss.mesh.vertices.size());
+            std::iota(ss.edit_sel.begin(), ss.edit_sel.end(), 0);
+        }
         else if (op == "grow")
             meshedit::grow(ss.edit_sel, ss.topo);
         else {

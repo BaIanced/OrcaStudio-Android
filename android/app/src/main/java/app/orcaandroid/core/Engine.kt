@@ -147,7 +147,7 @@ class Engine(private val cacheDir: File) {
     suspend fun sculptEnd() = parseScene(call("sculptEnd"))
     /**
      * Mesh edit mode on [target]'s part (OrcaMeshEdit.cpp): [op] "select" (the [kind] vertex / edge / face feature under
-     * world [ray]; [angle] crease limit in degrees, 0 = raw triangles; [toggle] adds / removes), "clear", "grow", "move"
+     * world [ray]; [angle] crease limit in degrees, 0 = raw triangles; [toggle] adds / removes), "clear", "all", "grow", "move"
      * (world 4x4 [matrix], row-major, about the selection's pivot at the drag's start) or "end" (writes the mesh, returns the scene).
      */
     suspend fun meshEdit(target: PickHit, op: String, ray: Pair<Vec3, Vec3>? = null, kind: String = "face", angle: Float = 30f,

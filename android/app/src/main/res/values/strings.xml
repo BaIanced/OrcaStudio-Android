@@ -495,6 +495,8 @@
     <string name="mesh_edit_triangles">Triangles</string>
     <string name="mesh_edit_none">None</string>
     <string name="mesh_edit_grow">Grow</string>
+    <string name="mesh_edit_all">All</string>
+    <string name="mesh_edit_move">Move</string>
     <string name="mesh_edit_count">%1$d vertices selected</string>
     <string name="blending">Blending…</string>
     <string name="hollow">Hollow</string>

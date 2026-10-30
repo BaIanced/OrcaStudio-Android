@@ -82,5 +82,9 @@ STLs from CAD have flat faces split into many triangles and no quads, so raw Ble
   face tap 4 verts, arrow drag 20 -> 26.5 mm (no orbit), one Undo -> 20, off-arrow drag orbits; Edge tap 2, Grow 7, None 0,
   Vertex tap 1. Fix: the panel count kept "4 vertices selected" after undo (stale selection); now version-checked like the
   overlay. **Not seen:** the Compose selection overlay and arrow (view_screenshot draws only GL; no VD shot on WSA).
-- **M1c next:** numeric move / scale / rotate fields (reuse McpTools `editMatrix`, move to a shared helper) and "All"
-  (native op `all`).
+- **M1c slice 2 done 2026-10-30 (Claude, WSA VD, debug build on the local native lib):** native op `all` (+ MCP `op:"all"`),
+  panel "All" button (needs a tapped part first) and typed relative Move (mm) / Rotation (deg) / Scale (%) fields + Apply
+  (`SceneController.meshEditTransform`, one undo step, fields reset after Apply; shared `core/MeshEditMatrix.kt`). Cube: top
+  face Move Z 5 -> 20x20x25; All + Scale X 50 -> 10x20x25; Undo -> 20x20x25; top face Rotate Z 45 -> 28.284 footprint (20*sqrt2).
+  Deviation: relative amounts + Apply instead of Blender's live G/R/S; no 3-axis gizmo. CI not run yet (batch with M2).
+- **M1 next = M2** (Extrude + Inset, see "Ops and phases").
