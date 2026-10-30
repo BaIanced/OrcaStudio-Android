@@ -38,7 +38,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Fixture `~/orca-android-tools/rep-groups.json` (MCP `design_set`). VD taps: `export TARGET=wsa`, `. ./.vd-wsa.state; export VD=$LOGICAL,$SFID`, `orca-vd.sh tap/shot`, coords from a `TARGET=wsa` shot (archive "VD tap tip"; `tx.sh` fails on 0-bound nodes).
 - **Queued (user 2026-10-29):** [Opus] push/pull tier 2: `NOTES-pushpull-tier2.md` (data, pick, panel chip + Face edits, arrow drag + overlay done, compiles; WSA VD test under way, setup live: see its "Test progress"); [Opus] OrcaMesh vert/edge/face edit mode (extrude/inset/loop cut/bevel, CGAL PMP);
   dimensions overview (per-object bbox, hole sizes, thinnest wall; **ask the user what they had in mind when it comes up**); floating Theme | Layout designer (~half a day; **ask what they have in mind first**).
-- Next step: push/pull tier 2 WSA VD test, continue at NOTES-pushpull-tier2.md "Test progress" (debug app + VD still live; confirm the face pick shows, drag the arrow) -> Sonnet 5.5 (high); Opus 5.5 if the pick/drag needs real debugging (user 2026-10-29: Opus only if Sonnet can't)
+- Next step: push/pull tier 2 undo check + pull (inward drag) + delete + OpenSCAD render, recipe and state in NOTES-pushpull-tier2.md "Test progress" (pick + arrow drag VERIFIED on WSA VD 2026-10-29; debug app + VD live, rebuild without temp logs not yet installed) -> Sonnet 5.5 (high); Opus 5.5 only if undo/pick needs real debugging
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).

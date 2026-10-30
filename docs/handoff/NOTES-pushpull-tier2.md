@@ -74,12 +74,15 @@ don't demo it on a cube.
    the arrow 10 mm: tab longer, hole round and unmoved; Face edits shows +10; undo = one step. Check the OpenSCAD render of the
    emitted code (first real run) and the pull's 0.01 grow.
 
-## Test progress (2026-10-29, WSA VD, debug build f8722f0 installed)
-- Setup done and still live: debug app on WSA, VD running (`TARGET=wsa`, `. ./.vd-wsa.state`), L-bracket STL (60x30x6 base, 6x30 tab to z=36,
-  24-gon hole d8 at x=10) made by `~/orca-android-tools/edits/make_lbracket_stl.py` (manifold, 120 tris), imported by the WSA STL recipe
-  (archive "WSA STL import without a picker") = plate 2 object 3. Long-press its base (`view_set {"view":"iso","object":3}`, shot to pick a point)
-  -> "Edit in builder" -> ONE MESH shape "lbracket.stl"; scroll the panel (swipe 360 950 -> 360 600): chip "Push/pull a face" at ~(73,966); chip on.
-- NB: a design placed with `design_to_plate` reopens as the design (not MESH): use an imported STL for this test.
-- Tapped the tab top at (252,89) in the builder view: `view_screenshot` shows no outline / arrow (it omits Compose overlays, so unknown if the pick
-  worked) and the bracket looks ghosted. Next: find out if `facePick` is set (uiautomator label "+0.0 mm"/arrow node, or logcat, or temporary
-  MCP `view_state` line for the face pick), try a tap on the big inner tab face (~(200,180)) too; then drag the arrow with `orca-vd.sh swipe`.
+## Test progress (2026-10-29, WSA VD, debug build f8722f0 + temp logs, since removed)
+- Recipe (works; the debug app keeps session across rebuilds, `wsa-debug-rebuild.sh` then `TARGET=wsa PKG=...debug orca-vd.sh start`): L-bracket STL
+  (`~/orca-android-tools/edits/lbracket.stl`) is plate 2 object 3. `view_set {"view":"iso","object":3}`; long-press the base (swipe 330 604 330 604 900);
+  tap "Edit in builder" (423,780); tap the shape row (300,768); swipe 360 1000 -> 560; chip "Push/pull a face" (73,965); `view_set` iso object 3 again
+  (builder camera starts on the wrong plate); tap the tab's inner face (230,200).
+- VERIFIED (Claude, 2026-10-29, WSA VD): the pick works (log: shape 1, n=+X, 1 outline loop); the Compose overlay is invisible to screenshots, so the arrow
+  was aimed from a temp log (base 236,203 -> tip 289,222); `swipe 262 213 312 231 600` = drag: Face edits shows "Face 1 +10.5", 134 triangles (was 120);
+  the shot shows the tab 6 -> 16.5 mm thick, hole round and unmoved.
+- OPEN: undo. `input -d $LOGICAL keycombination 113 54` (Ctrl+Z): the 3D view reverted to the original bracket, but the panel still listed Face 1 /
+  134 triangles (stale uiautomator or an undo that misses the design?); a second Ctrl+Z flipped the active plate to 1. Retest undo with one press and
+  a fresh `ui` dump; check ShapeController undo/redo clears the pick and the Face edits list refreshes. Not yet run: OpenSCAD render of the emitted
+  code, the pull direction (drag inward), delete via Face edits.
