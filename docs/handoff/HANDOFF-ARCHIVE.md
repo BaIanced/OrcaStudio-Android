@@ -3692,3 +3692,6 @@ Object More menu now: Add volume (5 items) and Mesh tools (7 items) collapsible,
 ## 2026-10-29 Asset library 7c: "Hinge" built-in, WSA VD check passed (9b9624c, debug build)
 - Part menu now lists Wheel, Figure, Peg and hole, Hinge (standing print-in-place pin hinge: 4 mm pin, 3 knuckles of 8 mm with 0.4 mm gaps, middle one a tube with 5 mm bore and its own leaf). design_snapshot 44x8x24.8 mm, looks right (leaves alternate, knuckles stacked). PartsTest green. Claude test, user untested; free rotation and print-in-place fit untested (needs a print, user's OK).
 - Gotcha: every `orca-vd.sh` call (tap/shot/ui) needs `TARGET=wsa PKG=...debug` exported, else it hits the default device (a shot grabbed the wrong device's screen on 2026-10-29; deleted). WSA VD has no screenshots (SFID empty is normal): use `ui` for bounds and MCP `design_snapshot`. Path: Add (27,222) -> Design -> Shape builder; swipe the "Add a shape" row left -> Part chip -> menu.
+
+## 2026-10-29 Asset library 7c: "Gear" built-in, WSA VD check passed (debug build)
+- Part menu now lists Wheel, Figure, Peg and hole, Hinge, Gear (12 square teeth via circular repeat on a 30 mm blank, 5 mm bore; 36x36x8 mm in design_snapshot, looks right). PartsTest green. Claude test, user untested. Left in backlog: part sliders.

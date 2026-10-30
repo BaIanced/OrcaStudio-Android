@@ -14,7 +14,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 3defffa (PR #66, branch at r461/89944b9, merged 2026-10-28 on the user's go-ahead, before sessions B-D; user overrode the user-tested-only rule for this merge). Older: 0170950 (PR #65, r398). User-untested in main: list in `NOTES-merge-batch.md`.
 - Signing secrets: `release` environment (main + `claude/*` only).
-- Latest CI build: r470 (run 40988995980, hole ghost alpha 0.25) on all 5 adb devices, 2026-10-29. User feel untested. Install builds on all adb devices (skip .23).
+- Latest CI build: r472 (run 40996385381, CAD 7a-7c incl. Hinge) on all 5 adb devices, 2026-10-29. User feel untested. Install builds on all adb devices (skip .23).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **User 2026-10-28: no more user testing for now; Claude builds and tests everything itself (memory no-user-testing-now); don't ask for feel/UI checks.**
 - **User 2026-10-29: no tests on the user's screen; all tests on a hidden virtual display** (`TARGET=wsa orca-vd.sh start`, memory tests-on-virtual-display).
@@ -39,8 +39,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   WSA tap helpers: `~/orca-android-tools/tx.sh <label>` fails on Compose nodes with 0 bounds; use `phone-ui.py layout` with `. ./.vd-wsa.state; export VD=$LOGICAL,$SFID` + `orca-vd.sh tap`. Package id `io.github.baianced.orcastudio_android.debug`.
 - CAD step 7a (Part menu: Wheel, Figure) built, WSA VD look check OK 2026-10-29 (archive, 626b407); design 7a-7c in `NOTES-cad-reuse.md`.
 - CAD step 7b (Save as part, `SavedParts` in Parts.kt, menu in Part chip) WSA VD check OK 2026-10-29 (save, re-add, delete; archive, da7d640).
-- CAD 7c: Peg and hole + Hinge built-ins done, WSA VD OK 2026-10-29 (archive, 9b9624c); CI r471 (run 40994415594) built 7a-7c but not yet installed on devices (no Hinge in it). Left: gear, part sliders (backlog).
-- Next step: push is done; dispatch a new CI build with Hinge, install on all adb devices (skip .23), then next CAD/backlog item -> Sonnet 5.5 (medium)
+- CAD 7c: Peg and hole + Hinge built-ins done, WSA VD OK 2026-10-29 (archive, 9b9624c); CI r472 (run 40996385381) has all of 7a-7c, installed on all 5 adb devices. Gear built-in done, WSA VD OK (archive). Left: part sliders (backlog).
+- Next step: CAD part sliders (backlog; needs dims that scale a group; Opus-ish design) -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).

@@ -48,5 +48,5 @@ B-rep params are lost once an object is baked to a mesh (deformers, sculpt).
      5-spoke circular repeat, 4 mm axle hole) and Figure (38 mm: legs, rounded body, tilted arms, head). WSA look check open.
    - 7b: "Save as part" on a selected group -> `files/openscad/parts/<name>.json` (shape JSON + the dims it binds), listed in the same
      menu under the built-ins; long-press to delete.
-   - 7c (maybe): more built-ins (gear via BOSL2-free polygon sketch, peg/hole pair with clearance, hinge), and part sliders
+   - 7c (maybe): more built-ins (gear via BOSL2-free polygon sketch, peg/hole pair with clearance, hinge, gear: all built), and part sliders
      (e.g. wheel diameter) once dims can scale a whole group.

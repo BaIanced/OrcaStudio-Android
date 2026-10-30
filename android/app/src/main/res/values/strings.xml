@@ -1001,6 +1001,7 @@
     <string name="part_figure">Figure</string>
     <string name="part_peg_pair">Peg and hole</string>
     <string name="part_hinge">Hinge</string>
+    <string name="part_gear">Gear</string>
     <string name="part_save">Save selected group as part</string>
     <string name="part_saved">Saved part \"%1$s\"</string>
     <string name="part_delete">Delete part %1$s</string>

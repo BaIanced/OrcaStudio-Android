@@ -12,7 +12,9 @@ enum class Part {
     /** Two 26 mm plates side by side: one with a 6 mm peg, one with a 6.4 mm hole (0.2 mm clearance all round) so they press together. */
     PEG_PAIR,
     /** A print-in-place pin hinge (standing, axis up): two leaves, three 8 mm knuckles on a 4 mm pin with 0.4 mm gaps; the middle knuckle turns freely. */
-    HINGE;
+    HINGE,
+    /** A 12-tooth spur gear lying flat (30 mm blank, 36 mm over the teeth, 8 mm thick) with a 5 mm bore. */
+    GEAR;
 
     /** The part as one group named [name] at the origin, its shapes numbered from [firstId] (the group first). */
     fun build(firstId: Int, name: String): Shape {
@@ -52,6 +54,13 @@ enum class Part {
             Shape(0, Shape.Kind.BOX, "Leaf low", D3(20.0, 3.0, 8.0), D3(-12.0, 0.0, 0.0)),
             Shape(0, Shape.Kind.BOX, "Leaf high", D3(20.0, 3.0, 8.0), D3(-12.0, 0.0, 16.8)),
             Shape(0, Shape.Kind.BOX, "Leaf loose", D3(20.0, 3.0, 8.0), D3(12.0, 0.0, 8.4)),
+        )
+        GEAR -> listOf(
+            Shape(0, Shape.Kind.CYLINDER, "Blank", D3(30.0, 30.0, 8.0)),
+            Shape(0, Shape.Kind.GROUP, "Teeth", D3(),
+                repeat = Repeat(circular = true, count = 12, step = D3(), angle = 360.0, center = D3()),
+                children = listOf(Shape(0, Shape.Kind.BOX, "Tooth", D3(6.0, 3.5, 8.0), D3(15.0, 0.0, 0.0)))),
+            Shape(0, Shape.Kind.CYLINDER, "Bore", D3(5.0, 5.0, 8.0), hole = true),
         )
     }
 }
