@@ -36,11 +36,12 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - WSA: `svc power stayon true` while testing; `stage-from-apk.sh <apk>`.
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - Fixture `rep-groups.json` (MCP `design_set`). VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78.
-- **Queued (user 2026-10-29):** dimensions overview (per-object bbox, hole sizes, thinnest wall; **ask the user what they had in mind when it comes up**); floating Theme | Layout designer (~half a day; **ask what they have in mind first**).
+- **Queued (user 2026-10-29):** dimensions overview (done, see below).
 - OrcaMesh edit M1-M4: Claude-verified, r479 installed (archive 2026-10-30).
 - **Dimensions overlay** (user 2026-10-30; phases 1 bbox lines, 2 hole diameters, 3 thinnest wall): 1 = 378253f `DimensionOverlay.kt`; 2 = 68b9ac9 `render/HoleFinder.kt` (Kotlin on `PlateRenderer.sceneMesh`, `HoleFinderTest` 3/3; design in archive 2026-10-30). Neither seen on screen (WSA shots are GL only): check on phone/Note VD with a holed part selected in Prepare. Gaps: slots, tilted holes.
-- Phase 3 thinnest wall: code done + pushed (check_mesh `minWall`/`minWallPoint` in `OrcaTools.cpp`, `SceneController.thinnestWall()`, magenta dot + "wall N" in `DimensionOverlay`); Kotlin + native compile OK locally; **CI run 41117077456 green, r480 installed on all 4 adb devices; overlay unseen** (WSA VD: Compose overlay not in shots and the View menu's Dimensions row is clipped off-screen at VD size, swipe didn't scroll it; phone off adb, Note dozing) (no NDK on this PC: local native debug APK impossible, strip fails; use CI).
-- Next step: when the phone is on adb or the user says the Note is awake, test Dimensions phases 1-3 on its VD (holed part selected in Prepare, View > Dimensions); else pick the next queued item -> Sonnet 5.5 (medium)
+- Phase 3 + phase 1 seen working on the phone VD, r480 (archive 2026-10-30); phase 2 hole diameter seen too (archive 2026-10-30, r480). Phone is reachable over Tailscale adb (`adb connect <tailnet ip>:5555`; `MCP_DEV=<serial>` for mcpao since target.sh serial defaults to WSA).
+- **Theme | Layout designer** (user 2026-10-30: docked right sidebar by default, detachable to floating): 5a13530, compiles, pushed, NOT yet run on a device. `DesignPanel.kt` (`floating` state hoisted in `AppScaffold`, `DESIGN_DOCK_WIDTH` 320dp; docked shrinks `MainLayout` by that width), Layout tab = `LayoutLabBody` (MoreScreen.kt, shared with More's lab). Check: debug build on WSA VD (Kotlin-only loop), toggle detach/dock, Layout tab sliders apply live, portrait phone width (320dp dock may be too wide; consider floating by default when narrow).
+- Next step: test the docked/floating designer on the WSA VD, fix, then dispatch a CI build -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).

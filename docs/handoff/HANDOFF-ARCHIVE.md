@@ -3711,3 +3711,9 @@ Object More menu now: Add volume (5 items) and Mesh tools (7 items) collapsible,
 - OrcaMesh edit (`NOTES-orcamesh-edit.md`): M1-M4 incl. panel Fillet / Chamfer Claude-verified on WSA VD. CI run 41100791348 cancelled; run 41105435015 (r479, M4 head 55da269) green, installed on all adb devices.
 - Dimensions phase 1 visual check blocked: phone off adb, Note dozing, WSA `view_screenshot` GL only (no Compose overlay).
 - Phase 2 scoping: only `OrcaTools.cpp:181` per-point ring snap existed (`Engine.kt:236`), no hole enumeration; chose pure Kotlin on the renderer's scene mesh (8 floats/vertex, world space) over a native patch. Shipped 68b9ac9 `HoleFinder.kt` + `HoleFinderTest` (3/3).
+
+## 2026-10-30: Dimensions overlay seen on phone VD (r480)
+- Phone reached over Tailscale adb (tailnet IP, port 5555; PC needed its Tailscale GUI started: service alone sat in NoState). r480 installed on the phone, VD shot with object 2 selected, View > Dimensions on: phase 1 bbox labels (79.6 / 29.3 / 10.0) and phase 3 "wall 0.53" magenta dot render correctly. Phase 2 hole diameters NOT seen: the part (Shape design.stl) may have no hole; test needs a holed part. WSA VD cannot screenshot (SurfaceFlinger) and clamps window height to 720, so use the phone VD. `orca-vd.sh` accepts WSA_GEO.
+
+## 2026-10-30 Dimensions phase 2 seen on screen (r480, phone VD over Tailscale)
+- MCP `design_set` Holed group (40x40x12 box + 8 mm cylinder hole) -> `design_to_plate` -> View > Dimensions on, object selected: label "⌀8" renders on the hole next to the bbox labels 40.0 / 40.0 / 12.0. Claude test, user untested. Gaps unchanged: slots, tilted holes. Note: a stale VD can show the launcher; `orca-vd.sh stop` + `start` fixed it.
