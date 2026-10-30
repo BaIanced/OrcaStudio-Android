@@ -40,8 +40,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - OrcaMesh edit M1-M4: Claude-verified, r479 installed (archive 2026-10-30).
 - **Dimensions overlay** (user 2026-10-30; phases 1 bbox lines, 2 hole diameters, 3 thinnest wall): 1 = 378253f `DimensionOverlay.kt`; 2 = 68b9ac9 `render/HoleFinder.kt` (Kotlin on `PlateRenderer.sceneMesh`, `HoleFinderTest` 3/3; design in archive 2026-10-30). Neither seen on screen (WSA shots are GL only): check on phone/Note VD with a holed part selected in Prepare. Gaps: slots, tilted holes.
 - Phase 3 + phase 1 seen working on the phone VD, r480 (archive 2026-10-30); phase 2 hole diameter seen too (archive 2026-10-30, r480). Phone is reachable over Tailscale adb (`adb connect <tailnet ip>:5555`; `MCP_DEV=<serial>` for mcpao since target.sh serial defaults to WSA).
-- **Theme | Layout designer** (user 2026-10-30: docked right sidebar by default, detachable to floating): 5a13530, compiles, pushed, NOT yet run on a device. `DesignPanel.kt` (`floating` state hoisted in `AppScaffold`, `DESIGN_DOCK_WIDTH` 320dp; docked shrinks `MainLayout` by that width), Layout tab = `LayoutLabBody` (MoreScreen.kt, shared with More's lab). Check: debug build on WSA VD (Kotlin-only loop), toggle detach/dock, Layout tab sliders apply live, portrait phone width (320dp dock may be too wide; consider floating by default when narrow).
-- Next step: test the docked/floating designer on the WSA VD, fix, then dispatch a CI build -> Sonnet 5.5 (medium)
+- **Theme | Layout designer**: docked/float/Layout tab Claude-verified on WSA VD, narrow screens start floating (archive 2026-10-30); needs a CI build to reach devices, user feel untested.
+- Next step: dispatch CI build (designer + `design_mode` MCP tool), install on all adb devices, then pick the next backlog item -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).

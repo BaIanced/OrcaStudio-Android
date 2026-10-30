@@ -3717,3 +3717,8 @@ Object More menu now: Add volume (5 items) and Mesh tools (7 items) collapsible,
 
 ## 2026-10-30 Dimensions phase 2 seen on screen (r480, phone VD over Tailscale)
 - MCP `design_set` Holed group (40x40x12 box + 8 mm cylinder hole) -> `design_to_plate` -> View > Dimensions on, object selected: label "⌀8" renders on the hole next to the bbox labels 40.0 / 40.0 / 12.0. Claude test, user untested. Gaps unchanged: slots, tilted holes. Note: a stale VD can show the launcher; `orca-vd.sh stop` + `start` fixed it.
+
+## 2026-10-30 Theme | Layout designer, Claude-verified on WSA VD (debug build, local)
+- Added MCP tool `design_mode {on}` (McpTools.kt) to open the panel without the collapsed More > Appearance section.
+- Seen via `phone-ui.py layout` on the WSA VD (window 720x720): docked sidebar at x 443-720 shrinks the main layout; "Detach to a floating panel" -> floating (WSA test window is 720 high on a 1280 display, so the floating panel starts mostly off-window: test artifact); "Dock to the right side" -> docked again; Layout tab lists Plates / Layout / Sizes and overlay / Shadows / Light and orbit / Reset. Slider live-apply not checked (shared LayoutLabBody with More's lab).
+- Change: narrow screens (< 600 dp) start floating (`narrowScreen` in AppScaffold.kt) because the 320 dp dock would cover a portrait phone.

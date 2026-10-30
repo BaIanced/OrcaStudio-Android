@@ -132,7 +132,8 @@ val WIDE_LAYOUT = 840.dp
 @Composable
 fun AppScaffold(state: UiState, vm: AppViewModel) {
     // Design panel: docked as a right sidebar by default, detachable to a floating panel (user, 2026-10-30).
-    var designFloating by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+    val narrowScreen = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp < 600
+    var designFloating by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(narrowScreen) }
     // Interface and text size (Layout lab), on top of the system's display and font size.
     val base = androidx.compose.ui.platform.LocalDensity.current
     androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides

@@ -250,6 +250,14 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         Tool("app_state", "Read (debug): the app's state as text: version, screen / tab, busy / error / message, open " +
             "dialogs and editors, chosen presets, plates and objects count, selection and tool, the 3D view's camera when " +
             "one is shown, memory, and whether a crash report is waiting. Nothing changes.", obj()) { appState() },
+        Tool("design_mode", "Debug: turns the Theme | Layout designer panel on or off (like More > Design mode).",
+            obj(listOf("on"), "on" to p("boolean", "true = open, false = close"))) { args ->
+            val on = args.getBoolean("on")
+            withContext(Dispatchers.Main.immediate) {
+                store.update { it.copy(designMode = on, screen = if (on && it.screen == app.orcaandroid.ui.Screen.MORE) app.orcaandroid.ui.Screen.PREPARE else it.screen) }
+            }
+            "Design mode ${if (on) "on" else "off"}."
+        },
         Tool("log_tail", "Read (debug): the newest lines of the app's own Android log (logcat of this process only), " +
             "oldest first. Values next to token / code / password / key / cookie / auth are masked.",
             obj(emptyList(), "lines" to p("integer", "How many lines, 1..500; default 100"),
