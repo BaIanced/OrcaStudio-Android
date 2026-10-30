@@ -33,7 +33,6 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - CAD plan (`NOTES-cad-reuse.md`): 0-5b Claude-verified, 1b parked. MCP efficiency (`NOTES-mcp-token-efficiency.md`): build rule waits for user OK.
 - Gate: user sessions B-D paused 2026-10-28; release gated on the printer set.
 - WSA: `svc power stayon true` while testing; `stage-from-apk.sh <apk>`.
-- Build multi-copy gizmos Claude-verified on WSA 2026-10-29 (archive); r468 installed (Chromebook/Quest offline), WSA debug app removed.
 - WSA VD checked 2026-10-29: display 3, no desktop window, `ui` dump works; `sf=` empty, so shots via the app's MCP screenshot (or the mkv after `stop`). Debug app: `PKG=...debug` (wsa-debug-rebuild.sh launches may open a window: start on the VD instead). No focus loops; `wsa-full.ps1` only when the user asks to watch. `target.sh` now tags the SHIELD `tv`.
 - Repeated-group gizmos on the tapped copy: coded + JVM-tested 2026-10-29 (cc93c6d, archive); CI run 40986260576 (r469) dispatched, not yet checked.
 - Next up: when r469 is green, install on all adb devices, then WSA VD check: a group with a row repeat (and a nested circular one), tap the child on copy 2 -> gizmo box on copy 2; ring/handle/drag there changes all copies alike; nested group child gizmos.
