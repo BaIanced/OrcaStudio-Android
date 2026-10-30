@@ -100,8 +100,8 @@ class ShapeController(private val store: Store, private val scad: ScadController
         val obj = store.value.buildObject ?: return
         store.launch {
             val hit = scad.shapeAt(obj, origin, dir)
-            if (hit != null) buildCopy.value = hit.first
-            val path = hit?.second
+            if (hit != null) { buildCopy.value = hit.first; buildGroupCopies.value = hit.second.toMap() }
+            val path = hit?.second?.map { it.first }
             val d = design
             if (path == null || d == null) return@launch tap(null, add)
             tap(path[BuildTransform.pickLevel(d.pathTo(selected.lastOrNull() ?: -1).map { it.id }, path)], add)
@@ -114,14 +114,20 @@ class ShapeController(private val store: Store, private val scad: ScadController
      */
     val buildCopy = kotlinx.coroutines.flow.MutableStateFlow(0)
 
+    /**
+     * Inside the design: the repeat copy of each shape (by id) on the last tapped or grabbed path. A shape inside a
+     * repeated group gets its gizmos, drags and turns in that copy of the group ([ShapeDesign.parentFrame]).
+     */
+    val buildGroupCopies = kotlinx.coroutines.flow.MutableStateFlow<Map<Int, Int>>(emptyMap())
+
     /** Build workspace: [result] gets whether a drag starting on the ray grabs a selected shape. */
     fun grabAt(origin: Vec3, dir: Vec3, result: (Boolean) -> Unit) {
         val obj = store.value.buildObject ?: return result(false)
         store.launch {
             val hit = scad.shapeAt(obj, origin, dir)
-            if (hit != null) buildCopy.value = hit.first
+            if (hit != null) { buildCopy.value = hit.first; buildGroupCopies.value = hit.second.toMap() }
             // A selected shape under the finger, or the group holding it.
-            result(hit != null && hit.second.any { it in selected })
+            result(hit != null && hit.second.any { it.first in selected })
         }
     }
 
@@ -135,7 +141,7 @@ class ShapeController(private val store: Store, private val scad: ScadController
         val d = design ?: return
         if (selected.isEmpty() || v == D3()) return
         // A shape inside a group moves in the group's frame (its turn and flip).
-        commit(selected.fold(d) { acc, id -> held(acc, acc.update(id) { s -> s.copy(pos = s.pos + d.toParent(id, v)) }, id) })
+        commit(selected.fold(d) { acc, id -> held(acc, acc.update(id) { s -> s.copy(pos = s.pos + d.toParent(id, v, buildGroupCopies.value)) }, id) })
     }
 
     /**
@@ -153,7 +159,7 @@ class ShapeController(private val store: Store, private val scad: ScadController
 
     /**
      * Build workspace: the plate box the gizmos sit on when the selection is inside a group (its volume is the group's
-     * mesh, too big): the shapes' design boxes ([ShapeDesign.bounds], with their repeats) in the group's first copy.
+     * mesh, too big): the shapes' design boxes ([ShapeDesign.bounds], with their repeats) in the copy of the group last tapped ([buildGroupCopies]).
      * Null at the top level: the selected volumes' mesh box is exact there.
      */
     fun buildGizmoBox(): Pair<Vec3, Vec3>? {
@@ -181,7 +187,7 @@ class ShapeController(private val store: Store, private val scad: ScadController
     /** The plate box of [shapes]' design boxes ([ShapeDesign.bounds], with their repeats), each in its group's frame, in copy [inst]. */
     private fun plateBox(d: ShapeDesign, inst: Instance, shapes: List<Shape>): Pair<Vec3, Vec3> {
         val pts = shapes.flatMap { s ->
-            val frame = d.parentFrame(s.id)
+            val frame = d.parentFrame(s.id, buildGroupCopies.value)
             val b = d.bounds(s)
             (0 until 8).map { k ->
                 val c = D3(if (k and 1 == 0) b.min.x else b.max.x, if (k and 2 == 0) b.min.y else b.max.y, if (k and 4 == 0) b.min.z else b.max.z)
@@ -197,7 +203,7 @@ class ShapeController(private val store: Store, private val scad: ScadController
     fun resizeOnPlate(scale: Vec3, pivot: Vec3) {
         val (inst, sel) = buildGizmoTarget() ?: return
         val d = design ?: return
-        val frame = d.parentFrame(sel.first().id)
+        val frame = d.parentFrame(sel.first().id, buildGroupCopies.value)
         // Off the axes the gizmo has corners only: an even scale.
         val f = BuildTransform.designScale(inst, scale)?.let { BuildTransform.scaleInFrame(frame, it) }
             ?: D3(scale.x.toDouble(), scale.x.toDouble(), scale.x.toDouble())
@@ -209,7 +215,7 @@ class ShapeController(private val store: Store, private val scad: ScadController
     fun turnOnPlate(axis: Int, degrees: Float, pivot: Vec3) {
         val (inst, sel) = buildGizmoTarget() ?: return
         val d = design ?: return
-        val frame = d.parentFrame(sel.first().id)
+        val frame = d.parentFrame(sel.first().id, buildGroupCopies.value)
         val m = BuildTransform.turnInFrame(frame, BuildTransform.designTurn(inst, RotateGizmo.matrix(axis, degrees)))
         val c = BuildTransform.inFrame(frame, BuildTransform.toDesign(inst, pivot))
         commit(sel.fold(d) { acc, s -> acc.find(s.id)?.let { held(acc, posed(acc, s.id, BuildTransform.turned(acc, it, m, c)), s.id) } ?: acc })

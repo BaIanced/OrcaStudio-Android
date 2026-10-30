@@ -904,17 +904,17 @@ class ScadController(private val store: Store) {
     }
 
     /**
-     * Build workspace: the copy of build object [obj] under the ray and the shapes there, outermost first (its top-level
-     * shape, then inside groups the child under the hit: [ShapeDesign.pathAt]), or null.
+     * Build workspace: the copy of build object [obj] under the ray and the shapes there, outermost first, each with its
+     * repeat copy under the hit (its top-level shape, then inside groups the child under the hit: [ShapeDesign.hitAt]), or null.
      */
-    suspend fun shapeAt(obj: Int, origin: Vec3, dir: Vec3): Pair<Int, List<Int>>? {
+    suspend fun shapeAt(obj: Int, origin: Vec3, dir: Vec3): Pair<Int, List<Pair<Int, Int>>>? {
         val hit = engine.pick(origin, dir, only = obj) ?: return null
         val o = store.value.scene.objects.getOrNull(obj) ?: return null
         val piece = volumeShapes(o)[hit.volume] ?: return null
         val inst = o.instances.getOrNull(hit.instance)?.shown ?: return null
         // The object's own design: the pieces' matrices are its (an edit may still be rendering).
-        val path = ScadDesign.of(o)?.shapes?.pathAt(piece, app.orcaandroid.scad.BuildTransform.toDesign(inst, hit.point))
-        return hit.instance to path.orEmpty().ifEmpty { listOf(piece.shapeId) }
+        val path = ScadDesign.of(o)?.shapes?.hitAt(piece, app.orcaandroid.scad.BuildTransform.toDesign(inst, hit.point))
+        return hit.instance to path.orEmpty().ifEmpty { listOf(piece.shapeId to piece.copy) }
     }
 
     /**

@@ -46,12 +46,12 @@ object BuildTransform {
 
     /**
      * Whether copy [inst], the groups holding [shapes] ([ShapeDesign.parentFrame]) and every shape in [shapes] lie along
-     * the axes, so X, Y and Z can be scaled alone.
+     * the axes, so X, Y and Z can be scaled alone. [copy]: the repeated groups' copies, as in [ShapeDesign.parentFrame].
      */
-    fun axesFree(d: ShapeDesign, inst: Instance, shapes: List<Shape>): Boolean {
+    fun axesFree(d: ShapeDesign, inst: Instance, shapes: List<Shape>, copy: Map<Int, Int> = emptyMap()): Boolean {
         val r = RotateGizmo.fromEuler(inst.rotation)
         return axesOf(Array(3) { i -> DoubleArray(3) { j -> r[i * 3 + j].toDouble() } }) != null &&
-            shapes.all { axesOf(linear(d.parentFrame(it.id))) != null && axesOf(ShapeDesign.matrix(d.rot(it))) != null }
+            shapes.all { axesOf(linear(d.parentFrame(it.id, copy))) != null && axesOf(ShapeDesign.matrix(d.rot(it))) != null }
     }
 
     /** Plate point [p] of design point [q] on copy [inst] (offset + R * scale * mirror * q): [toDesign]'s inverse. */

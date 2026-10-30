@@ -497,50 +497,56 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
      * shape, then the child under [p], its child, ...). A point on a surface lies in several boxes: solids win over
      * holes, then the smallest box. Empty when [piece]'s shape is gone.
      */
-    fun pathAt(piece: Piece, p: D3): List<Int> {
+    fun pathAt(piece: Piece, p: D3): List<Int> = hitAt(piece, p).map { it.first }
+
+    /** [pathAt] with the copy of each shape on the path that holds the point (0 for a shape without a repeat). */
+    fun hitAt(piece: Piece, p: D3): List<Pair<Int, Int>> {
         val top = shapes.firstOrNull { it.id == piece.shapeId }?.let(::resolved) ?: return emptyList()
-        val out = arrayListOf(top.id)
+        val out = arrayListOf(top.id to piece.copy)
         var q = inverse(piece.matrix.toDoubleArray(), p)
         var kids = if (top.isGroup) top.children else emptyList()
         while (kids.isNotEmpty()) {
-            var best: Triple<Shape, D3, Double>? = null
+            var best: Triple<Pair<Shape, Int>, D3, Double>? = null
             for (c in kids) {
                 val box = if (c.isGroup) c.children.map { bounds(it) }.reduceOrNull { a, b -> a.union(b) } ?: continue
                     else Bounds(D3(-c.size.x / 2, -c.size.y / 2, 0.0), D3(c.size.x / 2, c.size.y / 2, c.size.z))
                 val own = placement(c)
-                for (m in copies(c)) {
+                for ((k, m) in copies(c).withIndex()) {
                     val l = inverse(mul(m, own), q)
                     val e = 0.01
                     if ((0..2).any { l[it] < box.min[it] - e || l[it] > box.max[it] + e }) continue
                     val vol = (0..2).fold(1.0) { acc, i -> acc * (box.max[i] - box.min[i]) }
                     val b = best
-                    if (b == null || (b.first.hole && !c.hole) || (b.first.hole == c.hole && vol < b.third)) best = Triple(c, l, vol)
+                    if (b == null || (b.first.first.hole && !c.hole) || (b.first.first.hole == c.hole && vol < b.third)) best = Triple(c to k, l, vol)
                 }
             }
-            val (c, l) = best ?: break
-            out += c.id
+            val (ck, l) = best ?: break
+            out += ck.first.id to ck.second
             q = l
-            kids = if (c.isGroup) c.children else emptyList()
+            kids = if (ck.first.isGroup) ck.first.children else emptyList()
         }
         return out
     }
 
     /**
      * Design-frame direction [v] in the frame shape [id] moves in (its parent group's; groups turn and flip their
-     * children). A repeated group counts as its first copy.
+     * children). A repeated group counts as copy [copy] of its id (else its first), as in [parentFrame].
      */
-    fun toParent(id: Int, v: D3): D3 =
-        pathTo(id).dropLast(1).fold(v) { acc, g ->
-            val m = placement(resolved(g))
-            // The turn and flip are orthonormal: the inverse is the transpose.
-            D3((0..2).sumOf { m[it * 4] * acc[it] }, (0..2).sumOf { m[it * 4 + 1] * acc[it] }, (0..2).sumOf { m[it * 4 + 2] * acc[it] })
-        }
+    fun toParent(id: Int, v: D3, copy: Map<Int, Int> = emptyMap()): D3 {
+        val m = parentFrame(id, copy)
+        // The turn and flip are orthonormal: the inverse is the transpose.
+        return D3((0..2).sumOf { m[it * 4] * v[it] }, (0..2).sumOf { m[it * 4 + 1] * v[it] }, (0..2).sumOf { m[it * 4 + 2] * v[it] })
+    }
 
     /**
      * Where the frame shape [id] lives in (its parent group's) lies in the design: row-major 4 x 4, rigid (turn, flip,
-     * move). The identity for a top-level shape; a repeated group counts as its first copy, as in [toParent].
+     * move). The identity for a top-level shape; a repeated group counts as copy [copy] of its id, else its first.
      */
-    fun parentFrame(id: Int): DoubleArray = pathTo(id).dropLast(1).fold(translation(D3())) { acc, g -> mul(acc, placement(resolved(g))) }
+    fun parentFrame(id: Int, copy: Map<Int, Int> = emptyMap()): DoubleArray = pathTo(id).dropLast(1).fold(translation(D3())) { acc, g ->
+        val r = resolved(g)
+        val c = copies(r).let { it.getOrNull(copy[g.id] ?: 0) ?: it.first() }
+        mul(acc, mul(c, placement(r)))
+    }
 
     /**
      * After shape [id] changed (from [before]): each group holding it, innermost first, whose height changed moved so

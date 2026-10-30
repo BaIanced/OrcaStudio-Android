@@ -634,7 +634,8 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     // volumes' mesh box in the copy last tapped or dragged.
     val building = state.buildObject != null
     val buildCopy by vm.shapes.buildCopy.collectAsState()
-    val buildGizmo = if (!building) null else remember(state.scene, state.scad?.selected, state.scad?.shapes, buildCopy) { vm.shapes.buildGizmoTarget() }
+    val buildGroupCopies by vm.shapes.buildGroupCopies.collectAsState()
+    val buildGizmo = if (!building) null else remember(state.scene, state.scad?.selected, state.scad?.shapes, buildCopy, buildGroupCopies) { vm.shapes.buildGizmoTarget() }
     LaunchedEffect(v, building) { v.gizmoOnMesh = building }
     LaunchedEffect(v, state.resizing, showPreview, building, buildGizmo) {
         v.resizeMode = if (building) buildGizmo?.second?.none { it.isGroup } == true else state.resizing && !showPreview
@@ -726,7 +727,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     LaunchedEffect(v, build != null, state.snapBuild, state.snapPrepare) { v.snapOn = if (build != null) state.snapBuild else state.snapPrepare }
     LaunchedEffect(v, state.moveLock) { v.axisLock = state.moveLock }
     // Build workspace: the selected shapes' volumes are the selection; a drag starts on the object's box (the pick decides).
-    LaunchedEffect(v, build, state.scad?.selected, state.scad?.shapes, buildCopy) {
+    LaunchedEffect(v, build, state.scad?.selected, state.scad?.shapes, buildCopy, buildGroupCopies) {
         if (build == null) { v.dragSnap = null; v.onGl { boxOverride = null; buildCopies = null }; return@LaunchedEffect }
         val ids = vm.scad.buildSelectedIds(build)
         // Shapes inside a group: the gizmos sit on their own box, not the group's mesh.
@@ -738,7 +739,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         v.onGl { selectedIds = ids; boxOverride = box; buildCopies = copies }
         // The design pose's box: Build draws and picks the copies there, not where they lie on the plate.
         v.selectedBounds = if (ids.isEmpty()) emptyList() else build.instances.map { it.shown.let { s -> s.min to (s.min + s.size) } }
-        v.resizeAxes = vm.shapes.buildGizmoTarget()?.let { (inst, tops) -> state.scad?.shapes?.let { app.orcaandroid.scad.BuildTransform.axesFree(it, inst, tops) } } ?: true
+        v.resizeAxes = vm.shapes.buildGizmoTarget()?.let { (inst, tops) -> state.scad?.shapes?.let { app.orcaandroid.scad.BuildTransform.axesFree(it, inst, tops, buildGroupCopies) } } ?: true
         v.towerBoxes = emptyList()
         // A body drag sticks the selection's edges to the other shapes' edges.
         v.dragSnap = vm.shapes.buildSnapBoxes()
