@@ -66,6 +66,11 @@ sealed interface Tool {
      */
     data class Sculpt(val brush: String = "draw", val radius: Float = 5f, val strength: Float = 0.5f, val invert: Boolean = false,
                       val mirror: Int = 0) : Tool
+    /**
+     * Mesh edit (OrcaMesh, `NOTES-orcamesh-edit.md`): taps on a part toggle [kind] picks ("vertex", "edge", "face"); feature
+     * level (crease-bounded regions) unless [triangles]. The selection's arrow drags it along its normal.
+     */
+    data class MeshEdit(val kind: String = "face", val triangles: Boolean = false) : Tool
     data object LayOnFace : Tool
     data object Measure : Tool
     /**

@@ -71,5 +71,11 @@ STLs from CAD have flat faces split into many triangles and no quads, so raw Ble
   +5 then +1 (ray-less chain) -> 26 mm; Prepare Undo (VD tap 27,78) -> 25 (one step per op), ray-less call refused; second
   Undo -> 20, reselect centroid z 20. Vertex pick 1 mm inside the face -> nearest corner OK (its normal is triangulation-biased,
   [-0.33,-0.67,0.67]: fine for now, only face moves use the normal). Cut MCP replies were `mcptest.sh` `MAX=700`: pass `MAX=4000`.
-- **M1c next (Kotlin UI):** `Tool.MeshEdit` beside Sculpt, chips Vertex | Edge | Face + Features/Triangles, taps toggle,
-  All / None / Grow, overlay from `selection.edges`, gizmo on the centroid (`Engine.meshEdit` move live, end on release).
+- **M1c slice 1 written 2026-10-30 (Claude, Kotlin compiles, UNTESTED on device):** `Tool.MeshEdit(kind, triangles)` (More menu
+  "Edit mesh"), panel chips Vertex | Edge | Face + Triangles (angle 0, else 30), None / Grow + count (`ToolPanel.MeshEditOptions`);
+  `InteractionMode.EDIT` (taps to host, drags orbit, face-arrow drag allowed); `SceneController.meshEditTap/Op/Drag`
+  (`meshEditSel` flow, version-checked; drag = coalesced live "move" translate along the normal + "end" on release, patches
+  via `meshPatches`); Viewport overlay shares push/pull's Canvas (crease edges + vertex dots shifted with the drag, arrow at the
+  centroid via `PlateView.FaceArrow`). Deviations: no "All" (no native op yet); arrow-along-normal only, no 3-axis gizmo yet.
+- **M1c next:** WSA VD test of slice 1 (debug build: "Edit mesh" on a cube, face tap, arrow drag, undo); then numeric
+  move / scale / rotate fields (reuse McpTools `editMatrix`, move to a shared helper) and "All" (native op `all`).

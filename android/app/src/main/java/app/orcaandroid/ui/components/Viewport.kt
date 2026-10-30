@@ -163,6 +163,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     // Push / pull: bumped by each arrow drag step so the face overlay redraws.
     val faceTick = remember { androidx.compose.runtime.mutableLongStateOf(0L) }
     val facePick by vm.shapes.facePick.collectAsState()
+    val meshEditSel by vm.scene.meshEditSel.collectAsState()
     // Live size (mm) beside the finger while a box corner is dragged: text, view x, y.
     var resizeLabel by remember { mutableStateOf<Triple<String, Float, Float>?>(null) }
     Box(modifier) {
@@ -180,6 +181,11 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                             if (vm.state.value.measureActive != null) { vm.scene.measureSelect(null); return }
                         }
                         val (o, d) = v.camera.ray(x, y)
+                        if (vm.state.value.tool is Tool.MeshEdit) {
+                            val px = 24 * v.resources.displayMetrics.density
+                            vm.scene.meshEditTap(o, d, v.section.current) { p -> v.camera.pxSize(p) * px }
+                            return
+                        }
                         // The Build workspace: a tap picks a shape of the design (a flat face in push / pull mode).
                         if (vm.state.value.buildObject != null && vm.shapes.faceMode) vm.shapes.pickFace(o, d)
                         else if (vm.state.value.buildObject != null) vm.shapes.tapAt(o, d, additive || part || vm.state.value.selectMode)
@@ -315,6 +321,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                     }
                     override fun onFacePush(d: Float?, done: Boolean) {
                         faceTick.longValue++
+                        if (vm.state.value.tool is Tool.MeshEdit) { vm.scene.meshEditDrag(d, done); return }
                         if (done && d != null && d != vm.shapes.facePick.value?.op?.d?.toFloat()) vm.shapes.pushPicked(d.toDouble())
                     }
                     override fun onTowerMoved(plate: Int, dx: Float, dy: Float) {
@@ -561,24 +568,38 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         LightPanel(state.lab, vm::setLab, { vm.setLightPanel(false) }, Modifier.align(androidx.compose.ui.Alignment.BottomEnd)
             .windowInsetsPadding(androidx.compose.foundation.layout.WindowInsets.navigationBars).padding(end = 8.dp, bottom = 96.dp))
     }
-    if (state.buildObject != null && vm.shapes.faceMode) facePick?.let { pick ->
+    val pushPick = facePick?.takeIf { state.buildObject != null && vm.shapes.faceMode }
+    val editSel = meshEditSel?.takeIf { state.tool is Tool.MeshEdit && it.version == state.scene.meshVersion.toLong() }
+    if (pushPick != null || editSel != null) {
         // Push / pull: the picked face's outline (moved along with a drag) and its arrow; the distance beside the arrow's tip.
+        // Mesh edit: the selection's crease edges and vertices the same way, its arrow at the centroid along its normal.
         val frame = remember { androidx.compose.runtime.mutableLongStateOf(0L) }
-        LaunchedEffect(pick) { while (true) androidx.compose.runtime.withFrameNanos { frame.longValue = it } }
+        LaunchedEffect(pushPick, editSel) { while (true) androidx.compose.runtime.withFrameNanos { frame.longValue = it } }
         val measurer = androidx.compose.ui.text.rememberTextMeasurer()
         val labelStyle = MaterialTheme.typography.labelLarge.copy(color = Color.White)
         val color = scheme.primary
         Canvas(Modifier.fillMaxSize()) {
             frame.longValue; faceTick.longValue
             val vw = view ?: return@Canvas
-            val d = vw.faceD.takeIf { vw.faceArrow != null } ?: pick.op.d.toFloat()
-            val shift = pick.normal * (d - pick.op.d.toFloat())
-            for (loop in pick.outline) {
-                val pts = loop.map { vw.camera.project(it + shift) ?: return@Canvas }.map { androidx.compose.ui.geometry.Offset(it.first, it.second) }
-                for (i in pts.indices) {
-                    val a = pts[i]; val b = pts[(i + 1) % pts.size]
-                    drawLine(Color.Black.copy(alpha = 0.5f), a, b, 5f)
-                    drawLine(color, a, b, 2.5f)
+            val d0 = pushPick?.op?.d?.toFloat() ?: 0f
+            val d = vw.faceD.takeIf { vw.faceArrow != null } ?: d0
+            val normal = pushPick?.normal ?: editSel!!.normal
+            val shift = normal * (d - d0)
+            fun at(p: Vec3) = vw.camera.project(p + shift)?.let { androidx.compose.ui.geometry.Offset(it.first, it.second) }
+            fun seg(p: Vec3, q: Vec3) {
+                val a = at(p) ?: return
+                val b = at(q) ?: return
+                drawLine(Color.Black.copy(alpha = 0.5f), a, b, 5f)
+                drawLine(color, a, b, 2.5f)
+            }
+            pushPick?.outline?.forEach { loop -> for (i in loop.indices) seg(loop[i], loop[(i + 1) % loop.size]) }
+            editSel?.let { e ->
+                val g = e.edges
+                for (i in 0 until g.size / 6) seg(Vec3(g[6 * i], g[6 * i + 1], g[6 * i + 2]), Vec3(g[6 * i + 3], g[6 * i + 4], g[6 * i + 5]))
+                val w = e.verts
+                for (i in 0 until w.size / 3) at(Vec3(w[3 * i], w[3 * i + 1], w[3 * i + 2]))?.let {
+                    drawCircle(Color.Black.copy(alpha = 0.5f), 4.dp.toPx(), it)
+                    drawCircle(color, 2.5f.dp.toPx(), it)
                 }
             }
             val s = vw.faceArrowScreen(d) ?: return@Canvas
@@ -593,7 +614,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                 drawLine(c, tip, tip - dir * head - side * head * 0.6f, w)
             }
             drawCircle(color, 4.dp.toPx(), base)
-            val mm = d * pick.normal.length()
+            val mm = d * normal.length()
             val t = measurer.measure((if (mm > 0f) "+" else "") + "%.1f mm".format(mm), labelStyle)
             val pad = 4.dp.toPx()
             val tl = tip + dir * (t.size.height.toFloat()) - androidx.compose.ui.geometry.Offset(t.size.width / 2f, t.size.height / 2f)
@@ -691,13 +712,13 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     }
     // Build: the lift dot above the selection moves the shapes up or down.
     LaunchedEffect(v, building, buildGizmo) { v.liftMode = building && buildGizmo != null }
-    LaunchedEffect(v, building, vm.shapes.faceMode, facePick) {
+    LaunchedEffect(v, building, vm.shapes.faceMode, facePick, meshEditSel, state.tool is Tool.MeshEdit, showPreview, scene.meshVersion) {
         if (!building && vm.shapes.faceMode) vm.shapes.setPushPull(false)
         // The arrow starts at the middle of the face's outer outline.
         v.faceArrow = facePick?.takeIf { building && vm.shapes.faceMode }?.let { p ->
             val l = p.outline.first()
             PlateView.FaceArrow(l.fold(Vec3.ZERO) { a, b -> a + b } * (1f / l.size), p.normal, p.op.d.toFloat())
-        }
+        } ?: meshEditSel?.takeIf { state.tool is Tool.MeshEdit && !showPreview && it.version == scene.meshVersion.toLong() }?.let { PlateView.FaceArrow(it.centroid, it.normal, 0f) }
     }
     LaunchedEffect(v, state.rotating, showPreview, building, buildGizmo) {
         v.rotateMode = if (building) buildGizmo != null else state.rotating && !showPreview
@@ -835,6 +856,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
             else -> when (state.tool) {
             is Tool.Paint -> if (state.tool.shape == "gap") InteractionMode.VIEW else InteractionMode.PAINT
             is Tool.Sculpt -> InteractionMode.PAINT
+            is Tool.MeshEdit -> InteractionMode.EDIT
             Tool.LayOnFace -> InteractionMode.LAY_ON_FACE
             Tool.Measure -> InteractionMode.MEASURE
             else -> InteractionMode.NAVIGATE

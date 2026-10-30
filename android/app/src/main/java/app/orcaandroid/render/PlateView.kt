@@ -17,7 +17,8 @@ import kotlin.math.min
 import kotlin.math.pow
 
 /** VIEW: camera only (the Preview tab: nothing to pick, select or move, as on the desktop). */
-enum class InteractionMode { NAVIGATE, PAINT, LAY_ON_FACE, MEASURE, VIEW }
+/** EDIT: taps go to the host, drags orbit except one from the face arrow (mesh edit). */
+enum class InteractionMode { NAVIGATE, PAINT, LAY_ON_FACE, MEASURE, VIEW, EDIT }
 
 /** What the 3D view reports back to the app. Called on the UI thread. */
 interface PlateListener {
@@ -533,7 +534,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                         }
                     }
                 }
-                else if (mode == InteractionMode.NAVIGATE && startFace(event.x, event.y)) Unit
+                else if ((mode == InteractionMode.NAVIGATE || mode == InteractionMode.EDIT) && startFace(event.x, event.y)) Unit
                 else if (mode == InteractionMode.NAVIGATE && startLift(event.x, event.y)) Unit
                 else if (mode == InteractionMode.NAVIGATE && rayBoxEntry(event.x, event.y, selectedBounds)?.also { dragAnchor = it } != null) {
                     dragging = true

@@ -166,6 +166,7 @@ internal fun ToolPanel(state: UiState, vm: AppViewModel) {
             if (!folded) when (tool) {
                 is Tool.Paint -> PaintOptions(state, vm, tool)
                 is Tool.Sculpt -> SculptOptions(vm, tool)
+                is Tool.MeshEdit -> MeshEditOptions(vm, tool)
                 is Tool.Cut -> CutOptions(state, vm, tool)
                 Tool.Measure -> MeasureOptions(state, vm)
                 Tool.LayOnFace -> Text(stringResource(R.string.lay_on_face_hint), style = MaterialTheme.typography.bodySmall)
@@ -183,6 +184,7 @@ private fun toolTitle(tool: Tool) = stringResource(
             "support" -> R.string.paint_supports; "seam" -> R.string.paint_seam; "fuzzy" -> R.string.paint_fuzzy; else -> R.string.paint_color
         }
         is Tool.Sculpt -> R.string.sculpt
+        is Tool.MeshEdit -> R.string.mesh_edit
         is Tool.Cut -> R.string.cut
         Tool.Measure -> R.string.measure
         Tool.LayOnFace -> R.string.lay_on_face
@@ -194,6 +196,25 @@ private fun toolTitle(tool: Tool) = stringResource(
 private val SCULPT_BRUSHES = listOf(
     "draw" to R.string.sculpt_draw, "inflate" to R.string.sculpt_inflate, "smooth" to R.string.sculpt_smooth,
     "flatten" to R.string.sculpt_flatten, "pinch" to R.string.sculpt_pinch, "crease" to R.string.sculpt_crease, "grab" to R.string.sculpt_grab)
+
+@Composable
+private fun MeshEditOptions(vm: AppViewModel, tool: Tool.MeshEdit) {
+    val sel by vm.scene.meshEditSel.collectAsState()
+    Text(stringResource(R.string.mesh_edit_hint), style = MaterialTheme.typography.bodySmall)
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        listOf("vertex" to R.string.mesh_edit_vertex, "edge" to R.string.mesh_edit_edge, "face" to R.string.mesh_edit_face).forEach { (kind, label) ->
+            FilterChip(tool.kind == kind, { vm.scene.setTool(tool.copy(kind = kind)) }, label = { Text(stringResource(label)) })
+        }
+        // Raw triangles instead of crease-bounded features (low-poly meshes).
+        FilterChip(tool.triangles, { vm.scene.setTool(tool.copy(triangles = !tool.triangles)) }, label = { Text(stringResource(R.string.mesh_edit_triangles)) })
+    }
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        val count = sel?.count ?: 0
+        Text(stringResource(R.string.mesh_edit_count, count), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.align(Alignment.CenterVertically))
+        TextButton({ vm.scene.meshEditOp("clear") }, enabled = count > 0) { Text(stringResource(R.string.mesh_edit_none)) }
+        TextButton({ vm.scene.meshEditOp("grow") }, enabled = count > 0) { Text(stringResource(R.string.mesh_edit_grow)) }
+    }
+}
 
 @Composable
 private fun SculptOptions(vm: AppViewModel, tool: Tool.Sculpt) {

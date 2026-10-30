@@ -377,6 +377,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
         if (tool is Tool.Paint && old != null && tool.kind == old.kind && tool.shape == old.shape && (tool.shape == "fill" || tool.shape == "regions")
             && (tool.edgeAngle != old.edgeAngle || tool.overColours != old.overColours)) refillLast()
         if (tool == Tool.LayerHeight) loadLayerProfile { engine.layerProfile(it) }
+        if (tool !is Tool.MeshEdit) meshEditSel.value = null
     }
 
     /**
@@ -756,6 +757,92 @@ class SceneController(private val store: Store, private val presets: PresetContr
                     if (!paintDown && brushRing(store.value.tool)) sculptCursor.value = hit?.let { it.point to it.normal }
                 }
             }
+        }
+    }
+
+    /**
+     * Mesh edit ([Tool.MeshEdit]): the selection on [target] in world mm, as the engine sent it: [edges] = crease segments
+     * (x0 y0 z0 x1 y1 z1 each), [verts] = selected vertices (first 500). Holds for scene mesh [version] only.
+     */
+    class MeshEditSel(val target: PickHit, val count: Int, val centroid: Vec3, val normal: Vec3, val edges: FloatArray,
+                      val verts: FloatArray, val version: Long)
+    val meshEditSel = kotlinx.coroutines.flow.MutableStateFlow<MeshEditSel?>(null)
+    private val meshEditLock = Any()
+    /** The newest arrow distance (mm) and whether the finger was lifted, not yet sent. Guarded by [meshEditLock]. */
+    private var meshEditPending: Pair<Float, Boolean>? = null
+    private var meshEditRunning = false
+    /** A move went out since the last end. Used on the drain's coroutine only. */
+    private var meshEditMoved = false
+
+    private fun meshEditSelOf(target: PickHit, o: org.json.JSONObject): MeshEditSel? {
+        val count = o.optInt("count")
+        if (count == 0) return null
+        fun v(k: String) = o.getJSONArray(k).let { Vec3(it.getDouble(0).toFloat(), it.getDouble(1).toFloat(), it.getDouble(2).toFloat()) }
+        fun f(k: String) = o.optJSONArray(k)?.let { a -> FloatArray(a.length()) { a.getDouble(it).toFloat() } } ?: FloatArray(0)
+        return MeshEditSel(target, count, v("centroid"), v("normal"), f("edges"), f("verts"), store.value.scene.meshVersion.toLong())
+    }
+
+    private fun meshEditAngle() = (store.value.tool as? Tool.MeshEdit)?.let { if (it.triangles) 0f else 30f } ?: 30f
+
+    /** The current selection, dropped when the scene mesh changed since (undo, another edit): the engine dropped it too. */
+    private fun liveMeshEditSel() = meshEditSel.value?.takeIf { it.version == store.value.scene.meshVersion.toLong() }
+        ?: null.also { meshEditSel.value = null }
+
+    /**
+     * Mesh edit tap: toggles the pick under the ray on the part it hits (that object becomes the selection). [reach]: world mm
+     * of 24 dp at a point (vertex picks snap to a feature corner that close). A miss keeps the selection.
+     */
+    fun meshEditTap(origin: Vec3, dir: Vec3, section: FloatArray?, reach: (Vec3) -> Float) = store.launch {
+        val tool = store.value.tool as? Tool.MeshEdit ?: return@launch
+        val hit = pick(origin, dir, section) ?: return@launch
+        if (hit.obj != selection?.obj || hit.instance != selection?.instance) store.update { it.withSelected(listOf(Selection(hit.obj, hit.instance))) }
+        val same = liveMeshEditSel()?.target?.let { it.obj == hit.obj && it.instance == hit.instance && it.volume == hit.volume } == true
+        val step = engine.meshEdit(hit, "select", origin to dir, tool.kind, meshEditAngle(), toggle = same, reach = reach(hit.point))
+        step.scene?.let { store.applyScene(it) }
+        meshEditSel.value = meshEditSelOf(hit, step.selection)
+    }
+
+    /** Mesh edit "clear" or "grow" on the current selection. */
+    fun meshEditOp(op: String) = store.launch {
+        val sel = liveMeshEditSel() ?: return@launch
+        val step = engine.meshEdit(sel.target, op, kind = (store.value.tool as? Tool.MeshEdit)?.kind ?: "face", angle = meshEditAngle())
+        meshEditSel.value = meshEditSelOf(sel.target, step.selection)
+    }
+
+    /**
+     * The selection's arrow is dragged: the selection moves [d] mm along its normal, live (only the newest distance is sent);
+     * [done] once let go (one undo step per drag), [d] null when cancelled (back to the start).
+     */
+    fun meshEditDrag(d: Float?, done: Boolean) {
+        synchronized(meshEditLock) {
+            meshEditPending = (d ?: 0f) to done
+            if (meshEditRunning) return
+            meshEditRunning = true
+        }
+        store.launch {
+            try {
+                while (true) {
+                    val (mm, end) = synchronized(meshEditLock) { meshEditPending.also { meshEditPending = null } } ?: break
+                    val sel = liveMeshEditSel() ?: continue
+                    if (mm != 0f || meshEditMoved) {
+                        val t = sel.normal * mm
+                        val step = engine.meshEdit(sel.target, "move", matrix = listOf(1.0, 0.0, 0.0, t.x.toDouble(), 0.0, 1.0, 0.0, t.y.toDouble(),
+                            0.0, 0.0, 1.0, t.z.toDouble(), 0.0, 0.0, 0.0, 1.0))
+                        step.patch?.let { meshPatches.tryEmit(it) }
+                        meshEditMoved = true
+                    }
+                    if (end && meshEditMoved) {
+                        meshEditMoved = false
+                        val step = engine.meshEdit(sel.target, "end", kind = (store.value.tool as? Tool.MeshEdit)?.kind ?: "face", angle = meshEditAngle())
+                        step.scene?.let { store.applyScene(it) }
+                        meshEditSel.value = meshEditSelOf(sel.target, step.selection)
+                    }
+                }
+            } finally {
+                synchronized(meshEditLock) { meshEditRunning = false }
+            }
+            // A sample queued after the loop's last look but before the flag was down.
+            synchronized(meshEditLock) { meshEditPending?.also { meshEditPending = null } }?.let { (mm, end) -> meshEditDrag(mm, end) }
         }
     }
 

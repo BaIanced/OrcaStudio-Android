@@ -656,6 +656,7 @@ private fun ToolButtons(
                     }
                     HorizontalDivider()
                     DropdownMenuItem(text = { Text(stringResource(R.string.sculpt)) }, onClick = { moreMenu = false; vm.scene.setTool(Tool.Sculpt()) })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.mesh_edit)) }, onClick = { moreMenu = false; vm.scene.setTool(Tool.MeshEdit()) })
                     DropdownMenuItem(text = { Text(stringResource(R.string.measure)) }, onClick = { moreMenu = false; vm.scene.setTool(Tool.Measure) },
                         leadingIcon = { Icon(Icons.Default.Straighten, null) })
                 }

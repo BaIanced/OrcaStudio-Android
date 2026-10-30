@@ -609,6 +609,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
                 app.orcaandroid.ui.Tool.None -> "none"
                 is app.orcaandroid.ui.Tool.Paint -> "paint ${tool.kind} ${tool.shape} (state ${tool.state}, radius ${n(tool.radius.toDouble())} mm)"
                 is app.orcaandroid.ui.Tool.Sculpt -> "sculpt ${tool.brush} (radius ${n(tool.radius.toDouble())} mm, strength ${n(tool.strength.toDouble())}${if (tool.invert) ", inverted" else ""})"
+                is app.orcaandroid.ui.Tool.MeshEdit -> "mesh edit ${tool.kind}${if (tool.triangles) " (triangles)" else ""}"
                 app.orcaandroid.ui.Tool.LayOnFace -> "lay on face"
                 app.orcaandroid.ui.Tool.Measure -> "measure, ${s.measure.size} point(s)" +
                     (s.loupe?.let { l -> " (loupe at ${l.x.toInt()},${l.y.toInt()}: ${l.feature?.kind ?: "nothing"})" } ?: "") +
