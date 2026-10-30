@@ -82,7 +82,14 @@ don't demo it on a cube.
 - VERIFIED (Claude, 2026-10-29, WSA VD): the pick works (log: shape 1, n=+X, 1 outline loop); the Compose overlay is invisible to screenshots, so the arrow
   was aimed from a temp log (base 236,203 -> tip 289,222); `swipe 262 213 312 231 600` = drag: Face edits shows "Face 1 +10.5", 134 triangles (was 120);
   the shot shows the tab 6 -> 16.5 mm thick, hole round and unmoved.
-- OPEN: undo. `input -d $LOGICAL keycombination 113 54` (Ctrl+Z): the 3D view reverted to the original bracket, but the panel still listed Face 1 /
-  134 triangles (stale uiautomator or an undo that misses the design?); a second Ctrl+Z flipped the active plate to 1. Retest undo with one press and
-  a fresh `ui` dump; check ShapeController undo/redo clears the pick and the Face edits list refreshes. Not yet run: OpenSCAD render of the emitted
-  code, the pull direction (drag inward), delete via Face edits.
+- 2026-10-30 (WSA VD, debug build 48eadc3, no temp logs; reinstall kept the session: shape 1 on plate 1, builder open): the 2026-10-29 "undo stale" was
+  mostly a focus mix-up: Ctrl+Z over the VD goes to the PLATE undo (3D reverts, builder panel unchanged); the builder's own undo is the toolbar button
+  (desc "Undo (Ctrl+Z)", scroll the Shapes list to the top, ~(26,728) in dump coords) or Ctrl+Z with the builder column focused.
+  VERIFIED: delete via Face edits (the "Face 1 +10.5" row's trash at ~(685,958)): row gone, design_get has no faces, the plate shows the original tab.
+  OPEN BUG: after that delete, the builder Undo button (tapped 3x, also Redo) changes nothing: design_get still has no faces, no row back, though uiautomator
+  reports Undo/Redo enabled. Suspect: `canUndo` = `undoOwner === design` fails because something re-sets the design object after `commit` (pushBuild /
+  refreshParams path in `ScadController.setShapes` while `buildObject != null`), or the button is stale (canUndo is not Compose state). Next: temp Log in
+  `ShapeController.undo()` (cur === undoOwner? stack size), then fix (make canUndo observable, key history on content equality instead of identity).
+  Not yet run: pull (inward drag), OpenSCAD render of the emitted code. Test helpers: `~/orca-android-tools/dumpui.py <xml> <ylo> <yhi>`, `faces.sh`;
+  MCP via `mcpao.sh 'tool:{json}'` (unset MSYS_NO_PATHCONV; `SNAP=<abs png>` for view_screenshot); no MCP import tool: `adb push` STL to /sdcard/Download +
+  `am start --display $LOGICAL -a VIEW -d file:///sdcard/Download/x.stl -t model/stl -n PKG/app.orcaandroid.ui.MainActivity`.
