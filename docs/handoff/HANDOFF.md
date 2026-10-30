@@ -39,7 +39,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **Queued (user 2026-10-29):** dimensions overview (per-object bbox, hole sizes, thinnest wall; **ask the user what they had in mind when it comes up**); floating Theme | Layout designer (~half a day; **ask what they have in mind first**).
 - OrcaMesh edit M1-M4: Claude-verified, r479 installed (archive 2026-10-30).
 - **Dimensions overlay** (user 2026-10-30; phases 1 bbox lines, 2 hole diameters, 3 thinnest wall): 1 = 378253f `DimensionOverlay.kt`; 2 = 68b9ac9 `render/HoleFinder.kt` (Kotlin on `PlateRenderer.sceneMesh`, `HoleFinderTest` 3/3; design in archive 2026-10-30). Neither seen on screen (WSA shots are GL only): check on phone/Note VD with a holed part selected in Prepare. Gaps: slots, tilted holes.
-- Next step: Dimensions phase 3 thinnest wall design (min wall thickness of the selection, marker + label) -> Opus 5.5 (high)
+- Phase 3 = reuse Check mesh thin-wall rays (`OrcaTools.cpp:1740`): add min `hit.distance()` + point to `check_mesh` output (limit ~5 mm), overlay marker + label (user asked 2026-10-30 why not reuse: yes).
+- Next step: Dimensions phase 3 thinnest wall via check_mesh min distance -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
