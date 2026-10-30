@@ -15,7 +15,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = de0e3fa (PR #67, branch at run 41012656080 = r473 + push/pull tier 2, merged 2026-10-30 on /next-merge; user-untested, Claude-verified only). User-untested in main: list in `NOTES-merge-batch.md`.
 - Signing secrets: `release` environment (main + `claude/*` only).
-- Latest CI build: run 41012656080 (push/pull tier 2 on top of r473) on all 5 adb devices, 2026-10-30. User feel untested. Install builds on all adb devices (skip .23).
+- Latest CI build: run 41105435015 (r479, OrcaMesh M1-M4) on all 4 adb devices, 2026-10-30. User feel untested. Install builds on all adb devices (skip .23).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **User 2026-10-28: no more user testing for now; Claude builds and tests everything itself (memory no-user-testing-now); don't ask for feel/UI checks.**
 - **User 2026-10-29: no tests on the user's screen; all tests on a hidden virtual display** (`TARGET=wsa orca-vd.sh start`, memory tests-on-virtual-display).
@@ -38,8 +38,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Fixture `rep-groups.json` (MCP `design_set`). VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78.
 - **Queued (user 2026-10-29):** dimensions overview (per-object bbox, hole sizes, thinnest wall; **ask the user what they had in mind when it comes up**); floating Theme | Layout designer (~half a day; **ask what they have in mind first**).
 - **OrcaMesh edit** (`NOTES-orcamesh-edit.md`): M1-M4 incl. panel Fillet / Chamfer Claude-verified on WSA VD 2026-10-30. Old CI run
-  41100791348 (M3) sat queued for hours: cancelled; build run 41105435015 dispatched on the M4 panel head 55da269 (check it; install on all adb devices when green).
-- Next step: install the OrcaMesh M1-M4 CI build on all adb devices (skip .23), then pick the next queued item (dimensions overview / Theme | Layout designer: ask the user what they have in mind first) -> Sonnet 5.5 (medium)
+  41100791348 cancelled; build run 41105435015 (r479, M4 head 55da269) green and installed on all adb devices 2026-10-30.
+- **Dimensions overlay** (user 2026-10-30: 3D overlay on the build plate; phased: 1 bbox X/Y/Z lines, 2 hole diameters, 3 thinnest wall): phase 1 pushed 378253f (View > Dimensions, `DimensionOverlay.kt`, Compose canvas via `camera.project` on `gizmoBox()`; selection only, no overall-extent fallback yet). Compiles; NOT seen on screen (WSA VD has no screenshots; use phone VD `orca-vd.sh shot`, or `ui` dump). Needs a Prepare-view check with a selected object (design workspace untested too).
+- Next step: phone-VD screenshot check of View > Dimensions (select object, toggle, check label placement/overlap), fix, then phase 2 hole diameters -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
