@@ -34,7 +34,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Gate: user sessions B-D paused 2026-10-28; release gated on the printer set.
 - WSA: `svc power stayon true` while testing; `stage-from-apk.sh <apk>`.
 - WSA VD (reference "Headless display"): Kotlin-only changes = assembleDebug + `wsa-debug-setup.sh` (installs, no launch) + `TARGET=wsa PKG=...debug orca-vd.sh start`; shots via MCP `view_screenshot`; uninstall debug after. `wsa-full.ps1` only when the user asks to watch.
-- Repeated-group fixture: `~/orca-android-tools/rep-groups.json` via MCP `design_set`. WSA tap helpers: `~/orca-android-tools/tx.sh <label>` fails on Compose nodes with 0 bounds; use `phone-ui.py layout` with `. ./.vd-wsa.state; export VD=$LOGICAL,$SFID` + `orca-vd.sh tap`. Package id `io.github.baianced.orcastudio_android.debug`.
+- Fixture `~/orca-android-tools/rep-groups.json` (MCP `design_set`). WSA taps: `tx.sh` fails on 0-bound Compose nodes; use `phone-ui.py layout` + `. ./.vd-wsa.state; export VD=$LOGICAL,$SFID` + `orca-vd.sh tap`.
 - CAD 7a-7c built-ins WSA VD OK 2026-10-29 (archive), in r472. Part sliders 7d: group-scale core bdaf7db + gizmo on groups
   297ab3e (both local, unpushed, scad tests pass); left: items (2)-(5) under 7d in `NOTES-cad-reuse.md` ("Left").
 - Next step: CAD 7d items (2)-(5): Scale % field, part size slider, tests, CI + WSA VD -> Sonnet 5.5 (medium)
