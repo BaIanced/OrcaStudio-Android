@@ -36,12 +36,12 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - WSA: `svc power stayon true` while testing; `stage-from-apk.sh <apk>`.
 - WSA VD (reference "Headless display"): Kotlin-only changes = assembleDebug + `wsa-debug-setup.sh` (installs, no launch) + `TARGET=wsa PKG=...debug orca-vd.sh start`; shots via MCP `view_screenshot`; uninstall debug after. `wsa-full.ps1` only when the user asks to watch.
 - Fixture `~/orca-android-tools/rep-groups.json` (MCP `design_set`). WSA taps: `tx.sh` fails on 0-bound Compose nodes; use `phone-ui.py layout` + `. ./.vd-wsa.state; export VD=$LOGICAL,$SFID` + `orca-vd.sh tap`.
-- Paint shop for all kinds: built + Claude-verified WSA VD 2026-10-29 (archive); commit pushed, CI build next dispatch.
-- CAD 7a-7c in r472 (archive). 7d part sliders: core + gizmo + Scale % field + part size slider pushed (dd8f656, tests green); only the WSA VD look (5) is left (`NOTES-cad-reuse.md` "Left"). Not in a CI build yet (paint shop + 7d wait for the next dispatch).
+- Paint shop for all kinds: Claude-verified WSA VD 2026-10-29 (archive); not in a CI build yet.
+- CAD 7a-7d done + Claude-verified (archive); 7d and paint shop are not in a CI build yet.
 - **Queued (user 2026-10-29):** [Opus] push/pull tier 2 (SCAD wrapper, any face of SCAD/MESH shapes, archive 2026-10-21 plan); [Opus] OrcaMesh vert/edge/face edit mode (extrude, inset, loop cut, bevel via CGAL Surface_mesh + PMP; CAD roadmap said skip on touch);
   dimensions overview (per-object bbox, hole sizes, thinnest wall; **ask the user what they had in mind when it comes up**); floating Theme | Layout designer (~half a day; **ask what they have in mind first**).
 - VD tap tip: always `export TARGET=wsa` for `orca-vd.sh tap/shot` (without it they hit the phone: 2026-10-29 mistake, harmless); tap coords are not `phone-ui.py layout` coords on WSA (menu layout showed 212x596), so check with a `TARGET=wsa` shot first; Add menu -> "Design" (CAD) opens Build.
-- Next step: 7d WSA VD look (wheel size slider), then dispatch CI -> Sonnet 5.5 (medium)
+- Next step: dispatch CI (paint shop + 7d), install on all adb devices (skip .23) -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).

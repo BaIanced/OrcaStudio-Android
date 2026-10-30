@@ -3696,3 +3696,6 @@ Object More menu now: Add volume (5 items) and Mesh tools (7 items) collapsible,
 
 ## 2026-10-29: paint shop for all kinds (Claude-verified WSA VD, debug build, not in a CI build yet)
 - User asked: brush icon leads to the paint shop, all paint kinds there. Done: brush opens the shop (colour); dock chips Colour / Supports / Seam / Fuzzy switch kind (`PaintShop.kt`, `PrepareOverlay.kt` menu removed, `PaintOptions` internal). Verified on the WSA virtual display: brush -> shop, each chip sets the matching tool (support/seam/fuzzy/color), Done leaves. User feel untested (SIGNOFF-CHECKLIST.md).
+
+## 2026-10-29: CAD 7d part size slider (Claude-verified WSA VD, debug build dd8f656, not in a CI build yet)
+- Build workspace: Add > Design, Part > Wheel: Customizer tab shows "wheel 1 size" field (100); set 200 -> wheel renders ~2x, geometry intact (shot). Group Scale % field covered by unit tests only.
