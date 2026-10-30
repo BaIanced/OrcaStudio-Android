@@ -62,7 +62,7 @@ STLs from CAD have flat faces split into many triangles and no quads, so raw Ble
   `meshEdit` in EngineCalls (+ no-flush list; null ray/matrix = absent), Kotlin `Engine.meshEdit` + `MeshEditStep` (compiles).
 - **M1b MCP done 2026-10-30 (Claude, Kotlin compiles):** `mesh_edit` in McpTools.kt (`meshEdit()`, `editMatrix()` = T*Rz*Ry*Rx*S
   row-major, scale in percent; target remembered in `meshEditTarget` for ray-less calls; transform = move + end in one `plateEdit`).
-- **M1b WSA VD check 2026-10-30 (Claude, local WSL native build `corebuild.sh` compiles; CI run 41015631540 also queued):**
+- **M1b WSA VD check 2026-10-30 (Claude, local WSL native build `corebuild.sh` compiles; CI run 41015631540 green):**
   20 mm cube: top face select (4 verts, normal +Z) + move [0,0,5] -> 20x20x25 OK; edge pick (2 verts), grow (7), ray-less move
   of the kept selection, scale [50,50,100] + rotate z45 -> 20.071 mm footprint (matches the math). Vertex pick at an exact corner
   ray missed the object (ray on the boundary; retest slightly inside).
