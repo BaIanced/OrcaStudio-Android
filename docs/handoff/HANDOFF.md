@@ -36,9 +36,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - WSA: `svc power stayon true` while testing; `stage-from-apk.sh <apk>`.
 - WSA VD (reference "Headless display"): Kotlin-only changes = assembleDebug + `wsa-debug-setup.sh` (installs, no launch) + `TARGET=wsa PKG=...debug orca-vd.sh start`; shots via MCP `view_screenshot`; uninstall debug after. `wsa-full.ps1` only when the user asks to watch.
 - Fixture `~/orca-android-tools/rep-groups.json` (MCP `design_set`). VD taps: `export TARGET=wsa`, `. ./.vd-wsa.state; export VD=$LOGICAL,$SFID`, `orca-vd.sh tap/shot`, coords from a `TARGET=wsa` shot (archive "VD tap tip"; `tx.sh` fails on 0-bound nodes).
-- **Queued (user 2026-10-29):** (push/pull tier 2 Claude-verified 2026-10-30, archive; in run 41012656080) [Opus] OrcaMesh vert/edge/face edit mode (extrude/inset/loop cut/bevel, CGAL PMP);
-  dimensions overview (per-object bbox, hole sizes, thinnest wall; **ask the user what they had in mind when it comes up**); floating Theme | Layout designer (~half a day; **ask what they have in mind first**).
-- Next step: OrcaMesh vert/edge/face edit mode design (Queued, NOTES first; ask the user only if the design forks) -> Opus 5.5 (high)
+- **OrcaMesh edit mode: design done 2026-10-30, `NOTES-orcamesh-edit.md`** (Prepare tool `Tool.MeshEdit` on the sculpt session
+  pattern; feature-level selection; M1 move/scale/rotate, M2 extrude+inset, M3 cut ring, M4 bevel via OCCT). Start M1 native session + picking.
+- **Queued (user 2026-10-29):** dimensions overview (per-object bbox, hole sizes, thinnest wall; **ask the user what they had in mind when it comes up**); floating Theme | Layout designer (~half a day; **ask what they have in mind first**).
+- Next step: OrcaMesh edit M1 (native session + selection + move, NOTES-orcamesh-edit.md) -> Opus 5.5 (high)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
