@@ -3706,3 +3706,8 @@ Object More menu now: Add volume (5 items) and Mesh tools (7 items) collapsible,
 
 ### 2026-10-30 Push/pull tier 2 verified (Claude, WSA VD, debug 48eadc3)
 - Pick + arrow drag (+10.5), delete via Face edits, builder undo, and PULL: typing -3 in the Face edits field of the L-bracket tab -> tab thinner, hole round and unmoved, bounds [-30,-15,-18]..[30,15,18] unchanged (design_describe), OpenSCAD re-render of the emitted code fine on the debug build. Not user-felt (no user testing now). Details: NOTES-pushpull-tier2.md.
+
+## 2026-10-30: OrcaMesh edit M1-M4 + Dimensions phase 2
+- OrcaMesh edit (`NOTES-orcamesh-edit.md`): M1-M4 incl. panel Fillet / Chamfer Claude-verified on WSA VD. CI run 41100791348 cancelled; run 41105435015 (r479, M4 head 55da269) green, installed on all adb devices.
+- Dimensions phase 1 visual check blocked: phone off adb, Note dozing, WSA `view_screenshot` GL only (no Compose overlay).
+- Phase 2 scoping: only `OrcaTools.cpp:181` per-point ring snap existed (`Engine.kt:236`), no hole enumeration; chose pure Kotlin on the renderer's scene mesh (8 floats/vertex, world space) over a native patch. Shipped 68b9ac9 `HoleFinder.kt` + `HoleFinderTest` (3/3).
