@@ -62,10 +62,11 @@ object BuildTransform {
         return Vec3(inst.offset.x + axis(0), inst.offset.y + axis(1), inst.offset.z + axis(2))
     }
 
-    /** Design point [p] in [frame] (rigid row-major 4 x 4, [ShapeDesign.parentFrame]). */
+    /** Design point [p] in [frame] (row-major 4 x 4: turn, flip, move and an even scale, [ShapeDesign.parentFrame]). */
     fun inFrame(frame: DoubleArray, p: D3): D3 {
         val q = D3(p.x - frame[3], p.y - frame[7], p.z - frame[11])
-        return D3((0..2).sumOf { frame[it * 4] * q[it] }, (0..2).sumOf { frame[it * 4 + 1] * q[it] }, (0..2).sumOf { frame[it * 4 + 2] * q[it] })
+        val kk = frame[0] * frame[0] + frame[4] * frame[4] + frame[8] * frame[8]
+        return D3((0..2).sumOf { frame[it * 4] * q[it] } / kk, (0..2).sumOf { frame[it * 4 + 1] * q[it] } / kk, (0..2).sumOf { frame[it * 4 + 2] * q[it] } / kk)
     }
 
     /** Design turn [m] in [frame]: A^T * m * A (A = the frame's turn and flip). */
@@ -84,7 +85,11 @@ object BuildTransform {
         return D3(out[0], out[1], out[2])
     }
 
-    private fun linear(m: DoubleArray) = Array(3) { i -> DoubleArray(3) { j -> m[i * 4 + j] } }
+    /** [m]'s turn and flip, its even scale (scaled groups) taken out. */
+    private fun linear(m: DoubleArray): Array<DoubleArray> {
+        val k = kotlin.math.sqrt(m[0] * m[0] + m[4] * m[4] + m[8] * m[8])
+        return Array(3) { i -> DoubleArray(3) { j -> m[i * 4 + j] / k } }
+    }
 
     /** Shape [s] turned by [m] about point [c], both in its parent's frame (the design's at the top level: [turnInFrame]). */
     fun turned(d: ShapeDesign, s: Shape, m: Array<DoubleArray>, c: D3): Pose {

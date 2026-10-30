@@ -28,6 +28,8 @@ data class Bounds(val min: D3, val max: D3) {
     val center get() = D3((min.x + max.x) / 2, (min.y + max.y) / 2, (min.z + max.z) / 2)
     fun union(o: Bounds) = Bounds(D3(min(min.x, o.min.x), min(min.y, o.min.y), min(min.z, o.min.z)),
         D3(max(max.x, o.max.x), max(max.y, o.max.y), max(max.z, o.max.z)))
+    /** Scaled by [k] (> 0) about the origin. */
+    fun times(k: Double) = Bounds(D3(min.x * k, min.y * k, min.z * k), D3(max.x * k, max.y * k, max.z * k))
 
     companion object {
         fun of(points: List<D3>) = Bounds(
@@ -148,6 +150,11 @@ data class Shape(
         const val BLEND = "blend"
         /** A group with HULL = 1 is the convex hull of its solids (holes still cut it); it takes the place of Blend joins. */
         const val HULL = "hull"
+        /**
+         * A group's size in % (default 100): its shapes scaled evenly about the group's own origin (bottom centre), so a
+         * slider bound to it resizes a whole part. Even only: turned shapes and circular copies would skew otherwise.
+         */
+        const val SCALE = "scale"
         /** A MESH shape's own bounds (mm) as read from its file: min x / y / z, max x / y / z. */
         val MESH_BOUNDS = listOf("mx0", "my0", "mz0", "mx1", "my1", "mz1")
 
@@ -266,15 +273,20 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
     fun value(s: Shape, field: String, raw: Double): Double = s.bind[field]?.let { dim(it)?.value } ?: raw
 
     /** Height of [s] whose middle it turns and flips about: its size, or a group's children's top. */
-    fun height(s: Shape): Double = if (s.isGroup) s.children.maxOfOrNull { bounds(it).max.z } ?: 0.0 else size(s).z
+    fun height(s: Shape): Double = if (s.isGroup) (s.children.maxOfOrNull { bounds(it).max.z } ?: 0.0) * scaleOf(s) else size(s).z
+
+    /** A group's [Shape.SCALE] as a factor (1 = 100 %, at least 0.01); 1 for other shapes. */
+    fun scaleOf(s: Shape): Double = if (!s.isGroup) 1.0 else max(0.01, value(s, Shape.SCALE, s.x(Shape.SCALE, 100.0)) / 100)
+
+    /** A group's children's bounds, scaled by the group: its box in its own frame. */
+    private fun groupBox(g: Shape): Bounds? = g.children.map { bounds(it) }.reduceOrNull { a, b -> a.union(b) }?.times(scaleOf(g))
 
     /** Bounds of [s] in its parent's frame, copies included. */
     fun bounds(s: Shape): Bounds {
         val local: Bounds
         val height: Double
         if (s.isGroup) {
-            val kids = s.children.map { bounds(it) }
-            local = kids.reduceOrNull { a, b -> a.union(b) } ?: Bounds(D3(), D3())
+            local = groupBox(s) ?: Bounds(D3(), D3())
             height = local.max.z
         } else {
             val sz = size(s)
@@ -420,7 +432,15 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
         val scad = if (s.isGroup && s.x(Shape.BLEND, 0.0) > 0 && s.x(Shape.HULL, 0.0) == 0.0) blendCode(s) else buildString {
             prelude(this, listOf(s))
             appendLine()
-            if (s.isGroup) group(this, s.children, "", s.x(Shape.HULL, 0.0) != 0.0) else appendLine(body(s))
+            val k = scaleOf(s)
+            if (!s.isGroup) appendLine(body(s))
+            else if (k == 1.0) group(this, s.children, "", s.x(Shape.HULL, 0.0) != 0.0)
+            else {
+                // The group's scale goes in the code, not the matrix: the Build gizmos take piece matrices as rigid.
+                appendLine("scale(${n(k)}) {")
+                group(this, s.children, "    ", s.x(Shape.HULL, 0.0) != 0.0)
+                appendLine("}")
+            }
         }
         val own = placement(s)
         copies(s).mapIndexed { i, c -> Piece(top.id, i, s.hole, scad, mul(c, own).toList(), if (s.hole) 0 else s.filament) }
@@ -432,25 +452,29 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
      */
     private fun blendCode(g: Shape): String {
         val parts = JSONArray()
-        val bad = blendParts(g.children, translation(D3()), false, parts)
-        return BLEND_TAG + (if (bad != null) "!$bad" else JSONObject().put("radius", g.x(Shape.BLEND, 0.0)).put("parts", parts).toString())
+        // A scaled group blends at the same scale: its radius grows with its shapes.
+        val bad = blendParts(g.children, scaling(scaleOf(g)), false, parts)
+        return BLEND_TAG + (if (bad != null) "!$bad" else JSONObject().put("radius", g.x(Shape.BLEND, 0.0) * scaleOf(g)).put("parts", parts).toString())
     }
 
     /**
-     * Adds every copy of [kids]' shapes (resolved), placed by [frame] in the blended group's frame, to [out]; returns the
-     * name of the first one OCCT can't take: other kinds, many-sided cylinders / cones, hollow shapes, or a group with
-     * holes of its own (they cut only that group, which a flat list can't say).
+     * Adds every copy of [kids]' shapes (resolved), placed by [frame] (turn, flip, move and an even scale from scaled
+     * groups) in the blended group's frame, to [out]; returns the name of the first one OCCT can't take: other kinds,
+     * many-sided cylinders / cones, hollow shapes, or a group with holes of its own (they cut only that group, which a
+     * flat list can't say). Each part's matrix is rigid: the scale goes into its size and edge.
      */
     private fun blendParts(kids: List<Shape>, frame: DoubleArray, hole: Boolean, out: JSONArray): String? {
         for (c in kids) {
             val own = placement(c)
             for (copy in copies(c)) {
-                val m = mul(frame, mul(copy, own))
+                val ms = mul(frame, mul(copy, own))
                 if (c.isGroup) {
                     if (c.children.any { it.hole }) return c.name
-                    blendParts(c.children, m, hole || c.hole, out)?.let { return it }
+                    blendParts(c.children, mul(ms, scaling(scaleOf(c))), hole || c.hole, out)?.let { return it }
                     continue
                 }
+                val k = sqrt(ms[0] * ms[0] + ms[4] * ms[4] + ms[8] * ms[8])
+                val m = DoubleArray(16) { i -> if (i % 4 < 3 && i < 12) ms[i] / k else ms[i] }
                 val kind = when (c.kind) {
                     Shape.Kind.BOX, Shape.Kind.ROUNDED_BOX -> "box"
                     Shape.Kind.CYLINDER, Shape.Kind.CONE -> c.kind.key.takeIf { c.x(Shape.SIDES, 0.0) < 3 }
@@ -458,12 +482,12 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
                     else -> null
                 }
                 if (kind == null || (c.kind in Shape.SHELLED && c.x(Shape.SHELL, 0.0) > 0)) return c.name
-                val edge = when (c.kind) {
+                val edge = k * when (c.kind) {
                     Shape.Kind.ROUNDED_BOX -> min(c.x(Shape.RADIUS, 2.0), min(c.size.x, min(c.size.y, c.size.z)) / 2 - 0.01)
                     in Shape.EDGED -> c.x(Shape.EDGE, 0.0)
                     else -> 0.0
                 }
-                out.put(JSONObject().put("kind", kind).put("size", c.size.json()).put("hole", hole || c.hole)
+                out.put(JSONObject().put("kind", kind).put("size", D3(c.size.x * k, c.size.y * k, c.size.z * k).json()).put("hole", hole || c.hole)
                     .put("m", JSONArray(m.toList())).apply {
                         if (c.kind == Shape.Kind.CONE) put("top", c.x(Shape.TOP, 0.0))
                         if (edge > 0) put("round", edge).put("chamfer", c.kind != Shape.Kind.ROUNDED_BOX && c.x(Shape.CHAMFER, 0.0) != 0.0)
@@ -503,12 +527,14 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
     fun hitAt(piece: Piece, p: D3): List<Pair<Int, Int>> {
         val top = shapes.firstOrNull { it.id == piece.shapeId }?.let(::resolved) ?: return emptyList()
         val out = arrayListOf(top.id to piece.copy)
-        var q = inverse(piece.matrix.toDoubleArray(), p)
+        // A scaled group's children sit in its frame scaled down: undo the scale at each group.
+        fun into(g: Shape, l: D3) = scaleOf(g).let { k -> D3(l.x / k, l.y / k, l.z / k) }
+        var q = into(top, inverse(piece.matrix.toDoubleArray(), p))
         var kids = if (top.isGroup) top.children else emptyList()
         while (kids.isNotEmpty()) {
             var best: Triple<Pair<Shape, Int>, D3, Double>? = null
             for (c in kids) {
-                val box = if (c.isGroup) c.children.map { bounds(it) }.reduceOrNull { a, b -> a.union(b) } ?: continue
+                val box = if (c.isGroup) groupBox(c) ?: continue
                     else Bounds(D3(-c.size.x / 2, -c.size.y / 2, 0.0), D3(c.size.x / 2, c.size.y / 2, c.size.z))
                 val own = placement(c)
                 for ((k, m) in copies(c).withIndex()) {
@@ -522,7 +548,7 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
             }
             val (ck, l) = best ?: break
             out += ck.first.id to ck.second
-            q = l
+            q = into(ck.first, l)
             kids = if (ck.first.isGroup) ck.first.children else emptyList()
         }
         return out
@@ -534,18 +560,20 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
      */
     fun toParent(id: Int, v: D3, copy: Map<Int, Int> = emptyMap()): D3 {
         val m = parentFrame(id, copy)
-        // The turn and flip are orthonormal: the inverse is the transpose.
-        return D3((0..2).sumOf { m[it * 4] * v[it] }, (0..2).sumOf { m[it * 4 + 1] * v[it] }, (0..2).sumOf { m[it * 4 + 2] * v[it] })
+        // The turn and flip are orthonormal, times an even scale k: the inverse is the transpose over k squared.
+        val kk = m[0] * m[0] + m[4] * m[4] + m[8] * m[8]
+        return D3((0..2).sumOf { m[it * 4] * v[it] } / kk, (0..2).sumOf { m[it * 4 + 1] * v[it] } / kk, (0..2).sumOf { m[it * 4 + 2] * v[it] } / kk)
     }
 
     /**
-     * Where the frame shape [id] lives in (its parent group's) lies in the design: row-major 4 x 4, rigid (turn, flip,
-     * move). The identity for a top-level shape; a repeated group counts as copy [copy] of its id, else its first.
+     * Where the frame shape [id] lives in (its parent group's) lies in the design: row-major 4 x 4, turn, flip, move and
+     * the scaled groups' even scale ([scaleOf]). The identity for a top-level shape; a repeated group counts as copy
+     * [copy] of its id, else its first.
      */
     fun parentFrame(id: Int, copy: Map<Int, Int> = emptyMap()): DoubleArray = pathTo(id).dropLast(1).fold(translation(D3())) { acc, g ->
         val r = resolved(g)
         val c = copies(r).let { it.getOrNull(copy[g.id] ?: 0) ?: it.first() }
-        mul(acc, mul(c, placement(r)))
+        mul(acc, mul(mul(c, placement(r)), scaling(scaleOf(r))))
     }
 
     /**
@@ -642,7 +670,12 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
             }
             ind += "    "
         }
-        val h = if (s.isGroup) n(height(s)) else f(s, "size.z", s.size.z)
+        // A group's scale: a factor, or "<slider> / 100" when bound (its height then follows the slider in the code too).
+        val k = if (!s.isGroup) null else f(s, Shape.SCALE, s.x(Shape.SCALE, 100.0)).let { v ->
+            v.toDoubleOrNull()?.let { if (it == 100.0) null else n(max(0.01, it / 100)) } ?: "$v / 100"
+        }
+        val h = if (!s.isGroup) f(s, "size.z", s.size.z)
+            else if (k != null && k.toDoubleOrNull() == null) "${n(height(s) / scaleOf(s))} * $k" else n(height(s))
         val rotated = s.rot != D3() || s.bind.keys.any { it.startsWith("rot.") }
         val pivot = rotated || s.mirror.z != 0.0
         out.append("${ind}translate([${f(s, "pos.x", s.pos.x)}, ${f(s, "pos.y", s.pos.y)}, ${f(s, "pos.z", s.pos.z)}${if (pivot) " + $h / 2" else ""}])")
@@ -650,7 +683,8 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
         if (s.mirror.x != 0.0) out.append(" mirror([1, 0, 0])")
         if (s.mirror.y != 0.0) out.append(" mirror([0, 1, 0])")
         if (s.mirror.z != 0.0) out.append(" mirror([0, 0, 1])")
-        if (pivot) out.append(" translate([0, 0, -$h / 2])")
+        if (pivot) out.append(" translate([0, 0, -${if (' ' in h) "($h)" else h} / 2])")
+        if (k != null) out.append(" scale($k)")
         if (s.isGroup) {
             out.appendLine(" {")
             group(out, s.children, "$ind    ", s.x(Shape.HULL, 0.0) != 0.0)
@@ -844,6 +878,9 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
         /** [p] through OpenSCAD's mirror() of the axes set in [m]. */
         /** A row-major 4 x 4 translation by [d]. */
         fun translation(d: D3) = DoubleArray(16).also { t -> t[0] = 1.0; t[5] = 1.0; t[10] = 1.0; t[15] = 1.0; t[3] = d.x; t[7] = d.y; t[11] = d.z }
+
+        /** A row-major 4 x 4 even scale by [k]. */
+        fun scaling(k: Double) = DoubleArray(16).also { t -> t[0] = k; t[5] = k; t[10] = k; t[15] = 1.0 }
 
         /** [a] x [b], both row-major 4 x 4. */
         fun mul(a: DoubleArray, b: DoubleArray) = DoubleArray(16) { k ->
