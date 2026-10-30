@@ -13,7 +13,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 ## State
 - One repo: OrcaStudio-Android (code + these docs, `docs/handoff/`), branch `claude/handoff-continuation-rseql3`. Autonomy (user, 2026-10-11): decide branches and next steps
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
-- Android main = de0e3fa (PR #67, branch at run 41012656080 = r473 + push/pull tier 2, merged 2026-10-30 on /next-merge; user-untested, Claude-verified only). Older: 3defffa (PR #66, r461), 0170950 (PR #65, r398). User-untested in main: list in `NOTES-merge-batch.md`.
+- Android main = de0e3fa (PR #67, branch at run 41012656080 = r473 + push/pull tier 2, merged 2026-10-30 on /next-merge; user-untested, Claude-verified only). User-untested in main: list in `NOTES-merge-batch.md`.
 - Signing secrets: `release` environment (main + `claude/*` only).
 - Latest CI build: run 41012656080 (push/pull tier 2 on top of r473) on all 5 adb devices, 2026-10-30. User feel untested. Install builds on all adb devices (skip .23).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
@@ -36,10 +36,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - WSA: `svc power stayon true` while testing; `stage-from-apk.sh <apk>`.
 - WSA VD (reference "Headless display"): Kotlin-only changes = assembleDebug + `wsa-debug-setup.sh` (installs, no launch) + `TARGET=wsa PKG=...debug orca-vd.sh start`; shots via MCP `view_screenshot`; uninstall debug after. `wsa-full.ps1` only when the user asks to watch.
 - Fixture `~/orca-android-tools/rep-groups.json` (MCP `design_set`). VD taps: `export TARGET=wsa`, `. ./.vd-wsa.state; export VD=$LOGICAL,$SFID`, `orca-vd.sh tap/shot`, coords from a `TARGET=wsa` shot (archive "VD tap tip"; `tx.sh` fails on 0-bound nodes).
-- **OrcaMesh edit mode: design done 2026-10-30, `NOTES-orcamesh-edit.md`** (Prepare tool `Tool.MeshEdit` on the sculpt session
-  pattern; feature-level selection; M1 move/scale/rotate, M2 extrude+inset, M3 cut ring, M4 bevel via OCCT). Start M1 native session + picking.
+- **OrcaMesh edit mode** (`NOTES-orcamesh-edit.md`, design + "Progress"): M1a kernels done (MeshEdit.hpp + WSL test), M1b engine glue next.
 - **Queued (user 2026-10-29):** dimensions overview (per-object bbox, hole sizes, thinnest wall; **ask the user what they had in mind when it comes up**); floating Theme | Layout designer (~half a day; **ask what they have in mind first**).
-- Next step: OrcaMesh edit M1 (native session + selection + move, NOTES-orcamesh-edit.md) -> Opus 5.5 (high)
+- Next step: OrcaMesh edit M1b (OrcaMeshEdit.cpp engine call on SculptSession + MCP mesh_edit, NOTES-orcamesh-edit.md "Progress") -> Opus 5.5 (high)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).

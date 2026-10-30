@@ -48,3 +48,16 @@ STLs from CAD have flat faces split into many triangles and no quads, so raw Ble
 
 ## MCP
 - `mesh_edit` tool (select by ray / region index, op + amount) so Claude can test on the WSA VD without taps, like `object_sculpt`.
+
+## Progress
+- **M1a done 2026-10-30 (Claude):** `jni/MeshEdit.hpp` kernels: `face_neighbors`, `face_regions` (crease flood; angle <= 0 =
+  Triangles mode), `creases`, `pick` (Face = region verts + border edges, Edge = whole crease polyline between the two
+  regions nearest the hit, Vertex = corner on >= 3 regions within reach else nearest vertex of the hit face), `toggle`
+  (tapping an all-selected pick removes it), `grow`, `centroid`, `selection_normal`. Tests: `android/core/tests/mesh_edit_test.cpp`
+  (`wsl -e bash -c "cd android/core/tests && g++ -std=c++17 -Wall -Wextra -I../jni mesh_edit_test.cpp -o /tmp/met && /tmp/met"`), pass.
+- **M1b next:** `jni/OrcaMeshEdit.cpp`: reuse `SculptSession` (mesh, topo, copies, flush) instead of a new session; factor
+  the patch writer out of `OrcaEngine::sculpt` (OrcaSculpt.cpp ~644-685) into a helper taking a face list. Engine calls
+  `meshEdit` {object, instance, volume, op: select|clear|grow|move|end, ray, kind, angle (0 = Triangles), toggle,
+  matrix (world 4x4 applied about the centroid)}; move keeps the start positions of the selection (like `grab_orig`),
+  `push_undo()` at a drag's first move, flush + drop_to_bed at end; returns selection {centroid, normal, edges, verts} in world mm.
+  Add `meshEdit` to dispatch()'s no-flush list (EngineCalls.cpp:233). Then MCP `mesh_edit`, CI build, WSA VD check. Kotlin UI = M1c.
