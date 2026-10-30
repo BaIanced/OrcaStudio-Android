@@ -883,6 +883,8 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
 
     /** The part the last mesh_edit selected on, for ray-less calls. */
     private var meshEditTarget: PickHit? = null
+    /** The scene's mesh version when [meshEditTarget] was last valid: undo / delete / another edit change it (stale indices). */
+    private var meshEditVersion = -1
 
     private suspend fun meshEdit(args: JSONObject): String {
         val origin = args.vec3("origin")
@@ -901,8 +903,9 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         if (op == "select") {
             if (ray == null) throw ToolError("select needs origin and dir")
             meshEditTarget = store.engine.pick(ray.first, ray.second) ?: throw ToolError("the ray misses every object")
-        }
-        val target = meshEditTarget ?: throw ToolError("Nothing selected yet: select with a ray first")
+            meshEditVersion = store.value.scene.meshVersion
+        } else if (meshEditVersion != store.value.scene.meshVersion) meshEditTarget = null
+        val target = meshEditTarget ?: throw ToolError("Nothing selected (or the plate changed since): select with a ray first")
         var sel = if (op.isEmpty()) null else store.engine.meshEdit(target, op, ray, kind, angle.toFloat(), args.optBoolean("toggle")).selection
         if (move == null && scale == null && rotate == null) return selectionText(sel!!)
         val reply = plateEdit("edited the mesh of object ${target.obj + 1}", R.string.deforming) {
@@ -911,6 +914,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             sel = end.selection
             end.scene ?: throw ToolError("mesh_edit returned no scene")
         }
+        meshEditVersion = store.value.scene.meshVersion
         return reply + "\n" + selectionText(sel!!)
     }
 

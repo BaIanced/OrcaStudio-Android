@@ -66,8 +66,10 @@ STLs from CAD have flat faces split into many triangles and no quads, so raw Ble
   20 mm cube: top face select (4 verts, normal +Z) + move [0,0,5] -> 20x20x25 OK; edge pick (2 verts), grow (7), ray-less move
   of the kept selection, scale [50,50,100] + rotate z45 -> 20.071 mm footprint (matches the math). Vertex pick at an exact corner
   ray missed the object (ray on the boundary; retest slightly inside).
-- **M1b next:** plate undo after mesh_edit is UNTESTED: the VD Undo at [15,717] was the shape builder's (design_set opened it;
-  it undid the design and the plate object with it). Close the builder (Prepare tab, find its bounds in the ui dump), then
-  select + move, tap Prepare's Undo, reselect: centroid must be back. Also: `meshEditTarget` goes stale after undo / delete
-  (indices may point at another object): clear it when the scene's object count or mesh version changes, or re-pick per call.
-  mcpao `plate_describe` replies looked cut (~736 bytes, "2 object(s)" listing 1): check mcpao vs the tool. Kotlin UI = M1c.
+- **M1b done 2026-10-30 (Claude, WSA VD, debug build on the local native lib):** `meshEditTarget` now carries the scene
+  mesh version (`meshEditVersion`); a ray-less call after undo / delete / any other edit says "select again". Cube top face
+  +5 then +1 (ray-less chain) -> 26 mm; Prepare Undo (VD tap 27,78) -> 25 (one step per op), ray-less call refused; second
+  Undo -> 20, reselect centroid z 20. Vertex pick 1 mm inside the face -> nearest corner OK (its normal is triangulation-biased,
+  [-0.33,-0.67,0.67]: fine for now, only face moves use the normal). Cut MCP replies were `mcptest.sh` `MAX=700`: pass `MAX=4000`.
+- **M1c next (Kotlin UI):** `Tool.MeshEdit` beside Sculpt, chips Vertex | Edge | Face + Features/Triangles, taps toggle,
+  All / None / Grow, overlay from `selection.edges`, gizmo on the centroid (`Engine.meshEdit` move live, end on release).
