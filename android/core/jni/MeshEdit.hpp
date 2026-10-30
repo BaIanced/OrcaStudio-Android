@@ -264,13 +264,14 @@ inline Vec3 selection_normal(const Mesh &m, const std::vector<int> &selection)
 // (an edge between a cap face and any other face, or an open edge) gets a copy that the cap's faces use instead, and each
 // border edge gets a wall quad from the old border to the copies, so a closed part stays closed. Nothing moves: the walls
 // are flat until the cap moves (extrude, either way: a pocket has the same topology) or the copies are pulled in (inset).
+// Extrude passes its direction as [slide]: border vertices whose outside faces run along it stay shared (push/pull style).
 struct CapSplit {
     std::vector<int> cap;    // the cap's vertices after the split, sorted (the new selection)
     std::vector<int> copies; // the border copies
     std::vector<Vec3> inset; // per copy: the in-plane move that puts it 1 unit inside each of its border edges
 };
 
-inline CapSplit split_cap(Mesh &m, const std::vector<int> &selection)
+inline CapSplit split_cap(Mesh &m, const std::vector<int> &selection, Vec3 slide = {0, 0, 0})
 {
     using namespace meshsculpt::detail;
     CapSplit out;
@@ -300,10 +301,26 @@ inline CapSplit split_cap(Mesh &m, const std::vector<int> &selection)
                 border.push_back({a, b});
                 inward.push_back(unit(cross(face_normal(m, int(f)), unit(sub(m.vertices[size_t(b)], m.vertices[size_t(a)])))));
             }
+    // Slide (extrude along [slide]): a border vertex whose outside faces all run along that direction keeps no copy; those
+    // faces stretch with the cap instead of getting a wall in their own plane (a push into the part overlapped them).
+    std::vector<char> keep(m.vertices.size(), 0);
+    if (len(slide) > 0.) {
+        const Vec3 s = unit(slide);
+        std::vector<char> along(m.vertices.size(), 1);
+        for (size_t f = 0; f < m.faces.size(); ++f)
+            if (!capf[f] && std::abs(dot(unit(face_normal(m, int(f))), s)) > 0.02)
+                for (int v : m.faces[f])
+                    along[size_t(v)] = 0;
+        for (const auto &e : border)
+            for (int v : e)
+                keep[size_t(v)] = along[size_t(v)];
+    }
     std::vector<int> copy(m.vertices.size(), -1);
     std::vector<std::vector<Vec3>> dirs;
     for (size_t i = 0; i < border.size(); ++i)
         for (int v : border[i]) {
+            if (keep[size_t(v)])
+                continue;
             if (copy[size_t(v)] < 0) {
                 copy[size_t(v)] = int(m.vertices.size());
                 m.vertices.push_back(m.vertices[size_t(v)]);
@@ -317,10 +334,13 @@ inline CapSplit split_cap(Mesh &m, const std::vector<int> &selection)
             for (int &v : m.faces[f])
                 if (copy[size_t(v)] >= 0)
                     v = copy[size_t(v)];
+    // Walls; an edge with a kept end gets a triangle, one with both ends kept none.
     for (const auto &[a, b] : border) {
-        const int ca = copy[size_t(a)], cb = copy[size_t(b)];
-        m.faces.push_back({a, b, cb});
-        m.faces.push_back({a, cb, ca});
+        const int ca = copy[size_t(a)] >= 0 ? copy[size_t(a)] : a, cb = copy[size_t(b)] >= 0 ? copy[size_t(b)] : b;
+        if (cb != b)
+            m.faces.push_back({a, b, cb});
+        if (ca != a)
+            m.faces.push_back({a, cb, ca});
     }
     // Inset: along the mean of the border edges' inward directions, stretched so each edge is 1 unit away (capped at a
     // sharp corner, where the exact point runs off far).

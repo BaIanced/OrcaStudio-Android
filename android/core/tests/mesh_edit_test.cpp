@@ -109,6 +109,29 @@ int main()
         assert(std::abs(std::min(p.x, 1. - p.x) - 0.1) < 1e-9 && std::abs(std::min(p.y, 1. - p.y) - 0.1) < 1e-9 && p.z == 1.);
     }
     assert(std::abs(volume(in) - 1.) < 1e-9 && closed(in));
+    // Extrude with the slide direction: the cube's sides run along +Z, so no copies, no walls; pushing the top down just
+    // shortens the cube (the walls used to lie inside the sides: self-intersections).
+    Mesh sl = cube();
+    cs = split_cap(sl, top, {0, 0, 1});
+    assert(cs.copies.empty() && sl.faces.size() == 24 && sl.vertices.size() == 14);
+    for (int v : cs.cap)
+        sl.vertices[size_t(v)].z -= 0.25;
+    assert(std::abs(volume(sl) - 0.75) < 1e-9 && closed(sl));
+    // After an inset the ring is flat (across the slide direction): its copies and walls stay.
+    Mesh ri = cube();
+    cs = split_cap(ri, top);
+    for (size_t k = 0; k < cs.copies.size(); ++k)
+        ri.vertices[size_t(cs.copies[k])] = meshsculpt::detail::add(ri.vertices[size_t(cs.copies[k])], meshsculpt::detail::mul(cs.inset[k], 0.1));
+    std::vector<int> inner;
+    for (int v : cs.cap)
+        if (ri.vertices[size_t(v)].x > 0.05 && ri.vertices[size_t(v)].x < 0.95)
+            inner.push_back(v);
+    const size_t nf = ri.faces.size();
+    cs = split_cap(ri, inner, {0, 0, 1});
+    assert(cs.copies.size() == 4 && ri.faces.size() == nf + 8 && closed(ri));
+    for (int v : cs.cap)
+        ri.vertices[size_t(v)].z -= 0.5;
+    assert(std::abs(volume(ri) - (1. - 0.64 * 0.5)) < 1e-9);
     // No face fully selected: nothing to split.
     Mesh none = cube();
     assert(split_cap(none, {4, 5}).cap.empty() && none.faces.size() == 24);

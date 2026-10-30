@@ -100,12 +100,13 @@ STLs from CAD have flat faces split into many triangles and no quads, so raw Ble
   first step sends `extrude`, applies its scene + selection) and Extrude / Inset (mm) fields + Apply (`SceneController.meshEditFaces`).
   **MCP verified on WSA VD:** cube top extrude +5 -> 25 mm, inset 3, extrude -4 (pocket) -> vol 9216 (exact), side face +6 -> 12216
   (exact), all "No problems found"; inset 0 / extrude without amount refused.
-  **Panel arrow-drag extrude FAILED:** Extrude chip + top-face tap (350,330) + swipe 362,360 -> 362,250 gave 56 tris, height
-  unchanged, vol 12216 -> 12076, **10 self-intersecting pairs**. Not yet known which face the tap hit (4 verts: pocket floor or a
-  pocket wall). Suspects: (a) after the extrude step `meshEditSel` changes mid-drag, so `FaceArrow` base jumps (PlateView `faceAt`
-  uses f.d + finger delta, so d itself should hold; the drawn arrow doubles); (b) extrude of a non-cap/odd selection. Next: undo
-  to a plain cube, retest the drag on its top face; if it still breaks, log the mm sequence sent; consider keeping the drag-start
-  centroid/verts in the new MeshEditSel. Typed Extrude/Inset Apply in the panel untested.
-- **M2 next (original plan):** Kotlin `Engine.meshEdit(amount)`, MCP `op:"extrude"|"inset"` (+`amount`), panel: Extrude toggle for the arrow drag
-  (first drag step sends `extrude`, apply its scene + update `meshEditSel` before the next move: its mesh version changes)
-  + typed Extrude (mm) / Inset (mm) Apply; WSA VD check on the 20 mm cube; then CI with M1c.
+  **Panel arrow-drag extrude failure solved 2026-10-30 (Claude, WSA VD):** not the panel. A plain cube top drag-extrude worked
+  (20 -> 26.5, 20 faces, vol exact); the bad case was a push *into* the part where the border's outside faces run along the
+  extrude direction (pocket wall, cube side): the walls lay inside those faces (MCP repro: side face -2 -> 95 self-intersecting
+  pairs, width unchanged). Fix: `split_cap(m, sel, slide)` (extrude passes the selection normal): a border vertex whose outside
+  faces all have |n.dir| <= 0.02 keeps no copy, those faces stretch (push/pull style); edges with one kept end get a triangle.
+  Deviation from Blender: extruding a cube top is now a plain move (no edge loop at the old height); after an inset the ring
+  is flat, so walls stay. Unit tests added (slide no-copy + shorten, inset ring keeps 4 copies / 8 walls), pass.
+  **WSA VD verified (debug, local native lib):** MCP top -3 -> 17 mm 12 faces; side -2 -> 18 wide; inset 3 + extrude -5 -> 5280
+  (exact); pocket wall -2 / +4 -> 5140 / 5420 (exact); all "No problems found". Panel: typed Extrude 3 / Inset 4 / Extrude -5
+  Apply exact (11800 / 11800 / 11080); arrow drag down on a fresh cube top 20 -> 17 clean, one Undo -> 20.

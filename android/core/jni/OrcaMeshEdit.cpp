@@ -154,7 +154,8 @@ json OrcaEngine::mesh_edit(const std::array<int, 3> &target, const std::string &
         if (op == "extrude" ? !matrix : !(amount > 0.))
             throw std::runtime_error(op == "extrude" ? "extrude needs a matrix" : "inset needs an amount");
         meshdeform::Mesh m = ss.mesh;
-        const meshedit::CapSplit cs = meshedit::split_cap(m, ss.edit_sel);
+        const meshedit::CapSplit cs = meshedit::split_cap(m, ss.edit_sel,
+            op == "extrude" ? meshedit::selection_normal(ss.mesh, ss.edit_sel) : meshdeform::Vec3{0, 0, 0});
         if (cs.cap.empty())
             throw std::runtime_error("Select a face first");
         if (op == "inset") {

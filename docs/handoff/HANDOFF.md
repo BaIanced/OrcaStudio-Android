@@ -37,9 +37,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - Fixture `~/orca-android-tools/rep-groups.json` (MCP `design_set`). VD taps: archive "VD tap tip".
 - **Queued (user 2026-10-29):** dimensions overview (per-object bbox, hole sizes, thinnest wall; **ask the user what they had in mind when it comes up**); floating Theme | Layout designer (~half a day; **ask what they have in mind first**).
-- **OrcaMesh edit** (`NOTES-orcamesh-edit.md`): M1 Claude-verified (CI pending, batch with M2). M2: native + Kotlin/MCP/panel written (commit "M2 WIP"); MCP extrude/inset verified on WSA VD; **panel arrow-drag
-  extrude made self-intersections** (NOTES "M2 Kotlin/MCP/panel" entry: suspects + retest plan). Debug app still on WSA (local native lib).
-- Next step: OrcaMesh M2 panel drag-extrude bug + typed Apply check on WSA VD (NOTES-orcamesh-edit.md M2 entries) -> Opus 5.5 (medium)
+- **OrcaMesh edit** (`NOTES-orcamesh-edit.md`): M1 + M2 Claude-verified on WSA VD (2026-10-30; drag-extrude bug = walls inside
+  side faces on inward pushes, fixed push/pull style in `split_cap`). CI run for M1c+M2 dispatched; when green: install on all adb devices
+  (skip .23), uninstall the WSA debug app. Then M3 Cut ring.
+- Next step: OrcaMesh CI install + M3 Cut ring (NOTES-orcamesh-edit.md) -> Opus 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
