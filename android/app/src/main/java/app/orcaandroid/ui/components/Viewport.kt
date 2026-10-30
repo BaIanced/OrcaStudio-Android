@@ -630,15 +630,15 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     LaunchedEffect(v, state.lab.wheelSpeed) { v.wheelSpeed = state.lab.wheelSpeed }
     LaunchedEffect(v, state.perspective) { v.camera.perspective = state.perspective }
     LaunchedEffect(v, state.pen) { v.pen = state.pen }
-    // The Build workspace's selection is shapes: their handles and rings always show (groups only turn), on the selected
-    // volumes' mesh box in the copy last tapped or dragged.
+    // The Build workspace's selection is shapes: their handles and rings always show (groups scale by corners only), on the
+    // selected volumes' mesh box in the copy last tapped or dragged.
     val building = state.buildObject != null
     val buildCopy by vm.shapes.buildCopy.collectAsState()
     val buildGroupCopies by vm.shapes.buildGroupCopies.collectAsState()
     val buildGizmo = if (!building) null else remember(state.scene, state.scad?.selected, state.scad?.shapes, buildCopy, buildGroupCopies) { vm.shapes.buildGizmoTarget() }
     LaunchedEffect(v, building) { v.gizmoOnMesh = building }
     LaunchedEffect(v, state.resizing, showPreview, building, buildGizmo) {
-        v.resizeMode = if (building) buildGizmo?.second?.none { it.isGroup } == true else state.resizing && !showPreview
+        v.resizeMode = if (building) buildGizmo != null else state.resizing && !showPreview
     }
     // Build: the lift dot above the selection moves the shapes up or down.
     LaunchedEffect(v, building, buildGizmo) { v.liftMode = building && buildGizmo != null }

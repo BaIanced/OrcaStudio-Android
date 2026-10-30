@@ -236,6 +236,7 @@ class ShapeController(private val store: Store, private val scad: ScadController
         var next = d
         for ((name, now, to) in listOf(Triple("pos", d.pos(s), pose.pos), Triple("rot", d.rot(s), pose.rot), Triple("size", d.size(s), pose.size)))
             for (i in 0..2) if (kotlin.math.abs(now[i] - to[i]) > 1e-6) next = withField(next, id, "$name.${"xyz"[i]}", to[i]) ?: next
+        pose.scale?.let { if (kotlin.math.abs(d.scaleOf(s) * 100 - it) > 1e-6) next = withField(next, id, Shape.SCALE, it) ?: next }
         return if (pose.repeat != s.repeat) next.update(id) { it.copy(repeat = pose.repeat) } else next
     }
 
