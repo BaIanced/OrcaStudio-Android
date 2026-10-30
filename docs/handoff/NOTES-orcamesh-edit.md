@@ -1,4 +1,4 @@
-# OrcaMesh edit mode: vert / edge / face editing (design, Claude 2026-10-30; nothing built)
+# OrcaMesh edit mode: vert / edge / face editing (design, Claude 2026-10-30; M1-M3 built)
 
 Origin: archive "(user, 2026-10-21, idea, discuss) OrcaMesh" + queue (user 2026-10-29). The sculpt half is done (CAD 5a/5b,
 `OrcaSculpt.cpp`); this is the Blender "Tab" half. Design deviations below are pre-approved (user 2026-10-21); listed so the
@@ -116,5 +116,11 @@ STLs from CAD have flat faces split into many triangles and no quads, so raw Ble
   z 0.3 -> ring 12, 48 faces, closed, vol 1; waist scale closed; start on top found; z 0.5 through side middles -> ring 8;
   miss -> empty. Native op `cut` (ray + world `axis`, default Z; new `axis` arg through EngineCalls / `Engine.meshEdit`; one
   undo step, ring selected) and MCP `op:"cut"` + `axis` (+ optional scale/move/rotate on the ring in the same call).
-  **Next:** local `corebuild.sh` (rerun: started before the EngineCalls edit), WSA VD check (cube cut z mid + scale 50,50,100
-  -> waist, "No problems found", one Undo), then panel: "Cut ring" chip + X | Y | Z axis chips, a tap cuts.
+- **M3 done 2026-10-30 (Claude, WSA VD, debug build on the local native lib):** MCP cube cut z 10 + scale [50,50,100] -> 28 faces,
+  vol 4667 (two frustums 20^2 -> 10^2, exact), "No problems found"; X cut through slanted waist faces, Z cut at z 3 + scale 120,
+  diagonal axis [1,1,0] cut: all closed, no problems. Panel: "Cut ring" chip + X | Y | Z (default Z); a tap cuts (28-vertex
+  ring, 190 faces, closed); one Undo -> 134 faces, selection cleared. A tap on a face lying in the cut plane says "crosses
+  nothing, try another axis" (correct). Fix: ring edges in flat faces aren't creases, so the overlay showed dots only; the
+  session keeps the cut's ring (`edit_ring`) and, while it is the selection, the overlay draws its mesh edges.
+  Deviation: world axes X/Y/Z only (no "tapped edge direction" axis). CI run 41100791348 (M3) dispatched.
+  **Next: M4 Bevel** (see "Ops and phases"; `[Opus]`).

@@ -66,4 +66,4 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - Session B checks skipped by user 2026-10-28 ("don't want to do right now"): Sculpt, Hollow, Center/Align, Check mesh, badge fix.
 - Godot review leftovers (Z lift dot, axis lock, Wireframe, orbit inertia, Light direction: all in CI r463, Claude-verified WSA 2026-10-28, archive): open: user feel; tower ignores Z code-verified 2026-10-29. [Opus]
 - CAD 7c leftovers: part sliders (built-ins done 2026-10-29: wheel, figure, peg, hinge, gear) (wheel diameter; needs dims that scale a group). Claude design 2026-10-29 (NOTES-cad-reuse 7d: group SCALE %), nothing built. [Opus]
-- [Opus] OrcaMesh edit mode (vert/edge/face; M1 move/scale/rotate, M2 extrude+inset, M3 cut ring, M4 OCCT bevel): M1a kernels + tests done 2026-10-30, M1b native + Engine.kt done (uncompiled native), MCP mesh_edit + CI next (NOTES-orcamesh-edit.md "Progress"); Claude.
+- [Opus] OrcaMesh edit mode: M1-M3 (move/scale/rotate, extrude+inset, cut ring) Claude-verified on WSA VD 2026-10-30; open: M4 OCCT bevel, user feel untested (NOTES-orcamesh-edit.md "Progress"); Claude.
