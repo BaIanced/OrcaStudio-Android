@@ -188,7 +188,10 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             "selected vertices about their centroid (neighbouring triangles stretch; painting is removed). Replies with the selection " +
             "(count, centroid, normal); a transform also with what changed. $PLATE_EDIT",
             obj(emptyList(), "origin" to vec("Ray origin in plate coordinates (select)"), "dir" to vec("Ray direction (select)"),
-                "op" to p("string", "select (default with a ray), clear, all (every vertex of the part) or grow (adds the neighbouring vertices)"),
+                "op" to p("string", "select (default with a ray), clear, all (every vertex of the part), grow (adds the neighbouring vertices), " +
+                    "extrude (the selected faces pulled out by amount mm along the selection normal with walls; < 0 = pocket) or inset " +
+                    "(the selected faces' border pulled amount mm in, new ring of faces)"),
+                "amount" to p("number", "mm for extrude / inset"),
                 "kind" to p("string", "face (default), edge or vertex"), "angle" to p("number", "Crease angle in degrees; default 30, 0 = single triangles"),
                 "toggle" to p("boolean", "Add to / remove from the selection instead of replacing it"),
                 "move" to vec("Move by [dx, dy, dz] mm"), "scale" to vec("Scale by [x, y, z] percent"), "rotate" to vec("Turn by [x, y, z] degrees"))) { meshEdit(it) },
@@ -891,7 +894,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         val dir = args.vec3("dir")
         if ((origin == null) != (dir == null)) throw ToolError("Give both origin and dir")
         val op = args.optString("op").ifEmpty { if (origin != null) "select" else "" }
-        if (op !in listOf("", "select", "clear", "all", "grow")) throw ToolError("op must be select, clear, all or grow")
+        if (op !in listOf("", "select", "clear", "all", "grow", "extrude", "inset")) throw ToolError("op must be select, clear, all, grow, extrude or inset")
         val kind = args.optString("kind", "face")
         if (kind !in listOf("face", "edge", "vertex")) throw ToolError("kind must be face, edge or vertex")
         val angle = args.optDouble("angle", 30.0).takeIf { it.isFinite() && it >= 0 } ?: throw ToolError("angle must be >= 0")
@@ -900,12 +903,32 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         val rotate = args.vec3("rotate")
         if (op.isEmpty() && move == null && scale == null && rotate == null) throw ToolError("Give a ray, an op or a transform")
         val ray = if (origin != null && dir != null) origin.f() to dir.f() else null
-        if (op == "select") {
-            if (ray == null) throw ToolError("select needs origin and dir")
+        if (op == "select" && ray == null) throw ToolError("select needs origin and dir")
+        if (ray != null && op in listOf("select", "extrude", "inset")) {
             meshEditTarget = store.engine.pick(ray.first, ray.second) ?: throw ToolError("the ray misses every object")
             meshEditVersion = store.value.scene.meshVersion
         } else if (meshEditVersion != store.value.scene.meshVersion) meshEditTarget = null
         val target = meshEditTarget ?: throw ToolError("Nothing selected (or the plate changed since): select with a ray first")
+        if (op == "extrude" || op == "inset") {
+            val amount = args.optDouble("amount", Double.NaN).takeIf { it.isFinite() && (if (op == "inset") it > 0 else it != 0.0) }
+                ?: throw ToolError(if (op == "inset") "inset needs amount > 0" else "extrude needs a non-zero amount")
+            if (ray != null) store.engine.meshEdit(target, "select", ray, kind, angle.toFloat(), args.optBoolean("toggle"))
+            var sel: JSONObject? = null
+            val reply = plateEdit("${if (op == "inset") "inset" else "extruded"} the faces of object ${target.obj + 1}", R.string.deforming) {
+                val step = if (op == "inset") store.engine.meshEdit(target, "inset", kind = kind, angle = angle.toFloat(), amount = amount.toFloat())
+                else {
+                    // Zero height first: the reply has the cap's normal, then the cap moves along it (moves are from the drag start).
+                    val start = store.engine.meshEdit(target, "extrude", matrix = meshEditMatrix(null, null, null))
+                    val n = start.selection.getJSONArray("normal")
+                    store.engine.meshEdit(target, "move", matrix = meshEditMatrix(D3(n.getDouble(0) * amount, n.getDouble(1) * amount, n.getDouble(2) * amount), null, null))
+                    store.engine.meshEdit(target, "end", kind = kind, angle = angle.toFloat())
+                }
+                sel = step.selection
+                step.scene ?: throw ToolError("mesh_edit returned no scene")
+            }
+            meshEditVersion = store.value.scene.meshVersion
+            return reply + "\n" + selectionText(sel!!)
+        }
         var sel = if (op.isEmpty()) null else store.engine.meshEdit(target, op, ray, kind, angle.toFloat(), args.optBoolean("toggle")).selection
         if (move == null && scale == null && rotate == null) return selectionText(sel!!)
         val reply = plateEdit("edited the mesh of object ${target.obj + 1}", R.string.deforming) {

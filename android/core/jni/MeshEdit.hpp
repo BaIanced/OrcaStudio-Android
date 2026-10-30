@@ -260,4 +260,86 @@ inline Vec3 selection_normal(const Mesh &m, const std::vector<int> &selection)
     return unit(len(all) > 0. ? all : touch);
 }
 
+// Extrude / inset topology (M2). The cap = the faces with all three vertices selected. Every vertex on the cap's border
+// (an edge between a cap face and any other face, or an open edge) gets a copy that the cap's faces use instead, and each
+// border edge gets a wall quad from the old border to the copies, so a closed part stays closed. Nothing moves: the walls
+// are flat until the cap moves (extrude, either way: a pocket has the same topology) or the copies are pulled in (inset).
+struct CapSplit {
+    std::vector<int> cap;    // the cap's vertices after the split, sorted (the new selection)
+    std::vector<int> copies; // the border copies
+    std::vector<Vec3> inset; // per copy: the in-plane move that puts it 1 unit inside each of its border edges
+};
+
+inline CapSplit split_cap(Mesh &m, const std::vector<int> &selection)
+{
+    using namespace meshsculpt::detail;
+    CapSplit out;
+    std::vector<char> in(m.vertices.size(), 0);
+    for (int v : selection)
+        in[size_t(v)] = 1;
+    std::vector<char> capf(m.faces.size(), 0);
+    bool any = false;
+    for (size_t f = 0; f < m.faces.size(); ++f) {
+        const auto &t = m.faces[f];
+        capf[f] = in[size_t(t[0])] && in[size_t(t[1])] && in[size_t(t[2])];
+        any = any || capf[f];
+    }
+    if (!any)
+        return out;
+    // Border edges in the cap's winding (the cap is on their left, seen from outside), with their inward direction.
+    const std::vector<int> nb = face_neighbors(m);
+    std::vector<std::array<int, 2>> border;
+    std::vector<Vec3> inward;
+    for (size_t f = 0; f < m.faces.size(); ++f)
+        if (capf[f])
+            for (int k = 0; k < 3; ++k) {
+                const int g = nb[3 * f + k];
+                if (g >= 0 && capf[size_t(g)])
+                    continue;
+                const int a = m.faces[f][k], b = m.faces[f][(k + 1) % 3];
+                border.push_back({a, b});
+                inward.push_back(unit(cross(face_normal(m, int(f)), unit(sub(m.vertices[size_t(b)], m.vertices[size_t(a)])))));
+            }
+    std::vector<int> copy(m.vertices.size(), -1);
+    std::vector<std::vector<Vec3>> dirs;
+    for (size_t i = 0; i < border.size(); ++i)
+        for (int v : border[i]) {
+            if (copy[size_t(v)] < 0) {
+                copy[size_t(v)] = int(m.vertices.size());
+                m.vertices.push_back(m.vertices[size_t(v)]);
+                out.copies.push_back(copy[size_t(v)]);
+                dirs.emplace_back();
+            }
+            dirs[size_t(copy[size_t(v)]) - copy.size()].push_back(inward[i]);
+        }
+    for (size_t f = 0; f < m.faces.size(); ++f)
+        if (capf[f])
+            for (int &v : m.faces[f])
+                if (copy[size_t(v)] >= 0)
+                    v = copy[size_t(v)];
+    for (const auto &[a, b] : border) {
+        const int ca = copy[size_t(a)], cb = copy[size_t(b)];
+        m.faces.push_back({a, b, cb});
+        m.faces.push_back({a, cb, ca});
+    }
+    // Inset: along the mean of the border edges' inward directions, stretched so each edge is 1 unit away (capped at a
+    // sharp corner, where the exact point runs off far).
+    for (const auto &d : dirs) {
+        Vec3 sum{0, 0, 0};
+        for (const Vec3 &e : d)
+            sum = add(sum, e);
+        const Vec3 u = len(sum) > 1e-12 ? unit(sum) : Vec3{0, 0, 0};
+        double s = 1.;
+        for (const Vec3 &e : d)
+            s = std::min(s, dot(u, e));
+        out.inset.push_back(mul(u, 1. / std::max(s, 0.25)));
+    }
+    for (size_t f = 0; f < capf.size(); ++f)
+        if (capf[f])
+            out.cap.insert(out.cap.end(), m.faces[f].begin(), m.faces[f].end());
+    std::sort(out.cap.begin(), out.cap.end());
+    out.cap.erase(std::unique(out.cap.begin(), out.cap.end()), out.cap.end());
+    return out;
+}
+
 } // namespace meshedit

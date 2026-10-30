@@ -818,9 +818,26 @@ class SceneController(private val store: Store, private val presets: PresetContr
         meshEditSel.value = meshEditSelOf(sel.target, step.selection)
     }
 
+    /** Mesh edit typed extrude ("extrude": [mm] along the selection's normal, < 0 = pocket) or "inset" ([mm] in), one undo step. */
+    fun meshEditFaces(op: String, mm: Float) = store.launch {
+        val sel = liveMeshEditSel() ?: return@launch
+        val kind = (store.value.tool as? Tool.MeshEdit)?.kind ?: "face"
+        val t = sel.normal * mm
+        val step = if (op == "inset") engine.meshEdit(sel.target, "inset", kind = kind, angle = meshEditAngle(), amount = mm)
+        else {
+            engine.meshEdit(sel.target, "extrude", matrix = translation(t))
+            engine.meshEdit(sel.target, "end", kind = kind, angle = meshEditAngle())
+        }
+        step.scene?.let { store.applyScene(it) }
+        meshEditSel.value = meshEditSelOf(sel.target, step.selection)
+    }
+
+    private fun translation(t: Vec3) = listOf(1.0, 0.0, 0.0, t.x.toDouble(), 0.0, 1.0, 0.0, t.y.toDouble(), 0.0, 0.0, 1.0, t.z.toDouble(), 0.0, 0.0, 0.0, 1.0)
+
     /**
      * The selection's arrow is dragged: the selection moves [d] mm along its normal, live (only the newest distance is sent);
-     * [done] once let go (one undo step per drag), [d] null when cancelled (back to the start).
+     * [done] once let go (one undo step per drag), [d] null when cancelled (back to the start). With [Tool.MeshEdit.extrude]
+     * the first step extrudes the selected faces instead (new mesh and selection, then the cap moves).
      */
     fun meshEditDrag(d: Float?, done: Boolean) {
         synchronized(meshEditLock) {
@@ -834,9 +851,13 @@ class SceneController(private val store: Store, private val presets: PresetContr
                     val (mm, end) = synchronized(meshEditLock) { meshEditPending.also { meshEditPending = null } } ?: break
                     val sel = liveMeshEditSel() ?: continue
                     if (mm != 0f || meshEditMoved) {
-                        val t = sel.normal * mm
-                        val step = engine.meshEdit(sel.target, "move", matrix = listOf(1.0, 0.0, 0.0, t.x.toDouble(), 0.0, 1.0, 0.0, t.y.toDouble(),
-                            0.0, 0.0, 1.0, t.z.toDouble(), 0.0, 0.0, 0.0, 1.0))
+                        val extrude = !meshEditMoved && (store.value.tool as? Tool.MeshEdit)?.extrude == true
+                        val step = engine.meshEdit(sel.target, if (extrude) "extrude" else "move", matrix = translation(sel.normal * mm))
+                        if (extrude) {
+                            // A new mesh (walls, cap copies): its scene first, then the cap as the selection for the version check.
+                            step.scene?.let { store.applyScene(it) }
+                            meshEditSel.value = meshEditSelOf(sel.target, step.selection)
+                        }
                         step.patch?.let { meshPatches.tryEmit(it) }
                         meshEditMoved = true
                     }

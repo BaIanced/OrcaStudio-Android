@@ -118,7 +118,8 @@ const std::unordered_map<std::string, Handler> &handlers()
              if (a.contains("matrix") && !a.at("matrix").is_null())
                  matrix = a.at("matrix").get<std::array<double, 16>>();
              return e.mesh_edit({a.at("object"), a.value("instance", 0), a.value("volume", 0)}, a.at("op"), ray, a.value("kind", std::string("face")),
-                                a.value("angle", 30.0), a.value("toggle", false), matrix, a.value("reach", 2.0));
+                                a.value("angle", 30.0), a.value("toggle", false), matrix, a.value("reach", 2.0),
+                                a.value("amount", 0.0));
          }},
         {"hollowObject", [](OrcaEngine &e, const json &a) { return e.hollow_object(a.at("object"), a.value("instance", 0), a.at("wall")); }},
         {"smoothBlend", [](OrcaEngine &e, const json &a) { return e.smooth_blend(a.at("object"), a.value("instance", 0), a.at("radius")); }},

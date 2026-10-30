@@ -63,6 +63,9 @@ struct OrcaEngine::SculptSession {
     bool edit_moving = false;
     std::vector<meshdeform::Vec3> edit_orig;
     Slic3r::Vec3d edit_pivot = Slic3r::Vec3d::Zero();
+    // An extrude drag in progress: the selection before it (a drag let go at zero height is taken back).
+    bool edit_extruded = false;
+    std::vector<int> edit_before;
 
     // The surface under a ray now (local): tree hits on faces that haven't moved, moved faces one by one. The hit point,
     // its face and that face's vertex nearest to it.

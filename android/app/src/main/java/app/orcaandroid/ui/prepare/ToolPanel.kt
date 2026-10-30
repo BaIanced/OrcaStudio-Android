@@ -5,6 +5,7 @@ import app.orcaandroid.ui.SCULPT_MIN_MM
 import app.orcaandroid.ui.components.ScrubLabel
 import app.orcaandroid.ui.components.ScrubSlider
 import app.orcaandroid.ui.components.Vec3Fields
+import app.orcaandroid.ui.components.NumberField
 import app.orcaandroid.core.meshEditMatrix
 import app.orcaandroid.scad.D3
 import androidx.compose.foundation.Canvas
@@ -210,6 +211,8 @@ private fun MeshEditOptions(state: UiState, vm: AppViewModel, tool: Tool.MeshEdi
         }
         // Raw triangles instead of crease-bounded features (low-poly meshes).
         FilterChip(tool.triangles, { vm.scene.setTool(tool.copy(triangles = !tool.triangles)) }, label = { Text(stringResource(R.string.mesh_edit_triangles)) })
+        // The arrow drag pulls out the selected faces with walls instead of moving them.
+        FilterChip(tool.extrude, { vm.scene.setTool(tool.copy(extrude = !tool.extrude)) }, label = { Text(stringResource(R.string.mesh_edit_extrude)) })
     }
     // Stale after undo or another edit (the engine dropped it; the overlay hides it too).
     val count = sel?.takeIf { it.version == state.scene.meshVersion.toLong() }?.count ?: 0
@@ -237,6 +240,17 @@ private fun MeshEditOptions(state: UiState, vm: AppViewModel, tool: Tool.MeshEdi
         vm.scene.meshEditTransform(meshEditMatrix(move, scale, rotate))
         move = D3(); rotate = D3(); scale = D3(100.0, 100.0, 100.0)
     }, enabled = valid && changed) { Text(stringResource(R.string.apply)) }
+    // Faces only: extrude along the selection's normal (< 0 = pocket), inset pulls the border in (one undo step each).
+    var extrude by remember { mutableFloatStateOf(0f) }
+    var inset by remember { mutableFloatStateOf(0f) }
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+        NumberField(extrude, { extrude = it }, Modifier.weight(1f), stringResource(R.string.mesh_edit_extrude), "mm", live = true)
+        FilledTonalButton({ vm.scene.meshEditFaces("extrude", extrude); extrude = 0f }, enabled = extrude != 0f) { Text(stringResource(R.string.apply)) }
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+        NumberField(inset, { inset = it }, Modifier.weight(1f), stringResource(R.string.mesh_edit_inset), "mm", live = true)
+        FilledTonalButton({ vm.scene.meshEditFaces("inset", inset); inset = 0f }, enabled = inset > 0f) { Text(stringResource(R.string.apply)) }
+    }
 }
 
 @Composable

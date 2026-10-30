@@ -87,4 +87,25 @@ STLs from CAD have flat faces split into many triangles and no quads, so raw Ble
   (`SceneController.meshEditTransform`, one undo step, fields reset after Apply; shared `core/MeshEditMatrix.kt`). Cube: top
   face Move Z 5 -> 20x20x25; All + Scale X 50 -> 10x20x25; Undo -> 20x20x25; top face Rotate Z 45 -> 28.284 footprint (20*sqrt2).
   Deviation: relative amounts + Apply instead of Blender's live G/R/S; no 3-axis gizmo. CI not run yet (batch with M2).
-- **M1 next = M2** (Extrude + Inset, see "Ops and phases").
+- **M2 native written 2026-10-30 (Claude; kernel unit-tested, native compile = local corebuild, device UNTESTED):** `MeshEdit.hpp`
+  `split_cap` (cap = faces with all 3 verts selected; border-edge verts copied, cap remapped, wall quad per border edge; also
+  per-copy inset direction = mean inward edge direction / min cos, capped x4). Test: cube top extrude +0.5 -> vol 1.5, pocket
+  -0.25 -> 0.75, inset 0.1 -> copies 0.1 in, all closed. `mesh_edit` ops `extrude` (matrix; split + commit + session rebuilt
+  with the cap selected, then the move path: later `move` calls drag it, `end` closes; an end at zero height restores the
+  undo snapshot and the old selection) and `inset` (`amount` mm, new arg through EngineCalls; ends in one call).
+  **Deviation:** inset is Blender-style per-vertex on all regions (no ExPolygon offset/retriangulate): same topology as
+  extrude, works on curved regions; large insets on concave outlines can fold (no clamp yet).
+- **M2 Kotlin/MCP/panel written 2026-10-30 (Claude, Kotlin compiles, local native lib):** `Engine.meshEdit(amount)`, MCP `op:"extrude"|"inset"`
+  + `amount` (extrude = zero-height extrude for the normal, then move + end), panel Extrude chip (arrow drag extrudes:
+  first step sends `extrude`, applies its scene + selection) and Extrude / Inset (mm) fields + Apply (`SceneController.meshEditFaces`).
+  **MCP verified on WSA VD:** cube top extrude +5 -> 25 mm, inset 3, extrude -4 (pocket) -> vol 9216 (exact), side face +6 -> 12216
+  (exact), all "No problems found"; inset 0 / extrude without amount refused.
+  **Panel arrow-drag extrude FAILED:** Extrude chip + top-face tap (350,330) + swipe 362,360 -> 362,250 gave 56 tris, height
+  unchanged, vol 12216 -> 12076, **10 self-intersecting pairs**. Not yet known which face the tap hit (4 verts: pocket floor or a
+  pocket wall). Suspects: (a) after the extrude step `meshEditSel` changes mid-drag, so `FaceArrow` base jumps (PlateView `faceAt`
+  uses f.d + finger delta, so d itself should hold; the drawn arrow doubles); (b) extrude of a non-cap/odd selection. Next: undo
+  to a plain cube, retest the drag on its top face; if it still breaks, log the mm sequence sent; consider keeping the drag-start
+  centroid/verts in the new MeshEditSel. Typed Extrude/Inset Apply in the panel untested.
+- **M2 next (original plan):** Kotlin `Engine.meshEdit(amount)`, MCP `op:"extrude"|"inset"` (+`amount`), panel: Extrude toggle for the arrow drag
+  (first drag step sends `extrude`, apply its scene + update `meshEditSel` before the next move: its mesh version changes)
+  + typed Extrude (mm) / Inset (mm) Apply; WSA VD check on the 20 mm cube; then CI with M1c.

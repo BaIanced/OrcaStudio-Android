@@ -71,6 +71,47 @@ int main()
     std::vector<int> g{0};
     grow(g, meshsculpt::build_topology(m));
     assert(g.size() == 7);
+
+    // Extrude the top (z = 1: corners 4..7, middle 9) by 0.5: 4 border copies, 4 wall quads, still closed.
+    auto volume = [](const Mesh &x) {
+        double vol = 0.;
+        for (const auto &t : x.faces) {
+            const Vec3 &a = x.vertices[size_t(t[0])], &b = x.vertices[size_t(t[1])], &c = x.vertices[size_t(t[2])];
+            vol += meshsculpt::detail::dot(a, meshsculpt::detail::cross(b, c)) / 6.;
+        }
+        return vol;
+    };
+    auto closed = [](const Mesh &x) {
+        for (int s : face_neighbors(x))
+            if (s < 0)
+                return false;
+        return true;
+    };
+    Mesh ex = cube();
+    const std::vector<int> top{4, 5, 6, 7, 9};
+    CapSplit cs = split_cap(ex, top);
+    assert(cs.copies.size() == 4 && ex.vertices.size() == 18 && ex.faces.size() == 32 && cs.cap.size() == 5 && closed(ex));
+    for (int v : cs.cap)
+        ex.vertices[size_t(v)].z += 0.5;
+    assert(std::abs(volume(ex) - 1.5) < 1e-9);
+    // Pocket: the same split moved down.
+    Mesh po = cube();
+    cs = split_cap(po, top);
+    for (int v : cs.cap)
+        po.vertices[size_t(v)].z -= 0.25;
+    assert(std::abs(volume(po) - 0.75) < 1e-9 && closed(po));
+    // Inset 0.1: the copies end 0.1 inside both border edges (corners on the diagonal), the cap stays at z = 1.
+    Mesh in = cube();
+    cs = split_cap(in, top);
+    for (size_t k = 0; k < cs.copies.size(); ++k) {
+        Vec3 &p = in.vertices[size_t(cs.copies[k])];
+        p = meshsculpt::detail::add(p, meshsculpt::detail::mul(cs.inset[k], 0.1));
+        assert(std::abs(std::min(p.x, 1. - p.x) - 0.1) < 1e-9 && std::abs(std::min(p.y, 1. - p.y) - 0.1) < 1e-9 && p.z == 1.);
+    }
+    assert(std::abs(volume(in) - 1.) < 1e-9 && closed(in));
+    // No face fully selected: nothing to split.
+    Mesh none = cube();
+    assert(split_cap(none, {4, 5}).cap.empty() && none.faces.size() == 24);
     std::puts("mesh_edit_test: ok");
     return 0;
 }

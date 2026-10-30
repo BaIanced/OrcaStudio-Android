@@ -1,7 +1,7 @@
 // OrcaEngine: mesh edit mode (docs/handoff/NOTES-orcamesh-edit.md), the vertex / edge / face half of OrcaMesh beside
 // sculpting. Runs on the sculpt session (SculptSession.hpp): the same mesh copy, topology, hit tree and patch path, so a
 // drag only sends the triangles round the selection. Picking is feature level by default (MeshEdit.hpp). M1: select and
-// move / scale / rotate the selection; vertices only move, the part's topology stays.
+// move / scale / rotate the selection (vertices only move). M2: extrude / inset faces (new topology, session rebuilt).
 
 #include "SculptSession.hpp"
 #include "MeshEdit.hpp"
@@ -19,7 +19,7 @@ using namespace Slic3r;
 
 json OrcaEngine::mesh_edit(const std::array<int, 3> &target, const std::string &op, const std::optional<std::array<double, 6>> &ray,
                            const std::string &kind_name, double angle, bool toggle, const std::optional<std::array<double, 16>> &matrix,
-                           double reach)
+                           double reach, double amount)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
     sculpt_hulls_locked(false);
@@ -55,9 +55,11 @@ json OrcaEngine::mesh_edit(const std::array<int, 3> &target, const std::string &
         m_sculpt->instance = ii;
         sculpt_copies();
     }
+    // Extrude / inset replace the session (new topology): [ss] is only used before that, *m_sculpt after.
     SculptSession &ss = *m_sculpt;
     // Face regions for this crease angle (the across-edge neighbours hold while only vertices move).
-    auto regions = [&ss, angle] {
+    auto regions = [this, angle] {
+        SculptSession &ss = *m_sculpt;
         if (ss.edit_nb.empty())
             ss.edit_nb = meshedit::face_neighbors(ss.mesh);
         if (ss.edit_region.empty() || ss.edit_angle != angle) {
@@ -66,6 +68,39 @@ json OrcaEngine::mesh_edit(const std::array<int, 3> &target, const std::string &
         }
     };
     const double scale = std::max(std::cbrt(std::abs(ss.frame.linear().determinant())), 1e-9);
+
+    // A drag step: the selection to [matrix] about the drag's start pivot, from the start positions; the triangles round it.
+    auto move = [this, &matrix](SculptSession &ss) {
+        Transform3d m = Transform3d::Identity();
+        for (int r = 0; r < 4; ++r)
+            for (int c = 0; c < 4; ++c)
+                m.matrix()(r, c) = (*matrix)[size_t(4 * r + c)];
+        const Vec3d cw = ss.frame * ss.edit_pivot;
+        const Transform3d local = ss.frame.inverse() * Eigen::Translation3d(cw) * m * Eigen::Translation3d(-cw) * ss.frame;
+        for (size_t k = 0; k < ss.edit_sel.size(); ++k) {
+            const auto &q = ss.edit_orig[k];
+            const Vec3d p = local * Vec3d(q.x, q.y, q.z);
+            ss.mesh.vertices[size_t(ss.edit_sel[k])] = {p.x(), p.y(), p.z()};
+        }
+        meshsculpt::update_normals(ss.mesh, ss.topo, ss.edit_sel);
+        ss.touch(ss.edit_sel);
+        ss.dirty = true;
+        std::vector<int> faces;
+        for (int v : ss.edit_sel)
+            faces.insert(faces.end(), ss.topo.faces.begin() + ss.topo.fstart[v], ss.topo.faces.begin() + ss.topo.fstart[v + 1]);
+        std::sort(faces.begin(), faces.end());
+        faces.erase(std::unique(faces.begin(), faces.end()), faces.end());
+        return sculpt_patch(faces);
+    };
+    // A drag's start: one undo step for the whole drag, from the selection's start positions about its centroid.
+    auto start_drag = [](SculptSession &ss) {
+        ss.edit_orig.clear();
+        for (int v : ss.edit_sel)
+            ss.edit_orig.push_back(ss.mesh.vertices[size_t(v)]);
+        const auto c = meshedit::centroid(ss.mesh, ss.edit_sel);
+        ss.edit_pivot = Vec3d(c.x, c.y, c.z);
+        ss.edit_moving = true;
+    };
 
     std::string patch;
     std::optional<json> scene; // a commit's scene
@@ -104,40 +139,75 @@ json OrcaEngine::mesh_edit(const std::array<int, 3> &target, const std::string &
             throw std::runtime_error("move needs a matrix");
         if (ss.edit_sel.empty())
             throw std::runtime_error("Nothing selected");
-        // A drag's first move: one undo step for the whole drag, from the start positions.
         if (!ss.edit_moving) {
             sculpt_flush_locked();
             push_undo();
-            ss.edit_orig.clear();
-            for (int v : ss.edit_sel)
-                ss.edit_orig.push_back(ss.mesh.vertices[size_t(v)]);
-            const auto c = meshedit::centroid(ss.mesh, ss.edit_sel);
-            ss.edit_pivot = Vec3d(c.x, c.y, c.z);
-            ss.edit_moving = true;
+            start_drag(ss);
         }
-        Transform3d m = Transform3d::Identity();
-        for (int r = 0; r < 4; ++r)
-            for (int c = 0; c < 4; ++c)
-                m.matrix()(r, c) = (*matrix)[size_t(4 * r + c)];
-        const Vec3d cw = ss.frame * ss.edit_pivot;
-        const Transform3d local = ss.frame.inverse() * Eigen::Translation3d(cw) * m * Eigen::Translation3d(-cw) * ss.frame;
-        for (size_t k = 0; k < ss.edit_sel.size(); ++k) {
-            const auto &q = ss.edit_orig[k];
-            const Vec3d p = local * Vec3d(q.x, q.y, q.z);
-            ss.mesh.vertices[size_t(ss.edit_sel[k])] = {p.x(), p.y(), p.z()};
+        patch = move(ss);
+    } else if (op == "extrude" || op == "inset") {
+        // The cap's border gets copies and walls (MeshEdit.hpp split_cap); the new mesh goes into the part and the scene
+        // at once, the session is rebuilt on it with the cap selected. Extrude then moves the cap like a drag ("move"
+        // calls follow, "end" closes it); inset pulls the border copies [amount] mm in and ends here.
+        if (ss.edit_sel.empty())
+            throw std::runtime_error("Nothing selected");
+        if (op == "extrude" ? !matrix : !(amount > 0.))
+            throw std::runtime_error(op == "extrude" ? "extrude needs a matrix" : "inset needs an amount");
+        meshdeform::Mesh m = ss.mesh;
+        const meshedit::CapSplit cs = meshedit::split_cap(m, ss.edit_sel);
+        if (cs.cap.empty())
+            throw std::runtime_error("Select a face first");
+        if (op == "inset") {
+            using namespace meshsculpt::detail;
+            for (size_t k = 0; k < cs.copies.size(); ++k) {
+                auto &p = m.vertices[size_t(cs.copies[k])];
+                p = add(p, mul(cs.inset[k], amount / scale));
+            }
         }
-        meshsculpt::update_normals(ss.mesh, ss.topo, ss.edit_sel);
-        ss.touch(ss.edit_sel);
+        const std::vector<int> before = ss.edit_sel;
+        ss.edit_moving = false;
+        sculpt_flush_locked();
+        push_undo();
+        ss.mesh = std::move(m);
         ss.dirty = true;
-        std::vector<int> faces;
-        for (int v : ss.edit_sel)
-            faces.insert(faces.end(), ss.topo.faces.begin() + ss.topo.fstart[v], ss.topo.faces.begin() + ss.topo.fstart[v + 1]);
-        std::sort(faces.begin(), faces.end());
-        faces.erase(std::unique(faces.begin(), faces.end()), faces.end());
-        patch = sculpt_patch(faces);
+        sculpt_flush_locked();
+        vol->supported_facets.reset();
+        vol->seam_facets.reset();
+        vol->mmu_segmentation_facets.reset();
+        vol->fuzzy_skin_facets.reset();
+        if (op == "inset")
+            drop_to_bed(obj);
+        scene = commit();
+        sculpt_build(oi, ii, vi);
+        sculpt_copies();
+        SculptSession &ns = *m_sculpt;
+        ns.edit_sel = cs.cap;
+        if (op == "extrude") {
+            ns.edit_before = before;
+            ns.edit_extruded = true;
+            start_drag(ns);
+            patch = move(ns);
+        }
     } else if (op == "end") {
         ss.edit_moving = false;
-        if (sculpt_flush_locked()) {
+        // An extrude let go at zero height: flat walls, so it is taken back (the undo step it pushed too).
+        bool flat = ss.edit_extruded;
+        for (size_t k = 0; flat && k < ss.edit_sel.size(); ++k) {
+            const auto &p = ss.mesh.vertices[size_t(ss.edit_sel[k])], &q = ss.edit_orig[k];
+            flat = std::abs(p.x - q.x) + std::abs(p.y - q.y) + std::abs(p.z - q.z) < 1e-6;
+        }
+        ss.edit_extruded = false;
+        if (flat && !m_undo.empty()) {
+            const std::vector<int> before = ss.edit_before;
+            m_model = std::make_unique<Model>(*m_undo.back().model);
+            m_plates = m_undo.back().plates;
+            m_undo.pop_back();
+            m_sculpt.reset();
+            scene = commit();
+            sculpt_build(oi, ii, vi);
+            sculpt_copies();
+            m_sculpt->edit_sel = before;
+        } else if (sculpt_flush_locked()) {
             // Regions follow the moved faces from here (kept during the drag: the overlay's creases stay put).
             ss.edit_region.clear();
             drop_to_bed(obj);

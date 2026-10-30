@@ -68,9 +68,10 @@ sealed interface Tool {
                       val mirror: Int = 0) : Tool
     /**
      * Mesh edit (OrcaMesh, `NOTES-orcamesh-edit.md`): taps on a part toggle [kind] picks ("vertex", "edge", "face"); feature
-     * level (crease-bounded regions) unless [triangles]. The selection's arrow drags it along its normal.
+     * level (crease-bounded regions) unless [triangles]. The selection's arrow drags it along its normal ([extrude]: pulls out
+     * a copy of the selected faces with walls instead).
      */
-    data class MeshEdit(val kind: String = "face", val triangles: Boolean = false) : Tool
+    data class MeshEdit(val kind: String = "face", val triangles: Boolean = false, val extrude: Boolean = false) : Tool
     data object LayOnFace : Tool
     data object Measure : Tool
     /**
