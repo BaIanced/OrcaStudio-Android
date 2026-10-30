@@ -10,7 +10,9 @@ enum class Part {
     /** A 38 mm standing figure: legs, body, arms, head. */
     FIGURE,
     /** Two 26 mm plates side by side: one with a 6 mm peg, one with a 6.4 mm hole (0.2 mm clearance all round) so they press together. */
-    PEG_PAIR;
+    PEG_PAIR,
+    /** A print-in-place pin hinge (standing, axis up): two leaves, three 8 mm knuckles on a 4 mm pin with 0.4 mm gaps; the middle knuckle turns freely. */
+    HINGE;
 
     /** The part as one group named [name] at the origin, its shapes numbered from [firstId] (the group first). */
     fun build(firstId: Int, name: String): Shape {
@@ -41,6 +43,15 @@ enum class Part {
             Shape(0, Shape.Kind.CYLINDER, "Peg", D3(6.0, 6.0, 8.0), D3(-15.0, 0.0, 3.0)),
             Shape(0, Shape.Kind.BOX, "Hole plate", D3(26.0, 16.0, 3.0), D3(15.0, 0.0, 0.0)),
             Shape(0, Shape.Kind.CYLINDER, "Hole", D3(6.4, 6.4, 3.0), D3(15.0, 0.0, 0.0), hole = true),
+        )
+        HINGE -> listOf(
+            Shape(0, Shape.Kind.CYLINDER, "Pin", D3(4.0, 4.0, 24.8)),
+            Shape(0, Shape.Kind.CYLINDER, "Knuckle low", D3(8.0, 8.0, 8.0)),
+            Shape(0, Shape.Kind.CYLINDER, "Knuckle high", D3(8.0, 8.0, 8.0), D3(0.0, 0.0, 16.8)),
+            Shape(0, Shape.Kind.TUBE, "Knuckle loose", D3(8.0, 8.0, 8.0), D3(0.0, 0.0, 8.4), extra = mapOf(Shape.WALL to 1.5)),
+            Shape(0, Shape.Kind.BOX, "Leaf low", D3(20.0, 3.0, 8.0), D3(-12.0, 0.0, 0.0)),
+            Shape(0, Shape.Kind.BOX, "Leaf high", D3(20.0, 3.0, 8.0), D3(-12.0, 0.0, 16.8)),
+            Shape(0, Shape.Kind.BOX, "Leaf loose", D3(20.0, 3.0, 8.0), D3(12.0, 0.0, 8.4)),
         )
     }
 }

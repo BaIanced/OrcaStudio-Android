@@ -643,6 +643,7 @@ class ShapeController(private val store: Store, private val scad: ScadController
             Part.WHEEL -> R.string.part_wheel
             Part.FIGURE -> R.string.part_figure
             Part.PEG_PAIR -> R.string.part_peg_pair
+            Part.HINGE -> R.string.part_hinge
         }
 
         fun kindName(k: Shape.Kind) = when (k) {

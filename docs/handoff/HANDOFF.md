@@ -40,7 +40,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - CAD step 7a (Part menu: Wheel, Figure) built, WSA VD look check OK 2026-10-29 (archive, 626b407); design 7a-7c in `NOTES-cad-reuse.md`.
 - CAD step 7b (Save as part, `SavedParts` in Parts.kt, menu in Part chip) WSA VD check OK 2026-10-29 (save, re-add, delete; archive, da7d640).
 - CAD 7c: Peg and hole built-in done + WSA VD OK 2026-10-29 (archive); gear, hinge, part sliders left (backlog).
-- Next step: push + CI build of the CAD 7a-7c batch, then pick the next CAD/backlog item -> Sonnet 5.5 (medium)
+- CAD 7c Hinge built-in (print-in-place pin hinge) added, JVM test passes; CI build of 7a-7c (run 40994415594, r471) in flight; WSA VD look check of Hinge open.
+- Next step: install r471+Hinge build on devices, WSA VD look check of Hinge, then next CAD/backlog item -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
