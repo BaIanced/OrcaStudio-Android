@@ -93,6 +93,8 @@ data class Shape(
     val children: List<Shape> = emptyList(),
     /** Filament (1-based) a top-level solid prints with in the Build workspace; 0 = the object's. */
     val filament: Int = 0,
+    /** A MESH shape's push / pulls on flat regions of its model, in the order they were made. */
+    val faces: List<FaceOp> = emptyList(),
 ) {
     enum class Kind(val key: String) {
         BOX("box"), ROUNDED_BOX("rounded_box"), CYLINDER("cylinder"), PRISM("prism"), CONE("cone"), PYRAMID("pyramid"),
@@ -123,6 +125,7 @@ data class Shape(
             if (bind.isNotEmpty()) put("bind", JSONObject(bind))
             if (children.isNotEmpty()) put("children", JSONArray().apply { children.forEach { put(it.json()) } })
             if (filament > 0) put("filament", filament)
+            if (faces.isNotEmpty()) put("faces", JSONArray().apply { faces.forEach { put(it.json()) } })
         }
 
     /** Every shape in this subtree, depth first. */
@@ -157,6 +160,8 @@ data class Shape(
         const val SCALE = "scale"
         /** A MESH shape's own bounds (mm) as read from its file: min x / y / z, max x / y / z. */
         val MESH_BOUNDS = listOf("mx0", "my0", "mz0", "mx1", "my1", "mz1")
+        /** The file's own bounds while face ops have grown [MESH_BOUNDS] past them (same order). */
+        val FILE_BOUNDS = listOf("fx0", "fy0", "fz0", "fx1", "fy1", "fz1")
 
         /** Kinds whose edges can be rounded / chamfered, and kinds that can be hollowed. */
         val EDGED = setOf(Kind.BOX, Kind.CYLINDER, Kind.PRISM, Kind.CONE, Kind.PYRAMID, Kind.WEDGE, Kind.SKETCH)
@@ -182,6 +187,7 @@ data class Shape(
             bind = o.optJSONObject("bind")?.let { b -> b.keys().asSequence().associateWith { b.optString(it) } } ?: emptyMap(),
             children = o.optJSONArray("children")?.let { a -> (0 until a.length()).map { of(a.getJSONObject(it)) } } ?: emptyList(),
             filament = o.optInt("filament").coerceAtLeast(0),
+            faces = o.optJSONArray("faces")?.let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it) }.map(FaceOp::of) } ?: emptyList(),
         )
     }
 }
@@ -602,6 +608,48 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
 
     // --- Push / pull ------------------------------------------------------------------------------------
 
+    /**
+     * MESH shape [id] with face ops [faces]: its bounds grow to hold the pushes at the same scale, and its box moves so
+     * the model's untouched parts stay where they are (turned and mirrored too).
+     */
+    fun withFaces(id: Int, faces: List<FaceOp>): ShapeDesign = update(id) { s ->
+        if (s.kind != Shape.Kind.MESH) return@update s
+        val old = Shape.MESH_BOUNDS.map { s.x(it, 0.0) }
+        val file = Shape.FILE_BOUNDS.map { s.extra[it] }.takeIf { b -> b.all { it != null } }?.map { it!! } ?: old
+        val nb = FaceOps.bounds(file, faces)
+        val sz = size(s)
+        fun ext(b: List<Double>, i: Int) = max(0.01, b[i + 3] - b[i])
+        val k = D3(sz.x / ext(old, 0), sz.y / ext(old, 1), sz.z / ext(old, 2))
+        val size = D3(k.x * ext(nb, 0), k.y * ext(nb, 1), k.z * ext(nb, 2))
+        // A file point p sits at R(k (p - c) - h / 2) + pos + h / 2 (c = bounds' bottom centre, R = turn x flip): solve pos.
+        val shift = D3(k.x * ((nb[0] + nb[3]) - (old[0] + old[3])) / 2, k.y * ((nb[1] + nb[4]) - (old[1] + old[4])) / 2,
+            k.z * (nb[2] - old[2]) + (size.z - sz.z) / 2)
+        val pos = pos(s) + D3(0.0, 0.0, (sz.z - size.z) / 2) + rotate(flip(shift, s.mirror), rot(s))
+        val extra = s.extra - Shape.MESH_BOUNDS.toSet() - Shape.FILE_BOUNDS.toSet() + Shape.MESH_BOUNDS.zip(nb) +
+            (if (faces.isEmpty()) emptyList() else Shape.FILE_BOUNDS.zip(file))
+        fun moved(a: D3, b: D3, f: String) = (0..2).filter { abs(a[it] - b[it]) > 1e-9 }.map { "$f.${"xyz"[it]}" }
+        s.copy(faces = faces, size = size, pos = pos, extra = extra, bind = s.bind - (moved(sz, size, "size") + moved(pos(s), pos, "pos")).toSet())
+    }
+
+    /** MESH shape [s]'s file point [p] in its parent's frame (copies aside). */
+    fun meshToParent(s: Shape, p: D3): D3 {
+        val r = resolved(s)
+        val b = Shape.MESH_BOUNDS.map { r.x(it, 0.0) }
+        val k = D3(r.size.x / max(0.01, b[3] - b[0]), r.size.y / max(0.01, b[4] - b[1]), r.size.z / max(0.01, b[5] - b[2]))
+        val l = D3(k.x * (p.x - (b[0] + b[3]) / 2), k.y * (p.y - (b[1] + b[4]) / 2), k.z * (p.z - b[2]))
+        val m = placement(r)
+        return D3((0..2).sumOf { m[it] * l[it] } + m[3], (0..2).sumOf { m[4 + it] * l[it] } + m[7], (0..2).sumOf { m[8 + it] * l[it] } + m[11])
+    }
+
+    /** The inverse of [meshToParent]: point [q] in [s]'s parent frame as a point of its model file. */
+    fun parentToMesh(s: Shape, q: D3): D3 {
+        val r = resolved(s)
+        val b = Shape.MESH_BOUNDS.map { r.x(it, 0.0) }
+        val l = inverse(placement(r), q)
+        return D3(l.x * max(0.01, b[3] - b[0]) / r.size.x + (b[0] + b[3]) / 2, l.y * max(0.01, b[4] - b[1]) / r.size.y + (b[1] + b[4]) / 2,
+            l.z * max(0.01, b[5] - b[2]) / r.size.z + b[2])
+    }
+
     /** Point [p] through the inverse of rigid row-major 4 x 4 [m] (turn, flip and move only). */
     private fun inverse(m: DoubleArray, p: D3): D3 {
         val d = D3(p.x - m[3], p.y - m[7], p.z - m[11])
@@ -782,7 +830,8 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
                 val b = Shape.MESH_BOUNDS.map { s.x(it, 0.0) }
                 if (s.file.isBlank()) "// (no model file)"
                 else "scale([$w / ${n(max(0.01, b[3] - b[0]))}, $d / ${n(max(0.01, b[4] - b[1]))}, $h / ${n(max(0.01, b[5] - b[2]))}]) " +
-                    "translate([${n(-(b[0] + b[3]) / 2)}, ${n(-(b[1] + b[4]) / 2)}, ${n(-b[2])}]) import(${quote(s.file)}, convexity = 10);"
+                    "translate([${n(-(b[0] + b[3]) / 2)}, ${n(-(b[1] + b[4]) / 2)}, ${n(-b[2])}]) " +
+                    FaceOps.scad("import(${quote(s.file)}, convexity = 10);", s.faces)
             }
             Shape.Kind.GROUP -> ""
         }
