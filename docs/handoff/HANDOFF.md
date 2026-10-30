@@ -14,7 +14,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 3defffa (PR #66, branch at r461/89944b9, merged 2026-10-28 on the user's go-ahead, before sessions B-D; user overrode the user-tested-only rule for this merge). Older: 0170950 (PR #65, r398). User-untested in main: list in `NOTES-merge-batch.md`.
 - Signing secrets: `release` environment (main + `claude/*` only).
-- Latest CI build: r469 (run 40986260576, repeated-group gizmos) on all 5 adb devices, 2026-10-29. User feel untested. Install builds on all adb devices (skip .23).
+- Latest CI build: r470 (run 40988995980, hole ghost alpha 0.25) on all 5 adb devices, 2026-10-29. User feel untested. Install builds on all adb devices (skip .23).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **User 2026-10-28: no more user testing for now; Claude builds and tests everything itself (memory no-user-testing-now); don't ask for feel/UI checks.**
 - **User 2026-10-29: no tests on the user's screen; all tests on a hidden virtual display** (`TARGET=wsa orca-vd.sh start`, memory tests-on-virtual-display).
@@ -35,9 +35,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - WSA: `svc power stayon true` while testing; `stage-from-apk.sh <apk>`.
 - WSA VD (reference "Headless display"): Kotlin-only changes = assembleDebug + `wsa-debug-setup.sh` (installs, no launch) + `TARGET=wsa PKG=...debug orca-vd.sh start`; shots via MCP `view_screenshot`; uninstall debug after. `wsa-full.ps1` only when the user asks to watch.
 - Repeated/nested group gizmos Claude-verified on the WSA VD 2026-10-29 (archive).
-- Hole ghost alpha 0.25 committed (5da537a); CI run 40988995980 building it (2026-10-29). Multi-part first-edit test dropped as an edge case: the module persists in 3MF (bbs_3mf.cpp:2233/8078) and `design_to_plate` stores it via `design.encode()`; the earlier "Cube.scad" hit was most likely a leftover default object, not a flattened one.
+- Hole ghost alpha 0.25 (r470, installed on all adb devices 2026-10-29): Claude-verified on the WSA VD (faint ghost, figure clearly visible through the window; archive). Multi-part first-edit test dropped (module persists in 3MF).
   WSA tap helpers: `~/orca-android-tools/tx.sh <label>` fails on Compose nodes with 0 bounds; use `phone-ui.py layout` with `. ./.vd-wsa.state; export VD=$LOGICAL,$SFID` + `orca-vd.sh tap`. Package id `io.github.baianced.orcastudio_android.debug`.
-- Next step: install run 40988995980 on all adb devices (skip .23), glance at the hole ghost on the WSA VD (cropped shot) -> Sonnet 5.5 (medium)
+- Next step: pick the next item from HANDOFF-BACKLOG.md (grep `[Opus]`/open lines; user feel tests are paused) -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).

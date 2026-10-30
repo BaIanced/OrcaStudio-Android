@@ -3659,3 +3659,6 @@ Object More menu now: Add volume (5 items) and Mesh tools (7 items) collapsible,
 - Hidden WSA VD: tap a copy -> whole Row selected (gizmo spans both copies); 2nd tap -> Base #2 with the gizmo box on the tapped copy; tap the other copy -> gizmo jumps there. Red handle on copy 1: Base 24 -> 48.7 wide, both copies alike, gizmo stays on copy 1. Peg on copy 2: tap -> Ring #3, tap -> Peg #4, gizmo on that peg; blue lift +11 mm -> all 8 pegs rise, gizmo stays. Untested on device: turn ring and body move-drag in a repeated group (same frame path, JVM-tested).
 - r469 installed on all 5 adb devices.
 - Tools: WSA VD opens the app as a 324x576 freeform window; `orca-vd.sh start` (TARGET=wsa) now runs `am task resize` to fill the display (tested). Shots on the WSA VD: MCP `view_screenshot` (debug app only), taps with `orca-vd.sh tap` reach the app.
+
+## 2026-10-29 Hole ghost alpha 0.25 (r470)
+- Claude-verified on the WSA VD with the debug app: wall + hole window + sphere behind; ghost faint, figure clearly visible through the opening. User feel untested.
