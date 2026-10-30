@@ -3682,3 +3682,6 @@ Object More menu now: Add volume (5 items) and Mesh tools (7 items) collapsible,
 
 ## 2026-10-29 Asset library 7a: WSA VD look check passed (626b407, debug build)
 - Part menu (Part chip, scroll the Add row) lists Wheel and Figure; each adds one editable group beside the others and selects it. Wheel 40x40x10 (tube tire, hub, 5 spokes, axle hole) and Figure 38 mm (legs, rounded body, tilted arms, head) render right in design_snapshot; fit check one piece. Claude test, user untested.
+
+## 2026-10-29 Asset library 7b: WSA VD check passed (da7d640, debug build)
+- Selected group Row (repeat 2x, holds Box + Ring group) -> Part chip menu "Save selected group as part": `files/openscad/parts/Row.json` written, "Row" listed with a delete icon. Tapping it added "Row 1" with Base + Ring children intact. Delete icon removed the file (parts dir empty). Claude test, user untested. Next: 7c (see `NOTES-cad-reuse.md`).

@@ -38,8 +38,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Repeated-group test fixture: `~/orca-android-tools/rep-groups.json` via MCP `design_set` (archive 2026-10-29 "repeated groups").
   WSA tap helpers: `~/orca-android-tools/tx.sh <label>` fails on Compose nodes with 0 bounds; use `phone-ui.py layout` with `. ./.vd-wsa.state; export VD=$LOGICAL,$SFID` + `orca-vd.sh tap`. Package id `io.github.baianced.orcastudio_android.debug`.
 - CAD step 7a (Part menu: Wheel, Figure) built, WSA VD look check OK 2026-10-29 (archive, 626b407); design 7a-7c in `NOTES-cad-reuse.md`.
-- CAD step 7b (Save as part, `SavedParts` in Parts.kt, menu in Part chip) built + JVM-tested 2026-10-29; WSA VD check open (save a group, re-add, delete).
-- Next step: 7b WSA VD check, then push + build -> Sonnet 5.5 (medium)
+- CAD step 7b (Save as part, `SavedParts` in Parts.kt, menu in Part chip) WSA VD check OK 2026-10-29 (save, re-add, delete; archive, da7d640).
+- Next step: CAD 7c (more built-ins: gear, peg/hole pair, hinge; `NOTES-cad-reuse.md`) -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
