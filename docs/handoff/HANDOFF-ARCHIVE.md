@@ -3703,3 +3703,6 @@ Object More menu now: Add volume (5 items) and Mesh tools (7 items) collapsible,
 ### 2026-10-29 Handoff trim (VD tap tip)
 - VD tap tip: always `export TARGET=wsa` for `orca-vd.sh tap/shot` (without it they hit the phone: 2026-10-29 mistake, harmless); tap coords are not `phone-ui.py layout` coords on WSA (menu layout showed 212x596), so check with a `TARGET=wsa` shot first; Add menu -> "Design" (CAD) opens Build.
 - Dropped from the hot file: paint shop for all kinds + CAD 7a-7d Claude-verified, in r473 (details above).
+
+### 2026-10-30 Push/pull tier 2 verified (Claude, WSA VD, debug 48eadc3)
+- Pick + arrow drag (+10.5), delete via Face edits, builder undo, and PULL: typing -3 in the Face edits field of the L-bracket tab -> tab thinner, hole round and unmoved, bounds [-30,-15,-18]..[30,15,18] unchanged (design_describe), OpenSCAD re-render of the emitted code fine on the debug build. Not user-felt (no user testing now). Details: NOTES-pushpull-tier2.md.
