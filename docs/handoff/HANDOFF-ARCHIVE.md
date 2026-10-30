@@ -3653,3 +3653,9 @@ Object More menu now: Add volume (5 items) and Mesh tools (7 items) collapsible,
 - `parentFrame(id, copy)` / `toParent(id, v, copy)` / `axesFree(..., copy)` use that copy's matrix (copies(g)[k] * placement), out-of-range -> copy 0. Used by gizmo box, snap boxes, move, resize, turn; Viewport keys on it.
 - JVM: GroupPickTest +2 (row-repeated top group: hit copy + frame = that piece's matrix, fallback; circular-repeated nested group: hit copy 1, frame on copy 1, drag moves copy 1's box by v); scad suites green, release Kotlin compiles.
 - Untested on device: repeated group child tap on copy 1+ -> gizmo there; nested groups on device.
+
+## 2026-10-29 Build repeated groups: WSA VD test passed (Claude, local debug build of 001b569 = r469 code; r469 CI run 40986260576 green)
+- Fixture (`~/orca-android-tools/rep-groups.json`, via MCP `design_set`): group Row (row repeat 2x, step 60 x) holding box Base 24x24x10 + group Ring (circular 4x) holding cylinder Peg.
+- Hidden WSA VD: tap a copy -> whole Row selected (gizmo spans both copies); 2nd tap -> Base #2 with the gizmo box on the tapped copy; tap the other copy -> gizmo jumps there. Red handle on copy 1: Base 24 -> 48.7 wide, both copies alike, gizmo stays on copy 1. Peg on copy 2: tap -> Ring #3, tap -> Peg #4, gizmo on that peg; blue lift +11 mm -> all 8 pegs rise, gizmo stays. Untested on device: turn ring and body move-drag in a repeated group (same frame path, JVM-tested).
+- r469 installed on all 5 adb devices.
+- Tools: WSA VD opens the app as a 324x576 freeform window; `orca-vd.sh start` (TARGET=wsa) now runs `am task resize` to fill the display (tested). Shots on the WSA VD: MCP `view_screenshot` (debug app only), taps with `orca-vd.sh tap` reach the app.

@@ -14,7 +14,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 3defffa (PR #66, branch at r461/89944b9, merged 2026-10-28 on the user's go-ahead, before sessions B-D; user overrode the user-tested-only rule for this merge). Older: 0170950 (PR #65, r398). User-untested in main: list in `NOTES-merge-batch.md`.
 - Signing secrets: `release` environment (main + `claude/*` only).
-- Latest CI build: r468 (run 40979554989, multi-copy gizmos; r469 pending) on WSA, SHIELD, phone, Note, 2026-10-29. User feel untested. Install builds on all adb devices (skip .23).
+- Latest CI build: r469 (run 40986260576, repeated-group gizmos) on all 5 adb devices, 2026-10-29. User feel untested. Install builds on all adb devices (skip .23).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **User 2026-10-28: no more user testing for now; Claude builds and tests everything itself (memory no-user-testing-now); don't ask for feel/UI checks.**
 - **User 2026-10-29: no tests on the user's screen; all tests on a hidden virtual display** (`TARGET=wsa orca-vd.sh start`, memory tests-on-virtual-display).
@@ -33,10 +33,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - CAD plan (`NOTES-cad-reuse.md`): 0-5b Claude-verified, 1b parked. MCP efficiency (`NOTES-mcp-token-efficiency.md`): build rule waits for user OK.
 - Gate: user sessions B-D paused 2026-10-28; release gated on the printer set.
 - WSA: `svc power stayon true` while testing; `stage-from-apk.sh <apk>`.
-- WSA VD checked 2026-10-29: display 3, no desktop window, `ui` dump works; `sf=` empty, so shots via the app's MCP screenshot (or the mkv after `stop`). Debug app: `PKG=...debug` (wsa-debug-rebuild.sh launches may open a window: start on the VD instead). No focus loops; `wsa-full.ps1` only when the user asks to watch. `target.sh` now tags the SHIELD `tv`.
-- Repeated-group gizmos on the tapped copy: coded + JVM-tested 2026-10-29 (cc93c6d, archive); CI run 40986260576 (r469) dispatched, not yet checked.
-- Next up: when r469 is green, install on all adb devices, then WSA VD check: a group with a row repeat (and a nested circular one), tap the child on copy 2 -> gizmo box on copy 2; ring/handle/drag there changes all copies alike; nested group child gizmos.
-- Next step: r469 install + WSA check of repeated/nested group gizmos -> Opus 5.5 (high)
+- WSA VD (reference "Headless display"): Kotlin-only changes = assembleDebug + `wsa-debug-setup.sh` (installs, no launch) + `TARGET=wsa PKG=...debug orca-vd.sh start`; shots via MCP `view_screenshot`; uninstall debug after. `wsa-full.ps1` only when the user asks to watch.
+- Repeated/nested group gizmos Claude-verified on the WSA VD 2026-10-29 (archive).
+- Next up: truck hole ghost alpha 0.45 -> ~0.25 (backlog "Truck holes"), and first edit of a multi-part mesh opened via Edit in builder (archive "Build continuity part 2: WSA test complete"); batch both into one CI build.
+- Next step: hole ghost alpha + multi-part mesh first edit -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).

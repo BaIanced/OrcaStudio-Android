@@ -35,19 +35,18 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - HD plate ideas (user verified r394): 3D bed frame model, dual-nozzle decal layout (Claude 2026-10-24).
 - Plate switcher pick (lab stays; don't ask again). Launcher icon colour ("decide later"). REA MCP enable (installed, not enabled).
 - [Opus] Sculpt mode (More > Sculpt, r428+; Claude-verified WSA 2026-10-26..28, archive; user feel untested). Symmetry 51ad144 untested on device by user. Open (low value): paint overlay only at stroke end, exact bump positions on a face, grab on the plane.
-- [Opus] Build workspace (user GO 2026-10-23): steps 1-6c-2 Claude-verified WSA (r385-r406, archive); open: user feel of all (multi-copy gizmos Claude-verified WSA 2026-10-29, r468); repeated-group gizmos on the tapped copy coded + JVM-tested (cc93c6d, r469 pending): WSA check of that and nested groups with gizmos.
+- [Opus] Build workspace (user GO 2026-10-23): all steps incl. multi-copy (r468) and repeated/nested group gizmos (r469) Claude-verified WSA (archive 2026-10-29); open: user feel; turn ring + body drag in a repeated group untested on device.
 
 ## Ideas (not started)
 - Floating Theme | Layout designer (~half a day; ask first). Study Bambu Handy's MakerWorld integration.
-- Headless display gaps (Reference "Headless display"): pinch on the virtual display, `start` stress test, WSA VD screenshot.
+- Headless display gaps (Reference "Headless display"): pinch on the virtual display, `start` stress test.
 - Quest: 2D panel confirmed (user 2026-10-21); open only input beyond touch + native VR view [Opus] (on request). Phone <-> Quest link (undefined).
 - Orca plugin runtime kept generic: not done: audit prompts, create_window, per-preset overrides, printerAgent. FilamentHub dropped for good.
 - [Opus] Push/pull tier 2: SCAD wrapper for any face of SCAD/MESH shapes (archive 2026-10-21 plan).
 - [Opus] OrcaMesh: sculpt brushes (5a/5b), smooth blend, hull, bend/twist/taper, sweep/loft are built (see CAD line below). Still open and optional: vert/edge/face edit mode (extrude, inset, loop cut, bevel via CGAL Surface_mesh + PMP); the CAD roadmap said skip it on touch.
 - Public release check: built-in adblock + hard-coded Models tabs vs store policies / site terms (not researched).
 - Colour icon set shortlist + mockup (low). Paint card fold direction by screen position (low). "Need phone" prompt (shelved).
-- [Opus] Filament materials tiers 1+2, per-slot look, Realistic render 1+2 (Claude WSA debug 2026-10-24): user feel untested (layer line contrast in realistic mode); variable layer height ignored; open: Quest/Chromebook GPU check. Google Filament engine not wanted.
-  user feel untested (layer line contrast in realistic mode); variable layer height ignored; open: Quest/Chromebook GPU check. Google Filament engine not wanted (breaks Shaders.kt drags, ids, uSolo).
+- [Opus] Filament materials tiers 1+2, per-slot look, Realistic render 1+2 (Claude WSA debug 2026-10-24): user feel untested (layer line contrast in realistic mode); variable layer height ignored; open: Quest/Chromebook GPU check. Google Filament engine not wanted (breaks Shaders.kt drags, ids, uSolo).
 - Preview camera-light slider + Check mesh sharp-edge markers + Hollow: Claude-verified WSA (archive); open: user feel (sessions B/C in NOTES-merge-batch.md). Cleanup = More > Repair (exists).
 - [Opus] Snapseed interaction plan (NOTES-interaction-plan.md): steps 1-9 Claude-verified WSA (r437/r438, 2026-10-27); user feel untested on all.
 ## Known limits (no action)

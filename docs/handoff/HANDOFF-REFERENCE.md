@@ -25,8 +25,8 @@ headless display below instead (no takeover needed). Don't drive WSA's own windo
 - Layout differs from the real screen: get coordinates from `view_state` (3D) or a regex-cut `phone-ui.py layout` (2D),
   not a shot. No pinch yet (`pinch.sh`/`drag1.sh`/
   `draghold.sh` hit the physical panel only).
-- `TARGET=wsa`: **don't use** (2026-10-19 taps/swipes never reached the app; user: use WSA's main window). It also had **no screenshot** (Android 13 SurfaceFlinger
-  hides the display); `TARGET=wsa start window` = old windowed mode. Old research notes: `headless-display-notes.md`.
+- `TARGET=wsa` (default test path since 2026-10-29): `start` resizes the app's freeform window to fill the display; `tap`/`swipe`/`ui` work.
+  No `shot` (SurfaceFlinger hides the display): use MCP `view_screenshot` (debug app). `TARGET=wsa start window` = old windowed mode. Notes: `headless-display-notes.md`.
 
 ### Chromebook (ARC)
 - Before launching: `dumpsys window | grep mCurrentFocus`; another app in front = the user is on it, don't take over (2026-10-19). Run the check alone, never chained with `am start` (2026-10-19 slip: launched over the user's app, then put it back).
