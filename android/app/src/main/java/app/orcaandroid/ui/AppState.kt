@@ -207,6 +207,8 @@ data class UiState(
     val lab: app.orcaandroid.core.LayoutLab = app.orcaandroid.core.LayoutLab(),
     /** View > Light direction: the light ball panel is open (session only). */
     val lightPanel: Boolean = false,
+    /** View > Dimensions: X / Y / Z size lines on the selection's box (session only). */
+    val dimensions: Boolean = false,
     val undoLimit: Int = app.orcaandroid.core.DEFAULT_UNDO_LIMIT,
     /** Auto-save interval in seconds; 0 or less = off (-seconds keeps the interval it had). */
     val autoSaveSeconds: Int = app.orcaandroid.core.DEFAULT_AUTO_SAVE_SECONDS,

@@ -623,6 +623,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
             drawText(t, topLeft = tl)
         }
     }
+    if (state.dimensions && !showPreview) DimensionOverlay(view)
     view?.section?.takeIf { it.panelOpen }?.let {
         // Below the top bar (and a camera hole in fullscreen portrait) and clear of the tool buttons down the left edge.
         SectionViewPanel(it, Modifier.align(androidx.compose.ui.Alignment.TopCenter)

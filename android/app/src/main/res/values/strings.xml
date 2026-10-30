@@ -592,6 +592,7 @@
     <string name="view_wireframe">Wireframe</string>
     <string name="light_direction">Light direction</string>
     <string name="view_bounding_box">Bounding box</string>
+    <string name="view_dimensions">Dimensions</string>
     <string name="orthographic_camera">Orthographic camera (K)</string>
     <string name="section_view">Section view</string>
     <string name="section_view_align">Set viewing angle</string>
