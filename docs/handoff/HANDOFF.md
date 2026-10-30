@@ -15,7 +15,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = de0e3fa (PR #67, branch at run 41012656080 = r473 + push/pull tier 2, merged 2026-10-30 on /next-merge; user-untested, Claude-verified only). User-untested in main: list in `NOTES-merge-batch.md`.
 - Signing secrets: `release` environment (main + `claude/*` only).
-- Latest installed CI build: run 41117077456 (r480, dimensions phases 1-3; previously r479 OrcaMesh M1-M4) on all 4 adb devices, 2026-10-30. User feel untested. Install builds on all adb devices (skip .23).
+- Latest installed CI build: run 41133990347 (r482, designer + `design_mode` MCP; previously r480 dimensions) on 4 adb devices (SHIELD, WSA, .32, .5), 2026-10-30; the Tailscale phone serial failed to install (likely a duplicate of a LAN one). User feel untested. Install builds on all adb devices (skip .23).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **User 2026-10-28: no more user testing for now; Claude builds and tests everything itself (memory no-user-testing-now); don't ask for feel/UI checks.**
 - **User 2026-10-29: no tests on the user's screen; all tests on a hidden virtual display** (`TARGET=wsa orca-vd.sh start`, memory tests-on-virtual-display).
@@ -41,7 +41,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **Dimensions overlay** (user 2026-10-30; phases 1 bbox lines, 2 hole diameters, 3 thinnest wall): 1 = 378253f `DimensionOverlay.kt`; 2 = 68b9ac9 `render/HoleFinder.kt` (Kotlin on `PlateRenderer.sceneMesh`, `HoleFinderTest` 3/3; design in archive 2026-10-30). Neither seen on screen (WSA shots are GL only): check on phone/Note VD with a holed part selected in Prepare. Gaps: slots, tilted holes.
 - Phase 3 + phase 1 seen working on the phone VD, r480 (archive 2026-10-30); phase 2 hole diameter seen too (archive 2026-10-30, r480). Phone is reachable over Tailscale adb (`adb connect <tailnet ip>:5555`; `MCP_DEV=<serial>` for mcpao since target.sh serial defaults to WSA).
 - **Theme | Layout designer**: docked/float/Layout tab Claude-verified on WSA VD, narrow screens start floating (archive 2026-10-30); needs a CI build to reach devices, user feel untested.
-- Next step: dispatch CI build (designer + `design_mode` MCP tool), install on all adb devices, then pick the next backlog item -> Sonnet 5.5 (medium)
+- Next step: pick the next backlog item (grep `[Opus]`/untested in HANDOFF-BACKLOG.md) -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
