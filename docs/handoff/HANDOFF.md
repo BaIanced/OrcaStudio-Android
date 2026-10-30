@@ -38,7 +38,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Fixture `rep-groups.json` (MCP `design_set`). VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78.
 - **Queued (user 2026-10-29):** dimensions overview (per-object bbox, hole sizes, thinnest wall; **ask the user what they had in mind when it comes up**); floating Theme | Layout designer (~half a day; **ask what they have in mind first**).
 - **OrcaMesh edit** (`NOTES-orcamesh-edit.md`): M1-M4 incl. panel Fillet / Chamfer Claude-verified on WSA VD 2026-10-30. Old CI run
-  41100791348 (M3) sat queued for hours: cancelled; build dispatched on the M4 panel head (check it; install on all adb devices when green).
+  41100791348 (M3) sat queued for hours: cancelled; build run 41105435015 dispatched on the M4 panel head 55da269 (check it; install on all adb devices when green).
 - Next step: install the OrcaMesh M1-M4 CI build on all adb devices (skip .23), then pick the next queued item (dimensions overview / Theme | Layout designer: ask the user what they have in mind first) -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
