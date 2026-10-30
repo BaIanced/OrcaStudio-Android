@@ -1017,6 +1017,7 @@
     <string name="shape_blend">Blend joins (mm, 0 = sharp)</string>
     <string name="shape_blend_hint">Rounds the edges where the group\'s shapes meet, and hole rims (Build workspace). Works with boxes, rounded boxes, round cylinders and cones, and spheres.</string>
     <string name="shape_blend_unsupported">Blend joins can\'t take \"%1$s\" yet: only boxes, rounded boxes, round cylinders and cones, and spheres, not hollow; holes only directly in the blended group.</string>
+    <string name="shape_scale">Scale % (whole group)</string>
     <string name="shape_blending">Blending joins…</string>
     <string name="shape_shell_wall">Wall (mm, 0 = solid)</string>
     <string name="shape_open_top">Open top</string>

@@ -23,6 +23,13 @@ enum class Part {
         return numbered(Shape(0, Shape.Kind.GROUP, name, D3(), children = shapes()))
     }
 
+    /** [build] with its [Shape.SCALE] bound to a new "<name> size" slider (100 %, 25..400, step 5) whose name is not [taken]; the slider comes second. */
+    fun place(firstId: Int, name: String, taken: (String) -> Boolean): Pair<Shape, Dim> {
+        val dim = Dim(Dim.ident("$name size", taken), 100.0, 25.0, 400.0, 5.0)
+        val g = build(firstId, name)
+        return g.copy(extra = g.extra + (Shape.SCALE to 100.0), bind = g.bind + (Shape.SCALE to dim.name)) to dim
+    }
+
     private fun shapes(): List<Shape> = when (this) {
         WHEEL -> listOf(
             Shape(0, Shape.Kind.TUBE, "Tire", D3(40.0, 40.0, 10.0), extra = mapOf(Shape.WALL to 5.0)),

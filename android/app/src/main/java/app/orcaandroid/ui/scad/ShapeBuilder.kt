@@ -379,6 +379,7 @@ private fun Properties(shape: Shape, d: ShapeDesign, vm: AppViewModel, filaments
             Text(stringResource(R.string.shape_hull_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             ExtraField(stringResource(R.string.shape_blend), shape, d, vm, Shape.BLEND, 0.0)
             Text(stringResource(R.string.shape_blend_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            ExtraField(stringResource(R.string.shape_scale), shape, d, vm, Shape.SCALE, 100.0)
         }
         FieldRow(stringResource(R.string.shape_position), shape, d, vm, "pos", listOf("X", "Y", "Z"), shape.pos, listOf("x", "y", "z"))
         FieldRow(stringResource(R.string.shape_rotation), shape, d, vm, "rot", listOf("X°", "Y°", "Z°"), shape.rot, listOf("turn_x", "turn_y", "turn_z"))

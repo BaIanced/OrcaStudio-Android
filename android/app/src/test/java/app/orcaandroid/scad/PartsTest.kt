@@ -25,6 +25,19 @@ class PartsTest {
         assertTrue(d.toScad().contains("difference"))
         assertEquals(40.0, d.bounds(d.shapes[0]).let { it.max.x - it.min.x }, 1e-6)
     }
+
+    @Test fun placedPartHasASizeSliderThatScalesIt() {
+        val (g, dim) = Part.WHEEL.place(1, "Wheel 1") { it == "wheel_1_size" }
+        assertEquals("wheel_1_size_2", dim.name)
+        assertEquals(dim.name, g.bind[Shape.SCALE])
+        fun width(v: Double): Double {
+            val d = ShapeDesign(listOf(g), listOf(dim.copy(value = v)), 20)
+            return d.bounds(d.shapes[0]).let { it.max.x - it.min.x }
+        }
+        assertEquals(40.0, width(100.0), 1e-6)
+        assertEquals(80.0, width(200.0), 1e-6)
+        assertEquals(10.0, width(25.0), 1e-6)
+    }
 }
 
 class SavedPartsTest {

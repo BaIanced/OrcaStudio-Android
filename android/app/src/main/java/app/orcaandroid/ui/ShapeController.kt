@@ -256,7 +256,8 @@ class ShapeController(private val store: Store, private val scad: ScadController
         val d = design ?: return
         val label = store.str(partName(part))
         val name = label + " " + (d.shapes.count { it.isGroup && it.name.startsWith("$label ") } + 1)
-        addGroup(d, part.build(d.nextId, name), d.dims)
+        val (g, dim) = part.place(d.nextId, name) { d.dim(it) != null }
+        addGroup(d, g, d.dims + dim)
     }
 
     /** [g] (numbered from [ShapeDesign.nextId]) beside the others, on the workplane, with sliders [dims]; selected. */
