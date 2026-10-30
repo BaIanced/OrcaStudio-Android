@@ -3699,3 +3699,7 @@ Object More menu now: Add volume (5 items) and Mesh tools (7 items) collapsible,
 
 ## 2026-10-29: CAD 7d part size slider (Claude-verified WSA VD, debug build dd8f656, not in a CI build yet)
 - Build workspace: Add > Design, Part > Wheel: Customizer tab shows "wheel 1 size" field (100); set 200 -> wheel renders ~2x, geometry intact (shot). Group Scale % field covered by unit tests only.
+
+### 2026-10-29 Handoff trim (VD tap tip)
+- VD tap tip: always `export TARGET=wsa` for `orca-vd.sh tap/shot` (without it they hit the phone: 2026-10-29 mistake, harmless); tap coords are not `phone-ui.py layout` coords on WSA (menu layout showed 212x596), so check with a `TARGET=wsa` shot first; Add menu -> "Design" (CAD) opens Build.
+- Dropped from the hot file: paint shop for all kinds + CAD 7a-7d Claude-verified, in r473 (details above).
