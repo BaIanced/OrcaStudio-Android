@@ -999,6 +999,9 @@
     <string name="shape_parts">Part</string>
     <string name="part_wheel">Wheel</string>
     <string name="part_figure">Figure</string>
+    <string name="part_save">Save selected group as part</string>
+    <string name="part_saved">Saved part \"%1$s\"</string>
+    <string name="part_delete">Delete part %1$s</string>
     <string name="shape_import_failed">Could not read that STL file</string>
     <string name="shape_edges">Edges</string>
     <string name="shape_corners">Corners</string>

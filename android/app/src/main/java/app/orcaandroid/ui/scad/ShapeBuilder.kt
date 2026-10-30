@@ -60,6 +60,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.material3.IconToggleButton
 import androidx.compose.runtime.getValue
@@ -178,10 +179,26 @@ fun ShapesTab(s: ScadEditorState, vm: AppViewModel) {
                 var parts by remember { mutableStateOf(false) }
                 AssistChip(onClick = { parts = true }, label = { Text(stringResource(R.string.shape_parts)) },
                     leadingIcon = { Icon(Icons.Default.Add, null, Modifier.size(16.dp)) })
+                var saved by remember { mutableStateOf(emptyList<String>()) }
+                LaunchedEffect(parts) { if (parts) saved = sh.savedParts() }
                 DropdownMenu(parts, { parts = false }) {
                     Part.entries.forEach { p ->
                         DropdownMenuItem(text = { Text(stringResource(ShapeController.partName(p))) },
                             onClick = { parts = false; sh.addPart(p); runCatching { focus.requestFocus() } })
+                    }
+                    saved.forEach { n ->
+                        DropdownMenuItem(text = { Text(n) },
+                            onClick = { parts = false; sh.addSaved(n); runCatching { focus.requestFocus() } },
+                            trailingIcon = {
+                                IconButton({ sh.deleteSaved(n); saved = sh.savedParts() }, Modifier.size(32.dp)) {
+                                    Icon(Icons.Default.Delete, stringResource(R.string.part_delete, n), Modifier.size(18.dp))
+                                }
+                            })
+                    }
+                    if (sh.canSavePart) {
+                        HorizontalDivider()
+                        DropdownMenuItem(text = { Text(stringResource(R.string.part_save)) },
+                            onClick = { parts = false; sh.saveAsPart(); runCatching { focus.requestFocus() } })
                     }
                 }
             }

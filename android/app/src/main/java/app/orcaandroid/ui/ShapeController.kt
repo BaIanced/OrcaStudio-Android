@@ -13,6 +13,7 @@ import app.orcaandroid.scad.D3
 import app.orcaandroid.scad.Dim
 import app.orcaandroid.scad.Part
 import app.orcaandroid.scad.Repeat
+import app.orcaandroid.scad.SavedParts
 import app.orcaandroid.scad.Shape
 import app.orcaandroid.scad.ShapeDesign
 import app.orcaandroid.scad.Sketch
@@ -254,14 +255,52 @@ class ShapeController(private val store: Store, private val scad: ScadController
         val d = design ?: return
         val label = store.str(partName(part))
         val name = label + " " + (d.shapes.count { it.isGroup && it.name.startsWith("$label ") } + 1)
-        val g = part.build(d.nextId, name)
-        val placed = if (d.shapes.isEmpty()) g else {
-            val all = d.shapes.map { d.bounds(it) }.reduce { a, b -> a.union(b) }
-            val own = d.bounds(g)
-            g.copy(pos = D3(snap(all.max.x + 5 - own.min.x), snap(all.center.y - own.center.y), 0.0))
-        }
-        commit(d.copy(shapes = d.shapes + placed, nextId = d.nextId + g.all().count()), listOf(placed.id))
+        addGroup(d, part.build(d.nextId, name), d.dims)
     }
+
+    /** [g] (numbered from [ShapeDesign.nextId]) beside the others, on the workplane, with sliders [dims]; selected. */
+    private fun addGroup(d: ShapeDesign, g: Shape, dims: List<Dim>) {
+        val own = d.bounds(g)
+        val z = -own.min.z
+        val placed = if (d.shapes.isEmpty()) g.copy(pos = g.pos.with(2, g.pos.z + z)) else {
+            val all = d.shapes.map { d.bounds(it) }.reduce { a, b -> a.union(b) }
+            g.copy(pos = D3(snap(all.max.x + 5 - own.min.x), snap(all.center.y - own.center.y), g.pos.z + z))
+        }
+        commit(d.copy(shapes = d.shapes + placed, dims = dims, nextId = d.nextId + g.all().count()), listOf(placed.id))
+    }
+
+    private fun partsDir() = File(store.app.filesDir, "openscad/parts")
+
+    /** Names of the parts saved with [saveAsPart], A to Z. */
+    fun savedParts(): List<String> = partsDir().listFiles { f -> f.extension == "json" }.orEmpty().map { it.nameWithoutExtension }.sortedBy { it.lowercase() }
+
+    /** True when exactly one group is selected, so it can be saved as a part. */
+    val canSavePart: Boolean get() = selected.singleOrNull()?.let { design?.find(it)?.isGroup } == true
+
+    /** Saves the selected group (with the sliders it uses) to files/openscad/parts, named after it. */
+    fun saveAsPart() {
+        val d = design ?: return
+        val g = selected.singleOrNull()?.let { d.find(it) }?.takeIf { it.isGroup } ?: return
+        val base = g.name.trim().replace(Regex("[^\\p{L}\\p{N} _-]+"), "").trim().ifEmpty { "part" }
+        val dir = partsDir().apply { mkdirs() }
+        var name = base
+        var i = 2
+        while (File(dir, "$name.json").exists()) name = "$base ${i++}"
+        File(dir, "$name.json").writeText(SavedParts.encode(d, g))
+        store.toast(store.str(R.string.part_saved, name))
+    }
+
+    /** Adds the saved part [name] like a built-in one (own sliders, renamed when taken). */
+    fun addSaved(name: String) {
+        val d = design ?: return
+        val json = runCatching { File(partsDir(), "$name.json").readText() }.getOrNull() ?: return
+        val label = name + " "
+        val title = name + " " + (d.shapes.count { it.isGroup && it.name.startsWith(label) } + 1)
+        val (g, dims) = SavedParts.place(json, d.nextId, title) { d.dim(it) != null } ?: return
+        addGroup(d, g, d.dims + dims)
+    }
+
+    fun deleteSaved(name: String) { File(partsDir(), "$name.json").delete() }
 
     /** Adds a picked STL as a mesh shape, at its own size; the file is kept in files/openscad/meshes. */
     fun importMesh(uri: android.net.Uri) = store.launch {

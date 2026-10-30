@@ -36,3 +36,37 @@ enum class Part {
         )
     }
 }
+
+/** Parts the user saved from a group ("Save as part"): the group plus the sliders its fields are bound to, as shape-design JSON. */
+object SavedParts {
+    /** Slider names [g] and its children use (bound fields, sketch constraints). */
+    fun dimsUsed(g: Shape): Set<String> = g.all().flatMap { s ->
+        s.bind.values.asSequence() + (s.sketch?.cons?.mapNotNull { it.dim }.orEmpty())
+    }.toSet()
+
+    /** [group] of [d] at the origin as a standalone design with just the sliders it uses. */
+    fun encode(d: ShapeDesign, group: Shape): String {
+        val used = dimsUsed(group)
+        val kids = group.all().toList()
+        return ShapeDesign(listOf(group.copy(pos = D3())), d.dims.filter { it.name in used }, (kids.maxOfOrNull { it.id } ?: 0) + 1).encode()
+    }
+
+    /**
+     * The saved group renumbered from [firstId] and named [name], with its sliders; a slider whose name is [taken] is
+     * renamed (bindings follow) so a second copy gets its own. Null when [json] holds no group.
+     */
+    fun place(json: String, firstId: Int, name: String, taken: (String) -> Boolean): Pair<Shape, List<Dim>>? {
+        val saved = ShapeDesign.decode(json) ?: return null
+        val g = saved.shapes.singleOrNull()?.takeIf { it.isGroup } ?: return null
+        val names = HashSet<String>()
+        val renamed = saved.dims.associate { dm -> dm.name to Dim.ident(dm.name) { taken(it) || it in names }.also { names += it } }
+        var next = firstId
+        fun fix(s: Shape): Shape = s.copy(
+            id = next++,
+            bind = s.bind.mapValues { renamed[it.value] ?: it.value },
+            sketch = s.sketch?.let { sk -> sk.copy(cons = sk.cons.map { c -> c.copy(dim = c.dim?.let { renamed[it] ?: it }) }) },
+            children = s.children.map(::fix),
+        )
+        return fix(g.copy(name = name)) to saved.dims.map { it.copy(name = renamed.getValue(it.name)) }
+    }
+}
