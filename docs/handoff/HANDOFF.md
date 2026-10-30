@@ -34,11 +34,11 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - CAD plan (`NOTES-cad-reuse.md`): 0-5b Claude-verified, 1b parked. MCP efficiency (`NOTES-mcp-token-efficiency.md`): build rule waits for user OK.
 - Gate: user sessions B-D paused 2026-10-28; release gated on the printer set.
 - WSA: `svc power stayon true` while testing; `stage-from-apk.sh <apk>`.
-- WSA VD (reference "Headless display"): Kotlin-only changes = assembleDebug + `wsa-debug-setup.sh` (installs, no launch) + `TARGET=wsa PKG=...debug orca-vd.sh start`; shots via MCP `view_screenshot`; uninstall debug after. `wsa-full.ps1` only when the user asks to watch.
-- Fixture `~/orca-android-tools/rep-groups.json` (MCP `design_set`). VD taps: `export TARGET=wsa`, `. ./.vd-wsa.state; export VD=$LOGICAL,$SFID`, `orca-vd.sh tap/shot`, coords from a `TARGET=wsa` shot (archive "VD tap tip"; `tx.sh` fails on 0-bound nodes).
-- **OrcaMesh edit mode** (`NOTES-orcamesh-edit.md`, design + "Progress"): M1a kernels done (MeshEdit.hpp + WSL test), M1b engine glue next.
+- WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
+- Fixture `~/orca-android-tools/rep-groups.json` (MCP `design_set`). VD taps: archive "VD tap tip".
+- **OrcaMesh edit mode** (`NOTES-orcamesh-edit.md`, design + "Progress"): M1a kernels done; M1b native + Engine.kt done (uncompiled native), MCP `mesh_edit` + CI next.
 - **Queued (user 2026-10-29):** dimensions overview (per-object bbox, hole sizes, thinnest wall; **ask the user what they had in mind when it comes up**); floating Theme | Layout designer (~half a day; **ask what they have in mind first**).
-- Next step: OrcaMesh edit M1b (OrcaMeshEdit.cpp engine call on SculptSession + MCP mesh_edit, NOTES-orcamesh-edit.md "Progress") -> Opus 5.5 (high)
+- Next step: OrcaMesh edit M1b rest (MCP mesh_edit, CI build + native compile fixes, WSA VD check; NOTES-orcamesh-edit.md "Progress") -> Opus 5.5 (high)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).

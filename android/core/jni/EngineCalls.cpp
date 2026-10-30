@@ -110,6 +110,16 @@ const std::unordered_map<std::string, Handler> &handlers()
                              a.value("probe", false), a.value("mirror", 0));
          }},
         {"sculptEnd", [](OrcaEngine &e, const json &) { return e.sculpt_end(); }},
+        {"meshEdit", [](OrcaEngine &e, const json &a) {
+             std::optional<std::array<double, 6>> ray;
+             if (a.contains("ray") && !a.at("ray").is_null())
+                 ray = a.at("ray").get<std::array<double, 6>>();
+             std::optional<std::array<double, 16>> matrix;
+             if (a.contains("matrix") && !a.at("matrix").is_null())
+                 matrix = a.at("matrix").get<std::array<double, 16>>();
+             return e.mesh_edit({a.at("object"), a.value("instance", 0), a.value("volume", 0)}, a.at("op"), ray, a.value("kind", std::string("face")),
+                                a.value("angle", 30.0), a.value("toggle", false), matrix, a.value("reach", 2.0));
+         }},
         {"hollowObject", [](OrcaEngine &e, const json &a) { return e.hollow_object(a.at("object"), a.value("instance", 0), a.at("wall")); }},
         {"smoothBlend", [](OrcaEngine &e, const json &a) { return e.smooth_blend(a.at("object"), a.value("instance", 0), a.at("radius")); }},
         {"replaceMesh", [](OrcaEngine &e, const json &a) { return e.replace_mesh(a.at("object"), a.at("path"), a.value("module", std::string())); }},
@@ -229,8 +239,8 @@ json dispatch(OrcaEngine &engine, const std::string &method, const json &args)
     const auto it = handlers().find(method);
     if (it == handlers().end())
         throw std::runtime_error("Unknown engine call: " + method);
-    // A live sculpt's mesh is written back before any other call reads or changes the model.
-    if (method != "sculpt" && method != "sculptEnd") {
+    // A live sculpt's (or mesh edit's) mesh is written back before any other call reads or changes the model.
+    if (method != "sculpt" && method != "sculptEnd" && method != "meshEdit") {
         const auto t0 = std::chrono::steady_clock::now();
         engine.sculpt_flush();
         const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();

@@ -304,3 +304,9 @@ class MeshPatch(val version: Int, val firsts: IntArray, val counts: IntArray, va
  * triangles, [cursor] the last dab's world point and surface normal (the brush ring).
  */
 class SculptStep(val scene: Scene?, val patch: MeshPatch?, val hit: Boolean, val cursor: Pair<Vec3, Vec3>? = null)
+
+/**
+ * One mesh edit call: [scene] when the part's mesh was written (a drag's end), [patch] the moved triangles during a drag,
+ * [selection] {count, centroid, normal, edges, verts} in world mm (OrcaEngine::mesh_edit).
+ */
+class MeshEditStep(val scene: Scene?, val patch: MeshPatch?, val selection: org.json.JSONObject)

@@ -55,9 +55,13 @@ STLs from CAD have flat faces split into many triangles and no quads, so raw Ble
   regions nearest the hit, Vertex = corner on >= 3 regions within reach else nearest vertex of the hit face), `toggle`
   (tapping an all-selected pick removes it), `grow`, `centroid`, `selection_normal`. Tests: `android/core/tests/mesh_edit_test.cpp`
   (`wsl -e bash -c "cd android/core/tests && g++ -std=c++17 -Wall -Wextra -I../jni mesh_edit_test.cpp -o /tmp/met && /tmp/met"`), pass.
-- **M1b next:** `jni/OrcaMeshEdit.cpp`: reuse `SculptSession` (mesh, topo, copies, flush) instead of a new session; factor
-  the patch writer out of `OrcaEngine::sculpt` (OrcaSculpt.cpp ~644-685) into a helper taking a face list. Engine calls
-  `meshEdit` {object, instance, volume, op: select|clear|grow|move|end, ray, kind, angle (0 = Triangles), toggle,
-  matrix (world 4x4 applied about the centroid)}; move keeps the start positions of the selection (like `grab_orig`),
-  `push_undo()` at a drag's first move, flush + drop_to_bed at end; returns selection {centroid, normal, edges, verts} in world mm.
-  Add `meshEdit` to dispatch()'s no-flush list (EngineCalls.cpp:233). Then MCP `mesh_edit`, CI build, WSA VD check. Kotlin UI = M1c.
+- **M1b native done 2026-10-30 (Claude, uncompiled: no local native build, CI compiles it):** `SculptSession.hpp` (struct moved out
+  of OrcaSculpt.cpp, plus `hit()` / `touch()` methods and edit fields), `OrcaEngine::sculpt_patch(faces)` factored out of
+  `sculpt()`, `jni/OrcaMeshEdit.cpp` `mesh_edit` (ops select / clear / grow / move / end; row-major world matrix about the
+  drag-start pivot; regions cached per angle, cleared at end; overlay = crease edges with both ends selected, cap 4000),
+  `meshEdit` in EngineCalls (+ no-flush list; null ray/matrix = absent), Kotlin `Engine.meshEdit` + `MeshEditStep` (compiles).
+- **M1b next:** MCP `mesh_edit` in McpTools.kt (beside `object_sculpt` ~line 179 / handler `sculpt()` ~856): ray -> `engine.pick`
+  -> target (remember it in a field for ray-less ops), args op (select default / clear / grow), kind, angle (30), toggle,
+  move [dx,dy,dz] / scale / rotate [deg xyz] -> row-major matrix T*Rz*Ry*Rx*S -> `meshEdit(move)` then `meshEdit(end)` inside
+  `plateEdit`; reply = selection count / centroid / normal / edge count. Then CI build (fix compile errors), WSA VD check
+  (select a cube face, move +5 mm Z, check bbox via plate_describe; undo restores). Kotlin UI = M1c.
