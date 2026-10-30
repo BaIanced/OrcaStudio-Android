@@ -38,7 +38,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Fixture `~/orca-android-tools/rep-groups.json` (MCP `design_set`). VD taps: archive "VD tap tip".
 - **Queued (user 2026-10-29):** dimensions overview (per-object bbox, hole sizes, thinnest wall; **ask the user what they had in mind when it comes up**); floating Theme | Layout designer (~half a day; **ask what they have in mind first**).
 - **OrcaMesh edit** (`NOTES-orcamesh-edit.md`): M1 + M2 Claude-verified on WSA VD (2026-10-30; drag-extrude bug = walls inside
-  side faces on inward pushes, fixed push/pull style in `split_cap`). CI run for M1c+M2 dispatched; when green: install on all adb devices
+  side faces on inward pushes, fixed push/pull style in `split_cap`). CI run 41025326653 (M1c+M2) dispatched; when green: install on all adb devices
   (skip .23), uninstall the WSA debug app. Then M3 Cut ring.
 - Next step: OrcaMesh CI install + M3 Cut ring (NOTES-orcamesh-edit.md) -> Opus 5.5 (medium)
 ## User decisions (2026-10-13)
