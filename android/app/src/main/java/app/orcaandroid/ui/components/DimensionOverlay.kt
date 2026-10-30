@@ -6,17 +6,23 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import app.orcaandroid.core.Vec3
+import app.orcaandroid.render.HoleFinder
 import app.orcaandroid.render.PlateView
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 
 /**
  * View > Dimensions: CAD-style X / Y / Z size lines beside the selection's box, drawn in screen space over the 3D view
@@ -26,6 +32,23 @@ import app.orcaandroid.render.PlateView
 fun DimensionOverlay(view: PlateView?) {
     val frame = remember { mutableLongStateOf(0L) }
     LaunchedEffect(Unit) { while (true) androidx.compose.runtime.withFrameNanos { frame.longValue = it } }
+    // Round holes in the selection, found off the main thread whenever the scene mesh or the selection changes.
+    val holes = remember { mutableStateOf<HoleFinder.Result?>(null) }
+    LaunchedEffect(view) {
+        val r = view?.renderer ?: return@LaunchedEffect
+        var seenMesh: Any? = null
+        var seenIds: Set<Int>? = null
+        while (true) {
+            val mesh = r.sceneMesh
+            val ids = r.selectedIds.map { Math.round(it) }.toSet()
+            if (mesh !== seenMesh || ids != seenIds) {
+                seenMesh = mesh
+                seenIds = ids
+                holes.value = if (mesh == null || ids.isEmpty()) null else withContext(Dispatchers.Default) { HoleFinder.find(mesh, ids) }
+            }
+            delay(300)
+        }
+    }
     val measurer = rememberTextMeasurer()
     val labelStyle = MaterialTheme.typography.labelLarge.copy(color = Color.White)
     Canvas(Modifier.fillMaxSize()) {
@@ -80,5 +103,40 @@ fun DimensionOverlay(view: PlateView?) {
         dim(Vec3(left.x, lo.y, lo.z), Vec3(left.x, hi.y, lo.z), oy, green, size.y)
         val oz = out(left, true, true)
         dim(Vec3(left.x, left.y, lo.z), Vec3(left.x, left.y, hi.z), oz, blue, size.z)
+
+        // Holes: a ring at the end nearer the eye and the diameter inside it. Found on the last uploaded mesh, so the
+        // points follow the live box (a drag or resize in progress) by mapping the found box onto it.
+        val found = holes.value ?: return@Canvas
+        val fs = found.boxHi - found.boxLo
+        fun live(p: Vec3): Vec3 {
+            fun m(v: Float, a: Float, s: Float, l: Float, ls: Float) = if (s > 1e-4f) l + (v - a) * (ls / s) else l + (v - a)
+            return Vec3(m(p.x, found.boxLo.x, fs.x, lo.x, size.x), m(p.y, found.boxLo.y, fs.y, lo.y, size.y), m(p.z, found.boxLo.z, fs.z, lo.z, size.z))
+        }
+        val amber = Color(0xFFFFA000)
+        val eye = cam.eye()
+        val taken = ArrayList<Rect>()
+        for (h in found.holes.sortedByDescending { it.diameter }) {
+            val a = live(h.lo)
+            val b = live(h.hi)
+            val end = if ((a - eye).length() <= (b - eye).length()) a else b
+            val r = h.diameter / 2
+            val ring = (0..32).mapNotNull { i ->
+                val t = i * (2 * Math.PI / 32)
+                val c = Math.cos(t).toFloat() * r
+                val s = Math.sin(t).toFloat() * r
+                scr(when (h.axis) { 0 -> end + Vec3(0f, c, s); 1 -> end + Vec3(c, 0f, s); else -> end + Vec3(c, s, 0f) })
+            }
+            if (ring.size < 33) continue
+            for ((w, c) in listOf(4.5f to Color.Black.copy(alpha = 0.5f), 2f to amber)) for (i in 0 until 32) drawLine(c, ring[i], ring[i + 1], w)
+            val mid = scr(end) ?: continue
+            val t = measurer.measure(String.format(java.util.Locale.ROOT, "⌀%.2f", h.diameter).trimEnd('0').trimEnd('.'), labelStyle)
+            val pad = 4.dp.toPx()
+            val tl = mid - Offset(t.size.width / 2f, t.size.height / 2f)
+            val box = Rect(tl - Offset(pad, pad / 2), Size(t.size.width + 2 * pad, t.size.height + pad))
+            if (taken.any { it.overlaps(box) }) continue
+            taken += box
+            drawRoundRect(amber.copy(alpha = 0.9f), box.topLeft, box.size, CornerRadius(pad))
+            drawText(t, topLeft = tl, color = Color.Black)
+        }
     }
 }
