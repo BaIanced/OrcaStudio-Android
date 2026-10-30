@@ -3647,3 +3647,9 @@ Object More menu now: Add volume (5 items) and Mesh tools (7 items) collapsible,
 - Note: MCP view_state keeps "Selected: object 3 copy 1" while gizmos sit on copy 2; harmless (Build uses only `buildCopy`, ShapeController.kt:130).
 - Gotcha: at plate-wide zoom the rings cover the body, so body drags hit a ring; pick a small shape or zoom in for move tests.
 - Tool: `~/orca-android-tools/wsa-full.ps1` = WSA app window maximized on the main screen + focused (for user-visible runs).
+
+## 2026-10-29 Build repeated groups: gizmos on the tapped group copy (Claude, cc93c6d; CI run 40986260576 = r469 pending)
+- `ShapeDesign.hitAt` = `pathAt` with each path shape's repeat copy (top = piece.copy); `ScadController.shapeAt` returns it; `ShapeController.buildGroupCopies` (id -> copy) set on tap/grab.
+- `parentFrame(id, copy)` / `toParent(id, v, copy)` / `axesFree(..., copy)` use that copy's matrix (copies(g)[k] * placement), out-of-range -> copy 0. Used by gizmo box, snap boxes, move, resize, turn; Viewport keys on it.
+- JVM: GroupPickTest +2 (row-repeated top group: hit copy + frame = that piece's matrix, fallback; circular-repeated nested group: hit copy 1, frame on copy 1, drag moves copy 1's box by v); scad suites green, release Kotlin compiles.
+- Untested on device: repeated group child tap on copy 1+ -> gizmo there; nested groups on device.

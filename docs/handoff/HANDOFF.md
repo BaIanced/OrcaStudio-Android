@@ -14,7 +14,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 3defffa (PR #66, branch at r461/89944b9, merged 2026-10-28 on the user's go-ahead, before sessions B-D; user overrode the user-tested-only rule for this merge). Older: 0170950 (PR #65, r398). User-untested in main: list in `NOTES-merge-batch.md`.
 - Signing secrets: `release` environment (main + `claude/*` only).
-- Latest CI build: r468 (run 40979554989, multi-copy gizmos) on WSA, SHIELD, phone, Note, 2026-10-29. User feel untested. Install builds on all adb devices (skip .23).
+- Latest CI build: r468 (run 40979554989, multi-copy gizmos; r469 pending) on WSA, SHIELD, phone, Note, 2026-10-29. User feel untested. Install builds on all adb devices (skip .23).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **User 2026-10-28: no more user testing for now; Claude builds and tests everything itself (memory no-user-testing-now); don't ask for feel/UI checks.**
 - **User 2026-10-29: no tests on the user's screen; all tests on a hidden virtual display** (`TARGET=wsa orca-vd.sh start`, memory tests-on-virtual-display).
@@ -35,8 +35,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - WSA: `svc power stayon true` while testing; `stage-from-apk.sh <apk>`.
 - Build multi-copy gizmos Claude-verified on WSA 2026-10-29 (archive); r468 installed (Chromebook/Quest offline), WSA debug app removed.
 - WSA VD checked 2026-10-29: display 3, no desktop window, `ui` dump works; `sf=` empty, so shots via the app's MCP screenshot (or the mkv after `stop`). Debug app: `PKG=...debug` (wsa-debug-rebuild.sh launches may open a window: start on the VD instead). No focus loops; `wsa-full.ps1` only when the user asks to watch. `target.sh` now tags the SHIELD `tv`.
-- Next up: Build workspace nested/repeated groups with gizmos (backlog "Build workspace").
-- Next step: Build nested/repeated groups with gizmos -> Opus 5.5 (high)
+- Repeated-group gizmos on the tapped copy: coded + JVM-tested 2026-10-29 (cc93c6d, archive); CI run 40986260576 (r469) dispatched, not yet checked.
+- Next up: when r469 is green, install on all adb devices, then WSA VD check: a group with a row repeat (and a nested circular one), tap the child on copy 2 -> gizmo box on copy 2; ring/handle/drag there changes all copies alike; nested group child gizmos.
+- Next step: r469 install + WSA check of repeated/nested group gizmos -> Opus 5.5 (high)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
