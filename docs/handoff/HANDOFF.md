@@ -37,8 +37,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Build continuity 1-3 done (one Design entry + CAD badge, Edit in builder, ghosts, paint kept on open: code check 2026-10-29; archive). Hole ghost alpha r470 verified.
 - Repeated-group test fixture: `~/orca-android-tools/rep-groups.json` via MCP `design_set` (archive 2026-10-29 "repeated groups").
   WSA tap helpers: `~/orca-android-tools/tx.sh <label>` fails on Compose nodes with 0 bounds; use `phone-ui.py layout` with `. ./.vd-wsa.state; export VD=$LOGICAL,$SFID` + `orca-vd.sh tap`. Package id `io.github.baianced.orcastudio_android.debug`.
-- Repeated group turn ring + body drag verified 2026-10-29 (archive). Build smart-guide middles verified 2026-10-29 (archive). Claude-only leftover: CAD step 7 asset library (not started, `NOTES-cad-reuse.md`).
-- Next step: CAD step 7 asset library (no spec yet: only the backlog line "figures, wheels"; write a short design in NOTES-cad-reuse.md first, then build the smallest slice) -> Opus 5.5 (high)
+- Repeated group turn ring + body drag verified 2026-10-29 (archive). Build smart-guide middles verified 2026-10-29 (archive). CAD step 7a (Part menu: Wheel, Figure) built + JVM-tested, 626b407; design 7a-7c in `NOTES-cad-reuse.md`.
+- Next step: WSA VD check of 7a (debug build: Part > Wheel / Figure render right, placed beside, editable; fix looks), then 7b Save as part -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
