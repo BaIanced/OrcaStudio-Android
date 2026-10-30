@@ -34,10 +34,11 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Gate: user sessions B-D paused 2026-10-28; release gated on the printer set.
 - WSA: `svc power stayon true` while testing; `stage-from-apk.sh <apk>`.
 - WSA VD (reference "Headless display"): Kotlin-only changes = assembleDebug + `wsa-debug-setup.sh` (installs, no launch) + `TARGET=wsa PKG=...debug orca-vd.sh start`; shots via MCP `view_screenshot`; uninstall debug after. `wsa-full.ps1` only when the user asks to watch.
-- Repeated/nested group gizmos Claude-verified on the WSA VD 2026-10-29 (archive).
-- Hole ghost alpha 0.25 (r470, installed on all adb devices 2026-10-29): Claude-verified on the WSA VD (faint ghost, figure clearly visible through the window; archive). Multi-part first-edit test dropped (module persists in 3MF).
+- Build continuity 1-3 done (one Design entry + CAD badge, Edit in builder, ghosts, paint kept on open: code check 2026-10-29; archive). Hole ghost alpha r470 verified.
+- Repeated-group test fixture: `~/orca-android-tools/rep-groups.json` via MCP `design_set` (archive 2026-10-29 "repeated groups").
   WSA tap helpers: `~/orca-android-tools/tx.sh <label>` fails on Compose nodes with 0 bounds; use `phone-ui.py layout` with `. ./.vd-wsa.state; export VD=$LOGICAL,$SFID` + `orca-vd.sh tap`. Package id `io.github.baianced.orcastudio_android.debug`.
-- Next step: Build continuity (2)+(3): one builder entry + CAD badge, mockup first (backlog/archive 2026-10-28 brain dump; user agreed leanings) -> Opus 5.5 (high)
+- After that, Claude-only leftovers: Godot "tower ignores Z" check; smart-guides idea (plate + object centres in the shape-builder edge snap); CAD step 7 asset library (not started, `NOTES-cad-reuse.md`).
+- Next step: Build repeated group: turn ring + body move-drag on a copy, WSA VD test with the debug app -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).

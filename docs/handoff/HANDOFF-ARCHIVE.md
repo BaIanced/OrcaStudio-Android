@@ -3662,3 +3662,6 @@ Object More menu now: Add volume (5 items) and Mesh tools (7 items) collapsible,
 
 ## 2026-10-29 Hole ghost alpha 0.25 (r470)
 - Claude-verified on the WSA VD with the debug app: wall + hole window + sphere behind; ghost faint, figure clearly visible through the opening. User feel untested.
+
+## 2026-10-29 Build continuity part 2: paint kept on open (Claude, code check; closed)
+- `editMesh` only sets `module_name` (`OrcaScene.cpp:1416` `set_object_module`, mesh and `mmu_segmentation_facets` untouched); the object is then pieces-tagged, so `buildIfShapes` sees `buildObject != null` and skips `placeShapes` (`ScadController.kt:166`): no render, paint kept until the first edit (which re-renders, as for any design). Matches the r467 WSA Cube test (open did not re-render). Not painted+opened on a device (no MCP paint tool). Multi-part first-edit test dropped earlier. Item closed.
