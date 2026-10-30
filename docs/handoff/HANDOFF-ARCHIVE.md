@@ -3640,3 +3640,10 @@ Object More menu now: Add volume (5 items) and Mesh tools (7 items) collapsible,
 - More > Appearance > "Separate code and shape builder entries": on = Add menu shows "OpenSCAD model" + "Shape builder", both with CAD badge; off = single "Design" + badge. Untested: first edit of the multi-part mesh (placePieces keepCenter) and paint kept on open. User feel untested.
 - Gotcha: WSA display sleeps within minutes and UI dumps come back empty/swipes die: `adb shell "svc power stayon true"` + KEYCODE_WAKEUP (set back to false when done).
 - r464+ (2026-10-29): all Claude-verified on WSA except paint shop Sync swatch (needs a printer).
+
+## 2026-10-29 Build multi-copy gizmos: WSA test complete (Claude, debug build of 9eac6a4; CI r468)
+- Gizmos/lift/snap sit on `ShapeController.buildCopy` (last tapped/grabbed copy); `PlateRenderer.buildCopies` cuts the union mesh box back to one copy in `meshBox`; live mesh scale/turn off then (box only).
+- WSA main window, full screen (user asked for this run): object 3 (3-part Cube) with copy 2 at [160,200] rot [90,0,90]. Tap Cube on copy 2 -> handles/rings on copy 2's box (fits the shape). Resize (red handle), turn (ring), lift (blue handle) on copy 2 -> both copies change alike. Tap copy 1 -> gizmos jump back. Pick Part 2 on copy 2 + drag -> both Part 2s move, gizmo follows copy 2.
+- Note: MCP view_state keeps "Selected: object 3 copy 1" while gizmos sit on copy 2; harmless (Build uses only `buildCopy`, ShapeController.kt:130).
+- Gotcha: at plate-wide zoom the rings cover the body, so body drags hit a ring; pick a small shape or zoom in for move tests.
+- Tool: `~/orca-android-tools/wsa-full.ps1` = WSA app window maximized on the main screen + focused (for user-visible runs).

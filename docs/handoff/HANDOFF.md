@@ -33,15 +33,11 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **No WSA focus loops**. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
 - Gate: user sessions B-D paused 2026-10-28; release gated on the printer set.
 - Build continuity part 2 (r467) Claude-verified (archive 2026-10-29). WSA: `svc power stayon true` while testing; `stage-from-apk.sh <apk>`.
-- **Build multi-copy gizmos (in progress, 2026-10-29, compiled, debug APK on WSA, UNTESTED):** Build gizmos/lift/snap no
-  longer need a lone copy: they sit on `ShapeController.buildCopy` (last tapped/grabbed copy; StateFlow, Viewport key);
-  copies share volume ids, so `PlateRenderer.buildCopies` (design offsets + active copy) cuts the union mesh box back to
-  one copy in `meshBox` (copies differ only by offset in the design pose); live mesh scale/turn off then (box only, like
-  `boxOverride`). Mirrored/turned copies need nothing: Build draws `Instance.shown` (pure translation, Engine.kt:405).
-  WSA set-up: Build view open on object 3 (3-part Cube), copy 2 added at [160,200] rot [90,0,90] (off screen; zoom out).
-  Test: tap a shape on copy 2 -> handles/rings on copy 2's box; resize/turn/lift/drag there -> both copies change alike;
-  tap copy 1 -> gizmos jump back. Then CI build + install on all adb devices.
-- Next step: Build multi-copy gizmo test on WSA -> Opus 5.5 (high)
+- Build multi-copy gizmos Claude-verified on WSA 2026-10-29 (archive); CI r468 (run 40979554989) built for it.
+  If r468 isn't on all adb devices yet: install it (skip .23), then uninstall the WSA debug app.
+- Visual runs on WSA the user wants to watch: `wsa-full.ps1` (main screen, maximized).
+- Next up: Build workspace nested/repeated groups with gizmos (backlog "Build workspace").
+- Next step: Build nested/repeated groups with gizmos -> Opus 5.5 (high)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
