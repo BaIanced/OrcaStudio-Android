@@ -50,3 +50,16 @@ B-rep params are lost once an object is baked to a mesh (deformers, sculpt).
      menu under the built-ins; long-press to delete.
    - 7c (maybe): more built-ins (gear via BOSL2-free polygon sketch, peg/hole pair with clearance, hinge, gear: all built), and part sliders
      (e.g. wheel diameter) once dims can scale a whole group.
+   - 7d part sliders, design (Claude, 2026-10-29, nothing built). **Group scale**: new extra `Shape.SCALE` (%, default 100) on
+     GROUP only, uniform, about the group's frame origin (bottom centre), applied inside the group's frame before its children.
+     Bindable like any extra (`resolved()` already folds bound extras), so "Make a slider" works on it with no new binding code.
+     Rejected: per-field proportional bindings (`w = d*k`; keeps an axle hole fixed while the wheel grows, but needs an
+     expression bind format + authoring UI, too heavy for no-code) and baking the scale into children (breaks the Customizer code).
+     Uniform only: avoids turned children / circular repeats skewing (same reason `BuildTransform.scaled` refuses uneven).
+     Touch points in `ShapeModel.kt` (lines as of cb82ac8): `height` 269 + `bounds` 272 (group branch: scale `local` by k),
+     `hitAt` 503 / `toParent` 535 / `parentFrame` 545 (compose S into the group frame), `blendParts` 444 (frame), `group` 617 /
+     `shape` 633 codegen (`scale(k / 100)` inside the group's transform, bound -> dim name), `pieces` 418 (scale in the scad,
+     not the matrix: BuildTransform assumes unscaled design frames). Then: `BuildTransform.scaled` 104 can scale a group
+     (even f only -> SCALE *= f) instead of returning null (plate gizmo on groups, a bonus); ShapeBuilder group panel gets a
+     "Scale %" ExtraField (slider = true); `Part.build` binds SCALE to a new "<part> size" Dim (renamed via `Dim.ident`, as
+     `SavedParts.place`), so every built-in comes with its size slider. Tests: PartsTest + a ShapeModel bounds/scad test.

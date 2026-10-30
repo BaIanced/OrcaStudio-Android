@@ -38,7 +38,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Repeated-group test fixture: `~/orca-android-tools/rep-groups.json` via MCP `design_set` (archive 2026-10-29 "repeated groups").
   WSA tap helpers: `~/orca-android-tools/tx.sh <label>` fails on Compose nodes with 0 bounds; use `phone-ui.py layout` with `. ./.vd-wsa.state; export VD=$LOGICAL,$SFID` + `orca-vd.sh tap`. Package id `io.github.baianced.orcastudio_android.debug`.
 - CAD 7a-7c built-ins (Wheel, Figure, Save as part, Peg and hole, Hinge, Gear) WSA VD OK 2026-10-29 (archive); CI r472 (run 40996385381) has all of 7a-7c, installed on all 5 adb devices. Gear built-in done, WSA VD OK (archive). Left: part sliders (backlog).
-- Next step: CAD part sliders (needs dims that scale a group; subtle multi-file design) -> Opus 5.5 (high)
+- Part sliders: design done 2026-10-29 (`NOTES-cad-reuse.md` 7d: group SCALE % extra, touch points with lines); build it next.
+- Next step: CAD 7d part sliders, build the group-scale design (multi-file frame math) -> Opus 5.5 (high)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
