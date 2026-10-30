@@ -128,6 +128,6 @@ STLs from CAD have flat faces split into many triangles and no quads, so raw Ble
   its border); both regions must be flat (0.5 deg) and closed, <= 20k triangles; `mesh_to_brep(tol 1e-5 diag, merge 0.5 deg)`,
   crease midpoint -> nearest B-rep edge (within 10 tol), MakeFillet / MakeChamfer, `tessellate(0.02/scale, 0.3)`, one undo
   step, painting dropped, drop to bed, selection cleared. MCP `op:"fillet"|"chamfer"` + amount (optional ray selects first).
-  **Next:** local debug build (`wsa-debug-rebuild.sh native`) + WSA VD MCP check: 20 mm cube top face fillet 2 (vol should be
-  8000 - 4*20*(4-pi)... compute: 4 edges x (r^2 - pi r^2/4) x 20 = 274.6 less, corners aside), edge chamfer 2, cylinder refused,
+  **Next:** local debug build (`wsa-debug-rebuild.sh native`) + WSA VD MCP check: 20 mm cube top face fillet 2 (each edge removes
+  (4 - pi) x 20 = 17.2 mm3, so about 8000 - 68.7 before the corner blends), edge chamfer 2 (-40 mm3), cylinder refused,
   Check mesh clean; then panel Fillet / Chamfer fields + Apply.
