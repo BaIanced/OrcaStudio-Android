@@ -68,3 +68,4 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - Snapping (user 2026-10-28: toggle/hotkey, not forced on the plate, thin Adobe-style guide): 846a663 Claude-verified WSA 2026-10-28; user feel untested.
 - Session B checks skipped by user 2026-10-28 ("don't want to do right now"): Sculpt, Hollow, Center/Align, Check mesh, badge fix.
 - Godot review leftovers (Z lift dot, axis lock, Wireframe, orbit inertia, Light direction: all in CI r463, Claude-verified WSA 2026-10-28, archive): open: user feel; tower ignores Z code-verified 2026-10-29. [Opus]
+- CAD 7c leftovers: more built-ins (gear via polygon sketch, hinge) and part sliders (wheel diameter; needs dims that scale a group). Claude design 2026-10-29, nothing built.

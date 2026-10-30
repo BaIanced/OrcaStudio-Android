@@ -3685,3 +3685,6 @@ Object More menu now: Add volume (5 items) and Mesh tools (7 items) collapsible,
 
 ## 2026-10-29 Asset library 7b: WSA VD check passed (da7d640, debug build)
 - Selected group Row (repeat 2x, holds Box + Ring group) -> Part chip menu "Save selected group as part": `files/openscad/parts/Row.json` written, "Row" listed with a delete icon. Tapping it added "Row 1" with Base + Ring children intact. Delete icon removed the file (parts dir empty). Claude test, user untested. Next: 7c (see `NOTES-cad-reuse.md`).
+
+## 2026-10-29 Asset library 7c (part): "Peg and hole" built-in, WSA VD check passed (debug build)
+- Part menu now lists Wheel, Figure, Peg and hole (two 26x16x3 plates: 6 mm peg on one, 6.4 mm hole on the other, 0.2 mm clearance; 56x16x11 mm in design_snapshot). PartsTest green. Claude test, user untested. Still open from 7c (backlog): gear, hinge, part sliders (need dims that scale a whole group).

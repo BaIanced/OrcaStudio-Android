@@ -8,7 +8,9 @@ enum class Part {
     /** A 40 mm wheel lying flat (prints without support): tire, hub, 5 spokes, a 4 mm axle hole. */
     WHEEL,
     /** A 38 mm standing figure: legs, body, arms, head. */
-    FIGURE;
+    FIGURE,
+    /** Two 26 mm plates side by side: one with a 6 mm peg, one with a 6.4 mm hole (0.2 mm clearance all round) so they press together. */
+    PEG_PAIR;
 
     /** The part as one group named [name] at the origin, its shapes numbered from [firstId] (the group first). */
     fun build(firstId: Int, name: String): Shape {
@@ -33,6 +35,12 @@ enum class Part {
             Shape(0, Shape.Kind.CYLINDER, "Left arm", D3(4.5, 4.5, 12.0), D3(-9.5, 0.0, 14.0), D3(0.0, 10.0, 0.0)),
             Shape(0, Shape.Kind.CYLINDER, "Right arm", D3(4.5, 4.5, 12.0), D3(9.5, 0.0, 14.0), D3(0.0, -10.0, 0.0)),
             Shape(0, Shape.Kind.SPHERE, "Head", D3(12.0, 12.0, 12.0), D3(0.0, 0.0, 26.0)),
+        )
+        PEG_PAIR -> listOf(
+            Shape(0, Shape.Kind.BOX, "Peg plate", D3(26.0, 16.0, 3.0), D3(-15.0, 0.0, 0.0)),
+            Shape(0, Shape.Kind.CYLINDER, "Peg", D3(6.0, 6.0, 8.0), D3(-15.0, 0.0, 3.0)),
+            Shape(0, Shape.Kind.BOX, "Hole plate", D3(26.0, 16.0, 3.0), D3(15.0, 0.0, 0.0)),
+            Shape(0, Shape.Kind.CYLINDER, "Hole", D3(6.4, 6.4, 3.0), D3(15.0, 0.0, 0.0), hole = true),
         )
     }
 }
