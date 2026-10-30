@@ -53,10 +53,17 @@ don't demo it on a cube.
   3 turn/mirror cases incl. z-mirror, binary STL.
 - Untested: OpenSCAD actually rendering the emitted code (needs a device / CI run), the pull's 0.01 grow on real meshes.
 
+## Done 2 (2026-10-29, JVM 6/6 FaceOpsTest; UI not wired yet)
+- `ShapeDesign.designToMesh / meshToDesign(id, p, copy)`: design point <-> file point through parentFrame + own repeat copy.
+- `ScadController.faceAt(obj, origin, dir)` -> `FacePick(shapeId, index (-1 = new), op, copy, copies, outline (plate, at cap), normal (plate per file mm))`:
+  engine.pick -> hitAt -> innermost MESH on the path -> capAt (re-push) else Stl + region (IO thread). Untested on device.
+- `ShapeController.faceAt(origin, dir, result)` (sets buildCopy / buildGroupCopies), `pushFace(id, index, op, d)` (d = 0 removes; one
+  commit = one undo step; `held` keeps groups put), `removeFace(id, index)`.
+
 ## Next (UI, in this order)
-1. `ScadController.faceAt(screen ray)`: engine.pick on the build object -> volume -> piece -> `BuildTransform.toDesign`
-   -> parent frame of the shape (walk `pathTo`) -> `parentToMesh` -> `Stl.triangles` + `capAt` / `region` (off main thread).
-2. `ShapeController.pushFace(id, op index or new op, d)` -> `withFaces`, one undo step per drag.
-3. Toolbar/long-press "Push/pull face" mode for a selected MESH shape (PlateView), outline overlay + arrow handle,
-   0.5 mm steps, label "+6.0 mm", re-render on release. Shape panel "Face edits" list (distance, delete).
-4. WSA VD test: L-bracket with a hole, Edit in builder, push the tab 10 mm (hole round and unmoved).
+1. PlateView/Viewport: "Push/pull face" mode for a selected MESH shape (toolbar/long-press). Tap -> `vm.shapes.faceAt`, store the pick;
+   overlay = pick.outline lines (Compose Canvas via camera.project, like the measure overlay) + arrow at outline centroid along pick.normal.
+   Drag from the arrow (copy `startLift`/`liftAt`: project normal to screen, d = travel / px-per-file-mm, 0.5 mm steps, label "+6.0 mm");
+   on release `pushFace(pick.shapeId, pick.index, pick.op, pick.op.d + delta)`. Live: offset outline only.
+2. Shape panel (ui/scad/ShapeBuilder.kt ~395, MESH row) "Face edits" list: distance field + delete -> pushFace / removeFace.
+3. WSA VD test: L-bracket with a hole, Edit in builder, push the tab 10 mm (hole round and unmoved).

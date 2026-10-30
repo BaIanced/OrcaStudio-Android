@@ -133,6 +133,33 @@ class ShapeController(private val store: Store, private val scad: ScadController
         }
     }
 
+    /** Build workspace, push / pull: [result] gets the flat MESH face under the ray ([ScadController.faceAt]), or null. */
+    fun faceAt(origin: Vec3, dir: Vec3, result: (ScadController.FacePick?) -> Unit) {
+        val obj = store.value.buildObject ?: return result(null)
+        store.launch {
+            val pick = scad.faceAt(obj, origin, dir)
+            if (pick != null) { buildCopy.value = pick.copy; buildGroupCopies.value = pick.copies }
+            result(pick)
+        }
+    }
+
+    /**
+     * Push / pull: MESH shape [id]'s face op [index] (or a new one, [op], when out of range) set to [d] mm (> 0 push,
+     * < 0 pull, 0 removes it), as one undo step; the shape's box grows so the rest of the model stays put ([ShapeDesign.withFaces]).
+     */
+    fun pushFace(id: Int, index: Int, op: app.orcaandroid.scad.FaceOp, d: Double) {
+        val des = design ?: return
+        val s = des.find(id)?.takeIf { it.kind == Shape.Kind.MESH } ?: return
+        val faces = if (index in s.faces.indices) s.faces.mapIndexed { i, f -> if (i == index) f.copy(d = d) else f } else s.faces + op.copy(d = d)
+        commit(held(des, des.withFaces(id, faces.filter { kotlin.math.abs(it.d) > 1e-9 }), id))
+    }
+
+    /** Push / pull: MESH shape [id]'s face op [index] taken off (the Shape panel's "Face edits" list). */
+    fun removeFace(id: Int, index: Int) {
+        val s = design?.find(id) ?: return
+        s.faces.getOrNull(index)?.let { pushFace(id, index, it, 0.0) }
+    }
+
     /** Build workspace: a main-view drag moved the selection [dx], [dy] mm on the plate. */
     fun moveOnPlate(dx: Float, dy: Float, dz: Float = 0f) {
         val inst = store.value.buildObject?.let { store.value.scene.objects.getOrNull(it) }?.instances?.let { it.getOrNull(buildCopy.value) ?: it.firstOrNull() }?.shown ?: return

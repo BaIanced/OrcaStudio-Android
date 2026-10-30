@@ -149,6 +149,25 @@ class FaceOpsTest {
         }
     }
 
+    /** A tap's design point maps to the model file and back, inside a turned, flipped, repeated group, per copy. */
+    @Test
+    fun designAndFilePoints() {
+        val file = listOf(0.0, 0.0, 0.0, 40.0, 30.0, 10.0)
+        val m = Shape(2, Shape.Kind.MESH, "M", D3(20.0, 60.0, 10.0), D3(5.0, 6.0, 7.0), D3(0.0, 30.0, 10.0), mirror = D3(1.0, 0.0, 0.0),
+            file = "/m.stl", extra = Shape.MESH_BOUNDS.zip(file).toMap(), repeat = Repeat(count = 2, step = D3(0.0, 0.0, 15.0)))
+        val g = Shape(5, Shape.Kind.GROUP, "G", D3(), D3(3.0, 1.0, 0.0), D3(0.0, 0.0, 20.0), false, D3(0.0, 1.0, 0.0),
+            children = listOf(m), repeat = Repeat(count = 3, step = D3(50.0, 0.0, 0.0)))
+        val d = ShapeDesign(listOf(g), nextId = 6)
+        for (copy in listOf(mapOf(5 to 0, 2 to 0), mapOf(5 to 2, 2 to 1))) for (q in listOf(D3(0.0, 0.0, 0.0), D3(40.0, 1.5, 5.0), D3(12.0, 30.0, 10.0))) {
+            val p = d.meshToDesign(2, q, copy)!!
+            near(q, d.designToMesh(2, p, copy)!!, 1e-9)
+        }
+        // A plain top-level MESH: file bounds' bottom centre at pos, the second copy one step on.
+        val top = ShapeDesign(listOf(m.copy(rot = D3(), mirror = D3())), nextId = 3)
+        near(D3(5.0, 6.0, 7.0), top.meshToDesign(2, D3(20.0, 15.0, 0.0))!!)
+        near(D3(5.0, 6.0, 22.0), top.meshToDesign(2, D3(20.0, 15.0, 0.0), mapOf(2 to 1))!!)
+    }
+
     @Test
     fun binaryStl() {
         val tris = bracket

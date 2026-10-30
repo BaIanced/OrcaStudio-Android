@@ -650,6 +650,31 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
             l.z * max(0.01, b[5] - b[2]) / r.size.z + b[2])
     }
 
+    /**
+     * Design point [p] as a point of MESH shape [id]'s model file, in the copies [copy] of its groups and of itself (as
+     * [hitAt] gives them; else the first). Null when [id] is gone.
+     */
+    fun designToMesh(id: Int, p: D3, copy: Map<Int, Int> = emptyMap()): D3? {
+        val s = find(id)?.let(::resolved) ?: return null
+        val m = parentFrame(id, copy)
+        // The frame's turn and flip are orthonormal, times an even scale k: the inverse is the transpose over k squared.
+        val kk = m[0] * m[0] + m[4] * m[4] + m[8] * m[8]
+        val d = D3(p.x - m[3], p.y - m[7], p.z - m[11])
+        val q = D3((0..2).sumOf { m[it * 4] * d[it] } / kk, (0..2).sumOf { m[it * 4 + 1] * d[it] } / kk, (0..2).sumOf { m[it * 4 + 2] * d[it] } / kk)
+        return parentToMesh(s, inverse(copies(s).let { it.getOrNull(copy[id] ?: 0) ?: it.first() }, q))
+    }
+
+    /** The inverse of [designToMesh]: MESH shape [id]'s file point [p] in the design. */
+    fun meshToDesign(id: Int, p: D3, copy: Map<Int, Int> = emptyMap()): D3? {
+        val s = find(id)?.let(::resolved) ?: return null
+        val c = copies(s).let { it.getOrNull(copy[id] ?: 0) ?: it.first() }
+        return transform(parentFrame(id, copy), transform(c, meshToParent(s, p)))
+    }
+
+    /** Point [p] through row-major 4 x 4 [m]. */
+    private fun transform(m: DoubleArray, p: D3) =
+        D3((0..2).sumOf { m[it] * p[it] } + m[3], (0..2).sumOf { m[4 + it] * p[it] } + m[7], (0..2).sumOf { m[8 + it] * p[it] } + m[11])
+
     /** Point [p] through the inverse of rigid row-major 4 x 4 [m] (turn, flip and move only). */
     private fun inverse(m: DoubleArray, p: D3): D3 {
         val d = D3(p.x - m[3], p.y - m[7], p.z - m[11])

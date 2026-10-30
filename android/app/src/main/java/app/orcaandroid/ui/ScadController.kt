@@ -918,6 +918,40 @@ class ScadController(private val store: Store) {
     }
 
     /**
+     * Push / pull: the flat face of a MESH shape under a tap. [index] = the op whose cap was hit (its drag edits it) or -1
+     * for a new [op] (d = 0). [outline] (outer loop, then holes) and [normal] (one file mm along the face's normal) are on
+     * the plate, at the op's current cap, for the overlay; [copy] / [copies] say which copies the tap was on.
+     */
+    data class FacePick(val shapeId: Int, val index: Int, val op: app.orcaandroid.scad.FaceOp, val copy: Int, val copies: Map<Int, Int>,
+        val outline: List<List<Vec3>>, val normal: Vec3)
+
+    /**
+     * Build workspace: the flat face under the ray on build object [obj]'s MESH shapes (the innermost on the hit path), or
+     * null (no hit, not a MESH, or a curved spot / a cut wall that isn't in the model file). Reads the file off the main thread.
+     */
+    suspend fun faceAt(obj: Int, origin: Vec3, dir: Vec3): FacePick? {
+        val hit = engine.pick(origin, dir, only = obj) ?: return null
+        val o = store.value.scene.objects.getOrNull(obj) ?: return null
+        val piece = volumeShapes(o)[hit.volume] ?: return null
+        val inst = o.instances.getOrNull(hit.instance)?.shown ?: return null
+        val d = ScadDesign.of(o)?.shapes ?: return null
+        val p = app.orcaandroid.scad.BuildTransform.toDesign(inst, hit.point)
+        val path = d.hitAt(piece, p)
+        val copies = path.toMap()
+        val s = path.asReversed().firstNotNullOfOrNull { (id, _) -> d.find(id)?.takeIf { it.kind == Shape.Kind.MESH } } ?: return null
+        val q = d.designToMesh(s.id, p, copies) ?: return null
+        val index = app.orcaandroid.scad.FaceOps.capAt(s.faces, q)
+        val op = s.faces.getOrNull(index) ?: withContext(Dispatchers.IO) {
+            app.orcaandroid.scad.Stl.triangles(File(s.file))?.let { app.orcaandroid.scad.FaceOps.region(it, q) }
+        } ?: return null
+        fun plate(f: D3) = d.meshToDesign(s.id, f, copies)?.let { app.orcaandroid.scad.BuildTransform.toPlate(inst, it) }
+        val outline = op.outline.map { l -> l.map { plate(op.at(it, op.d)) ?: return null } }
+        val a = plate(op.origin) ?: return null
+        val b = plate(op.at(app.orcaandroid.scad.P2(0.0, 0.0), 1.0)) ?: return null
+        return FacePick(s.id, index, op, hit.instance, copies, outline, b - a)
+    }
+
+    /**
      * Moves the new object [idx] to the free spot of its plate nearest the plate centre (5 mm grid,
      * 5 mm gap), so it doesn't land inside another; the other objects stay where they are.
      */
