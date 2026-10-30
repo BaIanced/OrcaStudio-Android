@@ -41,7 +41,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **Dimensions overlay** (user 2026-10-30; phases 1 bbox lines, 2 hole diameters, 3 thinnest wall): 1 = 378253f `DimensionOverlay.kt`; 2 = 68b9ac9 `render/HoleFinder.kt` (Kotlin on `PlateRenderer.sceneMesh`, `HoleFinderTest` 3/3; design in archive 2026-10-30). Neither seen on screen (WSA shots are GL only): check on phone/Note VD with a holed part selected in Prepare. Gaps: slots, tilted holes.
 - Phase 3 + phase 1 seen working on the phone VD, r480 (archive 2026-10-30); phase 2 hole diameter seen too (archive 2026-10-30, r480). Phone is reachable over Tailscale adb (`adb connect <tailnet ip>:5555`; `MCP_DEV=<serial>` for mcpao since target.sh serial defaults to WSA).
 - **Theme | Layout designer**: docked/float/Layout tab Claude-verified on WSA VD, narrow screens start floating (archive 2026-10-30); needs a CI build to reach devices, user feel untested.
-- Next step: pick the next backlog item (grep `[Opus]`/untested in HANDOFF-BACKLOG.md) -> Sonnet 5.5 (medium)
+- **User 2026-10-30: build a self-portrait demo (imaginary 3D "portrait of Claude", own colours/materials/style) with the new CAD tools, total context under 150k; saved as `docs/handoff/DEMO-self-portrait.md` + `~/orca-android-tools/self-portrait.json`.**
+- Next step: self-portrait demo (in progress), then slots/tilted holes or user pick -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
