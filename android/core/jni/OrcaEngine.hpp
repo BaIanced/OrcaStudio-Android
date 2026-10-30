@@ -48,6 +48,8 @@ using ProgressFn = std::function<void(int percent, const std::string &text)>;
 // a float up to 4096 objects). The app highlights and drags instances by it.
 inline constexpr size_t INSTANCE_ID_STRIDE = 4096;
 
+struct CutPreview; // a part drawn minus its holes, see OrcaEngine::write_mesh()
+
 // Faces reachable from [seed] over edges between faces whose normals differ by at most [angle] degrees (the desktop's smart
 // fill test); [neighbors] = its_face_neighbors flattened (3 per face); [allowed]: faces the flood may enter (all when empty).
 std::vector<bool> flood_surface(const indexed_triangle_set &its, const std::vector<int> &neighbors, int seed, double angle,
@@ -310,6 +312,10 @@ public:
     json export_gcode_3mf(int plate, const std::string &gcode, const std::string &path, const std::string &sliced);
     // Writes the objects of `plate` (or all for plate < 0) as one binary STL.
     json export_stl(const std::string &path, int plate);
+    // Writes each part / negative volume of `object` as its own binary STL in `dir`, its volume matrix baked in
+    // (object frame, no instance transform). Returns { "volumes": [{ "volume", "path", "bounds" [x0,y0,z0,x1,y1,z1] }] },
+    // empty volumes left out. Used to open a plain mesh object in the shape builder.
+    json export_volumes(int object, const std::string &dir);
     // Renders a mesh file (e.g. the OpenSCAD preview STL) to a square PNG with the CPU thumbnailer
     // (no scene state needed). `size` px is clamped to 128..1024. Returns { "png" (base64), "width",
     // "height" }. Used by the AI tool layer's design_snapshot.
@@ -452,6 +458,10 @@ private:
     struct SnapFeatures;
     std::map<const void *, std::shared_ptr<SnapFeatures>> m_neighbors;
     int                                   m_mesh_version = 0;
+    // First scene triangle of each part copy as write_mesh() wrote them (cut parts change the counts); sculpt_copies() reads it.
+    std::vector<size_t>                   m_mesh_first;
+    // Parts drawn minus their object's negative volumes (write_mesh()), per part volume; reused while the meshes and matrices hold.
+    std::map<const void *, std::shared_ptr<CutPreview>> m_cut_previews; // CutPreview: OrcaScene.cpp
     int                                   m_build_object = -1; // see set_build_object()
     // The Build workspace's object is drawn and picked in its design pose (see set_build_object()): a plain
     // translation, given here per copy; nullopt = any other object (its copy's own matrix).
@@ -477,6 +487,7 @@ private:
     std::shared_ptr<SculptSession>        m_sculpt;
     void                                  sculpt_build(int object, int instance, int volume);
     void                                  sculpt_copies();
+    bool                                  sculpting(size_t object, size_t volume) const; // a live session sculpts this part
     bool                                  sculpt_flush_locked();
     bool                                  sculpt_finish_locked();
     // Convex hulls of flushed sculpt meshes, computed off the lock (qhull took ~0.7 s at 135k faces); installed when ready,

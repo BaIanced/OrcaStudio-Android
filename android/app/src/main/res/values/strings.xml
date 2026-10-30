@@ -293,6 +293,7 @@
     <string name="measure_angle">Angle between the faces %1$s°</string>
     <string name="measure_snap_toggle">Snap to corners and edges</string>
     <string name="snap_toggle">Snap to edges and middles (Shift+Tab; hold Ctrl to flip while dragging)</string>
+    <string name="build_others">Other objects: ghosted, shown, hidden</string>
     <string name="move_lock">Move along one axis: free, X, Y (keys X / Y / Z while dragging)</string>
     <string name="measure_along_axis">Along %1$s</string>
     <string name="measure_along_centres">Centre to centre, along %1$s</string>
@@ -312,6 +313,8 @@
     <string name="model_ringing">Ringing tower</string>
     <string name="modified">modified</string>
     <string name="more">More</string>
+    <string name="more_add_volume">Add volume</string>
+    <string name="more_mesh_tools">Mesh tools</string>
     <string name="n_differences">%d differences</string>
     <string name="n_modified">%d modified</string>
     <string name="n_printers_selected">%d selected</string>
@@ -570,6 +573,9 @@
     <string name="view_realistic">Realistic render</string>
     <string name="view_layer_lines">Layer lines</string>
     <string name="view_edge_outline">Edge outline</string>
+    <string name="view_wireframe">Wireframe</string>
+    <string name="light_direction">Light direction</string>
+    <string name="view_bounding_box">Bounding box</string>
     <string name="orthographic_camera">Orthographic camera (K)</string>
     <string name="section_view">Section view</string>
     <string name="section_view_align">Set viewing angle</string>
@@ -887,14 +893,15 @@
     <string name="scad_hint_empty">The result is empty: a cut-away removed everything, or a size is 0.</string>
     <string name="scad_hint_2d">This is a flat 2D drawing. Give it a height with linear_extrude(5) in front of it.</string>
     <string name="shape_builder">Shape builder</string>
+    <string name="add_design">Design</string>
+    <string name="edit_in_builder">Edit in builder</string>
+    <string name="builder_split">Separate code and shape builder entries in the Add menu</string>
     <string name="shape_builder_desc">No code: drop shapes, size and move them, cut holes, group</string>
     <string name="shape_new_name">Shape design</string>
     <string name="shape_tab">Shapes</string>
     <string name="shape_add">Add a shape</string>
     <string name="shape_start">Add a shape from the shape list to start building on the plate.</string>
     <string name="shape_empty">Add a shape from the list above to start.</string>
-    <string name="shape_push">Push/pull</string>
-    <string name="shape_push_help">Drag a flat face to push or pull it · tap a shape to pick it · drag empty space to turn</string>
     <string name="shape_preview_help">Tap a shape to pick it · drag it to move · drag empty space to turn</string>
     <string name="shape_multi">%1$d shapes selected: move them with the arrow keys, group or align them.</string>
     <string name="shape_box">Box</string>
@@ -989,6 +996,15 @@
     <string name="shape_ring_thickness">Ring thickness (mm)</string>
     <string name="shape_mesh">Model file</string>
     <string name="shape_import">Import STL</string>
+    <string name="shape_parts">Part</string>
+    <string name="part_wheel">Wheel</string>
+    <string name="part_figure">Figure</string>
+    <string name="part_peg_pair">Peg and hole</string>
+    <string name="part_hinge">Hinge</string>
+    <string name="part_gear">Gear</string>
+    <string name="part_save">Save selected group as part</string>
+    <string name="part_saved">Saved part \"%1$s\"</string>
+    <string name="part_delete">Delete part %1$s</string>
     <string name="shape_import_failed">Could not read that STL file</string>
     <string name="shape_edges">Edges</string>
     <string name="shape_corners">Corners</string>
@@ -1001,10 +1017,15 @@
     <string name="shape_blend">Blend joins (mm, 0 = sharp)</string>
     <string name="shape_blend_hint">Rounds the edges where the group\'s shapes meet, and hole rims (Build workspace). Works with boxes, rounded boxes, round cylinders and cones, and spheres.</string>
     <string name="shape_blend_unsupported">Blend joins can\'t take \"%1$s\" yet: only boxes, rounded boxes, round cylinders and cones, and spheres, not hollow; holes only directly in the blended group.</string>
+    <string name="shape_scale">Scale % (whole group)</string>
     <string name="shape_blending">Blending joins…</string>
     <string name="shape_shell_wall">Wall (mm, 0 = solid)</string>
     <string name="shape_open_top">Open top</string>
     <string name="shape_mesh_file">From %1$s</string>
+    <string name="shape_push_pull">Push/pull a face</string>
+    <string name="shape_push_pull_hint">Tap a flat face in the view, then drag its arrow out (push) or in (pull). Holes and the rest of the model stay put.</string>
+    <string name="shape_face_edits">Face edits (mm, in the model file)</string>
+    <string name="shape_face_edit">Face %1$d</string>
     <string name="shape_top">Top size (0 = point, 1 = straight)</string>
     <string name="shape_sides">Sides (0 = round)</string>
     <string name="shape_repeat">Repeat</string>
@@ -1043,6 +1064,11 @@
     <string name="layout_lab">Layout lab (temporary)</string>
     <string name="layout_lab_summary">Try layouts</string>
     <string name="layout_lab_text">Layout variants to try out. Once you have picked, the others are removed and this section goes away.</string>
+    <string name="lab_group_plates">Plates</string>
+    <string name="lab_group_layout">Layout</string>
+    <string name="lab_group_scales">Sizes and overlay</string>
+    <string name="lab_group_shadows">Shadows</string>
+    <string name="lab_group_light">Light and orbit</string>
     <string name="lab_plate_switcher">Plate switcher</string>
     <string name="lab_tabs">Tabs</string>
     <string name="lab_filmstrip">Filmstrip</string>
@@ -1062,6 +1088,7 @@
     <string name="wheel_zoom_speed">Mouse wheel / thumbstick zoom speed: %s</string>
     <string name="lab_pinch_speed">Pinch zoom speed (100 %% = as fast as the fingers): %s</string>
     <string name="lab_camera_light">Preview camera light (toolpaths; 0 = studio light): %s</string>
+    <string name="lab_orbit_inertia">Orbit coasting after a flick (0 = off): %s</string>
     <string name="lab_light_strength">Light strength (the shadow follows the direction): %s</string>
     <string name="lab_shadow_bias">Shadow bias (raise if striped, lower if light leaks under parts): %s</string>
     <string name="lab_overlay_scale">Floating controls over the 3D view: %d %%</string>

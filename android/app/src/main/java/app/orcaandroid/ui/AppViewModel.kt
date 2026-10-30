@@ -194,6 +194,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         store.update { it.copy(realistic = on) }
     }
 
+    fun setLightPanel(on: Boolean) = store.update { it.copy(lightPanel = on) }
+
+    fun setWireframe(on: Boolean) = store.update { it.copy(wireframe = on) }
+
     fun setEdgeOutline(on: Boolean) {
         store.settings.edgeOutline = on
         store.update { it.copy(edgeOutline = on) }
@@ -211,8 +215,20 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         else { store.settings.snapPrepare = !s.snapPrepare; store.update { it.copy(snapPrepare = !s.snapPrepare) } }
     }
 
+    /** Build workspace: the plate's other objects cycle ghosted -> solid -> hidden. */
+    fun cycleBuildOthers() {
+        val next = (state.value.buildOthers + 1) % 3
+        store.settings.buildOthers = next
+        store.update { it.copy(buildOthers = next) }
+    }
+
     /** The move lock button: free -> X -> Y -> free. */
     fun cycleMoveLock() = store.update { it.copy(moveLock = if (it.moveLock >= 1) -1 else it.moveLock + 1) }
+
+    fun setBuilderSplit(on: Boolean) {
+        store.settings.builderSplit = on
+        store.update { it.copy(builderSplit = on) }
+    }
 
     fun setPerspective(on: Boolean) {
         store.settings.perspective = on
@@ -299,7 +315,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun dismissMessage() = store.update { it.copy(message = null, messageAction = null) }
     fun setScadHidden(hidden: Boolean) = store.update { it.copy(scadHidden = hidden) }
     fun setScadOnPlate(onPlate: Boolean) = store.update { it.copy(scadOnPlate = onPlate) }
-    fun setBuildPush(on: Boolean) = store.update { it.copy(buildPush = on) }
     fun toast(message: String) = store.toast(message)
     fun showError(message: String) = store.update { it.copy(error = message) }
 }

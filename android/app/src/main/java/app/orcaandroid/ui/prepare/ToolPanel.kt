@@ -228,7 +228,7 @@ private fun SculptOptions(vm: AppViewModel, tool: Tool.Sculpt) {
 }
 
 @Composable
-private fun PaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Paint) {
+internal fun PaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Paint) {
     if (tool.kind == "color") return ColorPaintOptions(state, vm, tool)
     Text(stringResource(R.string.paint_hint), style = MaterialTheme.typography.bodySmall)
     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {

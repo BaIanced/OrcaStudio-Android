@@ -180,6 +180,8 @@ data class UiState(
     val layerLines: Boolean = false,
     /** 3D view: dark outline along the models' crease edges (View menu). */
     val edgeOutline: Boolean = false,
+    /** 3D view: the triangle edges of every model (View menu; this session only). */
+    val wireframe: Boolean = false,
     /** How the selection shows ([app.orcaandroid.render.SelectionStyle] bits). */
     val selectionStyle: Int = app.orcaandroid.render.SelectionStyle.DEFAULT,
     /** Preview supersampling ([app.orcaandroid.render.Supersample]). */
@@ -187,11 +189,17 @@ data class UiState(
     /** Body drags snap (smart guides) on the plate / in the Build workspace; Ctrl held flips it for one drag. */
     val snapPrepare: Boolean = false,
     val snapBuild: Boolean = true,
+    /** The plate's other objects in the Build workspace: 0 ghosted, 1 solid, 2 hidden. */
+    val buildOthers: Int = 0,
     /** The move lock button: -1 free, 0 drags move along X only, 1 along Y only (session only). */
     val moveLock: Int = -1,
+    /** Add menu: separate code and shape builder rows (else one "Design" row). */
+    val builderSplit: Boolean = false,
     /** 3D view projection: perspective, or orthographic when false. */
     val perspective: Boolean = true,
     val lab: app.orcaandroid.core.LayoutLab = app.orcaandroid.core.LayoutLab(),
+    /** View > Light direction: the light ball panel is open (session only). */
+    val lightPanel: Boolean = false,
     val undoLimit: Int = app.orcaandroid.core.DEFAULT_UNDO_LIMIT,
     /** Auto-save interval in seconds; 0 or less = off (-seconds keeps the interval it had). */
     val autoSaveSeconds: Int = app.orcaandroid.core.DEFAULT_AUTO_SAVE_SECONDS,
@@ -307,8 +315,6 @@ data class UiState(
     val scadHidden: Boolean = false,
     /** The OpenSCAD design is shown on the active plate (eye toggle) instead of alone in the design view. */
     val scadOnPlate: Boolean = false,
-    /** Build workspace: push / pull is on (a drag on a flat face moves it instead of the shape). */
-    val buildPush: Boolean = false,
 ) {
     fun presetName(type: PresetType) = when (type) {
         PresetType.PRINT -> print

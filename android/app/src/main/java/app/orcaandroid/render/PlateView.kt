@@ -19,13 +19,6 @@ import kotlin.math.pow
 /** VIEW: camera only (the Preview tab: nothing to pick, select or move, as on the desktop). */
 enum class InteractionMode { NAVIGATE, PAINT, LAY_ON_FACE, MEASURE, VIEW }
 
-/**
- * A face grabbed by push / pull, in plate coordinates: [point] on it, [dir] its outward normal per design millimetre,
- * [length] the size the push changes (design mm). [live]: the shape is a volume of its own, drawn stretched by [axes]
- * (unit) about [anchor] (the opposite side) while dragged.
- */
-class PushGrab(val point: Vec3, val dir: Vec3, val length: Float, val anchor: Vec3, val axes: List<Vec3>, val live: Boolean)
-
 /** What the 3D view reports back to the app. Called on the UI thread. */
 interface PlateListener {
     /**
@@ -46,6 +39,11 @@ interface PlateListener {
     fun onMoved(dx: Float, dy: Float)
     /** The lift dot ([PlateView.liftMode]) was dragged: the selection moves [dz] mm up (down when negative). */
     fun onLifted(dz: Float) {}
+    /**
+     * Push / pull: the face arrow ([PlateView.faceArrow]) is being dragged; [d] is the face's new distance (file mm, snapped);
+     * null when the drag was cancelled. [done] once let go.
+     */
+    fun onFacePush(d: Float?, done: Boolean) {}
     /**
      * A handle of the scale gizmo on the single selected copy is being dragged ([ScaleGizmo]): the copy scales by [scale]
      * (world x, y, z) about [pivot], its box's bottom centre; (x, y) is the finger. [scale] is null when the drag was
@@ -73,10 +71,6 @@ interface PlateListener {
     fun onPaintEnd() {}
     /** Paint mode: a mouse or pen hovers at (x, y) with no button held; [inside] false once it left the view. */
     fun onPaintHover(x: Float, y: Float, inside: Boolean) {}
-    /** Push / pull mode ([PlateView.pushMode]): [result] gets the flat face under (x, y), or null (the drag turns the camera). */
-    fun onPushCheck(x: Float, y: Float, result: (PushGrab?) -> Unit) = result(null)
-    /** Push / pull: [grab]'s face moved [mm] (design mm, snapped; null = cancelled); (x, y) is the finger, [done] once let go. */
-    fun onPush(grab: PushGrab, mm: Float?, x: Float, y: Float, done: Boolean) {}
     /** A drag began inside the selection's bounding box: [result] gets whether the mesh itself lies under (x, y). */
     fun onDragCheck(x: Float, y: Float, result: (Boolean) -> Unit) = result(true)
     /** A drag began inside a prime tower's box at [entry]: [result] gets false when an object lies in front of it (the touch is the camera's). */
@@ -180,6 +174,42 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     private val twoFinger by lazy { TwoFingerGesture(touchSlop.toFloat()) }
     /** Pinch zoom speed (Layout lab): the exponent on the fingers' gap ratio, 1 = the gap ratio itself. */
     var pinchSpeed = 0.6f
+    /** Finger orbit coasting after a fast flick (LayoutLab.orbitInertia): 0 = off. Only a plain one-finger orbit coasts; any touch stops it. */
+    var orbitInertia = 0.5f
+    private var orbitVx = 0f
+    private var orbitVy = 0f
+    private var orbitLastT = 0L
+    private var orbitedLast = false
+    private var flingT = 0L
+    private val flingStep = object : Runnable {
+        override fun run() {
+            val now = android.os.SystemClock.uptimeMillis()
+            val dt = (now - flingT).coerceIn(1L, 50L).toFloat()
+            flingT = now
+            camera.orbit(orbitVx * dt, orbitVy * dt)
+            // Frame-rate independent decay: the half-life grows with the setting (about 0.04 s to 0.24 s).
+            val decay = 0.5f.pow(dt / (40f + 200f * orbitInertia))
+            orbitVx *= decay; orbitVy *= decay
+            if (orbitVx * orbitVx + orbitVy * orbitVy > FLING_STOP * FLING_STOP) postOnAnimation(this) else stopFling()
+        }
+    }
+    private fun stopFling() { removeCallbacks(flingStep); orbitVx = 0f; orbitVy = 0f }
+    /** Orbit by a finger move and remember its speed (degrees per ms, smoothed) for [startFling]. */
+    private fun orbitFinger(dx: Float, dy: Float, t: Long) {
+        val ddx = dx * 0.3f; val ddy = dy * 0.3f
+        camera.orbit(ddx, ddy)
+        val dt = (t - orbitLastT).toFloat()
+        if (orbitedLast && dt in 1f..100f) { orbitVx = orbitVx * 0.5f + ddx / dt * 0.5f; orbitVy = orbitVy * 0.5f + ddy / dt * 0.5f }
+        else { orbitVx = 0f; orbitVy = 0f }
+        orbitLastT = t; orbitedLast = true
+    }
+    private fun startFling(t: Long, mouse: Boolean) {
+        val fast = orbitVx * orbitVx + orbitVy * orbitVy > FLING_START * FLING_START
+        // A finger that rested before lifting (> 60 ms since the last move) is a deliberate stop, not a flick.
+        if (orbitedLast && !mouse && orbitInertia > 0f && t - orbitLastT < 60 && fast) { flingT = android.os.SystemClock.uptimeMillis(); postOnAnimation(flingStep) }
+        else stopFling()
+        orbitedLast = false
+    }
     /** Wheel zoom speed (LayoutLab.wheelSpeed): 15 % per notch raised to this power. */
     var wheelSpeed = 1f
     /** Pen buttons and eraser mapping, and palm rejection (More > Pen). */
@@ -193,6 +223,16 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     private var penOrbit = false
     /** Paint mode: this touch started off the selected object, so it orbits the camera instead of painting. */
     private var paintOrbit = false
+    /** Paint mode, finger: the stroke's first dab, held back until the finger moves, waits 100 ms or lifts ([flushPaintHold]). */
+    private var paintHeld = false
+    private var paintHoldX = 0f
+    private var paintHoldY = 0f
+    private var paintHoldAt = 0L
+    private fun flushPaintHold() {
+        if (!paintHeld) return
+        paintHeld = false
+        if (!paintOrbit && !multiTouch) listener?.onPaint(paintHoldX, paintHoldY, true)
+    }
     private var penInstant: PenAction? = null
     private var lastInstantTime = 0L
     /** The gesture began with the right / middle mouse button (pans; a right click opens the menu). */
@@ -375,6 +415,9 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     }
 
     companion object {
+        /** Orbit coasting: the flick speed that starts it and the speed that ends it (degrees per ms). */
+        private const val FLING_START = 0.15f
+        private const val FLING_STOP = 0.01f
         /** The app's 3D view, for keyboard shortcuts that move the camera. */
         var active: java.lang.ref.WeakReference<PlateView>? = null
         /** Single-key shortcuts while the view has focus (set by the activity); true when handled. */
@@ -441,10 +484,10 @@ class PlateView(context: Context) : GLSurfaceView(context) {
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 if (!hasFocus()) requestFocus()
+                stopFling(); orbitedLast = false
                 lastX = event.x; lastY = event.y; downX = event.x; downY = event.y
                 multiTouch = false; moved = false; dragging = false; longPressed = false; loupeOn = false; maxTravel = 0f; resizeTried = false
                 loupePointer = event.getPointerId(0); loupeX = event.x; loupeY = event.y
-                pushPending = false; pushGrab = null
                 keyLock = -1; liftFromDrag = false
                 removeCallbacks(hoverGone)
                 // The button state is only known on DOWN; on UP it is already released. Some devices send it only
@@ -456,7 +499,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                 rectangleRemove = event.metaState and KeyEvent.META_ALT_ON != 0
                 rectangle = mode == InteractionMode.NAVIGATE && !rightButton && !middleButton &&
                     (rectangleRemove || event.metaState and KeyEvent.META_SHIFT_ON != 0)
-                penOrbit = false; penInstant = null; paintOrbit = false
+                penOrbit = false; penInstant = null; paintOrbit = false; paintHeld = false
                 val penAction = penActionOf(event.getToolType(0), event.buttonState)
                 when (penAction) {
                     PenAction.PAN -> middleButton = true
@@ -481,30 +524,16 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                     // A touch that starts off the selected object orbits the camera instead of painting (user r325).
                     if (selectedBounds.isNotEmpty() && rayBoxEntry(event.x, event.y, selectedBounds) == null) paintOrbit = true
                     else {
-                        listener?.onPaint(event.x, event.y, true)
+                        // A finger's first dab waits for movement or lift: a second finger landing (pinch / pan) drops it instead of painting.
+                        if (event.getToolType(0) == MotionEvent.TOOL_TYPE_FINGER) { paintHoldX = event.x; paintHoldY = event.y; paintHoldAt = event.eventTime; paintHeld = true }
+                        else listener?.onPaint(event.x, event.y, true)
                         if (selectedBounds.isNotEmpty()) {
                             val id = ++dragCheckId
                             listener?.onDragCheck(event.x, event.y) { hit -> if (!hit && id == dragCheckId) paintOrbit = true }
                         }
                     }
                 }
-                else if (mode == InteractionMode.NAVIGATE && pushMode) {
-                    // Push / pull: the view holds still until the face check answers; no face = the camera's drag.
-                    pushPending = true
-                    val id = ++dragCheckId
-                    val x = event.x
-                    val y = event.y
-                    listener?.onPushCheck(x, y) { g ->
-                        if (id != dragCheckId || !pushPending) return@onPushCheck
-                        pushPending = false
-                        pushGrab = g
-                        pushMm = 0f
-                        if (g != null) {
-                            pushScreen = pushAlong(g, x, y) == null
-                            pushFrom = if (pushScreen) y else pushAlong(g, x, y)!!
-                        }
-                    }
-                }
+                else if (mode == InteractionMode.NAVIGATE && startFace(event.x, event.y)) Unit
                 else if (mode == InteractionMode.NAVIGATE && startLift(event.x, event.y)) Unit
                 else if (mode == InteractionMode.NAVIGATE && rayBoxEntry(event.x, event.y, selectedBounds)?.also { dragAnchor = it } != null) {
                     dragging = true
@@ -527,7 +556,9 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                 }
             }
             MotionEvent.ACTION_POINTER_DOWN -> {
+                stopFling(); orbitedLast = false
                 multiTouch = true
+                paintHeld = false
                 cancelDrag()
                 if (loupeOn && event.pointerCount == 2) listener?.onMeasureFreeze(true)
                 lastFocusX = focusX(event); lastFocusY = focusY(event)
@@ -557,7 +588,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                 // landing on the selection never starts (or leaves behind) a resize.
                 if (moved && !resizeTried) {
                     resizeTried = true
-                    if (!multiTouch && liftBox == null && event.pointerCount == 1 && mode == InteractionMode.NAVIGATE && !rightButton && !middleButton && !rectangle &&
+                    if (!multiTouch && liftBox == null && !faceDrag && event.pointerCount == 1 && mode == InteractionMode.NAVIGATE && !rightButton && !middleButton && !rectangle &&
                         !penOrbit && penInstant == null && (startCut(downX, downY, event.x, event.y) || startResize(downX, downY) || startRotate(downX, downY, event.x, event.y))) {
                         dragCheckId++
                         dragging = false; dragStart = null
@@ -588,7 +619,9 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                         penOrbit -> camera.orbit((event.x - lastX) * 0.3f, (event.y - lastY) * 0.3f)
                         penInstant != null -> Unit
                         mode == InteractionMode.PAINT && paintOrbit -> camera.orbit((event.x - lastX) * 0.3f, (event.y - lastY) * 0.3f)
+                        mode == InteractionMode.PAINT && paintHeld && !moved && event.eventTime - paintHoldAt < 100 -> Unit
                         mode == InteractionMode.PAINT -> {
+                            flushPaintHold()
                             // Fill gaps of fast strokes so the painted trail stays continuous.
                             val dx = event.x - lastX
                             val dy = event.y - lastY
@@ -627,37 +660,23 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                                 listener?.onResize(s, p, event.x, event.y, false)
                             }
                         }
-                        pushGrab != null -> if (moved) {
-                            val g = pushGrab!!
-                            val t = if (pushScreen) (pushFrom - event.y) * camera.pxSize(g.point) / g.dir.length()
-                                else pushAlong(g, event.x, event.y)?.let { it - pushFrom }
-                            if (t != null) {
-                                // Half-millimetre steps; at least 1 mm stays.
-                                val mm = maxOf(Math.round(t / PUSH_STEP) * PUSH_STEP, 1f - g.length)
-                                if (mm != pushMm) {
-                                    pushMm = mm
-                                    if (g.live) {
-                                        val m = pushMatrix(g, mm)
-                                        queueEvent { renderer.resizeAnchor = floatArrayOf(g.anchor.x, g.anchor.y, g.anchor.z); renderer.pushMatrix = m }
-                                    }
-                                }
-                                listener?.onPush(g, mm, event.x, event.y, false)
-                            }
-                        }
-                        pushPending -> Unit
                         liftBox != null -> if (moved) dragTo(event.x, event.y, event.metaState)
+                        faceDrag -> if (moved) faceAt(event.x, event.y, event.metaState and KeyEvent.META_SHIFT_ON != 0)?.let { d ->
+                            if (d != faceD) { faceD = d; performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK); listener?.onFacePush(d, false) }
+                        }
                         dragging -> dragTo(event.x, event.y, event.metaState)
                         // In resize mode the view holds still until the touch slop decides between resize and orbit
                         // (a corner resize also turned the camera ~1.5 degrees, WSA r305).
                         (resizeMode || rotateMode) && !resizeTried -> Unit
-                        else -> camera.orbit((event.x - lastX) * 0.3f, (event.y - lastY) * 0.3f)
+                        else -> orbitFinger(event.x - lastX, event.y - lastY, event.eventTime)
                     }
                     lastX = event.x; lastY = event.y
                 }
             }
             MotionEvent.ACTION_UP -> {
+                startFling(event.eventTime, mouseDown)
                 mouseDown = false
-                if (mode == InteractionMode.PAINT) listener?.onPaintEnd()
+                if (mode == InteractionMode.PAINT) { flushPaintHold(); listener?.onPaintEnd() }
                 val additive = event.metaState and (KeyEvent.META_CTRL_ON or KeyEvent.META_SHIFT_ON) != 0
                 val part = event.metaState and KeyEvent.META_ALT_ON != 0
                 if (rectangle && moved) {
@@ -678,13 +697,9 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                     endRotate(if (moved) rotateDrag!!.degrees else null, event.x, event.y)
                 } else if (resizeHandle != null) {
                     endResize(if (moved) resizeScale else null, event.x, event.y)
-                } else if (pushGrab != null || pushPending) {
-                    val g = pushGrab
-                    pushPending = false; pushGrab = null
-                    dragCheckId++
-                    // The live stretch stays until the pushed shape's mesh arrives (the listener clears it).
-                    if (g != null) listener?.onPush(g, if (moved) pushMm else null, event.x, event.y, true)
-                    if (!moved) tap(event.x, event.y, additive, part)
+                } else if (faceDrag) {
+                    faceDrag = false
+                    listener?.onFacePush(faceD.takeIf { moved }, true)
                 } else if (liftBox != null) {
                     val dz = liftMm
                     liftBox = null; liftFromDrag = false
@@ -722,8 +737,9 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                 }
             }
             MotionEvent.ACTION_CANCEL -> {
+                stopFling(); orbitedLast = false
                 mouseDown = false
-                if (mode == InteractionMode.PAINT) listener?.onPaintEnd()
+                if (mode == InteractionMode.PAINT) { listener?.onPaintEnd() }
                 if (loupeOn) listener?.onMeasureLoupe(-1f, -1f, 3, loupeExact)
                 else if (longPressed) listener?.onLongPressTouch(-1f, -1f, false)
                 if (rectangle && moved) listener?.onRectangle(downX, downY, downX, downY, rectangleRemove, true)
@@ -796,39 +812,6 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     private var resizeScale = Vec3(1f, 1f, 1f)
     private var resizeTried = false
 
-    /** Build workspace push / pull ([PushGrab]): a drag on a flat face moves the face; elsewhere it turns the camera. */
-    @Volatile var pushMode = false
-    private var pushPending = false
-    private var pushGrab: PushGrab? = null
-    /** Measured on screen (the face's normal points at the camera): [pushFrom] is the finger's y at the start. */
-    private var pushScreen = false
-    private var pushFrom = 0f
-    private var pushMm = 0f
-
-    /**
-     * Where along [g]'s normal line (design mm from its point) the finger's ray at (x, y) passes closest; null when the
-     * line runs nearly along the view (within ~10 degrees), where the ray can't tell.
-     */
-    private fun pushAlong(g: PushGrab, x: Float, y: Float): Float? {
-        val (o, d) = camera.ray(x, y)
-        val v = g.dir
-        val w = g.point - o
-        val a = v.dot(v); val b = v.dot(d); val c = d.dot(d)
-        val den = a * c - b * b
-        if (den < 0.03f * a * c) return null
-        return (b * d.dot(w) - c * v.dot(w)) / den
-    }
-
-    /** The live stretch of a push by [mm]: I + (k - 1) * sum of a a^T over [g]'s stretch axes, row-major. */
-    private fun pushMatrix(g: PushGrab, mm: Float): FloatArray {
-        val k = (g.length + mm) / g.length - 1f
-        val m = floatArrayOf(1f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f)
-        for (a in g.axes) {
-            val u = floatArrayOf(a.x, a.y, a.z)
-            for (i in 0..2) for (j in 0..2) m[i * 3 + j] += k * u[i] * u[j]
-        }
-        return m
-    }
 
     /** Resizing is on (Resize in the context menu, Ctrl+T or S): the scale gizmo's handles show on the lone selection. */
     @Volatile var resizeMode = false
@@ -847,6 +830,60 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     /** The lift dot shows above the gizmo box (Build workspace): dragging it moves the selection up or down. */
     @Volatile var liftMode = false
         set(value) { field = value; queueEvent { renderer.liftHandle = value } }
+
+    /**
+     * Push / pull: the picked face's arrow. [base] = the middle of the face's outline on the plate (at its current cap), [normal] =
+     * one file mm along the face's normal on the plate, [d] = the face's distance now (file mm). A drag from the arrow pushes the face.
+     */
+    class FaceArrow(val base: Vec3, val normal: Vec3, val d: Float)
+    @Volatile var faceArrow: FaceArrow? = null
+        set(value) { field = value; if (!faceDrag) faceD = value?.d ?: 0f }
+    /** The face distance (file mm) of the running arrow drag, for the overlay; [faceArrow]'s d when none. */
+    @Volatile var faceD = 0f
+        private set
+    private var faceDrag = false
+
+    /** The arrow of [faceArrow] on screen: base x, y, tip x, y (56 dp along the projected normal), or null (off screen or end-on). */
+    fun faceArrowScreen(d: Float = faceD): FloatArray? {
+        val f = faceArrow ?: return null
+        val at = f.base + f.normal * (d - f.d)
+        val a = camera.project(at) ?: return null
+        val e = camera.project(at + f.normal * (10f / f.normal.length().coerceAtLeast(1e-6f))) ?: return null
+        val len = kotlin.math.hypot(e.first - a.first, e.second - a.second)
+        if (len < 2f) return null
+        val k = 56 * resources.displayMetrics.density / len
+        return floatArrayOf(a.first, a.second, a.first + (e.first - a.first) * k, a.second + (e.second - a.second) * k)
+    }
+
+    /** A touch within 24 dp of the face arrow (anywhere along it) starts a push / pull drag. */
+    private fun startFace(x: Float, y: Float): Boolean {
+        val f = faceArrow ?: return false
+        faceD = f.d
+        val s = faceArrowScreen() ?: return false
+        val dx = s[2] - s[0]; val dy = s[3] - s[1]
+        val t = (((x - s[0]) * dx + (y - s[1]) * dy) / (dx * dx + dy * dy)).coerceIn(0f, 1.3f)
+        if (kotlin.math.hypot(s[0] + dx * t - x, s[1] + dy * t - y) > 24 * resources.displayMetrics.density) return false
+        faceDrag = true
+        return true
+    }
+
+    /**
+     * The face distance (file mm) for the finger at (x, y): its travel along the normal as drawn, snapped so the distance on the
+     * plate is a multiple of 0.5 mm (0.1 with Shift). Null while the normal points at the camera.
+     */
+    private fun faceAt(x: Float, y: Float, fine: Boolean): Float? {
+        val f = faceArrow ?: return null
+        val a = camera.project(f.base) ?: return null
+        val e = camera.project(f.base + f.normal) ?: return null
+        val sx = e.first - a.first
+        val sy = e.second - a.second
+        val len2 = sx * sx + sy * sy
+        if (len2 < 1e-4f) return null
+        val raw = f.d + ((x - downX) * sx + (y - downY) * sy) / len2
+        val mm = f.normal.length()
+        val step = if (fine) 0.1f else 0.5f
+        return kotlin.math.round(raw * mm / step) * step / mm
+    }
 
     /** In [liftMode], a touch within 24 dp of the lift dot ([ZRail.handle]) starts a lift drag. */
     private fun startLift(x: Float, y: Float): Boolean {
@@ -891,10 +928,19 @@ class PlateView(context: Context) : GLSurfaceView(context) {
         val box = gizmoBox() ?: return false
         // 48 dp grabbed too much of a small box (user, r304). On the object only a touch right on a handle grabs it, so a
         // drag of the object near a handle moves it (user 2026-10-28: a repeat's end copy dragged changed its spacing).
-        val reach = (if (onBox(box, x, y)) 12f else 32f) * resources.displayMetrics.density
+        // Folded in from push/pull (user 2026-10-29): on the object the reach grows with the box on screen (a quarter of the
+        // handle's distance from the box centre, 12-40 dp), so a touch on a big face edge grabs its handle.
+        val dp = resources.displayMetrics.density
+        val on = onBox(box, x, y)
+        val centre = camera.project(Vec3((box.first.x + box.second.x) / 2, (box.first.y + box.second.y) / 2, (box.first.z + box.second.z) / 2))
         val h = ScaleGizmo.visible(box.first, box.second, camera, resizeAxes).mapNotNull { h ->
-            camera.project(h.pos)?.let { (px, py) -> h to kotlin.math.hypot(px - x, py - y) }
-        }.filter { it.second < reach }.minByOrNull { it.second }?.first ?: return false
+            camera.project(h.pos)?.let { (px, py) ->
+                val reach = if (!on) 32f * dp else if (centre == null) 12f * dp
+                    else (0.25f * kotlin.math.hypot(px - centre.first, py - centre.second)).coerceIn(12f * dp, 40f * dp)
+                val dist = kotlin.math.hypot(px - x, py - y)
+                if (dist < reach) h to dist else null
+            }
+        }.minByOrNull { it.second }?.first ?: return false
         resizeHandle = h; resizeBox = box; resizeScale = Vec3(1f, 1f, 1f)
         queueEvent { renderer.gizmoGrab = h }
         return true
@@ -1035,11 +1081,10 @@ class PlateView(context: Context) : GLSurfaceView(context) {
 
     private fun cancelDrag() {
         cancelResize()
-        pushGrab?.let { g -> pushGrab = null; listener?.onPush(g, null, 0f, 0f, true) }
-        pushPending = false
         dragCheckId++
         if (dragging || liftBox != null) queueEvent { renderer.dragOffset = floatArrayOf(0f, 0f, 0f); renderer.liftGrab = false; renderer.axisGuide = null }
         liftBox = null; liftFromDrag = false
+        if (faceDrag) { faceDrag = false; listener?.onFacePush(null, true) }
         clearDragGuides()
         dragging = false
         dragStart = null
@@ -1154,5 +1199,3 @@ private const val INPUT_TAG = "OrcaInput"
 
 /** Spacing of interpolated paint samples, in pixels. */
 private const val PAINT_STEP_PX = 12f
-/** Push / pull moves a face in these steps (mm). */
-private const val PUSH_STEP = 0.5f

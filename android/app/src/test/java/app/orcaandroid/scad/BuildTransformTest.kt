@@ -163,12 +163,34 @@ class BuildTransformTest {
         assertNotNull(BuildTransform.scaled(d, ring.copy(repeat = ring.repeat!!.copy(count = 1)), D3(1.5, 2.0, 1.0), D3()))
     }
 
-    @Test fun noScaleForGroupsOrUnevenTurnedShapes() {
+    @Test fun noUnevenScaleForGroupsOrTurnedShapes() {
         val d = ShapeDesign()
+        val g = Shape(5, Shape.Kind.GROUP, "G", D3(), children = listOf(box(2, D3(1.0, 1.0, 1.0))))
         assertNull(BuildTransform.scaled(d, box(1, D3(1.0, 1.0, 1.0), rot = D3(0.0, 0.0, 30.0)), D3(2.0, 1.0, 1.0), D3()))
-        assertNull(BuildTransform.scaled(d, Shape(5, Shape.Kind.GROUP, "G", D3(), children = listOf(box(2, D3(1.0, 1.0, 1.0)))), D3(2.0, 2.0, 2.0), D3()))
+        assertNull(BuildTransform.scaled(d, g, D3(2.0, 2.0, 1.0), D3()))
         val inst = copy(Vec3(0f, 0f, 0f))
         assertEquals(true, BuildTransform.axesFree(d, inst, listOf(box(1, D3(1.0, 1.0, 1.0), rot = D3(0.0, 90.0, 270.0)))))
         assertEquals(false, BuildTransform.axesFree(d, inst, listOf(box(1, D3(1.0, 1.0, 1.0), rot = D3(0.0, 0.0, 30.0)))))
+        assertEquals(false, BuildTransform.axesFree(d, inst, listOf(g)))
+    }
+
+    @Test fun evenScaleOfATurnedScaledGroupScalesEveryPieceAboutThePoint() {
+        // A turned, flipped group already at 80 %, with a turned child: 1.5 x about p puts every piece corner at p + 1.5 (c - p).
+        val kids = listOf(box(2, D3(4.0, 2.0, 3.0), D3(3.0, 1.0, 0.0), rot = D3(0.0, 0.0, 20.0)), box(3, D3(2.0, 2.0, 6.0), D3(-4.0, 0.0, 1.0)))
+        val g = Shape(5, Shape.Kind.GROUP, "G", D3(), D3(10.0, 5.0, 2.0), D3(15.0, 0.0, 30.0), false, D3(1.0, 0.0, 0.0),
+            extra = mapOf(Shape.SCALE to 80.0), children = kids)
+        val d = ShapeDesign(shapes = listOf(g), nextId = 6)
+        val p = D3(3.0, -2.0, 1.0)
+        val pose = BuildTransform.scaled(d, g, D3(1.5, 1.5, 1.5), p)!!
+        assertEquals(120.0, pose.scale!!, 1e-9)
+        val after = d.copy(shapes = listOf(g.copy(pos = pose.pos, rot = pose.rot, size = pose.size, repeat = pose.repeat, extra = mapOf(Shape.SCALE to pose.scale!!))))
+        // The group is one piece; its code scales the children (k), its matrix is rigid.
+        val old = d.pieces().single()
+        val new = after.pieces().single()
+        assertEquals(true, "scale(1.2)" in new.scad)
+        corners(d, g).forEach { c ->
+            val o = apply(old.matrix, D3(c.x * 0.8, c.y * 0.8, c.z * 0.8))
+            assertNear(D3(p.x + 1.5 * (o.x - p.x), p.y + 1.5 * (o.y - p.y), p.z + 1.5 * (o.z - p.z)), apply(new.matrix, D3(c.x * 1.2, c.y * 1.2, c.z * 1.2)))
+        }
     }
 }

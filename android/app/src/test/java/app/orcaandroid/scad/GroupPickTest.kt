@@ -90,6 +90,39 @@ class GroupPickTest {
         assertEquals(ShapeDesign.translation(D3()).toList(), design.parentFrame(1).toList())
     }
 
+    @Test fun aTapOnARepeatedGroupsCopyPutsTheFrameOnThatCopy() {
+        for (copy in 0..1) {
+            val p = piece(design, 10, copy)
+            val hit = design.hitAt(p, apply(p.matrix, D3(8.0, 0.0, 3.0)))
+            assertEquals(listOf(10 to copy, 13 to 0, 14 to 0), hit)
+            assertEquals(p.matrix, design.parentFrame(11, hit.toMap()).toList())
+        }
+        // A copy the repeat no longer has falls back to the first.
+        assertEquals(piece(design, 10, 0).matrix, design.parentFrame(11, mapOf(10 to 5)).toList())
+    }
+
+    @Test fun aShapeInACircularCopyInsideAGroupMovesAndSitsOnThatCopy() {
+        // Group 20 holds group 21 (4 copies around the group's origin, 90 degrees apart) holding box 22.
+        val d = ShapeDesign(listOf(
+            Shape(20, Shape.Kind.GROUP, "G", D3(), D3(), D3(), children = listOf(
+                box(19, D3(2.0, 2.0, 4.0), D3(-30.0, 0.0, 0.0)),
+                Shape(21, Shape.Kind.GROUP, "R", D3(), D3(15.0, 0.0, 0.0), D3(),
+                    repeat = Repeat(circular = true, count = 4), children = listOf(box(22, D3(4.0, 4.0, 4.0)))),
+            )),
+        ), nextId = 23)
+        val p = piece(d, 20, 0)
+        val hit = d.hitAt(p, apply(p.matrix, D3(0.0, 15.0, 2.0)))
+        assertEquals(listOf(20 to 0, 21 to 1, 22 to 0), hit)
+        val frame = d.parentFrame(22, hit.toMap())
+        close(apply(frame.toList(), D3(0.0, 0.0, 2.0)), apply(p.matrix, D3(0.0, 15.0, 2.0)))
+        close(apply(d.parentFrame(22).toList(), D3(0.0, 0.0, 2.0)), apply(p.matrix, D3(15.0, 0.0, 2.0)))
+        // A drag on copy 1 moves that copy's box along the drag (the other copies turn with it).
+        val v = D3(1.0, 2.0, 0.0)
+        val moved = d.update(22) { it.copy(pos = it.pos + d.toParent(22, v, hit.toMap())) }
+        val after = apply(moved.parentFrame(22, hit.toMap()).toList(), moved.find(22)!!.pos + D3(0.0, 0.0, 2.0))
+        close(after, apply(p.matrix, D3(0.0, 15.0, 2.0)) + v)
+    }
+
     @Test fun aGizmoTurnOnANestedShapeTurnsItInTheDesignAndLeavesItsNeighboursPut() {
         // A design turn of 45 about Y (a level axis in group 13's frame, so its top changes), about a point off the shape.
         val r = Math.sqrt(0.5)

@@ -48,6 +48,8 @@ data class LayoutLab(
     val lightStrength: Float = 1f,
     /** Preview toolpaths: how much of the fixed studio light is replaced by a light at the camera (0 = studio only, 1 = camera only; user 2026-10-28 GO). */
     val cameraLight: Float = 0f,
+    /** Finger orbit coasting after a fast flick (0 = off, 1 = long glide); a touch stops it. */
+    val orbitInertia: Float = 0.5f,
     /** Pinch zoom speed: exponent on the fingers' gap ratio (1 = the old 1:1 pinch, user 2026-10-17: too sensitive). */
     val pinchSpeed: Float = 0.6f,
     /** Mouse wheel / touchpad / Quest thumbstick zoom speed: exponent on the 15 % per wheel notch (user 2026-10-19: stick too fast). */
@@ -79,7 +81,7 @@ data class LayoutLab(
         .put("fullscreenPortrait", fullscreenPortrait).put("platesOnHandle", platesOnHandle).put("plateScale", plateScale.toDouble())
         .put("shadowStrength", shadowStrength.toDouble()).put("shadowSoft", shadowSoft.toDouble()).put("shadowBias", shadowBias.toDouble())
         .put("lightAzimuth", lightAzimuth.toDouble()).put("lightElevation", lightElevation.toDouble()).put("lightStrength", lightStrength.toDouble())
-        .put("cameraLight", cameraLight.toDouble())
+        .put("cameraLight", cameraLight.toDouble()).put("orbitInertia", orbitInertia.toDouble())
         .put("pinchSpeed", pinchSpeed.toDouble()).put("wheelSpeed", wheelSpeed.toDouble()).put("sliceScale", sliceScale.toDouble())
         .put("sliceFloating", sliceFloating).put("sliceX", sliceX.toDouble()).put("sliceY", sliceY.toDouble()).put("showPlates", showPlates)
         .put("viewCube", viewCube).put("viewCubeX", viewCubeX.toDouble()).put("viewCubeY", viewCubeY.toDouble()).put("pieMenu", pieMenu).put("plateHd", plateHd).toString()
@@ -97,6 +99,7 @@ data class LayoutLab(
         val LIGHT_ELEVATIONS = 20f..85f
         val LIGHT_STRENGTHS = 0.2f..2f
         val CAMERA_LIGHTS = 0f..1f
+        val ORBIT_INERTIAS = 0f..1f
         val PINCH_SPEEDS = 0.2f..1f
         val WHEEL_SPEEDS = 0.1f..2f
 
@@ -126,6 +129,7 @@ data class LayoutLab(
                 lightElevation = o.optDouble("lightElevation", d.lightElevation.toDouble()).toFloat().coerceIn(LIGHT_ELEVATIONS.start, LIGHT_ELEVATIONS.endInclusive),
                 lightStrength = o.optDouble("lightStrength", d.lightStrength.toDouble()).toFloat().coerceIn(LIGHT_STRENGTHS.start, LIGHT_STRENGTHS.endInclusive),
                 cameraLight = o.optDouble("cameraLight", d.cameraLight.toDouble()).toFloat().coerceIn(CAMERA_LIGHTS.start, CAMERA_LIGHTS.endInclusive),
+                orbitInertia = o.optDouble("orbitInertia", d.orbitInertia.toDouble()).toFloat().coerceIn(ORBIT_INERTIAS.start, ORBIT_INERTIAS.endInclusive),
                 sliceScale = o.optDouble("sliceScale", 1.0).toFloat().coerceIn(SLICE_SCALES.start, SLICE_SCALES.endInclusive),
                 sliceFloating = o.optBoolean("sliceFloating", d.sliceFloating),
                 sliceX = o.optDouble("sliceX", -1.0).toFloat().coerceAtMost(1f),

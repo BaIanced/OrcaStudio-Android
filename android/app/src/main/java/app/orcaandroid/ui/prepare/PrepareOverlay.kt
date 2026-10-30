@@ -19,6 +19,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Crop
+import androidx.compose.material.icons.filled.GridOn
+import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material.icons.filled.BorderOuter
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Reorder
@@ -347,9 +350,9 @@ private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
                         onClick = { close(); vm.scene.assemble() })
                 }
                 if (sel != null) {
-                    if (ScadDesign.of(state.scene.objects.getOrNull(sel.obj)) != null)
-                        DropdownMenuItem(text = { Text(stringResource(R.string.scad_edit_design)) }, leadingIcon = { Icon(Icons.Default.Code, null) },
-                            onClick = { close(); vm.scad.editObject(sel.obj) })
+                    // Every object opens in the builder: a design as itself, a plain mesh as one MESH shape per part.
+                    DropdownMenuItem(text = { Text(stringResource(R.string.edit_in_builder)) }, leadingIcon = { Icon(Icons.Default.Architecture, null) },
+                        trailingIcon = { CadBadge() }, onClick = { close(); vm.scad.editMesh(sel.obj) })
                     DropdownMenuItem(text = { Text(stringResource(R.string.select_multiple)) }, leadingIcon = { Icon(Icons.Default.SelectAll, null) },
                         onClick = { close(); vm.scene.setSelectMode(true) })
                     DropdownMenuItem(text = { Text(stringResource(R.string.lay_on_face)) }, leadingIcon = { Icon(Icons.Default.VerticalAlignBottom, null) },
@@ -376,10 +379,7 @@ private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
                         onClick = { close(); dialog = "text" })
                     DropdownMenuItem(text = { Text(stringResource(R.string.add_svg)) }, leadingIcon = { Icon(Icons.Default.Category, null) },
                         onClick = { close(); dialog = "svg" })
-                    DropdownMenuItem(text = { Text(stringResource(R.string.add_openscad)) }, leadingIcon = { Icon(Icons.Default.Code, null) },
-                        onClick = { close(); vm.scad.open() })
-                    DropdownMenuItem(text = { Text(stringResource(R.string.shape_builder)) }, leadingIcon = { Icon(Icons.Default.Architecture, null) },
-                        onClick = { close(); vm.scad.newShapes() })
+                    DesignEntries(vm, state.builderSplit, close)
                     if (!state.scene.isEmpty)
                         DropdownMenuItem(text = { Text(stringResource(R.string.arrange)) }, leadingIcon = { Icon(Icons.Default.AutoAwesomeMosaic, null) },
                             onClick = { close(); vm.scene.arrange(false) })
@@ -480,6 +480,22 @@ internal fun ViewButtons(state: UiState, vm: AppViewModel, view: PlateView?, rai
                 onClick = { viewMenu = false; vm.setEdgeOutline(!state.edgeOutline) },
                 leadingIcon = { Icon(Icons.Default.BorderOuter, null) },
                 trailingIcon = { if (state.edgeOutline) Icon(Icons.Default.Check, null) })
+            // Godot's wireframe shading: the triangle edges of every model.
+            DropdownMenuItem(text = { Text(stringResource(R.string.view_wireframe)) },
+                onClick = { viewMenu = false; vm.setWireframe(!state.wireframe) },
+                leadingIcon = { Icon(Icons.Default.GridOn, null) },
+                trailingIcon = { if (state.wireframe) Icon(Icons.Default.Check, null) })
+            // Drag the key light on a ball (the lab's light angles, live).
+            DropdownMenuItem(text = { Text(stringResource(R.string.light_direction)) },
+                onClick = { viewMenu = false; vm.setLightPanel(!state.lightPanel) },
+                leadingIcon = { Icon(Icons.Default.WbSunny, null) },
+                trailingIcon = { if (state.lightPanel) Icon(Icons.Default.Check, null) })
+            // The selection's bounding box (corner brackets): the same bit as More > Selection style > Box.
+            val boxOn = state.selectionStyle and app.orcaandroid.render.SelectionStyle.BOX != 0
+            DropdownMenuItem(text = { Text(stringResource(R.string.view_bounding_box)) },
+                onClick = { viewMenu = false; vm.setSelectionStyle(state.selectionStyle xor app.orcaandroid.render.SelectionStyle.BOX) },
+                leadingIcon = { Icon(Icons.Default.Crop, null) },
+                trailingIcon = { if (boxOn) Icon(Icons.Default.Check, null) })
         }
     }
 }
@@ -550,7 +566,7 @@ private fun ToolButtons(
 ) {
     var addMenu by remember { mutableStateOf(false) }
     var moreMenu by remember { mutableStateOf(false) }
-    var paintMenu by remember { mutableStateOf(false) }
+    var moreGroup by remember { mutableStateOf<String?>(null) }
     var splitMenu by remember { mutableStateOf(false) }
     var dialog by remember { mutableStateOf<String?>(null) }
     val selected = state.selection != null
@@ -597,19 +613,7 @@ private fun ToolButtons(
             ToolButton(Icons.Default.ContentCut, stringResource(R.string.cut), active = state.tool is Tool.Cut) {
                 if (state.tool is Tool.Cut) vm.scene.setTool(Tool.None) else vm.scene.startCut()
             }
-            Box {
-                ToolButton(Icons.Default.Brush, stringResource(R.string.paint), active = state.tool is Tool.Paint) { paintMenu = true }
-                DropdownMenu(expanded = paintMenu, onDismissRequest = { paintMenu = false }) {
-                    listOf(
-                        Triple(R.string.paint_supports, "support", 1),
-                        Triple(R.string.paint_seam, "seam", 1),
-                        Triple(R.string.paint_fuzzy, "fuzzy", 1),
-                        Triple(R.string.paint_color, "color", 2),
-                    ).forEach { (label, kind, state0) ->
-                        DropdownMenuItem(text = { Text(stringResource(label)) }, onClick = { paintMenu = false; vm.scene.openPaint(kind, state0) })
-                    }
-                }
-            }
+            ToolButton(Icons.Default.Brush, stringResource(R.string.paint), active = state.tool is Tool.Paint) { vm.scene.openPaint("color", 2) }
             ToolButton(Icons.Default.Layers, stringResource(R.string.variable_layer_height), active = state.tool == Tool.LayerHeight) {
                 vm.scene.setTool(if (state.tool == Tool.LayerHeight) Tool.None else Tool.LayerHeight)
             }
@@ -624,21 +628,34 @@ private fun ToolButtons(
             }
             Box {
                 ToolButton(Icons.Default.MoreVert, stringResource(R.string.more)) { moreMenu = true }
-                DropdownMenu(expanded = moreMenu, onDismissRequest = { moreMenu = false }) {
-                    DropdownMenuItem(text = { Text(stringResource(R.string.add_part)) }, onClick = { moreMenu = false; vm.scene.addVolume(VolumeType.PART, "box") })
-                    DropdownMenuItem(text = { Text(stringResource(R.string.mesh_boolean)) }, onClick = { moreMenu = false; dialog = "boolean" })
-                    DropdownMenuItem(text = { Text(stringResource(R.string.add_modifier)) }, onClick = { moreMenu = false; vm.scene.addVolume(VolumeType.MODIFIER, "box") })
-                    DropdownMenuItem(text = { Text(stringResource(R.string.add_support_blocker)) }, onClick = { moreMenu = false; vm.scene.addVolume(VolumeType.SUPPORT_BLOCKER, "box") })
-                    DropdownMenuItem(text = { Text(stringResource(R.string.add_support_enforcer)) }, onClick = { moreMenu = false; vm.scene.addVolume(VolumeType.SUPPORT_ENFORCER, "box") })
-                    DropdownMenuItem(text = { Text(stringResource(R.string.add_negative_volume)) }, onClick = { moreMenu = false; vm.scene.addVolume(VolumeType.NEGATIVE, "box") })
+                // Two collapsible groups (one open at a time) keep the menu short: 4 rows closed instead of 14.
+                DropdownMenu(expanded = moreMenu, onDismissRequest = { moreMenu = false; moreGroup = null }) {
+                    @Composable fun item(label: Int, action: () -> Unit) {
+                        DropdownMenuItem(text = { Text(stringResource(label)) }, onClick = { moreMenu = false; moreGroup = null; action() })
+                    }
+                    @Composable fun groupHeader(id: String, label: Int) {
+                        val open = moreGroup == id
+                        DropdownMenuItem(text = { Text(stringResource(label)) }, onClick = { moreGroup = if (open) null else id },
+                            trailingIcon = { Icon(if (open) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, null) })
+                    }
+                    groupHeader("volume", R.string.more_add_volume)
+                    if (moreGroup == "volume") listOf(
+                        R.string.add_part to VolumeType.PART, R.string.add_modifier to VolumeType.MODIFIER,
+                        R.string.add_support_blocker to VolumeType.SUPPORT_BLOCKER, R.string.add_support_enforcer to VolumeType.SUPPORT_ENFORCER,
+                        R.string.add_negative_volume to VolumeType.NEGATIVE,
+                    ).forEach { (label, type) -> item(label) { vm.scene.addVolume(type, "box") } }
+                    groupHeader("mesh", R.string.more_mesh_tools)
+                    if (moreGroup == "mesh") {
+                        item(R.string.mesh_boolean) { dialog = "boolean" }
+                        item(R.string.simplify) { dialog = "simplify" }
+                        item(R.string.deform) { dialog = "deform" }
+                        item(R.string.blend) { dialog = "blend" }
+                        item(R.string.hollow) { dialog = "hollow" }
+                        item(R.string.repair) { vm.scene.repair() }
+                        item(R.string.check_mesh) { dialog = "check" }
+                    }
                     HorizontalDivider()
-                    DropdownMenuItem(text = { Text(stringResource(R.string.simplify)) }, onClick = { moreMenu = false; dialog = "simplify" })
-                    DropdownMenuItem(text = { Text(stringResource(R.string.deform)) }, onClick = { moreMenu = false; dialog = "deform" })
-                    DropdownMenuItem(text = { Text(stringResource(R.string.blend)) }, onClick = { moreMenu = false; dialog = "blend" })
-                    DropdownMenuItem(text = { Text(stringResource(R.string.hollow)) }, onClick = { moreMenu = false; dialog = "hollow" })
                     DropdownMenuItem(text = { Text(stringResource(R.string.sculpt)) }, onClick = { moreMenu = false; vm.scene.setTool(Tool.Sculpt()) })
-                    DropdownMenuItem(text = { Text(stringResource(R.string.repair)) }, onClick = { moreMenu = false; vm.scene.repair() })
-                    DropdownMenuItem(text = { Text(stringResource(R.string.check_mesh)) }, onClick = { moreMenu = false; dialog = "check" })
                     DropdownMenuItem(text = { Text(stringResource(R.string.measure)) }, onClick = { moreMenu = false; vm.scene.setTool(Tool.Measure) },
                         leadingIcon = { Icon(Icons.Default.Straighten, null) })
                 }

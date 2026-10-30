@@ -78,10 +78,18 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
      * is the whole group's); the live resize and turn then move only the box and rings, not the group's mesh.
      */
     @Volatile var boxOverride: FloatArray? = null
+    /**
+     * Build workspace object with several copies: their design-pose offsets (x, y, z per copy) and the copy the gizmos sit
+     * on. The copies share the volume ids, so the selection's mesh box spans them all; they differ only by their offsets,
+     * which gives back one copy's box. The live resize and turn then move only the box and rings, as with [boxOverride].
+     */
+    @Volatile var buildCopies: Pair<FloatArray, Int>? = null
     /** Paint shop: only the selected copies are drawn (objects, paint, shadows); the plates stay. */
     var solo = false
-    /** Build workspace: only the build object is drawn (selection ids -1000 - volume, see Engine.setBuildObject). */
+    /** Build workspace: the build object (selection ids -1000 - volume, see Engine.setBuildObject) and the others per [buildOthers]. */
     var buildSolo = false
+    /** Build workspace: the plate's other objects 0 ghosted (no shadows, picks or selection), 1 solid, 2 hidden. */
+    var buildOthers = 0
     /** Paint shop: filaments drawn grey (bit i = 0-based filament i). */
     var hiddenFilaments = 0
     /** A box to fit the camera to (current angles) once the surface has its size: the paint shop's entry framing. */
@@ -95,8 +103,6 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     /** Live resize: the selection is drawn scaled by this (x, y, z) about [resizeAnchor] (its box's bottom centre). */
     var resizeScale = floatArrayOf(1f, 1f, 1f)
     var resizeAnchor = floatArrayOf(0f, 0f, 0f)
-    /** Live push / pull: the selection is drawn through this (row-major 3 x 3) about [resizeAnchor]; null = [resizeScale]. */
-    var pushMatrix: FloatArray? = null
     /** Resize mode: the scale gizmo's handles ([ScaleGizmo]) on the selection box; [gizmoAxes] false shows only the corners. */
     var gizmo = false
     var gizmoAxes = true
@@ -201,6 +207,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var overhangHighlight = 0f
     /** The quick settings' "Show overhangs": [overhangHighlight] tints every part, not only the selection, and skips faces on the bed. */
     var overhangAll = false
+    /** View > Wireframe: the triangle edges of every part. */
+    var wireAll = false
     private val keyDir get() = Math.toRadians(keyElevation.toDouble()).let { el ->
         Math.toRadians(keyAzimuth.toDouble()).let { az ->
             floatArrayOf((Math.cos(el) * Math.cos(az)).toFloat(), (Math.cos(el) * Math.sin(az)).toFloat(), Math.sin(el).toFloat())
@@ -533,7 +541,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         if (!loupePass) useRealShadow = false
         if (shadow && !loupePass) {
             effects.lightDir = keyDir
-            val key = listOf(meshVersion, dragOffset.toList(), resizeScale.toList(), pushMatrix?.toList(), rotateMatrix?.toList(), selectedIds.toList(), dragTower, section?.toList(), keyAzimuth, keyElevation, solo, buildSolo)
+            val key = listOf(meshVersion, dragOffset.toList(), resizeScale.toList(), rotateMatrix?.toList(), selectedIds.toList(), dragTower, section?.toList(), keyAzimuth, keyElevation, solo, buildSolo)
             // A dragged copy may leave the footprint: widen it by the drag.
             // A fixed widening for the whole drag: any change of the map area mid-drag rescales the texels and
             // shows as a step ("strobe") in the shadow.
@@ -586,6 +594,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
                 glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
             }
             if (models) drawMesh(meshVbo, meshCount, pass = 1)
+            if (models && buildSolo && buildOthers == 0) drawMesh(meshVbo, meshCount, pass = 9)
             drawMesh(ghostVbo, ghostCount, pass = 1)
             glDepthMask(true)
             glDisable(GL_BLEND)
@@ -936,21 +945,22 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         // TriangleSelector::select_patch's test: world normal z below -cos(angle); -2 = off.
         glUniform1f(loc(meshProgram, "uOverhangZ"), if (overhangHighlight > 0f) -Math.cos(Math.toRadians(overhangHighlight.toDouble())).toFloat() else -2f)
         glUniform1i(loc(meshProgram, "uOverhangAll"), if (overhangAll) 1 else 0)
+        glUniform1i(loc(meshProgram, "uWireAll"), if (wireAll) 1 else 0)
         cutBand.let { b ->
             glUniform1i(loc(meshProgram, "uCutBandOn"), if (b != null) 1 else 0)
             if (b != null) glUniform4f(loc(meshProgram, "uCutBand"), b[0], b[1], b[2], b[3])
         }
         glUniform1fv(loc(meshProgram, "uSelected"), Shaders.MAX_SELECTED, ids.copyOf(Shaders.MAX_SELECTED), 0)
         glUniform1i(loc(meshProgram, "uSelectedCount"), minOf(ids.size, Shaders.MAX_SELECTED))
-        glUniform1i(loc(meshProgram, "uSolo"), if (buildSolo) 2 else if (solo && ids.isNotEmpty()) 1 else 0)
+        val buildSoloMode = when (buildOthers) { 0 -> 4; 1 -> 3; else -> 2 }
+        glUniform1i(loc(meshProgram, "uSolo"), if (buildSolo) buildSoloMode else if (solo && ids.isNotEmpty()) 1 else 0)
         glUniform1i(loc(meshProgram, "uHidden"), if (solo) hiddenFilaments else 0)
         glUniform3fv(loc(meshProgram, "uDrag"), 1, dragOffset, 0)
         glUniform3fv(loc(meshProgram, "uScaleAnchor"), 1, resizeAnchor, 0)
-        val own = boxOverride == null
+        val own = boxOverride == null && buildCopies == null
         val sc = if (own) resizeScale else floatArrayOf(1f, 1f, 1f)
         // Column major for GL.
-        val sm = pushMatrix?.let { m -> floatArrayOf(m[0], m[3], m[6], m[1], m[4], m[7], m[2], m[5], m[8]) }
-            ?: floatArrayOf(sc[0], 0f, 0f, 0f, sc[1], 0f, 0f, 0f, sc[2])
+        val sm = floatArrayOf(sc[0], 0f, 0f, 0f, sc[1], 0f, 0f, 0f, sc[2])
         glUniformMatrix3fv(loc(meshProgram, "uScale"), 1, false, sm, 0)
         val rot = rotateMatrix?.takeIf { own }
         glUniform1i(loc(meshProgram, "uRotOn"), if (rot != null) 1 else 0)
@@ -997,7 +1007,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         if (gizmo) drawGizmo(moved)
         if (rotateGizmo) drawRings(moved, occlude = true)
         // The lift dot hides while another handle or ring is dragged.
-        if (liftHandle && gizmoGrab == null && rotateMatrix == null && pushMatrix == null) {
+        if (liftHandle && gizmoGrab == null && rotateMatrix == null) {
             val p = ZRail.handle(app.orcaandroid.core.Vec3(moved[0], moved[1], moved[2]), app.orcaandroid.core.Vec3(moved[3], moved[4], moved[5]))
             drawDots(listOf(p to ScaleGizmo.color(2)), if (liftGrab) handlePx * 1.25f else handlePx)
         }
@@ -1179,7 +1189,18 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             any = true
             for (k in 0..2) { b[k] = minOf(b[k], c[k]); b[k + 3] = maxOf(b[k + 3], c[k + 3]) }
         }
-        return b.takeIf { any }
+        if (!any) return null
+        buildCopies?.let { (offsets, copy) ->
+            val n = offsets.size / 3
+            if (copy !in 0 until n) return@let
+            // Union = one box + the lowest / highest offset per axis.
+            for (k in 0..2) {
+                val axis = (0 until n).map { offsets[it * 3 + k] }
+                b[k] += offsets[copy * 3 + k] - axis.min()
+                b[k + 3] += offsets[copy * 3 + k] - axis.max()
+            }
+        }
+        return b
     }
 
     /** The box the gizmos sit on: the selection's mesh box (the Build workspace's shapes have no box of their own); any thread. */
@@ -1187,22 +1208,9 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         app.orcaandroid.core.Vec3(b[0], b[1], b[2]) to app.orcaandroid.core.Vec3(b[3], b[4], b[5])
     }
 
-    /** The bounding box (x0, y0, z0, x1, y1, z1) of the selection ids [ids], with the live resize (or push / pull). */
+    /** The bounding box (x0, y0, z0, x1, y1, z1) of the selection ids [ids], with the live resize. */
     private fun selectionBox(ids: FloatArray): FloatArray? {
         val b = meshBox(ids) ?: return null
-        pushMatrix?.let { m ->
-            // The box's corners through the stretch: a turned face stretches it off the axes.
-            val a = resizeAnchor
-            val out = floatArrayOf(Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE)
-            for (c in 0 until 8) {
-                val p = FloatArray(3) { k -> (if (c shr k and 1 == 0) b[k] else b[k + 3]) - a[k] }
-                for (i in 0..2) {
-                    val v = a[i] + m[i * 3] * p[0] + m[i * 3 + 1] * p[1] + m[i * 3 + 2] * p[2]
-                    out[i] = minOf(out[i], v); out[i + 3] = maxOf(out[i + 3], v)
-                }
-            }
-            return out
-        }
         for (k in 0..2) {
             val s = resizeScale[k]
             if (s != 1f) { b[k] = resizeAnchor[k] + (b[k] - resizeAnchor[k]) * s; b[k + 3] = resizeAnchor[k] + (b[k + 3] - resizeAnchor[k]) * s }
@@ -1575,7 +1583,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     private fun drawMeshMarkers() {
         val data = meshMarkers?.takeIf { it.isNotEmpty() } ?: return
         // A live turn or resize moves the copy's surface but not the spots: hide them until it is applied.
-        if (rotateMatrix != null || pushMatrix != null || resizeScale.any { it != 1f }) return
+        if (rotateMatrix != null || resizeScale.any { it != 1f }) return
         glEnable(GL_DEPTH_TEST)
         glUseProgram(pointProgram)
         glUniformMatrix4fv(loc(pointProgram, "uMvp"), 1, false, mvp, 0)

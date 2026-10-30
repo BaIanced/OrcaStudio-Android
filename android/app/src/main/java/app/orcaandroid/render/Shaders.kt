@@ -60,6 +60,8 @@ internal object Shaders {
         out highp vec4 vShadowCoord;
         flat out float vType;
         flat out float vSelected;
+        // Build workspace: the plate's other objects, 1 drawn solid (uSolo 3), 2 ghosted (uSolo 4, pass 9 only).
+        flat out float vOther;
         out vec3 vBary;
         void main() {
             // Non-indexed triangles: the corner within its triangle, for the wireframe selection style.
@@ -72,6 +74,7 @@ internal object Shaders {
             if (uSolo == 1 && selected < 0.5) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
             // Build workspace: only the build object, whose volumes have ids -1000 - volume.
             if (uSolo == 2 && aInfo.x > -999.5) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+            vOther = aInfo.x > -999.5 ? (uSolo == 4 ? 2.0 : uSolo == 3 ? 1.0 : 0.0) : 0.0;
             vNormal = aNormal;
             vType = aInfo.y;
             vSelected = selected;
@@ -92,7 +95,7 @@ internal object Shaders {
      * 3: contact shadow map (parts seen from above; how close to the bed, max-blended);
      * 4: depth-only pass of the real shadow map (parts seen from the key light); 5/6: selection masks;
      * 7: realistic mode's clear filaments (transmission > 0), blended premultiplied after the opaque scene;
-     * 8: cut x-ray (the cut copy where the scene hides it: a faint ghost and the cut line).
+     * 8: cut x-ray (the cut copy where the scene hides it: a faint ghost and the cut line); 9: Build workspace ghosts of the other objects.
      */
     const val MESH_FS = """#version 300 es
         precision mediump float;
@@ -121,6 +124,7 @@ internal object Shaders {
         uniform int uSelStyle;
         uniform float uOverhangZ;
         uniform int uOverhangAll;
+        uniform int uWireAll;
         uniform highp vec4 uCutBand;
         uniform int uCutBandOn;
         // Layer lines: first layer height, layer height (mm; y 0 = off).
@@ -131,6 +135,7 @@ internal object Shaders {
         in highp vec4 vShadowCoord;
         flat in float vType;
         flat in float vSelected;
+        flat in float vOther;
         out vec4 color;
 
         // Realistic mode, after Google Filament's standard material: GGX distribution, height-correlated Smith visibility,
@@ -263,6 +268,14 @@ internal object Shaders {
         void main() {
             int type = int(vType + 0.5);
             bool part = type == 0 || type >= 100;
+            // Build workspace ghosts (uPass 9): the other objects' front faces, faint grey; no shadow, selection or depth.
+            if (uPass == 9) {
+                if (vOther < 1.5 || !part || !gl_FrontFacing || (uSectionOn == 1 && dot(uSection.xyz, vWorld) > uSection.w)) discard;
+                float l = 0.6 + 0.4 * abs(dot(normalize(vNormal), normalize(vec3(0.3, 0.4, 0.85))));
+                color = vec4(vec3(0.8) * l, 0.22);
+                return;
+            }
+            if (vOther > 1.5) discard;
             if (uPass == 5 || uPass == 6) {
                 // Selection mask: 5 the selected parts as seen (other parts hide them), 6 all of them (x-ray, no depth test).
                 if (!(part || type == 99) || (uSectionOn == 1 && dot(uSection.xyz, vWorld) > uSection.w)) discard;
@@ -316,7 +329,7 @@ internal object Shaders {
                 own = max(own, vec3(0.13));
                 base = (uSelStyle & 32) != 0 ? mix(own, uSelectedColor, vSelected * 0.75) : own;
             }
-            else if (type == 1) { base = vec3(0.6, 0.6, 0.6); alpha = 0.45; }
+            else if (type == 1) { base = vec3(0.6, 0.6, 0.6); alpha = 0.25; }
             else if (type == 2) { base = vec3(0.95, 0.85, 0.3); alpha = 0.35; }
             else if (type == 3) { base = vec3(0.95, 0.25, 0.25); alpha = 0.4; }
             else if (type == 4) { base = vec3(0.25, 0.55, 1.0); alpha = 0.4; }
@@ -414,6 +427,15 @@ internal object Shaders {
                         float dense = 1.0 - smoothstep(0.06, 0.12, max(max(w.x, w.y), w.z));
                         shaded = mix(shaded, uSelectedColor, (1.0 - min(min(e.x, e.y), e.z)) * 0.8 * dense);
                     }
+                }
+                // View > Wireframe: every part's triangle edges, same fade as the selection's.
+                if (uWireAll == 1 && lit0) {
+                    vec3 w = fwidth(vBary);
+                    vec3 e = smoothstep(vec3(0.0), w, vBary);
+                    float dense = 1.0 - smoothstep(0.06, 0.12, max(max(w.x, w.y), w.z));
+                    // Dark lines on light parts, light lines on dark ones.
+                    vec3 lineCol = dot(shaded, vec3(0.333)) > 0.3 ? vec3(0.08, 0.1, 0.12) : vec3(0.85, 0.9, 0.95);
+                    shaded = mix(shaded, lineCol, (1.0 - min(min(e.x, e.y), e.z)) * 0.7 * dense);
                 }
                 // Cut tool: a red line where the cut plane meets the selected object's surface (about 3 px wide, at least 0.3 mm),
                 // and a light red wash on the part that goes above the plane.

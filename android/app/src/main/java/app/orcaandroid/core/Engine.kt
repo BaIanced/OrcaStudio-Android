@@ -281,6 +281,13 @@ class Engine(private val cacheDir: File) {
         )
     }
     suspend fun exportStl(path: String, plate: Int) { call("exportStl", args("path" to path, "plate" to plate)) }
+    /** Each part / negative volume of [obj] as an STL in [dir] (object frame): volume index -> (file, bounds x0 y0 z0 x1 y1 z1). */
+    suspend fun exportVolumes(obj: Int, dir: String): List<Triple<Int, String, List<Double>>> =
+        call("exportVolumes", args("object" to obj, "dir" to dir)).getJSONArray("volumes").map {
+            val v = it as JSONObject
+            val b = v.getJSONArray("bounds")
+            Triple(v.getInt("volume"), v.getString("path"), (0 until 6).map { i -> b.getDouble(i) })
+        }
     /** Renders a mesh file (e.g. the OpenSCAD preview STL) to a square PNG; returns its base64 (as MCP image data wants it). */
     suspend fun snapshotPng(stlPath: String, size: Int): String =
         call("snapshot", args("stl" to stlPath, "size" to size)).getString("png")

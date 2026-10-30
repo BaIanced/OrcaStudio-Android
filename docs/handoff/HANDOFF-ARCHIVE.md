@@ -2574,8 +2574,8 @@ User-verified items that were still in HANDOFF-BACKLOG.md, moved verbatim:
 
 ## 2026-10-23 Backlog detail (full text of every item before the one-line trim; grep here for causes, commits, runs)
 ## Plan
-- **Plan (user, 2026-10-14):** camera LAN (done) -> off-LAN camera (cloud P2P path; REA on Handy is the tool; VPN-home the
-  fallback) -> print history (capture Handy's history call, own client, Device tab) -> REA on MakerWorld. Own printer/account,
+- **Plan (user, 2026-10-14):** camera LAN (done) -> off-LAN camera (cloud P2P path; VPN-home the
+  fallback) -> print history (capture Handy's history call, own client, Device tab). Own printer/account,
   personal use, own code only; rule 7 holds.
 - Printer controls on the Device tab (user 2026-10-17): BUILT r286, Claude-tested on an idle printer (archive "r286 printer controls"). Open, needs the printer + user: physical motion of extrude/jog/home, part fan reports 0 % after a set, nozzle/bed target 0 tile stays stale, speed chip mid-print (Claude 2026-10-21).
 
@@ -2602,8 +2602,6 @@ User-verified items that were still in HANDOFF-BACKLOG.md, moved verbatim:
 ## Waiting on the user
 - Plate switcher pick (lab stays until they say; don't ask again).
 - Launcher icon colour (still teal, "decide later").
-- REA MCP (github.com/morluto/rea): installed, not enabled (the user enables it); fits release APK / `liborca_jni.so` inspection and
-  HAR traces of the MakerWorld / Thingiverse flows only. Plan items need it.
 
 ## Ideas (not started)
 - Floating Theme | Layout designer = ~half a day (+1-2 h for a collapsible icon); ask first.
@@ -3566,3 +3564,145 @@ render time on release untested; empty pieces (blank text) must be skipped nativ
 
 ## 2026-10-28 Godot Z key lift in Build WSA debug test (da7505c, Claude test, not user)
 - Shape builder, box 20^3 at z 0: held body drag (3 moves), keyevent Z, more moves up: z 0 -> 16, XY stayed, blue 2000 mm axis guide drawn, lift dot followed; UP committed (design_describe pos z 16); reset to 0 with shape_move. No snap hit (nothing within range of 16). NOT run: prime tower drag ignoring Z (code gates Z to Build + not tower; low risk).
+
+## 2026-10-28 Orbit inertia (WSA debug, not in CI)
+- PlateView: one-finger flick (>0.15 deg/ms, lifted within 60 ms of last move, not mouse) keeps orbiting with exponential decay (half-life 40+200*setting ms); touch/2nd finger/cancel stops it. LayoutLab.orbitInertia (default 0.5, 0 = off), slider in More. WSA: fast swipe 300px/120ms: yaw -60 -> -301; 900 ms swipe: exactly -90, no coast.
+
+## 2026-10-28 Handoff overflow
+- **Debug notes** (Ctrl+Shift+N / S Pen button, debug build): read only when the user says "notes": `cat /sdcard/Android/data/<debug pkg>/files/notes/notes.jsonl` (Note/WSA); log each, then delete jsonl + PNGs there; never commit.
+- Debug build (local, CI makes release only, so it is not auto-updated; rebuild + `adb install -r -g`): dev notes also fire on volume-down x2 (OnePlus, 2026-10-28). Paint: finger first dab held until move/100 ms/lift, 2nd finger drops it (fix for pinch/pan painting; untested on device).
+
+
+## 2026-10-28 Godot review leftovers (moved from the handoff)
+- Godot (a)+(b) (`NOTES-godot-z-axis.md`), in CI r461: Z lift dot + axis lock (da7505c) WSA-verified in Prepare (X/Y/Free/Y key mid-drag, archive 2026-10-28). Z key lift in Build WSA-verified (archive 2026-10-28). Untested: tower ignores Z (low risk, code-gated).
+- Orbit inertia (More > Layout lab slider, default 50 %; plain one-finger flick only, touch stops it): WSA debug-verified 2026-10-28 (fast flick coasts ~150 deg, slow drag exactly 90 deg), not in CI.
+- View > Wireframe (6b86abb): shader uWireAll, line colour dark on light parts / light on dark; dense meshes fade (same rule as the selection wireframe). WSA debug verified on sparse cubes.
+
+## 2026-10-29 Android CLI trial (closed)
+Google Android CLI (winget Google.AndroidCLI 1.1.16717390) trialled: preview render works for stateless composables (wrapper `orca-android-tools/preview-render.sh`); `android layout` is bulkier than `phone-ui.py layout` and installs an on-device server, so not adopted. Details, timings, disk cost: `NOTES-android-cli-trial.md`.
+
+## 2026-10-29 More menu groups
+Object More menu now: Add volume (5 items) and Mesh tools (7 items) collapsible, plus Sculpt, Measure. WSA debug: 4 rows closed, groups expand one at a time, Check mesh dialog opens. Compiled + installed locally, not CI.
+
+## 2026-10-29 Layout lab groups (WSA r463, Claude)
+- More > Layout lab shows 5 collapsible groups (Plates, Layout, Sizes and overlay, Shadows, Light and orbit); Shadows and Light and orbit expanded together with their sliders (shadow darkness/softness/bias; light direction/height/strength, camera light, orbit coasting). Lab group look closed; More menu reorg fully WSA-verified.
+
+## 2026-10-29 View > Bounding box + two-finger tap (WSA r463, Claude)
+- View > Bounding box toggles the Box bit of selection_style (17 -> 1 -> 17 in prefs); corner brackets render on the selected cube.
+- Two-finger tap (557dc5a) via new `orca-android-tools/wsa-twotap.sh` (sendevent on WSA virtual_touchscreen, slots): quick tap on an object opens the object menu (Duplicate, Delete, ...), on empty plate the add menu (Import, Shape, Text, SVG, OpenSCAD); a 0.6 s two-finger hold opens nothing.
+- Godot leftovers backlog line was stale ("nothing built"): Z lift dot + axis lock are in r461+, trimmed. Wireframe, orbit inertia, Light direction, Floating Slice fix, Recent files, paint shop entry fix + Sync swatch are all in CI r463 (handoff said "not in CI yet").
+
+
+### 2026-10-29 Truck holes diagnosis (Claude, source only, nothing built)
+- Holes (negative volumes) are already drawn translucent: write_mesh emits them as type 1 (OrcaScene.cpp:496), Shaders.kt:320 draws type 1 grey at alpha 0.45 in pass 1. The user's "holes drawn opaque" guess is not the cause.
+- Real cause: write_mesh (OrcaScene.cpp:465-501) emits every part's full mesh; the hole is only subtracted at slice time. The window area of the wall stays opaque in pass 0 and depth-hides the figures. Matches the user's report: visible only with transparent filaments, and in the slice preview.
+- Plan (Claude's call, design deviation pre-approved): cut preview in write_mesh. For a model part whose object has negative volumes, emit part minus the negatives whose boxes overlap it (object frame, `MeshBoolean::mcut::make_boolean` "A_NOT_B", already used at OrcaScene.cpp:989-1012), per part so filament colours stay. Cache results keyed by part + negatives' mesh shared_ptrs and matrices (hold the shared_ptrs so addresses can't be reused); on throw or empty result emit the uncut mesh. Keep the ghost but consider alpha 0.45 -> ~0.25 (it tints the figures) and watch z-fighting on the coplanar cut faces. Open: paint overlay on a cut part still covers the hole area (rare; accept or skip). Native change -> `wsa-debug-rebuild.sh native` or CI; test by rebuilding the truck with truck.sh + truck2.sh on WSA and shooting the window.
+
+### 2026-10-29 Handoff trim
+- Debug build/notes details: archive "2026-10-28 Handoff overflow". Two-finger WSA gestures: `wsa-twotap.sh X Y [gap] [hold_s]` (sendevent, root).
+
+### 2026-10-29 Truck holes cut preview, WSA-verified (Claude, debug build, native local)
+- write_mesh now draws each part minus overlapping negative volumes (commits 8a642ea + next). First try with `mcut::make_boolean` left the windows shut: Orca's mcut wrapper (MeshBoolean.cpp:1031 do_boolean) cuts every connected surface as its own solid, so a shelled part's inward-facing inner wall came back sealed with the hole's outer face (2 triangles per window, seen in `cache/tmp/scene_mesh.bin`). Fix: `cgal::minus` first, mcut only if CGAL throws; hole tools grown 0.02 mm per side against coplanar faces.
+- Check: `~/orca-android-tools/scene_mesh_stats.py` / `scene_mesh_holes.py` on the pulled scene mesh (types: 1 = hole, 100+ = filament part); WSA shot of the serving window shows the chef. The design on the debug app was already the full truck (copied from the release session), no truck.sh rerun needed.
+- Debug app was fresh (no prefs = no MCP token): `wsa-debug-setup.sh` fixed it.
+- 2026-10-29: r464 (run 40855492671) installed on all 6 adb devices; sculpt on cut truck part via object_sculpt top-down ray OK (ray through a hole refused: 'Only model parts can be sculpted').
+### 2026-10-29 Backlog trim (history moved from two lines)
+- Mouse right-click (user 2026-10-28, r459): menu only opened when held. WSA quick 40 ms click opens fine (DOWN carries buttons=2). Fallback `lateButton` (BUTTON_PRESS / MOVE take over) built, WSA no-regression only. Helper `mouse-uinput.sh X Y right HOLD_MS`.
+- Paint shop friction (user 2026-10-28, r459): purple flash + slow entry fixed (GL view kept), View menu in the shop bar, bounding box toggle in the shared View menu, landscape phone/Chromebook single SurfaceView fine on r461 (Claude, closed). All in CI r463+.
+
+### 2026-10-29 Push/pull removed (Claude, d1b11e9)
+- Folded into resize per user decision: chip + push code deleted (see HANDOFF). Tier 1 history above stays as record.
+- WSA debug check (Claude, d1b11e9 local debug build): selected Box 60 mm, drag started 25 px inside the face edge next to the X handle grabbed it (X 60 -> 82.6); drag in the body centre still moved it (pos 0,0 -> 4,10). Verified; ships in the next CI build.
+
+## 2026-10-29 Build continuity part 1: other objects ghosted in Build
+- 2c289a7: Build shows the plate's other objects as faint grey ghosts (front faces, alpha 0.22; no shadow, selection or picks) instead of hiding them. Shape builder toolbar button "Other objects" cycles ghosted (default, Opacity icon) -> shown solid -> hidden (pref `build_others`). Shaders: uSolo 4 ghost / 3 solid / 2 hide, flat vOther, MESH_FS pass 9. Claude-verified on WSA debug: 4 truck copies + "Add as new" -> new object solid, old ones ghosted; hidden mode hides them; pref persists. Solid mode not screenshotted (same path as no culling). Ghosts of multi-piece objects look busy (inner pieces stack); fix would be a depth pre-pass if it bothers. User feel untested. Still open from the brain dump: (2) mesh object -> builder entry, (3) one builder entry + CAD badge (mockup first).
+
+## 2026-10-29 Build continuity part 2: design (Claude, deviation pre-approved; the written mockup)
+- Entry map today: Add menu (top bar `PrepareDialogs.kt:84-87` and long-press empty `PrepareOverlay.kt:381-385`) has two builder rows, "OpenSCAD" (`scad.open()`, resumes the draft) and "Shape builder" (`scad.newShapes()`); a selected design object has "Edit design" (`PrepareOverlay.kt:353-355`, `scad.editObject`); the editor's New opens the template gallery (code examples + Shapes, `ScadEditor.kt:204`). Plain mesh objects have no path in; inside the builder a mesh only comes in as an STL file (`ShapeController.importMesh`).
+- Plan: (a) Add menu: ONE row "Design" + small yellow CAD badge (black text) -> `newShapes()`; code stays reachable inside via New (templates) / Open. Toggle (user's vision, pref `builder_entries` = split) brings back both rows, each badged. (b) Selected object: one row "Edit in builder" + CAD badge for every object: design -> `editObject`; plain mesh -> new `scad.editMesh(index)`: native `exportVolumes(object, dir)` writes one STL per PART / NEGATIVE volume with its volume matrix baked (object frame, no instance transform), each becomes a MESH shape (pos = bounds centre x/y, bottom z; size = extents; hole for NEGATIVE; filament kept), then `load(..., onPlate = obj.name, shapes = d)`: `placePieces` replaces the volumes in place (old object not placedThisSession -> keepCenter), modifiers kept by `otherVolumes`.
+- Native: `exportVolumes` goes in `android/core/jni/OrcaProject.cpp` next to `export_stl` (:338) + `EngineCalls.cpp:216`; ours, not src-orca, but CI-only build (local loop stages CI native libs). Untested.
+
+## 2026-10-29 Build continuity part 2: implemented (Claude; untested)
+- Native `export_volumes(object, dir)` (`OrcaProject.cpp` after export_stl, call `exportVolumes`): one STL per part / negative volume, volume matrix baked (object frame), returns volume index, path, bounds. Kotlin `Engine.exportVolumes`.
+- `ScadController.editMesh(index)`: a design -> `editObject`; a plain mesh -> MESH shapes (pos = bounds centre x/y + bottom z, size = extents, hole for NEGATIVE, filament from the volume's `extruder`), STLs copied to `files/openscad/meshes/mesh-<sha1>.stl`. Deviation from the design: the object is tagged with the design (`pieces = true`) right away instead of re-rendered, so opening it costs nothing and keeps paint until the first edit; `volumeShapes` counts uncached pieces as placed, so the volume->piece map lines up. First edit: `placePieces` keepCenter (not placedThisSession).
+- UI: `DesignEntries.kt` (`CadBadge` yellow/black, one "Design" row -> newShapes; split pref `builder_entries_split`, More screen switch, brings back both rows badged). Selected object: "Edit in builder" + badge for every object (replaces "Edit OpenSCAD design"; string `scad_edit_design` left in values since values-de has it).
+- Kotlin compiled locally; CI run 40961249403 dispatched. Untested on device.
+
+## 2026-10-29 Build continuity part 2: WSA test (Claude, r467 / CI run 40961249403)
+- r467 installed on all 5 adb devices. Add menu shows one "Design" row + CAD badge. Long-press menu: "Edit in builder" + badge. Design object (truck) opens via editObject. Plain Cube -> editMesh: one MESH shape (size 20^3), first edit (30 wide) re-renders in place (centre kept, size 30x20x20, Z 10 = on bed).
+- NOT yet tested: plain mesh with several parts + NEGATIVE volume (needs a fixture: truck object is design-tagged), More > split-entries switch.
+- Gotcha: `stage-from-apk.sh` default looks in `~/orca-android-tools/builds/`, not `~/OrcaProjectsGithub/builds/`; pass the APK path, else native libs are stale ("Unknown engine call: exportVolumes").
+
+## 2026-10-29 Build continuity part 2: WSA test complete (Claude, r467)
+- Fixture made in the UI: fresh Cube > More > Add volume > Add part + Add negative volume > long-press > Edit in builder. Builder lists 3 shapes (Cube, Part 2, Negative volume = Hole); render shows the hole cut into the cube. (A Cube already design-tagged by an earlier test goes through editObject, so use a fresh one.)
+- More > Appearance > "Separate code and shape builder entries": on = Add menu shows "OpenSCAD model" + "Shape builder", both with CAD badge; off = single "Design" + badge. Untested: first edit of the multi-part mesh (placePieces keepCenter) and paint kept on open. User feel untested.
+- Gotcha: WSA display sleeps within minutes and UI dumps come back empty/swipes die: `adb shell "svc power stayon true"` + KEYCODE_WAKEUP (set back to false when done).
+- r464+ (2026-10-29): all Claude-verified on WSA except paint shop Sync swatch (needs a printer).
+
+## 2026-10-29 Build multi-copy gizmos: WSA test complete (Claude, debug build of 9eac6a4; CI r468)
+- Gizmos/lift/snap sit on `ShapeController.buildCopy` (last tapped/grabbed copy); `PlateRenderer.buildCopies` cuts the union mesh box back to one copy in `meshBox`; live mesh scale/turn off then (box only).
+- WSA main window, full screen (user asked for this run): object 3 (3-part Cube) with copy 2 at [160,200] rot [90,0,90]. Tap Cube on copy 2 -> handles/rings on copy 2's box (fits the shape). Resize (red handle), turn (ring), lift (blue handle) on copy 2 -> both copies change alike. Tap copy 1 -> gizmos jump back. Pick Part 2 on copy 2 + drag -> both Part 2s move, gizmo follows copy 2.
+- Note: MCP view_state keeps "Selected: object 3 copy 1" while gizmos sit on copy 2; harmless (Build uses only `buildCopy`, ShapeController.kt:130).
+- Gotcha: at plate-wide zoom the rings cover the body, so body drags hit a ring; pick a small shape or zoom in for move tests.
+- Tool: `~/orca-android-tools/wsa-full.ps1` = WSA app window maximized on the main screen + focused (for user-visible runs).
+
+## 2026-10-29 Build repeated groups: gizmos on the tapped group copy (Claude, cc93c6d; CI run 40986260576 = r469 pending)
+- `ShapeDesign.hitAt` = `pathAt` with each path shape's repeat copy (top = piece.copy); `ScadController.shapeAt` returns it; `ShapeController.buildGroupCopies` (id -> copy) set on tap/grab.
+- `parentFrame(id, copy)` / `toParent(id, v, copy)` / `axesFree(..., copy)` use that copy's matrix (copies(g)[k] * placement), out-of-range -> copy 0. Used by gizmo box, snap boxes, move, resize, turn; Viewport keys on it.
+- JVM: GroupPickTest +2 (row-repeated top group: hit copy + frame = that piece's matrix, fallback; circular-repeated nested group: hit copy 1, frame on copy 1, drag moves copy 1's box by v); scad suites green, release Kotlin compiles.
+- Untested on device: repeated group child tap on copy 1+ -> gizmo there; nested groups on device.
+
+## 2026-10-29 Build repeated groups: WSA VD test passed (Claude, local debug build of 001b569 = r469 code; r469 CI run 40986260576 green)
+- Fixture (`~/orca-android-tools/rep-groups.json`, via MCP `design_set`): group Row (row repeat 2x, step 60 x) holding box Base 24x24x10 + group Ring (circular 4x) holding cylinder Peg.
+- Hidden WSA VD: tap a copy -> whole Row selected (gizmo spans both copies); 2nd tap -> Base #2 with the gizmo box on the tapped copy; tap the other copy -> gizmo jumps there. Red handle on copy 1: Base 24 -> 48.7 wide, both copies alike, gizmo stays on copy 1. Peg on copy 2: tap -> Ring #3, tap -> Peg #4, gizmo on that peg; blue lift +11 mm -> all 8 pegs rise, gizmo stays. Untested on device: turn ring and body move-drag in a repeated group (same frame path, JVM-tested).
+- r469 installed on all 5 adb devices.
+- Tools: WSA VD opens the app as a 324x576 freeform window; `orca-vd.sh start` (TARGET=wsa) now runs `am task resize` to fill the display (tested). Shots on the WSA VD: MCP `view_screenshot` (debug app only), taps with `orca-vd.sh tap` reach the app.
+
+## 2026-10-29 Hole ghost alpha 0.25 (r470)
+- Claude-verified on the WSA VD with the debug app: wall + hole window + sphere behind; ghost faint, figure clearly visible through the opening. User feel untested.
+
+## 2026-10-29 Build continuity part 2: paint kept on open (Claude, code check; closed)
+- `editMesh` only sets `module_name` (`OrcaScene.cpp:1416` `set_object_module`, mesh and `mmu_segmentation_facets` untouched); the object is then pieces-tagged, so `buildIfShapes` sees `buildObject != null` and skips `placeShapes` (`ScadController.kt:166`): no render, paint kept until the first edit (which re-renders, as for any design). Matches the r467 WSA Cube test (open did not re-render). Not painted+opened on a device (no MCP paint tool). Multi-part first-edit test dropped earlier. Item closed.
+
+## 2026-10-29 Build repeated groups: turn ring + body move-drag verified (Claude, local debug build = r470 code, hidden WSA VD)
+- Fixture rep-groups.json; Ring #3 (circular 4x, inside Row repeat 2x) selected via peg tap on copy 1, gizmo on copy 1.
+- Body move-drag: Ring pos [0,0,10] -> [13,5,10]; both Row copies' rings shifted alike, gizmo stayed on copy 1.
+- Turn ring (red X): Ring rot [-10,0,0], pos z 10 -> 9.13 (pivot = box centre); both copies tilted alike, gizmo stayed.
+- Tools: tap on the VD needs `swipe x y x y 80` for viewport picks (`tap` missed); viewport tap y ~ 0.95 x MCP screenshot y; `MAX=30000` env stops mcptest_print cutting replies at 700 chars. Debug app uninstalled, VD stopped.
+
+## 2026-10-29: tower ignores Z + Build smart-guide middles
+- Godot "tower ignores Z": code-verified, not device-run. `towerPlate` is set on tower DOWN (`PlateView.kt:540`), and `lockKey` passes `liftMode && towerPlate < 0` as `zOk` to `ZRail.toggleLock` (:361), which refuses Z (ZRailTest covers `zOk=false`). Closed.
+- Smart-guides idea, Build part: the shape-builder body-drag snap now also sticks to the other shapes' middles (`ShapeController.buildSnapBoxes` `mid = true`). Deviation: no plate centre in Build, because the design pose is not tied to the plate. Compiled, untested on device (needs the next CI build).
+
+## 2026-10-29 Build smart-guide middles: WSA VD verified (Claude, local debug build of f01a800)
+- Fixture `~/orca-android-tools/snap-fixture.json` (A 40x10x10 at origin, B 10x10x10 at x 17, y 30). Body drag of B ~16 mm toward A: B pos x 17 -> exactly 0 (A's middle), y/z unchanged. Snap toggle was on (default).
+- Gotchas: a drag that starts on a gizmo handle (blue lift, rings) lifts/rotates instead (z -38, rot 5); start on the body away from rings; `orca-vd.sh swipe` x = screenshot x, y ~ 0.95 x screenshot y. Debug app uninstalled, VD stopped.
+
+## 2026-10-29 Asset library 7a: WSA VD look check passed (626b407, debug build)
+- Part menu (Part chip, scroll the Add row) lists Wheel and Figure; each adds one editable group beside the others and selects it. Wheel 40x40x10 (tube tire, hub, 5 spokes, axle hole) and Figure 38 mm (legs, rounded body, tilted arms, head) render right in design_snapshot; fit check one piece. Claude test, user untested.
+
+## 2026-10-29 Asset library 7b: WSA VD check passed (da7d640, debug build)
+- Selected group Row (repeat 2x, holds Box + Ring group) -> Part chip menu "Save selected group as part": `files/openscad/parts/Row.json` written, "Row" listed with a delete icon. Tapping it added "Row 1" with Base + Ring children intact. Delete icon removed the file (parts dir empty). Claude test, user untested. Next: 7c (see `NOTES-cad-reuse.md`).
+
+## 2026-10-29 Asset library 7c (part): "Peg and hole" built-in, WSA VD check passed (debug build)
+- Part menu now lists Wheel, Figure, Peg and hole (two 26x16x3 plates: 6 mm peg on one, 6.4 mm hole on the other, 0.2 mm clearance; 56x16x11 mm in design_snapshot). PartsTest green. Claude test, user untested. Still open from 7c (backlog): gear, hinge, part sliders (need dims that scale a whole group).
+
+## 2026-10-29 Asset library 7c: "Hinge" built-in, WSA VD check passed (9b9624c, debug build)
+- Part menu now lists Wheel, Figure, Peg and hole, Hinge (standing print-in-place pin hinge: 4 mm pin, 3 knuckles of 8 mm with 0.4 mm gaps, middle one a tube with 5 mm bore and its own leaf). design_snapshot 44x8x24.8 mm, looks right (leaves alternate, knuckles stacked). PartsTest green. Claude test, user untested; free rotation and print-in-place fit untested (needs a print, user's OK).
+- Gotcha: every `orca-vd.sh` call (tap/shot/ui) needs `TARGET=wsa PKG=...debug` exported, else it hits the default device (a shot grabbed the wrong device's screen on 2026-10-29; deleted). WSA VD has no screenshots (SFID empty is normal): use `ui` for bounds and MCP `design_snapshot`. Path: Add (27,222) -> Design -> Shape builder; swipe the "Add a shape" row left -> Part chip -> menu.
+
+## 2026-10-29 Asset library 7c: "Gear" built-in, WSA VD check passed (debug build)
+- Part menu now lists Wheel, Figure, Peg and hole, Hinge, Gear (12 square teeth via circular repeat on a 30 mm blank, 5 mm bore; 36x36x8 mm in design_snapshot, looks right). PartsTest green. Claude test, user untested. Left in backlog: part sliders.
+
+## 2026-10-29: paint shop for all kinds (Claude-verified WSA VD, debug build, not in a CI build yet)
+- User asked: brush icon leads to the paint shop, all paint kinds there. Done: brush opens the shop (colour); dock chips Colour / Supports / Seam / Fuzzy switch kind (`PaintShop.kt`, `PrepareOverlay.kt` menu removed, `PaintOptions` internal). Verified on the WSA virtual display: brush -> shop, each chip sets the matching tool (support/seam/fuzzy/color), Done leaves. User feel untested (SIGNOFF-CHECKLIST.md).
+
+## 2026-10-29: CAD 7d part size slider (Claude-verified WSA VD, debug build dd8f656, not in a CI build yet)
+- Build workspace: Add > Design, Part > Wheel: Customizer tab shows "wheel 1 size" field (100); set 200 -> wheel renders ~2x, geometry intact (shot). Group Scale % field covered by unit tests only.
+
+### 2026-10-29 Handoff trim (VD tap tip)
+- VD tap tip: always `export TARGET=wsa` for `orca-vd.sh tap/shot` (without it they hit the phone: 2026-10-29 mistake, harmless); tap coords are not `phone-ui.py layout` coords on WSA (menu layout showed 212x596), so check with a `TARGET=wsa` shot first; Add menu -> "Design" (CAD) opens Build.
+- Dropped from the hot file: paint shop for all kinds + CAD 7a-7d Claude-verified, in r473 (details above).
+
+### 2026-10-30 Push/pull tier 2 verified (Claude, WSA VD, debug 48eadc3)
+- Pick + arrow drag (+10.5), delete via Face edits, builder undo, and PULL: typing -3 in the Face edits field of the L-bracket tab -> tab thinner, hole round and unmoved, bounds [-30,-15,-18]..[30,15,18] unchanged (design_describe), OpenSCAD re-render of the emitted code fine on the debug build. Not user-felt (no user testing now). Details: NOTES-pushpull-tier2.md.

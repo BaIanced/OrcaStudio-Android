@@ -3,6 +3,7 @@
 Read this first. Don't use any title for the user ("Supreme Master" was a joke; never use it).
 - `HANDOFF-REFERENCE.md`: devices, tools, build commands, recipes. **Read its device section before driving a device.**
 - `HANDOFF-BACKLOG.md`: pending / untested / ideas / user decisions waiting. Grep it; don't read it up front.
+- `SIGNOFF-CHECKLIST.md`: short list of user feel checks for when user testing resumes.
 - `HANDOFF-ARCHIVE.md`: history, verified features, file maps, past causes. Don't read it or `NOTES-*.md` / `DEMO-rin.md`
   up front; grep them when a question needs them (e.g. `grep -n "AMS mapping" HANDOFF-ARCHIVE.md`).
 
@@ -12,11 +13,12 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 ## State
 - One repo: OrcaStudio-Android (code + these docs, `docs/handoff/`), branch `claude/handoff-continuation-rseql3`. Autonomy (user, 2026-10-11): decide branches and next steps
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
-- Android main = 0170950 (PR #65, branch at r398, merged 2026-10-25). Untested by the user in main: Build workspace, paint shop/depth, Filament materials, Realistic render, UX P1-P6, Check mesh feel, 3MF export in desktop Orca, pen, fan hold, Extrude F150.
-- Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
-- Latest CI build: r461 (run 40807285022, 9f9c5c2, has Z lift dot + axis lock) on WSA, phone, Note, SHIELD. User feel untested. Install new builds on all adb devices (skip the .23 tablet: 32-bit, Android 6).
+- Android main = 3defffa (PR #66, branch at r461/89944b9, merged 2026-10-28 on the user's go-ahead, before sessions B-D; user overrode the user-tested-only rule for this merge). Older: 0170950 (PR #65, r398). User-untested in main: list in `NOTES-merge-batch.md`.
+- Signing secrets: `release` environment (main + `claude/*` only).
+- Latest CI build: run 41012656080 (push/pull tier 2 on top of r473) on all 5 adb devices, 2026-10-30. User feel untested. Install builds on all adb devices (skip .23).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **User 2026-10-28: no more user testing for now; Claude builds and tests everything itself (memory no-user-testing-now); don't ask for feel/UI checks.**
+- **User 2026-10-29: no tests on the user's screen; all tests on a hidden virtual display** (`TARGET=wsa orca-vd.sh start`, memory tests-on-virtual-display).
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
   WSA `127.0.0.1:58526`; **USB serial = the user's SHIELD TV** (rooted; installs only). No printer tests (user away).
@@ -24,19 +26,19 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Session backups: phone `/data/local/tmp/phone-session-backup.{3mf,json}`, WSA `/data/local/tmp/session-backup.{3mf,json}`. `scadzip-test.zip` stays in `/sdcard/Download` (phone, Chromebook). Never write the LAN access code anywhere.
 ## Next task
 - **User 2026-10-21: design deviations pre-approved** ("deviate if you find a more logical, intuitive way; I trust your judgement"); say what changed.
-- Muse (full discretion; tasks 1-18 merged): no per-session check. Instructions, permissions and the check command are in `NOTES-muse.md`; read it only when you want to send Muse work or a Muse PR/comment shows up.
+- Muse (full discretion; tasks 1-18 merged): `NOTES-muse.md`, read only when sending Muse work or a Muse PR shows up.
 - **Merge batch (user 2026-10-28: main = user-tested): `NOTES-merge-batch.md`** (cuts agreed, printer set release-gated, sessions A-D).
 - Local tests: `wsa-debug-rebuild.sh [native]` (reference "WSA debug loop"); fresh app: `wsa-debug-setup.sh` first. Lab prefs: edit `layout_lab` JSON in debug `shared_prefs/app_settings.xml` with run-as sed (app stopped).
 - **Offload (user 2026-10-25/26): max token use onto free opencode models, growing leeway by track record** (Claude specs + verifies).
   DeepSeek V4.1 Flash = default; runner `octauto.sh` (`D:\oct-backup\jobs\README.md`; opencode v2: `model#variant`), ledger `trust-profile.md`.
 - CAD plan (`NOTES-cad-reuse.md`): 0-5b Claude-verified, 1b parked. MCP efficiency (`NOTES-mcp-token-efficiency.md`): build rule waits for user OK.
-- **No WSA focus loops**. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
-- Gate work left: user sessions B-D (`NOTES-merge-batch.md`), paused 2026-10-28.
-- **Debug notes** (Ctrl+Shift+N / S Pen button, debug build): read only when the user says "notes": `cat /sdcard/Android/data/<debug pkg>/files/notes/notes.jsonl` (Note/WSA); log each, then delete jsonl + PNGs there; never commit.
-- Not in a CI build yet: two-finger tap menu + paint shop Sync swatch (untested), Floating Slice drag fix, Recent files collapsed, `lateButton` fallback, paint shop entry fix + View menu (WSA-verified).
-- Open (backlog): paint shop bbox toggle + landscape GL view, More menu reorg.
-- Godot (a)+(b) (`NOTES-godot-z-axis.md`), in CI r461: Z lift dot + axis lock (da7505c) WSA-verified in Prepare (X/Y/Free/Y key mid-drag, archive 2026-10-28). Z key lift in Build WSA-verified (archive 2026-10-28). Untested: tower ignores Z (low risk, code-gated).
-- Next step: Godot done; ask user whether to resume merge batch Session A or merge (no user tests per 2026-10-28) -> Sonnet 5.5 (medium)
+- Gate: user sessions B-D paused 2026-10-28; release gated on the printer set.
+- WSA: `svc power stayon true` while testing; `stage-from-apk.sh <apk>`.
+- WSA VD (reference "Headless display"): Kotlin-only changes = assembleDebug + `wsa-debug-setup.sh` (installs, no launch) + `TARGET=wsa PKG=...debug orca-vd.sh start`; shots via MCP `view_screenshot`; uninstall debug after. `wsa-full.ps1` only when the user asks to watch.
+- Fixture `~/orca-android-tools/rep-groups.json` (MCP `design_set`). VD taps: `export TARGET=wsa`, `. ./.vd-wsa.state; export VD=$LOGICAL,$SFID`, `orca-vd.sh tap/shot`, coords from a `TARGET=wsa` shot (archive "VD tap tip"; `tx.sh` fails on 0-bound nodes).
+- **Queued (user 2026-10-29):** (push/pull tier 2 Claude-verified 2026-10-30, archive; in run 41012656080) [Opus] OrcaMesh vert/edge/face edit mode (extrude/inset/loop cut/bevel, CGAL PMP);
+  dimensions overview (per-object bbox, hole sizes, thinnest wall; **ask the user what they had in mind when it comes up**); floating Theme | Layout designer (~half a day; **ask what they have in mind first**).
+- Next step: ask the user for the main merge (branch vs main 3defffa; user-untested list in NOTES-merge-batch.md); until they answer, Opus 5.5 (high) OrcaMesh vert/edge/face edit mode design (Queued)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).

@@ -10,8 +10,8 @@ import kotlin.math.abs
  * the design object puts design point p at offset + R * scale * mirror * p (the volumes are the design frame, step 3).
  */
 object BuildTransform {
-    /** Where the shape's fields go after a gizmo: pos, rot, size and repeat, as [ShapeDesign] reads them. */
-    data class Pose(val pos: D3, val rot: D3, val size: D3, val repeat: Repeat?)
+    /** Where the shape's fields go after a gizmo: pos, rot, size and repeat, as [ShapeDesign] reads them; a group's [Shape.SCALE] (%). */
+    data class Pose(val pos: D3, val rot: D3, val size: D3, val repeat: Repeat?, val scale: Double? = null)
 
     /** Plate point [w] in the design frame of copy [inst]. */
     fun toDesign(inst: Instance, w: Vec3): D3 {
@@ -46,12 +46,13 @@ object BuildTransform {
 
     /**
      * Whether copy [inst], the groups holding [shapes] ([ShapeDesign.parentFrame]) and every shape in [shapes] lie along
-     * the axes, so X, Y and Z can be scaled alone.
+     * the axes, so X, Y and Z can be scaled alone. [copy]: the repeated groups' copies, as in [ShapeDesign.parentFrame].
+     * Never with a group selected: its [Shape.SCALE] is even only.
      */
-    fun axesFree(d: ShapeDesign, inst: Instance, shapes: List<Shape>): Boolean {
+    fun axesFree(d: ShapeDesign, inst: Instance, shapes: List<Shape>, copy: Map<Int, Int> = emptyMap()): Boolean {
         val r = RotateGizmo.fromEuler(inst.rotation)
-        return axesOf(Array(3) { i -> DoubleArray(3) { j -> r[i * 3 + j].toDouble() } }) != null &&
-            shapes.all { axesOf(linear(d.parentFrame(it.id))) != null && axesOf(ShapeDesign.matrix(d.rot(it))) != null }
+        return shapes.none { it.isGroup } && axesOf(Array(3) { i -> DoubleArray(3) { j -> r[i * 3 + j].toDouble() } }) != null &&
+            shapes.all { axesOf(linear(d.parentFrame(it.id, copy))) != null && axesOf(ShapeDesign.matrix(d.rot(it))) != null }
     }
 
     /** Plate point [p] of design point [q] on copy [inst] (offset + R * scale * mirror * q): [toDesign]'s inverse. */
@@ -62,10 +63,11 @@ object BuildTransform {
         return Vec3(inst.offset.x + axis(0), inst.offset.y + axis(1), inst.offset.z + axis(2))
     }
 
-    /** Design point [p] in [frame] (rigid row-major 4 x 4, [ShapeDesign.parentFrame]). */
+    /** Design point [p] in [frame] (row-major 4 x 4: turn, flip, move and an even scale, [ShapeDesign.parentFrame]). */
     fun inFrame(frame: DoubleArray, p: D3): D3 {
         val q = D3(p.x - frame[3], p.y - frame[7], p.z - frame[11])
-        return D3((0..2).sumOf { frame[it * 4] * q[it] }, (0..2).sumOf { frame[it * 4 + 1] * q[it] }, (0..2).sumOf { frame[it * 4 + 2] * q[it] })
+        val kk = frame[0] * frame[0] + frame[4] * frame[4] + frame[8] * frame[8]
+        return D3((0..2).sumOf { frame[it * 4] * q[it] } / kk, (0..2).sumOf { frame[it * 4 + 1] * q[it] } / kk, (0..2).sumOf { frame[it * 4 + 2] * q[it] } / kk)
     }
 
     /** Design turn [m] in [frame]: A^T * m * A (A = the frame's turn and flip). */
@@ -84,7 +86,11 @@ object BuildTransform {
         return D3(out[0], out[1], out[2])
     }
 
-    private fun linear(m: DoubleArray) = Array(3) { i -> DoubleArray(3) { j -> m[i * 4 + j] } }
+    /** [m]'s turn and flip, its even scale (scaled groups) taken out. */
+    private fun linear(m: DoubleArray): Array<DoubleArray> {
+        val k = kotlin.math.sqrt(m[0] * m[0] + m[4] * m[4] + m[8] * m[8])
+        return Array(3) { i -> DoubleArray(3) { j -> m[i * 4 + j] / k } }
+    }
 
     /** Shape [s] turned by [m] about point [c], both in its parent's frame (the design's at the top level: [turnInFrame]). */
     fun turned(d: ShapeDesign, s: Shape, m: Array<DoubleArray>, c: D3): Pose {
@@ -97,14 +103,14 @@ object BuildTransform {
     }
 
     /**
-     * Shape [s] scaled by [f] about point [p], both in its parent's frame ([scaleInFrame]); null for a group, or when [f] is uneven
-     * and the shape is turned off the axes — or has turned copies (a circular repeat) and X and Y differ, which an
-     * uneven scale cannot express either.
+     * Shape [s] scaled by [f] about point [p], both in its parent's frame ([scaleInFrame]); null when [f] is uneven and [s]
+     * is a group (its [Shape.SCALE] is even only) or turned off the axes — or has turned copies (a circular repeat) and X
+     * and Y differ, which an uneven scale cannot express either.
      */
     fun scaled(d: ShapeDesign, s: Shape, f: D3, p: D3): Pose? {
-        if (s.isGroup) return null
-        // The factors along the shape's own axes: design axis j holds own axis k where its turn has a non-zero.
         val even = abs(f.x - f.y) < 1e-9 && abs(f.y - f.z) < 1e-9
+        if (s.isGroup && !even) return null
+        // The factors along the shape's own axes: design axis j holds own axis k where its turn has a non-zero.
         // A circular repeat's copies are the shape turned about the centre's Z axis, which commutes only with a
         // scale even in X and Y: otherwise each copy would come out scaled along the wrong axes. Z alone is fine.
         if (abs(f.x - f.y) >= 1e-9 && s.repeat?.let { it.circular && it.count > 1 } == true) return null
@@ -112,14 +118,18 @@ object BuildTransform {
             val axes = axesOf(ShapeDesign.matrix(d.rot(s))) ?: return null
             D3(f[axes.indexOf(0)], f[axes.indexOf(1)], f[axes.indexOf(2)])
         }
-        val size = d.size(s).let { D3(it.x * own.x, it.y * own.y, it.z * own.z) }
+        // A group keeps its size field: its children scale with its Scale %, about its frame origin, so its middle
+        // (which it turns about) moves like any point and its height grows by f.
+        val size = if (s.isGroup) d.size(s) else d.size(s).let { D3(it.x * own.x, it.y * own.y, it.z * own.z) }
+        val height = if (s.isGroup) d.height(s) * f.z else size.z
         val middle = d.pos(s) + D3(0.0, 0.0, d.height(s) / 2)
         fun about(q: D3) = D3(p.x + (q.x - p.x) * f.x, p.y + (q.y - p.y) * f.y, p.z + (q.z - p.z) * f.z)
-        val pos = about(middle) - D3(0.0, 0.0, size.z / 2)
+        val pos = about(middle) - D3(0.0, 0.0, height / 2)
         val repeat = s.repeat?.let { r ->
             if (r.circular) r.copy(center = round(about(r.center))) else r.copy(step = round(D3(r.step.x * f.x, r.step.y * f.y, r.step.z * f.z)))
         }
-        return Pose(round(pos), d.rot(s), round(size), repeat)
+        val scale = if (s.isGroup) round(d.scaleOf(s) * 100 * f.x) else null
+        return Pose(round(pos), d.rot(s), if (s.isGroup) size else round(size), repeat, scale)
     }
 
     /**

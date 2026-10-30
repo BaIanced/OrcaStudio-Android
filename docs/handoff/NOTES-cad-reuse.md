@@ -42,3 +42,31 @@ bend/twist, playdough sculpting) without writing code. Roadmap items 3-6 in HAND
 
 Risks: APK size (OCCT toolkits), OCCT fillet failures on complex unions (show the error, keep the unfilleted shape),
 B-rep params are lost once an object is baked to a mesh (deformers, sculpt).
+7. **Asset library (figures, wheels)** (Claude design, 2026-10-29). Parts = plain shape-builder groups, so they stay editable
+   (resize the tire, move an arm, ungroup) and need no native work or files. "Part" chip in the builder's Add row opens a menu.
+   - 7a (built 2026-10-29, `scad/Parts.kt`, `ShapeController.addPart`, `PartsTest`): built-in Wheel (40 mm, flat: tube tire, hub,
+     5-spoke circular repeat, 4 mm axle hole) and Figure (38 mm: legs, rounded body, tilted arms, head). WSA look check open.
+   - 7b: "Save as part" on a selected group -> `files/openscad/parts/<name>.json` (shape JSON + the dims it binds), listed in the same
+     menu under the built-ins; long-press to delete.
+   - 7c (maybe): more built-ins (gear via BOSL2-free polygon sketch, peg/hole pair with clearance, hinge, gear: all built), and part sliders
+     (e.g. wheel diameter) once dims can scale a whole group.
+   - 7d part sliders, design (Claude, 2026-10-29, nothing built). **Group scale**: new extra `Shape.SCALE` (%, default 100) on
+     GROUP only, uniform, about the group's frame origin (bottom centre), applied inside the group's frame before its children.
+     Bindable like any extra (`resolved()` already folds bound extras), so "Make a slider" works on it with no new binding code.
+     Rejected: per-field proportional bindings (`w = d*k`; keeps an axle hole fixed while the wheel grows, but needs an
+     expression bind format + authoring UI, too heavy for no-code) and baking the scale into children (breaks the Customizer code).
+     Uniform only: avoids turned children / circular repeats skewing (same reason `BuildTransform.scaled` refuses uneven).
+     Touch points in `ShapeModel.kt` (lines as of cb82ac8): `height` 269 + `bounds` 272 (group branch: scale `local` by k),
+     `hitAt` 503 / `toParent` 535 / `parentFrame` 545 (compose S into the group frame), `blendParts` 444 (frame), `group` 617 /
+     `shape` 633 codegen (`scale(k / 100)` inside the group's transform, bound -> dim name), `pieces` 418 (scale in the scad,
+     not the matrix: BuildTransform assumes unscaled design frames). Then: `BuildTransform.scaled` 104 can scale a group
+     (even f only -> SCALE *= f) instead of returning null (plate gizmo on groups, a bonus); ShapeBuilder group panel gets a
+     "Scale %" ExtraField (slider = true); `Part.build` binds SCALE to a new "<part> size" Dim (renamed via `Dim.ident`, as
+     `SavedParts.place`), so every built-in comes with its size slider. Tests: PartsTest + a ShapeModel bounds/scad test.
+   - 7d core built 2026-10-29 (bdaf7db, local): `Shape.SCALE`, `scaleOf`, `groupBox`, `Bounds.times`, `scaling()`; height/bounds,
+     `shape()` codegen (`scale(k)`, bound -> `dim / 100`, pivot h follows), `pieces` (scale in code), `blendParts` (rigid m,
+     size/edge/radius x k), `hitAt`, `parentFrame` (now includes S) + `toParent` (/k^2), BuildTransform `inFrame` (/k^2), `linear` normalized.
+     (1) done 297ab3e (local, tests pass, device-untested): `scaled` takes groups on even f (`Pose.scale`), `axesFree` false with a
+     group selected (corners only), Viewport resizeMode on for groups, `posed` sets SCALE; BuildTransformTest group test.
+     **Left:** (2)-(4) done 2026-10-29 (dd8f656, pushed): group "Scale %" field, `Part.place` size slider (25..400), PartsTest;
+     unit tests + compile green. Only (5) open: WSA VD check (Build workspace: add Wheel part -> size slider scales it; group Scale % field). Not yet seen on screen.

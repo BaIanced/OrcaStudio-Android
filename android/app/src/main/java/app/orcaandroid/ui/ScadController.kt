@@ -18,6 +18,8 @@ import app.orcaandroid.scad.ScadExamples
 import app.orcaandroid.scad.ScadParam
 import app.orcaandroid.scad.ScadRender
 import app.orcaandroid.scad.ScadUnavailable
+import app.orcaandroid.scad.D3
+import app.orcaandroid.scad.Shape
 import app.orcaandroid.scad.ShapeDesign
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -218,6 +220,46 @@ class ScadController(private val store: Store) {
             design.unpack(File(dir, "designs/" + Integer.toHexString(design.encode().hashCode()))).path
         }
         load(design.name, file, design.shapes?.toScad() ?: design.source, design.values, onPlate = obj.name, shapes = design.shapes)
+    }
+
+    /**
+     * Opens any object in the shape builder: a design as [editObject]; a plain mesh object becomes a design of one
+     * MESH shape per part (a hole per negative volume), where the volume sits in the object, filament kept. The object
+     * is tagged with it as already placed, so nothing is rendered until the first edit (which then keeps it centred).
+     */
+    fun editMesh(index: Int) = store.launch {
+        val obj = store.value.scene.objects.getOrNull(index) ?: return@launch
+        if (ScadDesign.of(obj) != null) { editObject(index).join(); return@launch }
+        if (st == null) open(newDesign = false).join()
+        val tmp = File(store.app.cacheDir, "openscad/volumes-${System.nanoTime()}").apply { mkdirs() }
+        val shapes = try {
+            val volumes = engine.exportVolumes(index, tmp.path)
+            withContext(Dispatchers.IO) {
+                val meshes = File(dir, "meshes").apply { mkdirs() }
+                volumes.mapIndexed { i, (vi, path, b) ->
+                    val src = File(path)
+                    val file = File(meshes, "mesh-" + MessageDigest.getInstance("SHA-1").digest(src.readBytes())
+                        .joinToString("") { "%02x".format(it) }.take(16) + ".stl")
+                    if (!file.isFile) src.copyTo(file)
+                    val vol = obj.volumes.firstOrNull { it.index == vi }
+                    val hole = vol?.type == VolumeType.NEGATIVE
+                    Shape(i + 1, Shape.Kind.MESH, vol?.name?.ifEmpty { null } ?: obj.name,
+                        D3(maxOf(0.01, b[3] - b[0]), maxOf(0.01, b[4] - b[1]), maxOf(0.01, b[5] - b[2])),
+                        pos = D3((b[0] + b[3]) / 2, (b[1] + b[4]) / 2, b[2]), hole = hole, file = file.absolutePath,
+                        extra = Shape.MESH_BOUNDS.zip(b).toMap(),
+                        filament = if (hole) 0 else vol?.settings?.get("extruder")?.toIntOrNull() ?: 0)
+                }
+            }
+        } catch (e: OrcaException) {
+            store.toast(e.message ?: store.str(R.string.shape_import_failed)); return@launch
+        } finally {
+            withContext(Dispatchers.IO) { tmp.deleteRecursively() }
+        }
+        if (shapes.none { !it.hole }) { store.toast(store.str(R.string.shape_import_failed)); return@launch }
+        val d = ShapeDesign(shapes, nextId = shapes.size + 1)
+        val name = obj.name.substringBeforeLast('.') + ".scad"
+        store.applyScene(engine.setObjectModule(index, ScadDesign(name, d.toScad(), emptyMap(), shapes = d, pieces = true).encode()))
+        load(name, draftFile.path, d.toScad(), onPlate = obj.name, shapes = d)
     }
 
     fun loadExample(example: ScadExamples.Example) = load(example.file, draftFile.path, example.source)
@@ -862,35 +904,51 @@ class ScadController(private val store: Store) {
     }
 
     /**
-     * Build workspace: the copy of build object [obj] under the ray and the shapes there, outermost first (its top-level
-     * shape, then inside groups the child under the hit: [ShapeDesign.pathAt]), or null.
+     * Build workspace: the copy of build object [obj] under the ray and the shapes there, outermost first, each with its
+     * repeat copy under the hit (its top-level shape, then inside groups the child under the hit: [ShapeDesign.hitAt]), or null.
      */
-    suspend fun shapeAt(obj: Int, origin: Vec3, dir: Vec3): Pair<Int, List<Int>>? {
+    suspend fun shapeAt(obj: Int, origin: Vec3, dir: Vec3): Pair<Int, List<Pair<Int, Int>>>? {
         val hit = engine.pick(origin, dir, only = obj) ?: return null
         val o = store.value.scene.objects.getOrNull(obj) ?: return null
         val piece = volumeShapes(o)[hit.volume] ?: return null
         val inst = o.instances.getOrNull(hit.instance)?.shown ?: return null
         // The object's own design: the pieces' matrices are its (an edit may still be rendering).
-        val path = ScadDesign.of(o)?.shapes?.pathAt(piece, app.orcaandroid.scad.BuildTransform.toDesign(inst, hit.point))
-        return hit.instance to path.orEmpty().ifEmpty { listOf(piece.shapeId) }
+        val path = ScadDesign.of(o)?.shapes?.hitAt(piece, app.orcaandroid.scad.BuildTransform.toDesign(inst, hit.point))
+        return hit.instance to path.orEmpty().ifEmpty { listOf(piece.shapeId to piece.copy) }
     }
 
     /**
-     * Build workspace push / pull: the copy of build object [obj] under the ray, the flat face hit there
-     * ([ShapeDesign.faceAt]) and whether the shape is a whole volume of its own (top level, one copy: it can be stretched
-     * live), or null.
+     * Push / pull: the flat face of a MESH shape under a tap. [index] = the op whose cap was hit (its drag edits it) or -1
+     * for a new [op] (d = 0). [outline] (outer loop, then holes) and [normal] (one file mm along the face's normal) are on
+     * the plate, at the op's current cap, for the overlay; [copy] / [copies] say which copies the tap was on.
      */
-    suspend fun faceAt(obj: Int, origin: Vec3, dir: Vec3): Triple<app.orcaandroid.core.Instance, ShapeDesign.Face, Boolean>? {
+    data class FacePick(val shapeId: Int, val index: Int, val op: app.orcaandroid.scad.FaceOp, val copy: Int, val copies: Map<Int, Int>,
+        val outline: List<List<Vec3>>, val normal: Vec3)
+
+    /**
+     * Build workspace: the flat face under the ray on build object [obj]'s MESH shapes (the innermost on the hit path), or
+     * null (no hit, not a MESH, or a curved spot / a cut wall that isn't in the model file). Reads the file off the main thread.
+     */
+    suspend fun faceAt(obj: Int, origin: Vec3, dir: Vec3): FacePick? {
         val hit = engine.pick(origin, dir, only = obj) ?: return null
         val o = store.value.scene.objects.getOrNull(obj) ?: return null
         val piece = volumeShapes(o)[hit.volume] ?: return null
         val inst = o.instances.getOrNull(hit.instance)?.shown ?: return null
         val d = ScadDesign.of(o)?.shapes ?: return null
         val p = app.orcaandroid.scad.BuildTransform.toDesign(inst, hit.point)
-        val ray = app.orcaandroid.scad.BuildTransform.toDesign(inst, hit.point + dir) - p
-        val face = d.faceAt(piece, p, ray) ?: return null
-        val whole = face.shapeId == piece.shapeId && (d.find(face.shapeId)?.repeat?.count ?: 1) <= 1
-        return Triple(inst, face, whole)
+        val path = d.hitAt(piece, p)
+        val copies = path.toMap()
+        val s = path.asReversed().firstNotNullOfOrNull { (id, _) -> d.find(id)?.takeIf { it.kind == Shape.Kind.MESH } } ?: return null
+        val q = d.designToMesh(s.id, p, copies) ?: return null
+        val index = app.orcaandroid.scad.FaceOps.capAt(s.faces, q)
+        val op = s.faces.getOrNull(index) ?: withContext(Dispatchers.IO) {
+            app.orcaandroid.scad.Stl.triangles(File(s.file))?.let { app.orcaandroid.scad.FaceOps.region(it, q) }
+        } ?: return null
+        fun plate(f: D3) = d.meshToDesign(s.id, f, copies)?.let { app.orcaandroid.scad.BuildTransform.toPlate(inst, it) }
+        val outline = op.outline.map { l -> l.map { plate(op.at(it, op.d)) ?: return null } }
+        val a = plate(op.origin) ?: return null
+        val b = plate(op.at(app.orcaandroid.scad.P2(0.0, 0.0), 1.0)) ?: return null
+        return FacePick(s.id, index, op, hit.instance, copies, outline, b - a)
     }
 
     /**

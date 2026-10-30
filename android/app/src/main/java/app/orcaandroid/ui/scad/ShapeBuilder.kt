@@ -8,6 +8,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -24,6 +25,9 @@ import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AlignHorizontalCenter
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Opacity
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.CallSplit
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
@@ -56,6 +60,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.material3.IconToggleButton
 import androidx.compose.runtime.getValue
@@ -81,6 +86,7 @@ import app.orcaandroid.R
 import app.orcaandroid.ui.components.ScrubCell
 import app.orcaandroid.scad.D3
 import app.orcaandroid.scad.Dim
+import app.orcaandroid.scad.Part
 import app.orcaandroid.scad.Repeat
 import app.orcaandroid.scad.Shape
 import app.orcaandroid.scad.ShapeDesign
@@ -169,6 +175,33 @@ fun ShapesTab(s: ScadEditorState, vm: AppViewModel) {
             }
             AssistChip(onClick = { stl.launch(arrayOf("model/stl", "application/sla", "application/vnd.ms-pki.stl", "application/octet-stream", "*/*")) },
                 label = { Text(stringResource(R.string.shape_import)) }, leadingIcon = { Icon(Icons.Default.Add, null, Modifier.size(16.dp)) })
+            Box {
+                var parts by remember { mutableStateOf(false) }
+                AssistChip(onClick = { parts = true }, label = { Text(stringResource(R.string.shape_parts)) },
+                    leadingIcon = { Icon(Icons.Default.Add, null, Modifier.size(16.dp)) })
+                var saved by remember { mutableStateOf(emptyList<String>()) }
+                LaunchedEffect(parts) { if (parts) saved = sh.savedParts() }
+                DropdownMenu(parts, { parts = false }) {
+                    Part.entries.forEach { p ->
+                        DropdownMenuItem(text = { Text(stringResource(ShapeController.partName(p))) },
+                            onClick = { parts = false; sh.addPart(p); runCatching { focus.requestFocus() } })
+                    }
+                    saved.forEach { n ->
+                        DropdownMenuItem(text = { Text(n) },
+                            onClick = { parts = false; sh.addSaved(n); runCatching { focus.requestFocus() } },
+                            trailingIcon = {
+                                IconButton({ sh.deleteSaved(n); saved = sh.savedParts() }, Modifier.size(32.dp)) {
+                                    Icon(Icons.Default.Delete, stringResource(R.string.part_delete, n), Modifier.size(18.dp))
+                                }
+                            })
+                    }
+                    if (sh.canSavePart) {
+                        HorizontalDivider()
+                        DropdownMenuItem(text = { Text(stringResource(R.string.part_save)) },
+                            onClick = { parts = false; sh.saveAsPart(); runCatching { focus.requestFocus() } })
+                    }
+                }
+            }
         }
         Toolbar(s, vm)
         HorizontalDivider()
@@ -230,6 +263,13 @@ private fun Toolbar(s: ScadEditorState, vm: AppViewModel) {
         Tip(stringResource(R.string.snap_toggle)) {
             val on = vm.state.collectAsState().value.snapBuild
             IconToggleButton(on, { vm.toggleSnap() }) { Icon(app.orcaandroid.ui.prepare.SnapIcon, stringResource(R.string.snap_toggle)) }
+        }
+        Tip(stringResource(R.string.build_others)) {
+            val others = vm.state.collectAsState().value.buildOthers
+            IconButton(onClick = vm::cycleBuildOthers) {
+                Icon(when (others) { 0 -> Icons.Default.Opacity; 1 -> Icons.Default.Visibility; else -> Icons.Default.VisibilityOff },
+                    stringResource(R.string.build_others))
+            }
         }
         Tip(stringResource(R.string.move_lock)) {
             val lock = vm.state.collectAsState().value.moveLock
@@ -339,6 +379,7 @@ private fun Properties(shape: Shape, d: ShapeDesign, vm: AppViewModel, filaments
             Text(stringResource(R.string.shape_hull_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             ExtraField(stringResource(R.string.shape_blend), shape, d, vm, Shape.BLEND, 0.0)
             Text(stringResource(R.string.shape_blend_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            ExtraField(stringResource(R.string.shape_scale), shape, d, vm, Shape.SCALE, 100.0)
         }
         FieldRow(stringResource(R.string.shape_position), shape, d, vm, "pos", listOf("X", "Y", "Z"), shape.pos, listOf("x", "y", "z"))
         FieldRow(stringResource(R.string.shape_rotation), shape, d, vm, "rot", listOf("X°", "Y°", "Z°"), shape.rot, listOf("turn_x", "turn_y", "turn_z"))
@@ -353,10 +394,28 @@ private fun Properties(shape: Shape, d: ShapeDesign, vm: AppViewModel, filaments
         }
         if (shape.kind == Shape.Kind.MESH) Text(stringResource(R.string.shape_mesh_file, shape.file.substringAfterLast('/')),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (shape.kind == Shape.Kind.MESH) FaceEditor(shape, vm)
         val revolve = shape.x(Shape.REVOLVE, 0.0) != 0.0
         if (shape.kind in Shape.EDGED) EdgeEditor(shape, d, vm)
         if (shape.kind in Shape.SHELLED && !revolve) ShellEditor(shape, d, vm)
         RepeatEditor(shape, vm)
+    }
+}
+
+/** Push / pull on a MESH shape: the mode switch (a tap in the main view picks a flat face) and the face edits made so far. */
+@Composable
+private fun FaceEditor(shape: Shape, vm: AppViewModel) {
+    val sh = vm.shapes
+    androidx.compose.material3.FilterChip(sh.faceMode, { sh.setPushPull(!sh.faceMode) }, { Text(stringResource(R.string.shape_push_pull)) })
+    if (sh.faceMode) Text(stringResource(R.string.shape_push_pull_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    if (shape.faces.isEmpty()) return
+    Text(stringResource(R.string.shape_face_edits), style = MaterialTheme.typography.labelLarge)
+    shape.faces.forEachIndexed { i, op ->
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            NumberField(op.d.toFloat(), { if (it != 0f) sh.pushFace(shape.id, i, op, it.toDouble()) }, Modifier.weight(1f),
+                label = stringResource(R.string.shape_face_edit, i + 1), decimals = 1)
+            IconButton(onClick = { sh.removeFace(shape.id, i) }) { Icon(Icons.Default.Delete, stringResource(R.string.delete)) }
+        }
     }
 }
 

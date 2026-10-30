@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.widthIn
@@ -39,7 +40,6 @@ import app.orcaandroid.render.CutPlane
 import app.orcaandroid.render.DragSnap
 import app.orcaandroid.render.FilamentMaterial
 import app.orcaandroid.render.FloatData
-import app.orcaandroid.render.PushGrab
 import app.orcaandroid.render.INSTANCE_ID_STRIDE
 import app.orcaandroid.render.InteractionMode
 import app.orcaandroid.render.PlateBadge
@@ -160,6 +160,9 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     // The plate menu opened from a plate's menu badge: plate, view x, y.
     var plateMenu by remember { mutableStateOf<Triple<Int, Float, Float>?>(null) }
     val rectangleColor = scheme.primary
+    // Push / pull: bumped by each arrow drag step so the face overlay redraws.
+    val faceTick = remember { androidx.compose.runtime.mutableLongStateOf(0L) }
+    val facePick by vm.shapes.facePick.collectAsState()
     // Live size (mm) beside the finger while a box corner is dragged: text, view x, y.
     var resizeLabel by remember { mutableStateOf<Triple<String, Float, Float>?>(null) }
     Box(modifier) {
@@ -177,8 +180,9 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                             if (vm.state.value.measureActive != null) { vm.scene.measureSelect(null); return }
                         }
                         val (o, d) = v.camera.ray(x, y)
-                        // The Build workspace: a tap picks a shape of the design.
-                        if (vm.state.value.buildObject != null) vm.shapes.tapAt(o, d, additive || part || vm.state.value.selectMode)
+                        // The Build workspace: a tap picks a shape of the design (a flat face in push / pull mode).
+                        if (vm.state.value.buildObject != null && vm.shapes.faceMode) vm.shapes.pickFace(o, d)
+                        else if (vm.state.value.buildObject != null) vm.shapes.tapAt(o, d, additive || part || vm.state.value.selectMode)
                         else vm.scene.onViewTap(o, d, additive, part, v.section.current, emptyPlate, v.camera::pxSize,
                             vm.state.value.tool.let { t -> if (t == app.orcaandroid.ui.Tool.Measure || t is Tool.Cut) snapRing(v, x, y) else emptyList() },
                             if (vm.state.value.tool == app.orcaandroid.ui.Tool.Measure) bedAt(v, x, y) else null)
@@ -191,22 +195,6 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                         val (o, d) = v.camera.ray(x, y)
                         if (vm.state.value.buildObject != null) vm.shapes.grabAt(o, d) { hit -> v.post { result(hit) } }
                         else vm.scene.checkDragStart(o, d, v.section.current) { hit -> v.post { result(hit) } }
-                    }
-                    override fun onPushCheck(x: Float, y: Float, result: (PushGrab?) -> Unit) {
-                        val (o, d) = v.camera.ray(x, y)
-                        vm.shapes.pushAt(o, d) { g -> v.post { result(g) } }
-                    }
-                    override fun onPush(grab: PushGrab, mm: Float?, x: Float, y: Float, done: Boolean) {
-                        if (!done && mm != null) {
-                            resizeLabel = Triple("%+.1f mm → %.1f mm".format(mm, grab.length + mm), x, y)
-                            return
-                        }
-                        resizeLabel = null
-                        if (mm == null || kotlin.math.abs(mm) < 0.05f) { v.onGl { pushMatrix = null }; return }
-                        // The live stretch stays until the re-rendered piece is drawn (below), or the timeout.
-                        dragPending[0] = true
-                        v.postDelayed({ if (dragPending[0]) { dragPending[0] = false; v.onGl { pushMatrix = null } } }, BUILD_RENDER_WAIT)
-                        vm.shapes.push(mm.toDouble())
                     }
                     override fun onTowerCheck(x: Float, y: Float, entry: Vec3, result: (Boolean) -> Unit) {
                         val (o, d) = v.camera.ray(x, y)
@@ -324,6 +312,10 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                         dragPending[0] = true
                         vm.shapes.moveOnPlate(0f, 0f, dz)
                         v.postDelayed({ if (dragPending[0]) { dragPending[0] = false; v.onGl { dragOffset = floatArrayOf(0f, 0f, 0f) } } }, 3000)
+                    }
+                    override fun onFacePush(d: Float?, done: Boolean) {
+                        faceTick.longValue++
+                        if (done && d != null && d != vm.shapes.facePick.value?.op?.d?.toFloat()) vm.shapes.pushPicked(d.toDouble())
                     }
                     override fun onTowerMoved(plate: Int, dx: Float, dy: Float) {
                         val t = vm.state.value.scene.plates.getOrNull(plate)?.tower ?: return
@@ -565,6 +557,51 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     plateMenu?.let { (plate, x, y) ->
         Box(Modifier.offset { IntOffset(x.toInt(), y.toInt()) }) { PlateMenu(state, vm, plate) { plateMenu = null } }
     }
+    if (state.lightPanel) {
+        LightPanel(state.lab, vm::setLab, { vm.setLightPanel(false) }, Modifier.align(androidx.compose.ui.Alignment.BottomEnd)
+            .windowInsetsPadding(androidx.compose.foundation.layout.WindowInsets.navigationBars).padding(end = 8.dp, bottom = 96.dp))
+    }
+    if (state.buildObject != null && vm.shapes.faceMode) facePick?.let { pick ->
+        // Push / pull: the picked face's outline (moved along with a drag) and its arrow; the distance beside the arrow's tip.
+        val frame = remember { androidx.compose.runtime.mutableLongStateOf(0L) }
+        LaunchedEffect(pick) { while (true) androidx.compose.runtime.withFrameNanos { frame.longValue = it } }
+        val measurer = androidx.compose.ui.text.rememberTextMeasurer()
+        val labelStyle = MaterialTheme.typography.labelLarge.copy(color = Color.White)
+        val color = scheme.primary
+        Canvas(Modifier.fillMaxSize()) {
+            frame.longValue; faceTick.longValue
+            val vw = view ?: return@Canvas
+            val d = vw.faceD.takeIf { vw.faceArrow != null } ?: pick.op.d.toFloat()
+            val shift = pick.normal * (d - pick.op.d.toFloat())
+            for (loop in pick.outline) {
+                val pts = loop.map { vw.camera.project(it + shift) ?: return@Canvas }.map { androidx.compose.ui.geometry.Offset(it.first, it.second) }
+                for (i in pts.indices) {
+                    val a = pts[i]; val b = pts[(i + 1) % pts.size]
+                    drawLine(Color.Black.copy(alpha = 0.5f), a, b, 5f)
+                    drawLine(color, a, b, 2.5f)
+                }
+            }
+            val s = vw.faceArrowScreen(d) ?: return@Canvas
+            val base = androidx.compose.ui.geometry.Offset(s[0], s[1])
+            val tip = androidx.compose.ui.geometry.Offset(s[2], s[3])
+            val dir = (tip - base) / (tip - base).getDistance()
+            val side = androidx.compose.ui.geometry.Offset(-dir.y, dir.x)
+            val head = 10.dp.toPx()
+            for ((w, c) in listOf(6f to Color.Black.copy(alpha = 0.5f), 3f to color)) {
+                drawLine(c, base, tip, w)
+                drawLine(c, tip, tip - dir * head + side * head * 0.6f, w)
+                drawLine(c, tip, tip - dir * head - side * head * 0.6f, w)
+            }
+            drawCircle(color, 4.dp.toPx(), base)
+            val mm = d * pick.normal.length()
+            val t = measurer.measure((if (mm > 0f) "+" else "") + "%.1f mm".format(mm), labelStyle)
+            val pad = 4.dp.toPx()
+            val tl = tip + dir * (t.size.height.toFloat()) - androidx.compose.ui.geometry.Offset(t.size.width / 2f, t.size.height / 2f)
+            drawRoundRect(Color.Black.copy(alpha = 0.6f), tl - androidx.compose.ui.geometry.Offset(pad, pad / 2),
+                androidx.compose.ui.geometry.Size(t.size.width + 2 * pad, t.size.height + pad), androidx.compose.ui.geometry.CornerRadius(pad))
+            drawText(t, topLeft = tl)
+        }
+    }
     view?.section?.takeIf { it.panelOpen }?.let {
         // Below the top bar (and a camera hole in fullscreen portrait) and clear of the tool buttons down the left edge.
         SectionViewPanel(it, Modifier.align(androidx.compose.ui.Alignment.TopCenter)
@@ -584,6 +621,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         v.onGl { contactShadows = state.contactShadows }
     }
     LaunchedEffect(v, state.realistic) { v.onGl { realistic = state.realistic } }
+    LaunchedEffect(v, state.wireframe) { v.onGl { wireAll = state.wireframe } }
     val plateTypes = scene.plates.indices.map { state.bedTypeOf(it) }
     val appContext = LocalContext.current.applicationContext
     LaunchedEffect(v, state.lab.plateHd, plateTypes) {
@@ -637,24 +675,32 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         v.onGl { keyAzimuth = state.lab.lightAzimuth; keyElevation = state.lab.lightElevation; keyStrength = state.lab.lightStrength; cameraLight = state.lab.cameraLight }
     }
     LaunchedEffect(v, state.lab.pinchSpeed) { v.pinchSpeed = state.lab.pinchSpeed }
+    LaunchedEffect(v, state.lab.orbitInertia) { v.orbitInertia = state.lab.orbitInertia }
     LaunchedEffect(v, state.lab.wheelSpeed) { v.wheelSpeed = state.lab.wheelSpeed }
     LaunchedEffect(v, state.perspective) { v.camera.perspective = state.perspective }
     LaunchedEffect(v, state.pen) { v.pen = state.pen }
-    // The Build workspace's selection is shapes: their handles and rings always show (one copy of the object only; groups
-    // only turn), on the selected volumes' mesh box.
+    // The Build workspace's selection is shapes: their handles and rings always show (groups scale by corners only), on the
+    // selected volumes' mesh box in the copy last tapped or dragged.
     val building = state.buildObject != null
-    val buildGizmo = if (!building) null else remember(state.scene, state.scad?.selected, state.scad?.shapes) { vm.shapes.buildGizmoTarget() }
-    // Push / pull: a drag on a face moves it; the gizmos go meanwhile.
-    val pushing = building && state.buildPush
+    val buildCopy by vm.shapes.buildCopy.collectAsState()
+    val buildGroupCopies by vm.shapes.buildGroupCopies.collectAsState()
+    val buildGizmo = if (!building) null else remember(state.scene, state.scad?.selected, state.scad?.shapes, buildCopy, buildGroupCopies) { vm.shapes.buildGizmoTarget() }
     LaunchedEffect(v, building) { v.gizmoOnMesh = building }
-    LaunchedEffect(v, pushing) { v.pushMode = pushing }
-    LaunchedEffect(v, state.resizing, showPreview, building, buildGizmo, pushing) {
-        v.resizeMode = if (building) !pushing && buildGizmo?.second?.none { it.isGroup } == true else state.resizing && !showPreview
+    LaunchedEffect(v, state.resizing, showPreview, building, buildGizmo) {
+        v.resizeMode = if (building) buildGizmo != null else state.resizing && !showPreview
     }
     // Build: the lift dot above the selection moves the shapes up or down.
-    LaunchedEffect(v, building, buildGizmo, pushing) { v.liftMode = building && !pushing && buildGizmo != null }
-    LaunchedEffect(v, state.rotating, showPreview, building, buildGizmo, pushing) {
-        v.rotateMode = if (building) !pushing && buildGizmo != null else state.rotating && !showPreview
+    LaunchedEffect(v, building, buildGizmo) { v.liftMode = building && buildGizmo != null }
+    LaunchedEffect(v, building, vm.shapes.faceMode, facePick) {
+        if (!building && vm.shapes.faceMode) vm.shapes.setPushPull(false)
+        // The arrow starts at the middle of the face's outer outline.
+        v.faceArrow = facePick?.takeIf { building && vm.shapes.faceMode }?.let { p ->
+            val l = p.outline.first()
+            PlateView.FaceArrow(l.fold(Vec3.ZERO) { a, b -> a + b } * (1f / l.size), p.normal, p.op.d.toFloat())
+        }
+    }
+    LaunchedEffect(v, state.rotating, showPreview, building, buildGizmo) {
+        v.rotateMode = if (building) buildGizmo != null else state.rotating && !showPreview
     }
     // Plate numbers always; the plate icons only while arranging (Prepare).
     val atlas = rememberBadgeAtlas(scene.plates.size)
@@ -688,7 +734,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         val version = scene.meshVersion
         v.onGl { setMesh(mesh, version) }
         // A finished drag: the moved mesh is queued first, so the old offset goes away without a jump back.
-        if (dragPending[0]) { dragPending[0] = false; v.onGl { dragOffset = floatArrayOf(0f, 0f, 0f); resizeScale = floatArrayOf(1f, 1f, 1f); pushMatrix = null; rotateMatrix = null } }
+        if (dragPending[0]) { dragPending[0] = false; v.onGl { dragOffset = floatArrayOf(0f, 0f, 0f); resizeScale = floatArrayOf(1f, 1f, 1f); rotateMatrix = null } }
     }
     // Eye toggle: the OpenSCAD design shown see-through, standing in the middle of the active plate (other objects hidden).
     // A shape design placed as pieces shows its object instead (the Build workspace).
@@ -734,20 +780,25 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     }
     val build = state.buildObject?.let { scene.objects.getOrNull(it) }
     LaunchedEffect(v, build != null) { v.onGl { buildSolo = build != null } }
+    LaunchedEffect(v, state.buildOthers) { v.onGl { buildOthers = state.buildOthers } }
     LaunchedEffect(v, build != null, state.snapBuild, state.snapPrepare) { v.snapOn = if (build != null) state.snapBuild else state.snapPrepare }
     LaunchedEffect(v, state.moveLock) { v.axisLock = state.moveLock }
     // Build workspace: the selected shapes' volumes are the selection; a drag starts on the object's box (the pick decides).
-    LaunchedEffect(v, build, state.scad?.selected, state.scad?.shapes) {
-        if (build == null) { v.dragSnap = null; v.onGl { boxOverride = null }; return@LaunchedEffect }
+    LaunchedEffect(v, build, state.scad?.selected, state.scad?.shapes, buildCopy, buildGroupCopies) {
+        if (build == null) { v.dragSnap = null; v.onGl { boxOverride = null; buildCopies = null }; return@LaunchedEffect }
         val ids = vm.scad.buildSelectedIds(build)
         // Shapes inside a group: the gizmos sit on their own box, not the group's mesh.
         val box = vm.shapes.buildGizmoBox()?.let { (lo, hi) -> floatArrayOf(lo.x, lo.y, lo.z, hi.x, hi.y, hi.z) }
-        v.onGl { selectedIds = ids; boxOverride = box }
+        // Several copies share the volume ids: the gizmos take the active copy's share of the mesh box.
+        val copies = build.instances.takeIf { it.size > 1 }?.let { list ->
+            list.flatMap { it.shown.offset.let { o -> listOf(o.x, o.y, o.z) } }.toFloatArray() to buildCopy.coerceIn(0, list.size - 1)
+        }
+        v.onGl { selectedIds = ids; boxOverride = box; buildCopies = copies }
         // The design pose's box: Build draws and picks the copies there, not where they lie on the plate.
         v.selectedBounds = if (ids.isEmpty()) emptyList() else build.instances.map { it.shown.let { s -> s.min to (s.min + s.size) } }
-        v.resizeAxes = vm.shapes.buildGizmoTarget()?.let { (inst, tops) -> state.scad?.shapes?.let { app.orcaandroid.scad.BuildTransform.axesFree(it, inst, tops) } } ?: true
+        v.resizeAxes = vm.shapes.buildGizmoTarget()?.let { (inst, tops) -> state.scad?.shapes?.let { app.orcaandroid.scad.BuildTransform.axesFree(it, inst, tops, buildGroupCopies) } } ?: true
         v.towerBoxes = emptyList()
-        // A body drag sticks the selection's edges to the other shapes' edges.
+        // A body drag sticks the selection's edges and middle to the other shapes' edges and middles.
         v.dragSnap = vm.shapes.buildSnapBoxes()
     }
     LaunchedEffect(v, state.selection, state.multiSelection, scene, build != null) {

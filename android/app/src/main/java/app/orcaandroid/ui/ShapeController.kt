@@ -6,13 +6,14 @@ import app.orcaandroid.R
 import app.orcaandroid.core.Instance
 import app.orcaandroid.core.Vec3
 import app.orcaandroid.render.DragSnap
-import app.orcaandroid.render.PushGrab
 import app.orcaandroid.render.RotateGizmo
 import app.orcaandroid.scad.Bounds
 import app.orcaandroid.scad.BuildTransform
 import app.orcaandroid.scad.D3
 import app.orcaandroid.scad.Dim
+import app.orcaandroid.scad.Part
 import app.orcaandroid.scad.Repeat
+import app.orcaandroid.scad.SavedParts
 import app.orcaandroid.scad.Shape
 import app.orcaandroid.scad.ShapeDesign
 import app.orcaandroid.scad.Sketch
@@ -65,6 +66,7 @@ class ShapeController(private val store: Store, private val scad: ScadController
         val cur = design ?: return
         if (!canUndo) return
         val (d, sel) = undo.removeLast()
+        facePick.value = null
         redo.addLast(cur to selected)
         undoOwner = d
         scad.setShapes(d, sel)
@@ -74,6 +76,7 @@ class ShapeController(private val store: Store, private val scad: ScadController
         val cur = design ?: return
         if (!canRedo) return
         val (d, sel) = redo.removeLast()
+        facePick.value = null
         undo.addLast(cur to selected)
         undoOwner = d
         scad.setShapes(d, sel)
@@ -100,30 +103,95 @@ class ShapeController(private val store: Store, private val scad: ScadController
     fun tapAt(origin: Vec3, dir: Vec3, add: Boolean) {
         val obj = store.value.buildObject ?: return
         store.launch {
-            val path = scad.shapeAt(obj, origin, dir)?.second
+            val hit = scad.shapeAt(obj, origin, dir)
+            if (hit != null) { buildCopy.value = hit.first; buildGroupCopies.value = hit.second.toMap() }
+            val path = hit?.second?.map { it.first }
             val d = design
             if (path == null || d == null) return@launch tap(null, add)
             tap(path[BuildTransform.pickLevel(d.pathTo(selected.lastOrNull() ?: -1).map { it.id }, path)], add)
         }
     }
 
-    /** The copy of the build object a main-view drag grabbed: its turn, scale and mirror map the drag into the design. */
-    private var grabbed = 0
+    /**
+     * The copy of the build object last tapped or grabbed in the main view: the gizmos sit on it and its pose maps drags
+     * into the design (the Build view draws every copy in its design pose, so they differ only in where they stand).
+     */
+    val buildCopy = kotlinx.coroutines.flow.MutableStateFlow(0)
+
+    /**
+     * Inside the design: the repeat copy of each shape (by id) on the last tapped or grabbed path. A shape inside a
+     * repeated group gets its gizmos, drags and turns in that copy of the group ([ShapeDesign.parentFrame]).
+     */
+    val buildGroupCopies = kotlinx.coroutines.flow.MutableStateFlow<Map<Int, Int>>(emptyMap())
 
     /** Build workspace: [result] gets whether a drag starting on the ray grabs a selected shape. */
     fun grabAt(origin: Vec3, dir: Vec3, result: (Boolean) -> Unit) {
         val obj = store.value.buildObject ?: return result(false)
         store.launch {
             val hit = scad.shapeAt(obj, origin, dir)
-            if (hit != null) grabbed = hit.first
+            if (hit != null) { buildCopy.value = hit.first; buildGroupCopies.value = hit.second.toMap() }
             // A selected shape under the finger, or the group holding it.
-            result(hit != null && hit.second.any { it in selected })
+            result(hit != null && hit.second.any { it.first in selected })
         }
+    }
+
+    /** Build workspace, push / pull: [result] gets the flat MESH face under the ray ([ScadController.faceAt]), or null. */
+    fun faceAt(origin: Vec3, dir: Vec3, result: (ScadController.FacePick?) -> Unit) {
+        val obj = store.value.buildObject ?: return result(null)
+        store.launch {
+            val pick = scad.faceAt(obj, origin, dir)
+            if (pick != null) { buildCopy.value = pick.copy; buildGroupCopies.value = pick.copies }
+            result(pick)
+        }
+    }
+
+    /** Push / pull mode (the Shape panel of a MESH shape): a tap in the main view picks a flat face ([facePick]) instead of a shape. */
+    var faceMode by androidx.compose.runtime.mutableStateOf(false)
+        private set
+    /** Push / pull: the face picked in [faceMode]; its arrow drags it. */
+    val facePick = kotlinx.coroutines.flow.MutableStateFlow<ScadController.FacePick?>(null)
+
+    fun setPushPull(on: Boolean) { faceMode = on; facePick.value = null }
+
+    /** Push / pull mode: a main-view tap picks the face under it (a miss clears the pick). */
+    fun pickFace(origin: Vec3, dir: Vec3) = faceAt(origin, dir) { pick ->
+        facePick.value = pick
+        // The face's shape shows in the panel, so its "Face edits" list is at hand.
+        if (pick != null && selected != listOf(pick.shapeId)) tap(pick.shapeId, false)
+    }
+
+    /** Push / pull: the arrow drag of [facePick] let go at distance [d] (file mm); the pick follows the face to its new cap. */
+    fun pushPicked(d: Double) {
+        val p = facePick.value ?: return
+        val before = design?.find(p.shapeId)?.faces?.size ?: return
+        pushFace(p.shapeId, p.index, p.op, d)
+        val shift = p.normal * (d - p.op.d).toFloat()
+        val index = when { kotlin.math.abs(d) <= 1e-9 -> -1; p.index >= 0 -> p.index; else -> before }
+        // An op taken off shifts the later ones down: re-pick by index from the shape's list.
+        facePick.value = p.copy(index = index, op = p.op.copy(d = if (index < 0) 0.0 else d), outline = p.outline.map { l -> l.map { it + shift } })
+    }
+
+    /**
+     * Push / pull: MESH shape [id]'s face op [index] (or a new one, [op], when out of range) set to [d] mm (> 0 push,
+     * < 0 pull, 0 removes it), as one undo step; the shape's box grows so the rest of the model stays put ([ShapeDesign.withFaces]).
+     */
+    fun pushFace(id: Int, index: Int, op: app.orcaandroid.scad.FaceOp, d: Double) {
+        val des = design ?: return
+        val s = des.find(id)?.takeIf { it.kind == Shape.Kind.MESH } ?: return
+        val faces = if (index in s.faces.indices) s.faces.mapIndexed { i, f -> if (i == index) f.copy(d = d) else f } else s.faces + op.copy(d = d)
+        commit(held(des, des.withFaces(id, faces.filter { kotlin.math.abs(it.d) > 1e-9 }), id))
+    }
+
+    /** Push / pull: MESH shape [id]'s face op [index] taken off (the Shape panel's "Face edits" list). */
+    fun removeFace(id: Int, index: Int) {
+        val s = design?.find(id) ?: return
+        s.faces.getOrNull(index)?.let { pushFace(id, index, it, 0.0) }
+        if (facePick.value?.shapeId == id) facePick.value = null
     }
 
     /** Build workspace: a main-view drag moved the selection [dx], [dy] mm on the plate. */
     fun moveOnPlate(dx: Float, dy: Float, dz: Float = 0f) {
-        val inst = store.value.buildObject?.let { store.value.scene.objects.getOrNull(it) }?.instances?.let { it.getOrNull(grabbed) ?: it.firstOrNull() }?.shown ?: return
+        val inst = store.value.buildObject?.let { store.value.scene.objects.getOrNull(it) }?.instances?.let { it.getOrNull(buildCopy.value) ?: it.firstOrNull() }?.shown ?: return
         // Plate -> design frame: the copy's matrix is translation * rotation * scale * mirror (mirror = +-1 per axis).
         val r = RotateGizmo.fromEuler(inst.rotation)
         fun local(i: Int, scale: Float, mirror: Float) = (r[i] * dx + r[3 + i] * dy + r[6 + i] * dz) / scale.toDouble() * (if (mirror < 0f) -1.0 else 1.0)
@@ -131,15 +199,16 @@ class ShapeController(private val store: Store, private val scad: ScadController
         val d = design ?: return
         if (selected.isEmpty() || v == D3()) return
         // A shape inside a group moves in the group's frame (its turn and flip).
-        commit(selected.fold(d) { acc, id -> held(acc, acc.update(id) { s -> s.copy(pos = s.pos + d.toParent(id, v)) }, id) })
+        commit(selected.fold(d) { acc, id -> held(acc, acc.update(id) { s -> s.copy(pos = s.pos + d.toParent(id, v, buildGroupCopies.value)) }, id) })
     }
 
     /**
-     * Build workspace: the copy the gizmos sit on (they show only while the object has one) and the selected shapes,
-     * all in one frame: top level, or inside the same group (the gizmos then act in that group's frame).
+     * Build workspace: the copy the gizmos sit on ([buildCopy]) and the selected shapes, all in one frame: top level, or
+     * inside the same group (the gizmos then act in that group's frame).
      */
     fun buildGizmoTarget(): Pair<Instance, List<Shape>>? {
-        val inst = store.value.buildObject?.let { store.value.scene.objects.getOrNull(it) }?.instances?.singleOrNull()?.shown ?: return null
+        val inst = store.value.buildObject?.let { store.value.scene.objects.getOrNull(it) }?.instances
+            ?.let { it.getOrNull(buildCopy.value) ?: it.firstOrNull() }?.shown ?: return null
         val d = design ?: return null
         val sel = selected.map { d.find(it) ?: return null }
         if (sel.isEmpty() || sel.map { d.pathTo(it.id).dropLast(1).lastOrNull()?.id }.toSet().size != 1) return null
@@ -148,7 +217,7 @@ class ShapeController(private val store: Store, private val scad: ScadController
 
     /**
      * Build workspace: the plate box the gizmos sit on when the selection is inside a group (its volume is the group's
-     * mesh, too big): the shapes' design boxes ([ShapeDesign.bounds], with their repeats) in the group's first copy.
+     * mesh, too big): the shapes' design boxes ([ShapeDesign.bounds], with their repeats) in the copy of the group last tapped ([buildGroupCopies]).
      * Null at the top level: the selected volumes' mesh box is exact there.
      */
     fun buildGizmoBox(): Pair<Vec3, Vec3>? {
@@ -160,7 +229,7 @@ class ShapeController(private val store: Store, private val scad: ScadController
 
     /**
      * Build workspace: the selected shapes' plate box and the boxes of the shapes around them (the other top-level shapes and
-     * the selection's siblings in its group), for the main view's body-drag edge snap. Null without a lone copy or a selection.
+     * the selection's siblings in its group), for the main view's body-drag edge snap, in copy [buildCopy]. Null without a selection.
      */
     fun buildSnapBoxes(): DragSnap? {
         val (inst, sel) = buildGizmoTarget() ?: return null
@@ -170,13 +239,13 @@ class ShapeController(private val store: Store, private val scad: ScadController
         val siblings = d.pathTo(sel.first().id).dropLast(1).lastOrNull()?.children.orEmpty()
         val others = (d.shapes + siblings).filter { it.id !in moving }.distinctBy { it.id }
         val (lo, hi) = plateBox(d, inst, sel)
-        return DragSnap(lo, hi, others.map { plateBox(d, inst, listOf(it)) })
+        return DragSnap(lo, hi, others.map { plateBox(d, inst, listOf(it)) }, mid = true)
     }
 
     /** The plate box of [shapes]' design boxes ([ShapeDesign.bounds], with their repeats), each in its group's frame, in copy [inst]. */
     private fun plateBox(d: ShapeDesign, inst: Instance, shapes: List<Shape>): Pair<Vec3, Vec3> {
         val pts = shapes.flatMap { s ->
-            val frame = d.parentFrame(s.id)
+            val frame = d.parentFrame(s.id, buildGroupCopies.value)
             val b = d.bounds(s)
             (0 until 8).map { k ->
                 val c = D3(if (k and 1 == 0) b.min.x else b.max.x, if (k and 2 == 0) b.min.y else b.max.y, if (k and 4 == 0) b.min.z else b.max.z)
@@ -192,7 +261,7 @@ class ShapeController(private val store: Store, private val scad: ScadController
     fun resizeOnPlate(scale: Vec3, pivot: Vec3) {
         val (inst, sel) = buildGizmoTarget() ?: return
         val d = design ?: return
-        val frame = d.parentFrame(sel.first().id)
+        val frame = d.parentFrame(sel.first().id, buildGroupCopies.value)
         // Off the axes the gizmo has corners only: an even scale.
         val f = BuildTransform.designScale(inst, scale)?.let { BuildTransform.scaleInFrame(frame, it) }
             ?: D3(scale.x.toDouble(), scale.x.toDouble(), scale.x.toDouble())
@@ -204,39 +273,10 @@ class ShapeController(private val store: Store, private val scad: ScadController
     fun turnOnPlate(axis: Int, degrees: Float, pivot: Vec3) {
         val (inst, sel) = buildGizmoTarget() ?: return
         val d = design ?: return
-        val frame = d.parentFrame(sel.first().id)
+        val frame = d.parentFrame(sel.first().id, buildGroupCopies.value)
         val m = BuildTransform.turnInFrame(frame, BuildTransform.designTurn(inst, RotateGizmo.matrix(axis, degrees)))
         val c = BuildTransform.inFrame(frame, BuildTransform.toDesign(inst, pivot))
         commit(sel.fold(d) { acc, s -> acc.find(s.id)?.let { held(acc, posed(acc, s.id, BuildTransform.turned(acc, it, m, c)), s.id) } ?: acc })
-    }
-
-    /** The face a push / pull drag holds ([pushAt]); [push] moves it. */
-    private var pushFace: ShapeDesign.Face? = null
-
-    /**
-     * Build workspace push / pull: [result] gets the flat face under the ray in plate terms (null: none there, the drag
-     * turns the camera). Its shape becomes the selection, so a whole volume shows the stretch live.
-     */
-    fun pushAt(origin: Vec3, dir: Vec3, result: (PushGrab?) -> Unit) {
-        val obj = store.value.buildObject ?: return result(null)
-        store.launch {
-            val (inst, f, whole) = scad.faceAt(obj, origin, dir) ?: run { pushFace = null; return@launch result(null) }
-            pushFace = f
-            if (selected != listOf(f.shapeId)) select(listOf(f.shapeId))
-            val at = BuildTransform.toPlate(inst, f.point)
-            fun along(v: D3) = BuildTransform.toPlate(inst, f.point + v) - at
-            fun unit(v: Vec3) = v * (1f / v.length())
-            val far = f.point - D3(f.normal.x * f.length, f.normal.y * f.length, f.normal.z * f.length)
-            result(PushGrab(at, along(f.normal), f.length.toFloat(), BuildTransform.toPlate(inst, far), f.stretch.map { unit(along(it)) }, whole))
-        }
-    }
-
-    /** Build workspace push / pull: the grabbed face moved [mm] out (in when negative), its opposite side kept (one undo step). */
-    fun push(mm: Double) {
-        val f = pushFace ?: return
-        val d = design ?: return
-        val pose = d.pushed(f, mm) ?: return
-        commit(held(d, posed(d, f.shapeId, pose), f.shapeId))
     }
 
     /** [next] (shape [id] changed from [before]) with the groups holding it moved so their other children stay put ([ShapeDesign.groupShifts]). */
@@ -252,6 +292,7 @@ class ShapeController(private val store: Store, private val scad: ScadController
         var next = d
         for ((name, now, to) in listOf(Triple("pos", d.pos(s), pose.pos), Triple("rot", d.rot(s), pose.rot), Triple("size", d.size(s), pose.size)))
             for (i in 0..2) if (kotlin.math.abs(now[i] - to[i]) > 1e-6) next = withField(next, id, "$name.${"xyz"[i]}", to[i]) ?: next
+        pose.scale?.let { if (kotlin.math.abs(d.scaleOf(s) * 100 - it) > 1e-6) next = withField(next, id, Shape.SCALE, it) ?: next }
         return if (pose.repeat != s.repeat) next.update(id) { it.copy(repeat = pose.repeat) } else next
     }
 
@@ -265,6 +306,59 @@ class ShapeController(private val store: Store, private val scad: ScadController
         commit(d.copy(shapes = d.shapes + shape, nextId = d.nextId + 1), listOf(shape.id))
         return shape.id
     }
+
+    /** Adds a ready-made [part] (one editable group) beside the others and selects it. */
+    fun addPart(part: Part) {
+        val d = design ?: return
+        val label = store.str(partName(part))
+        val name = label + " " + (d.shapes.count { it.isGroup && it.name.startsWith("$label ") } + 1)
+        val (g, dim) = part.place(d.nextId, name) { d.dim(it) != null }
+        addGroup(d, g, d.dims + dim)
+    }
+
+    /** [g] (numbered from [ShapeDesign.nextId]) beside the others, on the workplane, with sliders [dims]; selected. */
+    private fun addGroup(d: ShapeDesign, g: Shape, dims: List<Dim>) {
+        val own = d.bounds(g)
+        val z = -own.min.z
+        val placed = if (d.shapes.isEmpty()) g.copy(pos = g.pos.with(2, g.pos.z + z)) else {
+            val all = d.shapes.map { d.bounds(it) }.reduce { a, b -> a.union(b) }
+            g.copy(pos = D3(snap(all.max.x + 5 - own.min.x), snap(all.center.y - own.center.y), g.pos.z + z))
+        }
+        commit(d.copy(shapes = d.shapes + placed, dims = dims, nextId = d.nextId + g.all().count()), listOf(placed.id))
+    }
+
+    private fun partsDir() = File(store.app.filesDir, "openscad/parts")
+
+    /** Names of the parts saved with [saveAsPart], A to Z. */
+    fun savedParts(): List<String> = partsDir().listFiles { f -> f.extension == "json" }.orEmpty().map { it.nameWithoutExtension }.sortedBy { it.lowercase() }
+
+    /** True when exactly one group is selected, so it can be saved as a part. */
+    val canSavePart: Boolean get() = selected.singleOrNull()?.let { design?.find(it)?.isGroup } == true
+
+    /** Saves the selected group (with the sliders it uses) to files/openscad/parts, named after it. */
+    fun saveAsPart() {
+        val d = design ?: return
+        val g = selected.singleOrNull()?.let { d.find(it) }?.takeIf { it.isGroup } ?: return
+        val base = g.name.trim().replace(Regex("[^\\p{L}\\p{N} _-]+"), "").trim().ifEmpty { "part" }
+        val dir = partsDir().apply { mkdirs() }
+        var name = base
+        var i = 2
+        while (File(dir, "$name.json").exists()) name = "$base ${i++}"
+        File(dir, "$name.json").writeText(SavedParts.encode(d, g))
+        store.toast(store.str(R.string.part_saved, name))
+    }
+
+    /** Adds the saved part [name] like a built-in one (own sliders, renamed when taken). */
+    fun addSaved(name: String) {
+        val d = design ?: return
+        val json = runCatching { File(partsDir(), "$name.json").readText() }.getOrNull() ?: return
+        val label = name + " "
+        val title = name + " " + (d.shapes.count { it.isGroup && it.name.startsWith(label) } + 1)
+        val (g, dims) = SavedParts.place(json, d.nextId, title) { d.dim(it) != null } ?: return
+        addGroup(d, g, d.dims + dims)
+    }
+
+    fun deleteSaved(name: String) { File(partsDir(), "$name.json").delete() }
 
     /** Adds a picked STL as a mesh shape, at its own size; the file is kept in files/openscad/meshes. */
     fun importMesh(uri: android.net.Uri) = store.launch {
@@ -603,6 +697,13 @@ class ShapeController(private val store: Store, private val scad: ScadController
 
     companion object {
         fun snap(v: Double, grid: Double = 1.0) = Math.round(v / grid) * grid
+        fun partName(p: Part) = when (p) {
+            Part.WHEEL -> R.string.part_wheel
+            Part.FIGURE -> R.string.part_figure
+            Part.PEG_PAIR -> R.string.part_peg_pair
+            Part.HINGE -> R.string.part_hinge
+            Part.GEAR -> R.string.part_gear
+        }
 
         fun kindName(k: Shape.Kind) = when (k) {
             Shape.Kind.BOX -> R.string.shape_box

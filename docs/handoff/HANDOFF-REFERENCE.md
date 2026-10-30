@@ -25,8 +25,8 @@ headless display below instead (no takeover needed). Don't drive WSA's own windo
 - Layout differs from the real screen: get coordinates from `view_state` (3D) or a regex-cut `phone-ui.py layout` (2D),
   not a shot. No pinch yet (`pinch.sh`/`drag1.sh`/
   `draghold.sh` hit the physical panel only).
-- `TARGET=wsa`: **don't use** (2026-10-19 taps/swipes never reached the app; user: use WSA's main window). It also had **no screenshot** (Android 13 SurfaceFlinger
-  hides the display); `TARGET=wsa start window` = old windowed mode. Old research notes: `headless-display-notes.md`.
+- `TARGET=wsa` (default test path since 2026-10-29): `start` resizes the app's freeform window to fill the display; `tap`/`swipe`/`ui` work.
+  No `shot` (SurfaceFlinger hides the display): use MCP `view_screenshot` (debug app). `TARGET=wsa start window` = old windowed mode. Notes: `headless-display-notes.md`.
 
 ### Chromebook (ARC)
 - Before launching: `dumpsys window | grep mCurrentFocus`; another app in front = the user is on it, don't take over (2026-10-19). Run the check alone, never chained with `am start` (2026-10-19 slip: launched over the user's app, then put it back).
@@ -116,7 +116,7 @@ headless display below instead (no takeover needed). Don't drive WSA's own windo
   PATH's PowerToys entry ended in a stray `"` (user fixed it 2026-10-19; only shells started before need the strip) - it broke the test JVM launch: "main class Files"; `./gradlew --stop` once after
   changing PATH), then `./gradlew -q :app:testDebugUnitTest`. Results: `~/build/orca-android/gradle/app/test-results/`.
 - Compile Kotlin locally before every push (12 s warm):
-  `cd OrcaStudio-Android/android && JAVA_HOME="/c/Program Files/Java/jdk-22" ANDROID_HOME='C:\android_sdk' ./gradlew --console=plain -q :app:compileReleaseKotlin`
+  `cd OrcaStudio-Android/android && JAVA_HOME="/c/Program Files/Java/jdk-22" ANDROID_HOME='D:/android_sdk' ./gradlew --console=plain -q :app:compileReleaseKotlin`
   Add `:app:mergeReleaseResources` when strings change, and read the exit code (a grep on the output hid a failure once).
 - Local native build in WSL: `MSYS_NO_PATHCONV=1 wsl -d Ubuntu -- bash /mnt/c/Users/Vince/orca-android-tools/wsl/corebuild.sh`
   (25 min cold, seconds incremental; details in the archive).
