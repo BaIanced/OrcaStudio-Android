@@ -37,7 +37,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Repeated/nested group gizmos Claude-verified on the WSA VD 2026-10-29 (archive).
 - Hole ghost alpha 0.25 (r470, installed on all adb devices 2026-10-29): Claude-verified on the WSA VD (faint ghost, figure clearly visible through the window; archive). Multi-part first-edit test dropped (module persists in 3MF).
   WSA tap helpers: `~/orca-android-tools/tx.sh <label>` fails on Compose nodes with 0 bounds; use `phone-ui.py layout` with `. ./.vd-wsa.state; export VD=$LOGICAL,$SFID` + `orca-vd.sh tap`. Package id `io.github.baianced.orcastudio_android.debug`.
-- Next step: pick the next item from HANDOFF-BACKLOG.md (grep `[Opus]`/open lines; user feel tests are paused) -> Sonnet 5.5 (medium)
+- Next step: Build continuity (2)+(3): one builder entry + CAD badge, mockup first (backlog/archive 2026-10-28 brain dump; user agreed leanings) -> Opus 5.5 (high)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
