@@ -2,7 +2,8 @@
 // sculpting. Runs on the sculpt session (SculptSession.hpp): the same mesh copy, topology, hit tree and patch path, so a
 // drag only sends the triangles round the selection. Picking is feature level by default (MeshEdit.hpp). M1: select and
 // move / scale / rotate the selection (vertices only move). M2: extrude / inset faces (new topology, session rebuilt).
-// M3: cut ring (a plane splits the band under a tap; the ring is selected).
+// M3: cut ring (a plane splits the band under a tap; the ring is selected). M4: bevel (fillet / chamfer the selected
+// crease edges through OCCT; flat-sided parts only).
 
 #include "SculptSession.hpp"
 #include "MeshEdit.hpp"
@@ -12,7 +13,19 @@
 #include <numeric>
 #include <stdexcept>
 
+#include "libslic3r/CAD/GeometryEngine.hpp"
 #include "libslic3r/Model.hpp"
+
+#include <BRepFilletAPI_MakeChamfer.hxx>
+#include <BRepFilletAPI_MakeFillet.hxx>
+#include <BRep_Tool.hxx>
+#include <NCollection_IndexedMap.hxx>
+#include <Standard_Failure.hxx>
+#include <TopExp.hxx>
+#include <TopTools_ShapeMapHasher.hxx>
+#include <TopoDS.hxx>
+#include <TopoDS_Vertex.hxx>
+#include <gp_Pnt.hxx>
 
 namespace orca {
 
@@ -228,6 +241,127 @@ json OrcaEngine::mesh_edit(const std::array<int, 3> &target, const std::string &
         sculpt_copies();
         m_sculpt->edit_sel = ring;
         m_sculpt->edit_ring = ring;
+    } else if (op == "fillet" || op == "chamfer") {
+        // Bevel (M4): the selected crease edges rounded / chamfered by [amount] mm through OCCT: the part as a B-rep with
+        // its flat sides merged (GeometryEngine::mesh_to_brep), each crease matched to the B-rep edge under its midpoint,
+        // BRepFilletAPI, then a fresh tessellation. Flat sides only: a faceted curve's many tiny edges don't round.
+        if (!(amount > 0.))
+            throw std::runtime_error(op + " needs an amount");
+        if (ss.mesh.faces.size() > 20000)
+            throw std::runtime_error("Bevel works on parts up to 20000 triangles");
+        regions();
+        std::vector<char> in(ss.mesh.vertices.size(), 0);
+        for (int v : ss.edit_sel)
+            in[size_t(v)] = 1;
+        std::vector<meshedit::Crease> picked;
+        for (const meshedit::Crease &c : meshedit::creases(ss.mesh, ss.edit_nb, ss.edit_region))
+            if (in[size_t(c.v0)] && in[size_t(c.v1)])
+                picked.push_back(c);
+        if (picked.empty())
+            throw std::runtime_error("Select an edge or a face first");
+        // Region flatness: every face within 0.5 deg of the region's first face.
+        using namespace meshsculpt::detail;
+        const int nreg = ss.edit_region.empty() ? 0 : *std::max_element(ss.edit_region.begin(), ss.edit_region.end()) + 1;
+        std::vector<meshdeform::Vec3> first(size_t(nreg), meshdeform::Vec3{0, 0, 0});
+        std::vector<char> flat(size_t(nreg), 1);
+        for (size_t f = 0; f < ss.mesh.faces.size(); ++f) {
+            const auto &t = ss.mesh.faces[f];
+            const auto &a = ss.mesh.vertices[size_t(t[0])];
+            meshdeform::Vec3 n = cross(sub(ss.mesh.vertices[size_t(t[1])], a), sub(ss.mesh.vertices[size_t(t[2])], a));
+            const double l = std::sqrt(dot(n, n));
+            if (l < 1e-12)
+                continue;
+            n = mul(n, 1. / l);
+            auto &r0 = first[size_t(ss.edit_region[f])];
+            if (dot(r0, r0) == 0.)
+                r0 = n;
+            else if (dot(r0, n) < 0.99996)
+                flat[size_t(ss.edit_region[f])] = 0;
+        }
+        for (const meshedit::Crease &c : picked) {
+            if (c.b < 0)
+                throw std::runtime_error("Bevel needs a closed part (Repair it first)");
+            if (!flat[size_t(c.a)] || !flat[size_t(c.b)])
+                throw std::runtime_error("Bevel needs flat sides on both sides of each edge");
+        }
+        BoundingBoxf3 bb;
+        for (const auto &v : ss.mesh.vertices)
+            bb.merge(Vec3d(v.x, v.y, v.z));
+        const double tol = 1e-5 * bb.size().norm();
+        TriangleMesh result;
+        try {
+            GeometryEngine::MeshBrepStats st;
+            const TopoDS_Shape shape = GeometryEngine::mesh_to_brep(sculpt_to_its(ss.mesh), tol, 0.5, st);
+            if (!st.is_solid)
+                throw std::runtime_error("Bevel needs a closed part (Repair it first)");
+            NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> edges, pick;
+            TopExp::MapShapes(shape, TopAbs_EDGE, edges);
+            std::vector<std::pair<meshdeform::Vec3, meshdeform::Vec3>> seg;
+            for (int i = 1; i <= edges.Extent(); ++i) {
+                TopoDS_Vertex a, b;
+                TopExp::Vertices(TopoDS::Edge(edges(i)), a, b);
+                const gp_Pnt p = BRep_Tool::Pnt(a), q = BRep_Tool::Pnt(b);
+                seg.push_back({{p.X(), p.Y(), p.Z()}, {q.X(), q.Y(), q.Z()}});
+            }
+            for (const meshedit::Crease &c : picked) {
+                const meshdeform::Vec3 mid = mul(add(ss.mesh.vertices[size_t(c.v0)], ss.mesh.vertices[size_t(c.v1)]), 0.5);
+                int best = -1;
+                double bd = 100. * tol * tol;
+                for (size_t i = 0; i < seg.size(); ++i) {
+                    const double d = meshedit::segment_dist2(mid, seg[i].first, seg[i].second);
+                    if (d < bd)
+                        bd = d, best = int(i);
+                }
+                if (best >= 0)
+                    pick.Add(edges(best + 1));
+            }
+            if (pick.IsEmpty())
+                throw std::runtime_error("The selected edges weren't found on the part's sides");
+            const double r = amount / scale;
+            TopoDS_Shape out;
+            if (op == "fillet") {
+                BRepFilletAPI_MakeFillet mk(shape);
+                for (int i = 1; i <= pick.Extent(); ++i)
+                    mk.Add(r, TopoDS::Edge(pick(i)));
+                mk.Build();
+                if (!mk.IsDone())
+                    throw std::runtime_error("Rounding failed (try a smaller radius)");
+                out = mk.Shape();
+            } else {
+                BRepFilletAPI_MakeChamfer mk(shape);
+                for (int i = 1; i <= pick.Extent(); ++i)
+                    mk.Add(r, TopoDS::Edge(pick(i)));
+                mk.Build();
+                if (!mk.IsDone())
+                    throw std::runtime_error("Chamfer failed (try a smaller size)");
+                out = mk.Shape();
+            }
+            // Chord error about 0.02 mm and 0.3 rad, as Blend joins (OrcaBlend.cpp), in the part's own units.
+            result = GeometryEngine::tessellate(out, 0.02 / scale, 0.3);
+        } catch (const Standard_Failure &e) {
+            throw std::runtime_error(std::string("Bevel: ") + (*e.what() ? e.what() : "OCCT error"));
+        }
+        if (result.empty())
+            throw std::runtime_error("Bevel: the result is empty");
+        meshdeform::Mesh m;
+        for (const auto &v : result.its.vertices)
+            m.vertices.push_back({v.x(), v.y(), v.z()});
+        for (const auto &t : result.its.indices)
+            m.faces.push_back({t[0], t[1], t[2]});
+        ss.edit_moving = false;
+        sculpt_flush_locked();
+        push_undo();
+        ss.mesh = std::move(m);
+        ss.dirty = true;
+        sculpt_flush_locked();
+        vol->supported_facets.reset();
+        vol->seam_facets.reset();
+        vol->mmu_segmentation_facets.reset();
+        vol->fuzzy_skin_facets.reset();
+        drop_to_bed(obj);
+        scene = commit();
+        sculpt_build(oi, ii, vi);
+        sculpt_copies();
     } else if (op == "end") {
         ss.edit_moving = false;
         // An extrude let go at zero height: flat walls, so it is taken back (the undo step it pushed too).

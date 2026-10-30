@@ -123,4 +123,11 @@ STLs from CAD have flat faces split into many triangles and no quads, so raw Ble
   nothing, try another axis" (correct). Fix: ring edges in flat faces aren't creases, so the overlay showed dots only; the
   session keeps the cut's ring (`edit_ring`) and, while it is the selection, the overlay draws its mesh edges.
   Deviation: world axes X/Y/Z only (no "tapped edge direction" axis). CI run 41100791348 (M3) dispatched.
-  **Next: M4 Bevel** (see "Ops and phases"; `[Opus]`).
+- **M4 written 2026-10-30 (Claude; native compiles locally (corebuild), Kotlin compiles, device UNTESTED, not pushed):**
+  `OrcaMeshEdit.cpp` ops `fillet` / `chamfer` (`amount` = radius / size mm): creases with both ends selected (face selection =
+  its border); both regions must be flat (0.5 deg) and closed, <= 20k triangles; `mesh_to_brep(tol 1e-5 diag, merge 0.5 deg)`,
+  crease midpoint -> nearest B-rep edge (within 10 tol), MakeFillet / MakeChamfer, `tessellate(0.02/scale, 0.3)`, one undo
+  step, painting dropped, drop to bed, selection cleared. MCP `op:"fillet"|"chamfer"` + amount (optional ray selects first).
+  **Next:** local debug build (`wsa-debug-rebuild.sh native`) + WSA VD MCP check: 20 mm cube top face fillet 2 (vol should be
+  8000 - 4*20*(4-pi)... compute: 4 edges x (r^2 - pi r^2/4) x 20 = 274.6 less, corners aside), edge chamfer 2, cylinder refused,
+  Check mesh clean; then panel Fillet / Chamfer fields + Apply.
