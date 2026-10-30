@@ -34,11 +34,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Gate: user sessions B-D paused 2026-10-28; release gated on the printer set.
 - WSA: `svc power stayon true` while testing; `stage-from-apk.sh <apk>`.
 - WSA VD (reference "Headless display"): Kotlin-only changes = assembleDebug + `wsa-debug-setup.sh` (installs, no launch) + `TARGET=wsa PKG=...debug orca-vd.sh start`; shots via MCP `view_screenshot`; uninstall debug after. `wsa-full.ps1` only when the user asks to watch.
-- Build continuity 1-3, hole ghost alpha, repeated-group ring/drag, smart-guide middles: verified 2026-10-29 (archive).
-- Repeated-group test fixture: `~/orca-android-tools/rep-groups.json` via MCP `design_set` (archive 2026-10-29 "repeated groups").
-  WSA tap helpers: `~/orca-android-tools/tx.sh <label>` fails on Compose nodes with 0 bounds; use `phone-ui.py layout` with `. ./.vd-wsa.state; export VD=$LOGICAL,$SFID` + `orca-vd.sh tap`. Package id `io.github.baianced.orcastudio_android.debug`.
-- CAD 7a-7c built-ins (Wheel, Figure, Save as part, Peg and hole, Hinge, Gear) WSA VD OK 2026-10-29 (archive); CI r472 (run 40996385381) has all of 7a-7c, installed on all 5 adb devices. Gear built-in done, WSA VD OK (archive). Left: part sliders (backlog).
-- Part sliders: design done 2026-10-29 (`NOTES-cad-reuse.md` 7d: group SCALE % extra, touch points with lines); build it next.
+- Repeated-group fixture: `~/orca-android-tools/rep-groups.json` via MCP `design_set`. WSA tap helpers: `~/orca-android-tools/tx.sh <label>` fails on Compose nodes with 0 bounds; use `phone-ui.py layout` with `. ./.vd-wsa.state; export VD=$LOGICAL,$SFID` + `orca-vd.sh tap`. Package id `io.github.baianced.orcastudio_android.debug`.
+- CAD 7a-7c built-ins WSA VD OK 2026-10-29 (archive), in r472. Part sliders: design done 2026-10-29 (`NOTES-cad-reuse.md` 7d: group SCALE % extra, touch points with lines); build it next.
 - Next step: CAD 7d part sliders, build the group-scale design (multi-file frame math) -> Opus 5.5 (high)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
