@@ -741,7 +741,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         v.selectedBounds = if (ids.isEmpty()) emptyList() else build.instances.map { it.shown.let { s -> s.min to (s.min + s.size) } }
         v.resizeAxes = vm.shapes.buildGizmoTarget()?.let { (inst, tops) -> state.scad?.shapes?.let { app.orcaandroid.scad.BuildTransform.axesFree(it, inst, tops, buildGroupCopies) } } ?: true
         v.towerBoxes = emptyList()
-        // A body drag sticks the selection's edges to the other shapes' edges.
+        // A body drag sticks the selection's edges and middle to the other shapes' edges and middles.
         v.dragSnap = vm.shapes.buildSnapBoxes()
     }
     LaunchedEffect(v, state.selection, state.multiSelection, scene, build != null) {

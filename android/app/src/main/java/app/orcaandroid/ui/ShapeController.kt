@@ -181,7 +181,7 @@ class ShapeController(private val store: Store, private val scad: ScadController
         val siblings = d.pathTo(sel.first().id).dropLast(1).lastOrNull()?.children.orEmpty()
         val others = (d.shapes + siblings).filter { it.id !in moving }.distinctBy { it.id }
         val (lo, hi) = plateBox(d, inst, sel)
-        return DragSnap(lo, hi, others.map { plateBox(d, inst, listOf(it)) })
+        return DragSnap(lo, hi, others.map { plateBox(d, inst, listOf(it)) }, mid = true)
     }
 
     /** The plate box of [shapes]' design boxes ([ShapeDesign.bounds], with their repeats), each in its group's frame, in copy [inst]. */

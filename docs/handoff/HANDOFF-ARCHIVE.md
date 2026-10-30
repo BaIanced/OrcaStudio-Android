@@ -3665,3 +3665,13 @@ Object More menu now: Add volume (5 items) and Mesh tools (7 items) collapsible,
 
 ## 2026-10-29 Build continuity part 2: paint kept on open (Claude, code check; closed)
 - `editMesh` only sets `module_name` (`OrcaScene.cpp:1416` `set_object_module`, mesh and `mmu_segmentation_facets` untouched); the object is then pieces-tagged, so `buildIfShapes` sees `buildObject != null` and skips `placeShapes` (`ScadController.kt:166`): no render, paint kept until the first edit (which re-renders, as for any design). Matches the r467 WSA Cube test (open did not re-render). Not painted+opened on a device (no MCP paint tool). Multi-part first-edit test dropped earlier. Item closed.
+
+## 2026-10-29 Build repeated groups: turn ring + body move-drag verified (Claude, local debug build = r470 code, hidden WSA VD)
+- Fixture rep-groups.json; Ring #3 (circular 4x, inside Row repeat 2x) selected via peg tap on copy 1, gizmo on copy 1.
+- Body move-drag: Ring pos [0,0,10] -> [13,5,10]; both Row copies' rings shifted alike, gizmo stayed on copy 1.
+- Turn ring (red X): Ring rot [-10,0,0], pos z 10 -> 9.13 (pivot = box centre); both copies tilted alike, gizmo stayed.
+- Tools: tap on the VD needs `swipe x y x y 80` for viewport picks (`tap` missed); viewport tap y ~ 0.95 x MCP screenshot y; `MAX=30000` env stops mcptest_print cutting replies at 700 chars. Debug app uninstalled, VD stopped.
+
+## 2026-10-29: tower ignores Z + Build smart-guide middles
+- Godot "tower ignores Z": code-verified, not device-run. `towerPlate` is set on tower DOWN (`PlateView.kt:540`), and `lockKey` passes `liftMode && towerPlate < 0` as `zOk` to `ZRail.toggleLock` (:361), which refuses Z (ZRailTest covers `zOk=false`). Closed.
+- Smart-guides idea, Build part: the shape-builder body-drag snap now also sticks to the other shapes' middles (`ShapeController.buildSnapBoxes` `mid = true`). Deviation: no plate centre in Build, because the design pose is not tied to the plate. Compiled, untested on device (needs the next CI build).
