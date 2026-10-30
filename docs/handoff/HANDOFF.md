@@ -15,7 +15,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 3defffa (PR #66, branch at r461/89944b9, merged 2026-10-28 on the user's go-ahead, before sessions B-D; user overrode the user-tested-only rule for this merge). Older: 0170950 (PR #65, r398). User-untested in main: list in `NOTES-merge-batch.md`.
 - Signing secrets: `release` environment (main + `claude/*` only).
-- Latest CI build: r472 (run 40996385381) on all 5 adb devices, 2026-10-29; paint-shop change not built yet. User feel untested. Install builds on all adb devices (skip .23).
+- Latest CI build: r473 (run 41003583890, paint shop + CAD 7d) on all 5 adb devices, 2026-10-29. User feel untested. Install builds on all adb devices (skip .23).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **User 2026-10-28: no more user testing for now; Claude builds and tests everything itself (memory no-user-testing-now); don't ask for feel/UI checks.**
 - **User 2026-10-29: no tests on the user's screen; all tests on a hidden virtual display** (`TARGET=wsa orca-vd.sh start`, memory tests-on-virtual-display).
@@ -37,11 +37,11 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - WSA VD (reference "Headless display"): Kotlin-only changes = assembleDebug + `wsa-debug-setup.sh` (installs, no launch) + `TARGET=wsa PKG=...debug orca-vd.sh start`; shots via MCP `view_screenshot`; uninstall debug after. `wsa-full.ps1` only when the user asks to watch.
 - Fixture `~/orca-android-tools/rep-groups.json` (MCP `design_set`). WSA taps: `tx.sh` fails on 0-bound Compose nodes; use `phone-ui.py layout` + `. ./.vd-wsa.state; export VD=$LOGICAL,$SFID` + `orca-vd.sh tap`.
 - Paint shop for all kinds: Claude-verified WSA VD 2026-10-29 (archive); not in a CI build yet.
-- CAD 7a-7d done + Claude-verified (archive); 7d and paint shop are not in a CI build yet.
+- CAD 7a-7d and paint shop: Claude-verified, in r473 (archive).
 - **Queued (user 2026-10-29):** [Opus] push/pull tier 2 (SCAD wrapper, any face of SCAD/MESH shapes, archive 2026-10-21 plan); [Opus] OrcaMesh vert/edge/face edit mode (extrude, inset, loop cut, bevel via CGAL Surface_mesh + PMP; CAD roadmap said skip on touch);
   dimensions overview (per-object bbox, hole sizes, thinnest wall; **ask the user what they had in mind when it comes up**); floating Theme | Layout designer (~half a day; **ask what they have in mind first**).
 - VD tap tip: always `export TARGET=wsa` for `orca-vd.sh tap/shot` (without it they hit the phone: 2026-10-29 mistake, harmless); tap coords are not `phone-ui.py layout` coords on WSA (menu layout showed 212x596), so check with a `TARGET=wsa` shot first; Add menu -> "Design" (CAD) opens Build.
-- Next step: dispatch CI (paint shop + 7d), install on all adb devices (skip .23) -> Sonnet 5.5 (medium)
+- Next step: pick from Queued (push/pull tier 2 or OrcaMesh edit mode) -> Opus 5.5 (high)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
