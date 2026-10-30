@@ -37,10 +37,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - Fixture `rep-groups.json` (MCP `design_set`). VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78.
 - **Queued (user 2026-10-29):** dimensions overview (per-object bbox, hole sizes, thinnest wall; **ask the user what they had in mind when it comes up**); floating Theme | Layout designer (~half a day; **ask what they have in mind first**).
-- **OrcaMesh edit** (`NOTES-orcamesh-edit.md`): M1-M3 Claude-verified on WSA VD 2026-10-30. **CI run 41100791348 (M3) sat
-  queued (hosted runner) 17:40-18:05 UTC: check it; install on all adb devices when green.** M4 Bevel MCP Claude-verified on WSA VD
-  (exact volumes; oversize radius now refused), commit 9e9260e; panel Fillet / Chamfer fields next (notes "Progress", last item).
-- Next step: OrcaMesh M4 panel Fillet / Chamfer fields + Apply, then CI build (NOTES-orcamesh-edit.md) -> Sonnet 5.5 (medium)
+- **OrcaMesh edit** (`NOTES-orcamesh-edit.md`): M1-M4 incl. panel Fillet / Chamfer Claude-verified on WSA VD 2026-10-30. Old CI run
+  41100791348 (M3) sat queued for hours: cancelled; build dispatched on the M4 panel head (check it; install on all adb devices when green).
+- Next step: install the OrcaMesh M1-M4 CI build on all adb devices (skip .23), then pick the next queued item (dimensions overview / Theme | Layout designer: ask the user what they have in mind first) -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).

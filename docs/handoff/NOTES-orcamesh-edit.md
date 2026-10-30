@@ -134,3 +134,7 @@ STLs from CAD have flat faces split into many triangles and no quads, so raw Ble
   ("flat sides"), open part. **Fix:** fillet 15 / chamfer 12 on the top face came back IsDone but broken (open, self-intersecting,
   bbox 23.7 mm): now `BRepCheck_Analyzer` + no open edges + bbox inside the input, else "try a smaller radius" (part untouched).
   **Next:** panel Fillet / Chamfer amount fields + Apply (like Extrude / Inset, `SceneController.meshEditFaces`).
+- **M4 panel done 2026-10-30 (Claude, WSA VD, debug build on the local native lib):** Fillet / Chamfer (mm) fields + Apply under
+  Inset (`meshEditFaces("fillet"|"chamfer")`, one undo step, selection cleared). 20 mm cube top face: Fillet 2 -> vol 7934 (exact),
+  Chamfer 2 -> 7851 (exact frustum 8000 - 149.3), "No problems found". Test-script note: never `input keyevent 67` on a selected
+  object (Delete shortcut removed the test cube); type into the field without clearing it ("02" parses as 2). CI not run yet.

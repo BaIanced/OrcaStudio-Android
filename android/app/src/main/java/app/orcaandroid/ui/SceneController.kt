@@ -826,12 +826,12 @@ class SceneController(private val store: Store, private val presets: PresetContr
         meshEditSel.value = meshEditSelOf(sel.target, step.selection)
     }
 
-    /** Mesh edit typed extrude ("extrude": [mm] along the selection's normal, < 0 = pocket) or "inset" ([mm] in), one undo step. */
+    /** Mesh edit typed extrude ("extrude": [mm] along the selection's normal, < 0 = pocket), "inset" ([mm] in), "fillet" or "chamfer" ([mm] radius / size on the selection's creases), one undo step. */
     fun meshEditFaces(op: String, mm: Float) = store.launch {
         val sel = liveMeshEditSel() ?: return@launch
         val kind = (store.value.tool as? Tool.MeshEdit)?.kind ?: "face"
         val t = sel.normal * mm
-        val step = if (op == "inset") engine.meshEdit(sel.target, "inset", kind = kind, angle = meshEditAngle(), amount = mm)
+        val step = if (op != "extrude") engine.meshEdit(sel.target, op, kind = kind, angle = meshEditAngle(), amount = mm)
         else {
             engine.meshEdit(sel.target, "extrude", matrix = translation(t))
             engine.meshEdit(sel.target, "end", kind = kind, angle = meshEditAngle())

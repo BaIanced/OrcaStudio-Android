@@ -499,6 +499,8 @@
     <string name="mesh_edit_move">Move</string>
     <string name="mesh_edit_extrude">Extrude</string>
     <string name="mesh_edit_inset">Inset</string>
+    <string name="mesh_edit_fillet">Fillet</string>
+    <string name="mesh_edit_chamfer">Chamfer</string>
     <string name="mesh_edit_cut">Cut ring</string>
     <string name="mesh_edit_count">%1$d vertices selected</string>
     <string name="blending">Blending…</string>

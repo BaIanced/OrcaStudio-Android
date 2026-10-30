@@ -258,6 +258,17 @@ private fun MeshEditOptions(state: UiState, vm: AppViewModel, tool: Tool.MeshEdi
         NumberField(inset, { inset = it }, Modifier.weight(1f), stringResource(R.string.mesh_edit_inset), "mm", live = true)
         FilledTonalButton({ vm.scene.meshEditFaces("inset", inset); inset = 0f }, enabled = inset > 0f) { Text(stringResource(R.string.apply)) }
     }
+    // Round or bevel the selection's creases (flat, closed parts; a too-large amount is refused, part untouched).
+    var fillet by remember { mutableFloatStateOf(0f) }
+    var chamfer by remember { mutableFloatStateOf(0f) }
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+        NumberField(fillet, { fillet = it }, Modifier.weight(1f), stringResource(R.string.mesh_edit_fillet), "mm", live = true)
+        FilledTonalButton({ vm.scene.meshEditFaces("fillet", fillet); fillet = 0f }, enabled = fillet > 0f) { Text(stringResource(R.string.apply)) }
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+        NumberField(chamfer, { chamfer = it }, Modifier.weight(1f), stringResource(R.string.mesh_edit_chamfer), "mm", live = true)
+        FilledTonalButton({ vm.scene.meshEditFaces("chamfer", chamfer); chamfer = 0f }, enabled = chamfer > 0f) { Text(stringResource(R.string.apply)) }
+    }
 }
 
 @Composable
