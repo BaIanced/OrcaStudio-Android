@@ -1658,6 +1658,8 @@ json OrcaEngine::check_mesh(int object, int instance, double thickness)
     json parts = json::array();
     std::vector<float> thin_points, open_points, cross_points, sharp_points;
     size_t thin_total = 0;
+    double min_wall = 1e9; // thinnest wall found over all parts (ray distance), and the point midway through it
+    Vec3d min_wall_point = Vec3d::Zero();
     for (int v = 0; v < int(obj.volumes.size()); ++v) {
         const ModelVolume *vol = obj.volumes[v];
         if (!vol->is_model_part())
@@ -1749,6 +1751,10 @@ json OrcaEngine::check_mesh(int object, int instance, double thickness)
                 const Vec3d n = (b - a).cross(c - a).normalized() * side;
                 const Vec3d centre = (a + b + c) / 3.;
                 const auto hit = tree.query_ray_hit(centre - n * 1e-3, -n);
+                if (hit.is_hit() && hit.distance() > 1e-3 && hit.distance() < min_wall) {
+                    min_wall = hit.distance();
+                    min_wall_point = centre - n * (hit.distance() / 2. + 1e-3);
+                }
                 if (hit.is_hit() && hit.distance() < thickness) {
                     ++thin;
                     if (thin_points.size() < max_points * 3)
@@ -1761,6 +1767,7 @@ json OrcaEngine::check_mesh(int object, int instance, double thickness)
         parts.push_back(std::move(part));
     }
     return {{"parts", parts}, {"thickness", thickness}, {"thinFaces", thin_total}, {"thinPoints", thin_points},
+            {"minWall", min_wall < 1e8 ? min_wall : -1.}, {"minWallPoint", std::vector<float>{float(min_wall_point.x()), float(min_wall_point.y()), float(min_wall_point.z())}},
             {"openPoints", open_points}, {"crossPoints", cross_points}, {"sharpPoints", sharp_points}};
 }
 

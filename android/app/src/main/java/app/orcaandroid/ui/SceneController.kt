@@ -256,6 +256,16 @@ class SceneController(private val store: Store, private val presets: PresetContr
         app.orcaandroid.core.MeshReport.text(r)
     }
 
+    /** The selected copy's thinnest wall within 5 mm (world point midway through it, thickness in mm), or null when there is none. */
+    suspend fun thinnestWall(): Pair<Vec3, Float>? {
+        val sel = selection ?: return null
+        val r = store.engine.checkMesh(sel.obj, sel.instance, 5f)
+        val d = r.optDouble("minWall", -1.0).toFloat()
+        val p = r.optJSONArray("minWallPoint")
+        if (d <= 0f || d >= 5f || p == null || p.length() < 3) return null
+        return Vec3(p.getDouble(0).toFloat(), p.getDouble(1).toFloat(), p.getDouble(2).toFloat()) to d
+    }
+
     private var lastCheck: Pair<Selection, FloatArray>? = null
 
     /** The checked copy as it was when the spots were found: the spots follow its moves, and go when it turns or scales. */

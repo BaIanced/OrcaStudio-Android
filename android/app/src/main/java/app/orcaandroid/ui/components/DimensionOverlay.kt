@@ -29,7 +29,7 @@ import kotlinx.coroutines.withContext
  * (the points go through the camera every frame, like the push / pull arrow). Red / green / blue = X / Y / Z.
  */
 @Composable
-fun DimensionOverlay(view: PlateView?) {
+fun DimensionOverlay(view: PlateView?, copyKey: Any?, thinnest: suspend () -> Pair<Vec3, Float>?) {
     val frame = remember { mutableLongStateOf(0L) }
     LaunchedEffect(Unit) { while (true) androidx.compose.runtime.withFrameNanos { frame.longValue = it } }
     // Round holes in the selection, found off the main thread whenever the scene mesh or the selection changes.
@@ -48,6 +48,13 @@ fun DimensionOverlay(view: PlateView?) {
             }
             delay(300)
         }
+    }
+    // Thinnest wall (Check mesh rays, under 5 mm): re-found once the copy has stopped changing.
+    val wall = remember { mutableStateOf<Pair<Vec3, Float>?>(null) }
+    LaunchedEffect(copyKey) {
+        wall.value = null
+        delay(500)
+        wall.value = runCatching { thinnest() }.getOrNull()
     }
     val measurer = rememberTextMeasurer()
     val labelStyle = MaterialTheme.typography.labelLarge.copy(color = Color.White)
@@ -103,6 +110,21 @@ fun DimensionOverlay(view: PlateView?) {
         dim(Vec3(left.x, lo.y, lo.z), Vec3(left.x, hi.y, lo.z), oy, green, size.y)
         val oz = out(left, true, true)
         dim(Vec3(left.x, left.y, lo.z), Vec3(left.x, left.y, hi.z), oz, blue, size.z)
+
+        // Thinnest wall: a magenta dot on the spot and its thickness beside it.
+        wall.value?.let { w ->
+        val sp = scr(w.first)
+        if (sp != null) {
+        val pink = Color(0xFFD81B60)
+        drawCircle(Color.Black.copy(alpha = 0.5f), 7.dp.toPx(), sp)
+        drawCircle(pink, 5.dp.toPx(), sp)
+        val t = measurer.measure(String.format(java.util.Locale.ROOT, "wall %.2f", w.second).trimEnd('0').trimEnd('.'), labelStyle)
+        val pad = 4.dp.toPx()
+        val tl = sp + Offset(10.dp.toPx(), -t.size.height / 2f)
+        drawRoundRect(pink.copy(alpha = 0.9f), tl - Offset(pad, pad / 2), Size(t.size.width + 2 * pad, t.size.height + pad), CornerRadius(pad))
+        drawText(t, topLeft = tl)
+        }
+        }
 
         // Holes: a ring at the end nearer the eye and the diameter inside it. Found on the last uploaded mesh, so the
         // points follow the live box (a drag or resize in progress) by mapping the found box onto it.
