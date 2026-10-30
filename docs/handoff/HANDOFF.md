@@ -40,7 +40,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **OrcaMesh edit** (`NOTES-orcamesh-edit.md`): M1-M4 incl. panel Fillet / Chamfer Claude-verified on WSA VD 2026-10-30. Old CI run
   41100791348 cancelled; build run 41105435015 (r479, M4 head 55da269) green and installed on all adb devices 2026-10-30.
 - **Dimensions overlay** (user 2026-10-30: 3D overlay on the build plate; phased: 1 bbox X/Y/Z lines, 2 hole diameters, 3 thinnest wall): phase 1 pushed 378253f (View > Dimensions, `DimensionOverlay.kt`, Compose canvas via `camera.project` on `gizmoBox()`; selection only, no overall-extent fallback yet). Compiles; NOT seen on screen (WSA VD has no screenshots; use phone VD `orca-vd.sh shot`, or `ui` dump). Needs a Prepare-view check with a selected object (design workspace untested too).
-- Next step: phone-VD screenshot check of View > Dimensions (select object, toggle, check label placement/overlap), fix, then phase 2 hole diameters -> Sonnet 5.5 (medium)
+- Phase 1 visual check blocked 2026-10-30: phone off adb, Note locked (Dozing), WSA `view_screenshot` is GL only (no Compose overlay). Do it when the phone/Note is awake (`TARGET=note orca-vd.sh start`, debug app there). Phase 2 findings: only `OrcaTools.cpp:181` snap (per-point pick, "ring" + diameter, `Engine.kt:236`) exists; no hole enumeration, so phase 2 = new hole finder (cylindrical-face clustering over the mesh; native = CI-only patch, or Kotlin on mesh data) + overlay labels.
+- Next step: Dimensions phase 2 hole finder design (enumerate round holes, label diameters in DimensionOverlay) -> Opus 5.5 (high)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
