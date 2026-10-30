@@ -77,5 +77,10 @@ STLs from CAD have flat faces split into many triangles and no quads, so raw Ble
   (`meshEditSel` flow, version-checked; drag = coalesced live "move" translate along the normal + "end" on release, patches
   via `meshPatches`); Viewport overlay shares push/pull's Canvas (crease edges + vertex dots shifted with the drag, arrow at the
   centroid via `PlateView.FaceArrow`). Deviations: no "All" (no native op yet); arrow-along-normal only, no 3-axis gizmo yet.
-- **M1c next:** WSA VD test of slice 1 (debug build: "Edit mesh" on a cube, face tap, arrow drag, undo); then numeric
-  move / scale / rotate fields (reuse McpTools `editMatrix`, move to a shared helper) and "All" (native op `all`).
+- **M1c slice 1 verified 2026-10-30 (Claude, WSA VD, debug build; script `~/orca-android-tools/wsa-meshedit-test.sh`):** More >
+  Edit mesh on the 20 mm cube (moved to [40,40]: the tall Shape design occluded it, a tap there edits that object instead);
+  face tap 4 verts, arrow drag 20 -> 26.5 mm (no orbit), one Undo -> 20, off-arrow drag orbits; Edge tap 2, Grow 7, None 0,
+  Vertex tap 1. Fix: the panel count kept "4 vertices selected" after undo (stale selection); now version-checked like the
+  overlay. **Not seen:** the Compose selection overlay and arrow (view_screenshot draws only GL; no VD shot on WSA).
+- **M1c next:** numeric move / scale / rotate fields (reuse McpTools `editMatrix`, move to a shared helper) and "All"
+  (native op `all`).

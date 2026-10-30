@@ -166,7 +166,7 @@ internal fun ToolPanel(state: UiState, vm: AppViewModel) {
             if (!folded) when (tool) {
                 is Tool.Paint -> PaintOptions(state, vm, tool)
                 is Tool.Sculpt -> SculptOptions(vm, tool)
-                is Tool.MeshEdit -> MeshEditOptions(vm, tool)
+                is Tool.MeshEdit -> MeshEditOptions(state, vm, tool)
                 is Tool.Cut -> CutOptions(state, vm, tool)
                 Tool.Measure -> MeasureOptions(state, vm)
                 Tool.LayOnFace -> Text(stringResource(R.string.lay_on_face_hint), style = MaterialTheme.typography.bodySmall)
@@ -198,7 +198,7 @@ private val SCULPT_BRUSHES = listOf(
     "flatten" to R.string.sculpt_flatten, "pinch" to R.string.sculpt_pinch, "crease" to R.string.sculpt_crease, "grab" to R.string.sculpt_grab)
 
 @Composable
-private fun MeshEditOptions(vm: AppViewModel, tool: Tool.MeshEdit) {
+private fun MeshEditOptions(state: UiState, vm: AppViewModel, tool: Tool.MeshEdit) {
     val sel by vm.scene.meshEditSel.collectAsState()
     Text(stringResource(R.string.mesh_edit_hint), style = MaterialTheme.typography.bodySmall)
     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -209,7 +209,8 @@ private fun MeshEditOptions(vm: AppViewModel, tool: Tool.MeshEdit) {
         FilterChip(tool.triangles, { vm.scene.setTool(tool.copy(triangles = !tool.triangles)) }, label = { Text(stringResource(R.string.mesh_edit_triangles)) })
     }
     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        val count = sel?.count ?: 0
+        // Stale after undo or another edit (the engine dropped it; the overlay hides it too).
+        val count = sel?.takeIf { it.version == state.scene.meshVersion.toLong() }?.count ?: 0
         Text(stringResource(R.string.mesh_edit_count, count), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.align(Alignment.CenterVertically))
         TextButton({ vm.scene.meshEditOp("clear") }, enabled = count > 0) { Text(stringResource(R.string.mesh_edit_none)) }
         TextButton({ vm.scene.meshEditOp("grow") }, enabled = count > 0) { Text(stringResource(R.string.mesh_edit_grow)) }
