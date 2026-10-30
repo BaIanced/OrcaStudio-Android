@@ -3679,3 +3679,6 @@ Object More menu now: Add volume (5 items) and Mesh tools (7 items) collapsible,
 ## 2026-10-29 Build smart-guide middles: WSA VD verified (Claude, local debug build of f01a800)
 - Fixture `~/orca-android-tools/snap-fixture.json` (A 40x10x10 at origin, B 10x10x10 at x 17, y 30). Body drag of B ~16 mm toward A: B pos x 17 -> exactly 0 (A's middle), y/z unchanged. Snap toggle was on (default).
 - Gotchas: a drag that starts on a gizmo handle (blue lift, rings) lifts/rotates instead (z -38, rot 5); start on the body away from rings; `orca-vd.sh swipe` x = screenshot x, y ~ 0.95 x screenshot y. Debug app uninstalled, VD stopped.
+
+## 2026-10-29 Asset library 7a: WSA VD look check passed (626b407, debug build)
+- Part menu (Part chip, scroll the Add row) lists Wheel and Figure; each adds one editable group beside the others and selects it. Wheel 40x40x10 (tube tire, hub, 5 spokes, axle hole) and Figure 38 mm (legs, rounded body, tilted arms, head) render right in design_snapshot; fit check one piece. Claude test, user untested.
