@@ -1022,6 +1022,10 @@
     <string name="shape_shell_wall">Wall (mm, 0 = solid)</string>
     <string name="shape_open_top">Open top</string>
     <string name="shape_mesh_file">From %1$s</string>
+    <string name="shape_push_pull">Push/pull a face</string>
+    <string name="shape_push_pull_hint">Tap a flat face in the view, then drag its arrow out (push) or in (pull). Holes and the rest of the model stay put.</string>
+    <string name="shape_face_edits">Face edits (mm, in the model file)</string>
+    <string name="shape_face_edit">Face %1$d</string>
     <string name="shape_top">Top size (0 = point, 1 = straight)</string>
     <string name="shape_sides">Sides (0 = round)</string>
     <string name="shape_repeat">Repeat</string>

@@ -394,10 +394,28 @@ private fun Properties(shape: Shape, d: ShapeDesign, vm: AppViewModel, filaments
         }
         if (shape.kind == Shape.Kind.MESH) Text(stringResource(R.string.shape_mesh_file, shape.file.substringAfterLast('/')),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (shape.kind == Shape.Kind.MESH) FaceEditor(shape, vm)
         val revolve = shape.x(Shape.REVOLVE, 0.0) != 0.0
         if (shape.kind in Shape.EDGED) EdgeEditor(shape, d, vm)
         if (shape.kind in Shape.SHELLED && !revolve) ShellEditor(shape, d, vm)
         RepeatEditor(shape, vm)
+    }
+}
+
+/** Push / pull on a MESH shape: the mode switch (a tap in the main view picks a flat face) and the face edits made so far. */
+@Composable
+private fun FaceEditor(shape: Shape, vm: AppViewModel) {
+    val sh = vm.shapes
+    androidx.compose.material3.FilterChip(sh.faceMode, { sh.setPushPull(!sh.faceMode) }, { Text(stringResource(R.string.shape_push_pull)) })
+    if (sh.faceMode) Text(stringResource(R.string.shape_push_pull_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    if (shape.faces.isEmpty()) return
+    Text(stringResource(R.string.shape_face_edits), style = MaterialTheme.typography.labelLarge)
+    shape.faces.forEachIndexed { i, op ->
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            NumberField(op.d.toFloat(), { if (it != 0f) sh.pushFace(shape.id, i, op, it.toDouble()) }, Modifier.weight(1f),
+                label = stringResource(R.string.shape_face_edit, i + 1), decimals = 1)
+            IconButton(onClick = { sh.removeFace(shape.id, i) }) { Icon(Icons.Default.Delete, stringResource(R.string.delete)) }
+        }
     }
 }
 

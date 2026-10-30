@@ -40,6 +40,11 @@ interface PlateListener {
     /** The lift dot ([PlateView.liftMode]) was dragged: the selection moves [dz] mm up (down when negative). */
     fun onLifted(dz: Float) {}
     /**
+     * Push / pull: the face arrow ([PlateView.faceArrow]) is being dragged; [d] is the face's new distance (file mm, snapped);
+     * null when the drag was cancelled. [done] once let go.
+     */
+    fun onFacePush(d: Float?, done: Boolean) {}
+    /**
      * A handle of the scale gizmo on the single selected copy is being dragged ([ScaleGizmo]): the copy scales by [scale]
      * (world x, y, z) about [pivot], its box's bottom centre; (x, y) is the finger. [scale] is null when the drag was
      * cancelled; [done] once let go.
@@ -528,6 +533,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                         }
                     }
                 }
+                else if (mode == InteractionMode.NAVIGATE && startFace(event.x, event.y)) Unit
                 else if (mode == InteractionMode.NAVIGATE && startLift(event.x, event.y)) Unit
                 else if (mode == InteractionMode.NAVIGATE && rayBoxEntry(event.x, event.y, selectedBounds)?.also { dragAnchor = it } != null) {
                     dragging = true
@@ -582,7 +588,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                 // landing on the selection never starts (or leaves behind) a resize.
                 if (moved && !resizeTried) {
                     resizeTried = true
-                    if (!multiTouch && liftBox == null && event.pointerCount == 1 && mode == InteractionMode.NAVIGATE && !rightButton && !middleButton && !rectangle &&
+                    if (!multiTouch && liftBox == null && !faceDrag && event.pointerCount == 1 && mode == InteractionMode.NAVIGATE && !rightButton && !middleButton && !rectangle &&
                         !penOrbit && penInstant == null && (startCut(downX, downY, event.x, event.y) || startResize(downX, downY) || startRotate(downX, downY, event.x, event.y))) {
                         dragCheckId++
                         dragging = false; dragStart = null
@@ -655,6 +661,9 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                             }
                         }
                         liftBox != null -> if (moved) dragTo(event.x, event.y, event.metaState)
+                        faceDrag -> if (moved) faceAt(event.x, event.y, event.metaState and KeyEvent.META_SHIFT_ON != 0)?.let { d ->
+                            if (d != faceD) { faceD = d; performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK); listener?.onFacePush(d, false) }
+                        }
                         dragging -> dragTo(event.x, event.y, event.metaState)
                         // In resize mode the view holds still until the touch slop decides between resize and orbit
                         // (a corner resize also turned the camera ~1.5 degrees, WSA r305).
@@ -688,6 +697,9 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                     endRotate(if (moved) rotateDrag!!.degrees else null, event.x, event.y)
                 } else if (resizeHandle != null) {
                     endResize(if (moved) resizeScale else null, event.x, event.y)
+                } else if (faceDrag) {
+                    faceDrag = false
+                    listener?.onFacePush(faceD.takeIf { moved }, true)
                 } else if (liftBox != null) {
                     val dz = liftMm
                     liftBox = null; liftFromDrag = false
@@ -818,6 +830,60 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     /** The lift dot shows above the gizmo box (Build workspace): dragging it moves the selection up or down. */
     @Volatile var liftMode = false
         set(value) { field = value; queueEvent { renderer.liftHandle = value } }
+
+    /**
+     * Push / pull: the picked face's arrow. [base] = the middle of the face's outline on the plate (at its current cap), [normal] =
+     * one file mm along the face's normal on the plate, [d] = the face's distance now (file mm). A drag from the arrow pushes the face.
+     */
+    class FaceArrow(val base: Vec3, val normal: Vec3, val d: Float)
+    @Volatile var faceArrow: FaceArrow? = null
+        set(value) { field = value; if (!faceDrag) faceD = value?.d ?: 0f }
+    /** The face distance (file mm) of the running arrow drag, for the overlay; [faceArrow]'s d when none. */
+    @Volatile var faceD = 0f
+        private set
+    private var faceDrag = false
+
+    /** The arrow of [faceArrow] on screen: base x, y, tip x, y (56 dp along the projected normal), or null (off screen or end-on). */
+    fun faceArrowScreen(d: Float = faceD): FloatArray? {
+        val f = faceArrow ?: return null
+        val at = f.base + f.normal * (d - f.d)
+        val a = camera.project(at) ?: return null
+        val e = camera.project(at + f.normal * (10f / f.normal.length().coerceAtLeast(1e-6f))) ?: return null
+        val len = kotlin.math.hypot(e.first - a.first, e.second - a.second)
+        if (len < 2f) return null
+        val k = 56 * resources.displayMetrics.density / len
+        return floatArrayOf(a.first, a.second, a.first + (e.first - a.first) * k, a.second + (e.second - a.second) * k)
+    }
+
+    /** A touch within 24 dp of the face arrow (anywhere along it) starts a push / pull drag. */
+    private fun startFace(x: Float, y: Float): Boolean {
+        val f = faceArrow ?: return false
+        faceD = f.d
+        val s = faceArrowScreen() ?: return false
+        val dx = s[2] - s[0]; val dy = s[3] - s[1]
+        val t = (((x - s[0]) * dx + (y - s[1]) * dy) / (dx * dx + dy * dy)).coerceIn(0f, 1.3f)
+        if (kotlin.math.hypot(s[0] + dx * t - x, s[1] + dy * t - y) > 24 * resources.displayMetrics.density) return false
+        faceDrag = true
+        return true
+    }
+
+    /**
+     * The face distance (file mm) for the finger at (x, y): its travel along the normal as drawn, snapped so the distance on the
+     * plate is a multiple of 0.5 mm (0.1 with Shift). Null while the normal points at the camera.
+     */
+    private fun faceAt(x: Float, y: Float, fine: Boolean): Float? {
+        val f = faceArrow ?: return null
+        val a = camera.project(f.base) ?: return null
+        val e = camera.project(f.base + f.normal) ?: return null
+        val sx = e.first - a.first
+        val sy = e.second - a.second
+        val len2 = sx * sx + sy * sy
+        if (len2 < 1e-4f) return null
+        val raw = f.d + ((x - downX) * sx + (y - downY) * sy) / len2
+        val mm = f.normal.length()
+        val step = if (fine) 0.1f else 0.5f
+        return kotlin.math.round(raw * mm / step) * step / mm
+    }
 
     /** In [liftMode], a touch within 24 dp of the lift dot ([ZRail.handle]) starts a lift drag. */
     private fun startLift(x: Float, y: Float): Boolean {
@@ -1018,6 +1084,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
         dragCheckId++
         if (dragging || liftBox != null) queueEvent { renderer.dragOffset = floatArrayOf(0f, 0f, 0f); renderer.liftGrab = false; renderer.axisGuide = null }
         liftBox = null; liftFromDrag = false
+        if (faceDrag) { faceDrag = false; listener?.onFacePush(null, true) }
         clearDragGuides()
         dragging = false
         dragStart = null

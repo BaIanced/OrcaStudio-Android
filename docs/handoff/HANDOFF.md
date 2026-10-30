@@ -36,9 +36,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - WSA: `svc power stayon true` while testing; `stage-from-apk.sh <apk>`.
 - WSA VD (reference "Headless display"): Kotlin-only changes = assembleDebug + `wsa-debug-setup.sh` (installs, no launch) + `TARGET=wsa PKG=...debug orca-vd.sh start`; shots via MCP `view_screenshot`; uninstall debug after. `wsa-full.ps1` only when the user asks to watch.
 - Fixture `~/orca-android-tools/rep-groups.json` (MCP `design_set`). VD taps: `export TARGET=wsa`, `. ./.vd-wsa.state; export VD=$LOGICAL,$SFID`, `orca-vd.sh tap/shot`, coords from a `TARGET=wsa` shot (archive "VD tap tip"; `tx.sh` fails on 0-bound nodes).
-- **Queued (user 2026-10-29):** [Opus] push/pull tier 2: `NOTES-pushpull-tier2.md` (data + face pick + pushFace done, JVM; next = PlateView mode + overlay + drag, "Next" list there); [Opus] OrcaMesh vert/edge/face edit mode (extrude/inset/loop cut/bevel, CGAL PMP);
+- **Queued (user 2026-10-29):** [Opus] push/pull tier 2: `NOTES-pushpull-tier2.md` (data, pick, panel chip + Face edits, arrow drag + overlay done, compiles; next = WSA VD test); [Opus] OrcaMesh vert/edge/face edit mode (extrude/inset/loop cut/bevel, CGAL PMP);
   dimensions overview (per-object bbox, hole sizes, thinnest wall; **ask the user what they had in mind when it comes up**); floating Theme | Layout designer (~half a day; **ask what they have in mind first**).
-- Next step: push/pull tier 2 PlateView mode + overlay + drag (NOTES-pushpull-tier2.md "Next" 1) -> Opus 5.5 (high)
+- Next step: push/pull tier 2 WSA VD test (NOTES-pushpull-tier2.md "Next" 1; debug build, L-bracket, push the tab 10 mm) -> Opus 5.5 (high)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).

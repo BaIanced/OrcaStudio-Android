@@ -60,10 +60,16 @@ don't demo it on a cube.
 - `ShapeController.faceAt(origin, dir, result)` (sets buildCopy / buildGroupCopies), `pushFace(id, index, op, d)` (d = 0 removes; one
   commit = one undo step; `held` keeps groups put), `removeFace(id, index)`.
 
-## Next (UI, in this order)
-1. PlateView/Viewport: "Push/pull face" mode for a selected MESH shape (toolbar/long-press). Tap -> `vm.shapes.faceAt`, store the pick;
-   overlay = pick.outline lines (Compose Canvas via camera.project, like the measure overlay) + arrow at outline centroid along pick.normal.
-   Drag from the arrow (copy `startLift`/`liftAt`: project normal to screen, d = travel / px-per-file-mm, 0.5 mm steps, label "+6.0 mm");
-   on release `pushFace(pick.shapeId, pick.index, pick.op, pick.op.d + delta)`. Live: offset outline only.
-2. Shape panel (ui/scad/ShapeBuilder.kt ~395, MESH row) "Face edits" list: distance field + delete -> pushFace / removeFace.
-3. WSA VD test: L-bracket with a hole, Edit in builder, push the tab 10 mm (hole round and unmoved).
+## Done 3 (2026-10-29, compiles; untested on device)
+- Shape panel (MESH): "Push/pull a face" chip (`ShapeController.faceMode` / `setPushPull`) + hint; "Face edits" list (NumberField d in
+  file mm, delete) -> pushFace / removeFace (`ShapeBuilder.FaceEditor`).
+- Face mode: a main-view tap -> `pickFace` (`facePick` flow; selects the face's shape). `PlateView.faceArrow` (FaceArrow base = outer
+  outline centroid, normal, d) + `faceArrowScreen` (56 dp arrow); a touch within 24 dp of the arrow drags it (`startFace` / `faceAt`:
+  travel along the projected normal, plate distance snapped 0.5 mm, 0.1 with Shift, tick haptic) -> `onFacePush(d, done)`;
+  release -> `pushPicked(d)` (one undo step; the pick follows the cap). Overlay in Viewport: outline + arrow + "+6.0 mm" label.
+  Undo/redo and removeFace clear the pick; leaving the build workspace turns the mode off.
+
+## Next
+1. WSA VD test: L-bracket with a hole (make one in the builder, export or use an STL), Edit in builder, chip on, tap the tab end, drag
+   the arrow 10 mm: tab longer, hole round and unmoved; Face edits shows +10; undo = one step. Check the OpenSCAD render of the
+   emitted code (first real run) and the pull's 0.01 grow.

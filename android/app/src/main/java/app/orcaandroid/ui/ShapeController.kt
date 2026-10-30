@@ -66,6 +66,7 @@ class ShapeController(private val store: Store, private val scad: ScadController
         val cur = design ?: return
         if (!canUndo) return
         val (d, sel) = undo.removeLast()
+        facePick.value = null
         redo.addLast(cur to selected)
         undoOwner = d
         scad.setShapes(d, sel)
@@ -75,6 +76,7 @@ class ShapeController(private val store: Store, private val scad: ScadController
         val cur = design ?: return
         if (!canRedo) return
         val (d, sel) = redo.removeLast()
+        facePick.value = null
         undo.addLast(cur to selected)
         undoOwner = d
         scad.setShapes(d, sel)
@@ -143,6 +145,32 @@ class ShapeController(private val store: Store, private val scad: ScadController
         }
     }
 
+    /** Push / pull mode (the Shape panel of a MESH shape): a tap in the main view picks a flat face ([facePick]) instead of a shape. */
+    var faceMode by androidx.compose.runtime.mutableStateOf(false)
+        private set
+    /** Push / pull: the face picked in [faceMode]; its arrow drags it. */
+    val facePick = kotlinx.coroutines.flow.MutableStateFlow<ScadController.FacePick?>(null)
+
+    fun setPushPull(on: Boolean) { faceMode = on; facePick.value = null }
+
+    /** Push / pull mode: a main-view tap picks the face under it (a miss clears the pick). */
+    fun pickFace(origin: Vec3, dir: Vec3) = faceAt(origin, dir) { pick ->
+        facePick.value = pick
+        // The face's shape shows in the panel, so its "Face edits" list is at hand.
+        if (pick != null && selected != listOf(pick.shapeId)) tap(pick.shapeId, false)
+    }
+
+    /** Push / pull: the arrow drag of [facePick] let go at distance [d] (file mm); the pick follows the face to its new cap. */
+    fun pushPicked(d: Double) {
+        val p = facePick.value ?: return
+        val before = design?.find(p.shapeId)?.faces?.size ?: return
+        pushFace(p.shapeId, p.index, p.op, d)
+        val shift = p.normal * (d - p.op.d).toFloat()
+        val index = when { kotlin.math.abs(d) <= 1e-9 -> -1; p.index >= 0 -> p.index; else -> before }
+        // An op taken off shifts the later ones down: re-pick by index from the shape's list.
+        facePick.value = p.copy(index = index, op = p.op.copy(d = if (index < 0) 0.0 else d), outline = p.outline.map { l -> l.map { it + shift } })
+    }
+
     /**
      * Push / pull: MESH shape [id]'s face op [index] (or a new one, [op], when out of range) set to [d] mm (> 0 push,
      * < 0 pull, 0 removes it), as one undo step; the shape's box grows so the rest of the model stays put ([ShapeDesign.withFaces]).
@@ -158,6 +186,7 @@ class ShapeController(private val store: Store, private val scad: ScadController
     fun removeFace(id: Int, index: Int) {
         val s = design?.find(id) ?: return
         s.faces.getOrNull(index)?.let { pushFace(id, index, it, 0.0) }
+        if (facePick.value?.shapeId == id) facePick.value = null
     }
 
     /** Build workspace: a main-view drag moved the selection [dx], [dy] mm on the plate. */
