@@ -16,6 +16,7 @@
 #include "libslic3r/CAD/GeometryEngine.hpp"
 #include "libslic3r/Model.hpp"
 
+#include <BRepCheck_Analyzer.hxx>
 #include <BRepFilletAPI_MakeChamfer.hxx>
 #include <BRepFilletAPI_MakeFillet.hxx>
 #include <BRep_Tool.hxx>
@@ -336,6 +337,10 @@ json OrcaEngine::mesh_edit(const std::array<int, 3> &target, const std::string &
                     throw std::runtime_error("Chamfer failed (try a smaller size)");
                 out = mk.Shape();
             }
+            // OCCT can report success on an oversized radius and return a broken solid (20 mm cube top, r 15: open,
+            // self-intersecting, wider than the cube); a bevel only removes material, so it must stay valid and inside.
+            if (!BRepCheck_Analyzer(out).IsValid())
+                throw std::runtime_error(op == "fillet" ? "Rounding failed (try a smaller radius)" : "Chamfer failed (try a smaller size)");
             // Chord error about 0.02 mm and 0.3 rad, as Blend joins (OrcaBlend.cpp), in the part's own units.
             result = GeometryEngine::tessellate(out, 0.02 / scale, 0.3);
         } catch (const Standard_Failure &e) {
@@ -343,6 +348,9 @@ json OrcaEngine::mesh_edit(const std::array<int, 3> &target, const std::string &
         }
         if (result.empty())
             throw std::runtime_error("Bevel: the result is empty");
+        const BoundingBoxf3 rb = result.bounding_box();
+        if (its_num_open_edges(result.its) > 0 || (rb.min - bb.min).minCoeff() < -10. * tol || (bb.max - rb.max).minCoeff() < -10. * tol)
+            throw std::runtime_error(op == "fillet" ? "Rounding failed (try a smaller radius)" : "Chamfer failed (try a smaller size)");
         meshdeform::Mesh m;
         for (const auto &v : result.its.vertices)
             m.vertices.push_back({v.x(), v.y(), v.z()});
