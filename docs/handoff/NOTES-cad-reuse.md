@@ -68,8 +68,5 @@ B-rep params are lost once an object is baked to a mesh (deformers, sculpt).
      size/edge/radius x k), `hitAt`, `parentFrame` (now includes S) + `toParent` (/k^2), BuildTransform `inFrame` (/k^2), `linear` normalized.
      (1) done 297ab3e (local, tests pass, device-untested): `scaled` takes groups on even f (`Pose.scale`), `axesFree` false with a
      group selected (corners only), Viewport resizeMode on for groups, `posed` sets SCALE; BuildTransformTest group test.
-     **Left:** (2) ShapeBuilder group panel
-     (~line 380): `ExtraField("Scale %", .., Shape.SCALE, 100.0)` after Blend, new string `shape_scale`. (3) `Part.place(firstId,
-     name, taken)` -> build() with SCALE bound to `Dim.ident("$name size")` (100, 25..400, step 5); `ShapeController.addPart`
-     passes `d.dims + it`. (4) Tests: bounds/height/scad of a scaled group, hitAt + parentFrame/toParent round trip, PartsTest
-     slider. (5) Compile, privacy scan, push, CI, WSA VD check (wheel size slider).
+     **Left:** (2)-(4) done 2026-10-29 (dd8f656, pushed): group "Scale %" field, `Part.place` size slider (25..400), PartsTest;
+     unit tests + compile green. Only (5) open: WSA VD check (Build workspace: add Wheel part -> size slider scales it; group Scale % field). Not yet seen on screen.
