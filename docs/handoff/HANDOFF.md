@@ -36,9 +36,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - WSA: `svc power stayon true` while testing; `stage-from-apk.sh <apk>`.
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - Fixture `~/orca-android-tools/rep-groups.json` (MCP `design_set`). VD taps: archive "VD tap tip".
-- **OrcaMesh edit mode** (`NOTES-orcamesh-edit.md`, design + "Progress"): M1a kernels done; M1b native + Engine.kt done (uncompiled native), MCP `mesh_edit` + CI next.
+- **OrcaMesh edit mode** (`NOTES-orcamesh-edit.md`, design + "Progress"): M1a kernels done; M1b native + MCP `mesh_edit` compile and pass a WSA VD check (local build); undo check + M1c UI next.
 - **Queued (user 2026-10-29):** dimensions overview (per-object bbox, hole sizes, thinnest wall; **ask the user what they had in mind when it comes up**); floating Theme | Layout designer (~half a day; **ask what they have in mind first**).
-- Next step: OrcaMesh edit M1b rest (MCP mesh_edit, CI build + native compile fixes, WSA VD check; NOTES-orcamesh-edit.md "Progress") -> Opus 5.5 (high)
+- Next step: OrcaMesh edit M1b finish (plate undo check, stale meshEditTarget fix; NOTES-orcamesh-edit.md "Progress"), then M1c Kotlin UI -> Opus 5.5 (high)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).

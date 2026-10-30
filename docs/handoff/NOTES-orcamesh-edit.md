@@ -60,8 +60,14 @@ STLs from CAD have flat faces split into many triangles and no quads, so raw Ble
   `sculpt()`, `jni/OrcaMeshEdit.cpp` `mesh_edit` (ops select / clear / grow / move / end; row-major world matrix about the
   drag-start pivot; regions cached per angle, cleared at end; overlay = crease edges with both ends selected, cap 4000),
   `meshEdit` in EngineCalls (+ no-flush list; null ray/matrix = absent), Kotlin `Engine.meshEdit` + `MeshEditStep` (compiles).
-- **M1b next:** MCP `mesh_edit` in McpTools.kt (beside `object_sculpt` ~line 179 / handler `sculpt()` ~856): ray -> `engine.pick`
-  -> target (remember it in a field for ray-less ops), args op (select default / clear / grow), kind, angle (30), toggle,
-  move [dx,dy,dz] / scale / rotate [deg xyz] -> row-major matrix T*Rz*Ry*Rx*S -> `meshEdit(move)` then `meshEdit(end)` inside
-  `plateEdit`; reply = selection count / centroid / normal / edge count. Then CI build (fix compile errors), WSA VD check
-  (select a cube face, move +5 mm Z, check bbox via plate_describe; undo restores). Kotlin UI = M1c.
+- **M1b MCP done 2026-10-30 (Claude, Kotlin compiles):** `mesh_edit` in McpTools.kt (`meshEdit()`, `editMatrix()` = T*Rz*Ry*Rx*S
+  row-major, scale in percent; target remembered in `meshEditTarget` for ray-less calls; transform = move + end in one `plateEdit`).
+- **M1b WSA VD check 2026-10-30 (Claude, local WSL native build `corebuild.sh` compiles; CI run 41015631540 also queued):**
+  20 mm cube: top face select (4 verts, normal +Z) + move [0,0,5] -> 20x20x25 OK; edge pick (2 verts), grow (7), ray-less move
+  of the kept selection, scale [50,50,100] + rotate z45 -> 20.071 mm footprint (matches the math). Vertex pick at an exact corner
+  ray missed the object (ray on the boundary; retest slightly inside).
+- **M1b next:** plate undo after mesh_edit is UNTESTED: the VD Undo at [15,717] was the shape builder's (design_set opened it;
+  it undid the design and the plate object with it). Close the builder (Prepare tab, find its bounds in the ui dump), then
+  select + move, tap Prepare's Undo, reselect: centroid must be back. Also: `meshEditTarget` goes stale after undo / delete
+  (indices may point at another object): clear it when the scene's object count or mesh version changes, or re-pick per call.
+  mcpao `plate_describe` replies looked cut (~736 bytes, "2 object(s)" listing 1): check mcpao vs the tool. Kotlin UI = M1c.
