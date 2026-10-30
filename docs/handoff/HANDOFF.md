@@ -38,9 +38,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Fixture `rep-groups.json` (MCP `design_set`). VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78.
 - **Queued (user 2026-10-29):** dimensions overview (per-object bbox, hole sizes, thinnest wall; **ask the user what they had in mind when it comes up**); floating Theme | Layout designer (~half a day; **ask what they have in mind first**).
 - **OrcaMesh edit** (`NOTES-orcamesh-edit.md`): M1-M3 Claude-verified on WSA VD 2026-10-30. **CI run 41100791348 (M3) sat
-  "waiting" (queued, no approval gate) 17:40-18:00 UTC: check it; install on all adb devices when green.** M4 Bevel written (local
-  commit, compiles, UNTESTED): WSA VD check next (notes "Progress", last item).
-- Next step: OrcaMesh M4 Bevel WSA VD check + panel (NOTES-orcamesh-edit.md) -> Opus 5.5 (high)
+  queued (hosted runner) 17:40-18:05 UTC: check it; install on all adb devices when green.** M4 Bevel MCP Claude-verified on WSA VD
+  (exact volumes; oversize radius now refused), commit 9e9260e; panel Fillet / Chamfer fields next (notes "Progress", last item).
+- Next step: OrcaMesh M4 panel Fillet / Chamfer fields + Apply, then CI build (NOTES-orcamesh-edit.md) -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).

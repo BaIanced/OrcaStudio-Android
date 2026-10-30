@@ -128,6 +128,9 @@ STLs from CAD have flat faces split into many triangles and no quads, so raw Ble
   its border); both regions must be flat (0.5 deg) and closed, <= 20k triangles; `mesh_to_brep(tol 1e-5 diag, merge 0.5 deg)`,
   crease midpoint -> nearest B-rep edge (within 10 tol), MakeFillet / MakeChamfer, `tessellate(0.02/scale, 0.3)`, one undo
   step, painting dropped, drop to bed, selection cleared. MCP `op:"fillet"|"chamfer"` + amount (optional ray selects first).
-  **Next:** local debug build (`wsa-debug-rebuild.sh native`) + WSA VD MCP check: 20 mm cube top face fillet 2 (each edge removes
-  (4 - pi) x 20 = 17.2 mm3, so about 8000 - 68.7 before the corner blends), edge chamfer 2 (-40 mm3), cylinder refused,
-  Check mesh clean; then panel Fillet / Chamfer fields + Apply.
+- **M4 MCP verified 2026-10-30 (Claude, WSA VD, debug build on the local native lib):** 20 mm cube top face fillet 2 -> vol 7934
+  (exact 7934.4: 800 - int (16 + 2 sqrt(4 - t^2))^2 dt; vertical corner edges stay sharp), fillet 9.5 -> 6776 (exact 6779.4,
+  tessellation), one edge chamfer 2 -> 7960 (exact), all "No problems found", Undo -> 8000. Refused: no amount, curved neighbour
+  ("flat sides"), open part. **Fix:** fillet 15 / chamfer 12 on the top face came back IsDone but broken (open, self-intersecting,
+  bbox 23.7 mm): now `BRepCheck_Analyzer` + no open edges + bbox inside the input, else "try a smaller radius" (part untouched).
+  **Next:** panel Fillet / Chamfer amount fields + Apply (like Extrude / Inset, `SceneController.meshEditFaces`).
