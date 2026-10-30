@@ -63,3 +63,12 @@ B-rep params are lost once an object is baked to a mesh (deformers, sculpt).
      (even f only -> SCALE *= f) instead of returning null (plate gizmo on groups, a bonus); ShapeBuilder group panel gets a
      "Scale %" ExtraField (slider = true); `Part.build` binds SCALE to a new "<part> size" Dim (renamed via `Dim.ident`, as
      `SavedParts.place`), so every built-in comes with its size slider. Tests: PartsTest + a ShapeModel bounds/scad test.
+   - 7d core built 2026-10-29 (bdaf7db, local): `Shape.SCALE`, `scaleOf`, `groupBox`, `Bounds.times`, `scaling()`; height/bounds,
+     `shape()` codegen (`scale(k)`, bound -> `dim / 100`, pivot h follows), `pieces` (scale in code), `blendParts` (rigid m,
+     size/edge/radius x k), `hitAt`, `parentFrame` (now includes S) + `toParent` (/k^2), BuildTransform `inFrame` (/k^2), `linear` normalized.
+     **Left:** (1) `BuildTransform.scaled` on groups: even f only -> new `Pose.scale` (SCALE x f), pos via `about(middle)` with
+     height x f, size unchanged; `ShapeController.posed` sets it via `withField(.., Shape.SCALE, ..)`. (2) ShapeBuilder group panel
+     (~line 380): `ExtraField("Scale %", .., Shape.SCALE, 100.0)` after Blend, new string `shape_scale`. (3) `Part.place(firstId,
+     name, taken)` -> build() with SCALE bound to `Dim.ident("$name size")` (100, 25..400, step 5); `ShapeController.addPart`
+     passes `d.dims + it`. (4) Tests: bounds/height/scad of a scaled group, hitAt + parentFrame/toParent round trip, PartsTest
+     slider. (5) Compile, privacy scan, push, CI, WSA VD check (wheel size slider).

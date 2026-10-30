@@ -35,16 +35,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - WSA: `svc power stayon true` while testing; `stage-from-apk.sh <apk>`.
 - WSA VD (reference "Headless display"): Kotlin-only changes = assembleDebug + `wsa-debug-setup.sh` (installs, no launch) + `TARGET=wsa PKG=...debug orca-vd.sh start`; shots via MCP `view_screenshot`; uninstall debug after. `wsa-full.ps1` only when the user asks to watch.
 - Repeated-group fixture: `~/orca-android-tools/rep-groups.json` via MCP `design_set`. WSA tap helpers: `~/orca-android-tools/tx.sh <label>` fails on Compose nodes with 0 bounds; use `phone-ui.py layout` with `. ./.vd-wsa.state; export VD=$LOGICAL,$SFID` + `orca-vd.sh tap`. Package id `io.github.baianced.orcastudio_android.debug`.
-- CAD 7a-7c built-ins WSA VD OK 2026-10-29 (archive), in r472. Part sliders (`NOTES-cad-reuse.md` 7d): **core done bdaf7db**
-  (local, unpushed, scad unit tests pass): `Shape.SCALE`, `scaleOf`, `groupBox`, `Bounds.times`, `scaling()`; height/bounds,
-  `shape()` codegen (`scale(k)`, bound -> `dim / 100`), `pieces` (scale in code), `blendParts` (rigid m, size/edge/radius x k),
-  `hitAt`, `parentFrame` (now includes S) + `toParent`, BuildTransform `inFrame` / `linear` normalized.
-  **Left:** (1) `BuildTransform.scaled` on groups: even f -> new `Pose.scale` (SCALE x f), pos via `about(middle)` with height x f,
-  `ShapeController.posed` sets it via `withField(.., Shape.SCALE, ..)`; (2) ShapeBuilder group panel: `ExtraField("Scale %", .., Shape.SCALE, 100.0)`
-  after Blend (new string `shape_scale`); (3) `Part.place(firstId, name, taken)` -> group with SCALE bound to `Dim.ident("$name size")`
-  (100, 25..400, step 5), used by `ShapeController.addPart` (dims + it); (4) tests: bounds/height/scad of a scaled group, hitAt +
-  parentFrame/toParent round trip, PartsTest slider; (5) compile, push, CI, WSA VD check (wheel size slider).
-- Next step: CAD 7d part sliders, finish items 1-5 above -> Opus 5.5 (high)
+- CAD 7a-7c built-ins WSA VD OK 2026-10-29 (archive), in r472. Part sliders 7d: group-scale core done bdaf7db (local, unpushed,
+  scad tests pass); what's left is listed under 7d in `NOTES-cad-reuse.md` ("Left").
+- Next step: CAD 7d part sliders, finish the "Left" list -> Opus 5.5 (high)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
