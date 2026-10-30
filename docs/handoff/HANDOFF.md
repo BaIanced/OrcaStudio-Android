@@ -38,7 +38,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Fixture `~/orca-android-tools/rep-groups.json` (MCP `design_set`). VD taps: `export TARGET=wsa`, `. ./.vd-wsa.state; export VD=$LOGICAL,$SFID`, `orca-vd.sh tap/shot`, coords from a `TARGET=wsa` shot (archive "VD tap tip"; `tx.sh` fails on 0-bound nodes).
 - **Queued (user 2026-10-29):** [Opus] push/pull tier 2: `NOTES-pushpull-tier2.md` (data, pick, panel chip + Face edits, arrow drag + overlay done, compiles; WSA VD test under way, setup live: see its "Test progress"); [Opus] OrcaMesh vert/edge/face edit mode (extrude/inset/loop cut/bevel, CGAL PMP);
   dimensions overview (per-object bbox, hole sizes, thinnest wall; **ask the user what they had in mind when it comes up**); floating Theme | Layout designer (~half a day; **ask what they have in mind first**).
-- Next step: push/pull tier 2 builder-undo bug (Undo button no-op after Face-edit delete; suspects + plan in NOTES-pushpull-tier2.md "Test progress"; debug app + WSA VD live), then pull (inward drag) + OpenSCAD render -> Sonnet 5.5 (high); Opus 5.5 if the undo identity fix isn't obvious
+- Next step: push/pull tier 2 pull (inward drag or negative Face edits value) + check the OpenSCAD render on WSA VD (undo bug was a false alarm, see NOTES-pushpull-tier2.md), then merge-batch prep -> Sonnet 5.5 (high)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).

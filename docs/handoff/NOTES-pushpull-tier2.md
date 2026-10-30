@@ -86,10 +86,11 @@ don't demo it on a cube.
   mostly a focus mix-up: Ctrl+Z over the VD goes to the PLATE undo (3D reverts, builder panel unchanged); the builder's own undo is the toolbar button
   (desc "Undo (Ctrl+Z)", scroll the Shapes list to the top, ~(26,728) in dump coords) or Ctrl+Z with the builder column focused.
   VERIFIED: delete via Face edits (the "Face 1 +10.5" row's trash at ~(685,958)): row gone, design_get has no faces, the plate shows the original tab.
-  OPEN BUG: after that delete, the builder Undo button (tapped 3x, also Redo) changes nothing: design_get still has no faces, no row back, though uiautomator
-  reports Undo/Redo enabled. Suspect: `canUndo` = `undoOwner === design` fails because something re-sets the design object after `commit` (pushBuild /
-  refreshParams path in `ScadController.setShapes` while `buildObject != null`), or the button is stale (canUndo is not Compose state). Next: temp Log in
-  `ShapeController.undo()` (cur === undoOwner? stack size), then fix (make canUndo observable, key history on content equality instead of identity).
-  Not yet run: pull (inward drag), OpenSCAD render of the emitted code. Test helpers: `~/orca-android-tools/dumpui.py <xml> <ylo> <yhi>`, `faces.sh`;
+  RESOLVED 2026-10-30 (WSA VD, debug 48eadc3 + temp logs, since removed): NOT a bug. Delete via Face edits then builder Undo button: `undo()` ran (cur === undoOwner, stack 2),
+  the "Face 1" row came back. The 'no faces' evidence was wrong: `mcpao.sh` output (mcptest.sh) is cut at ~760 chars, so design_get / design_describe never show `faces` (they
+  sit after `file`); judge faces from the Face edits rows in a `dumpui.py` dump, not from MCP. Plain Delete + Undo of a shape also works.
+  Not yet run: pull (inward drag, or type a negative value in the Face edits field), OpenSCAD render of the emitted code. Test helpers: `~/orca-android-tools/dumpui.py <xml> <ylo> <yhi>`, `faces.sh`;
   MCP via `mcpao.sh 'tool:{json}'` (unset MSYS_NO_PATHCONV; `SNAP=<abs png>` for view_screenshot); no MCP import tool: `adb push` STL to /sdcard/Download +
   `am start --display $LOGICAL -a VIEW -d file:///sdcard/Download/x.stl -t model/stl -n PKG/app.orcaandroid.ui.MainActivity`.
+- Tap tip (2026-10-30): after scrolling the builder panel, uiautomator dump y != tap y for some rows (dump says Delete y~958, tap that worked was y 1070 earlier; the Face edits value field
+  was at dump y 928-986 but a tap at 960 hit nothing useful): re-dump after each scroll and compare against a `swipe`-known anchor, or tap, dump, check.
