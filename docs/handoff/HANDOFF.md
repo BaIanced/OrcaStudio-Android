@@ -35,8 +35,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - WSA: `svc power stayon true` while testing; `stage-from-apk.sh <apk>`.
 - WSA VD (reference "Headless display"): Kotlin-only changes = assembleDebug + `wsa-debug-setup.sh` (installs, no launch) + `TARGET=wsa PKG=...debug orca-vd.sh start`; shots via MCP `view_screenshot`; uninstall debug after. `wsa-full.ps1` only when the user asks to watch.
 - Repeated/nested group gizmos Claude-verified on the WSA VD 2026-10-29 (archive).
-- Next up: truck hole ghost alpha 0.45 -> ~0.25 (backlog "Truck holes"), and first edit of a multi-part mesh opened via Edit in builder (archive "Build continuity part 2: WSA test complete"); batch both into one CI build.
-- Next step: hole ghost alpha + multi-part mesh first edit -> Sonnet 5.5 (medium)
+- Hole ghost alpha 0.45 -> 0.25 is coded (Shaders.kt:332, uncommitted CI build pending; looks untested). Left: first edit of a multi-part mesh opened via Edit in builder (placePieces keepCenter), WSA VD debug test.
+  2026-10-29 attempt: fixture needs a fresh Cube with Add part + Add negative volume (More > Add volume); the truck design object overlapped the cube, so a long-press opened the truck instead (delete or move overlapping objects first). Second try opened a one-shape mesh: volumes probably not added; check `object` volumes before opening the builder.
+  WSA tap helpers: `~/orca-android-tools/tx.sh <label>` fails on Compose nodes with 0 bounds; use `phone-ui.py layout` with `. ./.vd-wsa.state; export VD=$LOGICAL,$SFID` + `orca-vd.sh tap`. Package id `io.github.baianced.orcastudio_android.debug`.
+- Next step: multi-part mesh first edit on WSA VD, then CI build with the alpha change -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).

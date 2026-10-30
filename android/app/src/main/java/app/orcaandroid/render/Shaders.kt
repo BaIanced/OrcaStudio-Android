@@ -329,7 +329,7 @@ internal object Shaders {
                 own = max(own, vec3(0.13));
                 base = (uSelStyle & 32) != 0 ? mix(own, uSelectedColor, vSelected * 0.75) : own;
             }
-            else if (type == 1) { base = vec3(0.6, 0.6, 0.6); alpha = 0.45; }
+            else if (type == 1) { base = vec3(0.6, 0.6, 0.6); alpha = 0.25; }
             else if (type == 2) { base = vec3(0.95, 0.85, 0.3); alpha = 0.35; }
             else if (type == 3) { base = vec3(0.95, 0.25, 0.25); alpha = 0.4; }
             else if (type == 4) { base = vec3(0.25, 0.55, 1.0); alpha = 0.4; }
