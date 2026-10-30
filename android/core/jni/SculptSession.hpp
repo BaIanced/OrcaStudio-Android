@@ -66,6 +66,8 @@ struct OrcaEngine::SculptSession {
     // An extrude drag in progress: the selection before it (a drag let go at zero height is taken back).
     bool edit_extruded = false;
     std::vector<int> edit_before;
+    // The last cut's ring (sorted): while it is the selection, the overlay draws its mesh edges (they are rarely creases).
+    std::vector<int> edit_ring;
 
     // The surface under a ray now (local): tree hits on faces that haven't moved, moved faces one by one. The hit point,
     // its face and that face's vertex nearest to it.

@@ -69,9 +69,10 @@ sealed interface Tool {
     /**
      * Mesh edit (OrcaMesh, `NOTES-orcamesh-edit.md`): taps on a part toggle [kind] picks ("vertex", "edge", "face"); feature
      * level (crease-bounded regions) unless [triangles]. The selection's arrow drags it along its normal ([extrude]: pulls out
-     * a copy of the selected faces with walls instead).
+     * a copy of the selected faces with walls instead). [cut] 0-2: a tap cuts a vertex ring across that world axis instead
+     * of selecting (-1 = off).
      */
-    data class MeshEdit(val kind: String = "face", val triangles: Boolean = false, val extrude: Boolean = false) : Tool
+    data class MeshEdit(val kind: String = "face", val triangles: Boolean = false, val extrude: Boolean = false, val cut: Int = -1) : Tool
     data object LayOnFace : Tool
     data object Measure : Tool
     /**

@@ -796,6 +796,14 @@ class SceneController(private val store: Store, private val presets: PresetContr
         val tool = store.value.tool as? Tool.MeshEdit ?: return@launch
         val hit = pick(origin, dir, section) ?: return@launch
         if (hit.obj != selection?.obj || hit.instance != selection?.instance) store.update { it.withSelected(listOf(Selection(hit.obj, hit.instance))) }
+        if (tool.cut in 0..2) {
+            // Cut ring: the plane through the tap across the axis splits the band there; the ring becomes the selection.
+            val axis = List(3) { if (it == tool.cut) 1.0 else 0.0 }
+            val step = engine.meshEdit(hit, "cut", origin to dir, tool.kind, meshEditAngle(), axis = axis)
+            step.scene?.let { store.applyScene(it) }
+            meshEditSel.value = meshEditSelOf(hit, step.selection)
+            return@launch
+        }
         val same = liveMeshEditSel()?.target?.let { it.obj == hit.obj && it.instance == hit.instance && it.volume == hit.volume } == true
         val step = engine.meshEdit(hit, "select", origin to dir, tool.kind, meshEditAngle(), toggle = same, reach = reach(hit.point))
         step.scene?.let { store.applyScene(it) }

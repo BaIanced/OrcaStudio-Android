@@ -214,6 +214,13 @@ private fun MeshEditOptions(state: UiState, vm: AppViewModel, tool: Tool.MeshEdi
         // The arrow drag pulls out the selected faces with walls instead of moving them.
         FilterChip(tool.extrude, { vm.scene.setTool(tool.copy(extrude = !tool.extrude)) }, label = { Text(stringResource(R.string.mesh_edit_extrude)) })
     }
+    // Cut ring: taps cut a vertex ring across the picked world axis (the triangle-mesh loop cut), ready for Scale.
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        FilterChip(tool.cut >= 0, { vm.scene.setTool(tool.copy(cut = if (tool.cut >= 0) -1 else 2)) }, label = { Text(stringResource(R.string.mesh_edit_cut)) })
+        if (tool.cut >= 0) listOf("X", "Y", "Z").forEachIndexed { i, axis ->
+            FilterChip(tool.cut == i, { vm.scene.setTool(tool.copy(cut = i)) }, label = { Text(axis) })
+        }
+    }
     // Stale after undo or another edit (the engine dropped it; the overlay hides it too).
     val count = sel?.takeIf { it.version == state.scene.meshVersion.toLong() }?.count ?: 0
     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {

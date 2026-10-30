@@ -227,6 +227,7 @@ json OrcaEngine::mesh_edit(const std::array<int, 3> &target, const std::string &
         sculpt_build(oi, ii, vi);
         sculpt_copies();
         m_sculpt->edit_sel = ring;
+        m_sculpt->edit_ring = ring;
     } else if (op == "end") {
         ss.edit_moving = false;
         // An extrude let go at zero height: flat walls, so it is taken back (the undo step it pushed too).
@@ -280,11 +281,21 @@ json OrcaEngine::mesh_edit(const std::array<int, 3> &target, const std::string &
             in[size_t(v)] = 1;
         json edges = json::array();
         size_t shown = 0;
-        for (const meshedit::Crease &c : meshedit::creases(s.mesh, s.edit_nb, s.edit_region))
-            if (in[size_t(c.v0)] && in[size_t(c.v1)] && shown++ < 4000)
-                for (int v : {c.v0, c.v1})
+        auto edge = [&](int a, int b) {
+            if (in[size_t(a)] && in[size_t(b)] && shown++ < 4000)
+                for (int v : {a, b})
                     for (const json &x : world(s.mesh.vertices[size_t(v)]))
                         edges.push_back(x);
+        };
+        if (s.edit_sel == s.edit_ring) {
+            // A cut ring: its mesh edges, each once (from the face with a < b; a ring edge has two faces, one each way).
+            for (const auto &f : s.mesh.faces)
+                for (int k = 0; k < 3; ++k)
+                    if (f[size_t(k)] < f[size_t((k + 1) % 3)])
+                        edge(f[size_t(k)], f[size_t((k + 1) % 3)]);
+        } else
+            for (const meshedit::Crease &c : meshedit::creases(s.mesh, s.edit_nb, s.edit_region))
+                edge(c.v0, c.v1);
         sel["edges"] = std::move(edges);
         json verts = json::array();
         for (size_t k = 0; k < s.edit_sel.size() && k < 500; ++k)
