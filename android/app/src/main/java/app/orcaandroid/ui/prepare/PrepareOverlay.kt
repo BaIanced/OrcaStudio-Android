@@ -567,7 +567,6 @@ private fun ToolButtons(
     var addMenu by remember { mutableStateOf(false) }
     var moreMenu by remember { mutableStateOf(false) }
     var moreGroup by remember { mutableStateOf<String?>(null) }
-    var paintMenu by remember { mutableStateOf(false) }
     var splitMenu by remember { mutableStateOf(false) }
     var dialog by remember { mutableStateOf<String?>(null) }
     val selected = state.selection != null
@@ -614,19 +613,7 @@ private fun ToolButtons(
             ToolButton(Icons.Default.ContentCut, stringResource(R.string.cut), active = state.tool is Tool.Cut) {
                 if (state.tool is Tool.Cut) vm.scene.setTool(Tool.None) else vm.scene.startCut()
             }
-            Box {
-                ToolButton(Icons.Default.Brush, stringResource(R.string.paint), active = state.tool is Tool.Paint) { paintMenu = true }
-                DropdownMenu(expanded = paintMenu, onDismissRequest = { paintMenu = false }) {
-                    listOf(
-                        Triple(R.string.paint_supports, "support", 1),
-                        Triple(R.string.paint_seam, "seam", 1),
-                        Triple(R.string.paint_fuzzy, "fuzzy", 1),
-                        Triple(R.string.paint_color, "color", 2),
-                    ).forEach { (label, kind, state0) ->
-                        DropdownMenuItem(text = { Text(stringResource(label)) }, onClick = { paintMenu = false; vm.scene.openPaint(kind, state0) })
-                    }
-                }
-            }
+            ToolButton(Icons.Default.Brush, stringResource(R.string.paint), active = state.tool is Tool.Paint) { vm.scene.openPaint("color", 2) }
             ToolButton(Icons.Default.Layers, stringResource(R.string.variable_layer_height), active = state.tool == Tool.LayerHeight) {
                 vm.scene.setTool(if (state.tool == Tool.LayerHeight) Tool.None else Tool.LayerHeight)
             }

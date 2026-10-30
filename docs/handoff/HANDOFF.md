@@ -3,6 +3,7 @@
 Read this first. Don't use any title for the user ("Supreme Master" was a joke; never use it).
 - `HANDOFF-REFERENCE.md`: devices, tools, build commands, recipes. **Read its device section before driving a device.**
 - `HANDOFF-BACKLOG.md`: pending / untested / ideas / user decisions waiting. Grep it; don't read it up front.
+- `SIGNOFF-CHECKLIST.md`: short list of user feel checks for when user testing resumes.
 - `HANDOFF-ARCHIVE.md`: history, verified features, file maps, past causes. Don't read it or `NOTES-*.md` / `DEMO-rin.md`
   up front; grep them when a question needs them (e.g. `grep -n "AMS mapping" HANDOFF-ARCHIVE.md`).
 
@@ -14,7 +15,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 3defffa (PR #66, branch at r461/89944b9, merged 2026-10-28 on the user's go-ahead, before sessions B-D; user overrode the user-tested-only rule for this merge). Older: 0170950 (PR #65, r398). User-untested in main: list in `NOTES-merge-batch.md`.
 - Signing secrets: `release` environment (main + `claude/*` only).
-- Latest CI build: r472 (run 40996385381, CAD 7a-7c incl. Hinge) on all 5 adb devices, 2026-10-29. User feel untested. Install builds on all adb devices (skip .23).
+- Latest CI build: r472 (run 40996385381) on all 5 adb devices, 2026-10-29; paint-shop change not built yet. User feel untested. Install builds on all adb devices (skip .23).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **User 2026-10-28: no more user testing for now; Claude builds and tests everything itself (memory no-user-testing-now); don't ask for feel/UI checks.**
 - **User 2026-10-29: no tests on the user's screen; all tests on a hidden virtual display** (`TARGET=wsa orca-vd.sh start`, memory tests-on-virtual-display).
@@ -35,9 +36,11 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - WSA: `svc power stayon true` while testing; `stage-from-apk.sh <apk>`.
 - WSA VD (reference "Headless display"): Kotlin-only changes = assembleDebug + `wsa-debug-setup.sh` (installs, no launch) + `TARGET=wsa PKG=...debug orca-vd.sh start`; shots via MCP `view_screenshot`; uninstall debug after. `wsa-full.ps1` only when the user asks to watch.
 - Fixture `~/orca-android-tools/rep-groups.json` (MCP `design_set`). WSA taps: `tx.sh` fails on 0-bound Compose nodes; use `phone-ui.py layout` + `. ./.vd-wsa.state; export VD=$LOGICAL,$SFID` + `orca-vd.sh tap`.
-- CAD 7a-7c built-ins WSA VD OK 2026-10-29 (archive), in r472. Part sliders 7d: group-scale core bdaf7db + gizmo on groups
-  297ab3e (both local, unpushed, scad tests pass); left: items (2)-(5) under 7d in `NOTES-cad-reuse.md` ("Left").
-- Next step: CAD 7d items (2)-(5): Scale % field, part size slider, tests, CI + WSA VD -> Sonnet 5.5 (medium)
+- Paint shop for all kinds: built + Claude-verified WSA VD 2026-10-29 (archive); commit pushed, CI build next dispatch.
+- CAD 7a-7c in r472 (archive). 7d part sliders: core bdaf7db + group gizmo 297ab3e (local, unpushed); left (2)-(5) in `NOTES-cad-reuse.md` "Left".
+- **Queued (user 2026-10-29):** [Opus] push/pull tier 2 (SCAD wrapper, any face of SCAD/MESH shapes, archive 2026-10-21 plan); [Opus] OrcaMesh vert/edge/face edit mode (extrude, inset, loop cut, bevel via CGAL Surface_mesh + PMP; CAD roadmap said skip on touch);
+  dimensions overview (per-object bbox, hole sizes, thinnest wall; **ask the user what they had in mind when it comes up**); floating Theme | Layout designer (~half a day; **ask what they have in mind first**).
+- Next step: CAD 7d items (2)-(5) -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).

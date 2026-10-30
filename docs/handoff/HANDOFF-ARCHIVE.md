@@ -2574,8 +2574,8 @@ User-verified items that were still in HANDOFF-BACKLOG.md, moved verbatim:
 
 ## 2026-10-23 Backlog detail (full text of every item before the one-line trim; grep here for causes, commits, runs)
 ## Plan
-- **Plan (user, 2026-10-14):** camera LAN (done) -> off-LAN camera (cloud P2P path; REA on Handy is the tool; VPN-home the
-  fallback) -> print history (capture Handy's history call, own client, Device tab) -> REA on MakerWorld. Own printer/account,
+- **Plan (user, 2026-10-14):** camera LAN (done) -> off-LAN camera (cloud P2P path; VPN-home the
+  fallback) -> print history (capture Handy's history call, own client, Device tab). Own printer/account,
   personal use, own code only; rule 7 holds.
 - Printer controls on the Device tab (user 2026-10-17): BUILT r286, Claude-tested on an idle printer (archive "r286 printer controls"). Open, needs the printer + user: physical motion of extrude/jog/home, part fan reports 0 % after a set, nozzle/bed target 0 tile stays stale, speed chip mid-print (Claude 2026-10-21).
 
@@ -2602,8 +2602,6 @@ User-verified items that were still in HANDOFF-BACKLOG.md, moved verbatim:
 ## Waiting on the user
 - Plate switcher pick (lab stays until they say; don't ask again).
 - Launcher icon colour (still teal, "decide later").
-- REA MCP (github.com/morluto/rea): installed, not enabled (the user enables it); fits release APK / `liborca_jni.so` inspection and
-  HAR traces of the MakerWorld / Thingiverse flows only. Plan items need it.
 
 ## Ideas (not started)
 - Floating Theme | Layout designer = ~half a day (+1-2 h for a collapsible icon); ask first.
@@ -3695,3 +3693,6 @@ Object More menu now: Add volume (5 items) and Mesh tools (7 items) collapsible,
 
 ## 2026-10-29 Asset library 7c: "Gear" built-in, WSA VD check passed (debug build)
 - Part menu now lists Wheel, Figure, Peg and hole, Hinge, Gear (12 square teeth via circular repeat on a 30 mm blank, 5 mm bore; 36x36x8 mm in design_snapshot, looks right). PartsTest green. Claude test, user untested. Left in backlog: part sliders.
+
+## 2026-10-29: paint shop for all kinds (Claude-verified WSA VD, debug build, not in a CI build yet)
+- User asked: brush icon leads to the paint shop, all paint kinds there. Done: brush opens the shop (colour); dock chips Colour / Supports / Seam / Fuzzy switch kind (`PaintShop.kt`, `PrepareOverlay.kt` menu removed, `PaintOptions` internal). Verified on the WSA virtual display: brush -> shop, each chip sets the matching tool (support/seam/fuzzy/color), Done leaves. User feel untested (SIGNOFF-CHECKLIST.md).

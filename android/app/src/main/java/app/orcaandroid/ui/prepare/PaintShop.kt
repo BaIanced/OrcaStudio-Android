@@ -11,8 +11,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -30,8 +32,8 @@ import app.orcaandroid.ui.Screen
 import app.orcaandroid.ui.Tool
 import app.orcaandroid.ui.UiState
 
-/** Colour painting opens the paint shop: a workspace of its own instead of a card over the plate (user plan 2026-10-21). */
-internal val UiState.inPaintShop get() = screen == Screen.PREPARE && (tool as? Tool.Paint)?.kind == "color"
+/** Painting of every kind (colour, supports, seam, fuzzy skin) opens the paint shop: a workspace of its own instead of a card over the plate (user plan 2026-10-21, all kinds 2026-10-29). */
+internal val UiState.inPaintShop get() = screen == Screen.PREPARE && tool is Tool.Paint
 
 /** The frame around the 3D view that says "you are in the paint shop" (the mockup's purple). */
 private val SHOP_FRAME = Color(0xFF7F67BE)
@@ -64,7 +66,13 @@ internal fun PaintShopDock(state: UiState, vm: AppViewModel, side: Boolean, modi
     val tool = state.tool as? Tool.Paint ?: return
     Surface(modifier, tonalElevation = 2.dp) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            ColorPaintOptions(state, vm, tool, layers = side)
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf("color" to (R.string.paint_color to 2), "support" to (R.string.paint_supports to 1),
+                    "seam" to (R.string.paint_seam to 1), "fuzzy" to (R.string.paint_fuzzy to 1)).forEach { (kind, p) ->
+                    FilterChip(tool.kind == kind, { if (tool.kind != kind) vm.scene.openPaint(kind, p.second) }, label = { Text(stringResource(p.first)) })
+                }
+            }
+            if (tool.kind == "color") ColorPaintOptions(state, vm, tool, layers = side) else PaintOptions(state, vm, tool)
         }
     }
 }
