@@ -35,7 +35,15 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - r464+: all Claude-verified on WSA except paint shop Sync swatch (needs a printer). User feel untested.
 - Open backlog items are user-feel, printer-gated or [Opus] design (2026-10-29).
 - Build continuity part 2 (r467): Claude-verified on WSA (archive 2026-10-29: multi-part + negative mesh, split switch). Open: first edit of a multi-part mesh, paint kept on open. WSA debug app has r467 libs; WSA sleeps: `svc power stayon true` while testing. `stage-from-apk.sh` needs the APK path as argument.
-- Next step: Build workspace multi-copy / mirrored copies in Build -> Opus 5.5 (high)
+- **Build multi-copy gizmos (in progress, 2026-10-29, compiled, debug APK on WSA, UNTESTED):** Build gizmos/lift/snap no
+  longer need a lone copy: they sit on `ShapeController.buildCopy` (last tapped/grabbed copy; StateFlow, Viewport key);
+  copies share volume ids, so `PlateRenderer.buildCopies` (design offsets + active copy) cuts the union mesh box back to
+  one copy in `meshBox` (copies differ only by offset in the design pose); live mesh scale/turn off then (box only, like
+  `boxOverride`). Mirrored/turned copies need nothing: Build draws `Instance.shown` (pure translation, Engine.kt:405).
+  WSA set-up: Build view open on object 3 (3-part Cube), copy 2 added at [160,200] rot [90,0,90] (off screen; zoom out).
+  Test: tap a shape on copy 2 -> handles/rings on copy 2's box; resize/turn/lift/drag there -> both copies change alike;
+  tap copy 1 -> gizmos jump back. Then CI build + install on all adb devices.
+- Next step: Build multi-copy gizmo test on WSA -> Opus 5.5 (high)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).

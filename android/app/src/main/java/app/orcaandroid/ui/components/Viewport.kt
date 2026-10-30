@@ -630,10 +630,11 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     LaunchedEffect(v, state.lab.wheelSpeed) { v.wheelSpeed = state.lab.wheelSpeed }
     LaunchedEffect(v, state.perspective) { v.camera.perspective = state.perspective }
     LaunchedEffect(v, state.pen) { v.pen = state.pen }
-    // The Build workspace's selection is shapes: their handles and rings always show (one copy of the object only; groups
-    // only turn), on the selected volumes' mesh box.
+    // The Build workspace's selection is shapes: their handles and rings always show (groups only turn), on the selected
+    // volumes' mesh box in the copy last tapped or dragged.
     val building = state.buildObject != null
-    val buildGizmo = if (!building) null else remember(state.scene, state.scad?.selected, state.scad?.shapes) { vm.shapes.buildGizmoTarget() }
+    val buildCopy by vm.shapes.buildCopy.collectAsState()
+    val buildGizmo = if (!building) null else remember(state.scene, state.scad?.selected, state.scad?.shapes, buildCopy) { vm.shapes.buildGizmoTarget() }
     LaunchedEffect(v, building) { v.gizmoOnMesh = building }
     LaunchedEffect(v, state.resizing, showPreview, building, buildGizmo) {
         v.resizeMode = if (building) buildGizmo?.second?.none { it.isGroup } == true else state.resizing && !showPreview
@@ -725,12 +726,16 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     LaunchedEffect(v, build != null, state.snapBuild, state.snapPrepare) { v.snapOn = if (build != null) state.snapBuild else state.snapPrepare }
     LaunchedEffect(v, state.moveLock) { v.axisLock = state.moveLock }
     // Build workspace: the selected shapes' volumes are the selection; a drag starts on the object's box (the pick decides).
-    LaunchedEffect(v, build, state.scad?.selected, state.scad?.shapes) {
-        if (build == null) { v.dragSnap = null; v.onGl { boxOverride = null }; return@LaunchedEffect }
+    LaunchedEffect(v, build, state.scad?.selected, state.scad?.shapes, buildCopy) {
+        if (build == null) { v.dragSnap = null; v.onGl { boxOverride = null; buildCopies = null }; return@LaunchedEffect }
         val ids = vm.scad.buildSelectedIds(build)
         // Shapes inside a group: the gizmos sit on their own box, not the group's mesh.
         val box = vm.shapes.buildGizmoBox()?.let { (lo, hi) -> floatArrayOf(lo.x, lo.y, lo.z, hi.x, hi.y, hi.z) }
-        v.onGl { selectedIds = ids; boxOverride = box }
+        // Several copies share the volume ids: the gizmos take the active copy's share of the mesh box.
+        val copies = build.instances.takeIf { it.size > 1 }?.let { list ->
+            list.flatMap { it.shown.offset.let { o -> listOf(o.x, o.y, o.z) } }.toFloatArray() to buildCopy.coerceIn(0, list.size - 1)
+        }
+        v.onGl { selectedIds = ids; boxOverride = box; buildCopies = copies }
         // The design pose's box: Build draws and picks the copies there, not where they lie on the plate.
         v.selectedBounds = if (ids.isEmpty()) emptyList() else build.instances.map { it.shown.let { s -> s.min to (s.min + s.size) } }
         v.resizeAxes = vm.shapes.buildGizmoTarget()?.let { (inst, tops) -> state.scad?.shapes?.let { app.orcaandroid.scad.BuildTransform.axesFree(it, inst, tops) } } ?: true

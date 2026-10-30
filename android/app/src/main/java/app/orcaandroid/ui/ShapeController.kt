@@ -99,22 +99,27 @@ class ShapeController(private val store: Store, private val scad: ScadController
     fun tapAt(origin: Vec3, dir: Vec3, add: Boolean) {
         val obj = store.value.buildObject ?: return
         store.launch {
-            val path = scad.shapeAt(obj, origin, dir)?.second
+            val hit = scad.shapeAt(obj, origin, dir)
+            if (hit != null) buildCopy.value = hit.first
+            val path = hit?.second
             val d = design
             if (path == null || d == null) return@launch tap(null, add)
             tap(path[BuildTransform.pickLevel(d.pathTo(selected.lastOrNull() ?: -1).map { it.id }, path)], add)
         }
     }
 
-    /** The copy of the build object a main-view drag grabbed: its turn, scale and mirror map the drag into the design. */
-    private var grabbed = 0
+    /**
+     * The copy of the build object last tapped or grabbed in the main view: the gizmos sit on it and its pose maps drags
+     * into the design (the Build view draws every copy in its design pose, so they differ only in where they stand).
+     */
+    val buildCopy = kotlinx.coroutines.flow.MutableStateFlow(0)
 
     /** Build workspace: [result] gets whether a drag starting on the ray grabs a selected shape. */
     fun grabAt(origin: Vec3, dir: Vec3, result: (Boolean) -> Unit) {
         val obj = store.value.buildObject ?: return result(false)
         store.launch {
             val hit = scad.shapeAt(obj, origin, dir)
-            if (hit != null) grabbed = hit.first
+            if (hit != null) buildCopy.value = hit.first
             // A selected shape under the finger, or the group holding it.
             result(hit != null && hit.second.any { it in selected })
         }
@@ -122,7 +127,7 @@ class ShapeController(private val store: Store, private val scad: ScadController
 
     /** Build workspace: a main-view drag moved the selection [dx], [dy] mm on the plate. */
     fun moveOnPlate(dx: Float, dy: Float, dz: Float = 0f) {
-        val inst = store.value.buildObject?.let { store.value.scene.objects.getOrNull(it) }?.instances?.let { it.getOrNull(grabbed) ?: it.firstOrNull() }?.shown ?: return
+        val inst = store.value.buildObject?.let { store.value.scene.objects.getOrNull(it) }?.instances?.let { it.getOrNull(buildCopy.value) ?: it.firstOrNull() }?.shown ?: return
         // Plate -> design frame: the copy's matrix is translation * rotation * scale * mirror (mirror = +-1 per axis).
         val r = RotateGizmo.fromEuler(inst.rotation)
         fun local(i: Int, scale: Float, mirror: Float) = (r[i] * dx + r[3 + i] * dy + r[6 + i] * dz) / scale.toDouble() * (if (mirror < 0f) -1.0 else 1.0)
@@ -134,11 +139,12 @@ class ShapeController(private val store: Store, private val scad: ScadController
     }
 
     /**
-     * Build workspace: the copy the gizmos sit on (they show only while the object has one) and the selected shapes,
-     * all in one frame: top level, or inside the same group (the gizmos then act in that group's frame).
+     * Build workspace: the copy the gizmos sit on ([buildCopy]) and the selected shapes, all in one frame: top level, or
+     * inside the same group (the gizmos then act in that group's frame).
      */
     fun buildGizmoTarget(): Pair<Instance, List<Shape>>? {
-        val inst = store.value.buildObject?.let { store.value.scene.objects.getOrNull(it) }?.instances?.singleOrNull()?.shown ?: return null
+        val inst = store.value.buildObject?.let { store.value.scene.objects.getOrNull(it) }?.instances
+            ?.let { it.getOrNull(buildCopy.value) ?: it.firstOrNull() }?.shown ?: return null
         val d = design ?: return null
         val sel = selected.map { d.find(it) ?: return null }
         if (sel.isEmpty() || sel.map { d.pathTo(it.id).dropLast(1).lastOrNull()?.id }.toSet().size != 1) return null
@@ -159,7 +165,7 @@ class ShapeController(private val store: Store, private val scad: ScadController
 
     /**
      * Build workspace: the selected shapes' plate box and the boxes of the shapes around them (the other top-level shapes and
-     * the selection's siblings in its group), for the main view's body-drag edge snap. Null without a lone copy or a selection.
+     * the selection's siblings in its group), for the main view's body-drag edge snap, in copy [buildCopy]. Null without a selection.
      */
     fun buildSnapBoxes(): DragSnap? {
         val (inst, sel) = buildGizmoTarget() ?: return null

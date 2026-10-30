@@ -35,7 +35,7 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - HD plate ideas (user verified r394): 3D bed frame model, dual-nozzle decal layout (Claude 2026-10-24).
 - Plate switcher pick (lab stays; don't ask again). Launcher icon colour ("decide later"). REA MCP enable (installed, not enabled).
 - [Opus] Sculpt mode (More > Sculpt, r428+; Claude-verified WSA 2026-10-26..28, archive; user feel untested). Symmetry 51ad144 untested on device by user. Open (low value): paint overlay only at stroke end, exact bump positions on a face, grab on the plane.
-- [Opus] Build workspace (user GO 2026-10-23): steps 1-6c-2 Claude-verified WSA (r385-r406, archive); open: user feel of all, multi-copy / mirrored copies in Build, nested/repeated groups with gizmos.
+- [Opus] Build workspace (user GO 2026-10-23): steps 1-6c-2 Claude-verified WSA (r385-r406, archive); open: user feel of all, multi-copy gizmos (coded 2026-10-29, untested, see handoff), nested/repeated groups with gizmos.
 
 ## Ideas (not started)
 - Floating Theme | Layout designer (~half a day; ask first). Study Bambu Handy's MakerWorld integration.

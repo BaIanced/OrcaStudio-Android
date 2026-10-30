@@ -78,6 +78,12 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
      * is the whole group's); the live resize and turn then move only the box and rings, not the group's mesh.
      */
     @Volatile var boxOverride: FloatArray? = null
+    /**
+     * Build workspace object with several copies: their design-pose offsets (x, y, z per copy) and the copy the gizmos sit
+     * on. The copies share the volume ids, so the selection's mesh box spans them all; they differ only by their offsets,
+     * which gives back one copy's box. The live resize and turn then move only the box and rings, as with [boxOverride].
+     */
+    @Volatile var buildCopies: Pair<FloatArray, Int>? = null
     /** Paint shop: only the selected copies are drawn (objects, paint, shadows); the plates stay. */
     var solo = false
     /** Build workspace: the build object (selection ids -1000 - volume, see Engine.setBuildObject) and the others per [buildOthers]. */
@@ -951,7 +957,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glUniform1i(loc(meshProgram, "uHidden"), if (solo) hiddenFilaments else 0)
         glUniform3fv(loc(meshProgram, "uDrag"), 1, dragOffset, 0)
         glUniform3fv(loc(meshProgram, "uScaleAnchor"), 1, resizeAnchor, 0)
-        val own = boxOverride == null
+        val own = boxOverride == null && buildCopies == null
         val sc = if (own) resizeScale else floatArrayOf(1f, 1f, 1f)
         // Column major for GL.
         val sm = floatArrayOf(sc[0], 0f, 0f, 0f, sc[1], 0f, 0f, 0f, sc[2])
@@ -1183,7 +1189,18 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             any = true
             for (k in 0..2) { b[k] = minOf(b[k], c[k]); b[k + 3] = maxOf(b[k + 3], c[k + 3]) }
         }
-        return b.takeIf { any }
+        if (!any) return null
+        buildCopies?.let { (offsets, copy) ->
+            val n = offsets.size / 3
+            if (copy !in 0 until n) return@let
+            // Union = one box + the lowest / highest offset per axis.
+            for (k in 0..2) {
+                val axis = (0 until n).map { offsets[it * 3 + k] }
+                b[k] += offsets[copy * 3 + k] - axis.min()
+                b[k + 3] += offsets[copy * 3 + k] - axis.max()
+            }
+        }
+        return b
     }
 
     /** The box the gizmos sit on: the selection's mesh box (the Build workspace's shapes have no box of their own); any thread. */
