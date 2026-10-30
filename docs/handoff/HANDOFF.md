@@ -12,11 +12,12 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 ## State
 - One repo: OrcaStudio-Android (code + these docs, `docs/handoff/`), branch `claude/handoff-continuation-rseql3`. Autonomy (user, 2026-10-11): decide branches and next steps
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
-- Android main = 3defffa (PR #66, branch at r461/89944b9, merged 2026-10-28 on the user's go-ahead, before sessions B-D; user overrode the user-tested-only rule for this merge). Older: 0170950 (PR #65, r398). Untested by the user in main (plus all of sessions B-D, Sculpt, snap toggle, Z lift/axis lock): Build workspace, paint shop/depth, Filament materials, Realistic render, UX P1-P6, Check mesh feel, 3MF export in desktop Orca, pen, fan hold, Extrude F150.
-- Signing secrets live in the `release` environment (main + `claude/*` only; PR #35, 2026-10-22). Repo-level copies: user deletes.
-- Latest CI build: r466 (run 40933636132, adds push/pull fold into resize, Truck cut preview, More groups) on all 5 adb devices incl. WSA, 2026-10-29. User feel untested. Install new builds on all adb devices (skip the .23 tablet: 32-bit, Android 6).
+- Android main = 3defffa (PR #66, branch at r461/89944b9, merged 2026-10-28 on the user's go-ahead, before sessions B-D; user overrode the user-tested-only rule for this merge). Older: 0170950 (PR #65, r398). User-untested in main: list in `NOTES-merge-batch.md`.
+- Signing secrets: `release` environment (main + `claude/*` only).
+- Latest CI build: r468 (run 40979554989, multi-copy gizmos) on WSA, SHIELD, phone, Note, 2026-10-29. User feel untested. Install builds on all adb devices (skip .23).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **User 2026-10-28: no more user testing for now; Claude builds and tests everything itself (memory no-user-testing-now); don't ask for feel/UI checks.**
+- **User 2026-10-29: no tests on the user's screen; all tests on a hidden virtual display** (`TARGET=wsa orca-vd.sh start`, memory tests-on-virtual-display).
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
   WSA `127.0.0.1:58526`; **USB serial = the user's SHIELD TV** (rooted; installs only). No printer tests (user away).
@@ -30,12 +31,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **Offload (user 2026-10-25/26): max token use onto free opencode models, growing leeway by track record** (Claude specs + verifies).
   DeepSeek V4.1 Flash = default; runner `octauto.sh` (`D:\oct-backup\jobs\README.md`; opencode v2: `model#variant`), ledger `trust-profile.md`.
 - CAD plan (`NOTES-cad-reuse.md`): 0-5b Claude-verified, 1b parked. MCP efficiency (`NOTES-mcp-token-efficiency.md`): build rule waits for user OK.
-- **No WSA focus loops**. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
 - Gate: user sessions B-D paused 2026-10-28; release gated on the printer set.
-- Build continuity part 2 (r467) Claude-verified (archive 2026-10-29). WSA: `svc power stayon true` while testing; `stage-from-apk.sh <apk>`.
-- Build multi-copy gizmos Claude-verified on WSA 2026-10-29 (archive); CI r468 (run 40979554989) built for it.
-  If r468 isn't on all adb devices yet: install it (skip .23), then uninstall the WSA debug app.
-- Visual runs on WSA the user wants to watch: `wsa-full.ps1` (main screen, maximized).
+- WSA: `svc power stayon true` while testing; `stage-from-apk.sh <apk>`.
+- Build multi-copy gizmos Claude-verified on WSA 2026-10-29 (archive); r468 installed (Chromebook/Quest offline), WSA debug app removed.
+- WSA VD checked 2026-10-29: display 3, no desktop window, `ui` dump works; `sf=` empty, so shots via the app's MCP screenshot (or the mkv after `stop`). Debug app: `PKG=...debug` (wsa-debug-rebuild.sh launches may open a window: start on the VD instead). No focus loops; `wsa-full.ps1` only when the user asks to watch. `target.sh` now tags the SHIELD `tv`.
 - Next up: Build workspace nested/repeated groups with gizmos (backlog "Build workspace").
 - Next step: Build nested/repeated groups with gizmos -> Opus 5.5 (high)
 ## User decisions (2026-10-13)

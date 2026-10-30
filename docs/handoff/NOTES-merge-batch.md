@@ -37,3 +37,7 @@ Cut tool: point of "Flip upper part upside down" / Lay on cut face. Push/pull: f
 
 ## Status
 Triage done 2026-10-28. Claude closes done. Session A done 2026-10-28. B, C, D pending (retroactive after the PR #66 merge); the printer set and release stay gated.
+
+## User-untested in main (moved from HANDOFF.md 2026-10-29)
+Plus all of sessions B-D, Sculpt, snap toggle, Z lift/axis lock: Build workspace, paint shop/depth, Filament materials,
+Realistic render, UX P1-P6, Check mesh feel, 3MF export in desktop Orca, pen, fan hold, Extrude F150.
