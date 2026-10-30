@@ -2,6 +2,7 @@ package app.orcaandroid.ai
 
 import app.orcaandroid.R
 import app.orcaandroid.core.Instance
+import app.orcaandroid.core.PickHit
 import app.orcaandroid.core.Scene
 import app.orcaandroid.core.Vec3
 import app.orcaandroid.scad.Bounds
@@ -17,6 +18,8 @@ import app.orcaandroid.ui.ShapeController
 import app.orcaandroid.ui.SliceController
 import app.orcaandroid.ui.preview.ROLE_NAMES
 import app.orcaandroid.ui.Store
+import kotlin.math.cos
+import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -181,6 +184,15 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             obj(listOf("origin", "dir", "brush"), "origin" to vec("Ray origin in plate coordinates"), "dir" to vec("Ray direction"),
                 "brush" to p("string", "draw, inflate, smooth, flatten, pinch, crease or grab"), "radius" to p("number", "Brush radius in mm; default 5"),
                 "strength" to p("number", "0..1; default 0.5"), "invert" to p("boolean", "Dent instead of bulge"), "mirror" to p("string", "Symmetry: also dab across the part's own middle planes, e.g. x or xz"), "dabs" to p("integer", "Repeat count 1..50; default 1 (one stroke: draw, inflate and crease do not build up within it)"))) { sculpt(it) },
+        Tool("mesh_edit", "Mesh edit mode (vertex / edge / face): a ray selects the feature under it on that part (face = crease-bounded " +
+            "region, edge = crease line, vertex = corner); the selection stays for later calls. move / scale / rotate then transform the " +
+            "selected vertices about their centroid (neighbouring triangles stretch; painting is removed). Replies with the selection " +
+            "(count, centroid, normal); a transform also with what changed. $PLATE_EDIT",
+            obj(emptyList(), "origin" to vec("Ray origin in plate coordinates (select)"), "dir" to vec("Ray direction (select)"),
+                "op" to p("string", "select (default with a ray), clear or grow (adds the neighbouring vertices)"),
+                "kind" to p("string", "face (default), edge or vertex"), "angle" to p("number", "Crease angle in degrees; default 30, 0 = single triangles"),
+                "toggle" to p("boolean", "Add to / remove from the selection instead of replacing it"),
+                "move" to vec("Move by [dx, dy, dz] mm"), "scale" to vec("Scale by [x, y, z] percent"), "rotate" to vec("Turn by [x, y, z] degrees"))) { meshEdit(it) },
         Tool("object_duplicate", "Plate edit: adds copies of one copy of an object; they are arranged on its plate. $PLATE_EDIT",
             obj(listOf("object"), *COPY, "copies" to p("integer", "How many, 1..100; default 1"))) { duplicate(it) },
         Tool("plate_arrange", "Plate edit: arranges the objects on a plate (default the active one), or with all true " +
@@ -867,6 +879,61 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             store.engine.sculpt(hit, List(dabs) { origin.f() to dir.f() }, brush, radius.toFloat(), args.optDouble("strength", 0.5).toFloat(),
                 args.optBoolean("invert", false), newStroke = true, end = true, mirror = mirror).scene ?: throw ToolError("sculpt returned no scene")
         }
+    }
+
+    /** The part the last mesh_edit selected on, for ray-less calls. */
+    private var meshEditTarget: PickHit? = null
+
+    private suspend fun meshEdit(args: JSONObject): String {
+        val origin = args.vec3("origin")
+        val dir = args.vec3("dir")
+        if ((origin == null) != (dir == null)) throw ToolError("Give both origin and dir")
+        val op = args.optString("op").ifEmpty { if (origin != null) "select" else "" }
+        if (op !in listOf("", "select", "clear", "grow")) throw ToolError("op must be select, clear or grow")
+        val kind = args.optString("kind", "face")
+        if (kind !in listOf("face", "edge", "vertex")) throw ToolError("kind must be face, edge or vertex")
+        val angle = args.optDouble("angle", 30.0).takeIf { it.isFinite() && it >= 0 } ?: throw ToolError("angle must be >= 0")
+        val move = args.vec3("move")
+        val scale = args.vec3("scale")?.also { if (it.x <= 0 || it.y <= 0 || it.z <= 0) throw ToolError("scale must be > 0") }
+        val rotate = args.vec3("rotate")
+        if (op.isEmpty() && move == null && scale == null && rotate == null) throw ToolError("Give a ray, an op or a transform")
+        val ray = if (origin != null && dir != null) origin.f() to dir.f() else null
+        if (op == "select") {
+            if (ray == null) throw ToolError("select needs origin and dir")
+            meshEditTarget = store.engine.pick(ray.first, ray.second) ?: throw ToolError("the ray misses every object")
+        }
+        val target = meshEditTarget ?: throw ToolError("Nothing selected yet: select with a ray first")
+        var sel = if (op.isEmpty()) null else store.engine.meshEdit(target, op, ray, kind, angle.toFloat(), args.optBoolean("toggle")).selection
+        if (move == null && scale == null && rotate == null) return selectionText(sel!!)
+        val reply = plateEdit("edited the mesh of object ${target.obj + 1}", R.string.deforming) {
+            store.engine.meshEdit(target, "move", matrix = editMatrix(move, scale, rotate))
+            val end = store.engine.meshEdit(target, "end")
+            sel = end.selection
+            end.scene ?: throw ToolError("mesh_edit returned no scene")
+        }
+        return reply + "\n" + selectionText(sel!!)
+    }
+
+    /** Row-major world 4x4: translate [move] after rotating Z * Y * X ([rotate] degrees) after scaling ([scale] percent). */
+    private fun editMatrix(move: D3?, scale: D3?, rotate: D3?): List<Double> {
+        val s = scale ?: D3(100.0, 100.0, 100.0)
+        val (ax, ay, az) = (rotate ?: D3(0.0, 0.0, 0.0)).let { listOf(it.x, it.y, it.z).map { d -> Math.toRadians(d) } }
+        val (cx, sx) = cos(ax) to sin(ax); val (cy, sy) = cos(ay) to sin(ay); val (cz, sz) = cos(az) to sin(az)
+        val r = arrayOf( // Rz * Ry * Rx
+            doubleArrayOf(cz * cy, cz * sy * sx - sz * cx, cz * sy * cx + sz * sx),
+            doubleArrayOf(sz * cy, sz * sy * sx + cz * cx, sz * sy * cx - cz * sx),
+            doubleArrayOf(-sy, cy * sx, cy * cx))
+        val k = doubleArrayOf(s.x / 100, s.y / 100, s.z / 100)
+        val t = move ?: D3(0.0, 0.0, 0.0)
+        val tv = doubleArrayOf(t.x, t.y, t.z)
+        return (0..2).flatMap { i -> (0..2).map { j -> r[i][j] * k[j] } + tv[i] } + listOf(0.0, 0.0, 0.0, 1.0)
+    }
+
+    private fun selectionText(sel: JSONObject): String {
+        val count = sel.optInt("count")
+        if (count == 0) return "Selection: nothing."
+        fun at(key: String) = sel.getJSONArray(key).let { a -> v(D3(a.getDouble(0), a.getDouble(1), a.getDouble(2))) }
+        return "Selection: $count vertices, centroid ${at("centroid")}, normal ${at("normal")}, ${sel.getJSONArray("edges").length() / 6} crease edges."
     }
 
     private suspend fun hollow(args: JSONObject): String {
