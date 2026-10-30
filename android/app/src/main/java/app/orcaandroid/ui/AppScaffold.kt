@@ -131,6 +131,8 @@ val WIDE_LAYOUT = 840.dp
 
 @Composable
 fun AppScaffold(state: UiState, vm: AppViewModel) {
+    // Design panel: docked as a right sidebar by default, detachable to a floating panel (user, 2026-10-30).
+    var designFloating by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
     // Interface and text size (Layout lab), on top of the system's display and font size.
     val base = androidx.compose.ui.platform.LocalDensity.current
     androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides
@@ -139,10 +141,10 @@ fun AppScaffold(state: UiState, vm: AppViewModel) {
             state.phase == Phase.LOADING -> Busy(state.busy ?: stringResource(R.string.starting))
             state.phase == Phase.SETUP || state.showPrinterSetup -> Themed(Region.EDITOR, Modifier.fillMaxSize(), fill = true) { PrinterSetupScreen(state, vm) }
             state.editor != null -> Themed(Region.EDITOR, Modifier.fillMaxSize(), fill = true) { SettingsEditor(state, vm) }
-            else -> MainLayout(state, vm)
+            else -> Box(Modifier.fillMaxSize().padding(end = if (state.designMode && !designFloating) app.orcaandroid.ui.theme.DESIGN_DOCK_WIDTH else 0.dp)) { MainLayout(state, vm) }
         }
         // The design panel under the dialogs: the message bar sits at the panel's height (it hid it, phone r189).
-        if (state.designMode) ThemeDesignPanel(state, vm)
+        if (state.designMode) ThemeDesignPanel(state, vm, designFloating) { designFloating = it }
         Themed(Region.DIALOGS) { GlobalDialogs(state, vm) }
     }
 }

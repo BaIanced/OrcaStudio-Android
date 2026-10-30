@@ -1146,6 +1146,10 @@
     <string name="design_mode_text">Change the colors live, part by part, in a panel over the app</string>
     <string name="design_editing_dark">Editing the dark theme</string>
     <string name="design_editing_light">Editing the light theme</string>
+    <string name="design_detach">Detach to a floating panel</string>
+    <string name="design_dock">Dock to the right side</string>
+    <string name="design_tab_theme">Theme</string>
+    <string name="design_tab_layout">Layout</string>
     <string name="design_minimize">Fold the panel</string>
     <string name="design_unfold">Unfold the panel</string>
     <string name="design_part">Part of the app</string>
