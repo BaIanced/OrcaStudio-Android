@@ -1,4 +1,4 @@
-# Push/pull tier 2: face ops on MESH shapes (design, Claude 2026-10-29; not started)
+# Push/pull tier 2: face ops on MESH shapes (design, Claude 2026-10-29; data layer done 4425889)
 
 Origin: archive "(user, 2026-10-21, wishlist) Push/pull" (tier 2 plan). Tier 1 (box faces) was folded into resize on
 2026-10-29 because "it just resizes". Tier 2 has to show what resize can't do. On a real mesh (bracket tab, imported
@@ -41,3 +41,22 @@ don't demo it on a cube.
 - JVM: flood fill on an L-bracket STL fixture (tab face = 1 region, outline 4 pts; face with a hole = 2 loops);
   toScad emission; bounds/pos invariance (above).
 - WSA VD: import an L-bracket with a hole, Edit in builder, push the tab 10 mm: tab longer, hole round and unmoved.
+
+## Done (2026-10-29, 4425889, JVM only; suite 264/264)
+- `scad/FaceOps.kt`: `FaceOp` (json, `at(p, t)`), `FaceOps.scad` (push = union, pull = difference with `offset(delta = 0.01)`
+  so cut walls don't share planes), `FaceOps.bounds`, `FaceOps.capAt` (re-push), `FaceOps.region` (seed triangle, weld
+  1e-4, flood fill 0.5 deg / 0.01 mm, boundary loops, straight-run corners dropped, largest loop first).
+- `Stl.triangles(file)` (binary + ASCII, LRU 2 per path). `Shape.faces` (JSON "faces"), MESH emission wraps the import.
+- `ShapeDesign.withFaces(id, faces)`: keeps file bounds in `FILE_BOUNDS` (fx0..), MESH_BOUNDS = file + push prisms,
+  same scale, pos solved so untouched file points stay put; empty faces restores. `meshToParent` / `parentToMesh`.
+- `FaceOpsTest` (5): bracket end/tab-top regions (4 pts), plate with hole (2 loops), emission, capAt, invariance under
+  3 turn/mirror cases incl. z-mirror, binary STL.
+- Untested: OpenSCAD actually rendering the emitted code (needs a device / CI run), the pull's 0.01 grow on real meshes.
+
+## Next (UI, in this order)
+1. `ScadController.faceAt(screen ray)`: engine.pick on the build object -> volume -> piece -> `BuildTransform.toDesign`
+   -> parent frame of the shape (walk `pathTo`) -> `parentToMesh` -> `Stl.triangles` + `capAt` / `region` (off main thread).
+2. `ShapeController.pushFace(id, op index or new op, d)` -> `withFaces`, one undo step per drag.
+3. Toolbar/long-press "Push/pull face" mode for a selected MESH shape (PlateView), outline overlay + arrow handle,
+   0.5 mm steps, label "+6.0 mm", re-render on release. Shape panel "Face edits" list (distance, delete).
+4. WSA VD test: L-bracket with a hole, Edit in builder, push the tab 10 mm (hole round and unmoved).

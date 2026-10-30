@@ -35,11 +35,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Gate: user sessions B-D paused 2026-10-28; release gated on the printer set.
 - WSA: `svc power stayon true` while testing; `stage-from-apk.sh <apk>`.
 - WSA VD (reference "Headless display"): Kotlin-only changes = assembleDebug + `wsa-debug-setup.sh` (installs, no launch) + `TARGET=wsa PKG=...debug orca-vd.sh start`; shots via MCP `view_screenshot`; uninstall debug after. `wsa-full.ps1` only when the user asks to watch.
-- Fixture `~/orca-android-tools/rep-groups.json` (MCP `design_set`). WSA taps: `tx.sh` fails on 0-bound Compose nodes; use `phone-ui.py layout` + `. ./.vd-wsa.state; export VD=$LOGICAL,$SFID` + `orca-vd.sh tap`.
-- **Queued (user 2026-10-29):** [Opus] push/pull tier 2: design done, `NOTES-pushpull-tier2.md` (MESH face ops, not started; start with data + emission + JVM tests); [Opus] OrcaMesh vert/edge/face edit mode (extrude, inset, loop cut, bevel via CGAL Surface_mesh + PMP; CAD roadmap said skip on touch);
+- Fixture `~/orca-android-tools/rep-groups.json` (MCP `design_set`). VD taps: `export TARGET=wsa`, `. ./.vd-wsa.state; export VD=$LOGICAL,$SFID`, `orca-vd.sh tap/shot`, coords from a `TARGET=wsa` shot (archive "VD tap tip"; `tx.sh` fails on 0-bound nodes).
+- **Queued (user 2026-10-29):** [Opus] push/pull tier 2: `NOTES-pushpull-tier2.md` (data layer + JVM tests done 4425889; next = face pick + UI, "Next" list there); [Opus] OrcaMesh vert/edge/face edit mode (extrude, inset, loop cut, bevel via CGAL Surface_mesh + PMP; CAD roadmap said skip on touch);
   dimensions overview (per-object bbox, hole sizes, thinnest wall; **ask the user what they had in mind when it comes up**); floating Theme | Layout designer (~half a day; **ask what they have in mind first**).
-- VD taps: always `export TARGET=wsa` for `orca-vd.sh tap/shot`; coords from a `TARGET=wsa` shot, not `phone-ui.py layout` (archive "VD tap tip").
-- Next step: push/pull tier 2 implementation (NOTES-pushpull-tier2.md) -> Opus 5.5 (high)
+- Next step: push/pull tier 2 face pick + UI (NOTES-pushpull-tier2.md "Next") -> Opus 5.5 (high)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
