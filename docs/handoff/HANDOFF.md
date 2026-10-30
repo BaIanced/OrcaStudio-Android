@@ -37,10 +37,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Build continuity 1-3, hole ghost alpha, repeated-group ring/drag, smart-guide middles: verified 2026-10-29 (archive).
 - Repeated-group test fixture: `~/orca-android-tools/rep-groups.json` via MCP `design_set` (archive 2026-10-29 "repeated groups").
   WSA tap helpers: `~/orca-android-tools/tx.sh <label>` fails on Compose nodes with 0 bounds; use `phone-ui.py layout` with `. ./.vd-wsa.state; export VD=$LOGICAL,$SFID` + `orca-vd.sh tap`. Package id `io.github.baianced.orcastudio_android.debug`.
-- CAD step 7a (Part menu: Wheel, Figure) built, WSA VD look check OK 2026-10-29 (archive, 626b407); design 7a-7c in `NOTES-cad-reuse.md`.
-- CAD step 7b (Save as part, `SavedParts` in Parts.kt, menu in Part chip) WSA VD check OK 2026-10-29 (save, re-add, delete; archive, da7d640).
-- CAD 7c: Peg and hole + Hinge built-ins done, WSA VD OK 2026-10-29 (archive, 9b9624c); CI r472 (run 40996385381) has all of 7a-7c, installed on all 5 adb devices. Gear built-in done, WSA VD OK (archive). Left: part sliders (backlog).
-- Next step: CAD part sliders (backlog; needs dims that scale a group; Opus-ish design) -> Sonnet 5.5 (medium)
+- CAD 7a-7c built-ins (Wheel, Figure, Save as part, Peg and hole, Hinge, Gear) WSA VD OK 2026-10-29 (archive); CI r472 (run 40996385381) has all of 7a-7c, installed on all 5 adb devices. Gear built-in done, WSA VD OK (archive). Left: part sliders (backlog).
+- Next step: CAD part sliders (needs dims that scale a group; subtle multi-file design) -> Opus 5.5 (high)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
