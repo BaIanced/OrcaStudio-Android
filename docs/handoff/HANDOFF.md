@@ -32,9 +32,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - CAD plan (`NOTES-cad-reuse.md`): 0-5b Claude-verified, 1b parked. MCP efficiency (`NOTES-mcp-token-efficiency.md`): build rule waits for user OK.
 - **No WSA focus loops**. Helpers: `wsa-hold-shot.sh`, `wsa-measure-at.sh`, `crop.py`.
 - Gate: user sessions B-D paused 2026-10-28; release gated on the printer set.
-- r464+: all Claude-verified on WSA except paint shop Sync swatch (needs a printer). User feel untested.
-- Open backlog items are user-feel, printer-gated or [Opus] design (2026-10-29).
-- Build continuity part 2 (r467): Claude-verified on WSA (archive 2026-10-29: multi-part + negative mesh, split switch). Open: first edit of a multi-part mesh, paint kept on open. WSA debug app has r467 libs; WSA sleeps: `svc power stayon true` while testing. `stage-from-apk.sh` needs the APK path as argument.
+- Build continuity part 2 (r467) Claude-verified (archive 2026-10-29). WSA: `svc power stayon true` while testing; `stage-from-apk.sh <apk>`.
 - **Build multi-copy gizmos (in progress, 2026-10-29, compiled, debug APK on WSA, UNTESTED):** Build gizmos/lift/snap no
   longer need a lone copy: they sit on `ShapeController.buildCopy` (last tapped/grabbed copy; StateFlow, Viewport key);
   copies share volume ids, so `PlateRenderer.buildCopies` (design offsets + active copy) cuts the union mesh box back to

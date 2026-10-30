@@ -69,3 +69,4 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - Snapping (user 2026-10-28: toggle/hotkey, not forced on the plate, thin Adobe-style guide): 846a663 Claude-verified WSA 2026-10-28; user feel untested.
 - Session B checks skipped by user 2026-10-28 ("don't want to do right now"): Sculpt, Hollow, Center/Align, Check mesh, badge fix.
 - Godot review leftovers (Z lift dot, axis lock, Wireframe, orbit inertia, Light direction: all in CI r463, Claude-verified WSA 2026-10-28, archive): open: user feel; tower ignores Z untested (low risk). [Opus]
+- Build continuity part 2 open (Claude, r467, 2026-10-29): first edit of a multi-part mesh, paint kept on open.

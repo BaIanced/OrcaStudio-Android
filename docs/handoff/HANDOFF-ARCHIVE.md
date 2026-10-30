@@ -3639,3 +3639,4 @@ Object More menu now: Add volume (5 items) and Mesh tools (7 items) collapsible,
 - Fixture made in the UI: fresh Cube > More > Add volume > Add part + Add negative volume > long-press > Edit in builder. Builder lists 3 shapes (Cube, Part 2, Negative volume = Hole); render shows the hole cut into the cube. (A Cube already design-tagged by an earlier test goes through editObject, so use a fresh one.)
 - More > Appearance > "Separate code and shape builder entries": on = Add menu shows "OpenSCAD model" + "Shape builder", both with CAD badge; off = single "Design" + badge. Untested: first edit of the multi-part mesh (placePieces keepCenter) and paint kept on open. User feel untested.
 - Gotcha: WSA display sleeps within minutes and UI dumps come back empty/swipes die: `adb shell "svc power stayon true"` + KEYCODE_WAKEUP (set back to false when done).
+- r464+ (2026-10-29): all Claude-verified on WSA except paint shop Sync swatch (needs a printer).
