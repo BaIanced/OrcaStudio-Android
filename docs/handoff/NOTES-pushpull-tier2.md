@@ -73,3 +73,13 @@ don't demo it on a cube.
 1. WSA VD test: L-bracket with a hole (make one in the builder, export or use an STL), Edit in builder, chip on, tap the tab end, drag
    the arrow 10 mm: tab longer, hole round and unmoved; Face edits shows +10; undo = one step. Check the OpenSCAD render of the
    emitted code (first real run) and the pull's 0.01 grow.
+
+## Test progress (2026-10-29, WSA VD, debug build f8722f0 installed)
+- Setup done and still live: debug app on WSA, VD running (`TARGET=wsa`, `. ./.vd-wsa.state`), L-bracket STL (60x30x6 base, 6x30 tab to z=36,
+  24-gon hole d8 at x=10) made by `~/orca-android-tools/edits/make_lbracket_stl.py` (manifold, 120 tris), imported by the WSA STL recipe
+  (archive "WSA STL import without a picker") = plate 2 object 3. Long-press its base (`view_set {"view":"iso","object":3}`, shot to pick a point)
+  -> "Edit in builder" -> ONE MESH shape "lbracket.stl"; scroll the panel (swipe 360 950 -> 360 600): chip "Push/pull a face" at ~(73,966); chip on.
+- NB: a design placed with `design_to_plate` reopens as the design (not MESH): use an imported STL for this test.
+- Tapped the tab top at (252,89) in the builder view: `view_screenshot` shows no outline / arrow (it omits Compose overlays, so unknown if the pick
+  worked) and the bracket looks ghosted. Next: find out if `facePick` is set (uiautomator label "+0.0 mm"/arrow node, or logcat, or temporary
+  MCP `view_state` line for the face pick), try a tap on the big inner tab face (~(200,180)) too; then drag the arrow with `orca-vd.sh swipe`.
