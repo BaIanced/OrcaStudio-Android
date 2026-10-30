@@ -11,6 +11,7 @@ import app.orcaandroid.scad.Bounds
 import app.orcaandroid.scad.BuildTransform
 import app.orcaandroid.scad.D3
 import app.orcaandroid.scad.Dim
+import app.orcaandroid.scad.Part
 import app.orcaandroid.scad.Repeat
 import app.orcaandroid.scad.Shape
 import app.orcaandroid.scad.ShapeDesign
@@ -246,6 +247,20 @@ class ShapeController(private val store: Store, private val scad: ScadController
         val shape = beside(d, ShapeDesign.create(kind, d.nextId, name))
         commit(d.copy(shapes = d.shapes + shape, nextId = d.nextId + 1), listOf(shape.id))
         return shape.id
+    }
+
+    /** Adds a ready-made [part] (one editable group) beside the others and selects it. */
+    fun addPart(part: Part) {
+        val d = design ?: return
+        val label = store.str(partName(part))
+        val name = label + " " + (d.shapes.count { it.isGroup && it.name.startsWith("$label ") } + 1)
+        val g = part.build(d.nextId, name)
+        val placed = if (d.shapes.isEmpty()) g else {
+            val all = d.shapes.map { d.bounds(it) }.reduce { a, b -> a.union(b) }
+            val own = d.bounds(g)
+            g.copy(pos = D3(snap(all.max.x + 5 - own.min.x), snap(all.center.y - own.center.y), 0.0))
+        }
+        commit(d.copy(shapes = d.shapes + placed, nextId = d.nextId + g.all().count()), listOf(placed.id))
     }
 
     /** Adds a picked STL as a mesh shape, at its own size; the file is kept in files/openscad/meshes. */
@@ -585,6 +600,10 @@ class ShapeController(private val store: Store, private val scad: ScadController
 
     companion object {
         fun snap(v: Double, grid: Double = 1.0) = Math.round(v / grid) * grid
+        fun partName(p: Part) = when (p) {
+            Part.WHEEL -> R.string.part_wheel
+            Part.FIGURE -> R.string.part_figure
+        }
 
         fun kindName(k: Shape.Kind) = when (k) {
             Shape.Kind.BOX -> R.string.shape_box

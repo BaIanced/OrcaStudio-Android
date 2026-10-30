@@ -42,3 +42,11 @@ bend/twist, playdough sculpting) without writing code. Roadmap items 3-6 in HAND
 
 Risks: APK size (OCCT toolkits), OCCT fillet failures on complex unions (show the error, keep the unfilleted shape),
 B-rep params are lost once an object is baked to a mesh (deformers, sculpt).
+7. **Asset library (figures, wheels)** (Claude design, 2026-10-29). Parts = plain shape-builder groups, so they stay editable
+   (resize the tire, move an arm, ungroup) and need no native work or files. "Part" chip in the builder's Add row opens a menu.
+   - 7a (built 2026-10-29, `scad/Parts.kt`, `ShapeController.addPart`, `PartsTest`): built-in Wheel (40 mm, flat: tube tire, hub,
+     5-spoke circular repeat, 4 mm axle hole) and Figure (38 mm: legs, rounded body, tilted arms, head). WSA look check open.
+   - 7b: "Save as part" on a selected group -> `files/openscad/parts/<name>.json` (shape JSON + the dims it binds), listed in the same
+     menu under the built-ins; long-press to delete.
+   - 7c (maybe): more built-ins (gear via BOSL2-free polygon sketch, peg/hole pair with clearance, hinge), and part sliders
+     (e.g. wheel diameter) once dims can scale a whole group.

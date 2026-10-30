@@ -996,6 +996,9 @@
     <string name="shape_ring_thickness">Ring thickness (mm)</string>
     <string name="shape_mesh">Model file</string>
     <string name="shape_import">Import STL</string>
+    <string name="shape_parts">Part</string>
+    <string name="part_wheel">Wheel</string>
+    <string name="part_figure">Figure</string>
     <string name="shape_import_failed">Could not read that STL file</string>
     <string name="shape_edges">Edges</string>
     <string name="shape_corners">Corners</string>

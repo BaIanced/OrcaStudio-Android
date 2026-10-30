@@ -8,6 +8,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -84,6 +85,7 @@ import app.orcaandroid.R
 import app.orcaandroid.ui.components.ScrubCell
 import app.orcaandroid.scad.D3
 import app.orcaandroid.scad.Dim
+import app.orcaandroid.scad.Part
 import app.orcaandroid.scad.Repeat
 import app.orcaandroid.scad.Shape
 import app.orcaandroid.scad.ShapeDesign
@@ -172,6 +174,17 @@ fun ShapesTab(s: ScadEditorState, vm: AppViewModel) {
             }
             AssistChip(onClick = { stl.launch(arrayOf("model/stl", "application/sla", "application/vnd.ms-pki.stl", "application/octet-stream", "*/*")) },
                 label = { Text(stringResource(R.string.shape_import)) }, leadingIcon = { Icon(Icons.Default.Add, null, Modifier.size(16.dp)) })
+            Box {
+                var parts by remember { mutableStateOf(false) }
+                AssistChip(onClick = { parts = true }, label = { Text(stringResource(R.string.shape_parts)) },
+                    leadingIcon = { Icon(Icons.Default.Add, null, Modifier.size(16.dp)) })
+                DropdownMenu(parts, { parts = false }) {
+                    Part.entries.forEach { p ->
+                        DropdownMenuItem(text = { Text(stringResource(ShapeController.partName(p))) },
+                            onClick = { parts = false; sh.addPart(p); runCatching { focus.requestFocus() } })
+                    }
+                }
+            }
         }
         Toolbar(s, vm)
         HorizontalDivider()
