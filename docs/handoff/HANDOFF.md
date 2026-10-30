@@ -15,7 +15,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = de0e3fa (PR #67, branch at run 41012656080 = r473 + push/pull tier 2, merged 2026-10-30 on /next-merge; user-untested, Claude-verified only). User-untested in main: list in `NOTES-merge-batch.md`.
 - Signing secrets: `release` environment (main + `claude/*` only).
-- Latest installed CI build: run 41105435015 (r479, OrcaMesh M1-M4) on all 4 adb devices, 2026-10-30. User feel untested. Install builds on all adb devices (skip .23).
+- Latest installed CI build: run 41117077456 (r480, dimensions phases 1-3; previously r479 OrcaMesh M1-M4) on all 4 adb devices, 2026-10-30. User feel untested. Install builds on all adb devices (skip .23).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **User 2026-10-28: no more user testing for now; Claude builds and tests everything itself (memory no-user-testing-now); don't ask for feel/UI checks.**
 - **User 2026-10-29: no tests on the user's screen; all tests on a hidden virtual display** (`TARGET=wsa orca-vd.sh start`, memory tests-on-virtual-display).
@@ -39,8 +39,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **Queued (user 2026-10-29):** dimensions overview (per-object bbox, hole sizes, thinnest wall; **ask the user what they had in mind when it comes up**); floating Theme | Layout designer (~half a day; **ask what they have in mind first**).
 - OrcaMesh edit M1-M4: Claude-verified, r479 installed (archive 2026-10-30).
 - **Dimensions overlay** (user 2026-10-30; phases 1 bbox lines, 2 hole diameters, 3 thinnest wall): 1 = 378253f `DimensionOverlay.kt`; 2 = 68b9ac9 `render/HoleFinder.kt` (Kotlin on `PlateRenderer.sceneMesh`, `HoleFinderTest` 3/3; design in archive 2026-10-30). Neither seen on screen (WSA shots are GL only): check on phone/Note VD with a holed part selected in Prepare. Gaps: slots, tilted holes.
-- Phase 3 thinnest wall: code done + pushed (check_mesh `minWall`/`minWallPoint` in `OrcaTools.cpp`, `SceneController.thinnestWall()`, magenta dot + "wall N" in `DimensionOverlay`); Kotlin + native compile OK locally; **CI run 41117077456 building; untested on a device** (no NDK on this PC: local native debug APK impossible, strip fails; use CI).
-- Next step: when run 41117077456 is green, install on all adb devices (skip .23), test on WSA VD (holed part selected in Prepare, View > Dimensions: phases 1-3 look) -> Sonnet 5.5 (medium)
+- Phase 3 thinnest wall: code done + pushed (check_mesh `minWall`/`minWallPoint` in `OrcaTools.cpp`, `SceneController.thinnestWall()`, magenta dot + "wall N" in `DimensionOverlay`); Kotlin + native compile OK locally; **CI run 41117077456 green, r480 installed on all 4 adb devices; overlay unseen** (WSA VD: Compose overlay not in shots and the View menu's Dimensions row is clipped off-screen at VD size, swipe didn't scroll it; phone off adb, Note dozing) (no NDK on this PC: local native debug APK impossible, strip fails; use CI).
+- Next step: when the phone is on adb or the user says the Note is awake, test Dimensions phases 1-3 on its VD (holed part selected in Prepare, View > Dimensions); else pick the next queued item -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
