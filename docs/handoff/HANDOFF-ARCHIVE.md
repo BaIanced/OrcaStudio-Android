@@ -3675,3 +3675,7 @@ Object More menu now: Add volume (5 items) and Mesh tools (7 items) collapsible,
 ## 2026-10-29: tower ignores Z + Build smart-guide middles
 - Godot "tower ignores Z": code-verified, not device-run. `towerPlate` is set on tower DOWN (`PlateView.kt:540`), and `lockKey` passes `liftMode && towerPlate < 0` as `zOk` to `ZRail.toggleLock` (:361), which refuses Z (ZRailTest covers `zOk=false`). Closed.
 - Smart-guides idea, Build part: the shape-builder body-drag snap now also sticks to the other shapes' middles (`ShapeController.buildSnapBoxes` `mid = true`). Deviation: no plate centre in Build, because the design pose is not tied to the plate. Compiled, untested on device (needs the next CI build).
+
+## 2026-10-29 Build smart-guide middles: WSA VD verified (Claude, local debug build of f01a800)
+- Fixture `~/orca-android-tools/snap-fixture.json` (A 40x10x10 at origin, B 10x10x10 at x 17, y 30). Body drag of B ~16 mm toward A: B pos x 17 -> exactly 0 (A's middle), y/z unchanged. Snap toggle was on (default).
+- Gotchas: a drag that starts on a gizmo handle (blue lift, rings) lifts/rotates instead (z -38, rot 5); start on the body away from rings; `orca-vd.sh swipe` x = screenshot x, y ~ 0.95 x screenshot y. Debug app uninstalled, VD stopped.
