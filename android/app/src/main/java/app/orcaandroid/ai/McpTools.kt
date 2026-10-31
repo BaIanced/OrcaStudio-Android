@@ -1076,7 +1076,11 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         val y = args.optDouble("y").toFloat()
         if (!reset && !(x.isFinite() && y.isFinite())) throw ToolError("x and y must be numbers")
         val summary = if (reset) "reset the prime tower of plate ${plate + 1}" else "moved the prime tower of plate ${plate + 1} to $x, $y"
-        return plateEdit(summary) { store.engine.setWipeTower(plate, if (reset) null else x to y) }
+        val reply = plateEdit(summary) { store.engine.setWipeTower(plate, if (reset) null else x to y) }
+        val t = store.value.scene.plates.getOrNull(plate)?.tower
+        return reply.removeSuffix("Nothing changed on the plates.").trimEnd() + "\n" + if (t == null)
+            "The plate prints no prime tower now (one filament); the position applies once it uses more." else
+            "Prime tower now at x ${t[0]}, y ${t[1]}, ${t[2]} x ${t[3]} mm."
     }
 
     // --- Edit ---------------------------------------------------------------------------------------
