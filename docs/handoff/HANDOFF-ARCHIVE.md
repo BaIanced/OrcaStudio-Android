@@ -3742,3 +3742,7 @@ Object More menu now: Add volume (5 items) and Mesh tools (7 items) collapsible,
 - Slots used as-is (no recolour): band1 slot 1 gold, band2 slot 5 red-orange, band3 slot 7 teal, band4 slot 6 light blue.
   design_to_plate OK; iso shot shows nested tori of linked rings, gold core visible through the blue outer band. Teal band reads dark.
 - Open/ideas: rings are disjoint pieces (print needs a base/ring joiner; print = bonus, user's OK needed); tubes render dark (8 sides).
+- 2026-10-30 (user: "do another random thing on another plate", "more colors"): `hopf/link.py` = torus link T(6,18), 6 braided
+  strands (each a (1,3) torus knot, R 62 / r 24, 8.4 mm tubes, 3.1 mm clearance, 1.08 MB each, parallel-transport tube frame),
+  slots 1,6,5,3,7,2 alternating. New design: builder "+" -> Shape builder; design_to_plate landed on plate 2. Shown on WSA main screen.
+  `send.py` takes MAX=<chars> for longer output.

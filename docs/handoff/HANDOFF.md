@@ -37,7 +37,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
 - **Dimensions overlay** (user 2026-10-30): phases 1-3 + slots ("8 × 24" seen on phone VD r484, archive 2026-10-30). OPEN: tilted-hole label not seen (fixture `slot-test.json`: separate the tilted hole from the slot, recheck; else debug HoleFinder pass 2 with a JVM test). Phone VD recipe in archive (stayon, no WAKEUP after start).
 - Self-portrait demo "The Listening Lantern" (`DEMO-self-portrait.md`): user asked 2026-10-30 if the floating look was intended (no, see archive); waiting for which shot. Possible fix: brighter plinth in the 4-slot JSON, trim book corners.
-- Hopf fibration demo: shown on WSA main screen 2026-10-30 (debug build, plate 1; archive). Open: printable base (bonus, needs user OK).
+- Demos on WSA debug app 2026-10-30: Hopf fibration (plate 1) + 6-colour torus link (plate 2), main screen (archive); uninstall debug when the user is done. Open: printable base (bonus, needs user OK).
 - Next step: tilted-hole label: move it away from the slot in `slot-test.json`, recheck on the phone VD; if still missing debug HoleFinder pass 2 -> Opus 5.5 (high)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
