@@ -34,14 +34,12 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - CAD plan (`NOTES-cad-reuse.md`): 0-5b Claude-verified, 1b parked. MCP efficiency (`NOTES-mcp-token-efficiency.md`): build rule waits for user OK.
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
-- **Dimensions overlay** (user 2026-10-30): phases 1-3, slots, tilted holes seen on phone VD r485; user "looks good" on r485 (archive). r486 hole-label overlap not reproducible (36-view WSA sweep, `dimsweep.sh` + `dimcheck.py`, archive); bbox-vs-bbox overlap nudge done, 36-view sweep clean (archive).
-- Self-portrait demo "The Listening Lantern" (`DEMO-self-portrait.md`): floating look not intended (archive); waiting for the user's shot pick. Fix idea: brighter plinth, trim book corners.
+- Dimensions overlay: user "looks good" r485, overlap nudge done (archive).
+- Self-portrait 3 done 2026-10-31 (archive; zip `Downloads/self-portrait-3.zip` with MEANING.md). Its tool gaps/bugs: backlog "Self-portrait 3 gaps".
 - Demos on WSA debug app 2026-10-30 (Hopf + torus link, archive): uninstall debug when the user is done. Open: printable base (needs user OK).
-- AI print failure watch feasibility note: parked behind the UX audit (needs the user's camera model).
 - **UX audit for Gemini (user 2026-10-31, current focus):** round 3 bundle ready (backlog line); waiting for Gemini's answer from the user. Then verify each item vs source, user picks what to build.
 - S Pen pressure ab552fa (r489 installed everywhere): More > Pen UI checked on WSA VD 2026-10-31 (switch + Soft/Linear/Firm chips, Firm selects, back to Linear); real pressure awaits Note 10+ test (user says when). Gemini round 3 skipped by user 2026-10-31 (still pending).
-- WSA VD quirk (2026-10-31): after any focus loss the first tap only refocuses (empty dump = no focus); tap the empty rail (28,900) then dump. `bash ./mcpao.sh` (not `sh`) from the tools dir.
-- Next step: UX audit round 3 -> wait for Gemini's answer from the user; meanwhile nothing else queued -> Sonnet 5.5 (medium)
+- Next step: UX audit round 3 -> wait for Gemini's answer from the user; else self-portrait gaps (backlog: MCP slot add, tower position, layer slider, bugs) -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
