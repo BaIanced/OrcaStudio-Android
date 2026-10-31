@@ -3775,3 +3775,22 @@ User said "yep looks good" while run 41158738411 (hole labels avoid bbox/wall la
 
 ## 2026-10-30 OrcaMesh M4 release check (Claude, WSA VD, release r487)
 - M4 was already in CI (r479, 55da269); handoff line was stale. Release r487: 20 mm cube (mesh_add + design_to_plate), mesh_edit select top face, fillet 2 -> 108 faces, 1 shell, volume 7934 (exact), "No problems found". Test objects on WSA are throwaway; app force-stopped, VD stopped.
+
+## 2026-10-31 UX review round 2 detail (moved from backlog)
+- Round 2 checked by Claude: real = landscape double left rails + clipped tool rail, landscape right panel truncates filament names, More-list paragraph descriptions, View menu 14 items ungrouped, landscape settings eye travel, sheet cut mid-field at rest height; wrong = phone lacks tool rail, tiny inputs, 'internal Prepare tab', jog controls missing. Missed by Gemini: Layout lab row, tiny speed chips + low-contrast disabled Retract/Extrude. Gemini called the phone landscape PDF a tablet.
+- User 2026-10-31: "we're supposed to be working on ui/ux audit for gemini": audit first, no building ahead of it; Claude's early fixes stashed.
+2026-10-31: r489 (run 41185835878) installed on all 5 adb serials; More > Pen pressure UI verified on WSA VD (Claude only).
+
+## 2026-10-31: Self-portrait 3 (user request, unlimited budget, WSA main window full screen, user recorded it)
+- User: brand-new self-portrait, no ideas from earlier attempts, "what YOU think of YOURSELF", no anthropomorphising, any colours (all PLA), log missing tools/bugs and carry on, don't save/restore the plate.
+- Built on WSA release r489 over MCP (release now has the `orcastudio_mcp` socket on WSA). Design: hyperboloid lattice of 48 straight rods (weights), window band (context edge), 30 voice strands in 10 colours + 4 white (my words), revolved seed with sealed cavity at the waist (colour = linear-light average of the voices), pale spray of 15 alternatives sized by probability, orange chosen word (p 0.60), white loop with 11 beads back into the input (autoregression). 16 slots, all Bambu PLA Basic, custom hex.
+- Scripts: `~/orca-android-tools/sp/` (prims.py, strands.py seed 7, build.py, toplate.py) + `~/orca-android-tools/mcpy.py` (Python MCP client, token read via su in memory). Package `~/Downloads/self-portrait-3.zip` (renders, plate 3MF, design.json, scad, STLs, generator, palette, index.html with @dsCard marker, README, MEANING.md = full part-by-part reading). Claude Design upload blocked: `/design consent` 403, needs `/design-login`.
+- Slot add without MCP: tap the panel's "Filament" button (scroll panel with `input swipe`). Slice fits only at 70 % (16-colour tower ~73 h, 536 g). Gaps/bugs: backlog "Self-portrait 3 gaps". User reaction: not given yet.
+
+## 2026-10-31 handoff trims
+- Dimensions overlay: user "looks good" r485, overlap nudge done (archive).
+- Source fixes 2026-10-31 (committed, not pushed, untested): design_to_plate triangle total, design_set sketch auto-size. Push with the next batch.
+- "Slice result lost after view_set + Preview": not reproducible on r489 WSA (slice, view_set x2, Preview tap: result kept); backlog line updated.
+
+## 2026-10-31 sketch size + triangles (Claude, WSA debug build of 29cb5e2)
+- design_set sketch without size fits its drawing (triangle 30,26 -> size [30,26,20]); design_to_plate Allow tapped on VD, placed OK; triangle count appears only when a piece is freshly rendered (design_set pre-renders), by design.

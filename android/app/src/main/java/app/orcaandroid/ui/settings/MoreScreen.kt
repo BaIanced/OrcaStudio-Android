@@ -191,6 +191,18 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
                 PenActionRow(stringResource(R.string.pen_button1), pen.button1) { vm.setPen(pen.copy(button1 = it)) }
                 PenActionRow(stringResource(R.string.pen_button2), pen.button2) { vm.setPen(pen.copy(button2 = it)) }
                 PenActionRow(stringResource(R.string.pen_eraser), pen.eraser) { vm.setPen(pen.copy(eraser = it)) }
+                SwitchRow(stringResource(R.string.pen_pressure), pen.pressure, onChange = { vm.setPen(pen.copy(pressure = it)) })
+                if (pen.pressure) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(R.string.pen_curve), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                    app.orcaandroid.core.PressureCurve.entries.forEach { c ->
+                        androidx.compose.material3.FilterChip(pen.curve == c, { vm.setPen(pen.copy(curve = c)) },
+                            { Text(stringResource(when (c) {
+                                app.orcaandroid.core.PressureCurve.SOFT -> R.string.pen_curve_soft
+                                app.orcaandroid.core.PressureCurve.LINEAR -> R.string.pen_curve_linear
+                                app.orcaandroid.core.PressureCurve.FIRM -> R.string.pen_curve_firm
+                            })) }, Modifier.padding(start = 4.dp))
+                    }
+                }
                 Text(stringResource(R.string.pen_text), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 

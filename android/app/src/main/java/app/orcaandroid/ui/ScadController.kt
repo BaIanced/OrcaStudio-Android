@@ -753,8 +753,10 @@ class ScadController(private val store: Store) {
         val files = withContext(Dispatchers.IO) { ScadDeps.collect(s.source, s.file) }
         val name = placePieces(shapes, pieces, stls, if (asNew) null else s.onPlate,
             ScadDesign(s.name, s.source, s.values, files, shapes, pieces = true))
+        // Cached pieces weren't rendered this time, so count the whole design from the piece files.
+        val total = withContext(Dispatchers.IO) { stls.distinctBy { it.path }.sumOf { app.orcaandroid.scad.Stl.count(it) ?: 0 } }
         val status = if (rendered == 0) store.str(R.string.scad_placed)
-            else store.str(R.string.scad_rendered, "%,d".format(triangles), "%.1f".format(millis / 1000.0))
+            else store.str(R.string.scad_rendered, "%,d".format(maxOf(triangles, total)), "%.1f".format(millis / 1000.0))
         set { it.copy(onPlate = name, status = status, statusError = false) }
         saveDraft()
         prunePieces()

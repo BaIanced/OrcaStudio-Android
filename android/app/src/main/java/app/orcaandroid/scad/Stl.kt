@@ -40,6 +40,12 @@ object Stl {
         return out
     }
 
+    /** The triangle count of a binary STL from its header alone; null for ASCII or a missing file. */
+    fun count(file: File): Int? {
+        if (!binary(file)) return null
+        return ((file.length() - 84) / 50).toInt()
+    }
+
     private fun binary(file: File): Boolean {
         val len = file.length()
         return len >= 84 && file.inputStream().use { input ->

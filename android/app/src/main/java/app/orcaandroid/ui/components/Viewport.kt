@@ -333,16 +333,16 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                         }
                     }
                     private var strokeStart = 0f to 0f
-                    override fun onPaint(x: Float, y: Float, newStroke: Boolean) {
+                    override fun onPaint(x: Float, y: Float, newStroke: Boolean, pressure: Float) {
                         if (newStroke) strokeStart = x to y
                         if (vm.state.value.tool is Tool.Sculpt) {
                             val (o, d) = v.camera.ray(x, y)
-                            vm.scene.sculptAt(o, d, newStroke)
+                            vm.scene.sculptAt(o, d, newStroke, pressure)
                             return
                         }
                         val lock = (vm.state.value.tool as? Tool.Paint)?.lock
                         val (o, d) = v.camera.ray(if (lock == "v") strokeStart.first else x, if (lock == "h") strokeStart.second else y)
-                        vm.scene.paintAt(o, d, v.camera.eye(), newStroke, v.section.current)
+                        vm.scene.paintAt(o, d, v.camera.eye(), newStroke, v.section.current, pressure)
                     }
                     override fun onPaintEnd() { vm.scene.sculptEnd(); vm.scene.paintEnd() }
                     override fun onPaintHover(x: Float, y: Float, inside: Boolean) {

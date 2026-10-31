@@ -588,7 +588,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
     fun measureSelect(index: Int?) = store.update { it.copy(measureActive = index?.takeIf { i -> i in it.measure.indices }) }
 
     private val paintLock = Mutex()
-    private class PaintSample(val origin: Vec3, val dir: Vec3, val camera: Vec3, val newStroke: Boolean, val section: FloatArray?)
+    private class PaintSample(val origin: Vec3, val dir: Vec3, val camera: Vec3, val newStroke: Boolean, val section: FloatArray?, val pressure: Float)
     private val pendingPaint = ArrayDeque<PaintSample>()
     /** A stroke began but none of its samples hit yet: its first hit takes the undo snapshot. Guarded by [paintLock]. */
     private var strokePending = false
@@ -603,10 +603,10 @@ class SceneController(private val store: Store, private val presets: PresetContr
      * one paint per sample fell further and further behind the finger, since each pass rebuilds the whole paint mesh
      * (user r314).
      */
-    fun paintAt(origin: Vec3, dir: Vec3, camera: Vec3, newStroke: Boolean, section: FloatArray? = null) {
+    fun paintAt(origin: Vec3, dir: Vec3, camera: Vec3, newStroke: Boolean, section: FloatArray? = null, pressure: Float = 1f) {
         val tool = (store.value.tool as? Tool.Paint)?.takeIf { it.shape != "gap" } ?: return
         if (newStroke) paintDown = true
-        synchronized(pendingPaint) { pendingPaint.addLast(PaintSample(origin, dir, camera, newStroke, section)) }
+        synchronized(pendingPaint) { pendingPaint.addLast(PaintSample(origin, dir, camera, newStroke, section, pressure)) }
         if (paintLock.isLocked) return
         store.launch {
             paintLock.withLock {
@@ -660,7 +660,9 @@ class SceneController(private val store: Store, private val presets: PresetContr
                     if (hits.isEmpty()) continue
                     if (paintDown && brushRing(tool)) sculptCursor.value = hits.last().let { it.point to it.normal }
                     val last = batch.last()
-                    store.applyScene(engine.paint(hits, last.camera, tool.radius, tool.kind, tool.state, strokePending, last.section, joins, tool.edgeAngle,
+                    // Pen pressure sizes round brushes (mean over the batch; a light touch still paints at 15 %).
+                    val radius = if (tool.shape == "sphere" || tool.shape == "circle") tool.radius * (0.15f + 0.85f * batch.map { it.pressure }.average().toFloat()) else tool.radius
+                    store.applyScene(engine.paint(hits, last.camera, radius, tool.kind, tool.state, strokePending, last.section, joins, tool.edgeAngle,
                         tool.shape, tool.height, tool.overhang, tool.guardZ.takeIf { tool.guardOn }, locked = tool.locked))
                     strokePending = false
                 }
@@ -896,7 +898,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
 
     /** The live sculpt's changed triangles, for the 3D view to copy into its scene buffer. */
     val meshPatches = kotlinx.coroutines.flow.MutableSharedFlow<MeshPatch>(extraBufferCapacity = 64)
-    private class SculptSample(val origin: Vec3, val dir: Vec3, val newStroke: Boolean, val end: Boolean)
+    private class SculptSample(val origin: Vec3, val dir: Vec3, val newStroke: Boolean, val end: Boolean, val pressure: Float = 1f)
     private val pendingSculpt = ArrayDeque<SculptSample>()
     /** The part this stroke sculpts (picked at its first sample), or null before / without a hit. Guarded by [paintLock]. */
     private var sculptTarget: PickHit? = null
@@ -911,7 +913,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
      * Sculpt sample from the 3D view, queued like [paintAt]: every sample that waited while the engine worked goes into
      * the next call. The engine hits the rays on the part as sculpted so far and sends back only the changed triangles.
      */
-    fun sculptAt(origin: Vec3, dir: Vec3, newStroke: Boolean) = queueSculpt(SculptSample(origin, dir, newStroke, false))
+    fun sculptAt(origin: Vec3, dir: Vec3, newStroke: Boolean, pressure: Float = 1f) = queueSculpt(SculptSample(origin, dir, newStroke, false, pressure))
 
     /** The finger lifted: the stroke's mesh goes into the part (and the scene, its outline and slicing). */
     fun sculptEnd() = queueSculpt(SculptSample(Vec3.ZERO, Vec3.ZERO, false, true))
@@ -969,7 +971,9 @@ class SceneController(private val store: Store, private val presets: PresetContr
                     val rays = batch.filter { !it.end }.map { it.origin to it.dir }
                     if (target != null && tool != null && rays.isNotEmpty()) {
                         val t0 = android.os.SystemClock.elapsedRealtime()
-                        val step = engine.sculpt(target, rays, tool.brush, tool.radius, tool.strength, tool.invert, first.newStroke, mirror = tool.mirror)
+                        // Pen pressure scales the strength (mean over the batch, floor 5 % so a light touch still marks).
+                        val strength = tool.strength * batch.filter { !it.end }.map { it.pressure }.average().toFloat().coerceAtLeast(0.05f)
+                        val step = engine.sculpt(target, rays, tool.brush, tool.radius, strength, tool.invert, first.newStroke, mirror = tool.mirror)
                         android.util.Log.d("OrcaSculpt", "${rays.size} ray(s) ${android.os.SystemClock.elapsedRealtime() - t0} ms, patch ${step.patch?.counts?.sum() ?: 0} tris")
                         step.scene?.let { store.applyScene(it) }
                         step.patch?.let { meshPatches.tryEmit(it) }
