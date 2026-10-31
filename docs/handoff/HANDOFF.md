@@ -37,7 +37,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **Dimensions overlay** (user 2026-10-30): phases 1-3, slots, tilted holes seen on phone VD r485; user "looks good" on r485 (archive). r486 hole-label overlap not reproducible (36-view WSA sweep, `dimsweep.sh` + `dimcheck.py`, archive); bbox-vs-bbox overlap nudge done, 36-view sweep clean (archive). Phone VD recipe in archive.
 - Self-portrait demo "The Listening Lantern" (`DEMO-self-portrait.md`): floating look not intended (archive); waiting for the user's shot pick. Fix idea: brighter plinth, trim book corners.
 - Demos on WSA debug app 2026-10-30 (Hopf + torus link, archive): uninstall debug when the user is done. Open: printable base (needs user OK).
-- Next step: Sculpt mode open items (paint overlay at stroke end, grab on the plane), Claude-tested on WSA VD -> Opus 5.5 (high)
+- Next step: offer the user a main merge (r474-r487: OrcaMesh M1-M4, dimensions overlay, CAD 7d, all Claude-verified, user-untested; list in NOTES-merge-batch.md) -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).

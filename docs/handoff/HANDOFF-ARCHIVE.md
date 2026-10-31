@@ -3766,3 +3766,12 @@ User said "yep looks good" while run 41158738411 (hole labels avoid bbox/wall la
 
 ## 2026-10-30 bbox label overlap nudge (Claude, WSA VD, debug build + temporary log)
 - `DimensionOverlay.kt dim()`: a bbox label that hits an earlier label's rect steps outward along its extension line on screen (up to 4 steps). 36-view `dimsweep.sh` + `dimcheck.py` (scale 1.75): no overlaps incl. yaw 150 / pitch 45. Log reverted; compiled. Not yet in a CI build; user untested.
+
+## 2026-10-30 Sculpt leftovers parked (Claude)
+- Paint overlay follows only at stroke end, exact bump positions on a face, grab on the symmetry plane: judged low value (native change, CI-only), not built. Reopen only if the user hits one.
+
+## 2026-10-30 CAD 7d closed (Claude)
+- Handoff line was stale: 7d core, group Scale % field, size slider all built and the slider WSA VD-verified (dd8f656). Group Scale % field itself is unit-tested only.
+
+## 2026-10-30 OrcaMesh M4 release check (Claude, WSA VD, release r487)
+- M4 was already in CI (r479, 55da269); handoff line was stale. Release r487: 20 mm cube (mesh_add + design_to_plate), mesh_edit select top face, fillet 2 -> 108 faces, 1 shell, volume 7934 (exact), "No problems found". Test objects on WSA are throwaway; app force-stopped, VD stopped.
