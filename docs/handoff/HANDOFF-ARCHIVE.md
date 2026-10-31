@@ -3746,3 +3746,8 @@ Object More menu now: Add volume (5 items) and Mesh tools (7 items) collapsible,
   strands (each a (1,3) torus knot, R 62 / r 24, 8.4 mm tubes, 3.1 mm clearance, 1.08 MB each, parallel-transport tube frame),
   slots 1,6,5,3,7,2 alternating. New design: builder "+" -> Shape builder; design_to_plate landed on plate 2. Shown on WSA main screen.
   `send.py` takes MAX=<chars> for longer output.
+
+## 2026-10-30 Tilted-hole label: cause found + fixed (commit after 6daf894, CI run 41155145884; not seen on a device yet)
+- Phone `cache/tmp/scene_mesh.bin` (obj 4096 = slot-test.json part, 252 tris) saved as `android/app/src/test/resources/slot-test-mesh.bin`; HoleFinder finds both: slot 8 x 24 and the tilted hole ⌀6 with dir z = cos 15 deg. Regression test `findsTheTiltedHoleInADesignedPart` (6/6 JVM).
+- So the label was dropped by the overlap check against the slot label (the ring draws before that check). Fix (`DimensionOverlay.kt`): label inside the ring, else right / left / below / above the ring's screen bounds; skipped only if all 5 collide. Claude JVM + compile only.
+- Tip: a scene mesh for JVM tests = `adb exec-out su -c "cat /data/data/<pkg>/cache/tmp/scene_mesh.bin"`, filter by column 6 (object id) with numpy.

@@ -15,7 +15,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = de0e3fa (PR #67, branch at run 41012656080 = r473 + push/pull tier 2, merged 2026-10-30 on /next-merge; user-untested, Claude-verified only). User-untested in main: list in `NOTES-merge-batch.md`.
 - Signing secrets: `release` environment (main + `claude/*` only).
-- Latest installed CI build: run 41148494179 (r484: slots + tilted holes + r483 designer) on all 5 adb serials incl. phone, 2026-10-30. User feel untested. Install builds on all adb devices (skip .23).
+- Latest installed CI build: r484 (run 41148494179) on all 5 adb serials, 2026-10-30; r485 (run 41155145884, hole-label fix) building. Install builds on all adb devices (skip .23).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **User 2026-10-28: no more user testing for now; Claude builds and tests everything itself (memory no-user-testing-now); don't ask for feel/UI checks.**
 - **User 2026-10-29: no tests on the user's screen; all tests on a hidden virtual display** (`TARGET=wsa orca-vd.sh start`, memory tests-on-virtual-display).
@@ -32,13 +32,12 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **Offload (user 2026-10-25/26): max token use onto free opencode models, growing leeway by track record** (Claude specs + verifies).
   DeepSeek V4.1 Flash = default; runner `octauto.sh` (`D:\oct-backup\jobs\README.md`; opencode v2: `model#variant`), ledger `trust-profile.md`.
 - CAD plan (`NOTES-cad-reuse.md`): 0-5b Claude-verified, 1b parked. MCP efficiency (`NOTES-mcp-token-efficiency.md`): build rule waits for user OK.
-- Gate: user sessions B-D paused 2026-10-28; release gated on the printer set.
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
-- **Dimensions overlay** (user 2026-10-30): phases 1-3 + slots ("8 × 24" seen on phone VD r484, archive 2026-10-30). OPEN: tilted-hole label not seen (fixture `slot-test.json`: separate the tilted hole from the slot, recheck; else debug HoleFinder pass 2 with a JVM test). Phone VD recipe in archive (stayon, no WAKEUP after start).
-- Self-portrait demo "The Listening Lantern" (`DEMO-self-portrait.md`): user asked 2026-10-30 if the floating look was intended (no, see archive); waiting for which shot. Possible fix: brighter plinth in the 4-slot JSON, trim book corners.
-- Demos on WSA debug app 2026-10-30: Hopf fibration (plate 1) + 6-colour torus link (plate 2), main screen (archive); uninstall debug when the user is done. Open: printable base (bonus, needs user OK).
-- Next step: tilted-hole label: move it away from the slot in `slot-test.json`, recheck on the phone VD; if still missing debug HoleFinder pass 2 -> Opus 5.5 (high)
+- **Dimensions overlay** (user 2026-10-30): phases 1-3 + slots seen on phone VD; tilted-hole label fix in r485 (archive 2026-10-30), OPEN: see "⌀6" on the phone VD. Phone VD recipe in archive.
+- Self-portrait demo "The Listening Lantern" (`DEMO-self-portrait.md`): floating look not intended (archive); waiting for the user's shot pick. Fix idea: brighter plinth, trim book corners.
+- Demos on WSA debug app 2026-10-30 (Hopf + torus link, archive): uninstall debug when the user is done. Open: printable base (needs user OK).
+- Next step: install r485 (run 41155145884) on all adb devices, phone VD + `slot-test.json` + View > Dimensions: both labels "8 × 24" and "⌀6" visible -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
