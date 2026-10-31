@@ -3728,3 +3728,7 @@ Object More menu now: Add volume (5 items) and Mesh tools (7 items) collapsible,
 - `DimensionOverlay.kt`: outline drawn in the hole's own plane (stadium from `major` x `dir`), label "w × l" for slots, "⌀d" round.
 - Tests added: slots (along X, turned 30 deg, pill peg rejected) and a tilted box (Y 25 / X 15 deg) with a round hole and a slot. Not seen on a device yet.
 - User asked 2026-10-30 whether the Lantern "floating" look was intended: no; geometry connects to the plinth at z 0; likely the indigo plinth on the phone's dark bed (4-slot remap) plus book corners overhanging the plinth top by a few mm. Awaiting which shot.
+
+## 2026-10-30 r484 (run 41148494179): slots seen, tilted hole label not seen
+- CI r484 (slots + tilted holes aefd86b + r483 designer) installed on all 5 adb devices. Phone VD (Dozing blocks taps; fix: `svc power stayon true` via su, stop + start the VD with the phone awake, never WAKEUP after start: that pauses the app; revert stayon false + SLEEP after).
+- MCP `design_set` /tmp-style fixture `~/orca-android-tools/slot-test.json` (60x40x14 box, stadium slot from 2 cylinders + box hole, tilted 6 mm cylinder hole rot X 15) -> `design_to_plate` (needs the in-app Allow tap) -> View (camera icon) > Dimensions: slot label "8 × 24" + outline render on the slot; bbox 60/40/14 fine. Tilted hole drew a ring but NO label seen (maybe suppressed by label overlap with the slot label, or pass 2 missed it). Claude test, user untested.

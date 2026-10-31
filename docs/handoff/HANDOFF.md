@@ -15,7 +15,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = de0e3fa (PR #67, branch at run 41012656080 = r473 + push/pull tier 2, merged 2026-10-30 on /next-merge; user-untested, Claude-verified only). User-untested in main: list in `NOTES-merge-batch.md`.
 - Signing secrets: `release` environment (main + `claude/*` only).
-- Latest installed CI build: run 41141064126 (r483, `settings_edit` slot_colour; r482 designer) on all 5 adb serials incl. phone, 2026-10-30. User feel untested. Install builds on all adb devices (skip .23).
+- Latest installed CI build: run 41148494179 (r484: slots + tilted holes + r483 designer) on all 5 adb serials incl. phone, 2026-10-30. User feel untested. Install builds on all adb devices (skip .23).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **User 2026-10-28: no more user testing for now; Claude builds and tests everything itself (memory no-user-testing-now); don't ask for feel/UI checks.**
 - **User 2026-10-29: no tests on the user's screen; all tests on a hidden virtual display** (`TARGET=wsa orca-vd.sh start`, memory tests-on-virtual-display).
@@ -37,10 +37,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - Fixture `rep-groups.json` (MCP `design_set`). VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78.
 - OrcaMesh edit M1-M4: Claude-verified, r479 installed (archive 2026-10-30).
-- **Dimensions overlay** (user 2026-10-30): phases 1-3 seen on the phone VD r480 (archive 2026-10-30). Slots + tilted holes built aefd86b (JVM tests 5/5, archive 2026-10-30), no CI build yet, not seen on a device: needs a build, then check on phone/Note VD with a slotted or tilted part in Prepare. Phone over Tailscale adb: `adb connect <tailnet ip>:5555`, `MCP_DEV=<serial>`.
-- **Theme | Layout designer**: docked/float/Layout tab Claude-verified on WSA VD, narrow screens start floating (archive 2026-10-30); needs a CI build to reach devices, user feel untested.
+- **Dimensions overlay** (user 2026-10-30): phases 1-3 + slots ("8 × 24" seen on phone VD r484, archive 2026-10-30). OPEN: tilted-hole label not seen (fixture `slot-test.json`: separate the tilted hole from the slot, recheck; else debug HoleFinder pass 2 with a JVM test). Phone VD recipe in archive (stayon, no WAKEUP after start).
+- **Theme | Layout designer**: Claude-verified on WSA VD (archive 2026-10-30), r484 installed; user feel untested.
 - Self-portrait demo "The Listening Lantern" (`DEMO-self-portrait.md`): user asked 2026-10-30 if the floating look was intended (no, see archive); waiting for which shot. Possible fix: brighter plinth in the 4-slot JSON, trim book corners.
-- Next step: dispatch a CI build (slots/tilted holes + r483 designer), install on all adb devices, check the overlay on a slotted/tilted part on the phone VD -> Sonnet 5.5 (medium)
+- Next step: tilted-hole label: move it away from the slot in `slot-test.json`, recheck on the phone VD; if still missing debug HoleFinder pass 2 -> Opus 5.5 (high)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
