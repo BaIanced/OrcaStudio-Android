@@ -3794,3 +3794,6 @@ User said "yep looks good" while run 41158738411 (hole labels avoid bbox/wall la
 
 ## 2026-10-31 sketch size + triangles (Claude, WSA debug build of 29cb5e2)
 - design_set sketch without size fits its drawing (triangle 30,26 -> size [30,26,20]); design_to_plate Allow tapped on VD, placed OK; triangle count appears only when a piece is freshly rendered (design_set pre-renders), by design.
+
+## 2026-10-31 notice Fix links + danger confirm (Claude)
+- Commit 'Notices: Fix links...' (local): SettingGuards.kt (noticeFix table, dangerRule), Notices.kt FixLink per line (printer notice: Open printer -> Device), SettingsEditor.kt guardedSet + DangerDialog (cancel bumps resetTick to re-key rows and drop typed text), AppSettings.dangerMutes (project name, '' = untitled), PresetController.dangerMuted/muteDanger. SettingGuardsTest passes. HD plate slider backlog line folded into the open test line.

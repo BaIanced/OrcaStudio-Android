@@ -38,7 +38,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Debug app on WSA: tested 2026-10-31, uninstall when the user is done. Demos on WSA debug app 2026-10-30 (Hopf + torus link, archive): uninstall debug when the user is done. Open: printable base (needs user OK).
 - UX audit / Gemini round 3: **lowest priority (user 2026-10-31)**; only act if the user brings Gemini's answer (backlog line).
 - S Pen pressure ab552fa (r489 installed everywhere): More > Pen UI checked on WSA VD 2026-10-31 (switch + Soft/Linear/Firm chips, Firm selects, back to Linear); real pressure awaits Note 10+ test (user says when). Gemini round 3 skipped by user 2026-10-31 (still pending).
-- Next step: Fix links on notices + danger double-confirm + per-project mute (backlog "User asks 2026-10-31"), then CI + WSA VD test incl. HD plate slider, tower text, headings -> Opus 5.5 (high)
+- Notice Fix links + danger double-confirm + per-project mute: coded, compiles, unit tests pass, **committed locally, not pushed** (gh token invalid 2026-10-31; user must `gh auth login`). Backlog "User asks 2026-10-31" lists what to test. Backlog is 13.5 KB: trim to ~10 KB (move history to archive).
+- Next step: push + CI + WSA VD test of notice Fix links, danger dialog, headings, HD plate slider, tower text (backlog "User asks 2026-10-31") -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
