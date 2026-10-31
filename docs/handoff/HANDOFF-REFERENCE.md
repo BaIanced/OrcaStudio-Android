@@ -78,7 +78,7 @@ headless display below instead (no takeover needed). Don't drive WSA's own windo
 - **MCP on WSA:** never `adb forward tcp:X tcp:Y` (WSA routes Android loopback to Windows; the forward loops and wedges
   adb: kill adb.exe). Use `adb forward tcp:8765 localabstract:orcastudio_mcp`. Token: `su -c 'cat .../shared_prefs/app_settings.xml'`
   into a variable, never print it. Run adb calls in PowerShell jobs with timeouts while testing sockets.
-- WSA -> LAN printer: run `wsa-lan.ps1 <printer-ip>` after each WSA start. Safe print-dialog test:
+- WSA -> LAN printer: run `wsa-lan.ps1` (no args = whole LAN subnet) after each WSA start (WSA design: only its gateway answers ARP; verified 2026-10-30). Safe print-dialog test:
   `iptables -I OUTPUT -d <ip> -p tcp --dport 990 -j REJECT` (root), Print, Cancel, `iptables -D ...`.
 - Held drags on WSA: `input motionevent` and sendevent do nothing; for a mid-drag shot run `adb shell input swipe x0 y0 x1 y1 5000 &`, then `exec-out screencap` ~3.5 s later (2026-10-25).
 - Closing the WSA window (`CloseMainWindow()` on the "OrcaStudio-Android" window) runs onStop (saves the session).
