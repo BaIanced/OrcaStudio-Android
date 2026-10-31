@@ -15,7 +15,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = de0e3fa (PR #67, branch at run 41012656080 = r473 + push/pull tier 2, merged 2026-10-30 on /next-merge; user-untested, Claude-verified only). User-untested in main: list in `NOTES-merge-batch.md`.
 - Signing secrets: `release` environment (main + `claude/*` only).
-- Latest installed CI build: r484 (run 41148494179) on all 5 adb serials, 2026-10-30; r485 (run 41155145884, hole-label fix) building. Install builds on all adb devices (skip .23).
+- Latest installed CI build: r485 (run 41155145884, hole-label fix) on all 5 adb serials, 2026-10-30. Install builds on all adb devices (skip .23).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **User 2026-10-28: no more user testing for now; Claude builds and tests everything itself (memory no-user-testing-now); don't ask for feel/UI checks.**
 - **User 2026-10-29: no tests on the user's screen; all tests on a hidden virtual display** (`TARGET=wsa orca-vd.sh start`, memory tests-on-virtual-display).
@@ -34,10 +34,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - CAD plan (`NOTES-cad-reuse.md`): 0-5b Claude-verified, 1b parked. MCP efficiency (`NOTES-mcp-token-efficiency.md`): build rule waits for user OK.
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
-- **Dimensions overlay** (user 2026-10-30): phases 1-3 + slots seen on phone VD; tilted-hole label fix in r485 (archive 2026-10-30), OPEN: see "⌀6" on the phone VD. Phone VD recipe in archive.
+- **Dimensions overlay** (user 2026-10-30): phases 1-3, slots, tilted holes all seen on phone VD r485 (archive 2026-10-30), user untested. Open polish: hole labels over bbox labels (backlog). Phone VD recipe in archive.
 - Self-portrait demo "The Listening Lantern" (`DEMO-self-portrait.md`): floating look not intended (archive); waiting for the user's shot pick. Fix idea: brighter plinth, trim book corners.
 - Demos on WSA debug app 2026-10-30 (Hopf + torus link, archive): uninstall debug when the user is done. Open: printable base (needs user OK).
-- Next step: install r485 (run 41155145884) on all adb devices, phone VD + `slot-test.json` + View > Dimensions: both labels "8 × 24" and "⌀6" visible -> Sonnet 5.5 (medium)
+- Next step: Dimensions overlay: keep hole labels off the bbox/wall labels (backlog), check on phone VD with `slot-test.json` -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
