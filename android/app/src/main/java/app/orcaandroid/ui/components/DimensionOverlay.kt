@@ -77,6 +77,8 @@ fun DimensionOverlay(view: PlateView?, copyKey: Any?, thinnest: suspend () -> Pa
         // Away from the box centre on the floor plane.
         fun out(p: Vec3, x: Boolean, y: Boolean) = Vec3(if (x) (if (p.x >= center.x) gap else -gap) else 0f, if (y) (if (p.y >= center.y) gap else -gap) else 0f, 0f)
 
+        // Label rects drawn so far; hole labels avoid them.
+        val taken = ArrayList<Rect>()
         fun dim(a: Vec3, b: Vec3, off: Vec3, color: Color, mm: Float) {
             val a2 = a + off
             val b2 = b + off
@@ -98,6 +100,7 @@ fun DimensionOverlay(view: PlateView?, copyKey: Any?, thinnest: suspend () -> Pa
             val t = measurer.measure("%.1f".format(mm), labelStyle)
             val pad = 4.dp.toPx()
             val tl = mid - Offset(t.size.width / 2f, t.size.height / 2f)
+            taken += Rect(tl - Offset(pad, pad / 2), Size(t.size.width + 2 * pad, t.size.height + pad))
             drawRoundRect(color.copy(alpha = 0.85f), tl - Offset(pad, pad / 2), Size(t.size.width + 2 * pad, t.size.height + pad), CornerRadius(pad))
             drawText(t, topLeft = tl)
         }
@@ -123,6 +126,7 @@ fun DimensionOverlay(view: PlateView?, copyKey: Any?, thinnest: suspend () -> Pa
         val t = measurer.measure(String.format(java.util.Locale.ROOT, "wall %.2f", w.second).trimEnd('0').trimEnd('.'), labelStyle)
         val pad = 4.dp.toPx()
         val tl = sp + Offset(10.dp.toPx(), -t.size.height / 2f)
+        taken += Rect(tl - Offset(pad, pad / 2), Size(t.size.width + 2 * pad, t.size.height + pad))
         drawRoundRect(pink.copy(alpha = 0.9f), tl - Offset(pad, pad / 2), Size(t.size.width + 2 * pad, t.size.height + pad), CornerRadius(pad))
         drawText(t, topLeft = tl)
         }
@@ -138,7 +142,6 @@ fun DimensionOverlay(view: PlateView?, copyKey: Any?, thinnest: suspend () -> Pa
         }
         val amber = Color(0xFFFFA000)
         val eye = cam.eye()
-        val taken = ArrayList<Rect>()
         for (h in found.holes.sortedByDescending { it.length }) {
             val a = live(h.lo)
             val b = live(h.hi)
