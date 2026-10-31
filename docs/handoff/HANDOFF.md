@@ -37,7 +37,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **Dimensions overlay** (user 2026-10-30): phases 1-3, slots, tilted holes seen on phone VD r485; user "looks good" on r485 (archive). r486 hole-label overlap not reproducible (36-view WSA sweep, `dimsweep.sh` + `dimcheck.py`, archive); bbox-vs-bbox overlap nudge done, 36-view sweep clean (archive). Phone VD recipe in archive.
 - Self-portrait demo "The Listening Lantern" (`DEMO-self-portrait.md`): floating look not intended (archive); waiting for the user's shot pick. Fix idea: brighter plinth, trim book corners.
 - Demos on WSA debug app 2026-10-30 (Hopf + torus link, archive): uninstall debug when the user is done. Open: printable base (needs user OK).
-- Next step: pick the next open item from the backlog (grep it); merge offer cleared (PR #68) -> Sonnet 5.5 (medium)
+- Backlog audit 2026-10-30: every remaining item needs the user's feel check, a printer, or a design OK; nothing left for Claude alone except the AI print failure watch feasibility note (backlog Ideas; needs the user's camera model + OK).
+- Next step: AI print failure watch feasibility note (Obico-style local detector, no LLM loop) -> Opus 5.5 (high); ask the user for the camera model first
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
