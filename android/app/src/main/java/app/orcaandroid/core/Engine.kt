@@ -145,6 +145,24 @@ class Engine(private val cacheDir: File) {
         return SculptStep(scene, patch, o.optBoolean("hit"), cursor)
     }
     suspend fun sculptEnd() = parseScene(call("sculptEnd"))
+    /**
+     * Mesh edit mode on [target]'s part (OrcaMeshEdit.cpp): [op] "select" (the [kind] vertex / edge / face feature under
+     * world [ray]; [angle] crease limit in degrees, 0 = raw triangles; [toggle] adds / removes), "clear", "all", "grow", "move"
+     * (world 4x4 [matrix], row-major, about the selection's pivot at the drag's start), "extrude" (walls around the selected
+     * faces, then moves the cap by [matrix] like "move"; "end" closes it, at zero height it is taken back), "inset" (the cap's
+     * border pulled [amount] mm in; ends at once), "cut" (the plane through the [ray]'s hit across world [axis], default Z,
+     * splits the band there into a vertex ring, selected; ends at once) or "end" (writes the mesh, returns the scene).
+     */
+    suspend fun meshEdit(target: PickHit, op: String, ray: Pair<Vec3, Vec3>? = null, kind: String = "face", angle: Float = 30f,
+                         toggle: Boolean = false, matrix: List<Double>? = null, reach: Float = 2f, amount: Float = 0f,
+                         axis: List<Double>? = null): MeshEditStep {
+        val o = call("meshEdit", args("object" to target.obj, "instance" to target.instance, "volume" to target.volume, "op" to op,
+            "ray" to ray?.let { (a, d) -> listOf(a.x, a.y, a.z, d.x, d.y, d.z).map { it.toDouble() } }, "kind" to kind, "angle" to angle,
+            "toggle" to toggle, "matrix" to matrix, "reach" to reach, "amount" to amount, "axis" to axis))
+        val scene = if (o.has("objects")) parseScene(o) else null
+        val patch = o.optString("patch").takeIf { it.isNotEmpty() }?.let { MeshPatch.load(it, o.getInt("mesh_version")) }
+        return MeshEditStep(scene, patch, o.optJSONObject("selection") ?: JSONObject())
+    }
     suspend fun hollowObject(obj: Int, instance: Int, wall: Float) =
         parseScene(call("hollowObject", args("object" to obj, "instance" to instance, "wall" to wall)))
     suspend fun smoothBlend(obj: Int, instance: Int, radius: Float) =

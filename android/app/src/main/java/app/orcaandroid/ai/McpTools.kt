@@ -2,6 +2,8 @@ package app.orcaandroid.ai
 
 import app.orcaandroid.R
 import app.orcaandroid.core.Instance
+import app.orcaandroid.core.PickHit
+import app.orcaandroid.core.meshEditMatrix
 import app.orcaandroid.core.Scene
 import app.orcaandroid.core.Vec3
 import app.orcaandroid.scad.Bounds
@@ -10,6 +12,7 @@ import app.orcaandroid.scad.Repeat
 import app.orcaandroid.scad.Shape
 import app.orcaandroid.scad.ShapeDesign
 import app.orcaandroid.scad.Sketch
+import app.orcaandroid.scad.Stl
 import app.orcaandroid.ui.PresetController
 import app.orcaandroid.ui.Screen
 import app.orcaandroid.ui.ScadController
@@ -17,6 +20,8 @@ import app.orcaandroid.ui.ShapeController
 import app.orcaandroid.ui.SliceController
 import app.orcaandroid.ui.preview.ROLE_NAMES
 import app.orcaandroid.ui.Store
+import java.io.File
+import java.security.MessageDigest
 import kotlin.math.sqrt
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -66,6 +71,10 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             "of the others on the workplane. Returns its id in the tree. $EDIT",
             obj(listOf("kind"), "kind" to p("string", "box, rounded_box, cylinder, prism, cone, pyramid, sphere, dome, torus, tube, wedge, text, sketch"),
                 *FIELDS)) { add(it) },
+        Tool("mesh_add", "Edit: adds a mesh shape from STL data (e.g. a generated surface) at its own size and selects it. " +
+            "The file is kept in the app's mesh folder, so design_set may reuse its path (design_get shows it). Requests are " +
+            "capped at 4 MB and base64 adds a third: keep each STL under ~2.5 MB and split bigger models into several meshes. $EDIT",
+            obj(listOf("stl"), "stl" to p("string", "The STL file (binary or ASCII), base64"), *FIELDS)) { meshAdd(it) },
         Tool("shape_update", "Edit: changes the given fields of shape id; others stay. A field bound to a dim changes " +
             "the dim (and every shape following it). $EDIT", obj(listOf("id"), "id" to p("integer", "Shape id"), *FIELDS)) { update(it) },
         Tool("shape_delete", "Edit: deletes shapes (a group left empty goes too). $EDIT", obj(listOf("ids"), "ids" to ids())) { args ->
@@ -181,6 +190,22 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             obj(listOf("origin", "dir", "brush"), "origin" to vec("Ray origin in plate coordinates"), "dir" to vec("Ray direction"),
                 "brush" to p("string", "draw, inflate, smooth, flatten, pinch, crease or grab"), "radius" to p("number", "Brush radius in mm; default 5"),
                 "strength" to p("number", "0..1; default 0.5"), "invert" to p("boolean", "Dent instead of bulge"), "mirror" to p("string", "Symmetry: also dab across the part's own middle planes, e.g. x or xz"), "dabs" to p("integer", "Repeat count 1..50; default 1 (one stroke: draw, inflate and crease do not build up within it)"))) { sculpt(it) },
+        Tool("mesh_edit", "Mesh edit mode (vertex / edge / face): a ray selects the feature under it on that part (face = crease-bounded " +
+            "region, edge = crease line, vertex = corner); the selection stays for later calls. move / scale / rotate then transform the " +
+            "selected vertices about their centroid (neighbouring triangles stretch; painting is removed). Replies with the selection " +
+            "(count, centroid, normal); a transform also with what changed. $PLATE_EDIT",
+            obj(emptyList(), "origin" to vec("Ray origin in plate coordinates (select)"), "dir" to vec("Ray direction (select)"),
+                "op" to p("string", "select (default with a ray), clear, all (every vertex of the part), grow (adds the neighbouring vertices), " +
+                    "extrude (the selected faces pulled out by amount mm along the selection normal with walls; < 0 = pocket) or inset " +
+                    "(the selected faces' border pulled amount mm in, new ring of faces) or cut (needs a ray: the plane through its hit across " +
+                    "axis splits the band of faces there into a vertex ring, which becomes the selection; add scale for a waist / bulge) or " +
+                    "fillet / chamfer (the selected crease edges rounded / cut off by amount mm; flat-sided parts only, a face selection " +
+                    "takes its border edges)"),
+                "axis" to vec("Cut plane normal (cut); default [0, 0, 1]"),
+                "amount" to p("number", "mm for extrude / inset, radius / size for fillet / chamfer"),
+                "kind" to p("string", "face (default), edge or vertex"), "angle" to p("number", "Crease angle in degrees; default 30, 0 = single triangles"),
+                "toggle" to p("boolean", "Add to / remove from the selection instead of replacing it"),
+                "move" to vec("Move by [dx, dy, dz] mm"), "scale" to vec("Scale by [x, y, z] percent"), "rotate" to vec("Turn by [x, y, z] degrees"))) { meshEdit(it) },
         Tool("object_duplicate", "Plate edit: adds copies of one copy of an object; they are arranged on its plate. $PLATE_EDIT",
             obj(listOf("object"), *COPY, "copies" to p("integer", "How many, 1..100; default 1"))) { duplicate(it) },
         Tool("plate_arrange", "Plate edit: arranges the objects on a plate (default the active one), or with all true " +
@@ -232,6 +257,14 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         Tool("app_state", "Read (debug): the app's state as text: version, screen / tab, busy / error / message, open " +
             "dialogs and editors, chosen presets, plates and objects count, selection and tool, the 3D view's camera when " +
             "one is shown, memory, and whether a crash report is waiting. Nothing changes.", obj()) { appState() },
+        Tool("design_mode", "Debug: turns the Theme | Layout designer panel on or off (like More > Design mode).",
+            obj(listOf("on"), "on" to p("boolean", "true = open, false = close"))) { args ->
+            val on = args.getBoolean("on")
+            withContext(Dispatchers.Main.immediate) {
+                store.update { it.copy(designMode = on, screen = if (on && it.screen == app.orcaandroid.ui.Screen.MORE) app.orcaandroid.ui.Screen.PREPARE else it.screen) }
+            }
+            "Design mode ${if (on) "on" else "off"}."
+        },
         Tool("log_tail", "Read (debug): the newest lines of the app's own Android log (logcat of this process only), " +
             "oldest first. Values next to token / code / password / key / cookie / auth are masked.",
             obj(emptyList(), "lines" to p("integer", "How many lines, 1..500; default 100"),
@@ -597,6 +630,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
                 app.orcaandroid.ui.Tool.None -> "none"
                 is app.orcaandroid.ui.Tool.Paint -> "paint ${tool.kind} ${tool.shape} (state ${tool.state}, radius ${n(tool.radius.toDouble())} mm)"
                 is app.orcaandroid.ui.Tool.Sculpt -> "sculpt ${tool.brush} (radius ${n(tool.radius.toDouble())} mm, strength ${n(tool.strength.toDouble())}${if (tool.invert) ", inverted" else ""})"
+                is app.orcaandroid.ui.Tool.MeshEdit -> "mesh edit ${tool.kind}${if (tool.triangles) " (triangles)" else ""}"
                 app.orcaandroid.ui.Tool.LayOnFace -> "lay on face"
                 app.orcaandroid.ui.Tool.Measure -> "measure, ${s.measure.size} point(s)" +
                     (s.loupe?.let { l -> " (loupe at ${l.x.toInt()},${l.y.toInt()}: ${l.feature?.kind ?: "nothing"})" } ?: "") +
@@ -869,6 +903,99 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         }
     }
 
+    /** The part the last mesh_edit selected on, for ray-less calls. */
+    private var meshEditTarget: PickHit? = null
+    /** The scene's mesh version when [meshEditTarget] was last valid: undo / delete / another edit change it (stale indices). */
+    private var meshEditVersion = -1
+
+    private suspend fun meshEdit(args: JSONObject): String {
+        val origin = args.vec3("origin")
+        val dir = args.vec3("dir")
+        if ((origin == null) != (dir == null)) throw ToolError("Give both origin and dir")
+        val op = args.optString("op").ifEmpty { if (origin != null) "select" else "" }
+        if (op !in listOf("", "select", "clear", "all", "grow", "extrude", "inset", "cut", "fillet", "chamfer")) throw ToolError("op must be select, clear, all, grow, extrude, inset, cut, fillet or chamfer")
+        val kind = args.optString("kind", "face")
+        if (kind !in listOf("face", "edge", "vertex")) throw ToolError("kind must be face, edge or vertex")
+        val angle = args.optDouble("angle", 30.0).takeIf { it.isFinite() && it >= 0 } ?: throw ToolError("angle must be >= 0")
+        val move = args.vec3("move")
+        val scale = args.vec3("scale")?.also { if (it.x <= 0 || it.y <= 0 || it.z <= 0) throw ToolError("scale must be > 0") }
+        val rotate = args.vec3("rotate")
+        if (op.isEmpty() && move == null && scale == null && rotate == null) throw ToolError("Give a ray, an op or a transform")
+        val ray = if (origin != null && dir != null) origin.f() to dir.f() else null
+        if ((op == "select" || op == "cut") && ray == null) throw ToolError("$op needs origin and dir")
+        if (ray != null && op in listOf("select", "extrude", "inset", "cut", "fillet", "chamfer")) {
+            meshEditTarget = store.engine.pick(ray.first, ray.second) ?: throw ToolError("the ray misses every object")
+            meshEditVersion = store.value.scene.meshVersion
+        } else if (meshEditVersion != store.value.scene.meshVersion) meshEditTarget = null
+        val target = meshEditTarget ?: throw ToolError("Nothing selected (or the plate changed since): select with a ray first")
+        if (op == "extrude" || op == "inset") {
+            val amount = args.optDouble("amount", Double.NaN).takeIf { it.isFinite() && (if (op == "inset") it > 0 else it != 0.0) }
+                ?: throw ToolError(if (op == "inset") "inset needs amount > 0" else "extrude needs a non-zero amount")
+            if (ray != null) store.engine.meshEdit(target, "select", ray, kind, angle.toFloat(), args.optBoolean("toggle"))
+            var sel: JSONObject? = null
+            val reply = plateEdit("${if (op == "inset") "inset" else "extruded"} the faces of object ${target.obj + 1}", R.string.deforming) {
+                val step = if (op == "inset") store.engine.meshEdit(target, "inset", kind = kind, angle = angle.toFloat(), amount = amount.toFloat())
+                else {
+                    // Zero height first: the reply has the cap's normal, then the cap moves along it (moves are from the drag start).
+                    val start = store.engine.meshEdit(target, "extrude", matrix = meshEditMatrix(null, null, null))
+                    val n = start.selection.getJSONArray("normal")
+                    store.engine.meshEdit(target, "move", matrix = meshEditMatrix(D3(n.getDouble(0) * amount, n.getDouble(1) * amount, n.getDouble(2) * amount), null, null))
+                    store.engine.meshEdit(target, "end", kind = kind, angle = angle.toFloat())
+                }
+                sel = step.selection
+                step.scene ?: throw ToolError("mesh_edit returned no scene")
+            }
+            meshEditVersion = store.value.scene.meshVersion
+            return reply + "\n" + selectionText(sel!!)
+        }
+        if (op == "fillet" || op == "chamfer") {
+            val amount = args.optDouble("amount", Double.NaN).takeIf { it.isFinite() && it > 0 } ?: throw ToolError("$op needs amount > 0")
+            if (ray != null) store.engine.meshEdit(target, "select", ray, kind, angle.toFloat(), args.optBoolean("toggle"))
+            var sel: JSONObject? = null
+            val reply = plateEdit("${if (op == "fillet") "rounded" else "chamfered"} the edges of object ${target.obj + 1}", R.string.deforming) {
+                val step = store.engine.meshEdit(target, op, kind = kind, angle = angle.toFloat(), amount = amount.toFloat())
+                sel = step.selection
+                step.scene ?: throw ToolError("mesh_edit returned no scene")
+            }
+            meshEditVersion = store.value.scene.meshVersion
+            return reply + "\n" + selectionText(sel!!)
+        }
+        if (op == "cut") {
+            val axis = args.vec3("axis") ?: D3(0.0, 0.0, 1.0)
+            if (axis.x == 0.0 && axis.y == 0.0 && axis.z == 0.0) throw ToolError("axis must not be zero")
+            var sel: JSONObject? = null
+            val reply = plateEdit("cut a ring into object ${target.obj + 1}", R.string.deforming) {
+                val cut = store.engine.meshEdit(target, "cut", ray, kind, angle.toFloat(), axis = listOf(axis.x, axis.y, axis.z))
+                var step = cut
+                if (move != null || scale != null || rotate != null) {
+                    store.engine.meshEdit(target, "move", matrix = meshEditMatrix(move, scale, rotate))
+                    step = store.engine.meshEdit(target, "end")
+                }
+                sel = step.selection
+                step.scene ?: throw ToolError("mesh_edit returned no scene")
+            }
+            meshEditVersion = store.value.scene.meshVersion
+            return reply + "\n" + selectionText(sel!!)
+        }
+        var sel = if (op.isEmpty()) null else store.engine.meshEdit(target, op, ray, kind, angle.toFloat(), args.optBoolean("toggle")).selection
+        if (move == null && scale == null && rotate == null) return selectionText(sel!!)
+        val reply = plateEdit("edited the mesh of object ${target.obj + 1}", R.string.deforming) {
+            store.engine.meshEdit(target, "move", matrix = meshEditMatrix(move, scale, rotate))
+            val end = store.engine.meshEdit(target, "end")
+            sel = end.selection
+            end.scene ?: throw ToolError("mesh_edit returned no scene")
+        }
+        meshEditVersion = store.value.scene.meshVersion
+        return reply + "\n" + selectionText(sel!!)
+    }
+
+    private fun selectionText(sel: JSONObject): String {
+        val count = sel.optInt("count")
+        if (count == 0) return "Selection: nothing."
+        fun at(key: String) = sel.getJSONArray(key).let { a -> v(D3(a.getDouble(0), a.getDouble(1), a.getDouble(2))) }
+        return "Selection: $count vertices, centroid ${at("centroid")}, normal ${at("normal")}, ${sel.getJSONArray("edges").length() / 6} crease edges."
+    }
+
     private suspend fun hollow(args: JSONObject): String {
         val (o, inst) = copyOf(args)
         val wall = args.optDouble("wall", Double.NaN)
@@ -944,6 +1071,30 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         return edit("added a ${kind.key}") { d ->
             val count = d.shapes.sumOf { s -> s.all().count { it.kind == kind } } + 1
             val shape = ShapeDesign.create(kind, d.nextId, store.str(ShapeController.kindName(kind)) + " " + count)
+            var next = withFields(d.copy(shapes = d.shapes + shape, nextId = d.nextId + 1), shape.id, args)
+            if (!args.has("pos")) next = next.update(shape.id) { shapes.beside(d, it) }
+            shapes.replace(next, listOf(shape.id))
+        }
+    }
+
+    /** The builder's mesh folder (files/openscad/meshes, as [ShapeController.importMesh] uses). */
+    private fun meshDir() = File(store.app.filesDir, "openscad/meshes")
+
+    private suspend fun meshAdd(args: JSONObject): String {
+        val bytes = try { android.util.Base64.decode(args.optString("stl"), android.util.Base64.DEFAULT) }
+            catch (e: IllegalArgumentException) { throw ToolError("stl must be base64") }
+        if (bytes.size < 84) throw ToolError("stl is too short to be an STL file")
+        val name = args.optString("name").trim().ifEmpty { "Mesh" }
+        val (file, b) = withContext(Dispatchers.IO) {
+            val hash = MessageDigest.getInstance("SHA-1").digest(bytes).joinToString("") { "%02x".format(it) }.take(12)
+            val f = File(meshDir().apply { mkdirs() }, name.replace(Regex("[^A-Za-z0-9_-]"), "_").take(40) + "-" + hash + ".stl")
+            if (!f.exists()) f.writeBytes(bytes)
+            f to Stl.bounds(f)
+        }
+        if (b == null) { file.delete(); throw ToolError("stl is not a readable STL file") }
+        return edit("added mesh $name") { d ->
+            val size = D3(maxOf(0.01, b[3] - b[0]), maxOf(0.01, b[4] - b[1]), maxOf(0.01, b[5] - b[2]))
+            val shape = Shape(d.nextId, Shape.Kind.MESH, name, size, file = file.absolutePath, extra = Shape.MESH_BOUNDS.zip(b).toMap())
             var next = withFields(d.copy(shapes = d.shapes + shape, nextId = d.nextId + 1), shape.id, args)
             if (!args.has("pos")) next = next.update(shape.id) { shapes.beside(d, it) }
             shapes.replace(next, listOf(shape.id))
@@ -1118,7 +1269,8 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
                     b.keys().forEach { f -> b.optString(f).let { dim -> if (dim !in dimNames) errs += "$p.bind.$f names unknown dim '$dim'" } }
                 }
                 val file = s.optString("file")
-                if (file.isNotEmpty() && file !in files) errs += "$p.file: mesh files can't be added over MCP (keep the existing ones)"
+                if (file.isNotEmpty() && file !in files && !File(file).let { it.parentFile == meshDir() && it.isFile })
+                    errs += "$p.file: unknown mesh file (keep the existing ones, or add one with mesh_add)"
                 if (kind == "mesh" && file.isEmpty()) errs += "$p is a mesh without a file"
                 val kids = s.optJSONArray("children")
                 if (kind == "group" && (kids?.length() ?: 0) == 0) errs += "$p is a group without children"

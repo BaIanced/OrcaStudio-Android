@@ -13,9 +13,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 ## State
 - One repo: OrcaStudio-Android (code + these docs, `docs/handoff/`), branch `claude/handoff-continuation-rseql3`. Autonomy (user, 2026-10-11): decide branches and next steps
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
-- Android main = 3defffa (PR #66, branch at r461/89944b9, merged 2026-10-28 on the user's go-ahead, before sessions B-D; user overrode the user-tested-only rule for this merge). Older: 0170950 (PR #65, r398). User-untested in main: list in `NOTES-merge-batch.md`.
+- Android main = de0e3fa (PR #67, branch at run 41012656080 = r473 + push/pull tier 2, merged 2026-10-30 on /next-merge; user-untested, Claude-verified only). User-untested in main: list in `NOTES-merge-batch.md`.
 - Signing secrets: `release` environment (main + `claude/*` only).
-- Latest CI build: run 41012656080 (push/pull tier 2 on top of r473) on all 5 adb devices, 2026-10-30. User feel untested. Install builds on all adb devices (skip .23).
+- Latest installed CI build: r487 (run 41166849671, bbox label nudge) on all 5 adb serials, 2026-10-30. Install builds on all adb devices (skip .23).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **User 2026-10-28: no more user testing for now; Claude builds and tests everything itself (memory no-user-testing-now); don't ask for feel/UI checks.**
 - **User 2026-10-29: no tests on the user's screen; all tests on a hidden virtual display** (`TARGET=wsa orca-vd.sh start`, memory tests-on-virtual-display).
@@ -32,13 +32,12 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **Offload (user 2026-10-25/26): max token use onto free opencode models, growing leeway by track record** (Claude specs + verifies).
   DeepSeek V4.1 Flash = default; runner `octauto.sh` (`D:\oct-backup\jobs\README.md`; opencode v2: `model#variant`), ledger `trust-profile.md`.
 - CAD plan (`NOTES-cad-reuse.md`): 0-5b Claude-verified, 1b parked. MCP efficiency (`NOTES-mcp-token-efficiency.md`): build rule waits for user OK.
-- Gate: user sessions B-D paused 2026-10-28; release gated on the printer set.
-- WSA: `svc power stayon true` while testing; `stage-from-apk.sh <apk>`.
-- WSA VD (reference "Headless display"): Kotlin-only changes = assembleDebug + `wsa-debug-setup.sh` (installs, no launch) + `TARGET=wsa PKG=...debug orca-vd.sh start`; shots via MCP `view_screenshot`; uninstall debug after. `wsa-full.ps1` only when the user asks to watch.
-- Fixture `~/orca-android-tools/rep-groups.json` (MCP `design_set`). VD taps: `export TARGET=wsa`, `. ./.vd-wsa.state; export VD=$LOGICAL,$SFID`, `orca-vd.sh tap/shot`, coords from a `TARGET=wsa` shot (archive "VD tap tip"; `tx.sh` fails on 0-bound nodes).
-- **Queued (user 2026-10-29):** (push/pull tier 2 Claude-verified 2026-10-30, archive; in run 41012656080) [Opus] OrcaMesh vert/edge/face edit mode (extrude/inset/loop cut/bevel, CGAL PMP);
-  dimensions overview (per-object bbox, hole sizes, thinnest wall; **ask the user what they had in mind when it comes up**); floating Theme | Layout designer (~half a day; **ask what they have in mind first**).
-- Next step: ask the user for the main merge (branch vs main 3defffa; user-untested list in NOTES-merge-batch.md); until they answer, Opus 5.5 (high) OrcaMesh vert/edge/face edit mode design (Queued)
+- WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
+- VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
+- **Dimensions overlay** (user 2026-10-30): phases 1-3, slots, tilted holes seen on phone VD r485; user "looks good" on r485 (archive). r486 hole-label overlap not reproducible (36-view WSA sweep, `dimsweep.sh` + `dimcheck.py`, archive); bbox-vs-bbox overlap nudge done, 36-view sweep clean (archive). Phone VD recipe in archive.
+- Self-portrait demo "The Listening Lantern" (`DEMO-self-portrait.md`): floating look not intended (archive); waiting for the user's shot pick. Fix idea: brighter plinth, trim book corners.
+- Demos on WSA debug app 2026-10-30 (Hopf + torus link, archive): uninstall debug when the user is done. Open: printable base (needs user OK).
+- Next step: offer the user a main merge (r474-r487: OrcaMesh M1-M4, dimensions overlay, CAD 7d, all Claude-verified, user-untested; list in NOTES-merge-batch.md) -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).

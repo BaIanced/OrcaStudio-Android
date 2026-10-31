@@ -4,6 +4,10 @@ import app.orcaandroid.ui.SCULPT_MAX_MM
 import app.orcaandroid.ui.SCULPT_MIN_MM
 import app.orcaandroid.ui.components.ScrubLabel
 import app.orcaandroid.ui.components.ScrubSlider
+import app.orcaandroid.ui.components.Vec3Fields
+import app.orcaandroid.ui.components.NumberField
+import app.orcaandroid.core.meshEditMatrix
+import app.orcaandroid.scad.D3
 import androidx.compose.foundation.Canvas
 import kotlinx.coroutines.delay
 import androidx.compose.ui.text.style.TextOverflow
@@ -166,6 +170,7 @@ internal fun ToolPanel(state: UiState, vm: AppViewModel) {
             if (!folded) when (tool) {
                 is Tool.Paint -> PaintOptions(state, vm, tool)
                 is Tool.Sculpt -> SculptOptions(vm, tool)
+                is Tool.MeshEdit -> MeshEditOptions(state, vm, tool)
                 is Tool.Cut -> CutOptions(state, vm, tool)
                 Tool.Measure -> MeasureOptions(state, vm)
                 Tool.LayOnFace -> Text(stringResource(R.string.lay_on_face_hint), style = MaterialTheme.typography.bodySmall)
@@ -183,6 +188,7 @@ private fun toolTitle(tool: Tool) = stringResource(
             "support" -> R.string.paint_supports; "seam" -> R.string.paint_seam; "fuzzy" -> R.string.paint_fuzzy; else -> R.string.paint_color
         }
         is Tool.Sculpt -> R.string.sculpt
+        is Tool.MeshEdit -> R.string.mesh_edit
         is Tool.Cut -> R.string.cut
         Tool.Measure -> R.string.measure
         Tool.LayOnFace -> R.string.lay_on_face
@@ -194,6 +200,76 @@ private fun toolTitle(tool: Tool) = stringResource(
 private val SCULPT_BRUSHES = listOf(
     "draw" to R.string.sculpt_draw, "inflate" to R.string.sculpt_inflate, "smooth" to R.string.sculpt_smooth,
     "flatten" to R.string.sculpt_flatten, "pinch" to R.string.sculpt_pinch, "crease" to R.string.sculpt_crease, "grab" to R.string.sculpt_grab)
+
+@Composable
+private fun MeshEditOptions(state: UiState, vm: AppViewModel, tool: Tool.MeshEdit) {
+    val sel by vm.scene.meshEditSel.collectAsState()
+    Text(stringResource(R.string.mesh_edit_hint), style = MaterialTheme.typography.bodySmall)
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        listOf("vertex" to R.string.mesh_edit_vertex, "edge" to R.string.mesh_edit_edge, "face" to R.string.mesh_edit_face).forEach { (kind, label) ->
+            FilterChip(tool.kind == kind, { vm.scene.setTool(tool.copy(kind = kind)) }, label = { Text(stringResource(label)) })
+        }
+        // Raw triangles instead of crease-bounded features (low-poly meshes).
+        FilterChip(tool.triangles, { vm.scene.setTool(tool.copy(triangles = !tool.triangles)) }, label = { Text(stringResource(R.string.mesh_edit_triangles)) })
+        // The arrow drag pulls out the selected faces with walls instead of moving them.
+        FilterChip(tool.extrude, { vm.scene.setTool(tool.copy(extrude = !tool.extrude)) }, label = { Text(stringResource(R.string.mesh_edit_extrude)) })
+    }
+    // Cut ring: taps cut a vertex ring across the picked world axis (the triangle-mesh loop cut), ready for Scale.
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        FilterChip(tool.cut >= 0, { vm.scene.setTool(tool.copy(cut = if (tool.cut >= 0) -1 else 2)) }, label = { Text(stringResource(R.string.mesh_edit_cut)) })
+        if (tool.cut >= 0) listOf("X", "Y", "Z").forEachIndexed { i, axis ->
+            FilterChip(tool.cut == i, { vm.scene.setTool(tool.copy(cut = i)) }, label = { Text(axis) })
+        }
+    }
+    // Stale after undo or another edit (the engine dropped it; the overlay hides it too).
+    val count = sel?.takeIf { it.version == state.scene.meshVersion.toLong() }?.count ?: 0
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(stringResource(R.string.mesh_edit_count, count), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.align(Alignment.CenterVertically))
+        // All needs a part: the one the last tap selected on.
+        TextButton({ vm.scene.meshEditOp("all") }, enabled = count > 0) { Text(stringResource(R.string.mesh_edit_all)) }
+        TextButton({ vm.scene.meshEditOp("clear") }, enabled = count > 0) { Text(stringResource(R.string.mesh_edit_none)) }
+        TextButton({ vm.scene.meshEditOp("grow") }, enabled = count > 0) { Text(stringResource(R.string.mesh_edit_grow)) }
+    }
+    if (count == 0) return
+    // Typed transform of the selection about its centroid: relative amounts, reset after each Apply (one undo step each).
+    var move by remember { mutableStateOf(D3()) }
+    var rotate by remember { mutableStateOf(D3()) }
+    var scale by remember { mutableStateOf(D3(100.0, 100.0, 100.0)) }
+    Vec3Fields(stringResource(R.string.mesh_edit_move), move.x.toFloat(), move.y.toFloat(), move.z.toFloat(), "mm",
+        { x, y, z -> move = D3(x.toDouble(), y.toDouble(), z.toDouble()) }, live = true)
+    Vec3Fields(stringResource(R.string.rotation), rotate.x.toFloat(), rotate.y.toFloat(), rotate.z.toFloat(), "°",
+        { x, y, z -> rotate = D3(x.toDouble(), y.toDouble(), z.toDouble()) }, 1, live = true)
+    Vec3Fields(stringResource(R.string.scale), scale.x.toFloat(), scale.y.toFloat(), scale.z.toFloat(), "%",
+        { x, y, z -> scale = D3(x.toDouble(), y.toDouble(), z.toDouble()) }, 1, live = true)
+    val valid = scale.x > 0 && scale.y > 0 && scale.z > 0
+    val changed = move != D3() || rotate != D3() || scale != D3(100.0, 100.0, 100.0)
+    FilledTonalButton({
+        vm.scene.meshEditTransform(meshEditMatrix(move, scale, rotate))
+        move = D3(); rotate = D3(); scale = D3(100.0, 100.0, 100.0)
+    }, enabled = valid && changed) { Text(stringResource(R.string.apply)) }
+    // Faces only: extrude along the selection's normal (< 0 = pocket), inset pulls the border in (one undo step each).
+    var extrude by remember { mutableFloatStateOf(0f) }
+    var inset by remember { mutableFloatStateOf(0f) }
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+        NumberField(extrude, { extrude = it }, Modifier.weight(1f), stringResource(R.string.mesh_edit_extrude), "mm", live = true)
+        FilledTonalButton({ vm.scene.meshEditFaces("extrude", extrude); extrude = 0f }, enabled = extrude != 0f) { Text(stringResource(R.string.apply)) }
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+        NumberField(inset, { inset = it }, Modifier.weight(1f), stringResource(R.string.mesh_edit_inset), "mm", live = true)
+        FilledTonalButton({ vm.scene.meshEditFaces("inset", inset); inset = 0f }, enabled = inset > 0f) { Text(stringResource(R.string.apply)) }
+    }
+    // Round or bevel the selection's creases (flat, closed parts; a too-large amount is refused, part untouched).
+    var fillet by remember { mutableFloatStateOf(0f) }
+    var chamfer by remember { mutableFloatStateOf(0f) }
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+        NumberField(fillet, { fillet = it }, Modifier.weight(1f), stringResource(R.string.mesh_edit_fillet), "mm", live = true)
+        FilledTonalButton({ vm.scene.meshEditFaces("fillet", fillet); fillet = 0f }, enabled = fillet > 0f) { Text(stringResource(R.string.apply)) }
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+        NumberField(chamfer, { chamfer = it }, Modifier.weight(1f), stringResource(R.string.mesh_edit_chamfer), "mm", live = true)
+        FilledTonalButton({ vm.scene.meshEditFaces("chamfer", chamfer); chamfer = 0f }, enabled = chamfer > 0f) { Text(stringResource(R.string.apply)) }
+    }
+}
 
 @Composable
 private fun SculptOptions(vm: AppViewModel, tool: Tool.Sculpt) {

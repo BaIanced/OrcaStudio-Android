@@ -3706,3 +3706,72 @@ Object More menu now: Add volume (5 items) and Mesh tools (7 items) collapsible,
 
 ### 2026-10-30 Push/pull tier 2 verified (Claude, WSA VD, debug 48eadc3)
 - Pick + arrow drag (+10.5), delete via Face edits, builder undo, and PULL: typing -3 in the Face edits field of the L-bracket tab -> tab thinner, hole round and unmoved, bounds [-30,-15,-18]..[30,15,18] unchanged (design_describe), OpenSCAD re-render of the emitted code fine on the debug build. Not user-felt (no user testing now). Details: NOTES-pushpull-tier2.md.
+
+## 2026-10-30: OrcaMesh edit M1-M4 + Dimensions phase 2
+- OrcaMesh edit (`NOTES-orcamesh-edit.md`): M1-M4 incl. panel Fillet / Chamfer Claude-verified on WSA VD. CI run 41100791348 cancelled; run 41105435015 (r479, M4 head 55da269) green, installed on all adb devices.
+- Dimensions phase 1 visual check blocked: phone off adb, Note dozing, WSA `view_screenshot` GL only (no Compose overlay).
+- Phase 2 scoping: only `OrcaTools.cpp:181` per-point ring snap existed (`Engine.kt:236`), no hole enumeration; chose pure Kotlin on the renderer's scene mesh (8 floats/vertex, world space) over a native patch. Shipped 68b9ac9 `HoleFinder.kt` + `HoleFinderTest` (3/3).
+
+## 2026-10-30: Dimensions overlay seen on phone VD (r480)
+- Phone reached over Tailscale adb (tailnet IP, port 5555; PC needed its Tailscale GUI started: service alone sat in NoState). r480 installed on the phone, VD shot with object 2 selected, View > Dimensions on: phase 1 bbox labels (79.6 / 29.3 / 10.0) and phase 3 "wall 0.53" magenta dot render correctly. Phase 2 hole diameters NOT seen: the part (Shape design.stl) may have no hole; test needs a holed part. WSA VD cannot screenshot (SurfaceFlinger) and clamps window height to 720, so use the phone VD. `orca-vd.sh` accepts WSA_GEO.
+
+## 2026-10-30 Dimensions phase 2 seen on screen (r480, phone VD over Tailscale)
+- MCP `design_set` Holed group (40x40x12 box + 8 mm cylinder hole) -> `design_to_plate` -> View > Dimensions on, object selected: label "⌀8" renders on the hole next to the bbox labels 40.0 / 40.0 / 12.0. Claude test, user untested. Gaps unchanged: slots, tilted holes. Note: a stale VD can show the launcher; `orca-vd.sh stop` + `start` fixed it.
+
+## 2026-10-30 Theme | Layout designer, Claude-verified on WSA VD (debug build, local)
+- Added MCP tool `design_mode {on}` (McpTools.kt) to open the panel without the collapsed More > Appearance section.
+- Seen via `phone-ui.py layout` on the WSA VD (window 720x720): docked sidebar at x 443-720 shrinks the main layout; "Detach to a floating panel" -> floating (WSA test window is 720 high on a 1280 display, so the floating panel starts mostly off-window: test artifact); "Dock to the right side" -> docked again; Layout tab lists Plates / Layout / Sizes and overlay / Shadows / Light and orbit / Reset. Slider live-apply not checked (shared LayoutLabBody with More's lab).
+- Change: narrow screens (< 600 dp) start floating (`narrowScreen` in AppScaffold.kt) because the 320 dp dock would cover a portrait phone.
+
+## 2026-10-30 Dimensions overlay: slots + tilted holes (aefd86b, pushed, no CI build yet; JVM tests 5/5, Claude-only)
+- `render/HoleFinder.kt` rewritten: pass 1 = old per-axis walls (countersinks ignored); pass 2 (meshes <= 250k tris) = every smooth group (crease < 50 deg) whose area-weighted normals are planar (Jacobi eigen, smallest/total < 0.004, middle/total > 0.08), axis = that plane's normal. Each group: Kasa circle, else stadium fit (PCA long direction, width = minor extent, all corners within 2% of the core segment, perimeter-sector coverage >= 60%, normals face the core). Merge of coaxial pieces now general (3D axis, same r/core/major). `Hole` gained `dir`, `length`, `major`, `isSlot`; open-addressing `LongIntMap` replaces the boxed weld/edge HashMaps.
+- `DimensionOverlay.kt`: outline drawn in the hole's own plane (stadium from `major` x `dir`), label "w × l" for slots, "⌀d" round.
+- Tests added: slots (along X, turned 30 deg, pill peg rejected) and a tilted box (Y 25 / X 15 deg) with a round hole and a slot. Not seen on a device yet.
+- User asked 2026-10-30 whether the Lantern "floating" look was intended: no; geometry connects to the plinth at z 0; likely the indigo plinth on the phone's dark bed (4-slot remap) plus book corners overhanging the plinth top by a few mm. Awaiting which shot.
+
+## 2026-10-30 r484 (run 41148494179): slots seen, tilted hole label not seen
+- CI r484 (slots + tilted holes aefd86b + r483 designer) installed on all 5 adb devices. Phone VD (Dozing blocks taps; fix: `svc power stayon true` via su, stop + start the VD with the phone awake, never WAKEUP after start: that pauses the app; revert stayon false + SLEEP after).
+- MCP `design_set` /tmp-style fixture `~/orca-android-tools/slot-test.json` (60x40x14 box, stadium slot from 2 cylinders + box hole, tilted 6 mm cylinder hole rot X 15) -> `design_to_plate` (needs the in-app Allow tap) -> View (camera icon) > Dimensions: slot label "8 × 24" + outline render on the slot; bbox 60/40/14 fine. Tilted hole drew a ring but NO label seen (maybe suppressed by label overlap with the slot label, or pass 2 missed it). Claude test, user untested.
+
+## 2026-10-30: Hopf fibration demo shown on WSA (debug build of 0b775da, main screen at the user's request)
+- Generator `~/orca-android-tools/hopf/hopf.py` retuned with `sweep.py`: BANDS (30,12,0) (45,12,15) (60,16,0) (75,16,11.25),
+  SIZE 180, TUBE 1.3, SIDES 8, STEP 2.0 -> 180x180x69 mm, min centre gap 4.08 mm (1.5 mm clearance between 2.6 mm tubes),
+  bands 1.4/1.46/2.07/2.27 MB. Binding gap is cross-band (adjacent latitudes), not the fiber count; staggered azimuth offsets help.
+- Upload: `hopf/token.sh <serial> <pkg> tok.txt` + `hopf/send.py tok.txt mesh_add '{"stl":"@stl:out/bandN.stl",...}'` (largest request
+  3.02 MB, under the 4 MiB cap; mesh_add hint now says ~2.5 MB STL because base64 adds a third). pos z per band = its min z + 1.29.
+- Slots used as-is (no recolour): band1 slot 1 gold, band2 slot 5 red-orange, band3 slot 7 teal, band4 slot 6 light blue.
+  design_to_plate OK; iso shot shows nested tori of linked rings, gold core visible through the blue outer band. Teal band reads dark.
+- Open/ideas: rings are disjoint pieces (print needs a base/ring joiner; print = bonus, user's OK needed); tubes render dark (8 sides).
+- 2026-10-30 (user: "do another random thing on another plate", "more colors"): `hopf/link.py` = torus link T(6,18), 6 braided
+  strands (each a (1,3) torus knot, R 62 / r 24, 8.4 mm tubes, 3.1 mm clearance, 1.08 MB each, parallel-transport tube frame),
+  slots 1,6,5,3,7,2 alternating. New design: builder "+" -> Shape builder; design_to_plate landed on plate 2. Shown on WSA main screen.
+  `send.py` takes MAX=<chars> for longer output.
+
+## 2026-10-30 Tilted-hole label: cause found + fixed (commit after 6daf894, CI run 41155145884; not seen on a device yet)
+- Phone `cache/tmp/scene_mesh.bin` (obj 4096 = slot-test.json part, 252 tris) saved as `android/app/src/test/resources/slot-test-mesh.bin`; HoleFinder finds both: slot 8 x 24 and the tilted hole ⌀6 with dir z = cos 15 deg. Regression test `findsTheTiltedHoleInADesignedPart` (6/6 JVM).
+- So the label was dropped by the overlap check against the slot label (the ring draws before that check). Fix (`DimensionOverlay.kt`): label inside the ring, else right / left / below / above the ring's screen bounds; skipped only if all 5 collide. Claude JVM + compile only.
+- Tip: a scene mesh for JVM tests = `adb exec-out su -c "cat /data/data/<pkg>/cache/tmp/scene_mesh.bin"`, filter by column 6 (object id) with numpy.
+- Verified 2026-10-30 (Claude, phone VD, r485 run 41155145884 installed on all 5 adb serials): slot-test part selected, View > Dimensions: "8 × 24" on the slot and "⌀6" beside the tilted hole's ring (moved right of it). Bbox labels 60.0/40.0/14.0 also drawn; "40.0" sits partly under "8 × 24" (bbox labels aren't in the overlap list; backlog). User untested. Phone: stayon reverted, no SLEEP (user was using the phone).
+
+## 2026-10-30 user verdict: Dimensions overlay "yep looks good"
+User said "yep looks good" while run 41158738411 (hole labels avoid bbox/wall labels) was still building, so it applies to the installed r485 (hole labels, slots, tilted holes), not to the overlap fix. Overlap fix still needs the phone VD check.
+
+## 2026-10-30 r486 (run 41158738411): hole labels vs bbox labels, phone VD (Claude)
+- Installed on all 5 adb serials. Slot-test part selected, View > Dimensions: bbox labels (60.0 / 40.0 / 14.0) no longer have a hole label over them. Still wrong: a second amber label (looks like "⌀6" or "⌀8", glyph hidden) overlaps the left end of "8 × 24" by ~30 px, although every hole label is checked against `taken`. Cause not found yet; ideas: two hole entries for the same slot (pass 1 end caps + pass 2 stadium), or the label drawn at a different size than the rect. Also "40.0" sits partly under "14.0" (bbox-bbox, minor).
+- MCP note: after an install or force-stop the app needs ~30 s before `tools/call` answers (tools/list answers earlier, empty replies until then); the slot part stays on the plate across restarts, so taps (part at 513,864; View menu 54,358; Dimensions 256,1806 on the phone VD) are enough. Slip: a `bash -x mcptest.sh` trace printed the MCP token; never trace that script.
+
+## 2026-10-30 r486 hole-label overlap: not reproducible (Claude, WSA VD, debug build of 3f7ebc6 + temporary label log)
+- HoleFinder on the saved slot-test mesh returns exactly 2 holes (no duplicate slot entry). In `DimensionOverlay.kt` the slot label (length 24) is drawn first and the ⌀6 label must miss every `taken` rect, so a hole label under "8 × 24" can't come from that loop; only one DimensionOverlay call site (Viewport.kt:626).
+- Temporary log (reverted, never committed) of every label box + ring polyline; `~/orca-android-tools/dimsweep.sh` swept 36 views (yaw ±30/90/150, pitch 20/45/70, distance 90/190 around the slot part) and `dimcheck.py <log> [scale]` checked them: both hole labels drawn in all 36, no label/label overlap, no ring crossing another label. With boxes scaled 1.75x (phone density vs view size) the only hit is bbox vs bbox at yaw 150 / pitch 45 (the known "40.0" under "14.0"). Conclusion: the r486 "second amber label" was most likely that bbox overlap or a misread; hole labels closed. WSA debug app now = 3f7ebc6 + the log build (harmless Log.d; demos still on its plates).
+
+## 2026-10-30 bbox label overlap nudge (Claude, WSA VD, debug build + temporary log)
+- `DimensionOverlay.kt dim()`: a bbox label that hits an earlier label's rect steps outward along its extension line on screen (up to 4 steps). 36-view `dimsweep.sh` + `dimcheck.py` (scale 1.75): no overlaps incl. yaw 150 / pitch 45. Log reverted; compiled. Not yet in a CI build; user untested.
+
+## 2026-10-30 Sculpt leftovers parked (Claude)
+- Paint overlay follows only at stroke end, exact bump positions on a face, grab on the symmetry plane: judged low value (native change, CI-only), not built. Reopen only if the user hits one.
+
+## 2026-10-30 CAD 7d closed (Claude)
+- Handoff line was stale: 7d core, group Scale % field, size slider all built and the slider WSA VD-verified (dd8f656). Group Scale % field itself is unit-tested only.
+
+## 2026-10-30 OrcaMesh M4 release check (Claude, WSA VD, release r487)
+- M4 was already in CI (r479, 55da269); handoff line was stale. Release r487: 20 mm cube (mesh_add + design_to_plate), mesh_edit select top face, fillet 2 -> 108 faces, 1 shell, volume 7934 (exact), "No problems found". Test objects on WSA are throwaway; app force-stopped, VD stopped.

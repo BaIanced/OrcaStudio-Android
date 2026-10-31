@@ -42,7 +42,7 @@ internal class PresetTools(
             "the text form preset_get shows (numbers, 15%, 1 / 0 for on / off, enum values, lists comma separated). Selecting " +
             "another preset drops the edits; preset_save keeps them. Returns all unsaved edits of that preset.",
             obj(listOf("type", "values"), "type" to type, "slot" to slot,
-                "values" to p("object", "{key: value or null, ...}"))) { edit(it) },
+                "values" to p("object", "{key: value or null, ...}; filament only: slot_colour \"#RRGGBB\" sets the slot colour shown in the app"))) { edit(it) },
         McpTools.Tool("preset_select", "Edit: selects another process preset, or the filament preset of a slot (not the " +
             "printer: ask the user to pick that in the app). Fails when the current one has unsaved edits unless discard_edits.",
             obj(listOf("type", "name"), "type" to p("string", "process or filament"), "name" to p("string", "Preset name from preset_list"),
@@ -203,6 +203,13 @@ internal class PresetTools(
         val slot = if (type == PresetType.FILAMENT) args.slot() else store.value.activeFilament
         val (name, _) = selected(type, slot)
         val values = args.optJSONObject("values")?.takeIf { it.length() > 0 } ?: throw McpTools.ToolError("values must be an object with settings")
+        if (type == PresetType.FILAMENT && values.has("slot_colour")) {
+            val hex = values.optString("slot_colour")
+            if (!Regex("#[0-9A-Fa-f]{6}").matches(hex)) throw McpTools.ToolError("slot_colour must be #RRGGBB")
+            withContext(Dispatchers.Main.immediate) { presets.setFilamentColor(slot, hex.uppercase()) }
+            values.remove("slot_colour")
+            if (values.length() == 0) return "Filament slot ${slot + 1} colour is now ${hex.uppercase()}."
+        }
         val defs = presets.optionDefs(type).associateBy { it.key }
         val preset = presets.presetValuesOf(type, name)
         val changes = values.keys().asSequence().associateWith { key ->

@@ -496,6 +496,10 @@ internal fun ViewButtons(state: UiState, vm: AppViewModel, view: PlateView?, rai
                 onClick = { viewMenu = false; vm.setSelectionStyle(state.selectionStyle xor app.orcaandroid.render.SelectionStyle.BOX) },
                 leadingIcon = { Icon(Icons.Default.Crop, null) },
                 trailingIcon = { if (boxOn) Icon(Icons.Default.Check, null) })
+            DropdownMenuItem(text = { Text(stringResource(R.string.view_dimensions)) },
+                onClick = { viewMenu = false; vm.setDimensions(!state.dimensions) },
+                leadingIcon = { Icon(Icons.Default.Straighten, null) },
+                trailingIcon = { if (state.dimensions) Icon(Icons.Default.Check, null) })
         }
     }
 }
@@ -656,6 +660,7 @@ private fun ToolButtons(
                     }
                     HorizontalDivider()
                     DropdownMenuItem(text = { Text(stringResource(R.string.sculpt)) }, onClick = { moreMenu = false; vm.scene.setTool(Tool.Sculpt()) })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.mesh_edit)) }, onClick = { moreMenu = false; vm.scene.setTool(Tool.MeshEdit()) })
                     DropdownMenuItem(text = { Text(stringResource(R.string.measure)) }, onClick = { moreMenu = false; vm.scene.setTool(Tool.Measure) },
                         leadingIcon = { Icon(Icons.Default.Straighten, null) })
                 }

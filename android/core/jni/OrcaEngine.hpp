@@ -234,6 +234,17 @@ public:
     json sculpt(const std::array<int, 3> &target, const std::vector<std::array<double, 6>> &rays, const std::string &brush,
                 double radius, double strength, bool invert, bool new_stroke, bool end = false, bool probe = false, int mirror = 0);
     json sculpt_end();
+    // Mesh edit mode (OrcaMeshEdit.cpp, docs/handoff/NOTES-orcamesh-edit.md) on part [target], on the sculpt session.
+    // [op]: "select" (the feature of [kind] "vertex" / "edge" / "face" under world [ray]; [angle] degrees = crease limit
+    // of a feature face, 0 = raw triangles; [toggle] adds / removes instead of replacing; a miss without toggle clears),
+    // "clear", "grow" (one ring), "move" (world 4x4 [matrix], row-major, applied to the selection about its pivot as the
+    // drag started; the first move takes an undo snapshot), "end" (a drag's end: the mesh goes into the part, dropped to
+    // the bed, scene returned). [reach] world mm a feature corner may be from the hit to win a vertex pick. Returns
+    // "patch" / "mesh_version" as sculpt() does and "selection": {count, centroid, normal, edges (flat world xyz pairs),
+    // verts (world xyz, up to 500)}.
+    json mesh_edit(const std::array<int, 3> &target, const std::string &op, const std::optional<std::array<double, 6>> &ray,
+                   const std::string &kind, double angle, bool toggle, const std::optional<std::array<double, 16>> &matrix, double reach,
+                   double amount = 0., const std::array<double, 3> &axis = {0., 0., 1.});
     // A live sculpt's moved vertices go into its part's mesh (dispatch() calls this before any other call). True when it did.
     bool sculpt_flush();
     // Ends a fill preview by restoring the annotation from before the stroke (the finger slid off the model).
@@ -487,6 +498,7 @@ private:
     std::shared_ptr<SculptSession>        m_sculpt;
     void                                  sculpt_build(int object, int instance, int volume);
     void                                  sculpt_copies();
+    std::string                           sculpt_patch(const std::vector<int> &faces); // session faces -> patch file
     bool                                  sculpting(size_t object, size_t volume) const; // a live session sculpts this part
     bool                                  sculpt_flush_locked();
     bool                                  sculpt_finish_locked();

@@ -286,13 +286,21 @@ private fun ProfileUpdatesCard(state: UiState, vm: AppViewModel) {
  */
 @Composable
 private fun LayoutLabSection(state: UiState, vm: AppViewModel) {
-    val lab = state.lab
-    val current by androidx.compose.runtime.rememberUpdatedState(lab)
     Section(stringResource(R.string.layout_lab), summary = stringResource(R.string.layout_lab_summary)) {
       androidx.compose.runtime.DisposableEffect(Unit) {
         LabPeek.open = true
         onDispose { LabPeek.open = false; LabPeek.touching = false; LabPeek.frozen = null; LabPeek.readout = null }
       }
+      LayoutLabBody(state, vm)
+    }
+}
+
+/** The lab controls, also shown in the Layout tab of the design panel (they apply live via [AppViewModel.setLab]). */
+@Composable
+internal fun LayoutLabBody(state: UiState, vm: AppViewModel) {
+    val lab = state.lab
+    val current by androidx.compose.runtime.rememberUpdatedState(lab)
+    run {
       Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(stringResource(R.string.layout_lab_text), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Section(stringResource(R.string.lab_group_plates)) {

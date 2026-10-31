@@ -256,6 +256,16 @@ class SceneController(private val store: Store, private val presets: PresetContr
         app.orcaandroid.core.MeshReport.text(r)
     }
 
+    /** The selected copy's thinnest wall within 5 mm (world point midway through it, thickness in mm), or null when there is none. */
+    suspend fun thinnestWall(): Pair<Vec3, Float>? {
+        val sel = selection ?: return null
+        val r = store.engine.checkMesh(sel.obj, sel.instance, 5f)
+        val d = r.optDouble("minWall", -1.0).toFloat()
+        val p = r.optJSONArray("minWallPoint")
+        if (d <= 0f || d >= 5f || p == null || p.length() < 3) return null
+        return Vec3(p.getDouble(0).toFloat(), p.getDouble(1).toFloat(), p.getDouble(2).toFloat()) to d
+    }
+
     private var lastCheck: Pair<Selection, FloatArray>? = null
 
     /** The checked copy as it was when the spots were found: the spots follow its moves, and go when it turns or scales. */
@@ -377,6 +387,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
         if (tool is Tool.Paint && old != null && tool.kind == old.kind && tool.shape == old.shape && (tool.shape == "fill" || tool.shape == "regions")
             && (tool.edgeAngle != old.edgeAngle || tool.overColours != old.overColours)) refillLast()
         if (tool == Tool.LayerHeight) loadLayerProfile { engine.layerProfile(it) }
+        if (tool !is Tool.MeshEdit) meshEditSel.value = null
     }
 
     /**
@@ -756,6 +767,130 @@ class SceneController(private val store: Store, private val presets: PresetContr
                     if (!paintDown && brushRing(store.value.tool)) sculptCursor.value = hit?.let { it.point to it.normal }
                 }
             }
+        }
+    }
+
+    /**
+     * Mesh edit ([Tool.MeshEdit]): the selection on [target] in world mm, as the engine sent it: [edges] = crease segments
+     * (x0 y0 z0 x1 y1 z1 each), [verts] = selected vertices (first 500). Holds for scene mesh [version] only.
+     */
+    class MeshEditSel(val target: PickHit, val count: Int, val centroid: Vec3, val normal: Vec3, val edges: FloatArray,
+                      val verts: FloatArray, val version: Long)
+    val meshEditSel = kotlinx.coroutines.flow.MutableStateFlow<MeshEditSel?>(null)
+    private val meshEditLock = Any()
+    /** The newest arrow distance (mm) and whether the finger was lifted, not yet sent. Guarded by [meshEditLock]. */
+    private var meshEditPending: Pair<Float, Boolean>? = null
+    private var meshEditRunning = false
+    /** A move went out since the last end. Used on the drain's coroutine only. */
+    private var meshEditMoved = false
+
+    private fun meshEditSelOf(target: PickHit, o: org.json.JSONObject): MeshEditSel? {
+        val count = o.optInt("count")
+        if (count == 0) return null
+        fun v(k: String) = o.getJSONArray(k).let { Vec3(it.getDouble(0).toFloat(), it.getDouble(1).toFloat(), it.getDouble(2).toFloat()) }
+        fun f(k: String) = o.optJSONArray(k)?.let { a -> FloatArray(a.length()) { a.getDouble(it).toFloat() } } ?: FloatArray(0)
+        return MeshEditSel(target, count, v("centroid"), v("normal"), f("edges"), f("verts"), store.value.scene.meshVersion.toLong())
+    }
+
+    private fun meshEditAngle() = (store.value.tool as? Tool.MeshEdit)?.let { if (it.triangles) 0f else 30f } ?: 30f
+
+    /** The current selection, dropped when the scene mesh changed since (undo, another edit): the engine dropped it too. */
+    private fun liveMeshEditSel() = meshEditSel.value?.takeIf { it.version == store.value.scene.meshVersion.toLong() }
+        ?: null.also { meshEditSel.value = null }
+
+    /**
+     * Mesh edit tap: toggles the pick under the ray on the part it hits (that object becomes the selection). [reach]: world mm
+     * of 24 dp at a point (vertex picks snap to a feature corner that close). A miss keeps the selection.
+     */
+    fun meshEditTap(origin: Vec3, dir: Vec3, section: FloatArray?, reach: (Vec3) -> Float) = store.launch {
+        val tool = store.value.tool as? Tool.MeshEdit ?: return@launch
+        val hit = pick(origin, dir, section) ?: return@launch
+        if (hit.obj != selection?.obj || hit.instance != selection?.instance) store.update { it.withSelected(listOf(Selection(hit.obj, hit.instance))) }
+        if (tool.cut in 0..2) {
+            // Cut ring: the plane through the tap across the axis splits the band there; the ring becomes the selection.
+            val axis = List(3) { if (it == tool.cut) 1.0 else 0.0 }
+            val step = engine.meshEdit(hit, "cut", origin to dir, tool.kind, meshEditAngle(), axis = axis)
+            step.scene?.let { store.applyScene(it) }
+            meshEditSel.value = meshEditSelOf(hit, step.selection)
+            return@launch
+        }
+        val same = liveMeshEditSel()?.target?.let { it.obj == hit.obj && it.instance == hit.instance && it.volume == hit.volume } == true
+        val step = engine.meshEdit(hit, "select", origin to dir, tool.kind, meshEditAngle(), toggle = same, reach = reach(hit.point))
+        step.scene?.let { store.applyScene(it) }
+        meshEditSel.value = meshEditSelOf(hit, step.selection)
+    }
+
+    /** Mesh edit "clear", "all" or "grow" on the current selection. */
+    fun meshEditOp(op: String) = store.launch {
+        val sel = liveMeshEditSel() ?: return@launch
+        val step = engine.meshEdit(sel.target, op, kind = (store.value.tool as? Tool.MeshEdit)?.kind ?: "face", angle = meshEditAngle())
+        meshEditSel.value = meshEditSelOf(sel.target, step.selection)
+    }
+
+    /** Mesh edit typed transform: [matrix] ([meshEditMatrix]) about the selection's centroid, one undo step. */
+    fun meshEditTransform(matrix: List<Double>) = store.launch {
+        val sel = liveMeshEditSel() ?: return@launch
+        engine.meshEdit(sel.target, "move", matrix = matrix)
+        val step = engine.meshEdit(sel.target, "end", kind = (store.value.tool as? Tool.MeshEdit)?.kind ?: "face", angle = meshEditAngle())
+        step.scene?.let { store.applyScene(it) }
+        meshEditSel.value = meshEditSelOf(sel.target, step.selection)
+    }
+
+    /** Mesh edit typed extrude ("extrude": [mm] along the selection's normal, < 0 = pocket), "inset" ([mm] in), "fillet" or "chamfer" ([mm] radius / size on the selection's creases), one undo step. */
+    fun meshEditFaces(op: String, mm: Float) = store.launch {
+        val sel = liveMeshEditSel() ?: return@launch
+        val kind = (store.value.tool as? Tool.MeshEdit)?.kind ?: "face"
+        val t = sel.normal * mm
+        val step = if (op != "extrude") engine.meshEdit(sel.target, op, kind = kind, angle = meshEditAngle(), amount = mm)
+        else {
+            engine.meshEdit(sel.target, "extrude", matrix = translation(t))
+            engine.meshEdit(sel.target, "end", kind = kind, angle = meshEditAngle())
+        }
+        step.scene?.let { store.applyScene(it) }
+        meshEditSel.value = meshEditSelOf(sel.target, step.selection)
+    }
+
+    private fun translation(t: Vec3) = listOf(1.0, 0.0, 0.0, t.x.toDouble(), 0.0, 1.0, 0.0, t.y.toDouble(), 0.0, 0.0, 1.0, t.z.toDouble(), 0.0, 0.0, 0.0, 1.0)
+
+    /**
+     * The selection's arrow is dragged: the selection moves [d] mm along its normal, live (only the newest distance is sent);
+     * [done] once let go (one undo step per drag), [d] null when cancelled (back to the start). With [Tool.MeshEdit.extrude]
+     * the first step extrudes the selected faces instead (new mesh and selection, then the cap moves).
+     */
+    fun meshEditDrag(d: Float?, done: Boolean) {
+        synchronized(meshEditLock) {
+            meshEditPending = (d ?: 0f) to done
+            if (meshEditRunning) return
+            meshEditRunning = true
+        }
+        store.launch {
+            try {
+                while (true) {
+                    val (mm, end) = synchronized(meshEditLock) { meshEditPending.also { meshEditPending = null } } ?: break
+                    val sel = liveMeshEditSel() ?: continue
+                    if (mm != 0f || meshEditMoved) {
+                        val extrude = !meshEditMoved && (store.value.tool as? Tool.MeshEdit)?.extrude == true
+                        val step = engine.meshEdit(sel.target, if (extrude) "extrude" else "move", matrix = translation(sel.normal * mm))
+                        if (extrude) {
+                            // A new mesh (walls, cap copies): its scene first, then the cap as the selection for the version check.
+                            step.scene?.let { store.applyScene(it) }
+                            meshEditSel.value = meshEditSelOf(sel.target, step.selection)
+                        }
+                        step.patch?.let { meshPatches.tryEmit(it) }
+                        meshEditMoved = true
+                    }
+                    if (end && meshEditMoved) {
+                        meshEditMoved = false
+                        val step = engine.meshEdit(sel.target, "end", kind = (store.value.tool as? Tool.MeshEdit)?.kind ?: "face", angle = meshEditAngle())
+                        step.scene?.let { store.applyScene(it) }
+                        meshEditSel.value = meshEditSelOf(sel.target, step.selection)
+                    }
+                }
+            } finally {
+                synchronized(meshEditLock) { meshEditRunning = false }
+            }
+            // A sample queued after the loop's last look but before the flag was down.
+            synchronized(meshEditLock) { meshEditPending?.also { meshEditPending = null } }?.let { (mm, end) -> meshEditDrag(mm, end) }
         }
     }
 

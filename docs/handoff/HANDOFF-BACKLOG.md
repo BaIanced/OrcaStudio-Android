@@ -34,10 +34,11 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 ## Waiting on the user
 - HD plate ideas (user verified r394): 3D bed frame model, dual-nozzle decal layout (Claude 2026-10-24).
 - Plate switcher pick (lab stays; don't ask again). Launcher icon colour ("decide later").
-- [Opus] Sculpt mode (More > Sculpt, r428+; Claude-verified WSA 2026-10-26..28, archive; user feel untested). Symmetry 51ad144 untested on device by user. Open (low value): paint overlay only at stroke end, exact bump positions on a face, grab on the plane.
+- [Opus] Sculpt mode (More > Sculpt, r428+; Claude-verified WSA 2026-10-26..28, archive; user feel untested). Symmetry 51ad144 untested on device by user. Remaining items (paint overlay mid-stroke, bump positions, grab on plane) parked as won't-do 2026-10-30: low value, native + CI only.
 - [Opus] Build workspace (user GO 2026-10-23): all steps incl. multi-copy (r468) and repeated/nested group gizmos (r469) Claude-verified WSA (archive 2026-10-29); turn ring + body drag in a repeated group Claude-verified WSA 2026-10-29 (archive); open: user feel.
 
 ## Ideas (not started)
+- [Opus] AI print failure watch, user "FOR SURE wants" (2026-10-30), condition: low compute per print. user's Wi-Fi camera on a printed stand (model: ask the user), RTSP via its camera account. Plan: Obico's open-source detector run locally (no LLM tokens), pause printer + notify on spaghetti; LLM only as optional 2nd opinion on a flagged frame. Claude vision at 1 frame/min ~80k tok/h = too costly as the main loop.
 - Study Bambu Handy's MakerWorld integration.
 - Headless display gaps (Reference "Headless display"): pinch on the virtual display, `start` stress test.
 - Quest: 2D panel confirmed (user 2026-10-21); open only input beyond touch + native VR view [Opus] (on request). Phone <-> Quest link (undefined).
@@ -65,4 +66,5 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - Snapping (user 2026-10-28: toggle/hotkey, not forced on the plate, thin Adobe-style guide): 846a663 Claude-verified WSA 2026-10-28; user feel untested.
 - Session B checks skipped by user 2026-10-28 ("don't want to do right now"): Sculpt, Hollow, Center/Align, Check mesh, badge fix.
 - Godot review leftovers (Z lift dot, axis lock, Wireframe, orbit inertia, Light direction: all in CI r463, Claude-verified WSA 2026-10-28, archive): open: user feel; tower ignores Z code-verified 2026-10-29. [Opus]
-- CAD 7c leftovers: part sliders (built-ins done 2026-10-29: wheel, figure, peg, hinge, gear) (wheel diameter; needs dims that scale a group). Claude design 2026-10-29 (NOTES-cad-reuse 7d: group SCALE %), nothing built. [Opus]
+- CAD 7d done (size slider WSA VD-verified dd8f656, archive 2026-10-29); only the group Scale % field is unit-tested, not seen on screen (Claude, 2026-10-30).
+- [Opus] OrcaMesh edit mode: M1-M4 (move/scale/rotate, extrude+inset, cut ring, fillet/chamfer) Claude-verified on WSA VD, M4 also on release r487 (2026-10-30); no M5 planned; user feel untested (NOTES-orcamesh-edit.md "Progress").

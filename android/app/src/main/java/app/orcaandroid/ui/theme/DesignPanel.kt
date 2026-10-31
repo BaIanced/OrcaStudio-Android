@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -34,6 +35,8 @@ import androidx.compose.material.icons.filled.DragIndicator
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.PictureInPicture
+import androidx.compose.material.icons.filled.ViewSidebar
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material3.AlertDialogDefaults
 import androidx.compose.material3.DropdownMenu
@@ -90,14 +93,18 @@ import app.orcaandroid.ui.prepare.Tip
  * changing the colours of each part of the app live. Edits the current mode (light or dark); the panel itself
  * keeps the plain Prusa colours so it stays readable whatever is picked.
  */
+/** Width the docked design panel takes on the right; the scaffold leaves it free. */
+val DESIGN_DOCK_WIDTH = 320.dp
+
 @Composable
-fun ThemeDesignPanel(state: UiState, vm: AppViewModel) {
+fun ThemeDesignPanel(state: UiState, vm: AppViewModel, floating: Boolean, onFloating: (Boolean) -> Unit) {
     val colors = LocalAppColors.current
     val dark = colors.dark
     val spec = state.themeSpec
     var region by rememberSaveable { mutableStateOf(Region.GLOBAL) }
     var slotKey by rememberSaveable { mutableStateOf(Region.GLOBAL.slots.first().key) }
     val slot = region.slots.firstOrNull { it.key == slotKey } ?: region.slots.first()
+    var tab by rememberSaveable { mutableIntStateOf(0) }
     var minimized by rememberSaveable { mutableStateOf(false) }
     var drag by remember { mutableStateOf(Offset.Zero) }
     var toggled by remember { mutableStateOf(false) }
@@ -106,7 +113,81 @@ fun ThemeDesignPanel(state: UiState, vm: AppViewModel) {
 
     // Dialogs and the message bar are rarely on screen: show samples of them while their colours are being edited.
     if (region == Region.DIALOGS) Themed(region) { DialogSamples() }
+    val themeBody: @Composable (Modifier) -> Unit = { mod ->
+        Column(mod, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            if (tab == 0) {
+                        PresetChips(state, vm, dark)
+                        RegionPicker(region, colors) { region = it; slotKey = it.slots.first().key }
+                        // One row of colour chips keeps the sliders in view without scrolling.
+                        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            region.slots.forEach { s ->
+                                SlotChip(s, colors.color(region, s), colors.isCustom(region, s), s.key == slot.key) { slotKey = s.key }
+                            }
+                        }
+                        if (slot.hint != 0) Text(stringResource(slot.hint), style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (colors.lowContrast(region)) Text(stringResource(R.string.design_low_contrast),
+                            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                        ColorEditor(
+                            key = region.key + "/" + slot.key,
+                            color = colors.color(region, slot),
+                            custom = colors.isCustom(region, slot),
+                            onChange = { c, done -> set(c, done) },
+                            onReset = { set(null) },
+                        )
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                            TextButton({ vm.setThemeSpec(spec.reset(dark, region.key)) }, enabled = colors.customCount(region) > 0) {
+                                Text(stringResource(R.string.design_reset_part))
+                            }
+                            TextButton({ vm.setThemeSpec(spec.reset(dark)) }, enabled = spec.customCount(dark) > 0) {
+                                Text(stringResource(R.string.design_reset_all))
+                            }
+                        }
+            } else app.orcaandroid.ui.settings.LayoutLabBody(state, vm)
+        }
+    }
+    val header: @Composable (Modifier) -> Unit = { mod ->
+        // Header: drag it to move the panel out of the way (floating only).
+        Row(mod.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            if (floating) Icon(Icons.Default.DragIndicator, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Icon(Icons.Default.Palette, null, Modifier.padding(start = 4.dp).size(20.dp), tint = MaterialTheme.colorScheme.primary)
+            Column(Modifier.weight(1f).padding(start = 8.dp)) {
+                Text(stringResource(R.string.design_mode), style = MaterialTheme.typography.titleSmall)
+                Text(stringResource(if (dark) R.string.design_editing_dark else R.string.design_editing_light),
+                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Tip(stringResource(if (floating) R.string.design_dock else R.string.design_detach)) { IconButton({ toggled = true; onFloating(!floating) }) {
+                Icon(if (floating) Icons.Default.ViewSidebar else Icons.Default.PictureInPicture, stringResource(if (floating) R.string.design_dock else R.string.design_detach))
+            } }
+            if (floating) Tip(stringResource(if (minimized) R.string.design_unfold else R.string.design_minimize)) { IconButton({ toggled = true; minimized = !minimized }) {
+                Icon(if (minimized) Icons.Default.ExpandLess else Icons.Default.ExpandMore, stringResource(if (minimized) R.string.design_unfold else R.string.design_minimize))
+            } }
+            Tip(stringResource(R.string.close)) { IconButton({ vm.setDesignMode(false) }) { Icon(Icons.Default.Close, stringResource(R.string.close)) } }
+        }
+    }
+    val tabs: @Composable () -> Unit = {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            FilterChip(tab == 0, { tab = 0 }, { Text(stringResource(R.string.design_tab_theme)) })
+            FilterChip(tab == 1, { tab = 1 }, { Text(stringResource(R.string.design_tab_layout)) })
+        }
+    }
     MaterialTheme(colorScheme = plainScheme(dark)) {
+        if (!floating) {
+            // Docked (default): a sidebar on the right; the scaffold leaves this width free (DESIGN_DOCK_WIDTH).
+            Box(Modifier.fillMaxSize()) {
+                Surface(
+                    Modifier.align(Alignment.CenterEnd).width(DESIGN_DOCK_WIDTH).fillMaxHeight().windowInsetsPadding(WindowInsets.statusBars),
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh, shadowElevation = 8.dp,
+                ) {
+                    Column(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        header(Modifier)
+                        tabs()
+                        themeBody(Modifier.weight(1f).verticalScroll(rememberScrollState()))
+                    }
+                }
+            }
+            return@MaterialTheme
+        }
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val width = (maxWidth - 16.dp).coerceAtMost(360.dp)
             val listHeight = maxHeight * 0.55f
@@ -147,52 +228,9 @@ fun ThemeDesignPanel(state: UiState, vm: AppViewModel) {
                 shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh, shadowElevation = 8.dp,
             ) {
                 Column(Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
-                    // Header: drag it to move the panel out of the way.
-                    Row(Modifier.fillMaxWidth().pointerInput(Unit) {
-                        detectDragGestures { change, amount -> change.consume(); drag += amount }
-                    }, verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.DragIndicator, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Icon(Icons.Default.Palette, null, Modifier.padding(start = 4.dp).size(20.dp), tint = MaterialTheme.colorScheme.primary)
-                        Column(Modifier.weight(1f).padding(start = 8.dp)) {
-                            Text(stringResource(R.string.design_mode), style = MaterialTheme.typography.titleSmall)
-                            Text(stringResource(if (dark) R.string.design_editing_dark else R.string.design_editing_light),
-                                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Tip(stringResource(if (minimized) R.string.design_unfold else R.string.design_minimize)) { IconButton({ toggled = true; minimized = !minimized }) {
-                            Icon(if (minimized) Icons.Default.ExpandLess else Icons.Default.ExpandMore, stringResource(if (minimized) R.string.design_unfold else R.string.design_minimize))
-                        } }
-                        Tip(stringResource(R.string.close)) { IconButton({ vm.setDesignMode(false) }) { Icon(Icons.Default.Close, stringResource(R.string.close)) } }
-                    }
-                    if (!minimized) Column(Modifier.heightIn(max = listHeight).verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        PresetChips(state, vm, dark)
-                        RegionPicker(region, colors) { region = it; slotKey = it.slots.first().key }
-                        // One row of colour chips keeps the sliders in view without scrolling.
-                        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            region.slots.forEach { s ->
-                                SlotChip(s, colors.color(region, s), colors.isCustom(region, s), s.key == slot.key) { slotKey = s.key }
-                            }
-                        }
-                        if (slot.hint != 0) Text(stringResource(slot.hint), style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        if (colors.lowContrast(region)) Text(stringResource(R.string.design_low_contrast),
-                            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
-                        ColorEditor(
-                            key = region.key + "/" + slot.key,
-                            color = colors.color(region, slot),
-                            custom = colors.isCustom(region, slot),
-                            onChange = { c, done -> set(c, done) },
-                            onReset = { set(null) },
-                        )
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                            TextButton({ vm.setThemeSpec(spec.reset(dark, region.key)) }, enabled = colors.customCount(region) > 0) {
-                                Text(stringResource(R.string.design_reset_part))
-                            }
-                            TextButton({ vm.setThemeSpec(spec.reset(dark)) }, enabled = spec.customCount(dark) > 0) {
-                                Text(stringResource(R.string.design_reset_all))
-                            }
-                        }
-                    }
+                    header(Modifier.pointerInput(Unit) { detectDragGestures { change, amount -> change.consume(); drag += amount } })
+                    if (!minimized) tabs()
+                    if (!minimized) themeBody(Modifier.heightIn(max = listHeight).verticalScroll(rememberScrollState()))
                 }
             }
         }

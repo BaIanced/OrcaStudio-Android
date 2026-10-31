@@ -324,7 +324,13 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     }
 
     /** [version]: the engine's scene mesh version of [data] (live sculpt patches apply to that one only). */
-    fun setMesh(data: FloatData?, version: Int = -1) { pendingMesh = data ?: FloatData(FloatData.directFloats(0), 8); pendingEngineMesh = version }
+    fun setMesh(data: FloatData?, version: Int = -1) {
+        pendingMesh = data ?: FloatData(FloatData.directFloats(0), 8); pendingEngineMesh = version
+        sceneMesh = pendingMesh
+    }
+    /** The latest scene mesh (read-only for off-thread analysis, e.g. [HoleFinder]); sculpt patches aren't in it. */
+    @Volatile var sceneMesh: FloatData? = null
+        private set
     /** Live sculpt: changed triangles, copied into the scene buffer once the mesh they belong to is in it. */
     fun applyPatch(patch: app.orcaandroid.core.MeshPatch) { if (pendingPatches.size < 256) pendingPatches += patch }
     fun setGhost(data: FloatData?) { pendingGhost = data ?: FloatData(FloatData.directFloats(0), 8) }

@@ -5,8 +5,7 @@
 // come in world mm. The mesh is refined at a stroke's start when it is too coarse for the brush (a dynamic-topology
 // start); during a stroke only vertices move. At its end, edges it stretched far (a grab) are split again.
 
-#include "OrcaEngine.hpp"
-#include "MeshSculpt.hpp"
+#include "SculptSession.hpp"
 #include "Thumbnails.hpp"
 
 #include <cmath>
@@ -29,54 +28,12 @@ namespace orca {
 
 using namespace Slic3r;
 
-struct OrcaEngine::SculptSession {
-    int object = -1, instance = -1, volume = -1;
-    // The part's mesh this session matches (set when built and at each flush): another mesh there = stale session.
-    std::shared_ptr<const TriangleMesh> current;
-    meshdeform::Mesh mesh;
-    meshsculpt::Topology topo;
-    bool dirty = false; // vertices moved since the last flush
-    // The edge length the part was refined to for the brush (strokes with a brush as big skip the check: sculpted
-    // edges stretch past it, and refining them every stroke grew the mesh and rebuilt the session each time).
-    double refined_to = std::numeric_limits<double>::max();
-    // Hits: a tree over [base] (the mesh when the session was built); faces moved since then are tested one by one.
-    std::shared_ptr<const TriangleMesh> base;
-    AABBTreeIndirect::Tree<3, float> tree;
-    double eps = 1e-6;
-    std::vector<char> touched;
-    std::vector<int> touched_list;
-    // The part's copies in the scene mesh, in write_mesh() order: first triangle, drawn matrix, ids. Valid for [copies_version].
-    struct Copy {
-        size_t first;
-        Transform3d frame;
-        bool flip;
-        float id, type;
-    };
-    std::vector<Copy> copies;
-    int copies_version = -1;
-    Transform3d frame = Transform3d::Identity(); // volume -> world of the sculpted copy
-    // Grab: the vertices under the brush at the stroke's first hit (and its mirror images), their start places and per-axis
-    // weights (falloff times the mirror's signs, summed where images overlap); the drag plane (local).
-    bool grabbing = false;
-    std::vector<int> grab_verts;
-    std::vector<Vec3d> grab_w;
-    std::vector<meshdeform::Vec3> grab_orig;
-    Vec3d grab_anchor = Vec3d::Zero(), grab_normal = Vec3d::UnitZ();
-    meshsculpt::StrokeState layer;
-    // Symmetry planes' crossing (local): the part's middle when it was first sculpted with symmetry, kept across rebuilds of
-    // the same part, so an uneven stroke doesn't shift the planes.
-    std::optional<Vec3d> mirror_center;
-    // Per-call dedupe of moved vertices / changed faces.
-    std::vector<uint32_t> vstamp, fstamp;
-    uint32_t stamp = 0;
-};
-
 struct OrcaEngine::HullJob {
     std::shared_ptr<const TriangleMesh> hull; // the placeholder the result goes into
     std::future<TriangleMesh> result;
 };
 
-static meshdeform::Mesh to_mesh(const indexed_triangle_set &src)
+meshdeform::Mesh sculpt_to_mesh(const indexed_triangle_set &src)
 {
     meshdeform::Mesh m;
     m.vertices.reserve(src.vertices.size());
@@ -88,7 +45,7 @@ static meshdeform::Mesh to_mesh(const indexed_triangle_set &src)
     return m;
 }
 
-static indexed_triangle_set to_its(const meshdeform::Mesh &m)
+indexed_triangle_set sculpt_to_its(const meshdeform::Mesh &m)
 {
     indexed_triangle_set its;
     its.vertices.reserve(m.vertices.size());
@@ -121,6 +78,54 @@ static double ray_triangle(const Vec3d &o, const Vec3d &d, const meshdeform::Vec
     return t > 0. ? t : -1.;
 }
 
+std::optional<OrcaEngine::SculptSession::Hit> OrcaEngine::SculptSession::hit(const Vec3d &o, const Vec3d &d) const
+{
+    double best = std::numeric_limits<double>::max();
+    int face = -1;
+    std::vector<igl::Hit<float>> hits;
+    AABBTreeIndirect::intersect_ray_all_hits(base->its.vertices, base->its.indices, tree, o, d, hits, eps);
+    for (const auto &h : hits)
+        if (!touched[size_t(h.id)]) {
+            best = h.t;
+            face = h.id;
+            break;
+        }
+    for (int f : touched_list) {
+        const auto &tri = mesh.faces[size_t(f)];
+        const double t = ray_triangle(o, d, mesh.vertices[tri[0]], mesh.vertices[tri[1]], mesh.vertices[tri[2]]);
+        if (t > 0. && t < best) {
+            best = t;
+            face = f;
+        }
+    }
+    if (face < 0)
+        return std::nullopt;
+    const Vec3d p = o + d * best;
+    int seed = -1;
+    double near = std::numeric_limits<double>::max();
+    for (int v : mesh.faces[size_t(face)]) {
+        const auto &q = mesh.vertices[size_t(v)];
+        const double d2 = (Vec3d(q.x, q.y, q.z) - p).squaredNorm();
+        if (d2 < near) {
+            near = d2;
+            seed = v;
+        }
+    }
+    return Hit{p, seed, face};
+}
+
+void OrcaEngine::SculptSession::touch(const std::vector<int> &verts)
+{
+    for (int v : verts)
+        for (int j = topo.fstart[v]; j < topo.fstart[v + 1]; ++j) {
+            const int f = topo.faces[size_t(j)];
+            if (!touched[size_t(f)]) {
+                touched[size_t(f)] = 1;
+                touched_list.push_back(f);
+            }
+        }
+}
+
 void OrcaEngine::sculpt_build(int object, int instance, int volume)
 {
     ModelObject &obj = object_at(object);
@@ -135,7 +140,7 @@ void OrcaEngine::sculpt_build(int object, int instance, int volume)
     auto ms = [&t0] { return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count(); };
     // The hit tree (the slowest part) is built beside the mesh copy and its topology.
     auto tree = std::async(std::launch::async, [&its] { return AABBTreeIndirect::build_aabb_tree_over_indexed_triangle_set(its.vertices, its.indices); });
-    s->mesh = to_mesh(its);
+    s->mesh = sculpt_to_mesh(its);
     const auto t_mesh = ms();
     s->topo = meshsculpt::build_topology(s->mesh);
     const auto t_topo = ms();
@@ -197,7 +202,7 @@ bool OrcaEngine::sculpt_flush_locked()
     ModelObject &obj = *m_model->objects[s.object];
     ModelVolume *vol = obj.volumes[s.volume];
     const auto t0 = std::chrono::steady_clock::now();
-    vol->set_mesh(to_its(s.mesh));
+    vol->set_mesh(sculpt_to_its(s.mesh));
     const auto t_mesh = std::chrono::steady_clock::now();
     // The hull is computed in the background. Until it is in, the part's hull is its bounding box (a fresh hull object of
     // this mesh only, which the job then fills; min_z() reads the mesh, so dropping to the bed stays exact).
@@ -388,7 +393,7 @@ json OrcaEngine::sculpt(const std::array<int, 3> &target, const std::vector<std:
             m_sculpt->refined_to = edge;
         // An unflushed session's mesh is newer than the part's.
         const auto t0 = std::chrono::steady_clock::now();
-        meshdeform::Mesh m = fresh ? std::move(m_sculpt->mesh) : to_mesh(vol->mesh().its);
+        meshdeform::Mesh m = fresh ? std::move(m_sculpt->mesh) : sculpt_to_mesh(vol->mesh().its);
         const size_t budget = std::max<size_t>(400000, m.faces.size());
         double longest = 0.;
         for (const auto &f : m.faces)
@@ -400,7 +405,7 @@ json OrcaEngine::sculpt(const std::array<int, 3> &target, const std::vector<std:
             const size_t before = m.faces.size();
             meshdeform::refine_to_length(m, edge, budget);
             const auto t_refine = std::chrono::steady_clock::now();
-            vol->set_mesh(to_its(m));
+            vol->set_mesh(sculpt_to_its(m));
             vol->supported_facets.reset();
             vol->seam_facets.reset();
             vol->mmu_segmentation_facets.reset();
@@ -457,47 +462,7 @@ json OrcaEngine::sculpt(const std::array<int, 3> &target, const std::vector<std:
     }
     const Vec3d mc = ss.mirror_center.value_or(Vec3d::Zero());
 
-    // The surface under a ray now: tree hits on faces that haven't moved, moved faces one by one.
-    // The hit point and its face's vertex nearest to it (the brush's seed).
-    struct Hit {
-        Vec3d point;
-        int seed;
-        int face;
-    };
-    auto hit_of = [&](const Vec3d &o, const Vec3d &d) -> std::optional<Hit> {
-        double best = std::numeric_limits<double>::max();
-        int face = -1;
-        std::vector<igl::Hit<float>> hits;
-        AABBTreeIndirect::intersect_ray_all_hits(ss.base->its.vertices, ss.base->its.indices, ss.tree, o, d, hits, ss.eps);
-        for (const auto &h : hits)
-            if (!ss.touched[size_t(h.id)]) {
-                best = h.t;
-                face = h.id;
-                break;
-            }
-        for (int f : ss.touched_list) {
-            const auto &tri = ss.mesh.faces[size_t(f)];
-            const double t = ray_triangle(o, d, ss.mesh.vertices[tri[0]], ss.mesh.vertices[tri[1]], ss.mesh.vertices[tri[2]]);
-            if (t > 0. && t < best) {
-                best = t;
-                face = f;
-            }
-        }
-        if (face < 0)
-            return std::nullopt;
-        const Vec3d p = o + d * best;
-        int seed = -1;
-        double near = std::numeric_limits<double>::max();
-        for (int v : ss.mesh.faces[size_t(face)]) {
-            const auto &q = ss.mesh.vertices[size_t(v)];
-            const double d2 = (Vec3d(q.x, q.y, q.z) - p).squaredNorm();
-            if (d2 < near) {
-                near = d2;
-                seed = v;
-            }
-        }
-        return Hit{p, seed, face};
-    };
+    auto hit_of = [&ss](const Vec3d &o, const Vec3d &d) { return ss.hit(o, d); };
 
     ss.vstamp.resize(ss.mesh.vertices.size(), 0);
     ss.fstamp.resize(ss.mesh.faces.size(), 0);
@@ -641,8 +606,42 @@ json OrcaEngine::sculpt(const std::array<int, 3> &target, const std::vector<std:
     if (!moved.empty())
         ss.dirty = true;
 
+    const std::string patch = end ? std::string() : sculpt_patch(faces);
+
+    if (end) {
+        ss.grabbing = false;
+        sculpt_finish_locked();
+        drop_to_bed(obj);
+        return commit();
+    }
+    json out = committed ? scene_json() : json::object();
+    out["patch"] = patch;
+    out["mesh_version"] = m_mesh_version;
+    out["hit"] = any_hit;
+    if (any_hit) {
+        // The hit face as the dab left it; normals go to the world by the inverse transpose.
+        if (cursor_face >= 0) {
+            const auto &tri = ss.mesh.faces[size_t(cursor_face)];
+            const auto &a = ss.mesh.vertices[size_t(tri[0])], &b = ss.mesh.vertices[size_t(tri[1])], &c = ss.mesh.vertices[size_t(tri[2])];
+            const Vec3d n = Vec3d(b.x - a.x, b.y - a.y, b.z - a.z).cross(Vec3d(c.x - a.x, c.y - a.y, c.z - a.z));
+            if (n.squaredNorm() > 0.)
+                cursor_normal = n;
+        }
+        const Vec3d wp = ss.frame * cursor_point;
+        Vec3d wn = ss.frame.linear().inverse().transpose() * cursor_normal;
+        wn = wn.squaredNorm() > 0. ? Vec3d(wn.normalized()) : Vec3d(Vec3d::UnitZ());
+        out["point"] = {wp.x(), wp.y(), wp.z()};
+        out["normal"] = {wn.x(), wn.y(), wn.z()};
+    }
+    return out;
+}
+
+// The session's [faces] (sorted) in every copy of its part, written as a patch file for the app's GL buffer; "" for none.
+std::string OrcaEngine::sculpt_patch(const std::vector<int> &faces)
+{
+    SculptSession &ss = *m_sculpt;
     std::string patch;
-    if (!faces.empty() && !end) {
+    if (!faces.empty()) {
         std::vector<std::pair<int, int>> runs; // [first, last]
         for (int f : faces) {
             if (!runs.empty() && f - runs.back().second <= 16)
@@ -683,33 +682,7 @@ json OrcaEngine::sculpt(const std::array<int, 3> &target, const std::vector<std:
                 }
             }
     }
-
-    if (end) {
-        ss.grabbing = false;
-        sculpt_finish_locked();
-        drop_to_bed(obj);
-        return commit();
-    }
-    json out = committed ? scene_json() : json::object();
-    out["patch"] = patch;
-    out["mesh_version"] = m_mesh_version;
-    out["hit"] = any_hit;
-    if (any_hit) {
-        // The hit face as the dab left it; normals go to the world by the inverse transpose.
-        if (cursor_face >= 0) {
-            const auto &tri = ss.mesh.faces[size_t(cursor_face)];
-            const auto &a = ss.mesh.vertices[size_t(tri[0])], &b = ss.mesh.vertices[size_t(tri[1])], &c = ss.mesh.vertices[size_t(tri[2])];
-            const Vec3d n = Vec3d(b.x - a.x, b.y - a.y, b.z - a.z).cross(Vec3d(c.x - a.x, c.y - a.y, c.z - a.z));
-            if (n.squaredNorm() > 0.)
-                cursor_normal = n;
-        }
-        const Vec3d wp = ss.frame * cursor_point;
-        Vec3d wn = ss.frame.linear().inverse().transpose() * cursor_normal;
-        wn = wn.squaredNorm() > 0. ? Vec3d(wn.normalized()) : Vec3d(Vec3d::UnitZ());
-        out["point"] = {wp.x(), wp.y(), wp.z()};
-        out["normal"] = {wn.x(), wn.y(), wn.z()};
-    }
-    return out;
+    return patch;
 }
 
 } // namespace orca

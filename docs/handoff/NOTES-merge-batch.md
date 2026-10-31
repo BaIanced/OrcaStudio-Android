@@ -36,6 +36,7 @@ DONE 2026-10-28: truck demo people visibility dropped (demo session gone from WS
 Cut tool: point of "Flip upper part upside down" / Lay on cut face. Push/pull: fold into resize (Claude rec) or remove.
 
 ## Status
+2026-10-30: PR #67 merged (de0e3fa): paint shop all kinds, CAD 7a-7d, Build continuity, cut preview, push/pull tier 2 (all Claude-verified, user-untested).
 Triage done 2026-10-28. Claude closes done. Session A done 2026-10-28. B, C, D pending (retroactive after the PR #66 merge); the printer set and release stay gated.
 
 ## User-untested in main (moved from HANDOFF.md 2026-10-29)
