@@ -39,7 +39,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Demos on WSA debug app 2026-10-30 (Hopf + torus link, archive): uninstall debug when the user is done. Open: printable base (needs user OK).
 - **UX audit for Gemini (user 2026-10-31, current focus):** round 3 bundle ready (backlog line); waiting for Gemini's answer from the user. Then verify each item vs source, user picks what to build.
 - S Pen pressure ab552fa (r489 installed everywhere): More > Pen UI checked on WSA VD 2026-10-31 (switch + Soft/Linear/Firm chips, Firm selects, back to Linear); real pressure awaits Note 10+ test (user says when). Gemini round 3 skipped by user 2026-10-31 (still pending).
-- Next step: UX audit round 3 -> wait for Gemini's answer from the user; else self-portrait gaps (backlog: MCP slot add, tower position, layer slider, bugs) -> Sonnet 5.5 (medium)
+- Source fixes 2026-10-31 (committed, not pushed, untested): design_to_plate triangle total, design_set sketch auto-size. Push with the next batch.
+- Next step: UX audit round 3 -> wait for Gemini answer from the user; else repro "slice result lost after view_set + Preview" on WSA VD, then other self-portrait gaps (backlog) -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).

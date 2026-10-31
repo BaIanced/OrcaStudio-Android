@@ -1057,7 +1057,16 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         val o = args.optJSONObject("design") ?: throw ToolError("design must be an object {shapes, dims}")
         val problems = validate(o, store.value.scad?.shapes)
         if (problems.isNotEmpty()) throw ToolError("Design not valid:\n" + problems.joinToString("\n"))
-        val next = ShapeDesign.of(o)
+        var next = ShapeDesign.of(o)
+        // A sketch given without a size would keep the 20 mm default box: fit it to the drawing like sketch_set does.
+        fun noSize(a: JSONArray?, out: MutableSet<Int>) {
+            for (i in 0 until (a?.length() ?: 0)) a?.optJSONObject(i)?.let { s ->
+                if (s.optString("kind") == Shape.Kind.SKETCH.key && !s.has("size")) out += s.optInt("id")
+                noSize(s.optJSONArray("children"), out)
+            }
+        }
+        val unsized = HashSet<Int>().also { noSize(o.optJSONArray("shapes"), it) }
+        for (id in unsized) next = next.update(id) { s -> s.sketch?.let { ShapeDesign.fitSketch(s, it.solve({ n -> next.dim(n)?.value })) } ?: s }
         val name = args.optString("name").trim().takeIf { it.isNotEmpty() }
         return edit("changed the design (${next.shapes.sumOf { it.all().count() }} shapes)") {
             shapes.replace(next)
