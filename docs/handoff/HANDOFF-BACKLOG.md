@@ -38,7 +38,7 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - [Opus] Build workspace (user GO 2026-10-23): all steps incl. multi-copy (r468) and repeated/nested group gizmos (r469) Claude-verified WSA (archive 2026-10-29); turn ring + body drag in a repeated group Claude-verified WSA 2026-10-29 (archive); open: user feel.
 
 ## Ideas (not started)
-- [Opus] AI print failure watch, user "FOR SURE wants" (2026-10-30), condition: low compute per print. Tapo C120 (model unconfirmed) on a printed stand, RTSP via camera account. Plan: Obico's open-source detector run locally (no LLM tokens), pause printer + notify on spaghetti; LLM only as optional 2nd opinion on a flagged frame. Claude vision at 1 frame/min ~80k tok/h = too costly as the main loop.
+- [Opus] AI print failure watch, user "FOR SURE wants" (2026-10-30), condition: low compute per print. user's Wi-Fi camera on a printed stand (model: ask the user), RTSP via its camera account. Plan: Obico's open-source detector run locally (no LLM tokens), pause printer + notify on spaghetti; LLM only as optional 2nd opinion on a flagged frame. Claude vision at 1 frame/min ~80k tok/h = too costly as the main loop.
 - Study Bambu Handy's MakerWorld integration.
 - Headless display gaps (Reference "Headless display"): pinch on the virtual display, `start` stress test.
 - Quest: 2D panel confirmed (user 2026-10-21); open only input beyond touch + native VR view [Opus] (on request). Phone <-> Quest link (undefined).
