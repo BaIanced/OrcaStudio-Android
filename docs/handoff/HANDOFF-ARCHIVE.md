@@ -3791,3 +3791,6 @@ User said "yep looks good" while run 41158738411 (hole labels avoid bbox/wall la
 - Dimensions overlay: user "looks good" r485, overlap nudge done (archive).
 - Source fixes 2026-10-31 (committed, not pushed, untested): design_to_plate triangle total, design_set sketch auto-size. Push with the next batch.
 - "Slice result lost after view_set + Preview": not reproducible on r489 WSA (slice, view_set x2, Preview tap: result kept); backlog line updated.
+
+## 2026-10-31 sketch size + triangles (Claude, WSA debug build of 29cb5e2)
+- design_set sketch without size fits its drawing (triangle 30,26 -> size [30,26,20]); design_to_plate Allow tapped on VD, placed OK; triangle count appears only when a piece is freshly rendered (design_set pre-renders), by design.
