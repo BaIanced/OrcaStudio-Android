@@ -13,7 +13,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 ## State
 - One repo: OrcaStudio-Android (code + these docs, `docs/handoff/`), branch `claude/handoff-continuation-rseql3`. Autonomy (user, 2026-10-11): decide branches and next steps
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
-- Android main = 0aec8c3 (PR #68, branch at run 41166849671 = r487: OrcaMesh M1-M4, dimensions overlay, designer panel, mesh_add; merged 2026-10-30 on /next-merge; user-untested, Claude-verified only). Nothing unverified on the branch. User-untested in main: list in `NOTES-merge-batch.md`.
+- Android main = 1c4ff52 (PR #69, branch at r490 = r487 content + S Pen pressure, MCP filament_slots/prime_tower/preview_set, sketch size/triangle fixes; merged 2026-10-31 on "merge"; user-untested, Claude-verified only). Nothing unverified on the branch. User-untested in main: list in `NOTES-merge-batch.md`.
 - Signing secrets: `release` environment (main + `claude/*` only).
 - Latest installed CI build: r490 (run 41224065486, 29cb5e2: sketch size, triangles, filament_slots/prime_tower/preview_set; r489 was S Pen pressure ab552fa) on all 5 adb serials, 2026-10-31. Install builds on all adb devices (skip .23).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
@@ -38,7 +38,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Debug app on WSA: tested 2026-10-31, uninstall when the user is done. Demos on WSA debug app 2026-10-30 (Hopf + torus link, archive): uninstall debug when the user is done. Open: printable base (needs user OK).
 - UX audit / Gemini round 3: **lowest priority (user 2026-10-31)**; only act if the user brings Gemini's answer (backlog line).
 - S Pen pressure ab552fa (r489 installed everywhere): More > Pen UI checked on WSA VD 2026-10-31 (switch + Soft/Linear/Firm chips, Firm selects, back to Linear); real pressure awaits Note 10+ test (user says when). Gemini round 3 skipped by user 2026-10-31 (still pending).
-- Next step: offer main merge of r487-r490 work (user-untested, Claude-verified) -> Sonnet 5.5 (medium)
+- Next step: nothing open for Claude (S Pen pressure on Note 10+ and Gemini round 3 wait for the user); idle or pick a backlog item -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
