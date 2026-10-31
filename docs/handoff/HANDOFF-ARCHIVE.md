@@ -3775,3 +3775,7 @@ User said "yep looks good" while run 41158738411 (hole labels avoid bbox/wall la
 
 ## 2026-10-30 OrcaMesh M4 release check (Claude, WSA VD, release r487)
 - M4 was already in CI (r479, 55da269); handoff line was stale. Release r487: 20 mm cube (mesh_add + design_to_plate), mesh_edit select top face, fillet 2 -> 108 faces, 1 shell, volume 7934 (exact), "No problems found". Test objects on WSA are throwaway; app force-stopped, VD stopped.
+
+## 2026-10-31 UX review round 2 detail (moved from backlog)
+- Round 2 checked by Claude: real = landscape double left rails + clipped tool rail, landscape right panel truncates filament names, More-list paragraph descriptions, View menu 14 items ungrouped, landscape settings eye travel, sheet cut mid-field at rest height; wrong = phone lacks tool rail, tiny inputs, 'internal Prepare tab', jog controls missing. Missed by Gemini: Layout lab row, tiny speed chips + low-contrast disabled Retract/Extrude. Gemini called the phone landscape PDF a tablet.
+- User 2026-10-31: "we're supposed to be working on ui/ux audit for gemini": audit first, no building ahead of it; Claude's early fixes stashed.
