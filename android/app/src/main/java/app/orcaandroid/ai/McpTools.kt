@@ -19,6 +19,7 @@ import app.orcaandroid.ui.ScadController
 import app.orcaandroid.ui.ShapeController
 import app.orcaandroid.ui.SliceController
 import app.orcaandroid.ui.preview.ROLE_NAMES
+import app.orcaandroid.ui.preview.SCHEMES
 import app.orcaandroid.ui.Store
 import java.io.File
 import java.security.MessageDigest
@@ -211,10 +212,23 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         Tool("plate_arrange", "Plate edit: arranges the objects on a plate (default the active one), or with all true " +
             "every object over all plates (plates are added when they don't fit). $PLATE_EDIT",
             obj(emptyList(), "plate" to p("integer", "Plate number"), "all" to p("boolean", "true = every plate"))) { arrange(it) },
+        Tool("prime_tower", "Plate edit: moves the prime tower of a plate (default the active one; it only exists when the plate " +
+            "uses more than one filament) to x, y = the tower's lower-left corner in plate mm, or resets it to automatic with " +
+            "reset true. $PLATE_EDIT",
+            obj(emptyList(), "plate" to p("integer", "Plate number; default the active plate"),
+                "x" to p("number", "mm from the plate's left edge"), "y" to p("number", "mm from the plate's front edge"),
+                "reset" to p("boolean", "true = automatic position"))) { primeTower(it) },
         Tool("slice", "Run: slices a plate (default the active one) with the chosen printer, process and filaments and waits " +
             "for it (up to 10 min). The app then shows the Preview tab. Replies with the full result (same as slice_result, " +
             "which is only for re-reading it later), or the error.",
             obj(emptyList(), "plate" to p("integer", "Plate number; default the active plate"))) { slice(it) },
+        Tool("preview_set", "View: sets the Preview tab of a sliced plate (default the active one): the layer range shown, the " +
+            "colour scheme and the moves cut-off of the top layer. Shows the Preview tab. Given fields change, others stay. " +
+            "Replies with what the preview shows. Run slice first.",
+            obj(emptyList(), "plate" to p("integer", "Plate number; default the active plate"),
+                "layer_from" to p("integer", "Lowest layer shown, 1 = first"), "layer_to" to p("integer", "Top layer shown"),
+                "scheme" to p("string", "line type, speed, layer height, line width, fan speed, temperature, volumetric flow or filament"),
+                "moves" to p("integer", "Segments drawn in the top layer; 0 = all"))) { previewSet(it) },
         Tool("slice_result", "Read: the last slice of a plate (default the active one): print time, filament, layers, time and " +
             "filament per extrusion role, and the slicer's warnings. Nothing is sliced here; use slice for that.",
             obj(emptyList(), "plate" to p("integer", "Plate number; default the active plate"))) { sliceResult(it) },
@@ -719,6 +733,34 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         return sliceResult(JSONObject().put("plate", plate + 1))
     }
 
+    private suspend fun previewSet(args: JSONObject): String = withContext(Dispatchers.Main.immediate) {
+        val plate = plateArg(args)
+        val r = store.value.results[plate] ?: throw ToolError("Plate ${plate + 1} has no slice result: run slice first")
+        val last = r.layers.lastIndex
+        val scheme = if (args.has("scheme")) {
+            val want = args.optString("scheme").trim().lowercase()
+            val names = SCHEMES.map { store.str(it) }
+            names.indexOfFirst { it.lowercase() == want }.takeIf { it >= 0 }
+                ?: names.indexOfFirst { it.lowercase().startsWith(want) && want.isNotEmpty() }.takeIf { it >= 0 }
+                ?: throw ToolError("scheme must be one of: ${names.joinToString()}")
+        } else null
+        if (store.value.previewPlate != plate) slicing.setPreviewPlate(plate)
+        val cur = store.value.preview
+        var lo = if (args.has("layer_from")) args.optInt("layer_from") - 1 else cur.layerLow
+        var hi = if (args.has("layer_to")) args.optInt("layer_to") - 1 else cur.layerHigh
+        lo = lo.coerceIn(0, last)
+        hi = hi.coerceIn(lo, last)
+        val layerChanged = args.has("layer_from") || args.has("layer_to")
+        slicing.updatePreview {
+            it.copy(layerLow = lo, layerHigh = hi, scheme = scheme ?: it.scheme,
+                moveEnd = if (args.has("moves")) args.optInt("moves").takeIf { m -> m > 0 } else if (layerChanged) null else it.moveEnd)
+        }
+        store.update { it.copy(screen = Screen.PREVIEW) }
+        val p = store.value.preview
+        "Plate ${plate + 1} preview: layers ${p.layerLow + 1}..${p.layerHigh + 1} of ${last + 1}, scheme ${store.str(SCHEMES[p.scheme])}" +
+            (p.moveEnd?.let { ", top layer cut at move $it" } ?: "")
+    }
+
     private suspend fun sliceResult(args: JSONObject): String = withContext(Dispatchers.Main.immediate) {
         val plate = plateArg(args)
         val r = store.value.results[plate] ?: throw ToolError("Plate ${plate + 1} has no slice result: run slice first")
@@ -1024,6 +1066,17 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         return plateEdit(if (all) "arranged all plates" else "arranged plate ${plate + 1}", R.string.arranging) {
             store.engine.arrange(if (all) -1 else plate)
         }
+    }
+
+    private suspend fun primeTower(args: JSONObject): String {
+        val plate = withContext(Dispatchers.Main.immediate) { plateArg(args) }
+        val reset = args.optBoolean("reset")
+        if (!reset && !(args.has("x") && args.has("y"))) throw ToolError("Give x and y, or reset true")
+        val x = args.optDouble("x").toFloat()
+        val y = args.optDouble("y").toFloat()
+        if (!reset && !(x.isFinite() && y.isFinite())) throw ToolError("x and y must be numbers")
+        val summary = if (reset) "reset the prime tower of plate ${plate + 1}" else "moved the prime tower of plate ${plate + 1} to $x, $y"
+        return plateEdit(summary) { store.engine.setWipeTower(plate, if (reset) null else x to y) }
     }
 
     // --- Edit ---------------------------------------------------------------------------------------

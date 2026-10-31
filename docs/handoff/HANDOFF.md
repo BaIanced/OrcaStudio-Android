@@ -34,11 +34,11 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - CAD plan (`NOTES-cad-reuse.md`): 0-5b Claude-verified, 1b parked. MCP efficiency (`NOTES-mcp-token-efficiency.md`): build rule waits for user OK.
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
-- Self-portrait 3 done (archive); gaps/bugs + 2 untested unpushed source fixes (design_to_plate triangles, design_set sketch size; push with next batch): backlog "Self-portrait 3 gaps".
+- Self-portrait 3 done (archive); gaps/bugs + untested unpushed source fixes (MCP: filament_slots, prime_tower, preview_set; design_to_plate triangles, design_set sketch size): backlog "Self-portrait 3 gaps".
 - Demos on WSA debug app 2026-10-30 (Hopf + torus link, archive): uninstall debug when the user is done. Open: printable base (needs user OK).
 - UX audit / Gemini round 3: **lowest priority (user 2026-10-31)**; only act if the user brings Gemini's answer (backlog line).
 - S Pen pressure ab552fa (r489 installed everywhere): More > Pen UI checked on WSA VD 2026-10-31 (switch + Soft/Linear/Firm chips, Firm selects, back to Linear); real pressure awaits Note 10+ test (user says when). Gemini round 3 skipped by user 2026-10-31 (still pending).
-- Next step: self-portrait gaps: MCP tools for prime tower position + Preview layer slider/colour scheme (filament_slots done, untested; test on WSA debug build with the next batch) -> Sonnet 5.5 (medium)
+- Next step: test the 5 untested source fixes on a WSA debug build (filament_slots, prime_tower, preview_set, design_to_plate triangles, design_set sketch size; backlog "Self-portrait 3 gaps"), then push + CI -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
