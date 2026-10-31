@@ -36,13 +36,11 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - WSA: `svc power stayon true` while testing; `stage-from-apk.sh <apk>`.
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - Fixture `rep-groups.json` (MCP `design_set`). VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78.
-- **Queued (user 2026-10-29):** dimensions overview (done, see below).
 - OrcaMesh edit M1-M4: Claude-verified, r479 installed (archive 2026-10-30).
-- **Dimensions overlay** (user 2026-10-30; phases 1 bbox lines, 2 hole diameters, 3 thinnest wall): 1 = 378253f `DimensionOverlay.kt`; 2 = 68b9ac9 `render/HoleFinder.kt` (Kotlin on `PlateRenderer.sceneMesh`, `HoleFinderTest` 3/3; design in archive 2026-10-30). Neither seen on screen (WSA shots are GL only): check on phone/Note VD with a holed part selected in Prepare. Gaps: slots, tilted holes.
-- Phase 3 + phase 1 seen working on the phone VD, r480 (archive 2026-10-30); phase 2 hole diameter seen too (archive 2026-10-30, r480). Phone is reachable over Tailscale adb (`adb connect <tailnet ip>:5555`; `MCP_DEV=<serial>` for mcpao since target.sh serial defaults to WSA).
+- **Dimensions overlay** (user 2026-10-30): phases 1-3 seen on the phone VD r480 (archive 2026-10-30). Slots + tilted holes built aefd86b (JVM tests 5/5, archive 2026-10-30), no CI build yet, not seen on a device: needs a build, then check on phone/Note VD with a slotted or tilted part in Prepare. Phone over Tailscale adb: `adb connect <tailnet ip>:5555`, `MCP_DEV=<serial>`.
 - **Theme | Layout designer**: docked/float/Layout tab Claude-verified on WSA VD, narrow screens start floating (archive 2026-10-30); needs a CI build to reach devices, user feel untested.
-- Self-portrait demo "The Listening Lantern" done 2026-10-30 (`DEMO-self-portrait.md`): 6-colour on WSA window, 4-colour (`self-portrait-4slot.json`) on the phone; shots sent. User verdict pending.
-- Next step: user verdict on the Lantern demo / their pick; else dimension overlay slots + tilted holes -> Sonnet 5.5 (medium)
+- Self-portrait demo "The Listening Lantern" (`DEMO-self-portrait.md`): user asked 2026-10-30 if the floating look was intended (no, see archive); waiting for which shot. Possible fix: brighter plinth in the 4-slot JSON, trim book corners.
+- Next step: dispatch a CI build (slots/tilted holes + r483 designer), install on all adb devices, check the overlay on a slotted/tilted part on the phone VD -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
