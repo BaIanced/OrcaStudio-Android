@@ -152,6 +152,21 @@ class HoleFinderTest {
         assertEquals(5f, holes[1].diameter, 1e-2f); assertTrue(!holes[1].isSlot)
     }
 
+    /** The scene mesh of a designed box with a slot and a hole tilted 15 deg (slot-test.json on the phone, r484). */
+    @Test
+    fun findsTheTiltedHoleInADesignedPart() {
+        val bytes = javaClass.getResourceAsStream("/slot-test-mesh.bin")!!.readBytes()
+        val bb = java.nio.ByteBuffer.wrap(bytes).order(java.nio.ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
+        val buf = FloatData.directFloats(bb.remaining())
+        buf.put(bb); buf.flip()
+        val mesh = FloatData(buf, 8)
+        val holes = HoleFinder.find(mesh, setOf(4096))!!.holes.sortedBy { it.diameter }
+        assertEquals(holes.toString(), 2, holes.size)
+        assertEquals(6f, holes[0].diameter, 0.05f); assertTrue(!holes[0].isSlot)
+        assertEquals(Math.cos(Math.toRadians(15.0)).toFloat(), Math.abs(holes[0].dir.z), 1e-3f)
+        assertEquals(8f, holes[1].diameter, 0.05f); assertEquals(24f, holes[1].length, 0.1f); assertTrue(holes[1].isSlot)
+    }
+
     @Test
     fun nothingSelectedFindsNothing() {
         cylinder(1, 2, 0.0, 0.0, 2.0, 0.0, 4.0, 24, hole = true)

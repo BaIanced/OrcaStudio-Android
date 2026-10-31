@@ -161,9 +161,17 @@ fun DimensionOverlay(view: PlateView?, copyKey: Any?, thinnest: suspend () -> Pa
             val mid = scr(end) ?: continue
             val t = measurer.measure((if (h.isSlot) "${fmt(h.diameter)} × ${fmt(h.length)}" else "⌀${fmt(h.diameter)}"), labelStyle)
             val pad = 4.dp.toPx()
-            val tl = mid - Offset(t.size.width / 2f, t.size.height / 2f)
-            val box = Rect(tl - Offset(pad, pad / 2), Size(t.size.width + 2 * pad, t.size.height + pad))
-            if (taken.any { it.overlaps(box) }) continue
+            // Inside the ring, else beside it (right, left, below, above) when another hole's label is there already;
+            // a hole next to a slot lost its label to the slot's (phone r484).
+            val bw = t.size.width + 2 * pad
+            val bh = t.size.height + pad
+            val rl = ring.minOf { it.x }; val rr = ring.maxOf { it.x }; val rt = ring.minOf { it.y }; val rb = ring.maxOf { it.y }
+            val gap = 3.dp.toPx()
+            val box = listOf(
+                Offset(mid.x - bw / 2, mid.y - bh / 2), Offset(rr + gap, mid.y - bh / 2), Offset(rl - gap - bw, mid.y - bh / 2),
+                Offset(mid.x - bw / 2, rb + gap), Offset(mid.x - bw / 2, rt - gap - bh),
+            ).map { Rect(it, Size(bw, bh)) }.firstOrNull { b -> taken.none { it.overlaps(b) } } ?: continue
+            val tl = box.topLeft + Offset(pad, pad / 2)
             taken += box
             drawRoundRect(amber.copy(alpha = 0.9f), box.topLeft, box.size, CornerRadius(pad))
             drawText(t, topLeft = tl, color = Color.Black)
