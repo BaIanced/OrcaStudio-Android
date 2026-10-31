@@ -99,7 +99,8 @@ fun toolAfterScreenChange(from: Screen, to: Screen, tool: Tool): Tool = when {
 /** What the settings editor currently edits. */
 sealed interface EditorTarget {
     /** [pickCompare]: open with the "compare with" picker showing (More > Compare presets). */
-    data class Preset(val type: PresetType, val pickCompare: Boolean = false) : EditorTarget
+    /** [focus]: open searched for this option key (a notice's "Fix" link). */
+    data class Preset(val type: PresetType, val pickCompare: Boolean = false, val focus: String? = null) : EditorTarget
     /** Per-object (volume < 0) or per-part/modifier settings. */
     data class Object(val obj: Int, val volume: Int = -1) : EditorTarget
     data class Range(val obj: Int, val range: Int) : EditorTarget

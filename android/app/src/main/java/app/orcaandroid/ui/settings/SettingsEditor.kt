@@ -112,7 +112,7 @@ fun SettingsEditor(state: UiState, vm: AppViewModel) {
     val target = state.editor ?: return
     androidx.activity.compose.BackHandler(onBack = vm.presets::closeEditor)
     when (target) {
-        is EditorTarget.Preset -> PresetEditor(state, vm, target.type, target.pickCompare)
+        is EditorTarget.Preset -> PresetEditor(state, vm, target.type, target.pickCompare, target.focus)
         is EditorTarget.Object -> {
             val o = state.scene.objects.getOrNull(target.obj) ?: run { LaunchedEffect(Unit) { vm.presets.closeEditor() }; return }
             val settings = (if (target.volume >= 0) o.volumes.getOrNull(target.volume)?.settings.orEmpty() else o.settings).overrides
@@ -149,7 +149,7 @@ fun SettingsEditor(state: UiState, vm: AppViewModel) {
 private val TYPE_TITLES = mapOf(PresetType.PRINT to R.string.process, PresetType.FILAMENT to R.string.filament, PresetType.PRINTER to R.string.printer)
 
 @Composable
-private fun PresetEditor(state: UiState, vm: AppViewModel, type: PresetType, pickCompare: Boolean = false) {
+private fun PresetEditor(state: UiState, vm: AppViewModel, type: PresetType, pickCompare: Boolean = false, focus: String? = null) {
     var saveDialog by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     var comparePick by remember { mutableStateOf(pickCompare) }
@@ -164,7 +164,7 @@ private fun PresetEditor(state: UiState, vm: AppViewModel, type: PresetType, pic
         modifiedCount = state.overridesOf(type).size,
     )
     val name = state.presetName(type).orEmpty()
-    EditorFrame(vm, state, stringResource(R.string.settings), name, source, objectMode = false,
+    EditorFrame(vm, state, stringResource(R.string.settings), name, source, objectMode = false, focus = focus,
         tabs = {
             PrimaryTabRow(selectedTabIndex = type.ordinal) {
                 PresetType.entries.forEach { t ->
@@ -220,6 +220,7 @@ private fun EditorFrame(
     source: EditSource,
     objectMode: Boolean,
     objectSettings: Map<String, String>? = null,
+    focus: String? = null,
     tabs: @Composable () -> Unit = {},
     actions: @Composable () -> Unit = {},
 ) {
@@ -236,8 +237,8 @@ private fun EditorFrame(
     }
     val pages = remember(type, defs) { if (defs.isEmpty()) emptyList() else buildPages(vm.presets.settingsLayout(type), defs) }
     var mode by rememberSaveable { mutableIntStateOf(1) }
-    var query by remember(type) { mutableStateOf("") }
-    var searching by remember { mutableStateOf(false) }
+    var query by remember(type, focus) { mutableStateOf(focus.orEmpty()) }
+    var searching by remember(focus) { mutableStateOf(focus != null) }
     var pageIndex by rememberSaveable(type) { mutableIntStateOf(0) }
     // Per-object editors start with only what the object overrides; "all" shows every option.
     var onlyModified by remember { mutableStateOf(objectMode && source.modifiedCount > 0) }
@@ -349,9 +350,7 @@ private fun EditorFrame(
                         }
                         if (options.isEmpty()) return@forEach
                         item(key = "g:${group.title}") {
-                            Text(if (showPages) tr.tr(group.title) else group.title, style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 16.dp, bottom = 4.dp))
-                            HorizontalDivider()
+                            SettingHeading(if (showPages) tr.tr(group.title) else group.title, SettingFamily.of(group.title))
                         }
                         items(options, key = { "o:${group.title}:${it.key}" }) { def ->
                             OptionRow(def, rows[def.key], source.value(def.key).orEmpty(),source.isModified(def.key), def.key !in optionStates.disabled,
