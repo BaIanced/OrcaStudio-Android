@@ -3755,3 +3755,7 @@ Object More menu now: Add volume (5 items) and Mesh tools (7 items) collapsible,
 
 ## 2026-10-30 user verdict: Dimensions overlay "yep looks good"
 User said "yep looks good" while run 41158738411 (hole labels avoid bbox/wall labels) was still building, so it applies to the installed r485 (hole labels, slots, tilted holes), not to the overlap fix. Overlap fix still needs the phone VD check.
+
+## 2026-10-30 r486 (run 41158738411): hole labels vs bbox labels, phone VD (Claude)
+- Installed on all 5 adb serials. Slot-test part selected, View > Dimensions: bbox labels (60.0 / 40.0 / 14.0) no longer have a hole label over them. Still wrong: a second amber label (looks like "⌀6" or "⌀8", glyph hidden) overlaps the left end of "8 × 24" by ~30 px, although every hole label is checked against `taken`. Cause not found yet; ideas: two hole entries for the same slot (pass 1 end caps + pass 2 stadium), or the label drawn at a different size than the rect. Also "40.0" sits partly under "14.0" (bbox-bbox, minor).
+- MCP note: after an install or force-stop the app needs ~30 s before `tools/call` answers (tools/list answers earlier, empty replies until then); the slot part stays on the plate across restarts, so taps (part at 513,864; View menu 54,358; Dimensions 256,1806 on the phone VD) are enough. Slip: a `bash -x mcptest.sh` trace printed the MCP token; never trace that script.
