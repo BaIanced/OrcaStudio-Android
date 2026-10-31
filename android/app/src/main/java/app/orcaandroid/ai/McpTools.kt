@@ -12,6 +12,7 @@ import app.orcaandroid.scad.Repeat
 import app.orcaandroid.scad.Shape
 import app.orcaandroid.scad.ShapeDesign
 import app.orcaandroid.scad.Sketch
+import app.orcaandroid.scad.Stl
 import app.orcaandroid.ui.PresetController
 import app.orcaandroid.ui.Screen
 import app.orcaandroid.ui.ScadController
@@ -19,6 +20,8 @@ import app.orcaandroid.ui.ShapeController
 import app.orcaandroid.ui.SliceController
 import app.orcaandroid.ui.preview.ROLE_NAMES
 import app.orcaandroid.ui.Store
+import java.io.File
+import java.security.MessageDigest
 import kotlin.math.sqrt
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -68,6 +71,10 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             "of the others on the workplane. Returns its id in the tree. $EDIT",
             obj(listOf("kind"), "kind" to p("string", "box, rounded_box, cylinder, prism, cone, pyramid, sphere, dome, torus, tube, wedge, text, sketch"),
                 *FIELDS)) { add(it) },
+        Tool("mesh_add", "Edit: adds a mesh shape from STL data (e.g. a generated surface) at its own size and selects it. " +
+            "The file is kept in the app's mesh folder, so design_set may reuse its path (design_get shows it). Requests are " +
+            "capped at 4 MB: keep each STL under ~3 MB and split bigger models into several meshes. $EDIT",
+            obj(listOf("stl"), "stl" to p("string", "The STL file (binary or ASCII), base64"), *FIELDS)) { meshAdd(it) },
         Tool("shape_update", "Edit: changes the given fields of shape id; others stay. A field bound to a dim changes " +
             "the dim (and every shape following it). $EDIT", obj(listOf("id"), "id" to p("integer", "Shape id"), *FIELDS)) { update(it) },
         Tool("shape_delete", "Edit: deletes shapes (a group left empty goes too). $EDIT", obj(listOf("ids"), "ids" to ids())) { args ->
@@ -1070,6 +1077,30 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         }
     }
 
+    /** The builder's mesh folder (files/openscad/meshes, as [ShapeController.importMesh] uses). */
+    private fun meshDir() = File(store.app.filesDir, "openscad/meshes")
+
+    private suspend fun meshAdd(args: JSONObject): String {
+        val bytes = try { android.util.Base64.decode(args.optString("stl"), android.util.Base64.DEFAULT) }
+            catch (e: IllegalArgumentException) { throw ToolError("stl must be base64") }
+        if (bytes.size < 84) throw ToolError("stl is too short to be an STL file")
+        val name = args.optString("name").trim().ifEmpty { "Mesh" }
+        val (file, b) = withContext(Dispatchers.IO) {
+            val hash = MessageDigest.getInstance("SHA-1").digest(bytes).joinToString("") { "%02x".format(it) }.take(12)
+            val f = File(meshDir().apply { mkdirs() }, name.replace(Regex("[^A-Za-z0-9_-]"), "_").take(40) + "-" + hash + ".stl")
+            if (!f.exists()) f.writeBytes(bytes)
+            f to Stl.bounds(f)
+        }
+        if (b == null) { file.delete(); throw ToolError("stl is not a readable STL file") }
+        return edit("added mesh $name") { d ->
+            val size = D3(maxOf(0.01, b[3] - b[0]), maxOf(0.01, b[4] - b[1]), maxOf(0.01, b[5] - b[2]))
+            val shape = Shape(d.nextId, Shape.Kind.MESH, name, size, file = file.absolutePath, extra = Shape.MESH_BOUNDS.zip(b).toMap())
+            var next = withFields(d.copy(shapes = d.shapes + shape, nextId = d.nextId + 1), shape.id, args)
+            if (!args.has("pos")) next = next.update(shape.id) { shapes.beside(d, it) }
+            shapes.replace(next, listOf(shape.id))
+        }
+    }
+
     private suspend fun update(args: JSONObject): String {
         val id = args.optInt("id", -1)
         return edit("changed #$id") { d ->
@@ -1238,7 +1269,8 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
                     b.keys().forEach { f -> b.optString(f).let { dim -> if (dim !in dimNames) errs += "$p.bind.$f names unknown dim '$dim'" } }
                 }
                 val file = s.optString("file")
-                if (file.isNotEmpty() && file !in files) errs += "$p.file: mesh files can't be added over MCP (keep the existing ones)"
+                if (file.isNotEmpty() && file !in files && !File(file).let { it.parentFile == meshDir() && it.isFile })
+                    errs += "$p.file: unknown mesh file (keep the existing ones, or add one with mesh_add)"
                 if (kind == "mesh" && file.isEmpty()) errs += "$p is a mesh without a file"
                 val kids = s.optJSONArray("children")
                 if (kind == "group" && (kids?.length() ?: 0) == 0) errs += "$p is a group without children"
