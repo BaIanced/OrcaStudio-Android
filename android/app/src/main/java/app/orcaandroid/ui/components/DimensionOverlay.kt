@@ -99,9 +99,22 @@ fun DimensionOverlay(view: PlateView?, copyKey: Any?, thinnest: suspend () -> Pa
             val mid = scr((a2 + b2) * 0.5f + ext * (tick * 1.5f)) ?: return
             val t = measurer.measure("%.1f".format(mm), labelStyle)
             val pad = 4.dp.toPx()
-            val tl = mid - Offset(t.size.width / 2f, t.size.height / 2f)
-            taken += Rect(tl - Offset(pad, pad / 2), Size(t.size.width + 2 * pad, t.size.height + pad))
-            drawRoundRect(color.copy(alpha = 0.85f), tl - Offset(pad, pad / 2), Size(t.size.width + 2 * pad, t.size.height + pad), CornerRadius(pad))
+            var tl = mid - Offset(t.size.width / 2f, t.size.height / 2f)
+            val lw = t.size.width + 2 * pad
+            val lh = t.size.height + pad
+            // Another dimension's label here: step outward along the extension (on screen) until clear.
+            val away = scr((a2 + b2) * 0.5f + ext * (tick * 2.5f))?.let { it - mid }
+            if (away != null && away.getDistance() > 1e-3f) {
+                val dir = away / away.getDistance()
+                val step = Offset(dir.x * (lw / 2f + 2f), dir.y * (lh / 2f + 2f)).getDistance().coerceAtLeast(lh / 2f)
+                var n = 0
+                while (n < 4 && taken.any { it.overlaps(Rect(tl - Offset(pad, pad / 2), Size(lw, lh))) }) {
+                    tl += dir * step
+                    n++
+                }
+            }
+            taken += Rect(tl - Offset(pad, pad / 2), Size(lw, lh))
+            drawRoundRect(color.copy(alpha = 0.85f), tl - Offset(pad, pad / 2), Size(lw, lh), CornerRadius(pad))
             drawText(t, topLeft = tl)
         }
 

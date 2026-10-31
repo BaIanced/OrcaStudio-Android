@@ -34,10 +34,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - CAD plan (`NOTES-cad-reuse.md`): 0-5b Claude-verified, 1b parked. MCP efficiency (`NOTES-mcp-token-efficiency.md`): build rule waits for user OK.
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
-- **Dimensions overlay** (user 2026-10-30): phases 1-3, slots, tilted holes seen on phone VD r485; user "looks good" on r485 (archive). r486 hole-label overlap not reproducible (36-view WSA sweep, `dimsweep.sh` + `dimcheck.py`, archive); only bbox-vs-bbox overlap left (backlog). Phone VD recipe in archive.
+- **Dimensions overlay** (user 2026-10-30): phases 1-3, slots, tilted holes seen on phone VD r485; user "looks good" on r485 (archive). r486 hole-label overlap not reproducible (36-view WSA sweep, `dimsweep.sh` + `dimcheck.py`, archive); bbox-vs-bbox overlap nudge done, 36-view sweep clean (archive). Phone VD recipe in archive.
 - Self-portrait demo "The Listening Lantern" (`DEMO-self-portrait.md`): floating look not intended (archive); waiting for the user's shot pick. Fix idea: brighter plinth, trim book corners.
 - Demos on WSA debug app 2026-10-30 (Hopf + torus link, archive): uninstall debug when the user is done. Open: printable base (needs user OK).
-- Next step: Dimensions overlay: nudge bbox labels apart when they overlap (DimensionOverlay.kt `dim()`, check with dimsweep.sh) -> Sonnet 5.5 (medium)
+- Next step: push + CI build of the bbox nudge, install on all adb devices, then pick the next backlog item (grep `[Opus]`) -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
