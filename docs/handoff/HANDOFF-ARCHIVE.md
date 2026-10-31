@@ -3732,3 +3732,13 @@ Object More menu now: Add volume (5 items) and Mesh tools (7 items) collapsible,
 ## 2026-10-30 r484 (run 41148494179): slots seen, tilted hole label not seen
 - CI r484 (slots + tilted holes aefd86b + r483 designer) installed on all 5 adb devices. Phone VD (Dozing blocks taps; fix: `svc power stayon true` via su, stop + start the VD with the phone awake, never WAKEUP after start: that pauses the app; revert stayon false + SLEEP after).
 - MCP `design_set` /tmp-style fixture `~/orca-android-tools/slot-test.json` (60x40x14 box, stadium slot from 2 cylinders + box hole, tilted 6 mm cylinder hole rot X 15) -> `design_to_plate` (needs the in-app Allow tap) -> View (camera icon) > Dimensions: slot label "8 × 24" + outline render on the slot; bbox 60/40/14 fine. Tilted hole drew a ring but NO label seen (maybe suppressed by label overlap with the slot label, or pass 2 missed it). Claude test, user untested.
+
+## 2026-10-30: Hopf fibration demo shown on WSA (debug build of 0b775da, main screen at the user's request)
+- Generator `~/orca-android-tools/hopf/hopf.py` retuned with `sweep.py`: BANDS (30,12,0) (45,12,15) (60,16,0) (75,16,11.25),
+  SIZE 180, TUBE 1.3, SIDES 8, STEP 2.0 -> 180x180x69 mm, min centre gap 4.08 mm (1.5 mm clearance between 2.6 mm tubes),
+  bands 1.4/1.46/2.07/2.27 MB. Binding gap is cross-band (adjacent latitudes), not the fiber count; staggered azimuth offsets help.
+- Upload: `hopf/token.sh <serial> <pkg> tok.txt` + `hopf/send.py tok.txt mesh_add '{"stl":"@stl:out/bandN.stl",...}'` (largest request
+  3.02 MB, under the 4 MiB cap; mesh_add hint now says ~2.5 MB STL because base64 adds a third). pos z per band = its min z + 1.29.
+- Slots used as-is (no recolour): band1 slot 1 gold, band2 slot 5 red-orange, band3 slot 7 teal, band4 slot 6 light blue.
+  design_to_plate OK; iso shot shows nested tori of linked rings, gold core visible through the blue outer band. Teal band reads dark.
+- Open/ideas: rings are disjoint pieces (print needs a base/ring joiner; print = bonus, user's OK needed); tubes render dark (8 sides).

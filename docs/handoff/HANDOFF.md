@@ -33,20 +33,12 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   DeepSeek V4.1 Flash = default; runner `octauto.sh` (`D:\oct-backup\jobs\README.md`; opencode v2: `model#variant`), ledger `trust-profile.md`.
 - CAD plan (`NOTES-cad-reuse.md`): 0-5b Claude-verified, 1b parked. MCP efficiency (`NOTES-mcp-token-efficiency.md`): build rule waits for user OK.
 - Gate: user sessions B-D paused 2026-10-28; release gated on the printer set.
-- WSA: `svc power stayon true` while testing; `stage-from-apk.sh <apk>`.
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
-- Fixture `rep-groups.json` (MCP `design_set`). VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78.
-- OrcaMesh edit M1-M4: Claude-verified, r479 installed (archive 2026-10-30).
+- VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
 - **Dimensions overlay** (user 2026-10-30): phases 1-3 + slots ("8 × 24" seen on phone VD r484, archive 2026-10-30). OPEN: tilted-hole label not seen (fixture `slot-test.json`: separate the tilted hole from the slot, recheck; else debug HoleFinder pass 2 with a JVM test). Phone VD recipe in archive (stayon, no WAKEUP after start).
-- **Theme | Layout designer**: Claude-verified on WSA VD (archive 2026-10-30), r484 installed; user feel untested.
 - Self-portrait demo "The Listening Lantern" (`DEMO-self-portrait.md`): user asked 2026-10-30 if the floating look was intended (no, see archive); waiting for which shot. Possible fix: brighter plinth in the 4-slot JSON, trim book corners.
-- **Hopf fibration demo (user pick 2026-10-30, "blow me away" art model, print = bonus)**: MCP `mesh_add` (base64 STL -> builder mesh
-  shape, file in files/openscad/meshes; design_set may reuse those paths) committed 6c57866, compiled, NOT built/tested yet.
-  Generator `~/orca-android-tools/hopf/hopf.py` (one STL per colour band = filament slot). First run: tubes collide (min centre gap
-  0.69 mm < 2.6 mm tube) and band4 is 4.3 MB (> ~3 MB per request, MAX_BODY 4 MB): tune BANDS/TUBE/STEP; rings are disjoint pieces
-  (not printable as-is; maybe add a base later). Then: build (WSA debug loop), upload via a python urllib sender (curl args too long),
-  filament per band, recolour slots on WSA (sunset palette), view_set, screenshot on the VD.
-- Next step: Hopf demo (above) -> Opus; then tilted-hole label: move it away from the slot in `slot-test.json`, recheck on the phone VD; if still missing debug HoleFinder pass 2 -> Opus 5.5 (high)
+- Hopf fibration demo: shown on WSA main screen 2026-10-30 (debug build, plate 1; archive). Open: printable base (bonus, needs user OK).
+- Next step: tilted-hole label: move it away from the slot in `slot-test.json`, recheck on the phone VD; if still missing debug HoleFinder pass 2 -> Opus 5.5 (high)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
