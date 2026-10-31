@@ -66,8 +66,8 @@ interface PlateListener {
     fun onCutTilt(axis: Int, degrees: Float?, base: Vec3, x: Float, y: Float, done: Boolean) {}
     /** The prime tower of [plate] was dragged by (dx, dy) mm on the bed. */
     fun onTowerMoved(plate: Int, dx: Float, dy: Float) {}
-    /** Paint stroke sample at screen (x, y); [newStroke] for the first sample of a stroke. */
-    fun onPaint(x: Float, y: Float, newStroke: Boolean)
+    /** Paint stroke sample at screen (x, y); [newStroke] for the first sample of a stroke; [pressure] 0..1 brush scale (1 unless a pen presses). */
+    fun onPaint(x: Float, y: Float, newStroke: Boolean, pressure: Float)
     /** The paint (or sculpt) finger lifted. */
     fun onPaintEnd() {}
     /** Paint mode: a mouse or pen hovers at (x, y) with no button held; [inside] false once it left the view. */
@@ -232,7 +232,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     private fun flushPaintHold() {
         if (!paintHeld) return
         paintHeld = false
-        if (!paintOrbit && !multiTouch) listener?.onPaint(paintHoldX, paintHoldY, true)
+        if (!paintOrbit && !multiTouch) listener?.onPaint(paintHoldX, paintHoldY, true, 1f)
     }
     private var penInstant: PenAction? = null
     private var lastInstantTime = 0L
@@ -440,6 +440,9 @@ class PlateView(context: Context) : GLSurfaceView(context) {
         e.getToolType(0) == MotionEvent.TOOL_TYPE_MOUSE || isPenTool(e.getToolType(0))
     private fun isPenTool(tool: Int) = tool == MotionEvent.TOOL_TYPE_STYLUS || tool == MotionEvent.TOOL_TYPE_ERASER
 
+    /** Brush scale from the pen's pressure (More > Pen); 1 for fingers, mice, the eraser end and when pressure is off. */
+    private fun penScale(e: MotionEvent) = pen.scale(e.pressure, e.getToolType(0) == MotionEvent.TOOL_TYPE_STYLUS)
+
     /** Some pens report their button as the mouse's secondary / tertiary button instead of the stylus buttons. */
     private fun penActionOf(tool: Int, buttons: Int): PenAction = when {
         tool == MotionEvent.TOOL_TYPE_ERASER -> pen.eraser
@@ -527,7 +530,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                     else {
                         // A finger's first dab waits for movement or lift: a second finger landing (pinch / pan) drops it instead of painting.
                         if (event.getToolType(0) == MotionEvent.TOOL_TYPE_FINGER) { paintHoldX = event.x; paintHoldY = event.y; paintHoldAt = event.eventTime; paintHeld = true }
-                        else listener?.onPaint(event.x, event.y, true)
+                        else listener?.onPaint(event.x, event.y, true, penScale(event))
                         if (selectedBounds.isNotEmpty()) {
                             val id = ++dragCheckId
                             listener?.onDragCheck(event.x, event.y) { hit -> if (!hit && id == dragCheckId) paintOrbit = true }
@@ -627,7 +630,8 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                             val dx = event.x - lastX
                             val dy = event.y - lastY
                             val steps = (kotlin.math.hypot(dx, dy) / PAINT_STEP_PX).toInt().coerceIn(1, 32)
-                            for (i in 1..steps) listener?.onPaint(lastX + dx * i / steps, lastY + dy * i / steps, false)
+                            val scale = penScale(event)
+                            for (i in 1..steps) listener?.onPaint(lastX + dx * i / steps, lastY + dy * i / steps, false, scale)
                         }
                         rotateDrag != null -> {
                             val d = rotateDrag!!

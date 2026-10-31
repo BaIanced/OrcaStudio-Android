@@ -22,6 +22,9 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
@@ -852,10 +855,16 @@ private fun LayerHeightOptions(state: UiState, vm: AppViewModel) {
         Modifier.fillMaxWidth().height(180.dp)
             .border(1.dp, outline, RoundedCornerShape(4.dp))
             .pointerInput(profile) {
-                detectTapGestures { p ->
-                    val z = (1f - p.y / size.height) * profile.height
-                    val delta = if (p.x > size.width / 2) 0.02f else -0.02f
-                    vm.scene.layerAdjust(z, delta, profile.height / 10f)
+                // A tap; a pen's pressure scales the step (floor 10 %, More > Pen).
+                awaitEachGesture {
+                    val down = awaitFirstDown()
+                    val pressure = state.pen.scale(down.pressure, down.type == androidx.compose.ui.input.pointer.PointerType.Stylus)
+                    if (waitForUpOrCancellation() != null) {
+                        val p = down.position
+                        val z = (1f - p.y / size.height) * profile.height
+                        val step = 0.02f * pressure.coerceAtLeast(0.1f)
+                        vm.scene.layerAdjust(z, if (p.x > size.width / 2) step else -step, profile.height / 10f)
+                    }
                 }
             }
     ) {

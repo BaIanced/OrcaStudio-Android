@@ -137,7 +137,12 @@
     <string name="pen_button1">Pen button 1</string>
     <string name="pen_button2">Pen button 2</string>
     <string name="pen_eraser">Eraser end</string>
-    <string name="pen_text">The pen tip works like one finger. Two fingers still pan and zoom. Buttons and the eraser end can be mapped to an action: drag actions apply while the button is held (or the eraser touches), Undo / Redo / Frame fire on a tap or button press. Pressure and tilt are not used.</string>
+    <string name="pen_text">The pen tip works like one finger. Two fingers still pan and zoom. Buttons and the eraser end can be mapped to an action: drag actions apply while the button is held (or the eraser touches), Undo / Redo / Frame fire on a tap or button press. With pressure on, a harder press sculpts stronger, paints with a bigger round brush and takes a bigger layer-height step; fingers and mice are unchanged. Tilt is not used.</string>
+    <string name="pen_pressure">Pen pressure</string>
+    <string name="pen_curve">Pressure response</string>
+    <string name="pen_curve_soft">Soft</string>
+    <string name="pen_curve_linear">Linear</string>
+    <string name="pen_curve_firm">Firm</string>
     <string name="pen_act_tip">Like the tip</string>
     <string name="pen_act_pan">Pan the view</string>
     <string name="pen_act_orbit">Orbit the view</string>
