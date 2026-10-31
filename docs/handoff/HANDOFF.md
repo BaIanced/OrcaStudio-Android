@@ -15,7 +15,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 0aec8c3 (PR #68, branch at run 41166849671 = r487: OrcaMesh M1-M4, dimensions overlay, designer panel, mesh_add; merged 2026-10-30 on /next-merge; user-untested, Claude-verified only). Nothing unverified on the branch. User-untested in main: list in `NOTES-merge-batch.md`.
 - Signing secrets: `release` environment (main + `claude/*` only).
-- Latest installed CI build: r487 (run 41166849671, bbox label nudge) on all 5 adb serials, 2026-10-30. Install builds on all adb devices (skip .23).
+- Latest installed CI build: r489 (run 41185835878, S Pen pressure ab552fa) on all 5 adb serials, 2026-10-31. Install builds on all adb devices (skip .23).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **User 2026-10-28: no more user testing for now; Claude builds and tests everything itself (memory no-user-testing-now); don't ask for feel/UI checks.**
 - **User 2026-10-29: no tests on the user's screen; all tests on a hidden virtual display** (`TARGET=wsa orca-vd.sh start`, memory tests-on-virtual-display).
@@ -39,8 +39,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Demos on WSA debug app 2026-10-30 (Hopf + torus link, archive): uninstall debug when the user is done. Open: printable base (needs user OK).
 - AI print failure watch feasibility note: parked behind the UX audit (needs the user's camera model).
 - **UX audit for Gemini (user 2026-10-31, current focus):** round 3 bundle ready (backlog line); waiting for Gemini's answer from the user. Then verify each item vs source, user picks what to build.
-- S Pen pressure built ab552fa (run 41185835878), awaits Note 10+ test (user says when). Gemini round 3 skipped by user 2026-10-31 (still pending).
-- Next step: install r488 on adb devices (skip .23) + check More > Pen UI on WSA VD -> Sonnet 5.5 (medium)
+- S Pen pressure ab552fa (r489 installed everywhere): More > Pen UI checked on WSA VD 2026-10-31 (switch + Soft/Linear/Firm chips, Firm selects, back to Linear); real pressure awaits Note 10+ test (user says when). Gemini round 3 skipped by user 2026-10-31 (still pending).
+- WSA VD quirk (2026-10-31): after any focus loss the first tap only refocuses (empty dump = no focus); tap the empty rail (28,900) then dump. `bash ./mcpao.sh` (not `sh`) from the tools dir.
+- Next step: UX audit round 3 -> wait for Gemini's answer from the user; meanwhile nothing else queued -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
