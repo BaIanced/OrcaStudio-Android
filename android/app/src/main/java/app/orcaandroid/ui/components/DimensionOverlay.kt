@@ -28,6 +28,8 @@ import kotlinx.coroutines.withContext
  * View > Dimensions: CAD-style X / Y / Z size lines beside the selection's box, drawn in screen space over the 3D view
  * (the points go through the camera every frame, like the push / pull arrow). Red / green / blue = X / Y / Z.
  */
+private fun fmt(v: Float) = String.format(java.util.Locale.ROOT, "%.2f", v).trimEnd('0').trimEnd('.')
+
 @Composable
 fun DimensionOverlay(view: PlateView?, copyKey: Any?, thinnest: suspend () -> Pair<Vec3, Float>?) {
     val frame = remember { mutableLongStateOf(0L) }
@@ -137,21 +139,27 @@ fun DimensionOverlay(view: PlateView?, copyKey: Any?, thinnest: suspend () -> Pa
         val amber = Color(0xFFFFA000)
         val eye = cam.eye()
         val taken = ArrayList<Rect>()
-        for (h in found.holes.sortedByDescending { it.diameter }) {
+        for (h in found.holes.sortedByDescending { it.length }) {
             val a = live(h.lo)
             val b = live(h.hi)
             val end = if ((a - eye).length() <= (b - eye).length()) a else b
             val r = h.diameter / 2
-            val ring = (0..32).mapNotNull { i ->
-                val t = i * (2 * Math.PI / 32)
-                val c = Math.cos(t).toFloat() * r
-                val s = Math.sin(t).toFloat() * r
-                scr(when (h.axis) { 0 -> end + Vec3(0f, c, s); 1 -> end + Vec3(c, 0f, s); else -> end + Vec3(c, s, 0f) })
-            }
-            if (ring.size < 33) continue
-            for ((w, c) in listOf(4.5f to Color.Black.copy(alpha = 0.5f), 2f to amber)) for (i in 0 until 32) drawLine(c, ring[i], ring[i + 1], w)
+            val core = (h.length - h.diameter) / 2
+            // Outline in the plane across the hole: x along the slot (any direction when round), y across it.
+            val ex = h.major
+            val ey = Vec3(h.dir.y * ex.z - h.dir.z * ex.y, h.dir.z * ex.x - h.dir.x * ex.z, h.dir.x * ex.y - h.dir.y * ex.x)
+            val ring = (0 until 2).flatMap { side ->
+                (0..16).map { i ->
+                    val t = -Math.PI / 2 + side * Math.PI + Math.PI * i / 16
+                    val x = (if (side == 0) core else -core) + Math.cos(t).toFloat() * r
+                    val y = Math.sin(t).toFloat() * r
+                    end + ex * x + ey * y
+                }
+            }.let { it + it[0] }.mapNotNull { scr(it) }
+            if (ring.size < 35) continue
+            for ((w, c) in listOf(4.5f to Color.Black.copy(alpha = 0.5f), 2f to amber)) for (i in 0 until ring.size - 1) drawLine(c, ring[i], ring[i + 1], w)
             val mid = scr(end) ?: continue
-            val t = measurer.measure(String.format(java.util.Locale.ROOT, "⌀%.2f", h.diameter).trimEnd('0').trimEnd('.'), labelStyle)
+            val t = measurer.measure((if (h.isSlot) "${fmt(h.diameter)} × ${fmt(h.length)}" else "⌀${fmt(h.diameter)}"), labelStyle)
             val pad = 4.dp.toPx()
             val tl = mid - Offset(t.size.width / 2f, t.size.height / 2f)
             val box = Rect(tl - Offset(pad, pad / 2), Size(t.size.width + 2 * pad, t.size.height + pad))
