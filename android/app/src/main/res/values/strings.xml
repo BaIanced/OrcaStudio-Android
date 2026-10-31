@@ -219,6 +219,16 @@
     <string name="notice_slicer_warnings">Slicer warnings</string>
     <string name="notice_printer">Printer</string>
     <string name="notice_show">Show messages</string>
+    <string name="notice_fix">Fix</string>
+    <string name="notice_open_printer">Open printer</string>
+    <string name="danger_title">Risky setting</string>
+    <string name="danger_nozzle_temp">Nozzle temperatures above 300 °C can damage the hotend (PTFE parts, thermistor) on most printers.</string>
+    <string name="danger_bed_temp">Bed temperatures above 110 °C can exceed what the bed and its surface are made for.</string>
+    <string name="danger_printer_geometry">Wrong bed size, nozzle diameter or Z offset can drive the nozzle into the bed or the frame.</string>
+    <string name="danger_gcode">Start and end G-code run as is on the printer; a mistake can crash the head or overheat it.</string>
+    <string name="danger_understand">I understand the risk</string>
+    <string name="danger_mute">Never ask again in this project</string>
+    <string name="danger_apply">Apply</string>
     <string name="export_preset">Export preset</string>
     <string name="export_stl">Export plate as STL</string>
     <string name="filament">Filament</string>

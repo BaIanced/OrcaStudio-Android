@@ -23,6 +23,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -38,11 +39,17 @@ import app.orcaandroid.R
 import app.orcaandroid.ui.AppViewModel
 import app.orcaandroid.ui.Screen
 import app.orcaandroid.ui.UiState
+import app.orcaandroid.ui.EditorTarget
+import app.orcaandroid.ui.settings.NoticeFix
 import app.orcaandroid.ui.settings.engineErrorText
+import app.orcaandroid.ui.settings.noticeFix
 import app.orcaandroid.ui.prepare.Tip
 
 /** One message group on the 3D view: [key] changes when its content does, so new messages show again after a close. */
-private data class Notice(val key: String, val title: String, val lines: List<Pair<String, Boolean>>)
+private data class Notice(val key: String, val title: String, val lines: List<Line>, val fix: NoticeFix? = null)
+
+/** One message; [fix] adds a "Fix" link that opens the setting (or screen) that resolves it. */
+private data class Line(val text: String, val important: Boolean, val fix: NoticeFix? = null)
 
 /**
  * Slicer errors / warnings and printer errors front and center on the 3D view (user 2026-10-19). Closing the card
@@ -53,18 +60,18 @@ fun Notices(state: UiState, vm: AppViewModel, modifier: Modifier = Modifier) {
     val notices = buildList {
         state.sliceError?.let { (plate, message) ->
             add(Notice("slice:$plate:$message", stringResource(R.string.notice_slice_failed, plate + 1),
-                listOf(engineErrorText(message, vm.translator) to true)))
+                listOf(Line(engineErrorText(message, vm.translator), true, noticeFix(message)))))
         }
         val result = state.shownResult
         if (state.screen == Screen.PREVIEW && result != null && result.warnings.isNotEmpty()) {
             add(Notice("warn:${state.previewPlate}:${result.gcodeFile}:${result.warnings.hashCode()}", stringResource(R.string.notice_slicer_warnings),
                 // Mixed temperatures the user has allowed are only a heads-up (as in the preview panel).
-                result.warnings.map { vm.translator.tr(it) to !(state.allowMixedTemps && it.startsWith("Selected nozzle temperatures are incompatible")) }))
+                result.warnings.map { Line(vm.translator.tr(it), !(state.allowMixedTemps && it.startsWith("Selected nozzle temperatures are incompatible")), noticeFix(it)) }))
         }
         val alerts = state.printerStatus?.alerts.orEmpty()
         if (alerts.isNotEmpty()) {
             add(Notice("printer:" + alerts.joinToString { it.code }, stringResource(R.string.notice_printer),
-                alerts.map { (it.text ?: stringResource(R.string.printer_error_code, it.display)) to true }))
+                alerts.map { Line(it.text ?: stringResource(R.string.printer_error_code, it.display), true) }, NoticeFix.Go(Screen.DEVICE)))
         }
     }
     if (notices.isEmpty()) return
@@ -87,10 +94,12 @@ fun Notices(state: UiState, vm: AppViewModel, modifier: Modifier = Modifier) {
                 verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 open.forEach { n ->
                     Text(n.title, color = red, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
-                    n.lines.forEach { (text, important) ->
-                        Text(text, style = MaterialTheme.typography.bodyMedium,
-                            color = if (important) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.tertiary)
+                    n.lines.forEach { line ->
+                        Text(line.text, style = MaterialTheme.typography.bodyMedium,
+                            color = if (line.important) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.tertiary)
+                        line.fix?.let { FixLink(it, vm, R.string.notice_fix) }
                     }
+                    n.fix?.let { FixLink(it, vm, R.string.notice_open_printer) }
                 }
             }
             // X closes the card; a slice error is then gone for good (nothing left to re-open), the other notices stay as the "!" badge.
@@ -99,5 +108,18 @@ fun Notices(state: UiState, vm: AppViewModel, modifier: Modifier = Modifier) {
                 if (open.any { it.key.startsWith("slice:") }) vm.dismissSliceError()
             }) { Icon(Icons.Default.Close, stringResource(R.string.close)) } }
         }
+    }
+}
+
+/** Opens the option the message points at (editor searched for its key) or the screen that handles it. */
+@Composable
+private fun FixLink(fix: NoticeFix, vm: AppViewModel, label: Int) {
+    TextButton(onClick = {
+        when (fix) {
+            is NoticeFix.Option -> vm.presets.openEditor(EditorTarget.Preset(fix.type, focus = fix.key))
+            is NoticeFix.Go -> vm.setScreen(fix.screen)
+        }
+    }, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 0.dp)) {
+        Text(stringResource(label), fontWeight = FontWeight.Bold)
     }
 }

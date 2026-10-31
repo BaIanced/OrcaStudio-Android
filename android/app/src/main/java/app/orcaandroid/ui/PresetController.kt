@@ -177,6 +177,14 @@ class PresetController(private val store: Store, private val device: DeviceContr
         settings.trayPicks = if (name == src.synced) picks - src.key else picks + (src.key to (src.loaded to name))
     }
 
+    /** Risky-setting rules the user muted for [project] (null = untitled). */
+    fun dangerMuted(project: String?): Set<String> = settings.dangerMutes[project.orEmpty()].orEmpty()
+
+    fun muteDanger(project: String?, rule: String) {
+        val all = settings.dangerMutes
+        settings.dangerMutes = all + (project.orEmpty() to (all[project.orEmpty()].orEmpty() + rule))
+    }
+
     fun setAllowMixedTemps(on: Boolean) = store.launch {
         settings.allowMixedTemps = on
         engine.setAllowMixedTemperatures(on)

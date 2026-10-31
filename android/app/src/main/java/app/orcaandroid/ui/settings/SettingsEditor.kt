@@ -29,6 +29,8 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.foundation.layout.height
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
@@ -242,6 +244,19 @@ private fun EditorFrame(
     var pageIndex by rememberSaveable(type) { mutableIntStateOf(0) }
     // Per-object editors start with only what the object overrides; "all" shows every option.
     var onlyModified by remember { mutableStateOf(objectMode && source.modifiedCount > 0) }
+    // Risky values (hot nozzle/bed, printer geometry, G-code) wait for a second confirm; cancel re-keys the rows to drop the typed text.
+    var pendingDanger by remember { mutableStateOf<Triple<String, String, DangerRule>?>(null) }
+    var resetTick by remember { mutableIntStateOf(0) }
+    val guardedSet: (String, String) -> Unit = { key, v ->
+        val rule = dangerRule(type, key, v)?.takeIf { it.name !in vm.presets.dangerMuted(state.projectName) }
+        if (rule == null) source.set(key, v) else pendingDanger = Triple(key, v, rule)
+    }
+    pendingDanger?.let { (key, v, rule) ->
+        DangerDialog(rule, onConfirm = { mute ->
+            if (mute) vm.presets.muteDanger(state.projectName, rule.name)
+            source.set(key, v); pendingDanger = null
+        }, onDismiss = { pendingDanger = null; resetTick++ })
+    }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wide = maxWidth >= WIDE_LAYOUT
@@ -353,8 +368,10 @@ private fun EditorFrame(
                             SettingHeading(if (showPages) tr.tr(group.title) else group.title, SettingFamily.of(group.title))
                         }
                         items(options, key = { "o:${group.title}:${it.key}" }) { def ->
-                            OptionRow(def, rows[def.key], source.value(def.key).orEmpty(),source.isModified(def.key), def.key !in optionStates.disabled,
-                                wide, tr, { source.set(def.key, it) }, { source.reset(def.key) })
+                            androidx.compose.runtime.key(resetTick) {
+                                OptionRow(def, rows[def.key], source.value(def.key).orEmpty(), source.isModified(def.key), def.key !in optionStates.disabled,
+                                    wide, tr, { guardedSet(def.key, it) }, { source.reset(def.key) })
+                            }
                         }
                     }
                     item { Spacer(Modifier.heightIn(min = 48.dp)) }
@@ -362,6 +379,36 @@ private fun EditorFrame(
             }
         }
     }
+}
+
+private val DANGER_TEXT = mapOf(DangerRule.NOZZLE_TEMP to R.string.danger_nozzle_temp, DangerRule.BED_TEMP to R.string.danger_bed_temp,
+    DangerRule.PRINTER_GEOMETRY to R.string.danger_printer_geometry, DangerRule.GCODE to R.string.danger_gcode)
+
+/** Second confirm for a risky value: "I understand" must be ticked; optionally muted for this project. */
+@Composable
+private fun DangerDialog(rule: DangerRule, onConfirm: (mute: Boolean) -> Unit, onDismiss: () -> Unit) {
+    var understood by remember { mutableStateOf(false) }
+    var mute by remember { mutableStateOf(false) }
+    @Composable fun check(checked: Boolean, label: Int, onChange: (Boolean) -> Unit) =
+        Row(Modifier.fillMaxWidth().clickable { onChange(!checked) }, verticalAlignment = Alignment.CenterVertically) {
+            androidx.compose.material3.Checkbox(checked, onChange)
+            Text(stringResource(label), style = MaterialTheme.typography.bodyMedium)
+        }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Default.Warning, null, tint = MaterialTheme.colorScheme.error) },
+        title = { Text(stringResource(R.string.danger_title)) },
+        text = {
+            Column {
+                Text(stringResource(DANGER_TEXT.getValue(rule)))
+                Spacer(Modifier.height(8.dp))
+                check(understood, R.string.danger_understand) { understood = it }
+                check(mute, R.string.danger_mute) { mute = it }
+            }
+        },
+        confirmButton = { TextButton(onClick = { onConfirm(mute) }, enabled = understood) { Text(stringResource(R.string.danger_apply)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
 }
 
 /** Desktop layout plus a trailing page for options the layout does not place. */

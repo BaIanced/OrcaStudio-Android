@@ -160,6 +160,13 @@ class AppSettings(context: Context) {
         get() = prefs.getBoolean("allow_mixed_temps", false)
         set(value) = prefs.edit().putBoolean("allow_mixed_temps", value).apply()
 
+    /** Risky-setting confirmations muted per project: project name ("" = untitled) -> rule names. */
+    var dangerMutes: Map<String, Set<String>>
+        get() = runCatching { JSONObject(prefs.getString("danger_mutes", null) ?: "{}") }.getOrNull()
+            ?.let { o -> o.keys().asSequence().associateWith { k -> o.getJSONArray(k).let { a -> (0 until a.length()).map(a::getString).toSet() } } }.orEmpty()
+        set(value) = prefs.edit().putString("danger_mutes",
+            JSONObject(value.mapValues { (_, s) -> org.json.JSONArray(s.toList()) }).toString()).apply()
+
     /** AMS sync keeps the filament presets the user picked for its trays ([trayPicks]). */
     var preferMyFilaments: Boolean
         get() = prefs.getBoolean("prefer_my_filaments", true)
