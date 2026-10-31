@@ -327,6 +327,12 @@ internal fun LayoutLabBody(state: UiState, vm: AppViewModel) {
         SwitchRow(stringResource(R.string.lab_show_plates), lab.showPlates, onChange = { vm.setLab(lab.copy(showPlates = it)) })
         SwitchRow(stringResource(R.string.lab_plates_on_handle), lab.platesOnHandle, onChange = { vm.setLab(lab.copy(platesOnHandle = it)) })
         SwitchRow(stringResource(R.string.lab_plate_hd), lab.plateHd, onChange = { vm.setLab(lab.copy(plateHd = it)) })
+        if (lab.plateHd) {
+            val hdContext = LocalContext.current
+            fun hdText(v: Float) = hdContext.getString(R.string.lab_plate_hd_alpha, (v * 100).toInt())
+            Text(hdText(lab.plateHdAlpha), style = MaterialTheme.typography.bodyMedium)
+            LabSlider(lab.plateHdAlpha, { LabPeek.readout = hdText(it) to (it - 0.1f) / 0.9f; vm.setLab(lab.copy(plateHdAlpha = it)) }, 0.1f..1f, current)
+        }
         }
         Section(stringResource(R.string.lab_group_layout)) {
         SwitchRow(stringResource(R.string.lab_slice_floating), lab.sliceFloating, onChange = { vm.setLab(lab.copy(sliceFloating = it)) })

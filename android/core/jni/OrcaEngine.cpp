@@ -586,7 +586,9 @@ json OrcaEngine::slice(int plate, const std::string &gcode_out, const std::strin
         config.set_deserialize_strict("curr_bed_type", def);
     if (const auto tower = tower_box(config, plate)) {
         if (tower->clash)
-            throw std::runtime_error("The prime tower finds no free spot on the plate: it would overlap an object. Move or remove an object.");
+            throw std::runtime_error("The prime tower (about " + std::to_string(int(std::lround(tower->width))) + " x " + std::to_string(int(std::lround(tower->depth))) +
+                                     " mm) has no free spot on plate " + std::to_string(plate + 1) + ": every position would overlap an object. Fix it by moving or removing an object, "
+                                     "using fewer filaments, lowering the prime tower width in the Print settings, or turning the prime tower off.");
         // Same box the 3D view shows: the position kept on the bed with the tower's real depth, brim and cone.
         config.option<ConfigOptionFloats>("wipe_tower_x", true)->values = {tower->x};
         config.option<ConfigOptionFloats>("wipe_tower_y", true)->values = {tower->y};

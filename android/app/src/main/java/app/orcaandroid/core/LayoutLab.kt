@@ -71,6 +71,8 @@ data class LayoutLab(
     val pieMenu: Boolean = false,
     /** Plates drawn dark with upstream's bed-type decals, solid from above, see-through from below (user 2026-10-24: lab, off by default). */
     val plateHd: Boolean = false,
+    /** HD plate opacity, 0.1-1 (user 2026-10-31): scales the plate, its decals and the underside. */
+    val plateHdAlpha: Float = 1f,
 ) {
     fun toJson(): String = JSONObject()
         .put("plates", plates.name).put("plateLabel", plateLabel).put("overlayAlpha", overlayAlpha.toDouble())
@@ -84,7 +86,7 @@ data class LayoutLab(
         .put("cameraLight", cameraLight.toDouble()).put("orbitInertia", orbitInertia.toDouble())
         .put("pinchSpeed", pinchSpeed.toDouble()).put("wheelSpeed", wheelSpeed.toDouble()).put("sliceScale", sliceScale.toDouble())
         .put("sliceFloating", sliceFloating).put("sliceX", sliceX.toDouble()).put("sliceY", sliceY.toDouble()).put("showPlates", showPlates)
-        .put("viewCube", viewCube).put("viewCubeX", viewCubeX.toDouble()).put("viewCubeY", viewCubeY.toDouble()).put("pieMenu", pieMenu).put("plateHd", plateHd).toString()
+        .put("viewCube", viewCube).put("viewCubeX", viewCubeX.toDouble()).put("viewCubeY", viewCubeY.toDouble()).put("pieMenu", pieMenu).put("plateHd", plateHd).put("plateHdAlpha", plateHdAlpha.toDouble()).toString()
 
     companion object {
         val TEXT_SCALES = 0.7f..1.3f
@@ -142,6 +144,7 @@ data class LayoutLab(
                 viewCubeY = o.optDouble("viewCubeY", -1.0).toFloat().coerceAtMost(1f),
                 pieMenu = o.optBoolean("pieMenu", d.pieMenu),
                 plateHd = o.optBoolean("plateHd", d.plateHd),
+                plateHdAlpha = o.optDouble("plateHdAlpha", 1.0).toFloat().coerceIn(0.1f, 1f),
             )
         }
     }

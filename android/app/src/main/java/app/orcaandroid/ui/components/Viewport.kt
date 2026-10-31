@@ -646,6 +646,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     LaunchedEffect(v, state.wireframe) { v.onGl { wireAll = state.wireframe } }
     val plateTypes = scene.plates.indices.map { state.bedTypeOf(it) }
     val appContext = LocalContext.current.applicationContext
+    LaunchedEffect(v, state.lab.plateHdAlpha) { v.onGl { plateAlpha = state.lab.plateHdAlpha } }
     LaunchedEffect(v, state.lab.plateHd, plateTypes) {
         v.onGl {
             plateSurface = state.lab.plateHd; plateLooks = plateTypes.map { PlateLook.of(it) }
