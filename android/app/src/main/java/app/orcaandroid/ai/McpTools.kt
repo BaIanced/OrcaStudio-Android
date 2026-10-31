@@ -73,7 +73,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
                 *FIELDS)) { add(it) },
         Tool("mesh_add", "Edit: adds a mesh shape from STL data (e.g. a generated surface) at its own size and selects it. " +
             "The file is kept in the app's mesh folder, so design_set may reuse its path (design_get shows it). Requests are " +
-            "capped at 4 MB: keep each STL under ~3 MB and split bigger models into several meshes. $EDIT",
+            "capped at 4 MB and base64 adds a third: keep each STL under ~2.5 MB and split bigger models into several meshes. $EDIT",
             obj(listOf("stl"), "stl" to p("string", "The STL file (binary or ASCII), base64"), *FIELDS)) { meshAdd(it) },
         Tool("shape_update", "Edit: changes the given fields of shape id; others stay. A field bound to a dim changes " +
             "the dim (and every shape following it). $EDIT", obj(listOf("id"), "id" to p("integer", "Shape id"), *FIELDS)) { update(it) },
