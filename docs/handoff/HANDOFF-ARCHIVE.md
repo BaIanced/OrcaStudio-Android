@@ -3752,3 +3752,6 @@ Object More menu now: Add volume (5 items) and Mesh tools (7 items) collapsible,
 - So the label was dropped by the overlap check against the slot label (the ring draws before that check). Fix (`DimensionOverlay.kt`): label inside the ring, else right / left / below / above the ring's screen bounds; skipped only if all 5 collide. Claude JVM + compile only.
 - Tip: a scene mesh for JVM tests = `adb exec-out su -c "cat /data/data/<pkg>/cache/tmp/scene_mesh.bin"`, filter by column 6 (object id) with numpy.
 - Verified 2026-10-30 (Claude, phone VD, r485 run 41155145884 installed on all 5 adb serials): slot-test part selected, View > Dimensions: "8 × 24" on the slot and "⌀6" beside the tilted hole's ring (moved right of it). Bbox labels 60.0/40.0/14.0 also drawn; "40.0" sits partly under "8 × 24" (bbox labels aren't in the overlap list; backlog). User untested. Phone: stayon reverted, no SLEEP (user was using the phone).
+
+## 2026-10-30 user verdict: Dimensions overlay "yep looks good"
+User said "yep looks good" while run 41158738411 (hole labels avoid bbox/wall labels) was still building, so it applies to the installed r485 (hole labels, slots, tilted holes), not to the overlap fix. Overlap fix still needs the phone VD check.
