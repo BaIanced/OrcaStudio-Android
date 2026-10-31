@@ -15,7 +15,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 1c4ff52 (PR #69, branch at r490 = r487 content + S Pen pressure, MCP filament_slots/prime_tower/preview_set, sketch size/triangle fixes; merged 2026-10-31 on "merge"; user-untested, Claude-verified only). Nothing unverified on the branch. User-untested in main: list in `NOTES-merge-batch.md`.
 - Signing secrets: `release` environment (main + `claude/*` only).
-- Latest installed CI build: r490 (run 41224065486, 29cb5e2: sketch size, triangles, filament_slots/prime_tower/preview_set; r489 was S Pen pressure ab552fa) on all 5 adb serials, 2026-10-31. Install builds on all adb devices (skip .23).
+- Latest installed CI build: r492 (run 41247554720, cc0f5ff: notice Fix links, danger confirm, mute, HD plate slider, tower text) on all 4 reachable adb serials, 2026-10-31. Install builds on all adb devices (skip .23).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **User 2026-10-28: no more user testing for now; Claude builds and tests everything itself (memory no-user-testing-now); don't ask for feel/UI checks.**
 - **User 2026-10-29: no tests on the user's screen; all tests on a hidden virtual display** (`TARGET=wsa orca-vd.sh start`, memory tests-on-virtual-display).
@@ -38,8 +38,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Debug app on WSA: tested 2026-10-31, uninstall when the user is done. Demos on WSA debug app 2026-10-30 (Hopf + torus link, archive): uninstall debug when the user is done. Open: printable base (needs user OK).
 - UX audit / Gemini round 3: **lowest priority (user 2026-10-31)**; only act if the user brings Gemini's answer (backlog line).
 - S Pen pressure ab552fa (r489 installed everywhere): More > Pen UI checked on WSA VD 2026-10-31 (switch + Soft/Linear/Firm chips, Firm selects, back to Linear); real pressure awaits Note 10+ test (user says when). Gemini round 3 skipped by user 2026-10-31 (still pending).
-- Notice Fix links + danger double-confirm + per-project mute: coded, compiles, unit tests pass, **committed locally, not pushed** (gh token invalid 2026-10-31; user must `gh auth login`). Backlog "User asks 2026-10-31" lists what to test. Backlog is 13.5 KB: trim to ~10 KB (move history to archive).
-- Next step: push + CI + WSA VD test of notice Fix links, danger dialog, headings, HD plate slider, tower text (backlog "User asks 2026-10-31") -> Sonnet 5.5 (medium)
+- Notice Fix links + danger double-confirm + per-project mute: pushed, r492 built + installed. WSA VD 2026-10-31: danger dialog (nozzle 350) shows, Cancel reverts to 220. Still untested: Fix links, headings, HD plate slider, tower text, Apply+mute path (backlog "User asks 2026-10-31"). Backlog is 13.5 KB: trim to ~10 KB.
+- Next step: finish WSA VD test of Fix links, headings, HD slider, tower text, then trim backlog -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
