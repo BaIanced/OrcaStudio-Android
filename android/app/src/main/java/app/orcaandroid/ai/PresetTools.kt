@@ -47,6 +47,11 @@ internal class PresetTools(
             "printer: ask the user to pick that in the app). Fails when the current one has unsaved edits unless discard_edits.",
             obj(listOf("type", "name"), "type" to p("string", "process or filament"), "name" to p("string", "Preset name from preset_list"),
                 "slot" to slot, "discard_edits" to p("boolean", "true = drop the current preset's unsaved edits"))) { select(it) },
+        McpTools.Tool("filament_slots", "Edit: changes how many filament slots the print has (a new slot copies the last slot's preset " +
+            "with the next colour; recolour or reassign with settings_edit slot_colour / preset_select), or removes one slot " +
+            "(later slots move up; objects painted with it keep the number). Clears slice results. Give count or remove.",
+            obj(emptyList(), "count" to p("integer", "Total slots wanted, at least 1"),
+                "remove" to p("integer", "Slot (1 = first) to remove"))) { slots(it) },
         McpTools.Tool("preset_save", "Confirm: saves the selected preset with its unsaved edits as the user's preset name (a " +
             "user preset of that name is replaced) and selects it. Waits up to 60 s for the user's Allow in the app.",
             obj(listOf("type", "name"), "type" to type, "name" to p("string", "Name of the user preset"), "slot" to slot)) { save(it) },
@@ -233,6 +238,24 @@ internal class PresetTools(
                 appendLine()
             }
         }
+    }
+
+    private suspend fun slots(args: JSONObject): String {
+        val before = store.value.filaments.size
+        if (args.has("remove") == args.has("count")) throw McpTools.ToolError("Give exactly one of count or remove")
+        if (args.has("remove")) {
+            val i = args.optInt("remove") - 1
+            if (before <= 1) throw McpTools.ToolError("The last slot can't be removed")
+            if (i !in 0 until before) throw McpTools.ToolError("No filament slot ${i + 1} (1..$before)")
+            withContext(Dispatchers.Main.immediate) { presets.removeFilamentNow(i) }
+        } else {
+            val c = args.optInt("count")
+            if (c !in 1..64) throw McpTools.ToolError("count must be 1..64")
+            withContext(Dispatchers.Main.immediate) { presets.setFilamentCountNow(c) }
+        }
+        val now = store.value.filaments.size
+        store.toast(store.str(R.string.ai_edit, "filament slots $before -> $now"))
+        return "Filament slots: $before -> $now (see plate_describe)."
     }
 
     private suspend fun select(args: JSONObject): String {

@@ -3786,3 +3786,8 @@ User said "yep looks good" while run 41158738411 (hole labels avoid bbox/wall la
 - Built on WSA release r489 over MCP (release now has the `orcastudio_mcp` socket on WSA). Design: hyperboloid lattice of 48 straight rods (weights), window band (context edge), 30 voice strands in 10 colours + 4 white (my words), revolved seed with sealed cavity at the waist (colour = linear-light average of the voices), pale spray of 15 alternatives sized by probability, orange chosen word (p 0.60), white loop with 11 beads back into the input (autoregression). 16 slots, all Bambu PLA Basic, custom hex.
 - Scripts: `~/orca-android-tools/sp/` (prims.py, strands.py seed 7, build.py, toplate.py) + `~/orca-android-tools/mcpy.py` (Python MCP client, token read via su in memory). Package `~/Downloads/self-portrait-3.zip` (renders, plate 3MF, design.json, scad, STLs, generator, palette, index.html with @dsCard marker, README, MEANING.md = full part-by-part reading). Claude Design upload blocked: `/design consent` 403, needs `/design-login`.
 - Slot add without MCP: tap the panel's "Filament" button (scroll panel with `input swipe`). Slice fits only at 70 % (16-colour tower ~73 h, 536 g). Gaps/bugs: backlog "Self-portrait 3 gaps". User reaction: not given yet.
+
+## 2026-10-31 handoff trims
+- Dimensions overlay: user "looks good" r485, overlap nudge done (archive).
+- Source fixes 2026-10-31 (committed, not pushed, untested): design_to_plate triangle total, design_set sketch auto-size. Push with the next batch.
+- "Slice result lost after view_set + Preview": not reproducible on r489 WSA (slice, view_set x2, Preview tap: result kept); backlog line updated.

@@ -188,6 +188,12 @@ class PresetController(private val store: Store, private val device: DeviceContr
         store.update { it.copy(preferMyFilaments = on) }
     }
     fun addFilament() = updateFilaments { list -> list + FilamentSlot(list.last().preset, nextColor(list.size)) }
+    /** Sets the number of filament slots: new ones copy the last preset with the next colour, extra ones go from the end (at least one stays). */
+    suspend fun setFilamentCountNow(count: Int) = updateFilamentsNow { list ->
+        val c = count.coerceAtLeast(1)
+        if (c > list.size) list + (list.size until c).map { FilamentSlot(list.last().preset, nextColor(it)) } else list.take(c)
+    }
+    suspend fun removeFilamentNow(slot: Int) = updateFilamentsNow { list -> if (list.size <= 1) list else list.filterIndexed { i, _ -> i != slot } }
     fun removeFilament(slot: Int) = updateFilaments { list -> if (list.size <= 1) list else list.filterIndexed { i, _ -> i != slot } }
     fun setFilamentColor(slot: Int, color: String) = updateFilaments { list -> list.mapIndexed { i, f -> if (i == slot) f.copy(color = color) else f } }
     fun setFilamentLook(slot: Int, look: String?) = updateFilaments { list -> list.mapIndexed { i, f -> if (i == slot) f.copy(look = look) else f } }

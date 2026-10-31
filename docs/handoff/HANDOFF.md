@@ -34,13 +34,11 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - CAD plan (`NOTES-cad-reuse.md`): 0-5b Claude-verified, 1b parked. MCP efficiency (`NOTES-mcp-token-efficiency.md`): build rule waits for user OK.
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
-- Dimensions overlay: user "looks good" r485, overlap nudge done (archive).
-- Self-portrait 3 done 2026-10-31 (archive; zip `Downloads/self-portrait-3.zip` with MEANING.md). Its tool gaps/bugs: backlog "Self-portrait 3 gaps".
+- Self-portrait 3 done (archive); gaps/bugs + 2 untested unpushed source fixes (design_to_plate triangles, design_set sketch size; push with next batch): backlog "Self-portrait 3 gaps".
 - Demos on WSA debug app 2026-10-30 (Hopf + torus link, archive): uninstall debug when the user is done. Open: printable base (needs user OK).
-- **UX audit for Gemini (user 2026-10-31, current focus):** round 3 bundle ready (backlog line); waiting for Gemini's answer from the user. Then verify each item vs source, user picks what to build.
+- UX audit / Gemini round 3: **lowest priority (user 2026-10-31)**; only act if the user brings Gemini's answer (backlog line).
 - S Pen pressure ab552fa (r489 installed everywhere): More > Pen UI checked on WSA VD 2026-10-31 (switch + Soft/Linear/Firm chips, Firm selects, back to Linear); real pressure awaits Note 10+ test (user says when). Gemini round 3 skipped by user 2026-10-31 (still pending).
-- Source fixes 2026-10-31 (committed, not pushed, untested): design_to_plate triangle total, design_set sketch auto-size. Push with the next batch.
-- Next step: UX audit round 3 -> wait for Gemini answer from the user; else repro "slice result lost after view_set + Preview" on WSA VD, then other self-portrait gaps (backlog) -> Sonnet 5.5 (medium)
+- Next step: self-portrait gaps (backlog): prime tower 'no free spot' for a big object, then primitive-group union check, then MCP tools for filament slots/prime tower/Preview slider -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
