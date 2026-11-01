@@ -15,7 +15,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 1c4ff52 (PR #69 = r490, merged 2026-10-31; Claude-verified only). Nothing unverified on the branch. User-untested in main: list in `NOTES-merge-batch.md`.
 - Signing secrets: `release` environment (main + `claude/*` only).
-- Latest installed CI build: r495 (run 41329765340, tiles + Mix) on SHIELD, WSA, phone, Chromebook, 2026-11-01 (WSA smoke OK). Phone drops off adb: `adb connect <phone-ip>:5555` (memory device-ips); GL shots on the phone VD. Install builds on all adb devices (skip .23).
+- Latest installed CI build: r496 (run 41331411840, colour picker + mixer) on SHIELD, WSA, Chromebook, 2026-11-01 (WSA smoke OK); phone (.20) was unreachable, still on r495: install when it is back. Phone drops off adb: `adb connect <phone-ip>:5555` (memory device-ips); GL shots on the phone VD. Install builds on all adb devices (skip .23).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **User 2026-10-28: no more user testing for now; Claude builds and tests everything itself (memory no-user-testing-now); don't ask for feel/UI checks.**
 - **User 2026-10-29: no tests on the user's screen; all tests on a hidden virtual display** (`TARGET=wsa orca-vd.sh start`, memory tests-on-virtual-display).
@@ -33,11 +33,11 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   DeepSeek V4.1 Flash = default; runner `octauto.sh` (`D:\oct-backup\jobs\README.md`; opencode v2: `model#variant`), ledger `trust-profile.md`.
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
-- Open tests in backlog (HD "from below", tower text, unpin, Shift/Ctrl+click bulk).
+- Open tests in backlog (HD "from below" = phone VD, tower text = WSA VD, Shift/Ctrl+click bulk = Chromebook mouse). Unpin via label dialog verified r496 (archive 2026-11-01).
 - S Pen pressure (Note 10+), Self-portrait 3, CAD plan, UX audit (lowest): backlog.
 - Perf/size: `docs/PERFORMANCE.md`. CI size step ae8d7fa on local `local/ci-size-step` (push needs `gh auth refresh -s workflow` by the user). Exp. 1 (vendors xz, -11 MB) verified r493.
 - Filament makeover done (archive 2026-11-01): tiles + Mix in r495; colour picker + mixer b83fa3a in CI run 41331411840.
-- Next step: install CI run 41331411840 on all adb devices + WSA smoke, then next backlog item -> Sonnet 5.5 (medium)
+- Next step: prime tower "no free spot" message on WSA VD (backlog HD/tower line; install r496 on the phone if .20 answers) -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).

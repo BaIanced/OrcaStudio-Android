@@ -3876,3 +3876,7 @@ User said "yep looks good" while run 41158738411 (hole labels avoid bbox/wall la
 ## 2026-11-01 Bambu Studio-style mixer (Claude, WSA VD debug)
 - MixDialog rewrite: big live preview swatch + hex + per-part percentages; "Quick picks" swatches (pie wedges of the parts around the blended centre, primary ring when the current mix matches): each pair at 3:1/1:1/1:3, each triple evenly (3..5 slots), all evenly (>=4); >5 slots = pairs at 1:1 only. Two parts: a balance bar drawn in linear-light blend colours, tap/drag in 5% steps (thumb = mix colour). 3+ parts: per-part sliders (weights 0.5..10). Newly checked part gets the average weight.
 - Verified via ui dumps on WSA VD (3 slots): 10 picks listed; pick "1 75% + 2 25%" -> #D5778D, 75/25; bar tap at 90% -> 10/90; drag -> 45/55; check 3 -> 30/37/33 with three sliders; slider drag -> 23/28/50; OK adds slot 4 "modified"; reopening restores 23/28/50. Slider taps (not drags) don't register on WSA input (old dialog same Slider). Not seen: swatch/bar visuals (no VD screenshots on WSA).
+
+## 2026-11-01 Unpin via label dialog (Claude, WSA VD, r496)
+- Pinned "First layer height" from the editor's pin mode: main view shows the row with "Pinned" under Brim. Tapping its label opens the info dialog (description, `initial_layer_print_height`, Unpin / OK); Unpin removed the row. Pinned process settings fully Claude-verified; user feel untested.
+- Phone (.20) still unreachable on adb 2026-11-01: stays on r495.

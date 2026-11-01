@@ -70,13 +70,10 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - Godot review leftovers (Z lift dot, axis lock, Wireframe, orbit inertia, Light direction: all in CI r463, Claude-verified WSA 2026-10-28, archive): open: user feel; tower ignores Z code-verified 2026-10-29. [Opus]
 - CAD 7d done (size slider WSA VD-verified dd8f656, archive 2026-10-29); only the group Scale % field is unit-tested, not seen on screen (Claude, 2026-10-30).
 - [Opus] OrcaMesh edit mode: M1-M4 (move/scale/rotate, extrude+inset, cut ring, fillet/chamfer) Claude-verified on WSA VD, M4 also on release r487 (2026-10-30); no M5 planned; user feel untested (NOTES-orcamesh-edit.md "Progress").
-- [Opus] AI print failure watch (user 2026-10-30, wants it if compute per print is low): local Obico-style detector on the printer camera, pause + notify; LLM only as optional 2nd opinion. Details: archive 2026-10-31 backlog trim. Open: ask the user for the camera model.
-- AI print failure watch feasibility note: parked behind the UX audit (needs the user's camera model).
-- [Opus] Settings asks 2026-10-31 (Claude r494): open HD plate "from below" look, tower text, locked plate size fe9f57f on device. Test via `orca-vd.sh start window`.
+- [Opus] AI print failure watch (user 2026-10-30): local Obico-style camera detector, pause + notify; parked behind the UX audit. Open: ask the user for the camera model (archive 2026-10-31).
+- [Opus] HD plate "from below" look (r494 slider works): unchecked, needs the phone VD (WSA VD shots blank; wake the phone first, the stale frame was likely Doze). Tower "no free spot" text (7862770): untested, WSA VD ui dump (fill the plate, 2 filaments, slice). Claude 2026-11-01.
 
-- [Opus] Pinned process settings Claude-verified WSA VD 2026-10-31 (archive): open unpin via label dialog.
-- Bulk filament edit (53578ad): long press verified by Claude on phone VD 2026-10-31 (archive); only Shift/Ctrl+click (mouse, Chromebook) and user feel untested. 53578ad not in a CI build yet.
-- Under-plate opacity (lab HD plate "from below"): look unchecked, VD view_screenshot blank (Claude 2026-10-31); try window mode.
+- Bulk filament edit (53578ad): long press verified by Claude on phone VD 2026-10-31 (archive); only Shift/Ctrl+click (mouse, Chromebook) and user feel untested. In r496+.
 - [Opus] Perf experiments queue: docs/PERFORMANCE.md; CI size step ae8d7fa on local/ci-size-step, push needs workflow scope (Claude 2026-10-31).
 - [Opus] AI print failure watch (user 2026-10-30): local detector on the printer camera; open: ask the user for the camera model (archive 2026-10-31).
 - Filament makeover (user 2026-10-31): tiles, + Mix, colour picker, BS-style mixer all Claude-verified WSA VD (archive 2026-11-01); open: CI run 41331411840 install, mixer swatch/bar looks unseen (no WSA VD shots), user feel, vendor logo (trademark).
