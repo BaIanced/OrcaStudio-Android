@@ -3821,3 +3821,6 @@ User said "yep looks good" while run 41158738411 (hole labels avoid bbox/wall la
 
 ## 2026-10-31 Perf experiment 1: vendor profiles xz
 - Vendor zips -> stored zip inside xz per vendor (`pack_resources.py` `xz_zip`, dict sized to data; `ResourceStore.extractVendor` via `org.tukaani:xz`). APK assets/vendors 28.3 -> 17.25 MB. Solid tar.xz was 17.7 MB measured (0.4 MB better) but needs full decode per install. resources.zip under xz only -0.35 MB: skipped. WSA debug test: forced re-extract of BBL/Creality/OrcaFilamentLibrary, counts 2516/1492/1297 = source, ~2 s, BBL presets load. Installed BBL newer from online update (02.08.00.15 > bundled .12) is correctly not overwritten.
+
+## 2026-10-31 Notice Fix links (Claude, WSA window mode, r493)
+- Fix link dispatch (`FixLink`, Notices.kt) verified via spiral-vase (Option -> editor focus key); mapping tower/organic/mixed-temps/printer covered by `SettingGuardsTest` (`noticeFix`), Go(screen) is plain `setScreen`. Tray-mismatch notice tap scrolls to Filaments. Not triggered live: tower no-free-spot, organic+variable layer, mixed temps (accepted as covered).

@@ -28,4 +28,11 @@ class SettingGuardsTest {
         assertEquals(DangerRule.GCODE, dangerRule(PresetType.PRINTER, "machine_start_gcode", "G28"))
         assertNull(dangerRule(PresetType.PRINT, "layer_height", "0.2"))
     }
+
+    @Test fun plateSizeIsLocked() {
+        assertEquals(true, isLocked(PresetType.PRINTER, "printable_area"))
+        assertEquals(true, isLocked(PresetType.PRINTER, "printable_height"))
+        assertEquals(false, isLocked(PresetType.PRINTER, "z_offset"))
+        assertEquals(false, isLocked(PresetType.PRINT, "printable_area"))
+    }
 }

@@ -24,7 +24,11 @@ fun noticeFix(message: String): NoticeFix? {
 /** A setting change that can damage the printer or a print: asked twice before it is applied. */
 enum class DangerRule { NOZZLE_TEMP, BED_TEMP, PRINTER_GEOMETRY, GCODE }
 
-private val GEOMETRY_KEYS = setOf("printable_area", "printable_height", "nozzle_diameter", "z_offset", "extruder_offset")
+private val GEOMETRY_KEYS = setOf("nozzle_diameter", "z_offset", "extruder_offset")
+private val LOCKED_PRINTER_KEYS = setOf("printable_area", "printable_height")
+
+/** Settings that cannot be edited at all (user 2026-10-31: no reason to override the build plate size). */
+fun isLocked(type: PresetType, key: String) = type == PresetType.PRINTER && key in LOCKED_PRINTER_KEYS
 private val GCODE_KEYS = setOf("machine_start_gcode", "machine_end_gcode", "filament_start_gcode", "filament_end_gcode")
 
 /** The rule [value] for [key] breaks, or null. Temperatures look at every number in a vector value. */

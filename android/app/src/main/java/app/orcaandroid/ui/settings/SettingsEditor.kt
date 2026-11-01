@@ -375,7 +375,7 @@ private fun EditorFrame(
                         }
                         items(options, key = { "o:${group.title}:${it.key}" }) { def ->
                             androidx.compose.runtime.key(resetTick) {
-                                OptionRow(def, rows[def.key], source.value(def.key).orEmpty(), source.isModified(def.key), def.key !in optionStates.disabled,
+                                OptionRow(def, rows[def.key], source.value(def.key).orEmpty(), source.isModified(def.key), def.key !in optionStates.disabled && !isLocked(type, def.key),
                                     wide, tr, { guardedSet(def.key, it) }, { source.reset(def.key) },
                                     pinned = if (pinnable) def.key in state.pinnedSettings else null, pinToggle = pinMode) { vm.presets.togglePinned(def.key) }
                             }
@@ -731,7 +731,7 @@ internal fun PinnedSettings(state: UiState, vm: AppViewModel) {
                 // Out of its group the short label is too bare ("Default" of Line width): use the full one.
                 val own = def.fullLabel.ifEmpty { def.label }
                 val label = if (rows[key] == null && own.equals("Default", true)) groupOf[key]?.let { "$it · $own" } ?: own else own
-                OptionRow(def.copy(label = label), rows[key], value, state.isModified(type, key), key !in state.optionStates.disabled, false, vm.translator,
+                OptionRow(def.copy(label = label), rows[key], value, state.isModified(type, key), key !in state.optionStates.disabled && !isLocked(type, key), false, vm.translator,
                     { v ->
                         if (dangerRule(type, key, v)?.takeIf { it.name !in vm.presets.dangerMuted(state.projectName) } == null) vm.presets.setOption(type, key, v)
                         else { resetTick++; vm.presets.openEditor(EditorTarget.Preset(type, focus = key)) }

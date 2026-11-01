@@ -34,12 +34,12 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
 - UX audit / Gemini round 3: lowest priority (user 2026-10-31), backlog line.
-- r492 notices, pinned settings, bulk filament edit: open tests in the backlog.
+- Open tests (backlog): danger Apply+mute, headings, HD plate slider, tower text, unpin via label dialog, Shift/Ctrl+click bulk filament. Notice Fix links done (archive).
 - S Pen pressure awaits the Note 10+ test; Self-portrait 3 / CAD plan: backlog + archive.
 - Perf/size: `docs/PERFORMANCE.md` (budgets, Done list, experiment queue). CI size step = commit ae8d7fa on local branch `local/ci-size-step` (push needs `gh auth refresh -s workflow` by the user). Exp. 1 (vendors xz, -11 MB) done + verified: r493 (run 41274366209) installed on all adb devices 2026-10-31, APK 118.6 MB, phone cold start median 159 ms (PERFORMANCE.md). Size summary needs the CI step pushed.
 - Perf exp. 2 (Python stdlib trim) measured + rejected (~0.4 MB, plugin risk; PERFORMANCE.md).
 - Perf exp. 1: icf=safe no gain (rejected); ThinLTO/-O2 left (full recompile, risky, low value).
-- Next step: none queued; pick from the backlog (r492 notices / pinned settings / bulk filament edit tests) -> Sonnet 5.5 (medium)
+- Next step: HD plate slider + tower text + danger Apply+mute on WSA window mode -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
