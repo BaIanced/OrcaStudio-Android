@@ -51,6 +51,7 @@ class Store(val app: Application, val scope: CoroutineScope) {
             hiddenBedTypes = settings.hiddenBedTypes,
             preferredBedType = settings.preferredBedType,
             matchNozzle = settings.matchNozzle,
+            filamentTiles = settings.filamentTiles,
             preferMyFilaments = settings.preferMyFilaments,
             dangerAllowed = settings.dangerAllowed,
             expertSettings = settings.expertSettings,

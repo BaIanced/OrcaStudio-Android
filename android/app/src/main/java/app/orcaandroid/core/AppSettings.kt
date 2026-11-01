@@ -187,6 +187,11 @@ class AppSettings(context: Context) {
         set(value) = prefs.edit().putString("tray_picks",
             JSONObject(value.mapValues { (_, p) -> JSONObject().put("loaded", p.first).put("preset", p.second) }).toString()).apply()
 
+    /** Filament slots as AMS-style tiles, two per line (false = the older one-row-per-slot list). */
+    var filamentTiles: Boolean
+        get() = prefs.getBoolean("filament_tiles", true)
+        set(value) = prefs.edit().putBoolean("filament_tiles", value).apply()
+
     /** Hide printer presets whose nozzle differs from the one the connected printer reports. */
     var matchNozzle: Boolean
         get() = prefs.getBoolean("match_nozzle", true)

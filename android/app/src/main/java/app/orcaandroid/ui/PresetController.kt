@@ -57,6 +57,11 @@ class PresetController(private val store: Store, private val device: DeviceContr
         store.update { it.copy(installedNozzles = nozzles) }
     }
 
+    fun setFilamentTiles(on: Boolean) {
+        settings.filamentTiles = on
+        store.update { it.copy(filamentTiles = on) }
+    }
+
     fun setMatchNozzle(on: Boolean) {
         settings.matchNozzle = on
         store.update { it.copy(matchNozzle = on) }

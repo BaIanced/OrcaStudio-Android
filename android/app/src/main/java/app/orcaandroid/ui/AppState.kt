@@ -254,6 +254,7 @@ data class UiState(
     val expertSettings: Boolean = false,
     /** Printer presets with another nozzle than the model's [installedNozzles] entry are hidden (switchable). */
     val matchNozzle: Boolean = true,
+    val filamentTiles: Boolean = true,
     val installedNozzles: Map<String, Float> = emptyMap(),
     val editor: EditorTarget? = null,
     val showPrinterSetup: Boolean = false,
