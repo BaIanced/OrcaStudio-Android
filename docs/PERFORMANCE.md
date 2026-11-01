@@ -55,8 +55,8 @@ Record a missing baseline the first time a change touches that area (same device
 
 ## Experiment queue (measured potential, not done)
 
-1. **Native link flags** for liborca_jni (48.4 MB): `-Wl,--icf=safe` and ThinLTO, `-O2` vs the
-   default `-O3`. Native CI rebuild; compare size and slice time.
+1. **Native link flags** for liborca_jni (48.4 MB): `-Wl,--icf=safe` measured 2026-10-31: no gain (stripped 50,754,576 vs
+   50,753,744 B, relink only), rejected. Open: ThinLTO and `-O2` vs the default `-O3` (full core recompile, hours). Native CI rebuild; compare size and slice time.
 2. **Python stdlib**: measured 2026-10-31, rejected. Whole stdlib is 14.4 MB raw / 4.26 MB in the APK (lib-dynload 1.81,
    top-level .py 1.16, encodings 0.32, asyncio 0.12); safe removals (unittest, lib2to3, doctest, pydoc) are ~0.3-0.5 MB
    (0.4% of the APK) and user plugins may import any of them. Biggest single items: unicodedata .so 0.4 MB,

@@ -38,7 +38,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - S Pen pressure awaits the Note 10+ test; Self-portrait 3 / CAD plan: backlog + archive.
 - Perf/size: `docs/PERFORMANCE.md` (budgets, Done list, experiment queue). CI size step = commit ae8d7fa on local branch `local/ci-size-step` (push needs `gh auth refresh -s workflow` by the user). Exp. 1 (vendors xz, -11 MB) done + verified: r493 (run 41274366209) installed on all adb devices 2026-10-31, APK 118.6 MB, phone cold start median 159 ms (PERFORMANCE.md). Size summary needs the CI step pushed.
 - Perf exp. 2 (Python stdlib trim) measured + rejected (~0.4 MB, plugin risk; PERFORMANCE.md).
-- Next step: perf exp. 1 (native link flags icf/ThinLTO/-O2 for liborca_jni, native CI rebuild via patch) -> Sonnet 5.5 (medium)
+- Perf exp. 1: icf=safe no gain (rejected); ThinLTO/-O2 left (full recompile, risky, low value).
+- Next step: none queued; pick from the backlog (r492 notices / pinned settings / bulk filament edit tests) -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
