@@ -249,6 +249,9 @@ data class UiState(
     /** AMS sync and new slots take the user's own filament preset saved from a system one (switchable). */
     val preferMyFilaments: Boolean = true,
     val allowMixedTemps: Boolean = false,
+    /** Risky-setting rules allowed for good, and whether every slicer option shows (More > Expert settings). */
+    val dangerAllowed: Set<String> = emptySet(),
+    val expertSettings: Boolean = false,
     /** Printer presets with another nozzle than the model's [installedNozzles] entry are hidden (switchable). */
     val matchNozzle: Boolean = true,
     val installedNozzles: Map<String, Float> = emptyMap(),

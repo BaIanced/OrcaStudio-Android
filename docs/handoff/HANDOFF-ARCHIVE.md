@@ -3831,3 +3831,7 @@ User said "yep looks good" while run 41158738411 (hole labels avoid bbox/wall la
 
 ### 2026-11-01 Multi-select long-press fix (Claude, WSA VD, debug build)
 - Cause: slotSelectGesture used pointerInput(selecting); the long-press toggle changed the key, restarting the loop and killing the release swallow, so the row picker opened too. Fix: stable key + rememberUpdatedState (PreparePanel.kt). Verified: long press = "1 selected", no picker; tap adds ("2 selected"). Not CI-built, not user-felt.
+
+## 2026-11-01 Settings audit decision + build (Claude)
+- User decision 2026-11-01: no lock; vendor printer presets (system or inheriting one, PrinterInfo.base) hide fixed hardware (SettingGuards VENDOR_FIXED_PRINTER_KEYS); More "Expert settings" toggle (disclaimer on enable) shows all + Expert segment + develop keys; changed keys and Fix-link focus key always show. Danger: one dialog Allow once / Always (app-wide AppSettings.dangerAllowed, reset entry in More) / Cancel; GCODE rule dropped; nozzle >300, bed >110, nozzle_diameter/z_offset/extruder_offset kept. Replaces fe9f57f lock and per-project dangerMutes.
+- WSA VD debug test: A1 printer editor shows Simple/Advanced only, Printable space group without plate size, search "printable" hid printable_area/height but showed extruder_printable_* -> added to the list (not retested).

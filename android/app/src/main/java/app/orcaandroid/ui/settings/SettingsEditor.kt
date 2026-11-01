@@ -250,19 +250,26 @@ private fun EditorFrame(
     var pageIndex by rememberSaveable(type) { mutableIntStateOf(0) }
     // Per-object editors start with only what the object overrides; "all" shows every option.
     var onlyModified by remember { mutableStateOf(objectMode && source.modifiedCount > 0) }
-    // Risky values (hot nozzle/bed, printer geometry, G-code) wait for a second confirm; cancel re-keys the rows to drop the typed text.
+    // Risky values (hot nozzle/bed, printer geometry) wait for a confirm; cancel re-keys the rows to drop the typed text.
     var pendingDanger by remember { mutableStateOf<Triple<String, String, DangerRule>?>(null) }
     var resetTick by remember { mutableIntStateOf(0) }
     val guardedSet: (String, String) -> Unit = { key, v ->
-        val rule = dangerRule(type, key, v)?.takeIf { it.name !in vm.presets.dangerMuted(state.projectName) }
+        val rule = dangerRule(type, key, v)?.takeIf { it.name !in state.dangerAllowed }
         if (rule == null) source.set(key, v) else pendingDanger = Triple(key, v, rule)
     }
     pendingDanger?.let { (key, v, rule) ->
-        DangerDialog(rule, onConfirm = { mute ->
-            if (mute) vm.presets.muteDanger(state.projectName, rule.name)
+        DangerDialog(rule, onConfirm = { always ->
+            if (always) vm.presets.allowDanger(rule.name)
             source.set(key, v); pendingDanger = null
         }, onDismiss = { pendingDanger = null; resetTick++ })
     }
+    // Without Expert settings: Simple/Advanced options only, and a vendor printer's fixed hardware stays hidden.
+    // Changed options and the one a link points at always show, so they can be traced and reset.
+    val expert = state.expertSettings
+    val vendorPrinter = type == PresetType.PRINTER && !objectMode &&
+        state.printers.firstOrNull { it.name == state.printer }?.let { it.system || it.base.isNotEmpty() } == true
+    fun allowed(def: OptionDef) = expert || shownWithoutExpert(type, def.key, def.mode, vendorPrinter) || source.isModified(def.key) || def.key == focus
+    val shownMode = if (expert) mode else mode.coerceAtMost(1)
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wide = maxWidth >= WIDE_LAYOUT
@@ -287,8 +294,9 @@ private fun EditorFrame(
             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 SingleChoiceSegmentedButtonRow(Modifier.weight(1f, fill = false)) {
-                    listOf(R.string.mode_simple, R.string.mode_advanced, R.string.mode_expert).forEachIndexed { i, label ->
-                        SegmentedButton(mode == i, { mode = i }, SegmentedButtonDefaults.itemShape(i, 3)) { Text(stringResource(label), maxLines = 1) }
+                    val labels = listOf(R.string.mode_simple, R.string.mode_advanced, R.string.mode_expert).take(if (expert) 3 else 2)
+                    labels.forEachIndexed { i, label ->
+                        SegmentedButton(shownMode == i, { mode = i }, SegmentedButtonDefaults.itemShape(i, labels.size)) { Text(stringResource(label), maxLines = 1) }
                     }
                 }
                 // Presets too: "N modified" in the title is otherwise hard to trace to its options.
@@ -297,7 +305,7 @@ private fun EditorFrame(
             }
             HorizontalDivider()
 
-            fun visible(def: OptionDef) = def.mode <= mode || (mode == 2 && def.mode == 3)
+            fun visible(def: OptionDef) = allowed(def) && (def.mode <= shownMode || (shownMode == 2 && def.mode == 3))
             val rows = remember(pages) { pages.rowLabels() }
             val hidden = optionStates.hidden
             // A tab with no option at this mode (e.g. Speed in Simple) is dropped.
@@ -311,7 +319,7 @@ private fun EditorFrame(
                     pages.flatMap { page ->
                         page.groups.mapNotNull { g ->
                             val hits = g.options.filter { key ->
-                                val d = defs[key] ?: return@filter false
+                                val d = defs[key]?.takeIf(::allowed) ?: return@filter false
                                 val row = rows[key].orEmpty()
                                 listOf(key, d.label, d.fullLabel, row, tr.tr(d.label), tr.tr(d.fullLabel), tr.tr(row), tr.tr(d.tooltip)).any { it.lowercase().contains(q) }
                             }
@@ -367,7 +375,7 @@ private fun EditorFrame(
                 LazyColumn(Modifier.weight(1f).fillMaxHeight().semantics { paneTitle = paneName }.padding(horizontal = 12.dp)) {
                     groups.forEach { group ->
                         val options = group.options.mapNotNull { defs[it] }.filter {
-                            (query.isNotBlank() || onlyModified || visible(it)) && it.key !in hidden && source.value(it.key) != null
+                            (if (query.isNotBlank() || onlyModified) allowed(it) else visible(it)) && it.key !in hidden && source.value(it.key) != null
                         }
                         if (options.isEmpty()) return@forEach
                         item(key = "g:${group.title}") {
@@ -375,7 +383,7 @@ private fun EditorFrame(
                         }
                         items(options, key = { "o:${group.title}:${it.key}" }) { def ->
                             androidx.compose.runtime.key(resetTick) {
-                                OptionRow(def, rows[def.key], source.value(def.key).orEmpty(), source.isModified(def.key), def.key !in optionStates.disabled && !isLocked(type, def.key),
+                                OptionRow(def, rows[def.key], source.value(def.key).orEmpty(), source.isModified(def.key), def.key !in optionStates.disabled,
                                     wide, tr, { guardedSet(def.key, it) }, { source.reset(def.key) },
                                     pinned = if (pinnable) def.key in state.pinnedSettings else null, pinToggle = pinMode) { vm.presets.togglePinned(def.key) }
                             }
@@ -389,18 +397,11 @@ private fun EditorFrame(
 }
 
 private val DANGER_TEXT = mapOf(DangerRule.NOZZLE_TEMP to R.string.danger_nozzle_temp, DangerRule.BED_TEMP to R.string.danger_bed_temp,
-    DangerRule.PRINTER_GEOMETRY to R.string.danger_printer_geometry, DangerRule.GCODE to R.string.danger_gcode)
+    DangerRule.PRINTER_GEOMETRY to R.string.danger_printer_geometry)
 
-/** Second confirm for a risky value: "I understand" must be ticked; optionally muted for this project. */
+/** One confirm for a risky value: Allow once, Always (this kind of change, app-wide; reset in More) or Cancel. */
 @Composable
-private fun DangerDialog(rule: DangerRule, onConfirm: (mute: Boolean) -> Unit, onDismiss: () -> Unit) {
-    var understood by remember { mutableStateOf(false) }
-    var mute by remember { mutableStateOf(false) }
-    @Composable fun check(checked: Boolean, label: Int, onChange: (Boolean) -> Unit) =
-        Row(Modifier.fillMaxWidth().clickable { onChange(!checked) }, verticalAlignment = Alignment.CenterVertically) {
-            androidx.compose.material3.Checkbox(checked, onChange)
-            Text(stringResource(label), style = MaterialTheme.typography.bodyMedium)
-        }
+private fun DangerDialog(rule: DangerRule, onConfirm: (always: Boolean) -> Unit, onDismiss: () -> Unit) {
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
         icon = { Icon(Icons.Default.Warning, null, tint = MaterialTheme.colorScheme.error) },
@@ -409,11 +410,15 @@ private fun DangerDialog(rule: DangerRule, onConfirm: (mute: Boolean) -> Unit, o
             Column {
                 Text(stringResource(DANGER_TEXT.getValue(rule)))
                 Spacer(Modifier.height(8.dp))
-                check(understood, R.string.danger_understand) { understood = it }
-                check(mute, R.string.danger_mute) { mute = it }
+                Text(stringResource(R.string.danger_always_text), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         },
-        confirmButton = { TextButton(onClick = { onConfirm(mute) }, enabled = understood) { Text(stringResource(R.string.danger_apply)) } },
+        confirmButton = {
+            Row {
+                TextButton(onClick = { onConfirm(true) }) { Text(stringResource(R.string.danger_always)) }
+                TextButton(onClick = { onConfirm(false) }) { Text(stringResource(R.string.danger_allow_once)) }
+            }
+        },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
 }
@@ -731,9 +736,9 @@ internal fun PinnedSettings(state: UiState, vm: AppViewModel) {
                 // Out of its group the short label is too bare ("Default" of Line width): use the full one.
                 val own = def.fullLabel.ifEmpty { def.label }
                 val label = if (rows[key] == null && own.equals("Default", true)) groupOf[key]?.let { "$it · $own" } ?: own else own
-                OptionRow(def.copy(label = label), rows[key], value, state.isModified(type, key), key !in state.optionStates.disabled && !isLocked(type, key), false, vm.translator,
+                OptionRow(def.copy(label = label), rows[key], value, state.isModified(type, key), key !in state.optionStates.disabled, false, vm.translator,
                     { v ->
-                        if (dangerRule(type, key, v)?.takeIf { it.name !in vm.presets.dangerMuted(state.projectName) } == null) vm.presets.setOption(type, key, v)
+                        if (dangerRule(type, key, v)?.takeIf { it.name !in state.dangerAllowed } == null) vm.presets.setOption(type, key, v)
                         else { resetTick++; vm.presets.openEditor(EditorTarget.Preset(type, focus = key)) }
                     },
                     { vm.presets.resetOption(type, key) }, pinned = true) { vm.presets.togglePinned(key) }

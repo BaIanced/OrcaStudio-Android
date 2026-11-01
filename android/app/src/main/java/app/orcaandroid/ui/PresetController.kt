@@ -184,12 +184,20 @@ class PresetController(private val store: Store, private val device: DeviceContr
         settings.trayPicks = if (name == src.synced) picks - src.key else picks + (src.key to (src.loaded to name))
     }
 
-    /** Risky-setting rules the user muted for [project] (null = untitled). */
-    fun dangerMuted(project: String?): Set<String> = settings.dangerMutes[project.orEmpty()].orEmpty()
+    /** [rule] no longer asks, in any project ("Always" in the risky-setting dialog). */
+    fun allowDanger(rule: String) {
+        settings.dangerAllowed = settings.dangerAllowed + rule
+        store.update { it.copy(dangerAllowed = settings.dangerAllowed) }
+    }
 
-    fun muteDanger(project: String?, rule: String) {
-        val all = settings.dangerMutes
-        settings.dangerMutes = all + (project.orEmpty() to (all[project.orEmpty()].orEmpty() + rule))
+    fun resetDangerAllowed() {
+        settings.dangerAllowed = emptySet()
+        store.update { it.copy(dangerAllowed = emptySet()) }
+    }
+
+    fun setExpertSettings(on: Boolean) {
+        settings.expertSettings = on
+        store.update { it.copy(expertSettings = on) }
     }
 
     fun setAllowMixedTemps(on: Boolean) = store.launch {

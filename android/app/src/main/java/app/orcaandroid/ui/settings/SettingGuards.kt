@@ -21,21 +21,33 @@ fun noticeFix(message: String): NoticeFix? {
     }
 }
 
-/** A setting change that can damage the printer or a print: asked twice before it is applied. */
-enum class DangerRule { NOZZLE_TEMP, BED_TEMP, PRINTER_GEOMETRY, GCODE }
+/** A setting change that can damage the printer or a print: confirmed once, or allowed for good ("Always"). */
+enum class DangerRule { NOZZLE_TEMP, BED_TEMP, PRINTER_GEOMETRY }
 
 private val GEOMETRY_KEYS = setOf("nozzle_diameter", "z_offset", "extruder_offset")
-private val LOCKED_PRINTER_KEYS = setOf("printable_area", "printable_height")
 
-/** Settings that cannot be edited at all (user 2026-10-31: no reason to override the build plate size). */
-fun isLocked(type: PresetType, key: String) = type == PresetType.PRINTER && key in LOCKED_PRINTER_KEYS
-private val GCODE_KEYS = setOf("machine_start_gcode", "machine_end_gcode", "filament_start_gcode", "filament_end_gcode")
+/**
+ * Printer settings fixed by the hardware of a vendor printer (user 2026-11-01): hidden when editing a vendor
+ * preset or a user preset inheriting one, unless Expert settings is on. Scratch-built printers show them.
+ */
+private val VENDOR_FIXED_PRINTER_KEYS = setOf(
+    "printable_area", "printable_height", "extruder_printable_area", "extruder_printable_height", "bed_exclude_area", "extruder_offset", "printer_structure", "printer_technology",
+    "gcode_flavor", "auxiliary_fan", "support_chamber_temp_control", "support_air_filtration",
+)
+
+fun isVendorFixed(type: PresetType, key: String) = type == PresetType.PRINTER && key in VENDOR_FIXED_PRINTER_KEYS
+
+/**
+ * Whether an option with [mode] (0 simple, 1 advanced, 2 expert, 3 develop) shows outside Expert settings.
+ * [vendorPrinter]: the edited printer preset is (or inherits) a vendor one.
+ */
+fun shownWithoutExpert(type: PresetType, key: String, mode: Int, vendorPrinter: Boolean) =
+    mode <= 1 && !(vendorPrinter && isVendorFixed(type, key))
 
 /** The rule [value] for [key] breaks, or null. Temperatures look at every number in a vector value. */
 fun dangerRule(type: PresetType, key: String, value: String): DangerRule? {
     fun maxNumber() = value.split(',', ';').mapNotNull { it.trim().toDoubleOrNull() }.maxOrNull() ?: 0.0
     return when {
-        key in GCODE_KEYS -> DangerRule.GCODE
         type == PresetType.PRINTER && key in GEOMETRY_KEYS -> DangerRule.PRINTER_GEOMETRY
         key.startsWith("nozzle_temperature") && maxNumber() > 300 -> DangerRule.NOZZLE_TEMP
         key.contains("plate_temp") && maxNumber() > 110 -> DangerRule.BED_TEMP

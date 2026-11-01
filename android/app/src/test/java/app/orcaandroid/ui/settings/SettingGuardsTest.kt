@@ -25,14 +25,16 @@ class SettingGuardsTest {
         assertNull(dangerRule(PresetType.FILAMENT, "hot_plate_temp", "110"))
         assertEquals(DangerRule.PRINTER_GEOMETRY, dangerRule(PresetType.PRINTER, "z_offset", "0.1"))
         assertNull(dangerRule(PresetType.PRINT, "z_offset", "0.1"))
-        assertEquals(DangerRule.GCODE, dangerRule(PresetType.PRINTER, "machine_start_gcode", "G28"))
+        assertNull(dangerRule(PresetType.PRINTER, "machine_start_gcode", "G28"))
         assertNull(dangerRule(PresetType.PRINT, "layer_height", "0.2"))
     }
 
-    @Test fun plateSizeIsLocked() {
-        assertEquals(true, isLocked(PresetType.PRINTER, "printable_area"))
-        assertEquals(true, isLocked(PresetType.PRINTER, "printable_height"))
-        assertEquals(false, isLocked(PresetType.PRINTER, "z_offset"))
-        assertEquals(false, isLocked(PresetType.PRINT, "printable_area"))
+    @Test fun vendorFixedHidden() {
+        assertEquals(false, shownWithoutExpert(PresetType.PRINTER, "printable_area", 0, vendorPrinter = true))
+        assertEquals(true, shownWithoutExpert(PresetType.PRINTER, "printable_area", 0, vendorPrinter = false))
+        assertEquals(true, shownWithoutExpert(PresetType.PRINTER, "machine_start_gcode", 1, vendorPrinter = true))
+        assertEquals(true, shownWithoutExpert(PresetType.PRINT, "printable_area", 0, vendorPrinter = true))
+        assertEquals(false, shownWithoutExpert(PresetType.PRINT, "layer_height", 2, vendorPrinter = false))
+        assertEquals(false, shownWithoutExpert(PresetType.PRINT, "layer_height", 3, vendorPrinter = false))
     }
 }

@@ -160,12 +160,15 @@ class AppSettings(context: Context) {
         get() = prefs.getBoolean("allow_mixed_temps", false)
         set(value) = prefs.edit().putBoolean("allow_mixed_temps", value).apply()
 
-    /** Risky-setting confirmations muted per project: project name ("" = untitled) -> rule names. */
-    var dangerMutes: Map<String, Set<String>>
-        get() = runCatching { JSONObject(prefs.getString("danger_mutes", null) ?: "{}") }.getOrNull()
-            ?.let { o -> o.keys().asSequence().associateWith { k -> o.getJSONArray(k).let { a -> (0 until a.length()).map(a::getString).toSet() } } }.orEmpty()
-        set(value) = prefs.edit().putString("danger_mutes",
-            JSONObject(value.mapValues { (_, s) -> org.json.JSONArray(s.toList()) }).toString()).apply()
+    /** Risky-setting rules the user allowed for good ("Always"), app-wide; reset in More. */
+    var dangerAllowed: Set<String>
+        get() = prefs.getStringSet("danger_allowed", emptySet()).orEmpty()
+        set(value) = prefs.edit().putStringSet("danger_allowed", value).remove("danger_mutes").apply()
+
+    /** Every slicer option shows, including Expert/develop ones and vendor printers' fixed hardware. */
+    var expertSettings: Boolean
+        get() = prefs.getBoolean("expert_settings", false)
+        set(value) = prefs.edit().putBoolean("expert_settings", value).apply()
 
     /** Process option keys pinned to the main view under the process picker, in pin order. */
     var pinnedSettings: List<String>
