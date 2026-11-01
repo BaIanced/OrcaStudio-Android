@@ -332,6 +332,9 @@ internal fun LayoutLabBody(state: UiState, vm: AppViewModel) {
             fun hdText(v: Float) = hdContext.getString(R.string.lab_plate_hd_alpha, (v * 100).toInt())
             Text(hdText(lab.plateHdAlpha), style = MaterialTheme.typography.bodyMedium)
             LabSlider(lab.plateHdAlpha, { LabPeek.readout = hdText(it) to (it - 0.1f) / 0.9f; vm.setLab(lab.copy(plateHdAlpha = it)) }, 0.1f..1f, current)
+            fun underText(v: Float) = hdContext.getString(R.string.lab_plate_hd_under, (v * 100).toInt())
+            Text(underText(lab.plateUnderAlpha), style = MaterialTheme.typography.bodyMedium)
+            LabSlider(lab.plateUnderAlpha, { LabPeek.readout = underText(it) to it; vm.setLab(lab.copy(plateUnderAlpha = it)) }, 0f..1f, current)
         }
         }
         Section(stringResource(R.string.lab_group_layout)) {

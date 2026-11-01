@@ -31,15 +31,12 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Local tests: `wsa-debug-rebuild.sh [native]` (reference "WSA debug loop"); fresh app: `wsa-debug-setup.sh` first. Lab prefs: edit `layout_lab` JSON in debug `shared_prefs/app_settings.xml` with run-as sed (app stopped).
 - **Offload (user 2026-10-25/26): max token use onto free opencode models, growing leeway by track record** (Claude specs + verifies).
   DeepSeek V4.1 Flash = default; runner `octauto.sh` (`D:\oct-backup\jobs\README.md`; opencode v2: `model#variant`), ledger `trust-profile.md`.
-- CAD plan (`NOTES-cad-reuse.md`): 0-5b Claude-verified, 1b parked. MCP efficiency (`NOTES-mcp-token-efficiency.md`): build rule waits for user OK.
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
-- Self-portrait 3 done (archive); gaps: backlog "Self-portrait 3 gaps" (MCP tools filament_slots/prime_tower/preview_set Claude-verified; 2 design fixes still untested).
-- Debug app on WSA: tested 2026-10-31, uninstall when the user is done. Demos on WSA debug app 2026-10-30 (Hopf + torus link, archive): uninstall debug when the user is done. Open: printable base (needs user OK).
 - UX audit / Gemini round 3: **lowest priority (user 2026-10-31)**; only act if the user brings Gemini's answer (backlog line).
-- S Pen pressure ab552fa (r489 installed everywhere): More > Pen UI checked on WSA VD 2026-10-31 (switch + Soft/Linear/Firm chips, Firm selects, back to Linear); real pressure awaits Note 10+ test (user says when). Gemini round 3 skipped by user 2026-10-31 (still pending).
-- Notice Fix links + danger double-confirm + per-project mute: pushed, r492 built + installed. WSA VD 2026-10-31: danger dialog (nozzle 350) shows, Cancel reverts to 220. Still untested: Fix links, headings, HD plate slider, tower text, Apply+mute path (backlog "User asks 2026-10-31"). Backlog is 13.5 KB: trim to ~10 KB.
-- Next step: finish WSA VD test of Fix links, headings, HD slider, tower text, then trim backlog -> Sonnet 5.5 (medium)
+- r492 notices: WSA window mode 2026-10-31 (VD can't scroll the panel): spiral-vase Fix link opens the editor on `spiral_mode`, red heading shown. Still untested: other Fix links (tower, organic, temps->More, printer->Device), HD plate slider, tower text, Apply+mute. Use `orca-vd.sh start window` (tap the red ! to scroll the panel), close the app after.
+- Debug app on WSA: uninstall when the user is done. S Pen pressure awaits the Note 10+ test; Self-portrait 3 / CAD plan details: backlog + archive.
+- Next step: queued 2026-10-31 (backlog): pinned process settings, bulk filament edit, under-plate opacity 0 + setting -> Sonnet 5.5 (medium) for opacity; Opus 5.5 (high) for pinned settings
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
