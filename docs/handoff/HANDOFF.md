@@ -36,8 +36,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - UX audit / Gemini round 3: **lowest priority (user 2026-10-31)**; only act if the user brings Gemini's answer (backlog line).
 - r492 notices: WSA window mode 2026-10-31 (VD can't scroll the panel): spiral-vase Fix link opens the editor on `spiral_mode`, red heading shown. Still untested: other Fix links (tower, organic, temps->More, printer->Device), HD plate slider, tower text, Apply+mute. Use `orca-vd.sh start window` (tap the red ! to scroll the panel), close the app after.
 - Debug app on WSA: uninstall when the user is done. S Pen pressure awaits the Note 10+ test; Self-portrait 3 / CAD plan details: backlog + archive.
-- Pinned settings built + WSA-VD-verified (backlog line has the 2 leftovers). Wide VD shows the side panel: `orca-vd.sh start 1920x1200/160` (no window mode needed).
-- Next step: pinned-settings "Default" label fix + under-plate opacity WSA check -> Sonnet 5.5 (medium); then bulk filament edit -> Sonnet 5.5 (medium); efficiency/bloat framework -> Opus 5.5 (high)
+- Pinned settings built + WSA-VD-verified incl. "Default" label fix (backlog: unpin via dialog untested; under-plate opacity look unchecked, VD shot blank). Wide VD shows the side panel: `orca-vd.sh start 1920x1200/160` (no window mode needed).
+- Next step: bulk filament edit -> Sonnet 5.5 (medium); efficiency/bloat framework -> Opus 5.5 (high)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).

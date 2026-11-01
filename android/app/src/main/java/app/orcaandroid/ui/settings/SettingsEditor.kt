@@ -718,7 +718,9 @@ internal fun PinnedSettings(state: UiState, vm: AppViewModel) {
     if (pins.isNotEmpty()) {
         var defs by remember { mutableStateOf<Map<String, OptionDef>>(emptyMap()) }
         LaunchedEffect(state.setup != null) { runCatching { vm.presets.optionDefs(type) }.onSuccess { l -> defs = l.associateBy { it.key } } }
-        val rows = remember(defs) { if (defs.isEmpty()) emptyMap() else buildPages(vm.presets.settingsLayout(type), defs).rowLabels() }
+        val pages = remember(defs) { if (defs.isEmpty()) emptyList() else buildPages(vm.presets.settingsLayout(type), defs) }
+        val rows = remember(pages) { pages.rowLabels() }
+        val groupOf = remember(pages) { pages.flatMap { p -> p.groups.flatMap { g -> g.options.map { it to g.title } } }.toMap() }
         var resetTick by remember { mutableIntStateOf(0) }
         val hidden = state.optionStates.hidden
         pins.forEach { key ->
@@ -727,7 +729,9 @@ internal fun PinnedSettings(state: UiState, vm: AppViewModel) {
             if (value == null || key in hidden) return@forEach
             androidx.compose.runtime.key(key, resetTick) {
                 // Out of its group the short label is too bare ("Default" of Line width): use the full one.
-                OptionRow(def.copy(label = def.fullLabel.ifEmpty { def.label }), rows[key], value, state.isModified(type, key), key !in state.optionStates.disabled, false, vm.translator,
+                val own = def.fullLabel.ifEmpty { def.label }
+                val label = if (rows[key] == null && own.equals("Default", true)) groupOf[key]?.let { "$it · $own" } ?: own else own
+                OptionRow(def.copy(label = label), rows[key], value, state.isModified(type, key), key !in state.optionStates.disabled, false, vm.translator,
                     { v ->
                         if (dangerRule(type, key, v)?.takeIf { it.name !in vm.presets.dangerMuted(state.projectName) } == null) vm.presets.setOption(type, key, v)
                         else { resetTick++; vm.presets.openEditor(EditorTarget.Preset(type, focus = key)) }
