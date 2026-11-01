@@ -107,18 +107,16 @@ private fun swatch(hex: String?) = hexToRgb(hex ?: "#808080").let { Color(it[0],
 
 private fun pct(share: Float) = (share * 100).roundToInt()
 
-/** One quick pick: the parts as pie wedges around the blended colour. */
+/** One quick pick: the blended result as a plain pill, labelled with the shares (e.g. 75/25). */
 @Composable
 private fun MixSwatch(colors: List<String?>, shares: List<Float>, selected: Boolean, label: String, onClick: () -> Unit) {
-    val ring = MaterialTheme.colorScheme.primary
-    val outline = MaterialTheme.colorScheme.outline
-    val center = swatch(Mix.blend(colors, shares))
-    Canvas(Modifier.size(40.dp).clip(CircleShape).semantics { contentDescription = label }.clickable(onClick = onClick)) {
-        var a = -90f
-        colors.forEachIndexed { i, c -> val sweep = 360f * shares[i]; drawArc(swatch(c), a, sweep, true); a += sweep }
-        drawCircle(center, size.minDimension * 0.28f)
-        drawCircle(outline, size.minDimension / 2 - 0.5.dp.toPx(), style = Stroke(1.dp.toPx()))
-        if (selected) drawCircle(ring, size.minDimension / 2 - 1.5.dp.toPx(), style = Stroke(3.dp.toPx()))
+    val fill = swatch(Mix.blend(colors, shares))
+    val ink = if (0.299f * fill.red + 0.587f * fill.green + 0.114f * fill.blue > 0.6f) Color.Black else Color.White
+    val shape = RoundedCornerShape(18.dp)
+    Box(Modifier.size(width = 64.dp, height = 36.dp).clip(shape).background(fill).semantics { contentDescription = label }
+        .border(if (selected) 3.dp else 1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, shape)
+        .clickable(onClick = onClick), contentAlignment = Alignment.Center) {
+        Text(shares.joinToString("/") { pct(it).toString() }, color = ink, style = MaterialTheme.typography.labelMedium)
     }
 }
 
@@ -137,7 +135,9 @@ internal fun MixDialog(slots: List<FilamentSlot>, index: Int, sublayers: Boolean
     val chosen = candidates.filter { it in parts }
     val total = chosen.sumOf { parts.getValue(it).toDouble() }.toFloat()
     fun share(i: Int) = if (total > 0f) parts.getValue(i) / total else 0f
-    val picks = remember(candidates) { quickPicks(candidates) }
+    val allPicks = remember(candidates) { quickPicks(candidates) }
+    // Only combos that contain every colour picked so far: nothing until the first pick, nothing once three or more are chosen.
+    val picks = if (chosen.isEmpty() || chosen.size >= 3) emptyList() else allPicks.filter { p -> chosen.all { c -> p.any { it.first == c } } }
     val outline = MaterialTheme.colorScheme.outline
     AlertDialog(
         onDismissRequest = onDismiss,
