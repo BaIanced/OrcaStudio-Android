@@ -38,7 +38,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - S Pen pressure awaits the Note 10+ test; Self-portrait 3 / CAD plan: backlog + archive.
 - Perf/size: `docs/PERFORMANCE.md` (budgets, Done list, experiment queue). CI size step = commit ae8d7fa on local branch `local/ci-size-step` (push needs `gh auth refresh -s workflow` by the user). Exp. 1 (vendors xz, -11 MB) done + verified: r493 (run 41274366209) installed on all adb devices 2026-10-31, APK 118.6 MB, phone cold start median 159 ms (PERFORMANCE.md). Size summary needs the CI step pushed.
 - Perf exp. 2 (Python stdlib trim) measured + rejected (~0.4 MB, plugin risk; PERFORMANCE.md).
-- Next step: Settings audit design (expert-settings hide replaces the fe9f57f plate-size lock; danger dialog fate) -> Opus 5.5 (high). Then CI build (fe9f57f + multi-select fix) and the open WSA window-mode tests.
+- Next step: Settings audit build per user pick on the 2026-11-01 Opus review (backlog "Settings audit decision"; Expert chip already exists) -> Opus 5.5 (high). Then CI build + WSA window-mode tests.
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
