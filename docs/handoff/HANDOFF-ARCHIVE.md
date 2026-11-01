@@ -3810,3 +3810,6 @@ User said "yep looks good" while run 41158738411 (hole labels avoid bbox/wall la
 - Debug app on WSA: tested 2026-10-31, uninstall when the user is done. Demos on WSA debug app 2026-10-30 (Hopf + torus link, archive): uninstall debug when the user is done. Open: printable base (needs user OK).
 - S Pen pressure ab552fa (r489 installed everywhere): More > Pen UI checked on WSA VD 2026-10-31 (switch + Soft/Linear/Firm chips, Firm selects, back to Linear); real pressure awaits Note 10+ test (user says when). Gemini round 3 skipped by user 2026-10-31 (still pending).
 - Notice Fix links + danger double-confirm + per-project mute: pushed, r492 built + installed. WSA VD 2026-10-31: danger dialog (nozzle 350) shows, Cancel reverts to 220. Still untested: Fix links, headings, HD plate slider, tower text, Apply+mute path (backlog "User asks 2026-10-31"). Backlog is 13.5 KB: trim to ~10 KB.
+
+## 2026-10-31 Bulk filament edit verified (Claude, phone VD, debug build of 53578ad)
+- Long press (su motionevent DOWN, hold 2.5 s, UP; a 1.5 s hold opened the single-slot picker instead, so hold >= 2 s) on a slot row selects it ("1 selected" card: Select all / Cancel / one Filament picker). Select all -> "3 selected"; picking PolyLite ABS in the card set slots 1-3 to it and cleared the selection. Shift/Ctrl+click untested (mouse; Chromebook). User feel untested.
