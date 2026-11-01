@@ -15,7 +15,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 1c4ff52 (PR #69 = r490, merged 2026-10-31; Claude-verified only). Nothing unverified on the branch. User-untested in main: list in `NOTES-merge-batch.md`.
 - Signing secrets: `release` environment (main + `claude/*` only).
-- Latest installed CI build: r494 (run 41284801039, settings audit) on SHIELD, WSA, phone, 2026-11-01. Phone drops off adb: `adb connect <phone-ip>:5555` (memory device-ips); GL shots on the phone VD. Install builds on all adb devices (skip .23).
+- Latest installed CI build: r495 (run 41329765340, tiles + Mix) on SHIELD, WSA, phone, Chromebook, 2026-11-01 (WSA smoke OK). Phone drops off adb: `adb connect <phone-ip>:5555` (memory device-ips); GL shots on the phone VD. Install builds on all adb devices (skip .23).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **User 2026-10-28: no more user testing for now; Claude builds and tests everything itself (memory no-user-testing-now); don't ask for feel/UI checks.**
 - **User 2026-10-29: no tests on the user's screen; all tests on a hidden virtual display** (`TARGET=wsa orca-vd.sh start`, memory tests-on-virtual-display).
@@ -37,8 +37,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Settings audit + r494 verified (archive); open tests in backlog (HD "from below", tower text, unpin, Shift/Ctrl+click bulk).
 - S Pen pressure awaits the Note 10+ test; Self-portrait 3 / CAD plan: backlog + archive.
 - Perf/size: `docs/PERFORMANCE.md`. CI size step ae8d7fa on local `local/ci-size-step` (push needs `gh auth refresh -s workflow` by the user). Exp. 1 (vendors xz, -11 MB) verified r493.
-- Filament tiles 6abf798 + single "+ Mix" button 52c7b11 Claude-verified WSA VD (archive). CI run 41329765340 dispatched: install on all adb devices (skip .23), quick smoke.
-- Next step: install CI run 41329765340 (tiles + Mix) on all adb devices, then custom colour picker (filament makeover) -> Opus 5.5 (medium)
+- Filament tiles + "+ Mix" in r495 (archive). Own colour picker e48fa3d Claude-verified WSA VD (archive); not in a CI build yet (batch with the mixer).
+- Next step: Bambu Studio-style mixer (quick-pick combos, live preview while scrubbing ratio sliders; backlog "Filament makeover") -> Opus 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
