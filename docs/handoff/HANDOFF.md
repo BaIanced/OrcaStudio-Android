@@ -37,7 +37,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Settings audit: WSA VD verified 2026-11-01 (archive); r494 built + installed. Headings + HD slider control verified (archive). Open tests (backlog): HD "from below" look (needs camera under the plate), tower text, unpin via label dialog, Shift/Ctrl+click bulk filament. Notice Fix links done (archive).
 - S Pen pressure awaits the Note 10+ test; Self-portrait 3 / CAD plan: backlog + archive.
 - Perf/size: `docs/PERFORMANCE.md` (budgets, Done list, experiment queue). CI size step = commit ae8d7fa on local branch `local/ci-size-step` (push needs `gh auth refresh -s workflow` by the user). Exp. 1 (vendors xz, -11 MB) done + verified: r493 (run 41274366209) installed on all adb devices 2026-10-31, APK 118.6 MB, phone cold start median 159 ms (PERFORMANCE.md). Size summary needs the CI step pushed.
-- Next step: pick an item that is not a GL look: backlog Opus-tagged items or Muse (HD from-below look = user glance, VD frames stale after view_set) -> Sonnet 5.5 (medium)
+- Filament tiles (AMS-style, two per line, chip menu) 6abf798 pushed, Claude-verified WSA VD (archive); needs a CI build (batch with the next change).
+- Next step: Filament makeover follow-ups ("+ Mix" button, colour picker) or another Opus backlog item -> Opus 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
