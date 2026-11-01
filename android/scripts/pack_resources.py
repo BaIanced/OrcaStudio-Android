@@ -3,16 +3,21 @@
 
 Output (under <assets>/):
   resources.zip         runtime resources libslic3r reads from resources_dir()
-  vendors/<Vendor>.zip  one archive per printer vendor: <Vendor>.json + <Vendor>/...
+  vendors/<Vendor>.zip.xz  one archive per printer vendor: <Vendor>.json + <Vendor>/...
   vendors/index.json    [{"id", "name", "models": [...]}] for the vendor picker
   settings_layout.json  desktop settings pages/groups (see extract_settings_layout.py)
   i18n/<lang>.json      msgid -> msgstr of the desktop translations, for option labels/tooltips
 
-Vendors are zipped separately so the app only extracts the ones the user installs; loading all
-~100 vendors into a PresetBundle would take far too long on a tablet.
+Vendors are packed separately so the app only extracts the ones the user installs; loading all
+~100 vendors into a PresetBundle would take far too long on a tablet. Each is a stored (uncompressed)
+zip inside xz: 18.1 MB instead of 29.7 MB as deflated zips, and only 0.4 MB more than one solid
+archive of all vendors, which would have to be decoded whole for every install (2026-10-31).
 """
+import contextlib
+import io
 import argparse
 import json
+import lzma
 import os
 import shutil
 import subprocess
@@ -27,10 +32,24 @@ FILAMENT_LIBRARY = "OrcaFilamentLibrary"
 
 
 def zip_tree(zf: zipfile.ZipFile, root: Path, arc_prefix: str) -> None:
-    for dirpath, _, filenames in os.walk(root):
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames.sort()
         for name in sorted(filenames):
             path = Path(dirpath) / name
             zf.write(path, f"{arc_prefix}/{path.relative_to(root).as_posix()}")
+
+
+@contextlib.contextmanager
+def xz_zip(path: Path):
+    """A stored zip, xz-compressed into [path] on exit (ResourceStore reads it as XZ -> ZipInputStream)."""
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_STORED) as zf:
+        yield zf
+    data = buf.getvalue()
+    # The decoder allocates the whole dictionary: no bigger than the data (xz's default would be 64 MiB).
+    dict_size = min(max(4096, (len(data) + 4095) // 4096 * 4096), 64 << 20)
+    filters = [{"id": lzma.FILTER_LZMA2, "preset": 9 | lzma.PRESET_EXTREME, "dict_size": dict_size}]
+    path.write_bytes(lzma.compress(data, format=lzma.FORMAT_XZ, check=lzma.CHECK_CRC32, filters=filters))
 
 
 def model_nozzles(vendor_dir: Path, sub_path: str) -> list:
@@ -121,7 +140,7 @@ def main() -> None:
         if not vendor_dir.is_dir():
             continue  # e.g. blacklist.json
         entry = vendor_entry(vendor_json)
-        with zipfile.ZipFile(vendors_dir / f"{entry['id']}.zip", "w", zipfile.ZIP_DEFLATED) as zf:
+        with xz_zip(vendors_dir / f"{entry['id']}.zip.xz") as zf:
             zf.write(vendor_json, vendor_json.name)
             zip_tree(zf, vendor_dir, vendor_json.stem)
         index.append(entry)

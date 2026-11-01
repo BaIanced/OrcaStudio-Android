@@ -45,14 +45,19 @@ Record a missing baseline the first time a change touches that area (same device
 - **Dead Kotlin code / resources**: `./gradlew :app:lintRelease` (UnusedResources, unused
   declarations); R8 `-printusage` lists code R8 removed, which usually means it can go from source.
 
+## Done
+
+- 2026-10-31 vendor profiles: 67 deflated zips -> stored zips inside xz (`pack_resources.py`, `org.tukaani:xz`),
+  assets/vendors 28.3 -> 17.25 MB in the APK. One solid archive would be only 0.4 MB smaller but must be decoded
+  whole per vendor install. BBL + Creality + filament library (5,305 files) extract in ~2 s on WSA.
+  resources.zip under xz: only -0.35 MB, not done.
+
 ## Experiment queue (measured potential, not done)
 
-1. **Vendor profiles as one solid archive**: `assets/vendors` is 68 zips, 28.3 MB in the APK. All of
-   them as one `tar.xz` measure 17.3 MB (-11 MB, 2026-10-31). Needs the extraction code changed.
-2. **Native link flags** for liborca_jni (48.4 MB): `-Wl,--icf=safe` and ThinLTO, `-O2` vs the
+1. **Native link flags** for liborca_jni (48.4 MB): `-Wl,--icf=safe` and ThinLTO, `-O2` vs the
    default `-O3`. Native CI rebuild; compare size and slice time.
-3. **Python stdlib** (`assets/python`, 14.4 MB raw / 4.2 MB in APK) plus 11.4 MB of Python native libs
+2. **Python stdlib** (`assets/python`, 14.4 MB raw / 4.2 MB in APK) plus 11.4 MB of Python native libs
    for the plugin runtime: drop modules the runtime never imports (test suites, tkinter, idlelib,
    ensurepip, pydoc data).
-4. **Non-English i18n assets** (6.1 MB in APK, 20 MB raw): product decision for the user, not a
+3. **Non-English i18n assets** (6.1 MB in APK, 20 MB raw): product decision for the user, not a
    cleanup.

@@ -189,6 +189,8 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.11.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.11.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
+    // xz decoder for the vendor profile archives (assets/vendors/*.zip.xz): -11.6 MB APK for ~30 KB of dex.
+    implementation("org.tukaani:xz:1.10")
 
     testImplementation("junit:junit:4.13.2")
     // Real org.json for the JVM tests of the core/ JSON helpers (the stubbed
