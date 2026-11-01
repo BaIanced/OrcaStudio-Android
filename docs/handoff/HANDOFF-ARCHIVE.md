@@ -3824,3 +3824,7 @@ User said "yep looks good" while run 41158738411 (hole labels avoid bbox/wall la
 
 ## 2026-10-31 Notice Fix links (Claude, WSA window mode, r493)
 - Fix link dispatch (`FixLink`, Notices.kt) verified via spiral-vase (Option -> editor focus key); mapping tower/organic/mixed-temps/printer covered by `SettingGuardsTest` (`noticeFix`), Go(screen) is plain `setScreen`. Tray-mismatch notice tap scrolls to Filaments. Not triggered live: tower no-free-spot, organic+variable layer, mixed temps (accepted as covered).
+
+## 2026-10-31 Danger Apply+mute + locked plate size (Claude, WSA window, r493)
+- Danger dialog Apply + "never ask again in this project": WSA verified (printable height 256 -> 250 asked once, muted, 250 -> 240 no dialog, restored 256). Muted rule 'PRINTER_GEOMETRY' stays in app prefs for the untitled project.
+- User 2026-10-31: "no reason to override build plate dimensions" -> fe9f57f: `isLocked` (SettingGuards.kt) greys printable_area/printable_height in the printer editor (both OptionRow call sites); removed from the geometry danger keys. Unit test passes; not in a CI build / untested on device.
