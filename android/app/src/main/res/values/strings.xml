@@ -213,6 +213,7 @@
     <string name="mix_need_two">Add at least two other filaments to mix.</string>
     <string name="mix_sublayers">Blend inside each layer (sub-layers)</string>
     <string name="mix_remove">Not a mix</string>
+    <string name="mix_quick">Quick picks</string>
     <string name="filament_look_auto">Automatic (%1$s)</string>
     <string name="empty">(empty)</string>
     <string name="end_calibration">End</string>
