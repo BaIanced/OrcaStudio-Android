@@ -404,7 +404,9 @@ private fun FilamentTile(state: UiState, vm: AppViewModel, i: Int, userGroup: St
         Column(Modifier.weight(1f)) {
             Text(shortFilamentName(slot.preset, ref?.brandName.orEmpty()), style = MaterialTheme.typography.bodyMedium,
                 maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-            val sub = (ref?.let { if (it.system) it.brandName else userGroup } ?: "") +
+            // The brand line only earns its space when the slots differ (every tile saying "Bambu Lab" is noise).
+            val brands = state.filaments.mapNotNull { s -> state.setup?.filaments?.firstOrNull { it.name == s.preset }?.takeIf { it.system }?.brandName }.toSet()
+            val sub = (ref?.let { if (it.system) it.brandName.takeIf { brands.size > 1 } ?: "" else userGroup } ?: "") +
                 (if (slot.overrides.isNotEmpty()) " · " + stringResource(R.string.modified) else "")
             if (sub.isNotBlank()) Text(sub.removePrefix(" · "), style = MaterialTheme.typography.labelSmall, maxLines = 1,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,

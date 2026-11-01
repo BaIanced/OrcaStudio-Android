@@ -3880,3 +3880,9 @@ User said "yep looks good" while run 41158738411 (hole labels avoid bbox/wall la
 ## 2026-11-01 Unpin via label dialog (Claude, WSA VD, r496)
 - Pinned "First layer height" from the editor's pin mode: main view shows the row with "Pinned" under Brim. Tapping its label opens the info dialog (description, `initial_layer_print_height`, Unpin / OK); Unpin removed the row. Pinned process settings fully Claude-verified; user feel untested.
 - Phone (.20) still unreachable on adb 2026-11-01: stays on r495.
+
+## 2026-11-01 Prime tower "no free spot" message (Claude, WSA, r496)
+- Two-colour slab (shape_add filament 1+2, design_to_plate, tap Allow on VD) filling the plate, then slice: "The prime tower (about 23 x 23 mm) has no free spot on plate 1: every position would overlap an object. Fix it by moving or removing an object, using fewer filaments, lowering the prime tower width in the Print settings, or turning the prime tower off." Single-colour objects need no tower, so no error.
+
+## 2026-11-01 HD plate "from below" (Claude, WSA VD, debug build of r496 source)
+- plateHd + plateUnderAlpha 0.6 via layout_lab prefs; view_set pitch -35/-50: underside draws as a dark translucent plate with the model and bed grid visible through it; from above (pitch 35) normal. GL drew fine on the WSA VD this time (earlier blank frame was a stale start). View was a 159 px sliver (panel wide), so only a coarse look; user feel untested.

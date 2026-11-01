@@ -33,11 +33,12 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   DeepSeek V4.1 Flash = default; runner `octauto.sh` (`D:\oct-backup\jobs\README.md`; opencode v2: `model#variant`), ledger `trust-profile.md`.
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
-- Open tests in backlog (HD "from below" = phone VD, tower text = WSA VD, Shift/Ctrl+click bulk = Chromebook mouse). Unpin via label dialog verified r496 (archive 2026-11-01).
+- Open tests in backlog (HD "from below" verified WSA 2026-11-01, archive; Shift/Ctrl+click bulk = Chromebook mouse). Unpin via label dialog verified r496 (archive 2026-11-01).
 - S Pen pressure (Note 10+), Self-portrait 3, CAD plan, UX audit (lowest): backlog.
 - Perf/size: `docs/PERFORMANCE.md`. CI size step ae8d7fa on local `local/ci-size-step` (push needs `gh auth refresh -s workflow` by the user). Exp. 1 (vendors xz, -11 MB) verified r493.
 - Filament makeover done (archive 2026-11-01): tiles + Mix in r495; colour picker + mixer b83fa3a in CI run 41331411840.
-- Next step: prime tower "no free spot" message on WSA VD (backlog HD/tower line; install r496 on the phone if .20 answers) -> Sonnet 5.5 (medium)
+- Tower "no free spot" text verified r496 WSA (archive 2026-11-01).
+- Next step: no Claude-testable item left (rest is user-feel / printer / Chromebook mouse); pick a backlog idea or wait for the user -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).

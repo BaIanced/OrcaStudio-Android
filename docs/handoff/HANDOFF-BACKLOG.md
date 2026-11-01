@@ -71,7 +71,6 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - CAD 7d done (size slider WSA VD-verified dd8f656, archive 2026-10-29); only the group Scale % field is unit-tested, not seen on screen (Claude, 2026-10-30).
 - [Opus] OrcaMesh edit mode: M1-M4 (move/scale/rotate, extrude+inset, cut ring, fillet/chamfer) Claude-verified on WSA VD, M4 also on release r487 (2026-10-30); no M5 planned; user feel untested (NOTES-orcamesh-edit.md "Progress").
 - [Opus] AI print failure watch (user 2026-10-30): local Obico-style camera detector, pause + notify; parked behind the UX audit. Open: ask the user for the camera model (archive 2026-10-31).
-- [Opus] HD plate "from below" look (r494 slider works): unchecked, needs the phone VD (WSA VD shots blank; wake the phone first, the stale frame was likely Doze). Tower "no free spot" text (7862770): untested, WSA VD ui dump (fill the plate, 2 filaments, slice). Claude 2026-11-01.
 
 - Bulk filament edit (53578ad): long press verified by Claude on phone VD 2026-10-31 (archive); only Shift/Ctrl+click (mouse, Chromebook) and user feel untested. In r496+.
 - [Opus] Perf experiments queue: docs/PERFORMANCE.md; CI size step ae8d7fa on local/ci-size-step, push needs workflow scope (Claude 2026-10-31).
