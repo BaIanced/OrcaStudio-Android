@@ -37,7 +37,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - r492 notices, pinned settings, bulk filament edit: open tests in the backlog (spiral Fix link + long press Claude-verified).
 - Debug app on WSA: uninstall when the user is done. S Pen pressure awaits the Note 10+ test; Self-portrait 3 / CAD plan details: backlog + archive.
 - Perf/size framework set up 2026-10-31 (`docs/PERFORMANCE.md`, `size_report.py`, `size-budget.json`, CI size step, `-Porca.composeReports=true`); CI size step is commit ae8d7fa on local branch `local/ci-size-step` (push needs `gh auth refresh -s workflow` by the user; then cherry-pick + push). Experiment queue in the doc.
-- Next step: perf experiment 1, vendor profiles as one solid archive (-11 MB measured) -> Opus 5.5 (high)
+- Perf exp. 1 done 2026-10-31 (commit 'Vendor profiles as stored zips inside xz', assets/vendors 28.3 -> 17.25 MB, WSA debug verified; PERFORMANCE.md "Done"). CI run 41274366209 dispatched: install it on all adb devices, check the size summary (vendors ~17.3 MB, dex under 4.8 MB with xz) and a cold start on the phone (prepare() re-extracts installed vendors).
+- Next step: install CI run 41274366209 + size/cold-start check, then perf experiment 2 (Python stdlib trim) -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).

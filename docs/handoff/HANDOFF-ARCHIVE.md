@@ -3818,3 +3818,6 @@ User said "yep looks good" while run 41158738411 (hole labels avoid bbox/wall la
 - docs/PERFORMANCE.md: review rule, metrics table, recipes, experiment queue. android/scripts/size_report.py + android/size-budget.json (r492 + ~3%), CI step 'APK size report' (job summary, cache-based delta, warn only). app/build.gradle.kts: -Porca.composeReports=true (needs --rerun).
 - r492 baseline: APK 124.1 MB; liborca_jni 48.4 (stripped, .text 36 MB, 907 dynsyms), vendors 28.3 (68 zips, stored), openscad 11.9, python libs 11.4, i18n 6.05 (20.4 raw), resources.zip 6.0, dex 4.4, python stdlib 4.15. Compose: 242/242 restartable composables skippable, 71 unstable classes (strong skipping on).
 - Vendor profiles extracted = 87 MB; one tar.xz -9e = 17.3 MB (vs 28.3 MB as zips).
+
+## 2026-10-31 Perf experiment 1: vendor profiles xz
+- Vendor zips -> stored zip inside xz per vendor (`pack_resources.py` `xz_zip`, dict sized to data; `ResourceStore.extractVendor` via `org.tukaani:xz`). APK assets/vendors 28.3 -> 17.25 MB. Solid tar.xz was 17.7 MB measured (0.4 MB better) but needs full decode per install. resources.zip under xz only -0.35 MB: skipped. WSA debug test: forced re-extract of BBL/Creality/OrcaFilamentLibrary, counts 2516/1492/1297 = source, ~2 s, BBL presets load. Installed BBL newer from online update (02.08.00.15 > bundled .12) is correctly not overwritten.
