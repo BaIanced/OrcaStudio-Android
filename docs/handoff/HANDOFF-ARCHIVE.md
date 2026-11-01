@@ -3828,3 +3828,6 @@ User said "yep looks good" while run 41158738411 (hole labels avoid bbox/wall la
 ## 2026-10-31 Danger Apply+mute + locked plate size (Claude, WSA window, r493)
 - Danger dialog Apply + "never ask again in this project": WSA verified (printable height 256 -> 250 asked once, muted, 250 -> 240 no dialog, restored 256). Muted rule 'PRINTER_GEOMETRY' stays in app prefs for the untitled project.
 - User 2026-10-31: "no reason to override build plate dimensions" -> fe9f57f: `isLocked` (SettingGuards.kt) greys printable_area/printable_height in the printer editor (both OptionRow call sites); removed from the geometry danger keys. Unit test passes; not in a CI build / untested on device.
+
+### 2026-11-01 Multi-select long-press fix (Claude, WSA VD, debug build)
+- Cause: slotSelectGesture used pointerInput(selecting); the long-press toggle changed the key, restarting the loop and killing the release swallow, so the row picker opened too. Fix: stable key + rememberUpdatedState (PreparePanel.kt). Verified: long press = "1 selected", no picker; tap adds ("2 selected"). Not CI-built, not user-felt.

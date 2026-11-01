@@ -34,12 +34,11 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
 - UX audit / Gemini round 3: lowest priority (user 2026-10-31), backlog line.
-- Open tests (backlog): fe9f57f plate-size lock (pushed, no CI build yet), headings, HD plate slider, tower text, unpin via label dialog, Shift/Ctrl+click bulk filament. Notice Fix links done (archive).
+- Open tests (backlog): fe9f57f plate-size lock (to be replaced by the expert hide), headings, HD plate slider, tower text, unpin via label dialog, Shift/Ctrl+click bulk filament. Notice Fix links done (archive).
 - S Pen pressure awaits the Note 10+ test; Self-portrait 3 / CAD plan: backlog + archive.
 - Perf/size: `docs/PERFORMANCE.md` (budgets, Done list, experiment queue). CI size step = commit ae8d7fa on local branch `local/ci-size-step` (push needs `gh auth refresh -s workflow` by the user). Exp. 1 (vendors xz, -11 MB) done + verified: r493 (run 41274366209) installed on all adb devices 2026-10-31, APK 118.6 MB, phone cold start median 159 ms (PERFORMANCE.md). Size summary needs the CI step pushed.
 - Perf exp. 2 (Python stdlib trim) measured + rejected (~0.4 MB, plugin risk; PERFORMANCE.md).
-- Perf exp. 1: icf=safe no gain (rejected); ThinLTO/-O2 left (full recompile, risky, low value).
-- Next step: dispatch CI build of fe9f57f, then test plate-size lock + HD plate slider + tower text on WSA window mode -> Sonnet 5.5 (medium)
+- Next step: Settings audit design (expert-settings hide replaces the fe9f57f plate-size lock; danger dialog fate) -> Opus 5.5 (high). Then CI build (fe9f57f + multi-select fix) and the open WSA window-mode tests.
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
