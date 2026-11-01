@@ -105,6 +105,7 @@
     <string name="clear_painting">Clear painting</string>
     <string name="close">Close</string>
     <string name="color">Color</string>
+    <string name="color_in_use">On other slots</string>
     <string name="color_scheme">Color scheme</string>
     <string name="compare_presets">Compare presets</string>
     <string name="compare_with">Compare with…</string>

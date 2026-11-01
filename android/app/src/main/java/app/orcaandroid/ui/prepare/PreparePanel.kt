@@ -294,7 +294,8 @@ private fun FilamentSlots(state: UiState, vm: AppViewModel, userGroup: String, v
         }
         if (problem != null) Text(stringResource(R.string.filament_type_mismatch, problem.have, problem.tray),
             style = MaterialTheme.typography.bodySmall, color = Color.Red)
-        if (colorDialog) ColorDialog(slot.color, { vm.presets.setFilamentColor(i, it) }) { colorDialog = false }
+        if (colorDialog) ColorDialog(slot.color, { vm.presets.setFilamentColor(i, it) }, { colorDialog = false },
+            state.filaments.filterIndexed { j, _ -> j != i }.mapNotNull { it.color })
     }
     var flushDialog by remember { mutableStateOf(false) }
     var newMix by remember { mutableStateOf(false) }
@@ -414,7 +415,8 @@ private fun FilamentTile(state: UiState, vm: AppViewModel, i: Int, userGroup: St
     if (picker) app.orcaandroid.ui.components.PickerDialog("${i + 1}", slot.preset,
         presetItems(filaments, userGroup, vendorGroup, { it.name }, { it.system }, { it.color }) { listOf(it.brandName, it.type.ifEmpty { "?" }) },
         onDismiss = { picker = false }, openGroups = setOf(userGroup)) { picker = false; vm.presets.setFilament(i, it) }
-    if (colorDialog) ColorDialog(slot.color, { vm.presets.setFilamentColor(i, it) }) { colorDialog = false }
+    if (colorDialog) ColorDialog(slot.color, { vm.presets.setFilamentColor(i, it) }, { colorDialog = false },
+        state.filaments.filterIndexed { j, _ -> j != i }.mapNotNull { it.color })
     if (mixDialog) MixDialog(state.filaments, i, state.value(PresetType.PRINT, "enable_mixed_color_sublayer") == "1",
         { parts, sub -> vm.presets.setMix(i, parts, sub) }) { mixDialog = false }
 }
@@ -512,36 +514,6 @@ private fun WipeTowerRow(state: UiState, vm: AppViewModel) {
             TextButton(onClick = { vm.scene.setWipeTower(plate.index, 15f to 150f) }) { Text(stringResource(R.string.set_position)) }
         }
     }
-}
-
-private val PALETTE = listOf(
-    "#FFFFFF", "#D3D3D3", "#808080", "#202020", "#000000", "#FF7F27", "#FFD700", "#FFFF66",
-    "#2FBF4F", "#006400", "#40E0D0", "#2F7FEF", "#00008B", "#8F3FDF", "#FF69B4", "#EF3F3F",
-    "#8B0000", "#A0522D", "#D2B48C", "#C0C0C0",
-)
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-internal fun ColorDialog(current: String?, onPick: (String) -> Unit, onDismiss: () -> Unit) {
-    var hex by remember { mutableStateOf(current ?: "#FF7F27") }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.color)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                FlowRow(Modifier.fillMaxWidth()) {
-                    PALETTE.forEach { c ->
-                        IconButton(onClick = { hex = c }) { ColorDot(c, if (c.equals(hex, true)) 34 else 26) }
-                    }
-                }
-                OutlinedTextField(hex, { hex = it }, label = { Text("Hex") }, singleLine = true, leadingIcon = { ColorDot(hex) })
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = { onDismiss(); onPick(hex.uppercase()) }, enabled = Regex("#[0-9a-fA-F]{6}").matches(hex)) { Text(stringResource(R.string.ok)) }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
-    )
 }
 
 // --- Objects -------------------------------------------------------------------------------------
