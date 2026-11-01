@@ -15,7 +15,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 1c4ff52 (PR #69 = r490, merged 2026-10-31; Claude-verified only). Nothing unverified on the branch. User-untested in main: list in `NOTES-merge-batch.md`.
 - Signing secrets: `release` environment (main + `claude/*` only).
-- Latest installed CI build: r492 (run 41247554720, cc0f5ff: notice Fix links, danger confirm, mute, HD plate slider, tower text) on all 4 reachable adb serials, 2026-10-31. Install builds on all adb devices (skip .23).
+- Latest installed CI build: r493 (run 41274366209, vendors xz; before it r492 run 41247554720, cc0f5ff: notice Fix links, danger confirm, mute, HD plate slider, tower text) on all 4 reachable adb serials, 2026-10-31. Install builds on all adb devices (skip .23).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **User 2026-10-28: no more user testing for now; Claude builds and tests everything itself (memory no-user-testing-now); don't ask for feel/UI checks.**
 - **User 2026-10-29: no tests on the user's screen; all tests on a hidden virtual display** (`TARGET=wsa orca-vd.sh start`, memory tests-on-virtual-display).
@@ -36,8 +36,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - UX audit / Gemini round 3: lowest priority (user 2026-10-31), backlog line.
 - r492 notices, pinned settings, bulk filament edit: open tests in the backlog.
 - S Pen pressure awaits the Note 10+ test; Self-portrait 3 / CAD plan: backlog + archive.
-- Perf/size: `docs/PERFORMANCE.md` (budgets, Done list, experiment queue). CI size step = commit ae8d7fa on local branch `local/ci-size-step` (push needs `gh auth refresh -s workflow` by the user). Exp. 1 (vendors xz, -11 MB) done + WSA-verified; CI run 41274366209: install on all adb devices, check size summary (vendors ~17.3, dex < 4.8) + phone cold start.
-- Next step: install CI run 41274366209 + size/cold-start check, then perf experiment 2 (Python stdlib trim) -> Sonnet 5.5 (medium)
+- Perf/size: `docs/PERFORMANCE.md` (budgets, Done list, experiment queue). CI size step = commit ae8d7fa on local branch `local/ci-size-step` (push needs `gh auth refresh -s workflow` by the user). Exp. 1 (vendors xz, -11 MB) done + verified: r493 (run 41274366209) installed on all adb devices 2026-10-31, APK 118.6 MB, phone cold start median 159 ms (PERFORMANCE.md). Size summary needs the CI step pushed.
+- Perf exp. 2 (Python stdlib trim) measured + rejected (~0.4 MB, plugin risk; PERFORMANCE.md).
+- Next step: perf exp. 1 (native link flags icf/ThinLTO/-O2 for liborca_jni, native CI rebuild via patch) -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).

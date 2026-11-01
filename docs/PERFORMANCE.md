@@ -19,7 +19,7 @@ only if the number moves. Budgets only go down (ratchet).
 | APK size per group (native libs, dex, vendor profiles, i18n, Python, ...) | `android/scripts/size_report.py`, CI job summary | `android/size-budget.json` (r492: 124.1 MB total) |
 | Compose recomposition: restartable composables that are not skippable | Compose compiler reports | 0 (2026-10-31: 242 of 242 skippable) |
 | 3D view frame timing (fps, frame gap median / p95 / max) | MCP `perf` tool (`render/FrameStats.kt`, last 240 frames) | baseline not recorded yet |
-| Cold start | `adb shell am start -W -n <pkg>/.ui.MainActivity` (TotalTime) | baseline not recorded yet |
+| Cold start | `adb shell am start -W -n <pkg>/.ui.MainActivity` (TotalTime) | r493 phone, 3 runs: 222 / 149 / 159 ms (median 159; activity launch only) |
 | Slice time of a fixed model | MCP slice on the same model and profile | baseline not recorded yet |
 
 Record a missing baseline the first time a change touches that area (same device, three runs, median).
@@ -50,14 +50,16 @@ Record a missing baseline the first time a change touches that area (same device
 - 2026-10-31 vendor profiles: 67 deflated zips -> stored zips inside xz (`pack_resources.py`, `org.tukaani:xz`),
   assets/vendors 28.3 -> 17.25 MB in the APK. One solid archive would be only 0.4 MB smaller but must be decoded
   whole per vendor install. BBL + Creality + filament library (5,305 files) extract in ~2 s on WSA.
-  resources.zip under xz: only -0.35 MB, not done.
+  resources.zip under xz: only -0.35 MB, not done. CI run 41274366209 (r493) installed on all 4 adb devices;
+  APK 118.6 MB (was 124.1 budget at r492). CI size summary absent: the size step is still on local branch `local/ci-size-step`.
 
 ## Experiment queue (measured potential, not done)
 
 1. **Native link flags** for liborca_jni (48.4 MB): `-Wl,--icf=safe` and ThinLTO, `-O2` vs the
    default `-O3`. Native CI rebuild; compare size and slice time.
-2. **Python stdlib** (`assets/python`, 14.4 MB raw / 4.2 MB in APK) plus 11.4 MB of Python native libs
-   for the plugin runtime: drop modules the runtime never imports (test suites, tkinter, idlelib,
-   ensurepip, pydoc data).
+2. **Python stdlib**: measured 2026-10-31, rejected. Whole stdlib is 14.4 MB raw / 4.26 MB in the APK (lib-dynload 1.81,
+   top-level .py 1.16, encodings 0.32, asyncio 0.12); safe removals (unittest, lib2to3, doctest, pydoc) are ~0.3-0.5 MB
+   (0.4% of the APK) and user plugins may import any of them. Biggest single items: unicodedata .so 0.4 MB,
+   libcrypto_python 3.7 MB raw, libpython 6.7 MB raw (needed).
 3. **Non-English i18n assets** (6.1 MB in APK, 20 MB raw): product decision for the user, not a
    cleanup.
