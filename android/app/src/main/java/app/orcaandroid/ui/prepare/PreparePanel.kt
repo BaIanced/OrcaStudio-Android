@@ -191,6 +191,7 @@ private fun PresetsTab(state: UiState, vm: AppViewModel) {
         Tip(stringResource(R.string.edit)) { IconButton(onClick = { vm.presets.openEditor(EditorTarget.Preset(PresetType.PRINT)) }) { Icon(Icons.Default.Tune, stringResource(R.string.edit)) } }
     }
     QuickSettings(state, vm)
+    app.orcaandroid.ui.settings.PinnedSettings(state, vm)
 }
 
 /** The filament slots with their pickers, colours and the flushing / sync / prime tower controls. */

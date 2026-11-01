@@ -100,7 +100,8 @@ fun toolAfterScreenChange(from: Screen, to: Screen, tool: Tool): Tool = when {
 sealed interface EditorTarget {
     /** [pickCompare]: open with the "compare with" picker showing (More > Compare presets). */
     /** [focus]: open searched for this option key (a notice's "Fix" link). */
-    data class Preset(val type: PresetType, val pickCompare: Boolean = false, val focus: String? = null) : EditorTarget
+    /** [pinMode]: every process row shows a pin toggle (opened from the main view's "Pin settings"). */
+    data class Preset(val type: PresetType, val pickCompare: Boolean = false, val focus: String? = null, val pinMode: Boolean = false) : EditorTarget
     /** Per-object (volume < 0) or per-part/modifier settings. */
     data class Object(val obj: Int, val volume: Int = -1) : EditorTarget
     data class Range(val obj: Int, val range: Int) : EditorTarget
@@ -240,6 +241,8 @@ data class UiState(
     val overrides: Map<PresetType, Map<String, String>> = emptyMap(),
     val optionStates: OptionStates = OptionStates(),
     val hiddenFilamentVendors: Set<String> = emptySet(),
+    /** Process option keys shown on the main view under the process picker (see AppSettings.pinnedSettings). */
+    val pinnedSettings: List<String> = emptyList(),
     /** Plate types left out of the plate type pickers, and the user's default one ("" = the printer's). */
     val hiddenBedTypes: Set<String> = emptySet(),
     val preferredBedType: String = "",

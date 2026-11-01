@@ -80,6 +80,13 @@ class PresetController(private val store: Store, private val device: DeviceContr
         store.update { s -> s.copy(hiddenBedTypes = hidden, preferredBedType = bedType, setup = s.setup?.copy(defaultBedType = default)) }
     }
 
+    /** Pins a process option to the main view, or unpins it. */
+    fun togglePinned(key: String) {
+        val now = store.value.pinnedSettings.let { if (key in it) it - key else it + key }
+        settings.pinnedSettings = now
+        store.update { it.copy(pinnedSettings = now) }
+    }
+
     fun setHiddenFilamentVendors(vendors: Set<String>) {
         settings.hiddenFilamentVendors = vendors
         store.update { it.copy(hiddenFilamentVendors = vendors) }

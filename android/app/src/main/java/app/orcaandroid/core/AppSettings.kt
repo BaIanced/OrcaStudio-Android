@@ -167,6 +167,11 @@ class AppSettings(context: Context) {
         set(value) = prefs.edit().putString("danger_mutes",
             JSONObject(value.mapValues { (_, s) -> org.json.JSONArray(s.toList()) }).toString()).apply()
 
+    /** Process option keys pinned to the main view under the process picker, in pin order. */
+    var pinnedSettings: List<String>
+        get() = prefs.getString("pinned_settings", null)?.split(',')?.filter { it.isNotEmpty() }.orEmpty()
+        set(value) = prefs.edit().putString("pinned_settings", value.joinToString(",")).apply()
+
     /** AMS sync keeps the filament presets the user picked for its trays ([trayPicks]). */
     var preferMyFilaments: Boolean
         get() = prefs.getBoolean("prefer_my_filaments", true)

@@ -352,6 +352,10 @@
     <string name="ok">OK</string>
     <string name="setting_key_fmt">Setting: %1$s</string>
     <string name="only_changed">Changed only</string>
+    <string name="pin_settings">Pin settings here</string>
+    <string name="pin_setting">Pin to main view</string>
+    <string name="unpin_setting">Unpin</string>
+    <string name="pinned">Pinned</string>
     <string name="open_project">Open…</string>
     <string name="opening_project">Opening project…</string>
     <string name="project_printer_kept">This project is for %1$s. Kept your printer %2$s; switch it in Device if intended.</string>

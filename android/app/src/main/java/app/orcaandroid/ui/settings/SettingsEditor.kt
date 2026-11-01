@@ -26,6 +26,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
@@ -38,6 +40,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -114,7 +117,7 @@ fun SettingsEditor(state: UiState, vm: AppViewModel) {
     val target = state.editor ?: return
     androidx.activity.compose.BackHandler(onBack = vm.presets::closeEditor)
     when (target) {
-        is EditorTarget.Preset -> PresetEditor(state, vm, target.type, target.pickCompare, target.focus)
+        is EditorTarget.Preset -> PresetEditor(state, vm, target.type, target.pickCompare, target.focus, target.pinMode)
         is EditorTarget.Object -> {
             val o = state.scene.objects.getOrNull(target.obj) ?: run { LaunchedEffect(Unit) { vm.presets.closeEditor() }; return }
             val settings = (if (target.volume >= 0) o.volumes.getOrNull(target.volume)?.settings.orEmpty() else o.settings).overrides
@@ -151,7 +154,7 @@ fun SettingsEditor(state: UiState, vm: AppViewModel) {
 private val TYPE_TITLES = mapOf(PresetType.PRINT to R.string.process, PresetType.FILAMENT to R.string.filament, PresetType.PRINTER to R.string.printer)
 
 @Composable
-private fun PresetEditor(state: UiState, vm: AppViewModel, type: PresetType, pickCompare: Boolean = false, focus: String? = null) {
+private fun PresetEditor(state: UiState, vm: AppViewModel, type: PresetType, pickCompare: Boolean = false, focus: String? = null, pinMode: Boolean = false) {
     var saveDialog by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     var comparePick by remember { mutableStateOf(pickCompare) }
@@ -166,7 +169,7 @@ private fun PresetEditor(state: UiState, vm: AppViewModel, type: PresetType, pic
         modifiedCount = state.overridesOf(type).size,
     )
     val name = state.presetName(type).orEmpty()
-    EditorFrame(vm, state, stringResource(R.string.settings), name, source, objectMode = false, focus = focus,
+    EditorFrame(vm, state, stringResource(R.string.settings), name, source, objectMode = false, focus = focus, pinMode = pinMode,
         tabs = {
             PrimaryTabRow(selectedTabIndex = type.ordinal) {
                 PresetType.entries.forEach { t ->
@@ -223,11 +226,14 @@ private fun EditorFrame(
     objectMode: Boolean,
     objectSettings: Map<String, String>? = null,
     focus: String? = null,
+    pinMode: Boolean = false,
     tabs: @Composable () -> Unit = {},
     actions: @Composable () -> Unit = {},
 ) {
     val type = source.type
     val tr = vm.translator
+    // Process options of the preset itself can be pinned to the main view (not per-object ones).
+    val pinnable = !objectMode && type == PresetType.PRINT
     // An object's editor greys out by the object's own settings (support enabled there, not in the process).
     val optionStates by produceState(state.optionStates, objectSettings, state.optionStates) {
         value = objectSettings?.let { s -> runCatching { vm.presets.objectOptionStates(s) }.getOrNull() } ?: state.optionStates
@@ -370,7 +376,8 @@ private fun EditorFrame(
                         items(options, key = { "o:${group.title}:${it.key}" }) { def ->
                             androidx.compose.runtime.key(resetTick) {
                                 OptionRow(def, rows[def.key], source.value(def.key).orEmpty(), source.isModified(def.key), def.key !in optionStates.disabled,
-                                    wide, tr, { guardedSet(def.key, it) }, { source.reset(def.key) })
+                                    wide, tr, { guardedSet(def.key, it) }, { source.reset(def.key) },
+                                    pinned = if (pinnable) def.key in state.pinnedSettings else null, pinToggle = pinMode) { vm.presets.togglePinned(def.key) }
                             }
                         }
                     }
@@ -443,6 +450,9 @@ private fun OptionRow(
     tr: Translator,
     onChange: (String) -> Unit,
     onReset: () -> Unit,
+    pinned: Boolean? = null,
+    pinToggle: Boolean = false,
+    onPin: () -> Unit = {},
 ) {
     var showTooltip by remember { mutableStateOf(false) }
     // Options sharing a desktop row carry its label: six plates each have a "First layer" / "Other layers".
@@ -450,13 +460,21 @@ private fun OptionRow(
     val label: @Composable (Modifier) -> Unit = { m ->
         Row(m, verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(8.dp).background(if (modified) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.surface, CircleShape))
-            Text(text, Modifier.padding(start = 8.dp).clickable(enabled = def.tooltip.isNotEmpty()) { showTooltip = true },
+            Text(text, Modifier.padding(start = 8.dp).clickable(enabled = def.tooltip.isNotEmpty() || pinned != null) { showTooltip = true },
                 style = MaterialTheme.typography.bodyMedium,
                 color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline)
+            if (pinned == true && !pinToggle) Icon(Icons.Filled.PushPin, stringResource(R.string.pinned), Modifier.padding(start = 4.dp).size(14.dp),
+                tint = MaterialTheme.colorScheme.primary)
         }
     }
     val trailing: @Composable () -> Unit = {
-        if (wide) Tip(stringResource(R.string.info)) { IconButton(onClick = { showTooltip = true }, enabled = def.tooltip.isNotEmpty()) { Icon(Icons.Default.Info, stringResource(R.string.info)) } }
+        if (pinToggle && pinned != null) {
+            val pinLabel = stringResource(if (pinned) R.string.unpin_setting else R.string.pin_setting)
+            Tip(pinLabel) { IconButton(onClick = onPin) {
+                Icon(if (pinned) Icons.Filled.PushPin else Icons.Outlined.PushPin, pinLabel, tint = if (pinned) MaterialTheme.colorScheme.primary else LocalContentColor.current)
+            } }
+        }
+        if (wide) Tip(stringResource(R.string.info)) { IconButton(onClick = { showTooltip = true }, enabled = def.tooltip.isNotEmpty() || pinned != null) { Icon(Icons.Default.Info, stringResource(R.string.info)) } }
         Tip(stringResource(R.string.reset)) { IconButton(onClick = onReset, enabled = modified) { Icon(Icons.Default.Refresh, stringResource(R.string.reset)) } }
     }
     if (wide) {
@@ -480,7 +498,7 @@ private fun OptionRow(
             title = { Text(if (row != null) text else tr.tr(def.fullLabel.ifEmpty { def.label })) },
             text = {
                 Column {
-                    Text(tr.tr(def.tooltip), style = MaterialTheme.typography.bodyMedium)
+                    if (def.tooltip.isNotEmpty()) Text(tr.tr(def.tooltip), style = MaterialTheme.typography.bodyMedium)
                     Text(
                         stringResource(R.string.setting_key_fmt, def.key),
                         Modifier.padding(top = 12.dp),
@@ -490,6 +508,9 @@ private fun OptionRow(
                 }
             },
             confirmButton = { TextButton(onClick = { showTooltip = false }) { Text(stringResource(R.string.ok)) } },
+            dismissButton = pinned?.let { p -> {
+                TextButton(onClick = { onPin(); showTooltip = false }) { Text(stringResource(if (p) R.string.unpin_setting else R.string.pin_setting)) }
+            } },
         )
     }
 }
@@ -684,6 +705,42 @@ private fun unescape(s: String): String {
 
 private fun escape(s: String): String =
     s.replace("\\", "\\\\").replace("\n", "\\n").replace("\r", "\\r").replace("\"", "\\\"").replace("\t", "\\t")
+
+/**
+ * The process options the user pinned, edited in place under the process picker, plus the button that
+ * opens the process editor with a pin toggle on every row. Risky values open the editor on that option
+ * (its second confirm lives there) instead of being set here.
+ */
+@Composable
+internal fun PinnedSettings(state: UiState, vm: AppViewModel) {
+    val type = PresetType.PRINT
+    val pins = state.pinnedSettings
+    if (pins.isNotEmpty()) {
+        var defs by remember { mutableStateOf<Map<String, OptionDef>>(emptyMap()) }
+        LaunchedEffect(state.setup != null) { runCatching { vm.presets.optionDefs(type) }.onSuccess { l -> defs = l.associateBy { it.key } } }
+        val rows = remember(defs) { if (defs.isEmpty()) emptyMap() else buildPages(vm.presets.settingsLayout(type), defs).rowLabels() }
+        var resetTick by remember { mutableIntStateOf(0) }
+        val hidden = state.optionStates.hidden
+        pins.forEach { key ->
+            val def = defs[key] ?: return@forEach
+            val value = state.value(type, key)
+            if (value == null || key in hidden) return@forEach
+            androidx.compose.runtime.key(key, resetTick) {
+                // Out of its group the short label is too bare ("Default" of Line width): use the full one.
+                OptionRow(def.copy(label = def.fullLabel.ifEmpty { def.label }), rows[key], value, state.isModified(type, key), key !in state.optionStates.disabled, false, vm.translator,
+                    { v ->
+                        if (dangerRule(type, key, v)?.takeIf { it.name !in vm.presets.dangerMuted(state.projectName) } == null) vm.presets.setOption(type, key, v)
+                        else { resetTick++; vm.presets.openEditor(EditorTarget.Preset(type, focus = key)) }
+                    },
+                    { vm.presets.resetOption(type, key) }, pinned = true) { vm.presets.togglePinned(key) }
+            }
+        }
+    }
+    TextButton(onClick = { vm.presets.openEditor(EditorTarget.Preset(type, pinMode = true)) }) {
+        Icon(Icons.Outlined.PushPin, null, Modifier.size(18.dp))
+        Text(stringResource(R.string.pin_settings), Modifier.padding(start = 6.dp))
+    }
+}
 
 /** Two presets side by side, differing options only (desktop: "Compare presets"). */
 @Composable
