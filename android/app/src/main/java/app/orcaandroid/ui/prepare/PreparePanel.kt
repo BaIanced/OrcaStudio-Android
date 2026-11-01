@@ -280,9 +280,10 @@ private fun FilamentSlots(state: UiState, vm: AppViewModel, userGroup: String, v
                     }
                 }
             }
+            // New mixes come from the "+ Mix" button; a row only edits the mix it already is.
             var mixDialog by remember { mutableStateOf(false) }
-            Tip(stringResource(R.string.mix_title, i + 1)) { IconButton(onClick = { mixDialog = true }) {
-                Icon(Icons.Default.Palette, stringResource(R.string.mix_title, i + 1), tint = if (Mix.isMixed(slot)) MaterialTheme.colorScheme.primary else LocalContentColor.current)
+            if (Mix.isMixed(slot)) Tip(stringResource(R.string.mix_title, i + 1)) { IconButton(onClick = { mixDialog = true }) {
+                Icon(Icons.Default.Palette, stringResource(R.string.mix_title, i + 1), tint = MaterialTheme.colorScheme.primary)
             } }
             if (mixDialog) MixDialog(state.filaments, i, state.value(PresetType.PRINT, "enable_mixed_color_sublayer") == "1",
                 { parts, sub -> vm.presets.setMix(i, parts, sub) }) { mixDialog = false }
@@ -296,11 +297,15 @@ private fun FilamentSlots(state: UiState, vm: AppViewModel, userGroup: String, v
         if (colorDialog) ColorDialog(slot.color, { vm.presets.setFilamentColor(i, it) }) { colorDialog = false }
     }
     var flushDialog by remember { mutableStateOf(false) }
+    var newMix by remember { mutableStateOf(false) }
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         OutlinedButton(onClick = vm.presets::addFilament) { Icon(Icons.Default.Add, null); Text(stringResource(R.string.add_filament)) }
+        if (state.filaments.count { !Mix.isMixed(it) } >= 2) OutlinedButton(onClick = { newMix = true }) { Icon(Icons.Default.Add, null); Text(stringResource(R.string.add_mix)) }
         if (state.filaments.size > 1) TextButton(onClick = { flushDialog = true }) { Text(stringResource(R.string.flushing_volumes)) }
     }
     if (flushDialog) FlushDialog(state, vm) { flushDialog = false }
+    if (newMix) MixDialog(state.filaments, state.filaments.size, state.value(PresetType.PRINT, "enable_mixed_color_sublayer") == "1",
+        { parts, sub -> if (parts != null) vm.presets.addMix(parts, sub) }) { newMix = false }
     // Like the desktop's filament sync: take the slots from what the connected Bambu printer has loaded.
     if (state.connection?.type == HostType.BAMBU || state.connection?.type == HostType.BAMBU_SIGNED) {
         OutlinedButton(onClick = vm.presets::syncFilamentsFromPrinter) { Icon(Icons.Default.Sync, null); Text(stringResource(R.string.sync_filaments)) }
@@ -376,8 +381,8 @@ private fun FilamentTile(state: UiState, vm: AppViewModel, i: Int, userGroup: St
                 DropdownMenuItem(text = { Text(stringResource(R.string.filament_look)) },
                     leadingIcon = { Icon(Icons.Default.Texture, null, tint = if (slot.look != null) MaterialTheme.colorScheme.primary else LocalContentColor.current) },
                     onClick = { menu = false; lookMenu = true })
-                DropdownMenuItem(text = { Text(stringResource(R.string.mix_title, i + 1)) },
-                    leadingIcon = { Icon(Icons.Default.Palette, null, tint = if (Mix.isMixed(slot)) MaterialTheme.colorScheme.primary else LocalContentColor.current) },
+                if (Mix.isMixed(slot)) DropdownMenuItem(text = { Text(stringResource(R.string.mix_title, i + 1)) },
+                    leadingIcon = { Icon(Icons.Default.Palette, null, tint = MaterialTheme.colorScheme.primary) },
                     onClick = { menu = false; mixDialog = true })
                 DropdownMenuItem(text = { Text(stringResource(R.string.edit)) }, leadingIcon = { Icon(Icons.Default.Edit, null) },
                     onClick = { menu = false; vm.presets.setActiveFilament(i); vm.presets.openEditor(EditorTarget.Preset(PresetType.FILAMENT)) })

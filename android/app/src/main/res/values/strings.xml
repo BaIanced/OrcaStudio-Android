@@ -207,6 +207,7 @@
     <string name="filament_look">Surface look</string>
     <string name="filament_view_list">Show filaments as a list</string>
     <string name="filament_view_tiles">Show filaments as tiles</string>
+    <string name="add_mix">Mix</string>
     <string name="mix_title">Mix for filament %1$d</string>
     <string name="mix_need_two">Add at least two other filaments to mix.</string>
     <string name="mix_sublayers">Blend inside each layer (sub-layers)</string>

@@ -61,11 +61,12 @@ object Mix {
     }
 }
 
-/** Edits whether slot [index] is a mix of the other (non-mixed) slots, and in which parts. */
+/** Edits whether slot [index] is a mix of the other (non-mixed) slots, and in which parts; [index] == slots.size = a new mix slot. */
 @Composable
 internal fun MixDialog(slots: List<FilamentSlot>, index: Int, sublayers: Boolean, onApply: (List<Pair<Int, Float>>?, Boolean) -> Unit, onDismiss: () -> Unit) {
     val candidates = slots.indices.filter { it != index && !Mix.isMixed(slots[it]) }
-    val parts = remember { mutableStateMapOf<Int, Int>().apply { Mix.parts(slots[index]).forEach { (c, r) -> put(c - 1, (r * 10).toInt().coerceIn(1, 10)) } } }
+    val current = slots.getOrNull(index)
+    val parts = remember { mutableStateMapOf<Int, Int>().apply { current?.let(Mix::parts)?.forEach { (c, r) -> put(c - 1, (r * 10).toInt().coerceIn(1, 10)) } } }
     var blend by remember { mutableStateOf(sublayers) }
     val chosen = candidates.filter { it in parts }
     AlertDialog(
@@ -100,7 +101,7 @@ internal fun MixDialog(slots: List<FilamentSlot>, index: Int, sublayers: Boolean
         },
         dismissButton = {
             Row {
-                if (Mix.isMixed(slots[index])) TextButton(onClick = { onApply(null, blend); onDismiss() }) { Text(stringResource(R.string.mix_remove)) }
+                if (current != null && Mix.isMixed(current)) TextButton(onClick = { onApply(null, blend); onDismiss() }) { Text(stringResource(R.string.mix_remove)) }
                 TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
             }
         },

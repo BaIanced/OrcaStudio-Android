@@ -227,7 +227,16 @@ class PresetController(private val store: Store, private val device: DeviceContr
     fun setFilamentLook(slot: Int, look: String?) = updateFilaments { list -> list.mapIndexed { i, f -> if (i == slot) f.copy(look = look) else f } }
 
     /** Makes [slot] a mix of the given (1-based slot, share) parts, or a plain filament again when [parts] is null. */
-    fun setMix(slot: Int, parts: List<Pair<Int, Float>>?, sublayers: Boolean) = store.launch {
+    fun setMix(slot: Int, parts: List<Pair<Int, Float>>?, sublayers: Boolean) = store.launch { setMixNow(slot, parts, sublayers) }
+
+    /** The "+ Mix" button: a new virtual slot (preset of the first part) that mixes the given (1-based slot, share) parts. */
+    fun addMix(parts: List<Pair<Int, Float>>, sublayers: Boolean) = store.launch {
+        val slot = store.value.filaments.size
+        updateFilamentsNow { list -> list + FilamentSlot(list.getOrElse(parts.first().first - 1) { list.last() }.preset, nextColor(list.size)) }
+        setMixNow(slot, parts, sublayers)
+    }
+
+    private suspend fun setMixNow(slot: Int, parts: List<Pair<Int, Float>>?, sublayers: Boolean) {
         val keys = setOf(Mix.IS_MIXED, Mix.COMPONENTS, Mix.RATIOS)
         if (parts != null) {
             val colors = parts.map { (c, _) -> store.value.filaments.getOrNull(c - 1)?.color }
