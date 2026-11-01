@@ -36,7 +36,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - UX audit / Gemini round 3: **lowest priority (user 2026-10-31)**; only act if the user brings Gemini's answer (backlog line).
 - r492 notices, pinned settings, bulk filament edit: open tests in the backlog (spiral Fix link + long press Claude-verified).
 - Debug app on WSA: uninstall when the user is done. S Pen pressure awaits the Note 10+ test; Self-portrait 3 / CAD plan details: backlog + archive.
-- Perf/size framework set up 2026-10-31 (`docs/PERFORMANCE.md`, `size_report.py`, `size-budget.json`, CI size step, `-Porca.composeReports=true`); CI size step untested until the next build. Experiment queue in the doc.
+- Perf/size framework set up 2026-10-31 (`docs/PERFORMANCE.md`, `size_report.py`, `size-budget.json`, CI size step, `-Porca.composeReports=true`); CI size step is commit ae8d7fa on local branch `local/ci-size-step` (push needs `gh auth refresh -s workflow` by the user; then cherry-pick + push). Experiment queue in the doc.
 - Next step: perf experiment 1, vendor profiles as one solid archive (-11 MB measured) -> Opus 5.5 (high)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
