@@ -50,6 +50,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.composed
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -297,19 +299,23 @@ private fun FilamentSlots(state: UiState, vm: AppViewModel, userGroup: String, v
  * Slot-row selection without eating normal taps: Shift/Ctrl+click toggles, a long press toggles, and once something is
  * selected ([selecting]) every tap toggles. Watches the Initial pass so the buttons inside the row never see those gestures.
  */
-private fun Modifier.slotSelectGesture(selecting: Boolean, toggle: () -> Unit): Modifier = pointerInput(selecting) {
+private fun Modifier.slotSelectGesture(selecting: Boolean, toggle: () -> Unit): Modifier = composed {
+    // Stable pointerInput key: toggling the selection must not restart the gesture loop mid-press (it would cancel the release swallow).
+    val selectingNow by rememberUpdatedState(selecting)
+    val toggleNow by rememberUpdatedState(toggle)
+    pointerInput(Unit) {
     awaitEachGesture {
         val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
         val ev = currentEvent
         val key = down.type == PointerType.Mouse && (ev.keyboardModifiers.isCtrlPressed || ev.keyboardModifiers.isShiftPressed)
-        if (key || selecting) {
+        if (key || selectingNow) {
             down.consume()
-            waitForUpOrCancellation(PointerEventPass.Initial)?.let { it.consume(); toggle() }
+            waitForUpOrCancellation(PointerEventPass.Initial)?.let { it.consume(); toggleNow() }
         } else {
             val held = try { withTimeout(viewConfiguration.longPressTimeoutMillis) { waitForUpOrCancellation(PointerEventPass.Initial) }; false }
             catch (_: PointerEventTimeoutCancellationException) { true }
             if (held) {
-                toggle()
+                toggleNow()
                 // Swallow the rest of the press so the release does not click a button.
                 do {
                     val e = awaitPointerEvent(PointerEventPass.Initial)
@@ -317,6 +323,7 @@ private fun Modifier.slotSelectGesture(selecting: Boolean, toggle: () -> Unit): 
                 } while (e.changes.any { it.pressed })
             }
         }
+    }
     }
 }
 
