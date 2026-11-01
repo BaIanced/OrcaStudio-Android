@@ -157,3 +157,10 @@ headless display below instead (no takeover needed). Don't drive WSA's own windo
 - WSA STL import without a picker (2026-10-27): `su` copy the file to `/data/data/<pkg>/files/x.stl`, chown to the app uid, then `am start -a android.intent.action.VIEW -d file:///data/data/<pkg>/files/x.stl -t model/stl -n <pkg>/app.orcaandroid.ui.MainActivity` (content:// and /sdcard copies fail: no read access). Release r489 has the MCP socket on WSA (2026-10-31; Python client `mcpy.py`); `mcpao.sh` re-creates a PC forward each call, run `adb -s <wsa> forward --remove-all` afterwards.
 - WSA VD quirk (2026-10-31): after any focus loss the first tap only refocuses (empty dump = no focus); tap the empty rail (28,900) then dump. `bash ./mcpao.sh` (not `sh`) from the tools dir.
 - **uinput fake pen on WSA (2026-10-31, partial):** `adb shell uinput <file.json>` works on WSA (Android 13, no root; push with `MSYS_NO_PATHCONV=1`). The file is a stream of JSON objects (no outer array), numeric constants only (`UI_SET_EVBIT`=100, KEYBIT=101, ABSBIT=103, PROPBIT=110; EV_KEY=1, EV_ABS=3; BTN_TOUCH=330, BTN_TOOL_PEN=320; ABS_X/Y/PRESSURE=0/1/24; prop DIRECT=1). `"bus":"usb"` = external device, no viewport, events dropped; **`"bus":6` = internal, mapped to the display (`dumpsys input`: displayId local:100)**. ABS ranges must match the display (1920x1080). The device vanishes when the file ends (add a trailing `delay`). **Open: strokes (BTN_TOOL_PEN + BTN_TOUCH + ABS_PRESSURE) did not paint in Paint shop** (finger `input swipe` orbits when it starts off the model); cause unknown (not yet checked: getevent on the node, dumpsys input touch state).
+
+## User decisions (2026-10-13, moved from HANDOFF.md 2026-11-01)
+- Modeling goal: model without writing code (OpenSCAD only a backstop).
+- (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
+- Plate activation must not move the camera when zoomed out (sometimes moving is fine).
+- Plate switcher: **keep the lab until the user says otherwise; don't ask again** (mockups: archive "Plate switcher"). Once picked: delete losers + lab.
+

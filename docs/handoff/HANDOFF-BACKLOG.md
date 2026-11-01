@@ -75,4 +75,4 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - Bulk filament edit (53578ad): long press verified by Claude on phone VD 2026-10-31 (archive); only Shift/Ctrl+click (mouse, Chromebook) and user feel untested. In r496+.
 - [Opus] Perf experiments queue: docs/PERFORMANCE.md; CI size step ae8d7fa on local/ci-size-step, push needs workflow scope (Claude 2026-10-31).
 - [Opus] AI print failure watch (user 2026-10-30): local detector on the printer camera; open: ask the user for the camera model (archive 2026-10-31).
-- Filament makeover (user 2026-10-31): tiles, + Mix, colour picker, BS-style mixer all Claude-verified WSA VD (archive 2026-11-01); open: CI run 41331411840 install, mixer swatch/bar looks unseen (no WSA VD shots), user feel, vendor logo (trademark).
+- [Opus] Filament mixer redesign 997ef3b (CI 41363118216): look unseen by anyone; Claude to check on phone VD (2026-11-01). Vendor logo dropped (trademark).
