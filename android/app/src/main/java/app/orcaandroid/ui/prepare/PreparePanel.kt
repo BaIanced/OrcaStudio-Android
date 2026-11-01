@@ -56,6 +56,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.PointerEventTimeoutCancellationException
+import androidx.compose.ui.input.pointer.isCtrlPressed
+import androidx.compose.ui.input.pointer.isShiftPressed
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -199,6 +209,25 @@ private fun PresetsTab(state: UiState, vm: AppViewModel) {
 private fun FilamentSlots(state: UiState, vm: AppViewModel, userGroup: String, vendorGroup: String) {
     val setup = state.setup
     val problems = state.setupProblems().associateBy { it.slot }
+    // Bulk edit: long press (touch) or Shift/Ctrl+click (mouse) on a slot row multi-selects; then one profile goes to all of them.
+    var picked by remember { mutableStateOf(setOf<Int>()) }
+    val sel = picked.filter { it < state.filaments.size }.toSet()
+    if (sel.isNotEmpty()) {
+        androidx.compose.material3.Card(Modifier.fillMaxWidth(), colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
+            Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(R.string.n_selected, sel.size), Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+                    TextButton(onClick = { picked = state.filaments.indices.toSet() }) { Text(stringResource(R.string.select_all)) }
+                    TextButton(onClick = { picked = emptySet() }) { Text(stringResource(R.string.cancel)) }
+                }
+                val all = setup?.filaments.orEmpty().filter { it.system.not() || it.brandName !in state.hiddenFilamentVendors || sel.any { s -> state.filaments[s].preset == it.name } }
+                val common = sel.map { state.filaments[it].preset }.distinct().singleOrNull() ?: ""
+                PickerField(stringResource(R.string.filament), common,
+                    presetItems(all, userGroup, vendorGroup, { it.name }, { it.system }, { it.color }) { listOf(it.brandName, it.type.ifEmpty { "?" }) },
+                    { vm.presets.setFilaments(sel, it); picked = emptySet() }, Modifier.fillMaxWidth(), openGroups = setOf(userGroup))
+            }
+        }
+    }
     state.filaments.forEachIndexed { i, slot ->
         var colorDialog by remember { mutableStateOf(false) }
         val problem = problems[i]
@@ -206,7 +235,9 @@ private fun FilamentSlots(state: UiState, vm: AppViewModel, userGroup: String, v
         androidx.compose.runtime.LaunchedEffect(ProblemFocus.tick) {
             if (ProblemFocus.tick > 0 && ProblemFocus.slot == i) { kotlinx.coroutines.delay(350); reveal.bringIntoView() }
         }
-        Row(Modifier.bringIntoViewRequester(reveal).then(if (problem != null) Modifier.border(1.dp, Color.Red, RoundedCornerShape(8.dp)) else Modifier),
+        Row(Modifier.bringIntoViewRequester(reveal).then(if (problem != null) Modifier.border(1.dp, Color.Red, RoundedCornerShape(8.dp)) else Modifier)
+            .then(if (i in sel) Modifier.background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(8.dp)) else Modifier)
+            .slotSelectGesture(sel.isNotEmpty()) { picked = if (i in sel) sel - i else sel + i },
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             IconButton(onClick = { colorDialog = true }, modifier = Modifier.size(36.dp)) { ColorDot(slot.color, 22) }
             val filaments = setup?.filaments.orEmpty().filter { it.system.not() || it.brandName !in state.hiddenFilamentVendors || it.name == slot.preset }
@@ -260,6 +291,33 @@ private fun FilamentSlots(state: UiState, vm: AppViewModel, userGroup: String, v
         OutlinedButton(onClick = vm.presets::syncFilamentsFromPrinter) { Icon(Icons.Default.Sync, null); Text(stringResource(R.string.sync_filaments)) }
     }
     if (state.filaments.size > 1) WipeTowerRow(state, vm)
+}
+
+/**
+ * Slot-row selection without eating normal taps: Shift/Ctrl+click toggles, a long press toggles, and once something is
+ * selected ([selecting]) every tap toggles. Watches the Initial pass so the buttons inside the row never see those gestures.
+ */
+private fun Modifier.slotSelectGesture(selecting: Boolean, toggle: () -> Unit): Modifier = pointerInput(selecting) {
+    awaitEachGesture {
+        val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+        val ev = currentEvent
+        val key = down.type == PointerType.Mouse && (ev.keyboardModifiers.isCtrlPressed || ev.keyboardModifiers.isShiftPressed)
+        if (key || selecting) {
+            down.consume()
+            waitForUpOrCancellation(PointerEventPass.Initial)?.let { it.consume(); toggle() }
+        } else {
+            val held = try { withTimeout(viewConfiguration.longPressTimeoutMillis) { waitForUpOrCancellation(PointerEventPass.Initial) }; false }
+            catch (_: PointerEventTimeoutCancellationException) { true }
+            if (held) {
+                toggle()
+                // Swallow the rest of the press so the release does not click a button.
+                do {
+                    val e = awaitPointerEvent(PointerEventPass.Initial)
+                    e.changes.forEach { it.consume() }
+                } while (e.changes.any { it.pressed })
+            }
+        }
+    }
 }
 
 /** The handful of process options people change all the time, one tap away. */

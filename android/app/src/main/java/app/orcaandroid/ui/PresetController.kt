@@ -429,12 +429,17 @@ class PresetController(private val store: Store, private val device: DeviceContr
     }
 
     /** Puts filament preset [name] in slot [slot] (its unsaved edits are dropped). */
-    suspend fun setFilamentNow(slot: Int, name: String) {
+    suspend fun setFilamentNow(slot: Int, name: String) = setFilamentsNow(setOf(slot), name)
+
+    /** Bulk edit: the same preset for all [slots] in one update. */
+    fun setFilaments(slots: Set<Int>, name: String) = store.launch { setFilamentsNow(slots, name) }
+
+    private suspend fun setFilamentsNow(slots: Set<Int>, name: String) {
         val s = store.value
-        rememberTrayPick(s.filaments.getOrNull(slot), name)
+        slots.forEach { rememberTrayPick(s.filaments.getOrNull(it), name) }
         // A user filament with its own colour recolours the slot, as on the desktop.
         val own = s.setup?.filaments?.firstOrNull { it.name == name }?.color?.ifEmpty { null }
-        val list = s.filaments.mapIndexed { i, f -> if (i == slot) FilamentSlot(name, own ?: f.color, source = f.source) else f }
+        val list = s.filaments.mapIndexed { i, f -> if (i in slots) FilamentSlot(name, own ?: f.color, source = f.source) else f }
         settings.setLastFilaments(s.printer ?: return, list)
         store.update { it.copy(filaments = list, results = emptyMap()) }
         refreshPresetValues(listOf(PresetType.FILAMENT))
