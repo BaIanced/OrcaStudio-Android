@@ -34,11 +34,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
 - UX audit / Gemini round 3: **lowest priority (user 2026-10-31)**; only act if the user brings Gemini's answer (backlog line).
-- r492 notices: WSA window mode 2026-10-31 (VD can't scroll the panel): spiral-vase Fix link opens the editor on `spiral_mode`, red heading shown. Still untested: other Fix links (tower, organic, temps->More, printer->Device), HD plate slider, tower text, Apply+mute. Use `orca-vd.sh start window` (tap the red ! to scroll the panel), close the app after.
+- r492 notices, pinned settings, bulk filament edit: open tests in the backlog (spiral Fix link + long press Claude-verified).
 - Debug app on WSA: uninstall when the user is done. S Pen pressure awaits the Note 10+ test; Self-portrait 3 / CAD plan details: backlog + archive.
-- Pinned settings built + WSA-VD-verified incl. "Default" label fix (backlog: unpin via dialog untested; under-plate opacity look unchecked, VD shot blank). Wide VD shows the side panel: `orca-vd.sh start 1920x1200/160` (no window mode needed).
-- Bulk filament edit: long press Claude-verified on phone VD 2026-10-31 (backlog: Ctrl+click untested); commit 53578ad is not in a CI build yet.
-- Next step: efficiency/bloat framework -> Opus 5.5 (high)
+- Perf/size framework set up 2026-10-31 (`docs/PERFORMANCE.md`, `size_report.py`, `size-budget.json`, CI size step, `-Porca.composeReports=true`); CI size step untested until the next build. Experiment queue in the doc.
+- Next step: perf experiment 1, vendor profiles as one solid archive (-11 MB measured) -> Opus 5.5 (high)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
@@ -75,3 +74,4 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 11. Efficiency (user, 2026-10-10): compile Kotlin locally before every push (command in the reference); batch 2-4 changes per
     build, don't dispatch builds that will be superseded; write code with Edit or python raw strings, never plain python
     heredocs (they ate backslashes 5x); write python scripts with Write, then run them.
+12. **Perf/size (user, 2026-10-31): `docs/PERFORMANCE.md`**: commit names metric before -> after; `android/size-budget.json` only goes down.

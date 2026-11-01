@@ -3813,3 +3813,8 @@ User said "yep looks good" while run 41158738411 (hole labels avoid bbox/wall la
 
 ## 2026-10-31 Bulk filament edit verified (Claude, phone VD, debug build of 53578ad)
 - Long press (su motionevent DOWN, hold 2.5 s, UP; a 1.5 s hold opened the single-slot picker instead, so hold >= 2 s) on a slot row selects it ("1 selected" card: Select all / Cancel / one Filament picker). Select all -> "3 selected"; picking PolyLite ABS in the card set slots 1-3 to it and cleared the selection. Shift/Ctrl+click untested (mouse; Chromebook). User feel untested.
+
+## 2026-10-31 Efficiency/bloat framework (Claude, r492 baseline)
+- docs/PERFORMANCE.md: review rule, metrics table, recipes, experiment queue. android/scripts/size_report.py + android/size-budget.json (r492 + ~3%), CI step 'APK size report' (job summary, cache-based delta, warn only). app/build.gradle.kts: -Porca.composeReports=true (needs --rerun).
+- r492 baseline: APK 124.1 MB; liborca_jni 48.4 (stripped, .text 36 MB, 907 dynsyms), vendors 28.3 (68 zips, stored), openscad 11.9, python libs 11.4, i18n 6.05 (20.4 raw), resources.zip 6.0, dex 4.4, python stdlib 4.15. Compose: 242/242 restartable composables skippable, 71 unstable classes (strong skipping on).
+- Vendor profiles extracted = 87 MB; one tar.xz -9e = 17.3 MB (vs 28.3 MB as zips).

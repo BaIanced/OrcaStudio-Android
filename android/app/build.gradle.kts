@@ -87,6 +87,15 @@ kotlin {
     compilerOptions { jvmTarget.set(JvmTarget.JVM_17) }
 }
 
+// Recomposition audit (docs/PERFORMANCE.md): `-Porca.composeReports=true` writes the Compose
+// compiler's stability reports and metrics to <build>/compose-reports.
+if (providers.gradleProperty("orca.composeReports").orNull == "true") {
+    composeCompiler {
+        reportsDestination.set(layout.buildDirectory.dir("compose-reports"))
+        metricsDestination.set(layout.buildDirectory.dir("compose-reports"))
+    }
+}
+
 /** Runs android/scripts/pack_resources.py to turn src-orca/resources into app assets. */
 abstract class PackOrcaAssets : DefaultTask() {
     @get:InputFiles
