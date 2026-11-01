@@ -3886,3 +3886,6 @@ User said "yep looks good" while run 41158738411 (hole labels avoid bbox/wall la
 
 ## 2026-11-01 HD plate "from below" (Claude, WSA VD, debug build of r496 source)
 - plateHd + plateUnderAlpha 0.6 via layout_lab prefs; view_set pitch -35/-50: underside draws as a dark translucent plate with the model and bed grid visible through it; from above (pitch 35) normal. GL drew fine on the WSA VD this time (earlier blank frame was a stale start). View was a 159 px sliver (panel wide), so only a coarse look; user feel untested.
+
+## 2026-11-01 User: live session ended, mixer redesign wanted (user, chat)
+- User: "i don't want to do live anymore" (scrcpy session over). The two live-session mixer passes (83384d3 chip picker + rescaling sliders + stacked bar; 437c9d9 plain blended pills, CI 41362528022) were never seen by the user. User switched to Opus "so you could work through a visually more appealing solution": Claude designs the mixer look, no live feedback.

@@ -214,8 +214,10 @@
     <string name="mix_sublayers">Blend inside each layer (sub-layers)</string>
     <string name="mix_remove">Not a mix</string>
     <string name="mix_quick">Quick picks</string>
-    <string name="mix_pick">Filaments in this mix (tap to add or remove)</string>
+    <string name="mix_pick">Filaments (tap to add or remove)</string>
     <string name="mix_even">Even split</string>
+    <string name="mix_hint">Pick two or more filaments below</string>
+    <string name="mix_shares">Proportions (drag a divider)</string>
     <string name="filament_look_auto">Automatic (%1$s)</string>
     <string name="empty">(empty)</string>
     <string name="end_calibration">End</string>

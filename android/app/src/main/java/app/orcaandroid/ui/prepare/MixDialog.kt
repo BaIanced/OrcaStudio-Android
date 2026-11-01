@@ -12,42 +12,42 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.orcaandroid.R
 import app.orcaandroid.core.FilamentSlot
@@ -105,24 +105,81 @@ private fun quickPicks(ids: List<Int>): List<List<Pair<Int, Float>>> {
 
 private fun swatch(hex: String?) = hexToRgb(hex ?: "#808080").let { Color(it[0], it[1], it[2]) }
 
-private fun pct(share: Float) = (share * 100).roundToInt()
+/** Black or white, whichever reads better on [c]. */
+private fun inkOn(c: Color) = if (0.299f * c.red + 0.587f * c.green + 0.114f * c.blue > 0.6f) Color.Black else Color.White
 
-/** One quick pick: the blended result as a plain pill, labelled with the shares (e.g. 75/25). */
+/** Whole percentages of [shares] that always add up to 100 (largest remainder). */
+private fun pcts(shares: List<Float>): List<Int> {
+    val total = shares.sum().takeIf { it > 0f } ?: return shares.map { 0 }
+    val raw = shares.map { it / total * 100 }
+    val out = raw.map { it.toInt() }.toMutableList()
+    var left = 100 - out.sum()
+    raw.indices.sortedByDescending { raw[it] - out[it] }.forEach { if (left > 0) { out[it]++; left-- } }
+    return out
+}
+
+/** Which part prints on each of [n] layers so every part's count tracks its share (the order a mix lays its colours down). */
+private fun layerPattern(shares: List<Float>, n: Int): List<Int> {
+    val count = IntArray(shares.size)
+    return List(n) { k -> shares.indices.maxBy { shares[it] * (k + 1) - count[it] }.also { count[it]++ } }
+}
+
+/**
+ * The result: the parts' colours as stacked print layers on the left, fading into the blended colour you see from a distance
+ * on the right, with its hex code. Fewer than two parts: the hint (over the one chosen colour, if any).
+ */
+@Composable
+private fun MixPreview(colors: List<String?>, shares: List<Float>, hint: String) {
+    val shape = RoundedCornerShape(16.dp)
+    val mixed = colors.size >= 2
+    val hex = if (mixed) Mix.blend(colors, shares) else colors.firstOrNull()
+    val fill = hex?.let(::swatch) ?: MaterialTheme.colorScheme.surfaceVariant
+    val parts = colors.map(::swatch)
+    val layers = remember(colors, shares) { if (mixed) layerPattern(shares, 24) else emptyList() }
+    Box(Modifier.fillMaxWidth().height(96.dp).clip(shape).background(fill).border(1.dp, MaterialTheme.colorScheme.outline, shape)) {
+        if (mixed) Canvas(Modifier.matchParentSize()) {
+            val h = size.height / layers.size
+            layers.forEachIndexed { k, p ->
+                drawRect(parts[p], Offset(0f, k * h), Size(size.width, h + 1f))
+                // A faint seam per layer, like the ridges of a printed wall.
+                drawRect(Color.Black.copy(alpha = 0.14f), Offset(0f, (k + 1) * h - 1.dp.toPx()), Size(size.width, 1.dp.toPx()))
+            }
+            drawRect(Brush.horizontalGradient(0f to fill.copy(alpha = 0f), 0.28f to fill.copy(alpha = 0f), 0.62f to fill, 1f to fill))
+        }
+        val ink = inkOn(fill)
+        if (mixed) Text(hex!!, Modifier.align(Alignment.BottomEnd).padding(12.dp), color = ink,
+            style = MaterialTheme.typography.titleMedium.copy(fontFamily = FontFamily.Monospace))
+        else Text(hint, Modifier.align(Alignment.Center).padding(16.dp), color = if (hex == null) MaterialTheme.colorScheme.onSurfaceVariant else ink,
+            style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
+    }
+}
+
+/** One quick pick: the blended colour as a round swatch, the shares under it (e.g. 75/25). */
 @Composable
 private fun MixSwatch(colors: List<String?>, shares: List<Float>, selected: Boolean, label: String, onClick: () -> Unit) {
-    val fill = swatch(Mix.blend(colors, shares))
-    val ink = if (0.299f * fill.red + 0.587f * fill.green + 0.114f * fill.blue > 0.6f) Color.Black else Color.White
-    val shape = RoundedCornerShape(18.dp)
-    Box(Modifier.size(width = 64.dp, height = 36.dp).clip(shape).background(fill).semantics { contentDescription = label }
-        .border(if (selected) 3.dp else 1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, shape)
-        .clickable(onClick = onClick), contentAlignment = Alignment.Center) {
-        Text(shares.joinToString("/") { pct(it).toString() }, color = ink, style = MaterialTheme.typography.labelMedium)
+    val ring = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent
+    Column(Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onClick).semantics { contentDescription = label }.padding(2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(Modifier.size(44.dp).border(2.dp, ring, CircleShape).padding(4.dp).clip(CircleShape).background(swatch(Mix.blend(colors, shares)))
+            .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape))
+        Text(pcts(shares).joinToString("/"), style = MaterialTheme.typography.labelSmall,
+            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/** A section caption, with an optional action at the right end. */
+@Composable
+private fun Caption(text: String, action: (@Composable () -> Unit)? = null) {
+    Row(Modifier.fillMaxWidth().height(32.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(text, Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        action?.invoke()
     }
 }
 
 /**
  * Edits whether slot [index] is a mix of the other (non-mixed) slots, and in which parts; [index] == slots.size = a new mix slot.
- * Bambu Studio-like: a big live preview, quick-pick combos, a gradient balance bar for two parts and per-part sliders for more.
+ * Bambu Studio-like: a big live preview (print layers fading into the blend), filament chips, quick picks, and one proportion
+ * bar for any number of parts whose dividers drag in 5 % steps, so the shares always add up to 100 %.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -133,8 +190,12 @@ internal fun MixDialog(slots: List<FilamentSlot>, index: Int, sublayers: Boolean
     val parts = remember { mutableStateMapOf<Int, Float>().apply { current?.let(Mix::parts)?.forEach { (c, r) -> put(c - 1, (r * 10).coerceIn(0.5f, 10f)) } } }
     var blend by remember { mutableStateOf(sublayers) }
     val chosen = candidates.filter { it in parts }
-    val total = chosen.sumOf { parts.getValue(it).toDouble() }.toFloat()
-    fun share(i: Int) = if (total > 0f) parts.getValue(i) / total else 0f
+    fun sharesNow(): List<Float> {
+        val w = chosen.map { parts.getValue(it) }
+        val t = w.sum()
+        return if (t > 0f) w.map { it / t } else w.map { 0f }
+    }
+    val shares = sharesNow()
     val allPicks = remember(candidates) { quickPicks(candidates) }
     // Only combos that contain every colour picked so far: nothing until the first pick, nothing once three or more are chosen.
     val picks = if (chosen.isEmpty() || chosen.size >= 3) emptyList() else allPicks.filter { p -> chosen.all { c -> p.any { it.first == c } } }
@@ -143,97 +204,58 @@ internal fun MixDialog(slots: List<FilamentSlot>, index: Int, sublayers: Boolean
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.mix_title, index + 1)) },
         text = {
-            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (candidates.size < 2) Text(stringResource(R.string.mix_need_two))
-                if (chosen.size >= 2) {
-                    val mixed = Mix.blend(chosen.map { slots[it].color }, chosen.map { parts.getValue(it) })
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Box(Modifier.size(width = 72.dp, height = 48.dp).clip(RoundedCornerShape(10.dp)).background(swatch(mixed))
-                            .border(1.dp, outline, RoundedCornerShape(10.dp)))
-                        Column {
-                            Text(mixed, style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace))
-                            Text(chosen.joinToString("  ·  ") { "${it + 1}: ${pct(share(it))}%" }, style = MaterialTheme.typography.bodySmall)
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                MixPreview(chosen.map { slots[it].color }, shares, stringResource(if (candidates.size < 2) R.string.mix_need_two else R.string.mix_hint))
+                Caption(stringResource(R.string.mix_pick))
+                FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    candidates.forEach { i ->
+                        val on = i in parts
+                        val fill = swatch(slots[i].color)
+                        Box(Modifier.size(48.dp).clip(CircleShape).clickable {
+                            if (on) parts.remove(i) else parts[i] = if (chosen.isEmpty()) 5f else chosen.sumOf { parts.getValue(it).toDouble() }.toFloat() / chosen.size
+                        }.border(if (on) 3.dp else 1.dp, if (on) MaterialTheme.colorScheme.primary else outline, CircleShape).padding(if (on) 6.dp else 4.dp)
+                            .clip(CircleShape).background(fill).border(1.dp, outline.copy(alpha = 0.5f), CircleShape), contentAlignment = Alignment.Center) {
+                            Text(if (on) "✓" else "${i + 1}", color = inkOn(fill), style = MaterialTheme.typography.labelLarge)
                         }
                     }
                 }
                 if (picks.isNotEmpty()) {
-                    Text(stringResource(R.string.mix_quick), style = MaterialTheme.typography.labelMedium)
-                    FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Caption(stringResource(R.string.mix_quick))
+                    FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         picks.forEach { pick ->
-                            val on = pick.size == chosen.size && pick.all { (i, s) -> i in parts && abs(share(i) - s) < 0.02f }
+                            val on = pick.size == chosen.size && pick.all { (i, s) -> i in chosen && abs(shares[chosen.indexOf(i)] - s) < 0.02f }
                             MixSwatch(pick.map { slots[it.first].color }, pick.map { it.second }, on,
-                                pick.joinToString(" + ") { (i, s) -> "${i + 1} ${pct(s)}%" }) {
+                                pick.joinToString(" + ") { (i, s) -> "${i + 1} ${(s * 100).roundToInt()}%" }) {
                                 parts.clear(); pick.forEach { (i, s) -> parts[i] = s * 10 }
                             }
                         }
                     }
                 }
-                Text(stringResource(R.string.mix_pick), style = MaterialTheme.typography.labelMedium)
-                FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    candidates.forEach { i ->
-                        val on = i in parts
-                        Box(Modifier.size(44.dp).clip(CircleShape).clickable {
-                            if (on) parts.remove(i) else parts[i] = if (chosen.isEmpty()) 5f else total / chosen.size
-                        }.border(if (on) 3.dp else 1.dp, if (on) MaterialTheme.colorScheme.primary else outline, CircleShape).padding(5.dp)
-                            .clip(CircleShape).background(swatch(slots[i].color)), contentAlignment = Alignment.Center) {
-                            val rgb = hexToRgb(slots[i].color)
-                            val ink = if (0.299f * rgb[0] + 0.587f * rgb[1] + 0.114f * rgb[2] > 0.6f) Color.Black else Color.White
-                            Text("${i + 1}", color = ink, style = MaterialTheme.typography.labelLarge)
-                        }
+                if (chosen.size >= 2) {
+                    Caption(stringResource(R.string.mix_shares)) {
+                        TextButton(onClick = { chosen.forEach { parts[it] = 10f / chosen.size } }) { Text(stringResource(R.string.mix_even)) }
+                    }
+                    ShareBar(chosen.map { slots[it].color }, shares, chosen.mapIndexed { k, i -> "${i + 1} ${pcts(shares)[k]}%" }.joinToString(" + ")) { k, x ->
+                        // Divider k sits between parts k and k + 1: only those two change, so the total stays 100 %.
+                        val s = sharesNow()
+                        val lo = s.take(k).sum() + MIN_SHARE
+                        val hi = s.take(k + 2).sum() - MIN_SHARE
+                        if (hi < lo) return@ShareBar
+                        val at = ((x / STEP).roundToInt() * STEP).coerceIn(lo, hi)
+                        val out = s.toMutableList()
+                        out[k] = at - s.take(k).sum()
+                        out[k + 1] = s.take(k + 2).sum() - at
+                        chosen.forEachIndexed { j, i -> parts[i] = out[j] * 10 }
                     }
                 }
-                if (chosen.size >= 3) {
-                    // Shares always add up to 100 %: moving one part rescales the others in proportion, so no slider can "all go high".
-                    fun setShare(i: Int, v: Float) {
-                        val lo = 0.05f
-                        val s = v.coerceIn(lo, 1f - lo * (chosen.size - 1))
-                        val others = chosen.filter { it != i }
-                        val ot = others.sumOf { share(it).toDouble() }.toFloat().coerceAtLeast(0.001f)
-                        val rest = others.associateWith { (1f - s) * share(it) / ot }
-                        parts[i] = s * 10
-                        rest.forEach { (o, r) -> parts[o] = r * 10 }
-                    }
-                    Row(Modifier.fillMaxWidth().height(26.dp).clip(RoundedCornerShape(13.dp)).border(1.dp, outline, RoundedCornerShape(13.dp))) {
-                        chosen.forEach { i -> Box(Modifier.weight(share(i).coerceAtLeast(0.01f)).fillMaxHeight().background(swatch(slots[i].color))) }
-                    }
-                    chosen.forEach { i ->
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            ColorDot(slots[i].color)
-                            Text("${i + 1}", Modifier.width(14.dp))
-                            Slider(share(i), { setShare(i, it) }, Modifier.weight(1f), valueRange = 0.05f..0.9f)
-                            Text("${pct(share(i))}%", Modifier.width(40.dp), style = MaterialTheme.typography.bodyMedium)
-                        }
-                    }
-                    TextButton(onClick = { chosen.forEach { parts[it] = 10f / chosen.size } }) { Text(stringResource(R.string.mix_even)) }
-                }
-                if (chosen.size == 2) {
-                    // Balance bar: all of the first part at the left end, all of the second at the right; drawn in the blend's own colours.
-                    val (a, b) = chosen
-                    val ca = slots[a].color
-                    val cb = slots[b].color
-                    val strip = remember(ca, cb) { (0..23).map { swatch(Mix.blend(listOf(ca, cb), listOf(1f - it / 23f, it / 23f))) } }
-                    fun bal(x: Float, w: Float) { val t = ((x / w) * 20).roundToInt().coerceIn(1, 19) / 20f; parts[a] = (1 - t) * 10; parts[b] = t * 10 }
-                    val t = share(b)
-                    val thumb = swatch(Mix.blend(listOf(ca, cb), listOf(1f - t, t)))
-                    Canvas(Modifier.fillMaxWidth().height(32.dp).clip(RoundedCornerShape(16.dp))
-                        .semantics { contentDescription = "${a + 1} ${pct(1f - t)}% + ${b + 1} ${pct(t)}%" }
-                        .pointerInput(a, b) { detectTapGestures { bal(it.x, size.width.toFloat()) } }
-                        .pointerInput(a, b) { detectDragGestures(onDragStart = { bal(it.x, size.width.toFloat()) }) { c, _ -> bal(c.position.x, size.width.toFloat()) } }) {
-                        drawRect(Brush.horizontalGradient(strip))
-                        val p = Offset(t * size.width, size.height / 2)
-                        drawCircle(thumb, size.height / 2 - 3.dp.toPx(), p)
-                        drawCircle(Color.Black, size.height / 2 - 2.dp.toPx(), p, style = Stroke(3.dp.toPx()))
-                        drawCircle(Color.White, size.height / 2 - 2.dp.toPx(), p, style = Stroke(1.5.dp.toPx()))
-                    }
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(R.string.mix_sublayers), Modifier.weight(1f))
+                Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(R.string.mix_sublayers), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
                     Switch(blend, { blend = it })
                 }
             }
         },
         confirmButton = {
-            TextButton(onClick = { onApply(chosen.map { (it + 1) to share(it) }, blend); onDismiss() }, enabled = chosen.size >= 2) { Text(stringResource(R.string.ok)) }
+            TextButton(onClick = { onApply(chosen.zip(shares) { i, s -> (i + 1) to s }, blend); onDismiss() }, enabled = chosen.size >= 2) { Text(stringResource(R.string.ok)) }
         },
         dismissButton = {
             Row {
@@ -244,3 +266,52 @@ internal fun MixDialog(slots: List<FilamentSlot>, index: Int, sublayers: Boolean
     )
 }
 
+private const val STEP = 0.05f
+private const val MIN_SHARE = 0.05f
+
+/**
+ * The shares of [colors] as one bar of coloured segments (percent inside each wide enough segment) with a handle on every divider.
+ * Tap or drag anywhere: the nearest divider follows the finger; [onMove] gets (divider, position 0..1).
+ */
+@Composable
+private fun ShareBar(colors: List<String?>, shares: List<Float>, description: String, onMove: (Int, Float) -> Unit) {
+    val shape = RoundedCornerShape(12.dp)
+    val labels = pcts(shares)
+    var held by remember { mutableIntStateOf(-1) }
+    // The gesture handlers outlive recompositions: read the latest shares and callback, not the ones they started with.
+    val now by rememberUpdatedState(shares)
+    val move by rememberUpdatedState(onMove)
+    fun nearest(x: Float, w: Float): Int {
+        var acc = 0f
+        val cuts = now.dropLast(1).map { acc += it; acc }
+        return cuts.indices.minBy { abs(cuts[it] - x / w) }
+    }
+    Box(Modifier.fillMaxWidth().height(44.dp).clip(shape).border(1.dp, MaterialTheme.colorScheme.outline, shape)
+        .semantics { contentDescription = description }
+        .pointerInput(colors.size) { detectTapGestures { val w = size.width.toFloat(); move(nearest(it.x, w), it.x / w) } }
+        .pointerInput(colors.size) {
+            detectDragGestures(onDragStart = { held = nearest(it.x, size.width.toFloat()) }, onDragEnd = { held = -1 }, onDragCancel = { held = -1 }) { c, _ ->
+                if (held >= 0) move(held, c.position.x / size.width)
+            }
+        }) {
+        Row(Modifier.matchParentSize()) {
+            colors.forEachIndexed { k, hex ->
+                val fill = swatch(hex)
+                Box(Modifier.weight(shares[k].coerceAtLeast(0.01f)).fillMaxHeight().background(fill), contentAlignment = Alignment.Center) {
+                    if (shares[k] >= 0.12f) Text("${labels[k]}%", color = inkOn(fill), style = MaterialTheme.typography.labelLarge, maxLines = 1, softWrap = false)
+                }
+            }
+        }
+        Canvas(Modifier.matchParentSize()) {
+            var acc = 0f
+            shares.dropLast(1).forEachIndexed { k, s ->
+                acc += s
+                val x = acc * size.width
+                val w = (if (k == held) 8.dp else 6.dp).toPx()
+                val h = size.height - 12.dp.toPx()
+                drawRoundRect(Color.Black.copy(alpha = 0.45f), Offset(x - w / 2 - 1.dp.toPx(), 5.dp.toPx()), Size(w + 2.dp.toPx(), h + 2.dp.toPx()), CornerRadius(w))
+                drawRoundRect(Color.White, Offset(x - w / 2, 6.dp.toPx()), Size(w, h), CornerRadius(w / 2))
+            }
+        }
+    }
+}
