@@ -26,7 +26,7 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - Fan slider hold-until-within-4 % (r295) + Extrude F150 e13bebb: need the printer.
 - Preview bead look (Chromebook), part shadows r266, light/shadow lab sliders r263: Claude-verified, user hasn't seen.
 - Drag-handle fling: wide PanelEdge (WSA mouse inconclusive, r300) and OpenSCAD grips untested; portrait flick user-verified r294.
-- Stylus 7d3a263 (palm rejection, mappable pen buttons/eraser, no pressure/tilt): untested on a pen (Note 10+ S Pen / Quest pseudo pen; super low priority, user 2026-10-21). Pie menu (user dislikes it): LOW, pen-button customizable tool picker, trigger untested. Sketch-mode idea undecided.
+- Stylus 7d3a263 (palm rejection, pen buttons/eraser): untested on a pen; super low priority (user 2026-10-21). Pie menu LOW (user dislikes it).
 - Nozzle match: newer-firmware `device.nozzle.info`, stale status after a printer-model switch, spool swap drops the pick.
 - Model-mismatch guard 54b4ca6 (one printer); SHIELD sign-ins (r210); element blocker in plugin/Device WebViews; true EGL context loss; "failed OpenSCAD run clears the old log": no repro / no setup.
 - View cube: phone portrait layout untested; off by default (user r352: motion sick); revisit only on request.
@@ -34,28 +34,28 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 ## Waiting on the user
 - HD plate ideas (user verified r394): 3D bed frame model, dual-nozzle decal layout (Claude 2026-10-24).
 - Plate switcher pick (lab stays; don't ask again). Launcher icon colour ("decide later").
-- [Opus] Sculpt mode (More > Sculpt, r428+; Claude-verified WSA 2026-10-26..28, archive; user feel untested). Symmetry 51ad144 untested on device by user. Remaining items (paint overlay mid-stroke, bump positions, grab on plane) parked as won't-do 2026-10-30: low value, native + CI only.
+- [Opus] Sculpt mode Claude-verified WSA 2026-10-28 (archive); user feel + symmetry 51ad144 untested; leftovers parked won't-do 2026-10-30.
 - [Opus] Build workspace (user GO 2026-10-23): all steps incl. multi-copy (r468) and repeated/nested group gizmos (r469) Claude-verified WSA (archive 2026-10-29); turn ring + body drag in a repeated group Claude-verified WSA 2026-10-29 (archive); open: user feel.
 
 ## Ideas (not started)
-- Self-portrait 3 gaps (Claude, r489 WSA, 2026-10-31): MCP tools filament_slots/prime_tower/preview_set Claude-verified; design fixes (triangle count, sketch size) Claude-verified. Open: only real-print checks (24 open edges on lattice, probably rod ends); 16-filament tower "no free spot" is a physical limit (maybe a clearer message). Details: archive 2026-10-31 backlog trim.
+- Self-portrait 3 (Claude r489 WSA 2026-10-31): open only real-print checks (24 open lattice edges); maybe clearer 16-filament tower message.
 - Study Bambu Handy's MakerWorld integration.
 - Headless display gaps (Reference "Headless display"): pinch on the virtual display, `start` stress test.
 - Quest: 2D panel confirmed (user 2026-10-21); open only input beyond touch + native VR view [Opus] (on request). Phone <-> Quest link (undefined).
 - Orca plugin runtime kept generic: not done: audit prompts, create_window, per-preset overrides, printerAgent. FilamentHub dropped for good.
 - Public release check: built-in adblock + hard-coded Models tabs vs store policies / site terms (not researched).
 - Colour icon set shortlist + mockup (low). Paint card fold direction by screen position (low). "Need phone" prompt (shelved).
-- [Opus] Filament materials tiers 1+2, per-slot look, Realistic render 1+2 (Claude WSA debug 2026-10-24): user feel untested (layer line contrast in realistic mode); variable layer height ignored; open: Quest/Chromebook GPU check. Google Filament engine not wanted (breaks Shaders.kt drags, ids, uSolo).
+- [Opus] Filament materials / per-slot look / Realistic render (Claude WSA 2026-10-24): user feel untested; variable layer height ignored; Quest/Chromebook GPU check open.
 - Preview camera-light slider + Check mesh sharp-edge markers + Hollow: Claude-verified WSA (archive); open: user feel (sessions B/C in NOTES-merge-batch.md). Cleanup = More > Repair (exists).
 - [Opus] Snapseed interaction plan (NOTES-interaction-plan.md): steps 1-9 Claude-verified WSA (r437/r438, 2026-10-27); user feel untested on all.
-- UX review via Gemini (user 2026-10-31): bundle `~/orca-android-tools/exports/ux-review/`; lowest priority, act only if the user brings Gemini's answer. Claude's base list + stash "ux: view menu grouping..." in archive 2026-10-31 backlog trim; drop or apply after the user picks.
+- UX review via Gemini (user 2026-10-31): lowest priority, act only if the user brings Gemini's answer (bundle exports/ux-review/, archive 2026-10-31).
 - S Pen pressure (user 2026-10-31): built ab552fa, UI checked on WSA VD; open: feel test on the Note 10+ (user says when awake); Quest pen has no pressure.
 ## Known limits (no action)
 - Real keyboard Ctrl+1 = system hotkey. Inactive-plate double tap re-frames (user: fine). Badges ~23 dp at plate zoom (told the user).
 - HMS texts: HmsCatalog.kt fetches at runtime; Handy's copies stay local. Flatpak r9 MakerLab, upstream bump, obn follow-ups: archive.
 - Paint guard tool (guard plane) misbehaves, user can't describe yet (user report 2026-10-25, r401). Open: needs repro from user.
 - Upstream 2.5.0 alpha overlap: NOTES-upstream-2.5.md (source checks done 2026-10-25); keep ours where better. All compare rows closed at source level (2026-10-28); nothing open.
-- CAD roadmap (user accepted 2026-10-25; NOTES-cad-reuse.md): steps 0-6 built and Claude-verified on WSA (Hull r445, XY edge snap r447, Blend joins r419, sweep/loft r421, bend/twist/taper r423, sculpt r428), user feel untested; 7 asset library 7a-7d Claude-verified WSA VD (archive 2026-10-29); 7c built-ins (Wheel, Figure, Peg and hole, Hinge, Gear) done.
+- CAD roadmap steps 0-7 (NOTES-cad-reuse.md) Claude-verified WSA (archive 2026-10-29); user feel untested.
 - Truck holes cut preview: Claude WSA-verified on the debug build 2026-10-29 (chef visible through the serving window). Sculpt on a cut part OK (r464, Claude 2026-10-29). Hole ghost alpha 0.25 done (r470, Claude WSA VD 2026-10-29).
 - Measure steps 1-6 + steer/tap-select/loupe/Tuning (Claude-verified WSA debug 2026-10-26/27); open = user feel on the phone (steer vs plain loupe, 2nd-finger freeze, axis lock, mouse hover, S Pen on the Note); Alt+click, ring-to-ring, hole bottom rim untested.
 - CAD user feel open: sketch Twist / Rise per turn / Loft / Sweep (r421), Bend / twist / taper (r423), Smooth blend (r429); all Claude-verified WSA/phone 2026-10-26.
@@ -72,12 +72,12 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - [Opus] OrcaMesh edit mode: M1-M4 (move/scale/rotate, extrude+inset, cut ring, fillet/chamfer) Claude-verified on WSA VD, M4 also on release r487 (2026-10-30); no M5 planned; user feel untested (NOTES-orcamesh-edit.md "Progress").
 - [Opus] AI print failure watch (user 2026-10-30, wants it if compute per print is low): local Obico-style detector on the printer camera, pause + notify; LLM only as optional 2nd opinion. Details: archive 2026-10-31 backlog trim. Open: ask the user for the camera model.
 - AI print failure watch feasibility note: parked behind the UX audit (needs the user's camera model).
-- [Opus] User asks 2026-10-31: Fix links (all) + danger dialog Cancel + spiral Fix Claude-verified (archive 2026-10-31). Danger Apply+mute verified (archive). Open (headings + slider works verified r494, archive): HD plate "from below" look (needs camera under plate), tower text, locked plate size fe9f57f on device (Claude, untested). Test via `orca-vd.sh start window`, close app after.
+- [Opus] Settings asks 2026-10-31 (Claude r494): open HD plate "from below" look, tower text, locked plate size fe9f57f on device. Test via `orca-vd.sh start window`.
 
-- [Opus] Pinned process settings (user 2026-10-31): built (main view "Pin settings here" -> editor pin mode, pin icon per row; info dialog Pin/Unpin; rows under QuickSettings; risky values open the editor). Claude-verified WSA VD 2026-10-31 (pin, edit 0.25 applies, persists over restart). "Default" label fixed (group-title prefix, WSA VD-verified "Line width · Default", Claude 2026-10-31, commit pending CI build). Open: unpin via label dialog untested.
+- [Opus] Pinned process settings Claude-verified WSA VD 2026-10-31 (archive): open unpin via label dialog.
 - Bulk filament edit (53578ad): long press verified by Claude on phone VD 2026-10-31 (archive); only Shift/Ctrl+click (mouse, Chromebook) and user feel untested. 53578ad not in a CI build yet.
-- Under-plate opacity: code done (lab HD plate slider "from below", default 0 = invisible); compiles; WSA VD test 2026-10-31 (Claude): lab plateHd + plateUnderAlpha set via prefs, but view_screenshot came back blank (GL not drawing on the VD, 2 KB flat grey), so the look is still unchecked. Try window mode or a user glance.
-- [Opus] Perf experiments (user 2026-10-31 framework, set up by Claude 2026-10-31): queue in docs/PERFORMANCE.md (vendor solid archive -11 MB, native ICF/LTO, Python stdlib trim, i18n = user decision); CI size step on local branch local/ci-size-step (ae8d7fa), push blocked: token lacks workflow scope (Claude 2026-10-31).
-- Multi-select filament bug: long-press picker fixed (debug build, Claude WSA VD 2026-11-01, committed, no CI build yet). Open: "add 3rd filament while selected", lost selected shade not reproduced (Add and tap-toggle worked); selected-ring idea folded into Filament row layout.
-- [Opus] Filament section makeover (user 2026-10-31, brain dump = exploration, leanings only): one colour-mix button above the list (or all 4 row actions in a 3-dot menu) instead of per row; "Surface look" inside the colour-dot menu; own custom colour picker (upstream's is ugly); rows paired two per line like the real AMS lite (Prepare > Filament); Bambu Studio mixer as model: quick-pick combos for 2..N colours + picker with live preview while scrubbing proportion sliders (BS limit 3 colours; look at the colour-mixing fork's picker/mixer UI).
+- Under-plate opacity (lab HD plate "from below"): look unchecked, VD view_screenshot blank (Claude 2026-10-31); try window mode.
+- [Opus] Perf experiments queue: docs/PERFORMANCE.md; CI size step ae8d7fa on local/ci-size-step, push needs workflow scope (Claude 2026-10-31).
+- [Opus] AI print failure watch (user 2026-10-30): local detector on the printer camera; open: ask the user for the camera model (archive 2026-10-31).
+- [Opus] Filament makeover (user 2026-10-31 brain dump, leanings only): tiles + "+ Mix" done (archive 2026-11-01); open: own colour picker (upstream's is ugly), Bambu Studio-style mixer (quick-pick combos, live preview while scrubbing ratio sliders).
 - Filament row layout + "+ Mix" (user 2026-11-01): tiles 6abf798 + Mix button 52c7b11 Claude-verified WSA VD 2026-11-01 (archive); open: CI run 41329765340 install, user feel, vendor logo (not done: trademark).

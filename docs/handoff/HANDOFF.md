@@ -15,7 +15,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 1c4ff52 (PR #69 = r490, merged 2026-10-31; Claude-verified only). Nothing unverified on the branch. User-untested in main: list in `NOTES-merge-batch.md`.
 - Signing secrets: `release` environment (main + `claude/*` only).
-- Latest installed CI build: r494 (run 41284801039, c44c418 = settings audit f00f554: Expert toggle, vendor printers hide fixed hardware, Allow once/Always dialog) on SHIELD, WSA, phone (Chromebook/Quest offline), 2026-11-01. Phone .20 drops off adb: `adb connect <phone-ip>:5555` (IP: memory device-ips); GL shots work on the phone VD (`orca-vd.sh shot` takes a name under shots/). Before it r493 (vendors xz). Install builds on all adb devices (skip .23).
+- Latest installed CI build: r494 (run 41284801039, settings audit) on SHIELD, WSA, phone, 2026-11-01. Phone drops off adb: `adb connect <phone-ip>:5555` (memory device-ips); GL shots on the phone VD. Install builds on all adb devices (skip .23).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **User 2026-10-28: no more user testing for now; Claude builds and tests everything itself (memory no-user-testing-now); don't ask for feel/UI checks.**
 - **User 2026-10-29: no tests on the user's screen; all tests on a hidden virtual display** (`TARGET=wsa orca-vd.sh start`, memory tests-on-virtual-display).
@@ -34,9 +34,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
 - UX audit / Gemini round 3: lowest priority (user 2026-10-31), backlog line.
-- Settings audit: WSA VD verified 2026-11-01 (archive); r494 built + installed. Headings + HD slider control verified (archive). Open tests (backlog): HD "from below" look (needs camera under the plate), tower text, unpin via label dialog, Shift/Ctrl+click bulk filament. Notice Fix links done (archive).
+- Settings audit + r494 verified (archive); open tests in backlog (HD "from below", tower text, unpin, Shift/Ctrl+click bulk).
 - S Pen pressure awaits the Note 10+ test; Self-portrait 3 / CAD plan: backlog + archive.
-- Perf/size: `docs/PERFORMANCE.md` (budgets, Done list, experiment queue). CI size step = commit ae8d7fa on local branch `local/ci-size-step` (push needs `gh auth refresh -s workflow` by the user). Exp. 1 (vendors xz, -11 MB) done + verified: r493 (run 41274366209) installed on all adb devices 2026-10-31, APK 118.6 MB, phone cold start median 159 ms (PERFORMANCE.md). Size summary needs the CI step pushed.
+- Perf/size: `docs/PERFORMANCE.md`. CI size step ae8d7fa on local `local/ci-size-step` (push needs `gh auth refresh -s workflow` by the user). Exp. 1 (vendors xz, -11 MB) verified r493.
 - Filament tiles 6abf798 + single "+ Mix" button 52c7b11 Claude-verified WSA VD (archive). CI run 41329765340 dispatched: install on all adb devices (skip .23), quick smoke.
 - Next step: install CI run 41329765340 (tiles + Mix) on all adb devices, then custom colour picker (filament makeover) -> Opus 5.5 (medium)
 ## User decisions (2026-10-13)
