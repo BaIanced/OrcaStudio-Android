@@ -33,9 +33,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   DeepSeek V4.1 Flash = default; runner `octauto.sh` (`D:\oct-backup\jobs\README.md`; opencode v2: `model#variant`), ledger `trust-profile.md`.
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
-- UX audit / Gemini round 3: lowest priority (user 2026-10-31), backlog line.
 - Settings audit + r494 verified (archive); open tests in backlog (HD "from below", tower text, unpin, Shift/Ctrl+click bulk).
-- S Pen pressure awaits the Note 10+ test; Self-portrait 3 / CAD plan: backlog + archive.
+- S Pen pressure (Note 10+), Self-portrait 3, CAD plan, UX audit (lowest): backlog.
 - Perf/size: `docs/PERFORMANCE.md`. CI size step ae8d7fa on local `local/ci-size-step` (push needs `gh auth refresh -s workflow` by the user). Exp. 1 (vendors xz, -11 MB) verified r493.
 - Filament tiles + "+ Mix" in r495 (archive). Own colour picker e48fa3d Claude-verified WSA VD (archive); not in a CI build yet (batch with the mixer).
 - Next step: Bambu Studio-style mixer (quick-pick combos, live preview while scrubbing ratio sliders; backlog "Filament makeover") -> Opus 5.5 (medium)
