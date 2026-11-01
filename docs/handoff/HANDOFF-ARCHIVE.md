@@ -3889,3 +3889,6 @@ User said "yep looks good" while run 41158738411 (hole labels avoid bbox/wall la
 
 ## 2026-11-01 User: live session ended, mixer redesign wanted (user, chat)
 - User: "i don't want to do live anymore" (scrcpy session over). The two live-session mixer passes (83384d3 chip picker + rescaling sliders + stacked bar; 437c9d9 plain blended pills, CI 41362528022) were never seen by the user. User switched to Opus "so you could work through a visually more appealing solution": Claude designs the mixer look, no live feedback.
+
+### 2026-11-01 Mix dialog functional check (Claude, WSA VD, CI run 41363118216)
+- 2 parts: chips pick, quick picks appear, bar 50/50 -> drag to 75/25, tap at the left end jumps to 5/95 (5 % floor). 3 parts: 34/33/33 even, divider 1 -> 20/47/33, divider 2 -> 20/65/15, divider 2 dragged far left clamps at 20/5/75; totals always 100. Hex preview updates. Test slot 3 removed again. Found: chosen chips showed only a check, hiding the slot number -> chips keep the number, check badge added (local commit).

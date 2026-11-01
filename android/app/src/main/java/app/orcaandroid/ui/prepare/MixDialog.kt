@@ -211,11 +211,18 @@ internal fun MixDialog(slots: List<FilamentSlot>, index: Int, sublayers: Boolean
                     candidates.forEach { i ->
                         val on = i in parts
                         val fill = swatch(slots[i].color)
-                        Box(Modifier.size(48.dp).clip(CircleShape).clickable {
-                            if (on) parts.remove(i) else parts[i] = if (chosen.isEmpty()) 5f else chosen.sumOf { parts.getValue(it).toDouble() }.toFloat() / chosen.size
-                        }.border(if (on) 3.dp else 1.dp, if (on) MaterialTheme.colorScheme.primary else outline, CircleShape).padding(if (on) 6.dp else 4.dp)
-                            .clip(CircleShape).background(fill).border(1.dp, outline.copy(alpha = 0.5f), CircleShape), contentAlignment = Alignment.Center) {
-                            Text(if (on) "✓" else "${i + 1}", color = inkOn(fill), style = MaterialTheme.typography.labelLarge)
+                        // The slot number stays on the chip (similar colours are told apart by it); a check badge marks the chosen ones.
+                        Box(Modifier.size(48.dp)) {
+                            Box(Modifier.matchParentSize().clip(CircleShape).clickable {
+                                if (on) parts.remove(i) else parts[i] = if (chosen.isEmpty()) 5f else chosen.sumOf { parts.getValue(it).toDouble() }.toFloat() / chosen.size
+                            }.border(if (on) 3.dp else 1.dp, if (on) MaterialTheme.colorScheme.primary else outline, CircleShape).padding(if (on) 6.dp else 4.dp)
+                                .clip(CircleShape).background(fill).border(1.dp, outline.copy(alpha = 0.5f), CircleShape), contentAlignment = Alignment.Center) {
+                                Text("${i + 1}", color = inkOn(fill), style = MaterialTheme.typography.labelLarge)
+                            }
+                            if (on) Box(Modifier.align(Alignment.BottomEnd).size(18.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary),
+                                contentAlignment = Alignment.Center) {
+                                Text("✓", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.labelSmall)
+                            }
                         }
                     }
                 }

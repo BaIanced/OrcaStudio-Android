@@ -36,8 +36,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Open tests in backlog (Shift/Ctrl+click bulk = Chromebook mouse). Verified 2026-11-01 (archive): HD from below, unpin via label, tower no-free-spot text, filament makeover.
 - S Pen pressure, Self-portrait 3, CAD plan, UX audit (lowest): backlog.
 - Perf/size: `docs/PERFORMANCE.md`; CI size step ae8d7fa on local `local/ci-size-step` (push needs the user's `gh auth refresh -s workflow`).
-- **Mixer redesign (user 2026-11-01: live session over; Opus designs a visually better mixer, no live feedback).** 997ef3b: layered-print preview fading into the blend, check chips, round quick picks, ONE proportion bar with draggable dividers (5 % steps, total 100 %) for 2..N parts. Debug APK builds; CI run 41363118216. UNTESTED visually. Next: install the CI build on all adb devices (phone .20 is back on adb, skip .23); phone VD shots of the Mix dialog with 2 and 3 parts (`shot.sh` + `.vd-phone.state`), check divider drags (`input swipe`) via ui dumps, polish what looks off. Then the backlog.
-- Next step: Mixer redesign visual check + polish (phone VD shots) -> Opus 5.5 (high)
+- **Mixer redesign (user 2026-11-01: Opus designs a visually better mixer, no live feedback).** 997ef3b installed (run 41363118216) on phone, WSA, SHIELD (Chromebook .28 unreachable). Functional check on WSA VD 2026-11-01 OK (archive). Local commit (not pushed): chips keep their slot number + check badge. UNTESTED visually. Next: phone VD shots of the Mix dialog with 2 and 3 parts (phone was Dozing = taps dropped: ask the user before `input keyevent WAKEUP`), polish, then push + one CI build. Then the backlog.
+- Next step: Mixer visual check + polish (phone VD shots) -> Opus 5.5 (high)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
