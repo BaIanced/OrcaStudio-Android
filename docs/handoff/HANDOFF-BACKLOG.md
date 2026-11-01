@@ -79,5 +79,4 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - Under-plate opacity (lab HD plate "from below"): look unchecked, VD view_screenshot blank (Claude 2026-10-31); try window mode.
 - [Opus] Perf experiments queue: docs/PERFORMANCE.md; CI size step ae8d7fa on local/ci-size-step, push needs workflow scope (Claude 2026-10-31).
 - [Opus] AI print failure watch (user 2026-10-30): local detector on the printer camera; open: ask the user for the camera model (archive 2026-10-31).
-- [Opus] Filament makeover (user 2026-10-31 brain dump, leanings only): tiles + "+ Mix" (r495) + own colour picker (e48fa3d) done (archive 2026-11-01); open: Bambu Studio-style mixer (quick-pick combos, live preview while scrubbing ratio sliders).
-- Filament row layout + "+ Mix" (user 2026-11-01): tiles 6abf798 + Mix button 52c7b11 Claude-verified WSA VD 2026-11-01 (archive); open: CI run 41329765340 install, user feel, vendor logo (not done: trademark).
+- Filament makeover (user 2026-10-31): tiles, + Mix, colour picker, BS-style mixer all Claude-verified WSA VD (archive 2026-11-01); open: CI run 41331411840 install, mixer swatch/bar looks unseen (no WSA VD shots), user feel, vendor logo (trademark).

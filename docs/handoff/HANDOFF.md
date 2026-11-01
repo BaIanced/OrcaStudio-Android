@@ -33,11 +33,11 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   DeepSeek V4.1 Flash = default; runner `octauto.sh` (`D:\oct-backup\jobs\README.md`; opencode v2: `model#variant`), ledger `trust-profile.md`.
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
-- Settings audit + r494 verified (archive); open tests in backlog (HD "from below", tower text, unpin, Shift/Ctrl+click bulk).
+- Open tests in backlog (HD "from below", tower text, unpin, Shift/Ctrl+click bulk).
 - S Pen pressure (Note 10+), Self-portrait 3, CAD plan, UX audit (lowest): backlog.
 - Perf/size: `docs/PERFORMANCE.md`. CI size step ae8d7fa on local `local/ci-size-step` (push needs `gh auth refresh -s workflow` by the user). Exp. 1 (vendors xz, -11 MB) verified r493.
-- Filament tiles + "+ Mix" in r495 (archive). Own colour picker e48fa3d Claude-verified WSA VD (archive); not in a CI build yet (batch with the mixer).
-- Next step: Bambu Studio-style mixer (quick-pick combos, live preview while scrubbing ratio sliders; backlog "Filament makeover") -> Opus 5.5 (medium)
+- Filament makeover done (archive 2026-11-01): tiles + Mix in r495; colour picker + mixer b83fa3a in CI run 41331411840.
+- Next step: install CI run 41331411840 on all adb devices + WSA smoke, then next backlog item -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
 - (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
