@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -166,15 +168,43 @@ internal fun MixDialog(slots: List<FilamentSlot>, index: Int, sublayers: Boolean
                         }
                     }
                 }
-                candidates.forEach { i ->
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Checkbox(i in parts, { on -> if (on) parts[i] = if (chosen.isEmpty()) 5f else total / chosen.size else parts.remove(i) })
-                        ColorDot(slots[i].color)
-                        Text("${i + 1}", Modifier.padding(end = 4.dp))
-                        if (chosen.size >= 3 && i in parts) Slider(parts.getValue(i), { parts[i] = it }, Modifier.weight(1f), valueRange = 0.5f..10f)
-                        else Spacer(Modifier.weight(1f))
-                        if (i in parts && chosen.size >= 2) Text("${pct(share(i))}%", style = MaterialTheme.typography.bodySmall)
+                Text(stringResource(R.string.mix_pick), style = MaterialTheme.typography.labelMedium)
+                FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    candidates.forEach { i ->
+                        val on = i in parts
+                        Box(Modifier.size(44.dp).clip(CircleShape).clickable {
+                            if (on) parts.remove(i) else parts[i] = if (chosen.isEmpty()) 5f else total / chosen.size
+                        }.border(if (on) 3.dp else 1.dp, if (on) MaterialTheme.colorScheme.primary else outline, CircleShape).padding(5.dp)
+                            .clip(CircleShape).background(swatch(slots[i].color)), contentAlignment = Alignment.Center) {
+                            val rgb = hexToRgb(slots[i].color)
+                            val ink = if (0.299f * rgb[0] + 0.587f * rgb[1] + 0.114f * rgb[2] > 0.6f) Color.Black else Color.White
+                            Text("${i + 1}", color = ink, style = MaterialTheme.typography.labelLarge)
+                        }
                     }
+                }
+                if (chosen.size >= 3) {
+                    // Shares always add up to 100 %: moving one part rescales the others in proportion, so no slider can "all go high".
+                    fun setShare(i: Int, v: Float) {
+                        val lo = 0.05f
+                        val s = v.coerceIn(lo, 1f - lo * (chosen.size - 1))
+                        val others = chosen.filter { it != i }
+                        val ot = others.sumOf { share(it).toDouble() }.toFloat().coerceAtLeast(0.001f)
+                        val rest = others.associateWith { (1f - s) * share(it) / ot }
+                        parts[i] = s * 10
+                        rest.forEach { (o, r) -> parts[o] = r * 10 }
+                    }
+                    Row(Modifier.fillMaxWidth().height(26.dp).clip(RoundedCornerShape(13.dp)).border(1.dp, outline, RoundedCornerShape(13.dp))) {
+                        chosen.forEach { i -> Box(Modifier.weight(share(i).coerceAtLeast(0.01f)).fillMaxHeight().background(swatch(slots[i].color))) }
+                    }
+                    chosen.forEach { i ->
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            ColorDot(slots[i].color)
+                            Text("${i + 1}", Modifier.width(14.dp))
+                            Slider(share(i), { setShare(i, it) }, Modifier.weight(1f), valueRange = 0.05f..0.9f)
+                            Text("${pct(share(i))}%", Modifier.width(40.dp), style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                    TextButton(onClick = { chosen.forEach { parts[it] = 10f / chosen.size } }) { Text(stringResource(R.string.mix_even)) }
                 }
                 if (chosen.size == 2) {
                     // Balance bar: all of the first part at the left end, all of the second at the right; drawn in the blend's own colours.
