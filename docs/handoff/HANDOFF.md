@@ -13,7 +13,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 ## State
 - One repo: OrcaStudio-Android (code + these docs, `docs/handoff/`), branch `claude/handoff-continuation-rseql3`. Autonomy (user, 2026-10-11): decide branches and next steps
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
-- Android main = 1c4ff52 (PR #69, branch at r490 = r487 content + S Pen pressure, MCP filament_slots/prime_tower/preview_set, sketch size/triangle fixes; merged 2026-10-31 on "merge"; user-untested, Claude-verified only). Nothing unverified on the branch. User-untested in main: list in `NOTES-merge-batch.md`.
+- Android main = 1c4ff52 (PR #69 = r490, merged 2026-10-31; Claude-verified only). Nothing unverified on the branch. User-untested in main: list in `NOTES-merge-batch.md`.
 - Signing secrets: `release` environment (main + `claude/*` only).
 - Latest installed CI build: r492 (run 41247554720, cc0f5ff: notice Fix links, danger confirm, mute, HD plate slider, tower text) on all 4 reachable adb serials, 2026-10-31. Install builds on all adb devices (skip .23).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
@@ -33,11 +33,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   DeepSeek V4.1 Flash = default; runner `octauto.sh` (`D:\oct-backup\jobs\README.md`; opencode v2: `model#variant`), ledger `trust-profile.md`.
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
-- UX audit / Gemini round 3: **lowest priority (user 2026-10-31)**; only act if the user brings Gemini's answer (backlog line).
-- r492 notices, pinned settings, bulk filament edit: open tests in the backlog (spiral Fix link + long press Claude-verified).
-- Debug app on WSA: uninstall when the user is done. S Pen pressure awaits the Note 10+ test; Self-portrait 3 / CAD plan details: backlog + archive.
-- Perf/size framework set up 2026-10-31 (`docs/PERFORMANCE.md`, `size_report.py`, `size-budget.json`, CI size step, `-Porca.composeReports=true`); CI size step is commit ae8d7fa on local branch `local/ci-size-step` (push needs `gh auth refresh -s workflow` by the user; then cherry-pick + push). Experiment queue in the doc.
-- Perf exp. 1 done 2026-10-31 (commit 'Vendor profiles as stored zips inside xz', assets/vendors 28.3 -> 17.25 MB, WSA debug verified; PERFORMANCE.md "Done"). CI run 41274366209 dispatched: install it on all adb devices, check the size summary (vendors ~17.3 MB, dex under 4.8 MB with xz) and a cold start on the phone (prepare() re-extracts installed vendors).
+- UX audit / Gemini round 3: lowest priority (user 2026-10-31), backlog line.
+- r492 notices, pinned settings, bulk filament edit: open tests in the backlog.
+- S Pen pressure awaits the Note 10+ test; Self-portrait 3 / CAD plan: backlog + archive.
+- Perf/size: `docs/PERFORMANCE.md` (budgets, Done list, experiment queue). CI size step = commit ae8d7fa on local branch `local/ci-size-step` (push needs `gh auth refresh -s workflow` by the user). Exp. 1 (vendors xz, -11 MB) done + WSA-verified; CI run 41274366209: install on all adb devices, check size summary (vendors ~17.3, dex < 4.8) + phone cold start.
 - Next step: install CI run 41274366209 + size/cold-start check, then perf experiment 2 (Python stdlib trim) -> Sonnet 5.5 (medium)
 ## User decisions (2026-10-13)
 - Modeling goal: model without writing code (OpenSCAD only a backstop).
