@@ -15,7 +15,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 1c4ff52 (PR #69 = r490, merged 2026-10-31; Claude-verified only). Nothing unverified on the branch. User-untested in main: list in `NOTES-merge-batch.md`.
 - Signing secrets: `release` environment (main + `claude/*` only).
-- Latest installed CI build: r502 (run 41371910606, mixer 3+-part picks) on WSA + phone (.20) 2026-11-01; Chromebook not on adb (r496). **User 2026-11-01: avoid the SHIELD for now** (no installs there). Phone drops off adb: `adb connect <phone-ip>:5555` (memory device-ips); GL shots on the phone VD. Install builds on all adb devices (skip .23).
+- Latest installed CI build: r504 (run 41389259706, size cuts) on WSA + phone (.20) 2026-11-02; Chromebook not on adb (r496). **User 2026-11-01: avoid the SHIELD for now** (no installs there). Phone drops off adb: `adb connect <phone-ip>:5555` (memory device-ips); GL shots on the phone VD. Install builds on all adb devices (skip .23).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **User 2026-10-28: no more user testing for now; Claude builds and tests everything itself (memory no-user-testing-now); don't ask for feel/UI checks.**
 - **User 2026-10-29: no tests on the user's screen; all tests on a hidden virtual display** (`TARGET=wsa orca-vd.sh start`, memory tests-on-virtual-display).
@@ -34,13 +34,12 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
 - Open tests in backlog.
 - CI size step ae8d7fa: local `local/ci-size-step` (push needs the user's `gh auth refresh -s workflow`).
-- CI 41387402416 (green, unchecked) = native cuts (-O2+ThinLTO, OpenVDB patch 0004); 41389259706 = + i18n drop d6c29a8. Budgets: orca_jni 43.6, i18n 0.1, total 111.0.
+- r504 checked 2026-11-02: APK 101.02 MB (r492 124.1), WSA blend/hollow/slice smoke OK; budgets total 104.1, orca_jni 43.5 (PERFORMANCE.md Done).
 - **Size push (user 2026-11-01: wants big wins, "not multiple times larger than it should be"; speed never traded for size without
   reason).** Map: PERFORMANCE.md item 0. User OK'd ALL cuts incl. Python (~15 MB) and non-Bambu vendors (~14)
   on demand. Done: a (partial), c (rejected), i18n, b (rejected 2026-11-02: OCCT is the modeling core, STEP reader never linked;
   PERFORMANCE.md 0.b; STEP-import gap in backlog). Left: vendors -> Python.
-- Next step: check both runs (size_report.py on the APKs vs budgets, install WSA + phone, blend/hollow smoke), lower the total budget,
-  then vendors on demand (non-Bambu profiles ~14 MB; start at `core/ResourceStore.kt` + `pack_resources.py`; download from a release
+- Next step: vendors on demand (non-Bambu profiles ~14 MB; start at `core/ResourceStore.kt` + `pack_resources.py`; download from a release
   asset + hash on first use of a vendor) -> Opus 5.5 (high).
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".

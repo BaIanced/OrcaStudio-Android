@@ -53,6 +53,11 @@ Record a missing baseline the first time a change touches that area (same device
   resources.zip under xz: only -0.35 MB, not done. CI run 41274366209 (r493) installed on all 4 adb devices;
   APK 118.6 MB (was 124.1 budget at r492). CI size summary absent: the size step is still on local branch `local/ci-size-step`.
 
+- 2026-11-02 CI check of the 2026-11-01 cuts: r504 (run 41389259706: -O2+ThinLTO, OpenVDB patch 0004, i18n catalogs
+  dropped) APK total 101.02 MB in the APK (r502 118.5, r492 124.1): orca_jni 42.27, i18n 0. WSA smoke on r504: smooth blend
+  r 3 + hollow 2 mm on a 30x20x30 L (24 -> 24,086 tris, 2 shells, 5,551 mm3), slice 150 layers, no warnings, UI English.
+  Budgets: total 111.0 -> 104.1, orca_jni 43.6 -> 43.5 (r504 + 3%).
+
 ## Experiment queue (measured potential, not done)
 
 0. **Big-ticket map (2026-11-01, r502 APK 118.5 MB; native libs stored uncompressed = 78 MB).** liborca_jni symbol bytes by
@@ -77,7 +82,7 @@ Record a missing baseline the first time a change touches that area (same device
       deps rebuild. libc++ (both `c++_static`): libc++_shared.so stripped is 1.25 MB (.text 0.57), about what the two static
       copies cost now, so switching nets ~0. libopenscad is OpenSCAD itself + its own CGAL/manifold templates + harfbuzz/
       fontconfig/libxml2/libzip, none of which liborca_jni has.
-   d. Product decisions: non-English i18n 6.1 MB; Python runtime ~15 MB (libpython 6.7, libcrypto 3.7, stdlib 4.35) on demand at the
+   d. Product decisions: non-English i18n 6.1 MB (DONE, d6c29a8); Python runtime ~15 MB (libpython 6.7, libcrypto 3.7, stdlib 4.35) on demand at the
       first plugin install; non-Bambu vendor profiles ~14 MB on demand.
    e. Compressing the native libs (now stored) cuts the download ~78 -> ~35 MB but raises the installed size (APK + extracted
       copy): not worth it for a sideloaded app.
@@ -90,10 +95,9 @@ Record a missing baseline the first time a change touches that area (same device
    the other runs (thermal drift ~15%, bigger than the differences); -O2 18.8; ThinLTO 18.4 (ran between -O2 and the warm base).
    Interleaved (cooldown <=32 C, app stopped, no VD; `slicebench-interleave.sh`): -O2+ThinLTO 47,953,296 B (-2.80 MB) slices 18.6/18.8/18.7 s
    vs base 18.8/18.9/18.8: no slowdown. SHIPPED 2026-11-01 in android/core/CMakeLists.txt (orca_jni budget 50.0 -> 47.1, total 117 -> 114.5);
-   CI size of the shipped lib not checked yet.
+   CI r503 (run 41387402416, + OpenVDB patch 0004): orca_jni 42.27 MB in the APK.
 2. **Python stdlib**: measured 2026-10-31, rejected. Whole stdlib is 14.4 MB raw / 4.26 MB in the APK (lib-dynload 1.81,
    top-level .py 1.16, encodings 0.32, asyncio 0.12); safe removals (unittest, lib2to3, doctest, pydoc) are ~0.3-0.5 MB
    (0.4% of the APK) and user plugins may import any of them. Biggest single items: unicodedata .so 0.4 MB,
    libcrypto_python 3.7 MB raw, libpython 6.7 MB raw (needed).
-3. **Non-English i18n assets** (6.1 MB in APK, 20 MB raw): product decision for the user, not a
-   cleanup.
+3. **Non-English i18n assets** (6.1 MB in APK, 20 MB raw): DONE 2026-11-01 (d6c29a8, user OK), see Done.
