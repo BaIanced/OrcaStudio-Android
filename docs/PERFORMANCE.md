@@ -55,12 +55,28 @@ Record a missing baseline the first time a change touches that area (same device
 
 ## Experiment queue (measured potential, not done)
 
+0. **Big-ticket map (2026-11-01, r502 APK 118.5 MB; native libs stored uncompressed = 78 MB).** liborca_jni symbol bytes by
+   library (`orca-android-tools/wsl/nmgroups.sh`, unstripped WSL build, 39.3 MB of symbols): OCCT (STEP import) ~15 MB (10.3
+   matched + most of the 8.6 "other": AdvApp2Var, AppCont, ChFi3d...), Slic3r 9.8, OpenVDB 5.15, std templates 2.6, boost 0.8,
+   png/z/curl/ssl 0.7, CGAL 0.7. Candidates, zero feature loss first (unmeasured beyond this):
+   a. OpenVDB: only `SLA/Hollowing.cpp` includes OpenVDBUtils; FDM never hollows. A src-orca patch dropping SLA hollowing from
+      the Android build could save ~5 MB+ (first check what keeps it alive past `--gc-sections`).
+   b. OCCT ~15 MB, STEP import only: own `.so`, downloaded on the first STEP import (GitHub release asset + hash).
+   c. libopenscad 12.5 MB vs liborca_jni: likely duplicate CGAL/boost/GMP/manifold/Clipper copies; measure, then share.
+   d. Product decisions: non-English i18n 6.1 MB; Python runtime ~15 MB (libpython 6.7, libcrypto 3.7, stdlib 4.35) on demand at the
+      first plugin install; non-Bambu vendor profiles ~14 MB on demand.
+   e. Compressing the native libs (now stored) cuts the download ~78 -> ~35 MB but raises the installed size (APK + extracted
+      copy): not worth it for a sideloaded app.
+   Speed: profile a slice with simpleperf before any flag work; PGO is the one flag-level change with a typical 10-20% gain.
+
 1. **Native link flags** for liborca_jni (48.4 MB): `-Wl,--icf=safe` measured 2026-10-31: no gain (stripped 50,754,576 vs
    50,753,744 B, relink only), rejected. 2026-11-01 local WSL builds (orca-android-tools `wsl/perfbuild.sh`, separate dirs, no ccache,
    ~9 min each on 16 threads), stripped: -O3 base 50,754,856 B; `-O2` 49,064,968 (-1.69 MB); ThinLTO (-O3) 49,804,432 (-0.95 MB).
    Slice time, phone, debug app, same plate (`slicebench.sh <variant>`, 3 runs after a warm-up): base 16.2 s cool, 18.9 s after
    the other runs (thermal drift ~15%, bigger than the differences); -O2 18.8; ThinLTO 18.4 (ran between -O2 and the warm base).
-   Open: interleaved runs with a cooldown (battery temperature) to settle -O2 slowdown vs ThinLTO speedup; then ThinLTO+-O2 if both hold.
+   Interleaved (cooldown <=32 C, app stopped, no VD; `slicebench-interleave.sh`): -O2+ThinLTO 47,953,296 B (-2.80 MB) slices 18.6/18.8/18.7 s
+   vs base 18.8/18.9/18.8: no slowdown. SHIPPED 2026-11-01 in android/core/CMakeLists.txt (orca_jni budget 50.0 -> 47.1, total 117 -> 114.5);
+   CI size of the shipped lib not checked yet.
 2. **Python stdlib**: measured 2026-10-31, rejected. Whole stdlib is 14.4 MB raw / 4.26 MB in the APK (lib-dynload 1.81,
    top-level .py 1.16, encodings 0.32, asyncio 0.12); safe removals (unittest, lib2to3, doctest, pydoc) are ~0.3-0.5 MB
    (0.4% of the APK) and user plugins may import any of them. Biggest single items: unicodedata .so 0.4 MB,
