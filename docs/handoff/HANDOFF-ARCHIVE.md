@@ -3910,3 +3910,10 @@ User said "yep looks good" while run 41158738411 (hole labels avoid bbox/wall la
 - **Size push: wound down (user 2026-11-02, after Claude's honest take): stop at ~101 MB, budgets stay as a regression guard.**
   Vendors on demand DROPPED (offline setup risk + per-release asset upkeep for ~14%; user is on Bambu). Python on demand is the
   one cut left: it fits because plugins already install from Orca Cloud (`plugins/Plugins.kt:22`, online-only). PERFORMANCE.md 0.d.
+
+## 2026-11-02 Python on demand part 1 details (moved from the handoff)
+- **Python on demand, part 1 committed, UNTESTED on device** (2026-11-01): `stage_python.py` ships only libpython in jniLibs +
+  `assets/python/runtime` (7 KB manifest: pinned Maven Central Chaquopy zips + SHA-256, file map, load order); `Plugins.preparePythonHome`
+  downloads (~9.3 MB), verifies, extracts to `<data>/python` (stamp `.runtime`), then `System.load`s libcrypto/libssl/libsqlite3_python.
+  Cuts ~9.4 MB (assets/python 4.15 + libcrypto 3.72 + libsqlite 0.89 + libssl 0.62). Local build root already restaged (no stdlib.zip, no libs).
+  libpython (6.7 MB) STAYS: it has no SONAME, so loading it from the data dir needs ELF patching + an APK stub lib + an app restart (backlog).

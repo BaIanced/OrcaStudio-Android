@@ -35,11 +35,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Open tests in backlog.
 - CI size step ae8d7fa: local `local/ci-size-step` (push needs the user's `gh auth refresh -s workflow`).
 - Size push wound down at r504 101 MB (user 2026-11-02; vendors on demand dropped): archive 2026-11-01.
-- **Python on demand, part 1 committed, UNTESTED on device** (2026-11-01): `stage_python.py` ships only libpython in jniLibs +
-  `assets/python/runtime` (7 KB manifest: pinned Maven Central Chaquopy zips + SHA-256, file map, load order); `Plugins.preparePythonHome`
-  downloads (~9.3 MB), verifies, extracts to `<data>/python` (stamp `.runtime`), then `System.load`s libcrypto/libssl/libsqlite3_python.
-  Cuts ~9.4 MB (assets/python 4.15 + libcrypto 3.72 + libsqlite 0.89 + libssl 0.62). Local build root already restaged (no stdlib.zip, no libs).
-  libpython (6.7 MB) STAYS: it has no SONAME, so loading it from the data dir needs ELF patching + an APK stub lib + an app restart (backlog).
+- **Python on demand, part 1 committed (e6cefc1), UNTESTED on device**: runtime (~9.3 MB) fetched at the first plugin start; cuts ~9.4 MB; details archive 2026-11-02.
 - Test plan: assembleDebug, install on WSA, trigger Plugins.start, check `<data>/python/lib/*.so`, Python starts, imports work; then CI build,
   size_report, lower budgets (native/python 12.0 -> ~7, assets/python 4.5 -> 0.1, total), PERFORMANCE.md 0.d entry. Then STEP import gap (backlog `[Opus]`).
 - **WSA test attempt 2026-11-02 (stalled, nothing proven yet):** temp hook saved OUTSIDE the repo: `git apply ~/build/pytest_probe/hook.patch`
