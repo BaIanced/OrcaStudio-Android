@@ -29,21 +29,18 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Muse (tasks 1-18 merged): `NOTES-muse.md`, only when sending Muse work.
 - **Merge batch (user 2026-10-28: main = user-tested): `NOTES-merge-batch.md`** (cuts agreed, printer set release-gated, sessions A-D).
 - Local tests: `wsa-debug-rebuild.sh [native]` (reference "WSA debug loop"); fresh app: `wsa-debug-setup.sh` first. Lab prefs: edit `layout_lab` JSON in debug `shared_prefs/app_settings.xml` with run-as sed (app stopped).
-- **Offload (user 2026-10-25/26): max token use onto free opencode models, growing leeway by track record** (Claude specs + verifies).
-  DeepSeek V4.1 Flash = default; runner `octauto.sh` (`D:\oct-backup\jobs\README.md`; opencode v2: `model#variant`), ledger `trust-profile.md`.
+- **Offload (user 2026-10-25/26): max work onto free opencode models** (DeepSeek V4.1 Flash, `octauto.sh`, `D:\oct-backup\jobs\README.md`, ledger `trust-profile.md`).
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
 - Open tests in backlog.
-- S Pen pressure, Self-portrait 3, CAD plan, UX audit (lowest): backlog.
-- Perf/size: `docs/PERFORMANCE.md`; CI size step ae8d7fa on local `local/ci-size-step` (push needs the user's `gh auth refresh -s workflow`).
-- Mixer redesign r502: done, WSA smoke OK (archive); user unseen (backlog).
-- Perf item 1 DONE locally 2026-11-01: -O2+ThinLTO in android/core/CMakeLists.txt (-2.80 MB, slice time equal; PERFORMANCE.md), budgets
-  lowered; not CI-built yet: batch with the next native cut, then check the CI size report.
+- CI size step ae8d7fa: local `local/ci-size-step` (push needs the user's `gh auth refresh -s workflow`).
+- Native cuts pushed 2026-11-01, CI run 41387402416 (not checked yet): -O2+ThinLTO (-2.80 MB) + OpenVDB no-initialize
+  (-3.62 MB, patch 0004; hollow + blend WSA-tested, PERFORMANCE.md 0.a). Budgets lowered (orca_jni 43.6, total 111.0).
 - **Size push (user 2026-11-01: wants big wins, "not multiple times larger than it should be"; speed never traded for size without
-  reason).** Map + candidates: PERFORMANCE.md queue item 0. User OK'd ALL cuts: zero-loss a (OpenVDB/SLA hollowing ~5 MB),
-  b (OCCT/STEP ~15 MB on demand), c (openscad dupes), plus drop non-English i18n (6.1), Python on demand (~15), non-Bambu vendors
-  on demand (~14). Order: a -> c -> i18n -> b -> vendors -> Python. Target ~118 -> ~55-60 MB.
-- Next step: size cut a (OpenVDB/SLA hollowing patch, find what keeps it past gc-sections) + CI build with -O2/ThinLTO -> Opus 5.5 (high).
+  reason).** Map: PERFORMANCE.md item 0. User OK'd ALL cuts: a (OpenVDB), b (OCCT/STEP ~15 MB on demand), c (openscad dupes), plus drop non-English i18n (6.1), Python on demand (~15), non-Bambu vendors
+  on demand (~14). Order: a (done, partial: OpenVDB is used by blend/hollow) -> c -> i18n -> b -> vendors -> Python.
+- Next step: check CI run 41387402416 (size report vs budgets, install on WSA + phone, blend/hollow smoke on WSA), then size cut c
+  (libopenscad dupes of CGAL/boost/GMP/manifold/Clipper: measure with nm, then share) -> Opus 5.5 (high).
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
