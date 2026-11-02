@@ -59,8 +59,12 @@ Record a missing baseline the first time a change touches that area (same device
    library (`orca-android-tools/wsl/nmgroups.sh`, unstripped WSL build, 39.3 MB of symbols): OCCT (STEP import) ~15 MB (10.3
    matched + most of the 8.6 "other": AdvApp2Var, AppCont, ChFi3d...), Slic3r 9.8, OpenVDB 5.15, std templates 2.6, boost 0.8,
    png/z/curl/ssl 0.7, CGAL 0.7. Candidates, zero feature loss first (unmeasured beyond this):
-   a. OpenVDB: only `SLA/Hollowing.cpp` includes OpenVDBUtils; FDM never hollows. A src-orca patch dropping SLA hollowing from
-      the Android build could save ~5 MB+ (first check what keeps it alive past `--gc-sections`).
+   a. OpenVDB: DONE 2026-11-01 (partial, zero loss). OpenVDB is NOT droppable: our smooth blend (`jni/OrcaVdbBlend.cpp`) and FDM
+      hollow (`jni/OrcaHollow.cpp` via SLA/Hollowing) use it. What kept most of it alive was `openvdb::initialize()`
+      (registers every grid type for file I/O: bool/double/int64/vec3/string/point-data trees). Dropped from our blend +
+      `OpenVDBUtils.cpp` (patch 0004; upstream's own comment says it works without): stripped liborca_jni -3.62 MB
+      (-O2 WSL build 49,064,968 -> 45,440,752 B, only those 2 objects rebuilt). WSA debug test: hollow (9,100 -> 32,018 tris,
+      29.7 s) and blend r 2 (11 shells -> 37,594 faces, size kept) both work. The rest (~1.6 MB float/bool/int32 tools) is used.
    b. OCCT ~15 MB, STEP import only: own `.so`, downloaded on the first STEP import (GitHub release asset + hash).
    c. libopenscad 12.5 MB vs liborca_jni: likely duplicate CGAL/boost/GMP/manifold/Clipper copies; measure, then share.
    d. Product decisions: non-English i18n 6.1 MB; Python runtime ~15 MB (libpython 6.7, libcrypto 3.7, stdlib 4.35) on demand at the
