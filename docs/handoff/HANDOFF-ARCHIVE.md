@@ -3901,3 +3901,6 @@ User said "yep looks good" while run 41158738411 (hole labels avoid bbox/wall la
 ### 2026-11-01 Mix dialog 3-part check (Claude, WSA VD, r501 + debug build)
 - r501 (CI 41367787634) installed on WSA + phone (.20); Chromebook not on adb; SHIELD skipped (user: "avoid shield for now").
 - 3 parts (slot 3 added via "+ Filament"): preview stripes fade into #96959B, chips + check badges fine, bar 34/33/33 with two dividers. Found: Quick picks was an empty note once 3+ parts were chosen. Fixed in 0c791b3: picks over exactly the chosen parts (even, each leading 2:1:1, each trailing 2:2:1 for three = 7 swatches, one row). Debug build on WSA VD: 7 picks, even ringed; tapping 50/25/25 sets the bar 50/25/25, ring moves, preview #B28E8D. Test slot 3 deleted again (release app). CI run 41371910606 dispatched.
+
+### 2026-11-01 Mix dialog r502 smoke (Claude, WSA VD, CI run 41371910606)
+- r502 installed on WSA + phone (.20). WSA VD: added slot 3, Mix, chose 1+2+3: 7 quick picks (34/33/33, three 50/25/25 variants, three 40/40/20 variants), even one ringed; picking 50/25/25 set the bar to 50/25/25 and the preview to #B28E8D; Cancel, slot 3 deleted via the row menu. Screenshot looked right. User feel untested.

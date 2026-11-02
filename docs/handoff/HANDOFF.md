@@ -15,7 +15,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 1c4ff52 (PR #69 = r490, merged 2026-10-31; Claude-verified only). Nothing unverified on the branch. User-untested in main: list in `NOTES-merge-batch.md`.
 - Signing secrets: `release` environment (main + `claude/*` only).
-- Latest installed CI build: r501 (run 41367787634, mixer polish) on WSA + phone (.20) 2026-11-01; Chromebook not on adb (r496). **User 2026-11-01: avoid the SHIELD for now** (no installs there). Phone drops off adb: `adb connect <phone-ip>:5555` (memory device-ips); GL shots on the phone VD. Install builds on all adb devices (skip .23).
+- Latest installed CI build: r502 (run 41371910606, mixer 3+-part picks) on WSA + phone (.20) 2026-11-01; Chromebook not on adb (r496). **User 2026-11-01: avoid the SHIELD for now** (no installs there). Phone drops off adb: `adb connect <phone-ip>:5555` (memory device-ips); GL shots on the phone VD. Install builds on all adb devices (skip .23).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **User 2026-10-28: no more user testing for now; Claude builds and tests everything itself (memory no-user-testing-now); don't ask for feel/UI checks.**
 - **User 2026-10-29: no tests on the user's screen; all tests on a hidden virtual display** (`TARGET=wsa orca-vd.sh start`, memory tests-on-virtual-display).
@@ -36,8 +36,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Open tests in backlog (Shift/Ctrl+click bulk = Chromebook mouse). Verified 2026-11-01 (archive): HD from below, unpin via label, tower no-free-spot text, filament makeover.
 - S Pen pressure, Self-portrait 3, CAD plan, UX audit (lowest): backlog.
 - Perf/size: `docs/PERFORMANCE.md`; CI size step ae8d7fa on local `local/ci-size-step` (push needs the user's `gh auth refresh -s workflow`).
-- **Mixer redesign (user 2026-11-01: Opus designs a visually better mixer, no live feedback).** 2- and 3-part looks checked on WSA VD 2026-11-01 (archive); 0c791b3 (3+-part quick picks) pushed, CI run 41371910606 dispatched. Next: install it on WSA + phone (skip SHIELD, .23), quick 3-part smoke on WSA VD (add slot 3, Mix, 1+2+3: 7 picks; delete slot 3 after). Then the backlog.
-- Next step: Mixer CI install + smoke -> Sonnet 5.5 (medium)
+- Mixer redesign (user 2026-11-01: no live feedback): done; r502 installed, 3-part smoke OK on WSA VD (archive). User has not seen it (backlog).
+- Next step: Perf queue item 1 (ThinLTO vs -O2 native link, size + slice time; PERFORMANCE.md) -> Opus 5.5 (high). Everything else in the backlog needs the user (feel checks, camera model) or is lowest priority (UX audit).
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
