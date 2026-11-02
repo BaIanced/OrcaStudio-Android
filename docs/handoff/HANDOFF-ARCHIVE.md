@@ -3904,3 +3904,9 @@ User said "yep looks good" while run 41158738411 (hole labels avoid bbox/wall la
 
 ### 2026-11-01 Mix dialog r502 smoke (Claude, WSA VD, CI run 41371910606)
 - r502 installed on WSA + phone (.20). WSA VD: added slot 3, Mix, chose 1+2+3: 7 quick picks (34/33/33, three 50/25/25 variants, three 40/40/20 variants), even one ringed; picking 50/25/25 set the bar to 50/25/25 and the preview to #B28E8D; Cancel, slot 3 deleted via the row menu. Screenshot looked right. User feel untested.
+
+## 2026-11-01 Size push wound down (moved from HANDOFF.md)
+- r504 checked 2026-11-02: APK 101.02 MB (r492 124.1), WSA blend/hollow/slice smoke OK; budgets total 104.1, orca_jni 43.5 (PERFORMANCE.md Done).
+- **Size push: wound down (user 2026-11-02, after Claude's honest take): stop at ~101 MB, budgets stay as a regression guard.**
+  Vendors on demand DROPPED (offline setup risk + per-release asset upkeep for ~14%; user is on Bambu). Python on demand is the
+  one cut left: it fits because plugins already install from Orca Cloud (`plugins/Plugins.kt:22`, online-only). PERFORMANCE.md 0.d.

@@ -8,12 +8,13 @@ at 3.14, while OrcaSlicer's plugin host is written for 3.12 and checks for lib/p
 Downloads the pinned release once (checksums verified) and produces, under <build root>:
   python/prefix/include/             headers for the native core build
   python/prefix/lib/                 libpython3.12.so to link against
-  jniLibs/arm64-v8a/                 libpython3.12.so and the libraries it and its extension
-                                     modules link (OpenSSL, SQLite), as app native libraries
-  python-assets/python/stdlib.zip    lib/python3.12/ (the standard library and lib-dynload),
-                                     which the app extracts to <data dir>/python, the home
-                                     OrcaSlicer's PythonInterpreter looks for
-  python-assets/python/version       the release, so the app re-extracts after an update
+  jniLibs/arm64-v8a/                 libpython3.12.so, as an app native library
+  python-assets/python/runtime       where the app fetches the rest from (these same pinned
+                                     Maven Central files) and what goes where under
+                                     <data dir>/python, the home OrcaSlicer's PythonInterpreter
+                                     looks for: the standard library, lib-dynload and the
+                                     libraries its modules link (OpenSSL, SQLite). Fetched on the
+                                     first plugin start, so they cost no APK size.
 """
 import hashlib
 import os
@@ -29,6 +30,11 @@ FILES = {
     "arm64-v8a.zip": "7a4a278ec1fed0e0d0359fbec71d6d481d79a7efbc8e2090267a91046417027a",
     "stdlib.zip": "cfeb0137cb3ab149b0817d9ec15091e6e667db7151e4f79ad46b58b02a68f28c",
 }
+LIBPYTHON = f"libpython{SHORT}.so"
+# Libraries the extension modules link, loaded by the app in this order before Python starts.
+RUNTIME_LIBS = ("libcrypto_python.so", "libssl_python.so", "libsqlite3_python.so")
+# Bump when the staged layout changes, so a cached build root is staged again.
+STAMP = VERSION + " on-demand"
 # CPython's own test extension modules.
 SKIP_PREFIXES = ("_test", "_xxtestfuzz", "xxlimited", "xxsubtype", "_ctypes_test")
 
@@ -59,44 +65,52 @@ def fetch(root, suffix):
 def main():
     root = os.path.abspath(sys.argv[1])
     stamp = os.path.join(root, "python", "staged")
-    if os.path.exists(stamp) and open(stamp).read() == VERSION:
+    if os.path.exists(stamp) and open(stamp).read() == STAMP:
         return
     native = zipfile.ZipFile(fetch(root, "arm64-v8a.zip"))
-    stdlib = zipfile.ZipFile(fetch(root, "stdlib.zip"))
+    fetch(root, "stdlib.zip")
 
     prefix = os.path.join(root, "python", "prefix")
     shutil.rmtree(os.path.join(root, "python"), ignore_errors=True)
     jnilibs = os.path.join(root, "jniLibs", "arm64-v8a")
     os.makedirs(os.path.join(prefix, "lib"), exist_ok=True)
     os.makedirs(jnilibs, exist_ok=True)
+    # Earlier layouts put all of the release's libraries here.
+    for name in os.listdir(jnilibs):
+        if ("python" in name or "chaquopy" in name) and name != LIBPYTHON:
+            os.remove(os.path.join(jnilibs, name))
     for info in native.infolist():
         if info.is_dir():
             continue
         if info.filename.startswith("include/"):
             native.extract(info, prefix)
-        elif info.filename.startswith("jniLibs/arm64-v8a/"):
-            name = os.path.basename(info.filename)
-            with native.open(info) as src, open(os.path.join(jnilibs, name), "wb") as dst:
+        elif info.filename == f"jniLibs/arm64-v8a/{LIBPYTHON}":
+            with native.open(info) as src, open(os.path.join(jnilibs, LIBPYTHON), "wb") as dst:
                 shutil.copyfileobj(src, dst)
-            if name == f"libpython{SHORT}.so":
-                shutil.copy2(os.path.join(jnilibs, name), os.path.join(prefix, "lib", name))
+            shutil.copy2(os.path.join(jnilibs, LIBPYTHON), os.path.join(prefix, "lib", LIBPYTHON))
 
+    # The rest of the runtime is fetched by the app (Plugins.preparePythonHome) on the first plugin
+    # start; this manifest says from where, and what goes where under <data dir>/python.
+    lib = f"lib/python{SHORT}/"
+    manifest = [f"version {VERSION}"]
+    for suffix in FILES:
+        manifest.append(f"fetch {suffix} {BASE}-{suffix} {FILES[suffix]}")
+    manifest.append(f"dir stdlib.zip  {lib}")
+    for info in native.infolist():
+        name = os.path.basename(info.filename)
+        if info.filename.startswith("lib-dynload/arm64-v8a/") and name and not name.startswith(SKIP_PREFIXES):
+            manifest.append(f"file arm64-v8a.zip {info.filename} {lib}lib-dynload/{name}")
+    for name in RUNTIME_LIBS:
+        manifest.append(f"file arm64-v8a.zip jniLibs/arm64-v8a/{name} lib/{name}")
+    for name in RUNTIME_LIBS:
+        manifest.append(f"load lib/{name}")
     assets = os.path.join(root, "python-assets", "python")
     shutil.rmtree(assets, ignore_errors=True)
     os.makedirs(assets)
-    lib = f"lib/python{SHORT}/"
-    with zipfile.ZipFile(os.path.join(assets, "stdlib.zip"), "w", zipfile.ZIP_DEFLATED) as out:
-        for info in stdlib.infolist():
-            if not info.is_dir():
-                out.writestr(lib + info.filename, stdlib.read(info))
-        for info in native.infolist():
-            name = os.path.basename(info.filename)
-            if info.filename.startswith("lib-dynload/arm64-v8a/") and name and not name.startswith(SKIP_PREFIXES):
-                out.writestr(lib + "lib-dynload/" + name, native.read(info))
-    with open(os.path.join(assets, "version"), "w") as f:
-        f.write(VERSION)
+    with open(os.path.join(assets, "runtime"), "w", newline="\n") as f:
+        f.write("\n".join(manifest) + "\n")
     with open(stamp, "w") as f:
-        f.write(VERSION)
+        f.write(STAMP)
 
 
 if __name__ == "__main__":

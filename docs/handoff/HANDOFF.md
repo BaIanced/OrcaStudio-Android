@@ -34,13 +34,16 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
 - Open tests in backlog.
 - CI size step ae8d7fa: local `local/ci-size-step` (push needs the user's `gh auth refresh -s workflow`).
-- r504 checked 2026-11-02: APK 101.02 MB (r492 124.1), WSA blend/hollow/slice smoke OK; budgets total 104.1, orca_jni 43.5 (PERFORMANCE.md Done).
-- **Size push: wound down (user 2026-11-02, after Claude's honest take): stop at ~101 MB, budgets stay as a regression guard.**
-  Vendors on demand DROPPED (offline setup risk + per-release asset upkeep for ~14%; user is on Bambu). Python on demand is the
-  one cut left: it fits because plugins already install from Orca Cloud (`plugins/Plugins.kt:22`, online-only). PERFORMANCE.md 0.d.
-- After it: STEP import gap (backlog `[Opus]`, a real missing feature) and the unmerged r491-r504 batch (`NOTES-merge-batch.md`).
-- Next step: Python on demand (assets/python 4.15 + native/python 11.39 MB: fetch on first plugin install from a release asset + hash;
-  libpython/libcrypto load order before the plugin JNI lib; start at `plugins/Plugins.kt` preparePythonHome + `PluginNative.kt`) -> Opus 5.5 (high).
+- Size push wound down at r504 101 MB (user 2026-11-02; vendors on demand dropped): archive 2026-11-01.
+- **Python on demand, part 1 committed, UNTESTED on device** (2026-11-01): `stage_python.py` ships only libpython in jniLibs +
+  `assets/python/runtime` (7 KB manifest: pinned Maven Central Chaquopy zips + SHA-256, file map, load order); `Plugins.preparePythonHome`
+  downloads (~9.3 MB), verifies, extracts to `<data>/python` (stamp `.runtime`), then `System.load`s libcrypto/libssl/libsqlite3_python.
+  Cuts ~9.4 MB (assets/python 4.15 + libcrypto 3.72 + libsqlite 0.89 + libssl 0.62). Local build root already restaged (no stdlib.zip, no libs).
+  libpython (6.7 MB) STAYS: it has no SONAME, so loading it from the data dir needs ELF patching + an APK stub lib + an app restart (backlog).
+- Test plan: assembleDebug, install on WSA, trigger Plugins.start (Orca Cloud plugins dialog Install, or temp debug hook), check logcat
+  `OrcaPlugins` fetch lines, `<data>/python/lib/*.so`, Python starts, `import ssl, hashlib, sqlite3` works; then CI build, size_report,
+  lower budgets (native/python 12.0 -> ~7, assets/python 4.5 -> 0.1, total), PERFORMANCE.md 0.d entry. Then STEP import gap (backlog `[Opus]`).
+- Next step: Python on demand WSA test + CI + budgets -> Opus 5.5 (high)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
