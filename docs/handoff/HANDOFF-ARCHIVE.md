@@ -3892,3 +3892,8 @@ User said "yep looks good" while run 41158738411 (hole labels avoid bbox/wall la
 
 ### 2026-11-01 Mix dialog functional check (Claude, WSA VD, CI run 41363118216)
 - 2 parts: chips pick, quick picks appear, bar 50/50 -> drag to 75/25, tap at the left end jumps to 5/95 (5 % floor). 3 parts: 34/33/33 even, divider 1 -> 20/47/33, divider 2 -> 20/65/15, divider 2 dragged far left clamps at 20/5/75; totals always 100. Hex preview updates. Test slot 3 removed again. Found: chosen chips showed only a check, hiding the slot number -> chips keep the number, check badge added (local commit).
+
+### 2026-11-01 Mix dialog visual check + polish (Claude, WSA VD, debug build)
+- New tool `~/orca-android-tools/vdgrab.sh`: WSA VD screenshots from the live scrcpy mkv (Compose dialogs visible; MCP view_screenshot is GL only). Frames lag ~5 s (mkv clusters).
+- Seen: empty / one pick / two picks. Fixed in 26dbb3c: the centred dialog grew as sections appeared, so chips moved under the finger (a second tap missed) -> quick picks (note text when empty) and proportions (blank bar, Even split disabled) keep their place; check badge ringed in the dialog colour (was invisible on an orange chip); one pick -> "Pick one more filament to mix with it". After: both taps at the same spot land, layout steady.
+- Slip: `orca-vd.sh` used `taskkill /IM scrcpy.exe` and closed the user's own SHIELD mirror window; now kills only the scrcpy recording to eche-cap (tested start/stop).

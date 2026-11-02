@@ -36,8 +36,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Open tests in backlog (Shift/Ctrl+click bulk = Chromebook mouse). Verified 2026-11-01 (archive): HD from below, unpin via label, tower no-free-spot text, filament makeover.
 - S Pen pressure, Self-portrait 3, CAD plan, UX audit (lowest): backlog.
 - Perf/size: `docs/PERFORMANCE.md`; CI size step ae8d7fa on local `local/ci-size-step` (push needs the user's `gh auth refresh -s workflow`).
-- **Mixer redesign (user 2026-11-01: Opus designs a visually better mixer, no live feedback).** 997ef3b installed (run 41363118216) on phone, WSA, SHIELD (Chromebook .28 unreachable). Functional check on WSA VD 2026-11-01 OK (archive). Local commit (not pushed): chips keep their slot number + check badge. UNTESTED visually. Next: phone VD shots of the Mix dialog with 2 and 3 parts (phone was Dozing = taps dropped: ask the user before `input keyevent WAKEUP`), polish, then push + one CI build. Then the backlog.
-- Next step: Mixer visual check + polish (phone VD shots) -> Opus 5.5 (high)
+- **Mixer redesign (user 2026-11-01: Opus designs a visually better mixer, no live feedback).** 2-part look checked + polished on WSA VD 2026-11-01 (archive); 26dbb3c pushed, CI run 41367787634 (bg watch). Next: install it on all adb devices (skip .23), then 3-part shots on WSA VD (add a 3rd filament via "+ Filament", Mix for 4 with 1+2+3; remove the test slots after) with `vdgrab.sh`, polish if needed. Then the backlog.
+- Next step: Mixer CI install + 3-part visual check -> Opus 5.5 (high)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 

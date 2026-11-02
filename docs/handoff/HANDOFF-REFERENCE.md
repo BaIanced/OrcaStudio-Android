@@ -26,7 +26,7 @@ headless display below instead (no takeover needed). Don't drive WSA's own windo
   not a shot. No pinch yet (`pinch.sh`/`drag1.sh`/
   `draghold.sh` hit the physical panel only).
 - `TARGET=wsa` (default test path since 2026-10-29): `start` resizes the app's freeform window to fill the display; `tap`/`swipe`/`ui` work.
-  No `shot` (SurfaceFlinger hides the display): use MCP `view_screenshot` (debug app). `TARGET=wsa start window` = old windowed mode. Notes: `headless-display-notes.md`.
+  Screenshots (Compose + GL): `vdgrab.sh out.png [w] [crop]` decodes scrcpy's live `vd.mkv`; **wait ~6 s after a tap** (mkv clusters lag), ~3.5 s per shot (2026-11-01). `screencap` can't see the display; MCP `view_screenshot` is GL only. `TARGET=wsa start window` = old windowed mode. Notes: `headless-display-notes.md`.
 
 ### Chromebook (ARC)
 - Before launching: `dumpsys window | grep mCurrentFocus`; another app in front = the user is on it, don't take over (2026-10-19). Run the check alone, never chained with `am start` (2026-10-19 slip: launched over the user's app, then put it back).
