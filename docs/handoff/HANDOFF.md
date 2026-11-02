@@ -34,13 +34,13 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
 - Open tests in backlog.
 - CI size step ae8d7fa: local `local/ci-size-step` (push needs the user's `gh auth refresh -s workflow`).
-- Native cuts pushed 2026-11-01, CI run 41387402416 (not checked yet): -O2+ThinLTO (-2.80 MB) + OpenVDB no-initialize
-  (-3.62 MB, patch 0004; hollow + blend WSA-tested, PERFORMANCE.md 0.a). Budgets lowered (orca_jni 43.6, total 111.0).
+- Native cuts pushed 2026-11-01, CI run 41387402416: -O2+ThinLTO (-2.80 MB) + OpenVDB no-initialize (-3.62 MB, patch 0004).
+  i18n drop committed d6c29a8 (assets/i18n -6.1 MB, English only; pushed after that run). Budgets: orca_jni 43.6, i18n 0.1, total 111.0.
 - **Size push (user 2026-11-01: wants big wins, "not multiple times larger than it should be"; speed never traded for size without
-  reason).** Map: PERFORMANCE.md item 0. User OK'd ALL cuts: a (OpenVDB), b (OCCT/STEP ~15 MB on demand), c (openscad dupes), plus drop non-English i18n (6.1), Python on demand (~15), non-Bambu vendors
-  on demand (~14). Order: a (done, partial: OpenVDB is used by blend/hollow) -> c -> i18n -> b -> vendors -> Python.
-- Next step: check CI run 41387402416 (size report vs budgets, install on WSA + phone, blend/hollow smoke on WSA), then size cut c
-  (libopenscad dupes of CGAL/boost/GMP/manifold/Clipper: measure with nm, then share) -> Opus 5.5 (high).
+  reason).** Map: PERFORMANCE.md item 0. User OK'd ALL cuts incl. Python (~15 MB) and non-Bambu vendors (~14)
+  on demand. Done: a (partial), c (measured: no real dupes, rejected), i18n. Left: b -> vendors -> Python.
+- Next step: check run 41387402416 (size_report.py on its APK, install WSA + phone, blend/hollow smoke), push d6c29a8 (unpushed), check its build + lower total budget, then cut b (OCCT/STEP as an on-demand `.so`:
+  split the STEP import out of liborca_jni, download + hash check on first STEP import) -> Opus 5.5 (high).
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
