@@ -33,11 +33,12 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   DeepSeek V4.1 Flash = default; runner `octauto.sh` (`D:\oct-backup\jobs\README.md`; opencode v2: `model#variant`), ledger `trust-profile.md`.
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
-- Open tests in backlog (Shift/Ctrl+click bulk = Chromebook mouse). Verified 2026-11-01 (archive): HD from below, unpin via label, tower no-free-spot text, filament makeover.
+- Open tests in backlog (Shift/Ctrl+click bulk = Chromebook mouse).
 - S Pen pressure, Self-portrait 3, CAD plan, UX audit (lowest): backlog.
 - Perf/size: `docs/PERFORMANCE.md`; CI size step ae8d7fa on local `local/ci-size-step` (push needs the user's `gh auth refresh -s workflow`).
 - Mixer redesign (user 2026-11-01: no live feedback): done; r502 installed, 3-part smoke OK on WSA VD (archive). User has not seen it (backlog).
-- Next step: Perf queue item 1 (ThinLTO vs -O2 native link, size + slice time; PERFORMANCE.md) -> Opus 5.5 (high). Everything else in the backlog needs the user (feel checks, camera model) or is lowest priority (UX audit).
+- Perf item 1 (2026-11-01): sizes done (-O2 -1.69 MB, ThinLTO -0.95 MB; PERFORMANCE.md); slice timing swamped by phone thermal drift. Libs in WSL `~/orca-build/liborca_jni-{base,o2,thinlto}.so`; bench `~/orca-android-tools/slicebench.sh <variant>` (phone VD, debug app; uninstall it after). Redo interleaved (base/o2/thinlto x2) waiting for battery temp <=32 C between runs; if ThinLTO is not slower, ship it via android/core/CMakeLists.txt (CI rebuild) and lower the orca_jni budget.
+- Next step: Perf item 1 interleaved slice bench + decide ThinLTO/-O2 -> Opus 5.5 (high).
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 

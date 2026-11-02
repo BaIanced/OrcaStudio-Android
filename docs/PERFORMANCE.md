@@ -56,7 +56,11 @@ Record a missing baseline the first time a change touches that area (same device
 ## Experiment queue (measured potential, not done)
 
 1. **Native link flags** for liborca_jni (48.4 MB): `-Wl,--icf=safe` measured 2026-10-31: no gain (stripped 50,754,576 vs
-   50,753,744 B, relink only), rejected. Open: ThinLTO and `-O2` vs the default `-O3` (full core recompile, hours). Native CI rebuild; compare size and slice time.
+   50,753,744 B, relink only), rejected. 2026-11-01 local WSL builds (orca-android-tools `wsl/perfbuild.sh`, separate dirs, no ccache,
+   ~9 min each on 16 threads), stripped: -O3 base 50,754,856 B; `-O2` 49,064,968 (-1.69 MB); ThinLTO (-O3) 49,804,432 (-0.95 MB).
+   Slice time, phone, debug app, same plate (`slicebench.sh <variant>`, 3 runs after a warm-up): base 16.2 s cool, 18.9 s after
+   the other runs (thermal drift ~15%, bigger than the differences); -O2 18.8; ThinLTO 18.4 (ran between -O2 and the warm base).
+   Open: interleaved runs with a cooldown (battery temperature) to settle -O2 slowdown vs ThinLTO speedup; then ThinLTO+-O2 if both hold.
 2. **Python stdlib**: measured 2026-10-31, rejected. Whole stdlib is 14.4 MB raw / 4.26 MB in the APK (lib-dynload 1.81,
    top-level .py 1.16, encodings 0.32, asyncio 0.12); safe removals (unittest, lib2to3, doctest, pydoc) are ~0.3-0.5 MB
    (0.4% of the APK) and user plugins may import any of them. Biggest single items: unicodedata .so 0.4 MB,
