@@ -102,7 +102,20 @@ private fun quickPicks(ids: List<Int>): List<List<Pair<Int, Float>>> {
     for (a in ids.indices) for (b in a + 1 until ids.size) ratios.forEach { (x, y) -> out += listOf(ids[a] to x, ids[b] to y) }
     if (ids.size in 3..5) for (a in ids.indices) for (b in a + 1 until ids.size) for (c in b + 1 until ids.size) out += listOf(ids[a], ids[b], ids[c]).map { it to 1f }
     if (ids.size >= 4) out += ids.map { it to 1f }
-    return out.map { pick -> val sum = pick.sumOf { it.second.toDouble() }.toFloat(); pick.map { (i, w) -> i to w / sum } }
+    return out.map(::normalized)
+}
+
+/** Picks over exactly the chosen parts [ids] (three or more): even, each part leading (2:1:1), and with three parts each one trailing (2:2:1). */
+private fun setPicks(ids: List<Int>): List<List<Pair<Int, Float>>> {
+    val out = mutableListOf(ids.map { it to 1f })
+    ids.forEach { lead -> out += ids.map { it to if (it == lead) 2f else 1f } }
+    if (ids.size == 3) ids.forEach { low -> out += ids.map { it to if (it == low) 1f else 2f } }
+    return out.map(::normalized)
+}
+
+private fun normalized(pick: List<Pair<Int, Float>>): List<Pair<Int, Float>> {
+    val sum = pick.sumOf { it.second.toDouble() }.toFloat()
+    return pick.map { (i, w) -> i to w / sum }
 }
 
 private fun swatch(hex: String?) = hexToRgb(hex ?: "#808080").let { Color(it[0], it[1], it[2]) }
@@ -199,8 +212,12 @@ internal fun MixDialog(slots: List<FilamentSlot>, index: Int, sublayers: Boolean
     }
     val shares = sharesNow()
     val allPicks = remember(candidates) { quickPicks(candidates) }
-    // Only combos that contain every colour picked so far: nothing until the first pick, nothing once three or more are chosen.
-    val picks = if (chosen.isEmpty() || chosen.size >= 3) emptyList() else allPicks.filter { p -> chosen.all { c -> p.any { it.first == c } } }
+    // One or two chosen: the combos that contain them. Three or more: ready-made shares of exactly those parts.
+    val picks = when {
+        chosen.isEmpty() -> emptyList()
+        chosen.size >= 3 -> setPicks(chosen)
+        else -> allPicks.filter { p -> chosen.all { c -> p.any { it.first == c } } }
+    }
     val outline = MaterialTheme.colorScheme.outline
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -237,7 +254,7 @@ internal fun MixDialog(slots: List<FilamentSlot>, index: Int, sublayers: Boolean
                 // otherwise grow and move the chips away under the finger between two taps.
                 Caption(stringResource(R.string.mix_quick))
                 if (picks.isEmpty()) Box(Modifier.fillMaxWidth().heightIn(min = 64.dp), contentAlignment = Alignment.CenterStart) {
-                    Text(stringResource(if (chosen.isEmpty()) R.string.mix_quick_none else R.string.mix_quick_many),
+                    Text(stringResource(R.string.mix_quick_none),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
                     FlowRow(Modifier.fillMaxWidth().heightIn(min = 64.dp), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
