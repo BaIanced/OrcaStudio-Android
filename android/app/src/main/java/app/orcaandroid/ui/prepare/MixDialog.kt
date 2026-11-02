@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -22,6 +23,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AlertDialogDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -205,7 +207,11 @@ internal fun MixDialog(slots: List<FilamentSlot>, index: Int, sublayers: Boolean
         title = { Text(stringResource(R.string.mix_title, index + 1)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                MixPreview(chosen.map { slots[it].color }, shares, stringResource(if (candidates.size < 2) R.string.mix_need_two else R.string.mix_hint))
+                MixPreview(chosen.map { slots[it].color }, shares, stringResource(when {
+                    candidates.size < 2 -> R.string.mix_need_two
+                    chosen.size == 1 -> R.string.mix_hint_one
+                    else -> R.string.mix_hint
+                }))
                 Caption(stringResource(R.string.mix_pick))
                 FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     candidates.forEach { i ->
@@ -219,16 +225,22 @@ internal fun MixDialog(slots: List<FilamentSlot>, index: Int, sublayers: Boolean
                                 .clip(CircleShape).background(fill).border(1.dp, outline.copy(alpha = 0.5f), CircleShape), contentAlignment = Alignment.Center) {
                                 Text("${i + 1}", color = inkOn(fill), style = MaterialTheme.typography.labelLarge)
                             }
-                            if (on) Box(Modifier.align(Alignment.BottomEnd).size(18.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary),
-                                contentAlignment = Alignment.Center) {
+                            // Ringed in the dialog colour so the badge stands out on a chip of the same colour as the accent.
+                            if (on) Box(Modifier.align(Alignment.BottomEnd).size(20.dp).clip(CircleShape).background(AlertDialogDefaults.containerColor)
+                                .padding(2.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary), contentAlignment = Alignment.Center) {
                                 Text("✓", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.labelSmall)
                             }
                         }
                     }
                 }
-                if (picks.isNotEmpty()) {
-                    Caption(stringResource(R.string.mix_quick))
-                    FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                // Quick picks and proportions keep their place while empty (a note / a blank bar): the centred dialog would
+                // otherwise grow and move the chips away under the finger between two taps.
+                Caption(stringResource(R.string.mix_quick))
+                if (picks.isEmpty()) Box(Modifier.fillMaxWidth().heightIn(min = 64.dp), contentAlignment = Alignment.CenterStart) {
+                    Text(stringResource(if (chosen.isEmpty()) R.string.mix_quick_none else R.string.mix_quick_many),
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    FlowRow(Modifier.fillMaxWidth().heightIn(min = 64.dp), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         picks.forEach { pick ->
                             val on = pick.size == chosen.size && pick.all { (i, s) -> i in chosen && abs(shares[chosen.indexOf(i)] - s) < 0.02f }
                             MixSwatch(pick.map { slots[it.first].color }, pick.map { it.second }, on,
@@ -238,10 +250,14 @@ internal fun MixDialog(slots: List<FilamentSlot>, index: Int, sublayers: Boolean
                         }
                     }
                 }
-                if (chosen.size >= 2) {
-                    Caption(stringResource(R.string.mix_shares)) {
-                        TextButton(onClick = { chosen.forEach { parts[it] = 10f / chosen.size } }) { Text(stringResource(R.string.mix_even)) }
-                    }
+                Caption(stringResource(R.string.mix_shares)) {
+                    TextButton(onClick = { chosen.forEach { parts[it] = 10f / chosen.size } }, enabled = chosen.size >= 2) { Text(stringResource(R.string.mix_even)) }
+                }
+                if (chosen.size < 2) {
+                    val shape = RoundedCornerShape(12.dp)
+                    Box(Modifier.fillMaxWidth().height(44.dp).clip(shape).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                        .border(1.dp, outline.copy(alpha = 0.5f), shape))
+                } else {
                     ShareBar(chosen.map { slots[it].color }, shares, chosen.mapIndexed { k, i -> "${i + 1} ${pcts(shares)[k]}%" }.joinToString(" + ")) { k, x ->
                         // Divider k sits between parts k and k + 1: only those two change, so the total stays 100 %.
                         val s = sharesNow()

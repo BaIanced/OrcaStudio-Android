@@ -218,6 +218,9 @@
     <string name="mix_even">Even split</string>
     <string name="mix_hint">Pick two or more filaments below</string>
     <string name="mix_shares">Proportions (drag a divider)</string>
+    <string name="mix_hint_one">Pick one more filament to mix with it</string>
+    <string name="mix_quick_none">Pick a filament to see ready-made blends</string>
+    <string name="mix_quick_many">Set the shares with the bar below</string>
     <string name="filament_look_auto">Automatic (%1$s)</string>
     <string name="empty">(empty)</string>
     <string name="end_calibration">End</string>
