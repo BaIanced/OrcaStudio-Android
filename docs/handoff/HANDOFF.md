@@ -40,9 +40,17 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   downloads (~9.3 MB), verifies, extracts to `<data>/python` (stamp `.runtime`), then `System.load`s libcrypto/libssl/libsqlite3_python.
   Cuts ~9.4 MB (assets/python 4.15 + libcrypto 3.72 + libsqlite 0.89 + libssl 0.62). Local build root already restaged (no stdlib.zip, no libs).
   libpython (6.7 MB) STAYS: it has no SONAME, so loading it from the data dir needs ELF patching + an APK stub lib + an app restart (backlog).
-- Test plan: assembleDebug, install on WSA, trigger Plugins.start (Orca Cloud plugins dialog Install, or temp debug hook), check logcat
-  `OrcaPlugins` fetch lines, `<data>/python/lib/*.so`, Python starts, `import ssl, hashlib, sqlite3` works; then CI build, size_report,
-  lower budgets (native/python 12.0 -> ~7, assets/python 4.5 -> 0.1, total), PERFORMANCE.md 0.d entry. Then STEP import gap (backlog `[Opus]`).
+- Test plan: assembleDebug, install on WSA, trigger Plugins.start, check `<data>/python/lib/*.so`, Python starts, imports work; then CI build,
+  size_report, lower budgets (native/python 12.0 -> ~7, assets/python 4.5 -> 0.1, total), PERFORMANCE.md 0.d entry. Then STEP import gap (backlog `[Opus]`).
+- **WSA test attempt 2026-11-02 (stalled, nothing proven yet):** temp hook saved OUTSIDE the repo: `git apply ~/build/pytest_probe/hook.patch`
+  (AppViewModel: if `files/pytest_probe.py` exists, start plugins as fake user + install the probe; writes `files/pytest_mark.txt` markers,
+  also in `start()`); probe plugin `~/build/pytest_probe/pytest_probe.py` (imports ssl/hashlib/sqlite3/..., writes `probe_result.txt` next to
+  itself). Already copied to the debug app's `files/`. Gotchas found: WSA logcat ring is 256 KiB and app lines never showed (use marker
+  files, or `logcat -G 16M`); debug APK (241 MB) re-installs fail `INSTALL_FAILED_VERIFICATION_FAILURE` unless
+  `settings put global verifier_verify_adb_installs 0` (delete it after); `kill -3` / `ls /data/anr` hang on WSA. **Open puzzle:** the app
+  reached the Prepare UI (sliced plate) but not even the first `start()` marker was written and no `data/python` appeared; last
+  `orca-vd.sh start` gave no "ready". Next: check the marker path really is the process's filesDir (run-as ls), whether the APK on WSA is
+  the new one (`dumpsys package` lastUpdateTime), or test on the phone VD instead.
 - Next step: Python on demand WSA test + CI + budgets -> Opus 5.5 (high)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
