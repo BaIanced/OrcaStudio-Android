@@ -34,7 +34,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
 - Open tests in backlog.
 - CI size step ae8d7fa: local `local/ci-size-step` (push needs the user's `gh auth refresh -s workflow`).
-- CI 41387402416 = native cuts (-O2+ThinLTO, OpenVDB patch 0004); 41389259706 = + i18n drop d6c29a8. Budgets: orca_jni 43.6, i18n 0.1, total 111.0.
+- CI 41387402416 (green, unchecked) = native cuts (-O2+ThinLTO, OpenVDB patch 0004); 41389259706 = + i18n drop d6c29a8. Budgets: orca_jni 43.6, i18n 0.1, total 111.0.
 - **Size push (user 2026-11-01: wants big wins, "not multiple times larger than it should be"; speed never traded for size without
   reason).** Map: PERFORMANCE.md item 0. User OK'd ALL cuts incl. Python (~15 MB) and non-Bambu vendors (~14)
   on demand. Done: a (partial), c (rejected), i18n, b (rejected 2026-11-02: OCCT is the modeling core, STEP reader never linked;
