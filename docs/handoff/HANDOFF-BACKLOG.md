@@ -76,3 +76,4 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - [Opus] Perf experiments queue: docs/PERFORMANCE.md; CI size step ae8d7fa on local/ci-size-step, push needs workflow scope (Claude 2026-10-31).
 - [Opus] AI print failure watch (user 2026-10-30): local detector on the printer camera; open: ask the user for the camera model (archive 2026-10-31).
 - [Opus] Filament mixer redesign (0c791b3, CI 41371910606): 2- and 3-part looks checked by Claude on WSA VD 2026-11-01; user has not seen it. Vendor logo dropped (trademark).
+- [Opus] STEP import is dead (Claude, source only, 2026-11-02): app accepts .step/.stp (ModelDownloads.kt:21, FileController.kt:25, manifest) but no JNI calls Model::read_from_step; read_from_file throws "Unknown file format". Open: wire it (adds TKDESTEP etc., size TBD) or drop step/stp from the lists. Untested on device.

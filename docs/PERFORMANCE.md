@@ -65,7 +65,11 @@ Record a missing baseline the first time a change touches that area (same device
       `OpenVDBUtils.cpp` (patch 0004; upstream's own comment says it works without): stripped liborca_jni -3.62 MB
       (-O2 WSL build 49,064,968 -> 45,440,752 B, only those 2 objects rebuilt). WSA debug test: hollow (9,100 -> 32,018 tris,
       29.7 s) and blend r 2 (11 shells -> 37,594 faces, size kept) both work. The rest (~1.6 MB float/bool/int32 tools) is used.
-   b. OCCT ~15 MB, STEP import only: own `.so`, downloaded on the first STEP import (GitHub release asset + hash).
+   b. OCCT: measured 2026-11-02, REJECTED. Per-toolkit map (`orca-android-tools/wsl/occt-by-toolkit.sh`): 11.95 MB of OCCT
+      symbols, all modeling core (GeomBase 2.58, GeomAlgo 1.74, BO 1.28, Fillet 1.12, TopAlgo/Bool 0.92 each, ShHealing 0.78...)
+      used by rounded primitives / fillet (`OrcaExtras.cpp:174`), crease rounding (`OrcaMeshEdit.cpp:295`) and `OrcaBlend.cpp:211`.
+      The STEP reader (TKDESTEP/XSBase/XCAF) is 0.01 MB: never linked, since no JNI path calls `Model::read_from_step`.
+      Nothing STEP-only to split out; moving the modeling core on demand would gate everyday tools behind a download.
    c. libopenscad 12.5 MB: measured 2026-11-01, REJECTED (no real duplicates). Its .text is 9.1 MB (eh_frame 1.0, rodata 1.0);
       it NEEDs only liblog/libdl/libm/libc. Only non-template compiled code could be shared, and liborca_jni holds little of it:
       TBB runtime (`tbb::detail::r1`) 0.14 MB (the other 3.86 MB "tbb" is template instantiations, per lib), GMP 0.13, Clipper2 0.08,

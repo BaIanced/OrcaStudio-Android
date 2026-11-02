@@ -34,13 +34,14 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
 - Open tests in backlog.
 - CI size step ae8d7fa: local `local/ci-size-step` (push needs the user's `gh auth refresh -s workflow`).
-- Native cuts pushed 2026-11-01, CI run 41387402416: -O2+ThinLTO (-2.80 MB) + OpenVDB no-initialize (-3.62 MB, patch 0004).
-  i18n drop committed d6c29a8 (assets/i18n -6.1 MB, English only; pushed after that run). Budgets: orca_jni 43.6, i18n 0.1, total 111.0.
+- CI 41387402416 = native cuts (-O2+ThinLTO, OpenVDB patch 0004); 41389259706 = + i18n drop d6c29a8. Budgets: orca_jni 43.6, i18n 0.1, total 111.0.
 - **Size push (user 2026-11-01: wants big wins, "not multiple times larger than it should be"; speed never traded for size without
   reason).** Map: PERFORMANCE.md item 0. User OK'd ALL cuts incl. Python (~15 MB) and non-Bambu vendors (~14)
-  on demand. Done: a (partial), c (measured: no real dupes, rejected), i18n. Left: b -> vendors -> Python.
-- Next step: check run 41387402416 (size_report.py on its APK, install WSA + phone, blend/hollow smoke), push d6c29a8 (unpushed), check its build + lower total budget, then cut b (OCCT/STEP as an on-demand `.so`:
-  split the STEP import out of liborca_jni, download + hash check on first STEP import) -> Opus 5.5 (high).
+  on demand. Done: a (partial), c (rejected), i18n, b (rejected 2026-11-02: OCCT is the modeling core, STEP reader never linked;
+  PERFORMANCE.md 0.b; STEP-import gap in backlog). Left: vendors -> Python.
+- Next step: check both runs (size_report.py on the APKs vs budgets, install WSA + phone, blend/hollow smoke), lower the total budget,
+  then vendors on demand (non-Bambu profiles ~14 MB; start at `core/ResourceStore.kt` + `pack_resources.py`; download from a release
+  asset + hash on first use of a vendor) -> Opus 5.5 (high).
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
