@@ -84,6 +84,9 @@ Record a missing baseline the first time a change touches that area (same device
       fontconfig/libxml2/libzip, none of which liborca_jni has.
    d. Product decisions: non-English i18n 6.1 MB (DONE, d6c29a8); Python runtime ~15 MB (libpython 6.7, libcrypto 3.7, stdlib 4.35) on demand at the
       first plugin install; non-Bambu vendor profiles ~14 MB on demand.
+      2026-11-02 (user): size push wound down at r504 101 MB. Vendors on demand DROPPED (offline printer setup breaks, a release
+      asset to keep in step every version, ~14%, no gain for Bambu users). Python on demand kept as the last cut: plugins already
+      install from Orca Cloud, so fetching the runtime then adds no new offline failure.
    e. Compressing the native libs (now stored) cuts the download ~78 -> ~35 MB but raises the installed size (APK + extracted
       copy): not worth it for a sideloaded app.
    Speed: profile a slice with simpleperf before any flag work; PGO is the one flag-level change with a typical 10-20% gain.

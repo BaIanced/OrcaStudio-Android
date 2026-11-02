@@ -35,12 +35,12 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Open tests in backlog.
 - CI size step ae8d7fa: local `local/ci-size-step` (push needs the user's `gh auth refresh -s workflow`).
 - r504 checked 2026-11-02: APK 101.02 MB (r492 124.1), WSA blend/hollow/slice smoke OK; budgets total 104.1, orca_jni 43.5 (PERFORMANCE.md Done).
-- **Size push (user 2026-11-01: wants big wins, "not multiple times larger than it should be"; speed never traded for size without
-  reason).** Map: PERFORMANCE.md item 0. User OK'd ALL cuts incl. Python (~15 MB) and non-Bambu vendors (~14)
-  on demand. Done: a (partial), c (rejected), i18n, b (rejected 2026-11-02: OCCT is the modeling core, STEP reader never linked;
-  PERFORMANCE.md 0.b; STEP-import gap in backlog). Left: vendors -> Python.
-- Next step: vendors on demand (non-Bambu profiles ~14 MB; start at `core/ResourceStore.kt` + `pack_resources.py`; download from a release
-  asset + hash on first use of a vendor) -> Opus 5.5 (high).
+- **Size push: wound down (user 2026-11-02, after Claude's honest take): stop at ~101 MB, budgets stay as a regression guard.**
+  Vendors on demand DROPPED (offline setup risk + per-release asset upkeep for ~14%; user is on Bambu). Python on demand is the
+  one cut left: it fits because plugins already install from Orca Cloud (`plugins/Plugins.kt:22`, online-only). PERFORMANCE.md 0.d.
+- After it: STEP import gap (backlog `[Opus]`, a real missing feature) and the unmerged r491-r504 batch (`NOTES-merge-batch.md`).
+- Next step: Python on demand (assets/python 4.15 + native/python 11.39 MB: fetch on first plugin install from a release asset + hash;
+  libpython/libcrypto load order before the plugin JNI lib; start at `plugins/Plugins.kt` preparePythonHome + `PluginNative.kt`) -> Opus 5.5 (high).
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
