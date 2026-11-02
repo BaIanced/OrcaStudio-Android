@@ -66,7 +66,13 @@ Record a missing baseline the first time a change touches that area (same device
       (-O2 WSL build 49,064,968 -> 45,440,752 B, only those 2 objects rebuilt). WSA debug test: hollow (9,100 -> 32,018 tris,
       29.7 s) and blend r 2 (11 shells -> 37,594 faces, size kept) both work. The rest (~1.6 MB float/bool/int32 tools) is used.
    b. OCCT ~15 MB, STEP import only: own `.so`, downloaded on the first STEP import (GitHub release asset + hash).
-   c. libopenscad 12.5 MB vs liborca_jni: likely duplicate CGAL/boost/GMP/manifold/Clipper copies; measure, then share.
+   c. libopenscad 12.5 MB: measured 2026-11-01, REJECTED (no real duplicates). Its .text is 9.1 MB (eh_frame 1.0, rodata 1.0);
+      it NEEDs only liblog/libdl/libm/libc. Only non-template compiled code could be shared, and liborca_jni holds little of it:
+      TBB runtime (`tbb::detail::r1`) 0.14 MB (the other 3.86 MB "tbb" is template instantiations, per lib), GMP 0.13, Clipper2 0.08,
+      boost compiled 0.08, MPFR 0.03, manifold/FreeType/expat 0 (OpenSCAD-only). Total <=0.5 MB for a shared-deps .so plus a
+      deps rebuild. libc++ (both `c++_static`): libc++_shared.so stripped is 1.25 MB (.text 0.57), about what the two static
+      copies cost now, so switching nets ~0. libopenscad is OpenSCAD itself + its own CGAL/manifold templates + harfbuzz/
+      fontconfig/libxml2/libzip, none of which liborca_jni has.
    d. Product decisions: non-English i18n 6.1 MB; Python runtime ~15 MB (libpython 6.7, libcrypto 3.7, stdlib 4.35) on demand at the
       first plugin install; non-Bambu vendor profiles ~14 MB on demand.
    e. Compressing the native libs (now stored) cuts the download ~78 -> ~35 MB but raises the installed size (APK + extracted

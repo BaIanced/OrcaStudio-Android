@@ -109,13 +109,6 @@ abstract class PackOrcaAssets : DefaultTask() {
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val tabCpp: RegularFileProperty
 
-    @get:InputFiles
-    @get:PathSensitive(PathSensitivity.RELATIVE)
-    abstract val translations: ConfigurableFileCollection
-
-    @get:Input
-    abstract val translationsRoot: Property<String>
-
     @get:InputFile
     abstract val script: RegularFileProperty
 
@@ -139,7 +132,6 @@ abstract class PackOrcaAssets : DefaultTask() {
                 "--resources", resourcesRoot.get(),
                 "--assets", out.path,
                 "--tab-cpp", tabCpp.get().asFile.path,
-                "--i18n", translationsRoot.get(),
             )
         }
     }
@@ -155,9 +147,7 @@ val packOrcaAssets = tasks.register<PackOrcaAssets>("packOrcaAssets") {
     script.set(rootProject.file("scripts/pack_resources.py"))
     python.set(providers.gradleProperty("orca.python").orElse("python3"))
     tabCpp.set(File(orcaSrc, "src/slic3r/GUI/Tab.cpp"))
-    val i18n = File(orcaSrc, "localization/i18n")
-    translationsRoot.set(i18n.path)
-    translations.from(fileTree(i18n) { include("*/*.po") })
+    // No translation catalogs: the app is English only (the 20 desktop .po catalogs were 6.1 MB of the APK).
     // The layout extractor is a second script the packer runs.
     inputs.file(rootProject.file("scripts/extract_settings_layout.py"))
 }
