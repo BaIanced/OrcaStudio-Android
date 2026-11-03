@@ -34,19 +34,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
 - Open tests in backlog.
 - Size push closed at r504 101 MB (archive 2026-11-01). CI size step ae8d7fa on local `local/ci-size-step` (push needs `gh auth refresh -s workflow`).
-- **Python on demand, part 1 committed (e6cefc1), UNTESTED on device**: runtime (~9.3 MB) fetched at the first plugin start; cuts ~9.4 MB; details archive 2026-11-02.
-- Test plan: assembleDebug, install on WSA, trigger Plugins.start, check `<data>/python/lib/*.so`, Python starts, imports work; then CI build,
-  size_report, lower budgets (native/python 12.0 -> ~7, assets/python 4.5 -> 0.1, total), PERFORMANCE.md 0.d entry. Then STEP import gap (backlog `[Opus]`).
-- **WSA test attempt 2026-11-02 (stalled, nothing proven yet):** temp hook saved OUTSIDE the repo: `git apply ~/build/pytest_probe/hook.patch`
-  (AppViewModel: if `files/pytest_probe.py` exists, start plugins as fake user + install the probe; writes `files/pytest_mark.txt` markers,
-  also in `start()`); probe plugin `~/build/pytest_probe/pytest_probe.py` (imports ssl/hashlib/sqlite3/..., writes `probe_result.txt` next to
-  itself). Already copied to the debug app's `files/`. Gotchas found: WSA logcat ring is 256 KiB and app lines never showed (use marker
-  files or `logcat -G 16M`); 241 MB debug APK reinstalls fail `INSTALL_FAILED_VERIFICATION_FAILURE` unless
-  `settings put global verifier_verify_adb_installs 0` (delete it after); `kill -3` / `ls /data/anr` hang on WSA. **Open puzzle:** the app
-  reached the Prepare UI (sliced plate) but not even the first `start()` marker was written and no `data/python` appeared; last
-  `orca-vd.sh start` gave no "ready". Next: check the marker path really is the process's filesDir (run-as ls), whether the APK on WSA is
-  the new one (`dumpsys package` lastUpdateTime), or test on the phone VD instead.
-- Next step: Python on demand WSA test + CI + budgets -> Opus 5.5 (high)
+- **Python on demand part 1 VERIFIED on the phone 2026-11-03** (archive): fetch + SHA-256 + extract, all stdlib/ssl/sqlite imports, 2nd start no re-download.
+  CI run 41701191206 (dispatched 2026-11-03) -> size_report, lower budgets (native/python 12.0 -> ~7, assets/python 4.5 -> 0.1, total),
+  PERFORMANCE.md 0.d entry, install on phone (WSA wedged: needs a restart, archive 2026-11-03). Then STEP import gap (backlog `[Opus]`).
+- Next step: Python on demand CI size + budgets -> Sonnet 5.5 (medium)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 

@@ -3917,3 +3917,17 @@ User said "yep looks good" while run 41158738411 (hole labels avoid bbox/wall la
   downloads (~9.3 MB), verifies, extracts to `<data>/python` (stamp `.runtime`), then `System.load`s libcrypto/libssl/libsqlite3_python.
   Cuts ~9.4 MB (assets/python 4.15 + libcrypto 3.72 + libsqlite 0.89 + libssl 0.62). Local build root already restaged (no stdlib.zip, no libs).
   libpython (6.7 MB) STAYS: it has no SONAME, so loading it from the data dir needs ELF patching + an APK stub lib + an app restart (backlog).
+
+## 2026-11-03: Python on demand part 1 verified on the phone (Claude, debug build of e6cefc1 + temp hook)
+- Phone (arm64) hidden VD, debug app with the release app's data copied (`wsa-debug-setup.sh` minus its last 2 lines, `W=<phone>`),
+  temp hook (`~/build/pytest_probe/hook.patch`, never committed) starting plugins as a fake user + installing `pytest_probe.py`.
+- First start: runtime fetched from Maven Central, SHA-256 checked, extracted to `<data>/python` (21 MB unpacked: lib/ with
+  libcrypto/libssl/libsqlite3_python, python3.12 with 55 lib-dynload modules, `.runtime` stamp); `Plugins.start` 947 ms incl. download (LAN).
+  Probe imports all OK: ssl (OpenSSL 3.0.18), hashlib (sha256("abc") correct), sqlite3 3.50.4 (query ran), json, decimal, lzma,
+  ctypes, socket, zlib, bz2, ast; `ssl.create_default_context()` OK; sys.prefix = `<data>/python`, 3.12.12.
+- Second start: 83 ms, `.runtime` mtime unchanged (no re-download). Probe's "did not register a package class" error = probe has no `@orca.plugin` (expected).
+- WSA could not run it: system_server/SurfaceFlinger wedged (`dumpsys SurfaceFlinger` 10 s timeout, `dumpsys activity` empty,
+  `am start` logged nothing, `pm uninstall` hung). That was also the 2026-11-02 "open puzzle" (the app never started there). WSA needs a restart.
+- Phone VD gotcha: `orca-vd.sh start` with the debug PKG said "app not resumed on display N after 5 tries" although the app ran
+  (it force-stopped/relaunched it 5x); the resumed() check misses the debug app on the phone VD. Untested why.
+- Debug app uninstalled from the phone; CI run 41701191206 dispatched for the size measurement.
