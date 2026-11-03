@@ -99,7 +99,9 @@ fun toolAfterScreenChange(from: Screen, to: Screen, tool: Tool): Tool = when {
 /** What the settings editor currently edits. */
 sealed interface EditorTarget {
     /** [pickCompare]: open with the "compare with" picker showing (More > Compare presets). */
-    data class Preset(val type: PresetType, val pickCompare: Boolean = false) : EditorTarget
+    /** [focus]: open searched for this option key (a notice's "Fix" link). */
+    /** [pinMode]: every process row shows a pin toggle (opened from the main view's "Pin settings"). */
+    data class Preset(val type: PresetType, val pickCompare: Boolean = false, val focus: String? = null, val pinMode: Boolean = false) : EditorTarget
     /** Per-object (volume < 0) or per-part/modifier settings. */
     data class Object(val obj: Int, val volume: Int = -1) : EditorTarget
     data class Range(val obj: Int, val range: Int) : EditorTarget
@@ -239,14 +241,20 @@ data class UiState(
     val overrides: Map<PresetType, Map<String, String>> = emptyMap(),
     val optionStates: OptionStates = OptionStates(),
     val hiddenFilamentVendors: Set<String> = emptySet(),
+    /** Process option keys shown on the main view under the process picker (see AppSettings.pinnedSettings). */
+    val pinnedSettings: List<String> = emptyList(),
     /** Plate types left out of the plate type pickers, and the user's default one ("" = the printer's). */
     val hiddenBedTypes: Set<String> = emptySet(),
     val preferredBedType: String = "",
     /** AMS sync and new slots take the user's own filament preset saved from a system one (switchable). */
     val preferMyFilaments: Boolean = true,
     val allowMixedTemps: Boolean = false,
+    /** Risky-setting rules allowed for good, and whether every slicer option shows (More > Expert settings). */
+    val dangerAllowed: Set<String> = emptySet(),
+    val expertSettings: Boolean = false,
     /** Printer presets with another nozzle than the model's [installedNozzles] entry are hidden (switchable). */
     val matchNozzle: Boolean = true,
+    val filamentTiles: Boolean = true,
     val installedNozzles: Map<String, Float> = emptyMap(),
     val editor: EditorTarget? = null,
     val showPrinterSetup: Boolean = false,

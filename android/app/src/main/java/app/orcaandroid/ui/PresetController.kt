@@ -57,6 +57,11 @@ class PresetController(private val store: Store, private val device: DeviceContr
         store.update { it.copy(installedNozzles = nozzles) }
     }
 
+    fun setFilamentTiles(on: Boolean) {
+        settings.filamentTiles = on
+        store.update { it.copy(filamentTiles = on) }
+    }
+
     fun setMatchNozzle(on: Boolean) {
         settings.matchNozzle = on
         store.update { it.copy(matchNozzle = on) }
@@ -78,6 +83,13 @@ class PresetController(private val store: Store, private val device: DeviceContr
         settings.hiddenBedTypes = hidden
         val default = engine.setDefaultBedType(bedType)
         store.update { s -> s.copy(hiddenBedTypes = hidden, preferredBedType = bedType, setup = s.setup?.copy(defaultBedType = default)) }
+    }
+
+    /** Pins a process option to the main view, or unpins it. */
+    fun togglePinned(key: String) {
+        val now = store.value.pinnedSettings.let { if (key in it) it - key else it + key }
+        settings.pinnedSettings = now
+        store.update { it.copy(pinnedSettings = now) }
     }
 
     fun setHiddenFilamentVendors(vendors: Set<String>) {
@@ -177,6 +189,22 @@ class PresetController(private val store: Store, private val device: DeviceContr
         settings.trayPicks = if (name == src.synced) picks - src.key else picks + (src.key to (src.loaded to name))
     }
 
+    /** [rule] no longer asks, in any project ("Always" in the risky-setting dialog). */
+    fun allowDanger(rule: String) {
+        settings.dangerAllowed = settings.dangerAllowed + rule
+        store.update { it.copy(dangerAllowed = settings.dangerAllowed) }
+    }
+
+    fun resetDangerAllowed() {
+        settings.dangerAllowed = emptySet()
+        store.update { it.copy(dangerAllowed = emptySet()) }
+    }
+
+    fun setExpertSettings(on: Boolean) {
+        settings.expertSettings = on
+        store.update { it.copy(expertSettings = on) }
+    }
+
     fun setAllowMixedTemps(on: Boolean) = store.launch {
         settings.allowMixedTemps = on
         engine.setAllowMixedTemperatures(on)
@@ -199,7 +227,16 @@ class PresetController(private val store: Store, private val device: DeviceContr
     fun setFilamentLook(slot: Int, look: String?) = updateFilaments { list -> list.mapIndexed { i, f -> if (i == slot) f.copy(look = look) else f } }
 
     /** Makes [slot] a mix of the given (1-based slot, share) parts, or a plain filament again when [parts] is null. */
-    fun setMix(slot: Int, parts: List<Pair<Int, Float>>?, sublayers: Boolean) = store.launch {
+    fun setMix(slot: Int, parts: List<Pair<Int, Float>>?, sublayers: Boolean) = store.launch { setMixNow(slot, parts, sublayers) }
+
+    /** The "+ Mix" button: a new virtual slot (preset of the first part) that mixes the given (1-based slot, share) parts. */
+    fun addMix(parts: List<Pair<Int, Float>>, sublayers: Boolean) = store.launch {
+        val slot = store.value.filaments.size
+        updateFilamentsNow { list -> list + FilamentSlot(list.getOrElse(parts.first().first - 1) { list.last() }.preset, nextColor(list.size)) }
+        setMixNow(slot, parts, sublayers)
+    }
+
+    private suspend fun setMixNow(slot: Int, parts: List<Pair<Int, Float>>?, sublayers: Boolean) {
         val keys = setOf(Mix.IS_MIXED, Mix.COMPONENTS, Mix.RATIOS)
         if (parts != null) {
             val colors = parts.map { (c, _) -> store.value.filaments.getOrNull(c - 1)?.color }
@@ -414,12 +451,17 @@ class PresetController(private val store: Store, private val device: DeviceContr
     }
 
     /** Puts filament preset [name] in slot [slot] (its unsaved edits are dropped). */
-    suspend fun setFilamentNow(slot: Int, name: String) {
+    suspend fun setFilamentNow(slot: Int, name: String) = setFilamentsNow(setOf(slot), name)
+
+    /** Bulk edit: the same preset for all [slots] in one update. */
+    fun setFilaments(slots: Set<Int>, name: String) = store.launch { setFilamentsNow(slots, name) }
+
+    private suspend fun setFilamentsNow(slots: Set<Int>, name: String) {
         val s = store.value
-        rememberTrayPick(s.filaments.getOrNull(slot), name)
+        slots.forEach { rememberTrayPick(s.filaments.getOrNull(it), name) }
         // A user filament with its own colour recolours the slot, as on the desktop.
         val own = s.setup?.filaments?.firstOrNull { it.name == name }?.color?.ifEmpty { null }
-        val list = s.filaments.mapIndexed { i, f -> if (i == slot) FilamentSlot(name, own ?: f.color, source = f.source) else f }
+        val list = s.filaments.mapIndexed { i, f -> if (i in slots) FilamentSlot(name, own ?: f.color, source = f.source) else f }
         settings.setLastFilaments(s.printer ?: return, list)
         store.update { it.copy(filaments = list, results = emptyMap()) }
         refreshPresetValues(listOf(PresetType.FILAMENT))

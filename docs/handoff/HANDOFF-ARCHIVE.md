@@ -3794,3 +3794,165 @@ User said "yep looks good" while run 41158738411 (hole labels avoid bbox/wall la
 
 ## 2026-10-31 sketch size + triangles (Claude, WSA debug build of 29cb5e2)
 - design_set sketch without size fits its drawing (triangle 30,26 -> size [30,26,20]); design_to_plate Allow tapped on VD, placed OK; triangle count appears only when a piece is freshly rendered (design_set pre-renders), by design.
+
+## 2026-10-31 notice Fix links + danger confirm (Claude)
+- Commit 'Notices: Fix links...' (local): SettingGuards.kt (noticeFix table, dangerRule), Notices.kt FixLink per line (printer notice: Open printer -> Device), SettingsEditor.kt guardedSet + DangerDialog (cancel bumps resetTick to re-key rows and drop typed text), AppSettings.dangerMutes (project name, '' = untitled), PresetController.dangerMuted/muteDanger. SettingGuardsTest passes. HD plate slider backlog line folded into the open test line.
+
+### 2026-10-31 Backlog trim (full text of shortened lines)
+- Self-portrait 3 gaps (Claude, r489 WSA, 2026-10-31; untested fixes): MCP tools added 2026-10-31, Claude-verified on WSA debug build (slots 4->2, prime_tower move/reset, preview_set layers/scheme/moves + errors): filament_slots, prime_tower (plate, x, y | reset), preview_set (layer_from, layer_to, scheme, moves). Note: the release app also owns the MCP socket, so force-stop it before testing the debug app. Bugs: design_to_plate triangle count: whole design counted from STL headers, Claude-checked on WSA debug 2026-10-31 (count shows only when a piece is freshly rendered; design_set pre-renders so reply is "Placed on the plate", by design); slice result lost after view_set + Preview tab (NOT reproducible r489 WSA 2026-10-31: slice, view_set x2, Preview tab tap, result kept; likely a filament-slot/preset edit or a scene op between, they clear results by design; drop unless it recurs) ("not sliced yet", slice_result empty); 16-filament tower "no free spot" for a 172 mm object (physical limit: the tower box is 165x641 px on screen, ~70% fits; not a bug, maybe offer a clearer message or a tower-size hint); design_set sketch without size: fits the drawing, Claude-verified WSA debug 2026-10-31 (30x26); primitive groups: top-level solids are separate OpenSCAD statements (implicit union, ShapeModel.kt group()); Lattice 52 shells = pieces mode (one part per piece, colours) so by design; 24 open edges unexplained (probably rod ends), only matters for a real print.
+- UX review via Gemini (user 2026-10-31): bundle `~/orca-android-tools/exports/ux-review/` = `PASTE-ME-fresh.txt` (standalone prompt) + both PDFs + `audit-ui-source.txt`. Round 2 checked (archive 2026-10-31). Fresh run checked 2026-10-31 (Claude): 3.8 Flash High (AI Studio) best; base = Flash answer minus its 2 false items (View menu checkmarks exist, NumberField has isError), plus Pro's ScrollCue 28x18, hardcoded Notices red, Objects tab width jump, silent sizeOk. User decides which to build. Pre-audit draft (View menu grouped, More one-line explainers) is in `git stash` "ux: view menu grouping...", unbuilt; drop or apply after the user picks.
+- S Pen pressure (user 2026-10-31): BUILT ab552fa (CI run 41185835878), compiles, untested on a pen. Stylus pointer only: Sculpt strength x p (floor 5 %), round paint brush radius x (0.15+0.85p), layer-height graph tap step 0.02 x p (floor 10 %); More > Pen on/off + Soft/Linear/Firm. Not scaled: fill/height shapes, seam/support non-round shapes, brush ring cursor. Open: feel test on the Note 10+ (S Pen; user says when awake); Quest pen has no pressure.
+- [Opus] AI print failure watch, user "FOR SURE wants" (2026-10-30), condition: low compute per print. user's Wi-Fi camera on a printed stand (model: ask the user), RTSP via its camera account. Plan: Obico's open-source detector run locally (no LLM tokens), pause printer + notify on spaghetti; LLM only as optional 2nd opinion on a flagged frame. Claude vision at 1 frame/min ~80k tok/h = too costly as the main loop.
+
+### 2026-10-31 Handoff trim
+- CAD plan (`NOTES-cad-reuse.md`): 0-5b Claude-verified, 1b parked. MCP efficiency (`NOTES-mcp-token-efficiency.md`): build rule waits for user OK.
+- Self-portrait 3 done (archive); gaps: backlog "Self-portrait 3 gaps" (MCP tools filament_slots/prime_tower/preview_set Claude-verified; 2 design fixes still untested).
+- Debug app on WSA: tested 2026-10-31, uninstall when the user is done. Demos on WSA debug app 2026-10-30 (Hopf + torus link, archive): uninstall debug when the user is done. Open: printable base (needs user OK).
+- S Pen pressure ab552fa (r489 installed everywhere): More > Pen UI checked on WSA VD 2026-10-31 (switch + Soft/Linear/Firm chips, Firm selects, back to Linear); real pressure awaits Note 10+ test (user says when). Gemini round 3 skipped by user 2026-10-31 (still pending).
+- Notice Fix links + danger double-confirm + per-project mute: pushed, r492 built + installed. WSA VD 2026-10-31: danger dialog (nozzle 350) shows, Cancel reverts to 220. Still untested: Fix links, headings, HD plate slider, tower text, Apply+mute path (backlog "User asks 2026-10-31"). Backlog is 13.5 KB: trim to ~10 KB.
+
+## 2026-10-31 Bulk filament edit verified (Claude, phone VD, debug build of 53578ad)
+- Long press (su motionevent DOWN, hold 2.5 s, UP; a 1.5 s hold opened the single-slot picker instead, so hold >= 2 s) on a slot row selects it ("1 selected" card: Select all / Cancel / one Filament picker). Select all -> "3 selected"; picking PolyLite ABS in the card set slots 1-3 to it and cleared the selection. Shift/Ctrl+click untested (mouse; Chromebook). User feel untested.
+
+## 2026-10-31 Efficiency/bloat framework (Claude, r492 baseline)
+- docs/PERFORMANCE.md: review rule, metrics table, recipes, experiment queue. android/scripts/size_report.py + android/size-budget.json (r492 + ~3%), CI step 'APK size report' (job summary, cache-based delta, warn only). app/build.gradle.kts: -Porca.composeReports=true (needs --rerun).
+- r492 baseline: APK 124.1 MB; liborca_jni 48.4 (stripped, .text 36 MB, 907 dynsyms), vendors 28.3 (68 zips, stored), openscad 11.9, python libs 11.4, i18n 6.05 (20.4 raw), resources.zip 6.0, dex 4.4, python stdlib 4.15. Compose: 242/242 restartable composables skippable, 71 unstable classes (strong skipping on).
+- Vendor profiles extracted = 87 MB; one tar.xz -9e = 17.3 MB (vs 28.3 MB as zips).
+
+## 2026-10-31 Perf experiment 1: vendor profiles xz
+- Vendor zips -> stored zip inside xz per vendor (`pack_resources.py` `xz_zip`, dict sized to data; `ResourceStore.extractVendor` via `org.tukaani:xz`). APK assets/vendors 28.3 -> 17.25 MB. Solid tar.xz was 17.7 MB measured (0.4 MB better) but needs full decode per install. resources.zip under xz only -0.35 MB: skipped. WSA debug test: forced re-extract of BBL/Creality/OrcaFilamentLibrary, counts 2516/1492/1297 = source, ~2 s, BBL presets load. Installed BBL newer from online update (02.08.00.15 > bundled .12) is correctly not overwritten.
+
+## 2026-10-31 Notice Fix links (Claude, WSA window mode, r493)
+- Fix link dispatch (`FixLink`, Notices.kt) verified via spiral-vase (Option -> editor focus key); mapping tower/organic/mixed-temps/printer covered by `SettingGuardsTest` (`noticeFix`), Go(screen) is plain `setScreen`. Tray-mismatch notice tap scrolls to Filaments. Not triggered live: tower no-free-spot, organic+variable layer, mixed temps (accepted as covered).
+
+## 2026-10-31 Danger Apply+mute + locked plate size (Claude, WSA window, r493)
+- Danger dialog Apply + "never ask again in this project": WSA verified (printable height 256 -> 250 asked once, muted, 250 -> 240 no dialog, restored 256). Muted rule 'PRINTER_GEOMETRY' stays in app prefs for the untitled project.
+- User 2026-10-31: "no reason to override build plate dimensions" -> fe9f57f: `isLocked` (SettingGuards.kt) greys printable_area/printable_height in the printer editor (both OptionRow call sites); removed from the geometry danger keys. Unit test passes; not in a CI build / untested on device.
+
+### 2026-11-01 Multi-select long-press fix (Claude, WSA VD, debug build)
+- Cause: slotSelectGesture used pointerInput(selecting); the long-press toggle changed the key, restarting the loop and killing the release swallow, so the row picker opened too. Fix: stable key + rememberUpdatedState (PreparePanel.kt). Verified: long press = "1 selected", no picker; tap adds ("2 selected"). Not CI-built, not user-felt.
+
+## 2026-11-01 Settings audit decision + build (Claude)
+- User decision 2026-11-01: no lock; vendor printer presets (system or inheriting one, PrinterInfo.base) hide fixed hardware (SettingGuards VENDOR_FIXED_PRINTER_KEYS); More "Expert settings" toggle (disclaimer on enable) shows all + Expert segment + develop keys; changed keys and Fix-link focus key always show. Danger: one dialog Allow once / Always (app-wide AppSettings.dangerAllowed, reset entry in More) / Cancel; GCODE rule dropped; nozzle >300, bed >110, nozzle_diameter/z_offset/extruder_offset kept. Replaces fe9f57f lock and per-project dangerMutes.
+- WSA VD debug test: A1 printer editor shows Simple/Advanced only, Printable space group without plate size, search "printable" hid printable_area/height but showed extruder_printable_* -> added to the list (not retested).
+- 2026-11-01 WSA VD debug (f00f554, Claude): nozzle first layer 320 -> "Risky setting" dialog with Cancel / Always / Allow once; Always applied it and 330 then did not ask again; More showed "Ask again before risky settings / Allowed for good: nozzle above 300 C", tapping it cleared the list. Expert toggle: disclaimer dialog, on = Expert segment + Printable area / Extruder printable height / area shown (search "printable"), off = A1 search "printable" finds nothing (extruder_printable_* hidden). Scratch printer shows fixed keys: code-checked only (SettingsEditor.kt:269 vendorPrinter false when not system and no base), not run on device.
+
+## 2026-11-01 r494 headings (Claude, phone VD)
+- Coloured settings group headings verified on phone VD (r494, shots work on the phone VD, unlike WSA): Process = blue bars, Printer = orange bars. r494 first "installed on phone" was the SHIELD twice (USB + ip serial); phone is not the SHIELD (`adb connect <phone-ip>:5555`), installed afterwards.
+- HD plate slider (r494, phone VD, Claude 2026-11-01): Layout lab > Plates shows both sliders, "from below" moves 0 -> 64 % on a tap, plate renders. The look from below the plate is still unchecked (a two-swipe orbit only reached top-down; needs a camera under the plate, MCP `view_*` camera tool or a user glance).
+- HD from-below try 2 (r494, phone VD, 2026-11-01): MCP `view_set pitch -50` reports the new camera but the VD shot stayed identical (and `view_state` said pitch 32 while the shot looked top-down), so the VD frame is stale or not redrawing after view changes. Needs a window/real-screen glance or a debug build; don't repeat on the VD.
+
+## 2026-11-01 Filament tiles (6abf798, Claude, WSA VD debug)
+- Prepare > Filaments shows slots as tiles, two per line: chip = slot number inside the colour (black/white ink by luminance), name = preset minus brand word and "@printer" ("PLA Basic"), subline = brand or "User presets", "· Modified" in tertiary. Chip tap = menu (Colour, Surface look submenu, Mix, Edit, Reset to AMS on mismatch, Delete); tile tap = profile picker; selection = primary ring on chip + 2dp outline + container fill; mismatch = red outline + "!" and the message under the grid. Title-row icon toggles tiles/list (setting `filament_tiles`, default tiles).
+- Verified on WSA VD 2026-11-01 via ui dumps: 3 slots pair 2+1, chip menu items, look SILK saved to prefs, delete slot 3, picker opens, long-press selects, tap adds while selecting (2 selected), Cancel, toggle both ways. Not done: vendor logo (Bambu SVG = trademark), single "+ Mix" button.
+- Moved backlog lines:
+  - [Opus] Settings audit: all but scratch-printer-shows-fixed-keys Claude-verified on WSA VD 2026-11-01 (archive); scratch case code-checked only. Open: CI build + install on all adb devices.
+  - Filament row layout (user 2026-11-01, upstream model): chip = AMS slot number inside the filament colour (tap = colour menu, as now), facing name = material type ("PLA Basic"), vendor logo for Bambu filaments (check: is the logo bundled upstream / trademark; else generic badge). Two rows per line like the AMS lite. Claude lean: selected ring on the chip fixes the selection look; "Surface look" stays in the colour menu only because upstream has no equivalent.
+    Opus review 2026-11-01 (code-checked, untested): Surface look = viewport-only render override (FilamentSlot.look, auto from material), so colour-chip menu is right (Sonnet's "material property" pushback was wrong). Mix makes slot N a virtual mix of >=2 others (MixDialog), so the user's single "+ Mix" button adding a virtual slot fits better than per-row (Sonnet's "needs a target" pushback was weak). Short names ("PLA Basic") make pairs fit on phones, but pairs force row actions (look/mix/edit/delete) into the chip menu or a 3-dot. Selected rows already get a secondaryContainer background (PreparePanel.kt:241): too faint or lost to the gesture bug. Upstream ships resources/images/bbl-3dp-logo.svg.
+
+
+## 2026-11-01 "+ Mix" button (52c7b11, Claude, WSA VD debug)
+- One "+ Mix" button next to "+ Filament" (shown with >=2 non-mixed slots) opens MixDialog for a new slot; OK adds a virtual slot (preset of the first part) via `PresetController.addMix`. Deviation: the per-row mix entry (list icon, tile chip menu) now shows only on slots that already are a mix (edit / "Not a mix"); turning a physical tray into a mix made little sense.
+- Verified on WSA VD: 1 slot = no button; 2 slots = button; check 1+2, OK -> slot 3 "modified", chip menu of 3 has "Mix for filament 3", slot 1 has none; Cancel adds no slot. CI run 41329765340 dispatched (tiles + Mix).
+
+## 2026-11-01 Backlog trim (full lines before shortening)
+- Self-portrait 3 gaps (Claude, r489 WSA, 2026-10-31): MCP tools filament_slots/prime_tower/preview_set Claude-verified; design fixes (triangle count, sketch size) Claude-verified. Open: only real-print checks (24 open edges on lattice, probably rod ends); 16-filament tower "no free spot" is a physical limit (maybe a clearer message). Details: archive 2026-10-31 backlog trim.
+- [Opus] Filament materials tiers 1+2, per-slot look, Realistic render 1+2 (Claude WSA debug 2026-10-24): user feel untested (layer line contrast in realistic mode); variable layer height ignored; open: Quest/Chromebook GPU check. Google Filament engine not wanted (breaks Shaders.kt drags, ids, uSolo).
+- CAD roadmap (user accepted 2026-10-25; NOTES-cad-reuse.md): steps 0-6 built and Claude-verified on WSA (Hull r445, XY edge snap r447, Blend joins r419, sweep/loft r421, bend/twist/taper r423, sculpt r428), user feel untested; 7 asset library 7a-7d Claude-verified WSA VD (archive 2026-10-29); 7c built-ins (Wheel, Figure, Peg and hole, Hinge, Gear) done.
+- [Opus] User asks 2026-10-31: Fix links (all) + danger dialog Cancel + spiral Fix Claude-verified (archive 2026-10-31). Danger Apply+mute verified (archive). Open (headings + slider works verified r494, archive): HD plate "from below" look (needs camera under plate), tower text, locked plate size fe9f57f on device (Claude, untested). Test via `orca-vd.sh start window`, close app after.
+- [Opus] Pinned process settings (user 2026-10-31): built (main view "Pin settings here" -> editor pin mode, pin icon per row; info dialog Pin/Unpin; rows under QuickSettings; risky values open the editor). Claude-verified WSA VD 2026-10-31 (pin, edit 0.25 applies, persists over restart). "Default" label fixed (group-title prefix, WSA VD-verified "Line width · Default", Claude 2026-10-31, commit pending CI build). Open: unpin via label dialog untested.
+- Under-plate opacity: code done (lab HD plate slider "from below", default 0 = invisible); compiles; WSA VD test 2026-10-31 (Claude): lab plateHd + plateUnderAlpha set via prefs, but view_screenshot came back blank (GL not drawing on the VD, 2 KB flat grey), so the look is still unchecked. Try window mode or a user glance.
+- [Opus] Perf experiments (user 2026-10-31 framework, set up by Claude 2026-10-31): queue in docs/PERFORMANCE.md (vendor solid archive -11 MB, native ICF/LTO, Python stdlib trim, i18n = user decision); CI size step on local branch local/ci-size-step (ae8d7fa), push blocked: token lacks workflow scope (Claude 2026-10-31).
+- Stylus 7d3a263 (palm rejection, mappable pen buttons/eraser, no pressure/tilt): untested on a pen (Note 10+ S Pen / Quest pseudo pen; super low priority, user 2026-10-21). Pie menu (user dislikes it): LOW, pen-button customizable tool picker, trigger untested. Sketch-mode idea undecided.
+- [Opus] Sculpt mode (More > Sculpt, r428+; Claude-verified WSA 2026-10-26..28, archive; user feel untested). Symmetry 51ad144 untested on device by user. Remaining items (paint overlay mid-stroke, bump positions, grab on plane) parked as won't-do 2026-10-30: low value, native + CI only.
+- UX review via Gemini (user 2026-10-31): bundle `~/orca-android-tools/exports/ux-review/`; lowest priority, act only if the user brings Gemini's answer. Claude's base list + stash "ux: view menu grouping..." in archive 2026-10-31 backlog trim; drop or apply after the user picks.
+- Multi-select filament bug: long-press picker fixed (debug build, Claude WSA VD 2026-11-01, committed, no CI build yet). Open: "add 3rd filament while selected", lost selected shade not reproduced (Add and tap-toggle worked); selected-ring idea folded into Filament row layout.
+- [Opus] Filament section makeover (user 2026-10-31, brain dump = exploration, leanings only): one colour-mix button above the list (or all 4 row actions in a 3-dot menu) instead of per row; "Surface look" inside the colour-dot menu; own custom colour picker (upstream's is ugly); rows paired two per line like the real AMS lite (Prepare > Filament); Bambu Studio mixer as model: quick-pick combos for 2..N colours + picker with live preview while scrubbing proportion sliders (BS limit 3 colours; look at the colour-mixing fork's picker/mixer UI).
+
+### 2026-11-01 r495 installed + own filament colour picker (Claude, WSA VD, debug e48fa3d)
+- CI run 41329765340 = r495 (tiles + "+ Mix") installed on WSA, SHIELD, phone, Chromebook; WSA launch smoke OK.
+- New `prepare/ColorDialog.kt` replaces the 20-dot palette: old|new split swatch (tap old = revert), hex field, saturation/brightness field, hue bar (tap + drag), "On other slots" row, 32 filament colours. Verified on WSA VD: SV tap -> #EF9478, SV drag -> #1E0800 (hue kept), hue tap -> #001E1E, swatches, revert -> #F2754E, OK saved #A6A9AA to slot 1 (reopened), back = cancel. Untested: hex typing, "On other slots" row (needs 2+ slots). uiautomator on the WSA VD clips at y=768 (display is 720x1280): buttons below show [0,0] bounds.
+
+## 2026-11-01 Bambu Studio-style mixer (Claude, WSA VD debug)
+- MixDialog rewrite: big live preview swatch + hex + per-part percentages; "Quick picks" swatches (pie wedges of the parts around the blended centre, primary ring when the current mix matches): each pair at 3:1/1:1/1:3, each triple evenly (3..5 slots), all evenly (>=4); >5 slots = pairs at 1:1 only. Two parts: a balance bar drawn in linear-light blend colours, tap/drag in 5% steps (thumb = mix colour). 3+ parts: per-part sliders (weights 0.5..10). Newly checked part gets the average weight.
+- Verified via ui dumps on WSA VD (3 slots): 10 picks listed; pick "1 75% + 2 25%" -> #D5778D, 75/25; bar tap at 90% -> 10/90; drag -> 45/55; check 3 -> 30/37/33 with three sliders; slider drag -> 23/28/50; OK adds slot 4 "modified"; reopening restores 23/28/50. Slider taps (not drags) don't register on WSA input (old dialog same Slider). Not seen: swatch/bar visuals (no VD screenshots on WSA).
+
+## 2026-11-01 Unpin via label dialog (Claude, WSA VD, r496)
+- Pinned "First layer height" from the editor's pin mode: main view shows the row with "Pinned" under Brim. Tapping its label opens the info dialog (description, `initial_layer_print_height`, Unpin / OK); Unpin removed the row. Pinned process settings fully Claude-verified; user feel untested.
+- Phone (.20) still unreachable on adb 2026-11-01: stays on r495.
+
+## 2026-11-01 Prime tower "no free spot" message (Claude, WSA, r496)
+- Two-colour slab (shape_add filament 1+2, design_to_plate, tap Allow on VD) filling the plate, then slice: "The prime tower (about 23 x 23 mm) has no free spot on plate 1: every position would overlap an object. Fix it by moving or removing an object, using fewer filaments, lowering the prime tower width in the Print settings, or turning the prime tower off." Single-colour objects need no tower, so no error.
+
+## 2026-11-01 HD plate "from below" (Claude, WSA VD, debug build of r496 source)
+- plateHd + plateUnderAlpha 0.6 via layout_lab prefs; view_set pitch -35/-50: underside draws as a dark translucent plate with the model and bed grid visible through it; from above (pitch 35) normal. GL drew fine on the WSA VD this time (earlier blank frame was a stale start). View was a 159 px sliver (panel wide), so only a coarse look; user feel untested.
+
+## 2026-11-01 User: live session ended, mixer redesign wanted (user, chat)
+- User: "i don't want to do live anymore" (scrcpy session over). The two live-session mixer passes (83384d3 chip picker + rescaling sliders + stacked bar; 437c9d9 plain blended pills, CI 41362528022) were never seen by the user. User switched to Opus "so you could work through a visually more appealing solution": Claude designs the mixer look, no live feedback.
+
+### 2026-11-01 Mix dialog functional check (Claude, WSA VD, CI run 41363118216)
+- 2 parts: chips pick, quick picks appear, bar 50/50 -> drag to 75/25, tap at the left end jumps to 5/95 (5 % floor). 3 parts: 34/33/33 even, divider 1 -> 20/47/33, divider 2 -> 20/65/15, divider 2 dragged far left clamps at 20/5/75; totals always 100. Hex preview updates. Test slot 3 removed again. Found: chosen chips showed only a check, hiding the slot number -> chips keep the number, check badge added (local commit).
+
+### 2026-11-01 Mix dialog visual check + polish (Claude, WSA VD, debug build)
+- New tool `~/orca-android-tools/vdgrab.sh`: WSA VD screenshots from the live scrcpy mkv (Compose dialogs visible; MCP view_screenshot is GL only). Frames lag ~5 s (mkv clusters).
+- Seen: empty / one pick / two picks. Fixed in 26dbb3c: the centred dialog grew as sections appeared, so chips moved under the finger (a second tap missed) -> quick picks (note text when empty) and proportions (blank bar, Even split disabled) keep their place; check badge ringed in the dialog colour (was invisible on an orange chip); one pick -> "Pick one more filament to mix with it". After: both taps at the same spot land, layout steady.
+- Slip: `orca-vd.sh` used `taskkill /IM scrcpy.exe` and closed the user's own SHIELD mirror window; now kills only the scrcpy recording to eche-cap (tested start/stop).
+
+### 2026-11-01 Mix dialog 3-part check (Claude, WSA VD, r501 + debug build)
+- r501 (CI 41367787634) installed on WSA + phone (.20); Chromebook not on adb; SHIELD skipped (user: "avoid shield for now").
+- 3 parts (slot 3 added via "+ Filament"): preview stripes fade into #96959B, chips + check badges fine, bar 34/33/33 with two dividers. Found: Quick picks was an empty note once 3+ parts were chosen. Fixed in 0c791b3: picks over exactly the chosen parts (even, each leading 2:1:1, each trailing 2:2:1 for three = 7 swatches, one row). Debug build on WSA VD: 7 picks, even ringed; tapping 50/25/25 sets the bar 50/25/25, ring moves, preview #B28E8D. Test slot 3 deleted again (release app). CI run 41371910606 dispatched.
+
+### 2026-11-01 Mix dialog r502 smoke (Claude, WSA VD, CI run 41371910606)
+- r502 installed on WSA + phone (.20). WSA VD: added slot 3, Mix, chose 1+2+3: 7 quick picks (34/33/33, three 50/25/25 variants, three 40/40/20 variants), even one ringed; picking 50/25/25 set the bar to 50/25/25 and the preview to #B28E8D; Cancel, slot 3 deleted via the row menu. Screenshot looked right. User feel untested.
+
+## 2026-11-01 Size push wound down (moved from HANDOFF.md)
+- r504 checked 2026-11-02: APK 101.02 MB (r492 124.1), WSA blend/hollow/slice smoke OK; budgets total 104.1, orca_jni 43.5 (PERFORMANCE.md Done).
+- **Size push: wound down (user 2026-11-02, after Claude's honest take): stop at ~101 MB, budgets stay as a regression guard.**
+  Vendors on demand DROPPED (offline setup risk + per-release asset upkeep for ~14%; user is on Bambu). Python on demand is the
+  one cut left: it fits because plugins already install from Orca Cloud (`plugins/Plugins.kt:22`, online-only). PERFORMANCE.md 0.d.
+
+## 2026-11-02 Python on demand part 1 details (moved from the handoff)
+- **Python on demand, part 1 committed, UNTESTED on device** (2026-11-01): `stage_python.py` ships only libpython in jniLibs +
+  `assets/python/runtime` (7 KB manifest: pinned Maven Central Chaquopy zips + SHA-256, file map, load order); `Plugins.preparePythonHome`
+  downloads (~9.3 MB), verifies, extracts to `<data>/python` (stamp `.runtime`), then `System.load`s libcrypto/libssl/libsqlite3_python.
+  Cuts ~9.4 MB (assets/python 4.15 + libcrypto 3.72 + libsqlite 0.89 + libssl 0.62). Local build root already restaged (no stdlib.zip, no libs).
+  libpython (6.7 MB) STAYS: it has no SONAME, so loading it from the data dir needs ELF patching + an APK stub lib + an app restart (backlog).
+
+## 2026-11-03: Python on demand part 1 verified on the phone (Claude, debug build of e6cefc1 + temp hook)
+- Phone (arm64) hidden VD, debug app with the release app's data copied (`wsa-debug-setup.sh` minus its last 2 lines, `W=<phone>`),
+  temp hook (`~/build/pytest_probe/hook.patch`, never committed) starting plugins as a fake user + installing `pytest_probe.py`.
+- First start: runtime fetched from Maven Central, SHA-256 checked, extracted to `<data>/python` (21 MB unpacked: lib/ with
+  libcrypto/libssl/libsqlite3_python, python3.12 with 55 lib-dynload modules, `.runtime` stamp); `Plugins.start` 947 ms incl. download (LAN).
+  Probe imports all OK: ssl (OpenSSL 3.0.18), hashlib (sha256("abc") correct), sqlite3 3.50.4 (query ran), json, decimal, lzma,
+  ctypes, socket, zlib, bz2, ast; `ssl.create_default_context()` OK; sys.prefix = `<data>/python`, 3.12.12.
+- Second start: 83 ms, `.runtime` mtime unchanged (no re-download). Probe's "did not register a package class" error = probe has no `@orca.plugin` (expected).
+- WSA could not run it: system_server/SurfaceFlinger wedged (`dumpsys SurfaceFlinger` 10 s timeout, `dumpsys activity` empty,
+  `am start` logged nothing, `pm uninstall` hung). That was also the 2026-11-02 "open puzzle" (the app never started there). WSA needs a restart.
+- Phone VD gotcha: `orca-vd.sh start` with the debug PKG said "app not resumed on display N after 5 tries" although the app ran
+  (it force-stopped/relaunched it 5x); the resumed() check misses the debug app on the phone VD. Untested why.
+- Debug app uninstalled from the phone; CI run 41701191206 dispatched for the size measurement.
+- 2026-11-03 CI: r506 (run 41701191206) APK 91.81 MB (r504 101.02): native/python 6.39, assets/python 0.00. Budgets total 94.6,
+  native/python 6.6, assets/python 0.1. r506 installed on the phone; WSA skipped (wedged), SHIELD avoided, .23 skipped.
+
+## 2026-11-03 STEP import verified (Claude, phone VD, debug app with r507 libs)
+- bear.step via `orca.model` extra imported as a solid object ("bear.step", 1x, plate 1, 1492 triangles), renders correctly; no crash. Debug app uninstalled, VD stopped.
+- Recipe: push the file to /data/local/tmp (MSYS_NO_PATHCONV=1 in Git Bash), `su cp` + chown into the debug files dir, `pm grant ... POST_NOTIFICATIONS`, start on the VD with `--esa orca.printers 'Qidi Q1 Pro|0.4' --es orca.model <path>` (without orca.printers it stalls at the picker). Do not run `orca-vd.sh ui` when the VD shows "not resumed": it dumps the phone's main screen.
+- Open: release-app VIEW intent for .step fails (backlog).
+
+## 2026-11-03 .step "open with" on the release app (r507, phone VD, Claude): works
+- VIEW + `-t model/step` + `content://media/external/file/<id>` (after MEDIA_SCANNER_SCAN_FILE) imports bear.step as a new plate object. The earlier "file could not be opened" was `file:///sdcard/...` (FileNotFound/SecurityException without storage access, shown by Store.launch), plus a stale error dialog: expected, not a bug. Test files removed, VD stopped, app force-stopped.
+
+## 2026-11-03 Public release check (Claude, web search, secondary sources; not legal advice)
+- Google Play "Device and Network Abuse": bans apps that block or interfere with ads shown by OTHER apps. Browsers are the stated exception, and blocking inside our own WebViews is not what the clause targets. Enforcement is reported as inconsistent; the policy text is the authority. WebView apps that expose a JS interface and load untrusted web content are also flagged: check our JS bridges only expose to our own origins before any store submission.
+- MakerWorld Terms of Use prohibit "page-scrape", robot or spider tools and AI access to copy site content. A user-facing WebView of the site is not scraping, but any background fetch/parse of MakerWorld pages (metadata, images) would be; one open-source project is waiting on written authorization for that. Printables terms and MakerWorld's in-app embedding rules NOT found.
+- Open before a store release: read Printables/Thingiverse terms directly; audit JS bridges vs untrusted origins; keep adblock framed as a browser-style per-user switch (it is: off-able, element picker).
+- JS bridge audit (Claude, code read, 2026-11-03): only ModelsScreen exposes `orcaNative`/`orcaPicker` to third-party sites; `Bridge.postMessage` -> `handle()` ignores any page whose host is not in `site.hosts` (ModelsScreen.kt:414-419) and only acts on a fixed command list; `blob()` only accepts URLs the app queued in `pendingBlobs`; `Picker.picked` only proposes a selector (user must tap Block). Bambu account / OrcaCloud / plugin WebViews load Bambu or app-local pages. No change needed.
+
+## 2026-11-03 Printables/Thingiverse terms read (Claude; not legal advice)
+- Printables: Printables ToS (prusa3d.com page 231249, effective 2026-10-15) pulls in Prusa's General Terms for its websites (page 231226, effective 2026-04-20). printables.com and thingiverse.com both answer 403 to fetch tools, so the Thingiverse text comes from search snippets only.
+  - GTC 9.1 bans "manual or automated extraction of the contents of the Websites including scraping". GTC 9.3 bans scripts that "could have an adverse impact on their operation". Our WebView extracts nothing; infinite scroll loads the pages the user scrolls to (one hidden-frame page at a time), so it is a normal page load, not extraction.
+  - GTC 9.5: the sites "may not be modified ... or otherwise interfered with" without consent. That is the grey area for ad blocking and for injected scroll/picker scripts. They run only on the user's device, the way browser extensions do, but the text does not exempt them. The terms never mention ads or ad blocking.
+  - Trademarks: the footer lists JOSEF PRUSA, PRUSA RESEARCH, PRUSA 3D, PRUSAMENT etc. as registered. "Prusa" alone and "Printables" are not listed, but GTC 9.5 also covers logos. No rule on third-party app or theme names.
+  - robots.txt: allow all except /world/.
+- Thingiverse (thingiverse.com/legal/terms, search snippets): personal, non-commercial use only. No use that "hurts its ability to earn money" or competes with the service, via "any robot, spider, scraper ... or any software used to access the Service". Ad blocking is closest to "hurts its ability to earn money". The API terms ban adding scraped site data to API data. We use no API.
+- Verdict: no blocker for a user-driven browser. Before a store release, (a) keep ad blocking an off-able per-user switch (it is), maybe default OFF on Thingiverse/Printables; (b) consider renaming the "Prusa ..." / "Printables Night" theme presets to neutral names (user decision; backlog). Thingiverse full text unread (bot wall); read it in a browser before a store submission.

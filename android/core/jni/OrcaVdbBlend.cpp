@@ -107,7 +107,8 @@ json OrcaEngine::smooth_blend(int object, int instance, double radius)
     const std::vector<indexed_triangle_set> shells = its_split(all);
     BOOST_LOG_TRIVIAL(warning) << "smooth blend: start, " << all.indices.size() << " faces, " << shells.size() << " shells, diag " << diag << " mm, voxel " << voxel << " mm, r " << r << " mm, split in " << ms(t0) << " ms";
     // As Slic3r::mesh_to_grid (one level set per shell, so overlapping shells union cleanly), interruptible.
-    openvdb::initialize();
+    // No openvdb::initialize(): it only registers grid/metadata types for file I/O, and those registrations kept every
+    // grid type (double, int64, vec3, string, point data...) linked: -3.6 MB of liborca_jni (patch 0004 drops libslic3r's calls).
     // Under an ARM translator (WSA's Houdini: ro.dalvik.vm.native.bridge set) meshToVolume's band expansion
     // livelocked with 16 threads (2026-10-26, 176k-face gear, r 40: stuck >10 min mid-layer, all cores busy);
     // 4 threads finished in 18 s, 1 in 47 s. Native ARM devices keep every core.

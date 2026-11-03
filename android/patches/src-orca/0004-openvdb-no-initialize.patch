@@ -1,0 +1,22 @@
+diff --git a/src/libslic3r/OpenVDBUtils.cpp b/src/libslic3r/OpenVDBUtils.cpp
+index d4ac09781d..07d827952c 100644
+--- a/src/libslic3r/OpenVDBUtils.cpp
++++ b/src/libslic3r/OpenVDBUtils.cpp
+@@ -67,7 +67,7 @@ openvdb::FloatGrid::Ptr mesh_to_grid(const indexed_triangle_set &    mesh,
+                                      float interiorBandWidth,
+                                      int   flags)
+ {
+-    openvdb::initialize();
++    // Android: no openvdb::initialize() (registers every grid type for file I/O only; -3.6 MB).
+ 
+     std::vector<indexed_triangle_set> meshparts = its_split(mesh);
+ 
+@@ -106,7 +106,7 @@ indexed_triangle_set grid_to_mesh(const openvdb::FloatGrid &grid,
+                           double                    adaptivity,
+                           bool                      relaxDisorientedTriangles)
+ {
+-    openvdb::initialize();
++    // Android: no openvdb::initialize() (registers every grid type for file I/O only; -3.6 MB).
+ 
+     std::vector<openvdb::Vec3s> points;
+     std::vector<openvdb::Vec3I> triangles;

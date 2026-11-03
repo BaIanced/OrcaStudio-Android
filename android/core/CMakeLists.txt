@@ -31,6 +31,11 @@ include("${ORCA_SRC}/version.inc")
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+# -O2 + ThinLTO (appended after the NDK's -O3, so it wins): liborca_jni stripped 50.75 -> 47.95 MB, phone slice time
+# unchanged (18.7 vs 18.8 s, interleaved runs at <=32 C; docs/PERFORMANCE.md item 1).
+string(APPEND CMAKE_C_FLAGS_RELEASE " -O2 -flto=thin")
+string(APPEND CMAKE_CXX_FLAGS_RELEASE " -O2 -flto=thin")
+string(APPEND CMAKE_SHARED_LINKER_FLAGS_RELEASE " -flto=thin")
 set(IS_CROSS_COMPILE TRUE)
 set(IS_CLANG_CL FALSE)
 set(SLIC3R_STATIC ON)

@@ -16,7 +16,6 @@ private const val BADGE_SIZE = 0.1f
 private const val BADGE_GAP = 0.02f
 
 /** Opacity of a plate seen from below (its see-through side). */
-private const val PLATE_UNDER_ALPHA = 0.45f
 
 /** Contact shadow: geometry up to this height above the bed casts it, mm; darkness right under a part. */
 private const val SHADOW_FADE_MM = 12f
@@ -196,6 +195,10 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
 
     /** Layout lab "HD plate": a dark plate with upstream's bed-type decals, solid from above, see-through from below. */
     var plateSurface = false
+    /** Opacity of the HD plate (Layout lab slider), 0.1-1. */
+    var plateAlpha = 1f
+    /** Opacity of the HD plate seen from below (Layout lab slider), 0-1; 0 skips the underside. */
+    var plateUnderAlpha = 0f
     /** Per plate (index = plate), set with [plateSurface]. */
     var plateLooks: List<PlateLook> = emptyList()
     /** Decal art by asset name (UI thread callback, called on the GL thread); null = not found. */
@@ -567,7 +570,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             glClearColor(bg[0], bg[1], bg[2], 1f)
         }
         if (shadow) effects.drawShadow(mvp, if (effects.isRealShadow) shadowStrength else SHADOW_STRENGTH, shadowSoftMm, shadowBiasMm, bedRects())
-        if (plateSurface && camera.eye().z >= 0f) drawPlateSurfaces(1f)
+        if (plateSurface && camera.eye().z >= 0f) drawPlateSurfaces(plateAlpha)
         drawBeds()
         drawBadges()
         if (showPreview) {
@@ -608,7 +611,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             if (models && (cutXray || cutXrayPanel) && cutBand != null) drawCutXray()
         }
         // Seen from below the plate is a window: drawn last, over the parts behind it.
-        if (plateSurface && camera.eye().z < 0f) drawPlateSurfaces(PLATE_UNDER_ALPHA)
+        if (plateSurface && camera.eye().z < 0f && plateUnderAlpha > 0f) drawPlateSurfaces(plateUnderAlpha * plateAlpha)
         drawOverlays()
     }
 

@@ -60,7 +60,10 @@ object Plugins {
 
     val isStarted get() = started
 
-    /** Starts Python (once) and loads the plugins installed for this Orca Cloud user. */
+    /**
+     * Starts Python (once) and loads the plugins installed for this Orca Cloud user. The first start
+     * downloads the Python runtime (~9 MB, see [preparePythonHome]).
+     */
     suspend fun start(context: Context, dataDir: File, cloudUserId: String) = withContext(thread) {
         appContext = context.applicationContext
         val result = runCatching {
@@ -158,29 +161,80 @@ object Plugins {
     }
 
     /**
-     * Extracts the Python standard library (assets/python, android/scripts/stage_python.py) to
-     * <data dir>/python, where OrcaSlicer's PythonInterpreter looks for its home; again after an
-     * app update brings a different Python.
+     * Installs the Python runtime in <data dir>/python, where OrcaSlicer's PythonInterpreter looks
+     * for its home: the standard library, its extension modules and the libraries they link
+     * (OpenSSL, SQLite). Only libpython is in the APK; the rest is fetched once, at the first plugin
+     * start, from the pinned Chaquopy release on Maven Central and checked against its SHA-256
+     * (assets/python/runtime, written by android/scripts/stage_python.py), and again after an app
+     * update brings a different runtime. Then loads the linked libraries from there, so the
+     * extension modules find them by soname.
      */
     private fun preparePythonHome(context: Context, dataDir: File) {
-        val version = context.assets.open("python/version").bufferedReader().use { it.readText().trim() }
+        val manifest = context.assets.open("python/runtime").bufferedReader().use { it.readText() }
+        val lines = manifest.lines().map { it.trim().split(' ') }.filter { it.size > 1 }
         val home = File(dataDir, "python")
-        val stamp = File(home, ".version")
-        if (stamp.exists() && stamp.readText() == version) return
-        home.deleteRecursively()
-        val root = home.canonicalPath + File.separator
-        ZipInputStream(context.assets.open("python/stdlib.zip").buffered()).use { zip ->
-            while (true) {
-                val entry = zip.nextEntry ?: break
-                val out = File(home, entry.name)
-                if (!out.canonicalPath.startsWith(root)) throw IOException("Bad entry ${entry.name}")
-                if (entry.isDirectory) out.mkdirs() else {
-                    out.parentFile?.mkdirs()
-                    out.outputStream().use { zip.copyTo(it) }
+        val stamp = File(home, ".runtime")
+        if (!(stamp.exists() && stamp.readText() == manifest)) {
+            val staging = File(dataDir, "python.part")
+            staging.deleteRecursively()
+            val root = staging.canonicalPath + File.separator
+            for (fetch in lines.filter { it[0] == "fetch" }) {
+                val (_, key, url, sha256) = fetch
+                // "file <key> <entry> <dest>" and "dir <key> <prefix> <dest prefix>" pick what to keep.
+                val files = lines.filter { it[0] == "file" && it[1] == key }.associate { it[2] to it[3] }
+                val dirs = lines.filter { it[0] == "dir" && it[1] == key }.map { it[2] to it[3] }
+                val zipFile = File(dataDir, "python-$key.zip")
+                try {
+                    download(url, sha256, zipFile)
+                    ZipInputStream(zipFile.inputStream().buffered()).use { zip ->
+                        while (true) {
+                            val entry = zip.nextEntry ?: break
+                            if (entry.isDirectory) continue
+                            val dest = files[entry.name]
+                                ?: dirs.firstOrNull { entry.name.startsWith(it.first) }?.let { it.second + entry.name.removePrefix(it.first) }
+                                ?: continue
+                            val out = File(staging, dest)
+                            if (!out.canonicalPath.startsWith(root)) throw IOException("Bad entry ${entry.name}")
+                            out.parentFile?.mkdirs()
+                            out.outputStream().use { zip.copyTo(it) }
+                        }
+                    }
+                } finally {
+                    zipFile.delete()
                 }
             }
+            File(staging, ".runtime").writeText(manifest)
+            home.deleteRecursively()
+            if (!staging.renameTo(home)) throw IOException("Cannot install the Python runtime in $home")
         }
-        stamp.writeText(version)
+        for (load in lines.filter { it[0] == "load" }) System.load(File(home, load[1]).path)
+    }
+
+    /** Downloads [url] to [out] and checks its SHA-256. */
+    private fun download(url: String, sha256: String, out: File) {
+        Log.i(TAG, "fetching the Python runtime: $url")
+        val c = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+        c.connectTimeout = 15_000
+        c.readTimeout = 60_000
+        try {
+            if (c.responseCode != 200) throw IOException("Python runtime download failed: HTTP ${c.responseCode}")
+            val digest = java.security.MessageDigest.getInstance("SHA-256")
+            c.inputStream.use { input ->
+                out.outputStream().use { output ->
+                    val buf = ByteArray(1 shl 16)
+                    while (true) {
+                        val n = input.read(buf)
+                        if (n < 0) break
+                        digest.update(buf, 0, n)
+                        output.write(buf, 0, n)
+                    }
+                }
+            }
+            val got = digest.digest().joinToString("") { "%02x".format(it) }
+            if (got != sha256) throw IOException("Python runtime download is corrupt (SHA-256 $got)")
+        } finally {
+            c.disconnect()
+        }
     }
 
     private const val TAG = "OrcaPlugins"

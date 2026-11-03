@@ -5,7 +5,8 @@ import java.util.Locale
 import org.json.JSONObject
 
 /**
- * Translates option labels, tooltips and settings page names with the desktop app's catalogs
+ * Translates option labels, tooltips and settings page names with the desktop app's catalogs. The APK ships none
+ * since 2026-11-01 (English only, -6.1 MB), so [load] returns [NONE]; the lookup stays for a catalog dropped in later
  * (assets/i18n/<lang>.json, generated from localization/i18n/<lang>/OrcaSlicer_<lang>.po).
  */
 class Translator private constructor(private val entries: Map<String, String>) {

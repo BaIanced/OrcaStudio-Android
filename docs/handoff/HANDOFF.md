@@ -13,9 +13,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 ## State
 - One repo: OrcaStudio-Android (code + these docs, `docs/handoff/`), branch `claude/handoff-continuation-rseql3`. Autonomy (user, 2026-10-11): decide branches and next steps
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
-- Android main = 0aec8c3 (PR #68, branch at run 41166849671 = r487: OrcaMesh M1-M4, dimensions overlay, designer panel, mesh_add; merged 2026-10-30 on /next-merge; user-untested, Claude-verified only). Nothing unverified on the branch. User-untested in main: list in `NOTES-merge-batch.md`.
+- Android main = 1c4ff52 (PR #69 = r490, merged 2026-10-31; Claude-verified only). Nothing unverified on the branch. User-untested in main: list in `NOTES-merge-batch.md`.
 - Signing secrets: `release` environment (main + `claude/*` only).
-- Latest installed CI build: r490 (run 41224065486, 29cb5e2: sketch size, triangles, filament_slots/prime_tower/preview_set; r489 was S Pen pressure ab552fa) on all 5 adb serials, 2026-10-31. Install builds on all adb devices (skip .23).
+- Latest installed CI build: r506 (run 41701191206, Python on demand, 91.81 MB) on the phone (.20) 2026-11-03; WSA wedged (r504, needs a WSA restart); Chromebook not on adb (r496). **User 2026-11-01: avoid the SHIELD for now** (no installs there). Phone drops off adb: `adb connect <phone-ip>:5555` (memory device-ips); GL shots on the phone VD. Install builds on all adb devices (skip .23).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **User 2026-10-28: no more user testing for now; Claude builds and tests everything itself (memory no-user-testing-now); don't ask for feel/UI checks.**
 - **User 2026-10-29: no tests on the user's screen; all tests on a hidden virtual display** (`TARGET=wsa orca-vd.sh start`, memory tests-on-virtual-display).
@@ -26,24 +26,20 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Session backups: phone `/data/local/tmp/phone-session-backup.{3mf,json}`, WSA `/data/local/tmp/session-backup.{3mf,json}`. `scadzip-test.zip` stays in `/sdcard/Download` (phone, Chromebook). Never write the LAN access code anywhere.
 ## Next task
 - **User 2026-10-21: design deviations pre-approved** ("deviate if you find a more logical, intuitive way; I trust your judgement"); say what changed.
-- Muse (full discretion; tasks 1-18 merged): `NOTES-muse.md`, read only when sending Muse work or a Muse PR shows up.
+- Muse (tasks 1-18 merged): `NOTES-muse.md`, only when sending Muse work.
 - **Merge batch (user 2026-10-28: main = user-tested): `NOTES-merge-batch.md`** (cuts agreed, printer set release-gated, sessions A-D).
 - Local tests: `wsa-debug-rebuild.sh [native]` (reference "WSA debug loop"); fresh app: `wsa-debug-setup.sh` first. Lab prefs: edit `layout_lab` JSON in debug `shared_prefs/app_settings.xml` with run-as sed (app stopped).
-- **Offload (user 2026-10-25/26): max token use onto free opencode models, growing leeway by track record** (Claude specs + verifies).
-  DeepSeek V4.1 Flash = default; runner `octauto.sh` (`D:\oct-backup\jobs\README.md`; opencode v2: `model#variant`), ledger `trust-profile.md`.
-- CAD plan (`NOTES-cad-reuse.md`): 0-5b Claude-verified, 1b parked. MCP efficiency (`NOTES-mcp-token-efficiency.md`): build rule waits for user OK.
+- **Offload (user 2026-10-25/26): max work onto free opencode models** (DeepSeek V4.1 Flash, `octauto.sh`, `D:\oct-backup\jobs\README.md`, ledger `trust-profile.md`).
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
-- Self-portrait 3 done (archive); gaps: backlog "Self-portrait 3 gaps" (MCP tools filament_slots/prime_tower/preview_set Claude-verified; 2 design fixes still untested).
-- Debug app on WSA: tested 2026-10-31, uninstall when the user is done. Demos on WSA debug app 2026-10-30 (Hopf + torus link, archive): uninstall debug when the user is done. Open: printable base (needs user OK).
-- UX audit / Gemini round 3: **lowest priority (user 2026-10-31)**; only act if the user brings Gemini's answer (backlog line).
-- S Pen pressure ab552fa (r489 installed everywhere): More > Pen UI checked on WSA VD 2026-10-31 (switch + Soft/Linear/Firm chips, Firm selects, back to Linear); real pressure awaits Note 10+ test (user says when). Gemini round 3 skipped by user 2026-10-31 (still pending).
-- Next step: offer main merge of r487-r490 work (user-untested, Claude-verified) -> Sonnet 5.5 (medium)
-## User decisions (2026-10-13)
-- Modeling goal: model without writing code (OpenSCAD only a backstop).
-- (2026-10-14) Each newly imported file gets its own plate (active if empty, else first empty, else new; `FileController.useEmptyPlate`).
-- Plate activation must not move the camera when zoomed out (sometimes moving is fine).
-- Plate switcher: **keep the lab until the user says otherwise; don't ask again** (mockups: archive "Plate switcher"). Once picked: delete losers + lab.
+- Open tests in backlog.
+- Size push closed at r504 101 MB (archive 2026-11-01). CI size step ae8d7fa on local `local/ci-size-step` (push needs `gh auth refresh -s workflow`).
+- Python on demand part 1 done 2026-11-03: phone-verified, r506 APK 101.02 -> 91.81 MB, budgets lowered (archive, PERFORMANCE.md).
+- STEP import verified 2026-11-03 on the phone VD (archive). Phone has release r507; VD stopped. WSA wedged since 2026-11-02 (restart before use).
+- Public release check, JS bridge audit and Printables/Thingiverse terms read done 2026-11-03 (archive). Two user decisions are left before a store release (backlog).
+- Next step: nothing Claude-only left; user decisions (store-release backlog line, Python on demand part 2 [Opus]) -> Opus 5.5 (high) for part 2 if wanted
+## User decisions
+- Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
 ## Safety gotchas
 - **Any test print needs the user's OK.** User's AMS lite: A1 yellow, A2 matte black, A3 white, A4 PETG.
@@ -75,3 +71,4 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 11. Efficiency (user, 2026-10-10): compile Kotlin locally before every push (command in the reference); batch 2-4 changes per
     build, don't dispatch builds that will be superseded; write code with Edit or python raw strings, never plain python
     heredocs (they ate backslashes 5x); write python scripts with Write, then run them.
+12. **Perf/size (user, 2026-10-31): `docs/PERFORMANCE.md`**: commit names metric before -> after; `android/size-budget.json` only goes down.

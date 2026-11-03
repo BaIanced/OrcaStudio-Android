@@ -160,6 +160,21 @@ class AppSettings(context: Context) {
         get() = prefs.getBoolean("allow_mixed_temps", false)
         set(value) = prefs.edit().putBoolean("allow_mixed_temps", value).apply()
 
+    /** Risky-setting rules the user allowed for good ("Always"), app-wide; reset in More. */
+    var dangerAllowed: Set<String>
+        get() = prefs.getStringSet("danger_allowed", emptySet()).orEmpty()
+        set(value) = prefs.edit().putStringSet("danger_allowed", value).remove("danger_mutes").apply()
+
+    /** Every slicer option shows, including Expert/develop ones and vendor printers' fixed hardware. */
+    var expertSettings: Boolean
+        get() = prefs.getBoolean("expert_settings", false)
+        set(value) = prefs.edit().putBoolean("expert_settings", value).apply()
+
+    /** Process option keys pinned to the main view under the process picker, in pin order. */
+    var pinnedSettings: List<String>
+        get() = prefs.getString("pinned_settings", null)?.split(',')?.filter { it.isNotEmpty() }.orEmpty()
+        set(value) = prefs.edit().putString("pinned_settings", value.joinToString(",")).apply()
+
     /** AMS sync keeps the filament presets the user picked for its trays ([trayPicks]). */
     var preferMyFilaments: Boolean
         get() = prefs.getBoolean("prefer_my_filaments", true)
@@ -171,6 +186,11 @@ class AppSettings(context: Context) {
             ?.let { o -> o.keys().asSequence().associateWith { k -> o.getJSONObject(k).let { it.getString("loaded") to it.getString("preset") } } }.orEmpty()
         set(value) = prefs.edit().putString("tray_picks",
             JSONObject(value.mapValues { (_, p) -> JSONObject().put("loaded", p.first).put("preset", p.second) }).toString()).apply()
+
+    /** Filament slots as AMS-style tiles, two per line (false = the older one-row-per-slot list). */
+    var filamentTiles: Boolean
+        get() = prefs.getBoolean("filament_tiles", true)
+        set(value) = prefs.edit().putBoolean("filament_tiles", value).apply()
 
     /** Hide printer presets whose nozzle differs from the one the connected printer reports. */
     var matchNozzle: Boolean

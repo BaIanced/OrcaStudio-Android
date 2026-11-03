@@ -19,6 +19,7 @@ import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import org.tukaani.xz.XZInputStream
 
 /**
  * The on-device file layout the native core expects:
@@ -86,7 +87,8 @@ class ResourceStore(private val context: Context) {
 
     private fun extractVendor(id: String) {
         File(systemDir, id).deleteRecursively()
-        context.assets.open("vendors/$id.zip").use { unzip(it, systemDir) }
+        // A stored zip inside xz (android/scripts/pack_resources.py); the dictionary is sized to the vendor.
+        XZInputStream(context.assets.open("vendors/$id.zip.xz").buffered()).use { unzip(it, systemDir) }
     }
 
     // --- Online profile updates --------------------------------------------------------------------

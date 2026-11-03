@@ -87,6 +87,15 @@ kotlin {
     compilerOptions { jvmTarget.set(JvmTarget.JVM_17) }
 }
 
+// Recomposition audit (docs/PERFORMANCE.md): `-Porca.composeReports=true` writes the Compose
+// compiler's stability reports and metrics to <build>/compose-reports.
+if (providers.gradleProperty("orca.composeReports").orNull == "true") {
+    composeCompiler {
+        reportsDestination.set(layout.buildDirectory.dir("compose-reports"))
+        metricsDestination.set(layout.buildDirectory.dir("compose-reports"))
+    }
+}
+
 /** Runs android/scripts/pack_resources.py to turn src-orca/resources into app assets. */
 abstract class PackOrcaAssets : DefaultTask() {
     @get:InputFiles
@@ -99,13 +108,6 @@ abstract class PackOrcaAssets : DefaultTask() {
     @get:InputFile
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val tabCpp: RegularFileProperty
-
-    @get:InputFiles
-    @get:PathSensitive(PathSensitivity.RELATIVE)
-    abstract val translations: ConfigurableFileCollection
-
-    @get:Input
-    abstract val translationsRoot: Property<String>
 
     @get:InputFile
     abstract val script: RegularFileProperty
@@ -130,7 +132,6 @@ abstract class PackOrcaAssets : DefaultTask() {
                 "--resources", resourcesRoot.get(),
                 "--assets", out.path,
                 "--tab-cpp", tabCpp.get().asFile.path,
-                "--i18n", translationsRoot.get(),
             )
         }
     }
@@ -146,9 +147,7 @@ val packOrcaAssets = tasks.register<PackOrcaAssets>("packOrcaAssets") {
     script.set(rootProject.file("scripts/pack_resources.py"))
     python.set(providers.gradleProperty("orca.python").orElse("python3"))
     tabCpp.set(File(orcaSrc, "src/slic3r/GUI/Tab.cpp"))
-    val i18n = File(orcaSrc, "localization/i18n")
-    translationsRoot.set(i18n.path)
-    translations.from(fileTree(i18n) { include("*/*.po") })
+    // No translation catalogs: the app is English only (the 20 desktop .po catalogs were 6.1 MB of the APK).
     // The layout extractor is a second script the packer runs.
     inputs.file(rootProject.file("scripts/extract_settings_layout.py"))
 }
@@ -180,6 +179,8 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.11.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.11.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
+    // xz decoder for the vendor profile archives (assets/vendors/*.zip.xz): -11.6 MB APK for ~30 KB of dex.
+    implementation("org.tukaani:xz:1.10")
 
     testImplementation("junit:junit:4.13.2")
     // Real org.json for the JVM tests of the core/ JSON helpers (the stubbed

@@ -120,6 +120,16 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
                 SwitchRow(stringResource(R.string.match_nozzle), state.matchNozzle, onChange = vm.presets::setMatchNozzle)
                 Text(stringResource(R.string.match_nozzle_text) + state.installedNozzles.entries.joinToString("") { "\n${it.key}: %.1f mm".format(it.value) },
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                // Turning it on asks first (disclaimer); off is immediate.
+                SwitchRow(stringResource(R.string.expert_settings), state.expertSettings) { on -> if (on) dialog = "expert" else vm.presets.setExpertSettings(false) }
+                Text(stringResource(R.string.expert_settings_text), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (state.dangerAllowed.isNotEmpty()) {
+                    val names = mapOf("NOZZLE_TEMP" to R.string.danger_name_nozzle_temp, "BED_TEMP" to R.string.danger_name_bed_temp,
+                        "PRINTER_GEOMETRY" to R.string.danger_name_printer_geometry)
+                    val allowed = state.dangerAllowed.mapNotNull { names[it] }.map { stringResource(it) }.joinToString(", ")
+                    Entry(stringResource(R.string.danger_reset), stringResource(R.string.danger_reset_text, allowed)) { vm.presets.resetDangerAllowed() }
+                }
                 Entry(stringResource(R.string.import_presets), stringResource(R.string.import_presets_text)) { importPresets.launch(arrayOf("*/*")) }
                 Entry(stringResource(R.string.sync_cloud_presets), stringResource(R.string.sync_cloud_presets_text)) { vm.presets.syncCloudPresets() }
                 Entry(stringResource(R.string.compare_presets), null) { vm.presets.openEditor(EditorTarget.Preset(PresetType.PRINT, pickCompare = true)) }
@@ -230,6 +240,8 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
             confirmButton = { TextButton({ dialog = null; vm.setThemeSpec(state.themeSpec.reset(true).reset(false)) }) { Text(stringResource(R.string.reset)) } },
             dismissButton = { TextButton({ dialog = null }) { Text(stringResource(R.string.cancel)) } },
         )
+        "expert" -> app.orcaandroid.ui.components.ConfirmDialog(stringResource(R.string.expert_settings), stringResource(R.string.expert_settings_warning),
+            stringResource(R.string.expert_settings_enable), { vm.presets.setExpertSettings(true) }) { dialog = null }
         "vendors" -> FilamentVendorsDialog(state, vm) { dialog = null }
         "plates" -> PlateTypesDialog(state, vm) { dialog = null }
         "backup_export" -> PassphraseDialog(stringResource(R.string.backup_export), stringResource(R.string.backup_export_warning), confirm = true,
@@ -327,6 +339,15 @@ internal fun LayoutLabBody(state: UiState, vm: AppViewModel) {
         SwitchRow(stringResource(R.string.lab_show_plates), lab.showPlates, onChange = { vm.setLab(lab.copy(showPlates = it)) })
         SwitchRow(stringResource(R.string.lab_plates_on_handle), lab.platesOnHandle, onChange = { vm.setLab(lab.copy(platesOnHandle = it)) })
         SwitchRow(stringResource(R.string.lab_plate_hd), lab.plateHd, onChange = { vm.setLab(lab.copy(plateHd = it)) })
+        if (lab.plateHd) {
+            val hdContext = LocalContext.current
+            fun hdText(v: Float) = hdContext.getString(R.string.lab_plate_hd_alpha, (v * 100).toInt())
+            Text(hdText(lab.plateHdAlpha), style = MaterialTheme.typography.bodyMedium)
+            LabSlider(lab.plateHdAlpha, { LabPeek.readout = hdText(it) to (it - 0.1f) / 0.9f; vm.setLab(lab.copy(plateHdAlpha = it)) }, 0.1f..1f, current)
+            fun underText(v: Float) = hdContext.getString(R.string.lab_plate_hd_under, (v * 100).toInt())
+            Text(underText(lab.plateUnderAlpha), style = MaterialTheme.typography.bodyMedium)
+            LabSlider(lab.plateUnderAlpha, { LabPeek.readout = underText(it) to it; vm.setLab(lab.copy(plateUnderAlpha = it)) }, 0f..1f, current)
+        }
         }
         Section(stringResource(R.string.lab_group_layout)) {
         SwitchRow(stringResource(R.string.lab_slice_floating), lab.sliceFloating, onChange = { vm.setLab(lab.copy(sliceFloating = it)) })

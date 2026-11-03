@@ -15,6 +15,9 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.heightIn
+import app.orcaandroid.ui.components.hexToRgb
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -22,6 +25,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PriorityHigh
 import androidx.compose.material.icons.filled.Refresh
@@ -50,12 +55,24 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.composed
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.PointerEventTimeoutCancellationException
+import androidx.compose.ui.input.pointer.isCtrlPressed
+import androidx.compose.ui.input.pointer.isShiftPressed
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -179,6 +196,13 @@ private fun PresetsTab(state: UiState, vm: AppViewModel) {
     androidx.compose.runtime.LaunchedEffect(ProblemFocus.tick) { if (ProblemFocus.tick > 0) filamentsOpen = true }
     app.orcaandroid.ui.components.CollapsibleTitle(stringResource(R.string.filaments), filamentsOpen, { filamentsOpen = !filamentsOpen }) {
         if (!filamentsOpen) state.filaments.forEach { ColorDot(it.color, 16) }
+        else {
+            androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+            val label = stringResource(if (state.filamentTiles) R.string.filament_view_list else R.string.filament_view_tiles)
+            Tip(label) { IconButton(onClick = { vm.presets.setFilamentTiles(!state.filamentTiles) }, modifier = Modifier.size(32.dp)) {
+                Icon(if (state.filamentTiles) Icons.AutoMirrored.Filled.ViewList else Icons.Default.GridView, label, Modifier.size(20.dp))
+            } }
+        }
     }
     if (filamentsOpen) FilamentSlots(state, vm, userGroup, vendorGroup)
 
@@ -191,6 +215,7 @@ private fun PresetsTab(state: UiState, vm: AppViewModel) {
         Tip(stringResource(R.string.edit)) { IconButton(onClick = { vm.presets.openEditor(EditorTarget.Preset(PresetType.PRINT)) }) { Icon(Icons.Default.Tune, stringResource(R.string.edit)) } }
     }
     QuickSettings(state, vm)
+    app.orcaandroid.ui.settings.PinnedSettings(state, vm)
 }
 
 /** The filament slots with their pickers, colours and the flushing / sync / prime tower controls. */
@@ -198,14 +223,36 @@ private fun PresetsTab(state: UiState, vm: AppViewModel) {
 private fun FilamentSlots(state: UiState, vm: AppViewModel, userGroup: String, vendorGroup: String) {
     val setup = state.setup
     val problems = state.setupProblems().associateBy { it.slot }
-    state.filaments.forEachIndexed { i, slot ->
+    // Bulk edit: long press (touch) or Shift/Ctrl+click (mouse) on a slot row multi-selects; then one profile goes to all of them.
+    var picked by remember { mutableStateOf(setOf<Int>()) }
+    val sel = picked.filter { it < state.filaments.size }.toSet()
+    if (sel.isNotEmpty()) {
+        androidx.compose.material3.Card(Modifier.fillMaxWidth(), colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
+            Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(R.string.n_selected, sel.size), Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+                    TextButton(onClick = { picked = state.filaments.indices.toSet() }) { Text(stringResource(R.string.select_all)) }
+                    TextButton(onClick = { picked = emptySet() }) { Text(stringResource(R.string.cancel)) }
+                }
+                val all = setup?.filaments.orEmpty().filter { it.system.not() || it.brandName !in state.hiddenFilamentVendors || sel.any { s -> state.filaments[s].preset == it.name } }
+                val common = sel.map { state.filaments[it].preset }.distinct().singleOrNull() ?: ""
+                PickerField(stringResource(R.string.filament), common,
+                    presetItems(all, userGroup, vendorGroup, { it.name }, { it.system }, { it.color }) { listOf(it.brandName, it.type.ifEmpty { "?" }) },
+                    { vm.presets.setFilaments(sel, it); picked = emptySet() }, Modifier.fillMaxWidth(), openGroups = setOf(userGroup))
+            }
+        }
+    }
+    if (state.filamentTiles) FilamentTiles(state, vm, userGroup, vendorGroup, problems, sel) { i -> picked = if (i in sel) sel - i else sel + i }
+    else state.filaments.forEachIndexed { i, slot ->
         var colorDialog by remember { mutableStateOf(false) }
         val problem = problems[i]
         val reveal = remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
         androidx.compose.runtime.LaunchedEffect(ProblemFocus.tick) {
             if (ProblemFocus.tick > 0 && ProblemFocus.slot == i) { kotlinx.coroutines.delay(350); reveal.bringIntoView() }
         }
-        Row(Modifier.bringIntoViewRequester(reveal).then(if (problem != null) Modifier.border(1.dp, Color.Red, RoundedCornerShape(8.dp)) else Modifier),
+        Row(Modifier.bringIntoViewRequester(reveal).then(if (problem != null) Modifier.border(1.dp, Color.Red, RoundedCornerShape(8.dp)) else Modifier)
+            .then(if (i in sel) Modifier.background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(8.dp)) else Modifier)
+            .slotSelectGesture(sel.isNotEmpty()) { picked = if (i in sel) sel - i else sel + i },
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             IconButton(onClick = { colorDialog = true }, modifier = Modifier.size(36.dp)) { ColorDot(slot.color, 22) }
             val filaments = setup?.filaments.orEmpty().filter { it.system.not() || it.brandName !in state.hiddenFilamentVendors || it.name == slot.preset }
@@ -233,9 +280,10 @@ private fun FilamentSlots(state: UiState, vm: AppViewModel, userGroup: String, v
                     }
                 }
             }
+            // New mixes come from the "+ Mix" button; a row only edits the mix it already is.
             var mixDialog by remember { mutableStateOf(false) }
-            Tip(stringResource(R.string.mix_title, i + 1)) { IconButton(onClick = { mixDialog = true }) {
-                Icon(Icons.Default.Palette, stringResource(R.string.mix_title, i + 1), tint = if (Mix.isMixed(slot)) MaterialTheme.colorScheme.primary else LocalContentColor.current)
+            if (Mix.isMixed(slot)) Tip(stringResource(R.string.mix_title, i + 1)) { IconButton(onClick = { mixDialog = true }) {
+                Icon(Icons.Default.Palette, stringResource(R.string.mix_title, i + 1), tint = MaterialTheme.colorScheme.primary)
             } }
             if (mixDialog) MixDialog(state.filaments, i, state.value(PresetType.PRINT, "enable_mixed_color_sublayer") == "1",
                 { parts, sub -> vm.presets.setMix(i, parts, sub) }) { mixDialog = false }
@@ -246,19 +294,165 @@ private fun FilamentSlots(state: UiState, vm: AppViewModel, userGroup: String, v
         }
         if (problem != null) Text(stringResource(R.string.filament_type_mismatch, problem.have, problem.tray),
             style = MaterialTheme.typography.bodySmall, color = Color.Red)
-        if (colorDialog) ColorDialog(slot.color, { vm.presets.setFilamentColor(i, it) }) { colorDialog = false }
+        if (colorDialog) ColorDialog(slot.color, { vm.presets.setFilamentColor(i, it) }, { colorDialog = false },
+            state.filaments.filterIndexed { j, _ -> j != i }.mapNotNull { it.color })
     }
     var flushDialog by remember { mutableStateOf(false) }
+    var newMix by remember { mutableStateOf(false) }
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         OutlinedButton(onClick = vm.presets::addFilament) { Icon(Icons.Default.Add, null); Text(stringResource(R.string.add_filament)) }
+        if (state.filaments.count { !Mix.isMixed(it) } >= 2) OutlinedButton(onClick = { newMix = true }) { Icon(Icons.Default.Add, null); Text(stringResource(R.string.add_mix)) }
         if (state.filaments.size > 1) TextButton(onClick = { flushDialog = true }) { Text(stringResource(R.string.flushing_volumes)) }
     }
     if (flushDialog) FlushDialog(state, vm) { flushDialog = false }
+    if (newMix) MixDialog(state.filaments, state.filaments.size, state.value(PresetType.PRINT, "enable_mixed_color_sublayer") == "1",
+        { parts, sub -> if (parts != null) vm.presets.addMix(parts, sub) }) { newMix = false }
     // Like the desktop's filament sync: take the slots from what the connected Bambu printer has loaded.
     if (state.connection?.type == HostType.BAMBU || state.connection?.type == HostType.BAMBU_SIGNED) {
         OutlinedButton(onClick = vm.presets::syncFilamentsFromPrinter) { Icon(Icons.Default.Sync, null); Text(stringResource(R.string.sync_filaments)) }
     }
     if (state.filaments.size > 1) WipeTowerRow(state, vm)
+}
+
+/** "Bambu PLA Basic @BBL A1M" -> "PLA Basic": the brand word and the printer suffix are noise on a narrow tile. */
+internal fun shortFilamentName(preset: String, brand: String): String {
+    val base = preset.substringBefore(" @").trim()
+    val first = brand.substringBefore(' ')
+    val short = if (first.isNotEmpty() && base.startsWith("$first ", ignoreCase = true)) base.substring(first.length + 1).trim() else base
+    return short.ifEmpty { preset }
+}
+
+/**
+ * The slots as AMS lite-style tiles, two per line: the chip is the slot number inside the filament colour (tap = colour,
+ * surface look, mix, edit, delete), the rest of the tile opens the profile picker. Selection rings the chip.
+ */
+@Composable
+private fun FilamentTiles(state: UiState, vm: AppViewModel, userGroup: String, vendorGroup: String, problems: Map<Int, SetupProblem>,
+                          sel: Set<Int>, toggle: (Int) -> Unit) {
+    state.filaments.indices.chunked(2).forEach { pair ->
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            pair.forEach { i -> FilamentTile(state, vm, i, userGroup, vendorGroup, problems[i], i in sel, sel.isNotEmpty(), toggle, Modifier.weight(1f)) }
+            if (pair.size == 1) androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+        }
+    }
+    problems.forEach { (i, p) ->
+        Text("${i + 1}: " + stringResource(R.string.filament_type_mismatch, p.have, p.tray), style = MaterialTheme.typography.bodySmall, color = Color.Red)
+    }
+}
+
+@Composable
+private fun FilamentTile(state: UiState, vm: AppViewModel, i: Int, userGroup: String, vendorGroup: String, problem: SetupProblem?,
+                         selected: Boolean, selecting: Boolean, toggle: (Int) -> Unit, modifier: Modifier) {
+    val slot = state.filaments[i]
+    val filaments = state.setup?.filaments.orEmpty().filter { it.system.not() || it.brandName !in state.hiddenFilamentVendors || it.name == slot.preset }
+    val ref = filaments.firstOrNull { it.name == slot.preset }
+    var picker by remember { mutableStateOf(false) }
+    var menu by remember { mutableStateOf(false) }
+    var lookMenu by remember { mutableStateOf(false) }
+    var colorDialog by remember { mutableStateOf(false) }
+    var mixDialog by remember { mutableStateOf(false) }
+    val reveal = remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
+    androidx.compose.runtime.LaunchedEffect(ProblemFocus.tick) {
+        if (ProblemFocus.tick > 0 && ProblemFocus.slot == i) { kotlinx.coroutines.delay(350); reveal.bringIntoView() }
+    }
+    val shape = RoundedCornerShape(10.dp)
+    val outline = when { problem != null -> Color.Red; selected -> MaterialTheme.colorScheme.primary; else -> MaterialTheme.colorScheme.outlineVariant }
+    Row(modifier.bringIntoViewRequester(reveal).heightIn(min = 52.dp)
+        .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface, shape)
+        .border(if (selected || problem != null) 2.dp else 1.dp, outline, shape)
+        .slotSelectGesture(selecting) { toggle(i) }
+        .clickable { picker = true }
+        .padding(start = 4.dp, end = 8.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Box {
+            val rgb = hexToRgb(slot.color ?: "#FF7F27")
+            val fill = Color(rgb[0], rgb[1], rgb[2])
+            val ink = if (0.299f * rgb[0] + 0.587f * rgb[1] + 0.114f * rgb[2] > 0.6f) Color.Black else Color.White
+            Box(Modifier.size(44.dp).clickable { menu = true }, contentAlignment = Alignment.Center) {
+                Box(Modifier.size(34.dp)
+                    .then(if (selected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, CircleShape).padding(3.dp) else Modifier)
+                    .background(fill, CircleShape).border(1.dp, MaterialTheme.colorScheme.outline, CircleShape),
+                    contentAlignment = Alignment.Center) {
+                    Text("${i + 1}", color = ink, style = MaterialTheme.typography.labelLarge)
+                }
+            }
+            DropdownMenu(menu, { menu = false }) {
+                DropdownMenuItem(text = { Text(stringResource(R.string.color)) }, leadingIcon = { ColorDot(slot.color, 18) },
+                    onClick = { menu = false; colorDialog = true })
+                DropdownMenuItem(text = { Text(stringResource(R.string.filament_look)) },
+                    leadingIcon = { Icon(Icons.Default.Texture, null, tint = if (slot.look != null) MaterialTheme.colorScheme.primary else LocalContentColor.current) },
+                    onClick = { menu = false; lookMenu = true })
+                if (Mix.isMixed(slot)) DropdownMenuItem(text = { Text(stringResource(R.string.mix_title, i + 1)) },
+                    leadingIcon = { Icon(Icons.Default.Palette, null, tint = MaterialTheme.colorScheme.primary) },
+                    onClick = { menu = false; mixDialog = true })
+                DropdownMenuItem(text = { Text(stringResource(R.string.edit)) }, leadingIcon = { Icon(Icons.Default.Edit, null) },
+                    onClick = { menu = false; vm.presets.setActiveFilament(i); vm.presets.openEditor(EditorTarget.Preset(PresetType.FILAMENT)) })
+                if (problem != null) DropdownMenuItem(text = { Text(stringResource(R.string.filament_reset_to_ams, problem.synced)) },
+                    leadingIcon = { Icon(Icons.Default.Refresh, null) }, onClick = { menu = false; vm.presets.setFilament(i, problem.synced) })
+                if (state.filaments.size > 1) DropdownMenuItem(text = { Text(stringResource(R.string.delete)) }, leadingIcon = { Icon(Icons.Default.Delete, null) },
+                    onClick = { menu = false; vm.presets.removeFilament(i) })
+            }
+            DropdownMenu(lookMenu, { lookMenu = false }) {
+                val auto = FilamentMaterial.of(slot.preset, slot.overrides["filament_type"])
+                DropdownMenuItem(text = { Text(stringResource(R.string.filament_look_auto, auto.name.lowercase())) },
+                    onClick = { vm.presets.setFilamentLook(i, null); lookMenu = false })
+                FilamentMaterial.entries.forEach { m ->
+                    DropdownMenuItem(text = { Text(m.name.lowercase()) }, onClick = { vm.presets.setFilamentLook(i, m.name); lookMenu = false })
+                }
+            }
+        }
+        Column(Modifier.weight(1f)) {
+            Text(shortFilamentName(slot.preset, ref?.brandName.orEmpty()), style = MaterialTheme.typography.bodyMedium,
+                maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            // The brand line only earns its space when the slots differ (every tile saying "Bambu Lab" is noise).
+            val brands = state.filaments.mapNotNull { s -> state.setup?.filaments?.firstOrNull { it.name == s.preset }?.takeIf { it.system }?.brandName }.toSet()
+            val sub = (ref?.let { if (it.system) it.brandName.takeIf { brands.size > 1 } ?: "" else userGroup } ?: "") +
+                (if (slot.overrides.isNotEmpty()) " · " + stringResource(R.string.modified) else "")
+            if (sub.isNotBlank()) Text(sub.removePrefix(" · "), style = MaterialTheme.typography.labelSmall, maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                color = if (slot.overrides.isNotEmpty()) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        if (problem != null) Icon(Icons.Default.PriorityHigh, null, tint = Color.Red, modifier = Modifier.size(16.dp))
+    }
+    if (picker) app.orcaandroid.ui.components.PickerDialog("${i + 1}", slot.preset,
+        presetItems(filaments, userGroup, vendorGroup, { it.name }, { it.system }, { it.color }) { listOf(it.brandName, it.type.ifEmpty { "?" }) },
+        onDismiss = { picker = false }, openGroups = setOf(userGroup)) { picker = false; vm.presets.setFilament(i, it) }
+    if (colorDialog) ColorDialog(slot.color, { vm.presets.setFilamentColor(i, it) }, { colorDialog = false },
+        state.filaments.filterIndexed { j, _ -> j != i }.mapNotNull { it.color })
+    if (mixDialog) MixDialog(state.filaments, i, state.value(PresetType.PRINT, "enable_mixed_color_sublayer") == "1",
+        { parts, sub -> vm.presets.setMix(i, parts, sub) }) { mixDialog = false }
+}
+
+/**
+ * Slot-row selection without eating normal taps: Shift/Ctrl+click toggles, a long press toggles, and once something is
+ * selected ([selecting]) every tap toggles. Watches the Initial pass so the buttons inside the row never see those gestures.
+ */
+private fun Modifier.slotSelectGesture(selecting: Boolean, toggle: () -> Unit): Modifier = composed {
+    // Stable pointerInput key: toggling the selection must not restart the gesture loop mid-press (it would cancel the release swallow).
+    val selectingNow by rememberUpdatedState(selecting)
+    val toggleNow by rememberUpdatedState(toggle)
+    pointerInput(Unit) {
+    awaitEachGesture {
+        val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+        val ev = currentEvent
+        val key = down.type == PointerType.Mouse && (ev.keyboardModifiers.isCtrlPressed || ev.keyboardModifiers.isShiftPressed)
+        if (key || selectingNow) {
+            down.consume()
+            waitForUpOrCancellation(PointerEventPass.Initial)?.let { it.consume(); toggleNow() }
+        } else {
+            val held = try { withTimeout(viewConfiguration.longPressTimeoutMillis) { waitForUpOrCancellation(PointerEventPass.Initial) }; false }
+            catch (_: PointerEventTimeoutCancellationException) { true }
+            if (held) {
+                toggleNow()
+                // Swallow the rest of the press so the release does not click a button.
+                do {
+                    val e = awaitPointerEvent(PointerEventPass.Initial)
+                    e.changes.forEach { it.consume() }
+                } while (e.changes.any { it.pressed })
+            }
+        }
+    }
+    }
 }
 
 /** The handful of process options people change all the time, one tap away. */
@@ -322,36 +516,6 @@ private fun WipeTowerRow(state: UiState, vm: AppViewModel) {
             TextButton(onClick = { vm.scene.setWipeTower(plate.index, 15f to 150f) }) { Text(stringResource(R.string.set_position)) }
         }
     }
-}
-
-private val PALETTE = listOf(
-    "#FFFFFF", "#D3D3D3", "#808080", "#202020", "#000000", "#FF7F27", "#FFD700", "#FFFF66",
-    "#2FBF4F", "#006400", "#40E0D0", "#2F7FEF", "#00008B", "#8F3FDF", "#FF69B4", "#EF3F3F",
-    "#8B0000", "#A0522D", "#D2B48C", "#C0C0C0",
-)
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-internal fun ColorDialog(current: String?, onPick: (String) -> Unit, onDismiss: () -> Unit) {
-    var hex by remember { mutableStateOf(current ?: "#FF7F27") }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.color)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                FlowRow(Modifier.fillMaxWidth()) {
-                    PALETTE.forEach { c ->
-                        IconButton(onClick = { hex = c }) { ColorDot(c, if (c.equals(hex, true)) 34 else 26) }
-                    }
-                }
-                OutlinedTextField(hex, { hex = it }, label = { Text("Hex") }, singleLine = true, leadingIcon = { ColorDot(hex) })
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = { onDismiss(); onPick(hex.uppercase()) }, enabled = Regex("#[0-9a-fA-F]{6}").matches(hex)) { Text(stringResource(R.string.ok)) }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
-    )
 }
 
 // --- Objects -------------------------------------------------------------------------------------
