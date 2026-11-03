@@ -13,7 +13,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 ## State
 - One repo: OrcaStudio-Android (code + these docs, `docs/handoff/`), branch `claude/handoff-continuation-rseql3`. Autonomy (user, 2026-10-11): decide branches and next steps
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
-- Android main = 1c4ff52 (PR #69 = r490, merged 2026-10-31; Claude-verified only). Nothing unverified on the branch. User-untested in main: list in `NOTES-merge-batch.md`.
+- Android main = 806d4ff (PR #70 = r507, merged 2026-11-03; Claude-verified only). Nothing unverified on the branch. PR #70 / main privacy-scan runs fail only on history commit 7d08e77 (private LAN address, fixed at HEAD by 3bc4fdd); tracked files clean. User-untested in main: list in `NOTES-merge-batch.md`.
 - Signing secrets: `release` environment (main + `claude/*` only).
 - Latest installed CI build: r506 (run 41701191206, Python on demand, 91.81 MB) on the phone (.20) 2026-11-03; WSA wedged (r504, needs a WSA restart); Chromebook not on adb (r496). **User 2026-11-01: avoid the SHIELD for now** (no installs there). Phone drops off adb: `adb connect <phone-ip>:5555` (memory device-ips); GL shots on the phone VD. Install builds on all adb devices (skip .23).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**

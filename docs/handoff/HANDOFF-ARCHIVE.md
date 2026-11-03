@@ -3956,3 +3956,6 @@ User said "yep looks good" while run 41158738411 (hole labels avoid bbox/wall la
   - robots.txt: allow all except /world/.
 - Thingiverse (thingiverse.com/legal/terms, search snippets): personal, non-commercial use only. No use that "hurts its ability to earn money" or competes with the service, via "any robot, spider, scraper ... or any software used to access the Service". Ad blocking is closest to "hurts its ability to earn money". The API terms ban adding scraped site data to API data. We use no API.
 - Verdict: no blocker for a user-driven browser. Before a store release, (a) keep ad blocking an off-able per-user switch (it is), maybe default OFF on Thingiverse/Printables; (b) consider renaming the "Prusa ..." / "Printables Night" theme presets to neutral names (user decision; backlog). Thingiverse full text unread (bot wall); read it in a browser before a store submission.
+
+## 2026-11-03 PR #70 merged to main (806d4ff, r507; user "merge")
+Builds r491-r507, Claude-verified only. Merged while the PR privacy-scan check was still pending; it and the main push scan then failed on history commit 7d08e77 only (private LAN address in two handoff docs, removed at HEAD by 3bc4fdd, already public on the branch). Tracked files scan clean. Lesson: wait for PR checks before `gh pr merge`.
