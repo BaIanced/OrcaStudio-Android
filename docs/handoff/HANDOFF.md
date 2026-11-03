@@ -35,8 +35,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Open tests in backlog.
 - Size push closed at r504 101 MB (archive 2026-11-01). CI size step ae8d7fa on local `local/ci-size-step` (push needs `gh auth refresh -s workflow`).
 - Python on demand part 1 done 2026-11-03: phone-verified, r506 APK 101.02 -> 91.81 MB, budgets lowered (archive, PERFORMANCE.md).
-- STEP import: code on `local/step-import`, +6.38 MB; user 2026-11-03: keep it (+6.4 MB OK). WSA: system_server wedged since 2026-11-02; restart WSA before using it.
-- Next step: STEP import: merge local/step-import, raise orca_jni/total budgets (+6.4, reason in commit), push + CI build, import src-orca/scripts/CAD/mate-glyph/bear.step on the phone VD -> Sonnet 5.5 (medium)
+- STEP import (user 2026-11-03: keep, +6.4 MB): merged + pushed (9cd972a), budgets raised (total 101.0, orca_jni 49.9), CI r507 (run 41707837718) installed on the phone. UNTESTED: bear.step import. Release app VIEW intent (file:// and content://media URI, `--grant-read-uri-permission`) shows "file could not be opened" with no OrcaStore log line (cause unknown; maybe the intent never reaches openModels). Debug app (r507 libs, `stage-from-apk.sh` + assembleDebug) is installed on the phone with `/data/data/<debug pkg>/files/bear.step`; first start shows the notification dialog (Allow), then printer picker (Apply). Retest: `am start --display <VD> -n <debug pkg>/app.orcaandroid.ui.MainActivity --es orca.model <that path>`, check logcat/`design`/UI list, then `adb uninstall` the debug app. VD is running (`orca-vd.sh stop` when done). MCP plate_describe returned non-JSON on the phone (release app, MCP maybe off); use UI dumps. WSA: system_server wedged since 2026-11-02; restart before use.
+- Next step: STEP import test on the phone VD with the debug app (orca.model), fix if it fails, then archive -> Sonnet 5.5 (medium)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
