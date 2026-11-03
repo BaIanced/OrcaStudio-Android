@@ -3959,3 +3959,6 @@ User said "yep looks good" while run 41158738411 (hole labels avoid bbox/wall la
 
 ## 2026-11-03 PR #70 merged to main (806d4ff, r507; user "merge")
 Builds r491-r507, Claude-verified only. Merged while the PR privacy-scan check was still pending; it and the main push scan then failed on history commit 7d08e77 only (private LAN address in two handoff docs, removed at HEAD by 3bc4fdd, already public on the branch). Tracked files scan clean. Lesson: wait for PR checks before `gh pr merge`.
+
+## 2026-11-03 User decisions (chat, after PR #70)
+Python on demand part 2: do it. Ad block default and Prusa/Printables theme names: decide later (no store release planned yet).

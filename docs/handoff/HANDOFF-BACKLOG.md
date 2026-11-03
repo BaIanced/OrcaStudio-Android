@@ -43,7 +43,7 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - Headless display gaps (Reference "Headless display"): pinch on the virtual display, `start` stress test.
 - Quest: 2D panel confirmed (user 2026-10-21); open only input beyond touch + native VR view [Opus] (on request). Phone <-> Quest link (undefined).
 - Orca plugin runtime kept generic: not done: audit prompts, create_window, per-preset overrides, printerAgent. FilamentHub dropped for good.
-- Public release check (user decisions before a store release; terms read 2026-11-03, archive): default ad block OFF (now ON, AdBlock.kt:52; grey area under Prusa GTC 9.5 / Thingiverse terms)? Rename "Prusa"/"Printables" theme presets? Read Thingiverse terms in a browser.
+- Public release check (user decisions before a store release; terms read 2026-11-03, archive): default ad block OFF (now ON, AdBlock.kt:52; grey area under Prusa GTC 9.5 / Thingiverse terms)? Rename "Prusa"/"Printables" theme presets? Read Thingiverse terms in a browser. User 2026-11-03: ad block default + theme names: decide later (no store release planned yet).
 - Colour icon set shortlist + mockup (low). Paint card fold direction by screen position (low). "Need phone" prompt (shelved).
 - [Opus] Filament materials / per-slot look / Realistic render (Claude WSA 2026-10-24): user feel untested; variable layer height ignored; Quest/Chromebook GPU check open.
 - Preview camera-light slider + Check mesh sharp-edge markers + Hollow: Claude-verified WSA (archive); open: user feel (sessions B/C in NOTES-merge-batch.md). Cleanup = More > Repair (exists).
@@ -76,4 +76,4 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - [Opus] Perf experiments queue: docs/PERFORMANCE.md; CI size step ae8d7fa on local/ci-size-step, push needs workflow scope (Claude 2026-10-31).
 - [Opus] AI print failure watch (user 2026-10-30): local detector on the printer camera; open: ask the user for the camera model (archive 2026-10-31).
 - [Opus] Filament mixer redesign (0c791b3, CI 41371910606): 2- and 3-part looks checked by Claude on WSA VD 2026-11-01; user has not seen it. Vendor logo dropped (trademark).
-- [Opus] Python on demand part 2: drop libpython3.12.so (6.7 MB) from the APK (SONAME patch + stub + restart after first fetch); not started 2026-11-01, only if the user wants it.
+- [Opus] Python on demand part 2: drop libpython3.12.so (6.7 MB) from the APK (SONAME patch + stub + restart after first fetch); user 2026-11-03: do it (in progress, see HANDOFF Next task).

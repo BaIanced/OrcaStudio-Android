@@ -37,7 +37,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Python on demand part 1 done 2026-11-03: phone-verified, r506 APK 101.02 -> 91.81 MB, budgets lowered (archive, PERFORMANCE.md).
 - STEP import verified 2026-11-03 on the phone VD (archive). Phone has release r507; VD stopped. WSA wedged since 2026-11-02 (restart before use).
 - Public release check, JS bridge audit and Printables/Thingiverse terms read done 2026-11-03 (archive). Two user decisions are left before a store release (backlog).
-- Next step: nothing Claude-only left; user decisions (store-release backlog line, Python on demand part 2 [Opus]) -> Opus 5.5 (high) for part 2 if wanted
+- Python on demand part 2 (user 2026-11-03: do it): design in `NOTES-python-part2.md` (stub libpython + RTLD_GLOBAL preload); start with its step-2 phone probe.
+- Next step: Python on demand part 2 -> Opus 5.5 (high)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
