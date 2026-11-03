@@ -37,8 +37,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Python on demand part 1 done 2026-11-03: phone-verified, r506 APK 101.02 -> 91.81 MB, budgets lowered (archive, PERFORMANCE.md).
 - STEP import verified 2026-11-03 on the phone VD (archive). Phone has release r507; VD stopped. WSA wedged since 2026-11-02 (restart before use).
 - Public release check, JS bridge audit and Printables/Thingiverse terms read done 2026-11-03 (archive). Two user decisions are left before a store release (backlog).
-- Python on demand part 2 (user 2026-11-03: do it): phone probe done 2026-11-03 (plain RTLD_GLOBAL fails, DF_1_GLOBAL works); revised plan in `NOTES-python-part2.md`, implement steps 1-4 next.
-- Next step: Python on demand part 2 implementation (stub lib + DF_1_GLOBAL preload) -> Opus 5.5 (high)
+- Python on demand part 2 shelved 2026-11-03 (user: not worth ~6.7 MB; archive). libpython stays in the APK.
+- Next step: Check mesh on a real file (backlog line "Check mesh", phone VD) -> Sonnet 5.5 (medium)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 

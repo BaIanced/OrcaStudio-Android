@@ -3962,3 +3962,6 @@ Builds r491-r507, Claude-verified only. Merged while the PR privacy-scan check w
 
 ## 2026-11-03 User decisions (chat, after PR #70)
 Python on demand part 2: do it. Ad block default and Prusa/Printables theme names: decide later (no store release planned yet).
+
+## 2026-11-03 Python on demand part 2 shelved (user decision)
+- After the phone probe (DF_1_GLOBAL works, plain RTLD_GLOBAL does not; details in NOTES-python-part2.md), user: "if this is a pointless endeavor basically just to save 6mb, I'd rather just keep it". Claude agreed (6.7 of 91.8 MB, stub must survive load-time Py calls + emutls, restart step for plugin users). libpython stays in the APK; part 1 (r506) stays.

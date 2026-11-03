@@ -1,4 +1,4 @@
-# Python on demand part 2: libpython out of the APK (design 2026-11-03, probe 2026-11-03; code UNTESTED)
+# Python on demand part 2 (SHELVED 2026-11-03 by the user: not worth ~6.7 MB; libpython stays in the APK)
 
 Goal: drop libpython3.12.so (6.7 MB) from jniLibs; fetch it with the rest of the runtime (part 1, `Plugins.preparePythonHome`).
 
