@@ -30,6 +30,7 @@ class Print;
 class PresetBundle;
 class PresetCollection;
 class DynamicPrintConfig;
+struct ConfigSubstitutionContext;
 class AABBMesh;
 struct Calib_Params;
 struct PlateData;
@@ -54,6 +55,11 @@ struct CutPreview; // a part drawn minus its holes, see OrcaEngine::write_mesh()
 // fill test); [neighbors] = its_face_neighbors flattened (3 per face); [allowed]: faces the flood may enter (all when empty).
 std::vector<bool> flood_surface(const indexed_triangle_set &its, const std::vector<int> &neighbors, int seed, double angle,
                                 const std::function<bool(int)> &allowed = {});
+
+// Model::read_from_file plus STEP (.step / .stp), which the desktop loads through Plater::load_files with its mesh
+// settings dialog; here with that dialog's defaults (AppConfig: linear 0.003 mm, angle 0.5, compounds not split).
+Slic3r::Model read_model_file(const std::string &path, Slic3r::DynamicPrintConfig *config = nullptr,
+                              Slic3r::ConfigSubstitutionContext *substitutions = nullptr, bool add_instances = false);
 
 class OrcaEngine
 {
