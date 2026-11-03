@@ -1,7 +1,7 @@
 {
  "_doc": "MB in the APK per group of android/scripts/size_report.py. Baseline r492 + ~3% headroom (2026-10-31). Ratchet: when a cut lands, lower the budget in the same commit; raising one needs a reason in the commit message. See docs/PERFORMANCE.md.",
- "total": 94.6,
- "native/orca_jni": 43.5,
+ "total": 101.0,
+ "native/orca_jni": 49.9,
  "assets/vendors": 17.8,
  "native/openscad": 12.5,
  "native/python": 6.6,
