@@ -35,8 +35,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Open tests in backlog.
 - Size push closed at r504 101 MB (archive 2026-11-01). CI size step ae8d7fa on local `local/ci-size-step` (push needs `gh auth refresh -s workflow`).
 - Python on demand part 1 done 2026-11-03: phone-verified, r506 APK 101.02 -> 91.81 MB, budgets lowered (archive, PERFORMANCE.md).
-- STEP import: code on `local/step-import`, +6.38 MB; waiting for the user's keep / drop / on-demand pick (backlog). WSA: system_server wedged since 2026-11-02; restart WSA before using it.
-- Next step: STEP import per the user's pick (keep: merge local/step-import, CI build, import bear.step on the phone VD) -> Sonnet 5.5 (medium)
+- STEP import: code on `local/step-import`, +6.38 MB; user 2026-11-03: keep it (+6.4 MB OK). WSA: system_server wedged since 2026-11-02; restart WSA before using it.
+- Next step: STEP import: merge local/step-import, raise orca_jni/total budgets (+6.4, reason in commit), push + CI build, import src-orca/scripts/CAD/mate-glyph/bear.step on the phone VD -> Sonnet 5.5 (medium)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
