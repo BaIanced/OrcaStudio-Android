@@ -7,6 +7,7 @@
 
 #include <android/log.h>
 
+#include <boost/algorithm/string/predicate.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/log/core.hpp>
 #include <boost/log/expressions.hpp>
@@ -123,6 +124,17 @@ std::string option_value(const json &v)
 template<class T> void write_raw(std::ofstream &f, const T &v) { f.write(reinterpret_cast<const char *>(&v), sizeof(T)); }
 
 } // namespace
+
+Model read_model_file(const std::string &path, DynamicPrintConfig *config, ConfigSubstitutionContext *substitutions,
+                      bool add_instances)
+{
+    LoadStrategy options = LoadStrategy::LoadModel;
+    if (add_instances)
+        options = options | LoadStrategy::AddDefaultInstances;
+    if (boost::algorithm::iends_with(path, ".step") || boost::algorithm::iends_with(path, ".stp"))
+        return Model::read_from_step(path, options, nullptr, nullptr, nullptr, 0.003, 0.5, false);
+    return Model::read_from_file(path, config, substitutions, options);
+}
 
 OrcaEngine &OrcaEngine::instance()
 {

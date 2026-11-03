@@ -380,7 +380,7 @@ json OrcaEngine::snapshot(const std::string &path, int size)
 {
     // Standalone: renders the given mesh file, not the scene, so no engine lock is needed.
     const unsigned px = unsigned(std::clamp(size, 128, 1024));
-    Model model = Model::read_from_file(path, nullptr, nullptr, LoadStrategy::AddDefaultInstances | LoadStrategy::LoadModel);
+    Model model = read_model_file(path, nullptr, nullptr, true);
     const ThumbnailData thumb = render_thumbnail(model, px, px, {});
     if (!thumb.is_valid())
         throw std::runtime_error("Nothing to render (the mesh is empty)");

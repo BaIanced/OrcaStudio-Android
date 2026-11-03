@@ -763,7 +763,7 @@ json OrcaEngine::load_models_locked(const std::vector<std::string> &paths, bool 
     for (const std::string &path : paths) {
         DynamicPrintConfig        file_config;
         ConfigSubstitutionContext substitutions(ForwardCompatibilitySubstitutionRule::EnableSilent);
-        Model loaded = Model::read_from_file(path, &file_config, &substitutions, LoadStrategy::LoadModel);
+        Model loaded = read_model_file(path, &file_config, &substitutions);
         if (loaded.objects.empty())
             continue;
 
@@ -1256,7 +1256,7 @@ json OrcaEngine::replace_mesh(int object, const std::string &path, const std::st
     if (old_it == obj.volumes.end())
         throw std::runtime_error("The object has no part to replace");
 
-    Model loaded = Model::read_from_file(path, nullptr, nullptr, LoadStrategy::AddDefaultInstances | LoadStrategy::LoadModel);
+    Model loaded = read_model_file(path, nullptr, nullptr, true);
     if (loaded.objects.size() != 1 || loaded.objects.front()->volumes.size() != 1)
         throw std::runtime_error("Unable to replace with more than one volume");
     loaded.objects.front()->center_around_origin();
