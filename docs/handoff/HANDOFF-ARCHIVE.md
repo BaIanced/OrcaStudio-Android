@@ -3931,3 +3931,5 @@ User said "yep looks good" while run 41158738411 (hole labels avoid bbox/wall la
 - Phone VD gotcha: `orca-vd.sh start` with the debug PKG said "app not resumed on display N after 5 tries" although the app ran
   (it force-stopped/relaunched it 5x); the resumed() check misses the debug app on the phone VD. Untested why.
 - Debug app uninstalled from the phone; CI run 41701191206 dispatched for the size measurement.
+- 2026-11-03 CI: r506 (run 41701191206) APK 91.81 MB (r504 101.02): native/python 6.39, assets/python 0.00. Budgets total 94.6,
+  native/python 6.6, assets/python 0.1. r506 installed on the phone; WSA skipped (wedged), SHIELD avoided, .23 skipped.

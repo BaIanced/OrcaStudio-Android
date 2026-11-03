@@ -15,7 +15,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 1c4ff52 (PR #69 = r490, merged 2026-10-31; Claude-verified only). Nothing unverified on the branch. User-untested in main: list in `NOTES-merge-batch.md`.
 - Signing secrets: `release` environment (main + `claude/*` only).
-- Latest installed CI build: r504 (run 41389259706, size cuts) on WSA + phone (.20) 2026-11-02; Chromebook not on adb (r496). **User 2026-11-01: avoid the SHIELD for now** (no installs there). Phone drops off adb: `adb connect <phone-ip>:5555` (memory device-ips); GL shots on the phone VD. Install builds on all adb devices (skip .23).
+- Latest installed CI build: r506 (run 41701191206, Python on demand, 91.81 MB) on the phone (.20) 2026-11-03; WSA wedged (r504, needs a WSA restart); Chromebook not on adb (r496). **User 2026-11-01: avoid the SHIELD for now** (no installs there). Phone drops off adb: `adb connect <phone-ip>:5555` (memory device-ips); GL shots on the phone VD. Install builds on all adb devices (skip .23).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **User 2026-10-28: no more user testing for now; Claude builds and tests everything itself (memory no-user-testing-now); don't ask for feel/UI checks.**
 - **User 2026-10-29: no tests on the user's screen; all tests on a hidden virtual display** (`TARGET=wsa orca-vd.sh start`, memory tests-on-virtual-display).
@@ -34,10 +34,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
 - Open tests in backlog.
 - Size push closed at r504 101 MB (archive 2026-11-01). CI size step ae8d7fa on local `local/ci-size-step` (push needs `gh auth refresh -s workflow`).
-- **Python on demand part 1 VERIFIED on the phone 2026-11-03** (archive): fetch + SHA-256 + extract, all stdlib/ssl/sqlite imports, 2nd start no re-download.
-  CI run 41701191206 (dispatched 2026-11-03) -> size_report, lower budgets (native/python 12.0 -> ~7, assets/python 4.5 -> 0.1, total),
-  PERFORMANCE.md 0.d entry, install on phone (WSA wedged: needs a restart, archive 2026-11-03). Then STEP import gap (backlog `[Opus]`).
-- Next step: Python on demand CI size + budgets -> Sonnet 5.5 (medium)
+- Python on demand part 1 done 2026-11-03: phone-verified, r506 APK 101.02 -> 91.81 MB, budgets lowered (archive, PERFORMANCE.md).
+- Next: STEP import gap (backlog `[Opus]`). WSA: system_server wedged since 2026-11-02 (archive 2026-11-03); restart WSA before using it.
+- Next step: STEP import gap -> Opus 5.5 (high)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 

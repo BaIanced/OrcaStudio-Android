@@ -58,6 +58,12 @@ Record a missing baseline the first time a change touches that area (same device
   r 3 + hollow 2 mm on a 30x20x30 L (24 -> 24,086 tris, 2 shells, 5,551 mm3), slice 150 layers, no warnings, UI English.
   Budgets: total 111.0 -> 104.1, orca_jni 43.6 -> 43.5 (r504 + 3%).
 
+- 2026-11-03 Python on demand (0.d, part 1, e6cefc1): the APK keeps only libpython3.12.so; the stdlib, lib-dynload and
+  OpenSSL/SQLite (~9.3 MB download, 21 MB unpacked) come from the pinned Maven Central Chaquopy zips (SHA-256 checked) at the
+  first plugin start. r506 (run 41701191206) APK total 101.02 -> 91.81 MB: native/python ~11.6 -> 6.39 (libssl/libcrypto/libsqlite out), assets/python 4.15 -> 0.00.
+  Phone test (debug build): first `Plugins.start` 947 ms incl. download on LAN, second 83 ms; ssl/hashlib/sqlite3/lzma/ctypes/...
+  all import. Budgets: total 104.1 -> 94.6, native/python 12.0 -> 6.6, assets/python 4.5 -> 0.1 (r506 + 3%).
+
 ## Experiment queue (measured potential, not done)
 
 0. **Big-ticket map (2026-11-01, r502 APK 118.5 MB; native libs stored uncompressed = 78 MB).** liborca_jni symbol bytes by
