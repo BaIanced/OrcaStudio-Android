@@ -3933,3 +3933,26 @@ User said "yep looks good" while run 41158738411 (hole labels avoid bbox/wall la
 - Debug app uninstalled from the phone; CI run 41701191206 dispatched for the size measurement.
 - 2026-11-03 CI: r506 (run 41701191206) APK 91.81 MB (r504 101.02): native/python 6.39, assets/python 0.00. Budgets total 94.6,
   native/python 6.6, assets/python 0.1. r506 installed on the phone; WSA skipped (wedged), SHIELD avoided, .23 skipped.
+
+## 2026-11-03 STEP import verified (Claude, phone VD, debug app with r507 libs)
+- bear.step via `orca.model` extra imported as a solid object ("bear.step", 1x, plate 1, 1492 triangles), renders correctly; no crash. Debug app uninstalled, VD stopped.
+- Recipe: push the file to /data/local/tmp (MSYS_NO_PATHCONV=1 in Git Bash), `su cp` + chown into the debug files dir, `pm grant ... POST_NOTIFICATIONS`, start on the VD with `--esa orca.printers 'Qidi Q1 Pro|0.4' --es orca.model <path>` (without orca.printers it stalls at the picker). Do not run `orca-vd.sh ui` when the VD shows "not resumed": it dumps the phone's main screen.
+- Open: release-app VIEW intent for .step fails (backlog).
+
+## 2026-11-03 .step "open with" on the release app (r507, phone VD, Claude): works
+- VIEW + `-t model/step` + `content://media/external/file/<id>` (after MEDIA_SCANNER_SCAN_FILE) imports bear.step as a new plate object. The earlier "file could not be opened" was `file:///sdcard/...` (FileNotFound/SecurityException without storage access, shown by Store.launch), plus a stale error dialog: expected, not a bug. Test files removed, VD stopped, app force-stopped.
+
+## 2026-11-03 Public release check (Claude, web search, secondary sources; not legal advice)
+- Google Play "Device and Network Abuse": bans apps that block or interfere with ads shown by OTHER apps. Browsers are the stated exception, and blocking inside our own WebViews is not what the clause targets. Enforcement is reported as inconsistent; the policy text is the authority. WebView apps that expose a JS interface and load untrusted web content are also flagged: check our JS bridges only expose to our own origins before any store submission.
+- MakerWorld Terms of Use prohibit "page-scrape", robot or spider tools and AI access to copy site content. A user-facing WebView of the site is not scraping, but any background fetch/parse of MakerWorld pages (metadata, images) would be; one open-source project is waiting on written authorization for that. Printables terms and MakerWorld's in-app embedding rules NOT found.
+- Open before a store release: read Printables/Thingiverse terms directly; audit JS bridges vs untrusted origins; keep adblock framed as a browser-style per-user switch (it is: off-able, element picker).
+- JS bridge audit (Claude, code read, 2026-11-03): only ModelsScreen exposes `orcaNative`/`orcaPicker` to third-party sites; `Bridge.postMessage` -> `handle()` ignores any page whose host is not in `site.hosts` (ModelsScreen.kt:414-419) and only acts on a fixed command list; `blob()` only accepts URLs the app queued in `pendingBlobs`; `Picker.picked` only proposes a selector (user must tap Block). Bambu account / OrcaCloud / plugin WebViews load Bambu or app-local pages. No change needed.
+
+## 2026-11-03 Printables/Thingiverse terms read (Claude; not legal advice)
+- Printables: Printables ToS (prusa3d.com page 231249, effective 2026-10-15) pulls in Prusa's General Terms for its websites (page 231226, effective 2026-04-20). printables.com and thingiverse.com both answer 403 to fetch tools, so the Thingiverse text comes from search snippets only.
+  - GTC 9.1 bans "manual or automated extraction of the contents of the Websites including scraping". GTC 9.3 bans scripts that "could have an adverse impact on their operation". Our WebView extracts nothing; infinite scroll loads the pages the user scrolls to (one hidden-frame page at a time), so it is a normal page load, not extraction.
+  - GTC 9.5: the sites "may not be modified ... or otherwise interfered with" without consent. That is the grey area for ad blocking and for injected scroll/picker scripts. They run only on the user's device, the way browser extensions do, but the text does not exempt them. The terms never mention ads or ad blocking.
+  - Trademarks: the footer lists JOSEF PRUSA, PRUSA RESEARCH, PRUSA 3D, PRUSAMENT etc. as registered. "Prusa" alone and "Printables" are not listed, but GTC 9.5 also covers logos. No rule on third-party app or theme names.
+  - robots.txt: allow all except /world/.
+- Thingiverse (thingiverse.com/legal/terms, search snippets): personal, non-commercial use only. No use that "hurts its ability to earn money" or competes with the service, via "any robot, spider, scraper ... or any software used to access the Service". Ad blocking is closest to "hurts its ability to earn money". The API terms ban adding scraped site data to API data. We use no API.
+- Verdict: no blocker for a user-driven browser. Before a store release, (a) keep ad blocking an off-able per-user switch (it is), maybe default OFF on Thingiverse/Printables; (b) consider renaming the "Prusa ..." / "Printables Night" theme presets to neutral names (user decision; backlog). Thingiverse full text unread (bot wall); read it in a browser before a store submission.
