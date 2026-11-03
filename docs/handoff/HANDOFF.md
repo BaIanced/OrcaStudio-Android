@@ -33,12 +33,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
 - Open tests in backlog.
-- Size push closed at r504 101 MB (archive 2026-11-01). CI size step ae8d7fa on local `local/ci-size-step` (push needs `gh auth refresh -s workflow`).
-- Python on demand part 1 done 2026-11-03: phone-verified, r506 APK 101.02 -> 91.81 MB, budgets lowered (archive, PERFORMANCE.md).
-- STEP import verified 2026-11-03 on the phone VD (archive). Phone has release r507; VD stopped. WSA wedged since 2026-11-02 (restart before use).
-- Public release check, JS bridge audit and Printables/Thingiverse terms read done 2026-11-03 (archive). Two user decisions are left before a store release (backlog).
-- Python on demand part 2 shelved 2026-11-03 (user: not worth ~6.7 MB; archive). libpython stays in the APK.
-- Next step: Check mesh on a real file (backlog line "Check mesh", phone VD) -> Sonnet 5.5 (medium)
+- 2026-11-03 (archive): STEP import + Check mesh verified on the phone VD; Python part 2 shelved; store release parked until "GOATed". Phone r507; WSA wedged since 2026-11-02 (restart before use). CI size step ae8d7fa waits on `gh auth refresh -s workflow`.
+- **GOAT batch (user 2026-11-03): order G2 -> G5 -> G4, then G1, G3, G6, G7, G8.** Specs: backlog "GOAT batch".
+- Next step: G2 friendly errors + Recent files (UX-INVENTORY P1-P3) -> Sonnet 5.5 (medium)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 

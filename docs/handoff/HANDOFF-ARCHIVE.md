@@ -3965,3 +3965,7 @@ Python on demand part 2: do it. Ad block default and Prusa/Printables theme name
 
 ## 2026-11-03 Python on demand part 2 shelved (user decision)
 - After the phone probe (DF_1_GLOBAL works, plain RTLD_GLOBAL does not; details in NOTES-python-part2.md), user: "if this is a pointless endeavor basically just to save 6mb, I'd rather just keep it". Claude agreed (6.7 of 91.8 MB, stub must survive load-time Py calls + emutls, restart step for plugin users). libpython stays in the APK; part 1 (r506) stays.
+
+## 2026-11-03 Check mesh on real files (Claude, phone VD, release r507, MCP object_check_mesh)
+- ClaudeSelfPortrait.stl (96254 faces, 76 shells): 13078 self-intersections, 2 sharp edges, 4385 thin-wall faces, returned within the call timeout. bear.step (1492 faces): clean. Multi-object plate (lattice, 51 shells): 24 open edges, 4955 crossings, 241 sharp edges, thin walls; per-part report lines correct. Marker readability (3D look) not checked: user feel only. VD stopped, app force-stopped.
+- Note: the VIEW intent for Tube.stl was ignored while the app was already running (no new object); mcpao.sh printed a JSON error here (token step), direct curl with the token worked.
