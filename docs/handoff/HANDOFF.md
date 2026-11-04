@@ -15,7 +15,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 806d4ff (PR #70 = r507, merged 2026-11-03; Claude-verified only). Nothing unverified on the branch. PR #70 / main privacy-scan runs fail only on history commit 7d08e77 (private LAN address, fixed at HEAD by 3bc4fdd); tracked files clean. User-untested in main: list in `NOTES-merge-batch.md`.
 - Signing secrets: `release` environment (main + `claude/*` only).
-- Latest installed CI build: r506 (run 41701191206, Python on demand, 91.81 MB) on the phone (.20) 2026-11-03; WSA wedged (r504, needs a WSA restart); Chromebook not on adb (r496). **User 2026-11-01: avoid the SHIELD for now** (no installs there). Phone drops off adb: `adb connect <phone-ip>:5555` (memory device-ips); GL shots on the phone VD. Install builds on all adb devices (skip .23).
+- Latest installed CI build: r506 (run 41701191206, Python on demand, 91.81 MB) on the phone (.20) 2026-11-03; WSA up again (zygote restart 2026-11-03; release app r504); Chromebook not on adb (r496). **User 2026-11-01: avoid the SHIELD for now** (no installs there). Phone drops off adb: `adb connect <phone-ip>:5555` (memory device-ips); GL shots on the phone VD. Install builds on all adb devices (skip .23).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **User 2026-10-28: no more user testing for now; Claude builds and tests everything itself (memory no-user-testing-now); don't ask for feel/UI checks.**
 - **User 2026-10-29: no tests on the user's screen; all tests on a hidden virtual display** (`TARGET=wsa orca-vd.sh start`, memory tests-on-virtual-display).
@@ -33,18 +33,12 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
 - Open tests in backlog.
-- 2026-11-03 (archive): STEP import + Check mesh verified on the phone VD; Python part 2 shelved; store release parked until "GOATed". Phone r507; WSA wedged since 2026-11-02 (restart before use). CI size step ae8d7fa waits on `gh auth refresh -s workflow`.
+- 2026-11-03 (archive): STEP import, Check mesh, G2, G5 verified; Python part 2 shelved; store release parked until "GOATed". CI size step ae8d7fa waits on `gh auth refresh -s workflow`.
 - **GOAT batch (user 2026-11-03): order G2 -> G5 -> G4, then G1, G3, G6, G7, G8.** Specs: backlog "GOAT batch".
-- G2 + G5 verified 2026-11-03 (archive; Claude on the phone VD, travel-speed clamp bug fixed). Next in order: G4.
-- G4 part 1 a6ebff3 (engine pre-empt, `autoSlice()` watcher, delta state, setting): details in archive 2026-11-03 "G4 part 1".
-- **G4 part 2 committed 60a23cc (compiles; UNTESTED):** SliceButton shows "Preview plate N" + time/grams + tertiary delta once
-  `results[activePlate]` exists (`showPreview()`), progress ring icon while `Running.background` (no panel); Preview's empty state shows
-  the background progress. Debug APK built (18:11) but NOT installed: WSA wedged (dumpsys hung, `wsaclient /shutdown` hangs);
-  `su setprop ctl.restart zygote` brought it back to boot_completed=1 (dumpsys not rechecked). Next: install debug APK
-  (`adb install -r -g`), `TARGET=wsa PKG=...debug orca-vd.sh start`, then tests: edit -> auto-slice after 1.5 s; edit mid-slice instant
-  (pre-empt) + restart; Slice mid-background promotes; setting edit shows delta; no endless loop (logcat `OrcaSlice`); object off bed
-  doesn't loop. Then CI build + install on phone (.20). Uninstall debug app + `orca-vd.sh stop` after. scrcpy pid 79172 is not ours.
-- Next step: G4 WSA VD tests of 60a23cc (+ fixes) -> Opus 5.5 (high)
+- G4 (a6ebff3 + 60a23cc) Claude-verified 2026-11-03 on the WSA VD debug build (archive "G4 part 2"): auto-slice, pre-empt, promote,
+  delta, no loops. Next: push branch, dispatch `android-apk.yml` CI build, install on the phone (.20) (+ WSA), one phone VD sanity check
+  (edit -> Preview button shows time/grams). Debug app uninstalled, VD stopped. Then G1.
+- Next step: G4 CI build + phone install/sanity check -> Sonnet 5.5 (medium)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 

@@ -3983,3 +3983,15 @@ Python on demand part 2: do it. Ad block default and Prusa/Printables theme name
   off in Battery Saver, `failedKey` stops retry loops), `promote()` when Slice is tapped mid background slice, `showPreview()`,
   `SliceDelta` in `UiState.sliceDelta`; `SliceStatus.Running.background` (`isSlicing` = foreground only; autosave waits on any slice);
   setting "Slice in the background" (More > misc, `auto_slice` pref, default on).
+
+## 2026-11-03: G4 part 2 (60a23cc) verified by Claude on the WSA VD (debug build)
+- Start with an oversized object: one background slice, failed (prime tower no room), logged once, no retry.
+- Edit (scale to 40 %) -> background slice ~1.5 s later; tab stayed Prepare; button "Preview · 1 h 35 min · 37.5 g" + eye icon.
+- Setting edit (infill 20 %, walls 3) -> new result 40.2 g, yellow delta on the button ("−N s · +1.3 g"; tiny at the lab slice scale).
+- Edit mid background slice (2.2 s gap): the edit returned in 0.9 s (same as idle), log "Slice pre-empted by an edit"; the restart finished (42.0 g).
+- Slice tap ~0.7 s into a background slice (0.08 mm layers): foreground panel continued at 80 % ("Generating G-code: layer 1 · 80 %"),
+  then opened Preview with the 498-layer result; no pre-empt.
+- Object moved partly off the bed: one "No object lies completely inside the print volume" log, none in the next 45 s (no loop).
+- On the Preview tab an edit sliced at once (25 % after 0.5 s); empty Preview showed "Slicing in the background… 25 %" + "Slice plate 1".
+- VD notes: WSA VD is 720x1280 px; `orca-vd.sh tap` and the ui dump use those pixels (Slice FAB at 168,1262 with the copied lab prefs).
+  Test scripts: `~/orca-android-tools/g4-{preempt,promote,preview}-test.sh`.
