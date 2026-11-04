@@ -399,7 +399,7 @@ internal class MksHost(private val c: PrinterConnection) : PrintHost {
     }
 
     override fun upload(file: File, remoteName: String, startPrint: Boolean, ams: AmsMapping?, onProgress: (Float) -> Unit) {
-        http.raw("http://$host/upload?X-Filename=${Http.enc(remoteName)}", "POST", file, "application/octet-stream", onProgress = onProgress)
+        http.raw("http://${c.baseUrl().substringAfter("://").substringBefore('/')}/upload?X-Filename=${Http.enc(remoteName)}", "POST", file, "application/octet-stream", onProgress = onProgress)
         if (startPrint) {
             send("M23 $remoteName")
             send("M24")
