@@ -71,4 +71,4 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 11. Efficiency (user, 2026-10-10): compile Kotlin locally before every push (command in the reference); batch 2-4 changes per
     build, don't dispatch builds that will be superseded; write code with Edit or python raw strings, never plain python
     heredocs (they ate backslashes 5x); write python scripts with Write, then run them.
-12. **Perf/size (user, 2026-10-31): `docs/PERFORMANCE.md`**: commit names metric before -> after; `android/size-budget.json` only goes down.
+12. **Perf/size (user, 2026-10-31): `docs/PERFORMANCE.md`**: commit names metric before -> after; the CI size report shows the APK delta (no budgets, dropped 2026-11-04).

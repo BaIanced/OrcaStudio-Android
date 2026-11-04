@@ -7,16 +7,15 @@ only if the number moves. Budgets only go down (ratchet).
 ## Review rule
 
 - A change made for speed or size says in its commit message: metric, device or APK, before -> after.
-- A change that grows a budgeted group past its budget says why in the commit message and raises the
-  budget in `android/size-budget.json` in the same commit. A cut lowers the budget in the same commit.
+- A change that grows an APK group by more than ~1 MB (see the CI size report delta) says why in the commit message.
 - No speculative optimisation: profile first (recipes below), fix the top item, measure again.
 - New dependencies, assets or native libraries: state their APK cost from the size report.
 
-## Metrics and budgets
+## Metrics
 
-| Metric | Tool | Budget / baseline |
+| Metric | Tool | Baseline |
 |---|---|---|
-| APK size per group (native libs, dex, vendor profiles, i18n, Python, ...) | `android/scripts/size_report.py`, CI job summary | `android/size-budget.json` (r492: 124.1 MB total) |
+| APK size per group (native libs, dex, vendor profiles, i18n, Python, ...) | `android/scripts/size_report.py`, CI job summary | CI size report delta (r506: 91.8 MB, r516: 101.4 MB after STEP import) |
 | Compose recomposition: restartable composables that are not skippable | Compose compiler reports | 0 (2026-10-31: 242 of 242 skippable) |
 | 3D view frame timing (fps, frame gap median / p95 / max) | MCP `perf` tool (`render/FrameStats.kt`, last 240 frames) | baseline not recorded yet |
 | Cold start | `adb shell am start -W -n <pkg>/.ui.MainActivity` (TotalTime) | r493 phone, 3 runs: 222 / 149 / 159 ms (median 159; activity launch only) |
@@ -28,7 +27,7 @@ Record a missing baseline the first time a change touches that area (same device
 
 - **APK size**: `python android/scripts/size_report.py <apk> [--baseline old.json] [--json new.json]`.
   CI runs it after every APK build: table + delta to the previous build of the branch in the job
-  summary, a `::warning::` per group over budget, `size-report.json` in the APK artifact.
+  summary, `size-report.json` in the APK artifact.
 - **Native size**: the shipped `.so` files are stripped. For the biggest symbols use the unstripped WSL
   build: `llvm-nm --size-sort -C -S ~/orca-build/core/liborca_jni.so | tail -40`; sections with
   `llvm-size -A` (r492 liborca_jni: .text 36 MB, .eh_frame 3.9 MB, .gcc_except_table 3.0 MB).
