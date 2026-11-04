@@ -34,9 +34,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
 - Open tests in backlog.
 - GOAT batch + perf audit: closed (archive 2026-11-04; leftovers in backlog "GOAT batch", baselines PERFORMANCE.md "Metrics"). Lint/R8 triage b8585c6: r518 (run 41795361386) installed on the phone 2026-11-04 and smoke-tested on the VD (toggles OK; archive); auto-save row + plate framing also verified (archive).
-- **README rewrite (user 2026-11-04, goes first):** the current README is mostly a copy of the original small Android fork (~12k lines vs our 50k+). Rewrite it to describe what this app is NOW: OrcaSlicer as the engine (credited first, AGPL-3.0, source link), features from verified archive items (label unverified), install, build (CI + `android/patches/src-orca` model), short architecture, generic printer/safety notes (no IPs/serials/codes), then a short "Origins and credits" (original Android fork: read the old README + LICENSE/NOTICE/first commits for its name and license; then OrcaSlicer's own upstream). Long docs go in `docs/`; wiki only if user asks (separate repo, run privacy scan by hand). Draft with Sonnet from grep-verified facts; no AI attribution, no German mentions, no FilamentHub. Ask user: end-user or contributor audience; screenshots on the VD?
+- README rewritten 2026-11-04 (archive): audience = end user first + contributor build section; no screenshots yet (ask if wanted). Old AI-disclosure section and German line dropped; CHANGELOG header link removed. On the branch only; reaches main with the next merge.
 - r519 (type-mismatched pick replaced by Sync, toast lists it) verified by Claude on the phone VD 2026-11-04 (archive).
-- Next step: README rewrite -> Sonnet 5.5 (medium)
+- Next step: merge branch to main (README + r519 Sync fix; user must say "merge"); everything else open needs the printer or user feel checks -> Sonnet 5.5 (medium)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 

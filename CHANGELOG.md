@@ -1,8 +1,5 @@
 # Changelog
 
-> Orca-Android was developed with an AI coding assistant (Claude, Anthropic); see the
-> [AI disclosure](README.md#ai-disclosure) in the README.
-
 ## 0.1.2
 
 - Profile updates download only the files that changed (seconds instead of minutes) and run in
