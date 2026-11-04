@@ -33,11 +33,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
 - Open tests in backlog.
-- GOAT batch, perf audit, lint/R8 triage, README rewrite, r519 Sync pick: all closed (archive 2026-11-04; leftovers in backlog).
-- Multi-plate Preview (user task 2026-11-04, 027400c, pushed): Claude-verified on the phone VD with a local debug build (archive 2026-11-04); in main (PR #73).
-- User's bigger vision (same day, exploration, NOT locked; backlog "Ideas: Assemble space / big plate"): zero-g Assemble space (no plate, CAD tools + measuring, first VR step),
-  big/infinite plate or 4x4 plates, on exit auto-orient + "too big" fix = suggested cut for gluing. Reply with leanings, ask before building.
-- Next step: pick the next backlog item (grep HANDOFF-BACKLOG.md) -> Sonnet 5.5 (low)
+- Multi-plate Preview: in main (PR #73, r521), Claude-verified only (archive 2026-11-04).
+- Bigger vision (user 2026-11-04, exploration, NOT locked): backlog "Ideas: Assemble space / big plate"; reply with leanings, ask before building.
+- **Rename / new repo (user 2026-11-04, exploration, NOT locked; backlog "Waiting on the user"):** wants a new app name (idea: orcamesh, unworkshopped), a NEW public repo for the mature code, old repo stays public as history for now (private/archived later). Open: name, full history vs one snapshot commit, app ID change. Brainstorm names first; no repo work until the user picks.
+- Next step: brainstorm app names with the user (check OrcaSlicer-branding overlap + name clashes via search), then ask full history vs snapshot -> Sonnet 5.5 (medium)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 

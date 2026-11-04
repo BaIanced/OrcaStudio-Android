@@ -4049,3 +4049,9 @@ README.md rewritten to describe OrcaStudio-Android now: OrcaSlicer credited firs
 
 ## 2026-11-04 Multi-plate Preview verified (Claude, phone VD, local debug build of 027400c, branch claude/handoff-continuation-rseql3)
 Phone VD (woken with the user's OK, slept after; debug app uninstalled): session with 5 plates. Slicing plate 1 then tapping chip 2 sliced plate 2 and showed both whole at their own slots; chip 3 sliced plate 3 and kept 1+2; colour scheme change (Line type -> Layer height) recoloured all; MCP re-slice of plate 2 replaced only that one; native heap 271 -> 151 MB after (no leak). Layer sliders drive the selected plate. Gotchas: debug app on the phone needs the printer picker Apply tapped with the phone awake (asleep = taps dropped), then an app restart before the MCP socket binds; session must be recopied after Apply.
+
+## Parked backlog items 2026-11-04 (moved from HANDOFF-BACKLOG.md to keep it under 10 KB)
+- Step 9 (align, x-ray, upright shift) Claude-verified WSA 2026-10-27 (archive); user feel open. Awaiting go: Lay on cut face / Flip / Leave radio + "Arrange after cut" (OrcaScene.cpp:1046); user asked the point of "Flip upper part".
+- Public release check: user 2026-11-03: no store release for the foreseeable future (until the app is "completely GOATed"); decisions (ad block default, Prusa/Printables preset names, Thingiverse terms) parked, ignore until a release is planned.
+- Hover tooltips: all 81 icon buttons with a content description now wrapped in Tip() (Claude 2026-10-28, compiles, WSA debug launch OK; hover/long-press not adb-testable); 3 colour-dot buttons have no label. User feel untested.
+- Shape builder bugs (user 2026-10-28, session B): drag lag, rings through the object, end copy drag scaling spacing: fixed 1a94899, Claude-verified WSA debug 2026-10-28 (archive); open: user feel (on hold, no user testing now).

@@ -22,7 +22,6 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - Paint depth (r367, Claude WSA G-code OK 2026-10-21): user feel + real print untested.
 - Paint shop reopen fix (Claude WSA r374) + plate estimate line (Claude WSA r376 = Preview; one density, part-level filaments ignored): user look/feel.
 - Check mesh: counts OK on real files (Claude, phone r507, 2026-11-03, archive); open: marker readability in 3D (user feel, skipped).
-- Step 9 (align, x-ray, upright shift) Claude-verified WSA 2026-10-27 (archive); user feel open. Awaiting go: Lay on cut face / Flip / Leave radio + "Arrange after cut" (OrcaScene.cpp:1046); user asked the point of "Flip upper part".
 - Fan slider hold-until-within-4 % (r295) + Extrude F150 e13bebb: need the printer.
 - Preview bead look (Chromebook), part shadows r266, light/shadow lab sliders r263: Claude-verified, user hasn't seen.
 - Drag-handle fling: wide PanelEdge (WSA mouse inconclusive, r300) and OpenSCAD grips untested; portrait flick user-verified r294.
@@ -32,6 +31,7 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - View cube: phone portrait layout untested; off by default (user r352: motion sick); revisit only on request.
 
 ## Waiting on the user
+- **Rename + new repo (user 2026-11-04, NOT locked):** name TBD (orcamesh idea; avoid confusion with upstream "Orca" branding, search clashes). New PUBLIC repo (free CI, no minutes/500 MB artifact limit); old repo stays public as history. Open: name; full history (keeps commit refs, still has one LAN IP in cf75a81) vs snapshot; app ID io.github.baianced.orcastudio_android change = fresh install + settings migration, do before public release. To do then: new repo + push, re-enter signing secrets (same keystore or no in-place upgrade; user supplies), `release` env, README/build.gradle.kts URL (default repo URL line 21), remotes, squash-merge PRs. AGPL: source offered to anyone given an APK.
 - HD plate ideas (user verified r394): 3D bed frame model, dual-nozzle decal layout (Claude 2026-10-24).
 - Plate switcher pick (lab stays; don't ask again). Launcher icon colour ("decide later").
 - [Opus] Sculpt mode Claude-verified WSA 2026-10-28 (archive); user feel + symmetry 51ad144 untested; leftovers parked won't-do 2026-10-30.
@@ -43,12 +43,12 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - G7 widget + Live Update chip: open: real status test (needs the printer; mocked status checked).
 
 ## Ideas (not started)
+- Parked user-feel / release items (cut-step 9 go-ahead, public-release decisions, shape builder feel, hover tooltips): moved verbatim to HANDOFF-ARCHIVE.md heading "Parked backlog items 2026-11-04".
 - Self-portrait 3 (Claude r489 WSA 2026-10-31): open only real-print checks (24 open lattice edges); maybe clearer 16-filament tower message.
 - Study Bambu Handy's MakerWorld integration.
 - Headless display: `start` stress OK 5/5 (Claude 2026-11-04); pinch on the VD parked (needs an app_process multi-pointer injector; low value, archive).
 - Quest: 2D panel confirmed (user 2026-10-21); open only input beyond touch + native VR view [Opus] (on request). Phone <-> Quest link (undefined).
 - Orca plugin runtime kept generic: not done: audit prompts, create_window, per-preset overrides, printerAgent. FilamentHub dropped for good.
-- Public release check: user 2026-11-03: no store release for the foreseeable future (until the app is "completely GOATed"); decisions (ad block default, Prusa/Printables preset names, Thingiverse terms) parked, ignore until a release is planned.
 - Colour icon set shortlist + mockup (low). Paint card fold direction by screen position (low). "Need phone" prompt (shelved).
 - [Opus] Filament materials / per-slot look / Realistic render (Claude WSA 2026-10-24): user feel untested; variable layer height ignored; Quest/Chromebook GPU check open.
 - Preview camera-light slider + Check mesh sharp-edge markers + Hollow: Claude-verified WSA (archive); open: user feel (sessions B/C in NOTES-merge-batch.md). Cleanup = More > Repair (exists).
@@ -68,9 +68,7 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - Smart guides (BUILT 005f14d + Center/Align f073445, Claude-verified WSA 2026-10-27, user feel open). Build middles Claude-verified WSA VD 2026-10-29 (archive); plate centre in Build skipped (design pose not tied to plate).
 
 - MCP token efficiency (Opus review + analysis done 2026-10-27, `NOTES-mcp-token-efficiency.md`): proposed build rule waits for the user's OK; plan A-C (diff replies) r452 Claude-verified WSA 2026-10-28; D dropped.
-- Hover tooltips: all 81 icon buttons with a content description now wrapped in Tip() (Claude 2026-10-28, compiles, WSA debug launch OK; hover/long-press not adb-testable); 3 colour-dot buttons have no label. User feel untested.
 - Shape builder W/D/H scrub + proportional lock: Claude-verified WSA debug + in CI r458+ (archive 2026-10-28); open: user feel (on hold); proportional slider-mode unbuilt (spec unclear). Claude 2026-10-28.
-- Shape builder bugs (user 2026-10-28, session B): drag lag, rings through the object, end copy drag scaling spacing: fixed 1a94899, Claude-verified WSA debug 2026-10-28 (archive); open: user feel (on hold, no user testing now).
 - Snapping (user 2026-10-28: toggle/hotkey, not forced on the plate, thin Adobe-style guide): 846a663 Claude-verified WSA 2026-10-28; user feel untested.
 - Session B checks skipped by user 2026-10-28 ("don't want to do right now"): Sculpt, Hollow, Center/Align, Check mesh, badge fix.
 - Godot review leftovers (Z lift dot, axis lock, Wireframe, orbit inertia, Light direction: all in CI r463, Claude-verified WSA 2026-10-28, archive): open: user feel; tower ignores Z code-verified 2026-10-29. [Opus]
