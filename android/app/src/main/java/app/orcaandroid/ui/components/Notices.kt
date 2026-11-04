@@ -58,10 +58,8 @@ private data class Line(val text: String, val important: Boolean, val fix: Notic
 @Composable
 fun Notices(state: UiState, vm: AppViewModel, modifier: Modifier = Modifier) {
     val notices = buildList {
-        state.sliceError?.let { (plate, message) ->
-            add(Notice("slice:$plate:$message", stringResource(R.string.notice_slice_failed, plate + 1),
-                listOf(Line(engineErrorText(message, vm.translator), true, noticeFix(message)))))
-        }
+        // Fit first: an oversized object is usually the cause of the slice error below it, and its Fix
+        // stayed below the card's scroll fold when listed second (WSA r524, 2026-11-04).
         state.fitIssue?.let { f ->
             fun mm(v: List<Float>) = v.joinToString(" x ") { kotlin.math.round(it).toInt().toString() }
             val hint = when (f.fix) {
@@ -73,6 +71,10 @@ fun Notices(state: UiState, vm: AppViewModel, modifier: Modifier = Modifier) {
             add(Notice("fit:${f.obj}:${f.instance}:${f.size}", stringResource(R.string.fit_title), listOf(
                 Line(stringResource(R.string.fit_size, f.name, mm(f.size), mm(f.bed)), true),
                 Line(stringResource(hint), false, if (f.fix != null) NoticeFix.Fit(f) else null))))
+        }
+        state.sliceError?.let { (plate, message) ->
+            add(Notice("slice:$plate:$message", stringResource(R.string.notice_slice_failed, plate + 1),
+                listOf(Line(engineErrorText(message, vm.translator), true, noticeFix(message)))))
         }
         val result = state.shownResult
         if (state.screen == Screen.PREVIEW && result != null && result.warnings.isNotEmpty()) {
