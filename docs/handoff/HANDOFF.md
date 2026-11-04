@@ -15,7 +15,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 62ada99 (PR #73 = r521, multi-plate Preview, merged 2026-11-04; Claude-verified only; PR #72 = r519 before it). Nothing unverified on the branch; no merge offer pending. User-untested in main: list in `NOTES-merge-batch.md`.
 - Signing secrets: `release` environment (main + `claude/*` only).
-- Latest installed CI build: r521 (run 41890673347, head dfce295, has multi-plate Preview) on the phone (.20), WSA + Chromebook 2026-11-04 (WSA restarted: `WsaClient /shutdown`, `wsa-start.ps1`, `adb connect 127.0.0.1:58526`); Chromebook connects via `adb connect <chromebook-ip>:5555` (memory device-ips). **User 2026-11-01: avoid the SHIELD for now** (no installs there). Phone drops off adb: `adb connect <phone-ip>:5555` (memory device-ips); GL shots on the phone VD. Install builds on all adb devices (skip .23).
+- Latest installed CI build: r523 (run 41910993766, head 39da7d9, has Assemble A1) on the phone (.20), WSA + Chromebook 2026-11-04 (WSA restarted: `WsaClient /shutdown`, `wsa-start.ps1`, `adb connect 127.0.0.1:58526`); Chromebook connects via `adb connect <chromebook-ip>:5555` (memory device-ips). **User 2026-11-01: avoid the SHIELD for now** (no installs there). Phone drops off adb: `adb connect <phone-ip>:5555` (memory device-ips); GL shots on the phone VD. Install builds on all adb devices (skip .23).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **User 2026-10-28: no more user testing for now; Claude builds and tests everything itself (memory no-user-testing-now); don't ask for feel/UI checks.**
 - **User 2026-10-29: no tests on the user's screen; all tests on a hidden virtual display** (`TARGET=wsa orca-vd.sh start`, memory tests-on-virtual-display).
@@ -33,9 +33,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
 - Open tests in backlog.
-- **Assemble A1 Claude-verified on WSA VD (archive end)**: grid fades, no beds/badges, ghost box, below view, beds back on leaving. Open: "Edit in builder" mesh + ghost toggle tap. CI build 41910993766 dispatched (head 39da7d9): install on phone, WSA, Chromebook (not SHIELD) when green.
+- **Assemble A1 Claude-verified on WSA VD (archive end)**: grid fades, no beds/badges, ghost box, below view, beds back on leaving. Open: "Edit in builder" mesh + ghost toggle tap. CI build r523 (run 41910993766) installed on phone, WSA, Chromebook.
 - Rename (LOW, backlog "Waiting on the user"): glance at upstream Discussions #17269 at /next (0 replies 2026-11-04).
-- Next step: install CI build of A1 on all devices, then ghost-toggle + mesh check -> Sonnet 5.5 (medium)
+- Next step: Assemble A1 ghost-toggle tap + "Edit in builder" mesh check on WSA VD (r523) -> Sonnet 5.5 (medium)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
