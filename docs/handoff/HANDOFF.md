@@ -15,7 +15,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 806d4ff (PR #70 = r507, merged 2026-11-03; Claude-verified only). Nothing unverified on the branch. PR #70 / main privacy-scan runs fail only on history commit 7d08e77 (private LAN address, fixed at HEAD by 3bc4fdd); tracked files clean. User-untested in main: list in `NOTES-merge-batch.md`.
 - Signing secrets: `release` environment (main + `claude/*` only).
-- Latest installed CI build: r509 (run 41754302781) on the phone (.20), WSA, Chromebook 2026-11-03; WSA up again (zygote restart 2026-11-03; release app r504); Chromebook not on adb (r496). **User 2026-11-01: avoid the SHIELD for now** (no installs there). Phone drops off adb: `adb connect <phone-ip>:5555` (memory device-ips); GL shots on the phone VD. Install builds on all adb devices (skip .23).
+- Latest installed CI build: r511 (run 41757680903) on the phone (.20), WSA, Chromebook 2026-11-03; WSA up again (zygote restart 2026-11-03; release app r504); Chromebook not on adb (r496). **User 2026-11-01: avoid the SHIELD for now** (no installs there). Phone drops off adb: `adb connect <phone-ip>:5555` (memory device-ips); GL shots on the phone VD. Install builds on all adb devices (skip .23).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **User 2026-10-28: no more user testing for now; Claude builds and tests everything itself (memory no-user-testing-now); don't ask for feel/UI checks.**
 - **User 2026-10-29: no tests on the user's screen; all tests on a hidden virtual display** (`TARGET=wsa orca-vd.sh start`, memory tests-on-virtual-display).
@@ -37,8 +37,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **GOAT batch (user 2026-11-03): order G2 -> G5 -> G4, then G1, G3, G6, G7, G8.** Specs: backlog "GOAT batch".
 - G4 (a6ebff3 + 60a23cc) verified by Claude 2026-11-03 (archive "G4 part 2", "G4 CI build r509"): r509 (run 41754302781) on phone, WSA, Chromebook. Next: G1, then G3, G6, G7, G8.
 - G1 (580d4c2) verified by Claude 2026-11-03 on the WSA VD (archive "G1 first-run coach strip"); CI run 41757054644 (G1 only, superseded by the G3 build if not yet installed). Then G6, G7, G8.
-- G3 (c067fb1) verified by Claude 2026-11-03 on the WSA VD (archive "G3 launcher shortcuts"). Left: CI build with G1+G3, install on phone, WSA, Chromebook (skip SHIELD, .23). Then G6, G7, G8.
-- Next step: G3 CI build + installs, then G6 -> Sonnet 5.5 (medium)
+- G3 (c067fb1) + G1 verified by Claude 2026-11-03 on the WSA VD. CI r511 (run 41757680903) installed on phone, WSA, Chromebook. Next: G6, then G7, G8.
+- Next step: G6 print history + reprint -> Sonnet 5.5 (medium)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
