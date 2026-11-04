@@ -33,16 +33,15 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
 - Open tests in backlog.
-- **Assemble A1 (user picked 2026-11-04; leanings in archive "Assemble space"):** entry for any object already exists
-  ("Edit in builder" = `ScadController.editMesh`, one MESH shape per part; multi-select Assemble = `SceneController.assemble`),
-  and orbit below already works (Camera.kt:79 pitch -89..89). So A1 = renderer only, while `buildSolo`:
-  skip `drawBeds()` + plate surfaces + badges (PlateRenderer.kt:586-588, 632); draw a neutral floor grid at z 0 around the
-  object (reuse `gridProgram` with a big `uRect` centred on the Build object's shown copy, Viewport.kt:680 has it);
-  printer ghost = the bed outline + printable-height box (bedVbo lines lifted + verticals) at the copy, behind a toggle
-  next to the `buildOthers` cycle button (AppViewModel.kt:233; persist in settings like `snapBuild`). Test on WSA VD
-  (shape design + an "Edit in builder" mesh), crops of the GL view.
+- **Assemble A1: code done, compiled, pushed (f3361ff), UNTESTED, no CI build yet.** `PlateRenderer.drawFloor()` (fading
+  grid via new `uFade` in GRID_FS, printer ghost lines centred under `buildFocus`); beds/plates/badges skipped while
+  `buildSolo && !showPreview`; `plateAt`/`badgeAt` null and shadow clip unbounded in Build; measure `bedAt` picks the floor.
+  Toggle `build_printer` (ViewInAr icon after the others button, ShapeBuilder.kt; `AppSettings.buildPrinter`, default on).
+  To test on WSA VD (assembleDebug, reference "WSA debug loop"): shape design + an "Edit in builder" mesh; crops of the GL
+  view: grid fades out, no bed lines/badges, ghost box centred + toggles, view from below, Preview tab still has beds,
+  exiting Build restores beds. Then dispatch a CI build + install on all devices.
 - Rename (LOW, backlog "Waiting on the user"): glance at upstream Discussions #17269 at /next (0 replies 2026-11-04).
-- Next step: Assemble A1 (Build without beds: floor grid + printer ghost toggle) -> Opus 5.5 (high)
+- Next step: Assemble A1 WSA VD test (floor grid + printer ghost) -> Sonnet 5.5 (medium); GL fixes if it looks off -> Opus
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 

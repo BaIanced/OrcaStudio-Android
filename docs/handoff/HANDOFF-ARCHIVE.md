@@ -4087,3 +4087,5 @@ Phases (each one build, Claude-testable on WSA VD):
 - A3 native [Opus]: cut suggestion (section-area scan) + preview + apply + arrange onto plates.
 - A4 native+UI [Opus]: connectors on cut faces.
 - 2026-11-04 user pick: Assemble phase A1 (Build without beds: floor grid + printer ghost toggle + entry for any multi-part object). A2-A4 still leanings only.
+
+- 2026-11-04 Assemble A1 coded (f3361ff, untested): Build workspace draws drawFloor() (10 mm grid, uFade radius max(400, 3x object side), on world 10 mm lines, centred on the shown copies box) instead of beds/plate surfaces/badges; printer ghost = bed outline at z 0 and maxHeight + verticals (8 max on round beds), activePlate colour at 0.45 alpha, centred under the object; toggle build_printer. plateAt/badgeAt return null in Build, bedRects unbounded (shadow), Viewport bedAt picks the floor.

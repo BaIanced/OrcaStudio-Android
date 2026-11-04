@@ -55,7 +55,7 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - [Opus] Snapseed interaction plan (NOTES-interaction-plan.md): steps 1-9 Claude-verified WSA (r437/r438, 2026-10-27); user feel untested on all.
 - UX review via Gemini (user 2026-10-31): lowest priority, act only if the user brings Gemini's answer (bundle exports/ux-review/, archive 2026-10-31).
 - S Pen pressure (user 2026-10-31): built ab552fa, UI checked on WSA VD; open: feel test on the Note 10+ (user says when awake); Quest pen has no pressure.
-- [Opus] Assemble space / big plate (user 2026-11-04, brain dump, exploration): zero-g space like Bambu/Orca Assemble (no plate; CAD tools + measuring; first VR step); big or infinite plate, or 4x4 plates; on exit auto-orient, "too big" error with a Fix = rotated + suggested cut location, glue later. Claude's leanings + phases A1-A4 given 2026-11-04 (archive "Assemble space / big plate: Claude's leanings"); open: user's pick of a phase; nothing built.
+- [Opus] Assemble space / big plate (user 2026-11-04, brain dump, exploration): zero-g space like Bambu/Orca Assemble (no plate; CAD tools + measuring; first VR step); big or infinite plate, or 4x4 plates; on exit auto-orient, "too big" error with a Fix = rotated + suggested cut location, glue later. Claude's leanings + phases A1-A4 given 2026-11-04 (archive "Assemble space / big plate: Claude's leanings"); user picked A1 2026-11-04; A1 coded f3361ff (Claude 2026-11-04), untested on WSA VD; A2-A4 open.
 
 ## Known limits (no action)
 - Real keyboard Ctrl+1 = system hotkey. Inactive-plate double tap re-frames (user: fine). Badges ~23 dp at plate zoom (told the user).
