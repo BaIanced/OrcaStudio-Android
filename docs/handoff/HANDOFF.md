@@ -33,11 +33,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
 - Open tests in backlog.
-- **Assemble A1 coded + pushed (f3361ff), UNTESTED, no CI build** (details: archive end). Test on WSA VD (reference
-  "WSA debug loop"), shape design + an "Edit in builder" mesh, GL crops: grid fades, no beds/badges, printer ghost
-  centred + its ViewInAr toggle, view from below, Preview + leaving Build keep beds. Then CI build + install everywhere.
+- **Assemble A1 Claude-verified on WSA VD (archive end)**: grid fades, no beds/badges, ghost box, below view, beds back on leaving. Open: "Edit in builder" mesh + ghost toggle tap. CI build 41910993766 dispatched (head 39da7d9): install on phone, WSA, Chromebook (not SHIELD) when green.
 - Rename (LOW, backlog "Waiting on the user"): glance at upstream Discussions #17269 at /next (0 replies 2026-11-04).
-- Next step: Assemble A1 WSA VD test (floor grid + printer ghost) -> Sonnet 5.5 (medium); GL fixes if it looks off -> Opus
+- Next step: install CI build of A1 on all devices, then ghost-toggle + mesh check -> Sonnet 5.5 (medium)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
