@@ -33,9 +33,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
 - Open tests in backlog.
-- **Assemble A1 Claude-verified on WSA VD (archive end)**: grid fades, no beds/badges, ghost box, below view, beds back on leaving. Open: "Edit in builder" mesh + ghost toggle tap. CI build r523 (run 41910993766) installed on phone, WSA, Chromebook.
-- Rename (LOW, backlog "Waiting on the user"): glance at upstream Discussions #17269 at /next (0 replies 2026-11-04).
-- Next step: Assemble A1 ghost-toggle tap + "Edit in builder" mesh check on WSA VD (r523) -> Sonnet 5.5 (medium)
+- Assemble A1 verified (r523). **A2 coded, untested (user picked it 2026-11-04; archive end)**: CI run 41931328294 (head 3505452). If native fails, fix from the log. Then install on phone/WSA/Chromebook and test on WSA VD: MCP `object_fit_check` on a scaled-up object (too tall -> lay; too long -> turn/diagonal; huge -> fix none), Notices card after Close editor + after slicing a too-big plate, Fix link applies + centres.
+- Rename (LOW, backlog): glance at upstream Discussions #17269 at /next (0 replies, last 2026-11-04).
+- Tower message tweak committed in 3505452; verify with a 16-slot slice.
+- Next step: Assemble A2 CI result + WSA VD test -> Opus 5.5 (high)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 

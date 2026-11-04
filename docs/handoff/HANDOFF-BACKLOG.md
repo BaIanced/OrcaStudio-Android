@@ -44,7 +44,7 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 
 ## Ideas (not started)
 - Parked user-feel / release items (cut-step 9 go-ahead, public-release decisions, shape builder feel, hover tooltips): moved verbatim to HANDOFF-ARCHIVE.md heading "Parked backlog items 2026-11-04".
-- Self-portrait 3 (Claude r489 WSA 2026-10-31): open only real-print checks (24 open lattice edges); maybe clearer 16-filament tower message.
+- Self-portrait 3 (Claude r489 WSA 2026-10-31): open only real-print checks (24 open lattice edges). Tower "no free spot" message now names the filament count + scale hint (OrcaEngine.cpp, 2026-11-04, uncommitted, C++ not compiled locally, rides the next CI build).
 - Study Bambu Handy's MakerWorld integration.
 - Headless display: `start` stress OK 5/5 (Claude 2026-11-04); pinch on the VD parked (needs an app_process multi-pointer injector; low value, archive).
 - Quest: 2D panel confirmed (user 2026-10-21); open only input beyond touch + native VR view [Opus] (on request). Phone <-> Quest link (undefined).
