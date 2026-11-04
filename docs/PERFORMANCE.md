@@ -110,6 +110,8 @@ Record a missing baseline the first time a change touches that area (same device
    e. Compressing the native libs (now stored) cuts the download ~78 -> ~35 MB but raises the installed size (APK + extracted
       copy): not worth it for a sideloaded app.
    Speed: profile a slice with simpleperf before any flag work; PGO is the one flag-level change with a typical 10-20% gain.
+   2026-11-04 (user): slice profile SHELVED: flag variants were within thermal noise and hotspots sit in unmodified upstream
+   code, so no meaningful gain expected. Scripts kept: orca-android-tools `simpleperf-slice.sh`, `wsl/spreport.sh` (untested).
 
 1. **Native link flags** for liborca_jni (48.4 MB): `-Wl,--icf=safe` measured 2026-10-31: no gain (stripped 50,754,576 vs
    50,753,744 B, relink only), rejected. 2026-11-01 local WSL builds (orca-android-tools `wsl/perfbuild.sh`, separate dirs, no ccache,
