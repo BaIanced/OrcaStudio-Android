@@ -33,10 +33,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
 - Open tests in backlog.
-- 2026-11-03 (archive): STEP import, Check mesh, G2, G5 verified; Python part 2 shelved (user 2026-11-03, archive); store release parked until "GOATed". CI size step ea147da pushed (workflow scope granted).
-- **GOAT batch (user 2026-11-03): order G2 -> G5 -> G4, then G1, G3, G6, G7. G8 (AR preview) skipped by the user 2026-11-03 (archive "G8 skipped").** Specs: backlog "GOAT batch".
-- G6 print history Claude-verified (archive "G6 print history"); r513 (G1, G3, G6) installed on phone, WSA, Quest; Chromebook unreachable (.28), still old. Open: card for web-UI hosts, thumbnail check on a Bambu send. Test gotcha: `PKG=...debug orca-vd.sh start`, else the release app (real printer) opens.
-- G7 (widget + Live Update chip; tile dropped) Claude-verified (archive "G7 status outside the app"); r514 (8f4a88c, run 41770226117) installed on phone + WSA 2026-11-03; Quest offline (asleep, retry `adb connect`), Chromebook unreachable. GOAT batch done.
+- GOAT batch G1-G7 done + merged (PR #71); details archived 2026-11-04 "handoff trim". Open from it: G6 card for web-UI hosts, Bambu-send thumbnail (backlog).
 - Merge offer cleared (PR #71, 2026-11-03). **User 2026-11-04: audit the app for waste and performance.** r516 = 101.44 MB (r506 91.81), STEP import +6.38. Step 1 done 2026-11-04: patch 0005 (STEP without XCAF viewer driver) -2.73 MB stripped (PERFORMANCE.md 0.b), **untested on device**: WSL libs (`corebuild.sh`; WSL core build is currently the UNpatched A/B, src is patched) -> debug app -> bear.step import on phone VD (archive "STEP import verified" recipe), then CI build + install. Step 2 ran: R8 `usage.txt` + lint report in `~/build/orca-android/gradle/app/outputs/mapping/release/` and `reports/lint-results-release.*`; triage UnusedResources 15, NewApi 2, StaticFieldLeak 2, AutoboxingStateCreation 16 (ignore MissingTranslation, UseKtx). Then 3) baselines + simpleperf slice profile, 4) gfxinfo jank.
 - Next step: patch 0005 device test + lint/R8 triage -> Opus 5.5 (high)
 ## User decisions

@@ -4020,3 +4020,9 @@ Python on demand part 2: do it. Ad block default and Prusa/Printables theme name
 
 ## 2026-11-03 Python on demand part 2 shelved
 - User 2026-11-03: "python on demand is shelved, not worth doing it to save 6 mb." Dropping libpython3.12.so from the APK is not planned. CI size step ae8d7fa cherry-picked as ea147da after the user ran gh auth refresh -s workflow.
+
+## 2026-11-04 handoff trim: GOAT batch lines moved from HANDOFF.md
+- 2026-11-03 (archive): STEP import, Check mesh, G2, G5 verified; Python part 2 shelved (user 2026-11-03, archive); store release parked until "GOATed". CI size step ea147da pushed (workflow scope granted).
+- **GOAT batch (user 2026-11-03): order G2 -> G5 -> G4, then G1, G3, G6, G7. G8 (AR preview) skipped by the user 2026-11-03 (archive "G8 skipped").** Specs: backlog "GOAT batch".
+- G6 print history Claude-verified (archive "G6 print history"); r513 (G1, G3, G6) installed on phone, WSA, Quest; Chromebook unreachable (.28), still old. Open: card for web-UI hosts, thumbnail check on a Bambu send. Test gotcha: `PKG=...debug orca-vd.sh start`, else the release app (real printer) opens.
+- G7 (widget + Live Update chip; tile dropped) Claude-verified (archive "G7 status outside the app"); r514 (8f4a88c, run 41770226117) installed on phone + WSA 2026-11-03; Quest offline (asleep, retry `adb connect`), Chromebook unreachable. GOAT batch done.
