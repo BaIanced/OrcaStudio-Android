@@ -35,7 +35,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Open tests in backlog.
 - 2026-11-03 (archive): STEP import + Check mesh verified on the phone VD; Python part 2 shelved; store release parked until "GOATed". Phone r507; WSA wedged since 2026-11-02 (restart before use). CI size step ae8d7fa waits on `gh auth refresh -s workflow`.
 - **GOAT batch (user 2026-11-03): order G2 -> G5 -> G4, then G1, G3, G6, G7, G8.** Specs: backlog "GOAT batch".
-- Next step: G2 friendly errors + Recent files (UX-INVENTORY P1-P3) -> Sonnet 5.5 (medium)
+- Next step: test G2 on the phone VD (debug build; backlog G2 line says what), then start G5 Print doctor -> Sonnet 5.5 (medium)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 

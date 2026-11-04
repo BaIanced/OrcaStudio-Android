@@ -436,6 +436,7 @@
     <string name="range_settings_title">Height range settings</string>
     <string name="reading_gcode">Reading G-code…</string>
     <string name="recent">Recent files</string>
+    <string name="recent_remove">Remove from Recent files</string>
     <string name="recent_missing">%1$s can no longer be opened and was removed from Recent files.</string>
     <string name="file_unreadable">That file could not be opened. It may have been moved or deleted, or access to it was removed.</string>
     <string name="redo">Redo</string>

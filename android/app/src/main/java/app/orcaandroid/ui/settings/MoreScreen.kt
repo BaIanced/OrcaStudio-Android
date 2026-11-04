@@ -6,6 +6,7 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -100,7 +101,7 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
             // Collapsed by default (user 2026-10-28): File on the Prepare top bar has the same list; this stays as a fallback.
             if (state.recents.isNotEmpty()) Section(stringResource(R.string.recent), summary = state.recents.size.coerceAtMost(10).toString()) {
                 Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(vertical = 4.dp)) { state.recents.take(10).forEach { r -> RecentRow(r) { vm.files.openRecent(r) } } }
+                    Column(Modifier.padding(vertical = 4.dp)) { state.recents.take(10).forEach { r -> RecentRow(r, { vm.files.openRecent(r) }) { vm.files.removeRecent(r) } } }
                 }
             }
 
@@ -270,20 +271,51 @@ private fun Section(title: String, initiallyOpen: Boolean = false, summary: Stri
     if (open) Column(verticalArrangement = Arrangement.spacedBy(4.dp)) { content() }
 }
 
-/** A recent file, desktop style: file icon, name, and when it was used. */
+/** A recent file, desktop style: file icon, name, where it lives, and when it was used. Long press: Remove from Recent files. */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-private fun RecentRow(r: app.orcaandroid.core.RecentFile, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Icon(if (r.isProject) Icons.Outlined.FolderZip else Icons.Outlined.Description, null, Modifier.size(18.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(r.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1,
-            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-        if (r.time > 0) Text(android.text.format.DateUtils.getRelativeTimeSpanString(r.time, System.currentTimeMillis(),
-            android.text.format.DateUtils.MINUTE_IN_MILLIS, android.text.format.DateUtils.FORMAT_ABBREV_RELATIVE).toString(),
-            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+private fun RecentRow(r: app.orcaandroid.core.RecentFile, onClick: () -> Unit, onRemove: () -> Unit) {
+    val context = LocalContext.current
+    val place = remember(r.uri) { recentPlace(context, r.uri) }
+    var menu by remember { mutableStateOf(false) }
+    androidx.compose.foundation.layout.Box {
+        Row(Modifier.fillMaxWidth().combinedClickable(onLongClick = { menu = true }, onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Icon(if (r.isProject) Icons.Outlined.FolderZip else Icons.Outlined.Description, null, Modifier.size(18.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Column(Modifier.weight(1f)) {
+                Text(r.name, style = MaterialTheme.typography.bodyMedium, maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                if (place != null) Text(place, style = MaterialTheme.typography.labelSmall, maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            if (r.time > 0) Text(android.text.format.DateUtils.getRelativeTimeSpanString(r.time, System.currentTimeMillis(),
+                android.text.format.DateUtils.MINUTE_IN_MILLIS, android.text.format.DateUtils.FORMAT_ABBREV_RELATIVE).toString(),
+                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        androidx.compose.material3.DropdownMenu(menu, { menu = false }) {
+            androidx.compose.material3.DropdownMenuItem(text = { Text(stringResource(R.string.recent_remove)) },
+                onClick = { menu = false; onRemove() })
+        }
     }
 }
+
+/**
+ * Where a recent file lives, so same-named entries can be told apart: the folder for shared storage
+ * ("primary:Download/a.stl" -> "Download"), else the name of the app that provides it (Drive, Downloads, ...).
+ * Null for app-internal copies and unknown providers.
+ */
+private fun recentPlace(context: android.content.Context, uri: String): String? = runCatching {
+    val u = android.net.Uri.parse(uri)
+    when {
+        u.scheme == "file" -> null
+        u.authority == "com.android.externalstorage.documents" ->
+            android.provider.DocumentsContract.getDocumentId(u).substringAfter(':').substringBeforeLast('/', "").ifEmpty { null }
+        u.authority == context.packageName + ".files" -> null
+        else -> u.authority?.let { context.packageManager.resolveContentProvider(it, 0)?.loadLabel(context.packageManager)?.toString() }
+    }
+}.getOrNull()
 
 /** Found profile updates with Install. */
 @Composable

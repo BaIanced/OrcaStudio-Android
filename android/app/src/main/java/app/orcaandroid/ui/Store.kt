@@ -89,8 +89,11 @@ class Store(val app: Application, val scope: CoroutineScope) {
         } catch (e: Exception) {
             if (cancelled) return@launch
             android.util.Log.w("OrcaStore", "operation failed", e)
-            val unreadable = e is java.io.FileNotFoundException || e is SecurityException
-            update { it.copy(error = if (unreadable) str(R.string.file_unreadable) else e.message ?: e.toString()) }
+            val message = e.message ?: e.toString()
+            // System file errors carry content:// URIs, cache paths and errno names; show the plain sentence instead.
+            val unreadable = e is java.io.FileNotFoundException || e is SecurityException ||
+                listOf("content://", "ENOENT", "EACCES", "open failed").any { it in message }
+            update { it.copy(error = if (unreadable) str(R.string.file_unreadable) else message) }
         } finally {
             if (busy != null) update { it.copy(busy = null, busyCancel = null) }
         }
