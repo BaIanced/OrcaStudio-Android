@@ -3976,3 +3976,10 @@ Python on demand part 2: do it. Ad block default and Prusa/Printables theme name
 ## 2026-11-03 G5 Print doctor verified (Claude, phone VD, debug build of 28bfdf7 + fix)
 - Stringing: dialog lists current -> new, Apply gave 'Printer · modified', values compound on reapply, calibration link opened the Retraction test. Filament nozzle_temperature (220->215) read fine on a Bambu preset.
 - Bug found+fixed: travel_speed 700 -> 500 (clamp max below the current value moved the setting against the fix). DoctorFix.newValue now drops fixes that would move against their direction; test neverMovesAgainstTheFix.
+
+## 2026-11-03 G4 part 1 (auto-slice core, untested until the G4 VD tests)
+- **G4 part 1 committed a6ebff3 (compiles; UNTESTED, no build yet):** `Engine.slice(background)` + `preempt()` in every `call()`/viewGcode
+  (cancels a background slice, `SlicePreempted`), `keepSlice()`; `SliceController.autoSlice()` watcher (1.5 s idle, at once on Preview,
+  off in Battery Saver, `failedKey` stops retry loops), `promote()` when Slice is tapped mid background slice, `showPreview()`,
+  `SliceDelta` in `UiState.sliceDelta`; `SliceStatus.Running.background` (`isSlicing` = foreground only; autosave waits on any slice);
+  setting "Slice in the background" (More > misc, `auto_slice` pref, default on).

@@ -36,11 +36,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - 2026-11-03 (archive): STEP import + Check mesh verified on the phone VD; Python part 2 shelved; store release parked until "GOATed". Phone r507; WSA wedged since 2026-11-02 (restart before use). CI size step ae8d7fa waits on `gh auth refresh -s workflow`.
 - **GOAT batch (user 2026-11-03): order G2 -> G5 -> G4, then G1, G3, G6, G7, G8.** Specs: backlog "GOAT batch".
 - G2 + G5 verified 2026-11-03 (archive; Claude on the phone VD, travel-speed clamp bug fixed). Next in order: G4.
-- **G4 part 1 committed a6ebff3 (compiles; UNTESTED, no build yet):** `Engine.slice(background)` + `preempt()` in every `call()`/viewGcode
-  (cancels a background slice, `SlicePreempted`), `keepSlice()`; `SliceController.autoSlice()` watcher (1.5 s idle, at once on Preview,
-  off in Battery Saver, `failedKey` stops retry loops), `promote()` when Slice is tapped mid background slice, `showPreview()`,
-  `SliceDelta` in `UiState.sliceDelta`; `SliceStatus.Running.background` (`isSlicing` = foreground only; autosave waits on any slice);
-  setting "Slice in the background" (More > misc, `auto_slice` pref, default on).
+- G4 part 1 a6ebff3 (engine pre-empt, `autoSlice()` watcher, delta state, setting): details in archive 2026-11-03 "G4 part 1".
 - **G4 part 2 committed 60a23cc (compiles; UNTESTED):** SliceButton shows "Preview plate N" + time/grams + tertiary delta once
   `results[activePlate]` exists (`showPreview()`), progress ring icon while `Running.background` (no panel); Preview's empty state shows
   the background progress. Debug APK built (18:11) but NOT installed: WSA wedged (dumpsys hung, `wsaclient /shutdown` hangs);
