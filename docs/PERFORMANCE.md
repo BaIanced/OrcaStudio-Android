@@ -80,6 +80,12 @@ Record a missing baseline the first time a change touches that area (same device
       used by rounded primitives / fillet (`OrcaExtras.cpp:174`), crease rounding (`OrcaMeshEdit.cpp:295`) and `OrcaBlend.cpp:211`.
       The STEP reader (TKDESTEP/XSBase/XCAF) is 0.01 MB: never linked, since no JNI path calls `Model::read_from_step`.
       Nothing STEP-only to split out; moving the modeling core on demand would gate everyday tools behind a download.
+      2026-11-04 after STEP import (c92e16a): OCCT 19.19 MB of symbols, incl. TKV3d 0.68, TKHLR 0.42, TKService 0.16 (viewer).
+      Cause (lld `--why-extract` + `orca-android-tools/wsl/whychain.py`): `Step` held `XCAFApp_Application::GetApplication()`,
+      whose ctor registers the XCAF presentation driver -> AIS/V3d/HLR/fonts. Patch 0005 uses a plain `TDocStd_Application` +
+      `XCAFDoc_DocumentTool::Set` (what `XCAFApp_Application::InitDocument` does). Stripped liborca_jni, -O2+ThinLTO WSL build:
+      54,326,104 -> 51,591,704 B (-2.73 MB); TKV3d/TKHLR/TKVCAF gone. UNTESTED on device (STEP import names/solids).
+      TKDESTEP 3.5 MB is the STEP schema itself (inherent).
    c. libopenscad 12.5 MB: measured 2026-11-01, REJECTED (no real duplicates). Its .text is 9.1 MB (eh_frame 1.0, rodata 1.0);
       it NEEDs only liblog/libdl/libm/libc. Only non-template compiled code could be shared, and liborca_jni holds little of it:
       TBB runtime (`tbb::detail::r1`) 0.14 MB (the other 3.86 MB "tbb" is template instantiations, per lib), GMP 0.13, Clipper2 0.08,

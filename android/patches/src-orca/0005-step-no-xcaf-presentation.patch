@@ -1,0 +1,53 @@
+diff --git a/src/libslic3r/Format/STEP.cpp b/src/libslic3r/Format/STEP.cpp
+index 57d8e44157..981f7ee2be 100644
+--- a/src/libslic3r/Format/STEP.cpp
++++ b/src/libslic3r/Format/STEP.cpp
+@@ -45,7 +45,6 @@
+ #include "Interface_Static.hxx"
+ #include "XCAFDoc_DocumentTool.hxx"
+ #include "XCAFDoc_ShapeTool.hxx"
+-#include "XCAFApp_Application.hxx"
+ #include "NCollection_Sequence.hxx"
+ #include "TDF_Label.hxx"
+ #include "TopoDS_Solid.hxx"
+@@ -454,6 +453,7 @@ Step::Step(fs::path path, ImportStepProgressFn stepFn, StepIsUtf8Fn isUtf8Fn):
+ {
+     m_path = path.string();
+     m_app->NewDocument(TCollection_ExtendedString("BinXCAF"), m_doc);
++    XCAFDoc_DocumentTool::Set(m_doc->Main());
+ }
+ 
+ Step::Step(std::string path, ImportStepProgressFn stepFn, StepIsUtf8Fn isUtf8Fn) :
+@@ -462,6 +462,7 @@ Step::Step(std::string path, ImportStepProgressFn stepFn, StepIsUtf8Fn isUtf8Fn)
+     m_utf8Fn(isUtf8Fn)
+ {
+     m_app->NewDocument(TCollection_ExtendedString("BinXCAF"), m_doc);
++    XCAFDoc_DocumentTool::Set(m_doc->Main());
+ }
+ 
+ Step::~Step()
+diff --git a/src/libslic3r/Format/STEP.hpp b/src/libslic3r/Format/STEP.hpp
+index 5d18f9e88f..c5138fdc7a 100644
+--- a/src/libslic3r/Format/STEP.hpp
++++ b/src/libslic3r/Format/STEP.hpp
+@@ -1,7 +1,7 @@
+ #ifndef slic3r_Format_STEP_hpp_
+ #define slic3r_Format_STEP_hpp_
+ #include "XCAFDoc_DocumentTool.hxx"
+-#include "XCAFApp_Application.hxx"
++#include "TDocStd_Application.hxx"
+ #include "XCAFDoc_ShapeTool.hxx"
+ #include <Standard_TypeDef.hxx>
+ #include <Standard_Handle.hxx>
+@@ -122,7 +122,10 @@ private:
+     std::string m_path;
+     ImportStepProgressFn m_stepFn;
+     StepIsUtf8Fn m_utf8Fn;
+-    Handle(XCAFApp_Application) m_app = XCAFApp_Application::GetApplication();
++    // Android: a plain TDocStd_Application; XCAFApp_Application's constructor registers the XCAF presentation
++    // driver, which links the whole AIS/V3d viewer, HLR and fonts. The ctor adds the XCAF tools via
++    // XCAFDoc_DocumentTool::Set, as XCAFApp_Application::InitDocument does.
++    Handle(TDocStd_Application) m_app = new TDocStd_Application();
+     Handle(TDocStd_Document) m_doc;
+     Handle(XCAFDoc_ShapeTool) m_shape_tool;
+     std::vector<NamedSolid> m_name_solids;
