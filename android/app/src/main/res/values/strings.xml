@@ -468,6 +468,12 @@
     <string name="reading_gcode">Reading G-code…</string>
     <string name="recent">Recent files</string>
     <string name="recent_remove">Remove from Recent files</string>
+    <string name="shortcut_slice_short">Slice</string>
+    <string name="shortcut_slice_long">Slice the current plate</string>
+    <string name="shortcut_import_short">Import</string>
+    <string name="shortcut_import_long">Import from Downloads</string>
+    <string name="shortcut_last_short">Last project</string>
+    <string name="shortcut_last_long">Open last project</string>
     <string name="recent_missing">%1$s can no longer be opened and was removed from Recent files.</string>
     <string name="file_unreadable">That file could not be opened. It may have been moved or deleted, or access to it was removed.</string>
     <string name="redo">Redo</string>

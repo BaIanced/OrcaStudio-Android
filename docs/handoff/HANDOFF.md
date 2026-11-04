@@ -36,8 +36,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - 2026-11-03 (archive): STEP import, Check mesh, G2, G5 verified; Python part 2 shelved; store release parked until "GOATed". CI size step ae8d7fa waits on `gh auth refresh -s workflow`.
 - **GOAT batch (user 2026-11-03): order G2 -> G5 -> G4, then G1, G3, G6, G7, G8.** Specs: backlog "GOAT batch".
 - G4 (a6ebff3 + 60a23cc) verified by Claude 2026-11-03 (archive "G4 part 2", "G4 CI build r509"): r509 (run 41754302781) on phone, WSA, Chromebook. Next: G1, then G3, G6, G7, G8.
-- G1 (580d4c2) verified by Claude 2026-11-03 on the WSA VD (archive "G1 first-run coach strip"); CI build run 41757054644 dispatched; on success install on phone, WSA, Chromebook (skip SHIELD, .23). Next: G3, then G6, G7, G8.
-- Next step: G3 (spec in backlog "GOAT batch") -> Sonnet 5.5 (medium)
+- G1 (580d4c2) verified by Claude 2026-11-03 on the WSA VD (archive "G1 first-run coach strip"); CI run 41757054644 (G1 only, superseded by the G3 build if not yet installed). Then G6, G7, G8.
+- G3 coded + compiled, not run (commit "Launcher shortcuts"): dynamic shortcuts (MainActivity.publishShortcuts) with intent actions app.orcaandroid.action.SLICE / IMPORT_DOWNLOADS / OPEN_LAST_PROJECT handled in handleIntent. Left: test on WSA VD debug build via `am start -a <action> -n ...MainActivity --display <VD>` (slice runs, picker opens on Downloads, last project opens from recents), `dumpsys shortcut` shows 3; CI build with G1; install on phone, WSA, Chromebook.
+- Next step: G3 WSA VD intent test, then CI build -> Sonnet 5.5 (medium)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 

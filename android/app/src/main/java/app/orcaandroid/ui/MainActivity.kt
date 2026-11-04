@@ -12,6 +12,7 @@ import android.view.KeyEvent
 import android.view.MotionEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,9 +29,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.core.content.ContextCompat
 import androidx.core.content.IntentCompat
+import androidx.core.content.pm.ShortcutInfoCompat
+import androidx.core.content.pm.ShortcutManagerCompat
+import androidx.core.graphics.drawable.IconCompat
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
+import app.orcaandroid.R
 import app.orcaandroid.net.OrcaCloud
 import app.orcaandroid.render.PlateView
 import app.orcaandroid.ui.components.framePlate
@@ -40,10 +45,18 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
     private val vm: AppViewModel by viewModels()
 
+    /** The launcher shortcut "Import": the system picker opened on Downloads. */
+    private val importFromDownloads = registerForActivityResult(object : ActivityResultContracts.OpenMultipleDocuments() {
+        override fun createIntent(context: android.content.Context, input: Array<String>) = super.createIntent(context, input).putExtra(
+            android.provider.DocumentsContract.EXTRA_INITIAL_URI,
+            android.provider.DocumentsContract.buildDocumentUri("com.android.externalstorage.documents", "primary:Download"))
+    }) { if (it.isNotEmpty()) vm.files.openModels(it) }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         if (savedInstanceState == null) handleIntent(intent)
+        publishShortcuts()
         requestNotificationPermission()
         PlateView.onKey = ::viewKey
         // FocusGuardLayout: rotating crashed in Compose's focus code (see the class).
@@ -116,6 +129,20 @@ class MainActivity : ComponentActivity() {
         handleIntent(intent)
     }
 
+    /** Long-press launcher shortcuts (dynamic: the package differs between debug and release). */
+    private fun publishShortcuts() {
+        fun shortcut(id: String, action: String, short: Int, long: Int) = ShortcutInfoCompat.Builder(this, id)
+            .setShortLabel(getString(short)).setLongLabel(getString(long))
+            .setIcon(IconCompat.createWithResource(this, R.drawable.ic_notification))
+            .setIntent(Intent(action).setClass(this, MainActivity::class.java)).build()
+        runCatching {
+            ShortcutManagerCompat.setDynamicShortcuts(this, listOf(
+                shortcut("slice_plate", ACTION_SLICE, R.string.shortcut_slice_short, R.string.shortcut_slice_long),
+                shortcut("import_downloads", ACTION_IMPORT_DOWNLOADS, R.string.shortcut_import_short, R.string.shortcut_import_long),
+                shortcut("open_last_project", ACTION_OPEN_LAST, R.string.shortcut_last_short, R.string.shortcut_last_long)))
+        }
+    }
+
     /** Models / projects / G-code handed to the app via "open with" or "share". */
     private fun handleIntent(intent: Intent?) {
         intent ?: return
@@ -129,6 +156,17 @@ class MainActivity : ComponentActivity() {
         if (uris.isNotEmpty()) lifecycleScope.launch {
             vm.awaitReady()
             vm.files.openModels(uris)
+        }
+        when (intent.action) {
+            ACTION_IMPORT_DOWNLOADS -> importFromDownloads.launch(arrayOf("*/*"))
+            ACTION_SLICE -> lifecycleScope.launch {
+                vm.awaitReady()
+                vm.slicing.slice()
+            }
+            ACTION_OPEN_LAST -> lifecycleScope.launch {
+                vm.awaitReady()
+                vm.state.value.recents.firstOrNull { it.isProject }?.let(vm.files::openRecent)
+            }
         }
 
         // Debug builds only: automated tests drive the app with intent extras, e.g.
@@ -161,6 +199,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private companion object {
+        const val ACTION_SLICE = "app.orcaandroid.action.SLICE"
+        const val ACTION_IMPORT_DOWNLOADS = "app.orcaandroid.action.IMPORT_DOWNLOADS"
+        const val ACTION_OPEN_LAST = "app.orcaandroid.action.OPEN_LAST_PROJECT"
         const val LOCAL_NETWORK_PERMISSION = "android.permission.ACCESS_LOCAL_NETWORK"
     }
 

@@ -40,7 +40,7 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 ## GOAT batch (user 2026-11-03: do G2 -> G5 -> G4 first, then the rest; all not started)
 - G4 [Opus] auto-slice + Preview: done on r509; open: delta text is tiny at the lab slice scale (check readability); Claude-verified only.
 - G1 First-run "print in 3 taps": coded (coach strip), untested; open: WSA VD test, CI build, phone check.
-- G3 Launcher shortcuts: Open last project, Import from Downloads, Slice last plate (ShortcutManager; none exist).
+- G3 Launcher shortcuts: coded + compiled 2026-11-03 (3 dynamic shortcuts); open: WSA VD intent test, CI build, phone check.
 - G6 Print history + reprint: local log per send (thumbnail, presets, time, grams, cost), one-tap reprint, feeds "Log print". End-of-print status needs the printer.
 - G7 Status outside the app: home-screen widget, Android 16 Live Update chip, Quick Settings tile (targetSdk 36). Real test needs the printer; mocked status otherwise.
 - G8 AR "on your desk" preview (ARCore): needs the user's eyes (WSA has no camera); last, ask before starting.
