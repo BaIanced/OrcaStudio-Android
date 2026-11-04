@@ -15,11 +15,13 @@ only if the number moves. Budgets only go down (ratchet).
 
 | Metric | Tool | Baseline |
 |---|---|---|
-| APK size per group (native libs, dex, vendor profiles, i18n, Python, ...) | `android/scripts/size_report.py`, CI job summary | CI size report delta (r506: 91.8 MB, r516: 101.4 MB after STEP import) |
+| APK size per group (native libs, dex, vendor profiles, i18n, Python, ...) | `android/scripts/size_report.py`, CI job summary | CI size report delta (r506: 91.8 MB, r516: 101.4 MB after STEP import, r517: 98.83 MB, orca_jni 49.20) |
 | Compose recomposition: restartable composables that are not skippable | Compose compiler reports | 0 (2026-10-31: 242 of 242 skippable) |
-| 3D view frame timing (fps, frame gap median / p95 / max) | MCP `perf` tool (`render/FrameStats.kt`, last 240 frames) | baseline not recorded yet |
-| Cold start | `adb shell am start -W -n <pkg>/.ui.MainActivity` (TotalTime) | r493 phone, 3 runs: 222 / 149 / 159 ms (median 159; activity launch only) |
-| Slice time of a fixed model | MCP slice on the same model and profile | baseline not recorded yet |
+| 3D view frame timing (fps, frame gap median / p95 / max) | MCP `perf` tool (`render/FrameStats.kt`, last 240 frames) | r517 phone VD, plate 1 fit, 3 s orbit, 3 runs: 60.2-60.3 fps, gap median 16.5-16.6 / p95 18.8-19.0 / worst 20.3-21.5 ms, 0 gaps > 33 ms (vsync-bound); native heap 156 MB |
+| Cold start | `adb shell am start -W -n <pkg>/.ui.MainActivity` (TotalTime) | r493 phone, 3 runs: 222 / 149 / 159 ms (median 159; activity launch only); r517 phone VD: 175 / 156 / 163 (median 163) |
+| Slice time of a fixed model | MCP slice on the same model and profile | r517 phone (on AC), plate 1 (2 objects, 3,498 + 224,796 tris, A1 0.20 Standard, 7 filaments, prime tower, 541 layers): 13.3 / 13.0 s at 32.9 C battery, then 19.6 / 20.6 s at ~34.5 C: thermal throttling costs ~50%, so compare only cool runs (MAXT=320) |
+
+All three rows: `orca-android-tools/perfbase.sh [runs]` (release app, hidden VD, plate 1).
 
 Record a missing baseline the first time a change touches that area (same device, three runs, median).
 
