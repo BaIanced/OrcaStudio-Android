@@ -2,6 +2,7 @@ package app.orcaandroid.ui
 
 import app.orcaandroid.R
 import app.orcaandroid.core.PresetType
+import app.orcaandroid.core.PrintHistoryEntry
 import app.orcaandroid.net.AmsMapping
 import app.orcaandroid.net.BambuReport
 import app.orcaandroid.net.Discovery
@@ -97,21 +98,58 @@ class DeviceController(private val store: Store) {
             } else {
                 files.exportedGcode(connection.type.name)!! to files.gcodeFileName()
             }
-            if (startPrint && bambu) {
-                val used = withContext(Dispatchers.IO) { AmsMapping.usedFilaments(file) }
-                val trays = if (used.isEmpty()) emptyList() else withHost(connection) { it.fullStatus()?.trays.orEmpty() }
-                if (trays.isNotEmpty()) {
-                    pendingPrint = file to name
-                    val count = maxOf(s.filaments.size, used.maxOf { it.id } + 1)
-                    store.update { it.copy(upload = null, amsPrompt = AmsPrompt(used, trays, AmsMapping.auto(used, trays), count)) }
-                    return@launch
-                }
-            }
-            send(connection, file, name, startPrint, null)
+            dispatch(connection, file, name, startPrint, bambu)
         } catch (e: Exception) {
             store.update { it.copy(upload = null) }
             throw e
         }
+    }
+
+    /** Sends [file] (a Bambu print first asks for the trays, see [confirmPrint]). Returns after the send or the tray prompt. */
+    private suspend fun dispatch(connection: PrinterConnection, file: File, name: String, startPrint: Boolean, bambu: Boolean) {
+        if (startPrint && bambu) {
+            val used = withContext(Dispatchers.IO) { AmsMapping.usedFilaments(file) }
+            val trays = if (used.isEmpty()) emptyList() else withHost(connection) { it.fullStatus()?.trays.orEmpty() }
+            if (trays.isNotEmpty()) {
+                pendingPrint = file to name
+                val count = maxOf(store.value.filaments.size, used.maxOf { it.id } + 1)
+                store.update { it.copy(upload = null, amsPrompt = AmsPrompt(used, trays, AmsMapping.auto(used, trays), count)) }
+                return
+            }
+        }
+        send(connection, file, name, startPrint, null)
+    }
+
+    /** Sends a file of the print history again and starts it. */
+    fun reprint(entry: PrintHistoryEntry) = store.launch {
+        val connection = store.value.connection ?: return@launch
+        if (store.value.upload is UploadState.Running) return@launch
+        val file = store.printHistory.file(entry) ?: return@launch store.toast(store.str(R.string.history_file_missing))
+        store.update { it.copy(upload = UploadState.Running(0f, true), amsPrompt = null) }
+        try {
+            dispatch(connection, file, entry.sentName, true, entry.sentName.endsWith(".3mf"))
+        } catch (e: Exception) {
+            store.update { it.copy(upload = null) }
+            throw e
+        }
+    }
+
+    fun historyThumbnail(entry: PrintHistoryEntry): File? = store.printHistory.thumbnail(entry)
+
+    fun removeHistory(entry: PrintHistoryEntry) = store.update { it.copy(printHistory = store.printHistory.remove(entry)) }
+
+    /** Logs what was just sent, with the sent file for a reprint (reprints themselves are not logged again). */
+    private suspend fun logSent(file: File, name: String, startPrint: Boolean) {
+        val s = store.value
+        val r = s.shownResult ?: return
+        if (r.external || file.parentFile?.name == "history") return
+        val entry = PrintHistoryEntry(
+            id = System.currentTimeMillis().toString(), time = System.currentTimeMillis(), name = files.gcodeFileName().removeSuffix(".gcode"),
+            printer = s.printer.orEmpty(), started = startPrint, seconds = r.printTimeSeconds, grams = r.filamentGrams, cost = r.cost,
+            filaments = s.filaments.map { it.preset }, fileName = "", sentName = name, thumbnail = null,
+        )
+        val all = withContext(Dispatchers.IO) { runCatching { store.printHistory.add(entry, file) }.getOrNull() } ?: return
+        store.update { it.copy(printHistory = all) }
     }
 
     fun dismissMismatch() = store.update { it.copy(mismatchPrompt = null) }
@@ -150,6 +188,7 @@ class DeviceController(private val store: Store) {
         withHost(connection) { host ->
             host.upload(file, name, startPrint, ams) { p -> store.update { it.copy(upload = UploadState.Running(p, startPrint)) } }
         }
+        logSent(file, name, startPrint)
         if (!store.value.coachDismissed) { store.settings.coachDismissed = true; store.update { it.copy(coachDismissed = true) } }
         store.update { it.copy(upload = UploadState.Done(store.str(if (startPrint) R.string.print_started else R.string.sent_to_printer))) }
         if (startPrint) monitorPrinter()

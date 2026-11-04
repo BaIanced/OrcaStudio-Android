@@ -737,6 +737,10 @@
     <string name="mixed_temps_hint">If you still want to print, turn on %1$s.</string>
     <string name="sync_filaments">Sync filaments from printer</string>
     <string name="sync_short">Sync</string>
+    <string name="print_history">Print history</string>
+    <string name="reprint">Reprint</string>
+    <string name="history_remove">Remove from history</string>
+    <string name="history_file_missing">The sent file is gone; slice and send again.</string>
     <string name="device_job">Job</string>
     <string name="device_temperatures">Temperatures</string>
     <string name="device_nozzle">Nozzle</string>

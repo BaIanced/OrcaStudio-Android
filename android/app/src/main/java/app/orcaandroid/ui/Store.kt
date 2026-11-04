@@ -5,6 +5,7 @@ import androidx.annotation.PluralsRes
 import androidx.annotation.StringRes
 import app.orcaandroid.R
 import app.orcaandroid.container
+import app.orcaandroid.core.PrintHistory
 import app.orcaandroid.core.Scene
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -22,6 +23,7 @@ class Store(val app: Application, val scope: CoroutineScope) {
     val engine = container.engine
     val settings = container.settings
     val resources = container.resources
+    val printHistory = PrintHistory(app)
 
     val state = MutableStateFlow(
         UiState(
@@ -59,6 +61,7 @@ class Store(val app: Application, val scope: CoroutineScope) {
             expertSettings = settings.expertSettings,
             installedNozzles = settings.installedNozzles,
             recents = settings.recents,
+            printHistory = printHistory.load(),
         )
     )
 

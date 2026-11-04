@@ -2,6 +2,7 @@ package app.orcaandroid.ui
 
 import app.orcaandroid.core.Calibration
 import app.orcaandroid.core.FilamentSlot
+import app.orcaandroid.core.PrintHistoryEntry
 import app.orcaandroid.core.LayerProfile
 import app.orcaandroid.core.OptionStates
 import app.orcaandroid.core.PresetType
@@ -330,6 +331,8 @@ data class UiState(
 
     // Files and updates
     val recents: List<RecentFile> = emptyList(),
+    /** Files sent to a printer, newest first (Device tab). */
+    val printHistory: List<PrintHistoryEntry> = emptyList(),
     val profileUpdates: List<ResourceStore.ProfileUpdate>? = null,
     /** Progress text while profile updates install in the background; null when idle. */
     val profileUpdateProgress: String? = null,
