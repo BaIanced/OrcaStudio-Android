@@ -3998,3 +3998,7 @@ Python on demand part 2: do it. Ad block default and Prusa/Printables theme name
 
 ## 2026-11-03: G4 CI build r509 (run 41754302781) installed + phone VD sanity check
 - r509 installed on the phone, WSA and Chromebook. Phone VD: edit on Preview tab -> "Slicing in the background… 25 %", then Preview shows 31 h 27 min, 80.81 m · 244.9 g (matches slice_result). Claude-verified; user-untested. MCP on the phone needs `MCP_DEV=<phone serial>` (target default is WSA).
+
+## 2026-11-03: G1 first-run coach strip tested by Claude (WSA VD, debug build)
+- Fresh prefs + empty plate: strip "Print in 3 taps: 1. Add a model" with "Add sample"; tap adds the 25 mm cube, auto-slice then moves it to "3. Send it to the printer" (Open Device). With a model on the plate it shows "2. Tap Slice". x sets `coach_dismissed=true`, strip gone. Not tested: persistence across restart beyond the pref value, first send dismissal.
+- Gotcha: WSA VD is 720x1280; a 350-px vdgrab shot scales x2.057 to tap coords. Git Bash mangles `/data/...` adb paths: use `MSYS_NO_PATHCONV=1` and push script files from the cwd, not /tmp.
