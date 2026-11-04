@@ -15,7 +15,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 3e64ddb (PR #72 = r519, lint triage + patch 0005 + Sync type fix + README, merged 2026-11-04; Claude-verified only; PR #71 = r514 before it). Nothing unverified on the branch; no merge offer pending. User-untested in main: list in `NOTES-merge-batch.md`.
 - Signing secrets: `release` environment (main + `claude/*` only).
-- Latest installed CI build: r519 (run 41803366345) on the phone (.20) 2026-11-04; WSA was down (adb refused 58526), Chromebook not on adb (r496): install r517+ there when back. **User 2026-11-01: avoid the SHIELD for now** (no installs there). Phone drops off adb: `adb connect <phone-ip>:5555` (memory device-ips); GL shots on the phone VD. Install builds on all adb devices (skip .23).
+- Latest installed CI build: r521 (run 41890673347, head dfce295, has multi-plate Preview) on the phone (.20) + WSA 2026-11-04 (WSA restarted: `WsaClient /shutdown`, `wsa-start.ps1`, `adb connect 127.0.0.1:58526`); Chromebook not on adb (r496): install r521 there when back. **User 2026-11-01: avoid the SHIELD for now** (no installs there). Phone drops off adb: `adb connect <phone-ip>:5555` (memory device-ips); GL shots on the phone VD. Install builds on all adb devices (skip .23).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **User 2026-10-28: no more user testing for now; Claude builds and tests everything itself (memory no-user-testing-now); don't ask for feel/UI checks.**
 - **User 2026-10-29: no tests on the user's screen; all tests on a hidden virtual display** (`TARGET=wsa orca-vd.sh start`, memory tests-on-virtual-display).
@@ -34,10 +34,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
 - Open tests in backlog.
 - GOAT batch, perf audit, lint/R8 triage, README rewrite, r519 Sync pick: all closed (archive 2026-11-04; leftovers in backlog).
-- Multi-plate Preview (user task 2026-11-04, 027400c, pushed): Claude-verified on the phone VD with a local debug build (archive 2026-11-04); not in a CI build yet, not in main.
+- Multi-plate Preview (user task 2026-11-04, 027400c, pushed): Claude-verified on the phone VD with a local debug build (archive 2026-11-04); in CI build r521 (phone + WSA), not in main.
 - User's bigger vision (same day, exploration, NOT locked; backlog "Ideas: Assemble space / big plate"): zero-g Assemble space (no plate, CAD tools + measuring, first VR step),
   big/infinite plate or 4x4 plates, on exit auto-orient + "too big" fix = suggested cut for gluing. Reply with leanings, ask before building.
-- Next step: dispatch a CI build of the branch head and install it on the phone + Chromebook (WSA when back); then offer the main merge (multi-plate Preview is Claude-verified only) -> Sonnet 5.5 (low)
+- Next step: offer the main merge (multi-plate Preview, r521, Claude-verified only); Chromebook install when on adb -> Sonnet 5.5 (low)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
