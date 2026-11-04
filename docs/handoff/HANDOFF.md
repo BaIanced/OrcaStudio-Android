@@ -36,8 +36,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - 2026-11-03 (archive): STEP import, Check mesh, G2, G5 verified; Python part 2 shelved; store release parked until "GOATed". CI size step ae8d7fa waits on `gh auth refresh -s workflow`.
 - **GOAT batch (user 2026-11-03): order G2 -> G5 -> G4, then G1, G3, G6, G7, G8.** Specs: backlog "GOAT batch".
 - G6 print history Claude-verified (archive "G6 print history"); r513 (G1, G3, G6) installed on phone, WSA, Quest; Chromebook unreachable (.28), still old. Open: card for web-UI hosts, thumbnail check on a Bambu send. Test gotcha: `PKG=...debug orca-vd.sh start`, else the release app (real printer) opens.
-- G7 (widget + Live Update chip; tile dropped) built and Claude-verified on the phone debug build (archive "G7 status outside the app"), commit pushed, CI run 41770226117 (8f4a88c); not yet installed on devices. Then G8 (ask first; needs the user's eyes).
-- Next step: install the G7 CI build on all adb devices, then G8 (ask the user first) -> Sonnet 5.5 (medium)
+- G7 (widget + Live Update chip; tile dropped) Claude-verified (archive "G7 status outside the app"); r514 (8f4a88c, run 41770226117) installed on phone + WSA 2026-11-03; Quest offline (asleep, retry `adb connect`), Chromebook unreachable. Only G8 remains: AR "on your desk" preview (ARCore), needs the user's eyes, so ask before starting.
+- Next step: ask the user about G8 (AR preview; needs their camera/eyes) -> Sonnet 5.5 (medium)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
