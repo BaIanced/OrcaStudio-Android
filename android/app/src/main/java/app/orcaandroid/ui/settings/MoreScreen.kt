@@ -84,6 +84,7 @@ object LabPeek {
 @Composable
 fun MoreScreen(state: UiState, vm: AppViewModel) {
     var dialog by remember { mutableStateOf<String?>(null) }
+    var calibStart by remember { mutableStateOf<String?>(null) }
     val importPresets = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { if (it.isNotEmpty()) vm.presets.importPresets(it) }
     // The passphrase is asked first for a backup (then the file is created), after picking the file for a restore.
     var backupPassphrase by remember { mutableStateOf<CharArray?>(null) }
@@ -107,6 +108,7 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
 
             SectionTitle(stringResource(R.string.calibration))
             Entry(stringResource(R.string.calibration_tests), stringResource(R.string.calibration_tests_text)) { dialog = "calib" }
+            Entry(stringResource(R.string.print_doctor), stringResource(R.string.print_doctor_entry_text)) { dialog = "doctor" }
 
             Section(stringResource(R.string.printers_and_presets), initiallyOpen = true) {
                 Entry(stringResource(R.string.manage_printers), stringResource(R.string.n_printers_selected, state.selectedPrinters.size)) { vm.presets.openPrinterSetup() }
@@ -234,7 +236,8 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
         }
     }
     when (dialog) {
-        "calib" -> CalibrationDialog(vm) { dialog = null }
+        "calib" -> CalibrationDialog(vm, calibStart) { dialog = null; calibStart = null }
+        "doctor" -> PrintDoctorDialog(state, vm, onCalibration = { calibStart = it; dialog = "calib" }) { dialog = null }
         "reset_colors" -> AlertDialog(
             onDismissRequest = { dialog = null },
             text = { Text(stringResource(R.string.reset_colors_confirm)) },
