@@ -36,8 +36,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - 2026-11-03 (archive): STEP import, Check mesh, G2, G5 verified; Python part 2 shelved; store release parked until "GOATed". CI size step ae8d7fa waits on `gh auth refresh -s workflow`.
 - **GOAT batch (user 2026-11-03): order G2 -> G5 -> G4, then G1, G3, G6, G7, G8.** Specs: backlog "GOAT batch".
 - G1 (580d4c2) verified by Claude 2026-11-03 on the WSA VD (archive "G1 first-run coach strip"); CI run 41757054644 (G1 only, superseded by the G3 build if not yet installed). Then G6, G7, G8.
-- G6 (836a51f + "card also shown while the host has no status") coded + compiled, NOT run: core/PrintHistory.kt, DeviceController.logSent/reprint/dispatch, PrintHistoryCard in DeviceScreen PrinterPanel (Bambu/MKS only, now also while status is null/errored; Reprint disabled while printing). CI run 41759882090 (G6 build, not installed yet). Left: test with a mock MKS host (MksHost uploads to http://HOST:80/upload; PC port 80 is held by http.sys, so run the mock on the phone via root or let MksHost honor the URL port); send with startPrint=false is enough for the log; web-UI hosts have no card yet; "feeds Log print" not done; then install r512+ on phone, WSA, Chromebook. Then G7, G8 (ask first).
-- Next step: G6 mock-MKS test + install CI build -> Sonnet 5.5 (medium)
+- G6 print history (archive "G6 print history") Claude-verified on WSA debug with a mock MKS host; CI run 41761203867 (has G1, G3, G6, MKS port fix) not installed yet: install on phone, WSA, Chromebook. Open: card for web-UI hosts, "feeds Log print", thumbnail check on a Bambu send (needs the printer). Then G7, G8 (ask first). Test gotcha: `PKG=...debug orca-vd.sh start`, else the release app (real printer) opens.
+- Next step: install CI build, then G7 (ask first) -> Sonnet 5.5 (medium)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
