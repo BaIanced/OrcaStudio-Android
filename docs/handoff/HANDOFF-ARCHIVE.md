@@ -3995,3 +3995,6 @@ Python on demand part 2: do it. Ad block default and Prusa/Printables theme name
 - On the Preview tab an edit sliced at once (25 % after 0.5 s); empty Preview showed "Slicing in the background… 25 %" + "Slice plate 1".
 - VD notes: WSA VD is 720x1280 px; `orca-vd.sh tap` and the ui dump use those pixels (Slice FAB at 168,1262 with the copied lab prefs).
   Test scripts: `~/orca-android-tools/g4-{preempt,promote,preview}-test.sh`.
+
+## 2026-11-03: G4 CI build r509 (run 41754302781) installed + phone VD sanity check
+- r509 installed on the phone, WSA and Chromebook. Phone VD: edit on Preview tab -> "Slicing in the background… 25 %", then Preview shows 31 h 27 min, 80.81 m · 244.9 g (matches slice_result). Claude-verified; user-untested. MCP on the phone needs `MCP_DEV=<phone serial>` (target default is WSA).
