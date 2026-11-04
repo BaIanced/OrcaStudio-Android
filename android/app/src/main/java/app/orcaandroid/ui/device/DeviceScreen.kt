@@ -274,7 +274,11 @@ private fun PrinterPanel(state: UiState, vm: AppViewModel, modifier: Modifier) {
     if (status == null) {
         val error = state.printerStatusError
         if (error == null) {
-            Box(modifier.padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            // Hosts without a status (MKS) wait here for good, so the history stays reachable beside the spinner.
+            Column(modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Box(Modifier.fillMaxWidth().padding(8.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+                PrintHistoryCard(state, vm, canReprint = true)
+            }
         } else {
             // The error wraps and scrolls instead of being cut off, and the rest of the page stays usable.
             Column(modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -284,6 +288,7 @@ private fun PrinterPanel(state: UiState, vm: AppViewModel, modifier: Modifier) {
                 }
                 val bambu = state.connection?.type.let { it == HostType.BAMBU || it == HostType.BAMBU_SIGNED }
                 if (bambu) state.connection?.let { CameraCard(it) }
+                PrintHistoryCard(state, vm, canReprint = true)
             }
         }
         return
