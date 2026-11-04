@@ -13,7 +13,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 ## State
 - One repo: OrcaStudio-Android (code + these docs, `docs/handoff/`), branch `claude/handoff-continuation-rseql3`. Autonomy (user, 2026-10-11): decide branches and next steps
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
-- Android main = 3e64ddb (PR #72 = r519, lint triage + patch 0005 + Sync type fix + README, merged 2026-11-04; Claude-verified only; PR #71 = r514 before it). Nothing unverified on the branch; no merge offer pending. PR #70 / main privacy-scan runs fail only on history commit 7d08e77 (private LAN address, fixed at HEAD by 3bc4fdd); tracked files clean. User-untested in main: list in `NOTES-merge-batch.md`.
+- Android main = 3e64ddb (PR #72 = r519, lint triage + patch 0005 + Sync type fix + README, merged 2026-11-04; Claude-verified only; PR #71 = r514 before it). Nothing unverified on the branch; no merge offer pending. User-untested in main: list in `NOTES-merge-batch.md`.
 - Signing secrets: `release` environment (main + `claude/*` only).
 - Latest installed CI build: r519 (run 41803366345) on the phone (.20) 2026-11-04; WSA was down (adb refused 58526), Chromebook not on adb (r496): install r517+ there when back. **User 2026-11-01: avoid the SHIELD for now** (no installs there). Phone drops off adb: `adb connect <phone-ip>:5555` (memory device-ips); GL shots on the phone VD. Install builds on all adb devices (skip .23).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
@@ -33,10 +33,14 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
 - Open tests in backlog.
-- GOAT batch + perf audit: closed (archive 2026-11-04; leftovers in backlog "GOAT batch", baselines PERFORMANCE.md "Metrics"). Lint/R8 triage b8585c6: r518 (run 41795361386) installed on the phone 2026-11-04 and smoke-tested on the VD (toggles OK; archive); auto-save row + plate framing also verified (archive).
-- README rewritten 2026-11-04 (archive): audience = end user first + contributor build section; no screenshots yet (ask if wanted). Old AI-disclosure section and German line dropped; CHANGELOG header link removed. In main since PR #72.
-- r519 (type-mismatched pick replaced by Sync, toast lists it) verified by Claude on the phone VD 2026-11-04 (archive).
-- Next step: nothing queued; everything open needs the printer or user feel checks (backlog) -> Sonnet 5.5 (medium)
+- GOAT batch, perf audit, lint/R8 triage, README rewrite, r519 Sync pick: all closed (archive 2026-11-04; leftovers in backlog).
+- **User task 2026-11-04 (multi-plate Preview, built 2026-11-04, local compile OK, UNTESTED on a device, not in CI):** Preview now draws every sliced plate whole
+  (`PlateRenderer.setPreviewExtras` / `PreviewExtra` / `ExtraSlot`, Viewport.kt `extraCache` effect; layer sliders drive the selected plate only);
+  a plate chip on an unsliced plate with objects slices it (`SliceController.pickPreviewPlate`). To check: 2+ plates with objects, slice plate 1, tap chip 2 (slices, both
+  show side by side), chip 3; scheme change recolours all; re-slice replaces one; no leak (extras freed). Test on the phone VD (debug build or CI) since WSA is down.
+- User's bigger vision (same day, exploration, NOT locked; backlog "Ideas: Assemble space / big plate"): zero-g Assemble space (no plate, CAD tools + measuring, first VR step),
+  big/infinite plate or 4x4 plates, on exit auto-orient + "too big" fix = suggested cut for gluing. Reply with leanings, ask before building.
+- Next step: verify multi-plate Preview on a device (build + install + VD check), then commit/push -> Sonnet 5.5 (medium)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 

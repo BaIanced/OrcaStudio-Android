@@ -224,6 +224,13 @@ class SliceController(private val store: Store, private val presets: PresetContr
         }
     }
 
+    /** A plate chip in the Preview: shows the plate, and slices it first when it has objects but no result (user, 2026-11-04). */
+    fun pickPreviewPlate(plate: Int) {
+        setPreviewPlate(plate)
+        val s = store.value
+        if (!s.results.containsKey(plate) && s.scene.objectsOn(plate).isNotEmpty() && !s.isSlicing) slice(plate)
+    }
+
     fun setPreviewPlate(plate: Int) = store.update { s ->
         s.copy(previewPlate = plate, external = null, preview = s.preview.showingAll(s.results[plate]?.layers?.lastIndex ?: 0))
     }

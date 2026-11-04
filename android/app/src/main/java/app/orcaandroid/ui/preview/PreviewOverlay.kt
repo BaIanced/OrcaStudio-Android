@@ -68,7 +68,7 @@ fun PreviewOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
                     state.scene.plates.forEach { p ->
                         FilterChip(
                             selected = p.index == state.previewPlate,
-                            onClick = { vm.slicing.setPreviewPlate(p.index); view?.showPlate(p.index) },
+                            onClick = { vm.slicing.pickPreviewPlate(p.index); view?.showPlate(p.index) },
                             label = { Text(stringResource(R.string.plate_n, p.index + 1) + if (state.results.containsKey(p.index)) " ✓" else "") },
                         )
                     }
