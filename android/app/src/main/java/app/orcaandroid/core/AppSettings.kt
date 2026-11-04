@@ -113,6 +113,11 @@ class AppSettings(context: Context) {
         get() = prefs.getInt("build_others", 0)
         set(value) = prefs.edit().putInt("build_others", value).apply()
 
+    /** Build workspace: the printer's volume drawn as a ghost under the object, for scale (on by default). */
+    var buildPrinter: Boolean
+        get() = prefs.getBoolean("build_printer", true)
+        set(value) = prefs.edit().putBoolean("build_printer", value).apply()
+
     /** Add menu: separate "OpenSCAD" and "Shape builder" rows instead of the one "Design" row. */
     var builderSplit: Boolean
         get() = prefs.getBoolean("builder_entries_split", false)

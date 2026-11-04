@@ -19,6 +19,10 @@ private const val BADGE_GAP = 0.02f
 
 /** Contact shadow: geometry up to this height above the bed casts it, mm; darkness right under a part. */
 private const val SHADOW_FADE_MM = 12f
+/** Build workspace floor: the grid's smallest fade-out radius (mm; else 3x the object's largest side). */
+private const val FLOOR_MIN_RADIUS = 400f
+/** Build workspace: opacity of the printer volume ghost's lines. */
+private const val PRINTER_GHOST_ALPHA = 0.45f
 private const val SHADOW_STRENGTH = 0.8f
 /** Realistic mode's AO: the disc (mm) over which the key light's shadow map says how much of its softbox a point sees. */
 private const val AO_SOFT_MM = 24f
@@ -89,7 +93,15 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     /** Paint shop: only the selected copies are drawn (objects, paint, shadows); the plates stay. */
     var solo = false
     /** Build workspace: the build object (selection ids -1000 - volume, see Engine.setBuildObject) and the others per [buildOthers]. */
-    var buildSolo = false
+    @Volatile var buildSolo = false
+    /**
+     * Build workspace (Assemble space): the build object's box (x0, y0, z0, x1, y1, z1, its shown copies). Beds, plate
+     * surfaces and badges give way to a floor grid around it, and [printerGhost] draws the printer's volume
+     * (bed outline up to [printerHeight]) centred under it for scale.
+     */
+    @Volatile var buildFocus: FloatArray? = null
+    @Volatile var printerGhost = true
+    @Volatile var printerHeight = 0f
     /** Build workspace: the plate's other objects 0 ghosted (no shadows, picks or selection), 1 solid, 2 hidden. */
     var buildOthers = 0
     /** Paint shop: filaments drawn grey (bit i = 0-based filament i). */
@@ -331,6 +343,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
 
     /** The plate badge under screen point (x, y), or null. */
     fun badgeAt(x: Float, y: Float): Pair<Int, PlateBadge>? {
+        if (buildSolo) return null
         val p = camera.rayOnPlane(x, y) ?: return null
         return badgeRects.firstOrNull { p.x in it.x0..it.x1 && p.y in it.y0..it.y1 }?.let { it.plate to it.badge }
     }
@@ -357,6 +370,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
 
     /** The plate under screen point (x, y), or null. */
     fun plateAt(x: Float, y: Float): Int? {
+        // The Build workspace has no plates: taps and the measure tool's bed pick see the floor instead.
+        if (buildSolo) return null
         if (bedOutline.size < 4) return null
         val p = camera.rayOnPlane(x, y) ?: return null
         val xs = bedOutline.filterIndexed { i, _ -> i % 2 == 0 }
@@ -378,7 +393,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
 
     /** Each plate's bed box (x0, y0, x1, y1); one unbounded box while no bed is known. */
     private fun bedRects(): List<FloatArray> {
-        if (bedOutline.size < 4) return listOf(floatArrayOf(-1e9f, -1e9f, 1e9f, 1e9f))
+        if (bedOutline.size < 4 || buildSolo) return listOf(floatArrayOf(-1e9f, -1e9f, 1e9f, 1e9f))
         val xs = bedOutline.filterIndexed { i, _ -> i % 2 == 0 }
         val ys = bedOutline.filterIndexed { i, _ -> i % 2 == 1 }
         return plateOrigins.map { (ox, oy) -> floatArrayOf(xs.min() + ox, ys.min() + oy, xs.max() + ox, ys.max() + oy) }
@@ -583,9 +598,12 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             glClearColor(bg[0], bg[1], bg[2], 1f)
         }
         if (shadow) effects.drawShadow(mvp, if (effects.isRealShadow) shadowStrength else SHADOW_STRENGTH, shadowSoftMm, shadowBiasMm, bedRects())
-        if (plateSurface && camera.eye().z >= 0f) drawPlateSurfaces(plateAlpha)
-        drawBeds()
-        drawBadges()
+        val floor = buildSolo && !showPreview
+        if (floor) drawFloor() else {
+            if (plateSurface && camera.eye().z >= 0f) drawPlateSurfaces(plateAlpha)
+            drawBeds()
+            drawBadges()
+        }
         if (showPreview) {
             drawExtrusions(extrVbo, extrCount, previewOrigin, previewRange.extrusions, previewStyle.range)
             drawPreviewExtras(previewOrigin, previewRange, travelVbo, travelCount, markerVbo, markerCount)
@@ -629,7 +647,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             if (models && (cutXray || cutXrayPanel) && cutBand != null) drawCutXray()
         }
         // Seen from below the plate is a window: drawn last, over the parts behind it.
-        if (plateSurface && camera.eye().z < 0f && plateUnderAlpha > 0f) drawPlateSurfaces(plateUnderAlpha * plateAlpha)
+        if (!floor && plateSurface && camera.eye().z < 0f && plateUnderAlpha > 0f) drawPlateSurfaces(plateUnderAlpha * plateAlpha)
         drawOverlays()
     }
 
@@ -935,6 +953,65 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glDisable(GL_BLEND)
     }
 
+    /**
+     * Build workspace floor: a 10 mm grid on z 0 around the build object (on world 10 mm lines, fading out), and with
+     * [printerGhost] the printer's volume centred under the object: bed outline, the same at [printerHeight], verticals.
+     */
+    private fun drawFloor() {
+        val f = buildFocus ?: return
+        val mx = (f[0] + f[3]) / 2; val my = (f[1] + f[4]) / 2
+        val cx = Math.round(mx / 10f) * 10f; val cy = Math.round(my / 10f) * 10f
+        val r = maxOf(FLOOR_MIN_RADIUS, maxOf(f[3] - f[0], f[4] - f[1], f[5] - f[2]) * 3f)
+        glUseProgram(gridProgram)
+        glUniformMatrix4fv(loc(gridProgram, "uMvp"), 1, false, mvp, 0)
+        glUniform4f(loc(gridProgram, "uRect"), cx - r, cy - r, cx + r, cy + r)
+        glUniform3fv(loc(gridProgram, "uColor"), 1, colors.grid, 0)
+        glUniform1f(loc(gridProgram, "uPxScale"), pxScale)
+        glUniform1f(loc(gridProgram, "uFade"), r)
+        glUniform3f(loc(gridProgram, "uOffset"), 0f, 0f, 0f)
+        glEnable(GL_BLEND)
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+        glDepthMask(false)
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4)
+        if (printerGhost && bedOutline.size >= 6) {
+            val n = bedOutline.size / 2
+            val xs = bedOutline.filterIndexed { i, _ -> i % 2 == 0 }
+            val ys = bedOutline.filterIndexed { i, _ -> i % 2 == 1 }
+            val dx = mx - (xs.min() + xs.max()) / 2; val dy = my - (ys.min() + ys.max()) / 2
+            val h = printerHeight
+            val pts = ArrayList<Float>(n * 18)
+            // Round beds: verticals on 8 of the outline's points, not all of them.
+            val step = maxOf(1, n / 8)
+            for (i in 0 until n) {
+                val j = (i + 1) % n
+                val x0 = bedOutline[2 * i] + dx; val y0 = bedOutline[2 * i + 1] + dy
+                val x1 = bedOutline[2 * j] + dx; val y1 = bedOutline[2 * j + 1] + dy
+                pts += listOf(x0, y0, 0f, x1, y1, 0f)
+                if (h > 0f) {
+                    pts += listOf(x0, y0, h, x1, y1, h)
+                    if (i % step == 0) pts += listOf(x0, y0, 0f, x0, y0, h)
+                }
+            }
+            glUseProgram(lineProgram)
+            glUniformMatrix4fv(loc(lineProgram, "uMvp"), 1, false, mvp, 0)
+            glUniform3f(loc(lineProgram, "uOffset"), 0f, 0f, 0f)
+            glUniform3fv(loc(lineProgram, "uColor"), 1, colors.activePlate, 0)
+            setSection(lineProgram, on = false)
+            glBindBuffer(GL_ARRAY_BUFFER, scratchVbo)
+            glBufferData(GL_ARRAY_BUFFER, pts.size * 4, floats(pts.toFloatArray()), GL_STREAM_DRAW)
+            glEnableVertexAttribArray(0)
+            glVertexAttribPointer(0, 3, GL_FLOAT, false, 12, 0)
+            glBlendColor(0f, 0f, 0f, PRINTER_GHOST_ALPHA)
+            glBlendFunc(GL_CONSTANT_ALPHA, GL_ONE_MINUS_CONSTANT_ALPHA)
+            glLineWidth(1.5f * pxScale)
+            glDrawArrays(GL_LINES, 0, pts.size / 3)
+            glLineWidth(1f)
+            glDisableVertexAttribArray(0)
+        }
+        glDepthMask(true)
+        glDisable(GL_BLEND)
+    }
+
     private fun drawBeds() {
         if (bedCount == 0) return
         gridRect?.let { rect ->
@@ -943,6 +1020,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             glUniform4fv(loc(gridProgram, "uRect"), 1, rect, 0)
             glUniform3fv(loc(gridProgram, "uColor"), 1, colors.grid, 0)
             glUniform1f(loc(gridProgram, "uPxScale"), pxScale)
+            glUniform1f(loc(gridProgram, "uFade"), 0f)
             glEnable(GL_BLEND)
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
             glDepthMask(false)

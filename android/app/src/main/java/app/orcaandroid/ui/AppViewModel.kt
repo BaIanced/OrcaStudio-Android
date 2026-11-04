@@ -235,6 +235,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         store.update { it.copy(buildOthers = next) }
     }
 
+    /** Build workspace: the printer volume ghost on or off. */
+    fun toggleBuildPrinter() {
+        val next = !state.value.buildPrinter
+        store.settings.buildPrinter = next
+        store.update { it.copy(buildPrinter = next) }
+    }
+
     /** The move lock button: free -> X -> Y -> free. */
     fun cycleMoveLock() = store.update { it.copy(moveLock = if (it.moveLock >= 1) -1 else it.moveLock + 1) }
 

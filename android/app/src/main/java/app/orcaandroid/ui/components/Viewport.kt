@@ -106,7 +106,7 @@ private fun snapRing(v: PlateView, x: Float, y: Float) = List(8) { i ->
 }
 
 /** Where the ray through (x, y) meets the bed of a plate, or null (off every plate): the measure tool's bed pick. */
-private fun bedAt(v: PlateView, x: Float, y: Float) = if (v.renderer.plateAt(x, y) != null) v.camera.rayOnPlane(x, y) else null
+private fun bedAt(v: PlateView, x: Float, y: Float) = if (v.renderer.buildSolo || v.renderer.plateAt(x, y) != null) v.camera.rayOnPlane(x, y) else null
 
 /** The measure loupe's colour for what the snap caught (SnapFeature.kind): snaps green, a hole's rim amber, a face blue. */
 private fun snapColor(kind: String?) = when (kind) {
@@ -821,6 +821,15 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     val build = state.buildObject?.let { scene.objects.getOrNull(it) }
     LaunchedEffect(v, build != null) { v.onGl { buildSolo = build != null } }
     LaunchedEffect(v, state.buildOthers) { v.onGl { buildOthers = state.buildOthers } }
+    // Assemble space: the floor and printer ghost centre on the build object's shown copies.
+    val focusBox = build?.instances?.takeIf { it.isNotEmpty() }?.map { it.shown }?.let { s ->
+        listOf(s.minOf { it.min.x }, s.minOf { it.min.y }, s.minOf { it.min.z },
+            s.maxOf { it.min.x + it.size.x }, s.maxOf { it.min.y + it.size.y }, s.maxOf { it.min.z + it.size.z })
+    }
+    LaunchedEffect(v, focusBox, state.buildPrinter, setup?.maxHeight) {
+        val focus = focusBox?.toFloatArray(); val ghost = state.buildPrinter; val h = setup?.maxHeight ?: 0f
+        v.onGl { buildFocus = focus; printerGhost = ghost; printerHeight = h }
+    }
     LaunchedEffect(v, build != null, state.snapBuild, state.snapPrepare) { v.snapOn = if (build != null) state.snapBuild else state.snapPrepare }
     LaunchedEffect(v, state.moveLock) { v.axisLock = state.moveLock }
     // Build workspace: the selected shapes' volumes are the selection; a drag starts on the object's box (the pick decides).

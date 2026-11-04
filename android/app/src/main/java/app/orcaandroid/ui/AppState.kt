@@ -210,6 +210,8 @@ data class UiState(
     val snapBuild: Boolean = true,
     /** The plate's other objects in the Build workspace: 0 ghosted, 1 solid, 2 hidden. */
     val buildOthers: Int = 0,
+    /** Build workspace: the printer volume ghost under the object. */
+    val buildPrinter: Boolean = true,
     /** The move lock button: -1 free, 0 drags move along X only, 1 along Y only (session only). */
     val moveLock: Int = -1,
     /** Add menu: separate code and shape builder rows (else one "Design" row). */

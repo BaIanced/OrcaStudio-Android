@@ -46,6 +46,7 @@ class Store(val app: Application, val scope: CoroutineScope) {
             snapPrepare = settings.snapPrepare,
             snapBuild = settings.snapBuild,
             buildOthers = settings.buildOthers,
+            buildPrinter = settings.buildPrinter,
             supersample = settings.supersample,
             lab = settings.layoutLab,
             undoLimit = settings.undoLimit,

@@ -536,6 +536,8 @@ internal object Shaders {
         uniform vec4 uRect;
         // Samples per view pixel (supersampling): the lines stay a view pixel wide.
         uniform float uPxScale;
+        // > 0: the Build workspace's floor, fading out towards this radius (mm) from the quad's middle.
+        uniform float uFade;
         in vec2 vLocal;
         out vec4 color;
         float axis(float g, float w, float lo, float hi) {
@@ -549,6 +551,7 @@ internal object Shaders {
             vec2 g = vLocal / 10.0;
             vec2 w = fwidth(g) * uPxScale;
             float a = max(axis(g.x, w.x, uRect.x, uRect.z), axis(g.y, w.y, uRect.y, uRect.w));
+            if (uFade > 0.0) a *= 1.0 - smoothstep(uFade * 0.4, uFade, length(vLocal - (uRect.xy + uRect.zw) * 0.5));
             if (a < 0.004) discard;
             color = vec4(uColor, a);
         }"""
