@@ -3972,3 +3972,7 @@ Python on demand part 2: do it. Ad block default and Prusa/Printables theme name
 
 ## 2026-11-03: G2 Friendly errors + Recent files verified (Claude, phone VD, debug build of 35516fe)
 - More > Recent files: folder/provider line shows per row (Media picker, Download, Download Manager); long press > "Remove from Recent files" removed the last row and the list backfilled with the next older entry. Store.launch error mapping to file_unreadable compiled, not triggered on device.
+
+## 2026-11-03 G5 Print doctor verified (Claude, phone VD, debug build of 28bfdf7 + fix)
+- Stringing: dialog lists current -> new, Apply gave 'Printer · modified', values compound on reapply, calibration link opened the Retraction test. Filament nozzle_temperature (220->215) read fine on a Bambu preset.
+- Bug found+fixed: travel_speed 700 -> 500 (clamp max below the current value moved the setting against the fix). DoctorFix.newValue now drops fixes that would move against their direction; test neverMovesAgainstTheFix.

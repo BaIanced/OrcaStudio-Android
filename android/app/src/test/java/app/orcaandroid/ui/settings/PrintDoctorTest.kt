@@ -26,6 +26,12 @@ class PrintDoctorTest {
         assertNull(fix(DoctorOp.Add(5f, max = 10f)).newValue("10"))
     }
 
+    @Test fun neverMovesAgainstTheFix() {
+        assertNull(fix(DoctorOp.Scale(1.25f, 20f, 500f)).newValue("700"))
+        assertNull(fix(DoctorOp.Add(-5f, 150f)).newValue("100"))
+        assertEquals("500", fix(DoctorOp.Scale(1.25f, 20f, 500f)).newValue("450"))
+    }
+
     @Test fun everySymptomHasFixes() {
         DOCTOR_SYMPTOMS.forEach { assert(it.fixes.isNotEmpty()) }
         assertEquals(DOCTOR_SYMPTOMS.size, DOCTOR_SYMPTOMS.map { it.id }.toSet().size)

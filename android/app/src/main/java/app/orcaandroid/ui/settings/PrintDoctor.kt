@@ -45,18 +45,20 @@ data class DoctorSymptom(val id: String, @StringRes val title: Int, @StringRes v
 fun DoctorFix.newValue(current: String?): String? {
     val new = when (val o = op) {
         is DoctorOp.Set -> o.value
-        is DoctorOp.Scale -> shift(current) { (it * o.factor).coerceIn(o.min, o.max) }
-        is DoctorOp.Add -> shift(current) { (it + o.delta).coerceIn(o.min, o.max) }
+        is DoctorOp.Scale -> shift(current, o.factor >= 1f) { (it * o.factor).coerceIn(o.min, o.max) }
+        is DoctorOp.Add -> shift(current, o.delta >= 0f) { (it + o.delta).coerceIn(o.min, o.max) }
     }
     return new?.takeIf { it != current?.trim() }
 }
 
-/** Applies [f] to the number in [current] (keeps a trailing %); null if [current] is not a plain number. */
-private fun shift(current: String?, f: (Float) -> Float): String? {
+/** Applies [f] to the number in [current] (keeps a trailing %); null if [current] is not a plain number or the clamp would move it against the fix's direction ([up]). */
+private fun shift(current: String?, up: Boolean, f: (Float) -> Float): String? {
     val raw = current?.trim() ?: return null
     val percent = raw.endsWith("%")
     val n = raw.removeSuffix("%").toFloatOrNull() ?: return null
-    return fmt(f(n)) + if (percent) "%" else ""
+    val r = f(n)
+    if (if (up) r < n else r > n) return null
+    return fmt(r) + if (percent) "%" else ""
 }
 
 private fun fmt(v: Float): String = "%.3f".format(java.util.Locale.US, v).trimEnd('0').trimEnd('.')
