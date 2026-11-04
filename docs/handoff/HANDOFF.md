@@ -36,7 +36,17 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - 2026-11-03 (archive): STEP import + Check mesh verified on the phone VD; Python part 2 shelved; store release parked until "GOATed". Phone r507; WSA wedged since 2026-11-02 (restart before use). CI size step ae8d7fa waits on `gh auth refresh -s workflow`.
 - **GOAT batch (user 2026-11-03): order G2 -> G5 -> G4, then G1, G3, G6, G7, G8.** Specs: backlog "GOAT batch".
 - G2 + G5 verified 2026-11-03 (archive; Claude on the phone VD, travel-speed clamp bug fixed). Next in order: G4.
-- Next step: G4 (backlog "GOAT batch") -> Opus 5.5 (high)
+- **G4 part 1 committed a6ebff3 (compiles; UNTESTED, no build yet):** `Engine.slice(background)` + `preempt()` in every `call()`/viewGcode
+  (cancels a background slice, `SlicePreempted`), `keepSlice()`; `SliceController.autoSlice()` watcher (1.5 s idle, at once on Preview,
+  off in Battery Saver, `failedKey` stops retry loops), `promote()` when Slice is tapped mid background slice, `showPreview()`,
+  `SliceDelta` in `UiState.sliceDelta`; `SliceStatus.Running.background` (`isSlicing` = foreground only; autosave waits on any slice);
+  setting "Slice in the background" (More > misc, `auto_slice` pref, default on).
+- **G4 part 2 (todo):** `PrepareOverlay.kt` SliceButton: when `results[activePlate]` exists -> "Preview plate N" FAB (`R.string.preview_plate(_n)`,
+  `vm.slicing.showPreview()`) with time/grams + delta badge ("+12 min · −3 g", hide if rounds to 0; `formatDuration` in Widgets.kt:294);
+  while `Running.background` keep the Slice FAB with a small progress ring/`auto_slicing` text. Then build, WSA VD test: edit -> auto-slice
+  starts after 1.5 s; drag/edit mid-slice is instant (pre-empt) and restarts; Slice mid-background promotes; setting edit shows delta;
+  no endless re-slice loop (logcat `OrcaSlice`); failed plate (object off bed) doesn't loop. Phone VD for CPU/jank feel (note only).
+- Next step: G4 part 2 (SliceButton UI + build + WSA VD tests) -> Opus 5.5 (high)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 

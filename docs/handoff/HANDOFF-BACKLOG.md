@@ -38,7 +38,7 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - [Opus] Build workspace: all steps Claude-verified WSA 2026-10-29 (archive); open: user feel.
 
 ## GOAT batch (user 2026-11-03: do G2 -> G5 -> G4 first, then the rest; all not started)
-- G4 [Opus] Background auto-slice on idle after plate/setting changes (cancel + restart safely), Preview always ready; "+12 min / -3 g" delta badge on setting edits.
+- G4 [Opus] (part 1 a6ebff3 untested, part 2 = UI + tests, see HANDOFF) Background auto-slice on idle after plate/setting changes (cancel + restart safely), Preview always ready; "+12 min / -3 g" delta badge on setting edits.
 - G1 First-run "print in 3 taps": printer pick -> sample model -> slice -> send, dismissible coach strip (no onboarding code exists).
 - G3 Launcher shortcuts: Open last project, Import from Downloads, Slice last plate (ShortcutManager; none exist).
 - G6 Print history + reprint: local log per send (thumbnail, presets, time, grams, cost), one-tap reprint, feeds "Log print". End-of-print status needs the printer.
