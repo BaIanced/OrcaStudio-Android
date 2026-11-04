@@ -33,9 +33,16 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
 - Open tests in backlog.
-- Assemble space / big plate (user 2026-11-04, exploration, NOT locked): leanings + phases A1-A4 given 2026-11-04 (archive); waiting on the user's pick. Don't build before it.
+- **Assemble A1 (user picked 2026-11-04; leanings in archive "Assemble space"):** entry for any object already exists
+  ("Edit in builder" = `ScadController.editMesh`, one MESH shape per part; multi-select Assemble = `SceneController.assemble`),
+  and orbit below already works (Camera.kt:79 pitch -89..89). So A1 = renderer only, while `buildSolo`:
+  skip `drawBeds()` + plate surfaces + badges (PlateRenderer.kt:586-588, 632); draw a neutral floor grid at z 0 around the
+  object (reuse `gridProgram` with a big `uRect` centred on the Build object's shown copy, Viewport.kt:680 has it);
+  printer ghost = the bed outline + printable-height box (bedVbo lines lifted + verticals) at the copy, behind a toggle
+  next to the `buildOthers` cycle button (AppViewModel.kt:233; persist in settings like `snapBuild`). Test on WSA VD
+  (shape design + an "Edit in builder" mesh), crops of the GL view.
 - Rename / new repo (LOW, NOT locked; backlog "Waiting on the user"): user leans OrcaMesh; glance at Discussions #17269 at /next (0 replies 2026-11-04); no repo work until the user picks.
-- Next step: Assemble A1 if the user picks it (Build without beds: floor grid + printer ghost, any multi-part object) -> Opus 5.5 (high); else next backlog item the user names
+- Next step: Assemble A1 (Build without beds: floor grid + printer ghost toggle) -> Opus 5.5 (high)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 

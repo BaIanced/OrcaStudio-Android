@@ -4086,3 +4086,4 @@ Phases (each one build, Claude-testable on WSA VD):
 - A2 native+Kotlin [Opus]: `fit_check(object)` + orientation search, banner on exit / on slice failure.
 - A3 native [Opus]: cut suggestion (section-area scan) + preview + apply + arrange onto plates.
 - A4 native+UI [Opus]: connectors on cut faces.
+- 2026-11-04 user pick: Assemble phase A1 (Build without beds: floor grid + printer ghost toggle + entry for any multi-part object). A2-A4 still leanings only.
