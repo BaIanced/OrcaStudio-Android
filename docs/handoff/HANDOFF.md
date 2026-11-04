@@ -15,7 +15,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 62ada99 (PR #73 = r521, multi-plate Preview, merged 2026-11-04; Claude-verified only). Before it: 3e64ddb (PR #72 = r519, lint triage + patch 0005 + Sync type fix + README, merged 2026-11-04; Claude-verified only; PR #71 = r514 before it). Nothing unverified on the branch; no merge offer pending. User-untested in main: list in `NOTES-merge-batch.md`.
 - Signing secrets: `release` environment (main + `claude/*` only).
-- Latest installed CI build: r521 (run 41890673347, head dfce295, has multi-plate Preview) on the phone (.20) + WSA 2026-11-04 (WSA restarted: `WsaClient /shutdown`, `wsa-start.ps1`, `adb connect 127.0.0.1:58526`); Chromebook not on adb (r496): install r521 there when back. **User 2026-11-01: avoid the SHIELD for now** (no installs there). Phone drops off adb: `adb connect <phone-ip>:5555` (memory device-ips); GL shots on the phone VD. Install builds on all adb devices (skip .23).
+- Latest installed CI build: r521 (run 41890673347, head dfce295, has multi-plate Preview) on the phone (.20), WSA + Chromebook (.28:5555) 2026-11-04 (WSA restarted: `WsaClient /shutdown`, `wsa-start.ps1`, `adb connect 127.0.0.1:58526`); Chromebook connects via `adb connect 192.168.4.28:5555`. **User 2026-11-01: avoid the SHIELD for now** (no installs there). Phone drops off adb: `adb connect <phone-ip>:5555` (memory device-ips); GL shots on the phone VD. Install builds on all adb devices (skip .23).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **User 2026-10-28: no more user testing for now; Claude builds and tests everything itself (memory no-user-testing-now); don't ask for feel/UI checks.**
 - **User 2026-10-29: no tests on the user's screen; all tests on a hidden virtual display** (`TARGET=wsa orca-vd.sh start`, memory tests-on-virtual-display).
@@ -37,7 +37,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Multi-plate Preview (user task 2026-11-04, 027400c, pushed): Claude-verified on the phone VD with a local debug build (archive 2026-11-04); in main (PR #73).
 - User's bigger vision (same day, exploration, NOT locked; backlog "Ideas: Assemble space / big plate"): zero-g Assemble space (no plate, CAD tools + measuring, first VR step),
   big/infinite plate or 4x4 plates, on exit auto-orient + "too big" fix = suggested cut for gluing. Reply with leanings, ask before building.
-- Next step: Chromebook install of r521 when on adb; otherwise pick the next backlog item (grep HANDOFF-BACKLOG.md) -> Sonnet 5.5 (low)
+- Next step: pick the next backlog item (grep HANDOFF-BACKLOG.md) -> Sonnet 5.5 (low)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
