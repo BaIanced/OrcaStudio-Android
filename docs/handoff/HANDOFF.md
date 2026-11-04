@@ -13,7 +13,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 ## State
 - One repo: OrcaStudio-Android (code + these docs, `docs/handoff/`), branch `claude/handoff-continuation-rseql3`. Autonomy (user, 2026-10-11): decide branches and next steps
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
-- Android main = 62ada99 (PR #73 = r521, multi-plate Preview, merged 2026-11-04; Claude-verified only). Before it: 3e64ddb (PR #72 = r519, lint triage + patch 0005 + Sync type fix + README, merged 2026-11-04; Claude-verified only; PR #71 = r514 before it). Nothing unverified on the branch; no merge offer pending. User-untested in main: list in `NOTES-merge-batch.md`.
+- Android main = 62ada99 (PR #73 = r521, multi-plate Preview, merged 2026-11-04; Claude-verified only; PR #72 = r519 before it). Nothing unverified on the branch; no merge offer pending. User-untested in main: list in `NOTES-merge-batch.md`.
 - Signing secrets: `release` environment (main + `claude/*` only).
 - Latest installed CI build: r521 (run 41890673347, head dfce295, has multi-plate Preview) on the phone (.20), WSA + Chromebook 2026-11-04 (WSA restarted: `WsaClient /shutdown`, `wsa-start.ps1`, `adb connect 127.0.0.1:58526`); Chromebook connects via `adb connect <chromebook-ip>:5555` (memory device-ips). **User 2026-11-01: avoid the SHIELD for now** (no installs there). Phone drops off adb: `adb connect <phone-ip>:5555` (memory device-ips); GL shots on the phone VD. Install builds on all adb devices (skip .23).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
@@ -33,10 +33,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
 - Open tests in backlog.
-- Bigger vision (user 2026-11-04, exploration, NOT locked): backlog "Ideas: Assemble space / big plate"; reply with leanings, ask before building.
-- **Rename / new repo (user 2026-11-04, exploration, NOT locked; backlog "Waiting on the user"):** wants a new app name (idea: orcamesh, unworkshopped), a NEW public repo for the mature code, old repo stays public as history for now (private/archived later). Open: name, full history vs one snapshot commit, app ID change. Brainstorm names first; no repo work until the user picks.
-- Rename: LOW priority (user 2026-11-04: "keep progressing on the app"). User leans OrcaMesh; asked upstream in OrcaSlicer Discussions #17269 (0 replies 2026-11-04). Glance at it at /next; snapshot vs history waits.
-- Next step: Assemble space / big plate (backlog Ideas): read the Build workspace + plate grid code, give the user leanings + a phased plan, ask before building -> Opus 5.5 (high)
+- Assemble space / big plate (user 2026-11-04, exploration, NOT locked): leanings + phases A1-A4 given 2026-11-04 (archive); waiting on the user's pick. Don't build before it.
+- Rename / new repo (LOW, NOT locked; backlog "Waiting on the user"): user leans OrcaMesh; glance at Discussions #17269 at /next (0 replies 2026-11-04); no repo work until the user picks.
+- Next step: Assemble A1 if the user picks it (Build without beds: floor grid + printer ghost, any multi-part object) -> Opus 5.5 (high); else next backlog item the user names
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 

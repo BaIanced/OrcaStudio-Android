@@ -4055,3 +4055,34 @@ Phone VD (woken with the user's OK, slept after; debug app uninstalled): session
 - Public release check: user 2026-11-03: no store release for the foreseeable future (until the app is "completely GOATed"); decisions (ad block default, Prusa/Printables preset names, Thingiverse terms) parked, ignore until a release is planned.
 - Hover tooltips: all 81 icon buttons with a content description now wrapped in Tip() (Claude 2026-10-28, compiles, WSA debug launch OK; hover/long-press not adb-testable); 3 colour-dot buttons have no label. User feel untested.
 - Shape builder bugs (user 2026-10-28, session B): drag lag, rings through the object, end copy drag scaling spacing: fixed 1a94899, Claude-verified WSA debug 2026-10-28 (archive); open: user feel (on hold, no user testing now).
+
+## 2026-11-04 Rename backlog detail (moved verbatim from HANDOFF-BACKLOG.md to keep it under 10 KB)
+- **Rename + new repo (user 2026-11-04, NOT locked):** name TBD (orcamesh idea; avoid confusion with upstream "Orca" branding). Clash search 2026-11-04: taken Slicewright, PodSlicer, LayerLoom, Printloom, Plateful, TideMesh; clear Podforge, Fablet, MakePlate; OrcaMesh no clash but = mesh-edit mode name. User leans OrcaMesh; asked upstream (user OK'd, posted from user's account 2026-11-04): OrcaSlicer Discussions #17269 (General); waiting on reply before committing. New PUBLIC repo (free CI, no minutes/500 MB artifact limit); old repo stays public as history. Open: name; full history (keeps commit refs, still has one LAN IP in cf75a81) vs snapshot; app ID io.github.baianced.orcastudio_android change = fresh install + settings migration, do before public release. To do then: new repo + push, re-enter signing secrets (same keystore or no in-place upgrade; user supplies), `release` env, README/build.gradle.kts URL (default repo URL line 21), remotes, squash-merge PRs. AGPL: source offered to anyone given an APK.
+- Discussions #17269: 0 replies (Claude, gh api, 2026-11-04 second check).
+
+## 2026-11-04 Assemble space / big plate: Claude's leanings (exploration, NOT locked; waiting on the user)
+Source facts: Build workspace already isolates one multi-part object in the main view with design pose (volumes in the
+object frame) apart from print pose (instance transform) (archive 2026-10-23 step 5); beds are still drawn in Build
+(PlateRenderer.kt:587 drawBeds always). Plate grid = up to 36 separate plates (OrcaScene.cpp:42, origin_of :53); slicing
+throws when nothing lies inside the print volume (OrcaEngine.cpp:614-616). Cut = planar cut with rotation, no connectors in
+our UI (Engine.kt:127), but libslic3r has Plug / Dowel / Snap connectors (src-orca Model.hpp:262). Measure (Measure.kt),
+autoOrient (SceneController.kt:222), Arrange exist.
+Leanings:
+- Assemble space = grow the Build workspace, not a new mode: hide beds and plate surfaces, draw a neutral floor grid + a
+  ghost of the printer volume for scale (toggle), free orbit incl. below; open it for any multi-part object (imports
+  merged by multi-select Assemble too), not only shape designs. "Zero-g" already holds inside the design frame.
+- Big / infinite / 4x4 plate as a PRINT surface: against (blunt). A part can't print across plates; plates are separate
+  jobs on a fixed bed. "Big" belongs to the Assemble canvas only; the plate grid stays as is.
+- Exit to Prepare = fit check: print-pose box vs bed rect + printable height; if it doesn't fit, try auto-orient, then
+  Z turns (diagonal) and 90 deg lays, take the first that fits; else a "Too big" banner with Fix.
+- Fix = suggested cuts: longest overflowing axis, N = ceil(size / usable bed), planes near the even splits, nudged to
+  the smallest cross-section within +-15 % (section areas from mesh slices, native); preview in the Cut tool, apply =
+  sequential cuts, parts arranged onto plates (new plates as needed).
+- Glue later = libslic3r connectors (dowel/plug) on the suggested cut faces: native reuse, no new geometry code.
+- VR: far off (OpenXR renderer + input = its own project); keep Assemble camera/picking free of plate assumptions so
+  it can carry over.
+Phases (each one build, Claude-testable on WSA VD):
+- A1 Kotlin: Build without beds (floor grid + printer ghost toggle) + entry for any multi-part object. Sonnet/Opus mid.
+- A2 native+Kotlin [Opus]: `fit_check(object)` + orientation search, banner on exit / on slice failure.
+- A3 native [Opus]: cut suggestion (section-area scan) + preview + apply + arrange onto plates.
+- A4 native+UI [Opus]: connectors on cut faces.

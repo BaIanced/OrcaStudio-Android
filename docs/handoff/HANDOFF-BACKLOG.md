@@ -31,7 +31,7 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - View cube: phone portrait layout untested; off by default (user r352: motion sick); revisit only on request.
 
 ## Waiting on the user
-- **Rename + new repo (user 2026-11-04, NOT locked):** name TBD (orcamesh idea; avoid confusion with upstream "Orca" branding). Clash search 2026-11-04: taken Slicewright, PodSlicer, LayerLoom, Printloom, Plateful, TideMesh; clear Podforge, Fablet, MakePlate; OrcaMesh no clash but = mesh-edit mode name. User leans OrcaMesh; asked upstream (user OK'd, posted from user's account 2026-11-04): OrcaSlicer Discussions #17269 (General); waiting on reply before committing. New PUBLIC repo (free CI, no minutes/500 MB artifact limit); old repo stays public as history. Open: name; full history (keeps commit refs, still has one LAN IP in cf75a81) vs snapshot; app ID io.github.baianced.orcastudio_android change = fresh install + settings migration, do before public release. To do then: new repo + push, re-enter signing secrets (same keystore or no in-place upgrade; user supplies), `release` env, README/build.gradle.kts URL (default repo URL line 21), remotes, squash-merge PRs. AGPL: source offered to anyone given an APK.
+- **Rename + new repo (user 2026-11-04, NOT locked, LOW):** user leans OrcaMesh; Discussions #17269 0 replies (Claude 2026-11-04). Open: name, history vs snapshot, app ID. Full detail + to-do list: archive "2026-11-04 Rename backlog detail".
 - HD plate ideas (user verified r394): 3D bed frame model, dual-nozzle decal layout (Claude 2026-10-24).
 - Plate switcher pick (lab stays; don't ask again). Launcher icon colour ("decide later").
 - [Opus] Sculpt mode Claude-verified WSA 2026-10-28 (archive); user feel + symmetry 51ad144 untested; leftovers parked won't-do 2026-10-30.
@@ -55,7 +55,7 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - [Opus] Snapseed interaction plan (NOTES-interaction-plan.md): steps 1-9 Claude-verified WSA (r437/r438, 2026-10-27); user feel untested on all.
 - UX review via Gemini (user 2026-10-31): lowest priority, act only if the user brings Gemini's answer (bundle exports/ux-review/, archive 2026-10-31).
 - S Pen pressure (user 2026-10-31): built ab552fa, UI checked on WSA VD; open: feel test on the Note 10+ (user says when awake); Quest pen has no pressure.
-- [Opus] Assemble space / big plate (user 2026-11-04, brain dump, exploration): zero-g space like Bambu/Orca Assemble (no plate; CAD tools + measuring; first VR step); big or infinite plate, or 4x4 plates; on exit auto-orient, "too big" error with a Fix = rotated + suggested cut location, glue later. Existing pieces: Build workspace (design pose vs print pose), Cut tool, Arrange, plate grid `origin_of` (OrcaScene.cpp:53). Open: nothing built; Claude's leanings not yet given.
+- [Opus] Assemble space / big plate (user 2026-11-04, brain dump, exploration): zero-g space like Bambu/Orca Assemble (no plate; CAD tools + measuring; first VR step); big or infinite plate, or 4x4 plates; on exit auto-orient, "too big" error with a Fix = rotated + suggested cut location, glue later. Claude's leanings + phases A1-A4 given 2026-11-04 (archive "Assemble space / big plate: Claude's leanings"); open: user's pick of a phase; nothing built.
 
 ## Known limits (no action)
 - Real keyboard Ctrl+1 = system hotkey. Inactive-plate double tap re-frames (user: fine). Badges ~23 dp at plate zoom (told the user).
