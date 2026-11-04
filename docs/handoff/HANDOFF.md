@@ -15,7 +15,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 231a178 (PR #71 = r514, GOAT batch G1-G7, merged 2026-11-03; Claude-verified only; PR #70 = r507 before it). Nothing unverified on the branch. PR #70 / main privacy-scan runs fail only on history commit 7d08e77 (private LAN address, fixed at HEAD by 3bc4fdd); tracked files clean. User-untested in main: list in `NOTES-merge-batch.md`.
 - Signing secrets: `release` environment (main + `claude/*` only).
-- Latest installed CI build: r517 (run 41790741591, patch 0005) on the phone (.20) 2026-11-04; WSA was down (adb refused 58526), Chromebook not on adb (r496): install r517+ there when back. **User 2026-11-01: avoid the SHIELD for now** (no installs there). Phone drops off adb: `adb connect <phone-ip>:5555` (memory device-ips); GL shots on the phone VD. Install builds on all adb devices (skip .23).
+- Latest installed CI build: r518 (run 41795361386) on the phone (.20) 2026-11-04; WSA was down (adb refused 58526), Chromebook not on adb (r496): install r517+ there when back. **User 2026-11-01: avoid the SHIELD for now** (no installs there). Phone drops off adb: `adb connect <phone-ip>:5555` (memory device-ips); GL shots on the phone VD. Install builds on all adb devices (skip .23).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **User 2026-10-28: no more user testing for now; Claude builds and tests everything itself (memory no-user-testing-now); don't ask for feel/UI checks.**
 - **User 2026-10-29: no tests on the user's screen; all tests on a hidden virtual display** (`TARGET=wsa orca-vd.sh start`, memory tests-on-virtual-display).
@@ -33,8 +33,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
 - Open tests in backlog.
-- GOAT batch + perf audit: closed (archive 2026-11-04; leftovers in backlog "GOAT batch", baselines PERFORMANCE.md "Metrics"). Open: lint/R8 triage b8585c6 (boxed -> primitive Compose states) needs a CI build + phone VD smoke test (sliders, toggles, counters still update): run 41795361386 on 1db774c (r518?) passed 2026-11-04: install with `install-build.ps1 -Run 41795361386 -Device <phone>:5555` (+ WSA if up), then smoke-test on the VD.
-- Next step: smoke-test the b8585c6 CI build on the phone VD -> Sonnet 5.5 (medium)
+- GOAT batch + perf audit: closed (archive 2026-11-04; leftovers in backlog "GOAT batch", baselines PERFORMANCE.md "Metrics"). Lint/R8 triage b8585c6: r518 (run 41795361386) installed on the phone 2026-11-04 and smoke-tested on the VD (toggles OK; archive); untouched: auto-save row, plate framing (optional).
+- Next step: pick the top open item in HANDOFF-BACKLOG.md (grep `[Opus]`/open tests) -> Sonnet 5.5 (medium)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
