@@ -575,7 +575,8 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
                 (if (cfg.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) "landscape" else "portrait") + ".")
             appendLine("Phase ${s.phase.name.lowercase()}; tab ${s.screen.name.lowercase()}" +
                 (s.busy?.let { "; busy: $it" } ?: "") + (s.error?.let { "; error: $it" } ?: "") +
-                (s.sliceError?.let { "; slice error (plate ${it.first + 1}): ${it.second}" } ?: "") + (s.message?.let { "; message: $it" } ?: "") + ".")
+                (s.sliceError?.let { "; slice error (plate ${it.first + 1}): ${it.second}" } ?: "") + (s.message?.let { "; message: $it" } ?: "") +
+                (s.fitIssue?.let { "; fit notice: object ${it.obj + 1} copy ${it.instance + 1} doesn't fit, fix ${it.fix ?: "none"}" } ?: "") + ".")
             val open = listOfNotNull(
                 s.editor?.let { "preset editor" },
                 s.addDialog?.let { "add dialog ($it)" },

@@ -106,8 +106,9 @@ class SliceController(private val store: Store, private val presets: PresetContr
             // The failure a user cancel makes is not an error (user 2026-10-28): no badge.
             android.util.Log.w("OrcaSlice", "slice failed", e)
             if (!userCancelled) store.update { it.copy(sliceError = plate to (e.message ?: e.toString())) }
-            // Nothing inside the print volume: say which object is too big and offer a turn / lay that fits.
-            if (!userCancelled && e.message?.contains("inside the print volume") == true) store.checkFit()
+            // Any failure: say which object is too big and offer a turn / lay that fits. Not only on "inside the
+            // print volume": an oversized object often fails first on the prime tower spot (WSA r524, 2026-11-04).
+            if (!userCancelled) store.checkFit()
         } finally {
             progress.value = null
             store.update { it.copy(slice = SliceStatus.Idle) }
