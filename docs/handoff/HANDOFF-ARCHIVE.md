@@ -3956,3 +3956,64 @@ User said "yep looks good" while run 41158738411 (hole labels avoid bbox/wall la
   - robots.txt: allow all except /world/.
 - Thingiverse (thingiverse.com/legal/terms, search snippets): personal, non-commercial use only. No use that "hurts its ability to earn money" or competes with the service, via "any robot, spider, scraper ... or any software used to access the Service". Ad blocking is closest to "hurts its ability to earn money". The API terms ban adding scraped site data to API data. We use no API.
 - Verdict: no blocker for a user-driven browser. Before a store release, (a) keep ad blocking an off-able per-user switch (it is), maybe default OFF on Thingiverse/Printables; (b) consider renaming the "Prusa ..." / "Printables Night" theme presets to neutral names (user decision; backlog). Thingiverse full text unread (bot wall); read it in a browser before a store submission.
+
+## 2026-11-03 PR #70 merged to main (806d4ff, r507; user "merge")
+Builds r491-r507, Claude-verified only. Merged while the PR privacy-scan check was still pending; it and the main push scan then failed on history commit 7d08e77 only (private LAN address in two handoff docs, removed at HEAD by 3bc4fdd, already public on the branch). Tracked files scan clean. Lesson: wait for PR checks before `gh pr merge`.
+
+## 2026-11-03 User decisions (chat, after PR #70)
+Python on demand part 2: do it. Ad block default and Prusa/Printables theme names: decide later (no store release planned yet).
+
+## 2026-11-03 Python on demand part 2 shelved (user decision)
+- After the phone probe (DF_1_GLOBAL works, plain RTLD_GLOBAL does not; details in NOTES-python-part2.md), user: "if this is a pointless endeavor basically just to save 6mb, I'd rather just keep it". Claude agreed (6.7 of 91.8 MB, stub must survive load-time Py calls + emutls, restart step for plugin users). libpython stays in the APK; part 1 (r506) stays.
+
+## 2026-11-03 Check mesh on real files (Claude, phone VD, release r507, MCP object_check_mesh)
+- ClaudeSelfPortrait.stl (96254 faces, 76 shells): 13078 self-intersections, 2 sharp edges, 4385 thin-wall faces, returned within the call timeout. bear.step (1492 faces): clean. Multi-object plate (lattice, 51 shells): 24 open edges, 4955 crossings, 241 sharp edges, thin walls; per-part report lines correct. Marker readability (3D look) not checked: user feel only. VD stopped, app force-stopped.
+- Note: the VIEW intent for Tube.stl was ignored while the app was already running (no new object); mcpao.sh printed a JSON error here (token step), direct curl with the token worked.
+
+## 2026-11-03: G2 Friendly errors + Recent files verified (Claude, phone VD, debug build of 35516fe)
+- More > Recent files: folder/provider line shows per row (Media picker, Download, Download Manager); long press > "Remove from Recent files" removed the last row and the list backfilled with the next older entry. Store.launch error mapping to file_unreadable compiled, not triggered on device.
+
+## 2026-11-03 G5 Print doctor verified (Claude, phone VD, debug build of 28bfdf7 + fix)
+- Stringing: dialog lists current -> new, Apply gave 'Printer · modified', values compound on reapply, calibration link opened the Retraction test. Filament nozzle_temperature (220->215) read fine on a Bambu preset.
+- Bug found+fixed: travel_speed 700 -> 500 (clamp max below the current value moved the setting against the fix). DoctorFix.newValue now drops fixes that would move against their direction; test neverMovesAgainstTheFix.
+
+## 2026-11-03 G4 part 1 (auto-slice core, untested until the G4 VD tests)
+- **G4 part 1 committed a6ebff3 (compiles; UNTESTED, no build yet):** `Engine.slice(background)` + `preempt()` in every `call()`/viewGcode
+  (cancels a background slice, `SlicePreempted`), `keepSlice()`; `SliceController.autoSlice()` watcher (1.5 s idle, at once on Preview,
+  off in Battery Saver, `failedKey` stops retry loops), `promote()` when Slice is tapped mid background slice, `showPreview()`,
+  `SliceDelta` in `UiState.sliceDelta`; `SliceStatus.Running.background` (`isSlicing` = foreground only; autosave waits on any slice);
+  setting "Slice in the background" (More > misc, `auto_slice` pref, default on).
+
+## 2026-11-03: G4 part 2 (60a23cc) verified by Claude on the WSA VD (debug build)
+- Start with an oversized object: one background slice, failed (prime tower no room), logged once, no retry.
+- Edit (scale to 40 %) -> background slice ~1.5 s later; tab stayed Prepare; button "Preview · 1 h 35 min · 37.5 g" + eye icon.
+- Setting edit (infill 20 %, walls 3) -> new result 40.2 g, yellow delta on the button ("−N s · +1.3 g"; tiny at the lab slice scale).
+- Edit mid background slice (2.2 s gap): the edit returned in 0.9 s (same as idle), log "Slice pre-empted by an edit"; the restart finished (42.0 g).
+- Slice tap ~0.7 s into a background slice (0.08 mm layers): foreground panel continued at 80 % ("Generating G-code: layer 1 · 80 %"),
+  then opened Preview with the 498-layer result; no pre-empt.
+- Object moved partly off the bed: one "No object lies completely inside the print volume" log, none in the next 45 s (no loop).
+- On the Preview tab an edit sliced at once (25 % after 0.5 s); empty Preview showed "Slicing in the background… 25 %" + "Slice plate 1".
+- VD notes: WSA VD is 720x1280 px; `orca-vd.sh tap` and the ui dump use those pixels (Slice FAB at 168,1262 with the copied lab prefs).
+  Test scripts: `~/orca-android-tools/g4-{preempt,promote,preview}-test.sh`.
+
+## 2026-11-03: G4 CI build r509 (run 41754302781) installed + phone VD sanity check
+- r509 installed on the phone, WSA and Chromebook. Phone VD: edit on Preview tab -> "Slicing in the background… 25 %", then Preview shows 31 h 27 min, 80.81 m · 244.9 g (matches slice_result). Claude-verified; user-untested. MCP on the phone needs `MCP_DEV=<phone serial>` (target default is WSA).
+
+## 2026-11-03: G1 first-run coach strip tested by Claude (WSA VD, debug build)
+- Fresh prefs + empty plate: strip "Print in 3 taps: 1. Add a model" with "Add sample"; tap adds the 25 mm cube, auto-slice then moves it to "3. Send it to the printer" (Open Device). With a model on the plate it shows "2. Tap Slice". x sets `coach_dismissed=true`, strip gone. Not tested: persistence across restart beyond the pref value, first send dismissal.
+- Gotcha: WSA VD is 720x1280; a 350-px vdgrab shot scales x2.057 to tap coords. Git Bash mangles `/data/...` adb paths: use `MSYS_NO_PATHCONV=1` and push script files from the cwd, not /tmp.
+
+## 2026-11-03 G3 launcher shortcuts (c067fb1), verified by Claude on the WSA VD (debug build)
+- `dumpsys shortcut` lists the 3 dynamic shortcuts (slice_plate, import_downloads, open_last_project). IMPORT_DOWNLOADS opens the system picker on Download; SLICE starts a slice (failed only on the copied test plate's prime tower); OPEN_LAST_PROJECT with a project recent loaded it (Objects 1 -> 5). Note: `am start --display N` needs the current VD id (new id after each `orca-vd.sh start`). Debug app uninstalled, VD stopped.
+
+## 2026-11-03 G6 print history (Claude-verified on the WSA debug build, mock MKS host)
+- 836a51f + card-while-no-status fix + "MKS upload honors the port in the host URL". Test: debug app on WSA VD, connection pref `conn:<printer>` = MKS at the WSA's own LAN IP:8099, `toybox nc -l -p 8099` as one-shot HTTP mock inside WSA (PC port 80/ firewall unusable; WSA owns the PC's LAN IP). Slice (prime tower off, object scaled 20 %), Send (no start) -> upload 919 KB received, Device tab shows "Print history" card (name, time, 37 min, 7 g, cost, Reprint, remove); Reprint re-sent the same file (same size, same filename). Not covered: thumbnail (MKS sends plain .gcode, so none; Bambu .gcode.3mf only), web-UI host card, removal, 20-entry cap.
+- Gotchas: `orca-vd.sh start` launches the RELEASE app (real printer connection!) unless `PKG=...debug` is exported; `wsa-debug-setup.sh` copies the real printer connection into the debug prefs (conn key), so never test a send before replacing it; sed `&` in replacements expands (use files).
+
+## 2026-11-03 G7 status outside the app (Claude-verified on phone debug build SDK 36, mock Moonraker; widget rendering untested)
+- User 2026-11-03: build widget + Live Update; Quick Settings tile dropped ("not useful"). Code: `service/PrintWidget.kt` (RemoteViews, state kept in `print_widget` prefs, `publish()` called per poll and at finish; a finished/stopped/failed result stays on the widget), Live Update = `setRequestPromotedOngoing(true)` + `setShortCriticalText("NN%")` on the existing PrintMonitorService notification, `POST_PROMOTED_NOTIFICATIONS` permission, receiver in the manifest.
+- Test: `orca-android-tools/mock_moonraker.py PORT` on the PC (progress +5 %/request), `adb reverse tcp:PORT tcp:PORT` (PC firewall blocks inbound LAN), debug app, `conn:MockPrinter` Moonraker pref via run-as, `pm grant POST_NOTIFICATIONS` + appops allow (debug app starts with notifications blocked), `su -c am start-foreground-service -n <pkg>/app.orcaandroid.service.PrintMonitorService -e printer MockPrinter`. dumpsys: flags include PROMOTED_ONGOING, shortCriticalText "45%", progress prefs 0.1 -> 1.0, final state FINISHED, done notification posted; provider registered in `dumpsys appwidget`.
+- Open: widget visual rendering on a launcher (no widget host without using the user's screen); chip look on a real print.
+
+## 2026-11-03 G8 skipped
+- User 2026-11-03 (r514): "skip g8." AR "on your desk" preview (ARCore) dropped: not built, not planned. GOAT batch otherwise complete (G1-G7 Claude-verified).

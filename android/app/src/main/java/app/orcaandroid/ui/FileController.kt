@@ -343,12 +343,16 @@ class FileController(
         val uri = Uri.parse(recent.uri)
         val readable = withContext(Dispatchers.IO) { runCatching { store.app.contentResolver.openInputStream(uri)?.use { true } ?: false }.getOrDefault(false) }
         if (!readable) {  // moved, deleted, cache purged or access revoked: drop the entry instead of an error dialog
-            settings.recents = settings.recents.filter { it.uri != recent.uri }
-            store.update { it.copy(recents = settings.recents) }
+            removeRecent(recent)
             store.toast(store.str(R.string.recent_missing, recent.name))
             return@launch
         }
         if (recent.isProject) openProject(uri) else openModels(listOf(uri))
+    }
+
+    fun removeRecent(recent: RecentFile) {
+        settings.recents = settings.recents.filter { it.uri != recent.uri }
+        store.update { it.copy(recents = settings.recents) }
     }
 
     private fun rememberRecent(uri: Uri, name: String, project: Boolean) {

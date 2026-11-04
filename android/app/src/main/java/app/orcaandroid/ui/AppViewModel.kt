@@ -57,6 +57,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 .onFailure { e -> store.update { it.copy(phase = Phase.SETUP, error = e.message ?: e.toString()) } }
         }
         viewModelScope.launch { autoSave() }
+        viewModelScope.launch { slicing.autoSlice() }
         viewModelScope.launch { awaitReady(); if (store.settings.aiTools) setAiTools(true) }
         viewModelScope.launch {
             store.container.printerStatus.collect { s ->
@@ -114,6 +115,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     // --- App-wide UI state ---------------------------------------------------------------------------
 
+    fun dismissCoach() {
+        store.settings.coachDismissed = true
+        store.update { it.copy(coachDismissed = true) }
+    }
+
     fun setScreen(screen: Screen) = store.update { it.copy(screen = screen, tool = toolAfterScreenChange(it.screen, screen, it.tool)) }
 
     /** Shows [url] in the Models tab's browser. */
@@ -167,6 +173,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun setDoubleBackToQuit(on: Boolean) {
         store.settings.doubleBackToQuit = on
         store.update { it.copy(doubleBackToQuit = on) }
+    }
+
+    fun setAutoSlice(on: Boolean) {
+        store.settings.autoSlice = on
+        store.update { it.copy(autoSlice = on) }
+        if (!on) slicing.stopAutoSlice()
     }
 
     fun setProjectFilaments(mode: String) {
@@ -302,7 +314,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             val seconds = state.value.autoSaveSeconds
             delay(if (seconds > 0) seconds * 1000L else 5_000L)
             val s = state.value
-            if (seconds <= 0 || s.phase != Phase.READY || s.busy != null || s.isSlicing) continue
+            if (seconds <= 0 || s.phase != Phase.READY || s.busy != null || s.slice != SliceStatus.Idle) continue
             val key = sessionKey(s)
             if (key == saved) continue
             runCatching { files.saveSession() }

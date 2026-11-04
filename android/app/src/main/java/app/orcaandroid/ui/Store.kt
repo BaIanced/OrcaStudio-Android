@@ -5,6 +5,7 @@ import androidx.annotation.PluralsRes
 import androidx.annotation.StringRes
 import app.orcaandroid.R
 import app.orcaandroid.container
+import app.orcaandroid.core.PrintHistory
 import app.orcaandroid.core.Scene
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -22,6 +23,7 @@ class Store(val app: Application, val scope: CoroutineScope) {
     val engine = container.engine
     val settings = container.settings
     val resources = container.resources
+    val printHistory = PrintHistory(app)
 
     val state = MutableStateFlow(
         UiState(
@@ -29,6 +31,8 @@ class Store(val app: Application, val scope: CoroutineScope) {
             dynamicColor = settings.dynamicColor,
             themeSpec = settings.themeSpec,
             doubleBackToQuit = settings.doubleBackToQuit,
+            autoSlice = settings.autoSlice,
+            coachDismissed = settings.coachDismissed,
             pen = settings.pen,
             projectFilaments = settings.projectFilaments,
             allowMixedTemps = settings.allowMixedTemps,
@@ -57,6 +61,7 @@ class Store(val app: Application, val scope: CoroutineScope) {
             expertSettings = settings.expertSettings,
             installedNozzles = settings.installedNozzles,
             recents = settings.recents,
+            printHistory = printHistory.load(),
         )
     )
 
@@ -89,8 +94,11 @@ class Store(val app: Application, val scope: CoroutineScope) {
         } catch (e: Exception) {
             if (cancelled) return@launch
             android.util.Log.w("OrcaStore", "operation failed", e)
-            val unreadable = e is java.io.FileNotFoundException || e is SecurityException
-            update { it.copy(error = if (unreadable) str(R.string.file_unreadable) else e.message ?: e.toString()) }
+            val message = e.message ?: e.toString()
+            // System file errors carry content:// URIs, cache paths and errno names; show the plain sentence instead.
+            val unreadable = e is java.io.FileNotFoundException || e is SecurityException ||
+                listOf("content://", "ENOENT", "EACCES", "open failed").any { it in message }
+            update { it.copy(error = if (unreadable) str(R.string.file_unreadable) else message) }
         } finally {
             if (busy != null) update { it.copy(busy = null, busyCancel = null) }
         }

@@ -15,11 +15,14 @@ class Engine(private val cacheDir: File) {
 
     private val thread = Executors.newSingleThreadExecutor { r -> Thread(r, "orca-engine") }.asCoroutineDispatcher()
 
-    private suspend fun call(method: String, args: JSONObject = JSONObject()): JSONObject = withContext(thread) {
-        // Android's JSONObject.toString() returns null when a nested array holds NaN or Infinity (put() rejects them
-        // only at the top level); unchecked, that null surfaced as a bare NullPointerException dialog (r197).
-        val json: String = args.toString() ?: throw OrcaException("$method: a number is not finite (NaN or Infinity)")
-        JSONObject(OrcaNative.call(method, json)).throwIfError()
+    private suspend fun call(method: String, args: JSONObject = JSONObject()): JSONObject {
+        preempt()
+        return withContext(thread) {
+            // Android's JSONObject.toString() returns null when a nested array holds NaN or Infinity (put() rejects them
+            // only at the top level); unchecked, that null surfaced as a bare NullPointerException dialog (r197).
+            val json: String = args.toString() ?: throw OrcaException("$method: a number is not finite (NaN or Infinity)")
+            JSONObject(OrcaNative.call(method, json)).throwIfError()
+        }
     }
 
     suspend fun init(resourcesDir: File, dataDir: File) = withContext(thread) {
@@ -316,16 +319,52 @@ class Engine(private val cacheDir: File) {
 
     // --- Slicing ---------------------------------------------------------------------------------
 
-    suspend fun slice(plate: Int, onProgress: (Int, String) -> Unit): SliceResult = withContext(thread) {
-        val out = File(cacheDir, "out/plate_${plate + 1}").apply { mkdirs() }
-        val gcode = File(cacheDir, "out/plate_${plate + 1}.gcode")
-        parseSlice(JSONObject(OrcaNative.slice(plate, gcode.path, out.path) { p, t -> onProgress(p, t) }).throwIfError(), out.path, false)
+    /**
+     * A [background] slice (G4 auto-slice) gives way to the user: until [keepSlice] is called, any other engine call
+     * cancels it first ([preempt]), so an edit never queues behind it on the single engine thread. A pre-empted
+     * slice throws [SlicePreempted].
+     */
+    suspend fun slice(plate: Int, background: Boolean = false, onProgress: (Int, String) -> Unit): SliceResult {
+        if (background) { preempted = false; preemptible = true }
+        try {
+            return withContext(thread) {
+                if (background && preempted) throw SlicePreempted()
+                val out = File(cacheDir, "out/plate_${plate + 1}").apply { mkdirs() }
+                val gcode = File(cacheDir, "out/plate_${plate + 1}.gcode")
+                val json = OrcaNative.slice(plate, gcode.path, out.path) { p, t ->
+                    // Closes the gap between the check above and the native Print starting (cancel() is a no-op before that).
+                    if (background && preempted && preemptible) OrcaNative.cancel()
+                    onProgress(p, t)
+                }
+                if (background && preempted && preemptible) throw SlicePreempted()
+                parseSlice(JSONObject(json).throwIfError(), out.path, false)
+            }
+        } catch (e: OrcaException) {
+            // The native "Slicing cancelled" a pre-emption causes.
+            throw if (background && preempted && preemptible) SlicePreempted() else e
+        } finally {
+            if (background) preemptible = false
+        }
     }
 
-    suspend fun viewGcode(path: String, onProgress: (Int, String) -> Unit): SliceResult = withContext(thread) {
+    /** The user now waits for the running background slice (tapped Slice): edits no longer cancel it. */
+    fun keepSlice() { preemptible = false }
+
+    @Volatile private var preemptible = false
+    @Volatile private var preempted = false
+
+    private fun preempt() {
+        if (!preemptible) return
+        preempted = true
+        OrcaNative.cancel()
+    }
+
+    class SlicePreempted : Exception("Slice pre-empted by an edit")
+
+    suspend fun viewGcode(path: String, onProgress: (Int, String) -> Unit): SliceResult = preempt().let { withContext(thread) {
         val out = File(cacheDir, "out/external").apply { mkdirs() }
         parseSlice(JSONObject(OrcaNative.viewGcode(path, out.path) { p, t -> onProgress(p, t) }).throwIfError(), out.path, true)
-    }
+    } }
 
     /** Cancels a running slice or smooth blend; safe to call from any thread. */
     fun cancel() = OrcaNative.cancel()

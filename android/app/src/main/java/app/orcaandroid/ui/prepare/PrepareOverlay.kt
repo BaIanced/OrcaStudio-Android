@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material.icons.filled.BorderOuter
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Reorder
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PriorityHigh
 import kotlinx.coroutines.launch
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -109,6 +110,7 @@ import kotlin.math.roundToInt
 import app.orcaandroid.R
 import app.orcaandroid.core.AlignKind
 import app.orcaandroid.core.PlateSwitcher
+import app.orcaandroid.ui.Screen
 import androidx.compose.material.icons.filled.AlignHorizontalCenter
 import androidx.compose.material.icons.filled.AlignHorizontalLeft
 import androidx.compose.material.icons.filled.AlignHorizontalRight
@@ -119,6 +121,13 @@ import app.orcaandroid.core.VolumeType
 import app.orcaandroid.render.PlateView
 import app.orcaandroid.ui.AppViewModel
 import app.orcaandroid.ui.SliceStatus
+import app.orcaandroid.ui.SliceDelta
+import app.orcaandroid.ui.components.formatDuration
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import app.orcaandroid.ui.EditorTarget
 import app.orcaandroid.ui.Tool
 import app.orcaandroid.ui.UiState
@@ -166,6 +175,7 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
                 }
             }
             if (state.showSelectionBanner) SelectionBanner(state, vm)
+            if (!state.coachDismissed && state.calibration == null && state.scad == null) CoachStrip(state, vm)
         }
         if (column) {
             // Below the top bar (and the banners): the column scrolls instead of covering the plate selector.
@@ -257,6 +267,27 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
         }
         ViewContextMenu(state, vm)
     }
+    }
+}
+
+/** First run: the next of the three taps to a print (add a model, Slice, send), with a button for it; closes for good with x. */
+@Composable
+private fun CoachStrip(state: UiState, vm: AppViewModel) {
+    val step = when {
+        state.scene.isEmpty -> 1
+        state.results.isEmpty() -> 2
+        else -> 3
+    }
+    Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
+        Row(Modifier.padding(start = 12.dp, top = 2.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(when (step) { 1 -> R.string.coach_add; 2 -> R.string.coach_slice; else -> R.string.coach_send }),
+                Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodySmall)
+            when (step) {
+                1 -> androidx.compose.material3.TextButton(onClick = { vm.scene.addPrimitive("cube", app.orcaandroid.core.Vec3(25f, 25f, 25f)) }) { Text(stringResource(R.string.coach_add_button)) }
+                3 -> androidx.compose.material3.TextButton(onClick = { vm.setScreen(Screen.DEVICE) }) { Text(stringResource(R.string.coach_send_button)) }
+            }
+            androidx.compose.material3.IconButton(onClick = vm::dismissCoach) { Icon(Icons.Default.Close, stringResource(R.string.coach_close)) }
+        }
     }
 }
 
@@ -752,7 +783,7 @@ private fun BoxScope.FloatingSlice(state: UiState, vm: AppViewModel, area: IntSi
 @Composable
 private fun SliceButton(state: UiState, vm: AppViewModel, modifier: Modifier) {
     val running = state.slice as? SliceStatus.Running
-    if (running != null) {
+    if (running != null && !running.background) {
         Surface(modifier.width(260.dp), shape = RoundedCornerShape(16.dp), tonalElevation = 6.dp) {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text("${running.text} · ${running.percent} %", style = MaterialTheme.typography.bodySmall, maxLines = 2)
@@ -762,16 +793,35 @@ private fun SliceButton(state: UiState, vm: AppViewModel, modifier: Modifier) {
         }
     } else {
         var menu by remember { mutableStateOf(false) }
-        val label = stringResource(if (state.scene.plates.size > 1) R.string.slice_plate_n else R.string.slice, state.activePlate + 1)
+        val multi = state.scene.plates.size > 1
+        // G4: once the plate's slice is ready (background or not) the button opens it, showing its time and weight and how
+        // they changed since the plate's previous slice. While a background slice runs, a small ring shows its progress.
+        val result = state.results[state.activePlate]
+        val auto = running?.takeIf { it.plate == state.activePlate }
+        val label = stringResource(when {
+            result != null -> if (multi) R.string.preview_plate_n else R.string.preview_plate
+            else -> if (multi) R.string.slice_plate_n else R.string.slice
+        }, state.activePlate + 1)
+        val autoText = stringResource(R.string.auto_slicing)
         Box(modifier) {
             // The FAB's text isn't in the accessibility tree (no label for TalkBack or ui dumps): name it here.
             ExtendedFloatingActionButton(
-                onClick = { vm.slicing.slice() },
-                modifier = Modifier.semantics { contentDescription = label },
-                text = { Text(label) },
-                icon = { Icon(Icons.Default.Layers, null) },
+                onClick = { if (result != null) vm.slicing.showPreview() else vm.slicing.slice() },
+                modifier = Modifier.semantics { contentDescription = if (auto != null) "$label, $autoText ${auto.percent} %" else label },
+                text = {
+                    if (result == null) Text(label)
+                    else Column {
+                        Text(label)
+                        Text(sliceStats(result.printTimeSeconds, result.filamentGrams,
+                            state.sliceDelta?.takeIf { it.plate == state.activePlate }), style = MaterialTheme.typography.labelSmall)
+                    }
+                },
+                icon = {
+                    if (auto != null) CircularProgressIndicator(progress = { auto.percent / 100f }, Modifier.size(20.dp), strokeWidth = 2.5.dp)
+                    else Icon(if (result != null) Icons.Default.Visibility else Icons.Default.Layers, null)
+                },
             )
-            if (state.scene.plates.size > 1) {
+            if (multi) {
                 IconButton(onClick = { menu = true }, modifier = Modifier.align(Alignment.TopEnd).size(24.dp)) { Icon(Icons.Default.ExpandMore, null) }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     DropdownMenuItem(text = { Text(stringResource(R.string.slice_all)) }, onClick = { menu = false; vm.slicing.sliceAll() })
@@ -779,6 +829,34 @@ private fun SliceButton(state: UiState, vm: AppViewModel, modifier: Modifier) {
             }
         }
     }
+}
+
+/** "1 h 2 min · 34.5 g", then the change since the plate's previous slice in the tertiary colour ("+12 min · −3.1 g"; zero parts left out). */
+@Composable
+private fun sliceStats(seconds: Double, grams: Double, delta: SliceDelta?) = buildAnnotatedString {
+    append("${formatDuration(seconds)} · ${"%.1f".format(grams)} g")
+    val parts = listOfNotNull(delta?.let { signedDuration(it.seconds) }, delta?.let { signedGrams(it.grams) })
+    if (parts.isNotEmpty()) withStyle(SpanStyle(color = MaterialTheme.colorScheme.tertiary)) { append("  " + parts.joinToString(" · ")) }
+}
+
+/** "+12 min", "−1 h 5 min", "+20 s"; null when it rounds to nothing. */
+private fun signedDuration(seconds: Double): String? {
+    val s = kotlin.math.abs(seconds).roundToInt()
+    val sign = if (seconds < 0) "−" else "+"
+    val m = (s + 30) / 60
+    return when {
+        s == 0 -> null
+        s < 60 -> "$sign$s s"
+        m < 60 -> "$sign$m min"
+        else -> "$sign${m / 60} h ${m % 60} min"
+    }
+}
+
+/** "+3 g" / "−0.4 g" (one decimal under 10 g); null when it rounds to nothing. */
+private fun signedGrams(grams: Double): String? {
+    val a = kotlin.math.abs(grams)
+    val text = if (a < 10) "%.1f".format(a) else a.roundToInt().toString()
+    return if (text == "0.0" || text == "0,0") null else "${if (grams < 0) "−" else "+"}$text g"
 }
 
 /**

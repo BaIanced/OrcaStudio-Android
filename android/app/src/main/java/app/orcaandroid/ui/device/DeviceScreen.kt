@@ -6,6 +6,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalContext
 import app.orcaandroid.net.ObnCredentials
 import android.webkit.WebView
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -273,7 +274,11 @@ private fun PrinterPanel(state: UiState, vm: AppViewModel, modifier: Modifier) {
     if (status == null) {
         val error = state.printerStatusError
         if (error == null) {
-            Box(modifier.padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            // Hosts without a status (MKS) wait here for good, so the history stays reachable beside the spinner.
+            Column(modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Box(Modifier.fillMaxWidth().padding(8.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+                PrintHistoryCard(state, vm, canReprint = true)
+            }
         } else {
             // The error wraps and scrolls instead of being cut off, and the rest of the page stays usable.
             Column(modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -283,6 +288,7 @@ private fun PrinterPanel(state: UiState, vm: AppViewModel, modifier: Modifier) {
                 }
                 val bambu = state.connection?.type.let { it == HostType.BAMBU || it == HostType.BAMBU_SIGNED }
                 if (bambu) state.connection?.let { CameraCard(it) }
+                PrintHistoryCard(state, vm, canReprint = true)
             }
         }
         return
@@ -303,6 +309,7 @@ private fun PrinterPanel(state: UiState, vm: AppViewModel, modifier: Modifier) {
             }
         }
         val bambuHost = state.connection?.takeIf { it.type == HostType.BAMBU || it.type == HostType.BAMBU_SIGNED }
+        PrintHistoryCard(state, vm, canReprint = !status.isActive)
         if (bambuHost != null) PrinterControlCard(status, bambuHost.serial, vm) else PanelCard(stringResource(R.string.device_temperatures)) {
             Row(horizontalArrangement = Arrangement.spacedBy(32.dp)) {
                 Temperature(stringResource(R.string.device_nozzle), status.nozzleTemp, status.nozzleTarget)
@@ -557,4 +564,30 @@ private fun ObnCredentialsSection() {
         Text(stringResource(R.string.remove))
     }
     message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+}
+
+/** Files sent from this app, newest first, each with a one-tap reprint (not while the printer is busy). */
+@Composable
+private fun PrintHistoryCard(state: UiState, vm: AppViewModel, canReprint: Boolean) {
+    if (state.printHistory.isEmpty()) return
+    PanelCard(stringResource(R.string.print_history)) {
+        val fmt = remember { java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT, java.text.DateFormat.SHORT) }
+        state.printHistory.forEach { e ->
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                val thumb = remember(e.id) { vm.device.historyThumbnail(e)?.let { android.graphics.BitmapFactory.decodeFile(it.path)?.asImageBitmap() } }
+                if (thumb != null) androidx.compose.foundation.Image(thumb, null, Modifier.size(48.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(e.name, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(listOfNotNull(
+                        fmt.format(java.util.Date(e.time)), formatDuration(e.seconds), "%.0f g".format(e.grams),
+                        e.cost.takeIf { it > 0 }?.let { "%.2f".format(it) },
+                    ).joinToString("  ·  "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                OutlinedButton(onClick = { vm.device.reprint(e) }, enabled = canReprint) { Text(stringResource(R.string.reprint)) }
+                androidx.compose.material3.IconButton(onClick = { vm.device.removeHistory(e) }) {
+                    androidx.compose.material3.Icon(Icons.Filled.Cancel, stringResource(R.string.history_remove))
+                }
+            }
+        }
+    }
 }

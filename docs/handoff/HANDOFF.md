@@ -13,9 +13,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 ## State
 - One repo: OrcaStudio-Android (code + these docs, `docs/handoff/`), branch `claude/handoff-continuation-rseql3`. Autonomy (user, 2026-10-11): decide branches and next steps
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
-- Android main = 1c4ff52 (PR #69 = r490, merged 2026-10-31; Claude-verified only). Nothing unverified on the branch. User-untested in main: list in `NOTES-merge-batch.md`.
+- Android main = 806d4ff (PR #70 = r507, merged 2026-11-03; Claude-verified only). Nothing unverified on the branch. PR #70 / main privacy-scan runs fail only on history commit 7d08e77 (private LAN address, fixed at HEAD by 3bc4fdd); tracked files clean. User-untested in main: list in `NOTES-merge-batch.md`.
 - Signing secrets: `release` environment (main + `claude/*` only).
-- Latest installed CI build: r506 (run 41701191206, Python on demand, 91.81 MB) on the phone (.20) 2026-11-03; WSA wedged (r504, needs a WSA restart); Chromebook not on adb (r496). **User 2026-11-01: avoid the SHIELD for now** (no installs there). Phone drops off adb: `adb connect <phone-ip>:5555` (memory device-ips); GL shots on the phone VD. Install builds on all adb devices (skip .23).
+- Latest installed CI build: r511 (run 41757680903) on the phone (.20), WSA, Chromebook 2026-11-03; WSA up again (zygote restart 2026-11-03; release app r504); Chromebook not on adb (r496). **User 2026-11-01: avoid the SHIELD for now** (no installs there). Phone drops off adb: `adb connect <phone-ip>:5555` (memory device-ips); GL shots on the phone VD. Install builds on all adb devices (skip .23).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **User 2026-10-28: no more user testing for now; Claude builds and tests everything itself (memory no-user-testing-now); don't ask for feel/UI checks.**
 - **User 2026-10-29: no tests on the user's screen; all tests on a hidden virtual display** (`TARGET=wsa orca-vd.sh start`, memory tests-on-virtual-display).
@@ -33,11 +33,11 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
 - Open tests in backlog.
-- Size push closed at r504 101 MB (archive 2026-11-01). CI size step ae8d7fa on local `local/ci-size-step` (push needs `gh auth refresh -s workflow`).
-- Python on demand part 1 done 2026-11-03: phone-verified, r506 APK 101.02 -> 91.81 MB, budgets lowered (archive, PERFORMANCE.md).
-- STEP import verified 2026-11-03 on the phone VD (archive). Phone has release r507; VD stopped. WSA wedged since 2026-11-02 (restart before use).
-- Public release check, JS bridge audit and Printables/Thingiverse terms read done 2026-11-03 (archive). Two user decisions are left before a store release (backlog).
-- Next step: nothing Claude-only left; user decisions (store-release backlog line, Python on demand part 2 [Opus]) -> Opus 5.5 (high) for part 2 if wanted
+- 2026-11-03 (archive): STEP import, Check mesh, G2, G5 verified; Python part 2 shelved; store release parked until "GOATed". CI size step ae8d7fa waits on `gh auth refresh -s workflow`.
+- **GOAT batch (user 2026-11-03): order G2 -> G5 -> G4, then G1, G3, G6, G7. G8 (AR preview) skipped by the user 2026-11-03 (archive "G8 skipped").** Specs: backlog "GOAT batch".
+- G6 print history Claude-verified (archive "G6 print history"); r513 (G1, G3, G6) installed on phone, WSA, Quest; Chromebook unreachable (.28), still old. Open: card for web-UI hosts, thumbnail check on a Bambu send. Test gotcha: `PKG=...debug orca-vd.sh start`, else the release app (real printer) opens.
+- G7 (widget + Live Update chip; tile dropped) Claude-verified (archive "G7 status outside the app"); r514 (8f4a88c, run 41770226117) installed on phone + WSA 2026-11-03; Quest offline (asleep, retry `adb connect`), Chromebook unreachable. GOAT batch done.
+- Branch has G1, G3, G4-G7 work Claude-verified but unmerged (main = 806d4ff, r507). Next step: ask the user whether to merge the GOAT batch to main (`/next-merge`) -> Sonnet 5.5 (medium)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 

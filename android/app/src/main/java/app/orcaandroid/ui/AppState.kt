@@ -2,6 +2,7 @@ package app.orcaandroid.ui
 
 import app.orcaandroid.core.Calibration
 import app.orcaandroid.core.FilamentSlot
+import app.orcaandroid.core.PrintHistoryEntry
 import app.orcaandroid.core.LayerProfile
 import app.orcaandroid.core.OptionStates
 import app.orcaandroid.core.PresetType
@@ -111,8 +112,12 @@ sealed interface EditorTarget {
 
 sealed interface SliceStatus {
     data object Idle : SliceStatus
-    data class Running(val plate: Int, val percent: Int, val text: String) : SliceStatus
+    /** [background]: an auto-slice (G4) nobody waits for yet; it shows no progress panel and gives way to edits. */
+    data class Running(val plate: Int, val percent: Int, val text: String, val background: Boolean = false) : SliceStatus
 }
+
+/** How a plate's new slice differs from its previous one (G4 badge): print time in seconds and filament in grams. */
+data class SliceDelta(val plate: Int, val seconds: Double, val grams: Double)
 
 sealed interface UploadState {
     data class Running(val progress: Float, val startPrint: Boolean) : UploadState
@@ -175,6 +180,11 @@ data class UiState(
     /** The floating colour panel is open over the app (design mode). */
     val designMode: Boolean = false,
     val doubleBackToQuit: Boolean = false,
+    /** Slice the active plate in the background once edits pause (G4). */
+    val autoSlice: Boolean = true,
+    val coachDismissed: Boolean = true,
+    /** The last slice's change against the plate's slice before it, while that result is current. */
+    val sliceDelta: SliceDelta? = null,
     val pen: app.orcaandroid.core.PenConfig = app.orcaandroid.core.PenConfig(),
     /** What an opened project does to the filament slots ("ask", "project", "mine") and the question being asked. */
     val projectFilaments: String = "ask",
@@ -321,6 +331,8 @@ data class UiState(
 
     // Files and updates
     val recents: List<RecentFile> = emptyList(),
+    /** Files sent to a printer, newest first (Device tab). */
+    val printHistory: List<PrintHistoryEntry> = emptyList(),
     val profileUpdates: List<ResourceStore.ProfileUpdate>? = null,
     /** Progress text while profile updates install in the background; null when idle. */
     val profileUpdateProgress: String? = null,
@@ -398,7 +410,8 @@ data class UiState(
     /** The result shown in the preview (external G-code or the preview plate's slice). */
     val shownResult: SliceResult? get() = external ?: results[previewPlate]
 
-    val isSlicing get() = slice is SliceStatus.Running
+    /** A slice the user waits for (not a background auto-slice). */
+    val isSlicing get() = (slice as? SliceStatus.Running)?.background == false
 
     /** Process options printers without multiple plate types never see. */
     val supportsBedTypes get() = setup?.bedTypes?.isNotEmpty() == true

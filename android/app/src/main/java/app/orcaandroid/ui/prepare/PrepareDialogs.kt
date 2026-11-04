@@ -141,7 +141,7 @@ internal fun AddDialogs(state: UiState, vm: AppViewModel, dialog: String?, onDis
         "text" -> TextDialog(vm, onDismiss)
         "svg" -> SvgDialog(vm, onDismiss)
         "samples" -> SamplesDialog(vm, onDismiss)
-        "calib" -> CalibrationDialog(vm, onDismiss)
+        "calib" -> CalibrationDialog(vm, onDismiss = onDismiss)
         "simplify" -> SimplifyDialog(state, vm, onDismiss)
         "deform" -> DeformDialog(vm, onDismiss)
         "blend" -> BlendDialog(vm, onDismiss)
@@ -319,7 +319,7 @@ val CALIBRATION_LABELS = mapOf(
 )
 
 @Composable
-fun CalibrationDialog(vm: AppViewModel, onDismiss: () -> Unit) {
+fun CalibrationDialog(vm: AppViewModel, initial: String? = null, onDismiss: () -> Unit) {
     data class Test(val id: String, val label: Int, val start: Float, val end: Float, val step: Float, val unit: String)
     val tests = listOf(
         Test("temp", CALIBRATION_LABELS.getValue("temp"), 230f, 190f, 5f, "°C"),
@@ -333,7 +333,7 @@ fun CalibrationDialog(vm: AppViewModel, onDismiss: () -> Unit) {
         Test("input_shaping_damp", CALIBRATION_LABELS.getValue("input_shaping_damp"), 0f, 0.4f, 0f, ""),
         Test("cornering", CALIBRATION_LABELS.getValue("cornering"), 1f, 15f, 0f, "mm/s"),
     )
-    var test by remember { mutableStateOf(tests.first()) }
+    var test by remember { mutableStateOf(tests.firstOrNull { it.id == initial } ?: tests.first()) }
     var start by remember(test) { mutableFloatStateOf(test.start) }
     var end by remember(test) { mutableFloatStateOf(test.end) }
     var step by remember(test) { mutableFloatStateOf(test.step) }

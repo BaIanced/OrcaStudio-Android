@@ -21,7 +21,7 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - Paint panel layout C: modes verified by user r453 2026-10-28. Clean specks with lock Claude-verified WSA r456 2026-10-28 (archive). Chips renamed "Straight ↕/↔" (strings only, in next build, untested).
 - Paint depth (r367, Claude WSA G-code OK 2026-10-21): user feel + real print untested.
 - Paint shop reopen fix (Claude WSA r374) + plate estimate line (Claude WSA r376 = Preview; one density, part-level filaments ignored): user look/feel.
-- Check mesh: marker readability, self-intersection count on a real file, thin walls (Claude WSA test STL, run 39657856306).
+- Check mesh: counts OK on real files (Claude, phone r507, 2026-11-03, archive); open: marker readability in 3D (user feel, skipped).
 - Step 9 (align, x-ray, upright shift) Claude-verified WSA 2026-10-27 (archive); user feel open. Awaiting go: Lay on cut face / Flip / Leave radio + "Arrange after cut" (OrcaScene.cpp:1046); user asked the point of "Flip upper part".
 - Fan slider hold-until-within-4 % (r295) + Extrude F150 e13bebb: need the printer.
 - Preview bead look (Chromebook), part shadows r266, light/shadow lab sliders r263: Claude-verified, user hasn't seen.
@@ -37,13 +37,20 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - [Opus] Sculpt mode Claude-verified WSA 2026-10-28 (archive); user feel + symmetry 51ad144 untested; leftovers parked won't-do 2026-10-30.
 - [Opus] Build workspace: all steps Claude-verified WSA 2026-10-29 (archive); open: user feel.
 
+## GOAT batch (user 2026-11-03: do G2 -> G5 -> G4 first, then the rest; all not started)
+- G4 [Opus] auto-slice + Preview: done on r509; open: delta text is tiny at the lab slice scale (check readability); Claude-verified only.
+- G1 First-run "print in 3 taps": coded (coach strip), untested; open: WSA VD test, CI build, phone check.
+- G3 Launcher shortcuts: coded + compiled 2026-11-03 (3 dynamic shortcuts); open: WSA VD intent test, CI build, phone check.
+- G6 Print history + reprint: local log per send (thumbnail, presets, time, grams, cost), one-tap reprint, feeds "Log print". End-of-print status needs the printer.
+- G7 Status outside the app: home-screen widget + Android 16 Live Update chip (user 2026-11-03: build both, Quick Settings tile DROPPED as not useful; targetSdk 36). Real test needs the printer; mocked status otherwise.
+
 ## Ideas (not started)
 - Self-portrait 3 (Claude r489 WSA 2026-10-31): open only real-print checks (24 open lattice edges); maybe clearer 16-filament tower message.
 - Study Bambu Handy's MakerWorld integration.
 - Headless display gaps (Reference "Headless display"): pinch on the virtual display, `start` stress test.
 - Quest: 2D panel confirmed (user 2026-10-21); open only input beyond touch + native VR view [Opus] (on request). Phone <-> Quest link (undefined).
 - Orca plugin runtime kept generic: not done: audit prompts, create_window, per-preset overrides, printerAgent. FilamentHub dropped for good.
-- Public release check (user decisions before a store release; terms read 2026-11-03, archive): default ad block OFF (now ON, AdBlock.kt:52; grey area under Prusa GTC 9.5 / Thingiverse terms)? Rename "Prusa"/"Printables" theme presets? Read Thingiverse terms in a browser.
+- Public release check: user 2026-11-03: no store release for the foreseeable future (until the app is "completely GOATed"); decisions (ad block default, Prusa/Printables preset names, Thingiverse terms) parked, ignore until a release is planned.
 - Colour icon set shortlist + mockup (low). Paint card fold direction by screen position (low). "Need phone" prompt (shelved).
 - [Opus] Filament materials / per-slot look / Realistic render (Claude WSA 2026-10-24): user feel untested; variable layer height ignored; Quest/Chromebook GPU check open.
 - Preview camera-light slider + Check mesh sharp-edge markers + Hollow: Claude-verified WSA (archive); open: user feel (sessions B/C in NOTES-merge-batch.md). Cleanup = More > Repair (exists).
@@ -76,4 +83,4 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - [Opus] Perf experiments queue: docs/PERFORMANCE.md; CI size step ae8d7fa on local/ci-size-step, push needs workflow scope (Claude 2026-10-31).
 - [Opus] AI print failure watch (user 2026-10-30): local detector on the printer camera; open: ask the user for the camera model (archive 2026-10-31).
 - [Opus] Filament mixer redesign (0c791b3, CI 41371910606): 2- and 3-part looks checked by Claude on WSA VD 2026-11-01; user has not seen it. Vendor logo dropped (trademark).
-- [Opus] Python on demand part 2: drop libpython3.12.so (6.7 MB) from the APK (SONAME patch + stub + restart after first fetch); not started 2026-11-01, only if the user wants it.
+- [Opus] Python on demand part 2: drop libpython3.12.so (6.7 MB) from the APK (SONAME patch + stub + restart after first fetch); user 2026-11-03: do it (in progress, see HANDOFF Next task).
