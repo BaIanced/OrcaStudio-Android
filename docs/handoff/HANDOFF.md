@@ -33,7 +33,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
 - Open tests in backlog.
-- GOAT batch + perf audit: closed (archive 2026-11-04; leftovers in backlog "GOAT batch", baselines PERFORMANCE.md "Metrics"). Open: lint/R8 triage b8585c6 (boxed -> primitive Compose states) needs a CI build + phone VD smoke test (sliders, toggles, counters still update): run 41795361386 dispatched on 1db774c.
+- GOAT batch + perf audit: closed (archive 2026-11-04; leftovers in backlog "GOAT batch", baselines PERFORMANCE.md "Metrics"). Open: lint/R8 triage b8585c6 (boxed -> primitive Compose states) needs a CI build + phone VD smoke test (sliders, toggles, counters still update): run 41795361386 on 1db774c (r518?) passed 2026-11-04: install with `install-build.ps1 -Run 41795361386 -Device <phone>:5555` (+ WSA if up), then smoke-test on the VD.
 - Next step: smoke-test the b8585c6 CI build on the phone VD -> Sonnet 5.5 (medium)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
