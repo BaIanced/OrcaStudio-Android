@@ -37,7 +37,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **GOAT batch (user 2026-11-03): order G2 -> G5 -> G4, then G1, G3, G6, G7. G8 (AR preview) skipped by the user 2026-11-03 (archive "G8 skipped").** Specs: backlog "GOAT batch".
 - G6 print history Claude-verified (archive "G6 print history"); r513 (G1, G3, G6) installed on phone, WSA, Quest; Chromebook unreachable (.28), still old. Open: card for web-UI hosts, thumbnail check on a Bambu send. Test gotcha: `PKG=...debug orca-vd.sh start`, else the release app (real printer) opens.
 - G7 (widget + Live Update chip; tile dropped) Claude-verified (archive "G7 status outside the app"); r514 (8f4a88c, run 41770226117) installed on phone + WSA 2026-11-03; Quest offline (asleep, retry `adb connect`), Chromebook unreachable. GOAT batch done.
-- Merge offer cleared (PR #71, 2026-11-03). Nothing unverified on the branch; open backlog items are user-feel only. Next step: check the CI size report on the next build, else idle -> Sonnet 5.5 (medium)
+- Merge offer cleared (PR #71, 2026-11-03). **User 2026-11-04: audit the app for waste and performance.** CI size report now delta-only (budgets dropped); r516 = 101.44 MB (r506 91.81): orca_jni +9.5 MB, mainly STEP import c92e16a (+6.38). Do: 1) check whether the STEP reader links more OCCT than needed; 2) lintRelease + R8 -printusage dead code; 3) record baselines (frame timing, slice time) and a simpleperf slice profile on the phone; 4) gfxinfo jank. Recipes in PERFORMANCE.md. Next step: performance audit step 1-2 -> Opus 5.5 (high)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
