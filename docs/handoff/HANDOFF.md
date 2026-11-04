@@ -33,13 +33,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
 - Open tests in backlog.
-- **Assemble A1: code done, compiled, pushed (f3361ff), UNTESTED, no CI build yet.** `PlateRenderer.drawFloor()` (fading
-  grid via new `uFade` in GRID_FS, printer ghost lines centred under `buildFocus`); beds/plates/badges skipped while
-  `buildSolo && !showPreview`; `plateAt`/`badgeAt` null and shadow clip unbounded in Build; measure `bedAt` picks the floor.
-  Toggle `build_printer` (ViewInAr icon after the others button, ShapeBuilder.kt; `AppSettings.buildPrinter`, default on).
-  To test on WSA VD (assembleDebug, reference "WSA debug loop"): shape design + an "Edit in builder" mesh; crops of the GL
-  view: grid fades out, no bed lines/badges, ghost box centred + toggles, view from below, Preview tab still has beds,
-  exiting Build restores beds. Then dispatch a CI build + install on all devices.
+- **Assemble A1 coded + pushed (f3361ff), UNTESTED, no CI build** (details: archive end). Test on WSA VD (reference
+  "WSA debug loop"), shape design + an "Edit in builder" mesh, GL crops: grid fades, no beds/badges, printer ghost
+  centred + its ViewInAr toggle, view from below, Preview + leaving Build keep beds. Then CI build + install everywhere.
 - Rename (LOW, backlog "Waiting on the user"): glance at upstream Discussions #17269 at /next (0 replies 2026-11-04).
 - Next step: Assemble A1 WSA VD test (floor grid + printer ghost) -> Sonnet 5.5 (medium); GL fixes if it looks off -> Opus
 ## User decisions
