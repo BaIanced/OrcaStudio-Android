@@ -90,7 +90,8 @@ Record a missing baseline the first time a change touches that area (same device
       Cause (lld `--why-extract` + `orca-android-tools/wsl/whychain.py`): `Step` held `XCAFApp_Application::GetApplication()`,
       whose ctor registers the XCAF presentation driver -> AIS/V3d/HLR/fonts. Patch 0005 uses a plain `TDocStd_Application` +
       `XCAFDoc_DocumentTool::Set` (what `XCAFApp_Application::InitDocument` does). Stripped liborca_jni, -O2+ThinLTO WSL build:
-      54,326,104 -> 51,591,704 B (-2.73 MB); TKV3d/TKHLR/TKVCAF gone. UNTESTED on device (STEP import names/solids).
+      54,326,104 -> 51,591,704 B (-2.73 MB); TKV3d/TKHLR/TKVCAF gone. Device test 2026-11-04 (CI r517, run 41790741591, phone VD):
+      bear.step via VIEW intent imports as "bear.step", 1492 triangles (same as r507), no crash.
       TKDESTEP 3.5 MB is the STEP schema itself (inherent).
    c. libopenscad 12.5 MB: measured 2026-11-01, REJECTED (no real duplicates). Its .text is 9.1 MB (eh_frame 1.0, rodata 1.0);
       it NEEDs only liblog/libdl/libm/libc. Only non-template compiled code could be shared, and liborca_jni holds little of it:
