@@ -25,6 +25,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -788,7 +789,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         v.onGl { setPreview(data) }
     }
     // Follow the active plate when it changes (a new plate, a deleted one), not only on a chip tap.
-    var framedPlate by remember { mutableStateOf(-1) }
+    var framedPlate by remember { mutableIntStateOf(-1) }
     LaunchedEffect(v, state.activePlate) {
         val plate = state.activePlate
         // A view with a restored camera also brings the active plate on screen (it may have changed meanwhile).

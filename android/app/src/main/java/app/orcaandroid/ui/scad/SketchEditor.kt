@@ -40,6 +40,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -107,7 +109,7 @@ private class SketchState(initial: Sketch, initialDims: List<Dim>) {
     /** The design's sliders: a side length can follow one; changes go back to the design on Done. */
     var dims by mutableStateOf(initialDims)
     val history = ArrayDeque<Pair<Sketch, List<Dim>>>()
-    var undoCount by mutableStateOf(0)
+    var undoCount by mutableIntStateOf(0)
     var tool by mutableStateOf(Tool.SELECT)
     var pick by mutableStateOf<Pick?>(null)
     /** EQUAL / PARALLEL waiting for the second side to be tapped. */
@@ -118,7 +120,7 @@ private class SketchState(initial: Sketch, initialDims: List<Dim>) {
     var dragTo by mutableStateOf<P2?>(null)
 
     /** Screen pixels per mm and the screen position of the sketch origin. */
-    var scale by mutableStateOf(8f)
+    var scale by mutableFloatStateOf(8f)
     var origin by mutableStateOf(Offset.Zero)
     var size by mutableStateOf(Size.Zero)
 

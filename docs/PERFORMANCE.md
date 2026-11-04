@@ -2,25 +2,27 @@
 
 Goal: the most speed per byte and per line of code, done the cleanest way. Every change that claims a
 speed or size win names a metric, measures it before and after on the same device or APK, and lands
-only if the number moves. Budgets only go down (ratchet).
+only if the number moves. No size budgets (dropped 2026-11-04); the CI size report shows the delta.
+Status 2026-11-04: the audit is CLOSED (user). Every experiment below is done, rejected or shelved; nothing is queued.
 
 ## Review rule
 
 - A change made for speed or size says in its commit message: metric, device or APK, before -> after.
-- A change that grows a budgeted group past its budget says why in the commit message and raises the
-  budget in `android/size-budget.json` in the same commit. A cut lowers the budget in the same commit.
+- A change that grows an APK group by more than ~1 MB (see the CI size report delta) says why in the commit message.
 - No speculative optimisation: profile first (recipes below), fix the top item, measure again.
 - New dependencies, assets or native libraries: state their APK cost from the size report.
 
-## Metrics and budgets
+## Metrics
 
-| Metric | Tool | Budget / baseline |
+| Metric | Tool | Baseline |
 |---|---|---|
-| APK size per group (native libs, dex, vendor profiles, i18n, Python, ...) | `android/scripts/size_report.py`, CI job summary | `android/size-budget.json` (r492: 124.1 MB total) |
+| APK size per group (native libs, dex, vendor profiles, i18n, Python, ...) | `android/scripts/size_report.py`, CI job summary | CI size report delta (r506: 91.8 MB, r516: 101.4 MB after STEP import, r517: 98.83 MB, orca_jni 49.20) |
 | Compose recomposition: restartable composables that are not skippable | Compose compiler reports | 0 (2026-10-31: 242 of 242 skippable) |
-| 3D view frame timing (fps, frame gap median / p95 / max) | MCP `perf` tool (`render/FrameStats.kt`, last 240 frames) | baseline not recorded yet |
-| Cold start | `adb shell am start -W -n <pkg>/.ui.MainActivity` (TotalTime) | r493 phone, 3 runs: 222 / 149 / 159 ms (median 159; activity launch only) |
-| Slice time of a fixed model | MCP slice on the same model and profile | baseline not recorded yet |
+| 3D view frame timing (fps, frame gap median / p95 / max) | MCP `perf` tool (`render/FrameStats.kt`, last 240 frames) | r517 phone VD, plate 1 fit, 3 s orbit, 3 runs: 60.2-60.3 fps, gap median 16.5-16.6 / p95 18.8-19.0 / worst 20.3-21.5 ms, 0 gaps > 33 ms (vsync-bound); native heap 156 MB |
+| Cold start | `adb shell am start -W -n <pkg>/.ui.MainActivity` (TotalTime) | r493 phone, 3 runs: 222 / 149 / 159 ms (median 159; activity launch only); r517 phone VD: 175 / 156 / 163 (median 163) |
+| Slice time of a fixed model | MCP slice on the same model and profile | r517 phone (on AC), plate 1 (2 objects, 3,498 + 224,796 tris, A1 0.20 Standard, 7 filaments, prime tower, 541 layers): 13.3 / 13.0 s at 32.9 C battery, then 19.6 / 20.6 s at ~34.5 C: thermal throttling costs ~50%, so compare only cool runs (MAXT=320) |
+
+All three rows: `orca-android-tools/perfbase.sh [runs]` (release app, hidden VD, plate 1).
 
 Record a missing baseline the first time a change touches that area (same device, three runs, median).
 
@@ -28,7 +30,7 @@ Record a missing baseline the first time a change touches that area (same device
 
 - **APK size**: `python android/scripts/size_report.py <apk> [--baseline old.json] [--json new.json]`.
   CI runs it after every APK build: table + delta to the previous build of the branch in the job
-  summary, a `::warning::` per group over budget, `size-report.json` in the APK artifact.
+  summary, `size-report.json` in the APK artifact.
 - **Native size**: the shipped `.so` files are stripped. For the biggest symbols use the unstripped WSL
   build: `llvm-nm --size-sort -C -S ~/orca-build/core/liborca_jni.so | tail -40`; sections with
   `llvm-size -A` (r492 liborca_jni: .text 36 MB, .eh_frame 3.9 MB, .gcc_except_table 3.0 MB).
@@ -64,7 +66,13 @@ Record a missing baseline the first time a change touches that area (same device
   Phone test (debug build): first `Plugins.start` 947 ms incl. download on LAN, second 83 ms; ssl/hashlib/sqlite3/lzma/ctypes/...
   all import. Budgets: total 104.1 -> 94.6, native/python 12.0 -> 6.6, assets/python 4.5 -> 0.1 (r506 + 3%).
 
-## Experiment queue (measured potential, not done)
+- 2026-11-04 lint + R8 triage (r516 inputs): 15 unused strings removed; 16 `mutableStateOf` on Int/Long/Float -> the
+  primitive state holders (no boxing per write; matters for drag offsets in AppScaffold/PrepareOverlay, SketchEditor scale);
+  NewApi (CrashReport, guarded in `unseenCrash`) and StaticFieldLeak (ObnCredentials, application context only) were false
+  positives, suppressed with a reason. R8 `usage.txt`: the 12 app classes it drops entirely are all referenced (inlined or
+  merged), so no dead Kotlin classes; the five icon packs are stripped by R8 (build time only, no APK bytes).
+
+## Experiments (closed 2026-11-04: done, rejected or shelved)
 
 0. **Big-ticket map (2026-11-01, r502 APK 118.5 MB; native libs stored uncompressed = 78 MB).** liborca_jni symbol bytes by
    library (`orca-android-tools/wsl/nmgroups.sh`, unstripped WSL build, 39.3 MB of symbols): OCCT (STEP import) ~15 MB (10.3
@@ -81,6 +89,13 @@ Record a missing baseline the first time a change touches that area (same device
       used by rounded primitives / fillet (`OrcaExtras.cpp:174`), crease rounding (`OrcaMeshEdit.cpp:295`) and `OrcaBlend.cpp:211`.
       The STEP reader (TKDESTEP/XSBase/XCAF) is 0.01 MB: never linked, since no JNI path calls `Model::read_from_step`.
       Nothing STEP-only to split out; moving the modeling core on demand would gate everyday tools behind a download.
+      2026-11-04 after STEP import (c92e16a): OCCT 19.19 MB of symbols, incl. TKV3d 0.68, TKHLR 0.42, TKService 0.16 (viewer).
+      Cause (lld `--why-extract` + `orca-android-tools/wsl/whychain.py`): `Step` held `XCAFApp_Application::GetApplication()`,
+      whose ctor registers the XCAF presentation driver -> AIS/V3d/HLR/fonts. Patch 0005 uses a plain `TDocStd_Application` +
+      `XCAFDoc_DocumentTool::Set` (what `XCAFApp_Application::InitDocument` does). Stripped liborca_jni, -O2+ThinLTO WSL build:
+      54,326,104 -> 51,591,704 B (-2.73 MB); TKV3d/TKHLR/TKVCAF gone. Device test 2026-11-04 (CI r517, run 41790741591, phone VD):
+      bear.step via VIEW intent imports as "bear.step", 1492 triangles (same as r507), no crash.
+      TKDESTEP 3.5 MB is the STEP schema itself (inherent).
    c. libopenscad 12.5 MB: measured 2026-11-01, REJECTED (no real duplicates). Its .text is 9.1 MB (eh_frame 1.0, rodata 1.0);
       it NEEDs only liblog/libdl/libm/libc. Only non-template compiled code could be shared, and liborca_jni holds little of it:
       TBB runtime (`tbb::detail::r1`) 0.14 MB (the other 3.86 MB "tbb" is template instantiations, per lib), GMP 0.13, Clipper2 0.08,
@@ -92,10 +107,12 @@ Record a missing baseline the first time a change touches that area (same device
       first plugin install; non-Bambu vendor profiles ~14 MB on demand.
       2026-11-02 (user): size push wound down at r504 101 MB. Vendors on demand DROPPED (offline printer setup breaks, a release
       asset to keep in step every version, ~14%, no gain for Bambu users). Python on demand kept as the last cut: plugins already
-      install from Orca Cloud, so fetching the runtime then adds no new offline failure.
+      install from Orca Cloud, so fetching the runtime then adds no new offline failure. Python on demand DONE 2026-11-03 (see Done).
    e. Compressing the native libs (now stored) cuts the download ~78 -> ~35 MB but raises the installed size (APK + extracted
       copy): not worth it for a sideloaded app.
    Speed: profile a slice with simpleperf before any flag work; PGO is the one flag-level change with a typical 10-20% gain.
+   2026-11-04 (user): slice profile SHELVED: flag variants were within thermal noise and hotspots sit in unmodified upstream
+   code, so no meaningful gain expected. Scripts kept: orca-android-tools `simpleperf-slice.sh`, `wsl/spreport.sh` (untested).
 
 1. **Native link flags** for liborca_jni (48.4 MB): `-Wl,--icf=safe` measured 2026-10-31: no gain (stripped 50,754,576 vs
    50,753,744 B, relink only), rejected. 2026-11-01 local WSL builds (orca-android-tools `wsl/perfbuild.sh`, separate dirs, no ccache,

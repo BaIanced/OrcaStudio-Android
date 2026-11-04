@@ -1,5 +1,6 @@
 package app.orcaandroid.net
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.net.Uri
 import android.system.Os
@@ -14,6 +15,7 @@ import java.security.KeyStore
  * and kept only in the app's private storage (not backed up, never part of the APK). This app
  * does not ship them and gives no instructions for obtaining them.
  */
+@SuppressLint("StaticFieldLeak") // holds only the application context (attach), which lives as long as the process
 object ObnCredentials {
     const val CERT = "slicer_cert.pem"
     const val KEY = "slicer_key.pem"

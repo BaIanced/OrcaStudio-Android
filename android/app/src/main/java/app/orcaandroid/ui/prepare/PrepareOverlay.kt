@@ -80,6 +80,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -156,8 +157,8 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
     CompositionLocalProvider(LocalOverlayAlpha provides lab.overlayAlpha) {
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
     var rowSize by remember { mutableStateOf(IntSize.Zero) }
-    var dragOffsetX by remember { mutableStateOf(0f) }
-    var dragOffsetY by remember { mutableStateOf(0f) }
+    var dragOffsetX by remember { mutableFloatStateOf(0f) }
+    var dragOffsetY by remember { mutableFloatStateOf(0f) }
     val haptic = LocalHapticFeedback.current
     Box(Modifier.fillMaxSize().padding(8.dp).onSizeChanged { containerSize = it }) {
         // Measured: the top bar moves below a camera hole it can't sit beside (CutoutRow).

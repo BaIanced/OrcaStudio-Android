@@ -25,4 +25,4 @@ Details per item: grep HANDOFF-BACKLOG.md / HANDOFF-ARCHIVE.md.
 - [ ] Two-finger gestures (pan/zoom/pinch), Quest stick zoom, hover tooltips.
 
 ## Needs a printer (not now)
-- [ ] Device tab motion/fan/speed controls, paint depth print, check-mesh on a real file.
+- [ ] Device tab motion/fan/speed controls, paint depth print.

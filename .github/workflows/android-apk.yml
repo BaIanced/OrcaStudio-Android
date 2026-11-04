@@ -304,6 +304,29 @@ jobs:
           (cd dist && sha256sum ./*.apk | tee SHA256SUMS.txt)
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
+      # Size report (docs/PERFORMANCE.md): table in the job summary with the delta against the last build
+      # of this branch. Report only, never fails.
+      - name: Restore previous size report
+        uses: actions/cache/restore@v6
+        with:
+          path: size-baseline.json
+          key: apk-size-${{ github.ref_name }}-${{ github.run_id }}
+          restore-keys: |
+            apk-size-${{ github.ref_name }}-
+            apk-size-main-
+      - name: APK size report
+        run: |
+          set -euo pipefail
+          { echo "## APK size"; echo; python3 android/scripts/size_report.py dist/*.apk \
+              --json size-report.json --baseline size-baseline.json; } >> "$GITHUB_STEP_SUMMARY"
+          cp size-report.json dist/size-report.json
+          mv size-report.json size-baseline.json
+      - name: Save size report
+        uses: actions/cache/save@v6
+        with:
+          path: size-baseline.json
+          key: apk-size-${{ github.ref_name }}-${{ github.run_id }}
+
       - uses: actions/upload-artifact@v7
         with:
           name: OrcaStudio-Android-apk

@@ -13,9 +13,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 ## State
 - One repo: OrcaStudio-Android (code + these docs, `docs/handoff/`), branch `claude/handoff-continuation-rseql3`. Autonomy (user, 2026-10-11): decide branches and next steps
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
-- Android main = 806d4ff (PR #70 = r507, merged 2026-11-03; Claude-verified only). Nothing unverified on the branch. PR #70 / main privacy-scan runs fail only on history commit 7d08e77 (private LAN address, fixed at HEAD by 3bc4fdd); tracked files clean. User-untested in main: list in `NOTES-merge-batch.md`.
+- Android main = 231a178 (PR #71 = r514, GOAT batch G1-G7, merged 2026-11-03; Claude-verified only; PR #70 = r507 before it). Nothing unverified on the branch. PR #70 / main privacy-scan runs fail only on history commit 7d08e77 (private LAN address, fixed at HEAD by 3bc4fdd); tracked files clean. User-untested in main: list in `NOTES-merge-batch.md`.
 - Signing secrets: `release` environment (main + `claude/*` only).
-- Latest installed CI build: r511 (run 41757680903) on the phone (.20), WSA, Chromebook 2026-11-03; WSA up again (zygote restart 2026-11-03; release app r504); Chromebook not on adb (r496). **User 2026-11-01: avoid the SHIELD for now** (no installs there). Phone drops off adb: `adb connect <phone-ip>:5555` (memory device-ips); GL shots on the phone VD. Install builds on all adb devices (skip .23).
+- Latest installed CI build: r519 (run 41803366345) on the phone (.20) 2026-11-04; WSA was down (adb refused 58526), Chromebook not on adb (r496): install r517+ there when back. **User 2026-11-01: avoid the SHIELD for now** (no installs there). Phone drops off adb: `adb connect <phone-ip>:5555` (memory device-ips); GL shots on the phone VD. Install builds on all adb devices (skip .23).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **User 2026-10-28: no more user testing for now; Claude builds and tests everything itself (memory no-user-testing-now); don't ask for feel/UI checks.**
 - **User 2026-10-29: no tests on the user's screen; all tests on a hidden virtual display** (`TARGET=wsa orca-vd.sh start`, memory tests-on-virtual-display).
@@ -33,11 +33,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
 - Open tests in backlog.
-- 2026-11-03 (archive): STEP import, Check mesh, G2, G5 verified; Python part 2 shelved; store release parked until "GOATed". CI size step ae8d7fa waits on `gh auth refresh -s workflow`.
-- **GOAT batch (user 2026-11-03): order G2 -> G5 -> G4, then G1, G3, G6, G7. G8 (AR preview) skipped by the user 2026-11-03 (archive "G8 skipped").** Specs: backlog "GOAT batch".
-- G6 print history Claude-verified (archive "G6 print history"); r513 (G1, G3, G6) installed on phone, WSA, Quest; Chromebook unreachable (.28), still old. Open: card for web-UI hosts, thumbnail check on a Bambu send. Test gotcha: `PKG=...debug orca-vd.sh start`, else the release app (real printer) opens.
-- G7 (widget + Live Update chip; tile dropped) Claude-verified (archive "G7 status outside the app"); r514 (8f4a88c, run 41770226117) installed on phone + WSA 2026-11-03; Quest offline (asleep, retry `adb connect`), Chromebook unreachable. GOAT batch done.
-- Branch has G1, G3, G4-G7 work Claude-verified but unmerged (main = 806d4ff, r507). Next step: ask the user whether to merge the GOAT batch to main (`/next-merge`) -> Sonnet 5.5 (medium)
+- GOAT batch + perf audit: closed (archive 2026-11-04; leftovers in backlog "GOAT batch", baselines PERFORMANCE.md "Metrics"). Lint/R8 triage b8585c6: r518 (run 41795361386) installed on the phone 2026-11-04 and smoke-tested on the VD (toggles OK; archive); auto-save row + plate framing also verified (archive).
+- README rewritten 2026-11-04 (archive): audience = end user first + contributor build section; no screenshots yet (ask if wanted). Old AI-disclosure section and German line dropped; CHANGELOG header link removed. On the branch only; reaches main with the next merge.
+- r519 (type-mismatched pick replaced by Sync, toast lists it) verified by Claude on the phone VD 2026-11-04 (archive).
+- Next step: merge branch to main (README + r519 Sync fix; user must say "merge"); everything else open needs the printer or user feel checks -> Sonnet 5.5 (medium)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
@@ -71,4 +70,4 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 11. Efficiency (user, 2026-10-10): compile Kotlin locally before every push (command in the reference); batch 2-4 changes per
     build, don't dispatch builds that will be superseded; write code with Edit or python raw strings, never plain python
     heredocs (they ate backslashes 5x); write python scripts with Write, then run them.
-12. **Perf/size (user, 2026-10-31): `docs/PERFORMANCE.md`**: commit names metric before -> after; `android/size-budget.json` only goes down.
+12. **Perf/size (user, 2026-10-31): `docs/PERFORMANCE.md`**: commit names metric before -> after; the CI size report shows the APK delta (no budgets, dropped 2026-11-04).

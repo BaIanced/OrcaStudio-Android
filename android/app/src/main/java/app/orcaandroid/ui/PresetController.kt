@@ -290,17 +290,26 @@ class PresetController(private val store: Store, private val device: DeviceContr
         val serial = store.value.connection?.serial.orEmpty()
         val available = store.value.setup?.filaments.orEmpty()
         val picks = settings.trayPicks.toMutableMap()
+        val types = available.associate { it.name to it.type }
+        val replaced = mutableListOf<String>()
         val result = if (slots.size != trays.size) slots else slots.mapIndexed { i, slot ->
             val t = trays[i]
             val src = TraySource("$serial/${t.amsId}/${t.slotId}", "${t.filamentId} ${t.color}", slot.preset)
             val pick = picks[src.key]
             if (pick != null && pick.first != src.loaded) picks.remove(src.key)
-            val keep = pick?.takeIf { it.first == src.loaded && settings.preferMyFilaments && available.any { f -> f.name == it.second } }
+            var keep = pick?.takeIf { it.first == src.loaded && settings.preferMyFilaments && available.any { f -> f.name == it.second } }
+            // A pick of another material type than the tray holds would fail to slice: the sync's preset wins.
+            if (keep != null && types[slot.preset].orEmpty().isNotEmpty() && !types[keep.second].equals(types[slot.preset], true)) {
+                replaced += "${i + 1}: ${keep.second} -> ${slot.preset}"
+                picks.remove(src.key)
+                keep = null
+            }
             slot.copy(preset = keep?.second ?: slot.preset, source = src)
         }
         settings.trayPicks = picks
         updateFilaments { withColors(result) }
         store.toast(store.plural(R.plurals.sync_filaments_done, slots.size, slots.size) +
+            replaced.joinToString("") { "\n" + store.str(R.string.sync_pick_replaced, it) } +
             unknown.joinToString("") { (tray, why) -> "\n$tray: $why" })
     }
 

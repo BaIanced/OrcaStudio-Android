@@ -45,6 +45,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -284,7 +285,7 @@ private fun LayerTools(state: UiState, vm: AppViewModel, r: SliceResult) {
 private fun GcodeView(state: UiState, r: SliceResult) {
     var index by remember { mutableStateOf<LongArray?>(null) }
     var lines by remember { mutableStateOf<List<String>>(emptyList()) }
-    var current by remember { mutableStateOf(-1) }
+    var current by remember { mutableIntStateOf(-1) }
     var data by remember { mutableStateOf<PreviewData?>(null) }
     LaunchedEffect(r.gcodeFile) {
         index = withContext(Dispatchers.IO) { indexLines(r.gcodeFile) }
