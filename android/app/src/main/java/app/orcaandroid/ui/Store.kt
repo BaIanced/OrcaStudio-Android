@@ -30,6 +30,7 @@ class Store(val app: Application, val scope: CoroutineScope) {
             themeSpec = settings.themeSpec,
             doubleBackToQuit = settings.doubleBackToQuit,
             autoSlice = settings.autoSlice,
+            coachDismissed = settings.coachDismissed,
             pen = settings.pen,
             projectFilaments = settings.projectFilaments,
             allowMixedTemps = settings.allowMixedTemps,

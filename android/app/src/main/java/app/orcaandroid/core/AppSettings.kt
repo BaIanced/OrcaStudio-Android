@@ -57,6 +57,11 @@ class AppSettings(context: Context) {
         get() = prefs.getBoolean("double_back_quit", false)
         set(value) = prefs.edit().putBoolean("double_back_quit", value).apply()
 
+    /** The first-run "print in 3 taps" strip on Prepare was closed (or the first print was sent). */
+    var coachDismissed: Boolean
+        get() = prefs.getBoolean("coach_dismissed", false)
+        set(value) = prefs.edit().putBoolean("coach_dismissed", value).apply()
+
     var autoSlice: Boolean
         get() = prefs.getBoolean("auto_slice", true)
         set(value) = prefs.edit().putBoolean("auto_slice", value).apply()

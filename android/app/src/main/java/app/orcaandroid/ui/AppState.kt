@@ -181,6 +181,7 @@ data class UiState(
     val doubleBackToQuit: Boolean = false,
     /** Slice the active plate in the background once edits pause (G4). */
     val autoSlice: Boolean = true,
+    val coachDismissed: Boolean = true,
     /** The last slice's change against the plate's slice before it, while that result is current. */
     val sliceDelta: SliceDelta? = null,
     val pen: app.orcaandroid.core.PenConfig = app.orcaandroid.core.PenConfig(),

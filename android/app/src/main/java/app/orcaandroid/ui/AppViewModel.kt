@@ -115,6 +115,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     // --- App-wide UI state ---------------------------------------------------------------------------
 
+    fun dismissCoach() {
+        store.settings.coachDismissed = true
+        store.update { it.copy(coachDismissed = true) }
+    }
+
     fun setScreen(screen: Screen) = store.update { it.copy(screen = screen, tool = toolAfterScreenChange(it.screen, screen, it.tool)) }
 
     /** Shows [url] in the Models tab's browser. */

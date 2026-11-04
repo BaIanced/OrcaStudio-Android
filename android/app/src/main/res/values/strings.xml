@@ -248,6 +248,12 @@
     <string name="filament_look_auto">Automatic (%1$s)</string>
     <string name="empty">(empty)</string>
     <string name="end_calibration">End</string>
+    <string name="coach_add">Print in 3 taps: 1. add a model</string>
+    <string name="coach_add_button">Add sample</string>
+    <string name="coach_slice">2. Tap Slice</string>
+    <string name="coach_send">3. Send it to the printer</string>
+    <string name="coach_send_button">Open Device</string>
+    <string name="coach_close">Close tips</string>
     <string name="enforce">Enforce</string>
     <string name="erase">Erase</string>
     <string name="error">Error</string>

@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material.icons.filled.BorderOuter
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Reorder
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PriorityHigh
 import kotlinx.coroutines.launch
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -109,6 +110,7 @@ import kotlin.math.roundToInt
 import app.orcaandroid.R
 import app.orcaandroid.core.AlignKind
 import app.orcaandroid.core.PlateSwitcher
+import app.orcaandroid.ui.Screen
 import androidx.compose.material.icons.filled.AlignHorizontalCenter
 import androidx.compose.material.icons.filled.AlignHorizontalLeft
 import androidx.compose.material.icons.filled.AlignHorizontalRight
@@ -173,6 +175,7 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
                 }
             }
             if (state.showSelectionBanner) SelectionBanner(state, vm)
+            if (!state.coachDismissed && state.calibration == null && state.scad == null) CoachStrip(state, vm)
         }
         if (column) {
             // Below the top bar (and the banners): the column scrolls instead of covering the plate selector.
@@ -264,6 +267,27 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
         }
         ViewContextMenu(state, vm)
     }
+    }
+}
+
+/** First run: the next of the three taps to a print (add a model, Slice, send), with a button for it; closes for good with x. */
+@Composable
+private fun CoachStrip(state: UiState, vm: AppViewModel) {
+    val step = when {
+        state.scene.isEmpty -> 1
+        state.results.isEmpty() -> 2
+        else -> 3
+    }
+    Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
+        Row(Modifier.padding(start = 12.dp, top = 2.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(when (step) { 1 -> R.string.coach_add; 2 -> R.string.coach_slice; else -> R.string.coach_send }),
+                Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodySmall)
+            when (step) {
+                1 -> androidx.compose.material3.TextButton(onClick = { vm.scene.addPrimitive("cube", app.orcaandroid.core.Vec3(25f, 25f, 25f)) }) { Text(stringResource(R.string.coach_add_button)) }
+                3 -> androidx.compose.material3.TextButton(onClick = { vm.setScreen(Screen.DEVICE) }) { Text(stringResource(R.string.coach_send_button)) }
+            }
+            androidx.compose.material3.IconButton(onClick = vm::dismissCoach) { Icon(Icons.Default.Close, stringResource(R.string.coach_close)) }
+        }
     }
 }
 
