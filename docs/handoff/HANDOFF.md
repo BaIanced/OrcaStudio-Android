@@ -41,7 +41,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   printer ghost = the bed outline + printable-height box (bedVbo lines lifted + verticals) at the copy, behind a toggle
   next to the `buildOthers` cycle button (AppViewModel.kt:233; persist in settings like `snapBuild`). Test on WSA VD
   (shape design + an "Edit in builder" mesh), crops of the GL view.
-- Rename / new repo (LOW, NOT locked; backlog "Waiting on the user"): user leans OrcaMesh; glance at Discussions #17269 at /next (0 replies 2026-11-04); no repo work until the user picks.
+- Rename (LOW, backlog "Waiting on the user"): glance at upstream Discussions #17269 at /next (0 replies 2026-11-04).
 - Next step: Assemble A1 (Build without beds: floor grid + printer ghost toggle) -> Opus 5.5 (high)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
