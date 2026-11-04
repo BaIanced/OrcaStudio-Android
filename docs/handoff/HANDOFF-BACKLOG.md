@@ -38,7 +38,7 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - [Opus] Build workspace: all steps Claude-verified WSA 2026-10-29 (archive); open: user feel.
 
 ## GOAT batch (user 2026-11-03: do G2 -> G5 -> G4 first, then the rest; all not started)
-- G4 [Opus] auto-slice + Preview: done on r509; open: delta text is tiny at the lab slice scale (check readability); Claude-verified only.
+- G4 [Opus] auto-slice + Preview: done on r509; open: delta text is labelSmall (11 sp, PrepareOverlay.kt:816), small only when the lab scales the FAB down; no change made (Claude, code check 2026-11-03); Claude-verified only.
 - G1 coach strip, G3 shortcuts: Claude-verified WSA VD + installed r513/r514 (archive 2026-11-03); open: user look/feel only.
 - G6 Print history + reprint: local log per send (thumbnail, presets, time, grams, cost), one-tap reprint, feeds "Log print". End-of-print status needs the printer.
 - G7 Status outside the app: home-screen widget + Android 16 Live Update chip (user 2026-11-03: build both, Quick Settings tile DROPPED as not useful; targetSdk 36). Real test needs the printer; mocked status otherwise.
@@ -79,7 +79,6 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - [Opus] AI print failure watch (user 2026-10-30): local Obico-style camera detector, pause + notify; parked behind the UX audit. Open: ask the user for the camera model (archive 2026-10-31).
 
 - Bulk filament edit (53578ad): long press verified by Claude on phone VD 2026-10-31 (archive); only Shift/Ctrl+click (mouse, Chromebook) and user feel untested. In r496+.
-- [Opus] Perf experiments queue: docs/PERFORMANCE.md; CI size step ae8d7fa on local/ci-size-step, push needs workflow scope (Claude 2026-10-31).
+- [Opus] Perf experiments queue: docs/PERFORMANCE.md; CI size step now on the work branch (ea147da, pushed 2026-11-03; first run shows the report) (Claude 2026-10-31).
 - [Opus] AI print failure watch (user 2026-10-30): local detector on the printer camera; open: ask the user for the camera model (archive 2026-10-31).
 - [Opus] Filament mixer redesign (0c791b3, CI 41371910606): 2- and 3-part looks checked by Claude on WSA VD 2026-11-01; user has not seen it. Vendor logo dropped (trademark).
-- [Opus] Python on demand part 2: drop libpython3.12.so (6.7 MB) from the APK (SONAME patch + stub + restart after first fetch); user 2026-11-03: do it (in progress, see HANDOFF Next task).

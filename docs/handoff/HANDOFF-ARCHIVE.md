@@ -4017,3 +4017,6 @@ Python on demand part 2: do it. Ad block default and Prusa/Printables theme name
 
 ## 2026-11-03 G8 skipped
 - User 2026-11-03 (r514): "skip g8." AR "on your desk" preview (ARCore) dropped: not built, not planned. GOAT batch otherwise complete (G1-G7 Claude-verified).
+
+## 2026-11-03 Python on demand part 2 shelved
+- User 2026-11-03: "python on demand is shelved, not worth doing it to save 6 mb." Dropping libpython3.12.so from the APK is not planned. CI size step ae8d7fa cherry-picked as ea147da after the user ran gh auth refresh -s workflow.

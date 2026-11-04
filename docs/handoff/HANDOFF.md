@@ -33,11 +33,11 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
 - Open tests in backlog.
-- 2026-11-03 (archive): STEP import, Check mesh, G2, G5 verified; Python part 2 shelved; store release parked until "GOATed". CI size step ae8d7fa waits on `gh auth refresh -s workflow`.
+- 2026-11-03 (archive): STEP import, Check mesh, G2, G5 verified; Python part 2 shelved (user 2026-11-03, archive); store release parked until "GOATed". CI size step ea147da pushed (workflow scope granted).
 - **GOAT batch (user 2026-11-03): order G2 -> G5 -> G4, then G1, G3, G6, G7. G8 (AR preview) skipped by the user 2026-11-03 (archive "G8 skipped").** Specs: backlog "GOAT batch".
 - G6 print history Claude-verified (archive "G6 print history"); r513 (G1, G3, G6) installed on phone, WSA, Quest; Chromebook unreachable (.28), still old. Open: card for web-UI hosts, thumbnail check on a Bambu send. Test gotcha: `PKG=...debug orca-vd.sh start`, else the release app (real printer) opens.
 - G7 (widget + Live Update chip; tile dropped) Claude-verified (archive "G7 status outside the app"); r514 (8f4a88c, run 41770226117) installed on phone + WSA 2026-11-03; Quest offline (asleep, retry `adb connect`), Chromebook unreachable. GOAT batch done.
-- Merge offer cleared (PR #71, 2026-11-03). Nothing unverified on the branch; no open task besides backlog items. Next step: pick an open backlog item (grep "[Opus]" and open tests) -> Sonnet 5.5 (medium)
+- Merge offer cleared (PR #71, 2026-11-03). Nothing unverified on the branch; open backlog items are user-feel only. Next step: check the CI size report on the next build, else idle -> Sonnet 5.5 (medium)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
