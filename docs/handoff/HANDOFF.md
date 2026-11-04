@@ -34,13 +34,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
 - Open tests in backlog.
 - GOAT batch, perf audit, lint/R8 triage, README rewrite, r519 Sync pick: all closed (archive 2026-11-04; leftovers in backlog).
-- **User task 2026-11-04 (multi-plate Preview, built 2026-11-04, local compile OK, UNTESTED on a device, not in CI):** Preview now draws every sliced plate whole
-  (`PlateRenderer.setPreviewExtras` / `PreviewExtra` / `ExtraSlot`, Viewport.kt `extraCache` effect; layer sliders drive the selected plate only);
-  a plate chip on an unsliced plate with objects slices it (`SliceController.pickPreviewPlate`). To check: 2+ plates with objects, slice plate 1, tap chip 2 (slices, both
-  show side by side), chip 3; scheme change recolours all; re-slice replaces one; no leak (extras freed). Test on the phone VD (debug build or CI) since WSA is down.
+- Multi-plate Preview (user task 2026-11-04, 027400c, pushed): Claude-verified on the phone VD with a local debug build (archive 2026-11-04); not in a CI build yet, not in main.
 - User's bigger vision (same day, exploration, NOT locked; backlog "Ideas: Assemble space / big plate"): zero-g Assemble space (no plate, CAD tools + measuring, first VR step),
   big/infinite plate or 4x4 plates, on exit auto-orient + "too big" fix = suggested cut for gluing. Reply with leanings, ask before building.
-- Next step: verify multi-plate Preview on a device (build + install + VD check), then commit/push -> Sonnet 5.5 (medium)
+- Next step: dispatch a CI build of the branch head and install it on the phone + Chromebook (WSA when back); then offer the main merge (multi-plate Preview is Claude-verified only) -> Sonnet 5.5 (low)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
