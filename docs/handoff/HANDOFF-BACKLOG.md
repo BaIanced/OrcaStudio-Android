@@ -10,7 +10,7 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 
 ## Open bugs
 - Mouse right-click (user 2026-10-28): `lateButton` fallback in r463+ (WSA no-regression only). Open: which device the user used; check there when they say.
-- Paint shop friction (user 2026-10-28): fixed in r463+ (archive). Open: Sync swatch needs a Bambu connection (untested, Claude).
+- Paint shop friction (user 2026-10-28): fixed in r463+ (archive). Sync swatch: Device-tab Sync button verified with a connected printer on r519 (archive 2026-11-04); the ToolPanel swatch itself still untested.
 - [Opus] Muse Task 12 JNI audit: 8 needs a printer connect, 5 not exercised, 6 needs 2+ printers (Claude, r392-r395, 2026-10-24); rest fixed or no change.
 
 ## Untested (needs the user or a special setup)

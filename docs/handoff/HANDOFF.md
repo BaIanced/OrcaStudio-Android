@@ -15,7 +15,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 231a178 (PR #71 = r514, GOAT batch G1-G7, merged 2026-11-03; Claude-verified only; PR #70 = r507 before it). Nothing unverified on the branch. PR #70 / main privacy-scan runs fail only on history commit 7d08e77 (private LAN address, fixed at HEAD by 3bc4fdd); tracked files clean. User-untested in main: list in `NOTES-merge-batch.md`.
 - Signing secrets: `release` environment (main + `claude/*` only).
-- Latest installed CI build: r518 (run 41795361386) on the phone (.20) 2026-11-04; WSA was down (adb refused 58526), Chromebook not on adb (r496): install r517+ there when back. **User 2026-11-01: avoid the SHIELD for now** (no installs there). Phone drops off adb: `adb connect <phone-ip>:5555` (memory device-ips); GL shots on the phone VD. Install builds on all adb devices (skip .23).
+- Latest installed CI build: r519 (run 41803366345) on the phone (.20) 2026-11-04; WSA was down (adb refused 58526), Chromebook not on adb (r496): install r517+ there when back. **User 2026-11-01: avoid the SHIELD for now** (no installs there). Phone drops off adb: `adb connect <phone-ip>:5555` (memory device-ips); GL shots on the phone VD. Install builds on all adb devices (skip .23).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **User 2026-10-28: no more user testing for now; Claude builds and tests everything itself (memory no-user-testing-now); don't ask for feel/UI checks.**
 - **User 2026-10-29: no tests on the user's screen; all tests on a hidden virtual display** (`TARGET=wsa orca-vd.sh start`, memory tests-on-virtual-display).
@@ -34,7 +34,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
 - Open tests in backlog.
 - GOAT batch + perf audit: closed (archive 2026-11-04; leftovers in backlog "GOAT batch", baselines PERFORMANCE.md "Metrics"). Lint/R8 triage b8585c6: r518 (run 41795361386) installed on the phone 2026-11-04 and smoke-tested on the VD (toggles OK; archive); auto-save row + plate framing also verified (archive).
-- Next step: check r519 (sync replaces a type-mismatched pick; toast lists it) on the phone VD -> Sonnet 5.5 (medium)
+- **README rewrite (user 2026-11-04, goes first):** the current README is mostly a copy of the original small Android fork (~12k lines vs our 50k+). Rewrite it to describe what this app is NOW: OrcaSlicer as the engine (credited first, AGPL-3.0, source link), features from verified archive items (label unverified), install, build (CI + `android/patches/src-orca` model), short architecture, generic printer/safety notes (no IPs/serials/codes), then a short "Origins and credits" (original Android fork: read the old README + LICENSE/NOTICE/first commits for its name and license; then OrcaSlicer's own upstream). Long docs go in `docs/`; wiki only if user asks (separate repo, run privacy scan by hand). Draft with Sonnet from grep-verified facts; no AI attribution, no German mentions, no FilamentHub. Ask user: end-user or contributor audience; screenshots on the VD?
+- r519 (type-mismatched pick replaced by Sync, toast lists it) verified by Claude on the phone VD 2026-11-04 (archive).
+- Next step: README rewrite -> Sonnet 5.5 (medium)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
