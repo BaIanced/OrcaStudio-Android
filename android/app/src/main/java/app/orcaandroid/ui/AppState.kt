@@ -314,6 +314,8 @@ data class UiState(
     val results: Map<Int, SliceResult> = emptyMap(),
     /** Why the last slice failed (plate, message), shown on the 3D view (Notices); cleared by the next slice. */
     val sliceError: Pair<Int, String>? = null,
+    /** A copy that doesn't fit the printer (checked on leaving the builder and on a slice with nothing inside), shown in Notices. */
+    val fitIssue: app.orcaandroid.core.FitIssue? = null,
     val previewPlate: Int = 0,
     /** An opened external G-code file (preview only). */
     val external: SliceResult? = null,

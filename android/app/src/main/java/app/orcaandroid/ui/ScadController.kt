@@ -867,7 +867,10 @@ class ScadController(private val store: Store) {
         val o = obj ?: -1
         if (o == buildShown) return
         val opened = buildShown < 0
+        val left = buildShown
         buildShown = o
+        // Leaving the builder: does the design fit the printer in its print pose? (Notices offers a fix.)
+        if (o < 0) store.checkFit(left)
         store.launch { store.applyScene(engine.setBuildObject(o), dirty = false) }
         if (o >= 0 && opened && ScadDesign.of(store.value.scene.objects.getOrNull(o))?.shapes != st?.shapes) pushBuild()
         if (o < 0 && st?.shapes != null && !store.value.scadOnPlate) preview()

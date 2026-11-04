@@ -120,6 +120,14 @@ class Engine(private val cacheDir: File) {
     suspend fun arrange(plate: Int) = parseScene(call("arrange", args("plate" to plate)))
     suspend fun layOnFace(obj: Int, instance: Int, normal: Vec3) = parseScene(call("layOnFace", args("object" to obj, "instance" to instance, "normal" to normal)))
     suspend fun autoOrient(obj: Int) = parseScene(call("autoOrient", args("object" to obj)))
+    /** The copies of [obj] (-1: all objects) that don't fit the printer as posed, each with the fix found or none. */
+    suspend fun fitCheck(obj: Int = -1): List<FitIssue> = call("fitCheck", args("object" to obj)).getJSONArray("issues").map {
+        val o = it as JSONObject
+        fun floats(k: String) = o.getJSONArray(k).let { a -> List(a.length()) { i -> a.getDouble(i).toFloat() } }
+        FitIssue(o.getInt("object"), o.getInt("instance"), o.optString("name"), floats("size"), floats("bed"),
+            if (o.isNull("fix")) null else o.getString("fix"))
+    }
+    suspend fun fitToPrinter(obj: Int) = parseScene(call("fitToPrinter", args("object" to obj)))
     suspend fun split(obj: Int, toParts: Boolean) = parseScene(call("split", args("object" to obj, "toParts" to toParts)))
     suspend fun assemble(items: List<Pair<Int, Int>>) = parseScene(call("assemble", args("items" to items.map { listOf(it.first, it.second) })))
     suspend fun meshBoolean(obj: Int, src: Int, tool: Int, op: String, keepTool: Boolean) =

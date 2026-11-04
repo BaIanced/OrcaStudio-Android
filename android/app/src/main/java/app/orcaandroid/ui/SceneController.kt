@@ -4,6 +4,7 @@ import android.net.Uri
 import app.orcaandroid.R
 import app.orcaandroid.core.AlignKind
 import app.orcaandroid.core.AlignMath
+import app.orcaandroid.core.FitIssue
 import app.orcaandroid.core.Footprint
 import app.orcaandroid.core.Instance
 import app.orcaandroid.core.LayerGcode
@@ -30,6 +31,12 @@ const val SNAP_PX = 14f
 const val SNAP_RELEASE = 1.6f
 const val SCULPT_MIN_MM = 0.5f
 const val SCULPT_MAX_MM = 30f
+
+/** Printer fit check (Assemble A2): the first copy of [obj] (-1: all objects) that doesn't fit, shown on the 3D view (Notices). */
+fun Store.checkFit(obj: Int = -1) = launch {
+    val issue = runCatching { engine.fitCheck(obj) }.getOrNull()?.firstOrNull()
+    update { it.copy(fitIssue = issue) }
+}
 
 class SceneController(private val store: Store, private val presets: PresetController) {
     private val engine = store.engine
@@ -220,6 +227,13 @@ class SceneController(private val store: Store, private val presets: PresetContr
     }
     fun arrange(allPlates: Boolean) = store.sceneOp(store.str(R.string.arranging)) { engine.arrange(if (allPlates) -1 else activePlate) }
     fun autoOrient() = store.sceneOp(store.str(R.string.orienting)) { engine.autoOrient(selection?.obj ?: -1) }
+
+    /** Applies the fit the notice offered; the object list changed since: checks again instead. */
+    fun fitToPrinter(issue: FitIssue) {
+        store.update { it.copy(fitIssue = null) }
+        if (store.value.scene.objects.getOrNull(issue.obj)?.name != issue.name) { store.checkFit(); return }
+        store.sceneOp(store.str(R.string.orienting)) { engine.fitToPrinter(issue.obj) }
+    }
 
     fun split(toParts: Boolean) = selection?.let { sel ->
         store.update { it.copy(selection = if (toParts) sel else null) }

@@ -7,6 +7,8 @@ import app.orcaandroid.ui.Screen
 sealed interface NoticeFix {
     data class Option(val type: PresetType, val key: String) : NoticeFix
     data class Go(val screen: Screen) : NoticeFix
+    /** Turns or lays the object so it fits the printer ([app.orcaandroid.core.FitIssue]). */
+    data class Fit(val issue: app.orcaandroid.core.FitIssue) : NoticeFix
 }
 
 /** Curated fix for a slicer message (matched on the untranslated text), null when there is no obvious one. */

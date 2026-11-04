@@ -332,6 +332,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun dismissError() = store.update { it.copy(error = null) }
     fun dismissSliceError() = store.update { it.copy(sliceError = null) }
+    fun dismissFit() = store.update { it.copy(fitIssue = null) }
     fun dismissMessage() = store.update { it.copy(message = null, messageAction = null) }
     fun setScadHidden(hidden: Boolean) = store.update { it.copy(scadHidden = hidden) }
     fun setScadOnPlate(onPlate: Boolean) = store.update { it.copy(scadOnPlate = onPlate) }

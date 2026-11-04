@@ -261,6 +261,12 @@
     <string name="notice_show">Show messages</string>
     <string name="notice_fix">Fix</string>
     <string name="notice_open_printer">Open printer</string>
+    <string name="fit_title">Doesn\'t fit the printer</string>
+    <string name="fit_size">%1$s is %2$s mm; the printer takes %3$s mm.</string>
+    <string name="fit_turn">Turning it on the bed makes it fit.</string>
+    <string name="fit_orient">Auto-orient finds a pose that fits.</string>
+    <string name="fit_lay">Laying it on another side makes it fit.</string>
+    <string name="fit_none">No turn or lay fits: scale it down or cut it into parts.</string>
     <string name="danger_title">Risky setting</string>
     <string name="danger_nozzle_temp">Nozzle temperatures above 300 °C can damage the hotend (PTFE parts, thermistor) on most printers.</string>
     <string name="danger_bed_temp">Bed temperatures above 110 °C can exceed what the bed and its surface are made for.</string>

@@ -62,6 +62,18 @@ fun Notices(state: UiState, vm: AppViewModel, modifier: Modifier = Modifier) {
             add(Notice("slice:$plate:$message", stringResource(R.string.notice_slice_failed, plate + 1),
                 listOf(Line(engineErrorText(message, vm.translator), true, noticeFix(message)))))
         }
+        state.fitIssue?.let { f ->
+            fun mm(v: List<Float>) = v.joinToString(" x ") { kotlin.math.round(it).toInt().toString() }
+            val hint = when (f.fix) {
+                "turn" -> R.string.fit_turn
+                "orient" -> R.string.fit_orient
+                "lay" -> R.string.fit_lay
+                else -> R.string.fit_none
+            }
+            add(Notice("fit:${f.obj}:${f.instance}:${f.size}", stringResource(R.string.fit_title), listOf(
+                Line(stringResource(R.string.fit_size, f.name, mm(f.size), mm(f.bed)), true),
+                Line(stringResource(hint), false, if (f.fix != null) NoticeFix.Fit(f) else null))))
+        }
         val result = state.shownResult
         if (state.screen == Screen.PREVIEW && result != null && result.warnings.isNotEmpty()) {
             add(Notice("warn:${state.previewPlate}:${result.gcodeFile}:${result.warnings.hashCode()}", stringResource(R.string.notice_slicer_warnings),
@@ -106,6 +118,7 @@ fun Notices(state: UiState, vm: AppViewModel, modifier: Modifier = Modifier) {
             Tip(stringResource(R.string.close)) { IconButton(onClick = {
                 closed = closed + open.map { it.key }
                 if (open.any { it.key.startsWith("slice:") }) vm.dismissSliceError()
+                if (open.any { it.key.startsWith("fit:") }) vm.dismissFit()
             }) { Icon(Icons.Default.Close, stringResource(R.string.close)) } }
         }
     }
@@ -118,6 +131,7 @@ private fun FixLink(fix: NoticeFix, vm: AppViewModel, label: Int) {
         when (fix) {
             is NoticeFix.Option -> vm.presets.openEditor(EditorTarget.Preset(fix.type, focus = fix.key))
             is NoticeFix.Go -> vm.setScreen(fix.screen)
+            is NoticeFix.Fit -> vm.scene.fitToPrinter(fix.issue)
         }
     }, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 0.dp)) {
         Text(stringResource(label), fontWeight = FontWeight.Bold)

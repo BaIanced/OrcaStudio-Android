@@ -172,6 +172,11 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         Tool("object_auto_orient", "Plate edit: turns every copy of an object (or of all objects, object omitted) the way " +
             "OrcaSlicer's auto orient finds best for printing (less support, flat on the bed). $PLATE_EDIT",
             obj(emptyList(), "object" to p("integer", "Object number from plate_describe; omitted = all"))) { autoOrient(it) },
+        Tool("object_fit_check", "Read-only printer fit check: lists the copies that don't fit the printer's bed and printable height " +
+            "as posed, with their size and the fix found (turn about Z, auto orient, lay on another side) or none (too big). With fix=true " +
+            "applies that fix to the object (a plate edit) and shows nothing else.",
+            obj(emptyList(), "object" to p("integer", "Object number from plate_describe; omitted = all"),
+                "fix" to p("boolean", "Apply the fix to the object (needs object)"))) { fitCheck(it) },
         Tool("object_check_mesh", "Read-only mesh report of one copy, per part: faces, shells, volume, open edges, zero-area faces, sharp edges (folded back over 160 degrees) and faces " +
             "whose wall is thinner than thickness mm (default 0.4). Nothing changes.",
             obj(listOf("object"), *COPY, "thickness" to p("number", "Thin-wall limit in mm, 0..5; 0 skips the check; default 0.4"))) { checkMesh(it) },
@@ -902,6 +907,18 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         val normal = args.vec3("normal") ?: throw ToolError("normal must be 3 numbers")
         if (normal.x == 0.0 && normal.y == 0.0 && normal.z == 0.0) throw ToolError("normal must not be [0, 0, 0]")
         return plateEdit("laid object ${o + 1} copy ${inst.index + 1} on a face") { store.engine.layOnFace(o, inst.index, normal.f()) }
+    }
+
+    private suspend fun fitCheck(args: JSONObject): String {
+        val o = if (args.has("object")) copyOf(args).first else -1
+        if (args.optBoolean("fix")) {
+            if (o < 0) throw ToolError("fix needs an object")
+            return plateEdit("fitted object ${o + 1} to the printer", R.string.orienting) { store.engine.fitToPrinter(o) }
+        }
+        val issues = store.engine.fitCheck(o)
+        if (issues.isEmpty()) return "Everything fits the printer."
+        fun mm(v: List<Float>) = v.joinToString(" x ") { "%.1f".format(it) }
+        return issues.joinToString("\n") { "Object ${it.obj + 1} copy ${it.instance + 1} (${it.name}): ${mm(it.size)} mm, printer ${mm(it.bed)} mm, fix: ${it.fix ?: "none"}" }
     }
 
     private suspend fun autoOrient(args: JSONObject): String {
