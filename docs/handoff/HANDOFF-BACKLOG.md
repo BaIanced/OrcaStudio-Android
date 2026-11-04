@@ -38,8 +38,7 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - [Opus] Build workspace: all steps Claude-verified WSA 2026-10-29 (archive); open: user feel.
 
 ## GOAT batch (user 2026-11-03: do G2 -> G5 -> G4 first, then the rest; all not started)
-- G2 Friendly errors + Recent files: P1/P2/P3 were already in (stale entry dropped + toast, file_unreadable, key shown as "Setting: ..."). Added (compiles, untested on device, Claude 2026-11-03): Recent row shows folder/provider line + long press "Remove from Recent files" (MoreScreen RecentRow/recentPlace, FileController.removeRecent); Store.launch maps errors containing content:// / ENOENT / EACCES / "open failed" to file_unreadable. Test: phone VD, More > Recent files (place line, long-press remove).
-- G5 Print doctor: pick a symptom (stringing, warping, elephant foot, layer shift, bridges, ...) -> exact setting changes on the current presets, one-tap apply, link to the matching built-in calibration test. Offline, rule-based.
+- G5 Print doctor: built 28bfdf7 (More > Print doctor; 9 symptoms, rules in ui/settings/PrintDoctor.kt, JVM-tested, compiles, UNTESTED on device, Claude 2026-11-03). Test on phone VD: pick symptom, current -> new values shown, Apply makes unsaved edits, calibration link opens the matching test. Open: filament vector values ("200,200") hide a fix; check real values on a Bambu preset.
 - G4 [Opus] Background auto-slice on idle after plate/setting changes (cancel + restart safely), Preview always ready; "+12 min / -3 g" delta badge on setting edits.
 - G1 First-run "print in 3 taps": printer pick -> sample model -> slice -> send, dismissible coach strip (no onboarding code exists).
 - G3 Launcher shortcuts: Open last project, Import from Downloads, Slice last plate (ShortcutManager; none exist).

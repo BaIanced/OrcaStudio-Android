@@ -3969,3 +3969,6 @@ Python on demand part 2: do it. Ad block default and Prusa/Printables theme name
 ## 2026-11-03 Check mesh on real files (Claude, phone VD, release r507, MCP object_check_mesh)
 - ClaudeSelfPortrait.stl (96254 faces, 76 shells): 13078 self-intersections, 2 sharp edges, 4385 thin-wall faces, returned within the call timeout. bear.step (1492 faces): clean. Multi-object plate (lattice, 51 shells): 24 open edges, 4955 crossings, 241 sharp edges, thin walls; per-part report lines correct. Marker readability (3D look) not checked: user feel only. VD stopped, app force-stopped.
 - Note: the VIEW intent for Tube.stl was ignored while the app was already running (no new object); mcpao.sh printed a JSON error here (token step), direct curl with the token worked.
+
+## 2026-11-03: G2 Friendly errors + Recent files verified (Claude, phone VD, debug build of 35516fe)
+- More > Recent files: folder/provider line shows per row (Media picker, Download, Download Manager); long press > "Remove from Recent files" removed the last row and the list backfilled with the next older entry. Store.launch error mapping to file_unreadable compiled, not triggered on device.
