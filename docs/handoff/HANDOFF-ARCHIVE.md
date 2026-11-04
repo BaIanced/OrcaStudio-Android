@@ -4002,3 +4002,6 @@ Python on demand part 2: do it. Ad block default and Prusa/Printables theme name
 ## 2026-11-03: G1 first-run coach strip tested by Claude (WSA VD, debug build)
 - Fresh prefs + empty plate: strip "Print in 3 taps: 1. Add a model" with "Add sample"; tap adds the 25 mm cube, auto-slice then moves it to "3. Send it to the printer" (Open Device). With a model on the plate it shows "2. Tap Slice". x sets `coach_dismissed=true`, strip gone. Not tested: persistence across restart beyond the pref value, first send dismissal.
 - Gotcha: WSA VD is 720x1280; a 350-px vdgrab shot scales x2.057 to tap coords. Git Bash mangles `/data/...` adb paths: use `MSYS_NO_PATHCONV=1` and push script files from the cwd, not /tmp.
+
+## 2026-11-03 G3 launcher shortcuts (c067fb1), verified by Claude on the WSA VD (debug build)
+- `dumpsys shortcut` lists the 3 dynamic shortcuts (slice_plate, import_downloads, open_last_project). IMPORT_DOWNLOADS opens the system picker on Download; SLICE starts a slice (failed only on the copied test plate's prime tower); OPEN_LAST_PROJECT with a project recent loaded it (Objects 1 -> 5). Note: `am start --display N` needs the current VD id (new id after each `orca-vd.sh start`). Debug app uninstalled, VD stopped.
