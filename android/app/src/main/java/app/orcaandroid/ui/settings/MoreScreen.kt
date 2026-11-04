@@ -221,6 +221,8 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
 
             Section(stringResource(R.string.misc)) {
                 SwitchRow(stringResource(R.string.double_back_quit), state.doubleBackToQuit, onChange = vm::setDoubleBackToQuit)
+                SwitchRow(stringResource(R.string.auto_slice), state.autoSlice, onChange = vm::setAutoSlice)
+                Text(stringResource(R.string.auto_slice_text), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(stringResource(R.string.project_filaments), style = MaterialTheme.typography.titleSmall)
                 SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                     listOf("ask" to R.string.pf_ask, "mine" to R.string.pf_mine, "project" to R.string.pf_project, "both" to R.string.pf_both).forEachIndexed { i, (mode, label) ->

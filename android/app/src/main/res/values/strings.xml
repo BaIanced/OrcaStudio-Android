@@ -180,6 +180,8 @@
     <string name="auto_save">Auto-save the plate</string>
     <string name="auto_save_interval">Auto-save every (seconds, 10-3600)</string>
     <string name="double_back_quit">Press Back twice to quit (instead of asking)</string>
+    <string name="auto_slice">Slice in the background</string>
+    <string name="auto_slice_text">Slices the current plate a moment after each change, so Preview is ready at once and shows how a setting changed the print time and filament. Any edit stops it; off in Battery Saver.</string>
     <string name="ai_tools">AI tools (MCP)</string>
     <string name="ai_tools_switch">Let AI clients read and edit shape designs, the plate and print settings</string>
     <string name="ai_tools_text">Local only, while the app runs: http://127.0.0.1:%1$d/mcp. From a PC over USB (or WSA): adb forward tcp:%1$d localabstract:orcastudio_mcp. Each edit is one undo step.</string>
@@ -580,6 +582,9 @@
     <string name="slice_all">Slice all plates</string>
     <string name="slice_plate">Slice plate</string>
     <string name="slice_plate_n">Slice plate %d</string>
+    <string name="preview_plate">Preview</string>
+    <string name="preview_plate_n">Preview plate %d</string>
+    <string name="auto_slicing">Slicing in the background…</string>
     <string name="nothing_to_slice">Nothing to slice: add a model to this plate first.</string>
     <string name="slicing">Slicing</string>
     <string name="smooth">Smooth</string>

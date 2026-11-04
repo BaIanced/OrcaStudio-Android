@@ -57,6 +57,10 @@ class AppSettings(context: Context) {
         get() = prefs.getBoolean("double_back_quit", false)
         set(value) = prefs.edit().putBoolean("double_back_quit", value).apply()
 
+    var autoSlice: Boolean
+        get() = prefs.getBoolean("auto_slice", true)
+        set(value) = prefs.edit().putBoolean("auto_slice", value).apply()
+
     /** Filaments of an opened project: "ask" (default), "project" (use its filaments) or "mine" (keep the app's). */
     var projectFilaments: String
         get() = prefs.getString("project_filaments", "ask") ?: "ask"
