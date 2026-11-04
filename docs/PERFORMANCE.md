@@ -2,7 +2,8 @@
 
 Goal: the most speed per byte and per line of code, done the cleanest way. Every change that claims a
 speed or size win names a metric, measures it before and after on the same device or APK, and lands
-only if the number moves. Budgets only go down (ratchet).
+only if the number moves. No size budgets (dropped 2026-11-04); the CI size report shows the delta.
+Status 2026-11-04: the audit is CLOSED (user). Every experiment below is done, rejected or shelved; nothing is queued.
 
 ## Review rule
 
@@ -71,7 +72,7 @@ Record a missing baseline the first time a change touches that area (same device
   positives, suppressed with a reason. R8 `usage.txt`: the 12 app classes it drops entirely are all referenced (inlined or
   merged), so no dead Kotlin classes; the five icon packs are stripped by R8 (build time only, no APK bytes).
 
-## Experiment queue (measured potential, not done)
+## Experiments (closed 2026-11-04: done, rejected or shelved)
 
 0. **Big-ticket map (2026-11-01, r502 APK 118.5 MB; native libs stored uncompressed = 78 MB).** liborca_jni symbol bytes by
    library (`orca-android-tools/wsl/nmgroups.sh`, unstripped WSL build, 39.3 MB of symbols): OCCT (STEP import) ~15 MB (10.3
@@ -106,7 +107,7 @@ Record a missing baseline the first time a change touches that area (same device
       first plugin install; non-Bambu vendor profiles ~14 MB on demand.
       2026-11-02 (user): size push wound down at r504 101 MB. Vendors on demand DROPPED (offline printer setup breaks, a release
       asset to keep in step every version, ~14%, no gain for Bambu users). Python on demand kept as the last cut: plugins already
-      install from Orca Cloud, so fetching the runtime then adds no new offline failure.
+      install from Orca Cloud, so fetching the runtime then adds no new offline failure. Python on demand DONE 2026-11-03 (see Done).
    e. Compressing the native libs (now stored) cuts the download ~78 -> ~35 MB but raises the installed size (APK + extracted
       copy): not worth it for a sideloaded app.
    Speed: profile a slice with simpleperf before any flag work; PGO is the one flag-level change with a typical 10-20% gain.

@@ -5,7 +5,7 @@ verified, move it to the archive (a "USER VERIFIED" tag is not a move). User 202
 Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonnet is fine. Re-judge an item after 2 failed tries.
 
 ## Plan
-- Plan (user 2026-10-14): camera LAN (done) -> off-LAN camera (cloud P2P; VPN-home fallback) -> print history (Handy's call, own client, Device tab). Own printer/account/code only; rule 7 holds.
+- Plan (user 2026-10-14): camera LAN (done) -> off-LAN camera (cloud P2P; VPN-home fallback; not started). Print history done as G6. Own printer/account/code only; rule 7 holds.
 - Device tab printer controls (built r286): needs printer + user: extrude/jog/home motion, part fan reads 0 % after a set, target-0 tile stale, speed chip mid-print (Claude 2026-10-21).
 
 ## Open bugs
@@ -18,7 +18,7 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - [Opus if reopened] Two-finger gestures: pan->zoom fix fa1754c (user r305 "still broken"; r311 "pans feel fine" may cover it), pinch zoom-out r312, pinch lock + speeds (r280/r324), Quest stick zoom (r324): user feel pending.
 - Corner resize gated behind long-press Resize / Ctrl+T (r305, 72dd138): probably superseded by the scale gizmo (user-verified r335, archive); ask before testing.
 - Extended paint tools (Claude WSA 2026-10-20/21, archive): user feel untested. Unpicked ideas: NOTES-paint-survey.md.
-- Paint panel layout C: modes verified by user r453 2026-10-28. Clean specks with lock Claude-verified WSA r456 2026-10-28 (archive). Chips renamed "Straight ↕/↔" (strings only, in next build, untested).
+- Paint panel layout C: modes verified by user r453 2026-10-28. Clean specks with lock Claude-verified WSA r456 2026-10-28 (archive). Chips renamed "Straight ↕/↔" (strings only, shipped; not looked at on screen).
 - Paint depth (r367, Claude WSA G-code OK 2026-10-21): user feel + real print untested.
 - Paint shop reopen fix (Claude WSA r374) + plate estimate line (Claude WSA r376 = Preview; one density, part-level filaments ignored): user look/feel.
 - Check mesh: counts OK on real files (Claude, phone r507, 2026-11-03, archive); open: marker readability in 3D (user feel, skipped).
@@ -37,11 +37,10 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - [Opus] Sculpt mode Claude-verified WSA 2026-10-28 (archive); user feel + symmetry 51ad144 untested; leftovers parked won't-do 2026-10-30.
 - [Opus] Build workspace: all steps Claude-verified WSA 2026-10-29 (archive); open: user feel.
 
-## GOAT batch (user 2026-11-03: do G2 -> G5 -> G4 first, then the rest; all not started)
-- G4 [Opus] auto-slice + Preview: done on r509; open: delta text is labelSmall (11 sp, PrepareOverlay.kt:816), small only when the lab scales the FAB down; no change made (Claude, code check 2026-11-03); Claude-verified only.
-- G1 coach strip, G3 shortcuts: Claude-verified WSA VD + installed r513/r514 (archive 2026-11-03); open: user look/feel only.
-- G6 Print history + reprint: local log per send (thumbnail, presets, time, grams, cost), one-tap reprint, feeds "Log print". End-of-print status needs the printer.
-- G7 Status outside the app: home-screen widget + Android 16 Live Update chip (user 2026-11-03: build both, Quick Settings tile DROPPED as not useful; targetSdk 36). Real test needs the printer; mocked status otherwise.
+## GOAT batch (G1-G7 built, Claude-verified, merged PR #71 2026-11-03; G8 skipped; specs in archive)
+- G1 coach strip, G3 shortcuts, G4 auto-slice delta text (11 sp, only small when the lab scales the FAB down): open: user look/feel only.
+- G6 print history: open: card for web-UI hosts, thumbnail check on a Bambu send, end-of-print status (needs the printer).
+- G7 widget + Live Update chip: open: real status test (needs the printer; mocked status checked).
 
 ## Ideas (not started)
 - Self-portrait 3 (Claude r489 WSA 2026-10-31): open only real-print checks (24 open lattice edges); maybe clearer 16-filament tower message.
@@ -60,7 +59,6 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - Real keyboard Ctrl+1 = system hotkey. Inactive-plate double tap re-frames (user: fine). Badges ~23 dp at plate zoom (told the user).
 - HMS texts: HmsCatalog.kt fetches at runtime; Handy's copies stay local. Flatpak r9 MakerLab, upstream bump, obn follow-ups: archive.
 - Paint guard tool (guard plane) misbehaves, user can't describe yet (user report 2026-10-25, r401). Open: needs repro from user.
-- Upstream 2.5.0 alpha overlap: NOTES-upstream-2.5.md (source checks done 2026-10-25); keep ours where better. All compare rows closed at source level (2026-10-28); nothing open.
 - CAD roadmap steps 0-7 (NOTES-cad-reuse.md) Claude-verified WSA (archive 2026-10-29); user feel untested.
 - Truck holes cut preview, sculpt on cut part, hole ghost alpha: Claude-verified WSA 2026-10-29 (archive); open: user feel.
 - Measure steps 1-6 + steer/loupe/Tuning: Claude-verified WSA 2026-10-26/27; open: user feel on the phone (steer vs loupe, 2nd-finger freeze, axis lock, hover, S Pen); Alt+click, ring-to-ring, hole rim untested.
@@ -76,9 +74,7 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - Godot review leftovers (Z lift dot, axis lock, Wireframe, orbit inertia, Light direction: all in CI r463, Claude-verified WSA 2026-10-28, archive): open: user feel; tower ignores Z code-verified 2026-10-29. [Opus]
 - CAD 7d done (size slider WSA VD-verified dd8f656, archive 2026-10-29); only the group Scale % field is unit-tested, not seen on screen (Claude, 2026-10-30).
 - [Opus] OrcaMesh edit mode M1-M4: Claude-verified WSA VD + r487 2026-10-30; open: user feel (NOTES-orcamesh-edit.md "Progress").
-- [Opus] AI print failure watch (user 2026-10-30): local Obico-style camera detector, pause + notify; parked behind the UX audit. Open: ask the user for the camera model (archive 2026-10-31).
 
 - Bulk filament edit (53578ad): long press verified by Claude on phone VD 2026-10-31 (archive); only Shift/Ctrl+click (mouse, Chromebook) and user feel untested. In r496+.
-- [Opus] Perf experiments queue: docs/PERFORMANCE.md; CI size step now on the work branch (ea147da, pushed 2026-11-03; first run shows the report) (Claude 2026-10-31).
-- [Opus] AI print failure watch (user 2026-10-30): local detector on the printer camera; open: ask the user for the camera model (archive 2026-10-31).
+- [Opus] AI print failure watch (user 2026-10-30): local Obico-style camera detector, pause + notify; open: ask the user for the camera model (archive 2026-10-31).
 - [Opus] Filament mixer redesign (0c791b3, CI 41371910606): 2- and 3-part looks checked by Claude on WSA VD 2026-11-01; user has not seen it. Vendor logo dropped (trademark).
