@@ -49,6 +49,7 @@ import androidx.compose.ui.platform.LocalContext
 import app.orcaandroid.render.PlateLook
 import app.orcaandroid.render.PlateView
 import app.orcaandroid.render.PreviewData
+import app.orcaandroid.render.PreviewExtra
 import app.orcaandroid.render.PreviewRange
 import app.orcaandroid.render.PreviewStyle
 import app.orcaandroid.render.RotateGizmo
@@ -788,6 +789,20 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         preview = data
         v.onGl { setPreview(data) }
     }
+    // The other sliced plates stay on screen next to the selected one (whole; the layer sliders drive the selected plate).
+    val extraCache = remember { HashMap<String, PreviewData>() }
+    val extraKey = if (showPreview && state.external == null) state.results.filter { it.key != state.previewPlate }.map { Triple(it.key, it.value.previewDir, it.value.gcodeFile) } else emptyList()
+    LaunchedEffect(v, extraKey, state.preview.scheme) {
+        val list = extraKey.mapNotNull { (plate, dir, gcode) ->
+            val r = state.results[plate] ?: return@mapNotNull null
+            val data = extraCache["$dir|$gcode"]
+                ?: withContext(Dispatchers.IO) { runCatching { PreviewData.load(dir) }.getOrNull() }?.also { extraCache["$dir|$gcode"] = it }
+                ?: return@mapNotNull null
+            PreviewExtra(data, floatArrayOf(r.originX, r.originY), r.ranges[schemeKey(state.preview.scheme)] ?: (0f to 1f))
+        }
+        extraCache.keys.retainAll(extraKey.map { "${it.second}|${it.third}" }.toSet())
+        v.onGl { setPreviewExtras(list) }
+    }
     // Follow the active plate when it changes (a new plate, a deleted one), not only on a chip tap.
     var framedPlate by remember { mutableIntStateOf(-1) }
     LaunchedEffect(v, state.activePlate) {
@@ -952,7 +967,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         val lock = measureLine?.takeIf { measuring }?.third?.let { l -> val c = measureLockColor(l.axis); floatArrayOf(l.foot.x, l.foot.y, l.foot.z, c.red, c.green, c.blue) }
         v.onGl { measurePoints = pts; measureLock = lock }
     }
-    LaunchedEffect(v, showPreview, result, state.preview, preview) {
+    LaunchedEffect(v, showPreview, result, state.preview, preview, extraKey.isEmpty()) {
         val p = state.preview
         val data = preview
         val style = PreviewStyle(
@@ -967,7 +982,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
             previewRange(result, p.layerLow, p.layerHigh, p.moveEnd, Triple(data.extrusions.count, data.travels.count, data.markers.count))
         else PreviewRange()
         v.onGl {
-            this.showPreview = showPreview && result != null
+            this.showPreview = showPreview && (result != null || extraKey.isNotEmpty())
             previewOrigin = floatArrayOf(result?.originX ?: 0f, result?.originY ?: 0f)
             previewStyle = style
             previewRange = range

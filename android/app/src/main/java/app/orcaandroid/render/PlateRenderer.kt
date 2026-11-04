@@ -56,6 +56,9 @@ data class PreviewStyle(
     val filamentColors: List<FloatArray> = emptyList(),
 )
 
+/** A sliced plate shown whole beside the selected one: its toolpaths, plate origin and colour range for the current scheme. */
+class PreviewExtra(val data: PreviewData, val origin: FloatArray, val range: Pair<Float, Float>)
+
 /** Visible slice of the preview buffers: [start, end) per buffer. */
 data class PreviewRange(val extrusions: IntRange = IntRange.EMPTY, val travels: IntRange = IntRange.EMPTY, val markers: IntRange = IntRange.EMPTY)
 
@@ -279,6 +282,12 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     private var extrVbo = 0; private var extrCount = 0
     private var travelVbo = 0; private var travelCount = 0
     private var markerVbo = 0; private var markerCount = 0
+    /** GL buffers of one [PreviewExtra]: extrusions, travels, markers. */
+    private class ExtraSlot(val data: PreviewData, val vbos: IntArray, val counts: IntArray, var origin: FloatArray, var range: Pair<Float, Float>)
+    private val extraSlots = ArrayList<ExtraSlot>()
+    private var extrasWanted: List<PreviewExtra> = emptyList()
+    private var extrasDirty = false
+    private var extraVersion = 0
     private var bedVbo = 0; private var bedCount = 0
     /** The grid's quad: the bed outline's box, plate-local (x0, y0, x1, y1). */
     private var gridRect: FloatArray? = null
@@ -342,6 +351,9 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         pendingPreview = data
         if (data == null) { extrCount = 0; travelCount = 0; markerCount = 0 }
     }
+
+    /** The other sliced plates drawn whole beside the selected one (buffers are reused for unchanged data). */
+    fun setPreviewExtras(list: List<PreviewExtra>) { extrasWanted = list; extrasDirty = true }
 
     /** The plate under screen point (x, y), or null. */
     fun plateAt(x: Float, y: Float): Int? {
@@ -417,6 +429,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         // A new EGL context lost all buffers; everything is uploaded again by the host.
         bedDirty = true
         meshCount = 0; paintCount = 0; extrCount = 0; travelCount = 0; markerCount = 0
+        extraSlots.clear(); extrasDirty = true
     }
 
     override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
@@ -536,7 +549,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
 
     /** Everything the Preview frame depends on (data classes compare by value, arrays by identity unless listed). */
     private fun superKey(): List<Any?> = listOf(mvp.toList(), viewW, viewH, previewVersion, previewStyle, previewRange,
-        previewOrigin.toList(), section?.toList(), filamentColors, colors, measurePoints.map { it.toList() }, measureLock?.toList(), cutPlane?.toList(), cutDisc?.toList(),
+        previewOrigin.toList(), extraVersion, section?.toList(), filamentColors, colors, measurePoints.map { it.toList() }, measureLock?.toList(), cutPlane?.toList(), cutDisc?.toList(),
         bedCount, plateOrigins, activePlate, badgeCount, atlas, gridRect?.toList(), cameraLight)
 
     private fun drawScene() {
@@ -574,8 +587,13 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         drawBeds()
         drawBadges()
         if (showPreview) {
-            drawExtrusions()
-            drawPreviewExtras()
+            drawExtrusions(extrVbo, extrCount, previewOrigin, previewRange.extrusions, previewStyle.range)
+            drawPreviewExtras(previewOrigin, previewRange, travelVbo, travelCount, markerVbo, markerCount)
+            for (x in extraSlots) {
+                val whole = PreviewRange(0 until x.counts[0], 0 until x.counts[1], 0 until x.counts[2])
+                drawExtrusions(x.vbos[0], x.counts[0], x.origin, whole.extrusions, x.range)
+                drawPreviewExtras(x.origin, whole, x.vbos[1], x.counts[1], x.vbos[2], x.counts[2])
+            }
         } else {
             if (models) drawMesh(meshVbo, meshCount, pass = 0)
             if (models && paintCount > 0) {
@@ -657,6 +675,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             previewVersion++
             pendingPreview = null
         }
+        if (extrasDirty) { syncExtras(); extrasDirty = false }
         if (bedDirty) {
             val lines = bedLines()
             glBindBuffer(GL_ARRAY_BUFFER, bedVbo)
@@ -740,6 +759,31 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         }
         p.data.position(0)
         meshVersion++
+    }
+
+    /** Makes [extraSlots] match [extrasWanted]: new data is uploaded, gone data frees its buffers, a kept one just takes its new origin / range. */
+    private fun syncExtras() {
+        val keep = ArrayList<ExtraSlot>()
+        for (e in extrasWanted) {
+            val old = extraSlots.firstOrNull { it.data === e.data }
+            if (old != null) {
+                if (!old.origin.contentEquals(e.origin) || old.range != e.range) extraVersion++
+                old.origin = e.origin; old.range = e.range
+                keep += old
+                continue
+            }
+            val ids = IntArray(3)
+            glGenBuffers(3, ids, 0)
+            val counts = intArrayOf(
+                uploadPadded(ids[0], e.data.extrusions, PreviewData.EXTRUSION_STRIDE),
+                0, 0)
+            counts[1] = uploadFloats(ids[1], e.data.travels)
+            counts[2] = uploadFloats(ids[2], e.data.markers)
+            keep += ExtraSlot(e.data, ids, counts, e.origin, e.range)
+            extraVersion++
+        }
+        for (o in extraSlots) if (keep.none { it === o }) { glDeleteBuffers(3, o.vbos, 0); extraVersion++ }
+        extraSlots.clear(); extraSlots.addAll(keep)
     }
 
     private fun uploadFloats(vbo: Int, data: FloatData): Int {
@@ -1356,19 +1400,18 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         if (s != null) glUniform4fv(loc(program, "uSection"), 1, s, 0)
     }
 
-    private fun drawExtrusions() {
+    private fun drawExtrusions(vbo: Int, count: Int, origin: FloatArray, extrusions: IntRange, valueRange: Pair<Float, Float>) {
         val style = previewStyle
-        val range = previewRange
         // Extrusions: one instanced box per segment.
-        val first = range.extrusions.first.coerceIn(0, extrCount)
-        val last = (range.extrusions.last + 1).coerceIn(first, extrCount)
+        val first = extrusions.first.coerceIn(0, count)
+        val last = (extrusions.last + 1).coerceIn(first, count)
         if (last > first) {
             glUseProgram(pathProgram)
             glUniformMatrix4fv(loc(pathProgram, "uMvp"), 1, false, mvp, 0)
-            glUniform3f(loc(pathProgram, "uOrigin"), previewOrigin[0], previewOrigin[1], 0f)
+            glUniform3f(loc(pathProgram, "uOrigin"), origin[0], origin[1], 0f)
             glUniform1i(loc(pathProgram, "uScheme"), style.scheme)
             glUniform1i(loc(pathProgram, "uHidden"), style.hiddenRoles)
-            glUniform2f(loc(pathProgram, "uRange"), style.range.first, style.range.second)
+            glUniform2f(loc(pathProgram, "uRange"), valueRange.first, valueRange.second)
             glUniform1i(loc(pathProgram, "uFirst"), first)
             glUniform1f(loc(pathProgram, "uPxScale"), pxScale * regimeScale)
             camera.eye().let { glUniform3f(loc(pathProgram, "uEye"), it.x, it.y, it.z) }
@@ -1381,7 +1424,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             glEnableVertexAttribArray(1)
             glVertexAttribPointer(0, 3, GL_FLOAT, false, 24, 0)
             glVertexAttribPointer(1, 3, GL_FLOAT, false, 24, 12)
-            glBindBuffer(GL_ARRAY_BUFFER, extrVbo)
+            glBindBuffer(GL_ARRAY_BUFFER, vbo)
             val stride = PreviewData.EXTRUSION_STRIDE * 4
             // Record 0 of the buffer is padding (uploadPadded), so segment i is record i + 1.
             val base = (first + 1) * stride
@@ -1403,16 +1446,15 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     }
 
     /** Travels and markers over the toolpaths. */
-    private fun drawPreviewExtras() {
+    private fun drawPreviewExtras(origin: FloatArray, range: PreviewRange, travelVbo: Int, travelCount: Int, markerVbo: Int, markerCount: Int) {
         val style = previewStyle
-        val range = previewRange
         if (style.showTravels) {
             val tFirst = range.travels.first.coerceIn(0, travelCount)
             val tLast = (range.travels.last + 1).coerceIn(tFirst, travelCount)
             if (tLast > tFirst) {
                 glUseProgram(lineProgram)
                 glUniformMatrix4fv(loc(lineProgram, "uMvp"), 1, false, mvp, 0)
-                glUniform3f(loc(lineProgram, "uOffset"), previewOrigin[0], previewOrigin[1], 0f)
+                glUniform3f(loc(lineProgram, "uOffset"), origin[0], origin[1], 0f)
                 glUniform3f(loc(lineProgram, "uColor"), 0.2f, 0.45f, 1f)
                 setSection(lineProgram)
                 glBindBuffer(GL_ARRAY_BUFFER, travelVbo)
@@ -1430,7 +1472,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             if (mLast > mFirst) {
                 glUseProgram(pointProgram)
                 glUniformMatrix4fv(loc(pointProgram, "uMvp"), 1, false, mvp, 0)
-                glUniform3f(loc(pointProgram, "uOffset"), previewOrigin[0], previewOrigin[1], 0f)
+                glUniform3f(loc(pointProgram, "uOffset"), origin[0], origin[1], 0f)
                 glUniform1f(loc(pointProgram, "uPxScale"), pxScale)
                 glUniform1i(loc(pointProgram, "uKinds"), (if (style.showRetracts) 0b0011 else 0) or (if (style.showSeams) 0b0100 else 0))
                 camera.eye().let { glUniform3f(loc(pointProgram, "uEye"), it.x, it.y, it.z) }
