@@ -37,6 +37,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import app.orcaandroid.ui.SliceStatus
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -101,6 +102,11 @@ fun PreviewPanel(state: UiState, vm: AppViewModel, wide: Boolean) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (result == null) {
             Text(stringResource(if (state.scene.isEmpty) R.string.no_objects_hint else R.string.not_sliced), style = MaterialTheme.typography.bodyMedium)
+            // G4: the background slice of this plate shows up here by itself; Slice makes it a normal one.
+            (state.slice as? SliceStatus.Running)?.takeIf { it.background && it.plate == state.previewPlate }?.let {
+                Text("${stringResource(R.string.auto_slicing)} ${it.percent} %", style = MaterialTheme.typography.bodySmall)
+                LinearProgressIndicator(progress = { it.percent / 100f }, modifier = Modifier.fillMaxWidth())
+            }
             if (!state.scene.isEmpty) Button(onClick = { vm.slicing.slice(state.previewPlate) }, enabled = !state.isSlicing) {
                 Text(stringResource(R.string.slice_plate_n, state.previewPlate + 1))
             }
