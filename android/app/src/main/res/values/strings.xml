@@ -750,6 +750,7 @@
         <item quantity="one">%1$d filament slot taken from the printer.</item>
         <item quantity="other">%1$d filament slots taken from the printer.</item>
     </plurals>
+    <string name="sync_pick_replaced">Slot %1$s (your pick had another material type than the tray)</string>
     <string name="sync_filaments_no_bambu">Filament sync needs a Bambu Lab printer connection (Device tab).</string>
     <!-- Presets of the Bambu account -->
     <string name="sync_cloud_presets">Sync presets from Bambu account</string>

@@ -33,8 +33,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
 - Open tests in backlog.
-- GOAT batch + perf audit: closed (archive 2026-11-04; leftovers in backlog "GOAT batch", baselines PERFORMANCE.md "Metrics"). Lint/R8 triage b8585c6: r518 (run 41795361386) installed on the phone 2026-11-04 and smoke-tested on the VD (toggles OK; archive); untouched: auto-save row, plate framing (optional).
-- Next step: pick the top open item in HANDOFF-BACKLOG.md (grep `[Opus]`/open tests) -> Sonnet 5.5 (medium)
+- GOAT batch + perf audit: closed (archive 2026-11-04; leftovers in backlog "GOAT batch", baselines PERFORMANCE.md "Metrics"). Lint/R8 triage b8585c6: r518 (run 41795361386) installed on the phone 2026-11-04 and smoke-tested on the VD (toggles OK; archive); auto-save row + plate framing also verified (archive).
+- Next step: check r519 (sync replaces a type-mismatched pick; toast lists it) on the phone VD -> Sonnet 5.5 (medium)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
