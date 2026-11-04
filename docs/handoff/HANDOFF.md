@@ -41,12 +41,14 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   off in Battery Saver, `failedKey` stops retry loops), `promote()` when Slice is tapped mid background slice, `showPreview()`,
   `SliceDelta` in `UiState.sliceDelta`; `SliceStatus.Running.background` (`isSlicing` = foreground only; autosave waits on any slice);
   setting "Slice in the background" (More > misc, `auto_slice` pref, default on).
-- **G4 part 2 (todo):** `PrepareOverlay.kt` SliceButton: when `results[activePlate]` exists -> "Preview plate N" FAB (`R.string.preview_plate(_n)`,
-  `vm.slicing.showPreview()`) with time/grams + delta badge ("+12 min · −3 g", hide if rounds to 0; `formatDuration` in Widgets.kt:294);
-  while `Running.background` keep the Slice FAB with a small progress ring/`auto_slicing` text. Then build, WSA VD test: edit -> auto-slice
-  starts after 1.5 s; drag/edit mid-slice is instant (pre-empt) and restarts; Slice mid-background promotes; setting edit shows delta;
-  no endless re-slice loop (logcat `OrcaSlice`); failed plate (object off bed) doesn't loop. Phone VD for CPU/jank feel (note only).
-- Next step: G4 part 2 (SliceButton UI + build + WSA VD tests) -> Opus 5.5 (high)
+- **G4 part 2 committed 60a23cc (compiles; UNTESTED):** SliceButton shows "Preview plate N" + time/grams + tertiary delta once
+  `results[activePlate]` exists (`showPreview()`), progress ring icon while `Running.background` (no panel); Preview's empty state shows
+  the background progress. Debug APK built (18:11) but NOT installed: WSA wedged (dumpsys hung, `wsaclient /shutdown` hangs);
+  `su setprop ctl.restart zygote` brought it back to boot_completed=1 (dumpsys not rechecked). Next: install debug APK
+  (`adb install -r -g`), `TARGET=wsa PKG=...debug orca-vd.sh start`, then tests: edit -> auto-slice after 1.5 s; edit mid-slice instant
+  (pre-empt) + restart; Slice mid-background promotes; setting edit shows delta; no endless loop (logcat `OrcaSlice`); object off bed
+  doesn't loop. Then CI build + install on phone (.20). Uninstall debug app + `orca-vd.sh stop` after. scrcpy pid 79172 is not ours.
+- Next step: G4 WSA VD tests of 60a23cc (+ fixes) -> Opus 5.5 (high)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
