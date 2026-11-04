@@ -34,8 +34,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
 - Open tests in backlog.
 - GOAT batch G1-G7 done + merged (PR #71); details archived 2026-11-04 "handoff trim". Open from it: G6 card for web-UI hosts, Bambu-send thumbnail (backlog).
-- **User 2026-11-04: audit the app for waste and performance.** Steps 1-3a done (archive "perf audit 1-2", "perf audit 3a"): r517 98.83 MB, baselines in PERFORMANCE.md "Metrics" (`perfbase.sh`). Lint/R8 triage b8585c6 not yet in a CI build. 3b) simpleperf slice profile SHELVED by the user 2026-11-04 (archive "perf audit 3b shelved"). Open: 4) gfxinfo jank (user to confirm it's still wanted; orbit baseline already 60 fps, 0 gaps > 33 ms).
-- Next step: user decision on perf audit 4 (gfxinfo jank) or close the audit -> Opus 5.5 (medium)
+- **User 2026-11-04: audit the app for waste and performance.** Steps 1-3a done (archive "perf audit 1-2", "perf audit 3a"): r517 98.83 MB, baselines in PERFORMANCE.md "Metrics" (`perfbase.sh`). 3b slice profile shelved, 4 jank dropped: **audit CLOSED by the user 2026-11-04** (archive "perf audit 3b shelved"). Open: lint/R8 triage b8585c6 (boxed -> primitive Compose states) needs a CI build + phone VD smoke test (sliders, toggles, counters still update): run 41795361386 dispatched on 1db774c.
+- Next step: smoke-test the b8585c6 CI build on the phone VD -> Sonnet 5.5 (medium)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 

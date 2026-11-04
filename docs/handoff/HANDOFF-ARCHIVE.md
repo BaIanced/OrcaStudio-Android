@@ -4037,3 +4037,4 @@ Python on demand part 2: do it. Ad block default and Prusa/Printables theme name
 
 ## 2026-11-04 perf audit 3b shelved (user)
 - User 2026-11-04: "we shelved this performance run because it realistically wont produce a meaningful gain based on our previous early result" (simpleperf slice profile). Reason on record: -O2/ThinLTO/-O3 slice times were within thermal noise (~15% drift, PERFORMANCE.md item 1), and any hotspot lands in unmodified upstream OrcaSlicer code (patch-only). Run stopped before profiling; staged CI lib restored, debug app uninstalled from the phone. Tools kept for later: `orca-android-tools/simpleperf-slice.sh` + `wsl/spreport.sh` (untested end to end; build ids step-o2thin = core unstripped cf69472b...).
+- User 2026-11-04: "close it" (perf audit step 4, gfxinfo jank, dropped; orbit baseline 60 fps, 0 gaps > 33 ms). Perf audit closed; only open bit: lint/R8 triage b8585c6 not yet in a CI build.
