@@ -202,7 +202,7 @@ private fun PrimitiveDialog(vm: AppViewModel, onDismiss: () -> Unit) {
     val shapes = listOf("cube" to R.string.shape_cube, "cylinder" to R.string.shape_cylinder, "sphere" to R.string.shape_sphere, "cone" to R.string.shape_cone)
     var shape by remember { mutableStateOf("cube") }
     var size by remember { mutableStateOf(Vec3(20f, 20f, 20f)) }
-    var round by remember { mutableStateOf(0f) }
+    var round by remember { mutableFloatStateOf(0f) }
     DialogFrame(stringResource(R.string.add_shape), stringResource(R.string.add), enabled = sizeOk(size.x, size.y, size.z),
         onConfirm = { vm.scene.addPrimitive(shape, size, round) }, onDismiss = onDismiss) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {

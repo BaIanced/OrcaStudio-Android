@@ -1,5 +1,6 @@
 package app.orcaandroid
 
+import android.annotation.SuppressLint
 import android.app.ActivityManager
 import android.app.ApplicationExitInfo
 import android.content.Context
@@ -27,6 +28,7 @@ object CrashReport {
     }
 
     /** The report of a crash since the last [clear], or null. Reads the log, so call it off the main thread. */
+    @SuppressLint("NewApi") // exit is non-null only on API 30+ (unseenCrash checks SDK_INT)
     fun pending(context: Context): String? {
         val file = File(context.filesDir, FILE)
         val exit = unseenCrash(context)

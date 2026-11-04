@@ -46,6 +46,7 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -591,7 +592,7 @@ private fun PenActionRow(label: String, action: app.orcaandroid.core.PenAction, 
 @Composable
 private fun AutoSaveRow(seconds: Int, onChange: (Int) -> Unit) {
     val range = app.orcaandroid.core.AUTO_SAVE_RANGE
-    var last by remember { mutableStateOf(kotlin.math.abs(seconds).takeIf { it in range } ?: app.orcaandroid.core.DEFAULT_AUTO_SAVE_SECONDS) }
+    var last by remember { mutableIntStateOf(kotlin.math.abs(seconds).takeIf { it in range } ?: app.orcaandroid.core.DEFAULT_AUTO_SAVE_SECONDS) }
     var text by remember(seconds) { mutableStateOf(last.toString()) }
     // Off is stored as -interval, so the interval is still there when it is switched on again.
     SwitchRow(stringResource(R.string.auto_save), seconds > 0, onChange = { on -> onChange(if (on) last else -last) })

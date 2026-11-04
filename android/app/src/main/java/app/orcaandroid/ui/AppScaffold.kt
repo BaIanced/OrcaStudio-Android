@@ -79,6 +79,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -167,7 +169,7 @@ private fun MainLayout(state: UiState, vm: AppViewModel) {
     // a second press within 2 s), instead of Android's default of sending the app to the background.
     val clearable = state.screen == Screen.PREPARE && (state.tool != Tool.None || state.selectedItems.isNotEmpty() || state.selectMode)
     var askQuit by remember { mutableStateOf(false) }
-    var lastBack by remember { mutableStateOf(0L) }
+    var lastBack by remember { mutableLongStateOf(0L) }
     androidx.activity.compose.BackHandler {
         when {
             state.scad != null && state.screen == Screen.PREPARE -> if (state.scadOnPlate && state.scad.shapes == null) vm.setScadOnPlate(false) else vm.scad.close()
@@ -559,7 +561,7 @@ private object GripGlide {
     val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + androidx.compose.ui.platform.AndroidUiDispatcher.Main)
     var job: kotlinx.coroutines.Job? = null
     /** How far (dp) the gliding pane is above its smallest size on this glide; 0 when no glide runs. */
-    var extra by mutableStateOf(0f)
+    var extra by mutableFloatStateOf(0f)
 }
 
 /**
@@ -581,12 +583,12 @@ private val PANEL_SNAP = 200.dp
 /** The OpenSCAD editor's dragged size in dp (0 = default); kept for the session, so leaving Prepare doesn't reset it. */
 /** Height of the portrait panel (dp, 0 = default), kept while the app runs. */
 private object PanelSize {
-    var height by mutableStateOf(0f)
+    var height by mutableFloatStateOf(0f)
 }
 
 private object ScadEditorSize {
-    var width by mutableStateOf(0f)
-    var height by mutableStateOf(0f)
+    var width by mutableFloatStateOf(0f)
+    var height by mutableFloatStateOf(0f)
 }
 
 /** The settings panel's edge on wide layouts: drag to resize, tap to tuck the panel away or bring it back. */

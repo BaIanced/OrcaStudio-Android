@@ -58,6 +58,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -119,7 +120,7 @@ private val LINE_REF = Regex("""line (\d+)""")
  */
 @Composable
 fun ScadPanel(s: ScadEditorState, vm: AppViewModel, onHide: (() -> Unit)? = null, embeddedPreview: Boolean = true) {
-    var tab by rememberSaveable { mutableStateOf(0) }
+    var tab by rememberSaveable { mutableIntStateOf(0) }
     var jump by remember { mutableStateOf<Int?>(null) }
     var previewOpen by rememberSaveable { mutableStateOf(true) }
     var templates by remember { mutableStateOf(false) }
@@ -128,7 +129,7 @@ fun ScadPanel(s: ScadEditorState, vm: AppViewModel, onHide: (() -> Unit)? = null
     var codeEdit by remember { mutableStateOf<((TextFieldValue) -> TextFieldValue)?>(null) }
     val context = LocalContext.current
     // A design with sliders opens on the Customizer: changing it needs no code.
-    var shownLoad by rememberSaveable { mutableStateOf(-1) }
+    var shownLoad by rememberSaveable { mutableIntStateOf(-1) }
     if (shownLoad != s.loadId) {
         shownLoad = s.loadId
         tab = if (s.shapes != null) 0 else if (s.source.contains(Regex("""//\s*\["""))) 1 else 0

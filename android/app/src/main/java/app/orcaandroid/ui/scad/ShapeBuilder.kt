@@ -64,6 +64,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.material3.IconToggleButton
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -501,7 +502,7 @@ private fun FieldRow(title: String, shape: Shape, d: ShapeDesign, vm: AppViewMod
     val size = prefix == "size"
     val lock = size && vm.shapes.sizeLock
     // The cell being dragged; with the lock on, the other two grey out as its followers.
-    var dragged by remember { mutableStateOf(-1) }
+    var dragged by remember { mutableIntStateOf(-1) }
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(title, style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))

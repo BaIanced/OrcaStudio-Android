@@ -38,9 +38,7 @@
     <string name="paint_shape_triangle">Triangle</string>
     <string name="paint_shape_fill">Fill</string>
     <string name="paint_shape_height">Height range</string>
-    <string name="paint_shape_gap">Gap fill</string>
     <string name="paint_gap_area">Gap area %.1f mm²</string>
-    <string name="paint_gap_apply">Fill gaps</string>
     <string name="paint_remap">Remap filaments</string>
     <string name="paint_remap_apply">Remap</string>
     <string name="paint_remap_reset">Reset</string>
@@ -364,7 +362,6 @@
     <string name="measure_along_centres">Centre to centre, along %1$s</string>
     <string name="measure_along_step">Along %1$s° up, %2$s° round from X</string>
     <string name="measure_axes_toggle">Lock to X / Y / Z</string>
-    <string name="measure_steps_toggle">15° steps (Shift)</string>
     <string name="measure_steer_toggle">Steer camera (hold: frames the snap, fast slide: out)</string>
     <string name="show_overhangs">Show overhangs</string>
     <string name="overhang_angle">Under %d°</string>
@@ -461,7 +458,6 @@
     <string name="process">Process</string>
     <string name="profiles_up_to_date">All profiles are up to date</string>
     <string name="profiles_updated">Profiles updated</string>
-    <string name="project">Project</string>
     <string name="project_saved">Project saved</string>
     <string name="quality">Quality</string>
     <string name="range_settings_title">Height range settings</string>
@@ -653,7 +649,6 @@
     <string name="tab_preview">Preview</string>
     <string name="tab_print_settings">Print</string>
     <string name="test">Test</string>
-    <string name="test_tab">Test</string>
     <string name="text">Text</string>
     <string name="text_height">Height</string>
     <string name="theme_dark">Dark</string>
@@ -790,7 +785,6 @@
     <string name="reload">Reload</string>
     <string name="home">Home</string>
     <string name="models_downloading">Downloading %1$s…</string>
-    <string name="models_full_site">Full site</string>
     <string name="models_infinite_scroll">Infinite scroll</string>
     <string name="adblock_toggle">Block ads</string>
     <string name="adblock_pick">Block an element</string>
@@ -803,11 +797,6 @@
     <string name="adblock_smaller">Smaller</string>
     <string name="adblock_larger">Larger</string>
     <string name="adblock_block">Block</string>
-    <string name="mw_following">Following</string>
-    <string name="mw_contests">Contests</string>
-    <string name="mw_history">History</string>
-    <string name="mw_collections">Collections</string>
-    <string name="mw_profile">Profile</string>
     <string name="models_bad_link">This link has no model file.</string>
     <string name="models_no_files">The download has no model files.</string>
     <plurals name="scad_zip_variants">
@@ -870,7 +859,6 @@
     <string name="scad_stopped">Render stopped</string>
     <string name="scad_not_in_build">This build does not include OpenSCAD</string>
     <string name="scad_new">New from template</string>
-    <string name="scad_examples">Examples</string>
     <string name="scad_open">Open .scad file</string>
     <string name="scad_save">Save .scad file</string>
     <string name="scad_close">Close editor</string>
@@ -880,7 +868,6 @@
     <string name="scad_parse_error">Syntax error: the parameters are from the last version that parsed.</string>
     <string name="scad_auto_render">Live preview</string>
     <string name="scad_reset_all">Reset all</string>
-    <string name="scad_edit_design">Edit OpenSCAD design</string>
     <string name="scad_placed">Placed on the plate</string>
     <string name="scad_preview">Preview</string>
     <string name="scad_preview_refresh">Update preview (F5)</string>
@@ -896,7 +883,6 @@
     <string name="scad_too_tall">Taller than the printer can print (%1$s mm)</string>
     <string name="scad_templates_title">Start from a template</string>
     <string name="scad_templates_hint">Every template has sliders in the Customizer: change it without writing code, or read the code to learn how it works.</string>
-    <string name="scad_insert">Insert</string>
     <string name="scad_insert_hint">Select lines first to put them inside a move, turn or combine.</string>
     <string name="scad_add_setting">Add a slider</string>
     <string name="scad_setting_intro">A slider is a named number you can change in the Customizer. Use its name in your shapes instead of a fixed number.</string>
@@ -908,7 +894,6 @@
     <string name="scad_setting_mm">It is a size in mm</string>
     <string name="scad_setting_add">Add</string>
     <string name="scad_setting_added">Added “%1$s”: use it in a shape, e.g. cube(%1$s);</string>
-    <string name="scad_hints">What went wrong</string>
     <string name="scad_hint_line">Go to line %1$s</string>
     <string name="scad_ins_shapes">Shapes</string>
     <string name="scad_ins_position">Move &amp; turn</string>

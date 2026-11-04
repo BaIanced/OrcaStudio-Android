@@ -63,6 +63,12 @@ Record a missing baseline the first time a change touches that area (same device
   Phone test (debug build): first `Plugins.start` 947 ms incl. download on LAN, second 83 ms; ssl/hashlib/sqlite3/lzma/ctypes/...
   all import. Budgets: total 104.1 -> 94.6, native/python 12.0 -> 6.6, assets/python 4.5 -> 0.1 (r506 + 3%).
 
+- 2026-11-04 lint + R8 triage (r516 inputs): 15 unused strings removed; 16 `mutableStateOf` on Int/Long/Float -> the
+  primitive state holders (no boxing per write; matters for drag offsets in AppScaffold/PrepareOverlay, SketchEditor scale);
+  NewApi (CrashReport, guarded in `unseenCrash`) and StaticFieldLeak (ObnCredentials, application context only) were false
+  positives, suppressed with a reason. R8 `usage.txt`: the 12 app classes it drops entirely are all referenced (inlined or
+  merged), so no dead Kotlin classes; the five icon packs are stripped by R8 (build time only, no APK bytes).
+
 ## Experiment queue (measured potential, not done)
 
 0. **Big-ticket map (2026-11-01, r502 APK 118.5 MB; native libs stored uncompressed = 78 MB).** liborca_jni symbol bytes by
