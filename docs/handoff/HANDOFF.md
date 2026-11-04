@@ -38,7 +38,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - G4 (a6ebff3 + 60a23cc) verified by Claude 2026-11-03 (archive "G4 part 2", "G4 CI build r509"): r509 (run 41754302781) on phone, WSA, Chromebook. Next: G1, then G3, G6, G7, G8.
 - G1 (580d4c2) verified by Claude 2026-11-03 on the WSA VD (archive "G1 first-run coach strip"); CI run 41757054644 (G1 only, superseded by the G3 build if not yet installed). Then G6, G7, G8.
 - G3 (c067fb1) + G1 verified by Claude 2026-11-03 on the WSA VD. CI r511 (run 41757680903) installed on phone, WSA, Chromebook. Next: G6, then G7, G8.
-- Next step: G6 print history + reprint -> Sonnet 5.5 (medium)
+- G6 (commit "Print history (G6)") coded + compiled, NOT run: core/PrintHistory.kt (files/history, 20 entries, sent file + plate thumbnail from the .gcode.3mf), DeviceController.logSent/reprint/dispatch (dispatch = old upload tail, shared), PrintHistoryCard in DeviceScreen's PrinterPanel (Bambu/no-web-UI hosts only; Reprint disabled while printing). Left: test needs a printer or a mock host (no print without the user's OK: a send with startPrint=false is enough for the log); add the card for web-UI hosts too; "feeds Log print" not done; CI build with G6, install on phone, WSA, Chromebook. Then G7, G8 (ask first).
+- Next step: G6 test (mock host / send-only) + CI build -> Sonnet 5.5 (medium)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
