@@ -77,6 +77,7 @@ class PrintMonitorService : Service() {
                     application.container.printerStatus.value = status
                     val manager = getSystemService(android.app.NotificationManager::class.java)
                     manager.notify(NOTIFICATION_ID, notification(printer, status))
+                    PrintWidget.publish(this@PrintMonitorService, printer, status)
                     // A new prompt (the printer waits for an answer) gets its own, audible notification.
                     val prompt = status.alerts.firstOrNull { it.isPrintError }
                     if (prompt != null && prompt.code != lastPrompt) manager.notify(ALERT_ID, alertNotification(printer, prompt))
@@ -96,6 +97,8 @@ class PrintMonitorService : Service() {
     private fun finish(printer: String) {
         val last = application.container.printerStatus.value
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+        // Keep a finished / stopped / failed result on the widget; anything else (monitor lost the printer) clears it.
+        PrintWidget.publish(this, printer, last?.takeIf { !it.isActive && it.state != PrinterStatus.State.IDLE && it.state != PrinterStatus.State.OFFLINE })
         val done = when (last?.state) {
             PrinterStatus.State.FINISHED -> R.string.print_finished
             PrinterStatus.State.STOPPED -> R.string.print_stopped
@@ -139,6 +142,9 @@ class PrintMonitorService : Service() {
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setContentIntent(open)
+            // Android 16 Live Update: promoted to the status-bar chip (and lock screen) while the print runs.
+            .setRequestPromotedOngoing(true)
+            .setShortCriticalText(if (s.progress != null) "$percent%" else getString(R.string.state_printing))
             .apply {
                 if (s.state == PrinterStatus.State.PAUSED) addAction(0, getString(R.string.resume), action(ACTION_RESUME, 2))
                 else addAction(0, getString(R.string.pause), action(ACTION_PAUSE, 3))

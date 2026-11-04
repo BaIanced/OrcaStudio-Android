@@ -42,7 +42,7 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - G1 First-run "print in 3 taps": coded (coach strip), untested; open: WSA VD test, CI build, phone check.
 - G3 Launcher shortcuts: coded + compiled 2026-11-03 (3 dynamic shortcuts); open: WSA VD intent test, CI build, phone check.
 - G6 Print history + reprint: local log per send (thumbnail, presets, time, grams, cost), one-tap reprint, feeds "Log print". End-of-print status needs the printer.
-- G7 Status outside the app: home-screen widget, Android 16 Live Update chip, Quick Settings tile (targetSdk 36). Real test needs the printer; mocked status otherwise.
+- G7 Status outside the app: home-screen widget + Android 16 Live Update chip (user 2026-11-03: build both, Quick Settings tile DROPPED as not useful; targetSdk 36). Real test needs the printer; mocked status otherwise.
 - G8 AR "on your desk" preview (ARCore): needs the user's eyes (WSA has no camera); last, ask before starting.
 
 ## Ideas (not started)

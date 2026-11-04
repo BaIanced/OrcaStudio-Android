@@ -19,6 +19,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
 
     <application
         android:name=".OrcaApp"
@@ -89,6 +90,16 @@
             android:name=".scad.ScadService"
             android:exported="false"
             android:process=":scad" />
+        <receiver
+            android:name=".service.PrintWidget"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/print_widget_info" />
+        </receiver>
         <service
             android:name=".service.PrintMonitorService"
             android:exported="false"

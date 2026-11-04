@@ -35,9 +35,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Open tests in backlog.
 - 2026-11-03 (archive): STEP import, Check mesh, G2, G5 verified; Python part 2 shelved; store release parked until "GOATed". CI size step ae8d7fa waits on `gh auth refresh -s workflow`.
 - **GOAT batch (user 2026-11-03): order G2 -> G5 -> G4, then G1, G3, G6, G7, G8.** Specs: backlog "GOAT batch".
-- G1 (580d4c2) verified by Claude 2026-11-03 on the WSA VD (archive "G1 first-run coach strip"); CI run 41757054644 (G1 only, superseded by the G3 build if not yet installed). Then G6, G7, G8.
-- G6 print history (archive "G6 print history") Claude-verified on WSA debug with a mock MKS host; CI run 41761203867 (has G1, G3, G6, MKS port fix) not installed yet: install on phone, WSA, Chromebook. Open: card for web-UI hosts, "feeds Log print", thumbnail check on a Bambu send (needs the printer). Then G7, G8 (ask first). Test gotcha: `PKG=...debug orca-vd.sh start`, else the release app (real printer) opens.
-- Next step: install CI build, then G7 (ask first) -> Sonnet 5.5 (medium)
+- G6 print history Claude-verified (archive "G6 print history"); r513 (G1, G3, G6) installed on phone, WSA, Quest; Chromebook unreachable (.28), still old. Open: card for web-UI hosts, thumbnail check on a Bambu send. Test gotcha: `PKG=...debug orca-vd.sh start`, else the release app (real printer) opens.
+- G7 (widget + Live Update chip; tile dropped) built and Claude-verified on the phone debug build (archive "G7 status outside the app"), commit pushed, CI dispatched; not yet installed on devices. Then G8 (ask first; needs the user's eyes).
+- Next step: install the G7 CI build on all adb devices, then G8 (ask the user first) -> Sonnet 5.5 (medium)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 

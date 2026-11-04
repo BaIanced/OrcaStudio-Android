@@ -631,6 +631,8 @@
     <string name="state_stopped">Stopped</string>
     <string name="print_stopped">Print stopped</string>
     <string name="state_idle">Ready</string>
+    <string name="widget_description">Progress of the print running on your printer</string>
+    <string name="widget_idle">No print running</string>
     <string name="state_offline">Offline</string>
     <string name="state_paused">Paused</string>
     <string name="state_printing">Printing</string>
