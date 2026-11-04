@@ -33,10 +33,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
 - Open tests in backlog.
-- Multi-plate Preview: in main (PR #73, r521), Claude-verified only (archive 2026-11-04).
 - Bigger vision (user 2026-11-04, exploration, NOT locked): backlog "Ideas: Assemble space / big plate"; reply with leanings, ask before building.
 - **Rename / new repo (user 2026-11-04, exploration, NOT locked; backlog "Waiting on the user"):** wants a new app name (idea: orcamesh, unworkshopped), a NEW public repo for the mature code, old repo stays public as history for now (private/archived later). Open: name, full history vs one snapshot commit, app ID change. Brainstorm names first; no repo work until the user picks.
-- Next step: brainstorm app names with the user (check OrcaSlicer-branding overlap + name clashes via search), then ask full history vs snapshot -> Sonnet 5.5 (medium)
+- User leans OrcaMesh; name asked upstream in OrcaSlicer Discussions #17269 (2026-11-04). Check for a reply (`gh api graphql` discussion comments) at each /next.
+- Next step: check #17269 reply; if OK, ask snapshot vs full history, then plan the rename (app ID, mesh-edit mode rename) -> Sonnet 5.5 (medium)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
