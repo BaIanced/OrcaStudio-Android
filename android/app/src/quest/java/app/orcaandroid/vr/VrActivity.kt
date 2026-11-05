@@ -58,7 +58,7 @@ class VrActivity : Activity() {
     private fun renderThread() {
         val egl = EglHolder()
         try {
-            val created = XrShim.nativeCreate(this, egl.display.nativeHandle, egl.config.nativeHandle, egl.context.nativeHandle)
+            val created = XrShim.nativeCreate(this, egl.display.nativeHandle, egl.config.nativeHandle, egl.context.nativeHandle, !intent.getBooleanExtra(EXTRA_PLAIN, false))
             if (created) {
                 frameLoop()
                 XrShim.nativeDestroy()
@@ -158,6 +158,8 @@ class VrActivity : Activity() {
         val renderer = PlateRenderer(Camera())
         // Both end on framebuffer 0, not on the eye's (drawEye).
         renderer.contactShadows = false
+        // Passthrough shows through where the scene is cleared; plain (or no passthrough) keeps the opaque background.
+        renderer.transparentBackground = XrShim.nativePassthroughActive()
         renderer.onSurfaceCreated(null, null)
         loadScene()
 
@@ -264,6 +266,8 @@ class VrActivity : Activity() {
     private companion object {
         const val TAG = "OrcaXr"
         const val EXTRA_PROJECT = "project"
+        /** `--ez plain true`: opaque background instead of the passthrough tabletop (no UI yet). */
+        const val EXTRA_PLAIN = "plain"
         const val NEAR = 0.05f
         const val FAR = 100f
         const val IDLE_SLEEP_MS = 50L

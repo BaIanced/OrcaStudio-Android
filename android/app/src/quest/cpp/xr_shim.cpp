@@ -57,6 +57,15 @@ struct Shim {
     XrTime displayTime = 0;
     EyeSwapchain eyes[kEyes];
     XrView views[kEyes] = {{XR_TYPE_VIEW}, {XR_TYPE_VIEW}};
+    // XR_FB_passthrough: listed by the runtime, and the entry points once enabled.
+    bool passthroughListed = false;
+    PFN_xrCreatePassthroughFB createPassthrough = nullptr;
+    PFN_xrDestroyPassthroughFB destroyPassthrough = nullptr;
+    PFN_xrPassthroughStartFB startPassthrough = nullptr;
+    PFN_xrCreatePassthroughLayerFB createPassthroughLayer = nullptr;
+    PFN_xrDestroyPassthroughLayerFB destroyPassthroughLayer = nullptr;
+    XrPassthroughFB passthrough = XR_NULL_HANDLE;
+    XrPassthroughLayerFB passthroughLayer = XR_NULL_HANDLE;
 };
 
 Shim g;
@@ -92,17 +101,65 @@ bool logExtensions() {
     if (!ok(xrEnumerateInstanceExtensionProperties(nullptr, count, &count, props.data()), "xrEnumerateInstanceExtensionProperties")) return false;
     bool gles = false;
     bool android = false;
+    g.passthroughListed = false;
     for (const auto& p : props) {
         LOGI("XR_EXTENSION %s v%u", p.extensionName, p.extensionVersion);
         if (!std::strcmp(p.extensionName, XR_KHR_OPENGL_ES_ENABLE_EXTENSION_NAME)) gles = true;
         if (!std::strcmp(p.extensionName, XR_KHR_ANDROID_CREATE_INSTANCE_EXTENSION_NAME)) android = true;
+        if (!std::strcmp(p.extensionName, XR_FB_PASSTHROUGH_EXTENSION_NAME)) g.passthroughListed = true;
     }
     if (!gles) LOGE("The runtime has no %s", XR_KHR_OPENGL_ES_ENABLE_EXTENSION_NAME);
     if (!android) LOGE("The runtime has no %s", XR_KHR_ANDROID_CREATE_INSTANCE_EXTENSION_NAME);
     return gles && android;
 }
 
-bool createInstance(JavaVM* vm) {
+template <typename T>
+bool loadFunction(const char* name, T& out) {
+    return XR_SUCCEEDED(xrGetInstanceProcAddr(g.instance, name, reinterpret_cast<PFN_xrVoidFunction*>(&out))) && out;
+}
+
+// Leaves createPassthrough null on any miss, so the session stays plain.
+void loadPassthroughFunctions() {
+    const bool loaded = loadFunction("xrCreatePassthroughFB", g.createPassthrough) &&
+                        loadFunction("xrDestroyPassthroughFB", g.destroyPassthrough) &&
+                        loadFunction("xrPassthroughStartFB", g.startPassthrough) &&
+                        loadFunction("xrCreatePassthroughLayerFB", g.createPassthroughLayer) &&
+                        loadFunction("xrDestroyPassthroughLayerFB", g.destroyPassthroughLayer);
+    if (!loaded) {
+        LOGE("VR_PASSTHROUGH unavailable: entry points missing, plain background");
+        g.createPassthrough = nullptr;
+    }
+}
+
+void destroyPassthrough() {
+    if (g.passthroughLayer != XR_NULL_HANDLE) g.destroyPassthroughLayer(g.passthroughLayer);
+    if (g.passthrough != XR_NULL_HANDLE) g.destroyPassthrough(g.passthrough);
+    g.passthroughLayer = XR_NULL_HANDLE;
+    g.passthrough = XR_NULL_HANDLE;
+}
+
+// The camera feed behind the projection layer. Any failure leaves the plain opaque background; the session goes on.
+void createPassthrough() {
+    if (!g.createPassthrough) return;
+    XrPassthroughCreateInfoFB info{XR_TYPE_PASSTHROUGH_CREATE_INFO_FB};
+    bool started = ok(g.createPassthrough(g.session, &info, &g.passthrough), "xrCreatePassthroughFB") &&
+                   ok(g.startPassthrough(g.passthrough), "xrPassthroughStartFB");
+    if (started) {
+        XrPassthroughLayerCreateInfoFB layerInfo{XR_TYPE_PASSTHROUGH_LAYER_CREATE_INFO_FB};
+        layerInfo.passthrough = g.passthrough;
+        layerInfo.flags = XR_PASSTHROUGH_IS_RUNNING_AT_CREATION_BIT_FB;
+        layerInfo.purpose = XR_PASSTHROUGH_LAYER_PURPOSE_RECONSTRUCTION_FB;
+        started = ok(g.createPassthroughLayer(g.session, &layerInfo, &g.passthroughLayer), "xrCreatePassthroughLayerFB");
+    }
+    if (started) {
+        LOGI("VR_PASSTHROUGH on");
+    } else {
+        LOGE("VR_PASSTHROUGH unavailable: creation failed, plain background");
+        destroyPassthrough();
+    }
+}
+
+bool createInstance(JavaVM* vm, bool wantPassthrough) {
     PFN_xrInitializeLoaderKHR initLoader = nullptr;
     if (!ok(xrGetInstanceProcAddr(XR_NULL_HANDLE, "xrInitializeLoaderKHR", reinterpret_cast<PFN_xrVoidFunction*>(&initLoader)),
             "xrGetInstanceProcAddr(xrInitializeLoaderKHR)") || !initLoader) return false;
@@ -113,13 +170,17 @@ bool createInstance(JavaVM* vm) {
 
     if (!logExtensions()) return false;
 
-    const char* extensions[] = {XR_KHR_OPENGL_ES_ENABLE_EXTENSION_NAME, XR_KHR_ANDROID_CREATE_INSTANCE_EXTENSION_NAME};
+    // Passthrough is optional: it is only listed with the manifest feature, and without it the session stays opaque.
+    const bool passthrough = wantPassthrough && g.passthroughListed;
+    if (!wantPassthrough) LOGI("VR_PASSTHROUGH off: plain background requested");
+    else if (!g.passthroughListed) LOGI("VR_PASSTHROUGH unavailable: %s not listed by the runtime, plain background", XR_FB_PASSTHROUGH_EXTENSION_NAME);
+    const char* extensions[] = {XR_KHR_OPENGL_ES_ENABLE_EXTENSION_NAME, XR_KHR_ANDROID_CREATE_INSTANCE_EXTENSION_NAME, XR_FB_PASSTHROUGH_EXTENSION_NAME};
     XrInstanceCreateInfoAndroidKHR androidInfo{XR_TYPE_INSTANCE_CREATE_INFO_ANDROID_KHR};
     androidInfo.applicationVM = vm;
     androidInfo.applicationActivity = g.activity;
     XrInstanceCreateInfo info{XR_TYPE_INSTANCE_CREATE_INFO};
     info.next = &androidInfo;
-    info.enabledExtensionCount = 2;
+    info.enabledExtensionCount = passthrough ? 3 : 2;
     info.enabledExtensionNames = extensions;
     std::strncpy(info.applicationInfo.applicationName, "OrcaStudio VR", XR_MAX_APPLICATION_NAME_SIZE - 1);
     info.applicationInfo.apiVersion = XR_API_VERSION_1_0;
@@ -132,7 +193,9 @@ bool createInstance(JavaVM* vm) {
     }
     XrSystemGetInfo systemInfo{XR_TYPE_SYSTEM_GET_INFO};
     systemInfo.formFactor = XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY;
-    return ok(xrGetSystem(g.instance, &systemInfo, &g.system), "xrGetSystem");
+    if (!ok(xrGetSystem(g.instance, &systemInfo, &g.system), "xrGetSystem")) return false;
+    if (passthrough) loadPassthroughFunctions();
+    return true;
 }
 
 // OpenXR requires this call before xrCreateSession.
@@ -261,6 +324,7 @@ bool createSession(EGLDisplay display, EGLConfig config, EGLContext context) {
     spaceInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
     spaceInfo.poseInReferenceSpace.orientation.w = 1.0f;
     if (!ok(xrCreateReferenceSpace(g.session, &spaceInfo, &g.space), "xrCreateReferenceSpace")) return false;
+    createPassthrough();
     return createSwapchains();
 }
 
@@ -289,6 +353,7 @@ void onStateChanged(XrSessionState state) {
 }
 
 void destroyAll(JNIEnv* env) {
+    destroyPassthrough();
     for (EyeSwapchain& s : g.eyes) {
         if (s.handle != XR_NULL_HANDLE) xrDestroySwapchain(s.handle);
     }
@@ -303,14 +368,19 @@ void destroyAll(JNIEnv* env) {
 
 extern "C" {
 
-JNIEXPORT jboolean JNICALL Java_app_orcaandroid_vr_XrShim_nativeCreate(JNIEnv* env, jclass, jobject activity, jlong display, jlong config, jlong context) {
+JNIEXPORT jboolean JNICALL Java_app_orcaandroid_vr_XrShim_nativeCreate(JNIEnv* env, jclass, jobject activity, jlong display, jlong config, jlong context, jboolean passthrough) {
     JavaVM* vm = nullptr;
     if (env->GetJavaVM(&vm) != JNI_OK) return JNI_FALSE;
     g.activity = env->NewGlobalRef(activity);
-    const bool created = createInstance(vm) && checkGlesRequirements() &&
+    const bool created = createInstance(vm, passthrough == JNI_TRUE) && checkGlesRequirements() &&
                          createSession(reinterpret_cast<EGLDisplay>(display), reinterpret_cast<EGLConfig>(config), reinterpret_cast<EGLContext>(context));
     if (!created) destroyAll(env);
     return created ? JNI_TRUE : JNI_FALSE;
+}
+
+// True when the passthrough layer runs: the renderer then clears with alpha 0.
+JNIEXPORT jboolean JNICALL Java_app_orcaandroid_vr_XrShim_nativePassthroughActive(JNIEnv*, jclass) {
+    return g.passthroughLayer != XR_NULL_HANDLE ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT jint JNICALL Java_app_orcaandroid_vr_XrShim_nativePollEvents(JNIEnv*, jclass) {
@@ -401,12 +471,20 @@ JNIEXPORT void JNICALL Java_app_orcaandroid_vr_XrShim_nativeReleaseImage(JNIEnv*
 }
 
 JNIEXPORT void JNICALL Java_app_orcaandroid_vr_XrShim_nativeEndFrame(JNIEnv*, jclass, jboolean rendered) {
+    const bool passthrough = g.passthroughLayer != XR_NULL_HANDLE;
     XrCompositionLayerProjectionView projected[kEyes] = {{XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW}, {XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW}};
     XrCompositionLayerProjection layer{XR_TYPE_COMPOSITION_LAYER_PROJECTION};
-    const XrCompositionLayerBaseHeader* layers[1] = {reinterpret_cast<const XrCompositionLayerBaseHeader*>(&layer)};
+    // Passthrough first, as layers composite in array order. Both use the texture alpha, premultiplied (no UNPREMULTIPLIED bit).
+    XrCompositionLayerPassthroughFB background{XR_TYPE_COMPOSITION_LAYER_PASSTHROUGH_FB};
+    background.flags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
+    background.space = XR_NULL_HANDLE;
+    background.layerHandle = g.passthroughLayer;
+    const XrCompositionLayerBaseHeader* layers[2] = {reinterpret_cast<const XrCompositionLayerBaseHeader*>(&background),
+                                                      reinterpret_cast<const XrCompositionLayerBaseHeader*>(&layer)};
     XrFrameEndInfo end{XR_TYPE_FRAME_END_INFO};
     end.displayTime = g.displayTime;
     end.environmentBlendMode = XR_ENVIRONMENT_BLEND_MODE_OPAQUE;
+    end.layers = layers + (passthrough ? 0 : 1);
     if (rendered) {
         for (int eye = 0; eye < kEyes; eye++) {
             const EyeSwapchain& s = g.eyes[eye];
@@ -415,11 +493,14 @@ JNIEXPORT void JNICALL Java_app_orcaandroid_vr_XrShim_nativeEndFrame(JNIEnv*, jc
             projected[eye].subImage.swapchain = s.handle;
             projected[eye].subImage.imageRect.extent = {s.width, s.height};
         }
+        layer.layerFlags = passthrough ? XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT : 0;
         layer.space = g.space;
         layer.viewCount = kEyes;
         layer.views = projected;
+        end.layerCount = passthrough ? 2 : 1;
+    } else if (passthrough) {
+        // Nothing drawn this frame: keep the passthrough up.
         end.layerCount = 1;
-        end.layers = layers;
     }
     ok(xrEndFrame(g.session, &end), "xrEndFrame");
 }
