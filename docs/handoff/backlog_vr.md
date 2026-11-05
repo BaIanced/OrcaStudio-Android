@@ -3,7 +3,7 @@
 Design and recipes: `NOTES-vr.md`. `[Opus]` = hard item. "Build none" = nothing built or run yet, so untested. Finished items move to the dated section; never delete them. Keep under ~10 KB.
 
 ## Open
-- M1 real plate in stereo [Opus]: IN PROGRESS on `claude/vr-m1`, code done, Kotlin compiled and VR JVM tests pass, native and on-headset untested. See "M1 as built" in `NOTES-vr.md`. Next: check CI run 42089335352 (commit 77824ea; first native compile of the new shim code), then with the Quest on adb: force-stop, launch, read `VR_SCENE`, `VR_SRGB`, `VR_MSAA`, `VR_FPS`, take a screencap. Quest was not on adb 2026-11-05. Ends with a 2-minute user headset check. | Claude, Kotlin compile only, 2026-11-05
+- M1 real plate in stereo [Opus]: IN PROGRESS on `claude/vr-m1`, code done, Kotlin compiled and VR JVM tests pass, native and on-headset untested. See "M1 as built" in `NOTES-vr.md`. Review fixes in 12fbfb9. Next: check CI run 42091237074 (12fbfb9, supersedes 42089335352 on 77824ea; first native compile of the shim code), install it on the Quest (`.quest` package, its data is separate, so a printer or project may be missing): force-stop, launch, read `VR_SCENE`, `VR_SRGB`, `VR_MSAA`, `VR_FPS`, take a screencap. Quest was not on adb 2026-11-05. Ends with a 2-minute user headset check. | Claude, Kotlin compile only, 2026-11-05
 - M2 enter, leave, passthrough: IN PROGRESS, device-free only at the user's request (2026-11-05), so unverified until M1 passes on the headset. Add the `com.oculus.feature.PASSTHROUGH` manifest feature and recheck `XR_FB_passthrough` (untested). | Claude, build none, 2026-11-05
 - OVR Metrics CSV: open, low priority. ENABLE_CSV broadcast wrote no file on Quest 3 v210; no receiver in `dumpsys package`. `VrApi` logcat lines by app pid are the working substitute. | Claude, CI r528, 2026-11-05
 - M3 Compose panel and ray selection [Opus]: open, blocked by M2. Ends with a 2-minute user headset check. | Claude, build none, 2026-11-05
@@ -16,4 +16,4 @@ Design and recipes: `NOTES-vr.md`. `[Opus]` = hard item. "Build none" = nothing 
 - Privacy hook runs again: it called `python3`, the Store stub, and failed open. Added `python3.exe` beside the real Python 3.11 (outside the repo). Fake-address event blocked with exit 2, clean event exit 0. | Claude, no build needed, 2026-11-05
 
 ## Status
-2026-11-05: M1 code pushed, CI 42089335352 running. M2 and M3 groundwork running device-free. Blocked on the user: Quest on adb. Quest is the only device this work may drive (user).
+2026-11-05: M1 and review fixes pushed, CI 42091237074 running. Quest 3 on adb over TCP. Passthrough on local branch `claude/vr-m2-passthrough` (70d146b, Kotlin compiled, native untested, not pushed). M2 entry and M3 design still running. Quest is the only device this work may drive (user).
