@@ -2,9 +2,12 @@ package app.orcaandroid.ui
 
 import app.orcaandroid.ui.prepare.PieTouch
 import android.app.Application
+import android.content.Intent
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import app.orcaandroid.BuildConfig
 import app.orcaandroid.CrashReport
+import app.orcaandroid.R
 import app.orcaandroid.ai.McpServer
 import app.orcaandroid.ai.McpTools
 import app.orcaandroid.core.AI_TOOLS_PORT
@@ -69,6 +72,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             store.state.map { it.buildObject }.distinctUntilChanged().collect { scad.showBuild(it) }
         }
+        if (BuildConfig.QUEST) viewModelScope.launch {
+            store.state.map { it.vrScene() }.distinctUntilChanged().collect { store.container.vr.scene = it }
+        }
         viewModelScope.launch {
             val report = withContext(Dispatchers.IO) { runCatching { CrashReport.pending(store.app) }.getOrNull() }
             if (report != null) store.update { it.copy(crashReport = report) }
@@ -82,6 +88,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Unpacks the resources, starts the engine and loads the printers chosen before (or asks for them). */
     private suspend fun start() {
+        store.container.vr.claimFor2d(this)
         val resources = store.resources
         translator = withContext(Dispatchers.IO) { Translator.load(store.app) }
         resources.prepare()
@@ -293,12 +300,36 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     override fun onCleared() {
         mcp.stop()
+        store.container.vr.release2d(this)
         super.onCleared()
     }
 
     /** Keeps the current state for the next start; runs outside the view model so it survives the activity. */
     fun saveSession() = store.container.appScope.launch {
-        runCatching { files.saveSession() }.onFailure { android.util.Log.w("Orca", "session not saved", it) }
+        runCatching { saveFile() }.onFailure { android.util.Log.w("Orca", "session not saved", it) }
+    }
+
+    /** What the session file was last written from. */
+    @Volatile private var savedKey: SessionKey? = null
+
+    private suspend fun saveFile(key: SessionKey = sessionKey(state.value)) {
+        files.saveSession()
+        // Not written while the immersive view is open (FileController.saveSession).
+        if (!store.container.vr.open) savedKey = key
+    }
+
+    /**
+     * Quest build: the immersive view on this project. VR holds saves back, so a crash there must not lose edits: the
+     * session file is brought up to date first, and left alone if it already is. By class name, as only `src/quest` has it.
+     */
+    fun openVr() {
+        val stale = sessionKey(state.value) != savedKey
+        store.launch(if (stale) store.str(R.string.saving) else null) {
+            if (stale) saveFile()
+            store.container.vr.scene = state.value.vrScene()
+            store.app.startActivity(Intent(Intent.ACTION_MAIN).setClassName(store.app, "app.orcaandroid.vr.VrActivity")
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }
     }
 
     /** What the session file holds; a change of any of it makes the session stale. */
@@ -316,16 +347,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      */
     private suspend fun autoSave() {
         awaitReady()
-        var saved = sessionKey(state.value)
+        savedKey = sessionKey(state.value)
         while (true) {
             val seconds = state.value.autoSaveSeconds
             delay(if (seconds > 0) seconds * 1000L else 5_000L)
             val s = state.value
             if (seconds <= 0 || s.phase != Phase.READY || s.busy != null || s.slice != SliceStatus.Idle) continue
             val key = sessionKey(s)
-            if (key == saved) continue
-            runCatching { files.saveSession() }
-                .onSuccess { saved = key }
+            if (key == savedKey) continue
+            runCatching { saveFile(key) }
                 .onFailure { android.util.Log.w("Orca", "auto-save failed", it) }
         }
     }
@@ -338,4 +368,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun setScadOnPlate(onPlate: Boolean) = store.update { it.copy(scadOnPlate = onPlate) }
     fun toast(message: String) = store.toast(message)
     fun showError(message: String) = store.update { it.copy(error = message) }
+}
+
+/** What the immersive view reads from the 2D app; null until it is ready. Colours as the 3D view's (`Viewport.kt`). */
+internal fun UiState.vrScene(): app.orcaandroid.vr.VrScene? {
+    val bed = setup?.bed?.takeIf { phase == Phase.READY } ?: return null
+    return app.orcaandroid.vr.VrScene(
+        bed.toList(), scene.plates.map { it.originX to it.originY }, activePlate,
+        scene.meshFile, scene.meshVersion, scene.paintFile, filaments.map { it.color ?: "#FF7F27" },
+    )
 }

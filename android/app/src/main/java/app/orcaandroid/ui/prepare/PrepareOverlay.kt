@@ -56,6 +56,7 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Vrpano
 import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.Straighten
@@ -484,6 +485,8 @@ internal fun ViewButtons(state: UiState, vm: AppViewModel, view: PlateView?, rai
     }
     button(Icons.AutoMirrored.Filled.Undo, stringResource(R.string.undo), state.scene.canUndo, vm.scene::undo)
     button(Icons.AutoMirrored.Filled.Redo, stringResource(R.string.redo), state.scene.canRedo, vm.scene::redo)
+    if (app.orcaandroid.BuildConfig.QUEST && !state.inPaintShop)
+        button(Icons.Default.Vrpano, stringResource(R.string.open_in_vr), true, vm::openVr)
     Box {
         button(Icons.Default.Videocam, stringResource(R.string.view), true) { viewMenu = true }
         DropdownMenu(expanded = viewMenu, onDismissRequest = { viewMenu = false }) {

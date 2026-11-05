@@ -49,6 +49,7 @@ android {
         buildConfigField("String", "ORCA_VERSION", "\"$orcaVersion\"")
         buildConfigField("String", "ORCA_COMMIT", "\"$orcaCommit\"")
         buildConfigField("String", "SOURCE_URL", "\"$sourceUrl\"")
+        buildConfigField("boolean", "QUEST", "false")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -94,6 +95,7 @@ android {
                 dimension = "device"
                 // Installs next to the 2D app on the headset.
                 applicationIdSuffix = ".quest"
+                buildConfigField("boolean", "QUEST", "true")
             }
         }
         buildFeatures { prefab = true }
