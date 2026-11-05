@@ -25,13 +25,8 @@ class Engine(private val cacheDir: File) {
         }
     }
 
-    /** The core is up in this process (the VR activity must not load a project over the 2D app's scene). */
-    @Volatile var initialized = false
-        private set
-
     suspend fun init(resourcesDir: File, dataDir: File) = withContext(thread) {
         JSONObject(OrcaNative.init(resourcesDir.path, dataDir.path, File(cacheDir, "tmp").path)).throwIfError()
-        initialized = true
     }
 
     // --- Presets ---------------------------------------------------------------------------------

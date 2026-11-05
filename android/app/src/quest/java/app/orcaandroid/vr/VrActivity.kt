@@ -1,6 +1,8 @@
 package app.orcaandroid.vr
 
 import android.app.Activity
+import android.app.PendingIntent
+import android.content.Intent
 import android.opengl.EGL14
 import android.opengl.EGLConfig
 import android.opengl.EGLContext
@@ -16,6 +18,7 @@ import app.orcaandroid.render.Camera
 import app.orcaandroid.render.FloatData
 import app.orcaandroid.render.PlateRenderer
 import app.orcaandroid.render.ViewSource
+import app.orcaandroid.ui.MainActivity
 import app.orcaandroid.ui.components.hexToRgb
 import java.io.File
 import java.util.concurrent.ConcurrentLinkedQueue
@@ -41,9 +44,13 @@ class VrActivity : Activity() {
     private val world = FloatArray(16).also { VrMath.plateToLocal(it, 0f, 0f) }
     private var plateX = 0f
     private var plateY = 0f
+    private val link get() = (application as OrcaApp).container.vr
+    private lateinit var claim: VrLink.Claim
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        link.viewOpened()
+        claim = link.claimForVr()
         thread = Thread(::renderThread, "OrcaXrRender").also { it.start() }
     }
 
@@ -52,6 +59,8 @@ class VrActivity : Activity() {
         scope.cancel()
         // The thread can be inside xrWaitFrame; don't hold the main thread for long.
         thread?.join(JOIN_TIMEOUT_MS)
+        if (claim == VrLink.Claim.COLD) link.releaseVr()
+        link.viewClosed()
         super.onDestroy()
     }
 
@@ -70,59 +79,85 @@ class VrActivity : Activity() {
         } finally {
             egl.release()
         }
-        runOnUiThread { finishAndRemoveTask() }
+        runOnUiThread {
+            // Ended by itself over a 2D app, not destroyed by the system: back to the panel.
+            if (claim == VrLink.Claim.SHARED && !isFinishing && !isDestroyed) launchPanelInHome()
+            finishAndRemoveTask()
+        }
     }
 
-    /**
-     * Loads the project into the engine, in the startup order of AppViewModel.start. Settings and the session file are only
-     * read. A 2D app already up in this process owns the engine, so VR leaves (M2 decides how the two share it).
-     */
+    /** Finishing alone isn't documented to bring the panel back: Home opens it (Meta's hybrid apps overview). */
+    private fun launchPanelInHome() {
+        runCatching {
+            val panel = Intent(applicationContext, MainActivity::class.java).setAction(Intent.ACTION_MAIN).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            val pending = PendingIntent.getActivity(applicationContext, 0, panel, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            startActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                .putExtra(EXTRA_HOME_PENDING_INTENT, pending))
+        }.onFailure { Log.e(TAG, "VR_LEAVE could not open the panel", it) }
+    }
+
+    /** Over a 2D app: only reads what it publishes, never the engine, so its project and scene stay as they are. */
     private fun loadScene() = scope.launch {
         runCatching {
-            val container = (application as OrcaApp).container
-            val engine = container.engine
-            if (engine.initialized) {
-                Log.e(TAG, "VR_SCENE the 2D app owns the engine, leaving")
-                stop = true
-                return@launch
-            }
-            container.resources.prepare()
-            engine.init(container.resources.resourcesDir, container.resources.dataDir)
-            val printers = engine.loadPresets()
-            val session = File(filesDir, "session/session.3mf")
-            val project = projectExtra() ?: session
-            val last = printers.firstOrNull { it.name == container.settings.lastPrinter }?.name ?: printers.firstOrNull()?.name
-            if (last == null) {
-                Log.e(TAG, "VR_SCENE no printer installed, open the 2D app once")
-                return@launch
-            }
-            // As in the 2D start: a printer is selected before the project loads, then the project's own if it is installed.
-            var bed = engine.selectPrinter(last).bed
-            val info = if (project.exists()) engine.loadProject(project.path).second else null
-            val own = printers.firstOrNull { it.name == info?.printer }?.name
-            if (own != null) bed = engine.selectPrinter(own).bed
-            val scene = engine.scene()
-            val mesh = if (scene.meshFile.isEmpty()) null else FloatData.load(scene.meshFile, 8)
-            val origins = scene.plates.map { it.originX to it.originY }
-            val active = if (project == session) savedActivePlate(session).coerceIn(0, (origins.size - 1).coerceAtLeast(0)) else 0
-            val colors = info?.filamentColors.orEmpty().map { hexToRgb(it.ifBlank { null }) }
-            val xs = bed.filterIndexed { i, _ -> i % 2 == 0 }
-            val ys = bed.filterIndexed { i, _ -> i % 2 == 1 }
-            val origin = origins.getOrElse(active) { 0f to 0f }
-            val cx = origin.first + (xs.min() + xs.max()) / 2
-            val cy = origin.second + (ys.min() + ys.max()) / 2
-            Log.i(TAG, "VR_SCENE project ${project.exists()} plates ${origins.size} active $active vertices ${mesh?.count ?: 0}")
-            pending += {
-                setBed(bed, origins)
-                plateOriginsCount = origins.size
-                activePlate = active
-                filamentColors = colors
-                setMesh(mesh, scene.meshVersion)
-                plateX = cx
-                plateY = cy
-                VrMath.plateToLocal(world, cx, cy)
+            when (claim) {
+                VrLink.Claim.COLD -> loadProject()
+                VrLink.Claim.SHARED -> {
+                    val shared = link.scene
+                    if (shared != null) show(shared) else {
+                        Log.e(TAG, "VR_SCENE the 2D app is not ready, leaving")
+                        stop = true
+                    }
+                }
+                VrLink.Claim.BUSY -> {
+                    Log.e(TAG, "VR_SCENE another immersive view holds the engine, leaving")
+                    stop = true
+                }
             }
         }.onFailure { Log.e(TAG, "VR_SCENE failed", it) }
+    }
+
+    /** Cold start: loads the project into the engine, in the startup order of AppViewModel.start. Settings and the session file are only read. */
+    private suspend fun loadProject() {
+        val container = (application as OrcaApp).container
+        val engine = container.engine
+        container.resources.prepare()
+        engine.init(container.resources.resourcesDir, container.resources.dataDir)
+        val printers = engine.loadPresets()
+        val session = File(filesDir, "session/session.3mf")
+        val project = projectExtra() ?: session
+        val last = printers.firstOrNull { it.name == container.settings.lastPrinter }?.name ?: printers.firstOrNull()?.name
+        if (last == null) {
+            Log.e(TAG, "VR_SCENE no printer installed, open the 2D app once")
+            return
+        }
+        // As in the 2D start: a printer is selected before the project loads, then the project's own if it is installed.
+        var bed = engine.selectPrinter(last).bed
+        val info = if (project.exists()) engine.loadProject(project.path).second else null
+        val own = printers.firstOrNull { it.name == info?.printer }?.name
+        if (own != null) bed = engine.selectPrinter(own).bed
+        val scene = engine.scene()
+        val origins = scene.plates.map { it.originX to it.originY }
+        val active = if (project == session) savedActivePlate(session).coerceIn(0, (origins.size - 1).coerceAtLeast(0)) else 0
+        Log.i(TAG, "VR_SCENE project ${project.exists()}")
+        show(VrScene(bed.toList(), origins, active, scene.meshFile, scene.meshVersion, info?.filamentColors.orEmpty().map { it.ifBlank { null } }))
+    }
+
+    private fun show(scene: VrScene) {
+        val mesh = if (scene.meshFile.isEmpty()) null else FloatData.load(scene.meshFile, 8)
+        val bed = scene.bed.toFloatArray()
+        val colors = scene.filamentColors.map(::hexToRgb)
+        val (cx, cy) = scene.plateCenter()
+        Log.i(TAG, "VR_SCENE $claim plates ${scene.origins.size} active ${scene.activePlate} vertices ${mesh?.count ?: 0}")
+        pending += {
+            setBed(bed, scene.origins)
+            plateOriginsCount = scene.origins.size
+            activePlate = scene.activePlate
+            filamentColors = colors
+            setMesh(mesh, scene.meshVersion)
+            plateX = cx
+            plateY = cy
+            VrMath.plateToLocal(world, cx, cy)
+        }
     }
 
     /** `--es project <path>`, only from this app's own storage: the activity is exported, and the parser is native. */
@@ -157,7 +192,7 @@ class VrActivity : Activity() {
         var frames = 0
         var windowStart = SystemClock.elapsedRealtime()
 
-        while (!stop) {
+        while (!stop && !link.leaveRequested) {
             val status = XrShim.nativePollEvents()
             if (status and XrShim.EXIT != 0) break
             while (true) (pending.poll() ?: break).invoke(renderer)
@@ -246,6 +281,7 @@ class VrActivity : Activity() {
     private companion object {
         const val TAG = "OrcaXr"
         const val EXTRA_PROJECT = "project"
+        const val EXTRA_HOME_PENDING_INTENT = "extra_launch_in_home_pending_intent"
         const val NEAR = 0.05f
         const val FAR = 100f
         const val IDLE_SLEEP_MS = 50L

@@ -8,6 +8,7 @@ import app.orcaandroid.core.Engine
 import app.orcaandroid.core.Tuning
 import app.orcaandroid.core.ResourceStore
 import app.orcaandroid.net.PrinterStatus
+import app.orcaandroid.vr.VrLink
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -27,6 +28,8 @@ class AppContainer(app: Application) {
     val printerStatus = MutableStateFlow<PrinterStatus?>(null)
     /** For work that must finish even when the activity and its view model are gone. */
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    /** Who holds the engine, and what the immersive view of the Quest build reads from the 2D app. */
+    val vr = VrLink()
 }
 
 class OrcaApp : Application() {

@@ -219,7 +219,8 @@ class FileController(
     /** Saves the scene, presets and setting changes as a project (called when the app goes to the background). */
     suspend fun saveSession() = sessionLock.withLock {
         val s = store.value
-        if (s.phase != Phase.READY) return
+        // Every save changes the file's bytes (zip times), so none while the immersive view is open.
+        if (s.phase != Phase.READY || store.container.vr.open) return
         // A calibration test cannot be resumed from a project; an empty plate needs no session.
         if (s.scene.isEmpty || s.calibration != null) {
             sessionProject.delete(); sessionInfo.delete()

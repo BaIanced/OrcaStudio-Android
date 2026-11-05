@@ -349,6 +349,7 @@
     <string name="updating_vendor">Aktualisiere %1$s (%2$d/%3$d)…</string>
     <string name="use_preset_host">%s aus dem Drucker-Preset verwenden</string>
     <string name="variable_layer_height">Variable Schichthöhe</string>
+    <string name="open_in_vr">In VR ansehen</string>
     <string name="view">Ansicht</string>
     <string name="view_fit">Platte einpassen</string>
     <string name="section_view">Schnittansicht</string>

@@ -26,11 +26,13 @@
             </intent-filter>
         </activity>
 
+        <!-- Its own affinity: with the app's, singleTask joins MainActivity's task and finishAndRemoveTask() ends the 2D app too. -->
         <activity
             android:name=".vr.VrActivity"
             android:configChanges="screenSize|screenLayout|orientation|keyboardHidden|keyboard|navigation|uiMode"
             android:exported="true"
             android:launchMode="singleTask"
+            android:taskAffinity="${applicationId}.vr"
             android:screenOrientation="landscape"
             android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen">
             <intent-filter>
