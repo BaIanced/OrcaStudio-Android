@@ -41,9 +41,12 @@ class VrActivity : Activity() {
     private val world = FloatArray(16).also { VrMath.plateToLocal(it, 0f, 0f) }
     private var plateX = 0f
     private var plateY = 0f
+    /** Where the user put the plate; only the render thread touches it. */
+    private val grab = PlateGrab()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        loadPlacement()
         thread = Thread(::renderThread, "OrcaXrRender").also { it.start() }
     }
 
@@ -135,8 +138,51 @@ class VrActivity : Activity() {
             activePlate = active
             plateX = cx
             plateY = cy
-            VrMath.plateToLocal(world, cx, cy)
+            // Every plate counts as the grab target, not only the active one.
+            grab.setBounds(
+                origins.minOf { it.first } + xs.min() - cx, origins.minOf { it.second } + ys.min() - cy,
+                origins.maxOf { it.first } + xs.max() - cx, origins.maxOf { it.second } + ys.max() - cy,
+            )
+            updateWorld()
         }
+    }
+
+    private fun updateWorld() = VrMath.plateToLocal(world, plateX, plateY, grab.x, grab.y, grab.z, grab.scale)
+
+    private fun placementPrefs() = getSharedPreferences(PREFS_PLACEMENT, MODE_PRIVATE)
+
+    /** `--ez resetPlacement true` brings a lost plate back. */
+    private fun loadPlacement() {
+        val prefs = placementPrefs()
+        if (intent.getBooleanExtra(EXTRA_RESET_PLACEMENT, false)) prefs.edit().clear().apply()
+        grab.place(
+            prefs.getFloat("x", grab.x), prefs.getFloat("y", grab.y), prefs.getFloat("z", grab.z), prefs.getFloat("scale", grab.scale),
+        )
+    }
+
+    private fun savePlacement() {
+        placementPrefs().edit().putFloat("x", grab.x).putFloat("y", grab.y).putFloat("z", grab.z).putFloat("scale", grab.scale).apply()
+        Log.i(TAG, "VR_PLACE x ${grab.x} y ${grab.y} z ${grab.z} scale ${grab.scale}")
+    }
+
+    /** `vr_tuning.json` in the app's external files dir, pushed over adb, applied live. Any field may be left out. */
+    private fun loadTuning(file: File) {
+        val json = runCatching { JSONObject(file.readText()) }.getOrElse {
+            Log.e(TAG, "VR_TUNE unreadable, keeping the current values: ${it.message}")
+            return
+        }
+        val t = grab.tuning
+        fun read(name: String, now: Float) = json.optDouble(name, now.toDouble()).toFloat()
+        t.minCutoffHz = read("minCutoffHz", t.minCutoffHz)
+        t.beta = read("beta", t.beta)
+        t.stickDeadZone = read("stickDeadZone", t.stickDeadZone)
+        t.stickSmoothMs = read("stickSmoothMs", t.stickSmoothMs)
+        t.stickCurve = read("stickCurve", t.stickCurve)
+        t.distanceRate = read("distanceRate", t.distanceRate)
+        t.zoomRate = read("zoomRate", t.zoomRate)
+        t.axisLock = read("axisLock", t.axisLock)
+        t.grabToggle = json.optBoolean("grabToggle", t.grabToggle)
+        Log.i(TAG, "VR_TUNE applied $json")
     }
 
     /** `--es project <path>`, only from this app's own storage: the activity is exported, and the parser is native. */
@@ -170,6 +216,12 @@ class VrActivity : Activity() {
         val eye = EyeView()
         var frames = 0
         var windowStart = SystemClock.elapsedRealtime()
+        val rays = RayOverlay()
+        val hands = FloatArray(XrShim.HANDS * XrShim.FLOATS_PER_HAND)
+        var lastFrameNanos = SystemClock.elapsedRealtimeNanos()
+        val tuningFile = getExternalFilesDir(null)?.let { File(it, TUNING_FILE) }
+        var tuningStamp = 0L
+        var tuningCheck = 0L
 
         while (!stop) {
             val status = XrShim.nativePollEvents()
@@ -180,6 +232,18 @@ class VrActivity : Activity() {
                 continue
             }
             var render = XrShim.nativeBeginFrame(views)
+            val frameNanos = SystemClock.elapsedRealtimeNanos()
+            if (render) {
+                XrShim.nativeInput(hands)
+                when (grab.update(hands, (frameNanos - lastFrameNanos) / 1e9f)) {
+                    PlateGrab.MOVED -> updateWorld()
+                    PlateGrab.RELEASED -> {
+                        updateWorld()
+                        savePlacement()
+                    }
+                }
+            }
+            lastFrameNanos = frameNanos
             if (render) {
                 for (i in 0 until XrShim.EYES) {
                     val framebuffer = XrShim.nativeAcquireImage(i)
@@ -194,8 +258,9 @@ class VrActivity : Activity() {
                     VrMath.projectionFromFov(projection, views[o + 7], views[o + 8], views[o + 9], views[o + 10], NEAR, FAR)
                     VrMath.multiply(viewProj, projection, view)
                     VrMath.multiply(eyeProj, viewProj, world)
-                    eye.set(views, o, plateX, plateY, size[1])
+                    eye.set(views, o, plateX, plateY, grab, size[1])
                     renderer.drawEye(framebuffer, size[0], size[1], eyeProj, eye)
+                    rays.draw(viewProj, hands, grab)
                     XrShim.nativeReleaseImage(i)
                 }
             }
@@ -208,7 +273,17 @@ class VrActivity : Activity() {
                 frames = 0
                 windowStart = now
             }
+            if (tuningFile != null && now - tuningCheck >= TUNING_CHECK_MS) {
+                tuningCheck = now
+                val stamp = tuningFile.lastModified()
+                if (stamp != 0L && stamp != tuningStamp) {
+                    tuningStamp = stamp
+                    loadTuning(tuningFile)
+                }
+            }
         }
+        // Left VR mid-grab: keep where the plate was.
+        if (grab.holder >= 0) savePlacement()
     }
 
     /** The current eye in plate mm, for the shaders. */
@@ -216,8 +291,8 @@ class VrActivity : Activity() {
         private val position = FloatArray(3)
         private var mmPerPxAtOneMm = 0f
 
-        fun set(views: FloatArray, offset: Int, plateX: Float, plateY: Float, height: Int) {
-            VrMath.localToPlate(position, views, offset, plateX, plateY)
+        fun set(views: FloatArray, offset: Int, plateX: Float, plateY: Float, grab: PlateGrab, height: Int) {
+            VrMath.localToPlate(position, views, offset, plateX, plateY, grab.x, grab.y, grab.z, grab.scale)
             mmPerPxAtOneMm = (tan(views[offset + 9]) - tan(views[offset + 10])) / height
         }
 
@@ -264,6 +339,10 @@ class VrActivity : Activity() {
     private companion object {
         const val TAG = "OrcaXr"
         const val EXTRA_PROJECT = "project"
+        const val EXTRA_RESET_PLACEMENT = "resetPlacement"
+        const val PREFS_PLACEMENT = "vr_placement"
+        const val TUNING_FILE = "vr_tuning.json"
+        const val TUNING_CHECK_MS = 1000L
         const val NEAR = 0.05f
         const val FAR = 100f
         const val IDLE_SLEEP_MS = 50L
