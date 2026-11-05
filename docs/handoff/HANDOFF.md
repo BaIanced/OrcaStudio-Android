@@ -33,7 +33,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
 - Open tests in backlog.
-- Assemble A1 + A2 verified (r523/r524/r526; archive end). Fit card sits above the slice error (r526). Fix 2236a00 (stale fit card cleared at slice start) pending CI + WSA VD check: slice a too-big object, shrink to fit, slice -> no fit card.
+- Assemble A1 + A2 verified (r523/r524/r526; archive end). Fit card sits above the slice error (r526). Fix 2236a00 = CI run 41939360557 (stale fit card cleared at slice start) pending CI + WSA VD check: slice a too-big object, shrink to fit, slice -> no fit card.
 - Rename (LOW, backlog): glance at upstream Discussions #17269 at /next (0 replies, last 2026-11-04).
 - Tower message tweak (3505452): verify with a >4-filament slice (add filaments, throwaway); still open.
 - Next step: dispatch CI for 2236a00, WSA VD check of stale fit card + tower message (>4 filaments) -> Sonnet 5.5 (medium)
