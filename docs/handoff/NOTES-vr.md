@@ -25,7 +25,7 @@ Goal: static world-locked plate plus a real model, 1:1, head-tracked. Shadows an
 
 ## Later milestones
 - **M2:** VR button and return with `finishAndRemoveTask()`, same project; `AppViewModel` is per view-model owner (`ui/AppViewModel.kt:28`), so decide what moves to app scope. Passthrough: `XR_FB_passthrough`, the `com.oculus.feature.PASSTHROUGH` manifest feature, clear with alpha (`drawScene` clears opaque, `render/PlateRenderer.kt:571-573`). Acceptance: `session.3mf` hash unchanged across the round trip; extension enabled in logcat.
-- **M3:** cooperative panel from raw OpenXR (untested), else `xrCreateSwapchainAndroidSurfaceKHR`. OpenXR actions; aim ray to `onViewTap` (`ui/SceneController.kt:412`).
+- **M3:** full design in `NOTES-vr-m3.md` (nothing run). Quad layer on `xrCreateSwapchainAndroidSurfaceKHR` plus a `Presentation` hosting one small new Compose panel, gated by an on-headset probe; existing 2D screens, popups and text fields can't work there. OpenXR actions; aim ray to `onViewTap` (`ui/SceneController.kt:412`). Selection look is BOX and TINT, since OUTLINE breaks under MSAA.
 - **M4-M7:** grab transforms, measure and Assemble, Preview (highest perf risk), paint. See the archive. After M2-M3, reassess whether a panel app is enough.
 
 ## Main risks

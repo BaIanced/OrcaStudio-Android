@@ -6,7 +6,7 @@ Design and recipes: `NOTES-vr.md`. `[Opus]` = hard item. "Build none" = nothing 
 - M1 real plate in stereo [Opus]: IN PROGRESS on `claude/vr-m1`, code done, Kotlin compiled and VR JVM tests pass, native and on-headset untested. See "M1 as built" in `NOTES-vr.md`. Review fixes in 12fbfb9. Next: check CI run 42091237074 (12fbfb9, supersedes 42089335352 on 77824ea; first native compile of the shim code), install it on the Quest (`.quest` package, its data is separate, so a printer or project may be missing): force-stop, launch, read `VR_SCENE`, `VR_SRGB`, `VR_MSAA`, `VR_FPS`, take a screencap. Quest was not on adb 2026-11-05. Ends with a 2-minute user headset check. | Claude, Kotlin compile only, 2026-11-05
 - M2 enter, leave, passthrough: IN PROGRESS, device-free only at the user's request (2026-11-05), so unverified until M1 passes on the headset. Add the `com.oculus.feature.PASSTHROUGH` manifest feature and recheck `XR_FB_passthrough` (untested). | Claude, build none, 2026-11-05
 - OVR Metrics CSV: open, low priority. ENABLE_CSV broadcast wrote no file on Quest 3 v210; no receiver in `dumpsys package`. `VrApi` logcat lines by app pid are the working substitute. | Claude, CI r528, 2026-11-05
-- M3 Compose panel and ray selection [Opus]: open, blocked by M2. Ends with a 2-minute user headset check. | Claude, build none, 2026-11-05
+- M3 Compose panel and ray selection [Opus]: open, blocked by M2 except its pure-Kotlin steps 1-2. Design and build order: `NOTES-vr-m3.md`, panel is a conditional go, gated by step 6's headset probe. Ends with a 2-minute user headset check. | Claude, build none, 2026-11-05
 
 ## Finished
 ### 2026-11-05
