@@ -31,6 +31,20 @@ class VrLinkTest {
         assertEquals(VrLink.Claim.COLD, link.claimForVr())
     }
 
+    @Test fun twoDHoldsUntilTheViewItStartedHasEnded() = runBlocking {
+        val link = VrLink()
+        val held = async(Dispatchers.Default, CoroutineStart.UNDISPATCHED) { link.awaitViewEnded(5_000) }
+        link.viewOpened()
+        kotlinx.coroutines.delay(50)
+        assertFalse(held.isCompleted)
+        link.viewClosed()
+        assertTrue(withTimeout(1_000) { held.await() })
+    }
+
+    @Test fun twoDStopsHoldingWhenTheViewNeverOpens() = runBlocking {
+        assertFalse(VrLink().awaitViewEnded(10))
+    }
+
     @Test fun vrOverA2dAppShares() = runBlocking {
         val link = VrLink()
         link.claimFor2d(this@VrLinkTest)

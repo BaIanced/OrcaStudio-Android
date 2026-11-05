@@ -55,15 +55,23 @@ class VrActivity : Activity() {
         thread = Thread(::renderThread, "OrcaXrRender").also { it.start() }
     }
 
-    // Saves are held from start to stop, not to destroy: a VR left stopped in the background (or hung) must not block the
-    // saves of a 2D app back in front. Starting comes before the panel's onStop, stopping after its onResume (untested on a headset).
+    // Saves are held from start to stop, not to destroy: a hung VR must not block the saves of a 2D app back in front.
+    // Starting comes before the panel's onStop, stopping after its onResume (untested on a headset).
     override fun onStart() {
         super.onStart()
         link.viewOpened()
     }
 
+    /**
+     * VR ends when stopped (user, 2026-11-05): none is left behind to show a scene older than the 2D app's. It can't edit
+     * yet, so there is nothing to save first; a milestone that adds edits (M4) must save here. Finishing also frees the
+     * engine for a waiting 2D app when the render thread hangs, via onDestroy's bounded join (untested on a headset).
+     */
     override fun onStop() {
+        Log.i(TAG, "VR_LEAVE stopped")
         link.viewClosed()
+        stop = true
+        finishAndRemoveTask()
         super.onStop()
     }
 

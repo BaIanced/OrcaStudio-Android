@@ -3,6 +3,8 @@ package app.orcaandroid.vr
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.withTimeoutOrNull
 
 /** What the 3D view of the 2D app shows, for the immersive view to draw without calling the engine. */
 data class VrScene(
@@ -36,7 +38,7 @@ class VrLink {
 
     /** Null, [Vr], or the 2D view model that holds the engine. */
     private val owner = MutableStateFlow<Any?>(null)
-    private val views = AtomicInteger()
+    private val views = MutableStateFlow(0)
     private val waiting2d = AtomicInteger()
 
     /** Published by the 2D app while it is ready; read once when VR opens, so the view never moves by itself. */
@@ -46,11 +48,21 @@ class VrLink {
     val leaveRequested: Boolean get() = waiting2d.get() > 0
 
     /** An immersive view is on screen (started, not merely alive): nothing may write the session file. */
-    val open: Boolean get() = views.get() > 0
+    val open: Boolean get() = views.value > 0
 
-    fun viewOpened() { views.incrementAndGet() }
+    fun viewOpened() { views.update { it + 1 } }
 
-    fun viewClosed() { views.decrementAndGet() }
+    fun viewClosed() { views.update { it - 1 } }
+
+    /**
+     * For a 2D app that just started the immersive view: returns when that has opened and closed again, so the 2D app can
+     * hold still meanwhile and never edit a scene VR has. False if it didn't open within [startMs].
+     */
+    suspend fun awaitViewEnded(startMs: Long): Boolean {
+        withTimeoutOrNull(startMs) { views.first { it > 0 } } ?: return false
+        views.first { it == 0 }
+        return true
+    }
 
     /** [Claim.COLD]: load the project. [Claim.SHARED]: a 2D app holds the engine, read [scene]. [Claim.BUSY]: another VR holds it. */
     fun claimForVr(): Claim {
