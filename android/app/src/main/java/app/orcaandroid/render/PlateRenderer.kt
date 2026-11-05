@@ -193,6 +193,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     var plateOriginsCount = 0
     /** The shadow under objects (Prepare). */
     var contactShadows = true
+    /** VR passthrough: clear to alpha 0 and keep destination alpha correct (premultiplied) so the camera feed shows around the scene. */
+    var transparentBackground = false
     /** Set per frame: the lit mesh pass samples the real shadow map (a depth map was rendered this frame or before, and shadows are on). */
     private var useRealShadow = false
     /** Real shadow look (Layout lab): darkness 0-1, penumbra and depth bias in mm. */
@@ -584,8 +586,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         bedCount, plateOrigins, activePlate, badgeCount, atlas, gridRect?.toList(), cameraLight)
 
     private fun drawScene() {
-        val bg = colors.background
-        glClearColor(bg[0], bg[1], bg[2], 1f)
+        clearColor()
         glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
         // The OpenSCAD design on the plate stands alone: the project's objects are hidden meanwhile.
         val models = ghostCount == 0
@@ -611,7 +612,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             }
             useRealShadow = effects.realShadowReady
             // The shadow pass changed the clear colour.
-            glClearColor(bg[0], bg[1], bg[2], 1f)
+            clearColor()
         }
         if (shadow) effects.drawShadow(mvp, if (effects.isRealShadow) shadowStrength else SHADOW_STRENGTH, shadowSoftMm, shadowBiasMm, bedRects())
         val floor = buildSolo && !showPreview
@@ -639,11 +640,11 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             if (models) { drawCreases(); drawSnapLines(); drawDragGuides(); drawMeshMarkers() }
             // Modifiers and support blockers/enforcers are drawn translucent on top.
             glEnable(GL_BLEND)
-            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+            blend(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
             glDepthMask(false)
             // Realistic mode's clear filaments (premultiplied): far faces first, then the near ones over them.
             if (models && realistic && filamentMaterials.any { it.b[3] > 0f }) {
-                glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA)
+                blend(GL_ONE, GL_ONE_MINUS_SRC_ALPHA)
                 glEnable(GL_CULL_FACE)
                 glCullFace(GL_FRONT)
                 drawMesh(meshVbo, meshCount, pass = 7)
@@ -652,7 +653,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
                 drawMesh(meshVbo, meshCount, pass = 7)
                 drawClearPaint()
                 glDisable(GL_CULL_FACE)
-                glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+                blend(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
             }
             if (models) drawMesh(meshVbo, meshCount, pass = 1)
             if (models && buildSolo && buildOthers == 0) drawMesh(meshVbo, meshCount, pass = 9)
@@ -665,6 +666,16 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         // Seen from below the plate is a window: drawn last, over the parts behind it.
         if (!floor && plateSurface && viewSource.eye().z < 0f && plateUnderAlpha > 0f) drawPlateSurfaces(plateUnderAlpha * plateAlpha)
         drawOverlays()
+    }
+
+    private fun clearColor() {
+        val bg = colors.background
+        if (transparentBackground) glClearColor(0f, 0f, 0f, 0f) else glClearColor(bg[0], bg[1], bg[2], 1f)
+    }
+
+    /** [glBlendFunc] for the colour; over a transparent background the alpha channel blends premultiplied, so drawn pixels keep alpha. */
+    private fun blend(src: Int, dst: Int) {
+        if (transparentBackground) glBlendFuncSeparate(src, dst, GL_ONE, GL_ONE_MINUS_SRC_ALPHA) else glBlendFunc(src, dst)
     }
 
     /** Paint of clear filaments (realistic mode), drawn like the clear parts. */
@@ -926,7 +937,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glUniform1f(loc(plateProgram, "uPxScale"), pxScale)
         glUniform1f(loc(plateProgram, "uAlpha"), alpha)
         glEnable(GL_BLEND)
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+        blend(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
         glDepthMask(false)
         plateOrigins.forEachIndexed { i, (ox, oy) ->
             glUniform3f(loc(plateProgram, "uOffset"), ox, oy, 0f)
@@ -943,7 +954,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             glUniformMatrix4fv(loc(decalProgram, "uMvp"), 1, false, mvp, 0)
             glUniform1f(loc(decalProgram, "uAlpha"), alpha)
             glUniform1i(loc(decalProgram, "uTex"), 0)
-            glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA) // bitmap texels are premultiplied
+            blend(GL_ONE, GL_ONE_MINUS_SRC_ALPHA) // bitmap texels are premultiplied
             glActiveTexture(GL_TEXTURE0)
             plateOrigins.forEachIndexed { i, (ox, oy) ->
                 val look = plateLooks.getOrNull(i) ?: return@forEachIndexed
@@ -986,7 +997,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glUniform1f(loc(gridProgram, "uFade"), r)
         glUniform3f(loc(gridProgram, "uOffset"), 0f, 0f, 0f)
         glEnable(GL_BLEND)
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+        blend(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
         glDepthMask(false)
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4)
         if (printerGhost && bedOutline.size >= 6) {
@@ -1018,7 +1029,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             glEnableVertexAttribArray(0)
             glVertexAttribPointer(0, 3, GL_FLOAT, false, 12, 0)
             glBlendColor(0f, 0f, 0f, PRINTER_GHOST_ALPHA)
-            glBlendFunc(GL_CONSTANT_ALPHA, GL_ONE_MINUS_CONSTANT_ALPHA)
+            blend(GL_CONSTANT_ALPHA, GL_ONE_MINUS_CONSTANT_ALPHA)
             glLineWidth(1.5f * pxScale)
             glDrawArrays(GL_LINES, 0, pts.size / 3)
             glLineWidth(1f)
@@ -1038,7 +1049,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             glUniform1f(loc(gridProgram, "uPxScale"), pxScale)
             glUniform1f(loc(gridProgram, "uFade"), 0f)
             glEnable(GL_BLEND)
-            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+            blend(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
             glDepthMask(false)
             for ((ox, oy) in plateOrigins) {
                 glUniform3f(loc(gridProgram, "uOffset"), ox, oy, 0f)
@@ -1203,7 +1214,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glDepthFunc(GL_GREATER)
         glDepthMask(false)
         glEnable(GL_BLEND)
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+        blend(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
         drawMesh(meshVbo, meshCount, pass = 8)
         glDisable(GL_BLEND)
         glDepthMask(true)
@@ -1233,7 +1244,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glDepthMask(false)
         glEnable(GL_BLEND)
         glBlendColor(0f, 0f, 0f, 0.2f)
-        glBlendFunc(GL_CONSTANT_ALPHA, GL_ONE_MINUS_CONSTANT_ALPHA)
+        blend(GL_CONSTANT_ALPHA, GL_ONE_MINUS_CONSTANT_ALPHA)
         glUniform3f(loc(lineProgram, "uColor"), 1f, 0.25f, 0.25f)
         glDrawArrays(GL_TRIANGLE_FAN, 0, n + 2)
         if (cutXray || cutXrayPanel) {
@@ -1591,7 +1602,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glBindTexture(GL_TEXTURE_2D, atlasTex)
         glUniform1i(loc(badgeProgram, "uAtlas"), 0)
         glEnable(GL_BLEND)
-        glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA)
+        blend(GL_ONE, GL_ONE_MINUS_SRC_ALPHA)
         glDepthMask(false)
         glBindBuffer(GL_ARRAY_BUFFER, badgeVbo)
         glEnableVertexAttribArray(0)

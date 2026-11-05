@@ -13,6 +13,11 @@
         android:required="true"
         android:version="1" />
 
+    <!-- Passthrough tabletop (XR_FB_passthrough). Optional: without it the app falls back to a plain background. -->
+    <uses-feature
+        android:name="com.oculus.feature.PASSTHROUGH"
+        android:required="false" />
+
     <application>
         <meta-data
             android:name="com.oculus.supportedDevices"

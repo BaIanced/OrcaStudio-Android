@@ -16,7 +16,9 @@ internal object XrShim {
         System.loadLibrary("orca_xr")
     }
 
-    @JvmStatic external fun nativeCreate(activity: Activity, eglDisplay: Long, eglConfig: Long, eglContext: Long): Boolean
+    @JvmStatic external fun nativeCreate(activity: Activity, eglDisplay: Long, eglConfig: Long, eglContext: Long, passthrough: Boolean): Boolean
+    /** True when the passthrough layer runs, so the background must be cleared with alpha 0. */
+    @JvmStatic external fun nativePassthroughActive(): Boolean
     @JvmStatic external fun nativePollEvents(): Int
     @JvmStatic external fun nativeSwapchainSize(eye: Int, out: IntArray)
     /** True when the caller should draw. [nativeEndFrame] must follow either way. */
