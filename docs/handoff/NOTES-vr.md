@@ -8,6 +8,17 @@ Hybrid app: 2D app plus one OpenXR immersive activity, drawn by the existing `Pl
 ## Decisions (user, 2026-11-05)
 Accept legacy GLES, re-evaluate after M1. Sideload only. Work on `claude/vr-*`, native builds only in CI. Headset checks by the user: 2 minutes at M1 and M3 only. Quest 3 / 3S first. Default look: passthrough tabletop at 1:1.
 
+## Plate placement (user design 2026-11-05; built on `claude/vr-placement`, nothing run on a headset)
+User: aim at the plate, press the "second inner button" to grab (taken as the grip, not confirmed), stick up is farther, down is closer, left and right is zoom, like Virtual Desktop's screen controls (which they rate above Meta's window management). Must work with one controller; two-handed scale is a no-go, which replaces `NOTES-vr-archive.md:96,161`. Optimise for no controller later. Smoothing is to be tuned by testing in a dev panel. Virtual Desktop's controls were not looked up; the user is unsure how they translate to a horizontal plate.
+Built, Claude's choices marked for the user to overrule:
+- `PlateGrab` (pure, tested): the held point rides the aim ray at a fixed distance, so pushing away while aiming down also lowers the plate (Claude's choice, the first thing to judge on the headset). Plate stays level, no yaw (choice). Hold to carry; `grabToggle` gives click on, click off, because "click" was ambiguous (default hold is a choice).
+- Stick: dead zone, curve, smoothing, multiplicative rates, and axis lock so pushing away doesn't zoom (choice). Zoom is about the held point and stops at 1:1 until the stick recentres; stick click returns to 1:1 (both choices, since a zoomed model isn't true size). Limits 0.2-6 m, zoom 0.1-8.
+- Hand smoothing: One Euro filter on the position. No inertia on release.
+- `RayOverlay`: grey idle, cyan on the plate, orange holding. No haptics.
+- Saved to prefs `vr_placement` on release, relative to the LOCAL origin (head at launch). `--ez resetPlacement true` brings a lost plate back. Logcat: `VR_INPUT`, `VR_PLACE`, `VR_TUNE`.
+- Tuning: push JSON to `/sdcard/Android/data/<package>/files/vr_tuning.json`, re-read within 1 s. Fields: `minCutoffHz`, `beta`, `stickDeadZone`, `stickSmoothMs`, `stickCurve`, `distanceRate`, `zoomRate`, `axisLock`, `grabToggle`. All defaults are guesses.
+- Bindings: only `oculus/touch_controller`, assumed to cover Touch Plus by compatibility mode (untested). If setup fails, VR still runs with a fixed plate.
+
 ## Comfort rules (the user gets motion sick from camera motion)
 No app-driven view motion: `Camera.frame`, `fit`, `focus` must not move the world in VR. No smooth locomotion. Passthrough tabletop default, 1:1, plate not too close. Exact height and distance need a human check.
 
