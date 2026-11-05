@@ -10,6 +10,8 @@ import app.orcaandroid.ui.vrScene
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
@@ -49,6 +51,15 @@ class VrLinkTest {
         withTimeout(5_000) { claim.await() }
         assertFalse(link.leaveRequested)
         assertEquals(VrLink.Claim.SHARED, link.claimForVr())
+    }
+
+    @Test fun aCancelled2dWaitStopsAskingVrToEnd() = runBlocking {
+        val link = VrLink()
+        assertEquals(VrLink.Claim.COLD, link.claimForVr())
+        val claim = launch(Dispatchers.Default, CoroutineStart.UNDISPATCHED) { link.claimFor2d(this@VrLinkTest) }
+        assertTrue(link.leaveRequested)
+        claim.cancelAndJoin()
+        assertFalse(link.leaveRequested)
     }
 
     @Test fun onlyTheCurrent2dOwnerReleases() = runBlocking {

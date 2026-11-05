@@ -216,15 +216,18 @@ class FileController(
     /** Auto-save and the save on going to the background share the temporary file. */
     private val sessionLock = Mutex()
 
-    /** Saves the scene, presets and setting changes as a project (called when the app goes to the background). */
-    suspend fun saveSession() = sessionLock.withLock {
+    /**
+     * Saves the scene, presets and setting changes as a project (called when the app goes to the background).
+     * False when nothing was done, so the file may be behind the state.
+     */
+    suspend fun saveSession(): Boolean = sessionLock.withLock {
         val s = store.value
         // Every save changes the file's bytes (zip times), so none while the immersive view is open.
-        if (s.phase != Phase.READY || store.container.vr.open) return
+        if (s.phase != Phase.READY || (app.orcaandroid.BuildConfig.QUEST && store.container.vr.open)) return@withLock false
         // A calibration test cannot be resumed from a project; an empty plate needs no session.
         if (s.scene.isEmpty || s.calibration != null) {
             sessionProject.delete(); sessionInfo.delete()
-            return@withLock
+            return@withLock true
         }
         presets.syncSelection()
         val tmp = File(sessionDir, "session.tmp.3mf")
@@ -237,6 +240,7 @@ class FileController(
                 put("activePlate", s.activePlate)
             }.toString())
         }
+        true
     }
 
     /** Restores the last session if the engine has no scene (a fresh start of the process). */

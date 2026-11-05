@@ -27,6 +27,7 @@ class Engine(private val cacheDir: File) {
 
     suspend fun init(resourcesDir: File, dataDir: File) = withContext(thread) {
         JSONObject(OrcaNative.init(resourcesDir.path, dataDir.path, File(cacheDir, "tmp").path)).throwIfError()
+        Unit
     }
 
     // --- Presets ---------------------------------------------------------------------------------

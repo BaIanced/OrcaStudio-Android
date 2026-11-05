@@ -675,7 +675,12 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
 
     /** [glBlendFunc] for the colour; over a transparent background the alpha channel blends premultiplied, so drawn pixels keep alpha. */
     private fun blend(src: Int, dst: Int) {
-        if (transparentBackground) glBlendFuncSeparate(src, dst, GL_ONE, GL_ONE_MINUS_SRC_ALPHA) else glBlendFunc(src, dst)
+        when {
+            !transparentBackground -> glBlendFunc(src, dst)
+            // The fragments of a constant-alpha pass say alpha 1, so their coverage is the constant.
+            src == GL_CONSTANT_ALPHA -> glBlendFuncSeparate(src, dst, src, dst)
+            else -> glBlendFuncSeparate(src, dst, GL_ONE, GL_ONE_MINUS_SRC_ALPHA)
+        }
     }
 
     /** Paint of clear filaments (realistic mode), drawn like the clear parts. */

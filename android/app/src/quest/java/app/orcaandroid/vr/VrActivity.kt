@@ -46,12 +46,25 @@ class VrActivity : Activity() {
     private var plateY = 0f
     private val link get() = (application as OrcaApp).container.vr
     private lateinit var claim: VrLink.Claim
+    /** Main thread only. Once per activity: a second release could free the claim of the next VR. */
+    private var claimReleased = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        link.viewOpened()
         claim = link.claimForVr()
         thread = Thread(::renderThread, "OrcaXrRender").also { it.start() }
+    }
+
+    // Saves are held from start to stop, not to destroy: a VR left stopped in the background (or hung) must not block the
+    // saves of a 2D app back in front. Starting comes before the panel's onStop, stopping after its onResume (untested on a headset).
+    override fun onStart() {
+        super.onStart()
+        link.viewOpened()
+    }
+
+    override fun onStop() {
+        link.viewClosed()
+        super.onStop()
     }
 
     override fun onDestroy() {
@@ -59,9 +72,15 @@ class VrActivity : Activity() {
         scope.cancel()
         // The thread can be inside xrWaitFrame; don't hold the main thread for long.
         thread?.join(JOIN_TIMEOUT_MS)
-        if (claim == VrLink.Claim.COLD) link.releaseVr()
-        link.viewClosed()
+        releaseClaim()
         super.onDestroy()
+    }
+
+    private fun releaseClaim() {
+        if (claim == VrLink.Claim.COLD && !claimReleased) {
+            claimReleased = true
+            link.releaseVr()
+        }
     }
 
     private fun renderThread() {
@@ -80,6 +99,9 @@ class VrActivity : Activity() {
             egl.release()
         }
         runOnUiThread {
+            // Done with the engine. onDestroy can lag finishing by seconds, and a relaunch in that gap would find it held and leave.
+            scope.cancel()
+            releaseClaim()
             // Ended by itself over a 2D app, not destroyed by the system: back to the panel.
             if (claim == VrLink.Claim.SHARED && !isFinishing && !isDestroyed) launchPanelInHome()
             finishAndRemoveTask()

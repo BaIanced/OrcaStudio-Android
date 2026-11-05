@@ -88,7 +88,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Unpacks the resources, starts the engine and loads the printers chosen before (or asks for them). */
     private suspend fun start() {
-        store.container.vr.claimFor2d(this)
+        // Can wait for a VR view to end, so never outside the Quest build: 2D must not hang on "Starting…".
+        if (BuildConfig.QUEST) store.container.vr.claimFor2d(this)
         val resources = store.resources
         translator = withContext(Dispatchers.IO) { Translator.load(store.app) }
         resources.prepare()
@@ -300,22 +301,22 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     override fun onCleared() {
         mcp.stop()
-        store.container.vr.release2d(this)
+        if (BuildConfig.QUEST) store.container.vr.release2d(this)
         super.onCleared()
     }
 
     /** Keeps the current state for the next start; runs outside the view model so it survives the activity. */
     fun saveSession() = store.container.appScope.launch {
-        runCatching { saveFile() }.onFailure { android.util.Log.w("Orca", "session not saved", it) }
+        // Only openVr needs this save counted; outside the Quest build it leaves auto-save's bookkeeping alone.
+        runCatching { if (BuildConfig.QUEST) saveFile() else files.saveSession() }
+            .onFailure { android.util.Log.w("Orca", "session not saved", it) }
     }
 
     /** What the session file was last written from. */
     @Volatile private var savedKey: SessionKey? = null
 
     private suspend fun saveFile(key: SessionKey = sessionKey(state.value)) {
-        files.saveSession()
-        // Not written while the immersive view is open (FileController.saveSession).
-        if (!store.container.vr.open) savedKey = key
+        if (files.saveSession()) savedKey = key
     }
 
     /**

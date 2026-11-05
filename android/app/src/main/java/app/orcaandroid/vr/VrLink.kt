@@ -37,15 +37,15 @@ class VrLink {
     /** Null, [Vr], or the 2D view model that holds the engine. */
     private val owner = MutableStateFlow<Any?>(null)
     private val views = AtomicInteger()
+    private val waiting2d = AtomicInteger()
 
     /** Published by the 2D app while it is ready; read once when VR opens, so the view never moves by itself. */
     @Volatile var scene: VrScene? = null
 
     /** A 2D app is waiting for the engine, so a cold-start VR should end. */
-    @Volatile var leaveRequested = false
-        private set
+    val leaveRequested: Boolean get() = waiting2d.get() > 0
 
-    /** An immersive view is open: nothing may write the session file. */
+    /** An immersive view is on screen (started, not merely alive): nothing may write the session file. */
     val open: Boolean get() = views.get() > 0
 
     fun viewOpened() { views.incrementAndGet() }
@@ -54,10 +54,7 @@ class VrLink {
 
     /** [Claim.COLD]: load the project. [Claim.SHARED]: a 2D app holds the engine, read [scene]. [Claim.BUSY]: another VR holds it. */
     fun claimForVr(): Claim {
-        if (owner.compareAndSet(null, Vr)) {
-            leaveRequested = false
-            return Claim.COLD
-        }
+        if (owner.compareAndSet(null, Vr)) return Claim.COLD
         return if (owner.value === Vr) Claim.BUSY else Claim.SHARED
     }
 
@@ -68,9 +65,9 @@ class VrLink {
         while (true) {
             val now = owner.value
             if (now === Vr) {
-                leaveRequested = true
-                owner.first { it !== Vr }
-                leaveRequested = false
+                waiting2d.incrementAndGet()
+                // Also when cancelled: a view model cleared while it waits must not make later VR views end at once.
+                try { owner.first { it !== Vr } } finally { waiting2d.decrementAndGet() }
             } else if (owner.compareAndSet(now, token)) return
         }
     }
