@@ -20,6 +20,10 @@ on:
         description: Also upload the Android deps prefix as an artifact (for local native builds)
         type: boolean
         default: false
+      quest:
+        description: Also build the Quest VR APK (quest flavour, docs/handoff/NOTES-vr.md)
+        type: boolean
+        default: false
   push:
     branches: [main]
     paths:
@@ -129,6 +133,11 @@ jobs:
       - name: Kotlin compile check (fail fast)
         working-directory: android
         run: ./gradlew --console=plain -q :app:compileReleaseKotlin
+
+      - name: Quest compile check (fail fast)
+        if: inputs.quest
+        working-directory: android
+        run: ./gradlew --console=plain -q -Porca.quest=true :app:compileQuestReleaseKotlin :app:externalNativeBuildQuestRelease
 
       # android/patches/src-orca/*.patch: the few changes to OrcaSlicer the port carries (src-orca stays the unmodified
       # upstream commit). Fails the build when upstream moved under one of them.
@@ -341,6 +350,21 @@ jobs:
           path: ${{ env.BUILD_ROOT }}/gradle/app/outputs/mapping/release/mapping.txt
           retention-days: 90
           if-no-files-found: warn
+
+      # Outside dist/, so the size report and the release stay the phone APK's.
+      - name: Build Quest APK
+        if: inputs.quest
+        working-directory: android
+        run: ./gradlew --console=plain -q -Porca.quest=true :app:assembleQuestRelease
+
+      - uses: actions/upload-artifact@v7
+        if: inputs.quest
+        with:
+          name: OrcaStudio-Android-quest-apk
+          path: ${{ env.BUILD_ROOT }}/gradle/app/outputs/apk/quest/release/*.apk
+          retention-days: 7
+          compression-level: 0
+          if-no-files-found: error
 
       - name: Publish release
         if: github.ref == 'refs/heads/main'

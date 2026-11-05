@@ -10,7 +10,7 @@ Rules (user, 2026-11-05):
 - `[Opus]` = hard item, suits Opus. "Build none" = nothing built or run yet, so the item is untested.
 
 ## Open
-- M0 pipeline proof [Opus]: IN PROGRESS. `quest` flavour, immersive manifest, `VrActivity`, JNI shim, one static grid, extension log; then 72 fps for 60 s on the Quest. Needs the Quest on adb for acceptance. | Claude, build none, 2026-11-05
+- M0 pipeline proof [Opus]: IN PROGRESS. Code written (`android/app/src/quest`, targetSdk still 36), Kotlin compile and 8 math JVM tests pass locally. C++ not yet compiled, nothing run on a headset (untested). Next: CI build, then on the Quest once on adb: `XR_SESSION_STATE_FOCUSED` in logcat, extension list, 72 fps for 60 s. | Claude, local compile only, 2026-11-05
 - M1 real plate in stereo [Opus]: open, blocked by M0. Framebuffer target on the 11 binds, per-eye view source, VR entry bypassing `drawFrame`. Ends with a 2-minute user headset check. | Claude, build none, 2026-11-05
 - M2 enter, leave, passthrough: open, blocked by M1. VR button and return on the same project, `AppViewModel` scope decision, passthrough tabletop default. | Claude, build none, 2026-11-05
 - M3 Compose panel and ray selection [Opus]: open, blocked by M2. Cooperative overlay from raw OpenXR or surface swapchain fallback, aim ray to `onViewTap`. Ends with a 2-minute user headset check. | Claude, build none, 2026-11-05

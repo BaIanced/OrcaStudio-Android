@@ -26,6 +26,10 @@ val keystoreProperties = Properties().apply {
     rootProject.file("key.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
 }
 
+// VR port (docs/handoff/NOTES-vr.md): `-Porca.quest=true` adds the `quest` flavour (src/quest: immersive activity and
+// OpenXR shim). Without it nothing changes: same tasks, paths and APK for every other device.
+val questBuild = providers.gradleProperty("orca.quest").orNull == "true"
+
 android {
     namespace = "app.orcaandroid"
     compileSdk {
@@ -80,6 +84,25 @@ android {
     androidResources {
         // The vendor archives are already deflated.
         noCompress += "zip"
+    }
+
+    if (questBuild) {
+        ndkVersion = "28.2.13676358"
+        flavorDimensions += "device"
+        productFlavors {
+            create("quest") {
+                dimension = "device"
+                // Installs next to the 2D app on the headset.
+                applicationIdSuffix = ".quest"
+            }
+        }
+        buildFeatures { prefab = true }
+        externalNativeBuild {
+            cmake {
+                path = file("src/quest/cpp/CMakeLists.txt")
+                buildStagingDirectory = file("$orcaBuildRoot/quest-cxx")
+            }
+        }
     }
 }
 
@@ -181,6 +204,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
     // xz decoder for the vendor profile archives (assets/vendors/*.zip.xz): -11.6 MB APK for ~30 KB of dex.
     implementation("org.tukaani:xz:1.10")
+    if (questBuild) add("questImplementation", "org.khronos.openxr:openxr_loader_for_android:1.1.65")
 
     testImplementation("junit:junit:4.13.2")
     // Real org.json for the JVM tests of the core/ JSON helpers (the stubbed

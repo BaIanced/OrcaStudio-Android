@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Merged over the main manifest for the quest flavour only. The hybrid setup follows Meta's hybrid apps and release
+     manifest pages: 2D category on the panel activity, VR category on the immersive one. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:metavr="http://schemas.meta.com/metavr-sdk">
+
+    <metavr:uses-metavr-sdk
+        metavr:minSdkVersion="69"
+        metavr:targetSdkVersion="207" />
+
+    <uses-feature
+        android:name="android.hardware.vr.headtracking"
+        android:required="true"
+        android:version="1" />
+
+    <application>
+        <meta-data
+            android:name="com.oculus.supportedDevices"
+            android:value="quest2|questpro|quest3|quest3s|vrglasses" />
+
+        <activity android:name=".ui.MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="com.oculus.intent.category.2D" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".vr.VrActivity"
+            android:configChanges="screenSize|screenLayout|orientation|keyboardHidden|keyboard|navigation|uiMode"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:screenOrientation="landscape"
+            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="com.oculus.intent.category.VR" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
