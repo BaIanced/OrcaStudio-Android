@@ -11,7 +11,16 @@ Accept legacy GLES, re-evaluate after M1. Sideload only. Work on `claude/vr-*`, 
 ## Comfort rules (the user gets motion sick from camera motion)
 No app-driven view motion: `Camera.frame`, `fit`, `focus` must not move the world in VR. No smooth locomotion. Passthrough tabletop default, 1:1, plate not too close. Exact height and distance need a human check.
 
-## M1 as built (compiled and JVM-tested only; nothing below has run on the headset)
+## M1 on the headset (CI r530, Quest 3, OS v210, 2026-11-05)
+- Empty bed: `XR_SESSION_STATE_FOCUSED`, `VR_SRGB write control present, encoding off`, `VR_MSAA samples 4`, swapchain 1680x1760 format 0x8c43. 120 fps (compositor 120/120, 0 stale, app about 0.75 ms).
+- Sample cube: `VR_SCENE project true plates 1 active 0 vertices 36`, 118-120 fps for 30 s, no errors or crash. User saw the cube and says the bed stays in place. The runtime ran at 120 Hz here, where M0 ran at 72 (cause not checked).
+- The screencap shows raw per-eye images, each rotated and offset. System panels also show large offsets between the eyes, so don't judge stereo from pixel differences; ask the wearer.
+- A fresh `.quest` install has no printer: VR logs `VR_SCENE no printer installed` and leaves in about 1 s. Pick a printer in its 2D app first.
+- Saving for VR: closing the panel with its X left no session (one run, not confirmed why). Back key doesn't stop the panel. What worked: start `VrActivity` over the 2D app (VR leaves at once, `the 2D app owns the engine`), wait 8 s, force-stop, start `VrActivity` again.
+- `adb input tap` at `uiautomator dump` bounds works on the panel. Address the Quest by `adb -t <transport_id>`.
+- With a wearer the Guardian pause is not needed. Without one and without the pause, a "Finding position in room" dialog covers everything.
+
+## M1 as built
 Goal: static world-locked plate plus a real model, 1:1, head-tracked. Shadows and selection outline off. Acceptance: JVM tests pass, 2D unchanged, 72 fps on the baseline plate, 2-minute user check.
 - **View source:** `ViewSource` (`render/Camera.kt`), implemented by `Camera` and `VrActivity.EyeView`. `PlateRenderer.viewSource` replaces its `camera.eye()` / `camera.pxSize` calls.
 - **VR entry:** `PlateRenderer.drawEye(fbo, w, h, viewProjection, source)`, bypassing `drawFrame` and its supersampler, accumulator and loupe.
