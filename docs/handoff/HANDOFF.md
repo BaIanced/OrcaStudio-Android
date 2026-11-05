@@ -37,6 +37,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Rename (LOW, backlog): Discussions #17269 still 0 replies (Claude 2026-11-04 /next).
 - Tower message tweak (3505452, in run 41939360557, CI-compiled): only fires on a full plate with >4 filaments; code-read OK, live check skipped as low value.
 - Queue empty for Claude: every open backlog item needs the user (feel/looks), the printer, or the Note 10+. Nothing to build or merge.
+- VR port: live items in `backlog_vr.md`, plan in `NOTES-vr.md`.
 - Next step: wait for user input (new feature/bug or a verdict on an open item) -> Sonnet 5.5 (medium)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
