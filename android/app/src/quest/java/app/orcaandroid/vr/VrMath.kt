@@ -58,15 +58,30 @@ internal object VrMath {
         }
     }
 
-    /** Line endpoints (x y z each) of a square grid on the plane y = [y], from -[half] to +[half] in steps of [step]. */
-    fun gridLines(half: Float, step: Float, y: Float): FloatArray {
-        val perSide = Math.round(2 * half / step) + 1
-        val out = FloatArray(perSide * 2 * 2 * 3)
-        var i = 0
-        for (n in 0 until perSide) {
-            val t = -half + n * step
-            for (p in floatArrayOf(t, y, -half, t, y, half, -half, y, t, half, y, t)) out[i++] = p
-        }
-        return out
+    /**
+     * Plate (mm, Z up) to the LOCAL space (metres, Y up) at 1:1: (x, y, z) to 0.001 * (x, z, -y), a pure rotation so
+     * winding holds, with the plate point ([cx], [cy], 0) moved to [TABLE_Y] below and [TABLE_AHEAD] ahead of the origin.
+     */
+    fun plateToLocal(out: FloatArray, cx: Float, cy: Float) {
+        out.fill(0f)
+        out[0] = MM
+        out[6] = -MM
+        out[9] = MM
+        out[12] = -MM * cx
+        out[13] = TABLE_Y
+        out[14] = MM * cy + TABLE_AHEAD
+        out[15] = 1f
     }
+
+    /** The inverse of [plateToLocal] on a point: LOCAL (metres) at [offset] in [v] to plate mm, written to [out] as x y z. */
+    fun localToPlate(out: FloatArray, v: FloatArray, offset: Int, cx: Float, cy: Float) {
+        out[0] = v[offset] / MM + cx
+        out[1] = cy - (v[offset + 2] - TABLE_AHEAD) / MM
+        out[2] = (v[offset + 1] - TABLE_Y) / MM
+    }
+
+    private const val MM = 0.001f
+    /** Where the plate sits relative to the head at start, in metres. Comfort constants, to be set by the user check. */
+    const val TABLE_Y = -0.4f
+    const val TABLE_AHEAD = -0.6f
 }

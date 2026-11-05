@@ -7,18 +7,40 @@ import android.opengl.EGLContext
 import android.opengl.EGLDisplay
 import android.opengl.EGLExt
 import android.opengl.EGLSurface
-import android.opengl.GLES30
 import android.os.Bundle
 import android.os.SystemClock
 import android.util.Log
+import app.orcaandroid.OrcaApp
+import app.orcaandroid.core.Vec3
+import app.orcaandroid.render.Camera
+import app.orcaandroid.render.FloatData
+import app.orcaandroid.render.PlateRenderer
+import app.orcaandroid.render.ViewSource
+import app.orcaandroid.ui.components.hexToRgb
+import java.io.File
+import java.util.concurrent.ConcurrentLinkedQueue
+import kotlin.math.tan
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import org.json.JSONObject
 
 /**
- * M0 of the VR port: proves an OpenXR GLES session by drawing one static grid in stereo (docs/handoff/NOTES-vr.md).
- * Kotlin owns the EGL context and the render thread, so a later milestone can draw the real plate here.
+ * The real plate in stereo (M1, docs/handoff/NOTES-vr.md): the project drawn by [PlateRenderer] as a static, world-locked
+ * tabletop at 1:1. No app-driven view motion: only the head moves the view. Kotlin owns the EGL context and render thread.
  */
 class VrActivity : Activity() {
     @Volatile private var stop = false
     private var thread: Thread? = null
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    /** Scene results from the loader, applied on the render thread (the renderer's setters must run there). */
+    private val pending = ConcurrentLinkedQueue<PlateRenderer.() -> Unit>()
+    /** Plate to LOCAL space; only the render thread touches it. */
+    private val world = FloatArray(16).also { VrMath.plateToLocal(it, 0f, 0f) }
+    private var plateX = 0f
+    private var plateY = 0f
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -27,6 +49,7 @@ class VrActivity : Activity() {
 
     override fun onDestroy() {
         stop = true
+        scope.cancel()
         // The thread can be inside xrWaitFrame; don't hold the main thread for long.
         thread?.join(JOIN_TIMEOUT_MS)
         super.onDestroy()
@@ -50,43 +73,112 @@ class VrActivity : Activity() {
         runOnUiThread { finishAndRemoveTask() }
     }
 
+    /**
+     * Loads the project into the engine, in the startup order of AppViewModel.start. Settings and the session file are only
+     * read. A 2D app already up in this process owns the engine, so VR leaves (M2 decides how the two share it).
+     */
+    private fun loadScene() = scope.launch {
+        runCatching {
+            val container = (application as OrcaApp).container
+            val engine = container.engine
+            if (engine.initialized) {
+                Log.e(TAG, "VR_SCENE the 2D app owns the engine, leaving")
+                stop = true
+                return@launch
+            }
+            container.resources.prepare()
+            engine.init(container.resources.resourcesDir, container.resources.dataDir)
+            val printers = engine.loadPresets()
+            val session = File(filesDir, "session/session.3mf")
+            val project = projectExtra() ?: session
+            val last = printers.firstOrNull { it.name == container.settings.lastPrinter }?.name ?: printers.firstOrNull()?.name
+            if (last == null) {
+                Log.e(TAG, "VR_SCENE no printer installed, open the 2D app once")
+                return@launch
+            }
+            // As in the 2D start: a printer is selected before the project loads, then the project's own if it is installed.
+            var bed = engine.selectPrinter(last).bed
+            val info = if (project.exists()) engine.loadProject(project.path).second else null
+            val own = printers.firstOrNull { it.name == info?.printer }?.name
+            if (own != null) bed = engine.selectPrinter(own).bed
+            val scene = engine.scene()
+            val mesh = if (scene.meshFile.isEmpty()) null else FloatData.load(scene.meshFile, 8)
+            val origins = scene.plates.map { it.originX to it.originY }
+            val active = if (project == session) savedActivePlate(session).coerceIn(0, (origins.size - 1).coerceAtLeast(0)) else 0
+            val colors = info?.filamentColors.orEmpty().map { hexToRgb(it.ifBlank { null }) }
+            val xs = bed.filterIndexed { i, _ -> i % 2 == 0 }
+            val ys = bed.filterIndexed { i, _ -> i % 2 == 1 }
+            val origin = origins.getOrElse(active) { 0f to 0f }
+            val cx = origin.first + (xs.min() + xs.max()) / 2
+            val cy = origin.second + (ys.min() + ys.max()) / 2
+            Log.i(TAG, "VR_SCENE project ${project.exists()} plates ${origins.size} active $active vertices ${mesh?.count ?: 0}")
+            pending += {
+                setBed(bed, origins)
+                plateOriginsCount = origins.size
+                activePlate = active
+                filamentColors = colors
+                setMesh(mesh, scene.meshVersion)
+                plateX = cx
+                plateY = cy
+                VrMath.plateToLocal(world, cx, cy)
+            }
+        }.onFailure { Log.e(TAG, "VR_SCENE failed", it) }
+    }
+
+    /** `--es project <path>`, only from this app's own storage: the activity is exported, and the parser is native. */
+    private fun projectExtra(): File? {
+        val file = File(intent.getStringExtra(EXTRA_PROJECT) ?: return null).canonicalFile
+        val allowed = listOfNotNull(filesDir, getExternalFilesDir(null)).map { it.canonicalPath + File.separator }
+        if (allowed.none { file.path.startsWith(it) }) {
+            Log.e(TAG, "VR_SCENE project outside the app's storage, using the session")
+            return null
+        }
+        return file
+    }
+
+    private fun savedActivePlate(session: File): Int = runCatching {
+        JSONObject(File(session.parentFile, "session.json").readText()).optInt("activePlate")
+    }.getOrDefault(0)
+
     private fun frameLoop() {
-        val grid = VrGrid()
-        val framebuffer = IntArray(1).also { GLES30.glGenFramebuffers(1, it, 0) }[0]
+        val renderer = PlateRenderer(Camera())
+        // Both end on framebuffer 0, not on the eye's (drawEye).
+        renderer.contactShadows = false
+        renderer.onSurfaceCreated(null, null)
+        loadScene()
+
         val views = FloatArray(XrShim.EYES * XrShim.FLOATS_PER_VIEW)
         val size = IntArray(2)
         val view = FloatArray(16)
         val projection = FloatArray(16)
         val viewProj = FloatArray(16)
+        val eyeProj = FloatArray(16)
+        val eye = EyeView()
         var frames = 0
         var windowStart = SystemClock.elapsedRealtime()
 
         while (!stop) {
             val status = XrShim.nativePollEvents()
             if (status and XrShim.EXIT != 0) break
+            while (true) (pending.poll() ?: break).invoke(renderer)
             if (status and XrShim.RUNNING == 0) {
                 SystemClock.sleep(IDLE_SLEEP_MS)
                 continue
             }
             val render = XrShim.nativeBeginFrame(views)
             if (render) {
-                for (eye in 0 until XrShim.EYES) {
-                    val texture = XrShim.nativeAcquireImage(eye)
-                    if (texture == 0) continue
-                    XrShim.nativeSwapchainSize(eye, size)
-                    val o = eye * XrShim.FLOATS_PER_VIEW
+                for (i in 0 until XrShim.EYES) {
+                    val framebuffer = XrShim.nativeAcquireImage(i)
+                    if (framebuffer == 0) continue
+                    XrShim.nativeSwapchainSize(i, size)
+                    val o = i * XrShim.FLOATS_PER_VIEW
                     VrMath.viewFromPose(view, views, o)
                     VrMath.projectionFromFov(projection, views[o + 7], views[o + 8], views[o + 9], views[o + 10], NEAR, FAR)
                     VrMath.multiply(viewProj, projection, view)
-                    GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, framebuffer)
-                    GLES30.glFramebufferTexture2D(GLES30.GL_FRAMEBUFFER, GLES30.GL_COLOR_ATTACHMENT0, GLES30.GL_TEXTURE_2D, texture, 0)
-                    GLES30.glViewport(0, 0, size[0], size[1])
-                    GLES30.glClearColor(0.04f, 0.05f, 0.07f, 1f)
-                    GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT)
-                    grid.draw(viewProj)
-                    GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
-                    GLES30.glFlush()
-                    XrShim.nativeReleaseImage(eye)
+                    VrMath.multiply(eyeProj, viewProj, world)
+                    eye.set(views, o, plateX, plateY, size[1])
+                    renderer.drawEye(framebuffer, size[0], size[1], eyeProj, eye)
+                    XrShim.nativeReleaseImage(i)
                 }
             }
             XrShim.nativeEndFrame(render)
@@ -99,6 +191,22 @@ class VrActivity : Activity() {
                 windowStart = now
             }
         }
+    }
+
+    /** The current eye in plate mm, for the shaders. */
+    private class EyeView : ViewSource {
+        private val position = FloatArray(3)
+        private var mmPerPxAtOneMm = 0f
+
+        fun set(views: FloatArray, offset: Int, plateX: Float, plateY: Float, height: Int) {
+            VrMath.localToPlate(position, views, offset, plateX, plateY)
+            mmPerPxAtOneMm = (tan(views[offset + 9]) - tan(views[offset + 10])) / height
+        }
+
+        override fun eye() = Vec3(position[0], position[1], position[2])
+
+        /** Distance stands in for depth along the view axis: close enough for sizes, and nothing in M1 uses it. */
+        override fun pxSize(p: Vec3) = (eye() - p).length() * mmPerPxAtOneMm
     }
 
     /** A GLES 3 context with a small pbuffer: all real drawing goes to the OpenXR swapchains. */
@@ -137,6 +245,7 @@ class VrActivity : Activity() {
 
     private companion object {
         const val TAG = "OrcaXr"
+        const val EXTRA_PROJECT = "project"
         const val NEAR = 0.05f
         const val FAR = 100f
         const val IDLE_SLEEP_MS = 50L

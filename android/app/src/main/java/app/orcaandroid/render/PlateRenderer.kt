@@ -326,6 +326,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     private var plateProgram = 0
     private var decalProgram = 0
     private val mvp = FloatArray(16)
+    /** Where the shaders see the scene from: the camera, or the current eye while [drawEye] runs. */
+    private var viewSource: ViewSource = camera
 
     fun setBed(outline: FloatArray, origins: List<Pair<Float, Float>>) {
         bedOutline = outline
@@ -469,6 +471,20 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         frameStats.record(start, System.nanoTime())
     }
 
+    /**
+     * VR: one eye into [fbo], bypassing [drawFrame]'s supersampler, accumulator and loupe. The caller keeps
+     * [contactShadows] off and the selection empty: those passes end on framebuffer 0, not on [fbo].
+     */
+    fun drawEye(fbo: Int, w: Int, h: Int, viewProjection: FloatArray, source: ViewSource) {
+        viewSource = source
+        viewW = w; viewH = h
+        viewProjection.copyInto(mvp)
+        upload()
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo)
+        glViewport(0, 0, w, h)
+        drawScene()
+    }
+
     private fun drawFrame() {
         if (viewW > 1) fitPending?.let { (lo, hi) -> camera.fit(lo, hi, keepAngles = true); fitPending = null }
         upload()
@@ -600,7 +616,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         if (shadow) effects.drawShadow(mvp, if (effects.isRealShadow) shadowStrength else SHADOW_STRENGTH, shadowSoftMm, shadowBiasMm, bedRects())
         val floor = buildSolo && !showPreview
         if (floor) drawFloor() else {
-            if (plateSurface && camera.eye().z >= 0f) drawPlateSurfaces(plateAlpha)
+            if (plateSurface && viewSource.eye().z >= 0f) drawPlateSurfaces(plateAlpha)
             drawBeds()
             drawBadges()
         }
@@ -647,7 +663,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             if (models && (cutXray || cutXrayPanel) && cutBand != null) drawCutXray()
         }
         // Seen from below the plate is a window: drawn last, over the parts behind it.
-        if (!floor && plateSurface && camera.eye().z < 0f && plateUnderAlpha > 0f) drawPlateSurfaces(plateUnderAlpha * plateAlpha)
+        if (!floor && plateSurface && viewSource.eye().z < 0f && plateUnderAlpha > 0f) drawPlateSurfaces(plateUnderAlpha * plateAlpha)
         drawOverlays()
     }
 
@@ -1102,7 +1118,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         }
         glUniform3fv(loc(meshProgram, "uPartColor"), 1, colors.part, 0)
         glUniform3fv(loc(meshProgram, "uSelectedColor"), 1, colors.selected, 0)
-        camera.eye().let { glUniform3f(loc(meshProgram, "uEye"), it.x, it.y, it.z) }
+        viewSource.eye().let { glUniform3f(loc(meshProgram, "uEye"), it.x, it.y, it.z) }
         setFilamentColors(meshProgram)
         setFilamentMaterials(meshProgram)
         setSection(meshProgram)
@@ -1282,7 +1298,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             // The desktop's scale (a tick every 5 degrees, long every 10, just outside the ring) and its 45 degree snap
             // radii (r/3 to 2r/3), counted from where the drag started: a snapped spoke lands on a mark.
             val a0 = from?.takeIf { it.length() > 1e-6f }?.let { it * (1f / it.length()) } ?: RotateGizmo.basis(grab).first
-            val px = camera.pxSize(c) * density
+            val px = viewSource.pxSize(c) * density
             val color = RotateGizmo.color(grab)
             val ticks = ArrayList<app.orcaandroid.core.Vec3>()
             for (k in 0 until (360f / RotateGizmo.FINE_STEP).toInt()) {
@@ -1492,7 +1508,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             glUniform2f(loc(pathProgram, "uRange"), valueRange.first, valueRange.second)
             glUniform1i(loc(pathProgram, "uFirst"), first)
             glUniform1f(loc(pathProgram, "uPxScale"), pxScale * regimeScale)
-            camera.eye().let { glUniform3f(loc(pathProgram, "uEye"), it.x, it.y, it.z) }
+            viewSource.eye().let { glUniform3f(loc(pathProgram, "uEye"), it.x, it.y, it.z) }
             glUniform1f(loc(pathProgram, "uCamLight"), cameraLight)
             glUniform3fv(loc(pathProgram, "uRoleColors"), 20, Shaders.ROLE_COLORS, 0)
             setFilamentColors(pathProgram)
@@ -1553,7 +1569,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
                 glUniform3f(loc(pointProgram, "uOffset"), origin[0], origin[1], 0f)
                 glUniform1f(loc(pointProgram, "uPxScale"), pxScale)
                 glUniform1i(loc(pointProgram, "uKinds"), (if (style.showRetracts) 0b0011 else 0) or (if (style.showSeams) 0b0100 else 0))
-                camera.eye().let { glUniform3f(loc(pointProgram, "uEye"), it.x, it.y, it.z) }
+                viewSource.eye().let { glUniform3f(loc(pointProgram, "uEye"), it.x, it.y, it.z) }
                 setSection(pointProgram)
                 glBindBuffer(GL_ARRAY_BUFFER, markerVbo)
                 glEnableVertexAttribArray(0)
@@ -1717,7 +1733,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glUseProgram(pointProgram)
         glUniformMatrix4fv(loc(pointProgram, "uMvp"), 1, false, mvp, 0)
         glUniform3f(loc(pointProgram, "uOffset"), dragOffset[0] + meshMarkerShift[0], dragOffset[1] + meshMarkerShift[1], dragOffset[2] + meshMarkerShift[2])
-        camera.eye().let { glUniform3f(loc(pointProgram, "uEye"), it.x, it.y, it.z) }
+        viewSource.eye().let { glUniform3f(loc(pointProgram, "uEye"), it.x, it.y, it.z) }
         glUniform1i(loc(pointProgram, "uKinds"), 0b111100000)
         glUniform1f(loc(pointProgram, "uPxScale"), pxScale)
         setSection(pointProgram)

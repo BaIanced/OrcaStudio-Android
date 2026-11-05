@@ -71,11 +71,30 @@ class VrMathTest {
         assertArrayEquals(transform(p, 2f, 0f, -3f), transform(out, 1f, 0f, -3f), eps)
     }
 
-    @Test fun gridHasTwoLinesPerStepOnItsPlane() {
-        val lines = VrMath.gridLines(half = 2f, step = 0.25f, y = -1.2f)
-        assertEquals(17 * 2 * 2 * 3, lines.size)
-        for (i in 1 until lines.size step 3) assertEquals(-1.2f, lines[i], eps)
-        assertEquals(2f, lines.max(), eps)
-        assertEquals(-2f, lines.min(), eps)
+    private fun plate(cx: Float, cy: Float) = FloatArray(16).also { VrMath.plateToLocal(it, cx, cy) }
+
+    @Test fun plateCentreSitsAtTheTable() {
+        assertArrayEquals(floatArrayOf(0f, VrMath.TABLE_Y, VrMath.TABLE_AHEAD, 1f), transform(plate(128f, 90f), 128f, 90f, 0f), eps)
+    }
+
+    @Test fun plateAxesMapToLocalAtOneToOne() {
+        val m = plate(0f, 0f)
+        // 100 mm along +X goes right, along +Y away from the viewer (-Z), along +Z up, each 0.1 m.
+        assertArrayEquals(floatArrayOf(0.1f, VrMath.TABLE_Y, VrMath.TABLE_AHEAD, 1f), transform(m, 100f, 0f, 0f), eps)
+        assertArrayEquals(floatArrayOf(0f, VrMath.TABLE_Y, VrMath.TABLE_AHEAD - 0.1f, 1f), transform(m, 0f, 100f, 0f), eps)
+        assertArrayEquals(floatArrayOf(0f, VrMath.TABLE_Y + 0.1f, VrMath.TABLE_AHEAD, 1f), transform(m, 0f, 0f, 100f), eps)
+    }
+
+    @Test fun plateTransformKeepsWinding() {
+        val m = plate(10f, 20f)
+        val det = m[0] * (m[5] * m[10] - m[9] * m[6]) - m[4] * (m[1] * m[10] - m[9] * m[2]) + m[8] * (m[1] * m[6] - m[5] * m[2])
+        assertEquals(1e-9f, det, 1e-12f)
+    }
+
+    @Test fun localToPlateInvertsPlateToLocal() {
+        val local = transform(plate(128f, 90f), 40f, -15f, 220f)
+        val back = FloatArray(3)
+        VrMath.localToPlate(back, local, 0, 128f, 90f)
+        assertArrayEquals(floatArrayOf(40f, -15f, 220f), back, 1e-2f)
     }
 }

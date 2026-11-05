@@ -27,10 +27,20 @@ constexpr int kFloatsPerView = 11;
 // pollEvents() result bits, mirrored in XrShim.kt.
 constexpr jint kRunning = 1;
 constexpr jint kExit = 2;
+constexpr GLsizei kMsaaSamples = 4;
+// GL_FRAMEBUFFER_SRGB_EXT and GL_MAX_SAMPLES_EXT, from GL_EXT_sRGB_write_control and GL_EXT_multisampled_render_to_texture.
+constexpr GLenum kFramebufferSrgb = 0x8DB9;
+constexpr GLenum kMaxSamples = 0x9135;
+using FramebufferTexture2DMultisample = void(GL_APIENTRY*)(GLenum, GLenum, GLenum, GLuint, GLint, GLsizei);
+using RenderbufferStorageMultisample = void(GL_APIENTRY*)(GLenum, GLsizei, GLenum, GLsizei, GLsizei);
 
 struct EyeSwapchain {
     XrSwapchain handle = XR_NULL_HANDLE;
     std::vector<XrSwapchainImageOpenGLESKHR> images;
+    // One framebuffer per swapchain image, all sharing the eye's depth buffer.
+    std::vector<GLuint> framebuffers;
+    GLuint depth = 0;
+    uint32_t acquired = 0;
     int32_t width = 0;
     int32_t height = 0;
 };
@@ -151,6 +161,61 @@ int64_t pickFormat() {
     return 0;
 }
 
+bool hasGlExtension(const char* name) {
+    GLint count = 0;
+    glGetIntegerv(GL_NUM_EXTENSIONS, &count);
+    for (GLint i = 0; i < count; i++) {
+        const auto* e = reinterpret_cast<const char*>(glGetStringi(GL_EXTENSIONS, static_cast<GLuint>(i)));
+        if (e && !std::strcmp(e, name)) return true;
+    }
+    return false;
+}
+
+// The app's shaders write display-encoded colour, so GL must not encode it again on the way into an sRGB swapchain.
+void disableSrgbEncoding() {
+    const bool control = hasGlExtension("GL_EXT_sRGB_write_control");
+    if (control) glDisable(kFramebufferSrgb);
+    LOGI("VR_SRGB write control %s", control ? "present, encoding off" : "absent, colours will look washed out");
+}
+
+// Depth and framebuffers of every eye, with 4x MSAA that resolves on flush where the GPU offers it (else single sample).
+bool createEyeTargets() {
+    FramebufferTexture2DMultisample attachMsaa = nullptr;
+    RenderbufferStorageMultisample storageMsaa = nullptr;
+    GLsizei samples = 0;
+    if (hasGlExtension("GL_EXT_multisampled_render_to_texture")) {
+        attachMsaa = reinterpret_cast<FramebufferTexture2DMultisample>(eglGetProcAddress("glFramebufferTexture2DMultisampleEXT"));
+        storageMsaa = reinterpret_cast<RenderbufferStorageMultisample>(eglGetProcAddress("glRenderbufferStorageMultisampleEXT"));
+        GLint most = 0;
+        glGetIntegerv(kMaxSamples, &most);
+        if (attachMsaa && storageMsaa && most > 1) samples = most < kMsaaSamples ? most : kMsaaSamples;
+    }
+    LOGI("VR_MSAA samples %d", static_cast<int>(samples));
+    for (EyeSwapchain& s : g.eyes) {
+        glGenRenderbuffers(1, &s.depth);
+        glBindRenderbuffer(GL_RENDERBUFFER, s.depth);
+        if (samples > 0) storageMsaa(GL_RENDERBUFFER, samples, GL_DEPTH_COMPONENT24, s.width, s.height);
+        else glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, s.width, s.height);
+        s.framebuffers.resize(s.images.size());
+        glGenFramebuffers(static_cast<GLsizei>(s.framebuffers.size()), s.framebuffers.data());
+        for (size_t i = 0; i < s.images.size(); i++) {
+            glBindFramebuffer(GL_FRAMEBUFFER, s.framebuffers[i]);
+            if (samples > 0) attachMsaa(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, s.images[i].image, 0, samples);
+            else glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, s.images[i].image, 0);
+            glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, s.depth);
+            const GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+            if (status != GL_FRAMEBUFFER_COMPLETE) {
+                LOGE("Eye framebuffer incomplete: 0x%x", status);
+                glBindFramebuffer(GL_FRAMEBUFFER, 0);
+                return false;
+            }
+        }
+    }
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glBindRenderbuffer(GL_RENDERBUFFER, 0);
+    return true;
+}
+
 bool createSwapchains() {
     uint32_t count = kEyes;
     XrViewConfigurationView config[kEyes] = {{XR_TYPE_VIEW_CONFIGURATION_VIEW}, {XR_TYPE_VIEW_CONFIGURATION_VIEW}};
@@ -179,7 +244,8 @@ bool createSwapchains() {
                 "xrEnumerateSwapchainImages")) return false;
         LOGI("XR_SWAPCHAIN eye %d %dx%d format 0x%llx images %u", eye, s.width, s.height, static_cast<long long>(format), images);
     }
-    return true;
+    disableSrgbEncoding();
+    return createEyeTargets();
 }
 
 bool createSession(EGLDisplay display, EGLConfig config, EGLContext context) {
@@ -306,7 +372,7 @@ JNIEXPORT jboolean JNICALL Java_app_orcaandroid_vr_XrShim_nativeBeginFrame(JNIEn
     return JNI_TRUE;
 }
 
-// Returns the GL texture to draw this eye into, or 0 when no image could be acquired.
+// Returns the framebuffer to draw this eye into, or 0 when no image could be acquired.
 JNIEXPORT jint JNICALL Java_app_orcaandroid_vr_XrShim_nativeAcquireImage(JNIEnv*, jclass, jint eye) {
     EyeSwapchain& s = g.eyes[eye];
     uint32_t index = 0;
@@ -314,11 +380,19 @@ JNIEXPORT jint JNICALL Java_app_orcaandroid_vr_XrShim_nativeAcquireImage(JNIEnv*
     XrSwapchainImageWaitInfo wait{XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO};
     wait.timeout = XR_INFINITE_DURATION;
     if (!ok(xrWaitSwapchainImage(s.handle, &wait), "xrWaitSwapchainImage")) return 0;
-    return static_cast<jint>(s.images[index].image);
+    s.acquired = index;
+    return static_cast<jint>(s.framebuffers[index]);
 }
 
 JNIEXPORT void JNICALL Java_app_orcaandroid_vr_XrShim_nativeReleaseImage(JNIEnv*, jclass, jint eye) {
-    ok(xrReleaseSwapchainImage(g.eyes[eye].handle, nullptr), "xrReleaseSwapchainImage");
+    const EyeSwapchain& s = g.eyes[eye];
+    glBindFramebuffer(GL_FRAMEBUFFER, s.framebuffers[s.acquired]);
+    // Nobody reads this eye's depth again: dropping it saves writing it out to memory.
+    const GLenum depth = GL_DEPTH_ATTACHMENT;
+    glInvalidateFramebuffer(GL_FRAMEBUFFER, 1, &depth);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glFlush();
+    ok(xrReleaseSwapchainImage(s.handle, nullptr), "xrReleaseSwapchainImage");
 }
 
 JNIEXPORT void JNICALL Java_app_orcaandroid_vr_XrShim_nativeEndFrame(JNIEnv*, jclass, jboolean rendered) {

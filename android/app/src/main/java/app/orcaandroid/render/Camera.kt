@@ -7,11 +7,18 @@ import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.sin
 
+/** Where the renderer draws from: [Camera], or an eye of the headset. World units (mm). */
+interface ViewSource {
+    fun eye(): Vec3
+    /** World size of one screen pixel at [p]. */
+    fun pxSize(p: Vec3): Float
+}
+
 /**
  * Orbit camera around a target point, Z up. Shared between the UI thread (gestures, picking rays)
  * and the GL thread (drawing), hence synchronized.
  */
-class Camera {
+class Camera : ViewSource {
     private var yaw = -60f
     private var pitch = 40f
     private var distance = 400f
@@ -200,7 +207,7 @@ class Camera {
     }
 
     /** Where the view looks from; in ortho well behind [distance], so nothing in front of the target is clipped. */
-    @Synchronized fun eye(): Vec3 {
+    @Synchronized override fun eye(): Vec3 {
         val e = eyeDistance()
         val yr = Math.toRadians(yaw.toDouble())
         val pr = Math.toRadians(pitch.toDouble())
@@ -212,7 +219,7 @@ class Camera {
     }
 
     /** World size of one screen pixel at [p]. */
-    @Synchronized fun pxSize(p: Vec3): Float {
+    @Synchronized override fun pxSize(p: Vec3): Float {
         val depth = if (perspective) max(1f, (eye() - p).dot(towardsEye())) else distance
         return 2f * depth * kotlin.math.tan(Math.toRadians(FOV / 2.0)).toFloat() / height
     }

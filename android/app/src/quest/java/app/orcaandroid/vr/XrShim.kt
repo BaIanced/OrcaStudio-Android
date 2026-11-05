@@ -21,7 +21,7 @@ internal object XrShim {
     @JvmStatic external fun nativeSwapchainSize(eye: Int, out: IntArray)
     /** True when the caller should draw. [nativeEndFrame] must follow either way. */
     @JvmStatic external fun nativeBeginFrame(outViews: FloatArray): Boolean
-    /** The GL texture to draw this eye into, or 0 when no image could be acquired. */
+    /** The GL framebuffer to draw this eye into, or 0 when no image could be acquired. */
     @JvmStatic external fun nativeAcquireImage(eye: Int): Int
     @JvmStatic external fun nativeReleaseImage(eye: Int)
     @JvmStatic external fun nativeEndFrame(rendered: Boolean)
