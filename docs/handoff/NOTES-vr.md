@@ -55,7 +55,7 @@ GLES is legacy on Quest and gets no new features. Interaction, not stereo, is th
 ## M0 results (CI run 42052179738, r528, Quest 3, OS v210, Android 14)
 - Passed: sideloaded immersive at targetSdk 36, runtime `Oculus 210.55.0`, GLES 3.0-3.2, `XR_SESSION_STATE_FOCUSED`, 72 fps for 70 s (a clear plus one grid, so no evidence on plate cost).
 - Swapchain size varied between runs (1680x1760, 2184x2288). Always read it from the runtime.
-- `adb exec-out screencap -p` captures both eyes.
+- `adb exec-out screencap -p` captures both eyes. Outside an immersive session it includes the passthrough view of the user's home: keep those in the scratchpad, delete after reading, never commit.
 - Extensions present: `KHR_opengl_es_enable`, `FB_foveation`, `FB_swapchain_update_state_opengl_es`, `KHR_android_surface_swapchain`, `KHR_composition_layer_cylinder`, `KHR_composition_layer_depth`, `FB_composition_layer_alpha_blend`, `FB_display_refresh_rate`, `FB_space_warp`, `META_virtual_keyboard`, `EXT_hand_tracking`, `LOGITECH_mx_ink_stylus_interaction`. **Absent: `XR_FB_passthrough`** (manifest feature not declared yet, which may be why; untested).
 
 ## On-headset recipe, nobody wearing it
