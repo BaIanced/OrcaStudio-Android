@@ -15,7 +15,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 62ada99 (PR #73 = r521, multi-plate Preview, merged 2026-11-04; Claude-verified only; PR #72 = r519 before it). Nothing unverified on the branch; no merge offer pending. User-untested in main: list in `NOTES-merge-batch.md`.
 - Signing secrets: `release` environment (main + `claude/*` only).
-- Latest installed CI build: r526 (run 41935414362, head 562c827) on the phone (.20), WSA + Chromebook 2026-11-04 (WSA restarted: `WsaClient /shutdown`, `wsa-start.ps1`, `adb connect 127.0.0.1:58526`); Chromebook connects via `adb connect <chromebook-ip>:5555` (memory device-ips). **User 2026-11-01: avoid the SHIELD for now** (no installs there). Phone drops off adb: `adb connect <phone-ip>:5555` (memory device-ips); GL shots on the phone VD. Install builds on all adb devices (skip .23).
+- Latest installed CI build: run 41939360557 (head 2236a00) on the phone (.20), WSA + Chromebook 2026-11-04 (WSA restarted: `WsaClient /shutdown`, `wsa-start.ps1`, `adb connect 127.0.0.1:58526`); Chromebook connects via `adb connect <chromebook-ip>:5555` (memory device-ips). **User 2026-11-01: avoid the SHIELD for now** (no installs there). Phone drops off adb: `adb connect <phone-ip>:5555` (memory device-ips); GL shots on the phone VD. Install builds on all adb devices (skip .23).
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **User 2026-10-28: no more user testing for now; Claude builds and tests everything itself (memory no-user-testing-now); don't ask for feel/UI checks.**
 - **User 2026-10-29: no tests on the user's screen; all tests on a hidden virtual display** (`TARGET=wsa orca-vd.sh start`, memory tests-on-virtual-display).
@@ -33,10 +33,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
 - Open tests in backlog.
-- Assemble A1 + A2 verified (r523/r524/r526; archive end). Fit card sits above the slice error (r526). Fix 2236a00 = CI run 41939360557 (stale fit card cleared at slice start) pending CI + WSA VD check: slice a too-big object, shrink to fit, slice -> no fit card.
+- Assemble A1 + A2 verified, incl. stale fit card fix (r523/r524/r526/run 41939360557; archive end).
 - Rename (LOW, backlog): glance at upstream Discussions #17269 at /next (0 replies, last 2026-11-04).
 - Tower message tweak (3505452): verify with a >4-filament slice (add filaments, throwaway); still open.
-- Next step: dispatch CI for 2236a00, WSA VD check of stale fit card + tower message (>4 filaments) -> Sonnet 5.5 (medium)
+- Next step: pick the next open backlog item (grep HANDOFF-BACKLOG.md for [Opus]-free items); tower message (>4 filaments) optional -> Sonnet 5.5 (medium)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
