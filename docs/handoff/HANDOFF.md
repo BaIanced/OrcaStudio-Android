@@ -34,9 +34,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
 - Open tests in backlog.
 - Assemble A1 + A2 verified, incl. stale fit card fix (r523/r524/r526/run 41939360557; archive end).
-- Rename (LOW, backlog): glance at upstream Discussions #17269 at /next (0 replies, last 2026-11-04).
-- Tower message tweak (3505452): verify with a >4-filament slice (add filaments, throwaway); still open.
-- Next step: pick the next open backlog item (grep HANDOFF-BACKLOG.md for [Opus]-free items); tower message (>4 filaments) optional -> Sonnet 5.5 (medium)
+- Rename (LOW, backlog): Discussions #17269 still 0 replies (Claude 2026-11-04 /next).
+- Tower message tweak (3505452, in run 41939360557, CI-compiled): only fires on a full plate with >4 filaments; code-read OK, live check skipped as low value.
+- Queue empty for Claude: every open backlog item needs the user (feel/looks), the printer, or the Note 10+. Nothing to build or merge.
+- Next step: wait for user input (new feature/bug or a verdict on an open item) -> Sonnet 5.5 (medium)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
