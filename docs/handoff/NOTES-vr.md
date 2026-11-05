@@ -20,6 +20,12 @@ No app-driven view motion: `Camera.frame`, `fit`, `focus` must not move the worl
 - `adb input tap` at `uiautomator dump` bounds works on the panel. Address the Quest by `adb -t <transport_id>`.
 - With a wearer the Guardian pause is not needed. Without one and without the pause, a "Finding position in room" dialog covers everything.
 
+## Heavier-model test (not run yet)
+Model: `src-orca/resources/handy_models/OrcaSliced.3mf` (20 MB of mesh XML, triangle count not checked). Push it to `/sdcard/Android/data/<package>/files/heavy.3mf` (`mkdir -p` first; `projectExtra` allows this directory), follow the recipe below with `--es project <that path>`, wait 60 s for the load, read `VR_SCENE`, `VR_FPS` and `VrApi` by pid. `.quest` is not debuggable, so `run-as` fails. The transport id can change mid-run, so look it up first. The first try lost the Quest at the first command; the Guardian pause was probably never set, but that could not be read back.
+
+## Building in a worktree
+Worktrees have an empty `src-orca` and Gradle reads `src-orca/version.inc`: copy that one file in to compile, remove it after. Gradle output, including test results, is under `~/build/orca-android/gradle/app`.
+
 ## M1 as built
 Goal: static world-locked plate plus a real model, 1:1, head-tracked. Shadows and selection outline off. Acceptance: JVM tests pass, 2D unchanged, 72 fps on the baseline plate, 2-minute user check.
 - **View source:** `ViewSource` (`render/Camera.kt`), implemented by `Camera` and `VrActivity.EyeView`. `PlateRenderer.viewSource` replaces its `camera.eye()` / `camera.pxSize` calls.
