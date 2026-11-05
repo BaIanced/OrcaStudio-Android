@@ -65,7 +65,8 @@ class SliceController(private val store: Store, private val presets: PresetContr
         parseJobs.remove(plate)?.cancel()
         if (!background) userCancelled = false
         val preparing = store.str(R.string.preparing)
-        store.update { it.copy(slice = SliceStatus.Running(plate, 0, preparing, background), sliceError = if (background) it.sliceError else null) }
+        store.update { it.copy(slice = SliceStatus.Running(plate, 0, preparing, background), sliceError = if (background) it.sliceError else null,
+            fitIssue = if (background) it.fitIssue else null) }
         if (!background) {
             progress.value = SliceProgress(0, preparing)
             runCatching { SliceService.start(store.app) }
