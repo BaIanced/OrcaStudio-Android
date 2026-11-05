@@ -197,16 +197,34 @@ The user gets motion sick from camera motion: the view cube is off by default fo
 5. **Which devices?** **Quest 3 / 3S first, Quest 2 best effort.**
 6. **Default look?** **Passthrough tabletop at 1:1**, with a plain background as an option.
 
+## M0 results (2026-11-05, CI run 42052179738, build r528, Quest 3, OS v210, Android 14)
+- **Pass.** A sideloaded immersive activity at targetSdk 36 runs on this device (its Android API level is 34). Runtime `Oculus 210.55.0`, GLES 3.0 to 3.2, and the session reached `XR_SESSION_STATE_FOCUSED` within about 0.1 s of creating it.
+- **Frame rate:** `VR_FPS` read 71 for the first 5 s window, then 72 in all 13 later windows. `VrApi` lines for the app's pid: 74 lines, minimum 72 after the first 5 s, 1 stale frame and 1 tear in total. Temperature 37-38 C. This is a clear plus one grid, so it says nothing about plate cost. The app's own `App=` timing was not analysed.
+- **Pixels:** `adb exec-out screencap -p` captured both eyes with the grid and visible disparity. That is a VR frame over adb, with no developer hub needed. Comfort and scale are still unjudged.
+- **Not done as planned:** the OVR Metrics CSV. See the backlog item.
+- **Swapchain size varied:** 1680x1760 in the first run, 2184x2288 in the third (cause not known). Read it from the runtime; never hard-code it.
+
+Extensions that matter (full list: rerun and read tag `OrcaXr`):
+- Present: `KHR_opengl_es_enable`, `FB_foveation`, `FB_foveation_configuration`, `FB_swapchain_update_state_opengl_es`, `KHR_android_surface_swapchain`, `FB_android_surface_swapchain_create`, `KHR_composition_layer_cylinder`, `KHR_composition_layer_depth`, `FB_composition_layer_alpha_blend`, `FB_display_refresh_rate`, `FB_space_warp`, `META_virtual_keyboard`, `EXT_hand_tracking`, `LOGITECH_mx_ink_stylus_interaction`, `META_passthrough_preferences`.
+- **Absent: `XR_FB_passthrough`.** The manifest doesn't declare `com.oculus.feature.PASSTHROUGH` yet, which may be why [U]. M2 depends on this.
+- Foveation on GLES is listed but not exercised, and there is a `FB_foveation_vulkan` with no GLES equivalent. Still plan with no FFR.
+
+On-headset recipe with nobody wearing it (`MSYS_NO_PATHCONV=1` in Git Bash, or `/sdcard` paths get rewritten):
+1. Before: `input keyevent KEYCODE_WAKEUP`, `am broadcast -a com.oculus.vrpowermanager.prox_close`, `setprop debug.oculus.guardian_pause 1`.
+2. `am force-stop`, `logcat -c`, `am start`. Without the pause the Guardian dialog stopped the session after about 3 s (run 1); with it the session ran 70+ s (run 3). One run each, so treat the cause as likely, not proven [I]. A launch made while that dialog is open is held and doesn't start a session (run 2).
+3. Read `VrApi` lines **by the app's pid**. pid-less FPS lines can be the shell's: run 2 showed 72 fps from `com.oculus.vrshell` with the app not running a session.
+4. After, always: `am force-stop`, `setprop debug.oculus.guardian_pause ''`, `am broadcast -a com.oculus.vrpowermanager.automation_disable`. Guardian is a safety feature, so never leave it paused.
+
 ## Open questions and cheap checks
 | Question | How to find out |
 |---|---|
-| Does immersive run at targetSdk 36 when sideloaded? | M0 |
-| Does the runtime expose GLES binding, `XR_FB_foveation` on GLES, `XR_KHR_android_surface_swapchain`? | M0 extension log, then one foveation test |
+| Does immersive run at targetSdk 36 when sideloaded? | **Yes** on Quest 3 v210 (M0 results). Store rules are separate |
+| Does the runtime expose GLES binding, `XR_FB_foveation` on GLES, `XR_KHR_android_surface_swapchain`? | **All three are listed** (M0 results). One foveation test still needed |
 | Which graphics API do Meta's samples use, and what's the licence? | Search the repo for the GLES define; read `LICENSE` |
 | Does cooperative mode work from raw OpenXR without Spatial SDK? | Small test in M3, or read the hybrid sample |
 | Can a surface be attached to a Spatial SDK panel for GL? | Read the panel docs and samples; only matters if GLES fails |
-| Can adb alone disable the proximity sensor and capture a VR frame? | Try on the Quest once it's connected (no install needed); developer hub otherwise |
-| Which Quest model and OS version is connected? | `adb shell getprop`, once it's on adb. Don't record the serial or IP |
+| Can adb alone disable the proximity sensor and capture a VR frame? | **Yes** (M0 results) |
+| Which Quest model and OS version is connected? | **Quest 3, OS v210.** Don't record the serial or IP |
 | Is multiview worth doing? | OVR Metrics two-pass numbers at M1 |
 
 ## Noticed, not fixed (out of VR scope)
