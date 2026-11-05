@@ -81,11 +81,13 @@ class VrActivity : Activity() {
         runCatching {
             val container = (application as OrcaApp).container
             val engine = container.engine
-            if (engine.initialized) {
+            // The process outlives the activity, so a relaunch finds the engine VR itself started: that one reloads.
+            if (engine.initialized && !vrOwnsEngine) {
                 Log.e(TAG, "VR_SCENE the 2D app owns the engine, leaving")
                 stop = true
                 return@launch
             }
+            vrOwnsEngine = true
             container.resources.prepare()
             engine.init(container.resources.resourcesDir, container.resources.dataDir)
             val printers = engine.loadPresets()
@@ -94,35 +96,47 @@ class VrActivity : Activity() {
             val last = printers.firstOrNull { it.name == container.settings.lastPrinter }?.name ?: printers.firstOrNull()?.name
             if (last == null) {
                 Log.e(TAG, "VR_SCENE no printer installed, open the 2D app once")
+                stop = true
                 return@launch
             }
             // As in the 2D start: a printer is selected before the project loads, then the project's own if it is installed.
             var bed = engine.selectPrinter(last).bed
+            // The bed shows even if the project fails to load: never an empty void.
+            showBed(bed, listOf(0f to 0f), 0)
             val info = if (project.exists()) engine.loadProject(project.path).second else null
             val own = printers.firstOrNull { it.name == info?.printer }?.name
             if (own != null) bed = engine.selectPrinter(own).bed
             val scene = engine.scene()
             val mesh = if (scene.meshFile.isEmpty()) null else FloatData.load(scene.meshFile, 8)
+            val paint = if (scene.paintFile.isEmpty()) null else FloatData.load(scene.paintFile, 8)
             val origins = scene.plates.map { it.originX to it.originY }
             val active = if (project == session) savedActivePlate(session).coerceIn(0, (origins.size - 1).coerceAtLeast(0)) else 0
             val colors = info?.filamentColors.orEmpty().map { hexToRgb(it.ifBlank { null }) }
-            val xs = bed.filterIndexed { i, _ -> i % 2 == 0 }
-            val ys = bed.filterIndexed { i, _ -> i % 2 == 1 }
-            val origin = origins.getOrElse(active) { 0f to 0f }
-            val cx = origin.first + (xs.min() + xs.max()) / 2
-            val cy = origin.second + (ys.min() + ys.max()) / 2
             Log.i(TAG, "VR_SCENE project ${project.exists()} plates ${origins.size} active $active vertices ${mesh?.count ?: 0}")
+            showBed(bed, origins, active)
             pending += {
-                setBed(bed, origins)
-                plateOriginsCount = origins.size
-                activePlate = active
                 filamentColors = colors
                 setMesh(mesh, scene.meshVersion)
-                plateX = cx
-                plateY = cy
-                VrMath.plateToLocal(world, cx, cy)
+                setPaint(paint)
             }
         }.onFailure { Log.e(TAG, "VR_SCENE failed", it) }
+    }
+
+    /** Queues the beds and centres the world on plate [active]. */
+    private fun showBed(bed: FloatArray, origins: List<Pair<Float, Float>>, active: Int) {
+        val xs = bed.filterIndexed { i, _ -> i % 2 == 0 }
+        val ys = bed.filterIndexed { i, _ -> i % 2 == 1 }
+        val origin = origins.getOrElse(active) { 0f to 0f }
+        val cx = origin.first + (xs.min() + xs.max()) / 2
+        val cy = origin.second + (ys.min() + ys.max()) / 2
+        pending += {
+            setBed(bed, origins)
+            plateOriginsCount = origins.size
+            activePlate = active
+            plateX = cx
+            plateY = cy
+            VrMath.plateToLocal(world, cx, cy)
+        }
     }
 
     /** `--es project <path>`, only from this app's own storage: the activity is exported, and the parser is native. */
@@ -165,11 +179,15 @@ class VrActivity : Activity() {
                 SystemClock.sleep(IDLE_SLEEP_MS)
                 continue
             }
-            val render = XrShim.nativeBeginFrame(views)
+            var render = XrShim.nativeBeginFrame(views)
             if (render) {
                 for (i in 0 until XrShim.EYES) {
                     val framebuffer = XrShim.nativeAcquireImage(i)
-                    if (framebuffer == 0) continue
+                    if (framebuffer == 0) {
+                        // Nothing valid to submit for this eye, so the frame ends without the layer.
+                        render = false
+                        continue
+                    }
                     XrShim.nativeSwapchainSize(i, size)
                     val o = i * XrShim.FLOATS_PER_VIEW
                     VrMath.viewFromPose(view, views, o)
@@ -251,5 +269,7 @@ class VrActivity : Activity() {
         const val IDLE_SLEEP_MS = 50L
         const val FPS_WINDOW_MS = 5000L
         const val JOIN_TIMEOUT_MS = 2000L
+        /** VR started the engine in this process (the process outlives the activity). */
+        @Volatile var vrOwnsEngine = false
     }
 }

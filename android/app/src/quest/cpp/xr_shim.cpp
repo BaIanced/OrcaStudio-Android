@@ -28,9 +28,8 @@ constexpr int kFloatsPerView = 11;
 constexpr jint kRunning = 1;
 constexpr jint kExit = 2;
 constexpr GLsizei kMsaaSamples = 4;
-// GL_FRAMEBUFFER_SRGB_EXT and GL_MAX_SAMPLES_EXT, from GL_EXT_sRGB_write_control and GL_EXT_multisampled_render_to_texture.
+// GL_FRAMEBUFFER_SRGB_EXT, from GL_EXT_sRGB_write_control.
 constexpr GLenum kFramebufferSrgb = 0x8DB9;
-constexpr GLenum kMaxSamples = 0x9135;
 using FramebufferTexture2DMultisample = void(GL_APIENTRY*)(GLenum, GLenum, GLenum, GLuint, GLint, GLsizei);
 using RenderbufferStorageMultisample = void(GL_APIENTRY*)(GLenum, GLsizei, GLenum, GLsizei, GLsizei);
 
@@ -54,6 +53,7 @@ struct Shim {
     XrSessionState state = XR_SESSION_STATE_UNKNOWN;
     bool running = false;
     bool exitRequested = false;
+    bool srgbControl = false;
     XrTime displayTime = 0;
     EyeSwapchain eyes[kEyes];
     XrView views[kEyes] = {{XR_TYPE_VIEW}, {XR_TYPE_VIEW}};
@@ -173,9 +173,8 @@ bool hasGlExtension(const char* name) {
 
 // The app's shaders write display-encoded colour, so GL must not encode it again on the way into an sRGB swapchain.
 void disableSrgbEncoding() {
-    const bool control = hasGlExtension("GL_EXT_sRGB_write_control");
-    if (control) glDisable(kFramebufferSrgb);
-    LOGI("VR_SRGB write control %s", control ? "present, encoding off" : "absent, colours will look washed out");
+    g.srgbControl = hasGlExtension("GL_EXT_sRGB_write_control");
+    LOGI("VR_SRGB write control %s", g.srgbControl ? "present, encoding off" : "absent, colours will look washed out");
 }
 
 // Depth and framebuffers of every eye, with 4x MSAA that resolves on flush where the GPU offers it (else single sample).
@@ -187,7 +186,7 @@ bool createEyeTargets() {
         attachMsaa = reinterpret_cast<FramebufferTexture2DMultisample>(eglGetProcAddress("glFramebufferTexture2DMultisampleEXT"));
         storageMsaa = reinterpret_cast<RenderbufferStorageMultisample>(eglGetProcAddress("glRenderbufferStorageMultisampleEXT"));
         GLint most = 0;
-        glGetIntegerv(kMaxSamples, &most);
+        glGetIntegerv(GL_MAX_SAMPLES, &most);
         if (attachMsaa && storageMsaa && most > 1) samples = most < kMsaaSamples ? most : kMsaaSamples;
     }
     LOGI("VR_MSAA samples %d", static_cast<int>(samples));
@@ -379,7 +378,13 @@ JNIEXPORT jint JNICALL Java_app_orcaandroid_vr_XrShim_nativeAcquireImage(JNIEnv*
     if (!ok(xrAcquireSwapchainImage(s.handle, nullptr, &index), "xrAcquireSwapchainImage")) return 0;
     XrSwapchainImageWaitInfo wait{XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO};
     wait.timeout = XR_INFINITE_DURATION;
-    if (!ok(xrWaitSwapchainImage(s.handle, &wait), "xrWaitSwapchainImage")) return 0;
+    if (!ok(xrWaitSwapchainImage(s.handle, &wait), "xrWaitSwapchainImage")) {
+        // Must not stay acquired: the next frame would fail too.
+        ok(xrReleaseSwapchainImage(s.handle, nullptr), "xrReleaseSwapchainImage");
+        return 0;
+    }
+    // Every eye, in case the runtime changes the state in the shared context.
+    if (g.srgbControl) glDisable(kFramebufferSrgb);
     s.acquired = index;
     return static_cast<jint>(s.framebuffers[index]);
 }
