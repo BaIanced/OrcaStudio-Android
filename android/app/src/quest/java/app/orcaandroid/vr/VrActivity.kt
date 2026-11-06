@@ -319,6 +319,8 @@ class VrActivity : Activity() {
         var panelStamp = 0L
         var statusCheck = 0L
         val tracked = BooleanArray(XrShim.HANDS)
+        var placeInFront = intent.getBooleanExtra(EXTRA_PLATE_IN_FRONT, false)
+        val front = FloatArray(2)
 
         while (!stop && !link.leaveRequested) {
             val status = XrShim.nativePollEvents()
@@ -330,6 +332,13 @@ class VrActivity : Activity() {
             }
             var render = XrShim.nativeBeginFrame(views)
             val frameNanos = SystemClock.elapsedRealtimeNanos()
+            if (render && placeInFront) {
+                placeInFront = false
+                VrMath.inFrontOfHead(front, views, 0)
+                grab.place(front[0], VrMath.TABLE_Y + views[1], front[1], 1f)
+                updateWorld()
+                Log.i(TAG, "VR_PLACE in front of the head x ${grab.x} y ${grab.y} z ${grab.z}")
+            }
             if (render) {
                 XrShim.nativeInput(hands)
                 when (grab.update(hands, (frameNanos - lastFrameNanos) / 1e9f)) {
@@ -460,6 +469,8 @@ class VrActivity : Activity() {
         const val EXTRA_PLAIN = "plain"
         const val EXTRA_HOME_PENDING_INTENT = "extra_launch_in_home_pending_intent"
         const val EXTRA_RESET_PLACEMENT = "resetPlacement"
+        /** `--ez plateInFront true`: debug, puts the plate in front of the head at the first frame, unsaved (for unworn screencaps). */
+        const val EXTRA_PLATE_IN_FRONT = "plateInFront"
         const val PREFS_PLACEMENT = "vr_placement"
         const val TUNING_FILE = "vr_tuning.json"
         const val TUNING_CHECK_MS = 1000L

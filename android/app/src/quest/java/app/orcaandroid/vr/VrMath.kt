@@ -99,6 +99,23 @@ internal object VrMath {
 
     private const val MM = 0.001f
     /** Where the plate first sits relative to the head at start, in metres, until the user places it (PlateGrab). */
+    /**
+     * Where to put the plate so it sits [TABLE_Y] below and [-TABLE_AHEAD] ahead of the head pose at [offset] in [v],
+     * along the head's horizontal facing (the plate itself stays unturned). Writes x z (LOCAL metres) to [out].
+     */
+    fun inFrontOfHead(out: FloatArray, v: FloatArray, offset: Int) {
+        val x = v[offset + 3]
+        val y = v[offset + 4]
+        val z = v[offset + 5]
+        val w = v[offset + 6]
+        var fx = -2 * (x * z + w * y)
+        var fz = -(1 - 2 * (x * x + y * y))
+        val len = kotlin.math.sqrt(fx * fx + fz * fz)
+        if (len < 1e-3f) { fx = 0f; fz = -1f } else { fx /= len; fz /= len }
+        out[0] = v[offset] + fx * -TABLE_AHEAD
+        out[1] = v[offset + 2] + fz * -TABLE_AHEAD
+    }
+
     const val TABLE_Y = -0.4f
     const val TABLE_AHEAD = -0.6f
 }

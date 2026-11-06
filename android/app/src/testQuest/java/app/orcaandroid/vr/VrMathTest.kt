@@ -97,4 +97,14 @@ class VrMathTest {
         VrMath.localToPlate(back, local, 0, 128f, 90f)
         assertArrayEquals(floatArrayOf(40f, -15f, 220f), back, 1e-2f)
     }
+
+    @Test fun plateGoesInFrontOfTheHeadAlongItsFacing() {
+        val out = FloatArray(2)
+        VrMath.inFrontOfHead(out, floatArrayOf(1f, 1.6f, 2f, 0f, 0f, 0f, 1f), 0)
+        assertArrayEquals(floatArrayOf(1f, 1.4f), out, eps)
+        // Turned 90 degrees left about Y, facing -X.
+        val s = sin(PI.toFloat() / 4)
+        VrMath.inFrontOfHead(out, floatArrayOf(0f, 0f, 0f, 0f, s, 0f, cos(PI.toFloat() / 4)), 0)
+        assertArrayEquals(floatArrayOf(-0.6f, 0f), out, eps)
+    }
 }
