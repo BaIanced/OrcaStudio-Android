@@ -73,6 +73,7 @@ GLES is legacy on Quest and gets no new features. Interaction, not stereo, is th
 User asked for scrcpy (installed by winget, v4.1). View-only: `scrcpy -s <serial> --no-audio --no-control --max-size 1920 --video-bit-rate 8M --max-fps 30`. Started and ran on Quest 3 (display 4128x2208) 2026-11-05; picture not checked by Claude. Quest appears twice in `adb devices`, so pick one serial. One eye: add `--crop 2064:2208:0:0` (left half; right is `2064:2208:2064:0`). Mirror can show the user's home through passthrough: don't record it.
 
 ## On-headset recipe, nobody wearing it
+`dumpsys vrpowermanager` said `HEADSET_MOUNTED` with `Virtual proximity state: CLOSE` while nobody wore it (2026-11-05), so it is no evidence of a wearer: ask. Controller tracking: `dumpsys OVRRemoteService` ("tracking in 6dof") and `no valid pose` in logcat; filter serials out of both.
 `MSYS_NO_PATHCONV=1` in Git Bash, or `/sdcard` paths get rewritten.
 1. Before: `input keyevent KEYCODE_WAKEUP`, `am broadcast -a com.oculus.vrpowermanager.prox_close`, `setprop debug.oculus.guardian_pause 1`.
 2. `am force-stop`, `logcat -c`, `am start`. Without the pause the Guardian dialog stopped the session after about 3 s (one run, likely cause), and a launch made while it is open starts no session.
