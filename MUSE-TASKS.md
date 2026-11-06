@@ -1194,3 +1194,25 @@ tests only; the refusal's caller path - the shape is left unscaled - is by
 reading `ShapeController.resizeOnPlate`); `kept` / `anchors` themselves, which
 need controller state and are covered only through the extracted core.
 Open questions: none.
+
+### Task 19 - 2026-11-05 - muse/task-19-meta-tools-research - this commit
+Research only, no code change: `MUSE-RESEARCH-0019.md` at the repo root
+(11.7 KB, under the 15 KB cap) - Meta tools, docs and samples to cut Claude's
+token use on the VR port, ranked by tokens saved. Headline findings: the
+official `metavr` CLI (meta-quest/agentic-tools) covers the whole device loop
+plus filtered logs and Perfetto summaries, with selective skill install and a
+two-tier telemetry switch; the Meta-OpenXR-SDK samples are OpenGL ES
+throughout (8 source files use the GLES graphics binding, 0 use Vulkan), so
+hand tracking, microgestures, simultaneous hands+controllers, passthrough,
+environment depth, native space warp and composition layers all have GLES
+sample code, and no primary source found ties a wanted feature to Vulkan;
+tapedeck's APK-bundled record/replay is the candidate for headset-free
+regression checks. Every claim in the report is marked VERIFIED, INFERRED or
+UNKNOWN with its source and date; section 5 lists the pages not read and the
+questions only a device can answer.
+Build: UNCOMPILED (research-only task; compile and tests skipped per the task text).
+Privacy self-scan: tree exit 0, range exit 0.
+UNVERIFIED: nothing was installed or run - metavr, tapedeck and the SDK
+samples were read, not executed; their fit for this APK is labelled as such
+in the report, with the device-only questions in its section 5.
+Open questions: none for Vincent; adoption of the report's top-10 is Claude's call.
