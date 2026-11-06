@@ -1231,12 +1231,11 @@ Essential telemetry on; (3) skill cost measured from the repo files - always-loa
 frontmatter 2,462 bytes for the four named skills vs 18,834 bytes for all 36, and
 the "Loads automatically" text behind the verify-first action is quoted; (4) every
 [DOC] tag replaced by a source key with its exact URL in a Sources list, traps
-included; (5) action 1 re-rated MEDIUM against the NOTES-vr.md on-headset recipe
-(only pid filtering, device selection and push/pull plumbing are removed; wake /
-proximity / Guardian steps stay manual), action 9 re-rated LOW (`adb exec-out
-screencap` already works; stereo can't be judged from pixels), and the top 10
-re-ranked accordingly. PR #76's standing research rules noted: not merged, so not
-a rule yet.
+included; (5) the device-loop and screenshot actions re-rated against the
+NOTES-vr.md on-headset recipe and the top 10 re-ranked (final numbering in the
+report as corrected by the second update below: device loop is action 4,
+screenshot action 9). PR #76's standing research rules noted at the time as not
+merged yet; they have since merged and apply (see the second update below).
 Build: UNCOMPILED (research-only; compile and tests skipped per the task text).
 Privacy self-scan: tree exit 0, range exit 0.
 UNVERIFIED: nothing installed or run; whether the public metavr binary can bundle
@@ -1244,3 +1243,29 @@ a tapedeck APK is a device/host check, listed in report section 5.
 Open questions: for Vincent - consent to Meta's Essential telemetry, which a
 metavr install collects even with additional telemetry disabled, is his decision
 (this supersedes the Task 19 entry's "none for Vincent" on that point).
+
+### Task 19 second update - 2026-11-05 - muse/task-19-meta-tools-research - this commit
+Second review of PR #75: one wrong claim, mine. Action 4 (device loop) said
+metavr has no command for KEYCODE_WAKEUP, prox_close or guardian_pause, marked
+VERIFIED; it does. Searched for this fix: the full `docs/metavr-cli.md` command
+reference at agentic-tools HEAD 3a8553d, its whole `device` group read -
+`device wake`, `device proximity --disable` ("keeps headset awake regardless of
+wear"), `device boundary --disable` ("pauses the boundary", sysprop +
+broadcast), plus `set-property --set-proximity-close / --disable-guardian /
+--disable-dialogs`. Report corrected and re-rated HIGH on that coverage, top 10
+re-ranked (device loop 6 -> 4); whether boundary --disable is the same switch
+as the recipe's `debug.oculus.guardian_pause` is UNKNOWN (docs say only that it
+is independent of the MQST set-property path). `device controllers`: docs list
+no tracking/pose fields, so replacing the recipe's `dumpsys OVRRemoteService`
+6dof check is UNKNOWN. Trap added (report item 6): MQST `set-property --pin`
+defaults to HZDB_MQST_PIN, then 1234, ignored if logged out - this headset is
+logged in. Previous update entry's action numbers corrected to the final
+ranking, per the review. PR #76 has merged, so its Research tasks rules apply
+and were followed here (full-reference search before a "does not exist" claim,
+stated above). Report 14,993 bytes, under the 15 KB cap.
+Build: UNCOMPILED (research-only; compile and tests skipped per the task text).
+Privacy self-scan: tree exit 0, range exit 0.
+UNVERIFIED: nothing installed or run; the metavr device commands were read in
+the generated CLI reference, not executed.
+Open questions: for Vincent - Essential-telemetry consent on a metavr install,
+unchanged from the previous update entry.
