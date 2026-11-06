@@ -478,6 +478,95 @@ Deliverable: one new file, `MUSE-RESEARCH-0019.md`, in this order:
 This changes no code, so skip the compile and tests in "Before every push". The privacy scans still apply. Only add
 `MUSE-RESEARCH-0019.md` and your log entry here. One draft PR, then ping #46 as usual.
 
+## Task 20: hand-tracking plate placement, design research (research only, no code change; time-box ~90 min)
+Goal: give Claude enough verified facts to design placing, moving and zooming a model with bare hands (no controller) in the
+Quest port, so the design needs no further lookups. Rank everything by what Claude would otherwise have to find out itself.
+
+Read first, read-only, from `muse/work` (Task 19 is merged): `MUSE-RESEARCH-0019.md` (its GLES feature table and item 4 already
+say which Meta samples exist; don't repeat them). The project: a native OpenXR immersive activity in a sideloaded Android APK on
+Quest 3, drawn by an OpenGL ES renderer. Native code is C++ (OpenXR loader, GLES), UI logic is Kotlin. The model sits on a
+horizontal virtual plate on a table. The user's real target is **no controller**. Two-hand gestures are allowed; one hand "might be
+a better optimum". Controller placement is already built (aim ray, grip to hold, stick up/down for distance, stick left/right for
+zoom), so you are finding the hand equivalent. The wearer gets motion sick from camera motion, so no gesture may move the view.
+
+Already known, don't report again: the device lists `XR_EXT_hand_tracking`, `XR_EXT_hand_interaction` v2, `XR_FB_hand_tracking_aim`
+v2, `XR_META_hand_tracking_microgestures` v1 and `XR_META_simultaneous_hands_and_controllers` v1; none has been tried. The user
+found hands on the 2D window "not fluid, but maybe tunable".
+
+Research these, in this order:
+1. **What the runtime gives an app.** For `XR_EXT_hand_interaction` and `XR_FB_hand_tracking_aim`: the exact input paths and
+   actions (aim pose, pinch pose, poke, pinch value, aim activate, grasp), what each means, and which one a "grab" should use. How an
+   app enables hand input: the manifest feature or permission, whether the user must turn hand tracking on, and what happens when
+   hands and controllers are both present. List the exact manifest lines.
+2. **Gestures for distance and zoom with no stick.** How shipping Quest apps and official guidance do: move a held object nearer or
+   farther, scale it, and rotate it, with one hand and with two. Cover two-hand pinch scale, pull-in/push-out, wrist-based or
+   "ray with arm extension" distance gain (Meta's far-field interaction, Virtual Desktop and similar), and what
+   `XR_META_hand_tracking_microgestures` can offer (swipes, tap). For each: one line on how it works, accidental-trigger risk,
+   fatigue, and whether it needs the second hand.
+3. **Jitter and latency.** Known causes and fixes for unsteady hand rays: which pose to use, prediction at the display time,
+   filtering (One Euro and the parameters others use), pinch release drift, and loss of tracking at the edge of the cameras. Say what
+   Meta itself recommends.
+4. **Hands plus controllers.** What `XR_META_simultaneous_hands_and_controllers` allows (one hand and one controller at once?), its
+   limits and its device support, and whether a "one controller does everything, a free hand adds" design is possible.
+5. **Traps.** Known problems on the same features from primary sources or issue trackers, each with a link: permission prompts,
+   hands lost when the headset sleeps, pinch confused with a system gesture, the system menu pinch, per-eye offsets, GLES-only issues.
+6. **Reusable code.** Exact repo paths in official samples that read pinch and aim from hands and could be adapted (graphics API,
+   licence, whether safe to copy into a public repo). Task 19 listed `XrHandsFB`, `XrHandsAndControllers` and `XrMicrogestures`: go
+   one level deeper, which functions to read.
+
+Rules for this task:
+- Primary sources first: Meta's docs, Meta's repos, the OpenXR spec and registry. Give a URL and page date for every claim. Mark each
+  claim VERIFIED (you read it in a source), INFERRED or UNKNOWN. Don't state an inference as a fact, including anything from a chatbot.
+- A fact only counts if it applies to a sideloaded native OpenXR APK on GLES, driven from Windows. Say so when it is Unity or Unreal only.
+- Don't run `metavr` or install anything: read docs and source. If your VM can't reach a page, list the URL as not read.
+- Claude has to read your report, so it costs tokens too: **12 KB maximum**, no filler, no restating this task.
+
+Deliverable: one new file, `MUSE-RESEARCH-0020.md`, in this order:
+1. A recommended design in at most 10 lines: grab, distance, zoom, release, with the evidence for each choice (label what is VERIFIED).
+2. A table of candidate gestures (item 2): gesture, one hand or two, needs which extension, risk, source.
+3. Short findings for items 1, 3, 4, 5, 6, with the exact manifest lines and action paths.
+4. URLs you could not read, and questions only a real device can answer (these become Claude's headset checks).
+
+This changes no code, so skip the compile and tests in "Before every push". The privacy scans still apply. Only add
+`MUSE-RESEARCH-0020.md` and your log entry here. One draft PR, then ping #46 as usual.
+
+## Task 21: the remaining VR research questions, in one pass (research only, no code change; time-box ~120 min; start after Task 20 is merged)
+Start only after Task 20 is merged: both tasks append to this file's Log, so they must not run in parallel. Cut your branch from the
+latest `origin/muse/work`.
+
+Goal: close the small open questions of the Quest port in one report, so Claude can stop looking things up. Read first, read-only:
+`MUSE-RESEARCH-0019.md` (don't repeat its GLES table or sample list) and `docs/handoff/NOTES-vr.md` from `claude/vr-placement`. Same
+project and rules as Task 20: sideloaded native OpenXR APK on Quest 3, GLES renderer, Windows host, native code built only in CI.
+
+Research these, in this order (each is a section of the report; stop a section when it stops yielding):
+1. **Cost of a Vulkan move.** Task 19 found GLES is "legacy, still supported, new features only in Vulkan". What exactly is
+   Vulkan-only today for an OpenXR app on Quest (name each feature and its source), does anything the port needs (passthrough, hands,
+   Android surface swapchain, composition layers, foveation, space warp) need it, and has Meta given any end-of-support date or warning
+   for GLES? Is there an official or widely used way to keep GLES code on a Vulkan runtime (ANGLE or similar) on Quest, and what does it cost?
+   Verdict wanted: "stay on GLES until X".
+2. **Frame budget for the Preview milestone.** The Preview view draws tens of thousands of small extruded segments ("beads") and is
+   the biggest performance risk. Find: Quest 3 GPU (Adreno) fill and vertex throughput figures from primary sources; Meta's guidance on
+   draw calls, triangle counts and overdraw; what `XR_FB_foveation` / fixed foveated rendering can buy on GLES and its image-quality
+   cost on thin lines; `XR_FB_display_refresh_rate` (90 vs 72 vs 120 Hz) and the tradeoff of choosing the rate in the app. Say which
+   numbers are Meta's and which are community figures.
+3. **A 2D UI panel in VR (static research only).** Official or well-known examples of an Android view or Compose UI shown on a quad
+   layer via `XR_KHR_android_surface_swapchain` for a native app: how input is injected (ray hit to `MotionEvent`), how focus and the
+   soft keyboard work, what `Presentation` / virtual display needs, and known failures with Compose. Say whether Meta's own
+   panel-app path (or the Spatial SDK) is the only supported way and what it would force on a native GLES app.
+4. **Licence fit.** The Oculus SDK License covers Meta's samples; this repo is AGPL-3.0 (OrcaSlicer fork) and public. Read the licence
+   text and say, clause by clause, whether copying or adapting sample code into this repo is allowed. Not legal advice: report what the
+   text says and mark each point VERIFIED or INFERRED.
+5. **Frame-rate logging.** `ENABLE_CSV` on OVR Metrics wrote no file on Quest 3 (OS v210). Find the current documented way to get a
+   per-app metrics CSV or an equivalent plain-text log, and whether the old broadcast was removed or renamed.
+
+Rules: as in Task 20 (primary sources first, a URL and date per claim, VERIFIED / INFERRED / UNKNOWN, applies to a sideloaded native
+GLES APK or say it doesn't, don't run or install anything, list unreadable URLs). **14 KB maximum**, no filler.
+
+Deliverable: one new file, `MUSE-RESEARCH-0021.md`: first a verdict table, one line per section (the answer in at most 20 words,
+confidence, source); then findings per section; then URLs not read and questions only a device can answer. This changes no code, so skip
+the compile and tests in "Before every push". The privacy scans still apply. Only add `MUSE-RESEARCH-0021.md` and your log entry here.
+One draft PR, then ping #46 as usual.
+
 ## Log
 Append-only, one entry per PR (also for PRs that get closed unmerged), newest last. Never edit earlier entries.
 Format: `### Task <n> - <date> - <branch> - <commit>` then build/test result or UNCOMPILED, privacy scan exit codes,
