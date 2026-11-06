@@ -43,6 +43,8 @@ class VrActivity : Activity() {
     private var plateY = 0f
     /** Where the user put the plate; only the render thread touches it. */
     private val grab = PlateGrab()
+    /** Only the render thread touches it. */
+    private var panel: InfoPanel? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -182,7 +184,28 @@ class VrActivity : Activity() {
         t.zoomRate = read("zoomRate", t.zoomRate)
         t.axisLock = read("axisLock", t.axisLock)
         t.grabToggle = json.optBoolean("grabToggle", t.grabToggle)
+        panel?.let { p ->
+            p.x = read("panelX", p.x)
+            p.y = read("panelY", p.y)
+            p.z = read("panelZ", p.z)
+            p.width = read("panelWidth", p.width)
+        }
         Log.i(TAG, "VR_TUNE applied $json")
+    }
+
+    /** `vr_panel.txt` beside the tuning file, pushed over adb, shown live. Removing it brings the built-in text back; empty hides the panel. */
+    private fun loadPanelText(file: File, exists: Boolean) {
+        val text = if (!exists) PanelText.DEFAULT else runCatching {
+            file.bufferedReader().use { reader ->
+                val chars = CharArray(PanelText.MAX_CHARS)
+                String(chars, 0, reader.read(chars).coerceAtLeast(0))
+            }
+        }.getOrElse {
+            Log.e(TAG, "VR_PANEL unreadable, keeping the current text: ${it.message}")
+            return
+        }
+        panel?.setText(text.trimEnd())
+        Log.i(TAG, "VR_PANEL text ${text.length} chars")
     }
 
     /** `--es project <path>`, only from this app's own storage: the activity is exported, and the parser is native. */
@@ -222,6 +245,11 @@ class VrActivity : Activity() {
         val tuningFile = getExternalFilesDir(null)?.let { File(it, TUNING_FILE) }
         var tuningStamp = 0L
         var tuningCheck = 0L
+        val info = InfoPanel(scope).also { panel = it }
+        val panelFile = getExternalFilesDir(null)?.let { File(it, PANEL_FILE) }
+        var panelStamp = 0L
+        var statusCheck = 0L
+        val tracked = BooleanArray(XrShim.HANDS)
 
         while (!stop) {
             val status = XrShim.nativePollEvents()
@@ -245,6 +273,7 @@ class VrActivity : Activity() {
             }
             lastFrameNanos = frameNanos
             if (render) {
+                info.prepare()
                 for (i in 0 until XrShim.EYES) {
                     val framebuffer = XrShim.nativeAcquireImage(i)
                     if (framebuffer == 0) {
@@ -260,6 +289,7 @@ class VrActivity : Activity() {
                     VrMath.multiply(eyeProj, viewProj, world)
                     eye.set(views, o, plateX, plateY, grab, size[1])
                     renderer.drawEye(framebuffer, size[0], size[1], eyeProj, eye)
+                    info.draw(viewProj)
                     rays.draw(viewProj, hands, grab)
                     XrShim.nativeReleaseImage(i)
                 }
@@ -279,6 +309,24 @@ class VrActivity : Activity() {
                 if (stamp != 0L && stamp != tuningStamp) {
                     tuningStamp = stamp
                     loadTuning(tuningFile)
+                }
+                if (panelFile != null) {
+                    val panelNow = panelFile.lastModified()
+                    if (panelNow != panelStamp) {
+                        panelStamp = panelNow
+                        loadPanelText(panelFile, panelNow != 0L)
+                    }
+                }
+            }
+            if (now - statusCheck >= STATUS_CHECK_MS) {
+                statusCheck = now
+                info.setStatus(PanelText.status(hands, grab.holder, grab.x, grab.y, grab.z, grab.scale))
+                for (hand in 0 until XrShim.HANDS) {
+                    val isTracked = hands[hand * XrShim.FLOATS_PER_HAND + XrShim.HAND_ACTIVE] > 0.5f
+                    if (isTracked != tracked[hand]) {
+                        tracked[hand] = isTracked
+                        Log.i(TAG, "VR_INPUT ${if (hand == 0) "left" else "right"} tracked $isTracked")
+                    }
                 }
             }
         }
@@ -343,6 +391,9 @@ class VrActivity : Activity() {
         const val PREFS_PLACEMENT = "vr_placement"
         const val TUNING_FILE = "vr_tuning.json"
         const val TUNING_CHECK_MS = 1000L
+        const val PANEL_FILE = "vr_panel.txt"
+        /** Often enough to read as live; each change of the words redraws the panel's texture. */
+        const val STATUS_CHECK_MS = 250L
         const val NEAR = 0.05f
         const val FAR = 100f
         const val IDLE_SLEEP_MS = 50L

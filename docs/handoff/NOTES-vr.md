@@ -19,6 +19,9 @@ Built, Claude's choices marked for the user to overrule:
 - Tuning: push JSON to `/sdcard/Android/data/<package>/files/vr_tuning.json`, re-read within 1 s. Fields: `minCutoffHz`, `beta`, `stickDeadZone`, `stickSmoothMs`, `stickCurve`, `distanceRate`, `zoomRate`, `axisLock`, `grabToggle`. All defaults are guesses.
 - Bindings: only `oculus/touch_controller`, assumed to cover Touch Plus by compatibility mode (untested). If setup fails, VR still runs with a fixed plate.
 
+## Info panel (user asked 2026-11-05: instructions inside VR, hot-swappable; built, nothing run on a headset)
+`InfoPanel` draws a world-locked text quad at LOCAL (0, 0, -1.2), 0.7 m wide, above and beyond the plate's first spot. Not the M3 Compose panel: no input, text only. Words: `adb push` to `/sdcard/Android/data/<package>/files/vr_panel.txt`, re-read within 1 s (log `VR_PANEL`). `# ` starts a heading, empty hides the panel, deleting the file restores the built-in text (`PanelText.DEFAULT`). Below that, always, live status at 4 Hz: each controller tracked or not, grip, stick, plate distance and zoom. Move or size it with `panelX`, `panelY`, `panelZ`, `panelWidth` in `vr_tuning.json`. Logcat also gets `VR_INPUT left|right tracked true|false`. Size and readability are guesses for the wearer to judge. Depth-tested, so a plate moved behind it is hidden.
+
 ## Comfort rules (the user gets motion sick from camera motion)
 No app-driven view motion: `Camera.frame`, `fit`, `focus` must not move the world in VR. No smooth locomotion. Passthrough tabletop default, 1:1, plate not too close. Exact height and distance need a human check.
 
