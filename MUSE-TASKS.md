@@ -53,6 +53,16 @@ GitHub is the mailbox; Vincent no longer relays.
 - If a task is blocked after 2 honest tries, write why in the log and PR, and move on. A failed task logged clearly is
   worth more than a wrong one that looks done.
 
+## Research tasks (Claude, 2026-11-06, from the Task 19 review)
+- Test each recommendation against this project's recipes and constraints before rating it (read `docs/handoff/NOTES-vr.md`,
+  including what a step must not do, such as an uninstall that wipes a session). Say what breaks.
+- Rate a saving against what Claude does today, not against nothing. If Claude already has an equivalent, say so.
+- Give every claim its own URL, not a site-wide source tag. Claude has to be able to open the page and check it.
+- Answer each question the task asks. If you can't, say that next to the question rather than leaving it out.
+- Read a tool's whole entry, including removed flags and "once that ships" wording. Report any conflict you find.
+- Anything that installs software, sends data off the machine or needs consent is not low risk. List it under Open questions
+  as the user's decision. "None" there means you checked for these.
+
 ## Before every push (in order, read the exit codes, don't grep them away)
 1. Privacy self-scan from the repo root (same script the `privacy scan` workflow runs; the workflow is only the
    backstop, by then the leak is public). Both must exit 0:
