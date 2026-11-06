@@ -75,7 +75,7 @@ internal class Accumulator {
         glUseProgram(program)
         glActiveTexture(GL_TEXTURE0)
         glBindTexture(GL_TEXTURE_2D, tex)
-        glUniform1i(glGetUniformLocation(program, "uFrame"), 0)
+        glUniform1i(uloc(program, "uFrame"), 0)
         glDrawArrays(GL_TRIANGLES, 0, 3)
         glBindTexture(GL_TEXTURE_2D, 0)
     }

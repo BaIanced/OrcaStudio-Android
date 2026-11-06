@@ -688,12 +688,12 @@ private class PreviewRenderer(private val camera: Camera) : GLSurfaceView.Render
 
         if (gridCount > 0) {
             glUseProgram(lineProgram)
-            glUniformMatrix4fv(glGetUniformLocation(lineProgram, "uMvp"), 1, false, mvp, 0)
-            glUniform3f(glGetUniformLocation(lineProgram, "uOffset"), 0f, 0f, 0f)
+            glUniformMatrix4fv(uloc(lineProgram, "uMvp"), 1, false, mvp, 0)
+            glUniform3f(uloc(lineProgram, "uOffset"), 0f, 0f, 0f)
             glBindBuffer(GL_ARRAY_BUFFER, gridVbo)
             glEnableVertexAttribArray(0)
             glVertexAttribPointer(0, 3, GL_FLOAT, false, 12, 0)
-            val color = glGetUniformLocation(lineProgram, "uColor")
+            val color = uloc(lineProgram, "uColor")
             glUniform3fv(color, 1, gridColor, 0)
             glDrawArrays(GL_LINES, 0, axisStart)
             glUniform3f(color, 0.9f, 0.25f, 0.25f)
@@ -703,10 +703,10 @@ private class PreviewRenderer(private val camera: Camera) : GLSurfaceView.Render
         }
         if (meshCount > 0) {
             glUseProgram(meshProgram)
-            glUniformMatrix4fv(glGetUniformLocation(meshProgram, "uMvp"), 1, false, mvp, 0)
-            glUniform3fv(glGetUniformLocation(meshProgram, "uColor"), 1, partColor, 0)
+            glUniformMatrix4fv(uloc(meshProgram, "uMvp"), 1, false, mvp, 0)
+            glUniform3fv(uloc(meshProgram, "uColor"), 1, partColor, 0)
             val eye = camera.towardsEye()
-            glUniform3f(glGetUniformLocation(meshProgram, "uEye"), eye.x, eye.y, eye.z)
+            glUniform3f(uloc(meshProgram, "uEye"), eye.x, eye.y, eye.z)
             glBindBuffer(GL_ARRAY_BUFFER, meshVbo)
             glEnableVertexAttribArray(0)
             glEnableVertexAttribArray(1)
@@ -719,12 +719,12 @@ private class PreviewRenderer(private val camera: Camera) : GLSurfaceView.Render
             // Box outlines on top: holes grey (the render shows them only as cuts), the selection blue.
             glDisable(GL_DEPTH_TEST)
             glUseProgram(lineProgram)
-            glUniformMatrix4fv(glGetUniformLocation(lineProgram, "uMvp"), 1, false, mvp, 0)
+            glUniformMatrix4fv(uloc(lineProgram, "uMvp"), 1, false, mvp, 0)
             glBindBuffer(GL_ARRAY_BUFFER, boxVbo)
             glEnableVertexAttribArray(0)
             glVertexAttribPointer(0, 3, GL_FLOAT, false, 12, 0)
-            val color = glGetUniformLocation(lineProgram, "uColor")
-            val offset = glGetUniformLocation(lineProgram, "uOffset")
+            val color = uloc(lineProgram, "uColor")
+            val offset = uloc(lineProgram, "uOffset")
             glUniform3f(offset, 0f, 0f, 0f)
             glUniform3fv(color, 1, gridColor, 0)
             if (holeCount > 0) glDrawArrays(GL_LINES, 0, holeCount)
@@ -754,9 +754,9 @@ private class PreviewRenderer(private val camera: Camera) : GLSurfaceView.Render
         val d = dragOffset
         glBindBuffer(GL_ARRAY_BUFFER, overlayVbo)
         glUseProgram(lineProgram)
-        glUniformMatrix4fv(glGetUniformLocation(lineProgram, "uMvp"), 1, false, mvp, 0)
-        val offset = glGetUniformLocation(lineProgram, "uOffset")
-        val color = glGetUniformLocation(lineProgram, "uColor")
+        glUniformMatrix4fv(uloc(lineProgram, "uMvp"), 1, false, mvp, 0)
+        val offset = uloc(lineProgram, "uOffset")
+        val color = uloc(lineProgram, "uColor")
         glEnableVertexAttribArray(0)
         glVertexAttribPointer(0, 3, GL_FLOAT, false, 12, o.points.size * 4)
         if (o.guide.isNotEmpty()) {
@@ -770,9 +770,9 @@ private class PreviewRenderer(private val camera: Camera) : GLSurfaceView.Render
             glDrawArrays(GL_LINES, o.guide.size / 3, o.ghost.size / 3)
         }
         glUseProgram(handleProgram)
-        glUniformMatrix4fv(glGetUniformLocation(handleProgram, "uMvp"), 1, false, mvp, 0)
-        glUniform3f(glGetUniformLocation(handleProgram, "uOffset"), d.x, d.y, d.z)
-        glUniform1f(glGetUniformLocation(handleProgram, "uSize"), handleSize)
+        glUniformMatrix4fv(uloc(handleProgram, "uMvp"), 1, false, mvp, 0)
+        glUniform3f(uloc(handleProgram, "uOffset"), d.x, d.y, d.z)
+        glUniform1f(uloc(handleProgram, "uSize"), handleSize)
         glEnableVertexAttribArray(1)
         glVertexAttribPointer(0, 3, GL_FLOAT, false, 24, 0)
         glVertexAttribPointer(1, 3, GL_FLOAT, false, 24, 12)
@@ -863,6 +863,7 @@ private class PreviewRenderer(private val camera: Camera) : GLSurfaceView.Render
         glAttachShader(p, shader(GL_VERTEX_SHADER, vs))
         glAttachShader(p, shader(GL_FRAGMENT_SHADER, fs))
         glLinkProgram(p)
+        ULoc.reset(p)
         return p
     }
 

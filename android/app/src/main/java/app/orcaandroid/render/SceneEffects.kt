@@ -163,8 +163,8 @@ internal class SceneEffects {
         glBindFramebuffer(GL_FRAMEBUFFER, dst)
         glActiveTexture(GL_TEXTURE0)
         glBindTexture(GL_TEXTURE_2D, src)
-        glUniform1i(glGetUniformLocation(blurProgram, "uTex"), 0)
-        glUniform2f(glGetUniformLocation(blurProgram, "uStep"), du, dv)
+        glUniform1i(uloc(blurProgram, "uTex"), 0)
+        glUniform2f(uloc(blurProgram, "uStep"), du, dv)
         glDrawArrays(GL_TRIANGLES, 0, 3)
     }
 
@@ -173,26 +173,26 @@ internal class SceneEffects {
         val rect = shadowRect ?: return
         if (broken) return
         glUseProgram(shadowProgram)
-        glUniformMatrix4fv(glGetUniformLocation(shadowProgram, "uMvp"), 1, false, mvp, 0)
+        glUniformMatrix4fv(uloc(shadowProgram, "uMvp"), 1, false, mvp, 0)
         val real = isRealShadow
         // The real shadow already falls away from the light: no shift.
         val dx = if (real) 0f else SHADOW_SHIFT_X
         val dy = if (real) 0f else SHADOW_SHIFT_Y
         val shifted = floatArrayOf(rect[0] + dx, rect[1] + dy, rect[2] + dx, rect[3] + dy)
-        glUniform4fv(glGetUniformLocation(shadowProgram, "uRect"), 1, shifted, 0)
-        glUniform1f(glGetUniformLocation(shadowProgram, "uStrength"), strength)
-        glUniform1i(glGetUniformLocation(shadowProgram, "uReal"), if (real) 1 else 0)
+        glUniform4fv(uloc(shadowProgram, "uRect"), 1, shifted, 0)
+        glUniform1f(uloc(shadowProgram, "uStrength"), strength)
+        glUniform1i(uloc(shadowProgram, "uReal"), if (real) 1 else 0)
         // Two samplers of different types must not share a unit (INVALID_OPERATION at the draw): contact map 0, depth map 1.
-        glUniform1i(glGetUniformLocation(shadowProgram, "uTex"), 0)
-        glUniform1i(glGetUniformLocation(shadowProgram, "uRealShadowMap"), 1)
+        glUniform1i(uloc(shadowProgram, "uTex"), 0)
+        glUniform1i(uloc(shadowProgram, "uRealShadowMap"), 1)
         glActiveTexture(GL_TEXTURE0)
         glBindTexture(GL_TEXTURE_2D, if (real) 0 else shadowTex[0])
         if (real) {
-            glUniformMatrix4fv(glGetUniformLocation(shadowProgram, "uLightMvp"), 1, false, lightMvp, 0)
-            glUniform1f(glGetUniformLocation(shadowProgram, "uSoft"), softMm / lightSpanMm)
-            glUniform1f(glGetUniformLocation(shadowProgram, "uBiasMm"), biasMm)
+            glUniformMatrix4fv(uloc(shadowProgram, "uLightMvp"), 1, false, lightMvp, 0)
+            glUniform1f(uloc(shadowProgram, "uSoft"), softMm / lightSpanMm)
+            glUniform1f(uloc(shadowProgram, "uBiasMm"), biasMm)
             val (lx, ly, lz) = lightDir
-            glUniform1f(glGetUniformLocation(shadowProgram, "uBedNdl"), lz / kotlin.math.sqrt(lx * lx + ly * ly + lz * lz))
+            glUniform1f(uloc(shadowProgram, "uBedNdl"), lz / kotlin.math.sqrt(lx * lx + ly * ly + lz * lz))
             glActiveTexture(GL_TEXTURE1)
             glBindTexture(GL_TEXTURE_2D, realTex)
             glActiveTexture(GL_TEXTURE0)
@@ -200,7 +200,7 @@ internal class SceneEffects {
         glEnable(GL_BLEND)
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
         glDepthMask(false)
-        val clipLoc = glGetUniformLocation(shadowProgram, "uClip")
+        val clipLoc = uloc(shadowProgram, "uClip")
         for (b in beds) {
             val x0 = max(shifted[0], b[0]); val y0 = max(shifted[1], b[1])
             val x1 = min(shifted[2], b[2]); val y1 = min(shifted[3], b[3])

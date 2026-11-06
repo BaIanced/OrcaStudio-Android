@@ -1806,7 +1806,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glEnable(GL_DEPTH_TEST)
     }
 
-    private fun loc(program: Int, name: String) = glGetUniformLocation(program, name)
+    private fun loc(program: Int, name: String) = uloc(program, name)
 
     private fun floats(a: FloatArray) = ByteBuffer.allocateDirect(maxOf(a.size, 1) * 4).order(ByteOrder.nativeOrder()).asFloatBuffer().put(a).also { it.flip() }
 
@@ -1824,6 +1824,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glAttachShader(p, shader(GL_VERTEX_SHADER, vs))
         glAttachShader(p, shader(GL_FRAGMENT_SHADER, fs))
         glLinkProgram(p)
+        ULoc.reset(p)
         val ok = IntArray(1)
         glGetProgramiv(p, GL_LINK_STATUS, ok, 0)
         check(ok[0] != 0) { "Program link failed: " + glGetProgramInfoLog(p) }
