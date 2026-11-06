@@ -29,6 +29,14 @@ Send: temporary worktree on a new `claude/muse-task-<n>` from `origin/muse/work`
 Reply: `TASK <n> DONE` on #46 with a draft PR `muse/task-<n>-...`. Check at session start: `gh pr list -R BaIanced/OrcaStudio-Android --state open --json number,title,headRefName; gh issue view 46 -R BaIanced/OrcaStudio-Android --json comments --jq '.comments[-2:][]|.createdAt+" "+(.body|.[0:300])'`.
 Use it for research and larger JVM-testable Kotlin, not device work: no adb in its rules, and its writes need the user's approval. A small task cost about 50-60k Claude tokens in 2026-10, about break-even. Verify what it reports before relying on it.
 
+## Meta tools (Muse Task 19, `MUSE-RESEARCH-0019.md`, PR #75; checked 2026-11-06, nothing installed or run)
+Checked against Meta's repos: `meta-quest/agentic-tools` is Apache-2.0, its `metavr` CLI lists `app`, `files`, `capture`, `log`, `docs`, `perf`, `skills`, `telemetry`, `tapedeck`, and `perf capture`, `context`, `analyze-trace` and `gpu-counters` exist. 36 skills, including the four the report names. In `meta-quest/Meta-OpenXR-SDK`, code search finds 8 files with the GLES binding and 0 with a Vulkan one, and the seven named samples exist. SDK licence is the Oculus SDK License (`LICENSE.txt`), so read it before copying sample code into this public repo. Not checked: the report's Meta doc pages, what "essential" telemetry contains, `hz-quest-verify-first` auto-loading.
+Traps the report misses (read from the docs, untested):
+- `tapedeck bundle-apk` re-signs with `--signing-key` or a cached debug key, so its APK should not install over `.quest` without an uninstall, and uninstalling wipes the session. Back up the session or use another package first.
+- `tapedeck verify-apk`'s help says "once that ships" of `bundle-apk`, and `--skip-build` mentions a `buck2` build and an embedded layer, so it may not work from the public binary.
+- `metavr init` also configures the MCP server and installs skills. Use the CLI alone first (`npx -y`), and measure before adding the MCP tool schemas.
+- Essential telemetry stays on after `metavr telemetry disable`, so trying it is the user's call.
+
 ## Comfort rules (the user gets motion sick from camera motion)
 No app-driven view motion: `Camera.frame`, `fit`, `focus` must not move the world in VR. No smooth locomotion. Passthrough tabletop default, 1:1, plate not too close. Exact height and distance need a human check.
 
