@@ -27,6 +27,9 @@ constexpr int kFloatsPerView = 11;
 // pollEvents() result bits, mirrored in XrShim.kt.
 constexpr jint kRunning = 1;
 constexpr jint kExit = 2;
+constexpr int kHands = 2;
+// One hand in the array handed to Kotlin, mirrored in XrShim.kt: active, pose x y z, quaternion x y z w, grip, stick x y, stick click.
+constexpr int kFloatsPerHand = 12;
 constexpr GLsizei kMsaaSamples = 4;
 // GL_FRAMEBUFFER_SRGB_EXT, from GL_EXT_sRGB_write_control.
 constexpr GLenum kFramebufferSrgb = 0x8DB9;
@@ -66,6 +69,15 @@ struct Shim {
     PFN_xrDestroyPassthroughLayerFB destroyPassthroughLayer = nullptr;
     XrPassthroughFB passthrough = XR_NULL_HANDLE;
     XrPassthroughLayerFB passthroughLayer = XR_NULL_HANDLE;
+    // Controllers. VR still runs without them if any of this fails (inputReady stays false).
+    bool inputReady = false;
+    XrActionSet actionSet = XR_NULL_HANDLE;
+    XrAction aim = XR_NULL_HANDLE;
+    XrAction grip = XR_NULL_HANDLE;
+    XrAction stick = XR_NULL_HANDLE;
+    XrAction stickClick = XR_NULL_HANDLE;
+    XrPath handPaths[kHands] = {XR_NULL_PATH, XR_NULL_PATH};
+    XrSpace aimSpaces[kHands] = {XR_NULL_HANDLE, XR_NULL_HANDLE};
 };
 
 Shim g;
@@ -310,6 +322,110 @@ bool createSwapchains() {
     return createEyeTargets();
 }
 
+XrPath toPath(const char* text) {
+    XrPath path = XR_NULL_PATH;
+    ok(xrStringToPath(g.instance, text, &path), text);
+    return path;
+}
+
+bool createAction(const char* name, const char* label, XrActionType type, XrAction* out) {
+    XrActionCreateInfo info{XR_TYPE_ACTION_CREATE_INFO};
+    info.actionType = type;
+    std::strncpy(info.actionName, name, XR_MAX_ACTION_NAME_SIZE - 1);
+    std::strncpy(info.localizedActionName, label, XR_MAX_LOCALIZED_ACTION_NAME_SIZE - 1);
+    info.countSubactionPaths = kHands;
+    info.subactionPaths = g.handPaths;
+    return ok(xrCreateAction(g.actionSet, &info, out), name);
+}
+
+// Needs the session for attaching and for the aim spaces. The Touch profile also covers Touch Plus (compatibility mode).
+bool createInput() {
+    g.handPaths[0] = toPath("/user/hand/left");
+    g.handPaths[1] = toPath("/user/hand/right");
+    XrActionSetCreateInfo setInfo{XR_TYPE_ACTION_SET_CREATE_INFO};
+    std::strncpy(setInfo.actionSetName, "orca", XR_MAX_ACTION_SET_NAME_SIZE - 1);
+    std::strncpy(setInfo.localizedActionSetName, "OrcaStudio", XR_MAX_LOCALIZED_ACTION_SET_NAME_SIZE - 1);
+    if (!ok(xrCreateActionSet(g.instance, &setInfo, &g.actionSet), "xrCreateActionSet")) return false;
+    if (!createAction("aim", "Aim", XR_ACTION_TYPE_POSE_INPUT, &g.aim) ||
+        !createAction("grip", "Grab the plate", XR_ACTION_TYPE_BOOLEAN_INPUT, &g.grip) ||
+        !createAction("stick", "Distance and zoom", XR_ACTION_TYPE_VECTOR2F_INPUT, &g.stick) ||
+        !createAction("stick_click", "True size", XR_ACTION_TYPE_BOOLEAN_INPUT, &g.stickClick)) return false;
+
+    const XrActionSuggestedBinding bindings[] = {
+        {g.aim, toPath("/user/hand/left/input/aim/pose")},
+        {g.aim, toPath("/user/hand/right/input/aim/pose")},
+        {g.grip, toPath("/user/hand/left/input/squeeze/value")},
+        {g.grip, toPath("/user/hand/right/input/squeeze/value")},
+        {g.stick, toPath("/user/hand/left/input/thumbstick")},
+        {g.stick, toPath("/user/hand/right/input/thumbstick")},
+        {g.stickClick, toPath("/user/hand/left/input/thumbstick/click")},
+        {g.stickClick, toPath("/user/hand/right/input/thumbstick/click")},
+    };
+    XrInteractionProfileSuggestedBinding suggested{XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING};
+    suggested.interactionProfile = toPath("/interaction_profiles/oculus/touch_controller");
+    suggested.countSuggestedBindings = sizeof(bindings) / sizeof(bindings[0]);
+    suggested.suggestedBindings = bindings;
+    if (!ok(xrSuggestInteractionProfileBindings(g.instance, &suggested), "xrSuggestInteractionProfileBindings")) return false;
+
+    XrSessionActionSetsAttachInfo attach{XR_TYPE_SESSION_ACTION_SETS_ATTACH_INFO};
+    attach.countActionSets = 1;
+    attach.actionSets = &g.actionSet;
+    if (!ok(xrAttachSessionActionSets(g.session, &attach), "xrAttachSessionActionSets")) return false;
+
+    for (int hand = 0; hand < kHands; hand++) {
+        XrActionSpaceCreateInfo info{XR_TYPE_ACTION_SPACE_CREATE_INFO};
+        info.action = g.aim;
+        info.subactionPath = g.handPaths[hand];
+        info.poseInActionSpace.orientation.w = 1.0f;
+        if (!ok(xrCreateActionSpace(g.session, &info, &g.aimSpaces[hand]), "xrCreateActionSpace")) return false;
+    }
+    return true;
+}
+
+void logInteractionProfiles() {
+    for (int hand = 0; hand < kHands; hand++) {
+        XrInteractionProfileState state{XR_TYPE_INTERACTION_PROFILE_STATE};
+        if (!ok(xrGetCurrentInteractionProfile(g.session, g.handPaths[hand], &state), "xrGetCurrentInteractionProfile")) continue;
+        char text[XR_MAX_PATH_LENGTH] = "none";
+        uint32_t length = 0;
+        if (state.interactionProfile != XR_NULL_PATH) xrPathToString(g.instance, state.interactionProfile, sizeof(text), &length, text);
+        LOGI("VR_INPUT %s profile %s", hand == 0 ? "left" : "right", text);
+    }
+}
+
+// One hand's state into out; leaves it all zero unless the aim pose is usable.
+void readHand(int hand, jfloat* out) {
+    XrActionStateGetInfo get{XR_TYPE_ACTION_STATE_GET_INFO};
+    get.subactionPath = g.handPaths[hand];
+    get.action = g.aim;
+    XrActionStatePose pose{XR_TYPE_ACTION_STATE_POSE};
+    if (XR_FAILED(xrGetActionStatePose(g.session, &get, &pose)) || !pose.isActive) return;
+    XrSpaceLocation location{XR_TYPE_SPACE_LOCATION};
+    if (XR_FAILED(xrLocateSpace(g.aimSpaces[hand], g.space, g.displayTime, &location))) return;
+    const XrSpaceLocationFlags valid = XR_SPACE_LOCATION_POSITION_VALID_BIT | XR_SPACE_LOCATION_ORIENTATION_VALID_BIT;
+    if ((location.locationFlags & valid) != valid) return;
+    out[0] = 1.0f;
+    out[1] = location.pose.position.x;
+    out[2] = location.pose.position.y;
+    out[3] = location.pose.position.z;
+    out[4] = location.pose.orientation.x;
+    out[5] = location.pose.orientation.y;
+    out[6] = location.pose.orientation.z;
+    out[7] = location.pose.orientation.w;
+    XrActionStateBoolean pressed{XR_TYPE_ACTION_STATE_BOOLEAN};
+    get.action = g.grip;
+    if (XR_SUCCEEDED(xrGetActionStateBoolean(g.session, &get, &pressed)) && pressed.isActive && pressed.currentState) out[8] = 1.0f;
+    XrActionStateVector2f axes{XR_TYPE_ACTION_STATE_VECTOR2F};
+    get.action = g.stick;
+    if (XR_SUCCEEDED(xrGetActionStateVector2f(g.session, &get, &axes)) && axes.isActive) {
+        out[9] = axes.currentState.x;
+        out[10] = axes.currentState.y;
+    }
+    pressed = {XR_TYPE_ACTION_STATE_BOOLEAN};
+    get.action = g.stickClick;
+    if (XR_SUCCEEDED(xrGetActionStateBoolean(g.session, &get, &pressed)) && pressed.isActive && pressed.currentState) out[11] = 1.0f;
+}
+
 bool createSession(EGLDisplay display, EGLConfig config, EGLContext context) {
     XrGraphicsBindingOpenGLESAndroidKHR binding{XR_TYPE_GRAPHICS_BINDING_OPENGL_ES_ANDROID_KHR};
     binding.display = display;
@@ -325,6 +441,8 @@ bool createSession(EGLDisplay display, EGLConfig config, EGLContext context) {
     spaceInfo.poseInReferenceSpace.orientation.w = 1.0f;
     if (!ok(xrCreateReferenceSpace(g.session, &spaceInfo, &g.space), "xrCreateReferenceSpace")) return false;
     createPassthrough();
+    g.inputReady = createInput();
+    LOGI("VR_INPUT %s", g.inputReady ? "ready" : "unavailable, the plate stays where it is");
     return createSwapchains();
 }
 
@@ -357,6 +475,10 @@ void destroyAll(JNIEnv* env) {
     for (EyeSwapchain& s : g.eyes) {
         if (s.handle != XR_NULL_HANDLE) xrDestroySwapchain(s.handle);
     }
+    for (XrSpace space : g.aimSpaces) {
+        if (space != XR_NULL_HANDLE) xrDestroySpace(space);
+    }
+    if (g.actionSet != XR_NULL_HANDLE) xrDestroyActionSet(g.actionSet);
     if (g.space != XR_NULL_HANDLE) xrDestroySpace(g.space);
     if (g.session != XR_NULL_HANDLE) xrDestroySession(g.session);
     if (g.instance != XR_NULL_HANDLE) xrDestroyInstance(g.instance);
@@ -388,6 +510,8 @@ JNIEXPORT jint JNICALL Java_app_orcaandroid_vr_XrShim_nativePollEvents(JNIEnv*, 
     while (xrPollEvent(g.instance, &event) == XR_SUCCESS) {
         if (event.type == XR_TYPE_EVENT_DATA_SESSION_STATE_CHANGED) {
             onStateChanged(reinterpret_cast<const XrEventDataSessionStateChanged*>(&event)->state);
+        } else if (event.type == XR_TYPE_EVENT_DATA_INTERACTION_PROFILE_CHANGED) {
+            if (g.inputReady) logInteractionProfiles();
         } else if (event.type == XR_TYPE_EVENT_DATA_INSTANCE_LOSS_PENDING) {
             LOGE("XR instance loss pending");
             g.running = false;
@@ -439,6 +563,23 @@ JNIEXPORT jboolean JNICALL Java_app_orcaandroid_vr_XrShim_nativeBeginFrame(JNIEn
     }
     env->SetFloatArrayRegion(outViews, 0, kEyes * kFloatsPerView, out);
     return JNI_TRUE;
+}
+
+// Controller state at the predicted display time of the frame just begun. All zero while unfocused or untracked.
+JNIEXPORT void JNICALL Java_app_orcaandroid_vr_XrShim_nativeInput(JNIEnv* env, jclass, jfloatArray outHands) {
+    jfloat out[kHands * kFloatsPerHand] = {};
+    if (g.inputReady) {
+        XrActiveActionSet active{g.actionSet, XR_NULL_PATH};
+        XrActionsSyncInfo sync{XR_TYPE_ACTIONS_SYNC_INFO};
+        sync.countActiveActionSets = 1;
+        sync.activeActionSets = &active;
+        // XR_SESSION_NOT_FOCUSED is a success code, and every action is inactive then.
+        const XrResult synced = xrSyncActions(g.session, &sync);
+        if (ok(synced, "xrSyncActions") && synced == XR_SUCCESS) {
+            for (int hand = 0; hand < kHands; hand++) readHand(hand, out + hand * kFloatsPerHand);
+        }
+    }
+    env->SetFloatArrayRegion(outHands, 0, kHands * kFloatsPerHand, out);
 }
 
 // Returns the framebuffer to draw this eye into, or 0 when no image could be acquired.

@@ -3,6 +3,7 @@
 Muse = the second agent that takes audits and larger JVM-testable Kotlin tasks. Read this only when deciding to send it work or when a Muse PR/comment appears.
 
 ## Permissions (user)
+- 2026-11-06: send Muse criticism and approach changes automatically after a review; it's Claude's agent and takes direction from Claude.
 - 2026-10-25: full discretion. Claude decides whether and how to use Muse (task, ping on stalls, receive, guide) without asking; just say what was delegated.
 - 2026-10-22: Claude may merge Muse `muse/task-*` PRs and its own task-list PRs into `muse/work` after the local check (compile, unit tests, forbidden paths, diff read). Main merges and releases still need the user.
 - The auto-mode classifier blocks merging Claude's OWN PRs: only allowed when the command starts with `gh pr merge` (use `--repo BaIanced/OrcaStudio-Android`, no `cd &&` prefix). Permission-setting edits stay blocked: ask the user.
@@ -16,4 +17,4 @@ Muse = the second agent that takes audits and larger JVM-testable Kotlin tasks. 
 - Session-start check, run exactly:
   `gh pr list --state open --json number,title,headRefName; gh issue view 46 --json comments --jq '.comments[-2:][]|.createdAt+" "+(.body|.[0:300])'`
 - Review recipe: pull the branch, compile locally, run unit tests, check no forbidden paths (src-orca, patches, secrets), read the diff, privacy scan, then merge into `muse/work`; cherry-pick to the work branch as needed.
-- Status: Tasks 1-18 merged (2026-10-28).
+- Status: Tasks 1-18 merged (2026-10-28). Task 19 (research Meta tools to cut Claude's token use, `MUSE-RESEARCH-0019.md`) sent 2026-11-06 at the user's request (PR #74, #46); reply in as draft PR #75, changes requested. Standing research rules merged (PR #76). The user added a `gh pr` allow rule on 2026-11-06 after the classifier denied a merge.

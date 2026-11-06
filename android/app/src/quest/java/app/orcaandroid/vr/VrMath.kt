@@ -60,28 +60,45 @@ internal object VrMath {
 
     /**
      * Plate (mm, Z up) to the LOCAL space (metres, Y up) at 1:1: (x, y, z) to 0.001 * (x, z, -y), a pure rotation so
-     * winding holds, with the plate point ([cx], [cy], 0) moved to [TABLE_Y] below and [TABLE_AHEAD] ahead of the origin.
+     * winding holds, with the plate point ([cx], [cy], 0) moved to ([px], [py], [pz]) and zoomed by [scale] about that point.
      */
-    fun plateToLocal(out: FloatArray, cx: Float, cy: Float) {
+    fun plateToLocal(out: FloatArray, cx: Float, cy: Float, px: Float = 0f, py: Float = TABLE_Y, pz: Float = TABLE_AHEAD, scale: Float = 1f) {
+        val s = MM * scale
         out.fill(0f)
-        out[0] = MM
-        out[6] = -MM
-        out[9] = MM
-        out[12] = -MM * cx
-        out[13] = TABLE_Y
-        out[14] = MM * cy + TABLE_AHEAD
+        out[0] = s
+        out[6] = -s
+        out[9] = s
+        out[12] = px - s * cx
+        out[13] = py
+        out[14] = s * cy + pz
         out[15] = 1f
     }
 
     /** The inverse of [plateToLocal] on a point: LOCAL (metres) at [offset] in [v] to plate mm, written to [out] as x y z. */
-    fun localToPlate(out: FloatArray, v: FloatArray, offset: Int, cx: Float, cy: Float) {
-        out[0] = v[offset] / MM + cx
-        out[1] = cy - (v[offset + 2] - TABLE_AHEAD) / MM
-        out[2] = (v[offset + 1] - TABLE_Y) / MM
+    fun localToPlate(
+        out: FloatArray, v: FloatArray, offset: Int, cx: Float, cy: Float,
+        px: Float = 0f, py: Float = TABLE_Y, pz: Float = TABLE_AHEAD, scale: Float = 1f,
+    ) {
+        val s = MM * scale
+        out[0] = (v[offset] - px) / s + cx
+        out[1] = cy - (v[offset + 2] - pz) / s
+        out[2] = (v[offset + 1] - py) / s
+    }
+
+    /** A pose (position x y z, unit quaternion x y z w at [offset] in [v]) as a matrix that also stretches its z axis by [zScale]. */
+    fun aimMatrix(out: FloatArray, v: FloatArray, offset: Int, zScale: Float) {
+        val x = v[offset + 3]
+        val y = v[offset + 4]
+        val z = v[offset + 5]
+        val w = v[offset + 6]
+        out[0] = 1 - 2 * (y * y + z * z); out[4] = 2 * (x * y - w * z); out[8] = 2 * (x * z + w * y) * zScale; out[12] = v[offset]
+        out[1] = 2 * (x * y + w * z); out[5] = 1 - 2 * (x * x + z * z); out[9] = 2 * (y * z - w * x) * zScale; out[13] = v[offset + 1]
+        out[2] = 2 * (x * z - w * y); out[6] = 2 * (y * z + w * x); out[10] = (1 - 2 * (x * x + y * y)) * zScale; out[14] = v[offset + 2]
+        out[3] = 0f; out[7] = 0f; out[11] = 0f; out[15] = 1f
     }
 
     private const val MM = 0.001f
-    /** Where the plate sits relative to the head at start, in metres. Comfort constants, to be set by the user check. */
+    /** Where the plate first sits relative to the head at start, in metres, until the user places it (PlateGrab). */
     const val TABLE_Y = -0.4f
     const val TABLE_AHEAD = -0.6f
 }
