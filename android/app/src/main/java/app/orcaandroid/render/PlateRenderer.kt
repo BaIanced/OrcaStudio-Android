@@ -305,6 +305,11 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     private var gridRect: FloatArray? = null
     private var boxVbo = 0; private var boxIbo = 0; private var boxIndexCount = 0
     private var scratchVbo = 0
+    // Crease lines and mesh markers are set once per check, so they live in their own VBOs (re-uploaded only when the array changes).
+    private var creaseVbo = 0
+    private var creaseUp: FloatArray? = null
+    private var markerPtsVbo = 0
+    private var markerPtsUp: FloatArray? = null
     /** Plate badges: icons per plate (top down, right of the plate; empty = numbers only), atlas, quads. */
     private var badgeIcons: List<PlateBadge> = emptyList()
     private var atlas: BadgeAtlas? = null
@@ -424,8 +429,10 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         plateProgram = program(Shaders.GRID_VS, Shaders.PLATE_FS)
         decalProgram = program(Shaders.DECAL_VS, Shaders.DECAL_FS)
         decalTex.clear()
-        val ids = IntArray(11)
-        glGenBuffers(11, ids, 0)
+        val ids = IntArray(13)
+        glGenBuffers(13, ids, 0)
+        creaseVbo = ids[11]; creaseUp = null
+        markerPtsVbo = ids[12]; markerPtsUp = null
         ghostVbo = ids[9]; ghostCount = 0
         badgeVbo = ids[10]
         val tex = IntArray(1)
@@ -1600,8 +1607,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glUniform3f(loc(lineProgram, "uColor"), 0.08f, 0.08f, 0.1f)
         setSection(lineProgram)
         glLineWidth(2f * pxScale)
-        glBindBuffer(GL_ARRAY_BUFFER, scratchVbo)
-        glBufferData(GL_ARRAY_BUFFER, data.size * 4, floats(data), GL_STREAM_DRAW)
+        glBindBuffer(GL_ARRAY_BUFFER, creaseVbo)
+        if (creaseUp !== data) { glBufferData(GL_ARRAY_BUFFER, data.size * 4, floats(data), GL_STATIC_DRAW); creaseUp = data }
         glEnableVertexAttribArray(0)
         glVertexAttribPointer(0, 3, GL_FLOAT, false, 12, 0)
         glDrawArrays(GL_LINES, 0, data.size / 3)
@@ -1721,8 +1728,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glUniform1i(loc(pointProgram, "uKinds"), 0b111100000)
         glUniform1f(loc(pointProgram, "uPxScale"), pxScale)
         setSection(pointProgram)
-        glBindBuffer(GL_ARRAY_BUFFER, scratchVbo)
-        glBufferData(GL_ARRAY_BUFFER, data.size * 4, floats(data), GL_STREAM_DRAW)
+        glBindBuffer(GL_ARRAY_BUFFER, markerPtsVbo)
+        if (markerPtsUp !== data) { glBufferData(GL_ARRAY_BUFFER, data.size * 4, floats(data), GL_STATIC_DRAW); markerPtsUp = data }
         glEnableVertexAttribArray(0)
         glVertexAttribPointer(0, 3, GL_FLOAT, false, 16, 0)
         glEnableVertexAttribArray(1)
