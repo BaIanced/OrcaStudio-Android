@@ -36,8 +36,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Assemble A1 + A2 verified, incl. stale fit card fix (r523/r524/r526/run 41939360557; archive end).
 - Rename (LOW, backlog): Discussions #17269 still 0 replies (Claude 2026-11-04 /next).
 - Tower message tweak (3505452, in run 41939360557, CI-compiled): only fires on a full plate with >4 filaments; code-read OK, live check skipped as low value.
-- Queue empty for Claude: every open backlog item needs the user (feel/looks), the printer, or the Note 10+. Nothing to build or merge.
-- Next step: wait for user input (new feature/bug or a verdict on an open item) -> Sonnet 5.5 (medium)
+- **Render profile (2026-11-06, user asked "why GLES not Vulkan"):** simpleperf on phone, 5-object plate orbit: GL thread NOT CPU-bound (60 fps vsync-bound, r517), so no case for Vulkan. Found `glGetUniformLocation` by name per frame (~6% of GL thread via strcmp). Fix = `render/ULoc.kt` thread-local cache + `ULoc.reset(p)` after glLinkProgram (commit cb454dc, compiles, privacy clean). **CI run 42183752696 dispatched, not yet installed/measured.**
+- Orca name inquiry Discussions #17269: 0 replies on 2026-11-05; user decided to wait 1-2 weeks, then one bump. Upstream-PR idea: `android/patches/src-orca/0002-0004` (small libslic3r fixes) after checking they still apply to 2.5.0 alpha (untested, user offered it, no go yet).
+- Next: when run 42183752696 is green, install on phone (+ WSA, Chromebook; not SHIELD), repeat the profile (`adb -s <phone> su simpleperf record -p PID --duration 9 -f 1000 -g --no-inherit`, orbit via `TARGET=phone orca-vd.sh swipe`, stop VD after) and confirm `strcmp` drops out of the GL thread; log result in archive.
+- Next step: Install run 42183752696 and re-profile the GL thread (uniform cache) -> Sonnet 5.5 (medium)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
