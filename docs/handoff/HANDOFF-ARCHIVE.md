@@ -4102,3 +4102,12 @@ Phases (each one build, Claude-testable on WSA VD):
 
 ## 2026-11-06 render profile (Claude)
 User asked why GLES not Vulkan: no recorded decision; GLSurfaceView + GLES 3.0 shaders. simpleperf (phone r526, 9 s orbit, 1300 GL-thread samples): load ~0.4 Gcycles/s, GL thread 27% kernel / 20% Adreno driver, 11.5% strcmp of which ~half from glGetUniformLocation(String) in onDrawFrame (obfuscated lu1.*). Vulkan not justified. Fixed with ULoc cache, commit cb454dc, CI run 42183752696 (unmeasured).
+
+## 2026-11-06 ULoc uniform cache measured (r535, CI run 42183752696, phone)
+simpleperf 9 s orbit, 1956 samples, 686 symbol rows: no `strcmp` and no `glGetUniformLocation` row at all (before, r526: strcmp 11.5% of GL thread). GL thread top is now kernel `_raw_spin_unlock_irqrestore` 10%, Adreno/dma ~2-3% each. Installed r535 on phone, WSA, Chromebook (not SHIELD). VD stopped. Profile data `/data/local/tmp/perf2.data` on the phone.
+
+## 2026-11-06 VD stole the user's keyboard / taps (orca-vd.sh)
+User: keyboard on the main screen disappears while the VD runs; taps hit the main screen. Cause found: scrcpy VD had FLAG_SHOULD_SHOW_SYSTEM_DECORATIONS, so system_server logged `ImeTracker onRequestShow CONTROLS_CHANGED` + STATUS_TIMEOUT every ~5 s. Fixes in orca-android-tools/orca-vd.sh: `--no-vd-system-decorations`, `--display-ime-policy=local`, tap/swipe refuse when no VD state (LOGICAL=0 = main screen). After fix: 1 CONTROLS_CHANGED in 25 s, flag gone. USER VERDICT pending (VD left running on display 8 for the user's test).
+
+## 2026-11-06 ULoc cache A/B draw-ms (r527 before vs r535 after, phone VD, plate 1 fit, 3 s orbit, interleaved old/new/old/new, 3 orbits each)
+Draw ms (CPU side, GL thread) median: r527 5.7-5.8, r535 5.6-5.8; p95 6.3-6.7 both. Frame gap median 6.0 both (VD now runs ~166 fps, not 60: display refresh differs from the r517 baseline row). Result: cache saves at most ~0.1 ms/frame (~2%), inside noise; the win is the removed strcmp CPU in simpleperf, not draw-ms. Script: scratchpad ab.sh (old/new APKs via `gh run download 41939360557 / 42183752696`, `install -r -d`).

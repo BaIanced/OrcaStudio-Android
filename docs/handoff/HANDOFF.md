@@ -35,11 +35,13 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Open tests in backlog.
 - Assemble A1 + A2 verified, incl. stale fit card fix (r523/r524/r526/run 41939360557; archive end).
 - Rename (LOW, backlog): Discussions #17269 still 0 replies (Claude 2026-11-04 /next).
-- Tower message tweak (3505452, in run 41939360557, CI-compiled): only fires on a full plate with >4 filaments; code-read OK, live check skipped as low value.
-- **Render profile (2026-11-06, user asked "why GLES not Vulkan"):** simpleperf on phone, 5-object plate orbit: GL thread NOT CPU-bound (60 fps vsync-bound, r517), so no case for Vulkan. Found `glGetUniformLocation` by name per frame (~6% of GL thread via strcmp). Fix = `render/ULoc.kt` thread-local cache + `ULoc.reset(p)` after glLinkProgram (commit cb454dc, compiles, privacy clean). **CI run 42183752696 dispatched, not yet installed/measured.**
+- Render profile (2026-11-06): GL thread vsync-bound, Vulkan not justified; ULoc uniform cache (cb454dc, r535) verified: strcmp/glGetUniformLocation gone from the profile (archive end). Installed r535 on phone, WSA, Chromebook.
 - Orca name inquiry Discussions #17269: 0 replies on 2026-11-05; user decided to wait 1-2 weeks, then one bump. Upstream-PR idea: `android/patches/src-orca/0002-0004` (small libslic3r fixes) after checking they still apply to 2.5.0 alpha (untested, user offered it, no go yet).
-- Next: when run 42183752696 is green, install on phone (+ WSA, Chromebook; not SHIELD), repeat the profile (`adb -s <phone> su simpleperf record -p PID --duration 9 -f 1000 -g --no-inherit`, orbit via `TARGET=phone orca-vd.sh swipe`, stop VD after) and confirm `strcmp` drops out of the GL thread; log result in archive.
-- Next step: Install run 42183752696 and re-profile the GL thread (uniform cache) -> Sonnet 5.5 (medium)
+- ULoc A/B done: draw ms unchanged (5.7 -> 5.7, noise); PERFORMANCE.md row added. Quest profile prompt given to the VR-port agent; report lands in `NOTES-quest-profile.md` (read when it appears).
+- Two-Claude chat (user 2026-11-06): other account's VR-port agent talks via `claudechat.md` (sections 1-7; SendMessage can't cross accounts). Start a Monitor on its `## ` count (command in section 7), timeout 30 min, re-arm. Quest profile numbers land in `NOTES-quest-profile.md`.
+- UNCOMMITTED render edit (PlateRenderer.kt): crease lines + mesh markers get own static VBOs (creaseVbo/markerPtsVbo, re-upload only when the array changes) instead of a fresh allocateDirect + STREAM upload every frame. Not compiled yet. Other findings: `superKey()` allocates lists (mvp.toList()) every frame in Preview+supersample; drawOverlays allocates an ArrayList per frame.
+- Next step: compile the crease/marker VBO edit, A/B draw ms on a plate with creases shown, commit; then superKey alloc fix -> Sonnet 5.5 (medium)
+- VD keyboard/tap fix (orca-vd.sh, archive end) awaits the user's verdict (keyboard no longer vanishes?); VD may still be running: `TARGET=phone sh orca-vd.sh stop`.
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
