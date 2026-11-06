@@ -39,9 +39,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Orca name inquiry Discussions #17269: 0 replies on 2026-11-05; user decided to wait 1-2 weeks, then one bump. Upstream-PR idea: `android/patches/src-orca/0002-0004` (small libslic3r fixes) after checking they still apply to 2.5.0 alpha (untested, user offered it, no go yet).
 - ULoc A/B done: draw ms unchanged (5.7 -> 5.7, noise); PERFORMANCE.md row added. Quest profile prompt given to the VR-port agent; report lands in `NOTES-quest-profile.md` (read when it appears).
 - Two-Claude chat (user 2026-11-06): other account's VR-port agent talks via `claudechat.md` (sections 1-7; SendMessage can't cross accounts). Start a Monitor on its `## ` count (command in section 7), timeout 30 min, re-arm. Quest profile numbers land in `NOTES-quest-profile.md`.
-- Crease/marker static VBOs committed (e28ad0c, compiled; draw ms untested). `superKey()` list allocs skipped on purpose (GL thread vsync-bound, tiny gain, key-correctness risk). CI run 42193709878 (head 0c43fcb) building = r536.
+- Crease/marker static VBOs committed (e28ad0c, compiled; draw ms untested). `superKey()` list allocs skipped on purpose (GL thread vsync-bound, tiny gain, key-correctness risk). CI run 42193709878 (head 0c43fcb, r536) is GREEN, not yet installed anywhere.
 - Quest profile (other account's VR-port agent) still IN PROGRESS: `NOTES-quest-profile.md` has no numbers yet.
-- Next step: when run 42193709878 is green, install on phone/WSA/Chromebook, A/B draw ms with creases shown (WSA VD), add PERFORMANCE.md row -> Sonnet 5.5 (medium)
+- Next step: download run 42193709878 APK (gh run download), install on phone/WSA/Chromebook, A/B draw ms with creases shown (WSA VD), add PERFORMANCE.md row -> Sonnet 5.5 (medium)
 - VD keyboard/tap fix (orca-vd.sh, archive end) awaits the user's verdict (keyboard no longer vanishes?); VD may still be running: `TARGET=phone sh orca-vd.sh stop`.
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
