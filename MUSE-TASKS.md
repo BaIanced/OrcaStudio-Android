@@ -530,6 +530,43 @@ Deliverable: one new file, `MUSE-RESEARCH-0020.md`, in this order:
 This changes no code, so skip the compile and tests in "Before every push". The privacy scans still apply. Only add
 `MUSE-RESEARCH-0020.md` and your log entry here. One draft PR, then ping #46 as usual.
 
+## Task 21: the remaining VR research questions, in one pass (research only, no code change; time-box ~120 min; start after Task 20 is merged)
+Start only after Task 20 is merged: both tasks append to this file's Log, so they must not run in parallel. Cut your branch from the
+latest `origin/muse/work`.
+
+Goal: close the small open questions of the Quest port in one report, so Claude can stop looking things up. Read first, read-only:
+`MUSE-RESEARCH-0019.md` (don't repeat its GLES table or sample list) and `docs/handoff/NOTES-vr.md` from `claude/vr-placement`. Same
+project and rules as Task 20: sideloaded native OpenXR APK on Quest 3, GLES renderer, Windows host, native code built only in CI.
+
+Research these, in this order (each is a section of the report; stop a section when it stops yielding):
+1. **Cost of a Vulkan move.** Task 19 found GLES is "legacy, still supported, new features only in Vulkan". What exactly is
+   Vulkan-only today for an OpenXR app on Quest (name each feature and its source), does anything the port needs (passthrough, hands,
+   Android surface swapchain, composition layers, foveation, space warp) need it, and has Meta given any end-of-support date or warning
+   for GLES? Is there an official or widely used way to keep GLES code on a Vulkan runtime (ANGLE or similar) on Quest, and what does it cost?
+   Verdict wanted: "stay on GLES until X".
+2. **Frame budget for the Preview milestone.** The Preview view draws tens of thousands of small extruded segments ("beads") and is
+   the biggest performance risk. Find: Quest 3 GPU (Adreno) fill and vertex throughput figures from primary sources; Meta's guidance on
+   draw calls, triangle counts and overdraw; what `XR_FB_foveation` / fixed foveated rendering can buy on GLES and its image-quality
+   cost on thin lines; `XR_FB_display_refresh_rate` (90 vs 72 vs 120 Hz) and the tradeoff of choosing the rate in the app. Say which
+   numbers are Meta's and which are community figures.
+3. **A 2D UI panel in VR (static research only).** Official or well-known examples of an Android view or Compose UI shown on a quad
+   layer via `XR_KHR_android_surface_swapchain` for a native app: how input is injected (ray hit to `MotionEvent`), how focus and the
+   soft keyboard work, what `Presentation` / virtual display needs, and known failures with Compose. Say whether Meta's own
+   panel-app path (or the Spatial SDK) is the only supported way and what it would force on a native GLES app.
+4. **Licence fit.** The Oculus SDK License covers Meta's samples; this repo is AGPL-3.0 (OrcaSlicer fork) and public. Read the licence
+   text and say, clause by clause, whether copying or adapting sample code into this repo is allowed. Not legal advice: report what the
+   text says and mark each point VERIFIED or INFERRED.
+5. **Frame-rate logging.** `ENABLE_CSV` on OVR Metrics wrote no file on Quest 3 (OS v210). Find the current documented way to get a
+   per-app metrics CSV or an equivalent plain-text log, and whether the old broadcast was removed or renamed.
+
+Rules: as in Task 20 (primary sources first, a URL and date per claim, VERIFIED / INFERRED / UNKNOWN, applies to a sideloaded native
+GLES APK or say it doesn't, don't run or install anything, list unreadable URLs). **14 KB maximum**, no filler.
+
+Deliverable: one new file, `MUSE-RESEARCH-0021.md`: first a verdict table, one line per section (the answer in at most 20 words,
+confidence, source); then findings per section; then URLs not read and questions only a device can answer. This changes no code, so skip
+the compile and tests in "Before every push". The privacy scans still apply. Only add `MUSE-RESEARCH-0021.md` and your log entry here.
+One draft PR, then ping #46 as usual.
+
 ## Log
 Append-only, one entry per PR (also for PRs that get closed unmerged), newest last. Never edit earlier entries.
 Format: `### Task <n> - <date> - <branch> - <commit>` then build/test result or UNCOMPILED, privacy scan exit codes,
