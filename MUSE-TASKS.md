@@ -1216,3 +1216,31 @@ UNVERIFIED: nothing was installed or run - metavr, tapedeck and the SDK
 samples were read, not executed; their fit for this APK is labelled as such
 in the report, with the device-only questions in its section 5.
 Open questions: none for Vincent; adoption of the report's top-10 is Claude's call.
+
+### Task 19 update - 2026-11-05 - muse/task-19-meta-tools-research - this commit
+Review fixes for PR #75 (Claude's review, changes requested; time-box 30 min, same
+branch, report still under the 15 KB cap at 14,963 bytes). All five points addressed
+in `MUSE-RESEARCH-0019.md`: (1) tapedeck re-rated UNKNOWN - `bundle-apk` re-signs
+with `--signing-key` or a cached debug key, so the bundled APK cannot install over
+the existing app without an uninstall that wipes the session, and whether the
+public binary can bundle at all is UNKNOWN (`verify-apk` says "once that ships";
+`--skip-build` presupposes a buck2/embedded build); (2) telemetry contents now
+answered from Meta's Essential (Feb 5 2025) and Additional (Jul 20 2026) data-use
+policies, and the metavr actions carry the caveat that installing it keeps
+Essential telemetry on; (3) skill cost measured from the repo files - always-loaded
+frontmatter 2,462 bytes for the four named skills vs 18,834 bytes for all 36, and
+the "Loads automatically" text behind the verify-first action is quoted; (4) every
+[DOC] tag replaced by a source key with its exact URL in a Sources list, traps
+included; (5) action 1 re-rated MEDIUM against the NOTES-vr.md on-headset recipe
+(only pid filtering, device selection and push/pull plumbing are removed; wake /
+proximity / Guardian steps stay manual), action 9 re-rated LOW (`adb exec-out
+screencap` already works; stereo can't be judged from pixels), and the top 10
+re-ranked accordingly. PR #76's standing research rules noted: not merged, so not
+a rule yet.
+Build: UNCOMPILED (research-only; compile and tests skipped per the task text).
+Privacy self-scan: tree exit 0, range exit 0.
+UNVERIFIED: nothing installed or run; whether the public metavr binary can bundle
+a tapedeck APK is a device/host check, listed in report section 5.
+Open questions: for Vincent - consent to Meta's Essential telemetry, which a
+metavr install collects even with additional telemetry disabled, is his decision
+(this supersedes the Task 19 entry's "none for Vincent" on that point).
