@@ -20,6 +20,7 @@ GitHub is the mailbox; Vincent no longer relays.
 - Tasks 1-11 done and merged (PRs #37-#50). Task 11 needed a test fix from Claude (pr-check caught it).
 - Tasks 12-14 done and merged (PRs #52, #54, #55). Task 12's fixes are all native C++: Claude ships them (CI patches).
 - Tasks 15-17 done and merged (PRs #57, #59, #61). Trial verdict (Claude, 2026-10-23): keep Muse for Kotlin audits and JVM tests.
+- Task 18 done and merged (PR #64). Task 19 (research only) is open.
 - **Parallel tasks are OK** (2026-10-23) when they touch different files and each PR is cut from the latest `origin/muse/work`.
   **Still no stacking**: never cut a branch from another task branch or base a PR on one (stacked PRs conflict after a squash
   merge). If two tasks touch the same file, do them one after the other.
@@ -413,6 +414,59 @@ place). Existing tests: `scad/ShapePiecesTest.kt`, `scad/BuildTransformTest.kt` 
    and name the test that pinned it. No Compose, no native code, no other files.
 Write-up: PR body + log entry (edge-case table per function, defects found or "none", test count before -> after).
 Compile + tests per "Before every push"; record the test count. Time-box ~60 min.
+
+## Task 19: research Meta's tools and docs to cut Claude's token use on the VR port (research only, no code change; time-box ~90 min)
+Goal: find the Meta tools, docs and sample code that let Claude spend fewer tokens on the Quest port without losing quality.
+Claude's usage is the scarce resource, so rank everything by tokens saved. An earlier research pass missed Meta's official
+`metavr` CLI, so look for official tooling first.
+
+Read first, read-only, from branch `claude/vr-placement`: `docs/handoff/NOTES-vr.md`, `docs/handoff/backlog_vr.md`,
+`docs/handoff/NOTES-vr-m3.md`. The project: a native OpenXR immersive activity in a sideloaded Android APK, drawn by an
+existing OpenGL ES renderer (about 770 GL calls and 27 shaders, shared with the 2D app). Native code builds only in CI. Device tests
+are short adb loops. Coming next: one-controller plate placement, hand tracking, passthrough, a Compose panel with ray selection.
+
+Already established, don't report these again unless you find a primary source that contradicts them:
+- XR Simulator has no OpenGL ES support and no Android layer, so it can't run this APK. Switching the APK to Vulkan would not
+  change that: it would also need a Windows build.
+- Meta's docs call OpenGL ES legacy: still supported, with new features only in Vulkan.
+- The OVR Metrics CSV broadcast wrote no file here; `VrApi` logcat lines by app pid are the working substitute.
+
+Research these, in this order:
+1. **`metavr` CLI and `meta-quest/agentic-tools`.** Which commands and skills work with a sideloaded native GLES APK, and which
+   don't? What can replace a hand-written adb loop (install, launch, logs, capture, frame timing)? Which options keep output short
+   (`--json`, filters)? What does installing the skills and the plugin add to an agent's context on every turn, and can only the useful
+   ones be enabled? What does the telemetry collect, and how is it turned off?
+2. **Frame timing.** The cheapest reliable way to get per-frame CPU and GPU timing for this app, and a way to get a short summary
+   instead of a raw trace. Does `metavr perf capture` / `analyze-trace` work on GLES?
+3. **GLES feature table.** One row each: hand tracking, `XR_EXT_hand_interaction`, `XR_FB_hand_tracking_aim`, microgestures,
+   simultaneous hands and controllers, passthrough, environment depth, eye-tracked foveation, space warp, Android surface
+   swapchain, composition layers. Columns: works on GLES (yes / no / no statement found), source, date. Say "no statement found"
+   rather than infer. This table decides whether the renderer ever has to move to Vulkan.
+4. **Code to reuse instead of write.** `meta-quest/Meta-OpenXR-SDK` and other official samples for hand tracking, passthrough,
+   hands plus controllers, and a panel on an Android surface swapchain: exact repo paths, graphics API used, licence, and whether they
+   are safe to copy into this repo.
+5. **Cheaper checks without a headset.** Anything official that replaces a headset or a human check for this GLES APK, such
+   as session recording and replay. Mark clearly whether it works with GLES and an APK.
+6. **Mistakes others hit.** Known traps on these same features, from primary sources or issue trackers, each with a link, so
+   Claude doesn't pay to rediscover them.
+
+Rules for this task:
+- Primary sources first: Meta's docs, Meta's repos, the OpenXR spec. Give a URL and page date for every claim. Mark each claim
+  VERIFIED (you read it in a source), INFERRED, or UNKNOWN. Don't state an inference as a fact, including anything from a chatbot.
+- A tool only counts if it works for this project: a sideloaded native GLES APK, driven from Windows. Say so when a tool is Unity or
+  Unreal only.
+- Don't run `metavr` or install anything: read its docs and source. If your VM can't reach a page, list the URL as not read.
+- Claude has to read your report, so it costs tokens too: **15 KB maximum**, no filler, no restating this task.
+
+Deliverable: one new file, `MUSE-RESEARCH-0019.md`, in this order:
+1. Top 10 actions ranked by tokens saved, one line each: what to do, rough saving (high / medium / low, with why), effort, risk.
+2. What to ignore, one line each with the reason, so Claude doesn't look at it again.
+3. The GLES feature table.
+4. Short findings for items 1, 2, 4, 5 and 6.
+5. URLs you could not read, and questions only a real device can answer.
+
+This changes no code, so skip the compile and tests in "Before every push". The privacy scans still apply. Only add
+`MUSE-RESEARCH-0019.md` and your log entry here. One draft PR, then ping #46 as usual.
 
 ## Log
 Append-only, one entry per PR (also for PRs that get closed unmerged), newest last. Never edit earlier entries.
