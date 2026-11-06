@@ -70,7 +70,7 @@ GLES is legacy on Quest and gets no new features. Interaction, not stereo, is th
 - Extensions present: `KHR_opengl_es_enable`, `FB_foveation`, `FB_swapchain_update_state_opengl_es`, `KHR_android_surface_swapchain`, `KHR_composition_layer_cylinder`, `KHR_composition_layer_depth`, `FB_composition_layer_alpha_blend`, `FB_display_refresh_rate`, `FB_space_warp`, `META_virtual_keyboard`, `EXT_hand_tracking`, `LOGITECH_mx_ink_stylus_interaction`. **Absent: `XR_FB_passthrough`** (manifest feature not declared yet, which may be why; untested).
 
 ## Live view
-User asked for scrcpy (installed by winget, v4.1). View-only: `scrcpy -s <serial> --no-audio --no-control --max-size 1920 --video-bit-rate 8M --max-fps 30`. Started and ran on Quest 3 (display 4128x2208) 2026-11-05; picture not checked by Claude. Quest appears twice in `adb devices`, so pick one serial. Mirror can show the user's home through passthrough: don't record it.
+User asked for scrcpy (installed by winget, v4.1). View-only: `scrcpy -s <serial> --no-audio --no-control --max-size 1920 --video-bit-rate 8M --max-fps 30`. Started and ran on Quest 3 (display 4128x2208) 2026-11-05; picture not checked by Claude. Quest appears twice in `adb devices`, so pick one serial. One eye: add `--crop 2064:2208:0:0` (left half; right is `2064:2208:2064:0`). Mirror can show the user's home through passthrough: don't record it.
 
 ## On-headset recipe, nobody wearing it
 `MSYS_NO_PATHCONV=1` in Git Bash, or `/sdcard` paths get rewritten.
