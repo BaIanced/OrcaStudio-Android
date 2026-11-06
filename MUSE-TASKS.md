@@ -1368,3 +1368,26 @@ UNVERIFIED: nothing installed or run; the metavr device commands were read in
 the generated CLI reference, not executed.
 Open questions: for Vincent - Essential-telemetry consent on a metavr install,
 unchanged from the previous update entry.
+
+### Task 20 - 2026-11-06 - muse/task-20-hand-tracking-plate-research - this commit
+Research only (design, no code): one new file, MUSE-RESEARCH-0020.md,
+11,891 bytes, under the 12 KB cap. Recommendation: far grab = runtime-filtered
+aim pose + aim_activate (XR_EXT_hand_interaction) with PlateGrab unchanged;
+distance past arm's reach and one-hand zoom = XR_META microgesture swipes as
+discrete steps mirroring the stick axes; two-hand pinch spread as an
+extra-only zoom; thumb tap = 1:1 reset; no rotation; tracking lost mid-hold
+freezes the plate. Exact manifest lines and action paths in report section
+3.1; traps include the reserved system palm pinch, two reported OS
+regressions (v2.4 FB-aim far-interaction, v2.3 raw-joint pinch double-fire;
+native/GLES impact UNKNOWN for both), and the stale native-doc claim that
+hands and controllers are never tracked together (false with multimodal).
+Nothing installed or run; metavr not used, per the task text.
+Build: UNCOMPILED (research-only; compile and tests skipped per the task text).
+Privacy self-scan: tree exit 0, range exit 0.
+UNVERIFIED: every device-behaviour question is listed in report section 4
+(EXT profile in this GLES build on v210, pinch feel/thresholds, microgesture
+false-swipe rate, HAND_TRACKING permission behaviour on v210, sleep/wake,
+multimodal power cost) - none was tested on a headset.
+Open questions: none for Vincent from this task. (Vincent also received the
+full untrimmed version of this report in chat, including bleeding-edge and
+honourable-mention material cut for the 12 KB cap.)
