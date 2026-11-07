@@ -4146,4 +4146,4 @@ Draw ms (CPU side, GL thread) median: r527 5.7-5.8, r535 5.6-5.8; p95 6.3-6.7 bo
 - `object_transform`: frames drawn, current. Slice + `preview_set`: Preview tab draws correctly (vdgrab), but `perf`'s "3D view" counter shows 0 new frames there: the Preview view is apparently not the counted view. Not a bug in the image; refine completion not separately confirmed.
 - Not yet tested: fling coast, pinch, plate switch, selection, loupe, build drags, refine finishing, battery A/B.
 - Note: `view_set` takes `view`, not `preset`. Plate 1 on WSA object scaled to [60,20,30]% so the prime tower fits (throwaway).
-- A Quest scrcpy (`-s 2G0YC...`, started 18:06) was running, not ours: left alone. Phone VD stopped.
+- A Quest scrcpy mirror was running, not ours: left alone. Phone VD stopped.
