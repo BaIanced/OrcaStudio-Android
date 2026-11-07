@@ -145,3 +145,16 @@ insides). Options, unmeasured: (1) draw 28 only while the cut is on, 20 otherwis
 lift each layer wall's top ring a hair (or widen the top face by ~0.5 px) so the wall's own outside covers it, then 20 tris;
 (3) reversed copies of a thin top band only (new vertex ring, same tri count, less fill; flat-FS data says setup is ~6 of the 15 ms).
 Try (2) first with a boxtris-ab.sh close shot vs 28.
+
+## Item 5 wall-top crack: analysis before option 2 (2026-11-07, code read only, nothing built)
+- PATH_FS has no discard (other than the section cut) and no gl_FragDepth, so the 20-vs-28 rim change is geometry: some pixels at
+  the wall-top edge are covered by no outside face, and the reversed layer walls fill them.
+- Why bright orange: a reversed copy keeps its face's provoking vertex, so it is shaded with the *outward* normal of a wall that faces
+  away from the camera, i.e. often towards the key light (0.35,-0.55,0.75): a far wall's inside comes out brighter than the near faces.
+  Without it the darker bead behind shows (olive). So the "rim line" is partly an artefact (inside lit as outside), not true shading.
+- Within one box the top face and walls share the top ring's corners and depth bias (rank = label at aCorner.z = 1 for both), so no
+  crack inside a box; it must be between boxes (layer N+1's pushed-back overlap ring vs layer N's top edge, or neighbouring beads).
+- Option 2 ("lift the wall top ring") only helps if the crack is the box's own top edge, which the shared corners argue against. So first
+  find which crack: **diag mode `debug.orca.boxtris 20` + a second draw of index range 20..28 (reversed layer walls only) in flat magenta
+  with GL_LEQUAL**, close view (boxtris-ab.sh "close -30 -35 250"). Magenta at the rim = where they win. Then pick: (2) if it is the
+  box's own edge; widen the overlap ring / lower the push (7.2e-5) if it is layer N+1's foot; (1) 28 only with the cut on otherwise.
