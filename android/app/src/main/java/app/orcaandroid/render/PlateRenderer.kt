@@ -327,6 +327,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     private var lineProgram = 0
     private var wideLineProgram = 0
     private var pathProgram = 0
+    // PATH_FS without the section cut's discard, drawn while the cut is off: any discard turns the early depth test off.
+    private var pathProgramNoCut = 0
     private var pointProgram = 0
     private var badgeProgram = 0
     private var gridProgram = 0
@@ -425,6 +427,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         lineProgram = program(Shaders.LINE_VS, Shaders.LINE_FS)
         wideLineProgram = program(Shaders.WIDE_LINE_VS, Shaders.WIDE_LINE_FS)
         pathProgram = program(Shaders.PATH_VS, Shaders.PATH_FS)
+        pathProgramNoCut = program(Shaders.PATH_VS, Shaders.PATH_FS.replace(Shaders.PATH_SECTION_DISCARD, "").also { check(it != Shaders.PATH_FS) })
         pointProgram = program(Shaders.POINT_VS, Shaders.POINT_FS)
         badgeProgram = program(Shaders.BADGE_VS, Shaders.BADGE_FS)
         gridProgram = program(Shaders.GRID_VS, Shaders.GRID_FS)
@@ -891,6 +894,13 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         quad(7, 7, 3, 0, 4); quad(7, 11, 7, 4, 8)            // left
         quad(6, 6, 2, 3, 7); quad(6, 10, 6, 7, 11)           // end
         quad(4, 4, 0, 1, 5); quad(4, 8, 4, 5, 9)             // start
+        // The box winds every face clockwise seen from outside, so GL calls the outside the back face (r340 tested the
+        // other way and dropped every top seen from above). drawExtrusions culls front faces: a top or bottom seen from
+        // inside the bead never shows (from below, the bead's own top won over its bottom, user r339). The sides stay
+        // two-sided (they fill the cracks between layers) through a reversed copy. Culling instead of PATH_FS's old
+        // gl_FrontFacing discard keeps the early depth test on (NOTES-gl-audit item 5 fix 2).
+        val sides = idx.subList(12, idx.size).toList()
+        for (t in sides.indices step 3) idx += listOf(sides[t + 1], sides[t], sides[t + 2])
         boxIndexCount = idx.size
         glBindBuffer(GL_ARRAY_BUFFER, boxVbo)
         glBufferData(GL_ARRAY_BUFFER, v.size * 4, floats(v.toFloatArray()), GL_STATIC_DRAW)
@@ -1500,19 +1510,20 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         val first = extrusions.first.coerceIn(0, count)
         val last = (extrusions.last + 1).coerceIn(first, count)
         if (last > first) {
-            glUseProgram(pathProgram)
-            glUniformMatrix4fv(loc(pathProgram, "uMvp"), 1, false, mvp, 0)
-            glUniform3f(loc(pathProgram, "uOrigin"), origin[0], origin[1], 0f)
-            glUniform1i(loc(pathProgram, "uScheme"), style.scheme)
-            glUniform1i(loc(pathProgram, "uHidden"), style.hiddenRoles)
-            glUniform2f(loc(pathProgram, "uRange"), valueRange.first, valueRange.second)
-            glUniform1f(loc(pathProgram, "uPxScale"), pxScale * regimeScale)
+            val prog = if (section != null) pathProgram else pathProgramNoCut
+            glUseProgram(prog)
+            glUniformMatrix4fv(loc(prog, "uMvp"), 1, false, mvp, 0)
+            glUniform3f(loc(prog, "uOrigin"), origin[0], origin[1], 0f)
+            glUniform1i(loc(prog, "uScheme"), style.scheme)
+            glUniform1i(loc(prog, "uHidden"), style.hiddenRoles)
+            glUniform2f(loc(prog, "uRange"), valueRange.first, valueRange.second)
+            glUniform1f(loc(prog, "uPxScale"), pxScale * regimeScale)
             val eye = camera.eye()
-            glUniform3f(loc(pathProgram, "uEye"), eye.x, eye.y, eye.z)
-            glUniform1f(loc(pathProgram, "uCamLight"), cameraLight)
-            glUniform3fv(loc(pathProgram, "uRoleColors"), 20, Shaders.ROLE_COLORS, 0)
-            setFilamentColors(pathProgram)
-            setSection(pathProgram)
+            glUniform3f(loc(prog, "uEye"), eye.x, eye.y, eye.z)
+            glUniform1f(loc(prog, "uCamLight"), cameraLight)
+            glUniform3fv(loc(prog, "uRoleColors"), 20, Shaders.ROLE_COLORS, 0)
+            setFilamentColors(prog)
+            setSection(prog)
             glBindBuffer(GL_ARRAY_BUFFER, boxVbo)
             glEnableVertexAttribArray(0)
             glEnableVertexAttribArray(1)
@@ -1530,14 +1541,18 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             // ones already drawn, so each covered pixel runs the (heavy) PATH_FS again. Drawing chunks nearest-first lets
             // the early depth test drop the hidden fragments (Preview orbit was fragment-bound: NOTES-gl-audit "Item 5").
             val chunks = (first until last step EXTRUSION_CHUNK).toList().let { if (eye.z > 0f) it.reversed() else it }
+            glEnable(GL_CULL_FACE)
+            glCullFace(GL_FRONT)
             for (c in chunks) {
                 val n = minOf(EXTRUSION_CHUNK, last - c)
                 // Record 0 of the buffer is padding (uploadPadded), so segment i is record i + 1.
                 val base = (c + 1) * stride
                 for ((a, fmt) in attribs) glVertexAttribPointer(a, fmt.first, GL_FLOAT, false, stride, base + fmt.second)
-                glUniform1i(loc(pathProgram, "uFirst"), c)
+                glUniform1i(loc(prog, "uFirst"), c)
                 glDrawElementsInstanced(GL_TRIANGLES, boxIndexCount, GL_UNSIGNED_SHORT, 0, n)
             }
+            glCullFace(GL_BACK)
+            glDisable(GL_CULL_FACE)
             for ((a, _) in attribs) { glVertexAttribDivisor(a, 0); glDisableVertexAttribArray(a) }
             glDisableVertexAttribArray(0)
             glDisableVertexAttribArray(1)

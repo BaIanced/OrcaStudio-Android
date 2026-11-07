@@ -77,3 +77,11 @@ Nearest-first chunks: preview GPU median 1138 mm 61 -> 44.3 ms, 300 mm 95.5 -> 5
 Close shot 250 mm / pitch 25: no visible joint z-fight. Still ~44 ms at default zoom = still overdraw-bound: Adreno LRZ is likely
 off for this draw because PATH_FS has `discard` (fix 2: no-discard variant when the section cut is off, or a depth-only pre-pass
 with colour masked, then the colour pass with GL_LEQUAL / depth write off). Then fix 3 (cheaper PATH_FS).
+
+## Item 5 fix 2 measured (2026-11-07, phone VD, debug build of the fix-2 commit)
+No discard in PATH_FS while the section cut is off: the top/bottom-from-inside discard is now GL_FRONT culling (+ reversed side
+triangles), the section discard lives only in `pathProgram` (cut on); `pathProgramNoCut` otherwise. Preview GPU median: 1138 mm
+44.3 -> ~43 ms (no real gain), 300 mm 59.3 -> 43.5 ms. Both zooms now ~43 ms: close-up overdraw is gone, but the default zoom
+didn't move, so it is not overdraw there. Next suspects (unmeasured): PATH_FS cost per visible pixel (fix 3: beadMean x2-3 =
+8-12 shade() + normalize per fragment; precompute the regime means per face in the VS or cut beadMean to 2 taps), and
+small-triangle/raster cost (1.30 M boxes at ~1-2 px each at 1138 mm). Measure fix 3 the same way.

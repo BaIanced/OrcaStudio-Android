@@ -79,6 +79,10 @@ Record a missing baseline the first time a change touches that area (same device
   preview pass GPU median on the phone VD, plate 1 (541 layers, 1.30 M segments), 3 s orbit each way: default 1138 mm
   61 -> 44.3 ms, close 300 mm 95.5 -> 59.3 ms, far 6000 mm 3.1 -> 2.35 ms. Close shot (250 mm, pitch 25): no joint artifacts.
 
+- 2026-11-07 Preview PATH_FS without discards (GL audit item 5 fix 2): the inside-top/bottom `gl_FrontFacing` discard became
+  GL_FRONT culling (sides two-sided via a reversed copy, `uploadBox`), and a `pathProgramNoCut` variant drops the section discard
+  while the cut is off. Phone VD, plate 1, same orbit, 2 runs each: default 1138 mm 44.3 -> 42.5-43.6 ms (noise), close 300 mm
+  59.3 -> 43.5 ms. Shots 250 mm pitch 25 and 400 mm pitch -30: tops, sides, undersides clean.
 ## Experiments (closed 2026-11-04: done, rejected or shelved)
 
 0. **Big-ticket map (2026-11-01, r502 APK 118.5 MB; native libs stored uncompressed = 78 MB).** liborca_jni symbol bytes by

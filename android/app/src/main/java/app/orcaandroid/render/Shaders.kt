@@ -778,6 +778,9 @@ internal object Shaders {
             if (overlap) gl_Position.z += 7.2e-5 * gl_Position.w;
         }"""
 
+    /** PATH_FS's section cut, left out of the variant drawn while the cut is off (PlateRenderer.pathProgramNoCut). */
+    const val PATH_SECTION_DISCARD = "if (uSectionOn == 1 && dot(uSection.xyz, vWorld) > uSection.w) discard;"
+
     const val PATH_FS = """#version 300 es
         precision mediump float;
         uniform highp vec4 uSection;
@@ -828,12 +831,8 @@ internal object Shaders {
         void main() {
             if (uSectionOn == 1 && dot(uSection.xyz, vWorld) > uSection.w) discard;
             camL = normalize(uEye - vWorld);
-            // A top or bottom face seen from inside the bead is never the one to show: from below, the bead's own top
-            // won over its bottom wherever the overlap's depth push outgrew a layer (zoomed out: dark stepped patches,
-            // user r339). Sides stay two-sided (they fill the cracks between layers). The box winds every face clockwise
-            // seen from outside (PlateRenderer.uploadBox), so GL calls the outside the back face (r340 tested the other
-            // way and dropped every top seen from above: blocky lines, user r340).
-            if (vTopFace > 0.5 && gl_FrontFacing) discard;
+            // A top or bottom face seen from inside the bead is never the one to show (user r339): culled, not discarded
+            // here, so the early depth test stays on (PlateRenderer.uploadBox / drawExtrusions, NOTES-gl-audit item 5).
             // Undersides are lit like tops (user 2026-10-20, as desktop Orca's camera light and Blender's viewport do):
             // the lights here sit above, which left a bottom skin flat dark with no lines.
             vec3 n = normalize(vRight * vFace.x + vUp * abs(vFace.y) + vDir * vFace.z);
