@@ -35,14 +35,13 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Open tests in backlog.
 - Name inquiry #17269: wait 1-2 weeks from 2026-11-05, then one bump. Upstream-PR idea (patches 0002-0004 vs 2.5.0 alpha): no go yet.
 - Two-Claude chat (user 2026-11-06): other account's VR-port agent talks via `claudechat.md` (sections 1-7; SendMessage can't cross accounts). Start a Monitor on its `## ` count (command in section 7), timeout 30 min, re-arm. Quest profile numbers land in `NOTES-quest-profile.md`.
-- r537 on phone + WSA. WSA VD has no GL screenshots: use the phone VD.
-- Quest profile (other account's VR-port agent): blocked on a wearer (claudechat.md section 8); `NOTES-quest-profile.md` has no numbers yet.
-- A/B recipe: archive "ab-crease.sh" (interleaved installs, phone VD, `perf` per orbit).
-- Battery audit 2026-11-06 (archive end): idle scene redrew at 165 fps. Script `orca-android-tools/batt-orbit.sh`.
-- Render-on-demand coded 2026-11-06 (84ffb8e, compiles; UNTESTED on device): WHEN_DIRTY; frames from `Camera.onChange` (every mutator), `PlateView.queueEvent` override (all onGl), touch/generic dispatch, 300 ms hot window (`HOT_MS`), and `renderer.afterFrame` while `settled` is false. CI run 42335308493.
-- Test plan: install that build (phone VD); MCP `perf` idle ~0 fps; orbit, fling coast, pinch, view presets/MCP camera, plate switch, selection, slice preview + STILL supersample refine (must finish refining), loupe, build drags all redraw; no stale frames. Then idle-vs-orbit battery A/B (`batt-orbit.sh`); then GL state/upload/draw-call audit.
-- Next step: Test render-on-demand build (run 42335308493) on phone VD -> Opus 5.5 (medium)
-- VD keyboard/tap fix (orca-vd.sh, archive end) awaits the user's verdict (keyboard no longer vanishes?); VD may still be running: `TARGET=phone sh orca-vd.sh stop`.
+- r537 on phone + WSA; WSA VD has no GL shots: use the phone VD. Quest profile blocked on a wearer (claudechat.md s8).
+- A/B recipe: archive "ab-crease.sh". Battery audit 2026-11-06: idle redrew at 165 fps (`orca-android-tools/batt-orbit.sh`).
+- mobilecad review 2026-11-06 (archive end): same WHEN_DIRTY design; XR ideas for the VR-port agent (backlog [idea]).
+- Render-on-demand 84ffb8e (run 42335308493) on phone/WSA/Quest. WSA VD part 1 PASS (archive end): idle 0 fps, orbit, view presets, screenshot, transform, slice preview draw and settle. Preview tab isn't counted by `perf` "3D view".
+- Remaining test plan: fling coast, pinch (phone VD, `su input touchscreen`), plate switch, selection, loupe, build drags, STILL supersample refine finishes (vdgrab before/after); then idle-vs-orbit battery A/B (`batt-orbit.sh`, phone); then GL state/upload/draw-call audit in `render/`.
+- Next step: Render-on-demand test part 2 (fling/pinch/plate switch/selection/refine) on WSA+phone VD -> Opus 5.5 (medium)
+- VD keyboard/tap fix (orca-vd.sh, archive end) awaits the user's verdict (keyboard no longer vanishes?).
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 

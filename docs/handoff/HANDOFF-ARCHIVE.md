@@ -4128,3 +4128,22 @@ Draw ms (CPU side, GL thread) median: r527 5.7-5.8, r535 5.6-5.8; p95 6.3-6.7 bo
 
 ## 2026-11-06 A/B recipe path
 - ab-crease.sh: /c/Users/Vince/AppData/Local/Temp/claude/f3c43eac8dfa6a4f/18b1fe00-2431-46b0-b931-7a8643178c1e/scratchpad/ab-crease.sh (interleaved installs, phone VD, perf per orbit, setpref sed for app_settings.xml bools). APKs /tmp/ab/new (r535), /tmp/ab/r536 (r537).
+
+## 2026-11-06 mobilecad review (user asked: "is anything useful in github.com/LucasCoraca/mobilecad")
+- What it is: GPL-3 Android app, FreeCAD engine cross-built (OCCT, Qt6, Python, Gmsh, CalculiX; ~1 GB install) under a Kotlin/Compose touch UI with its own GLES2 viewport. 16 stars, active (pushed 2026-11-06).
+- Not reusable as code: the engine is the whole FreeCAD + Python stack (1 GB); far too heavy for OrcaStudio, and our CAD runs on our own mesh path (NOTES-cad-reuse.md).
+- Ideas worth taking (study copies in scratchpad only, not in repo):
+  - Viewport `ViewportView.kt:41` uses RENDERMODE_WHEN_DIRTY + one `refresh()` (requestRender + overlay invalidate) at :143: same design as our render-on-demand 84ffb8e; screenshot via a one-shot capture callback + requestRender (:191), useful for MCP shots under WHEN_DIRTY.
+  - Picking: tolerance in mm (`tolMm(12f)`), occlusion-aware sub-element pick (`pick()` :388: elements behind the face under the pointer are hidden, depth margin of a few pick radii). Relevant to the CAD face/edge select work.
+  - XR: `XrPanel.kt` context panel (selection-driven tools, recent tools when empty) + controller ray as a virtual camera that reuses the touch path (`ViewportView.kt` ~:597-602, 20 dp per degree). Worth passing to the VR-port agent via claudechat.md.
+  - `Numpad.kt` (6 KB) on-screen numeric pad for dimensions; `NaviCube.kt` (our ViewCube is off by default: user motion sick, revisit only on request).
+
+## 2026-11-06 render-on-demand 84ffb8e device test, part 1 (run 42335308493, WSA VD)
+- Installed on phone, WSA, Quest (SHIELD skipped). WSA VD, MCP `perf`:
+- Idle: last frame 17 s ago, 0 fps (was 165 fps continuous). PASS.
+- One-finger orbit swipe: ~83 frames, then stops (~1.3-1.6 s after). PASS.
+- `view_set` view top/iso/front: ~21 frames each (HOT_MS), settles. `view_screenshot` returns a current image with no extra frame and no hang. PASS.
+- `object_transform`: frames drawn, current. Slice + `preview_set`: Preview tab draws correctly (vdgrab), but `perf`'s "3D view" counter shows 0 new frames there: the Preview view is apparently not the counted view. Not a bug in the image; refine completion not separately confirmed.
+- Not yet tested: fling coast, pinch, plate switch, selection, loupe, build drags, refine finishing, battery A/B.
+- Note: `view_set` takes `view`, not `preset`. Plate 1 on WSA object scaled to [60,20,30]% so the prime tower fits (throwaway).
+- A Quest scrcpy (`-s 2G0YC...`, started 18:06) was running, not ours: left alone. Phone VD stopped.
