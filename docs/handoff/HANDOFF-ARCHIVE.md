@@ -4160,3 +4160,7 @@ Draw ms (CPU side, GL thread) median: r527 5.7-5.8, r535 5.6-5.8; p95 6.3-6.7 bo
 
 ## 2026-11-06 GL audit pass 1 (Claude, reading only)
 - Findings in docs/handoff/NOTES-gl-audit.md: per-pass uniform resets + small allocs in drawMesh (below noise, per ULoc result), allocateDirect per STREAM_DRAW overlay upload, superKey/shadow-key list churn, no GPU timer queries. Next: per-pass timer query in perf. PERFORMANCE.md got the idle-vs-orbit battery row.
+
+## 2026-11-06 GPU per-pass timers verified on the phone VD (1963674)
+- MCP `perf` GPU timers work on the phone (Adreno): Prepare orbit 2.36 ms GPU (not bound); Preview orbit = preview pass 48.8 ms/frame (~20 fps), the top pass. Numbers: NOTES-gl-audit.md "Item 4 measured".
+- Tool bug found + fixed: `phone-ui.py tap` ignored `VD` and tapped the phone's MAIN screen (2026-11-06 a "Fix" tap landed at ~105,570 on the user's screen while they were in a messaging app; also one VD dump returned main-screen content). Fixed in orca-android-tools/phone-ui.py (`input -d <vd> tap`). Rule: on a VD use `orca-vd.sh tap` (or the fixed phone-ui tap), never trust a dump right after a dialog without checking it's the app.

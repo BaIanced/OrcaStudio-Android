@@ -32,3 +32,16 @@ c. Items 1/3 only if a) shows CPU-bound frames.
 - Caveat: on tiled GPUs (Adreno/Mali) per-pass times inside one render pass may show binning only; if the medians don't sum
   near the frame time, fall back to ablation (turn passes off, compare frame time).
 - Next: debug build on the phone VD (Adreno; WSA may lack the extension), perf twice around plate-1 orbit and Preview still/accumulate.
+
+## Item 4 measured (2026-11-06, phone VD 1080x2340, Adreno, local debug build of f0ffe5d)
+Scene: plate 1 (lattice vase "Shape design.stl" + prime tower), shadows on, supersample still. Preview = 541 layers, 56.9 m.
+- Prepare orbit: 166 fps, frame gap 6.0 ms; GPU medians sum 2.36 ms: mesh 1.52, translucent 0.49, shadow 0.30, beds 0.03. Not GPU-bound.
+- Preview still (accumulating): preview 24.3 ms median (p95 70), accum mix 0.21, beds 0.25.
+- Preview orbit: preview 48.8 ms median (p95 65) per frame, frame gap 49 ms (~20 fps): **GPU-bound on the preview pass**
+  (`PlateRenderer.kt:621`, `gpuTimer.section("preview")`). Everything else < 0.6 ms.
+- Timer sums match frame gaps here, so the tiled-GPU caveat didn't bite; no ablation needed.
+- Next: find why the toolpath draw costs ~49 ms (vertex count per frame, overdraw, fragment shader cost, LOD/culling of
+  hidden layers); fix it, then re-measure with the same recipe.
+Recipe: install debug + copy session (wsa-debug-setup.sh minus its last 2 lines, `W=<phone>`), `PKG=...debug orca-vd.sh start`,
+`MCP_DEV=<phone> PKG=...debug mcpao.sh 'perf:{}'` (first call arms timers), `orca-vd.sh swipe` 3 s each way, perf again.
+Debug app needs More > Printers & presets > "Remove mixed temperature restriction" on to slice plate 1 (its own prefs copy).
