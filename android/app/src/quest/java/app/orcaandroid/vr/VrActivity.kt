@@ -293,6 +293,13 @@ class VrActivity : Activity() {
         Log.i(TAG, "VR_TUNE applied $json")
     }
 
+    /** Once the session runs: keep the runtime's list for the 2D picker, which can't read it, and ask for the rate picked there. */
+    private fun applyPickedRefreshRate() {
+        val settings = (application as OrcaApp).container.settings
+        settings.vrFrameRates = XrShim.nativeRefreshRates().toList()
+        settings.frameRateHz.takeIf { it > 0f }?.let(::requestRefreshRate)
+    }
+
     private fun requestRefreshRate(wanted: Float) {
         val offered = XrShim.nativeRefreshRates()
         val rate = RefreshRates.match(wanted, offered)
@@ -364,6 +371,7 @@ class VrActivity : Activity() {
         val tracked = BooleanArray(XrShim.HANDS)
         var placeInFront = intent.getBooleanExtra(EXTRA_PLATE_IN_FRONT, false)
         val front = FloatArray(2)
+        var rateApplied = false
 
         while (!stop && !link.leaveRequested && !link.endRequested) {
             val status = XrShim.nativePollEvents()
@@ -372,6 +380,10 @@ class VrActivity : Activity() {
             if (status and XrShim.RUNNING == 0) {
                 SystemClock.sleep(IDLE_SLEEP_MS)
                 continue
+            }
+            if (!rateApplied) {
+                rateApplied = true
+                applyPickedRefreshRate()
             }
             var render = XrShim.nativeBeginFrame(views)
             val frameNanos = SystemClock.elapsedRealtimeNanos()

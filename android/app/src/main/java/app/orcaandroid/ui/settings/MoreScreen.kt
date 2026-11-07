@@ -184,6 +184,7 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
                         SegmentedButton(state.supersample == i, { vm.setSupersample(i) }, SegmentedButtonDefaults.itemShape(i, 3)) { Text(stringResource(label)) }
                     }
                 }
+                FrameRateRow(state, vm)
                 Text(stringResource(R.string.selection_style), style = MaterialTheme.typography.bodyLarge)
                 androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     val labels = listOf(R.string.selection_outline, R.string.selection_xray, R.string.selection_rim,
@@ -614,6 +615,43 @@ private fun AutoSaveRow(seconds: Int, onChange: (Int) -> Unit) {
 }
 
 /** The colour presets with a preview of their colours in the current mode. */
+/** Every rate the device reports, no cap (user, 2026-11-06): VR's on the Quest build, the display's modes elsewhere. */
+@Composable
+private fun FrameRateRow(state: UiState, vm: AppViewModel) {
+    var open by remember { mutableStateOf(false) }
+    val view = androidx.compose.ui.platform.LocalView.current
+    val auto = stringResource(R.string.frame_rate_auto)
+    @Composable fun label(hz: Float) = if (hz > 0f) stringResource(R.string.frame_rate_hz, app.orcaandroid.core.FrameRates.label(hz)) else auto
+    Row(Modifier.fillMaxWidth().clickable { open = true }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(stringResource(if (BuildConfig.QUEST) R.string.frame_rate_vr else R.string.frame_rate), Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+        Text(label(state.frameRateHz), color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+    if (!open) return
+    val rates = remember {
+        if (BuildConfig.QUEST) vm.vrFrameRates()
+        else app.orcaandroid.core.FrameRates.distinct(view.display?.let { d ->
+            d.supportedModes.filter { it.physicalWidth == d.mode.physicalWidth && it.physicalHeight == d.mode.physicalHeight }.map { it.refreshRate }
+        }.orEmpty())
+    }
+    AlertDialog(
+        onDismissRequest = { open = false },
+        title = { Text(stringResource(if (BuildConfig.QUEST) R.string.frame_rate_vr else R.string.frame_rate)) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                (listOf(0f) + rates).forEach { hz ->
+                    Row(Modifier.fillMaxWidth().clickable { vm.setFrameRate(hz); open = false }, verticalAlignment = Alignment.CenterVertically) {
+                        RadioButton(hz == state.frameRateHz, { vm.setFrameRate(hz); open = false })
+                        Text(label(hz))
+                    }
+                }
+                if (rates.isEmpty()) Text(stringResource(R.string.frame_rate_vr_unread), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        },
+        confirmButton = { TextButton({ open = false }) { Text(stringResource(R.string.close)) } },
+    )
+}
+
 @Composable
 private fun ThemePresetList(state: UiState, vm: AppViewModel) {
     val dark = app.orcaandroid.ui.theme.LocalAppColors.current.dark

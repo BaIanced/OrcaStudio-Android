@@ -100,6 +100,16 @@ class AppSettings(context: Context) {
         get() = prefs.getInt("preview_supersample", app.orcaandroid.render.Supersample.STILL)
         set(value) = prefs.edit().putInt("preview_supersample", value).apply()
 
+    /** The frame rate picked in Settings, 0 = the device decides. VR's on the Quest build, the display's elsewhere. */
+    var frameRateHz: Float
+        get() = prefs.getFloat("frame_rate_hz", 0f)
+        set(value) = prefs.edit().putFloat("frame_rate_hz", value).apply()
+
+    /** The rates VR last read from the runtime, which lists them only during a session. Empty until VR has run. */
+    var vrFrameRates: List<Float>
+        get() = FrameRates.decode(prefs.getString("vr_frame_rates", "").orEmpty())
+        set(value) = prefs.edit().putString("vr_frame_rates", FrameRates.encode(value)).apply()
+
     /** Body drags snap to edges and middles: on the plate (Prepare, off by default) and in the Build workspace (on). */
     var snapPrepare: Boolean
         get() = prefs.getBoolean("snap_prepare", false)

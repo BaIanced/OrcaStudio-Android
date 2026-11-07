@@ -48,6 +48,7 @@ class Store(val app: Application, val scope: CoroutineScope) {
             buildOthers = settings.buildOthers,
             buildPrinter = settings.buildPrinter,
             supersample = settings.supersample,
+            frameRateHz = settings.frameRateHz,
             lab = settings.layoutLab,
             undoLimit = settings.undoLimit,
             autoSaveSeconds = settings.autoSaveSeconds,

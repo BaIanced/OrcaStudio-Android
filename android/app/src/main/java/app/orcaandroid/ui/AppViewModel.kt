@@ -209,6 +209,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         store.update { it.copy(supersample = mode) }
     }
 
+    fun setFrameRate(hz: Float) {
+        store.settings.frameRateHz = hz
+        store.update { it.copy(frameRateHz = hz) }
+    }
+
+    /** VR's list as last read in a session. Read when the picker opens, since VR may have just updated it. */
+    fun vrFrameRates(): List<Float> = store.settings.vrFrameRates
+
     fun setRealistic(on: Boolean) {
         store.settings.realistic = on
         store.update { it.copy(realistic = on) }

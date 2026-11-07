@@ -62,6 +62,7 @@ class MainActivity : ComponentActivity() {
         // FocusGuardLayout: rotating crashed in Compose's focus code (see the class).
         setContentView(FocusGuardLayout(this).apply { addView(androidx.compose.ui.platform.ComposeView(context).apply { setContent {
             val state by vm.state.collectAsStateWithLifecycle()
+            androidx.compose.runtime.LaunchedEffect(state.frameRateHz) { applyFrameRate(state.frameRateHz) }
             app.orcaandroid.ui.theme.OrcaTheme(state.themeMode, state.dynamicColor, state.themeSpec) {
                 Immersive(state.lab.fullscreenPortrait)
                 Surface(Modifier.fillMaxSize()) {
@@ -85,7 +86,20 @@ class MainActivity : ComponentActivity() {
         d.supportedModes.filter { it.physicalWidth == cur.physicalWidth && it.physicalHeight == cur.physicalHeight }
             .maxByOrNull { it.refreshRate }?.takeIf { it.refreshRate > 61f }?.modeId ?: 0
     }
-    private val dropFastMode = Runnable { setDisplayMode(0) }
+    private val dropFastMode = Runnable { setDisplayMode(pickedMode) }
+
+    /** The display mode for the rate picked in Settings, 0 if none. It replaces the boost. On the Quest the pick is VR's. */
+    private var pickedMode = 0
+
+    private fun applyFrameRate(hz: Float) {
+        if (app.orcaandroid.BuildConfig.QUEST) return
+        val d = window.decorView.display ?: return
+        val cur = d.mode
+        val modes = d.supportedModes.filter { it.physicalWidth == cur.physicalWidth && it.physicalHeight == cur.physicalHeight }
+        val rate = if (hz > 0f) app.orcaandroid.core.FrameRates.closest(hz, modes.map { it.refreshRate }) else null
+        pickedMode = modes.firstOrNull { it.refreshRate == rate }?.modeId ?: 0
+        setDisplayMode(pickedMode)
+    }
 
     private fun setDisplayMode(id: Int) {
         val lp = window.attributes
@@ -95,7 +109,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun boostRefresh() {
-        if (fastMode == 0) return
+        if (fastMode == 0 || pickedMode != 0) return
         val h = window.decorView.handler ?: return
         h.removeCallbacks(dropFastMode)
         setDisplayMode(fastMode)

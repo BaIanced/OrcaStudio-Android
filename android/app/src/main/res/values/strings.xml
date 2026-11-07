@@ -1217,6 +1217,11 @@
     <string name="design_mode">Design mode</string>
     <string name="contact_shadows">3D view: shadows under objects</string>
     <string name="preview_supersample">Preview: supersampling (sharp layer lines, no moire)</string>
+    <string name="frame_rate">Frame rate</string>
+    <string name="frame_rate_vr">VR frame rate</string>
+    <string name="frame_rate_auto">Device default</string>
+    <string name="frame_rate_hz">%1$s Hz</string>
+    <string name="frame_rate_vr_unread">Enter VR once to list the rates this headset offers.</string>
     <string name="supersample_off">Off</string>
     <string name="supersample_still">When still</string>
     <string name="supersample_always">Always</string>

@@ -207,6 +207,8 @@ data class UiState(
     val selectionStyle: Int = app.orcaandroid.render.SelectionStyle.DEFAULT,
     /** Preview supersampling ([app.orcaandroid.render.Supersample]). */
     val supersample: Int = app.orcaandroid.render.Supersample.STILL,
+    /** [app.orcaandroid.core.AppSettings.frameRateHz]. */
+    val frameRateHz: Float = 0f,
     /** Body drags snap (smart guides) on the plate / in the Build workspace; Ctrl held flips it for one drag. */
     val snapPrepare: Boolean = false,
     val snapBuild: Boolean = true,
