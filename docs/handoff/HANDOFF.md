@@ -36,10 +36,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Two-Claude chat (user 2026-11-06): other account's VR-port agent talks via `claudechat.md` (sections 1-7; SendMessage can't cross accounts). Start a Monitor on its `## ` count (command in section 7), timeout 30 min, re-arm. Quest profile numbers land in `NOTES-quest-profile.md`.
 - Release r538 on phone. GL shots: MCP `view_screenshot`. Quest profile is blocked until someone wears the headset (claudechat.md s8).
 - VD keyboard/tap fix (orca-vd.sh, archive end) awaits the user's verdict (keyboard no longer vanishes?).
-- GL audit `NOTES-gl-audit.md`: Preview pass is fragment-bound (vertex cuts dropped). Item 5 fix 1 (nearest-first chunks, 1698961) **measured + pushed 2026-11-07**: preview 61 -> 44.3 ms default, 95.5 -> 59.3 close, joints clean (NOTES-gl-audit "fix 1 measured"). Not in a release build yet.
+- GL audit `NOTES-gl-audit.md` item 5: fix 1 (nearest-first, 1698961) + fix 2 (cull instead of discard, no-cut PATH_FS variant, ee7b8a2) measured + pushed 2026-11-07: preview 61 -> ~43 ms default, 95.5 -> 43.5 close. Default zoom barely moved with fix 2 (NOTES "fix 2 measured": next suspect PATH_FS per-pixel cost). Not in a release build yet.
 - Phone keeps the old debug app (session + `allow_mixed_temps` set): assembleDebug, `install -r -g`, wake (user OK 11-07), VD start, `slice`, `preview-zoom-perf.sh 1138`/`300`; sleep + uninstall after. scrcpy "Quest left eye" = VR side's, leave it.
 - **User 2026-11-07: brim/bed contact z-fights (triangle strobe) seen from below while dragging** (backlog, archive "brim meets the bed"); fix after the measurement.
-- Next step: GL audit Item 5 fix 2 (PATH_FS no-discard variant when the cut is off, else depth-only pre-pass), measure with preview-zoom-perf.sh 1138/300 on the phone VD -> Opus 5.5 (high)
+- Next step: GL audit Item 5 fix 3 (cheaper PATH_FS: beadMean taps per fragment, NOTES-gl-audit "fix 2 measured"), measure with preview-zoom-perf.sh 1138/300 on the phone VD -> Opus 5.5 (high)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
