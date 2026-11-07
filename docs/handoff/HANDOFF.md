@@ -38,7 +38,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - VD keyboard/tap fix (orca-vd.sh, archive end) awaits the user's verdict (keyboard no longer vanishes?).
 - GL audit `NOTES-gl-audit.md` "Item 5 measured" (2026-11-07): Preview pass is **fragment-bound** (3.1 ms far / 61 ms default / 95.5 ms close, same 1.3 M instances); vertex cuts dropped.
 - WIP commit on the branch: nearest-first chunked toolpath draw (`EXTRUSION_CHUNK`, `PlateRenderer.drawExtrusions`), compiled, **not measured, not pushed**.
-- Phone still has the old debug app (with `allow_mixed_temps` set, session copied): reinstall the new debug APK with `adb install -r -g` (keeps data), `PKG=...debug orca-vd.sh start`, `slice {"plate":1}`, then `preview-zoom-perf.sh 1138` and `300`. Wake the phone first (user OK 2026-11-07), `keyevent SLEEP` + uninstall debug when done. The running scrcpy "Quest left eye" is the VR side's, leave it.
+- Phone keeps the old debug app (session + `allow_mixed_temps` set): assembleDebug, `install -r -g`, wake (user OK 11-07), VD start, `slice`, `preview-zoom-perf.sh 1138`/`300`; sleep + uninstall after. scrcpy "Quest left eye" = VR side's, leave it.
 - Next step: measure the nearest-first draw (Item 5 fix 1) on the phone VD, A/B shot for joint z-fight, then fix 2 (no-discard variant / depth pre-pass) if needed -> Opus 5.5 (high)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
