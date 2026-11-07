@@ -37,7 +37,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - r537 on phone + WSA; GL shots: MCP `view_screenshot` or phone VD. Quest profile blocked on a wearer (claudechat.md s8). A/B recipe: archive "ab-crease.sh".
 - VD keyboard/tap fix (orca-vd.sh, archive end) awaits the user's verdict (keyboard no longer vanishes?).
 - GL audit: `NOTES-gl-audit.md`. GPU timers verified on the phone VD 2026-11-06: Preview toolpath pass = 48.8 ms/frame in orbit (~20 fps), everything else <0.6 ms (notes 'Item 4 measured' + recipe). phone-ui.py tap VD fix: archive end.
-- Next step: cut the Preview toolpath pass cost (PlateRenderer.kt:621; vertex count, overdraw, shader, layer culling), re-measure with the notes recipe -> Opus 5.5 (high)
+- Preview pass analysis: `NOTES-gl-audit.md` "Item 5" (plate 1 = 1.30 M segments, 12-corner instanced boxes, likely vertex-bound, untested; experiment + cut list there).
+- Next step: run the Item 5 zoom experiment (vertex vs fragment bound) on the phone VD, then implement cut (a) CPU-precomputed mitres, re-measure -> Opus 5.5 (high)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 

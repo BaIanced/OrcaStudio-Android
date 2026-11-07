@@ -45,3 +45,17 @@ Scene: plate 1 (lattice vase "Shape design.stl" + prime tower), shadows on, supe
 Recipe: install debug + copy session (wsa-debug-setup.sh minus its last 2 lines, `W=<phone>`), `PKG=...debug orca-vd.sh start`,
 `MCP_DEV=<phone> PKG=...debug mcpao.sh 'perf:{}'` (first call arms timers), `orca-vd.sh swipe` 3 s each way, perf again.
 Debug app needs More > Printers & presets > "Remove mixed temperature restriction" on to slice plate 1 (its own prefs copy).
+
+## Item 5: preview pass analysis (2026-11-06, code read only, no device run yet)
+- Plate 1 `cache/out/plate_1/extrusions.bin` = 78,061,980 B / 60 B (stride 15 floats) = **1.30 M segments**, all drawn every frame
+  (`PlateRenderer.drawExtrusions` :1495, one `glDrawElementsInstanced`, box = 12 shared corners / 26 triangles / 78 indices, `uploadBox` :867).
+- Per frame: ~15.6 M PATH_VS runs (Shaders.kt:645) if Adreno reuses the 12 corners per instance, up to 101 M if not; binning pass
+  re-runs positions. Each run fetches 11 attributes (60 B record + prev/next neighbours) and does 3 normalize, atan, cross. 49 ms /
+  15.6 M = ~320 M verts/s: consistent with **vertex-bound** (hypothesis, untested).
+- First experiment (no build): perf in Preview orbit zoomed far out (few pixels, same vertices) vs zoomed in. Same ms = vertex-bound;
+  scales with coverage = fragment-bound (then: draw top layers first for early-Z, cheaper PATH_FS regimes).
+- If vertex-bound, candidate cuts (cheapest first): (a) per-segment mitre/right/sideNormal precomputed on the CPU at upload, PATH_VS
+  just places corners (no neighbour fetch, no normalize/atan); (b) 8-corner box when the overlap ring is sub-pixel (zoomed out);
+  (c) skip enclosed segments: sparse/internal-solid infill (roles 5-10?) below the top shown layer during orbit only, full draw when
+  still (visual change through lattice openings, check A/B); (d) screen-size LOD: merge collinear runs whose joints are < 1 px.
+- Re-measure with the item-4 recipe; log before -> after in docs/PERFORMANCE.md.
