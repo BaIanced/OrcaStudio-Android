@@ -37,8 +37,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Two-Claude chat (user 2026-11-06): other account's VR-port agent talks via `claudechat.md` (sections 1-7; SendMessage can't cross accounts). Start a Monitor on its `## ` count (command in section 7), timeout 30 min, re-arm. Quest profile numbers land in `NOTES-quest-profile.md`.
 - r537 on phone + WSA. WSA VD has no GL screenshots: use the phone VD.
 - Quest profile (other account's VR-port agent): blocked on a wearer (claudechat.md section 8); `NOTES-quest-profile.md` has no numbers yet.
-- A/B recipe: `/c/Users/Vince/AppData/Local/Temp/claude/f3c43eac8dfa6a4f/18b1fe00-2431-46b0-b931-7a8643178c1e/scratchpad/ab-crease.sh` (interleaved installs, phone VD, `perf` per orbit, `setpref` sed for app_settings.xml bools). APKs `/tmp/ab/new` (r535), `/tmp/ab/r536` (r537).
-- Battery audit done 2026-11-06 (archive end): the 3D view redraws a static scene at full rate (`PlateView.kt:347` RENDERMODE_CONTINUOUSLY; idle current = orbit current, perf shows 165 fps idle on the VD). Script `orca-android-tools/batt-orbit.sh` (copy at orca-android-tools/batt-orbit.sh).
+- A/B recipe: archive "ab-crease.sh" (interleaved installs, phone VD, `perf` per orbit).
+- Battery audit 2026-11-06 (archive end): idle scene redrew at 165 fps. Script `orca-android-tools/batt-orbit.sh`.
 - Render-on-demand coded 2026-11-06 (84ffb8e, compiles; UNTESTED on device): WHEN_DIRTY; frames from `Camera.onChange` (every mutator), `PlateView.queueEvent` override (all onGl), touch/generic dispatch, 300 ms hot window (`HOT_MS`), and `renderer.afterFrame` while `settled` is false. CI run 42335308493.
 - Test plan: install that build (phone VD); MCP `perf` idle ~0 fps; orbit, fling coast, pinch, view presets/MCP camera, plate switch, selection, slice preview + STILL supersample refine (must finish refining), loupe, build drags all redraw; no stale frames. Then idle-vs-orbit battery A/B (`batt-orbit.sh`); then GL state/upload/draw-call audit.
 - Next step: Test render-on-demand build (run 42335308493) on phone VD -> Opus 5.5 (medium)

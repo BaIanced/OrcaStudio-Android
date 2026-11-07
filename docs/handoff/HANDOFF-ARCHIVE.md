@@ -4125,3 +4125,6 @@ Draw ms (CPU side, GL thread) median: r527 5.7-5.8, r535 5.6-5.8; p95 6.3-6.7 bo
 - Script (scratchpad, session 77ad40fb): `batt-orbit.sh`: 30 s idle then 60 s of back-to-back 3 s orbit swipes, `current_now`/temp sampled every 3 s (sysfs updates only ~every 9 s). Idle ~550-740 mA, orbit ~530-630 mA, temp 29.5 C both: no difference.
 - Cause: `PlateView.kt:347` `renderMode = RENDERMODE_CONTINUOUSLY`. MCP `perf` on a fully idle scene (25 s after start, no input) still reports 165 fps, draw 5.6 ms median. So the app redraws a static scene every frame (VD runs uncapped; on a 60/120 Hz panel it is the panel rate). `MeshPreviewView.kt:162` already uses WHEN_DIRTY.
 - Fix idea: WHEN_DIRTY + `requestRender()` from every `onGl`/touch/camera inertia/animation/MCP view change, or continuous only while something animates. Touches many paths (not yet read), so risk of stuck frames; needs an idle-vs-orbit battery A/B after.
+
+## 2026-11-06 A/B recipe path
+- ab-crease.sh: /c/Users/Vince/AppData/Local/Temp/claude/f3c43eac8dfa6a4f/18b1fe00-2431-46b0-b931-7a8643178c1e/scratchpad/ab-crease.sh (interleaved installs, phone VD, perf per orbit, setpref sed for app_settings.xml bools). APKs /tmp/ab/new (r535), /tmp/ab/r536 (r537).
