@@ -37,7 +37,6 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Two-Claude chat (user 2026-11-06): other account's VR-port agent talks via `claudechat.md` (sections 1-7; SendMessage can't cross accounts). Start a Monitor on its `## ` count (command in section 7), timeout 30 min, re-arm. Quest profile numbers land in `NOTES-quest-profile.md`.
 - r537 on phone + WSA; GL shots: MCP `view_screenshot` or phone VD. Quest profile blocked on a wearer (claudechat.md s8). A/B recipe: archive "ab-crease.sh".
 - mobilecad review 2026-11-06 (archive end): XR ideas for the VR-port agent (backlog [idea]).
-- Render-on-demand 84ffb8e (r538): verified, PERFORMANCE.md battery row added (archive end).
 - GL audit: `NOTES-gl-audit.md`. Per-pass GPU timers in MCP `perf` coded + compiled (1963674, untested on device; notes 'Item 4').
 - Next step: measure per-pass GPU ms with perf on the phone VD (plate-1 orbit, Preview still), then fix the top pass -> Opus 5.5 (high)
 - VD keyboard/tap fix (orca-vd.sh, archive end) awaits the user's verdict (keyboard no longer vanishes?).
