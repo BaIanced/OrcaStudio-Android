@@ -57,6 +57,13 @@ No app-driven view motion: `Camera.frame`, `fit`, `focus` must not move the worl
 - `adb input tap` at `uiautomator dump` bounds works on the panel. Address the Quest by `adb -t <transport_id>`.
 - With a wearer the Guardian pause is not needed. Without one and without the pause, a "Finding position in room" dialog covers everything.
 
+## M2 on the headset (CI r534, Quest 3, wearer not asked, 2026-11-06)
+- Passthrough: a screencap of VR from the `plateInFront` launch shows the room behind the info panel, and the compositor logs `PTApiClients ... PT=1`. Screencaps can show the user's home: scratchpad only, delete after reading.
+- Round trip: `input tap` on "View in VR" in the panel gave `XR_FB_passthrough v5`, `VR_SCENE SHARED plates 1 active 0 vertices 36`, FOCUSED, `VR_FPS` 118, 119, 120. `KEYCODE_HOME` gave `VR_LEAVE stopped`, process alive. `am start` of `MainActivity` then brought the panel back (UI dump the same size as before, so probably no busy dialog left). No `FATAL`.
+- `session not saved: not ready, or VR is open` logged once just after FOCUSED. Probably the panel's stop-save being refused while VR is open; not traced.
+- `am start` of `MainActivity` over running VR: VR stayed the resumed activity, no `VR_LEAVE`, panel task listed visible behind it. `uiautomator` got no window while VR was up. Whether a wearer can get there is unknown.
+- Not checked: the wearer's view of passthrough, `session.3mf` hash, opening 2D after a COLD VR launch.
+
 ## Heavier-model result (CI r530, Quest 3, 2026-11-05, nobody wearing it, Guardian paused)
 `VR_SCENE project true plates 1 active 0 vertices 769704` (256,568 triangles, 3.2 MB `.3mf`). `VR_FPS` 120 for 70 s after a first 112; compositor 120/120, 0 stale, 0 tear. App about 6.5 ms, CPU&GPU about 8.4 ms, against 8.33 ms per frame at 120 Hz; GPU 91 % at level 4; PSS 313 MB; scene loaded 3 s after FOCUSED. Empty bed was about 0.75 ms, so this cost is real. Limits: no wearer, so a fixed head pose with the plate small in the corner of each eye (fill rate barely tested, screencap checked), shadows and selection off. At 120 Hz there is no margin left; at 72 Hz (13.9 ms) there should be plenty (not run at 72).
 
