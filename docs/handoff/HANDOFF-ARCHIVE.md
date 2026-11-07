@@ -4153,3 +4153,10 @@ Draw ms (CPU side, GL thread) median: r527 5.7-5.8, r535 5.6-5.8; p95 6.3-6.7 bo
 - Selection: tap on object box centre -> "Selected: object 1 copy 1", a frame drawn at the tap, MCP `view_screenshot` shows the outline. PASS.
 - Plate switch, pinch, loupe, build drags, refine finish: PASS by code path (no MCP plate switch, WSA has one plate, no multi-touch injection). Every renderer mutation in ui/ai goes through `PlateView.onGl` -> `queueEvent` -> `wake()` (PlateView.kt:359; only exceptions: McpTools.kt:546 debug `accumRegime`, PlateView.kt:278 `deviceLandscape` before a resize); touches wake via `dispatchTouchEvent`; `afterFrame` keeps requesting while `!renderer.settled`, so refine can't stall.
 - Left: idle-vs-orbit battery A/B on the phone (`batt-orbit.sh`), then GL state/upload/draw-call audit in `render/`.
+
+## 2026-11-06 Render-on-demand battery A/B (r538, phone VD, discharging, 26 C, Claude)
+- `batt-orbit.sh` (now in `~/orca-android-tools/`): idle 30 s then 60 s orbit loop. Idle current_now mean ~217 mA (151-327), orbit mean ~649 mA (131-946, 3 s sysfs lag), temp 26.4 -> 27.2 C. Before render-on-demand (r537): idle ~550-740 mA, orbit ~530-630. Idle now ~60% lower and well below orbit. PASS.
+- Idle `perf` shows last frame ~264 ms ago after the orbit (settles). PERFORMANCE.md row not yet added.
+
+## 2026-11-06 GL audit pass 1 (Claude, reading only)
+- Findings in docs/handoff/NOTES-gl-audit.md: per-pass uniform resets + small allocs in drawMesh (below noise, per ULoc result), allocateDirect per STREAM_DRAW overlay upload, superKey/shadow-key list churn, no GPU timer queries. Next: per-pass timer query in perf. PERFORMANCE.md got the idle-vs-orbit battery row.

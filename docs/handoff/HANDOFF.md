@@ -37,8 +37,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Two-Claude chat (user 2026-11-06): other account's VR-port agent talks via `claudechat.md` (sections 1-7; SendMessage can't cross accounts). Start a Monitor on its `## ` count (command in section 7), timeout 30 min, re-arm. Quest profile numbers land in `NOTES-quest-profile.md`.
 - r537 on phone + WSA; GL shots: MCP `view_screenshot` or phone VD. Quest profile blocked on a wearer (claudechat.md s8). A/B recipe: archive "ab-crease.sh".
 - mobilecad review 2026-11-06 (archive end): XR ideas for the VR-port agent (backlog [idea]).
-- Render-on-demand 84ffb8e (run 42335308493) on phone/WSA/Quest: WSA VD tests parts 1+2 PASS (archive end). Left: idle-vs-orbit battery A/B on the phone VD (`batt-orbit.sh`: expect idle current now below orbit), then GL state/upload/draw-call audit in `render/` [Opus].
-- Next step: Render-on-demand battery A/B (idle vs orbit, phone, batt-orbit.sh) -> Sonnet 5.5 (medium)
+- Render-on-demand 84ffb8e (r538): verified, PERFORMANCE.md battery row added (archive end).
+- GL audit pass 1 (reading only): `NOTES-gl-audit.md`. No big CPU waste; next is a per-pass GPU timer query (EXT_disjoint_timer_query) in MCP `perf`, then fix the top pass.
+- Next step: per-pass GPU timer query in perf (NOTES-gl-audit.md item 4) -> Opus 5.5 (high)
 - VD keyboard/tap fix (orca-vd.sh, archive end) awaits the user's verdict (keyboard no longer vanishes?).
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
