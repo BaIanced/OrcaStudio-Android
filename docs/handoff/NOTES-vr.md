@@ -126,7 +126,7 @@ User asked for scrcpy (installed by winget, v4.1). View-only: `scrcpy -s <serial
 ## On-headset recipe, nobody wearing it
 `dumpsys vrpowermanager` said `HEADSET_MOUNTED` with `Virtual proximity state: CLOSE` while nobody wore it (2026-11-05), so it is no evidence of a wearer: ask. Controller tracking: `dumpsys OVRRemoteService` ("tracking in 6dof") and `no valid pose` in logcat; filter serials out of both.
 `MSYS_NO_PATHCONV=1` in Git Bash, or `/sdcard` paths get rewritten.
-1. Before: `input keyevent KEYCODE_WAKEUP`, `am broadcast -a com.oculus.vrpowermanager.prox_close`, `setprop debug.oculus.guardian_pause 1`.
+1. Before: `input keyevent KEYCODE_WAKEUP`, `setprop debug.oculus.guardian_pause 1`. Proximity (user, 2026-11-06, for every headless run): read `metavr device proximity --status`; if it says overridden, do nothing; if not, turn it on with `metavr device proximity --disable` (off to on not yet run; it was already on when tried).
 2. `am force-stop`, `logcat -c`, `am start`. Without the pause the Guardian dialog stopped the session after about 3 s (one run, likely cause), and a launch made while it is open starts no session.
 3. Read `VrApi` lines **by the app's pid**; pid-less FPS lines can be the shell's. Tag `OrcaXr`, `VR_FPS`.
 4. After: `am force-stop`. Leave Guardian paused (user wants it off, 2026-11-05). Skip `automation_disable` unless the user asks: it is what the last run ended with before the dialog came back (cause not confirmed; the pause was also cleared in that step).
