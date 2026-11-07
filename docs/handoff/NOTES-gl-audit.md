@@ -97,3 +97,15 @@ untested): normalize in the beadMean/beadShade taps -> constant 1/sqrt(1+(u*tilt
 Bigger lever = triangle count (old cuts (b)/(c) revive, now for raster, not VS): (b) 8-corner box (no overlap ring) when the
 ring is sub-pixel, 26 -> ~12 tris; (c) skip enclosed sparse/internal-solid infill under the top shown layer while orbiting;
 (e) drop side/bottom faces hidden by neighbours. Each needs an A/B look check (cracks, z-fight, brim-from-below report).
+
+## Item 5 cut (b) plan (2026-11-07, code read only, nothing built)
+- The box is **36 triangles now, not 26** (`uploadBox` PlateRenderer.kt:872): top 2 + bottom 2 + side walls 8 + overlap walls 8
+  + a reversed copy of all 16 side triangles (fix 2, :902; one of each pair is always culled). 1.30 M x 36 = 47 M tris submitted.
+- Doubt: 6000 mm = 3 ms would mean 47 M tris rejected in 3 ms (~15 G/s), which is implausible; the far plane may clip the whole plate
+  there (check `Camera.clip` at 6000 mm). So "the VS isn't it" is unproven; the cost may be setup of *all* submitted triangles, culled ones included.
+- Next, before any visual cut: a temp diagnostic build (not committed). Order the indices as [top, bottom, layer walls, overlap walls,
+  reversed layer, reversed overlap] so prefixes are variants (12 / 20 / 28 / 36 tris), choose the draw count at runtime (e.g.
+  `SystemProperties.get("debug.orca.boxtris")` via reflection, set with `setprop` as root on the phone), then run
+  `preview-zoom-perf.sh 1138` / `300` per variant with the flat FS and with PATH_FS. If 36 -> 20 (drop the reversed copies) already
+  cuts most of it, the cheap fix is dropping or narrowing the reversed copies (look check: cracks between layers, r339/r340 notes);
+  only then the sub-pixel overlap ring (cut b) and (c)/(e).
