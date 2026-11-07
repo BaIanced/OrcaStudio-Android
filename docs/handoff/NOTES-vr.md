@@ -66,6 +66,12 @@ No app-driven view motion: `Camera.frame`, `fit`, `focus` must not move the worl
 - Hash, r539, 2026-11-06, wearer not asked: panel to VR to Home to panel to VR to Home. All four `VR_SESSION` lines (create and stop, twice) read 21402 bytes, sha256 947a3504...eb03ee29. `VR_SCENE SHARED` both times, `VR_LEAVE` only on leaving, `VR_FPS` 116-119, no `FATAL`. VR can't edit yet and the panel's save was refused during VR, so this shows nothing writes the file, not that edits survive. `logcat -d` keeps only about 15-20 s on the Quest (the first try lost every `create` line), so stream `adb logcat -v time -s OrcaXr:I Orca:W` to a file for anything longer.
 - Not checked: the wearer's view of passthrough, the hash on a COLD launch, opening 2D after a COLD VR launch.
 
+## VR-first concept (user, 2026-11-06; they called it unsure, so not a decision)
+User: did not envision VR as piggybacking on the 2D app, though fine if that is better. Would rather 2D not be what pops up by default, and it opens as a portrait app where it should be 16:9. Likes the 2D app even in VR, but wants its panels broken out to use three dimensions.
+Today: launcher entry is `MainActivity` with the 2D category, VR only from its button (`src/quest/AndroidManifest.xml:26-48`); no `<layout>` size anywhere, no `screenOrientation` on the panel. Shared engine and renderer are not the piggyback and should stay; only the entry and the screens are 2D.
+Limit: `NOTES-vr-m3.md` found existing screens can't be hosted in a VR panel (popups, menus and sheets open separate windows that injected touch misses, about 220 lines in 28 files; about 30 text-field lines), so panels in 3D are new composables, built one at a time, gated by M3's step 6 probe (nothing run). A fresh install has no printer and VR leaves, so VR-first needs a route for that.
+Claude's proposed order, not agreed: 16:9 panel size, VR by default with 2D one click away, M3 probe with one panel, then split out panels by use.
+
 ## Frame rate setting (user, 2026-11-06; nothing built)
 User: no fixed cap. A default is fine, but it must be a setting listing all rates the device is capable of, read dynamically. Their phone's maximum is 144 though the phone forces 120 without a Magisk module, and the app should show 144. Game Optimizer lists the Quest above 200.
 Checked on the Quest, r539: `dumpsys display` lists 170 modes, 60 to 240 Hz, active 120. That is Android's list, not necessarily what VR can use. The shim requests no rate today and the runtime gave 120 (M0 got 72, cause not checked).
