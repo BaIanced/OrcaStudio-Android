@@ -21,7 +21,9 @@ import app.orcaandroid.render.ViewSource
 import app.orcaandroid.ui.MainActivity
 import app.orcaandroid.ui.components.hexToRgb
 import java.io.File
+import java.security.MessageDigest
 import java.util.concurrent.ConcurrentLinkedQueue
+import kotlin.concurrent.thread
 import kotlin.math.tan
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -55,6 +57,7 @@ class VrActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        logSessionHash("create")
         claim = link.claimForVr()
         loadPlacement()
         thread = Thread(::renderThread, "OrcaXrRender").also { it.start() }
@@ -74,6 +77,7 @@ class VrActivity : Activity() {
      */
     override fun onStop() {
         Log.i(TAG, "VR_LEAVE stopped")
+        logSessionHash("stop")
         link.viewClosed()
         stop = true
         finishAndRemoveTask()
@@ -87,6 +91,33 @@ class VrActivity : Activity() {
         thread?.join(JOIN_TIMEOUT_MS)
         releaseClaim()
         super.onDestroy()
+    }
+
+    /**
+     * M2's acceptance is this hash unchanged across the round trip, and the file can't be read from outside: private storage,
+     * and `.quest` isn't debuggable. Hashes on its own thread so a big project doesn't hold the main thread.
+     */
+    private fun logSessionHash(moment: String) {
+        val file = File(filesDir, "session/session.3mf")
+        thread(name = "VrSessionHash") {
+            runCatching {
+                if (file.exists()) {
+                    val digest = MessageDigest.getInstance("SHA-256")
+                    file.inputStream().use { input ->
+                        val buffer = ByteArray(64 * 1024)
+                        while (true) {
+                            val read = input.read(buffer)
+                            if (read < 0) break
+                            digest.update(buffer, 0, read)
+                        }
+                    }
+                    val hex = digest.digest().joinToString("") { "%02x".format(it) }
+                    Log.i(TAG, "VR_SESSION $moment ${file.length()} bytes sha256 $hex")
+                } else {
+                    Log.i(TAG, "VR_SESSION $moment none")
+                }
+            }.onFailure { Log.e(TAG, "VR_SESSION $moment failed", it) }
+        }
     }
 
     private fun releaseClaim() {
