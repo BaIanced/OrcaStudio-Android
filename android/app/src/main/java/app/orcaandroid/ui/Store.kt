@@ -82,12 +82,12 @@ class Store(val app: Application, val scope: CoroutineScope) {
 
     /**
      * Runs [block], showing [busy] (if any) and turning exceptions into an error dialog. With [cancel] the busy
-     * dialog gets a Cancel button; the failure the cancelled operation throws then shows no error.
+     * dialog gets a button, labelled [cancelLabel] or else Cancel; the failure the cancelled operation throws then shows no error.
      */
-    fun launch(busy: String? = null, cancel: (() -> Unit)? = null, block: suspend () -> Unit): Job = scope.launch {
+    fun launch(busy: String? = null, cancel: (() -> Unit)? = null, cancelLabel: Int? = null, block: suspend () -> Unit): Job = scope.launch {
         var cancelled = false
         val onCancel = cancel?.let { { cancelled = true; it() } }
-        if (busy != null) update { it.copy(busy = busy, busyCancel = onCancel) }
+        if (busy != null) update { it.copy(busy = busy, busyCancel = onCancel, busyCancelLabel = cancelLabel) }
         try {
             block()
         } catch (e: CancellationException) {
@@ -101,7 +101,7 @@ class Store(val app: Application, val scope: CoroutineScope) {
                 listOf("content://", "ENOENT", "EACCES", "open failed").any { it in message }
             update { it.copy(error = if (unreadable) str(R.string.file_unreadable) else message) }
         } finally {
-            if (busy != null) update { it.copy(busy = null, busyCancel = null) }
+            if (busy != null) update { it.copy(busy = null, busyCancel = null, busyCancelLabel = null) }
         }
     }
 

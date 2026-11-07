@@ -630,7 +630,7 @@ private fun GlobalDialogs(state: UiState, vm: AppViewModel) {
     if (state.busy != null && state.phase != Phase.LOADING && state.filamentChoice == null && state.projectOrImport == null) {
         AlertDialog(
             onDismissRequest = {},
-            confirmButton = { state.busyCancel?.let { TextButton(onClick = it) { Text(stringResource(R.string.cancel)) } } },
+            confirmButton = { state.busyCancel?.let { TextButton(onClick = it) { Text(stringResource(state.busyCancelLabel ?: R.string.cancel)) } } },
             text = {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     CircularProgressIndicator()

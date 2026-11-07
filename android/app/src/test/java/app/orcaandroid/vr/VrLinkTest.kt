@@ -41,6 +41,16 @@ class VrLinkTest {
         assertTrue(withTimeout(1_000) { held.await() })
     }
 
+    @Test fun aViewEndRequestLastsUntilThePanelStopsWaiting() {
+        val link = VrLink()
+        assertFalse(link.endRequested)
+        link.requestViewEnd()
+        assertTrue(link.endRequested)
+        assertFalse(link.leaveRequested)
+        link.clearViewEnd()
+        assertFalse(link.endRequested)
+    }
+
     @Test fun twoDStopsHoldingWhenTheViewNeverOpens() = runBlocking {
         assertFalse(VrLink().awaitViewEnded(10))
     }

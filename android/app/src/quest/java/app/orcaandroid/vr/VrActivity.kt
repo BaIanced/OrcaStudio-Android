@@ -133,6 +133,7 @@ class VrActivity : Activity() {
             val created = XrShim.nativeCreate(this, egl.display.nativeHandle, egl.config.nativeHandle, egl.context.nativeHandle, !intent.getBooleanExtra(EXTRA_PLAIN, false))
             if (created) {
                 frameLoop()
+                if (link.endRequested) Log.i(TAG, "VR_LEAVE asked by the panel")
                 XrShim.nativeDestroy()
             } else {
                 Log.e(TAG, "OpenXR setup failed, see the lines above")
@@ -353,7 +354,7 @@ class VrActivity : Activity() {
         var placeInFront = intent.getBooleanExtra(EXTRA_PLATE_IN_FRONT, false)
         val front = FloatArray(2)
 
-        while (!stop && !link.leaveRequested) {
+        while (!stop && !link.leaveRequested && !link.endRequested) {
             val status = XrShim.nativePollEvents()
             if (status and XrShim.EXIT != 0) break
             while (true) (pending.poll() ?: break).invoke(renderer)

@@ -669,6 +669,7 @@
     <string name="variable_layer_height">Variable layer height</string>
     <string name="open_in_vr">View in VR</string>
     <string name="vr_has_project">In VR…</string>
+    <string name="leave_vr">Leave VR</string>
     <string name="vr_not_saved">The project could not be saved, so VR did not open.</string>
     <string name="view">View</string>
     <string name="view_fit">Fit plate</string>

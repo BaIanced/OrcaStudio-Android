@@ -47,6 +47,15 @@ class VrLink {
     /** A 2D app is waiting for the engine, so a cold-start VR should end. */
     val leaveRequested: Boolean get() = waiting2d.get() > 0
 
+    /** The panel's busy dialog asked the immersive view it started to end. */
+    @Volatile var endRequested: Boolean = false
+        private set
+
+    fun requestViewEnd() { endRequested = true }
+
+    /** The panel is done waiting: must not make a later view end at once. */
+    fun clearViewEnd() { endRequested = false }
+
     /** An immersive view is on screen (started, not merely alive): nothing may write the session file. */
     val open: Boolean get() = views.value > 0
 

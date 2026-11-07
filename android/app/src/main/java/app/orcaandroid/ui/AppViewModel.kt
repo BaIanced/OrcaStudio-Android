@@ -322,21 +322,26 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /**
      * Quest build: the immersive view on this project. VR holds saves back, so a crash there must not lose edits: the
      * session file is brought up to date first, left alone if it already is, and without it VR doesn't open. The busy
-     * dialog then stays until VR ends, so neither side ever shows a scene the other has moved on from.
+     * dialog then stays until VR ends, so neither side ever shows a scene the other has moved on from. A wearer can reach
+     * that dialog while VR runs, so its button asks VR to end.
      * By class name, as only `src/quest` has it.
      */
     fun openVr() {
         val stale = sessionKey(state.value) != savedKey
-        store.launch(store.str(R.string.vr_has_project)) {
-            if (stale) {
-                saveFile()
-                check(sessionKey(state.value) == savedKey) { store.str(R.string.vr_not_saved) }
+        val link = store.container.vr
+        store.launch(store.str(R.string.vr_has_project), link::requestViewEnd, R.string.leave_vr) {
+            try {
+                if (stale) {
+                    saveFile()
+                    check(sessionKey(state.value) == savedKey) { store.str(R.string.vr_not_saved) }
+                }
+                link.scene = state.value.vrScene()
+                store.app.startActivity(Intent(Intent.ACTION_MAIN).setClassName(store.app, "app.orcaandroid.vr.VrActivity")
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                if (!link.awaitViewEnded(VR_START_MS)) android.util.Log.e("Orca", "VR_LEAVE the immersive view did not open")
+            } finally {
+                link.clearViewEnd()
             }
-            val link = store.container.vr
-            link.scene = state.value.vrScene()
-            store.app.startActivity(Intent(Intent.ACTION_MAIN).setClassName(store.app, "app.orcaandroid.vr.VrActivity")
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            if (!link.awaitViewEnded(VR_START_MS)) android.util.Log.e("Orca", "VR_LEAVE the immersive view did not open")
         }
     }
 

@@ -62,6 +62,7 @@ struct Shim {
     XrView views[kEyes] = {{XR_TYPE_VIEW}, {XR_TYPE_VIEW}};
     // XR_FB_passthrough: listed by the runtime, and the entry points once enabled.
     bool passthroughListed = false;
+    bool refreshRatesListed = false;
     PFN_xrCreatePassthroughFB createPassthrough = nullptr;
     PFN_xrDestroyPassthroughFB destroyPassthrough = nullptr;
     PFN_xrPassthroughStartFB startPassthrough = nullptr;
@@ -114,11 +115,13 @@ bool logExtensions() {
     bool gles = false;
     bool android = false;
     g.passthroughListed = false;
+    g.refreshRatesListed = false;
     for (const auto& p : props) {
         LOGI("XR_EXTENSION %s v%u", p.extensionName, p.extensionVersion);
         if (!std::strcmp(p.extensionName, XR_KHR_OPENGL_ES_ENABLE_EXTENSION_NAME)) gles = true;
         if (!std::strcmp(p.extensionName, XR_KHR_ANDROID_CREATE_INSTANCE_EXTENSION_NAME)) android = true;
         if (!std::strcmp(p.extensionName, XR_FB_PASSTHROUGH_EXTENSION_NAME)) g.passthroughListed = true;
+        if (!std::strcmp(p.extensionName, XR_FB_DISPLAY_REFRESH_RATE_EXTENSION_NAME)) g.refreshRatesListed = true;
     }
     if (!gles) LOGE("The runtime has no %s", XR_KHR_OPENGL_ES_ENABLE_EXTENSION_NAME);
     if (!android) LOGE("The runtime has no %s", XR_KHR_ANDROID_CREATE_INSTANCE_EXTENSION_NAME);
@@ -128,6 +131,24 @@ bool logExtensions() {
 template <typename T>
 bool loadFunction(const char* name, T& out) {
     return XR_SUCCEEDED(xrGetInstanceProcAddr(g.instance, name, reinterpret_cast<PFN_xrVoidFunction*>(&out))) && out;
+}
+
+// For the frame rate setting: what VR itself can run at, which may differ from Android's display modes. Only logs.
+void logRefreshRates() {
+    if (!g.refreshRatesListed) return;
+    PFN_xrEnumerateDisplayRefreshRatesFB enumerate = nullptr;
+    PFN_xrGetDisplayRefreshRateFB current = nullptr;
+    if (!loadFunction("xrEnumerateDisplayRefreshRatesFB", enumerate) || !loadFunction("xrGetDisplayRefreshRateFB", current)) {
+        LOGE("VR_REFRESH entry points missing");
+        return;
+    }
+    uint32_t count = 0;
+    if (!ok(enumerate(g.session, 0, &count, nullptr), "xrEnumerateDisplayRefreshRatesFB")) return;
+    std::vector<float> rates(count);
+    if (!ok(enumerate(g.session, count, &count, rates.data()), "xrEnumerateDisplayRefreshRatesFB")) return;
+    for (float rate : rates) LOGI("VR_REFRESH available %.2f", rate);
+    float now = 0;
+    if (ok(current(g.session, &now), "xrGetDisplayRefreshRateFB")) LOGI("VR_REFRESH current %.2f", now);
 }
 
 // Leaves createPassthrough null on any miss, so the session stays plain.
@@ -186,14 +207,16 @@ bool createInstance(JavaVM* vm, bool wantPassthrough) {
     const bool passthrough = wantPassthrough && g.passthroughListed;
     if (!wantPassthrough) LOGI("VR_PASSTHROUGH off: plain background requested");
     else if (!g.passthroughListed) LOGI("VR_PASSTHROUGH unavailable: %s not listed by the runtime, plain background", XR_FB_PASSTHROUGH_EXTENSION_NAME);
-    const char* extensions[] = {XR_KHR_OPENGL_ES_ENABLE_EXTENSION_NAME, XR_KHR_ANDROID_CREATE_INSTANCE_EXTENSION_NAME, XR_FB_PASSTHROUGH_EXTENSION_NAME};
+    std::vector<const char*> extensions = {XR_KHR_OPENGL_ES_ENABLE_EXTENSION_NAME, XR_KHR_ANDROID_CREATE_INSTANCE_EXTENSION_NAME};
+    if (passthrough) extensions.push_back(XR_FB_PASSTHROUGH_EXTENSION_NAME);
+    if (g.refreshRatesListed) extensions.push_back(XR_FB_DISPLAY_REFRESH_RATE_EXTENSION_NAME);
     XrInstanceCreateInfoAndroidKHR androidInfo{XR_TYPE_INSTANCE_CREATE_INFO_ANDROID_KHR};
     androidInfo.applicationVM = vm;
     androidInfo.applicationActivity = g.activity;
     XrInstanceCreateInfo info{XR_TYPE_INSTANCE_CREATE_INFO};
     info.next = &androidInfo;
-    info.enabledExtensionCount = passthrough ? 3 : 2;
-    info.enabledExtensionNames = extensions;
+    info.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
+    info.enabledExtensionNames = extensions.data();
     std::strncpy(info.applicationInfo.applicationName, "OrcaStudio VR", XR_MAX_APPLICATION_NAME_SIZE - 1);
     info.applicationInfo.apiVersion = XR_API_VERSION_1_0;
     if (!ok(xrCreateInstance(&info, &g.instance), "xrCreateInstance")) return false;
@@ -441,6 +464,7 @@ bool createSession(EGLDisplay display, EGLConfig config, EGLContext context) {
     spaceInfo.poseInReferenceSpace.orientation.w = 1.0f;
     if (!ok(xrCreateReferenceSpace(g.session, &spaceInfo, &g.space), "xrCreateReferenceSpace")) return false;
     createPassthrough();
+    logRefreshRates();
     g.inputReady = createInput();
     LOGI("VR_INPUT %s", g.inputReady ? "ready" : "unavailable, the plate stays where it is");
     return createSwapchains();

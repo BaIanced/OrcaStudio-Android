@@ -157,6 +157,8 @@ data class UiState(
     val busy: String? = null,
     /** Cancels the [busy] operation (Cancel button on the busy dialog); null = not cancellable. */
     val busyCancel: (() -> Unit)? = null,
+    /** String resource for [busyCancel]'s button; null is Cancel. */
+    val busyCancelLabel: Int? = null,
     val error: String? = null,
     val message: String? = null,
     val messageAction: MessageAction? = null,
