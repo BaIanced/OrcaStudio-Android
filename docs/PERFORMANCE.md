@@ -75,6 +75,10 @@ Record a missing baseline the first time a change touches that area (same device
   positives, suppressed with a reason. R8 `usage.txt`: the 12 app classes it drops entirely are all referenced (inlined or
   merged), so no dead Kotlin classes; the five icon packs are stripped by R8 (build time only, no APK bytes).
 
+- 2026-11-07 Preview toolpaths nearest-first (GL audit item 5 fix 1, `EXTRUSION_CHUNK` 16384 in `PlateRenderer.drawExtrusions`):
+  preview pass GPU median on the phone VD, plate 1 (541 layers, 1.30 M segments), 3 s orbit each way: default 1138 mm
+  61 -> 44.3 ms, close 300 mm 95.5 -> 59.3 ms, far 6000 mm 3.1 -> 2.35 ms. Close shot (250 mm, pitch 25): no joint artifacts.
+
 ## Experiments (closed 2026-11-04: done, rejected or shelved)
 
 0. **Big-ticket map (2026-11-01, r502 APK 118.5 MB; native libs stored uncompressed = 78 MB).** liborca_jni symbol bytes by

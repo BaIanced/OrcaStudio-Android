@@ -37,10 +37,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Release r538 on phone. GL shots: MCP `view_screenshot`. Quest profile is blocked until someone wears the headset (claudechat.md s8).
 - VD keyboard/tap fix (orca-vd.sh, archive end) awaits the user's verdict (keyboard no longer vanishes?).
 - GL audit `NOTES-gl-audit.md` "Item 5 measured" (2026-11-07): Preview pass is **fragment-bound** (3.1 ms far / 61 ms default / 95.5 ms close, same 1.3 M instances); vertex cuts dropped.
-- WIP commit on the branch: nearest-first chunked toolpath draw (`EXTRUSION_CHUNK`, `PlateRenderer.drawExtrusions`), compiled, **not measured, not pushed**.
+- Item 5 fix 1 (nearest-first chunks, 1698961) **measured + pushed 2026-11-07**: preview 61 -> 44.3 ms default, 95.5 -> 59.3 close, joints clean (NOTES-gl-audit "fix 1 measured"). Not in a release build yet.
 - Phone keeps the old debug app (session + `allow_mixed_temps` set): assembleDebug, `install -r -g`, wake (user OK 11-07), VD start, `slice`, `preview-zoom-perf.sh 1138`/`300`; sleep + uninstall after. scrcpy "Quest left eye" = VR side's, leave it.
 - **User 2026-11-07: brim/bed contact z-fights (triangle strobe) seen from below while dragging** (backlog, archive "brim meets the bed"); fix after the measurement.
-- Next step: measure the nearest-first draw (Item 5 fix 1) on the phone VD, A/B shot for joint z-fight, then fix 2 (no-discard variant / depth pre-pass) if needed -> Opus 5.5 (high)
+- Next step: GL audit Item 5 fix 2 (PATH_FS no-discard variant when the cut is off, else depth-only pre-pass), measure with preview-zoom-perf.sh 1138/300 on the phone VD -> Opus 5.5 (high)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 

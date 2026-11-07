@@ -71,3 +71,9 @@ measured. (2) if Adreno skips early-Z because of `discard`: shader variant witho
 or a depth pre-pass. (3) cheaper PATH_FS (beadMean calls). Check joints for new z-fight after any order change (A/B shot).
 Recipe this run: `~/orca-android-tools/preview-zoom-perf.sh <distance>` = view_set distance, preview_set {}, perf, orca-vd swipes, perf.
 Setup: debug app on the phone needs `allow_mixed_temps` true in its app_settings.xml (sed via su, app stopped) to slice plate 1.
+
+## Item 5 fix 1 measured (2026-11-07, phone VD, debug build of 1698961)
+Nearest-first chunks: preview GPU median 1138 mm 61 -> 44.3 ms, 300 mm 95.5 -> 59.3 ms, 6000 mm 3.1 -> 2.35 ms (PERFORMANCE.md Done).
+Close shot 250 mm / pitch 25: no visible joint z-fight. Still ~44 ms at default zoom = still overdraw-bound: Adreno LRZ is likely
+off for this draw because PATH_FS has `discard` (fix 2: no-discard variant when the section cut is off, or a depth-only pre-pass
+with colour masked, then the colour pass with GL_LEQUAL / depth write off). Then fix 3 (cheaper PATH_FS).
