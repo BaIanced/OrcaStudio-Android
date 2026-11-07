@@ -158,3 +158,18 @@ Try (2) first with a boxtris-ab.sh close shot vs 28.
   find which crack: **diag mode `debug.orca.boxtris 20` + a second draw of index range 20..28 (reversed layer walls only) in flat magenta
   with GL_LEQUAL**, close view (boxtris-ab.sh "close -30 -35 250"). Magenta at the rim = where they win. Then pick: (2) if it is the
   box's own edge; widen the overlap ring / lower the push (7.2e-5) if it is layer N+1's foot; (1) 28 only with the cut on otherwise.
+
+## Item 5 wall-top crack: magenta diag, LEQUAL run (2026-11-07, phone VD, temp debug build of d30c46f + `~/orca-android-tools/diag-rimdiag.patch`)
+Patch (not committed; tree reverted): `setprop debug.orca.rimdiag 1` = boxes draw 20 tris, then per chunk the reversed layer walls
+(index offset 120 B, 24 indices) in flat magenta, GL_LEQUAL, depth write off. Runner `rimdiag-shots.sh` (views close 250 / closer 120 /
+above 600, shots `shots/rd-<view>-<0|1>.png`), counter + 600 px crops `rimdiag-cmp.py` (`shots/rdc-<view>-<0|1>.png`).
+Gotcha: the first `slice` right after `orca-vd.sh start` returned non-JSON (app still starting) and the shots showed Prepare; rerun.
+- Magenta px: close 0.075% (1883), above 0.007%, closer 0 (that view missed the model; reaim).
+- Where (close crop): (a) continuous lines along bead top edges at the purple band's borders (yellow/olive lines in the 28 shot);
+  (b) dashes on the outer rim exactly where the 28 shot has its orange dashes; (c) short dashes at regular spacing across the
+  green skin = segment joints (end/start walls, coincident internal faces).
+- Caveat: LEQUAL also passes exact ties: a far wall's top ring shares its corners (same depth, same rank) with the top face, so
+  (a) may be ties, not real wins. The real draw is GL_LESS (top drawn before the walls in the same instance).
+Next: same diag with GL_LESS (patch: `glDepthFunc(GL_LEQUAL)` -> a prop switch, e.g. rimdiag 2 = LESS), same views + closer
+reaimed at the crop's spot. If (a) vanishes under LESS and only (b)/(c) remain: (c) = joint end walls -> drop reversed copies of the
+end/start walls only (the 8 reversed tris = 4 walls x 2; keep right/left = 4 tris, 28 -> 24) and A/B; (b) decides option 2 vs (1).

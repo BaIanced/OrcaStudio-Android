@@ -33,14 +33,13 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
 - Name inquiry #17269: wait 1-2 weeks from 2026-11-05, then one bump.
-- Two-Claude chat: VR-port agent (other account) talks via `claudechat.md`; Monitor its `## ` count (command in section 7), 30 min, re-arm. Quest profile numbers land in `NOTES-quest-profile.md`.
+- Two-Claude chat: `claudechat.md`; Monitor its `## ` count (command in section 7), 30 min, re-arm (expired 2026-11-07). Quest numbers: `NOTES-quest-profile.md`.
 - Release r538 on phone. GL shots: MCP `view_screenshot`. Quest profile is blocked until someone wears the headset (claudechat.md s8).
-- GL audit item 5 (`NOTES-gl-audit.md`): fixes 1+2 + box 36 -> 28 tris pushed (61 -> ~39 ms; not released). Phone debug app = diag build (setprop `debug.orca.boxtris`).
-- Phone debug app (session + `allow_mixed_temps`): `install -r -g`, **export PKG=...debug TARGET=phone** then `orca-vd.sh start`, `mcpao.sh slice:{}`, `preview-zoom-perf.sh 1138`; stop VD after. Leave scrcpy "Quest left eye".
-- **Reversed layer walls (~15 ms) fill a crack at wall tops (orange rim lines) and serve the section cut: options in NOTES "reversed overlap copies dropped".**
+- GL audit item 5 (`NOTES-gl-audit.md`): fixes 1+2 + box 36 -> 28 tris pushed (61 -> ~39 ms; not released). Phone debug app = rimdiag build (setprop `debug.orca.rimdiag`).
+- Phone debug app (session + `allow_mixed_temps`): `install -r -g`, **export PKG=...debug TARGET=phone**, `orca-vd.sh start`, `mcpao.sh slice:{}` (retry if non-JSON), `preview-zoom-perf.sh 1138`; stop VD after. Leave scrcpy "Quest left eye".
 - **User 2026-11-07: brim/bed contact z-fights (triangle strobe) seen from below while dragging** (backlog, archive "brim meets the bed").
-- Crack analysis done (NOTES "wall-top crack: analysis"): option 2 likely misses (box edges are shared); find the crack first.
-- Next step: GL audit item 5: magenta diag of the reversed layer walls (NOTES "wall-top crack: analysis", diag build on the phone VD, close view) to find which crack they fill, then the matching fix and 28 -> 20 tris with the cut off; A/B close shot + 1138/300 perf -> Opus 5.5 (high)
+- Magenta diag LEQUAL run done (NOTES "magenta diag, LEQUAL run"): wins at bead top edges, rim dashes, segment joints; ties not yet excluded.
+- Next step: GL audit item 5: rerun the magenta diag with GL_LESS (`diag-rimdiag.patch` + prop switch, `rimdiag-shots.sh`, `rimdiag-cmp.py`), then the matching fix (joint end walls -> 24 tris, or option 2/1); A/B close shot + 1138/300 perf -> Opus 5.5 (high)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
