@@ -35,10 +35,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Open tests in backlog.
 - Name inquiry #17269: wait 1-2 weeks from 2026-11-05, then one bump. Upstream-PR idea (patches 0002-0004 vs 2.5.0 alpha): no go yet.
 - Two-Claude chat (user 2026-11-06): other account's VR-port agent talks via `claudechat.md` (sections 1-7; SendMessage can't cross accounts). Start a Monitor on its `## ` count (command in section 7), timeout 30 min, re-arm. Quest profile numbers land in `NOTES-quest-profile.md`.
-- r537 (CI 42193709878) on phone + WSA. Crease static-VBO A/B done 2026-11-06: no draw-ms change (archive end, PERFORMANCE.md row; PERFORMANCE.md edit uncommitted). WSA VD has no GL screenshots: use the phone VD.
+- r537 (CI 42193709878) on phone + WSA. Crease static-VBO A/B done 2026-11-06: no draw-ms change (archive end, PERFORMANCE.md row, 2ccad47). WSA VD has no GL screenshots: use the phone VD.
 - Quest profile (other account's VR-port agent): blocked on a wearer (claudechat.md section 8); `NOTES-quest-profile.md` has no numbers yet.
 - A/B recipe: `/c/Users/Vince/AppData/Local/Temp/claude/f3c43eac8dfa6a4f/18b1fe00-2431-46b0-b931-7a8643178c1e/scratchpad/ab-crease.sh` (interleaved installs, phone VD, `perf` per orbit, `setpref` sed for app_settings.xml bools). APKs `/tmp/ab/new` (r535), `/tmp/ab/r536` (r537).
-- Next: render hot-path audit (backlog "Render hot-path audit"): battery/temp over a fixed long orbit (battery level+current via `dumpsys battery` / `current_now`, 60 s orbit loop, r537), then GL state/upload/draw-call audit in `render/`. Commit PERFORMANCE.md with it.
+- Next: render hot-path audit (backlog "Render hot-path audit"): battery/temp over a fixed long orbit (battery level+current via `dumpsys battery` / `current_now`, 60 s orbit loop, r537), then GL state/upload/draw-call audit in `render/`.
 - Next step: Render hot-path audit, battery over a fixed orbit on the phone VD -> Sonnet 5.5 (medium)
 - VD keyboard/tap fix (orca-vd.sh, archive end) awaits the user's verdict (keyboard no longer vanishes?); VD may still be running: `TARGET=phone sh orca-vd.sh stop`.
 ## User decisions
