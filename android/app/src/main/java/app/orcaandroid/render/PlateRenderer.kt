@@ -900,7 +900,9 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         // reversed copy. Culling instead of PATH_FS's old gl_FrontFacing discard keeps the early depth test on
         // (NOTES-gl-audit item 5 fix 2). The overlap walls get no reversed copy: pixel-identical without it (look A/B,
         // 4 views) and 36 -> 28 tris a box, preview GPU 44.4 -> 38.8 ms at the default zoom (NOTES item 5 look A/B).
-        val walls = idx.subList(12, 36).toList()
+        // Only the right/left layer walls get one: the end/start copies only filled segment joints inside a skin, same
+        // colour either way (393 px of 2.5M at 250 mm), 28 -> 24 tris, GPU 33.6 -> 29.9 ms at 1138 mm (NOTES magenta diag).
+        val walls = idx.subList(12, 24).toList()
         for (t in walls.indices step 3) idx += listOf(walls[t + 1], walls[t], walls[t + 2])
         boxIndexCount = idx.size
         glBindBuffer(GL_ARRAY_BUFFER, boxVbo)

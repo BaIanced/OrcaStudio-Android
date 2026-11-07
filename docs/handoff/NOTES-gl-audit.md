@@ -173,3 +173,18 @@ Gotcha: the first `slice` right after `orca-vd.sh start` returned non-JSON (app 
 Next: same diag with GL_LESS (patch: `glDepthFunc(GL_LEQUAL)` -> a prop switch, e.g. rimdiag 2 = LESS), same views + closer
 reaimed at the crop's spot. If (a) vanishes under LESS and only (b)/(c) remain: (c) = joint end walls -> drop reversed copies of the
 end/start walls only (the 8 reversed tris = 4 walls x 2; keep right/left = 4 tris, 28 -> 24) and A/B; (b) decides option 2 vs (1).
+
+## Item 5 wall-top crack: GL_LESS rerun + 24 tris (2026-11-07, phone VD, diag build of 179fae6 + `diag-rimdiag.patch` v2)
+Patch v2 (not committed): `debug.orca.rimdiag` 1 = LEQUAL all magenta (old), 2 = GL_LESS with right/left reversed walls magenta and
+end/start cyan, 3 = draw 24 tris, 4 = 20 tris. Runner `MODES="0 2" rimdiag-shots.sh`; counts `rimdiag-cmp.py <mode> [views]`;
+A/B strip + changed px `rimdiag-ab.py <view> <x> <y> <modes>` (`shots/rdab-<view>.png`). Restart the VD if MCP stops answering ("not resumed").
+- LESS close: 1699 px (magenta 1356, cyan 343) vs LEQUAL 1883: ~90% are real wins, not ties. Same-box corners tie and lose under LESS,
+  so every hit is a crack *between* beads: magenta = continuous lines at bead/region borders (purple band edges, skin/perimeter seam,
+  outer wall top edges = the orange rim dashes); cyan = regular dashes across the skin at segment joints. Option 2 (lift a box's own top
+  ring) can't help; ruled out.
+- Look A/B vs 28: 24 tris close 393 px (0.016%), above 2 px: no visible change. 20 tris close 0.605%: rim dashes go, purple-band lines thin.
+- Perf (GPU medians sum, two rounds each): 1138 mm 33.68/33.61 -> 29.66/30.17; 300 mm 49.56/49.84 -> 44.32/46.93.
+- Shipped: reversed copies of right/left layer walls only (28 -> 24 tris), commit "Preview: box 28 -> 24 triangles".
+Left open: the right/left copies (~4 ms more) fill real between-bead cracks with an inside-lit-as-outside colour. Options: (1) 24 only with
+the section cut on, 20 otherwise (accept thinner rim); (4) close the crack: widen layer walls sideways by a hair in the VS (risk: coplanar
+neighbour tops z-fight unless rank bias separates them; check rank per role first).
