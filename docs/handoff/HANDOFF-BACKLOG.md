@@ -57,6 +57,8 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - S Pen pressure (user 2026-10-31): built ab552fa, UI checked on WSA VD; open: feel test on the Note 10+ (user says when awake); Quest pen has no pressure.
 - [Opus] Assemble space / big plate (user 2026-11-04, brain dump, exploration): zero-g space like Bambu/Orca Assemble (no plate; CAD tools + measuring; first VR step); big or infinite plate, or 4x4 plates; on exit auto-orient, "too big" error with a Fix = rotated + suggested cut location, glue later. Claude's leanings + phases A1-A4 given 2026-11-04 (archive "Assemble space / big plate: Claude's leanings"); user picked A1 2026-11-04; A1 coded f3361ff (Claude 2026-11-04), untested on WSA VD; A2-A4 open.
 
+- **Chromebook-ready for a future Google Play listing** (user 2026-11-06, via VR-port agent; nothing to do now): Play labels apps by device (Chromebook, tablet, phone, AR); the rules for each are unlooked-up, so research them when a listing gets close. May need little or no code (resizable panels). In place: big-screen pass on Chromebook r138/r140 (archive ~1504,1551); optional `android.hardware.type.pc` in AndroidManifest.xml:7, keep it (stops WSA/ChromeOS mouse-to-touch emulation).
+
 ## Known limits (no action)
 - Real keyboard Ctrl+1 = system hotkey. Inactive-plate double tap re-frames (user: fine). Badges ~23 dp at plate zoom (told the user).
 - HMS texts: HmsCatalog.kt fetches at runtime; Handy's copies stay local. Flatpak r9 MakerLab, upstream bump, obn follow-ups: archive.
