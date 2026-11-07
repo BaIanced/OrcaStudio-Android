@@ -109,3 +109,17 @@ ring is sub-pixel, 26 -> ~12 tris; (c) skip enclosed sparse/internal-solid infil
   `preview-zoom-perf.sh 1138` / `300` per variant with the flat FS and with PATH_FS. If 36 -> 20 (drop the reversed copies) already
   cuts most of it, the cheap fix is dropping or narrowing the reversed copies (look check: cracks between layers, r339/r340 notes);
   only then the sub-pixel overlap ring (cut b) and (c)/(e).
+
+## Item 5 triangle diagnostic measured (2026-11-07, phone VD, temp build of f85457d + `~/orca-android-tools/diag-boxtris.patch`)
+Patch (not committed; tree reverted): indices reordered [top, bottom, layer walls, overlap walls, reversed layer, reversed overlap],
+draw count = `setprop debug.orca.boxtris 12|20|28|36` (root), `debug.orca.flatfs 1` = flat FS. Runner: `~/orca-android-tools/boxtris-sweep.sh`.
+Preview GPU median ms (raw: same script output), tris 36 / 28 / 20 / 12:
+- PATH_FS: 1138 mm 44.4 / 38.8 / 24.0 / 16.1; 300 mm 45.5 / 40.2 / 28.7 / 17.7; 6000 mm 3.65 / 3.72 / 1.56 / 1.48.
+- flat FS: 1138 mm 29.8 / 26.3 / 20.5 / 13.8; 300 mm 31.5 / 26.3 / 21.5 / 11.8; 6000 mm 3.24 / 3.31 / 1.54 / 1.47.
+Read: **the reversed side copies cost ~20 of 44 ms at default zoom** (36 -> 20), the reversed overlap walls alone ~15 ms (28 -> 20).
+They cost FS time too (PATH_FS gap 20 ms vs flat 9 ms), so their fragments pass the depth test a lot: the far walls' insides show
+through the cracks between beads (their stated job, uploadBox comment) or win where the overlap is pushed back in depth.
+6000 mm is not clipped (perspective far = distance x 20), and it too scales with submitted tris (3.65 -> 1.56): small fixed cost.
+Next: look A/B on the installed phone debug app (still the diag build) with setprop 36 vs 28 vs 20: plate 1 from above, side and
+below (brim-from-below report), close 250 mm. If 20 looks the same, drop the reversed copies (-45%); if only the reversed overlap
+shows cracks, try keeping just the reversed layer walls, or fill the cracks another way. Then the overlap ring itself (20 -> 12, -8 ms).
