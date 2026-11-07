@@ -35,11 +35,11 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Name inquiry #17269: wait 1-2 weeks from 2026-11-05, then one bump.
 - Two-Claude chat: `claudechat.md`; Monitor its `## ` count (command in section 7), 30 min, re-arm (expired 2026-11-07). Quest numbers: `NOTES-quest-profile.md`.
 - Release r538 on phone. GL shots: MCP `view_screenshot`. Quest profile is blocked until someone wears the headset (claudechat.md s8).
-- GL audit item 5 (`NOTES-gl-audit.md`): fixes 1+2 + box 36 -> 28 tris pushed (61 -> ~39 ms; not released). Phone debug app = rimdiag build (setprop `debug.orca.rimdiag`).
+- GL audit item 5 (`NOTES-gl-audit.md`): fixes 1+2 + box 36 -> 28 -> 24 tris pushed (61 -> ~30 ms at 1138 mm; not released). Phone debug app = rimdiag build (setprop `debug.orca.rimdiag`).
 - Phone debug app (session + `allow_mixed_temps`): `install -r -g`, **export PKG=...debug TARGET=phone**, `orca-vd.sh start`, `mcpao.sh slice:{}` (retry if non-JSON), `preview-zoom-perf.sh 1138`; stop VD after. Leave scrcpy "Quest left eye".
 - **User 2026-11-07: brim/bed contact z-fights (triangle strobe) seen from below while dragging** (backlog, archive "brim meets the bed").
-- Magenta diag LEQUAL run done (NOTES "magenta diag, LEQUAL run"): wins at bead top edges, rim dashes, segment joints; ties not yet excluded.
-- Next step: GL audit item 5: rerun the magenta diag with GL_LESS (`diag-rimdiag.patch` + prop switch, `rimdiag-shots.sh`, `rimdiag-cmp.py`), then the matching fix (joint end walls -> 24 tris, or option 2/1); A/B close shot + 1138/300 perf -> Opus 5.5 (high)
+- Magenta diag GL_LESS run done (NOTES "GL_LESS rerun + 24 tris"): cracks are between beads, option 2 ruled out; 24 tris shipped.
+- Next step: GL audit item 5 rim: check the depth rank per role/neighbour, then try option 4 (widen layer walls a hair in PATH_VS, 20 tris) vs option 1 (24 only with the cut on); look A/B with `rimdiag-ab.py` + 1138/300 perf -> Opus 5.5 (high)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
