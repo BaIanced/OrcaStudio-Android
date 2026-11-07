@@ -15,7 +15,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 62ada99 (PR #73 = r521, multi-plate Preview, merged 2026-11-04; Claude-verified only; PR #72 = r519 before it). Nothing unverified on the branch; no merge offer pending. User-untested in main: list in `NOTES-merge-batch.md`.
 - Signing secrets: `release` environment (main + `claude/*` only).
-- Latest installed CI build: run 41939360557 (head 2236a00) on the phone (.20), WSA + Chromebook 2026-11-04 (WSA restarted: `WsaClient /shutdown`, `wsa-start.ps1`, `adb connect 127.0.0.1:58526`); Chromebook connects via `adb connect <chromebook-ip>:5555` (memory device-ips). **User 2026-11-01: avoid the SHIELD for now** (no installs there). Phone drops off adb: `adb connect <phone-ip>:5555` (memory device-ips); GL shots on the phone VD. Install builds on all adb devices (skip .23).
+- Installs: all adb devices (skip .23); **SHIELD avoided (user 2026-11-01)**. WSA restart: `WsaClient /shutdown`, `wsa-start.ps1`, `adb connect 127.0.0.1:58526`; phone/Chromebook reconnect: memory device-ips. GL shots on the phone VD.
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **User 2026-10-28: no more user testing for now; Claude builds and tests everything itself (memory no-user-testing-now); don't ask for feel/UI checks.**
 - **User 2026-10-29: no tests on the user's screen; all tests on a hidden virtual display** (`TARGET=wsa orca-vd.sh start`, memory tests-on-virtual-display).
@@ -33,12 +33,13 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
 - Open tests in backlog.
-- Orca name inquiry Discussions #17269: 0 replies on 2026-11-05; user decided to wait 1-2 weeks, then one bump. Upstream-PR idea: `android/patches/src-orca/0002-0004` (small libslic3r fixes) after checking they still apply to 2.5.0 alpha (untested, user offered it, no go yet).
+- Name inquiry #17269: wait 1-2 weeks from 2026-11-05, then one bump. Upstream-PR idea (patches 0002-0004 vs 2.5.0 alpha): no go yet.
 - Two-Claude chat (user 2026-11-06): other account's VR-port agent talks via `claudechat.md` (sections 1-7; SendMessage can't cross accounts). Start a Monitor on its `## ` count (command in section 7), timeout 30 min, re-arm. Quest profile numbers land in `NOTES-quest-profile.md`.
-- Crease/marker static VBOs committed (e28ad0c, compiled; draw ms untested). CI run 42193709878 (APK r537) GREEN, installed on phone + WSA. WSA VD has no GL screenshots: use the phone VD.
-- Quest profile (other account's VR-port agent) still IN PROGRESS: `NOTES-quest-profile.md` has no numbers yet.
-- Crease A/B prep: APKs in `/tmp/ab/{new,r536}/` (r535, r537). No UI taps: View menu edge outline (`edge_outline` bool in `shared_prefs/app_settings.xml`, su, app stopped; restore after) runs the same `drawCreases` path. ab.sh: `/c/Users/Vince/AppData/Local/Temp/claude/f3c43eac8dfa6a4f/eb61712d-ef5b-464e-b11b-59c9a3fee39f/scratchpad/ab.sh` (swap O/N to r535/r537). **Blocked: phone adb off** (pings, no 5555, no mDNS); user must re-enable wireless debugging or reboot.
-- Next step: on the phone VD, edge_outline on, A/B draw ms r535 vs r537 + cropped view_screenshot showing creases, add PERFORMANCE.md row, restore the pref -> Sonnet 5.5 (medium)
+- r537 (CI 42193709878) on phone + WSA. Crease static-VBO A/B done 2026-11-06: no draw-ms change (archive end, PERFORMANCE.md row; PERFORMANCE.md edit uncommitted). WSA VD has no GL screenshots: use the phone VD.
+- Quest profile (other account's VR-port agent): blocked on a wearer (claudechat.md section 8); `NOTES-quest-profile.md` has no numbers yet.
+- A/B recipe: `/c/Users/Vince/AppData/Local/Temp/claude/f3c43eac8dfa6a4f/18b1fe00-2431-46b0-b931-7a8643178c1e/scratchpad/ab-crease.sh` (interleaved installs, phone VD, `perf` per orbit, `setpref` sed for app_settings.xml bools). APKs `/tmp/ab/new` (r535), `/tmp/ab/r536` (r537).
+- Next: render hot-path audit (backlog "Render hot-path audit"): battery/temp over a fixed long orbit (battery level+current via `dumpsys battery` / `current_now`, 60 s orbit loop, r537), then GL state/upload/draw-call audit in `render/`. Commit PERFORMANCE.md with it.
+- Next step: Render hot-path audit, battery over a fixed orbit on the phone VD -> Sonnet 5.5 (medium)
 - VD keyboard/tap fix (orca-vd.sh, archive end) awaits the user's verdict (keyboard no longer vanishes?); VD may still be running: `TARGET=phone sh orca-vd.sh stop`.
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".

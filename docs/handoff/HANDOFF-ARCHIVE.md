@@ -4117,3 +4117,6 @@ Draw ms (CPU side, GL thread) median: r527 5.7-5.8, r535 5.6-5.8; p95 6.3-6.7 bo
 - Render profile: GL thread vsync-bound, Vulkan not justified; ULoc uniform cache (cb454dc, r535) verified (strcmp/glGetUniformLocation gone). Installed r535 on phone, WSA, Chromebook. ULoc A/B: draw ms 5.7 -> 5.7 (noise); PERFORMANCE.md row added.
 - `superKey()` list allocs skipped on purpose (GL thread vsync-bound, tiny gain, key-correctness risk).
 - CI run 42193709878 (head 0c43fcb) APK is named r537, not r536; also installed on SHIELD by mistake (harmless).
+
+## 2026-11-06 Crease static VBO A/B (Claude, phone VD)
+- Edge outline on (pref set via su, restored to false after), plate 1 fit, 3 s orbit, interleaved r535/r537 2x3 runs each: draw median 5.6-5.7 -> 5.5-5.6 ms, p95 6.4-6.7 -> 6.4-6.8: no measurable change. Creases confirmed drawn on r537 (view_screenshot, lattice vase). PERFORMANCE.md row added. Script: scratchpad `ab-crease.sh` (session 18b1fe00). Phone left on r537.
