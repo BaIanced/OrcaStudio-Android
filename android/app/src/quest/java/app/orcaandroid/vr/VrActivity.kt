@@ -283,6 +283,7 @@ class VrActivity : Activity() {
         t.zoomRate = read("zoomRate", t.zoomRate)
         t.axisLock = read("axisLock", t.axisLock)
         t.grabToggle = json.optBoolean("grabToggle", t.grabToggle)
+        if (json.has("refreshHz")) requestRefreshRate(json.optDouble("refreshHz").toFloat())
         panel?.let { p ->
             p.x = read("panelX", p.x)
             p.y = read("panelY", p.y)
@@ -290,6 +291,16 @@ class VrActivity : Activity() {
             p.width = read("panelWidth", p.width)
         }
         Log.i(TAG, "VR_TUNE applied $json")
+    }
+
+    private fun requestRefreshRate(wanted: Float) {
+        val offered = XrShim.nativeRefreshRates()
+        val rate = RefreshRates.match(wanted, offered)
+        if (rate == null) {
+            Log.e(TAG, "VR_REFRESH $wanted not offered, keeping the current rate: ${offered.joinToString()}")
+            return
+        }
+        Log.i(TAG, "VR_REFRESH requested $rate accepted ${XrShim.nativeRequestRefreshRate(rate)}")
     }
 
     /** `vr_panel.txt` beside the tuning file, pushed over adb, shown live. Removing it brings the built-in text back; empty hides the panel. */
@@ -410,6 +421,7 @@ class VrActivity : Activity() {
             val now = SystemClock.elapsedRealtime()
             if (now - windowStart >= FPS_WINDOW_MS) {
                 Log.i(TAG, "VR_FPS " + frames * 1000 / (now - windowStart))
+                Log.i(TAG, "VR_REFRESH current ${XrShim.nativeCurrentRefreshRate()} frame period ${XrShim.nativeFramePeriodHz()}")
                 frames = 0
                 windowStart = now
             }

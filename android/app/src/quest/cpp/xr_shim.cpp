@@ -63,6 +63,10 @@ struct Shim {
     // XR_FB_passthrough: listed by the runtime, and the entry points once enabled.
     bool passthroughListed = false;
     bool refreshRatesListed = false;
+    PFN_xrEnumerateDisplayRefreshRatesFB enumerateRefreshRates = nullptr;
+    PFN_xrGetDisplayRefreshRateFB getRefreshRate = nullptr;
+    PFN_xrRequestDisplayRefreshRateFB requestRefreshRate = nullptr;
+    XrDuration displayPeriod = 0;
     PFN_xrCreatePassthroughFB createPassthrough = nullptr;
     PFN_xrDestroyPassthroughFB destroyPassthrough = nullptr;
     PFN_xrPassthroughStartFB startPassthrough = nullptr;
@@ -133,22 +137,29 @@ bool loadFunction(const char* name, T& out) {
     return XR_SUCCEEDED(xrGetInstanceProcAddr(g.instance, name, reinterpret_cast<PFN_xrVoidFunction*>(&out))) && out;
 }
 
-// For the frame rate setting: what VR itself can run at, which may differ from Android's display modes. Only logs.
-void logRefreshRates() {
+// What VR itself can run at, which may differ from Android's display modes. Empty when the runtime doesn't say.
+std::vector<float> refreshRates() {
+    if (!g.enumerateRefreshRates) return {};
+    uint32_t count = 0;
+    if (!ok(g.enumerateRefreshRates(g.session, 0, &count, nullptr), "xrEnumerateDisplayRefreshRatesFB")) return {};
+    std::vector<float> rates(count);
+    if (!ok(g.enumerateRefreshRates(g.session, count, &count, rates.data()), "xrEnumerateDisplayRefreshRatesFB")) return {};
+    return rates;
+}
+
+// Leaves all three null on any miss, so VR runs at whatever the runtime picks.
+void loadRefreshFunctions() {
     if (!g.refreshRatesListed) return;
-    PFN_xrEnumerateDisplayRefreshRatesFB enumerate = nullptr;
-    PFN_xrGetDisplayRefreshRateFB current = nullptr;
-    if (!loadFunction("xrEnumerateDisplayRefreshRatesFB", enumerate) || !loadFunction("xrGetDisplayRefreshRateFB", current)) {
+    if (!loadFunction("xrEnumerateDisplayRefreshRatesFB", g.enumerateRefreshRates) ||
+        !loadFunction("xrGetDisplayRefreshRateFB", g.getRefreshRate) ||
+        !loadFunction("xrRequestDisplayRefreshRateFB", g.requestRefreshRate)) {
         LOGE("VR_REFRESH entry points missing");
+        g.enumerateRefreshRates = nullptr;
+        g.getRefreshRate = nullptr;
+        g.requestRefreshRate = nullptr;
         return;
     }
-    uint32_t count = 0;
-    if (!ok(enumerate(g.session, 0, &count, nullptr), "xrEnumerateDisplayRefreshRatesFB")) return;
-    std::vector<float> rates(count);
-    if (!ok(enumerate(g.session, count, &count, rates.data()), "xrEnumerateDisplayRefreshRatesFB")) return;
-    for (float rate : rates) LOGI("VR_REFRESH available %.2f", rate);
-    float now = 0;
-    if (ok(current(g.session, &now), "xrGetDisplayRefreshRateFB")) LOGI("VR_REFRESH current %.2f", now);
+    for (float rate : refreshRates()) LOGI("VR_REFRESH available %.2f", rate);
 }
 
 // Leaves createPassthrough null on any miss, so the session stays plain.
@@ -464,7 +475,7 @@ bool createSession(EGLDisplay display, EGLConfig config, EGLContext context) {
     spaceInfo.poseInReferenceSpace.orientation.w = 1.0f;
     if (!ok(xrCreateReferenceSpace(g.session, &spaceInfo, &g.space), "xrCreateReferenceSpace")) return false;
     createPassthrough();
-    logRefreshRates();
+    loadRefreshFunctions();
     g.inputReady = createInput();
     LOGI("VR_INPUT %s", g.inputReady ? "ready" : "unavailable, the plate stays where it is");
     return createSwapchains();
@@ -529,6 +540,30 @@ JNIEXPORT jboolean JNICALL Java_app_orcaandroid_vr_XrShim_nativePassthroughActiv
     return g.passthroughLayer != XR_NULL_HANDLE ? JNI_TRUE : JNI_FALSE;
 }
 
+JNIEXPORT jfloatArray JNICALL Java_app_orcaandroid_vr_XrShim_nativeRefreshRates(JNIEnv* env, jclass) {
+    const std::vector<float> rates = refreshRates();
+    jfloatArray out = env->NewFloatArray(static_cast<jsize>(rates.size()));
+    if (out) env->SetFloatArrayRegion(out, 0, static_cast<jsize>(rates.size()), rates.data());
+    return out;
+}
+
+// 0 when the runtime doesn't say.
+JNIEXPORT jfloat JNICALL Java_app_orcaandroid_vr_XrShim_nativeCurrentRefreshRate(JNIEnv*, jclass) {
+    float rate = 0;
+    if (!g.getRefreshRate || !ok(g.getRefreshRate(g.session, &rate), "xrGetDisplayRefreshRateFB")) return 0;
+    return rate;
+}
+
+// The rate implied by the last xrWaitFrame, to compare with the rate the runtime reports. 0 before the first frame.
+JNIEXPORT jfloat JNICALL Java_app_orcaandroid_vr_XrShim_nativeFramePeriodHz(JNIEnv*, jclass) {
+    return g.displayPeriod > 0 ? static_cast<jfloat>(1e9 / static_cast<double>(g.displayPeriod)) : 0;
+}
+
+// 0 asks for no preference. Only starts the change: XR_TYPE_EVENT_DATA_DISPLAY_REFRESH_RATE_CHANGED_FB reports it.
+JNIEXPORT jboolean JNICALL Java_app_orcaandroid_vr_XrShim_nativeRequestRefreshRate(JNIEnv*, jclass, jfloat rate) {
+    return g.requestRefreshRate && ok(g.requestRefreshRate(g.session, rate), "xrRequestDisplayRefreshRateFB") ? JNI_TRUE : JNI_FALSE;
+}
+
 JNIEXPORT jint JNICALL Java_app_orcaandroid_vr_XrShim_nativePollEvents(JNIEnv*, jclass) {
     XrEventDataBuffer event{XR_TYPE_EVENT_DATA_BUFFER};
     while (xrPollEvent(g.instance, &event) == XR_SUCCESS) {
@@ -536,6 +571,9 @@ JNIEXPORT jint JNICALL Java_app_orcaandroid_vr_XrShim_nativePollEvents(JNIEnv*, 
             onStateChanged(reinterpret_cast<const XrEventDataSessionStateChanged*>(&event)->state);
         } else if (event.type == XR_TYPE_EVENT_DATA_INTERACTION_PROFILE_CHANGED) {
             if (g.inputReady) logInteractionProfiles();
+        } else if (event.type == XR_TYPE_EVENT_DATA_DISPLAY_REFRESH_RATE_CHANGED_FB) {
+            const auto* changed = reinterpret_cast<const XrEventDataDisplayRefreshRateChangedFB*>(&event);
+            LOGI("VR_REFRESH changed %.2f to %.2f", changed->fromDisplayRefreshRate, changed->toDisplayRefreshRate);
         } else if (event.type == XR_TYPE_EVENT_DATA_INSTANCE_LOSS_PENDING) {
             LOGE("XR instance loss pending");
             g.running = false;
@@ -556,6 +594,7 @@ JNIEXPORT jboolean JNICALL Java_app_orcaandroid_vr_XrShim_nativeBeginFrame(JNIEn
     XrFrameState frame{XR_TYPE_FRAME_STATE};
     if (!ok(xrWaitFrame(g.session, nullptr, &frame), "xrWaitFrame")) return JNI_FALSE;
     g.displayTime = frame.predictedDisplayTime;
+    g.displayPeriod = frame.predictedDisplayPeriod;
     if (!ok(xrBeginFrame(g.session, nullptr), "xrBeginFrame")) return JNI_FALSE;
     if (!frame.shouldRender) return JNI_FALSE;
 

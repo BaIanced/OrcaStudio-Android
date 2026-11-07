@@ -31,6 +31,14 @@ internal object XrShim {
     @JvmStatic external fun nativeCreate(activity: Activity, eglDisplay: Long, eglConfig: Long, eglContext: Long, passthrough: Boolean): Boolean
     /** True when the passthrough layer runs, so the background must be cleared with alpha 0. */
     @JvmStatic external fun nativePassthroughActive(): Boolean
+    /** Every rate VR can run at, read from the runtime. Empty when it doesn't say. */
+    @JvmStatic external fun nativeRefreshRates(): FloatArray
+    /** The rate the runtime reports now, 0 when it doesn't say. */
+    @JvmStatic external fun nativeCurrentRefreshRate(): Float
+    /** The rate implied by the last frame's predicted period, 0 before the first frame. */
+    @JvmStatic external fun nativeFramePeriodHz(): Float
+    /** [rate] must be one of [nativeRefreshRates], or 0 for no preference. The change happens later, if at all. */
+    @JvmStatic external fun nativeRequestRefreshRate(rate: Float): Boolean
     @JvmStatic external fun nativePollEvents(): Int
     @JvmStatic external fun nativeSwapchainSize(eye: Int, out: IntArray)
     /** True when the caller should draw. [nativeEndFrame] must follow either way. */
