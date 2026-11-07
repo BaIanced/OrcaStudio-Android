@@ -36,8 +36,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Two-Claude chat (user 2026-11-06): other account's VR-port agent talks via `claudechat.md` (sections 1-7; SendMessage can't cross accounts). Start a Monitor on its `## ` count (command in section 7), timeout 30 min, re-arm. Quest profile numbers land in `NOTES-quest-profile.md`.
 - r537 on phone + WSA; GL shots: MCP `view_screenshot` or phone VD. Quest profile blocked on a wearer (claudechat.md s8). A/B recipe: archive "ab-crease.sh".
 - VD keyboard/tap fix (orca-vd.sh, archive end) awaits the user's verdict (keyboard no longer vanishes?).
-- GL audit: `NOTES-gl-audit.md`. GPU timers verified on the phone VD 2026-11-06: Preview toolpath pass = 48.8 ms/frame in orbit (~20 fps), everything else <0.6 ms (notes 'Item 4 measured' + recipe). phone-ui.py tap VD fix: archive end.
-- Preview pass analysis: `NOTES-gl-audit.md` "Item 5" (plate 1 = 1.30 M segments, 12-corner instanced boxes, likely vertex-bound, untested; experiment + cut list there).
+- GL audit `NOTES-gl-audit.md`: Preview toolpath pass = 48.8 ms/frame in orbit, rest <0.6 ms ("Item 4 measured" + recipe); "Item 5" = 1.30 M segments, likely vertex-bound (untested), experiment + cut list.
 - Next step: run the Item 5 zoom experiment (vertex vs fragment bound) on the phone VD, then implement cut (a) CPU-precomputed mitres, re-measure -> Opus 5.5 (high)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
