@@ -38,8 +38,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - r537 on phone + WSA; GL shots: MCP `view_screenshot` or phone VD. Quest profile blocked on a wearer (claudechat.md s8). A/B recipe: archive "ab-crease.sh".
 - mobilecad review 2026-11-06 (archive end): XR ideas for the VR-port agent (backlog [idea]).
 - Render-on-demand 84ffb8e (r538): verified, PERFORMANCE.md battery row added (archive end).
-- GL audit pass 1 (reading only): `NOTES-gl-audit.md`. No big CPU waste; next is a per-pass GPU timer query (EXT_disjoint_timer_query) in MCP `perf`, then fix the top pass.
-- Next step: per-pass GPU timer query in perf (NOTES-gl-audit.md item 4) -> Opus 5.5 (high)
+- GL audit: `NOTES-gl-audit.md`. Per-pass GPU timers in MCP `perf` coded + compiled (1963674, untested on device; notes 'Item 4').
+- Next step: measure per-pass GPU ms with perf on the phone VD (plate-1 orbit, Preview still), then fix the top pass -> Opus 5.5 (high)
 - VD keyboard/tap fix (orca-vd.sh, archive end) awaits the user's verdict (keyboard no longer vanishes?).
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".

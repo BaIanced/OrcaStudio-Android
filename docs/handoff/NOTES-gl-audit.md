@@ -23,3 +23,12 @@ so per-call CPU overhead (JNI + uniform setting) is already proven to be below n
 a. Timer-query per pass in `perf` (debug-only), measure plate 1 orbit + Preview still/accumulate.
 b. Item 2 (scratch buffer) if a selection/gizmo frame shows allocation stalls.
 c. Items 1/3 only if a) shows CPU-bound frames.
+
+## Item 4 done in code (2026-11-06, 1963674, untested on a device)
+- `render/GpuTimer.kt`: GL_TIME_ELAPSED_EXT queries per labelled section, 4-frame ring (never waits on the GPU), disjoint/unready frames dropped.
+- Sections in PlateRenderer: clear, shadow map, shadow, floor/beds, preview, mesh, paint, creases+guides, clear filaments,
+  translucent, selection, overlays, loupe, 2x resolve, accum show/mix. Nested sections aren't timed (queries can't nest).
+- MCP `perf`: first call turns timers on; each later call prints GPU ms per pass (median/p95) since the previous call, then resets.
+- Caveat: on tiled GPUs (Adreno/Mali) per-pass times inside one render pass may show binning only; if the medians don't sum
+  near the frame time, fall back to ablation (turn passes off, compare frame time).
+- Next: debug build on the phone VD (Adreno; WSA may lack the extension), perf twice around plate-1 orbit and Preview still/accumulate.
