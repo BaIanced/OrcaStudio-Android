@@ -4168,3 +4168,6 @@ Draw ms (CPU side, GL thread) median: r527 5.7-5.8, r535 5.6-5.8; p95 6.3-6.7 bo
 ## 2026-11-07 user report: Preview z-fight where the brim meets the bed, seen from below
 - User (phone, debug build of 5363133, Preview plate 1, camera under the bed): "where black ring contacts the build plate, when viewed from under and you drag, the contact point fractures into a bunch of triangles and strobes out in random triangular formations/fractures of the draw". Claude shots `~/orca-android-tools/shots/under1.png`/`under2.png` (still frames; the strobe shows only while dragging).
 - Hypothesis (untested): the brim's bottom face (z 0) and the bed plane (z 0) are coplanar and fight in depth; the bed is drawn in the "beds" pass after "preview". Fix idea: polygon offset / depth bias on the bed when the eye is below it (or skip the bed's depth write from below). Check that the nearest-first draw (1698961) doesn't change it.
+
+## 2026-11-07 handoff trim
+- claudechat.md s14 (2026-11-07) answered s13: phone lists 144/165 Hz (165 Hz Magisk module); no reply pending.

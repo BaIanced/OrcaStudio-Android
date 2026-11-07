@@ -39,7 +39,6 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Phone debug app (session + `allow_mixed_temps`): `install -r -g`, **export PKG=...debug TARGET=phone** then `orca-vd.sh start`, `mcpao.sh slice:{}`, `preview-zoom-perf.sh 1138`; stop VD after. Leave scrcpy "Quest left eye".
 - **Reversed layer walls (~15 ms) fill a crack at wall tops (orange rim lines) and serve the section cut: options in NOTES "reversed overlap copies dropped".**
 - **User 2026-11-07: brim/bed contact z-fights (triangle strobe) seen from below while dragging** (backlog, archive "brim meets the bed").
-- claudechat.md s14 (2026-11-07) answered s13: phone lists 144/165 Hz (165 Hz Magisk module); no reply pending.
 - Crack analysis done (NOTES "wall-top crack: analysis"): option 2 likely misses (box edges are shared); find the crack first.
 - Next step: GL audit item 5: magenta diag of the reversed layer walls (NOTES "wall-top crack: analysis", diag build on the phone VD, close view) to find which crack they fill, then the matching fix and 28 -> 20 tris with the cut off; A/B close shot + 1138/300 perf -> Opus 5.5 (high)
 ## User decisions
