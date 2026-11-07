@@ -123,3 +123,15 @@ through the cracks between beads (their stated job, uploadBox comment) or win wh
 Next: look A/B on the installed phone debug app (still the diag build) with setprop 36 vs 28 vs 20: plate 1 from above, side and
 below (brim-from-below report), close 250 mm. If 20 looks the same, drop the reversed copies (-45%); if only the reversed overlap
 shows cracks, try keeping just the reversed layer walls, or fill the cracks another way. Then the overlap ring itself (20 -> 12, -8 ms).
+
+## Item 5 look A/B measured (2026-11-07, phone VD, same diag build; `~/orca-android-tools/boxtris-ab.sh` + `boxtris-cmp.py`)
+**Label fix for the section above:** with prefix ordering, 36 -> 28 drops the *reversed overlap* walls (44.4 -> 38.8, ~5.6 ms) and
+28 -> 20 drops the *reversed layer* walls (38.8 -> 24.0, ~15 ms); "reversed overlap walls ~15 ms" above was mislabeled.
+Plate 1 Preview, 4 views (above 1138 mm, side 600, below 600, close 250), full-res shots, pixels changed (any channel > 24) vs 36:
+- 28: **0 px in all 4 views** -> the reversed overlap copies are pure cost. Drop them (safe, ~-5.6 ms default zoom, -13%).
+- 20: above 0.057%, side 0.007%, below 0, close 0.229%. Close crop (`shots/btd-close-20.png`): the bright orange rim line where a
+  layer wall meets the top surface turns thinner/olive; the wall insides showing at the bead edge are what the reversed layer walls draw.
+  Subtle but visible at 250 mm. Below view: no change (so not related to the brim-from-below z-fight).
+- Gotcha: a repeated identical `view_set` doesn't redraw; the script nudges distance +7 first (the first run gave 0 px for everything).
+Next: commit "drop reversed overlap copies" (box 36 -> 28 tris), measure 1138/300. Then decide the reversed layer walls: try a cheaper
+way to keep the rim (e.g. reversed copies only of the top edge band, or darken/brighten the rim in the FS) vs accept the thinner rim for -15 ms.
