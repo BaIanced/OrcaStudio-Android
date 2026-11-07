@@ -35,12 +35,12 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Name inquiry #17269: wait 1-2 weeks from 2026-11-05, then one bump.
 - Two-Claude chat: VR-port agent (other account) talks via `claudechat.md`; Monitor its `## ` count (command in section 7), 30 min, re-arm. Quest profile numbers land in `NOTES-quest-profile.md`.
 - Release r538 on phone. GL shots: MCP `view_screenshot`. Quest profile is blocked until someone wears the headset (claudechat.md s8).
-- GL audit item 5 (`NOTES-gl-audit.md`): fixes 1+2 pushed (61 -> ~43 ms; not released). Reversed side copies cost ~20 of 44 ms (phone debug app = diag build, setprop `debug.orca.boxtris`).
+- GL audit item 5 (`NOTES-gl-audit.md`): fixes 1+2 + box 36 -> 28 tris pushed (61 -> ~39 ms; not released). Phone debug app = diag build (setprop `debug.orca.boxtris`).
 - Phone debug app (session + `allow_mixed_temps`): `install -r -g`, **export PKG=...debug TARGET=phone** then `orca-vd.sh start`, `mcpao.sh slice:{}`, `preview-zoom-perf.sh 1138`; stop VD after. Leave scrcpy "Quest left eye".
-- **Look A/B 2026-11-07 (NOTES "look A/B measured"): reversed overlap copies are pixel-identical (drop, ~-5.6 ms); reversed layer walls thin the bead-edge rim at 250 mm (~15 ms, decide).**
+- **Reversed layer walls (~15 ms) fill a crack at wall tops (orange rim lines) and serve the section cut: options in NOTES "reversed overlap copies dropped".**
 - **User 2026-11-07: brim/bed contact z-fights (triangle strobe) seen from below while dragging** (backlog, archive "brim meets the bed").
 - claudechat.md s14 (2026-11-07) answered s13: phone lists 144/165 Hz (165 Hz Magisk module); no reply pending.
-- Next step: GL audit item 5: commit dropping the reversed overlap copies in `uploadBox` (36 -> 28 tris), measure 1138/300 on the phone VD, then try keeping the rim without the reversed layer walls (NOTES "look A/B measured" Next) -> Opus 5.5 (high)
+- Next step: GL audit item 5: close the wall-top crack another way (option 2 in NOTES "reversed overlap copies dropped"), then drop the reversed layer walls while the section cut is off (28 -> 20 tris); A/B close shot + 1138/300 perf on the phone VD -> Opus 5.5 (high)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
