@@ -4120,3 +4120,8 @@ Draw ms (CPU side, GL thread) median: r527 5.7-5.8, r535 5.6-5.8; p95 6.3-6.7 bo
 
 ## 2026-11-06 Crease static VBO A/B (Claude, phone VD)
 - Edge outline on (pref set via su, restored to false after), plate 1 fit, 3 s orbit, interleaved r535/r537 2x3 runs each: draw median 5.6-5.7 -> 5.5-5.6 ms, p95 6.4-6.7 -> 6.4-6.8: no measurable change. Creases confirmed drawn on r537 (view_screenshot, lattice vase). PERFORMANCE.md row added. Script: scratchpad `ab-crease.sh` (session 18b1fe00). Phone left on r537.
+
+## 2026-11-06 Render hot-path audit: battery over a fixed orbit (r537, phone VD, discharging, 33 C)
+- Script (scratchpad, session 77ad40fb): `batt-orbit.sh`: 30 s idle then 60 s of back-to-back 3 s orbit swipes, `current_now`/temp sampled every 3 s (sysfs updates only ~every 9 s). Idle ~550-740 mA, orbit ~530-630 mA, temp 29.5 C both: no difference.
+- Cause: `PlateView.kt:347` `renderMode = RENDERMODE_CONTINUOUSLY`. MCP `perf` on a fully idle scene (25 s after start, no input) still reports 165 fps, draw 5.6 ms median. So the app redraws a static scene every frame (VD runs uncapped; on a 60/120 Hz panel it is the panel rate). `MeshPreviewView.kt:162` already uses WHEN_DIRTY.
+- Fix idea: WHEN_DIRTY + `requestRender()` from every `onGl`/touch/camera inertia/animation/MCP view change, or continuous only while something animates. Touches many paths (not yet read), so risk of stuck frames; needs an idle-vs-orbit battery A/B after.

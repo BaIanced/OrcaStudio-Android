@@ -38,8 +38,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - r537 (CI 42193709878) on phone + WSA. Crease static-VBO A/B done 2026-11-06: no draw-ms change (archive end, PERFORMANCE.md row, 2ccad47). WSA VD has no GL screenshots: use the phone VD.
 - Quest profile (other account's VR-port agent): blocked on a wearer (claudechat.md section 8); `NOTES-quest-profile.md` has no numbers yet.
 - A/B recipe: `/c/Users/Vince/AppData/Local/Temp/claude/f3c43eac8dfa6a4f/18b1fe00-2431-46b0-b931-7a8643178c1e/scratchpad/ab-crease.sh` (interleaved installs, phone VD, `perf` per orbit, `setpref` sed for app_settings.xml bools). APKs `/tmp/ab/new` (r535), `/tmp/ab/r536` (r537).
-- Next: render hot-path audit (backlog "Render hot-path audit"): battery/temp over a fixed long orbit (battery level+current via `dumpsys battery` / `current_now`, 60 s orbit loop, r537), then GL state/upload/draw-call audit in `render/`.
-- Next step: Render hot-path audit, battery over a fixed orbit on the phone VD -> Sonnet 5.5 (medium)
+- Battery audit done 2026-11-06 (archive end): the 3D view redraws a static scene at full rate (`PlateView.kt:347` RENDERMODE_CONTINUOUSLY; idle current = orbit current, perf shows 165 fps idle on the VD). Script `orca-android-tools/batt-orbit.sh` (copy at orca-android-tools/batt-orbit.sh).
+- Next: render-on-demand (WHEN_DIRTY + requestRender from onGl/touch/camera inertia/animations/MCP view changes), then idle-vs-orbit battery A/B; then GL state/upload/draw-call audit.
+- Next step: Render-on-demand in PlateView (idle redraw fix) -> Opus 5.5 (medium)
 - VD keyboard/tap fix (orca-vd.sh, archive end) awaits the user's verdict (keyboard no longer vanishes?); VD may still be running: `TARGET=phone sh orca-vd.sh stop`.
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
