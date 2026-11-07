@@ -1,5 +1,7 @@
 # Quest render-path profile (IN PROGRESS: no final numbers yet)
 
+> Message log with the main Claude: `docs/handoff/claudechat.md` (read it first; see repo `CLAUDE.md`).
+
 **Build tested:** none finished. Runs so far: 2D r527 (no cache), 2D r535 (cache) installed. VR r534 (no cache) installed; VR+cache build is CI run 42191304284 on `claude/vr-profile` (56848db = vr-m2 + cb454dc cherry-picked).
 **Date:** 2026-11-06
 **Device:** Quest 3 `<QUEST>`, Horizon OS v210. The user said the plate is throwaway.
