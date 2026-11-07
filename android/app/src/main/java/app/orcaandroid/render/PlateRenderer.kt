@@ -890,17 +890,18 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         }
         quad(0, 0, 3, 2, 1)                                  // top
         quad(8, 9, 10, 11, 8)                                // bottom
-        quad(5, 5, 1, 2, 6); quad(5, 9, 5, 6, 10)            // right: layer, overlap
-        quad(7, 7, 3, 0, 4); quad(7, 11, 7, 4, 8)            // left
-        quad(6, 6, 2, 3, 7); quad(6, 10, 6, 7, 11)           // end
-        quad(4, 4, 0, 1, 5); quad(4, 8, 4, 5, 9)             // start
+        // Layer walls (right, left, end, start), then the overlap walls below them.
+        quad(5, 5, 1, 2, 6); quad(7, 7, 3, 0, 4); quad(6, 6, 2, 3, 7); quad(4, 4, 0, 1, 5)
+        quad(5, 9, 5, 6, 10); quad(7, 11, 7, 4, 8); quad(6, 10, 6, 7, 11); quad(4, 8, 4, 5, 9)
         // The box winds every face clockwise seen from outside, so GL calls the outside the back face (r340 tested the
         // other way and dropped every top seen from above). drawExtrusions culls front faces: a top or bottom seen from
-        // inside the bead never shows (from below, the bead's own top won over its bottom, user r339). The sides stay
-        // two-sided (they fill the cracks between layers) through a reversed copy. Culling instead of PATH_FS's old
-        // gl_FrontFacing discard keeps the early depth test on (NOTES-gl-audit item 5 fix 2).
-        val sides = idx.subList(12, idx.size).toList()
-        for (t in sides.indices step 3) idx += listOf(sides[t + 1], sides[t], sides[t + 2])
+        // inside the bead never shows (from below, the bead's own top won over its bottom, user r339). The layer walls
+        // stay two-sided (they fill the cracks between beads: the orange rim lines at the top of a wall) through a
+        // reversed copy. Culling instead of PATH_FS's old gl_FrontFacing discard keeps the early depth test on
+        // (NOTES-gl-audit item 5 fix 2). The overlap walls get no reversed copy: pixel-identical without it (look A/B,
+        // 4 views) and 36 -> 28 tris a box, preview GPU 44.4 -> 38.8 ms at the default zoom (NOTES item 5 look A/B).
+        val walls = idx.subList(12, 36).toList()
+        for (t in walls.indices step 3) idx += listOf(walls[t + 1], walls[t], walls[t + 2])
         boxIndexCount = idx.size
         glBindBuffer(GL_ARRAY_BUFFER, boxVbo)
         glBufferData(GL_ARRAY_BUFFER, v.size * 4, floats(v.toFloatArray()), GL_STATIC_DRAW)

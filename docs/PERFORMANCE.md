@@ -83,6 +83,9 @@ Record a missing baseline the first time a change touches that area (same device
   GL_FRONT culling (sides two-sided via a reversed copy, `uploadBox`), and a `pathProgramNoCut` variant drops the section discard
   while the cut is off. Phone VD, plate 1, same orbit, 2 runs each: default 1138 mm 44.3 -> 42.5-43.6 ms (noise), close 300 mm
   59.3 -> 43.5 ms. Shots 250 mm pitch 25 and 400 mm pitch -30: tops, sides, undersides clean.
+- 2026-11-07 Preview box 36 -> 28 triangles (GL audit item 5): no reversed copy of the overlap walls (`uploadBox`). Measured on the
+  diag build with the same index order (setprop boxtris 28 vs 36), phone VD, plate 1: 1138 mm 44.4 -> 38.8 ms, 300 mm 45.5 -> 40.2 ms.
+  Look A/B in 4 views (above, side, below, close 250 mm): 0 px changed. The committed build itself is not re-measured.
 ## Experiments (closed 2026-11-04: done, rejected or shelved)
 
 0. **Big-ticket map (2026-11-01, r502 APK 118.5 MB; native libs stored uncompressed = 78 MB).** liborca_jni symbol bytes by

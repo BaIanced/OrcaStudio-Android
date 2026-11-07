@@ -135,3 +135,13 @@ Plate 1 Preview, 4 views (above 1138 mm, side 600, below 600, close 250), full-r
 - Gotcha: a repeated identical `view_set` doesn't redraw; the script nudges distance +7 first (the first run gave 0 px for everything).
 Next: commit "drop reversed overlap copies" (box 36 -> 28 tris), measure 1138/300. Then decide the reversed layer walls: try a cheaper
 way to keep the rim (e.g. reversed copies only of the top edge band, or darken/brighten the rim in the FS) vs accept the thinner rim for -15 ms.
+
+## Item 5 reversed overlap copies dropped (2026-11-07, commit "Preview: box 36 -> 28 triangles")
+`uploadBox` now orders [top, bottom, layer walls, overlap walls, reversed layer walls] = 28 tris (same as diag prefix 28). Compiled,
+not re-measured (diag numbers stand: 1138 mm 44.4 -> 38.8, 300 mm 45.5 -> 40.2). Rim decision (reversed layer walls, ~15 ms), from
+the close crop: the orange outer-wall top lines turn thinner/olive without them, i.e. the bead behind shows through a crack at the
+wall's top edge (they fill cracks, not just "draw insides"). Also needed with the section cut on (a cut bead shows its far walls'
+insides). Options, unmeasured: (1) draw 28 only while the cut is on, 20 otherwise, accept the thinner rim; (2) close the crack instead:
+lift each layer wall's top ring a hair (or widen the top face by ~0.5 px) so the wall's own outside covers it, then 20 tris;
+(3) reversed copies of a thin top band only (new vertex ring, same tri count, less fill; flat-FS data says setup is ~6 of the 15 ms).
+Try (2) first with a boxtris-ab.sh close shot vs 28.
