@@ -474,7 +474,11 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         drawFrame()
         drawLoupe()
         frameStats.record(start, System.nanoTime())
+        afterFrame?.invoke()
     }
+
+    /** Called on the GL thread after each frame: the on-demand view asks for the next one while [settled] is false. */
+    @Volatile var afterFrame: (() -> Unit)? = null
 
     private fun drawFrame() {
         if (viewW > 1) fitPending?.let { (lo, hi) -> camera.fit(lo, hi, keepAngles = true); fitPending = null }
