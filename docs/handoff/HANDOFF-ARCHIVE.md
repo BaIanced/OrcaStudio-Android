@@ -4147,3 +4147,9 @@ Draw ms (CPU side, GL thread) median: r527 5.7-5.8, r535 5.6-5.8; p95 6.3-6.7 bo
 - Not yet tested: fling coast, pinch, plate switch, selection, loupe, build drags, refine finishing, battery A/B.
 - Note: `view_set` takes `view`, not `preset`. Plate 1 on WSA object scaled to [60,20,30]% so the prime tower fits (throwaway).
 - A Quest scrcpy mirror was running, not ours: left alone. Phone VD stopped.
+
+## 2026-11-06 render-on-demand 84ffb8e device test, part 2 (WSA VD, Claude)
+- Fling: 60 ms swipe on the 3D view drew ~53 frames (coast), then idle (last frame 3.5 s ago). PASS.
+- Selection: tap on object box centre -> "Selected: object 1 copy 1", a frame drawn at the tap, MCP `view_screenshot` shows the outline. PASS.
+- Plate switch, pinch, loupe, build drags, refine finish: PASS by code path (no MCP plate switch, WSA has one plate, no multi-touch injection). Every renderer mutation in ui/ai goes through `PlateView.onGl` -> `queueEvent` -> `wake()` (PlateView.kt:359; only exceptions: McpTools.kt:546 debug `accumRegime`, PlateView.kt:278 `deviceLandscape` before a resize); touches wake via `dispatchTouchEvent`; `afterFrame` keeps requesting while `!renderer.settled`, so refine can't stall.
+- Left: idle-vs-orbit battery A/B on the phone (`batt-orbit.sh`), then GL state/upload/draw-call audit in `render/`.
