@@ -84,3 +84,5 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - [idea] mobilecad (GPL-3 FreeCAD-on-Android) takeaways: XR controller-ray-as-camera + context panel (send to VR-port agent), occlusion-aware mm-tolerance picking, Numpad; archive 2026-11-06 mobilecad review. Claude 2026-11-06, nothing taken yet.
 - [Opus] claude-kit `/start` (aliases `/seed`, `/bootstrap`): full plan + decisions in `~/claude-kit/docs/handoff/HANDOFF.md` (research in NOTES-research-2026-11-06.md there). Skeleton written, rest unbuilt; global `/next` still in ~/.claude/skills. Start there with `/next` from that dir. Second account's access: unknown until built.
 - [Opus] Preview: brim/bed contact z-fights from below while dragging ("fractures into triangles, strobes"), user 2026-11-07 on debug 5363133; open, hypothesis + fix idea in archive "brim meets the bed".
+- VD keyboard/tap fix (orca-vd.sh, archive end): awaits the user's verdict (keyboard no longer vanishes?); Claude, 2026-11-07.
+- Upstream-PR idea (patches 0002-0004 vs 2.5.0 alpha): no go yet; Claude, 2026-11-07.

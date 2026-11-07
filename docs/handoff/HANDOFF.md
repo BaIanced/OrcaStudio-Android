@@ -32,14 +32,13 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **Offload (user 2026-10-25/26): max work onto free opencode models** (DeepSeek V4.1 Flash, `octauto.sh`, `D:\oct-backup\jobs\README.md`, ledger `trust-profile.md`).
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
-- Name inquiry #17269: wait 1-2 weeks from 2026-11-05, then one bump. Upstream-PR idea (patches 0002-0004 vs 2.5.0 alpha): no go yet.
-- Two-Claude chat (user 2026-11-06): other account's VR-port agent talks via `claudechat.md` (sections 1-7; SendMessage can't cross accounts). Start a Monitor on its `## ` count (command in section 7), timeout 30 min, re-arm. Quest profile numbers land in `NOTES-quest-profile.md`.
+- Name inquiry #17269: wait 1-2 weeks from 2026-11-05, then one bump.
+- Two-Claude chat: VR-port agent (other account) talks via `claudechat.md`; Monitor its `## ` count (command in section 7), 30 min, re-arm. Quest profile numbers land in `NOTES-quest-profile.md`.
 - Release r538 on phone. GL shots: MCP `view_screenshot`. Quest profile is blocked until someone wears the headset (claudechat.md s8).
-- VD keyboard/tap fix (orca-vd.sh, archive end) awaits the user's verdict (keyboard no longer vanishes?).
-- GL audit `NOTES-gl-audit.md` item 5: fix 1 (nearest-first, 1698961) + fix 2 (cull instead of discard, no-cut PATH_FS variant, ee7b8a2) measured + pushed 2026-11-07: preview 61 -> ~43 ms default, 95.5 -> 43.5 close. Default zoom barely moved with fix 2 (NOTES "fix 2 measured": next suspect PATH_FS per-pixel cost). Not in a release build yet.
-- Phone keeps the old debug app (session + `allow_mixed_temps` set): assembleDebug, `install -r -g`, wake (user OK 11-07), VD start, `slice`, `preview-zoom-perf.sh 1138`/`300`; sleep + uninstall after. scrcpy "Quest left eye" = VR side's, leave it.
-- **User 2026-11-07: brim/bed contact z-fights (triangle strobe) seen from below while dragging** (backlog, archive "brim meets the bed"); fix after the measurement.
-- Next step: GL audit Item 5 fix 3 (cheaper PATH_FS: beadMean taps per fragment, NOTES-gl-audit "fix 2 measured"), measure with preview-zoom-perf.sh 1138/300 on the phone VD -> Opus 5.5 (high)
+- GL audit item 5 (`NOTES-gl-audit.md`): fixes 1+2 pushed (61 -> ~43 ms default zoom; not in a release yet). **Floor measured 2026-11-07: flat FS = ~30 ms, so PATH_FS is only ~13 ms; ~30 ms = ~34 M triangles' raster** (NOTES "floor measured": 2-tap beadMean rejected, triangle-cut options b/c/e).
+- Phone debug app stays installed (session + `allow_mixed_temps`): assembleDebug, `install -r -g`, wake, `PKG=...debug orca-vd.sh start` (**export PKG before start**, else it launches the release app), `slice`, `preview-zoom-perf.sh 1138`/`300`; stop VD + sleep after. scrcpy "Quest left eye" = VR side's, leave it.
+- **User 2026-11-07: brim/bed contact z-fights (triangle strobe) seen from below while dragging** (backlog, archive "brim meets the bed").
+- Next step: GL audit item 5 triangle cut (b): 8-corner box when the overlap ring is sub-pixel (NOTES-gl-audit "floor measured"), A/B look + preview-zoom-perf.sh 1138/300 on the phone VD -> Opus 5.5 (high)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 

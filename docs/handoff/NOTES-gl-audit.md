@@ -85,3 +85,15 @@ triangles), the section discard lives only in `pathProgram` (cut on); `pathProgr
 didn't move, so it is not overdraw there. Next suspects (unmeasured): PATH_FS cost per visible pixel (fix 3: beadMean x2-3 =
 8-12 shade() + normalize per fragment; precompute the regime means per face in the VS or cut beadMean to 2 taps), and
 small-triangle/raster cost (1.30 M boxes at ~1-2 px each at 1138 mm). Measure fix 3 the same way.
+
+## Item 5 floor measured (2026-11-07, phone VD, temp local build, not committed)
+Floor experiment: `pathProgramNoCut` with a flat `color = vColor` FS. Preview GPU median: 1138 mm 29.7 ms, 300 mm 29.6 ms
+(PATH_FS: ~43 / 43.5). So **PATH_FS costs ~13 ms at most; ~30 ms is triangle/raster cost** (1.30 M boxes x 26 tris = ~34 M
+triangles, 6000 mm = 3 ms so the VS isn't it; it is per-triangle setup/binning of on-screen triangles).
+Fix 3 options checked: 2-tap Gauss beadMean dropped (numeric check vs exact integral: worst 8.6% brightness error vs 2.3% for
+the 4 midpoint taps; would shift the level where the regimes fade, user r335). Remaining cheap FS cuts (<= 13 ms total,
+untested): normalize in the beadMean/beadShade taps -> constant 1/sqrt(1+(u*tilt)^2) (axis is ~perpendicular to n);
+`shade(n)` at the top of main only for end caps; skip the far branch's beadMean when far == 0.
+Bigger lever = triangle count (old cuts (b)/(c) revive, now for raster, not VS): (b) 8-corner box (no overlap ring) when the
+ring is sub-pixel, 26 -> ~12 tris; (c) skip enclosed sparse/internal-solid infill under the top shown layer while orbiting;
+(e) drop side/bottom faces hidden by neighbours. Each needs an A/B look check (cracks, z-fight, brim-from-below report).
