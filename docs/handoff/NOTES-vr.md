@@ -17,8 +17,9 @@ M2 (user, 2026-11-05): never show an outdated scene on either side; VR ends when
 ## Comfort rules (the user gets motion sick from camera motion)
 No app-driven view motion: `Camera.frame`, `fit`, `focus` must not move the world in VR. No smooth locomotion. Passthrough tabletop default, 1:1, plate not too close. Exact height and distance need a human check.
 
-## Proximity override: never remove it (user, 2026-11-06)
-The Quest's proximity override (set through SideQuest) must stay on. Removing it puts the Quest to sleep, which loses adb. So never send `automation_disable`. Naming trap: `metavr device proximity --disable` is what turns the override on. Check with `--status`; recipe in `NOTES-vr-headset.md`.
+## Proximity override (user, 2026-11-06; changing, 2026-11-07)
+Rule today: the override stays on. Removing it put the Quest to sleep and lost adb. Never send `automation_disable`. Naming trap: `metavr device proximity --disable` is what turns the override on. Check with `--status`; recipe in `NOTES-vr-headset.md`.
+Agreed change (user, 2026-11-07), not yet done: once the user sets Settings > Power to Display off 1 min, Sleep 4 h, the override stays off between runs and is turned on only for a headless run, then off. Reason: a lit panel nobody wears adds heat. First switch only with the user nearby, in case adb drops. Done already: `wifi_sleep_policy` 2. adb is Wireless Debugging (TLS pairing), not `tcpip 5555`. Don't use `service call PreferencesService`: the transaction code is a guess.
 
 ## Main risks
 GLES is legacy on Quest and gets no new features. Interaction, not stereo, is the real cost. Preview beads may not hold 72 fps; plan with no foveation. Meta XR Simulator doesn't support GLES, so testing means JVM math tests plus the headset.
