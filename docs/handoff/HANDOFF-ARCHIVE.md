@@ -4111,3 +4111,9 @@ User: keyboard on the main screen disappears while the VD runs; taps hit the mai
 
 ## 2026-11-06 ULoc cache A/B draw-ms (r527 before vs r535 after, phone VD, plate 1 fit, 3 s orbit, interleaved old/new/old/new, 3 orbits each)
 Draw ms (CPU side, GL thread) median: r527 5.7-5.8, r535 5.6-5.8; p95 6.3-6.7 both. Frame gap median 6.0 both (VD now runs ~166 fps, not 60: display refresh differs from the r517 baseline row). Result: cache saves at most ~0.1 ms/frame (~2%), inside noise; the win is the removed strcmp CPU in simpleperf, not draw-ms. Script: scratchpad ab.sh (old/new APKs via `gh run download 41939360557 / 42183752696`, `install -r -d`).
+
+## 2026-11-06 Handoff prune (moved from HANDOFF.md)
+- Assemble A1 + A2 verified, incl. stale fit card fix (r523/r524/r526/run 41939360557).
+- Render profile: GL thread vsync-bound, Vulkan not justified; ULoc uniform cache (cb454dc, r535) verified (strcmp/glGetUniformLocation gone). Installed r535 on phone, WSA, Chromebook. ULoc A/B: draw ms 5.7 -> 5.7 (noise); PERFORMANCE.md row added.
+- `superKey()` list allocs skipped on purpose (GL thread vsync-bound, tiny gain, key-correctness risk).
+- CI run 42193709878 (head 0c43fcb) APK is named r537, not r536; also installed on SHIELD by mistake (harmless).
