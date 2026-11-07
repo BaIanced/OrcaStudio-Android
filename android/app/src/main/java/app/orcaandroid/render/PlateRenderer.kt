@@ -468,11 +468,14 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
 
     /** Frame timing for the MCP perf tool. */
     val frameStats = FrameStats()
+    /** Per-pass GPU time for the MCP perf tool (off until perf turns it on). */
+    val gpuTimer = GpuTimer()
 
     override fun onDrawFrame(gl: GL10?) {
         val start = System.nanoTime()
+        gpuTimer.beginFrame()
         drawFrame()
-        drawLoupe()
+        gpuTimer.section("loupe") { drawLoupe() }
         frameStats.record(start, System.nanoTime())
         afterFrame?.invoke()
     }
@@ -502,11 +505,11 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         // The view redraws continuously: while nothing changes, the frame already in the target is averaged again
         // instead of drawing 4 times the pixels. A fresh one now and then covers any state the key misses.
         val key = if (wantSuper) superKey() else null
-        if (key != null && key == superShown && now - superAt < SUPER_REFRESH_NS) { supersampler.end(viewW, viewH); return }
+        if (key != null && key == superShown && now - superAt < SUPER_REFRESH_NS) { gpuTimer.section("2x resolve") { supersampler.end(viewW, viewH) }; return }
         val supered = wantSuper && supersampler.begin(viewW, viewH, SUPERSAMPLE)
         pxScale = if (supered) supersampler.factor.toFloat() else 1f
         drawScene()
-        if (supered) { supersampler.end(viewW, viewH); superShown = key; superAt = now } else superShown = null
+        if (supered) { gpuTimer.section("2x resolve") { supersampler.end(viewW, viewH) }; superShown = key; superAt = now } else superShown = null
         pxScale = 1f
     }
 
@@ -551,7 +554,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     private fun accumulate(now: Long): Boolean {
         val key = superKey() + accumRegime
         if (key != accumShown) { accumFrames = 0; jitterIndex = 0 }
-        if (accumFrames >= ACCUM_FRAMES && now - superAt < SUPER_REFRESH_NS) { accumulator.show(viewW, viewH); return true }
+        if (accumFrames >= ACCUM_FRAMES && now - superAt < SUPER_REFRESH_NS) { gpuTimer.section("accum show") { accumulator.show(viewW, viewH) }; return true }
         if (!accumulator.begin(viewW, viewH)) return false
         // "Always" draws 2x again as soon as the camera moves: keep its target then.
         if (supersample != Supersample.ALWAYS) supersampler.release()
@@ -568,7 +571,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         regimeScale = 1f
         frame.copyInto(mvp)
         accumFrames = minOf(accumFrames + 1, ACCUM_FRAMES)
-        accumulator.end(viewW, viewH, 1f / accumFrames)
+        gpuTimer.section("accum mix") { accumulator.end(viewW, viewH, 1f / accumFrames) }
         accumShown = key; superAt = now
         return true
     }
@@ -581,7 +584,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     private fun drawScene() {
         val bg = colors.background
         glClearColor(bg[0], bg[1], bg[2], 1f)
-        glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
+        gpuTimer.section("clear") { glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT) }
         // The OpenSCAD design on the plate stands alone: the project's objects are hidden meanwhile.
         val models = ghostCount == 0
         val bounds = meshBounds
@@ -598,24 +601,24 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             val dy = dx
             val area = floatArrayOf(bounds!![0] - dx, bounds[1] - dy, bounds[2] + dx, bounds[3] + dy)
             useRealShadow = false
-            effects.renderShadow(area, key, viewW, viewH) { ortho ->
+            gpuTimer.section("shadow map") { effects.renderShadow(area, key, viewW, viewH) { ortho ->
                 val frame = mvp.copyOf()
                 ortho.copyInto(mvp)
                 drawMesh(meshVbo, meshCount, pass = if (effects.isRealShadow) 4 else 3)
                 frame.copyInto(mvp)
-            }
+            } }
             useRealShadow = effects.realShadowReady
             // The shadow pass changed the clear colour.
             glClearColor(bg[0], bg[1], bg[2], 1f)
         }
-        if (shadow) effects.drawShadow(mvp, if (effects.isRealShadow) shadowStrength else SHADOW_STRENGTH, shadowSoftMm, shadowBiasMm, bedRects())
+        if (shadow) gpuTimer.section("shadow") { effects.drawShadow(mvp, if (effects.isRealShadow) shadowStrength else SHADOW_STRENGTH, shadowSoftMm, shadowBiasMm, bedRects()) }
         val floor = buildSolo && !showPreview
-        if (floor) drawFloor() else {
+        if (floor) gpuTimer.section("floor") { drawFloor() } else gpuTimer.section("beds") {
             if (plateSurface && camera.eye().z >= 0f) drawPlateSurfaces(plateAlpha)
             drawBeds()
             drawBadges()
         }
-        if (showPreview) {
+        if (showPreview) gpuTimer.section("preview") {
             drawExtrusions(extrVbo, extrCount, previewOrigin, previewRange.extrusions, previewStyle.range)
             drawPreviewExtras(previewOrigin, previewRange, travelVbo, travelCount, markerVbo, markerCount)
             for (x in extraSlots) {
@@ -624,20 +627,20 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
                 drawPreviewExtras(x.origin, whole, x.vbos[1], x.counts[1], x.vbos[2], x.counts[2])
             }
         } else {
-            if (models) drawMesh(meshVbo, meshCount, pass = 0)
+            if (models) gpuTimer.section("mesh") { drawMesh(meshVbo, meshCount, pass = 0) }
             if (models && paintCount > 0) {
                 glEnable(GL_POLYGON_OFFSET_FILL)
                 glPolygonOffset(-1f, -2f)
-                drawMesh(paintVbo, paintCount, pass = 2)
+                gpuTimer.section("paint") { drawMesh(paintVbo, paintCount, pass = 2) }
                 glDisable(GL_POLYGON_OFFSET_FILL)
             }
-            if (models) { drawCreases(); drawSnapLines(); drawDragGuides(); drawMeshMarkers() }
+            if (models) gpuTimer.section("creases+guides") { drawCreases(); drawSnapLines(); drawDragGuides(); drawMeshMarkers() }
             // Modifiers and support blockers/enforcers are drawn translucent on top.
             glEnable(GL_BLEND)
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
             glDepthMask(false)
             // Realistic mode's clear filaments (premultiplied): far faces first, then the near ones over them.
-            if (models && realistic && filamentMaterials.any { it.b[3] > 0f }) {
+            if (models && realistic && filamentMaterials.any { it.b[3] > 0f }) gpuTimer.section("clear filaments") {
                 glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA)
                 glEnable(GL_CULL_FACE)
                 glCullFace(GL_FRONT)
@@ -649,17 +652,17 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
                 glDisable(GL_CULL_FACE)
                 glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
             }
-            if (models) drawMesh(meshVbo, meshCount, pass = 1)
+            if (models) gpuTimer.section("translucent") { drawMesh(meshVbo, meshCount, pass = 1) }
             if (models && buildSolo && buildOthers == 0) drawMesh(meshVbo, meshCount, pass = 9)
             drawMesh(ghostVbo, ghostCount, pass = 1)
             glDepthMask(true)
             glDisable(GL_BLEND)
-            if (models && !loupePass) drawSelection()
+            if (models && !loupePass) gpuTimer.section("selection") { drawSelection() }
             if (models && (cutXray || cutXrayPanel) && cutBand != null) drawCutXray()
         }
         // Seen from below the plate is a window: drawn last, over the parts behind it.
         if (!floor && plateSurface && camera.eye().z < 0f && plateUnderAlpha > 0f) drawPlateSurfaces(plateUnderAlpha * plateAlpha)
-        drawOverlays()
+        gpuTimer.section("overlays") { drawOverlays() }
     }
 
     /** Paint of clear filaments (realistic mode), drawn like the clear parts. */

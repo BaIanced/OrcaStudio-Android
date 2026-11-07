@@ -291,7 +291,8 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
                 "level" to p("string", "Lowest level: V, D, I, W, E; default V"))) { logTail(it) },
         Tool("perf", "Read (debug): frame timing of the 3D view over its last 240 frames (fps, frame gaps, draw time on " +
             "the GL thread) and the app's memory. Move the camera first to measure drawing under load; an idle view " +
-            "still draws every frame.", obj()) { perf() },
+            "still draws every frame. The first call also turns on per-pass GPU timers; later calls add GPU ms per pass for the " +
+            "frames since the call before.", obj()) { perf() },
         Tool("models_human_check", "Web: if the Models tab's page shows Cloudflare's \"Verify you are human\" check, taps " +
             "its box and waits (up to 25 s) for the page to go on. Replies with the outcome and the page it ends on. Needs " +
             "the Models tab on screen.", obj()) {
@@ -620,7 +621,10 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
 
     private suspend fun perf(): String = withContext(Dispatchers.Main.immediate) {
         val view = app.orcaandroid.render.PlateView.active?.get()
-        (view?.renderer?.frameStats?.report()?.let { "3D view: $it" } ?: "No 3D view on screen.") + "\n" + memory()
+        val r = view?.renderer
+        // GPU timers start with the first perf call; each later call reports the frames since the one before.
+        val gpu = r?.gpuTimer?.let { t -> if (t.enabled) t.report().also { t.reset() } else { t.enabled = true; "GPU timers: now on; call perf again after drawing." } }
+        (r?.frameStats?.report()?.let { "3D view: $it" } ?: "No 3D view on screen.") + (gpu?.let { "\n$it" } ?: "") + "\n" + memory()
     }
 
     private suspend fun viewReport(): String = withContext(Dispatchers.Main.immediate) {
