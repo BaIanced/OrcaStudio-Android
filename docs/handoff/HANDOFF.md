@@ -35,10 +35,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Name inquiry #17269: wait 1-2 weeks from 2026-11-05, then one bump.
 - Two-Claude chat: VR-port agent (other account) talks via `claudechat.md`; Monitor its `## ` count (command in section 7), 30 min, re-arm. Quest profile numbers land in `NOTES-quest-profile.md`.
 - Release r538 on phone. GL shots: MCP `view_screenshot`. Quest profile is blocked until someone wears the headset (claudechat.md s8).
-- GL audit item 5 (`NOTES-gl-audit.md`): fixes 1+2 pushed (61 -> ~43 ms default zoom; not in a release yet). **Floor measured 2026-11-07: flat FS = ~30 ms, so PATH_FS is only ~13 ms; ~30 ms = ~34 M triangles' raster** (NOTES "floor measured": 2-tap beadMean rejected, triangle-cut options b/c/e).
+- GL audit item 5 (`NOTES-gl-audit.md`): fixes 1+2 pushed (61 -> ~43 ms default zoom; not in a release yet). **Floor measured 2026-11-07: flat FS = ~30 ms, so PATH_FS is only ~13 ms; ~30 ms = ~34 M triangles' raster** (NOTES "floor measured"). Box = 36 tris (16 reversed side copies): NOTES "cut (b) plan".
 - Phone debug app stays installed (session + `allow_mixed_temps`): assembleDebug, `install -r -g`, wake, `PKG=...debug orca-vd.sh start` (**export PKG before start**, else it launches the release app), `slice`, `preview-zoom-perf.sh 1138`/`300`; stop VD + sleep after. scrcpy "Quest left eye" = VR side's, leave it.
 - **User 2026-11-07: brim/bed contact z-fights (triangle strobe) seen from below while dragging** (backlog, archive "brim meets the bed").
-- GL item 5: box is 36 tris (16 are reversed side copies); diagnostic plan in NOTES-gl-audit "cut (b) plan" (runtime-switchable index prefixes, temp build).
 - Next step: GL audit item 5 triangle diagnostic build (NOTES-gl-audit "cut (b) plan": 12/20/28/36-tri prefixes, preview-zoom-perf.sh 1138/300 on the phone VD) -> Opus 5.5 (high)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
