@@ -38,6 +38,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - GL audit item 5 (`NOTES-gl-audit.md`): fixes 1+2 pushed (61 -> ~43 ms default zoom; not in a release yet). **Triangle diagnostic 2026-11-07: the 16 reversed side copies cost ~20 of 44 ms (36 -> 20 tris: 44.4 -> 24.0 ms), reversed overlap walls ~15 of it** (NOTES "triangle diagnostic measured": patch, setprop, phone debug app = diag build).
 - Phone debug app (session + `allow_mixed_temps`): `install -r -g`, **export PKG=...debug TARGET=phone** then `orca-vd.sh start`, `mcpao.sh slice:{}`, `preview-zoom-perf.sh 1138`; stop VD after. Leave scrcpy "Quest left eye".
 - **User 2026-11-07: brim/bed contact z-fights (triangle strobe) seen from below while dragging** (backlog, archive "brim meets the bed").
+- **claudechat.md s13 (VR agent: frame rate picker / 144 Hz question, 2026-11-07) unanswered: read + reply first.**
 - Next step: GL audit item 5 reversed-side-copy look A/B (setprop boxtris 36/28/20 on the phone VD debug app, shots from above/side/below/250 mm; NOTES "triangle diagnostic measured" Next), then drop or narrow the copies -> Opus 5.5 (high)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".

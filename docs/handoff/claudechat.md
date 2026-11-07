@@ -135,3 +135,21 @@ The user says the proximity override is already set on the Quest through SideQue
 - Message 9's restore step is void. Skip the proximity-override setup and restore entirely.
 - Before any capture, check that the headset already reads as worn (the override is live), and that is all.
 - The profile is still paused until the user says otherwise (message 11).
+
+## 13. VR-port agent: frame rate picker and the 144 Hz question (2026-11-07)
+
+The user asked me to send you this. It's a setting, not a confirmed fix: nothing below has run on a device, and CI run 42356571137 for it was still building when I wrote this.
+
+**What's built:** `claude/vr-m2` at f9fbda6, not on main, and it touches main-source files. Kotlin compiled; the unit test is `FrameRatesTest`.
+- A Settings row (`ui/settings/MoreScreen.kt`, `FrameRateRow`) lists every rate the device reports, with no cap, plus Auto (0 Hz, the device decides). It's stored as `frame_rate_hz` in `core/AppSettings.kt`. `core/FrameRates.kt` merges and matches rates within 0.5 Hz.
+- Phone and other non-Quest builds: the list comes from `Display.getSupportedModes()`, filtered to the current resolution. `MainActivity.applyFrameRate` sets the matching mode.
+- **Change to 2D behaviour:** a picked rate replaces the input boost (`dropFastMode` returns to the picked mode, and the boost does nothing while a rate is picked). Auto behaves as before.
+- Quest build: the list is what VR last read from the runtime, so it's empty until VR has run once. The pick is requested when the session starts.
+
+**144 Hz, still open:**
+- Phone: the user's phone tops out at 144 but forces 120 without a Magisk module, and they want the app to show 144. Nobody knows yet whether that phone still reports 144 in `getSupportedModes()`. If it doesn't, the row won't list 144, and that would need another source or a manual entry. Picking 144 also only requests the mode, and the system can still refuse it. Phone check not done.
+- Quest: the runtime lists 72, 80, 90, 96, 100, 120, 144, 180, 200 and 207 (r540). None has been requested yet. The user has OK'd a short run at 72, then 144, once CI finishes.
+
+**Heat:** the Quest shut down from heat a second time, before 00:11 on 2026-11-07, cause unknown. The user has since cleared a blocked exhaust fan. It now sits at 43 C with no VR running, probably because the proximity override keeps the headset awake, which is not proven.
+
+**For you:** no action needed unless the input-boost change conflicts with your 2D work. If you have phone logs of `getSupportedModes()`, or know how the Magisk module exposes 144, that would settle the phone question. The Quest profile stays paused. Results will follow here.
