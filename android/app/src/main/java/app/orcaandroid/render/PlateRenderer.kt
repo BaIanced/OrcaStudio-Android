@@ -38,6 +38,8 @@ val LOUPE_ZOOM: Float get() = app.orcaandroid.core.Tuning["loupe.zoom"]
  */
 private const val ACCUM_FRAMES = 32
 private const val ACCUM_REGIME = 1f
+/** Segments per instanced toolpath draw; the chunks go nearest-first for early depth rejection (drawExtrusions). */
+private const val EXTRUSION_CHUNK = 16384
 
 /** Colours of the 3D view, following the app theme (RGB 0..1). */
 data class ViewColors(
@@ -1504,9 +1506,9 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             glUniform1i(loc(pathProgram, "uScheme"), style.scheme)
             glUniform1i(loc(pathProgram, "uHidden"), style.hiddenRoles)
             glUniform2f(loc(pathProgram, "uRange"), valueRange.first, valueRange.second)
-            glUniform1i(loc(pathProgram, "uFirst"), first)
             glUniform1f(loc(pathProgram, "uPxScale"), pxScale * regimeScale)
-            camera.eye().let { glUniform3f(loc(pathProgram, "uEye"), it.x, it.y, it.z) }
+            val eye = camera.eye()
+            glUniform3f(loc(pathProgram, "uEye"), eye.x, eye.y, eye.z)
             glUniform1f(loc(pathProgram, "uCamLight"), cameraLight)
             glUniform3fv(loc(pathProgram, "uRoleColors"), 20, Shaders.ROLE_COLORS, 0)
             setFilamentColors(pathProgram)
@@ -1518,19 +1520,24 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             glVertexAttribPointer(1, 3, GL_FLOAT, false, 24, 12)
             glBindBuffer(GL_ARRAY_BUFFER, vbo)
             val stride = PreviewData.EXTRUSION_STRIDE * 4
-            // Record 0 of the buffer is padding (uploadPadded), so segment i is record i + 1.
-            val base = (first + 1) * stride
             val valueColumn = when (style.scheme) { 1 -> 9; 2 -> 8; 3 -> 7; 4 -> 10; 5 -> 11; 6 -> 12; 7 -> 13; else -> 6 }
             // aP0, aP1, aRole, aWidth, aHeight, aValue, then the previous and next segments' ends
             val attribs = listOf(2 to (3 to 0), 3 to (3 to 12), 4 to (1 to 24), 5 to (1 to 28), 6 to (1 to 32), 7 to (1 to valueColumn * 4),
                 8 to (3 to -stride), 9 to (3 to 12 - stride), 10 to (3 to stride), 11 to (3 to stride + 12))
-            for ((a, fmt) in attribs) {
-                glEnableVertexAttribArray(a)
-                glVertexAttribPointer(a, fmt.first, GL_FLOAT, false, stride, base + fmt.second)
-                glVertexAttribDivisor(a, 1)
-            }
+            for ((a, _) in attribs) { glEnableVertexAttribArray(a); glVertexAttribDivisor(a, 1) }
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, boxIbo)
-            glDrawElementsInstanced(GL_TRIANGLES, boxIndexCount, GL_UNSIGNED_SHORT, 0, last - first)
+            // Segments are stored bottom layer first. Drawn in that order from above, every layer lands in front of the
+            // ones already drawn, so each covered pixel runs the (heavy) PATH_FS again. Drawing chunks nearest-first lets
+            // the early depth test drop the hidden fragments (Preview orbit was fragment-bound: NOTES-gl-audit "Item 5").
+            val chunks = (first until last step EXTRUSION_CHUNK).toList().let { if (eye.z > 0f) it.reversed() else it }
+            for (c in chunks) {
+                val n = minOf(EXTRUSION_CHUNK, last - c)
+                // Record 0 of the buffer is padding (uploadPadded), so segment i is record i + 1.
+                val base = (c + 1) * stride
+                for ((a, fmt) in attribs) glVertexAttribPointer(a, fmt.first, GL_FLOAT, false, stride, base + fmt.second)
+                glUniform1i(loc(pathProgram, "uFirst"), c)
+                glDrawElementsInstanced(GL_TRIANGLES, boxIndexCount, GL_UNSIGNED_SHORT, 0, n)
+            }
             for ((a, _) in attribs) { glVertexAttribDivisor(a, 0); glDisableVertexAttribArray(a) }
             glDisableVertexAttribArray(0)
             glDisableVertexAttribArray(1)

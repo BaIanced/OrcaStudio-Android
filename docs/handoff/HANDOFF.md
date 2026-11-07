@@ -34,10 +34,12 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
 - Name inquiry #17269: wait 1-2 weeks from 2026-11-05, then one bump. Upstream-PR idea (patches 0002-0004 vs 2.5.0 alpha): no go yet.
 - Two-Claude chat (user 2026-11-06): other account's VR-port agent talks via `claudechat.md` (sections 1-7; SendMessage can't cross accounts). Start a Monitor on its `## ` count (command in section 7), timeout 30 min, re-arm. Quest profile numbers land in `NOTES-quest-profile.md`.
-- r537 on phone + WSA; GL shots: MCP `view_screenshot` or phone VD. Quest profile blocked on a wearer (claudechat.md s8). A/B recipe: archive "ab-crease.sh".
+- Release r538 on phone. GL shots: MCP `view_screenshot`. Quest profile is blocked until someone wears the headset (claudechat.md s8).
 - VD keyboard/tap fix (orca-vd.sh, archive end) awaits the user's verdict (keyboard no longer vanishes?).
-- GL audit `NOTES-gl-audit.md`: Preview toolpath pass = 48.8 ms/frame in orbit, rest <0.6 ms ("Item 4 measured" + recipe); "Item 5" = 1.30 M segments, likely vertex-bound (untested), experiment + cut list.
-- Next step: run the Item 5 zoom experiment (vertex vs fragment bound) on the phone VD, then implement cut (a) CPU-precomputed mitres, re-measure -> Opus 5.5 (high)
+- GL audit `NOTES-gl-audit.md` "Item 5 measured" (2026-11-07): Preview pass is **fragment-bound** (3.1 ms far / 61 ms default / 95.5 ms close, same 1.3 M instances); vertex cuts dropped.
+- WIP commit on the branch: nearest-first chunked toolpath draw (`EXTRUSION_CHUNK`, `PlateRenderer.drawExtrusions`), compiled, **not measured, not pushed**.
+- Phone still has the old debug app (with `allow_mixed_temps` set, session copied): reinstall the new debug APK with `adb install -r -g` (keeps data), `PKG=...debug orca-vd.sh start`, `slice {"plate":1}`, then `preview-zoom-perf.sh 1138` and `300`. Wake the phone first (user OK 2026-11-07), `keyevent SLEEP` + uninstall debug when done. The running scrcpy "Quest left eye" is the VR side's, leave it.
+- Next step: measure the nearest-first draw (Item 5 fix 1) on the phone VD, A/B shot for joint z-fight, then fix 2 (no-discard variant / depth pre-pass) if needed -> Opus 5.5 (high)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 

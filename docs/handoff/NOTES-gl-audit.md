@@ -59,3 +59,15 @@ Debug app needs More > Printers & presets > "Remove mixed temperature restrictio
   (c) skip enclosed segments: sparse/internal-solid infill (roles 5-10?) below the top shown layer during orbit only, full draw when
   still (visual change through lattice openings, check A/B); (d) screen-size LOD: merge collinear runs whose joints are < 1 px.
 - Re-measure with the item-4 recipe; log before -> after in docs/PERFORMANCE.md.
+
+## Item 5 measured (2026-11-07, phone VD, debug build of 5363133 = same code as item 4)
+Zoom experiment, Preview orbit 3 s each way, plate 1 (541 layers), preview pass GPU median: **distance 6000 mm 3.1 ms,
+1138 mm (default) 61 ms, 300 mm 95.5 ms**. Same 1.30 M instances every time (no CPU LOD, `drawExtrusions`), so vertex work
+<= ~3 ms: **fragment-bound, the vertex-bound hypothesis was wrong**; cuts (a)-(d) above are dropped.
+Cause (code read): segments drawn bottom layer first, so from above each layer passes the depth test and runs PATH_FS again
+(heavy: up to ~13 `shade()` calls, 2 `discard`s). Fix order: (1) draw chunks nearest-first for early-Z (WIP commit, unpushed
+at write time -> see git: `EXTRUSION_CHUNK` 16384, reversed when eye.z > 0, `PlateRenderer.drawExtrusions`); compiled, NOT
+measured. (2) if Adreno skips early-Z because of `discard`: shader variant without the section discard when the cut is off,
+or a depth pre-pass. (3) cheaper PATH_FS (beadMean calls). Check joints for new z-fight after any order change (A/B shot).
+Recipe this run: `~/orca-android-tools/preview-zoom-perf.sh <distance>` = view_set distance, preview_set {}, perf, orca-vd swipes, perf.
+Setup: debug app on the phone needs `allow_mixed_temps` true in its app_settings.xml (sed via su, app stopped) to slice plate 1.
