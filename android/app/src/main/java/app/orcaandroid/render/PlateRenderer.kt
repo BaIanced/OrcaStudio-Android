@@ -305,7 +305,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     private var bedVbo = 0; private var bedCount = 0
     /** The grid's quad: the bed outline's box, plate-local (x0, y0, x1, y1). */
     private var gridRect: FloatArray? = null
-    private var boxVbo = 0; private var boxIbo = 0; private var boxIndexCount = 0
+    private var boxVbo = 0; private var boxIbo = 0; private var boxIndexCount = 0; private var boxOutsideCount = 0
     private var scratchVbo = 0
     // Crease lines and mesh markers are set once per check, so they live in their own VBOs (re-uploaded only when the array changes).
     private var creaseVbo = 0
@@ -902,6 +902,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         // 4 views) and 36 -> 28 tris a box, preview GPU 44.4 -> 38.8 ms at the default zoom (NOTES item 5 look A/B).
         // Only the right/left layer walls get one: the end/start copies only filled segment joints inside a skin, same
         // colour either way (393 px of 2.5M at 250 mm), 28 -> 24 tris, GPU 33.6 -> 29.9 ms at 1138 mm (NOTES magenta diag).
+        boxOutsideCount = idx.size
         val walls = idx.subList(12, 24).toList()
         for (t in walls.indices step 3) idx += listOf(walls[t + 1], walls[t], walls[t + 2])
         boxIndexCount = idx.size
@@ -1546,13 +1547,17 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             val chunks = (first until last step EXTRUSION_CHUNK).toList().let { if (eye.z > 0f) it.reversed() else it }
             glEnable(GL_CULL_FACE)
             glCullFace(GL_FRONT)
+            // The reversed wall copies (the last 4 tris) only while the section cut is on: a cut bead shows its far walls'
+            // insides. Otherwise they only painted real gaps between beads with an inside lit as an outside (bright rim
+            // dashes); a 0.01 mm widening changed 0 px, so the gaps are geometry, not cracks (NOTES-gl-audit "widen").
+            val boxCount = if (section != null) boxIndexCount else boxOutsideCount
             for (c in chunks) {
                 val n = minOf(EXTRUSION_CHUNK, last - c)
                 // Record 0 of the buffer is padding (uploadPadded), so segment i is record i + 1.
                 val base = (c + 1) * stride
                 for ((a, fmt) in attribs) glVertexAttribPointer(a, fmt.first, GL_FLOAT, false, stride, base + fmt.second)
                 glUniform1i(loc(prog, "uFirst"), c)
-                glDrawElementsInstanced(GL_TRIANGLES, boxIndexCount, GL_UNSIGNED_SHORT, 0, n)
+                glDrawElementsInstanced(GL_TRIANGLES, boxCount, GL_UNSIGNED_SHORT, 0, n)
             }
             glCullFace(GL_BACK)
             glDisable(GL_CULL_FACE)

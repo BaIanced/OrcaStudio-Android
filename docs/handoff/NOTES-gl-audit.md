@@ -205,3 +205,11 @@ neighbour tops z-fight unless rank bias separates them; check rank per role firs
 - Next: diag prop `debug.orca.widen` (mm, default 0) scaling `across` by (w + widen) / w, build on the phone, rimdiag-ab.py close view
   modes 20 tris + widen 0.004 vs 24 tris. If the magenta-spot pixels match 24: ship 20 + widen (-4 ms). If not: option 1 (24 only
   with the section cut on, 20 otherwise) as the default, since 20 is the truer image.
+
+## Item 5 rim: widen diag -> option 1 shipped (2026-11-07, phone VD, diag build `~/orca-android-tools/diag-rimdiag-widen.patch`)
+- `debug.orca.widen` (mm, uniform uWiden, `across *= (w + widen) / w`); runner `VIEWS="close above" MODES="0 4 4_0.004 4_0.01" rimdiag-shots.sh`
+  (mode `M_W` = rimdiag M + widen W). Close view vs 24 tris: 20 = 14811 px, 20+0.004 = 14799, 20+0.01 = 14832; vs plain 20: 0 px changed
+  at 0.004 and 0.01 (0.2 mm changes 80456 px, so the uniform works). The rim gaps are real geometry, not numeric cracks: option 4 out.
+- Shipped option 1: reversed right/left wall copies only while the section cut is on (`boxOutsideCount` = 60 indices otherwise).
+  New build vs diag 20 tris: 0 px (close, above). Perf NOT measured: VD swipes stopped producing frames this session (input to display
+  36 accepted, yaw unchanged, "last frame N s ago"). Old numbers 20 vs 24 tris: ~-4 ms at 1138 mm (diag, 2026-11-07).
