@@ -33,9 +33,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
 - Name inquiry #17269: wait 1-2 weeks from 2026-11-05, then one bump.
-- Two-Claude chat: `claudechat.md`; Monitor its `## ` count (command in section 7), 30 min, re-arm (expired 2026-11-07). Quest numbers: `NOTES-quest-profile.md`.
+- Two-Claude chat: `claudechat.md`; Monitor its `## ` count (section 7), 30 min, re-arm. Quest numbers: `NOTES-quest-profile.md`.
 - Release r538 on phone. GL shots: MCP `view_screenshot`. Quest profile is blocked until someone wears the headset (claudechat.md s8).
-- GL audit item 5 (`NOTES-gl-audit.md`): fixes 1+2 + box 36 -> 28 -> 24 tris pushed (61 -> ~30 ms at 1138 mm; not released). Phone debug app = rimdiag v2 build (`debug.orca.rimdiag` 0-4, NOTES).
+- GL audit item 5 (`NOTES-gl-audit.md`): box 36 -> 24 tris pushed (61 -> ~30 ms at 1138 mm; unreleased). Phone debug = rimdiag v2 build.
 - Phone debug app (session + `allow_mixed_temps`): `install -r -g`, **export PKG=...debug TARGET=phone**, `orca-vd.sh start`, `mcpao.sh slice:{}` (retry if non-JSON), `preview-zoom-perf.sh 1138`; stop VD after. 
 - **User 2026-11-07: brim/bed contact z-fights (triangle strobe) seen from below while dragging** (backlog, archive "brim meets the bed").
 - Rim cracks are between beads (NOTES "GL_LESS rerun"); option 2 ruled out. Rank check done (NOTES "option 4: depth rank"): widen only by a world hair < 0.01 mm label margin; screen-space widening ruled out.
