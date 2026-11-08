@@ -188,3 +188,20 @@ A/B strip + changed px `rimdiag-ab.py <view> <x> <y> <modes>` (`shots/rdab-<view
 Left open: the right/left copies (~4 ms more) fill real between-bead cracks with an inside-lit-as-outside colour. Options: (1) 24 only with
 the section cut on, 20 otherwise (accept thinner rim); (4) close the crack: widen layer walls sideways by a hair in the VS (risk: coplanar
 neighbour tops z-fight unless rank bias separates them; check rank per role first).
+
+## Item 5 rim option 4: depth rank per role/neighbour (2026-11-07, code read only, nothing built)
+- PATH_VS (Shaders.kt:761-778): order = lift x 7 + rank, bias 2e-6 x w a step; lift also raises the bead 0.01 mm x lift in world z.
+  rank is per vertex: top ring = depth label 0..4 (DEPTH_LABELS = 5, Preview.cpp:71), wall bottom + overlap rings = 5 + parity.
+  So a wall's bias slides from its top's label to 5/6 going down; top face and own walls share top-ring vertices (watertight).
+- Labels (Preview.cpp label_layer :110): greedy colouring per layer of beads of one depth class (= lift group, :81) on one plane
+  that come within (wa + wb) / 2 + 0.01 mm. Over 5 used neighbours it falls back to j % 5 (can tie). Different classes: lift
+  separates them (0.01 mm z + 7 ranks), so cross-class overlaps never z-fight.
+- So widening every box sideways stays safe only while the extra overlap is under the 0.01 mm touch margin: a widened bead must not
+  reach a bead that wasn't labelled as its neighbour (same label possible -> z-fight). A screen-space widening is out: at 1138 mm
+  a pixel is ~0.4 mm (Camera.kt:230), so 0.5 px = 0.2 mm, far past the margin, and it would fatten beads visibly up close.
+- World-space hair (e.g. 0.004 mm on `across`) only closes numeric T-junction cracks. If the magenta lines at region borders
+  (skin/perimeter seam, purple band edges) are real geometric gaps (infill/wall overlap settings, lift steps), a hair won't close
+  them; then the 20-tris look is the true geometry and the reversed copies paint an inside-lit-as-outside colour into real gaps.
+- Next: diag prop `debug.orca.widen` (mm, default 0) scaling `across` by (w + widen) / w, build on the phone, rimdiag-ab.py close view
+  modes 20 tris + widen 0.004 vs 24 tris. If the magenta-spot pixels match 24: ship 20 + widen (-4 ms). If not: option 1 (24 only
+  with the section cut on, 20 otherwise) as the default, since 20 is the truer image.

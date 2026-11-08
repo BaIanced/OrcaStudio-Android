@@ -38,8 +38,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - GL audit item 5 (`NOTES-gl-audit.md`): fixes 1+2 + box 36 -> 28 -> 24 tris pushed (61 -> ~30 ms at 1138 mm; not released). Phone debug app = rimdiag v2 build (`debug.orca.rimdiag` 0-4, NOTES).
 - Phone debug app (session + `allow_mixed_temps`): `install -r -g`, **export PKG=...debug TARGET=phone**, `orca-vd.sh start`, `mcpao.sh slice:{}` (retry if non-JSON), `preview-zoom-perf.sh 1138`; stop VD after. 
 - **User 2026-11-07: brim/bed contact z-fights (triangle strobe) seen from below while dragging** (backlog, archive "brim meets the bed").
-- Rim cracks are between beads (NOTES "GL_LESS rerun"); option 2 ruled out.
-- Next step: GL audit item 5 rim: check the depth rank per role/neighbour, then try option 4 (widen layer walls a hair in PATH_VS, 20 tris) vs option 1 (24 only with the cut on); look A/B with `rimdiag-ab.py` + 1138/300 perf -> Opus 5.5 (high)
+- Rim cracks are between beads (NOTES "GL_LESS rerun"); option 2 ruled out. Rank check done (NOTES "option 4: depth rank"): widen only by a world hair < 0.01 mm label margin; screen-space widening ruled out.
+- Next step: GL audit item 5 rim: diag prop `debug.orca.widen` 0.004 mm at 20 tris vs 24 tris, `rimdiag-ab.py` close view on the phone; ship 20+widen if it matches, else option 1 (24 only with the cut on); then 1138/300 perf -> Opus 5.5 (high)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
