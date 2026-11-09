@@ -4203,3 +4203,12 @@ Draw ms (CPU side, GL thread) median: r527 5.7-5.8, r535 5.6-5.8; p95 6.3-6.7 bo
 - The ~10 ms "selection cost" was phone awake (2026-11-08 runs) vs dozing (2026-11-09 baseline). Same build, dozing: selection 1.6 ms
   draw vs none 5.3; awake, no selection: 17.3 ms. Selection GPU pass 0.7 ms. New MCP `object_select` tool; gl-sel-ab.sh selects via MCP.
   Details: NOTES-gl-audit.md "not real, device-state confound". Claude, debug build, 2026-11-09.
+
+## 2026-11-09 Assemble A1 WSA VD test, part 1 (Claude, local debug build of 7428b73)
+- Build workspace with the "Desk Organizer" shape design: beds and plate surfaces gone, floor grid around the object, printer volume ghost (orange bed outline + height box) drawn. Shot looked right (render half of A1 passes).
+- Not yet checked: the ghost toggle button (sits past the droplet at the right end of the builder toolbar; `orca-vd.sh swipe 1060 218 700 218 300` did not scroll the toolbar on WSA: try a slower swipe or MCP), measure floor pick, exit back to Prepare restoring beds.
+- A1 scope gap: "entry for any multi-part object" is NOT in f3361ff. Build opens only for shape-builder designs (`UiState.buildObject`, ScadController.kt:77-81 needs `ScadDesign.of(obj)?.pieces`). An imported multi-part object can't enter it yet.
+
+### 2026-11-09 Handoff trim (phone perf notes moved here)
+- VD taps fail while the phone dozes. Orbit perf: `preview-orbit-perf.sh <mm>`, `gl-sel-ab.sh` (Prepare + selection).
+- **Phone draw ms swings 1.5-17 ms with wake state: compare back-to-back runs in one state** (selection cost was this; archive). MCP `object_select` replaces taps.
