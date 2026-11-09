@@ -4175,3 +4175,8 @@ Draw ms (CPU side, GL thread) median: r527 5.7-5.8, r535 5.6-5.8; p95 6.3-6.7 bo
 ## 2026-11-08 item 5 option 1 perf (phone VD, debug build of 14babcc)
 - Phone had dropped off adb: `adb connect <phone-ip>:5555` fixed it. Orbit via MCP `view_set` yaw steps works (script `~/orca-android-tools/preview-orbit-perf.sh <mm> [steps]`); VD swipes still not used.
 - Preview pass GPU median 1138 mm 15.3 ms (p95 24.1), 300 mm 18.6 ms (p95 38.7). Not comparable with the old swipe-orbit numbers (44 -> 38 ms): static frames per step. Logged in PERFORMANCE.md with that caveat. Item 5 closed.
+
+## 2026-11-08 brim/bed z-fight from below fixed (Claude, phone VD, debug build)
+- Cause: with the lab "plate seen from below" window on (plateHd + plateUnderAlpha, user's debug prefs 0.65), the window (z 0) is drawn last with depth test against first-layer bottom faces (also z 0): depth ties -> speckled triangle fractures, visible in single frames (supersample off); still frames hid it because 32-frame accumulation averages it out.
+- Fix (PlateRenderer.drawScene, the eye-below window draw): glPolygonOffset(-2, -8) around drawPlateSurfaces. A/B on the phone (plate 1 Preview, pitch -6, distance 140, yaw -60, supersample off; script `~/orca-android-tools/ab-under.sh <name>` with PITCH/DIST/CROP env): pre-fix speckle at the prime-tower foot, fix clean. Shot `~/orca-android-tools/shots/zfG_ab.png` (top old, bottom fix). Claude-verified; user's live-drag look pending.
+- Note: dbg-reinstall.sh still uses the old phone IP; the phone is .20 (memory device-ips).

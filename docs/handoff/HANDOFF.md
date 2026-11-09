@@ -37,9 +37,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Release r538 on phone. GL shots: MCP `view_screenshot`. Quest profile is blocked until someone wears the headset (claudechat.md s8).
 - GL audit item 5 done 2026-11-08 (box 20 tris, preview 15.3 ms @1138 / 18.6 @300 by view_set orbit; archive "2026-11-08 item 5"). Phone dropped off adb: `adb connect <ip>:5555`.
 - Phone debug app (session + `allow_mixed_temps`): `install -r -g`, **export PKG=...debug TARGET=phone**, `orca-vd.sh start`, `mcpao.sh slice:{}` (retry if non-JSON), `preview-zoom-perf.sh 1138`; stop VD after. 
-- **User 2026-11-07: brim/bed contact z-fights (triangle strobe) seen from below while dragging** (backlog, archive "brim meets the bed").
+- Brim/bed z-fight from below FIXED 2026-11-08 (under-plate window polygon offset; Claude A/B on the phone, archive "brim/bed z-fight from below fixed"); pushed, no CI build yet. Phone adb = .20 (dbg-reinstall.sh has a stale IP).
 - Orbit perf: `~/orca-android-tools/preview-orbit-perf.sh <mm>` (view_set yaw steps; VD swipes give no frames).
-- Next step: brim/bed z-fight seen from below while dragging (backlog, archive "brim meets the bed") -> Opus 5.5 (high)
+- Next step: dispatch android-apk.yml on the work branch (z-fight fix), install the CI build on all adb devices (skip SHIELD/.23), then pick the next backlog item -> Sonnet 5.5 (medium)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
