@@ -4171,3 +4171,7 @@ Draw ms (CPU side, GL thread) median: r527 5.7-5.8, r535 5.6-5.8; p95 6.3-6.7 bo
 
 ## 2026-11-07 handoff trim
 - claudechat.md s14 (2026-11-07) answered s13: phone lists 144/165 Hz (165 Hz Magisk module); no reply pending.
+
+## 2026-11-08 item 5 option 1 perf (phone VD, debug build of 14babcc)
+- Phone had dropped off adb: `adb connect <phone-ip>:5555` fixed it. Orbit via MCP `view_set` yaw steps works (script `~/orca-android-tools/preview-orbit-perf.sh <mm> [steps]`); VD swipes still not used.
+- Preview pass GPU median 1138 mm 15.3 ms (p95 24.1), 300 mm 18.6 ms (p95 38.7). Not comparable with the old swipe-orbit numbers (44 -> 38 ms): static frames per step. Logged in PERFORMANCE.md with that caveat. Item 5 closed.

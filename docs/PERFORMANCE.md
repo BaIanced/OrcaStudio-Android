@@ -86,6 +86,10 @@ Record a missing baseline the first time a change touches that area (same device
 - 2026-11-07 Preview box 36 -> 28 triangles (GL audit item 5): no reversed copy of the overlap walls (`uploadBox`). Measured on the
   diag build with the same index order (setprop boxtris 28 vs 36), phone VD, plate 1: 1138 mm 44.4 -> 38.8 ms, 300 mm 45.5 -> 40.2 ms.
   Look A/B in 4 views (above, side, below, close 250 mm): 0 px changed. The committed build itself is not re-measured.
+- 2026-11-08 Preview box 20 triangles with the section cut off (committed build 14babcc, GL audit item 5 option 1): phone VD, plate 1,
+  orbit by `view_set` yaw steps (24 x 7 deg, `preview-orbit-perf.sh`; VD swipes gave no frames): preview pass GPU median 1138 mm
+  15.3 ms (p95 24.1), 300 mm 18.6 ms (p95 38.7). NEW METHOD: static frames after each step, so these are not comparable with the
+  swipe-orbit numbers above (38-43 ms); no 24-tri baseline was run with this method.
 ## Experiments (closed 2026-11-04: done, rejected or shelved)
 
 0. **Big-ticket map (2026-11-01, r502 APK 118.5 MB; native libs stored uncompressed = 78 MB).** liborca_jni symbol bytes by

@@ -35,12 +35,11 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Name inquiry #17269: wait 1-2 weeks from 2026-11-05, then one bump.
 - Two-Claude chat: `claudechat.md`; Monitor its `## ` count (section 7), 30 min, re-arm. Quest numbers: `NOTES-quest-profile.md`.
 - Release r538 on phone. GL shots: MCP `view_screenshot`. Quest profile is blocked until someone wears the headset (claudechat.md s8).
-- GL audit item 5 (`NOTES-gl-audit.md`): box 36 -> 24 tris, now 20 with the section cut off (option 1, NOTES "widen diag"; unreleased). Phone debug = that build.
+- GL audit item 5 done 2026-11-08 (box 20 tris, preview 15.3 ms @1138 / 18.6 @300 by view_set orbit; archive "2026-11-08 item 5"). Phone dropped off adb: `adb connect <ip>:5555`.
 - Phone debug app (session + `allow_mixed_temps`): `install -r -g`, **export PKG=...debug TARGET=phone**, `orca-vd.sh start`, `mcpao.sh slice:{}` (retry if non-JSON), `preview-zoom-perf.sh 1138`; stop VD after. 
 - **User 2026-11-07: brim/bed contact z-fights (triangle strobe) seen from below while dragging** (backlog, archive "brim meets the bed").
-- Rim: widen 0.01 mm changed 0 px (gaps are geometry) -> option 1 committed, look = 20-tris diag. **Perf unmeasured: VD swipes on the phone
-  gave no frames (display 36, yaw unchanged); fix input or orbit via MCP `view_set` yaw steps, then 1138/300 GPU medians vs 24 (~30/44 ms).**
-- Next step: item 5 perf for option 1 (fix VD swipe or view_set orbit, 1138/300 mm, push + note PERFORMANCE.md) -> Sonnet 5.5 (medium)
+- Orbit perf: `~/orca-android-tools/preview-orbit-perf.sh <mm>` (view_set yaw steps; VD swipes give no frames).
+- Next step: brim/bed z-fight seen from below while dragging (backlog, archive "brim meets the bed") -> Opus 5.5 (high)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
