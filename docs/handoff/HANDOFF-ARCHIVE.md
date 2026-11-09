@@ -4216,3 +4216,9 @@ Draw ms (CPU side, GL thread) median: r527 5.7-5.8, r535 5.6-5.8; p95 6.3-6.7 bo
 ## 2026-11-09 Assemble A1 recheck (Claude, source + archive only)
 - Part-1 note above was wrong twice: the ghost toggle (tap hides/restores) and exit-to-Prepare were already Claude-verified on r523 (2026-11-04, lines "Assemble A1 WSA VD test 2"), and A2 was verified r524/r526.
 - "Entry for any multi-part object" exists since db92ebb: long-press > "Edit in builder" calls `ScadController.editMesh` (PrepareOverlay.kt:386), which turns a plain object into one MESH shape per part (holes for negative volumes) and tags it `pieces = true`, so `UiState.buildObject` accepts it. Multi-select > Assemble merges imports into one multi-part object first. Untested: a real 2+ part object in the builder (only the 1-part Desk Organizer was tried). No MCP tool reaches Assemble / Edit in builder; test needs VD taps.
+
+## 2026-11-09 WSA VD taps (Claude, Assemble A1 2-part test setup)
+- The earlier "+ tap showed no menu" was a wrong scale: WSA VD is 720x1280/160, so a 540-wide vdgrab shot maps x1.333, not x2. + = VD (76,195); Add menu Shape row = VD (130,290); Shape dialog frame [80,450]-[640,830], Add button = VD (605,800).
+- vdgrab shots lag/freeze on a static screen (vd.mkv barely grows): the Shape dialog was open (`dumpsys window windows`: ty=APPLICATION, frame) while shots still showed the menu. Use window frames + MCP plate_describe to confirm steps.
+- mcpao.sh: `TARGET=wsa` is not enough (target.sh serial = phone); set `MCP_DEV=127.0.0.1:58526`.
+- Added object 2 "Cube" 20 mm on the WSA debug app. Assemble + Edit in builder not done yet (context limit).
