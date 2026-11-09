@@ -80,7 +80,6 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - Bulk filament edit (53578ad): long press verified by Claude on phone VD 2026-10-31 (archive); only Shift/Ctrl+click (mouse, Chromebook) and user feel untested. In r496+.
 - [Opus] AI print failure watch (user 2026-10-30): local Obico-style camera detector, pause + notify; open: ask the user for the camera model (archive 2026-10-31).
 - [Opus] Filament mixer redesign (0c791b3, CI 41371910606): 2- and 3-part looks checked by Claude on WSA VD 2026-11-01; user has not seen it. Vendor logo dropped (trademark).
-- Selection CPU cost [Opus]: selection adds ~10 ms CPU/frame (5.2 -> 15.5 ms, same build, confirmed); cause open: next A/B box-only style (no mask FBO) vs outline, then fix (NOTES-gl-audit.md "baseline confirmed"). Claude, debug 4beb4d1, 2026-11-09.
 - [idea] mobilecad (GPL-3 FreeCAD-on-Android) takeaways: XR controller-ray-as-camera + context panel (send to VR-port agent), occlusion-aware mm-tolerance picking, Numpad; archive 2026-11-06 mobilecad review. Claude 2026-11-06, nothing taken yet.
 - [Opus] claude-kit `/start` (aliases `/seed`, `/bootstrap`): plan in `~/claude-kit/docs/handoff/HANDOFF.md`; skeleton only. Run `/next` from that dir.
 - Preview: brim/bed contact z-fight from below: fixed (polygon offset on the under-plate window), Claude-verified phone A/B 2026-11-08 (archive "brim/bed z-fight from below fixed"); user live-drag look pending (not on the CI/release build yet).

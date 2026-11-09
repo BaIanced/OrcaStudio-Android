@@ -273,6 +273,15 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             "selection, and where each plate, object copy and prime tower is on screen (screen px: left,top width x height; " +
             "tapping a box's centre hits it unless something covers it), marked when off or partly off the view. Far " +
             "cheaper than view_screenshot. Shows the Prepare tab's 3D view first.", obj()) { viewReport() },
+        Tool("object_select", "View: selects one copy of an object on the plate's 3D view, as a tap on it would (outline, box, " +
+            "tool kept), or with clear true selects nothing. Nothing on the plate changes. Replies with the selection.",
+            obj(emptyList(), *COPY, "clear" to p("boolean", "true = select nothing"))) { args ->
+            val sel = if (args.optBoolean("clear")) null else copyOf(args).let { (o, i) -> app.orcaandroid.ui.Selection(o, i.index) }
+            withContext(Dispatchers.Main.immediate) {
+                store.update { it.copy(selection = sel, multiSelection = emptyList(), tool = if (sel == null) app.orcaandroid.ui.Tool.None else it.tool) }
+            }
+            if (sel == null) "Selected: nothing." else "Selected: object ${sel.obj + 1} copy ${sel.instance + 1}."
+        },
         Tool("app_state", "Read (debug): the app's state as text: version, screen / tab, busy / error / message, open " +
             "dialogs and editors, chosen presets, plates and objects count, selection and tool, the 3D view's camera when " +
             "one is shown, memory, and whether a crash report is waiting. Nothing changes.", obj()) { appState() },

@@ -255,3 +255,11 @@ neighbour tops z-fight unless rank bias separates them; check rank per role firs
 - Fix (next): MCP `object_select` tool (`{"object":N,"copy":C}` / `{"clear":true}` -> `SceneController.select(Selection(obj, inst))`,
   SceneController.kt:52, Selection = AppState.kt:31), then gl-sel-ab.sh selects via MCP instead of a tap (no wake needed, no hollow-hit
   risk). Pref restored to 17. Then the A/B as planned ("baseline confirmed" above).
+
+## Selection CPU cost: not real, device-state confound; item closed (2026-11-09 01:55, phone VD, debug build + MCP object_select)
+- New MCP tool `object_select` (`{"object":N,"copy":C}` / `{"clear":true}`, McpTools.kt after view_state); gl-sel-ab.sh now selects via MCP
+  (works while the phone dozes). Same build, phone dozing: WITH selection draw ms median 1.6 / 1.5, GPU sum 2.37 (selection pass 0.71);
+  WITHOUT selection 5.3. Then the phone woke mid-run: without selection run 2 = draw 17.3 ms (46 frames).
+- So the 15.5 ms (2026-11-08, selection) vs 5.2 ms (2026-11-09, none) gap was phone awake vs dozing, not the selection. Draw ms on
+  this phone swings ~1.5-17 ms with device state (wake, governor, the main display drawing too): only compare runs in one state, back to back.
+- No box-only A/B or mask FBO fix needed: the selection GPU pass is 0.7 ms. Possible later check (low value): sel vs nosel both awake.

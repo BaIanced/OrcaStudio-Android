@@ -4198,3 +4198,8 @@ Draw ms (CPU side, GL thread) median: r527 5.7-5.8, r535 5.6-5.8; p95 6.3-6.7 bo
 
 ### 2026-11-09 Handoff trim
 - GL/render audit (user top priority 2026-11-08) closed (NOTES-gl-audit.md "audit closed"); follow-up Selection CPU cost stays in the handoff.
+
+## 2026-11-09: Selection CPU cost closed (not real)
+- The ~10 ms "selection cost" was phone awake (2026-11-08 runs) vs dozing (2026-11-09 baseline). Same build, dozing: selection 1.6 ms
+  draw vs none 5.3; awake, no selection: 17.3 ms. Selection GPU pass 0.7 ms. New MCP `object_select` tool; gl-sel-ab.sh selects via MCP.
+  Details: NOTES-gl-audit.md "not real, device-state confound". Claude, debug build, 2026-11-09.
