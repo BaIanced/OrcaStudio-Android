@@ -666,7 +666,14 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             if (models && (cutXray || cutXrayPanel) && cutBand != null) drawCutXray()
         }
         // Seen from below the plate is a window: drawn last, over the parts behind it.
-        if (!floor && plateSurface && camera.eye().z < 0f && plateUnderAlpha > 0f) drawPlateSurfaces(plateUnderAlpha * plateAlpha)
+        // The first layer's bottom faces lie on z 0 too: pull the window towards the eye so it wins that tie
+        // (it strobed in triangles while dragging; user 2026-11-07). Parts sunk below the bed still win by real depth.
+        if (!floor && plateSurface && camera.eye().z < 0f && plateUnderAlpha > 0f) {
+            glEnable(GL_POLYGON_OFFSET_FILL)
+            glPolygonOffset(-2f, -8f)
+            drawPlateSurfaces(plateUnderAlpha * plateAlpha)
+            glDisable(GL_POLYGON_OFFSET_FILL)
+        }
         gpuTimer.section("overlays") { drawOverlays() }
     }
 
