@@ -36,9 +36,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Two-Claude chat: `claudechat.md`; Monitor its `## ` count (section 7), 30 min, re-arm. Quest numbers: `NOTES-quest-profile.md`.
 - Release r538 on phone. GL shots: MCP `view_screenshot`. Quest profile is blocked until someone wears the headset (claudechat.md s8).
 - Phone debug app (session + `allow_mixed_temps`): `install -r -g`, **export PKG=...debug TARGET=phone**, `orca-vd.sh start`, `mcpao.sh slice:{}` (retry if non-JSON), `preview-zoom-perf.sh 1138`; stop VD after; fresh install: `pm grant` POST_NOTIFICATIONS (gl-sel-ab.sh does). 
-- Phone VD taps need the phone awake (dozing drops them). dbg-reinstall.sh: stale phone IP. Orbit perf: `preview-orbit-perf.sh <mm>` (Preview), `gl-sel-ab.sh` (Prepare + selection); VD swipes give no frames.
-- Selection CPU cost closed 2026-11-09: not real (phone awake vs dozing; archive). **Phone draw ms swings 1.5-17 ms with wake state: compare only back-to-back runs in one state.** MCP `object_select` selects without taps.
-- Next: Assemble space A1 (backlog line "Assemble space"; coded f3361ff, untested): test on the WSA VD, then A2-A4 per archive "Assemble space backlog detail 2026-11-09".
+- VD taps fail while the phone dozes. Orbit perf: `preview-orbit-perf.sh <mm>`, `gl-sel-ab.sh` (Prepare + selection).
+- **Phone draw ms swings 1.5-17 ms with wake state: compare back-to-back runs in one state** (selection cost was this; archive). MCP `object_select` replaces taps.
+- Next: Assemble space A1 (coded f3361ff, untested): WSA VD test, then A2-A4 (archive "Assemble space backlog detail 2026-11-09").
 - Next step: Assemble space A1 WSA VD test -> Opus 5.5 (high)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
