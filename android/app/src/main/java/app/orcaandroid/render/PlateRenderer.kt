@@ -616,10 +616,12 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             // The shadow pass changed the clear colour.
             glClearColor(bg[0], bg[1], bg[2], 1f)
         }
+        // The HD plate top goes under the shadow: drawn after it, an opaque plate hid every shadow on the bed (user 2026-11-08).
+        val plateTopFirst = !(buildSolo && !showPreview) && plateSurface && camera.eye().z >= 0f
+        if (plateTopFirst) drawPlateSurfaces(plateAlpha)
         if (shadow) gpuTimer.section("shadow") { effects.drawShadow(mvp, if (effects.isRealShadow) shadowStrength else SHADOW_STRENGTH, shadowSoftMm, shadowBiasMm, bedRects()) }
         val floor = buildSolo && !showPreview
         if (floor) gpuTimer.section("floor") { drawFloor() } else gpuTimer.section("beds") {
-            if (plateSurface && camera.eye().z >= 0f) drawPlateSurfaces(plateAlpha)
             drawBeds()
             drawBadges()
         }
