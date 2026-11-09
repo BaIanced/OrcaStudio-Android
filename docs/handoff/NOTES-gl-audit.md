@@ -245,3 +245,13 @@ neighbour tops z-fight unless rank bias separates them; check rank per role firs
 - Next: split the 10 ms. A/B with the selection style set to box only (no outline/x-ray -> no FBO) tells overlay vs box/gizmo.
   If overlay: try (a) mask pass before the main scene draw (no mid-frame switch), (b) ping-pong 2 mask targets,
   (c) glInvalidateFramebuffer on the mask depth after use. Measure each with gl-sel-ab.sh.
+
+## Selection A/B blocked: VD taps dropped while the phone dozes (2026-11-09 01:25, phone VD, debug 4beb4d1)
+- Box-only run (pref `selection_style` 17 -> 16 via su sed, app stopped; `gl-sel-ab.sh /nonexistent.apk boxonly` reuses the
+  installed debug app): the object tap never selected (view_state "Selected: nothing" x2 runs; 5.2 ms draw = the no-selection
+  baseline, so not a box-only result). Also the screen box centre (536,822) is the hollow lattice waist; base (536,950) also failed.
+- Cause: phone `mWakefulness=Dozing`; injected `input -d 52 tap` (also as root) changes nothing, even a bottom-tab tap. The
+  2026-11-08 runs worked with the phone awake. Not waking the user's screen at night.
+- Fix (next): MCP `object_select` tool (`{"object":N,"copy":C}` / `{"clear":true}` -> `SceneController.select(Selection(obj, inst))`,
+  SceneController.kt:52, Selection = AppState.kt:31), then gl-sel-ab.sh selects via MCP instead of a tap (no wake needed, no hollow-hit
+  risk). Pref restored to 17. Then the A/B as planned ("baseline confirmed" above).
