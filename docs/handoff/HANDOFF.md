@@ -29,7 +29,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Muse: `NOTES-muse.md` (only when sending Muse work).
 - **Merge batch (user 2026-10-28: main = user-tested): `NOTES-merge-batch.md`** (cuts agreed, printer set release-gated, sessions A-D).
 - Local tests: `wsa-debug-rebuild.sh [native]` (reference "WSA debug loop"); fresh app: `wsa-debug-setup.sh` first. Lab prefs: edit `layout_lab` JSON in debug `shared_prefs/app_settings.xml` with run-as sed (app stopped).
-- **Offload (user 2026-10-25/26): max work onto free opencode models** (DeepSeek V4.1 Flash, `octauto.sh`, `D:\oct-backup\jobs\README.md`, ledger `trust-profile.md`).
+- **Offload (user 2026-10-25/26): max work onto free opencode models** (memory offload-to-free-models).
 - WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
 - VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
 - Name inquiry #17269: wait 1-2 weeks from 2026-11-05, then one bump.
