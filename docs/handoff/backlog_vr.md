@@ -17,4 +17,4 @@ One or two lines per item: state, next step, the note section to read, who last 
 - M3 Compose panel and ray selection [Opus]: open, M2 passed so nothing blocks it; `claude/vr-m2` holds the M2 code. `NOTES-vr-m3.md`; ends with a 2-minute user check. | Claude, build none, 2026-11-05
 
 ## Status
-r542 on the Quest's `.quest`, stopped, no `vr_tuning.json` left. Quest is on adb over TCP and is the only device this work may drive (user); find its `transport_id` with `adb devices -l`. Worktree for `claude/vr-m2`: `.claude/worktrees/agent-a24c55a63c71affd1`. Other branches: design notes, "Branch state".
+r542 on the Quest's `.quest`, stopped, no `vr_tuning.json` left. Quest is on adb over USB since 2026-11-08 (wireless debugging kept dropping; if USB is unplugged, reconnect with `adb connect <ip:port>` from `adb mdns services`, the mDNS name doesn't resolve) and is the only device this work may drive (user); find its `transport_id` with `adb devices -l`. Worktree for `claude/vr-m2`: `.claude/worktrees/agent-a24c55a63c71affd1`. Other branches: design notes, "Branch state".
