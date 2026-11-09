@@ -4212,3 +4212,7 @@ Draw ms (CPU side, GL thread) median: r527 5.7-5.8, r535 5.6-5.8; p95 6.3-6.7 bo
 ### 2026-11-09 Handoff trim (phone perf notes moved here)
 - VD taps fail while the phone dozes. Orbit perf: `preview-orbit-perf.sh <mm>`, `gl-sel-ab.sh` (Prepare + selection).
 - **Phone draw ms swings 1.5-17 ms with wake state: compare back-to-back runs in one state** (selection cost was this; archive). MCP `object_select` replaces taps.
+
+## 2026-11-09 Assemble A1 recheck (Claude, source + archive only)
+- Part-1 note above was wrong twice: the ghost toggle (tap hides/restores) and exit-to-Prepare were already Claude-verified on r523 (2026-11-04, lines "Assemble A1 WSA VD test 2"), and A2 was verified r524/r526.
+- "Entry for any multi-part object" exists since db92ebb: long-press > "Edit in builder" calls `ScadController.editMesh` (PrepareOverlay.kt:386), which turns a plain object into one MESH shape per part (holes for negative volumes) and tags it `pieces = true`, so `UiState.buildObject` accepts it. Multi-select > Assemble merges imports into one multi-part object first. Untested: a real 2+ part object in the builder (only the 1-part Desk Organizer was tried). No MCP tool reaches Assemble / Edit in builder; test needs VD taps.

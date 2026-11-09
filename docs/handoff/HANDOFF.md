@@ -36,8 +36,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Two-Claude chat: `claudechat.md`; Monitor its `## ` count (section 7), 30 min, re-arm. Quest numbers: `NOTES-quest-profile.md`.
 - Release r538 on phone. Phone perf notes (doze, draw ms swings): archive "2026-11-09 Handoff trim". GL shots: MCP `view_screenshot`. Quest profile is blocked until someone wears the headset (claudechat.md s8).
 - Phone debug app (session + `allow_mixed_temps`): `install -r -g`, **export PKG=...debug TARGET=phone**, `orca-vd.sh start`, `mcpao.sh slice:{}` (retry if non-JSON), `preview-zoom-perf.sh 1138`; stop VD after; fresh install: `pm grant` POST_NOTIFICATIONS (gl-sel-ab.sh does). 
-- Next: Assemble A1 finish (archive "Assemble A1 WSA VD test, part 1"): render OK; check ghost toggle, measure floor pick, exit to Prepare; then code A1's missing entry for any multi-part object (Build is shape-design only, ScadController.kt:77). Debug app is installed on WSA (uninstall after). Then A2-A4.
-- Next step: Assemble A1 toggle/exit checks + multi-part entry -> Opus 5.5 (high)
+- Assemble A1 + A2 are Claude-verified; multi-part entry exists (Edit in builder -> editMesh, db92ebb; archive "Assemble A1 recheck"). Open: a real 2+ part plain object in the builder. WSA debug app's only object (Desk Organizer) is a shape design, so make 2 objects (Add menu), multi-select > Assemble, long-press > Edit in builder: expect one MESH shape per part, floor grid + ghost. No UI dump on the WSA VD ("ui dump is not display N"): shots only; tap at VD 114,292 (the + button in a 540-wide shot x2) showed no menu after 6 s, so check the VD size/scale first. Then A3 (cut suggestion) design.
+- Next step: Assemble A1 2-part builder VD test -> Sonnet 5.5 (medium)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 

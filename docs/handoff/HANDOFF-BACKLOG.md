@@ -55,7 +55,7 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - [Opus] Snapseed interaction plan (NOTES-interaction-plan.md): steps 1-9 Claude-verified WSA (r437/r438, 2026-10-27); user feel untested on all.
 - UX review via Gemini (user 2026-10-31): lowest priority, act only if the user brings Gemini's answer (bundle exports/ux-review/, archive 2026-10-31).
 - S Pen pressure (user 2026-10-31): built ab552fa, UI checked on WSA VD; open: feel test on the Note 10+ (user says when awake); Quest pen has no pressure.
-- [Opus] Assemble space / big plate (user 2026-11-04, exploration): A1 render OK on WSA VD (Claude 2026-11-09), toggle/exit unchecked, multi-part entry not coded; A2-A4 open (archive "Assemble space backlog detail 2026-11-09"). Claude 2026-11-04.
+- [Opus] Assemble space / big plate (user 2026-11-04, exploration): A1 + A2 Claude-verified (multi-part entry = Edit in builder, db92ebb; a 2+ part object in the builder untested); A3 cut suggestion, A4 connectors open (archive "Assemble A1 recheck"). Claude 2026-11-09.
 
 - Chromebook-ready for a future Play listing (user 2026-11-06; nothing to do now): research per-device rules when a listing gets close (archive "Assemble space backlog detail 2026-11-09").
 
