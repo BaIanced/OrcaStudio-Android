@@ -55,9 +55,9 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - [Opus] Snapseed interaction plan (NOTES-interaction-plan.md): steps 1-9 Claude-verified WSA (r437/r438, 2026-10-27); user feel untested on all.
 - UX review via Gemini (user 2026-10-31): lowest priority, act only if the user brings Gemini's answer (bundle exports/ux-review/, archive 2026-10-31).
 - S Pen pressure (user 2026-10-31): built ab552fa, UI checked on WSA VD; open: feel test on the Note 10+ (user says when awake); Quest pen has no pressure.
-- [Opus] Assemble space / big plate (user 2026-11-04, brain dump, exploration): zero-g space like Bambu/Orca Assemble (no plate; CAD tools + measuring; first VR step); big or infinite plate, or 4x4 plates; on exit auto-orient, "too big" error with a Fix = rotated + suggested cut location, glue later. Claude's leanings + phases A1-A4 given 2026-11-04 (archive "Assemble space / big plate: Claude's leanings"); user picked A1 2026-11-04; A1 coded f3361ff (Claude 2026-11-04), untested on WSA VD; A2-A4 open.
+- [Opus] Assemble space / big plate (user 2026-11-04, exploration): A1 coded f3361ff, untested on WSA VD; A2-A4 open (archive "Assemble space backlog detail 2026-11-09"). Claude 2026-11-04.
 
-- **Chromebook-ready for a future Google Play listing** (user 2026-11-06, via VR-port agent; nothing to do now): Play labels apps by device (Chromebook, tablet, phone, AR); the rules for each are unlooked-up, so research them when a listing gets close. May need little or no code (resizable panels). In place: big-screen pass on Chromebook r138/r140 (archive ~1504,1551); optional `android.hardware.type.pc` in AndroidManifest.xml:7, keep it (stops WSA/ChromeOS mouse-to-touch emulation).
+- Chromebook-ready for a future Play listing (user 2026-11-06; nothing to do now): research per-device rules when a listing gets close (archive "Assemble space backlog detail 2026-11-09").
 
 ## Known limits (no action)
 - Real keyboard Ctrl+1 = system hotkey. Inactive-plate double tap re-frames (user: fine). Badges ~23 dp at plate zoom (told the user).
@@ -80,9 +80,9 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - Bulk filament edit (53578ad): long press verified by Claude on phone VD 2026-10-31 (archive); only Shift/Ctrl+click (mouse, Chromebook) and user feel untested. In r496+.
 - [Opus] AI print failure watch (user 2026-10-30): local Obico-style camera detector, pause + notify; open: ask the user for the camera model (archive 2026-10-31).
 - [Opus] Filament mixer redesign (0c791b3, CI 41371910606): 2- and 3-part looks checked by Claude on WSA VD 2026-11-01; user has not seen it. Vendor logo dropped (trademark).
-- Selection CPU cost [Opus]: with an object selected, phone VD draw ~15.5 ms/frame vs GPU 3.9 ms (no-selection baseline 5.6-5.8 ms, other method); confirm on the same build without selection, then find the CPU hot spot (NOTES-gl-audit.md "audit closed"). Claude, debug 4beb4d1, 2026-11-08.
+- Selection CPU cost [Opus]: selection adds ~10 ms CPU/frame (5.2 -> 15.5 ms, same build, confirmed); cause open: next A/B box-only style (no mask FBO) vs outline, then fix (NOTES-gl-audit.md "baseline confirmed"). Claude, debug 4beb4d1, 2026-11-09.
 - [idea] mobilecad (GPL-3 FreeCAD-on-Android) takeaways: XR controller-ray-as-camera + context panel (send to VR-port agent), occlusion-aware mm-tolerance picking, Numpad; archive 2026-11-06 mobilecad review. Claude 2026-11-06, nothing taken yet.
-- [Opus] claude-kit `/start` (aliases `/seed`, `/bootstrap`): full plan + decisions in `~/claude-kit/docs/handoff/HANDOFF.md` (research in NOTES-research-2026-11-06.md there). Skeleton written, rest unbuilt; global `/next` still in ~/.claude/skills. Start there with `/next` from that dir. Second account's access: unknown until built.
+- [Opus] claude-kit `/start` (aliases `/seed`, `/bootstrap`): plan in `~/claude-kit/docs/handoff/HANDOFF.md`; skeleton only. Run `/next` from that dir.
 - Preview: brim/bed contact z-fight from below: fixed (polygon offset on the under-plate window), Claude-verified phone A/B 2026-11-08 (archive "brim/bed z-fight from below fixed"); user live-drag look pending (not on the CI/release build yet).
 - VD keyboard/tap fix (orca-vd.sh, archive end): awaits the user's verdict (keyboard no longer vanishes?); Claude, 2026-11-07.
 - Upstream-PR idea (patches 0002-0004 vs 2.5.0 alpha): no go yet; Claude, 2026-11-07.

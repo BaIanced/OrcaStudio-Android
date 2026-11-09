@@ -234,3 +234,14 @@ neighbour tops z-fight unless rank bias separates them; check rank per role firs
 - **New finding (untested cause):** with a selection, CPU draw is ~15.5 ms per frame vs GPU 3.9 ms, and vs the 5.6-5.8 ms r535
   baseline without a selection (PERFORMANCE.md; different method: swipe orbit). Selection frames look CPU-bound; ~10 ms of CPU
   somewhere in the selection path (outline/box build per frame?). Next: perf on the same build without a selection to confirm, then profile.
+
+## Selection CPU cost: baseline confirmed (2026-11-09, phone VD, same debug build 4beb4d1)
+- `NOSEL=1 gl-sel-ab.sh <apk> nosel` (new switch: skips the object tap). No selection: draw ms median 5.3 / 5.2 / 5.2, GPU sum 1.9.
+  With selection (2026-11-08): 15.5 / 15.4 / 15.6, GPU sum 3.9. So one selection adds ~10 ms CPU per frame, ~2 ms GPU.
+- Not CPU math: `selectionBox`/`meshBox` (PlateRenderer.kt:1359-1396) are a few float ops; `SelectionOverlay.draw`
+  (SelectionOverlay.kt:39-74) issues mask draw(s) of the whole mesh into its own FBO, then a fullscreen quad on FB 0.
+- Hypothesis (untested): driver stall from the mid-frame FBO switch (tiled GPU resolves the main pass at :42, reloads at :55)
+  and/or the glClear on the mask texture waiting for last frame's sampling of it. Also check drawSelectionBox/drawGizmo uploads.
+- Next: split the 10 ms. A/B with the selection style set to box only (no outline/x-ray -> no FBO) tells overlay vs box/gizmo.
+  If overlay: try (a) mask pass before the main scene draw (no mid-frame switch), (b) ping-pong 2 mask targets,
+  (c) glInvalidateFramebuffer on the mask depth after use. Measure each with gl-sel-ab.sh.
