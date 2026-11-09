@@ -35,9 +35,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Name inquiry #17269: wait 1-2 weeks from 2026-11-05, then one bump.
 - Two-Claude chat: `claudechat.md`; Monitor its `## ` count (section 7), 30 min, re-arm. Quest numbers: `NOTES-quest-profile.md`.
 - Release r538 on phone. GL shots: MCP `view_screenshot`. Quest profile is blocked until someone wears the headset (claudechat.md s8).
-- GL audit item 5 done 2026-11-08 (box 20 tris, preview 15.3 ms @1138 / 18.6 @300 by view_set orbit; archive "2026-11-08 item 5"). Phone dropped off adb: `adb connect <ip>:5555`.
+- Phone dropped off adb: `adb connect <ip>:5555`.
 - Phone debug app (session + `allow_mixed_temps`): `install -r -g`, **export PKG=...debug TARGET=phone**, `orca-vd.sh start`, `mcpao.sh slice:{}` (retry if non-JSON), `preview-zoom-perf.sh 1138`; stop VD after. 
-- Brim/bed z-fight (b122c87) + plate-top shadow fix (c701af5, Claude-verified on the phone debug VD 2026-11-08: bed shadow visible; archive "plate-top shadows") pushed; CI build skipped by the user (run cancelled). Phone adb = .20 (dbg-reinstall.sh has a stale IP); debug app uninstalled, phone slept.
+- Brim/bed z-fight + plate-top shadow fixes pushed, Claude-verified (archive "plate-top shadows"). dbg-reinstall.sh has a stale phone IP (memory device-ips).
 - Orbit perf: `~/orca-android-tools/preview-orbit-perf.sh <mm>` (view_set yaw steps; VD swipes give no frames).
 - **Top priority (user 2026-11-08): finish the full GL/render performance audit before anything else.** Done: items 4/5, idle-mA row. Findings 1+2 (scratch upload buffer, drawMesh arrays) committed 2026-11-08, compiled only. Left: phone VD check of that build (selection + gizmo perf, look unchanged), then item 3 (superKey) or close it (NOTES-gl-audit.md "Findings 1+2"). CI build of c701af5 skipped by the user.
 - Next step: GL audit findings 1+2 phone VD check, then item 3 (NOTES-gl-audit.md) -> Opus 5.5 (high)
