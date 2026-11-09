@@ -4180,3 +4180,10 @@ Draw ms (CPU side, GL thread) median: r527 5.7-5.8, r535 5.6-5.8; p95 6.3-6.7 bo
 - Cause: with the lab "plate seen from below" window on (plateHd + plateUnderAlpha, user's debug prefs 0.65), the window (z 0) is drawn last with depth test against first-layer bottom faces (also z 0): depth ties -> speckled triangle fractures, visible in single frames (supersample off); still frames hid it because 32-frame accumulation averages it out.
 - Fix (PlateRenderer.drawScene, the eye-below window draw): glPolygonOffset(-2, -8) around drawPlateSurfaces. A/B on the phone (plate 1 Preview, pitch -6, distance 140, yaw -60, supersample off; script `~/orca-android-tools/ab-under.sh <name>` with PITCH/DIST/CROP env): pre-fix speckle at the prime-tower foot, fix clean. Shot `~/orca-android-tools/shots/zfG_ab.png` (top old, bottom fix). Claude-verified; user's live-drag look pending.
 - Note: dbg-reinstall.sh still uses the old phone IP; the phone is .20 (memory device-ips).
+
+## 2026-11-08 user report: plate-top shadows (Claude logged)
+- User, after the z-fight fix (b122c87, pushed, no CI build yet): "shadows may not be visible on the surface of the build plate anymore? i'm finding it hard to tell, but from under the plate, they are very visible". Unconfirmed; suspect: polygon offset or the shadow receiver on the plate top. Checking.
+- Cause (Claude, from code): drawPlateSurfaces(plateAlpha, default 1) ran after effects.drawShadow, so an opaque HD plate top painted over bed shadows (not caused by b122c87, which only touches eye-below). Under-plate view draws the window last, so shadows showed. Fix: plate top drawn before the shadow. Compiled; visual test pending.
+
+## 2026-11-08 plate-top shadow fix verified (Claude)
+- c701af5: HD plate top drawn before drawShadow. Phone debug VD, plate 1 Prepare, object on bed: dark shadow footprint now visible on the bed top. CI run 42572494221 dispatched.

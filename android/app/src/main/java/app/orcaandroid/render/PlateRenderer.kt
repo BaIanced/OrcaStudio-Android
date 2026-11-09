@@ -40,6 +40,8 @@ private const val ACCUM_FRAMES = 32
 private const val ACCUM_REGIME = 1f
 /** Segments per instanced toolpath draw; the chunks go nearest-first for early depth rejection (drawExtrusions). */
 private const val EXTRUSION_CHUNK = 16384
+/** Largest upload (floats) that goes through the reused scratch buffer (PlateRenderer.floats); 256 KB. */
+private const val SCRATCH_MAX_FLOATS = 65536
 
 /** Colours of the 3D view, following the app theme (RGB 0..1). */
 data class ViewColors(
@@ -1120,7 +1122,9 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             glUniform1i(loc(meshProgram, "uCutBandOn"), if (b != null) 1 else 0)
             if (b != null) glUniform4f(loc(meshProgram, "uCutBand"), b[0], b[1], b[2], b[3])
         }
-        glUniform1fv(loc(meshProgram, "uSelected"), Shaders.MAX_SELECTED, ids.copyOf(Shaders.MAX_SELECTED), 0)
+        selScratch.fill(0f)
+        ids.copyInto(selScratch, endIndex = minOf(ids.size, Shaders.MAX_SELECTED))
+        glUniform1fv(loc(meshProgram, "uSelected"), Shaders.MAX_SELECTED, selScratch, 0)
         glUniform1i(loc(meshProgram, "uSelectedCount"), minOf(ids.size, Shaders.MAX_SELECTED))
         val buildSoloMode = when (buildOthers) { 0 -> 4; 1 -> 3; else -> 2 }
         glUniform1i(loc(meshProgram, "uSolo"), if (buildSolo) buildSoloMode else if (solo && ids.isNotEmpty()) 1 else 0)
@@ -1128,15 +1132,18 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glUniform3fv(loc(meshProgram, "uDrag"), 1, dragOffset, 0)
         glUniform3fv(loc(meshProgram, "uScaleAnchor"), 1, resizeAnchor, 0)
         val own = boxOverride == null && buildCopies == null
-        val sc = if (own) resizeScale else floatArrayOf(1f, 1f, 1f)
-        // Column major for GL.
-        val sm = floatArrayOf(sc[0], 0f, 0f, 0f, sc[1], 0f, 0f, 0f, sc[2])
+        val sc = if (own) resizeScale else ONE3
+        // Column major for GL (diagonal; the off-diagonal zeros of m3Scratch are rewritten each call).
+        val sm = m3Scratch
+        sm.fill(0f); sm[0] = sc[0]; sm[4] = sc[1]; sm[8] = sc[2]
         glUniformMatrix3fv(loc(meshProgram, "uScale"), 1, false, sm, 0)
         val rot = rotateMatrix?.takeIf { own }
         glUniform1i(loc(meshProgram, "uRotOn"), if (rot != null) 1 else 0)
         if (rot != null) {
             // Column major for GL.
-            glUniformMatrix3fv(loc(meshProgram, "uRot"), 1, false, floatArrayOf(rot[0], rot[3], rot[6], rot[1], rot[4], rot[7], rot[2], rot[5], rot[8]), 0)
+            val rm = m3Scratch
+            for (c in 0 until 3) for (r in 0 until 3) rm[c * 3 + r] = rot[r * 3 + c]
+            glUniformMatrix3fv(loc(meshProgram, "uRot"), 1, false, rm, 0)
             glUniform3fv(loc(meshProgram, "uRotPivot"), 1, rotatePivot, 0)
         }
         glUniform3fv(loc(meshProgram, "uPartColor"), 1, colors.part, 0)
@@ -1829,7 +1836,25 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
 
     private fun loc(program: Int, name: String) = uloc(program, name)
 
-    private fun floats(a: FloatArray) = ByteBuffer.allocateDirect(maxOf(a.size, 1) * 4).order(ByteOrder.nativeOrder()).asFloatBuffer().put(a).also { it.flip() }
+    /** Reused direct buffer for uploads (GL thread only; glBuffer(Sub)Data copies it before returning). */
+    private var scratch: java.nio.FloatBuffer? = null
+    /** drawMesh per-pass uniform arrays (GL thread only; glUniform* copies them). */
+    private val selScratch = FloatArray(Shaders.MAX_SELECTED)
+    private val m3Scratch = FloatArray(9)
+    private val ONE3 = floatArrayOf(1f, 1f, 1f)
+
+    /** [a] in a direct buffer for one glBuffer(Sub)Data call. Small uploads (per-frame overlays, lines, dots) reuse
+     *  [scratch] instead of an allocateDirect per call; big one-off static uploads get their own buffer so the scratch stays small. */
+    private fun floats(a: FloatArray): java.nio.FloatBuffer {
+        val n = maxOf(a.size, 1)
+        if (n > SCRATCH_MAX_FLOATS) return ByteBuffer.allocateDirect(n * 4).order(ByteOrder.nativeOrder()).asFloatBuffer().put(a).also { it.flip() }
+        val s = scratch?.takeIf { it.capacity() >= n }
+            ?: ByteBuffer.allocateDirect(Integer.highestOneBit(n - 1).coerceAtLeast(512) * 2 * 4).order(ByteOrder.nativeOrder()).asFloatBuffer().also { scratch = it }
+        s.clear()
+        s.put(a)
+        s.flip()
+        return s
+    }
 
     private fun program(vs: String, fs: String): Int {
         fun shader(type: Int, src: String): Int {

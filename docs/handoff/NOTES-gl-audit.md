@@ -213,3 +213,13 @@ neighbour tops z-fight unless rank bias separates them; check rank per role firs
 - Shipped option 1: reversed right/left wall copies only while the section cut is on (`boxOutsideCount` = 60 indices otherwise).
   New build vs diag 20 tris: 0 px (close, above). Perf NOT measured: VD swipes stopped producing frames this session (input to display
   36 accepted, yaw unchanged, "last frame N s ago"). Old numbers 20 vs 24 tris: ~-4 ms at 1138 mm (diag, 2026-11-07).
+
+## Findings 1+2 done in code (2026-11-08, Claude, compiled only, NOT run on a device)
+- Item 2: `PlateRenderer.floats()` reuses one direct scratch FloatBuffer (power-of-two growth, <= `SCRATCH_MAX_FLOATS` 65536 floats);
+  bigger one-off static uploads still allocate their own. Safe because glBuffer(Sub)Data copies before returning; only
+  `uploadPadded` holds a result across two calls with no other floats() in between.
+- Item 1: drawMesh `ids.copyOf`, `floatArrayOf(1,1,1)`, scale and rot matrices -> reused `selScratch`/`m3Scratch`/`ONE3`.
+- Already done (backlog was stale): PERFORMANCE.md idle-mA row (line "Idle vs orbit battery current", r537 -> r538). Item 4's top pass
+  (preview 48.8 ms) was the item 5 target, closed 2026-11-08 at 15.3 ms (view_set orbit; methods differ, see PERFORMANCE.md).
+- Left: device check (debug build on the phone VD: select an object + gizmo, perf before/after vs c701af5 = draw ms + look unchanged;
+  Prepare/Preview shot unchanged), then item 3 (`superKey`/shadow key list churn) or close it as low value. Then the audit is complete.
