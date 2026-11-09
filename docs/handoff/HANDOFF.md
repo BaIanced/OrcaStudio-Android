@@ -35,12 +35,11 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Name inquiry #17269: wait 1-2 weeks from 2026-11-05, then one bump.
 - Two-Claude chat: `claudechat.md`; Monitor its `## ` count (section 7), 30 min, re-arm. Quest numbers: `NOTES-quest-profile.md`.
 - Release r538 on phone. GL shots: MCP `view_screenshot`. Quest profile is blocked until someone wears the headset (claudechat.md s8).
-- Phone dropped off adb: `adb connect <ip>:5555`.
 - Phone debug app (session + `allow_mixed_temps`): `install -r -g`, **export PKG=...debug TARGET=phone**, `orca-vd.sh start`, `mcpao.sh slice:{}` (retry if non-JSON), `preview-zoom-perf.sh 1138`; stop VD after. 
-- Brim/bed z-fight + plate-top shadow fixes pushed, Claude-verified (archive "plate-top shadows"). dbg-reinstall.sh has a stale phone IP (memory device-ips).
-- Orbit perf: `~/orca-android-tools/preview-orbit-perf.sh <mm>` (view_set yaw steps; VD swipes give no frames).
-- **Top priority (user 2026-11-08): finish the full GL/render performance audit before anything else.** Done: items 4/5, idle-mA row. Findings 1+2 (scratch upload buffer, drawMesh arrays) committed 2026-11-08, compiled only. Left: phone VD check of that build (selection + gizmo perf, look unchanged), then item 3 (superKey) or close it (NOTES-gl-audit.md "Findings 1+2"). CI build of c701af5 skipped by the user.
-- Next step: GL audit findings 1+2 phone VD check, then item 3 (NOTES-gl-audit.md) -> Opus 5.5 (high)
+- dbg-reinstall.sh has a stale phone IP (memory device-ips). Orbit perf: `preview-orbit-perf.sh <mm>` (Preview), `gl-sel-ab.sh` (Prepare + selection); VD swipes give no frames.
+- Phone debug app: a fresh install shows a POST_NOTIFICATIONS prompt on the VD that blocks start; `pm grant` it (gl-sel-ab.sh does).
+- GL/render audit (user's top priority 2026-11-08) closed: findings 1+2 verified on the phone VD (perf noise, 0 px look change), item 3 closed as low value (NOTES-gl-audit.md "audit closed"). Follow-up it found: backlog "Selection CPU cost" (draw ~15.5 ms CPU vs 3.9 GPU with a selection).
+- Next step: Selection CPU cost (backlog; confirm without selection, then profile) -> Opus 5.5 (high)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 

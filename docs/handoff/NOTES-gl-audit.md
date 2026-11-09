@@ -223,3 +223,14 @@ neighbour tops z-fight unless rank bias separates them; check rank per role firs
   (preview 48.8 ms) was the item 5 target, closed 2026-11-08 at 15.3 ms (view_set orbit; methods differ, see PERFORMANCE.md).
 - Left: device check (debug build on the phone VD: select an object + gizmo, perf before/after vs c701af5 = draw ms + look unchanged;
   Prepare/Preview shot unchanged), then item 3 (`superKey`/shadow key list churn) or close it as low value. Then the audit is complete.
+
+## Findings 1+2 device check + audit closed (2026-11-08, phone VD 1080x2340, debug builds of c701af5 vs 4beb4d1)
+- Runner `~/orca-android-tools/gl-sel-ab.sh <apk> <tag> [setup]` (RUNS=n): plate 1 fit, tap object 1 (selection outline + box
+  corners; tool none, so no gizmo rings), 24 view_set yaw steps x3, MCP perf, shots `shots/<tag>-{sel,fit}.png`.
+- Draw ms median: before 15.5 / 15.4 / 15.6, after 15.3 / 16.0 / 15.1 = noise (as predicted). GPU sum 3.9 both; selection pass 1.15 vs 1.1.
+- Look: 0 px differ (>24) on both shots. Gizmo/ring call sites hand floats() straight to glBufferData like the selection box
+  (only `far` :850 is held, by uploadPadded), so the gizmo path is covered by code, not run.
+- Item 3 (superKey) closed as low value: GC churn only, Java heap stays 10-29 MB, frames are not limited by it.
+- **New finding (untested cause):** with a selection, CPU draw is ~15.5 ms per frame vs GPU 3.9 ms, and vs the 5.6-5.8 ms r535
+  baseline without a selection (PERFORMANCE.md; different method: swipe orbit). Selection frames look CPU-bound; ~10 ms of CPU
+  somewhere in the selection path (outline/box build per frame?). Next: perf on the same build without a selection to confirm, then profile.

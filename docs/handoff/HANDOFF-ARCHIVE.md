@@ -4187,3 +4187,6 @@ Draw ms (CPU side, GL thread) median: r527 5.7-5.8, r535 5.6-5.8; p95 6.3-6.7 bo
 
 ## 2026-11-08 plate-top shadow fix verified (Claude)
 - c701af5: HD plate top drawn before drawShadow. Phone debug VD, plate 1 Prepare, object on bed: dark shadow footprint now visible on the bed top. CI run 42572494221 dispatched.
+
+## 2026-11-08 GL audit findings 1+2 verified, audit closed (Claude)
+- 4beb4d1 (scratch upload buffer, drawMesh arrays) vs c701af5, phone debug VD, object selected + orbit: draw ms 15.5 -> 15.5 (noise), 0 px look change. Item 3 (superKey) closed as low value. New: selection frames CPU ~15.5 ms vs GPU 3.9 (backlog). Details: NOTES-gl-audit.md "audit closed".
