@@ -36,8 +36,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Two-Claude chat: `claudechat.md`; Monitor its `## ` count (section 7), 30 min, re-arm. Quest numbers: `NOTES-quest-profile.md`.
 - Release r538 on phone. Phone perf notes (doze, draw ms swings): archive "2026-11-09 Handoff trim". GL shots: MCP `view_screenshot`. Quest profile is blocked until someone wears the headset (claudechat.md s8).
 - Phone debug app (session + `allow_mixed_temps`): `install -r -g`, **export PKG=...debug TARGET=phone**, `orca-vd.sh start`, `mcpao.sh slice:{}` (retry if non-JSON), `preview-zoom-perf.sh 1138`; stop VD after; fresh install: `pm grant` POST_NOTIFICATIONS (gl-sel-ab.sh does). 
-- Assemble A1 + A2 are Claude-verified; multi-part entry exists (Edit in builder -> editMesh, db92ebb). Open: a real 2+ part plain object in the builder. WSA debug app now has object 2 "Cube" (20 mm, added 2026-11-09) next to Desk Organizer. VD recipe (archive "2026-11-09 WSA VD taps"): MCP needs `MCP_DEV=127.0.0.1:58526` (target.sh defaults to the phone); VD = 720x1280, a 540-wide shot x1.333; shots go stale on a static screen, so check dialogs with `dumpsys window windows` frames. Next: toolbar Select multiple = VD (76,293), tap both objects, Assemble button appears in the toolbar, then long-press > Edit in builder: expect 2 MESH shapes, floor grid + ghost. Then A3 (cut suggestion) design.
-- Next step: Assemble A1 2-part builder VD test -> Sonnet 5.5 (medium)
+- Assemble A1 + A2 + 2-part builder entry Claude-verified (archive "2026-11-09 Assemble A1 2-part builder test"; taps and VD recipe there). Open: "Update on plate" after editing a 2-part Assembly, the "OpenSCAD stopped" line, then A3 (cut suggestion) design [Opus].
+- Next step: Assemble A3 cut-suggestion design (read backlog line first) -> Opus 5.5 (high)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 

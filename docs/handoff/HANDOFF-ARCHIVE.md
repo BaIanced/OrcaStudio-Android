@@ -4222,3 +4222,8 @@ Draw ms (CPU side, GL thread) median: r527 5.7-5.8, r535 5.6-5.8; p95 6.3-6.7 bo
 - vdgrab shots lag/freeze on a static screen (vd.mkv barely grows): the Shape dialog was open (`dumpsys window windows`: ty=APPLICATION, frame) while shots still showed the menu. Use window frames + MCP plate_describe to confirm steps.
 - mcpao.sh: `TARGET=wsa` is not enough (target.sh serial = phone); set `MCP_DEV=127.0.0.1:58526`.
 - Added object 2 "Cube" 20 mm on the WSA debug app. Assemble + Edit in builder not done yet (context limit).
+
+## 2026-11-09 Assemble A1 2-part builder test (Claude, local debug build, WSA VD)
+- Select multiple (VD 76,293) > tap Cube (the second tap was dropped; "Select all" VD 627,55 gave "2 selected") > Assemble (toolbar icon above the trash, VD 76,462): plate became 1 object "Assembly", 9112 tris (9100 + 12). Long-press the object (swipe same point, 900 ms) > Edit in builder (menu row VD 364,831) opened the builder: shape list = the Desk Organizer's 11 shapes (Pen cup, Clip tray, ..., 3 holes) + Cube as its own shape, floor grid, ghost box. Close editor (VD 700,20) fine.
+- Seen, not chased: red "OpenSCAD stopped" line at the bottom of the builder (no engine started in this test; likely normal until Update on plate). Update on plate not tried. A1 multi-part entry Claude-verified.
+- Debug app uninstalled from WSA, VD stopped, no scrcpy left.
