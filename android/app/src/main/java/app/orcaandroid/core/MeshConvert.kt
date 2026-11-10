@@ -362,7 +362,7 @@ object MeshConvert {
                     }
                     if (bmp != null && uv != null) {
                         val u = vs.sumOf { uv[it * 2].toDouble() } / 3; val w = vs.sumOf { uv[it * 2 + 1].toDouble() } / 3
-                        val px = bmp.getPixel(((u - Math.floor(u)) * (bmp.width - 1)).toInt(), ((w - Math.floor(w)) * (bmp.height - 1)).toInt())
+                        val px = bmp.getPixel(((u - Math.floor(u)) * bmp.width).toInt().coerceIn(0, bmp.width - 1), ((w - Math.floor(w)) * bmp.height).toInt().coerceIn(0, bmp.height - 1))
                         r *= srgbToLinear(android.graphics.Color.red(px)); g *= srgbToLinear(android.graphics.Color.green(px)); b *= srgbToLinear(android.graphics.Color.blue(px))
                     }
                     // glTF factors are linear: back to sRGB, which is what the filament colors are.
