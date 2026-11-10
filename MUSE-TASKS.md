@@ -1438,3 +1438,31 @@ UNVERIFIED: nothing installed or run; the metavr device commands were read in
 the generated CLI reference, not executed.
 Open questions: for Vincent - Essential-telemetry consent on a metavr install,
 unchanged from the previous update entry.
+
+### Task 23 - 2026-11-09 - muse/task-23-3ds-reader - this commit
+Standalone binary 3DS reader per the Tasks 22-25 contract: exactly two new
+files, `core/Max3dsReader.kt` + `core/Max3dsReaderTest.kt`, no existing file
+touched. Chunk walk 0x4D4D -> 0x3D3D -> 0xAFFF materials (0xA000 name,
+0xA020 diffuse via 0x0010 float / 0x0011 byte RGB) and 0x4000 objects
+(0x4100 mesh: 0x4110 vertices, 0x4120 faces, 0x4130 per-material face
+groups, 0x4160 local matrix). All counts/lengths validated against the
+remaining bytes before allocation; malformed input throws
+IllegalArgumentException. Multiple objects concatenated; unknown chunks
+skipped by length; units treated as mm and axes passed through (3DS is
+natively Z up).
+Build: compileReleaseKotlin exit 0; testDebugUnitTest exit 0 - 204 tests,
+0 failures (12 new Max3dsReaderTest tests, all sample files built
+byte-by-byte inside the test).
+Privacy self-scan: tree exit 0, range exit 0.
+UNVERIFIED: no real exporter file was read; modelled on Assimp's
+Discreet3DS importer (3DSLoader.cpp / 3DSHelper.h, master, read
+2026-11-09) for chunk IDs and the 0x4160 layout. Main open spec point:
+0x4160 is parsed and validated but NOT applied - Assimp treats 0x4110
+vertices as pre-transformed to world space ("Vertices are pretransformed
+by this matrix"), so applying it would double-transform; if the exporter
+Claude modelled writes local-space vertices, flip this one decision.
+Gamma colour chunks 0x0012/0x0013 ignored per the task text. A faces
+chunk appearing before its vertices chunk inside 0x4100 is rejected
+(face indices validate against vertices read so far); real exporters
+write vertices first. Keyframe/hierarchy chunks (0xB000) ignored.
+Open questions: none for Vincent.
