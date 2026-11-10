@@ -110,6 +110,16 @@ class AppSettings(context: Context) {
         get() = FrameRates.decode(prefs.getString("vr_frame_rates", "").orEmpty())
         set(value) = prefs.edit().putString("vr_frame_rates", FrameRates.encode(value)).apply()
 
+    /** Picked rates the system answered with another rate ([FrameRates.recordGrant]). VR's on the Quest build. */
+    var refusedFrameRates: Map<Float, Float>
+        get() = FrameRates.decodeGrants(prefs.getString("frame_rate_refused", "").orEmpty())
+        set(value) = prefs.edit().putString("frame_rate_refused", FrameRates.encodeGrants(value)).apply()
+
+    /** The rate VR last ran at, 0 until VR has run. The Quest's 2D screen can't read VR's rate. */
+    var vrRunningHz: Float
+        get() = prefs.getFloat("vr_running_hz", 0f)
+        set(value) = prefs.edit().putFloat("vr_running_hz", value).apply()
+
     /** Body drags snap to edges and middles: on the plate (Prepare, off by default) and in the Build workspace (on). */
     var snapPrepare: Boolean
         get() = prefs.getBoolean("snap_prepare", false)

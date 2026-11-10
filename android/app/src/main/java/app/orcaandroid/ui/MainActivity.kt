@@ -99,7 +99,20 @@ class MainActivity : ComponentActivity() {
         val rate = if (hz > 0f) app.orcaandroid.core.FrameRates.closest(hz, modes.map { it.refreshRate }) else null
         pickedMode = modes.firstOrNull { it.refreshRate == rate }?.modeId ?: 0
         setDisplayMode(pickedMode)
+        if (rate != null) checkGrant(rate)
     }
+
+    /** The system may answer the pick with another rate (phone, 2026-11-09: 144 and 165 gave 120); keep what it gave. */
+    private fun checkGrant(rate: Float) {
+        val h = window.decorView.handler ?: return
+        h.removeCallbacks(grantCheck)
+        grantCheck = Runnable {
+            val actual = window.decorView.display?.refreshRate ?: return@Runnable
+            if (pickedMode != 0) vm.recordFrameRateGrant(rate, actual)
+        }
+        h.postDelayed(grantCheck, GRANT_CHECK_MS)
+    }
+    private var grantCheck = Runnable {}
 
     private fun setDisplayMode(id: Int) {
         val lp = window.attributes
@@ -213,6 +226,8 @@ class MainActivity : ComponentActivity() {
     }
 
     private companion object {
+        /** Time for the display to switch modes before the rate is read back. */
+        const val GRANT_CHECK_MS = 1500L
         const val ACTION_SLICE = "app.orcaandroid.action.SLICE"
         const val ACTION_IMPORT_DOWNLOADS = "app.orcaandroid.action.IMPORT_DOWNLOADS"
         const val ACTION_OPEN_LAST = "app.orcaandroid.action.OPEN_LAST_PROJECT"

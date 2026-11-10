@@ -22,4 +22,23 @@ class FrameRatesTest {
     }
 
     @Test fun nothingStoredIsAnEmptyList() = assertEquals(emptyList<Float>(), FrameRates.decode(""))
+
+    @Test fun aRefusedRateIsKeptWithWhatTheSystemGave() {
+        val refused = FrameRates.recordGrant(emptyMap(), 144f, 120f)
+        assertEquals(120f, FrameRates.givenInstead(refused, 144f))
+        assertNull(FrameRates.givenInstead(refused, 90f))
+    }
+
+    @Test fun aLaterGrantClearsTheLabel() {
+        val refused = FrameRates.recordGrant(mapOf(144f to 120f), 144.1f, 143.9f)
+        assertNull(FrameRates.givenInstead(refused, 144f))
+    }
+
+    @Test fun noPreferenceIsNeverRecorded() = assertEquals(emptyMap<Float, Float>(), FrameRates.recordGrant(emptyMap(), 0f, 120f))
+
+    @Test fun refusedRatesRoundTrip() {
+        val refused = mapOf(144f to 120f, 165f to 120f)
+        assertEquals(refused, FrameRates.decodeGrants(FrameRates.encodeGrants(refused)))
+        assertEquals(emptyMap<Float, Float>(), FrameRates.decodeGrants(""))
+    }
 }

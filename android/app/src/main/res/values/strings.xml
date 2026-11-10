@@ -1222,6 +1222,9 @@
     <string name="frame_rate_auto">Device default</string>
     <string name="frame_rate_hz">%1$s Hz</string>
     <string name="frame_rate_vr_unread">Enter VR once to list the rates this headset offers.</string>
+    <string name="frame_rate_refused">%1$s Hz (system gave %2$s)</string>
+    <string name="frame_rate_vr_running">VR last ran at %1$s Hz</string>
+    <string name="frame_rate_vr_note">The headset may keep its own rate: the pick is a request, applied when VR starts.</string>
     <string name="supersample_off">Off</string>
     <string name="supersample_still">When still</string>
     <string name="supersample_always">Always</string>

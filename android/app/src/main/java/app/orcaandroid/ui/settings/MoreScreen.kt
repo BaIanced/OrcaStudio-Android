@@ -622,9 +622,17 @@ private fun FrameRateRow(state: UiState, vm: AppViewModel) {
     val view = androidx.compose.ui.platform.LocalView.current
     val auto = stringResource(R.string.frame_rate_auto)
     @Composable fun label(hz: Float) = if (hz > 0f) stringResource(R.string.frame_rate_hz, app.orcaandroid.core.FrameRates.label(hz)) else auto
+    // Read again each time the dialog closes: VR and the grant check write these outside the UI state.
+    val refused = remember(open, state.frameRateHz) { vm.refusedFrameRates() }
+    val running = remember(open) { if (BuildConfig.QUEST) vm.vrRunningHz() else 0f }
     Row(Modifier.fillMaxWidth().clickable { open = true }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(if (BuildConfig.QUEST) R.string.frame_rate_vr else R.string.frame_rate), Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
-        Text(label(state.frameRateHz), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Column(horizontalAlignment = Alignment.End) {
+            Text(label(state.frameRateHz), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            // The Quest's 2D screen can't see VR's rate, so show the one VR last ran at (user, 2026-11-09).
+            if (running > 0f) Text(stringResource(R.string.frame_rate_vr_running, app.orcaandroid.core.FrameRates.label(running)),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
     if (!open) return
     val rates = remember {
@@ -641,9 +649,14 @@ private fun FrameRateRow(state: UiState, vm: AppViewModel) {
                 (listOf(0f) + rates).forEach { hz ->
                     Row(Modifier.fillMaxWidth().clickable { vm.setFrameRate(hz); open = false }, verticalAlignment = Alignment.CenterVertically) {
                         RadioButton(hz == state.frameRateHz, { vm.setFrameRate(hz); open = false })
-                        Text(label(hz))
+                        // Rates the system answered with another one stay listed, labelled (user, 2026-11-09).
+                        val instead = if (hz > 0f) app.orcaandroid.core.FrameRates.givenInstead(refused, hz) else null
+                        Text(if (instead == null) label(hz)
+                            else stringResource(R.string.frame_rate_refused, app.orcaandroid.core.FrameRates.label(hz), app.orcaandroid.core.FrameRates.label(instead)))
                     }
                 }
+                if (BuildConfig.QUEST && rates.isNotEmpty()) Text(stringResource(R.string.frame_rate_vr_note), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (rates.isEmpty()) Text(stringResource(R.string.frame_rate_vr_unread), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }

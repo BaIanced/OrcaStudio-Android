@@ -217,6 +217,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** VR's list as last read in a session. Read when the picker opens, since VR may have just updated it. */
     fun vrFrameRates(): List<Float> = store.settings.vrFrameRates
 
+    fun refusedFrameRates(): Map<Float, Float> = store.settings.refusedFrameRates
+
+    fun vrRunningHz(): Float = store.settings.vrRunningHz
+
+    /** The system answered a request for [requested] with [actual]. */
+    fun recordFrameRateGrant(requested: Float, actual: Float) {
+        store.settings.refusedFrameRates = app.orcaandroid.core.FrameRates.recordGrant(store.settings.refusedFrameRates, requested, actual)
+    }
+
     fun setRealistic(on: Boolean) {
         store.settings.realistic = on
         store.update { it.copy(realistic = on) }

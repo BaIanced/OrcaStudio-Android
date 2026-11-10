@@ -300,6 +300,16 @@ class VrActivity : Activity() {
         settings.frameRateHz.takeIf { it > 0f }?.let(::requestRefreshRate)
     }
 
+    /** The rate VR runs at, and whether that answers the picked one: Horizon OS 2.10 held 120 against every request (2026-11-08). */
+    private fun recordRunningRate(current: Float) {
+        val settings = (application as OrcaApp).container.settings
+        settings.vrRunningHz = current
+        val picked = settings.frameRateHz
+        if (picked > 0f && RefreshRates.match(picked, XrShim.nativeRefreshRates()) != null) {
+            settings.refusedFrameRates = app.orcaandroid.core.FrameRates.recordGrant(settings.refusedFrameRates, picked, current)
+        }
+    }
+
     private fun requestRefreshRate(wanted: Float) {
         val offered = XrShim.nativeRefreshRates()
         val rate = RefreshRates.match(wanted, offered)
@@ -358,6 +368,8 @@ class VrActivity : Activity() {
         val eye = EyeView()
         var frames = 0
         var windowStart = SystemClock.elapsedRealtime()
+        var rateWindows = 0
+        var recordedRate = 0f
         val rays = RayOverlay()
         val hands = FloatArray(XrShim.HANDS * XrShim.FLOATS_PER_HAND)
         var lastFrameNanos = SystemClock.elapsedRealtimeNanos()
@@ -433,7 +445,13 @@ class VrActivity : Activity() {
             val now = SystemClock.elapsedRealtime()
             if (now - windowStart >= FPS_WINDOW_MS) {
                 Log.i(TAG, "VR_FPS " + frames * 1000 / (now - windowStart))
-                Log.i(TAG, "VR_REFRESH current ${XrShim.nativeCurrentRefreshRate()} frame period ${XrShim.nativeFramePeriodHz()}")
+                val current = XrShim.nativeCurrentRefreshRate()
+                Log.i(TAG, "VR_REFRESH current $current frame period ${XrShim.nativeFramePeriodHz()}")
+                // From the second window on, the request has had time to apply: keep what the runtime runs for the 2D picker.
+                if (++rateWindows >= 2 && current > 0f && current != recordedRate) {
+                    recordedRate = current
+                    recordRunningRate(current)
+                }
                 frames = 0
                 windowStart = now
             }
