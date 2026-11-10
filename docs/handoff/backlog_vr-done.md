@@ -2,6 +2,9 @@
 
 Moved here from `backlog_vr.md`, newest first. Never delete. Not read at startup.
 
+### 2026-11-09
+- Frame rate setting: closed on the Quest result (user skipped the phone check on r545, 2026-11-09). `claude/vr-m2` f9fbda6 adds the 2D picker in Settings (Quest lists the rates VR saved, requested at session start; phones list display modes) plus `refreshHz` in `vr_tuning.json` and `VR_REFRESH` logs; 0656d73 labels refused rates from a read-back ("144 Hz (system gave 120)") and the Quest row shows "VR last ran at N Hz" plus a note. Quest r545 passed 17:27-17:31: 144 requested and accepted, still 120, label right, pick reset to Device default. Phone on r542: 60 and 90 apply, 144 and 165 give 120; the r545 label was never checked on the phone. The Quest holds 120 system-wide (Beat Saber and Horizon's Shell too); ruled out: `debug.oculus.refreshRate` (cleared), reboot, wear state, thermal sim, loader version, `supportedDevices`, Settings (no refresh option). Cause unknown. Design notes, "Frame rate setting". | Claude and user, CI r545 (run 42727099259), 2026-11-09
+
 ### 2026-11-06
 - Chromebook-ready wishlist item: not VR, passed to the main agent in `claudechat.md` section 10, at the user's request. | Claude, no build needed, 2026-11-06
 ### 2026-11-06
