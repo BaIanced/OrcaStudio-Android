@@ -567,6 +567,76 @@ confidence, source); then findings per section; then URLs not read and questions
 the compile and tests in "Before every push". The privacy scans still apply. Only add `MUSE-RESEARCH-0021.md` and your log entry here.
 One draft PR, then ping #46 as usual.
 
+## Tasks 22-25: mesh-format readers (pure Kotlin + JVM tests, no UI, no wiring; one PR each; time-box ~90 min each)
+Context: the app is getting a "convert a 3D file to 3MF" import path (glTF/GLB, PLY, OFF are already done by Claude, not in this
+branch). You write standalone readers for four more formats; Claude wires them in. Do NOT touch `FileController`, `ModelDownloads`,
+the manifest, strings or any existing file: each task adds exactly ONE new main file and ONE new test file, plus your log entry here.
+Common contract for Tasks 23-25 (Task 22 is a decoder, see there):
+- Package `app.orcaandroid.core`, one `object` per format, entry point `fun read(file: java.io.File): Pair<FloatArray, IntArray>`.
+- First = triangles as 9 floats each (x,y,z per corner), in **millimetres, Z up, right-handed**, with every node/instance transform
+  already applied. Second = one `0xRRGGBB` per triangle (sRGB, 24-bit), or **-1** when that triangle has no colour. So
+  `second.size * 9 == first.size` always.
+- Colour = the material's diffuse colour only; ignore textures, vertex normals, UVs, lights, cameras, animation. Quads/n-gons: fan-triangulate.
+- Degenerate/garbage input: throw `IllegalArgumentException` with a short message (the caller catches). Never loop forever or allocate from an
+  unchecked count: validate every count/length against the remaining bytes first. Files can be hostile or truncated.
+- Android-safe only: `java.*`, `org.json`, `javax.xml`/`org.xmlpull` are fine (tests run on the JVM: if `XmlPullParser` is not
+  available there, use `javax.xml.stream` or a small hand-written scanner, and say which). No new dependencies, no `android.*` classes.
+- Tests: JVM unit tests in `android/app/src/test/java/app/orcaandroid/core/`. **Build the sample files inside the test** (byte arrays /
+  strings written to a temp file). No downloaded or binary fixtures in the repo. Cover: a single triangle, a quad, two materials,
+  a transformed instance, units/axis, a truncated file, a lying count. Report the test count.
+Output of each task in the PR: the commit, the log entry, and an UNVERIFIED list naming every spec point you could not check against
+a real exporter's file (say which exporter you modelled).
+
+### Task 22: meshopt decoder (`MeshoptDecoder.kt` + `MeshoptDecoderTest.kt`)
+Port the **decoder side only** of meshoptimizer (MIT) for glTF `EXT_meshopt_compression`, in pure Kotlin:
+- `decodeVertexBuffer(count: Int, byteStride: Int, src: ByteArray, off: Int, len: Int): ByteArray` (codec version 0, and 1 if the spec you
+  read defines it; header byte `0xa0 | version`, 16-vertex groups, bit-width modes per group, the delta/zigzag byte-plane transform,
+  tail/last-vertex block).
+- `decodeIndexBuffer(count: Int, indexSize: Int /*2 or 4*/, src, off, len): ByteArray` (TRIANGLES mode, header `0xe0 | version`, edge FIFO,
+  vertex FIFO, codeaux table) and `decodeIndexSequence(...)` (header `0xd0`, INDICES mode).
+- Filters applied in place on the decoded bytes: `filterOctahedral(data, count, stride)` (stride 4 and 8), `filterQuaternion` (stride 8),
+  `filterExponential` (stride multiple of 4). Output little-endian, exactly as glTF expects.
+Sources: the glTF extension spec `EXT_meshopt_compression` (Khronos glTF repo) and meshoptimizer's `vertexcodec.cpp`, `indexcodec.cpp`,
+`vertexfilter.cpp` (read the real files, cite file and function names in the PR; do not reproduce from memory).
+Tests, in order of preference: (a) if you can obtain the official encoder in your VM (e.g. the `meshoptimizer` Python wheel or building
+`gltfpack`/the C++ encoder from source), encode random and structured vertex/index data, decode with your port, compare byte-for-byte,
+including each filter; put the generating command in the PR and **commit only the small resulting byte arrays as Kotlin literals**
+(<= 4 KB total); (b) if no encoder is available, hand-built streams from the spec's own examples, and mark everything else UNVERIFIED.
+Failing byte-exactness against the real encoder is a task failure; say so rather than adjusting the test.
+
+### Task 23: 3DS reader (`Max3dsReader.kt` + `Max3dsReaderTest.kt`)
+Binary Autodesk 3DS. Chunks: `0x4D4D` main -> `0x3D3D` editor -> `0x4000` object (name, then `0x4100` mesh) with `0x4110` vertices (`uint16` count +
+3 floats each), `0x4120` faces (`uint16` count + 4x`uint16` a,b,c,flags; sub-chunk `0x4130` per-material face lists: name + `uint16` count + face indices),
+`0x4160` local matrix (3x4 floats; check the row/column layout against a spec or the Assimp/lib3ds importer), and `0xAFFF` materials
+(`0xA000` name, `0xA020` diffuse -> `0x0011` RGB bytes or `0x0010` RGB floats; the rest ignored). Faces without a material -> -1. Units: 3DS has
+none; treat as millimetres unchanged. Skip unknown chunks by length (validate `len >= 6` and within the parent). Multiple objects are concatenated.
+
+### Task 24: COLLADA `.dae` reader (`ColladaReader.kt` + `ColladaReaderTest.kt`)
+COLLADA 1.4/1.5 XML, plain text only (no `.zae`). Support: `asset/unit@meter` (multiply by 1000 to get mm) and `asset/up_axis` (`X_UP`, `Y_UP` default,
+`Z_UP`: rotate to Z up); `library_geometries` with `triangles`, `polylist`+`vcount` and `polygons` (fan), several `input` sets (use only `VERTEX`; indices are
+interleaved with stride = max offset + 1); `library_materials` -> `instance_effect` -> `library_effects` `phong|lambert|blinn|constant` `diffuse/color`
+(four floats 0..1, taken as given with no gamma conversion, then to 0..255; if `diffuse` is a `texture`, -1); `library_visual_scenes` node tree with `matrix` and
+`translate`/`rotate`/`scale` (document order) applied to `instance_geometry` (+ `bind_material/instance_material@symbol` mapping to the primitive's `material` attribute).
+Ignore `library_controllers`/`instance_controller` (skinned meshes: skip, do not fail). A geometry may be instanced several times.
+XML safety: **disable DTD/external entities** (entity bombs, XXE); cap the number of floats read from one `float_array` by the file size.
+
+### Task 25: FBX reader (`FbxReader.kt` + `FbxReaderTest.kt`)
+Binary FBX only (magic `Kaydara FBX Binary  \0` + `0x1A 0x00`, version `uint32`; node records have 32-bit offsets before version 7500 and 64-bit from
+7500: **read both**). Properties: type codes `C Y I L F D` scalars, `f d l i b` arrays (encoding 0 raw / 1 zlib via `java.util.zip.Inflater`), `S R` strings/raw.
+If the file starts with `; FBX` (ASCII FBX) throw `IllegalArgumentException("ascii fbx")`: not supported yet, that is fine.
+Needed data: `Objects/Geometry` (class Mesh): `Vertices` (double array), `PolygonVertexIndex` (a polygon ends at the first **negative** index, real index = `~i`;
+fan-triangulate), `LayerElementMaterial` (`MappingInformationType` `ByPolygon` / `AllSame`, index list), `Objects/Material`
+(`Properties70` -> `P: "DiffuseColor"` three doubles; if absent, the material's `Diffuse`), `Objects/Model` (class Mesh) with `Lcl Translation/Rotation/Scaling`
+and `PreRotation`/`PostRotation`/`RotationOrder` (default XYZ euler **degrees**), parent links through `Connections` (`C: "OO", child, parent`; geometry and
+materials connect to the Model; Models connect to parent Models or 0). `GlobalSettings`: `UpAxis` (0 X, 1 Y, 2 Z) with `UpAxisSign`, `CoordAxis`, `FrontAxis`, and `UnitScaleFactor` (cm = 1.0 default, so x10 for mm).
+World = parent * local, with local = T * Roff * Rp * Rpre * R * Rpost^-1 * Rp^-1 * S (keep only what you can justify from the FBX docs or the
+Blender/Assimp importer you read, and say which terms you dropped, e.g. pivots, in UNVERIFIED). Models without geometry are just transform nodes.
+Test samples: write a tiny binary FBX **writer inside the test** (one mesh, one material, one parent transform; once with 32-bit and once with 64-bit offsets,
+once with a zlib-compressed `Vertices` array).
+
+Delivery for each task: draft PR `muse/task-<n>-...` into `muse/work`, PR body per the template above, ping #46 `PR #<n> UPDATED` as usual.
+Order does not matter; Tasks 23 and 24 are the quickest. If one is blocked after 2 honest tries, log why and move on.
+
 ## Log
 Append-only, one entry per PR (also for PRs that get closed unmerged), newest last. Never edit earlier entries.
 Format: `### Task <n> - <date> - <branch> - <commit>` then build/test result or UNCOMPILED, privacy scan exit codes,
