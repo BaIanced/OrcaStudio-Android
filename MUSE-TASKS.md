@@ -1438,3 +1438,44 @@ UNVERIFIED: nothing installed or run; the metavr device commands were read in
 the generated CLI reference, not executed.
 Open questions: for Vincent - Essential-telemetry consent on a metavr install,
 unchanged from the previous update entry.
+
+### Task 22 - 2026-11-09 - muse/task-22-meshopt-decoder - this commit
+Standalone meshoptimizer decoder per the Tasks 22-25 contract: exactly
+two new files, `core/MeshoptDecoder.kt` + `core/MeshoptDecoderTest.kt`,
+no existing file touched. Decoder-only Kotlin port of the
+EXT_meshopt_compression codecs: decodeVertexBuffer (stream versions 0
+and 1; control bytes, per-plane bit-width groups with sentinel literals,
+zigzag/XOR delta channels incl. the rotated-uint channel type,
+256-vertex blocks, tail = first vertex + channel table),
+decodeIndexBuffer (edge/vertex FIFOs, codeaux table + escape paths,
+fec 13/14 = last -1/+1 in v1), decodeIndexSequence (dual-baseline VByte
+deltas), and the in-place filters filterOctahedral (snorm8/snorm16),
+filterQuaternion, filterExponential. Cites the ported functions in the
+file header (meshoptimizer, MIT, Copyright Arseny Kapoulkine).
+Byte-exactness: the test vectors were produced by the REAL
+meshoptimizer encoder compiled in the build VM from the master sources
+(vertexcodec.cpp / indexcodec.cpp / vertexfilter.cpp, read 2026-11-09),
+and the expected outputs are the real decoder's outputs on those
+streams; ~0.7 KB of vectors committed (task cap 4 KB). Streams covered:
+20-vertex/12-byte single block, 300-vertex/4-byte two-block, index
+buffer as 32-bit and 16-bit, index sequence, all three filters (oct at
+both strides). Note the reference ENCODER rotated the last test
+triangle (4,5,6) -> (5,6,4); the reference decoder reproduces the
+rotated order and the test asserts exactly that.
+Build: compileReleaseKotlin exit 0; testDebugUnitTest exit 0 - 206 tests,
+0 failures (14 new MeshoptDecoderTest tests). One porting bug found and
+fixed during development: the per-group byte-plane scratch must be
+sized like the C buffer (block-max * 4), because decodeBytes writes
+vertexCountAligned bytes per plane and can spill past 4 * vertexCount
+on partial blocks (the next plane's decode overwrites the spill).
+Privacy self-scan: tree exit 0, range exit 0.
+UNVERIFIED: version 0 streams are implemented (kBitsV0 table, no
+control bytes, byte-delta channels only, fecmax 15) but no v0 encoder
+was run - the local harness used the default encoder version 1, so v0
+support is source-faithful but not vector-tested. The SIMD decoder
+paths in the C sources are semantically identical to the scalar paths
+ported here (the reference outputs came from the SIMD build and match).
+Float sqrt in the filters goes through double precision (JVM has no
+sqrtf); all filter vectors match byte-exactly. decodeFilterColor is
+not ported - it is not part of this task's function list.
+Open questions: none for Vincent.
