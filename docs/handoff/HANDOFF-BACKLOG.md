@@ -85,3 +85,4 @@ Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonn
 - Preview: brim/bed contact z-fight from below: fixed (polygon offset on the under-plate window), Claude-verified phone A/B 2026-11-08 (archive "brim/bed z-fight from below fixed"); user live-drag look pending (not on the CI/release build yet).
 - VD keyboard/tap fix (orca-vd.sh, archive end): awaits the user's verdict (keyboard no longer vanishes?); Claude, 2026-11-07.
 - Upstream-PR idea (patches 0002-0004 vs 2.5.0 alpha): no go yet; Claude, 2026-11-07.
+- Mesh import formats (2026-11-09): Muse tasks 22-25 SENT (PR #79 merged, doorbells on #46): meshopt decoder, 3DS, DAE, FBX readers, each `read(File): Pair<FloatArray,IntArray>` (9 floats/tri mm Z-up, rgb/tri or -1). Claude wires in after review. Also needed: glTF quantized accessors (KHR_mesh_quantization, ~30 lines) for meshopt. Draco = native (JNI, CI patch, +0.3-0.5 MB/ABI) NOT started [Opus]. ASCII FBX unsupported.

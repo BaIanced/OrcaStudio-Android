@@ -65,6 +65,11 @@
                 <data android:mimeType="model/3mf" />
                 <data android:mimeType="application/vnd.ms-3mfdocument" />
                 <data android:mimeType="model/obj" />
+                <data android:mimeType="model/gltf-binary" />
+                <data android:mimeType="model/gltf+json" />
+                <data android:mimeType="model/vnd.glb" />
+                <data android:mimeType="application/x-ply" />
+                <data android:mimeType="model/x.ply" />
                 <data android:mimeType="model/step" />
                 <data android:mimeType="application/step" />
                 <data android:mimeType="text/x.gcode" />

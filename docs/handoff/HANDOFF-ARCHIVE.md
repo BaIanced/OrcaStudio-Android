@@ -4227,3 +4227,14 @@ Draw ms (CPU side, GL thread) median: r527 5.7-5.8, r535 5.6-5.8; p95 6.3-6.7 bo
 - Select multiple (VD 76,293) > tap Cube (the second tap was dropped; "Select all" VD 627,55 gave "2 selected") > Assemble (toolbar icon above the trash, VD 76,462): plate became 1 object "Assembly", 9112 tris (9100 + 12). Long-press the object (swipe same point, 900 ms) > Edit in builder (menu row VD 364,831) opened the builder: shape list = the Desk Organizer's 11 shapes (Pen cup, Clip tray, ..., 3 holes) + Cube as its own shape, floor grid, ghost box. Close editor (VD 700,20) fine.
 - Seen, not chased: red "OpenSCAD stopped" line at the bottom of the builder (no engine started in this test; likely normal until Update on plate). Update on plate not tried. A1 multi-part entry Claude-verified.
 - Debug app uninstalled from WSA, VD stopped, no scrcpy left.
+
+## 2026-11-09 Moved from handoff (phone debug app recipe)
+- Phone debug app (session + `allow_mixed_temps`): `install -r -g`, **export PKG=...debug TARGET=phone**, `orca-vd.sh start`, `mcpao.sh slice:{}` (retry if non-JSON), `preview-zoom-perf.sh 1138`; stop VD after; fresh install: `pm grant` POST_NOTIFICATIONS (gl-sel-ab.sh does). 
+
+## 2026-11-09 Trimmed from handoff (size)
+- WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
+- VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
+- Phone debug-app recipe: archive "2026-11-09 Moved from handoff". Release r538 on phone. Phone perf notes (doze, draw ms swings): archive "2026-11-09 Handoff trim". GL shots: MCP `view_screenshot`. Quest profile is blocked until someone wears the headset (claudechat.md s8).
+
+## 2026-11-09 GLB open recipe
+Open file on VD: copy to debug `files/` via su, `am start --display N -a VIEW -d file:///data/data/<dbg>/files/two.glb -t model/gltf-binary -p <dbg>` (file:// in /sdcard = EACCES). Verify: pull `files/session/session.3mf`, read model_settings.config. VD stopped; debug app still installed on WSA (uninstall when done). Then textured GLB test, commit/push (privacy scan). Draco/meshopt/3DS/DAE/FBX: Muse tasks 22-25 sent (PR #79); no open `muse/task-2[2-5]-*` PRs as of 2026-11-09 (backlog 'Mesh import formats').

@@ -807,6 +807,7 @@
     <string name="adblock_block">Block</string>
     <string name="models_bad_link">This link has no model file.</string>
     <string name="models_no_files">The download has no model files.</string>
+    <string name="mesh_convert_failed">Couldn\'t read this 3D file (compressed glTF files aren\'t supported).</string>
     <plurals name="scad_zip_variants">
         <item quantity="one">The design opened in the editor. The zip\'s ready-made model is not on the plate.</item>
         <item quantity="other">The design opened in the editor. The zip\'s %1$d ready-made models are not on the plate.</item>

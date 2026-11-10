@@ -42,7 +42,16 @@ class FileController(
         val imported = uris.map { resources.importFile(it) }
         // A zip (a model site's download, "open with") opens the model files inside it.
         val unpacked = withContext(Dispatchers.IO) { imported.map { ModelDownloads.modelFiles(it) } }
-        val all = unpacked.flatten()
+        // glTF / GLB / PLY / OFF are converted to a 3MF, with colors snapped to the filament slots.
+        val slotColors = store.value.filaments.map { app.orcaandroid.core.MeshConvert.parseColor(it.color) }
+        var failedConvert = 0
+        val all = withContext(Dispatchers.IO) {
+            unpacked.flatten().mapNotNull { f ->
+                if (f.extension.lowercase() !in app.orcaandroid.core.MeshConvert.EXTENSIONS) f
+                else app.orcaandroid.core.MeshConvert.convert(f, slotColors) ?: run { failedConvert++; null }
+            }
+        }
+        if (failedConvert > 0) store.toast(store.str(R.string.mesh_convert_failed))
         if (all.isEmpty()) {
             store.toast(store.str(R.string.models_no_files))
             return@launch
