@@ -1438,3 +1438,35 @@ UNVERIFIED: nothing installed or run; the metavr device commands were read in
 the generated CLI reference, not executed.
 Open questions: for Vincent - Essential-telemetry consent on a metavr install,
 unchanged from the previous update entry.
+
+### Task 24 - 2026-11-09 - muse/task-24-collada-reader - this commit
+Standalone COLLADA reader per the Tasks 22-25 contract: exactly two new
+files, `core/ColladaReader.kt` + `core/ColladaReaderTest.kt`, no existing
+file touched. XML parsed with javax.xml.parsers DOM (present on both the
+JVM and Android, unlike javax.xml.stream / XmlPullParser) with external
+entities and external DTD loading disabled (XXE-safe). Handles asset
+unit@meter to mm and up_axis conversion to Z up; float_array sources
+behind vertices/POSITION (accessor stride/offset honoured, declared count
+validated against the file size and the tokens present); triangles,
+polylist (vcount) and polygons primitives fanned, VERTEX input picked out
+of interleaved inputs by offset; per-primitive material symbols resolved
+through the instancing node's bind_material to the effect diffuse colour
+(texture diffuse -> -1; floats as given, no gamma). Node transforms
+(matrix, translate, rotate, scale, nested nodes, instance_node) compose
+in document order, parent x local. instance_controller instances skipped.
+Build: compileReleaseKotlin exit 0; testDebugUnitTest exit 0 - 206 tests,
+0 failures (14 new ColladaReaderTest tests, all documents written inline
+in the test; one test expectation was corrected during development - the
+reader's parent x local composition was right, the hand-computed value
+was not).
+Privacy self-scan: tree exit 0, range exit 0.
+UNVERIFIED: no real exporter file was read; modelled on the COLLADA
+1.4.1 spec's element semantics. Accessor params are assumed in X,Y,Z
+order (the first 3 components of each tuple are used). lookat and skew
+node transforms are ignored (contribute identity). A diffuse given as a
+param reference instead of a literal <color> yields -1. A geometry whose
+primitives use more than one distinct position source is rejected (real
+exporters use one). If the file has no library_visual_scenes at all, the
+geometries are emitted untransformed with no materials; when scenes
+exist, only instanced geometry is emitted.
+Open questions: none for Vincent.
