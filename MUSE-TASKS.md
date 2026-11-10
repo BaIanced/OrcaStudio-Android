@@ -1438,3 +1438,44 @@ UNVERIFIED: nothing installed or run; the metavr device commands were read in
 the generated CLI reference, not executed.
 Open questions: for Vincent - Essential-telemetry consent on a metavr install,
 unchanged from the previous update entry.
+
+### Task 25 - 2026-11-09 - muse/task-25-fbx-reader - this commit
+Standalone binary FBX reader per the Tasks 22-25 contract: exactly two
+new files, `core/FbxReader.kt` + `core/FbxReaderTest.kt`, no existing
+file touched. Binary only: header magic checked, ASCII input throws
+IllegalArgumentException("ascii fbx"). Both node layouts read (32-bit
+offsets < 7500, 64-bit >= 7500); property types C Y I L F D, S, R and
+arrays f d l i b (raw or zlib via java.util.zip.Inflater), all lengths
+validated before allocation. Objects carry [id, name, class tag];
+Geometry Vertices/PolygonVertexIndex (negative entry ends a polygon,
+index = ~entry, fan triangulation); LayerElementMaterial ByPolygon /
+AllSame indexes the materials connected to the owning Model in file
+order; colour is DiffuseColor (Diffuse fallback). Model world matrices
+compose parent x local with the full Assimp chain (T x Roff x Rpiv x
+PreR x R x PostR x RpivInv x Soff x Spiv x S x SpivInv, Euler degrees,
+RotationOrder honoured); Geometric* applies to the model's own geometry
+only. UnitScaleFactor (cm per unit) x 10 to mm.
+Build: compileReleaseKotlin exit 0; testDebugUnitTest exit 0 - 206 tests,
+0 failures (14 new FbxReaderTest tests; sample files are produced by a
+small binary FBX writer inside the test, incl. 32-bit and 64-bit layouts
+and a zlib-compressed Vertices array; two writer/test bugs were found and
+fixed during development - a double-counted name-length byte in the
+writer's end offsets, and one hand-computed rotation expectation - the
+reader itself was right in both cases).
+Privacy self-scan: tree exit 0, range exit 0.
+UNVERIFIED: no real exporter file was read; modelled on Assimp's FBX
+importer (FBXParser / FBXBinaryTokenizer / FBXDocument / FBXConverter,
+master, read 2026-11-09). Axis conversion: +X is CoordAxis/Sign, +Z is
+UpAxis/Sign, +Y is derived as Z x X so the output is always right-handed;
+FrontAxis/FrontAxisSign are not used to build the basis (for standard
+axis triples the derived Y equals +/-Front; a file whose front disagrees
+is treated as left-handed and mirrored back). SphericXYZ rotation order
+falls back to XYZ (Assimp zeroes it). ReferenceInformationType is not
+read: Materials values are used as direct material indices
+(IndexToDirect semantics). Only the first LayerElementMaterial (direct
+child of the Geometry, or first inside a Layer) is used; other mapping
+types throw. A geometry not connected to any Model is skipped; if none
+are connected the file throws. Skinning/deformers, textures and
+animation are ignored (per the task text). The file footer after the
+root NULL record is ignored, like Assimp.
+Open questions: none for Vincent.
