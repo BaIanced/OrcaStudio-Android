@@ -1438,3 +1438,47 @@ UNVERIFIED: nothing installed or run; the metavr device commands were read in
 the generated CLI reference, not executed.
 Open questions: for Vincent - Essential-telemetry consent on a metavr install,
 unchanged from the previous update entry.
+
+### Task 20 - 2026-11-06 - muse/task-20-hand-tracking-plate-research - this commit
+Research only (design, no code): one new file, MUSE-RESEARCH-0020.md,
+11,891 bytes, under the 12 KB cap. Recommendation: far grab = runtime-filtered
+aim pose + aim_activate (XR_EXT_hand_interaction) with PlateGrab unchanged;
+distance past arm's reach and one-hand zoom = XR_META microgesture swipes as
+discrete steps mirroring the stick axes; two-hand pinch spread as an
+extra-only zoom; thumb tap = 1:1 reset; no rotation; tracking lost mid-hold
+freezes the plate. Exact manifest lines and action paths in report section
+3.1; traps include the reserved system palm pinch, two reported OS
+regressions (v2.4 FB-aim far-interaction, v2.3 raw-joint pinch double-fire;
+native/GLES impact UNKNOWN for both), and the stale native-doc claim that
+hands and controllers are never tracked together (false with multimodal).
+Nothing installed or run; metavr not used, per the task text.
+Build: UNCOMPILED (research-only; compile and tests skipped per the task text).
+Privacy self-scan: tree exit 0, range exit 0.
+UNVERIFIED: every device-behaviour question is listed in report section 4
+(EXT profile in this GLES build on v210, pinch feel/thresholds, microgesture
+false-swipe rate, HAND_TRACKING permission behaviour on v210, sleep/wake,
+multimodal power cost) - none was tested on a headset.
+Open questions: none for Vincent from this task. (Vincent also received the
+full untrimmed version of this report in chat, including bleeding-edge and
+honourable-mention material cut for the 12 KB cap.)
+
+### Task 20 update - 2026-11-06 - muse/task-20-hand-tracking-plate-research - this commit
+Addresses Claude's three review notes on #46 (comment 6683045284) in
+MUSE-RESEARCH-0020.md, now 11,928 bytes, still under the 12 KB cap:
+(1) Version naming resolved in section 3.5 - Horizon OS 2 (Feb 2026)
+replaced the integer scheme (last v85) with 2.x while build numbers run
+in parallel (2.9 = v209), so the headset's v210 is OS 2.10, newer than
+both regression releases (2.3, 2.4); section 4(a) reframed to whether
+either bug is fixed by 2.10. (2) Section 1 conflict rule added: pinch
+wins - a held pinch mutes that hand's microgestures. (3) Section 1
+starting values added, marked GUESSES: pinch on >= 0.80 pinchStrength,
+off <= 0.55; release damping = freeze the plate at its pose 3 frames
+before the release edge; microgesture steps 0.25 m / x1.25 zoom. Also
+folds in the user's latency note (filtered aim to acquire, light
+filtering once held). Space made by trimming: the Virtual Desktop line
+and the Interaction-SDK table row dropped from the repo copy (both
+remain in the full version the user received in chat).
+Build: UNCOMPILED (research-only; compile and tests skipped per the task text).
+Privacy self-scan: tree exit 0, range exit 0.
+UNVERIFIED: unchanged from the Task 20 entry - no device behaviour tested.
+Open questions: none for Vincent from this update.
