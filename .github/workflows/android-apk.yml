@@ -130,6 +130,13 @@ jobs:
         working-directory: android
         run: ./gradlew --console=plain -q :app:compileReleaseKotlin
 
+      - name: Unit tests
+        working-directory: android
+        run: ./gradlew --console=plain -q :app:testDebugUnitTest
+
+      - name: Script tests
+        run: python3 android/scripts/test_check_3mf.py
+
       # android/patches/src-orca/*.patch: the few changes to OrcaSlicer the port carries (src-orca stays the unmodified
       # upstream commit). Fails the build when upstream moved under one of them.
       - name: Patch OrcaSlicer

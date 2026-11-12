@@ -1,0 +1,46 @@
+# Compile + unit tests without secrets, NDK or native build. Runs on PRs to main and on every
+# claude/** push (workflow_dispatch needs the file on the default branch, so push is the trigger).
+name: PR check
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: ["claude/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out (no submodules)
+        uses: actions/checkout@v7
+        with:
+          submodules: false
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Java 21
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Kotlin compile check
+        working-directory: android
+        run: ./gradlew --console=plain -q :app:compileReleaseKotlin
+
+      - name: Unit tests
+        working-directory: android
+        run: ./gradlew --console=plain -q :app:testDebugUnitTest
+
+      - name: Script tests
+        run: python3 android/scripts/test_check_3mf.py
