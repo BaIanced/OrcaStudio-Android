@@ -33,9 +33,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - **Offload (user 2026-10-25/26): max work onto free opencode models** (memory offload-to-free-models).
 - Name inquiry #17269: wait 1-2 weeks from 2026-11-05, then one bump.
 - Two-Claude chat: `claudechat.md`; Monitor its `## ` count (section 7), 30 min, re-arm. Quest numbers: `NOTES-quest-profile.md`.
-- **GLB/glTF/PLY/OFF import (user 2026-11-09), committed 63ebb8a:** `core/MeshConvert.kt` -> 3MF with one part per AMS slot; WSA-verified 2 colored cubes -> 2 parts, extruders 1/2 (archive "2026-11-09 GLB multi-part colors VERIFIED"). Textured + vertex-color GLB Claude-verified 2026-11-10 (archive; fixed texel sampling bug). Open: push (privacy scan). Draco/meshopt/3DS/DAE/FBX = Muse tasks 22-25 (backlog 'Mesh import formats').
-- Assemble A1 + A2 + 2-part builder Claude-verified (archive "2026-11-09 Assemble A1 2-part builder test"). Open: "Update on plate" after editing a 2-part Assembly, the "OpenSCAD stopped" line, then A3 cut-suggestion design [Opus].
-- Next step: Assemble "Update on plate" after editing a 2-part Assembly + "OpenSCAD stopped" line -> Sonnet 5.5 (medium)
+- **GLB/glTF/PLY/OFF import (user 2026-11-09), committed 63ebb8a:** `core/MeshConvert.kt` -> 3MF with one part per AMS slot; multi-part colors + textured/vertex-color GLB Claude-verified on WSA (archive "2026-11-09 GLB multi-part colors VERIFIED", "2026-11-10 Textured"). Open: push (privacy scan). Draco/meshopt/3DS/DAE/FBX = Muse tasks 22-25 (backlog 'Mesh import formats').
+- Assemble A1 + A2 + 2-part builder + "Update on plate" Claude-verified (archive "2026-11-11 Assemble Update on plate VERIFIED"; WSA debug app uninstalled? no: installed, stopped, VD stopped). A3 cut-suggestion design written 2026-11-11 (archive "Assemble A3 cut-suggestion design"; nothing coded): next = phase (a) native `suggest_cuts` + MCP `object_cut_suggest` read-only, CI build, test on WSA VD with the 300 % Desk Organizer.
+- **Audit 2026-11 finished 2026-11-11** (local branch `claude/audit-2026-11`, not pushed): `docs/audit/00-SUMMARY.md` has 27 user questions; 1-7 block `MASTER-PLAN.md`. Until answered, this Next step holds; after a yes, start at plan T-001.
+- Next step: Assemble A3 phase (a) native suggest_cuts + MCP object_cut_suggest -> Opus 5.5 (high)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 

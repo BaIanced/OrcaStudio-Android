@@ -4250,3 +4250,47 @@ Test GLBs `tex.glb` / `vcol.glb` exist in the scratchpad of session 1c401a74 (`.
 
 ## 2026-11-10 Textured/vertex-color GLB VERIFIED (Claude, WSA debug app, VD display)
 Imports done via `run-as` copy into files/ + VIEW `file:///data/data/<pkg>/files/x.glb` on the live VD display id (force-stop, `rm -rf files/session`, start, wait 10 s, one file per start, read session.3mf after ~60 s). Vertex-color GLB (orange/blue halves): 2 parts, extruders 1/2. Textured GLB (2x1 PNG): was 1 part = real bug in MeshConvert (sample used `u*(w-1)`, so a 2-px texture always hit pixel 0); fixed to `floor(u*w)` clamped; rebuilt, retested: 2 parts, extruders 1/2. Debug app uninstalled, VD stopped.
+
+## 2026-11-10 Assemble "Update on plate" attempt 1 (Claude, WSA VD, debug build of 90092aa) - not finished
+- Source: "OpenSCAD stopped" = ScadUnavailable from ScadClient.kt:66/98 (service process died, or `kill()` after a cancelled request, ScadClient.kt:84). Shown via ScadController.message(). Likely just a cancelled/killed preview request; unconfirmed.
+- Update path: ScadController.render(asNew) -> renderPieces -> placePieces (replaces volumes of `s.onPlate` object, keeps unchanged pieces). Not exercised yet.
+- VD tapping this time: Cube added fine (+ VD 76,195 > Shape row 130,290 > Add 605,800), but `plate_describe` stayed at "1 object" (stale or cube not counted: recheck with `view_state`), "Select all" (VD 627,55) never reached "2 selected" in 3 tries, and the toolbar with a selection is different (scissors/Cut sits at VD 76,462, not Assemble: Assemble is elsewhere; get it from `phone-ui.py`/ui dump, not from shots). Shots lag ~10 s.
+- Debug app uninstalled, VD stopped.
+
+## 2026-11-10 Assemble "Update on plate" attempt 2 (Claude, WSA, debug build of 90092aa) - not finished
+- Route: MCP only. `design_to_plate` needs the on-screen confirm (McpTools.kt:1311, `aiConfirm` dialog), so a tap is unavoidable; the Update test = design_set (2 shapes) > design_to_plate + confirm > shape_update > design_to_plate + confirm > check object count/volumes with `plate_describe`/`view_state`.
+- Blocker: `wsa-debug-rebuild.sh` + `wsa-debug-setup.sh` + `wsa-start.ps1` OK (MCP answers, session design "Clip tray" loaded), but `orca-vd.sh start` (display 20, then 21) never hosts the app: `ui` says "top there: none", `shot` says SurfaceFlinger doesn't list the display. App lives on display 0, parked. `design_to_plate` call hung on the confirm, then MCP returned empty (JSONDecodeError) - cause unknown. Debug app still installed on WSA (pid alive), VD stopped.
+- Next try: `orca-vd.sh start window` (shot hint), or move the app to the VD with `am start --display N` after `start`; then tap the confirm via ui dump.
+
+## 2026-11-11 WSA VD "never hosts the app" was a tool bug (Claude)
+- `orca-vd.sh ui` line 92 had a literal newline inside `tr -d`, so its top-activity check always printed "top there: none" (attempts 1+2 of Update on plate blamed the VD). Fixed in `~/orca-android-tools/orca-vd.sh`; display 22 hosted the debug app on the first try after force-stopping both packages. `orca-vd.sh shot` still fails on WSA (no SurfaceFlinger id): use `vdgrab.sh`.
+
+## 2026-11-11 Assemble "Update on plate" on a 2-part Assembly VERIFIED (Claude, WSA VD display 23, debug build of 90092aa)
+- MCP route: design_set (empty) + shape_add box + cylinder > design_to_plate (Allow tap at VD 450,696 from `orca-vd.sh ui`) > object on plate 4 = 168 triangles; shape_update cylinder H 20 -> 40 > design_to_plate + Allow > plate 4 still 1 object (same id 4, name kept), shot via vdgrab shows the taller cylinder next to the box, status "Placed on the plate".
+- "OpenSCAD stopped" line did not appear in this run (only seen earlier when no engine had started / a cancelled preview); treated as benign, not chased.
+- Not covered: the on-screen "Update on plate" button path (MCP calls the same toPlate()); mixed-filament parts.
+
+## 2026-11-11 Assemble A3 cut-suggestion design (Claude, Opus, source-read only, nothing coded)
+Read: OrcaScene.cpp fit_bed :1011, part_hull_points :1030, fitting_turn :1078, find_fit :1123, fit_check :1150,
+fit_to_printer :1183, cut :1365 (libslic3r Cut, KeepPaint, PlaceOnCutUpper, arrange_plate after), arrange_plate :332
+(overflow -> new plate up to MAX_PLATES; a part that fits no empty plate stays put = "hopeless").
+Native `suggest_cuts(object, instance)` (OrcaScene.cpp, after fit_to_printer; EngineCalls.cpp "suggestCuts"):
+1. World points of the copy: model-part mesh vertices under instance*volume matrix (not hulls: cells need real points).
+2. Axis-aligned grids only (planes normal to world X/Y/Z of the current print pose); vertical X/Y planes = Cut with rot
+   (0,90,0)/(90,0,0). Enumerate (nx,ny,nz) by piece count ascending (cap 64 pieces), start from
+   ceil(extent / max(bed diagonal, height)) per axis.
+3. Planes per axis: even splits, each nudged within +-15 % of the piece length to the smallest section area; areas from
+   slice_mesh_ex on the mesh rotated so the axis is Z, ~1 mm samples in the window; tie -> nearest the even split.
+4. Cell fit: cell points = vertices inside the cell box + edge/plane crossing points inside it (hull slightly under the
+   true one at plane-plane corners; 1 mm margin on the bed covers it); test with fitting_turn over r0 and the 5 lays
+   (no orientation::orient: no instance for a cell). First grid whose cells all fit wins; else "none" (too big even cut).
+5. Result json: {axis planes [{axis, at[]}], pieces, per-cell size + pose kind, total section area}.
+Apply `apply_cuts(object, instance, planes)`: one push_undo; for each plane, cut every current piece whose box straddles it
+(reuse cut()'s body without its lock/undo: factor a cut_locked helper), KeepPaint, no connectors (A4). Then per piece:
+pose = find_fit preferring a lay that puts a cut face down (normal -Z; better first layer, no support), drop_to_bed,
+then arrange_plate(plate, &pieces) which spills onto new plates.
+Kotlin: FitIssue fix none -> card hint "Cut into N parts" + NoticeFix.Cuts -> preview, then Apply. Preview = Cut tool
+planes: CutPlane renders one plane today (render/CutPlane), so draw N planes as a list in the same pass (deviation from
+"preview in the Cut tool": a read-only multi-plane overlay with Apply / Cancel bar, since the Cut tool edits one plane).
+MCP: object_cut_suggest (read) + apply=true. Test on WSA VD: Desk Organizer scaled 300 % (huge fixture from A2).
+Phases: (a) native suggest + MCP read [CI build], (b) apply + arrange [CI], (c) Kotlin card + overlay.
