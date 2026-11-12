@@ -5,9 +5,17 @@ Read the matching section before driving a device or building; grep the rest (`g
 Nothing pending lives here: open / untested items stay in `HANDOFF.md`.
 
 ## Test devices
-**Phone** = main test device (root). **Chromebook's Android (ARC)** = big-screen layout checks (user wants the app there).
-**WSA** when both are away. The user drives sessions from the phone: ask before taking over its main screen; use the
-headless display below instead (no takeover needed). Don't drive WSA's own window while the user uses the PC.
+| Role | When to use | How to reach | Exceptions |
+|---|---|---|---|
+| WSA | Default test surface (hidden virtual display) | `TARGET=wsa` `orca-vd.sh`, debug app (`PKG=...debug`), `MCP_DEV=<wsa serial>` for `mcpao.sh`; health check `~/orca-android-tools/vd-health.sh` | Never its visible window while the user uses the PC |
+| Phone (root) | Fallback when WSA is down; real-hardware checks | `orca-vd.sh` with default target, `target.sh phone` | Ask before taking over its main screen; asleep = taps dropped |
+| Chromebook (ARC) | Big-screen layout checks | wireless adb, `install-build.ps1`, no root | Only when the user is not in another app there |
+| Unrooted tablet-class devices (S Pen note, TV box) | Pen input only / installs only | `TARGET=note`, `target.sh` | No root: debug app via `run-as` |
+
+Fallback order: 1 WSA virtual display, 2 phone virtual display, 3 visible screen only with the user's OK in that session.
+Run `vd-health.sh` first: it force-stops both app packages, starts the WSA virtual display, waits for the app there, makes one MCP call and prints `PASS` or `FAIL <step>`.
+- `orca-vd.sh shot` cannot see the display on WSA, use `vdgrab.sh`.
+- WSA debug app sizes are scaled 0.7 / 0.85 / 0.8.
 
 ### Headless display (`~/orca-android-tools/orca-vd.sh`, verified 2026-10-19 on the old phone)
 - **Phone asleep (Dozing) = injected taps/swipes are dropped** (2026-10-27; the app also pauses on wake): ask, then `input keyevent WAKEUP`, `orca-vd.sh stop` + `start` again; `keyevent SLEEP` after. Multi-segment held drags on the phone VD: `su -c 'input touchscreen -d $LOGICAL motionevent DOWN|MOVE|UP x y'` (works there, unlike WSA).
