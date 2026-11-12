@@ -4297,3 +4297,7 @@ Phases: (a) native suggest + MCP read [CI build], (b) apply + arrange [CI], (c) 
 
 ## 2026-11-12 T-003 patch-check job (source-checked + CI run 43163811825)
 - Commit 5342d83: orca-upstream-watch.yml has job patch-check (no environment). First run on current upstream: red, 0001-paint-depth-layers.patch does not apply (src/libslic3r/MultiMaterialSegmentation.cpp:1254); 0002-0005 not tried (stops at first failure). pack_resources.py is the only src-orca-reading script run.
+
+## 2026-11-12 Trimmed from handoff
+- **GLB/glTF/PLY/OFF import (user 2026-11-09), committed 63ebb8a:** `core/MeshConvert.kt` -> 3MF with one part per AMS slot; multi-part colors + textured/vertex-color GLB Claude-verified on WSA (archive "2026-11-09 GLB multi-part colors VERIFIED", "2026-11-10 Textured"). Open: push (privacy scan). Draco/meshopt/3DS/DAE/FBX = Muse tasks 22-25 (backlog 'Mesh import formats').
+- Assemble A1 + A2 + 2-part builder + "Update on plate" Claude-verified (archive "2026-11-11 Assemble Update on plate VERIFIED"; WSA debug app uninstalled? no: installed, stopped, VD stopped). A3 cut-suggestion design written 2026-11-11 (archive "Assemble A3 cut-suggestion design"; nothing coded): next = phase (a) native `suggest_cuts` + MCP `object_cut_suggest` read-only, CI build, test on WSA VD with the 300 % Desk Organizer.
