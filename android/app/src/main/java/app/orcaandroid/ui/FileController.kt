@@ -9,6 +9,7 @@ import app.orcaandroid.core.PresetType
 import app.orcaandroid.ui.FilamentChoice
 import app.orcaandroid.core.Scene
 import app.orcaandroid.core.RecentFile
+import app.orcaandroid.core.SessionFiles
 import app.orcaandroid.net.FilamentProfiles
 import app.orcaandroid.net.ModelDownloads
 import app.orcaandroid.plugins.Plugins
@@ -219,11 +220,14 @@ class FileController(
 
     // --- Session: the app comes back as it was left, even after Android ended the process ---------------
 
-    private val sessionDir get() = File(store.app.filesDir, "session").apply { mkdirs() }
-    private val sessionProject get() = File(sessionDir, "session.3mf")
-    private val sessionInfo get() = File(sessionDir, "session.json")
+    private val session by lazy { SessionFiles(File(store.app.filesDir, "session").apply { mkdirs() }) }
     /** Auto-save and the save on going to the background share the temporary file. */
     private val sessionLock = Mutex()
+    /**
+     * True once the session restore succeeded or found no session. An empty plate deletes the saved session only
+     * then: after a failed restore the plate is empty because the restore failed, not because the user cleared it.
+     */
+    @Volatile private var sessionLoadedOrAbsent = false
 
     /** Saves the scene, presets and setting changes as a project (called when the app goes to the background). */
     suspend fun saveSession() = sessionLock.withLock {
@@ -231,27 +235,41 @@ class FileController(
         if (s.phase != Phase.READY) return
         // A calibration test cannot be resumed from a project; an empty plate needs no session.
         if (s.scene.isEmpty || s.calibration != null) {
-            sessionProject.delete(); sessionInfo.delete()
+            if (sessionLoadedOrAbsent) withContext(Dispatchers.IO) { session.clear() }
             return@withLock
         }
         presets.syncSelection()
-        val tmp = File(sessionDir, "session.tmp.3mf")
-        engine.saveProject(tmp.path)
-        withContext(Dispatchers.IO) {
-            tmp.renameTo(sessionProject)
-            sessionInfo.writeText(JSONObject().apply {
-                put("projectName", s.projectName ?: "")
-                put("projectDirty", s.projectDirty)
-                put("activePlate", s.activePlate)
-            }.toString())
-        }
+        engine.saveProject(session.tmpProject.path)
+        val info = JSONObject().apply {
+            put("projectName", s.projectName ?: "")
+            put("projectDirty", s.projectDirty)
+            put("activePlate", s.activePlate)
+        }.toString()
+        val saved = withContext(Dispatchers.IO) { session.commit(info) }
+        if (!saved) noteCrashReport("Session save failed: the new session could not replace the old one (the old one was kept).")
     }
 
     /** Restores the last session if the engine has no scene (a fresh start of the process). */
     suspend fun restoreSession() {
-        if (!store.value.scene.isEmpty || !sessionProject.exists()) return
-        val info = runCatching { JSONObject(sessionInfo.readText()) }.getOrNull()
-        openProjectFile(sessionProject, null)
+        if (!store.value.scene.isEmpty) return
+        if (!session.project.exists()) {
+            sessionLoadedOrAbsent = true
+            // A pair kept from an earlier failed restore is still offered.
+            if (session.hasBad()) store.update { it.copy(sessionBad = true) }
+            return
+        }
+        val info = runCatching { JSONObject(session.info.readText()) }.getOrNull()
+        try {
+            openProjectFile(session.project, null)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            android.util.Log.w("Orca", "session not restored", e)
+            withContext(Dispatchers.IO) { session.quarantine() }
+            store.update { it.copy(sessionBad = true) }
+            return
+        }
+        sessionLoadedOrAbsent = true
         store.update {
             it.copy(
                 projectName = info?.optString("projectName")?.ifBlank { null },
@@ -259,6 +277,32 @@ class FileController(
                 activePlate = (info?.optInt("activePlate") ?: 0).coerceIn(0, (it.scene.plates.size - 1).coerceAtLeast(0)),
             )
         }
+    }
+
+    /** "Try again" on the notice: the kept session becomes the session again and is restored. */
+    fun retryBadSession() = store.launch(store.str(R.string.loading_model)) {
+        // Reopening replaces the scene, so it only runs on an empty plate; the notice stays until then.
+        if (!store.value.scene.isEmpty) {
+            store.toast(store.str(R.string.session_retry_empty_plate))
+            return@launch
+        }
+        store.update { it.copy(sessionBad = false) }
+        sessionLock.withLock {
+            if (!withContext(Dispatchers.IO) { session.restoreBad() }) return@launch
+            sessionLoadedOrAbsent = false
+            restoreSession()
+        }
+    }
+
+    /** "Discard" on the notice: the kept session is deleted. */
+    fun discardBadSession() {
+        store.update { it.copy(sessionBad = false) }
+        store.launch { sessionLock.withLock { withContext(Dispatchers.IO) { session.discardBad() } } }
+    }
+
+    /** Adds a line to the crash report file the app shows on the next start. */
+    private suspend fun noteCrashReport(text: String) = withContext(Dispatchers.IO) {
+        runCatching { File(store.app.filesDir, "crash_report.txt").appendText(text + "\n") }
     }
 
     fun newProject() = store.launch {

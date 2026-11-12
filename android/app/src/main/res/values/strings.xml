@@ -261,6 +261,11 @@
     <string name="notice_show">Show messages</string>
     <string name="notice_fix">Fix</string>
     <string name="notice_open_printer">Open printer</string>
+    <string name="session_bad_title">Session</string>
+    <string name="session_bad_text">The last session could not be opened. It was kept.</string>
+    <string name="session_try_again">Try again</string>
+    <string name="session_discard">Discard</string>
+    <string name="session_retry_empty_plate">Clear the plate first, then try again.</string>
     <string name="fit_title">Doesn\'t fit the printer</string>
     <string name="fit_size">%1$s is %2$s mm; the printer takes %3$s mm.</string>
     <string name="fit_turn">Turning it on the bed makes it fit.</string>

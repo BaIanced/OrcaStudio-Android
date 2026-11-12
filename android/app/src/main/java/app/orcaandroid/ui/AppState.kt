@@ -316,6 +316,8 @@ data class UiState(
     val sliceError: Pair<Int, String>? = null,
     /** A copy that doesn't fit the printer (checked on leaving the builder and on a slice with nothing inside), shown in Notices. */
     val fitIssue: app.orcaandroid.core.FitIssue? = null,
+    /** The last session could not be opened and was kept aside; Notices offers Try again / Discard. */
+    val sessionBad: Boolean = false,
     val previewPlate: Int = 0,
     /** An opened external G-code file (preview only). */
     val external: SliceResult? = null,
