@@ -12,7 +12,7 @@ val orcaSrc = rootProject.file("../src-orca")
 
 // Upstream OrcaSlicer version and commit, shown in the app's about section (see UPSTREAM.md).
 val orcaVersion: String = Regex("""SoftFever_VERSION\s+"([^"]+)"""")
-    .find(File(orcaSrc, "version.inc").readText())?.groupValues?.get(1) ?: "unknown"
+    .find(File(orcaSrc, "version.inc").takeIf { it.exists() }?.readText().orEmpty())?.groupValues?.get(1) ?: "unknown"
 val orcaCommit: String = providers.exec {
     commandLine("git", "-C", orcaSrc.path, "rev-parse", "HEAD")
     isIgnoreExitValue = true
