@@ -4294,3 +4294,6 @@ planes: CutPlane renders one plane today (render/CutPlane), so draw N planes as 
 "preview in the Cut tool": a read-only multi-plane overlay with Apply / Cancel bar, since the Cut tool edits one plane).
 MCP: object_cut_suggest (read) + apply=true. Test on WSA VD: Desk Organizer scaled 300 % (huge fixture from A2).
 Phases: (a) native suggest + MCP read [CI build], (b) apply + arrange [CI], (c) Kotlin card + overlay.
+
+## 2026-11-12 T-003 patch-check job (source-checked + CI run 43163811825)
+- Commit 5342d83: orca-upstream-watch.yml has job patch-check (no environment). First run on current upstream: red, 0001-paint-depth-layers.patch does not apply (src/libslic3r/MultiMaterialSegmentation.cpp:1254); 0002-0005 not tried (stops at first failure). pack_resources.py is the only src-orca-reading script run.
