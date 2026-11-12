@@ -153,9 +153,12 @@ class MainActivity : ComponentActivity() {
             Intent.ACTION_SEND_MULTIPLE -> IntentCompat.getParcelableArrayListExtra(intent, Intent.EXTRA_STREAM, Uri::class.java).orEmpty()
             else -> emptyList()
         }
-        if (uris.isNotEmpty()) lifecycleScope.launch {
+        // Only content:// URIs are opened: a file:// or other scheme from another app could point at private files.
+        val allowed = uris.filter { it.scheme == "content" }
+        if (allowed.size < uris.size) android.widget.Toast.makeText(this, R.string.import_cannot_open, android.widget.Toast.LENGTH_LONG).show()
+        if (allowed.isNotEmpty()) lifecycleScope.launch {
             vm.awaitReady()
-            vm.files.openModels(uris)
+            vm.files.openModels(allowed)
         }
         when (intent.action) {
             ACTION_IMPORT_DOWNLOADS -> importFromDownloads.launch(arrayOf("*/*"))

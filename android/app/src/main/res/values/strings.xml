@@ -811,6 +811,7 @@
     <string name="adblock_larger">Larger</string>
     <string name="adblock_block">Block</string>
     <string name="models_bad_link">This link has no model file.</string>
+    <string name="import_cannot_open">Couldn\'t open that file.</string>
     <string name="models_no_files">The download has no model files.</string>
     <string name="mesh_convert_failed">Couldn\'t read this 3D file (compressed glTF files aren\'t supported).</string>
     <plurals name="scad_zip_variants">

@@ -33,6 +33,19 @@ object MeshConvert {
         write3mf(File(file.parentFile, file.nameWithoutExtension + ".3mf"), file.nameWithoutExtension, tris, slotColors)
     }.getOrNull()
 
+    /**
+     * A glTF `uri` as a file in the model's folder. Refuses absolute paths, URI schemes (other than the `data:` the
+     * callers handle first) and anything that resolves outside the model's parent folder.
+     */
+    internal fun resolveSibling(model: File, uri: String): File {
+        val decoded = java.net.URLDecoder.decode(uri, "UTF-8")
+        require(!decoded.startsWith("/") && !decoded.startsWith("\\") && !Regex("^[A-Za-z][A-Za-z0-9+.-]*:").containsMatchIn(decoded)) { "Bad glTF uri" }
+        val root = (model.absoluteFile.parentFile ?: error("no parent")).canonicalFile
+        val out = File(root, decoded).canonicalFile
+        require(out.path.startsWith(root.path + File.separator)) { "glTF uri outside the model folder" }
+        return out
+    }
+
     fun parseColor(c: String?): Int? = c?.trim()?.removePrefix("#")?.takeIf { it.length >= 6 }?.take(6)?.toIntOrNull(16)
 
     // ---- 3MF writer
@@ -274,7 +287,7 @@ object MeshConvert {
             when {
                 uri.isEmpty() -> glbBin ?: error("no buffer")
                 uri.startsWith("data:") -> Base64.decode(uri.substringAfter(','), Base64.DEFAULT)
-                else -> File(file.parentFile, java.net.URLDecoder.decode(uri, "UTF-8")).readBytes()
+                else -> resolveSibling(file, uri).readBytes()
             }
         }
 
@@ -316,7 +329,7 @@ object MeshConvert {
                 im.has("bufferView") -> viewBytes(im.getInt("bufferView")).let { (d, o, _) ->
                     val v = json.getJSONArray("bufferViews").getJSONObject(im.getInt("bufferView")); d.copyOfRange(o, o + v.getInt("byteLength")) }
                 im.optString("uri").startsWith("data:") -> Base64.decode(im.getString("uri").substringAfter(','), Base64.DEFAULT)
-                im.has("uri") -> File(file.parentFile, java.net.URLDecoder.decode(im.getString("uri"), "UTF-8")).readBytes()
+                im.has("uri") -> resolveSibling(file, im.getString("uri")).readBytes()
                 else -> return@getOrPut null
             }
             BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
