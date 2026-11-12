@@ -22,16 +22,71 @@ object MeshConvert {
     /** Triangles as 9 floats each (mm, Z up) and a per-triangle 0xRRGGBB color, or -1 when the file has none. */
     class Tris(val xyz: FloatArray, val rgb: IntArray)
 
-    /** The converted 3MF next to [file], or null when it can't be read (compressed glTF, a broken file). */
-    fun convert(file: File, slotColors: List<Int?>): File? = runCatching {
-        val tris = when (file.extension.lowercase()) {
-            "glb", "gltf" -> Gltf(file).read()
-            "ply" -> readPly(file)
-            "off" -> readOff(file)
-            else -> null
+    const val MAX_TRIANGLES = 5_000_000L
+
+    /** More than [MAX_TRIANGLES] triangles; [triangles] is the model's real count. */
+    class TooManyTrianglesException(val triangles: Long) : Exception("Too many triangles: $triangles")
+
+    /** Growable primitive arrays (doubling) for the triangles read from a file, with the triangle cap. */
+    internal class TriBuilder(private val limit: Long = MAX_TRIANGLES) {
+        private var xyz = FloatArray(128 * 9)
+        private var rgb = IntArray(128)
+        private var stored = 0
+        /** Triangles seen, including those past the cap that are counted but not kept. */
+        var count = 0L
+            private set
+        /** True once the cap is reached: further triangles are only counted, so callers can skip their work. */
+        val over get() = count >= limit
+
+        fun add(x0: Float, y0: Float, z0: Float, x1: Float, y1: Float, z1: Float, x2: Float, y2: Float, z2: Float, color: Int) {
+            if (++count > limit) return
+            if (stored == rgb.size) { rgb = rgb.copyOf(rgb.size * 2); xyz = xyz.copyOf(xyz.size * 2) }
+            val o = stored * 9
+            xyz[o] = x0; xyz[o + 1] = y0; xyz[o + 2] = z0
+            xyz[o + 3] = x1; xyz[o + 4] = y1; xyz[o + 5] = z1
+            xyz[o + 6] = x2; xyz[o + 7] = y2; xyz[o + 8] = z2
+            rgb[stored++] = color
+        }
+
+        /** Counts a triangle without keeping it (only valid once [over]). */
+        fun skip() { count++ }
+
+        fun finish(): Tris {
+            if (count > limit) throw TooManyTrianglesException(count)
+            return Tris(xyz.copyOf(stored * 9), rgb.copyOf(stored))
+        }
+    }
+
+    /** A growable IntArray (doubling). */
+    private class IntBuf {
+        var a = IntArray(256)
+        var size = 0
+        fun add(v: Int) { if (size == a.size) a = a.copyOf(size * 2); a[size++] = v }
+    }
+
+    /**
+     * The converted 3MF next to [file], or null when it can't be read (compressed glTF, a broken file).
+     * Throws [TooManyTrianglesException] past the triangle cap; an OutOfMemoryError is not swallowed either.
+     */
+    fun convert(file: File, slotColors: List<Int?>): File? {
+        val tris = try {
+            when (file.extension.lowercase()) {
+                "glb", "gltf" -> Gltf(file).read()
+                "ply" -> readPly(file)
+                "off" -> readOff(file)
+                else -> null
+            }
+        } catch (e: TooManyTrianglesException) {
+            throw e
+        } catch (e: Exception) {
+            null
         }?.takeIf { it.rgb.isNotEmpty() } ?: return null
-        write3mf(File(file.parentFile, file.nameWithoutExtension + ".3mf"), file.nameWithoutExtension, tris, slotColors)
-    }.getOrNull()
+        return try {
+            write3mf(File(file.parentFile, file.nameWithoutExtension + ".3mf"), file.nameWithoutExtension, tris, slotColors)
+        } catch (e: Exception) {
+            null
+        }
+    }
 
     /**
      * A glTF `uri` as a file in the model's folder. Refuses absolute paths, URI schemes (other than the `data:` the
@@ -69,7 +124,13 @@ object MeshConvert {
         val n = t.rgb.size
         val colored = slots.count { it != null } > 1 && t.rgb.any { it >= 0 }
         val slotFor = IntArray(n) { if (colored) slotOf(t.rgb[it], slots) else 1 }
-        val order = (0 until n).sortedBy { slotFor[it] }
+        // Triangles by slot, in file order within a slot (a stable counting sort, no boxed list).
+        val maxSlot = slotFor.maxOrNull() ?: 1
+        val start = IntArray(maxSlot + 2)
+        for (s in slotFor) start[s + 1]++
+        for (s in 1..maxSlot + 1) start[s] += start[s - 1]
+        val order = IntArray(n)
+        for (i in 0 until n) order[start[slotFor[i]]++] = i
         val vertIndex = HashMap<Pair<Int, Triple<Int, Int, Int>>, Int>() // (slot, position) -> index within that slot's mesh
         val verts = LinkedHashMap<Int, StringBuilder>()
         val faces = LinkedHashMap<Int, StringBuilder>()
@@ -125,22 +186,23 @@ object MeshConvert {
         if (tokens[p].endsWith("OFF")) p++
         val nv = tokens[p++].toInt(); val nf = tokens[p++].toInt(); p++
         val v = FloatArray(nv * 3) { tokens[p++].toFloat() }
-        val xyz = ArrayList<Float>(); val rgb = ArrayList<Int>()
+        val out = TriBuilder()
         repeat(nf) {
             val k = tokens[p++].toInt()
             val idx = IntArray(k) { tokens[p++].toInt() }
             var color = -1
             // Optional face color: 3 ints (0-255) or 4 with alpha; the rest of the face line is not marked, so only
             // take it when the face has exactly k + 3 / k + 4 tokens on its line (unknown here): skipped.
-            fan(v, idx, xyz, rgb, color)
+            fan(v, idx, out, color)
         }
-        return Tris(xyz.toFloatArray(), rgb.toIntArray())
+        return out.finish()
     }
 
-    private fun fan(v: FloatArray, idx: IntArray, xyz: MutableList<Float>, rgb: MutableList<Int>, color: Int, vcol: IntArray? = null) {
+    private fun fan(v: FloatArray, idx: IntArray, out: TriBuilder, color: Int, vcol: IntArray? = null) {
         for (i in 1 until idx.size - 1) {
-            for (j in intArrayOf(idx[0], idx[i], idx[i + 1])) for (c in 0 until 3) xyz.add(v[j * 3 + c])
-            rgb.add(if (vcol != null) avg(vcol[idx[0]], vcol[idx[i]], vcol[idx[i + 1]]) else color)
+            val a = idx[0] * 3; val b = idx[i] * 3; val c = idx[i + 1] * 3
+            out.add(v[a], v[a + 1], v[a + 2], v[b], v[b + 1], v[b + 2], v[c], v[c + 1], v[c + 2],
+                if (vcol != null) avg(vcol[idx[0]], vcol[idx[i]], vcol[idx[i + 1]]) else color)
         }
     }
 
@@ -150,9 +212,22 @@ object MeshConvert {
         return (ch(16) shl 16) or (ch(8) shl 8) or ch(0)
     }
 
+    private fun indexOf(bytes: ByteArray, needle: ByteArray): Int {
+        var i = 0
+        while (i <= bytes.size - needle.size) {
+            var k = 0
+            while (k < needle.size && bytes[i + k] == needle[k]) k++
+            if (k == needle.size) return i
+            i++
+        }
+        return -1
+    }
+
+    private fun isSpace(b: Byte) = b == ' '.code.toByte() || (b >= 9 && b <= 13)
+
     private fun readPly(file: File): Tris {
         val bytes = file.readBytes()
-        val end = String(bytes, Charsets.ISO_8859_1).indexOf("end_header")
+        val end = indexOf(bytes, "end_header".toByteArray(Charsets.ISO_8859_1))
         require(end > 0)
         var body = end + "end_header".length
         if (bytes[body] == '\r'.code.toByte()) body++
@@ -165,11 +240,17 @@ object MeshConvert {
         val ascii = format == "ascii"
         require(ascii || format == "binary_little_endian") { "PLY format" }
         val buf = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).also { it.position(body) }
-        val words = if (ascii) String(bytes, body, bytes.size - body, Charsets.ISO_8859_1).split(Regex("\\s+")).filter { it.isNotEmpty() } else emptyList()
-        var wi = 0
+        var wp = body // ASCII body: tokens are read in place instead of splitting the whole text into strings
+        fun word(): String {
+            while (wp < bytes.size && isSpace(bytes[wp])) wp++
+            require(wp < bytes.size) { "PLY ended early" }
+            val s = wp
+            while (wp < bytes.size && !isSpace(bytes[wp])) wp++
+            return String(bytes, s, wp - s, Charsets.ISO_8859_1)
+        }
         fun size(t: String) = when (t) { "char", "uchar", "int8", "uint8" -> 1; "short", "ushort", "int16", "uint16" -> 2; "double", "float64" -> 8; else -> 4 }
         fun read(t: String): Double {
-            if (ascii) return words[wi++].toDouble()
+            if (ascii) return word().toDouble()
             return when (t) {
                 "char", "int8" -> buf.get().toDouble(); "uchar", "uint8" -> (buf.get().toInt() and 255).toDouble()
                 "short", "int16" -> buf.short.toDouble(); "ushort", "uint16" -> (buf.short.toInt() and 0xffff).toDouble()
@@ -178,7 +259,7 @@ object MeshConvert {
             }
         }
         var v = FloatArray(0); var vcol: IntArray? = null
-        val xyz = ArrayList<Float>(); val rgb = ArrayList<Int>()
+        val out = TriBuilder()
         for (e in elems) {
             if (e.name == "vertex") {
                 v = FloatArray(e.count * 3)
@@ -205,13 +286,13 @@ object MeshConvert {
                             if (p.last() == "vertex_indices" || p.last() == "vertex_index") idx = list
                         } else read(p[1])
                     }
-                    if (idx.size >= 3) fan(v, idx, xyz, rgb, -1, vcol)
+                    if (idx.size >= 3) fan(v, idx, out, -1, vcol)
                 }
             } else {
                 for (i in 0 until e.count) for (p in e.props) if (p[1] == "list") { val k = read(p[2]).toInt(); repeat(k) { read(p[3]) } } else read(p[1])
             }
         }
-        return Tris(xyz.toFloatArray(), rgb.toIntArray())
+        return out.finish()
     }
 
     // ---- glTF / GLB
@@ -237,7 +318,7 @@ object MeshConvert {
             } else json = JSONObject(String(raw))
             val used = (json.optJSONArray("extensionsRequired") ?: JSONArray()).let { a -> (0 until a.length()).map { a.getString(it) } }
             require(used.none { it.contains("draco") || it.contains("meshopt") }) { "compressed glTF" }
-            val xyz = ArrayList<Float>(); val rgb = ArrayList<Int>()
+            val out = TriBuilder()
             val nodes = json.optJSONArray("nodes") ?: JSONArray()
             val scenes = json.optJSONArray("scenes")
             val roots = scenes?.optJSONObject(json.optInt("scene", 0))?.optJSONArray("nodes")?.let { a -> (0 until a.length()).map { a.getInt(it) } }
@@ -245,20 +326,21 @@ object MeshConvert {
             fun walk(i: Int, parent: FloatArray) {
                 val node = nodes.getJSONObject(i)
                 val m = mul(parent, local(node))
-                if (node.has("mesh")) mesh(json.getJSONArray("meshes").getJSONObject(node.getInt("mesh")), m, xyz, rgb)
+                if (node.has("mesh")) mesh(json.getJSONArray("meshes").getJSONObject(node.getInt("mesh")), m, out)
                 node.optJSONArray("children")?.let { c -> for (k in 0 until c.length()) walk(c.getInt(k), m) }
             }
             roots.forEach { walk(it, IDENTITY) }
-            if (nodes.length() == 0) json.optJSONArray("meshes")?.let { ms -> for (i in 0 until ms.length()) mesh(ms.getJSONObject(i), IDENTITY, xyz, rgb) }
+            if (nodes.length() == 0) json.optJSONArray("meshes")?.let { ms -> for (i in 0 until ms.length()) mesh(ms.getJSONObject(i), IDENTITY, out) }
             // glTF is Y up in meters: Y up -> Z up, and a model under 1 unit tall is taken as meters (-> mm).
-            val a = xyz.toFloatArray()
+            val tris = out.finish()
+            val a = tris.xyz
             var i = 0
             while (i < a.size) { val y = a[i + 1]; val z = a[i + 2]; a[i + 1] = -z; a[i + 2] = y; i += 3 }
             var min = Float.MAX_VALUE; var max = -Float.MAX_VALUE
             for (k in a.indices) { min = minOf(min, a[k]); max = maxOf(max, a[k]) }
             val scale = if (a.isNotEmpty() && max - min < 1f) 1000f else 1f
             if (scale != 1f) for (k in a.indices) a[k] *= scale
-            return Tris(a, rgb.toIntArray())
+            return tris
         }
 
         fun local(node: JSONObject): FloatArray {
@@ -335,7 +417,7 @@ object MeshConvert {
             BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
         }
 
-        fun mesh(mesh: JSONObject, m: FloatArray, xyz: MutableList<Float>, rgb: MutableList<Int>) {
+        fun mesh(mesh: JSONObject, m: FloatArray, out: TriBuilder) {
             val prims = mesh.getJSONArray("primitives")
             for (pi in 0 until prims.length()) {
                 val p = prims.getJSONObject(pi)
@@ -345,7 +427,7 @@ object MeshConvert {
                 val (pos, _) = accessor(attrs.getInt("POSITION"))
                 val nv = pos.size / 3
                 val idx: IntArray = if (p.has("indices")) accessor(p.getInt("indices")).first.let { f -> IntArray(f.size) { f[it].toInt() } } else IntArray(nv) { it }
-                val tri = ArrayList<Int>()
+                val tri = IntBuf()
                 when (mode) {
                     4 -> for (i in 0 until idx.size / 3 * 3) tri.add(idx[i])
                     5 -> for (i in 0 until idx.size - 2) { if (i % 2 == 0) { tri.add(idx[i]); tri.add(idx[i + 1]); tri.add(idx[i + 2]) } else { tri.add(idx[i + 1]); tri.add(idx[i]); tri.add(idx[i + 2]) } }
@@ -361,12 +443,14 @@ object MeshConvert {
                 }
                 val uv = if (bmp != null) attrs.optInt("TEXCOORD_${texInfo.optInt("texCoord", 0)}", -1).takeIf { it >= 0 }?.let { accessor(it).first } else null
                 val vcolor = if (attrs.has("COLOR_0")) accessor(attrs.getInt("COLOR_0")) else null
-                for (t in 0 until tri.size / 3) {
-                    val vs = intArrayOf(tri[t * 3], tri[t * 3 + 1], tri[t * 3 + 2])
+                val pv = FloatArray(9)
+                for (t in 0 until tri.size / 3) {                    val vs = intArrayOf(tri.a[t * 3], tri.a[t * 3 + 1], tri.a[t * 3 + 2])
                     if (vs.any { it >= nv }) continue
-                    for (v in vs) {
+                    // Past the cap triangles are only counted (the file's real size goes into the message).
+                    if (out.over) { out.skip(); continue }
+                    for ((k, v) in vs.withIndex()) {
                         val x = pos[v * 3]; val y = pos[v * 3 + 1]; val z = pos[v * 3 + 2]
-                        xyz.add(m[0] * x + m[4] * y + m[8] * z + m[12]); xyz.add(m[1] * x + m[5] * y + m[9] * z + m[13]); xyz.add(m[2] * x + m[6] * y + m[10] * z + m[14])
+                        pv[k * 3] = m[0] * x + m[4] * y + m[8] * z + m[12]; pv[k * 3 + 1] = m[1] * x + m[5] * y + m[9] * z + m[13]; pv[k * 3 + 2] = m[2] * x + m[6] * y + m[10] * z + m[14]
                     }
                     var r = factor[0]; var g = factor[1]; var b = factor[2]
                     if (vcolor != null) {
@@ -380,7 +464,7 @@ object MeshConvert {
                     }
                     // glTF factors are linear: back to sRGB, which is what the filament colors are.
                     fun enc(x: Double) = (linearToSrgb(x.coerceIn(0.0, 1.0)) * 255 + 0.5).toInt()
-                    rgb.add((enc(r) shl 16) or (enc(g) shl 8) or enc(b))
+                    out.add(pv[0], pv[1], pv[2], pv[3], pv[4], pv[5], pv[6], pv[7], pv[8], (enc(r) shl 16) or (enc(g) shl 8) or enc(b))
                 }
             }
         }

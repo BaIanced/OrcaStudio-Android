@@ -9,6 +9,9 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.util.zip.ZipInputStream
 
+/** A zip with more entries or more uncompressed bytes than [ModelDownloads] opens. */
+class ArchiveTooLargeException : Exception("Archive too large")
+
 /**
  * Model downloads from the model sites: the desktop's "open in slicer" links
  * (`bambustudio://open?file=<url>&name=<file>`, Downloader.cpp / Plater::import_model_id), plain
@@ -91,7 +94,20 @@ object ModelDownloads {
         // Not the plain name: the import folder also holds folders of its own ("openscad", "presets").
         val dir = File(file.parentFile, file.nameWithoutExtension + "_files").apply { deleteRecursively(); mkdirs() }
         val root = dir.canonicalPath + File.separator
-        val hasScad = java.util.zip.ZipFile(file).use { z -> z.entries().asSequence().any { it.name.endsWith(".scad", true) } }
+        var entryCount = 0
+        var declared = 0L
+        var hasScad = false
+        java.util.zip.ZipFile(file).use { z ->
+            for (e in z.entries()) {
+                entryCount++
+                if (e.size > 0) declared += e.size
+                if (e.name.endsWith(".scad", true)) hasScad = true
+                checkArchiveLimits(entryCount, declared)
+            }
+        }
+        // The declared sizes can be wrong: the bytes actually written are counted too.
+        var written = 0L
+        val buf = ByteArray(64 * 1024)
         val out = mutableListOf<File>()
         ZipInputStream(file.inputStream()).use { zip ->
             while (true) {
@@ -103,7 +119,15 @@ object ModelDownloads {
                 val f = if (hasScad) File(dir, e.name).takeIf { it.canonicalPath.startsWith(root) } ?: continue
                     else File(dir, safeName(base))
                 f.parentFile?.mkdirs()
-                f.outputStream().use { zip.copyTo(it) }
+                f.outputStream().use { o ->
+                    while (true) {
+                        val n = zip.read(buf)
+                        if (n < 0) break
+                        written += n
+                        checkArchiveLimits(entryCount, written)
+                        o.write(buf, 0, n)
+                    }
+                }
                 if (model) out += f
             }
         }
@@ -112,6 +136,14 @@ object ModelDownloads {
         val sources = out.filter { it.extension.equals("scad", true) }.sortedBy { it.relativeTo(dir).path.count { c -> c == '/' } }
         val texts = sources.joinToString("\n") { runCatching { it.readText() }.getOrDefault("") }
         return sources + out.filter { !it.extension.equals("scad", true) && !texts.contains(it.name) }
+    }
+
+    const val MAX_ARCHIVE_ENTRIES = 10_000
+    const val MAX_ARCHIVE_BYTES = 2L * 1024 * 1024 * 1024
+
+    /** Throws [ArchiveTooLargeException] past 10,000 entries or 2 GB uncompressed. */
+    internal fun checkArchiveLimits(entries: Int, uncompressedBytes: Long) {
+        if (entries > MAX_ARCHIVE_ENTRIES || uncompressedBytes > MAX_ARCHIVE_BYTES) throw ArchiveTooLargeException()
     }
 
     private fun hasKnownExtension(name: String) = name.substringAfterLast('.', "").lowercase().let { it in MODEL_EXTENSIONS || it in PRESET_EXTENSIONS || it == "zip" }

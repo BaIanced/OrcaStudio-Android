@@ -46,15 +46,24 @@ class FileController(
         // glTF / GLB / PLY / OFF are converted to a 3MF, with colors snapped to the filament slots.
         val slotColors = store.value.filaments.map { app.orcaandroid.core.MeshConvert.parseColor(it.color) }
         var failedConvert = 0
+        var tooLarge: Long? = null
         val all = withContext(Dispatchers.IO) {
             unpacked.flatten().mapNotNull { f ->
                 if (f.extension.lowercase() !in app.orcaandroid.core.MeshConvert.EXTENSIONS) f
-                else app.orcaandroid.core.MeshConvert.convert(f, slotColors) ?: run { failedConvert++; null }
+                else try {
+                    app.orcaandroid.core.MeshConvert.convert(f, slotColors) ?: run { failedConvert++; null }
+                } catch (e: app.orcaandroid.core.MeshConvert.TooManyTrianglesException) {
+                    tooLarge = e.triangles
+                    null
+                }
             }
         }
-        if (failedConvert > 0) store.toast(store.str(R.string.mesh_convert_failed))
+        val tooLargeCount = tooLarge
+        if (tooLargeCount != null) store.toast(store.str(R.string.mesh_too_large, String.format(java.util.Locale.US, "%.1f", tooLargeCount / 1e6)))
+        else if (failedConvert > 0) store.toast(store.str(R.string.mesh_convert_failed))
         if (all.isEmpty()) {
-            store.toast(store.str(R.string.models_no_files))
+            // A conversion message above already says why nothing opened.
+            if (tooLarge == null && failedConvert == 0) store.toast(store.str(R.string.models_no_files))
             return@launch
         }
         // OpenSCAD sources open in the editor; with several (a design and its libraries), the one no other includes.

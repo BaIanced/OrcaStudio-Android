@@ -99,7 +99,16 @@ class Store(val app: Application, val scope: CoroutineScope) {
             // System file errors carry content:// URIs, cache paths and errno names; show the plain sentence instead.
             val unreadable = e is java.io.FileNotFoundException || e is SecurityException ||
                 listOf("content://", "ENOENT", "EACCES", "open failed").any { it in message }
-            update { it.copy(error = if (unreadable) str(R.string.file_unreadable) else message) }
+            update { it.copy(error = when {
+                e is app.orcaandroid.net.ArchiveTooLargeException -> str(R.string.archive_too_large)
+                unreadable -> str(R.string.file_unreadable)
+                else -> message
+            }) }
+        } catch (e: OutOfMemoryError) {
+            // A big model or archive: the import / mesh work that ran out of heap is abandoned, the app stays up.
+            if (cancelled) return@launch
+            android.util.Log.w("OrcaStore", "operation ran out of memory", e)
+            update { it.copy(error = str(R.string.out_of_memory)) }
         } finally {
             if (busy != null) update { it.copy(busy = null, busyCancel = null) }
         }

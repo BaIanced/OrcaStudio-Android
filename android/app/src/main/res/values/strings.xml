@@ -814,6 +814,9 @@
     <string name="import_cannot_open">Couldn\'t open that file.</string>
     <string name="models_no_files">The download has no model files.</string>
     <string name="mesh_convert_failed">Couldn\'t read this 3D file (compressed glTF files aren\'t supported).</string>
+    <string name="mesh_too_large">This model has %1$s million triangles. The limit is 5 million.</string>
+    <string name="archive_too_large">This archive is too large to open.</string>
+    <string name="out_of_memory">Not enough memory for this model.</string>
     <plurals name="scad_zip_variants">
         <item quantity="one">The design opened in the editor. The zip\'s ready-made model is not on the plate.</item>
         <item quantity="other">The design opened in the editor. The zip\'s %1$d ready-made models are not on the plate.</item>
