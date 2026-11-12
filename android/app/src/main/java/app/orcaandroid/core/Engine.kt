@@ -42,7 +42,7 @@ class Engine(private val cacheDir: File) {
     /** Lets filaments whose nozzle temperatures are far apart share a print (desktop: "Remove mixed temperature restriction"). */
     suspend fun setAllowMixedTemperatures(allow: Boolean) { call("setAllowMixedTemperatures", args("allow" to allow)) }
 
-    private val defsCache = HashMap<PresetType, List<OptionDef>>()
+    private val defsCache = java.util.concurrent.ConcurrentHashMap<PresetType, List<OptionDef>>()
 
     suspend fun optionDefs(type: PresetType): List<OptionDef> = defsCache[type] ?: call("optionDefs", args("type" to type.id))
         .getJSONArray("defs").map { parseDef(it as JSONObject) }.also { defsCache[type] = it }

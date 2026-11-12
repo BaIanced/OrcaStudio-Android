@@ -158,6 +158,8 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
 
     // The selection rectangle being drawn (Shift/Alt+drag), in view pixels: x0, y0, x1, y1.
     var rectangle by remember { mutableStateOf<FloatArray?>(null) }
+    var glView by remember { mutableStateOf<PlateView?>(null) }
+    app.orcaandroid.render.GlLifecycle(glView)
     val dragPending = remember { booleanArrayOf(false) }
     // The plate menu opened from a plate's menu badge: plate, view x, y.
     var plateMenu by remember { mutableStateOf<Triple<Int, Float, Float>?>(null) }
@@ -172,6 +174,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     AndroidView(
         factory = { ctx ->
             PlateView(ctx).also { v ->
+                glView = v
                 PlateView.active = java.lang.ref.WeakReference(v)
                 v.listener = object : PlateListener {
                     override fun onTap(x: Float, y: Float, additive: Boolean, part: Boolean, emptyPlate: Int?) {

@@ -511,6 +511,7 @@
     <string name="save_preset_title">Save as user preset</string>
     <string name="save_project">Save project…</string>
     <string name="saved">Saved</string>
+    <string name="not_saved">Not saved</string>
     <string name="saving">Saving…</string>
     <string name="saving_preset">Saving preset…</string>
     <string name="saving_project">Saving project…</string>

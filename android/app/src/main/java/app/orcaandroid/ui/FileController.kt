@@ -327,7 +327,7 @@ class FileController(
         presets.syncSelection()
         val tmp = File(outDir, "project.3mf")
         engine.saveProject(tmp.path)
-        copyTo(tmp, target)
+        if (!copyTo(tmp, target)) return@launch
         val name = resources.displayName(target).removeSuffix(".3mf")
         rememberRecent(target, "$name.3mf", true)
         store.update { it.copy(projectName = name, projectDirty = false) }
@@ -337,7 +337,7 @@ class FileController(
     fun exportStl(target: Uri, plate: Int) = store.launch(store.str(R.string.saving)) {
         val tmp = File(outDir, "export.stl")
         engine.exportStl(tmp.path, plate)
-        copyTo(tmp, target)
+        if (!copyTo(tmp, target)) return@launch
         store.toast(store.str(R.string.saved))
     }
 
@@ -350,7 +350,7 @@ class FileController(
 
     fun saveGcode(target: Uri) = store.launch(store.str(R.string.saving)) {
         val file = exportedGcode("File") ?: return@launch
-        copyTo(file, target)
+        if (!copyTo(file, target)) return@launch
         toastSaved()
     }
 
@@ -389,7 +389,7 @@ class FileController(
     /** Saves the preview plate as a sliced-plate archive (.gcode.3mf, as Bambu printers and the desktop use). */
     fun saveGcode3mf(target: Uri) = store.launch(store.str(R.string.saving)) {
         val archive = exportGcode3mf() ?: return@launch
-        copyTo(archive, target)
+        if (!copyTo(archive, target)) return@launch
         toastSaved()
     }
 
@@ -424,7 +424,13 @@ class FileController(
         store.update { it.copy(recents = settings.recents) }
     }
 
-    private suspend fun copyTo(file: File, target: Uri) = withContext(Dispatchers.IO) {
-        store.app.contentResolver.openOutputStream(target, "wt")!!.use { out -> file.inputStream().use { it.copyTo(out) } }
+    /** Copies [file] to [target]; false (with a "Not saved" toast) when the bytes written differ from the source length. */
+    private suspend fun copyTo(file: File, target: Uri): Boolean {
+        val written = withContext(Dispatchers.IO) {
+            store.app.contentResolver.openOutputStream(target, "wt")!!.use { out -> file.inputStream().use { it.copyTo(out) } }
+        }
+        if (written == file.length()) return true
+        store.toast(store.str(R.string.not_saved))
+        return false
     }
 }
