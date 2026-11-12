@@ -293,6 +293,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     override fun onCleared() {
         mcp.stop()
+        // The notification's Cancel must not reach this cleared controller.
+        if (store.container.cancelSlice == slicing::cancelSlice) store.container.cancelSlice = null
         super.onCleared()
     }
 

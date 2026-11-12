@@ -23,6 +23,8 @@ class AppContainer(app: Application) {
     val engine = Engine(app.cacheDir)
     /** Non-null while slicing; observed by SliceService. */
     val sliceProgress = MutableStateFlow<SliceProgress?>(null)
+    /** Cancels the running slice the way the UI does (sets the user-cancel flag); set by the slice controller, used by the notification action. */
+    @Volatile var cancelSlice: (() -> Unit)? = null
     /** Latest job status of the monitored printer; written by PrintMonitorService. */
     val printerStatus = MutableStateFlow<PrinterStatus?>(null)
     /** For work that must finish even when the activity and its view model are gone. */

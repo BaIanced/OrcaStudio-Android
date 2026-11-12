@@ -20,6 +20,8 @@ class SliceController(private val store: Store, private val presets: PresetContr
     private val engine = store.engine
     private val progress = store.container.sliceProgress
 
+    init { store.container.cancelSlice = ::cancelSlice }
+
     /** In-flight G-code tool-change parses per plate (Task 11); a plate's parse is cancelled when it is re-sliced. */
     private val parseJobs = mutableMapOf<Int, Job>()
 
@@ -50,12 +52,15 @@ class SliceController(private val store: Store, private val presets: PresetContr
     private fun promote(): Boolean {
         engine.keepSlice()
         var promoted = false
+        var current: SliceStatus.Running? = null
         store.update { s ->
             val r = s.slice as? SliceStatus.Running
-            if (r == null || !r.background) s else { promoted = true; s.copy(slice = r.copy(background = false), sliceError = null) }
+            if (r == null || !r.background) s else { promoted = true; current = r; s.copy(slice = r.copy(background = false), sliceError = null) }
         }
         if (promoted) {
             userCancelled = false
+            // Before the service starts: it stops itself when the first value it sees is null.
+            progress.value = SliceProgress(current?.percent ?: 0, current?.text ?: store.str(R.string.preparing))
             runCatching { SliceService.start(store.app) }
         }
         return promoted
