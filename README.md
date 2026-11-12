@@ -121,6 +121,9 @@ Download the APK from the [releases](https://github.com/BaIanced/OrcaStudio-Andr
 On first start choose your printers. To send prints, open the **Device** tab and add the printer
 (Android 17 asks for local network access).
 
+Updates: add this repository to [Obtainium](https://github.com/ImranR98/Obtainium) (turn on "include pre-releases") to be told
+about new builds.
+
 ## Building
 
 Releases are built by CI; there is no local native build.
