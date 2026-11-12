@@ -16,6 +16,9 @@ Fallback order: 1 WSA virtual display, 2 phone virtual display, 3 visible screen
 Run `vd-health.sh` first: it force-stops both app packages, starts the WSA virtual display, waits for the app there, makes one MCP call and prints `PASS` or `FAIL <step>`.
 - `orca-vd.sh shot` cannot see the display on WSA, use `vdgrab.sh`.
 - WSA debug app sizes are scaled 0.7 / 0.85 / 0.8.
+- Smoke suite (regression gate, ~80 s, needs the debug app installed): `~/orca-android-tools/smoke.sh` runs 8 steps on the WSA virtual display (new project, STL import, arrange, slice vs `smoke/expected.json`, shape-builder hole + design_to_plate, undo, G-code size, session restore), prints `PASS <step> <n>` / `FAIL <step> <got> <want>` and the total, and leaves the app closed on an empty project. Delete `smoke/expected.json` to re-record after a deliberate slicer or preset change; unsaved preset edits fail the slice step.
+- It drives what has no MCP tool through `input -d <display>` (Ctrl+N, Ctrl+Z, Back), the debug start extra `orca.model`, and the UI tree (Allow, Close editor). Gap: no MCP tool for new project, undo or G-code export, so step 7 checks the slicer's `cache/out/plate_1.gcode` (what Export copies), not the Save dialog.
+- `mcpao.sh` reads the token from `secure_settings.xml` (moved there from `app_settings.xml`); never run it with `MSYS_NO_PATHCONV=1` exported (its python path breaks).
 
 ### Headless display (`~/orca-android-tools/orca-vd.sh`, verified 2026-10-19 on the old phone)
 - **Phone asleep (Dozing) = injected taps/swipes are dropped** (2026-10-27; the app also pauses on wake): ask, then `input keyevent WAKEUP`, `orca-vd.sh stop` + `start` again; `keyevent SLEEP` after. Multi-segment held drags on the phone VD: `su -c 'input touchscreen -d $LOGICAL motionevent DOWN|MOVE|UP x y'` (works there, unlike WSA).
