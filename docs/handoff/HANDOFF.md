@@ -35,8 +35,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Two-Claude chat: `claudechat.md`; Monitor its `## ` count (section 7), 30 min, re-arm. Quest numbers: `NOTES-quest-profile.md`.
 - **GLB/glTF/PLY/OFF import (user 2026-11-09), committed 63ebb8a:** `core/MeshConvert.kt` -> 3MF with one part per AMS slot; multi-part colors + textured/vertex-color GLB Claude-verified on WSA (archive "2026-11-09 GLB multi-part colors VERIFIED", "2026-11-10 Textured"). Open: push (privacy scan). Draco/meshopt/3DS/DAE/FBX = Muse tasks 22-25 (backlog 'Mesh import formats').
 - Assemble A1 + A2 + 2-part builder + "Update on plate" Claude-verified (archive "2026-11-11 Assemble Update on plate VERIFIED"; WSA debug app uninstalled? no: installed, stopped, VD stopped). A3 cut-suggestion design written 2026-11-11 (archive "Assemble A3 cut-suggestion design"; nothing coded): next = phase (a) native `suggest_cuts` + MCP `object_cut_suggest` read-only, CI build, test on WSA VD with the 300 % Desk Organizer.
-- **Audit 2026-11 finished 2026-11-11** (local branch `claude/audit-2026-11`, not pushed): `docs/audit/00-SUMMARY.md` has 27 user questions; 1-7 block `MASTER-PLAN.md`. Until answered, this Next step holds; after a yes, start at plan T-001.
-- Next step: Assemble A3 phase (a) native suggest_cuts + MCP object_cut_suggest -> Opus 5.5 (high)
+- **Audit plan running (user 2026-11-11 answered all 27: `docs/audit/ANSWERS.md`, read it before asking anything).** This session = orchestrator per `docs/audit/MASTER-PLAN.md` runbook (subagent per task, verify `done when` yourself, tick). docs/audit/ is local-only (`.git/info/exclude`), so ticks there are not committed. T-001 done 2026-11-11 (baseline 281 unit tests). A3 phase (a) parked until the plan allows it. C-12 TLS pinning needs the user at the printer: ask first.
+- Next step: execute MASTER-PLAN batch 1, next T-002 -> Sonnet 5.5 (medium)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
