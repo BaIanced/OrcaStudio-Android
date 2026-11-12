@@ -1,4 +1,4 @@
-# Handoff: OrcaStudio-Android + OrcaStudio aarch64 Flatpak (hot file, 2026-10-13)
+# Handoff: OrcaStudio-Android + OrcaStudio aarch64 Flatpak (hot file, 2026-11-12)
 
 Read this first. Don't use any title for the user ("Supreme Master" was a joke; never use it).
 - `HANDOFF-REFERENCE.md`: devices, tools, build commands, recipes. **Read its device section before driving a device.**
@@ -13,7 +13,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 ## State
 - One repo: OrcaStudio-Android (code + these docs, `docs/handoff/`), branch `claude/handoff-continuation-rseql3`. Autonomy (user, 2026-10-11): decide branches and next steps
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
-- Android main = 62ada99 (PR #73 = r521, multi-plate Preview, merged 2026-11-04; Claude-verified only; PR #72 = r519 before it). Nothing unverified on the branch; no merge offer pending. User-untested in main: list in `NOTES-merge-batch.md`.
+- Android main = 62ada99 (PR #73 = r521, multi-plate Preview, merged 2026-11-04; Claude-verified only; PR #72 = r519 before it). Branch work is Claude-verified only; no merge offer pending. User-untested in main: `SIGNOFF-CHECKLIST.md`.
 - Signing secrets: `release` environment (main + `claude/*` only).
 - Installs: all adb devices (skip .23); **SHIELD avoided (user 2026-11-01)**. WSA restart: `WsaClient /shutdown`, `wsa-start.ps1`, `adb connect 127.0.0.1:58526`; phone/Chromebook reconnect: memory device-ips. GL shots on the phone VD.
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
@@ -27,16 +27,15 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 ## Next task
 - **User 2026-10-21: design deviations pre-approved** ("deviate if you find a more logical, intuitive way; I trust your judgement"); say what changed.
 - Muse: `NOTES-muse.md` (only when sending Muse work).
-- **Merge batch (user 2026-10-28: main = user-tested): `NOTES-merge-batch.md`** (cuts agreed, printer set release-gated, sessions A-D).
+- main = Claude-verified pre-release; archive lines carry one label: source-checked / device-checked (build, command) / user-checked.
 - Phone debug recipe, WSA VD, VD taps, GL shots: archive "2026-11-09 Trimmed from handoff" / "Moved from handoff"; reference "Headless display".
 - Local tests: `wsa-debug-rebuild.sh [native]` (reference "WSA debug loop"); fresh app: `wsa-debug-setup.sh` first. Lab prefs: edit `layout_lab` JSON in debug `shared_prefs/app_settings.xml` with run-as sed (app stopped).
 - **Offload (user 2026-10-25/26): max work onto free opencode models** (memory offload-to-free-models).
-- Name inquiry #17269: wait 1-2 weeks from 2026-11-05, then one bump.
 - Two-Claude chat: `claudechat.md`; Monitor its `## ` count (section 7), 30 min, re-arm. Quest numbers: `NOTES-quest-profile.md`.
 - GLB/glTF/PLY/OFF import committed 63ebb8a (open: push; Muse tasks 22-25); Assemble A1+A2+"Update on plate" verified; A3 designed, not coded. Details: archive "2026-11-12 Trimmed from handoff".
-- **Audit plan running (user answers: `docs/audit/ANSWERS.md`, read before asking).** Orchestrator per `docs/audit/MASTER-PLAN.md` runbook (subagent per task, verify `done when` myself, commit, tick). docs/audit/ is local-only, ticks not committed. Done: T-001/2/4/5/7/8/9/10 (e9947a7)/11 (f9ccab0; vd-health.sh in tools dir, not a git repo)/12 (c156148; smoke.sh ~80 s)/17 (11e7840, openscad CI green)/18 (device-checked, archive), T-015; 296 tests. T-003 [!] (backlog [Opus] patch rebase); T-010 left 59 UNCONFIRMED licence rows (backlog [Opus]). **Next, one at a time (shared Gradle dir + one WSA): T-013 alone (then T-006 vs T-010, T-014 alone; T-016 is Opus). Run alone: T-013 (HANDOFF.md), T-006 vs T-010 (build.gradle.kts), T-014 (README).** A3 phase (a) parked. C-12 TLS pinning needs the user at the printer: ask first.
-- Coordinator role (user 2026-11-12): I dispatch subagents, verify `done when` myself, commit, tick; never implement. If a device check needs a slow slice use ~940 % cube; root `su -c am startservice` for service actions; WSA debug install via `:app:assembleDebug` + `adb install -r -g`, never wsa-start.ps1.
-- Next step: dispatch T-013 (backlog, sign-off list, labels; edits HANDOFF.md, run alone) per MASTER-PLAN runbook -> Sonnet 5.5 (low)
+- **Audit plan running (user answers: `docs/audit/ANSWERS.md`, read before asking).** docs/audit/ is local-only, ticks not committed. Done: T-001/2/4/5/7/8/9/10 (e9947a7)/11 (f9ccab0; vd-health.sh in tools dir, not a git repo)/12 (c156148; smoke.sh ~80 s)/17 (11e7840, openscad CI green)/18 (device-checked, archive), T-015; 296 tests. T-003 [!] (backlog [Opus] patch rebase); T-010 left 59 UNCONFIRMED licence rows (backlog [Opus]). **Next, one at a time (shared Gradle dir + one WSA): T-013 alone (then T-006 vs T-010, T-014 alone; T-016 is Opus).** A3 phase (a) parked. C-12 TLS pinning needs the user at the printer: ask first.
+- Coordinator (user 2026-11-12): dispatch subagents, verify `done when`, commit, tick; never implement. WSA install via `:app:assembleDebug` + `adb install -r -g`. Name inquiry #17269: bump after 2026-11-19.
+- Next step: T-013 done; next T-006 vs T-010, then T-014 (README) alone; T-016 is Opus.
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 

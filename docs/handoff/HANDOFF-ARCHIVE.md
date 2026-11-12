@@ -4302,3 +4302,151 @@ Phases: (a) native suggest + MCP read [CI build], (b) apply + arrange [CI], (c) 
 - **GLB/glTF/PLY/OFF import (user 2026-11-09), committed 63ebb8a:** `core/MeshConvert.kt` -> 3MF with one part per AMS slot; multi-part colors + textured/vertex-color GLB Claude-verified on WSA (archive "2026-11-09 GLB multi-part colors VERIFIED", "2026-11-10 Textured"). Open: push (privacy scan). Draco/meshopt/3DS/DAE/FBX = Muse tasks 22-25 (backlog 'Mesh import formats').
 - Assemble A1 + A2 + 2-part builder + "Update on plate" Claude-verified (archive "2026-11-11 Assemble Update on plate VERIFIED"; WSA debug app uninstalled? no: installed, stopped, VD stopped). A3 cut-suggestion design written 2026-11-11 (archive "Assemble A3 cut-suggestion design"; nothing coded): next = phase (a) native `suggest_cuts` + MCP `object_cut_suggest` read-only, CI build, test on WSA VD with the 300 % Desk Organizer.
 - 2026-11-12 T-018 Assemble "Update on plate" device-checked (Claude, WSA VD, debug build of 11e7840): 2 boxes (30x20x10, 15x15x25) > design_to_plate > long-press object > Edit in builder > BoxA width +5 > Update on plate button. X extent 62.5 -> 65 mm (+2.5: the box grows about its centre), then width +5 with pos shifted 2.5 > 70 mm (+5, the planned 5 mm); objects 1 -> 1 -> 1; "OpenSCAD stopped" 0 times in the UI tree. PASS. A "last session could not be opened" bar showed once at start (Discard tapped); not chased.
+
+
+## 2026-11-12 Backlog triage T-013 (old HANDOFF-BACKLOG.md lines, verbatim, before restructure)
+Verdicts per docs/audit/03-backlog.md; cut list NOT approved yet, so cut items sit under "Needs a user decision" in the backlog. Sign-off items moved to SIGNOFF-CHECKLIST.md.
+
+# Backlog (pending / untested / ideas). Grep, do not read up front.
+Rules: ONE line per item: what is still open + who last checked it, on which build, when. Causes, commits, runs and history go
+to HANDOFF-ARCHIVE.md (grep it; full pre-trim text under "2026-10-23 Backlog detail"). Never delete an open item; when it is
+verified, move it to the archive (a "USER VERIFIED" tag is not a move). User 2026-10-15: do NOT bring up the X2D again.
+Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonnet is fine. Re-judge an item after 2 failed tries.
+
+## Plan
+- Plan (user 2026-10-14): camera LAN (done) -> off-LAN camera (cloud P2P; VPN-home fallback; not started). Print history done as G6. Own printer/account/code only; rule 7 holds.
+- Device tab printer controls (built r286): needs printer + user: extrude/jog/home motion, part fan reads 0 % after a set, target-0 tile stale, speed chip mid-print (Claude 2026-10-21).
+
+## Open bugs
+- Mouse right-click (user 2026-10-28): `lateButton` fallback in r463+ (WSA no-regression only). Open: which device the user used; check there when they say.
+- Paint shop friction (user 2026-10-28): fixed in r463+ (archive). Sync swatch: Device-tab Sync button verified with a connected printer on r519 (archive 2026-11-04); the ToolPanel swatch itself still untested.
+- [Opus] Muse Task 12 JNI audit: 8 needs a printer connect, 5 not exercised, 6 needs 2+ printers (Claude, r392-r395, 2026-10-24); rest fixed or no change.
+
+## Untested (needs the user or a special setup)
+- Preview: shading after slice? + inner z-fight on layer scrub (fixed r285, Claude 2026-10-17): user look pending.
+- [Opus if reopened] Two-finger gestures: pan->zoom fix fa1754c (user r305 "still broken"; r311 "pans feel fine" may cover it), pinch zoom-out r312, pinch lock + speeds (r280/r324), Quest stick zoom (r324): user feel pending.
+- Corner resize gated behind long-press Resize / Ctrl+T (r305, 72dd138): probably superseded by the scale gizmo (user-verified r335, archive); ask before testing.
+- Extended paint tools (Claude WSA 2026-10-20/21, archive): user feel untested. Unpicked ideas: NOTES-paint-survey.md.
+- Paint panel layout C: modes verified by user r453 2026-10-28. Clean specks with lock Claude-verified WSA r456 2026-10-28 (archive). Chips renamed "Straight ↕/↔" (strings only, shipped; not looked at on screen).
+- Paint depth (r367, Claude WSA G-code OK 2026-10-21): user feel + real print untested.
+- Paint shop reopen fix (Claude WSA r374) + plate estimate line (Claude WSA r376 = Preview; one density, part-level filaments ignored): user look/feel.
+- Check mesh: counts OK on real files (Claude, phone r507, 2026-11-03, archive); open: marker readability in 3D (user feel, skipped).
+- Fan slider hold-until-within-4 % (r295) + Extrude F150 e13bebb: need the printer.
+- Preview bead look (Chromebook), part shadows r266, light/shadow lab sliders r263: Claude-verified, user hasn't seen.
+- Drag-handle fling: wide PanelEdge (WSA mouse inconclusive, r300) and OpenSCAD grips untested; portrait flick user-verified r294.
+- Stylus 7d3a263 (palm rejection, pen buttons/eraser): untested on a pen; super low priority (user 2026-10-21). Pie menu LOW (user dislikes it).
+- Nozzle match: newer-firmware `device.nozzle.info`, stale status after a printer-model switch, spool swap drops the pick.
+- Model-mismatch guard 54b4ca6 (one printer); SHIELD sign-ins (r210); element blocker in plugin/Device WebViews; true EGL context loss; "failed OpenSCAD run clears the old log": no repro / no setup.
+- View cube: phone portrait layout untested; off by default (user r352: motion sick); revisit only on request.
+
+## Waiting on the user
+- **Rename + new repo (user 2026-11-04, NOT locked, LOW):** user leans OrcaMesh; Discussions #17269 0 replies (Claude 2026-11-04). Open: name, history vs snapshot, app ID. Full detail + to-do list: archive "2026-11-04 Rename backlog detail".
+- HD plate ideas (user verified r394): 3D bed frame model, dual-nozzle decal layout (Claude 2026-10-24).
+- Plate switcher pick (lab stays; don't ask again). Launcher icon colour ("decide later").
+- [Opus] Sculpt mode Claude-verified WSA 2026-10-28 (archive); user feel + symmetry 51ad144 untested; leftovers parked won't-do 2026-10-30.
+- [Opus] Build workspace: all steps Claude-verified WSA 2026-10-29 (archive); open: user feel.
+
+## GOAT batch (G1-G7 built, Claude-verified, merged PR #71 2026-11-03; G8 skipped; specs in archive)
+- G1 coach strip, G3 shortcuts, G4 auto-slice delta text (11 sp, only small when the lab scales the FAB down): open: user look/feel only.
+- G6 print history: open: card for web-UI hosts, thumbnail check on a Bambu send, end-of-print status (needs the printer).
+- G7 widget + Live Update chip: open: real status test (needs the printer; mocked status checked).
+
+## Ideas (not started)
+- Parked user-feel / release items (cut-step 9 go-ahead, public-release decisions, shape builder feel, hover tooltips): moved verbatim to HANDOFF-ARCHIVE.md heading "Parked backlog items 2026-11-04".
+- Self-portrait 3 (Claude r489 WSA 2026-10-31): open only real-print checks (24 open lattice edges). Tower "no free spot" message now names the filament count + scale hint (OrcaEngine.cpp, 2026-11-04, uncommitted, C++ not compiled locally, rides the next CI build).
+- Study Bambu Handy's MakerWorld integration.
+- Headless display: `start` stress OK 5/5 (Claude 2026-11-04); pinch on the VD parked (needs an app_process multi-pointer injector; low value, archive).
+- Quest: 2D panel confirmed (user 2026-10-21); open only input beyond touch + native VR view [Opus] (on request). Phone <-> Quest link (undefined).
+- Orca plugin runtime kept generic: not done: audit prompts, create_window, per-preset overrides, printerAgent. FilamentHub dropped for good.
+- Colour icon set shortlist + mockup (low). Paint card fold direction by screen position (low). "Need phone" prompt (shelved).
+- [Opus] Filament materials / per-slot look / Realistic render (Claude WSA 2026-10-24): user feel untested; variable layer height ignored; Quest/Chromebook GPU check open.
+- Preview camera-light slider + Check mesh sharp-edge markers + Hollow: Claude-verified WSA (archive); open: user feel (sessions B/C in NOTES-merge-batch.md). Cleanup = More > Repair (exists).
+- [Opus] Snapseed interaction plan (NOTES-interaction-plan.md): steps 1-9 Claude-verified WSA (r437/r438, 2026-10-27); user feel untested on all.
+- UX review via Gemini (user 2026-10-31): lowest priority, act only if the user brings Gemini's answer (bundle exports/ux-review/, archive 2026-10-31).
+- S Pen pressure (user 2026-10-31): built ab552fa, UI checked on WSA VD; open: feel test on the Note 10+ (user says when awake); Quest pen has no pressure.
+- [Opus] Assemble space / big plate (user 2026-11-04, exploration): A1 + A2 Claude-verified (multi-part entry = Edit in builder, db92ebb; 2-part object in the builder Claude-verified 2026-11-09; Update on plate Claude-verified 2026-11-11); A3 designed 2026-11-11 (archive "Assemble A3 cut-suggestion design"), phases a-c uncoded; A4 connectors open. Claude 2026-11-11.
+
+- Chromebook-ready for a future Play listing (user 2026-11-06; nothing to do now): research per-device rules when a listing gets close (archive "Assemble space backlog detail 2026-11-09").
+
+## Known limits (no action)
+- Real keyboard Ctrl+1 = system hotkey. Inactive-plate double tap re-frames (user: fine). Badges ~23 dp at plate zoom (told the user).
+- HMS texts: HmsCatalog.kt fetches at runtime; Handy's copies stay local. Flatpak r9 MakerLab, upstream bump, obn follow-ups: archive.
+- Paint guard tool (guard plane) misbehaves, user can't describe yet (user report 2026-10-25, r401). Open: needs repro from user.
+- CAD roadmap steps 0-7 (NOTES-cad-reuse.md) Claude-verified WSA (archive 2026-10-29); user feel untested.
+- Truck holes cut preview, sculpt on cut part, hole ghost alpha: Claude-verified WSA 2026-10-29 (archive); open: user feel.
+- Measure steps 1-6 + steer/loupe/Tuning: Claude-verified WSA 2026-10-26/27; open: user feel on the phone (steer vs loupe, 2nd-finger freeze, axis lock, hover, S Pen); Alt+click, ring-to-ring, hole rim untested.
+- CAD user feel open: sketch Twist / Rise per turn / Loft / Sweep (r421), Bend / twist / taper (r423), Smooth blend (r429); all Claude-verified WSA/phone 2026-10-26.
+- Smart guides (BUILT 005f14d + Center/Align f073445, Claude-verified WSA 2026-10-27, user feel open). Build middles Claude-verified WSA VD 2026-10-29 (archive); plate centre in Build skipped (design pose not tied to plate).
+
+- MCP token efficiency (Opus review + analysis done 2026-10-27, `NOTES-mcp-token-efficiency.md`): proposed build rule waits for the user's OK; plan A-C (diff replies) r452 Claude-verified WSA 2026-10-28; D dropped.
+- Shape builder W/D/H scrub + proportional lock: Claude-verified WSA debug + in CI r458+ (archive 2026-10-28); open: user feel (on hold); proportional slider-mode unbuilt (spec unclear). Claude 2026-10-28.
+- Snapping (user 2026-10-28: toggle/hotkey, not forced on the plate, thin Adobe-style guide): 846a663 Claude-verified WSA 2026-10-28; user feel untested.
+- Session B checks skipped by user 2026-10-28 ("don't want to do right now"): Sculpt, Hollow, Center/Align, Check mesh, badge fix.
+- Godot review leftovers (Z lift dot, axis lock, Wireframe, orbit inertia, Light direction: all in CI r463, Claude-verified WSA 2026-10-28, archive): open: user feel; tower ignores Z code-verified 2026-10-29. [Opus]
+- CAD 7d done (size slider WSA VD-verified dd8f656, archive 2026-10-29); only the group Scale % field is unit-tested, not seen on screen (Claude, 2026-10-30).
+- [Opus] OrcaMesh edit mode M1-M4: Claude-verified WSA VD + r487 2026-10-30; open: user feel (NOTES-orcamesh-edit.md "Progress").
+
+- Bulk filament edit (53578ad): long press verified by Claude on phone VD 2026-10-31 (archive); only Shift/Ctrl+click (mouse, Chromebook) and user feel untested. In r496+.
+- [Opus] AI print failure watch (user 2026-10-30): local Obico-style camera detector, pause + notify; open: ask the user for the camera model (archive 2026-10-31).
+- [Opus] Filament mixer redesign (0c791b3, CI 41371910606): 2- and 3-part looks checked by Claude on WSA VD 2026-11-01; user has not seen it. Vendor logo dropped (trademark).
+- [idea] mobilecad (GPL-3 FreeCAD-on-Android) takeaways: XR controller-ray-as-camera + context panel (send to VR-port agent), occlusion-aware mm-tolerance picking, Numpad; archive 2026-11-06 mobilecad review. Claude 2026-11-06, nothing taken yet.
+- [Opus] claude-kit `/start` (aliases `/seed`, `/bootstrap`): plan in `~/claude-kit/docs/handoff/HANDOFF.md`; skeleton only. Run `/next` from that dir.
+- Preview: brim/bed contact z-fight from below: fixed (polygon offset on the under-plate window), Claude-verified phone A/B 2026-11-08 (archive "brim/bed z-fight from below fixed"); user live-drag look pending (not on the CI/release build yet).
+- VD keyboard/tap fix (orca-vd.sh, archive end): awaits the user's verdict (keyboard no longer vanishes?); Claude, 2026-11-07.
+- Upstream-PR idea (patches 0002-0004 vs 2.5.0 alpha): no go yet; Claude, 2026-11-07.
+- Mesh import formats (2026-11-09): Muse tasks 22-25 SENT (PR #79 merged, doorbells on #46): meshopt decoder, 3DS, DAE, FBX readers, each `read(File): Pair<FloatArray,IntArray>` (9 floats/tri mm Z-up, rgb/tri or -1). Claude wires in after review. Also needed: glTF quantized accessors (KHR_mesh_quantization, ~30 lines) for meshopt. Draco = native (JNI, CI patch, +0.3-0.5 MB/ABI) NOT started [Opus]. ASCII FBX unsupported.
+- [Opus] Rebase android/patches/src-orca/0001-paint-depth-layers.patch onto current upstream orca-main (fails at MultiMaterialSegmentation.cpp:1254, 2026-11-12, run 43163811825); then retry 0002-0005 via orca-upstream-watch force=true (plan T-003)
+- [Opus/native] Cancel is ignored after ~7 s of a huge slice: `write_preview` (OrcaEngine.cpp:679, ~30 s at 940 % cube) does not check `m_interrupt`; needs interrupt check in Preview.cpp via patch + CI build. Found 2026-11-12 (T-005), WSA VD.
+- [Sonnet] AppBackup.kt:39 PREFS = app_settings only: user export no longer carries printer connections/MCP token (by design after T-007); decide if export should include secure_settings (user choice, exported file is theirs). Found 2026-11-12 (T-007).
+- [Opus] T-010 follow-up: 59 UNCONFIRMED rows in THIRD_PARTY_NOTICES.md (e9947a7); confirm against downloaded deps/OpenSCAD/Python licence files, incl. obn AGPL and Assimp version; also tag android-v<ver> link is dead on local builds. Last checked 2026-11-12.
+- "The last session could not be opened. It was kept." bar seen once at WSA debug app start after force-stops (T-018 run, 2026-11-12, not chased; check whether force-stop mid-save leaves a bad session file).
+
+
+## 2026-11-12 NOTES-merge-batch.md (obsolete, archived by T-013; old rule "main = user-tested" overtaken by PR #66)
+
+# Merge batch plan (user 2026-10-28): main = user-tested code
+
+**Update 2026-10-28:** PR #66 merged everything to main (3defffa, r461) before B-D ran, on the user's go-ahead. The sessions below are now
+retroactive checks on main: run them soon, log verdicts in the archive, fix what breaks. Latest build to install: r461 or newer.
+
+Rule: merge to main only when every non-printer item below is `ok` (user), fixed + re-checked, or cut. Printer items ride along
+unverified; the RELEASE waits on them. User approves the merge itself. Verdict format: `N ok | N broken: few words | N skip`.
+Log each verdict at once in HANDOFF-ARCHIVE.md (dated, build) and fix its backlog line. Install the build on the session's device first.
+
+## Cut (user agreed 2026-10-28; never shown, leave in backlog as no-action)
+Corner resize gating (superseded by scale gizmo), pie menu / stylus / S Pen on Note, view cube, wide PanelEdge + OpenSCAD grips fling,
+model-mismatch guard, SHIELD sign-ins, element blocker, EGL loss, nozzle match, ideas list, Dimensions overview, Muse Task 12 leftovers.
+Paint guard plane stays a known issue (no repro); not a gate.
+
+## Printer set (out of gate, release-gated)
+Paint depth real print + G-code, fan hold-until-within-4 %, Extrude F150, 3MF export opened in desktop Orca, Device tab controls
+(jog/home, part fan read, speed chip).
+
+## Claude closes (no user time)
+DONE 2026-10-28: truck demo people visibility dropped (demo session gone from WSA, Hollow already verified; rebuild with truck.sh + truck2.sh only if the user wants it); upstream 2.5 compare rows all closed at source level (NOTES-upstream-2.5.md; upstream is desktop-only, no WSA side-by-side possible); Check mesh sharp-edge markers Claude-verified r450 (archive).
+
+## User sessions (about 10 min each, one device + one flow; verdict `N ok | N broken: few words | N skip`)
+- A. DONE 2026-10-28 (extended paint tools feel left open).
+- B. WSA mouse: Build workspace (incl. multi-copy / mirrored); Sculpt (+ symmetry on X/Y/Z middle planes, stroke-end hull wait);
+  Hollow; Center/Align + smart guides; Check mesh markers; shape builder number scrub (drag cells, 0.1 steps) + proportional size lock;
+  snap toggle (magnet button, Shift+Tab, Ctrl flips per drag, magenta guide); Build Z lift dot (snaps to box tops / floor);
+  axis lock (button Free/X/Y, keys X/Y/Z mid-drag, guide line); build gizmos follow a move drag.
+- C. Look (WSA or phone): Preview camera light slider (More > lab); Preview shading + layer scrub z-fight; bead look + part shadows;
+  Filament materials + Realistic render (layer-line contrast). Optional later: Chromebook / Quest GPU check.
+- D. CAD + interaction: sketch Twist/Rise/Loft/Sweep, Bend/twist/taper, Smooth blend, Hull; Snapseed interaction plan; Measure tools;
+  two-finger gestures (do pans/pinch feel fine?); two-finger tap opens the context menu; floating Slice button drag + optional plate
+  switcher (Layout lab); Recent files collapsed; paint shop: view menu in the shop bar, Sync swatch (Bambu connected), entry keeps the 3D view;
+  slice cancel shows no error badge; hover/long-press tooltips; mouse right-click.
+
+## Questions to settle in-session
+Cut tool: point of "Flip upper part upside down" / Lay on cut face. Push/pull: fold into resize (Claude rec) or remove.
+
+## Status
+2026-11-03: PR #70 merged (806d4ff, r507): settings audit, filament tiles + mixer + colour picker, size cuts, Python on demand part 1, STEP import (Claude-verified, user-untested).
+2026-10-30: PR #67 merged (de0e3fa): paint shop all kinds, CAD 7a-7d, Build continuity, cut preview, push/pull tier 2 (all Claude-verified, user-untested).
+Triage done 2026-10-28. Claude closes done. Session A done 2026-10-28. B, C, D pending (retroactive after the PR #66 merge); the printer set and release stay gated.
+
+## User-untested in main (moved from HANDOFF.md 2026-10-29)
+Plus all of sessions B-D, Sculpt, snap toggle, Z lift/axis lock: Build workspace, paint shop/depth, Filament materials,
+Realistic render, UX P1-P6, Check mesh feel, 3MF export in desktop Orca, pen, fan hold, Extrude F150.
+
