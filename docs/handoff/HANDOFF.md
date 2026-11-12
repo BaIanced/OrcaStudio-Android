@@ -34,7 +34,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Two-Claude chat: `claudechat.md`; Monitor its `## ` count (section 7), 30 min, re-arm. Quest numbers: `NOTES-quest-profile.md`.
 - GLB/glTF/PLY/OFF import committed 63ebb8a (open: push; Muse tasks 22-25); Assemble A1+A2+"Update on plate" verified; A3 designed, not coded. Details: archive "2026-11-12 Trimmed from handoff".
 - **Audit plan running (user answers: `docs/audit/ANSWERS.md`, read before asking).** docs/audit/ is local-only, ticks not committed. Done: T-001/2/4/5/7/8/9/10 (e9947a7)/11 (f9ccab0; vd-health.sh in tools dir, not a git repo)/12 (c156148; smoke.sh ~80 s)/17 (11e7840, openscad CI green)/18 (device-checked, archive), T-015; 296 tests. T-003 [!] (backlog [Opus] patch rebase); T-010 left 59 UNCONFIRMED licence rows (backlog [Opus]). **Next, one at a time (shared Gradle dir + one WSA): T-013 alone (then T-006 vs T-010, T-014 alone; T-016 is Opus).** A3 phase (a) parked. C-12 TLS pinning needs the user at the printer: ask first.
-- Coordinator (user 2026-11-12): dispatch subagents, verify `done when`, commit, tick; never implement. WSA install via `:app:assembleDebug` + `adb install -r -g`. Name inquiry #17269: bump after 2026-11-19.
+- Coordinator (user 2026-11-12): dispatch subagents, verify `done when`, commit, tick; never implement. Name inquiry #17269: bump after 2026-11-19.
 - Next step: T-014 (README alone; settings approved per ANSWERS 20; push waits on UA-4) -> Sonnet 5.5 (low). T-006 done c725cd9: user runs `gh variable set RELEASE_CERT_SHA256`.
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
