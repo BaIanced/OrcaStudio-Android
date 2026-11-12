@@ -152,8 +152,15 @@ val packOrcaAssets = tasks.register<PackOrcaAssets>("packOrcaAssets") {
     inputs.file(rootProject.file("scripts/extract_settings_layout.py"))
 }
 
+/** Copies THIRD_PARTY_NOTICES.md into the assets, where the Open-source licences screen reads it. */
+val copyNotices = tasks.register<Copy>("copyThirdPartyNotices") {
+    from(rootProject.file("../THIRD_PARTY_NOTICES.md"))
+    into(layout.buildDirectory.dir("generated/notices"))
+}
+
 androidComponents {
     onVariants { variant ->
+        variant.sources.assets?.addStaticSourceDirectory(layout.buildDirectory.dir("generated/notices").get().asFile.path)
         variant.sources.assets?.addGeneratedSourceDirectory(packOrcaAssets, PackOrcaAssets::outputDir)
         // android/build.sh stages the stripped liborca_jni.so here.
         variant.sources.jniLibs?.addStaticSourceDirectory("$orcaBuildRoot/jniLibs")
@@ -189,4 +196,8 @@ dependencies {
     androidTestImplementation("androidx.test:runner:1.7.0")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
     androidTestImplementation("junit:junit:4.13.2")
+}
+
+tasks.configureEach {
+    if (name.startsWith("merge") && name.endsWith("Assets")) dependsOn(copyNotices)
 }

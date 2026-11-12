@@ -716,19 +716,22 @@ private fun PlateTypesDialog(state: UiState, vm: AppViewModel, onDismiss: () -> 
 private fun About() {
     val context = LocalContext.current
     fun open(url: String) = runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+    var licenses by remember { mutableStateOf(false) }
+    if (licenses) LicensesScreen { licenses = false }
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(stringResource(R.string.app_name) + " " + BuildConfig.VERSION_NAME, style = MaterialTheme.typography.titleMedium)
             Text(stringResource(R.string.about_based_on, BuildConfig.ORCA_VERSION, BuildConfig.ORCA_COMMIT.take(10)), style = MaterialTheme.typography.bodySmall)
             Text(stringResource(R.string.about_credit), style = MaterialTheme.typography.bodyMedium)
             Text(stringResource(R.string.about_ai), style = MaterialTheme.typography.bodyMedium)
-            Text(stringResource(R.string.about_license), style = MaterialTheme.typography.bodySmall)
+            Text(stringResource(R.string.about_license, BuildConfig.ORCA_COMMIT), style = MaterialTheme.typography.bodySmall)
             HorizontalDivider()
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                TextButton(onClick = { open("https://github.com/SoftFever/OrcaSlicer") }) { Text("OrcaSlicer") }
-                TextButton(onClick = { open(BuildConfig.SOURCE_URL) }) { Text(stringResource(R.string.source_code)) }
+                TextButton(onClick = { open("https://github.com/OrcaSlicer/OrcaSlicer") }) { Text("OrcaSlicer") }
+                TextButton(onClick = { open(BuildConfig.SOURCE_URL + "/tree/android-v" + BuildConfig.VERSION_NAME) }) { Text(stringResource(R.string.source_code)) }
                 TextButton(onClick = { open("https://www.gnu.org/licenses/agpl-3.0.html") }) { Text("AGPL-3.0") }
             }
+            TextButton(onClick = { licenses = true }) { Text(stringResource(R.string.licenses), maxLines = 1) }
         }
     }
 }

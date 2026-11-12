@@ -4,7 +4,7 @@
     <string name="about_ai">This Android port is an unofficial community project. It is not affiliated with or endorsed by the OrcaSlicer team.</string>
     <string name="about_based_on">Slicing core: OrcaSlicer %1$s (%2$s)</string>
     <string name="about_credit">All the slicing power comes from OrcaSlicer by SoftFever and its community, built on Bambu Studio, PrusaSlicer and Slic3r. Thank you for this outstanding open-source work – please support the original project!</string>
-    <string name="about_license">Licensed under the GNU AGPL-3.0. The complete source code is available at the link below.</string>
+    <string name="about_license">Licensed under the GNU AGPL-3.0. The source code of this exact build (tag android-v plus the version above) is at the Source code link; it pins OrcaSlicer commit %1$s with the patches in android/patches/src-orca.</string>
     <string name="access_code">Access code</string>
     <string name="adaptive">Adaptive</string>
     <string name="add">Add</string>
@@ -609,6 +609,8 @@
     <string name="slicing">Slicing</string>
     <string name="smooth">Smooth</string>
     <string name="source_code">Source code</string>
+    <string name="licenses">Open-source licences</string>
+    <string name="licenses_missing">The licence notes are missing from this build. See THIRD_PARTY_NOTICES.md in the source code.</string>
     <string name="split">Split</string>
     <string name="split_objects">To objects</string>
     <string name="split_parts">To parts</string>
