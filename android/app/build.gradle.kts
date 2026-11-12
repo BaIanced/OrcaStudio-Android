@@ -59,6 +59,10 @@ android {
 
     buildTypes {
         release {
+            // Never fall back to the debug key for a build that ships from main.
+            if (System.getenv("GITHUB_REF") == "refs/heads/main" && keystoreProperties.isEmpty) {
+                throw GradleException("release key missing on main")
+            }
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.getByName(if (keystoreProperties.isEmpty) "debug" else "release")

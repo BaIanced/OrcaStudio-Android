@@ -349,6 +349,27 @@ jobs:
           retention-days: 90
           if-no-files-found: warn
 
+      - name: Verify release signer
+        if: github.ref == 'refs/heads/main'
+        env:
+          EXPECTED: ${{ vars.RELEASE_CERT_SHA256 }}
+        run: |
+          set -euo pipefail
+          apksigner=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -n1)
+          apk=$(ls dist/*.apk | head -n1)
+          out=$("$apksigner" verify --print-certs "$apk")
+          echo "$out" | grep -i 'certificate SHA-256 digest' | head -n1
+          actual=$(echo "$out" | grep -i 'certificate SHA-256 digest' | head -n1 | awk '{print $NF}' | tr -d ':' | tr 'A-F' 'a-f')
+          if [ -z "$EXPECTED" ]; then
+            echo "::warning::Repository variable RELEASE_CERT_SHA256 is not set; signer digest not compared."
+            exit 0
+          fi
+          expected=$(echo "$EXPECTED" | tr -d ':[:space:]' | tr 'A-F' 'a-f')
+          if [ "$actual" != "$expected" ]; then
+            echo "::error::APK signer digest differs from RELEASE_CERT_SHA256."
+            exit 1
+          fi
+
       - name: Publish release
         if: github.ref == 'refs/heads/main'
         env:
