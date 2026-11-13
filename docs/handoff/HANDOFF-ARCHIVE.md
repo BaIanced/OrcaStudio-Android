@@ -4459,3 +4459,9 @@ Fable read the T-004/5/7/9 diffs. Findings fixed in 813fc10: after a failed rest
 
 ## 2026-11-12 PR #84 merged (user: "merge")
 User on the batch 1 merge offer (r548, 5bcef51): "merge and tell me recommendation on next or set it in /next". PR #84 merged to main as 3181529 (124 commits: batch 1, GLB/glTF/PLY/OFF import, GL preview work). PR checks: unit-tests pass; `scan` failed on the commit range only (cf75a81, 2026-11-04, a LAN address in HANDOFF.md, already public on the work branch since then; tree scan clean). Merged before the scan result was read (Claude's miss: `gh pr checks --watch` output was not checked before `gh pr merge`).
+
+## 2026-11-12 T-020 baseline shots
+- T-020 done, device-checked (WSA VD debug app, vdgrab.sh + phone-ui.py layout; coordinator viewed sheet.png): 12 PNG + 12 TXT + sheet.png in `~/orca-android-tools/shots/b2-before/`, new `~/orca-android-tools/contact-sheet.py`; unit-test baseline 45 XML. 09/10 PNG card position differs from TXT (card dragged up for the dump).
+
+## 2026-11-12 Trimmed from handoff (2)
+- GLB/glTF/PLY/OFF import committed 63ebb8a (open: push; Muse tasks 22-25); Assemble A1+A2+"Update on plate" verified; A3 designed, not coded. Details: archive "2026-11-12 Trimmed from handoff".
