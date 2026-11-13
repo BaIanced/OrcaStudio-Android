@@ -592,6 +592,7 @@
     <string name="mesh_edit_select">Select</string>
     <string name="mesh_edit_all">All</string>
     <string name="mesh_edit_move">Move</string>
+    <string name="mesh_edit_diameter">Diameter</string>
     <string name="mesh_edit_extrude">Extrude</string>
     <string name="mesh_edit_inset">Inset</string>
     <string name="mesh_edit_fillet">Fillet</string>

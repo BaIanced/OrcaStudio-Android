@@ -268,6 +268,9 @@ internal fun MeshEditCard(state: UiState, vm: AppViewModel, side: Boolean, modif
             CardAction(stringResource(R.string.mesh_edit_all), count > 0) { vm.scene.meshEditOp("all") }
         }
         if (count == 0) return@ToolCard
+        // A round wall (a hole's or a peg's) about X, Y or Z: typing a diameter scales it about its axis (one undo step).
+        val wall = if (tool.kind == "face") sel?.takeIf { it.version == state.workspace.scene.meshVersion.toLong() }?.let { vm.scene.meshEditRoundWall(it) } else null
+        if (wall != null) NumberField(wall.diameter, { vm.scene.meshEditDiameter(wall, it) }, Modifier.fillMaxWidth(), stringResource(R.string.mesh_edit_diameter), "mm")
         Vec3Fields(stringResource(R.string.mesh_edit_move), move.x.toFloat(), move.y.toFloat(), move.z.toFloat(), "mm",
             { x, y, z -> move = D3(x.toDouble(), y.toDouble(), z.toDouble()) }, live = true, axisColours = true)
         Vec3Fields(stringResource(R.string.rotation), rotate.x.toFloat(), rotate.y.toFloat(), rotate.z.toFloat(), "°",

@@ -21,3 +21,18 @@ fun meshEditMatrix(move: D3?, scale: D3?, rotate: D3?): List<Double> {
     val tv = doubleArrayOf(t.x, t.y, t.z)
     return (0..2).flatMap { i -> (0..2).map { j -> r[i][j] * k[j] } + tv[i] } + listOf(0.0, 0.0, 0.0, 1.0)
 }
+
+/**
+ * The [meshEditMatrix] for scaling a round wall to [newDiameter] about its own axis instead of about the selection's
+ * [centroid] (they differ for a part of a wall): the two directions across [wall]'s axis scale by new / old, the axis
+ * one is kept. The matrix is applied about the centroid, so the translation moves the scale's fixed point onto the axis.
+ */
+fun roundWallMatrix(wall: app.orcaandroid.render.HoleFinder.RoundWall, centroid: Vec3, newDiameter: Float): List<Double> {
+    val k = newDiameter.toDouble() / wall.diameter
+    val s = DoubleArray(3) { if (it == wall.axis) 1.0 else k }
+    val c = doubleArrayOf(centroid.x.toDouble(), centroid.y.toDouble(), centroid.z.toDouble())
+    val a = doubleArrayOf(wall.centre.x.toDouble(), wall.centre.y.toDouble(), wall.centre.z.toDouble())
+    // p' = a + S (p - a) = c + S (p - c) + (I - S)(a - c)
+    val t = DoubleArray(3) { (1 - s[it]) * (a[it] - c[it]) }
+    return meshEditMatrix(D3(t[0], t[1], t[2]), D3(s[0] * 100, s[1] * 100, s[2] * 100), null)
+}

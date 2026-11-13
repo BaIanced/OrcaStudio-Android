@@ -885,6 +885,17 @@ class SceneController(private val store: Store, private val presets: PresetContr
         meshEditSel.value = meshEditSelOf(sel.target, step.selection)
     }
 
+    /** The Face selection as a round wall about X, Y or Z ([app.orcaandroid.render.HoleFinder.roundWall]), or null: not whole (over 500 vertices), not a wall. */
+    fun meshEditRoundWall(sel: MeshEditSel): app.orcaandroid.render.HoleFinder.RoundWall? =
+        if (sel.verts.size == sel.count * 3) app.orcaandroid.render.HoleFinder.roundWall(sel.verts) else null
+
+    /** Mesh edit Diameter: the selected round wall [wall] scaled about its axis to [diameter] mm, one undo step. */
+    fun meshEditDiameter(wall: app.orcaandroid.render.HoleFinder.RoundWall, diameter: Float) = store.launch {
+        val sel = liveMeshEditSel() ?: return@launch
+        if (!(diameter > 0f)) return@launch
+        meshEditTransform(app.orcaandroid.core.roundWallMatrix(wall, sel.centroid, diameter)).join()
+    }
+
     /** Mesh edit typed extrude ("extrude": [mm] along the selection's normal, < 0 = pocket), "inset" ([mm] in), "fillet" or "chamfer" ([mm] radius / size on the selection's creases), one undo step. */
     fun meshEditFaces(op: String, mm: Float) = store.launch {
         val sel = liveMeshEditSel() ?: return@launch

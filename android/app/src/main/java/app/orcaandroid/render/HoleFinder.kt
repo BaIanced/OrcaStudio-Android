@@ -234,17 +234,18 @@ object HoleFinder {
         return Piece(c, f.d, r, core, major, aLo, aHi)
     }
 
-    /** Circle through the group's corners across the axis, or null when it isn't a round hole. */
-    private fun fitCircle(q: Prof, f: Frame): Piece? {
-        // Kasa fit (x² + y² + Dx + Ey + F = 0, least squares) on centred coordinates.
-        val n = q.n * 3
+    /**
+     * Least-squares circle (Kasa: x² + y² + Dx + Ey + F = 0, on centred coordinates) through the first [n] points ([pa], [pb]):
+     * (centre a, centre b, radius), or null when they are collinear or coincide.
+     */
+    private fun kasa(pa: DoubleArray, pb: DoubleArray, n: Int): DoubleArray? {
         var mu = 0.0; var mv = 0.0
-        for (i in 0 until n) { mu += q.pa[i]; mv += q.pb[i] }
+        for (i in 0 until n) { mu += pa[i]; mv += pb[i] }
         mu /= n; mv /= n
         var sxx = 0.0; var sxy = 0.0; var syy = 0.0; var sx = 0.0; var sy = 0.0
         var sxz = 0.0; var syz = 0.0; var sz = 0.0
         for (i in 0 until n) {
-            val x = q.pa[i] - mu; val y = q.pb[i] - mv; val z = x * x + y * y
+            val x = pa[i] - mu; val y = pb[i] - mv; val z = x * x + y * y
             sxx += x * x; sxy += x * y; syy += y * y; sx += x; sy += y; sxz += x * z; syz += y * z; sz += z
         }
         // [sxx sxy sx; sxy syy sy; sx sy n] (D E F) = -(sxz syz sz)
@@ -253,13 +254,69 @@ object HoleFinder {
         val cx = -sol[0] / 2; val cy = -sol[1] / 2
         val r2 = cx * cx + cy * cy - sol[2]
         if (r2 <= 0) return null
-        val r = sqrt(r2)
+        return doubleArrayOf(mu + cx, mv + cy, sqrt(r2))
+    }
+
+    /** A round wall found by [roundWall]: [axis] 0 / 1 / 2, [centre] = a point on its axis (the other two coordinates are the fitted centre, the axis one is the selection's middle), [diameter] in mm. */
+    data class RoundWall(val axis: Int, val centre: Vec3, val diameter: Float)
+
+    /** The wall's vertices must lie this close (mm) to the fitted radius; with the extent of a wall this also bounds any taper or tilt. */
+    const val WALL_RADIAL_MM = 0.05
+    private const val WALL_ARC_MIN_DEG = 150.0 // the outline must span at least this much of the circle
+    private const val WALL_GAP_MAX_DEG = 46.0 // and have a vertex at least this often (an octagon's 45 passes)
+
+    /**
+     * Whether the selected vertices ([verts] = x y z each, world mm) are the wall of a cylinder whose axis is X, Y or Z
+     * (the Edit mesh Diameter field). The circle is fitted across each axis in turn; it is accepted when every vertex
+     * is within [WALL_RADIAL_MM] of the radius (so a cone, a tilted cylinder or a sphere fail), the vertices have an
+     * extent along the axis (a flat face's corners lie on a circle too, but have none), they span an arc of at least
+     * [WALL_ARC_MIN_DEG] and no gap inside it is wider than [WALL_GAP_MAX_DEG]. A flat face fails across its own axis (no extent) and across the others (collinear points).
+     */
+    fun roundWall(verts: FloatArray): RoundWall? {
+        val n = verts.size / 3
+        if (n < 6) return null
+        for (axis in 0..2) {
+            val ua = (axis + 1) % 3; val ub = (axis + 2) % 3
+            val pa = DoubleArray(n) { verts[it * 3 + ua].toDouble() }
+            val pb = DoubleArray(n) { verts[it * 3 + ub].toDouble() }
+            var lo = Double.MAX_VALUE; var hi = -Double.MAX_VALUE
+            for (i in 0 until n) { val h = verts[i * 3 + axis].toDouble(); lo = min(lo, h); hi = max(hi, h) }
+            if (hi - lo < 0.1) continue
+            val fit = kasa(pa, pb, n) ?: continue
+            val r = fit[2]
+            if (r < 0.1 || r > 300) continue
+            var worst = 0.0
+            val angles = DoubleArray(n)
+            for (i in 0 until n) {
+                worst = max(worst, abs(hypot(pa[i] - fit[0], pb[i] - fit[1]) - r))
+                angles[i] = atan2(pb[i] - fit[1], pa[i] - fit[0])
+            }
+            if (worst > WALL_RADIAL_MM) continue
+            angles.sort()
+            // The gaps between neighbouring vertices round the circle: the biggest is the opening (an arc), the rest must be fine
+            // enough to read as round (a cube's four sides have 90 degree gaps).
+            val gaps = DoubleArray(n) { if (it == 0) angles[0] + 2 * PI - angles[n - 1] else angles[it] - angles[it - 1] }
+            val open = gaps.max()
+            if (2 * PI - open < Math.toRadians(WALL_ARC_MIN_DEG)) continue
+            gaps[gaps.indices.maxBy { gaps[it] }] = 0.0
+            if (gaps.max() > Math.toRadians(WALL_GAP_MAX_DEG)) continue
+            val c = FloatArray(3)
+            c[ua] = fit[0].toFloat(); c[ub] = fit[1].toFloat(); c[axis] = ((lo + hi) / 2).toFloat()
+            return RoundWall(axis, Vec3(c[0], c[1], c[2]), (2 * r).toFloat())
+        }
+        return null
+    }
+
+    /** Circle through the group's corners across the axis, or null when it isn't a round hole. */
+    private fun fitCircle(q: Prof, f: Frame): Piece? {
+        val n = q.n * 3
+        val fit = kasa(q.pa, q.pb, n) ?: return null
+        val ca = fit[0]; val cb = fit[1]; val r = fit[2]
         if (r < 0.2 || r > 300) return null
         // Every corner on the circle.
         var worst = 0.0
-        for (i in 0 until n) worst = max(worst, abs(hypot(q.pa[i] - mu - cx, q.pb[i] - mv - cy) - r))
+        for (i in 0 until n) worst = max(worst, abs(hypot(q.pa[i] - ca, q.pb[i] - cb) - r))
         if (worst > max(0.02 * r, 0.02)) return null
-        val ca = mu + cx; val cb = mv + cy
         val ok = wraps(q, { a, b ->
             val t = atan2(b - cb, a - ca) / (2 * PI)
             (if (t < 0) t + 1 else t).coerceAtMost(0.999999)
