@@ -447,7 +447,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         editor()
         scad.preview()
         withTimeoutOrNull(RENDER_TIMEOUT) { scad.awaitIdle() } ?: throw ToolError("The preview takes longer than ${RENDER_TIMEOUT / 1000} s; try again later")
-        val st = store.value.scad ?: throw ToolError("The design editor was closed")
+        val st = store.value.design.scad ?: throw ToolError("The design editor was closed")
         buildString {
             appendLine((if (st.statusError) "FAILED: " else "OK: ") + st.status.orEmpty())
             st.preview?.takeIf { !st.previewStale }?.let { m ->
@@ -465,7 +465,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             editor()
             scad.preview()
             withTimeoutOrNull(RENDER_TIMEOUT) { scad.awaitIdle() } ?: throw ToolError("The preview takes longer than ${RENDER_TIMEOUT / 1000} s; try again later")
-            val st = store.value.scad ?: throw ToolError("The design editor was closed")
+            val st = store.value.design.scad ?: throw ToolError("The design editor was closed")
             val path = scad.previewStlPath ?: throw ToolError(
                 if (st.statusError) "Nothing to show: ${st.status.orEmpty()}" else "Nothing to show: the design is empty.")
             path to buildString {
@@ -488,7 +488,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         fun shown() = app.orcaandroid.render.PlateView.active?.get()?.takeIf { it.isShown }
         val s = store.value
         if (s.screen != Screen.PREPARE && s.screen != Screen.PREVIEW) store.update { it.copy(screen = Screen.PREPARE) }
-        if (s.scad != null && !s.scadOnPlate && !s.scadHidden) store.update { it.copy(scadHidden = true) }
+        if (s.design.scad != null && !s.design.scadOnPlate && !s.design.scadHidden) store.update { it.copy(design = it.design.copy(scadHidden = true)) }
         if (store.value != s) kotlinx.coroutines.delay(300)
         return shown() ?: withTimeoutOrNull(3_000) {
             var v = shown()
@@ -590,7 +590,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             val open = listOfNotNull(
                 s.editor?.let { "preset editor" },
                 s.addDialog?.let { "add dialog ($it)" },
-                s.scad?.let { "design editor" },
+                s.design.scad?.let { "design editor" },
                 "printer setup".takeIf { s.showPrinterSetup },
                 s.filamentChoice?.let { "filament choice" },
                 s.projectOrImport?.let { "project-or-import question" },
@@ -1117,9 +1117,9 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
     // --- Edit ---------------------------------------------------------------------------------------
 
     /** The open editor, opened on the saved draft when closed (main thread). */
-    private suspend fun editor() = store.value.scad ?: run {
+    private suspend fun editor() = store.value.design.scad ?: run {
         scad.open().join()
-        store.value.scad ?: throw ToolError("The design editor could not be opened")
+        store.value.design.scad ?: throw ToolError("The design editor could not be opened")
     }
 
     /** The open shape design (main thread); fails when the editor holds hand-written code. */
@@ -1133,7 +1133,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
     private suspend fun edit(summary: String, change: (ShapeDesign) -> Unit): String = withContext(Dispatchers.Main.immediate) {
         val before = design()
         change(before)
-        val st = store.value.scad ?: throw ToolError("The design editor was closed")
+        val st = store.value.design.scad ?: throw ToolError("The design editor was closed")
         val after = st.shapes ?: before
         val now = render(st.name, after, st.selected)
         if (after == before) return@withContext "Nothing changed.\n" + now.header
@@ -1143,7 +1143,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
 
     private suspend fun set(args: JSONObject): String {
         val o = args.optJSONObject("design") ?: throw ToolError("design must be an object {shapes, dims}")
-        val problems = validate(o, store.value.scad?.shapes)
+        val problems = validate(o, store.value.design.scad?.shapes)
         if (problems.isNotEmpty()) throw ToolError("Design not valid:\n" + problems.joinToString("\n"))
         var next = ShapeDesign.of(o)
         // A sketch given without a size would keep the 20 mm default box: fit it to the drawing like sketch_set does.
@@ -1329,7 +1329,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         if (!confirm(text)) throw ToolError("Declined by the user (or no answer within ${CONFIRM_TIMEOUT / 1000} s)")
         scad.render()
         withTimeoutOrNull(RENDER_TIMEOUT) { scad.awaitIdle() } ?: throw ToolError("Rendering takes longer than ${RENDER_TIMEOUT / 1000} s; it goes on in the app")
-        val now = store.value.scad ?: throw ToolError("The design editor was closed")
+        val now = store.value.design.scad ?: throw ToolError("The design editor was closed")
         if (now.statusError) throw ToolError("Not placed: ${now.status.orEmpty()}")
         "Placed on plate $plate as \"${now.onPlate}\". ${now.status.orEmpty()}"
     }

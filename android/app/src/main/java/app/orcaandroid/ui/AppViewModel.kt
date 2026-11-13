@@ -224,22 +224,22 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Snap on or off where the user is: the Build workspace when it is open, else the plate. */
     fun toggleSnap() {
         val s = state.value
-        if (s.buildObject != null) { store.settings.snapBuild = !s.snapBuild; store.update { it.copy(snapBuild = !s.snapBuild) } }
+        if (s.buildObject != null) { store.settings.snapBuild = !s.design.snapBuild; store.update { it.copy(design = it.design.copy(snapBuild = !s.design.snapBuild)) } }
         else { store.settings.snapPrepare = !s.snapPrepare; store.update { it.copy(snapPrepare = !s.snapPrepare) } }
     }
 
     /** Build workspace: the plate's other objects cycle ghosted -> solid -> hidden. */
     fun cycleBuildOthers() {
-        val next = (state.value.buildOthers + 1) % 3
+        val next = (state.value.design.buildOthers + 1) % 3
         store.settings.buildOthers = next
-        store.update { it.copy(buildOthers = next) }
+        store.update { it.copy(design = it.design.copy(buildOthers = next)) }
     }
 
     /** Build workspace: the printer volume ghost on or off. */
     fun toggleBuildPrinter() {
-        val next = !state.value.buildPrinter
+        val next = !state.value.design.buildPrinter
         store.settings.buildPrinter = next
-        store.update { it.copy(buildPrinter = next) }
+        store.update { it.copy(design = it.design.copy(buildPrinter = next)) }
     }
 
     /** The move lock button: free -> X -> Y -> free. */
@@ -247,7 +247,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setBuilderSplit(on: Boolean) {
         store.settings.builderSplit = on
-        store.update { it.copy(builderSplit = on) }
+        store.update { it.copy(design = it.design.copy(builderSplit = on)) }
     }
 
     fun setPerspective(on: Boolean) {
@@ -336,8 +336,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun dismissSliceError() = store.update { it.copy(sliceError = null) }
     fun dismissFit() = store.update { it.copy(fitIssue = null) }
     fun dismissMessage() = store.update { it.copy(message = null, messageAction = null) }
-    fun setScadHidden(hidden: Boolean) = store.update { it.copy(scadHidden = hidden) }
-    fun setScadOnPlate(onPlate: Boolean) = store.update { it.copy(scadOnPlate = onPlate) }
+    fun setScadHidden(hidden: Boolean) = store.update { it.copy(design = it.design.copy(scadHidden = hidden)) }
+    fun setScadOnPlate(onPlate: Boolean) = store.update { it.copy(design = it.design.copy(scadOnPlate = onPlate)) }
     fun toast(message: String) = store.toast(message)
     fun showError(message: String) = store.update { it.copy(error = message) }
 }

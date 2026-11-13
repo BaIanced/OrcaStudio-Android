@@ -172,7 +172,7 @@ private fun MainLayout(state: UiState, vm: AppViewModel) {
     var lastBack by remember { mutableLongStateOf(0L) }
     androidx.activity.compose.BackHandler {
         when {
-            state.scad != null && state.screen == Screen.PREPARE -> if (state.scadOnPlate && state.scad.shapes == null) vm.setScadOnPlate(false) else vm.scad.close()
+            state.design.scad != null && state.screen == Screen.PREPARE -> if (state.design.scadOnPlate && state.design.scad.shapes == null) vm.setScadOnPlate(false) else vm.scad.close()
             state.screen != Screen.PREPARE -> vm.setScreen(Screen.PREPARE)
             state.inPaintShop -> vm.scene.setTool(Tool.None)
             clearable -> { vm.scene.setTool(Tool.None); vm.scene.select(null); vm.scene.setSelectMode(false) }
@@ -355,11 +355,11 @@ private fun WorkspaceBody(state: UiState, vm: AppViewModel, wide: Boolean, shop:
     }
     // The OpenSCAD editor takes the panel's place on Prepare. The design shows alone in the design view,
     // or (eye toggle, user 2026-10-13) as a ghost on the plate; the editor can be resized with the handle.
-    val scad = state.scad?.takeIf { state.screen == Screen.PREPARE && !shop }
+    val scad = state.design.scad?.takeIf { state.screen == Screen.PREPARE && !shop }
     // Fullscreen portrait: the 3D view uses the camera strip at the top, everything else keeps below it.
     val belowHole = Modifier.windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Top))
     val scadView: @Composable (Modifier) -> Unit = { m ->
-        if (scad != null && state.scadOnPlate) Box(m) {
+        if (scad != null && state.design.scadOnPlate) Box(m) {
             viewport(Modifier.fillMaxSize())
             // Code designs go back to their preview pane; shape designs have only this view.
             if (scad.shapes == null) ScadPlateToggle(onPlate = true, { vm.setScadOnPlate(false) }, Modifier.align(Alignment.TopEnd).then(belowHole).padding(top = 76.dp, end = 12.dp))
@@ -382,7 +382,7 @@ private fun WorkspaceBody(state: UiState, vm: AppViewModel, wide: Boolean, shop:
             val width = (if (ScadEditorSize.width > 0f) ScadEditorSize.width.dp else (total * 0.45f).coerceIn(420.dp, 640.dp))
                 .coerceIn(300.dp, (total - 240.dp).coerceAtLeast(300.dp))
             Row(Modifier.fillMaxSize()) {
-                if (scad != null && !state.scadHidden) {
+                if (scad != null && !state.design.scadHidden) {
                     scadView(Modifier.weight(1f).fillMaxHeight())
                     Themed(Region.OPENSCAD) { DragHandle(vertical = true) { d -> ScadEditorSize.width = (width - d).value } }
                     Themed(Region.OPENSCAD) { Surface(Modifier.width(width).fillMaxHeight(), tonalElevation = 1.dp) { Box(belowHole) { ScadPanel(scad, vm, embeddedPreview = false) } } }
@@ -423,7 +423,7 @@ private fun WorkspaceBody(state: UiState, vm: AppViewModel, wide: Boolean, shop:
             }
         }
     } else if (scad != null) {
-        if (state.scadHidden) Box(Modifier.fillMaxSize()) {
+        if (state.design.scadHidden) Box(Modifier.fillMaxSize()) {
             viewport(Modifier.fillMaxSize())
             // Above the Slice button (same corner; it covered it, phone r189).
             ScadReopenButton({ vm.setScadHidden(false) }, Modifier.align(Alignment.BottomEnd).padding(end = 8.dp, bottom = 76.dp))

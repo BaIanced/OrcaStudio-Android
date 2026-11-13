@@ -123,7 +123,7 @@ class FileController(
     private fun addVariants(files: List<File>) = store.launch(store.str(R.string.loading_model)) {
         val s = engine.loadModels(files.map { it.path }, append = true, plate = store.value.activePlate)
         store.applyScene(s)
-        store.update { it.copy(selection = Selection(s.objects.lastIndex), multiSelection = emptyList(), screen = Screen.PREPARE, scadHidden = true) }
+        store.update { it.copy(selection = Selection(s.objects.lastIndex), multiSelection = emptyList(), screen = Screen.PREPARE, design = it.design.copy(scadHidden = true)) }
     }
 
     /**

@@ -31,7 +31,7 @@ class ShapeController(private val store: Store, private val scad: ScadController
     private val redo = ArrayDeque<Pair<ShapeDesign, List<Int>>>()
     private var undoOwner: ShapeDesign? = null
 
-    private val st get() = store.value.scad
+    private val st get() = store.value.design.scad
     private val design get() = st?.shapes
     val selected get() = st?.selected.orEmpty()
 

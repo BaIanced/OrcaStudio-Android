@@ -713,7 +713,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     val building = state.buildObject != null
     val buildCopy by vm.shapes.buildCopy.collectAsState()
     val buildGroupCopies by vm.shapes.buildGroupCopies.collectAsState()
-    val buildGizmo = if (!building) null else remember(state.scene, state.scad?.selected, state.scad?.shapes, buildCopy, buildGroupCopies) { vm.shapes.buildGizmoTarget() }
+    val buildGizmo = if (!building) null else remember(state.scene, state.design.scad?.selected, state.design.scad?.shapes, buildCopy, buildGroupCopies) { vm.shapes.buildGizmoTarget() }
     LaunchedEffect(v, building) { v.gizmoOnMesh = building }
     LaunchedEffect(v, state.resizing, showPreview, building, buildGizmo) {
         v.resizeMode = if (building) buildGizmo != null else state.resizing && !showPreview
@@ -767,7 +767,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     }
     // Eye toggle: the OpenSCAD design shown see-through, standing in the middle of the active plate (other objects hidden).
     // A shape design placed as pieces shows its object instead (the Build workspace).
-    val ghost = state.scad?.preview?.takeIf { state.scadOnPlate && !state.scadHidden && state.screen == app.orcaandroid.ui.Screen.PREPARE && !building }
+    val ghost = state.design.scad?.preview?.takeIf { state.design.scadOnPlate && !state.design.scadHidden && state.screen == app.orcaandroid.ui.Screen.PREPARE && !building }
     val plate = scene.plates.getOrNull(state.activePlate)
     LaunchedEffect(v, ghost, plate?.originX, plate?.originY, setup?.bed) {
         val bed = setup?.bed
@@ -823,20 +823,20 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     }
     val build = state.buildObject?.let { scene.objects.getOrNull(it) }
     LaunchedEffect(v, build != null) { v.onGl { buildSolo = build != null } }
-    LaunchedEffect(v, state.buildOthers) { v.onGl { buildOthers = state.buildOthers } }
+    LaunchedEffect(v, state.design.buildOthers) { v.onGl { buildOthers = state.design.buildOthers } }
     // Assemble space: the floor and printer ghost centre on the build object's shown copies.
     val focusBox = build?.instances?.takeIf { it.isNotEmpty() }?.map { it.shown }?.let { s ->
         listOf(s.minOf { it.min.x }, s.minOf { it.min.y }, s.minOf { it.min.z },
             s.maxOf { it.min.x + it.size.x }, s.maxOf { it.min.y + it.size.y }, s.maxOf { it.min.z + it.size.z })
     }
-    LaunchedEffect(v, focusBox, state.buildPrinter, setup?.maxHeight) {
-        val focus = focusBox?.toFloatArray(); val ghost = state.buildPrinter; val h = setup?.maxHeight ?: 0f
+    LaunchedEffect(v, focusBox, state.design.buildPrinter, setup?.maxHeight) {
+        val focus = focusBox?.toFloatArray(); val ghost = state.design.buildPrinter; val h = setup?.maxHeight ?: 0f
         v.onGl { buildFocus = focus; printerGhost = ghost; printerHeight = h }
     }
-    LaunchedEffect(v, build != null, state.snapBuild, state.snapPrepare) { v.snapOn = if (build != null) state.snapBuild else state.snapPrepare }
+    LaunchedEffect(v, build != null, state.design.snapBuild, state.snapPrepare) { v.snapOn = if (build != null) state.design.snapBuild else state.snapPrepare }
     LaunchedEffect(v, state.moveLock) { v.axisLock = state.moveLock }
     // Build workspace: the selected shapes' volumes are the selection; a drag starts on the object's box (the pick decides).
-    LaunchedEffect(v, build, state.scad?.selected, state.scad?.shapes, buildCopy, buildGroupCopies) {
+    LaunchedEffect(v, build, state.design.scad?.selected, state.design.scad?.shapes, buildCopy, buildGroupCopies) {
         if (build == null) { v.dragSnap = null; v.onGl { boxOverride = null; buildCopies = null }; return@LaunchedEffect }
         val ids = vm.scad.buildSelectedIds(build)
         // Shapes inside a group: the gizmos sit on their own box, not the group's mesh.
@@ -848,7 +848,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         v.onGl { selectedIds = ids; boxOverride = box; buildCopies = copies }
         // The design pose's box: Build draws and picks the copies there, not where they lie on the plate.
         v.selectedBounds = if (ids.isEmpty()) emptyList() else build.instances.map { it.shown.let { s -> s.min to (s.min + s.size) } }
-        v.resizeAxes = vm.shapes.buildGizmoTarget()?.let { (inst, tops) -> state.scad?.shapes?.let { app.orcaandroid.scad.BuildTransform.axesFree(it, inst, tops, buildGroupCopies) } } ?: true
+        v.resizeAxes = vm.shapes.buildGizmoTarget()?.let { (inst, tops) -> state.design.scad?.shapes?.let { app.orcaandroid.scad.BuildTransform.axesFree(it, inst, tops, buildGroupCopies) } } ?: true
         v.towerBoxes = emptyList()
         // A body drag sticks the selection's edges and middle to the other shapes' edges and middles.
         v.dragSnap = vm.shapes.buildSnapBoxes()

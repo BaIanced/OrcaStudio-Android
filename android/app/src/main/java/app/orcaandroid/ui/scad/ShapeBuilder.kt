@@ -263,18 +263,18 @@ private fun Toolbar(s: ScadEditorState, vm: AppViewModel) {
             }
         }
         Tip(stringResource(R.string.snap_toggle)) {
-            val on = vm.state.collectAsState().value.snapBuild
+            val on = vm.state.collectAsState().value.design.snapBuild
             IconToggleButton(on, { vm.toggleSnap() }) { Icon(app.orcaandroid.ui.prepare.SnapIcon, stringResource(R.string.snap_toggle)) }
         }
         Tip(stringResource(R.string.build_others)) {
-            val others = vm.state.collectAsState().value.buildOthers
+            val others = vm.state.collectAsState().value.design.buildOthers
             IconButton(onClick = vm::cycleBuildOthers) {
                 Icon(when (others) { 0 -> Icons.Default.Opacity; 1 -> Icons.Default.Visibility; else -> Icons.Default.VisibilityOff },
                     stringResource(R.string.build_others))
             }
         }
         Tip(stringResource(R.string.build_printer)) {
-            val on = vm.state.collectAsState().value.buildPrinter
+            val on = vm.state.collectAsState().value.design.buildPrinter
             IconToggleButton(on, { vm.toggleBuildPrinter() }) { Icon(Icons.Default.ViewInAr, stringResource(R.string.build_printer)) }
         }
         Tip(stringResource(R.string.move_lock)) {

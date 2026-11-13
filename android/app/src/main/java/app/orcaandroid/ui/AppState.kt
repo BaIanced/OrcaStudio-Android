@@ -152,6 +152,23 @@ data class PreviewUi(
     val showGcode: Boolean = false,
 )
 
+/** Design (OpenSCAD / shape builder) fields of [UiState], read as `state.design.x`. */
+data class DesignState(
+    /** The OpenSCAD editor, while open. */
+    val scad: ScadEditorState? = null,
+    /** On narrow screens: the editor is folded away to show the plate ("Hide editor"). */
+    val scadHidden: Boolean = false,
+    /** The OpenSCAD design is shown on the active plate (eye toggle) instead of alone in the design view. */
+    val scadOnPlate: Boolean = false,
+    val snapBuild: Boolean = true,
+    /** The plate's other objects in the Build workspace: 0 ghosted, 1 solid, 2 hidden. */
+    val buildOthers: Int = 0,
+    /** Build workspace: the printer volume ghost under the object. */
+    val buildPrinter: Boolean = true,
+    /** Add menu: separate code and shape builder rows (else one "Design" row). */
+    val builderSplit: Boolean = false,
+)
+
 data class UiState(
     val phase: Phase = Phase.LOADING,
     val busy: String? = null,
@@ -207,15 +224,8 @@ data class UiState(
     val supersample: Int = app.orcaandroid.render.Supersample.STILL,
     /** Body drags snap (smart guides) on the plate / in the Build workspace; Ctrl held flips it for one drag. */
     val snapPrepare: Boolean = false,
-    val snapBuild: Boolean = true,
-    /** The plate's other objects in the Build workspace: 0 ghosted, 1 solid, 2 hidden. */
-    val buildOthers: Int = 0,
-    /** Build workspace: the printer volume ghost under the object. */
-    val buildPrinter: Boolean = true,
     /** The move lock button: -1 free, 0 drags move along X only, 1 along Y only (session only). */
     val moveLock: Int = -1,
-    /** Add menu: separate code and shape builder rows (else one "Design" row). */
-    val builderSplit: Boolean = false,
     /** 3D view projection: perspective, or orthographic when false. */
     val perspective: Boolean = true,
     val lab: app.orcaandroid.core.LayoutLab = app.orcaandroid.core.LayoutLab(),
@@ -344,12 +354,7 @@ data class UiState(
     val profileUpdateProgress: String? = null,
     /** Report of a crash that closed the app last time (see CrashReport). */
     val crashReport: String? = null,
-    /** The OpenSCAD editor, while open. */
-    val scad: ScadEditorState? = null,
-    /** On narrow screens: the editor is folded away to show the plate ("Hide editor"). */
-    val scadHidden: Boolean = false,
-    /** The OpenSCAD design is shown on the active plate (eye toggle) instead of alone in the design view. */
-    val scadOnPlate: Boolean = false,
+    val design: DesignState = DesignState(),
 ) {
     fun presetName(type: PresetType) = when (type) {
         PresetType.PRINT -> print

@@ -42,11 +42,7 @@ class Store(val app: Application, val scope: CoroutineScope) {
             edgeOutline = settings.edgeOutline,
             selectionStyle = settings.selectionStyle,
             perspective = settings.perspective,
-            builderSplit = settings.builderSplit,
             snapPrepare = settings.snapPrepare,
-            snapBuild = settings.snapBuild,
-            buildOthers = settings.buildOthers,
-            buildPrinter = settings.buildPrinter,
             supersample = settings.supersample,
             lab = settings.layoutLab,
             undoLimit = settings.undoLimit,
@@ -63,6 +59,12 @@ class Store(val app: Application, val scope: CoroutineScope) {
             installedNozzles = settings.installedNozzles,
             recents = settings.recents,
             printHistory = printHistory.load(),
+            design = DesignState(
+                snapBuild = settings.snapBuild,
+                buildOthers = settings.buildOthers,
+                buildPrinter = settings.buildPrinter,
+                builderSplit = settings.builderSplit,
+            ),
         )
     )
 

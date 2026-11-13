@@ -75,7 +75,7 @@ data class ScadEditorState(
  * the plate (eye toggle). The main view then shows it alone and edits its shapes; null otherwise.
  */
 val UiState.buildObject: Int? get() {
-    val s = scad?.takeIf { it.shapes != null && scadOnPlate && !scadHidden && screen == Screen.PREPARE } ?: return null
+    val s = design.scad?.takeIf { it.shapes != null && design.scadOnPlate && !design.scadHidden && screen == Screen.PREPARE } ?: return null
     val name = s.onPlate ?: return null
     return scene.objects.indexOfLast { it.name == name && ScadDesign.of(it)?.pieces == true }.takeIf { it >= 0 }
 }
@@ -123,10 +123,10 @@ class ScadController(private val store: Store) {
     /** Path of the STL the current preview mesh was read from, for [design_snapshot]; null when none rendered. */
     val previewStlPath: String? get() = previewStl?.takeIf { it.isFile }?.path
 
-    private val st get() = store.value.scad
+    private val st get() = store.value.design.scad
 
     private fun set(transform: (ScadEditorState) -> ScadEditorState) =
-        store.update { s -> s.copy(scad = s.scad?.let(transform)) }
+        store.update { s -> s.copy(design = s.design.copy(scad = s.design.scad?.let(transform))) }
 
     /**
      * Opens the editor on the saved draft (or the first example). A [newDesign] (not an object's own design)
@@ -140,14 +140,14 @@ class ScadController(private val store: Store) {
         }
         val file = meta?.optString("file")?.takeIf { it.isNotEmpty() && File(it).isFile } ?: draftFile.path
         store.update {
-            it.copy(scad = ScadEditorState(
+            it.copy(design = it.design.copy(scad = ScadEditorState(
                 name = meta?.optString("name")?.takeIf { n -> n.isNotEmpty() } ?: ScadExamples.BOX.file,
                 file = file, source = source,
                 values = ScadParam.decode(meta?.optString("values")),
                 onPlate = meta?.optString("onPlate")?.takeIf { n -> n.isNotEmpty() },
                 autoRender = meta?.optBoolean("autoRender", true) ?: true,
                 shapes = meta?.optJSONObject("shapes")?.let { j -> runCatching { ShapeDesign.of(j) }.getOrNull() },
-            ), screen = Screen.PREPARE)
+            )), screen = Screen.PREPARE)
         }
         val placed = st?.onPlate?.let { n -> store.value.scene.objects.any { it.name == n } } == true
         if (newDesign && !placed) useEmptyPlate()
@@ -162,7 +162,7 @@ class ScadController(private val store: Store) {
      */
     private fun buildIfShapes(): Boolean {
         if (st?.shapes == null) return false
-        store.update { it.copy(scadOnPlate = true, scadHidden = false) }
+        store.update { it.copy(design = it.design.copy(scadOnPlate = true, scadHidden = false)) }
         if (store.value.buildObject == null) placeShapes()
         return true
     }
@@ -197,7 +197,7 @@ class ScadController(private val store: Store) {
     fun openFile(file: File) = store.launch {
         val source = withContext(Dispatchers.IO) { file.readText() }
         if (st == null) open().join()
-        store.update { it.copy(scadHidden = false) }
+        store.update { it.copy(design = it.design.copy(scadHidden = false)) }
         // A shape-builder design saved by [save] reopens in the builder; if its code was edited since, it opens as
         // code without the (stale) shapes line.
         val code = source.substringBeforeLast("\n$SHAPES_MARK")
@@ -291,7 +291,7 @@ class ScadController(private val store: Store) {
         previewJob?.cancel()
         previewStl?.delete(); previewStl = null; previewKey = null
         saveDraft(now = true)
-        store.update { it.copy(scad = null, scadOnPlate = false) }
+        store.update { it.copy(design = it.design.copy(scad = null, scadOnPlate = false)) }
         client.release()
         // The plate added for the design goes again if nothing was placed on it.
         addedPlate?.let { plate ->
@@ -324,7 +324,7 @@ class ScadController(private val store: Store) {
         // The Build workspace shows the object itself: every edit goes there.
         if (store.value.buildObject != null) { pushBuild(); return }
         // Not on the plate yet (or removed from it): the first solid shape puts it there.
-        if (store.value.scadOnPlate) { placeShapes(); return }
+        if (store.value.design.scadOnPlate) { placeShapes(); return }
         if (st?.autoRender == true) preview(if (dragging) DRAG_DEBOUNCE else 500)
     }
 
@@ -333,7 +333,7 @@ class ScadController(private val store: Store) {
     /** Turns a shape design into plain code (the shapes are dropped, the code is kept); code is edited with the preview pane. */
     fun detachShapes() {
         set { it.copy(shapes = null, selected = emptyList(), loadId = it.loadId + 1) }
-        store.update { it.copy(scadOnPlate = false) }
+        store.update { it.copy(design = it.design.copy(scadOnPlate = false)) }
         saveDraft()
         preview()
     }
@@ -873,7 +873,7 @@ class ScadController(private val store: Store) {
         if (o < 0) store.checkFit(left)
         store.launch { store.applyScene(engine.setBuildObject(o), dirty = false) }
         if (o >= 0 && opened && ScadDesign.of(store.value.scene.objects.getOrNull(o))?.shapes != st?.shapes) pushBuild()
-        if (o < 0 && st?.shapes != null && !store.value.scadOnPlate) preview()
+        if (o < 0 && st?.shapes != null && !store.value.design.scadOnPlate) preview()
     }
 
     /** Build workspace: an edit goes straight to the object's pieces (no whole-design preview); one during a render queues the next. */

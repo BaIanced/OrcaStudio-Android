@@ -176,7 +176,7 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
                 }
             }
             if (state.showSelectionBanner) SelectionBanner(state, vm)
-            if (!state.coachDismissed && state.calibration == null && state.scad == null) CoachStrip(state, vm)
+            if (!state.coachDismissed && state.calibration == null && state.design.scad == null) CoachStrip(state, vm)
         }
         if (column) {
             // Below the top bar (and the banners): the column scrolls instead of covering the plate selector.
@@ -411,7 +411,7 @@ private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
                         onClick = { close(); dialog = "text" })
                     DropdownMenuItem(text = { Text(stringResource(R.string.add_svg)) }, leadingIcon = { Icon(Icons.Default.Category, null) },
                         onClick = { close(); dialog = "svg" })
-                    DesignEntries(vm, state.builderSplit, close)
+                    DesignEntries(vm, state.design.builderSplit, close)
                     if (!state.scene.isEmpty)
                         DropdownMenuItem(text = { Text(stringResource(R.string.arrange)) }, leadingIcon = { Icon(Icons.Default.AutoAwesomeMosaic, null) },
                             onClick = { close(); vm.scene.arrange(false) })
@@ -726,7 +726,7 @@ private fun ToolButton(icon: ImageVector, label: String, active: Boolean = false
 }
 
 /** Portrait Prepare without the OpenSCAD editor: the Slice button sits at the right end of the panel's grip (user, 2026-10-17). */
-fun sliceOnGrip(state: UiState, wide: Boolean) = !wide && state.scad == null && !state.lab.sliceFloating
+fun sliceOnGrip(state: UiState, wide: Boolean) = !wide && state.design.scad == null && !state.lab.sliceFloating
 
 /** The Slice button on the panel grip, sized by the Layout lab's own slider (on top of the main UI size only). */
 @Composable
