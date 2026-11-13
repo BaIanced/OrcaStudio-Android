@@ -170,6 +170,13 @@ val VIEW_SELECTION = Slot("selection", R.string.slot_view_selection) { s ->
 }
 val VIEW_PART = Slot("part", R.string.slot_view_part) { PART_ORANGE }
 
+// The mode strips (design spec, "Colour tokens"): one colour per room, lighter on dark backgrounds, like VIEW_SELECTION.
+private fun roomColour(light: Long, dark: Long): (ColorScheme) -> Color = { s -> Color(if (s.background.luminance() < 0.5f) dark else light) }
+val ROOM_MAKE = Slot("make", R.string.slot_room_make, read = roomColour(0xFF2E7D4F, 0xFF7FD1A0))
+val ROOM_RESHAPE = Slot("reshape", R.string.slot_room_reshape, read = roomColour(0xFF1F7A8C, 0xFF4FB6C9))
+val ROOM_PAINT = Slot("paint", R.string.slot_room_paint, read = roomColour(0xFF7F67BE, 0xFFA98BF0))
+val ROOM_CUT = Slot("cut", R.string.slot_room_cut, read = roomColour(0xFFB0306F, 0xFFF28DBB))
+
 val BADGE = Slot("badge", R.string.slot_badge) { it.secondaryContainer }
 val BADGE_TEXT = Slot("badge_text", R.string.slot_badge_text, on = BADGE) { it.onSecondaryContainer }
 val BADGE_ACTIVE = Slot("active", R.string.slot_badge_active) { it.primary }
@@ -188,6 +195,7 @@ enum class Region(val key: String, @StringRes val label: Int, val slots: List<Sl
     PREVIEW_TOOLS("preview_tools", R.string.region_preview_tools, ROLE_SLOTS),
     VIEW_3D("view3d", R.string.region_view3d, listOf(VIEW_BACKGROUND, VIEW_GRID, VIEW_ACTIVE_PLATE, VIEW_SELECTION, VIEW_PART)),
     BADGES("badges", R.string.region_badges, listOf(BADGE, BADGE_TEXT, BADGE_ACTIVE, BADGE_ACTIVE_TEXT)),
+    ROOMS("rooms", R.string.region_rooms, listOf(ROOM_MAKE, ROOM_RESHAPE, ROOM_PAINT, ROOM_CUT)),
     DEVICE("device", R.string.region_device, ROLE_SLOTS),
     MODELS("models", R.string.region_models, ROLE_SLOTS),
     MORE("more", R.string.region_more, ROLE_SLOTS),

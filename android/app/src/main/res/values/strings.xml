@@ -151,6 +151,9 @@
     <string name="discard_changes">Discard unsaved changes of the current project?</string>
     <string name="discovered_printers">Printers in the network</string>
     <string name="done">Done</string>
+    <string name="mode_editing">Editing: %1$s</string>
+    <string name="room_make">Make</string>
+    <string name="room_reshape">Reshape</string>
     <string name="duplicate">Duplicate</string>
     <string name="dynamic_color">Use wallpaper colors</string>
     <string name="misc">Misc</string>
@@ -159,7 +162,7 @@
     <string name="pen_button1">Pen button 1</string>
     <string name="pen_button2">Pen button 2</string>
     <string name="pen_eraser">Eraser end</string>
-    <string name="pen_text">The pen tip works like one finger. Two fingers still pan and zoom. Buttons and the eraser end can be mapped to an action: drag actions apply while the button is held (or the eraser touches), Undo / Redo / Frame fire on a tap or button press. With pressure on, a harder press sculpts stronger, paints with a bigger round brush and takes a bigger layer-height step; fingers and mice are unchanged. Tilt is not used.</string>
+    <string name="pen_text">The pen tip works like one finger. Two fingers still pan and zoom. Buttons and the eraser end can be mapped to an action: drag actions apply while the button is held (or the eraser touches), Undo / Redo / Frame fire on a tap or button press. With pressure on, a harder press reshapes stronger, paints with a bigger round brush and takes a bigger layer-height step; fingers and mice are unchanged. Tilt is not used.</string>
     <string name="pen_pressure">Pen pressure</string>
     <string name="pen_curve">Pressure response</string>
     <string name="pen_curve_soft">Soft</string>
@@ -247,8 +250,10 @@
     <string name="empty">(empty)</string>
     <string name="end_calibration">End</string>
     <string name="coach_add">Print in 3 taps: 1. add a model</string>
+    <string name="coach_make">Make or change a model</string>
     <string name="coach_add_button">Add sample</string>
     <string name="coach_slice">2. Tap Slice</string>
+    <string name="coach_slice_auto">2. It slices by itself</string>
     <string name="coach_send">3. Send it to the printer</string>
     <string name="coach_send_button">Open Device</string>
     <string name="coach_close">Close tips</string>
@@ -388,7 +393,7 @@
     <string name="modified">modified</string>
     <string name="more">More</string>
     <string name="more_add_volume">Add volume</string>
-    <string name="more_mesh_tools">Mesh tools</string>
+    <string name="more_mesh_tools">More shape tools</string>
     <string name="n_differences">%d differences</string>
     <string name="n_modified">%d modified</string>
     <string name="n_printers_selected">%d selected</string>
@@ -421,7 +426,6 @@
     <string name="orienting">Orienting…</string>
     <string name="paint">Paint</string>
     <string name="paint_color">Color painting</string>
-    <string name="paint_shop">Paint shop</string>
     <string name="paint_layers">Filaments</string>
     <string name="paint_change_estimate">Plate estimate: colour changes %1$d · flush ~%2$.1f g</string>
     <string name="paint_layer_menu">Filament actions</string>
@@ -560,8 +564,8 @@
     <string name="deform_taper_hint">Scales toward the far end; the low end keeps its size.</string>
     <string name="deform_note">Its painting is removed; Undo goes back.</string>
     <string name="blend">Smooth blend</string>
-    <string name="sculpt">Sculpt</string>
-    <string name="sculpt_hint">Drag over the model to sculpt; drag from outside it or use two fingers to move the view.</string>
+    <string name="sculpt">Reshape</string>
+    <string name="sculpt_hint">Drag over the model to reshape it; drag from outside it or use two fingers to move the view.</string>
     <string name="sculpt_draw">Draw</string>
     <string name="sculpt_inflate">Inflate</string>
     <string name="sculpt_smooth">Smooth</string>
@@ -572,7 +576,9 @@
     <string name="sculpt_strength">Strength %d%%</string>
     <string name="sculpt_invert">Invert</string>
     <string name="sculpt_mirror">Symmetry</string>
-    <string name="mesh_edit">Edit mesh</string>
+    <string name="mesh_edit">Push / pull</string>
+    <string name="mesh_edit_title_vertex">Move points</string>
+    <string name="mesh_edit_title_edge">Move edges</string>
     <string name="mesh_edit_hint">Tap the part to select (tap again to deselect); drag the arrow to move the selection along its normal.</string>
     <string name="mesh_edit_vertex">Vertex</string>
     <string name="mesh_edit_edge">Edge</string>
@@ -819,8 +825,8 @@
     <string name="archive_too_large">This archive is too large to open.</string>
     <string name="out_of_memory">Not enough memory for this model.</string>
     <plurals name="scad_zip_variants">
-        <item quantity="one">The design opened in the editor. The zip\'s ready-made model is not on the plate.</item>
-        <item quantity="other">The design opened in the editor. The zip\'s %1$d ready-made models are not on the plate.</item>
+        <item quantity="one">The design opened in Make. The zip\'s ready-made model is not on the plate.</item>
+        <item quantity="other">The design opened in Make. The zip\'s %1$d ready-made models are not on the plate.</item>
     </plurals>
     <string name="models_printer_chip_missing">Couldn\'t pick %1$s on this page. Choose your printer in the Print Files row.</string>
     <string name="models_sign_in_hint">Sign in to your Bambu account under Device to use MakerWorld signed in.</string>
@@ -862,7 +868,6 @@
     <string name="fp_no_usage">This G-code has no filament usage to log.</string>
 
     <!-- OpenSCAD editor -->
-    <string name="add_openscad">OpenSCAD model</string>
     <string name="scad_code">Code</string>
     <string name="scad_customizer">Customizer</string>
     <string name="scad_parameters">Parameters</string>
@@ -880,7 +885,6 @@
     <string name="scad_new">New from template</string>
     <string name="scad_open">Open .scad file</string>
     <string name="scad_save">Save .scad file</string>
-    <string name="scad_close">Close editor</string>
     <string name="scad_hide_editor">Hide editor</string>
     <string name="scad_console">Console</string>
     <string name="scad_no_params">This design has no Customizer parameters. Annotate variables like  width = 20; // [10:100]  to get sliders here.</string>
@@ -998,11 +1002,11 @@
     <string name="scad_hint_recursion">A module or function keeps calling itself. Give it a condition that stops it.</string>
     <string name="scad_hint_empty">The result is empty: a cut-away removed everything, or a size is 0.</string>
     <string name="scad_hint_2d">This is a flat 2D drawing. Give it a height with linear_extrude(5) in front of it.</string>
-    <string name="shape_builder">Shape builder</string>
-    <string name="add_design">Design</string>
-    <string name="edit_in_builder">Edit in builder</string>
+    <string name="shape_builder">Make</string>
+    <string name="add_design">Make a part</string>
+    <string name="edit_in_builder">Add shapes or holes</string>
     <string name="shape_builder_desc">No code: drop shapes, size and move them, cut holes, group</string>
-    <string name="shape_new_name">Shape design</string>
+    <string name="shape_new_name">New part</string>
     <string name="shape_tab">Shapes</string>
     <string name="shape_add">Add a shape</string>
     <string name="shape_start">Add a shape from the shape list to start building on the plate.</string>
@@ -1120,14 +1124,14 @@
     <string name="shape_hull">Hull (wrap the group\'s shapes in one skin)</string>
     <string name="shape_hull_hint">Fills in everything between the solids, like shrink wrap; holes still cut it. Replaces Blend joins while on.</string>
     <string name="shape_blend">Blend joins (mm, 0 = sharp)</string>
-    <string name="shape_blend_hint">Rounds the edges where the group\'s shapes meet, and hole rims (Build workspace). Works with boxes, rounded boxes, round cylinders and cones, and spheres.</string>
+    <string name="shape_blend_hint">Rounds the edges where the group\'s shapes meet, and hole rims (in Make). Works with boxes, rounded boxes, round cylinders and cones, and spheres.</string>
     <string name="shape_blend_unsupported">Blend joins can\'t take \"%1$s\" yet: only boxes, rounded boxes, round cylinders and cones, and spheres, not hollow; holes only directly in the blended group.</string>
     <string name="shape_scale">Scale % (whole group)</string>
     <string name="shape_blending">Blending joins…</string>
     <string name="shape_shell_wall">Wall (mm, 0 = solid)</string>
     <string name="shape_open_top">Open top</string>
     <string name="shape_mesh_file">From %1$s</string>
-    <string name="shape_push_pull">Push/pull a face</string>
+    <string name="shape_push_pull">Push / pull a face</string>
     <string name="shape_push_pull_hint">Tap a flat face in the view, then drag its arrow out (push) or in (pull). Holes and the rest of the model stay put.</string>
     <string name="shape_face_edits">Face edits (mm, in the model file)</string>
     <string name="shape_face_edit">Face %1$d</string>
@@ -1152,7 +1156,7 @@
     <string name="shape_dim_uses">used %1$d×</string>
     <string name="shape_generated">Made from the shapes; change the shapes to change it.</string>
     <string name="shape_edit_as_code">Edit as code</string>
-    <string name="shape_edit_as_code_desc">The design becomes plain OpenSCAD code you can type in. The Shapes tab goes away for this design (Undo in the shape builder cannot bring it back).</string>
+    <string name="shape_edit_as_code_desc">The design becomes plain OpenSCAD code you can type in. The Shapes tab goes away for this design (Undo in Make cannot bring it back).</string>
     <!-- UI refinement batch (2026-10-13) -->
     <string name="on">On</string>
     <string name="off">Off</string>
@@ -1254,6 +1258,7 @@
     <string name="region_preview_panel">Preview: side panel</string>
     <string name="region_preview_tools">Preview: floating controls</string>
     <string name="region_view3d">3D view</string>
+    <string name="region_rooms">Mode strips</string>
     <string name="region_badges">Plate badges</string>
     <string name="region_device">Device tab</string>
     <string name="region_models">Models tab</string>
@@ -1273,6 +1278,10 @@
     <string name="slot_view_active_plate">Active plate outline</string>
     <string name="slot_view_selection">Selection</string>
     <string name="slot_view_part">Parts without a filament color</string>
+    <string name="slot_room_make">Make</string>
+    <string name="slot_room_reshape">Reshape</string>
+    <string name="slot_room_paint">Paint</string>
+    <string name="slot_room_cut">Cut</string>
     <string name="slot_badge">Badge</string>
     <string name="slot_badge_text">Badge icon and number</string>
     <string name="slot_badge_active">Active plate badge</string>

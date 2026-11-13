@@ -25,7 +25,6 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.ExpandLess
@@ -249,7 +248,6 @@ private fun Header(s: ScadEditorState, vm: AppViewModel, onHide: (() -> Unit)?, 
         Tip(stringResource(R.string.scad_open)) { IconButton(onClick = onOpen) { Icon(Icons.Default.FolderOpen, stringResource(R.string.scad_open)) } }
         Tip(stringResource(R.string.scad_save)) { IconButton(onClick = onSave) { Icon(Icons.Default.Save, stringResource(R.string.scad_save)) } }
         if (onHide != null) Tip(stringResource(R.string.scad_hide_editor)) { IconButton(onClick = onHide) { Icon(Icons.Default.VerticalAlignBottom, stringResource(R.string.scad_hide_editor)) } }
-        Tip(stringResource(R.string.scad_close)) { IconButton(onClick = vm.scad::close) { Icon(Icons.Default.Close, stringResource(R.string.scad_close)) } }
     }
 }
 

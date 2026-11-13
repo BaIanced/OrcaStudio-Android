@@ -184,7 +184,7 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
             val scroll = rememberScrollState()
             Box(Modifier.align(Alignment.TopStart).padding(top = top, bottom = if (filmstrip) 64.dp else 0.dp)) {
                 Column(Modifier.verticalScroll(scroll), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    ViewButtons(state, vm, view, rail = true)
+                    ViewButtons(state, vm, view, rail = true, undoRedo = state.room == null)
                     HorizontalDivider(Modifier.width(48.dp).padding(horizontal = 8.dp))
                     ToolButtons(state, vm)
                 }
@@ -274,20 +274,29 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
 /** First run: the next of the three taps to a print (add a model, Slice, send), with a button for it; closes for good with x. */
 @Composable
 private fun CoachStrip(state: UiState, vm: AppViewModel) {
+    // With auto-slice the result arrives by itself, so step 2 stays up until it has: no jump from 1 to 3 (U-18).
     val step = when {
         state.workspace.scene.isEmpty -> 1
-        state.slicing.results.isEmpty() -> 2
+        state.slicing.results.isEmpty() || state.slicing.slice is SliceStatus.Running -> 2
         else -> 3
     }
     Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
-        Row(Modifier.padding(start = 12.dp, top = 2.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(when (step) { 1 -> R.string.coach_add; 2 -> R.string.coach_slice; else -> R.string.coach_send }),
-                Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodySmall)
-            when (step) {
-                1 -> androidx.compose.material3.TextButton(onClick = { vm.scene.addPrimitive("cube", app.orcaandroid.core.Vec3(25f, 25f, 25f)) }) { Text(stringResource(R.string.coach_add_button)) }
-                3 -> androidx.compose.material3.TextButton(onClick = { vm.setScreen(Screen.DEVICE) }) { Text(stringResource(R.string.coach_send_button)) }
+        Column {
+            Row(Modifier.padding(start = 12.dp, top = 2.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(when (step) {
+                    1 -> R.string.coach_add
+                    2 -> if (state.slicing.autoSlice) R.string.coach_slice_auto else R.string.coach_slice
+                    else -> R.string.coach_send
+                }), Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodySmall)
+                when (step) {
+                    1 -> androidx.compose.material3.TextButton(onClick = { vm.scene.addPrimitive("cube", app.orcaandroid.core.Vec3(25f, 25f, 25f)) }) { Text(stringResource(R.string.coach_add_button)) }
+                    3 -> androidx.compose.material3.TextButton(onClick = { vm.setScreen(Screen.DEVICE) }) { Text(stringResource(R.string.coach_send_button)) }
+                }
+                androidx.compose.material3.IconButton(onClick = vm::dismissCoach) { Icon(Icons.Default.Close, stringResource(R.string.coach_close)) }
             }
-            androidx.compose.material3.IconButton(onClick = vm::dismissCoach) { Icon(Icons.Default.Close, stringResource(R.string.coach_close)) }
+            // The other way in (+ > Make a part, or select a model and use its menu).
+            if (step == 1) Text(stringResource(R.string.coach_make), Modifier.padding(start = 12.dp, end = 12.dp, bottom = 6.dp),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
         }
     }
 }
@@ -398,7 +407,7 @@ private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
 private fun TopBar(state: UiState, vm: AppViewModel, view: PlateView?, viewButtons: Boolean, onHandle: Boolean) {
     val alpha = LocalOverlayAlpha.current
     val bar = MaterialTheme.colorScheme.surface.copy(alpha = alpha)
-    val views: @Composable () -> Unit = { Surface(shape = RoundedCornerShape(20.dp), color = bar) { Row { ViewButtons(state, vm, view, rail = false) } } }
+    val views: @Composable () -> Unit = { Surface(shape = RoundedCornerShape(20.dp), color = bar) { Row { ViewButtons(state, vm, view, rail = false, undoRedo = state.room == null) } } }
     // In fullscreen portrait the bar can sit beside the camera hole (CutoutRow). With the switcher on the grip the
     // view buttons take the free start, left of the hole, and File stays right of it (together they didn't fit past it).
     CutoutRow(minStart = 96.dp, start = {
@@ -445,16 +454,19 @@ private fun PlateChips(state: UiState, vm: AppViewModel, view: PlateView?) {
     }
 }
 
-/** Undo, redo and the view menu: tool-column buttons ([rail]) or plain icons in the top bar. */
+/** Undo, redo ([undoRedo]) and the view menu: tool-column buttons ([rail]) or plain icons in the top bar. */
 @Composable
-internal fun ViewButtons(state: UiState, vm: AppViewModel, view: PlateView?, rail: Boolean) {
+internal fun ViewButtons(state: UiState, vm: AppViewModel, view: PlateView?, rail: Boolean, undoRedo: Boolean = true) {
     var viewMenu by remember { mutableStateOf(false) }
     val button: @Composable (ImageVector, String, Boolean, () -> Unit) -> Unit = { icon, label, enabled, onClick ->
         if (rail) ToolButton(icon, label, enabled = enabled, onClick = onClick)
         else Tip(label) { IconButton(onClick = onClick, enabled = enabled) { Icon(icon, label) } }
     }
-    button(Icons.AutoMirrored.Filled.Undo, stringResource(R.string.undo), state.workspace.scene.canUndo, vm.scene::undo)
-    button(Icons.AutoMirrored.Filled.Redo, stringResource(R.string.redo), state.workspace.scene.canRedo, vm.scene::redo)
+    // A room (mode strip) carries its own Undo and Redo.
+    if (undoRedo) {
+        button(Icons.AutoMirrored.Filled.Undo, stringResource(R.string.undo), state.workspace.scene.canUndo, vm.scene::undo)
+        button(Icons.AutoMirrored.Filled.Redo, stringResource(R.string.redo), state.workspace.scene.canRedo, vm.scene::redo)
+    }
     Box {
         button(Icons.Default.Videocam, stringResource(R.string.view), true) { viewMenu = true }
         DropdownMenu(expanded = viewMenu, onDismissRequest = { viewMenu = false }) {

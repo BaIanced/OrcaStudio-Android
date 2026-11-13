@@ -1124,7 +1124,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
 
     /** The open shape design (main thread); fails when the editor holds hand-written code. */
     private suspend fun design(): ShapeDesign = editor().shapes ?: throw ToolError("The design editor holds hand-written " +
-        "OpenSCAD code. Ask the user to start a shape design (Add > Shape builder) first; these tools won't replace their code.")
+        "OpenSCAD code. Ask the user to start a shape design (Add > Make a part) first; these tools won't replace their code.")
 
     /**
      * Runs [change] on the open shape design on the main thread (it commits one undo step through

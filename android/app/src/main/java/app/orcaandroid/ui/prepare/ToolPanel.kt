@@ -168,7 +168,8 @@ internal fun ToolPanel(state: UiState, vm: AppViewModel) {
                 Tip(stringResource(if (folded) R.string.design_unfold else R.string.design_minimize)) { IconButton(onClick = { folded = !folded }, modifier = Modifier.size(32.dp)) {
                     Icon(if (folded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, stringResource(if (folded) R.string.design_unfold else R.string.design_minimize))
                 } }
-                Tip(stringResource(R.string.close)) { IconButton(onClick = { vm.scene.setTool(Tool.None) }, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.Close, stringResource(R.string.close)) } }
+                // In a room (mode strip) Done is the way out.
+                if (state.room == null) Tip(stringResource(R.string.close)) { IconButton(onClick = { vm.scene.setTool(Tool.None) }, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.Close, stringResource(R.string.close)) } }
             }
             if (!folded) when (tool) {
                 is Tool.Paint -> PaintOptions(state, vm, tool)
@@ -191,7 +192,7 @@ private fun toolTitle(tool: Tool) = stringResource(
             "support" -> R.string.paint_supports; "seam" -> R.string.paint_seam; "fuzzy" -> R.string.paint_fuzzy; else -> R.string.paint_color
         }
         is Tool.Sculpt -> R.string.sculpt
-        is Tool.MeshEdit -> R.string.mesh_edit
+        is Tool.MeshEdit -> when (tool.kind) { "vertex" -> R.string.mesh_edit_title_vertex; "edge" -> R.string.mesh_edit_title_edge; else -> R.string.mesh_edit }
         is Tool.Cut -> R.string.cut
         Tool.Measure -> R.string.measure
         Tool.LayOnFace -> R.string.lay_on_face
