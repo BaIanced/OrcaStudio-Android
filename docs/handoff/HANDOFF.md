@@ -47,7 +47,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - T-035 done (316 tests; WSA VD 3.00 -> 3.40 -> Undo 3.00, subagent-measured; no face-normal test, backlog candidate: native change to send face normals).
 - T-036 done e0f54e8 (compile + tests rc 0; VD unlabeled nodes 1/1/2/1/1 -> 0 on 5 screens, subagent-measured; Open top / Repeat / Cut checkboxes code-only, not on device; helper scripts in orca-android-tools/t036).
 - T-037 done a8ca8e8 (compile+tests rc 0; VD: no address outside Details, Already arranged/oriented, Undone; Redo notice and empty-stack Undo not device-checked).
-- Next step: T-038 (user 2026-11-13: go with the current name, UA-8 no longer blocks). Not dispatched: phone unreachable (no ping, no mDNS, connect timed out); T-038 needs the phone's hidden VD. Retry the connect, else ask the user to wake it. T-039 after it.
+- T-038 done eaf6682 (on WSA at phone geometry, user 2026-11-13; pictures in docs/media/, orchestrator-viewed; current name kept; details in the MASTER-PLAN tick). Phone was unreachable.
+- Next step: T-039 batch 3 review gate (model=fable, effort=high); then offer the merge. Branch not pushed since T-036.
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
