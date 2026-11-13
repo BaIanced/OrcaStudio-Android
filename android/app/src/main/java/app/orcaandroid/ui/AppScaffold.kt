@@ -167,7 +167,7 @@ private fun MainLayout(state: UiState, vm: AppViewModel) {
     // first (as Esc does). Screens composed below (the Models browser) take back before this.
     // With nothing left to go back to, Back asks before quitting (or, as chosen under More, needs
     // a second press within 2 s), instead of Android's default of sending the app to the background.
-    val clearable = state.chrome.screen == Screen.PREPARE && (state.tool != Tool.None || state.selectedItems.isNotEmpty() || state.selectMode)
+    val clearable = state.chrome.screen == Screen.PREPARE && (state.workspace.tool != Tool.None || state.workspace.selectedItems.isNotEmpty() || state.workspace.selectMode)
     var askQuit by remember { mutableStateOf(false) }
     var lastBack by remember { mutableLongStateOf(0L) }
     androidx.activity.compose.BackHandler {

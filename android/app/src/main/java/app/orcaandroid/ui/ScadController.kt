@@ -654,7 +654,7 @@ class ScadController(private val store: Store) {
             s = placeFree(s, index)
         }
         store.applyScene(s)
-        store.update { it.copy(selection = Selection(index), multiSelection = emptyList()) }
+        store.update { it.copy(workspace = it.workspace.copy(selection = Selection(index), multiSelection = emptyList())) }
         return s.objects[index].name
     }
 
@@ -808,7 +808,7 @@ class ScadController(private val store: Store) {
             s = placeFree(s, index)
         }
         store.applyScene(s)
-        store.update { it.copy(selection = Selection(index), multiSelection = emptyList()) }
+        store.update { it.copy(workspace = it.workspace.copy(selection = Selection(index), multiSelection = emptyList())) }
         return s.objects[index].name.also { placedThisSession += it }
     }
 

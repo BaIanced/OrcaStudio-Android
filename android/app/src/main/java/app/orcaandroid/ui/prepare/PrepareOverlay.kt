@@ -153,7 +153,7 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
     val column = wide || lab.toolsLeft
     // Portrait with the switcher on the panel grip (AppScaffold): nothing of it over the 3D view.
     val onHandle = lab.platesOnHandle && !wide
-    val filmstrip = lab.plates == PlateSwitcher.FILMSTRIP && state.tool == Tool.None && !onHandle && lab.showPlates
+    val filmstrip = lab.plates == PlateSwitcher.FILMSTRIP && state.workspace.tool == Tool.None && !onHandle && lab.showPlates
     CompositionLocalProvider(LocalOverlayAlpha provides lab.overlayAlpha) {
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
     var rowSize by remember { mutableStateOf(IntSize.Zero) }
@@ -248,7 +248,7 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
         } else if (filmstrip) PlateScale(lab.plateScale) { Filmstrip(state, vm, view, Modifier.align(Alignment.BottomStart).padding(bottom = 120.dp)) }
         // The layer height graph is tall: on wide layouts it sits at the right edge (like the desktop's)
         // above the Slice button, not over the object in the middle.
-        val rightPanel = wide && state.tool == Tool.LayerHeight
+        val rightPanel = wide && state.workspace.tool == Tool.LayerHeight
         Column(if (rightPanel) Modifier.align(Alignment.BottomEnd).padding(bottom = 72.dp)
                else Modifier.align(Alignment.BottomStart).padding(start = if (column) 64.dp else 0.dp,
                    bottom = if (wide) 0.dp else if (column) 72.dp else 116.dp)) {
@@ -292,7 +292,7 @@ private fun CoachStrip(state: UiState, vm: AppViewModel) {
     }
 }
 
-private val UiState.showSelectionBanner get() = selectMode || multiSelection.isNotEmpty()
+private val UiState.showSelectionBanner get() = workspace.selectMode || workspace.multiSelection.isNotEmpty()
 
 /** While several objects are selected or select mode is on: the count, select all, and leaving select mode. */
 @Composable
@@ -300,12 +300,12 @@ private fun SelectionBanner(state: UiState, vm: AppViewModel) {
     // Full width with the text taking the rest, so the buttons stay put when the count changes.
     Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
         Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            val count = state.selectedItems.size
+            val count = state.workspace.selectedItems.size
             Text(if (count == 0) stringResource(R.string.select_mode_hint) else stringResource(R.string.n_selected, count),
                 Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, maxLines = 1,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
             androidx.compose.material3.TextButton(onClick = vm.scene::selectAll) { Text(stringResource(R.string.select_all)) }
-            if (state.selectMode) androidx.compose.material3.TextButton(onClick = { vm.scene.setSelectMode(false) }) { Text(stringResource(R.string.done)) }
+            if (state.workspace.selectMode) androidx.compose.material3.TextButton(onClick = { vm.scene.setSelectMode(false) }) { Text(stringResource(R.string.done)) }
         }
     }
 }
@@ -318,24 +318,24 @@ private fun SelectionBanner(state: UiState, vm: AppViewModel) {
 private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
     var dialog by remember { mutableStateOf<String?>(null) }
     val importModels = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { if (it.isNotEmpty()) vm.files.openModels(it) }
-    val at = state.contextMenu
+    val at = state.workspace.contextMenu
     // The overlay is inset by 8 dp from the view whose pixels [at] are in.
     val inset = with(LocalDensity.current) { 8.dp.roundToPx() }
     // Lab "pie menu": wedges for the common actions; the last wedge ("More") opens the list.
     var more by remember(at) { mutableStateOf(false) }
     if (at != null && state.chrome.lab.pieMenu && !more) {
         val close = vm.scene::closeContextMenu
-        val sel = state.selection
+        val sel = state.workspace.selection
         val moreItem = PieItem(Icons.Default.MoreHoriz, stringResource(R.string.more)) { more = true }
-        val items = if (state.multiSelection.size >= 2) listOf(
+        val items = if (state.workspace.multiSelection.size >= 2) listOf(
             PieItem(Icons.Default.CallMerge, stringResource(R.string.assemble)) { vm.scene.assemble() },
             PieItem(Icons.Default.CenterFocusStrong, stringResource(R.string.center_on_plate)) { vm.scene.centerSelected() },
             PieItem(Icons.Default.ContentCopy, stringResource(R.string.duplicate)) { vm.scene.duplicate(1) },
             PieItem(Icons.Default.Delete, stringResource(R.string.delete)) { vm.scene.deleteSelected() },
             moreItem,
         ) else if (sel != null) listOf(
-            PieItem(Icons.Default.Rotate90DegreesCcw, stringResource(R.string.rotate), state.multiSelection.isEmpty()) { vm.scene.toggleRotate() },
-            PieItem(Icons.Default.OpenInFull, stringResource(R.string.resize), state.multiSelection.isEmpty()) { vm.scene.toggleResize() },
+            PieItem(Icons.Default.Rotate90DegreesCcw, stringResource(R.string.rotate), state.workspace.multiSelection.isEmpty()) { vm.scene.toggleRotate() },
+            PieItem(Icons.Default.OpenInFull, stringResource(R.string.resize), state.workspace.multiSelection.isEmpty()) { vm.scene.toggleResize() },
             PieItem(Icons.Default.VerticalAlignBottom, stringResource(R.string.lay_on_face)) { vm.scene.setTool(Tool.LayOnFace) },
             PieItem(Icons.Default.ContentCopy, stringResource(R.string.duplicate)) { vm.scene.duplicate(1) },
             moreItem,
@@ -354,17 +354,17 @@ private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
         val close = vm.scene::closeContextMenu
         Box(Modifier.offset { IntOffset(at.first.toInt() - inset, at.second.toInt() - inset) }) {
             DropdownMenu(expanded = true, onDismissRequest = close) {
-                val sel = state.selection
-                if (state.selectedItems.isNotEmpty()) {
+                val sel = state.workspace.selection
+                if (state.workspace.selectedItems.isNotEmpty()) {
                     DropdownMenuItem(text = { Text(stringResource(R.string.duplicate)) }, leadingIcon = { Icon(Icons.Default.ContentCopy, null) },
                         onClick = { close(); vm.scene.duplicate(1) })
                     DropdownMenuItem(text = { Text(stringResource(R.string.delete)) }, leadingIcon = { Icon(Icons.Default.Delete, null) },
                         onClick = { close(); vm.scene.deleteSelected() })
                 }
-                if (state.selectedItems.isNotEmpty())
+                if (state.workspace.selectedItems.isNotEmpty())
                     DropdownMenuItem(text = { Text(stringResource(R.string.center_on_plate)) }, leadingIcon = { Icon(Icons.Default.CenterFocusStrong, null) },
                         onClick = { close(); vm.scene.centerSelected() })
-                if (state.multiSelection.size >= 2) {
+                if (state.workspace.multiSelection.size >= 2) {
                     // Left to right, then front to back (top view: back is up).
                     Row(Modifier.padding(horizontal = 8.dp)) {
                         listOf(
@@ -389,11 +389,11 @@ private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
                         onClick = { close(); vm.scene.setSelectMode(true) })
                     DropdownMenuItem(text = { Text(stringResource(R.string.lay_on_face)) }, leadingIcon = { Icon(Icons.Default.VerticalAlignBottom, null) },
                         onClick = { close(); vm.scene.setTool(Tool.LayOnFace) })
-                    if (state.multiSelection.isEmpty())
-                        DropdownMenuItem(text = { Text(stringResource(if (state.resizing) R.string.resize_done else R.string.resize)) },
+                    if (state.workspace.multiSelection.isEmpty())
+                        DropdownMenuItem(text = { Text(stringResource(if (state.workspace.resizing) R.string.resize_done else R.string.resize)) },
                             leadingIcon = { Icon(Icons.Default.OpenInFull, null) }, onClick = { close(); vm.scene.toggleResize() })
-                    if (state.multiSelection.isEmpty())
-                        DropdownMenuItem(text = { Text(stringResource(if (state.rotating) R.string.rotate_done else R.string.rotate)) },
+                    if (state.workspace.multiSelection.isEmpty())
+                        DropdownMenuItem(text = { Text(stringResource(if (state.workspace.rotating) R.string.rotate_done else R.string.rotate)) },
                             leadingIcon = { Icon(Icons.Default.Rotate90DegreesCcw, null) }, onClick = { close(); vm.scene.toggleRotate() })
                     DropdownMenuItem(text = { Text(stringResource(R.string.add_modifier)) },
                         onClick = { close(); vm.scene.addVolume(VolumeType.MODIFIER, "box") })
@@ -402,7 +402,7 @@ private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
                             onClick = { close(); dialog = "boolean" })
                     DropdownMenuItem(text = { Text(stringResource(R.string.object_settings_title)) },
                         onClick = { close(); vm.presets.openEditor(EditorTarget.Object(sel.obj)) })
-                } else if (state.multiSelection.isEmpty()) {
+                } else if (state.workspace.multiSelection.isEmpty()) {
                     DropdownMenuItem(text = { Text(stringResource(R.string.import_model)) }, leadingIcon = { Icon(Icons.Default.FileOpen, null) },
                         onClick = { close(); importModels.launch(arrayOf("*/*")) })
                     DropdownMenuItem(text = { Text(stringResource(R.string.add_shape)) }, leadingIcon = { Icon(Icons.Default.Interests, null) },
@@ -419,7 +419,7 @@ private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
             }
         }
     }
-    AddDialogs(state, vm, dialog ?: state.addDialog) { dialog = null; vm.scene.openAddDialog(null) }
+    AddDialogs(state, vm, dialog ?: state.workspace.addDialog) { dialog = null; vm.scene.openAddDialog(null) }
 }
 
 /** Plate switcher (as chosen in the Layout lab), profile-update chip, undo/redo/view (when not in the tool column) and File. */
@@ -519,9 +519,9 @@ internal fun ViewButtons(state: UiState, vm: AppViewModel, view: PlateView?, rai
                 trailingIcon = { if (state.wireframe) Icon(Icons.Default.Check, null) })
             // Drag the key light on a ball (the lab's light angles, live).
             DropdownMenuItem(text = { Text(stringResource(R.string.light_direction)) },
-                onClick = { viewMenu = false; vm.setLightPanel(!state.lightPanel) },
+                onClick = { viewMenu = false; vm.setLightPanel(!state.workspace.lightPanel) },
                 leadingIcon = { Icon(Icons.Default.WbSunny, null) },
-                trailingIcon = { if (state.lightPanel) Icon(Icons.Default.Check, null) })
+                trailingIcon = { if (state.workspace.lightPanel) Icon(Icons.Default.Check, null) })
             // The selection's bounding box (corner brackets): the same bit as More > Selection style > Box.
             val boxOn = state.selectionStyle and app.orcaandroid.render.SelectionStyle.BOX != 0
             DropdownMenuItem(text = { Text(stringResource(R.string.view_bounding_box)) },
@@ -529,9 +529,9 @@ internal fun ViewButtons(state: UiState, vm: AppViewModel, view: PlateView?, rai
                 leadingIcon = { Icon(Icons.Default.Crop, null) },
                 trailingIcon = { if (boxOn) Icon(Icons.Default.Check, null) })
             DropdownMenuItem(text = { Text(stringResource(R.string.view_dimensions)) },
-                onClick = { viewMenu = false; vm.setDimensions(!state.dimensions) },
+                onClick = { viewMenu = false; vm.setDimensions(!state.workspace.dimensions) },
                 leadingIcon = { Icon(Icons.Default.Straighten, null) },
-                trailingIcon = { if (state.dimensions) Icon(Icons.Default.Check, null) })
+                trailingIcon = { if (state.workspace.dimensions) Icon(Icons.Default.Check, null) })
         }
     }
 }
@@ -605,7 +605,7 @@ private fun ToolButtons(
     var moreGroup by remember { mutableStateOf<String?>(null) }
     var splitMenu by remember { mutableStateOf(false) }
     var dialog by remember { mutableStateOf<String?>(null) }
-    val selected = state.selection != null
+    val selected = state.workspace.selection != null
 
     val currentOnTap by rememberUpdatedState { addMenu = true }
     val currentOnLongPress by rememberUpdatedState(onAddLongPress)
@@ -632,26 +632,26 @@ private fun ToolButtons(
     if (!collapsed) {
         ToolButton(Icons.Default.AutoAwesomeMosaic, stringResource(R.string.arrange), enabled = !state.workspace.scene.isEmpty) { vm.scene.arrange(false) }
         ToolButton(AutoOrientIcon, stringResource(R.string.auto_orient), enabled = !state.workspace.scene.isEmpty) { vm.scene.autoOrient() }
-        ToolButton(Icons.Default.SelectAll, stringResource(R.string.select_multiple), active = state.selectMode, enabled = !state.workspace.scene.isEmpty) {
-            vm.scene.setSelectMode(!state.selectMode)
+        ToolButton(Icons.Default.SelectAll, stringResource(R.string.select_multiple), active = state.workspace.selectMode, enabled = !state.workspace.scene.isEmpty) {
+            vm.scene.setSelectMode(!state.workspace.selectMode)
         }
-        ToolButton(SnapIcon, stringResource(R.string.snap_toggle), active = state.snapPrepare, enabled = !state.workspace.scene.isEmpty) { vm.toggleSnap() }
+        ToolButton(SnapIcon, stringResource(R.string.snap_toggle), active = state.workspace.snapPrepare, enabled = !state.workspace.scene.isEmpty) { vm.toggleSnap() }
         ToolButton(Icons.Default.OpenWith, stringResource(R.string.move_lock), enabled = !state.workspace.scene.isEmpty,
-            face = { MoveLockFace(state.moveLock) }) { vm.cycleMoveLock() }
-        if (state.multiSelection.isNotEmpty()) {
+            face = { MoveLockFace(state.workspace.moveLock) }) { vm.cycleMoveLock() }
+        if (state.workspace.multiSelection.isNotEmpty()) {
             ToolButton(Icons.Default.ContentCopy, stringResource(R.string.duplicate)) { vm.scene.duplicate(1) }
-            ToolButton(Icons.Default.CallMerge, stringResource(R.string.assemble), enabled = state.multiSelection.size >= 2) { vm.scene.assemble() }
+            ToolButton(Icons.Default.CallMerge, stringResource(R.string.assemble), enabled = state.workspace.multiSelection.size >= 2) { vm.scene.assemble() }
             ToolButton(Icons.Default.Delete, stringResource(R.string.delete)) { vm.scene.deleteSelected() }
         } else if (selected) {
-            ToolButton(Icons.Default.VerticalAlignBottom, stringResource(R.string.lay_on_face), active = state.tool == Tool.LayOnFace) {
-                vm.scene.setTool(if (state.tool == Tool.LayOnFace) Tool.None else Tool.LayOnFace)
+            ToolButton(Icons.Default.VerticalAlignBottom, stringResource(R.string.lay_on_face), active = state.workspace.tool == Tool.LayOnFace) {
+                vm.scene.setTool(if (state.workspace.tool == Tool.LayOnFace) Tool.None else Tool.LayOnFace)
             }
-            ToolButton(Icons.Default.ContentCut, stringResource(R.string.cut), active = state.tool is Tool.Cut) {
-                if (state.tool is Tool.Cut) vm.scene.setTool(Tool.None) else vm.scene.startCut()
+            ToolButton(Icons.Default.ContentCut, stringResource(R.string.cut), active = state.workspace.tool is Tool.Cut) {
+                if (state.workspace.tool is Tool.Cut) vm.scene.setTool(Tool.None) else vm.scene.startCut()
             }
-            ToolButton(Icons.Default.Brush, stringResource(R.string.paint), active = state.tool is Tool.Paint) { vm.scene.openPaint("color", 2) }
-            ToolButton(Icons.Default.Layers, stringResource(R.string.variable_layer_height), active = state.tool == Tool.LayerHeight) {
-                vm.scene.setTool(if (state.tool == Tool.LayerHeight) Tool.None else Tool.LayerHeight)
+            ToolButton(Icons.Default.Brush, stringResource(R.string.paint), active = state.workspace.tool is Tool.Paint) { vm.scene.openPaint("color", 2) }
+            ToolButton(Icons.Default.Layers, stringResource(R.string.variable_layer_height), active = state.workspace.tool == Tool.LayerHeight) {
+                vm.scene.setTool(if (state.workspace.tool == Tool.LayerHeight) Tool.None else Tool.LayerHeight)
             }
             ToolButton(Icons.Default.ContentCopy, stringResource(R.string.duplicate)) { vm.scene.duplicate(1) }
             ToolButton(Icons.Default.Delete, stringResource(R.string.delete)) { vm.scene.deleteSelected() }
@@ -698,8 +698,8 @@ private fun ToolButtons(
                 }
             }
         } else if (!state.workspace.scene.isEmpty) {
-            ToolButton(Icons.Default.Straighten, stringResource(R.string.measure), active = state.tool == Tool.Measure) {
-                vm.scene.setTool(if (state.tool == Tool.Measure) Tool.None else Tool.Measure)
+            ToolButton(Icons.Default.Straighten, stringResource(R.string.measure), active = state.workspace.tool == Tool.Measure) {
+                vm.scene.setTool(if (state.workspace.tool == Tool.Measure) Tool.None else Tool.Measure)
             }
         }
     }

@@ -278,7 +278,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             obj(emptyList(), *COPY, "clear" to p("boolean", "true = select nothing"))) { args ->
             val sel = if (args.optBoolean("clear")) null else copyOf(args).let { (o, i) -> app.orcaandroid.ui.Selection(o, i.index) }
             withContext(Dispatchers.Main.immediate) {
-                store.update { it.copy(selection = sel, multiSelection = emptyList(), tool = if (sel == null) app.orcaandroid.ui.Tool.None else it.tool) }
+                store.update { it.copy(workspace = it.workspace.copy(selection = sel, multiSelection = emptyList(), tool = if (sel == null) app.orcaandroid.ui.Tool.None else it.workspace.tool)) }
             }
             if (sel == null) "Selected: nothing." else "Selected: object ${sel.obj + 1} copy ${sel.instance + 1}."
         },
@@ -589,21 +589,21 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
                 (s.slicing.fitIssue?.let { "; fit notice: object ${it.obj + 1} copy ${it.instance + 1} doesn't fit, fix ${it.fix ?: "none"}" } ?: "") + ".")
             val open = listOfNotNull(
                 s.chrome.editor?.let { "preset editor" },
-                s.addDialog?.let { "add dialog ($it)" },
+                s.workspace.addDialog?.let { "add dialog ($it)" },
                 s.design.scad?.let { "design editor" },
                 "printer setup".takeIf { s.chrome.showPrinterSetup },
                 s.chrome.filamentChoice?.let { "filament choice" },
                 s.chrome.projectOrImport?.let { "project-or-import question" },
                 s.chrome.aiConfirm?.let { "MCP confirmation: $it" },
-                s.contextMenu?.let { "3D context menu" },
+                s.workspace.contextMenu?.let { "3D context menu" },
             )
             appendLine("Open: " + open.joinToString().ifEmpty { "nothing over the main screen" } + ".")
             appendLine("Presets: printer ${s.device.printer ?: "none"}; process ${s.device.print ?: "none"}; filaments ${s.device.filaments.size}" +
                 (if (s.device.overrides.values.any { it.isNotEmpty() }) " (unsaved changes)" else "") + ".")
             val scene = s.workspace.scene
             appendLine("Plates ${scene.plates.size}, active ${s.workspace.activePlate + 1}; objects ${scene.objects.size}, copies " +
-                "${scene.objects.sumOf { it.instances.size }}; selected ${s.selectedItems.size}; tool ${s.tool.javaClass.simpleName}" +
-                (if (s.selectMode) "; select mode" else "") + (if (s.resizing) "; resizing" else "") + ".")
+                "${scene.objects.sumOf { it.instances.size }}; selected ${s.workspace.selectedItems.size}; tool ${s.workspace.tool.javaClass.simpleName}" +
+                (if (s.workspace.selectMode) "; select mode" else "") + (if (s.workspace.resizing) "; resizing" else "") + ".")
             appendLine("Design mode ${if (s.chrome.designMode) "on" else "off"}; undo limit ${s.chrome.undoLimit}; auto-save " +
                 (if (s.chrome.autoSaveSeconds > 0) "${s.chrome.autoSaveSeconds} s" else "off") + ".")
             appendLine("3D view: " + (app.orcaandroid.render.PlateView.active?.get()?.let { viewState(it) } ?: "none on screen."))
@@ -655,11 +655,11 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             val clipped = seen.size < corners.size || cl != l || cr != r || ct != t || cb != b
             return "${px(cl, ct)} ${Math.round(cr - cl)}x${Math.round(cb - ct)}" + if (clipped) " (partly off the view)" else ""
         }
-        val selected = s.selectedItems
+        val selected = s.workspace.selectedItems
         buildString {
             appendLine("3D view ${view.width}x${view.height} px at screen ${at[0]},${at[1]}. ${viewState(view)}")
             append("Mode ${view.mode.name.lowercase()}; tool ")
-            append(when (val tool = s.tool) {
+            append(when (val tool = s.workspace.tool) {
                 app.orcaandroid.ui.Tool.None -> "none"
                 is app.orcaandroid.ui.Tool.Paint -> "paint ${tool.kind} ${tool.shape} (state ${tool.state}, radius ${n(tool.radius.toDouble())} mm)"
                 is app.orcaandroid.ui.Tool.Sculpt -> "sculpt ${tool.brush} (radius ${n(tool.radius.toDouble())} mm, strength ${n(tool.strength.toDouble())}${if (tool.invert) ", inverted" else ""})"
@@ -679,8 +679,8 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
                 is app.orcaandroid.ui.Tool.Cut -> "cut at Z ${n(tool.z.toDouble())} mm, tilt ${n(app.orcaandroid.render.CutPlane.tilt(tool.rot).toDouble())} deg"
                 app.orcaandroid.ui.Tool.LayerHeight -> "variable layer height"
             })
-            if (s.selectMode) append("; select mode on")
-            s.contextMenu?.let { (x, y) -> append("; context menu open at ${px(x, y)}") }
+            if (s.workspace.selectMode) append("; select mode on")
+            s.workspace.contextMenu?.let { (x, y) -> append("; context menu open at ${px(x, y)}") }
             appendLine(".")
             appendLine("Selected: " + if (selected.isEmpty()) "nothing" else selected.joinToString { sel ->
                 "object ${sel.obj + 1} copy ${sel.instance + 1}" + if (sel.volume >= 0) " part ${sel.volume + 1}" else ""

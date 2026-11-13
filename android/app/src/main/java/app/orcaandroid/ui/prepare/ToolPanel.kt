@@ -120,7 +120,7 @@ internal object CanvasBounds {
 /** Options of the active 3D tool, shown as a small floating card. */
 @Composable
 internal fun ToolPanel(state: UiState, vm: AppViewModel) {
-    val tool = state.tool
+    val tool = state.workspace.tool
     if (tool == Tool.None) return
     // The header drags the card around the canvas and folds it to the title, so it can stay out of the way while
     // painting (user 2026-10-19, like the Design window). Kept on screen while dragging.
@@ -447,7 +447,7 @@ internal fun ColorPaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Pain
     // Filament layers: the surface share of each filament, again shortly after the paint stops changing (a stroke changes
     // it every batch). Side panel = one row per filament; the dock keeps swatches and long-press opens the same actions.
     var coverage by remember { mutableStateOf<FloatArray?>(null) }
-    LaunchedEffect(state.selection, state.workspace.scene.paintVersion, state.workspace.scene.meshVersion, state.device.filaments.size) {
+    LaunchedEffect(state.workspace.selection, state.workspace.scene.paintVersion, state.workspace.scene.meshVersion, state.device.filaments.size) {
         delay(300)
         coverage = runCatching { vm.scene.paintCoverage() }.getOrNull()
     }
@@ -714,7 +714,7 @@ private fun OverColours(vm: AppViewModel, tool: Tool.Paint) =
 /** Guard plane: painting stops at a horizontal plane (drawn like the cut plane); a stroke keeps to the side it starts on. */
 @Composable
 private fun GuardRow(state: UiState, vm: AppViewModel, tool: Tool.Paint) {
-    val inst = state.selectedObject?.instances?.getOrNull(state.selection?.instance ?: 0) ?: return
+    val inst = state.workspace.selectedObject?.instances?.getOrNull(state.workspace.selection?.instance ?: 0) ?: return
     Row(verticalAlignment = Alignment.CenterVertically) {
         val range = inst.min.z..(inst.min.z + inst.size.z)
         FilterChip(tool.guardOn, {
@@ -749,7 +749,7 @@ fun ColorDot(hex: String?, size: Int = 14) {
 
 @Composable
 private fun CutOptions(state: UiState, vm: AppViewModel, tool: Tool.Cut) {
-    val inst = state.selectedObject?.instances?.getOrNull(state.selection?.instance ?: 0) ?: return
+    val inst = state.workspace.selectedObject?.instances?.getOrNull(state.workspace.selection?.instance ?: 0) ?: return
     var keepUpper by remember { mutableStateOf(true) }
     var keepLower by remember { mutableStateOf(true) }
     var flip by remember { mutableStateOf(false) }
@@ -763,7 +763,7 @@ private fun CutOptions(state: UiState, vm: AppViewModel, tool: Tool.Cut) {
         if (tilt > 0.05f) TextButton(onClick = { vm.scene.setTool(Tool.Cut(tool.z)) }) { Text(stringResource(R.string.cut_level)) }
     }
     Slider(tool.z.coerceIn(lo, hi), { vm.scene.setTool(tool.copy(z = it, placing = true)) }, valueRange = lo..hi,
-        onValueChangeFinished = { (vm.state.value.tool as? Tool.Cut)?.let { vm.scene.setTool(it.copy(placing = false)) } })
+        onValueChangeFinished = { (vm.state.value.workspace.tool as? Tool.Cut)?.let { vm.scene.setTool(it.copy(placing = false)) } })
     Row(verticalAlignment = Alignment.CenterVertically) {
         Checkbox(keepUpper, { keepUpper = it }); Text(stringResource(R.string.keep_upper))
         Checkbox(keepLower, { keepLower = it }); Text(stringResource(R.string.keep_lower))

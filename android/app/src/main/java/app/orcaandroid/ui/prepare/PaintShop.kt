@@ -33,7 +33,7 @@ import app.orcaandroid.ui.Tool
 import app.orcaandroid.ui.UiState
 
 /** Painting of every kind (colour, supports, seam, fuzzy skin) opens the paint shop: a workspace of its own instead of a card over the plate (user plan 2026-10-21, all kinds 2026-10-29). */
-internal val UiState.inPaintShop get() = chrome.screen == Screen.PREPARE && tool is Tool.Paint
+internal val UiState.inPaintShop get() = chrome.screen == Screen.PREPARE && workspace.tool is Tool.Paint
 
 /** The frame around the 3D view that says "you are in the paint shop" (the mockup's purple). */
 private val SHOP_FRAME = Color(0xFF7F67BE)
@@ -63,7 +63,7 @@ internal fun PaintShopBar(state: UiState, vm: AppViewModel, view: PlateView?) {
 /** The colour paint options, docked at the bottom in portrait and beside the view ([side]) in landscape. */
 @Composable
 internal fun PaintShopDock(state: UiState, vm: AppViewModel, side: Boolean, modifier: Modifier) {
-    val tool = state.tool as? Tool.Paint ?: return
+    val tool = state.workspace.tool as? Tool.Paint ?: return
     Surface(modifier, tonalElevation = 2.dp) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {

@@ -109,7 +109,7 @@ class MainActivity : ComponentActivity() {
 
     /** Small state line for debug notes (no account or printer details). */
     private fun noteSnapshot(): String = vm.state.value.let {
-        "screen=${it.chrome.screen} tool=${it.tool} plate=${it.workspace.activePlate} selection=${it.selection} objects=${it.workspace.scene.objects.size}"
+        "screen=${it.chrome.screen} tool=${it.workspace.tool} plate=${it.workspace.activePlate} selection=${it.workspace.selection} objects=${it.workspace.scene.objects.size}"
     }
 
     override fun dispatchGenericMotionEvent(ev: MotionEvent): Boolean {
@@ -237,7 +237,7 @@ class MainActivity : ComponentActivity() {
             onPlate && keyCode == KeyEvent.KEYCODE_K -> vm.scene.duplicate(1)
             onPlate && keyCode == KeyEvent.KEYCODE_D -> vm.scene.deleteAll()
             // Ctrl+T (transform, user 2026-10-19) = S: corner resizing.
-            onPlate && keyCode == KeyEvent.KEYCODE_T && s.selection != null -> vm.scene.toggleResize()
+            onPlate && keyCode == KeyEvent.KEYCODE_T && s.workspace.selection != null -> vm.scene.toggleResize()
             onView && view != null && keyCode in KeyEvent.KEYCODE_0..KeyEvent.KEYCODE_7 ->
                 cameraView(view, keyCode - KeyEvent.KEYCODE_0, s)
             else -> return super.onKeyShortcut(keyCode, event)
@@ -260,7 +260,7 @@ class MainActivity : ComponentActivity() {
             !onBackPressedDispatcher.hasEnabledCallbacks()) return true
         // Measure: Shift held = 15° steps for the line (watched here, so it counts whatever has focus).
         if (event.keyCode == KeyEvent.KEYCODE_SHIFT_LEFT || event.keyCode == KeyEvent.KEYCODE_SHIFT_RIGHT)
-            vm.scene.setMeasureShift(event.action == KeyEvent.ACTION_DOWN && vm.state.value.tool == Tool.Measure)
+            vm.scene.setMeasureShift(event.action == KeyEvent.ACTION_DOWN && vm.state.value.workspace.tool == Tool.Measure)
         if (event.isCtrlPressed && android.util.Log.isLoggable("OrcaInput", android.util.Log.DEBUG))
             android.util.Log.d("OrcaInput", "key ${event.action} ${event.keyCode} meta=${event.metaState} viewFocused=$viewFocused")
         // Android offers Ctrl keys as shortcuts only when normal dispatch leaves them unused, and
@@ -307,13 +307,13 @@ class MainActivity : ComponentActivity() {
 
     /** Single-key shortcuts of the Prepare 3D view, as on the desktop. */
     private fun prepareKey(keyCode: Int, event: KeyEvent, s: UiState): Boolean {
-        val any = s.selectedItems.isNotEmpty()
-        val single = s.selection != null
+        val any = s.workspace.selectedItems.isNotEmpty()
+        val single = s.workspace.selection != null
         val step = if (event.isShiftPressed) 1f else 10f
         fun paint(kind: String, state: Int) = if (single) vm.scene.openPaint(kind, state) else null
         when (keyCode) {
             KeyEvent.KEYCODE_FORWARD_DEL, KeyEvent.KEYCODE_DEL -> if (any) vm.scene.deleteSelected() else return false
-            KeyEvent.KEYCODE_ESCAPE -> if (s.tool != Tool.None || any || s.selectMode) {
+            KeyEvent.KEYCODE_ESCAPE -> if (s.workspace.tool != Tool.None || any || s.workspace.selectMode) {
                 vm.scene.setTool(Tool.None); vm.scene.select(null); vm.scene.setSelectMode(false)
             } else return false
             KeyEvent.KEYCODE_A -> vm.scene.arrange(allPlates = !event.isShiftPressed)

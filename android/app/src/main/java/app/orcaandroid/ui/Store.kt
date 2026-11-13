@@ -34,7 +34,7 @@ class Store(val app: Application, val scope: CoroutineScope) {
             edgeOutline = settings.edgeOutline,
             selectionStyle = settings.selectionStyle,
             perspective = settings.perspective,
-            snapPrepare = settings.snapPrepare,
+            workspace = SceneState(snapPrepare = settings.snapPrepare),
             supersample = settings.supersample,
             design = DesignState(
                 snapBuild = settings.snapBuild,
@@ -76,8 +76,8 @@ class Store(val app: Application, val scope: CoroutineScope) {
 
     // Corner resizing and rotating end with any selection change, so selecting the copy again later doesn't bring them back.
     fun update(transform: (UiState) -> UiState) = state.update { s ->
-        transform(s).let { if (it.resizeFor != null && !it.resizing) it.copy(resizeFor = null) else it }
-            .let { if (it.rotateFor != null && !it.rotating) it.copy(rotateFor = null) else it }
+        transform(s).let { if (it.workspace.resizeFor != null && !it.workspace.resizing) it.copy(workspace = it.workspace.copy(resizeFor = null)) else it }
+            .let { if (it.workspace.rotateFor != null && !it.workspace.rotating) it.copy(workspace = it.workspace.copy(rotateFor = null)) else it }
     }
 
     fun str(@StringRes id: Int, vararg args: Any): String = app.getString(id, *args)
@@ -122,11 +122,9 @@ class Store(val app: Application, val scope: CoroutineScope) {
 
     /** Adopts a scene from the engine; any slice result is stale afterwards. */
     fun applyScene(scene: Scene, dirty: Boolean = true) = update { s ->
-        val multi = s.multiSelection.filter { it.obj < scene.objects.size && it.instance < scene.objects[it.obj].instances.size }
+        val multi = s.workspace.multiSelection.filter { it.obj < scene.objects.size && it.instance < scene.objects[it.obj].instances.size }
         s.copy(
-            workspace = s.workspace.copy(scene = scene, activePlate = s.workspace.activePlate.coerceIn(0, (scene.plates.size - 1).coerceAtLeast(0))),
-            selection = s.selection?.takeIf { it.obj < scene.objects.size } ?: multi.singleOrNull(),
-            multiSelection = multi.takeIf { it.size > 1 }.orEmpty(),
+            workspace = s.workspace.copy(scene = scene, activePlate = s.workspace.activePlate.coerceIn(0, (scene.plates.size - 1).coerceAtLeast(0)), selection = s.workspace.selection?.takeIf { it.obj < scene.objects.size } ?: multi.singleOrNull(), multiSelection = multi.takeIf { it.size > 1 }.orEmpty()),
             slicing = s.slicing.copy(results = emptyMap()),
             projectDirty = s.projectDirty || dirty,
         )

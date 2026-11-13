@@ -180,23 +180,23 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                     override fun onTap(x: Float, y: Float, additive: Boolean, part: Boolean, emptyPlate: Int?) {
                         // Measure: a tap on a placed point selects it (a drag from it then moves it); with one selected, a tap
                         // elsewhere sets it (deselects) instead of placing a new point (user 2026-10-27).
-                        if (vm.state.value.tool == app.orcaandroid.ui.Tool.Measure) {
+                        if (vm.state.value.workspace.tool == app.orcaandroid.ui.Tool.Measure) {
                             val near = placedNear(x, y, LOUPE_GRAB_DP * v.resources.displayMetrics.density, LOUPE_LIFT_DP * v.resources.displayMetrics.density)
                             if (near != null) { vm.scene.measureSelect(near.first); return }
                             if (vm.state.value.measureActive != null) { vm.scene.measureSelect(null); return }
                         }
                         val (o, d) = v.camera.ray(x, y)
-                        if (vm.state.value.tool is Tool.MeshEdit) {
+                        if (vm.state.value.workspace.tool is Tool.MeshEdit) {
                             val px = 24 * v.resources.displayMetrics.density
                             vm.scene.meshEditTap(o, d, v.section.current) { p -> v.camera.pxSize(p) * px }
                             return
                         }
                         // The Build workspace: a tap picks a shape of the design (a flat face in push / pull mode).
                         if (vm.state.value.buildObject != null && vm.shapes.faceMode) vm.shapes.pickFace(o, d)
-                        else if (vm.state.value.buildObject != null) vm.shapes.tapAt(o, d, additive || part || vm.state.value.selectMode)
+                        else if (vm.state.value.buildObject != null) vm.shapes.tapAt(o, d, additive || part || vm.state.value.workspace.selectMode)
                         else vm.scene.onViewTap(o, d, additive, part, v.section.current, emptyPlate, v.camera::pxSize,
-                            vm.state.value.tool.let { t -> if (t == app.orcaandroid.ui.Tool.Measure || t is Tool.Cut) snapRing(v, x, y) else emptyList() },
-                            if (vm.state.value.tool == app.orcaandroid.ui.Tool.Measure) bedAt(v, x, y) else null)
+                            vm.state.value.workspace.tool.let { t -> if (t == app.orcaandroid.ui.Tool.Measure || t is Tool.Cut) snapRing(v, x, y) else emptyList() },
+                            if (vm.state.value.workspace.tool == app.orcaandroid.ui.Tool.Measure) bedAt(v, x, y) else null)
                     }
                     override fun onCopyAt(x: Float, y: Float, result: (Pair<Int, Int>?, Vec3, Vec3) -> Unit) {
                         val (o, d) = v.camera.ray(x, y)
@@ -240,7 +240,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                             vm.shapes.resizeOnPlate(scale, pivot)
                             return
                         }
-                        val sel = vm.state.value.selectedItems.singleOrNull()
+                        val sel = vm.state.value.workspace.selectedItems.singleOrNull()
                         val inst = sel?.let { vm.state.value.workspace.scene.objects.getOrNull(it.obj)?.instances?.getOrNull(it.instance) }
                         if (!done && inst != null && scale != null) {
                             resizeLabel = Triple("%.1f x %.1f x %.1f mm".format(inst.size.x * scale.x, inst.size.y * scale.y, inst.size.z * scale.z), x, y)
@@ -261,7 +261,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                         vm.scene.setTransform(offset = off, scale = Vec3(inst.scale.x * own.x, inst.scale.y * own.y, inst.scale.z * own.z))
                     }
                     override fun onRotate(axis: Int, degrees: Float?, pivot: Vec3, x: Float, y: Float, done: Boolean) {
-                        val sel = vm.state.value.selectedItems.singleOrNull()
+                        val sel = vm.state.value.workspace.selectedItems.singleOrNull()
                         val inst = sel?.let { vm.state.value.workspace.scene.objects.getOrNull(it.obj)?.instances?.getOrNull(it.instance) }
                         if (!done && degrees != null) {
                             resizeLabel = Triple("%s %.1f°".format("XYZ"[axis], degrees), x, y)
@@ -286,8 +286,8 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                         vm.scene.setTransform(offset = pivot + RotateGizmo.apply(m, inst.offset - pivot), rotation = rotation)
                     }
                     override fun onCutMove(d: Float) {
-                        val t = vm.state.value.tool as? Tool.Cut ?: return
-                        val i = vm.state.value.selectedObject?.instances?.getOrNull(vm.state.value.selection?.instance ?: 0) ?: return
+                        val t = vm.state.value.workspace.tool as? Tool.Cut ?: return
+                        val i = vm.state.value.workspace.selectedObject?.instances?.getOrNull(vm.state.value.workspace.selection?.instance ?: 0) ?: return
                         if (!CutPlane.upright(t.rot)) { vm.scene.setTool(t.copy(z = (t.z + d).coerceIn(i.min.z, i.min.z + i.size.z))); return }
                         // An upright plane slides sideways, within the copy's box.
                         val a = CutPlane.slideAxis(t.rot)
@@ -296,7 +296,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                         vm.scene.setTool(t.copy(dx = a.x * s, dy = a.y * s))
                     }
                     override fun onCutTilt(axis: Int, degrees: Float?, base: Vec3, x: Float, y: Float, done: Boolean) {
-                        val t = vm.state.value.tool as? Tool.Cut ?: return
+                        val t = vm.state.value.workspace.tool as? Tool.Cut ?: return
                         if (degrees == null) { resizeLabel = null; vm.scene.setTool(t.copy(rot = base)); return }
                         val rot = RotateGizmo.toEuler(RotateGizmo.mul(RotateGizmo.matrix(axis, degrees), RotateGizmo.fromEuler(base)))
                         vm.scene.setTool(t.copy(rot = rot))
@@ -326,7 +326,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                     }
                     override fun onFacePush(d: Float?, done: Boolean) {
                         faceTick.longValue++
-                        if (vm.state.value.tool is Tool.MeshEdit) { vm.scene.meshEditDrag(d, done); return }
+                        if (vm.state.value.workspace.tool is Tool.MeshEdit) { vm.scene.meshEditDrag(d, done); return }
                         if (done && d != null && d != vm.shapes.facePick.value?.op?.d?.toFloat()) vm.shapes.pushPicked(d.toDouble())
                     }
                     override fun onTowerMoved(plate: Int, dx: Float, dy: Float) {
@@ -340,19 +340,19 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                     private var strokeStart = 0f to 0f
                     override fun onPaint(x: Float, y: Float, newStroke: Boolean, pressure: Float) {
                         if (newStroke) strokeStart = x to y
-                        if (vm.state.value.tool is Tool.Sculpt) {
+                        if (vm.state.value.workspace.tool is Tool.Sculpt) {
                             val (o, d) = v.camera.ray(x, y)
                             vm.scene.sculptAt(o, d, newStroke, pressure)
                             return
                         }
-                        val lock = (vm.state.value.tool as? Tool.Paint)?.lock
+                        val lock = (vm.state.value.workspace.tool as? Tool.Paint)?.lock
                         val (o, d) = v.camera.ray(if (lock == "v") strokeStart.first else x, if (lock == "h") strokeStart.second else y)
                         vm.scene.paintAt(o, d, v.camera.eye(), newStroke, v.section.current, pressure)
                     }
                     override fun onPaintEnd() { vm.scene.sculptEnd(); vm.scene.paintEnd() }
                     override fun onPaintHover(x: Float, y: Float, inside: Boolean) {
                         val ray = if (inside) v.camera.ray(x, y) else null
-                        if (vm.state.value.tool is Tool.Paint) vm.scene.paintHover(ray, v.section.current) else vm.scene.sculptHover(ray)
+                        if (vm.state.value.workspace.tool is Tool.Paint) vm.scene.paintHover(ray, v.section.current) else vm.scene.sculptHover(ray)
                     }
                     override fun onPlateDoubleTap(index: Int) = vm.scene.selectPlate(index)
                     // Icons act on their plate, which becomes the active one (except delete), as on the desktop.
@@ -377,7 +377,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                     override fun onContextMenu(x: Float, y: Float) {
                         vm.pieTouch.reset()
                         val (o, d) = v.camera.ray(x, y)
-                        if (vm.state.value.tool is Tool.Cut) vm.scene.cutAlignAt(o, d, x, y, v.section.current)
+                        if (vm.state.value.workspace.tool is Tool.Cut) vm.scene.cutAlignAt(o, d, x, y, v.section.current)
                         else vm.scene.openContextMenu(o, d, x, y, v.section.current)
                     }
 
@@ -462,10 +462,10 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     }
     // Redraws the selected point's ring every frame while there is one (the camera moves under it).
     val activeFrame = androidx.compose.runtime.remember { androidx.compose.runtime.mutableLongStateOf(0L) }
-    LaunchedEffect(state.measureActive != null && state.tool == Tool.Measure) {
-        if (state.measureActive != null && state.tool == Tool.Measure) while (true) androidx.compose.runtime.withFrameNanos { activeFrame.longValue = it }
+    LaunchedEffect(state.measureActive != null && state.workspace.tool == Tool.Measure) {
+        if (state.measureActive != null && state.workspace.tool == Tool.Measure) while (true) androidx.compose.runtime.withFrameNanos { activeFrame.longValue = it }
     }
-    state.measureActive?.let { state.measure.getOrNull(it) }?.takeIf { state.loupe == null && state.tool == Tool.Measure }?.let { m ->
+    state.measureActive?.let { state.measure.getOrNull(it) }?.takeIf { state.loupe == null && state.workspace.tool == Tool.Measure }?.let { m ->
         // The selected point: a ring round it (drag from it to move it, tap elsewhere to set it).
         Canvas(Modifier.fillMaxSize()) {
             activeFrame.longValue
@@ -546,7 +546,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         androidx.compose.material3.Surface(Modifier.align(androidx.compose.ui.Alignment.TopCenter).padding(top = 72.dp), shape = MaterialTheme.shapes.small, tonalElevation = 4.dp) {
             androidx.compose.material3.Text(label.first, Modifier.padding(horizontal = 8.dp, vertical = 4.dp), style = MaterialTheme.typography.labelLarge)
         }
-    } else if (state.resizing && !showPreview) {
+    } else if (state.workspace.resizing && !showPreview) {
         // While corner resizing is on: what to do, and the way out on a touchscreen.
         androidx.compose.material3.Surface(Modifier.align(androidx.compose.ui.Alignment.TopCenter).padding(top = 72.dp), shape = MaterialTheme.shapes.small, tonalElevation = 4.dp) {
             androidx.compose.foundation.layout.Row(Modifier.padding(start = 8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
@@ -556,7 +556,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                 }
             }
         }
-    } else if (state.rotating && !showPreview) {
+    } else if (state.workspace.rotating && !showPreview) {
         androidx.compose.material3.Surface(Modifier.align(androidx.compose.ui.Alignment.TopCenter).padding(top = 72.dp), shape = MaterialTheme.shapes.small, tonalElevation = 4.dp) {
             androidx.compose.foundation.layout.Row(Modifier.padding(start = 8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                 androidx.compose.material3.Text(androidx.compose.ui.res.stringResource(app.orcaandroid.R.string.rotate_hint), style = MaterialTheme.typography.labelLarge)
@@ -569,12 +569,12 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     plateMenu?.let { (plate, x, y) ->
         Box(Modifier.offset { IntOffset(x.toInt(), y.toInt()) }) { PlateMenu(state, vm, plate) { plateMenu = null } }
     }
-    if (state.lightPanel) {
+    if (state.workspace.lightPanel) {
         LightPanel(state.chrome.lab, vm::setLab, { vm.setLightPanel(false) }, Modifier.align(androidx.compose.ui.Alignment.BottomEnd)
             .windowInsetsPadding(androidx.compose.foundation.layout.WindowInsets.navigationBars).padding(end = 8.dp, bottom = 96.dp))
     }
     val pushPick = facePick?.takeIf { state.buildObject != null && vm.shapes.faceMode }
-    val editSel = meshEditSel?.takeIf { state.tool is Tool.MeshEdit && it.version == state.workspace.scene.meshVersion.toLong() }
+    val editSel = meshEditSel?.takeIf { state.workspace.tool is Tool.MeshEdit && it.version == state.workspace.scene.meshVersion.toLong() }
     if (pushPick != null || editSel != null) {
         // Push / pull: the picked face's outline (moved along with a drag) and its arrow; the distance beside the arrow's tip.
         // Mesh edit: the selection's crease edges and vertices the same way, its arrow at the centroid along its normal.
@@ -628,7 +628,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
             drawText(t, topLeft = tl)
         }
     }
-    if (state.dimensions && !showPreview) DimensionOverlay(view, state.selection to state.selectedObject?.instances?.getOrNull(state.selection?.instance ?: 0)) { vm.scene.thinnestWall() }
+    if (state.workspace.dimensions && !showPreview) DimensionOverlay(view, state.workspace.selection to state.workspace.selectedObject?.instances?.getOrNull(state.workspace.selection?.instance ?: 0)) { vm.scene.thinnestWall() }
     view?.section?.takeIf { it.panelOpen }?.let {
         // Below the top bar (and a camera hole in fullscreen portrait) and clear of the tool buttons down the left edge.
         SectionViewPanel(it, Modifier.align(androidx.compose.ui.Alignment.TopCenter)
@@ -670,7 +670,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     }
     val solo = state.inPaintShop
     LaunchedEffect(v, solo) { v.onGl { this.solo = solo } }
-    val hidden = (state.tool as? Tool.Paint)?.takeIf { solo && it.kind == "color" }?.hidden ?: 0
+    val hidden = (state.workspace.tool as? Tool.Paint)?.takeIf { solo && it.kind == "color" }?.hidden ?: 0
     LaunchedEffect(v, hidden) { v.onGl { hiddenFilaments = hidden } }
     // The paint shop's view is smaller than the plate view: it frames the painted copy on entry (same view angles) and
     // Done puts the plate camera back.
@@ -679,7 +679,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     LaunchedEffect(v, focused) {
         val plate = shopCamera
         if (focused && plate == null) {
-            val box = if (solo) state.selectedObject?.instances?.getOrNull(state.selection?.instance ?: 0)?.let { it.min to (it.min + it.size) }
+            val box = if (solo) state.workspace.selectedObject?.instances?.getOrNull(state.workspace.selection?.instance ?: 0)?.let { it.min to (it.min + it.size) }
                 else state.buildObject?.let { state.workspace.scene.objects.getOrNull(it) }?.instances?.takeIf { it.isNotEmpty() }?.map { it.shown }?.let { insts ->
                     Vec3(insts.minOf { it.min.x }, insts.minOf { it.min.y }, insts.minOf { it.min.z }) to
                         Vec3(insts.maxOf { it.min.x + it.size.x }, insts.maxOf { it.min.y + it.size.y }, insts.maxOf { it.min.z + it.size.z })
@@ -715,21 +715,21 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     val buildGroupCopies by vm.shapes.buildGroupCopies.collectAsState()
     val buildGizmo = if (!building) null else remember(state.workspace.scene, state.design.scad?.selected, state.design.scad?.shapes, buildCopy, buildGroupCopies) { vm.shapes.buildGizmoTarget() }
     LaunchedEffect(v, building) { v.gizmoOnMesh = building }
-    LaunchedEffect(v, state.resizing, showPreview, building, buildGizmo) {
-        v.resizeMode = if (building) buildGizmo != null else state.resizing && !showPreview
+    LaunchedEffect(v, state.workspace.resizing, showPreview, building, buildGizmo) {
+        v.resizeMode = if (building) buildGizmo != null else state.workspace.resizing && !showPreview
     }
     // Build: the lift dot above the selection moves the shapes up or down.
     LaunchedEffect(v, building, buildGizmo) { v.liftMode = building && buildGizmo != null }
-    LaunchedEffect(v, building, vm.shapes.faceMode, facePick, meshEditSel, state.tool is Tool.MeshEdit, showPreview, scene.meshVersion) {
+    LaunchedEffect(v, building, vm.shapes.faceMode, facePick, meshEditSel, state.workspace.tool is Tool.MeshEdit, showPreview, scene.meshVersion) {
         if (!building && vm.shapes.faceMode) vm.shapes.setPushPull(false)
         // The arrow starts at the middle of the face's outer outline.
         v.faceArrow = facePick?.takeIf { building && vm.shapes.faceMode }?.let { p ->
             val l = p.outline.first()
             PlateView.FaceArrow(l.fold(Vec3.ZERO) { a, b -> a + b } * (1f / l.size), p.normal, p.op.d.toFloat())
-        } ?: meshEditSel?.takeIf { state.tool is Tool.MeshEdit && !showPreview && it.version == scene.meshVersion.toLong() }?.let { PlateView.FaceArrow(it.centroid, it.normal, 0f) }
+        } ?: meshEditSel?.takeIf { state.workspace.tool is Tool.MeshEdit && !showPreview && it.version == scene.meshVersion.toLong() }?.let { PlateView.FaceArrow(it.centroid, it.normal, 0f) }
     }
-    LaunchedEffect(v, state.rotating, showPreview, building, buildGizmo) {
-        v.rotateMode = if (building) buildGizmo != null else state.rotating && !showPreview
+    LaunchedEffect(v, state.workspace.rotating, showPreview, building, buildGizmo) {
+        v.rotateMode = if (building) buildGizmo != null else state.workspace.rotating && !showPreview
     }
     // Plate numbers always; the plate icons only while arranging (Prepare).
     val atlas = rememberBadgeAtlas(scene.plates.size)
@@ -750,8 +750,8 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     LaunchedEffect(v) { vm.scene.meshPatches.collect { p -> v.onGl { applyPatch(p) } } }
     // The brush ring, at the brush's size (Ctrl+wheel resizes it in place): sculpt brushes and the paint brushes with a size.
     val sculptCursor by vm.scene.sculptCursor.collectAsState()
-    val sculptRadius = (state.tool as? Tool.Sculpt)?.radius
-        ?: (state.tool as? Tool.Paint)?.takeIf { it.shape == "sphere" || it.shape == "circle" }?.radius
+    val sculptRadius = (state.workspace.tool as? Tool.Sculpt)?.radius
+        ?: (state.workspace.tool as? Tool.Paint)?.takeIf { it.shape == "sphere" || it.shape == "circle" }?.radius
     LaunchedEffect(v, sculptCursor, sculptRadius) {
         val c = sculptCursor?.takeIf { sculptRadius != null }
         val ring = c?.let { (p, n) -> floatArrayOf(p.x, p.y, p.z, n.x, n.y, n.z, sculptRadius!!) }
@@ -833,8 +833,8 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         val focus = focusBox?.toFloatArray(); val ghost = state.design.buildPrinter; val h = setup?.maxHeight ?: 0f
         v.onGl { buildFocus = focus; printerGhost = ghost; printerHeight = h }
     }
-    LaunchedEffect(v, build != null, state.design.snapBuild, state.snapPrepare) { v.snapOn = if (build != null) state.design.snapBuild else state.snapPrepare }
-    LaunchedEffect(v, state.moveLock) { v.axisLock = state.moveLock }
+    LaunchedEffect(v, build != null, state.design.snapBuild, state.workspace.snapPrepare) { v.snapOn = if (build != null) state.design.snapBuild else state.workspace.snapPrepare }
+    LaunchedEffect(v, state.workspace.moveLock) { v.axisLock = state.workspace.moveLock }
     // Build workspace: the selected shapes' volumes are the selection; a drag starts on the object's box (the pick decides).
     LaunchedEffect(v, build, state.design.scad?.selected, state.design.scad?.shapes, buildCopy, buildGroupCopies) {
         if (build == null) { v.dragSnap = null; v.onGl { boxOverride = null; buildCopies = null }; return@LaunchedEffect }
@@ -853,9 +853,9 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         // A body drag sticks the selection's edges and middle to the other shapes' edges and middles.
         v.dragSnap = vm.shapes.buildSnapBoxes()
     }
-    LaunchedEffect(v, state.selection, state.multiSelection, scene, build != null) {
+    LaunchedEffect(v, state.workspace.selection, state.workspace.multiSelection, scene, build != null) {
         if (build != null) return@LaunchedEffect
-        val items = state.selectedItems
+        val items = state.workspace.selectedItems
         val ids = FloatArray(items.size) { (items[it].obj * INSTANCE_ID_STRIDE + items[it].instance).toFloat() }
         v.onGl { selectedIds = ids }
         v.towerBoxes = scene.plates.mapNotNull { p -> p.tower?.let { t ->
@@ -881,11 +881,11 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
             }
         }
     }
-    LaunchedEffect(v, state.tool, showPreview, state.overhangView, state.overhangDrag, state.device.value(PresetType.PRINT, "support_threshold_angle")) {
+    LaunchedEffect(v, state.workspace.tool, showPreview, state.overhangView, state.overhangDrag, state.device.value(PresetType.PRINT, "support_threshold_angle")) {
         v.mode = when {
             showPreview -> InteractionMode.VIEW
-            else -> when (state.tool) {
-            is Tool.Paint -> if (state.tool.shape == "gap") InteractionMode.VIEW else InteractionMode.PAINT
+            else -> when (state.workspace.tool) {
+            is Tool.Paint -> if (state.workspace.tool.shape == "gap") InteractionMode.VIEW else InteractionMode.PAINT
             is Tool.Sculpt -> InteractionMode.PAINT
             is Tool.MeshEdit -> InteractionMode.EDIT
             Tool.LayOnFace -> InteractionMode.LAY_ON_FACE
@@ -894,8 +894,8 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
             }
         }
         // The cut tool's plane: a disc round the object's middle, at the cut height, turned by the tilt.
-        val cutGeom = (state.tool as? Tool.Cut)?.takeIf { !showPreview }?.let { t ->
-            state.selectedObject?.instances?.getOrNull(state.selection?.instance ?: 0)?.let { i ->
+        val cutGeom = (state.workspace.tool as? Tool.Cut)?.takeIf { !showPreview }?.let { t ->
+            state.workspace.selectedObject?.instances?.getOrNull(state.workspace.selection?.instance ?: 0)?.let { i ->
                 PlateView.CutGeom(Vec3(i.min.x + i.size.x / 2 + t.dx, i.min.y + i.size.y / 2 + t.dy, t.z), i.size.length() / 2 * 1.1f, t.rot)
             }
         }
@@ -904,15 +904,15 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
             cutDisc = cutGeom?.let { CutPlane.disc(it.c, it.r, it.rot) }
             cutBand = cutGeom?.let { CutPlane.band(it.c, it.rot) }
             cutRings = cutGeom?.let { floatArrayOf(it.c.x, it.c.y, it.c.z, it.r) }
-            cutXrayPanel = cutGeom != null && (state.tool as? Tool.Cut)?.placing == true
+            cutXrayPanel = cutGeom != null && (state.workspace.tool as? Tool.Cut)?.placing == true
         }
-        val cut = (state.tool as? Tool.Paint)?.takeIf { it.guardOn && !showPreview }?.let { t ->
+        val cut = (state.workspace.tool as? Tool.Paint)?.takeIf { it.guardOn && !showPreview }?.let { t ->
             // The paint guard plane, drawn as the cut plane.
-            state.selectedObject?.instances?.getOrNull(state.selection?.instance ?: 0)?.let { i ->
+            state.workspace.selectedObject?.instances?.getOrNull(state.workspace.selection?.instance ?: 0)?.let { i ->
                 floatArrayOf(i.min.x - 5, i.min.y - 5, i.min.x + i.size.x + 5, i.min.y + i.size.y + 5, t.guardZ)
             }
         }
-        val highlight = (state.tool as? Tool.Paint)?.takeIf { !showPreview && it.kind == "support" }?.highlight ?: 0f
+        val highlight = (state.workspace.tool as? Tool.Paint)?.takeIf { !showPreview && it.kind == "support" }?.highlight ?: 0f
         // "Show overhangs": every part, at the support threshold angle (0 = auto: tree supports' 30).
         val viewAngle = if (!state.overhangView || showPreview) 0f
             else (state.overhangDrag ?: state.device.value(PresetType.PRINT, "support_threshold_angle")?.toFloatOrNull() ?: 30f).let { if (it < 0.5f) 30f else it }
@@ -920,25 +920,25 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     }
     // Check mesh: the problem spots stay up until another copy is selected.
     val marks by vm.scene.meshMarkers.collectAsState()
-    LaunchedEffect(v, marks, state.selection, state.workspace.scene) {
+    LaunchedEffect(v, marks, state.workspace.selection, state.workspace.scene) {
         // The spots follow the copy's moves; a turn, scale or mirror makes them wrong, so they go.
         val base = vm.scene.checkBase
-        val now = state.selection?.let { s -> state.workspace.scene.objects.getOrNull(s.obj)?.instances?.getOrNull(s.instance) }
+        val now = state.workspace.selection?.let { s -> state.workspace.scene.objects.getOrNull(s.obj)?.instances?.getOrNull(s.instance) }
         fun near(a: Vec3, b: Vec3) = (a - b).length() < 1e-3f
         val unchanged = base != null && now != null && near(now.rotation, base.rotation) && near(now.scale, base.scale) &&
             near(now.mirror, base.mirror) && near(now.size, base.size)
-        if (marks != null && (marks?.first != state.selection || !unchanged)) vm.scene.clearMeshMarkers()
-        val data = marks?.takeIf { it.first == state.selection && unchanged }?.second
+        if (marks != null && (marks?.first != state.workspace.selection || !unchanged)) vm.scene.clearMeshMarkers()
+        val data = marks?.takeIf { it.first == state.workspace.selection && unchanged }?.second
         val shift = if (data != null && base != null && now != null) now.min - base.min else Vec3.ZERO
         v.onGl { meshMarkers = data; meshMarkerShift = floatArrayOf(shift.x, shift.y, shift.z) }
     }
     // Regions view: the selected copy's crease lines, again after the model or the angle changes (a paint stroke changes
     // the scene too, but the lines only depend on the geometry; recomputing them is cheap next to a stroke).
-    val regions = (state.tool as? Tool.Paint)?.takeIf { it.shape == "regions" && !showPreview }
+    val regions = (state.workspace.tool as? Tool.Paint)?.takeIf { it.shape == "regions" && !showPreview }
     val regionAngle = regions?.edgeAngle?.takeIf { it > 0f } ?: 30f
     // The View menu's edge outline: the same lines for every copy on the active plate (the Regions view wins on the selected copy).
     val outline = state.edgeOutline && regions == null && !showPreview
-    LaunchedEffect(v, regions != null, outline, regionAngle, state.selection, scene.objects, state.workspace.activePlate) {
+    LaunchedEffect(v, regions != null, outline, regionAngle, state.workspace.selection, scene.objects, state.workspace.activePlate) {
         val lines = if (regions != null) runCatching { vm.scene.creaseLines(regionAngle) }.getOrNull()
             else if (outline) runCatching { vm.scene.plateCreaseLines(regionAngle) }.getOrNull() else null
         v.onGl { creaseLines = lines }
@@ -965,7 +965,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         val r = l?.let { loupeInset(it.x, it.y, v.width.toFloat(), v.height.toFloat(), loupeDensity) }
         v.onGl { loupe = if (l == null || r == null) null else floatArrayOf(l.x, l.y, r[0], r[1], r[2]) }
     }
-    val measuring = state.tool == Tool.Measure
+    val measuring = state.workspace.tool == Tool.Measure
     LaunchedEffect(v, state.loupe?.feature, measuring) {
         val f = state.loupe?.feature?.takeIf { measuring }
         val c = snapColor(f?.kind)

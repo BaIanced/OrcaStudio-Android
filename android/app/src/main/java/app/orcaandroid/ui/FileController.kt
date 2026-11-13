@@ -103,7 +103,7 @@ class FileController(
             last
         }
         uris.forEachIndexed { i, u -> if (unpacked[i].any { it in files }) rememberRecent(u, imported[i].name, false) }
-        store.update { it.copy(selection = Selection(s.objects.lastIndex), multiSelection = emptyList(), chrome = it.chrome.copy(screen = Screen.PREPARE)) }
+        store.update { it.copy(workspace = it.workspace.copy(selection = Selection(s.objects.lastIndex), multiSelection = emptyList()), chrome = it.chrome.copy(screen = Screen.PREPARE)) }
     }
 
     private fun Scene.plateEmpty(plate: Int) = objects.none { o -> o.instances.any { it.plate == plate } }
@@ -123,7 +123,7 @@ class FileController(
     private fun addVariants(files: List<File>) = store.launch(store.str(R.string.loading_model)) {
         val s = engine.loadModels(files.map { it.path }, append = true, plate = store.value.workspace.activePlate)
         store.applyScene(s)
-        store.update { it.copy(selection = Selection(s.objects.lastIndex), multiSelection = emptyList(), design = it.design.copy(scadHidden = true), chrome = it.chrome.copy(screen = Screen.PREPARE)) }
+        store.update { it.copy(workspace = it.workspace.copy(selection = Selection(s.objects.lastIndex), multiSelection = emptyList()), design = it.design.copy(scadHidden = true), chrome = it.chrome.copy(screen = Screen.PREPARE)) }
     }
 
     /**
@@ -187,7 +187,7 @@ class FileController(
         presets.refreshPresetValues(listOf(PresetType.FILAMENT, PresetType.PRINT))
         store.applyScene(loaded, dirty = false)
         uri?.let { rememberRecent(it, file.name, true) }
-        store.update { it.copy(projectName = file.name.removeSuffix(".3mf"), projectDirty = false, selection = null, multiSelection = emptyList(), chrome = it.chrome.copy(screen = Screen.PREPARE)) }
+        store.update { it.copy(projectName = file.name.removeSuffix(".3mf"), projectDirty = false, workspace = it.workspace.copy(selection = null, multiSelection = emptyList()), chrome = it.chrome.copy(screen = Screen.PREPARE)) }
     }
 
     private var filamentAnswer: kotlinx.coroutines.CompletableDeferred<String>? = null
@@ -381,7 +381,7 @@ class FileController(
         val r = s.slicing.shownResult ?: return@launch
         val url = withContext(Dispatchers.IO) { FilamentProfiles.printLogUrl(File(r.gcodeFile), gcodeFileName(), s.slicing.previewPlate + 1) }
             ?: return@launch store.toast(store.str(R.string.fp_no_usage))
-        store.update { it.copy(tool = Tool.None, chrome = it.chrome.copy(modelsUrl = url, screen = Screen.MODELS)) }
+        store.update { it.copy(workspace = it.workspace.copy(tool = Tool.None), chrome = it.chrome.copy(modelsUrl = url, screen = Screen.MODELS)) }
     }
 
     /** Messages of the slicing-pipeline plugins from the last [exportedGcode]. */

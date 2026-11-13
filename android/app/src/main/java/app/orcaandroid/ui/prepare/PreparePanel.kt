@@ -132,7 +132,7 @@ fun PreparePanel(state: UiState, vm: AppViewModel, wide: Boolean) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     androidx.compose.runtime.LaunchedEffect(ProblemFocus.tick) { if (ProblemFocus.tick > 0) tab = 0 }
     // Selecting an object in the view jumps to the object tab.
-    val selKey = state.selection?.obj
+    val selKey = state.workspace.selection?.obj
     androidx.compose.runtime.LaunchedEffect(selKey) { if (selKey != null) tab = 1 }
     Column(Modifier.fillMaxSize()) {
         PrimaryTabRow(selectedTabIndex = tab) {
@@ -530,15 +530,15 @@ private fun ObjectsTab(state: UiState, vm: AppViewModel) {
     }
     if (scene.outsideCount > 0) Text(pluralStringResource(R.plurals.objects_outside, scene.outsideCount, scene.outsideCount), color = MaterialTheme.colorScheme.error,
         style = MaterialTheme.typography.bodySmall)
-    if (state.multiSelection.isNotEmpty()) MultiSelectionCard(state, vm)
+    if (state.workspace.multiSelection.isNotEmpty()) MultiSelectionCard(state, vm)
     scene.objects.forEach { o ->
-        val selected = state.selectedItems.any { it.obj == o.index }
+        val selected = state.workspace.selectedItems.any { it.obj == o.index }
         Card(
             // Long press, or a tap in select mode, adds the object to the selection or removes it.
             Modifier.fillMaxWidth().combinedClickable(
                 onClick = {
-                    if (state.selectMode) vm.scene.toggleObject(o.index)
-                    else vm.scene.select(if (selected && state.selection?.volume == -1) null else Selection(o.index))
+                    if (state.workspace.selectMode) vm.scene.toggleObject(o.index)
+                    else vm.scene.select(if (selected && state.workspace.selection?.volume == -1) null else Selection(o.index))
                 },
                 onLongClick = { vm.scene.setSelectMode(true); vm.scene.toggleObject(o.index) },
             ),
@@ -555,7 +555,7 @@ private fun ObjectsTab(state: UiState, vm: AppViewModel) {
                     if (o.settings.overrides.isNotEmpty()) Icon(Icons.Default.Tune, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.tertiary)
                 }
                 // In select mode the rows stay compact, so taps keep hitting the row they aim at.
-                if (state.selection?.obj == o.index && !state.selectMode) ObjectDetails(state, vm, o.index)
+                if (state.workspace.selection?.obj == o.index && !state.workspace.selectMode) ObjectDetails(state, vm, o.index)
             }
         }
     }
@@ -564,10 +564,10 @@ private fun ObjectsTab(state: UiState, vm: AppViewModel) {
 /** Actions on all selected objects: their filament, duplicate, delete. */
 @Composable
 private fun MultiSelectionCard(state: UiState, vm: AppViewModel) {
-    val objs = state.selectedItems.map { it.obj }.distinct().mapNotNull { state.workspace.scene.objects.getOrNull(it) }
+    val objs = state.workspace.selectedItems.map { it.obj }.distinct().mapNotNull { state.workspace.scene.objects.getOrNull(it) }
     Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
         Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(stringResource(R.string.n_selected, state.selectedItems.size), style = MaterialTheme.typography.bodyLarge)
+            Text(stringResource(R.string.n_selected, state.workspace.selectedItems.size), style = MaterialTheme.typography.bodyLarge)
             if (state.device.filaments.size > 1) {
                 // Shown when all selected objects share it; picking sets it on all of them.
                 val ext = objs.map { it.settings["extruder"] ?: "1" }.distinct().singleOrNull() ?: ""
@@ -586,7 +586,7 @@ private fun MultiSelectionCard(state: UiState, vm: AppViewModel) {
 @Composable
 private fun ObjectDetails(state: UiState, vm: AppViewModel, objIndex: Int) {
     val o = state.workspace.scene.objects[objIndex]
-    val sel = state.selection ?: return
+    val sel = state.workspace.selection ?: return
     val inst = o.instances.getOrNull(sel.instance) ?: return
     Column(Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (o.instances.size > 1) {

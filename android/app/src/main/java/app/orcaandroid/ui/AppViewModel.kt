@@ -120,10 +120,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         store.update { it.copy(chrome = it.chrome.copy(coachDismissed = true)) }
     }
 
-    fun setScreen(screen: Screen) = store.update { it.copy(tool = toolAfterScreenChange(it.chrome.screen, screen, it.tool), chrome = it.chrome.copy(screen = screen)) }
+    fun setScreen(screen: Screen) = store.update { it.copy(workspace = it.workspace.copy(tool = toolAfterScreenChange(it.chrome.screen, screen, it.workspace.tool)), chrome = it.chrome.copy(screen = screen)) }
 
     /** Shows [url] in the Models tab's browser. */
-    fun openInModels(url: String) = store.update { it.copy(tool = Tool.None, chrome = it.chrome.copy(modelsUrl = url, screen = Screen.MODELS)) }
+    fun openInModels(url: String) = store.update { it.copy(workspace = it.workspace.copy(tool = Tool.None), chrome = it.chrome.copy(modelsUrl = url, screen = Screen.MODELS)) }
 
     fun modelsUrlOpened() = store.update { it.copy(chrome = it.chrome.copy(modelsUrl = null)) }
 
@@ -206,8 +206,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         store.update { it.copy(realistic = on) }
     }
 
-    fun setLightPanel(on: Boolean) = store.update { it.copy(lightPanel = on) }
-    fun setDimensions(on: Boolean) = store.update { it.copy(dimensions = on) }
+    fun setLightPanel(on: Boolean) = store.update { it.copy(workspace = it.workspace.copy(lightPanel = on)) }
+    fun setDimensions(on: Boolean) = store.update { it.copy(workspace = it.workspace.copy(dimensions = on)) }
 
     fun setWireframe(on: Boolean) = store.update { it.copy(wireframe = on) }
 
@@ -225,7 +225,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun toggleSnap() {
         val s = state.value
         if (s.buildObject != null) { store.settings.snapBuild = !s.design.snapBuild; store.update { it.copy(design = it.design.copy(snapBuild = !s.design.snapBuild)) } }
-        else { store.settings.snapPrepare = !s.snapPrepare; store.update { it.copy(snapPrepare = !s.snapPrepare) } }
+        else { store.settings.snapPrepare = !s.workspace.snapPrepare; store.update { it.copy(workspace = it.workspace.copy(snapPrepare = !s.workspace.snapPrepare)) } }
     }
 
     /** Build workspace: the plate's other objects cycle ghosted -> solid -> hidden. */
@@ -243,7 +243,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** The move lock button: free -> X -> Y -> free. */
-    fun cycleMoveLock() = store.update { it.copy(moveLock = if (it.moveLock >= 1) -1 else it.moveLock + 1) }
+    fun cycleMoveLock() = store.update { it.copy(workspace = it.workspace.copy(moveLock = if (it.workspace.moveLock >= 1) -1 else it.workspace.moveLock + 1)) }
 
     fun setBuilderSplit(on: Boolean) {
         store.settings.builderSplit = on

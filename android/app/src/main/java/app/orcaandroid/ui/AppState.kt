@@ -156,7 +156,57 @@ data class PreviewUi(
 data class SceneState(
     val scene: Scene = Scene(),
     val activePlate: Int = 0,
-)
+    val selection: Selection? = null,
+    /** Two or more copies selected together (Ctrl/Shift click, select mode); [selection] is null then. */
+    val multiSelection: List<Selection> = emptyList(),
+    /** Taps on the 3D view and the object list add or remove objects instead of replacing the selection. */
+    val selectMode: Boolean = false,
+    val tool: Tool = Tool.None,
+    /** Where the 3D view's context menu is open (view pixels), or null. */
+    val contextMenu: Pair<Float, Float>? = null,
+    /**
+     * The copy whose box corners resize it (Resize in the context menu, Ctrl+T or S); off again once the
+     * selection changes, so a drag can't resize by accident (user, 2026-10-19).
+     */
+    val resizeFor: Selection? = null,
+    /** The copy the rotate gizmo is on (Rotate in the context menu or R), as [resizeFor]. */
+    val rotateFor: Selection? = null,
+    /** An add dialog asked for by a shortcut ("text" for T), shown by the 3D view's context menu host. */
+    val addDialog: String? = null,
+    /** Body drags snap (smart guides) on the plate / in the Build workspace; Ctrl held flips it for one drag. */
+    val snapPrepare: Boolean = false,
+    /** The move lock button: -1 free, 0 drags move along X only, 1 along Y only (session only). */
+    val moveLock: Int = -1,
+    /** View > Light direction: the light ball panel is open (session only). */
+    val lightPanel: Boolean = false,
+    /** View > Dimensions: X / Y / Z size lines on the selection's box (session only). */
+    val dimensions: Boolean = false,
+) {
+    val selectedObject get() = selection?.let { scene.objects.getOrNull(it.obj) }
+
+    /** Every selected copy: the multi-selection, else the single selection. */
+    val selectedItems: List<Selection> get() = multiSelection.ifEmpty { listOfNotNull(selection) }
+
+    /** Corner resizing is on for the lone selected copy. */
+    val resizing: Boolean get() = resizeFor != null && selectedItems.singleOrNull() == resizeFor
+
+    /** The rotate gizmo is on for the lone selected copy. */
+    val rotating: Boolean get() = rotateFor != null && selectedItems.singleOrNull() == rotateFor
+
+    /** Selects the copies [items]: one becomes the single selection, more a multi-selection. */
+    fun withSelected(items: List<Selection>) = copy(
+        selection = items.singleOrNull(),
+        multiSelection = if (items.size > 1) items else emptyList(),
+        tool = if (items.size == 1) tool else Tool.None,
+    )
+
+    /** Adds [items] to the selection, or removes them when all of them are selected already. */
+    fun toggled(items: List<Selection>): SceneState {
+        val current = selectedItems.map { it.copy(volume = -1) }
+        val keys = items.map { it.copy(volume = -1) }
+        return withSelected(if (keys.all { it in current }) current - keys.toSet() else current + keys.filterNot { it in current })
+    }
+}
 
 /** Design (OpenSCAD / shape builder) fields of [UiState], read as `state.design.x`. */
 data class DesignState(
@@ -333,17 +383,6 @@ data class DeviceState(
 }
 
 data class UiState(
-    /** Where the 3D view's context menu is open (view pixels), or null. */
-    val contextMenu: Pair<Float, Float>? = null,
-    /**
-     * The copy whose box corners resize it (Resize in the context menu, Ctrl+T or S); off again once the
-     * selection changes, so a drag can't resize by accident (user, 2026-10-19).
-     */
-    val resizeFor: Selection? = null,
-    /** The copy the rotate gizmo is on (Rotate in the context menu or R), as [resizeFor]. */
-    val rotateFor: Selection? = null,
-    /** An add dialog asked for by a shortcut ("text" for T), shown by the 3D view's context menu host. */
-    val addDialog: String? = null,
     val pen: app.orcaandroid.core.PenConfig = app.orcaandroid.core.PenConfig(),
     /** 3D view contact shadows. */
     val contactShadows: Boolean = true,
@@ -359,24 +398,10 @@ data class UiState(
     val selectionStyle: Int = app.orcaandroid.render.SelectionStyle.DEFAULT,
     /** Preview supersampling ([app.orcaandroid.render.Supersample]). */
     val supersample: Int = app.orcaandroid.render.Supersample.STILL,
-    /** Body drags snap (smart guides) on the plate / in the Build workspace; Ctrl held flips it for one drag. */
-    val snapPrepare: Boolean = false,
-    /** The move lock button: -1 free, 0 drags move along X only, 1 along Y only (session only). */
-    val moveLock: Int = -1,
     /** 3D view projection: perspective, or orthographic when false. */
     val perspective: Boolean = true,
-    /** View > Light direction: the light ball panel is open (session only). */
-    val lightPanel: Boolean = false,
-    /** View > Dimensions: X / Y / Z size lines on the selection's box (session only). */
-    val dimensions: Boolean = false,
 
     // Scene
-    val selection: Selection? = null,
-    /** Two or more copies selected together (Ctrl/Shift click, select mode); [selection] is null then. */
-    val multiSelection: List<Selection> = emptyList(),
-    /** Taps on the 3D view and the object list add or remove objects instead of replacing the selection. */
-    val selectMode: Boolean = false,
-    val tool: Tool = Tool.None,
     /** Measure tool: the placed points (at most 2). */
     val measure: List<MeasurePoint> = emptyList(),
     /** Measure tool: points snap to corners and edges (off: the bare hit; Alt held does the same for one click). */
@@ -412,8 +437,6 @@ data class UiState(
     val chrome: ChromeState = ChromeState(),
     val device: DeviceState = DeviceState(),
 ) {
-    val selectedObject get() = selection?.let { workspace.scene.objects.getOrNull(it.obj) }
-
     /**
      * The measure line's two ends as drawn (the last placed point and the loupe's preview, else the two placed points)
      * and the direction it locks to, if any.
@@ -424,28 +447,11 @@ data class UiState(
         return Triple(a, b, measureLock(a, b, measureAxes, steps))
     }
 
-    /** Every selected copy: the multi-selection, else the single selection. */
-    val selectedItems: List<Selection> get() = multiSelection.ifEmpty { listOfNotNull(selection) }
-
-    /** Corner resizing is on for the lone selected copy. */
-    val resizing: Boolean get() = resizeFor != null && selectedItems.singleOrNull() == resizeFor
-
-    /** The rotate gizmo is on for the lone selected copy. */
-    val rotating: Boolean get() = rotateFor != null && selectedItems.singleOrNull() == rotateFor
-
     /** Selects the copies [items]: one becomes the single selection, more a multi-selection. */
-    fun withSelected(items: List<Selection>) = copy(
-        selection = items.singleOrNull(),
-        multiSelection = if (items.size > 1) items else emptyList(),
-        tool = if (items.size == 1) tool else Tool.None,
-    )
+    fun withSelected(items: List<Selection>) = copy(workspace = workspace.withSelected(items))
 
     /** Adds [items] to the selection, or removes them when all of them are selected already. */
-    fun toggled(items: List<Selection>): UiState {
-        val current = selectedItems.map { it.copy(volume = -1) }
-        val keys = items.map { it.copy(volume = -1) }
-        return withSelected(if (keys.all { it in current }) current - keys.toSet() else current + keys.filterNot { it in current })
-    }
+    fun toggled(items: List<Selection>) = copy(workspace = workspace.toggled(items))
 
     /** Plate type [plate] slices with: its own, else the default. */
     fun bedTypeOf(plate: Int): String? = workspace.scene.plates.getOrNull(plate)?.bedType?.ifEmpty { null } ?: device.setup?.defaultBedType

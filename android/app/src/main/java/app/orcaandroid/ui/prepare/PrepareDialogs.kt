@@ -154,7 +154,7 @@ internal fun AddDialogs(state: UiState, vm: AppViewModel, dialog: String?, onDis
 /** GLGizmoMeshBoolean as a dialog: two parts of the selected object, one operation. */
 @Composable
 private fun MeshBooleanDialog(state: UiState, vm: AppViewModel, onDismiss: () -> Unit) {
-    val obj = state.selectedObject ?: return onDismiss()
+    val obj = state.workspace.selectedObject ?: return onDismiss()
     val parts = obj.volumes.filter { it.type == VolumeType.PART }
     val ops = listOf("union" to R.string.boolean_union, "difference" to R.string.boolean_difference, "intersection" to R.string.boolean_intersection)
     var op by remember { mutableStateOf("difference") }
@@ -266,7 +266,7 @@ private fun SamplesDialog(vm: AppViewModel, onDismiss: () -> Unit) {
 @Composable
 private fun SimplifyDialog(state: UiState, vm: AppViewModel, onDismiss: () -> Unit) {
     var ratio by remember { mutableFloatStateOf(0.5f) }
-    val tris = state.selectedObject?.triangles ?: 0
+    val tris = state.workspace.selectedObject?.triangles ?: 0
     DialogFrame(stringResource(R.string.simplify), stringResource(R.string.apply), onConfirm = { vm.scene.simplify(ratio) }, onDismiss = onDismiss) {
         Text(stringResource(R.string.simplify_result, tris, (tris * ratio).toInt()))
         Slider(ratio, { ratio = it }, valueRange = 0.05f..0.95f)
