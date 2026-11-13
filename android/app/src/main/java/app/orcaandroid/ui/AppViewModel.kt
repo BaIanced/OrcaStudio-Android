@@ -1,6 +1,5 @@
 package app.orcaandroid.ui
 
-import app.orcaandroid.ui.prepare.PieTouch
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -37,8 +36,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val slicing = SliceController(store, presets)
     val files = FileController(store, presets, scene, slicing)
     val scad = ScadController(store)
-    /** Where the finger is that opened the pie menu (the 3D view feeds it, the menu reads it). */
-    val pieTouch = PieTouch()
     val shapes = ShapeController(store, scad)
 
     /** MCP server for AI clients (Settings > AI tools); runs while this view model lives and the switch is on. */
@@ -205,6 +202,76 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun setPlateHd(on: Boolean) {
         store.settings.plateHd = on
         store.update { it.copy(workspace = it.workspace.copy(plateHd = on)) }
+    }
+
+    fun setPlateUnderAlpha(v: Float) {
+        val a = v.coerceIn(app.orcaandroid.core.ViewDefaults.PLATE_UNDER_ALPHAS)
+        store.settings.plateUnderAlpha = a
+        store.update { it.copy(workspace = it.workspace.copy(plateUnderAlpha = a)) }
+    }
+
+    fun setOverlayAlpha(v: Float) {
+        val a = v.coerceIn(app.orcaandroid.core.ViewDefaults.OVERLAY_ALPHAS)
+        store.settings.overlayAlpha = a
+        store.update { it.copy(chrome = it.chrome.copy(overlayAlpha = a)) }
+    }
+
+    fun setPlateScale(v: Float) {
+        val s = v.coerceIn(app.orcaandroid.core.ViewDefaults.PLATE_SCALES)
+        store.settings.plateScale = s
+        store.update { it.copy(chrome = it.chrome.copy(plateScale = s)) }
+    }
+
+    fun setOverlayScale(v: Float) {
+        val s = v.coerceIn(app.orcaandroid.core.ViewDefaults.OVERLAY_SCALES)
+        store.settings.overlayScale = s
+        store.update { it.copy(chrome = it.chrome.copy(overlayScale = s)) }
+    }
+
+    fun setSliceScale(v: Float) {
+        val s = v.coerceIn(app.orcaandroid.core.ViewDefaults.SLICE_SCALES)
+        store.settings.sliceScale = s
+        store.update { it.copy(chrome = it.chrome.copy(sliceScale = s)) }
+    }
+
+    fun setTextScale(v: Float) {
+        val s = v.coerceIn(app.orcaandroid.core.ViewDefaults.TEXT_SCALES)
+        store.settings.textScale = s
+        store.update { it.copy(chrome = it.chrome.copy(textScale = s)) }
+    }
+
+    fun setFullscreenPortrait(on: Boolean) {
+        store.settings.fullscreenPortrait = on
+        store.update { it.copy(chrome = it.chrome.copy(fullscreenPortrait = on)) }
+    }
+
+    /** The plate switcher style; the retired chips style is stored as tabs. */
+    fun setPlates(style: app.orcaandroid.core.PlateSwitcher) {
+        store.settings.plates = style
+        store.update { it.copy(chrome = it.chrome.copy(plates = store.settings.plates)) }
+    }
+
+    fun setPlatesOnHandle(on: Boolean) {
+        store.settings.platesOnHandle = on
+        store.update { it.copy(chrome = it.chrome.copy(platesOnHandle = on)) }
+    }
+
+    fun setToolsLeft(on: Boolean) {
+        store.settings.toolsLeft = on
+        store.update { it.copy(chrome = it.chrome.copy(toolsLeft = on)) }
+    }
+
+    /** The portrait tool row collapsed to the + button (long press on it). */
+    fun setToolsCollapsed(on: Boolean) {
+        store.settings.toolsCollapsed = on
+        store.update { it.copy(chrome = it.chrome.copy(toolsCollapsed = on)) }
+    }
+
+    /** The portrait tool row's offset in dp (-1 = default), set by dragging it. */
+    fun setToolsRow(x: Float, y: Float) {
+        store.settings.toolsRowX = x
+        store.settings.toolsRowY = y
+        store.update { it.copy(chrome = it.chrome.copy(toolsRow = x to y)) }
     }
 
     /** The key light's direction (view menu > Light), in degrees; clamped to the allowed ranges. */

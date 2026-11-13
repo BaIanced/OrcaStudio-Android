@@ -204,6 +204,8 @@ data class SceneState(
     val wheelSpeed: Float = app.orcaandroid.core.ViewDefaults.WHEEL_SPEED,
     /** Plates drawn dark with upstream's bed-type decals. */
     val plateHd: Boolean = false,
+    /** Detailed plate opacity seen from below (More > Appearance). */
+    val plateUnderAlpha: Float = app.orcaandroid.core.ViewDefaults.PLATE_UNDER_ALPHA,
     /** Key light direction of the 3D models, set by the view menu's light ball (removable after lighting review, UA-7). */
     val lightAzimuth: Float = app.orcaandroid.core.ViewDefaults.LIGHT_AZIMUTH,
     val lightElevation: Float = app.orcaandroid.core.ViewDefaults.LIGHT_ELEVATION,
@@ -343,6 +345,19 @@ data class ChromeState(
     val panelWidth: Float = 0f,
     /** The floating Slice button's spot, as fractions of the free room (-1 = bottom right), set by dragging it. */
     val sliceSpot: Pair<Float, Float> = -1f to -1f,
+    /** Layout values (More > Appearance), see [app.orcaandroid.core.ViewDefaults] for defaults and ranges. */
+    val overlayAlpha: Float = app.orcaandroid.core.ViewDefaults.OVERLAY_ALPHA,
+    val plateScale: Float = app.orcaandroid.core.ViewDefaults.PLATE_SCALE,
+    val overlayScale: Float = app.orcaandroid.core.ViewDefaults.OVERLAY_SCALE,
+    val sliceScale: Float = app.orcaandroid.core.ViewDefaults.SLICE_SCALE,
+    val textScale: Float = app.orcaandroid.core.ViewDefaults.TEXT_SCALE,
+    val fullscreenPortrait: Boolean = app.orcaandroid.core.ViewDefaults.FULLSCREEN_PORTRAIT,
+    val plates: app.orcaandroid.core.PlateSwitcher = app.orcaandroid.core.ViewDefaults.PLATES,
+    val platesOnHandle: Boolean = app.orcaandroid.core.ViewDefaults.PLATES_ON_HANDLE,
+    val toolsLeft: Boolean = app.orcaandroid.core.ViewDefaults.TOOLS_LEFT,
+    /** Portrait tool row: collapsed to the + button (long press), and its dragged offset in dp (-1 = default), set by gestures. */
+    val toolsCollapsed: Boolean = app.orcaandroid.core.ViewDefaults.TOOLS_COLLAPSED,
+    val toolsRow: Pair<Float, Float> = app.orcaandroid.core.ViewDefaults.TOOLS_ROW_X to app.orcaandroid.core.ViewDefaults.TOOLS_ROW_Y,
     val undoLimit: Int = app.orcaandroid.core.DEFAULT_UNDO_LIMIT,
     /** Auto-save interval in seconds; 0 or less = off (-seconds keeps the interval it had). */
     val autoSaveSeconds: Int = app.orcaandroid.core.DEFAULT_AUTO_SAVE_SECONDS,

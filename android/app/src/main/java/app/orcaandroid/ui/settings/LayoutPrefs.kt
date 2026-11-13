@@ -10,6 +10,12 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.material3.Slider
+import app.orcaandroid.core.PlateSwitcher
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -39,7 +45,33 @@ internal fun LayoutPrefs(state: UiState, vm: AppViewModel) {
             }
         }
         SwitchRow(stringResource(R.string.lab_show_plates), state.chrome.showPlates, onChange = vm::setShowPlates)
+        Text(stringResource(R.string.lab_plate_switcher), style = MaterialTheme.typography.bodyMedium)
+        val styles = listOf(PlateSwitcher.TABS to R.string.lab_tabs, PlateSwitcher.FILMSTRIP to R.string.lab_filmstrip)
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+            styles.forEachIndexed { i, (style, label) ->
+                SegmentedButton(state.chrome.plates == style, { vm.setPlates(style) }, SegmentedButtonDefaults.itemShape(i, styles.size)) { Text(stringResource(label)) }
+            }
+        }
+        SwitchRow(stringResource(R.string.lab_plates_on_handle), state.chrome.platesOnHandle, onChange = vm::setPlatesOnHandle)
+        SwitchRow(stringResource(R.string.lab_tools_left), state.chrome.toolsLeft, onChange = vm::setToolsLeft)
+        SwitchRow(stringResource(R.string.lab_fullscreen_portrait), state.chrome.fullscreenPortrait, onChange = vm::setFullscreenPortrait)
         SwitchRow(stringResource(R.string.lab_plate_hd), state.workspace.plateHd, onChange = vm::setPlateHd)
+        PercentSlider(R.string.lab_plate_hd_under, state.workspace.plateUnderAlpha, ViewDefaults.PLATE_UNDER_ALPHAS, false, vm::setPlateUnderAlpha)
+        PercentSlider(R.string.lab_overlay_alpha, state.chrome.overlayAlpha, ViewDefaults.OVERLAY_ALPHAS, false, vm::setOverlayAlpha)
+        Text(stringResource(R.string.lab_scale_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        PercentSlider(R.string.lab_text_scale, state.chrome.textScale, ViewDefaults.TEXT_SCALES, true, vm::setTextScale)
+        PercentSlider(R.string.lab_plate_scale, state.chrome.plateScale, ViewDefaults.PLATE_SCALES, true, vm::setPlateScale)
+        PercentSlider(R.string.lab_slice_scale, state.chrome.sliceScale, ViewDefaults.SLICE_SCALES, true, vm::setSliceScale)
+        PercentSlider(R.string.lab_overlay_scale, state.chrome.overlayScale, ViewDefaults.OVERLAY_SCALES, true, vm::setOverlayScale)
     }
+}
+
+/** A plain slider whose label shows the value in %; with [onRelease] the value is applied when the finger lifts (sizes would move under it). */
+@Composable
+private fun PercentSlider(label: Int, value: Float, range: ClosedFloatingPointRange<Float>, onRelease: Boolean, onSet: (Float) -> Unit) {
+    var live by remember(value) { mutableFloatStateOf(value) }
+    Text(stringResource(label, (live * 100).roundToInt()), style = MaterialTheme.typography.bodyMedium)
+    if (onRelease) Slider(live, { live = it }, valueRange = range, onValueChangeFinished = { onSet((live * 20).roundToInt() / 20f) })
+    else Slider(value, onSet, valueRange = range)
 }
 

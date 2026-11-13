@@ -150,11 +150,11 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
     if (state.buildObject != null) return
     val sliceOnGrip = sliceOnGrip(state, wide)
     // Tools in a column on the left: wide layouts always, portrait too by default.
-    val column = wide || ViewDefaults.TOOLS_LEFT
+    val column = wide || state.chrome.toolsLeft
     // Portrait with the switcher on the panel grip (AppScaffold): nothing of it over the 3D view.
-    val onHandle = ViewDefaults.PLATES_ON_HANDLE && !wide
-    val filmstrip = ViewDefaults.PLATES == PlateSwitcher.FILMSTRIP && state.workspace.tool == Tool.None && !onHandle && state.chrome.showPlates
-    CompositionLocalProvider(LocalOverlayAlpha provides ViewDefaults.OVERLAY_ALPHA) {
+    val onHandle = state.chrome.platesOnHandle && !wide
+    val filmstrip = state.chrome.plates == PlateSwitcher.FILMSTRIP && state.workspace.tool == Tool.None && !onHandle && state.chrome.showPlates
+    CompositionLocalProvider(LocalOverlayAlpha provides state.chrome.overlayAlpha) {
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
     var rowSize by remember { mutableStateOf(IntSize.Zero) }
     var dragOffsetX by remember { mutableFloatStateOf(0f) }
@@ -197,8 +197,8 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
             Row(
                 Modifier
                     .offset {
-                        val curX = (if (ViewDefaults.TOOLS_ROW_X >= 0f) with(density) { ViewDefaults.TOOLS_ROW_X.dp.toPx() } else 0f) + dragOffsetX
-                        val curY = (if (ViewDefaults.TOOLS_ROW_Y >= 0f) with(density) { ViewDefaults.TOOLS_ROW_Y.dp.toPx() } else defaultY) + dragOffsetY
+                        val curX = (if (state.chrome.toolsRow.first >= 0f) with(density) { state.chrome.toolsRow.first.dp.toPx() } else 0f) + dragOffsetX
+                        val curY = (if (state.chrome.toolsRow.second >= 0f) with(density) { state.chrome.toolsRow.second.dp.toPx() } else defaultY) + dragOffsetY
                         val maxX = maxOf(0f, (containerSize.width - rowSize.width).toFloat())
                         val maxY = maxOf(0f, (containerSize.height - rowSize.height).toFloat())
                         IntOffset(curX.coerceIn(0f, maxX).roundToInt(), curY.coerceIn(0f, maxY).roundToInt())
@@ -211,21 +211,26 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
             ) {
                 ToolButtons(
                     state, vm,
-                    collapsed = ViewDefaults.TOOLS_COLLAPSED,
+                    collapsed = state.chrome.toolsCollapsed,
                     onAddDrag = { delta ->
                         dragOffsetX += delta.x
                         dragOffsetY += delta.y
                     },
                     onAddDragEnd = {
-                        val curX = (if (ViewDefaults.TOOLS_ROW_X >= 0f) with(density) { ViewDefaults.TOOLS_ROW_X.dp.toPx() } else 0f) + dragOffsetX
-                        val curY = (if (ViewDefaults.TOOLS_ROW_Y >= 0f) with(density) { ViewDefaults.TOOLS_ROW_Y.dp.toPx() } else defaultY) + dragOffsetY
+                        val curX = (if (state.chrome.toolsRow.first >= 0f) with(density) { state.chrome.toolsRow.first.dp.toPx() } else 0f) + dragOffsetX
+                        val curY = (if (state.chrome.toolsRow.second >= 0f) with(density) { state.chrome.toolsRow.second.dp.toPx() } else defaultY) + dragOffsetY
                         val maxX = maxOf(0f, (containerSize.width - rowSize.width).toFloat())
                         val maxY = maxOf(0f, (containerSize.height - rowSize.height).toFloat())
-                        // The row's spot is a constant now (T-027): a drag only lasts until let go.
+                        val finalX = curX.coerceIn(0f, maxX)
+                        val finalY = curY.coerceIn(0f, maxY)
                         dragOffsetX = 0f
                         dragOffsetY = 0f
+                        vm.setToolsRow(with(density) { finalX.toDp().value }, with(density) { finalY.toDp().value })
                     },
-                    onAddLongPress = { haptic.performHapticFeedback(HapticFeedbackType.LongPress) }
+                    onAddLongPress = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        vm.setToolsCollapsed(!state.chrome.toolsCollapsed)
+                    }
                 )
             }
         }
@@ -234,13 +239,13 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
         // On a narrow canvas (less than about two thumbnails left beside it) the strip gets its own row above.
         if (stripWithSlice) androidx.compose.foundation.layout.BoxWithConstraints(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(start = 60.dp)) {
             if (maxWidth >= 360.dp) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
-                PlateScale(ViewDefaults.PLATE_SCALE) { Filmstrip(state, vm, view, Modifier.weight(1f)) }
+                PlateScale(state.chrome.plateScale) { Filmstrip(state, vm, view, Modifier.weight(1f)) }
                 if (!sliceOnGrip && !ViewDefaults.SLICE_FLOATING) SliceButton(state, vm, Modifier)
             } else Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                PlateScale(ViewDefaults.PLATE_SCALE) { Filmstrip(state, vm, view, Modifier.fillMaxWidth()) }
+                PlateScale(state.chrome.plateScale) { Filmstrip(state, vm, view, Modifier.fillMaxWidth()) }
                 if (!sliceOnGrip && !ViewDefaults.SLICE_FLOATING) SliceButton(state, vm, Modifier)
             }
-        } else if (filmstrip) PlateScale(ViewDefaults.PLATE_SCALE) { Filmstrip(state, vm, view, Modifier.align(Alignment.BottomStart).padding(bottom = 120.dp)) }
+        } else if (filmstrip) PlateScale(state.chrome.plateScale) { Filmstrip(state, vm, view, Modifier.align(Alignment.BottomStart).padding(bottom = 120.dp)) }
         // The layer height graph is tall: on wide layouts it sits at the right edge (like the desktop's)
         // above the Slice button, not over the object in the middle.
         val rightPanel = wide && state.workspace.tool == Tool.LayerHeight
@@ -316,36 +321,7 @@ private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
     val at = state.workspace.contextMenu
     // The overlay is inset by 8 dp from the view whose pixels [at] are in.
     val inset = with(LocalDensity.current) { 8.dp.roundToPx() }
-    // "Pie menu" (a constant now, removable after lighting review, UA-7): wedges for the common actions; the last wedge ("More") opens the list.
-    var more by remember(at) { mutableStateOf(false) }
-    if (at != null && ViewDefaults.PIE_MENU && !more) {
-        val close = vm.scene::closeContextMenu
-        val sel = state.workspace.selection
-        val moreItem = PieItem(Icons.Default.MoreHoriz, stringResource(R.string.more)) { more = true }
-        val items = if (state.workspace.multiSelection.size >= 2) listOf(
-            PieItem(Icons.Default.CallMerge, stringResource(R.string.assemble)) { vm.scene.assemble() },
-            PieItem(Icons.Default.CenterFocusStrong, stringResource(R.string.center_on_plate)) { vm.scene.centerSelected() },
-            PieItem(Icons.Default.ContentCopy, stringResource(R.string.duplicate)) { vm.scene.duplicate(1) },
-            PieItem(Icons.Default.Delete, stringResource(R.string.delete)) { vm.scene.deleteSelected() },
-            moreItem,
-        ) else if (sel != null) listOf(
-            PieItem(Icons.Default.Rotate90DegreesCcw, stringResource(R.string.rotate), state.workspace.multiSelection.isEmpty()) { vm.scene.toggleRotate() },
-            PieItem(Icons.Default.OpenInFull, stringResource(R.string.resize), state.workspace.multiSelection.isEmpty()) { vm.scene.toggleResize() },
-            PieItem(Icons.Default.VerticalAlignBottom, stringResource(R.string.lay_on_face)) { vm.scene.setTool(Tool.LayOnFace) },
-            PieItem(Icons.Default.ContentCopy, stringResource(R.string.duplicate)) { vm.scene.duplicate(1) },
-            moreItem,
-            PieItem(Icons.Default.Delete, stringResource(R.string.delete)) { vm.scene.deleteSelected() },
-            PieItem(Icons.Default.ContentCut, stringResource(R.string.cut)) { vm.scene.startCut() },
-        ) else listOf(
-            PieItem(Icons.Default.FileOpen, stringResource(R.string.import_model)) { importModels.launch(arrayOf("*/*")) },
-            PieItem(Icons.Default.Interests, stringResource(R.string.add_shape)) { dialog = "primitive" },
-            PieItem(Icons.Default.TextFields, stringResource(R.string.add_text)) { dialog = "text" },
-            PieItem(Icons.Default.AutoAwesomeMosaic, stringResource(R.string.arrange), !state.workspace.scene.isEmpty) { vm.scene.arrange(false) },
-            PieItem(AutoOrientIcon, stringResource(R.string.auto_orient), !state.workspace.scene.isEmpty) { vm.scene.autoOrient() },
-            moreItem,
-        )
-        PieMenu(at, inset, items, vm.pieTouch, close)
-    } else if (at != null) {
+    if (at != null) {
         val close = vm.scene::closeContextMenu
         Box(Modifier.offset { IntOffset(at.first.toInt() - inset, at.second.toInt() - inset) }) {
             DropdownMenu(expanded = true, onDismissRequest = close) {
@@ -427,8 +403,8 @@ private fun TopBar(state: UiState, vm: AppViewModel, view: PlateView?, viewButto
     // view buttons take the free start, left of the hole, and File stays right of it (together they didn't fit past it).
     CutoutRow(minStart = 96.dp, start = {
         if (onHandle) { if (viewButtons) views() }
-        else if (state.chrome.showPlates) PlateScale(ViewDefaults.PLATE_SCALE) {
-            when (ViewDefaults.PLATES) {
+        else if (state.chrome.showPlates) PlateScale(state.chrome.plateScale) {
+            when (state.chrome.plates) {
                 PlateSwitcher.TABS -> Surface(shape = RoundedCornerShape(20.dp), color = bar) { PlateTabs(state, vm, view, Modifier.padding(start = 4.dp)) }
                 PlateSwitcher.FILMSTRIP -> if (ViewDefaults.PLATE_LABEL) Surface(shape = RoundedCornerShape(20.dp), color = bar) { PlateLabel(state, vm) }
                 PlateSwitcher.CHIPS -> PlateChips(state, vm, view)
@@ -726,7 +702,11 @@ fun sliceOnGrip(state: UiState, wide: Boolean) = !wide && state.design.scad == n
 /** The Slice button on the panel grip. */
 @Composable
 fun GripSliceButton(state: UiState, vm: AppViewModel, modifier: Modifier = Modifier) {
-    SliceButton(state, vm, modifier.padding(vertical = 4.dp))
+    val base = androidx.compose.ui.platform.LocalDensity.current
+    androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides
+        androidx.compose.ui.unit.Density(base.density * state.chrome.sliceScale, base.fontScale)) {
+        SliceButton(state, vm, modifier.padding(vertical = 4.dp))
+    }
 }
 
 /**
@@ -744,27 +724,31 @@ private fun BoxScope.FloatingSlice(state: UiState, vm: AppViewModel, area: IntSi
     val at = (live ?: saved).let { Offset(it.x.coerceIn(0f, roomX), it.y.coerceIn(0f, roomY)) }
     // The drag handler outlives recompositions (keyed on the room only): read the current spot, not the first one.
     val curAt by rememberUpdatedState(at)
-    SliceButton(state, vm, Modifier
-        .align(Alignment.TopStart)
-        .offset { IntOffset(at.x.roundToInt(), at.y.roundToInt()) }
-        .onSizeChanged { size = it }
-        .pointerInput(roomX, roomY) {
-            detectDragGestures(
-                onDrag = { change, d ->
-                    change.consume()
-                    val cur = live ?: curAt
-                    live = Offset((cur.x + d.x).coerceIn(0f, roomX), (cur.y + d.y).coerceIn(0f, roomY))
-                },
-                onDragEnd = {
-                    live?.let { p ->
-                        vm.setSliceSpot(if (roomX > 0f) (p.x / roomX).coerceIn(0f, 1f) else 0f,
-                                        if (roomY > 0f) (p.y / roomY).coerceIn(0f, 1f) else 0f)
-                    }
-                    live = null
-                },
-                onDragCancel = { live = null },
-            )
-        })
+    val base = androidx.compose.ui.platform.LocalDensity.current
+    androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides
+        androidx.compose.ui.unit.Density(base.density * state.chrome.sliceScale, base.fontScale)) {
+        SliceButton(state, vm, Modifier
+            .align(Alignment.TopStart)
+            .offset { IntOffset(at.x.roundToInt(), at.y.roundToInt()) }
+            .onSizeChanged { size = it }
+            .pointerInput(roomX, roomY) {
+                detectDragGestures(
+                    onDrag = { change, d ->
+                        change.consume()
+                        val cur = live ?: curAt
+                        live = Offset((cur.x + d.x).coerceIn(0f, roomX), (cur.y + d.y).coerceIn(0f, roomY))
+                    },
+                    onDragEnd = {
+                        live?.let { p ->
+                            vm.setSliceSpot(if (roomX > 0f) (p.x / roomX).coerceIn(0f, 1f) else 0f,
+                                            if (roomY > 0f) (p.y / roomY).coerceIn(0f, 1f) else 0f)
+                        }
+                        live = null
+                    },
+                    onDragCancel = { live = null },
+                )
+            })
+    }
 }
 
 @Composable
@@ -871,9 +855,9 @@ private fun ScrollCue(scroll: androidx.compose.foundation.ScrollState, up: Boole
 /** The plate switcher as a bar of its own (nested on the portrait panel's grip). */
 @Composable
 fun PlateSwitcherBar(state: UiState, vm: AppViewModel, view: PlateView?, modifier: Modifier = Modifier) {
-    PlateScale(ViewDefaults.PLATE_SCALE) {
+    PlateScale(state.chrome.plateScale) {
         Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-            when (ViewDefaults.PLATES) {
+            when (state.chrome.plates) {
                 PlateSwitcher.TABS -> PlateTabs(state, vm, view, Modifier.weight(1f))
                 PlateSwitcher.FILMSTRIP -> Filmstrip(state, vm, view, Modifier.weight(1f))
                 PlateSwitcher.CHIPS -> Box(Modifier.weight(1f)) { PlateChips(state, vm, view) }

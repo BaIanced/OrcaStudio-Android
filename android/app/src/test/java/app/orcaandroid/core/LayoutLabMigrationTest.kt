@@ -53,6 +53,9 @@ class LayoutLabMigrationTest {
     private val newKeys = setOf("interface_size", "pinch_speed", "wheel_speed", "show_plates", "plate_hd", "panel_tucked", "panel_width",
         "slice_x", "slice_y", "light_azimuth", "light_elevation")
 
+    private val restoredKeys = setOf("overlay_alpha", "plate_under_alpha", "plate_scale", "overlay_scale", "slice_scale", "text_scale",
+        "fullscreen_portrait", "plates_on_handle", "tools_left", "tools_collapsed", "tools_row_x", "tools_row_y", "plate_switcher")
+
     @Test fun everyKeyMovesToItsNewKeyAndTheOldKeysGo() {
         val json = """{"uiScale":1.1,"pinchSpeed":0.4,"wheelSpeed":1.5,"showPlates":false,"plateHd":true,"panelTucked":true,"panelWidth":300,
             "sliceX":0.25,"sliceY":0.5,"lightAzimuth":90,"lightElevation":30,"overlayAlpha":0.3,"plates":"CHIPS"}"""
@@ -72,7 +75,9 @@ class LayoutLabMigrationTest {
         assertFalse(p.contains("layout_lab"))
         assertFalse(p.contains("builder_entries_split"))
         assertEquals("DARK", p.data["theme"])
-        assertEquals(newKeys + "theme", p.data.keys)
+        assertEquals(0.3f, p.data["overlay_alpha"])
+        assertEquals("TABS", p.data["plate_switcher"])
+        assertEquals(newKeys + "theme" + setOf("overlay_alpha", "plate_switcher"), p.data.keys)
     }
 
     @Test fun theWsaDeviceValuesSnapAndClamp() {
@@ -87,7 +92,11 @@ class LayoutLabMigrationTest {
         assertEquals(0.999f, p.data["slice_x"])
         assertEquals(61.4f, p.data["light_elevation"])
         assertFalse(p.contains("layout_lab"))
-        assertEquals(newKeys, p.data.keys)
+        assertEquals(newKeys + restoredKeys, p.data.keys)
+        assertEquals("FILMSTRIP", p.data["plate_switcher"])
+        assertEquals(0.543f, p.data["overlay_alpha"])
+        assertEquals(0.8f, p.data["plate_scale"])
+        assertEquals(0.85f, p.data["overlay_scale"])
     }
 
     @Test fun outOfRangeValuesAreClampedAsTheLabParserDid() {
@@ -100,6 +109,50 @@ class LayoutLabMigrationTest {
         assertEquals(1f, p.data["slice_x"])
         assertEquals(180f, p.data["light_azimuth"])
         assertEquals(20f, p.data["light_elevation"])
+    }
+
+    @Test fun theThirteenRestoredFieldsMigrate() {
+        val json = """{"plateUnderAlpha":0.4,"overlayAlpha":0.6,"plateScale":1.2,"overlayScale":0.9,"sliceScale":1.3,"textScale":1.1,
+            "fullscreenPortrait":true,"plates":"FILMSTRIP","toolsCollapsed":true,"toolsRowX":12.5,"toolsRowY":80,"platesOnHandle":true,"toolsLeft":false}"""
+        val p = FakePrefs(mapOf("layout_lab" to json))
+        migrateOldLayoutPrefs(p)
+        assertEquals(0.4f, p.data["plate_under_alpha"])
+        assertEquals(0.6f, p.data["overlay_alpha"])
+        assertEquals(1.2f, p.data["plate_scale"])
+        assertEquals(0.9f, p.data["overlay_scale"])
+        assertEquals(1.3f, p.data["slice_scale"])
+        assertEquals(1.1f, p.data["text_scale"])
+        assertEquals(true, p.data["fullscreen_portrait"])
+        assertEquals("FILMSTRIP", p.data["plate_switcher"])
+        assertEquals(true, p.data["tools_collapsed"])
+        assertEquals(12.5f, p.data["tools_row_x"])
+        assertEquals(80f, p.data["tools_row_y"])
+        assertEquals(true, p.data["plates_on_handle"])
+        assertEquals(false, p.data["tools_left"])
+        assertEquals(restoredKeys, p.data.keys)
+    }
+
+    @Test fun restoredFieldsAreClampedAsTheLabParserDid() {
+        val p = FakePrefs(mapOf("layout_lab" to """{"plateUnderAlpha":3,"overlayAlpha":0,"plateScale":9,"overlayScale":0.1,"sliceScale":9,"textScale":0.1}"""))
+        migrateOldLayoutPrefs(p)
+        assertEquals(1f, p.data["plate_under_alpha"])
+        assertEquals(0.2f, p.data["overlay_alpha"])
+        assertEquals(1.6f, p.data["plate_scale"])
+        assertEquals(0.6f, p.data["overlay_scale"])
+        assertEquals(1.5f, p.data["slice_scale"])
+        assertEquals(0.7f, p.data["text_scale"])
+    }
+
+    @Test fun aStoredChipsStyleBecomesTabsAndAbsentFieldsWriteNothing() {
+        val p = FakePrefs(mapOf("layout_lab" to """{"plates":"CHIPS"}"""))
+        migrateOldLayoutPrefs(p)
+        assertEquals(mapOf<String, Any>("plate_switcher" to "TABS"), p.data)
+        val q = FakePrefs(mapOf("layout_lab" to """{"plates":"NOPE","theme":1}"""))
+        migrateOldLayoutPrefs(q)
+        assertTrue(q.data.isEmpty())
+        assertEquals(PlateSwitcher.TABS, parsePlateSwitcher("CHIPS"))
+        assertEquals(PlateSwitcher.FILMSTRIP, parsePlateSwitcher("FILMSTRIP"))
+        assertEquals(PlateSwitcher.TABS, parsePlateSwitcher(null))
     }
 
     @Test fun brokenJsonRemovesTheKeyAndWritesNothingElse() {

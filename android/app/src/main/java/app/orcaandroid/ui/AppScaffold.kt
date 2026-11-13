@@ -135,10 +135,10 @@ fun AppScaffold(state: UiState, vm: AppViewModel) {
     // Design panel: docked as a right sidebar by default, detachable to a floating panel (user, 2026-10-30).
     val narrowScreen = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp < 600
     var designFloating by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(narrowScreen) }
-    // Interface size (More > Appearance), on top of the system's display and font size.
+    // Interface and text size (More > Appearance), on top of the system's display and font size.
     val base = androidx.compose.ui.platform.LocalDensity.current
     androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides
-        androidx.compose.ui.unit.Density(base.density * state.chrome.interfaceSize, base.fontScale)) {
+        androidx.compose.ui.unit.Density(base.density * state.chrome.interfaceSize, base.fontScale * state.chrome.textScale)) {
         when {
             state.chrome.phase == Phase.LOADING -> Busy(state.chrome.busy ?: stringResource(R.string.starting))
             state.chrome.phase == Phase.SETUP || state.chrome.showPrinterSetup -> Themed(Region.EDITOR, Modifier.fillMaxSize(), fill = true) { PrinterSetupScreen(state, vm) }
@@ -294,14 +294,17 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
         if (PanelSize.height < 360f) PanelSize.height = 360f
         if (state.chrome.panelTucked) vm.setPanelTucked(false)
     }
-    var viewportSize by remember { mutableStateOf(androidx.compose.ui.unit.IntSize.Zero) }
     val viewport: @Composable (Modifier) -> Unit = { m ->
-        Box(m.onSizeChanged { viewportSize = it }) {
+        Box(m) {
             Viewport(state, vm, onView = { plateView = it }, modifier = Modifier.fillMaxSize().steadyThroughGlide()
                 .onGloballyPositioned { app.orcaandroid.ui.prepare.CanvasBounds.rect = it.boundsInWindow() })
-            if (state.chrome.screen == Screen.PREPARE) Themed(Region.PREPARE_TOOLS) { PrepareOverlay(state, vm, plateView, wide) }
-            else Themed(Region.PREVIEW_TOOLS) { PreviewOverlay(state, vm, plateView, wide) }
-            if (app.orcaandroid.core.ViewDefaults.VIEW_CUBE) plateView?.let { ViewCubeSpot(it.camera, viewportSize) }
+            // Floating controls have their own size, on top of the interface size.
+            val base = androidx.compose.ui.platform.LocalDensity.current
+            androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides
+                androidx.compose.ui.unit.Density(base.density * state.chrome.overlayScale, base.fontScale)) {
+                if (state.chrome.screen == Screen.PREPARE) Themed(Region.PREPARE_TOOLS) { PrepareOverlay(state, vm, plateView, wide) }
+                else Themed(Region.PREVIEW_TOOLS) { PreviewOverlay(state, vm, plateView, wide) }
+            }
             // Below the top tool row, centered.
             app.orcaandroid.ui.components.Notices(state, vm, Modifier.align(Alignment.TopCenter).padding(top = 64.dp))
             // Gesture scrubber (held setting label): its list sits high, above the finger.
@@ -426,7 +429,7 @@ private fun WorkspaceBody(state: UiState, vm: AppViewModel, wide: Boolean, shop:
             } else Column(Modifier.fillMaxSize()) {
                 viewport(Modifier.weight(1f).fillMaxWidth().then(app.orcaandroid.ui.prepare.shopFrame(shop)))
                 if (shop) { app.orcaandroid.ui.prepare.PaintShopDock(state, vm, side = false, Modifier.fillMaxWidth().heightIn(max = total * 0.45f)); return@Column }
-                val onHandle = app.orcaandroid.core.ViewDefaults.PLATES_ON_HANDLE && state.chrome.screen == Screen.PREPARE
+                val onHandle = state.chrome.platesOnHandle && state.chrome.screen == Screen.PREPARE
                 val slice = state.chrome.screen == Screen.PREPARE && app.orcaandroid.ui.prepare.sliceOnGrip(state, wide)
                 val handlePlates = onHandle && state.chrome.showPlates
                 val header: (@Composable () -> Unit)? = if (handlePlates || slice) ({
@@ -724,27 +727,4 @@ private fun FilamentChoiceDialog(choice: FilamentChoice, onAnswer: (mode: String
             }
         }
     }
-}
-
-/**
- * The view cube where the user left it: top right by default; a long press on it picks it up and dragging moves it
- * (kept inside the 3D view, saved as fractions of the free room so it stays put across rotation and resizing).
- */
-@Composable
-private fun ViewCubeSpot(camera: app.orcaandroid.render.Camera, area: androidx.compose.ui.unit.IntSize) {
-    val density = androidx.compose.ui.platform.LocalDensity.current
-    val cube = with(density) { 96.dp.toPx() }
-    val roomX = (area.width - cube).coerceAtLeast(0f)
-    val roomY = (area.height - cube).coerceAtLeast(0f)
-    // removable after lighting review (UA-7): the spot is a constant now, so a drag only lasts until let go.
-    val spotX = app.orcaandroid.core.ViewDefaults.VIEW_CUBE_X
-    val spotY = app.orcaandroid.core.ViewDefaults.VIEW_CUBE_Y
-    fun saved() = if (spotX < 0f || spotY < 0f) Offset(roomX - with(density) { 8.dp.toPx() }, with(density) { 72.dp.toPx() })
-        else Offset(spotX * roomX, spotY * roomY)
-    var live by remember { mutableStateOf<Offset?>(null) }
-    val at = (live ?: saved()).let { Offset(it.x.coerceIn(0f, roomX), it.y.coerceIn(0f, roomY)) }
-    app.orcaandroid.ui.components.ViewCube(camera,
-        Modifier.offset { androidx.compose.ui.unit.IntOffset(at.x.roundToInt(), at.y.roundToInt()) },
-        onMove = { d -> (at + d).let { live = Offset(it.x.coerceIn(0f, roomX), it.y.coerceIn(0f, roomY)) } },
-        onMoveEnd = { live = null })
 }

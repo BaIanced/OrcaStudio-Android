@@ -101,6 +101,67 @@ class AppSettings(context: Context) {
         get() = prefs.getFloat("slice_y", -1f).coerceAtMost(1f)
         set(value) = prefs.edit().putFloat("slice_y", value.coerceAtMost(1f)).apply()
 
+    /** Opacity of the control backgrounds over the 3D view. */
+    var overlayAlpha: Float
+        get() = prefs.getFloat("overlay_alpha", ViewDefaults.OVERLAY_ALPHA).coerceIn(ViewDefaults.OVERLAY_ALPHAS)
+        set(value) = prefs.edit().putFloat("overlay_alpha", value.coerceIn(ViewDefaults.OVERLAY_ALPHAS)).apply()
+
+    /** Opacity of the detailed plate seen from below (0 = invisible from underneath). */
+    var plateUnderAlpha: Float
+        get() = prefs.getFloat("plate_under_alpha", ViewDefaults.PLATE_UNDER_ALPHA).coerceIn(ViewDefaults.PLATE_UNDER_ALPHAS)
+        set(value) = prefs.edit().putFloat("plate_under_alpha", value.coerceIn(ViewDefaults.PLATE_UNDER_ALPHAS)).apply()
+
+    /** Size of the plate switcher alone. */
+    var plateScale: Float
+        get() = prefs.getFloat("plate_scale", ViewDefaults.PLATE_SCALE).coerceIn(ViewDefaults.PLATE_SCALES)
+        set(value) = prefs.edit().putFloat("plate_scale", value.coerceIn(ViewDefaults.PLATE_SCALES)).apply()
+
+    /** Size of the controls floating over the 3D view, on top of the interface size. */
+    var overlayScale: Float
+        get() = prefs.getFloat("overlay_scale", ViewDefaults.OVERLAY_SCALE).coerceIn(ViewDefaults.OVERLAY_SCALES)
+        set(value) = prefs.edit().putFloat("overlay_scale", value.coerceIn(ViewDefaults.OVERLAY_SCALES)).apply()
+
+    /** Size of the Slice button, on top of the interface size. */
+    var sliceScale: Float
+        get() = prefs.getFloat("slice_scale", ViewDefaults.SLICE_SCALE).coerceIn(ViewDefaults.SLICE_SCALES)
+        set(value) = prefs.edit().putFloat("slice_scale", value.coerceIn(ViewDefaults.SLICE_SCALES)).apply()
+
+    /** Text size on top of the system font size. */
+    var textScale: Float
+        get() = prefs.getFloat("text_scale", ViewDefaults.TEXT_SCALE).coerceIn(ViewDefaults.TEXT_SCALES)
+        set(value) = prefs.edit().putFloat("text_scale", value.coerceIn(ViewDefaults.TEXT_SCALES)).apply()
+
+    /** Hide the status and navigation bars in portrait too. */
+    var fullscreenPortrait: Boolean
+        get() = prefs.getBoolean("fullscreen_portrait", ViewDefaults.FULLSCREEN_PORTRAIT)
+        set(value) = prefs.edit().putBoolean("fullscreen_portrait", value).apply()
+
+    /** How the plates are switched; a stored CHIPS (retired) reads as TABS. */
+    var plates: PlateSwitcher
+        get() = parsePlateSwitcher(prefs.getString("plate_switcher", null))
+        set(value) = prefs.edit().putString("plate_switcher", if (value == PlateSwitcher.CHIPS) PlateSwitcher.TABS.name else value.name).apply()
+
+    /** Portrait: the plate switcher sits on the grip above the settings panel. */
+    var platesOnHandle: Boolean
+        get() = prefs.getBoolean("plates_on_handle", ViewDefaults.PLATES_ON_HANDLE)
+        set(value) = prefs.edit().putBoolean("plates_on_handle", value).apply()
+
+    /** Portrait: the tool buttons in a column on the left instead of a row at the bottom. */
+    var toolsLeft: Boolean
+        get() = prefs.getBoolean("tools_left", ViewDefaults.TOOLS_LEFT)
+        set(value) = prefs.edit().putBoolean("tools_left", value).apply()
+
+    /** Portrait tool row: collapsed into just the + button, and its dragged offset in dp (-1 = default). Set by gestures. */
+    var toolsCollapsed: Boolean
+        get() = prefs.getBoolean("tools_collapsed", ViewDefaults.TOOLS_COLLAPSED)
+        set(value) = prefs.edit().putBoolean("tools_collapsed", value).apply()
+    var toolsRowX: Float
+        get() = prefs.getFloat("tools_row_x", ViewDefaults.TOOLS_ROW_X)
+        set(value) = prefs.edit().putFloat("tools_row_x", value).apply()
+    var toolsRowY: Float
+        get() = prefs.getFloat("tools_row_y", ViewDefaults.TOOLS_ROW_Y)
+        set(value) = prefs.edit().putFloat("tools_row_y", value).apply()
+
     /** Key light direction of the 3D models, set by the view menu's light ball (removable after lighting review, UA-7). */
     var lightAzimuth: Float
         get() = prefs.getFloat("light_azimuth", ViewDefaults.LIGHT_AZIMUTH).coerceIn(ViewDefaults.LIGHT_AZIMUTHS)
@@ -356,6 +417,10 @@ const val DEFAULT_AUTO_SAVE_SECONDS = 60
 val AUTO_SAVE_RANGE = 10..3600
 const val AI_TOOLS_PORT = 8765
 
+/** A stored plate switcher name; unknown or the retired CHIPS give TABS. */
+internal fun parsePlateSwitcher(name: String?): PlateSwitcher =
+    runCatching { PlateSwitcher.valueOf(name!!) }.getOrNull()?.takeIf { it != PlateSwitcher.CHIPS } ?: ViewDefaults.PLATES
+
 /**
  * [AppSettings.migrateOldLayout] on any preferences file: the retired Layout lab's `layout_lab` JSON becomes the individual
  * keys (clamped as the lab's own parser did), every other lab field is dropped (its value is a constant now), and the
@@ -380,6 +445,21 @@ internal fun migrateOldLayoutPrefs(prefs: SharedPreferences) {
         num("sliceY")?.let { edit.putFloat("slice_y", it.coerceAtMost(1f)) }
         num("lightAzimuth")?.let { edit.putFloat("light_azimuth", it.coerceIn(ViewDefaults.LIGHT_AZIMUTHS)) }
         num("lightElevation")?.let { edit.putFloat("light_elevation", it.coerceIn(ViewDefaults.LIGHT_ELEVATIONS)) }
+        num("overlayAlpha")?.let { edit.putFloat("overlay_alpha", it.coerceIn(ViewDefaults.OVERLAY_ALPHAS)) }
+        num("plateUnderAlpha")?.let { edit.putFloat("plate_under_alpha", it.coerceIn(ViewDefaults.PLATE_UNDER_ALPHAS)) }
+        num("plateScale")?.let { edit.putFloat("plate_scale", it.coerceIn(ViewDefaults.PLATE_SCALES)) }
+        num("overlayScale")?.let { edit.putFloat("overlay_scale", it.coerceIn(ViewDefaults.OVERLAY_SCALES)) }
+        num("sliceScale")?.let { edit.putFloat("slice_scale", it.coerceIn(ViewDefaults.SLICE_SCALES)) }
+        num("textScale")?.let { edit.putFloat("text_scale", it.coerceIn(ViewDefaults.TEXT_SCALES)) }
+        bool("fullscreenPortrait")?.let { edit.putBoolean("fullscreen_portrait", it) }
+        bool("platesOnHandle")?.let { edit.putBoolean("plates_on_handle", it) }
+        bool("toolsLeft")?.let { edit.putBoolean("tools_left", it) }
+        bool("toolsCollapsed")?.let { edit.putBoolean("tools_collapsed", it) }
+        num("toolsRowX")?.let { edit.putFloat("tools_row_x", it) }
+        num("toolsRowY")?.let { edit.putFloat("tools_row_y", it) }
+        if (o.has("plates")) runCatching { PlateSwitcher.valueOf(o.getString("plates")) }.getOrNull()?.let {
+            edit.putString("plate_switcher", parsePlateSwitcher(it.name).name)
+        }
     }
     edit.remove("layout_lab").remove("builder_entries_split").apply()
 }

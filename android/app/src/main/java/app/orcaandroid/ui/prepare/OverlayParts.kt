@@ -214,7 +214,7 @@ fun PlateTabs(state: UiState, vm: AppViewModel, view: PlateView?, modifier: Modi
 
 /**
  * Plates in a scrolling row that keeps the active one in view (a new plate, or one picked on the canvas),
- * with the add button pinned after it so it never scrolls away.
+ * with the add button pinned before it (at the start) so it never scrolls away and never moves when a plate is added.
  */
 @Composable
 internal fun PlateRow(state: UiState, vm: AppViewModel, modifier: Modifier, spacing: Dp, align: Alignment.Vertical,
@@ -235,10 +235,6 @@ internal fun PlateRow(state: UiState, vm: AppViewModel, modifier: Modifier, spac
             list.animateScrollToItem(state.workspace.activePlate)
     }
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(spacing), verticalAlignment = align) {
-        LazyRow(Modifier.weight(1f, fill = false), state = list, horizontalArrangement = Arrangement.spacedBy(spacing),
-            verticalAlignment = align) {
-            items(plates.size) { item(plates[it], picks) }
-        }
         // While picking, the add slot turns into a stop button of the same size, so the plates don't shift
         // under the finger; the delete button floats beside the row (above the filmstrip, right of the tabs).
         Box(contentAlignment = Alignment.Center) {
@@ -249,6 +245,10 @@ internal fun PlateRow(state: UiState, vm: AppViewModel, modifier: Modifier, spac
                 } }
                 PickDelete(vm, picks, above = align == Alignment.Bottom)
             }
+        }
+        LazyRow(Modifier.weight(1f, fill = false), state = list, horizontalArrangement = Arrangement.spacedBy(spacing),
+            verticalAlignment = align) {
+            items(plates.size) { item(plates[it], picks) }
         }
     }
 }

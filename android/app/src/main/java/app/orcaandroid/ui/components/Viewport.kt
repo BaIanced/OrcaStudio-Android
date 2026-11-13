@@ -376,13 +376,10 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                     }
 
                     override fun onContextMenu(x: Float, y: Float) {
-                        vm.pieTouch.reset()
                         val (o, d) = v.camera.ray(x, y)
                         if (vm.state.value.workspace.tool is Tool.Cut) vm.scene.cutAlignAt(o, d, x, y, v.section.current)
                         else vm.scene.openContextMenu(o, d, x, y, v.section.current)
                     }
-
-                    override fun onLongPressTouch(x: Float, y: Float, held: Boolean) = vm.pieTouch.update(x, y, held)
 
                     /** This gesture's aim, as an offset from the pointer: a finger's dot sits above it; a picked-up point stays put and moves 1:1. */
                     private var aimOffset = floatArrayOf(0f, 0f)
@@ -652,7 +649,8 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     LaunchedEffect(v, state.workspace.wireframe) { v.onGl { wireAll = state.workspace.wireframe } }
     val plateTypes = scene.plates.indices.map { state.bedTypeOf(it) }
     val appContext = LocalContext.current.applicationContext
-    LaunchedEffect(v) { v.onGl { plateAlpha = ViewDefaults.PLATE_HD_ALPHA; plateUnderAlpha = ViewDefaults.PLATE_UNDER_ALPHA } }
+    LaunchedEffect(v) { v.onGl { plateAlpha = ViewDefaults.PLATE_HD_ALPHA } }
+    LaunchedEffect(v, state.workspace.plateUnderAlpha) { v.onGl { plateUnderAlpha = state.workspace.plateUnderAlpha } }
     LaunchedEffect(v, state.workspace.plateHd, plateTypes) {
         v.onGl {
             plateSurface = state.workspace.plateHd; plateLooks = plateTypes.map { PlateLook.of(it) }
