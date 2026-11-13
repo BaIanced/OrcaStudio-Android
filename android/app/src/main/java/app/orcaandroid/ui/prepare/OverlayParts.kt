@@ -352,12 +352,12 @@ fun FileButton(state: UiState, vm: AppViewModel) {
 /** Found profile updates (daily check): tap installs them; shows progress meanwhile. */
 @Composable
 fun UpdatesChip(state: UiState, vm: AppViewModel) {
-    val updates = state.profileUpdates?.takeIf { it.isNotEmpty() } ?: return
-    val busy = state.profileUpdateProgress != null
+    val updates = state.device.profileUpdates?.takeIf { it.isNotEmpty() } ?: return
+    val busy = state.device.profileUpdateProgress != null
     AssistChip(
         onClick = vm.presets::installProfileUpdates,
         enabled = !busy,
-        label = { Text(if (busy) state.profileUpdateProgress.orEmpty() else pluralStringResource(R.plurals.profile_updates_chip, updates.size, updates.size), maxLines = 1) },
+        label = { Text(if (busy) state.device.profileUpdateProgress.orEmpty() else pluralStringResource(R.plurals.profile_updates_chip, updates.size, updates.size), maxLines = 1) },
         leadingIcon = {
             if (busy) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
             else Icon(Icons.Default.Download, null, Modifier.size(18.dp))

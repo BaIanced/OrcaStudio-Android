@@ -489,7 +489,7 @@ internal fun ColorPaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Pain
             vm.scene.setTool(if (tool.shape == "pick") tool.copy(shape = tool.back) else tool.copy(shape = "pick", back = tool.shape))
         }) { Icon(Icons.Default.Colorize, null, Modifier.size(24.dp)) }
         // The plate's filaments from the connected Bambu printer, without leaving the shop.
-        if (state.connection?.type == HostType.BAMBU || state.connection?.type == HostType.BAMBU_SIGNED)
+        if (state.device.connection?.type == HostType.BAMBU || state.device.connection?.type == HostType.BAMBU_SIGNED)
             Swatch(false, stringResource(R.string.sync_short), vm.presets::syncFilamentsFromPrinter) { Icon(Icons.Default.Sync, null, Modifier.size(24.dp)) }
     }
     changes?.takeIf { it.changes > 0 }?.let {

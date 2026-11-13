@@ -165,7 +165,7 @@ class FileController(
         // A project the user opens may bring its own filaments, which would undo their syncs and edits: they choose.
         val mine = s.filaments
         if (uri != null && filaments.isNotEmpty() && mine.isNotEmpty() && filaments.map { it.preset to it.color } != mine.map { it.preset to it.color }) {
-            val mode = s.projectFilaments.takeIf { it != "ask" } ?: askFilaments(mine, filaments)
+            val mode = s.device.projectFilaments.takeIf { it != "ask" } ?: askFilaments(mine, filaments)
             filaments = when (mode) {
                 "mine" -> List(filaments.size) { mine.getOrNull(it) ?: mine.last() }
                 // Both: the project's slots stay where its objects use them; mine that it lacks come after.
@@ -182,7 +182,7 @@ class FileController(
                 if (st.setup?.filaments?.any { it.name == f.preset } == true) f.copy(source = same?.source, look = same?.look, overrides = Mix.carry(f, same))
                 else f.copy(preset = st.filaments.first().preset)
             }
-            st.copy(filaments = slots, overrides = if (info.printOverrides.isEmpty()) st.overrides else st.overrides + (PresetType.PRINT to info.printOverrides))
+            st.copy(filaments = slots, device = st.device.copy(overrides = if (info.printOverrides.isEmpty()) st.device.overrides else st.device.overrides + (PresetType.PRINT to info.printOverrides)))
         }
         presets.refreshPresetValues(listOf(PresetType.FILAMENT, PresetType.PRINT))
         store.applyScene(loaded, dirty = false)
@@ -220,7 +220,7 @@ class FileController(
     fun answerFilaments(mode: String, remember: Boolean) {
         if (remember) {
             store.settings.projectFilaments = mode
-            store.update { it.copy(projectFilaments = mode) }
+            store.update { it.copy(device = it.device.copy(projectFilaments = mode)) }
         }
         store.update { it.copy(chrome = it.chrome.copy(filamentChoice = null)) }
         filamentAnswer?.complete(mode)

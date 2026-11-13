@@ -92,7 +92,7 @@ internal class PresetTools(
         val s = store.value
         return when (type) {
             PresetType.FILAMENT -> s.filaments[slot].let { it.preset to it.overrides }
-            else -> (s.presetName(type) ?: throw McpTools.ToolError("No ${label(type)} preset selected")) to s.overrides[type].orEmpty()
+            else -> (s.presetName(type) ?: throw McpTools.ToolError("No ${label(type)} preset selected")) to s.device.overrides[type].orEmpty()
         }
     }
 
@@ -195,7 +195,7 @@ internal class PresetTools(
                 if (d.enumValues.isNotEmpty()) append(", choices ").append(d.enumValues.zip(d.enumLabels + List(d.enumValues.size) { "" })
                     .joinToString { (v, l) -> if (l.isEmpty() || l == v) v else "$v ($l)" })
                 if (d.readonly) append(", read-only")
-                if (type == PresetType.PRINT && d.key in s.optionStates.disabled) append(", greyed out by other settings now")
+                if (type == PresetType.PRINT && d.key in s.device.optionStates.disabled) append(", greyed out by other settings now")
                 appendLine()
                 d.tooltip.takeIf { it.isNotEmpty() }?.let { appendLine("  " + it.replace('\n', ' ').take(TOOLTIP_CHARS)) }
             }
@@ -229,7 +229,7 @@ internal class PresetTools(
         }
         store.toast(store.str(R.string.ai_edit, "changed ${changes.size} ${label(type)} setting(s)"))
         val (_, edits) = selected(type, slot)
-        val disabled = if (type == PresetType.PRINT) store.value.optionStates.disabled else emptySet()
+        val disabled = if (type == PresetType.PRINT) store.value.device.optionStates.disabled else emptySet()
         return buildString {
             appendLine("Unsaved edits of ${label(type)} preset \"$name\" now (${edits.size}):")
             edits.forEach { (k, v) ->

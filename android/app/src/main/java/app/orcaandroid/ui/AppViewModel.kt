@@ -61,7 +61,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { awaitReady(); if (store.settings.aiTools) setAiTools(true) }
         viewModelScope.launch {
             store.container.printerStatus.collect { s ->
-                store.update { it.copy(printerStatus = s) }
+                store.update { it.copy(device = it.device.copy(printerStatus = s)) }
                 s?.nozzleDiameter?.let(presets::recordNozzle)
             }
         }
@@ -183,7 +183,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setProjectFilaments(mode: String) {
         store.settings.projectFilaments = mode
-        store.update { it.copy(projectFilaments = mode) }
+        store.update { it.copy(device = it.device.copy(projectFilaments = mode)) }
     }
 
     fun setContactShadows(on: Boolean) {
@@ -309,7 +309,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val overrides: Map<app.orcaandroid.core.PresetType, Map<String, String>>, val projectName: String?, val activePlate: Int,
     )
 
-    private fun sessionKey(s: UiState) = SessionKey(s.scene, s.printer, s.print, s.filaments, s.overrides, s.projectName, s.activePlate)
+    private fun sessionKey(s: UiState) = SessionKey(s.scene, s.printer, s.print, s.filaments, s.device.overrides, s.projectName, s.activePlate)
 
     /**
      * Saves the session every [UiState.autoSaveSeconds] while it has changed, so a crash or a killed

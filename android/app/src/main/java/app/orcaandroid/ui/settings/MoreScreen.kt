@@ -115,23 +115,23 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
                 Entry(stringResource(R.string.manage_printers), stringResource(R.string.n_printers_selected, state.selectedPrinters.size)) { vm.presets.openPrinterSetup() }
                 Entry(stringResource(R.string.filament_vendors), stringResource(R.string.filament_vendors_text)) { dialog = "vendors" }
                 if (state.supportsBedTypes) Entry(stringResource(R.string.plate_types), stringResource(R.string.plate_types_text)) { dialog = "plates" }
-                SwitchRow(stringResource(R.string.prefer_my_filaments), state.preferMyFilaments, onChange = vm.presets::setPreferMyFilaments)
+                SwitchRow(stringResource(R.string.prefer_my_filaments), state.device.preferMyFilaments, onChange = vm.presets::setPreferMyFilaments)
                 Text(stringResource(R.string.prefer_my_filaments_text), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
-                SwitchRow(stringResource(SettingPath.MIXED_TEMPS.label), state.allowMixedTemps, onChange = vm.presets::setAllowMixedTemps)
+                SwitchRow(stringResource(SettingPath.MIXED_TEMPS.label), state.device.allowMixedTemps, onChange = vm.presets::setAllowMixedTemps)
                 Text(stringResource(R.string.allow_mixed_temps_text), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
-                SwitchRow(stringResource(R.string.match_nozzle), state.matchNozzle, onChange = vm.presets::setMatchNozzle)
-                Text(stringResource(R.string.match_nozzle_text) + state.installedNozzles.entries.joinToString("") { "\n${it.key}: %.1f mm".format(it.value) },
+                SwitchRow(stringResource(R.string.match_nozzle), state.device.matchNozzle, onChange = vm.presets::setMatchNozzle)
+                Text(stringResource(R.string.match_nozzle_text) + state.device.installedNozzles.entries.joinToString("") { "\n${it.key}: %.1f mm".format(it.value) },
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 // Turning it on asks first (disclaimer); off is immediate.
-                SwitchRow(stringResource(R.string.expert_settings), state.expertSettings) { on -> if (on) dialog = "expert" else vm.presets.setExpertSettings(false) }
+                SwitchRow(stringResource(R.string.expert_settings), state.device.expertSettings) { on -> if (on) dialog = "expert" else vm.presets.setExpertSettings(false) }
                 Text(stringResource(R.string.expert_settings_text), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (state.dangerAllowed.isNotEmpty()) {
+                if (state.device.dangerAllowed.isNotEmpty()) {
                     val names = mapOf("NOZZLE_TEMP" to R.string.danger_name_nozzle_temp, "BED_TEMP" to R.string.danger_name_bed_temp,
                         "PRINTER_GEOMETRY" to R.string.danger_name_printer_geometry)
-                    val allowed = state.dangerAllowed.mapNotNull { names[it] }.map { stringResource(it) }.joinToString(", ")
+                    val allowed = state.device.dangerAllowed.mapNotNull { names[it] }.map { stringResource(it) }.joinToString(", ")
                     Entry(stringResource(R.string.danger_reset), stringResource(R.string.danger_reset_text, allowed)) { vm.presets.resetDangerAllowed() }
                 }
                 Entry(stringResource(R.string.import_presets), stringResource(R.string.import_presets_text)) { importPresets.launch(arrayOf("*/*")) }
@@ -227,7 +227,7 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
                 Text(stringResource(R.string.project_filaments), style = MaterialTheme.typography.titleSmall)
                 SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                     listOf("ask" to R.string.pf_ask, "mine" to R.string.pf_mine, "project" to R.string.pf_project, "both" to R.string.pf_both).forEachIndexed { i, (mode, label) ->
-                        SegmentedButton(state.projectFilaments == mode, { vm.setProjectFilaments(mode) }, SegmentedButtonDefaults.itemShape(i, 4)) { Text(stringResource(label), maxLines = 1) }
+                        SegmentedButton(state.device.projectFilaments == mode, { vm.setProjectFilaments(mode) }, SegmentedButtonDefaults.itemShape(i, 4)) { Text(stringResource(label), maxLines = 1) }
                     }
                 }
                 Text(stringResource(R.string.project_filaments_text), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -326,11 +326,11 @@ private fun recentPlace(context: android.content.Context, uri: String): String? 
 /** Found profile updates with Install. */
 @Composable
 private fun ProfileUpdatesCard(state: UiState, vm: AppViewModel) {
-    val updates = state.profileUpdates?.takeIf { it.isNotEmpty() } ?: return
+    val updates = state.device.profileUpdates?.takeIf { it.isNotEmpty() } ?: return
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp)) {
             updates.forEach { Text("${it.vendor}: ${it.installed} → ${it.available}", style = MaterialTheme.typography.bodySmall) }
-            val progress = state.profileUpdateProgress
+            val progress = state.device.profileUpdateProgress
             if (progress != null) {
                 Text(progress, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(top = 8.dp))
@@ -646,7 +646,7 @@ private fun FilamentVendorsDialog(state: UiState, vm: AppViewModel, onDismiss: (
     val vendors = remember(state.setup) {
         state.setup?.filaments.orEmpty().filter { it.system }.map { it.brandName }.distinct().sortedBy { it.lowercase() }
     }
-    var hidden by remember { mutableStateOf(state.hiddenFilamentVendors) }
+    var hidden by remember { mutableStateOf(state.device.hiddenFilamentVendors) }
     var query by remember { mutableStateOf("") }
     val shown = vendors.filter { it.contains(query.trim(), ignoreCase = true) }
     AlertDialog(
@@ -681,8 +681,8 @@ private fun FilamentVendorsDialog(state: UiState, vm: AppViewModel, onDismiss: (
 @Composable
 private fun PlateTypesDialog(state: UiState, vm: AppViewModel, onDismiss: () -> Unit) {
     val types = state.setup?.bedTypes.orEmpty()
-    var hidden by remember { mutableStateOf(state.hiddenBedTypes) }
-    var preferred by remember { mutableStateOf(state.preferredBedType.takeIf { it in types }.orEmpty()) }
+    var hidden by remember { mutableStateOf(state.device.hiddenBedTypes) }
+    var preferred by remember { mutableStateOf(state.device.preferredBedType.takeIf { it in types }.orEmpty()) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.plate_types)) },

@@ -84,7 +84,7 @@ import app.orcaandroid.ui.prepare.Tip
 @Composable
 fun DeviceScreen(state: UiState, vm: AppViewModel) {
     var editing by remember { mutableStateOf(false) }
-    val connection = state.connection
+    val connection = state.device.connection
     if (connection == null || !connection.isConfigured) {
         NotConnected(state, vm) { editing = true }
     } else {
@@ -107,7 +107,7 @@ private fun NotConnected(state: UiState, vm: AppViewModel, onSetup: () -> Unit) 
         horizontalAlignment = Alignment.CenterHorizontally) {
         Text(stringResource(R.string.no_connection_title), style = MaterialTheme.typography.titleLarge)
         Text(stringResource(R.string.no_connection_text, state.printer.orEmpty()), style = MaterialTheme.typography.bodyMedium)
-        state.suggestedConnection?.let { s ->
+        state.device.suggestedConnection?.let { s ->
             Button(onClick = { vm.device.setConnection(s) }) { Text(stringResource(R.string.use_preset_host, s.url)) }
         }
         OutlinedButton(onClick = onSetup) { Text(stringResource(R.string.set_up_connection)) }
@@ -117,8 +117,8 @@ private fun NotConnected(state: UiState, vm: AppViewModel, onSetup: () -> Unit) 
 /** Printer, state, temperatures and progress in one line; job controls and settings on the right. */
 @Composable
 private fun StatusBar(state: UiState, vm: AppViewModel, connection: PrinterConnection, onEdit: () -> Unit) {
-    val status = state.printerStatus
-    val error = state.printerStatusError
+    val status = state.device.printerStatus
+    val error = state.device.printerStatusError
     var confirmCancel by remember { mutableStateOf(false) }
     var showAlerts by remember { mutableStateOf(false) }
     var dismissedPrompt by rememberSaveable { mutableStateOf<String?>(null) }
@@ -270,9 +270,9 @@ private fun stateLabel(s: PrinterStatus.State) = stringResource(
 /** The printer at a glance for hosts without a web UI (Bambu): job, temperatures, loaded filaments, messages. */
 @Composable
 private fun PrinterPanel(state: UiState, vm: AppViewModel, modifier: Modifier) {
-    val status = state.printerStatus
+    val status = state.device.printerStatus
     if (status == null) {
-        val error = state.printerStatusError
+        val error = state.device.printerStatusError
         if (error == null) {
             // Hosts without a status (MKS) wait here for good, so the history stays reachable beside the spinner.
             Column(modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -286,8 +286,8 @@ private fun PrinterPanel(state: UiState, vm: AppViewModel, modifier: Modifier) {
                     Text(stringResource(R.string.status_failed, error), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
                     OutlinedButton(onClick = vm.device::refreshStatus) { Text(stringResource(R.string.retry)) }
                 }
-                val bambu = state.connection?.type.let { it == HostType.BAMBU || it == HostType.BAMBU_SIGNED }
-                if (bambu) state.connection?.let { CameraCard(it) }
+                val bambu = state.device.connection?.type.let { it == HostType.BAMBU || it == HostType.BAMBU_SIGNED }
+                if (bambu) state.device.connection?.let { CameraCard(it) }
                 PrintHistoryCard(state, vm, canReprint = true)
             }
         }
@@ -308,7 +308,7 @@ private fun PrinterPanel(state: UiState, vm: AppViewModel, modifier: Modifier) {
                 ).joinToString("  ·  "), style = MaterialTheme.typography.bodySmall)
             }
         }
-        val bambuHost = state.connection?.takeIf { it.type == HostType.BAMBU || it.type == HostType.BAMBU_SIGNED }
+        val bambuHost = state.device.connection?.takeIf { it.type == HostType.BAMBU || it.type == HostType.BAMBU_SIGNED }
         PrintHistoryCard(state, vm, canReprint = !status.isActive)
         if (bambuHost != null) PrinterControlCard(status, bambuHost.serial, vm) else PanelCard(stringResource(R.string.device_temperatures)) {
             Row(horizontalArrangement = Arrangement.spacedBy(32.dp)) {
@@ -318,8 +318,8 @@ private fun PrinterPanel(state: UiState, vm: AppViewModel, modifier: Modifier) {
         }
     }
     val traysAndAlerts: @Composable () -> Unit = {
-        val bambu = state.connection?.type.let { it == HostType.BAMBU || it == HostType.BAMBU_SIGNED }
-        if (bambu) state.connection?.let { CameraCard(it) }
+        val bambu = state.device.connection?.type.let { it == HostType.BAMBU || it == HostType.BAMBU_SIGNED }
+        if (bambu) state.device.connection?.let { CameraCard(it) }
         if (bambu || status.trays.isNotEmpty()) {
             PanelCard(stringResource(R.string.loaded_filaments)) {
                 if (status.trays.isEmpty())
@@ -433,7 +433,7 @@ private fun ConnectionDialog(state: UiState, vm: AppViewModel, onDismiss: () -> 
     // A Bambu Lab printer is only offered its own connection types (and discovered Bambu printers).
     val bambuPrinter = state.printerInfo?.isBambu == true
     val types = if (bambuPrinter) listOf(HostType.BAMBU, HostType.BAMBU_SIGNED) else HostType.entries
-    val initial = state.connection ?: state.suggestedConnection ?: PrinterConnection()
+    val initial = state.device.connection ?: state.device.suggestedConnection ?: PrinterConnection()
     var type by remember { mutableStateOf(initial.type.takeIf { it in types } ?: types.first()) }
     var url by remember { mutableStateOf(initial.url) }
     var apiKey by remember { mutableStateOf(initial.apiKey) }
@@ -472,17 +472,17 @@ private fun ConnectionDialog(state: UiState, vm: AppViewModel, onDismiss: () -> 
                     type = HostType.BAMBU_SIGNED
                     serial = p.serial
                     if (p.accessCode.isNotEmpty()) apiKey = p.accessCode
-                    state.discovered.firstOrNull { it.serial == p.serial }?.let { url = it.address }
-                    if (state.discovered.none { it.serial == p.serial } && !state.discovering) vm.device.startDiscovery()
+                    state.device.discovered.firstOrNull { it.serial == p.serial }?.let { url = it.address }
+                    if (state.device.discovered.none { it.serial == p.serial } && !state.device.discovering) vm.device.startDiscovery()
                 }
 
                 HorizontalDivider()
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.discovered_printers), Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
-                    if (state.discovering) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                    if (state.device.discovering) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                     else TextButton(onClick = vm.device::startDiscovery) { Text(stringResource(R.string.search)) }
                 }
-                state.discovered.filter { !bambuPrinter || it.type == HostType.BAMBU }.forEach { d ->
+                state.device.discovered.filter { !bambuPrinter || it.type == HostType.BAMBU }.forEach { d ->
                     Text("${d.name} · ${d.type.label}\n${d.address}", style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.fillMaxWidth().clickable {
                             // A discovered Bambu printer keeps the signed mode if the user chose it.
@@ -511,7 +511,7 @@ private fun ConnectionDialog(state: UiState, vm: AppViewModel, onDismiss: () -> 
         },
         dismissButton = {
             Row {
-                if (state.connection != null) TextButton(onClick = { onDismiss(); vm.device.setConnection(null) }) { Text(stringResource(R.string.remove)) }
+                if (state.device.connection != null) TextButton(onClick = { onDismiss(); vm.device.setConnection(null) }) { Text(stringResource(R.string.remove)) }
                 TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
             }
         },
@@ -569,10 +569,10 @@ private fun ObnCredentialsSection() {
 /** Files sent from this app, newest first, each with a one-tap reprint (not while the printer is busy). */
 @Composable
 private fun PrintHistoryCard(state: UiState, vm: AppViewModel, canReprint: Boolean) {
-    if (state.printHistory.isEmpty()) return
+    if (state.device.printHistory.isEmpty()) return
     PanelCard(stringResource(R.string.print_history)) {
         val fmt = remember { java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT, java.text.DateFormat.SHORT) }
-        state.printHistory.forEach { e ->
+        state.device.printHistory.forEach { e ->
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 val thumb = remember(e.id) { vm.device.historyThumbnail(e)?.let { android.graphics.BitmapFactory.decodeFile(it.path)?.asImageBitmap() } }
                 if (thumb != null) androidx.compose.foundation.Image(thumb, null, Modifier.size(48.dp))

@@ -172,14 +172,14 @@ private fun PresetsTab(state: UiState, vm: AppViewModel) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         PickerField(stringResource(R.string.printer), state.printer,
             presetItems(state.visiblePrinters, userGroup, vendorGroup, { it.name }, { it.system }) { listOf(it.vendor) },
-            vm.presets::selectPrinter, Modifier.weight(1f), modified = state.overrides[PresetType.PRINTER].orEmpty().isNotEmpty(),
+            vm.presets::selectPrinter, Modifier.weight(1f), modified = state.device.overrides[PresetType.PRINTER].orEmpty().isNotEmpty(),
             openGroups = setOf(userGroup))
         Tip(stringResource(R.string.edit)) { IconButton(onClick = { vm.presets.openEditor(EditorTarget.Preset(PresetType.PRINTER)) }) { Icon(Icons.Default.Edit, stringResource(R.string.edit)) } }
     }
     TextButton(onClick = vm.presets::openPrinterSetup) { Text(stringResource(R.string.manage_printers)) }
     // Like the desktop's nozzle check: the connected printer reported another nozzle than this preset's.
     val installed = state.nozzleMismatch
-    if (installed != null && state.matchNozzle) {
+    if (installed != null && state.device.matchNozzle) {
         val model = state.printerInfo?.model
         val match = state.visiblePrinters.firstOrNull { it.model == model && it.name != state.printer && state.nozzleFits(it) }
         Text(stringResource(R.string.nozzle_mismatch, "%.1f".format(installed)), style = MaterialTheme.typography.bodySmall,
@@ -198,9 +198,9 @@ private fun PresetsTab(state: UiState, vm: AppViewModel) {
         if (!filamentsOpen) state.filaments.forEach { ColorDot(it.color, 16) }
         else {
             androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
-            val label = stringResource(if (state.filamentTiles) R.string.filament_view_list else R.string.filament_view_tiles)
-            Tip(label) { IconButton(onClick = { vm.presets.setFilamentTiles(!state.filamentTiles) }, modifier = Modifier.size(32.dp)) {
-                Icon(if (state.filamentTiles) Icons.AutoMirrored.Filled.ViewList else Icons.Default.GridView, label, Modifier.size(20.dp))
+            val label = stringResource(if (state.device.filamentTiles) R.string.filament_view_list else R.string.filament_view_tiles)
+            Tip(label) { IconButton(onClick = { vm.presets.setFilamentTiles(!state.device.filamentTiles) }, modifier = Modifier.size(32.dp)) {
+                Icon(if (state.device.filamentTiles) Icons.AutoMirrored.Filled.ViewList else Icons.Default.GridView, label, Modifier.size(20.dp))
             } }
         }
     }
@@ -210,7 +210,7 @@ private fun PresetsTab(state: UiState, vm: AppViewModel) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         PickerField(stringResource(R.string.process), state.print,
             presetItems(setup?.prints.orEmpty(), userGroup, vendorGroup, { it.name }, { it.system }) { listOf(it.vendor.ifEmpty { "System" }) },
-            vm.presets::selectPrint, Modifier.weight(1f), modified = state.overrides[PresetType.PRINT].orEmpty().isNotEmpty(),
+            vm.presets::selectPrint, Modifier.weight(1f), modified = state.device.overrides[PresetType.PRINT].orEmpty().isNotEmpty(),
             openGroups = setOf(userGroup))
         Tip(stringResource(R.string.edit)) { IconButton(onClick = { vm.presets.openEditor(EditorTarget.Preset(PresetType.PRINT)) }) { Icon(Icons.Default.Tune, stringResource(R.string.edit)) } }
     }
@@ -234,7 +234,7 @@ private fun FilamentSlots(state: UiState, vm: AppViewModel, userGroup: String, v
                     TextButton(onClick = { picked = state.filaments.indices.toSet() }) { Text(stringResource(R.string.select_all)) }
                     TextButton(onClick = { picked = emptySet() }) { Text(stringResource(R.string.cancel)) }
                 }
-                val all = setup?.filaments.orEmpty().filter { it.system.not() || it.brandName !in state.hiddenFilamentVendors || sel.any { s -> state.filaments[s].preset == it.name } }
+                val all = setup?.filaments.orEmpty().filter { it.system.not() || it.brandName !in state.device.hiddenFilamentVendors || sel.any { s -> state.filaments[s].preset == it.name } }
                 val common = sel.map { state.filaments[it].preset }.distinct().singleOrNull() ?: ""
                 PickerField(stringResource(R.string.filament), common,
                     presetItems(all, userGroup, vendorGroup, { it.name }, { it.system }, { it.color }) { listOf(it.brandName, it.type.ifEmpty { "?" }) },
@@ -242,7 +242,7 @@ private fun FilamentSlots(state: UiState, vm: AppViewModel, userGroup: String, v
             }
         }
     }
-    if (state.filamentTiles) FilamentTiles(state, vm, userGroup, vendorGroup, problems, sel) { i -> picked = if (i in sel) sel - i else sel + i }
+    if (state.device.filamentTiles) FilamentTiles(state, vm, userGroup, vendorGroup, problems, sel) { i -> picked = if (i in sel) sel - i else sel + i }
     else state.filaments.forEachIndexed { i, slot ->
         var colorDialog by remember { mutableStateOf(false) }
         val problem = problems[i]
@@ -255,7 +255,7 @@ private fun FilamentSlots(state: UiState, vm: AppViewModel, userGroup: String, v
             .slotSelectGesture(sel.isNotEmpty()) { picked = if (i in sel) sel - i else sel + i },
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             IconButton(onClick = { colorDialog = true }, modifier = Modifier.size(36.dp)) { ColorDot(slot.color, 22) }
-            val filaments = setup?.filaments.orEmpty().filter { it.system.not() || it.brandName !in state.hiddenFilamentVendors || it.name == slot.preset }
+            val filaments = setup?.filaments.orEmpty().filter { it.system.not() || it.brandName !in state.device.hiddenFilamentVendors || it.name == slot.preset }
             val items = presetItems(filaments, userGroup, vendorGroup, { it.name }, { it.system }, { it.color }) { listOf(it.brandName, it.type.ifEmpty { "?" }) }
             PickerField("${i + 1}", slot.preset, items,
                 { vm.presets.setFilament(i, it) }, Modifier.weight(1f), modified = slot.overrides.isNotEmpty(), openGroups = setOf(userGroup))
@@ -308,7 +308,7 @@ private fun FilamentSlots(state: UiState, vm: AppViewModel, userGroup: String, v
     if (newMix) MixDialog(state.filaments, state.filaments.size, state.value(PresetType.PRINT, "enable_mixed_color_sublayer") == "1",
         { parts, sub -> if (parts != null) vm.presets.addMix(parts, sub) }) { newMix = false }
     // Like the desktop's filament sync: take the slots from what the connected Bambu printer has loaded.
-    if (state.connection?.type == HostType.BAMBU || state.connection?.type == HostType.BAMBU_SIGNED) {
+    if (state.device.connection?.type == HostType.BAMBU || state.device.connection?.type == HostType.BAMBU_SIGNED) {
         OutlinedButton(onClick = vm.presets::syncFilamentsFromPrinter) { Icon(Icons.Default.Sync, null); Text(stringResource(R.string.sync_filaments)) }
     }
     if (state.filaments.size > 1) WipeTowerRow(state, vm)
@@ -344,7 +344,7 @@ private fun FilamentTiles(state: UiState, vm: AppViewModel, userGroup: String, v
 private fun FilamentTile(state: UiState, vm: AppViewModel, i: Int, userGroup: String, vendorGroup: String, problem: SetupProblem?,
                          selected: Boolean, selecting: Boolean, toggle: (Int) -> Unit, modifier: Modifier) {
     val slot = state.filaments[i]
-    val filaments = state.setup?.filaments.orEmpty().filter { it.system.not() || it.brandName !in state.hiddenFilamentVendors || it.name == slot.preset }
+    val filaments = state.setup?.filaments.orEmpty().filter { it.system.not() || it.brandName !in state.device.hiddenFilamentVendors || it.name == slot.preset }
     val ref = filaments.firstOrNull { it.name == slot.preset }
     var picker by remember { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }

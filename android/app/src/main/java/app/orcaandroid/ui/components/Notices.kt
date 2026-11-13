@@ -84,9 +84,9 @@ fun Notices(state: UiState, vm: AppViewModel, modifier: Modifier = Modifier) {
         if (state.chrome.screen == Screen.PREVIEW && result != null && result.warnings.isNotEmpty()) {
             add(Notice("warn:${state.slicing.previewPlate}:${result.gcodeFile}:${result.warnings.hashCode()}", stringResource(R.string.notice_slicer_warnings),
                 // Mixed temperatures the user has allowed are only a heads-up (as in the preview panel).
-                result.warnings.map { Line(vm.translator.tr(it), !(state.allowMixedTemps && it.startsWith("Selected nozzle temperatures are incompatible")), noticeFix(it)) }))
+                result.warnings.map { Line(vm.translator.tr(it), !(state.device.allowMixedTemps && it.startsWith("Selected nozzle temperatures are incompatible")), noticeFix(it)) }))
         }
-        val alerts = state.printerStatus?.alerts.orEmpty()
+        val alerts = state.device.printerStatus?.alerts.orEmpty()
         if (alerts.isNotEmpty()) {
             add(Notice("printer:" + alerts.joinToString { it.code }, stringResource(R.string.notice_printer),
                 alerts.map { Line(it.text ?: stringResource(R.string.printer_error_code, it.display), true) }, NoticeFix.Go(Screen.DEVICE)))

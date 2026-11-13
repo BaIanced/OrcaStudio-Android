@@ -143,7 +143,7 @@ private fun Summary(state: UiState, vm: AppViewModel, r: SliceResult) {
             }
             // Mixed temperatures the user has allowed are only a heads-up (upstream returns it as a warning), not an error.
             r.warnings.forEach {
-                val allowed = state.allowMixedTemps && it.startsWith("Selected nozzle temperatures are incompatible")
+                val allowed = state.device.allowMixedTemps && it.startsWith("Selected nozzle temperatures are incompatible")
                 Text(vm.translator.tr(it), color = if (allowed) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
             }
         }
@@ -157,8 +157,8 @@ private fun Actions(state: UiState, vm: AppViewModel, r: SliceResult) {
     val saveGcode = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/x.gcode")) { it?.let(vm.files::saveGcode) }
     val save3mf = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("model/3mf")) { it?.let(vm.files::saveGcode3mf) }
     var menu by remember { mutableStateOf(false) }
-    val connection = state.connection
-    val upload = state.upload
+    val connection = state.device.connection
+    val upload = state.device.upload
 
     if (connection?.isConfigured == true && connection.type.canUpload) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -175,8 +175,8 @@ private fun Actions(state: UiState, vm: AppViewModel, r: SliceResult) {
         else stringResource(R.string.connect_printer)
         OutlinedButton(onClick = { vm.setScreen(Screen.DEVICE) }, modifier = Modifier.fillMaxWidth()) { Text(label) }
     }
-    state.amsPrompt?.let { AmsMappingDialog(it, vm) }
-    state.mismatchPrompt?.let { MismatchDialog(it, vm) }
+    state.device.amsPrompt?.let { AmsMappingDialog(it, vm) }
+    state.device.mismatchPrompt?.let { MismatchDialog(it, vm) }
     when (upload) {
         is UploadState.Running -> LinearProgressIndicator(progress = { upload.progress }, modifier = Modifier.fillMaxWidth())
         is UploadState.Done -> {

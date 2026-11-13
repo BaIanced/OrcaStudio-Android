@@ -90,7 +90,7 @@ class SliceController(private val store: Store, private val presets: PresetContr
             val delta = before?.let { SliceDelta(plate, result.printTimeSeconds - it.seconds, result.filamentGrams - it.grams) }
             store.update {
                 val shown = if (waited) it.copy(
-                    slicing = it.slicing.copy(previewPlate = plate, external = null, preview = it.slicing.preview.showingAll(result.layers.lastIndex)), upload = null,
+                    slicing = it.slicing.copy(previewPlate = plate, external = null, preview = it.slicing.preview.showingAll(result.layers.lastIndex)), device = it.device.copy(upload = null),
                     chrome = it.chrome.copy(screen = Screen.PREVIEW))
                 // In the background the preview only follows when nobody is looking at another plate's.
                 else if (it.chrome.screen != Screen.PREVIEW || it.slicing.previewPlate == plate) it.copy(slicing = it.slicing.copy(previewPlate = plate,
@@ -129,7 +129,7 @@ class SliceController(private val store: Store, private val presets: PresetContr
         val filaments: List<app.orcaandroid.core.FilamentSlot>, val overrides: Map<app.orcaandroid.core.PresetType, Map<String, String>>,
         val project: String?)
 
-    private fun editKey(s: UiState, plate: Int) = EditKey(plate, s.scene, s.printer, s.print, s.filaments, s.overrides, s.projectName)
+    private fun editKey(s: UiState, plate: Int) = EditKey(plate, s.scene, s.printer, s.print, s.filaments, s.device.overrides, s.projectName)
 
     private data class SliceSummary(val project: String?, val seconds: Double, val grams: Double)
 

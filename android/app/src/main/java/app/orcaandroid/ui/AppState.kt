@@ -238,6 +238,48 @@ data class ChromeState(
     val crashReport: String? = null,
 )
 
+/** Printer link, jobs and preset policy fields of [UiState], read as `state.device.x`. */
+data class DeviceState(
+    val connection: PrinterConnection? = null,
+    val suggestedConnection: PrinterConnection? = null,
+    val upload: UploadState? = null,
+    val amsPrompt: AmsPrompt? = null,
+    val mismatchPrompt: MismatchPrompt? = null,
+    val printerStatus: PrinterStatus? = null,
+    /** Why the last status request failed, shown instead of waiting forever. */
+    val printerStatusError: String? = null,
+    val discovered: List<DiscoveredPrinter> = emptyList(),
+    val discovering: Boolean = false,
+    /** Files sent to a printer, newest first (Device tab). */
+    val printHistory: List<PrintHistoryEntry> = emptyList(),
+    /** Option values of the selected presets (filament: of the active slot). */
+    val presetValues: Map<PresetType, Map<String, String>> = emptyMap(),
+    /** Unsaved edits of the process and printer presets (filament edits live in the slots). */
+    val overrides: Map<PresetType, Map<String, String>> = emptyMap(),
+    val optionStates: OptionStates = OptionStates(),
+    val hiddenFilamentVendors: Set<String> = emptySet(),
+    /** Process option keys shown on the main view under the process picker (see AppSettings.pinnedSettings). */
+    val pinnedSettings: List<String> = emptyList(),
+    /** Plate types left out of the plate type pickers, and the user's default one ("" = the printer's). */
+    val hiddenBedTypes: Set<String> = emptySet(),
+    val preferredBedType: String = "",
+    /** AMS sync and new slots take the user's own filament preset saved from a system one (switchable). */
+    val preferMyFilaments: Boolean = true,
+    val allowMixedTemps: Boolean = false,
+    /** Risky-setting rules allowed for good, and whether every slicer option shows (More > Expert settings). */
+    val dangerAllowed: Set<String> = emptySet(),
+    val expertSettings: Boolean = false,
+    /** Printer presets with another nozzle than the model's [installedNozzles] entry are hidden (switchable). */
+    val matchNozzle: Boolean = true,
+    val filamentTiles: Boolean = true,
+    val installedNozzles: Map<String, Float> = emptyMap(),
+    /** What an opened project does to the filament slots ("ask", "project", "mine") and the question being asked. */
+    val projectFilaments: String = "ask",
+    val profileUpdates: List<ResourceStore.ProfileUpdate>? = null,
+    /** Progress text while profile updates install in the background; null when idle. */
+    val profileUpdateProgress: String? = null,
+)
+
 data class UiState(
     /** Where the 3D view's context menu is open (view pixels), or null. */
     val contextMenu: Pair<Float, Float>? = null,
@@ -251,8 +293,6 @@ data class UiState(
     /** An add dialog asked for by a shortcut ("text" for T), shown by the 3D view's context menu host. */
     val addDialog: String? = null,
     val pen: app.orcaandroid.core.PenConfig = app.orcaandroid.core.PenConfig(),
-    /** What an opened project does to the filament slots ("ask", "project", "mine") and the question being asked. */
-    val projectFilaments: String = "ask",
     /** 3D view contact shadows. */
     val contactShadows: Boolean = true,
     /** 3D view realistic render mode (physically based shading, studio lighting). */
@@ -288,27 +328,6 @@ data class UiState(
     val filaments: List<FilamentSlot> = emptyList(),
     /** Filament slot shown in the settings editor. */
     val activeFilament: Int = 0,
-    /** Option values of the selected presets (filament: of the active slot). */
-    val presetValues: Map<PresetType, Map<String, String>> = emptyMap(),
-    /** Unsaved edits of the process and printer presets (filament edits live in the slots). */
-    val overrides: Map<PresetType, Map<String, String>> = emptyMap(),
-    val optionStates: OptionStates = OptionStates(),
-    val hiddenFilamentVendors: Set<String> = emptySet(),
-    /** Process option keys shown on the main view under the process picker (see AppSettings.pinnedSettings). */
-    val pinnedSettings: List<String> = emptyList(),
-    /** Plate types left out of the plate type pickers, and the user's default one ("" = the printer's). */
-    val hiddenBedTypes: Set<String> = emptySet(),
-    val preferredBedType: String = "",
-    /** AMS sync and new slots take the user's own filament preset saved from a system one (switchable). */
-    val preferMyFilaments: Boolean = true,
-    val allowMixedTemps: Boolean = false,
-    /** Risky-setting rules allowed for good, and whether every slicer option shows (More > Expert settings). */
-    val dangerAllowed: Set<String> = emptySet(),
-    val expertSettings: Boolean = false,
-    /** Printer presets with another nozzle than the model's [installedNozzles] entry are hidden (switchable). */
-    val matchNozzle: Boolean = true,
-    val filamentTiles: Boolean = true,
-    val installedNozzles: Map<String, Float> = emptyMap(),
 
     // Scene
     val scene: Scene = Scene(),
@@ -348,28 +367,10 @@ data class UiState(
     /** Unsaved changes since the project was opened/saved. */
     val projectDirty: Boolean = false,
 
-
-    // Device
-    val connection: PrinterConnection? = null,
-    val suggestedConnection: PrinterConnection? = null,
-    val upload: UploadState? = null,
-    val amsPrompt: AmsPrompt? = null,
-    val mismatchPrompt: MismatchPrompt? = null,
-    val printerStatus: PrinterStatus? = null,
-    /** Why the last status request failed, shown instead of waiting forever. */
-    val printerStatusError: String? = null,
-    val discovered: List<DiscoveredPrinter> = emptyList(),
-    val discovering: Boolean = false,
-
-    // Files and updates
-    /** Files sent to a printer, newest first (Device tab). */
-    val printHistory: List<PrintHistoryEntry> = emptyList(),
-    val profileUpdates: List<ResourceStore.ProfileUpdate>? = null,
-    /** Progress text while profile updates install in the background; null when idle. */
-    val profileUpdateProgress: String? = null,
     val design: DesignState = DesignState(),
     val slicing: SliceState = SliceState(),
     val chrome: ChromeState = ChromeState(),
+    val device: DeviceState = DeviceState(),
 ) {
     fun presetName(type: PresetType) = when (type) {
         PresetType.PRINT -> print
@@ -378,10 +379,10 @@ data class UiState(
     }
 
     fun overridesOf(type: PresetType): Map<String, String> =
-        if (type == PresetType.FILAMENT) filaments.getOrNull(activeFilament)?.overrides.orEmpty() else overrides[type].orEmpty()
+        if (type == PresetType.FILAMENT) filaments.getOrNull(activeFilament)?.overrides.orEmpty() else device.overrides[type].orEmpty()
 
     /** Effective value of an option: the unsaved edit if any, else the preset's value. */
-    fun value(type: PresetType, key: String): String? = overridesOf(type)[key] ?: presetValues[type]?.get(key)
+    fun value(type: PresetType, key: String): String? = overridesOf(type)[key] ?: device.presetValues[type]?.get(key)
 
     fun isModified(type: PresetType, key: String) = overridesOf(type).containsKey(key)
 
@@ -391,12 +392,12 @@ data class UiState(
      */
     val visiblePrinters: List<PrinterInfo>
         get() = (if (selectedPrinters.isEmpty()) printers else printers.filter { !it.system || it.key in selectedPrinters })
-            .filter { it.name == printer || !matchNozzle || nozzleFits(it) }
+            .filter { it.name == printer || !device.matchNozzle || nozzleFits(it) }
 
-    fun nozzleFits(p: PrinterInfo) = installedNozzles[p.model]?.let { kotlin.math.abs(it - p.nozzle) < 1e-3 } ?: true
+    fun nozzleFits(p: PrinterInfo) = device.installedNozzles[p.model]?.let { kotlin.math.abs(it - p.nozzle) < 1e-3 } ?: true
 
     /** The selected printer preset's nozzle differs from the one installed in that printer, which is [Float]. */
-    val nozzleMismatch: Float? get() = printerInfo?.takeIf { !nozzleFits(it) }?.let { installedNozzles[it.model] }
+    val nozzleMismatch: Float? get() = printerInfo?.takeIf { !nozzleFits(it) }?.let { device.installedNozzles[it.model] }
 
     val selectedObject get() = selection?.let { scene.objects.getOrNull(it.obj) }
 
@@ -440,7 +441,7 @@ data class UiState(
     fun bedTypeOf(plate: Int): String? = scene.plates.getOrNull(plate)?.bedType?.ifEmpty { null } ?: setup?.defaultBedType
 
     /** Plate types the pickers offer: the visible ones, plus [current] even when hidden. */
-    fun bedTypeChoices(current: String?): List<String> = setup?.bedTypes.orEmpty().filter { it !in hiddenBedTypes || it == current }
+    fun bedTypeChoices(current: String?): List<String> = setup?.bedTypes.orEmpty().filter { it !in device.hiddenBedTypes || it == current }
 
     val selectedPrinterKeys get() = printers.filter { it.name == printer }.map { printerKey(it.model, it.nozzle) }
 

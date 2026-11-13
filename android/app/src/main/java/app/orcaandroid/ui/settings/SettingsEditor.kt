@@ -235,8 +235,8 @@ private fun EditorFrame(
     // Process options of the preset itself can be pinned to the main view (not per-object ones).
     val pinnable = !objectMode && type == PresetType.PRINT
     // An object's editor greys out by the object's own settings (support enabled there, not in the process).
-    val optionStates by produceState(state.optionStates, objectSettings, state.optionStates) {
-        value = objectSettings?.let { s -> runCatching { vm.presets.objectOptionStates(s) }.getOrNull() } ?: state.optionStates
+    val optionStates by produceState(state.device.optionStates, objectSettings, state.device.optionStates) {
+        value = objectSettings?.let { s -> runCatching { vm.presets.objectOptionStates(s) }.getOrNull() } ?: state.device.optionStates
     }
     var defs by remember(type) { mutableStateOf<Map<String, OptionDef>>(emptyMap()) }
     LaunchedEffect(type) {
@@ -254,7 +254,7 @@ private fun EditorFrame(
     var pendingDanger by remember { mutableStateOf<Triple<String, String, DangerRule>?>(null) }
     var resetTick by remember { mutableIntStateOf(0) }
     val guardedSet: (String, String) -> Unit = { key, v ->
-        val rule = dangerRule(type, key, v)?.takeIf { it.name !in state.dangerAllowed }
+        val rule = dangerRule(type, key, v)?.takeIf { it.name !in state.device.dangerAllowed }
         if (rule == null) source.set(key, v) else pendingDanger = Triple(key, v, rule)
     }
     pendingDanger?.let { (key, v, rule) ->
@@ -265,7 +265,7 @@ private fun EditorFrame(
     }
     // Without Expert settings: Simple/Advanced options only, and a vendor printer's fixed hardware stays hidden.
     // Changed options and the one a link points at always show, so they can be traced and reset.
-    val expert = state.expertSettings
+    val expert = state.device.expertSettings
     val vendorPrinter = type == PresetType.PRINTER && !objectMode &&
         state.printers.firstOrNull { it.name == state.printer }?.let { it.system || it.base.isNotEmpty() } == true
     fun allowed(def: OptionDef) = expert || shownWithoutExpert(type, def.key, def.mode, vendorPrinter) || source.isModified(def.key) || def.key == focus
@@ -385,7 +385,7 @@ private fun EditorFrame(
                             androidx.compose.runtime.key(resetTick) {
                                 OptionRow(def, rows[def.key], source.value(def.key).orEmpty(), source.isModified(def.key), def.key !in optionStates.disabled,
                                     wide, tr, { guardedSet(def.key, it) }, { source.reset(def.key) },
-                                    pinned = if (pinnable) def.key in state.pinnedSettings else null, pinToggle = pinMode) { vm.presets.togglePinned(def.key) }
+                                    pinned = if (pinnable) def.key in state.device.pinnedSettings else null, pinToggle = pinMode) { vm.presets.togglePinned(def.key) }
                             }
                         }
                     }
@@ -719,7 +719,7 @@ private fun escape(s: String): String =
 @Composable
 internal fun PinnedSettings(state: UiState, vm: AppViewModel) {
     val type = PresetType.PRINT
-    val pins = state.pinnedSettings
+    val pins = state.device.pinnedSettings
     if (pins.isNotEmpty()) {
         var defs by remember { mutableStateOf<Map<String, OptionDef>>(emptyMap()) }
         LaunchedEffect(state.setup != null) { runCatching { vm.presets.optionDefs(type) }.onSuccess { l -> defs = l.associateBy { it.key } } }
@@ -727,7 +727,7 @@ internal fun PinnedSettings(state: UiState, vm: AppViewModel) {
         val rows = remember(pages) { pages.rowLabels() }
         val groupOf = remember(pages) { pages.flatMap { p -> p.groups.flatMap { g -> g.options.map { it to g.title } } }.toMap() }
         var resetTick by remember { mutableIntStateOf(0) }
-        val hidden = state.optionStates.hidden
+        val hidden = state.device.optionStates.hidden
         pins.forEach { key ->
             val def = defs[key] ?: return@forEach
             val value = state.value(type, key)
@@ -736,9 +736,9 @@ internal fun PinnedSettings(state: UiState, vm: AppViewModel) {
                 // Out of its group the short label is too bare ("Default" of Line width): use the full one.
                 val own = def.fullLabel.ifEmpty { def.label }
                 val label = if (rows[key] == null && own.equals("Default", true)) groupOf[key]?.let { "$it · $own" } ?: own else own
-                OptionRow(def.copy(label = label), rows[key], value, state.isModified(type, key), key !in state.optionStates.disabled, false, vm.translator,
+                OptionRow(def.copy(label = label), rows[key], value, state.isModified(type, key), key !in state.device.optionStates.disabled, false, vm.translator,
                     { v ->
-                        if (dangerRule(type, key, v)?.takeIf { it.name !in state.dangerAllowed } == null) vm.presets.setOption(type, key, v)
+                        if (dangerRule(type, key, v)?.takeIf { it.name !in state.device.dangerAllowed } == null) vm.presets.setOption(type, key, v)
                         else { resetTick++; vm.presets.openEditor(EditorTarget.Preset(type, focus = key)) }
                     },
                     { vm.presets.resetOption(type, key) }, pinned = true) { vm.presets.togglePinned(key) }

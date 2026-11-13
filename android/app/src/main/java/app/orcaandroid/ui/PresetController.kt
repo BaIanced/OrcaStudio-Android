@@ -50,21 +50,21 @@ class PresetController(private val store: Store, private val device: DeviceContr
     fun recordNozzle(diameter: Float) {
         val s = store.value
         val model = s.printerInfo?.model?.takeIf { it.isNotEmpty() } ?: return
-        if (s.connection?.type != HostType.BAMBU && s.connection?.type != HostType.BAMBU_SIGNED) return
-        if (s.installedNozzles[model] == diameter) return
-        val nozzles = s.installedNozzles + (model to diameter)
+        if (s.device.connection?.type != HostType.BAMBU && s.device.connection?.type != HostType.BAMBU_SIGNED) return
+        if (s.device.installedNozzles[model] == diameter) return
+        val nozzles = s.device.installedNozzles + (model to diameter)
         settings.installedNozzles = nozzles
-        store.update { it.copy(installedNozzles = nozzles) }
+        store.update { it.copy(device = it.device.copy(installedNozzles = nozzles)) }
     }
 
     fun setFilamentTiles(on: Boolean) {
         settings.filamentTiles = on
-        store.update { it.copy(filamentTiles = on) }
+        store.update { it.copy(device = it.device.copy(filamentTiles = on)) }
     }
 
     fun setMatchNozzle(on: Boolean) {
         settings.matchNozzle = on
-        store.update { it.copy(matchNozzle = on) }
+        store.update { it.copy(device = it.device.copy(matchNozzle = on)) }
     }
 
     /** Plate types shown in the pickers and the default of plates without their own ("" = the printer's). */
@@ -72,29 +72,29 @@ class PresetController(private val store: Store, private val device: DeviceContr
         settings.hiddenBedTypes = hidden
         settings.preferredBedType = preferred
         val default = engine.setDefaultBedType(preferred)
-        store.update { s -> s.copy(hiddenBedTypes = hidden, preferredBedType = preferred, setup = s.setup?.copy(defaultBedType = default)) }
+        store.update { s -> s.copy(device = s.device.copy(hiddenBedTypes = hidden, preferredBedType = preferred), setup = s.setup?.copy(defaultBedType = default)) }
     }
 
     /** Makes [bedType] the default of plates without their own type (and keeps it shown in the pickers). */
     suspend fun rememberBedType(bedType: String) {
         if (bedType == settings.preferredBedType) return
-        val hidden = store.value.hiddenBedTypes - bedType
+        val hidden = store.value.device.hiddenBedTypes - bedType
         settings.preferredBedType = bedType
         settings.hiddenBedTypes = hidden
         val default = engine.setDefaultBedType(bedType)
-        store.update { s -> s.copy(hiddenBedTypes = hidden, preferredBedType = bedType, setup = s.setup?.copy(defaultBedType = default)) }
+        store.update { s -> s.copy(device = s.device.copy(hiddenBedTypes = hidden, preferredBedType = bedType), setup = s.setup?.copy(defaultBedType = default)) }
     }
 
     /** Pins a process option to the main view, or unpins it. */
     fun togglePinned(key: String) {
-        val now = store.value.pinnedSettings.let { if (key in it) it - key else it + key }
+        val now = store.value.device.pinnedSettings.let { if (key in it) it - key else it + key }
         settings.pinnedSettings = now
-        store.update { it.copy(pinnedSettings = now) }
+        store.update { it.copy(device = it.device.copy(pinnedSettings = now)) }
     }
 
     fun setHiddenFilamentVendors(vendors: Set<String>) {
         settings.hiddenFilamentVendors = vendors
-        store.update { it.copy(hiddenFilamentVendors = vendors) }
+        store.update { it.copy(device = it.device.copy(hiddenFilamentVendors = vendors)) }
     }
 
     /** Reloads all presets and selects a printer: a newly added one, the last used, or any 0.4 mm one. */
@@ -141,7 +141,7 @@ class PresetController(private val store: Store, private val device: DeviceContr
         val fils = withColors((given ?: saved).filter { f -> setup.filaments.any { it.name == f.preset } }
             .ifEmpty { listOf(FilamentSlot(setup.defaultFilament)) })
         store.update {
-            it.copy(printer = name, setup = setup, print = p, filaments = fils, activeFilament = 0, overrides = emptyMap(), slicing = it.slicing.copy(results = emptyMap()))
+            it.copy(printer = name, setup = setup, print = p, filaments = fils, activeFilament = 0, device = it.device.copy(overrides = emptyMap()), slicing = it.slicing.copy(results = emptyMap()))
         }
         refreshPresetValues(PresetType.entries)
         device.refreshConnection()
@@ -151,9 +151,9 @@ class PresetController(private val store: Store, private val device: DeviceContr
     /** Reads the option values of the selected presets of [types] and pushes the selection to the engine. */
     suspend fun refreshPresetValues(types: Collection<PresetType>) {
         val s = store.value
-        val values = s.presetValues.toMutableMap()
+        val values = s.device.presetValues.toMutableMap()
         for (type in types) s.presetName(type)?.let { values[type] = engine.presetValues(type, it) }
-        store.update { it.copy(presetValues = values) }
+        store.update { it.copy(device = it.device.copy(presetValues = values)) }
         syncSelection()
         refreshOptionStates()
     }
@@ -163,14 +163,14 @@ class PresetController(private val store: Store, private val device: DeviceContr
         val s = store.value
         val print = s.print ?: return
         if (s.filaments.isEmpty()) return
-        engine.setSelection(print, s.filaments, s.overrides[PresetType.PRINTER].orEmpty() + s.overrides[PresetType.PRINT].orEmpty())
+        engine.setSelection(print, s.filaments, s.device.overrides[PresetType.PRINTER].orEmpty() + s.device.overrides[PresetType.PRINT].orEmpty())
     }
 
     /** Greyed-out / hidden options of an object / part / range editor with [settings] (desktop ObjectSettings rules). */
     suspend fun objectOptionStates(settings: Map<String, String>): OptionStates = engine.optionStates(settings)
 
     private suspend fun refreshOptionStates() {
-        runCatching { engine.optionStates() }.onSuccess { st -> store.update { it.copy(optionStates = st) } }
+        runCatching { engine.optionStates() }.onSuccess { st -> store.update { it.copy(device = it.device.copy(optionStates = st)) } }
     }
 
     fun selectPrint(name: String) = store.launch { selectPrintNow(name) }
@@ -192,28 +192,28 @@ class PresetController(private val store: Store, private val device: DeviceContr
     /** [rule] no longer asks, in any project ("Always" in the risky-setting dialog). */
     fun allowDanger(rule: String) {
         settings.dangerAllowed = settings.dangerAllowed + rule
-        store.update { it.copy(dangerAllowed = settings.dangerAllowed) }
+        store.update { it.copy(device = it.device.copy(dangerAllowed = settings.dangerAllowed)) }
     }
 
     fun resetDangerAllowed() {
         settings.dangerAllowed = emptySet()
-        store.update { it.copy(dangerAllowed = emptySet()) }
+        store.update { it.copy(device = it.device.copy(dangerAllowed = emptySet())) }
     }
 
     fun setExpertSettings(on: Boolean) {
         settings.expertSettings = on
-        store.update { it.copy(expertSettings = on) }
+        store.update { it.copy(device = it.device.copy(expertSettings = on)) }
     }
 
     fun setAllowMixedTemps(on: Boolean) = store.launch {
         settings.allowMixedTemps = on
         engine.setAllowMixedTemperatures(on)
-        store.update { it.copy(allowMixedTemps = on) }
+        store.update { it.copy(device = it.device.copy(allowMixedTemps = on)) }
     }
 
     fun setPreferMyFilaments(on: Boolean) {
         settings.preferMyFilaments = on
-        store.update { it.copy(preferMyFilaments = on) }
+        store.update { it.copy(device = it.device.copy(preferMyFilaments = on)) }
     }
     fun addFilament() = updateFilaments { list -> list + FilamentSlot(list.last().preset, nextColor(list.size)) }
     /** Sets the number of filament slots: new ones copy the last preset with the next colour, extra ones go from the end (at least one stays). */
@@ -287,7 +287,7 @@ class PresetController(private val store: Store, private val device: DeviceContr
         // One slot per tray, in order. A tray that still reports the filament and colour it had when the user
         // picked a preset for it keeps that pick; a changed tray (another spool: RFID, or set on the printer)
         // takes the sync's preset and the old pick is dropped. Never-picked trays keep the sync's preset.
-        val serial = store.value.connection?.serial.orEmpty()
+        val serial = store.value.device.connection?.serial.orEmpty()
         val available = store.value.setup?.filaments.orEmpty()
         val picks = settings.trayPicks.toMutableMap()
         val types = available.associate { it.name to it.type }
@@ -420,7 +420,7 @@ class PresetController(private val store: Store, private val device: DeviceContr
 
     /** Sets an option; setting it back to the preset's value drops the edit. */
     fun setOption(type: PresetType, key: String, value: String) = editOverrides(type) { current ->
-        val isDefault = store.value.presetValues[type]?.get(key) == value
+        val isDefault = store.value.device.presetValues[type]?.get(key) == value
         if (isDefault) current - key else current + (key to value)
     }
 
@@ -439,7 +439,7 @@ class PresetController(private val store: Store, private val device: DeviceContr
             if (type == PresetType.FILAMENT) {
                 s.copy(filaments = s.filaments.mapIndexed { i, f -> if (i == slot) f.copy(overrides = edit(f.overrides)) else f }, slicing = s.slicing.copy(results = emptyMap()))
             } else {
-                s.copy(overrides = s.overrides + (type to edit(s.overrides[type].orEmpty())), slicing = s.slicing.copy(results = emptyMap()))
+                s.copy(device = s.device.copy(overrides = s.device.overrides + (type to edit(s.device.overrides[type].orEmpty()))), slicing = s.slicing.copy(results = emptyMap()))
             }
         }
         syncSelection()
@@ -455,7 +455,7 @@ class PresetController(private val store: Store, private val device: DeviceContr
     /** Selects process preset [name] (its unsaved edits are dropped). */
     suspend fun selectPrintNow(name: String) {
         settings.setLastPrint(store.value.printer ?: return, name)
-        store.update { it.copy(print = name, overrides = it.overrides - PresetType.PRINT, slicing = it.slicing.copy(results = emptyMap())) }
+        store.update { it.copy(print = name, device = it.device.copy(overrides = it.device.overrides - PresetType.PRINT), slicing = it.slicing.copy(results = emptyMap())) }
         refreshPresetValues(listOf(PresetType.PRINT))
     }
 
@@ -487,12 +487,12 @@ class PresetController(private val store: Store, private val device: DeviceContr
         when (type) {
             PresetType.PRINTER -> {
                 val printers = engine.printerList()
-                store.update { it.copy(printers = printers, overrides = it.overrides - type) }
+                store.update { it.copy(printers = printers, device = it.device.copy(overrides = it.device.overrides - type)) }
                 selectPrinterNow(newName, s.print, s.filaments)
             }
             PresetType.PRINT -> {
                 s.printer?.let { settings.setLastPrint(it, newName) }
-                store.update { it.copy(setup = setup, print = newName, overrides = it.overrides - type) }
+                store.update { it.copy(setup = setup, print = newName, device = it.device.copy(overrides = it.device.overrides - type)) }
             }
             PresetType.FILAMENT -> {
                 store.update {
@@ -515,7 +515,7 @@ class PresetController(private val store: Store, private val device: DeviceContr
                 store.update { it.copy(printers = printers) }
                 store.value.visiblePrinters.firstOrNull()?.let { selectPrinterNow(it.name) }
             }
-            PresetType.PRINT -> store.update { it.copy(setup = setup, print = setup.defaultPrint, overrides = it.overrides - type) }
+            PresetType.PRINT -> store.update { it.copy(setup = setup, print = setup.defaultPrint, device = it.device.copy(overrides = it.device.overrides - type)) }
             PresetType.FILAMENT -> store.update {
                 it.copy(setup = setup, filaments = it.filaments.mapIndexed { i, f -> if (i == it.activeFilament) FilamentSlot(setup.defaultFilament, f.color, source = f.source) else f })
             }
@@ -596,7 +596,7 @@ class PresetController(private val store: Store, private val device: DeviceContr
     fun checkProfileUpdates() = store.launch(store.str(R.string.checking_updates)) {
         val updates = resources.checkProfileUpdates()
         settings.lastProfileCheck = System.currentTimeMillis()
-        store.update { it.copy(profileUpdates = updates) }
+        store.update { it.copy(device = it.device.copy(profileUpdates = updates)) }
         if (updates.isEmpty()) store.toast(store.str(R.string.profiles_up_to_date))
     }
 
@@ -607,24 +607,24 @@ class PresetController(private val store: Store, private val device: DeviceContr
         store.container.appScope.launch {
             val updates = runCatching { resources.checkProfileUpdates() }.getOrNull() ?: return@launch
             settings.lastProfileCheck = now
-            store.update { it.copy(profileUpdates = updates) }
+            store.update { it.copy(device = it.device.copy(profileUpdates = updates)) }
         }
     }
 
     /** Installs the found updates in the background; the app stays usable meanwhile. */
     fun installProfileUpdates() {
-        if (store.value.profileUpdateProgress != null) return
+        if (store.value.device.profileUpdateProgress != null) return
         store.launch {
             try {
-                for (u in store.value.profileUpdates.orEmpty()) {
+                for (u in store.value.device.profileUpdates.orEmpty()) {
                     resources.updateVendor(u.vendor) { done, total ->
-                        store.update { it.copy(profileUpdateProgress = store.str(R.string.updating_vendor, u.vendor, done, total)) }
+                        store.update { it.copy(device = it.device.copy(profileUpdateProgress = store.str(R.string.updating_vendor, u.vendor, done, total))) }
                     }
                 }
             } finally {
-                store.update { it.copy(profileUpdateProgress = null) }
+                store.update { it.copy(device = it.device.copy(profileUpdateProgress = null)) }
             }
-            store.update { it.copy(profileUpdates = null) }
+            store.update { it.copy(device = it.device.copy(profileUpdates = null)) }
             reloadPresets(emptySet())
             store.toast(store.str(R.string.profiles_updated))
         }

@@ -599,7 +599,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             )
             appendLine("Open: " + open.joinToString().ifEmpty { "nothing over the main screen" } + ".")
             appendLine("Presets: printer ${s.printer ?: "none"}; process ${s.print ?: "none"}; filaments ${s.filaments.size}" +
-                (if (s.overrides.values.any { it.isNotEmpty() }) " (unsaved changes)" else "") + ".")
+                (if (s.device.overrides.values.any { it.isNotEmpty() }) " (unsaved changes)" else "") + ".")
             val scene = s.scene
             appendLine("Plates ${scene.plates.size}, active ${s.activePlate + 1}; objects ${scene.objects.size}, copies " +
                 "${scene.objects.sumOf { it.instances.size }}; selected ${s.selectedItems.size}; tool ${s.tool.javaClass.simpleName}" +
