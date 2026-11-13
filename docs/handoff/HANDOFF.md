@@ -42,7 +42,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - T-030 done (77cee24, `docs/design/DESIGN-SYSTEM.md`, source-checked only).
 - T-031 done 18faa06 (device-checked on WSA VD: open target [128,128,12.5] inside the box; Close [128,128,0] on the box base, in range; `+ > Design` path not checked; a stray throwaway smoke.stl is on WSA plate 1).
 - T-032 done 54e0ecd (device-checked WSA VD: smoke 8/8; Editing:/Done nodes in builder, Reshape, Push / pull, Cut, Paint; contact sheet docs/audit/T-032-rooms-contact-sheet.png; not checked: U-18 coach line, narrow width, German strings; smoke.sh now taps Done).
-- Next step: T-033 (Reshape button with a live distance label) -> Sonnet 5.5 (high) (coordinator; the subagent model is the task tag)
+- T-033 done 459c5df (device-checked WSA VD: label 5.9 mm vs mesh 5.905 mm; smoke 8/8; label display-only, no tap-to-type; scaled instances and log radius slider not driven).
+- Next step: T-034 (Push / pull card fixed layout and true readout) -> Sonnet 5.5 (medium) (coordinator; the subagent model is the task tag)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
