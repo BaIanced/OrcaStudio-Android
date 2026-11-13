@@ -166,10 +166,10 @@ class PlatePicks(private val haptic: HapticFeedback) {
 /** Tap focuses a plate (the active one opens [menu]); while picking, taps pick or drop inactive plates. */
 @OptIn(ExperimentalFoundationApi::class)
 private fun Modifier.plateClicks(state: UiState, vm: AppViewModel, view: PlateView?, picks: PlatePicks, plate: Int, menu: () -> Unit) =
-    combinedClickable(onLongClick = { picks.longPress(plate, state.activePlate) }) {
+    combinedClickable(onLongClick = { picks.longPress(plate, state.workspace.activePlate) }) {
         when {
-            picks.active -> if (plate != state.activePlate) picks.toggle(plate)
-            plate == state.activePlate -> menu()
+            picks.active -> if (plate != state.workspace.activePlate) picks.toggle(plate)
+            plate == state.workspace.activePlate -> menu()
             else -> { vm.scene.selectPlate(plate); view?.showPlate(plate) }
         }
     }
@@ -183,7 +183,7 @@ fun PlateTabs(state: UiState, vm: AppViewModel, view: PlateView?, modifier: Modi
             IconButton(onClick = vm.scene::addPlate) { Icon(Icons.Default.Add, stringResource(R.string.add_plate)) }
         }
     }) { plate, picks ->
-            val active = plate.index == state.activePlate
+            val active = plate.index == state.workspace.activePlate
             val picked = plate.index in picks.picked
             val name = stringResource(R.string.plate_n, plate.index + 1)
             val scheme = MaterialTheme.colorScheme
@@ -220,19 +220,19 @@ fun PlateTabs(state: UiState, vm: AppViewModel, view: PlateView?, modifier: Modi
 internal fun PlateRow(state: UiState, vm: AppViewModel, modifier: Modifier, spacing: Dp, align: Alignment.Vertical,
                      add: @Composable () -> Unit, item: @Composable (Plate, PlatePicks) -> Unit) {
     val list = rememberLazyListState()
-    val plates = state.scene.plates
+    val plates = state.workspace.scene.plates
     val haptic = LocalHapticFeedback.current
     val picks = remember { PlatePicks(haptic) }
     // Plate numbers shift when plates come or go: start over.
     LaunchedEffect(plates.size) { picks.picked = emptySet() }
-    LaunchedEffect(state.activePlate) { picks.picked -= state.activePlate }
+    LaunchedEffect(state.workspace.activePlate) { picks.picked -= state.workspace.activePlate }
     BackHandler(picks.active) { picks.picked = emptySet() }
-    LaunchedEffect(state.activePlate, plates.size) {
+    LaunchedEffect(state.workspace.activePlate, plates.size) {
         val info = list.layoutInfo
-        val seen = info.visibleItemsInfo.firstOrNull { it.index == state.activePlate }
-        if (state.activePlate in plates.indices &&
+        val seen = info.visibleItemsInfo.firstOrNull { it.index == state.workspace.activePlate }
+        if (state.workspace.activePlate in plates.indices &&
             (seen == null || seen.offset < info.viewportStartOffset || seen.offset + seen.size > info.viewportEndOffset))
-            list.animateScrollToItem(state.activePlate)
+            list.animateScrollToItem(state.workspace.activePlate)
     }
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(spacing), verticalAlignment = align) {
         LazyRow(Modifier.weight(1f, fill = false), state = list, horizontalArrangement = Arrangement.spacedBy(spacing),
@@ -290,10 +290,10 @@ fun PlateLabel(state: UiState, vm: AppViewModel) {
     var menu by remember { mutableStateOf(false) }
     Box {
         TextButton(onClick = { menu = true }) {
-            Text(stringResource(R.string.plate_n_of_m, state.activePlate + 1, state.scene.plates.size), style = MaterialTheme.typography.titleSmall)
+            Text(stringResource(R.string.plate_n_of_m, state.workspace.activePlate + 1, state.workspace.scene.plates.size), style = MaterialTheme.typography.titleSmall)
             Icon(Icons.Default.ExpandMore, null, Modifier.size(18.dp))
         }
-        if (menu) PlateMenu(state, vm, state.activePlate) { menu = false }
+        if (menu) PlateMenu(state, vm, state.workspace.activePlate) { menu = false }
     }
 }
 
@@ -311,7 +311,7 @@ fun Filmstrip(state: UiState, vm: AppViewModel, view: PlateView?, modifier: Modi
             }
         }
     }) { plate, picks ->
-            val active = plate.index == state.activePlate
+            val active = plate.index == state.workspace.activePlate
             val picked = plate.index in picks.picked
             val shape = RoundedCornerShape(8.dp)
             Box {

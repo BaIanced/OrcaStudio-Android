@@ -119,7 +119,7 @@ fun SettingsEditor(state: UiState, vm: AppViewModel) {
     when (target) {
         is EditorTarget.Preset -> PresetEditor(state, vm, target.type, target.pickCompare, target.focus, target.pinMode)
         is EditorTarget.Object -> {
-            val o = state.scene.objects.getOrNull(target.obj) ?: run { LaunchedEffect(Unit) { vm.presets.closeEditor() }; return }
+            val o = state.workspace.scene.objects.getOrNull(target.obj) ?: run { LaunchedEffect(Unit) { vm.presets.closeEditor() }; return }
             val settings = (if (target.volume >= 0) o.volumes.getOrNull(target.volume)?.settings.orEmpty() else o.settings).overrides
             val title = if (target.volume >= 0) o.volumes.getOrNull(target.volume)?.name.orEmpty() else o.name
             val source = EditSource(
@@ -134,7 +134,7 @@ fun SettingsEditor(state: UiState, vm: AppViewModel) {
             EditorFrame(vm, state, stringResource(R.string.object_settings_title), title, source, objectMode = true, objectSettings = merged)
         }
         is EditorTarget.Range -> {
-            val o = state.scene.objects.getOrNull(target.obj)
+            val o = state.workspace.scene.objects.getOrNull(target.obj)
             val r = o?.layerRanges?.getOrNull(target.range) ?: run { LaunchedEffect(Unit) { vm.presets.closeEditor() }; return }
             val source = EditSource(
                 PresetType.PRINT,

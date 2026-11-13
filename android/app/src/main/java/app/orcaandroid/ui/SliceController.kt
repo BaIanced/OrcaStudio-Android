@@ -25,10 +25,10 @@ class SliceController(private val store: Store, private val presets: PresetContr
     /** In-flight G-code tool-change parses per plate (Task 11); a plate's parse is cancelled when it is re-sliced. */
     private val parseJobs = mutableMapOf<Int, Job>()
 
-    fun slice(plate: Int = store.value.activePlate) = store.launch {
+    fun slice(plate: Int = store.value.workspace.activePlate) = store.launch {
         val running = store.value.slicing.slice as? SliceStatus.Running
         if (running != null && !running.background) return@launch
-        if (store.value.scene.objectsOn(plate).isEmpty()) {
+        if (store.value.workspace.scene.objectsOn(plate).isEmpty()) {
             store.toast(store.str(R.string.nothing_to_slice))
             return@launch
         }
@@ -43,7 +43,7 @@ class SliceController(private val store: Store, private val presets: PresetContr
     }
 
     /** Shows the active plate's current slice in the preview (the Slice button once a background slice is ready). */
-    fun showPreview(plate: Int = store.value.activePlate) = store.update { s ->
+    fun showPreview(plate: Int = store.value.workspace.activePlate) = store.update { s ->
         val result = s.slicing.results[plate] ?: return@update s
         s.copy(slicing = s.slicing.copy(previewPlate = plate, external = null, preview = s.slicing.preview.showingAll(result.layers.lastIndex)), chrome = s.chrome.copy(screen = Screen.PREVIEW))
     }
@@ -129,7 +129,7 @@ class SliceController(private val store: Store, private val presets: PresetContr
         val filaments: List<app.orcaandroid.core.FilamentSlot>, val overrides: Map<app.orcaandroid.core.PresetType, Map<String, String>>,
         val project: String?)
 
-    private fun editKey(s: UiState, plate: Int) = EditKey(plate, s.scene, s.device.printer, s.device.print, s.device.filaments, s.device.overrides, s.projectName)
+    private fun editKey(s: UiState, plate: Int) = EditKey(plate, s.workspace.scene, s.device.printer, s.device.print, s.device.filaments, s.device.overrides, s.projectName)
 
     private data class SliceSummary(val project: String?, val seconds: Double, val grams: Double)
 
@@ -149,15 +149,15 @@ class SliceController(private val store: Store, private val presets: PresetContr
     suspend fun autoSlice() {
         val power = store.app.getSystemService(android.os.PowerManager::class.java)
         store.state.map { s ->
-            val plate = s.activePlate
-            val wanted = s.slicing.autoSlice && s.chrome.phase == Phase.READY && s.slicing.results[plate] == null && s.scene.objectsOn(plate).isNotEmpty()
+            val plate = s.workspace.activePlate
+            val wanted = s.slicing.autoSlice && s.chrome.phase == Phase.READY && s.slicing.results[plate] == null && s.workspace.scene.objectsOn(plate).isNotEmpty()
             Triple(if (wanted) editKey(s, plate) else null, s.slicing.slice == SliceStatus.Idle && s.chrome.busy == null, s.chrome.screen == Screen.PREVIEW)
         }.distinctUntilChanged().collectLatest { (key, idle, onPreview) ->
             if (key == null || !idle || key == failedKey) return@collectLatest
             if (!onPreview) delay(IDLE_MS)
             if (power?.isPowerSaveMode == true) return@collectLatest
             val s = store.value
-            if (s.slicing.slice != SliceStatus.Idle || s.chrome.busy != null || editKey(s, s.activePlate) != key) return@collectLatest
+            if (s.slicing.slice != SliceStatus.Idle || s.chrome.busy != null || editKey(s, s.workspace.activePlate) != key) return@collectLatest
             // Marked running at once, so a Slice tap from here on finds it; its own job, so a plate switch doesn't throw away
             // a slice that is still valid.
             store.update { it.copy(slicing = it.slicing.copy(slice = SliceStatus.Running(key.plate, 0, store.str(R.string.preparing), background = true))) }
@@ -178,8 +178,8 @@ class SliceController(private val store: Store, private val presets: PresetContr
 
     /** Slices every non-empty plate one after the other, stopping at the first error. */
     fun sliceAll() = store.launch {
-        for (p in store.value.scene.plates.indices) {
-            if (store.value.scene.objectsOn(p).isEmpty()) continue
+        for (p in store.value.workspace.scene.plates.indices) {
+            if (store.value.workspace.scene.objectsOn(p).isEmpty()) continue
             slice(p).join()
             if (store.value.chrome.error != null || store.value.slicing.sliceError != null || userCancelled) break
         }
@@ -238,7 +238,7 @@ class SliceController(private val store: Store, private val presets: PresetContr
     fun pickPreviewPlate(plate: Int) {
         setPreviewPlate(plate)
         val s = store.value
-        if (!s.slicing.results.containsKey(plate) && s.scene.objectsOn(plate).isNotEmpty() && !s.slicing.isSlicing) slice(plate)
+        if (!s.slicing.results.containsKey(plate) && s.workspace.scene.objectsOn(plate).isNotEmpty() && !s.slicing.isSlicing) slice(plate)
     }
 
     fun setPreviewPlate(plate: Int) = store.update { s ->

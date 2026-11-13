@@ -102,13 +102,13 @@ fun PreviewPanel(state: UiState, vm: AppViewModel, wide: Boolean) {
     val result = state.slicing.shownResult
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (result == null) {
-            Text(stringResource(if (state.scene.isEmpty) R.string.no_objects_hint else R.string.not_sliced), style = MaterialTheme.typography.bodyMedium)
+            Text(stringResource(if (state.workspace.scene.isEmpty) R.string.no_objects_hint else R.string.not_sliced), style = MaterialTheme.typography.bodyMedium)
             // G4: the background slice of this plate shows up here by itself; Slice makes it a normal one.
             (state.slicing.slice as? SliceStatus.Running)?.takeIf { it.background && it.plate == state.slicing.previewPlate }?.let {
                 Text("${stringResource(R.string.auto_slicing)} ${it.percent} %", style = MaterialTheme.typography.bodySmall)
                 LinearProgressIndicator(progress = { it.percent / 100f }, modifier = Modifier.fillMaxWidth())
             }
-            if (!state.scene.isEmpty) Button(onClick = { vm.slicing.slice(state.slicing.previewPlate) }, enabled = !state.slicing.isSlicing) {
+            if (!state.workspace.scene.isEmpty) Button(onClick = { vm.slicing.slice(state.slicing.previewPlate) }, enabled = !state.slicing.isSlicing) {
                 Text(stringResource(R.string.slice_plate_n, state.slicing.previewPlate + 1))
             }
             OutlinedButton(onClick = { vm.setScreen(Screen.PREPARE) }) { Text(stringResource(R.string.tab_prepare)) }
@@ -215,7 +215,7 @@ private fun Actions(state: UiState, vm: AppViewModel, r: SliceResult) {
                 if (!r.external) DropdownMenuItem(text = { Text(stringResource(R.string.save_gcode_3mf)) },
                     onClick = { menu = false; save3mf.launch(vm.files.gcodeFileName().removeSuffix(".gcode") + ".gcode.3mf") })
                 DropdownMenuItem(text = { Text(stringResource(R.string.fp_log_print)) }, onClick = { menu = false; vm.files.logPrintToFilamentProfiles() })
-                if (!r.external && state.scene.plates.size > 1)
+                if (!r.external && state.workspace.scene.plates.size > 1)
                     DropdownMenuItem(text = { Text(stringResource(R.string.slice_all)) }, onClick = { menu = false; vm.slicing.sliceAll() })
                 if (r.external) DropdownMenuItem(text = { Text(stringResource(R.string.close)) }, onClick = { menu = false; vm.slicing.closeExternal() })
             }
@@ -270,7 +270,7 @@ private fun LayerTools(state: UiState, vm: AppViewModel, r: SliceResult) {
     var dialog by remember { mutableStateOf(false) }
     val layer = r.layers.getOrNull(state.slicing.preview.layerHigh) ?: return
     HorizontalDivider()
-    val count = state.scene.plates.getOrNull(state.slicing.previewPlate)?.layerGcodes?.size ?: 0
+    val count = state.workspace.scene.plates.getOrNull(state.slicing.previewPlate)?.layerGcodes?.size ?: 0
     TextButton(onClick = { dialog = true }) {
         Text(stringResource(R.string.add_gcode_at_layer, layer.z) + if (count > 0) " ($count)" else "")
     }

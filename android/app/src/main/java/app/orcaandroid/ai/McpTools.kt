@@ -503,7 +503,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         return "Camera yaw ${n(c[0].toDouble())}, pitch ${n(c[1].toDouble())}, distance ${n(c[2].toDouble())} mm, " +
             "target [${n(c[3].toDouble())}, ${n(c[4].toDouble())}, ${n(c[5].toDouble())}]; section ${n(view.section.ratio.toDouble())}, " +
             "shadows ${if (s.contactShadows) "on" else "off"}, supersample ${listOf("off", "still", "always").getOrElse(s.supersample) { "?" }}, ${if (view.camera.perspective) "perspective" else "orthographic"}; " +
-            "plate ${s.activePlate + 1} active."
+            "plate ${s.workspace.activePlate + 1} active."
     }
 
     private suspend fun viewSet(args: JSONObject): String = withContext(Dispatchers.Main.immediate) {
@@ -516,8 +516,8 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         if (args.has("object") && args.optString("view") == "fit") throw ToolError("Give view fit or object, not both")
         args.optString("view").takeIf { it.isNotEmpty() }?.let { name ->
             if (name == "fit") {
-                val plate = if (args.has("plate")) args.optInt("plate") - 1 else store.value.activePlate
-                if (plate !in 0 until store.value.scene.plates.size) throw ToolError("No plate ${plate + 1}")
+                val plate = if (args.has("plate")) args.optInt("plate") - 1 else store.value.workspace.activePlate
+                if (plate !in 0 until store.value.workspace.scene.plates.size) throw ToolError("No plate ${plate + 1}")
                 // The fit runs on the GL thread and sets the angles itself: the given ones go after it.
                 view.onGl { frame(plate, false); view.camera.aim(yaw, pitch, distance, to) }
                 fitted = true
@@ -528,14 +528,14 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             }
         }
         if (args.has("object")) {
-            val scene = store.value.scene
+            val scene = store.value.workspace.scene
             val which = args.optInt("object", -1)
             val copies = when (which) {
-                0 -> scene.objects.flatMap { it.instances }.filter { it.plate == store.value.activePlate }
+                0 -> scene.objects.flatMap { it.instances }.filter { it.plate == store.value.workspace.activePlate }
                 in 1..scene.objects.size -> scene.objects[which - 1].instances
                 else -> throw ToolError("No object $which (there are ${scene.objects.size})")
             }
-            if (copies.isEmpty()) throw ToolError("Nothing to frame: plate ${store.value.activePlate + 1} is empty")
+            if (copies.isEmpty()) throw ToolError("Nothing to frame: plate ${store.value.workspace.activePlate + 1} is empty")
             val lo = Vec3(copies.minOf { it.min.x }, copies.minOf { it.min.y }, copies.minOf { it.min.z })
             val hi = Vec3(copies.maxOf { it.min.x + it.size.x }, copies.maxOf { it.min.y + it.size.y }, copies.maxOf { it.min.z + it.size.z })
             view.camera.fit(lo, hi, keepAngles = true)
@@ -600,8 +600,8 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             appendLine("Open: " + open.joinToString().ifEmpty { "nothing over the main screen" } + ".")
             appendLine("Presets: printer ${s.device.printer ?: "none"}; process ${s.device.print ?: "none"}; filaments ${s.device.filaments.size}" +
                 (if (s.device.overrides.values.any { it.isNotEmpty() }) " (unsaved changes)" else "") + ".")
-            val scene = s.scene
-            appendLine("Plates ${scene.plates.size}, active ${s.activePlate + 1}; objects ${scene.objects.size}, copies " +
+            val scene = s.workspace.scene
+            appendLine("Plates ${scene.plates.size}, active ${s.workspace.activePlate + 1}; objects ${scene.objects.size}, copies " +
                 "${scene.objects.sumOf { it.instances.size }}; selected ${s.selectedItems.size}; tool ${s.tool.javaClass.simpleName}" +
                 (if (s.selectMode) "; select mode" else "") + (if (s.resizing) "; resizing" else "") + ".")
             appendLine("Design mode ${if (s.chrome.designMode) "on" else "off"}; undo limit ${s.chrome.undoLimit}; auto-save " +
@@ -639,7 +639,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
     private suspend fun viewReport(): String = withContext(Dispatchers.Main.immediate) {
         val view = plateView()
         val s = store.value
-        val scene = s.scene
+        val scene = s.workspace.scene
         val at = IntArray(2).also { view.getLocationOnScreen(it) }
         val w = view.width.toFloat(); val h = view.height.toFloat()
         fun px(x: Float, y: Float) = "${Math.round(x + at[0])},${Math.round(y + at[1])}"
@@ -687,7 +687,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             })
             for (plate in scene.plates) {
                 val lo = Vec3(plate.originX, plate.originY, 0f)
-                append("Plate ${plate.index + 1}${if (plate.index == s.activePlate) " (active)" else ""}: ")
+                append("Plate ${plate.index + 1}${if (plate.index == s.workspace.activePlate) " (active)" else ""}: ")
                 appendLine(box(lo, Vec3(plate.originX + scene.plateWidth, plate.originY + scene.plateDepth, 0f)))
                 plate.tower?.let { (x, y, tw, td, th) ->
                     appendLine("  prime tower: ${box(Vec3(lo.x + x, lo.y + y, 0f), Vec3(lo.x + x + tw, lo.y + y + td, th))}")
@@ -731,8 +731,8 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
     }
 
     private fun plateArg(args: JSONObject): Int {
-        val scene = store.value.scene
-        if (!args.has("plate")) return store.value.activePlate
+        val scene = store.value.workspace.scene
+        if (!args.has("plate")) return store.value.workspace.activePlate
         val plate = args.optInt("plate", 0) - 1
         if (plate !in scene.plates.indices) throw ToolError("No plate ${plate + 1}; there are ${scene.plates.size}")
         return plate
@@ -742,7 +742,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         val plate = withContext(Dispatchers.Main.immediate) {
             plateArg(args).also { p ->
                 if (store.value.slicing.isSlicing) throw ToolError("A slice is already running")
-                if (store.value.scene.objectsOn(p).isEmpty()) throw ToolError("Plate ${p + 1} is empty")
+                if (store.value.workspace.scene.objectsOn(p).isEmpty()) throw ToolError("Plate ${p + 1} is empty")
                 store.update { it.copy(chrome = it.chrome.copy(error = null)) }
             }
         }
@@ -800,7 +800,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             appendLine("Process: ${s.device.print ?: "(none)"}")
             if (s.device.filaments.isEmpty()) appendLine("Filaments: (none)")
             else s.device.filaments.forEachIndexed { i, f -> appendLine("Filament ${i + 1}: ${f.preset}${f.color?.let { c -> " ($c)" } ?: ""}") }
-            val scene = s.scene
+            val scene = s.workspace.scene
             appendLine("Plate size ${n(scene.plateWidth.toDouble())} x ${n(scene.plateDepth.toDouble())} mm")
             if (scene.objects.isEmpty()) { append("The plate is empty."); return@buildString }
             fun copies(plate: Int) = scene.objects.forEach { o ->
@@ -811,7 +811,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             }
             for (plate in scene.plates) {
                 append("Plate ${plate.index + 1}")
-                if (plate.index == s.activePlate) append(" (active)")
+                if (plate.index == s.workspace.activePlate) append(" (active)")
                 if (plate.bedType.isNotEmpty()) append(", ${plate.bedType}")
                 appendLine(": ${scene.objectsOn(plate.index).size} object(s)")
                 copies(plate.index)
@@ -834,10 +834,10 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
     /** The plates as lines keyed "Plate N" / "object N copy C", to tell what a plate edit changed. */
     private fun plateState(): Map<String, String> {
         val s = store.value
-        val scene = s.scene
+        val scene = s.workspace.scene
         val out = LinkedHashMap<String, String>()
         for (p in scene.plates) {
-            out["Plate ${p.index + 1}"] = "Plate ${p.index + 1}${if (p.index == s.activePlate) " (active)" else ""}: ${scene.objectsOn(p.index).size} object(s)" +
+            out["Plate ${p.index + 1}"] = "Plate ${p.index + 1}${if (p.index == s.workspace.activePlate) " (active)" else ""}: ${scene.objectsOn(p.index).size} object(s)" +
                 (s.slicing.results[p.index]?.let { r -> ", sliced: ${duration(r.printTimeSeconds)}, ${n(r.filamentGrams)} g" } ?: "")
         }
         for (o in scene.objects) for (i in o.instances) {
@@ -858,7 +858,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
     /** The 0-based object and copy that [args] name (1-based "object" / "copy"). */
     private fun copyOf(args: JSONObject): Pair<Int, Instance> {
         val o = args.optInt("object", 0) - 1
-        val obj = store.value.scene.objects.getOrNull(o) ?: throw ToolError("No object ${o + 1} (see plate_describe)")
+        val obj = store.value.workspace.scene.objects.getOrNull(o) ?: throw ToolError("No object ${o + 1} (see plate_describe)")
         val c = args.optInt("copy", 1) - 1
         return o to (obj.instances.getOrNull(c) ?: throw ToolError("Object ${o + 1} has no copy ${c + 1}"))
     }
@@ -898,7 +898,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             a.getDouble(0) to a.getDouble(1)
         }
         val plate = if (args.has("plate")) args.optInt("plate") - 1 else null
-        if (plate != null && store.value.scene.plates.getOrNull(plate) == null) throw ToolError("No plate ${plate + 1}")
+        if (plate != null && store.value.workspace.scene.plates.getOrNull(plate) == null) throw ToolError("No plate ${plate + 1}")
         if (plate != null && pos == null) throw ToolError("plate needs pos")
         if (pos == null && rot == null && scale == null) throw ToolError("Give pos, rot or scale")
         val ref = "object ${o + 1} copy ${inst.index + 1}"
@@ -908,7 +908,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         }
         if (pos != null) plateOp("moved $ref") {
             // After a turn / scale the footprint has moved: measure it in the current scene.
-            val scene = store.value.scene
+            val scene = store.value.workspace.scene
             val now = scene.objects[o].instances[inst.index]
             val (x, y) = footprint(scene, now, plate ?: now.plate.coerceAtLeast(0))
             store.engine.setTransform(o, inst.index, offset = now.offset + Vec3((pos.first - x).toFloat(), (pos.second - y).toFloat(), 0f))
@@ -998,8 +998,8 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         if ((op == "select" || op == "cut") && ray == null) throw ToolError("$op needs origin and dir")
         if (ray != null && op in listOf("select", "extrude", "inset", "cut", "fillet", "chamfer")) {
             meshEditTarget = store.engine.pick(ray.first, ray.second) ?: throw ToolError("the ray misses every object")
-            meshEditVersion = store.value.scene.meshVersion
-        } else if (meshEditVersion != store.value.scene.meshVersion) meshEditTarget = null
+            meshEditVersion = store.value.workspace.scene.meshVersion
+        } else if (meshEditVersion != store.value.workspace.scene.meshVersion) meshEditTarget = null
         val target = meshEditTarget ?: throw ToolError("Nothing selected (or the plate changed since): select with a ray first")
         if (op == "extrude" || op == "inset") {
             val amount = args.optDouble("amount", Double.NaN).takeIf { it.isFinite() && (if (op == "inset") it > 0 else it != 0.0) }
@@ -1018,7 +1018,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
                 sel = step.selection
                 step.scene ?: throw ToolError("mesh_edit returned no scene")
             }
-            meshEditVersion = store.value.scene.meshVersion
+            meshEditVersion = store.value.workspace.scene.meshVersion
             return reply + "\n" + selectionText(sel!!)
         }
         if (op == "fillet" || op == "chamfer") {
@@ -1030,7 +1030,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
                 sel = step.selection
                 step.scene ?: throw ToolError("mesh_edit returned no scene")
             }
-            meshEditVersion = store.value.scene.meshVersion
+            meshEditVersion = store.value.workspace.scene.meshVersion
             return reply + "\n" + selectionText(sel!!)
         }
         if (op == "cut") {
@@ -1047,7 +1047,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
                 sel = step.selection
                 step.scene ?: throw ToolError("mesh_edit returned no scene")
             }
-            meshEditVersion = store.value.scene.meshVersion
+            meshEditVersion = store.value.workspace.scene.meshVersion
             return reply + "\n" + selectionText(sel!!)
         }
         var sel = if (op.isEmpty()) null else store.engine.meshEdit(target, op, ray, kind, angle.toFloat(), args.optBoolean("toggle")).selection
@@ -1058,7 +1058,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             sel = end.selection
             end.scene ?: throw ToolError("mesh_edit returned no scene")
         }
-        meshEditVersion = store.value.scene.meshVersion
+        meshEditVersion = store.value.workspace.scene.meshVersion
         return reply + "\n" + selectionText(sel!!)
     }
 
@@ -1092,8 +1092,8 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
 
     private suspend fun arrange(args: JSONObject): String {
         val all = args.optBoolean("all")
-        val plate = if (args.has("plate")) args.optInt("plate") - 1 else store.value.activePlate
-        if (!all && store.value.scene.plates.getOrNull(plate) == null) throw ToolError("No plate ${plate + 1}")
+        val plate = if (args.has("plate")) args.optInt("plate") - 1 else store.value.workspace.activePlate
+        if (!all && store.value.workspace.scene.plates.getOrNull(plate) == null) throw ToolError("No plate ${plate + 1}")
         return plateEdit(if (all) "arranged all plates" else "arranged plate ${plate + 1}", R.string.arranging) {
             store.engine.arrange(if (all) -1 else plate)
         }
@@ -1108,7 +1108,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         if (!reset && !(x.isFinite() && y.isFinite())) throw ToolError("x and y must be numbers")
         val summary = if (reset) "reset the prime tower of plate ${plate + 1}" else "moved the prime tower of plate ${plate + 1} to $x, $y"
         val reply = plateEdit(summary) { store.engine.setWipeTower(plate, if (reset) null else x to y) }
-        val t = store.value.scene.plates.getOrNull(plate)?.tower
+        val t = store.value.workspace.scene.plates.getOrNull(plate)?.tower
         return reply.removeSuffix("Nothing changed on the plates.").trimEnd() + "\n" + if (t == null)
             "The plate prints no prime tower now (one filament); the position applies once it uses more." else
             "Prime tower now at x ${t[0]}, y ${t[1]}, ${t[2]} x ${t[3]} mm."
@@ -1323,8 +1323,8 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
 
     private suspend fun toPlate(): String = withContext(Dispatchers.Main.immediate) {
         val st = editor()
-        val plate = store.value.activePlate + 1
-        val replaces = st.onPlate?.takeIf { name -> store.value.scene.objects.any { it.name == name } }
+        val plate = store.value.workspace.activePlate + 1
+        val replaces = st.onPlate?.takeIf { name -> store.value.workspace.scene.objects.any { it.name == name } }
         val text = store.str(R.string.ai_confirm_plate, st.name, plate) + (replaces?.let { "\n" + store.str(R.string.ai_confirm_replaces, it) } ?: "")
         if (!confirm(text)) throw ToolError("Declined by the user (or no answer within ${CONFIRM_TIMEOUT / 1000} s)")
         scad.render()

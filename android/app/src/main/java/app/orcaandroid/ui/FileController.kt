@@ -87,17 +87,17 @@ class FileController(
         }
         val project = files.singleOrNull()?.takeIf { it.name.endsWith(".3mf", true) && isProject(it) }
         // A project onto a plate with objects: open it as a project (its plates, settings, filaments) or import its models.
-        if (project != null && (!append || store.value.scene.isEmpty || askOpenAsProject(project.name))) {
+        if (project != null && (!append || store.value.workspace.scene.isEmpty || askOpenAsProject(project.name))) {
             openProjectFile(project, uris.first())
             return@launch
         }
-        val s = if (store.value.scene.isEmpty) engine.loadModels(files.map { it.path }, append = append, plate = store.value.activePlate).also { store.applyScene(it) }
+        val s = if (store.value.workspace.scene.isEmpty) engine.loadModels(files.map { it.path }, append = append, plate = store.value.workspace.activePlate).also { store.applyScene(it) }
         else {
             // Objects already in the project stay where they are: each new file gets a plate of its own (user, 2026-10-14).
-            var last = store.value.scene
+            var last = store.value.workspace.scene
             for (f in files) {
                 useEmptyPlate()
-                last = engine.loadModels(listOf(f.path), append = true, plate = store.value.activePlate)
+                last = engine.loadModels(listOf(f.path), append = true, plate = store.value.workspace.activePlate)
                 store.applyScene(last)
             }
             last
@@ -110,18 +110,18 @@ class FileController(
 
     /** The plate a new file goes on: the active plate if it is empty, else the first empty one, else a new one. */
     private suspend fun useEmptyPlate() {
-        val s = store.value.scene
-        if (s.plates.isEmpty() || s.plateEmpty(store.value.activePlate)) return
+        val s = store.value.workspace.scene
+        if (s.plates.isEmpty() || s.plateEmpty(store.value.workspace.activePlate)) return
         val free = s.plates.indices.firstOrNull { s.plateEmpty(it) }
-        if (free != null) { store.update { it.copy(activePlate = free) }; return }
+        if (free != null) { store.update { it.copy(workspace = it.workspace.copy(activePlate = free)) }; return }
         // At the plate limit the file stays on the active plate.
         val added = runCatching { engine.addPlate() }.getOrNull() ?: return
         store.applyScene(added)
-        store.update { it.copy(activePlate = added.plates.lastIndex) }
+        store.update { it.copy(workspace = it.workspace.copy(activePlate = added.plates.lastIndex)) }
     }
 
     private fun addVariants(files: List<File>) = store.launch(store.str(R.string.loading_model)) {
-        val s = engine.loadModels(files.map { it.path }, append = true, plate = store.value.activePlate)
+        val s = engine.loadModels(files.map { it.path }, append = true, plate = store.value.workspace.activePlate)
         store.applyScene(s)
         store.update { it.copy(selection = Selection(s.objects.lastIndex), multiSelection = emptyList(), design = it.design.copy(scadHidden = true), chrome = it.chrome.copy(screen = Screen.PREPARE)) }
     }
@@ -245,7 +245,7 @@ class FileController(
         val s = store.value
         if (s.chrome.phase != Phase.READY) return
         // A calibration test cannot be resumed from a project; an empty plate needs no session.
-        if (s.scene.isEmpty || s.calibration != null) {
+        if (s.workspace.scene.isEmpty || s.calibration != null) {
             if (sessionLoadedOrAbsent) withContext(Dispatchers.IO) { session.clear() }
             return@withLock
         }
@@ -254,7 +254,7 @@ class FileController(
         val info = JSONObject().apply {
             put("projectName", s.projectName ?: "")
             put("projectDirty", s.projectDirty)
-            put("activePlate", s.activePlate)
+            put("activePlate", s.workspace.activePlate)
         }.toString()
         val saved = withContext(Dispatchers.IO) { session.commit(info) }
         if (!saved) noteCrashReport("Session save failed: the new session could not replace the old one (the old one was kept).")
@@ -262,7 +262,7 @@ class FileController(
 
     /** Restores the last session if the engine has no scene (a fresh start of the process). */
     suspend fun restoreSession() {
-        if (!store.value.scene.isEmpty) return
+        if (!store.value.workspace.scene.isEmpty) return
         withContext(Dispatchers.IO) { session.recoverInterrupted() }
         if (!session.project.exists()) {
             sessionLoadedOrAbsent = true
@@ -287,7 +287,7 @@ class FileController(
             it.copy(
                 projectName = info?.optString("projectName")?.ifBlank { null },
                 projectDirty = info?.optBoolean("projectDirty") ?: true,
-                activePlate = (info?.optInt("activePlate") ?: 0).coerceIn(0, (it.scene.plates.size - 1).coerceAtLeast(0)),
+                workspace = it.workspace.copy(activePlate = (info?.optInt("activePlate") ?: 0).coerceIn(0, (it.workspace.scene.plates.size - 1).coerceAtLeast(0))),
             )
         }
     }
@@ -295,7 +295,7 @@ class FileController(
     /** "Try again" on the notice: the kept session becomes the session again and is restored. */
     fun retryBadSession() = store.launch(store.str(R.string.loading_model)) {
         // Reopening replaces the scene, so it only runs on an empty plate; the notice stays until then.
-        if (!store.value.scene.isEmpty) {
+        if (!store.value.workspace.scene.isEmpty) {
             store.toast(store.str(R.string.session_retry_empty_plate))
             return@launch
         }
@@ -322,9 +322,9 @@ class FileController(
         scene.deleteAll()?.join()
         if (store.value.calibration != null) store.applyScene(engine.calibStop())
         // Like the desktop, a new project starts with one plate.
-        val extra = (1 until store.value.scene.plates.size).toList()
+        val extra = (1 until store.value.workspace.scene.plates.size).toList()
         if (extra.isNotEmpty()) store.applyScene(engine.deletePlates(extra))
-        store.update { it.copy(projectName = null, projectDirty = false, calibration = null, activePlate = 0, slicing = it.slicing.copy(results = emptyMap(), external = null, sliceError = null, fitIssue = null)) }
+        store.update { it.copy(projectName = null, projectDirty = false, calibration = null, workspace = it.workspace.copy(activePlate = 0), slicing = it.slicing.copy(results = emptyMap(), external = null, sliceError = null, fitIssue = null)) }
     }
 
     fun saveProject(target: Uri) = store.launch(store.str(R.string.saving_project)) {
@@ -348,8 +348,8 @@ class FileController(
     /** File name for the G-code of [plate]: project or first object name, with the plate if there are several. */
     fun gcodeFileName(plate: Int = store.value.slicing.previewPlate): String {
         val s = store.value
-        val base = s.projectName ?: s.scene.objectsOn(plate).firstOrNull()?.name?.substringBeforeLast('.') ?: "plate"
-        return if (s.scene.plates.size > 1) "${base}_plate${plate + 1}.gcode" else "$base.gcode"
+        val base = s.projectName ?: s.workspace.scene.objectsOn(plate).firstOrNull()?.name?.substringBeforeLast('.') ?: "plate"
+        return if (s.workspace.scene.plates.size > 1) "${base}_plate${plate + 1}.gcode" else "$base.gcode"
     }
 
     fun saveGcode(target: Uri) = store.launch(store.str(R.string.saving)) {

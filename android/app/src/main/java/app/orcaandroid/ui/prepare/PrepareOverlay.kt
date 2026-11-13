@@ -275,7 +275,7 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
 @Composable
 private fun CoachStrip(state: UiState, vm: AppViewModel) {
     val step = when {
-        state.scene.isEmpty -> 1
+        state.workspace.scene.isEmpty -> 1
         state.slicing.results.isEmpty() -> 2
         else -> 3
     }
@@ -345,8 +345,8 @@ private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
             PieItem(Icons.Default.FileOpen, stringResource(R.string.import_model)) { importModels.launch(arrayOf("*/*")) },
             PieItem(Icons.Default.Interests, stringResource(R.string.add_shape)) { dialog = "primitive" },
             PieItem(Icons.Default.TextFields, stringResource(R.string.add_text)) { dialog = "text" },
-            PieItem(Icons.Default.AutoAwesomeMosaic, stringResource(R.string.arrange), !state.scene.isEmpty) { vm.scene.arrange(false) },
-            PieItem(AutoOrientIcon, stringResource(R.string.auto_orient), !state.scene.isEmpty) { vm.scene.autoOrient() },
+            PieItem(Icons.Default.AutoAwesomeMosaic, stringResource(R.string.arrange), !state.workspace.scene.isEmpty) { vm.scene.arrange(false) },
+            PieItem(AutoOrientIcon, stringResource(R.string.auto_orient), !state.workspace.scene.isEmpty) { vm.scene.autoOrient() },
             moreItem,
         )
         PieMenu(at, inset, items, vm.pieTouch, close)
@@ -397,7 +397,7 @@ private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
                             leadingIcon = { Icon(Icons.Default.Rotate90DegreesCcw, null) }, onClick = { close(); vm.scene.toggleRotate() })
                     DropdownMenuItem(text = { Text(stringResource(R.string.add_modifier)) },
                         onClick = { close(); vm.scene.addVolume(VolumeType.MODIFIER, "box") })
-                    if ((state.scene.objects.getOrNull(sel.obj)?.volumes?.count { it.type == VolumeType.PART } ?: 0) >= 2)
+                    if ((state.workspace.scene.objects.getOrNull(sel.obj)?.volumes?.count { it.type == VolumeType.PART } ?: 0) >= 2)
                         DropdownMenuItem(text = { Text(stringResource(R.string.mesh_boolean)) },
                             onClick = { close(); dialog = "boolean" })
                     DropdownMenuItem(text = { Text(stringResource(R.string.object_settings_title)) },
@@ -412,7 +412,7 @@ private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
                     DropdownMenuItem(text = { Text(stringResource(R.string.add_svg)) }, leadingIcon = { Icon(Icons.Default.Category, null) },
                         onClick = { close(); dialog = "svg" })
                     DesignEntries(vm, state.design.builderSplit, close)
-                    if (!state.scene.isEmpty)
+                    if (!state.workspace.scene.isEmpty)
                         DropdownMenuItem(text = { Text(stringResource(R.string.arrange)) }, leadingIcon = { Icon(Icons.Default.AutoAwesomeMosaic, null) },
                             onClick = { close(); vm.scene.arrange(false) })
                 }
@@ -458,15 +458,15 @@ private fun PlateChips(state: UiState, vm: AppViewModel, view: PlateView?) {
         val plateName = stringResource(R.string.plate_n, plate.index + 1)
         Box {
             FilterChip(
-                selected = plate.index == state.activePlate,
+                selected = plate.index == state.workspace.activePlate,
                 onClick = {
-                    if (plate.index == state.activePlate) plateMenu = plate.index
+                    if (plate.index == state.workspace.activePlate) plateMenu = plate.index
                     else { vm.scene.selectPlate(plate.index); view?.showPlate(plate.index) }
                 },
                 // Just the number ("Plate" took too much room, user 2026-10-14); "Plate n" for TalkBack.
                 label = { Text("${plate.index + 1}") },
                 modifier = Modifier.semantics { contentDescription = plateName },
-                trailingIcon = if (plate.index == state.activePlate) { { Icon(Icons.Default.ExpandMore, null, Modifier.size(16.dp)) } } else null,
+                trailingIcon = if (plate.index == state.workspace.activePlate) { { Icon(Icons.Default.ExpandMore, null, Modifier.size(16.dp)) } } else null,
                 colors = FilterChipDefaults.filterChipColors(containerColor = bar),
             )
             if (plateMenu == plate.index) PlateMenu(state, vm, plate.index) { plateMenu = null }
@@ -482,15 +482,15 @@ internal fun ViewButtons(state: UiState, vm: AppViewModel, view: PlateView?, rai
         if (rail) ToolButton(icon, label, enabled = enabled, onClick = onClick)
         else Tip(label) { IconButton(onClick = onClick, enabled = enabled) { Icon(icon, label) } }
     }
-    button(Icons.AutoMirrored.Filled.Undo, stringResource(R.string.undo), state.scene.canUndo, vm.scene::undo)
-    button(Icons.AutoMirrored.Filled.Redo, stringResource(R.string.redo), state.scene.canRedo, vm.scene::redo)
+    button(Icons.AutoMirrored.Filled.Undo, stringResource(R.string.undo), state.workspace.scene.canUndo, vm.scene::undo)
+    button(Icons.AutoMirrored.Filled.Redo, stringResource(R.string.redo), state.workspace.scene.canRedo, vm.scene::redo)
     Box {
         button(Icons.Default.Videocam, stringResource(R.string.view), true) { viewMenu = true }
         DropdownMenu(expanded = viewMenu, onDismissRequest = { viewMenu = false }) {
             listOf(R.string.view_iso to 0, R.string.view_top to 1, R.string.view_front to 2, R.string.view_left to 3, R.string.view_right to 4).forEach { (label, id) ->
                 DropdownMenuItem(text = { Text(stringResource(label)) }, onClick = { viewMenu = false; view?.camera?.preset(id) })
             }
-            DropdownMenuItem(text = { Text(stringResource(R.string.view_fit)) }, onClick = { viewMenu = false; view?.framePlate(state.activePlate) },
+            DropdownMenuItem(text = { Text(stringResource(R.string.view_fit)) }, onClick = { viewMenu = false; view?.framePlate(state.workspace.activePlate) },
                 leadingIcon = { Icon(Icons.Default.CenterFocusStrong, null) })
             // The desktop's canvas toolbar button: toggles the cut and opens its panel.
             DropdownMenuItem(text = { Text(stringResource(R.string.section_view)) },
@@ -549,7 +549,7 @@ internal fun PlateMenu(state: UiState, vm: AppViewModel, plate: Int, onDismiss: 
                 onClick = { bedPicker = true })
         }
         DropdownMenuItem(text = { Text(stringResource(R.string.layer_gcodes)) }, onClick = { gcodes = true })
-        if (state.scene.plates.size > 1)
+        if (state.workspace.scene.plates.size > 1)
             // No confirm: the plate's objects stay as floaters, like on the desktop (user, 2026-10-13).
             DropdownMenuItem(text = { Text(stringResource(R.string.delete_plate)) }, onClick = { onDismiss(); vm.scene.deletePlate(plate) })
     }
@@ -567,17 +567,17 @@ internal fun PlateMenu(state: UiState, vm: AppViewModel, plate: Int, onDismiss: 
 internal fun ProjectMenu(state: UiState, vm: AppViewModel, open: Boolean, onDismiss: () -> Unit) {
     val openProject = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { it?.let(vm.files::openProject) }
     val saveProject = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("model/3mf")) { it?.let(vm.files::saveProject) }
-    val exportStl = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("model/stl")) { it?.let { u -> vm.files.exportStl(u, state.activePlate) } }
+    val exportStl = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("model/stl")) { it?.let { u -> vm.files.exportStl(u, state.workspace.activePlate) } }
     var confirmNew by remember { mutableStateOf(false) }
     // Like the desktop: an unsaved project is named after its first object.
-    val base = state.projectName ?: state.scene.objects.firstOrNull()?.name?.substringBeforeLast('.') ?: "project"
+    val base = state.projectName ?: state.workspace.scene.objects.firstOrNull()?.name?.substringBeforeLast('.') ?: "project"
     DropdownMenu(expanded = open, onDismissRequest = onDismiss) {
         DropdownMenuItem(text = { Text(stringResource(R.string.new_project)) }, onClick = { onDismiss(); if (state.projectDirty) confirmNew = true else vm.files.newProject() })
         DropdownMenuItem(text = { Text(stringResource(R.string.open_project)) }, onClick = { onDismiss(); openProject.launch(arrayOf("*/*")) })
         DropdownMenuItem(text = { Text(stringResource(R.string.save_project)) }, onClick = { onDismiss(); saveProject.launch("$base.3mf") },
-            enabled = !state.scene.isEmpty)
+            enabled = !state.workspace.scene.isEmpty)
         DropdownMenuItem(text = { Text(stringResource(R.string.export_stl)) }, onClick = { onDismiss(); exportStl.launch("$base.stl") },
-            enabled = !state.scene.isEmpty)
+            enabled = !state.workspace.scene.isEmpty)
         if (state.chrome.recents.isNotEmpty()) {
             HorizontalDivider()
             Text(stringResource(R.string.recent), Modifier.padding(horizontal = 12.dp, vertical = 4.dp), style = MaterialTheme.typography.labelMedium)
@@ -630,13 +630,13 @@ private fun ToolButtons(
         AddMenu(state, vm, addMenu, onDismiss = { addMenu = false }, onDialog = { dialog = it })
     }
     if (!collapsed) {
-        ToolButton(Icons.Default.AutoAwesomeMosaic, stringResource(R.string.arrange), enabled = !state.scene.isEmpty) { vm.scene.arrange(false) }
-        ToolButton(AutoOrientIcon, stringResource(R.string.auto_orient), enabled = !state.scene.isEmpty) { vm.scene.autoOrient() }
-        ToolButton(Icons.Default.SelectAll, stringResource(R.string.select_multiple), active = state.selectMode, enabled = !state.scene.isEmpty) {
+        ToolButton(Icons.Default.AutoAwesomeMosaic, stringResource(R.string.arrange), enabled = !state.workspace.scene.isEmpty) { vm.scene.arrange(false) }
+        ToolButton(AutoOrientIcon, stringResource(R.string.auto_orient), enabled = !state.workspace.scene.isEmpty) { vm.scene.autoOrient() }
+        ToolButton(Icons.Default.SelectAll, stringResource(R.string.select_multiple), active = state.selectMode, enabled = !state.workspace.scene.isEmpty) {
             vm.scene.setSelectMode(!state.selectMode)
         }
-        ToolButton(SnapIcon, stringResource(R.string.snap_toggle), active = state.snapPrepare, enabled = !state.scene.isEmpty) { vm.toggleSnap() }
-        ToolButton(Icons.Default.OpenWith, stringResource(R.string.move_lock), enabled = !state.scene.isEmpty,
+        ToolButton(SnapIcon, stringResource(R.string.snap_toggle), active = state.snapPrepare, enabled = !state.workspace.scene.isEmpty) { vm.toggleSnap() }
+        ToolButton(Icons.Default.OpenWith, stringResource(R.string.move_lock), enabled = !state.workspace.scene.isEmpty,
             face = { MoveLockFace(state.moveLock) }) { vm.cycleMoveLock() }
         if (state.multiSelection.isNotEmpty()) {
             ToolButton(Icons.Default.ContentCopy, stringResource(R.string.duplicate)) { vm.scene.duplicate(1) }
@@ -697,7 +697,7 @@ private fun ToolButtons(
                         leadingIcon = { Icon(Icons.Default.Straighten, null) })
                 }
             }
-        } else if (!state.scene.isEmpty) {
+        } else if (!state.workspace.scene.isEmpty) {
             ToolButton(Icons.Default.Straighten, stringResource(R.string.measure), active = state.tool == Tool.Measure) {
                 vm.scene.setTool(if (state.tool == Tool.Measure) Tool.None else Tool.Measure)
             }
@@ -794,15 +794,15 @@ private fun SliceButton(state: UiState, vm: AppViewModel, modifier: Modifier) {
         }
     } else {
         var menu by remember { mutableStateOf(false) }
-        val multi = state.scene.plates.size > 1
+        val multi = state.workspace.scene.plates.size > 1
         // G4: once the plate's slice is ready (background or not) the button opens it, showing its time and weight and how
         // they changed since the plate's previous slice. While a background slice runs, a small ring shows its progress.
-        val result = state.slicing.results[state.activePlate]
-        val auto = running?.takeIf { it.plate == state.activePlate }
+        val result = state.slicing.results[state.workspace.activePlate]
+        val auto = running?.takeIf { it.plate == state.workspace.activePlate }
         val label = stringResource(when {
             result != null -> if (multi) R.string.preview_plate_n else R.string.preview_plate
             else -> if (multi) R.string.slice_plate_n else R.string.slice
-        }, state.activePlate + 1)
+        }, state.workspace.activePlate + 1)
         val autoText = stringResource(R.string.auto_slicing)
         Box(modifier) {
             // The FAB's text isn't in the accessibility tree (no label for TalkBack or ui dumps): name it here.
@@ -814,7 +814,7 @@ private fun SliceButton(state: UiState, vm: AppViewModel, modifier: Modifier) {
                     else Column {
                         Text(label)
                         Text(sliceStats(result.printTimeSeconds, result.filamentGrams,
-                            state.slicing.sliceDelta?.takeIf { it.plate == state.activePlate }), style = MaterialTheme.typography.labelSmall)
+                            state.slicing.sliceDelta?.takeIf { it.plate == state.workspace.activePlate }), style = MaterialTheme.typography.labelSmall)
                     }
                 },
                 icon = {

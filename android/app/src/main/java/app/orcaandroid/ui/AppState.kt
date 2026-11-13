@@ -152,6 +152,12 @@ data class PreviewUi(
     val showGcode: Boolean = false,
 )
 
+/** Scene and workspace fields of [UiState], read as `state.workspace.x`. */
+data class SceneState(
+    val scene: Scene = Scene(),
+    val activePlate: Int = 0,
+)
+
 /** Design (OpenSCAD / shape builder) fields of [UiState], read as `state.design.x`. */
 data class DesignState(
     /** The OpenSCAD editor, while open. */
@@ -365,8 +371,6 @@ data class UiState(
     val dimensions: Boolean = false,
 
     // Scene
-    val scene: Scene = Scene(),
-    val activePlate: Int = 0,
     val selection: Selection? = null,
     /** Two or more copies selected together (Ctrl/Shift click, select mode); [selection] is null then. */
     val multiSelection: List<Selection> = emptyList(),
@@ -402,12 +406,13 @@ data class UiState(
     /** Unsaved changes since the project was opened/saved. */
     val projectDirty: Boolean = false,
 
+    val workspace: SceneState = SceneState(),
     val design: DesignState = DesignState(),
     val slicing: SliceState = SliceState(),
     val chrome: ChromeState = ChromeState(),
     val device: DeviceState = DeviceState(),
 ) {
-    val selectedObject get() = selection?.let { scene.objects.getOrNull(it.obj) }
+    val selectedObject get() = selection?.let { workspace.scene.objects.getOrNull(it.obj) }
 
     /**
      * The measure line's two ends as drawn (the last placed point and the loupe's preview, else the two placed points)
@@ -443,7 +448,7 @@ data class UiState(
     }
 
     /** Plate type [plate] slices with: its own, else the default. */
-    fun bedTypeOf(plate: Int): String? = scene.plates.getOrNull(plate)?.bedType?.ifEmpty { null } ?: device.setup?.defaultBedType
+    fun bedTypeOf(plate: Int): String? = workspace.scene.plates.getOrNull(plate)?.bedType?.ifEmpty { null } ?: device.setup?.defaultBedType
 }
 
 /** A project came with filaments that differ from the app's: the user picks which slots to keep. */

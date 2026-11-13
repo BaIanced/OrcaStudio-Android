@@ -413,7 +413,7 @@ fun CalibrationDialog(vm: AppViewModel, initial: String? = null, onDismiss: () -
 /** Pauses, filament changes and custom G-code at given heights of a plate. */
 @Composable
 internal fun LayerGcodeDialog(state: UiState, vm: AppViewModel, plate: Int, initialZ: Float? = null, onDismiss: () -> Unit) {
-    val items = remember { mutableStateListOf<LayerGcode>().apply { addAll(state.scene.plates.getOrNull(plate)?.layerGcodes.orEmpty()) } }
+    val items = remember { mutableStateListOf<LayerGcode>().apply { addAll(state.workspace.scene.plates.getOrNull(plate)?.layerGcodes.orEmpty()) } }
     var adding by remember { mutableStateOf(initialZ != null) }
     var z by remember { mutableFloatStateOf(initialZ ?: 5f) }
     var type by remember { mutableStateOf("pause") }

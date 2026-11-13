@@ -225,7 +225,7 @@ private fun MeshEditOptions(state: UiState, vm: AppViewModel, tool: Tool.MeshEdi
         }
     }
     // Stale after undo or another edit (the engine dropped it; the overlay hides it too).
-    val count = sel?.takeIf { it.version == state.scene.meshVersion.toLong() }?.count ?: 0
+    val count = sel?.takeIf { it.version == state.workspace.scene.meshVersion.toLong() }?.count ?: 0
     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(stringResource(R.string.mesh_edit_count, count), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.align(Alignment.CenterVertically))
         // All needs a part: the one the last tap selected on.
@@ -447,7 +447,7 @@ internal fun ColorPaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Pain
     // Filament layers: the surface share of each filament, again shortly after the paint stops changing (a stroke changes
     // it every batch). Side panel = one row per filament; the dock keeps swatches and long-press opens the same actions.
     var coverage by remember { mutableStateOf<FloatArray?>(null) }
-    LaunchedEffect(state.selection, state.scene.paintVersion, state.scene.meshVersion, state.device.filaments.size) {
+    LaunchedEffect(state.selection, state.workspace.scene.paintVersion, state.workspace.scene.meshVersion, state.device.filaments.size) {
         delay(300)
         coverage = runCatching { vm.scene.paintCoverage() }.getOrNull()
     }
@@ -455,7 +455,7 @@ internal fun ColorPaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Pain
     var changes by remember { mutableStateOf<ColourChangeEstimate.Estimate?>(null) }
     val flushKeys = listOf("flush_volumes_matrix", "flush_multiplier", "enable_prime_tower", "layer_height", "initial_layer_print_height")
         .map { state.device.value(PresetType.PRINT, it) }
-    LaunchedEffect(state.scene, state.activePlate, state.device.filaments.size, flushKeys) {
+    LaunchedEffect(state.workspace.scene, state.workspace.activePlate, state.device.filaments.size, flushKeys) {
         delay(300)
         changes = runCatching { withContext(Dispatchers.IO) { paintChangeEstimate(state) } }.getOrNull()
     }
@@ -551,12 +551,12 @@ private fun Swatch(selected: Boolean, label: String, onClick: () -> Unit, onLong
  */
 private fun paintChangeEstimate(state: UiState): ColourChangeEstimate.Estimate? {
     val n = state.device.filaments.size
-    if (n < 2 || state.scene.paintFile.isEmpty()) return null
+    if (n < 2 || state.workspace.scene.paintFile.isEmpty()) return null
     fun nums(type: PresetType, key: String) = state.device.value(type, key)?.split(',', ';')?.mapNotNull { it.trim().toDoubleOrNull() }.orEmpty()
     fun num(type: PresetType, key: String, default: Double) = nums(type, key).firstOrNull() ?: default
     val matrix = ColourChangeEstimate.parseFlushMatrix(nums(PresetType.PRINT, "flush_volumes_matrix"), n) ?: Array(n) { DoubleArray(n) }
-    val paint = FloatData.load(state.scene.paintFile, 8)?.data ?: return null
-    val layers = PaintLayers.forPlate(paint, state.scene.objects, state.activePlate,
+    val paint = FloatData.load(state.workspace.scene.paintFile, 8)?.data ?: return null
+    val layers = PaintLayers.forPlate(paint, state.workspace.scene.objects, state.workspace.activePlate,
         num(PresetType.PRINT, "initial_layer_print_height", 0.2).toFloat(), num(PresetType.PRINT, "layer_height", 0.2).toFloat(),
         num(PresetType.PRINT, "top_shell_layers", 0.0).toInt(), num(PresetType.PRINT, "bottom_shell_layers", 0.0).toInt())
     val tower = state.device.value(PresetType.PRINT, "enable_prime_tower") == "1"

@@ -137,7 +137,7 @@ fun PreparePanel(state: UiState, vm: AppViewModel, wide: Boolean) {
     Column(Modifier.fillMaxSize()) {
         PrimaryTabRow(selectedTabIndex = tab) {
             Tab(tab == 0, { tab = 0 }, text = { Text(stringResource(R.string.tab_print_settings)) })
-            Tab(tab == 1, { tab = 1 }, text = { Text(stringResource(R.string.tab_objects) + if (state.scene.objects.isNotEmpty()) " (${state.scene.objects.size})" else "") })
+            Tab(tab == 1, { tab = 1 }, text = { Text(stringResource(R.string.tab_objects) + if (state.workspace.scene.objects.isNotEmpty()) " (${state.workspace.scene.objects.size})" else "") })
         }
         val paneName = stringResource(if (tab == 0) R.string.tab_print_settings else R.string.tab_objects)
         Column(Modifier.fillMaxSize().semantics { paneTitle = paneName }.verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -187,9 +187,9 @@ private fun PresetsTab(state: UiState, vm: AppViewModel) {
         match?.let { m -> TextButton(onClick = { vm.presets.selectPrinter(m.name) }) { Text(stringResource(R.string.use_printer, m.name)) } }
     }
     if (state.device.supportsBedTypes) {
-        val current = state.bedTypeOf(state.activePlate)
+        val current = state.bedTypeOf(state.workspace.activePlate)
         PickerField(stringResource(R.string.plate_type), current,
-            state.device.bedTypeChoices(current).map { PickerItem(it, vm.translator.plate(it)) }, { vm.scene.setPlateBedType(state.activePlate, it) })
+            state.device.bedTypeChoices(current).map { PickerItem(it, vm.translator.plate(it)) }, { vm.scene.setPlateBedType(state.workspace.activePlate, it) })
     }
 
     var filamentsOpen by rememberSaveable { mutableStateOf(true) }
@@ -504,7 +504,7 @@ internal fun SwitchRow(label: String, checked: Boolean, enabled: Boolean = true,
 
 @Composable
 private fun WipeTowerRow(state: UiState, vm: AppViewModel) {
-    val plate = state.scene.plates.getOrNull(state.activePlate) ?: return
+    val plate = state.workspace.scene.plates.getOrNull(state.workspace.activePlate) ?: return
     val pos = plate.wipeTower
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(vm.translator.tr("Prime tower"), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
@@ -523,7 +523,7 @@ private fun WipeTowerRow(state: UiState, vm: AppViewModel) {
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ObjectsTab(state: UiState, vm: AppViewModel) {
-    val scene = state.scene
+    val scene = state.workspace.scene
     if (scene.isEmpty) {
         Text(stringResource(R.string.no_objects_hint), style = MaterialTheme.typography.bodyMedium)
         return
@@ -564,7 +564,7 @@ private fun ObjectsTab(state: UiState, vm: AppViewModel) {
 /** Actions on all selected objects: their filament, duplicate, delete. */
 @Composable
 private fun MultiSelectionCard(state: UiState, vm: AppViewModel) {
-    val objs = state.selectedItems.map { it.obj }.distinct().mapNotNull { state.scene.objects.getOrNull(it) }
+    val objs = state.selectedItems.map { it.obj }.distinct().mapNotNull { state.workspace.scene.objects.getOrNull(it) }
     Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
         Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(stringResource(R.string.n_selected, state.selectedItems.size), style = MaterialTheme.typography.bodyLarge)
@@ -585,7 +585,7 @@ private fun MultiSelectionCard(state: UiState, vm: AppViewModel) {
 
 @Composable
 private fun ObjectDetails(state: UiState, vm: AppViewModel, objIndex: Int) {
-    val o = state.scene.objects[objIndex]
+    val o = state.workspace.scene.objects[objIndex]
     val sel = state.selection ?: return
     val inst = o.instances.getOrNull(sel.instance) ?: return
     Column(Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

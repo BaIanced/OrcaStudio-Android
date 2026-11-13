@@ -77,7 +77,7 @@ data class ScadEditorState(
 val UiState.buildObject: Int? get() {
     val s = design.scad?.takeIf { it.shapes != null && design.scadOnPlate && !design.scadHidden && chrome.screen == Screen.PREPARE } ?: return null
     val name = s.onPlate ?: return null
-    return scene.objects.indexOfLast { it.name == name && ScadDesign.of(it)?.pieces == true }.takeIf { it >= 0 }
+    return workspace.scene.objects.indexOfLast { it.name == name && ScadDesign.of(it)?.pieces == true }.takeIf { it >= 0 }
 }
 
 /**
@@ -149,7 +149,7 @@ class ScadController(private val store: Store) {
                 shapes = meta?.optJSONObject("shapes")?.let { j -> runCatching { ShapeDesign.of(j) }.getOrNull() },
             )), chrome = it.chrome.copy(screen = Screen.PREPARE))
         }
-        val placed = st?.onPlate?.let { n -> store.value.scene.objects.any { it.name == n } } == true
+        val placed = st?.onPlate?.let { n -> store.value.workspace.scene.objects.any { it.name == n } } == true
         if (newDesign && !placed) useEmptyPlate()
         refreshParams(0)
         if (!buildIfShapes()) preview()
@@ -182,15 +182,15 @@ class ScadController(private val store: Store) {
      * project's objects: the active plate if it is empty, else the first empty one, else a new one.
      */
     private suspend fun useEmptyPlate() {
-        val s = store.value.scene
-        if (s.plates.isEmpty() || s.plateEmpty(store.value.activePlate)) return
+        val s = store.value.workspace.scene
+        if (s.plates.isEmpty() || s.plateEmpty(store.value.workspace.activePlate)) return
         val free = s.plates.indices.firstOrNull { s.plateEmpty(it) }
-        if (free != null) { store.update { it.copy(activePlate = free) }; return }
+        if (free != null) { store.update { it.copy(workspace = it.workspace.copy(activePlate = free)) }; return }
         // At the plate limit (or without a printer) the design stays on the active plate.
         val scene = runCatching { engine.addPlate() }.getOrNull() ?: return
         store.applyScene(scene)
         addedPlate = scene.plates.lastIndex
-        store.update { it.copy(activePlate = scene.plates.lastIndex) }
+        store.update { it.copy(workspace = it.workspace.copy(activePlate = scene.plates.lastIndex)) }
     }
 
     /** Opens a .scad file (from the file picker, a download or a model site's zip). */
@@ -212,7 +212,7 @@ class ScadController(private val store: Store) {
 
     /** Opens the design an object was rendered from (kept in the project, see [ScadDesign]). */
     fun editObject(index: Int) = store.launch {
-        val obj = store.value.scene.objects.getOrNull(index) ?: return@launch
+        val obj = store.value.workspace.scene.objects.getOrNull(index) ?: return@launch
         val design = ScadDesign.of(obj) ?: return@launch
         if (st == null) open(newDesign = false).join()
         // A design with its own include files gets them back in a folder of its own.
@@ -228,7 +228,7 @@ class ScadController(private val store: Store) {
      * is tagged with it as already placed, so nothing is rendered until the first edit (which then keeps it centred).
      */
     fun editMesh(index: Int) = store.launch {
-        val obj = store.value.scene.objects.getOrNull(index) ?: return@launch
+        val obj = store.value.workspace.scene.objects.getOrNull(index) ?: return@launch
         if (ScadDesign.of(obj) != null) { editObject(index).join(); return@launch }
         if (st == null) open(newDesign = false).join()
         val tmp = File(store.app.cacheDir, "openscad/volumes-${System.nanoTime()}").apply { mkdirs() }
@@ -297,11 +297,11 @@ class ScadController(private val store: Store) {
         addedPlate?.let { plate ->
             addedPlate = null
             store.launch {
-                val s = store.value.scene
+                val s = store.value.workspace.scene
                 if (s.plates.size < 2 || plate !in s.plates.indices || !s.plateEmpty(plate)) return@launch
                 val scene = engine.deletePlates(listOf(plate))
                 store.applyScene(scene)
-                store.update { it.copy(activePlate = (if (it.activePlate > plate) it.activePlate - 1 else it.activePlate).coerceIn(0, scene.plates.lastIndex)) }
+                store.update { it.copy(workspace = it.workspace.copy(activePlate = (if (it.workspace.activePlate > plate) it.workspace.activePlate - 1 else it.workspace.activePlate).coerceIn(0, scene.plates.lastIndex))) }
             }
         }
     }
@@ -456,7 +456,7 @@ class ScadController(private val store: Store) {
         if (!pushToPlate || dragging) return
         pushToPlate = false
         val s = st ?: return
-        if (s.onPlate == null || store.value.scene.objects.none { it.name == s.onPlate }) return
+        if (s.onPlate == null || store.value.workspace.scene.objects.none { it.name == s.onPlate }) return
         render()
     }
 
@@ -640,7 +640,7 @@ class ScadController(private val store: Store) {
         val index: Int
         var s: Scene
         if (oldIndex != null) {
-            val old = store.value.scene.objects[oldIndex]
+            val old = store.value.workspace.scene.objects[oldIndex]
             // A shape design built from pieces, now code: its one mesh (in the design's frame) replaces the pieces.
             s = if (ScadDesign.of(old)?.pieces == true) {
                 engine.setVolumes(oldIndex, listOf(VolumeSpec(VolumeType.PART, IDENTITY, stl = stl.path)) + otherVolumes(old.volumes), keepCenter = true)
@@ -648,7 +648,7 @@ class ScadController(private val store: Store) {
             } else engine.replaceMesh(oldIndex, stl.path, design.encode())
             index = oldIndex
         } else {
-            s = engine.loadModels(listOf(stl.path), append = true, plate = store.value.activePlate)
+            s = engine.loadModels(listOf(stl.path), append = true, plate = store.value.workspace.activePlate)
             index = s.objects.lastIndex
             s = engine.setObjectModule(index, design.encode())
             s = placeFree(s, index)
@@ -660,7 +660,7 @@ class ScadController(private val store: Store) {
 
     /** The object named [name] this editor placed (the one with a design first), or null when it is gone. */
     private fun placed(name: String?): Int? {
-        val objects = store.value.scene.objects
+        val objects = store.value.workspace.scene.objects
         return name?.let { n ->
             objects.indexOfLast { it.name == n && ScadDesign.of(it) != null }.takeIf { it >= 0 } ?: objects.indexOfLast { it.name == n }
         }?.takeIf { it >= 0 }
@@ -771,7 +771,7 @@ class ScadController(private val store: Store) {
     private suspend fun placePieces(shapes: ShapeDesign, pieces: List<ShapeDesign.Piece>, stls: List<File>, replace: String?,
                                     design: ScadDesign): String {
         val oldIndex = placed(replace)
-        val old = oldIndex?.let { store.value.scene.objects[it] }
+        val old = oldIndex?.let { store.value.workspace.scene.objects[it] }
         val keepCenter = old != null && old.name !in placedThisSession
         val keep = old?.let { kept(it, pieces, stls) }.orEmpty()
         val anchor = old?.takeIf { keepCenter }?.let { anchors(it, pieces, stls) }.orEmpty()
@@ -798,7 +798,7 @@ class ScadController(private val store: Store) {
             val named = File(store.app.cacheDir, "openscad/${System.nanoTime()}/$stem.stl")
             try {
                 withContext(Dispatchers.IO) { stls[first].copyTo(named, overwrite = true) }
-                s = engine.loadModels(listOf(named.path), append = true, plate = store.value.activePlate)
+                s = engine.loadModels(listOf(named.path), append = true, plate = store.value.workspace.activePlate)
             } finally {
                 named.parentFile?.deleteRecursively()
             }
@@ -872,7 +872,7 @@ class ScadController(private val store: Store) {
         // Leaving the builder: does the design fit the printer in its print pose? (Notices offers a fix.)
         if (o < 0) store.checkFit(left)
         store.launch { store.applyScene(engine.setBuildObject(o), dirty = false) }
-        if (o >= 0 && opened && ScadDesign.of(store.value.scene.objects.getOrNull(o))?.shapes != st?.shapes) pushBuild()
+        if (o >= 0 && opened && ScadDesign.of(store.value.workspace.scene.objects.getOrNull(o))?.shapes != st?.shapes) pushBuild()
         if (o < 0 && st?.shapes != null && !store.value.design.scadOnPlate) preview()
     }
 
@@ -914,7 +914,7 @@ class ScadController(private val store: Store) {
      */
     suspend fun shapeAt(obj: Int, origin: Vec3, dir: Vec3): Pair<Int, List<Pair<Int, Int>>>? {
         val hit = engine.pick(origin, dir, only = obj) ?: return null
-        val o = store.value.scene.objects.getOrNull(obj) ?: return null
+        val o = store.value.workspace.scene.objects.getOrNull(obj) ?: return null
         val piece = volumeShapes(o)[hit.volume] ?: return null
         val inst = o.instances.getOrNull(hit.instance)?.shown ?: return null
         // The object's own design: the pieces' matrices are its (an edit may still be rendering).
@@ -936,7 +936,7 @@ class ScadController(private val store: Store) {
      */
     suspend fun faceAt(obj: Int, origin: Vec3, dir: Vec3): FacePick? {
         val hit = engine.pick(origin, dir, only = obj) ?: return null
-        val o = store.value.scene.objects.getOrNull(obj) ?: return null
+        val o = store.value.workspace.scene.objects.getOrNull(obj) ?: return null
         val piece = volumeShapes(o)[hit.volume] ?: return null
         val inst = o.instances.getOrNull(hit.instance)?.shown ?: return null
         val d = ScadDesign.of(o)?.shapes ?: return null

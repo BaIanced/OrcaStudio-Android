@@ -109,7 +109,7 @@ class MainActivity : ComponentActivity() {
 
     /** Small state line for debug notes (no account or printer details). */
     private fun noteSnapshot(): String = vm.state.value.let {
-        "screen=${it.chrome.screen} tool=${it.tool} plate=${it.activePlate} selection=${it.selection} objects=${it.scene.objects.size}"
+        "screen=${it.chrome.screen} tool=${it.tool} plate=${it.workspace.activePlate} selection=${it.selection} objects=${it.workspace.scene.objects.size}"
     }
 
     override fun dispatchGenericMotionEvent(ev: MotionEvent): Boolean {
@@ -247,7 +247,7 @@ class MainActivity : ComponentActivity() {
 
     /** Camera views: 0 default, 1 top, 2 bottom, 3 front, 4 rear, 5 left, 6 right, 7 plate. */
     private fun cameraView(view: PlateView, n: Int, s: UiState) {
-        if (n == 7) view.framePlate(s.activePlate) else view.camera.preset(listOf(0, 1, 5, 2, 6, 3, 4)[n])
+        if (n == 7) view.framePlate(s.workspace.activePlate) else view.camera.preset(listOf(0, 1, 5, 2, 6, 3, 4)[n])
     }
 
     /**

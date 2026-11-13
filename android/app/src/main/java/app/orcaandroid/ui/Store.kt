@@ -124,10 +124,9 @@ class Store(val app: Application, val scope: CoroutineScope) {
     fun applyScene(scene: Scene, dirty: Boolean = true) = update { s ->
         val multi = s.multiSelection.filter { it.obj < scene.objects.size && it.instance < scene.objects[it.obj].instances.size }
         s.copy(
-            scene = scene,
+            workspace = s.workspace.copy(scene = scene, activePlate = s.workspace.activePlate.coerceIn(0, (scene.plates.size - 1).coerceAtLeast(0))),
             selection = s.selection?.takeIf { it.obj < scene.objects.size } ?: multi.singleOrNull(),
             multiSelection = multi.takeIf { it.size > 1 }.orEmpty(),
-            activePlate = s.activePlate.coerceIn(0, (scene.plates.size - 1).coerceAtLeast(0)),
             slicing = s.slicing.copy(results = emptyMap()),
             projectDirty = s.projectDirty || dirty,
         )

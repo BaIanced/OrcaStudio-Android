@@ -309,7 +309,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val overrides: Map<app.orcaandroid.core.PresetType, Map<String, String>>, val projectName: String?, val activePlate: Int,
     )
 
-    private fun sessionKey(s: UiState) = SessionKey(s.scene, s.device.printer, s.device.print, s.device.filaments, s.device.overrides, s.projectName, s.activePlate)
+    private fun sessionKey(s: UiState) = SessionKey(s.workspace.scene, s.device.printer, s.device.print, s.device.filaments, s.device.overrides, s.projectName, s.workspace.activePlate)
 
     /**
      * Saves the session every [UiState.autoSaveSeconds] while it has changed, so a crash or a killed

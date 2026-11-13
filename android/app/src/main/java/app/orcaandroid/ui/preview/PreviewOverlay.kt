@@ -64,8 +64,8 @@ fun PreviewOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
                 if (state.slicing.external != null) {
                     AssistChip(onClick = vm.slicing::closeExternal, label = { Text(File(state.slicing.external.gcodeFile).name, maxLines = 1) },
                         trailingIcon = { Icon(Icons.Default.Close, stringResource(R.string.close), Modifier.size(16.dp)) })
-                } else if (state.scene.plates.size > 1) {
-                    state.scene.plates.forEach { p ->
+                } else if (state.workspace.scene.plates.size > 1) {
+                    state.workspace.scene.plates.forEach { p ->
                         FilterChip(
                             selected = p.index == state.slicing.previewPlate,
                             onClick = { vm.slicing.pickPreviewPlate(p.index); view?.showPlate(p.index) },
