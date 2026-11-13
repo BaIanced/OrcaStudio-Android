@@ -4466,3 +4466,4 @@ User on the batch 1 merge offer (r548, 5bcef51): "merge and tell me recommendati
 ## 2026-11-12 Trimmed from handoff (2)
 - GLB/glTF/PLY/OFF import committed 63ebb8a (open: push; Muse tasks 22-25); Assemble A1+A2+"Update on plate" verified; A3 designed, not coded. Details: archive "2026-11-12 Trimmed from handoff".
 - T-021 done, source-checked (coordinator diffed the 120 table fields against AppState.kt: identical): `docs/audit/plan/uistate-split.md` (local), 8 moves; sub-state property names workspace/slicing/device/design/chrome because `scene` and `slice` are existing fields. T-022..T-026 re-scoped to one dispatch per move (MASTER-PLAN).
+- T-022 done, device-checked (WSA debug build of 037c25a, smoke.sh 8/8 twice; compile + 45 tests): UiState split move 1, DesignState as `state.design`.
