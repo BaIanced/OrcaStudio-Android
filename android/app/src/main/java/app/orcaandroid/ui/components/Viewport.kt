@@ -674,22 +674,27 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     // Done puts the plate camera back.
     // The Build workspace does the same with its object.
     val focused = solo || state.buildObject != null
-    LaunchedEffect(v, focused) {
+    // The box to frame: the painted copy, or the build object's copies (null while the scene has none yet, so the effect runs again).
+    val focusTarget: Pair<Vec3, Vec3>? = if (!focused) null else if (solo) state.workspace.selectedObject?.instances?.getOrNull(state.workspace.selection?.instance ?: 0)?.let { it.min to (it.min + it.size) }
+        else state.buildObject?.let { state.workspace.scene.objects.getOrNull(it) }?.instances?.takeIf { it.isNotEmpty() }?.map { it.shown }?.let { insts ->
+            Vec3(insts.minOf { it.min.x }, insts.minOf { it.min.y }, insts.minOf { it.min.z }) to
+                Vec3(insts.maxOf { it.min.x + it.size.x }, insts.maxOf { it.min.y + it.size.y }, insts.maxOf { it.min.z + it.size.z })
+        }
+    val focusPlate = if (solo) null else state.buildObject?.let { state.workspace.scene.objects.getOrNull(it) }?.instances?.firstOrNull()?.plate
+    LaunchedEffect(v, focused, focusTarget != null) {
         val plate = shopCamera
         if (focused && plate == null) {
-            val box = if (solo) state.workspace.selectedObject?.instances?.getOrNull(state.workspace.selection?.instance ?: 0)?.let { it.min to (it.min + it.size) }
-                else state.buildObject?.let { state.workspace.scene.objects.getOrNull(it) }?.instances?.takeIf { it.isNotEmpty() }?.map { it.shown }?.let { insts ->
-                    Vec3(insts.minOf { it.min.x }, insts.minOf { it.min.y }, insts.minOf { it.min.z }) to
-                        Vec3(insts.maxOf { it.min.x + it.size.x }, insts.maxOf { it.min.y + it.size.y }, insts.maxOf { it.min.z + it.size.z })
-                }
-            box ?: return@LaunchedEffect
+            val box = focusTarget ?: return@LaunchedEffect
             // The live camera: the paint shop keeps this view (savedCamera may be from an older tab switch); a new view
             // (Build workspace) has savedCamera restored already (above).
             shopCamera = v.camera.state()
+            shopPlate = focusPlate
             v.onGl { fitPending = box }
         } else if (!focused && plate != null) {
-            v.camera.restore(plate)
-            shopCamera = null
+            val builderPlate = shopPlate
+            shopCamera = null; shopPlate = null
+            // Closing the builder frames the plate that holds the edited object (it may not be the one active before).
+            if (builderPlate != null) v.onGl { frame(builderPlate) } else v.camera.restore(plate)
         }
     }
     LaunchedEffect(v, state.workspace.selectionStyle) {
@@ -1012,6 +1017,9 @@ private var savedCamera: FloatArray? = null
 
 /** The plate camera from before the paint shop or the Build workspace, restored when it closes. */
 private var shopCamera: FloatArray? = null
+
+/** The plate of the Build workspace's object while it is open (null in the paint shop). */
+private var shopPlate: Int? = null
 
 /** Build workspace: how long a live resize / turn waits for the re-rendered pieces (a resize runs OpenSCAD) before it lets go. */
 private const val BUILD_RENDER_WAIT = 8000L
