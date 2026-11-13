@@ -13,7 +13,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 ## State
 - One repo: OrcaStudio-Android (code + these docs, `docs/handoff/`), branch `claude/handoff-continuation-rseql3`. Autonomy (user, 2026-10-11): decide branches and next steps
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
-- Android main = 62ada99 (PR #73 = r521, multi-plate Preview, merged 2026-11-04; Claude-verified only; PR #72 = r519 before it). Branch work is Claude-verified only; no merge offer pending. User-untested in main: `SIGNOFF-CHECKLIST.md`.
+- Android main = 3181529 (PR #84 = r548, batch 1 + GLB/glTF/PLY/OFF import + GL preview work, merged 2026-11-12 on the user's "merge"; Claude-verified only). Nothing unmerged on the branch but handoff docs. User-untested in main: `SIGNOFF-CHECKLIST.md`.
 - Signing secrets: `release` environment (main + `claude/*` only).
 - Installs: all adb devices (skip .23); **SHIELD avoided (user 2026-11-01)**. WSA restart: `WsaClient /shutdown`, `wsa-start.ps1`, `adb connect 127.0.0.1:58526`; phone/Chromebook reconnect: memory devices. GL shots on the phone VD.
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
@@ -35,9 +35,9 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - GLB/glTF/PLY/OFF import committed 63ebb8a (open: push; Muse tasks 22-25); Assemble A1+A2+"Update on plate" verified; A3 designed, not coded. Details: archive "2026-11-12 Trimmed from handoff".
 - **Audit plan running (user answers: `docs/audit/ANSWERS.md`, read before asking).** docs/audit/ is local-only, ticks not committed. **Batch 1 done: T-001..T-019 `[x]` except T-003 `[!]` (backlog [Opus] patch rebase).** T-010 left 59 UNCONFIRMED licence rows (backlog [Opus]). One task at a time (shared Gradle dir + one WSA). A3 phase (a) parked. C-12 TLS pinning needs the user at the printer: ask first.
 - Coordinator (user 2026-11-12): the session runs on Sonnet and never implements: dispatch a subagent with the task's own model/effort tags, verify `done when`, commit, tick. Task results go in the MASTER-PLAN tick + one archive line, not here. Go task after task without stopping. Name inquiry #17269: bump after 2026-11-19.
-- **T-019 gate passed 2026-11-12 on 5bcef51 (r548, CI run 43346116062, on WSA only; archive "T-019"). Merge offer for batch 1 shown to the user; waiting for their yes (then PR work branch -> main; PR text without AI attribution).** Batch 2 (T-020 baseline shots) starts only after the merge (`depends on: T-019 merged`).
+- Batch 1 merged (PR #84, archive "T-019" / "PR #84"). **Batch 2 open (user said yes to refactor first, answer 14): T-020 baseline shots (sonnet low), then T-021 UiState split plan (opus high).** PR #84's `scan` check failed on old commit cf75a81 (2026-11-04, a LAN address once in HANDOFF.md, gone from the tree); user told, their call (backlog).
 - Open for the user: `gh variable set RELEASE_CERT_SHA256` (T-006); blank `Verdict (user)` line in memory cheaper-subagents; move docs/handoff to a private repo before T-038 (backlog).
-- Next step: on the user's merge yes, merge batch 1 then T-020 baseline shots -> Sonnet 5.5 (coordinator; the subagent model is the task tag)
+- Next step: execute MASTER-PLAN batch 2, next T-020 baseline shots -> Sonnet 5.5 (coordinator; the subagent model is the task tag)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
