@@ -469,7 +469,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
 
     /** Right click / long press on the 3D view: selects what lies there (or nothing), then opens the menu at (x, y). */
     fun openContextMenu(origin: Vec3, dir: Vec3, x: Float, y: Float, section: FloatArray? = null) = store.launch {
-        if (store.value.screen != Screen.PREPARE) return@launch
+        if (store.value.chrome.screen != Screen.PREPARE) return@launch
         val hit = pick(origin, dir, section)
         store.update { st ->
             // On a copy of the multi-selection the menu acts on all of them, as on the desktop.
@@ -1050,8 +1050,9 @@ class SceneController(private val store: Store, private val presets: PresetContr
         presets.syncSelection()
         val (scene, calib) = engine.calibStart(type, params)
         store.applyScene(scene)
-        store.update { it.copy(calibration = calib, selection = null, screen = Screen.PREPARE, projectName = calib.name,
-            nameBeforeCalibration = if (it.calibration == null) it.projectName else it.nameBeforeCalibration) }
+        store.update { it.copy(calibration = calib, selection = null, projectName = calib.name,
+            nameBeforeCalibration = if (it.calibration == null) it.projectName else it.nameBeforeCalibration,
+            chrome = it.chrome.copy(screen = Screen.PREPARE)) }
     }
 
     fun stopCalibration() = store.launch {

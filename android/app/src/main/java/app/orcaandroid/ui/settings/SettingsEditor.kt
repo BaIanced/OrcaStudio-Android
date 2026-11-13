@@ -114,7 +114,7 @@ private class EditSource(
 
 @Composable
 fun SettingsEditor(state: UiState, vm: AppViewModel) {
-    val target = state.editor ?: return
+    val target = state.chrome.editor ?: return
     androidx.activity.compose.BackHandler(onBack = vm.presets::closeEditor)
     when (target) {
         is EditorTarget.Preset -> PresetEditor(state, vm, target.type, target.pickCompare, target.focus, target.pinMode)

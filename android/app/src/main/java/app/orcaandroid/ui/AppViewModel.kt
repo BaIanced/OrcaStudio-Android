@@ -54,7 +54,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         files.scad = scad
         viewModelScope.launch {
             runCatching { start() }
-                .onFailure { e -> store.update { it.copy(phase = Phase.SETUP, error = e.message ?: e.toString()) } }
+                .onFailure { e -> store.update { it.copy(chrome = it.chrome.copy(phase = Phase.SETUP, error = e.message ?: e.toString())) } }
         }
         viewModelScope.launch { autoSave() }
         viewModelScope.launch { slicing.autoSlice() }
@@ -71,13 +71,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
         viewModelScope.launch {
             val report = withContext(Dispatchers.IO) { runCatching { CrashReport.pending(store.app) }.getOrNull() }
-            if (report != null) store.update { it.copy(crashReport = report) }
+            if (report != null) store.update { it.copy(chrome = it.chrome.copy(crashReport = report)) }
         }
     }
 
     fun dismissCrashReport() {
         CrashReport.clear(store.app)
-        store.update { it.copy(crashReport = null) }
+        store.update { it.copy(chrome = it.chrome.copy(crashReport = null)) }
     }
 
     /** Unpacks the resources, starts the engine and loads the printers chosen before (or asks for them). */
@@ -92,11 +92,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         store.update { it.copy(vendors = vendors, selectedPrinters = selected) }
         val installed = resources.installedVendorIds()
         if (selected.isEmpty() || installed.none { id -> vendors.any { v -> v.id == id && !v.required } }) {
-            store.update { it.copy(phase = Phase.SETUP) }
+            store.update { it.copy(chrome = it.chrome.copy(phase = Phase.SETUP)) }
         } else {
             presets.reloadPresets(emptySet())
             runCatching { files.restoreSession() }.onFailure { android.util.Log.w("Orca", "session not restored", it) }
-            store.update { it.copy(phase = Phase.READY) }
+            store.update { it.copy(chrome = it.chrome.copy(phase = Phase.READY)) }
             startPlugins()
             presets.autoCheckProfileUpdates()
         }
@@ -111,58 +111,58 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Waits until startup has finished (intents that arrive while the app starts). */
-    suspend fun awaitReady() = state.first { it.phase == Phase.READY }
+    suspend fun awaitReady() = state.first { it.chrome.phase == Phase.READY }
 
     // --- App-wide UI state ---------------------------------------------------------------------------
 
     fun dismissCoach() {
         store.settings.coachDismissed = true
-        store.update { it.copy(coachDismissed = true) }
+        store.update { it.copy(chrome = it.chrome.copy(coachDismissed = true)) }
     }
 
-    fun setScreen(screen: Screen) = store.update { it.copy(screen = screen, tool = toolAfterScreenChange(it.screen, screen, it.tool)) }
+    fun setScreen(screen: Screen) = store.update { it.copy(tool = toolAfterScreenChange(it.chrome.screen, screen, it.tool), chrome = it.chrome.copy(screen = screen)) }
 
     /** Shows [url] in the Models tab's browser. */
-    fun openInModels(url: String) = store.update { it.copy(modelsUrl = url, screen = Screen.MODELS, tool = Tool.None) }
+    fun openInModels(url: String) = store.update { it.copy(tool = Tool.None, chrome = it.chrome.copy(modelsUrl = url, screen = Screen.MODELS)) }
 
-    fun modelsUrlOpened() = store.update { it.copy(modelsUrl = null) }
+    fun modelsUrlOpened() = store.update { it.copy(chrome = it.chrome.copy(modelsUrl = null)) }
 
     fun setThemeMode(mode: ThemeMode) {
         store.settings.themeMode = mode
-        store.update { it.copy(themeMode = mode) }
+        store.update { it.copy(chrome = it.chrome.copy(themeMode = mode)) }
     }
 
     fun setDynamicColor(on: Boolean) {
         store.settings.dynamicColor = on
-        store.update { it.copy(dynamicColor = on) }
+        store.update { it.copy(chrome = it.chrome.copy(dynamicColor = on)) }
     }
 
     /** New colours; [persist] = false while a slider is still moving (saved when it's let go). */
     fun setThemeSpec(spec: app.orcaandroid.core.ThemeSpec, persist: Boolean = true) {
         if (persist) store.settings.themeSpec = spec
-        store.update { it.copy(themeSpec = spec) }
+        store.update { it.copy(chrome = it.chrome.copy(themeSpec = spec)) }
     }
 
     /** Picks a colour preset; wallpaper colours would hide it, so they go off. */
     fun setThemePreset(key: String) {
-        if (state.value.dynamicColor) setDynamicColor(false)
-        setThemeSpec(state.value.themeSpec.copy(preset = key))
+        if (state.value.chrome.dynamicColor) setDynamicColor(false)
+        setThemeSpec(state.value.chrome.themeSpec.copy(preset = key))
     }
 
     /** Design mode: the colour panel floats over the app; opened from More, it starts on Prepare. */
     fun setDesignMode(on: Boolean) = store.update {
-        it.copy(designMode = on, screen = if (on && it.screen == Screen.MORE) Screen.PREPARE else it.screen)
+        it.copy(chrome = it.chrome.copy(designMode = on, screen = if (on && it.chrome.screen == Screen.MORE) Screen.PREPARE else it.chrome.screen))
     }
 
     fun setUndoLimit(limit: Int) {
         store.settings.undoLimit = limit
-        store.update { it.copy(undoLimit = limit) }
+        store.update { it.copy(chrome = it.chrome.copy(undoLimit = limit)) }
         store.sceneOp { store.engine.setUndoLimit(limit) }
     }
 
     fun setLab(lab: app.orcaandroid.core.LayoutLab) {
         store.settings.layoutLab = lab
-        store.update { it.copy(lab = lab) }
+        store.update { it.copy(chrome = it.chrome.copy(lab = lab)) }
     }
 
     fun setPen(pen: app.orcaandroid.core.PenConfig) {
@@ -172,7 +172,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setDoubleBackToQuit(on: Boolean) {
         store.settings.doubleBackToQuit = on
-        store.update { it.copy(doubleBackToQuit = on) }
+        store.update { it.copy(chrome = it.chrome.copy(doubleBackToQuit = on)) }
     }
 
     fun setAutoSlice(on: Boolean) {
@@ -257,21 +257,21 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setAutoSave(seconds: Int) {
         store.settings.autoSaveSeconds = seconds
-        store.update { it.copy(autoSaveSeconds = seconds) }
+        store.update { it.copy(chrome = it.chrome.copy(autoSaveSeconds = seconds)) }
     }
 
     /** Switches the MCP server for AI clients on or off (and remembers it). */
     fun setAiTools(on: Boolean, lan: Boolean = store.settings.aiToolsLan) {
         store.settings.aiTools = on
         store.settings.aiToolsLan = lan
-        store.update { it.copy(aiTools = on, aiToolsLan = lan, aiToken = store.settings.aiToken, aiError = null) }
+        store.update { it.copy(chrome = it.chrome.copy(aiTools = on, aiToolsLan = lan, aiToken = store.settings.aiToken, aiError = null)) }
         viewModelScope.launch {
             val (error, addresses) = withContext(Dispatchers.IO) {
                 mcp.stop()
                 val error = if (!on) null else runCatching { mcp.start(viewModelScope, lan) }.exceptionOrNull()?.let { it.message ?: it.toString() }
                 error to if (on && lan) lanAddresses() else emptyList()
             }
-            store.update { it.copy(aiError = error, aiAddresses = addresses) }
+            store.update { it.copy(chrome = it.chrome.copy(aiError = error, aiAddresses = addresses)) }
         }
     }
 
@@ -288,7 +288,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** A new token for AI clients: the old one stops working at once. */
     fun newAiToken() {
         val token = store.settings.newAiToken()
-        store.update { it.copy(aiToken = token) }
+        store.update { it.copy(chrome = it.chrome.copy(aiToken = token)) }
     }
 
     override fun onCleared() {
@@ -320,10 +320,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         awaitReady()
         var saved = sessionKey(state.value)
         while (true) {
-            val seconds = state.value.autoSaveSeconds
+            val seconds = state.value.chrome.autoSaveSeconds
             delay(if (seconds > 0) seconds * 1000L else 5_000L)
             val s = state.value
-            if (seconds <= 0 || s.phase != Phase.READY || s.busy != null || s.slicing.slice != SliceStatus.Idle) continue
+            if (seconds <= 0 || s.chrome.phase != Phase.READY || s.chrome.busy != null || s.slicing.slice != SliceStatus.Idle) continue
             val key = sessionKey(s)
             if (key == saved) continue
             runCatching { files.saveSession() }
@@ -332,12 +332,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun dismissError() = store.update { it.copy(error = null) }
+    fun dismissError() = store.update { it.copy(chrome = it.chrome.copy(error = null)) }
     fun dismissSliceError() = store.update { it.copy(slicing = it.slicing.copy(sliceError = null)) }
     fun dismissFit() = store.update { it.copy(slicing = it.slicing.copy(fitIssue = null)) }
-    fun dismissMessage() = store.update { it.copy(message = null, messageAction = null) }
+    fun dismissMessage() = store.update { it.copy(chrome = it.chrome.copy(message = null, messageAction = null)) }
     fun setScadHidden(hidden: Boolean) = store.update { it.copy(design = it.design.copy(scadHidden = hidden)) }
     fun setScadOnPlate(onPlate: Boolean) = store.update { it.copy(design = it.design.copy(scadOnPlate = onPlate)) }
     fun toast(message: String) = store.toast(message)
-    fun showError(message: String) = store.update { it.copy(error = message) }
+    fun showError(message: String) = store.update { it.copy(chrome = it.chrome.copy(error = message)) }
 }

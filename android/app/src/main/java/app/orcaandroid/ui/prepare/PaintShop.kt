@@ -33,7 +33,7 @@ import app.orcaandroid.ui.Tool
 import app.orcaandroid.ui.UiState
 
 /** Painting of every kind (colour, supports, seam, fuzzy skin) opens the paint shop: a workspace of its own instead of a card over the plate (user plan 2026-10-21, all kinds 2026-10-29). */
-internal val UiState.inPaintShop get() = screen == Screen.PREPARE && tool is Tool.Paint
+internal val UiState.inPaintShop get() = chrome.screen == Screen.PREPARE && tool is Tool.Paint
 
 /** The frame around the 3D view that says "you are in the paint shop" (the mockup's purple). */
 private val SHOP_FRAME = Color(0xFF7F67BE)

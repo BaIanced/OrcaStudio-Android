@@ -101,9 +101,9 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
             LayoutLabSection(state, vm)
 
             // Collapsed by default (user 2026-10-28): File on the Prepare top bar has the same list; this stays as a fallback.
-            if (state.recents.isNotEmpty()) Section(stringResource(R.string.recent), summary = state.recents.size.coerceAtMost(10).toString()) {
+            if (state.chrome.recents.isNotEmpty()) Section(stringResource(R.string.recent), summary = state.chrome.recents.size.coerceAtMost(10).toString()) {
                 Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(vertical = 4.dp)) { state.recents.take(10).forEach { r -> RecentRow(r, { vm.files.openRecent(r) }) { vm.files.removeRecent(r) } } }
+                    Column(Modifier.padding(vertical = 4.dp)) { state.chrome.recents.take(10).forEach { r -> RecentRow(r, { vm.files.openRecent(r) }) { vm.files.removeRecent(r) } } }
                 }
             }
 
@@ -141,7 +141,7 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
                 ProfileUpdatesCard(state, vm)
             }
 
-            Section(stringResource(R.string.ai_tools), summary = stringResource(if (state.aiTools) R.string.on else R.string.off)) { AiToolsSection(state, vm) }
+            Section(stringResource(R.string.ai_tools), summary = stringResource(if (state.chrome.aiTools) R.string.on else R.string.off)) { AiToolsSection(state, vm) }
 
             Section(stringResource(R.string.orca_cloud)) {
                 OrcaCloudSection()
@@ -156,9 +156,9 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
 
             // Zoom speeds (user 2026-10-19: the Quest thumbstick zooms far too fast; was the Layout lab's pinch slider only).
             Section(stringResource(R.string.controls)) {
-                val lab = state.lab
-                ShadowSlider(R.string.lab_pinch_speed, lab.pinchSpeed, 100f, "%", app.orcaandroid.core.LayoutLab.PINCH_SPEEDS, lab, peek = false) { vm.setLab(state.lab.copy(pinchSpeed = it)) }
-                ShadowSlider(R.string.wheel_zoom_speed, lab.wheelSpeed, 100f, "%", app.orcaandroid.core.LayoutLab.WHEEL_SPEEDS, lab, peek = false) { vm.setLab(state.lab.copy(wheelSpeed = it)) }
+                val lab = state.chrome.lab
+                ShadowSlider(R.string.lab_pinch_speed, lab.pinchSpeed, 100f, "%", app.orcaandroid.core.LayoutLab.PINCH_SPEEDS, lab, peek = false) { vm.setLab(state.chrome.lab.copy(pinchSpeed = it)) }
+                ShadowSlider(R.string.wheel_zoom_speed, lab.wheelSpeed, 100f, "%", app.orcaandroid.core.LayoutLab.WHEEL_SPEEDS, lab, peek = false) { vm.setLab(state.chrome.lab.copy(wheelSpeed = it)) }
             }
 
             // Feel knobs (user 2026-10-27), also over MCP: tuning_get / tuning_set.
@@ -168,10 +168,10 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
                 SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                     listOf(ThemeMode.SYSTEM to R.string.theme_system, ThemeMode.LIGHT to R.string.theme_light, ThemeMode.DARK to R.string.theme_dark)
                         .forEachIndexed { i, (mode, label) ->
-                            SegmentedButton(state.themeMode == mode, { vm.setThemeMode(mode) }, SegmentedButtonDefaults.itemShape(i, 3)) { Text(stringResource(label)) }
+                            SegmentedButton(state.chrome.themeMode == mode, { vm.setThemeMode(mode) }, SegmentedButtonDefaults.itemShape(i, 3)) { Text(stringResource(label)) }
                         }
                 }
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) SwitchRow(stringResource(R.string.dynamic_color), state.dynamicColor, onChange = vm::setDynamicColor)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) SwitchRow(stringResource(R.string.dynamic_color), state.chrome.dynamicColor, onChange = vm::setDynamicColor)
                 ThemePresetList(state, vm)
                 SwitchRow(stringResource(R.string.contact_shadows), state.contactShadows, onChange = vm::setContactShadows)
                 // The desktop's View > Use Orthogonal View; a setting here since perspective is the usual look (user 2026-10-19). K toggles.
@@ -195,7 +195,7 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
                     }
                 }
                 Entry(stringResource(R.string.design_mode), stringResource(R.string.design_mode_text)) { vm.setDesignMode(true) }
-                val custom = state.themeSpec.customCount(true) + state.themeSpec.customCount(false)
+                val custom = state.chrome.themeSpec.customCount(true) + state.chrome.themeSpec.customCount(false)
                 if (custom > 0) Entry(stringResource(R.string.reset_colors), pluralStringResource(R.plurals.n_custom_colors, custom, custom)) { dialog = "reset_colors" }
             }
 
@@ -221,7 +221,7 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
             }
 
             Section(stringResource(R.string.misc)) {
-                SwitchRow(stringResource(R.string.double_back_quit), state.doubleBackToQuit, onChange = vm::setDoubleBackToQuit)
+                SwitchRow(stringResource(R.string.double_back_quit), state.chrome.doubleBackToQuit, onChange = vm::setDoubleBackToQuit)
                 SwitchRow(stringResource(R.string.auto_slice), state.slicing.autoSlice, onChange = vm::setAutoSlice)
                 Text(stringResource(R.string.auto_slice_text), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(stringResource(R.string.project_filaments), style = MaterialTheme.typography.titleSmall)
@@ -231,8 +231,8 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
                     }
                 }
                 Text(stringResource(R.string.project_filaments_text), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                UndoLimitRow(state.undoLimit, vm::setUndoLimit)
-                AutoSaveRow(state.autoSaveSeconds, vm::setAutoSave)
+                UndoLimitRow(state.chrome.undoLimit, vm::setUndoLimit)
+                AutoSaveRow(state.chrome.autoSaveSeconds, vm::setAutoSave)
             }
 
             Section(stringResource(R.string.about), summary = BuildConfig.VERSION_NAME) { About() }
@@ -244,7 +244,7 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
         "reset_colors" -> AlertDialog(
             onDismissRequest = { dialog = null },
             text = { Text(stringResource(R.string.reset_colors_confirm)) },
-            confirmButton = { TextButton({ dialog = null; vm.setThemeSpec(state.themeSpec.reset(true).reset(false)) }) { Text(stringResource(R.string.reset)) } },
+            confirmButton = { TextButton({ dialog = null; vm.setThemeSpec(state.chrome.themeSpec.reset(true).reset(false)) }) { Text(stringResource(R.string.reset)) } },
             dismissButton = { TextButton({ dialog = null }) { Text(stringResource(R.string.cancel)) } },
         )
         "expert" -> app.orcaandroid.ui.components.ConfirmDialog(stringResource(R.string.expert_settings), stringResource(R.string.expert_settings_warning),
@@ -360,7 +360,7 @@ private fun LayoutLabSection(state: UiState, vm: AppViewModel) {
 /** The lab controls, also shown in the Layout tab of the design panel (they apply live via [AppViewModel.setLab]). */
 @Composable
 internal fun LayoutLabBody(state: UiState, vm: AppViewModel) {
-    val lab = state.lab
+    val lab = state.chrome.lab
     val current by androidx.compose.runtime.rememberUpdatedState(lab)
     run {
       Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -404,23 +404,23 @@ internal fun LayoutLabBody(state: UiState, vm: AppViewModel) {
             vm.setLab(lab.copy(overlayAlpha = it))
         }, 0.2f..1f, current)
         Text(stringResource(R.string.lab_scale_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        ScaleSlider(R.string.lab_text_scale, lab.textScale, app.orcaandroid.core.LayoutLab.TEXT_SCALES, current) { vm.setLab(state.lab.copy(textScale = it)) }
-        ScaleSlider(R.string.lab_ui_scale, lab.uiScale, app.orcaandroid.core.LayoutLab.UI_SCALES, current) { vm.setLab(state.lab.copy(uiScale = it)) }
-        ScaleSlider(R.string.lab_plate_scale, lab.plateScale, app.orcaandroid.core.LayoutLab.PLATE_SCALES, current) { vm.setLab(state.lab.copy(plateScale = it)) }
-        ScaleSlider(R.string.lab_slice_scale, lab.sliceScale, app.orcaandroid.core.LayoutLab.SLICE_SCALES, current) { vm.setLab(state.lab.copy(sliceScale = it)) }
-        ScaleSlider(R.string.lab_overlay_scale, lab.overlayScale, app.orcaandroid.core.LayoutLab.OVERLAY_SCALES, current) { vm.setLab(state.lab.copy(overlayScale = it)) }
+        ScaleSlider(R.string.lab_text_scale, lab.textScale, app.orcaandroid.core.LayoutLab.TEXT_SCALES, current) { vm.setLab(state.chrome.lab.copy(textScale = it)) }
+        ScaleSlider(R.string.lab_ui_scale, lab.uiScale, app.orcaandroid.core.LayoutLab.UI_SCALES, current) { vm.setLab(state.chrome.lab.copy(uiScale = it)) }
+        ScaleSlider(R.string.lab_plate_scale, lab.plateScale, app.orcaandroid.core.LayoutLab.PLATE_SCALES, current) { vm.setLab(state.chrome.lab.copy(plateScale = it)) }
+        ScaleSlider(R.string.lab_slice_scale, lab.sliceScale, app.orcaandroid.core.LayoutLab.SLICE_SCALES, current) { vm.setLab(state.chrome.lab.copy(sliceScale = it)) }
+        ScaleSlider(R.string.lab_overlay_scale, lab.overlayScale, app.orcaandroid.core.LayoutLab.OVERLAY_SCALES, current) { vm.setLab(state.chrome.lab.copy(overlayScale = it)) }
         }
         Section(stringResource(R.string.lab_group_shadows)) {
-        ShadowSlider(R.string.lab_shadow_strength, lab.shadowStrength, 100f, "%", app.orcaandroid.core.LayoutLab.SHADOW_STRENGTHS, current) { vm.setLab(state.lab.copy(shadowStrength = it)) }
-        ShadowSlider(R.string.lab_shadow_soft, lab.shadowSoft, 1f, " mm", app.orcaandroid.core.LayoutLab.SHADOW_SOFTS, current) { vm.setLab(state.lab.copy(shadowSoft = it)) }
-        ShadowSlider(R.string.lab_shadow_bias, lab.shadowBias, 1f, " mm", app.orcaandroid.core.LayoutLab.SHADOW_BIASES, current) { vm.setLab(state.lab.copy(shadowBias = it)) }
+        ShadowSlider(R.string.lab_shadow_strength, lab.shadowStrength, 100f, "%", app.orcaandroid.core.LayoutLab.SHADOW_STRENGTHS, current) { vm.setLab(state.chrome.lab.copy(shadowStrength = it)) }
+        ShadowSlider(R.string.lab_shadow_soft, lab.shadowSoft, 1f, " mm", app.orcaandroid.core.LayoutLab.SHADOW_SOFTS, current) { vm.setLab(state.chrome.lab.copy(shadowSoft = it)) }
+        ShadowSlider(R.string.lab_shadow_bias, lab.shadowBias, 1f, " mm", app.orcaandroid.core.LayoutLab.SHADOW_BIASES, current) { vm.setLab(state.chrome.lab.copy(shadowBias = it)) }
         }
         Section(stringResource(R.string.lab_group_light)) {
-        ShadowSlider(R.string.lab_light_azimuth, lab.lightAzimuth, 1f, "°", app.orcaandroid.core.LayoutLab.LIGHT_AZIMUTHS, current) { vm.setLab(state.lab.copy(lightAzimuth = it)) }
-        ShadowSlider(R.string.lab_light_elevation, lab.lightElevation, 1f, "°", app.orcaandroid.core.LayoutLab.LIGHT_ELEVATIONS, current) { vm.setLab(state.lab.copy(lightElevation = it)) }
-        ShadowSlider(R.string.lab_light_strength, lab.lightStrength, 100f, "%", app.orcaandroid.core.LayoutLab.LIGHT_STRENGTHS, current) { vm.setLab(state.lab.copy(lightStrength = it)) }
-        ShadowSlider(R.string.lab_camera_light, lab.cameraLight, 100f, "%", app.orcaandroid.core.LayoutLab.CAMERA_LIGHTS, current) { vm.setLab(state.lab.copy(cameraLight = it)) }
-        ShadowSlider(R.string.lab_orbit_inertia, lab.orbitInertia, 100f, "%", app.orcaandroid.core.LayoutLab.ORBIT_INERTIAS, current) { vm.setLab(state.lab.copy(orbitInertia = it)) }
+        ShadowSlider(R.string.lab_light_azimuth, lab.lightAzimuth, 1f, "°", app.orcaandroid.core.LayoutLab.LIGHT_AZIMUTHS, current) { vm.setLab(state.chrome.lab.copy(lightAzimuth = it)) }
+        ShadowSlider(R.string.lab_light_elevation, lab.lightElevation, 1f, "°", app.orcaandroid.core.LayoutLab.LIGHT_ELEVATIONS, current) { vm.setLab(state.chrome.lab.copy(lightElevation = it)) }
+        ShadowSlider(R.string.lab_light_strength, lab.lightStrength, 100f, "%", app.orcaandroid.core.LayoutLab.LIGHT_STRENGTHS, current) { vm.setLab(state.chrome.lab.copy(lightStrength = it)) }
+        ShadowSlider(R.string.lab_camera_light, lab.cameraLight, 100f, "%", app.orcaandroid.core.LayoutLab.CAMERA_LIGHTS, current) { vm.setLab(state.chrome.lab.copy(cameraLight = it)) }
+        ShadowSlider(R.string.lab_orbit_inertia, lab.orbitInertia, 100f, "%", app.orcaandroid.core.LayoutLab.ORBIT_INERTIAS, current) { vm.setLab(state.chrome.lab.copy(orbitInertia = it)) }
         }
         TextButton(onClick = { vm.setLab(app.orcaandroid.core.LayoutLab()) }) { Text(stringResource(R.string.reset)) }
       }
@@ -534,24 +534,24 @@ private fun UndoLimitRow(limit: Int, onChange: (Int) -> Unit) {
 private fun AiToolsSection(state: UiState, vm: AppViewModel) {
     val context = LocalContext.current
     val port = app.orcaandroid.core.AI_TOOLS_PORT
-    SwitchRow(stringResource(R.string.ai_tools_switch), state.aiTools, onChange = vm::setAiTools)
+    SwitchRow(stringResource(R.string.ai_tools_switch), state.chrome.aiTools, onChange = vm::setAiTools)
     Text(stringResource(R.string.ai_tools_text, port), style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant)
-    if (!state.aiTools) return
-    SwitchRow(stringResource(R.string.ai_tools_lan), state.aiToolsLan, onChange = { vm.setAiTools(true, it) })
-    if (state.aiToolsLan) Text(stringResource(R.string.ai_tools_lan_text, state.aiAddresses.joinToString { "http://$it:$port/mcp" }.ifEmpty { "-" }),
+    if (!state.chrome.aiTools) return
+    SwitchRow(stringResource(R.string.ai_tools_lan), state.chrome.aiToolsLan, onChange = { vm.setAiTools(true, it) })
+    if (state.chrome.aiToolsLan) Text(stringResource(R.string.ai_tools_lan_text, state.chrome.aiAddresses.joinToString { "http://$it:$port/mcp" }.ifEmpty { "-" }),
         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    state.aiError?.let { Text(stringResource(R.string.ai_tools_error, it), style = MaterialTheme.typography.bodySmall,
+    state.chrome.aiError?.let { Text(stringResource(R.string.ai_tools_error, it), style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.error) }
     var shown by remember { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(stringResource(R.string.ai_token) + ": " + if (shown) state.aiToken else "••••" + state.aiToken.takeLast(4),
+        Text(stringResource(R.string.ai_token) + ": " + if (shown) state.chrome.aiToken else "••••" + state.chrome.aiToken.takeLast(4),
             Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
         TextButton(onClick = { shown = !shown }) { Text(stringResource(if (shown) R.string.ai_token_hide else R.string.ai_token_show)) }
     }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         TextButton(onClick = {
-            val cmd = "claude mcp add --transport http orca http://127.0.0.1:$port/mcp --header \"Authorization: Bearer ${state.aiToken}\""
+            val cmd = "claude mcp add --transport http orca http://127.0.0.1:$port/mcp --header \"Authorization: Bearer ${state.chrome.aiToken}\""
             context.getSystemService(android.content.ClipboardManager::class.java)
                 .setPrimaryClip(android.content.ClipData.newPlainText("MCP setup", cmd))
             vm.toast(context.getString(R.string.ai_command_copied))
@@ -619,7 +619,7 @@ private fun ThemePresetList(state: UiState, vm: AppViewModel) {
     val dark = app.orcaandroid.ui.theme.LocalAppColors.current.dark
     Text(stringResource(R.string.color_preset), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
     app.orcaandroid.ui.theme.ThemePreset.entries.forEach { p ->
-        val selected = !state.dynamicColor && state.themeSpec.preset == p.key
+        val selected = !state.chrome.dynamicColor && state.chrome.themeSpec.preset == p.key
         Row(Modifier.fillMaxWidth().clickable { vm.setThemePreset(p.key) }.padding(vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             RadioButton(selected, { vm.setThemePreset(p.key) })

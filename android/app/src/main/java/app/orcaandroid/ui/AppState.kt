@@ -193,7 +193,8 @@ data class SliceState(
     val isSlicing get() = (slice as? SliceStatus.Running)?.background == false
 }
 
-data class UiState(
+/** App chrome fields of [UiState] (notices, dialogs, navigation, theme, AI server), read as `state.chrome.x`. */
+data class ChromeState(
     val phase: Phase = Phase.LOADING,
     val busy: String? = null,
     /** Cancels the [busy] operation (Cancel button on the busy dialog); null = not cancellable. */
@@ -203,6 +204,41 @@ data class UiState(
     val messageAction: MessageAction? = null,
     /** A page the Models tab's browser should open next (e.g. a 3D Filament Profiles print log). */
     val modelsUrl: String? = null,
+    val screen: Screen = Screen.PREPARE,
+    val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    val dynamicColor: Boolean = false,
+    val themeSpec: app.orcaandroid.core.ThemeSpec = app.orcaandroid.core.ThemeSpec(),
+    /** The floating colour panel is open over the app (design mode). */
+    val designMode: Boolean = false,
+    val doubleBackToQuit: Boolean = false,
+    val coachDismissed: Boolean = true,
+    val filamentChoice: FilamentChoice? = null,
+    /** A project file dropped onto a plate with objects: its name while asking open-as-project vs import. */
+    val projectOrImport: String? = null,
+    val lab: app.orcaandroid.core.LayoutLab = app.orcaandroid.core.LayoutLab(),
+    val undoLimit: Int = app.orcaandroid.core.DEFAULT_UNDO_LIMIT,
+    /** Auto-save interval in seconds; 0 or less = off (-seconds keeps the interval it had). */
+    val autoSaveSeconds: Int = app.orcaandroid.core.DEFAULT_AUTO_SAVE_SECONDS,
+    /** The MCP server for AI clients is switched on; [aiToken] is what they must send. */
+    val aiTools: Boolean = false,
+    val aiToken: String = "",
+    /** It also listens on the local network; [aiAddresses] are this device's addresses there. */
+    val aiToolsLan: Boolean = false,
+    val aiAddresses: List<String> = emptyList(),
+    /** What an AI tool asks the user to allow (shown as a dialog), or null. */
+    val aiConfirm: String? = null,
+    /** Why the server isn't running although switched on (port taken, ...). */
+    val aiError: String? = null,
+    val editor: EditorTarget? = null,
+    val showPrinterSetup: Boolean = false,
+    /** The last session could not be opened and was kept aside; Notices offers Try again / Discard. */
+    val sessionBad: Boolean = false,
+    val recents: List<RecentFile> = emptyList(),
+    /** Report of a crash that closed the app last time (see CrashReport). */
+    val crashReport: String? = null,
+)
+
+data class UiState(
     /** Where the 3D view's context menu is open (view pixels), or null. */
     val contextMenu: Pair<Float, Float>? = null,
     /**
@@ -214,20 +250,9 @@ data class UiState(
     val rotateFor: Selection? = null,
     /** An add dialog asked for by a shortcut ("text" for T), shown by the 3D view's context menu host. */
     val addDialog: String? = null,
-    val screen: Screen = Screen.PREPARE,
-    val themeMode: ThemeMode = ThemeMode.SYSTEM,
-    val dynamicColor: Boolean = false,
-    val themeSpec: app.orcaandroid.core.ThemeSpec = app.orcaandroid.core.ThemeSpec(),
-    /** The floating colour panel is open over the app (design mode). */
-    val designMode: Boolean = false,
-    val doubleBackToQuit: Boolean = false,
-    val coachDismissed: Boolean = true,
     val pen: app.orcaandroid.core.PenConfig = app.orcaandroid.core.PenConfig(),
     /** What an opened project does to the filament slots ("ask", "project", "mine") and the question being asked. */
     val projectFilaments: String = "ask",
-    val filamentChoice: FilamentChoice? = null,
-    /** A project file dropped onto a plate with objects: its name while asking open-as-project vs import. */
-    val projectOrImport: String? = null,
     /** 3D view contact shadows. */
     val contactShadows: Boolean = true,
     /** 3D view realistic render mode (physically based shading, studio lighting). */
@@ -248,24 +273,10 @@ data class UiState(
     val moveLock: Int = -1,
     /** 3D view projection: perspective, or orthographic when false. */
     val perspective: Boolean = true,
-    val lab: app.orcaandroid.core.LayoutLab = app.orcaandroid.core.LayoutLab(),
     /** View > Light direction: the light ball panel is open (session only). */
     val lightPanel: Boolean = false,
     /** View > Dimensions: X / Y / Z size lines on the selection's box (session only). */
     val dimensions: Boolean = false,
-    val undoLimit: Int = app.orcaandroid.core.DEFAULT_UNDO_LIMIT,
-    /** Auto-save interval in seconds; 0 or less = off (-seconds keeps the interval it had). */
-    val autoSaveSeconds: Int = app.orcaandroid.core.DEFAULT_AUTO_SAVE_SECONDS,
-    /** The MCP server for AI clients is switched on; [aiToken] is what they must send. */
-    val aiTools: Boolean = false,
-    val aiToken: String = "",
-    /** It also listens on the local network; [aiAddresses] are this device's addresses there. */
-    val aiToolsLan: Boolean = false,
-    val aiAddresses: List<String> = emptyList(),
-    /** What an AI tool asks the user to allow (shown as a dialog), or null. */
-    val aiConfirm: String? = null,
-    /** Why the server isn't running although switched on (port taken, ...). */
-    val aiError: String? = null,
 
     // Printers and presets
     val vendors: List<Vendor> = emptyList(),
@@ -298,8 +309,6 @@ data class UiState(
     val matchNozzle: Boolean = true,
     val filamentTiles: Boolean = true,
     val installedNozzles: Map<String, Float> = emptyMap(),
-    val editor: EditorTarget? = null,
-    val showPrinterSetup: Boolean = false,
 
     // Scene
     val scene: Scene = Scene(),
@@ -339,8 +348,6 @@ data class UiState(
     /** Unsaved changes since the project was opened/saved. */
     val projectDirty: Boolean = false,
 
-    /** The last session could not be opened and was kept aside; Notices offers Try again / Discard. */
-    val sessionBad: Boolean = false,
 
     // Device
     val connection: PrinterConnection? = null,
@@ -355,16 +362,14 @@ data class UiState(
     val discovering: Boolean = false,
 
     // Files and updates
-    val recents: List<RecentFile> = emptyList(),
     /** Files sent to a printer, newest first (Device tab). */
     val printHistory: List<PrintHistoryEntry> = emptyList(),
     val profileUpdates: List<ResourceStore.ProfileUpdate>? = null,
     /** Progress text while profile updates install in the background; null when idle. */
     val profileUpdateProgress: String? = null,
-    /** Report of a crash that closed the app last time (see CrashReport). */
-    val crashReport: String? = null,
     val design: DesignState = DesignState(),
     val slicing: SliceState = SliceState(),
+    val chrome: ChromeState = ChromeState(),
 ) {
     fun presetName(type: PresetType) = when (type) {
         PresetType.PRINT -> print

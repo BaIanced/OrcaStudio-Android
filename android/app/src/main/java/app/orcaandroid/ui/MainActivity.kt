@@ -62,15 +62,15 @@ class MainActivity : ComponentActivity() {
         // FocusGuardLayout: rotating crashed in Compose's focus code (see the class).
         setContentView(FocusGuardLayout(this).apply { addView(androidx.compose.ui.platform.ComposeView(context).apply { setContent {
             val state by vm.state.collectAsStateWithLifecycle()
-            app.orcaandroid.ui.theme.OrcaTheme(state.themeMode, state.dynamicColor, state.themeSpec) {
-                Immersive(state.lab.fullscreenPortrait)
+            app.orcaandroid.ui.theme.OrcaTheme(state.chrome.themeMode, state.chrome.dynamicColor, state.chrome.themeSpec) {
+                Immersive(state.chrome.lab.fullscreenPortrait)
                 Surface(Modifier.fillMaxSize()) {
                     // Landscape hides the bars: use the camera cutout's strip too instead of leaving it empty
                     // (user, 2026-10-13); the rail goes there, other content keeps clear of it (AppScaffold).
                     // Fullscreen portrait likewise gives the top strip to the 3D view (user, 2026-10-13).
                     val landscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation ==
                         android.content.res.Configuration.ORIENTATION_LANDSCAPE
-                    Box(if (landscape || state.lab.fullscreenPortrait) Modifier.windowInsetsPadding(WindowInsets.systemBars.union(WindowInsets.ime))
+                    Box(if (landscape || state.chrome.lab.fullscreenPortrait) Modifier.windowInsetsPadding(WindowInsets.systemBars.union(WindowInsets.ime))
                         else Modifier.safeDrawingPadding()) { AppScaffold(state, vm) }
                 }
             }
@@ -109,7 +109,7 @@ class MainActivity : ComponentActivity() {
 
     /** Small state line for debug notes (no account or printer details). */
     private fun noteSnapshot(): String = vm.state.value.let {
-        "screen=${it.screen} tool=${it.tool} plate=${it.activePlate} selection=${it.selection} objects=${it.scene.objects.size}"
+        "screen=${it.chrome.screen} tool=${it.tool} plate=${it.activePlate} selection=${it.selection} objects=${it.scene.objects.size}"
     }
 
     override fun dispatchGenericMotionEvent(ev: MotionEvent): Boolean {
@@ -168,7 +168,7 @@ class MainActivity : ComponentActivity() {
             }
             ACTION_OPEN_LAST -> lifecycleScope.launch {
                 vm.awaitReady()
-                vm.state.value.recents.firstOrNull { it.isProject }?.let(vm.files::openRecent)
+                vm.state.value.chrome.recents.firstOrNull { it.isProject }?.let(vm.files::openRecent)
             }
         }
 
@@ -182,8 +182,8 @@ class MainActivity : ComponentActivity() {
         if (printers == null && model == null) return
         lifecycleScope.launch {
             if (printers != null) {
-                vm.state.value.let { if (it.phase == Phase.LOADING) kotlinx.coroutines.delay(500) }
-                while (vm.state.value.phase == Phase.LOADING || vm.state.value.vendors.isEmpty()) kotlinx.coroutines.delay(200)
+                vm.state.value.let { if (it.chrome.phase == Phase.LOADING) kotlinx.coroutines.delay(500) }
+                while (vm.state.value.chrome.phase == Phase.LOADING || vm.state.value.vendors.isEmpty()) kotlinx.coroutines.delay(200)
                 vm.presets.applyPrinterSelection(printers.toSet()).join()
             }
             vm.awaitReady()
@@ -217,12 +217,12 @@ class MainActivity : ComponentActivity() {
         val view = PlateView.active?.get()
         // Selection and camera shortcuts only while the 3D view has focus, so Ctrl+A/C/V keep
         // working in text fields.
-        val onPlate = viewFocused && s.editor == null && s.screen == Screen.PREPARE
-        val onView = viewFocused && s.editor == null && (s.screen == Screen.PREPARE || s.screen == Screen.PREVIEW)
+        val onPlate = viewFocused && s.chrome.editor == null && s.chrome.screen == Screen.PREPARE
+        val onView = viewFocused && s.chrome.editor == null && (s.chrome.screen == Screen.PREPARE || s.chrome.screen == Screen.PREVIEW)
         val shift = event.isShiftPressed
         if (android.util.Log.isLoggable("OrcaInput", android.util.Log.DEBUG))
             android.util.Log.d("OrcaInput", "shortcut $keyCode ctrl=${event.isCtrlPressed} viewFocused=$viewFocused " +
-                "view=${view?.let { System.identityHashCode(it) }} focus=${window.decorView.findFocus()?.javaClass?.simpleName} screen=${s.screen} editor=${s.editor != null}")
+                "view=${view?.let { System.identityHashCode(it) }} focus=${window.decorView.findFocus()?.javaClass?.simpleName} screen=${s.chrome.screen} editor=${s.chrome.editor != null}")
         if (!event.isCtrlPressed) return super.onKeyShortcut(keyCode, event)
         when {
             keyCode == KeyEvent.KEYCODE_Z && shift -> vm.scene.redo()
@@ -276,11 +276,11 @@ class MainActivity : ComponentActivity() {
     /** Single-key shortcuts of the 3D view, as on the desktop; the view forwards its keys here first. */
     private fun viewKey(keyCode: Int, event: KeyEvent): Boolean {
         val s = vm.state.value
-        if (s.editor != null || event.isCtrlPressed) return false
+        if (s.chrome.editor != null || event.isCtrlPressed) return false
         // Shift+Tab: snap on / off, as in Blender.
-        if (keyCode == KeyEvent.KEYCODE_TAB && event.isShiftPressed && s.screen == Screen.PREPARE) { vm.toggleSnap(); return true }
-        if (keyCode == KeyEvent.KEYCODE_TAB && (s.screen == Screen.PREPARE || s.screen == Screen.PREVIEW)) {
-            vm.setScreen(if (s.screen == Screen.PREPARE) Screen.PREVIEW else Screen.PREPARE)
+        if (keyCode == KeyEvent.KEYCODE_TAB && event.isShiftPressed && s.chrome.screen == Screen.PREPARE) { vm.toggleSnap(); return true }
+        if (keyCode == KeyEvent.KEYCODE_TAB && (s.chrome.screen == Screen.PREPARE || s.chrome.screen == Screen.PREVIEW)) {
+            vm.setScreen(if (s.chrome.screen == Screen.PREPARE) Screen.PREVIEW else Screen.PREPARE)
             return true
         }
         val view = PlateView.active?.get()
@@ -290,15 +290,15 @@ class MainActivity : ComponentActivity() {
             KeyEvent.KEYCODE_I -> { view?.camera?.zoom(1.15f); return true }
             KeyEvent.KEYCODE_O -> { view?.camera?.zoom(1 / 1.15f); return true }
             // As in PrusaSlicer (Orca has it only in the View menu): K switches perspective / orthographic.
-            KeyEvent.KEYCODE_K -> if (s.screen == Screen.PREPARE || s.screen == Screen.PREVIEW) { vm.setPerspective(!s.perspective); return true }
+            KeyEvent.KEYCODE_K -> if (s.chrome.screen == Screen.PREPARE || s.chrome.screen == Screen.PREVIEW) { vm.setPerspective(!s.perspective); return true }
             // Numpad 0-7 also pick the camera views: some systems keep Ctrl+digit as their own hotkeys.
             // Only with Num Lock on, so the numpad arrows still nudge.
             in KeyEvent.KEYCODE_NUMPAD_0..KeyEvent.KEYCODE_NUMPAD_7 -> if (view != null && event.isNumLockOn &&
-                (s.screen == Screen.PREPARE || s.screen == Screen.PREVIEW)) {
+                (s.chrome.screen == Screen.PREPARE || s.chrome.screen == Screen.PREVIEW)) {
                 cameraView(view, keyCode - KeyEvent.KEYCODE_NUMPAD_0, s); return true
             }
         }
-        return when (s.screen) {
+        return when (s.chrome.screen) {
             Screen.PREVIEW -> previewKey(keyCode, s)
             Screen.PREPARE -> prepareKey(keyCode, event, s)
             else -> false

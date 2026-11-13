@@ -75,7 +75,7 @@ data class ScadEditorState(
  * the plate (eye toggle). The main view then shows it alone and edits its shapes; null otherwise.
  */
 val UiState.buildObject: Int? get() {
-    val s = design.scad?.takeIf { it.shapes != null && design.scadOnPlate && !design.scadHidden && screen == Screen.PREPARE } ?: return null
+    val s = design.scad?.takeIf { it.shapes != null && design.scadOnPlate && !design.scadHidden && chrome.screen == Screen.PREPARE } ?: return null
     val name = s.onPlate ?: return null
     return scene.objects.indexOfLast { it.name == name && ScadDesign.of(it)?.pieces == true }.takeIf { it >= 0 }
 }
@@ -147,7 +147,7 @@ class ScadController(private val store: Store) {
                 onPlate = meta?.optString("onPlate")?.takeIf { n -> n.isNotEmpty() },
                 autoRender = meta?.optBoolean("autoRender", true) ?: true,
                 shapes = meta?.optJSONObject("shapes")?.let { j -> runCatching { ShapeDesign.of(j) }.getOrNull() },
-            )), screen = Screen.PREPARE)
+            )), chrome = it.chrome.copy(screen = Screen.PREPARE))
         }
         val placed = st?.onPlate?.let { n -> store.value.scene.objects.any { it.name == n } } == true
         if (newDesign && !placed) useEmptyPlate()

@@ -72,7 +72,7 @@ fun Notices(state: UiState, vm: AppViewModel, modifier: Modifier = Modifier) {
                 Line(stringResource(R.string.fit_size, f.name, mm(f.size), mm(f.bed)), true),
                 Line(stringResource(hint), false, if (f.fix != null) NoticeFix.Fit(f) else null))))
         }
-        if (state.sessionBad) {
+        if (state.chrome.sessionBad) {
             add(Notice("session", stringResource(R.string.session_bad_title), listOf(Line(stringResource(R.string.session_bad_text), true)),
                 buttons = listOf(R.string.session_try_again to { vm.files.retryBadSession() }, R.string.session_discard to { vm.files.discardBadSession() })))
         }
@@ -81,7 +81,7 @@ fun Notices(state: UiState, vm: AppViewModel, modifier: Modifier = Modifier) {
                 listOf(Line(engineErrorText(message, vm.translator), true, noticeFix(message)))))
         }
         val result = state.slicing.shownResult
-        if (state.screen == Screen.PREVIEW && result != null && result.warnings.isNotEmpty()) {
+        if (state.chrome.screen == Screen.PREVIEW && result != null && result.warnings.isNotEmpty()) {
             add(Notice("warn:${state.slicing.previewPlate}:${result.gcodeFile}:${result.warnings.hashCode()}", stringResource(R.string.notice_slicer_warnings),
                 // Mixed temperatures the user has allowed are only a heads-up (as in the preview panel).
                 result.warnings.map { Line(vm.translator.tr(it), !(state.allowMixedTemps && it.startsWith("Selected nozzle temperatures are incompatible")), noticeFix(it)) }))

@@ -31,8 +31,8 @@ class PresetController(private val store: Store, private val device: DeviceContr
 
     // --- Printers ------------------------------------------------------------------------------------
 
-    fun openPrinterSetup() = store.update { it.copy(showPrinterSetup = true) }
-    fun closePrinterSetup() = store.update { it.copy(showPrinterSetup = false) }
+    fun openPrinterSetup() = store.update { it.copy(chrome = it.chrome.copy(showPrinterSetup = true)) }
+    fun closePrinterSetup() = store.update { it.copy(chrome = it.chrome.copy(showPrinterSetup = false)) }
 
     /** Installs the vendors of the chosen printers (and drops unused ones), then activates a new pick. */
     fun applyPrinterSelection(keys: Set<String>) = store.launch(store.str(R.string.installing_profiles)) {
@@ -41,9 +41,9 @@ class PresetController(private val store: Store, private val device: DeviceContr
         val vendorIds = s.vendors.filter { v -> v.models.any { m -> m.nozzles.any { printerKey(m.name, it) in keys } } }.map { it.id }.toSet()
         resources.setInstalledVendors(vendorIds)
         settings.selectedPrinters = keys
-        store.update { it.copy(selectedPrinters = keys, showPrinterSetup = false) }
+        store.update { it.copy(selectedPrinters = keys, chrome = it.chrome.copy(showPrinterSetup = false)) }
         reloadPresets(added)
-        store.update { it.copy(phase = Phase.READY) }
+        store.update { it.copy(chrome = it.chrome.copy(phase = Phase.READY)) }
     }
 
     /** The connected Bambu printer (the selected preset's) reported nozzle [diameter] mm: remembered for its model. */
@@ -99,9 +99,9 @@ class PresetController(private val store: Store, private val device: DeviceContr
 
     /** Reloads all presets and selects a printer: a newly added one, the last used, or any 0.4 mm one. */
     suspend fun reloadPresets(prefer: Set<String>) {
-        store.update { it.copy(busy = store.str(R.string.loading_profiles)) }
+        store.update { it.copy(chrome = it.chrome.copy(busy = store.str(R.string.loading_profiles))) }
         val printers = engine.loadPresets()
-        store.update { it.copy(printers = printers, busy = null) }
+        store.update { it.copy(printers = printers, chrome = it.chrome.copy(busy = null)) }
         val visible = store.value.visiblePrinters
         val printer = visible.filter { it.system && it.key in prefer }.minByOrNull { abs(it.nozzle - 0.4) }
             ?: visible.firstOrNull { it.name == settings.lastPrinter }
@@ -391,13 +391,13 @@ class PresetController(private val store: Store, private val device: DeviceContr
 
     fun openEditor(target: EditorTarget) = store.launch {
         if (target is EditorTarget.Preset && target.type == PresetType.FILAMENT) refreshPresetValues(listOf(PresetType.FILAMENT))
-        store.update { it.copy(editor = target) }
+        store.update { it.copy(chrome = it.chrome.copy(editor = target)) }
     }
 
     /** Back from a comparison returns to the preset it was opened from; everything else closes the editor. */
     fun closeEditor() = store.update { s ->
-        val e = s.editor
-        s.copy(editor = if (e is EditorTarget.Compare) EditorTarget.Preset(e.type) else null)
+        val e = s.chrome.editor
+        s.copy(chrome = s.chrome.copy(editor = if (e is EditorTarget.Compare) EditorTarget.Preset(e.type) else null))
     }
 
     suspend fun optionDefs(type: PresetType): List<OptionDef> = engine.optionDefs(type)

@@ -147,7 +147,7 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
     if (state.inPaintShop) return
     // The Build workspace edits the design's shapes: the plate tools would act on the whole object.
     if (state.buildObject != null) return
-    val lab = state.lab
+    val lab = state.chrome.lab
     val sliceOnGrip = sliceOnGrip(state, wide)
     // Tools in a column on the left: wide layouts always, portrait if chosen in the Layout lab.
     val column = wide || lab.toolsLeft
@@ -176,7 +176,7 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
                 }
             }
             if (state.showSelectionBanner) SelectionBanner(state, vm)
-            if (!state.coachDismissed && state.calibration == null && state.design.scad == null) CoachStrip(state, vm)
+            if (!state.chrome.coachDismissed && state.calibration == null && state.design.scad == null) CoachStrip(state, vm)
         }
         if (column) {
             // Below the top bar (and the banners): the column scrolls instead of covering the plate selector.
@@ -323,7 +323,7 @@ private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
     val inset = with(LocalDensity.current) { 8.dp.roundToPx() }
     // Lab "pie menu": wedges for the common actions; the last wedge ("More") opens the list.
     var more by remember(at) { mutableStateOf(false) }
-    if (at != null && state.lab.pieMenu && !more) {
+    if (at != null && state.chrome.lab.pieMenu && !more) {
         val close = vm.scene::closeContextMenu
         val sel = state.selection
         val moreItem = PieItem(Icons.Default.MoreHoriz, stringResource(R.string.more)) { more = true }
@@ -432,10 +432,10 @@ private fun TopBar(state: UiState, vm: AppViewModel, view: PlateView?, viewButto
     // view buttons take the free start, left of the hole, and File stays right of it (together they didn't fit past it).
     CutoutRow(minStart = 96.dp, start = {
         if (onHandle) { if (viewButtons) views() }
-        else if (state.lab.showPlates) PlateScale(state.lab.plateScale) {
-            when (state.lab.plates) {
+        else if (state.chrome.lab.showPlates) PlateScale(state.chrome.lab.plateScale) {
+            when (state.chrome.lab.plates) {
                 PlateSwitcher.TABS -> Surface(shape = RoundedCornerShape(20.dp), color = bar) { PlateTabs(state, vm, view, Modifier.padding(start = 4.dp)) }
-                PlateSwitcher.FILMSTRIP -> if (state.lab.plateLabel) Surface(shape = RoundedCornerShape(20.dp), color = bar) { PlateLabel(state, vm) }
+                PlateSwitcher.FILMSTRIP -> if (state.chrome.lab.plateLabel) Surface(shape = RoundedCornerShape(20.dp), color = bar) { PlateLabel(state, vm) }
                 PlateSwitcher.CHIPS -> PlateChips(state, vm, view)
             }
         }
@@ -578,10 +578,10 @@ internal fun ProjectMenu(state: UiState, vm: AppViewModel, open: Boolean, onDism
             enabled = !state.scene.isEmpty)
         DropdownMenuItem(text = { Text(stringResource(R.string.export_stl)) }, onClick = { onDismiss(); exportStl.launch("$base.stl") },
             enabled = !state.scene.isEmpty)
-        if (state.recents.isNotEmpty()) {
+        if (state.chrome.recents.isNotEmpty()) {
             HorizontalDivider()
             Text(stringResource(R.string.recent), Modifier.padding(horizontal = 12.dp, vertical = 4.dp), style = MaterialTheme.typography.labelMedium)
-            state.recents.take(6).forEach { r ->
+            state.chrome.recents.take(6).forEach { r ->
                 DropdownMenuItem(text = { Text(r.name, maxLines = 1) }, onClick = { onDismiss(); vm.files.openRecent(r) })
             }
         }
@@ -726,14 +726,14 @@ private fun ToolButton(icon: ImageVector, label: String, active: Boolean = false
 }
 
 /** Portrait Prepare without the OpenSCAD editor: the Slice button sits at the right end of the panel's grip (user, 2026-10-17). */
-fun sliceOnGrip(state: UiState, wide: Boolean) = !wide && state.design.scad == null && !state.lab.sliceFloating
+fun sliceOnGrip(state: UiState, wide: Boolean) = !wide && state.design.scad == null && !state.chrome.lab.sliceFloating
 
 /** The Slice button on the panel grip, sized by the Layout lab's own slider (on top of the main UI size only). */
 @Composable
 fun GripSliceButton(state: UiState, vm: AppViewModel, modifier: Modifier = Modifier) {
     val base = androidx.compose.ui.platform.LocalDensity.current
     androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides
-        androidx.compose.ui.unit.Density(base.density * state.lab.sliceScale, base.fontScale)) {
+        androidx.compose.ui.unit.Density(base.density * state.chrome.lab.sliceScale, base.fontScale)) {
         SliceButton(state, vm, modifier.padding(vertical = 4.dp))
     }
 }
@@ -744,7 +744,7 @@ fun GripSliceButton(state: UiState, vm: AppViewModel, modifier: Modifier = Modif
  */
 @Composable
 private fun BoxScope.FloatingSlice(state: UiState, vm: AppViewModel, area: IntSize) {
-    val lab = state.lab
+    val lab = state.chrome.lab
     var size by remember { mutableStateOf(IntSize.Zero) }
     var live by remember { mutableStateOf<Offset?>(null) }
     val roomX = (area.width - size.width).coerceAtLeast(0).toFloat()
@@ -885,9 +885,9 @@ private fun ScrollCue(scroll: androidx.compose.foundation.ScrollState, up: Boole
 /** The plate switcher chosen in the Layout lab, as a bar of its own (nested on the portrait panel's grip). */
 @Composable
 fun PlateSwitcherBar(state: UiState, vm: AppViewModel, view: PlateView?, modifier: Modifier = Modifier) {
-    PlateScale(state.lab.plateScale) {
+    PlateScale(state.chrome.lab.plateScale) {
         Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-            when (state.lab.plates) {
+            when (state.chrome.lab.plates) {
                 PlateSwitcher.TABS -> PlateTabs(state, vm, view, Modifier.weight(1f))
                 PlateSwitcher.FILMSTRIP -> Filmstrip(state, vm, view, Modifier.weight(1f))
                 PlateSwitcher.CHIPS -> Box(Modifier.weight(1f)) { PlateChips(state, vm, view) }

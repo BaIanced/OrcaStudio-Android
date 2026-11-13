@@ -103,7 +103,7 @@ class FileController(
             last
         }
         uris.forEachIndexed { i, u -> if (unpacked[i].any { it in files }) rememberRecent(u, imported[i].name, false) }
-        store.update { it.copy(selection = Selection(s.objects.lastIndex), multiSelection = emptyList(), screen = Screen.PREPARE) }
+        store.update { it.copy(selection = Selection(s.objects.lastIndex), multiSelection = emptyList(), chrome = it.chrome.copy(screen = Screen.PREPARE)) }
     }
 
     private fun Scene.plateEmpty(plate: Int) = objects.none { o -> o.instances.any { it.plate == plate } }
@@ -123,7 +123,7 @@ class FileController(
     private fun addVariants(files: List<File>) = store.launch(store.str(R.string.loading_model)) {
         val s = engine.loadModels(files.map { it.path }, append = true, plate = store.value.activePlate)
         store.applyScene(s)
-        store.update { it.copy(selection = Selection(s.objects.lastIndex), multiSelection = emptyList(), screen = Screen.PREPARE, design = it.design.copy(scadHidden = true)) }
+        store.update { it.copy(selection = Selection(s.objects.lastIndex), multiSelection = emptyList(), design = it.design.copy(scadHidden = true), chrome = it.chrome.copy(screen = Screen.PREPARE)) }
     }
 
     /**
@@ -187,7 +187,7 @@ class FileController(
         presets.refreshPresetValues(listOf(PresetType.FILAMENT, PresetType.PRINT))
         store.applyScene(loaded, dirty = false)
         uri?.let { rememberRecent(it, file.name, true) }
-        store.update { it.copy(projectName = file.name.removeSuffix(".3mf"), projectDirty = false, selection = null, multiSelection = emptyList(), screen = Screen.PREPARE) }
+        store.update { it.copy(projectName = file.name.removeSuffix(".3mf"), projectDirty = false, selection = null, multiSelection = emptyList(), chrome = it.chrome.copy(screen = Screen.PREPARE)) }
     }
 
     private var filamentAnswer: kotlinx.coroutines.CompletableDeferred<String>? = null
@@ -196,7 +196,7 @@ class FileController(
     private suspend fun askFilaments(mine: List<FilamentSlot>, project: List<FilamentSlot>): String {
         val answer = kotlinx.coroutines.CompletableDeferred<String>()
         filamentAnswer = answer
-        store.update { it.copy(filamentChoice = FilamentChoice(mine, project)) }
+        store.update { it.copy(chrome = it.chrome.copy(filamentChoice = FilamentChoice(mine, project))) }
         return answer.await()
     }
 
@@ -206,12 +206,12 @@ class FileController(
     private suspend fun askOpenAsProject(name: String): Boolean {
         val answer = kotlinx.coroutines.CompletableDeferred<Boolean>()
         openAnswer = answer
-        store.update { it.copy(projectOrImport = name) }
+        store.update { it.copy(chrome = it.chrome.copy(projectOrImport = name)) }
         return answer.await()
     }
 
     fun answerOpenAsProject(asProject: Boolean) {
-        store.update { it.copy(projectOrImport = null) }
+        store.update { it.copy(chrome = it.chrome.copy(projectOrImport = null)) }
         openAnswer?.complete(asProject)
         openAnswer = null
     }
@@ -222,7 +222,7 @@ class FileController(
             store.settings.projectFilaments = mode
             store.update { it.copy(projectFilaments = mode) }
         }
-        store.update { it.copy(filamentChoice = null) }
+        store.update { it.copy(chrome = it.chrome.copy(filamentChoice = null)) }
         filamentAnswer?.complete(mode)
         filamentAnswer = null
     }
@@ -243,7 +243,7 @@ class FileController(
     /** Saves the scene, presets and setting changes as a project (called when the app goes to the background). */
     suspend fun saveSession() = sessionLock.withLock {
         val s = store.value
-        if (s.phase != Phase.READY) return
+        if (s.chrome.phase != Phase.READY) return
         // A calibration test cannot be resumed from a project; an empty plate needs no session.
         if (s.scene.isEmpty || s.calibration != null) {
             if (sessionLoadedOrAbsent) withContext(Dispatchers.IO) { session.clear() }
@@ -267,7 +267,7 @@ class FileController(
         if (!session.project.exists()) {
             sessionLoadedOrAbsent = true
             // A pair kept from an earlier failed restore is still offered.
-            if (session.hasBad()) store.update { it.copy(sessionBad = true) }
+            if (session.hasBad()) store.update { it.copy(chrome = it.chrome.copy(sessionBad = true)) }
             return
         }
         val info = runCatching { JSONObject(session.info.readText()) }.getOrNull()
@@ -279,7 +279,7 @@ class FileController(
             android.util.Log.w("Orca", "session not restored", e)
             withContext(Dispatchers.IO) { session.quarantine() }
             sessionLoadedOrAbsent = true
-            store.update { it.copy(sessionBad = true) }
+            store.update { it.copy(chrome = it.chrome.copy(sessionBad = true)) }
             return
         }
         sessionLoadedOrAbsent = true
@@ -299,7 +299,7 @@ class FileController(
             store.toast(store.str(R.string.session_retry_empty_plate))
             return@launch
         }
-        store.update { it.copy(sessionBad = false) }
+        store.update { it.copy(chrome = it.chrome.copy(sessionBad = false)) }
         sessionLock.withLock {
             if (!withContext(Dispatchers.IO) { session.restoreBad() }) return@launch
             sessionLoadedOrAbsent = false
@@ -309,7 +309,7 @@ class FileController(
 
     /** "Discard" on the notice: the kept session is deleted. */
     fun discardBadSession() {
-        store.update { it.copy(sessionBad = false) }
+        store.update { it.copy(chrome = it.chrome.copy(sessionBad = false)) }
         store.launch { sessionLock.withLock { withContext(Dispatchers.IO) { session.discardBad() } } }
     }
 
@@ -381,7 +381,7 @@ class FileController(
         val r = s.slicing.shownResult ?: return@launch
         val url = withContext(Dispatchers.IO) { FilamentProfiles.printLogUrl(File(r.gcodeFile), gcodeFileName(), s.slicing.previewPlate + 1) }
             ?: return@launch store.toast(store.str(R.string.fp_no_usage))
-        store.update { it.copy(modelsUrl = url, screen = Screen.MODELS, tool = Tool.None) }
+        store.update { it.copy(tool = Tool.None, chrome = it.chrome.copy(modelsUrl = url, screen = Screen.MODELS)) }
     }
 
     /** Messages of the slicing-pipeline plugins from the last [exportedGcode]. */
@@ -418,14 +418,14 @@ class FileController(
 
     fun removeRecent(recent: RecentFile) {
         settings.recents = settings.recents.filter { it.uri != recent.uri }
-        store.update { it.copy(recents = settings.recents) }
+        store.update { it.copy(chrome = it.chrome.copy(recents = settings.recents)) }
     }
 
     private fun rememberRecent(uri: Uri, name: String, project: Boolean) {
         // Keep access to documents across restarts where the provider allows it.
         runCatching { store.app.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
         settings.addRecent(RecentFile(uri.toString(), name, project, System.currentTimeMillis()))
-        store.update { it.copy(recents = settings.recents) }
+        store.update { it.copy(chrome = it.chrome.copy(recents = settings.recents)) }
     }
 
     /** Copies [file] to [target]; false (with a "Not saved" toast) when the bytes written differ from the source length. */

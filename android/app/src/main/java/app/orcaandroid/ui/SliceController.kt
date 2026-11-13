@@ -45,7 +45,7 @@ class SliceController(private val store: Store, private val presets: PresetContr
     /** Shows the active plate's current slice in the preview (the Slice button once a background slice is ready). */
     fun showPreview(plate: Int = store.value.activePlate) = store.update { s ->
         val result = s.slicing.results[plate] ?: return@update s
-        s.copy(screen = Screen.PREVIEW, slicing = s.slicing.copy(previewPlate = plate, external = null, preview = s.slicing.preview.showingAll(result.layers.lastIndex)))
+        s.copy(slicing = s.slicing.copy(previewPlate = plate, external = null, preview = s.slicing.preview.showingAll(result.layers.lastIndex)), chrome = s.chrome.copy(screen = Screen.PREVIEW))
     }
 
     /** Turns the running background slice into one the user waits for: progress panel, notification, Preview at the end. */
@@ -89,10 +89,11 @@ class SliceController(private val store: Store, private val presets: PresetContr
             lastSlices[plate] = SliceSummary(key.project, result.printTimeSeconds, result.filamentGrams)
             val delta = before?.let { SliceDelta(plate, result.printTimeSeconds - it.seconds, result.filamentGrams - it.grams) }
             store.update {
-                val shown = if (waited) it.copy(screen = Screen.PREVIEW,
-                    slicing = it.slicing.copy(previewPlate = plate, external = null, preview = it.slicing.preview.showingAll(result.layers.lastIndex)), upload = null)
+                val shown = if (waited) it.copy(
+                    slicing = it.slicing.copy(previewPlate = plate, external = null, preview = it.slicing.preview.showingAll(result.layers.lastIndex)), upload = null,
+                    chrome = it.chrome.copy(screen = Screen.PREVIEW))
                 // In the background the preview only follows when nobody is looking at another plate's.
-                else if (it.screen != Screen.PREVIEW || it.slicing.previewPlate == plate) it.copy(slicing = it.slicing.copy(previewPlate = plate,
+                else if (it.chrome.screen != Screen.PREVIEW || it.slicing.previewPlate == plate) it.copy(slicing = it.slicing.copy(previewPlate = plate,
                     preview = it.slicing.preview.showingAll(result.layers.lastIndex)))
                 else it
                 shown.copy(slicing = shown.slicing.copy(results = it.slicing.results + (plate to result), sliceDelta = delta ?: it.slicing.sliceDelta?.takeIf { d -> d.plate != plate }))
@@ -149,14 +150,14 @@ class SliceController(private val store: Store, private val presets: PresetContr
         val power = store.app.getSystemService(android.os.PowerManager::class.java)
         store.state.map { s ->
             val plate = s.activePlate
-            val wanted = s.slicing.autoSlice && s.phase == Phase.READY && s.slicing.results[plate] == null && s.scene.objectsOn(plate).isNotEmpty()
-            Triple(if (wanted) editKey(s, plate) else null, s.slicing.slice == SliceStatus.Idle && s.busy == null, s.screen == Screen.PREVIEW)
+            val wanted = s.slicing.autoSlice && s.chrome.phase == Phase.READY && s.slicing.results[plate] == null && s.scene.objectsOn(plate).isNotEmpty()
+            Triple(if (wanted) editKey(s, plate) else null, s.slicing.slice == SliceStatus.Idle && s.chrome.busy == null, s.chrome.screen == Screen.PREVIEW)
         }.distinctUntilChanged().collectLatest { (key, idle, onPreview) ->
             if (key == null || !idle || key == failedKey) return@collectLatest
             if (!onPreview) delay(IDLE_MS)
             if (power?.isPowerSaveMode == true) return@collectLatest
             val s = store.value
-            if (s.slicing.slice != SliceStatus.Idle || s.busy != null || editKey(s, s.activePlate) != key) return@collectLatest
+            if (s.slicing.slice != SliceStatus.Idle || s.chrome.busy != null || editKey(s, s.activePlate) != key) return@collectLatest
             // Marked running at once, so a Slice tap from here on finds it; its own job, so a plate switch doesn't throw away
             // a slice that is still valid.
             store.update { it.copy(slicing = it.slicing.copy(slice = SliceStatus.Running(key.plate, 0, store.str(R.string.preparing), background = true))) }
@@ -180,7 +181,7 @@ class SliceController(private val store: Store, private val presets: PresetContr
         for (p in store.value.scene.plates.indices) {
             if (store.value.scene.objectsOn(p).isEmpty()) continue
             slice(p).join()
-            if (store.value.error != null || store.value.slicing.sliceError != null || userCancelled) break
+            if (store.value.chrome.error != null || store.value.slicing.sliceError != null || userCancelled) break
         }
     }
 
@@ -197,7 +198,7 @@ class SliceController(private val store: Store, private val presets: PresetContr
         store.update { it.copy(slicing = it.slicing.copy(slice = SliceStatus.Running(-1, 0, store.str(R.string.reading_gcode)))) }
         try {
             val result = engine.viewGcode(file.path) { p, t -> store.update { it.copy(slicing = it.slicing.copy(slice = SliceStatus.Running(-1, p, t))) } }
-            store.update { it.copy(screen = Screen.PREVIEW, slicing = it.slicing.copy(external = result, preview = it.slicing.preview.showingAll(result.layers.lastIndex))) }
+            store.update { it.copy(slicing = it.slicing.copy(external = result, preview = it.slicing.preview.showingAll(result.layers.lastIndex)), chrome = it.chrome.copy(screen = Screen.PREVIEW)) }
         } finally {
             store.update { it.copy(slicing = it.slicing.copy(slice = SliceStatus.Idle)) }
         }

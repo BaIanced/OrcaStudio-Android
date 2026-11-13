@@ -289,7 +289,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             obj(listOf("on"), "on" to p("boolean", "true = open, false = close"))) { args ->
             val on = args.getBoolean("on")
             withContext(Dispatchers.Main.immediate) {
-                store.update { it.copy(designMode = on, screen = if (on && it.screen == app.orcaandroid.ui.Screen.MORE) app.orcaandroid.ui.Screen.PREPARE else it.screen) }
+                store.update { it.copy(chrome = it.chrome.copy(designMode = on, screen = if (on && it.chrome.screen == app.orcaandroid.ui.Screen.MORE) app.orcaandroid.ui.Screen.PREPARE else it.chrome.screen)) }
             }
             "Design mode ${if (on) "on" else "off"}."
         },
@@ -487,7 +487,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
     private suspend fun plateView(): app.orcaandroid.render.PlateView {
         fun shown() = app.orcaandroid.render.PlateView.active?.get()?.takeIf { it.isShown }
         val s = store.value
-        if (s.screen != Screen.PREPARE && s.screen != Screen.PREVIEW) store.update { it.copy(screen = Screen.PREPARE) }
+        if (s.chrome.screen != Screen.PREPARE && s.chrome.screen != Screen.PREVIEW) store.update { it.copy(chrome = it.chrome.copy(screen = Screen.PREPARE)) }
         if (s.design.scad != null && !s.design.scadOnPlate && !s.design.scadHidden) store.update { it.copy(design = it.design.copy(scadHidden = true)) }
         if (store.value != s) kotlinx.coroutines.delay(300)
         return shown() ?: withTimeoutOrNull(3_000) {
@@ -583,18 +583,18 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             appendLine("App ${info.versionName} (Android ${android.os.Build.VERSION.RELEASE}, API ${android.os.Build.VERSION.SDK_INT}); " +
                 "screen ${cfg.screenWidthDp}x${cfg.screenHeightDp} dp, " +
                 (if (cfg.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) "landscape" else "portrait") + ".")
-            appendLine("Phase ${s.phase.name.lowercase()}; tab ${s.screen.name.lowercase()}" +
-                (s.busy?.let { "; busy: $it" } ?: "") + (s.error?.let { "; error: $it" } ?: "") +
-                (s.slicing.sliceError?.let { "; slice error (plate ${it.first + 1}): ${it.second}" } ?: "") + (s.message?.let { "; message: $it" } ?: "") +
+            appendLine("Phase ${s.chrome.phase.name.lowercase()}; tab ${s.chrome.screen.name.lowercase()}" +
+                (s.chrome.busy?.let { "; busy: $it" } ?: "") + (s.chrome.error?.let { "; error: $it" } ?: "") +
+                (s.slicing.sliceError?.let { "; slice error (plate ${it.first + 1}): ${it.second}" } ?: "") + (s.chrome.message?.let { "; message: $it" } ?: "") +
                 (s.slicing.fitIssue?.let { "; fit notice: object ${it.obj + 1} copy ${it.instance + 1} doesn't fit, fix ${it.fix ?: "none"}" } ?: "") + ".")
             val open = listOfNotNull(
-                s.editor?.let { "preset editor" },
+                s.chrome.editor?.let { "preset editor" },
                 s.addDialog?.let { "add dialog ($it)" },
                 s.design.scad?.let { "design editor" },
-                "printer setup".takeIf { s.showPrinterSetup },
-                s.filamentChoice?.let { "filament choice" },
-                s.projectOrImport?.let { "project-or-import question" },
-                s.aiConfirm?.let { "MCP confirmation: $it" },
+                "printer setup".takeIf { s.chrome.showPrinterSetup },
+                s.chrome.filamentChoice?.let { "filament choice" },
+                s.chrome.projectOrImport?.let { "project-or-import question" },
+                s.chrome.aiConfirm?.let { "MCP confirmation: $it" },
                 s.contextMenu?.let { "3D context menu" },
             )
             appendLine("Open: " + open.joinToString().ifEmpty { "nothing over the main screen" } + ".")
@@ -604,8 +604,8 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             appendLine("Plates ${scene.plates.size}, active ${s.activePlate + 1}; objects ${scene.objects.size}, copies " +
                 "${scene.objects.sumOf { it.instances.size }}; selected ${s.selectedItems.size}; tool ${s.tool.javaClass.simpleName}" +
                 (if (s.selectMode) "; select mode" else "") + (if (s.resizing) "; resizing" else "") + ".")
-            appendLine("Design mode ${if (s.designMode) "on" else "off"}; undo limit ${s.undoLimit}; auto-save " +
-                (if (s.autoSaveSeconds > 0) "${s.autoSaveSeconds} s" else "off") + ".")
+            appendLine("Design mode ${if (s.chrome.designMode) "on" else "off"}; undo limit ${s.chrome.undoLimit}; auto-save " +
+                (if (s.chrome.autoSaveSeconds > 0) "${s.chrome.autoSaveSeconds} s" else "off") + ".")
             appendLine("3D view: " + (app.orcaandroid.render.PlateView.active?.get()?.let { viewState(it) } ?: "none on screen."))
             val crash = java.io.File(ctx.filesDir, "crash_report.txt")
             append(memory() + "; " + if (crash.isFile) "crash report waiting: " + crash.readLines().firstOrNull().orEmpty().take(200)
@@ -743,12 +743,12 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             plateArg(args).also { p ->
                 if (store.value.slicing.isSlicing) throw ToolError("A slice is already running")
                 if (store.value.scene.objectsOn(p).isEmpty()) throw ToolError("Plate ${p + 1} is empty")
-                store.update { it.copy(error = null) }
+                store.update { it.copy(chrome = it.chrome.copy(error = null)) }
             }
         }
         val job = slicing.slice(plate)
         if (withTimeoutOrNull(SLICE_TIMEOUT) { job.join() } == null) throw ToolError("Slicing takes longer than ${SLICE_TIMEOUT / 1000} s; it goes on in the app (slice_result later)")
-        (store.value.slicing.sliceError?.second ?: store.value.error)?.let { throw ToolError("Slicing failed: $it") }
+        (store.value.slicing.sliceError?.second ?: store.value.chrome.error)?.let { throw ToolError("Slicing failed: $it") }
         return sliceResult(JSONObject().put("plate", plate + 1))
     }
 
@@ -774,7 +774,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             it.copy(layerLow = lo, layerHigh = hi, scheme = scheme ?: it.scheme,
                 moveEnd = if (args.has("moves")) args.optInt("moves").takeIf { m -> m > 0 } else if (layerChanged) null else it.moveEnd)
         }
-        store.update { it.copy(screen = Screen.PREVIEW) }
+        store.update { it.copy(chrome = it.chrome.copy(screen = Screen.PREVIEW)) }
         val p = store.value.slicing.preview
         "Plate ${plate + 1} preview: layers ${p.layerLow + 1}..${p.layerHigh + 1} of ${last + 1}, scheme ${store.str(SCHEMES[p.scheme])}" +
             (p.moveEnd?.let { ", top layer cut at move $it" } ?: "")
@@ -865,12 +865,12 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
 
     /** Runs engine operation [op] and adopts its scene (one undo step in the app). */
     private suspend fun plateOp(summary: String, busy: Int? = null, op: suspend () -> Scene) {
-        if (busy != null) store.update { it.copy(busy = store.str(busy)) }
+        if (busy != null) store.update { it.copy(chrome = it.chrome.copy(busy = store.str(busy))) }
         try {
             val scene = op()
             withContext(Dispatchers.Main.immediate) { store.applyScene(scene) }
         } finally {
-            if (busy != null) store.update { it.copy(busy = null) }
+            if (busy != null) store.update { it.copy(chrome = it.chrome.copy(busy = null)) }
         }
         store.toast(store.str(R.string.ai_edit, summary))
     }
@@ -1312,12 +1312,12 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         if (pending != null) throw ToolError("Another request is already waiting for the user")
         val answer = CompletableDeferred<Boolean>()
         pending = answer
-        store.update { it.copy(aiConfirm = text) }
+        store.update { it.copy(chrome = it.chrome.copy(aiConfirm = text)) }
         return try {
             withTimeoutOrNull(CONFIRM_TIMEOUT) { answer.await() } ?: false
         } finally {
             pending = null
-            store.update { it.copy(aiConfirm = null) }
+            store.update { it.copy(chrome = it.chrome.copy(aiConfirm = null)) }
         }
     }
 

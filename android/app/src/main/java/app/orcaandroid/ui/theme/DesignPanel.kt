@@ -100,7 +100,7 @@ val DESIGN_DOCK_WIDTH = 320.dp
 fun ThemeDesignPanel(state: UiState, vm: AppViewModel, floating: Boolean, onFloating: (Boolean) -> Unit) {
     val colors = LocalAppColors.current
     val dark = colors.dark
-    val spec = state.themeSpec
+    val spec = state.chrome.themeSpec
     var region by rememberSaveable { mutableStateOf(Region.GLOBAL) }
     var slotKey by rememberSaveable { mutableStateOf(Region.GLOBAL.slots.first().key) }
     val slot = region.slots.firstOrNull { it.key == slotKey } ?: region.slots.first()
@@ -280,7 +280,7 @@ private fun PresetChips(state: UiState, vm: AppViewModel, dark: Boolean) {
     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         ThemePreset.entries.forEach { p ->
             FilterChip(
-                selected = !state.dynamicColor && state.themeSpec.preset == p.key,
+                selected = !state.chrome.dynamicColor && state.chrome.themeSpec.preset == p.key,
                 onClick = { vm.setThemePreset(p.key) },
                 label = { Text(stringResource(p.label)) },
                 leadingIcon = { PresetSwatches(p, dark, 10) },

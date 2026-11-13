@@ -189,7 +189,7 @@ class DeviceController(private val store: Store) {
             host.upload(file, name, startPrint, ams) { p -> store.update { it.copy(upload = UploadState.Running(p, startPrint)) } }
         }
         logSent(file, name, startPrint)
-        if (!store.value.coachDismissed) { store.settings.coachDismissed = true; store.update { it.copy(coachDismissed = true) } }
+        if (!store.value.chrome.coachDismissed) { store.settings.coachDismissed = true; store.update { it.copy(chrome = it.chrome.copy(coachDismissed = true)) } }
         store.update { it.copy(upload = UploadState.Done(store.str(if (startPrint) R.string.print_started else R.string.sent_to_printer))) }
         if (startPrint) monitorPrinter()
     }

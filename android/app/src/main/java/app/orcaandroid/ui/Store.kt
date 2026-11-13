@@ -27,11 +27,6 @@ class Store(val app: Application, val scope: CoroutineScope) {
 
     val state = MutableStateFlow(
         UiState(
-            themeMode = settings.themeMode,
-            dynamicColor = settings.dynamicColor,
-            themeSpec = settings.themeSpec,
-            doubleBackToQuit = settings.doubleBackToQuit,
-            coachDismissed = settings.coachDismissed,
             pen = settings.pen,
             projectFilaments = settings.projectFilaments,
             allowMixedTemps = settings.allowMixedTemps,
@@ -43,9 +38,6 @@ class Store(val app: Application, val scope: CoroutineScope) {
             perspective = settings.perspective,
             snapPrepare = settings.snapPrepare,
             supersample = settings.supersample,
-            lab = settings.layoutLab,
-            undoLimit = settings.undoLimit,
-            autoSaveSeconds = settings.autoSaveSeconds,
             hiddenFilamentVendors = settings.hiddenFilamentVendors,
             pinnedSettings = settings.pinnedSettings,
             hiddenBedTypes = settings.hiddenBedTypes,
@@ -56,7 +48,6 @@ class Store(val app: Application, val scope: CoroutineScope) {
             dangerAllowed = settings.dangerAllowed,
             expertSettings = settings.expertSettings,
             installedNozzles = settings.installedNozzles,
-            recents = settings.recents,
             printHistory = printHistory.load(),
             design = DesignState(
                 snapBuild = settings.snapBuild,
@@ -65,6 +56,17 @@ class Store(val app: Application, val scope: CoroutineScope) {
                 builderSplit = settings.builderSplit,
             ),
             slicing = SliceState(autoSlice = settings.autoSlice),
+            chrome = ChromeState(
+                themeMode = settings.themeMode,
+                dynamicColor = settings.dynamicColor,
+                themeSpec = settings.themeSpec,
+                doubleBackToQuit = settings.doubleBackToQuit,
+                coachDismissed = settings.coachDismissed,
+                lab = settings.layoutLab,
+                undoLimit = settings.undoLimit,
+                autoSaveSeconds = settings.autoSaveSeconds,
+                recents = settings.recents,
+            ),
         )
     )
 
@@ -80,7 +82,7 @@ class Store(val app: Application, val scope: CoroutineScope) {
 
     fun plural(@PluralsRes id: Int, count: Int, vararg args: Any): String = app.resources.getQuantityString(id, count, *args)
 
-    fun toast(message: String, action: MessageAction? = null) = update { it.copy(message = message, messageAction = action) }
+    fun toast(message: String, action: MessageAction? = null) = update { it.copy(chrome = it.chrome.copy(message = message, messageAction = action)) }
 
     /**
      * Runs [block], showing [busy] (if any) and turning exceptions into an error dialog. With [cancel] the busy
@@ -89,7 +91,7 @@ class Store(val app: Application, val scope: CoroutineScope) {
     fun launch(busy: String? = null, cancel: (() -> Unit)? = null, block: suspend () -> Unit): Job = scope.launch {
         var cancelled = false
         val onCancel = cancel?.let { { cancelled = true; it() } }
-        if (busy != null) update { it.copy(busy = busy, busyCancel = onCancel) }
+        if (busy != null) update { it.copy(chrome = it.chrome.copy(busy = busy, busyCancel = onCancel)) }
         try {
             block()
         } catch (e: CancellationException) {
@@ -101,18 +103,18 @@ class Store(val app: Application, val scope: CoroutineScope) {
             // System file errors carry content:// URIs, cache paths and errno names; show the plain sentence instead.
             val unreadable = e is java.io.FileNotFoundException || e is SecurityException ||
                 listOf("content://", "ENOENT", "EACCES", "open failed").any { it in message }
-            update { it.copy(error = when {
+            update { it.copy(chrome = it.chrome.copy(error = when {
                 e is app.orcaandroid.net.ArchiveTooLargeException -> str(R.string.archive_too_large)
                 unreadable -> str(R.string.file_unreadable)
                 else -> message
-            }) }
+            })) }
         } catch (e: OutOfMemoryError) {
             // A big model or archive: the import / mesh work that ran out of heap is abandoned, the app stays up.
             if (cancelled) return@launch
             android.util.Log.w("OrcaStore", "operation ran out of memory", e)
-            update { it.copy(error = str(R.string.out_of_memory)) }
+            update { it.copy(chrome = it.chrome.copy(error = str(R.string.out_of_memory))) }
         } finally {
-            if (busy != null) update { it.copy(busy = null, busyCancel = null) }
+            if (busy != null) update { it.copy(chrome = it.chrome.copy(busy = null, busyCancel = null)) }
         }
     }
 

@@ -288,12 +288,12 @@ internal class PresetTools(
             (existing?.let { "\n" + store.str(R.string.ai_confirm_overwrites, name) } ?: "")
         if (!confirm(text)) throw McpTools.ToolError("Declined by the user (or no answer within 60 s)")
         withContext(Dispatchers.Main.immediate) {
-            store.update { it.copy(busy = store.str(R.string.saving_preset)) }
+            store.update { it.copy(chrome = it.chrome.copy(busy = store.str(R.string.saving_preset))) }
             try {
                 if (type == PresetType.FILAMENT && store.value.activeFilament != slot) presets.setActiveFilamentNow(slot)
                 presets.savePresetNow(type, name)
             } finally {
-                store.update { it.copy(busy = null) }
+                store.update { it.copy(chrome = it.chrome.copy(busy = null)) }
             }
         }
         val (now, _) = selected(type, slot)
@@ -316,11 +316,11 @@ internal class PresetTools(
         if (inUse) throw McpTools.ToolError("\"$name\" is selected; select another preset first (preset_select, or the user in the app)")
         if (!confirm(store.str(R.string.ai_confirm_delete, label(type), name))) throw McpTools.ToolError("Declined by the user (or no answer within 60 s)")
         withContext(Dispatchers.Main.immediate) {
-            store.update { it.copy(busy = store.str(R.string.deleting_preset)) }
+            store.update { it.copy(chrome = it.chrome.copy(busy = store.str(R.string.deleting_preset))) }
             try {
                 presets.deleteUnusedPresetNow(type, name)
             } finally {
-                store.update { it.copy(busy = null) }
+                store.update { it.copy(chrome = it.chrome.copy(busy = null)) }
             }
         }
         return "Deleted ${label(type)} preset \"$name\"."
