@@ -71,6 +71,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -102,6 +103,7 @@ import app.orcaandroid.ui.components.PickerField
 import app.orcaandroid.ui.components.PickerItem
 import app.orcaandroid.ui.prepare.ColorDot
 import app.orcaandroid.ui.prepare.Tip
+import app.orcaandroid.ui.prepare.toggleRow
 
 /** Shapes the palette offers, in Tinkercad's order. */
 private val PALETTE = listOf(
@@ -192,7 +194,7 @@ fun ShapesTab(s: ScadEditorState, vm: AppViewModel) {
                         DropdownMenuItem(text = { Text(n) },
                             onClick = { parts = false; sh.addSaved(n); runCatching { focus.requestFocus() } },
                             trailingIcon = {
-                                IconButton({ sh.deleteSaved(n); saved = sh.savedParts() }, Modifier.size(32.dp)) {
+                                IconButton({ sh.deleteSaved(n); saved = sh.savedParts() }, Modifier.size(48.dp)) {
                                     Icon(Icons.Default.Delete, stringResource(R.string.part_delete, n), Modifier.size(18.dp))
                                 }
                             })
@@ -446,9 +448,11 @@ private fun EdgeEditor(shape: Shape, d: ShapeDesign, vm: AppViewModel) {
 private fun ShellEditor(shape: Shape, d: ShapeDesign, vm: AppViewModel) {
     Text(stringResource(R.string.shape_hollow), style = MaterialTheme.typography.labelLarge)
     ExtraField(stringResource(R.string.shape_shell_wall), shape, d, vm, Shape.SHELL, 0.0)
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    val open = shape.x(Shape.OPEN, 0.0) != 0.0
+    Row(Modifier.toggleRow(open, Role.Switch) { on -> vm.shapes.update(shape.id) { it.copy(extra = it.extra + (Shape.OPEN to if (on) 1.0 else 0.0)) } },
+        verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(R.string.shape_open_top), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-        Switch(shape.x(Shape.OPEN, 0.0) != 0.0, { on -> vm.shapes.update(shape.id) { it.copy(extra = it.extra + (Shape.OPEN to if (on) 1.0 else 0.0)) } })
+        Switch(open, null)
     }
 }
 
@@ -513,7 +517,7 @@ private fun FieldRow(title: String, shape: Shape, d: ShapeDesign, vm: AppViewMod
             Text(title, style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
             // One lock for the row (a badge in each narrow cell crowded the numbers).
             if (size) Tip(stringResource(R.string.shape_size_lock)) {
-                IconToggleButton(lock, { vm.shapes.sizeLock = it }, Modifier.size(32.dp)) {
+                IconToggleButton(lock, { vm.shapes.sizeLock = it }, Modifier.size(48.dp)) {
                     Icon(if (lock) Icons.Default.Lock else Icons.Default.LockOpen, stringResource(R.string.shape_size_lock), Modifier.size(18.dp),
                         tint = if (lock) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -533,7 +537,7 @@ private fun FieldRow(title: String, shape: Shape, d: ShapeDesign, vm: AppViewMod
                 }
             }
             Column {
-                Tip(stringResource(R.string.shape_slider_menu)) { IconButton(onClick = { menu = true }, modifier = Modifier.size(32.dp)) {
+                Tip(stringResource(R.string.shape_slider_menu)) { IconButton(onClick = { menu = true }, modifier = Modifier.size(48.dp)) {
                     Icon(Icons.Default.MoreVert, stringResource(R.string.shape_slider_menu))
                 } }
                 SliderMenu(menu, { menu = false }, shape, d, vm, labels.mapIndexed { i, l -> Triple("$prefix.${"xyz"[i]}", "$title $l", names[i]) })
@@ -551,7 +555,7 @@ private fun ExtraField(title: String, shape: Shape, d: ShapeDesign, vm: AppViewM
         NumberField(d.value(shape, key, shape.x(key, def)).toFloat(), { vm.shapes.setField(shape.id, key, it.toDouble()) },
             Modifier.weight(1f), label = if (bound != null) "$title = $bound" else title, decimals = decimals)
         if (slider) Column {
-            Tip(stringResource(R.string.shape_slider_menu)) { IconButton(onClick = { menu = true }, modifier = Modifier.size(32.dp)) {
+            Tip(stringResource(R.string.shape_slider_menu)) { IconButton(onClick = { menu = true }, modifier = Modifier.size(48.dp)) {
                 Icon(Icons.Default.MoreVert, stringResource(R.string.shape_slider_menu))
             } }
             SliderMenu(menu, { menu = false }, shape, d, vm, listOf(Triple(key, title, key)))
@@ -585,9 +589,10 @@ private fun SliderMenu(open: Boolean, onDismiss: () -> Unit, shape: Shape, d: Sh
 private fun RepeatEditor(shape: Shape, vm: AppViewModel) {
     val r = shape.repeat
     val set = { rep: Repeat? -> vm.shapes.setRepeat(shape.id, rep) }
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.toggleRow(r != null, Role.Switch) { on -> set(if (on) Repeat(step = D3(shape.size.x + 5, 0.0, 0.0)) else null) },
+        verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(R.string.shape_repeat), style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
-        Switch(r != null, { on -> set(if (on) Repeat(step = D3(shape.size.x + 5, 0.0, 0.0)) else null) })
+        Switch(r != null, null)
     }
     if (r == null) return
     SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {

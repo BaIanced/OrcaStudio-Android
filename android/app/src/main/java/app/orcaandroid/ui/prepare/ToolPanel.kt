@@ -87,6 +87,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -173,11 +174,11 @@ internal fun ToolPanel(state: UiState, vm: AppViewModel) {
             }, verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.DragIndicator, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(toolTitle(tool), Modifier.weight(1f).padding(start = 4.dp), style = MaterialTheme.typography.titleSmall)
-                Tip(stringResource(if (folded) R.string.design_unfold else R.string.design_minimize)) { IconButton(onClick = { folded = !folded }, modifier = Modifier.size(32.dp)) {
+                Tip(stringResource(if (folded) R.string.design_unfold else R.string.design_minimize)) { IconButton(onClick = { folded = !folded }, modifier = Modifier.size(48.dp)) {
                     Icon(if (folded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, stringResource(if (folded) R.string.design_unfold else R.string.design_minimize))
                 } }
                 // In a room (mode strip) Done is the way out.
-                if (state.room == null) Tip(stringResource(R.string.close)) { IconButton(onClick = { vm.scene.setTool(Tool.None) }, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.Close, stringResource(R.string.close)) } }
+                if (state.room == null) Tip(stringResource(R.string.close)) { IconButton(onClick = { vm.scene.setTool(Tool.None) }, modifier = Modifier.size(48.dp)) { Icon(Icons.Default.Close, stringResource(R.string.close)) } }
             }
             if (!folded) when (tool) {
                 is Tool.Paint -> PaintOptions(state, vm, tool)
@@ -565,7 +566,7 @@ internal fun ColorPaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Pain
 private fun Swatch(selected: Boolean, label: String, onClick: () -> Unit, onLongClick: (() -> Unit)? = null, content: @Composable () -> Unit) {
     Column(Modifier.clip(RoundedCornerShape(8.dp)).combinedClickable(onLongClick = onLongClick, onClick = onClick).padding(4.dp),
         horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.size(36.dp).then(if (selected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, CircleShape) else Modifier),
+        Box(Modifier.size(40.dp).then(if (selected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, CircleShape) else Modifier),
             contentAlignment = Alignment.Center) { content() }
         Text(label, style = MaterialTheme.typography.labelSmall)
     }
@@ -631,11 +632,11 @@ private fun PaintLayerRow(state: UiState, i: Int, selected: Boolean, percent: In
             }
         }
         Row {
-            Tip(stringResource(if (flags.hidden) R.string.paint_layer_show else R.string.paint_layer_hide)) { IconButton(flags.toggleHidden, Modifier.size(36.dp)) {
+            Tip(stringResource(if (flags.hidden) R.string.paint_layer_show else R.string.paint_layer_hide)) { IconButton(flags.toggleHidden, Modifier.size(48.dp)) {
                 Icon(if (flags.hidden) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                     stringResource(if (flags.hidden) R.string.paint_layer_show else R.string.paint_layer_hide), Modifier.size(20.dp))
             } }
-            Tip(stringResource(if (flags.locked) R.string.paint_layer_unlock else R.string.paint_layer_lock)) { IconButton(flags.toggleLocked, Modifier.size(36.dp)) {
+            Tip(stringResource(if (flags.locked) R.string.paint_layer_unlock else R.string.paint_layer_lock)) { IconButton(flags.toggleLocked, Modifier.size(48.dp)) {
                 Icon(if (flags.locked) Icons.Default.Lock else Icons.Default.LockOpen,
                     stringResource(if (flags.locked) R.string.paint_layer_unlock else R.string.paint_layer_lock), Modifier.size(20.dp),
                     tint = if (flags.locked) MaterialTheme.colorScheme.primary else LocalContentColor.current)
@@ -793,14 +794,18 @@ private fun CutOptions(state: UiState, vm: AppViewModel, tool: Tool.Cut) {
     Slider(tool.z.coerceIn(lo, hi), { vm.scene.setTool(tool.copy(z = it, placing = true)) }, valueRange = lo..hi,
         onValueChangeFinished = { (vm.state.value.workspace.tool as? Tool.Cut)?.let { vm.scene.setTool(it.copy(placing = false)) } })
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Checkbox(keepUpper, { keepUpper = it }); Text(stringResource(R.string.keep_upper))
-        Checkbox(keepLower, { keepLower = it }); Text(stringResource(R.string.keep_lower))
+        Row(Modifier.toggleRow(keepUpper, Role.Checkbox) { keepUpper = it }, verticalAlignment = Alignment.CenterVertically) {
+            Checkbox(keepUpper, null); Text(stringResource(R.string.keep_upper), Modifier.padding(end = 12.dp))
+        }
+        Row(Modifier.toggleRow(keepLower, Role.Checkbox) { keepLower = it }, verticalAlignment = Alignment.CenterVertically) {
+            Checkbox(keepLower, null); Text(stringResource(R.string.keep_lower), Modifier.padding(end = 12.dp))
+        }
     }
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Checkbox(onCut, { onCut = it }, enabled = keepUpper); Text(stringResource(R.string.flip_upper))
+    Row(Modifier.toggleRow(onCut, Role.Checkbox, keepUpper) { onCut = it }, verticalAlignment = Alignment.CenterVertically) {
+        Checkbox(onCut, null, enabled = keepUpper); Text(stringResource(R.string.flip_upper))
     }
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Checkbox(flip, { flip = it }, enabled = keepUpper); Text(stringResource(R.string.flip_upper_down))
+    Row(Modifier.toggleRow(flip, Role.Checkbox, keepUpper) { flip = it }, verticalAlignment = Alignment.CenterVertically) {
+        Checkbox(flip, null, enabled = keepUpper); Text(stringResource(R.string.flip_upper_down))
     }
     FilledTonalButton(onClick = { vm.scene.cut(tool, keepUpper, keepLower, flip, onCut) }, enabled = keepUpper || keepLower, modifier = Modifier.fillMaxWidth()) {
         Text(stringResource(R.string.perform_cut))
@@ -839,15 +844,17 @@ private fun MeasureOptions(state: UiState, vm: AppViewModel) {
         }
     }
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Checkbox(state.workspace.measureSnap, { vm.scene.setMeasureSnap(it) }); Text(stringResource(R.string.measure_snap_toggle))
+        Row(Modifier.toggleRow(state.workspace.measureSnap, Role.Checkbox) { vm.scene.setMeasureSnap(it) }, verticalAlignment = Alignment.CenterVertically) {
+            Checkbox(state.workspace.measureSnap, null); Text(stringResource(R.string.measure_snap_toggle))
+        }
         Spacer(Modifier.weight(1f))
         if (pts.isNotEmpty()) TextButton(onClick = { vm.scene.setTool(Tool.Measure) }) { Text(stringResource(R.string.reset)) }
     }
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Checkbox(state.workspace.measureAxes, { vm.scene.setMeasureAxes(it) }); Text(stringResource(R.string.measure_axes_toggle))
+    Row(Modifier.toggleRow(state.workspace.measureAxes, Role.Checkbox) { vm.scene.setMeasureAxes(it) }, verticalAlignment = Alignment.CenterVertically) {
+        Checkbox(state.workspace.measureAxes, null); Text(stringResource(R.string.measure_axes_toggle))
     }
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Checkbox(state.workspace.measureSteer, { vm.scene.setMeasureSteer(it) }); Text(stringResource(R.string.measure_steer_toggle))
+    Row(Modifier.toggleRow(state.workspace.measureSteer, Role.Checkbox) { vm.scene.setMeasureSteer(it) }, verticalAlignment = Alignment.CenterVertically) {
+        Checkbox(state.workspace.measureSteer, null); Text(stringResource(R.string.measure_steer_toggle))
     }
 }
 

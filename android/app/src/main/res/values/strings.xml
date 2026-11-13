@@ -346,6 +346,8 @@
     <string name="lay_on_face">Lay on face</string>
     <string name="lay_on_face_hint">Tap the face that should lie on the bed.</string>
     <string name="layer_down">Layer down</string>
+    <string name="layer_range_slider">Layer range</string>
+    <string name="layer_moves_slider">Moves in the top layer</string>
     <string name="layer_gcodes">Pauses &amp; color changes</string>
     <string name="layer_height_hint">Tap the right half of the graph to raise, the left half to lower the layer height at that height.</string>
     <string name="layer_of">Layer %1$d / %2$d</string>
@@ -612,6 +614,7 @@
     <string name="round_edges">Round edges</string>
     <string name="slice">Slice</string>
     <string name="slice_all">Slice all plates</string>
+    <string name="slice_more">More slice options</string>
     <string name="slice_plate">Slice plate</string>
     <string name="slice_plate_n">Slice plate %d</string>
     <string name="preview_plate">Preview</string>

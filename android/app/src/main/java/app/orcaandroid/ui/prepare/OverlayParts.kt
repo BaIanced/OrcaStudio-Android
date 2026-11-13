@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -47,6 +48,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
@@ -111,6 +113,13 @@ fun Tip(label: String, content: @Composable () -> Unit) {
         state = rememberTooltipState(),
     ) { content() }
 }
+
+/**
+ * A whole row that toggles: one touch target and one accessibility node, named by the row's text (the Switch or Checkbox inside
+ * passes a null onChange, so it neither takes the tap nor shows up as a separate unnamed node).
+ */
+fun Modifier.toggleRow(checked: Boolean, role: Role, enabled: Boolean = true, onChange: (Boolean) -> Unit): Modifier =
+    toggleable(value = checked, enabled = enabled, role = role, onValueChange = onChange)
 
 /** Auto-orient: a turning arrow around a tilted square (instead of Material's "3D" rotation icon). */
 val AutoOrientIcon: ImageVector by lazy {

@@ -200,7 +200,7 @@ private fun PresetsTab(state: UiState, vm: AppViewModel) {
         else {
             androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
             val label = stringResource(if (state.device.filamentTiles) R.string.filament_view_list else R.string.filament_view_tiles)
-            Tip(label) { IconButton(onClick = { vm.presets.setFilamentTiles(!state.device.filamentTiles) }, modifier = Modifier.size(32.dp)) {
+            Tip(label) { IconButton(onClick = { vm.presets.setFilamentTiles(!state.device.filamentTiles) }, modifier = Modifier.size(48.dp)) {
                 Icon(if (state.device.filamentTiles) Icons.AutoMirrored.Filled.ViewList else Icons.Default.GridView, label, Modifier.size(20.dp))
             } }
         }
@@ -255,7 +255,7 @@ private fun FilamentSlots(state: UiState, vm: AppViewModel, userGroup: String, v
             .then(if (i in sel) Modifier.background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(8.dp)) else Modifier)
             .slotSelectGesture(sel.isNotEmpty()) { picked = if (i in sel) sel - i else sel + i },
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            IconButton(onClick = { colorDialog = true }, modifier = Modifier.size(36.dp)) { ColorDot(slot.color, 22) }
+            IconButton(onClick = { colorDialog = true }, modifier = Modifier.size(48.dp)) { ColorDot(slot.color, 22) }
             val filaments = setup?.filaments.orEmpty().filter { it.system.not() || it.brandName !in state.device.hiddenFilamentVendors || it.name == slot.preset }
             val items = presetItems(filaments, userGroup, vendorGroup, { it.name }, { it.system }, { it.color }) { listOf(it.brandName, it.type.ifEmpty { "?" }) }
             PickerField("${i + 1}", slot.preset, items,
@@ -263,7 +263,7 @@ private fun FilamentSlots(state: UiState, vm: AppViewModel, userGroup: String, v
             // A type mismatch with the AMS sync (see setupProblems): slicing is going to fail, so offer the way back.
             if (problem != null) {
                 Icon(Icons.Default.PriorityHigh, null, tint = Color.Red, modifier = Modifier.size(16.dp))
-                Tip(stringResource(R.string.filament_reset_to_ams, problem.synced)) { IconButton(onClick = { vm.presets.setFilament(i, problem.synced) }, modifier = Modifier.size(36.dp)) {
+                Tip(stringResource(R.string.filament_reset_to_ams, problem.synced)) { IconButton(onClick = { vm.presets.setFilament(i, problem.synced) }, modifier = Modifier.size(48.dp)) {
                     Icon(Icons.Default.Refresh, stringResource(R.string.filament_reset_to_ams, problem.synced))
                 } }
             }
@@ -369,7 +369,7 @@ private fun FilamentTile(state: UiState, vm: AppViewModel, i: Int, userGroup: St
             val rgb = hexToRgb(slot.color ?: "#FF7F27")
             val fill = Color(rgb[0], rgb[1], rgb[2])
             val ink = if (0.299f * rgb[0] + 0.587f * rgb[1] + 0.114f * rgb[2] > 0.6f) Color.Black else Color.White
-            Box(Modifier.size(44.dp).clickable { menu = true }, contentAlignment = Alignment.Center) {
+            Box(Modifier.size(48.dp).clickable { menu = true }, contentAlignment = Alignment.Center) {
                 Box(Modifier.size(34.dp)
                     .then(if (selected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, CircleShape).padding(3.dp) else Modifier)
                     .background(fill, CircleShape).border(1.dp, MaterialTheme.colorScheme.outline, CircleShape),

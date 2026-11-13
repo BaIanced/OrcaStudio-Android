@@ -36,6 +36,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import app.orcaandroid.R
 import app.orcaandroid.render.PlateView
@@ -118,22 +120,26 @@ private fun LayerSliders(state: UiState, vm: AppViewModel, modifier: Modifier) {
                     stringResource(R.string.layer_of, hi + 1, layers.size) + "  ·  %.2f mm".format(Locale.ROOT, layers[hi].z),
                     Modifier.weight(1f), style = MaterialTheme.typography.labelLarge,
                 )
-                Tip(stringResource(R.string.layer_down)) { IconButton(onClick = { vm.slicing.updatePreview { it.copy(layerHigh = (hi - 1).coerceAtLeast(lo), moveEnd = null) } }, Modifier.size(36.dp)) {
+                Tip(stringResource(R.string.layer_down)) { IconButton(onClick = { vm.slicing.updatePreview { it.copy(layerHigh = (hi - 1).coerceAtLeast(lo), moveEnd = null) } }, Modifier.size(48.dp)) {
                     Icon(Icons.Default.KeyboardArrowDown, stringResource(R.string.layer_down))
                 } }
-                Tip(stringResource(R.string.layer_up)) { IconButton(onClick = { vm.slicing.updatePreview { it.copy(layerHigh = (hi + 1).coerceAtMost(last), moveEnd = null) } }, Modifier.size(36.dp)) {
+                Tip(stringResource(R.string.layer_up)) { IconButton(onClick = { vm.slicing.updatePreview { it.copy(layerHigh = (hi + 1).coerceAtMost(last), moveEnd = null) } }, Modifier.size(48.dp)) {
                     Icon(Icons.Default.KeyboardArrowUp, stringResource(R.string.layer_up))
                 } }
             }
             if (last > 0) {
+                val rangeLabel = stringResource(R.string.layer_range_slider)
                 RangeSlider(
+                    modifier = Modifier.semantics { contentDescription = rangeLabel },
                     value = lo.toFloat()..hi.toFloat(),
                     onValueChange = { r -> vm.slicing.updatePreview { it.copy(layerLow = r.start.toInt(), layerHigh = r.endInclusive.toInt(), moveEnd = null) } },
                     valueRange = 0f..last.toFloat(),
                 )
             }
             if (movesInLayer > 1) {
+                val movesLabel = stringResource(R.string.layer_moves_slider)
                 Slider(
+                    modifier = Modifier.semantics { contentDescription = movesLabel },
                     value = (p.moveEnd ?: movesInLayer).toFloat(),
                     onValueChange = { v -> vm.slicing.updatePreview { it.copy(moveEnd = v.toInt().takeIf { m -> m < movesInLayer }) } },
                     valueRange = 1f..movesInLayer.toFloat(),

@@ -823,7 +823,7 @@ private fun SliceButton(state: UiState, vm: AppViewModel, modifier: Modifier) {
                 },
             )
             if (multi) {
-                IconButton(onClick = { menu = true }, modifier = Modifier.align(Alignment.TopEnd).size(24.dp)) { Icon(Icons.Default.ExpandMore, null) }
+                IconButton(onClick = { menu = true }, modifier = Modifier.align(Alignment.TopEnd).size(48.dp)) { Icon(Icons.Default.ExpandMore, stringResource(R.string.slice_more)) }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     DropdownMenuItem(text = { Text(stringResource(R.string.slice_all)) }, onClick = { menu = false; vm.slicing.sliceAll() })
                 }

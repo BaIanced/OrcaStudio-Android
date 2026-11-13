@@ -130,13 +130,13 @@ fun ScadPreviewPane(s: ScadEditorState, vm: AppViewModel, modifier: Modifier = M
 
         Column(Modifier.align(Alignment.TopEnd).padding(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             val colors = IconButtonDefaults.filledTonalIconButtonColors(containerColor = scheme.surface.copy(alpha = 0.85f))
-            FilledTonalIconButton(onClick = { vm.scad.preview() }, enabled = !s.previewing, colors = colors, modifier = Modifier.size(36.dp)) {
+            FilledTonalIconButton(onClick = { vm.scad.preview() }, enabled = !s.previewing, colors = colors, modifier = Modifier.size(48.dp)) {
                 Icon(Icons.Default.Refresh, stringResource(R.string.scad_preview_refresh), Modifier.size(20.dp))
             }
-            if (mesh != null) FilledTonalIconButton(onClick = { view?.reframe() }, colors = colors, modifier = Modifier.size(36.dp)) {
+            if (mesh != null) FilledTonalIconButton(onClick = { view?.reframe() }, colors = colors, modifier = Modifier.size(48.dp)) {
                 Icon(Icons.Default.CenterFocusStrong, stringResource(R.string.scad_preview_frame), Modifier.size(20.dp))
             }
-            if (mesh != null) FilledTonalIconButton(onClick = { vm.setScadOnPlate(true) }, colors = colors, modifier = Modifier.size(36.dp)) {
+            if (mesh != null) FilledTonalIconButton(onClick = { vm.setScadOnPlate(true) }, colors = colors, modifier = Modifier.size(48.dp)) {
                 Icon(Icons.Default.Visibility, stringResource(R.string.scad_on_plate), Modifier.size(20.dp))
             }
         }
