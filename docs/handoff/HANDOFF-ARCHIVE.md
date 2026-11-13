@@ -4469,3 +4469,4 @@ User on the batch 1 merge offer (r548, 5bcef51): "merge and tell me recommendati
 - T-022 done, device-checked (WSA debug build of 037c25a, smoke.sh 8/8 twice; compile + 45 tests): UiState split move 1, DesignState as `state.design`.
 - T-023 done, device-checked (WSA debug build of 8235487, smoke.sh 8/8 twice; compile + 45 tests): UiState split move 2, SliceState as `state.slicing`.
 - T-024 done, device-checked (WSA debug build of 2be1aa4, smoke.sh 8/8 twice; compile + 45 tests): UiState split move 3, ChromeState as `state.chrome` (30 fields, one commit).
+- T-025a done, device-checked (WSA debug build of e37c5fe, smoke.sh 8/8 twice; compile + 45 tests): UiState split move 4, DeviceState part 1 as `state.device` (27 fields; derived members stay on UiState with bodies reading device.x).
