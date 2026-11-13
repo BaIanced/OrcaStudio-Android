@@ -44,7 +44,7 @@ class FileController(
         // A zip (a model site's download, "open with") opens the model files inside it.
         val unpacked = withContext(Dispatchers.IO) { imported.map { ModelDownloads.modelFiles(it) } }
         // glTF / GLB / PLY / OFF are converted to a 3MF, with colors snapped to the filament slots.
-        val slotColors = store.value.filaments.map { app.orcaandroid.core.MeshConvert.parseColor(it.color) }
+        val slotColors = store.value.device.filaments.map { app.orcaandroid.core.MeshConvert.parseColor(it.color) }
         var failedConvert = 0
         var tooLarge: Long? = null
         val all = withContext(Dispatchers.IO) {
@@ -135,7 +135,7 @@ class FileController(
         // Filament profiles (3D Filament Profiles and the like) go to the preset import instead.
         if (withContext(Dispatchers.IO) { ModelDownloads.isPresetFile(file) }) {
             val (printers, setup) = engine.importPresets(listOf(file.path))
-            store.update { it.copy(printers = printers, setup = setup) }
+            store.update { it.copy(device = it.device.copy(printers = printers, setup = setup)) }
             store.toast(store.app.resources.getQuantityString(R.plurals.presets_imported, 1, 1))
             return@launch
         }
@@ -155,15 +155,15 @@ class FileController(
         // Use the project's presets where they exist here, with its setting changes on top.
         // A file the user opens or downloads never switches the printer (a MakerWorld project for another printer
         // or nozzle would slice for the wrong machine; user 2026-10-15). Only the session restore brings its printer back.
-        val projectPrinter = s.printers.firstOrNull { it.name == info.printer }?.name
-        val printer = if (uri == null) projectPrinter ?: s.printer else s.printer ?: projectPrinter
-        if (uri != null && info.printer.isNotBlank() && s.printer != null && info.printer != s.printer)
-            store.toast(store.str(R.string.project_printer_kept, info.printer, s.printer))
+        val projectPrinter = s.device.printers.firstOrNull { it.name == info.printer }?.name
+        val printer = if (uri == null) projectPrinter ?: s.device.printer else s.device.printer ?: projectPrinter
+        if (uri != null && info.printer.isNotBlank() && s.device.printer != null && info.printer != s.device.printer)
+            store.toast(store.str(R.string.project_printer_kept, info.printer, s.device.printer))
         var filaments = PresetController.withColors(info.filaments.mapIndexed { i, name ->
             FilamentSlot(name, info.filamentColors.getOrNull(i)?.ifBlank { null }, info.filamentOverrides.getOrNull(i).orEmpty())
         })
         // A project the user opens may bring its own filaments, which would undo their syncs and edits: they choose.
-        val mine = s.filaments
+        val mine = s.device.filaments
         if (uri != null && filaments.isNotEmpty() && mine.isNotEmpty() && filaments.map { it.preset to it.color } != mine.map { it.preset to it.color }) {
             val mode = s.device.projectFilaments.takeIf { it != "ask" } ?: askFilaments(mine, filaments)
             filaments = when (mode) {
@@ -175,14 +175,14 @@ class FileController(
         }
         if (printer != null) presets.selectPrinterNow(printer, info.print, filaments.ifEmpty { null })
         store.update { st ->
-            val slots = if (filaments.isEmpty()) st.filaments
+            val slots = if (filaments.isEmpty()) st.device.filaments
             else filaments.mapIndexed { i, f ->
                 // Keep the AMS tray, surface look and mix selectPrinterNow found for the slot.
-                val same = st.filaments.getOrNull(i)?.takeIf { it.preset == f.preset }
-                if (st.setup?.filaments?.any { it.name == f.preset } == true) f.copy(source = same?.source, look = same?.look, overrides = Mix.carry(f, same))
-                else f.copy(preset = st.filaments.first().preset)
+                val same = st.device.filaments.getOrNull(i)?.takeIf { it.preset == f.preset }
+                if (st.device.setup?.filaments?.any { it.name == f.preset } == true) f.copy(source = same?.source, look = same?.look, overrides = Mix.carry(f, same))
+                else f.copy(preset = st.device.filaments.first().preset)
             }
-            st.copy(filaments = slots, device = st.device.copy(overrides = if (info.printOverrides.isEmpty()) st.device.overrides else st.device.overrides + (PresetType.PRINT to info.printOverrides)))
+            st.copy(device = st.device.copy(filaments = slots, overrides = if (info.printOverrides.isEmpty()) st.device.overrides else st.device.overrides + (PresetType.PRINT to info.printOverrides)))
         }
         presets.refreshPresetValues(listOf(PresetType.FILAMENT, PresetType.PRINT))
         store.applyScene(loaded, dirty = false)

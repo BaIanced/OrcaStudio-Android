@@ -775,7 +775,7 @@ class ScadController(private val store: Store) {
         val keepCenter = old != null && old.name !in placedThisSession
         val keep = old?.let { kept(it, pieces, stls) }.orEmpty()
         val anchor = old?.takeIf { keepCenter }?.let { anchors(it, pieces, stls) }.orEmpty()
-        val filaments = store.value.filaments.size
+        val filaments = store.value.device.filaments.size
         val specs = pieces.mapIndexed { i, p ->
             val shape = shapes.shapes.firstOrNull { it.id == p.shapeId }
             val name = shape?.name.orEmpty() + if (shape?.repeat?.takeIf { it.count > 1 } != null) " ${p.copy + 1}" else ""

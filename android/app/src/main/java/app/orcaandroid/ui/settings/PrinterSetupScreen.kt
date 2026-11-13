@@ -54,9 +54,9 @@ import app.orcaandroid.ui.prepare.Tip
 @Composable
 fun PrinterSetupScreen(state: UiState, vm: AppViewModel) {
     val canCancel = state.chrome.phase == Phase.READY
-    var chosen by remember(state.selectedPrinters) { mutableStateOf(state.selectedPrinters) }
+    var chosen by remember(state.device.selectedPrinters) { mutableStateOf(state.device.selectedPrinters) }
     var query by remember { mutableStateOf("") }
-    val all = state.vendors.filter { !it.required }
+    val all = state.device.vendors.filter { !it.required }
     val q = query.trim()
     val visible = all.filter { v -> q.isEmpty() || v.name.contains(q, true) || v.models.any { it.name.contains(q, true) } }
     var current by remember { mutableStateOf<String?>(null) }

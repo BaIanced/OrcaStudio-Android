@@ -211,7 +211,7 @@ fun ShapesTab(s: ScadEditorState, vm: AppViewModel) {
             Text(stringResource(R.string.shape_empty), style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp))
         }
-        val filaments = vm.state.collectAsState().value.filaments
+        val filaments = vm.state.collectAsState().value.device.filaments
         d.shapes.forEach { ShapeRow(it, 0, s, vm, filaments) { runCatching { focus.requestFocus() } } }
         val one = s.selected.singleOrNull()?.let { d.find(it) }
         if (one != null) {

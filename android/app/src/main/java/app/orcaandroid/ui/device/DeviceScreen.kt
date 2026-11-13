@@ -106,7 +106,7 @@ private fun NotConnected(state: UiState, vm: AppViewModel, onSetup: () -> Unit) 
     Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally) {
         Text(stringResource(R.string.no_connection_title), style = MaterialTheme.typography.titleLarge)
-        Text(stringResource(R.string.no_connection_text, state.printer.orEmpty()), style = MaterialTheme.typography.bodyMedium)
+        Text(stringResource(R.string.no_connection_text, state.device.printer.orEmpty()), style = MaterialTheme.typography.bodyMedium)
         state.device.suggestedConnection?.let { s ->
             Button(onClick = { vm.device.setConnection(s) }) { Text(stringResource(R.string.use_preset_host, s.url)) }
         }
@@ -140,7 +140,7 @@ private fun StatusBar(state: UiState, vm: AppViewModel, connection: PrinterConne
         Column(Modifier.fillMaxWidth()) {
             Row(Modifier.padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
-                    Text("${state.printer.orEmpty()}  ·  ${connection.url}", style = MaterialTheme.typography.labelMedium,
+                    Text("${state.device.printer.orEmpty()}  ·  ${connection.url}", style = MaterialTheme.typography.labelMedium,
                         maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(line, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
                         color = if (status == null && error != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
@@ -431,7 +431,7 @@ private fun WebUi(connection: PrinterConnection, modifier: Modifier) {
 @Composable
 private fun ConnectionDialog(state: UiState, vm: AppViewModel, onDismiss: () -> Unit) {
     // A Bambu Lab printer is only offered its own connection types (and discovered Bambu printers).
-    val bambuPrinter = state.printerInfo?.isBambu == true
+    val bambuPrinter = state.device.printerInfo?.isBambu == true
     val types = if (bambuPrinter) listOf(HostType.BAMBU, HostType.BAMBU_SIGNED) else HostType.entries
     val initial = state.device.connection ?: state.device.suggestedConnection ?: PrinterConnection()
     var type by remember { mutableStateOf(initial.type.takeIf { it in types } ?: types.first()) }

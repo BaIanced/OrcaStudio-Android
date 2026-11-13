@@ -136,7 +136,7 @@ private fun Summary(state: UiState, vm: AppViewModel, r: SliceResult) {
             if (r.filamentUse.size > 1) {
                 r.filamentUse.forEachIndexed { i, (m, g) ->
                     if (m > 0f) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        ColorDot(state.filaments.getOrNull(i)?.color)
+                        ColorDot(state.device.filaments.getOrNull(i)?.color)
                         LabeledValue("${i + 1}", "%.2f m · %.1f g".format(Locale.ROOT, m, g))
                     }
                 }
@@ -242,7 +242,7 @@ private fun Legend(state: UiState, vm: AppViewModel, r: SliceResult) {
                 }
             }
         }
-        7 -> state.filaments.forEachIndexed { i, f ->
+        7 -> state.device.filaments.forEachIndexed { i, f ->
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ColorDot(f.color); Text("${i + 1}: ${f.preset}", style = MaterialTheme.typography.bodySmall)
             }

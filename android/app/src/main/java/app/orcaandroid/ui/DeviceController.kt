@@ -35,7 +35,7 @@ class DeviceController(private val store: Store) {
     lateinit var files: FileController
 
     fun setConnection(connection: PrinterConnection?) {
-        val printer = store.value.printer ?: return
+        val printer = store.value.device.printer ?: return
         settings.setConnection(printer, connection)
         store.update { it.copy(device = it.device.copy(connection = connection)) }
     }
@@ -50,7 +50,7 @@ class DeviceController(private val store: Store) {
             apiKey = values["printhost_apikey"].orEmpty().trim('"'),
             webUrl = values["print_host_webui"].orEmpty().trim('"'),
         )
-        s.copy(device = s.device.copy(connection = s.printer?.let(settings::connection), suggestedConnection = suggested))
+        s.copy(device = s.device.copy(connection = s.device.printer?.let(settings::connection), suggestedConnection = suggested))
     }
 
     suspend fun testConnection(connection: PrinterConnection): String = withHost(connection) { it.test() }
@@ -84,7 +84,7 @@ class DeviceController(private val store: Store) {
         val connection = s.device.connection ?: return@launch
         if (s.device.upload is UploadState.Running) return@launch
         if (!confirmed && !result.external) {
-            PrinterModel.mismatch(s.printer, connection.serial)?.let { (sliced, connected) ->
+            PrinterModel.mismatch(s.device.printer, connection.serial)?.let { (sliced, connected) ->
                 store.update { it.copy(device = it.device.copy(mismatchPrompt = MismatchPrompt(sliced, connected, startPrint))) }
                 return@launch
             }
@@ -112,7 +112,7 @@ class DeviceController(private val store: Store) {
             val trays = if (used.isEmpty()) emptyList() else withHost(connection) { it.fullStatus()?.trays.orEmpty() }
             if (trays.isNotEmpty()) {
                 pendingPrint = file to name
-                val count = maxOf(store.value.filaments.size, used.maxOf { it.id } + 1)
+                val count = maxOf(store.value.device.filaments.size, used.maxOf { it.id } + 1)
                 store.update { it.copy(device = it.device.copy(upload = null, amsPrompt = AmsPrompt(used, trays, AmsMapping.auto(used, trays), count))) }
                 return
             }
@@ -145,8 +145,8 @@ class DeviceController(private val store: Store) {
         if (r.external || file.parentFile?.name == "history") return
         val entry = PrintHistoryEntry(
             id = System.currentTimeMillis().toString(), time = System.currentTimeMillis(), name = files.gcodeFileName().removeSuffix(".gcode"),
-            printer = s.printer.orEmpty(), started = startPrint, seconds = r.printTimeSeconds, grams = r.filamentGrams, cost = r.cost,
-            filaments = s.filaments.map { it.preset }, fileName = "", sentName = name, thumbnail = null,
+            printer = s.device.printer.orEmpty(), started = startPrint, seconds = r.printTimeSeconds, grams = r.filamentGrams, cost = r.cost,
+            filaments = s.device.filaments.map { it.preset }, fileName = "", sentName = name, thumbnail = null,
         )
         val all = withContext(Dispatchers.IO) { runCatching { store.printHistory.add(entry, file) }.getOrNull() } ?: return
         store.update { it.copy(device = it.device.copy(printHistory = all)) }
@@ -195,7 +195,7 @@ class DeviceController(private val store: Store) {
     }
 
     /** Shows the print progress as a notification (foreground service). */
-    fun monitorPrinter() = store.value.printer?.let { runCatching { PrintMonitorService.start(store.app, it) } }
+    fun monitorPrinter() = store.value.device.printer?.let { runCatching { PrintMonitorService.start(store.app, it) } }
 
     fun controlJob(action: PrintHost.JobAction) = store.launch {
         val connection = store.value.device.connection ?: return@launch

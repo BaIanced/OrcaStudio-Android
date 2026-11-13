@@ -89,7 +89,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         runCatching { store.engine.setUndoLimit(store.settings.undoLimit) }
         val vendors = withContext(Dispatchers.IO) { resources.availableVendors() }
         val selected = store.settings.selectedPrinters
-        store.update { it.copy(vendors = vendors, selectedPrinters = selected) }
+        store.update { it.copy(device = it.device.copy(vendors = vendors, selectedPrinters = selected)) }
         val installed = resources.installedVendorIds()
         if (selected.isEmpty() || installed.none { id -> vendors.any { v -> v.id == id && !v.required } }) {
             store.update { it.copy(chrome = it.chrome.copy(phase = Phase.SETUP)) }
@@ -309,7 +309,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val overrides: Map<app.orcaandroid.core.PresetType, Map<String, String>>, val projectName: String?, val activePlate: Int,
     )
 
-    private fun sessionKey(s: UiState) = SessionKey(s.scene, s.printer, s.print, s.filaments, s.device.overrides, s.projectName, s.activePlate)
+    private fun sessionKey(s: UiState) = SessionKey(s.scene, s.device.printer, s.device.print, s.device.filaments, s.device.overrides, s.projectName, s.activePlate)
 
     /**
      * Saves the session every [UiState.autoSaveSeconds] while it has changed, so a crash or a killed

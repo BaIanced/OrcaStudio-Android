@@ -37,11 +37,11 @@ class PresetController(private val store: Store, private val device: DeviceContr
     /** Installs the vendors of the chosen printers (and drops unused ones), then activates a new pick. */
     fun applyPrinterSelection(keys: Set<String>) = store.launch(store.str(R.string.installing_profiles)) {
         val s = store.value
-        val added = keys - s.selectedPrinters
-        val vendorIds = s.vendors.filter { v -> v.models.any { m -> m.nozzles.any { printerKey(m.name, it) in keys } } }.map { it.id }.toSet()
+        val added = keys - s.device.selectedPrinters
+        val vendorIds = s.device.vendors.filter { v -> v.models.any { m -> m.nozzles.any { printerKey(m.name, it) in keys } } }.map { it.id }.toSet()
         resources.setInstalledVendors(vendorIds)
         settings.selectedPrinters = keys
-        store.update { it.copy(selectedPrinters = keys, chrome = it.chrome.copy(showPrinterSetup = false)) }
+        store.update { it.copy(device = it.device.copy(selectedPrinters = keys), chrome = it.chrome.copy(showPrinterSetup = false)) }
         reloadPresets(added)
         store.update { it.copy(chrome = it.chrome.copy(phase = Phase.READY)) }
     }
@@ -49,7 +49,7 @@ class PresetController(private val store: Store, private val device: DeviceContr
     /** The connected Bambu printer (the selected preset's) reported nozzle [diameter] mm: remembered for its model. */
     fun recordNozzle(diameter: Float) {
         val s = store.value
-        val model = s.printerInfo?.model?.takeIf { it.isNotEmpty() } ?: return
+        val model = s.device.printerInfo?.model?.takeIf { it.isNotEmpty() } ?: return
         if (s.device.connection?.type != HostType.BAMBU && s.device.connection?.type != HostType.BAMBU_SIGNED) return
         if (s.device.installedNozzles[model] == diameter) return
         val nozzles = s.device.installedNozzles + (model to diameter)
@@ -72,7 +72,7 @@ class PresetController(private val store: Store, private val device: DeviceContr
         settings.hiddenBedTypes = hidden
         settings.preferredBedType = preferred
         val default = engine.setDefaultBedType(preferred)
-        store.update { s -> s.copy(device = s.device.copy(hiddenBedTypes = hidden, preferredBedType = preferred), setup = s.setup?.copy(defaultBedType = default)) }
+        store.update { s -> s.copy(device = s.device.copy(hiddenBedTypes = hidden, preferredBedType = preferred, setup = s.device.setup?.copy(defaultBedType = default))) }
     }
 
     /** Makes [bedType] the default of plates without their own type (and keeps it shown in the pickers). */
@@ -82,7 +82,7 @@ class PresetController(private val store: Store, private val device: DeviceContr
         settings.preferredBedType = bedType
         settings.hiddenBedTypes = hidden
         val default = engine.setDefaultBedType(bedType)
-        store.update { s -> s.copy(device = s.device.copy(hiddenBedTypes = hidden, preferredBedType = bedType), setup = s.setup?.copy(defaultBedType = default)) }
+        store.update { s -> s.copy(device = s.device.copy(hiddenBedTypes = hidden, preferredBedType = bedType, setup = s.device.setup?.copy(defaultBedType = default))) }
     }
 
     /** Pins a process option to the main view, or unpins it. */
@@ -101,8 +101,8 @@ class PresetController(private val store: Store, private val device: DeviceContr
     suspend fun reloadPresets(prefer: Set<String>) {
         store.update { it.copy(chrome = it.chrome.copy(busy = store.str(R.string.loading_profiles))) }
         val printers = engine.loadPresets()
-        store.update { it.copy(printers = printers, chrome = it.chrome.copy(busy = null)) }
-        val visible = store.value.visiblePrinters
+        store.update { it.copy(device = it.device.copy(printers = printers), chrome = it.chrome.copy(busy = null)) }
+        val visible = store.value.device.visiblePrinters
         val printer = visible.filter { it.system && it.key in prefer }.minByOrNull { abs(it.nozzle - 0.4) }
             ?: visible.firstOrNull { it.name == settings.lastPrinter }
             ?: visible.firstOrNull { it.system && abs(it.nozzle - 0.4) < 1e-3 }
@@ -121,10 +121,10 @@ class PresetController(private val store: Store, private val device: DeviceContr
         // A user printer preset shares the connection and loaded filaments of the system preset it inherits.
         // One without a system parent (detached, or made where its parent isn't installed) falls back to the
         // system preset of the same printer model and nozzle, else it would lose them.
-        val info = store.value.printers.firstOrNull { it.name == name }
+        val info = store.value.device.printers.firstOrNull { it.name == name }
         val base = info?.base?.ifEmpty { null }
             ?: info?.takeIf { !it.system && it.model.isNotEmpty() }?.let { u ->
-                store.value.printers.firstOrNull { it.system && it.model == u.model && abs(it.nozzle - u.nozzle) < 1e-3 }?.name
+                store.value.device.printers.firstOrNull { it.system && it.model == u.model && abs(it.nozzle - u.nozzle) < 1e-3 }?.name
             }.orEmpty()
         settings.setPrinterBase(name, base)
         val p = print?.takeIf { n -> setup.prints.any { it.name == n } }
@@ -141,7 +141,7 @@ class PresetController(private val store: Store, private val device: DeviceContr
         val fils = withColors((given ?: saved).filter { f -> setup.filaments.any { it.name == f.preset } }
             .ifEmpty { listOf(FilamentSlot(setup.defaultFilament)) })
         store.update {
-            it.copy(printer = name, setup = setup, print = p, filaments = fils, activeFilament = 0, device = it.device.copy(overrides = emptyMap()), slicing = it.slicing.copy(results = emptyMap()))
+            it.copy(device = it.device.copy(printer = name, setup = setup, print = p, filaments = fils, activeFilament = 0, overrides = emptyMap()), slicing = it.slicing.copy(results = emptyMap()))
         }
         refreshPresetValues(PresetType.entries)
         device.refreshConnection()
@@ -152,7 +152,7 @@ class PresetController(private val store: Store, private val device: DeviceContr
     suspend fun refreshPresetValues(types: Collection<PresetType>) {
         val s = store.value
         val values = s.device.presetValues.toMutableMap()
-        for (type in types) s.presetName(type)?.let { values[type] = engine.presetValues(type, it) }
+        for (type in types) s.device.presetName(type)?.let { values[type] = engine.presetValues(type, it) }
         store.update { it.copy(device = it.device.copy(presetValues = values)) }
         syncSelection()
         refreshOptionStates()
@@ -161,9 +161,9 @@ class PresetController(private val store: Store, private val device: DeviceContr
     /** Sends the current preset selection and edits to the engine (needed before slicing etc.). */
     suspend fun syncSelection() {
         val s = store.value
-        val print = s.print ?: return
-        if (s.filaments.isEmpty()) return
-        engine.setSelection(print, s.filaments, s.device.overrides[PresetType.PRINTER].orEmpty() + s.device.overrides[PresetType.PRINT].orEmpty())
+        val print = s.device.print ?: return
+        if (s.device.filaments.isEmpty()) return
+        engine.setSelection(print, s.device.filaments, s.device.overrides[PresetType.PRINTER].orEmpty() + s.device.overrides[PresetType.PRINT].orEmpty())
     }
 
     /** Greyed-out / hidden options of an object / part / range editor with [settings] (desktop ObjectSettings rules). */
@@ -231,7 +231,7 @@ class PresetController(private val store: Store, private val device: DeviceContr
 
     /** The "+ Mix" button: a new virtual slot (preset of the first part) that mixes the given (1-based slot, share) parts. */
     fun addMix(parts: List<Pair<Int, Float>>, sublayers: Boolean) = store.launch {
-        val slot = store.value.filaments.size
+        val slot = store.value.device.filaments.size
         updateFilamentsNow { list -> list + FilamentSlot(list.getOrElse(parts.first().first - 1) { list.last() }.preset, nextColor(list.size)) }
         setMixNow(slot, parts, sublayers)
     }
@@ -239,7 +239,7 @@ class PresetController(private val store: Store, private val device: DeviceContr
     private suspend fun setMixNow(slot: Int, parts: List<Pair<Int, Float>>?, sublayers: Boolean) {
         val keys = setOf(Mix.IS_MIXED, Mix.COMPONENTS, Mix.RATIOS)
         if (parts != null) {
-            val colors = parts.map { (c, _) -> store.value.filaments.getOrNull(c - 1)?.color }
+            val colors = parts.map { (c, _) -> store.value.device.filaments.getOrNull(c - 1)?.color }
             updateFilamentsNow { list -> list.mapIndexed { i, f -> if (i == slot) f.copy(color = Mix.blend(colors, parts.map { it.second })) else f } }
         }
         editOverridesNow(PresetType.FILAMENT, slot) { cur ->
@@ -248,7 +248,7 @@ class PresetController(private val store: Store, private val device: DeviceContr
                 Mix.COMPONENTS to parts.joinToString(",") { it.first.toString() },
                 Mix.RATIOS to parts.joinToString(",") { "%.3f".format(java.util.Locale.ROOT, it.second) })
         }
-        store.value.printer?.let { settings.setLastFilaments(it, store.value.filaments) }
+        store.value.device.printer?.let { settings.setLastFilaments(it, store.value.device.filaments) }
         if (parts != null) editOverridesNow(PresetType.PRINT, slot) { it + ("enable_mixed_color_sublayer" to if (sublayers) "1" else "0") }
     }
 
@@ -258,9 +258,9 @@ class PresetController(private val store: Store, private val device: DeviceContr
 
     private suspend fun updateFilamentsNow(transform: (List<FilamentSlot>) -> List<FilamentSlot>) {
         val s = store.value
-        val list = transform(s.filaments)
-        settings.setLastFilaments(s.printer ?: return, list)
-        store.update { it.copy(filaments = list, activeFilament = it.activeFilament.coerceIn(0, list.size - 1), slicing = it.slicing.copy(results = emptyMap())) }
+        val list = transform(s.device.filaments)
+        settings.setLastFilaments(s.device.printer ?: return, list)
+        store.update { it.copy(device = it.device.copy(filaments = list, activeFilament = it.device.activeFilament.coerceIn(0, list.size - 1)), slicing = it.slicing.copy(results = emptyMap())) }
         refreshPresetValues(listOf(PresetType.FILAMENT))
     }
 
@@ -279,7 +279,7 @@ class PresetController(private val store: Store, private val device: DeviceContr
         val (slots, unknown) = engine.syncFilaments(trays.map { t ->
             mapOf("filament_id" to t.filamentId, "filament_type" to t.type, "color" to t.color, "colors" to t.colors,
                 "color_type" to t.colorType, "ams_id" to t.amsId, "slot_id" to t.slotId, "name" to t.name)
-        }, store.value.filaments)
+        }, store.value.device.filaments)
         if (slots.isEmpty()) {
             store.toast(store.str(R.string.sync_filaments_none))
             return@launch
@@ -288,7 +288,7 @@ class PresetController(private val store: Store, private val device: DeviceContr
         // picked a preset for it keeps that pick; a changed tray (another spool: RFID, or set on the printer)
         // takes the sync's preset and the old pick is dropped. Never-picked trays keep the sync's preset.
         val serial = store.value.device.connection?.serial.orEmpty()
-        val available = store.value.setup?.filaments.orEmpty()
+        val available = store.value.device.setup?.filaments.orEmpty()
         val picks = settings.trayPicks.toMutableMap()
         val types = available.associate { it.name to it.type }
         val replaced = mutableListOf<String>()
@@ -375,14 +375,14 @@ class PresetController(private val store: Store, private val device: DeviceContr
     private suspend fun loadCloudPresets(doneMessage: Int, fetch: () -> org.json.JSONObject) {
         val presets = withContext(Dispatchers.IO) { fetch() }
         val (count, printers) = engine.loadCloudPresets(presets)
-        store.update { it.copy(printers = printers) }
-        val current = store.value.printer
+        store.update { it.copy(device = it.device.copy(printers = printers)) }
+        val current = store.value.device.printer
         if (current != null && printers.any { it.name == current }) {
             val setup = engine.selectPrinter(current)
-            store.update { it.copy(setup = setup) }
+            store.update { it.copy(device = it.device.copy(setup = setup)) }
             refreshPresetValues(PresetType.entries)
         } else {
-            store.value.visiblePrinters.firstOrNull()?.let { selectPrinterNow(it.name) }
+            store.value.device.visiblePrinters.firstOrNull()?.let { selectPrinterNow(it.name) }
         }
         store.toast(store.plural(doneMessage, count, count))
     }
@@ -430,14 +430,14 @@ class PresetController(private val store: Store, private val device: DeviceContr
 
     /** Applies [edit] to the edits of [type] (filament: of the active slot) and syncs the engine. */
     private fun editOverrides(type: PresetType, edit: (Map<String, String>) -> Map<String, String>) = store.launch {
-        editOverridesNow(type, store.value.activeFilament, edit)
+        editOverridesNow(type, store.value.device.activeFilament, edit)
     }
 
     /** [editOverrides] for filament slot [slot], waiting until the engine has the new edits. */
     suspend fun editOverridesNow(type: PresetType, slot: Int, edit: (Map<String, String>) -> Map<String, String>) {
         store.update { s ->
             if (type == PresetType.FILAMENT) {
-                s.copy(filaments = s.filaments.mapIndexed { i, f -> if (i == slot) f.copy(overrides = edit(f.overrides)) else f }, slicing = s.slicing.copy(results = emptyMap()))
+                s.copy(device = s.device.copy(filaments = s.device.filaments.mapIndexed { i, f -> if (i == slot) f.copy(overrides = edit(f.overrides)) else f }), slicing = s.slicing.copy(results = emptyMap()))
             } else {
                 s.copy(device = s.device.copy(overrides = s.device.overrides + (type to edit(s.device.overrides[type].orEmpty()))), slicing = s.slicing.copy(results = emptyMap()))
             }
@@ -448,14 +448,14 @@ class PresetController(private val store: Store, private val device: DeviceContr
 
     /** Shows filament slot [slot] in the settings editor (its values become [AppState.presetValues]). */
     suspend fun setActiveFilamentNow(slot: Int) {
-        store.update { it.copy(activeFilament = slot.coerceIn(0, it.filaments.size - 1)) }
+        store.update { it.copy(device = it.device.copy(activeFilament = slot.coerceIn(0, it.device.filaments.size - 1))) }
         refreshPresetValues(listOf(PresetType.FILAMENT))
     }
 
     /** Selects process preset [name] (its unsaved edits are dropped). */
     suspend fun selectPrintNow(name: String) {
-        settings.setLastPrint(store.value.printer ?: return, name)
-        store.update { it.copy(print = name, device = it.device.copy(overrides = it.device.overrides - PresetType.PRINT), slicing = it.slicing.copy(results = emptyMap())) }
+        settings.setLastPrint(store.value.device.printer ?: return, name)
+        store.update { it.copy(device = it.device.copy(print = name, overrides = it.device.overrides - PresetType.PRINT), slicing = it.slicing.copy(results = emptyMap())) }
         refreshPresetValues(listOf(PresetType.PRINT))
     }
 
@@ -467,12 +467,12 @@ class PresetController(private val store: Store, private val device: DeviceContr
 
     private suspend fun setFilamentsNow(slots: Set<Int>, name: String) {
         val s = store.value
-        slots.forEach { rememberTrayPick(s.filaments.getOrNull(it), name) }
+        slots.forEach { rememberTrayPick(s.device.filaments.getOrNull(it), name) }
         // A user filament with its own colour recolours the slot, as on the desktop.
-        val own = s.setup?.filaments?.firstOrNull { it.name == name }?.color?.ifEmpty { null }
-        val list = s.filaments.mapIndexed { i, f -> if (i in slots) FilamentSlot(name, own ?: f.color, source = f.source) else f }
-        settings.setLastFilaments(s.printer ?: return, list)
-        store.update { it.copy(filaments = list, slicing = it.slicing.copy(results = emptyMap())) }
+        val own = s.device.setup?.filaments?.firstOrNull { it.name == name }?.color?.ifEmpty { null }
+        val list = s.device.filaments.mapIndexed { i, f -> if (i in slots) FilamentSlot(name, own ?: f.color, source = f.source) else f }
+        settings.setLastFilaments(s.device.printer ?: return, list)
+        store.update { it.copy(device = it.device.copy(filaments = list), slicing = it.slicing.copy(results = emptyMap())) }
         refreshPresetValues(listOf(PresetType.FILAMENT))
     }
 
@@ -481,43 +481,43 @@ class PresetController(private val store: Store, private val device: DeviceContr
     /** Saves the selected preset of [type] (filament: the active slot's) with its edits as user preset [name] and selects it. */
     suspend fun savePresetNow(type: PresetType, name: String) {
         val s = store.value
-        val base = s.presetName(type) ?: return
+        val base = s.device.presetName(type) ?: return
         val newName = name.trim()
-        val setup = engine.savePreset(type, base, newName, s.overridesOf(type))
+        val setup = engine.savePreset(type, base, newName, s.device.overridesOf(type))
         when (type) {
             PresetType.PRINTER -> {
                 val printers = engine.printerList()
-                store.update { it.copy(printers = printers, device = it.device.copy(overrides = it.device.overrides - type)) }
-                selectPrinterNow(newName, s.print, s.filaments)
+                store.update { it.copy(device = it.device.copy(printers = printers, overrides = it.device.overrides - type)) }
+                selectPrinterNow(newName, s.device.print, s.device.filaments)
             }
             PresetType.PRINT -> {
-                s.printer?.let { settings.setLastPrint(it, newName) }
-                store.update { it.copy(setup = setup, print = newName, device = it.device.copy(overrides = it.device.overrides - type)) }
+                s.device.printer?.let { settings.setLastPrint(it, newName) }
+                store.update { it.copy(device = it.device.copy(setup = setup, print = newName, overrides = it.device.overrides - type)) }
             }
             PresetType.FILAMENT -> {
                 store.update {
-                    it.copy(setup = setup, filaments = it.filaments.mapIndexed { i, f -> if (i == it.activeFilament) FilamentSlot(newName, f.color, source = f.source) else f })
+                    it.copy(device = it.device.copy(setup = setup, filaments = it.device.filaments.mapIndexed { i, f -> if (i == it.device.activeFilament) FilamentSlot(newName, f.color, source = f.source) else f }))
                 }
                 // Saving counts as picking it for the slot's AMS tray.
-                rememberTrayPick(s.filaments.getOrNull(s.activeFilament), newName)
-                s.printer?.let { settings.setLastFilaments(it, store.value.filaments) }
+                rememberTrayPick(s.device.filaments.getOrNull(s.device.activeFilament), newName)
+                s.device.printer?.let { settings.setLastFilaments(it, store.value.device.filaments) }
             }
         }
         refreshPresetValues(listOf(type))
     }
 
     fun deleteSelectedPreset(type: PresetType) = store.launch(store.str(R.string.deleting_preset)) {
-        val name = store.value.presetName(type) ?: return@launch
+        val name = store.value.device.presetName(type) ?: return@launch
         val setup = engine.deletePreset(type, name)
         when (type) {
             PresetType.PRINTER -> {
                 val printers = engine.printerList()
-                store.update { it.copy(printers = printers) }
-                store.value.visiblePrinters.firstOrNull()?.let { selectPrinterNow(it.name) }
+                store.update { it.copy(device = it.device.copy(printers = printers)) }
+                store.value.device.visiblePrinters.firstOrNull()?.let { selectPrinterNow(it.name) }
             }
-            PresetType.PRINT -> store.update { it.copy(setup = setup, print = setup.defaultPrint, device = it.device.copy(overrides = it.device.overrides - type)) }
+            PresetType.PRINT -> store.update { it.copy(device = it.device.copy(setup = setup, print = setup.defaultPrint, overrides = it.device.overrides - type)) }
             PresetType.FILAMENT -> store.update {
-                it.copy(setup = setup, filaments = it.filaments.mapIndexed { i, f -> if (i == it.activeFilament) FilamentSlot(setup.defaultFilament, f.color, source = f.source) else f })
+                it.copy(device = it.device.copy(setup = setup, filaments = it.device.filaments.mapIndexed { i, f -> if (i == it.device.activeFilament) FilamentSlot(setup.defaultFilament, f.color, source = f.source) else f }))
             }
         }
         refreshPresetValues(listOf(type))
@@ -528,32 +528,32 @@ class PresetController(private val store: Store, private val device: DeviceContr
         val setup = engine.deletePreset(type, name)
         if (type == PresetType.PRINTER) {
             val printers = engine.printerList()
-            store.update { it.copy(printers = printers) }
+            store.update { it.copy(device = it.device.copy(printers = printers)) }
         } else {
-            store.update { it.copy(setup = setup) }
+            store.update { it.copy(device = it.device.copy(setup = setup)) }
         }
         syncSelection()
     }
 
     fun isUserPreset(type: PresetType): Boolean {
         val s = store.value
-        val name = s.presetName(type) ?: return false
+        val name = s.device.presetName(type) ?: return false
         return when (type) {
-            PresetType.PRINTER -> s.printers.any { it.name == name && !it.system }
-            PresetType.PRINT -> s.setup?.prints?.any { it.name == name && !it.system } == true
-            PresetType.FILAMENT -> s.setup?.filaments?.any { it.name == name && !it.system } == true
+            PresetType.PRINTER -> s.device.printers.any { it.name == name && !it.system }
+            PresetType.PRINT -> s.device.setup?.prints?.any { it.name == name && !it.system } == true
+            PresetType.FILAMENT -> s.device.setup?.filaments?.any { it.name == name && !it.system } == true
         }
     }
 
     fun importPresets(uris: List<Uri>) = store.launch(store.str(R.string.importing_presets)) {
         val files = uris.map { resources.importFile(it, "presets").path }
         val (printers, setup) = engine.importPresets(files)
-        store.update { it.copy(printers = printers, setup = setup) }
+        store.update { it.copy(device = it.device.copy(printers = printers, setup = setup)) }
         store.toast(store.app.resources.getQuantityString(R.plurals.presets_imported, files.size, files.size))
     }
 
     fun exportPreset(type: PresetType, target: Uri) = store.launch {
-        val path = engine.presetFile(type, store.value.presetName(type) ?: return@launch)
+        val path = engine.presetFile(type, store.value.device.presetName(type) ?: return@launch)
         withContext(Dispatchers.IO) {
             store.app.contentResolver.openOutputStream(target, "wt")!!.use { out -> File(path).inputStream().use { it.copyTo(out) } }
         }
@@ -584,7 +584,7 @@ class PresetController(private val store: Store, private val device: DeviceContr
             passphrase.fill(' ')
         }
         val keys = settings.selectedPrinters
-        resources.setInstalledVendors(store.value.vendors.filter { v -> v.models.any { m -> m.nozzles.any { printerKey(m.name, it) in keys } } }.map { it.id }.toSet())
+        resources.setInstalledVendors(store.value.device.vendors.filter { v -> v.models.any { m -> m.nozzles.any { printerKey(m.name, it) in keys } } }.map { it.id }.toSet())
         val app = store.app
         app.startActivity(app.packageManager.getLaunchIntentForPackage(app.packageName)!!
             .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK))

@@ -544,7 +544,7 @@ internal fun PlateMenu(state: UiState, vm: AppViewModel, plate: Int, onDismiss: 
     DropdownMenu(expanded = !bedPicker && !gcodes, onDismissRequest = onDismiss) {
         DropdownMenuItem(text = { Text(stringResource(R.string.slice_plate)) }, onClick = { onDismiss(); vm.slicing.slice(plate) })
         DropdownMenuItem(text = { Text(stringResource(R.string.arrange_plate)) }, onClick = { onDismiss(); vm.scene.arrange(false) })
-        if (state.supportsBedTypes) {
+        if (state.device.supportsBedTypes) {
             DropdownMenuItem(text = { Text(stringResource(R.string.plate_type) + ": " + vm.translator.plate(state.bedTypeOf(plate).orEmpty())) },
                 onClick = { bedPicker = true })
         }
@@ -556,7 +556,7 @@ internal fun PlateMenu(state: UiState, vm: AppViewModel, plate: Int, onDismiss: 
     if (bedPicker) {
         val current = state.bedTypeOf(plate)
         PickerDialog(stringResource(R.string.plate_type), current,
-            state.bedTypeChoices(current).map { PickerItem(it, vm.translator.plate(it)) }, onDismiss = { bedPicker = false; onDismiss() }) {
+            state.device.bedTypeChoices(current).map { PickerItem(it, vm.translator.plate(it)) }, onDismiss = { bedPicker = false; onDismiss() }) {
             bedPicker = false; onDismiss(); vm.scene.setPlateBedType(plate, it)
         }
     }

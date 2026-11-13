@@ -183,7 +183,7 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             if (printers != null) {
                 vm.state.value.let { if (it.chrome.phase == Phase.LOADING) kotlinx.coroutines.delay(500) }
-                while (vm.state.value.chrome.phase == Phase.LOADING || vm.state.value.vendors.isEmpty()) kotlinx.coroutines.delay(200)
+                while (vm.state.value.chrome.phase == Phase.LOADING || vm.state.value.device.vendors.isEmpty()) kotlinx.coroutines.delay(200)
                 vm.presets.applyPrinterSelection(printers.toSet()).join()
             }
             vm.awaitReady()
@@ -341,7 +341,7 @@ class MainActivity : ComponentActivity() {
             in KeyEvent.KEYCODE_1..KeyEvent.KEYCODE_9 -> {
                 // Sets the filament of the selected objects.
                 val n = keyCode - KeyEvent.KEYCODE_0
-                if (any && n <= s.filaments.size) vm.scene.setSelectedObjectsSetting("extruder", n.toString()) else return false
+                if (any && n <= s.device.filaments.size) vm.scene.setSelectedObjectsSetting("extruder", n.toString()) else return false
             }
             else -> return false
         }

@@ -598,7 +598,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
                 s.contextMenu?.let { "3D context menu" },
             )
             appendLine("Open: " + open.joinToString().ifEmpty { "nothing over the main screen" } + ".")
-            appendLine("Presets: printer ${s.printer ?: "none"}; process ${s.print ?: "none"}; filaments ${s.filaments.size}" +
+            appendLine("Presets: printer ${s.device.printer ?: "none"}; process ${s.device.print ?: "none"}; filaments ${s.device.filaments.size}" +
                 (if (s.device.overrides.values.any { it.isNotEmpty() }) " (unsaved changes)" else "") + ".")
             val scene = s.scene
             appendLine("Plates ${scene.plates.size}, active ${s.activePlate + 1}; objects ${scene.objects.size}, copies " +
@@ -796,10 +796,10 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
     private suspend fun plateDescribe(): String = withContext(Dispatchers.Main.immediate) {
         val s = store.value
         buildString {
-            appendLine("Printer: ${s.printer ?: "(none selected)"}")
-            appendLine("Process: ${s.print ?: "(none)"}")
-            if (s.filaments.isEmpty()) appendLine("Filaments: (none)")
-            else s.filaments.forEachIndexed { i, f -> appendLine("Filament ${i + 1}: ${f.preset}${f.color?.let { c -> " ($c)" } ?: ""}") }
+            appendLine("Printer: ${s.device.printer ?: "(none selected)"}")
+            appendLine("Process: ${s.device.print ?: "(none)"}")
+            if (s.device.filaments.isEmpty()) appendLine("Filaments: (none)")
+            else s.device.filaments.forEachIndexed { i, f -> appendLine("Filament ${i + 1}: ${f.preset}${f.color?.let { c -> " ($c)" } ?: ""}") }
             val scene = s.scene
             appendLine("Plate size ${n(scene.plateWidth.toDouble())} x ${n(scene.plateDepth.toDouble())} mm")
             if (scene.objects.isEmpty()) { append("The plate is empty."); return@buildString }
@@ -1240,7 +1240,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         if (o.has("hole")) d = d.update(id) { it.copy(hole = o.optBoolean("hole")) }
         if (o.has("filament")) {
             val f = o.optInt("filament", -1)
-            if (f !in 0..store.value.filaments.size) throw ToolError("filament must be 0 (the object's) .. ${store.value.filaments.size}")
+            if (f !in 0..store.value.device.filaments.size) throw ToolError("filament must be 0 (the object's) .. ${store.value.device.filaments.size}")
             if (d.shapes.none { it.id == id }) throw ToolError("#$id is inside a group; only top-level shapes have a filament")
             d = d.update(id) { it.copy(filament = f) }
         }

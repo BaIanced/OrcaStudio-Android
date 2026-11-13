@@ -278,7 +278,53 @@ data class DeviceState(
     val profileUpdates: List<ResourceStore.ProfileUpdate>? = null,
     /** Progress text while profile updates install in the background; null when idle. */
     val profileUpdateProgress: String? = null,
-)
+    val vendors: List<Vendor> = emptyList(),
+    val selectedPrinters: Set<String> = emptySet(),
+    val printers: List<PrinterInfo> = emptyList(),
+    val printer: String? = null,
+    val setup: PrinterSetup? = null,
+    val print: String? = null,
+    val filaments: List<FilamentSlot> = emptyList(),
+    /** Filament slot shown in the settings editor. */
+    val activeFilament: Int = 0,
+) {
+    fun presetName(type: PresetType) = when (type) {
+        PresetType.PRINT -> print
+        PresetType.FILAMENT -> filaments.getOrNull(activeFilament)?.preset
+        PresetType.PRINTER -> printer
+    }
+
+    fun overridesOf(type: PresetType): Map<String, String> =
+        if (type == PresetType.FILAMENT) filaments.getOrNull(activeFilament)?.overrides.orEmpty() else overrides[type].orEmpty()
+
+    /** Effective value of an option: the unsaved edit if any, else the preset's value. */
+    fun value(type: PresetType, key: String): String? = overridesOf(type)[key] ?: presetValues[type]?.get(key)
+
+    fun isModified(type: PresetType, key: String) = overridesOf(type).containsKey(key)
+
+    /**
+     * Printers offered for selection: the chosen system printers plus all user printers; with
+     * [matchNozzle], not those whose nozzle differs from what that model last reported (the selected one stays).
+     */
+    val visiblePrinters: List<PrinterInfo>
+        get() = (if (selectedPrinters.isEmpty()) printers else printers.filter { !it.system || it.key in selectedPrinters })
+            .filter { it.name == printer || !matchNozzle || nozzleFits(it) }
+
+    fun nozzleFits(p: PrinterInfo) = installedNozzles[p.model]?.let { kotlin.math.abs(it - p.nozzle) < 1e-3 } ?: true
+
+    /** The selected printer preset's nozzle differs from the one installed in that printer, which is [Float]. */
+    val nozzleMismatch: Float? get() = printerInfo?.takeIf { !nozzleFits(it) }?.let { installedNozzles[it.model] }
+
+    /** Process options printers without multiple plate types never see. */
+    val supportsBedTypes get() = setup?.bedTypes?.isNotEmpty() == true
+
+    /** Plate types the pickers offer: the visible ones, plus [current] even when hidden. */
+    fun bedTypeChoices(current: String?): List<String> = setup?.bedTypes.orEmpty().filter { it !in hiddenBedTypes || it == current }
+
+    val selectedPrinterKeys get() = printers.filter { it.name == printer }.map { printerKey(it.model, it.nozzle) }
+
+    val printerInfo: PrinterInfo? get() = printers.firstOrNull { it.name == printer }
+}
 
 data class UiState(
     /** Where the 3D view's context menu is open (view pixels), or null. */
@@ -317,17 +363,6 @@ data class UiState(
     val lightPanel: Boolean = false,
     /** View > Dimensions: X / Y / Z size lines on the selection's box (session only). */
     val dimensions: Boolean = false,
-
-    // Printers and presets
-    val vendors: List<Vendor> = emptyList(),
-    val selectedPrinters: Set<String> = emptySet(),
-    val printers: List<PrinterInfo> = emptyList(),
-    val printer: String? = null,
-    val setup: PrinterSetup? = null,
-    val print: String? = null,
-    val filaments: List<FilamentSlot> = emptyList(),
-    /** Filament slot shown in the settings editor. */
-    val activeFilament: Int = 0,
 
     // Scene
     val scene: Scene = Scene(),
@@ -372,33 +407,6 @@ data class UiState(
     val chrome: ChromeState = ChromeState(),
     val device: DeviceState = DeviceState(),
 ) {
-    fun presetName(type: PresetType) = when (type) {
-        PresetType.PRINT -> print
-        PresetType.FILAMENT -> filaments.getOrNull(activeFilament)?.preset
-        PresetType.PRINTER -> printer
-    }
-
-    fun overridesOf(type: PresetType): Map<String, String> =
-        if (type == PresetType.FILAMENT) filaments.getOrNull(activeFilament)?.overrides.orEmpty() else device.overrides[type].orEmpty()
-
-    /** Effective value of an option: the unsaved edit if any, else the preset's value. */
-    fun value(type: PresetType, key: String): String? = overridesOf(type)[key] ?: device.presetValues[type]?.get(key)
-
-    fun isModified(type: PresetType, key: String) = overridesOf(type).containsKey(key)
-
-    /**
-     * Printers offered for selection: the chosen system printers plus all user printers; with
-     * [matchNozzle], not those whose nozzle differs from what that model last reported (the selected one stays).
-     */
-    val visiblePrinters: List<PrinterInfo>
-        get() = (if (selectedPrinters.isEmpty()) printers else printers.filter { !it.system || it.key in selectedPrinters })
-            .filter { it.name == printer || !device.matchNozzle || nozzleFits(it) }
-
-    fun nozzleFits(p: PrinterInfo) = device.installedNozzles[p.model]?.let { kotlin.math.abs(it - p.nozzle) < 1e-3 } ?: true
-
-    /** The selected printer preset's nozzle differs from the one installed in that printer, which is [Float]. */
-    val nozzleMismatch: Float? get() = printerInfo?.takeIf { !nozzleFits(it) }?.let { device.installedNozzles[it.model] }
-
     val selectedObject get() = selection?.let { scene.objects.getOrNull(it.obj) }
 
     /**
@@ -434,18 +442,8 @@ data class UiState(
         return withSelected(if (keys.all { it in current }) current - keys.toSet() else current + keys.filterNot { it in current })
     }
 
-    /** Process options printers without multiple plate types never see. */
-    val supportsBedTypes get() = setup?.bedTypes?.isNotEmpty() == true
-
     /** Plate type [plate] slices with: its own, else the default. */
-    fun bedTypeOf(plate: Int): String? = scene.plates.getOrNull(plate)?.bedType?.ifEmpty { null } ?: setup?.defaultBedType
-
-    /** Plate types the pickers offer: the visible ones, plus [current] even when hidden. */
-    fun bedTypeChoices(current: String?): List<String> = setup?.bedTypes.orEmpty().filter { it !in device.hiddenBedTypes || it == current }
-
-    val selectedPrinterKeys get() = printers.filter { it.name == printer }.map { printerKey(it.model, it.nozzle) }
-
-    val printerInfo: PrinterInfo? get() = printers.firstOrNull { it.name == printer }
+    fun bedTypeOf(plate: Int): String? = scene.plates.getOrNull(plate)?.bedType?.ifEmpty { null } ?: device.setup?.defaultBedType
 }
 
 /** A project came with filaments that differ from the app's: the user picks which slots to keep. */

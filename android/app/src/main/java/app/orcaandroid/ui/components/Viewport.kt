@@ -640,7 +640,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     DisposableEffect(v) { onDispose { savedCamera = v.camera.state() } }
     // Restored here, not in the factory: a new view can be made before the old one's onDispose has saved.
     val restored = remember(v) { savedCamera?.also(v.camera::restore) != null }
-    val setup = state.setup
+    val setup = state.device.setup
     val scene = state.scene
 
     LaunchedEffect(v, colors) { v.onGl { this.colors = colors } }
@@ -661,7 +661,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     }
     // Layer lines: the print preset's first layer and layer heights (one value each; 0 = off).
     val layers = if (!state.layerLines) floatArrayOf(0f, 0f) else {
-        fun mm(key: String) = state.value(PresetType.PRINT, key)?.split(',', ';')?.firstOrNull()?.trim()?.toFloatOrNull()?.takeIf { it > 0f } ?: 0.2f
+        fun mm(key: String) = state.device.value(PresetType.PRINT, key)?.split(',', ';')?.firstOrNull()?.trim()?.toFloatOrNull()?.takeIf { it > 0f } ?: 0.2f
         floatArrayOf(mm("initial_layer_print_height"), mm("layer_height"))
     }
     LaunchedEffect(v, layers[0], layers[1]) { v.onGl { layerLines = layers } }
@@ -816,9 +816,9 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         // A plate already on screen becomes active without moving the camera (user, 2026-10-13); double tap frames it.
         v.onGl { activePlate = plate }
     }
-    LaunchedEffect(v, state.filaments) {
-        val cols = state.filaments.map { hexToRgb(it.color ?: "#FF7F27") }
-        val mats = state.filaments.map { FilamentMaterial.entries.firstOrNull { m -> m.name == it.look } ?: FilamentMaterial.of(it.preset, it.overrides["filament_type"]) }
+    LaunchedEffect(v, state.device.filaments) {
+        val cols = state.device.filaments.map { hexToRgb(it.color ?: "#FF7F27") }
+        val mats = state.device.filaments.map { FilamentMaterial.entries.firstOrNull { m -> m.name == it.look } ?: FilamentMaterial.of(it.preset, it.overrides["filament_type"]) }
         v.onGl { filamentColors = cols; filamentMaterials = mats }
     }
     val build = state.buildObject?.let { scene.objects.getOrNull(it) }
@@ -881,7 +881,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
             }
         }
     }
-    LaunchedEffect(v, state.tool, showPreview, state.overhangView, state.overhangDrag, state.value(PresetType.PRINT, "support_threshold_angle")) {
+    LaunchedEffect(v, state.tool, showPreview, state.overhangView, state.overhangDrag, state.device.value(PresetType.PRINT, "support_threshold_angle")) {
         v.mode = when {
             showPreview -> InteractionMode.VIEW
             else -> when (state.tool) {
@@ -915,7 +915,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         val highlight = (state.tool as? Tool.Paint)?.takeIf { !showPreview && it.kind == "support" }?.highlight ?: 0f
         // "Show overhangs": every part, at the support threshold angle (0 = auto: tree supports' 30).
         val viewAngle = if (!state.overhangView || showPreview) 0f
-            else (state.overhangDrag ?: state.value(PresetType.PRINT, "support_threshold_angle")?.toFloatOrNull() ?: 30f).let { if (it < 0.5f) 30f else it }
+            else (state.overhangDrag ?: state.device.value(PresetType.PRINT, "support_threshold_angle")?.toFloatOrNull() ?: 30f).let { if (it < 0.5f) 30f else it }
         v.onGl { cutPlane = cut; overhangHighlight = if (highlight > 0f) highlight else viewAngle; overhangAll = highlight <= 0f && viewAngle > 0f }
     }
     // Check mesh: the problem spots stay up until another copy is selected.

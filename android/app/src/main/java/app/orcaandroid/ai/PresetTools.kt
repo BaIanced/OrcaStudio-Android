@@ -74,16 +74,16 @@ internal class PresetTools(
     /** The 0-based filament slot of [args] ("slot", 1-based). */
     private fun JSONObject.slot(): Int {
         val i = optInt("slot", 1) - 1
-        if (store.value.filaments.getOrNull(i) == null) throw McpTools.ToolError("No filament slot ${i + 1}")
+        if (store.value.device.filaments.getOrNull(i) == null) throw McpTools.ToolError("No filament slot ${i + 1}")
         return i
     }
 
     private fun refs(type: PresetType): List<Ref> {
         val s = store.value
         return when (type) {
-            PresetType.PRINTER -> s.visiblePrinters.map { Ref(it.name, it.system, it.base, "${it.model} ${it.nozzle} mm") }
-            PresetType.PRINT -> s.setup?.prints.orEmpty().map { Ref(it.name, it.system, it.base, "") }
-            PresetType.FILAMENT -> s.setup?.filaments.orEmpty().map { Ref(it.name, it.system, it.base, listOf(it.brandName, it.type).filter(String::isNotEmpty).joinToString(" ")) }
+            PresetType.PRINTER -> s.device.visiblePrinters.map { Ref(it.name, it.system, it.base, "${it.model} ${it.nozzle} mm") }
+            PresetType.PRINT -> s.device.setup?.prints.orEmpty().map { Ref(it.name, it.system, it.base, "") }
+            PresetType.FILAMENT -> s.device.setup?.filaments.orEmpty().map { Ref(it.name, it.system, it.base, listOf(it.brandName, it.type).filter(String::isNotEmpty).joinToString(" ")) }
         }
     }
 
@@ -91,8 +91,8 @@ internal class PresetTools(
     private fun selected(type: PresetType, slot: Int): Pair<String, Map<String, String>> {
         val s = store.value
         return when (type) {
-            PresetType.FILAMENT -> s.filaments[slot].let { it.preset to it.overrides }
-            else -> (s.presetName(type) ?: throw McpTools.ToolError("No ${label(type)} preset selected")) to s.device.overrides[type].orEmpty()
+            PresetType.FILAMENT -> s.device.filaments[slot].let { it.preset to it.overrides }
+            else -> (s.device.presetName(type) ?: throw McpTools.ToolError("No ${label(type)} preset selected")) to s.device.overrides[type].orEmpty()
         }
     }
 
@@ -103,10 +103,10 @@ internal class PresetTools(
         val all = refs(type).filter { filter.isEmpty() || it.name.contains(filter, ignoreCase = true) }
         val shown = all.take(LIST_LIMIT)
         return buildString {
-            appendLine("${label(type).replaceFirstChar(Char::uppercase)} presets for printer \"${s.printer}\" (* = selected):")
+            appendLine("${label(type).replaceFirstChar(Char::uppercase)} presets for printer \"${s.device.printer}\" (* = selected):")
             for (r in shown) {
-                val slots = if (type == PresetType.FILAMENT) s.filaments.indices.filter { s.filaments[it].preset == r.name }.map { it + 1 } else emptyList()
-                val sel = slots.isNotEmpty() || (type != PresetType.FILAMENT && s.presetName(type) == r.name)
+                val slots = if (type == PresetType.FILAMENT) s.device.filaments.indices.filter { s.device.filaments[it].preset == r.name }.map { it + 1 } else emptyList()
+                val sel = slots.isNotEmpty() || (type != PresetType.FILAMENT && s.device.presetName(type) == r.name)
                 append(if (sel) "* " else "  ").append(r.name)
                 val notes = buildList {
                     if (r.info.isNotEmpty()) add(r.info)
@@ -127,13 +127,13 @@ internal class PresetTools(
         val (current, currentEdits) = selected(type, slot)
         val name = args.optString("name").ifEmpty { current }
         val ref = refs(type).firstOrNull { it.name == name }
-            ?: store.value.printers.firstOrNull { it.name == name }?.let { Ref(it.name, it.system, it.base, "") }
+            ?: store.value.device.printers.firstOrNull { it.name == name }?.let { Ref(it.name, it.system, it.base, "") }
             ?: throw McpTools.ToolError("No ${label(type)} preset \"$name\" for this printer (see preset_list)")
         val edits = if (name == current) currentEdits else emptyMap()
         val values = presets.presetValuesOf(type, name)
         // A printer preset without a parent is compared with the system preset of its model and nozzle, as the app
         // falls back to that one for its connection (PresetController.selectPrinterNow).
-        val base = ref.base.takeIf { !ref.system && it.isNotEmpty() } ?: store.value.printers.takeIf { type == PresetType.PRINTER && !ref.system }
+        val base = ref.base.takeIf { !ref.system && it.isNotEmpty() } ?: store.value.device.printers.takeIf { type == PresetType.PRINTER && !ref.system }
             ?.let { list ->
                 val me = list.firstOrNull { it.name == name } ?: return@let null
                 list.firstOrNull { it.system && me.model.isNotEmpty() && it.model == me.model && kotlin.math.abs(it.nozzle - me.nozzle) < 1e-3 }?.name
@@ -188,7 +188,7 @@ internal class PresetTools(
             hits.take(FIND_LIMIT).forEach { d ->
                 append("${d.key} (${d.label.ifEmpty { d.fullLabel }})")
                 if (d.category.isNotEmpty()) append(" [${d.category}]")
-                append(" = ").append(s.value(type, d.key)?.let { show(it, d, false) } ?: "-")
+                append(" = ").append(s.device.value(type, d.key)?.let { show(it, d, false) } ?: "-")
                 append("; ").append(d.type)
                 if (d.sidetext.contains(' ')) append(" (").append(d.sidetext).append(")")
                 if (d.min != null || d.max != null) append(" ${d.min?.let(::num) ?: ""}..${d.max?.let(::num) ?: ""}")
@@ -205,7 +205,7 @@ internal class PresetTools(
 
     private suspend fun edit(args: JSONObject): String {
         val type = args.type()
-        val slot = if (type == PresetType.FILAMENT) args.slot() else store.value.activeFilament
+        val slot = if (type == PresetType.FILAMENT) args.slot() else store.value.device.activeFilament
         val (name, _) = selected(type, slot)
         val values = args.optJSONObject("values")?.takeIf { it.length() > 0 } ?: throw McpTools.ToolError("values must be an object with settings")
         if (type == PresetType.FILAMENT && values.has("slot_colour")) {
@@ -241,7 +241,7 @@ internal class PresetTools(
     }
 
     private suspend fun slots(args: JSONObject): String {
-        val before = store.value.filaments.size
+        val before = store.value.device.filaments.size
         if (args.has("remove") == args.has("count")) throw McpTools.ToolError("Give exactly one of count or remove")
         if (args.has("remove")) {
             val i = args.optInt("remove") - 1
@@ -253,7 +253,7 @@ internal class PresetTools(
             if (c !in 1..64) throw McpTools.ToolError("count must be 1..64")
             withContext(Dispatchers.Main.immediate) { presets.setFilamentCountNow(c) }
         }
-        val now = store.value.filaments.size
+        val now = store.value.device.filaments.size
         store.toast(store.str(R.string.ai_edit, "filament slots $before -> $now"))
         return "Filament slots: $before -> $now (see plate_describe)."
     }
@@ -282,7 +282,7 @@ internal class PresetTools(
         val name = args.optString("name").trim()
         if (name.isEmpty() || name.any { it.isISOControl() }) throw McpTools.ToolError("name must be a plain, non-empty name")
         val (current, edits) = selected(type, slot)
-        val existing = refs(type).firstOrNull { it.name == name } ?: store.value.printers.firstOrNull { it.name == name }?.let { Ref(it.name, it.system, it.base, "") }
+        val existing = refs(type).firstOrNull { it.name == name } ?: store.value.device.printers.firstOrNull { it.name == name }?.let { Ref(it.name, it.system, it.base, "") }
         if (existing?.system == true) throw McpTools.ToolError("\"$name\" is a system preset; pick another name")
         val text = store.plural(R.plurals.ai_confirm_save, edits.size, edits.size, label(type), current, name) +
             (existing?.let { "\n" + store.str(R.string.ai_confirm_overwrites, name) } ?: "")
@@ -290,7 +290,7 @@ internal class PresetTools(
         withContext(Dispatchers.Main.immediate) {
             store.update { it.copy(chrome = it.chrome.copy(busy = store.str(R.string.saving_preset))) }
             try {
-                if (type == PresetType.FILAMENT && store.value.activeFilament != slot) presets.setActiveFilamentNow(slot)
+                if (type == PresetType.FILAMENT && store.value.device.activeFilament != slot) presets.setActiveFilamentNow(slot)
                 presets.savePresetNow(type, name)
             } finally {
                 store.update { it.copy(chrome = it.chrome.copy(busy = null)) }
@@ -305,13 +305,13 @@ internal class PresetTools(
         val type = args.type()
         val name = args.optString("name")
         val s = store.value
-        val ref = (if (type == PresetType.PRINTER) s.printers.map { Ref(it.name, it.system, it.base, "") } else refs(type)).firstOrNull { it.name == name }
+        val ref = (if (type == PresetType.PRINTER) s.device.printers.map { Ref(it.name, it.system, it.base, "") } else refs(type)).firstOrNull { it.name == name }
             ?: throw McpTools.ToolError("No ${label(type)} preset \"$name\" for this printer (see preset_list)")
         if (ref.system) throw McpTools.ToolError("\"$name\" is a system preset; only the user's own presets can be deleted")
         val inUse = when (type) {
-            PresetType.PRINTER -> s.printer == name
-            PresetType.PRINT -> s.print == name
-            PresetType.FILAMENT -> s.filaments.any { it.preset == name }
+            PresetType.PRINTER -> s.device.printer == name
+            PresetType.PRINT -> s.device.print == name
+            PresetType.FILAMENT -> s.device.filaments.any { it.preset == name }
         }
         if (inUse) throw McpTools.ToolError("\"$name\" is selected; select another preset first (preset_select, or the user in the app)")
         if (!confirm(store.str(R.string.ai_confirm_delete, label(type), name))) throw McpTools.ToolError("Declined by the user (or no answer within 60 s)")

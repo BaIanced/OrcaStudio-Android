@@ -112,9 +112,9 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
             Entry(stringResource(R.string.print_doctor), stringResource(R.string.print_doctor_entry_text)) { dialog = "doctor" }
 
             Section(stringResource(R.string.printers_and_presets), initiallyOpen = true) {
-                Entry(stringResource(R.string.manage_printers), stringResource(R.string.n_printers_selected, state.selectedPrinters.size)) { vm.presets.openPrinterSetup() }
+                Entry(stringResource(R.string.manage_printers), stringResource(R.string.n_printers_selected, state.device.selectedPrinters.size)) { vm.presets.openPrinterSetup() }
                 Entry(stringResource(R.string.filament_vendors), stringResource(R.string.filament_vendors_text)) { dialog = "vendors" }
-                if (state.supportsBedTypes) Entry(stringResource(R.string.plate_types), stringResource(R.string.plate_types_text)) { dialog = "plates" }
+                if (state.device.supportsBedTypes) Entry(stringResource(R.string.plate_types), stringResource(R.string.plate_types_text)) { dialog = "plates" }
                 SwitchRow(stringResource(R.string.prefer_my_filaments), state.device.preferMyFilaments, onChange = vm.presets::setPreferMyFilaments)
                 Text(stringResource(R.string.prefer_my_filaments_text), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -643,8 +643,8 @@ private fun Entry(title: String, subtitle: String?, onClick: () -> Unit) {
 /** Which filament brands' system presets appear in the filament lists. */
 @Composable
 private fun FilamentVendorsDialog(state: UiState, vm: AppViewModel, onDismiss: () -> Unit) {
-    val vendors = remember(state.setup) {
-        state.setup?.filaments.orEmpty().filter { it.system }.map { it.brandName }.distinct().sortedBy { it.lowercase() }
+    val vendors = remember(state.device.setup) {
+        state.device.setup?.filaments.orEmpty().filter { it.system }.map { it.brandName }.distinct().sortedBy { it.lowercase() }
     }
     var hidden by remember { mutableStateOf(state.device.hiddenFilamentVendors) }
     var query by remember { mutableStateOf("") }
@@ -680,7 +680,7 @@ private fun FilamentVendorsDialog(state: UiState, vm: AppViewModel, onDismiss: (
 /** Which plate types the plate pickers offer (checkbox) and which one plates without their own use (radio). */
 @Composable
 private fun PlateTypesDialog(state: UiState, vm: AppViewModel, onDismiss: () -> Unit) {
-    val types = state.setup?.bedTypes.orEmpty()
+    val types = state.device.setup?.bedTypes.orEmpty()
     var hidden by remember { mutableStateOf(state.device.hiddenBedTypes) }
     var preferred by remember { mutableStateOf(state.device.preferredBedType.takeIf { it in types }.orEmpty()) }
     AlertDialog(
