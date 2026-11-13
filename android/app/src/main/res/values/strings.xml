@@ -31,6 +31,7 @@
     <string name="redone">Redone</string>
     <string name="printer_no_answer">The printer did not answer.</string>
     <string name="printer_no_answer_hint">Check that it is on and on this Wi-Fi.</string>
+    <string name="printer_send_failed">Sending to the printer failed.</string>
     <string name="error_details">Details</string>
     <string name="arranging">Arranging…</string>
     <string name="auto_orient">Auto orient</string>

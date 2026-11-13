@@ -293,5 +293,32 @@ class DeviceController(private val store: Store) {
     }
 }
 
-/** A print / send that failed on the network; the UI shows a plain sentence and keeps this raw text under "Details". */
-class PrinterFailure(cause: IOException) : Exception(cause.message ?: cause.toString(), cause)
+/**
+ * A print / send that failed. [unreachable]: the printer could not be reached at all (off, on another network), so the UI
+ * shows "The printer did not answer" and the Wi-Fi hint. Any other cause keeps its own sentence (a refused access code, a
+ * missing serial number), unless that holds raw text ([hasRawNetworkText]): then a plain sentence, the text under "Details".
+ */
+class PrinterFailure(cause: IOException) : Exception(cause.message ?: cause.toString(), cause) {
+    val unreachable = printerUnreachable(cause)
+}
+
+/** Whether [e] (or what caused it) says that nothing answered at the printer's address: no route, refused, timed out. */
+internal fun printerUnreachable(e: Throwable): Boolean {
+    var t: Throwable? = e
+    repeat(5) {
+        val x = t ?: return false
+        if (x is java.net.ConnectException || x is java.net.NoRouteToHostException || x is java.net.SocketTimeoutException ||
+            x is java.net.UnknownHostException || x is java.net.PortUnreachableException) return true
+        val m = x.message.orEmpty()
+        if (UNREACHABLE_MARKS.any { m.contains(it, ignoreCase = true) }) return true
+        t = x.cause
+    }
+    return false
+}
+
+private val UNREACHABLE_MARKS = listOf("did not answer", "EHOSTUNREACH", "ENETUNREACH", "ECONNREFUSED", "ETIMEDOUT", "failed to connect", "timed out")
+
+/** Text that belongs under "Details", not in a sentence: an address, a URL, a port, an errno name, a library or protocol code. */
+internal fun hasRawNetworkText(text: String) = RAW_NETWORK_TEXT.containsMatchIn(text)
+
+private val RAW_NETWORK_TEXT = Regex("""\d+\.\d+\.\d+|://|:\d{2,5}\b|\bE[A-Z]{5,}\b|\(obn |\bFTP: |\bHTTP \d""")
