@@ -109,7 +109,9 @@ class DeviceController(private val store: Store) {
     private suspend fun dispatch(connection: PrinterConnection, file: File, name: String, startPrint: Boolean, bambu: Boolean) {
         if (startPrint && bambu) {
             val used = withContext(Dispatchers.IO) { AmsMapping.usedFilaments(file) }
-            val trays = if (used.isEmpty()) emptyList() else withHost(connection) { it.fullStatus()?.trays.orEmpty() }
+            val trays = if (used.isEmpty()) emptyList() else try {
+                withHost(connection) { it.fullStatus()?.trays.orEmpty() }
+            } catch (e: IOException) { throw PrinterFailure(e) }
             if (trays.isNotEmpty()) {
                 pendingPrint = file to name
                 val count = maxOf(store.value.device.filaments.size, used.maxOf { it.id } + 1)
@@ -185,8 +187,12 @@ class DeviceController(private val store: Store) {
     }
 
     private suspend fun send(connection: PrinterConnection, file: File, name: String, startPrint: Boolean, ams: AmsMapping?) {
-        withHost(connection) { host ->
-            host.upload(file, name, startPrint, ams) { p -> store.update { it.copy(device = it.device.copy(upload = UploadState.Running(p, startPrint))) } }
+        try {
+            withHost(connection) { host ->
+                host.upload(file, name, startPrint, ams) { p -> store.update { it.copy(device = it.device.copy(upload = UploadState.Running(p, startPrint))) } }
+            }
+        } catch (e: IOException) {
+            throw PrinterFailure(e)
         }
         logSent(file, name, startPrint)
         if (!store.value.chrome.coachDismissed) { store.settings.coachDismissed = true; store.update { it.copy(chrome = it.chrome.copy(coachDismissed = true)) } }
@@ -286,3 +292,6 @@ class DeviceController(private val store: Store) {
         const val POLL_MS = 1_000L
     }
 }
+
+/** A print / send that failed on the network; the UI shows a plain sentence and keeps this raw text under "Details". */
+class PrinterFailure(cause: IOException) : Exception(cause.message ?: cause.toString(), cause)

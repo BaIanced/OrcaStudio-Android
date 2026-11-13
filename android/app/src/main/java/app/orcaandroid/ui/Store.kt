@@ -130,6 +130,10 @@ class Store(val app: Application, val scope: CoroutineScope) {
             // System file errors carry content:// URIs, cache paths and errno names; show the plain sentence instead.
             val unreadable = e is java.io.FileNotFoundException || e is SecurityException ||
                 listOf("content://", "ENOENT", "EACCES", "open failed").any { it in message }
+            if (e is PrinterFailure) {
+                update { it.copy(chrome = it.chrome.copy(error = str(R.string.printer_no_answer), errorHint = str(R.string.printer_no_answer_hint), errorDetails = e.message)) }
+                return@launch
+            }
             update { it.copy(chrome = it.chrome.copy(error = when {
                 e is app.orcaandroid.net.ArchiveTooLargeException -> str(R.string.archive_too_large)
                 unreadable -> str(R.string.file_unreadable)

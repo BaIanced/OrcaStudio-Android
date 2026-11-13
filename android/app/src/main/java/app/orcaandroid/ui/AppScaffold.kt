@@ -621,7 +621,18 @@ private fun GlobalDialogs(state: UiState, vm: AppViewModel) {
             onDismissRequest = vm::dismissError,
             title = { Text(stringResource(R.string.error)) },
             // Engine errors are OrcaSlicer's (translatable) messages; show them in the app's language.
-            text = { Text(engineErrorText(message, vm.translator)) },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(engineErrorText(message, vm.translator))
+                    state.chrome.errorHint?.let { Text(it) }
+                    state.chrome.errorDetails?.let { details ->
+                        var open by remember(details) { mutableStateOf(false) }
+                        Text(stringResource(R.string.error_details) + if (open) " ▴" else " ▾", style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary, modifier = Modifier.clickable { open = !open })
+                        if (open) Text(details, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace)
+                    }
+                }
+            },
             confirmButton = { TextButton(onClick = vm::dismissError) { Text(stringResource(R.string.ok)) } },
         )
     }

@@ -231,8 +231,14 @@ class SceneController(private val store: Store, private val presets: PresetContr
         val items = selectedItems.ifEmpty { return }
         store.sceneOp { engine.duplicate(items, copies) }
     }
-    fun arrange(allPlates: Boolean) = store.sceneOp(store.str(R.string.arranging)) { engine.arrange(if (allPlates) -1 else activePlate) }
-    fun autoOrient() = store.sceneOp(store.str(R.string.orienting)) { engine.autoOrient(selection?.obj ?: -1) }
+    fun arrange(allPlates: Boolean) = store.sceneOp(store.str(R.string.arranging)) { engine.arrange(if (allPlates) -1 else activePlate).also { noticeIfUnchanged(it, R.string.already_arranged) } }
+    fun autoOrient() = store.sceneOp(store.str(R.string.orienting)) { engine.autoOrient(selection?.obj ?: -1).also { noticeIfUnchanged(it, R.string.already_oriented) } }
+
+    /** Toasts [message] when [scene] poses every copy as the current scene does (the operation changed nothing). */
+    private fun noticeIfUnchanged(scene: Scene, message: Int) {
+        fun poses(s: Scene) = s.objects.map { o -> o.instances.map { listOf(it.plate, it.offset, it.rotation, it.scale, it.mirror) } }
+        if (poses(scene) == poses(store.value.workspace.scene)) store.toast(store.str(message))
+    }
 
     /** Applies the fit the notice offered; the object list changed since: checks again instead. */
     fun fitToPrinter(issue: FitIssue) {
@@ -371,8 +377,10 @@ class SceneController(private val store: Store, private val presets: PresetContr
         // The picked region's applied marks would no longer match the model.
         regionPick.value = null
         val before = store.value.workspace.scene.plates.size
+        val could = store.value.workspace.scene.canUndo
         val scene = engine.undo()
         store.applyScene(scene)
+        if (could) store.toast(store.str(R.string.undone))
         lastDelete?.let { (after, active) ->
             if (before == after && scene.plates.size > after) {
                 store.update { it.copy(workspace = it.workspace.copy(activePlate = active.coerceIn(0, scene.plates.lastIndex))) }
@@ -382,7 +390,10 @@ class SceneController(private val store: Store, private val presets: PresetContr
         if (store.value.workspace.calibration != null && !scene.calibrationActive)
             store.update { it.copy(workspace = it.workspace.copy(calibration = null, projectName = it.workspace.nameBeforeCalibration)) }
     }
-    fun redo() = store.sceneOp { engine.redo() }
+    fun redo() = store.sceneOp {
+        val could = store.value.workspace.scene.canRedo
+        engine.redo().also { if (could) store.toast(store.str(R.string.redone)) }
+    }
 
     /** Fills the process's flushing matrix from the filament colours (like the desktop's auto-calc). */
     fun autoFlushMatrix() = store.launch {
