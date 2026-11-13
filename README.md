@@ -1,49 +1,65 @@
 <div align="center">
   <img src="docs/icon.svg" alt="Logo" width="80" height="80">
-  <h2>OrcaStudio-Android</h2>
+  <h1>OrcaStudio for Android</h1>
+  <p><b>The real OrcaSlicer engine on your phone, tablet or Chromebook, with touch-first tools to make and fix parts.</b></p>
   <p>
-    A touch-first 3D-printing studio for Android tablets and phones, built around the real
-    <a href="https://github.com/OrcaSlicer/OrcaSlicer">OrcaSlicer</a> engine running on the device.
-  </p>
-  <p>
-    <a href="https://github.com/BaIanced/OrcaStudio-Android/releases">Download</a>
+    <a href="https://github.com/BaIanced/OrcaStudio-Android/releases">Download the APK</a>
+    ·
+    <a href="#install">Install</a>
     ·
     <a href="https://github.com/BaIanced/OrcaStudio-Android/issues">Report a bug</a>
   </p>
+  <img src="docs/media/hero.gif" alt="Add the sample model, slice it and open the layer preview, all on a phone" width="320">
 </div>
 
-> **Built on [OrcaSlicer](https://github.com/OrcaSlicer/OrcaSlicer) by SoftFever and the OrcaSlicer
-> contributors (AGPL-3.0).** The slicing engine (`libslic3r`), the printer, filament and process
-> profiles, the settings model and the calibration know-how are their work and are used with the patches in
-> `android/patches/src-orca`. This app adds an Android interface, modelling tools and printer connections around
-> it. It is not affiliated with OrcaSlicer or any printer manufacturer: please report problems
-> with this app here, not upstream. OrcaSlicer's source is at
-> <https://github.com/OrcaSlicer/OrcaSlicer>; the exact commit this app builds is in
-> [android/UPSTREAM.md](android/UPSTREAM.md).
+## What you can do with it
 
-> **A personal project, shared as is.** Pre-release builds, no support and no promise of
-> maintenance, no warranty. Check your G-code before long prints and use it at your own risk (see
-> [License](#license)).
+- **Slice without a PC.** OrcaSlicer's engine runs on the device, with the same printer, filament and process profiles and the
+  same results as on the desktop. No server, no cloud slicing.
+- **Fix a downloaded model.** Make a hole bigger, thicken a wall, lengthen a tab, widen one side of a part, cut, hollow, repair.
+- **Make simple parts.** Drag shapes together, cut holes, round edges, add text. Numbers are there when you want them.
+- **Print.** Send to Bambu Lab printers and to Klipper (Moonraker), OctoPrint, PrusaLink and other hosts; watch the print and the
+  camera from the Device tab.
+- **Use a big screen.** Works with keyboard, mouse and pen on Chromebooks and tablets.
 
-## What it is
+| Prepare and slice | Make and fix parts | Reshape by dragging |
+|---|---|---|
+| <img src="docs/media/prepare.png" width="240" alt="Plate with a model and slice settings"> | <img src="docs/media/build.png" width="240" alt="Shape builder with a bracket"> | <img src="docs/media/reshape.png" width="240" alt="Grab tool dragging the model with a millimetre label"> |
 
-Slice on a tablet or phone with the same profiles and results as OrcaSlicer on the desktop, model
-and repair parts on the same device, and send the job to the printer. No server is involved:
-OrcaSlicer's engine is compiled for Android (arm64) and runs locally. The desktop interface
-(wxWidgets) cannot run on Android, so everything you touch is a new interface written in Kotlin
-and Jetpack Compose, with OpenGL ES 3 for the plate and preview.
+## How it compares
 
-## Status: what is tested
+| | This app | OrcaSlicer desktop | Printer vendor phone apps | Cloud slicers |
+|---|---|---|---|---|
+| Slices on the device | yes | yes (PC) | no | no (server) |
+| OrcaSlicer profiles and settings | yes | yes | no | varies |
+| Works offline | yes | yes | no | no |
+| Make and edit models | yes, by touch | separate CAD program | no | no |
+| Phone, tablet, Chromebook | yes | no | phone | browser |
 
-- **Tested by the developer** on a phone, other Android devices and the Android subsystem for
-  Windows: slicing, preview, the editors and the features below, mostly by scripted checks on a
-  hidden virtual display. Newer features were checked this way only; they are not yet tested by
-  anyone else.
-- **Printing:** signed Bambu Lab printing (see below) has been used on a real printer. Moonraker
-  and MKS hosts were tested against mock hosts only. The other host types (OctoPrint, PrusaLink,
-  Duet, Repetier, ESP3D) and Bambu LAN mode are untested on real hardware.
-- A JVM and instrumented test suite covers the engine bridge and much of the app logic
-  (`android/app/src/test`, `android/app/src/androidTest`).
+## Install
+
+1. Download the newest APK from the [releases](https://github.com/BaIanced/OrcaStudio-Android/releases) and open it. Allow
+   installing from this source when asked.
+2. Needs **Android 10 or newer on an arm64 device**.
+3. On first start pick your printer. To send prints, open the **Device** tab and add the printer.
+
+Updates: add this repository to [Obtainium](https://github.com/ImranR98/Obtainium) (turn on "include pre-releases") to be told
+about new builds.
+
+## Status
+
+A personal project, shared as is: pre-release builds, no support promise, no warranty. Check your G-code before long prints.
+
+- Tested by the developer on a phone, a Chromebook and other Android devices, mostly with scripted checks. Newer features have
+  not been tested by anyone else yet.
+- Signed Bambu Lab printing has been used on a real printer. Moonraker and MKS hosts were tested against mock hosts only. Other
+  hosts are untested on real hardware.
+- **Testers wanted:** if you try it, an issue saying what worked on which device helps more than anything else.
+
+> Built on [OrcaSlicer](https://github.com/OrcaSlicer/OrcaSlicer) by SoftFever and the OrcaSlicer contributors (AGPL-3.0). The
+> slicing engine, the profiles and the settings model are their work, used with five small patches (see
+> `android/patches/src-orca/`). This app is not affiliated with OrcaSlicer or any printer maker: report problems with this app
+> here, not upstream. The exact upstream commit is in [android/UPSTREAM.md](android/UPSTREAM.md).
 
 ## Features
 
