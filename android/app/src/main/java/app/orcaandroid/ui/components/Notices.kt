@@ -60,7 +60,7 @@ fun Notices(state: UiState, vm: AppViewModel, modifier: Modifier = Modifier) {
     val notices = buildList {
         // Fit first: an oversized object is usually the cause of the slice error below it, and its Fix
         // stayed below the card's scroll fold when listed second (WSA r524, 2026-11-04).
-        state.fitIssue?.let { f ->
+        state.slicing.fitIssue?.let { f ->
             fun mm(v: List<Float>) = v.joinToString(" x ") { kotlin.math.round(it).toInt().toString() }
             val hint = when (f.fix) {
                 "turn" -> R.string.fit_turn
@@ -76,13 +76,13 @@ fun Notices(state: UiState, vm: AppViewModel, modifier: Modifier = Modifier) {
             add(Notice("session", stringResource(R.string.session_bad_title), listOf(Line(stringResource(R.string.session_bad_text), true)),
                 buttons = listOf(R.string.session_try_again to { vm.files.retryBadSession() }, R.string.session_discard to { vm.files.discardBadSession() })))
         }
-        state.sliceError?.let { (plate, message) ->
+        state.slicing.sliceError?.let { (plate, message) ->
             add(Notice("slice:$plate:$message", stringResource(R.string.notice_slice_failed, plate + 1),
                 listOf(Line(engineErrorText(message, vm.translator), true, noticeFix(message)))))
         }
-        val result = state.shownResult
+        val result = state.slicing.shownResult
         if (state.screen == Screen.PREVIEW && result != null && result.warnings.isNotEmpty()) {
-            add(Notice("warn:${state.previewPlate}:${result.gcodeFile}:${result.warnings.hashCode()}", stringResource(R.string.notice_slicer_warnings),
+            add(Notice("warn:${state.slicing.previewPlate}:${result.gcodeFile}:${result.warnings.hashCode()}", stringResource(R.string.notice_slicer_warnings),
                 // Mixed temperatures the user has allowed are only a heads-up (as in the preview panel).
                 result.warnings.map { Line(vm.translator.tr(it), !(state.allowMixedTemps && it.startsWith("Selected nozzle temperatures are incompatible")), noticeFix(it)) }))
         }

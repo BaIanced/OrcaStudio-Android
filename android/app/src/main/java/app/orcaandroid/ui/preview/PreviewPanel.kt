@@ -99,24 +99,24 @@ private fun roleColor(role: Int): Color {
 /** Summary, legend and actions of the sliced plate. */
 @Composable
 fun PreviewPanel(state: UiState, vm: AppViewModel, wide: Boolean) {
-    val result = state.shownResult
+    val result = state.slicing.shownResult
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (result == null) {
             Text(stringResource(if (state.scene.isEmpty) R.string.no_objects_hint else R.string.not_sliced), style = MaterialTheme.typography.bodyMedium)
             // G4: the background slice of this plate shows up here by itself; Slice makes it a normal one.
-            (state.slice as? SliceStatus.Running)?.takeIf { it.background && it.plate == state.previewPlate }?.let {
+            (state.slicing.slice as? SliceStatus.Running)?.takeIf { it.background && it.plate == state.slicing.previewPlate }?.let {
                 Text("${stringResource(R.string.auto_slicing)} ${it.percent} %", style = MaterialTheme.typography.bodySmall)
                 LinearProgressIndicator(progress = { it.percent / 100f }, modifier = Modifier.fillMaxWidth())
             }
-            if (!state.scene.isEmpty) Button(onClick = { vm.slicing.slice(state.previewPlate) }, enabled = !state.isSlicing) {
-                Text(stringResource(R.string.slice_plate_n, state.previewPlate + 1))
+            if (!state.scene.isEmpty) Button(onClick = { vm.slicing.slice(state.slicing.previewPlate) }, enabled = !state.slicing.isSlicing) {
+                Text(stringResource(R.string.slice_plate_n, state.slicing.previewPlate + 1))
             }
             OutlinedButton(onClick = { vm.setScreen(Screen.PREPARE) }) { Text(stringResource(R.string.tab_prepare)) }
             return@Column
         }
         Summary(state, vm, result)
         Actions(state, vm, result)
-        if (state.preview.showGcode) GcodeView(state, result)
+        if (state.slicing.preview.showGcode) GcodeView(state, result)
         Legend(state, vm, result)
         if (!result.external) LayerTools(state, vm, result)
     }
@@ -207,7 +207,7 @@ private fun Actions(state: UiState, vm: AppViewModel, r: SliceResult) {
             }
         }) { Icon(Icons.Default.Share, stringResource(R.string.share)) } }
         Tip(stringResource(R.string.show_gcode)) { IconButton(onClick = { vm.slicing.updatePreview { it.copy(showGcode = !it.showGcode) } }) {
-            Icon(Icons.Default.Code, stringResource(R.string.show_gcode), tint = if (state.preview.showGcode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+            Icon(Icons.Default.Code, stringResource(R.string.show_gcode), tint = if (state.slicing.preview.showGcode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
         } }
         Box {
             Tip(stringResource(R.string.more)) { IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, stringResource(R.string.more)) } }
@@ -225,7 +225,7 @@ private fun Actions(state: UiState, vm: AppViewModel, r: SliceResult) {
 
 @Composable
 private fun Legend(state: UiState, vm: AppViewModel, r: SliceResult) {
-    val p = state.preview
+    val p = state.slicing.preview
     SectionTitle(stringResource(SCHEMES[p.scheme]))
     when (p.scheme) {
         0 -> {
@@ -268,13 +268,13 @@ private fun Legend(state: UiState, vm: AppViewModel, r: SliceResult) {
 @Composable
 private fun LayerTools(state: UiState, vm: AppViewModel, r: SliceResult) {
     var dialog by remember { mutableStateOf(false) }
-    val layer = r.layers.getOrNull(state.preview.layerHigh) ?: return
+    val layer = r.layers.getOrNull(state.slicing.preview.layerHigh) ?: return
     HorizontalDivider()
-    val count = state.scene.plates.getOrNull(state.previewPlate)?.layerGcodes?.size ?: 0
+    val count = state.scene.plates.getOrNull(state.slicing.previewPlate)?.layerGcodes?.size ?: 0
     TextButton(onClick = { dialog = true }) {
         Text(stringResource(R.string.add_gcode_at_layer, layer.z) + if (count > 0) " ($count)" else "")
     }
-    if (dialog) LayerGcodeDialog(state, vm, state.previewPlate, layer.z) { dialog = false }
+    if (dialog) LayerGcodeDialog(state, vm, state.slicing.previewPlate, layer.z) { dialog = false }
 }
 
 /**
@@ -291,7 +291,7 @@ private fun GcodeView(state: UiState, r: SliceResult) {
         index = withContext(Dispatchers.IO) { indexLines(r.gcodeFile) }
         data = withContext(Dispatchers.IO) { PreviewData.load(r.previewDir) }
     }
-    val p = state.preview
+    val p = state.slicing.preview
     LaunchedEffect(index, data, p.layerLow, p.layerHigh, p.moveEnd) {
         val idx = index ?: return@LaunchedEffect
         val d = data ?: return@LaunchedEffect

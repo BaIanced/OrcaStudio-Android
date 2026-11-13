@@ -80,7 +80,7 @@ class DeviceController(private val store: Store) {
      */
     fun upload(startPrint: Boolean, confirmed: Boolean = false) = store.launch {
         val s = store.value
-        val result = s.shownResult ?: return@launch
+        val result = s.slicing.shownResult ?: return@launch
         val connection = s.connection ?: return@launch
         if (s.upload is UploadState.Running) return@launch
         if (!confirmed && !result.external) {
@@ -141,7 +141,7 @@ class DeviceController(private val store: Store) {
     /** Logs what was just sent, with the sent file for a reprint (reprints themselves are not logged again). */
     private suspend fun logSent(file: File, name: String, startPrint: Boolean) {
         val s = store.value
-        val r = s.shownResult ?: return
+        val r = s.slicing.shownResult ?: return
         if (r.external || file.parentFile?.name == "history") return
         val entry = PrintHistoryEntry(
             id = System.currentTimeMillis().toString(), time = System.currentTimeMillis(), name = files.gcodeFileName().removeSuffix(".gcode"),

@@ -169,6 +169,30 @@ data class DesignState(
     val builderSplit: Boolean = false,
 )
 
+/** Slicing and preview fields of [UiState], read as `state.slicing.x`. */
+data class SliceState(
+    val slice: SliceStatus = SliceStatus.Idle,
+    val results: Map<Int, SliceResult> = emptyMap(),
+    /** Why the last slice failed (plate, message), shown on the 3D view (Notices); cleared by the next slice. */
+    val sliceError: Pair<Int, String>? = null,
+    /** A copy that doesn't fit the printer (checked on leaving the builder and on a slice with nothing inside), shown in Notices. */
+    val fitIssue: app.orcaandroid.core.FitIssue? = null,
+    val previewPlate: Int = 0,
+    /** An opened external G-code file (preview only). */
+    val external: SliceResult? = null,
+    val preview: PreviewUi = PreviewUi(),
+    /** The last slice's change against the plate's slice before it, while that result is current. */
+    val sliceDelta: SliceDelta? = null,
+    /** Slice the active plate in the background once edits pause (G4). */
+    val autoSlice: Boolean = true,
+) {
+    /** The result shown in the preview (external G-code or the preview plate's slice). */
+    val shownResult: SliceResult? get() = external ?: results[previewPlate]
+
+    /** A slice the user waits for (not a background auto-slice). */
+    val isSlicing get() = (slice as? SliceStatus.Running)?.background == false
+}
+
 data class UiState(
     val phase: Phase = Phase.LOADING,
     val busy: String? = null,
@@ -197,11 +221,7 @@ data class UiState(
     /** The floating colour panel is open over the app (design mode). */
     val designMode: Boolean = false,
     val doubleBackToQuit: Boolean = false,
-    /** Slice the active plate in the background once edits pause (G4). */
-    val autoSlice: Boolean = true,
     val coachDismissed: Boolean = true,
-    /** The last slice's change against the plate's slice before it, while that result is current. */
-    val sliceDelta: SliceDelta? = null,
     val pen: app.orcaandroid.core.PenConfig = app.orcaandroid.core.PenConfig(),
     /** What an opened project does to the filament slots ("ask", "project", "mine") and the question being asked. */
     val projectFilaments: String = "ask",
@@ -319,19 +339,8 @@ data class UiState(
     /** Unsaved changes since the project was opened/saved. */
     val projectDirty: Boolean = false,
 
-    // Slicing and preview
-    val slice: SliceStatus = SliceStatus.Idle,
-    val results: Map<Int, SliceResult> = emptyMap(),
-    /** Why the last slice failed (plate, message), shown on the 3D view (Notices); cleared by the next slice. */
-    val sliceError: Pair<Int, String>? = null,
-    /** A copy that doesn't fit the printer (checked on leaving the builder and on a slice with nothing inside), shown in Notices. */
-    val fitIssue: app.orcaandroid.core.FitIssue? = null,
     /** The last session could not be opened and was kept aside; Notices offers Try again / Discard. */
     val sessionBad: Boolean = false,
-    val previewPlate: Int = 0,
-    /** An opened external G-code file (preview only). */
-    val external: SliceResult? = null,
-    val preview: PreviewUi = PreviewUi(),
 
     // Device
     val connection: PrinterConnection? = null,
@@ -355,6 +364,7 @@ data class UiState(
     /** Report of a crash that closed the app last time (see CrashReport). */
     val crashReport: String? = null,
     val design: DesignState = DesignState(),
+    val slicing: SliceState = SliceState(),
 ) {
     fun presetName(type: PresetType) = when (type) {
         PresetType.PRINT -> print
@@ -417,12 +427,6 @@ data class UiState(
         val keys = items.map { it.copy(volume = -1) }
         return withSelected(if (keys.all { it in current }) current - keys.toSet() else current + keys.filterNot { it in current })
     }
-
-    /** The result shown in the preview (external G-code or the preview plate's slice). */
-    val shownResult: SliceResult? get() = external ?: results[previewPlate]
-
-    /** A slice the user waits for (not a background auto-slice). */
-    val isSlicing get() = (slice as? SliceStatus.Running)?.background == false
 
     /** Process options printers without multiple plate types never see. */
     val supportsBedTypes get() = setup?.bedTypes?.isNotEmpty() == true

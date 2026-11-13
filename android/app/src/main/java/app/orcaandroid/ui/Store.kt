@@ -31,7 +31,6 @@ class Store(val app: Application, val scope: CoroutineScope) {
             dynamicColor = settings.dynamicColor,
             themeSpec = settings.themeSpec,
             doubleBackToQuit = settings.doubleBackToQuit,
-            autoSlice = settings.autoSlice,
             coachDismissed = settings.coachDismissed,
             pen = settings.pen,
             projectFilaments = settings.projectFilaments,
@@ -65,6 +64,7 @@ class Store(val app: Application, val scope: CoroutineScope) {
                 buildPrinter = settings.buildPrinter,
                 builderSplit = settings.builderSplit,
             ),
+            slicing = SliceState(autoSlice = settings.autoSlice),
         )
     )
 
@@ -124,7 +124,7 @@ class Store(val app: Application, val scope: CoroutineScope) {
             selection = s.selection?.takeIf { it.obj < scene.objects.size } ?: multi.singleOrNull(),
             multiSelection = multi.takeIf { it.size > 1 }.orEmpty(),
             activePlate = s.activePlate.coerceIn(0, (scene.plates.size - 1).coerceAtLeast(0)),
-            results = emptyMap(),
+            slicing = s.slicing.copy(results = emptyMap()),
             projectDirty = s.projectDirty || dirty,
         )
     }

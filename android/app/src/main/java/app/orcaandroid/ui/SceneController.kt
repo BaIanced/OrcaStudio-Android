@@ -35,7 +35,7 @@ const val SCULPT_MAX_MM = 30f
 /** Printer fit check (Assemble A2): the first copy of [obj] (-1: all objects) that doesn't fit, shown on the 3D view (Notices). */
 fun Store.checkFit(obj: Int = -1) = launch {
     val issue = runCatching { engine.fitCheck(obj) }.getOrNull()?.firstOrNull()
-    update { it.copy(fitIssue = issue) }
+    update { it.copy(slicing = it.slicing.copy(fitIssue = issue)) }
 }
 
 class SceneController(private val store: Store, private val presets: PresetController) {
@@ -230,7 +230,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
 
     /** Applies the fit the notice offered; the object list changed since: checks again instead. */
     fun fitToPrinter(issue: FitIssue) {
-        store.update { it.copy(fitIssue = null) }
+        store.update { it.copy(slicing = it.slicing.copy(fitIssue = null)) }
         if (store.value.scene.objects.getOrNull(issue.obj)?.name != issue.name) { store.checkFit(); return }
         store.sceneOp(store.str(R.string.orienting)) { engine.fitToPrinter(issue.obj) }
     }

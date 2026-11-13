@@ -585,8 +585,8 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
                 (if (cfg.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) "landscape" else "portrait") + ".")
             appendLine("Phase ${s.phase.name.lowercase()}; tab ${s.screen.name.lowercase()}" +
                 (s.busy?.let { "; busy: $it" } ?: "") + (s.error?.let { "; error: $it" } ?: "") +
-                (s.sliceError?.let { "; slice error (plate ${it.first + 1}): ${it.second}" } ?: "") + (s.message?.let { "; message: $it" } ?: "") +
-                (s.fitIssue?.let { "; fit notice: object ${it.obj + 1} copy ${it.instance + 1} doesn't fit, fix ${it.fix ?: "none"}" } ?: "") + ".")
+                (s.slicing.sliceError?.let { "; slice error (plate ${it.first + 1}): ${it.second}" } ?: "") + (s.message?.let { "; message: $it" } ?: "") +
+                (s.slicing.fitIssue?.let { "; fit notice: object ${it.obj + 1} copy ${it.instance + 1} doesn't fit, fix ${it.fix ?: "none"}" } ?: "") + ".")
             val open = listOfNotNull(
                 s.editor?.let { "preset editor" },
                 s.addDialog?.let { "add dialog ($it)" },
@@ -741,20 +741,20 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
     private suspend fun slice(args: JSONObject): String {
         val plate = withContext(Dispatchers.Main.immediate) {
             plateArg(args).also { p ->
-                if (store.value.isSlicing) throw ToolError("A slice is already running")
+                if (store.value.slicing.isSlicing) throw ToolError("A slice is already running")
                 if (store.value.scene.objectsOn(p).isEmpty()) throw ToolError("Plate ${p + 1} is empty")
                 store.update { it.copy(error = null) }
             }
         }
         val job = slicing.slice(plate)
         if (withTimeoutOrNull(SLICE_TIMEOUT) { job.join() } == null) throw ToolError("Slicing takes longer than ${SLICE_TIMEOUT / 1000} s; it goes on in the app (slice_result later)")
-        (store.value.sliceError?.second ?: store.value.error)?.let { throw ToolError("Slicing failed: $it") }
+        (store.value.slicing.sliceError?.second ?: store.value.error)?.let { throw ToolError("Slicing failed: $it") }
         return sliceResult(JSONObject().put("plate", plate + 1))
     }
 
     private suspend fun previewSet(args: JSONObject): String = withContext(Dispatchers.Main.immediate) {
         val plate = plateArg(args)
-        val r = store.value.results[plate] ?: throw ToolError("Plate ${plate + 1} has no slice result: run slice first")
+        val r = store.value.slicing.results[plate] ?: throw ToolError("Plate ${plate + 1} has no slice result: run slice first")
         val last = r.layers.lastIndex
         val scheme = if (args.has("scheme")) {
             val want = args.optString("scheme").trim().lowercase()
@@ -763,8 +763,8 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
                 ?: names.indexOfFirst { it.lowercase().startsWith(want) && want.isNotEmpty() }.takeIf { it >= 0 }
                 ?: throw ToolError("scheme must be one of: ${names.joinToString()}")
         } else null
-        if (store.value.previewPlate != plate) slicing.setPreviewPlate(plate)
-        val cur = store.value.preview
+        if (store.value.slicing.previewPlate != plate) slicing.setPreviewPlate(plate)
+        val cur = store.value.slicing.preview
         var lo = if (args.has("layer_from")) args.optInt("layer_from") - 1 else cur.layerLow
         var hi = if (args.has("layer_to")) args.optInt("layer_to") - 1 else cur.layerHigh
         lo = lo.coerceIn(0, last)
@@ -775,14 +775,14 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
                 moveEnd = if (args.has("moves")) args.optInt("moves").takeIf { m -> m > 0 } else if (layerChanged) null else it.moveEnd)
         }
         store.update { it.copy(screen = Screen.PREVIEW) }
-        val p = store.value.preview
+        val p = store.value.slicing.preview
         "Plate ${plate + 1} preview: layers ${p.layerLow + 1}..${p.layerHigh + 1} of ${last + 1}, scheme ${store.str(SCHEMES[p.scheme])}" +
             (p.moveEnd?.let { ", top layer cut at move $it" } ?: "")
     }
 
     private suspend fun sliceResult(args: JSONObject): String = withContext(Dispatchers.Main.immediate) {
         val plate = plateArg(args)
-        val r = store.value.results[plate] ?: throw ToolError("Plate ${plate + 1} has no slice result: run slice first")
+        val r = store.value.slicing.results[plate] ?: throw ToolError("Plate ${plate + 1} has no slice result: run slice first")
         buildString {
             appendLine("Plate ${plate + 1}: ${duration(r.printTimeSeconds)} print time, ${n(r.filamentGrams)} g (${n(r.filamentMm / 1000.0)} m) filament, " +
                 "cost ${n(r.cost)}, ${r.layers.size} layers, top at z ${n(r.layers.lastOrNull()?.z?.toDouble() ?: 0.0)} mm, travel ${duration(r.travelTime.toDouble())}")
@@ -815,7 +815,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
                 if (plate.bedType.isNotEmpty()) append(", ${plate.bedType}")
                 appendLine(": ${scene.objectsOn(plate.index).size} object(s)")
                 copies(plate.index)
-                s.results[plate.index]?.let { r ->
+                s.slicing.results[plate.index]?.let { r ->
                     appendLine("  sliced: ${duration(r.printTimeSeconds)}, ${n(r.filamentGrams)} g, ${n(r.filamentMm / 1000.0)} m filament")
                 }
             }
@@ -838,7 +838,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         val out = LinkedHashMap<String, String>()
         for (p in scene.plates) {
             out["Plate ${p.index + 1}"] = "Plate ${p.index + 1}${if (p.index == s.activePlate) " (active)" else ""}: ${scene.objectsOn(p.index).size} object(s)" +
-                (s.results[p.index]?.let { r -> ", sliced: ${duration(r.printTimeSeconds)}, ${n(r.filamentGrams)} g" } ?: "")
+                (s.slicing.results[p.index]?.let { r -> ", sliced: ${duration(r.printTimeSeconds)}, ${n(r.filamentGrams)} g" } ?: "")
         }
         for (o in scene.objects) for (i in o.instances) {
             val where = if (i.plate >= 0) "plate ${i.plate + 1}" else "off the plates"

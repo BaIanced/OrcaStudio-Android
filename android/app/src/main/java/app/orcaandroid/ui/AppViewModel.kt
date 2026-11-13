@@ -177,7 +177,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setAutoSlice(on: Boolean) {
         store.settings.autoSlice = on
-        store.update { it.copy(autoSlice = on) }
+        store.update { it.copy(slicing = it.slicing.copy(autoSlice = on)) }
         if (!on) slicing.stopAutoSlice()
     }
 
@@ -323,7 +323,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             val seconds = state.value.autoSaveSeconds
             delay(if (seconds > 0) seconds * 1000L else 5_000L)
             val s = state.value
-            if (seconds <= 0 || s.phase != Phase.READY || s.busy != null || s.slice != SliceStatus.Idle) continue
+            if (seconds <= 0 || s.phase != Phase.READY || s.busy != null || s.slicing.slice != SliceStatus.Idle) continue
             val key = sessionKey(s)
             if (key == saved) continue
             runCatching { files.saveSession() }
@@ -333,8 +333,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun dismissError() = store.update { it.copy(error = null) }
-    fun dismissSliceError() = store.update { it.copy(sliceError = null) }
-    fun dismissFit() = store.update { it.copy(fitIssue = null) }
+    fun dismissSliceError() = store.update { it.copy(slicing = it.slicing.copy(sliceError = null)) }
+    fun dismissFit() = store.update { it.copy(slicing = it.slicing.copy(fitIssue = null)) }
     fun dismissMessage() = store.update { it.copy(message = null, messageAction = null) }
     fun setScadHidden(hidden: Boolean) = store.update { it.copy(design = it.design.copy(scadHidden = hidden)) }
     fun setScadOnPlate(onPlate: Boolean) = store.update { it.copy(design = it.design.copy(scadOnPlate = onPlate)) }

@@ -142,7 +142,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     var view by remember { mutableStateOf<PlateView?>(null) }
     var preview by remember { mutableStateOf<PreviewData?>(null) }
     val showPreview = state.screen == Screen.PREVIEW
-    val result = state.shownResult
+    val result = state.slicing.shownResult
 
     val scheme = MaterialTheme.colorScheme
     // The 3D view's colours (theme defaults or the user's, design mode).
@@ -794,14 +794,14 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     }
     // The other sliced plates stay on screen next to the selected one (whole; the layer sliders drive the selected plate).
     val extraCache = remember { HashMap<String, PreviewData>() }
-    val extraKey = if (showPreview && state.external == null) state.results.filter { it.key != state.previewPlate }.map { Triple(it.key, it.value.previewDir, it.value.gcodeFile) } else emptyList()
-    LaunchedEffect(v, extraKey, state.preview.scheme) {
+    val extraKey = if (showPreview && state.slicing.external == null) state.slicing.results.filter { it.key != state.slicing.previewPlate }.map { Triple(it.key, it.value.previewDir, it.value.gcodeFile) } else emptyList()
+    LaunchedEffect(v, extraKey, state.slicing.preview.scheme) {
         val list = extraKey.mapNotNull { (plate, dir, gcode) ->
-            val r = state.results[plate] ?: return@mapNotNull null
+            val r = state.slicing.results[plate] ?: return@mapNotNull null
             val data = extraCache["$dir|$gcode"]
                 ?: withContext(Dispatchers.IO) { runCatching { PreviewData.load(dir) }.getOrNull() }?.also { extraCache["$dir|$gcode"] = it }
                 ?: return@mapNotNull null
-            PreviewExtra(data, floatArrayOf(r.originX, r.originY), r.ranges[schemeKey(state.preview.scheme)] ?: (0f to 1f))
+            PreviewExtra(data, floatArrayOf(r.originX, r.originY), r.ranges[schemeKey(state.slicing.preview.scheme)] ?: (0f to 1f))
         }
         extraCache.keys.retainAll(extraKey.map { "${it.second}|${it.third}" }.toSet())
         v.onGl { setPreviewExtras(list) }
@@ -979,8 +979,8 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         val lock = measureLine?.takeIf { measuring }?.third?.let { l -> val c = measureLockColor(l.axis); floatArrayOf(l.foot.x, l.foot.y, l.foot.z, c.red, c.green, c.blue) }
         v.onGl { measurePoints = pts; measureLock = lock }
     }
-    LaunchedEffect(v, showPreview, result, state.preview, preview, extraKey.isEmpty()) {
-        val p = state.preview
+    LaunchedEffect(v, showPreview, result, state.slicing.preview, preview, extraKey.isEmpty()) {
+        val p = state.slicing.preview
         val data = preview
         val style = PreviewStyle(
             scheme = p.scheme,

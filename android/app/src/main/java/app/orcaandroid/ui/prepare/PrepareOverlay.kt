@@ -276,7 +276,7 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
 private fun CoachStrip(state: UiState, vm: AppViewModel) {
     val step = when {
         state.scene.isEmpty -> 1
-        state.results.isEmpty() -> 2
+        state.slicing.results.isEmpty() -> 2
         else -> 3
     }
     Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
@@ -783,7 +783,7 @@ private fun BoxScope.FloatingSlice(state: UiState, vm: AppViewModel, area: IntSi
 
 @Composable
 private fun SliceButton(state: UiState, vm: AppViewModel, modifier: Modifier) {
-    val running = state.slice as? SliceStatus.Running
+    val running = state.slicing.slice as? SliceStatus.Running
     if (running != null && !running.background) {
         Surface(modifier.width(260.dp), shape = RoundedCornerShape(16.dp), tonalElevation = 6.dp) {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -797,7 +797,7 @@ private fun SliceButton(state: UiState, vm: AppViewModel, modifier: Modifier) {
         val multi = state.scene.plates.size > 1
         // G4: once the plate's slice is ready (background or not) the button opens it, showing its time and weight and how
         // they changed since the plate's previous slice. While a background slice runs, a small ring shows its progress.
-        val result = state.results[state.activePlate]
+        val result = state.slicing.results[state.activePlate]
         val auto = running?.takeIf { it.plate == state.activePlate }
         val label = stringResource(when {
             result != null -> if (multi) R.string.preview_plate_n else R.string.preview_plate
@@ -814,7 +814,7 @@ private fun SliceButton(state: UiState, vm: AppViewModel, modifier: Modifier) {
                     else Column {
                         Text(label)
                         Text(sliceStats(result.printTimeSeconds, result.filamentGrams,
-                            state.sliceDelta?.takeIf { it.plate == state.activePlate }), style = MaterialTheme.typography.labelSmall)
+                            state.slicing.sliceDelta?.takeIf { it.plate == state.activePlate }), style = MaterialTheme.typography.labelSmall)
                     }
                 },
                 icon = {

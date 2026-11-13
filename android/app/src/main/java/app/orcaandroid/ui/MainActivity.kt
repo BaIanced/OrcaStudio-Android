@@ -350,12 +350,12 @@ class MainActivity : ComponentActivity() {
 
     /** Preview: up / down step the layer, left / right the moves in it, Home / End the moves' ends. */
     private fun previewKey(keyCode: Int, s: UiState): Boolean {
-        val layers = s.shownResult?.layers ?: return false
+        val layers = s.slicing.shownResult?.layers ?: return false
         if (layers.isEmpty()) return false
-        val p = s.preview
+        val p = s.slicing.preview
         val last = layers.lastIndex
         val hi = p.layerHigh.coerceIn(0, last)
-        val moves = (layers.getOrNull(hi + 1)?.extrusion ?: s.shownResult!!.extrusionCount) - layers[hi].extrusion
+        val moves = (layers.getOrNull(hi + 1)?.extrusion ?: s.slicing.shownResult!!.extrusionCount) - layers[hi].extrusion
         val move = p.moveEnd ?: moves
         when (keyCode) {
             KeyEvent.KEYCODE_DPAD_UP -> vm.slicing.updatePreview { it.copy(layerHigh = (hi + 1).coerceAtMost(last), moveEnd = null) }

@@ -324,7 +324,7 @@ class FileController(
         // Like the desktop, a new project starts with one plate.
         val extra = (1 until store.value.scene.plates.size).toList()
         if (extra.isNotEmpty()) store.applyScene(engine.deletePlates(extra))
-        store.update { it.copy(projectName = null, projectDirty = false, calibration = null, results = emptyMap(), external = null, activePlate = 0, sliceError = null, fitIssue = null) }
+        store.update { it.copy(projectName = null, projectDirty = false, calibration = null, activePlate = 0, slicing = it.slicing.copy(results = emptyMap(), external = null, sliceError = null, fitIssue = null)) }
     }
 
     fun saveProject(target: Uri) = store.launch(store.str(R.string.saving_project)) {
@@ -346,7 +346,7 @@ class FileController(
     }
 
     /** File name for the G-code of [plate]: project or first object name, with the plate if there are several. */
-    fun gcodeFileName(plate: Int = store.value.previewPlate): String {
+    fun gcodeFileName(plate: Int = store.value.slicing.previewPlate): String {
         val s = store.value
         val base = s.projectName ?: s.scene.objectsOn(plate).firstOrNull()?.name?.substringBeforeLast('.') ?: "plate"
         return if (s.scene.plates.size > 1) "${base}_plate${plate + 1}.gcode" else "$base.gcode"
@@ -366,11 +366,11 @@ class FileController(
     suspend fun exportedGcode(host: String, outputName: String = gcodeFileName()): File? {
         val s = store.value
         pluginMessages = emptyList()
-        val r = s.shownResult ?: return null
+        val r = s.slicing.shownResult ?: return null
         if (r.external) return File(r.gcodeFile)
         val copy = File(outDir, "export.gcode")
         withContext(Dispatchers.IO) { File(r.gcodeFile).copyTo(copy, overwrite = true) }
-        pluginMessages = Plugins.postProcess(s.previewPlate, copy, host, outputName)
+        pluginMessages = Plugins.postProcess(s.slicing.previewPlate, copy, host, outputName)
         pluginMessages.forEach { store.toast(it) }
         return copy
     }
@@ -378,8 +378,8 @@ class FileController(
     /** Opens the shown slice result in 3D Filament Profiles' print log (pick spools, subtract). */
     fun logPrintToFilamentProfiles() = store.launch {
         val s = store.value
-        val r = s.shownResult ?: return@launch
-        val url = withContext(Dispatchers.IO) { FilamentProfiles.printLogUrl(File(r.gcodeFile), gcodeFileName(), s.previewPlate + 1) }
+        val r = s.slicing.shownResult ?: return@launch
+        val url = withContext(Dispatchers.IO) { FilamentProfiles.printLogUrl(File(r.gcodeFile), gcodeFileName(), s.slicing.previewPlate + 1) }
             ?: return@launch store.toast(store.str(R.string.fp_no_usage))
         store.update { it.copy(modelsUrl = url, screen = Screen.MODELS, tool = Tool.None) }
     }
@@ -399,9 +399,9 @@ class FileController(
 
     /** Writes the shown slice result as .gcode.3mf into the cache; null without a result. */
     suspend fun exportGcode3mf(host: String = "File"): File? {
-        val plate = store.value.previewPlate
+        val plate = store.value.slicing.previewPlate
         val gcode = exportedGcode(host, gcodeFileName().removeSuffix(".gcode") + ".gcode.3mf") ?: return null
-        val sliced = store.value.shownResult?.gcodeFile ?: gcode.path
+        val sliced = store.value.slicing.shownResult?.gcodeFile ?: gcode.path
         return File(outDir, "export.gcode.3mf").also { engine.exportGcode3mf(plate, gcode.path, it.path, sliced) }
     }
 

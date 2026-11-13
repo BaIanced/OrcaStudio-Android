@@ -141,7 +141,7 @@ class PresetController(private val store: Store, private val device: DeviceContr
         val fils = withColors((given ?: saved).filter { f -> setup.filaments.any { it.name == f.preset } }
             .ifEmpty { listOf(FilamentSlot(setup.defaultFilament)) })
         store.update {
-            it.copy(printer = name, setup = setup, print = p, filaments = fils, activeFilament = 0, overrides = emptyMap(), results = emptyMap())
+            it.copy(printer = name, setup = setup, print = p, filaments = fils, activeFilament = 0, overrides = emptyMap(), slicing = it.slicing.copy(results = emptyMap()))
         }
         refreshPresetValues(PresetType.entries)
         device.refreshConnection()
@@ -260,7 +260,7 @@ class PresetController(private val store: Store, private val device: DeviceContr
         val s = store.value
         val list = transform(s.filaments)
         settings.setLastFilaments(s.printer ?: return, list)
-        store.update { it.copy(filaments = list, activeFilament = it.activeFilament.coerceIn(0, list.size - 1), results = emptyMap()) }
+        store.update { it.copy(filaments = list, activeFilament = it.activeFilament.coerceIn(0, list.size - 1), slicing = it.slicing.copy(results = emptyMap())) }
         refreshPresetValues(listOf(PresetType.FILAMENT))
     }
 
@@ -437,9 +437,9 @@ class PresetController(private val store: Store, private val device: DeviceContr
     suspend fun editOverridesNow(type: PresetType, slot: Int, edit: (Map<String, String>) -> Map<String, String>) {
         store.update { s ->
             if (type == PresetType.FILAMENT) {
-                s.copy(filaments = s.filaments.mapIndexed { i, f -> if (i == slot) f.copy(overrides = edit(f.overrides)) else f }, results = emptyMap())
+                s.copy(filaments = s.filaments.mapIndexed { i, f -> if (i == slot) f.copy(overrides = edit(f.overrides)) else f }, slicing = s.slicing.copy(results = emptyMap()))
             } else {
-                s.copy(overrides = s.overrides + (type to edit(s.overrides[type].orEmpty())), results = emptyMap())
+                s.copy(overrides = s.overrides + (type to edit(s.overrides[type].orEmpty())), slicing = s.slicing.copy(results = emptyMap()))
             }
         }
         syncSelection()
@@ -455,7 +455,7 @@ class PresetController(private val store: Store, private val device: DeviceContr
     /** Selects process preset [name] (its unsaved edits are dropped). */
     suspend fun selectPrintNow(name: String) {
         settings.setLastPrint(store.value.printer ?: return, name)
-        store.update { it.copy(print = name, overrides = it.overrides - PresetType.PRINT, results = emptyMap()) }
+        store.update { it.copy(print = name, overrides = it.overrides - PresetType.PRINT, slicing = it.slicing.copy(results = emptyMap())) }
         refreshPresetValues(listOf(PresetType.PRINT))
     }
 
@@ -472,7 +472,7 @@ class PresetController(private val store: Store, private val device: DeviceContr
         val own = s.setup?.filaments?.firstOrNull { it.name == name }?.color?.ifEmpty { null }
         val list = s.filaments.mapIndexed { i, f -> if (i in slots) FilamentSlot(name, own ?: f.color, source = f.source) else f }
         settings.setLastFilaments(s.printer ?: return, list)
-        store.update { it.copy(filaments = list, results = emptyMap()) }
+        store.update { it.copy(filaments = list, slicing = it.slicing.copy(results = emptyMap())) }
         refreshPresetValues(listOf(PresetType.FILAMENT))
     }
 

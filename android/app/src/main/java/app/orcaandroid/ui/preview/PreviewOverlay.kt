@@ -56,20 +56,20 @@ internal val SCHEMES = listOf(
 /** Plate / scheme selection on top, layer and move sliders at the bottom of the preview. */
 @Composable
 fun PreviewOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boolean) {
-    val result = state.shownResult
+    val result = state.slicing.shownResult
     Box(Modifier.fillMaxSize().padding(8.dp)) {
         // In fullscreen portrait the bar can sit beside the camera hole (CutoutRow).
         CutoutRow(Modifier.align(Alignment.TopStart), minStart = 96.dp, start = {
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                if (state.external != null) {
-                    AssistChip(onClick = vm.slicing::closeExternal, label = { Text(File(state.external.gcodeFile).name, maxLines = 1) },
+                if (state.slicing.external != null) {
+                    AssistChip(onClick = vm.slicing::closeExternal, label = { Text(File(state.slicing.external.gcodeFile).name, maxLines = 1) },
                         trailingIcon = { Icon(Icons.Default.Close, stringResource(R.string.close), Modifier.size(16.dp)) })
                 } else if (state.scene.plates.size > 1) {
                     state.scene.plates.forEach { p ->
                         FilterChip(
-                            selected = p.index == state.previewPlate,
+                            selected = p.index == state.slicing.previewPlate,
                             onClick = { vm.slicing.pickPreviewPlate(p.index); view?.showPlate(p.index) },
-                            label = { Text(stringResource(R.string.plate_n, p.index + 1) + if (state.results.containsKey(p.index)) " ✓" else "") },
+                            label = { Text(stringResource(R.string.plate_n, p.index + 1) + if (state.slicing.results.containsKey(p.index)) " ✓" else "") },
                         )
                     }
                 }
@@ -90,7 +90,7 @@ private fun SchemeButton(state: UiState, vm: AppViewModel) {
         Surface(onClick = { open = true }, shape = RoundedCornerShape(20.dp), tonalElevation = 3.dp) {
             Row(Modifier.padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Tip(stringResource(R.string.color_scheme)) { IconButton(onClick = { open = true }) { Icon(Icons.Default.Palette, stringResource(R.string.color_scheme)) } }
-                Text(stringResource(SCHEMES[state.preview.scheme]), Modifier.padding(end = 12.dp), style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(SCHEMES[state.slicing.preview.scheme]), Modifier.padding(end = 12.dp), style = MaterialTheme.typography.labelLarge)
             }
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
@@ -103,9 +103,9 @@ private fun SchemeButton(state: UiState, vm: AppViewModel) {
 
 @Composable
 private fun LayerSliders(state: UiState, vm: AppViewModel, modifier: Modifier) {
-    val result = state.shownResult ?: return
+    val result = state.slicing.shownResult ?: return
     val layers = result.layers
-    val p = state.preview
+    val p = state.slicing.preview
     val last = layers.lastIndex
     val lo = p.layerLow.coerceIn(0, last)
     val hi = p.layerHigh.coerceIn(lo, last)
