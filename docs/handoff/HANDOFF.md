@@ -41,7 +41,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - CI run 43406954976 (36106a0) green, not installed. **Batch 2 merged 2026-11-13 (PR #85), merge offer cleared.** Unverified on the branch: nothing.
 - T-030 done (77cee24, `docs/design/DESIGN-SYSTEM.md`, source-checked only).
 - T-031 done 18faa06 (device-checked on WSA VD: open target [128,128,12.5] inside the box; Close [128,128,0] on the box base, in range; `+ > Design` path not checked; a stray throwaway smoke.stl is on WSA plate 1).
-- Next step: T-032 (mode strip, Done and names) -> Sonnet 5.5 (high) (coordinator; the subagent model is the task tag)
+- T-032 done 54e0ecd (device-checked WSA VD: smoke 8/8; Editing:/Done nodes in builder, Reshape, Push / pull, Cut, Paint; contact sheet docs/audit/T-032-rooms-contact-sheet.png; not checked: U-18 coach line, narrow width, German strings; smoke.sh now taps Done).
+- Next step: T-033 (Reshape button with a live distance label) -> Sonnet 5.5 (high) (coordinator; the subagent model is the task tag)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
