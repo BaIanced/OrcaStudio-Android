@@ -165,6 +165,62 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         store.update { it.copy(chrome = it.chrome.copy(lab = lab)) }
     }
 
+    fun setInterfaceSize(size: Float) {
+        val snapped = app.orcaandroid.core.ViewDefaults.snapInterfaceSize(size)
+        store.settings.interfaceSize = snapped
+        store.update { it.copy(chrome = it.chrome.copy(interfaceSize = snapped)) }
+    }
+
+    fun setShowPlates(on: Boolean) {
+        store.settings.showPlates = on
+        store.update { it.copy(chrome = it.chrome.copy(showPlates = on)) }
+    }
+
+    fun setPanelTucked(on: Boolean) {
+        store.settings.panelTucked = on
+        store.update { it.copy(chrome = it.chrome.copy(panelTucked = on)) }
+    }
+
+    /** The settings panel's width in dp (0 = default). */
+    fun setPanelWidth(dp: Float) {
+        val w = dp.coerceAtLeast(0f)
+        store.settings.panelWidth = w
+        store.update { it.copy(chrome = it.chrome.copy(panelWidth = w)) }
+    }
+
+    /** The floating Slice button's spot as fractions of the free room (-1 = bottom right). */
+    fun setSliceSpot(x: Float, y: Float) {
+        store.settings.sliceX = x
+        store.settings.sliceY = y
+        store.update { it.copy(chrome = it.chrome.copy(sliceSpot = x.coerceAtMost(1f) to y.coerceAtMost(1f))) }
+    }
+
+    fun setPinchSpeed(speed: Float) {
+        val v = speed.coerceIn(app.orcaandroid.core.ViewDefaults.PINCH_SPEEDS)
+        store.settings.pinchSpeed = v
+        store.update { it.copy(workspace = it.workspace.copy(pinchSpeed = v)) }
+    }
+
+    fun setWheelSpeed(speed: Float) {
+        val v = speed.coerceIn(app.orcaandroid.core.ViewDefaults.WHEEL_SPEEDS)
+        store.settings.wheelSpeed = v
+        store.update { it.copy(workspace = it.workspace.copy(wheelSpeed = v)) }
+    }
+
+    fun setPlateHd(on: Boolean) {
+        store.settings.plateHd = on
+        store.update { it.copy(workspace = it.workspace.copy(plateHd = on)) }
+    }
+
+    /** The key light's direction (view menu > Light), in degrees; clamped to the allowed ranges. */
+    fun setLight(azimuth: Float, elevation: Float) {
+        val az = azimuth.coerceIn(app.orcaandroid.core.ViewDefaults.LIGHT_AZIMUTHS)
+        val el = elevation.coerceIn(app.orcaandroid.core.ViewDefaults.LIGHT_ELEVATIONS)
+        store.settings.lightAzimuth = az
+        store.settings.lightElevation = el
+        store.update { it.copy(workspace = it.workspace.copy(lightAzimuth = az, lightElevation = el)) }
+    }
+
     fun setPen(pen: app.orcaandroid.core.PenConfig) {
         store.settings.pen = pen
         store.update { it.copy(workspace = it.workspace.copy(pen = pen)) }

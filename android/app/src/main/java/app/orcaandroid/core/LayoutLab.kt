@@ -2,9 +2,6 @@ package app.orcaandroid.core
 
 import org.json.JSONObject
 
-/** How the Prepare screen switches plates. */
-enum class PlateSwitcher { TABS, FILMSTRIP, CHIPS }
-
 /**
  * Temporary "Layout lab" (user, 2026-10-13): layout variants to try on the device side by side.
  * Once the user has picked, the losing variants and this class go away.

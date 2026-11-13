@@ -63,14 +63,14 @@ class MainActivity : ComponentActivity() {
         setContentView(FocusGuardLayout(this).apply { addView(androidx.compose.ui.platform.ComposeView(context).apply { setContent {
             val state by vm.state.collectAsStateWithLifecycle()
             app.orcaandroid.ui.theme.OrcaTheme(state.chrome.themeMode, state.chrome.dynamicColor, state.chrome.themeSpec) {
-                Immersive(state.chrome.lab.fullscreenPortrait)
+                Immersive(app.orcaandroid.core.ViewDefaults.FULLSCREEN_PORTRAIT)
                 Surface(Modifier.fillMaxSize()) {
                     // Landscape hides the bars: use the camera cutout's strip too instead of leaving it empty
                     // (user, 2026-10-13); the rail goes there, other content keeps clear of it (AppScaffold).
                     // Fullscreen portrait likewise gives the top strip to the 3D view (user, 2026-10-13).
                     val landscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation ==
                         android.content.res.Configuration.ORIENTATION_LANDSCAPE
-                    Box(if (landscape || state.chrome.lab.fullscreenPortrait) Modifier.windowInsetsPadding(WindowInsets.systemBars.union(WindowInsets.ime))
+                    Box(if (landscape || app.orcaandroid.core.ViewDefaults.FULLSCREEN_PORTRAIT) Modifier.windowInsetsPadding(WindowInsets.systemBars.union(WindowInsets.ime))
                         else Modifier.safeDrawingPadding()) { AppScaffold(state, vm) }
                 }
             }

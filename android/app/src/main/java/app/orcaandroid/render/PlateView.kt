@@ -175,7 +175,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
     private val twoFinger by lazy { TwoFingerGesture(touchSlop.toFloat()) }
     /** Pinch zoom speed (Layout lab): the exponent on the fingers' gap ratio, 1 = the gap ratio itself. */
     var pinchSpeed = 0.6f
-    /** Finger orbit coasting after a fast flick (LayoutLab.orbitInertia): 0 = off. Only a plain one-finger orbit coasts; any touch stops it. */
+    /** Finger orbit coasting after a fast flick (ViewDefaults.ORBIT_INERTIA): 0 = off. Only a plain one-finger orbit coasts; any touch stops it. */
     var orbitInertia = 0.5f
     private var orbitVx = 0f
     private var orbitVy = 0f
@@ -211,7 +211,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
         else stopFling()
         orbitedLast = false
     }
-    /** Wheel zoom speed (LayoutLab.wheelSpeed): 15 % per notch raised to this power. */
+    /** Wheel zoom speed (the "Wheel zoom speed" setting): 15 % per notch raised to this power. */
     var wheelSpeed = 1f
     /** Pen buttons and eraser mapping, and palm rejection (More > Pen). */
     var pen = PenConfig()

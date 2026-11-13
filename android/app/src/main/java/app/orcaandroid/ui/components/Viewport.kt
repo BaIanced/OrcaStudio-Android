@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import app.orcaandroid.core.SliceResult
+import app.orcaandroid.core.ViewDefaults
 import app.orcaandroid.core.Vec3
 import app.orcaandroid.render.CutPlane
 import app.orcaandroid.render.DragSnap
@@ -570,7 +571,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         Box(Modifier.offset { IntOffset(x.toInt(), y.toInt()) }) { PlateMenu(state, vm, plate) { plateMenu = null } }
     }
     if (state.workspace.lightPanel) {
-        LightPanel(state.chrome.lab, vm::setLab, { vm.setLightPanel(false) }, Modifier.align(androidx.compose.ui.Alignment.BottomEnd)
+        LightPanel(state.workspace.lightAzimuth, state.workspace.lightElevation, vm::setLight, { vm.setLightPanel(false) }, Modifier.align(androidx.compose.ui.Alignment.BottomEnd)
             .windowInsetsPadding(androidx.compose.foundation.layout.WindowInsets.navigationBars).padding(end = 8.dp, bottom = 96.dp))
     }
     val pushPick = facePick?.takeIf { state.buildObject != null && vm.shapes.faceMode }
@@ -651,11 +652,10 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     LaunchedEffect(v, state.workspace.wireframe) { v.onGl { wireAll = state.workspace.wireframe } }
     val plateTypes = scene.plates.indices.map { state.bedTypeOf(it) }
     val appContext = LocalContext.current.applicationContext
-    LaunchedEffect(v, state.chrome.lab.plateHdAlpha) { v.onGl { plateAlpha = state.chrome.lab.plateHdAlpha } }
-    LaunchedEffect(v, state.chrome.lab.plateUnderAlpha) { v.onGl { plateUnderAlpha = state.chrome.lab.plateUnderAlpha } }
-    LaunchedEffect(v, state.chrome.lab.plateHd, plateTypes) {
+    LaunchedEffect(v) { v.onGl { plateAlpha = ViewDefaults.PLATE_HD_ALPHA; plateUnderAlpha = ViewDefaults.PLATE_UNDER_ALPHA } }
+    LaunchedEffect(v, state.workspace.plateHd, plateTypes) {
         v.onGl {
-            plateSurface = state.chrome.lab.plateHd; plateLooks = plateTypes.map { PlateLook.of(it) }
+            plateSurface = state.workspace.plateHd; plateLooks = plateTypes.map { PlateLook.of(it) }
             decalLoader = { name -> runCatching { appContext.assets.open("plate_decals/$name.png").use { android.graphics.BitmapFactory.decodeStream(it) } }.getOrNull() }
         }
     }
@@ -697,15 +697,13 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     LaunchedEffect(v, state.workspace.selectionStyle) {
         v.onGl { selectionStyle = state.workspace.selectionStyle }
     }
-    LaunchedEffect(v, state.chrome.lab.shadowStrength, state.chrome.lab.shadowSoft, state.chrome.lab.shadowBias) {
-        v.onGl { shadowStrength = state.chrome.lab.shadowStrength; shadowSoftMm = state.chrome.lab.shadowSoft; shadowBiasMm = state.chrome.lab.shadowBias }
+    LaunchedEffect(v) { v.onGl { shadowStrength = ViewDefaults.SHADOW_STRENGTH; shadowSoftMm = ViewDefaults.SHADOW_SOFT_MM; shadowBiasMm = ViewDefaults.SHADOW_BIAS_MM } }
+    LaunchedEffect(v, state.workspace.lightAzimuth, state.workspace.lightElevation) {
+        v.onGl { keyAzimuth = state.workspace.lightAzimuth; keyElevation = state.workspace.lightElevation; keyStrength = ViewDefaults.LIGHT_STRENGTH; cameraLight = ViewDefaults.CAMERA_LIGHT }
     }
-    LaunchedEffect(v, state.chrome.lab.lightAzimuth, state.chrome.lab.lightElevation, state.chrome.lab.lightStrength, state.chrome.lab.cameraLight) {
-        v.onGl { keyAzimuth = state.chrome.lab.lightAzimuth; keyElevation = state.chrome.lab.lightElevation; keyStrength = state.chrome.lab.lightStrength; cameraLight = state.chrome.lab.cameraLight }
-    }
-    LaunchedEffect(v, state.chrome.lab.pinchSpeed) { v.pinchSpeed = state.chrome.lab.pinchSpeed }
-    LaunchedEffect(v, state.chrome.lab.orbitInertia) { v.orbitInertia = state.chrome.lab.orbitInertia }
-    LaunchedEffect(v, state.chrome.lab.wheelSpeed) { v.wheelSpeed = state.chrome.lab.wheelSpeed }
+    LaunchedEffect(v, state.workspace.pinchSpeed) { v.pinchSpeed = state.workspace.pinchSpeed }
+    LaunchedEffect(v) { v.orbitInertia = ViewDefaults.ORBIT_INERTIA }
+    LaunchedEffect(v, state.workspace.wheelSpeed) { v.wheelSpeed = state.workspace.wheelSpeed }
     LaunchedEffect(v, state.workspace.perspective) { v.camera.perspective = state.workspace.perspective }
     LaunchedEffect(v, state.workspace.pen) { v.pen = state.workspace.pen }
     // The Build workspace's selection is shapes: their handles and rings always show (groups scale by corners only), on the

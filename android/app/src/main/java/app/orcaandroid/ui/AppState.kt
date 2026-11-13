@@ -198,6 +198,15 @@ data class SceneState(
     val supersample: Int = app.orcaandroid.render.Supersample.STILL,
     /** 3D view projection: perspective, or orthographic when false. */
     val perspective: Boolean = true,
+    /** Pinch zoom speed: exponent on the fingers' gap ratio (More > Controls). */
+    val pinchSpeed: Float = app.orcaandroid.core.ViewDefaults.PINCH_SPEED,
+    /** Wheel / touchpad / thumbstick zoom speed: exponent on the 15 % per notch (More > Controls). */
+    val wheelSpeed: Float = app.orcaandroid.core.ViewDefaults.WHEEL_SPEED,
+    /** Plates drawn dark with upstream's bed-type decals. */
+    val plateHd: Boolean = false,
+    /** Key light direction of the 3D models, set by the view menu's light ball (removable after lighting review, UA-7). */
+    val lightAzimuth: Float = app.orcaandroid.core.ViewDefaults.LIGHT_AZIMUTH,
+    val lightElevation: Float = app.orcaandroid.core.ViewDefaults.LIGHT_ELEVATION,
 
     /** Measure tool: the placed points (at most 2). */
     val measure: List<MeasurePoint> = emptyList(),
@@ -328,6 +337,15 @@ data class ChromeState(
     /** A project file dropped onto a plate with objects: its name while asking open-as-project vs import. */
     val projectOrImport: String? = null,
     val lab: app.orcaandroid.core.LayoutLab = app.orcaandroid.core.LayoutLab(),
+    /** Interface size, one of [app.orcaandroid.core.ViewDefaults.INTERFACE_SIZES] (More > Appearance). */
+    val interfaceSize: Float = app.orcaandroid.core.ViewDefaults.INTERFACE_SIZE,
+    /** The plate switcher shows over the 3D view. */
+    val showPlates: Boolean = true,
+    /** Wide layouts: the settings panel is tucked away to a thin edge, and its width in dp (0 = default), both set by dragging its edge. */
+    val panelTucked: Boolean = false,
+    val panelWidth: Float = 0f,
+    /** The floating Slice button's spot, as fractions of the free room (-1 = bottom right), set by dragging it. */
+    val sliceSpot: Pair<Float, Float> = -1f to -1f,
     val undoLimit: Int = app.orcaandroid.core.DEFAULT_UNDO_LIMIT,
     /** Auto-save interval in seconds; 0 or less = off (-seconds keeps the interval it had). */
     val autoSaveSeconds: Int = app.orcaandroid.core.DEFAULT_AUTO_SAVE_SECONDS,

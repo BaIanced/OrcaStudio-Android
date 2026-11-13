@@ -25,6 +25,9 @@ class Store(val app: Application, val scope: CoroutineScope) {
     val resources = container.resources
     val printHistory = PrintHistory(app)
 
+    // The retired Layout lab's JSON moves into its own keys before anything reads the settings (a restored backup restarts the app, so it runs again).
+    init { settings.migrateLayoutLab() }
+
     val state = MutableStateFlow(
         UiState(
             workspace = SceneState(
@@ -37,6 +40,11 @@ class Store(val app: Application, val scope: CoroutineScope) {
                 selectionStyle = settings.selectionStyle,
                 perspective = settings.perspective,
                 supersample = settings.supersample,
+                pinchSpeed = settings.pinchSpeed,
+                wheelSpeed = settings.wheelSpeed,
+                plateHd = settings.plateHd,
+                lightAzimuth = settings.lightAzimuth,
+                lightElevation = settings.lightElevation,
             ),
             design = DesignState(
                 snapBuild = settings.snapBuild,
@@ -67,6 +75,11 @@ class Store(val app: Application, val scope: CoroutineScope) {
                 doubleBackToQuit = settings.doubleBackToQuit,
                 coachDismissed = settings.coachDismissed,
                 lab = settings.layoutLab,
+                interfaceSize = settings.interfaceSize,
+                showPlates = settings.showPlates,
+                panelTucked = settings.panelTucked,
+                panelWidth = settings.panelWidth,
+                sliceSpot = settings.sliceX to settings.sliceY,
                 undoLimit = settings.undoLimit,
                 autoSaveSeconds = settings.autoSaveSeconds,
                 recents = settings.recents,
