@@ -152,6 +152,8 @@
     <string name="discovered_printers">Printers in the network</string>
     <string name="done">Done</string>
     <string name="mode_editing">Editing: %1$s</string>
+    <string name="live_label_free">Distance moved</string>
+    <string name="live_label_axis">Distance along %1$s</string>
     <string name="room_make">Make</string>
     <string name="room_reshape">Reshape</string>
     <string name="duplicate">Duplicate</string>

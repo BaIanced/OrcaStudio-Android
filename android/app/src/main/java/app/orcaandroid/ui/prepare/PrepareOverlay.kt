@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Crop
+import androidx.compose.material.icons.filled.Gesture
 import androidx.compose.material.icons.filled.GridOn
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material.icons.filled.BorderOuter
@@ -632,6 +633,9 @@ private fun ToolButtons(
             ToolButton(Icons.Default.ContentCut, stringResource(R.string.cut), active = state.workspace.tool is Tool.Cut) {
                 if (state.workspace.tool is Tool.Cut) vm.scene.setTool(Tool.None) else vm.scene.startCut()
             }
+            ToolButton(Icons.Default.Gesture, stringResource(R.string.sculpt), active = state.workspace.tool is Tool.Sculpt) {
+                if (state.workspace.tool is Tool.Sculpt) vm.scene.setTool(Tool.None) else vm.scene.openReshape()
+            }
             ToolButton(Icons.Default.Brush, stringResource(R.string.paint), active = state.workspace.tool is Tool.Paint) { vm.scene.openPaint("color", 2) }
             ToolButton(Icons.Default.Layers, stringResource(R.string.variable_layer_height), active = state.workspace.tool == Tool.LayerHeight) {
                 vm.scene.setTool(if (state.workspace.tool == Tool.LayerHeight) Tool.None else Tool.LayerHeight)
@@ -674,7 +678,7 @@ private fun ToolButtons(
                         item(R.string.check_mesh) { dialog = "check" }
                     }
                     HorizontalDivider()
-                    DropdownMenuItem(text = { Text(stringResource(R.string.sculpt)) }, onClick = { moreMenu = false; vm.scene.setTool(Tool.Sculpt()) })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.sculpt)) }, onClick = { moreMenu = false; vm.scene.openReshape() })
                     DropdownMenuItem(text = { Text(stringResource(R.string.mesh_edit)) }, onClick = { moreMenu = false; vm.scene.setTool(Tool.MeshEdit()) })
                     DropdownMenuItem(text = { Text(stringResource(R.string.measure)) }, onClick = { moreMenu = false; vm.scene.setTool(Tool.Measure) },
                         leadingIcon = { Icon(Icons.Default.Straighten, null) })

@@ -171,6 +171,9 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     val meshEditSel by vm.scene.meshEditSel.collectAsState()
     // Live size (mm) beside the finger while a box corner is dragged: text, view x, y.
     var resizeLabel by remember { mutableStateOf<Triple<String, Float, Float>?>(null) }
+    // Grab's live label: the finger's view x, y and the stroke's screen direction (degrees), and the distance from the engine.
+    var grabFinger by remember { mutableStateOf<Triple<Float, Float, Float>?>(null) }
+    val grabMm by vm.scene.grabReading.collectAsState()
     Box(modifier) {
     AndroidView(
         factory = { ctx ->
@@ -341,6 +344,8 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                     private var strokeStart = 0f to 0f
                     override fun onPaint(x: Float, y: Float, newStroke: Boolean, pressure: Float) {
                         if (newStroke) strokeStart = x to y
+                        // Only where to draw the Grab label and which way its arrow points; its number comes from the engine.
+                        grabFinger = Triple(x, y, Math.toDegrees(kotlin.math.atan2((y - strokeStart.second).toDouble(), (x - strokeStart.first).toDouble())).toFloat())
                         if (vm.state.value.workspace.tool is Tool.Sculpt) {
                             val (o, d) = v.camera.ray(x, y)
                             vm.scene.sculptAt(o, d, newStroke, pressure)
@@ -539,6 +544,9 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
             }
         }
     }
+    grabMm?.let { mm -> grabFinger?.let { (fx, fy, angle) ->
+        LiveLabel(mm, "mm", -1, angle, null, Modifier.fillMaxSize().liveLabelAt(fx, fy))
+    } }
     val label = resizeLabel
     if (label != null) {
         androidx.compose.material3.Surface(Modifier.align(androidx.compose.ui.Alignment.TopCenter).padding(top = 72.dp), shape = MaterialTheme.shapes.small, tonalElevation = 4.dp) {

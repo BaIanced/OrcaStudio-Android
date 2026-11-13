@@ -177,6 +177,14 @@ val ROOM_RESHAPE = Slot("reshape", R.string.slot_room_reshape, read = roomColour
 val ROOM_PAINT = Slot("paint", R.string.slot_room_paint, read = roomColour(0xFF7F67BE, 0xFFA98BF0))
 val ROOM_CUT = Slot("cut", R.string.slot_room_cut, read = roomColour(0xFFB0306F, 0xFFF28DBB))
 
+// The desktop's axis colours (design spec, "Colour tokens"): X red, Y green, Z blue; an arrow, bar or dot, never text.
+val AXIS_X = Color(0xFFEF5350)
+val AXIS_Y = Color(0xFF66BB6A)
+val AXIS_Z = Color(0xFF42A5F5)
+/** The live label's dark pill and its ink: the same in both themes. */
+val LIVE_LABEL = Color(0xFF2B2C32)
+val ON_LIVE_LABEL = Color(0xFFEDEEF0)
+
 val BADGE = Slot("badge", R.string.slot_badge) { it.secondaryContainer }
 val BADGE_TEXT = Slot("badge_text", R.string.slot_badge_text, on = BADGE) { it.onSecondaryContainer }
 val BADGE_ACTIVE = Slot("active", R.string.slot_badge_active) { it.primary }

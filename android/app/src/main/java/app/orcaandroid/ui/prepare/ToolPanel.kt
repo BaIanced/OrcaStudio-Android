@@ -292,8 +292,10 @@ private fun SculptOptions(vm: AppViewModel, tool: Tool.Sculpt) {
             FilterChip(tool.mirror and bit != 0, { vm.scene.setTool(tool.copy(mirror = tool.mirror xor bit)) }, label = { Text(axis) })
         }
     }
-    ScrubSlider("sculpt_size", { stringResource(R.string.brush_size, it) }, tool.radius, SCULPT_MIN_MM..SCULPT_MAX_MM, 0.1f) {
-        vm.scene.setTool(tool.copy(radius = it))
+    // Logarithmic between the minimum and SCULPT_MAX_MM: the slider and the scrub work on ln(radius), so small sizes keep their fine steps.
+    ScrubSlider("sculpt_size", { stringResource(R.string.brush_size, kotlin.math.exp(it)) }, kotlin.math.ln(tool.radius.coerceIn(SCULPT_MIN_MM, SCULPT_MAX_MM)),
+        kotlin.math.ln(SCULPT_MIN_MM)..kotlin.math.ln(SCULPT_MAX_MM), 0.01f) {
+        vm.scene.setTool(tool.copy(radius = kotlin.math.exp(it).coerceIn(SCULPT_MIN_MM, SCULPT_MAX_MM)))
     }
     // Grab moves what is under the finger by the drag, so it has no strength or direction.
     if (tool.brush != "grab") Row(verticalAlignment = Alignment.CenterVertically) {
