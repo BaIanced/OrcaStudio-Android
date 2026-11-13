@@ -43,7 +43,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - T-031 done 18faa06 (device-checked on WSA VD: open target [128,128,12.5] inside the box; Close [128,128,0] on the box base, in range; `+ > Design` path not checked; a stray throwaway smoke.stl is on WSA plate 1).
 - T-032 done 54e0ecd (device-checked WSA VD: smoke 8/8; Editing:/Done nodes in builder, Reshape, Push / pull, Cut, Paint; contact sheet docs/audit/T-032-rooms-contact-sheet.png; not checked: U-18 coach line, narrow width, German strings; smoke.sh now taps Done).
 - T-033 done 459c5df (device-checked WSA VD: label 5.9 mm vs mesh 5.905 mm; smoke 8/8; label display-only, no tap-to-type; scaled instances and log radius slider not driven).
-- Next step: T-034 (Push / pull card fixed layout and true readout) -> Sonnet 5.5 (medium) (coordinator; the subagent model is the task tag)
+- T-034 done 162bb71 (CK compile/test rc 0, 313 tests; VD numbers from the subagent, orchestrator did not re-drive the device; Shrink native op untested until a CI build, axis colours not seen on screen).
+- Next step: T-035 (Diameter field for round walls) -> Sonnet 5.5 (high) (coordinator; the subagent model is the task tag). Check Shrink works after the next CI build.
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
