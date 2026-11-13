@@ -4473,3 +4473,4 @@ User on the batch 1 merge offer (r548, 5bcef51): "merge and tell me recommendati
 - T-025b done, device-checked (WSA debug build of 185d679, smoke.sh 8/8 twice; compile + 45 tests): UiState split move 5, DeviceState complete (35 fields). `selectedPrinterKeys` is dead code (0 callers) and was kept; delete it in a later clean-up.
 - T-026a done, device-checked (WSA debug build of 3b999be, smoke.sh 8/8 twice; compile + 45 tests): UiState split move 6, SceneState part 1 as `state.workspace` (`scene`, `activePlate`).
 - 2026-11-12 T-026b 4b66b33 move 7 done, device-checked (smoke 8/8).
+- 2026-11-12 T-026c 22f88d5 move 8 done, device-checked (smoke 8/8); UiState split complete.
