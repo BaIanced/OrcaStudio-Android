@@ -48,3 +48,4 @@ Tags: [Opus] = hard native/math/design; untagged = Sonnet is fine. User 2026-10-
 - Move docs/handoff to a private repo before T-038 (user answer 4; push allowed before that, user 2026-11-12).
 - History holds a LAN address in old commit cf75a81 (HANDOFF.md, now in main via PR #84); rewrite needs a force-push of main: user decides (told 2026-11-12). Also: check PR checks before `gh pr merge`.
 - smoke.sh `plate_undo` flaked once in 4 runs on 2026-11-12 (2 objects, want 1; Ctrl+Z loop with 1.5 s sleeps); not seen by the coordinator. Check the step timing if it recurs. Claude, T-022 build.
+- `UiState.selectedPrinterKeys` (now `DeviceState.selectedPrinterKeys`) has 0 callers: delete after the UiState split (plan move 5 wanted it dropped). Claude, T-025b, 2026-11-12.
