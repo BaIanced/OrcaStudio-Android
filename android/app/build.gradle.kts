@@ -157,14 +157,24 @@ val packOrcaAssets = tasks.register<PackOrcaAssets>("packOrcaAssets") {
 }
 
 /** Copies THIRD_PARTY_NOTICES.md into the assets, where the Open-source licences screen reads it. */
-val copyNotices = tasks.register<Copy>("copyThirdPartyNotices") {
-    from(rootProject.file("../THIRD_PARTY_NOTICES.md"))
-    into(layout.buildDirectory.dir("generated/notices"))
+abstract class CopyNotices : DefaultTask() {
+    @get:InputFile abstract val notices: RegularFileProperty
+    @get:OutputDirectory abstract val outputDir: DirectoryProperty
+
+    @TaskAction
+    fun run() {
+        notices.get().asFile.copyTo(File(outputDir.get().asFile, "THIRD_PARTY_NOTICES.md"), overwrite = true)
+    }
+}
+
+val copyNotices = tasks.register<CopyNotices>("copyThirdPartyNotices") {
+    notices.set(rootProject.file("../THIRD_PARTY_NOTICES.md"))
 }
 
 androidComponents {
     onVariants { variant ->
-        variant.sources.assets?.addStaticSourceDirectory(layout.buildDirectory.dir("generated/notices").get().asFile.path)
+        // A generated source directory, so every task that reads the assets (merge, lint) depends on the copy.
+        variant.sources.assets?.addGeneratedSourceDirectory(copyNotices, CopyNotices::outputDir)
         variant.sources.assets?.addGeneratedSourceDirectory(packOrcaAssets, PackOrcaAssets::outputDir)
         // android/build.sh stages the stripped liborca_jni.so here.
         variant.sources.jniLibs?.addStaticSourceDirectory("$orcaBuildRoot/jniLibs")
@@ -200,8 +210,4 @@ dependencies {
     androidTestImplementation("androidx.test:runner:1.7.0")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
     androidTestImplementation("junit:junit:4.13.2")
-}
-
-tasks.configureEach {
-    if (name.startsWith("merge") && name.endsWith("Assets")) dependsOn(copyNotices)
 }
