@@ -131,6 +131,10 @@ public:
     json lay_on_face(int object, int instance, const std::array<double, 3> &normal);
     // Automatic orientation for minimal supports (object < 0: all objects).
     json auto_orient(int object);
+    // Printer fit (object < 0: all): the copies that don't fit the bed / printable height as posed, each with the
+    // first fix found ("turn" about Z, "orient", "lay") or null. fit_to_printer applies those fixes to an object.
+    json fit_check(int object);
+    json fit_to_printer(int object);
     json split(int object, bool to_parts);
     json assemble(const Items &items);
     json mesh_boolean(int object, int src, int tool, const std::string &op, bool keep_tool);

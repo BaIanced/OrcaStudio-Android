@@ -5,9 +5,20 @@ Read the matching section before driving a device or building; grep the rest (`g
 Nothing pending lives here: open / untested items stay in `HANDOFF.md`.
 
 ## Test devices
-**Phone** = main test device (root). **Chromebook's Android (ARC)** = big-screen layout checks (user wants the app there).
-**WSA** when both are away. The user drives sessions from the phone: ask before taking over its main screen; use the
-headless display below instead (no takeover needed). Don't drive WSA's own window while the user uses the PC.
+| Role | When to use | How to reach | Exceptions |
+|---|---|---|---|
+| WSA | Default test surface (hidden virtual display) | `TARGET=wsa` `orca-vd.sh`, debug app (`PKG=...debug`), `MCP_DEV=<wsa serial>` for `mcpao.sh`; health check `~/orca-android-tools/vd-health.sh` | Never its visible window while the user uses the PC |
+| Phone (root) | Fallback when WSA is down; real-hardware checks | `orca-vd.sh` with default target, `target.sh phone` | Ask before taking over its main screen; asleep = taps dropped |
+| Chromebook (ARC) | Big-screen layout checks | wireless adb, `install-build.ps1`, no root | Only when the user is not in another app there |
+| Unrooted tablet-class devices (S Pen note, TV box) | Pen input only / installs only | `TARGET=note`, `target.sh` | No root: debug app via `run-as` |
+
+Fallback order: 1 WSA virtual display, 2 phone virtual display, 3 visible screen only with the user's OK in that session.
+Run `vd-health.sh` first: it force-stops both app packages, starts the WSA virtual display, waits for the app there, makes one MCP call and prints `PASS` or `FAIL <step>`.
+- `orca-vd.sh shot` cannot see the display on WSA, use `vdgrab.sh`.
+- WSA debug app sizes are scaled 0.7 / 0.85 / 0.8.
+- Smoke suite (regression gate, ~80 s, needs the debug app installed): `~/orca-android-tools/smoke.sh` runs 8 steps on the WSA virtual display (new project, STL import, arrange, slice vs `smoke/expected.json`, shape-builder hole + design_to_plate, undo, G-code size, session restore), prints `PASS <step> <n>` / `FAIL <step> <got> <want>` and the total, and leaves the app closed on an empty project. Delete `smoke/expected.json` to re-record after a deliberate slicer or preset change; unsaved preset edits fail the slice step.
+- It drives what has no MCP tool through `input -d <display>` (Ctrl+N, Ctrl+Z, Back), the debug start extra `orca.model`, and the UI tree (Allow, Close editor). Gap: no MCP tool for new project, undo or G-code export, so step 7 checks the slicer's `cache/out/plate_1.gcode` (what Export copies), not the Save dialog.
+- `mcpao.sh` reads the token from `secure_settings.xml` (moved there from `app_settings.xml`); never run it with `MSYS_NO_PATHCONV=1` exported (its python path breaks).
 
 ### Headless display (`~/orca-android-tools/orca-vd.sh`, verified 2026-10-19 on the old phone)
 - **Phone asleep (Dozing) = injected taps/swipes are dropped** (2026-10-27; the app also pauses on wake): ask, then `input keyevent WAKEUP`, `orca-vd.sh stop` + `start` again; `keyevent SLEEP` after. Multi-segment held drags on the phone VD: `su -c 'input touchscreen -d $LOGICAL motionevent DOWN|MOVE|UP x y'` (works there, unlike WSA).
@@ -30,7 +41,7 @@ headless display below instead (no takeover needed). Don't drive WSA's own windo
 
 ### Chromebook (ARC)
 - Before launching: `dumpsys window | grep mCurrentFocus`; another app in front = the user is on it, don't take over (2026-10-19). Run the check alone, never chained with `am start` (2026-10-19 slip: launched over the user's app, then put it back).
-- `<chromebook-ip>:5555` (memory `test-on-phone`), Android 13, arm64, 1920x1080 (app area ~1813x948, shelf below), **no root**.
+- `<chromebook-ip>:5555` (memory `devices`), Android 13, arm64, 1920x1080 (app area ~1813x948, shelf below), **no root**.
 - Install: `install-build.ps1 -Run <id> -Device <ip>:5555`. Launch:
   `am start -n io.github.baianced.orcastudio_android/app.orcaandroid.ui.MainActivity`
   (ARC draws only while unlocked: focus = MainActivity, not ARC's PlaceholderActivity). `ui.ps1 -Device <ip>:5555` works.
@@ -44,7 +55,7 @@ headless display below instead (no takeover needed). Don't drive WSA's own windo
 ### Phone
 - Serial: `sh ~/orca-android-tools/target.sh phone` (2026-10-19 the phone is an `ip:5555` entry and the Quest also shows as `adb-..._adb-tls-connect` + `ip:port`; target.sh probes: Oculus = Quest, feature `org.chromium.arc` = Chromebook, else phone; cache `.kinds`, delete it if a serial gets reused).
 - Debug app on the phone: copy `files/session/*` + `shared_prefs/app_settings.xml` from the release app via su (chown to the debug uid), force-stop the release app (it holds the MCP socket name), run tools with `PKG=io.github.baianced.orcastudio_android.debug` (mcpao.sh, orca-vd.sh). First start shows the printer picker: Apply, then copy the session again. **Uninstall it (`adb uninstall ...debug`) when done** (user, 2026-10-19: two apps on the phone confused them).
-- Setup: archive "Phone test setup", memory `test-on-phone`; `phone-ui.py` needs `PYTHONIOENCODING=utf-8`;
+- Setup: archive "Phone test setup", memory `devices`; `phone-ui.py` needs `PYTHONIOENCODING=utf-8`;
   pull binaries with `adb exec-out "su -c '...'"`; Delete key = `su -c 'input keyevent 112'`.
 - **MCP on a real phone:** the `localabstract` forward works over wireless adb; the socket binds only after an
   app restart with AI tools on (archive "MCP on a real phone").

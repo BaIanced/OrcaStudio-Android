@@ -18,6 +18,7 @@ import app.orcaandroid.container
 import app.orcaandroid.ui.MainActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
@@ -29,17 +30,22 @@ import kotlinx.coroutines.launch
  */
 class SliceService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private var job: Job? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_CANCEL) {
-            application.container.engine.cancel()
+            val c = application.container
+            c.cancelSlice?.invoke() ?: c.engine.cancel()
+            // Started only by this intent (no slice running): don't stay around as an idle started service.
+            if (job == null) stopSelf(startId)
             return START_NOT_STICKY
         }
         ServiceCompat.startForeground(this, NOTIFICATION_ID, notification(SliceProgress(0, "")),
             if (Build.VERSION.SDK_INT >= 34) ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE else 0)
-        scope.launch {
+        job?.cancel()
+        job = scope.launch {
             application.container.sliceProgress.collect { progress ->
                 if (progress == null) {
                     ServiceCompat.stopForeground(this@SliceService, ServiceCompat.STOP_FOREGROUND_REMOVE)

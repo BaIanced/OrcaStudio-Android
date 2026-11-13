@@ -14,6 +14,18 @@ data class RecentFile(val uri: String, val name: String, val isProject: Boolean,
 /** Persists app-wide settings, remembered selections and per-printer connections. */
 class AppSettings(context: Context) {
     private val prefs = context.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
+    /** Printer connection keys and the MCP token live here, excluded from cloud backup and device transfer. */
+    private val secure = context.getSharedPreferences("secure_settings", Context.MODE_PRIVATE)
+
+    init { migrateSecrets() }
+
+    /** One-way move of secrets from app_settings to secure_settings: copy when missing there, then remove the old copy. */
+    private fun migrateSecrets() {
+        val old = prefs.all.filter { (k, v) -> v is String && (k == "ai_token" || k.startsWith("conn:")) }
+        if (old.isEmpty()) return
+        secure.edit().apply { old.forEach { (k, v) -> if (!secure.contains(k)) putString(k, v as String) } }.commit()
+        prefs.edit().apply { old.keys.forEach { remove(it) } }.apply()
+    }
 
     var themeMode: ThemeMode
         get() = runCatching { ThemeMode.valueOf(prefs.getString("theme", null)!!) }.getOrDefault(ThemeMode.SYSTEM)
@@ -113,6 +125,11 @@ class AppSettings(context: Context) {
         get() = prefs.getInt("build_others", 0)
         set(value) = prefs.edit().putInt("build_others", value).apply()
 
+    /** Build workspace: the printer's volume drawn as a ghost under the object, for scale (on by default). */
+    var buildPrinter: Boolean
+        get() = prefs.getBoolean("build_printer", true)
+        set(value) = prefs.edit().putBoolean("build_printer", value).apply()
+
     /** Add menu: separate "OpenSCAD" and "Shape builder" rows instead of the one "Design" row. */
     var builderSplit: Boolean
         get() = prefs.getBoolean("builder_entries_split", false)
@@ -135,12 +152,12 @@ class AppSettings(context: Context) {
 
     /** Bearer token AI clients must send; made on first use, replaced by [newAiToken]. */
     val aiToken: String
-        get() = prefs.getString("ai_token", null) ?: newAiToken()
+        get() = secure.getString("ai_token", null) ?: newAiToken()
 
     fun newAiToken(): String {
         val bytes = ByteArray(24).also { java.security.SecureRandom().nextBytes(it) }
         val token = bytes.joinToString("") { "%02x".format(it) }
-        prefs.edit().putString("ai_token", token).apply()
+        secure.edit().putString("ai_token", token).apply()
         return token
     }
 
@@ -257,12 +274,12 @@ class AppSettings(context: Context) {
         }).toString(),
     ).apply()
 
-    fun connection(printer: String): PrinterConnection? = (prefs.getString("conn:${family(printer)}", null) ?: prefs.getString("conn:$printer", null))
+    fun connection(printer: String): PrinterConnection? = (secure.getString("conn:${family(printer)}", null) ?: secure.getString("conn:$printer", null))
         ?.let { runCatching { PrinterConnection.fromJson(it) }.getOrNull() }
 
     fun setConnection(printer: String, connection: PrinterConnection?) {
         val key = family(printer)
-        prefs.edit().apply {
+        secure.edit().apply {
             if (key != printer) remove("conn:$printer")
             if (connection == null) remove("conn:$key") else putString("conn:$key", connection.toJson())
         }.apply()

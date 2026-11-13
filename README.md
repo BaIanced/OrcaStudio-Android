@@ -3,7 +3,7 @@
   <h2>OrcaStudio-Android</h2>
   <p>
     A touch-first 3D-printing studio for Android tablets and phones, built around the real
-    <a href="https://github.com/SoftFever/OrcaSlicer">OrcaSlicer</a> engine running on the device.
+    <a href="https://github.com/OrcaSlicer/OrcaSlicer">OrcaSlicer</a> engine running on the device.
   </p>
   <p>
     <a href="https://github.com/BaIanced/OrcaStudio-Android/releases">Download</a>
@@ -12,13 +12,13 @@
   </p>
 </div>
 
-> **Built on [OrcaSlicer](https://github.com/SoftFever/OrcaSlicer) by SoftFever and the OrcaSlicer
+> **Built on [OrcaSlicer](https://github.com/OrcaSlicer/OrcaSlicer) by SoftFever and the OrcaSlicer
 > contributors (AGPL-3.0).** The slicing engine (`libslic3r`), the printer, filament and process
-> profiles, the settings model and the calibration know-how are their work and are used
-> unmodified. This app adds an Android interface, modelling tools and printer connections around
+> profiles, the settings model and the calibration know-how are their work and are used with the patches in
+> `android/patches/src-orca`. This app adds an Android interface, modelling tools and printer connections around
 > it. It is not affiliated with OrcaSlicer or any printer manufacturer: please report problems
 > with this app here, not upstream. OrcaSlicer's source is at
-> <https://github.com/SoftFever/OrcaSlicer>; the exact commit this app builds is in
+> <https://github.com/OrcaSlicer/OrcaSlicer>; the exact commit this app builds is in
 > [android/UPSTREAM.md](android/UPSTREAM.md).
 
 > **A personal project, shared as is.** Pre-release builds, no support and no promise of
@@ -121,6 +121,9 @@ Download the APK from the [releases](https://github.com/BaIanced/OrcaStudio-Andr
 On first start choose your printers. To send prints, open the **Device** tab and add the printer
 (Android 17 asks for local network access).
 
+Updates: add this repository to [Obtainium](https://github.com/ImranR98/Obtainium) (turn on "include pre-releases") to be told
+about new builds.
+
 ## Building
 
 Releases are built by CI; there is no local native build.
@@ -178,7 +181,7 @@ the network, AGPL-3.0). That app provided the Android build of the native librar
 interface; this repository has since grown far beyond it (a new rendering and editing layer,
 modelling tools, printer integrations and more), but the foundation and the idea are cl1x's work.
 
-**[OrcaSlicer](https://github.com/SoftFever/OrcaSlicer)** is the heart of it: SoftFever and the
+**[OrcaSlicer](https://github.com/OrcaSlicer/OrcaSlicer)** is the heart of it: SoftFever and the
 contributors built Arachne walls, tree and organic supports, seams, the calibration tests, the
 hundreds of tuned profiles and the translations. OrcaSlicer builds on
 **[Bambu Studio](https://github.com/bambulab/BambuStudio)**,
@@ -187,7 +190,7 @@ hundreds of tuned profiles and the translations. OrcaSlicer builds on
 [open-bamboo-networking](https://github.com/ClusterM/open-bamboo-networking) for signed Bambu
 printing, and the libraries listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). If you
 want to support the slicer itself, please do so upstream:
-[OrcaSlicer](https://github.com/SoftFever/OrcaSlicer) ·
+[OrcaSlicer](https://github.com/OrcaSlicer/OrcaSlicer) ·
 [orcaslicer.com](https://www.orcaslicer.com) ·
 [sponsor SoftFever](https://github.com/sponsors/SoftFever).
 
@@ -195,13 +198,13 @@ want to support the slicer itself, please do so upstream:
 
 Pull requests are welcome, but please don't expect quick reviews. You are just as welcome to fork
 it. Problems of the slicing itself (wrong toolpaths, profile issues) are best reported
-[upstream](https://github.com/SoftFever/OrcaSlicer/issues) after checking that they also occur in
+[upstream](https://github.com/OrcaSlicer/OrcaSlicer/issues) after checking that they also occur in
 the desktop version.
 
 ## License
 
 Licensed under the [GNU Affero General Public License v3.0](LICENSE), like OrcaSlicer. This
-program contains OrcaSlicer 2.5.0-dev, unmodified (patches in `android/patches/src-orca`), combined
+program contains OrcaSlicer 2.5.0-dev, used with the patches in `android/patches/src-orca`, combined
 with an Android user interface and build system. The bundled components and their licenses are
 listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 

@@ -19,6 +19,9 @@ Status 2026-11-04: the audit is CLOSED (user). Every experiment below is done, r
 | APK size per group (native libs, dex, vendor profiles, i18n, Python, ...) | `android/scripts/size_report.py`, CI job summary | CI size report delta (r506: 91.8 MB, r516: 101.4 MB after STEP import, r517: 98.83 MB, orca_jni 49.20) |
 | Compose recomposition: restartable composables that are not skippable | Compose compiler reports | 0 (2026-10-31: 242 of 242 skippable) |
 | 3D view frame timing (fps, frame gap median / p95 / max) | MCP `perf` tool (`render/FrameStats.kt`, last 240 frames) | r517 phone VD, plate 1 fit, 3 s orbit, 3 runs: 60.2-60.3 fps, gap median 16.5-16.6 / p95 18.8-19.0 / worst 20.3-21.5 ms, 0 gaps > 33 ms (vsync-bound); native heap 156 MB |
+| 3D draw ms (GL thread CPU, same `perf` line) | MCP `perf` | r535 phone VD (~166 fps), plate 1 fit, 3 s orbit, 6 runs: draw median 5.6-5.8 / p95 6.3-6.7 ms; ULoc cache (r527 -> r535) moved it by <=0.1 ms (noise) |
+| 3D draw ms, edge outline on (creases drawn) | MCP `perf` | 2026-11-06 phone VD, plate 1 fit, 3 s orbit, interleaved 2x3 runs each: r535 draw median 5.6-5.7 / p95 6.4-6.7 ms -> r537 (static crease/marker VBOs, e28ad0c) 5.5-5.6 / 6.4-6.8 ms: no measurable change (crease upload was already cheap on this plate); creases confirmed drawn on r537 |
+| Idle vs orbit battery current (3D view open) | `orca-android-tools/batt-orbit.sh` (30 s idle, 60 s orbit, sysfs current_now) | 2026-11-06 phone VD: r537 (continuous render) idle ~550-740 / orbit ~530-630 mA -> r538 (render-on-demand, 84ffb8e) idle mean ~217 (151-327) / orbit ~649 mA: idle ~60% lower |
 | Cold start | `adb shell am start -W -n <pkg>/.ui.MainActivity` (TotalTime) | r493 phone, 3 runs: 222 / 149 / 159 ms (median 159; activity launch only); r517 phone VD: 175 / 156 / 163 (median 163) |
 | Slice time of a fixed model | MCP slice on the same model and profile | r517 phone (on AC), plate 1 (2 objects, 3,498 + 224,796 tris, A1 0.20 Standard, 7 filaments, prime tower, 541 layers): 13.3 / 13.0 s at 32.9 C battery, then 19.6 / 20.6 s at ~34.5 C: thermal throttling costs ~50%, so compare only cool runs (MAXT=320) |
 
@@ -72,6 +75,21 @@ Record a missing baseline the first time a change touches that area (same device
   positives, suppressed with a reason. R8 `usage.txt`: the 12 app classes it drops entirely are all referenced (inlined or
   merged), so no dead Kotlin classes; the five icon packs are stripped by R8 (build time only, no APK bytes).
 
+- 2026-11-07 Preview toolpaths nearest-first (GL audit item 5 fix 1, `EXTRUSION_CHUNK` 16384 in `PlateRenderer.drawExtrusions`):
+  preview pass GPU median on the phone VD, plate 1 (541 layers, 1.30 M segments), 3 s orbit each way: default 1138 mm
+  61 -> 44.3 ms, close 300 mm 95.5 -> 59.3 ms, far 6000 mm 3.1 -> 2.35 ms. Close shot (250 mm, pitch 25): no joint artifacts.
+
+- 2026-11-07 Preview PATH_FS without discards (GL audit item 5 fix 2): the inside-top/bottom `gl_FrontFacing` discard became
+  GL_FRONT culling (sides two-sided via a reversed copy, `uploadBox`), and a `pathProgramNoCut` variant drops the section discard
+  while the cut is off. Phone VD, plate 1, same orbit, 2 runs each: default 1138 mm 44.3 -> 42.5-43.6 ms (noise), close 300 mm
+  59.3 -> 43.5 ms. Shots 250 mm pitch 25 and 400 mm pitch -30: tops, sides, undersides clean.
+- 2026-11-07 Preview box 36 -> 28 triangles (GL audit item 5): no reversed copy of the overlap walls (`uploadBox`). Measured on the
+  diag build with the same index order (setprop boxtris 28 vs 36), phone VD, plate 1: 1138 mm 44.4 -> 38.8 ms, 300 mm 45.5 -> 40.2 ms.
+  Look A/B in 4 views (above, side, below, close 250 mm): 0 px changed. The committed build itself is not re-measured.
+- 2026-11-08 Preview box 20 triangles with the section cut off (committed build 14babcc, GL audit item 5 option 1): phone VD, plate 1,
+  orbit by `view_set` yaw steps (24 x 7 deg, `preview-orbit-perf.sh`; VD swipes gave no frames): preview pass GPU median 1138 mm
+  15.3 ms (p95 24.1), 300 mm 18.6 ms (p95 38.7). NEW METHOD: static frames after each step, so these are not comparable with the
+  swipe-orbit numbers above (38-43 ms); no 24-tri baseline was run with this method.
 ## Experiments (closed 2026-11-04: done, rejected or shelved)
 
 0. **Big-ticket map (2026-11-01, r502 APK 118.5 MB; native libs stored uncompressed = 78 MB).** liborca_jni symbol bytes by

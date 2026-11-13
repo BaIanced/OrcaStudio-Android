@@ -12,7 +12,7 @@ val orcaSrc = rootProject.file("../src-orca")
 
 // Upstream OrcaSlicer version and commit, shown in the app's about section (see UPSTREAM.md).
 val orcaVersion: String = Regex("""SoftFever_VERSION\s+"([^"]+)"""")
-    .find(File(orcaSrc, "version.inc").readText())?.groupValues?.get(1) ?: "unknown"
+    .find(File(orcaSrc, "version.inc").takeIf { it.exists() }?.readText().orEmpty())?.groupValues?.get(1) ?: "unknown"
 val orcaCommit: String = providers.exec {
     commandLine("git", "-C", orcaSrc.path, "rev-parse", "HEAD")
     isIgnoreExitValue = true
@@ -59,6 +59,10 @@ android {
 
     buildTypes {
         release {
+            // Never fall back to the debug key for a build that ships from main.
+            if (System.getenv("GITHUB_REF") == "refs/heads/main" && keystoreProperties.isEmpty) {
+                throw GradleException("release key missing on main")
+            }
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.getByName(if (keystoreProperties.isEmpty) "debug" else "release")
@@ -152,8 +156,25 @@ val packOrcaAssets = tasks.register<PackOrcaAssets>("packOrcaAssets") {
     inputs.file(rootProject.file("scripts/extract_settings_layout.py"))
 }
 
+/** Copies THIRD_PARTY_NOTICES.md into the assets, where the Open-source licences screen reads it. */
+abstract class CopyNotices : DefaultTask() {
+    @get:InputFile abstract val notices: RegularFileProperty
+    @get:OutputDirectory abstract val outputDir: DirectoryProperty
+
+    @TaskAction
+    fun run() {
+        notices.get().asFile.copyTo(File(outputDir.get().asFile, "THIRD_PARTY_NOTICES.md"), overwrite = true)
+    }
+}
+
+val copyNotices = tasks.register<CopyNotices>("copyThirdPartyNotices") {
+    notices.set(rootProject.file("../THIRD_PARTY_NOTICES.md"))
+}
+
 androidComponents {
     onVariants { variant ->
+        // A generated source directory, so every task that reads the assets (merge, lint) depends on the copy.
+        variant.sources.assets?.addGeneratedSourceDirectory(copyNotices, CopyNotices::outputDir)
         variant.sources.assets?.addGeneratedSourceDirectory(packOrcaAssets, PackOrcaAssets::outputDir)
         // android/build.sh stages the stripped liborca_jni.so here.
         variant.sources.jniLibs?.addStaticSourceDirectory("$orcaBuildRoot/jniLibs")

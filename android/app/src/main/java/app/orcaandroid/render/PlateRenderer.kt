@@ -19,6 +19,10 @@ private const val BADGE_GAP = 0.02f
 
 /** Contact shadow: geometry up to this height above the bed casts it, mm; darkness right under a part. */
 private const val SHADOW_FADE_MM = 12f
+/** Build workspace floor: the grid's smallest fade-out radius (mm; else 3x the object's largest side). */
+private const val FLOOR_MIN_RADIUS = 400f
+/** Build workspace: opacity of the printer volume ghost's lines. */
+private const val PRINTER_GHOST_ALPHA = 0.45f
 private const val SHADOW_STRENGTH = 0.8f
 /** Realistic mode's AO: the disc (mm) over which the key light's shadow map says how much of its softbox a point sees. */
 private const val AO_SOFT_MM = 24f
@@ -34,6 +38,10 @@ val LOUPE_ZOOM: Float get() = app.orcaandroid.core.Tuning["loupe.zoom"]
  */
 private const val ACCUM_FRAMES = 32
 private const val ACCUM_REGIME = 1f
+/** Segments per instanced toolpath draw; the chunks go nearest-first for early depth rejection (drawExtrusions). */
+private const val EXTRUSION_CHUNK = 16384
+/** Largest upload (floats) that goes through the reused scratch buffer (PlateRenderer.floats); 256 KB. */
+private const val SCRATCH_MAX_FLOATS = 65536
 
 /** Colours of the 3D view, following the app theme (RGB 0..1). */
 data class ViewColors(
@@ -89,7 +97,15 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     /** Paint shop: only the selected copies are drawn (objects, paint, shadows); the plates stay. */
     var solo = false
     /** Build workspace: the build object (selection ids -1000 - volume, see Engine.setBuildObject) and the others per [buildOthers]. */
-    var buildSolo = false
+    @Volatile var buildSolo = false
+    /**
+     * Build workspace (Assemble space): the build object's box (x0, y0, z0, x1, y1, z1, its shown copies). Beds, plate
+     * surfaces and badges give way to a floor grid around it, and [printerGhost] draws the printer's volume
+     * (bed outline up to [printerHeight]) centred under it for scale.
+     */
+    @Volatile var buildFocus: FloatArray? = null
+    @Volatile var printerGhost = true
+    @Volatile var printerHeight = 0f
     /** Build workspace: the plate's other objects 0 ghosted (no shadows, picks or selection), 1 solid, 2 hidden. */
     var buildOthers = 0
     /** Paint shop: filaments drawn grey (bit i = 0-based filament i). */
@@ -291,8 +307,13 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     private var bedVbo = 0; private var bedCount = 0
     /** The grid's quad: the bed outline's box, plate-local (x0, y0, x1, y1). */
     private var gridRect: FloatArray? = null
-    private var boxVbo = 0; private var boxIbo = 0; private var boxIndexCount = 0
+    private var boxVbo = 0; private var boxIbo = 0; private var boxIndexCount = 0; private var boxOutsideCount = 0
     private var scratchVbo = 0
+    // Crease lines and mesh markers are set once per check, so they live in their own VBOs (re-uploaded only when the array changes).
+    private var creaseVbo = 0
+    private var creaseUp: FloatArray? = null
+    private var markerPtsVbo = 0
+    private var markerPtsUp: FloatArray? = null
     /** Plate badges: icons per plate (top down, right of the plate; empty = numbers only), atlas, quads. */
     private var badgeIcons: List<PlateBadge> = emptyList()
     private var atlas: BadgeAtlas? = null
@@ -308,6 +329,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     private var lineProgram = 0
     private var wideLineProgram = 0
     private var pathProgram = 0
+    // PATH_FS without the section cut's discard, drawn while the cut is off: any discard turns the early depth test off.
+    private var pathProgramNoCut = 0
     private var pointProgram = 0
     private var badgeProgram = 0
     private var gridProgram = 0
@@ -331,6 +354,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
 
     /** The plate badge under screen point (x, y), or null. */
     fun badgeAt(x: Float, y: Float): Pair<Int, PlateBadge>? {
+        if (buildSolo) return null
         val p = camera.rayOnPlane(x, y) ?: return null
         return badgeRects.firstOrNull { p.x in it.x0..it.x1 && p.y in it.y0..it.y1 }?.let { it.plate to it.badge }
     }
@@ -357,6 +381,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
 
     /** The plate under screen point (x, y), or null. */
     fun plateAt(x: Float, y: Float): Int? {
+        // The Build workspace has no plates: taps and the measure tool's bed pick see the floor instead.
+        if (buildSolo) return null
         if (bedOutline.size < 4) return null
         val p = camera.rayOnPlane(x, y) ?: return null
         val xs = bedOutline.filterIndexed { i, _ -> i % 2 == 0 }
@@ -378,7 +404,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
 
     /** Each plate's bed box (x0, y0, x1, y1); one unbounded box while no bed is known. */
     private fun bedRects(): List<FloatArray> {
-        if (bedOutline.size < 4) return listOf(floatArrayOf(-1e9f, -1e9f, 1e9f, 1e9f))
+        if (bedOutline.size < 4 || buildSolo) return listOf(floatArrayOf(-1e9f, -1e9f, 1e9f, 1e9f))
         val xs = bedOutline.filterIndexed { i, _ -> i % 2 == 0 }
         val ys = bedOutline.filterIndexed { i, _ -> i % 2 == 1 }
         return plateOrigins.map { (ox, oy) -> floatArrayOf(xs.min() + ox, ys.min() + oy, xs.max() + ox, ys.max() + oy) }
@@ -403,14 +429,17 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         lineProgram = program(Shaders.LINE_VS, Shaders.LINE_FS)
         wideLineProgram = program(Shaders.WIDE_LINE_VS, Shaders.WIDE_LINE_FS)
         pathProgram = program(Shaders.PATH_VS, Shaders.PATH_FS)
+        pathProgramNoCut = program(Shaders.PATH_VS, Shaders.PATH_FS.replace(Shaders.PATH_SECTION_DISCARD, "").also { check(it != Shaders.PATH_FS) })
         pointProgram = program(Shaders.POINT_VS, Shaders.POINT_FS)
         badgeProgram = program(Shaders.BADGE_VS, Shaders.BADGE_FS)
         gridProgram = program(Shaders.GRID_VS, Shaders.GRID_FS)
         plateProgram = program(Shaders.GRID_VS, Shaders.PLATE_FS)
         decalProgram = program(Shaders.DECAL_VS, Shaders.DECAL_FS)
         decalTex.clear()
-        val ids = IntArray(11)
-        glGenBuffers(11, ids, 0)
+        val ids = IntArray(13)
+        glGenBuffers(13, ids, 0)
+        creaseVbo = ids[11]; creaseUp = null
+        markerPtsVbo = ids[12]; markerPtsUp = null
         ghostVbo = ids[9]; ghostCount = 0
         badgeVbo = ids[10]
         val tex = IntArray(1)
@@ -446,13 +475,20 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
 
     /** Frame timing for the MCP perf tool. */
     val frameStats = FrameStats()
+    /** Per-pass GPU time for the MCP perf tool (off until perf turns it on). */
+    val gpuTimer = GpuTimer()
 
     override fun onDrawFrame(gl: GL10?) {
         val start = System.nanoTime()
+        gpuTimer.beginFrame()
         drawFrame()
-        drawLoupe()
+        gpuTimer.section("loupe") { drawLoupe() }
         frameStats.record(start, System.nanoTime())
+        afterFrame?.invoke()
     }
+
+    /** Called on the GL thread after each frame: the on-demand view asks for the next one while [settled] is false. */
+    @Volatile var afterFrame: (() -> Unit)? = null
 
     private fun drawFrame() {
         if (viewW > 1) fitPending?.let { (lo, hi) -> camera.fit(lo, hi, keepAngles = true); fitPending = null }
@@ -476,11 +512,11 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         // The view redraws continuously: while nothing changes, the frame already in the target is averaged again
         // instead of drawing 4 times the pixels. A fresh one now and then covers any state the key misses.
         val key = if (wantSuper) superKey() else null
-        if (key != null && key == superShown && now - superAt < SUPER_REFRESH_NS) { supersampler.end(viewW, viewH); return }
+        if (key != null && key == superShown && now - superAt < SUPER_REFRESH_NS) { gpuTimer.section("2x resolve") { supersampler.end(viewW, viewH) }; return }
         val supered = wantSuper && supersampler.begin(viewW, viewH, SUPERSAMPLE)
         pxScale = if (supered) supersampler.factor.toFloat() else 1f
         drawScene()
-        if (supered) { supersampler.end(viewW, viewH); superShown = key; superAt = now } else superShown = null
+        if (supered) { gpuTimer.section("2x resolve") { supersampler.end(viewW, viewH) }; superShown = key; superAt = now } else superShown = null
         pxScale = 1f
     }
 
@@ -525,7 +561,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     private fun accumulate(now: Long): Boolean {
         val key = superKey() + accumRegime
         if (key != accumShown) { accumFrames = 0; jitterIndex = 0 }
-        if (accumFrames >= ACCUM_FRAMES && now - superAt < SUPER_REFRESH_NS) { accumulator.show(viewW, viewH); return true }
+        if (accumFrames >= ACCUM_FRAMES && now - superAt < SUPER_REFRESH_NS) { gpuTimer.section("accum show") { accumulator.show(viewW, viewH) }; return true }
         if (!accumulator.begin(viewW, viewH)) return false
         // "Always" draws 2x again as soon as the camera moves: keep its target then.
         if (supersample != Supersample.ALWAYS) supersampler.release()
@@ -542,7 +578,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         regimeScale = 1f
         frame.copyInto(mvp)
         accumFrames = minOf(accumFrames + 1, ACCUM_FRAMES)
-        accumulator.end(viewW, viewH, 1f / accumFrames)
+        gpuTimer.section("accum mix") { accumulator.end(viewW, viewH, 1f / accumFrames) }
         accumShown = key; superAt = now
         return true
     }
@@ -555,7 +591,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
     private fun drawScene() {
         val bg = colors.background
         glClearColor(bg[0], bg[1], bg[2], 1f)
-        glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
+        gpuTimer.section("clear") { glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT) }
         // The OpenSCAD design on the plate stands alone: the project's objects are hidden meanwhile.
         val models = ghostCount == 0
         val bounds = meshBounds
@@ -572,21 +608,26 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             val dy = dx
             val area = floatArrayOf(bounds!![0] - dx, bounds[1] - dy, bounds[2] + dx, bounds[3] + dy)
             useRealShadow = false
-            effects.renderShadow(area, key, viewW, viewH) { ortho ->
+            gpuTimer.section("shadow map") { effects.renderShadow(area, key, viewW, viewH) { ortho ->
                 val frame = mvp.copyOf()
                 ortho.copyInto(mvp)
                 drawMesh(meshVbo, meshCount, pass = if (effects.isRealShadow) 4 else 3)
                 frame.copyInto(mvp)
-            }
+            } }
             useRealShadow = effects.realShadowReady
             // The shadow pass changed the clear colour.
             glClearColor(bg[0], bg[1], bg[2], 1f)
         }
-        if (shadow) effects.drawShadow(mvp, if (effects.isRealShadow) shadowStrength else SHADOW_STRENGTH, shadowSoftMm, shadowBiasMm, bedRects())
-        if (plateSurface && camera.eye().z >= 0f) drawPlateSurfaces(plateAlpha)
-        drawBeds()
-        drawBadges()
-        if (showPreview) {
+        // The HD plate top goes under the shadow: drawn after it, an opaque plate hid every shadow on the bed (user 2026-11-08).
+        val plateTopFirst = !(buildSolo && !showPreview) && plateSurface && camera.eye().z >= 0f
+        if (plateTopFirst) drawPlateSurfaces(plateAlpha)
+        if (shadow) gpuTimer.section("shadow") { effects.drawShadow(mvp, if (effects.isRealShadow) shadowStrength else SHADOW_STRENGTH, shadowSoftMm, shadowBiasMm, bedRects()) }
+        val floor = buildSolo && !showPreview
+        if (floor) gpuTimer.section("floor") { drawFloor() } else gpuTimer.section("beds") {
+            drawBeds()
+            drawBadges()
+        }
+        if (showPreview) gpuTimer.section("preview") {
             drawExtrusions(extrVbo, extrCount, previewOrigin, previewRange.extrusions, previewStyle.range)
             drawPreviewExtras(previewOrigin, previewRange, travelVbo, travelCount, markerVbo, markerCount)
             for (x in extraSlots) {
@@ -595,20 +636,20 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
                 drawPreviewExtras(x.origin, whole, x.vbos[1], x.counts[1], x.vbos[2], x.counts[2])
             }
         } else {
-            if (models) drawMesh(meshVbo, meshCount, pass = 0)
+            if (models) gpuTimer.section("mesh") { drawMesh(meshVbo, meshCount, pass = 0) }
             if (models && paintCount > 0) {
                 glEnable(GL_POLYGON_OFFSET_FILL)
                 glPolygonOffset(-1f, -2f)
-                drawMesh(paintVbo, paintCount, pass = 2)
+                gpuTimer.section("paint") { drawMesh(paintVbo, paintCount, pass = 2) }
                 glDisable(GL_POLYGON_OFFSET_FILL)
             }
-            if (models) { drawCreases(); drawSnapLines(); drawDragGuides(); drawMeshMarkers() }
+            if (models) gpuTimer.section("creases+guides") { drawCreases(); drawSnapLines(); drawDragGuides(); drawMeshMarkers() }
             // Modifiers and support blockers/enforcers are drawn translucent on top.
             glEnable(GL_BLEND)
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
             glDepthMask(false)
             // Realistic mode's clear filaments (premultiplied): far faces first, then the near ones over them.
-            if (models && realistic && filamentMaterials.any { it.b[3] > 0f }) {
+            if (models && realistic && filamentMaterials.any { it.b[3] > 0f }) gpuTimer.section("clear filaments") {
                 glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA)
                 glEnable(GL_CULL_FACE)
                 glCullFace(GL_FRONT)
@@ -620,17 +661,24 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
                 glDisable(GL_CULL_FACE)
                 glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
             }
-            if (models) drawMesh(meshVbo, meshCount, pass = 1)
+            if (models) gpuTimer.section("translucent") { drawMesh(meshVbo, meshCount, pass = 1) }
             if (models && buildSolo && buildOthers == 0) drawMesh(meshVbo, meshCount, pass = 9)
             drawMesh(ghostVbo, ghostCount, pass = 1)
             glDepthMask(true)
             glDisable(GL_BLEND)
-            if (models && !loupePass) drawSelection()
+            if (models && !loupePass) gpuTimer.section("selection") { drawSelection() }
             if (models && (cutXray || cutXrayPanel) && cutBand != null) drawCutXray()
         }
         // Seen from below the plate is a window: drawn last, over the parts behind it.
-        if (plateSurface && camera.eye().z < 0f && plateUnderAlpha > 0f) drawPlateSurfaces(plateUnderAlpha * plateAlpha)
-        drawOverlays()
+        // The first layer's bottom faces lie on z 0 too: pull the window towards the eye so it wins that tie
+        // (it strobed in triangles while dragging; user 2026-11-07). Parts sunk below the bed still win by real depth.
+        if (!floor && plateSurface && camera.eye().z < 0f && plateUnderAlpha > 0f) {
+            glEnable(GL_POLYGON_OFFSET_FILL)
+            glPolygonOffset(-2f, -8f)
+            drawPlateSurfaces(plateUnderAlpha * plateAlpha)
+            glDisable(GL_POLYGON_OFFSET_FILL)
+        }
+        gpuTimer.section("overlays") { drawOverlays() }
     }
 
     /** Paint of clear filaments (realistic mode), drawn like the clear parts. */
@@ -853,10 +901,21 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         }
         quad(0, 0, 3, 2, 1)                                  // top
         quad(8, 9, 10, 11, 8)                                // bottom
-        quad(5, 5, 1, 2, 6); quad(5, 9, 5, 6, 10)            // right: layer, overlap
-        quad(7, 7, 3, 0, 4); quad(7, 11, 7, 4, 8)            // left
-        quad(6, 6, 2, 3, 7); quad(6, 10, 6, 7, 11)           // end
-        quad(4, 4, 0, 1, 5); quad(4, 8, 4, 5, 9)             // start
+        // Layer walls (right, left, end, start), then the overlap walls below them.
+        quad(5, 5, 1, 2, 6); quad(7, 7, 3, 0, 4); quad(6, 6, 2, 3, 7); quad(4, 4, 0, 1, 5)
+        quad(5, 9, 5, 6, 10); quad(7, 11, 7, 4, 8); quad(6, 10, 6, 7, 11); quad(4, 8, 4, 5, 9)
+        // The box winds every face clockwise seen from outside, so GL calls the outside the back face (r340 tested the
+        // other way and dropped every top seen from above). drawExtrusions culls front faces: a top or bottom seen from
+        // inside the bead never shows (from below, the bead's own top won over its bottom, user r339). The layer walls
+        // stay two-sided (they fill the cracks between beads: the orange rim lines at the top of a wall) through a
+        // reversed copy. Culling instead of PATH_FS's old gl_FrontFacing discard keeps the early depth test on
+        // (NOTES-gl-audit item 5 fix 2). The overlap walls get no reversed copy: pixel-identical without it (look A/B,
+        // 4 views) and 36 -> 28 tris a box, preview GPU 44.4 -> 38.8 ms at the default zoom (NOTES item 5 look A/B).
+        // Only the right/left layer walls get one: the end/start copies only filled segment joints inside a skin, same
+        // colour either way (393 px of 2.5M at 250 mm), 28 -> 24 tris, GPU 33.6 -> 29.9 ms at 1138 mm (NOTES magenta diag).
+        boxOutsideCount = idx.size
+        val walls = idx.subList(12, 24).toList()
+        for (t in walls.indices step 3) idx += listOf(walls[t + 1], walls[t], walls[t + 2])
         boxIndexCount = idx.size
         glBindBuffer(GL_ARRAY_BUFFER, boxVbo)
         glBufferData(GL_ARRAY_BUFFER, v.size * 4, floats(v.toFloatArray()), GL_STATIC_DRAW)
@@ -935,6 +994,65 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glDisable(GL_BLEND)
     }
 
+    /**
+     * Build workspace floor: a 10 mm grid on z 0 around the build object (on world 10 mm lines, fading out), and with
+     * [printerGhost] the printer's volume centred under the object: bed outline, the same at [printerHeight], verticals.
+     */
+    private fun drawFloor() {
+        val f = buildFocus ?: return
+        val mx = (f[0] + f[3]) / 2; val my = (f[1] + f[4]) / 2
+        val cx = Math.round(mx / 10f) * 10f; val cy = Math.round(my / 10f) * 10f
+        val r = maxOf(FLOOR_MIN_RADIUS, maxOf(f[3] - f[0], f[4] - f[1], f[5] - f[2]) * 3f)
+        glUseProgram(gridProgram)
+        glUniformMatrix4fv(loc(gridProgram, "uMvp"), 1, false, mvp, 0)
+        glUniform4f(loc(gridProgram, "uRect"), cx - r, cy - r, cx + r, cy + r)
+        glUniform3fv(loc(gridProgram, "uColor"), 1, colors.grid, 0)
+        glUniform1f(loc(gridProgram, "uPxScale"), pxScale)
+        glUniform1f(loc(gridProgram, "uFade"), r)
+        glUniform3f(loc(gridProgram, "uOffset"), 0f, 0f, 0f)
+        glEnable(GL_BLEND)
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+        glDepthMask(false)
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4)
+        if (printerGhost && bedOutline.size >= 6) {
+            val n = bedOutline.size / 2
+            val xs = bedOutline.filterIndexed { i, _ -> i % 2 == 0 }
+            val ys = bedOutline.filterIndexed { i, _ -> i % 2 == 1 }
+            val dx = mx - (xs.min() + xs.max()) / 2; val dy = my - (ys.min() + ys.max()) / 2
+            val h = printerHeight
+            val pts = ArrayList<Float>(n * 18)
+            // Round beds: verticals on 8 of the outline's points, not all of them.
+            val step = maxOf(1, n / 8)
+            for (i in 0 until n) {
+                val j = (i + 1) % n
+                val x0 = bedOutline[2 * i] + dx; val y0 = bedOutline[2 * i + 1] + dy
+                val x1 = bedOutline[2 * j] + dx; val y1 = bedOutline[2 * j + 1] + dy
+                pts += listOf(x0, y0, 0f, x1, y1, 0f)
+                if (h > 0f) {
+                    pts += listOf(x0, y0, h, x1, y1, h)
+                    if (i % step == 0) pts += listOf(x0, y0, 0f, x0, y0, h)
+                }
+            }
+            glUseProgram(lineProgram)
+            glUniformMatrix4fv(loc(lineProgram, "uMvp"), 1, false, mvp, 0)
+            glUniform3f(loc(lineProgram, "uOffset"), 0f, 0f, 0f)
+            glUniform3fv(loc(lineProgram, "uColor"), 1, colors.activePlate, 0)
+            setSection(lineProgram, on = false)
+            glBindBuffer(GL_ARRAY_BUFFER, scratchVbo)
+            glBufferData(GL_ARRAY_BUFFER, pts.size * 4, floats(pts.toFloatArray()), GL_STREAM_DRAW)
+            glEnableVertexAttribArray(0)
+            glVertexAttribPointer(0, 3, GL_FLOAT, false, 12, 0)
+            glBlendColor(0f, 0f, 0f, PRINTER_GHOST_ALPHA)
+            glBlendFunc(GL_CONSTANT_ALPHA, GL_ONE_MINUS_CONSTANT_ALPHA)
+            glLineWidth(1.5f * pxScale)
+            glDrawArrays(GL_LINES, 0, pts.size / 3)
+            glLineWidth(1f)
+            glDisableVertexAttribArray(0)
+        }
+        glDepthMask(true)
+        glDisable(GL_BLEND)
+    }
+
     private fun drawBeds() {
         if (bedCount == 0) return
         gridRect?.let { rect ->
@@ -943,6 +1061,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             glUniform4fv(loc(gridProgram, "uRect"), 1, rect, 0)
             glUniform3fv(loc(gridProgram, "uColor"), 1, colors.grid, 0)
             glUniform1f(loc(gridProgram, "uPxScale"), pxScale)
+            glUniform1f(loc(gridProgram, "uFade"), 0f)
             glEnable(GL_BLEND)
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
             glDepthMask(false)
@@ -1003,7 +1122,9 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             glUniform1i(loc(meshProgram, "uCutBandOn"), if (b != null) 1 else 0)
             if (b != null) glUniform4f(loc(meshProgram, "uCutBand"), b[0], b[1], b[2], b[3])
         }
-        glUniform1fv(loc(meshProgram, "uSelected"), Shaders.MAX_SELECTED, ids.copyOf(Shaders.MAX_SELECTED), 0)
+        selScratch.fill(0f)
+        ids.copyInto(selScratch, endIndex = minOf(ids.size, Shaders.MAX_SELECTED))
+        glUniform1fv(loc(meshProgram, "uSelected"), Shaders.MAX_SELECTED, selScratch, 0)
         glUniform1i(loc(meshProgram, "uSelectedCount"), minOf(ids.size, Shaders.MAX_SELECTED))
         val buildSoloMode = when (buildOthers) { 0 -> 4; 1 -> 3; else -> 2 }
         glUniform1i(loc(meshProgram, "uSolo"), if (buildSolo) buildSoloMode else if (solo && ids.isNotEmpty()) 1 else 0)
@@ -1011,15 +1132,18 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glUniform3fv(loc(meshProgram, "uDrag"), 1, dragOffset, 0)
         glUniform3fv(loc(meshProgram, "uScaleAnchor"), 1, resizeAnchor, 0)
         val own = boxOverride == null && buildCopies == null
-        val sc = if (own) resizeScale else floatArrayOf(1f, 1f, 1f)
-        // Column major for GL.
-        val sm = floatArrayOf(sc[0], 0f, 0f, 0f, sc[1], 0f, 0f, 0f, sc[2])
+        val sc = if (own) resizeScale else ONE3
+        // Column major for GL (diagonal; the off-diagonal zeros of m3Scratch are rewritten each call).
+        val sm = m3Scratch
+        sm.fill(0f); sm[0] = sc[0]; sm[4] = sc[1]; sm[8] = sc[2]
         glUniformMatrix3fv(loc(meshProgram, "uScale"), 1, false, sm, 0)
         val rot = rotateMatrix?.takeIf { own }
         glUniform1i(loc(meshProgram, "uRotOn"), if (rot != null) 1 else 0)
         if (rot != null) {
             // Column major for GL.
-            glUniformMatrix3fv(loc(meshProgram, "uRot"), 1, false, floatArrayOf(rot[0], rot[3], rot[6], rot[1], rot[4], rot[7], rot[2], rot[5], rot[8]), 0)
+            val rm = m3Scratch
+            for (c in 0 until 3) for (r in 0 until 3) rm[c * 3 + r] = rot[r * 3 + c]
+            glUniformMatrix3fv(loc(meshProgram, "uRot"), 1, false, rm, 0)
             glUniform3fv(loc(meshProgram, "uRotPivot"), 1, rotatePivot, 0)
         }
         glUniform3fv(loc(meshProgram, "uPartColor"), 1, colors.part, 0)
@@ -1406,19 +1530,20 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         val first = extrusions.first.coerceIn(0, count)
         val last = (extrusions.last + 1).coerceIn(first, count)
         if (last > first) {
-            glUseProgram(pathProgram)
-            glUniformMatrix4fv(loc(pathProgram, "uMvp"), 1, false, mvp, 0)
-            glUniform3f(loc(pathProgram, "uOrigin"), origin[0], origin[1], 0f)
-            glUniform1i(loc(pathProgram, "uScheme"), style.scheme)
-            glUniform1i(loc(pathProgram, "uHidden"), style.hiddenRoles)
-            glUniform2f(loc(pathProgram, "uRange"), valueRange.first, valueRange.second)
-            glUniform1i(loc(pathProgram, "uFirst"), first)
-            glUniform1f(loc(pathProgram, "uPxScale"), pxScale * regimeScale)
-            camera.eye().let { glUniform3f(loc(pathProgram, "uEye"), it.x, it.y, it.z) }
-            glUniform1f(loc(pathProgram, "uCamLight"), cameraLight)
-            glUniform3fv(loc(pathProgram, "uRoleColors"), 20, Shaders.ROLE_COLORS, 0)
-            setFilamentColors(pathProgram)
-            setSection(pathProgram)
+            val prog = if (section != null) pathProgram else pathProgramNoCut
+            glUseProgram(prog)
+            glUniformMatrix4fv(loc(prog, "uMvp"), 1, false, mvp, 0)
+            glUniform3f(loc(prog, "uOrigin"), origin[0], origin[1], 0f)
+            glUniform1i(loc(prog, "uScheme"), style.scheme)
+            glUniform1i(loc(prog, "uHidden"), style.hiddenRoles)
+            glUniform2f(loc(prog, "uRange"), valueRange.first, valueRange.second)
+            glUniform1f(loc(prog, "uPxScale"), pxScale * regimeScale)
+            val eye = camera.eye()
+            glUniform3f(loc(prog, "uEye"), eye.x, eye.y, eye.z)
+            glUniform1f(loc(prog, "uCamLight"), cameraLight)
+            glUniform3fv(loc(prog, "uRoleColors"), 20, Shaders.ROLE_COLORS, 0)
+            setFilamentColors(prog)
+            setSection(prog)
             glBindBuffer(GL_ARRAY_BUFFER, boxVbo)
             glEnableVertexAttribArray(0)
             glEnableVertexAttribArray(1)
@@ -1426,19 +1551,32 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
             glVertexAttribPointer(1, 3, GL_FLOAT, false, 24, 12)
             glBindBuffer(GL_ARRAY_BUFFER, vbo)
             val stride = PreviewData.EXTRUSION_STRIDE * 4
-            // Record 0 of the buffer is padding (uploadPadded), so segment i is record i + 1.
-            val base = (first + 1) * stride
             val valueColumn = when (style.scheme) { 1 -> 9; 2 -> 8; 3 -> 7; 4 -> 10; 5 -> 11; 6 -> 12; 7 -> 13; else -> 6 }
             // aP0, aP1, aRole, aWidth, aHeight, aValue, then the previous and next segments' ends
             val attribs = listOf(2 to (3 to 0), 3 to (3 to 12), 4 to (1 to 24), 5 to (1 to 28), 6 to (1 to 32), 7 to (1 to valueColumn * 4),
                 8 to (3 to -stride), 9 to (3 to 12 - stride), 10 to (3 to stride), 11 to (3 to stride + 12))
-            for ((a, fmt) in attribs) {
-                glEnableVertexAttribArray(a)
-                glVertexAttribPointer(a, fmt.first, GL_FLOAT, false, stride, base + fmt.second)
-                glVertexAttribDivisor(a, 1)
-            }
+            for ((a, _) in attribs) { glEnableVertexAttribArray(a); glVertexAttribDivisor(a, 1) }
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, boxIbo)
-            glDrawElementsInstanced(GL_TRIANGLES, boxIndexCount, GL_UNSIGNED_SHORT, 0, last - first)
+            // Segments are stored bottom layer first. Drawn in that order from above, every layer lands in front of the
+            // ones already drawn, so each covered pixel runs the (heavy) PATH_FS again. Drawing chunks nearest-first lets
+            // the early depth test drop the hidden fragments (Preview orbit was fragment-bound: NOTES-gl-audit "Item 5").
+            val chunks = (first until last step EXTRUSION_CHUNK).toList().let { if (eye.z > 0f) it.reversed() else it }
+            glEnable(GL_CULL_FACE)
+            glCullFace(GL_FRONT)
+            // The reversed wall copies (the last 4 tris) only while the section cut is on: a cut bead shows its far walls'
+            // insides. Otherwise they only painted real gaps between beads with an inside lit as an outside (bright rim
+            // dashes); a 0.01 mm widening changed 0 px, so the gaps are geometry, not cracks (NOTES-gl-audit "widen").
+            val boxCount = if (section != null) boxIndexCount else boxOutsideCount
+            for (c in chunks) {
+                val n = minOf(EXTRUSION_CHUNK, last - c)
+                // Record 0 of the buffer is padding (uploadPadded), so segment i is record i + 1.
+                val base = (c + 1) * stride
+                for ((a, fmt) in attribs) glVertexAttribPointer(a, fmt.first, GL_FLOAT, false, stride, base + fmt.second)
+                glUniform1i(loc(prog, "uFirst"), c)
+                glDrawElementsInstanced(GL_TRIANGLES, boxCount, GL_UNSIGNED_SHORT, 0, n)
+            }
+            glCullFace(GL_BACK)
+            glDisable(GL_CULL_FACE)
             for ((a, _) in attribs) { glVertexAttribDivisor(a, 0); glDisableVertexAttribArray(a) }
             glDisableVertexAttribArray(0)
             glDisableVertexAttribArray(1)
@@ -1522,8 +1660,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glUniform3f(loc(lineProgram, "uColor"), 0.08f, 0.08f, 0.1f)
         setSection(lineProgram)
         glLineWidth(2f * pxScale)
-        glBindBuffer(GL_ARRAY_BUFFER, scratchVbo)
-        glBufferData(GL_ARRAY_BUFFER, data.size * 4, floats(data), GL_STREAM_DRAW)
+        glBindBuffer(GL_ARRAY_BUFFER, creaseVbo)
+        if (creaseUp !== data) { glBufferData(GL_ARRAY_BUFFER, data.size * 4, floats(data), GL_STATIC_DRAW); creaseUp = data }
         glEnableVertexAttribArray(0)
         glVertexAttribPointer(0, 3, GL_FLOAT, false, 12, 0)
         glDrawArrays(GL_LINES, 0, data.size / 3)
@@ -1643,8 +1781,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glUniform1i(loc(pointProgram, "uKinds"), 0b111100000)
         glUniform1f(loc(pointProgram, "uPxScale"), pxScale)
         setSection(pointProgram)
-        glBindBuffer(GL_ARRAY_BUFFER, scratchVbo)
-        glBufferData(GL_ARRAY_BUFFER, data.size * 4, floats(data), GL_STREAM_DRAW)
+        glBindBuffer(GL_ARRAY_BUFFER, markerPtsVbo)
+        if (markerPtsUp !== data) { glBufferData(GL_ARRAY_BUFFER, data.size * 4, floats(data), GL_STATIC_DRAW); markerPtsUp = data }
         glEnableVertexAttribArray(0)
         glVertexAttribPointer(0, 3, GL_FLOAT, false, 16, 0)
         glEnableVertexAttribArray(1)
@@ -1696,9 +1834,27 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glEnable(GL_DEPTH_TEST)
     }
 
-    private fun loc(program: Int, name: String) = glGetUniformLocation(program, name)
+    private fun loc(program: Int, name: String) = uloc(program, name)
 
-    private fun floats(a: FloatArray) = ByteBuffer.allocateDirect(maxOf(a.size, 1) * 4).order(ByteOrder.nativeOrder()).asFloatBuffer().put(a).also { it.flip() }
+    /** Reused direct buffer for uploads (GL thread only; glBuffer(Sub)Data copies it before returning). */
+    private var scratch: java.nio.FloatBuffer? = null
+    /** drawMesh per-pass uniform arrays (GL thread only; glUniform* copies them). */
+    private val selScratch = FloatArray(Shaders.MAX_SELECTED)
+    private val m3Scratch = FloatArray(9)
+    private val ONE3 = floatArrayOf(1f, 1f, 1f)
+
+    /** [a] in a direct buffer for one glBuffer(Sub)Data call. Small uploads (per-frame overlays, lines, dots) reuse
+     *  [scratch] instead of an allocateDirect per call; big one-off static uploads get their own buffer so the scratch stays small. */
+    private fun floats(a: FloatArray): java.nio.FloatBuffer {
+        val n = maxOf(a.size, 1)
+        if (n > SCRATCH_MAX_FLOATS) return ByteBuffer.allocateDirect(n * 4).order(ByteOrder.nativeOrder()).asFloatBuffer().put(a).also { it.flip() }
+        val s = scratch?.takeIf { it.capacity() >= n }
+            ?: ByteBuffer.allocateDirect(Integer.highestOneBit(n - 1).coerceAtLeast(512) * 2 * 4).order(ByteOrder.nativeOrder()).asFloatBuffer().also { scratch = it }
+        s.clear()
+        s.put(a)
+        s.flip()
+        return s
+    }
 
     private fun program(vs: String, fs: String): Int {
         fun shader(type: Int, src: String): Int {
@@ -1714,6 +1870,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         glAttachShader(p, shader(GL_VERTEX_SHADER, vs))
         glAttachShader(p, shader(GL_FRAGMENT_SHADER, fs))
         glLinkProgram(p)
+        ULoc.reset(p)
         val ok = IntArray(1)
         glGetProgramiv(p, GL_LINK_STATUS, ok, 0)
         check(ok[0] != 0) { "Program link failed: " + glGetProgramInfoLog(p) }

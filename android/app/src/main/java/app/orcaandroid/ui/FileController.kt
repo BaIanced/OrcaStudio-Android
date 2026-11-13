@@ -9,6 +9,7 @@ import app.orcaandroid.core.PresetType
 import app.orcaandroid.ui.FilamentChoice
 import app.orcaandroid.core.Scene
 import app.orcaandroid.core.RecentFile
+import app.orcaandroid.core.SessionFiles
 import app.orcaandroid.net.FilamentProfiles
 import app.orcaandroid.net.ModelDownloads
 import app.orcaandroid.plugins.Plugins
@@ -42,9 +43,27 @@ class FileController(
         val imported = uris.map { resources.importFile(it) }
         // A zip (a model site's download, "open with") opens the model files inside it.
         val unpacked = withContext(Dispatchers.IO) { imported.map { ModelDownloads.modelFiles(it) } }
-        val all = unpacked.flatten()
+        // glTF / GLB / PLY / OFF are converted to a 3MF, with colors snapped to the filament slots.
+        val slotColors = store.value.filaments.map { app.orcaandroid.core.MeshConvert.parseColor(it.color) }
+        var failedConvert = 0
+        var tooLarge: Long? = null
+        val all = withContext(Dispatchers.IO) {
+            unpacked.flatten().mapNotNull { f ->
+                if (f.extension.lowercase() !in app.orcaandroid.core.MeshConvert.EXTENSIONS) f
+                else try {
+                    app.orcaandroid.core.MeshConvert.convert(f, slotColors) ?: run { failedConvert++; null }
+                } catch (e: app.orcaandroid.core.MeshConvert.TooManyTrianglesException) {
+                    tooLarge = e.triangles
+                    null
+                }
+            }
+        }
+        val tooLargeCount = tooLarge
+        if (tooLargeCount != null) store.toast(store.str(R.string.mesh_too_large, String.format(java.util.Locale.US, "%.1f", tooLargeCount / 1e6)))
+        else if (failedConvert > 0) store.toast(store.str(R.string.mesh_convert_failed))
         if (all.isEmpty()) {
-            store.toast(store.str(R.string.models_no_files))
+            // A conversion message above already says why nothing opened.
+            if (tooLarge == null && failedConvert == 0) store.toast(store.str(R.string.models_no_files))
             return@launch
         }
         // OpenSCAD sources open in the editor; with several (a design and its libraries), the one no other includes.
@@ -210,11 +229,16 @@ class FileController(
 
     // --- Session: the app comes back as it was left, even after Android ended the process ---------------
 
-    private val sessionDir get() = File(store.app.filesDir, "session").apply { mkdirs() }
-    private val sessionProject get() = File(sessionDir, "session.3mf")
-    private val sessionInfo get() = File(sessionDir, "session.json")
+    private val session by lazy { SessionFiles(File(store.app.filesDir, "session").apply { mkdirs() }) }
     /** Auto-save and the save on going to the background share the temporary file. */
     private val sessionLock = Mutex()
+    /**
+     * True once the session restore has run to an end: it succeeded, found no session, or failed and quarantined the
+     * bad pair (the current session is then absent and the pair is safe in `session.bad.*`). An empty plate deletes
+     * the saved session only then; before the restore has run, or while it is cancelled, an empty plate is not the
+     * user's doing.
+     */
+    @Volatile private var sessionLoadedOrAbsent = false
 
     /** Saves the scene, presets and setting changes as a project (called when the app goes to the background). */
     suspend fun saveSession() = sessionLock.withLock {
@@ -222,27 +246,43 @@ class FileController(
         if (s.phase != Phase.READY) return
         // A calibration test cannot be resumed from a project; an empty plate needs no session.
         if (s.scene.isEmpty || s.calibration != null) {
-            sessionProject.delete(); sessionInfo.delete()
+            if (sessionLoadedOrAbsent) withContext(Dispatchers.IO) { session.clear() }
             return@withLock
         }
         presets.syncSelection()
-        val tmp = File(sessionDir, "session.tmp.3mf")
-        engine.saveProject(tmp.path)
-        withContext(Dispatchers.IO) {
-            tmp.renameTo(sessionProject)
-            sessionInfo.writeText(JSONObject().apply {
-                put("projectName", s.projectName ?: "")
-                put("projectDirty", s.projectDirty)
-                put("activePlate", s.activePlate)
-            }.toString())
-        }
+        engine.saveProject(session.tmpProject.path)
+        val info = JSONObject().apply {
+            put("projectName", s.projectName ?: "")
+            put("projectDirty", s.projectDirty)
+            put("activePlate", s.activePlate)
+        }.toString()
+        val saved = withContext(Dispatchers.IO) { session.commit(info) }
+        if (!saved) noteCrashReport("Session save failed: the new session could not replace the old one (the old one was kept).")
     }
 
     /** Restores the last session if the engine has no scene (a fresh start of the process). */
     suspend fun restoreSession() {
-        if (!store.value.scene.isEmpty || !sessionProject.exists()) return
-        val info = runCatching { JSONObject(sessionInfo.readText()) }.getOrNull()
-        openProjectFile(sessionProject, null)
+        if (!store.value.scene.isEmpty) return
+        withContext(Dispatchers.IO) { session.recoverInterrupted() }
+        if (!session.project.exists()) {
+            sessionLoadedOrAbsent = true
+            // A pair kept from an earlier failed restore is still offered.
+            if (session.hasBad()) store.update { it.copy(sessionBad = true) }
+            return
+        }
+        val info = runCatching { JSONObject(session.info.readText()) }.getOrNull()
+        try {
+            openProjectFile(session.project, null)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            android.util.Log.w("Orca", "session not restored", e)
+            withContext(Dispatchers.IO) { session.quarantine() }
+            sessionLoadedOrAbsent = true
+            store.update { it.copy(sessionBad = true) }
+            return
+        }
+        sessionLoadedOrAbsent = true
         store.update {
             it.copy(
                 projectName = info?.optString("projectName")?.ifBlank { null },
@@ -252,20 +292,46 @@ class FileController(
         }
     }
 
+    /** "Try again" on the notice: the kept session becomes the session again and is restored. */
+    fun retryBadSession() = store.launch(store.str(R.string.loading_model)) {
+        // Reopening replaces the scene, so it only runs on an empty plate; the notice stays until then.
+        if (!store.value.scene.isEmpty) {
+            store.toast(store.str(R.string.session_retry_empty_plate))
+            return@launch
+        }
+        store.update { it.copy(sessionBad = false) }
+        sessionLock.withLock {
+            if (!withContext(Dispatchers.IO) { session.restoreBad() }) return@launch
+            sessionLoadedOrAbsent = false
+            restoreSession()
+        }
+    }
+
+    /** "Discard" on the notice: the kept session is deleted. */
+    fun discardBadSession() {
+        store.update { it.copy(sessionBad = false) }
+        store.launch { sessionLock.withLock { withContext(Dispatchers.IO) { session.discardBad() } } }
+    }
+
+    /** Adds a line to the crash report file the app shows on the next start. */
+    private suspend fun noteCrashReport(text: String) = withContext(Dispatchers.IO) {
+        runCatching { File(store.app.filesDir, "crash_report.txt").appendText(text + "\n") }
+    }
+
     fun newProject() = store.launch {
         scene.deleteAll()?.join()
         if (store.value.calibration != null) store.applyScene(engine.calibStop())
         // Like the desktop, a new project starts with one plate.
         val extra = (1 until store.value.scene.plates.size).toList()
         if (extra.isNotEmpty()) store.applyScene(engine.deletePlates(extra))
-        store.update { it.copy(projectName = null, projectDirty = false, calibration = null, results = emptyMap(), external = null, activePlate = 0, sliceError = null) }
+        store.update { it.copy(projectName = null, projectDirty = false, calibration = null, results = emptyMap(), external = null, activePlate = 0, sliceError = null, fitIssue = null) }
     }
 
     fun saveProject(target: Uri) = store.launch(store.str(R.string.saving_project)) {
         presets.syncSelection()
         val tmp = File(outDir, "project.3mf")
         engine.saveProject(tmp.path)
-        copyTo(tmp, target)
+        if (!copyTo(tmp, target)) return@launch
         val name = resources.displayName(target).removeSuffix(".3mf")
         rememberRecent(target, "$name.3mf", true)
         store.update { it.copy(projectName = name, projectDirty = false) }
@@ -275,7 +341,7 @@ class FileController(
     fun exportStl(target: Uri, plate: Int) = store.launch(store.str(R.string.saving)) {
         val tmp = File(outDir, "export.stl")
         engine.exportStl(tmp.path, plate)
-        copyTo(tmp, target)
+        if (!copyTo(tmp, target)) return@launch
         store.toast(store.str(R.string.saved))
     }
 
@@ -288,7 +354,7 @@ class FileController(
 
     fun saveGcode(target: Uri) = store.launch(store.str(R.string.saving)) {
         val file = exportedGcode("File") ?: return@launch
-        copyTo(file, target)
+        if (!copyTo(file, target)) return@launch
         toastSaved()
     }
 
@@ -327,7 +393,7 @@ class FileController(
     /** Saves the preview plate as a sliced-plate archive (.gcode.3mf, as Bambu printers and the desktop use). */
     fun saveGcode3mf(target: Uri) = store.launch(store.str(R.string.saving)) {
         val archive = exportGcode3mf() ?: return@launch
-        copyTo(archive, target)
+        if (!copyTo(archive, target)) return@launch
         toastSaved()
     }
 
@@ -362,7 +428,13 @@ class FileController(
         store.update { it.copy(recents = settings.recents) }
     }
 
-    private suspend fun copyTo(file: File, target: Uri) = withContext(Dispatchers.IO) {
-        store.app.contentResolver.openOutputStream(target, "wt")!!.use { out -> file.inputStream().use { it.copyTo(out) } }
+    /** Copies [file] to [target]; false (with a "Not saved" toast) when the bytes written differ from the source length. */
+    private suspend fun copyTo(file: File, target: Uri): Boolean {
+        val written = withContext(Dispatchers.IO) {
+            store.app.contentResolver.openOutputStream(target, "wt")!!.use { out -> file.inputStream().use { it.copyTo(out) } }
+        }
+        if (written == file.length()) return true
+        store.toast(store.str(R.string.not_saved))
+        return false
     }
 }

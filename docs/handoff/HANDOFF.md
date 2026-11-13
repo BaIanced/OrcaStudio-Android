@@ -1,4 +1,4 @@
-# Handoff: OrcaStudio-Android + OrcaStudio aarch64 Flatpak (hot file, 2026-10-13)
+# Handoff: OrcaStudio-Android + OrcaStudio aarch64 Flatpak (hot file, 2026-11-12)
 
 Read this first. Don't use any title for the user ("Supreme Master" was a joke; never use it).
 - `HANDOFF-REFERENCE.md`: devices, tools, build commands, recipes. **Read its device section before driving a device.**
@@ -13,12 +13,12 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 ## State
 - One repo: OrcaStudio-Android (code + these docs, `docs/handoff/`), branch `claude/handoff-continuation-rseql3`. Autonomy (user, 2026-10-11): decide branches and next steps
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
-- Android main = 3e64ddb (PR #72 = r519, lint triage + patch 0005 + Sync type fix + README, merged 2026-11-04; Claude-verified only; PR #71 = r514 before it). Nothing unverified on the branch; no merge offer pending. User-untested in main: list in `NOTES-merge-batch.md`.
+- Android main = 62ada99 (PR #73 = r521, multi-plate Preview, merged 2026-11-04; Claude-verified only; PR #72 = r519 before it). Branch work is Claude-verified only; no merge offer pending. User-untested in main: `SIGNOFF-CHECKLIST.md`.
 - Signing secrets: `release` environment (main + `claude/*` only).
-- Latest installed CI build: r521 (run 41890673347, head dfce295, has multi-plate Preview) on the phone (.20) + WSA 2026-11-04 (WSA restarted: `WsaClient /shutdown`, `wsa-start.ps1`, `adb connect 127.0.0.1:58526`); Chromebook not on adb (r496): install r521 there when back. **User 2026-11-01: avoid the SHIELD for now** (no installs there). Phone drops off adb: `adb connect <phone-ip>:5555` (memory device-ips); GL shots on the phone VD. Install builds on all adb devices (skip .23).
+- Installs: all adb devices (skip .23); **SHIELD avoided (user 2026-11-01)**. WSA restart: `WsaClient /shutdown`, `wsa-start.ps1`, `adb connect 127.0.0.1:58526`; phone/Chromebook reconnect: memory devices. GL shots on the phone VD.
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **User 2026-10-28: no more user testing for now; Claude builds and tests everything itself (memory no-user-testing-now); don't ask for feel/UI checks.**
-- **User 2026-10-29: no tests on the user's screen; all tests on a hidden virtual display** (`TARGET=wsa orca-vd.sh start`, memory tests-on-virtual-display).
+- **User 2026-10-29: no tests on the user's screen; all tests on a hidden virtual display** (`TARGET=wsa orca-vd.sh start`, memory devices).
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
   WSA `127.0.0.1:58526`; **USB serial = the user's SHIELD TV** (rooted; installs only). No printer tests (user away).
@@ -26,18 +26,18 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Session backups: phone `/data/local/tmp/phone-session-backup.{3mf,json}`, WSA `/data/local/tmp/session-backup.{3mf,json}`. `scadzip-test.zip` stays in `/sdcard/Download` (phone, Chromebook). Never write the LAN access code anywhere.
 ## Next task
 - **User 2026-10-21: design deviations pre-approved** ("deviate if you find a more logical, intuitive way; I trust your judgement"); say what changed.
-- Muse (tasks 1-18 merged): `NOTES-muse.md`, only when sending Muse work.
-- **Merge batch (user 2026-10-28: main = user-tested): `NOTES-merge-batch.md`** (cuts agreed, printer set release-gated, sessions A-D).
+- Muse: `NOTES-muse.md` (only when sending Muse work).
+- main = Claude-verified pre-release; archive lines carry one label: source-checked / device-checked (build, command) / user-checked.
+- Phone debug recipe, WSA VD, VD taps, GL shots: archive "2026-11-09 Trimmed from handoff" / "Moved from handoff"; reference "Headless display".
 - Local tests: `wsa-debug-rebuild.sh [native]` (reference "WSA debug loop"); fresh app: `wsa-debug-setup.sh` first. Lab prefs: edit `layout_lab` JSON in debug `shared_prefs/app_settings.xml` with run-as sed (app stopped).
-- **Offload (user 2026-10-25/26): max work onto free opencode models** (DeepSeek V4.1 Flash, `octauto.sh`, `D:\oct-backup\jobs\README.md`, ledger `trust-profile.md`).
-- WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
-- VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
-- Open tests in backlog.
-- GOAT batch, perf audit, lint/R8 triage, README rewrite, r519 Sync pick: all closed (archive 2026-11-04; leftovers in backlog).
-- Multi-plate Preview (user task 2026-11-04, 027400c, pushed): Claude-verified on the phone VD with a local debug build (archive 2026-11-04); in CI build r521 (phone + WSA), not in main.
-- User's bigger vision (same day, exploration, NOT locked; backlog "Ideas: Assemble space / big plate"): zero-g Assemble space (no plate, CAD tools + measuring, first VR step),
-  big/infinite plate or 4x4 plates, on exit auto-orient + "too big" fix = suggested cut for gluing. Reply with leanings, ask before building.
-- Next step: offer the main merge (multi-plate Preview, r521, Claude-verified only); Chromebook install when on adb -> Sonnet 5.5 (low)
+- **Offload (user 2026-10-25/26): max work onto free opencode models** (memory offload).
+- Two-Claude chat: `claudechat.md`; Monitor its `## ` count (section 7), 30 min, re-arm. Quest numbers: `NOTES-quest-profile.md`.
+- GLB/glTF/PLY/OFF import committed 63ebb8a (open: push; Muse tasks 22-25); Assemble A1+A2+"Update on plate" verified; A3 designed, not coded. Details: archive "2026-11-12 Trimmed from handoff".
+- **Audit plan running (user answers: `docs/audit/ANSWERS.md`, read before asking).** docs/audit/ is local-only, ticks not committed. **Batch 1 done: T-001..T-019 `[x]` except T-003 `[!]` (backlog [Opus] patch rebase).** T-010 left 59 UNCONFIRMED licence rows (backlog [Opus]). One task at a time (shared Gradle dir + one WSA). A3 phase (a) parked. C-12 TLS pinning needs the user at the printer: ask first.
+- Coordinator (user 2026-11-12): the session runs on Sonnet and never implements: dispatch a subagent with the task's own model/effort tags, verify `done when`, commit, tick. Task results go in the MASTER-PLAN tick + one archive line, not here. Go task after task without stopping. Name inquiry #17269: bump after 2026-11-19.
+- **T-019 gate passed 2026-11-12 on 5bcef51 (r548, CI run 43346116062, on WSA only; archive "T-019"). Merge offer for batch 1 shown to the user; waiting for their yes (then PR work branch -> main; PR text without AI attribution).** Batch 2 (T-020 baseline shots) starts only after the merge (`depends on: T-019 merged`).
+- Open for the user: `gh variable set RELEASE_CERT_SHA256` (T-006); blank `Verdict (user)` line in memory cheaper-subagents; move docs/handoff to a private repo before T-038 (backlog).
+- Next step: on the user's merge yes, merge batch 1 then T-020 baseline shots -> Sonnet 5.5 (coordinator; the subagent model is the task tag)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 

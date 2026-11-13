@@ -54,6 +54,17 @@ class ResourceStore(private val context: Context) {
             prefs.edit().putLong("resources_version", version).apply()
         }
         listOf(dataDir, projectsDir, importDir).forEach { it.mkdirs() }
+        // Nothing of this session is imported yet at start, so anything old in the cache is unreferenced.
+        pruneOld(importDir, System.currentTimeMillis() - 7L * 24 * 3600 * 1000)
+    }
+
+    private fun pruneOld(dir: File, olderThan: Long) {
+        runCatching {
+            dir.listFiles()?.forEach { f ->
+                if (f.isDirectory) { pruneOld(f, olderThan); if (f.listFiles().isNullOrEmpty()) f.delete() }
+                else if (f.lastModified() < olderThan) f.delete()
+            }
+        }
     }
 
     fun availableVendors(): List<Vendor> {

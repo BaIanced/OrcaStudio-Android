@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AlignHorizontalCenter
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Opacity
+import androidx.compose.material.icons.filled.ViewInAr
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.CallSplit
@@ -271,6 +272,10 @@ private fun Toolbar(s: ScadEditorState, vm: AppViewModel) {
                 Icon(when (others) { 0 -> Icons.Default.Opacity; 1 -> Icons.Default.Visibility; else -> Icons.Default.VisibilityOff },
                     stringResource(R.string.build_others))
             }
+        }
+        Tip(stringResource(R.string.build_printer)) {
+            val on = vm.state.collectAsState().value.buildPrinter
+            IconToggleButton(on, { vm.toggleBuildPrinter() }) { Icon(Icons.Default.ViewInAr, stringResource(R.string.build_printer)) }
         }
         Tip(stringResource(R.string.move_lock)) {
             val lock = vm.state.collectAsState().value.moveLock

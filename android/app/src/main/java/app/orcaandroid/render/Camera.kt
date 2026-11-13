@@ -24,6 +24,11 @@ class Camera {
      * the size perspective would (half height = distance * tan(FOV / 2)), so zoom, pan and fit keep their feel.
      */
     @Volatile var perspective = true
+        set(v) { field = v; changed() }
+
+    /** Called after every view change (any thread), so an on-demand view can draw a frame. */
+    @Volatile var onChange: (() -> Unit)? = null
+    private fun changed() { onChange?.invoke() }
 
     /** Yaw, pitch, distance and target, for [restore] in a new view. */
     @Synchronized fun state() = floatArrayOf(yaw, pitch, distance, target[0], target[1], target[2])
@@ -31,6 +36,7 @@ class Camera {
     @Synchronized fun restore(s: FloatArray) {
         yaw = s[0]; pitch = s[1]; distance = s[2]
         for (i in 0..2) target[i] = s[3 + i]
+        changed()
     }
 
     @Synchronized fun viewportSize() = width to height
@@ -50,6 +56,7 @@ class Camera {
         distance = diag * (if (aspect < 1f) 1.8f / aspect else 1.5f) + 20f
         yaw = -60f
         pitch = if (top) 89f else 40f
+        changed()
     }
 
     /** Looks at the box [min]..[max] from the iso direction (or the current one with [keepAngles]) so that it fills the view. */
@@ -62,9 +69,8 @@ class Camera {
         // Distance at which a sphere around the box fits the narrower field of view.
         val half = Math.toRadians(FOV / 2.0).let { kotlin.math.tan(it) }.toFloat() * minOf(1f, aspect)
         distance = (radius / half * 1.1f).coerceIn(5f, 10000f)
-        if (keepAngles) return
-        yaw = -60f
-        pitch = 30f
+        if (!keepAngles) { yaw = -60f; pitch = 30f }
+        changed()
     }
 
     /** Looks level at the box [min]..[max] from its mid height, from the side (yaw a multiple of 90) nearest the current view. */
@@ -77,10 +83,12 @@ class Camera {
     @Synchronized fun orbit(dxDeg: Float, dyDeg: Float) {
         yaw -= dxDeg
         pitch = (pitch + dyDeg).coerceIn(-89f, 89f)
+        changed()
     }
 
     @Synchronized fun zoom(factor: Float) {
         distance = (distance / factor).coerceIn(5f, 10000f)
+        changed()
     }
 
     /**
@@ -129,6 +137,7 @@ class Camera {
         val (r, u) = axes()
         val f = towardsEye()
         for (i in 0..2) target[i] = p.at(i) + a * f.at(i) + b * r[i] + c * u[i]
+        changed()
     }
 
     private fun Vec3.at(i: Int) = when (i) { 0 -> x; 1 -> y; else -> z }
@@ -141,6 +150,7 @@ class Camera {
         val scale = 2f * distance * kotlin.math.tan(Math.toRadians(FOV / 2.0)).toFloat() / height
         val (r, u) = axes()
         for (i in 0..2) target[i] += (-dx * r[i] + dy * u[i]) * scale
+        changed()
     }
 
     /**
@@ -167,6 +177,7 @@ class Camera {
         target[0] += a.x - b.x
         target[1] += a.y - b.y
         target[2] += a.z - b.z
+        changed()
     }
 
     /** Sets any of yaw / pitch (degrees), distance (mm) and target; null leaves it as it is. */
@@ -175,6 +186,7 @@ class Camera {
         pitch?.let { this.pitch = it.coerceIn(-89f, 89f) }
         distance?.let { this.distance = it.coerceIn(5f, 10000f) }
         target?.let { this.target[0] = it.x; this.target[1] = it.y; this.target[2] = it.z }
+        changed()
     }
 
     /** View preset: 0 iso, 1 top, 2 front, 3 left, 4 right, 5 bottom, 6 rear. */
@@ -188,6 +200,7 @@ class Camera {
             6 -> { yaw = 90f; pitch = 0f }
             else -> { yaw = -60f; pitch = 40f }
         }
+        changed()
     }
 
     /** Screen pixel of world point [p], or null when it lies behind the camera. */

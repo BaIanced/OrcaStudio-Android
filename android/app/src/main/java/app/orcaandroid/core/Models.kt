@@ -46,6 +46,12 @@ data class PresetRef(
     val brandName get() = brand.ifEmpty { vendor.ifEmpty { "Generic" } }
 }
 
+/**
+ * A copy that doesn't fit the printer as posed ([Engine.fitCheck]): its print-pose [size] and the [bed] (w, d, height),
+ * mm; [fix] = "turn" (about Z), "orient" (auto-orient) or "lay" (on another side), null when none fits (too big).
+ */
+data class FitIssue(val obj: Int, val instance: Int, val name: String, val size: List<Float>, val bed: List<Float>, val fix: String?)
+
 data class PrinterSetup(
     val prints: List<PresetRef>,
     val filaments: List<PresetRef>,

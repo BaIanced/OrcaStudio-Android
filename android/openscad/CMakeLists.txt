@@ -70,13 +70,16 @@ endfunction()
 # --- OpenSCAD's own dependencies ---------------------------------------------------------------
 scad_dep(utf8proc
     URL https://github.com/JuliaStrings/utf8proc/archive/refs/tags/v2.10.0.tar.gz
+    URL_HASH SHA256=6f4f1b639daa6dca9f80bc5db1233e9cbaa31a67790887106160b33ef743f136
     CMAKE_ARGS -DUTF8PROC_ENABLE_TESTING=OFF -DUTF8PROC_INSTALL=ON)
 
 scad_dep(double_conversion
-    URL https://github.com/google/double-conversion/archive/refs/tags/v3.3.1.tar.gz)
+    URL https://github.com/google/double-conversion/archive/refs/tags/v3.3.1.tar.gz
+    URL_HASH SHA256=fe54901055c71302dcdc5c3ccbe265a6c191978f3761ce1414d0895d6b0ea90e)
 
 scad_dep(libzip
     URL https://github.com/nih-at/libzip/releases/download/v1.11.4/libzip-1.11.4.tar.xz
+    URL_HASH SHA256=8a247f57d1e3e6f6d11413b12a6f28a9d388de110adc0ec608d893180ed7097b
     CMAKE_ARGS -DENABLE_BZIP2=OFF -DENABLE_LZMA=OFF -DENABLE_ZSTD=OFF -DENABLE_OPENSSL=OFF
                -DENABLE_GNUTLS=OFF -DENABLE_MBEDTLS=OFF -DENABLE_COMMONCRYPTO=OFF
                -DENABLE_WINDOWS_CRYPTO=OFF -DBUILD_TOOLS=OFF -DBUILD_REGRESS=OFF
@@ -84,12 +87,14 @@ scad_dep(libzip
 
 scad_dep(libxml2
     URL https://github.com/GNOME/libxml2/archive/refs/tags/v2.14.6.tar.gz
+    URL_HASH SHA256=546ab74561c040df210c88dbd3c652bf509d826954ab2002c8973f1fa8d10130
     CMAKE_ARGS -DLIBXML2_WITH_ICONV=OFF -DLIBXML2_WITH_ICU=OFF -DLIBXML2_WITH_LZMA=OFF
                -DLIBXML2_WITH_ZLIB=OFF -DLIBXML2_WITH_PYTHON=OFF -DLIBXML2_WITH_PROGRAMS=OFF
                -DLIBXML2_WITH_TESTS=OFF -DLIBXML2_WITH_HTTP=OFF -DLIBXML2_WITH_DOCS=OFF)
 
 scad_dep(harfbuzz
     URL https://github.com/harfbuzz/harfbuzz/releases/download/11.5.1/harfbuzz-11.5.1.tar.xz
+    URL_HASH SHA256=972a60a8d274d49e70361da6920c3a73dfb0fb4387f6c6811906a47ba634d8a1
     CMAKE_ARGS -DHB_HAVE_FREETYPE=ON -DHB_HAVE_GLIB=OFF -DHB_HAVE_ICU=OFF -DHB_HAVE_GOBJECT=OFF
                -DHB_BUILD_SUBSET=OFF -DHB_BUILD_UTILS=OFF -DHB_HAVE_INTROSPECTION=OFF)
 
@@ -135,6 +140,7 @@ Cflags: -I\${includedir}
 ExternalProject_Add(dep_fontconfig
     EXCLUDE_FROM_ALL ON
     URL https://gitlab.freedesktop.org/api/v4/projects/890/packages/generic/fontconfig/2.17.1/fontconfig-2.17.1.tar.xz
+    URL_HASH SHA256=9f5cae93f4fffc1fbc05ae99cdfc708cd60dfd6612ffc0512827025c026fa541
     DOWNLOAD_DIR ${DL_DIR}/fontconfig
     CONFIGURE_COMMAND env PKG_CONFIG_SYSROOT_DIR= meson setup <BINARY_DIR> <SOURCE_DIR>
         --cross-file ${MESON_CROSS} --prefix ${SCAD_PREFIX} --libdir lib --buildtype release

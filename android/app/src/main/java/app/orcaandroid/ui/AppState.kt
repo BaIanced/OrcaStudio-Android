@@ -210,6 +210,8 @@ data class UiState(
     val snapBuild: Boolean = true,
     /** The plate's other objects in the Build workspace: 0 ghosted, 1 solid, 2 hidden. */
     val buildOthers: Int = 0,
+    /** Build workspace: the printer volume ghost under the object. */
+    val buildPrinter: Boolean = true,
     /** The move lock button: -1 free, 0 drags move along X only, 1 along Y only (session only). */
     val moveLock: Int = -1,
     /** Add menu: separate code and shape builder rows (else one "Design" row). */
@@ -312,6 +314,10 @@ data class UiState(
     val results: Map<Int, SliceResult> = emptyMap(),
     /** Why the last slice failed (plate, message), shown on the 3D view (Notices); cleared by the next slice. */
     val sliceError: Pair<Int, String>? = null,
+    /** A copy that doesn't fit the printer (checked on leaving the builder and on a slice with nothing inside), shown in Notices. */
+    val fitIssue: app.orcaandroid.core.FitIssue? = null,
+    /** The last session could not be opened and was kept aside; Notices offers Try again / Discard. */
+    val sessionBad: Boolean = false,
     val previewPlate: Int = 0,
     /** An opened external G-code file (preview only). */
     val external: SliceResult? = null,

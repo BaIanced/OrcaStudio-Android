@@ -20,6 +20,8 @@ class SliceController(private val store: Store, private val presets: PresetContr
     private val engine = store.engine
     private val progress = store.container.sliceProgress
 
+    init { store.container.cancelSlice = ::cancelSlice }
+
     /** In-flight G-code tool-change parses per plate (Task 11); a plate's parse is cancelled when it is re-sliced. */
     private val parseJobs = mutableMapOf<Int, Job>()
 
@@ -50,12 +52,15 @@ class SliceController(private val store: Store, private val presets: PresetContr
     private fun promote(): Boolean {
         engine.keepSlice()
         var promoted = false
+        var current: SliceStatus.Running? = null
         store.update { s ->
             val r = s.slice as? SliceStatus.Running
-            if (r == null || !r.background) s else { promoted = true; s.copy(slice = r.copy(background = false), sliceError = null) }
+            if (r == null || !r.background) s else { promoted = true; current = r; s.copy(slice = r.copy(background = false), sliceError = null) }
         }
         if (promoted) {
             userCancelled = false
+            // Before the service starts: it stops itself when the first value it sees is null.
+            progress.value = SliceProgress(current?.percent ?: 0, current?.text ?: store.str(R.string.preparing))
             runCatching { SliceService.start(store.app) }
         }
         return promoted
@@ -65,7 +70,8 @@ class SliceController(private val store: Store, private val presets: PresetContr
         parseJobs.remove(plate)?.cancel()
         if (!background) userCancelled = false
         val preparing = store.str(R.string.preparing)
-        store.update { it.copy(slice = SliceStatus.Running(plate, 0, preparing, background), sliceError = if (background) it.sliceError else null) }
+        store.update { it.copy(slice = SliceStatus.Running(plate, 0, preparing, background), sliceError = if (background) it.sliceError else null,
+            fitIssue = if (background) it.fitIssue else null) }
         if (!background) {
             progress.value = SliceProgress(0, preparing)
             runCatching { SliceService.start(store.app) }
@@ -106,6 +112,9 @@ class SliceController(private val store: Store, private val presets: PresetContr
             // The failure a user cancel makes is not an error (user 2026-10-28): no badge.
             android.util.Log.w("OrcaSlice", "slice failed", e)
             if (!userCancelled) store.update { it.copy(sliceError = plate to (e.message ?: e.toString())) }
+            // Any failure: say which object is too big and offer a turn / lay that fits. Not only on "inside the
+            // print volume": an oversized object often fails first on the prime tower spot (WSA r524, 2026-11-04).
+            if (!userCancelled) store.checkFit()
         } finally {
             progress.value = null
             store.update { it.copy(slice = SliceStatus.Idle) }

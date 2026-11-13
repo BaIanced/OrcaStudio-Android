@@ -1,0 +1,50 @@
+name: Bug report
+description: Something in the app does not work
+labels: [bug]
+body:
+  - type: input
+    id: build
+    attributes:
+      label: App build
+      description: Shown in About, for example 0.1.2-r522
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device and Android version
+      placeholder: Phone or tablet model, Android 15
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where
+      options:
+        - Import or open
+        - Prepare (plate, arrange, tools)
+        - Making or editing a model
+        - Slicing or preview
+        - Sending or printing
+        - Settings or profiles
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps
+      description: What you tapped, what you expected, what happened
+    validations:
+      required: true
+  - type: textarea
+    id: crash
+    attributes:
+      label: Crash text or screenshot
+      description: Remove serial numbers, IP addresses and access codes first
+  - type: checkboxes
+    id: upstream
+    attributes:
+      label: Slicing results
+      options:
+        - label: This is not a toolpath or profile problem that also happens in desktop OrcaSlicer

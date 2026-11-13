@@ -235,6 +235,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         store.update { it.copy(buildOthers = next) }
     }
 
+    /** Build workspace: the printer volume ghost on or off. */
+    fun toggleBuildPrinter() {
+        val next = !state.value.buildPrinter
+        store.settings.buildPrinter = next
+        store.update { it.copy(buildPrinter = next) }
+    }
+
     /** The move lock button: free -> X -> Y -> free. */
     fun cycleMoveLock() = store.update { it.copy(moveLock = if (it.moveLock >= 1) -1 else it.moveLock + 1) }
 
@@ -286,6 +293,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     override fun onCleared() {
         mcp.stop()
+        // The notification's Cancel must not reach this cleared controller.
+        if (store.container.cancelSlice == slicing::cancelSlice) store.container.cancelSlice = null
         super.onCleared()
     }
 
@@ -325,6 +334,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun dismissError() = store.update { it.copy(error = null) }
     fun dismissSliceError() = store.update { it.copy(sliceError = null) }
+    fun dismissFit() = store.update { it.copy(fitIssue = null) }
     fun dismissMessage() = store.update { it.copy(message = null, messageAction = null) }
     fun setScadHidden(hidden: Boolean) = store.update { it.copy(scadHidden = hidden) }
     fun setScadOnPlate(onPlate: Boolean) = store.update { it.copy(scadOnPlate = onPlate) }

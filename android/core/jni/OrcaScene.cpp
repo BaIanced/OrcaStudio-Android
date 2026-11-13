@@ -13,7 +13,9 @@
 #include <cmath>
 #include <cstdio>
 #include <fstream>
+#include <limits>
 #include <map>
+#include <optional>
 #include <set>
 #include <stdexcept>
 
@@ -992,6 +994,222 @@ json OrcaEngine::auto_orient(int object)
             orientation::orient(inst);
         drop_to_bed(*obj);
     }
+    return commit();
+}
+
+namespace {
+
+// Printer fit (Assemble A2): the printable parts' convex hulls against the bed polygon and printable height.
+struct FitBed
+{
+    std::vector<Vec2d> area;
+    BoundingBoxf       box;
+    double             height = 0.;
+    bool               rect   = true;
+};
+
+FitBed fit_bed(const DynamicPrintConfig &cfg)
+{
+    FitBed bed;
+    if (const auto *area = cfg.option<ConfigOptionPoints>("printable_area"))
+        bed.area = area->values;
+    for (const Vec2d &p : bed.area)
+        bed.box.merge(p);
+    if (!bed.box.defined)
+        bed.box = BoundingBoxf(Vec2d(0., 0.), Vec2d(200., 200.));
+    bed.height = cfg.has("printable_height") ? cfg.opt_float("printable_height") : 0.;
+    // A rectangle needs only the extent test; other shapes (round beds) test every hull point.
+    bed.rect = bed.area.size() == 4 && std::all_of(bed.area.begin(), bed.area.end(), [&](const Vec2d &p) {
+                   return (std::abs(p.x() - bed.box.min.x()) < 1e-6 || std::abs(p.x() - bed.box.max.x()) < 1e-6) &&
+                          (std::abs(p.y() - bed.box.min.y()) < 1e-6 || std::abs(p.y() - bed.box.max.y()) < 1e-6);
+               });
+    return bed;
+}
+
+// Object-frame points of the printable parts' convex hulls.
+std::vector<Vec3d> part_hull_points(const ModelObject &obj)
+{
+    std::vector<Vec3d> pts;
+    for (const ModelVolume *v : obj.volumes)
+        if (v->is_model_part()) {
+            const Transform3d m = v->get_matrix();
+            for (const stl_vertex &p : v->get_convex_hull().its.vertices)
+                pts.emplace_back(m * p.cast<double>());
+        }
+    return pts;
+}
+
+// Andrew's monotone chain, counter-clockwise.
+std::vector<Vec2d> hull_2d(std::vector<Vec2d> p)
+{
+    std::sort(p.begin(), p.end(), [](const Vec2d &a, const Vec2d &b) { return a.x() < b.x() || (a.x() == b.x() && a.y() < b.y()); });
+    if (p.size() < 3)
+        return p;
+    const auto cross = [](const Vec2d &o, const Vec2d &a, const Vec2d &b) {
+        return (a.x() - o.x()) * (b.y() - o.y()) - (a.y() - o.y()) * (b.x() - o.x());
+    };
+    std::vector<Vec2d> h(2 * p.size());
+    size_t k = 0;
+    for (size_t i = 0; i < p.size(); ++i) {
+        while (k >= 2 && cross(h[k - 2], h[k - 1], p[i]) <= 0)
+            --k;
+        h[k++] = p[i];
+    }
+    for (size_t i = p.size() - 1, t = k + 1; i > 0; --i) {
+        while (k >= t && cross(h[k - 2], h[k - 1], p[i - 1]) <= 0)
+            --k;
+        h[k++] = p[i - 1];
+    }
+    h.resize(k - 1);
+    return h;
+}
+
+bool inside_polygon(const std::vector<Vec2d> &poly, const Vec2d &q)
+{
+    bool in = false;
+    for (size_t i = 0, j = poly.size() - 1; i < poly.size(); j = i++)
+        if ((poly[i].y() > q.y()) != (poly[j].y() > q.y()) &&
+            q.x() < (poly[j].x() - poly[i].x()) * (q.y() - poly[i].y()) / (poly[j].y() - poly[i].y()) + poly[i].x())
+            in = !in;
+    return in;
+}
+
+// The smallest Z turn (degrees, 0, 1, -1, ... 90) at which the points under `linear` fit the bed, centred on it.
+std::optional<double> fitting_turn(const std::vector<Vec3d> &pts, const Matrix3d &linear, const FitBed &bed)
+{
+    constexpr double EPS = 1e-3;
+    double zmin = std::numeric_limits<double>::max(), zmax = -zmin;
+    std::vector<Vec2d> flat;
+    flat.reserve(pts.size());
+    for (const Vec3d &p : pts) {
+        const Vec3d q = linear * p;
+        zmin = std::min(zmin, q.z());
+        zmax = std::max(zmax, q.z());
+        flat.emplace_back(q.x(), q.y());
+    }
+    if (bed.height > 0. && zmax - zmin > bed.height + EPS)
+        return std::nullopt;
+    const std::vector<Vec2d> hull = hull_2d(std::move(flat));
+    const Vec2d bed_size = bed.box.size(), bed_mid = bed.box.center();
+    std::vector<Vec2d> turned(hull.size());
+    for (int step = 0; step < 180; ++step) {
+        const double deg = step % 2 ? double((step + 1) / 2) : -double(step / 2);
+        const double c = std::cos(deg * PI / 180.), s = std::sin(deg * PI / 180.);
+        BoundingBoxf box;
+        for (size_t i = 0; i < hull.size(); ++i) {
+            turned[i] = Vec2d(c * hull[i].x() - s * hull[i].y(), s * hull[i].x() + c * hull[i].y());
+            box.merge(turned[i]);
+        }
+        const Vec2d size = box.size();
+        if (size.x() > bed_size.x() + EPS || size.y() > bed_size.y() + EPS)
+            continue;
+        if (!bed.rect) {
+            const Vec2d shift = bed_mid - box.center();
+            if (!std::all_of(turned.begin(), turned.end(), [&](const Vec2d &p) { return inside_polygon(bed.area, p + shift); }))
+                continue;
+        }
+        return deg;
+    }
+    return std::nullopt;
+}
+
+struct FitPose
+{
+    std::string kind; // "none" (fits as is), "turn" (Z turn), "orient" (auto-orient), "lay" (90 / 180 degree lay)
+    Matrix3d    rotation;
+};
+
+// The first pose that fits: the current one turned about Z, auto-orient's pick, then lays on another side.
+std::optional<FitPose> find_fit(ModelInstance &inst, const std::vector<Vec3d> &pts, const FitBed &bed)
+{
+    const Matrix3d r0 = Geometry::rotation_transform(inst.get_rotation()).linear();
+    const Matrix3d below = r0.transpose() * inst.get_matrix().linear(); // scale and mirror
+    const auto turn = [](double deg, const Vec3d &axis) { return Matrix3d(Eigen::AngleAxisd(deg * PI / 180., axis)); };
+    const auto attempt = [&](const std::string &kind, const Matrix3d &r) -> std::optional<FitPose> {
+        if (const auto deg = fitting_turn(pts, r * below, bed))
+            return FitPose{kind == "turn" && *deg == 0. ? "none" : kind, turn(*deg, Vec3d::UnitZ()) * r};
+        return std::nullopt;
+    };
+    if (auto f = attempt("turn", r0))
+        return f;
+    const Geometry::Transformation keep = inst.get_transformation();
+    orientation::orient(&inst);
+    const Matrix3d oriented = Geometry::rotation_transform(inst.get_rotation()).linear();
+    inst.set_transformation(keep);
+    if (auto f = attempt("orient", oriented))
+        return f;
+    for (const auto &[deg, axis] : {std::pair{90., Vec3d::UnitX()}, std::pair{-90., Vec3d::UnitX()}, std::pair{90., Vec3d::UnitY()},
+                                    std::pair{-90., Vec3d::UnitY()}, std::pair{180., Vec3d::UnitX()}})
+        if (auto f = attempt("lay", turn(deg, axis) * r0))
+            return f;
+    return std::nullopt;
+}
+
+} // namespace
+
+json OrcaEngine::fit_check(int object)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    require_printer();
+    const FitBed bed = fit_bed(m_bundle->printers.get_selected_preset().config);
+    json out = json::array();
+    for (size_t oi = 0; oi < m_model->objects.size(); ++oi) {
+        if (object >= 0 && int(oi) != object)
+            continue;
+        ModelObject &obj = *m_model->objects[oi];
+        const std::vector<Vec3d> pts = part_hull_points(obj);
+        if (pts.empty())
+            continue;
+        for (size_t ii = 0; ii < obj.instances.size(); ++ii) {
+            ModelInstance &inst = *obj.instances[ii];
+            const auto fit = find_fit(inst, pts, bed);
+            if (fit && fit->kind == "none")
+                continue;
+            BoundingBoxf3 box;
+            const Matrix3d linear = inst.get_matrix().linear();
+            for (const Vec3d &p : pts)
+                box.merge(Vec3d(linear * p));
+            const Vec3d size = box.size();
+            out.push_back({{"object", oi}, {"instance", ii}, {"name", obj.name},
+                           {"size", {size.x(), size.y(), size.z()}},
+                           {"bed", {bed.box.size().x(), bed.box.size().y(), bed.height}},
+                           {"fix", fit ? json(fit->kind) : json(nullptr)}});
+        }
+        obj.invalidate_bounding_box();
+    }
+    return json{{"issues", out}};
+}
+
+json OrcaEngine::fit_to_printer(int object)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    require_printer();
+    ModelObject &obj = object_at(object);
+    const FitBed bed = fit_bed(m_bundle->printers.get_selected_preset().config);
+    const std::vector<Vec3d> pts = part_hull_points(obj);
+    std::vector<std::pair<size_t, Matrix3d>> fixes;
+    for (size_t ii = 0; ii < obj.instances.size(); ++ii)
+        if (const auto fit = find_fit(*obj.instances[ii], pts, bed); fit && fit->kind != "none")
+            fixes.emplace_back(ii, fit->rotation);
+    obj.invalidate_bounding_box();
+    if (fixes.empty())
+        throw std::runtime_error("No turn or lay makes this object fit the printer");
+    push_undo();
+    const std::array<double, 4> rect = bed_rect();
+    for (const auto &[ii, rotation] : fixes) {
+        const int plate = std::max(0, plate_of(obj, ii));
+        ModelInstance *inst = obj.instances[ii];
+        Geometry::Transformation t = inst->get_transformation();
+        t.set_rotation(Geometry::extract_euler_angles(rotation));
+        inst->set_transformation(t);
+        obj.invalidate_bounding_box();
+        // Centre the copy on its plate, where the fit was measured.
+        const auto o = origin_of(plate, m_plates.size(), rect);
+        const Vec3d c = obj.instance_bounding_box(ii).center();
+        inst->set_offset(inst->get_offset() + Vec3d(o[0] + (rect[0] + rect[2]) / 2 - c.x(), o[1] + (rect[1] + rect[3]) / 2 - c.y(), 0.));
+        obj.invalidate_bounding_box();
+    }
+    drop_to_bed(obj);
     return commit();
 }
 

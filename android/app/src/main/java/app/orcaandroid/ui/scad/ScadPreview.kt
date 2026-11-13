@@ -52,6 +52,7 @@ import app.orcaandroid.ui.ScadEditorState
 fun ScadPreviewPane(s: ScadEditorState, vm: AppViewModel, modifier: Modifier = Modifier) {
     val ui by vm.state.collectAsState()
     var view by remember { mutableStateOf<MeshPreviewView?>(null) }
+    app.orcaandroid.render.GlLifecycle(view)
     val scheme = MaterialTheme.colorScheme
     val background = scheme.surfaceContainerHighest.rgb()
     val grid = scheme.outlineVariant.rgb()

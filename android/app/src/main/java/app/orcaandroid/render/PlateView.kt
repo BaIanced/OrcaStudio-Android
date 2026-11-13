@@ -344,7 +344,12 @@ class PlateView(context: Context) : GLSurfaceView(context) {
         setEGLConfigChooser(MsaaConfigChooser())
         preserveEGLContextOnPause = true
         setRenderer(renderer)
-        renderMode = RENDERMODE_CONTINUOUSLY
+        // On demand (battery audit 2026-11-06: a still scene redrew at 165 fps, idle current = orbit current). Frames come
+        // from camera changes, GL-thread events (every scene change goes through onGl / queueEvent), touches, and the
+        // renderer itself while it refines a still view (settled = false).
+        renderMode = RENDERMODE_WHEN_DIRTY
+        camera.onChange = ::wake
+        renderer.afterFrame = { if (!renderer.settled || android.os.SystemClock.uptimeMillis() < hotUntil) requestRender() }
         // Takes keyboard focus on touch, like the desktop's canvas, for the 3D view's shortcuts.
         isFocusable = true
         isFocusableInTouchMode = true
@@ -352,6 +357,18 @@ class PlateView(context: Context) : GLSurfaceView(context) {
 
     /** Runs [block] on the GL thread. */
     fun onGl(block: PlateRenderer.() -> Unit) = queueEvent { renderer.block() }
+
+    /** Frames keep coming until this uptime (ms): covers changes that land a frame or two after their trigger. */
+    @Volatile private var hotUntil = 0L
+
+    /** Draws a frame now and keeps drawing for [HOT_MS]. Any thread. */
+    fun wake() { hotUntil = android.os.SystemClock.uptimeMillis() + HOT_MS; requestRender() }
+
+    override fun queueEvent(r: Runnable) { super.queueEvent(r); wake() }
+
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean { wake(); return super.dispatchTouchEvent(event) }
+
+    override fun dispatchGenericMotionEvent(event: MotionEvent): Boolean { wake(); return super.dispatchGenericMotionEvent(event) }
 
     // Compose would otherwise use arrow keys and Tab to move its focus before the activity sees them.
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean =
@@ -419,6 +436,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
         /** Orbit coasting: the flick speed that starts it and the speed that ends it (degrees per ms). */
         private const val FLING_START = 0.15f
         private const val FLING_STOP = 0.01f
+        private const val HOT_MS = 300L
         /** The app's 3D view, for keyboard shortcuts that move the camera. */
         var active: java.lang.ref.WeakReference<PlateView>? = null
         /** Single-key shortcuts while the view has focus (set by the activity); true when handled. */

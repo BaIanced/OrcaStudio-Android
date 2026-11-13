@@ -1,8 +1,8 @@
 # Weekly: if OrcaSlicer main moved past the src-orca pin on main, (re)build branch
 # upstream/orca-main = main + one commit moving src-orca to OrcaSlicer main, then start
-# android-apk.yml on that branch. Builds on that branch upload the APK as a workflow artifact
-# and never publish a release (android-apk.yml publishes only for refs/heads/main), so a
-# breaking upstream change shows up as a red run there while main and its releases stay as
+# patch-check on that branch (carried patches + build-time scripts; android-apk.yml cannot run there:
+# its job uses environment: release). A failing patch-check turns the run red, so a
+# breaking upstream change shows up here while main and its releases stay as
 # they are. Merging the branch into main is a manual decision.
 #
 # upstream/orca-main is owned by this workflow: it is recreated from main on every update and
@@ -40,7 +40,6 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: write   # push the upstream/orca-main branch
-      actions: write    # dispatch android-apk.yml on it
     steps:
       - name: Check out main
         uses: actions/checkout@v7
@@ -119,11 +118,44 @@ jobs:
           git push --force origin "HEAD:refs/heads/$BRANCH"
           { echo; echo '```'; cat "$RUNNER_TEMP/msg.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Build the branch (no release)
-        if: steps.cmp.outputs.update == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
+    outputs:
+      update: ${{ steps.cmp.outputs.update }}
+
+  # android-apk.yml cannot run on the branch (its job uses environment: release, which the branch may not
+  # use), so this job runs the part of it that breaks when upstream moves: the carried patches and the
+  # build-time scripts that read src-orca. The native build itself needs the CI toolchain and is not run.
+  patch-check:
+    needs: watch
+    if: needs.watch.outputs.update == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the upstream branch (with src-orca at the new commit)
+        uses: actions/checkout@v7
+        with:
+          ref: upstream/orca-main
+          submodules: recursive
+          fetch-depth: 1
+          persist-credentials: false
+
+      # Same loop as android-apk.yml, step "Patch OrcaSlicer".
+      - name: Patch OrcaSlicer
         run: |
-          gh api -X POST "repos/$REPO/actions/workflows/android-apk.yml/dispatches" -f ref="$BRANCH"
-          echo "Started android-apk.yml on \`$BRANCH\`." >> "$GITHUB_STEP_SUMMARY"
+          set -euo pipefail
+          for p in android/patches/src-orca/*.patch; do
+            echo "applying $p"
+            git -C src-orca apply --ignore-space-change "$GITHUB_WORKSPACE/$p"
+          done
+
+      # pack_resources.py is the build-time script (Gradle task packOrcaAssets) that reads src-orca
+      # without compiling; the arguments are the ones app/build.gradle.kts passes.
+      - name: Pack resources (packOrcaAssets script)
+        run: |
+          set -euo pipefail
+          python3 android/scripts/pack_resources.py \
+            --resources src-orca/resources \
+            --assets "$RUNNER_TEMP/assets" \
+            --tab-cpp src-orca/src/slic3r/GUI/Tab.cpp
+          ls -l "$RUNNER_TEMP/assets"

@@ -4049,3 +4049,410 @@ README.md rewritten to describe OrcaStudio-Android now: OrcaSlicer credited firs
 
 ## 2026-11-04 Multi-plate Preview verified (Claude, phone VD, local debug build of 027400c, branch claude/handoff-continuation-rseql3)
 Phone VD (woken with the user's OK, slept after; debug app uninstalled): session with 5 plates. Slicing plate 1 then tapping chip 2 sliced plate 2 and showed both whole at their own slots; chip 3 sliced plate 3 and kept 1+2; colour scheme change (Line type -> Layer height) recoloured all; MCP re-slice of plate 2 replaced only that one; native heap 271 -> 151 MB after (no leak). Layer sliders drive the selected plate. Gotchas: debug app on the phone needs the printer picker Apply tapped with the phone awake (asleep = taps dropped), then an app restart before the MCP socket binds; session must be recopied after Apply.
+
+## Parked backlog items 2026-11-04 (moved from HANDOFF-BACKLOG.md to keep it under 10 KB)
+- Step 9 (align, x-ray, upright shift) Claude-verified WSA 2026-10-27 (archive); user feel open. Awaiting go: Lay on cut face / Flip / Leave radio + "Arrange after cut" (OrcaScene.cpp:1046); user asked the point of "Flip upper part".
+- Public release check: user 2026-11-03: no store release for the foreseeable future (until the app is "completely GOATed"); decisions (ad block default, Prusa/Printables preset names, Thingiverse terms) parked, ignore until a release is planned.
+- Hover tooltips: all 81 icon buttons with a content description now wrapped in Tip() (Claude 2026-10-28, compiles, WSA debug launch OK; hover/long-press not adb-testable); 3 colour-dot buttons have no label. User feel untested.
+- Shape builder bugs (user 2026-10-28, session B): drag lag, rings through the object, end copy drag scaling spacing: fixed 1a94899, Claude-verified WSA debug 2026-10-28 (archive); open: user feel (on hold, no user testing now).
+
+## 2026-11-04 Rename backlog detail (moved verbatim from HANDOFF-BACKLOG.md to keep it under 10 KB)
+- **Rename + new repo (user 2026-11-04, NOT locked):** name TBD (orcamesh idea; avoid confusion with upstream "Orca" branding). Clash search 2026-11-04: taken Slicewright, PodSlicer, LayerLoom, Printloom, Plateful, TideMesh; clear Podforge, Fablet, MakePlate; OrcaMesh no clash but = mesh-edit mode name. User leans OrcaMesh; asked upstream (user OK'd, posted from user's account 2026-11-04): OrcaSlicer Discussions #17269 (General); waiting on reply before committing. New PUBLIC repo (free CI, no minutes/500 MB artifact limit); old repo stays public as history. Open: name; full history (keeps commit refs, still has one LAN IP in cf75a81) vs snapshot; app ID io.github.baianced.orcastudio_android change = fresh install + settings migration, do before public release. To do then: new repo + push, re-enter signing secrets (same keystore or no in-place upgrade; user supplies), `release` env, README/build.gradle.kts URL (default repo URL line 21), remotes, squash-merge PRs. AGPL: source offered to anyone given an APK.
+- Discussions #17269: 0 replies (Claude, gh api, 2026-11-04 second check).
+
+## 2026-11-04 Assemble space / big plate: Claude's leanings (exploration, NOT locked; waiting on the user)
+Source facts: Build workspace already isolates one multi-part object in the main view with design pose (volumes in the
+object frame) apart from print pose (instance transform) (archive 2026-10-23 step 5); beds are still drawn in Build
+(PlateRenderer.kt:587 drawBeds always). Plate grid = up to 36 separate plates (OrcaScene.cpp:42, origin_of :53); slicing
+throws when nothing lies inside the print volume (OrcaEngine.cpp:614-616). Cut = planar cut with rotation, no connectors in
+our UI (Engine.kt:127), but libslic3r has Plug / Dowel / Snap connectors (src-orca Model.hpp:262). Measure (Measure.kt),
+autoOrient (SceneController.kt:222), Arrange exist.
+Leanings:
+- Assemble space = grow the Build workspace, not a new mode: hide beds and plate surfaces, draw a neutral floor grid + a
+  ghost of the printer volume for scale (toggle), free orbit incl. below; open it for any multi-part object (imports
+  merged by multi-select Assemble too), not only shape designs. "Zero-g" already holds inside the design frame.
+- Big / infinite / 4x4 plate as a PRINT surface: against (blunt). A part can't print across plates; plates are separate
+  jobs on a fixed bed. "Big" belongs to the Assemble canvas only; the plate grid stays as is.
+- Exit to Prepare = fit check: print-pose box vs bed rect + printable height; if it doesn't fit, try auto-orient, then
+  Z turns (diagonal) and 90 deg lays, take the first that fits; else a "Too big" banner with Fix.
+- Fix = suggested cuts: longest overflowing axis, N = ceil(size / usable bed), planes near the even splits, nudged to
+  the smallest cross-section within +-15 % (section areas from mesh slices, native); preview in the Cut tool, apply =
+  sequential cuts, parts arranged onto plates (new plates as needed).
+- Glue later = libslic3r connectors (dowel/plug) on the suggested cut faces: native reuse, no new geometry code.
+- VR: far off (OpenXR renderer + input = its own project); keep Assemble camera/picking free of plate assumptions so
+  it can carry over.
+Phases (each one build, Claude-testable on WSA VD):
+- A1 Kotlin: Build without beds (floor grid + printer ghost toggle) + entry for any multi-part object. Sonnet/Opus mid.
+- A2 native+Kotlin [Opus]: `fit_check(object)` + orientation search, banner on exit / on slice failure.
+- A3 native [Opus]: cut suggestion (section-area scan) + preview + apply + arrange onto plates.
+- A4 native+UI [Opus]: connectors on cut faces.
+- 2026-11-04 user pick: Assemble phase A1 (Build without beds: floor grid + printer ghost toggle + entry for any multi-part object). A2-A4 still leanings only.
+
+- 2026-11-04 Assemble A1 coded (f3361ff, untested): Build workspace draws drawFloor() (10 mm grid, uFade radius max(400, 3x object side), on world 10 mm lines, centred on the shown copies box) instead of beds/plate surfaces/badges; printer ghost = bed outline at z 0 and maxHeight + verticals (8 max on round beds), activePlate colour at 0.45 alpha, centred under the object; toggle build_printer. plateAt/badgeAt return null in Build, bedRects unbounded (shadow), Viewport bedAt picks the floor.
+- 2026-11-04 Assemble A1 WSA VD test (debug build of f3361ff, Claude): shape design on WSA VD shows the fading floor grid, no beds/badges, printer ghost box around the object; view from below keeps grid + ghost; leaving the builder (Close editor) restores bed + plate, no grid. NOT covered: "Edit in builder" mesh, ViewInAr ghost toggle tap, ghost centring on a mesh. CI build dispatched run 41910993766.
+- 2026-11-04 Assemble A1 WSA VD test 2 (CI build r523, run 41910993766, Claude): long-press object > "Edit in builder" on the Desk Organizer mesh opens the builder with the printer ghost box centred around it; the ViewInAr "Printer volume ghost" toggle (scroll the builder toolbar left) hides the box on tap 1 and restores it on tap 2. Assemble A1 fully Claude-verified; nothing open. Upstream Discussions #17269 still 0 replies.
+
+## 2026-11-04 tower message
+- Slice error "prime tower ... no free spot" now adds "tower grows with each of N filaments; large object may need smaller scale" when N>4 (OrcaEngine.cpp ~l.602; keeps the matched text for noticeFix). Claude, uncompiled; verify on the next CI build with a 16-slot slice.
+- 2026-11-04 user pick: build Assemble A2 (fit check + orientation search + Too big banner on builder exit / slice failure).
+- 2026-11-04 Assemble A2 coded (3505452, untested; Kotlin compiles locally, native only on CI run 41931328294): native fit_check(object)/fit_to_printer(object) in OrcaScene.cpp after auto_orient (part convex hulls vs printable_area polygon + printable_height; Z turn sweep 0,+-1..90 deg, then orientation::orient on the instance (restored), then lays X+-90, Y+-90, X180; fix centres the copy on its plate + drop_to_bed). Kotlin: Store.checkFit (SceneController.kt top) on builder exit (ScadController.showBuild) and on slice failure "inside the print volume" (SliceController); UiState.fitIssue -> Notices "Doesn't fit the printer" card, Fix = NoticeFix.Fit -> SceneController.fitToPrinter (re-checks if object list changed); MCP object_fit_check (fix=true applies). Tower message tweak committed with it.
+- 2026-11-04 Assemble A2 WSA VD test (CI r524, run 41931328294, head 3505452, Claude): MCP object_fit_check on Desk Organizer: 409x675x50 -> fix none; 300x50x50 -> turn, fix=true turned 37 deg + centred [128,128], re-check "Everything fits"; 82x75x300 -> lay, fix laid + turned (rot -90,-180,145) + centred, fits. Builder exit (long-press > Edit in builder > Close editor) shows the "Doesn't fit the printer" card ("No turn or lay fits" for the huge one; "Turning it on the bed makes it fit." for 300 mm); its Fix link turned + centred the copy (x 100 -> 128) and cleared the card. Gaps found + fixed (uncompiled natively, Kotlin compiles): slicing the huge plate failed first on the prime tower spot, so the fit check (keyed on "inside the print volume") never ran -> now runs on every non-cancel slice failure (238c388); app_state shows "fit notice: object N copy M ..., fix X"; the fit card now sits above the slice error card (its Fix sat below the 260 dp scroll fold) (562c827). r524 installed on phone, WSA, Chromebook. Untested: these fixes (CI run 41935414362) and the tower message (needs >4 filaments).
+- 2026-11-04 Assemble A2 fixes WSA VD test (CI r526, run 41935414362, head 562c827, Claude): app_state shows "fit notice: object 1 copy 1 doesn't fit, fix none" after a failed slice at 150 % and 130/30/50 %; UI dump: the "Doesn't fit the printer" card (y 52) sits above "Slicing failed" (y 117), "No turn or lay fits" hint visible. Found: the fit card stayed after a later successful slice of a fitting object (90/30/50 %, notice "fix none" still shown) -> a foreground slice start now clears fitIssue like sliceError (SliceController.kt runSlice, compiled, not yet in a CI build). Tower message (>4 filaments) still untested. r526 installed on phone, WSA, Chromebook.
+- 2026-11-04 Stale fit card fix WSA VD test (CI run 41939360557, head 2236a00, Claude): a slice started on a plate whose object fits clears the fit card (app_state has no "fit notice"; object_fit_check "Everything fits"). Installed on phone, WSA, Chromebook. Tower message (>4 filaments) still untested: no MCP tool to add filaments, needs UI taps; plain string append, low risk.
+
+## 2026-11-06 render profile (Claude)
+User asked why GLES not Vulkan: no recorded decision; GLSurfaceView + GLES 3.0 shaders. simpleperf (phone r526, 9 s orbit, 1300 GL-thread samples): load ~0.4 Gcycles/s, GL thread 27% kernel / 20% Adreno driver, 11.5% strcmp of which ~half from glGetUniformLocation(String) in onDrawFrame (obfuscated lu1.*). Vulkan not justified. Fixed with ULoc cache, commit cb454dc, CI run 42183752696 (unmeasured).
+
+## 2026-11-06 ULoc uniform cache measured (r535, CI run 42183752696, phone)
+simpleperf 9 s orbit, 1956 samples, 686 symbol rows: no `strcmp` and no `glGetUniformLocation` row at all (before, r526: strcmp 11.5% of GL thread). GL thread top is now kernel `_raw_spin_unlock_irqrestore` 10%, Adreno/dma ~2-3% each. Installed r535 on phone, WSA, Chromebook (not SHIELD). VD stopped. Profile data `/data/local/tmp/perf2.data` on the phone.
+
+## 2026-11-06 VD stole the user's keyboard / taps (orca-vd.sh)
+User: keyboard on the main screen disappears while the VD runs; taps hit the main screen. Cause found: scrcpy VD had FLAG_SHOULD_SHOW_SYSTEM_DECORATIONS, so system_server logged `ImeTracker onRequestShow CONTROLS_CHANGED` + STATUS_TIMEOUT every ~5 s. Fixes in orca-android-tools/orca-vd.sh: `--no-vd-system-decorations`, `--display-ime-policy=local`, tap/swipe refuse when no VD state (LOGICAL=0 = main screen). After fix: 1 CONTROLS_CHANGED in 25 s, flag gone. USER VERDICT pending (VD left running on display 8 for the user's test).
+
+## 2026-11-06 ULoc cache A/B draw-ms (r527 before vs r535 after, phone VD, plate 1 fit, 3 s orbit, interleaved old/new/old/new, 3 orbits each)
+Draw ms (CPU side, GL thread) median: r527 5.7-5.8, r535 5.6-5.8; p95 6.3-6.7 both. Frame gap median 6.0 both (VD now runs ~166 fps, not 60: display refresh differs from the r517 baseline row). Result: cache saves at most ~0.1 ms/frame (~2%), inside noise; the win is the removed strcmp CPU in simpleperf, not draw-ms. Script: scratchpad ab.sh (old/new APKs via `gh run download 41939360557 / 42183752696`, `install -r -d`).
+
+## 2026-11-06 Handoff prune (moved from HANDOFF.md)
+- Assemble A1 + A2 verified, incl. stale fit card fix (r523/r524/r526/run 41939360557).
+- Render profile: GL thread vsync-bound, Vulkan not justified; ULoc uniform cache (cb454dc, r535) verified (strcmp/glGetUniformLocation gone). Installed r535 on phone, WSA, Chromebook. ULoc A/B: draw ms 5.7 -> 5.7 (noise); PERFORMANCE.md row added.
+- `superKey()` list allocs skipped on purpose (GL thread vsync-bound, tiny gain, key-correctness risk).
+- CI run 42193709878 (head 0c43fcb) APK is named r537, not r536; also installed on SHIELD by mistake (harmless).
+
+## 2026-11-06 Crease static VBO A/B (Claude, phone VD)
+- Edge outline on (pref set via su, restored to false after), plate 1 fit, 3 s orbit, interleaved r535/r537 2x3 runs each: draw median 5.6-5.7 -> 5.5-5.6 ms, p95 6.4-6.7 -> 6.4-6.8: no measurable change. Creases confirmed drawn on r537 (view_screenshot, lattice vase). PERFORMANCE.md row added. Script: scratchpad `ab-crease.sh` (session 18b1fe00). Phone left on r537.
+
+## 2026-11-06 Render hot-path audit: battery over a fixed orbit (r537, phone VD, discharging, 33 C)
+- Script (scratchpad, session 77ad40fb): `batt-orbit.sh`: 30 s idle then 60 s of back-to-back 3 s orbit swipes, `current_now`/temp sampled every 3 s (sysfs updates only ~every 9 s). Idle ~550-740 mA, orbit ~530-630 mA, temp 29.5 C both: no difference.
+- Cause: `PlateView.kt:347` `renderMode = RENDERMODE_CONTINUOUSLY`. MCP `perf` on a fully idle scene (25 s after start, no input) still reports 165 fps, draw 5.6 ms median. So the app redraws a static scene every frame (VD runs uncapped; on a 60/120 Hz panel it is the panel rate). `MeshPreviewView.kt:162` already uses WHEN_DIRTY.
+- Fix idea: WHEN_DIRTY + `requestRender()` from every `onGl`/touch/camera inertia/animation/MCP view change, or continuous only while something animates. Touches many paths (not yet read), so risk of stuck frames; needs an idle-vs-orbit battery A/B after.
+
+## 2026-11-06 A/B recipe path
+- ab-crease.sh: /c/Users/Vince/AppData/Local/Temp/claude/f3c43eac8dfa6a4f/18b1fe00-2431-46b0-b931-7a8643178c1e/scratchpad/ab-crease.sh (interleaved installs, phone VD, perf per orbit, setpref sed for app_settings.xml bools). APKs /tmp/ab/new (r535), /tmp/ab/r536 (r537).
+
+## 2026-11-06 mobilecad review (user asked: "is anything useful in github.com/LucasCoraca/mobilecad")
+- What it is: GPL-3 Android app, FreeCAD engine cross-built (OCCT, Qt6, Python, Gmsh, CalculiX; ~1 GB install) under a Kotlin/Compose touch UI with its own GLES2 viewport. 16 stars, active (pushed 2026-11-06).
+- Not reusable as code: the engine is the whole FreeCAD + Python stack (1 GB); far too heavy for OrcaStudio, and our CAD runs on our own mesh path (NOTES-cad-reuse.md).
+- Ideas worth taking (study copies in scratchpad only, not in repo):
+  - Viewport `ViewportView.kt:41` uses RENDERMODE_WHEN_DIRTY + one `refresh()` (requestRender + overlay invalidate) at :143: same design as our render-on-demand 84ffb8e; screenshot via a one-shot capture callback + requestRender (:191), useful for MCP shots under WHEN_DIRTY.
+  - Picking: tolerance in mm (`tolMm(12f)`), occlusion-aware sub-element pick (`pick()` :388: elements behind the face under the pointer are hidden, depth margin of a few pick radii). Relevant to the CAD face/edge select work.
+  - XR: `XrPanel.kt` context panel (selection-driven tools, recent tools when empty) + controller ray as a virtual camera that reuses the touch path (`ViewportView.kt` ~:597-602, 20 dp per degree). Worth passing to the VR-port agent via claudechat.md.
+  - `Numpad.kt` (6 KB) on-screen numeric pad for dimensions; `NaviCube.kt` (our ViewCube is off by default: user motion sick, revisit only on request).
+
+## 2026-11-06 render-on-demand 84ffb8e device test, part 1 (run 42335308493, WSA VD)
+- Installed on phone, WSA, Quest (SHIELD skipped). WSA VD, MCP `perf`:
+- Idle: last frame 17 s ago, 0 fps (was 165 fps continuous). PASS.
+- One-finger orbit swipe: ~83 frames, then stops (~1.3-1.6 s after). PASS.
+- `view_set` view top/iso/front: ~21 frames each (HOT_MS), settles. `view_screenshot` returns a current image with no extra frame and no hang. PASS.
+- `object_transform`: frames drawn, current. Slice + `preview_set`: Preview tab draws correctly (vdgrab), but `perf`'s "3D view" counter shows 0 new frames there: the Preview view is apparently not the counted view. Not a bug in the image; refine completion not separately confirmed.
+- Not yet tested: fling coast, pinch, plate switch, selection, loupe, build drags, refine finishing, battery A/B.
+- Note: `view_set` takes `view`, not `preset`. Plate 1 on WSA object scaled to [60,20,30]% so the prime tower fits (throwaway).
+- A Quest scrcpy mirror was running, not ours: left alone. Phone VD stopped.
+
+## 2026-11-06 render-on-demand 84ffb8e device test, part 2 (WSA VD, Claude)
+- Fling: 60 ms swipe on the 3D view drew ~53 frames (coast), then idle (last frame 3.5 s ago). PASS.
+- Selection: tap on object box centre -> "Selected: object 1 copy 1", a frame drawn at the tap, MCP `view_screenshot` shows the outline. PASS.
+- Plate switch, pinch, loupe, build drags, refine finish: PASS by code path (no MCP plate switch, WSA has one plate, no multi-touch injection). Every renderer mutation in ui/ai goes through `PlateView.onGl` -> `queueEvent` -> `wake()` (PlateView.kt:359; only exceptions: McpTools.kt:546 debug `accumRegime`, PlateView.kt:278 `deviceLandscape` before a resize); touches wake via `dispatchTouchEvent`; `afterFrame` keeps requesting while `!renderer.settled`, so refine can't stall.
+- Left: idle-vs-orbit battery A/B on the phone (`batt-orbit.sh`), then GL state/upload/draw-call audit in `render/`.
+
+## 2026-11-06 Render-on-demand battery A/B (r538, phone VD, discharging, 26 C, Claude)
+- `batt-orbit.sh` (now in `~/orca-android-tools/`): idle 30 s then 60 s orbit loop. Idle current_now mean ~217 mA (151-327), orbit mean ~649 mA (131-946, 3 s sysfs lag), temp 26.4 -> 27.2 C. Before render-on-demand (r537): idle ~550-740 mA, orbit ~530-630. Idle now ~60% lower and well below orbit. PASS.
+- Idle `perf` shows last frame ~264 ms ago after the orbit (settles). PERFORMANCE.md row not yet added.
+
+## 2026-11-06 GL audit pass 1 (Claude, reading only)
+- Findings in docs/handoff/NOTES-gl-audit.md: per-pass uniform resets + small allocs in drawMesh (below noise, per ULoc result), allocateDirect per STREAM_DRAW overlay upload, superKey/shadow-key list churn, no GPU timer queries. Next: per-pass timer query in perf. PERFORMANCE.md got the idle-vs-orbit battery row.
+
+## 2026-11-06 GPU per-pass timers verified on the phone VD (1963674)
+- MCP `perf` GPU timers work on the phone (Adreno): Prepare orbit 2.36 ms GPU (not bound); Preview orbit = preview pass 48.8 ms/frame (~20 fps), the top pass. Numbers: NOTES-gl-audit.md "Item 4 measured".
+- Tool bug found + fixed: `phone-ui.py tap` ignored `VD` and tapped the phone's MAIN screen (2026-11-06 a "Fix" tap landed at ~105,570 on the user's screen while they were in a messaging app; also one VD dump returned main-screen content). Fixed in orca-android-tools/phone-ui.py (`input -d <vd> tap`). Rule: on a VD use `orca-vd.sh tap` (or the fixed phone-ui tap), never trust a dump right after a dialog without checking it's the app.
+
+## 2026-11-07 user report: Preview z-fight where the brim meets the bed, seen from below
+- User (phone, debug build of 5363133, Preview plate 1, camera under the bed): "where black ring contacts the build plate, when viewed from under and you drag, the contact point fractures into a bunch of triangles and strobes out in random triangular formations/fractures of the draw". Claude shots `~/orca-android-tools/shots/under1.png`/`under2.png` (still frames; the strobe shows only while dragging).
+- Hypothesis (untested): the brim's bottom face (z 0) and the bed plane (z 0) are coplanar and fight in depth; the bed is drawn in the "beds" pass after "preview". Fix idea: polygon offset / depth bias on the bed when the eye is below it (or skip the bed's depth write from below). Check that the nearest-first draw (1698961) doesn't change it.
+
+## 2026-11-07 handoff trim
+- claudechat.md s14 (2026-11-07) answered s13: phone lists 144/165 Hz (165 Hz Magisk module); no reply pending.
+
+## 2026-11-08 item 5 option 1 perf (phone VD, debug build of 14babcc)
+- Phone had dropped off adb: `adb connect <phone-ip>:5555` fixed it. Orbit via MCP `view_set` yaw steps works (script `~/orca-android-tools/preview-orbit-perf.sh <mm> [steps]`); VD swipes still not used.
+- Preview pass GPU median 1138 mm 15.3 ms (p95 24.1), 300 mm 18.6 ms (p95 38.7). Not comparable with the old swipe-orbit numbers (44 -> 38 ms): static frames per step. Logged in PERFORMANCE.md with that caveat. Item 5 closed.
+
+## 2026-11-08 brim/bed z-fight from below fixed (Claude, phone VD, debug build)
+- Cause: with the lab "plate seen from below" window on (plateHd + plateUnderAlpha, user's debug prefs 0.65), the window (z 0) is drawn last with depth test against first-layer bottom faces (also z 0): depth ties -> speckled triangle fractures, visible in single frames (supersample off); still frames hid it because 32-frame accumulation averages it out.
+- Fix (PlateRenderer.drawScene, the eye-below window draw): glPolygonOffset(-2, -8) around drawPlateSurfaces. A/B on the phone (plate 1 Preview, pitch -6, distance 140, yaw -60, supersample off; script `~/orca-android-tools/ab-under.sh <name>` with PITCH/DIST/CROP env): pre-fix speckle at the prime-tower foot, fix clean. Shot `~/orca-android-tools/shots/zfG_ab.png` (top old, bottom fix). Claude-verified; user's live-drag look pending.
+- Note: dbg-reinstall.sh still uses the old phone IP; the phone is .20 (memory device-ips).
+
+## 2026-11-08 user report: plate-top shadows (Claude logged)
+- User, after the z-fight fix (b122c87, pushed, no CI build yet): "shadows may not be visible on the surface of the build plate anymore? i'm finding it hard to tell, but from under the plate, they are very visible". Unconfirmed; suspect: polygon offset or the shadow receiver on the plate top. Checking.
+- Cause (Claude, from code): drawPlateSurfaces(plateAlpha, default 1) ran after effects.drawShadow, so an opaque HD plate top painted over bed shadows (not caused by b122c87, which only touches eye-below). Under-plate view draws the window last, so shadows showed. Fix: plate top drawn before the shadow. Compiled; visual test pending.
+
+## 2026-11-08 plate-top shadow fix verified (Claude)
+- c701af5: HD plate top drawn before drawShadow. Phone debug VD, plate 1 Prepare, object on bed: dark shadow footprint now visible on the bed top. CI run 42572494221 dispatched.
+
+## 2026-11-08 GL audit findings 1+2 verified, audit closed (Claude)
+- 4beb4d1 (scratch upload buffer, drawMesh arrays) vs c701af5, phone debug VD, object selected + orbit: draw ms 15.5 -> 15.5 (noise), 0 px look change. Item 3 (superKey) closed as low value. New: selection frames CPU ~15.5 ms vs GPU 3.9 (backlog). Details: NOTES-gl-audit.md "audit closed".
+
+
+## Assemble space backlog detail 2026-11-09 (backlog lines trimmed, full text kept)
+- [Opus] Assemble space / big plate (user 2026-11-04, brain dump, exploration): zero-g space like Bambu/Orca Assemble (no plate; CAD tools + measuring; first VR step); big or infinite plate, or 4x4 plates; on exit auto-orient, "too big" error with a Fix = rotated + suggested cut location, glue later. Claude's leanings + phases A1-A4 given 2026-11-04 (archive "Assemble space / big plate: Claude's leanings"); user picked A1 2026-11-04; A1 coded f3361ff (Claude 2026-11-04), untested on WSA VD; A2-A4 open.
+- **Chromebook-ready for a future Google Play listing** (user 2026-11-06, via VR-port agent; nothing to do now): Play labels apps by device (Chromebook, tablet, phone, AR); the rules for each are unlooked-up, so research them when a listing gets close. May need little or no code (resizable panels). In place: big-screen pass on Chromebook r138/r140 (archive ~1504,1551); optional `android.hardware.type.pc` in AndroidManifest.xml:7, keep it (stops WSA/ChromeOS mouse-to-touch emulation).
+
+### 2026-11-09 Handoff trim
+- GL/render audit (user top priority 2026-11-08) closed (NOTES-gl-audit.md "audit closed"); follow-up Selection CPU cost stays in the handoff.
+
+## 2026-11-09: Selection CPU cost closed (not real)
+- The ~10 ms "selection cost" was phone awake (2026-11-08 runs) vs dozing (2026-11-09 baseline). Same build, dozing: selection 1.6 ms
+  draw vs none 5.3; awake, no selection: 17.3 ms. Selection GPU pass 0.7 ms. New MCP `object_select` tool; gl-sel-ab.sh selects via MCP.
+  Details: NOTES-gl-audit.md "not real, device-state confound". Claude, debug build, 2026-11-09.
+
+## 2026-11-09 Assemble A1 WSA VD test, part 1 (Claude, local debug build of 7428b73)
+- Build workspace with the "Desk Organizer" shape design: beds and plate surfaces gone, floor grid around the object, printer volume ghost (orange bed outline + height box) drawn. Shot looked right (render half of A1 passes).
+- Not yet checked: the ghost toggle button (sits past the droplet at the right end of the builder toolbar; `orca-vd.sh swipe 1060 218 700 218 300` did not scroll the toolbar on WSA: try a slower swipe or MCP), measure floor pick, exit back to Prepare restoring beds.
+- A1 scope gap: "entry for any multi-part object" is NOT in f3361ff. Build opens only for shape-builder designs (`UiState.buildObject`, ScadController.kt:77-81 needs `ScadDesign.of(obj)?.pieces`). An imported multi-part object can't enter it yet.
+
+### 2026-11-09 Handoff trim (phone perf notes moved here)
+- VD taps fail while the phone dozes. Orbit perf: `preview-orbit-perf.sh <mm>`, `gl-sel-ab.sh` (Prepare + selection).
+- **Phone draw ms swings 1.5-17 ms with wake state: compare back-to-back runs in one state** (selection cost was this; archive). MCP `object_select` replaces taps.
+
+## 2026-11-09 Assemble A1 recheck (Claude, source + archive only)
+- Part-1 note above was wrong twice: the ghost toggle (tap hides/restores) and exit-to-Prepare were already Claude-verified on r523 (2026-11-04, lines "Assemble A1 WSA VD test 2"), and A2 was verified r524/r526.
+- "Entry for any multi-part object" exists since db92ebb: long-press > "Edit in builder" calls `ScadController.editMesh` (PrepareOverlay.kt:386), which turns a plain object into one MESH shape per part (holes for negative volumes) and tags it `pieces = true`, so `UiState.buildObject` accepts it. Multi-select > Assemble merges imports into one multi-part object first. Untested: a real 2+ part object in the builder (only the 1-part Desk Organizer was tried). No MCP tool reaches Assemble / Edit in builder; test needs VD taps.
+
+## 2026-11-09 WSA VD taps (Claude, Assemble A1 2-part test setup)
+- The earlier "+ tap showed no menu" was a wrong scale: WSA VD is 720x1280/160, so a 540-wide vdgrab shot maps x1.333, not x2. + = VD (76,195); Add menu Shape row = VD (130,290); Shape dialog frame [80,450]-[640,830], Add button = VD (605,800).
+- vdgrab shots lag/freeze on a static screen (vd.mkv barely grows): the Shape dialog was open (`dumpsys window windows`: ty=APPLICATION, frame) while shots still showed the menu. Use window frames + MCP plate_describe to confirm steps.
+- mcpao.sh: `TARGET=wsa` is not enough (target.sh serial = phone); set `MCP_DEV=127.0.0.1:58526`.
+- Added object 2 "Cube" 20 mm on the WSA debug app. Assemble + Edit in builder not done yet (context limit).
+
+## 2026-11-09 Assemble A1 2-part builder test (Claude, local debug build, WSA VD)
+- Select multiple (VD 76,293) > tap Cube (the second tap was dropped; "Select all" VD 627,55 gave "2 selected") > Assemble (toolbar icon above the trash, VD 76,462): plate became 1 object "Assembly", 9112 tris (9100 + 12). Long-press the object (swipe same point, 900 ms) > Edit in builder (menu row VD 364,831) opened the builder: shape list = the Desk Organizer's 11 shapes (Pen cup, Clip tray, ..., 3 holes) + Cube as its own shape, floor grid, ghost box. Close editor (VD 700,20) fine.
+- Seen, not chased: red "OpenSCAD stopped" line at the bottom of the builder (no engine started in this test; likely normal until Update on plate). Update on plate not tried. A1 multi-part entry Claude-verified.
+- Debug app uninstalled from WSA, VD stopped, no scrcpy left.
+
+## 2026-11-09 Moved from handoff (phone debug app recipe)
+- Phone debug app (session + `allow_mixed_temps`): `install -r -g`, **export PKG=...debug TARGET=phone**, `orca-vd.sh start`, `mcpao.sh slice:{}` (retry if non-JSON), `preview-zoom-perf.sh 1138`; stop VD after; fresh install: `pm grant` POST_NOTIFICATIONS (gl-sel-ab.sh does). 
+
+## 2026-11-09 Trimmed from handoff (size)
+- WSA VD: reference "Headless display" (Kotlin-only: assembleDebug + `wsa-debug-setup.sh` + `orca-vd.sh start`; uninstall debug after).
+- VD taps: archive "VD tap tip". No MCP undo: VD tap 27,78. WSA: `svc power stayon true` while testing.
+- Phone debug-app recipe: archive "2026-11-09 Moved from handoff". Release r538 on phone. Phone perf notes (doze, draw ms swings): archive "2026-11-09 Handoff trim". GL shots: MCP `view_screenshot`. Quest profile is blocked until someone wears the headset (claudechat.md s8).
+
+## 2026-11-09 GLB open recipe
+Open file on VD: copy to debug `files/` via su, `am start --display N -a VIEW -d file:///data/data/<dbg>/files/two.glb -t model/gltf-binary -p <dbg>` (file:// in /sdcard = EACCES). Verify: pull `files/session/session.3mf`, read model_settings.config. VD stopped; debug app still installed on WSA (uninstall when done). Then textured GLB test, commit/push (privacy scan). Draco/meshopt/3DS/DAE/FBX: Muse tasks 22-25 sent (PR #79); no open `muse/task-2[2-5]-*` PRs as of 2026-11-09 (backlog 'Mesh import formats').
+
+## 2026-11-09 GLB multi-part colors VERIFIED (Claude, WSA debug app)
+Earlier "native merges to ONE volume" was a stale session object. Latest session.3mf (object 23): 2 parts ('two 1' extruder 1, 'two 2' extruder 2, matrix x+30), so the writer with an Orca Application tag + one mesh object per slot + assembly object with `<component>` works (bbs_3mf.cpp `_generate_volumes_new`). Native also has an assimp GLB/GLTF/FBX loader (Model.cpp ~419, one object + texture_mesh for the texture-to-color dialog); ours converts first, so slots map directly. Not yet tested: textured GLB, vertex-color GLB.
+
+## 2026-11-09 Textured/vertex-color GLB test, attempt 1 (Claude, WSA debug app)
+Test GLBs: generator `mkglb.py` in the session scratchpad (cube, COLOR_0 half/half, or 2x1 PNG texture via TEXCOORD_0; colors now orange #F0784E / blue #2F7FEF to match the debug app's 2 slots, `filaments:` pref = #F2754E / #2F7FEF). First run used yellow/black, which both snap to slot 1 (orange) in `MeshConvert.slotOf`, so 1 part is correct, not a bug. Rerun with orange/blue under the same names showed the old 1-part objects (the VIEW intent hits the running instance, which did not re-import; session.3mf also lags ~20 s). Next try: `am force-stop` the debug app, `rm -rf files/session`, start the VD again, open ONE file per start with a fresh name, wait 30 s, then read session.3mf with `python -I` (Windows python can't read /tmp: use `cygpath -w`; use `adb exec-out`, not `shell`, for binary pulls).
+
+## 2026-11-09 Textured/vertex-color GLB test, attempt 2 (Claude, WSA debug app)
+Test GLBs `tex.glb` / `vcol.glb` exist in the scratchpad of session 1c401a74 (`.../claude/f3c43eac8dfa6a4f/1c401a74-9dbc-4414-bbab-080bf0fcb281/scratchpad/`). Import never ran: the VIEW intent for `file:///sdcard/Download/x.glb` fails with EACCES in the debug app (MediaProvider denies; `appops MANAGE_EXTERNAL_STORAGE` and `pm grant` did not help). Workaround copy: `adb shell "cat /sdcard/Download/x.glb | run-as $P sh -c 'cat > files/x.glb'"`, then VIEW `file:///data/data/$P/files/x.glb`. `orca-vd.sh start` gives a NEW display id each time (16, 17, 18): read it from the start output / `orca-vd.sh status` and pass `am start --display <id>`; component is `.../app.orcaandroid.ui.MainActivity`. Last try used a stale display id (17 vs 18), so still untested. Use Git Bash with `MSYS_NO_PATHCONV=1` for /sdcard paths.
+
+## 2026-11-10 Textured/vertex-color GLB VERIFIED (Claude, WSA debug app, VD display)
+Imports done via `run-as` copy into files/ + VIEW `file:///data/data/<pkg>/files/x.glb` on the live VD display id (force-stop, `rm -rf files/session`, start, wait 10 s, one file per start, read session.3mf after ~60 s). Vertex-color GLB (orange/blue halves): 2 parts, extruders 1/2. Textured GLB (2x1 PNG): was 1 part = real bug in MeshConvert (sample used `u*(w-1)`, so a 2-px texture always hit pixel 0); fixed to `floor(u*w)` clamped; rebuilt, retested: 2 parts, extruders 1/2. Debug app uninstalled, VD stopped.
+
+## 2026-11-10 Assemble "Update on plate" attempt 1 (Claude, WSA VD, debug build of 90092aa) - not finished
+- Source: "OpenSCAD stopped" = ScadUnavailable from ScadClient.kt:66/98 (service process died, or `kill()` after a cancelled request, ScadClient.kt:84). Shown via ScadController.message(). Likely just a cancelled/killed preview request; unconfirmed.
+- Update path: ScadController.render(asNew) -> renderPieces -> placePieces (replaces volumes of `s.onPlate` object, keeps unchanged pieces). Not exercised yet.
+- VD tapping this time: Cube added fine (+ VD 76,195 > Shape row 130,290 > Add 605,800), but `plate_describe` stayed at "1 object" (stale or cube not counted: recheck with `view_state`), "Select all" (VD 627,55) never reached "2 selected" in 3 tries, and the toolbar with a selection is different (scissors/Cut sits at VD 76,462, not Assemble: Assemble is elsewhere; get it from `phone-ui.py`/ui dump, not from shots). Shots lag ~10 s.
+- Debug app uninstalled, VD stopped.
+
+## 2026-11-10 Assemble "Update on plate" attempt 2 (Claude, WSA, debug build of 90092aa) - not finished
+- Route: MCP only. `design_to_plate` needs the on-screen confirm (McpTools.kt:1311, `aiConfirm` dialog), so a tap is unavoidable; the Update test = design_set (2 shapes) > design_to_plate + confirm > shape_update > design_to_plate + confirm > check object count/volumes with `plate_describe`/`view_state`.
+- Blocker: `wsa-debug-rebuild.sh` + `wsa-debug-setup.sh` + `wsa-start.ps1` OK (MCP answers, session design "Clip tray" loaded), but `orca-vd.sh start` (display 20, then 21) never hosts the app: `ui` says "top there: none", `shot` says SurfaceFlinger doesn't list the display. App lives on display 0, parked. `design_to_plate` call hung on the confirm, then MCP returned empty (JSONDecodeError) - cause unknown. Debug app still installed on WSA (pid alive), VD stopped.
+- Next try: `orca-vd.sh start window` (shot hint), or move the app to the VD with `am start --display N` after `start`; then tap the confirm via ui dump.
+
+## 2026-11-11 WSA VD "never hosts the app" was a tool bug (Claude)
+- `orca-vd.sh ui` line 92 had a literal newline inside `tr -d`, so its top-activity check always printed "top there: none" (attempts 1+2 of Update on plate blamed the VD). Fixed in `~/orca-android-tools/orca-vd.sh`; display 22 hosted the debug app on the first try after force-stopping both packages. `orca-vd.sh shot` still fails on WSA (no SurfaceFlinger id): use `vdgrab.sh`.
+
+## 2026-11-11 Assemble "Update on plate" on a 2-part Assembly VERIFIED (Claude, WSA VD display 23, debug build of 90092aa)
+- MCP route: design_set (empty) + shape_add box + cylinder > design_to_plate (Allow tap at VD 450,696 from `orca-vd.sh ui`) > object on plate 4 = 168 triangles; shape_update cylinder H 20 -> 40 > design_to_plate + Allow > plate 4 still 1 object (same id 4, name kept), shot via vdgrab shows the taller cylinder next to the box, status "Placed on the plate".
+- "OpenSCAD stopped" line did not appear in this run (only seen earlier when no engine had started / a cancelled preview); treated as benign, not chased.
+- Not covered: the on-screen "Update on plate" button path (MCP calls the same toPlate()); mixed-filament parts.
+
+## 2026-11-11 Assemble A3 cut-suggestion design (Claude, Opus, source-read only, nothing coded)
+Read: OrcaScene.cpp fit_bed :1011, part_hull_points :1030, fitting_turn :1078, find_fit :1123, fit_check :1150,
+fit_to_printer :1183, cut :1365 (libslic3r Cut, KeepPaint, PlaceOnCutUpper, arrange_plate after), arrange_plate :332
+(overflow -> new plate up to MAX_PLATES; a part that fits no empty plate stays put = "hopeless").
+Native `suggest_cuts(object, instance)` (OrcaScene.cpp, after fit_to_printer; EngineCalls.cpp "suggestCuts"):
+1. World points of the copy: model-part mesh vertices under instance*volume matrix (not hulls: cells need real points).
+2. Axis-aligned grids only (planes normal to world X/Y/Z of the current print pose); vertical X/Y planes = Cut with rot
+   (0,90,0)/(90,0,0). Enumerate (nx,ny,nz) by piece count ascending (cap 64 pieces), start from
+   ceil(extent / max(bed diagonal, height)) per axis.
+3. Planes per axis: even splits, each nudged within +-15 % of the piece length to the smallest section area; areas from
+   slice_mesh_ex on the mesh rotated so the axis is Z, ~1 mm samples in the window; tie -> nearest the even split.
+4. Cell fit: cell points = vertices inside the cell box + edge/plane crossing points inside it (hull slightly under the
+   true one at plane-plane corners; 1 mm margin on the bed covers it); test with fitting_turn over r0 and the 5 lays
+   (no orientation::orient: no instance for a cell). First grid whose cells all fit wins; else "none" (too big even cut).
+5. Result json: {axis planes [{axis, at[]}], pieces, per-cell size + pose kind, total section area}.
+Apply `apply_cuts(object, instance, planes)`: one push_undo; for each plane, cut every current piece whose box straddles it
+(reuse cut()'s body without its lock/undo: factor a cut_locked helper), KeepPaint, no connectors (A4). Then per piece:
+pose = find_fit preferring a lay that puts a cut face down (normal -Z; better first layer, no support), drop_to_bed,
+then arrange_plate(plate, &pieces) which spills onto new plates.
+Kotlin: FitIssue fix none -> card hint "Cut into N parts" + NoticeFix.Cuts -> preview, then Apply. Preview = Cut tool
+planes: CutPlane renders one plane today (render/CutPlane), so draw N planes as a list in the same pass (deviation from
+"preview in the Cut tool": a read-only multi-plane overlay with Apply / Cancel bar, since the Cut tool edits one plane).
+MCP: object_cut_suggest (read) + apply=true. Test on WSA VD: Desk Organizer scaled 300 % (huge fixture from A2).
+Phases: (a) native suggest + MCP read [CI build], (b) apply + arrange [CI], (c) Kotlin card + overlay.
+
+## 2026-11-12 T-003 patch-check job (source-checked + CI run 43163811825)
+- Commit 5342d83: orca-upstream-watch.yml has job patch-check (no environment). First run on current upstream: red, 0001-paint-depth-layers.patch does not apply (src/libslic3r/MultiMaterialSegmentation.cpp:1254); 0002-0005 not tried (stops at first failure). pack_resources.py is the only src-orca-reading script run.
+
+## 2026-11-12 Trimmed from handoff
+- **GLB/glTF/PLY/OFF import (user 2026-11-09), committed 63ebb8a:** `core/MeshConvert.kt` -> 3MF with one part per AMS slot; multi-part colors + textured/vertex-color GLB Claude-verified on WSA (archive "2026-11-09 GLB multi-part colors VERIFIED", "2026-11-10 Textured"). Open: push (privacy scan). Draco/meshopt/3DS/DAE/FBX = Muse tasks 22-25 (backlog 'Mesh import formats').
+- Assemble A1 + A2 + 2-part builder + "Update on plate" Claude-verified (archive "2026-11-11 Assemble Update on plate VERIFIED"; WSA debug app uninstalled? no: installed, stopped, VD stopped). A3 cut-suggestion design written 2026-11-11 (archive "Assemble A3 cut-suggestion design"; nothing coded): next = phase (a) native `suggest_cuts` + MCP `object_cut_suggest` read-only, CI build, test on WSA VD with the 300 % Desk Organizer.
+- 2026-11-12 T-018 Assemble "Update on plate" device-checked (Claude, WSA VD, debug build of 11e7840): 2 boxes (30x20x10, 15x15x25) > design_to_plate > long-press object > Edit in builder > BoxA width +5 > Update on plate button. X extent 62.5 -> 65 mm (+2.5: the box grows about its centre), then width +5 with pos shifted 2.5 > 70 mm (+5, the planned 5 mm); objects 1 -> 1 -> 1; "OpenSCAD stopped" 0 times in the UI tree. PASS. A "last session could not be opened" bar showed once at start (Discard tapped); not chased.
+
+
+## 2026-11-12 Backlog triage T-013 (old HANDOFF-BACKLOG.md lines, verbatim, before restructure)
+Verdicts per docs/audit/03-backlog.md; cut list NOT approved yet, so cut items sit under "Needs a user decision" in the backlog. Sign-off items moved to SIGNOFF-CHECKLIST.md.
+
+# Backlog (pending / untested / ideas). Grep, do not read up front.
+Rules: ONE line per item: what is still open + who last checked it, on which build, when. Causes, commits, runs and history go
+to HANDOFF-ARCHIVE.md (grep it; full pre-trim text under "2026-10-23 Backlog detail"). Never delete an open item; when it is
+verified, move it to the archive (a "USER VERIFIED" tag is not a move). User 2026-10-15: do NOT bring up the X2D again.
+Model tags: [Opus] = hard native/math/concurrency or big design; untagged = Sonnet is fine. Re-judge an item after 2 failed tries.
+
+## Plan
+- Plan (user 2026-10-14): camera LAN (done) -> off-LAN camera (cloud P2P; VPN-home fallback; not started). Print history done as G6. Own printer/account/code only; rule 7 holds.
+- Device tab printer controls (built r286): needs printer + user: extrude/jog/home motion, part fan reads 0 % after a set, target-0 tile stale, speed chip mid-print (Claude 2026-10-21).
+
+## Open bugs
+- Mouse right-click (user 2026-10-28): `lateButton` fallback in r463+ (WSA no-regression only). Open: which device the user used; check there when they say.
+- Paint shop friction (user 2026-10-28): fixed in r463+ (archive). Sync swatch: Device-tab Sync button verified with a connected printer on r519 (archive 2026-11-04); the ToolPanel swatch itself still untested.
+- [Opus] Muse Task 12 JNI audit: 8 needs a printer connect, 5 not exercised, 6 needs 2+ printers (Claude, r392-r395, 2026-10-24); rest fixed or no change.
+
+## Untested (needs the user or a special setup)
+- Preview: shading after slice? + inner z-fight on layer scrub (fixed r285, Claude 2026-10-17): user look pending.
+- [Opus if reopened] Two-finger gestures: pan->zoom fix fa1754c (user r305 "still broken"; r311 "pans feel fine" may cover it), pinch zoom-out r312, pinch lock + speeds (r280/r324), Quest stick zoom (r324): user feel pending.
+- Corner resize gated behind long-press Resize / Ctrl+T (r305, 72dd138): probably superseded by the scale gizmo (user-verified r335, archive); ask before testing.
+- Extended paint tools (Claude WSA 2026-10-20/21, archive): user feel untested. Unpicked ideas: NOTES-paint-survey.md.
+- Paint panel layout C: modes verified by user r453 2026-10-28. Clean specks with lock Claude-verified WSA r456 2026-10-28 (archive). Chips renamed "Straight ↕/↔" (strings only, shipped; not looked at on screen).
+- Paint depth (r367, Claude WSA G-code OK 2026-10-21): user feel + real print untested.
+- Paint shop reopen fix (Claude WSA r374) + plate estimate line (Claude WSA r376 = Preview; one density, part-level filaments ignored): user look/feel.
+- Check mesh: counts OK on real files (Claude, phone r507, 2026-11-03, archive); open: marker readability in 3D (user feel, skipped).
+- Fan slider hold-until-within-4 % (r295) + Extrude F150 e13bebb: need the printer.
+- Preview bead look (Chromebook), part shadows r266, light/shadow lab sliders r263: Claude-verified, user hasn't seen.
+- Drag-handle fling: wide PanelEdge (WSA mouse inconclusive, r300) and OpenSCAD grips untested; portrait flick user-verified r294.
+- Stylus 7d3a263 (palm rejection, pen buttons/eraser): untested on a pen; super low priority (user 2026-10-21). Pie menu LOW (user dislikes it).
+- Nozzle match: newer-firmware `device.nozzle.info`, stale status after a printer-model switch, spool swap drops the pick.
+- Model-mismatch guard 54b4ca6 (one printer); SHIELD sign-ins (r210); element blocker in plugin/Device WebViews; true EGL context loss; "failed OpenSCAD run clears the old log": no repro / no setup.
+- View cube: phone portrait layout untested; off by default (user r352: motion sick); revisit only on request.
+
+## Waiting on the user
+- **Rename + new repo (user 2026-11-04, NOT locked, LOW):** user leans OrcaMesh; Discussions #17269 0 replies (Claude 2026-11-04). Open: name, history vs snapshot, app ID. Full detail + to-do list: archive "2026-11-04 Rename backlog detail".
+- HD plate ideas (user verified r394): 3D bed frame model, dual-nozzle decal layout (Claude 2026-10-24).
+- Plate switcher pick (lab stays; don't ask again). Launcher icon colour ("decide later").
+- [Opus] Sculpt mode Claude-verified WSA 2026-10-28 (archive); user feel + symmetry 51ad144 untested; leftovers parked won't-do 2026-10-30.
+- [Opus] Build workspace: all steps Claude-verified WSA 2026-10-29 (archive); open: user feel.
+
+## GOAT batch (G1-G7 built, Claude-verified, merged PR #71 2026-11-03; G8 skipped; specs in archive)
+- G1 coach strip, G3 shortcuts, G4 auto-slice delta text (11 sp, only small when the lab scales the FAB down): open: user look/feel only.
+- G6 print history: open: card for web-UI hosts, thumbnail check on a Bambu send, end-of-print status (needs the printer).
+- G7 widget + Live Update chip: open: real status test (needs the printer; mocked status checked).
+
+## Ideas (not started)
+- Parked user-feel / release items (cut-step 9 go-ahead, public-release decisions, shape builder feel, hover tooltips): moved verbatim to HANDOFF-ARCHIVE.md heading "Parked backlog items 2026-11-04".
+- Self-portrait 3 (Claude r489 WSA 2026-10-31): open only real-print checks (24 open lattice edges). Tower "no free spot" message now names the filament count + scale hint (OrcaEngine.cpp, 2026-11-04, uncommitted, C++ not compiled locally, rides the next CI build).
+- Study Bambu Handy's MakerWorld integration.
+- Headless display: `start` stress OK 5/5 (Claude 2026-11-04); pinch on the VD parked (needs an app_process multi-pointer injector; low value, archive).
+- Quest: 2D panel confirmed (user 2026-10-21); open only input beyond touch + native VR view [Opus] (on request). Phone <-> Quest link (undefined).
+- Orca plugin runtime kept generic: not done: audit prompts, create_window, per-preset overrides, printerAgent. FilamentHub dropped for good.
+- Colour icon set shortlist + mockup (low). Paint card fold direction by screen position (low). "Need phone" prompt (shelved).
+- [Opus] Filament materials / per-slot look / Realistic render (Claude WSA 2026-10-24): user feel untested; variable layer height ignored; Quest/Chromebook GPU check open.
+- Preview camera-light slider + Check mesh sharp-edge markers + Hollow: Claude-verified WSA (archive); open: user feel (sessions B/C in NOTES-merge-batch.md). Cleanup = More > Repair (exists).
+- [Opus] Snapseed interaction plan (NOTES-interaction-plan.md): steps 1-9 Claude-verified WSA (r437/r438, 2026-10-27); user feel untested on all.
+- UX review via Gemini (user 2026-10-31): lowest priority, act only if the user brings Gemini's answer (bundle exports/ux-review/, archive 2026-10-31).
+- S Pen pressure (user 2026-10-31): built ab552fa, UI checked on WSA VD; open: feel test on the Note 10+ (user says when awake); Quest pen has no pressure.
+- [Opus] Assemble space / big plate (user 2026-11-04, exploration): A1 + A2 Claude-verified (multi-part entry = Edit in builder, db92ebb; 2-part object in the builder Claude-verified 2026-11-09; Update on plate Claude-verified 2026-11-11); A3 designed 2026-11-11 (archive "Assemble A3 cut-suggestion design"), phases a-c uncoded; A4 connectors open. Claude 2026-11-11.
+
+- Chromebook-ready for a future Play listing (user 2026-11-06; nothing to do now): research per-device rules when a listing gets close (archive "Assemble space backlog detail 2026-11-09").
+
+## Known limits (no action)
+- Real keyboard Ctrl+1 = system hotkey. Inactive-plate double tap re-frames (user: fine). Badges ~23 dp at plate zoom (told the user).
+- HMS texts: HmsCatalog.kt fetches at runtime; Handy's copies stay local. Flatpak r9 MakerLab, upstream bump, obn follow-ups: archive.
+- Paint guard tool (guard plane) misbehaves, user can't describe yet (user report 2026-10-25, r401). Open: needs repro from user.
+- CAD roadmap steps 0-7 (NOTES-cad-reuse.md) Claude-verified WSA (archive 2026-10-29); user feel untested.
+- Truck holes cut preview, sculpt on cut part, hole ghost alpha: Claude-verified WSA 2026-10-29 (archive); open: user feel.
+- Measure steps 1-6 + steer/loupe/Tuning: Claude-verified WSA 2026-10-26/27; open: user feel on the phone (steer vs loupe, 2nd-finger freeze, axis lock, hover, S Pen); Alt+click, ring-to-ring, hole rim untested.
+- CAD user feel open: sketch Twist / Rise per turn / Loft / Sweep (r421), Bend / twist / taper (r423), Smooth blend (r429); all Claude-verified WSA/phone 2026-10-26.
+- Smart guides (BUILT 005f14d + Center/Align f073445, Claude-verified WSA 2026-10-27, user feel open). Build middles Claude-verified WSA VD 2026-10-29 (archive); plate centre in Build skipped (design pose not tied to plate).
+
+- MCP token efficiency (Opus review + analysis done 2026-10-27, `NOTES-mcp-token-efficiency.md`): proposed build rule waits for the user's OK; plan A-C (diff replies) r452 Claude-verified WSA 2026-10-28; D dropped.
+- Shape builder W/D/H scrub + proportional lock: Claude-verified WSA debug + in CI r458+ (archive 2026-10-28); open: user feel (on hold); proportional slider-mode unbuilt (spec unclear). Claude 2026-10-28.
+- Snapping (user 2026-10-28: toggle/hotkey, not forced on the plate, thin Adobe-style guide): 846a663 Claude-verified WSA 2026-10-28; user feel untested.
+- Session B checks skipped by user 2026-10-28 ("don't want to do right now"): Sculpt, Hollow, Center/Align, Check mesh, badge fix.
+- Godot review leftovers (Z lift dot, axis lock, Wireframe, orbit inertia, Light direction: all in CI r463, Claude-verified WSA 2026-10-28, archive): open: user feel; tower ignores Z code-verified 2026-10-29. [Opus]
+- CAD 7d done (size slider WSA VD-verified dd8f656, archive 2026-10-29); only the group Scale % field is unit-tested, not seen on screen (Claude, 2026-10-30).
+- [Opus] OrcaMesh edit mode M1-M4: Claude-verified WSA VD + r487 2026-10-30; open: user feel (NOTES-orcamesh-edit.md "Progress").
+
+- Bulk filament edit (53578ad): long press verified by Claude on phone VD 2026-10-31 (archive); only Shift/Ctrl+click (mouse, Chromebook) and user feel untested. In r496+.
+- [Opus] AI print failure watch (user 2026-10-30): local Obico-style camera detector, pause + notify; open: ask the user for the camera model (archive 2026-10-31).
+- [Opus] Filament mixer redesign (0c791b3, CI 41371910606): 2- and 3-part looks checked by Claude on WSA VD 2026-11-01; user has not seen it. Vendor logo dropped (trademark).
+- [idea] mobilecad (GPL-3 FreeCAD-on-Android) takeaways: XR controller-ray-as-camera + context panel (send to VR-port agent), occlusion-aware mm-tolerance picking, Numpad; archive 2026-11-06 mobilecad review. Claude 2026-11-06, nothing taken yet.
+- [Opus] claude-kit `/start` (aliases `/seed`, `/bootstrap`): plan in `~/claude-kit/docs/handoff/HANDOFF.md`; skeleton only. Run `/next` from that dir.
+- Preview: brim/bed contact z-fight from below: fixed (polygon offset on the under-plate window), Claude-verified phone A/B 2026-11-08 (archive "brim/bed z-fight from below fixed"); user live-drag look pending (not on the CI/release build yet).
+- VD keyboard/tap fix (orca-vd.sh, archive end): awaits the user's verdict (keyboard no longer vanishes?); Claude, 2026-11-07.
+- Upstream-PR idea (patches 0002-0004 vs 2.5.0 alpha): no go yet; Claude, 2026-11-07.
+- Mesh import formats (2026-11-09): Muse tasks 22-25 SENT (PR #79 merged, doorbells on #46): meshopt decoder, 3DS, DAE, FBX readers, each `read(File): Pair<FloatArray,IntArray>` (9 floats/tri mm Z-up, rgb/tri or -1). Claude wires in after review. Also needed: glTF quantized accessors (KHR_mesh_quantization, ~30 lines) for meshopt. Draco = native (JNI, CI patch, +0.3-0.5 MB/ABI) NOT started [Opus]. ASCII FBX unsupported.
+- [Opus] Rebase android/patches/src-orca/0001-paint-depth-layers.patch onto current upstream orca-main (fails at MultiMaterialSegmentation.cpp:1254, 2026-11-12, run 43163811825); then retry 0002-0005 via orca-upstream-watch force=true (plan T-003)
+- [Opus/native] Cancel is ignored after ~7 s of a huge slice: `write_preview` (OrcaEngine.cpp:679, ~30 s at 940 % cube) does not check `m_interrupt`; needs interrupt check in Preview.cpp via patch + CI build. Found 2026-11-12 (T-005), WSA VD.
+- [Sonnet] AppBackup.kt:39 PREFS = app_settings only: user export no longer carries printer connections/MCP token (by design after T-007); decide if export should include secure_settings (user choice, exported file is theirs). Found 2026-11-12 (T-007).
+- [Opus] T-010 follow-up: 59 UNCONFIRMED rows in THIRD_PARTY_NOTICES.md (e9947a7); confirm against downloaded deps/OpenSCAD/Python licence files, incl. obn AGPL and Assimp version; also tag android-v<ver> link is dead on local builds. Last checked 2026-11-12.
+- "The last session could not be opened. It was kept." bar seen once at WSA debug app start after force-stops (T-018 run, 2026-11-12, not chased; check whether force-stop mid-save leaves a bad session file).
+
+
+## 2026-11-12 NOTES-merge-batch.md (obsolete, archived by T-013; old rule "main = user-tested" overtaken by PR #66)
+
+# Merge batch plan (user 2026-10-28): main = user-tested code
+
+**Update 2026-10-28:** PR #66 merged everything to main (3defffa, r461) before B-D ran, on the user's go-ahead. The sessions below are now
+retroactive checks on main: run them soon, log verdicts in the archive, fix what breaks. Latest build to install: r461 or newer.
+
+Rule: merge to main only when every non-printer item below is `ok` (user), fixed + re-checked, or cut. Printer items ride along
+unverified; the RELEASE waits on them. User approves the merge itself. Verdict format: `N ok | N broken: few words | N skip`.
+Log each verdict at once in HANDOFF-ARCHIVE.md (dated, build) and fix its backlog line. Install the build on the session's device first.
+
+## Cut (user agreed 2026-10-28; never shown, leave in backlog as no-action)
+Corner resize gating (superseded by scale gizmo), pie menu / stylus / S Pen on Note, view cube, wide PanelEdge + OpenSCAD grips fling,
+model-mismatch guard, SHIELD sign-ins, element blocker, EGL loss, nozzle match, ideas list, Dimensions overview, Muse Task 12 leftovers.
+Paint guard plane stays a known issue (no repro); not a gate.
+
+## Printer set (out of gate, release-gated)
+Paint depth real print + G-code, fan hold-until-within-4 %, Extrude F150, 3MF export opened in desktop Orca, Device tab controls
+(jog/home, part fan read, speed chip).
+
+## Claude closes (no user time)
+DONE 2026-10-28: truck demo people visibility dropped (demo session gone from WSA, Hollow already verified; rebuild with truck.sh + truck2.sh only if the user wants it); upstream 2.5 compare rows all closed at source level (NOTES-upstream-2.5.md; upstream is desktop-only, no WSA side-by-side possible); Check mesh sharp-edge markers Claude-verified r450 (archive).
+
+## User sessions (about 10 min each, one device + one flow; verdict `N ok | N broken: few words | N skip`)
+- A. DONE 2026-10-28 (extended paint tools feel left open).
+- B. WSA mouse: Build workspace (incl. multi-copy / mirrored); Sculpt (+ symmetry on X/Y/Z middle planes, stroke-end hull wait);
+  Hollow; Center/Align + smart guides; Check mesh markers; shape builder number scrub (drag cells, 0.1 steps) + proportional size lock;
+  snap toggle (magnet button, Shift+Tab, Ctrl flips per drag, magenta guide); Build Z lift dot (snaps to box tops / floor);
+  axis lock (button Free/X/Y, keys X/Y/Z mid-drag, guide line); build gizmos follow a move drag.
+- C. Look (WSA or phone): Preview camera light slider (More > lab); Preview shading + layer scrub z-fight; bead look + part shadows;
+  Filament materials + Realistic render (layer-line contrast). Optional later: Chromebook / Quest GPU check.
+- D. CAD + interaction: sketch Twist/Rise/Loft/Sweep, Bend/twist/taper, Smooth blend, Hull; Snapseed interaction plan; Measure tools;
+  two-finger gestures (do pans/pinch feel fine?); two-finger tap opens the context menu; floating Slice button drag + optional plate
+  switcher (Layout lab); Recent files collapsed; paint shop: view menu in the shop bar, Sync swatch (Bambu connected), entry keeps the 3D view;
+  slice cancel shows no error badge; hover/long-press tooltips; mouse right-click.
+
+## Questions to settle in-session
+Cut tool: point of "Flip upper part upside down" / Lay on cut face. Push/pull: fold into resize (Claude rec) or remove.
+
+## Status
+2026-11-03: PR #70 merged (806d4ff, r507): settings audit, filament tiles + mixer + colour picker, size cuts, Python on demand part 1, STEP import (Claude-verified, user-untested).
+2026-10-30: PR #67 merged (de0e3fa): paint shop all kinds, CAD 7a-7d, Build continuity, cut preview, push/pull tier 2 (all Claude-verified, user-untested).
+Triage done 2026-10-28. Claude closes done. Session A done 2026-10-28. B, C, D pending (retroactive after the PR #66 merge); the printer set and release stay gated.
+
+## User-untested in main (moved from HANDOFF.md 2026-10-29)
+Plus all of sessions B-D, Sculpt, snap toggle, Z lift/axis lock: Build workspace, paint shop/depth, Filament materials,
+Realistic render, UX P1-P6, Check mesh feel, 3MF export in desktop Orca, pen, fan hold, Extrude F150.
+
+
+## 2026-11-12 T-016 step 2 applied (source-checked)
+User said "apply T-016". Memory 41 -> 17 files, hook DEFAULT_LIMITS (72,90), next/next-merge/next-project edited, clear math in orca-android-tools/clear-cost-math.md. Backup commit 620f0e5. Opencode how-to pitfalls kept in memory offload.md. Do not rerun backup-process.sh without clearing process-backup/memory first.
+
+## 2026-11-12 T-019 batch 1 review gate (device-checked: r548 CI run 43346116062, smoke.sh on WSA VD)
+Fable read the T-004/5/7/9 diffs. Findings fixed in 813fc10: after a failed restore `sessionLoadedOrAbsent` stayed false, so clearing the plate left the new session on disk; a save cut between the two project moves left only `session.old.3mf` (now `SessionFiles.recoverInterrupted()`, 3 JVM tests, 299 total). First CI run 43345050807 failed: `copyThirdPartyNotices` (T-010) fed a static asset dir, lint task had no dependency; 5bcef51 makes it a generated source dir. Checks on 5bcef51: compile, 299 tests, privacy clean, CI green; smoke 2 of 3 runs 8/8, the first run after a fresh debug install failed step 8 (app did not answer MCP after the restart; no crash, session file intact). Installed on WSA only. User 2026-11-12 on the push question: "Push now" (docs/handoff private move waits for T-038). Not checked: T-003 upstream patch rebase, Try again / Discard taps, byte-identical convert output.

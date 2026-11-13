@@ -4,7 +4,7 @@
     <string name="about_ai">This Android port is an unofficial community project. It is not affiliated with or endorsed by the OrcaSlicer team.</string>
     <string name="about_based_on">Slicing core: OrcaSlicer %1$s (%2$s)</string>
     <string name="about_credit">All the slicing power comes from OrcaSlicer by SoftFever and its community, built on Bambu Studio, PrusaSlicer and Slic3r. Thank you for this outstanding open-source work – please support the original project!</string>
-    <string name="about_license">Licensed under the GNU AGPL-3.0. The complete source code is available at the link below.</string>
+    <string name="about_license">Licensed under the GNU AGPL-3.0. The source code of this exact build (tag android-v plus the version above) is at the Source code link; it pins OrcaSlicer commit %1$s with the patches in android/patches/src-orca.</string>
     <string name="access_code">Access code</string>
     <string name="adaptive">Adaptive</string>
     <string name="add">Add</string>
@@ -261,6 +261,17 @@
     <string name="notice_show">Show messages</string>
     <string name="notice_fix">Fix</string>
     <string name="notice_open_printer">Open printer</string>
+    <string name="session_bad_title">Session</string>
+    <string name="session_bad_text">The last session could not be opened. It was kept.</string>
+    <string name="session_try_again">Try again</string>
+    <string name="session_discard">Discard</string>
+    <string name="session_retry_empty_plate">Clear the plate first, then try again.</string>
+    <string name="fit_title">Doesn\'t fit the printer</string>
+    <string name="fit_size">%1$s is %2$s mm; the printer takes %3$s mm.</string>
+    <string name="fit_turn">Turning it on the bed makes it fit.</string>
+    <string name="fit_orient">Auto-orient finds a pose that fits.</string>
+    <string name="fit_lay">Laying it on another side makes it fit.</string>
+    <string name="fit_none">No turn or lay fits: scale it down or cut it into parts.</string>
     <string name="danger_title">Risky setting</string>
     <string name="danger_nozzle_temp">Nozzle temperatures above 300 °C can damage the hotend (PTFE parts, thermistor) on most printers.</string>
     <string name="danger_bed_temp">Bed temperatures above 110 °C can exceed what the bed and its surface are made for.</string>
@@ -357,6 +368,7 @@
     <string name="measure_snap_toggle">Snap to corners and edges</string>
     <string name="snap_toggle">Snap to edges and middles (Shift+Tab; hold Ctrl to flip while dragging)</string>
     <string name="build_others">Other objects: ghosted, shown, hidden</string>
+    <string name="build_printer">Printer volume ghost</string>
     <string name="move_lock">Move along one axis: free, X, Y (keys X / Y / Z while dragging)</string>
     <string name="measure_along_axis">Along %1$s</string>
     <string name="measure_along_centres">Centre to centre, along %1$s</string>
@@ -499,6 +511,7 @@
     <string name="save_preset_title">Save as user preset</string>
     <string name="save_project">Save project…</string>
     <string name="saved">Saved</string>
+    <string name="not_saved">Not saved</string>
     <string name="saving">Saving…</string>
     <string name="saving_preset">Saving preset…</string>
     <string name="saving_project">Saving project…</string>
@@ -597,6 +610,8 @@
     <string name="slicing">Slicing</string>
     <string name="smooth">Smooth</string>
     <string name="source_code">Source code</string>
+    <string name="licenses">Open-source licences</string>
+    <string name="licenses_missing">The licence notes are missing from this build. See THIRD_PARTY_NOTICES.md in the source code.</string>
     <string name="split">Split</string>
     <string name="split_objects">To objects</string>
     <string name="split_parts">To parts</string>
@@ -799,7 +814,12 @@
     <string name="adblock_larger">Larger</string>
     <string name="adblock_block">Block</string>
     <string name="models_bad_link">This link has no model file.</string>
+    <string name="import_cannot_open">Couldn\'t open that file.</string>
     <string name="models_no_files">The download has no model files.</string>
+    <string name="mesh_convert_failed">Couldn\'t read this 3D file (compressed glTF files aren\'t supported).</string>
+    <string name="mesh_too_large">This model has %1$s million triangles. The limit is 5 million.</string>
+    <string name="archive_too_large">This archive is too large to open.</string>
+    <string name="out_of_memory">Not enough memory for this model.</string>
     <plurals name="scad_zip_variants">
         <item quantity="one">The design opened in the editor. The zip\'s ready-made model is not on the plate.</item>
         <item quantity="other">The design opened in the editor. The zip\'s %1$d ready-made models are not on the plate.</item>

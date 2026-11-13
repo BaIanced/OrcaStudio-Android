@@ -46,7 +46,7 @@ import app.orcaandroid.ui.settings.noticeFix
 import app.orcaandroid.ui.prepare.Tip
 
 /** One message group on the 3D view: [key] changes when its content does, so new messages show again after a close. */
-private data class Notice(val key: String, val title: String, val lines: List<Line>, val fix: NoticeFix? = null)
+private data class Notice(val key: String, val title: String, val lines: List<Line>, val fix: NoticeFix? = null, val buttons: List<Pair<Int, () -> Unit>> = emptyList())
 
 /** One message; [fix] adds a "Fix" link that opens the setting (or screen) that resolves it. */
 private data class Line(val text: String, val important: Boolean, val fix: NoticeFix? = null)
@@ -58,6 +58,24 @@ private data class Line(val text: String, val important: Boolean, val fix: Notic
 @Composable
 fun Notices(state: UiState, vm: AppViewModel, modifier: Modifier = Modifier) {
     val notices = buildList {
+        // Fit first: an oversized object is usually the cause of the slice error below it, and its Fix
+        // stayed below the card's scroll fold when listed second (WSA r524, 2026-11-04).
+        state.fitIssue?.let { f ->
+            fun mm(v: List<Float>) = v.joinToString(" x ") { kotlin.math.round(it).toInt().toString() }
+            val hint = when (f.fix) {
+                "turn" -> R.string.fit_turn
+                "orient" -> R.string.fit_orient
+                "lay" -> R.string.fit_lay
+                else -> R.string.fit_none
+            }
+            add(Notice("fit:${f.obj}:${f.instance}:${f.size}", stringResource(R.string.fit_title), listOf(
+                Line(stringResource(R.string.fit_size, f.name, mm(f.size), mm(f.bed)), true),
+                Line(stringResource(hint), false, if (f.fix != null) NoticeFix.Fit(f) else null))))
+        }
+        if (state.sessionBad) {
+            add(Notice("session", stringResource(R.string.session_bad_title), listOf(Line(stringResource(R.string.session_bad_text), true)),
+                buttons = listOf(R.string.session_try_again to { vm.files.retryBadSession() }, R.string.session_discard to { vm.files.discardBadSession() })))
+        }
         state.sliceError?.let { (plate, message) ->
             add(Notice("slice:$plate:$message", stringResource(R.string.notice_slice_failed, plate + 1),
                 listOf(Line(engineErrorText(message, vm.translator), true, noticeFix(message)))))
@@ -100,12 +118,20 @@ fun Notices(state: UiState, vm: AppViewModel, modifier: Modifier = Modifier) {
                         line.fix?.let { FixLink(it, vm, R.string.notice_fix) }
                     }
                     n.fix?.let { FixLink(it, vm, R.string.notice_open_printer) }
+                    if (n.buttons.isNotEmpty()) Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        n.buttons.forEach { (label, run) ->
+                            TextButton(onClick = run, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 0.dp)) {
+                                Text(stringResource(label), fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
                 }
             }
             // X closes the card; a slice error is then gone for good (nothing left to re-open), the other notices stay as the "!" badge.
             Tip(stringResource(R.string.close)) { IconButton(onClick = {
                 closed = closed + open.map { it.key }
                 if (open.any { it.key.startsWith("slice:") }) vm.dismissSliceError()
+                if (open.any { it.key.startsWith("fit:") }) vm.dismissFit()
             }) { Icon(Icons.Default.Close, stringResource(R.string.close)) } }
         }
     }
@@ -118,6 +144,7 @@ private fun FixLink(fix: NoticeFix, vm: AppViewModel, label: Int) {
         when (fix) {
             is NoticeFix.Option -> vm.presets.openEditor(EditorTarget.Preset(fix.type, focus = fix.key))
             is NoticeFix.Go -> vm.setScreen(fix.screen)
+            is NoticeFix.Fit -> vm.scene.fitToPrinter(fix.issue)
         }
     }, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 0.dp)) {
         Text(stringResource(label), fontWeight = FontWeight.Bold)

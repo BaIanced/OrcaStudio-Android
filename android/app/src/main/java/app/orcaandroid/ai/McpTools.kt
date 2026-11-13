@@ -172,6 +172,11 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         Tool("object_auto_orient", "Plate edit: turns every copy of an object (or of all objects, object omitted) the way " +
             "OrcaSlicer's auto orient finds best for printing (less support, flat on the bed). $PLATE_EDIT",
             obj(emptyList(), "object" to p("integer", "Object number from plate_describe; omitted = all"))) { autoOrient(it) },
+        Tool("object_fit_check", "Read-only printer fit check: lists the copies that don't fit the printer's bed and printable height " +
+            "as posed, with their size and the fix found (turn about Z, auto orient, lay on another side) or none (too big). With fix=true " +
+            "applies that fix to the object (a plate edit) and shows nothing else.",
+            obj(emptyList(), "object" to p("integer", "Object number from plate_describe; omitted = all"),
+                "fix" to p("boolean", "Apply the fix to the object (needs object)"))) { fitCheck(it) },
         Tool("object_check_mesh", "Read-only mesh report of one copy, per part: faces, shells, volume, open edges, zero-area faces, sharp edges (folded back over 160 degrees) and faces " +
             "whose wall is thinner than thickness mm (default 0.4). Nothing changes.",
             obj(listOf("object"), *COPY, "thickness" to p("number", "Thin-wall limit in mm, 0..5; 0 skips the check; default 0.4"))) { checkMesh(it) },
@@ -268,6 +273,15 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             "selection, and where each plate, object copy and prime tower is on screen (screen px: left,top width x height; " +
             "tapping a box's centre hits it unless something covers it), marked when off or partly off the view. Far " +
             "cheaper than view_screenshot. Shows the Prepare tab's 3D view first.", obj()) { viewReport() },
+        Tool("object_select", "View: selects one copy of an object on the plate's 3D view, as a tap on it would (outline, box, " +
+            "tool kept), or with clear true selects nothing. Nothing on the plate changes. Replies with the selection.",
+            obj(emptyList(), *COPY, "clear" to p("boolean", "true = select nothing"))) { args ->
+            val sel = if (args.optBoolean("clear")) null else copyOf(args).let { (o, i) -> app.orcaandroid.ui.Selection(o, i.index) }
+            withContext(Dispatchers.Main.immediate) {
+                store.update { it.copy(selection = sel, multiSelection = emptyList(), tool = if (sel == null) app.orcaandroid.ui.Tool.None else it.tool) }
+            }
+            if (sel == null) "Selected: nothing." else "Selected: object ${sel.obj + 1} copy ${sel.instance + 1}."
+        },
         Tool("app_state", "Read (debug): the app's state as text: version, screen / tab, busy / error / message, open " +
             "dialogs and editors, chosen presets, plates and objects count, selection and tool, the 3D view's camera when " +
             "one is shown, memory, and whether a crash report is waiting. Nothing changes.", obj()) { appState() },
@@ -286,7 +300,8 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
                 "level" to p("string", "Lowest level: V, D, I, W, E; default V"))) { logTail(it) },
         Tool("perf", "Read (debug): frame timing of the 3D view over its last 240 frames (fps, frame gaps, draw time on " +
             "the GL thread) and the app's memory. Move the camera first to measure drawing under load; an idle view " +
-            "still draws every frame.", obj()) { perf() },
+            "still draws every frame. The first call also turns on per-pass GPU timers; later calls add GPU ms per pass for the " +
+            "frames since the call before.", obj()) { perf() },
         Tool("models_human_check", "Web: if the Models tab's page shows Cloudflare's \"Verify you are human\" check, taps " +
             "its box and waits (up to 25 s) for the page to go on. Replies with the outcome and the page it ends on. Needs " +
             "the Models tab on screen.", obj()) {
@@ -570,7 +585,8 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
                 (if (cfg.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) "landscape" else "portrait") + ".")
             appendLine("Phase ${s.phase.name.lowercase()}; tab ${s.screen.name.lowercase()}" +
                 (s.busy?.let { "; busy: $it" } ?: "") + (s.error?.let { "; error: $it" } ?: "") +
-                (s.sliceError?.let { "; slice error (plate ${it.first + 1}): ${it.second}" } ?: "") + (s.message?.let { "; message: $it" } ?: "") + ".")
+                (s.sliceError?.let { "; slice error (plate ${it.first + 1}): ${it.second}" } ?: "") + (s.message?.let { "; message: $it" } ?: "") +
+                (s.fitIssue?.let { "; fit notice: object ${it.obj + 1} copy ${it.instance + 1} doesn't fit, fix ${it.fix ?: "none"}" } ?: "") + ".")
             val open = listOfNotNull(
                 s.editor?.let { "preset editor" },
                 s.addDialog?.let { "add dialog ($it)" },
@@ -614,7 +630,10 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
 
     private suspend fun perf(): String = withContext(Dispatchers.Main.immediate) {
         val view = app.orcaandroid.render.PlateView.active?.get()
-        (view?.renderer?.frameStats?.report()?.let { "3D view: $it" } ?: "No 3D view on screen.") + "\n" + memory()
+        val r = view?.renderer
+        // GPU timers start with the first perf call; each later call reports the frames since the one before.
+        val gpu = r?.gpuTimer?.let { t -> if (t.enabled) t.report().also { t.reset() } else { t.enabled = true; "GPU timers: now on; call perf again after drawing." } }
+        (r?.frameStats?.report()?.let { "3D view: $it" } ?: "No 3D view on screen.") + (gpu?.let { "\n$it" } ?: "") + "\n" + memory()
     }
 
     private suspend fun viewReport(): String = withContext(Dispatchers.Main.immediate) {
@@ -902,6 +921,18 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         val normal = args.vec3("normal") ?: throw ToolError("normal must be 3 numbers")
         if (normal.x == 0.0 && normal.y == 0.0 && normal.z == 0.0) throw ToolError("normal must not be [0, 0, 0]")
         return plateEdit("laid object ${o + 1} copy ${inst.index + 1} on a face") { store.engine.layOnFace(o, inst.index, normal.f()) }
+    }
+
+    private suspend fun fitCheck(args: JSONObject): String {
+        val o = if (args.has("object")) copyOf(args).first else -1
+        if (args.optBoolean("fix")) {
+            if (o < 0) throw ToolError("fix needs an object")
+            return plateEdit("fitted object ${o + 1} to the printer", R.string.orienting) { store.engine.fitToPrinter(o) }
+        }
+        val issues = store.engine.fitCheck(o)
+        if (issues.isEmpty()) return "Everything fits the printer."
+        fun mm(v: List<Float>) = v.joinToString(" x ") { "%.1f".format(it) }
+        return issues.joinToString("\n") { "Object ${it.obj + 1} copy ${it.instance + 1} (${it.name}): ${mm(it.size)} mm, printer ${mm(it.bed)} mm, fix: ${it.fix ?: "none"}" }
     }
 
     private suspend fun autoOrient(args: JSONObject): String {
