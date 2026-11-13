@@ -48,6 +48,17 @@ class SessionFiles(private val dir: File) {
         }
     }
 
+    /**
+     * Repairs a [commit] that was cut off between its two project moves: with no project and an old one, the old one
+     * becomes the project again (its info was not touched). Otherwise a leftover old project is deleted when a project
+     * exists. Returns true only when the old project was moved back.
+     */
+    fun recoverInterrupted(): Boolean {
+        if (!project.exists() && oldProject.isFile) return move(oldProject, project)
+        if (project.exists()) oldProject.delete()
+        return false
+    }
+
     /** Moves the pair to `session.bad.*`, replacing an older bad pair. Does nothing when there is no pair. */
     fun quarantine() {
         if (!project.exists() && !info.exists()) return

@@ -88,6 +88,28 @@ class SessionFilesTest {
         assertFalse(files.restoreBad())
     }
 
+    @Test fun recoverInterruptedMovesTheOldProjectBack() {
+        File(dir, "session.old.3mf").writeText("old")
+        files.info.writeText("i1")
+        assertTrue(files.recoverInterrupted())
+        assertEquals("old", files.project.readText())
+        assertFalse(File(dir, "session.old.3mf").exists())
+        assertEquals("i1", files.info.readText())
+    }
+
+    @Test fun recoverInterruptedDropsAStaleOldProject() {
+        assertTrue(savePair("p1", "i1"))
+        File(dir, "session.old.3mf").writeText("old")
+        assertFalse(files.recoverInterrupted())
+        assertEquals("p1", files.project.readText())
+        assertFalse(File(dir, "session.old.3mf").exists())
+    }
+
+    @Test fun recoverInterruptedWithNothingDoesNothing() {
+        assertFalse(files.recoverInterrupted())
+        assertEquals(0, dir.list()!!.size)
+    }
+
     @Test fun discardBadAndClear() {
         assertTrue(savePair("p1", "i1"))
         files.quarantine()

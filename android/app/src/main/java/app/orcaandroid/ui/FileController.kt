@@ -233,8 +233,10 @@ class FileController(
     /** Auto-save and the save on going to the background share the temporary file. */
     private val sessionLock = Mutex()
     /**
-     * True once the session restore succeeded or found no session. An empty plate deletes the saved session only
-     * then: after a failed restore the plate is empty because the restore failed, not because the user cleared it.
+     * True once the session restore has run to an end: it succeeded, found no session, or failed and quarantined the
+     * bad pair (the current session is then absent and the pair is safe in `session.bad.*`). An empty plate deletes
+     * the saved session only then; before the restore has run, or while it is cancelled, an empty plate is not the
+     * user's doing.
      */
     @Volatile private var sessionLoadedOrAbsent = false
 
@@ -261,6 +263,7 @@ class FileController(
     /** Restores the last session if the engine has no scene (a fresh start of the process). */
     suspend fun restoreSession() {
         if (!store.value.scene.isEmpty) return
+        withContext(Dispatchers.IO) { session.recoverInterrupted() }
         if (!session.project.exists()) {
             sessionLoadedOrAbsent = true
             // A pair kept from an earlier failed restore is still offered.
@@ -275,6 +278,7 @@ class FileController(
         } catch (e: Exception) {
             android.util.Log.w("Orca", "session not restored", e)
             withContext(Dispatchers.IO) { session.quarantine() }
+            sessionLoadedOrAbsent = true
             store.update { it.copy(sessionBad = true) }
             return
         }

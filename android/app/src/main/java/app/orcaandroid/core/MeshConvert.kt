@@ -444,7 +444,8 @@ object MeshConvert {
                 val uv = if (bmp != null) attrs.optInt("TEXCOORD_${texInfo.optInt("texCoord", 0)}", -1).takeIf { it >= 0 }?.let { accessor(it).first } else null
                 val vcolor = if (attrs.has("COLOR_0")) accessor(attrs.getInt("COLOR_0")) else null
                 val pv = FloatArray(9)
-                for (t in 0 until tri.size / 3) {                    val vs = intArrayOf(tri.a[t * 3], tri.a[t * 3 + 1], tri.a[t * 3 + 2])
+                for (t in 0 until tri.size / 3) {
+                    val vs = intArrayOf(tri.a[t * 3], tri.a[t * 3 + 1], tri.a[t * 3 + 2])
                     if (vs.any { it >= nv }) continue
                     // Past the cap triangles are only counted (the file's real size goes into the message).
                     if (out.over) { out.skip(); continue }
