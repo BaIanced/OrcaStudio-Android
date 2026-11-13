@@ -27,15 +27,17 @@ class Store(val app: Application, val scope: CoroutineScope) {
 
     val state = MutableStateFlow(
         UiState(
-            pen = settings.pen,
-            contactShadows = settings.contactShadows,
-            realistic = settings.realistic,
-            layerLines = settings.layerLines,
-            edgeOutline = settings.edgeOutline,
-            selectionStyle = settings.selectionStyle,
-            perspective = settings.perspective,
-            workspace = SceneState(snapPrepare = settings.snapPrepare),
-            supersample = settings.supersample,
+            workspace = SceneState(
+                snapPrepare = settings.snapPrepare,
+                pen = settings.pen,
+                contactShadows = settings.contactShadows,
+                realistic = settings.realistic,
+                layerLines = settings.layerLines,
+                edgeOutline = settings.edgeOutline,
+                selectionStyle = settings.selectionStyle,
+                perspective = settings.perspective,
+                supersample = settings.supersample,
+            ),
             design = DesignState(
                 snapBuild = settings.snapBuild,
                 buildOthers = settings.buildOthers,
@@ -124,9 +126,8 @@ class Store(val app: Application, val scope: CoroutineScope) {
     fun applyScene(scene: Scene, dirty: Boolean = true) = update { s ->
         val multi = s.workspace.multiSelection.filter { it.obj < scene.objects.size && it.instance < scene.objects[it.obj].instances.size }
         s.copy(
-            workspace = s.workspace.copy(scene = scene, activePlate = s.workspace.activePlate.coerceIn(0, (scene.plates.size - 1).coerceAtLeast(0)), selection = s.workspace.selection?.takeIf { it.obj < scene.objects.size } ?: multi.singleOrNull(), multiSelection = multi.takeIf { it.size > 1 }.orEmpty()),
+            workspace = s.workspace.copy(scene = scene, activePlate = s.workspace.activePlate.coerceIn(0, (scene.plates.size - 1).coerceAtLeast(0)), selection = s.workspace.selection?.takeIf { it.obj < scene.objects.size } ?: multi.singleOrNull(), multiSelection = multi.takeIf { it.size > 1 }.orEmpty(), projectDirty = s.workspace.projectDirty || dirty),
             slicing = s.slicing.copy(results = emptyMap()),
-            projectDirty = s.projectDirty || dirty,
         )
     }
 

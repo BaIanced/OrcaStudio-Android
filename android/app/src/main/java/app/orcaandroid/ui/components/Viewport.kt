@@ -183,7 +183,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                         if (vm.state.value.workspace.tool == app.orcaandroid.ui.Tool.Measure) {
                             val near = placedNear(x, y, LOUPE_GRAB_DP * v.resources.displayMetrics.density, LOUPE_LIFT_DP * v.resources.displayMetrics.density)
                             if (near != null) { vm.scene.measureSelect(near.first); return }
-                            if (vm.state.value.measureActive != null) { vm.scene.measureSelect(null); return }
+                            if (vm.state.value.workspace.measureActive != null) { vm.scene.measureSelect(null); return }
                         }
                         val (o, d) = v.camera.ray(x, y)
                         if (vm.state.value.workspace.tool is Tool.MeshEdit) {
@@ -387,20 +387,20 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                     private var aimOffset = floatArrayOf(0f, 0f)
 
                     /** The placed point within [radius] px of (x, y), or of the aim [lift] px above it: its index and screen spot. */
-                    private fun placedNear(x: Float, y: Float, radius: Float, lift: Float) = vm.state.value.measure.withIndex().mapNotNull { (i, m) ->
+                    private fun placedNear(x: Float, y: Float, radius: Float, lift: Float) = vm.state.value.workspace.measure.withIndex().mapNotNull { (i, m) ->
                         v.camera.project(m.point)?.let { s -> Triple(i, s, minOf(kotlin.math.hypot(s.first - x, s.second - y), kotlin.math.hypot(s.first - x, s.second - y + lift))) }
                     }.filter { it.third <= radius }.minByOrNull { it.third }
 
                     override fun onMeasureGrab(x: Float, y: Float, exact: Boolean): Boolean {
                         val density = v.resources.displayMetrics.density
                         if (exact) return placedNear(x, y, LOUPE_GRAB_EXACT_DP * density, 0f) != null
-                        val active = vm.state.value.measureActive ?: return false
+                        val active = vm.state.value.workspace.measureActive ?: return false
                         return placedNear(x, y, LOUPE_GRAB_DP * density, LOUPE_LIFT_DP * density)?.first == active
                     }
 
                     /** The steered-point camera (Steer camera toggle, a finger's loupe only): each frame it moved, the dot is picked again. */
                     private val steer = app.orcaandroid.render.MeasureSteer(v, v.camera, {
-                        vm.state.value.loupe?.let { l ->
+                        vm.state.value.workspace.loupe?.let { l ->
                             l.point?.let { p -> app.orcaandroid.render.MeasureSteer.focusOf(p, l.feature?.kind, l.feature?.lines ?: FloatArray(0),
                                 l.feature?.diameter, l.preview?.normal, v.camera.towardsEye()) }
                         }
@@ -433,7 +433,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                             // A long press starts the dot under the finger (where a tap would set it); moving eases it up to the lift.
                             aimOffset = floatArrayOf(0f, -easeLift * minOf(1f, kotlin.math.hypot(x - press[0], y - press[1]) / easeLift))
                         }
-                        if (phase == 0 && !exact && vm.state.value.measureSteer) steer.begin(x, y, x + aimOffset[0], y + aimOffset[1])
+                        if (phase == 0 && !exact && vm.state.value.workspace.measureSteer) steer.begin(x, y, x + aimOffset[0], y + aimOffset[1])
                         if (steer.active) {
                             // Steered: the finger's moves steer the dot, the frames pick it; the lift places it before the camera goes back.
                             when (phase) {
@@ -462,10 +462,10 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     }
     // Redraws the selected point's ring every frame while there is one (the camera moves under it).
     val activeFrame = androidx.compose.runtime.remember { androidx.compose.runtime.mutableLongStateOf(0L) }
-    LaunchedEffect(state.measureActive != null && state.workspace.tool == Tool.Measure) {
-        if (state.measureActive != null && state.workspace.tool == Tool.Measure) while (true) androidx.compose.runtime.withFrameNanos { activeFrame.longValue = it }
+    LaunchedEffect(state.workspace.measureActive != null && state.workspace.tool == Tool.Measure) {
+        if (state.workspace.measureActive != null && state.workspace.tool == Tool.Measure) while (true) androidx.compose.runtime.withFrameNanos { activeFrame.longValue = it }
     }
-    state.measureActive?.let { state.measure.getOrNull(it) }?.takeIf { state.loupe == null && state.workspace.tool == Tool.Measure }?.let { m ->
+    state.workspace.measureActive?.let { state.workspace.measure.getOrNull(it) }?.takeIf { state.workspace.loupe == null && state.workspace.tool == Tool.Measure }?.let { m ->
         // The selected point: a ring round it (drag from it to move it, tap elsewhere to set it).
         Canvas(Modifier.fillMaxSize()) {
             activeFrame.longValue
@@ -476,7 +476,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
             }
         }
     }
-    state.loupe?.let { l ->
+    state.workspace.loupe?.let { l ->
         // What the snap caught, named under the ring; the view outlines it in the same colour (snapLines).
         val kind = l.feature?.kind
         val label = when (kind) {
@@ -644,11 +644,11 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     val scene = state.workspace.scene
 
     LaunchedEffect(v, colors) { v.onGl { this.colors = colors } }
-    LaunchedEffect(v, state.contactShadows) {
-        v.onGl { contactShadows = state.contactShadows }
+    LaunchedEffect(v, state.workspace.contactShadows) {
+        v.onGl { contactShadows = state.workspace.contactShadows }
     }
-    LaunchedEffect(v, state.realistic) { v.onGl { realistic = state.realistic } }
-    LaunchedEffect(v, state.wireframe) { v.onGl { wireAll = state.wireframe } }
+    LaunchedEffect(v, state.workspace.realistic) { v.onGl { realistic = state.workspace.realistic } }
+    LaunchedEffect(v, state.workspace.wireframe) { v.onGl { wireAll = state.workspace.wireframe } }
     val plateTypes = scene.plates.indices.map { state.bedTypeOf(it) }
     val appContext = LocalContext.current.applicationContext
     LaunchedEffect(v, state.chrome.lab.plateHdAlpha) { v.onGl { plateAlpha = state.chrome.lab.plateHdAlpha } }
@@ -660,13 +660,13 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         }
     }
     // Layer lines: the print preset's first layer and layer heights (one value each; 0 = off).
-    val layers = if (!state.layerLines) floatArrayOf(0f, 0f) else {
+    val layers = if (!state.workspace.layerLines) floatArrayOf(0f, 0f) else {
         fun mm(key: String) = state.device.value(PresetType.PRINT, key)?.split(',', ';')?.firstOrNull()?.trim()?.toFloatOrNull()?.takeIf { it > 0f } ?: 0.2f
         floatArrayOf(mm("initial_layer_print_height"), mm("layer_height"))
     }
     LaunchedEffect(v, layers[0], layers[1]) { v.onGl { layerLines = layers } }
-    LaunchedEffect(v, state.supersample) {
-        v.onGl { supersample = state.supersample }
+    LaunchedEffect(v, state.workspace.supersample) {
+        v.onGl { supersample = state.workspace.supersample }
     }
     val solo = state.inPaintShop
     LaunchedEffect(v, solo) { v.onGl { this.solo = solo } }
@@ -694,8 +694,8 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
             shopCamera = null
         }
     }
-    LaunchedEffect(v, state.selectionStyle) {
-        v.onGl { selectionStyle = state.selectionStyle }
+    LaunchedEffect(v, state.workspace.selectionStyle) {
+        v.onGl { selectionStyle = state.workspace.selectionStyle }
     }
     LaunchedEffect(v, state.chrome.lab.shadowStrength, state.chrome.lab.shadowSoft, state.chrome.lab.shadowBias) {
         v.onGl { shadowStrength = state.chrome.lab.shadowStrength; shadowSoftMm = state.chrome.lab.shadowSoft; shadowBiasMm = state.chrome.lab.shadowBias }
@@ -706,8 +706,8 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     LaunchedEffect(v, state.chrome.lab.pinchSpeed) { v.pinchSpeed = state.chrome.lab.pinchSpeed }
     LaunchedEffect(v, state.chrome.lab.orbitInertia) { v.orbitInertia = state.chrome.lab.orbitInertia }
     LaunchedEffect(v, state.chrome.lab.wheelSpeed) { v.wheelSpeed = state.chrome.lab.wheelSpeed }
-    LaunchedEffect(v, state.perspective) { v.camera.perspective = state.perspective }
-    LaunchedEffect(v, state.pen) { v.pen = state.pen }
+    LaunchedEffect(v, state.workspace.perspective) { v.camera.perspective = state.workspace.perspective }
+    LaunchedEffect(v, state.workspace.pen) { v.pen = state.workspace.pen }
     // The Build workspace's selection is shapes: their handles and rings always show (groups scale by corners only), on the
     // selected volumes' mesh box in the copy last tapped or dragged.
     val building = state.buildObject != null
@@ -881,7 +881,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
             }
         }
     }
-    LaunchedEffect(v, state.workspace.tool, showPreview, state.overhangView, state.overhangDrag, state.device.value(PresetType.PRINT, "support_threshold_angle")) {
+    LaunchedEffect(v, state.workspace.tool, showPreview, state.workspace.overhangView, state.workspace.overhangDrag, state.device.value(PresetType.PRINT, "support_threshold_angle")) {
         v.mode = when {
             showPreview -> InteractionMode.VIEW
             else -> when (state.workspace.tool) {
@@ -914,8 +914,8 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         }
         val highlight = (state.workspace.tool as? Tool.Paint)?.takeIf { !showPreview && it.kind == "support" }?.highlight ?: 0f
         // "Show overhangs": every part, at the support threshold angle (0 = auto: tree supports' 30).
-        val viewAngle = if (!state.overhangView || showPreview) 0f
-            else (state.overhangDrag ?: state.device.value(PresetType.PRINT, "support_threshold_angle")?.toFloatOrNull() ?: 30f).let { if (it < 0.5f) 30f else it }
+        val viewAngle = if (!state.workspace.overhangView || showPreview) 0f
+            else (state.workspace.overhangDrag ?: state.device.value(PresetType.PRINT, "support_threshold_angle")?.toFloatOrNull() ?: 30f).let { if (it < 0.5f) 30f else it }
         v.onGl { cutPlane = cut; overhangHighlight = if (highlight > 0f) highlight else viewAngle; overhangAll = highlight <= 0f && viewAngle > 0f }
     }
     // Check mesh: the problem spots stay up until another copy is selected.
@@ -937,7 +937,7 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     val regions = (state.workspace.tool as? Tool.Paint)?.takeIf { it.shape == "regions" && !showPreview }
     val regionAngle = regions?.edgeAngle?.takeIf { it > 0f } ?: 30f
     // The View menu's edge outline: the same lines for every copy on the active plate (the Regions view wins on the selected copy).
-    val outline = state.edgeOutline && regions == null && !showPreview
+    val outline = state.workspace.edgeOutline && regions == null && !showPreview
     LaunchedEffect(v, regions != null, outline, regionAngle, state.workspace.selection, scene.objects, state.workspace.activePlate) {
         val lines = if (regions != null) runCatching { vm.scene.creaseLines(regionAngle) }.getOrNull()
             else if (outline) runCatching { vm.scene.plateCreaseLines(regionAngle) }.getOrNull() else null
@@ -960,21 +960,21 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     }
     // Compose's density (the UI scale), as the overlay's frame uses.
     val loupeDensity = androidx.compose.ui.platform.LocalDensity.current.density
-    LaunchedEffect(v, state.loupe?.x, state.loupe?.y) {
-        val l = state.loupe
+    LaunchedEffect(v, state.workspace.loupe?.x, state.workspace.loupe?.y) {
+        val l = state.workspace.loupe
         val r = l?.let { loupeInset(it.x, it.y, v.width.toFloat(), v.height.toFloat(), loupeDensity) }
         v.onGl { loupe = if (l == null || r == null) null else floatArrayOf(l.x, l.y, r[0], r[1], r[2]) }
     }
     val measuring = state.workspace.tool == Tool.Measure
-    LaunchedEffect(v, state.loupe?.feature, measuring) {
-        val f = state.loupe?.feature?.takeIf { measuring }
+    LaunchedEffect(v, state.workspace.loupe?.feature, measuring) {
+        val f = state.workspace.loupe?.feature?.takeIf { measuring }
         val c = snapColor(f?.kind)
         v.onGl { snapLines = f?.lines; snapColor = floatArrayOf(c.red, c.green, c.blue) }
     }
-    val measureLine = state.measureLine
-    LaunchedEffect(v, state.measure, state.loupe?.point, measureLine, measuring) {
+    val measureLine = state.workspace.measureLine
+    LaunchedEffect(v, state.workspace.measure, state.workspace.loupe?.point, measureLine, measuring) {
         // The line ends where a click would place B (a ring: its centre).
-        val pts = if (!measuring) emptyList() else (state.measure.map { it.point } + listOfNotNull(state.loupe?.let { it.preview?.point ?: it.point })).takeLast(2)
+        val pts = if (!measuring) emptyList() else (state.workspace.measure.map { it.point } + listOfNotNull(state.workspace.loupe?.let { it.preview?.point ?: it.point })).takeLast(2)
             .map { floatArrayOf(it.x, it.y, it.z) }
         val lock = measureLine?.takeIf { measuring }?.third?.let { l -> val c = measureLockColor(l.axis); floatArrayOf(l.foot.x, l.foot.y, l.foot.z, c.red, c.green, c.blue) }
         v.onGl { measurePoints = pts; measureLock = lock }

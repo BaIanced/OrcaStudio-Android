@@ -187,7 +187,7 @@ class FileController(
         presets.refreshPresetValues(listOf(PresetType.FILAMENT, PresetType.PRINT))
         store.applyScene(loaded, dirty = false)
         uri?.let { rememberRecent(it, file.name, true) }
-        store.update { it.copy(projectName = file.name.removeSuffix(".3mf"), projectDirty = false, workspace = it.workspace.copy(selection = null, multiSelection = emptyList()), chrome = it.chrome.copy(screen = Screen.PREPARE)) }
+        store.update { it.copy(workspace = it.workspace.copy(selection = null, multiSelection = emptyList(), projectName = file.name.removeSuffix(".3mf"), projectDirty = false), chrome = it.chrome.copy(screen = Screen.PREPARE)) }
     }
 
     private var filamentAnswer: kotlinx.coroutines.CompletableDeferred<String>? = null
@@ -245,15 +245,15 @@ class FileController(
         val s = store.value
         if (s.chrome.phase != Phase.READY) return
         // A calibration test cannot be resumed from a project; an empty plate needs no session.
-        if (s.workspace.scene.isEmpty || s.calibration != null) {
+        if (s.workspace.scene.isEmpty || s.workspace.calibration != null) {
             if (sessionLoadedOrAbsent) withContext(Dispatchers.IO) { session.clear() }
             return@withLock
         }
         presets.syncSelection()
         engine.saveProject(session.tmpProject.path)
         val info = JSONObject().apply {
-            put("projectName", s.projectName ?: "")
-            put("projectDirty", s.projectDirty)
+            put("projectName", s.workspace.projectName ?: "")
+            put("projectDirty", s.workspace.projectDirty)
             put("activePlate", s.workspace.activePlate)
         }.toString()
         val saved = withContext(Dispatchers.IO) { session.commit(info) }
@@ -285,9 +285,7 @@ class FileController(
         sessionLoadedOrAbsent = true
         store.update {
             it.copy(
-                projectName = info?.optString("projectName")?.ifBlank { null },
-                projectDirty = info?.optBoolean("projectDirty") ?: true,
-                workspace = it.workspace.copy(activePlate = (info?.optInt("activePlate") ?: 0).coerceIn(0, (it.workspace.scene.plates.size - 1).coerceAtLeast(0))),
+                workspace = it.workspace.copy(activePlate = (info?.optInt("activePlate") ?: 0).coerceIn(0, (it.workspace.scene.plates.size - 1).coerceAtLeast(0)), projectName = info?.optString("projectName")?.ifBlank { null }, projectDirty = info?.optBoolean("projectDirty") ?: true),
             )
         }
     }
@@ -320,11 +318,11 @@ class FileController(
 
     fun newProject() = store.launch {
         scene.deleteAll()?.join()
-        if (store.value.calibration != null) store.applyScene(engine.calibStop())
+        if (store.value.workspace.calibration != null) store.applyScene(engine.calibStop())
         // Like the desktop, a new project starts with one plate.
         val extra = (1 until store.value.workspace.scene.plates.size).toList()
         if (extra.isNotEmpty()) store.applyScene(engine.deletePlates(extra))
-        store.update { it.copy(projectName = null, projectDirty = false, calibration = null, workspace = it.workspace.copy(activePlate = 0), slicing = it.slicing.copy(results = emptyMap(), external = null, sliceError = null, fitIssue = null)) }
+        store.update { it.copy(workspace = it.workspace.copy(activePlate = 0, projectName = null, projectDirty = false, calibration = null), slicing = it.slicing.copy(results = emptyMap(), external = null, sliceError = null, fitIssue = null)) }
     }
 
     fun saveProject(target: Uri) = store.launch(store.str(R.string.saving_project)) {
@@ -334,7 +332,7 @@ class FileController(
         if (!copyTo(tmp, target)) return@launch
         val name = resources.displayName(target).removeSuffix(".3mf")
         rememberRecent(target, "$name.3mf", true)
-        store.update { it.copy(projectName = name, projectDirty = false) }
+        store.update { it.copy(workspace = it.workspace.copy(projectName = name, projectDirty = false)) }
         store.toast(store.str(R.string.project_saved))
     }
 
@@ -348,7 +346,7 @@ class FileController(
     /** File name for the G-code of [plate]: project or first object name, with the plate if there are several. */
     fun gcodeFileName(plate: Int = store.value.slicing.previewPlate): String {
         val s = store.value
-        val base = s.projectName ?: s.workspace.scene.objectsOn(plate).firstOrNull()?.name?.substringBeforeLast('.') ?: "plate"
+        val base = s.workspace.projectName ?: s.workspace.scene.objectsOn(plate).firstOrNull()?.name?.substringBeforeLast('.') ?: "plate"
         return if (s.workspace.scene.plates.size > 1) "${base}_plate${plate + 1}.gcode" else "$base.gcode"
     }
 

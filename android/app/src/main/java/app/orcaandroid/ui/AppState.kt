@@ -181,6 +181,52 @@ data class SceneState(
     val lightPanel: Boolean = false,
     /** View > Dimensions: X / Y / Z size lines on the selection's box (session only). */
     val dimensions: Boolean = false,
+    val pen: app.orcaandroid.core.PenConfig = app.orcaandroid.core.PenConfig(),
+    /** 3D view contact shadows. */
+    val contactShadows: Boolean = true,
+    /** 3D view realistic render mode (physically based shading, studio lighting). */
+    val realistic: Boolean = false,
+    /** 3D view printed layer lines on the models. */
+    val layerLines: Boolean = false,
+    /** 3D view: dark outline along the models' crease edges (View menu). */
+    val edgeOutline: Boolean = false,
+    /** 3D view: the triangle edges of every model (View menu; this session only). */
+    val wireframe: Boolean = false,
+    /** How the selection shows ([app.orcaandroid.render.SelectionStyle] bits). */
+    val selectionStyle: Int = app.orcaandroid.render.SelectionStyle.DEFAULT,
+    /** Preview supersampling ([app.orcaandroid.render.Supersample]). */
+    val supersample: Int = app.orcaandroid.render.Supersample.STILL,
+    /** 3D view projection: perspective, or orthographic when false. */
+    val perspective: Boolean = true,
+
+    /** Measure tool: the placed points (at most 2). */
+    val measure: List<MeasurePoint> = emptyList(),
+    /** Measure tool: points snap to corners and edges (off: the bare hit; Alt held does the same for one click). */
+    val measureSnap: Boolean = true,
+    /** Measure tool: a line near the X, Y or Z axis locks to it (measured along it, in the axis colour). */
+    val measureAxes: Boolean = true,
+    /** Measure tool: the line locks to 15° steps (the touch toggle; Shift held does the same). */
+    val measureSteps: Boolean = false,
+    /** Measure tool: a held finger steers the dot and the camera follows it (hold = zoom in, fast slide = out; interaction plan step 6). */
+    val measureSteer: Boolean = false,
+    /** "Show overhangs" (quick settings): every part's faces the support threshold angle would support are tinted red; [overhangDrag] = the
+     *  angle slider while it moves (degrees), before it is written to the print settings. Interaction plan step 7. */
+    val overhangView: Boolean = false,
+    val overhangDrag: Float? = null,
+    /** Measure tool: Shift held now, and whether it was held when the second point went down (that pair keeps its steps). */
+    val measureShift: Boolean = false,
+    val measureShiftPlaced: Boolean = false,
+    /** Measure tool, loupe up (finger held, or a mouse / pen hovering): the aim spot, and the point (snapped, with how) the dot sits on. */
+    val loupe: Loupe? = null,
+    /** Measure: the placed point a tap selected (index in [measure]): a drag from it moves it, a tap elsewhere sets it. */
+    val measureActive: Int? = null,
+    val layerProfile: LayerProfile? = null,
+    val calibration: Calibration? = null,
+    val projectName: String? = null,
+    /** The project name before a calibration replaced it, restored when Undo leaves the calibration. */
+    val nameBeforeCalibration: String? = null,
+    /** Unsaved changes since the project was opened/saved. */
+    val projectDirty: Boolean = false,
 ) {
     val selectedObject get() = selection?.let { scene.objects.getOrNull(it.obj) }
 
@@ -205,6 +251,16 @@ data class SceneState(
         val current = selectedItems.map { it.copy(volume = -1) }
         val keys = items.map { it.copy(volume = -1) }
         return withSelected(if (keys.all { it in current }) current - keys.toSet() else current + keys.filterNot { it in current })
+    }
+
+    /**
+     * The measure line's two ends as drawn (the last placed point and the loupe's preview, else the two placed points)
+     * and the direction it locks to, if any.
+     */
+    val measureLine: Triple<MeasurePoint, MeasurePoint, MeasureLock?>? get() {
+        val (a, b) = (measure + listOfNotNull(loupe?.preview)).takeLast(2).takeIf { it.size == 2 } ?: return null
+        val steps = measureSteps || measureShift || (loupe?.preview == null && measureShiftPlaced)
+        return Triple(a, b, measureLock(a, b, measureAxes, steps))
     }
 }
 
@@ -383,70 +439,12 @@ data class DeviceState(
 }
 
 data class UiState(
-    val pen: app.orcaandroid.core.PenConfig = app.orcaandroid.core.PenConfig(),
-    /** 3D view contact shadows. */
-    val contactShadows: Boolean = true,
-    /** 3D view realistic render mode (physically based shading, studio lighting). */
-    val realistic: Boolean = false,
-    /** 3D view printed layer lines on the models. */
-    val layerLines: Boolean = false,
-    /** 3D view: dark outline along the models' crease edges (View menu). */
-    val edgeOutline: Boolean = false,
-    /** 3D view: the triangle edges of every model (View menu; this session only). */
-    val wireframe: Boolean = false,
-    /** How the selection shows ([app.orcaandroid.render.SelectionStyle] bits). */
-    val selectionStyle: Int = app.orcaandroid.render.SelectionStyle.DEFAULT,
-    /** Preview supersampling ([app.orcaandroid.render.Supersample]). */
-    val supersample: Int = app.orcaandroid.render.Supersample.STILL,
-    /** 3D view projection: perspective, or orthographic when false. */
-    val perspective: Boolean = true,
-
-    // Scene
-    /** Measure tool: the placed points (at most 2). */
-    val measure: List<MeasurePoint> = emptyList(),
-    /** Measure tool: points snap to corners and edges (off: the bare hit; Alt held does the same for one click). */
-    val measureSnap: Boolean = true,
-    /** Measure tool: a line near the X, Y or Z axis locks to it (measured along it, in the axis colour). */
-    val measureAxes: Boolean = true,
-    /** Measure tool: the line locks to 15° steps (the touch toggle; Shift held does the same). */
-    val measureSteps: Boolean = false,
-    /** Measure tool: a held finger steers the dot and the camera follows it (hold = zoom in, fast slide = out; interaction plan step 6). */
-    val measureSteer: Boolean = false,
-    /** "Show overhangs" (quick settings): every part's faces the support threshold angle would support are tinted red; [overhangDrag] = the
-     *  angle slider while it moves (degrees), before it is written to the print settings. Interaction plan step 7. */
-    val overhangView: Boolean = false,
-    val overhangDrag: Float? = null,
-    /** Measure tool: Shift held now, and whether it was held when the second point went down (that pair keeps its steps). */
-    val measureShift: Boolean = false,
-    val measureShiftPlaced: Boolean = false,
-    /** Measure tool, loupe up (finger held, or a mouse / pen hovering): the aim spot, and the point (snapped, with how) the dot sits on. */
-    val loupe: Loupe? = null,
-    /** Measure: the placed point a tap selected (index in [measure]): a drag from it moves it, a tap elsewhere sets it. */
-    val measureActive: Int? = null,
-    val layerProfile: LayerProfile? = null,
-    val calibration: Calibration? = null,
-    val projectName: String? = null,
-    /** The project name before a calibration replaced it, restored when Undo leaves the calibration. */
-    val nameBeforeCalibration: String? = null,
-    /** Unsaved changes since the project was opened/saved. */
-    val projectDirty: Boolean = false,
-
     val workspace: SceneState = SceneState(),
     val design: DesignState = DesignState(),
     val slicing: SliceState = SliceState(),
     val chrome: ChromeState = ChromeState(),
     val device: DeviceState = DeviceState(),
 ) {
-    /**
-     * The measure line's two ends as drawn (the last placed point and the loupe's preview, else the two placed points)
-     * and the direction it locks to, if any.
-     */
-    val measureLine: Triple<MeasurePoint, MeasurePoint, MeasureLock?>? get() {
-        val (a, b) = (measure + listOfNotNull(loupe?.preview)).takeLast(2).takeIf { it.size == 2 } ?: return null
-        val steps = measureSteps || measureShift || (loupe?.preview == null && measureShiftPlaced)
-        return Triple(a, b, measureLock(a, b, measureAxes, steps))
-    }
-
     /** Selects the copies [items]: one becomes the single selection, more a multi-selection. */
     fun withSelected(items: List<Selection>) = copy(workspace = workspace.withSelected(items))
 

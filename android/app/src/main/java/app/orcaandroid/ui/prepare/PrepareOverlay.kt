@@ -167,7 +167,7 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
         Column(Modifier.align(Alignment.TopStart).fillMaxWidth().onSizeChanged { bars = with(density) { it.height.toDp() } },
             verticalArrangement = Arrangement.spacedBy(6.dp)) {
             TopBar(state, vm, view, viewButtons = !column, onHandle = onHandle)
-            state.calibration?.let { cal ->
+            state.workspace.calibration?.let { cal ->
                 Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.tertiaryContainer) {
                     Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(stringResource(R.string.calibration_active, CALIBRATION_LABELS[cal.type]?.let { stringResource(it) } ?: cal.name), Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodySmall)
@@ -176,11 +176,11 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
                 }
             }
             if (state.showSelectionBanner) SelectionBanner(state, vm)
-            if (!state.chrome.coachDismissed && state.calibration == null && state.design.scad == null) CoachStrip(state, vm)
+            if (!state.chrome.coachDismissed && state.workspace.calibration == null && state.design.scad == null) CoachStrip(state, vm)
         }
         if (column) {
             // Below the top bar (and the banners): the column scrolls instead of covering the plate selector.
-            val top = maxOf(bars + 12.dp, 60.dp + (if (state.calibration != null) 50.dp else 0.dp) + (if (state.showSelectionBanner) 50.dp else 0.dp))
+            val top = maxOf(bars + 12.dp, 60.dp + (if (state.workspace.calibration != null) 50.dp else 0.dp) + (if (state.showSelectionBanner) 50.dp else 0.dp))
             val scroll = rememberScrollState()
             Box(Modifier.align(Alignment.TopStart).padding(top = top, bottom = if (filmstrip) 64.dp else 0.dp)) {
                 Column(Modifier.verticalScroll(scroll), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -499,33 +499,33 @@ internal fun ViewButtons(state: UiState, vm: AppViewModel, view: PlateView?, rai
                 trailingIcon = { if (view?.section?.active == true) Icon(Icons.Default.Check, null) })
             // Physically based shading with a studio environment (in the spirit of Google's Filament renderer); the plain look stays the default.
             DropdownMenuItem(text = { Text(stringResource(R.string.view_realistic)) },
-                onClick = { viewMenu = false; vm.setRealistic(!state.realistic) },
+                onClick = { viewMenu = false; vm.setRealistic(!state.workspace.realistic) },
                 leadingIcon = { Icon(Icons.Default.AutoAwesome, null) },
-                trailingIcon = { if (state.realistic) Icon(Icons.Default.Check, null) })
+                trailingIcon = { if (state.workspace.realistic) Icon(Icons.Default.Check, null) })
             // Printed layer lines on the models, from the print preset's layer heights.
             DropdownMenuItem(text = { Text(stringResource(R.string.view_layer_lines)) },
-                onClick = { viewMenu = false; vm.setLayerLines(!state.layerLines) },
+                onClick = { viewMenu = false; vm.setLayerLines(!state.workspace.layerLines) },
                 leadingIcon = { Icon(Icons.Default.Reorder, null) },
-                trailingIcon = { if (state.layerLines) Icon(Icons.Default.Check, null) })
+                trailingIcon = { if (state.workspace.layerLines) Icon(Icons.Default.Check, null) })
             // Dark lines along the sharp edges of every model (the Regions paint view draws the same lines for one copy).
             DropdownMenuItem(text = { Text(stringResource(R.string.view_edge_outline)) },
-                onClick = { viewMenu = false; vm.setEdgeOutline(!state.edgeOutline) },
+                onClick = { viewMenu = false; vm.setEdgeOutline(!state.workspace.edgeOutline) },
                 leadingIcon = { Icon(Icons.Default.BorderOuter, null) },
-                trailingIcon = { if (state.edgeOutline) Icon(Icons.Default.Check, null) })
+                trailingIcon = { if (state.workspace.edgeOutline) Icon(Icons.Default.Check, null) })
             // Godot's wireframe shading: the triangle edges of every model.
             DropdownMenuItem(text = { Text(stringResource(R.string.view_wireframe)) },
-                onClick = { viewMenu = false; vm.setWireframe(!state.wireframe) },
+                onClick = { viewMenu = false; vm.setWireframe(!state.workspace.wireframe) },
                 leadingIcon = { Icon(Icons.Default.GridOn, null) },
-                trailingIcon = { if (state.wireframe) Icon(Icons.Default.Check, null) })
+                trailingIcon = { if (state.workspace.wireframe) Icon(Icons.Default.Check, null) })
             // Drag the key light on a ball (the lab's light angles, live).
             DropdownMenuItem(text = { Text(stringResource(R.string.light_direction)) },
                 onClick = { viewMenu = false; vm.setLightPanel(!state.workspace.lightPanel) },
                 leadingIcon = { Icon(Icons.Default.WbSunny, null) },
                 trailingIcon = { if (state.workspace.lightPanel) Icon(Icons.Default.Check, null) })
             // The selection's bounding box (corner brackets): the same bit as More > Selection style > Box.
-            val boxOn = state.selectionStyle and app.orcaandroid.render.SelectionStyle.BOX != 0
+            val boxOn = state.workspace.selectionStyle and app.orcaandroid.render.SelectionStyle.BOX != 0
             DropdownMenuItem(text = { Text(stringResource(R.string.view_bounding_box)) },
-                onClick = { viewMenu = false; vm.setSelectionStyle(state.selectionStyle xor app.orcaandroid.render.SelectionStyle.BOX) },
+                onClick = { viewMenu = false; vm.setSelectionStyle(state.workspace.selectionStyle xor app.orcaandroid.render.SelectionStyle.BOX) },
                 leadingIcon = { Icon(Icons.Default.Crop, null) },
                 trailingIcon = { if (boxOn) Icon(Icons.Default.Check, null) })
             DropdownMenuItem(text = { Text(stringResource(R.string.view_dimensions)) },
@@ -570,9 +570,9 @@ internal fun ProjectMenu(state: UiState, vm: AppViewModel, open: Boolean, onDism
     val exportStl = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("model/stl")) { it?.let { u -> vm.files.exportStl(u, state.workspace.activePlate) } }
     var confirmNew by remember { mutableStateOf(false) }
     // Like the desktop: an unsaved project is named after its first object.
-    val base = state.projectName ?: state.workspace.scene.objects.firstOrNull()?.name?.substringBeforeLast('.') ?: "project"
+    val base = state.workspace.projectName ?: state.workspace.scene.objects.firstOrNull()?.name?.substringBeforeLast('.') ?: "project"
     DropdownMenu(expanded = open, onDismissRequest = onDismiss) {
-        DropdownMenuItem(text = { Text(stringResource(R.string.new_project)) }, onClick = { onDismiss(); if (state.projectDirty) confirmNew = true else vm.files.newProject() })
+        DropdownMenuItem(text = { Text(stringResource(R.string.new_project)) }, onClick = { onDismiss(); if (state.workspace.projectDirty) confirmNew = true else vm.files.newProject() })
         DropdownMenuItem(text = { Text(stringResource(R.string.open_project)) }, onClick = { onDismiss(); openProject.launch(arrayOf("*/*")) })
         DropdownMenuItem(text = { Text(stringResource(R.string.save_project)) }, onClick = { onDismiss(); saveProject.launch("$base.3mf") },
             enabled = !state.workspace.scene.isEmpty)

@@ -86,7 +86,7 @@ internal fun AddMenu(state: UiState, vm: AppViewModel, open: Boolean, onDismiss:
             onClick = { onDismiss(); onDialog("samples") })
         HorizontalDivider()
         DropdownMenuItem(text = { Text(stringResource(R.string.calibration)) }, leadingIcon = { Icon(Icons.Default.Science, null) },
-            onClick = { onDismiss(); onDialog("calib") }, enabled = state.calibration == null)
+            onClick = { onDismiss(); onDialog("calib") }, enabled = state.workspace.calibration == null)
     }
 }
 

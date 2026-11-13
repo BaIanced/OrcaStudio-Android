@@ -167,7 +167,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setPen(pen: app.orcaandroid.core.PenConfig) {
         store.settings.pen = pen
-        store.update { it.copy(pen = pen) }
+        store.update { it.copy(workspace = it.workspace.copy(pen = pen)) }
     }
 
     fun setDoubleBackToQuit(on: Boolean) {
@@ -188,37 +188,37 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setContactShadows(on: Boolean) {
         store.settings.contactShadows = on
-        store.update { it.copy(contactShadows = on) }
+        store.update { it.copy(workspace = it.workspace.copy(contactShadows = on)) }
     }
 
     fun setSelectionStyle(style: Int) {
         store.settings.selectionStyle = style
-        store.update { it.copy(selectionStyle = style) }
+        store.update { it.copy(workspace = it.workspace.copy(selectionStyle = style)) }
     }
 
     fun setSupersample(mode: Int) {
         store.settings.supersample = mode
-        store.update { it.copy(supersample = mode) }
+        store.update { it.copy(workspace = it.workspace.copy(supersample = mode)) }
     }
 
     fun setRealistic(on: Boolean) {
         store.settings.realistic = on
-        store.update { it.copy(realistic = on) }
+        store.update { it.copy(workspace = it.workspace.copy(realistic = on)) }
     }
 
     fun setLightPanel(on: Boolean) = store.update { it.copy(workspace = it.workspace.copy(lightPanel = on)) }
     fun setDimensions(on: Boolean) = store.update { it.copy(workspace = it.workspace.copy(dimensions = on)) }
 
-    fun setWireframe(on: Boolean) = store.update { it.copy(wireframe = on) }
+    fun setWireframe(on: Boolean) = store.update { it.copy(workspace = it.workspace.copy(wireframe = on)) }
 
     fun setEdgeOutline(on: Boolean) {
         store.settings.edgeOutline = on
-        store.update { it.copy(edgeOutline = on) }
+        store.update { it.copy(workspace = it.workspace.copy(edgeOutline = on)) }
     }
 
     fun setLayerLines(on: Boolean) {
         store.settings.layerLines = on
-        store.update { it.copy(layerLines = on) }
+        store.update { it.copy(workspace = it.workspace.copy(layerLines = on)) }
     }
 
     /** Snap on or off where the user is: the Build workspace when it is open, else the plate. */
@@ -252,7 +252,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setPerspective(on: Boolean) {
         store.settings.perspective = on
-        store.update { it.copy(perspective = on) }
+        store.update { it.copy(workspace = it.workspace.copy(perspective = on)) }
     }
 
     fun setAutoSave(seconds: Int) {
@@ -309,7 +309,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val overrides: Map<app.orcaandroid.core.PresetType, Map<String, String>>, val projectName: String?, val activePlate: Int,
     )
 
-    private fun sessionKey(s: UiState) = SessionKey(s.workspace.scene, s.device.printer, s.device.print, s.device.filaments, s.device.overrides, s.projectName, s.workspace.activePlate)
+    private fun sessionKey(s: UiState) = SessionKey(s.workspace.scene, s.device.printer, s.device.print, s.device.filaments, s.device.overrides, s.workspace.projectName, s.workspace.activePlate)
 
     /**
      * Saves the session every [UiState.autoSaveSeconds] while it has changed, so a crash or a killed

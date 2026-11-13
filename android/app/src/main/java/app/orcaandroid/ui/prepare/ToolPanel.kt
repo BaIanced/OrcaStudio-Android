@@ -781,7 +781,7 @@ private fun CutOptions(state: UiState, vm: AppViewModel, tool: Tool.Cut) {
 
 @Composable
 private fun MeasureOptions(state: UiState, vm: AppViewModel) {
-    val pts = state.measure
+    val pts = state.workspace.measure
     when (pts.size) {
         0 -> Text(stringResource(R.string.measure_hint_first), style = MaterialTheme.typography.bodySmall)
         1 -> {
@@ -791,7 +791,7 @@ private fun MeasureOptions(state: UiState, vm: AppViewModel) {
         else -> {
             // The headline is what the two picks mean together: a face gap, a distance square to a face, else point to point.
             val r = measureResult(pts[0], pts[1])
-            val lock = measureLock(pts[0], pts[1], state.measureAxes, state.measureSteps || state.measureShift || state.measureShiftPlaced)
+            val lock = measureLock(pts[0], pts[1], state.workspace.measureAxes, state.workspace.measureSteps || state.workspace.measureShift || state.workspace.measureShiftPlaced)
             val onBed = pts.any { it.kind == "bed" }
             val rings = pts.all { it.kind == "ring" }
             val (head, caption) = when {
@@ -811,15 +811,15 @@ private fun MeasureOptions(state: UiState, vm: AppViewModel) {
         }
     }
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Checkbox(state.measureSnap, { vm.scene.setMeasureSnap(it) }); Text(stringResource(R.string.measure_snap_toggle))
+        Checkbox(state.workspace.measureSnap, { vm.scene.setMeasureSnap(it) }); Text(stringResource(R.string.measure_snap_toggle))
         Spacer(Modifier.weight(1f))
         if (pts.isNotEmpty()) TextButton(onClick = { vm.scene.setTool(Tool.Measure) }) { Text(stringResource(R.string.reset)) }
     }
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Checkbox(state.measureAxes, { vm.scene.setMeasureAxes(it) }); Text(stringResource(R.string.measure_axes_toggle))
+        Checkbox(state.workspace.measureAxes, { vm.scene.setMeasureAxes(it) }); Text(stringResource(R.string.measure_axes_toggle))
     }
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Checkbox(state.measureSteer, { vm.scene.setMeasureSteer(it) }); Text(stringResource(R.string.measure_steer_toggle))
+        Checkbox(state.workspace.measureSteer, { vm.scene.setMeasureSteer(it) }); Text(stringResource(R.string.measure_steer_toggle))
     }
 }
 
@@ -841,7 +841,7 @@ private fun measureKindLabel(m: MeasurePoint) = when (m.kind) {
  */
 @Composable
 private fun LayerHeightOptions(state: UiState, vm: AppViewModel) {
-    val profile = state.layerProfile
+    val profile = state.workspace.layerProfile
     var quality by remember { mutableFloatStateOf(0.5f) }
     if (profile == null) {
         Text(stringResource(R.string.loading), style = MaterialTheme.typography.bodySmall)
@@ -858,7 +858,7 @@ private fun LayerHeightOptions(state: UiState, vm: AppViewModel) {
                 // A tap; a pen's pressure scales the step (floor 10 %, More > Pen).
                 awaitEachGesture {
                     val down = awaitFirstDown()
-                    val pressure = state.pen.scale(down.pressure, down.type == androidx.compose.ui.input.pointer.PointerType.Stylus)
+                    val pressure = state.workspace.pen.scale(down.pressure, down.type == androidx.compose.ui.input.pointer.PointerType.Stylus)
                     if (waitForUpOrCancellation() != null) {
                         val p = down.position
                         val z = (1f - p.y / size.height) * profile.height

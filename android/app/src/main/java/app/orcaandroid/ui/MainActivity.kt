@@ -290,7 +290,7 @@ class MainActivity : ComponentActivity() {
             KeyEvent.KEYCODE_I -> { view?.camera?.zoom(1.15f); return true }
             KeyEvent.KEYCODE_O -> { view?.camera?.zoom(1 / 1.15f); return true }
             // As in PrusaSlicer (Orca has it only in the View menu): K switches perspective / orthographic.
-            KeyEvent.KEYCODE_K -> if (s.chrome.screen == Screen.PREPARE || s.chrome.screen == Screen.PREVIEW) { vm.setPerspective(!s.perspective); return true }
+            KeyEvent.KEYCODE_K -> if (s.chrome.screen == Screen.PREPARE || s.chrome.screen == Screen.PREVIEW) { vm.setPerspective(!s.workspace.perspective); return true }
             // Numpad 0-7 also pick the camera views: some systems keep Ctrl+digit as their own hotkeys.
             // Only with Num Lock on, so the numpad arrows still nudge.
             in KeyEvent.KEYCODE_NUMPAD_0..KeyEvent.KEYCODE_NUMPAD_7 -> if (view != null && event.isNumLockOn &&

@@ -502,7 +502,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         val s = store.value
         return "Camera yaw ${n(c[0].toDouble())}, pitch ${n(c[1].toDouble())}, distance ${n(c[2].toDouble())} mm, " +
             "target [${n(c[3].toDouble())}, ${n(c[4].toDouble())}, ${n(c[5].toDouble())}]; section ${n(view.section.ratio.toDouble())}, " +
-            "shadows ${if (s.contactShadows) "on" else "off"}, supersample ${listOf("off", "still", "always").getOrElse(s.supersample) { "?" }}, ${if (view.camera.perspective) "perspective" else "orthographic"}; " +
+            "shadows ${if (s.workspace.contactShadows) "on" else "off"}, supersample ${listOf("off", "still", "always").getOrElse(s.workspace.supersample) { "?" }}, ${if (view.camera.perspective) "perspective" else "orthographic"}; " +
             "plate ${s.workspace.activePlate + 1} active."
     }
 
@@ -545,13 +545,13 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         if (args.has("shadows")) {
             val on = args.optBoolean("shadows")
             store.settings.contactShadows = on
-            store.update { it.copy(contactShadows = on) }
+            store.update { it.copy(workspace = it.workspace.copy(contactShadows = on)) }
         }
         args.optString("supersample").takeIf { it.isNotEmpty() }?.let { name ->
             val mode = listOf("off", "still", "always").indexOf(name)
             if (mode < 0) throw ToolError("supersample: off, still or always")
             store.settings.supersample = mode
-            store.update { it.copy(supersample = mode) }
+            store.update { it.copy(workspace = it.workspace.copy(supersample = mode)) }
         }
         num("regime")?.let { r -> view.renderer.accumRegime = r.coerceIn(0.3f, 1.5f) }
         args.optString("projection").takeIf { it.isNotEmpty() }?.let { name ->
@@ -561,7 +561,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
                 else -> throw ToolError("projection must be perspective or orthographic")
             }
             store.settings.perspective = on
-            store.update { it.copy(perspective = on) }
+            store.update { it.copy(workspace = it.workspace.copy(perspective = on)) }
             view.camera.perspective = on
         }
         viewState(view)
@@ -665,14 +665,14 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
                 is app.orcaandroid.ui.Tool.Sculpt -> "sculpt ${tool.brush} (radius ${n(tool.radius.toDouble())} mm, strength ${n(tool.strength.toDouble())}${if (tool.invert) ", inverted" else ""})"
                 is app.orcaandroid.ui.Tool.MeshEdit -> "mesh edit ${tool.kind}${if (tool.triangles) " (triangles)" else ""}"
                 app.orcaandroid.ui.Tool.LayOnFace -> "lay on face"
-                app.orcaandroid.ui.Tool.Measure -> "measure, ${s.measure.size} point(s)" +
-                    (s.loupe?.let { l -> " (loupe at ${l.x.toInt()},${l.y.toInt()}: ${l.feature?.kind ?: "nothing"})" } ?: "") +
-                    (s.measureActive?.let { " (point ${it + 1} selected)" } ?: "") + s.measure.joinToString("") { m ->
+                app.orcaandroid.ui.Tool.Measure -> "measure, ${s.workspace.measure.size} point(s)" +
+                    (s.workspace.loupe?.let { l -> " (loupe at ${l.x.toInt()},${l.y.toInt()}: ${l.feature?.kind ?: "nothing"})" } ?: "") +
+                    (s.workspace.measureActive?.let { " (point ${it + 1} selected)" } ?: "") + s.workspace.measure.joinToString("") { m ->
                     " [${m.kind}${m.diameter?.let { d -> " D ${n(d.toDouble())}" } ?: ""} at ${n(m.point.x.toDouble())}, ${n(m.point.y.toDouble())}, ${n(m.point.z.toDouble())}]"
-                } + (if (s.measure.size == 2) app.orcaandroid.ui.measureResult(s.measure[0], s.measure[1]).let { r ->
+                } + (if (s.workspace.measure.size == 2) app.orcaandroid.ui.measureResult(s.workspace.measure[0], s.workspace.measure[1]).let { r ->
                     ": distance ${n(r.distance.toDouble())} mm" + (r.gap?.let { ", gap ${n(it.toDouble())} mm" } ?: "") +
                         (r.toPlane?.let { ", to plane ${n(it.toDouble())} mm" } ?: "") + (r.angle?.let { ", angle ${n(it.toDouble())} deg" } ?: "")
-                } else "") + (s.measureLine?.third?.let { l ->
+                } else "") + (s.workspace.measureLine?.third?.let { l ->
                     "; line locks to " + (if (l.axis >= 0) "XYZ"[l.axis].toString() else "${n(l.elevation.toDouble())} deg up, ${n(l.azimuth.toDouble())} deg round") +
                         ", along ${n(l.along.toDouble())} mm"
                 } ?: "")

@@ -373,8 +373,8 @@ class SceneController(private val store: Store, private val presets: PresetContr
                 lastDelete = null
             }
         }
-        if (store.value.calibration != null && !scene.calibrationActive)
-            store.update { it.copy(calibration = null, projectName = it.nameBeforeCalibration) }
+        if (store.value.workspace.calibration != null && !scene.calibrationActive)
+            store.update { it.copy(workspace = it.workspace.copy(calibration = null, projectName = it.workspace.nameBeforeCalibration)) }
     }
     fun redo() = store.sceneOp { engine.redo() }
 
@@ -396,7 +396,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
     fun setTool(tool: Tool) = store.launch {
         val old = store.value.workspace.tool as? Tool.Paint
         old?.let { lastPaint[it.kind] = it }
-        store.update { it.copy(workspace = it.workspace.copy(tool = tool), measure = if (tool == Tool.Measure) emptyList() else it.measure) }
+        store.update { it.copy(workspace = it.workspace.copy(tool = tool, measure = if (tool == Tool.Measure) emptyList() else it.workspace.measure)) }
         if (tool !is Tool.Paint || tool.shape != "regions" || tool.kind != old?.kind) regionPick.value = null
         if (tool is Tool.Paint && old != null && tool.kind == old.kind && tool.shape == old.shape && (tool.shape == "fill" || tool.shape == "regions")
             && (tool.edgeAngle != old.edgeAngle || tool.overColours != old.overColours)) refillLast()
@@ -413,7 +413,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
                   pxSize: ((Vec3) -> Float)? = null, around: List<Pair<Vec3, Vec3>> = emptyList(), bed: Vec3? = null) = store.launch {
         // Measure: Alt held (or Snap off) takes the bare hit.
         val hit = if ((store.value.workspace.tool == Tool.Measure || store.value.workspace.tool is Tool.Cut) && pxSize != null)
-            measurePick(origin, dir, section, pxSize, around, store.value.measureSnap && !part)
+            measurePick(origin, dir, section, pxSize, around, store.value.workspace.measureSnap && !part)
             else pick(origin, dir, section)
         if (hit == null && emptyPlate != null && store.value.workspace.tool == Tool.None) {
             selectPlate(emptyPlate)
@@ -425,7 +425,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
                 store.update { it.withSelected(listOf(Selection(hit.obj, hit.instance))).run { copy(workspace = workspace.copy(tool = Tool.None)) } }
             }
             Tool.Measure -> (hit?.let { MeasurePoint.of(it) } ?: bed?.let { MeasurePoint.bed(it) })?.let { m ->
-                store.update { st -> st.copy(measure = (st.measure + m).takeLast(2), measureShiftPlaced = st.measureShift) }
+                store.update { st -> st.copy(workspace = st.workspace.copy(measure = (st.workspace.measure + m).takeLast(2), measureShiftPlaced = st.workspace.measureShift)) }
             }
             // Cut: a tap on the cut copy moves the plane through the snapped spot (a hole's rim: its centre), keeping its tilt.
             is Tool.Cut -> if (hit != null && !additive && !part && hit.obj == selection?.obj && hit.instance == selection?.instance) cutThrough(hit, false)
@@ -504,12 +504,12 @@ class SceneController(private val store: Store, private val presets: PresetContr
 
     fun closeContextMenu() = store.update { it.copy(workspace = it.workspace.copy(contextMenu = null)) }
 
-    fun setMeasureSnap(on: Boolean) = store.update { it.copy(measureSnap = on) }
-    fun setMeasureAxes(on: Boolean) = store.update { it.copy(measureAxes = on) }
-    fun setMeasureSteps(on: Boolean) = store.update { it.copy(measureSteps = on) }
-    fun setMeasureSteer(on: Boolean) = store.update { it.copy(measureSteer = on) }
-    fun setOverhangView(on: Boolean, drag: Float? = null) = store.update { it.copy(overhangView = on, overhangDrag = drag) }
-    fun setMeasureShift(held: Boolean) { if (store.value.measureShift != held) store.update { it.copy(measureShift = held) } }
+    fun setMeasureSnap(on: Boolean) = store.update { it.copy(workspace = it.workspace.copy(measureSnap = on)) }
+    fun setMeasureAxes(on: Boolean) = store.update { it.copy(workspace = it.workspace.copy(measureAxes = on)) }
+    fun setMeasureSteps(on: Boolean) = store.update { it.copy(workspace = it.workspace.copy(measureSteps = on)) }
+    fun setMeasureSteer(on: Boolean) = store.update { it.copy(workspace = it.workspace.copy(measureSteer = on)) }
+    fun setOverhangView(on: Boolean, drag: Float? = null) = store.update { it.copy(workspace = it.workspace.copy(overhangView = on, overhangDrag = drag)) }
+    fun setMeasureShift(held: Boolean) { if (store.value.workspace.measureShift != held) store.update { it.copy(workspace = it.workspace.copy(measureShift = held)) } }
 
     /** Turns corner resizing of the lone selected copy on, or off when it is already on. */
     fun toggleResize() = store.update {
@@ -575,22 +575,21 @@ class SceneController(private val store: Store, private val presets: PresetContr
         val reselect = phase == 2 && measureGrabbed
         if (phase == 2 || phase == 3) measureGrabbed = false
         store.launch {
-            if (phase == 0 && grab != null) store.update { st -> st.copy(measure = st.measure.filterIndexed { i, _ -> i != grab }) }
-            if (phase == 3) { store.update { it.copy(loupe = null, measureActive = null) }; return@launch }
-            val hit = measurePick(origin, dir, section, pxSize, around, store.value.measureSnap, sticky = true)
+            if (phase == 0 && grab != null) store.update { st -> st.copy(workspace = st.workspace.copy(measure = st.workspace.measure.filterIndexed { i, _ -> i != grab })) }
+            if (phase == 3) { store.update { it.copy(workspace = it.workspace.copy(loupe = null, measureActive = null)) }; return@launch }
+            val hit = measurePick(origin, dir, section, pxSize, around, store.value.workspace.measureSnap, sticky = true)
             if (app.orcaandroid.BuildConfig.DEBUG)
                 android.util.Log.d("SNAPDBG", "phase $phase snap ${hit?.snap} feature ${hit?.feature?.kind} d ${hit?.feature?.diameter} at ${hit?.point}")
             if (phase == 2) {
                 val m = hit?.let { MeasurePoint.of(it) } ?: bed?.let { MeasurePoint.bed(it) }
                 store.update { st ->
-                    val placed = if (m != null) (st.measure + m).takeLast(2) else st.measure
-                    st.copy(loupe = null, measure = placed, measureActive = if (reselect && m != null) placed.lastIndex else null,
-                        measureShiftPlaced = if (m != null) st.measureShift else st.measureShiftPlaced)
+                    val placed = if (m != null) (st.workspace.measure + m).takeLast(2) else st.workspace.measure
+                    st.copy(workspace = st.workspace.copy(loupe = null, measure = placed, measureActive = if (reselect && m != null) placed.lastIndex else null, measureShiftPlaced = if (m != null) st.workspace.measureShift else st.workspace.measureShiftPlaced))
                 }
             } else if (loupeActive) {
                 val l = if (hit == null && bed != null) Loupe(x, y, bed, null, app.orcaandroid.core.SnapFeature("bed", FloatArray(0), null), MeasurePoint.bed(bed))
                     else Loupe(x, y, hit?.point, hit?.snap, hit?.feature, hit?.let { MeasurePoint.of(it) })
-                store.update { it.copy(loupe = l) }
+                store.update { it.copy(workspace = it.workspace.copy(loupe = l)) }
             }
         }
     }
@@ -599,7 +598,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
     private var measureGrabbed = false
 
     /** Measure: selects placed point [index] (null = none; the point stays where it is). */
-    fun measureSelect(index: Int?) = store.update { it.copy(measureActive = index?.takeIf { i -> i in it.measure.indices }) }
+    fun measureSelect(index: Int?) = store.update { it.copy(workspace = it.workspace.copy(measureActive = index?.takeIf { i -> i in it.workspace.measure.indices })) }
 
     private val paintLock = Mutex()
     private class PaintSample(val origin: Vec3, val dir: Vec3, val camera: Vec3, val newStroke: Boolean, val section: FloatArray?, val pressure: Float)
@@ -1036,7 +1035,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
         presets.syncSelection()
         val (scene, profile) = op(sel.obj)
         store.applyScene(scene)
-        store.update { it.copy(layerProfile = profile) }
+        store.update { it.copy(workspace = it.workspace.copy(layerProfile = profile)) }
     }
 
     fun layerAdaptive(quality: Float) = store.launch { loadLayerProfile { engine.layerAdaptive(it, quality) } }
@@ -1050,13 +1049,11 @@ class SceneController(private val store: Store, private val presets: PresetContr
         presets.syncSelection()
         val (scene, calib) = engine.calibStart(type, params)
         store.applyScene(scene)
-        store.update { it.copy(calibration = calib, workspace = it.workspace.copy(selection = null), projectName = calib.name,
-            nameBeforeCalibration = if (it.calibration == null) it.projectName else it.nameBeforeCalibration,
-            chrome = it.chrome.copy(screen = Screen.PREPARE)) }
+        store.update { it.copy(workspace = it.workspace.copy(selection = null, calibration = calib, projectName = calib.name, nameBeforeCalibration = if (it.workspace.calibration == null) it.workspace.projectName else it.workspace.nameBeforeCalibration), chrome = it.chrome.copy(screen = Screen.PREPARE)) }
     }
 
     fun stopCalibration() = store.launch {
         store.applyScene(engine.calibStop())
-        store.update { it.copy(calibration = null) }
+        store.update { it.copy(workspace = it.workspace.copy(calibration = null)) }
     }
 }

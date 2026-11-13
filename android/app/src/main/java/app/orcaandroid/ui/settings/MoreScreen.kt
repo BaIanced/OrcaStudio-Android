@@ -173,15 +173,15 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
                 }
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) SwitchRow(stringResource(R.string.dynamic_color), state.chrome.dynamicColor, onChange = vm::setDynamicColor)
                 ThemePresetList(state, vm)
-                SwitchRow(stringResource(R.string.contact_shadows), state.contactShadows, onChange = vm::setContactShadows)
+                SwitchRow(stringResource(R.string.contact_shadows), state.workspace.contactShadows, onChange = vm::setContactShadows)
                 // The desktop's View > Use Orthogonal View; a setting here since perspective is the usual look (user 2026-10-19). K toggles.
-                SwitchRow(stringResource(R.string.orthographic_camera), !state.perspective, onChange = { vm.setPerspective(!it) })
+                SwitchRow(stringResource(R.string.orthographic_camera), !state.workspace.perspective, onChange = { vm.setPerspective(!it) })
                 SwitchRow(stringResource(R.string.builder_split), state.design.builderSplit, onChange = vm::setBuilderSplit)
                 // Sharp layer lines without moire in Preview (user 2026-10-20); while moving costs GPU, so off by default.
                 Text(stringResource(R.string.preview_supersample), style = MaterialTheme.typography.bodyLarge)
                 SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                     listOf(R.string.supersample_off, R.string.supersample_still, R.string.supersample_always).forEachIndexed { i, label ->
-                        SegmentedButton(state.supersample == i, { vm.setSupersample(i) }, SegmentedButtonDefaults.itemShape(i, 3)) { Text(stringResource(label)) }
+                        SegmentedButton(state.workspace.supersample == i, { vm.setSupersample(i) }, SegmentedButtonDefaults.itemShape(i, 3)) { Text(stringResource(label)) }
                     }
                 }
                 Text(stringResource(R.string.selection_style), style = MaterialTheme.typography.bodyLarge)
@@ -189,8 +189,8 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
                     val labels = listOf(R.string.selection_outline, R.string.selection_xray, R.string.selection_rim,
                         R.string.selection_wireframe, R.string.selection_box, R.string.selection_tint)
                     app.orcaandroid.render.SelectionStyle.ALL.zip(labels).forEach { (bit, label) ->
-                        val on = state.selectionStyle and bit != 0
-                        androidx.compose.material3.FilterChip(on, { vm.setSelectionStyle(state.selectionStyle xor bit) },
+                        val on = state.workspace.selectionStyle and bit != 0
+                        androidx.compose.material3.FilterChip(on, { vm.setSelectionStyle(state.workspace.selectionStyle xor bit) },
                             label = { Text(stringResource(label)) })
                     }
                 }
@@ -200,7 +200,7 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
             }
 
             Section(stringResource(R.string.pen)) {
-                val pen = state.pen
+                val pen = state.workspace.pen
                 SwitchRow(stringResource(R.string.pen_ignore_fingers), pen.ignoreFingers, onChange = { vm.setPen(pen.copy(ignoreFingers = it)) })
                 PenActionRow(stringResource(R.string.pen_button1), pen.button1) { vm.setPen(pen.copy(button1 = it)) }
                 PenActionRow(stringResource(R.string.pen_button2), pen.button2) { vm.setPen(pen.copy(button2 = it)) }

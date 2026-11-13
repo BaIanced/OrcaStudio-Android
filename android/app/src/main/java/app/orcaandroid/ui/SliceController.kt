@@ -129,7 +129,7 @@ class SliceController(private val store: Store, private val presets: PresetContr
         val filaments: List<app.orcaandroid.core.FilamentSlot>, val overrides: Map<app.orcaandroid.core.PresetType, Map<String, String>>,
         val project: String?)
 
-    private fun editKey(s: UiState, plate: Int) = EditKey(plate, s.workspace.scene, s.device.printer, s.device.print, s.device.filaments, s.device.overrides, s.projectName)
+    private fun editKey(s: UiState, plate: Int) = EditKey(plate, s.workspace.scene, s.device.printer, s.device.print, s.device.filaments, s.device.overrides, s.workspace.projectName)
 
     private data class SliceSummary(val project: String?, val seconds: Double, val grams: Double)
 

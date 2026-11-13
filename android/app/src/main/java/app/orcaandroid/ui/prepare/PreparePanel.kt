@@ -473,16 +473,16 @@ private fun QuickSettings(state: UiState, vm: AppViewModel) {
     }
     SwitchRow(vm.translator.tr("Enable support"), state.device.value(t, "enable_support") == "1") { vm.presets.setOption(t, "enable_support", if (it) "1" else "0") }
     // What the threshold angle means: the faces it would support go red in the view, live while the slider moves.
-    if (state.device.value(t, "enable_support") == "1" || state.overhangView) num("support_threshold_angle")?.let { saved ->
+    if (state.device.value(t, "enable_support") == "1" || state.workspace.overhangView) num("support_threshold_angle")?.let { saved ->
         Row(verticalAlignment = Alignment.CenterVertically) {
-            FilterChip(state.overhangView, { vm.scene.setOverhangView(!state.overhangView) }, label = { Text(stringResource(R.string.show_overhangs)) })
-            if (state.overhangView) {
-                val angle = state.overhangDrag ?: saved
+            FilterChip(state.workspace.overhangView, { vm.scene.setOverhangView(!state.workspace.overhangView) }, label = { Text(stringResource(R.string.show_overhangs)) })
+            if (state.workspace.overhangView) {
+                val angle = state.workspace.overhangDrag ?: saved
                 Text(if (angle.roundToInt() == 0) stringResource(R.string.overhang_angle_auto) else stringResource(R.string.overhang_angle, angle.roundToInt()),
                     Modifier.padding(start = 8.dp), style = MaterialTheme.typography.bodySmall)
                 Slider(angle, { vm.scene.setOverhangView(true, it.roundToInt().toFloat()) }, valueRange = 0f..90f,
                     onValueChangeFinished = {
-                        vm.state.value.overhangDrag?.let { vm.presets.setOption(t, "support_threshold_angle", it.roundToInt().toString()) }
+                        vm.state.value.workspace.overhangDrag?.let { vm.presets.setOption(t, "support_threshold_angle", it.roundToInt().toString()) }
                         vm.scene.setOverhangView(true)
                     }, modifier = Modifier.weight(1f).padding(start = 8.dp))
             }
