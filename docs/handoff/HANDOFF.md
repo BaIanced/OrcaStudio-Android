@@ -38,7 +38,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Batch 1 merged (PR #84, archive "T-019" / "PR #84"). **Batch 2 open (user said yes to refactor first, answer 14): T-020, T-021 done (test baseline 45; plan `docs/audit/plan/uistate-split.md`, 8 moves); T-022..T-026c (all 8 moves) done; T-027 done (60a49b3; shot check: no regression, archive 2026-11-13); T-028 done (97c5995); T-029 checks passed, see below. PR #84's `scan` check failed on old commit cf75a81 (2026-11-04, a LAN address once in HANDOFF.md, gone from the tree); user told, their call (backlog).
 - Open for the user: `gh variable set RELEASE_CERT_SHA256` (T-006); blank `Verdict (user)` line in memory cheaper-subagents; move docs/handoff to a private repo before T-038 (backlog).
 - **T-029 gate passed; T-027 follow-up done 771ad11 (2026-11-13, archive "T-027 follow-up": 13 lab fields back as settings + migration, plate + on the left, cube/pie in `android/reference/`), device-checked on WSA (smoke 8/8, migration, + position).** Nothing installed on real devices. WSA has the 771ad11 debug build. Not device-checked: each new row's effect, tool-row long-press/drag.
-- Next step: CI build of the branch head green -> show the batch 2 merge offer (main merge needs the user) -> after the merge T-030 (depends on UA-1) -> Sonnet 5.5 (coordinator; the subagent model is the task tag)
+- CI run 43406954976 (36106a0) green, not installed. **Batch 2 merge offer shown 2026-11-13, no answer yet** (user asked to clear).
+- Next step: ask for the batch 2 merge answer (main merge needs the user; `/next-merge` = yes) -> after the merge T-030 (depends on UA-1) -> Sonnet 5.5 (coordinator; the subagent model is the task tag)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
