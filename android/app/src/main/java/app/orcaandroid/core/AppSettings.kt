@@ -52,16 +52,12 @@ class AppSettings(context: Context) {
         get() = prefs.getInt("auto_save_seconds", DEFAULT_AUTO_SAVE_SECONDS)
         set(value) = prefs.edit().putInt("auto_save_seconds", value).apply()
 
-    var layoutLab: LayoutLab
-        get() = LayoutLab.fromJson(prefs.getString("layout_lab", null))
-        set(value) = prefs.edit().putString("layout_lab", value.toJson()).apply()
-
     /**
      * One-time move of the retired Layout lab's JSON (and the retired Add-menu split switch) into the individual keys below.
      * Called from the Store before the first settings read. A restored old backup brings `layout_lab` back, but a restore
      * restarts the process, so the next start migrates it again.
      */
-    fun migrateLayoutLab() = migrateLayoutLabPrefs(prefs)
+    fun migrateOldLayout() = migrateOldLayoutPrefs(prefs)
 
     /** Interface size, one of [ViewDefaults.INTERFACE_SIZES]: scales buttons, icons, spacing and text together. */
     var interfaceSize: Float
@@ -188,11 +184,6 @@ class AppSettings(context: Context) {
     var buildPrinter: Boolean
         get() = prefs.getBoolean("build_printer", true)
         set(value) = prefs.edit().putBoolean("build_printer", value).apply()
-
-    /** Add menu: separate "OpenSCAD" and "Shape builder" rows instead of the one "Design" row. */
-    var builderSplit: Boolean
-        get() = prefs.getBoolean("builder_entries_split", false)
-        set(value) = prefs.edit().putBoolean("builder_entries_split", value).apply()
 
     /** 3D view projection: perspective (default) or orthographic, the desktop's use_perspective_camera. */
     var perspective: Boolean
@@ -367,12 +358,12 @@ val AUTO_SAVE_RANGE = 10..3600
 const val AI_TOOLS_PORT = 8765
 
 /**
- * [AppSettings.migrateLayoutLab] on any preferences file: the retired Layout lab's `layout_lab` JSON becomes the individual
+ * [AppSettings.migrateOldLayout] on any preferences file: the retired Layout lab's `layout_lab` JSON becomes the individual
  * keys (clamped as the lab's own parser did), every other lab field is dropped (its value is a constant now), and the
  * lab key and the retired `builder_entries_split` key are removed, so this runs only once. A JSON that does not parse
  * writes nothing but is removed too. With neither key present nothing is written.
  */
-internal fun migrateLayoutLabPrefs(prefs: SharedPreferences) {
+internal fun migrateOldLayoutPrefs(prefs: SharedPreferences) {
     if (!prefs.contains("layout_lab") && !prefs.contains("builder_entries_split")) return
     val edit = prefs.edit()
     val o = prefs.getString("layout_lab", null)?.let { runCatching { JSONObject(it) }.getOrNull() }

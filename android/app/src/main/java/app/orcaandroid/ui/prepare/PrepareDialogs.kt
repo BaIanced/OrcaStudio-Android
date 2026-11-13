@@ -81,7 +81,7 @@ internal fun AddMenu(state: UiState, vm: AppViewModel, open: Boolean, onDismiss:
             onClick = { onDismiss(); onDialog("text") })
         DropdownMenuItem(text = { Text(stringResource(R.string.add_svg)) }, leadingIcon = { Icon(Icons.Default.Category, null) },
             onClick = { onDismiss(); onDialog("svg") })
-        DesignEntries(vm, state.design.builderSplit, onDismiss)
+        DesignEntries(vm, onDismiss)
         DropdownMenuItem(text = { Text(stringResource(R.string.sample_models)) }, leadingIcon = { Icon(Icons.Default.Toys, null) },
             onClick = { onDismiss(); onDialog("samples") })
         HorizontalDivider()

@@ -1003,7 +1003,6 @@
     <string name="shape_builder">Shape builder</string>
     <string name="add_design">Design</string>
     <string name="edit_in_builder">Edit in builder</string>
-    <string name="builder_split">Separate code and shape builder entries in the Add menu</string>
     <string name="shape_builder_desc">No code: drop shapes, size and move them, cut holes, group</string>
     <string name="shape_new_name">Shape design</string>
     <string name="shape_tab">Shapes</string>
@@ -1169,51 +1168,16 @@
     <string name="add_plate">Add plate</string>
     <string name="tuck_panel">Tuck the panel away</string>
     <string name="show_panel">Show the panel</string>
-    <string name="layout_lab">Layout lab (temporary)</string>
-    <string name="layout_lab_summary">Try layouts</string>
-    <string name="layout_lab_text">Layout variants to try out. Once you have picked, the others are removed and this section goes away.</string>
-    <string name="lab_group_plates">Plates</string>
-    <string name="lab_group_layout">Layout</string>
-    <string name="lab_group_scales">Sizes and overlay</string>
-    <string name="lab_group_shadows">Shadows</string>
-    <string name="lab_group_light">Light and orbit</string>
-    <string name="lab_plate_switcher">Plate switcher</string>
-    <string name="lab_tabs">Tabs</string>
-    <string name="lab_filmstrip">Filmstrip</string>
-    <string name="lab_chips">Chips</string>
-    <string name="lab_plate_label">\"Plate n of m\" label (filmstrip)</string>
-    <string name="lab_tools_left">Portrait: tools in a column on the left</string>
-    <string name="lab_overlay_alpha">Control background opacity: %d %%</string>
-    <string name="lab_text_scale">Text size: %d %%</string>
-    <string name="lab_ui_scale">Interface size (everything): %d %%</string>
-    <string name="lab_shadow_strength">Shadow darkness: %s</string>
-    <string name="lab_shadow_soft">Shadow softness (edge width): %s</string>
-    <string name="lab_light_azimuth">Light direction around the plate: %s</string>
-    <string name="lab_light_elevation">Light height above the bed: %s</string>
     <string name="controls">Controls</string>
     <string name="tuning">Tuning</string>
     <string name="tuning_summary">Measure loupe and camera feel</string>
     <string name="wheel_zoom_speed">Mouse wheel / thumbstick zoom speed: %s</string>
     <string name="lab_pinch_speed">Pinch zoom speed (100 %% = as fast as the fingers): %s</string>
-    <string name="lab_camera_light">Preview camera light (toolpaths; 0 = studio light): %s</string>
-    <string name="lab_orbit_inertia">Orbit coasting after a flick (0 = off): %s</string>
-    <string name="lab_light_strength">Light strength (the shadow follows the direction): %s</string>
-    <string name="lab_shadow_bias">Shadow bias (raise if striped, lower if light leaks under parts): %s</string>
-    <string name="lab_overlay_scale">Floating controls over the 3D view: %d %%</string>
-    <string name="lab_scale_hint">Sizes apply when you let go of the slider.</string>
     <string name="scroll_up">Scroll up</string>
     <string name="scroll_down">Scroll down</string>
-    <string name="lab_plates_on_handle">Portrait: plate switcher on the panel grip</string>
-    <string name="lab_slice_scale">Slice button size: %d %%</string>
-    <string name="lab_show_plates">Show the plate switcher (tabs, filmstrip or chips) over the 3D view</string>
-    <string name="lab_slice_floating">Slice button floats over the 3D view (drag it to move it); off = on the panel grip</string>
-    <string name="lab_plate_scale">Plate switcher size: %d %%</string>
-    <string name="lab_fullscreen_portrait">Fullscreen in portrait too</string>
-    <string name="lab_pie_menu">Pie menu on long press in the 3D view (slide to a wedge and release)</string>
-    <string name="lab_plate_hd_alpha">HD plate opacity: %d %%</string>
-    <string name="lab_plate_hd_under">HD plate opacity from below: %d %%</string>
-    <string name="lab_plate_hd">HD plate: dark plate with the bed-type lettering as upstream (see-through from below)</string>
-    <string name="lab_view_cube">View cube in the 3D view (long press to move it)</string>
+    <string name="interface_size">Interface size</string>
+    <string name="lab_show_plates">Show the plate switcher over the 3D view</string>
+    <string name="lab_plate_hd">Detailed plates: dark plate with the bed-type lettering as upstream (see-through from below)</string>
     <string name="scad_draft_preview">Draft while dragging</string>
     <string name="scad_on_plate">Show the design on the plate</string>
     <string name="scad_off_plate">Back to the design view</string>

@@ -286,8 +286,6 @@ data class DesignState(
     val buildOthers: Int = 0,
     /** Build workspace: the printer volume ghost under the object. */
     val buildPrinter: Boolean = true,
-    /** Add menu: separate code and shape builder rows (else one "Design" row). */
-    val builderSplit: Boolean = false,
 )
 
 /** Slicing and preview fields of [UiState], read as `state.slicing.x`. */
@@ -336,7 +334,6 @@ data class ChromeState(
     val filamentChoice: FilamentChoice? = null,
     /** A project file dropped onto a plate with objects: its name while asking open-as-project vs import. */
     val projectOrImport: String? = null,
-    val lab: app.orcaandroid.core.LayoutLab = app.orcaandroid.core.LayoutLab(),
     /** Interface size, one of [app.orcaandroid.core.ViewDefaults.INTERFACE_SIZES] (More > Appearance). */
     val interfaceSize: Float = app.orcaandroid.core.ViewDefaults.INTERFACE_SIZE,
     /** The plate switcher shows over the 3D view. */

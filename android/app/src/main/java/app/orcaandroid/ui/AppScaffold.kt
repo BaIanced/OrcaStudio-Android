@@ -112,7 +112,6 @@ import app.orcaandroid.ui.preview.PreviewOverlay
 import app.orcaandroid.ui.preview.PreviewPanel
 import app.orcaandroid.ui.models.ModelBrowser
 import app.orcaandroid.ui.models.ModelsScreen
-import app.orcaandroid.ui.settings.LabPeek
 import app.orcaandroid.ui.settings.MoreScreen
 import androidx.compose.ui.graphics.graphicsLayer
 import app.orcaandroid.ui.settings.PrinterSetupScreen
@@ -136,10 +135,10 @@ fun AppScaffold(state: UiState, vm: AppViewModel) {
     // Design panel: docked as a right sidebar by default, detachable to a floating panel (user, 2026-10-30).
     val narrowScreen = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp < 600
     var designFloating by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(narrowScreen) }
-    // Interface and text size (Layout lab), on top of the system's display and font size.
+    // Interface size (More > Appearance), on top of the system's display and font size.
     val base = androidx.compose.ui.platform.LocalDensity.current
     androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides
-        androidx.compose.ui.unit.Density(base.density * state.chrome.lab.uiScale, base.fontScale * state.chrome.lab.textScale)) {
+        androidx.compose.ui.unit.Density(base.density * state.chrome.interfaceSize, base.fontScale)) {
         when {
             state.chrome.phase == Phase.LOADING -> Busy(state.chrome.busy ?: stringResource(R.string.starting))
             state.chrome.phase == Phase.SETUP || state.chrome.showPrinterSetup -> Themed(Region.EDITOR, Modifier.fillMaxSize(), fill = true) { PrinterSetupScreen(state, vm) }
@@ -204,30 +203,7 @@ private fun MainLayout(state: UiState, vm: AppViewModel) {
                     Screen.DEVICE -> Themed(Region.DEVICE, Modifier.fillMaxSize(), fill = true) { Box(belowHole) { DeviceScreen(state, vm) } }
                     // The Models toolbar uses the camera strip itself (SplitAroundCutout), so no belowHole here.
                     Screen.MODELS -> Themed(Region.MODELS, Modifier.fillMaxSize(), fill = true) { ModelsScreen(browser.value) }
-                    Screen.MORE -> {
-                        // Layout lab open: Prepare stays composed under More, which fades out while a control is touched.
-                        if (LabPeek.open) Workspace(state.copy(chrome = state.chrome.copy(screen = Screen.PREPARE)), vm, wide)
-                        val fade by androidx.compose.animation.core.animateFloatAsState(if (LabPeek.touching) 0f else 1f, label = "labFade")
-                        // While touched, More keeps the sizes it had at the touch, so a slider doesn't move under the finger.
-                        val frozen = LabPeek.frozen
-                        val here = androidx.compose.ui.platform.LocalDensity.current
-                        val keep = if (frozen == null) here else androidx.compose.ui.unit.Density(
-                            here.density / state.chrome.lab.uiScale * frozen.uiScale, here.fontScale / state.chrome.lab.textScale * frozen.textScale)
-                        androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides keep) {
-                            Box(Modifier.fillMaxSize().graphicsLayer { alpha = fade }) {
-                                Themed(Region.MORE, Modifier.fillMaxSize(), fill = true) { Box(belowHole) { MoreScreen(state, vm) } }
-                            }
-                        }
-                        LabPeek.readout?.takeIf { LabPeek.touching }?.let { (text, fraction) ->
-                            androidx.compose.material3.Surface(Modifier.align(Alignment.Center).widthIn(max = 360.dp).fillMaxWidth(0.8f),
-                                shape = RoundedCornerShape(12.dp), tonalElevation = 6.dp, shadowElevation = 4.dp) {
-                                Column(Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
-                                    Text(text, style = MaterialTheme.typography.bodyMedium)
-                                    androidx.compose.material3.LinearProgressIndicator({ fraction.coerceIn(0f, 1f) }, Modifier.fillMaxWidth().padding(top = 6.dp))
-                                }
-                            }
-                        }
-                    }
+                    Screen.MORE -> Themed(Region.MORE, Modifier.fillMaxSize(), fill = true) { Box(belowHole) { MoreScreen(state, vm) } }
                 }
             }
         }
@@ -316,21 +292,16 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
     LaunchedEffect(ProblemFocus.tick) {
         if (ProblemFocus.tick == 0) return@LaunchedEffect
         if (PanelSize.height < 360f) PanelSize.height = 360f
-        if (state.chrome.lab.panelTucked) vm.setLab(state.chrome.lab.copy(panelTucked = false))
+        if (state.chrome.panelTucked) vm.setPanelTucked(false)
     }
     var viewportSize by remember { mutableStateOf(androidx.compose.ui.unit.IntSize.Zero) }
     val viewport: @Composable (Modifier) -> Unit = { m ->
         Box(m.onSizeChanged { viewportSize = it }) {
             Viewport(state, vm, onView = { plateView = it }, modifier = Modifier.fillMaxSize().steadyThroughGlide()
                 .onGloballyPositioned { app.orcaandroid.ui.prepare.CanvasBounds.rect = it.boundsInWindow() })
-            // Floating controls have their own size (Layout lab).
-            val base = androidx.compose.ui.platform.LocalDensity.current
-            androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides
-                androidx.compose.ui.unit.Density(base.density * state.chrome.lab.overlayScale, base.fontScale)) {
-                if (state.chrome.screen == Screen.PREPARE) Themed(Region.PREPARE_TOOLS) { PrepareOverlay(state, vm, plateView, wide) }
-                else Themed(Region.PREVIEW_TOOLS) { PreviewOverlay(state, vm, plateView, wide) }
-            }
-            if (state.chrome.lab.viewCube) plateView?.let { ViewCubeSpot(it.camera, state.chrome.lab, vm, viewportSize) }
+            if (state.chrome.screen == Screen.PREPARE) Themed(Region.PREPARE_TOOLS) { PrepareOverlay(state, vm, plateView, wide) }
+            else Themed(Region.PREVIEW_TOOLS) { PreviewOverlay(state, vm, plateView, wide) }
+            if (app.orcaandroid.core.ViewDefaults.VIEW_CUBE) plateView?.let { ViewCubeSpot(it.camera, viewportSize) }
             // Below the top tool row, centered.
             app.orcaandroid.ui.components.Notices(state, vm, Modifier.align(Alignment.TopCenter).padding(top = 64.dp))
             // Gesture scrubber (held setting label): its list sits high, above the finger.
@@ -395,20 +366,21 @@ private fun WorkspaceBody(state: UiState, vm: AppViewModel, wide: Boolean, shop:
                     if (shop) { app.orcaandroid.ui.prepare.PaintShopDock(state, vm, side = true, Modifier.width(360.dp).fillMaxHeight()); return@Row }
                     // The edge drags to resize the panel (like the OpenSCAD editor's); let go below the snap
                     // width and it tucks away. A tap tucks it away or brings it back.
-                    val lab = state.chrome.lab
+                    val tuckedNow = state.chrome.panelTucked
+                    val panelWidth = state.chrome.panelWidth
                     val maxPanel = (total - 240.dp).coerceAtLeast(PANEL_MIN)
-                    val stored = (if (lab.panelWidth > 0f) lab.panelWidth.dp else PANEL_DEFAULT).coerceIn(PANEL_MIN, maxPanel)
+                    val stored = (if (panelWidth > 0f) panelWidth.dp else PANEL_DEFAULT).coerceIn(PANEL_MIN, maxPanel)
                     var live by remember { mutableStateOf<androidx.compose.ui.unit.Dp?>(null) }
-                    val shown = live ?: if (lab.panelTucked) 0.dp else stored
+                    val shown = live ?: if (tuckedNow) 0.dp else stored
                     PanelEdge(
                         tucked = shown < PANEL_SNAP,
-                        onClick = { vm.setLab(lab.copy(panelTucked = !lab.panelTucked)) },
+                        onClick = { vm.setPanelTucked(!tuckedNow) },
                         onDrag = { d -> live = ((live ?: shown) - d).coerceIn(0.dp, maxPanel) },
                         onDragEnd = { flick ->
-                            if (flick != null) vm.setLab(lab.copy(panelTucked = flick))
+                            if (flick != null) vm.setPanelTucked(flick)
                             else live?.let { w ->
-                                vm.setLab(if (w < PANEL_SNAP) lab.copy(panelTucked = true)
-                                          else lab.copy(panelTucked = false, panelWidth = w.coerceAtLeast(PANEL_MIN).value))
+                                if (w < PANEL_SNAP) vm.setPanelTucked(true)
+                                else { vm.setPanelWidth(w.coerceAtLeast(PANEL_MIN).value); vm.setPanelTucked(false) }
                             }
                             live = null
                         },
@@ -454,9 +426,9 @@ private fun WorkspaceBody(state: UiState, vm: AppViewModel, wide: Boolean, shop:
             } else Column(Modifier.fillMaxSize()) {
                 viewport(Modifier.weight(1f).fillMaxWidth().then(app.orcaandroid.ui.prepare.shopFrame(shop)))
                 if (shop) { app.orcaandroid.ui.prepare.PaintShopDock(state, vm, side = false, Modifier.fillMaxWidth().heightIn(max = total * 0.45f)); return@Column }
-                val onHandle = state.chrome.lab.platesOnHandle && state.chrome.screen == Screen.PREPARE
+                val onHandle = app.orcaandroid.core.ViewDefaults.PLATES_ON_HANDLE && state.chrome.screen == Screen.PREPARE
                 val slice = state.chrome.screen == Screen.PREPARE && app.orcaandroid.ui.prepare.sliceOnGrip(state, wide)
-                val handlePlates = onHandle && state.chrome.lab.showPlates
+                val handlePlates = onHandle && state.chrome.showPlates
                 val header: (@Composable () -> Unit)? = if (handlePlates || slice) ({
                     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                         if (handlePlates) PlateSwitcherBar(state, vm, plateView, Modifier.weight(1f)) else Box(Modifier.weight(1f))
@@ -759,23 +731,20 @@ private fun FilamentChoiceDialog(choice: FilamentChoice, onAnswer: (mode: String
  * (kept inside the 3D view, saved as fractions of the free room so it stays put across rotation and resizing).
  */
 @Composable
-private fun ViewCubeSpot(camera: app.orcaandroid.render.Camera, lab: app.orcaandroid.core.LayoutLab, vm: AppViewModel, area: androidx.compose.ui.unit.IntSize) {
+private fun ViewCubeSpot(camera: app.orcaandroid.render.Camera, area: androidx.compose.ui.unit.IntSize) {
     val density = androidx.compose.ui.platform.LocalDensity.current
     val cube = with(density) { 96.dp.toPx() }
     val roomX = (area.width - cube).coerceAtLeast(0f)
     val roomY = (area.height - cube).coerceAtLeast(0f)
-    fun saved() = if (lab.viewCubeX < 0f || lab.viewCubeY < 0f) Offset(roomX - with(density) { 8.dp.toPx() }, with(density) { 72.dp.toPx() })
-        else Offset(lab.viewCubeX * roomX, lab.viewCubeY * roomY)
+    // removable after lighting review (UA-7): the spot is a constant now, so a drag only lasts until let go.
+    val spotX = app.orcaandroid.core.ViewDefaults.VIEW_CUBE_X
+    val spotY = app.orcaandroid.core.ViewDefaults.VIEW_CUBE_Y
+    fun saved() = if (spotX < 0f || spotY < 0f) Offset(roomX - with(density) { 8.dp.toPx() }, with(density) { 72.dp.toPx() })
+        else Offset(spotX * roomX, spotY * roomY)
     var live by remember { mutableStateOf<Offset?>(null) }
     val at = (live ?: saved()).let { Offset(it.x.coerceIn(0f, roomX), it.y.coerceIn(0f, roomY)) }
     app.orcaandroid.ui.components.ViewCube(camera,
         Modifier.offset { androidx.compose.ui.unit.IntOffset(at.x.roundToInt(), at.y.roundToInt()) },
         onMove = { d -> (at + d).let { live = Offset(it.x.coerceIn(0f, roomX), it.y.coerceIn(0f, roomY)) } },
-        onMoveEnd = {
-            live?.let { p ->
-                vm.setLab(lab.copy(viewCubeX = if (roomX > 0f) (p.x / roomX).coerceIn(0f, 1f) else 0f,
-                                   viewCubeY = if (roomY > 0f) (p.y / roomY).coerceIn(0f, 1f) else 0f))
-            }
-            live = null
-        })
+        onMoveEnd = { live = null })
 }

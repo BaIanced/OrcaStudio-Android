@@ -7,7 +7,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** The Layout lab's JSON moves into individual keys once ([migrateLayoutLabPrefs]), and the Interface size keeps tool buttons large enough. */
+/** The Layout lab's JSON moves into individual keys once ([migrateOldLayoutPrefs]), and the Interface size keeps tool buttons large enough. */
 class LayoutLabMigrationTest {
     /** A map-backed SharedPreferences that counts how often it was written. */
     private class FakePrefs(initial: Map<String, Any> = emptyMap()) : SharedPreferences {
@@ -57,7 +57,7 @@ class LayoutLabMigrationTest {
         val json = """{"uiScale":1.1,"pinchSpeed":0.4,"wheelSpeed":1.5,"showPlates":false,"plateHd":true,"panelTucked":true,"panelWidth":300,
             "sliceX":0.25,"sliceY":0.5,"lightAzimuth":90,"lightElevation":30,"overlayAlpha":0.3,"plates":"CHIPS"}"""
         val p = FakePrefs(mapOf("layout_lab" to json, "builder_entries_split" to true, "theme" to "DARK"))
-        migrateLayoutLabPrefs(p)
+        migrateOldLayoutPrefs(p)
         assertEquals(1.1f, p.data["interface_size"])
         assertEquals(0.4f, p.data["pinch_speed"])
         assertEquals(1.5f, p.data["wheel_speed"])
@@ -77,7 +77,7 @@ class LayoutLabMigrationTest {
 
     @Test fun theWsaDeviceValuesSnapAndClamp() {
         val p = FakePrefs(mapOf("layout_lab" to wsaJson))
-        migrateLayoutLabPrefs(p)
+        migrateOldLayoutPrefs(p)
         assertEquals(0.85f, p.data["interface_size"])
         assertEquals(1.0f, p.data["pinch_speed"])
         assertEquals(1f, p.data["wheel_speed"])
@@ -92,7 +92,7 @@ class LayoutLabMigrationTest {
 
     @Test fun outOfRangeValuesAreClampedAsTheLabParserDid() {
         val p = FakePrefs(mapOf("layout_lab" to """{"uiScale":3,"pinchSpeed":5,"wheelSpeed":0,"panelWidth":-4,"sliceX":7,"lightAzimuth":400,"lightElevation":5}"""))
-        migrateLayoutLabPrefs(p)
+        migrateOldLayoutPrefs(p)
         assertEquals(1.2f, p.data["interface_size"])
         assertEquals(1f, p.data["pinch_speed"])
         assertEquals(0.1f, p.data["wheel_speed"])
@@ -104,29 +104,29 @@ class LayoutLabMigrationTest {
 
     @Test fun brokenJsonRemovesTheKeyAndWritesNothingElse() {
         val p = FakePrefs(mapOf("layout_lab" to "{not json", "theme" to "DARK"))
-        migrateLayoutLabPrefs(p)
+        migrateOldLayoutPrefs(p)
         assertEquals(mapOf<String, Any>("theme" to "DARK"), p.data)
     }
 
     @Test fun noKeyMeansNoWrites() {
         val p = FakePrefs(mapOf("theme" to "DARK"))
-        migrateLayoutLabPrefs(p)
+        migrateOldLayoutPrefs(p)
         assertEquals(0, p.writes)
         assertEquals(mapOf<String, Any>("theme" to "DARK"), p.data)
     }
 
     @Test fun theRetiredSplitSwitchIsRemovedAlone() {
         val p = FakePrefs(mapOf("builder_entries_split" to true))
-        migrateLayoutLabPrefs(p)
+        migrateOldLayoutPrefs(p)
         assertTrue(p.data.isEmpty())
     }
 
     @Test fun runningTwiceChangesNothingTheSecondTime() {
         val p = FakePrefs(mapOf("layout_lab" to wsaJson))
-        migrateLayoutLabPrefs(p)
+        migrateOldLayoutPrefs(p)
         val after = p.data.toMap()
         val writes = p.writes
-        migrateLayoutLabPrefs(p)
+        migrateOldLayoutPrefs(p)
         assertEquals(after, p.data)
         assertEquals(writes, p.writes)
     }
@@ -134,11 +134,11 @@ class LayoutLabMigrationTest {
     /** AppBackup.import replaces the whole prefs file (clear + puts) and restarts the app, so the next start migrates the old JSON. */
     @Test fun aRestoredOldBackupIsMigratedOnTheNextStart() {
         val p = FakePrefs(mapOf("interface_size" to 1.2f, "theme" to "LIGHT"))
-        migrateLayoutLabPrefs(p)
+        migrateOldLayoutPrefs(p)
         assertEquals(1.2f, p.data["interface_size"])
         // The restore: clear, then the backup's keys (an old backup still carries layout_lab and the split switch).
         p.edit().clear().putString("layout_lab", """{"uiScale":0.9,"showPlates":false}""").putBoolean("builder_entries_split", true).putString("theme", "DARK").commit()
-        migrateLayoutLabPrefs(p)
+        migrateOldLayoutPrefs(p)
         assertEquals(0.9f, p.data["interface_size"])
         assertEquals(false, p.data["show_plates"])
         assertFalse(p.contains("layout_lab"))

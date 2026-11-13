@@ -25,7 +25,6 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.FolderZip
 import androidx.compose.foundation.layout.size
-import app.orcaandroid.core.PlateSwitcher
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
@@ -41,8 +40,6 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.foundation.interaction.collectIsDraggedAsState
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.runtime.getValue
@@ -69,18 +66,6 @@ import app.orcaandroid.ui.components.SectionTitle
 import app.orcaandroid.ui.prepare.CalibrationDialog
 import app.orcaandroid.ui.prepare.SwitchRow
 
-/**
- * State of the Layout lab's peek (user, 2026-10-15): while the lab section is open, Prepare stays composed under More;
- * touching a control fades More out so the plate shows behind it. [frozen] = the lab at the touch, for More's own sizes.
- */
-object LabPeek {
-    var open by mutableStateOf(false)
-    var touching by mutableStateOf(false)
-    var frozen by mutableStateOf<app.orcaandroid.core.LayoutLab?>(null)
-    /** The slider being dragged (label, bar position 0..1), shown by the scaffold while More is faded, so its value stays visible. */
-    var readout by mutableStateOf<Pair<String, Float>?>(null)
-}
-
 /** App settings, preset management, calibration, recent files and about. */
 @Composable
 fun MoreScreen(state: UiState, vm: AppViewModel) {
@@ -98,8 +83,6 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
     val restoreBackup = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) { restoreFrom = uri; dialog = "backup_import" } }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
         Column(Modifier.widthIn(max = 720.dp).fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            LayoutLabSection(state, vm)
-
             // Collapsed by default (user 2026-10-28): File on the Prepare top bar has the same list; this stays as a fallback.
             if (state.chrome.recents.isNotEmpty()) Section(stringResource(R.string.recent), summary = state.chrome.recents.size.coerceAtMost(10).toString()) {
                 Card(Modifier.fillMaxWidth()) {
@@ -154,17 +137,17 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
                 Entry(stringResource(R.string.backup_import), stringResource(R.string.backup_import_text)) { restoreBackup.launch(arrayOf("*/*")) }
             }
 
-            // Zoom speeds (user 2026-10-19: the Quest thumbstick zooms far too fast; was the Layout lab's pinch slider only).
+            // Zoom speeds (user 2026-10-19: the Quest thumbstick zooms far too fast; the pinch slider came first).
             Section(stringResource(R.string.controls)) {
-                val lab = state.chrome.lab
-                ShadowSlider(R.string.lab_pinch_speed, lab.pinchSpeed, 100f, "%", app.orcaandroid.core.LayoutLab.PINCH_SPEEDS, lab, peek = false) { vm.setLab(state.chrome.lab.copy(pinchSpeed = it)) }
-                ShadowSlider(R.string.wheel_zoom_speed, lab.wheelSpeed, 100f, "%", app.orcaandroid.core.LayoutLab.WHEEL_SPEEDS, lab, peek = false) { vm.setLab(state.chrome.lab.copy(wheelSpeed = it)) }
+                ZoomSlider(R.string.lab_pinch_speed, state.workspace.pinchSpeed, app.orcaandroid.core.ViewDefaults.PINCH_SPEEDS, vm::setPinchSpeed)
+                ZoomSlider(R.string.wheel_zoom_speed, state.workspace.wheelSpeed, app.orcaandroid.core.ViewDefaults.WHEEL_SPEEDS, vm::setWheelSpeed)
             }
 
             // Feel knobs (user 2026-10-27), also over MCP: tuning_get / tuning_set.
             Section(stringResource(R.string.tuning), summary = stringResource(R.string.tuning_summary)) { TuningSection() }
 
             Section(stringResource(R.string.appearance)) {
+                LayoutPrefs(state, vm)
                 SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                     listOf(ThemeMode.SYSTEM to R.string.theme_system, ThemeMode.LIGHT to R.string.theme_light, ThemeMode.DARK to R.string.theme_dark)
                         .forEachIndexed { i, (mode, label) ->
@@ -176,7 +159,6 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
                 SwitchRow(stringResource(R.string.contact_shadows), state.workspace.contactShadows, onChange = vm::setContactShadows)
                 // The desktop's View > Use Orthogonal View; a setting here since perspective is the usual look (user 2026-10-19). K toggles.
                 SwitchRow(stringResource(R.string.orthographic_camera), !state.workspace.perspective, onChange = { vm.setPerspective(!it) })
-                SwitchRow(stringResource(R.string.builder_split), state.design.builderSplit, onChange = vm::setBuilderSplit)
                 // Sharp layer lines without moire in Preview (user 2026-10-20); while moving costs GPU, so off by default.
                 Text(stringResource(R.string.preview_supersample), style = MaterialTheme.typography.bodyLarge)
                 SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
@@ -342,91 +324,6 @@ private fun ProfileUpdatesCard(state: UiState, vm: AppViewModel) {
     }
 }
 
-/**
- * Temporary (user, 2026-10-13): layout variants to try on the device. Goes away once the user has
- * picked; the picks become the only layout.
- */
-@Composable
-private fun LayoutLabSection(state: UiState, vm: AppViewModel) {
-    Section(stringResource(R.string.layout_lab), summary = stringResource(R.string.layout_lab_summary)) {
-      androidx.compose.runtime.DisposableEffect(Unit) {
-        LabPeek.open = true
-        onDispose { LabPeek.open = false; LabPeek.touching = false; LabPeek.frozen = null; LabPeek.readout = null }
-      }
-      LayoutLabBody(state, vm)
-    }
-}
-
-/** The lab controls, also shown in the Layout tab of the design panel (they apply live via [AppViewModel.setLab]). */
-@Composable
-internal fun LayoutLabBody(state: UiState, vm: AppViewModel) {
-    val lab = state.chrome.lab
-    val current by androidx.compose.runtime.rememberUpdatedState(lab)
-    run {
-      Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(stringResource(R.string.layout_lab_text), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Section(stringResource(R.string.lab_group_plates)) {
-        Text(stringResource(R.string.lab_plate_switcher), style = MaterialTheme.typography.bodyMedium)
-        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-            listOf(PlateSwitcher.TABS to R.string.lab_tabs, PlateSwitcher.FILMSTRIP to R.string.lab_filmstrip, PlateSwitcher.CHIPS to R.string.lab_chips)
-                .forEachIndexed { i, (v, label) ->
-                    SegmentedButton(lab.plates == v, { vm.setLab(lab.copy(plates = v)) }, SegmentedButtonDefaults.itemShape(i, 3)) { Text(stringResource(label)) }
-                }
-        }
-        SwitchRow(stringResource(R.string.lab_plate_label), lab.plateLabel, onChange = { vm.setLab(lab.copy(plateLabel = it)) })
-        SwitchRow(stringResource(R.string.lab_show_plates), lab.showPlates, onChange = { vm.setLab(lab.copy(showPlates = it)) })
-        SwitchRow(stringResource(R.string.lab_plates_on_handle), lab.platesOnHandle, onChange = { vm.setLab(lab.copy(platesOnHandle = it)) })
-        SwitchRow(stringResource(R.string.lab_plate_hd), lab.plateHd, onChange = { vm.setLab(lab.copy(plateHd = it)) })
-        if (lab.plateHd) {
-            val hdContext = LocalContext.current
-            fun hdText(v: Float) = hdContext.getString(R.string.lab_plate_hd_alpha, (v * 100).toInt())
-            Text(hdText(lab.plateHdAlpha), style = MaterialTheme.typography.bodyMedium)
-            LabSlider(lab.plateHdAlpha, { LabPeek.readout = hdText(it) to (it - 0.1f) / 0.9f; vm.setLab(lab.copy(plateHdAlpha = it)) }, 0.1f..1f, current)
-            fun underText(v: Float) = hdContext.getString(R.string.lab_plate_hd_under, (v * 100).toInt())
-            Text(underText(lab.plateUnderAlpha), style = MaterialTheme.typography.bodyMedium)
-            LabSlider(lab.plateUnderAlpha, { LabPeek.readout = underText(it) to it; vm.setLab(lab.copy(plateUnderAlpha = it)) }, 0f..1f, current)
-        }
-        }
-        Section(stringResource(R.string.lab_group_layout)) {
-        SwitchRow(stringResource(R.string.lab_slice_floating), lab.sliceFloating, onChange = { vm.setLab(lab.copy(sliceFloating = it)) })
-        SwitchRow(stringResource(R.string.lab_tools_left), lab.toolsLeft, onChange = { vm.setLab(lab.copy(toolsLeft = it)) })
-        SwitchRow(stringResource(R.string.lab_fullscreen_portrait), lab.fullscreenPortrait, onChange = { vm.setLab(lab.copy(fullscreenPortrait = it)) })
-        SwitchRow(stringResource(R.string.lab_view_cube), lab.viewCube, onChange = { vm.setLab(lab.copy(viewCube = it)) })
-        SwitchRow(stringResource(R.string.lab_pie_menu), lab.pieMenu, onChange = { vm.setLab(lab.copy(pieMenu = it)) })
-        }
-        Section(stringResource(R.string.lab_group_scales)) {
-        val alphaContext = LocalContext.current
-        val alphaText = stringResource(R.string.lab_overlay_alpha, (lab.overlayAlpha * 100).toInt())
-        Text(alphaText, style = MaterialTheme.typography.bodyMedium)
-        // Same readout card as the size sliders: More is faded while dragging, so the value stays in view.
-        LabSlider(lab.overlayAlpha, {
-            LabPeek.readout = alphaContext.getString(R.string.lab_overlay_alpha, (it * 100).toInt()) to (it - 0.2f) / 0.8f
-            vm.setLab(lab.copy(overlayAlpha = it))
-        }, 0.2f..1f, current)
-        Text(stringResource(R.string.lab_scale_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        ScaleSlider(R.string.lab_text_scale, lab.textScale, app.orcaandroid.core.LayoutLab.TEXT_SCALES, current) { vm.setLab(state.chrome.lab.copy(textScale = it)) }
-        ScaleSlider(R.string.lab_ui_scale, lab.uiScale, app.orcaandroid.core.LayoutLab.UI_SCALES, current) { vm.setLab(state.chrome.lab.copy(uiScale = it)) }
-        ScaleSlider(R.string.lab_plate_scale, lab.plateScale, app.orcaandroid.core.LayoutLab.PLATE_SCALES, current) { vm.setLab(state.chrome.lab.copy(plateScale = it)) }
-        ScaleSlider(R.string.lab_slice_scale, lab.sliceScale, app.orcaandroid.core.LayoutLab.SLICE_SCALES, current) { vm.setLab(state.chrome.lab.copy(sliceScale = it)) }
-        ScaleSlider(R.string.lab_overlay_scale, lab.overlayScale, app.orcaandroid.core.LayoutLab.OVERLAY_SCALES, current) { vm.setLab(state.chrome.lab.copy(overlayScale = it)) }
-        }
-        Section(stringResource(R.string.lab_group_shadows)) {
-        ShadowSlider(R.string.lab_shadow_strength, lab.shadowStrength, 100f, "%", app.orcaandroid.core.LayoutLab.SHADOW_STRENGTHS, current) { vm.setLab(state.chrome.lab.copy(shadowStrength = it)) }
-        ShadowSlider(R.string.lab_shadow_soft, lab.shadowSoft, 1f, " mm", app.orcaandroid.core.LayoutLab.SHADOW_SOFTS, current) { vm.setLab(state.chrome.lab.copy(shadowSoft = it)) }
-        ShadowSlider(R.string.lab_shadow_bias, lab.shadowBias, 1f, " mm", app.orcaandroid.core.LayoutLab.SHADOW_BIASES, current) { vm.setLab(state.chrome.lab.copy(shadowBias = it)) }
-        }
-        Section(stringResource(R.string.lab_group_light)) {
-        ShadowSlider(R.string.lab_light_azimuth, lab.lightAzimuth, 1f, "°", app.orcaandroid.core.LayoutLab.LIGHT_AZIMUTHS, current) { vm.setLab(state.chrome.lab.copy(lightAzimuth = it)) }
-        ShadowSlider(R.string.lab_light_elevation, lab.lightElevation, 1f, "°", app.orcaandroid.core.LayoutLab.LIGHT_ELEVATIONS, current) { vm.setLab(state.chrome.lab.copy(lightElevation = it)) }
-        ShadowSlider(R.string.lab_light_strength, lab.lightStrength, 100f, "%", app.orcaandroid.core.LayoutLab.LIGHT_STRENGTHS, current) { vm.setLab(state.chrome.lab.copy(lightStrength = it)) }
-        ShadowSlider(R.string.lab_camera_light, lab.cameraLight, 100f, "%", app.orcaandroid.core.LayoutLab.CAMERA_LIGHTS, current) { vm.setLab(state.chrome.lab.copy(cameraLight = it)) }
-        ShadowSlider(R.string.lab_orbit_inertia, lab.orbitInertia, 100f, "%", app.orcaandroid.core.LayoutLab.ORBIT_INERTIAS, current) { vm.setLab(state.chrome.lab.copy(orbitInertia = it)) }
-        }
-        TextButton(onClick = { vm.setLab(app.orcaandroid.core.LayoutLab()) }) { Text(stringResource(R.string.reset)) }
-      }
-    }
-}
-
 /** One slider per [app.orcaandroid.core.Tuning] knob, applied live, and a reset. */
 @Composable
 private fun TuningSection() {
@@ -442,41 +339,11 @@ private fun TuningSection() {
     TextButton(onClick = { t.reset() }) { Text(stringResource(R.string.reset)) }
 }
 
-/** A shadow look slider (strength in %, penumbra and bias in mm): live on the plate behind, like the size sliders. */
+/** A zoom speed slider (in %, the label takes the formatted value), applied live. */
 @Composable
-private fun ShadowSlider(label: Int, value: Float, factor: Float, unit: String, range: ClosedFloatingPointRange<Float>, lab: app.orcaandroid.core.LayoutLab, peek: Boolean = true, onSet: (Float) -> Unit) {
-    val context = LocalContext.current
-    // The readout is formatted from the value being set, not the one composed before this drag step (it lagged one step behind).
-    fun format(v: Float) = context.getString(label, if (factor == 1f) "%.1f".format(v) + unit else kotlin.math.round(v * factor).toInt().toString() + unit)
-    Text(format(value), style = MaterialTheme.typography.bodyMedium)
-    if (!peek) androidx.compose.material3.Slider(value, onSet, valueRange = range) // nothing to see behind: More stays lit
-    else LabSlider(value, { LabPeek.readout = format(it) to (it - range.start) / (range.endInclusive - range.start); onSet(it) }, range, lab)
-}
-
-/** A size slider in 5 % steps, applied live (More is frozen at its touch-time size while dragging, so it doesn't move under the finger). */
-@Composable
-private fun ScaleSlider(label: Int, value: Float, range: ClosedFloatingPointRange<Float>, lab: app.orcaandroid.core.LayoutLab, onSet: (Float) -> Unit) {
-    val context = LocalContext.current
-    fun format(v: Float) = context.getString(label, kotlin.math.round(v * 100).toInt())
-    Text(format(value), style = MaterialTheme.typography.bodyMedium)
-    // While a finger is down on a slider the whole of More is faded; the scaffold shows this readout so the value stays in view.
-    // It shows the value being set (snapped to 5 %), not the one composed before this drag step (it lagged one step behind).
-    LabSlider(value, { val v = kotlin.math.round(it * 20) / 20f; LabPeek.readout = format(v) to (it - range.start) / (range.endInclusive - range.start); onSet(v) }, range, lab,
-        steps = kotlin.math.round((range.endInclusive - range.start) * 20).toInt() - 1)
-}
-
-/** A lab slider: only a finger on the slider itself fades/freezes More (not any touch in the section). */
-@Composable
-private fun LabSlider(value: Float, onChange: (Float) -> Unit, range: ClosedFloatingPointRange<Float>, lab: app.orcaandroid.core.LayoutLab, steps: Int = 0) {
-    val source = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-    val pressed by source.collectIsPressedAsState()
-    val dragged by source.collectIsDraggedAsState()
-    val down = pressed || dragged
-    androidx.compose.runtime.LaunchedEffect(down) {
-        if (down) { if (!LabPeek.touching) LabPeek.frozen = lab } else { LabPeek.frozen = null; LabPeek.readout = null }
-        LabPeek.touching = down
-    }
-    androidx.compose.material3.Slider(value, onChange, valueRange = range, steps = steps, interactionSource = source)
+private fun ZoomSlider(label: Int, value: Float, range: ClosedFloatingPointRange<Float>, onSet: (Float) -> Unit) {
+    Text(stringResource(label, kotlin.math.round(value * 100).toInt().toString() + "%"), style = MaterialTheme.typography.bodyMedium)
+    androidx.compose.material3.Slider(value, onSet, valueRange = range)
 }
 
 /** Asks for the backup passphrase ([confirm]: twice, for a new backup). */

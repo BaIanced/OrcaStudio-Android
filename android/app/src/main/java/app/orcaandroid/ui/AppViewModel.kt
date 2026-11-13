@@ -160,11 +160,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         store.sceneOp { store.engine.setUndoLimit(limit) }
     }
 
-    fun setLab(lab: app.orcaandroid.core.LayoutLab) {
-        store.settings.layoutLab = lab
-        store.update { it.copy(chrome = it.chrome.copy(lab = lab)) }
-    }
-
     fun setInterfaceSize(size: Float) {
         val snapped = app.orcaandroid.core.ViewDefaults.snapInterfaceSize(size)
         store.settings.interfaceSize = snapped
@@ -300,11 +295,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** The move lock button: free -> X -> Y -> free. */
     fun cycleMoveLock() = store.update { it.copy(workspace = it.workspace.copy(moveLock = if (it.workspace.moveLock >= 1) -1 else it.workspace.moveLock + 1)) }
-
-    fun setBuilderSplit(on: Boolean) {
-        store.settings.builderSplit = on
-        store.update { it.copy(design = it.design.copy(builderSplit = on)) }
-    }
 
     fun setPerspective(on: Boolean) {
         store.settings.perspective = on

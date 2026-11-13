@@ -26,7 +26,7 @@ class Store(val app: Application, val scope: CoroutineScope) {
     val printHistory = PrintHistory(app)
 
     // The retired Layout lab's JSON moves into its own keys before anything reads the settings (a restored backup restarts the app, so it runs again).
-    init { settings.migrateLayoutLab() }
+    init { settings.migrateOldLayout() }
 
     val state = MutableStateFlow(
         UiState(
@@ -50,7 +50,6 @@ class Store(val app: Application, val scope: CoroutineScope) {
                 snapBuild = settings.snapBuild,
                 buildOthers = settings.buildOthers,
                 buildPrinter = settings.buildPrinter,
-                builderSplit = settings.builderSplit,
             ),
             slicing = SliceState(autoSlice = settings.autoSlice),
             device = DeviceState(
@@ -74,7 +73,6 @@ class Store(val app: Application, val scope: CoroutineScope) {
                 themeSpec = settings.themeSpec,
                 doubleBackToQuit = settings.doubleBackToQuit,
                 coachDismissed = settings.coachDismissed,
-                lab = settings.layoutLab,
                 interfaceSize = settings.interfaceSize,
                 showPlates = settings.showPlates,
                 panelTucked = settings.panelTucked,

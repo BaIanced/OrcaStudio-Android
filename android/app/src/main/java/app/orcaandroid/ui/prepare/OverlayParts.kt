@@ -90,10 +90,10 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 
-/** Opacity of the control backgrounds over the 3D view (Layout lab). */
+/** Opacity of the control backgrounds over the 3D view. */
 val LocalOverlayAlpha = compositionLocalOf { 0.85f }
 
-/** Scales the plate switcher alone (Layout lab), on top of the interface and overlay sizes. */
+/** Scales the plate switcher alone, on top of the interface size. */
 @Composable
 fun PlateScale(scale: Float, content: @Composable () -> Unit) {
     val base = androidx.compose.ui.platform.LocalDensity.current

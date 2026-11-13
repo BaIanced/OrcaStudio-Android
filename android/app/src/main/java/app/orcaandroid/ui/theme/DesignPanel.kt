@@ -143,7 +143,7 @@ fun ThemeDesignPanel(state: UiState, vm: AppViewModel, floating: Boolean, onFloa
                                 Text(stringResource(R.string.design_reset_all))
                             }
                         }
-            } else app.orcaandroid.ui.settings.LayoutLabBody(state, vm)
+            } else app.orcaandroid.ui.settings.LayoutPrefs(state, vm)
         }
     }
     val header: @Composable (Modifier) -> Unit = { mod ->

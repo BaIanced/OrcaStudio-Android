@@ -111,6 +111,7 @@ import kotlin.math.roundToInt
 import app.orcaandroid.R
 import app.orcaandroid.core.AlignKind
 import app.orcaandroid.core.PlateSwitcher
+import app.orcaandroid.core.ViewDefaults
 import app.orcaandroid.ui.Screen
 import androidx.compose.material.icons.filled.AlignHorizontalCenter
 import androidx.compose.material.icons.filled.AlignHorizontalLeft
@@ -147,14 +148,13 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
     if (state.inPaintShop) return
     // The Build workspace edits the design's shapes: the plate tools would act on the whole object.
     if (state.buildObject != null) return
-    val lab = state.chrome.lab
     val sliceOnGrip = sliceOnGrip(state, wide)
-    // Tools in a column on the left: wide layouts always, portrait if chosen in the Layout lab.
-    val column = wide || lab.toolsLeft
+    // Tools in a column on the left: wide layouts always, portrait too by default.
+    val column = wide || ViewDefaults.TOOLS_LEFT
     // Portrait with the switcher on the panel grip (AppScaffold): nothing of it over the 3D view.
-    val onHandle = lab.platesOnHandle && !wide
-    val filmstrip = lab.plates == PlateSwitcher.FILMSTRIP && state.workspace.tool == Tool.None && !onHandle && lab.showPlates
-    CompositionLocalProvider(LocalOverlayAlpha provides lab.overlayAlpha) {
+    val onHandle = ViewDefaults.PLATES_ON_HANDLE && !wide
+    val filmstrip = ViewDefaults.PLATES == PlateSwitcher.FILMSTRIP && state.workspace.tool == Tool.None && !onHandle && state.chrome.showPlates
+    CompositionLocalProvider(LocalOverlayAlpha provides ViewDefaults.OVERLAY_ALPHA) {
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
     var rowSize by remember { mutableStateOf(IntSize.Zero) }
     var dragOffsetX by remember { mutableFloatStateOf(0f) }
@@ -197,8 +197,8 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
             Row(
                 Modifier
                     .offset {
-                        val curX = (if (lab.toolsRowX >= 0f) with(density) { lab.toolsRowX.dp.toPx() } else 0f) + dragOffsetX
-                        val curY = (if (lab.toolsRowY >= 0f) with(density) { lab.toolsRowY.dp.toPx() } else defaultY) + dragOffsetY
+                        val curX = (if (ViewDefaults.TOOLS_ROW_X >= 0f) with(density) { ViewDefaults.TOOLS_ROW_X.dp.toPx() } else 0f) + dragOffsetX
+                        val curY = (if (ViewDefaults.TOOLS_ROW_Y >= 0f) with(density) { ViewDefaults.TOOLS_ROW_Y.dp.toPx() } else defaultY) + dragOffsetY
                         val maxX = maxOf(0f, (containerSize.width - rowSize.width).toFloat())
                         val maxY = maxOf(0f, (containerSize.height - rowSize.height).toFloat())
                         IntOffset(curX.coerceIn(0f, maxX).roundToInt(), curY.coerceIn(0f, maxY).roundToInt())
@@ -211,26 +211,21 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
             ) {
                 ToolButtons(
                     state, vm,
-                    collapsed = lab.toolsCollapsed,
+                    collapsed = ViewDefaults.TOOLS_COLLAPSED,
                     onAddDrag = { delta ->
                         dragOffsetX += delta.x
                         dragOffsetY += delta.y
                     },
                     onAddDragEnd = {
-                        val curX = (if (lab.toolsRowX >= 0f) with(density) { lab.toolsRowX.dp.toPx() } else 0f) + dragOffsetX
-                        val curY = (if (lab.toolsRowY >= 0f) with(density) { lab.toolsRowY.dp.toPx() } else defaultY) + dragOffsetY
+                        val curX = (if (ViewDefaults.TOOLS_ROW_X >= 0f) with(density) { ViewDefaults.TOOLS_ROW_X.dp.toPx() } else 0f) + dragOffsetX
+                        val curY = (if (ViewDefaults.TOOLS_ROW_Y >= 0f) with(density) { ViewDefaults.TOOLS_ROW_Y.dp.toPx() } else defaultY) + dragOffsetY
                         val maxX = maxOf(0f, (containerSize.width - rowSize.width).toFloat())
                         val maxY = maxOf(0f, (containerSize.height - rowSize.height).toFloat())
-                        val finalX = curX.coerceIn(0f, maxX)
-                        val finalY = curY.coerceIn(0f, maxY)
+                        // The row's spot is a constant now (T-027): a drag only lasts until let go.
                         dragOffsetX = 0f
                         dragOffsetY = 0f
-                        vm.setLab(lab.copy(toolsRowX = with(density) { finalX.toDp().value }, toolsRowY = with(density) { finalY.toDp().value }))
                     },
-                    onAddLongPress = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        vm.setLab(lab.copy(toolsCollapsed = !lab.toolsCollapsed))
-                    }
+                    onAddLongPress = { haptic.performHapticFeedback(HapticFeedbackType.LongPress) }
                 )
             }
         }
@@ -239,13 +234,13 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
         // On a narrow canvas (less than about two thumbnails left beside it) the strip gets its own row above.
         if (stripWithSlice) androidx.compose.foundation.layout.BoxWithConstraints(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(start = 60.dp)) {
             if (maxWidth >= 360.dp) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
-                PlateScale(lab.plateScale) { Filmstrip(state, vm, view, Modifier.weight(1f)) }
-                if (!sliceOnGrip && !lab.sliceFloating) SliceButton(state, vm, Modifier)
+                PlateScale(ViewDefaults.PLATE_SCALE) { Filmstrip(state, vm, view, Modifier.weight(1f)) }
+                if (!sliceOnGrip && !ViewDefaults.SLICE_FLOATING) SliceButton(state, vm, Modifier)
             } else Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                PlateScale(lab.plateScale) { Filmstrip(state, vm, view, Modifier.fillMaxWidth()) }
-                if (!sliceOnGrip && !lab.sliceFloating) SliceButton(state, vm, Modifier)
+                PlateScale(ViewDefaults.PLATE_SCALE) { Filmstrip(state, vm, view, Modifier.fillMaxWidth()) }
+                if (!sliceOnGrip && !ViewDefaults.SLICE_FLOATING) SliceButton(state, vm, Modifier)
             }
-        } else if (filmstrip) PlateScale(lab.plateScale) { Filmstrip(state, vm, view, Modifier.align(Alignment.BottomStart).padding(bottom = 120.dp)) }
+        } else if (filmstrip) PlateScale(ViewDefaults.PLATE_SCALE) { Filmstrip(state, vm, view, Modifier.align(Alignment.BottomStart).padding(bottom = 120.dp)) }
         // The layer height graph is tall: on wide layouts it sits at the right edge (like the desktop's)
         // above the Slice button, not over the object in the middle.
         val rightPanel = wide && state.workspace.tool == Tool.LayerHeight
@@ -254,7 +249,7 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
                    bottom = if (wide) 0.dp else if (column) 72.dp else 116.dp)) {
             ToolPanel(state, vm)
         }
-        if (lab.sliceFloating) FloatingSlice(state, vm, containerSize)
+        if (ViewDefaults.SLICE_FLOATING) FloatingSlice(state, vm, containerSize)
         else if (!stripWithSlice && !sliceOnGrip) SliceButton(state, vm, Modifier.align(Alignment.BottomEnd))
         // Setup problems (first case: a filament slot of the wrong type): tap opens the panel at the offending setting.
         val problems = state.setupProblems()
@@ -321,9 +316,9 @@ private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
     val at = state.workspace.contextMenu
     // The overlay is inset by 8 dp from the view whose pixels [at] are in.
     val inset = with(LocalDensity.current) { 8.dp.roundToPx() }
-    // Lab "pie menu": wedges for the common actions; the last wedge ("More") opens the list.
+    // "Pie menu" (a constant now, removable after lighting review, UA-7): wedges for the common actions; the last wedge ("More") opens the list.
     var more by remember(at) { mutableStateOf(false) }
-    if (at != null && state.chrome.lab.pieMenu && !more) {
+    if (at != null && ViewDefaults.PIE_MENU && !more) {
         val close = vm.scene::closeContextMenu
         val sel = state.workspace.selection
         val moreItem = PieItem(Icons.Default.MoreHoriz, stringResource(R.string.more)) { more = true }
@@ -411,7 +406,7 @@ private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
                         onClick = { close(); dialog = "text" })
                     DropdownMenuItem(text = { Text(stringResource(R.string.add_svg)) }, leadingIcon = { Icon(Icons.Default.Category, null) },
                         onClick = { close(); dialog = "svg" })
-                    DesignEntries(vm, state.design.builderSplit, close)
+                    DesignEntries(vm, close)
                     if (!state.workspace.scene.isEmpty)
                         DropdownMenuItem(text = { Text(stringResource(R.string.arrange)) }, leadingIcon = { Icon(Icons.Default.AutoAwesomeMosaic, null) },
                             onClick = { close(); vm.scene.arrange(false) })
@@ -422,7 +417,7 @@ private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
     AddDialogs(state, vm, dialog ?: state.workspace.addDialog) { dialog = null; vm.scene.openAddDialog(null) }
 }
 
-/** Plate switcher (as chosen in the Layout lab), profile-update chip, undo/redo/view (when not in the tool column) and File. */
+/** Plate switcher, profile-update chip, undo/redo/view (when not in the tool column) and File. */
 @Composable
 private fun TopBar(state: UiState, vm: AppViewModel, view: PlateView?, viewButtons: Boolean, onHandle: Boolean) {
     val alpha = LocalOverlayAlpha.current
@@ -432,10 +427,10 @@ private fun TopBar(state: UiState, vm: AppViewModel, view: PlateView?, viewButto
     // view buttons take the free start, left of the hole, and File stays right of it (together they didn't fit past it).
     CutoutRow(minStart = 96.dp, start = {
         if (onHandle) { if (viewButtons) views() }
-        else if (state.chrome.lab.showPlates) PlateScale(state.chrome.lab.plateScale) {
-            when (state.chrome.lab.plates) {
+        else if (state.chrome.showPlates) PlateScale(ViewDefaults.PLATE_SCALE) {
+            when (ViewDefaults.PLATES) {
                 PlateSwitcher.TABS -> Surface(shape = RoundedCornerShape(20.dp), color = bar) { PlateTabs(state, vm, view, Modifier.padding(start = 4.dp)) }
-                PlateSwitcher.FILMSTRIP -> if (state.chrome.lab.plateLabel) Surface(shape = RoundedCornerShape(20.dp), color = bar) { PlateLabel(state, vm) }
+                PlateSwitcher.FILMSTRIP -> if (ViewDefaults.PLATE_LABEL) Surface(shape = RoundedCornerShape(20.dp), color = bar) { PlateLabel(state, vm) }
                 PlateSwitcher.CHIPS -> PlateChips(state, vm, view)
             }
         }
@@ -517,7 +512,7 @@ internal fun ViewButtons(state: UiState, vm: AppViewModel, view: PlateView?, rai
                 onClick = { viewMenu = false; vm.setWireframe(!state.workspace.wireframe) },
                 leadingIcon = { Icon(Icons.Default.GridOn, null) },
                 trailingIcon = { if (state.workspace.wireframe) Icon(Icons.Default.Check, null) })
-            // Drag the key light on a ball (the lab's light angles, live).
+            // Drag the key light on a ball (the light angles, live).
             DropdownMenuItem(text = { Text(stringResource(R.string.light_direction)) },
                 onClick = { viewMenu = false; vm.setLightPanel(!state.workspace.lightPanel) },
                 leadingIcon = { Icon(Icons.Default.WbSunny, null) },
@@ -720,65 +715,56 @@ private fun ToolButton(icon: ImageVector, label: String, active: Boolean = false
                 containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary) else
                 androidx.compose.material3.IconButtonDefaults.filledTonalIconButtonColors(
                     containerColor = MaterialTheme.colorScheme.surface.copy(alpha = alpha)),
-            modifier = Modifier.size(48.dp),
+            modifier = Modifier.size(ViewDefaults.TOOL_BUTTON_DP.dp),
         ) { if (face != null) face() else Icon(icon, label) }
     }
 }
 
 /** Portrait Prepare without the OpenSCAD editor: the Slice button sits at the right end of the panel's grip (user, 2026-10-17). */
-fun sliceOnGrip(state: UiState, wide: Boolean) = !wide && state.design.scad == null && !state.chrome.lab.sliceFloating
+fun sliceOnGrip(state: UiState, wide: Boolean) = !wide && state.design.scad == null && !ViewDefaults.SLICE_FLOATING
 
-/** The Slice button on the panel grip, sized by the Layout lab's own slider (on top of the main UI size only). */
+/** The Slice button on the panel grip. */
 @Composable
 fun GripSliceButton(state: UiState, vm: AppViewModel, modifier: Modifier = Modifier) {
-    val base = androidx.compose.ui.platform.LocalDensity.current
-    androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides
-        androidx.compose.ui.unit.Density(base.density * state.chrome.lab.sliceScale, base.fontScale)) {
-        SliceButton(state, vm, modifier.padding(vertical = 4.dp))
-    }
+    SliceButton(state, vm, modifier.padding(vertical = 4.dp))
 }
 
 /**
  * The Slice button floating over the 3D view (user 2026-10-28): a tap slices, dragging it anywhere moves it. The spot is saved as
- * fractions of the free room (like the view cube), so it stays put across rotation; default bottom right. Sized by the slice slider.
+ * fractions of the free room (like the view cube), so it stays put across rotation; default bottom right.
  */
 @Composable
 private fun BoxScope.FloatingSlice(state: UiState, vm: AppViewModel, area: IntSize) {
-    val lab = state.chrome.lab
+    val spot = state.chrome.sliceSpot
     var size by remember { mutableStateOf(IntSize.Zero) }
     var live by remember { mutableStateOf<Offset?>(null) }
     val roomX = (area.width - size.width).coerceAtLeast(0).toFloat()
     val roomY = (area.height - size.height).coerceAtLeast(0).toFloat()
-    val saved = if (lab.sliceX < 0f || lab.sliceY < 0f) Offset(roomX, roomY) else Offset(lab.sliceX * roomX, lab.sliceY * roomY)
+    val saved = if (spot.first < 0f || spot.second < 0f) Offset(roomX, roomY) else Offset(spot.first * roomX, spot.second * roomY)
     val at = (live ?: saved).let { Offset(it.x.coerceIn(0f, roomX), it.y.coerceIn(0f, roomY)) }
-    // The drag handler outlives recompositions (keyed on the room only): read the current spot and lab, not the first ones.
+    // The drag handler outlives recompositions (keyed on the room only): read the current spot, not the first one.
     val curAt by rememberUpdatedState(at)
-    val curLab by rememberUpdatedState(lab)
-    val base = androidx.compose.ui.platform.LocalDensity.current
-    androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides
-        androidx.compose.ui.unit.Density(base.density * lab.sliceScale, base.fontScale)) {
-        SliceButton(state, vm, Modifier
-            .align(Alignment.TopStart)
-            .offset { IntOffset(at.x.roundToInt(), at.y.roundToInt()) }
-            .onSizeChanged { size = it }
-            .pointerInput(roomX, roomY) {
-                detectDragGestures(
-                    onDrag = { change, d ->
-                        change.consume()
-                        val cur = live ?: curAt
-                        live = Offset((cur.x + d.x).coerceIn(0f, roomX), (cur.y + d.y).coerceIn(0f, roomY))
-                    },
-                    onDragEnd = {
-                        live?.let { p ->
-                            vm.setLab(curLab.copy(sliceX = if (roomX > 0f) (p.x / roomX).coerceIn(0f, 1f) else 0f,
-                                               sliceY = if (roomY > 0f) (p.y / roomY).coerceIn(0f, 1f) else 0f))
-                        }
-                        live = null
-                    },
-                    onDragCancel = { live = null },
-                )
-            })
-    }
+    SliceButton(state, vm, Modifier
+        .align(Alignment.TopStart)
+        .offset { IntOffset(at.x.roundToInt(), at.y.roundToInt()) }
+        .onSizeChanged { size = it }
+        .pointerInput(roomX, roomY) {
+            detectDragGestures(
+                onDrag = { change, d ->
+                    change.consume()
+                    val cur = live ?: curAt
+                    live = Offset((cur.x + d.x).coerceIn(0f, roomX), (cur.y + d.y).coerceIn(0f, roomY))
+                },
+                onDragEnd = {
+                    live?.let { p ->
+                        vm.setSliceSpot(if (roomX > 0f) (p.x / roomX).coerceIn(0f, 1f) else 0f,
+                                        if (roomY > 0f) (p.y / roomY).coerceIn(0f, 1f) else 0f)
+                    }
+                    live = null
+                },
+                onDragCancel = { live = null },
+            )
+        })
 }
 
 @Composable
@@ -882,12 +868,12 @@ private fun ScrollCue(scroll: androidx.compose.foundation.ScrollState, up: Boole
     }
 }
 
-/** The plate switcher chosen in the Layout lab, as a bar of its own (nested on the portrait panel's grip). */
+/** The plate switcher as a bar of its own (nested on the portrait panel's grip). */
 @Composable
 fun PlateSwitcherBar(state: UiState, vm: AppViewModel, view: PlateView?, modifier: Modifier = Modifier) {
-    PlateScale(state.chrome.lab.plateScale) {
+    PlateScale(ViewDefaults.PLATE_SCALE) {
         Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-            when (state.chrome.lab.plates) {
+            when (ViewDefaults.PLATES) {
                 PlateSwitcher.TABS -> PlateTabs(state, vm, view, Modifier.weight(1f))
                 PlateSwitcher.FILMSTRIP -> Filmstrip(state, vm, view, Modifier.weight(1f))
                 PlateSwitcher.CHIPS -> Box(Modifier.weight(1f)) { PlateChips(state, vm, view) }
