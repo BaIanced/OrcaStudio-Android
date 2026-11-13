@@ -39,7 +39,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Open for the user: `gh variable set RELEASE_CERT_SHA256` (T-006); blank `Verdict (user)` line in memory cheaper-subagents; move docs/handoff to a private repo before T-038 (backlog).
 - **T-029 gate passed; T-027 follow-up done 771ad11 (2026-11-13, archive "T-027 follow-up": 13 lab fields back as settings + migration, plate + on the left, cube/pie in `android/reference/`), device-checked on WSA (smoke 8/8, migration, + position).** Nothing installed on real devices. WSA has the 771ad11 debug build. Not device-checked: each new row's effect, tool-row long-press/drag.
 - CI run 43406954976 (36106a0) green, not installed. **Batch 2 merged 2026-11-13 (PR #85), merge offer cleared.** Unverified on the branch: nothing.
-- Next step: T-030 (depends on UA-1) -> Sonnet 5.5 (coordinator; the subagent model is the task tag)
+- T-030 done (77cee24, `docs/design/DESIGN-SYSTEM.md`, source-checked only).
+- Next step: T-031 (builder frames the edited object) -> Sonnet 5.5 (coordinator; the subagent model is the task tag)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
