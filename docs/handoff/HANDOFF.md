@@ -13,7 +13,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 ## State
 - One repo: OrcaStudio-Android (code + these docs, `docs/handoff/`), branch `claude/handoff-continuation-rseql3`. Autonomy (user, 2026-10-11): decide branches and next steps
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
-- Android main = 3181529 (PR #84 = r548, batch 1 + GLB/glTF/PLY/OFF import + GL preview work, merged 2026-11-12 on the user's "merge"; Claude-verified only). Nothing unmerged on the branch but handoff docs. User-untested in main: `SIGNOFF-CHECKLIST.md`.
+- Android main = df0a903 (PR #85 = batch 2: UiState split, LayoutLab retired, package cycles; merged 2026-11-13 on the user's "/next-merge"; Claude-verified only, CI green). Before it: PR #84 = r548 (batch 1). Nothing unmerged on the branch but handoff docs. User-untested in main: `SIGNOFF-CHECKLIST.md`.
 - Signing secrets: `release` environment (main + `claude/*` only).
 - Installs: all adb devices (skip .23); **SHIELD avoided (user 2026-11-01)**. WSA restart: `WsaClient /shutdown`, `wsa-start.ps1`, `adb connect 127.0.0.1:58526`; phone/Chromebook reconnect: memory devices. GL shots on the phone VD.
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
@@ -38,8 +38,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Batch 1 merged (PR #84, archive "T-019" / "PR #84"). **Batch 2 open (user said yes to refactor first, answer 14): T-020, T-021 done (test baseline 45; plan `docs/audit/plan/uistate-split.md`, 8 moves); T-022..T-026c (all 8 moves) done; T-027 done (60a49b3; shot check: no regression, archive 2026-11-13); T-028 done (97c5995); T-029 checks passed, see below. PR #84's `scan` check failed on old commit cf75a81 (2026-11-04, a LAN address once in HANDOFF.md, gone from the tree); user told, their call (backlog).
 - Open for the user: `gh variable set RELEASE_CERT_SHA256` (T-006); blank `Verdict (user)` line in memory cheaper-subagents; move docs/handoff to a private repo before T-038 (backlog).
 - **T-029 gate passed; T-027 follow-up done 771ad11 (2026-11-13, archive "T-027 follow-up": 13 lab fields back as settings + migration, plate + on the left, cube/pie in `android/reference/`), device-checked on WSA (smoke 8/8, migration, + position).** Nothing installed on real devices. WSA has the 771ad11 debug build. Not device-checked: each new row's effect, tool-row long-press/drag.
-- CI run 43406954976 (36106a0) green, not installed. **Batch 2 merge offer shown 2026-11-13, no answer yet** (user asked to clear).
-- Next step: ask for the batch 2 merge answer (main merge needs the user; `/next-merge` = yes) -> after the merge T-030 (depends on UA-1) -> Sonnet 5.5 (coordinator; the subagent model is the task tag)
+- CI run 43406954976 (36106a0) green, not installed. **Batch 2 merged 2026-11-13 (PR #85), merge offer cleared.** Unverified on the branch: nothing.
+- Next step: T-030 (depends on UA-1) -> Sonnet 5.5 (coordinator; the subagent model is the task tag)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
