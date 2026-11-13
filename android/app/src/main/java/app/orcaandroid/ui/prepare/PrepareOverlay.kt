@@ -15,6 +15,9 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.heightIn
+import app.orcaandroid.ui.WIDE_LAYOUT
+import app.orcaandroid.ui.components.ToolCardDefaults
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -250,7 +253,18 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
         // The layer height graph is tall: on wide layouts it sits at the right edge (like the desktop's)
         // above the Slice button, not over the object in the middle.
         val rightPanel = wide && state.workspace.tool == Tool.LayerHeight
-        Column(if (rightPanel) Modifier.align(Alignment.BottomEnd).padding(bottom = 72.dp)
+        val editing = state.workspace.tool is Tool.MeshEdit
+        if (editing) {
+            // Push / pull: the docked tool card (design spec section 6): end side on a wide window, else the bottom.
+            val w = with(density) { containerSize.width.toDp() }
+            val h = with(density) { containerSize.height.toDp() }
+            val side = w >= 600.dp && w > h
+            MeshEditCard(state, vm, side,
+                if (side) Modifier.align(Alignment.BottomEnd).padding(bottom = 72.dp).width(if (w >= WIDE_LAYOUT) ToolCardDefaults.SIDE_WIDTH_WIDE else ToolCardDefaults.SIDE_WIDTH)
+                    .heightIn(max = (h - 72.dp).coerceAtLeast(96.dp))
+                else Modifier.align(Alignment.BottomStart).padding(bottom = 72.dp).fillMaxWidth().heightIn(max = (h * ToolCardDefaults.MAX_HEIGHT_FRACTION).coerceAtLeast(96.dp)))
+        }
+        if (!editing) Column(if (rightPanel) Modifier.align(Alignment.BottomEnd).padding(bottom = 72.dp)
                else Modifier.align(Alignment.BottomStart).padding(start = if (column) 64.dp else 0.dp,
                    bottom = if (wide) 0.dp else if (column) 72.dp else 116.dp)) {
             ToolPanel(state, vm)

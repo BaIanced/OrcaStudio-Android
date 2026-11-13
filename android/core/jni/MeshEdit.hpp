@@ -229,6 +229,27 @@ inline void grow(std::vector<int> &selection, const meshsculpt::Topology &t)
     selection = std::move(out);
 }
 
+// The selection shrunk by one ring: the vertices with an unselected neighbour are dropped (the inverse of grow, on a
+// selection that is not the whole mesh); the last ring goes too.
+inline void shrink(std::vector<int> &selection, const meshsculpt::Topology &t)
+{
+    std::vector<char> in(t.start.size(), 0);
+    for (int v : selection)
+        in[size_t(v)] = 1;
+    std::vector<int> out;
+    for (int v : selection) {
+        bool inner = true;
+        for (int k = t.start[size_t(v)]; k < t.start[size_t(v) + 1]; ++k)
+            if (!in[size_t(t.nbr[size_t(k)])]) {
+                inner = false;
+                break;
+            }
+        if (inner)
+            out.push_back(v);
+    }
+    selection = std::move(out);
+}
+
 // Mean of the selected vertices (the gizmo's pivot).
 inline Vec3 centroid(const Mesh &m, const std::vector<int> &selection)
 {

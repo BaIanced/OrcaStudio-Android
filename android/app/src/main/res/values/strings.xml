@@ -588,6 +588,8 @@
     <string name="mesh_edit_triangles">Triangles</string>
     <string name="mesh_edit_none">None</string>
     <string name="mesh_edit_grow">Grow</string>
+    <string name="mesh_edit_shrink">Shrink</string>
+    <string name="mesh_edit_select">Select</string>
     <string name="mesh_edit_all">All</string>
     <string name="mesh_edit_move">Move</string>
     <string name="mesh_edit_extrude">Extrude</string>
@@ -595,7 +597,7 @@
     <string name="mesh_edit_fillet">Fillet</string>
     <string name="mesh_edit_chamfer">Chamfer</string>
     <string name="mesh_edit_cut">Cut ring</string>
-    <string name="mesh_edit_count">%1$d vertices selected</string>
+    <string name="mesh_edit_count">%1$d selected</string>
     <string name="blending">Blending…</string>
     <string name="hollow">Hollow</string>
     <string name="hollowing">Hollowing…</string>

@@ -850,7 +850,26 @@ class SceneController(private val store: Store, private val presets: PresetContr
         meshEditSel.value = meshEditSelOf(hit, step.selection)
     }
 
-    /** Mesh edit "clear", "all" or "grow" on the current selection. */
+    private var meshEditReadingJob: Job? = null
+    /** The arrow label's number for a typed Move (mm, the typed vector's length): shown while typed, kept [LIVE_LABEL_LINGER_MS] after Apply, else null. */
+    val meshEditReading = kotlinx.coroutines.flow.MutableStateFlow<Float?>(null)
+
+    /** The typed Move is [mm] long (null / 0: nothing typed; an applied one's label stays until its linger ends). */
+    fun meshEditTyped(mm: Float?) {
+        val v = mm?.takeIf { it != 0f }
+        if (v == null && meshEditReadingJob?.isActive == true) return
+        meshEditReadingJob?.cancel()
+        meshEditReading.value = v
+    }
+
+    /** The typed Move of [mm] was applied: its label lingers. */
+    fun meshEditApplied(mm: Float) {
+        meshEditReadingJob?.cancel()
+        meshEditReading.value = mm
+        meshEditReadingJob = store.launch { kotlinx.coroutines.delay(LIVE_LABEL_LINGER_MS); meshEditReading.value = null }
+    }
+
+    /** Mesh edit "clear", "all", "grow" or "shrink" on the current selection. */
     fun meshEditOp(op: String) = store.launch {
         val sel = liveMeshEditSel() ?: return@launch
         val step = engine.meshEdit(sel.target, op, kind = (store.value.workspace.tool as? Tool.MeshEdit)?.kind ?: "face", angle = meshEditAngle())

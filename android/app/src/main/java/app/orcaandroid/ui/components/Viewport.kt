@@ -589,6 +589,14 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         val measurer = androidx.compose.ui.text.rememberTextMeasurer()
         val labelStyle = MaterialTheme.typography.labelLarge.copy(color = Color.White)
         val color = scheme.primary
+        val typedMm by vm.scene.meshEditReading.collectAsState()
+        typedMm?.takeIf { editSel != null }?.let { mm ->
+            frame.longValue
+            val vw = view
+            val s = vw?.faceArrowScreen(vw.faceD.takeIf { vw.faceArrow != null } ?: 0f)
+            if (s != null) LiveLabel(mm, "mm", -1, Math.toDegrees(kotlin.math.atan2((s[3] - s[1]).toDouble(), (s[2] - s[0]).toDouble())).toFloat(), null,
+                Modifier.fillMaxSize().liveLabelAt(s[2], s[3]))
+        }
         Canvas(Modifier.fillMaxSize()) {
             frame.longValue; faceTick.longValue
             val vw = view ?: return@Canvas
@@ -625,6 +633,8 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                 drawLine(c, tip, tip - dir * head - side * head * 0.6f, w)
             }
             drawCircle(color, 4.dp.toPx(), base)
+            // A typed Move shows its own label (below, a node of its own).
+            if (typedMm != null) return@Canvas
             val mm = d * normal.length()
             val t = measurer.measure((if (mm > 0f) "+" else "") + "%.1f mm".format(mm), labelStyle)
             val pad = 4.dp.toPx()
