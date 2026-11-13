@@ -44,3 +44,5 @@ Tags: [Opus] = hard native/math/design; untagged = Sonnet is fine. User 2026-10-
 ## Known limits
 - Real keyboard Ctrl+1 = system hotkey; inactive-plate double tap re-frames (fine); badges ~23 dp at plate zoom; HMS texts fetched at runtime; Flatpak, upstream bump, obn follow-ups: archive.
 - Audit-phase items (no action here): Handy/MakerWorld study, Chromebook Play listing, colour icon set, mobilecad takeaways, Draco decoder (not started), VR/Quest input (VR agent backlog).
+- smoke.sh step 8 failed once of 3 on 5bcef51 (first run after a fresh debug install: no MCP reply after the restart, 193 s); watch for a repeat (Claude, 2026-11-12).
+- Move docs/handoff to a private repo before T-038 (user answer 4; push allowed before that, user 2026-11-12).

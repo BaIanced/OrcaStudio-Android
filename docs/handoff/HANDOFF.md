@@ -15,10 +15,10 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
 - Android main = 62ada99 (PR #73 = r521, multi-plate Preview, merged 2026-11-04; Claude-verified only; PR #72 = r519 before it). Branch work is Claude-verified only; no merge offer pending. User-untested in main: `SIGNOFF-CHECKLIST.md`.
 - Signing secrets: `release` environment (main + `claude/*` only).
-- Installs: all adb devices (skip .23); **SHIELD avoided (user 2026-11-01)**. WSA restart: `WsaClient /shutdown`, `wsa-start.ps1`, `adb connect 127.0.0.1:58526`; phone/Chromebook reconnect: memory device-ips. GL shots on the phone VD.
+- Installs: all adb devices (skip .23); **SHIELD avoided (user 2026-11-01)**. WSA restart: `WsaClient /shutdown`, `wsa-start.ps1`, `adb connect 127.0.0.1:58526`; phone/Chromebook reconnect: memory devices. GL shots on the phone VD.
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
 - **User 2026-10-28: no more user testing for now; Claude builds and tests everything itself (memory no-user-testing-now); don't ask for feel/UI checks.**
-- **User 2026-10-29: no tests on the user's screen; all tests on a hidden virtual display** (`TARGET=wsa orca-vd.sh start`, memory tests-on-virtual-display).
+- **User 2026-10-29: no tests on the user's screen; all tests on a hidden virtual display** (`TARGET=wsa orca-vd.sh start`, memory devices).
 - **Test device = WSA.** Note = S Pen tests only (locks; user says when awake); Quest = pseudo pen. Reference "Note".
 - Devices: phone/Chromebook/Quest are `ip:port` serials: use `target.sh phone|chromebook` (reference "Phone").
   WSA `127.0.0.1:58526`; **USB serial = the user's SHIELD TV** (rooted; installs only). No printer tests (user away).
@@ -30,12 +30,14 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - main = Claude-verified pre-release; archive lines carry one label: source-checked / device-checked (build, command) / user-checked.
 - Phone debug recipe, WSA VD, VD taps, GL shots: archive "2026-11-09 Trimmed from handoff" / "Moved from handoff"; reference "Headless display".
 - Local tests: `wsa-debug-rebuild.sh [native]` (reference "WSA debug loop"); fresh app: `wsa-debug-setup.sh` first. Lab prefs: edit `layout_lab` JSON in debug `shared_prefs/app_settings.xml` with run-as sed (app stopped).
-- **Offload (user 2026-10-25/26): max work onto free opencode models** (memory offload-to-free-models).
+- **Offload (user 2026-10-25/26): max work onto free opencode models** (memory offload).
 - Two-Claude chat: `claudechat.md`; Monitor its `## ` count (section 7), 30 min, re-arm. Quest numbers: `NOTES-quest-profile.md`.
 - GLB/glTF/PLY/OFF import committed 63ebb8a (open: push; Muse tasks 22-25); Assemble A1+A2+"Update on plate" verified; A3 designed, not coded. Details: archive "2026-11-12 Trimmed from handoff".
-- **Audit plan running (user answers: `docs/audit/ANSWERS.md`, read before asking).** docs/audit/ is local-only, ticks not committed. Done: T-001/2/4/5/7/8/9/10 (e9947a7)/11 (f9ccab0; vd-health.sh in tools dir, not a git repo)/12 (c156148; smoke.sh ~80 s)/17 (11e7840, openscad CI green)/18 (device-checked, archive), T-015; 296 tests. T-003 [!] (backlog [Opus] patch rebase); T-010 left 59 UNCONFIRMED licence rows (backlog [Opus]). **Next, one at a time (shared Gradle dir + one WSA): T-013 alone (then T-006 vs T-010, T-014 alone; T-016 is Opus).** A3 phase (a) parked. C-12 TLS pinning needs the user at the printer: ask first.
-- Coordinator (user 2026-11-12): dispatch subagents, verify `done when`, commit, tick; never implement. Name inquiry #17269: bump after 2026-11-19.
-- Next step: T-016 (written proposal, Opus) per MASTER-PLAN; T-014 done 64a668d, T-006 done c725cd9 (user runs `gh variable set RELEASE_CERT_SHA256`); push waits on UA-4 -> Opus 5.5 (high)
+- **Audit plan running (user answers: `docs/audit/ANSWERS.md`, read before asking).** docs/audit/ is local-only, ticks not committed. **Batch 1 done: T-001..T-019 `[x]` except T-003 `[!]` (backlog [Opus] patch rebase).** T-010 left 59 UNCONFIRMED licence rows (backlog [Opus]). One task at a time (shared Gradle dir + one WSA). A3 phase (a) parked. C-12 TLS pinning needs the user at the printer: ask first.
+- Coordinator (user 2026-11-12): the session runs on Sonnet and never implements: dispatch a subagent with the task's own model/effort tags, verify `done when`, commit, tick. Task results go in the MASTER-PLAN tick + one archive line, not here. Go task after task without stopping. Name inquiry #17269: bump after 2026-11-19.
+- **T-019 gate passed 2026-11-12 on 5bcef51 (r548, CI run 43346116062, on WSA only; archive "T-019"). Merge offer for batch 1 shown to the user; waiting for their yes (then PR work branch -> main; PR text without AI attribution).** Batch 2 (T-020 baseline shots) starts only after the merge (`depends on: T-019 merged`).
+- Open for the user: `gh variable set RELEASE_CERT_SHA256` (T-006); blank `Verdict (user)` line in memory cheaper-subagents; move docs/handoff to a private repo before T-038 (backlog).
+- Next step: on the user's merge yes, merge batch 1 then T-020 baseline shots -> Sonnet 5.5 (coordinator; the subagent model is the task tag)
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 

@@ -4450,3 +4450,9 @@ Triage done 2026-10-28. Claude closes done. Session A done 2026-10-28. B, C, D p
 Plus all of sessions B-D, Sculpt, snap toggle, Z lift/axis lock: Build workspace, paint shop/depth, Filament materials,
 Realistic render, UX P1-P6, Check mesh feel, 3MF export in desktop Orca, pen, fan hold, Extrude F150.
 
+
+## 2026-11-12 T-016 step 2 applied (source-checked)
+User said "apply T-016". Memory 41 -> 17 files, hook DEFAULT_LIMITS (72,90), next/next-merge/next-project edited, clear math in orca-android-tools/clear-cost-math.md. Backup commit 620f0e5. Opencode how-to pitfalls kept in memory offload.md. Do not rerun backup-process.sh without clearing process-backup/memory first.
+
+## 2026-11-12 T-019 batch 1 review gate (device-checked: r548 CI run 43346116062, smoke.sh on WSA VD)
+Fable read the T-004/5/7/9 diffs. Findings fixed in 813fc10: after a failed restore `sessionLoadedOrAbsent` stayed false, so clearing the plate left the new session on disk; a save cut between the two project moves left only `session.old.3mf` (now `SessionFiles.recoverInterrupted()`, 3 JVM tests, 299 total). First CI run 43345050807 failed: `copyThirdPartyNotices` (T-010) fed a static asset dir, lint task had no dependency; 5bcef51 makes it a generated source dir. Checks on 5bcef51: compile, 299 tests, privacy clean, CI green; smoke 2 of 3 runs 8/8, the first run after a fresh debug install failed step 8 (app did not answer MCP after the restart; no crash, session file intact). Installed on WSA only. User 2026-11-12 on the push question: "Push now" (docs/handoff private move waits for T-038). Not checked: T-003 upstream patch rebase, Try again / Discard taps, byte-identical convert output.

@@ -41,7 +41,7 @@ Run `vd-health.sh` first: it force-stops both app packages, starts the WSA virtu
 
 ### Chromebook (ARC)
 - Before launching: `dumpsys window | grep mCurrentFocus`; another app in front = the user is on it, don't take over (2026-10-19). Run the check alone, never chained with `am start` (2026-10-19 slip: launched over the user's app, then put it back).
-- `<chromebook-ip>:5555` (memory `test-on-phone`), Android 13, arm64, 1920x1080 (app area ~1813x948, shelf below), **no root**.
+- `<chromebook-ip>:5555` (memory `devices`), Android 13, arm64, 1920x1080 (app area ~1813x948, shelf below), **no root**.
 - Install: `install-build.ps1 -Run <id> -Device <ip>:5555`. Launch:
   `am start -n io.github.baianced.orcastudio_android/app.orcaandroid.ui.MainActivity`
   (ARC draws only while unlocked: focus = MainActivity, not ARC's PlaceholderActivity). `ui.ps1 -Device <ip>:5555` works.
@@ -55,7 +55,7 @@ Run `vd-health.sh` first: it force-stops both app packages, starts the WSA virtu
 ### Phone
 - Serial: `sh ~/orca-android-tools/target.sh phone` (2026-10-19 the phone is an `ip:5555` entry and the Quest also shows as `adb-..._adb-tls-connect` + `ip:port`; target.sh probes: Oculus = Quest, feature `org.chromium.arc` = Chromebook, else phone; cache `.kinds`, delete it if a serial gets reused).
 - Debug app on the phone: copy `files/session/*` + `shared_prefs/app_settings.xml` from the release app via su (chown to the debug uid), force-stop the release app (it holds the MCP socket name), run tools with `PKG=io.github.baianced.orcastudio_android.debug` (mcpao.sh, orca-vd.sh). First start shows the printer picker: Apply, then copy the session again. **Uninstall it (`adb uninstall ...debug`) when done** (user, 2026-10-19: two apps on the phone confused them).
-- Setup: archive "Phone test setup", memory `test-on-phone`; `phone-ui.py` needs `PYTHONIOENCODING=utf-8`;
+- Setup: archive "Phone test setup", memory `devices`; `phone-ui.py` needs `PYTHONIOENCODING=utf-8`;
   pull binaries with `adb exec-out "su -c '...'"`; Delete key = `su -c 'input keyevent 112'`.
 - **MCP on a real phone:** the `localabstract` forward works over wireless adb; the socket binds only after an
   app restart with AI tools on (archive "MCP on a real phone").
