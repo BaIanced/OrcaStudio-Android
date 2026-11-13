@@ -1,6 +1,5 @@
 package app.orcaandroid.core
 
-import app.orcaandroid.ui.prepare.Mix
 import android.content.Context
 import android.content.SharedPreferences
 import app.orcaandroid.net.PrinterConnection

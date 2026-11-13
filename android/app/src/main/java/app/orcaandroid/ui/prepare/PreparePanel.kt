@@ -82,6 +82,7 @@ import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 import app.orcaandroid.R
 import app.orcaandroid.core.LayerRange
+import app.orcaandroid.core.Mix
 import app.orcaandroid.core.overrides
 import app.orcaandroid.render.FilamentMaterial
 import app.orcaandroid.core.PresetType

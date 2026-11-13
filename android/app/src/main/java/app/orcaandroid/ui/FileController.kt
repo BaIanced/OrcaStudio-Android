@@ -4,7 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import app.orcaandroid.R
 import app.orcaandroid.core.FilamentSlot
-import app.orcaandroid.ui.prepare.Mix
+import app.orcaandroid.core.Mix
 import app.orcaandroid.core.PresetType
 import app.orcaandroid.ui.FilamentChoice
 import app.orcaandroid.core.Scene

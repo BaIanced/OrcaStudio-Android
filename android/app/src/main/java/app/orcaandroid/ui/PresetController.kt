@@ -4,6 +4,7 @@ import android.net.Uri
 import app.orcaandroid.R
 import app.orcaandroid.core.AppBackup
 import app.orcaandroid.core.FilamentSlot
+import app.orcaandroid.core.Mix
 import app.orcaandroid.core.OptionDef
 import app.orcaandroid.core.OptionStates
 import app.orcaandroid.core.OrcaException
@@ -15,7 +16,6 @@ import app.orcaandroid.core.map
 import app.orcaandroid.core.printerKey
 import app.orcaandroid.net.BambuAccount
 import app.orcaandroid.net.HostType
-import app.orcaandroid.ui.prepare.Mix
 import java.io.File
 import kotlin.math.abs
 import kotlinx.coroutines.Dispatchers
